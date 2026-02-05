@@ -12,12 +12,11 @@ public class Player : MonoBehaviour
         {
             int value = coin.Value;
         }
-        
-
 
         // 플레이어와 코인이 콜라이더 충돌 감지
 
 
+        coin.enabled = false;
     }
 
     void Update()
