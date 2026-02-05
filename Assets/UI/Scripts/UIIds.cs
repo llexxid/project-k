@@ -11,17 +11,19 @@
     // 기능 패널(스택) - BottomTab/햄버거 메뉴로 여는 큰 창들
     public enum UIPanelId
     {
-        KingdomArmy = 0,
-        Growth = 1,
+        KingdomArmy = 0, 
+        Development = 1,
         Gacha = 2,
         Shop = 3,
+        Dungeon = 4,
 
-        HamburgerMenu = 10,
-        Mailbox = 11,
-        Achievements = 12,
-        Notice = 13,
-        EventList = 14,
-        Settings = 15,
+
+        HamburgerMenu = 20,
+        Mailbox = 21,
+        Achievements = 22,
+        Notice = 23,
+        EventList = 24,
+        Settings = 25,
     }
 
     // 상세/확인 팝업(스택)
