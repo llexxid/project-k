@@ -4,8 +4,8 @@ using UnityEngine;
 
 public class Coin : MonoBehaviour
 {
-    [SerializeField]
-    private int value = 100;
+    public eCurrency type = eCurrency.Gold;
+    public int value = 100;
 
     public int Value
     {
