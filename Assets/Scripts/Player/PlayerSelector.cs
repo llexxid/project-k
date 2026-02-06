@@ -2,15 +2,20 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PlayerSelector : MonoBehaviour
+public class PlayerSelector : MonoBehaviour, ISignal
 {
-    // Start is called before the first frame update
+    public eSignal signalType;
+
+    public override void Signal()
+    {
+
+    }
+
     void Start()
     {
         
     }
 
-    // Update is called once per frame
     void Update()
     {
         

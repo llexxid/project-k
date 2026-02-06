@@ -2,17 +2,28 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PlayerAttack : MonoBehaviour
+public class PlayerAttack : MonoBehaviour, ISignal
 {
-    // Start is called before the first frame update
+    public eSignal signalType;
+
+    public void Attack()
+    {
+
+        Signal();
+    }
+
+    public override void Signal()
+    {
+
+    }
+
     void Start()
     {
         
     }
 
-    // Update is called once per frame
     void Update()
     {
-        
+        Attack();
     }
 }
