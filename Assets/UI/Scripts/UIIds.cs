@@ -14,7 +14,7 @@
         KingdomArmy = 0, 
         Development = 1,
         Gacha = 2,
-        Shop = 3,
+        Store = 3,
         Dungeon = 4,
 
 
