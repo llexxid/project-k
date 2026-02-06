@@ -2,34 +2,68 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Scripts.Core.inteface;
+using System.Threading;
+using Cysharp.Threading.Tasks;
+using System;
 
 namespace Scripts.Core
 {
-    //풀링이 되어야하는 VFXId는 최상위 비트가 1이다.
-    //풀링이 되지 않아야하는 VFXId는 최상위 비트가 0이다.
-    enum VFXId : ulong
-    {
-        Metor_VFX = 0,
-
-        VFX_Pooling_MASK = 0x1000000000000000,
-        HIT_VFX = 1 | VFX_Pooling_MASK,
-    }
-
     public class VFXEntity : MonoBehaviour, IPoolable
     {
         private ulong _id;
         private Animator _am;
+        private CancellationTokenSource _token;
 #if UNITY_EDITOR
         public bool IsActive { get; set; }
 #endif
-        public void Init(ulong id)
+        private void Awake()
+        {
+            _token = new CancellationTokenSource();
+        }
+        private void OnEnable()
+        {
+            if (_token != null)
+            {
+                _token.Dispose();
+            }
+
+            _token = new CancellationTokenSource();
+        }
+
+        private void OnDisable()
+        {
+            _token.Cancel();
+        }
+
+        private void OnDestroy()
+        {
+            _token.Cancel();
+            _token.Dispose();
+        }
+
+        public void SetId(ulong id)
         {
             _id = id;
         }
-        public void ActiveEffect()
-        { 
-            
+
+        ///<summary>
+        /// 단위는 밀리초입니다.
+        /// </summary>
+        /// <param name="durationMs"></param>
+        public void ActiveEffect(float durationMs)
+        {
+            UseEffect(durationMs).Forget();
         }
+
+        private async UniTaskVoid UseEffect(float durationMs)
+        {
+            await UniTask.Delay(
+                TimeSpan.FromMilliseconds(durationMs), 
+                cancellationToken: _token.Token
+                );
+            VFXManager.Instance.DestroyEffect(_id, this);
+        }
+        
         public void OnAlloc()
         {
             return;

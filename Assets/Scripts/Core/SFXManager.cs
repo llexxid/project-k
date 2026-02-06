@@ -6,17 +6,12 @@ namespace Scripts.Core
 {
     public class SFXManager : MonoBehaviour
     {
-        // Start is called before the first frame update
-        void Start()
-        {
+        //AudioSource Pooling
 
-        }
 
-        // Update is called once per frame
-        void Update()
-        {
-
-        }
+        //SFX DataStore 
+        
+        
     }
 }
 

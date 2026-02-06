@@ -1,5 +1,9 @@
+using Cysharp.Threading.Tasks.Triggers;
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.Pool;
@@ -11,14 +15,18 @@ namespace Scripts.Core
 {
     public class VFXManager : MonoBehaviour
     {
-        static VFXManager Instance;
+        public static VFXManager Instance;
 
-        [SerializeField]
         Transform _vfxParents;
 
         private Dictionary<ulong, VFXEntity> _effectCache;
-        private Dictionary<ulong, AsyncOperationHandle<GameObject>> _Handles;
         private Dictionary<ulong, ObjectPool<VFXEntity>> _VFXPools;
+
+        //LoadAssets한 핸들. 보통 Warming Up함.
+        private Dictionary<ulong, AsyncOperationHandle<IList<GameObject>>> _WarmUpHandles;
+        //Warm Up되지 않은 Effect들을 불러온 경우, 해당 Handle을 들고 있어야함. 
+        private Dictionary<ulong, AsyncOperationHandle<GameObject>> _Handles;
+
         private void Awake()
         {
             if (Instance == null)
@@ -31,21 +39,44 @@ namespace Scripts.Core
             Destroy(this);
             return;
         }
-
-        //풀링이 되어야하는 VFXId 10000000000....
-        //풀링이 되지 않아야하는 VFXId 0.......
         
         private void Init()
         {
 
         }
 
-        public void WarmUpCache(ulong[] id)
+        private void Clear()
         {
-
+            _effectCache.Clear();
+            _VFXPools.Clear();
+            foreach (var item in _WarmUpHandles)
+            {
+                Addressables.Release(item.Value);
+            }
+            foreach (var item in _Handles)
+            {
+                Addressables.Release(item.Value);
+            }
+            _WarmUpHandles.Clear();
+            _Handles.Clear();
+        }
+        /// <summary>
+        /// 씬에 진압할 때, VFXManager에서 부르는 함수입니다.
+        /// </summary>
+        public void OnEnterScene(ulong groupId, ulong[] idList)
+        {
+            //Parent가 될 GameObject를 만들어야함.
+            if (_vfxParents == null)
+            {
+                GameObject obj = new GameObject("VFX_Root");
+                _vfxParents = obj.transform;
+            }
+            Clear();
+            //ResoucreLoad
+            LoadResourcesAsync(groupId, idList);
         }
 
-        public VFXEntity Active(ulong id, Vector3 pos, Quaternion rotation)
+        public VFXEntity GetVFX(ulong id, Vector3 pos, Quaternion rotation)
         {
             VFXEntity ret;
             bool IsCached;
@@ -56,8 +87,45 @@ namespace Scripts.Core
                 //Load다 됐을 수도, 안됐을 수도 있다. 한번 시도함.
                 TryLoadFromCache(id, pos, rotation, out ret);
             }
+            ret.SetId(id);
+            ret.gameObject.SetActive(true);
             return ret;
         }
+
+        public void DestroyEffect(ulong id, VFXEntity vfx)
+        {
+            if (CheckPoolingEffect(id))
+            {
+                _VFXPools.TryGetValue(id, out ObjectPool<VFXEntity> pool);
+                pool.Release(vfx);
+                return;
+            }
+            //일회성 이펙트였다면..
+            unloadSingleVFX(id);
+            _effectCache.Remove(id);
+            Destroy(vfx);
+            return;
+        }
+
+        public void unloadVFXBatch(ulong groupId)
+        {
+            bool flag;
+            flag = _WarmUpHandles.TryGetValue(groupId, out var handle);
+            if (flag)
+            {
+                Addressables.Release(handle);
+            }
+        }
+        public void unloadSingleVFX(ulong id)
+        {
+            bool flag;
+            flag = _Handles.TryGetValue(id, out var handle);
+            if (flag)
+            {
+                Addressables.Release(handle);
+            }
+        }
+
         private bool TryLoadFromCache(ulong id, Vector3 pos, Quaternion rotation, out VFXEntity ret)
         {
             VFXEntity vfx;
@@ -76,6 +144,21 @@ namespace Scripts.Core
 
             ret = _VFXPools[id].Alloc(pos, rotation);
             return true;
+        }
+        private async void LoadResourcesAsync(ulong groupId, ulong[] IdList)
+        {
+            var handle = Addressables.LoadAssetsAsync<GameObject>(groupId.ToString(), (loaded)=> { });
+
+            _WarmUpHandles.Add(groupId, handle);
+
+            IList<GameObject> result = await handle.Task;
+
+            VFXEntity vfx;
+            for (int i = 0; i < result.Count; i++)
+            {
+                vfx = gameObject.GetComponent<VFXEntity>();
+                OnLoadAsset(IdList[i], vfx);
+            }
         }
 
         private async void LoadResourceAysnc(ulong id)
@@ -118,27 +201,9 @@ namespace Scripts.Core
             if (CheckPoolingEffect(id))
             {
                 ObjectPool<VFXEntity> objectpool = new ObjectPool<VFXEntity>();
-                objectpool.Init(30, obj);
+                objectpool.Init(30, _vfxParents, obj);
                 _VFXPools.Add(id, objectpool);
             }
-        }
-
-        public void unloadVFX(ulong id)
-        {
-
-        }
-
-
-        // Start is called before the first frame update
-        void Start()
-        {
-
-        }
-
-        // Update is called once per frame
-        void Update()
-        {
-
         }
     }
 }
