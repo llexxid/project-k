@@ -23,7 +23,7 @@ namespace Scripts.Core
         private Dictionary<ulong, ObjectPool<VFXEntity>> _VFXPools;
 
         //LoadAssets한 핸들. 보통 Warming Up함.
-        private Dictionary<ulong, AsyncOperationHandle<IList<GameObject>>> _WarmUpHandles;
+        private Dictionary<ulong, AsyncOperationHandle<IList<GameObject>>> _BatchHandles;
         //Warm Up되지 않은 Effect들을 불러온 경우, 해당 Handle을 들고 있어야함. 
         private Dictionary<ulong, AsyncOperationHandle<GameObject>> _Handles;
 
@@ -49,7 +49,7 @@ namespace Scripts.Core
         {
             _effectCache.Clear();
             _VFXPools.Clear();
-            foreach (var item in _WarmUpHandles)
+            foreach (var item in _BatchHandles)
             {
                 Addressables.Release(item.Value);
             }
@@ -57,7 +57,7 @@ namespace Scripts.Core
             {
                 Addressables.Release(item.Value);
             }
-            _WarmUpHandles.Clear();
+            _BatchHandles.Clear();
             _Handles.Clear();
         }
         /// <summary>
@@ -106,11 +106,10 @@ namespace Scripts.Core
             Destroy(vfx);
             return;
         }
-
         public void unloadVFXBatch(ulong groupId)
         {
             bool flag;
-            flag = _WarmUpHandles.TryGetValue(groupId, out var handle);
+            flag = _BatchHandles.TryGetValue(groupId, out var handle);
             if (flag)
             {
                 Addressables.Release(handle);
@@ -147,12 +146,25 @@ namespace Scripts.Core
         }
         private async void LoadResourcesAsync(ulong groupId, ulong[] IdList)
         {
-            var handle = Addressables.LoadAssetsAsync<GameObject>(groupId.ToString(), (loaded)=> { });
+            bool IsLoading = _BatchHandles.TryGetValue(groupId, out var handle);
+            IList<GameObject> result;
+            if (IsLoading)
+            {
+                Debug.Log("VFX들을 Load 처리 중 또 요청이 되었습니다");
+                result = await handle.Task;
+            } 
+            else
+            {
+                handle = Addressables.LoadAssetsAsync<GameObject>(groupId.ToString(), (loaded) => { });
+                _BatchHandles.Add(groupId, handle);
+                result = await handle.Task;
+            }
 
-            _WarmUpHandles.Add(groupId, handle);
-
-            IList<GameObject> result = await handle.Task;
-
+            if (result.Count != IdList.Length)
+            {
+                Debug.Log("VFX의 키 배열과 Addressable에 등록된 크기가 다릅니다.");
+                UnityEngine.Debug.Break();
+            }
             VFXEntity vfx;
             for (int i = 0; i < result.Count; i++)
             {
@@ -160,7 +172,6 @@ namespace Scripts.Core
                 OnLoadAsset(IdList[i], vfx);
             }
         }
-
         private async void LoadResourceAysnc(ulong id)
         {
             GameObject loadedObj;
@@ -170,6 +181,7 @@ namespace Scripts.Core
             bool IsLoading = _Handles.TryGetValue(id, out handle);
             if (IsLoading)
             {
+                Debug.Log("VFX들을 Load 처리 중 또 요청이 되었습니다");
                 loadedObj = await handle.Task;
             }
             //처음 Load하는 경우
@@ -183,7 +195,6 @@ namespace Scripts.Core
             vfx = loadedObj.GetComponent<VFXEntity>();
             OnLoadAsset(id, vfx);
         }
-
         private bool CheckPoolingEffect(ulong id)
         {
             ulong PoolingMASK = 0x1000000000000000;
@@ -193,7 +204,6 @@ namespace Scripts.Core
             }
             return false;
         }
-
         private void OnLoadAsset(ulong id, VFXEntity obj)
         {
             _effectCache.Add(id, obj);
