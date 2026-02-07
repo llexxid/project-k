@@ -11,8 +11,6 @@ namespace Scripts.Core
         DUNGEON,
     }
 
-    //풀링이 되어야하는 VFXId는 최상위 비트가 1이다.
-    //풀링이 되지 않아야하는 VFXId는 최상위 비트가 0이다.
     enum AssetId : ulong
     {
         Metor_VFX = 0,

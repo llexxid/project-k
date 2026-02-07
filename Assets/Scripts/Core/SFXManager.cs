@@ -34,20 +34,17 @@ namespace Scripts.Core
             Destroy(this);
             return;
         }
-
         private void Init()
         {
             _AudioSourcePool = new ObjectPool<SFXEntity>();
             _AudioSourcePool.Init(32, _sfxParents, _sfxPrefab);
         }
-
         public void OnEnterScene(ulong groupId, ulong[] clipsId)
         {
             //Clip들 로딩
             Clear();
             LoadClipsAsync(groupId, clipsId);
         }
-
         public SFXEntity GetSFX(ulong Id, Vector3 pos, Quaternion rotation)
         {
             AudioClip clip;
@@ -88,7 +85,6 @@ namespace Scripts.Core
                 Addressables.Release(handle);
             }
         }
-
         private async void LoadClipAsync(ulong Id)
         {
             bool IsLoaded = _Handles.TryGetValue(Id, out var handle);
@@ -105,7 +101,6 @@ namespace Scripts.Core
             }
             _AudioCache.Add(Id, clip);        
         }
-
         private async void LoadClipsAsync(ulong groupId, ulong[] clipsId)
         {
             //만약 여러번 요청한다면..
