@@ -14,6 +14,12 @@ public class PlayerMove : MonoBehaviour
         // 1. 타겟이 없으면 실패 (적이 사라짐)
         if (detection.currentTarget == null)
             return NodeState.Failure;
+        else if (detection.currentTarget != null)
+        {
+            Vector2 direction = (Vector2)detection.currentTarget.position - (Vector2)transform.position;
+            float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+            transform.rotation = Quaternion.Euler(0, 0, angle);
+        }
 
         // 2. 거리 계산
         float distance = Vector2.Distance(transform.position, detection.currentTarget.position);
