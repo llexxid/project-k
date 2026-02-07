@@ -304,6 +304,7 @@ GameObject:
   - component: {fileID: 544533600}
   - component: {fileID: 544533599}
   - component: {fileID: 544533602}
+  - component: {fileID: 544533604}
   m_Layer: 3
   m_Name: Player
   m_TagString: Player
@@ -387,9 +388,8 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 1
-  m_Sprite: {fileID: -9095717837082945937, guid: 207ee8102dd4143d288186ef0be518ee,
-    type: 3}
-  m_Color: {r: 1, g: 0, b: 0, a: 1}
+  m_Sprite: {fileID: 1031838810, guid: a9e6cca9458c3d649a988acd3ac13cbd, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -427,7 +427,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _detection: {fileID: 544533601}
-  attackRate: 1
+  attackRate: 0.5
+  animator: {fileID: 544533604}
+  attackRadius: 3
+  enemyLayer:
+    serializedVersion: 2
+    m_Bits: 0
 --- !u!114 &544533600
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -443,6 +448,7 @@ MonoBehaviour:
   detection: {fileID: 544533601}
   moveSpeed: 5
   stopDistance: 1
+  animator: {fileID: 544533604}
 --- !u!114 &544533601
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -458,7 +464,7 @@ MonoBehaviour:
   playerMask:
     serializedVersion: 2
     m_Bits: 64
-  detectionRadius: 5
+  detectionRadius: 3
   currentTarget: {fileID: 0}
 --- !u!114 &544533602
 MonoBehaviour:
@@ -501,7 +507,28 @@ Rigidbody2D:
   m_Interpolate: 0
   m_SleepingMode: 1
   m_CollisionDetection: 0
-  m_Constraints: 0
+  m_Constraints: 6
+--- !u!95 &544533604
+Animator:
+  serializedVersion: 5
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 544533595}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 5f251f63edde7614db5d61e052c9cb19, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1001 &709563292
 PrefabInstance:
   m_ObjectHideFlags: 0

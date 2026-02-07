@@ -5,7 +5,7 @@ using UnityEngine;
 public class PlayerDetection : MonoBehaviour
 {
     public LayerMask playerMask;
-    public float detectionRadius = 5f;
+    public float detectionRadius;
     private List<Collider2D> detectedResults = new List<Collider2D>();
     public Transform currentTarget; // 발견된 적을 저장할 변수
 

@@ -28,19 +28,9 @@ public class Enemy : MonoBehaviour
         }
     }
 
-    void OnTriggerEnter2D(Collider2D other)
+    public void TakeDamage(int damage)
     {
-        // 플레이어와 충돌했는지 확인
-        if (other.CompareTag("Player"))
-        {
-            hp -= 50; // HP 10 감소
-            Debug.Log($"Enemy HP: {hp}");
-
-            // HP가 0 이하가 되면 오브젝트 파괴
-            if (hp <= 0)
-            {
-                Destroy(gameObject);
-            }
-        }
+        hp -= damage;
+        if (hp <= 0) Destroy(gameObject);
     }
 }
