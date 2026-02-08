@@ -1,241 +1,325 @@
-using Cysharp.Threading.Tasks.Triggers;
-using System;
-using System.Collections;
+ï»¿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
-using UnityEngine.Pool;
 using UnityEngine.ResourceManagement.AsyncOperations;
-using static UnityEditor.PlayerSettings;
-using static UnityEngine.Rendering.VirtualTexturing.Debugging;
 
 namespace Scripts.Core
 {
     public class VFXManager : MonoBehaviour
     {
-        public static VFXManager Instance;
+        public static VFXManager Instance { get; private set; }
 
-        Transform _vfxParents;
+        private Transform _vfxParents;
+        private GameObject _vfxRootGO;
 
         private Dictionary<ulong, VFXEntity> _effectCache;
-        private Dictionary<ulong, ObjectPool<VFXEntity>> _VFXPools;
+        private Dictionary<ulong, ObjectPool<VFXEntity>> _vfxPools;
 
-        private Dictionary<ulong, AsyncOperationHandle<IList<GameObject>>> _BatchHandles;
-        private Dictionary<ulong, AsyncOperationHandle<GameObject>> _Handles;
+        private Dictionary<ulong, AsyncOperationHandle<IList<GameObject>>> _batchHandles;
+        private Dictionary<ulong, AsyncOperationHandle<GameObject>> _handles;
+
+        // AssetIdì˜ ë§ˆìŠ¤í¬ì™€ ë™ê¸°í™”(ë³µì¡ë„ ë‚®ì¶”ë ¤ê³  constë¡œ ìœ ì§€)
+        private const ulong VFX_POOLING_MASK = 0x1000000000000000;
+        private const ulong VFX_NOTPOOLING_MASK = 0x1100000000000000;
+
+        private bool _initialized;
 
         private void Awake()
         {
-            if (Instance == null)
+            if (Instance != null && Instance != this)
             {
-                Instance = this;
-                Instance.Init();
-                DontDestroyOnLoad(this);
+                Destroy(gameObject);
                 return;
             }
-            Destroy(this);
-            return;
-        }
-        
-        private void Init()
-        {
-            _effectCache = new Dictionary<ulong, VFXEntity>();
-            _VFXPools = new Dictionary<ulong, ObjectPool<VFXEntity>>();
-            _BatchHandles = new Dictionary<ulong, AsyncOperationHandle<IList<GameObject>>>();
-            _Handles = new Dictionary<ulong, AsyncOperationHandle<GameObject>>();
+
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+            InitIfNeeded();
         }
 
+        private void InitIfNeeded()
+        {
+            if (_initialized) return;
+            _initialized = true;
+
+            _effectCache = new Dictionary<ulong, VFXEntity>();
+            _vfxPools = new Dictionary<ulong, ObjectPool<VFXEntity>>();
+            _batchHandles = new Dictionary<ulong, AsyncOperationHandle<IList<GameObject>>>();
+            _handles = new Dictionary<ulong, AsyncOperationHandle<GameObject>>();
+        }
 
         /// <summary>
-        /// ¾À¿¡ Áø¾ĞÇÒ ¶§, VFXManager¿¡¼­ ºÎ¸£´Â ÇÔ¼öÀÔ´Ï´Ù.
+        /// ì”¬ ì§„ì… ì‹œ í˜¸ì¶œ. VFX ë£¨íŠ¸ ìƒì„± + ìºì‹œ/í’€ ì •ë¦¬ + í•„ìš”í•œ ë¦¬ì†ŒìŠ¤ ì›Œë°ì—…
         /// </summary>
         public void OnEnterScene(GroupId groupId, ulong[] idList)
         {
-            //Parent°¡ µÉ GameObject¸¦ ¸¸µé¾î¾ßÇÔ.
-            //¾îÂ÷ÇÇ ¾À ÀüÈ¯½Ã, ±âÁ¸¿¡ VfxParent´Â »èÁ¦µÉ°ÅÀÓ.
-            GameObject obj = new GameObject("VFX_Root");
-            _vfxParents = obj.transform;
+            InitIfNeeded();
+
+            // ì´ì „ ë£¨íŠ¸ê°€ ë‚¨ì•„ìˆìœ¼ë©´ ì •ë¦¬(ì”¬ ì „í™˜ ì‹œ ëŒ€ë¶€ë¶„ íŒŒê´´ë˜ì§€ë§Œ, ì•ˆì „í•˜ê²Œ ì²˜ë¦¬)
+            if (_vfxRootGO != null)
+            {
+                Destroy(_vfxRootGO);
+                _vfxRootGO = null;
+                _vfxParents = null;
+            }
+
+            _vfxRootGO = new GameObject("VFX_Root");
+            _vfxParents = _vfxRootGO.transform;
 
             Clear();
-            //ResoucreLoad
             WarmingUpResourcesAsync(groupId, idList);
         }
 
         /// <summary>
-        /// ÁöÁ¤µÈ ¸®¼Ò½ºID·Î È¿°ú¸¦ ¿¬ÃâÇÏ´Â ÇÔ¼öÀÔ´Ï´Ù. 
-        /// ·Îµù½Ã, PlayÇÏ´Â ÇÔ¼ö¸¦ CallbackÀ¸·Î ÁÖ¸é µË´Ï´Ù.
+        /// ì§€ì •í•œ VFX idë¡œ ì´í™íŠ¸ ì¸ìŠ¤í„´ìŠ¤ë¥¼ ìš”ì²­.
+        /// ìºì‹œì— ìˆìœ¼ë©´ ì¦‰ì‹œ ìƒì„±, ì—†ìœ¼ë©´ Addressables ë¡œë“œ í›„ ìƒì„±.
         /// </summary>
-        public void GetVFX(ulong id, Vector3 pos, Quaternion rotation, Action<VFXEntity> OnLoaded)
+        public void GetVFX(ulong id, Vector3 pos, Quaternion rotation, Action<VFXEntity> onLoaded)
         {
-            VFXEntity ret;
-            bool IsCached;
-            IsCached = TryLoadFromCache(id, pos, rotation, out ret);
-            if (IsCached)
+            InitIfNeeded();
+
+            if (TryLoadFromCache(id, pos, rotation, out VFXEntity cachedInstance))
             {
-                ret.SetId(id);
-                ret.gameObject.SetActive(true);
-                OnLoaded.Invoke(ret);
+                cachedInstance.SetId(id);
+                cachedInstance.gameObject.SetActive(true);
+                onLoaded?.Invoke(cachedInstance);
                 return;
             }
-            // LoadÇÏ´Â°É Çã¿ëÇØÁØ´Ù => 
-            // LoadÇÏ´Â ±× µô·¹ÀÌ¸¦ Çã¿ëÇØÁÜ. È¤Àº, LoadµÇ¾úÀ» ¶§, ½ÇÇàÇÒ CallbackÀ» ´øÁ®Áà¾ßÇÔ. 
-            LoadNotCached_ResourceAysnc(id, pos, rotation, OnLoaded);
-            return;
+
+            LoadNotCachedResourceAsync(id, pos, rotation, onLoaded);
         }
+
         public void DestroyEffect(ulong id, VFXEntity vfx)
         {
+            if (vfx == null) return;
+
             if (CheckPoolingEffect(id))
             {
-                _VFXPools.TryGetValue(id, out ObjectPool<VFXEntity> pool);
-                pool.Release(vfx);
+                if (_vfxPools != null && _vfxPools.TryGetValue(id, out ObjectPool<VFXEntity> pool) && pool != null)
+                {
+                    pool.Release(vfx);
+                    return;
+                }
+
+                // í’€ë§ ëŒ€ìƒì¸ë° í’€ì´ ì—†ë‹¤ë©´ ì•ˆì „ì¥ì¹˜(ì¦‰ì‹œ íŒŒê´´)
+                Destroy(vfx.gameObject);
                 return;
             }
 
-            //ÀÏÈ¸¼º ÀÌÆåÆ®¿´´Ù¸é..
+            // 1íšŒì„± ì´í™íŠ¸ë¼ë©´
             Destroy(vfx.gameObject);
-            unloadSingleVFX(id);
-            _effectCache.Remove(id);
-            return;
+            UnloadSingleVFX(id);
+            _effectCache?.Remove(id);
         }
-        public void unloadVFXBatch(ulong groupId)
+
+        public void UnloadVFXBatch(ulong groupId)
         {
-            bool flag;
-            flag = _BatchHandles.TryGetValue(groupId, out var handle);
-            if (flag)
+            if (_batchHandles != null && _batchHandles.TryGetValue(groupId, out var handle))
             {
                 Addressables.Release(handle);
+                _batchHandles.Remove(groupId);
             }
         }
-        public void unloadSingleVFX(ulong id)
+
+        public void UnloadSingleVFX(ulong id)
         {
-            bool flag;
-            flag = _Handles.TryGetValue(id, out var handle);
-            if (flag)
+            if (_handles != null && _handles.TryGetValue(id, out var handle))
             {
                 Addressables.Release(handle);
+                _handles.Remove(id);
             }
         }
+
         /// <summary>
-        /// VFX cache¸¦ WarmingUpÇÏ´Â ÇÔ¼öÀÔ´Ï´Ù. 
+        /// VFX cacheë¥¼ ì›Œë°ì—…(ì¼ê´„ ë¡œë“œ)í•©ë‹ˆë‹¤.
         /// </summary>
-        public async void WarmingUpResourcesAsync(GroupId groupId, ulong[] IdList)
+        public async void WarmingUpResourcesAsync(GroupId groupId, ulong[] idList)
         {
-            bool IsLoading = _BatchHandles.TryGetValue((ulong)groupId, out var handle);
-            IList<GameObject> result;
-            if (IsLoading)
+            InitIfNeeded();
+
+            if (idList == null)
             {
-                CustomLogger.LogWarning("You requested to load VFX while the system was already in a loading state.");
-                result = await handle.Task;
-            }
-            else
-            {
-                handle = Addressables.LoadAssetsAsync<GameObject>(groupId.ToString(), (loaded) => { });
-                _BatchHandles.Add((ulong)groupId, handle);
-                result = await handle.Task;
+                CustomLogger.LogError("[VFXManager] idList is null.");
+                return;
             }
 
-            if (result.Count != IdList.Length)
+            try
             {
-                CustomLogger.LogError("The number of resources requested to load is not the same as the number of id arrays. check IdList[]");
+                ulong key = (ulong)groupId;
+
+                if (!_batchHandles.TryGetValue(key, out var handle))
+                {
+                    handle = Addressables.LoadAssetsAsync<GameObject>(groupId.ToString(), _ => { });
+                    _batchHandles.Add(key, handle);
+                }
+                else
+                {
+                    CustomLogger.LogWarning("You requested to load VFX while the system was already in a loading state.");
+                }
+
+                IList<GameObject> result = await handle.Task;
+
+                if (result == null)
+                {
+                    CustomLogger.LogError($"[VFXManager] Failed to load VFX batch. groupId={groupId}");
+                    return;
+                }
+
+                if (result.Count != idList.Length)
+                {
+                    CustomLogger.LogError("The number of resources requested to load is not the same as the number of id arrays. check idList[]");
+                }
+
+                int count = Mathf.Min(result.Count, idList.Length);
+                for (int i = 0; i < count; i++)
+                {
+                    VFXEntity resource = result[i] != null ? result[i].GetComponent<VFXEntity>() : null;
+                    if (resource == null)
+                    {
+                        CustomLogger.LogError($"[VFXManager] VFXEntity component missing. index={i}");
+                        continue;
+                    }
+
+                    OnLoadAsset(idList[i], resource);
+                }
             }
-            VFXEntity resource;
-            for (int i = 0; i < result.Count; i++)
+            catch (Exception e)
             {
-                resource = result[i].gameObject.GetComponent<VFXEntity>();
-                OnLoadAsset(IdList[i], resource);
+                CustomLogger.LogError($"[VFXManager] WarmingUpResourcesAsync exception: {e}");
             }
         }
 
         private bool TryLoadFromCache(ulong id, Vector3 pos, Quaternion rotation, out VFXEntity ret)
         {
-            VFXEntity vfx;
-            bool IsPrefabLoaded = _effectCache.TryGetValue(id, out vfx);
-            if (!IsPrefabLoaded)
+            if (_effectCache != null && _effectCache.TryGetValue(id, out VFXEntity prefab) && prefab != null)
             {
-                ret = default;
-                return false;
-            }
-            InstantiateEffect(id, vfx, pos, rotation, out ret);
-            return true;
-        }
-        private async void LoadNotCached_ResourceAysnc(ulong id, Vector3 pos, Quaternion rotation, Action<VFXEntity> OnLoaded)
-        {
-            GameObject loadedObj;
-            AsyncOperationHandle<GameObject> handle;
-            VFXEntity resourceVfx;
-            //LoadÁß¿¡ ¶Ç ¿äÃ»ÇÏ´Â °æ¿ì
-            bool IsLoading = _Handles.TryGetValue(id, out handle);
-            if (IsLoading)
-            {
-                CustomLogger.LogWarning("You requested to load while the system was already in a loading state.");
-                loadedObj = await handle.Task;
-            }
-            //Ã³À½ LoadÇÏ´Â °æ¿ì
-            else
-            {
-                handle = Addressables.LoadAssetAsync<GameObject>(id.ToString());
-                _Handles.Add(id, handle);
-                loadedObj = await handle.Task; // nonBlocking, ¾Æ·¡¸¦ ½ÇÇàÇÏÁö ¾Ê°í Èå¸§À» ³Ñ±è.
-            }
-            // ´Ù ·ÎµùÀÌ ‰ç´Ù´Â °¡Á¤ÇÏ¿¡,
-            resourceVfx = loadedObj.GetComponent<VFXEntity>();
-            OnLoadAsset(id, resourceVfx);
-            InstantiateEffect(id, resourceVfx, pos, rotation, out VFXEntity instance);
-            OnLoaded?.Invoke(instance);
-            instance.SetId(id);
-            return;
-        }
-        private bool CheckPoolingEffect(ulong id)
-        {
-            return true;
-            /*
-            ulong PoolingMASK = 0x1000000000000000;
-            if ((id & PoolingMASK) != 0)
-            {
+                InstantiateEffect(id, prefab, pos, rotation, out ret);
                 return true;
             }
-            return false;*/
+
+            ret = default;
+            return false;
         }
-        private void OnLoadAsset(ulong id, VFXEntity obj)
+
+        private async void LoadNotCachedResourceAsync(ulong id, Vector3 pos, Quaternion rotation, Action<VFXEntity> onLoaded)
         {
-            _effectCache.Add(id, obj);
-            //¸¸¾à pooling effect¸é, poolingÇØÁÖ±â.
+            InitIfNeeded();
+
+            try
+            {
+                if (!_handles.TryGetValue(id, out var handle))
+                {
+                    handle = Addressables.LoadAssetAsync<GameObject>(id.ToString());
+                    _handles.Add(id, handle);
+                }
+                else
+                {
+                    CustomLogger.LogWarning("You requested to load while the system was already in a loading state.");
+                }
+
+                GameObject loadedObj = await handle.Task;
+                if (loadedObj == null)
+                {
+                    CustomLogger.LogError($"[VFXManager] Failed to load VFX. id={id}");
+                    return;
+                }
+
+                VFXEntity resourceVfx = loadedObj.GetComponent<VFXEntity>();
+                if (resourceVfx == null)
+                {
+                    CustomLogger.LogError($"[VFXManager] Loaded prefab has no VFXEntity. id={id}");
+                    return;
+                }
+
+                OnLoadAsset(id, resourceVfx);
+
+                InstantiateEffect(id, resourceVfx, pos, rotation, out VFXEntity instance);
+                instance.SetId(id);
+                onLoaded?.Invoke(instance);
+            }
+            catch (Exception e)
+            {
+                CustomLogger.LogError($"[VFXManager] LoadNotCachedResourceAsync exception: {e}");
+            }
+        }
+
+        private bool CheckPoolingEffect(ulong id)
+        {
+            // ëª…ì‹œì ìœ¼ë¡œ NotPooling ë§ˆìŠ¤í¬ê°€ ìˆìœ¼ë©´ non-pooling
+            if ((id & VFX_NOTPOOLING_MASK) == VFX_NOTPOOLING_MASK)
+                return false;
+
+            // Pooling ë§ˆìŠ¤í¬ê°€ ìˆìœ¼ë©´ pooling
+            if ((id & VFX_POOLING_MASK) == VFX_POOLING_MASK)
+                return true;
+
+            // ê¸°ì¡´ êµ¬í˜„(í•­ìƒ true)ì„ ìµœëŒ€í•œ ìœ ì§€í•˜ê¸° ìœ„í•´ fallbackì€ true
+            return true;
+        }
+
+        private void OnLoadAsset(ulong id, VFXEntity prefab)
+        {
+            _effectCache ??= new Dictionary<ulong, VFXEntity>();
+
+            // ì¤‘ë³µ ë¡œë“œ ë°©ì§€
+            _effectCache[id] = prefab;
+
             if (CheckPoolingEffect(id))
             {
-                ObjectPool<VFXEntity> objectpool = new ObjectPool<VFXEntity>();
-                objectpool.Init(30, _vfxParents, obj);
-                _VFXPools.Add(id, objectpool);
+                _vfxPools ??= new Dictionary<ulong, ObjectPool<VFXEntity>>();
+
+                if (!_vfxPools.ContainsKey(id))
+                {
+                    ObjectPool<VFXEntity> pool = new ObjectPool<VFXEntity>();
+                    pool.Init(30, _vfxParents, prefab);
+                    _vfxPools.Add(id, pool);
+                }
             }
         }
+
         private void Clear()
         {
-            _effectCache.Clear();
-            _VFXPools.Clear();
-            foreach (var item in _BatchHandles)
+            _effectCache?.Clear();
+            _vfxPools?.Clear();
+
+            if (_batchHandles != null)
             {
-                Addressables.Release(item.Value);
+                foreach (var item in _batchHandles)
+                {
+                    Addressables.Release(item.Value);
+                }
+                _batchHandles.Clear();
             }
-            foreach (var item in _Handles)
+
+            if (_handles != null)
             {
-                Addressables.Release(item.Value);
+                foreach (var item in _handles)
+                {
+                    Addressables.Release(item.Value);
+                }
+                _handles.Clear();
             }
-            _BatchHandles.Clear();
-            _Handles.Clear();
         }
-        private void InstantiateEffect(ulong id, VFXEntity resource, Vector3 pos, Quaternion rotation, out VFXEntity vfx)
+
+        private void InstantiateEffect(ulong id, VFXEntity prefab, Vector3 pos, Quaternion rotation, out VFXEntity vfx)
         {
             if (CheckPoolingEffect(id) == false)
             {
-                vfx = GameObject.Instantiate<VFXEntity>(resource, pos, rotation);
+                vfx = Instantiate(prefab, pos, rotation);
             }
             else
             {
-                vfx = _VFXPools[id].Alloc(pos, rotation);
+                if (_vfxPools != null && _vfxPools.TryGetValue(id, out var pool) && pool != null)
+                {
+                    vfx = pool.Alloc(pos, rotation);
+                }
+                else
+                {
+                    // í’€ë§ ëŒ€ìƒì¸ë° í’€ì´ ì—†ë‹¤ë©´ ì•ˆì „ì¥ì¹˜ë¡œ Instantiate
+                    vfx = Instantiate(prefab, pos, rotation);
+                }
             }
-            return;
         }
     }
 }
-

@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace Scripts.Core
 {
@@ -12,7 +12,10 @@ namespace Scripts.Core
         dungeon = 3,
     }
 
-    enum AssetId : ulong
+    // NOTE:
+    // - VFX/SFX Addressables key를 ulong 기반으로 관리할 때 사용.
+    // - 다른 어셈블리(UI 등)에서도 참조할 가능성이 있어 public으로 둠.
+    public enum AssetId : ulong
     {
         Metor_VFX = 0,
 
@@ -27,7 +30,7 @@ namespace Scripts.Core
     }
 
     public enum GroupId : ulong
-    { 
+    {
         Character,
         Monster,
         VFX,
@@ -35,5 +38,4 @@ namespace Scripts.Core
         GameLobbyScene,
         TitleScene,
     }
-
 }

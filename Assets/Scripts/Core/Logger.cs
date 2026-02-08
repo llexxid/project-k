@@ -1,34 +1,53 @@
-using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics;
+ï»¿using System.Diagnostics;
 using UnityEngine;
 
-//1.Ãß°¡ÀûÀÎ Á¤º¸Ç¥Çö
-//2. ·Î±× ·¹º§¿¡ µû¶ó¼­, ·Î±× °ü¸®.
-//   ÀÏÀÏÈ÷ ´Ù ÁÖ¼®Ã³¸® , ÀüÃ³¸® Ã³¸®´Â Èûµê.
+// í•µì‹¬: Debug ì´ë¦„ ì¶©ëŒ í•´ê²°( System.Diagnostics.Debug vs UnityEngine.Debug )
+using Debug = UnityEngine.Debug;
 
 namespace Scripts.Core
 {
-    public static class CustomLogger
+    /// <summary>
+    /// í”„ë¡œì íŠ¸ ê³µìš© ë¡œê±°.
+    /// - Log/Warningì€ DEV_MODE ì •ì˜ ì‹œì—ë§Œ ì¶œë ¥
+    /// - ErrorëŠ” í•­ìƒ ì¶œë ¥
+    /// </summary>
+    public static class Logger
     {
         [Conditional("DEV_MODE")]
         public static void Log(string msg)
         {
-            UnityEngine.Debug.LogFormat("[{0}] message : {1}", System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"), msg);
+            Debug.Log(msg);
         }
 
         [Conditional("DEV_MODE")]
         public static void LogWarning(string msg)
         {
-            UnityEngine.Debug.LogFormat("[{0}] message : {1}", System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"), msg);
+            Debug.LogWarning(msg);
         }
 
         public static void LogError(string msg)
         {
-            UnityEngine.Debug.LogFormat("[{0}] message : {1}", System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"), msg);
-            //¿¡·¯´Â ±× ÀÚ¸®¿¡¼­ Break¸¦ ÇØ¼­, ÀâÀ» ¼ö ÀÖµµ·Ï À¯µµ.
-            UnityEngine.Debug.Break();
+            Debug.LogError(msg);
+
+#if UNITY_EDITOR
+            // ì—ë””í„°ì—ì„œë§Œ ë©ˆì¶°ì„œ ë””ë²„ê¹…í•˜ê¸° ì‰½ê²Œ
+            Debug.Break();
+#endif
         }
     }
-}
 
+    /// <summary>
+    /// í˜¸í™˜ìš© ë³„ì¹­(ë‹¤ë¥¸ ìŠ¤í¬ë¦½íŠ¸ê°€ CustomLoggerë¥¼ ì“°ê³  ìˆì–´ë„ ìˆ˜ì • ì—†ì´ ë™ì‘)
+    /// - "ë¡œê±° í•˜ë‚˜ë§Œ" ìœ ì§€: ë‚´ë¶€ ë™ì‘ì€ ì „ë¶€ Loggerë¡œ ìœ„ì„
+    /// </summary>
+    public static class CustomLogger
+    {
+        [Conditional("DEV_MODE")]
+        public static void Log(string msg) => Logger.Log(msg);
+
+        [Conditional("DEV_MODE")]
+        public static void LogWarning(string msg) => Logger.LogWarning(msg);
+
+        public static void LogError(string msg) => Logger.LogError(msg);
+    }
+}

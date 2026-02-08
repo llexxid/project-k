@@ -1,8 +1,6 @@
-using Cysharp.Threading.Tasks;
+Ôªøusing Cysharp.Threading.Tasks;
 using Scripts.Core.inteface;
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
 
@@ -12,63 +10,97 @@ namespace Scripts.Core
     {
         private AudioSource _source;
         private CancellationTokenSource _token;
+
         public bool IsActive { get; set; }
 
         private void Awake()
         {
-            _source = gameObject.GetComponent<AudioSource>();
+            _source = GetComponent<AudioSource>();
+            if (_source == null)
+            {
+                CustomLogger.LogError("[SFXEntity] AudioSource component is missing.");
+            }
         }
 
         private void OnEnable()
         {
-            if (_token != null)
-            {
-                _token.Dispose();
-            }
+            _token?.Dispose();
             _token = new CancellationTokenSource();
         }
+
         private void OnDisable()
         {
-            _token.Cancel();
+            if (_token == null) return;
+            if (!_token.IsCancellationRequested) _token.Cancel();
         }
+
         private void OnDestroy()
         {
-            _token.Cancel();
+            if (_token == null) return;
+            if (!_token.IsCancellationRequested) _token.Cancel();
             _token.Dispose();
+            _token = null;
         }
 
         public void SetClip(AudioClip clip)
         {
+            if (_source == null) return;
             _source.clip = clip;
         }
+
         /// <summary>
-        /// n√ »ƒ(ms) »ø∞˙¿Ω πﬂª˝
+        /// ÏßÄÏ†ïÌïú ms Ïù¥ÌõÑ(Delay) Ïû¨ÏÉù
         /// </summary>
-        /// <param name="duration"></param>
-        public void PlaySFX(float duration)
+        public void PlaySFX(float delayMs)
         {
-            AudioClip clip = _source.clip;
-            Delay(duration).Forget();
-            _source.Play();
-            AutoRelease(clip.length * 1000.0f);
+            PlayAfterDelay(delayMs).Forget();
         }
 
-        //»ø∞˙¿Ω ±Ê¿Ã∏∏≈≠ πﬂª˝
+        /// <summary>
+        /// Ï¶âÏãú Ïû¨ÏÉù
+        /// </summary>
         public void PlaySFX()
         {
-            AudioClip clip = _source.clip;
+            if (_source == null || _source.clip == null) return;
+
             _source.Play();
-            AutoRelease(clip.length * 1000.0f);
+            AutoRelease(_source.clip.length * 1000.0f);
         }
 
-        private async UniTaskVoid Delay(float duration)
+        private async UniTaskVoid PlayAfterDelay(float delayMs)
         {
-            await UniTask.Delay(TimeSpan.FromMilliseconds(duration), cancellationToken:_token.Token);
+            if (_source == null || _source.clip == null) return;
+
+            try
+            {
+                await UniTask.Delay(TimeSpan.FromMilliseconds(delayMs), cancellationToken: _token.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            _source.Play();
+            AutoRelease(_source.clip.length * 1000.0f);
         }
 
-        private void AutoRelease(float duration)
+        private void AutoRelease(float durationMs)
         {
-            Delay(duration).Forget();
+            AutoReleaseAsync(durationMs).Forget();
+        }
+
+        private async UniTaskVoid AutoReleaseAsync(float durationMs)
+        {
+            try
+            {
+                await UniTask.Delay(TimeSpan.FromMilliseconds(durationMs), cancellationToken: _token.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            if (SFXManager.Instance == null) return;
             SFXManager.Instance.DestroySFX(this);
         }
 
@@ -79,6 +111,8 @@ namespace Scripts.Core
 
         public void OnRelease()
         {
+            if (_source == null) return;
+
             _source.loop = false;
             _source.clip = null;
             _source.volume = 0;
@@ -86,4 +120,3 @@ namespace Scripts.Core
         }
     }
 }
-
