@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -41,7 +42,7 @@ namespace Scripts.Core
             _Handles = new Dictionary<ulong, AsyncOperationHandle<AudioClip>>();
 
             _AudioSourcePool = new ObjectPool<SFXEntity>();
-            _AudioSourcePool.Init(32, _sfxParents, _sfxPrefab);
+            _AudioSourcePool.Init(24, _sfxParents, _sfxPrefab);
         }
         public void OnEnterScene(ulong groupId, ulong[] clipsId)
         {
@@ -49,26 +50,23 @@ namespace Scripts.Core
             Clear();
             LoadClipsAsync(groupId, clipsId);
         }
-        public SFXEntity GetSFX(ulong Id, Vector3 pos, Quaternion rotation)
+        public void GetSFX(ulong Id, Vector3 pos, Quaternion rotation, Action<SFXEntity> OnLoaded)
         {
             AudioClip clip;
             SFXEntity ret;
 
             bool IsLoaded = _AudioCache.TryGetValue(Id, out clip);
-            if (!IsLoaded)
+            if (IsLoaded)
             {
-                //Load해야함.
-                LoadClipAsync(Id);
-                //여기서는 로딩이 되어있어야함.
-                bool flag = _AudioCache.TryGetValue(Id, out clip);
-                if (flag == false)
-                {
-                    CustomLogger.LogError("You Failed to load SFX.");
-                }
+                ret = _AudioSourcePool.Alloc(pos, rotation);
+                ret.SetClip(clip);
+                OnLoaded?.Invoke(ret);
+                return;
+
             }
-            ret = _AudioSourcePool.Alloc(pos, rotation);
-            ret.SetClip(clip);
-            return ret;
+            //Load해야함.
+            LoadClipAsync(Id, pos,rotation, OnLoaded);
+            return;
         }
         public void DestroySFX(SFXEntity sfx)
         {
@@ -86,10 +84,11 @@ namespace Scripts.Core
                 Addressables.Release(handle);
             }
         }
-        private async void LoadClipAsync(ulong Id)
+        private async void LoadClipAsync(ulong Id, Vector3 pos, Quaternion rotation, Action<SFXEntity> OnLoaded)
         {
             bool IsLoaded = _Handles.TryGetValue(Id, out var handle);
             AudioClip clip;
+
             if (IsLoaded)
             {
                 CustomLogger.LogWarning("You requested to load SFX while the system was already in a loading state.");
@@ -101,7 +100,12 @@ namespace Scripts.Core
                 _Handles.Add(Id, handle);
                 clip = await handle.Task;
             }
-            _AudioCache.Add(Id, clip);        
+            SFXEntity sfx;
+            _AudioCache.Add(Id, clip);
+            sfx = _AudioSourcePool.Alloc(pos, rotation);
+            sfx.SetClip(clip);
+            OnLoaded?.Invoke(sfx);
+            return;
         }
         private async void LoadClipsAsync(ulong groupId, ulong[] clipsId)
         {
