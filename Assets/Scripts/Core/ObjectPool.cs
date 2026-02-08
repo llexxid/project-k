@@ -68,14 +68,12 @@ namespace Scripts.Core
             if (obj == null)
             {
                 CustomLogger.LogError("nullptr DeAllocation In MemoryPool");
-                UnityEngine.Debug.Break();
                 return;
             }
 
             if (obj.IsActive == false)
             {
                 CustomLogger.LogError("Double Deallocation In MemoryPool");
-                UnityEngine.Debug.Break();
                 return;
             }
             obj.gameObject.SetActive(false);

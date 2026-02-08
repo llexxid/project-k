@@ -36,6 +36,10 @@ namespace Scripts.Core
         }
         private void Init()
         {
+            _AudioCache = new Dictionary<ulong, AudioClip>();
+            _BatchHandles = new Dictionary<ulong, AsyncOperationHandle<IList<AudioClip>>>();
+            _Handles = new Dictionary<ulong, AsyncOperationHandle<AudioClip>>();
+
             _AudioSourcePool = new ObjectPool<SFXEntity>();
             _AudioSourcePool.Init(32, _sfxParents, _sfxPrefab);
         }

@@ -14,17 +14,13 @@ namespace Scripts.Core
         private Animator _am;
         private CancellationTokenSource _token;
         public bool IsActive { get; set; }
-        private void Awake()
-        {
-            _token = new CancellationTokenSource();
-        }
+
         private void OnEnable()
         {
             if (_token != null)
             {
                 _token.Dispose();
             }
-
             _token = new CancellationTokenSource();
         }
 
@@ -50,6 +46,10 @@ namespace Scripts.Core
         /// <param name="durationMs"></param>
         public void ActiveEffect(float durationMs)
         {
+            if (_token == null)
+            {
+                _token = new CancellationTokenSource();
+            }
             UseEffect(durationMs).Forget();
         }
 
