@@ -13,20 +13,14 @@ namespace Scripts.Core
         private ulong _id;
         private Animator _am;
         private CancellationTokenSource _token;
-#if UNITY_EDITOR
         public bool IsActive { get; set; }
-#endif
-        private void Awake()
-        {
-            _token = new CancellationTokenSource();
-        }
+
         private void OnEnable()
         {
             if (_token != null)
             {
                 _token.Dispose();
             }
-
             _token = new CancellationTokenSource();
         }
 
@@ -52,6 +46,10 @@ namespace Scripts.Core
         /// <param name="durationMs"></param>
         public void ActiveEffect(float durationMs)
         {
+            if (_token == null)
+            {
+                _token = new CancellationTokenSource();
+            }
             UseEffect(durationMs).Forget();
         }
 

@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using UnityEngine.SceneManagement;
 using static UnityEngine.Rendering.VirtualTexturing.Debugging;
 
 public class AddressableTest : MonoBehaviour
@@ -31,7 +32,7 @@ public class AddressableTest : MonoBehaviour
     }
     private void Start()
     {
-
+        WarmingUpVFXTest();
     }
     private async void LoadAssets()
     {
@@ -49,18 +50,55 @@ public class AddressableTest : MonoBehaviour
             Debug.Log(obj.name);
         }
     }
+
+
+    private void WarmingUpVFXTest()
+    {
+        ulong[] idList = { 1000, 1001, 1002 };
+        VFXManager.Instance.OnEnterScene(GroupId.VFX, idList);
+    }
+
+    private void LoadVFXTest()
+    {
+        VFXManager.Instance.GetVFX(1000, Vector3.zero, Quaternion.identity, (vfx)=> vfx.ActiveEffect(1000f));
+    }
+
+    private void LoadVFXTest2()
+    {
+        VFXManager.Instance.GetVFX(1001, Vector3.zero, Quaternion.identity, (vfx) => vfx.ActiveEffect(1000f));
+    }
+
+    private void LoadVFXTest3()
+    {
+        VFXManager.Instance.GetVFX(1002, Vector3.zero, Quaternion.identity, (vfx) => vfx.ActiveEffect(1000f));
+    }
+
+    private void Loading(Scene scene, LoadSceneMode mode)
+    {
+        Debug.Log(scene.buildIndex);
+        ulong[] idList = { 1000, 1001, 1002 };
+        VFXManager.Instance.OnEnterScene(GroupId.VFX, idList);
+    }
+
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Space))
+        if (Input.GetKeyDown(KeyCode.Q))
         {
-            LoadAssets();
+            LoadVFXTest();
+        }
+        if (Input.GetKeyDown(KeyCode.W))
+        {
+            LoadVFXTest2();
+        }
+        if (Input.GetKeyDown(KeyCode.E))
+        {
+            LoadVFXTest3();
         }
 
-        if (Input.GetKeyDown(KeyCode.A))
+        if (Input.GetKeyDown(KeyCode.Space))
         {
-            //Addressables.Release(_handle);
-            Addressables.Release(_handles);
-            _prefab = null;
+            SceneManager.sceneLoaded += Loading;
+            SceneManager.LoadScene("TestSceneJunGi");
         }
     }
 

@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace Scripts.Core
 {
@@ -12,9 +12,6 @@ namespace Scripts.Core
         dungeon = 3,
     }
 
-    // NOTE:
-    // - 최상위 비트로 Pooling/SFX/VFX 구분하려는 의도로 보임.
-    // - 현재는 그대로 유지.
     enum AssetId : ulong
     {
         Metor_VFX = 0,
@@ -28,4 +25,15 @@ namespace Scripts.Core
 
         HIT_VFX = 1 | VFX_Pooling_MASK,
     }
+
+    public enum GroupId : ulong
+    { 
+        Character,
+        Monster,
+        VFX,
+        SFX,
+        GameLobbyScene,
+        TitleScene,
+    }
+
 }

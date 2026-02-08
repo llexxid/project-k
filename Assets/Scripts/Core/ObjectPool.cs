@@ -14,7 +14,6 @@ namespace Scripts.Core
             _prefab = prefab;
 
             T obj;
-
             for (int i = 0; i < capacity; i++)
             {
                 obj = GameObject.Instantiate<T>(prefab, Vector3.zero, Quaternion.identity);
@@ -53,44 +52,32 @@ namespace Scripts.Core
                 ret = GameObject.Instantiate(_prefab, position, rotate);
                 ret.OnAlloc();
                 ++_capacity;
-#if UNITY_EDITOR
                 ret.IsActive = true;
-#endif
                 return ret;
             }
 
             ret.gameObject.transform.position = position;
             ret.gameObject.transform.rotation = rotate;
-#if UNITY_EDITOR
             ret.IsActive = true;
-#endif
             ret.OnAlloc();
             return ret;
         }
 
         public void Release(T obj)
         {
-#if UNITY_EDITOR
             if (obj == null)
             {
-                Debug.Log("nullptr DeAllocation");
-                UnityEngine.Debug.Break();
+                CustomLogger.LogError("nullptr DeAllocation In MemoryPool");
                 return;
             }
-#endif
-#if UNITY_EDITOR
+
             if (obj.IsActive == false)
             {
-
-                Debug.Log("Double Deallocation");
-                UnityEngine.Debug.Break();
+                CustomLogger.LogError("Double Deallocation In MemoryPool");
                 return;
             }
-#endif
             obj.gameObject.SetActive(false);
-#if UNITY_EDITOR
             obj.IsActive = false;
-#endif
             obj.OnRelease();
             _stack.Push(obj);
         }
