@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -34,43 +35,38 @@ namespace Scripts.Core
             Destroy(this);
             return;
         }
-
         private void Init()
         {
-            _AudioSourcePool = new ObjectPool<SFXEntity>();
-            _AudioSourcePool.Init(32, _sfxParents, _sfxPrefab);
-        }
+            _AudioCache = new Dictionary<ulong, AudioClip>();
+            _BatchHandles = new Dictionary<ulong, AsyncOperationHandle<IList<AudioClip>>>();
+            _Handles = new Dictionary<ulong, AsyncOperationHandle<AudioClip>>();
 
+            _AudioSourcePool = new ObjectPool<SFXEntity>();
+            _AudioSourcePool.Init(24, _sfxParents, _sfxPrefab);
+        }
         public void OnEnterScene(ulong groupId, ulong[] clipsId)
         {
             //Clip들 로딩
             Clear();
             LoadClipsAsync(groupId, clipsId);
         }
-
-        public SFXEntity GetSFX(ulong Id, Vector3 pos, Quaternion rotation)
+        public void GetSFX(ulong Id, Vector3 pos, Quaternion rotation, Action<SFXEntity> OnLoaded)
         {
             AudioClip clip;
             SFXEntity ret;
 
             bool IsLoaded = _AudioCache.TryGetValue(Id, out clip);
-            if (!IsLoaded)
+            if (IsLoaded)
             {
-                //Load해야함.
-                LoadClipAsync(Id);
-                //여기서는 로딩이 되어있어야함.
-                bool flag = _AudioCache.TryGetValue(Id, out clip);
-#if UNITY_EDITOR
-                if (flag == false)
-                {
-                    Debug.Log("LoadClip을 요청했으나 Load되지 않았습니다.");
-                    UnityEngine.Debug.Break();
-                }
-#endif
+                ret = _AudioSourcePool.Alloc(pos, rotation);
+                ret.SetClip(clip);
+                OnLoaded?.Invoke(ret);
+                return;
+
             }
-            ret = _AudioSourcePool.Alloc(pos, rotation);
-            ret.SetClip(clip);
-            return ret;
+            //Load해야함.
+            LoadClipAsync(Id, pos,rotation, OnLoaded);
+            return;
         }
         public void DestroySFX(SFXEntity sfx)
         {
@@ -88,13 +84,14 @@ namespace Scripts.Core
                 Addressables.Release(handle);
             }
         }
-
-        private async void LoadClipAsync(ulong Id)
+        private async void LoadClipAsync(ulong Id, Vector3 pos, Quaternion rotation, Action<SFXEntity> OnLoaded)
         {
             bool IsLoaded = _Handles.TryGetValue(Id, out var handle);
             AudioClip clip;
+
             if (IsLoaded)
             {
+                CustomLogger.LogWarning("You requested to load SFX while the system was already in a loading state.");
                 clip = await handle.Task;
             }
             else
@@ -103,9 +100,13 @@ namespace Scripts.Core
                 _Handles.Add(Id, handle);
                 clip = await handle.Task;
             }
-            _AudioCache.Add(Id, clip);        
+            SFXEntity sfx;
+            _AudioCache.Add(Id, clip);
+            sfx = _AudioSourcePool.Alloc(pos, rotation);
+            sfx.SetClip(clip);
+            OnLoaded?.Invoke(sfx);
+            return;
         }
-
         private async void LoadClipsAsync(ulong groupId, ulong[] clipsId)
         {
             //만약 여러번 요청한다면..
@@ -115,7 +116,7 @@ namespace Scripts.Core
             if (IsLoaded)
             {
                 //이럴일은 없겠지만..있어서도 안되겠지만..
-                Debug.Log("LoadClips이 처리 중 또 요청이 되었습니다");
+                CustomLogger.LogWarning("You requested to load SFX while the system was already in a loading state.");
                 clips = await handle.Task;
             }
             else 
@@ -127,8 +128,7 @@ namespace Scripts.Core
 
             if (clips.Count != clipsId.Length)
             {
-                Debug.Log("SFX의 키 배열과 Addressable에 등록된 크기가 다릅니다.");
-                UnityEngine.Debug.Break();
+                CustomLogger.LogError("The number of resources requested SFX to load is not the same as the number of id arrays.");
             }
             int i = 0;
             foreach (AudioClip clip in clips)
