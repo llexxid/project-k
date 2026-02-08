@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 6955483190711189192}
   - component: {fileID: 1969149387483489342}
   - component: {fileID: 3882362488686144609}
+  - component: {fileID: 7576632878740535722}
   m_Layer: 5
   m_Name: UI_Screen_Title
   m_TagString: Untagged
@@ -93,6 +94,21 @@ MonoBehaviour:
   startsVisible: 1
   pressAnywhereButton: {fileID: 2671235363095657765}
   nextScreen: 1
+--- !u!114 &7576632878740535722
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2236633071475375786}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 102644deeb0e82644a3d3ae97e035d23, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  pressAnywhereButton: {fileID: 2671235363095657765}
+  nextScene: 1
+  disableButtonWhileLoading: 1
 --- !u!1 &5641423131684724595
 GameObject:
   m_ObjectHideFlags: 0

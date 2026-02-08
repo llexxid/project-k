@@ -1,30 +1,31 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+ï»¿using UnityEngine;
 
 namespace Scripts.Core
 {
+    // ì”¬ ì´ë¦„ê³¼ 1:1ë¡œ ë§ì¶”ê¸° ìœ„í•´ enum ë©¤ë²„ë¥¼ ì”¬ ì´ë¦„(ì†Œë¬¸ì)ê³¼ ë™ì¼í•˜ê²Œ í†µì¼
+    // ìˆ«ìê°’ì€ ê¸°ì¡´ê³¼ ë™ì¼í•˜ê²Œ ìœ ì§€(0~3)í•´ì„œ Unity ì§ë ¬í™”(Inspector ì €ì¥ê°’) ê¹¨ì§ ìµœì†Œí™”
     public enum eSceneType
-    { 
-        TITLE,
-        INGAME,      
-        DUNGEON,
+    {
+        bootstrap = 0,
+        title = 1,
+        main = 2,
+        dungeon = 3,
     }
 
-    //Ç®¸µÀÌ µÇ¾î¾ßÇÏ´Â VFXId´Â ÃÖ»óÀ§ ºñÆ®°¡ 1ÀÌ´Ù.
-    //Ç®¸µÀÌ µÇÁö ¾Ê¾Æ¾ßÇÏ´Â VFXId´Â ÃÖ»óÀ§ ºñÆ®°¡ 0ÀÌ´Ù.
+    // NOTE:
+    // - ìµœìƒìœ„ ë¹„íŠ¸ë¡œ Pooling/SFX/VFX êµ¬ë¶„í•˜ë ¤ëŠ” ì˜ë„ë¡œ ë³´ì„.
+    // - í˜„ì¬ëŠ” ê·¸ëŒ€ë¡œ ìœ ì§€.
     enum AssetId : ulong
     {
         Metor_VFX = 0,
 
-        //ÃßÈÄ Sprite..ÀÌ·±°Íµµ
-        //ÃÖ»óÀ§ ºñÆ®°¡ 2ÀÌ¸é SFX
+        // ìµœìƒìœ„ ë¹„íŠ¸ê°€ 2ë©´ SFX
         SFX_MASK = 0x2000000000000000,
 
-        //ÃÖ»óÀ§ ºñÆ®°¡ 1ÀÌ¸é VFX. 
-        VFX_Pooling_MASK = 0x1000000000000000, //Ç®¸µÇÏ´Â °³Ã¼´Â 10000
-        VFX_NotPooling_MASK = 0x1100000000000000, //Ç®¸µÇÏÁö¾Ê´Â °³Ã¼´Â 11....
+        // ìµœìƒìœ„ ë¹„íŠ¸ê°€ 1ì´ë©´ VFX
+        VFX_Pooling_MASK = 0x1000000000000000,
+        VFX_NotPooling_MASK = 0x1100000000000000,
+
         HIT_VFX = 1 | VFX_Pooling_MASK,
     }
-
 }
