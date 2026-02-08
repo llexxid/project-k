@@ -150,7 +150,7 @@ namespace Scripts.Core
             IList<GameObject> result;
             if (IsLoading)
             {
-                Debug.Log("VFX들을 Load 처리 중 또 요청이 되었습니다");
+                CustomLogger.LogWarning("You requested to load VFX while the system was already in a loading state.");
                 result = await handle.Task;
             } 
             else
@@ -162,8 +162,7 @@ namespace Scripts.Core
 
             if (result.Count != IdList.Length)
             {
-                Debug.Log("VFX의 키 배열과 Addressable에 등록된 크기가 다릅니다.");
-                UnityEngine.Debug.Break();
+                CustomLogger.LogError("The number of resources requested to load is not the same as the number of id arrays. check IdList[]");
             }
             VFXEntity vfx;
             for (int i = 0; i < result.Count; i++)
@@ -181,7 +180,7 @@ namespace Scripts.Core
             bool IsLoading = _Handles.TryGetValue(id, out handle);
             if (IsLoading)
             {
-                Debug.Log("VFX들을 Load 처리 중 또 요청이 되었습니다");
+                CustomLogger.LogWarning("You requested to load while the system was already in a loading state.");
                 loadedObj = await handle.Task;
             }
             //처음 Load하는 경우

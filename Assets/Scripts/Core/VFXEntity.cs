@@ -13,9 +13,7 @@ namespace Scripts.Core
         private ulong _id;
         private Animator _am;
         private CancellationTokenSource _token;
-#if UNITY_EDITOR
         public bool IsActive { get; set; }
-#endif
         private void Awake()
         {
             _token = new CancellationTokenSource();

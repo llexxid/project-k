@@ -7,9 +7,7 @@ namespace Scripts.Core.inteface
 {
     public interface IPoolable
     {
-#if UNITY_EDITOR
         public bool IsActive { get; set; }
-#endif
         void OnAlloc();
         void OnRelease();
     }

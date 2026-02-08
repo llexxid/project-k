@@ -57,13 +57,10 @@ namespace Scripts.Core
                 LoadClipAsync(Id);
                 //여기서는 로딩이 되어있어야함.
                 bool flag = _AudioCache.TryGetValue(Id, out clip);
-#if UNITY_EDITOR
                 if (flag == false)
                 {
-                    Debug.Log("LoadClip을 요청했으나 Load되지 않았습니다.");
-                    UnityEngine.Debug.Break();
+                    CustomLogger.LogError("You Failed to load SFX.");
                 }
-#endif
             }
             ret = _AudioSourcePool.Alloc(pos, rotation);
             ret.SetClip(clip);
@@ -91,6 +88,7 @@ namespace Scripts.Core
             AudioClip clip;
             if (IsLoaded)
             {
+                CustomLogger.LogWarning("You requested to load SFX while the system was already in a loading state.");
                 clip = await handle.Task;
             }
             else
@@ -110,7 +108,7 @@ namespace Scripts.Core
             if (IsLoaded)
             {
                 //이럴일은 없겠지만..있어서도 안되겠지만..
-                Debug.Log("LoadClips이 처리 중 또 요청이 되었습니다");
+                CustomLogger.LogWarning("You requested to load SFX while the system was already in a loading state.");
                 clips = await handle.Task;
             }
             else 
@@ -122,8 +120,7 @@ namespace Scripts.Core
 
             if (clips.Count != clipsId.Length)
             {
-                Debug.Log("SFX의 키 배열과 Addressable에 등록된 크기가 다릅니다.");
-                UnityEngine.Debug.Break();
+                CustomLogger.LogError("The number of resources requested SFX to load is not the same as the number of id arrays.");
             }
             int i = 0;
             foreach (AudioClip clip in clips)
