@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using UnityEngine.SceneManagement;
 using static UnityEngine.Rendering.VirtualTexturing.Debugging;
 
 public class AddressableTest : MonoBehaviour
@@ -72,6 +73,13 @@ public class AddressableTest : MonoBehaviour
         VFXManager.Instance.GetVFX(1002, Vector3.zero, Quaternion.identity, (vfx) => vfx.ActiveEffect(1000f));
     }
 
+    private void Loading(Scene scene, LoadSceneMode mode)
+    {
+        Debug.Log(scene.buildIndex);
+        ulong[] idList = { 1000, 1001, 1002 };
+        VFXManager.Instance.OnEnterScene(GroupId.VFX, idList);
+    }
+
     private void Update()
     {
         if (Input.GetKeyDown(KeyCode.Q))
@@ -85,6 +93,12 @@ public class AddressableTest : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.E))
         {
             LoadVFXTest3();
+        }
+
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            SceneManager.sceneLoaded += Loading;
+            SceneManager.LoadScene("TestSceneJunGi");
         }
     }
 

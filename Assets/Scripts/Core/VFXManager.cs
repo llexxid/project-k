@@ -54,11 +54,10 @@ namespace Scripts.Core
         public void OnEnterScene(GroupId groupId, ulong[] idList)
         {
             //Parent가 될 GameObject를 만들어야함.
-            if (_vfxParents == null)
-            {
-                GameObject obj = new GameObject("VFX_Root");
-                _vfxParents = obj.transform;
-            }
+            //어차피 씬 전환시, 기존에 VfxParent는 삭제될거임.
+            GameObject obj = new GameObject("VFX_Root");
+            _vfxParents = obj.transform;
+
             Clear();
             //ResoucreLoad
             WarmingUpResourcesAsync(groupId, idList);
