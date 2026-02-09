@@ -19,13 +19,20 @@ namespace Scripts.Core
     {
         Metor_VFX = 0,
 
-        // 최상위 비트가 2면 SFX
-        SFX_MASK = 0x2000000000000000,
+        //Monster는 최상위 31bit가 모두 0이어야함.
+        MONSTER_UPBITMASK   = 0xFFFFFFFE00000000,
+        MONSTER_MASK        = 0x0000000100000000,
 
-        // 최상위 비트가 1이면 VFX
-        VFX_Pooling_MASK = 0x1000000000000000,
-        VFX_NotPooling_MASK = 0x1100000000000000,
+        //SFX는 최상위 40bit가 모두 0이어야함.
+        SFX_UPBITMASK   = 0xFFFFFFFFFF000000,
+        SFX_MASK        = 0x0000000000800000,
 
+        //VFX는 최상위 32bit가 모두 0이어야함.
+        VFX_Pooling_UPBITMASK = 0xFFFFFFFF00000000,
+        //VFX_NotPooling MASK로 Masking했을 때, PoolingMask가 나오면 Pooling. 아니면 NotPoolingMask.
+        VFX_Pooling_MASK =   0x0000000080000000,
+        VFX_NotPooling_MASK =   0x00000000C0000000,
+        
         HIT_VFX = 1 | VFX_Pooling_MASK,
     }
 
