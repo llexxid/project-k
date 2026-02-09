@@ -648,13 +648,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 576620057}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4f317bdb8eef73a43bdc5b787b658de5, type: 3}
+  m_Script: {fileID: 11500000, guid: 42c846775ead45347b6efda81602d51c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  titleScene: title
-  mainScene: main
-  dungeonScene: dungeon
-  clearStacksOnScreenChange: 1
+  clearStacksOnSceneChanged: 1
+  ignoreBootstrap: 1
 --- !u!1 &948170250
 GameObject:
   m_ObjectHideFlags: 0
@@ -862,7 +860,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cf0c68b823279934e9512fdc32363aa2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _loadPannelPrefab: {fileID: 0}
   bootstrapSceneName: bootstrap
   titleSceneName: title
   mainSceneName: main

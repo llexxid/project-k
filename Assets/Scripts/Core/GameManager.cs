@@ -11,24 +11,18 @@ namespace Scripts.Core
     {
         public static GameManager Instance;
 
-        // (기존 필드 유지) - 현재 로직에서는 사용 안 함. 추후 필요하면 활용.
-        public GameObject _loadPannelPrefab;
-
-        [Header("Scene Name Mapping (Build Settings에 등록된 씬 이름과 정확히 일치해야 함)")]
+        [Header("Scene Name Mapping")]
         [SerializeField] private string bootstrapSceneName = "bootstrap";
         [SerializeField] private string titleSceneName = "title";
-
-        [FormerlySerializedAs("ingameSceneName")]
         [SerializeField] private string mainSceneName = "main";
-
         [SerializeField] private string dungeonSceneName = "dungeon";
 
         [Header("Async Loading")]
-        [SerializeField] private float minLoadingSeconds = 0f; // 로딩 연출 최소 유지 시간(원하면 0.5~1.0)
+        [SerializeField] private float minLoadingSeconds = 0f;
 
         public event Action<eSceneType> SceneLoadStarted;
         public event Action<eSceneType> SceneLoadFinished;
-        public event Action<eSceneType, float> SceneLoadProgress; // 0~1
+        public event Action<eSceneType, float> SceneLoadProgress;
 
         private CancellationTokenSource _token;
         private AsyncOperation _asyncOp;
