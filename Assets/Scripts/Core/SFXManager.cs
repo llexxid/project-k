@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -8,211 +9,135 @@ namespace Scripts.Core
 {
     public class SFXManager : MonoBehaviour
     {
-        public static SFXManager Instance { get; private set; }
+        public static SFXManager Instance;
+        //AudioSource Pooling
+        private ObjectPool<SFXEntity> _AudioSourcePool;
 
-        // AudioSource Pooling
-        private ObjectPool<SFXEntity> _audioSourcePool;
+        [SerializeField]
+        Transform _sfxParents;
+        [SerializeField]
+        SFXEntity _sfxPrefab;
 
-        [Header("Pool Setup")]
-        [SerializeField] private Transform _sfxParents;
-        [SerializeField] private SFXEntity _sfxPrefab;
-        [SerializeField] private int initialPoolSize = 24;
-
-        // SFX DataStore
-        private Dictionary<ulong, AudioClip> _audioCache;
-        private Dictionary<ulong, AsyncOperationHandle<AudioClip>> _handles;
-        private Dictionary<ulong, AsyncOperationHandle<IList<AudioClip>>> _batchHandles;
-
-        private bool _initialized;
+        //SFX DataStore 
+        private Dictionary<ulong, AudioClip> _AudioCache;
+        private Dictionary<ulong, AsyncOperationHandle<AudioClip>> _Handles;
+        private Dictionary<ulong, AsyncOperationHandle<IList<AudioClip>>> _BatchHandles;
 
         private void Awake()
         {
-            if (Instance != null && Instance != this)
+            if (Instance == null)
             {
-                Destroy(gameObject);
+                Instance = this;
+                Instance.Init();
+                DontDestroyOnLoad(this);
                 return;
             }
-
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-            InitIfNeeded();
+            Destroy(this);
+            return;
         }
-
-        private void InitIfNeeded()
+        private void Init()
         {
-            if (_initialized) return;
-            _initialized = true;
+            _AudioCache = new Dictionary<ulong, AudioClip>();
+            _BatchHandles = new Dictionary<ulong, AsyncOperationHandle<IList<AudioClip>>>();
+            _Handles = new Dictionary<ulong, AsyncOperationHandle<AudioClip>>();
 
-            _audioCache = new Dictionary<ulong, AudioClip>();
-            _handles = new Dictionary<ulong, AsyncOperationHandle<AudioClip>>();
-            _batchHandles = new Dictionary<ulong, AsyncOperationHandle<IList<AudioClip>>>();
-
-            if (_sfxParents == null)
-            {
-                var root = new GameObject("SFX_Root");
-                root.transform.SetParent(transform, false);
-                _sfxParents = root.transform;
-            }
-
-            if (_sfxPrefab == null)
-            {
-                CustomLogger.LogError("[SFXManager] _sfxPrefab is not assigned.");
-                return;
-            }
-
-            _audioSourcePool = new ObjectPool<SFXEntity>();
-            _audioSourcePool.Init(Mathf.Max(0, initialPoolSize), _sfxParents, _sfxPrefab);
+            _AudioSourcePool = new ObjectPool<SFXEntity>();
+            _AudioSourcePool.Init(24, _sfxParents, _sfxPrefab);
         }
-
-        /// <summary>
-        /// 씬 진입 시 필요한 SFX 일괄 로드 (기존 캐시/핸들 정리 후 로드)
-        /// groupId는 Addressables Label(or key)로 사용
-        /// clipsId는 result 순서에 대응하는 개별 ID 목록
-        /// </summary>
         public void OnEnterScene(ulong groupId, ulong[] clipsId)
         {
-            InitIfNeeded();
+            //Clip들 로딩
             Clear();
             LoadClipsAsync(groupId, clipsId);
         }
-
-        public void GetSFX(ulong id, Vector3 pos, Quaternion rotation, Action<SFXEntity> onLoaded)
+        public void GetSFX(ulong Id, Vector3 pos, Quaternion rotation, Action<SFXEntity> OnLoaded)
         {
-            InitIfNeeded();
+            AudioClip clip;
+            SFXEntity ret;
 
-            if (_audioCache != null && _audioCache.TryGetValue(id, out AudioClip cached) && cached != null)
+            bool IsLoaded = _AudioCache.TryGetValue(Id, out clip);
+            if (IsLoaded)
             {
-                var sfx = _audioSourcePool.Alloc(pos, rotation);
-                sfx.SetClip(cached);
-                onLoaded?.Invoke(sfx);
+                ret = _AudioSourcePool.Alloc(pos, rotation);
+                ret.SetClip(clip);
+                OnLoaded?.Invoke(ret);
                 return;
+
             }
-
-            LoadClipAsync(id, pos, rotation, onLoaded);
+            //Load해야함.
+            LoadClipAsync(Id, pos, rotation, OnLoaded);
+            return;
         }
-
         public void DestroySFX(SFXEntity sfx)
         {
-            if (_audioSourcePool == null) return;
-            _audioSourcePool.Release(sfx);
+            _AudioSourcePool.Release(sfx);
         }
-
         private void Clear()
         {
-            if (_audioCache != null) _audioCache.Clear();
-
-            if (_handles != null)
+            _AudioCache.Clear();
+            foreach (var handle in _Handles)
             {
-                foreach (var kv in _handles)
-                {
-                    Addressables.Release(kv.Value);
-                }
-                _handles.Clear();
+                Addressables.Release(handle);
             }
-
-            if (_batchHandles != null)
+            foreach (var handle in _BatchHandles)
             {
-                foreach (var kv in _batchHandles)
-                {
-                    Addressables.Release(kv.Value);
-                }
-                _batchHandles.Clear();
+                Addressables.Release(handle);
             }
         }
-
-        private async void LoadClipAsync(ulong id, Vector3 pos, Quaternion rotation, Action<SFXEntity> onLoaded)
+        private async void LoadClipAsync(ulong Id, Vector3 pos, Quaternion rotation, Action<SFXEntity> OnLoaded)
         {
-            InitIfNeeded();
+            bool IsLoaded = _Handles.TryGetValue(Id, out var handle);
+            AudioClip clip;
 
-            if (_handles == null || _audioCache == null)
+            if (IsLoaded)
             {
-                CustomLogger.LogError("[SFXManager] Not initialized.");
-                return;
+                CustomLogger.LogWarning("You requested to load SFX while the system was already in a loading state.");
+                clip = await handle.Task;
             }
-
-            try
+            else
             {
-                if (!_handles.TryGetValue(id, out var handle))
-                {
-                    handle = Addressables.LoadAssetAsync<AudioClip>(id.ToString());
-                    _handles.Add(id, handle);
-                }
-                else
-                {
-                    CustomLogger.LogWarning("You requested to load SFX while the system was already in a loading state.");
-                }
-
-                AudioClip clip = await handle.Task;
-
-                if (clip == null)
-                {
-                    CustomLogger.LogError($"[SFXManager] Failed to load AudioClip. id={id}");
-                    return;
-                }
-
-                _audioCache[id] = clip;
-
-                var sfx = _audioSourcePool.Alloc(pos, rotation);
-                sfx.SetClip(clip);
-                onLoaded?.Invoke(sfx);
+                handle = Addressables.LoadAssetAsync<AudioClip>(Id.ToString());
+                _Handles.Add(Id, handle);
+                clip = await handle.Task;
             }
-            catch (Exception e)
-            {
-                CustomLogger.LogError($"[SFXManager] LoadClipAsync exception: {e}");
-            }
+            SFXEntity sfx;
+            _AudioCache.Add(Id, clip);
+            sfx = _AudioSourcePool.Alloc(pos, rotation);
+            sfx.SetClip(clip);
+            OnLoaded?.Invoke(sfx);
+            return;
         }
-
         private async void LoadClipsAsync(ulong groupId, ulong[] clipsId)
         {
-            InitIfNeeded();
+            //만약 여러번 요청한다면..
+            bool IsLoaded = _BatchHandles.TryGetValue(groupId, out var handle);
+            IList<AudioClip> clips;
 
-            if (_batchHandles == null || _audioCache == null)
+            if (IsLoaded)
             {
-                CustomLogger.LogError("[SFXManager] Not initialized.");
-                return;
+                //이럴일은 없겠지만..있어서도 안되겠지만..
+                CustomLogger.LogWarning("You requested to load SFX while the system was already in a loading state.");
+                clips = await handle.Task;
+            }
+            else
+            {
+                handle = Addressables.LoadAssetsAsync<AudioClip>(groupId.ToString(), (loaded) => { });
+                _BatchHandles.Add(groupId, handle);
+                clips = await handle.Task;
             }
 
-            try
+            if (clips.Count != clipsId.Length)
             {
-                if (!_batchHandles.TryGetValue(groupId, out var handle))
-                {
-                    handle = Addressables.LoadAssetsAsync<AudioClip>(groupId.ToString(), _ => { });
-                    _batchHandles.Add(groupId, handle);
-                }
-                else
-                {
-                    CustomLogger.LogWarning("You requested to load SFX while the system was already in a loading state.");
-                }
-
-                IList<AudioClip> clips = await handle.Task;
-
-                if (clips == null)
-                {
-                    CustomLogger.LogError($"[SFXManager] Failed to load batch AudioClips. groupId={groupId}");
-                    return;
-                }
-
-                if (clipsId == null)
-                {
-                    CustomLogger.LogError("[SFXManager] clipsId array is null.");
-                    return;
-                }
-
-                if (clips.Count != clipsId.Length)
-                {
-                    CustomLogger.LogError("The number of resources requested SFX to load is not the same as the number of id arrays.");
-                }
-
-                int count = Mathf.Min(clips.Count, clipsId.Length);
-                for (int i = 0; i < count; i++)
-                {
-                    _audioCache[clipsId[i]] = clips[i];
-                }
+                CustomLogger.LogError("The number of resources requested SFX to load is not the same as the number of id arrays.");
             }
-            catch (Exception e)
+            int i = 0;
+            foreach (AudioClip clip in clips)
             {
-                CustomLogger.LogError($"[SFXManager] LoadClipsAsync exception: {e}");
+                _AudioCache.Add(clipsId[i], clip);
+                ++i;
             }
         }
+
     }
 }
+

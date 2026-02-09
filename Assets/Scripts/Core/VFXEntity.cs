@@ -1,36 +1,36 @@
-﻿using Cysharp.Threading.Tasks;
+﻿using UnityEngine;
 using Scripts.Core.inteface;
-using System;
 using System.Threading;
-using UnityEngine;
+using Cysharp.Threading.Tasks;
+using System;
 
 namespace Scripts.Core
 {
     public class VFXEntity : MonoBehaviour, IPoolable
     {
         private ulong _id;
+        private Animator _am;
         private CancellationTokenSource _token;
-
         public bool IsActive { get; set; }
 
         private void OnEnable()
         {
-            _token?.Dispose();
+            if (_token != null)
+            {
+                _token.Dispose();
+            }
             _token = new CancellationTokenSource();
         }
 
         private void OnDisable()
         {
-            if (_token == null) return;
-            if (!_token.IsCancellationRequested) _token.Cancel();
+            _token.Cancel();
         }
 
         private void OnDestroy()
         {
-            if (_token == null) return;
-            if (!_token.IsCancellationRequested) _token.Cancel();
+            _token.Cancel();
             _token.Dispose();
-            _token = null;
         }
 
         public void SetId(ulong id)
@@ -38,27 +38,25 @@ namespace Scripts.Core
             _id = id;
         }
 
-        /// <summary>
-        /// 단위는 밀리초(ms)
+        ///<summary>
+        /// 단위는 밀리초입니다.
         /// </summary>
+        /// <param name="durationMs"></param>
         public void ActiveEffect(float durationMs)
         {
-            if (_token == null) _token = new CancellationTokenSource();
+            if (_token == null)
+            {
+                _token = new CancellationTokenSource();
+            }
             UseEffect(durationMs).Forget();
         }
 
         private async UniTaskVoid UseEffect(float durationMs)
         {
-            try
-            {
-                await UniTask.Delay(TimeSpan.FromMilliseconds(durationMs), cancellationToken: _token.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                return;
-            }
-
-            if (VFXManager.Instance == null) return;
+            await UniTask.Delay(
+                TimeSpan.FromMilliseconds(durationMs),
+                cancellationToken: _token.Token
+                );
             VFXManager.Instance.DestroyEffect(_id, this);
         }
 
@@ -73,3 +71,4 @@ namespace Scripts.Core
         }
     }
 }
+

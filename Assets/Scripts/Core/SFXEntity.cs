@@ -1,6 +1,8 @@
 ﻿using Cysharp.Threading.Tasks;
 using Scripts.Core.inteface;
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
 
@@ -10,97 +12,63 @@ namespace Scripts.Core
     {
         private AudioSource _source;
         private CancellationTokenSource _token;
-
         public bool IsActive { get; set; }
 
         private void Awake()
         {
-            _source = GetComponent<AudioSource>();
-            if (_source == null)
-            {
-                CustomLogger.LogError("[SFXEntity] AudioSource component is missing.");
-            }
+            _source = gameObject.GetComponent<AudioSource>();
         }
 
         private void OnEnable()
         {
-            _token?.Dispose();
+            if (_token != null)
+            {
+                _token.Dispose();
+            }
             _token = new CancellationTokenSource();
         }
-
         private void OnDisable()
         {
-            if (_token == null) return;
-            if (!_token.IsCancellationRequested) _token.Cancel();
+            _token.Cancel();
         }
-
         private void OnDestroy()
         {
-            if (_token == null) return;
-            if (!_token.IsCancellationRequested) _token.Cancel();
+            _token.Cancel();
             _token.Dispose();
-            _token = null;
         }
 
         public void SetClip(AudioClip clip)
         {
-            if (_source == null) return;
             _source.clip = clip;
         }
-
         /// <summary>
-        /// 지정한 ms 이후(Delay) 재생
+        /// n초후(ms) 효과음 발생
         /// </summary>
-        public void PlaySFX(float delayMs)
+        /// <param name="duration"></param>
+        public void PlaySFX(float duration)
         {
-            PlayAfterDelay(delayMs).Forget();
+            AudioClip clip = _source.clip;
+            Delay(duration).Forget();
+            _source.Play();
+            AutoRelease(clip.length * 1000.0f);
         }
 
-        /// <summary>
-        /// 즉시 재생
-        /// </summary>
+        //효과음 길이만큼 발생
         public void PlaySFX()
         {
-            if (_source == null || _source.clip == null) return;
-
+            AudioClip clip = _source.clip;
             _source.Play();
-            AutoRelease(_source.clip.length * 1000.0f);
+            AutoRelease(clip.length * 1000.0f);
         }
 
-        private async UniTaskVoid PlayAfterDelay(float delayMs)
+        private async UniTaskVoid Delay(float duration)
         {
-            if (_source == null || _source.clip == null) return;
-
-            try
-            {
-                await UniTask.Delay(TimeSpan.FromMilliseconds(delayMs), cancellationToken: _token.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                return;
-            }
-
-            _source.Play();
-            AutoRelease(_source.clip.length * 1000.0f);
+            await UniTask.Delay(TimeSpan.FromMilliseconds(duration), cancellationToken: _token.Token);
         }
 
-        private void AutoRelease(float durationMs)
+        private void AutoRelease(float duration)
         {
-            AutoReleaseAsync(durationMs).Forget();
-        }
-
-        private async UniTaskVoid AutoReleaseAsync(float durationMs)
-        {
-            try
-            {
-                await UniTask.Delay(TimeSpan.FromMilliseconds(durationMs), cancellationToken: _token.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                return;
-            }
-
-            if (SFXManager.Instance == null) return;
+            Delay(duration).Forget();
             SFXManager.Instance.DestroySFX(this);
         }
 
@@ -111,8 +79,6 @@ namespace Scripts.Core
 
         public void OnRelease()
         {
-            if (_source == null) return;
-
             _source.loop = false;
             _source.clip = null;
             _source.volume = 0;
@@ -120,3 +86,4 @@ namespace Scripts.Core
         }
     }
 }
+
