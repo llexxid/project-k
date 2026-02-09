@@ -30,7 +30,7 @@ public class Sequence : Node
     }
 }
 
-// [Selector] 자식 중 하나라도 성공하면 성공 (OR) - (구 PlayerSelector)
+// [Selector] 자식 중 하나라도 성공하면 성공 (OR)
 public class Selector : Node
 {
     private List<Node> nodes = new List<Node>();
