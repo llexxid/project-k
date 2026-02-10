@@ -17,8 +17,6 @@ namespace Scripts.Core
     // - 다른 어셈블리(UI 등)에서도 참조할 가능성이 있어 public으로 둠.
     public enum AssetId : ulong
     {
-        Metor_VFX = 0,
-
         //Monster는 최상위 31bit가 모두 0이어야함.
         MONSTER_UPBITMASK   = 0xFFFFFFFE00000000,
         MONSTER_MASK        = 0x0000000100000000,
@@ -38,11 +36,7 @@ namespace Scripts.Core
 
     public enum GroupId : ulong
     {
-        Character,
-        Monster,
-        VFX,
-        SFX,
-        GameLobbyScene,
-        TitleScene,
+        Stage1 = 0,
+
     }
 }

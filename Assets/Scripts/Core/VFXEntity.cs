@@ -8,7 +8,8 @@ namespace Scripts.Core
 {
     public class VFXEntity : MonoBehaviour, IPoolable
     {
-        private ulong _id;
+        
+        private eVFXType _id;
         private Animator _am;
         private CancellationTokenSource _token;
         public bool IsActive { get; set; }
@@ -33,7 +34,7 @@ namespace Scripts.Core
             _token.Dispose();
         }
 
-        public void SetId(ulong id)
+        public void SetId(eVFXType id)
         {
             _id = id;
         }
