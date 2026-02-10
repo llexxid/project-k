@@ -7,6 +7,7 @@ public class PlayerAttack : MonoBehaviour
     public float attackRate = 0.5f;
     private float _nextAttackTime = 0f;
     public Animator animator;
+    public SkillManager skillManager;
 
     // 광역 공격 설정을 위한 변수
     public float attackRadius = 3f;
@@ -30,6 +31,7 @@ public class PlayerAttack : MonoBehaviour
             // Attack 메서드 내 루프
             if (_hitResults[i].TryGetComponent<Enemy>(out Enemy enemy))
             {
+                skillManager.ActivateSkill("Strong Slash", transform.position);
                 enemy.TakeDamage(10); // 적의 hp를 직접 깎는 대신 메서드 호출
             }
         }
