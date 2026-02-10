@@ -33,10 +33,12 @@ namespace Scripts.Core
         
         HIT_VFX = 1 | VFX_Pooling_MASK,
     }
-
+     
     public enum GroupId : ulong
     {
         Stage1 = 0,
 
     }
+
+
 }
