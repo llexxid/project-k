@@ -226,8 +226,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 40cd61d57b5435c408f9dd1dba7f9391, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  pool: {fileID: 0}
+  pool: {fileID: 522338828}
   skillDatabase: {fileID: 11400000, guid: 2976353b4f7896a44a79f49de8ae9b62, type: 2}
+  anim: {fileID: 0}
 --- !u!4 &522338827
 Transform:
   m_ObjectHideFlags: 0
@@ -488,6 +489,7 @@ MonoBehaviour:
   _detection: {fileID: 544533601}
   attackRate: 0.5
   animator: {fileID: 544533604}
+  skillManager: {fileID: 0}
   attackRadius: 3
   enemyLayer:
     serializedVersion: 2
