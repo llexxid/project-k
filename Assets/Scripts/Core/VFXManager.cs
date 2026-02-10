@@ -1,9 +1,12 @@
-﻿using System;
+﻿using Cysharp.Threading.Tasks.Triggers;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using static UnityEngine.Networking.UnityWebRequest;
+using static UnityEngine.Rendering.VirtualTexturing.Debugging;
 
 namespace Scripts.Core
 {
@@ -13,11 +16,11 @@ namespace Scripts.Core
 
         Transform _vfxParents;
 
-        private Dictionary<ulong, VFXEntity> _effectCache;
-        private Dictionary<ulong, ObjectPool<VFXEntity>> _VFXPools;
+        private Dictionary<eVFXType, VFXEntity> _effectCache;
+        private Dictionary<eVFXType, ObjectPool<VFXEntity>> _VFXPools;
 
         private Dictionary<ulong, AsyncOperationHandle<IList<GameObject>>> _BatchHandles;
-        private Dictionary<ulong, AsyncOperationHandle<GameObject>> _Handles;
+        private Dictionary<eVFXType, AsyncOperationHandle<GameObject>> _Handles;
 
         private void Awake()
         {
@@ -31,36 +34,45 @@ namespace Scripts.Core
             Destroy(this);
             return;
         }
-
         private void Init()
         {
-            _effectCache = new Dictionary<ulong, VFXEntity>();
-            _VFXPools = new Dictionary<ulong, ObjectPool<VFXEntity>>();
+            _effectCache = new Dictionary<eVFXType, VFXEntity>();
+            _VFXPools = new Dictionary<eVFXType, ObjectPool<VFXEntity>>();
             _BatchHandles = new Dictionary<ulong, AsyncOperationHandle<IList<GameObject>>>();
-            _Handles = new Dictionary<ulong, AsyncOperationHandle<GameObject>>();
+            _Handles = new Dictionary<eVFXType, AsyncOperationHandle<GameObject>>();
         }
-
-
         /// <summary>
-        /// 씬에 진압할 때, VFXManager에서 부르는 함수입니다.
+        /// 씬에 진압할 때, VFXManager 리소스 정리함수입니다.
         /// </summary>
-        public void OnEnterScene(GroupId groupId, ulong[] idList)
+        public void OnEnterScene()
         {
-            //Parent가 될 GameObject를 만들어야함.
-            //어차피 씬 전환시, 기존에 VfxParent는 삭제될거임.
             GameObject obj = new GameObject("VFX_Root");
             _vfxParents = obj.transform;
-
             Clear();
-            //ResoucreLoad
-            WarmingUpResourcesAsync(groupId, idList);
         }
 
+        /// <summary>
+        /// VFX cache를 데우는 비동기 함수입니다. 로딩에서 통제합니다. 
+        /// </summary>
+        public AsyncOperationHandle<IList<GameObject>> PreLoadVFX(GroupId groupId, eVFXType[] IdList)
+        {
+            AsyncOperationHandle<IList<GameObject>> handle;
+            bool IsLoading = _BatchHandles.TryGetValue((ulong)groupId, out handle);
+            if (IsLoading)
+            {
+                CustomLogger.LogWarning("You requested to load VFX while the system was already in a loading state.");
+                return handle;
+            }
+            //요청한 뒤, Handle반환
+            RequestAsyncLoadAssets(groupId, IdList);
+            _BatchHandles.TryGetValue((ulong)groupId, out handle);
+            return handle;
+        }
         /// <summary>
         /// 지정된 리소스ID로 효과를 연출하는 함수입니다. 
         /// 로딩시, Play하는 함수를 Callback으로 주면 됩니다.
         /// </summary>
-        public void GetVFX(ulong id, Vector3 pos, Quaternion rotation, Action<VFXEntity> OnLoaded)
+        public void GetVFX(eVFXType id, Vector3 pos, Quaternion rotation, Action<VFXEntity> OnLoaded)
         {
             VFXEntity ret;
             bool IsCached;
@@ -73,12 +85,12 @@ namespace Scripts.Core
                 OnLoaded.Invoke(ret);
                 return;
             }
-            // Load하는걸 허용해준다 => 
+            // Load하는걸 허용해준다!
             // Load하는 그 딜레이를 허용해줌. 혹은, Load되었을 때, 실행할 Callback을 던져줘야함. 
-            LoadNotCached_ResourceAysnc(id, pos, rotation, OnLoaded);
+            RequestAsyncLoadAsset(id, pos, rotation, OnLoaded);
             return;
         }
-        public void DestroyEffect(ulong id, VFXEntity vfx)
+        public void DestroyEffect(eVFXType id, VFXEntity vfx)
         {
             if (CheckPoolingEffect(id))
             {
@@ -102,7 +114,7 @@ namespace Scripts.Core
                 Addressables.Release(handle);
             }
         }
-        public void unloadSingleVFX(ulong id)
+        public void unloadSingleVFX(eVFXType id)
         {
             bool flag;
             flag = _Handles.TryGetValue(id, out var handle);
@@ -110,30 +122,20 @@ namespace Scripts.Core
             {
                 Addressables.Release(handle);
             }
-        }
-        /// <summary>
-        /// VFX cache를 WarmingUp하는 함수입니다. 
-        /// </summary>
-        public async void WarmingUpResourcesAsync(GroupId groupId, ulong[] IdList)
+        }       
+        
+        private async void RequestAsyncLoadAssets(GroupId groupId, eVFXType[] IdList)
         {
-            bool IsLoading = _BatchHandles.TryGetValue((ulong)groupId, out var handle);
             IList<GameObject> result;
-            if (IsLoading)
-            {
-                CustomLogger.LogWarning("You requested to load VFX while the system was already in a loading state.");
-                result = await handle.Task;
-            }
-            else
-            {
-                handle = Addressables.LoadAssetsAsync<GameObject>(groupId.ToString(), (loaded) => { });
-                _BatchHandles.Add((ulong)groupId, handle);
-                result = await handle.Task;
-            }
+            var handle = Addressables.LoadAssetsAsync<GameObject>(groupId.ToString(), (loaded) => { });
+            _BatchHandles.Add((ulong)groupId, handle);
 
+            result = await handle.Task;
             if (result.Count != IdList.Length)
             {
                 CustomLogger.LogError("The number of resources requested to load is not the same as the number of id arrays. check IdList[]");
             }
+
             VFXEntity resource;
             for (int i = 0; i < result.Count; i++)
             {
@@ -141,8 +143,7 @@ namespace Scripts.Core
                 OnLoadAsset(IdList[i], resource);
             }
         }
-
-        private bool TryLoadFromCache(ulong id, Vector3 pos, Quaternion rotation, out VFXEntity ret)
+        private bool TryLoadFromCache(eVFXType id, Vector3 pos, Quaternion rotation, out VFXEntity ret)
         {
             VFXEntity vfx;
             bool IsPrefabLoaded = _effectCache.TryGetValue(id, out vfx);
@@ -154,7 +155,7 @@ namespace Scripts.Core
             InstantiateEffect(id, vfx, pos, rotation, out ret);
             return true;
         }
-        private async void LoadNotCached_ResourceAysnc(ulong id, Vector3 pos, Quaternion rotation, Action<VFXEntity> OnLoaded)
+        private async void RequestAsyncLoadAsset(eVFXType id, Vector3 pos, Quaternion rotation, Action<VFXEntity> OnLoaded)
         {
             GameObject loadedObj;
             AsyncOperationHandle<GameObject> handle;
@@ -173,7 +174,7 @@ namespace Scripts.Core
                 _Handles.Add(id, handle);
                 loadedObj = await handle.Task; // nonBlocking, 아래를 실행하지 않고 흐름을 넘김.
             }
-            // 다 로딩이 됬다는 가정하에,
+            //Callback으로 등록
             resourceVfx = loadedObj.GetComponent<VFXEntity>();
             OnLoadAsset(id, resourceVfx);
             InstantiateEffect(id, resourceVfx, pos, rotation, out VFXEntity instance);
@@ -181,7 +182,7 @@ namespace Scripts.Core
             instance.SetId(id);
             return;
         }
-        private bool CheckPoolingEffect(ulong id)
+        private bool CheckPoolingEffect(eVFXType id)
         {
             return true;
             /*
@@ -192,7 +193,7 @@ namespace Scripts.Core
             }
             return false;*/
         }
-        private void OnLoadAsset(ulong id, VFXEntity obj)
+        private void OnLoadAsset(eVFXType id, VFXEntity obj)
         {
             _effectCache.Add(id, obj);
             //만약 pooling effect면, pooling해주기.
@@ -218,7 +219,7 @@ namespace Scripts.Core
             _BatchHandles.Clear();
             _Handles.Clear();
         }
-        private void InstantiateEffect(ulong id, VFXEntity resource, Vector3 pos, Quaternion rotation, out VFXEntity vfx)
+        private void InstantiateEffect(eVFXType id, VFXEntity resource, Vector3 pos, Quaternion rotation, out VFXEntity vfx)
         {
             if (CheckPoolingEffect(id) == false)
             {
