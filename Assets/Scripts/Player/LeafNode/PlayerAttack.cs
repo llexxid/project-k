@@ -38,7 +38,7 @@ public class PlayerAttack : MonoBehaviour
                 // VFX 효과 재생
                 //vfxManager.GetVFX(1, enemy.transform.position, transform.rotation, Attack());
 
-                enemy.TakeDamage(10); // 적의 hp를 직접 깎는 대신 메서드 호출
+                enemy.TakeDamage(30); // 적의 hp를 직접 깎는 대신 메서드 호출
             }
         }
 
