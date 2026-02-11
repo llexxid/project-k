@@ -1,6 +1,4 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+ï»¿using UnityEngine;
 using Scripts.Core.inteface;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -10,7 +8,8 @@ namespace Scripts.Core
 {
     public class VFXEntity : MonoBehaviour, IPoolable
     {
-        private ulong _id;
+        
+        private eVFXType _id;
         private Animator _am;
         private CancellationTokenSource _token;
         public bool IsActive { get; set; }
@@ -35,13 +34,13 @@ namespace Scripts.Core
             _token.Dispose();
         }
 
-        public void SetId(ulong id)
+        public void SetId(eVFXType id)
         {
             _id = id;
         }
 
         ///<summary>
-        /// ´ÜÀ§´Â ¹Ð¸®ÃÊÀÔ´Ï´Ù.
+        /// ë‹¨ìœ„ëŠ” ë°€ë¦¬ì´ˆìž…ë‹ˆë‹¤.
         /// </summary>
         /// <param name="durationMs"></param>
         public void ActiveEffect(float durationMs)
@@ -56,12 +55,12 @@ namespace Scripts.Core
         private async UniTaskVoid UseEffect(float durationMs)
         {
             await UniTask.Delay(
-                TimeSpan.FromMilliseconds(durationMs), 
+                TimeSpan.FromMilliseconds(durationMs),
                 cancellationToken: _token.Token
                 );
             VFXManager.Instance.DestroyEffect(_id, this);
         }
-        
+
         public void OnAlloc()
         {
             return;

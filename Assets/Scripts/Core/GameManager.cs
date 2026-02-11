@@ -1,11 +1,9 @@
-using Cysharp.Threading.Tasks;
+Ôªøusing Cysharp.Threading.Tasks;
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
+using UnityEngine.Serialization;
 
 namespace Scripts.Core
 {
@@ -13,21 +11,43 @@ namespace Scripts.Core
     {
         public static GameManager Instance;
 
-        public GameObject _loadPannelPrefab;
+        [Header("Scene Name Mapping")]
+        [SerializeField] private string bootstrapSceneName = "bootstrap";
+        [SerializeField] private string titleSceneName = "title";
+        [SerializeField] private string mainSceneName = "main";
+        [SerializeField] private string dungeonSceneName = "dungeon";
+
+        [Header("Async Loading")]
+        [SerializeField] private float minLoadingSeconds = 0f;
+
+        public event Action<eSceneType> SceneLoadStarted;
+        public event Action<eSceneType> SceneLoadFinished;
+        public event Action<eSceneType, float> SceneLoadProgress;
 
         private CancellationTokenSource _token;
-        private AsyncOperation asyncOp;
+        private AsyncOperation _asyncOp;
+
         private void Awake()
         {
             if (Instance == null)
             {
                 Instance = this;
-                Instance.Init();
-                DontDestroyOnLoad(this);
+                Init();
+                DontDestroyOnLoad(gameObject);
                 return;
             }
-            Destroy(this);
-            return;
+
+            Destroy(gameObject);
+        }
+
+        private void OnDestroy()
+        {
+            if (_token != null)
+            {
+                _token.Cancel();
+                _token.Dispose();
+                _token = null;
+            }
         }
 
         private void Init()
@@ -35,22 +55,43 @@ namespace Scripts.Core
             _token = new CancellationTokenSource();
         }
 
-        //Scene¿ª ≥—±‚¥¬ ±‚¥…
+        private string GetSceneName(eSceneType type)
+        {
+            switch (type)
+            {
+                case eSceneType.bootstrap: return bootstrapSceneName;
+                case eSceneType.title: return titleSceneName;
+                case eSceneType.main: return mainSceneName;
+                case eSceneType.dungeon: return dungeonSceneName;
+                default:
+                    return type.ToString();
+            }
+        }
 
-        //∫Òµø±‚ Loading±‚¥…
+        // ÎèôÍ∏∞ Î°úÎìú
         public void LoadScene(eSceneType type)
         {
             Time.timeScale = 1f;
 
-            SceneManager.LoadScene(type.ToString());
-            //SoundManager.instance.ChangeBGM(type.ToString());
+            SceneLoadStarted?.Invoke(type);
+
+            string sceneName = GetSceneName(type);
+            SceneManager.LoadScene(sceneName);
+
+            // ÎèôÍ∏∞ Î°úÎìúÎäî Ïó¨Í∏∞ ÏãúÏ†êÏóê Ïù¥ÎØ∏ Î°úÎìú ÏôÑÎ£åÎ°ú Í∞ÑÏ£º
+            SceneLoadProgress?.Invoke(type, 1f);
+            SceneLoadFinished?.Invoke(type);
         }
-        public void ReloadCurrentScene(eSceneType type)
+
+        public void ReloadCurrentScene()
         {
             Time.timeScale = 1f;
 
-            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            var current = SceneManager.GetActiveScene().name;
+            SceneManager.LoadScene(current);
         }
+
+        // ÎπÑÎèôÍ∏∞ Î°úÎìú
         public void LoadAsyncScene(eSceneType type)
         {
             Time.timeScale = 1f;
@@ -59,42 +100,45 @@ namespace Scripts.Core
 
         private async UniTaskVoid LoadingScene(eSceneType type)
         {
-            asyncOp = SceneManager.LoadSceneAsync(type.ToString());
-            asyncOp.allowSceneActivation = false;
+            if (_token == null) _token = new CancellationTokenSource();
 
-            //Loading√¢¿Ã ¿÷¥Ÿ∏È, ø©±‚º≠ √‚∑¬
-            /*
-            GameObject canvas = Instantiate(_loadPannelPrefab, pos, Quaternion.identity);
-            Image scrollbar = canvas.GetComponentInChildren<Image>();
-            canvas.SetActive(true);
-             */
+            SceneLoadStarted?.Invoke(type);
+            SceneLoadProgress?.Invoke(type, 0f);
 
-            float timer = 0f;
-            while (!asyncOp.isDone)
+            string sceneName = GetSceneName(type);
+
+            float startRealtime = Time.realtimeSinceStartup;
+
+            _asyncOp = SceneManager.LoadSceneAsync(sceneName);
+            _asyncOp.allowSceneActivation = false;
+
+            // 0.0 ~ 0.9 Íµ¨Í∞Ñ (Ïú†ÎãàÌã∞ Î°úÎî©)
+            while (_asyncOp != null && _asyncOp.progress < 0.9f)
             {
-                if (asyncOp.progress < 0.9f)
-                {
-                    //Ω∫≈©∑—πŸ øÚ¡˜¿Ã±‚ scrollbar.fillAmount = asyncOp.progress;
-                }
-                else
-                {
-                    timer += Time.unscaledDeltaTime;
-                    // scrollbar.fillAmount = Mathf.Lerp(0.9f, 1f, timer);
-                    /* Ω∫≈©∑—πŸ∞° 1 ¿ÃªÛ¿Œ ∞ÊøÏ
-                    if (scrollbar.fillAmount >= 1f)
-                    {
-                        asyncOp.allowSceneActivation = true;
-                        Destroy(canvas);
-                        //SoundManager.instance.ChangeBGM(scene.ToString());
-                        OnEnterScene.Invoke();
-                        return;
-                    }
-                    */
-
-                }
+                float p = Mathf.Clamp01(_asyncOp.progress / 0.9f) * 0.9f; // 0~0.9
+                SceneLoadProgress?.Invoke(type, p);
                 await UniTask.Yield(_token.Token);
             }
+
+            // ÏµúÏÜå Î°úÎî© ÏãúÍ∞Ñ ÌôïÎ≥¥(Ïó∞Ï∂úÏö©)
+            while (Time.realtimeSinceStartup - startRealtime < Mathf.Max(0f, minLoadingSeconds))
+            {
+                SceneLoadProgress?.Invoke(type, 0.9f);
+                await UniTask.Yield(_token.Token);
+            }
+
+            // Ïî¨ ÌôúÏÑ±Ìôî
+            if (_asyncOp != null)
+                _asyncOp.allowSceneActivation = true;
+
+            // ÌôúÏÑ±Ìôî ÏôÑÎ£å ÎåÄÍ∏∞
+            while (_asyncOp != null && !_asyncOp.isDone)
+            {
+                await UniTask.Yield(_token.Token);
+            }
+
+            SceneLoadProgress?.Invoke(type, 1f);
+            SceneLoadFinished?.Invoke(type);
         }
     }
 }
-

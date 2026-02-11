@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
+using Scripts.Core;
 
 namespace KingdomIdle.UI
 {
@@ -8,7 +9,8 @@ namespace KingdomIdle.UI
         [Header("Press Anywhere Button (full-screen)")]
         [SerializeField] private Button pressAnywhereButton;
 
-        [SerializeField] private UIScreenId nextScreen = UIScreenId.Main;
+        [Header("Next Scene")]
+        [SerializeField] private eSceneType nextScene = eSceneType.main;
 
         protected override void Awake()
         {
@@ -32,13 +34,13 @@ namespace KingdomIdle.UI
 
         private void OnPressAnywhere()
         {
-            if (UIManager.Instance == null)
+            if (GameManager.Instance == null)
             {
-                Debug.LogError("[UIScreenTitle] UIManager.Instance is null.");
+                Debug.LogError("[UIScreenTitle] GameManager.Instance is null.");
                 return;
             }
 
-            UIManager.Instance.ReplaceScreen(nextScreen);
+            GameManager.Instance.LoadAsyncScene(nextScene);
         }
     }
 }

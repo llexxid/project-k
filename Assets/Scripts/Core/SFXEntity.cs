@@ -1,4 +1,4 @@
-using Cysharp.Threading.Tasks;
+ï»¿using Cysharp.Threading.Tasks;
 using Scripts.Core.inteface;
 using System;
 using System.Collections;
@@ -42,7 +42,7 @@ namespace Scripts.Core
             _source.clip = clip;
         }
         /// <summary>
-        /// nÃÊÈÄ(ms) È¿°úÀ½ ¹ß»ı
+        /// nì´ˆí›„(ms) íš¨ê³¼ìŒ ë°œìƒ
         /// </summary>
         /// <param name="duration"></param>
         public void PlaySFX(float duration)
@@ -53,7 +53,7 @@ namespace Scripts.Core
             AutoRelease(clip.length * 1000.0f);
         }
 
-        //È¿°úÀ½ ±æÀÌ¸¸Å­ ¹ß»ı
+        //íš¨ê³¼ìŒ ê¸¸ì´ë§Œí¼ ë°œìƒ
         public void PlaySFX()
         {
             AudioClip clip = _source.clip;
@@ -63,7 +63,7 @@ namespace Scripts.Core
 
         private async UniTaskVoid Delay(float duration)
         {
-            await UniTask.Delay(TimeSpan.FromMilliseconds(duration), cancellationToken:_token.Token);
+            await UniTask.Delay(TimeSpan.FromMilliseconds(duration), cancellationToken: _token.Token);
         }
 
         private void AutoRelease(float duration)

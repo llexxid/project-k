@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -12,7 +12,7 @@ namespace Scripts.Core
         public static SFXManager Instance;
         //AudioSource Pooling
         private ObjectPool<SFXEntity> _AudioSourcePool;
-        
+
         [SerializeField]
         Transform _sfxParents;
         [SerializeField]
@@ -46,7 +46,7 @@ namespace Scripts.Core
         }
         public void OnEnterScene(ulong groupId, ulong[] clipsId)
         {
-            //Clipµé ·Îµù
+            //Clipë“¤ ë¡œë”©
             Clear();
             LoadClipsAsync(groupId, clipsId);
         }
@@ -64,8 +64,8 @@ namespace Scripts.Core
                 return;
 
             }
-            //LoadÇØ¾ßÇÔ.
-            LoadClipAsync(Id, pos,rotation, OnLoaded);
+            //Loadí•´ì•¼í•¨.
+            LoadClipAsync(Id, pos, rotation, OnLoaded);
             return;
         }
         public void DestroySFX(SFXEntity sfx)
@@ -109,17 +109,17 @@ namespace Scripts.Core
         }
         private async void LoadClipsAsync(ulong groupId, ulong[] clipsId)
         {
-            //¸¸¾à ¿©·¯¹ø ¿äÃ»ÇÑ´Ù¸é..
+            //ë§Œì•½ ì—¬ëŸ¬ë²ˆ ìš”ì²­í•œë‹¤ë©´..
             bool IsLoaded = _BatchHandles.TryGetValue(groupId, out var handle);
             IList<AudioClip> clips;
 
             if (IsLoaded)
             {
-                //ÀÌ·²ÀÏÀº ¾ø°ÚÁö¸¸..ÀÖ¾î¼­µµ ¾ÈµÇ°ÚÁö¸¸..
+                //ì´ëŸ´ì¼ì€ ì—†ê² ì§€ë§Œ..ìˆì–´ì„œë„ ì•ˆë˜ê² ì§€ë§Œ..
                 CustomLogger.LogWarning("You requested to load SFX while the system was already in a loading state.");
                 clips = await handle.Task;
             }
-            else 
+            else
             {
                 handle = Addressables.LoadAssetsAsync<AudioClip>(groupId.ToString(), (loaded) => { });
                 _BatchHandles.Add(groupId, handle);

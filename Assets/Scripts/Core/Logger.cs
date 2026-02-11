@@ -1,11 +1,7 @@
-using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics;
-using UnityEngine;
-
-//1.Ãß°¡ÀûÀÎ Á¤º¸Ç¥Çö
-//2. ·Î±× ·¹º§¿¡ µû¶ó¼­, ·Î±× °ü¸®.
-//   ÀÏÀÏÈ÷ ´Ù ÁÖ¼®Ã³¸® , ÀüÃ³¸® Ã³¸®´Â Èûµê.
+ï»¿using System.Diagnostics;
+//1.ì¶”ê°€ì ì¸ ì •ë³´í‘œí˜„
+//2. ë¡œê·¸ ë ˆë²¨ì— ë”°ë¼ì„œ, ë¡œê·¸ ê´€ë¦¬.
+//   ì¼ì¼íˆ ë‹¤ ì£¼ì„ì²˜ë¦¬ , ì „ì²˜ë¦¬ ì²˜ë¦¬ëŠ” í˜ë“¦.
 
 namespace Scripts.Core
 {
@@ -26,7 +22,7 @@ namespace Scripts.Core
         public static void LogError(string msg)
         {
             UnityEngine.Debug.LogFormat("[{0}] message : {1}", System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"), msg);
-            //¿¡·¯´Â ±× ÀÚ¸®¿¡¼­ Break¸¦ ÇØ¼­, ÀâÀ» ¼ö ÀÖµµ·Ï À¯µµ.
+            //ì—ëŸ¬ëŠ” ê·¸ ìë¦¬ì—ì„œ Breakë¥¼ í•´ì„œ, ì¡ì„ ìˆ˜ ìˆë„ë¡ ìœ ë„.
             UnityEngine.Debug.Break();
         }
     }
