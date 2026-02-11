@@ -63,7 +63,7 @@ public class PlayerDetection : MonoBehaviour
 
 3. 이어서 MoveNode가 실행됩니다.
 
-4. 적이 멀리 있다면 PlayerMove는 이동하며 Running을 반환합니다. (트리는 다음 프레임에 다시 MoveNode를 실행) [6]
+4. 적이 멀리 있다면 PlayerMove는 이동하며 Running을 반환합니다. (트리는 다음 프레임에 다시 MoveNode를 실행
 
 5. 적에게 가까워지면 Success를 반환하여, 다음 순서인 공격(Attack) 단계로 넘어갑니다.
 */
