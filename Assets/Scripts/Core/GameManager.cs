@@ -29,6 +29,8 @@ namespace Scripts.Core
 
         [SerializeField]
         MonsterMetaSO _monsterMetaDataSO;
+        [SerializeField]
+        SoundMetaSO _soundMetaSO;
 
         public event Action<eSceneType> SceneLoadStarted;
         public event Action<eSceneType> SceneLoadFinished;

@@ -5,21 +5,23 @@ namespace Scripts.Core
 {
     public static class ConstPath
     {
-        public static readonly string VFX_EXCEL_PATH = @"Scripts\Core\Parser\vfx.xlsx\";
-        //static readonly string sfxPath = @"Scripts\\Core\\Parser\\sfx.xlsx\";
+        public static readonly string VFX_EXCEL_PATH = @"Scripts\Core\Parser\vfx.xlsx";
+        public static readonly string SFX_EXCEL_PATH = @"Scripts\Core\Parser\sfx.xlsx";
         public static readonly string MONSTER_EXCEL_PATH = @"Scripts\Core\Parser\Monster.xlsx";
         public static readonly string STAGE_EXCEL_PATH = @"Scripts\Core\Parser\Stage.xlsx";
 
         //PrefebPath
         public static readonly string VFX_PREFEB_PATH = $"Assets/Scripts/Core/TestResource/VFX";
         public static readonly string MONSTER_PREFEB_PATH = $"Assets/Scripts/Core/TestResource/Monster";
+        public static readonly string SFX_AUDIOCLIP_PATH = $"Assets/Scripts/Core/TestResource/SFX";
 
-
+        //SFX AudioClip Path
         public static readonly string STAGE_ENUM_PATH = @"Scripts\Core\StageEnum.cs";
         public static readonly string GENERATE_ENUM_PATH = @"Scripts\Core\GenerateEnum.cs";
         public static readonly string GENERATE_ENUMHELPER_PATH = @"Scripts\Core\EnumHelper.cs";
         public static readonly string GENERATE_STAGEMETA_PATH = @"Scripts\Core\SO\StageMetaDataSO.cs";
         public static readonly string GENERATE_MONSTERMETA_PATH = @"Scripts\Core\SO\MonsterMetaDataSO.cs";
+        public static readonly string GENERATE_SFX_PATH = @"Scripts\Core\SO\SoundMetaDataSO.cs";
     }
     public enum eSceneType
     {

@@ -115,6 +115,11 @@ namespace Scripts.Core
             OnLoaded?.Invoke(sfx);
             return;
         }
+        /// <summary>
+        /// Stage에 필요한 SFX들 로드하는 함수
+        /// </summary>
+        /// <param name="groupId"></param>
+        /// <param name="clipsId"></param>
         public async void LoadClipsAsync(eStage groupId, ulong[] clipsId)
         {
             //만약 여러번 요청한다면..
@@ -144,7 +149,40 @@ namespace Scripts.Core
                 ++i;
             }
         }
+        /// <summary>
+        /// Scene에 필요한 SFX들 로드하는 함수
+        /// </summary>
+        /// <param name="groupId"></param>
+        /// <param name="clipsId"></param>
+        public async void LoadClipsAsync(eSceneType groupId, ulong[] clipsId)
+        {
+            // 만약 여러번 요청한다면..
+            bool IsLoaded = _BatchHandles.TryGetValue((ulong)groupId, out var handle);
+            IList<AudioClip> clips;
+            if (IsLoaded)
+            {
+                //이럴일은 없겠지만..있어서도 안되겠지만..
+                CustomLogger.LogWarning("You requested to load SFX while the system was already in a loading state.");
+                clips = await handle.Task;
+            }
+            else
+            {
+                handle = Addressables.LoadAssetsAsync<AudioClip>(groupId.ToString(), (loaded) => { });
+                _BatchHandles.Add((ulong)groupId, handle);
+                clips = await handle.Task;
+            }
 
+            if (clips.Count != clipsId.Length)
+            {
+                CustomLogger.LogError("The number of resources requested SFX to load is not the same as the number of id arrays.");
+            }
+            int i = 0;
+            foreach (AudioClip clip in clips)
+            {
+                _AudioCache.Add(clipsId[i], clip);
+                ++i;
+            }
+        }
     }
 }
 
