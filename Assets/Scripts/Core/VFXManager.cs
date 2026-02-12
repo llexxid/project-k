@@ -77,10 +77,8 @@ namespace Scripts.Core
             VFXEntity ret;
             bool IsCached;
             IsCached = TryLoadFromCache(id, pos, rotation, out ret);
-
             if (IsCached)
             {
-                
                 ret.SetId(id);
                 ret.gameObject.SetActive(true);
                 OnLoaded.Invoke(ret);
@@ -132,7 +130,7 @@ namespace Scripts.Core
             bool IsRequested = _BatchHandles.TryGetValue((ulong)groupId, out handle);
             if (IsRequested)
             {
-                result = await handle.Task;
+                return;
             }
             else 
             {
@@ -180,6 +178,7 @@ namespace Scripts.Core
             //처음 Load하는 경우
             else
             {
+                CustomLogger.Log("You Request to load Asset!");
                 handle = Addressables.LoadAssetAsync<GameObject>(id.ToString());
                 _Handles.Add(id, handle);
                 loadedObj = await handle.Task; // nonBlocking, 아래를 실행하지 않고 흐름을 넘김.
@@ -188,8 +187,8 @@ namespace Scripts.Core
             resourceVfx = loadedObj.GetComponent<VFXEntity>();
             OnLoadAsset(id, resourceVfx);
             InstantiateEffect(id, resourceVfx, pos, rotation, out VFXEntity instance);
-            OnLoaded?.Invoke(instance);
             instance.SetId(id);
+            OnLoaded?.Invoke(instance);
             return;
         }
         private bool CheckPoolingEffect(eVFXType id)
@@ -230,6 +229,7 @@ namespace Scripts.Core
         {
             if (CheckPoolingEffect(id) == false)
             {
+                CustomLogger.LogWarning("Instantiate VFX");
                 vfx = GameObject.Instantiate<VFXEntity>(resource, pos, rotation);
             }
             else

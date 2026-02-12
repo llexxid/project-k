@@ -45,9 +45,9 @@ namespace Scripts.Core
         {
             T ret = null;
 
-            bool IsEmpty;
-            IsEmpty = _stack.TryPop(out ret);
-            if (!IsEmpty)
+            bool IsPop;
+            IsPop = _stack.TryPop(out ret);
+            if (!IsPop)
             {
                 ret = GameObject.Instantiate(_prefab, position, rotate);
                 ret.OnAlloc();

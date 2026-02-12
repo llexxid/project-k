@@ -105,7 +105,7 @@ namespace Scripts.Core
             bool IsRequested;
             if (IsRequested = _Handles.TryGetValue((int)groupId, out handle))
             {
-                result = await handle.Task;
+                return;
             }
             else
             {

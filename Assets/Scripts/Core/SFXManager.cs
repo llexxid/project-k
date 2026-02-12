@@ -100,7 +100,7 @@ namespace Scripts.Core
             if (IsLoaded)
             {
                 CustomLogger.LogWarning("You requested to load SFX while the system was already in a loading state.");
-                clip = await handle.Task;
+                return;
             }
             else
             {
@@ -163,7 +163,7 @@ namespace Scripts.Core
             {
                 //이럴일은 없겠지만..있어서도 안되겠지만..
                 CustomLogger.LogWarning("You requested to load SFX while the system was already in a loading state.");
-                clips = await handle.Task;
+                return;
             }
             else
             {

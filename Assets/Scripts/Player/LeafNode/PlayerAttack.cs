@@ -35,20 +35,17 @@ public class PlayerAttack : MonoBehaviour
         filter.useTriggers = true;
         int hitCount = Physics2D.OverlapCircle(transform.position, attackRadius, filter, _hitResults);
 
-        Debug.Log(filter);
-        Debug.Log(_hitResults.Count);
-        Debug.Log(hitCount);
 
         for (int i = 0; i < hitCount; i++)
         {
             // Attack 메서드 내 루프
             if (_hitResults[i].TryGetComponent<Enemy>(out Enemy enemy))
             {
-                Debug.Log("Enemy Hit: " + enemy.name);
-                skillManager.ActivateSkill("Strong Slash", transform.position);
+                //Debug.Log("Enemy Hit: " + enemy.name);
+                //skillManager.ActivateSkill("Wind_Lance", transform.position);
 
                 // VFX 효과 재생
-                vfxManager.GetVFX(eVFXType.Wind_Lance, enemy.transform.position, transform.rotation, (vfx) => { vfx.ActiveEffect(1); });
+                vfxManager.GetVFX(eVFXType.Wind_Lance, enemy.transform.position, transform.rotation, (vfx) => { vfx.ActiveEffect(250); });
 
                 enemy.TakeDamage(30); // 적의 hp를 직접 깎는 대신 메서드 호출
             }
