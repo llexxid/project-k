@@ -1,9 +1,26 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 namespace Scripts.Core
 {
-    // 씬 이름과 1:1로 맞추기 위해 enum 멤버를 씬 이름(소문자)과 동일하게 통일
-    // 숫자값은 기존과 동일하게 유지(0~3)해서 Unity 직렬화(Inspector 저장값) 깨짐 최소화
+    public static class ConstPath
+    {
+        public static readonly string VFX_EXCEL_PATH = @"Scripts\Core\Parser\vfx.xlsx\";
+        //static readonly string sfxPath = @"Scripts\\Core\\Parser\\sfx.xlsx\";
+        public static readonly string MONSTER_EXCEL_PATH = @"Scripts\Core\Parser\Monster.xlsx";
+        public static readonly string STAGE_EXCEL_PATH = @"Scripts\Core\Parser\Stage.xlsx";
+
+        //PrefebPath
+        public static readonly string VFX_PREFEB_PATH = $"Assets/Scripts/Core/TestResource/VFX";
+        public static readonly string MONSTER_PREFEB_PATH = $"Assets/Scripts/Core/TestResource/Monster";
+
+
+        public static readonly string STAGE_ENUM_PATH = @"Scripts\Core\StageEnum.cs";
+        public static readonly string GENERATE_ENUM_PATH = @"Scripts\Core\GenerateEnum.cs";
+        public static readonly string GENERATE_ENUMHELPER_PATH = @"Scripts\Core\EnumHelper.cs";
+        public static readonly string GENERATE_STAGEMETA_PATH = @"Scripts\Core\SO\StageMetaDataSO.cs";
+        public static readonly string GENERATE_MONSTERMETA_PATH = @"Scripts\Core\SO\MonsterMetaDataSO.cs";
+    }
     public enum eSceneType
     {
         bootstrap = 0,
@@ -12,10 +29,20 @@ namespace Scripts.Core
         dungeon = 3,
     }
 
-    // NOTE:
-    // - VFX/SFX Addressables key를 ulong 기반으로 관리할 때 사용.
-    // - 다른 어셈블리(UI 등)에서도 참조할 가능성이 있어 public으로 둠.
-    public enum AssetId : ulong
+    public enum DEFAULT_VALUE
+    { 
+        PoolingSize = 32,
+    }
+
+    public enum CONSTANT_VALUE
+    { 
+        WAVE_END = 10,
+
+        StageMask = 0x7FFF0000,
+        WaveMask = 0x0000FFFF,
+    }
+
+    public enum AssetIdMask : ulong
     {
         //Monster는 최상위 31bit가 모두 0이어야함.
         MONSTER_UPBITMASK   = 0xFFFFFFFE00000000,
@@ -30,8 +57,6 @@ namespace Scripts.Core
         //VFX_NotPooling MASK로 Masking했을 때, PoolingMask가 나오면 Pooling. 아니면 NotPoolingMask.
         VFX_Pooling_MASK =   0x0000000080000000,
         VFX_NotPooling_MASK =   0x00000000C0000000,
-        
-        HIT_VFX = 1 | VFX_Pooling_MASK,
     }
      
     public enum GroupId : ulong

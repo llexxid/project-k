@@ -44,11 +44,19 @@ namespace Scripts.Core
             _AudioSourcePool = new ObjectPool<SFXEntity>();
             _AudioSourcePool.Init(24, _sfxParents, _sfxPrefab);
         }
-        public void OnEnterScene(ulong groupId, ulong[] clipsId)
+        public AsyncOperationHandle<IList<AudioClip>> PreLoadSFX(eStage groupId, ulong[] clipsId)
         {
             //Clip들 로딩
-            Clear();
+            AsyncOperationHandle<IList<AudioClip>> ret;
+            bool IsRequested = _BatchHandles.TryGetValue((ulong)groupId, out ret);
+            if (IsRequested)
+            {
+                return ret;
+            }
+
             LoadClipsAsync(groupId, clipsId);
+            _BatchHandles.TryGetValue((ulong)groupId, out ret);
+            return ret;
         }
         public void GetSFX(ulong Id, Vector3 pos, Quaternion rotation, Action<SFXEntity> OnLoaded)
         {
@@ -107,12 +115,11 @@ namespace Scripts.Core
             OnLoaded?.Invoke(sfx);
             return;
         }
-        private async void LoadClipsAsync(ulong groupId, ulong[] clipsId)
+        public async void LoadClipsAsync(eStage groupId, ulong[] clipsId)
         {
             //만약 여러번 요청한다면..
-            bool IsLoaded = _BatchHandles.TryGetValue(groupId, out var handle);
+            bool IsLoaded = _BatchHandles.TryGetValue((ulong)groupId, out var handle);
             IList<AudioClip> clips;
-
             if (IsLoaded)
             {
                 //이럴일은 없겠지만..있어서도 안되겠지만..
@@ -122,7 +129,7 @@ namespace Scripts.Core
             else
             {
                 handle = Addressables.LoadAssetsAsync<AudioClip>(groupId.ToString(), (loaded) => { });
-                _BatchHandles.Add(groupId, handle);
+                _BatchHandles.Add((ulong)groupId, handle);
                 clips = await handle.Task;
             }
 
