@@ -1,3 +1,5 @@
+// Upgrade NOTE: replaced 'defined FOG_COMBINED_WITH_WORLD_POS' with 'defined (FOG_COMBINED_WITH_WORLD_POS)'
+
 ////////////////////////////////////////
 // Generated with Better Shaders
 //
@@ -3578,7 +3580,7 @@ Shader "AllIn1SpriteShader/AllIn1SpriteShaderLitTransparent"
            UNITY_TRANSFER_LIGHTING(o,v.texcoord1.xy); // pass shadow and, possibly, light cookie coordinates to pixel shader
            #ifdef FOG_COMBINED_WITH_TSPACE
              UNITY_TRANSFER_FOG_COMBINED_WITH_TSPACE(o,o.pos); // pass fog coordinates to pixel shader
-           #elif defined FOG_COMBINED_WITH_WORLD_POS
+           #elif defined (FOG_COMBINED_WITH_WORLD_POS)
              UNITY_TRANSFER_FOG_COMBINED_WITH_WORLD_POS(o,o.pos); // pass fog coordinates to pixel shader
            #else
              UNITY_TRANSFER_FOG(o,o.pos); // pass fog coordinates to pixel shader
@@ -3603,7 +3605,7 @@ Shader "AllIn1SpriteShader/AllIn1SpriteShaderLitTransparent"
            // prepare and unpack data
            #ifdef FOG_COMBINED_WITH_TSPACE
              UNITY_EXTRACT_FOG_FROM_TSPACE(IN);
-           #elif defined FOG_COMBINED_WITH_WORLD_POS
+           #elif defined (FOG_COMBINED_WITH_WORLD_POS)
              UNITY_EXTRACT_FOG_FROM_WORLD_POS(IN);
            #else
              UNITY_EXTRACT_FOG(IN);
@@ -7112,7 +7114,7 @@ Shader "AllIn1SpriteShader/AllIn1SpriteShaderLitTransparent"
 
            #ifdef FOG_COMBINED_WITH_TSPACE
              UNITY_EXTRACT_FOG_FROM_TSPACE(IN);
-           #elif defined FOG_COMBINED_WITH_WORLD_POS
+           #elif defined (FOG_COMBINED_WITH_WORLD_POS)
              UNITY_EXTRACT_FOG_FROM_WORLD_POS(IN);
            #else
              UNITY_EXTRACT_FOG(IN);
@@ -10597,7 +10599,7 @@ Shader "AllIn1SpriteShader/AllIn1SpriteShaderLitTransparent"
 
            #ifdef FOG_COMBINED_WITH_TSPACE
              UNITY_EXTRACT_FOG_FROM_TSPACE(IN);
-           #elif defined FOG_COMBINED_WITH_WORLD_POS
+           #elif defined (FOG_COMBINED_WITH_WORLD_POS)
              UNITY_EXTRACT_FOG_FROM_WORLD_POS(IN);
            #else
              UNITY_EXTRACT_FOG(IN);
@@ -14005,7 +14007,7 @@ Shader "AllIn1SpriteShader/AllIn1SpriteShaderLitTransparent"
 
            #ifdef FOG_COMBINED_WITH_TSPACE
              UNITY_EXTRACT_FOG_FROM_TSPACE(IN);
-           #elif defined FOG_COMBINED_WITH_WORLD_POS
+           #elif defined (FOG_COMBINED_WITH_WORLD_POS)
              UNITY_EXTRACT_FOG_FROM_WORLD_POS(IN);
            #else
              UNITY_EXTRACT_FOG(IN);
@@ -17349,7 +17351,7 @@ Shader "AllIn1SpriteShader/AllIn1SpriteShaderLitTransparent"
 
             #ifdef FOG_COMBINED_WITH_TSPACE
                UNITY_EXTRACT_FOG_FROM_TSPACE(IN);
-            #elif defined FOG_COMBINED_WITH_WORLD_POS
+            #elif defined (FOG_COMBINED_WITH_WORLD_POS)
                UNITY_EXTRACT_FOG_FROM_WORLD_POS(IN);
             #else
                UNITY_EXTRACT_FOG(IN);
