@@ -175,7 +175,7 @@ namespace Scripts.Core
             if (IsLoading)
             {
                 CustomLogger.LogWarning("You requested to load while the system was already in a loading state.");
-                loadedObj = await handle.Task;
+                return;
             }
             //처음 Load하는 경우
             else
