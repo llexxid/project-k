@@ -80,6 +80,7 @@ namespace Scripts.Core
 
             if (IsCached)
             {
+                
                 ret.SetId(id);
                 ret.gameObject.SetActive(true);
                 OnLoaded.Invoke(ret);
@@ -193,14 +194,11 @@ namespace Scripts.Core
         }
         private bool CheckPoolingEffect(eVFXType id)
         {
-            return true;
-            /*
-            ulong PoolingMASK = 0x1000000000000000;
-            if ((id & PoolingMASK) != 0)
+            if (((ulong)id & (ulong)AssetIdMask.VFX_NotPooling_MASK) == (ulong)AssetIdMask.VFX_NotPooling_MASK)
             {
-                return true;
+                return false;
             }
-            return false;*/
+            return true;
         }
         private void OnLoadAsset(eVFXType id, VFXEntity obj)
         {
