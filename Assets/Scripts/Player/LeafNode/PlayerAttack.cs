@@ -10,6 +10,7 @@ public class PlayerAttack : MonoBehaviour
     public Animator animator;
     public SkillManager skillManager;
     public VFXManager vfxManager;
+    public eVFXType evfxType;
 
     // 광역 공격 설정을 위한 변수
     public float attackRadius = 3f;
@@ -36,7 +37,7 @@ public class PlayerAttack : MonoBehaviour
                 skillManager.ActivateSkill("Strong Slash", transform.position);
 
                 // VFX 효과 재생
-                //vfxManager.GetVFX(1, enemy.transform.position, transform.rotation, Attack());
+                vfxManager.GetVFX(evfxType, enemy.transform.position, transform.rotation, (vfx) => { vfx.ActiveEffect(1); });
 
                 enemy.TakeDamage(30); // 적의 hp를 직접 깎는 대신 메서드 호출
             }
