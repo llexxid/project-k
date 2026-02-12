@@ -10,6 +10,8 @@ using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEngine;
 
+using Scripts.Core;
+using JetBrains.Annotations;
 
 
 namespace Scripts.Core.Parser
@@ -55,9 +57,18 @@ namespace Scripts.Core.Parser
         {
             AutoAddressable auto = new AutoAddressable();
             auto.Init();
-            auto.LoadGuIDFromUnity("t:Prefab", new[] { "Assets/Scripts/Core/TestResource/VFX" });
-            auto.ReadXlsxFile(@"Scripts\Core\Parser\vfx.xlsx");
+            auto.LoadGuIDFromUnity("t:Prefab", new[] { ConstPath.VFX_PREFEB_PATH });
+            auto.ReadXlsxFile(ConstPath.VFX_EXCEL_PATH);
             auto.SettingAddressable("VFX");
+        }
+        [MenuItem("MyTools/GenerateMetaSO")]
+        private static void GenerateMetaSO()
+        {
+            AutoAddressable auto = new AutoAddressable();
+            auto.Init();
+            auto.GenerateStageMetaSO();
+            auto.GenerateMonsterMetaSO();
+            auto.GenerateSoundMetaSO();
         }
         [MenuItem("MyTools/SetMonsterAddress")]
         private static void SetMonsterAddress()
@@ -65,10 +76,22 @@ namespace Scripts.Core.Parser
             //몬스터 Prefab들을 Addressable로 등록하는 과정
             AutoAddressable auto = new AutoAddressable();
             auto.Init();
-            auto.LoadGuIDFromUnity("t:Prefab", new[] { "Assets/Scripts/Core/TestResource/Monster" });
-            auto.ReadXlsxFile(@"Scripts\Core\Parser\Monster.xlsx");
+            auto.LoadGuIDFromUnity("t:Prefab", new[] { ConstPath.MONSTER_PREFEB_PATH });
+            auto.ReadXlsxFile(ConstPath.MONSTER_EXCEL_PATH);
             auto.SettingAddressable("Monster");
         }
+
+        [MenuItem("MyTools/SetSoundAddress")]
+        private static void SetSoundAddress()
+        {
+            //몬스터 Prefab들을 Addressable로 등록하는 과정
+            AutoAddressable auto = new AutoAddressable();
+            auto.Init();
+            auto.LoadGuIDFromUnity("t: AudioClip", new[] { ConstPath.SFX_AUDIOCLIP_PATH });
+            auto.ReadXlsxFile(ConstPath.SFX_EXCEL_PATH);
+            auto.SettingAddressable("SFX");
+        }
+
         [MenuItem("MyTools/GenerateEnum")]
         private static void GenerateEnum()
         {
@@ -81,20 +104,73 @@ namespace Scripts.Core.Parser
             //VFX,SFX,MONSTER의 ID와 ENUM을 자동생성하는 코드.
             List<ReadFromXlsx> _ReadFromXlsx = new List<ReadFromXlsx>();
 
-            ReadXlsxFile(@"Scripts\Core\Parser\vfx.xlsx");
-            _ReadFromXlsx.Add(new ReadFromXlsx(AssetDatas, "eVFXType"));
+            ReadXlsxFile(ConstPath.VFX_EXCEL_PATH);
+            _ReadFromXlsx.Add(new ReadFromXlsx(AssetDatas, $"eVFXType"));
 
-            ReadXlsxFile(@"Scripts\Core\Parser\Monster.xlsx");
-            _ReadFromXlsx.Add(new ReadFromXlsx(AssetDatas, "eMonsterType"));
+            ReadXlsxFile(ConstPath.MONSTER_EXCEL_PATH);
+            _ReadFromXlsx.Add(new ReadFromXlsx(AssetDatas, $"eMonsterType"));
 
-            GenerateVFXSFXEnum(_ReadFromXlsx);
-            ReadXlsxStageFile();
+            //Todo SFX
+            ReadXlsxFile(ConstPath.SFX_EXCEL_PATH);
+            _ReadFromXlsx.Add(new ReadFromXlsx(AssetDatas, $"eSFXType"));
+            GenerateEnumFile(_ReadFromXlsx);
+            GenerateStageEnumFile();
         }
 
-        private void ReadXlsxStageFile()
+        private void GenerateStageEnumFile()
         {
-            const string path = @"Scripts\Core\Parser\Stage.xlsx";
-            string FilePath = Path.Combine(Application.dataPath, path);
+            string FilePath = Path.Combine(Application.dataPath, ConstPath.STAGE_EXCEL_PATH);
+
+            FileStream fs = File.Open(FilePath, FileMode.Open, FileAccess.Read);
+            IExcelDataReader reader = ExcelReaderFactory.CreateReader(fs);
+
+            var config = new ExcelDataSetConfiguration
+            {
+                ConfigureDataTable = (reader) => new ExcelDataTableConfiguration
+                {
+                    UseHeaderRow = true
+                }
+            };
+
+            DataSet data = reader.AsDataSet(config);
+            //StageEnum
+            // stageEnum  = key 
+            StringBuilder sb = new StringBuilder();
+
+            //중복검사
+            HashSet<int> duplicate = new HashSet<int>();
+
+            var ExcelTable = data.Tables;
+
+            //Sheet순회
+            for (int i = 0; i < ExcelTable.Count; i++)
+            {
+                DataTable table = ExcelTable[i];
+                sb.Append($"namespace Scripts.Core {{\n");
+                sb.Append($"public enum eStage : int\n{{");
+                for (int row = 0; row < table.Rows.Count; row++)
+                {
+                    DataRow dataRow = table.Rows[row];
+                    int stage = Convert.ToInt32(dataRow["Stage"]);
+                    int wave = Convert.ToInt32(dataRow["Wave"]);
+                    int key = stage << 16 | wave;
+
+                    if (duplicate.Add(key) == true)
+                    {
+                        sb.Append($"Stage{stage}_{wave} = {key},\n");
+                    }
+                }
+                sb.Append($"}}\n}}");
+            }
+            fs.Close();
+
+            string enumPath = Path.Combine(Application.dataPath, ConstPath.STAGE_ENUM_PATH);
+            WriteToFIle(enumPath, sb);
+        }
+
+        private void GenerateStageMetaSO()
+        {
+            string FilePath = Path.Combine(Application.dataPath, ConstPath.STAGE_EXCEL_PATH);
 
             FileStream fs = File.Open(FilePath, FileMode.Open, FileAccess.Read);
             IExcelDataReader reader = ExcelReaderFactory.CreateReader(fs);
@@ -120,30 +196,196 @@ namespace Scripts.Core.Parser
             for (int i = 0; i < ExcelTable.Count; i++)
             {
                 DataTable table = ExcelTable[i];
-                sb.Append($"namespace Scripts.Core {{\n");
-                sb.Append($"public enum eStage : int\n{{");
+                sb.Append($"using UnityEngine;\n");
+                sb.Append($"using System.Collections.Generic;\n");
+                sb.Append($"namespace Scripts.Core.SO {{\n");
+                sb.Append($"[CreateAssetMenu(fileName = \"StageMetaDataSO\", menuName = \"ScriptableObjects/StageMetaDataSO\")]");
+                sb.Append($"public class StageMetaDataSO : ScriptableObject\n{{");
+                sb.Append($"public struct StageInfo_v{{\n");
+                sb.Append($"public StageInfo_v(eMonsterType type, int count){{\n");
+                sb.Append($"_type = type; _count = count;\n");
+                sb.Append($"}}\n");
+                sb.Append($"public eMonsterType _type;\n");
+                sb.Append($"public int _count;\n");
+                sb.Append($"}}\n");
+
+                sb.Append($"Dictionary<eStage, List<StageInfo_v>> _dic;\n");
+                sb.Append($"public void Init(){{\n");
+                sb.Append($"_dic = new Dictionary<eStage, List<StageInfo_v>>();\n");
                 for (int row = 0; row < table.Rows.Count; row++)
                 {
                     DataRow dataRow = table.Rows[row];
-                    int stage = Convert.ToInt32(dataRow["Stage"]);
-                    int wave = Convert.ToInt32(dataRow["Wave"]);
+                    int stage = Convert.ToInt32(dataRow[$"Stage"]);
+                    string fileName = dataRow[$"MonsterName"].ToString();
+                    int wave = Convert.ToInt32(dataRow[$"Wave"]);
+                    int count = Convert.ToInt32(dataRow[$"Count"]);
                     int key = stage << 16 | wave;
 
-                    if (duplicate.Add(key) == true)
-                    {
-                        sb.Append($"Stage{stage}_{wave} = {key},\n");
-                    }
+                    sb.Append($"if(!_dic.ContainsKey(eStage.Stage{stage}_{wave})){{\n");
+                    sb.Append($"List<StageInfo_v> list = new List<StageInfo_v>();\n");
+                    sb.Append($"StageInfo_v info = new StageInfo_v(eMonsterType.{fileName}, {count});\n");
+                    sb.Append($"list.Add(info);\n");
+                    sb.Append($"_dic.Add(eStage.Stage{stage}_{wave},list);\n");
+                    sb.Append($"}}\n else{{\n");
+                    sb.Append($"StageInfo_v info = new StageInfo_v(eMonsterType.{fileName}, {count});");
+                    sb.Append($"_dic[eStage.Stage{stage}_{wave}].Add(info);");
+                    sb.Append($"}}\n");
                 }
-                sb.Append($"}}\n}}");
+                sb.Append($"}}\n");
+                sb.Append($"public void GetStageInfo(eStage key, out List<StageInfo_v> stageList){{\n");
+                sb.Append($"List<StageInfo_v> ret;");
+                sb.Append($"if(_dic.TryGetValue(key, out ret)) {{\n");
+                sb.Append($"stageList = ret;\n return;\n");
+                sb.Append($"}}\n");
+                sb.Append($"stageList = default; return;\n");
+                sb.Append($"}}\n");
+                //namespace,function,class 괄호
+                sb.Append($"}}\n}}\n");
             }
             fs.Close();
 
-            string enumPath = Path.Combine(Application.dataPath, @"Scripts\Core\StageEnum.cs");
-            WriteToFIle(enumPath, sb);
-
+            string storePath = Path.Combine(Application.dataPath, ConstPath.GENERATE_STAGEMETA_PATH);
+            WriteToFIle(storePath, sb);
         }
 
-        private void GenerateVFXSFXEnum(List<ReadFromXlsx> _ReadFromXlsx)
+        private void GenerateMonsterMetaSO()
+        {
+            string FilePath = Path.Combine(Application.dataPath, ConstPath.MONSTER_EXCEL_PATH);
+            FileStream fstream = File.Open(FilePath, FileMode.Open, FileAccess.Read);
+
+            IExcelDataReader reader = ExcelReaderFactory.CreateReader(fstream);
+            StringBuilder sb = new StringBuilder();
+            //Header제외 옵션
+            var conf = new ExcelDataSetConfiguration
+            {
+                ConfigureDataTable = _ => new ExcelDataTableConfiguration
+                {
+                    UseHeaderRow = true
+                }
+            };
+            DataSet result = reader.AsDataSet(conf);
+
+            var tables = result.Tables;
+            for (int sheetIndex = 0; sheetIndex < tables.Count; sheetIndex++)
+            {
+                DataTable sheet = tables[sheetIndex];
+                int ArrayLength = sheet.Rows.Count;
+                sb.Append($"using UnityEngine;\n");
+                sb.Append($"using System.Collections.Generic;\n");
+                sb.Append($"namespace Scripts.Core.SO {{\n");
+                sb.Append($"[CreateAssetMenu(fileName = \"MonsterMetaDataSO\", menuName = \"ScriptableObjects/MonsterMetaDataSO\")]");
+                sb.Append($"public class MonsterMetaSO : ScriptableObject {{\n");
+                sb.Append($"Dictionary<eMonsterType, List<eVFXType>> _dic;\n");
+
+                sb.Append($"public void Init(){{\n");
+                for (int row = 0; row < sheet.Rows.Count; row++)
+                {
+                    sb.Append($"List<eVFXType> list_{row} = new List<eVFXType>();\n");
+                    DataRow data = sheet.Rows[row];
+                    string name = data["fileName"].ToString();
+                    ulong maskedId = Convert.ToUInt64(data["MaskedId"]);
+
+                    string vfx = data["VFX"].ToString();
+                    string[] vfxs = vfx.Split(new char[] { ',', ' ' });
+
+                    for (int k = 0; k < vfxs.Length; k++)
+                    {
+                        sb.Append($"list_{row}.Add(eVFXType.{vfxs[k]});\n");
+                    }
+                    //SFX도 지원
+                    sb.Append($"_dic.Add(eMonsterType.{name},list_{row});\n");
+                }
+                sb.Append($"}}\n");
+
+                sb.Append($"public void GetVFXList(eMonsterType type, out List<eVFXType> vfxDatas){{\n");
+                sb.Append($"List<eVFXType> ret;\n");
+                sb.Append($"if (_dic.TryGetValue(type, out ret)){{\n");
+                sb.Append($"vfxDatas = ret;");
+                sb.Append($"return;");
+                sb.Append($"}}\n");
+                sb.Append("vfxDatas = default;\n return;");
+                sb.Append($"}}\n");
+
+                sb.Append($"}}\n");
+                sb.Append($"}}\n");
+            }
+            //AssetDatabase.StopAssetEditing();
+            reader.Close();
+            fstream.Close();
+
+            string storePath = Path.Combine(Application.dataPath, ConstPath.GENERATE_MONSTERMETA_PATH);
+            WriteToFIle(storePath, sb);
+        }
+
+        private void GenerateSoundMetaSO()
+        {
+            string FilePath = Path.Combine(Application.dataPath, ConstPath.SFX_EXCEL_PATH);
+            FileStream fstream = File.Open(FilePath, FileMode.Open, FileAccess.Read);
+
+            IExcelDataReader reader = ExcelReaderFactory.CreateReader(fstream);
+            StringBuilder sb = new StringBuilder();
+            //Header제외 옵션
+            var conf = new ExcelDataSetConfiguration
+            {
+                ConfigureDataTable = _ => new ExcelDataTableConfiguration
+                {
+                    UseHeaderRow = true
+                }
+            };
+            DataSet result = reader.AsDataSet(conf);
+
+            sb.Append($"using UnityEngine;\n");
+            sb.Append($"using System.Collections.Generic;\n");
+            sb.Append($"namespace Scripts.Core.SO {{\n");
+            sb.Append($"[CreateAssetMenu(fileName = \"SoundMetaDataSO\", menuName = \"ScriptableObjects/SoundMetaDataSO\")]");
+            sb.Append($"public class SoundMetaSO : ScriptableObject {{\n");
+            sb.Append($"Dictionary<eSceneType, List<eSFXType>> _dic;\n");
+
+            sb.Append($"public void Init(){{\n");
+            var tables = result.Tables;
+            for (int sheetIndex = 0; sheetIndex < tables.Count; sheetIndex++)
+            {
+                DataTable sheet = tables[sheetIndex];
+                int ArrayLength = sheet.Rows.Count;
+
+
+                for (int row = 0; row < sheet.Rows.Count; row++)
+                {
+
+                    DataRow data = sheet.Rows[row];
+                    string name = data["fileName"].ToString();
+                    ulong maskedId = Convert.ToUInt64(data["MaskedId"]);
+
+                    string Scene = data["Scene"].ToString();
+                    sb.Append($"if(_dic.ContainsKey(eSceneType.{Scene})){{\n");
+                    sb.Append($"_dic[eSceneType.{Scene}].Add(eSFXType.{name});");
+                    sb.Append($"}}\n");
+                    sb.Append($"else {{\n");
+                        sb.Append($"List<eSFXType> list = new List<eSFXType>();\n");
+                        sb.Append($"list.Add(eSFXType.{name});\n");
+                        sb.Append($"_dic.Add(eSceneType.{Scene},list);\n");
+                    sb.Append($"}}\n");
+                }
+            }
+            sb.Append($"}}\n");
+                sb.Append($"public void GetSFXList(eSceneType scene, out List<eSFXType> sfxList){{\n");
+                sb.Append($"List<eSFXType> ret;\n");
+                sb.Append($"if(_dic.TryGetValue(scene, out ret)){{\n");
+                sb.Append($"sfxList = ret;\n return;\n");
+                sb.Append($"}}\n");
+                sb.Append($"sfxList = default;\n return;\n");
+            sb.Append($"}}\n");
+            sb.Append($"}}\n");
+            sb.Append($"}}\n");
+            //AssetDatabase.StopAssetEditing();
+            reader.Close();
+            fstream.Close();
+
+            string storePath = Path.Combine(Application.dataPath, ConstPath.GENERATE_SFX_PATH);
+            WriteToFIle(storePath, sb);
+        }
+
+        private void GenerateEnumFile(List<ReadFromXlsx> _ReadFromXlsx)
         {
             StringBuilder sb = new StringBuilder();
             StringBuilder HelperFuncSb = new StringBuilder();
@@ -177,8 +419,9 @@ namespace Scripts.Core.Parser
                 HelperFuncSb.Append($"}}\n}}\n}}\n}}");
             }
             //FileStream Open.
-            string enumPath = Path.Combine(Application.dataPath, @"Scripts\Core\GenerateEnum.cs");
-            string helperPath = Path.Combine(Application.dataPath, @"Scripts\Core\EnumHelper.cs");
+
+            string enumPath = Path.Combine(Application.dataPath, ConstPath.GENERATE_ENUM_PATH);
+            string helperPath = Path.Combine(Application.dataPath, ConstPath.GENERATE_ENUMHELPER_PATH);
 
             WriteToFIle(enumPath, sb);
             WriteToFIle(helperPath, HelperFuncSb);

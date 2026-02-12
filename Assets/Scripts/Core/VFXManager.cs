@@ -54,7 +54,7 @@ namespace Scripts.Core
         /// <summary>
         /// VFX cache를 데우는 비동기 함수입니다. 로딩에서 통제합니다. 
         /// </summary>
-        public AsyncOperationHandle<IList<GameObject>> PreLoadVFX(GroupId groupId, eVFXType[] IdList)
+        public AsyncOperationHandle<IList<GameObject>> PreLoadVFX(eStage groupId, eVFXType[] IdList)
         {
             AsyncOperationHandle<IList<GameObject>> handle;
             bool IsLoading = _BatchHandles.TryGetValue((ulong)groupId, out handle);
@@ -80,6 +80,7 @@ namespace Scripts.Core
 
             if (IsCached)
             {
+                
                 ret.SetId(id);
                 ret.gameObject.SetActive(true);
                 OnLoaded.Invoke(ret);
@@ -124,13 +125,22 @@ namespace Scripts.Core
             }
         }       
         
-        private async void RequestAsyncLoadAssets(GroupId groupId, eVFXType[] IdList)
+        private async void RequestAsyncLoadAssets(eStage groupId, eVFXType[] IdList)
         {
             IList<GameObject> result;
-            var handle = Addressables.LoadAssetsAsync<GameObject>(groupId.ToString(), (loaded) => { });
-            _BatchHandles.Add((ulong)groupId, handle);
-
-            result = await handle.Task;
+            AsyncOperationHandle<IList<GameObject>> handle;
+            bool IsRequested = _BatchHandles.TryGetValue((ulong)groupId, out handle);
+            if (IsRequested)
+            {
+                result = await handle.Task;
+            }
+            else 
+            {
+                 handle = Addressables.LoadAssetsAsync<GameObject>(groupId.ToString(), (loaded) => { });
+                _BatchHandles.Add((ulong)groupId, handle);
+                result = await handle.Task;
+            }
+            //완료가 되었을 때 하는 로직
             if (result.Count != IdList.Length)
             {
                 CustomLogger.LogError("The number of resources requested to load is not the same as the number of id arrays. check IdList[]");
@@ -184,14 +194,11 @@ namespace Scripts.Core
         }
         private bool CheckPoolingEffect(eVFXType id)
         {
-            return true;
-            /*
-            ulong PoolingMASK = 0x1000000000000000;
-            if ((id & PoolingMASK) != 0)
+            if (((ulong)id & (ulong)AssetIdMask.VFX_NotPooling_MASK) == (ulong)AssetIdMask.VFX_NotPooling_MASK)
             {
-                return true;
+                return false;
             }
-            return false;*/
+            return true;
         }
         private void OnLoadAsset(eVFXType id, VFXEntity obj)
         {
@@ -200,7 +207,7 @@ namespace Scripts.Core
             if (CheckPoolingEffect(id))
             {
                 ObjectPool<VFXEntity> objectpool = new ObjectPool<VFXEntity>();
-                objectpool.Init(30, _vfxParents, obj);
+                objectpool.Init((int)DEFAULT_VALUE.PoolingSize, _vfxParents, obj);
                 _VFXPools.Add(id, objectpool);
             }
         }
