@@ -25,7 +25,7 @@ public class SkillObjectPool : MonoBehaviour
         else
         {
             // 풀이 비어있으면 새로 생성
-            return Instantiate(data.skillPrefab);
+            return null;
         }
     }
 

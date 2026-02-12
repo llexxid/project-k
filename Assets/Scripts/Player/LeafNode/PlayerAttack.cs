@@ -41,8 +41,7 @@ public class PlayerAttack : MonoBehaviour
             // Attack 메서드 내 루프
             if (_hitResults[i].TryGetComponent<Enemy>(out Enemy enemy))
             {
-                //Debug.Log("Enemy Hit: " + enemy.name);
-                //skillManager.ActivateSkill("Wind_Lance", transform.position);
+                skillManager.ActivateSkill("WindLance", transform.position);
 
                 // VFX 효과 재생
                 vfxManager.GetVFX(eVFXType.Wind_Lance, enemy.transform.position, transform.rotation, (vfx) => { vfx.ActiveEffect(250); });

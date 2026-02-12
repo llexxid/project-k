@@ -5,7 +5,6 @@ public class SkillManager : MonoBehaviour
 {
     public SkillObjectPool pool;
     public SkillDatabase skillDatabase;
-    public Animator anim;
 
     // 각 스킬의 다음 사용 가능 시간을 저장하는 딕셔너리
     private Dictionary<string, float> _skillCooldowns = new Dictionary<string, float>();
@@ -35,16 +34,8 @@ public class SkillManager : MonoBehaviour
         // 3. 액티브 스킬 발동 및 쿨타임 갱신
         _skillCooldowns[skillName] = Time.time + data.cooldown;
 
-        if (data.skillPrefab != null)
-        {
-            GameObject skillObj = pool.GetSkillObject(data);
-            skillObj.transform.position = position;
-            Debug.Log($"{data.skillName} 발동! 데미지: {data.damage}");
-        }
-        else
-        {
-            anim.Play(data.animationStateName);
-            Debug.Log($"{data.skillName} 발동(이펙트 없음)");
-        }
+        //GameObject skillObj = pool.GetSkillObject(data);
+        //skillObj.transform.position = position;
+        Debug.Log($"{data.skillName} 발동! 데미지: {data.damage}");
     }
 }
