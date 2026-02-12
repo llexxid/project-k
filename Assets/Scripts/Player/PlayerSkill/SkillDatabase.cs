@@ -29,6 +29,8 @@ public class SkillDatabase : ScriptableObject
         if (skillDict.Count == 0) Initialize();
 
         skillDict.TryGetValue(skillName, out SkillData targetSkill);
+
+
         return targetSkill;
     }
 }
