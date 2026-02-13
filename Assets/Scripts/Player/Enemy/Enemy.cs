@@ -1,9 +1,10 @@
+using UnityEditor.Tilemaps;
 using UnityEngine;
 
 public class Enemy : MonoBehaviour
 {
     public Enemy enemy;
-    public int hp = 100;
+    public int hp;
     public Transform player; // 추적할 플레이어 타겟
     public float moveSpeed = 3f; // 적 이동 속도
     public float detectionRange = 10f; // 추적 시작 거리
@@ -12,6 +13,7 @@ public class Enemy : MonoBehaviour
     {
         enemy = GetComponent<Enemy>();
         player = GameObject.FindWithTag("Player").transform;
+        hp = 100;
     }
 
     void Update()
@@ -32,6 +34,6 @@ public class Enemy : MonoBehaviour
     {
         hp -= damage;
         //Debug.Log("Enemy HP: " + hp);
-        if (hp <= 0) Destroy(gameObject);
+        if (hp <= 0) gameObject.SetActive(false);
     }
 }

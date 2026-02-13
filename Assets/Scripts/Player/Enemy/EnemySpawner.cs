@@ -38,6 +38,7 @@ public class EnemySpawner : MonoBehaviour
                 if (Physics2D.OverlapCircle(spawnPos, 0.5f) == null)
                 {
                     Instantiate(enemyPrefab, spawnPos, Quaternion.identity);
+                    enemyPrefab.SetActive(true);
                     canSpawn = true;
                 }
                 attempts++;
