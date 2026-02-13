@@ -5,16 +5,17 @@ using UnityEngine;
 public class PlayerAttack : MonoBehaviour
 {
     [SerializeField] private PlayerDetection _detection;
-    public float attackRate = 0.5f;
-    private float _nextAttackTime = 0f;
+    public float attackRate;
+    private float _nextAttackTime = 1f;
     public Animator animator;
     public SkillManager skillManager;
+    public SkillDatabase skillDatabase; // 스킬 데이터 참조용
     public VFXManager vfxManager;
 
-    // 광역 공격 설정을 위한 변수
     public float attackRadius = 3f;
     public LayerMask enemyLayer;
     private List<Collider2D> _hitResults = new List<Collider2D>();
+    private Dictionary<string, float> _skillCooldowns = new Dictionary<string, float>();
 
     private void Start()
     {
@@ -23,37 +24,37 @@ public class PlayerAttack : MonoBehaviour
 
     public NodeState Attack()
     {
-        if (Time.time < _nextAttackTime) return NodeState.Failure;
+        // 1. 일반 공격 쿨타임 체크
+        //if (Time.time < _nextAttackTime) return NodeState.Failure;
 
         animator.SetBool("isAttack", true);
         _nextAttackTime = Time.time + attackRate;
 
-        // OverlapCircle 리스트 오버로드 사용
         ContactFilter2D filter = new ContactFilter2D();
         filter.SetLayerMask(enemyLayer);
         filter.useLayerMask = true;
         filter.useTriggers = true;
         int hitCount = Physics2D.OverlapCircle(transform.position, attackRadius, filter, _hitResults);
 
-
         for (int i = 0; i < hitCount; i++)
         {
-            // Attack 메서드 내 루프
-            if (_hitResults[i].TryGetComponent<Enemy>(out Enemy enemy))
+            if (_hitResults[i].TryGetComponent<Enemy>(out var targetEnemy))
             {
-                skillManager.ActivateSkill("WindLance", transform.position);
+                // 2. 스킬 쿨타임 체크 ("WindLance")
+                string skillName = "Wind_Lance";
+                if (!_skillCooldowns.ContainsKey(skillName) || Time.time >= _skillCooldowns[skillName])
+                {
+                    SkillData data = skillDatabase.GetSkill(skillName);
+                    skillManager.ActivateSkill(skillName, transform.position);
 
-                // VFX 효과 재생
-                vfxManager.GetVFX(eVFXType.Wind_Lance, enemy.transform.position, transform.rotation, (vfx) => { vfx.ActiveEffect(250); });
+                    // VFX 및 쿨타임 갱신
+                    vfxManager.GetVFX(eVFXType.Wind_Lance, targetEnemy.transform.position, transform.rotation, (vfx) => { vfx.ActiveEffect(250); });
+                    _skillCooldowns[skillName] = Time.time + data.cooldown;
+                }
 
-                enemy.TakeDamage(30); // 적의 hp를 직접 깎는 대신 메서드 호출
-            }
-            else
-            {
-                Debug.Log("안들어옴");
+                targetEnemy.TakeDamage(50);
             }
         }
-
         return NodeState.Success;
     }
 
@@ -63,4 +64,5 @@ public class PlayerAttack : MonoBehaviour
         public AttackNode(PlayerAttack attack) { _attack = attack; }
         public override NodeState Evaluate() => _attack.Attack();
     }
+
 }

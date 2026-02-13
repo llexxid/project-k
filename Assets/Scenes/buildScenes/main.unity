@@ -160,11 +160,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _detection: {fileID: 66825108}
-  attackRate: 0.5
+  attackRate: 10
   animator: {fileID: 66825114}
   skillManager: {fileID: 1036939701}
+  skillDatabase: {fileID: 11400000, guid: 2976353b4f7896a44a79f49de8ae9b62, type: 2}
   vfxManager: {fileID: 779191258}
-  attackRadius: 3
+  attackRadius: 1
   enemyLayer:
     serializedVersion: 2
     m_Bits: 64
@@ -635,7 +636,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   pool: {fileID: 1036939703}
   skillDatabase: {fileID: 11400000, guid: 2976353b4f7896a44a79f49de8ae9b62, type: 2}
-  anim: {fileID: 0}
 --- !u!4 &1036939702
 Transform:
   m_ObjectHideFlags: 0
