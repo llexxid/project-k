@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -14,7 +14,7 @@ namespace Scripts.Monster.MonsterNode
 
         public override NodeState Evaluate()
         {
-            if ()
+            if () ;
         }
     }
 }

@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -8,14 +8,14 @@ public class MonsterOrder
 
     public void Init()
     {
-        // Sequence¿Í Selector¸¦ Á¶ÇÕÇØ¼­ ¾î¶»°Ô MonsterµéÀÌ µ¿ÀÛÇÏ´ÂÁö ÃßÀû
-        Sequence MonsterSeq = new Sequence(
-            {
+        //// Sequenceì™€ Selectorë¥¼ ì¡°í•©í•´ì„œ ì–´ë–»ê²Œ Monsterë“¤ì´ ë™ì‘í•˜ëŠ”ì§€ ì¶”ì 
+        //Sequence MonsterSeq = new Sequence(
+        //    {
             
-        }
-            );
+        //}
+        //    );
 
 
-        _rootNode = new Sequence()
+        //_rootNode = new Sequence()
     }
 }
