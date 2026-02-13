@@ -265,19 +265,19 @@ namespace Scripts.Core.Parser
             };
             DataSet result = reader.AsDataSet(conf);
 
+            sb.Append($"using UnityEngine;\n");
+            sb.Append($"using System.Collections.Generic;\n");
+            sb.Append($"namespace Scripts.Core.SO {{\n");
+            sb.Append($"[CreateAssetMenu(fileName = \"MonsterMetaDataSO\", menuName = \"ScriptableObjects/MonsterMetaDataSO\")]");
+            sb.Append($"public class MonsterMetaSO : ScriptableObject {{\n");
+            sb.Append($"Dictionary<eMonsterType, List<eVFXType>> _dic;\n");
+            sb.Append($"public void Init(){{\n");
+            sb.Append($"_dic = new Dictionary<eSceneType, List<eSFXType>>();\n");
             var tables = result.Tables;
             for (int sheetIndex = 0; sheetIndex < tables.Count; sheetIndex++)
             {
                 DataTable sheet = tables[sheetIndex];
-                int ArrayLength = sheet.Rows.Count;
-                sb.Append($"using UnityEngine;\n");
-                sb.Append($"using System.Collections.Generic;\n");
-                sb.Append($"namespace Scripts.Core.SO {{\n");
-                sb.Append($"[CreateAssetMenu(fileName = \"MonsterMetaDataSO\", menuName = \"ScriptableObjects/MonsterMetaDataSO\")]");
-                sb.Append($"public class MonsterMetaSO : ScriptableObject {{\n");
-                sb.Append($"Dictionary<eMonsterType, List<eVFXType>> _dic;\n");
-
-                sb.Append($"public void Init(){{\n");
+                int ArrayLength = sheet.Rows.Count;         
                 for (int row = 0; row < sheet.Rows.Count; row++)
                 {
                     sb.Append($"List<eVFXType> list_{row} = new List<eVFXType>();\n");
@@ -295,20 +295,19 @@ namespace Scripts.Core.Parser
                     //SFXµµ Áö¿ø
                     sb.Append($"_dic.Add(eMonsterType.{name},list_{row});\n");
                 }
-                sb.Append($"}}\n");
-
-                sb.Append($"public void GetVFXList(eMonsterType type, out List<eVFXType> vfxDatas){{\n");
-                sb.Append($"List<eVFXType> ret;\n");
-                sb.Append($"if (_dic.TryGetValue(type, out ret)){{\n");
-                sb.Append($"vfxDatas = ret;");
-                sb.Append($"return;");
-                sb.Append($"}}\n");
-                sb.Append("vfxDatas = default;\n return;");
-                sb.Append($"}}\n");
-
-                sb.Append($"}}\n");
-                sb.Append($"}}\n");
             }
+            sb.Append($"}}\n");
+            sb.Append($"public void GetVFXList(eMonsterType type, out List<eVFXType> vfxDatas){{\n");
+            sb.Append($"List<eVFXType> ret;\n");
+            sb.Append($"if (_dic.TryGetValue(type, out ret)){{\n");
+            sb.Append($"vfxDatas = ret;");
+            sb.Append($"return;");
+            sb.Append($"}}\n");
+            sb.Append("vfxDatas = default;\n return;");
+            sb.Append($"}}\n");
+
+            sb.Append($"}}\n");
+            sb.Append($"}}\n");
             //AssetDatabase.StopAssetEditing();
             reader.Close();
             fstream.Close();
@@ -342,6 +341,7 @@ namespace Scripts.Core.Parser
             sb.Append($"Dictionary<eSceneType, List<eSFXType>> _dic;\n");
 
             sb.Append($"public void Init(){{\n");
+            sb.Append($"_dic = new Dictionary<eSceneType, List<eSFXType>>();\n");
             var tables = result.Tables;
             for (int sheetIndex = 0; sheetIndex < tables.Count; sheetIndex++)
             {

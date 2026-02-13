@@ -6,9 +6,11 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using Scripts.Monster;
 
 namespace Scripts.Core
 {
+    using Monster = Scripts.Monster.Monster;
     public class MonsterSpawner : MonoBehaviour
     {
         public static MonsterSpawner Instance;
