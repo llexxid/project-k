@@ -272,7 +272,7 @@ namespace Scripts.Core.Parser
             sb.Append($"public class MonsterMetaSO : ScriptableObject {{\n");
             sb.Append($"Dictionary<eMonsterType, List<eVFXType>> _dic;\n");
             sb.Append($"public void Init(){{\n");
-            sb.Append($"_dic = new Dictionary<eSceneType, List<eVFXType>>();\n");
+            sb.Append($"_dic = new Dictionary<eMonsterType, List<eVFXType>>();\n");
             var tables = result.Tables;
             for (int sheetIndex = 0; sheetIndex < tables.Count; sheetIndex++)
             {
