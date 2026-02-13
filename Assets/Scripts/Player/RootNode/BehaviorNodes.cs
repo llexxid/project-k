@@ -1,4 +1,6 @@
+using Scripts.Core.inteface;
 using System.Collections.Generic;
+using UnityEngine;
 
 // 상태 정의
 public enum NodeState { Running, Success, Failure }
