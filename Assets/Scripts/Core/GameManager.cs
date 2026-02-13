@@ -14,6 +14,7 @@ using Scripts.Core.SO;
 
 namespace Scripts.Core
 {
+    using Monster = Scripts.Monster.Monster;
     public class GameManager : MonoBehaviour
     {
         public static GameManager Instance;

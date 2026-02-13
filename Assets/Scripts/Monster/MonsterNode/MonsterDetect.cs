@@ -11,9 +11,10 @@ namespace Scripts.Monster.MonsterNode
         {
             _monster = mon;
         }
+
         public override NodeState Evaluate()
         {
-            throw new System.NotImplementedException();
+            if ()
         }
     }
 }
