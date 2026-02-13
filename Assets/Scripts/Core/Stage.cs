@@ -7,6 +7,7 @@ using static Scripts.Core.SO.StageMetaDataSO;
 
 namespace Scripts.Core
 {
+    using Monster = Scripts.Monster.Monster;
     public class Stage
     {
         private eStage _currentStage;
