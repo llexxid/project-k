@@ -24,6 +24,7 @@ namespace Scripts.Core.inteface
     /// </summary>
     public interface IDamageable
     {
-        public void TakeDamage(IAttackable attacker);
+        public Vector3 targetPos { get; }
+        public bool TakeDamage(IAttackable attacker);
     }
 }
