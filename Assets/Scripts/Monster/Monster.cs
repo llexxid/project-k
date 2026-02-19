@@ -23,18 +23,6 @@ namespace Scripts.Monster
         [SerializeField]
         private MonsterStat _stat;
         eMonsterType _type;
-        [SerializeField]
-        private float _attackRadius;
-        public float AttackRadius
-        {
-            get { return _attackRadius; }
-        }
-        [SerializeField]
-        private float _detectRadius;
-        public float DectectRadius
-        {
-            get { return _detectRadius; }
-        }
         public IDamageable Target { get; private set; }
 
         public bool IsActive { get; set; }
@@ -51,17 +39,6 @@ namespace Scripts.Monster
             { 
                 return transform.position; 
             } 
-        }
-
-        public Vector3 targetPos
-        {
-            get { return transform.position; }
-        }
-
-        void Awake()
-        {
-            _detectRadius = 4.0f;
-            _attackRadius = 2.0f;
         }
 
         //Todo : SkillComponent . 몬스터 스킬
@@ -85,10 +62,7 @@ namespace Scripts.Monster
             _stat = stat;
             _type = monsterType;
         }
-        public void ResetTarget()
-        {
-            Target = null;
-        }
+
         public void SetTarget(IDamageable target)
         {
             //개발 모드. null일 때 Log남겨놓고 Crash!
@@ -99,11 +73,6 @@ namespace Scripts.Monster
             Target = target;
         }
 
-        public int GetSpeed()
-        {
-            return _stat._moveSpeed;
-        }
-
         public void OnAlloc()
         {
             return;
@@ -112,38 +81,35 @@ namespace Scripts.Monster
         public void OnRelease()
         {
             //만약에 리지드 바디가 있다면, 초기화.
-            Target = null;
+
             return;
         }
 
-        public bool TakeDamage(IAttackable attacker)
+        public void TakeDamage(IAttackable attacker)
         {
             int dmg = attacker.damage;
-            bool IsAlive = setHp(dmg);
 
-            if (!IsAlive)
-            {
-                return false;
-            }
-            return true;
+            setHp(dmg);
         }
 
 
         private void OnDead()
         {
             //Todo : DropItem 스폰
+
+
             CustomLogger.Log("Monster Is Dead!!");
             MonsterSpawner.Instance.ReleaseMonster(_type, this);
         }
 
-        private bool setHp(int damage)
+        private void setHp(int damage)
         {
             long totalHp = _stat._hp + _stat._extraHp;
             //죽는경우
             if (totalHp - damage <= 0)
             {
                 OnDead();
-                return false;
+                return;
             }
 
             //ExtraHp먼저 깍기
@@ -152,10 +118,10 @@ namespace Scripts.Monster
                 int remainDamage = damage - _stat._extraHp;
                 _stat._extraHp = 0;
                 _stat._hp -= remainDamage;
-                return true;
+                return;
             }
             _stat._extraHp -= damage;
-            return true;
+            return;
         }
     }
 }
