@@ -1,8 +1,9 @@
 using Scripts.Core;
+using Scripts.Core.inteface;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PlayerAttack : MonoBehaviour
+public class PlayerAttack : MonoBehaviour, IAttackable, IDamageable
 {
     [SerializeField] private PlayerDetection _detection;
     public float attackRate;
@@ -16,6 +17,17 @@ public class PlayerAttack : MonoBehaviour
     public LayerMask enemyLayer;
     private List<Collider2D> _hitResults = new List<Collider2D>();
     private Dictionary<string, float> _skillCooldowns = new Dictionary<string, float>();
+
+    // IAttackable 구현
+    public int damage => throw new System.NotImplementedException();
+
+    //IDamageable 구현
+    public Vector3 attackerPos => throw new System.NotImplementedException();
+
+    // IDamageable 구현
+    public Vector3 targetPos => throw new System.NotImplementedException();
+
+
 
     private void Start()
     {
@@ -56,6 +68,11 @@ public class PlayerAttack : MonoBehaviour
             }
         }
         return NodeState.Success;
+    }
+
+    public bool TakeDamage(IAttackable attacker)
+    {
+        throw new System.NotImplementedException();
     }
 
     public class AttackNode : Node
