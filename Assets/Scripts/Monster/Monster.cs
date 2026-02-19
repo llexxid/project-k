@@ -7,11 +7,20 @@ using UnityEngine;
 
 namespace Scripts.Monster
 {
-    public class Monster : MonoBehaviour, IPoolable, Core.inteface.IDamageable, IAttackable
+    using Scripts.Core.inteface;
+    public class Monster : MonoBehaviour, IPoolable, IDamageable, IAttackable
     {
         [Serializable]
         public struct MonsterStat
         {
+            public MonsterStat(int hp, int extraHp, int atk, int moveSpeed, int atkSpeed)
+            {
+                _hp = hp;
+                _extraHp = extraHp;
+                _atk = atk;
+                _moveSpeed = moveSpeed;
+                _atkSpeed = atkSpeed;
+            }
             public int _hp;
             public int _extraHp;
 
@@ -35,7 +44,9 @@ namespace Scripts.Monster
         {
             get { return _detectRadius; }
         }
-        public Core.inteface.IDamageable Target { get; private set; }
+        public IDamageable Target { get; private set; }
+
+        private MonsterOrder _monAI;
 
         public bool IsActive { get; set; }
         public int damage 
@@ -53,8 +64,20 @@ namespace Scripts.Monster
             } 
         }
 
-        //Todo : SkillComponent . 몬스터 스킬
+        public Vector3 targetPos
+        {
+            get
+            {
+                return transform.position;
+            }
+        }
 
+        //Todo : SkillComponent . 몬스터 스킬
+        void Awake()
+        {
+            _detectRadius = 2.5f;
+            _attackRadius = 0.8f;
+        }
         void Start()
         {
 
@@ -62,23 +85,34 @@ namespace Scripts.Monster
 
         void Update()
         {
-
+            if (_monAI != null)
+            {
+                _monAI.ExecuteNode();
+            }
         }
 
-        public void SetType(eMonsterType monsterType)
-        {
-            _type = monsterType;
-        }
         public void Init(eMonsterType monsterType, MonsterStat stat)
         {
             _stat = stat;
             _type = monsterType;
         }
+
+        public int GetSpeed()
+        {
+            return _stat._moveSpeed;
+        }
+
         public void ResetTarget()
         {
             Target = null;
         }
-        public void SetTarget(Core.inteface.IDamageable target)
+        public void SetType(eMonsterType monsterType)
+        {
+            _type = monsterType;
+        }
+
+
+        public void SetTarget(IDamageable target)
         {
             //개발 모드. null일 때 Log남겨놓고 Crash!
             if (target == null)
@@ -90,21 +124,30 @@ namespace Scripts.Monster
 
         public void OnAlloc()
         {
+            _monAI = MonsterOrderPool.Instance.GetMonsterOrder();
+            _monAI.Init(this);
             return;
         }
 
         public void OnRelease()
         {
             //만약에 리지드 바디가 있다면, 초기화.
-
+            Target = null;
+            MonsterOrderPool.Instance.ReleaseMonsterOrder(_monAI);
             return;
         }
 
-        public void TakeDamage(IAttackable attacker)
+        public bool TakeDamage(IAttackable attacker)
         {
             int dmg = attacker.damage;
+            bool IsAlive = setHp(dmg);
 
             setHp(dmg);
+            if (!IsAlive)
+            {
+                return false;
+            }
+            return true;
         }
 
 
@@ -117,14 +160,14 @@ namespace Scripts.Monster
             MonsterSpawner.Instance.ReleaseMonster(_type, this);
         }
 
-        private void setHp(int damage)
+        private bool setHp(int damage)
         {
             long totalHp = _stat._hp + _stat._extraHp;
             //죽는경우
             if (totalHp - damage <= 0)
             {
                 OnDead();
-                return;
+                return false;
             }
 
             //ExtraHp먼저 깍기
@@ -133,10 +176,21 @@ namespace Scripts.Monster
                 int remainDamage = damage - _stat._extraHp;
                 _stat._extraHp = 0;
                 _stat._hp -= remainDamage;
-                return;
+                return true;
             }
             _stat._extraHp -= damage;
-            return;
+            return true;
+        }
+
+        private void OnDrawGizmos()
+        {
+            Gizmos.color = Color.green;
+            Gizmos.DrawWireSphere(transform.position, _detectRadius);
+
+            Gizmos.color = Color.red;
+
+            // 적의 위치에 구체를 그립니다.
+            Gizmos.DrawWireSphere(transform.position, _attackRadius);
         }
     }
 }
