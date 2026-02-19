@@ -15,6 +15,6 @@ public class SkillData : ScriptableObject
     public float damage;             // 데미지
     public float cooldown;           // 쿨타임
 
-    [Header("프리팹 설정")]
-    public GameObject skillPrefab;   // 오브젝트 풀링에서 생성할 프리팹
+    //[Header("프리팹 설정")]
+    //public GameObject skillPrefab;   // 오브젝트 풀링에서 생성할 프리팹
 }
