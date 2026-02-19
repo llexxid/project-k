@@ -41,7 +41,7 @@ namespace Scripts.Monster.MonsterNode
             {
                 return false;
             }
-            IDamageable target = _res[0].GetComponent<IDamageable>();
+            Core.inteface.IDamageable target = _res[0].GetComponent<Core.inteface.IDamageable>();
             _monster.SetTarget(target);
             return true;
         }

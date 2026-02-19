@@ -17,7 +17,7 @@ namespace Scripts.Monster.MonsterNode
         private void MoveToCharacter()
         {
             Transform monTrans = _monster.gameObject.transform;
-            IDamageable _target = _monster.Target;
+            Core.inteface.IDamageable _target = _monster.Target;
             Vector3 targetPos = Vector3.zero;
             //주위에 target이 없는 경우
             if (_target != null)

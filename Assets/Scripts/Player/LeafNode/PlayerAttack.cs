@@ -3,7 +3,7 @@ using Scripts.Core.inteface;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PlayerAttack : MonoBehaviour, IAttackable, IDamageable
+public class PlayerAttack : MonoBehaviour, IAttackable, Scripts.Core.inteface.IDamageable
 {
     [SerializeField] private PlayerDetection _detection;
     public float attackRate;

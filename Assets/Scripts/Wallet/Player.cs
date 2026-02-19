@@ -1,10 +1,17 @@
+using Scripts.Core.inteface;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Player : MonoBehaviour
+public class Player : MonoBehaviour, IAttackable, IDamageable
 {
     public Wallet wallet;
+
+    // IAttackable 인터페이스 구현
+    public int damage => throw new System.NotImplementedException();
+
+    // IDamageable 인터페이스 구현
+    public Vector3 attackerPos => throw new System.NotImplementedException();
 
     // 플레이어와 코인이 콜라이더 충돌 감지
     public void OnTriggerEnter(Collider other)

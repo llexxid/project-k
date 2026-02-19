@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Scripts.Monster
 {
-    public class Monster : MonoBehaviour, IPoolable, IDamageable, IAttackable
+    public class Monster : MonoBehaviour, IPoolable, Core.inteface.IDamageable, IAttackable
     {
         [Serializable]
         public struct MonsterStat
@@ -35,7 +35,7 @@ namespace Scripts.Monster
         {
             get { return _detectRadius; }
         }
-        public IDamageable Target { get; private set; }
+        public Core.inteface.IDamageable Target { get; private set; }
 
         public bool IsActive { get; set; }
         public int damage 
@@ -89,7 +89,7 @@ namespace Scripts.Monster
         {
             Target = null;
         }
-        public void SetTarget(IDamageable target)
+        public void SetTarget(Core.inteface.IDamageable target)
         {
             //개발 모드. null일 때 Log남겨놓고 Crash!
             if (target == null)
