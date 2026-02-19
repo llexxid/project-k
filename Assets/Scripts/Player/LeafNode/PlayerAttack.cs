@@ -1,33 +1,21 @@
 using Scripts.Core;
-using Scripts.Core.inteface;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PlayerAttack : MonoBehaviour, IAttackable, Scripts.Core.inteface.IDamageable
+public class PlayerAttack : MonoBehaviour
 {
     [SerializeField] private PlayerDetection _detection;
     public float attackRate;
     private float _nextAttackTime = 1f;
     public Animator animator;
     public SkillManager skillManager;
-    public SkillDatabase skillDatabase; // ½ºÅ³ µ¥ÀÌÅÍ ÂüÁ¶¿ë
+    public SkillDatabase skillDatabase; // ìŠ¤í‚¬ ë°ì´í„° ì°¸ì¡°ìš©
     public VFXManager vfxManager;
 
     public float attackRadius = 3f;
     public LayerMask enemyLayer;
     private List<Collider2D> _hitResults = new List<Collider2D>();
     private Dictionary<string, float> _skillCooldowns = new Dictionary<string, float>();
-
-    // IAttackable ±¸Çö
-    public int damage => throw new System.NotImplementedException();
-
-    //IDamageable ±¸Çö
-    public Vector3 attackerPos => throw new System.NotImplementedException();
-
-    // IDamageable ±¸Çö
-    public Vector3 targetPos => throw new System.NotImplementedException();
-
-
 
     private void Start()
     {
@@ -36,7 +24,7 @@ public class PlayerAttack : MonoBehaviour, IAttackable, Scripts.Core.inteface.ID
 
     public NodeState Attack()
     {
-        // 1. ÀÏ¹İ °ø°İ ÄğÅ¸ÀÓ Ã¼Å©
+        // 1. ì¼ë°˜ ê³µê²© ì¿¨íƒ€ì„ ì²´í¬
         //if (Time.time < _nextAttackTime) return NodeState.Failure;
 
         animator.SetBool("isAttack", true);
@@ -52,14 +40,14 @@ public class PlayerAttack : MonoBehaviour, IAttackable, Scripts.Core.inteface.ID
         {
             if (_hitResults[i].TryGetComponent<Enemy>(out var targetEnemy))
             {
-                // 2. ½ºÅ³ ÄğÅ¸ÀÓ Ã¼Å© ("WindLance")
+                // 2. ìŠ¤í‚¬ ì¿¨íƒ€ì„ ì²´í¬ ("WindLance")
                 string skillName = "Wind_Lance";
                 if (!_skillCooldowns.ContainsKey(skillName) || Time.time >= _skillCooldowns[skillName])
                 {
                     SkillData data = skillDatabase.GetSkill(skillName);
                     skillManager.ActivateSkill(skillName, transform.position);
 
-                    // VFX ¹× ÄğÅ¸ÀÓ °»½Å
+                    // VFX ë° ì¿¨íƒ€ì„ ê°±ì‹ 
                     vfxManager.GetVFX(eVFXType.Wind_Lance, targetEnemy.transform.position, transform.rotation, (vfx) => { vfx.ActiveEffect(250); });
                     _skillCooldowns[skillName] = Time.time + data.cooldown;
                 }
@@ -68,11 +56,6 @@ public class PlayerAttack : MonoBehaviour, IAttackable, Scripts.Core.inteface.ID
             }
         }
         return NodeState.Success;
-    }
-
-    public bool TakeDamage(IAttackable attacker)
-    {
-        throw new System.NotImplementedException();
     }
 
     public class AttackNode : Node

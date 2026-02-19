@@ -1,46 +1,39 @@
-using Scripts.Core.inteface;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace Scripts.Monster.MonsterNode 
 {
-    public class MonsterMove : MonsterNode
+    public class MonsterMove : Node
     {
-        Vector3 centerPos;
-
-        public MonsterMove(Monster mon) : base(mon)
+        public override NodeState Evaluate()
         {
-
+            throw new System.NotImplementedException();
         }
 
-        private void MoveToCharacter()
+        // Start is called before the first frame update
+        void Start()
         {
             Transform monTrans = _monster.gameObject.transform;
             Core.inteface.IDamageable _target = _monster.Target;
             Vector3 targetPos = Vector3.zero;
-            //ÁÖÀ§¿¡ targetÀÌ ¾ø´Â °æ¿ì
+            //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ targetï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
             if (_target != null)
             {
-                //Todo : Ä«¸Þ¶óÀÇ ÁÂÇ¥·Î º¯°æ
+                //Todo : Ä«ï¿½Þ¶ï¿½ï¿½ï¿½ ï¿½ï¿½Ç¥ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
                 targetPos = _target.targetPos;
             }
                 
             Vector3 myPos = monTrans.position;
             Vector3 dir = (targetPos - myPos).normalized;
 
-            monTrans.Translate(dir * _monster.GetSpeed() * Time.deltaTime);
         }
 
-        public override NodeState Evaluate()
+        // Update is called once per frame
+        void Update()
         {
-            MoveToCharacter();
-            return NodeState.Success;
-        }   
-        
 
-        //È­¸é Áß¾ÓÀ¸·Î ¿òÁ÷¿©¾ßÇÔ.
-
+        }
     }
 
 }

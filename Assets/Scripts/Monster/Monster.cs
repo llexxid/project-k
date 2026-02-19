@@ -53,18 +53,7 @@ namespace Scripts.Monster
             } 
         }
 
-        public Vector3 targetPos
-        {
-            get { return transform.position; }
-        }
-
-        void Awake()
-        {
-            _detectRadius = 4.0f;
-            _attackRadius = 2.0f;
-        }
-
-        //Todo : SkillComponent . ¸ó½ºÅÍ ½ºÅ³
+        //Todo : SkillComponent . ëª¬ìŠ¤í„° ìŠ¤í‚¬
 
         void Start()
         {
@@ -91,17 +80,12 @@ namespace Scripts.Monster
         }
         public void SetTarget(Core.inteface.IDamageable target)
         {
-            //°³¹ß ¸ğµå. nullÀÏ ¶§ Log³²°Ü³õ°í Crash!
+            //ê°œë°œ ëª¨ë“œ. nullì¼ ë•Œ Logë‚¨ê²¨ë†“ê³  Crash!
             if (target == null)
             {
                 CustomLogger.LogWarning("Monster SetTarget is Null!");
             }
             Target = target;
-        }
-
-        public int GetSpeed()
-        {
-            return _stat._moveSpeed;
         }
 
         public void OnAlloc()
@@ -111,51 +95,48 @@ namespace Scripts.Monster
 
         public void OnRelease()
         {
-            //¸¸¾à¿¡ ¸®Áöµå ¹Ùµğ°¡ ÀÖ´Ù¸é, ÃÊ±âÈ­.
-            Target = null;
+            //ë§Œì•½ì— ë¦¬ì§€ë“œ ë°”ë””ê°€ ìˆë‹¤ë©´, ì´ˆê¸°í™”.
+
             return;
         }
 
-        public bool TakeDamage(IAttackable attacker)
+        public void TakeDamage(IAttackable attacker)
         {
             int dmg = attacker.damage;
-            bool IsAlive = setHp(dmg);
 
-            if (!IsAlive)
-            {
-                return false;
-            }
-            return true;
+            setHp(dmg);
         }
 
 
         private void OnDead()
         {
-            //Todo : DropItem ½ºÆù
+            //Todo : DropItem ìŠ¤í°
+
+
             CustomLogger.Log("Monster Is Dead!!");
             MonsterSpawner.Instance.ReleaseMonster(_type, this);
         }
 
-        private bool setHp(int damage)
+        private void setHp(int damage)
         {
             long totalHp = _stat._hp + _stat._extraHp;
-            //Á×´Â°æ¿ì
+            //ì£½ëŠ”ê²½ìš°
             if (totalHp - damage <= 0)
             {
                 OnDead();
-                return false;
+                return;
             }
 
-            //ExtraHp¸ÕÀú ±ï±â
+            //ExtraHpë¨¼ì € ê¹ê¸°
             if (damage > _stat._extraHp)
             {
                 int remainDamage = damage - _stat._extraHp;
                 _stat._extraHp = 0;
                 _stat._hp -= remainDamage;
-                return true;
+                return;
             }
             _stat._extraHp -= damage;
-            return true;
+            return;
         }
     }
 }

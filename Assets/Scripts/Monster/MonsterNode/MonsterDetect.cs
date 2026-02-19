@@ -1,17 +1,13 @@
-using Scripts.Core.inteface;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace Scripts.Monster.MonsterNode
 {
-
-    public class MonsterDetect : MonsterNode
+    public class MonsterDetect : Node
     {
-        private List<Collider2D> _res;
-        const int PlayerLayer = 0x00000040;
-        
-        public MonsterDetect(Monster mon) : base(mon)
+        private Monster _monster;
+        public MonsterDetect(Monster mon)
         {
 
         }
@@ -48,14 +44,7 @@ namespace Scripts.Monster.MonsterNode
 
         public override NodeState Evaluate()
         {
-            if (DetectChracter())
-            {
-                return NodeState.Success;
-            }
-            else
-            {
-                return NodeState.Failure;
-            }
+            if () ;
         }
     }
 }
