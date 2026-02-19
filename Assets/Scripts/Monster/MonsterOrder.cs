@@ -1,21 +1,28 @@
+using Scripts.Monster.MonsterNode;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class MonsterOrder
+namespace Scripts.Monster
 {
-    private Node _rootNode;
-
-    public void Init()
+    public class MonsterOrder : MonoBehaviour
     {
-        // Sequence와 Selector를 조합해서 어떻게 Monster들이 동작하는지 추적
-        Sequence MonsterSeq = new Sequence(
-            {
-            
+        private Node _rootNode;
+        [SerializeField]
+        Monster monster;
+        public void Init()
+        {
+
+            List<Node> nodes = new List<Node>();
+
+            nodes.Add(new MonsterAttack(monster));
+            nodes.Add(new MonsterDetect(monster));
+            nodes.Add(new MonsterMove(monster));
+
+            _rootNode = new Selector(
+                    nodes
+                );
         }
-            );
-
-
-        _rootNode = new Sequence()
     }
 }
+
