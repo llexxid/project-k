@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Scripts.Monster
 {
-    public class Monster : MonoBehaviour, IPoolable, IDamageable, IAttackable
+    public class Monster : MonoBehaviour, IPoolable, Core.inteface.IDamageable, IAttackable
     {
         [Serializable]
         public struct MonsterStat
@@ -23,7 +23,19 @@ namespace Scripts.Monster
         [SerializeField]
         private MonsterStat _stat;
         eMonsterType _type;
-        public IDamageable Target { get; private set; }
+        [SerializeField]
+        private float _attackRadius;
+        public float AttackRadius
+        {
+            get { return _attackRadius; }
+        }
+        [SerializeField]
+        private float _detectRadius;
+        public float DectectRadius
+        {
+            get { return _detectRadius; }
+        }
+        public Core.inteface.IDamageable Target { get; private set; }
 
         public bool IsActive { get; set; }
         public int damage 
@@ -41,7 +53,7 @@ namespace Scripts.Monster
             } 
         }
 
-        //Todo : SkillComponent . ¸ó½ºÅÍ ½ºÅ³
+        //Todo : SkillComponent . ëª¬ìŠ¤í„° ìŠ¤í‚¬
 
         void Start()
         {
@@ -62,10 +74,13 @@ namespace Scripts.Monster
             _stat = stat;
             _type = monsterType;
         }
-
-        public void SetTarget(IDamageable target)
+        public void ResetTarget()
         {
-            //°³¹ß ¸ğµå. nullÀÏ ¶§ Log³²°Ü³õ°í Crash!
+            Target = null;
+        }
+        public void SetTarget(Core.inteface.IDamageable target)
+        {
+            //ê°œë°œ ëª¨ë“œ. nullì¼ ë•Œ Logë‚¨ê²¨ë†“ê³  Crash!
             if (target == null)
             {
                 CustomLogger.LogWarning("Monster SetTarget is Null!");
@@ -80,7 +95,7 @@ namespace Scripts.Monster
 
         public void OnRelease()
         {
-            //¸¸¾à¿¡ ¸®Áöµå ¹Ùµğ°¡ ÀÖ´Ù¸é, ÃÊ±âÈ­.
+            //ë§Œì•½ì— ë¦¬ì§€ë“œ ë°”ë””ê°€ ìˆë‹¤ë©´, ì´ˆê¸°í™”.
 
             return;
         }
@@ -95,7 +110,7 @@ namespace Scripts.Monster
 
         private void OnDead()
         {
-            //Todo : DropItem ½ºÆù
+            //Todo : DropItem ìŠ¤í°
 
 
             CustomLogger.Log("Monster Is Dead!!");
@@ -105,14 +120,14 @@ namespace Scripts.Monster
         private void setHp(int damage)
         {
             long totalHp = _stat._hp + _stat._extraHp;
-            //Á×´Â°æ¿ì
+            //ì£½ëŠ”ê²½ìš°
             if (totalHp - damage <= 0)
             {
                 OnDead();
                 return;
             }
 
-            //ExtraHp¸ÕÀú ±ï±â
+            //ExtraHpë¨¼ì € ê¹ê¸°
             if (damage > _stat._extraHp)
             {
                 int remainDamage = damage - _stat._extraHp;

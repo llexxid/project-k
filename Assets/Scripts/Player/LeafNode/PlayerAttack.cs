@@ -9,7 +9,7 @@ public class PlayerAttack : MonoBehaviour
     private float _nextAttackTime = 1f;
     public Animator animator;
     public SkillManager skillManager;
-    public SkillDatabase skillDatabase; // ½ºÅ³ µ¥ÀÌÅÍ ÂüÁ¶¿ë
+    public SkillDatabase skillDatabase; // ìŠ¤í‚¬ ë°ì´í„° ì°¸ì¡°ìš©
     public VFXManager vfxManager;
 
     public float attackRadius = 3f;
@@ -24,7 +24,7 @@ public class PlayerAttack : MonoBehaviour
 
     public NodeState Attack()
     {
-        // 1. ÀÏ¹İ °ø°İ ÄğÅ¸ÀÓ Ã¼Å©
+        // 1. ì¼ë°˜ ê³µê²© ì¿¨íƒ€ì„ ì²´í¬
         //if (Time.time < _nextAttackTime) return NodeState.Failure;
 
         animator.SetBool("isAttack", true);
@@ -40,14 +40,14 @@ public class PlayerAttack : MonoBehaviour
         {
             if (_hitResults[i].TryGetComponent<Enemy>(out var targetEnemy))
             {
-                // 2. ½ºÅ³ ÄğÅ¸ÀÓ Ã¼Å© ("WindLance")
+                // 2. ìŠ¤í‚¬ ì¿¨íƒ€ì„ ì²´í¬ ("WindLance")
                 string skillName = "Wind_Lance";
                 if (!_skillCooldowns.ContainsKey(skillName) || Time.time >= _skillCooldowns[skillName])
                 {
                     SkillData data = skillDatabase.GetSkill(skillName);
                     skillManager.ActivateSkill(skillName, transform.position);
 
-                    // VFX ¹× ÄğÅ¸ÀÓ °»½Å
+                    // VFX ë° ì¿¨íƒ€ì„ ê°±ì‹ 
                     vfxManager.GetVFX(eVFXType.Wind_Lance, targetEnemy.transform.position, transform.rotation, (vfx) => { vfx.ActiveEffect(250); });
                     _skillCooldowns[skillName] = Time.time + data.cooldown;
                 }

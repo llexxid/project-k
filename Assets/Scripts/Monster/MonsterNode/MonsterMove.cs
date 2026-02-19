@@ -14,6 +14,18 @@ namespace Scripts.Monster.MonsterNode
         // Start is called before the first frame update
         void Start()
         {
+            Transform monTrans = _monster.gameObject.transform;
+            Core.inteface.IDamageable _target = _monster.Target;
+            Vector3 targetPos = Vector3.zero;
+            //������ target�� ���� ���
+            if (_target != null)
+            {
+                //Todo : ī�޶��� ��ǥ�� ����
+                targetPos = _target.targetPos;
+            }
+                
+            Vector3 myPos = monTrans.position;
+            Vector3 dir = (targetPos - myPos).normalized;
 
         }
 
