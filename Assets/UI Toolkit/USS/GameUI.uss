@@ -1,0 +1,262 @@
+/* ===== Common ===== */
+.root { width: 100%; height: 100%; }
+.safe-area { position: absolute; left: 0%; right: 0%; top: 0%; bottom: 0%; }
+.layer { position: absolute; left: 0; right: 0; top: 0; bottom: 0; }
+
+.hidden { display: none; }
+
+/* ===== Title ===== */
+.title-screen {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    background-color: rgba(0,0,0,0.25);
+}
+
+/* 빈 공간 클릭용 레이어 (히트테스트만 담당) */
+.title-bg {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    background-color: rgba(0,0,0,0);
+}
+
+.title-big {
+    position: absolute;
+    left: 0; right: 0;
+    top: 90px;
+
+    /* UI Toolkit 텍스트 가운데 정렬 */
+    -unity-text-align: middle-center;
+
+    font-size: 72px;
+    -unity-font-style: bold;
+    color: rgba(255,255,255,0.95);
+}
+
+.press-hint {
+    position: absolute;
+    left: 0; right: 0;
+    bottom: 120px;
+
+    /* UI Toolkit 텍스트 가운데 정렬 */
+    -unity-text-align: middle-center;
+
+    font-size: 30px;
+    color: rgba(255,255,255,0.9);
+}
+
+.login-btn {
+    position: absolute;
+    left: 50%;
+    top: 52%;
+    width: 520px;
+    height: 140px;
+    margin-left: -260px;
+    margin-top: -70px;
+    font-size: 36px;
+}
+
+.login-popup {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    justify-content: center;
+    align-items: center;
+}
+
+.login-popup-box {
+    width: 70%;
+    max-width: 760px;
+    padding: 28px;
+    background-color: rgba(0,0,0,0.75);
+    border-radius: 18px;
+    gap: 14px;
+}
+
+.popup-title { font-size: 34px; -unity-font-style: bold; color: rgba(255,255,255,0.95); }
+.popup-body { font-size: 26px; color: rgba(255,255,255,0.9); }
+
+/* ===== Main ===== */
+.main-screen {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+}
+
+.hud-top {
+    position: absolute;
+    left: 0; right: 0; top: 0;
+    height: 170px;
+    padding-left: 22px;
+    padding-right: 22px;
+
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+
+    background-color: rgba(0,0,0,0.35);
+}
+
+/* 프로필 버튼과 닉네임 사이 살짝 여백 */
+.hud-left-wrap { flex-direction: row; align-items: center; gap: 18px; }
+
+/* 프로필 버튼: 원형 */
+.profile-blank-btn {
+    width: 92px;
+    height: 92px;
+
+    border-radius: 999px;
+    background-color: rgba(255,255,255,0.12);
+
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+
+    font-size: 26px;
+}
+
+.profile-block { flex-direction: column; }
+.hud-nickname { font-size: 34px; -unity-font-style: bold; color: rgba(255,255,255,0.95); }
+
+/* Top center is spacer (stage moved below) */
+.hud-center-wrap { flex-grow: 1; }
+
+.hud-right-wrap { flex-direction: row; align-items: center; gap: 14px; }
+
+/* 재화 표시: 버튼처럼 동작하지만, 기존 반투명 둥근 칩처럼 보이게 */
+.currency-btn {
+    height: 100px;
+    padding-left: 16px;
+    padding-right: 16px;
+
+    background-color: rgba(255,255,255,0.12);
+    border-radius: 14px;
+
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+}
+
+/* 기본 버튼 테마의 튀는 변화 완화 */
+.currency-btn:hover { background-color: rgba(255,255,255,0.14); }
+.currency-btn:active { background-color: rgba(255,255,255,0.18); }
+
+.currency-inner { flex-direction: row; align-items: center; gap: 10px; }
+.currency-name { font-size: 24px; color: rgba(255,255,255,0.85); }
+.currency-value { font-size: 28px; -unity-font-style: bold; color: rgba(255,255,255,0.95); }
+
+.hamburger-right {
+    width: 90px; height: 90px;
+    font-size: 44px;
+}
+
+/* Dropdowns */
+.dropdown {
+    position: absolute;
+    right: 0;
+    top: 175px; /* top bar 아래로 조금 내림 */
+    width: 420px;
+    padding: 16px;
+    gap: 10px;
+    background-color: rgba(0,0,0,0.78);
+    border-radius: 16px;
+}
+.dropdown-title { font-size: 28px; -unity-font-style: bold; color: rgba(255,255,255,0.95); }
+.dropdown-item { font-size: 24px; color: rgba(255,255,255,0.9); }
+.dropdown-btn { height: 80px; font-size: 26px; }
+
+/* ===== Stage (moved below top bar) ===== */
+.stage-area {
+    position: absolute;
+    left: 0;
+    right: 0;
+
+    /* 상단 바 밑 + 중앙-상단(대략 화면 7/10 위치: '위쪽 70%' 느낌) */
+    top: 30%;
+
+    align-items: center;
+    justify-content: center;
+}
+
+.stage-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+}
+
+.stage-label {
+    font-size: 36px;
+    -unity-font-style: bold;
+    color: rgba(255,255,255,0.95);
+}
+
+.boss-challenge {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.boss-label {
+    font-size: 18px;
+    color: rgba(255,255,255,0.85);
+    margin-bottom: 6px;
+}
+
+.boss-toggle {
+    width: 34px;
+    height: 34px;
+}
+
+/* Left side */
+.hud-left {
+    position: absolute;
+    left: 0;
+    top: 190px;
+    bottom: 220px;
+    width: 190px;
+    padding: 12px;
+    gap: 12px;
+    flex-direction: column;
+}
+.side-btn { width: 170px; height: 86px; font-size: 28px; }
+
+/* Main content */
+.main-content {
+    position: absolute;
+    left: 0; right: 0;
+    top: 180px;
+    bottom: 190px;
+    align-items: center;
+    justify-content: center;
+}
+.lobby-hint { font-size: 30px; color: rgba(255,255,255,0.85); }
+
+/* Bottom bar */
+.bottom-bar {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 190px;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+    background-color: rgba(0,0,0,0.4);
+}
+.tab-btn { width: 170px; height: 110px; font-size: 32px; }
+
+/* Push Panel (Bottom Sheet) */
+.panel-sheet {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 70%;
+    background-color: rgba(0,0,0,0.72);
+    border-top-left-radius: 22px;
+    border-top-right-radius: 22px;
+    padding: 20px;
+    gap: 14px;
+}
+
+.panel-title {
+    font-size: 34px;
+    -unity-font-style: bold;
+    color: rgba(255,255,255,0.95);
+}

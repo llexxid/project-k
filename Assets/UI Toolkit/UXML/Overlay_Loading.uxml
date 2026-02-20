@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="OverlayLoading" class="layer hidden">
+        <ui:VisualElement name="Dim" class="overlay-dim" />
+        <ui:VisualElement name="Box" class="loading-box">
+            <ui:Label name="LblLoading" text="Loading..." />
+            <ui:ProgressBar name="PbLoading" title="" value="0" highValue="100" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
