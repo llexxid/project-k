@@ -91,6 +91,9 @@ namespace Scripts.Monster
             _attackRadius = 0.8f;
             _facingDir = 1; // 1 : Right, -1 : Left
             _am = gameObject.GetComponentInChildren<Animator>();
+
+            _monAI = new MonsterOrder();
+            _monAI.Init(this);
             InitializeAnimator();
         }
         void Start()
@@ -178,8 +181,6 @@ namespace Scripts.Monster
 
         public void OnAlloc()
         {
-            _monAI = MonsterOrderPool.Instance.GetMonsterOrder();
-            _monAI.Init(this);
             return;
         }
 
@@ -187,7 +188,6 @@ namespace Scripts.Monster
         {
             //만약에 리지드 바디가 있다면, 초기화.
             Target = null;
-            MonsterOrderPool.Instance.ReleaseMonsterOrder(_monAI);
             return;
         }
 
@@ -217,7 +217,7 @@ namespace Scripts.Monster
         {
             if (_prevAction != _monAction)
             {
-                CustomLogger.Log($"Prev : {_prevAction} Current : {_monAction}");
+                
                 TurnOffAnimation(_prevAction);
                 TurnOnAnimation(_monAction);
             }
