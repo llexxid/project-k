@@ -159,7 +159,6 @@ namespace KingdomIdle.UIToolkit
             var ve = CreatePanel(id);
             ForceFullScreen(ve);
 
-            // Root should not block clicks in uncovered areas (e.g., bottom tab bar)
             ve.pickingMode = PickingMode.Ignore;
 
             _layerPanels.Add(ve);
@@ -314,8 +313,10 @@ namespace KingdomIdle.UIToolkit
         {
             root.pickingMode = PickingMode.Position;
 
+            var bgCatcher = root.Q<VisualElement>("BgClickCatcher");
             var btnLogin = root.Q<Button>("BtnLogin");
             var popupLogin = root.Q<VisualElement>("PopupLogin");
+            var popupLoginBox = root.Q<VisualElement>("PopupLoginBox");
             var pressHint = root.Q<Label>("LblPressHint");
 
             if (btnLogin != null && popupLogin != null)
@@ -324,17 +325,45 @@ namespace KingdomIdle.UIToolkit
             if (pressHint != null)
                 StartPressHintBlink(pressHint);
 
-            root.RegisterCallback<PointerUpEvent>(evt =>
+            // 배경 클릭 = 다음으로(단, 로그인 팝업이 열려있으면 팝업이 우선)
+            if (bgCatcher != null)
             {
-                var targetVe = evt.target as VisualElement;
-                if (targetVe == null) return;
+                bgCatcher.pickingMode = PickingMode.Position;
+                bgCatcher.RegisterCallback<PointerUpEvent>(_ =>
+                {
+                    if (popupLogin != null && !popupLogin.ClassListContains("hidden")) return;
+                    LoadMainOnce();
+                }, TrickleDown.TrickleDown);
+            }
 
-                if (IsInside(targetVe, btnLogin)) return;
-                if (IsInside(targetVe, popupLogin)) return;
+            // 로그인 팝업: 박스 밖 클릭 시 닫기
+            if (popupLogin != null)
+            {
+                popupLogin.pickingMode = PickingMode.Position;
 
-                LoadMainOnce();
+                popupLogin.RegisterCallback<PointerUpEvent>(evt =>
+                {
+                    if (popupLogin.ClassListContains("hidden")) return;
 
-            }, TrickleDown.TrickleDown);
+                    var targetVe = evt.target as VisualElement;
+                    if (targetVe == null) return;
+
+                    // 팝업 박스 안이면 유지
+                    if (IsInside(targetVe, popupLoginBox)) return;
+
+                    // 바깥이면 닫기
+                    popupLogin.AddToClassList("hidden");
+                    evt.StopPropagation();
+                }, TrickleDown.TrickleDown);
+            }
+
+            // 팝업 박스 클릭은 팝업(배경)으로 전파되지 않게 막기
+            if (popupLoginBox != null)
+            {
+                popupLoginBox.pickingMode = PickingMode.Position;
+                popupLoginBox.RegisterCallback<PointerDownEvent>(evt => evt.StopPropagation(), TrickleDown.TrickleDown);
+                popupLoginBox.RegisterCallback<PointerUpEvent>(evt => evt.StopPropagation(), TrickleDown.TrickleDown);
+            }
         }
 
         private void BindMain(VisualElement root)
@@ -409,6 +438,12 @@ namespace KingdomIdle.UIToolkit
         private void BindPanelCommon(VisualElement panelRoot)
         {
             if (panelRoot == null) return;
+
+            // PanelRoot(내부 루트)가 화면 전체를 덮고 있으면 탭 클릭을 가로막을 수 있으므로,
+            // PanelRoot 자체는 Ignore로 두고 Backdrop/Sheet만 클릭을 받게 한다.
+            var realRoot = panelRoot.Q<VisualElement>("PanelRoot");
+            if (realRoot != null)
+                realRoot.pickingMode = PickingMode.Ignore;
 
             var backdrop = panelRoot.Q<VisualElement>("Backdrop");
             if (backdrop != null)

@@ -12,6 +12,12 @@
     background-color: rgba(0,0,0,0.25);
 }
 
+/* 배경 클릭 캐처가 전체 영역을 덮도록 */
+.title-bg {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+}
+
 .title-big {
     position: absolute;
     left: 0; right: 0;
@@ -140,8 +146,22 @@
 .dropdown-item { font-size: 24px; color: rgba(255,255,255,0.9); }
 .dropdown-btn { height: 80px; font-size: 26px; }
 
+/* 햄버거 드롭다운: 햄버거 버튼 폭(90px)에 맞춤 */
+.hamburger-dropdown {
+    width: 90px;
+    padding: 0px;
+    gap: 10px;
+    border-radius: 14px;
+}
+.hamburger-dropdown .dropdown-btn {
+    width: 90px;
+    height: 90px;
+    font-size: 44px;
+    padding-left: 0px;
+    padding-right: 0px;
+}
+
 /* ===== Stage Area (FIX) ===== */
-/* 화면의 7/10(=상단 쪽, 체감상 30% 정도) 위치에 중앙 정렬로 고정 */
 .stage-area {
     position: absolute;
     left: 0;
