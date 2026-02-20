@@ -43,41 +43,35 @@ namespace KingdomIdle.UIToolkit
         private VisualElement _layerOverlays;
 
         private UIScreenId _activeScreenId;
-        private VisualElement _activeScreenVe;
 
-        // Panels
-        private readonly Stack<VisualElement> _panelStack = new();
+        private struct PanelEntry
+        {
+            public UIPanelId Id;
+            public bool IsTab;
+            public VisualElement Ve;
 
-        // Tab panel tracking (for toggle/switch)
+            public PanelEntry(UIPanelId id, bool isTab, VisualElement ve)
+            {
+                Id = id;
+                IsTab = isTab;
+                Ve = ve;
+            }
+        }
+
+        private readonly Stack<PanelEntry> _panelStack = new();
+
         private bool _hasActiveTabPanel;
         private UIPanelId _activeTabPanelId;
 
-        // Bottom bar height (dynamic)
-        private float _bottomBarHeightPx = 190f;
         private VisualElement _bottomBar;
+        private float _bottomBarHeightPx = 190f;
 
-        // Loading overlay refs
         private VisualElement _loadingRoot;
         private Label _loadingLabel;
         private ProgressBar _loadingBar;
 
-        // Title blink scheduler
         private IVisualElementScheduledItem _pressHintBlink;
-
-        // Title input fallback
-        private bool _titlePointerEverReceived;
         private bool _requestedScene;
-
-        private sealed class PanelMeta
-        {
-            public UIPanelId Id;
-            public bool IsTab;
-            public PanelMeta(UIPanelId id, bool isTab)
-            {
-                Id = id;
-                IsTab = isTab;
-            }
-        }
 
         private void Awake()
         {
@@ -86,6 +80,7 @@ namespace KingdomIdle.UIToolkit
                 Destroy(gameObject);
                 return;
             }
+
             Instance = this;
             if (dontDestroyOnLoad) DontDestroyOnLoad(gameObject);
 
@@ -97,11 +92,8 @@ namespace KingdomIdle.UIToolkit
                 return;
             }
 
-            if (panelSettings != null)
-                uiDocument.panelSettings = panelSettings;
-
-            if (uiRootUxml != null)
-                uiDocument.visualTreeAsset = uiRootUxml;
+            if (panelSettings != null) uiDocument.panelSettings = panelSettings;
+            if (uiRootUxml != null) uiDocument.visualTreeAsset = uiRootUxml;
 
             _root = uiDocument.rootVisualElement;
 
@@ -120,67 +112,17 @@ namespace KingdomIdle.UIToolkit
                 return;
             }
 
-            // IMPORTANT: Layer containers must not eat pointer events.
-            SetPickIgnore(_layerPanels);
-            SetPickIgnore(_layerPopups);
-            SetPickIgnore(_layerOverlays);
+            _layerPanels.pickingMode = PickingMode.Ignore;
+            if (_layerPopups != null) _layerPopups.pickingMode = PickingMode.Ignore;
+            _layerOverlays.pickingMode = PickingMode.Ignore;
 
             BuildOverlays();
         }
 
         private void Update()
         {
-            // Title: if pointer events never arrive (rare), still allow press to go main.
-            if (_activeScreenId == UIScreenId.Title && !_titlePointerEverReceived && !_requestedScene)
-            {
-                if (IsAnyPressDown())
-                    LoadMainOnce();
-            }
-
             if (IsBackPressedThisFrame())
                 RequestBack();
-        }
-
-        private bool IsAnyPressDown()
-        {
-#if ENABLE_INPUT_SYSTEM
-            if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasPressedThisFrame)
-                return true;
-            if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
-                return true;
-            return false;
-#else
-            if (Input.GetMouseButtonDown(0))
-                return true;
-            if (Input.touchCount > 0 && Input.GetTouch(0).phase == TouchPhase.Began)
-                return true;
-            return false;
-#endif
-        }
-
-        private bool IsBackPressedThisFrame()
-        {
-#if ENABLE_INPUT_SYSTEM
-            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
-                return true;
-            return false;
-#else
-            return Input.GetKeyDown(KeyCode.Escape);
-#endif
-        }
-
-        private void BuildOverlays()
-        {
-            if (overlayLoadingUxml == null) return;
-
-            _loadingRoot = overlayLoadingUxml.CloneTree();
-            ForceFullScreen(_loadingRoot);
-            _layerOverlays.Add(_loadingRoot);
-
-            _loadingLabel = _loadingRoot.Q<Label>("LblLoading");
-            _loadingBar = _loadingRoot.Q<ProgressBar>("PbLoading");
-
-            HideLoading();
         }
 
         // ===== Public API =====
@@ -194,42 +136,34 @@ namespace KingdomIdle.UIToolkit
                 ClearPanels();
 
             _layerScreens.Clear();
-            _activeScreenVe = CreateScreen(id);
-            ForceFullScreen(_activeScreenVe);
-            _layerScreens.Add(_activeScreenVe);
-            _activeScreenId = id;
 
-            // Title flags reset
-            _titlePointerEverReceived = (id != UIScreenId.Title);
+            var screen = CreateScreen(id);
+            ForceFullScreen(screen);
+            _layerScreens.Add(screen);
+
+            _activeScreenId = id;
             _bottomBar = null;
             _bottomBarHeightPx = 190f;
 
-            BindScreenEvents(id, _activeScreenVe);
+            BindScreenEvents(id, screen);
         }
 
-        /// <summary>
-        /// Push a panel (bottom sheet).
-        /// - clearBefore=true: treat as tab root panel (switch)
-        /// - clearBefore=false: stack on top
-        /// - isTabPanel=true: enables same-tab-to-close and tab switching
-        /// </summary>
         public void PushPanel(UIPanelId id, object payload = null, bool clearBefore = false, bool isTabPanel = false)
         {
             if (clearBefore)
                 ClearPanels();
 
             if (_panelStack.Count > 0)
-                _panelStack.Peek().AddToClassList("hidden");
+                _panelStack.Peek().Ve.AddToClassList("hidden");
 
             var ve = CreatePanel(id);
             ForceFullScreen(ve);
 
             // Root should not block clicks in uncovered areas (e.g., bottom tab bar)
             ve.pickingMode = PickingMode.Ignore;
-            ve.userData = new PanelMeta(id, isTabPanel);
 
             _layerPanels.Add(ve);
-            _panelStack.Push(ve);
+            _panelStack.Push(new PanelEntry(id, isTabPanel, ve));
 
             var label = ve.Q<Label>("LblPanelName");
             if (label != null)
@@ -249,10 +183,10 @@ namespace KingdomIdle.UIToolkit
             if (_panelStack.Count == 0) return;
 
             var top = _panelStack.Pop();
-            top.RemoveFromHierarchy();
+            top.Ve.RemoveFromHierarchy();
 
             if (_panelStack.Count > 0)
-                _panelStack.Peek().RemoveFromClassList("hidden");
+                _panelStack.Peek().Ve.RemoveFromClassList("hidden");
 
             RefreshActiveTabPanelState();
         }
@@ -261,11 +195,11 @@ namespace KingdomIdle.UIToolkit
         {
             while (_panelStack.Count > 0)
             {
-                var ve = _panelStack.Pop();
+                var ve = _panelStack.Pop().Ve;
                 ve.RemoveFromHierarchy();
             }
-            _layerPanels.Clear();
 
+            _layerPanels.Clear();
             _hasActiveTabPanel = false;
             _activeTabPanelId = default;
         }
@@ -282,7 +216,7 @@ namespace KingdomIdle.UIToolkit
             }
             else
             {
-                HideLoading();
+                _loadingRoot.AddToClassList("hidden");
             }
         }
 
@@ -303,11 +237,33 @@ namespace KingdomIdle.UIToolkit
             if (_activeScreenId == UIScreenId.Main && GameManager.Instance != null)
             {
                 GameManager.Instance.LoadAsyncScene(eSceneType.title);
-                return;
             }
         }
 
         // ===== Internals =====
+
+        private static bool IsBackPressedThisFrame()
+        {
+#if ENABLE_INPUT_SYSTEM
+            return Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame;
+#else
+            return Input.GetKeyDown(KeyCode.Escape);
+#endif
+        }
+
+        private void BuildOverlays()
+        {
+            if (overlayLoadingUxml == null) return;
+
+            _loadingRoot = overlayLoadingUxml.CloneTree();
+            ForceFullScreen(_loadingRoot);
+            _layerOverlays.Add(_loadingRoot);
+
+            _loadingLabel = _loadingRoot.Q<Label>("LblLoading");
+            _loadingBar = _loadingRoot.Q<ProgressBar>("PbLoading");
+
+            _loadingRoot.AddToClassList("hidden");
+        }
 
         private static void ForceFullScreen(VisualElement ve)
         {
@@ -319,12 +275,6 @@ namespace KingdomIdle.UIToolkit
             ve.style.bottom = 0;
         }
 
-        private static void SetPickIgnore(VisualElement ve)
-        {
-            if (ve == null) return;
-            ve.pickingMode = PickingMode.Ignore;
-        }
-
         private VisualElement CreateScreen(UIScreenId id)
         {
             switch (id)
@@ -333,6 +283,8 @@ namespace KingdomIdle.UIToolkit
                     return screenTitleUxml != null ? screenTitleUxml.CloneTree() : new Label("Missing Screen_Title UXML");
                 case UIScreenId.Main:
                     return screenMainUxml != null ? screenMainUxml.CloneTree() : new Label("Missing Screen_Main UXML");
+                case UIScreenId.Dungeon:
+                    return new Label("Dungeon screen is not implemented yet.");
                 default:
                     return new Label($"Unhandled screen: {id}");
             }
@@ -362,26 +314,18 @@ namespace KingdomIdle.UIToolkit
         {
             root.pickingMode = PickingMode.Position;
 
-            // mark that pointer pipeline works
-            root.RegisterCallback<PointerDownEvent>(_ => { _titlePointerEverReceived = true; }, TrickleDown.TrickleDown);
-
             var btnLogin = root.Q<Button>("BtnLogin");
             var popupLogin = root.Q<VisualElement>("PopupLogin");
             var pressHint = root.Q<Label>("LblPressHint");
 
             if (btnLogin != null && popupLogin != null)
-            {
-                btnLogin.clicked += () => { popupLogin.RemoveFromClassList("hidden"); };
-            }
+                btnLogin.clicked += () => popupLogin.RemoveFromClassList("hidden");
 
             if (pressHint != null)
                 StartPressHintBlink(pressHint);
 
-            // anywhere (excluding login/popup): go main
             root.RegisterCallback<PointerUpEvent>(evt =>
             {
-                _titlePointerEverReceived = true;
-
                 var targetVe = evt.target as VisualElement;
                 if (targetVe == null) return;
 
@@ -395,7 +339,6 @@ namespace KingdomIdle.UIToolkit
 
         private void BindMain(VisualElement root)
         {
-            // Cache bottom bar and track its real height
             _bottomBar = root.Q<VisualElement>("BottomBar");
             if (_bottomBar != null)
             {
@@ -409,42 +352,32 @@ namespace KingdomIdle.UIToolkit
                     }
                 });
 
-                // initial
                 if (_bottomBar.resolvedStyle.height > 1f)
                     _bottomBarHeightPx = _bottomBar.resolvedStyle.height;
             }
 
-            // Bottom tabs: toggle/switch
             BindTab(root.Q<Button>("BtnDevelopment"), UIPanelId.Development, "developmentPanel");
             BindTab(root.Q<Button>("BtnKingdomArmy"), UIPanelId.KingdomArmy, "kingdomArmyPanel");
             BindTab(root.Q<Button>("BtnGacha"), UIPanelId.Gacha, "gachaPanel");
             BindTab(root.Q<Button>("BtnStore"), UIPanelId.Store, "storePanel");
             BindTab(root.Q<Button>("BtnDungeon"), UIPanelId.Dungeon, "dungeonPanel");
 
-            // Profile / Quest: stack on top
             var bProfile = root.Q<Button>("BtnProfileBlank");
             if (bProfile != null) bProfile.clicked += () => PushPanel(UIPanelId.HamburgerMenu, "profileMenu", clearBefore: false, isTabPanel: false);
 
             var bQuest = root.Q<Button>("BtnQuest");
             if (bQuest != null) bQuest.clicked += () => PushPanel(UIPanelId.HamburgerMenu, "questMenu", clearBefore: false, isTabPanel: false);
 
-            // Currency dropdown (dummy)
             var bCurrency = root.Q<Button>("BtnCurrency");
             var popupCurrencies = root.Q<VisualElement>("PopupCurrencies");
             if (bCurrency != null && popupCurrencies != null)
-            {
                 bCurrency.clicked += () => ToggleHidden(popupCurrencies);
-            }
 
-            // Right hamburger dropdown (dummy)
             var bHamburgerRight = root.Q<Button>("BtnHamburgerRight");
             var popupHamburger = root.Q<VisualElement>("PopupHamburger");
             if (bHamburgerRight != null && popupHamburger != null)
-            {
                 bHamburgerRight.clicked += () => ToggleHidden(popupHamburger);
-            }
 
-            // Dropdown menu buttons: stack on top
             var bMenuSettings = root.Q<Button>("BtnMenuSettings");
             if (bMenuSettings != null) bMenuSettings.clicked += () => PushPanel(UIPanelId.Settings, "settingsMenu (작업 예정)", clearBefore: false, isTabPanel: false);
 
@@ -453,8 +386,6 @@ namespace KingdomIdle.UIToolkit
 
             var bMenuMail = root.Q<Button>("BtnMenuMail");
             if (bMenuMail != null) bMenuMail.clicked += () => PushPanel(UIPanelId.Mailbox, "mailMenu (작업 예정)", clearBefore: false, isTabPanel: false);
-
-            Debug.Log("[UITK] Main UI 바인딩 완료 (탭 토글/스택/오프셋 포함)");
         }
 
         private void BindTab(Button btn, UIPanelId panelId, string panelName)
@@ -465,14 +396,12 @@ namespace KingdomIdle.UIToolkit
 
         private void OnTabPressed(UIPanelId panelId, string panelName)
         {
-            // If same tab is active => close all panels (toggle off)
             if (_hasActiveTabPanel && _activeTabPanelId.Equals(panelId))
             {
                 ClearPanels();
                 return;
             }
 
-            // Switch tab: clear and open new tab panel
             ClearPanels();
             PushPanel(panelId, panelName, clearBefore: false, isTabPanel: true);
         }
@@ -481,19 +410,17 @@ namespace KingdomIdle.UIToolkit
         {
             if (panelRoot == null) return;
 
-            // Backdrop click: close only if this is top
             var backdrop = panelRoot.Q<VisualElement>("Backdrop");
             if (backdrop != null)
             {
                 backdrop.pickingMode = PickingMode.Position;
                 backdrop.RegisterCallback<PointerUpEvent>(_ =>
                 {
-                    if (_panelStack.Count > 0 && _panelStack.Peek() == panelRoot)
+                    if (_panelStack.Count > 0 && _panelStack.Peek().Ve == panelRoot)
                         PopPanel();
                 }, TrickleDown.TrickleDown);
             }
 
-            // Sheet: stop propagation to backdrop
             var sheet = panelRoot.Q<VisualElement>("Sheet");
             if (sheet != null)
             {
@@ -502,12 +429,10 @@ namespace KingdomIdle.UIToolkit
                 sheet.RegisterCallback<PointerUpEvent>(evt => evt.StopPropagation(), TrickleDown.TrickleDown);
             }
 
-            // Close button
             var closeBtn = panelRoot.Q<Button>("BtnPanelClose");
             if (closeBtn != null)
                 closeBtn.clicked += PopPanel;
 
-            // Apply dynamic bottom bar height so tabs stay visible/clickable
             ApplyPanelOffsets(panelRoot);
         }
 
@@ -529,17 +454,13 @@ namespace KingdomIdle.UIToolkit
         private void UpdateAllPanelOffsets()
         {
             foreach (var p in _panelStack)
-                ApplyPanelOffsets(p);
+                ApplyPanelOffsets(p.Ve);
         }
 
         private float GetBottomBarHeightPx()
         {
-            if (_bottomBar != null)
-            {
-                var h = _bottomBar.resolvedStyle.height;
-                if (h > 1f) return h;
-                if (_bottomBar.layout.height > 1f) return _bottomBar.layout.height;
-            }
+            if (_bottomBar != null && _bottomBar.resolvedStyle.height > 1f)
+                return _bottomBar.resolvedStyle.height;
 
             return _bottomBarHeightPx > 1f ? _bottomBarHeightPx : 190f;
         }
@@ -549,23 +470,14 @@ namespace KingdomIdle.UIToolkit
             _hasActiveTabPanel = false;
             _activeTabPanelId = default;
 
-            // Stack enumerates from top to bottom, so we keep last found.
-            UIPanelId lastTabId = default;
-            bool found = false;
-
-            foreach (var ve in _panelStack)
+            foreach (var entry in _panelStack)
             {
-                if (ve?.userData is PanelMeta meta && meta.IsTab)
+                if (entry.IsTab)
                 {
-                    lastTabId = meta.Id;
-                    found = true;
+                    _hasActiveTabPanel = true;
+                    _activeTabPanelId = entry.Id;
+                    return;
                 }
-            }
-
-            if (found)
-            {
-                _hasActiveTabPanel = true;
-                _activeTabPanelId = lastTabId;
             }
         }
 
@@ -617,11 +529,6 @@ namespace KingdomIdle.UIToolkit
                 _pressHintBlink.Pause();
                 _pressHintBlink = null;
             }
-        }
-
-        private void HideLoading()
-        {
-            _loadingRoot?.AddToClassList("hidden");
         }
     }
 }
