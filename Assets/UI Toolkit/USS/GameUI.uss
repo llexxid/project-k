@@ -12,21 +12,11 @@
     background-color: rgba(0,0,0,0.25);
 }
 
-/* 빈 공간 클릭용 레이어 (히트테스트만 담당) */
-.title-bg {
-    position: absolute;
-    left: 0; right: 0; top: 0; bottom: 0;
-    background-color: rgba(0,0,0,0);
-}
-
 .title-big {
     position: absolute;
     left: 0; right: 0;
     top: 90px;
-
-    /* UI Toolkit 텍스트 가운데 정렬 */
     -unity-text-align: middle-center;
-
     font-size: 72px;
     -unity-font-style: bold;
     color: rgba(255,255,255,0.95);
@@ -36,10 +26,7 @@
     position: absolute;
     left: 0; right: 0;
     bottom: 120px;
-
-    /* UI Toolkit 텍스트 가운데 정렬 */
     -unity-text-align: middle-center;
-
     font-size: 30px;
     color: rgba(255,255,255,0.9);
 }
@@ -86,57 +73,46 @@
     height: 170px;
     padding-left: 22px;
     padding-right: 22px;
-
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
-
     background-color: rgba(0,0,0,0.35);
 }
 
-/* 프로필 버튼과 닉네임 사이 살짝 여백 */
 .hud-left-wrap { flex-direction: row; align-items: center; gap: 18px; }
 
-/* 프로필 버튼: 원형 */
+/* 프로필 버튼: 원형 유지 */
 .profile-blank-btn {
     width: 92px;
     height: 92px;
-
     border-radius: 999px;
     background-color: rgba(255,255,255,0.12);
-
     border-left-width: 0;
     border-right-width: 0;
     border-top-width: 0;
     border-bottom-width: 0;
-
     font-size: 26px;
 }
 
 .profile-block { flex-direction: column; }
 .hud-nickname { font-size: 34px; -unity-font-style: bold; color: rgba(255,255,255,0.95); }
 
-/* Top center is spacer (stage moved below) */
 .hud-center-wrap { flex-grow: 1; }
 
 .hud-right-wrap { flex-direction: row; align-items: center; gap: 14px; }
 
-/* 재화 표시: 버튼처럼 동작하지만, 기존 반투명 둥근 칩처럼 보이게 */
+/* 재화 표시: 버튼이지만 칩처럼 */
 .currency-btn {
     height: 100px;
     padding-left: 16px;
     padding-right: 16px;
-
     background-color: rgba(255,255,255,0.12);
     border-radius: 14px;
-
     border-left-width: 0;
     border-right-width: 0;
     border-top-width: 0;
     border-bottom-width: 0;
 }
-
-/* 기본 버튼 테마의 튀는 변화 완화 */
 .currency-btn:hover { background-color: rgba(255,255,255,0.14); }
 .currency-btn:active { background-color: rgba(255,255,255,0.18); }
 
@@ -153,7 +129,7 @@
 .dropdown {
     position: absolute;
     right: 0;
-    top: 175px; /* top bar 아래로 조금 내림 */
+    top: 175px;
     width: 420px;
     padding: 16px;
     gap: 10px;
@@ -164,15 +140,13 @@
 .dropdown-item { font-size: 24px; color: rgba(255,255,255,0.9); }
 .dropdown-btn { height: 80px; font-size: 26px; }
 
-/* ===== Stage (moved below top bar) ===== */
+/* ===== Stage Area (FIX) ===== */
+/* 화면의 7/10(=상단 쪽, 체감상 30% 정도) 위치에 중앙 정렬로 고정 */
 .stage-area {
     position: absolute;
     left: 0;
     right: 0;
-
-    /* 상단 바 밑 + 중앙-상단(대략 화면 7/10 위치: '위쪽 70%' 느낌) */
     top: 30%;
-
     align-items: center;
     justify-content: center;
 }
@@ -243,11 +217,29 @@
 }
 .tab-btn { width: 170px; height: 110px; font-size: 32px; }
 
-/* Push Panel (Bottom Sheet) */
+/* ===== Push Panel (Bottom Sheet) ===== */
+.panel-root {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+}
+
+/*
+   NOTE:
+   - bottom 값은 코드에서 BottomBar 실제 높이로 동적으로 설정한다.
+   - 기본값은 190px로 두되, 해상도/폰트 변경으로 BottomBar가 커져도 탭이 가려지지 않게 한다.
+*/
+.panel-backdrop {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 190px;
+    background-color: rgba(0,0,0,0.35);
+}
+
 .panel-sheet {
     position: absolute;
-    left: 0; right: 0; bottom: 0;
+    left: 0; right: 0;
+    bottom: 190px;
     height: 70%;
+    min-height: 420px;
     background-color: rgba(0,0,0,0.72);
     border-top-left-radius: 22px;
     border-top-right-radius: 22px;
@@ -255,8 +247,25 @@
     gap: 14px;
 }
 
+.panel-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
 .panel-title {
     font-size: 34px;
     -unity-font-style: bold;
     color: rgba(255,255,255,0.95);
+}
+
+.panel-close-btn {
+    width: 80px;
+    height: 80px;
+    font-size: 34px;
+}
+
+.panel-body-hint {
+    font-size: 28px;
+    color: rgba(255,255,255,0.85);
 }
