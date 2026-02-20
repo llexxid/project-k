@@ -8,9 +8,10 @@ using UnityEngine;
 namespace Scripts.Monster
 {
     using Scripts.Core.inteface;
+    using UnityEditor.Build.Pipeline.Utilities;
+
     public class Monster : MonoBehaviour, IPoolable, IDamageable, IAttackable
     {
-        [Serializable]
         public struct MonsterStat
         {
             public MonsterStat(int hp, int extraHp, int atk, int moveSpeed, int atkSpeed)
@@ -29,25 +30,24 @@ namespace Scripts.Monster
             public int _moveSpeed;
             public int _atkSpeed;
         }
-        [SerializeField]
         private MonsterStat _stat;
         eMonsterType _type;
+        private MonsterOrder _monAI;
+        private eMonsterAction _monAction;
+        private eMonsterAction _prevAction;
+        public IDamageable Target { get; private set; }
+        private Animator _am;
         [SerializeField]
         private float _attackRadius;
-        public float AttackRadius
-        {
-            get { return _attackRadius; }
-        }
         [SerializeField]
         private float _detectRadius;
-        public float DectectRadius
-        {
-            get { return _detectRadius; }
+        public Animator Animator { 
+            get
+            {
+                return _am;
+            }
         }
-        public IDamageable Target { get; private set; }
-
-        private MonsterOrder _monAI;
-
+        public eMonsterAction MonAction { get { return _monAction; } }
         public bool IsActive { get; set; }
         public int damage 
         {
@@ -63,7 +63,6 @@ namespace Scripts.Monster
                 return transform.position; 
             } 
         }
-
         public Vector3 targetPos
         {
             get
@@ -71,12 +70,24 @@ namespace Scripts.Monster
                 return transform.position;
             }
         }
+        public float AttackRadius
+        {
+            get { return _attackRadius; }
+        }
+        public float DectectRadius
+        {
+            get { return _detectRadius; }
+        }
 
+        AnimatorComponent<eMonsterAction> _animatorComponent;
         //Todo : SkillComponent . 몬스터 스킬
         void Awake()
         {
             _detectRadius = 2.5f;
             _attackRadius = 0.8f;
+
+            _am = gameObject.GetComponentInChildren<Animator>();
+            InitializeAnimator();
         }
         void Start()
         {
@@ -85,9 +96,24 @@ namespace Scripts.Monster
 
         void Update()
         {
+            _prevAction = _monAction;
             if (_monAI != null)
             {
                 _monAI.ExecuteNode();
+            }
+        }
+
+        private void LateUpdate()
+        {
+            UpdateAnimation();
+            CleanUpResource();
+        }
+
+        private void CleanUpResource()
+        {
+            if (_monAction == eMonsterAction.Dead)
+            {
+                MonsterSpawner.Instance.ReleaseMonster(_type, this);
             }
         }
 
@@ -96,7 +122,10 @@ namespace Scripts.Monster
             _stat = stat;
             _type = monsterType;
         }
-
+        public void ChangeMonsterAction(eMonsterAction action)
+        {
+            _monAction = action;
+        }
         public int GetSpeed()
         {
             return _stat._moveSpeed;
@@ -110,8 +139,6 @@ namespace Scripts.Monster
         {
             _type = monsterType;
         }
-
-
         public void SetTarget(IDamageable target)
         {
             //개발 모드. null일 때 Log남겨놓고 Crash!
@@ -154,10 +181,59 @@ namespace Scripts.Monster
         private void OnDead()
         {
             //Todo : DropItem 스폰
-
-
+            //Institate 동전
             CustomLogger.Log("Monster Is Dead!!");
-            MonsterSpawner.Instance.ReleaseMonster(_type, this);
+            _monAction = eMonsterAction.Dead;
+        }
+
+        private void UpdateAnimation()
+        {
+            if (_prevAction != _monAction)
+            {
+                TurnOffAnimation(_prevAction);
+                TurnOnAnimation(_monAction);
+            }
+        }
+
+        private void InitializeAnimator()
+        {
+            Dictionary<eMonsterAction, int> dic = new Dictionary<eMonsterAction, int>();
+            dic.Add(eMonsterAction.Idle, Animator.StringToHash("Idle"));
+            dic.Add(eMonsterAction.Walk, Animator.StringToHash("Walk"));
+            dic.Add(eMonsterAction.Attack, Animator.StringToHash("Attack"));
+            dic.Add(eMonsterAction.Dead, Animator.StringToHash("Dead"));
+            dic.Add(eMonsterAction.Hurt, Animator.StringToHash("Hurt"));
+
+            _animatorComponent = new AnimatorComponent<eMonsterAction>(_am, dic);
+        }
+
+        private void TurnOffAnimation(eMonsterAction action)
+        {
+            switch (action)
+            {
+                case eMonsterAction.Idle:
+                case eMonsterAction.Attack:
+                case eMonsterAction.Hurt:
+                    _animatorComponent.TrySetBool(action, false);
+                    /*** Fall through ***/
+                    break;
+            }
+        }
+        private void TurnOnAnimation(eMonsterAction action)
+        {
+            switch (action)
+            {
+                
+                case eMonsterAction.Idle:
+                case eMonsterAction.Attack:
+                case eMonsterAction.Hurt:
+                    _animatorComponent.TrySetBool(action, false);
+                    break;
+                /*** Fall through ***/
+                case eMonsterAction.Dead:
+                    _animatorComponent.TrySetTrigger(action);
+                    break;
+            }
         }
 
         private bool setHp(int damage)

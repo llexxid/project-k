@@ -38,9 +38,9 @@ namespace Scripts.Monster.MonsterNode
             {
                 return false;
             }
-            Debug.Log("Detect!");
             IDamageable target = _res[0].GetComponent<IDamageable>();
             _monster.SetTarget(target);
+            _monster.ChangeMonsterAction(eMonsterAction.Walk);
             return true;
         }
 

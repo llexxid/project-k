@@ -8,7 +8,7 @@ namespace Scripts.Core
 {
     public class PureObjectPool<T> where T : IPoolable
     {
-        public void Init(int capacity,Func<T> generator)
+        public void Init(int capacity, Func<T> generator)
         {
             _stack = new Stack<T>(capacity);
             _capacity = capacity;

@@ -11,7 +11,7 @@ public class MonsterSpawnerTest : MonoBehaviour
         Vector3 pos1 = new Vector3(-5, 0, 0);
         Vector3 pos2 = new Vector3(5, 0, 0);
 
-        MonsterSpawner.Instance.SpawnMonsterForTest(eMonsterType.MON_GOBLIN, pos1, Quaternion.identity,
+        MonsterSpawner.Instance.SpawnMonsterForTest(eMonsterType.MON_ORC, pos1, Quaternion.identity,
             (mon) =>
             {
                 Debug.Log("MonsterSpawn!");

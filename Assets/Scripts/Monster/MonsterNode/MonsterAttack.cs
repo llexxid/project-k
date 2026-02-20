@@ -1,5 +1,4 @@
 using Scripts.Core;
-using Scripts.Core.TestResource;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -13,48 +12,43 @@ namespace Scripts.Monster.MonsterNode
 
         }
 
-        private bool IsInAttackRange()
+        private NodeState IsInAttackRange()
         {
             //타겟이 없으면 Fail!
             if (_monster.Target == null)
             {
-                CustomLogger.Log($"Attack Range NotFind! Target Is Not Found\n");
-                return false;
+                return NodeState.Failure;
             }
 
             Vector3 targetPos = _monster.Target.targetPos;
             //공격 범위 체크
             float distance = Vector3.Distance(_monster.attackerPos, targetPos);
-            CustomLogger.Log($"Distance : {distance}");
             if (distance > _monster.AttackRadius)
             {
-                CustomLogger.Log($"Attack Range NotFind! Cuase : Not In Scope\n");
-                return false;
+                return NodeState.Failure;
             }
-
-            //InRange!
+            
+            //공격범위 안에 있고, Target이 여전히 있다.
             bool IsAlive;
             IsAlive = _monster.Target.TakeDamage(_monster);
             if (!IsAlive)
             {
+                //상대방을 죽였다면, 다음.
+                _monster.ChangeMonsterAction(eMonsterAction.Idle);
                 _monster.ResetTarget();
-                return false;
+                return NodeState.Success;
             }
-            return true;
+            //아니라면 전투지속
+            _monster.ChangeMonsterAction(eMonsterAction.Attack);
+            return NodeState.Running;
         }
+
         // 공격범위에 있다면 공격을 한다.
         // 
         //Player가 공격 범위에 있는가
         public override NodeState Evaluate()
         {
-            //Attack의 Success조건
-            if (IsInAttackRange())
-            {
-                CustomLogger.Log($"Attack Range Find!");
-                return NodeState.Success;
-            }
-            //NodeState.Running
-            return NodeState.Failure;
+            return IsInAttackRange();
         }
     }
 }

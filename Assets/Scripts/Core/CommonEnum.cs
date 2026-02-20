@@ -67,5 +67,14 @@ namespace Scripts.Core
 
     }
 
+    public enum eMonsterAction
+    { 
+        Idle,
+        Walk,
+        Attack,
+        Dead,
+        Hurt,
+        ACTION_END,
+    }
 
 }

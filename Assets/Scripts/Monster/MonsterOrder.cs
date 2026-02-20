@@ -1,5 +1,4 @@
 ﻿using Scripts.Core.inteface;
-using Scripts.Core.TestResource;
 using Scripts.Monster.MonsterNode;
 using System.Collections;
 using System.Collections.Generic;
@@ -12,12 +11,14 @@ namespace Scripts.Monster
     {
         private Node _rootNode;
         private Monster monster;
+        bool flag;
 
         public bool IsActive { get; set; }
         public MonsterOrder()
         {
             return;
         }
+
         public void Init(Monster mon)
         {
             monster = mon;
@@ -28,6 +29,7 @@ namespace Scripts.Monster
             nodes.Add(new MonsterMove(mon));
 
             //_rootNode = new Sequence()
+            flag = false;
             _rootNode = new Selector(
                     nodes
                 );
@@ -36,17 +38,16 @@ namespace Scripts.Monster
 
         public void ExecuteNode()
         {
-            _rootNode.Evaluate();
+            NodeState state = _rootNode.Evaluate();
         }
 
         public void OnAlloc()
         {
-            
+            flag = false;
         }
 
         public void OnRelease()
         {
-            
         }
     }
 }
