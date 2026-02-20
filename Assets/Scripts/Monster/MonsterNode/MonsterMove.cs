@@ -32,7 +32,14 @@ namespace Scripts.Monster.MonsterNode
             Vector3 dir = (targetPos - myPos).normalized;
 
             _monster.ChangeMonsterAction(eMonsterAction.Walk);
-            monTrans.Translate(dir * _monster.GetSpeed() * Time.deltaTime);
+            _monster.SetFlip(dir.x);
+            
+            //rb는 기본적으로 월드좌표 기준.
+            //Translate는 로컬 좌표를 기준으로 움직임.
+            //Rotate를 하면, 로컬 좌표계도 뒤집히므로, Translate할 때, 내가 바라보는 방향 반대로 가게됨.
+            // RB를 쓰거나, Space.World를 하거나, 이미지만을 뒤집어주거나.
+            // 횡스크롤인 경우에는, 좌/우 밖에 없기 때문에 facing Dir을 곱해줘도 됨.
+            monTrans.Translate(dir * _monster.GetSpeed() * Time.deltaTime, Space.World);
         }
 
         //기본 

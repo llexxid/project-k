@@ -32,6 +32,7 @@ namespace Scripts.Monster
         }
         private MonsterStat _stat;
         eMonsterType _type;
+        private int _facingDir;
         private MonsterOrder _monAI;
         private eMonsterAction _monAction;
         private eMonsterAction _prevAction;
@@ -78,15 +79,21 @@ namespace Scripts.Monster
         {
             get { return _detectRadius; }
         }
-
+        public int FacingDir
+        {
+            get { return _facingDir; }
+        }
         AnimatorComponent<eMonsterAction> _animatorComponent;
         //Todo : SkillComponent . 몬스터 스킬
         void Awake()
         {
             _detectRadius = 2.5f;
             _attackRadius = 0.8f;
-
+            _facingDir = 1; // 1 : Right, -1 : Left
             _am = gameObject.GetComponentInChildren<Animator>();
+
+            _monAI = new MonsterOrder();
+            _monAI.Init(this);
             InitializeAnimator();
         }
         void Start()
@@ -114,6 +121,29 @@ namespace Scripts.Monster
             if (_monAction == eMonsterAction.Dead)
             {
                 MonsterSpawner.Instance.ReleaseMonster(_type, this);
+            }
+        }
+        /// <summary>
+        /// 상대좌표 - 내 좌표한 값을 매개변수로 받습니다.
+        /// </summary>
+        /// <param name="GapBetweenX"></param>
+        public void SetFlip(float GapBetweenX)
+        {
+            //나보다 오른쪽에 있는데 왼쪽을 보는경우
+            if (GapBetweenX >= 0 && _facingDir == -1)
+            {
+                CustomLogger.Log("Flip To Right");
+                transform.Rotate(0, 180, 0);
+                _facingDir *= -1;
+                return;
+            }
+            //나보다 왼쪽에 있는데, 내가 오른쪽을 보고있다.
+            if (GapBetweenX < 0 && _facingDir == 1)
+            {
+                CustomLogger.Log("Flip To Left");
+                transform.Rotate(0, 180, 0);
+                _facingDir *= -1;
+                return;
             }
         }
 
@@ -151,8 +181,6 @@ namespace Scripts.Monster
 
         public void OnAlloc()
         {
-            _monAI = MonsterOrderPool.Instance.GetMonsterOrder();
-            _monAI.Init(this);
             return;
         }
 
@@ -160,7 +188,6 @@ namespace Scripts.Monster
         {
             //만약에 리지드 바디가 있다면, 초기화.
             Target = null;
-            MonsterOrderPool.Instance.ReleaseMonsterOrder(_monAI);
             return;
         }
 
@@ -190,6 +217,7 @@ namespace Scripts.Monster
         {
             if (_prevAction != _monAction)
             {
+                
                 TurnOffAnimation(_prevAction);
                 TurnOnAnimation(_monAction);
             }
@@ -223,11 +251,10 @@ namespace Scripts.Monster
         {
             switch (action)
             {
-                
                 case eMonsterAction.Idle:
                 case eMonsterAction.Attack:
                 case eMonsterAction.Hurt:
-                    _animatorComponent.TrySetBool(action, false);
+                    _animatorComponent.TrySetBool(action, true);
                     break;
                 /*** Fall through ***/
                 case eMonsterAction.Dead:

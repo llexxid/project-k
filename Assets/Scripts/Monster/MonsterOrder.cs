@@ -7,13 +7,11 @@ using UnityEngine;
 
 namespace Scripts.Monster
 {
-    public class MonsterOrder : IPoolable 
+    public class MonsterOrder
     {
         private Node _rootNode;
         private Monster monster;
-        bool flag;
 
-        public bool IsActive { get; set; }
         public MonsterOrder()
         {
             return;
@@ -29,7 +27,6 @@ namespace Scripts.Monster
             nodes.Add(new MonsterMove(mon));
 
             //_rootNode = new Sequence()
-            flag = false;
             _rootNode = new Selector(
                     nodes
                 );
@@ -39,15 +36,6 @@ namespace Scripts.Monster
         public void ExecuteNode()
         {
             NodeState state = _rootNode.Evaluate();
-        }
-
-        public void OnAlloc()
-        {
-            flag = false;
-        }
-
-        public void OnRelease()
-        {
         }
     }
 }
