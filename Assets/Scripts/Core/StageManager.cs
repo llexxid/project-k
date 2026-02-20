@@ -41,7 +41,7 @@ namespace Scripts.Core
         /// </summary>
         /// <param name="stage"></param>
         /// <returns></returns>
-        public AsyncOperationHandle<IList<Monster>> LoadAssets(eStage stage)
+        public AsyncOperationHandle<IList<GameObject>> LoadAssets(eStage stage)
         {
             //스테이지 정보에 있는 Monster Type들 Load
             List<StageInfo_v> stageInfoList;

@@ -23,9 +23,12 @@ public class Sequence : Node
         {
             switch (node.Evaluate())
             {
-                case NodeState.Running: return NodeState.Running;
-                case NodeState.Failure: return NodeState.Failure;
-                case NodeState.Success: continue;
+                case NodeState.Running: 
+                    return NodeState.Running;
+                case NodeState.Failure: 
+                    return NodeState.Failure;
+                case NodeState.Success: 
+                    continue;
             }
         }
         return NodeState.Success;
@@ -44,9 +47,12 @@ public class Selector : Node
         {
             switch (node.Evaluate())
             {
-                case NodeState.Running: return NodeState.Running;
-                case NodeState.Success: return NodeState.Success;
-                case NodeState.Failure: continue;
+                case NodeState.Running: 
+                    return NodeState.Running;
+                case NodeState.Success: 
+                    return NodeState.Success;
+                case NodeState.Failure: 
+                    continue;
             }
         }
         return NodeState.Failure;
