@@ -7,7 +7,7 @@ public class PlayerAttack : MonoBehaviour
     [SerializeField] private PlayerDetection _detection;
     public float attackRate;
     private float _nextAttackTime = 1f;
-    public Animator animator;
+    //public Animator animator;
     public SkillManager skillManager;
     public SkillDatabase skillDatabase; // 스킬 데이터 참조용
     public VFXManager vfxManager;
@@ -25,9 +25,8 @@ public class PlayerAttack : MonoBehaviour
     public NodeState Attack()
     {
         // 1. 일반 공격 쿨타임 체크
-        //if (Time.time < _nextAttackTime) return NodeState.Failure;
 
-        animator.SetBool("isAttack", true);
+        //animator.SetBool("isAttack", true);
         _nextAttackTime = Time.time + attackRate;
 
         ContactFilter2D filter = new ContactFilter2D();
