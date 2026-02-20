@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="ScreenMain" class="main-screen">
+
+        <!-- Top HUD -->
+        <ui:VisualElement name="HudTop" class="hud-top">
+
+            <ui:VisualElement class="hud-left-wrap">
+                <ui:Button name="BtnProfileBlank" text="" class="profile-blank-btn" />
+                <ui:VisualElement class="profile-block">
+                    <ui:Label name="LblNickname" text="닉네임" class="hud-nickname" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <!-- Center spacer (stage moved below) -->
+            <ui:VisualElement class="hud-center-wrap" />
+
+            <ui:VisualElement class="hud-right-wrap">
+                <!-- Currency area -->
+                <ui:Button name="BtnCurrency" class="currency-btn" text="">
+                    <ui:VisualElement class="currency-inner">
+                        <ui:Label text="골드" class="currency-name" />
+                        <ui:Label name="LblGold" text="0" class="currency-value" />
+                        <ui:Label text="고대주화" class="currency-name" />
+                        <ui:Label name="LblAncientCoin" text="0" class="currency-value" />
+                    </ui:VisualElement>
+                </ui:Button>
+
+                <!-- Currency Dropdown (dummy) -->
+                <ui:VisualElement name="PopupCurrencies" class="dropdown hidden">
+                    <ui:Label text="추가 재화(더미)" class="dropdown-title" />
+                    <ui:Label text="예: 토큰 0" class="dropdown-item" />
+                    <ui:Label text="예: 티켓 0" class="dropdown-item" />
+                </ui:VisualElement>
+
+                <!-- Right Hamburger -->
+                <ui:Button name="BtnHamburgerRight" text="≡" class="hamburger-right" />
+
+                <!-- Hamburger Dropdown (icon style) -->
+                <ui:VisualElement name="PopupHamburger" class="dropdown hamburger-dropdown hidden">
+                    <ui:Button name="BtnMenuSettings" text="⚙" class="dropdown-btn" />
+                    <ui:Button name="BtnMenuNotice" text="!" class="dropdown-btn" />
+                    <ui:Button name="BtnMenuMail" text="✉" class="dropdown-btn" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+        </ui:VisualElement>
+
+        <!-- Stage widget -->
+        <ui:VisualElement name="StageArea" class="stage-area">
+            <ui:VisualElement class="stage-row">
+                <ui:Label name="LblStage" text="스테이지 1-1" class="stage-label" />
+
+                <ui:VisualElement class="boss-challenge">
+                    <ui:Label name="LblBossChain" text="보스 연속 도전" class="boss-label" />
+                    <ui:Toggle name="TglBossChain" text="" class="boss-toggle" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- Left Side -->
+        <ui:VisualElement name="HudLeft" class="hud-left">
+            <ui:Button name="BtnQuest" text="퀘스트" class="side-btn" />
+        </ui:VisualElement>
+
+        <!-- Bottom Tabs (5) -->
+        <ui:VisualElement name="BottomBar" class="bottom-bar">
+            <ui:Button name="BtnDevelopment" text="육성" class="tab-btn" />
+            <ui:Button name="BtnKingdomArmy" text="왕국군" class="tab-btn" />
+            <ui:Button name="BtnGacha" text="뽑기" class="tab-btn" />
+            <ui:Button name="BtnStore" text="상점" class="tab-btn" />
+            <ui:Button name="BtnDungeon" text="던전" class="tab-btn" />
+        </ui:VisualElement>
+
+    </ui:VisualElement>
+</ui:UXML>

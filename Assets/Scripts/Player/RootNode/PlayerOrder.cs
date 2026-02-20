@@ -3,7 +3,7 @@ using UnityEngine;
 
 public class PlayerOrder : MonoBehaviour
 {
-    private Node _rootNode;
+    public Node _rootNode;
 
     [SerializeField] private PlayerDetection _detection;
     [SerializeField] private PlayerMove _move;
@@ -25,11 +25,6 @@ public class PlayerOrder : MonoBehaviour
             // 2. 대기 (전투 실패 시 실행)
             new IdleNode()
         });
-    }
-
-    void Update()
-    {
-        _rootNode?.Evaluate();
     }
 
     // 간단한 대기 노드

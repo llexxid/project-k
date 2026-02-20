@@ -7,11 +7,21 @@ using UnityEngine;
 
 namespace Scripts.Monster
 {
+    using Scripts.Core.inteface;
+    using UnityEditor.Build.Pipeline.Utilities;
+
     public class Monster : MonoBehaviour, IPoolable, IDamageable, IAttackable
     {
-        [Serializable]
         public struct MonsterStat
         {
+            public MonsterStat(int hp, int extraHp, int atk, int moveSpeed, int atkSpeed)
+            {
+                _hp = hp;
+                _extraHp = extraHp;
+                _atk = atk;
+                _moveSpeed = moveSpeed;
+                _atkSpeed = atkSpeed;
+            }
             public int _hp;
             public int _extraHp;
 
@@ -20,11 +30,24 @@ namespace Scripts.Monster
             public int _moveSpeed;
             public int _atkSpeed;
         }
-        [SerializeField]
         private MonsterStat _stat;
         eMonsterType _type;
+        private MonsterOrder _monAI;
+        private eMonsterAction _monAction;
+        private eMonsterAction _prevAction;
         public IDamageable Target { get; private set; }
-
+        private Animator _am;
+        [SerializeField]
+        private float _attackRadius;
+        [SerializeField]
+        private float _detectRadius;
+        public Animator Animator { 
+            get
+            {
+                return _am;
+            }
+        }
+        public eMonsterAction MonAction { get { return _monAction; } }
         public bool IsActive { get; set; }
         public int damage 
         {
@@ -40,9 +63,32 @@ namespace Scripts.Monster
                 return transform.position; 
             } 
         }
+        public Vector3 targetPos
+        {
+            get
+            {
+                return transform.position;
+            }
+        }
+        public float AttackRadius
+        {
+            get { return _attackRadius; }
+        }
+        public float DectectRadius
+        {
+            get { return _detectRadius; }
+        }
 
-        //Todo : SkillComponent . ∏ÛΩ∫≈Õ Ω∫≈≥
+        AnimatorComponent<eMonsterAction> _animatorComponent;
+        //Todo : SkillComponent . Î™¨Ïä§ÌÑ∞ Ïä§ÌÇ¨
+        void Awake()
+        {
+            _detectRadius = 2.5f;
+            _attackRadius = 0.8f;
 
+            _am = gameObject.GetComponentInChildren<Animator>();
+            InitializeAnimator();
+        }
         void Start()
         {
 
@@ -50,22 +96,52 @@ namespace Scripts.Monster
 
         void Update()
         {
-
+            _prevAction = _monAction;
+            if (_monAI != null)
+            {
+                _monAI.ExecuteNode();
+            }
         }
 
-        public void SetType(eMonsterType monsterType)
+        private void LateUpdate()
         {
-            _type = monsterType;
+            UpdateAnimation();
+            CleanUpResource();
         }
+
+        private void CleanUpResource()
+        {
+            if (_monAction == eMonsterAction.Dead)
+            {
+                MonsterSpawner.Instance.ReleaseMonster(_type, this);
+            }
+        }
+
         public void Init(eMonsterType monsterType, MonsterStat stat)
         {
             _stat = stat;
             _type = monsterType;
         }
+        public void ChangeMonsterAction(eMonsterAction action)
+        {
+            _monAction = action;
+        }
+        public int GetSpeed()
+        {
+            return _stat._moveSpeed;
+        }
 
+        public void ResetTarget()
+        {
+            Target = null;
+        }
+        public void SetType(eMonsterType monsterType)
+        {
+            _type = monsterType;
+        }
         public void SetTarget(IDamageable target)
         {
-            //∞≥πﬂ ∏µÂ. null¿œ ∂ß Log≥≤∞‹≥ı∞Ì Crash!
+            //Í∞úÎ∞ú Î™®Îìú. nullÏùº Îïå LogÎÇ®Í≤®ÎÜìÍ≥† Crash!
             if (target == null)
             {
                 CustomLogger.LogWarning("Monster SetTarget is Null!");
@@ -75,53 +151,122 @@ namespace Scripts.Monster
 
         public void OnAlloc()
         {
+            _monAI = MonsterOrderPool.Instance.GetMonsterOrder();
+            _monAI.Init(this);
             return;
         }
 
         public void OnRelease()
         {
-            //∏∏æ‡ø° ∏Æ¡ˆµÂ πŸµ∞° ¿÷¥Ÿ∏È, √ ±‚»≠.
-
+            //ÎßåÏïΩÏóê Î¶¨ÏßÄÎìú Î∞îÎîîÍ∞Ä ÏûàÎã§Î©¥, Ï¥àÍ∏∞Ìôî.
+            Target = null;
+            MonsterOrderPool.Instance.ReleaseMonsterOrder(_monAI);
             return;
         }
 
-        public void TakeDamage(IAttackable attacker)
+        public bool TakeDamage(IAttackable attacker)
         {
             int dmg = attacker.damage;
+            bool IsAlive = setHp(dmg);
 
             setHp(dmg);
+            if (!IsAlive)
+            {
+                return false;
+            }
+            return true;
         }
 
 
         private void OnDead()
         {
-            //Todo : DropItem Ω∫∆˘
-
-
+            //Todo : DropItem Ïä§Ìè∞
+            //Institate ÎèôÏ†Ñ
             CustomLogger.Log("Monster Is Dead!!");
-            MonsterSpawner.Instance.ReleaseMonster(_type, this);
+            _monAction = eMonsterAction.Dead;
         }
 
-        private void setHp(int damage)
+        private void UpdateAnimation()
+        {
+            if (_prevAction != _monAction)
+            {
+                TurnOffAnimation(_prevAction);
+                TurnOnAnimation(_monAction);
+            }
+        }
+
+        private void InitializeAnimator()
+        {
+            Dictionary<eMonsterAction, int> dic = new Dictionary<eMonsterAction, int>();
+            dic.Add(eMonsterAction.Idle, Animator.StringToHash("Idle"));
+            dic.Add(eMonsterAction.Walk, Animator.StringToHash("Walk"));
+            dic.Add(eMonsterAction.Attack, Animator.StringToHash("Attack"));
+            dic.Add(eMonsterAction.Dead, Animator.StringToHash("Dead"));
+            dic.Add(eMonsterAction.Hurt, Animator.StringToHash("Hurt"));
+
+            _animatorComponent = new AnimatorComponent<eMonsterAction>(_am, dic);
+        }
+
+        private void TurnOffAnimation(eMonsterAction action)
+        {
+            switch (action)
+            {
+                case eMonsterAction.Idle:
+                case eMonsterAction.Attack:
+                case eMonsterAction.Hurt:
+                    _animatorComponent.TrySetBool(action, false);
+                    /*** Fall through ***/
+                    break;
+            }
+        }
+        private void TurnOnAnimation(eMonsterAction action)
+        {
+            switch (action)
+            {
+                
+                case eMonsterAction.Idle:
+                case eMonsterAction.Attack:
+                case eMonsterAction.Hurt:
+                    _animatorComponent.TrySetBool(action, false);
+                    break;
+                /*** Fall through ***/
+                case eMonsterAction.Dead:
+                    _animatorComponent.TrySetTrigger(action);
+                    break;
+            }
+        }
+
+        private bool setHp(int damage)
         {
             long totalHp = _stat._hp + _stat._extraHp;
-            //¡◊¥¬∞ÊøÏ
+            //Ï£ΩÎäîÍ≤ΩÏö∞
             if (totalHp - damage <= 0)
             {
                 OnDead();
-                return;
+                return false;
             }
 
-            //ExtraHp∏’¿˙ ±Ô±‚
+            //ExtraHpÎ®ºÏ†Ä ÍπçÍ∏∞
             if (damage > _stat._extraHp)
             {
                 int remainDamage = damage - _stat._extraHp;
                 _stat._extraHp = 0;
                 _stat._hp -= remainDamage;
-                return;
+                return true;
             }
             _stat._extraHp -= damage;
-            return;
+            return true;
+        }
+
+        private void OnDrawGizmos()
+        {
+            Gizmos.color = Color.green;
+            Gizmos.DrawWireSphere(transform.position, _detectRadius);
+
+            Gizmos.color = Color.red;
+
+            // Ï†ÅÏùò ÏúÑÏπòÏóê Íµ¨Ï≤¥Î•º Í∑∏Î¶ΩÎãàÎã§.
+            Gizmos.DrawWireSphere(transform.position, _attackRadius);
         }
     }
 }

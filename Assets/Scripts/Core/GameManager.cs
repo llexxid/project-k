@@ -41,7 +41,7 @@ namespace Scripts.Core
 
         private AsyncOperation _UnitySceneLoaderOp;
         private AsyncOperationHandle<IList<GameObject>> _VFXLoaderHandle;
-        private AsyncOperationHandle<IList<Monster>> _StageLoaderHandle;
+        private AsyncOperationHandle<IList<GameObject>> _StageLoaderHandle;
         private AsyncOperationHandle<IList<AudioClip>> _SFXLoaderHandle;
 
         private void Awake()
@@ -136,26 +136,61 @@ namespace Scripts.Core
 
             _UnitySceneLoaderOp.allowSceneActivation = false;
 
+
             while (true)
             {
-                if (_StageLoaderHandle.IsDone &&
-                    _VFXLoaderHandle.IsDone &&
-                    _SFXLoaderHandle.IsDone &&
-                    (_UnitySceneLoaderOp.progress < 0.9f)
-                    )
-                {
-                    break;
-                }
+                //임시패치
+                /* if (_StageLoaderHandle.IsDone &&
+                     _VFXLoaderHandle.IsDone &&
+                     _SFXLoaderHandle.IsDone &&
+                     (_UnitySceneLoaderOp.progress < 0.9f)
+                     )
+                 {
+                     break;
+                 }*/
+                bool stageDone = !_StageLoaderHandle.IsValid() || _StageLoaderHandle.IsDone;
+                bool vfxDone = !_VFXLoaderHandle.IsValid() || _VFXLoaderHandle.IsDone;
+                bool sfxDone = !_SFXLoaderHandle.IsValid() || _SFXLoaderHandle.IsDone;
 
                 //로딩창 Scroll조절
                 //timer += Time.unscaledDeltaTime;
                 //scrollbar.fillAmount = Mathf.Lerp(0.9f, 1f, timer);
 
+                float normalized = Mathf.Clamp01(_UnitySceneLoaderOp.progress / 0.9f);
+
+                // 최소 로딩 시간 옵션
+                if (minLoadingSeconds > 0f)
+                {
+                    float t = Mathf.Clamp01((Time.realtimeSinceStartup - startRealtime) / minLoadingSeconds);
+                    normalized = Mathf.Min(normalized, t);
+                }
+
+                SceneLoadProgress?.Invoke(type, normalized);
+
+                // (에셋 로딩 완료) + (씬 로딩 0.9 도달) + (최소 로딩 시간 충족) => 씬 활성화로 넘어감
+                if (stageDone && vfxDone && sfxDone && _UnitySceneLoaderOp.progress >= 0.9f)
+                {
+                    if (minLoadingSeconds <= 0f || (Time.realtimeSinceStartup - startRealtime) >= minLoadingSeconds)
+                    {
+                        break;
+                    }
+                }
+
                 //스크롤바가 다 채워졌다면, SceneActive하기.
                 await UniTask.Yield(_token.Token);
             }
 
-            //Loading끝
+            _UnitySceneLoaderOp.allowSceneActivation = true;
+
+            // 실제 씬 활성화 완료까지 대기
+            while (!_UnitySceneLoaderOp.isDone)
+            {
+                await UniTask.Yield(_token.Token);
+            }
+
+            SceneLoadProgress?.Invoke(type, 1f);
+            SceneLoadFinished?.Invoke(type);
+            //임시패치
         }
     }
 }
