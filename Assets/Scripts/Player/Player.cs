@@ -3,9 +3,11 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Player : MonoBehaviour, IAttackable, Scripts.Core.inteface.IDamageable
+public class Player : MonoBehaviour, IAttackable, IDamageable
 {
     public Wallet wallet;
+    public PlayerOrder playerOrder;
+    public PlayerStatus playerStatus;
 
     // IAttackable 인터페이스 구현
     public int damage 
@@ -60,6 +62,12 @@ public class Player : MonoBehaviour, IAttackable, Scripts.Core.inteface.IDamagea
 
     void Update()
     {
+        // 플레이어 행동 트리 평가
+        playerOrder._rootNode?.Evaluate();
+
+
+
+        // 임시 키 입력으로 플레이어 이동 (WASD)
         if (Input.GetKey(KeyCode.W))
         {
             transform.Translate(Vector3.forward * 2 * Time.deltaTime);

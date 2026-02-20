@@ -3,7 +3,7 @@ using UnityEngine;
 
 public class PlayerOrder : MonoBehaviour
 {
-    private Node _rootNode;
+    public Node _rootNode;
 
     [SerializeField] private PlayerDetection _detection;
     [SerializeField] private PlayerMove _move;
