@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="PanelRoot" class="panel-root">
+        <ui:VisualElement name="Backdrop" class="panel-backdrop" />
+
+        <ui:VisualElement name="Sheet" class="panel-sheet">
+            <ui:VisualElement class="panel-header">
+                <ui:Label name="LblPanelName" text="[패널]" class="panel-title" />
+                <ui:Button name="BtnPanelClose" text="✕" class="panel-close-btn" />
+            </ui:VisualElement>
+
+            <ui:Label text="(작업 예정)" class="panel-body-hint" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
