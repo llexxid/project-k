@@ -41,7 +41,7 @@ namespace Scripts.Core
 
         private AsyncOperation _UnitySceneLoaderOp;
         private AsyncOperationHandle<IList<GameObject>> _VFXLoaderHandle;
-        private AsyncOperationHandle<IList<Monster>> _StageLoaderHandle;
+        private AsyncOperationHandle<IList<GameObject>> _StageLoaderHandle;
         private AsyncOperationHandle<IList<AudioClip>> _SFXLoaderHandle;
 
         private void Awake()

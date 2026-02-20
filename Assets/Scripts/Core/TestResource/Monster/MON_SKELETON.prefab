@@ -11,8 +11,8 @@ GameObject:
   - component: {fileID: 8612574518450729966}
   - component: {fileID: 3236083674410093789}
   - component: {fileID: 1436971052347174236}
-  - component: {fileID: 8004247710849935091}
   - component: {fileID: 7829651013324847665}
+  - component: {fileID: -5042941018496137895}
   m_Layer: 0
   m_Name: MON_SKELETON
   m_TagString: Untagged
@@ -85,18 +85,6 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!114 &8004247710849935091
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2501028659066871546}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e775aa5a8fd16d84eb89aabd4153dd6f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!65 &7829651013324847665
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -118,3 +106,23 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &-5042941018496137895
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2501028659066871546}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7edcfd68a078f374cbff730b0167d530, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _stat:
+    _hp: 0
+    _extraHp: 0
+    _atk: 0
+    _moveSpeed: 0
+    _atkSpeed: 0
+  _attackRadius: 0
+  _detectRadius: 0

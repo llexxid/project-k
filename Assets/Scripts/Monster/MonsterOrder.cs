@@ -1,21 +1,54 @@
-﻿using System.Collections;
+﻿using Scripts.Core.inteface;
+using Scripts.Monster.MonsterNode;
+using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 
-public class MonsterOrder
+namespace Scripts.Monster
 {
-    private Node _rootNode;
-
-    public void Init()
+    public class MonsterOrder : IPoolable 
     {
-        //// Sequence와 Selector를 조합해서 어떻게 Monster들이 동작하는지 추적
-        //Sequence MonsterSeq = new Sequence(
-        //    {
-            
-        //}
-        //    );
+        private Node _rootNode;
+        private Monster monster;
+        bool flag;
 
+        public bool IsActive { get; set; }
+        public MonsterOrder()
+        {
+            return;
+        }
 
-        //_rootNode = new Sequence()
+        public void Init(Monster mon)
+        {
+            monster = mon;
+            List<Node> nodes = new List<Node>();
+
+            nodes.Add(new MonsterAttack(mon));
+            nodes.Add(new MonsterDetect(mon));
+            nodes.Add(new MonsterMove(mon));
+
+            //_rootNode = new Sequence()
+            flag = false;
+            _rootNode = new Selector(
+                    nodes
+                );
+
+        }
+
+        public void ExecuteNode()
+        {
+            NodeState state = _rootNode.Evaluate();
+        }
+
+        public void OnAlloc()
+        {
+            flag = false;
+        }
+
+        public void OnRelease()
+        {
+        }
     }
 }
+

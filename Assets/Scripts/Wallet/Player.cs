@@ -3,15 +3,35 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Player : MonoBehaviour, IAttackable, IDamageable
+public class Player : MonoBehaviour, IAttackable, Scripts.Core.inteface.IDamageable
 {
     public Wallet wallet;
 
     // IAttackable 인터페이스 구현
-    public int damage => throw new System.NotImplementedException();
+    public int damage 
+    {
+        get 
+        {
+            return 10; 
+        } 
+    }
 
     // IDamageable 인터페이스 구현
-    public Vector3 attackerPos => throw new System.NotImplementedException();
+    public Vector3 attackerPos
+    {
+        get
+        {
+            return transform.position;
+        }
+    }
+
+    public Vector3 targetPos
+    {
+        get
+        {
+            return transform.position;
+        }
+    }
 
     // 플레이어와 코인이 콜라이더 충돌 감지
     public void OnTriggerEnter(Collider other)
@@ -56,5 +76,10 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
         {
             transform.Translate(Vector3.right * 2 * Time.deltaTime);
         }
+    }
+
+    public bool TakeDamage(IAttackable attacker)
+    {
+        return true;
     }
 }
