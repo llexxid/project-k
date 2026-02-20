@@ -27,11 +27,6 @@ public class PlayerOrder : MonoBehaviour
         });
     }
 
-    void Update()
-    {
-        _rootNode?.Evaluate();
-    }
-
     // 간단한 대기 노드
     public class IdleNode : Node
     {
