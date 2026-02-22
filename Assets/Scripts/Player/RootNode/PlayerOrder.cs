@@ -12,7 +12,7 @@ public class PlayerOrder : MonoBehaviour
     void Start()
     {
         // 트리 조립: Selector(전투 OR 대기)
-        _rootNode = new Selector(new List<Node>
+        _rootNode = new Selector(new List<Node> // Selector노드 사용
         {
             // 1. 전투 시퀀스 (감지 -> 이동 -> 공격)
             new Sequence(new List<Node>
@@ -25,11 +25,6 @@ public class PlayerOrder : MonoBehaviour
             // 2. 대기 (전투 실패 시 실행)
             new IdleNode()
         });
-    }
-
-    void Update()
-    {
-        _rootNode?.Evaluate();
     }
 
     // 간단한 대기 노드

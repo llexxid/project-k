@@ -1,3 +1,4 @@
+using Scripts.Core;
 using Scripts.Core.inteface;
 using System.Collections;
 using System.Collections.Generic;
@@ -9,13 +10,30 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
     public PlayerOrder playerOrder;
     public PlayerStatus playerStatus;
 
+    // 애니메이터 관련
+    public Animator _am;
+    AnimatorComponent<ePlayerAction> _animatorComponent;
+
+    // 행동 트리에서 사용할 행동 상태 변수
+    public ePlayerAction _prevAction;
+    public ePlayerAction _playerAction;
+
     // IAttackable 인터페이스 구현
     public int damage 
     {
         get 
         {
             return 10; 
-        } 
+        }
+    }
+
+    // IAttackable 인터페이스 구현
+    public Vector3 targetPos
+    {
+        get
+        {
+            return transform.position;
+        }
     }
 
     // IDamageable 인터페이스 구현
@@ -27,12 +45,10 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
         }
     }
 
-    public Vector3 targetPos
+    // IDamageable 인터페이스 구현
+    public bool TakeDamage(IAttackable attacker)
     {
-        get
-        {
-            return transform.position;
-        }
+        return true;
     }
 
     // 플레이어와 코인이 콜라이더 충돌 감지
@@ -60,6 +76,67 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
         }
     }
 
+    // 초기화 함수
+    private void Awake()
+    {
+        InitializeAnimator();
+    }
+
+    // 애니메이터 초기화 함수
+    private void InitializeAnimator()
+    {
+        Dictionary<ePlayerAction, int> dic = new Dictionary<ePlayerAction, int>();
+        dic.Add(ePlayerAction.Idle, Animator.StringToHash("Idle"));
+        dic.Add(ePlayerAction.Walk, Animator.StringToHash("Walk"));
+        dic.Add(ePlayerAction.Attack, Animator.StringToHash("Attack"));
+        dic.Add(ePlayerAction.Dead, Animator.StringToHash("Dead"));
+        dic.Add(ePlayerAction.Hurt, Animator.StringToHash("Hurt"));
+
+        _animatorComponent = new AnimatorComponent<ePlayerAction>(_am, dic);
+    }
+
+    // 행동 트리에서 플레이어 행동 상태가 변경될 때마다 애니메이션 업데이트
+    private void UpdateAnimation()
+    {
+        if (_prevAction != _playerAction)
+        {
+
+            TurnOffAnimation(_prevAction);
+            TurnOnAnimation(_playerAction);
+        }
+    }
+
+    // 행동 상태에 따른 애니메이션 제어 함수 (애니메이션 끄기)
+    private void TurnOffAnimation(ePlayerAction action)
+    {
+        switch (action)
+        {
+            case ePlayerAction.Idle:
+            case ePlayerAction.Attack:
+            case ePlayerAction.Hurt:
+                _animatorComponent.TrySetBool(action, false);
+                /*** Fall through ***/
+                break;
+        }
+    }
+
+    // 행동 상태에 따른 애니메이션 제어 함수 (애니메이션 켜기)
+    private void TurnOnAnimation(ePlayerAction action)
+    {
+        switch (action)
+        {
+            case ePlayerAction.Idle:
+            case ePlayerAction.Attack:
+            case ePlayerAction.Hurt:
+                _animatorComponent.TrySetBool(action, true);
+                break;
+            /*** Fall through ***/
+            case ePlayerAction.Dead:
+                _animatorComponent.TrySetTrigger(action);
+                break;
+        }
+    }
+
     void Update()
     {
         // 플레이어 행동 트리 평가
@@ -68,6 +145,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
 
 
         // 임시 키 입력으로 플레이어 이동 (WASD)
+        // - 삭제 예정
         if (Input.GetKey(KeyCode.W))
         {
             transform.Translate(Vector3.forward * 2 * Time.deltaTime);
@@ -86,8 +164,9 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
         }
     }
 
-    public bool TakeDamage(IAttackable attacker)
+    // LateUpdate에서 애니메이션 업데이트 호출 (Update에서 행동 트리 평가 후 애니메이션 상태 변경)
+    private void LateUpdate()
     {
-        return true;
+        UpdateAnimation();
     }
 }

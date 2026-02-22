@@ -2,7 +2,6 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-[CreateAssetMenu (fileName = "PlayerStatus", menuName = "ScriptableObjects/PlayerStatus", order = 1)]
 public class PlayerStatus : MonoBehaviour
 {
     public int HP { get; set; } = 100;
