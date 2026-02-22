@@ -1,4 +1,6 @@
 using Scripts.Core;
+using Scripts.Core.inteface;
+using Scripts.Monster;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -11,6 +13,7 @@ public class PlayerAttack : MonoBehaviour
     public SkillManager skillManager;
     public SkillDatabase skillDatabase; // 스킬 데이터 참조용
     public VFXManager vfxManager;
+    public IAttackable attackable;
 
     public float attackRadius = 3f;
     public LayerMask enemyLayer;
@@ -37,7 +40,7 @@ public class PlayerAttack : MonoBehaviour
 
         for (int i = 0; i < hitCount; i++)
         {
-            if (_hitResults[i].TryGetComponent<Enemy>(out var targetEnemy))
+            if (_hitResults[i].TryGetComponent<Monster>(out var targetEnemy))
             {
                 // 2. 스킬 쿨타임 체크 ("WindLance")
                 string skillName = "Wind_Lance";
@@ -51,7 +54,7 @@ public class PlayerAttack : MonoBehaviour
                     _skillCooldowns[skillName] = Time.time + data.cooldown;
                 }
 
-                targetEnemy.TakeDamage(50);
+                targetEnemy.TakeDamage(attackable);
             }
         }
         return NodeState.Success;

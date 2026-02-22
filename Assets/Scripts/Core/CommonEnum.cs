@@ -77,4 +77,13 @@ namespace Scripts.Core
         ACTION_END,
     }
 
+    public enum ePlayerAction
+    {
+        Idle,
+        Walk,
+        Attack,
+        Dead,
+        Hurt,
+        ACTION_END,
+    }
 }
