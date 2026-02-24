@@ -8,7 +8,30 @@ using UnityEngine;
 namespace Scripts.Monster
 {
     using Scripts.Core.inteface;
-    using UnityEditor.Build.Pipeline.Utilities;
+
+    public struct MonsterInfo
+    {
+        public MonsterInfo(string name, int exp, int baseHp, int baseAtk, double baseMoveSpeed, double baseAtkSpeed, long dropTable)
+        {
+            _name = name;
+            _exp = exp;
+            _baseHp = baseHp;
+            _baseAtk = baseAtk;
+            _baseMoveSpeed = baseMoveSpeed;
+            _baseAtkSpeed = baseAtkSpeed;
+            _dropTableNumber = dropTable;
+        }
+
+        public readonly string _name;
+        public readonly int _exp;
+        public readonly int _baseHp;
+        public readonly int _baseAtk;
+
+        public readonly double _baseMoveSpeed;
+        public readonly double _baseAtkSpeed;
+
+		public readonly long _dropTableNumber;
+	}
 
     public class Monster : MonoBehaviour, IPoolable, IDamageable, IAttackable
     {
