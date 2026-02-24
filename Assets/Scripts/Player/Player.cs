@@ -9,6 +9,8 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
     public Wallet wallet;
     public PlayerOrder playerOrder;
     public PlayerStatus playerStatus;
+    public SkillManager skillManager;
+    public SkillDatabase skillDatabase;
 
     // 애니메이터 관련
     public Animator _am;
@@ -17,6 +19,8 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
     // 행동 트리에서 사용할 행동 상태 변수
     public ePlayerAction _prevAction;
     public ePlayerAction _playerAction;
+
+    public IDamageable currentTarget;
 
     // IAttackable 인터페이스 구현
     public int damage 
@@ -80,6 +84,9 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
     private void Awake()
     {
         InitializeAnimator();
+
+        playerOrder = new PlayerOrder();
+        playerOrder.Init(this);
     }
 
     // 애니메이터 초기화 함수
@@ -100,7 +107,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
     {
         if (_prevAction != _playerAction)
         {
-
             TurnOffAnimation(_prevAction);
             TurnOnAnimation(_playerAction);
         }

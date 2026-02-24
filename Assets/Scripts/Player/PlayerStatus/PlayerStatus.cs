@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PlayerStatus : MonoBehaviour
+public class PlayerStatus
 {
     public int HP { get; set; } = 100;
     public int Atk { get; set; } = 10;
