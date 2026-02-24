@@ -62,7 +62,7 @@ namespace Scripts.Core
             Monster mon = pool.Alloc(pos, rotate);
             mon.gameObject.SetActive(true);
             //Todo : MonsterStat정보 정하기
-            mon.Init(id, new Monster.MonsterStat(10,0,5,1,1));
+            mon.Init(id, new Monster.MonsterStat(10,0,5,1,1), 0);
             callback?.Invoke(mon);
             return;
         }
@@ -82,6 +82,8 @@ namespace Scripts.Core
                 return;
             }
             monster = pool.Alloc(pos, rotate);
+            monster.gameObject.SetActive(true);
+
             return;
         }
 
