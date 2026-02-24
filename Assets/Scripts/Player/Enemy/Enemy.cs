@@ -1,13 +1,19 @@
+using Scripts.Core.inteface;
 using UnityEditor.Tilemaps;
 using UnityEngine;
 
-public class Enemy : MonoBehaviour
+public class Enemy : MonoBehaviour, IDamageable
 {
     public Enemy enemy;
     public int hp;
     public Transform player; // 추적할 플레이어 타겟
     public float moveSpeed = 3f; // 적 이동 속도
     public float detectionRange = 10f; // 추적 시작 거리
+
+    public Vector3 targetPos
+    {
+        get { return gameObject.transform.position; }
+    }
 
     void Start()
     {
@@ -30,10 +36,8 @@ public class Enemy : MonoBehaviour
         }
     }
 
-    public void TakeDamage(int damage)
+    public bool TakeDamage(IAttackable attacker)
     {
-        hp -= damage;
-        //Debug.Log("Enemy HP: " + hp);
-        if (hp <= 0) gameObject.SetActive(false);
+        return true;
     }
 }
