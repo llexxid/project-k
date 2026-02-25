@@ -54,10 +54,10 @@ namespace Scripts.Core
         /// <summary>
         /// VFX cache를 데우는 비동기 함수입니다. 로딩에서 통제합니다. 
         /// </summary>
-        public AsyncOperationHandle<IList<GameObject>> PreLoadVFX(eStage groupId, eVFXType[] IdList)
+        public AsyncOperationHandle<IList<GameObject>> PreLoadVFX(ulong groupId, eVFXType[] IdList)
         {
             AsyncOperationHandle<IList<GameObject>> handle;
-            bool IsLoading = _BatchHandles.TryGetValue((ulong)groupId, out handle);
+            bool IsLoading = _BatchHandles.TryGetValue(groupId, out handle);
             if (IsLoading)
             {
                 CustomLogger.LogWarning("You requested to load VFX while the system was already in a loading state.");
@@ -123,7 +123,7 @@ namespace Scripts.Core
             }
         }       
         
-        private async void RequestAsyncLoadAssets(eStage groupId, eVFXType[] IdList)
+        private async void RequestAsyncLoadAssets(ulong groupId, eVFXType[] IdList)
         {
             IList<GameObject> result;
             AsyncOperationHandle<IList<GameObject>> handle;
@@ -201,16 +201,21 @@ namespace Scripts.Core
         }
         private void OnLoadAsset(eVFXType id, VFXEntity obj)
         {
-            _effectCache.Add(id, obj);
-            //만약 pooling effect면, pooling해주기.
-            if (CheckPoolingEffect(id))
+            //이미 cache에 등록된 경우가 있을 수 있음.
+            //ex. 몬스터들이 중복적으로 똑같은 VFX를 가져야하는 경우(휴먼에러든, 기획상으로든)
+            if (_effectCache.ContainsKey(id) == false)
             {
-                ObjectPool<VFXEntity> objectpool = new ObjectPool<VFXEntity>();
-                objectpool.Init((int)DEFAULT_VALUE.PoolingSize, _vfxParents, obj);
-                _VFXPools.Add(id, objectpool);
-            }
+				_effectCache.Add(id, obj);
+				//만약 pooling effect면, pooling해주기.
+				if (CheckPoolingEffect(id))
+				{
+					ObjectPool<VFXEntity> objectpool = new ObjectPool<VFXEntity>();
+					objectpool.Init((int)DEFAULT_VALUE.PoolingSize, _vfxParents, obj);
+					_VFXPools.Add(id, objectpool);
+				}
+			}
         }
-        private void Clear()
+        public void Clear()
         {
             _effectCache.Clear();
             _VFXPools.Clear();

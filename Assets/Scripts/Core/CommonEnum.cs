@@ -25,6 +25,7 @@ namespace Scripts.Core
         public static readonly string GENERATE_MONSTERMETA_PATH = @"Scripts\Core\SO\MonsterMetaDataSO.cs";
 		public static readonly string GENERATE_DROPTABLE_META_PATH = @"Scripts\Core\SO\DropTableMetaSO.cs";
 		public static readonly string GENERATE_SFX_PATH = @"Scripts\Core\SO\SoundMetaDataSO.cs";
+		public static readonly string GENERATE_SCENE_META_PATH = @"Scripts\Core\SO\SceneMetaDataSO.cs";
         
     }
     public enum eSceneType
@@ -33,6 +34,7 @@ namespace Scripts.Core
         title = 1,
         main = 2,
         dungeon = 3,
+        SCENE_COUNT,
     }
 
     public enum DEFAULT_VALUE
@@ -50,6 +52,10 @@ namespace Scripts.Core
 
     public enum AssetIdMask : ulong
     {
+        //StageNumber는 최상위 30bit가 모두 0이어야함.
+        STAGE_UPBITMASK = 0xFFFFFFFC00000000,
+        STAGE_MASK = 0x0000000200000000,
+
         //Monster는 최상위 31bit가 모두 0이어야함.
         MONSTER_UPBITMASK   = 0xFFFFFFFE00000000,
         MONSTER_MASK        = 0x0000000100000000,
