@@ -55,9 +55,14 @@ namespace Scripts.Monster
         }
         private MonsterStat _stat;
         eMonsterType _type;
-        private int _facingDir;
+		long _dropTableNumber;
+
+        //AI
         private MonsterOrder _monAI;
-        private eMonsterAction _monAction;
+
+		//Animation
+		private int _facingDir;
+		private eMonsterAction _monAction;
         private eMonsterAction _prevAction;
         public IDamageable Target { get; private set; }
         private Animator _am;
@@ -170,10 +175,11 @@ namespace Scripts.Monster
             }
         }
 
-        public void Init(eMonsterType monsterType, MonsterStat stat)
+        public void Init(eMonsterType monsterType, MonsterStat stat, long droptable_number)
         {
             _stat = stat;
             _type = monsterType;
+            _dropTableNumber = droptable_number;
         }
         public void ChangeMonsterAction(eMonsterAction action)
         {
@@ -219,9 +225,9 @@ namespace Scripts.Monster
             int dmg = attacker.damage;
             bool IsAlive = setHp(dmg);
 
-            setHp(dmg);
             if (!IsAlive)
             {
+                //Todo : Reward 주기
                 return false;
             }
             return true;

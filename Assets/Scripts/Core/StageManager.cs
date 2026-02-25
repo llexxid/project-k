@@ -14,7 +14,6 @@ namespace Scripts.Core
     {
 
         public static StageManager Instance;
-        private Dictionary<int, List<StageInfo_v>> _StageCache;
         [SerializeField]
         private StageMetaDataSO _stageSO;
         private void Awake()
@@ -31,54 +30,56 @@ namespace Scripts.Core
         }
         private void Init()
         {
-            _StageCache = new Dictionary<int, List<StageInfo_v>>();
             _stageSO.Init();
             //PreLoadStageFile();
         }
+
+        public void Clear()
+        {
+            MonsterSpawner.Instance.Clear();
+		}
 
         /// <summary>
         /// 스테이지가 바뀔때, Stage에 필요한 정보들을 비동기적으로 Load하는 함수입니다.
         /// </summary>
         /// <param name="stage"></param>
         /// <returns></returns>
-        public AsyncOperationHandle<IList<GameObject>> LoadAssets(eStage stage)
+        public AsyncOperationHandle<IList<GameObject>> PreLoadAssets(eStage stage)
         {
             //스테이지 정보에 있는 Monster Type들 Load
-            List<StageInfo_v> stageInfoList;
+            List<eMonsterType> monsterTypes;
 
-            bool IsCached;
-            IsCached = _StageCache.TryGetValue((int)stage, out stageInfoList);
-            if (!IsCached)
-            {
-                //이럴일은 없긴함.
-                CustomLogger.LogWarning("NoPreLoad_StageInfo. Do Preload Stage");
-                return default;
-            }
-
-            //stage정보 가져옴.
-            int SpawnMonsterCount = stageInfoList.Count;
-            eMonsterType[] SpawnMonsterTypes = new eMonsterType[SpawnMonsterCount];
-            for (int i = 0; i < SpawnMonsterCount; i++)
-            {
-                SpawnMonsterTypes[i] = stageInfoList[i]._type;
-            }
-
-            var Handle = MonsterSpawner.Instance.LoadMonsterAssets(stage, SpawnMonsterTypes);
+            _stageSO.TryGetMonsterList(stage, out monsterTypes);
+            var Handle = MonsterSpawner.Instance.LoadMonsterAssets(stage, monsterTypes.ToArray());
             return Handle;
         }
 
         public List<StageInfo_v> GetStageMonsterInfo(eStage stage)
         {
             List<StageInfo_v> ret;
-            bool IsCached;
-            IsCached = _StageCache.TryGetValue((int)stage, out ret);
-            if (!IsCached)
+            bool IsValid;
+			IsValid = _stageSO.TryGetStageInfo(stage, out ret);
+            if (!IsValid)
             {
-                CustomLogger.LogWarning("Stage의 몬스터정보를 요청했지만, Cache되지 않았습니다.");
+                CustomLogger.LogWarning("Stage의 정보를 요청했지만, Cache되지 않았습니다.");
                 return null;
             }
             return ret;
         }
+
+        public List<eMonsterType> GetStageMonsterTypes(eStage stage)
+        {
+            List<eMonsterType> ret;
+            bool IsValid;
+            IsValid = _stageSO.TryGetMonsterList(stage, out ret);
+            if (!IsValid)
+            {
+				CustomLogger.LogWarning("Stage의 몬스터정보를 요청했지만, Cache되지 않았습니다.");
+				return null;
+			}
+			return ret;
+		}
+        
 
         private int GenerateKey(int stage, int wave)
         {

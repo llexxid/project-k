@@ -19,8 +19,9 @@ namespace Scripts.Core
         SFXEntity _sfxPrefab;
 
         //SFX DataStore 
-        private Dictionary<ulong, AudioClip> _AudioCache;
-        private Dictionary<ulong, AsyncOperationHandle<AudioClip>> _Handles;
+        private Dictionary<eSFXType, AudioClip> _AudioCache;
+        private Dictionary<eSFXType, AsyncOperationHandle<AudioClip>> _Handles;
+
         private Dictionary<ulong, AsyncOperationHandle<IList<AudioClip>>> _BatchHandles;
 
         private void Awake()
@@ -37,14 +38,14 @@ namespace Scripts.Core
         }
         private void Init()
         {
-            _AudioCache = new Dictionary<ulong, AudioClip>();
+            _AudioCache = new Dictionary<eSFXType, AudioClip>();
             _BatchHandles = new Dictionary<ulong, AsyncOperationHandle<IList<AudioClip>>>();
-            _Handles = new Dictionary<ulong, AsyncOperationHandle<AudioClip>>();
+            _Handles = new Dictionary<eSFXType, AsyncOperationHandle<AudioClip>>();
 
             _AudioSourcePool = new ObjectPool<SFXEntity>();
             _AudioSourcePool.Init(24, _sfxParents, _sfxPrefab);
         }
-        public AsyncOperationHandle<IList<AudioClip>> PreLoadSFX(eStage groupId, ulong[] clipsId)
+        public AsyncOperationHandle<IList<AudioClip>> PreLoadSFX(ulong groupId, eSFXType[] clipsId)
         {
             //Clip들 로딩
             AsyncOperationHandle<IList<AudioClip>> ret;
@@ -58,7 +59,7 @@ namespace Scripts.Core
             _BatchHandles.TryGetValue((ulong)groupId, out ret);
             return ret;
         }
-        public void GetSFX(ulong Id, Vector3 pos, Quaternion rotation, Action<SFXEntity> OnLoaded)
+        public void GetSFX(eSFXType Id, Vector3 pos, Quaternion rotation, Action<SFXEntity> OnLoaded)
         {
             AudioClip clip;
             SFXEntity ret;
@@ -80,7 +81,7 @@ namespace Scripts.Core
         {
             _AudioSourcePool.Release(sfx);
         }
-        private void Clear()
+        public void Clear()
         {
             _AudioCache.Clear();
             foreach (var handle in _Handles)
@@ -92,7 +93,7 @@ namespace Scripts.Core
                 Addressables.Release(handle);
             }
         }
-        private async void LoadClipAsync(ulong Id, Vector3 pos, Quaternion rotation, Action<SFXEntity> OnLoaded)
+        private async void LoadClipAsync(eSFXType Id, Vector3 pos, Quaternion rotation, Action<SFXEntity> OnLoaded)
         {
             bool IsLoaded = _Handles.TryGetValue(Id, out var handle);
             AudioClip clip;
@@ -116,47 +117,13 @@ namespace Scripts.Core
             return;
         }
         /// <summary>
-        /// Stage에 필요한 SFX들 로드하는 함수
+        /// 필요한 SFX들 로드하는 함수
         /// </summary>
         /// <param name="groupId"></param>
         /// <param name="clipsId"></param>
-        public async void LoadClipsAsync(eStage groupId, ulong[] clipsId)
+        public async void LoadClipsAsync(ulong groupId, eSFXType[] clipsId)
         {
             //만약 여러번 요청한다면..
-            bool IsLoaded = _BatchHandles.TryGetValue((ulong)groupId, out var handle);
-            IList<AudioClip> clips;
-            if (IsLoaded)
-            {
-                //이럴일은 없겠지만..있어서도 안되겠지만..
-                CustomLogger.LogWarning("You requested to load SFX while the system was already in a loading state.");
-                clips = await handle.Task;
-            }
-            else
-            {
-                handle = Addressables.LoadAssetsAsync<AudioClip>(groupId.ToString(), (loaded) => { });
-                _BatchHandles.Add((ulong)groupId, handle);
-                clips = await handle.Task;
-            }
-
-            if (clips.Count != clipsId.Length)
-            {
-                CustomLogger.LogError("The number of resources requested SFX to load is not the same as the number of id arrays.");
-            }
-            int i = 0;
-            foreach (AudioClip clip in clips)
-            {
-                _AudioCache.Add(clipsId[i], clip);
-                ++i;
-            }
-        }
-        /// <summary>
-        /// Scene에 필요한 SFX들 로드하는 함수
-        /// </summary>
-        /// <param name="groupId"></param>
-        /// <param name="clipsId"></param>
-        public async void LoadClipsAsync(eSceneType groupId, ulong[] clipsId)
-        {
-            // 만약 여러번 요청한다면..
             bool IsLoaded = _BatchHandles.TryGetValue((ulong)groupId, out var handle);
             IList<AudioClip> clips;
             if (IsLoaded)
@@ -179,10 +146,14 @@ namespace Scripts.Core
             int i = 0;
             foreach (AudioClip clip in clips)
             {
-                _AudioCache.Add(clipsId[i], clip);
+                if (_AudioCache.ContainsKey(clipsId[i]) == false)
+                {
+					_AudioCache.Add(clipsId[i], clip);
+				}
                 ++i;
             }
         }
+       
     }
 }
 

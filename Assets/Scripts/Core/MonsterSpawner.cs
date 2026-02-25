@@ -19,7 +19,7 @@ namespace Scripts.Core
         private Dictionary<eMonsterType, ObjectPool<Monster>> _MonsterPool;
 
         //Asset
-        private Dictionary<int, AsyncOperationHandle<IList<GameObject>>> _Handles;
+        private Dictionary<long, AsyncOperationHandle<IList<GameObject>>> _Handles;
         private Dictionary<eMonsterType, AsyncOperationHandle<GameObject>> _SingleHandle;
         private void Awake()
         {
@@ -38,9 +38,26 @@ namespace Scripts.Core
             _monsterCache = new Dictionary<eMonsterType, Monster>();
             _MonsterPool = new Dictionary<eMonsterType, ObjectPool<Monster>>();
 
-            _Handles = new Dictionary<int, AsyncOperationHandle<IList<GameObject>>>();
+            _Handles = new Dictionary<long, AsyncOperationHandle<IList<GameObject>>>();
             _SingleHandle = new Dictionary<eMonsterType, AsyncOperationHandle<GameObject>>();
         }
+
+        public void Clear()
+        {
+            _monsterCache.Clear();
+            _MonsterPool.Clear();
+
+			foreach (var item in _Handles)
+			{
+				Addressables.Release(item.Value);
+			}
+			foreach (var item in _SingleHandle)
+			{
+				Addressables.Release(item.Value);
+			}
+			_Handles.Clear();
+			_SingleHandle.Clear();
+		}
 
         public async void SpawnMonsterForTest(eMonsterType id, Vector3 pos, Quaternion rotate, Action<Monster> callback)
         {
@@ -62,7 +79,7 @@ namespace Scripts.Core
             Monster mon = pool.Alloc(pos, rotate);
             mon.gameObject.SetActive(true);
             //Todo : MonsterStat정보 정하기
-            mon.Init(id, new Monster.MonsterStat(10,0,5,1,1));
+            mon.Init(id, new Monster.MonsterStat(10,0,5,1,1), 0);
             callback?.Invoke(mon);
             return;
         }
@@ -82,6 +99,8 @@ namespace Scripts.Core
                 return;
             }
             monster = pool.Alloc(pos, rotate);
+            monster.gameObject.SetActive(true);
+
             return;
         }
 
@@ -100,8 +119,12 @@ namespace Scripts.Core
 
         public AsyncOperationHandle<IList<GameObject>> LoadMonsterAssets(eStage groupId, eMonsterType[] idList)
         {
+            if (_Handles.ContainsKey((long)groupId))
+            { 
+                return _Handles[(long)groupId];
+			}
             LoadAssetAsync(groupId, idList);
-            return _Handles[(int)groupId];
+            return _Handles[(long)groupId];
         }
 
         private async void LoadAssetAsync(eStage groupId, eMonsterType[] id)
@@ -110,7 +133,7 @@ namespace Scripts.Core
             AsyncOperationHandle<IList<GameObject>> handle;
 
             bool IsRequested;
-            if (IsRequested = _Handles.TryGetValue((int)groupId, out handle))
+            if (IsRequested = _Handles.TryGetValue((long)groupId, out handle))
             {
                 return;
             }
@@ -118,7 +141,7 @@ namespace Scripts.Core
             {
                 IList<string> keys = Array.ConvertAll(id, (id) => id.ToString());
                 Addressables.LoadAssetsAsync<Monster>(keys, (loaded) => { });
-                _Handles.Add((int)groupId, handle);
+                _Handles.Add((long)groupId, handle);
                 result = await handle.Task;
             }
             //Stage에 있는 Monster들 생성
@@ -127,8 +150,10 @@ namespace Scripts.Core
             {
                 Monster monComponent = mon.GetComponent<Monster>();
                 _monsterCache.Add(id[i], monComponent);
+
                 ObjectPool<Monster> monPool = new ObjectPool<Monster>();
                 monPool.Init((int)DEFAULT_VALUE.PoolingSize, monComponent);
+
                 _MonsterPool.Add(id[i], monPool);
                 i++;
             }
