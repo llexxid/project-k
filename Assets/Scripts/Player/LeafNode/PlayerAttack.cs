@@ -25,7 +25,7 @@ public class PlayerAttack
     int enemyLayer = 1 << 6;
 
     public PlayerAttack(Player player)
-    {         
+    {
         this.player = player;
         this.skillDatabase = player.skillDatabase; // 삭제 예정
         this.skillManager = player.skillManager; // 삭제 예정
@@ -35,42 +35,47 @@ public class PlayerAttack
     public NodeState Attack()
     {
         // Debug.Log("Attack");
-        // 1. 일반 공격 쿨타임 체크
 
-        //animator.SetBool("isAttack", true);
+        // 1. 일반 공격 쿨타임 체크
         _nextAttackTime = Time.time + attackRate;
 
+        // 2. 공격 범위 내 적 탐지
         ContactFilter2D filter = new ContactFilter2D();
+
+        // 레이어 마스크 설정 (적 레이어)
         filter.SetLayerMask(enemyLayer);
+
+        // 트리거 콜라이더 포함 여부 설정
         filter.useLayerMask = true;
         filter.useTriggers = true;
+
+        // 리스트를 재사용하여 가비지 발생을 최소화하는 방식
         int hitCount = Physics2D.OverlapCircle(player.transform.position, attackRadius, filter, _hitResults);
 
         for (int i = 0; i < hitCount; i++)
         {
             if (_hitResults[i].TryGetComponent<IDamageable>(out var targetEnemy))
             {
-                // 2. 스킬 쿨타임 체크 ("WindLance")
+                // 3. 스킬 쿨타임 체크 ("WindLance")
                 string skillName = "Wind_Lance";
-                
-                    SkillData data = skillDatabase.GetSkill(skillName);
-                    skillManager.ActivateSkill(skillName, player.transform.position);
 
-                    //Debug.Log(targetEnemy);
+                SkillData data = skillDatabase.GetSkill(skillName);
+                skillManager.ActivateSkill(skillName, player.transform.position);
 
-                    // VFX 및 쿨타임 갱신
-                    VFXManager.Instance.GetVFX(eVFXType.Wind_Lance, targetEnemy.targetPos, player.transform.rotation, (vfx) => { vfx.ActiveEffect(200);});
+                // Debug.Log(targetEnemy);
 
-                    Debug.Log(data);
+                // VFX 및 쿨타임 갱신
+                VFXManager.Instance.GetVFX(eVFXType.Wind_Lance, targetEnemy.targetPos, player.transform.rotation, (vfx) => {vfx.ActiveEffect(200);});
 
-                    _skillCooldowns[skillName] = Time.time + data.cooldown;
-                //  
+                // Debug.Log(data);
+
+                // 쿨타임 갱신
+                _skillCooldowns[skillName] = Time.time + data.cooldown;
+
+                // 4. 공격 적용
                 targetEnemy.TakeDamage(attackable);
             }
         }
-
-        
-
         return NodeState.Success;
     }
 
@@ -80,5 +85,4 @@ public class PlayerAttack
         public AttackNode(PlayerAttack attack) { _attack = attack; }
         public override NodeState Evaluate() => _attack.Attack();
     }
-
 }

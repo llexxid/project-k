@@ -6,7 +6,7 @@ using UnityEngine;
 public class PlayerDetection
 {
     //public LayerMask playerMask;
-    public float detectionRadius = 3f;
+    public float detectionRadius = 2f;
     private List<Collider2D> detectedResults = new List<Collider2D>();
     public IDamageable currentTarget; // 발견된 적을 저장할 변수
     public Player player;
@@ -64,11 +64,11 @@ public class PlayerDetection
         }
     }
 
-    void OnDrawGizmos() // 범위 그리기
-    {
-        Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(player.transform.position, detectionRadius);
-    }
+    //void OnDrawGizmos() // 범위 그리기
+    //{
+    //    Gizmos.color = Color.red;
+    //    Gizmos.DrawWireSphere(player.transform.position, detectionRadius);
+    //}
 }
 
 /*

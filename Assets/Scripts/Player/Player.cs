@@ -148,8 +148,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
         // 플레이어 행동 트리 평가
         playerOrder._rootNode?.Evaluate();
 
-
-
         // 임시 키 입력으로 플레이어 이동 (WASD)
         // - 삭제 예정
         if (Input.GetKey(KeyCode.W))
