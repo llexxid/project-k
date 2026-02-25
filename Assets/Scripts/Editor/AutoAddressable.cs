@@ -507,7 +507,7 @@ namespace Scripts.Core.Parser
 
             sb.Append($"namespace Scripts.Core.SO");
             OpenBrace(sb);
-			sb.Append($"[CreateAssetMenu(fileName = \"SceneVFXMetaSO\", menuName = \"ScriptableObjects/Scene{types}MetaSO\")]");
+			sb.Append($"[CreateAssetMenu(fileName = \"Scen{types}MetaSO\", menuName = \"ScriptableObjects/Scen{types}MetaSO\")]");
 			sb.Append($"public class Scen{types}MetaSO : ScriptableObject");
 			OpenBrace(sb);
 			sb.Append($"Dictionary<eSceneType, List<{types}>> _dic;\n");

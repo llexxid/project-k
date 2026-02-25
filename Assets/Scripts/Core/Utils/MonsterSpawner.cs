@@ -22,6 +22,8 @@ namespace Scripts.Core.Utils
         //Asset
         private Dictionary<long, AsyncOperationHandle<IList<GameObject>>> _Handles;
         private Dictionary<eMonsterType, AsyncOperationHandle<GameObject>> _SingleHandle;
+
+        private Transform _monParents;
         private void Awake()
         {
             if (Instance == null)
@@ -42,6 +44,22 @@ namespace Scripts.Core.Utils
             _Handles = new Dictionary<long, AsyncOperationHandle<IList<GameObject>>>();
             _SingleHandle = new Dictionary<eMonsterType, AsyncOperationHandle<GameObject>>();
         }
+
+        public void OnEnterScene()
+        {
+			GameObject obj = new GameObject("MON_ROOT");
+			_monParents = obj.transform;
+
+            foreach (var Item in _monsterCache)
+            {
+                eMonsterType key = Item.Key;
+                Monster monObj = Item.Value;
+				ObjectPool<Monster> monPool = new ObjectPool<Monster>();
+				monPool.Init((int)DEFAULT_VALUE.PoolingSize, _monParents, monObj);
+
+				_MonsterPool.Add(key, monPool);
+			}		
+		}
 
         public void Clear()
         {
@@ -101,7 +119,6 @@ namespace Scripts.Core.Utils
             }
             monster = pool.Alloc(pos, rotate);
             monster.gameObject.SetActive(true);
-
             return;
         }
 
@@ -133,15 +150,15 @@ namespace Scripts.Core.Utils
             IList<GameObject> result;
             AsyncOperationHandle<IList<GameObject>> handle;
 
-            bool IsRequested;
-            if (IsRequested = _Handles.TryGetValue((long)groupId, out handle))
+            bool IsRequested = _Handles.TryGetValue((long)groupId, out handle);
+            if (IsRequested)
             {
                 return;
             }
             else
             {
                 IList<string> keys = Array.ConvertAll(id, (id) => id.ToString());
-                Addressables.LoadAssetsAsync<Monster>(keys, (loaded) => { });
+				handle = Addressables.LoadAssetsAsync<GameObject>(keys, (loaded) => { }, Addressables.MergeMode.Union);
                 _Handles.Add((long)groupId, handle);
                 result = await handle.Task;
             }
@@ -151,11 +168,6 @@ namespace Scripts.Core.Utils
             {
                 Monster monComponent = mon.GetComponent<Monster>();
                 _monsterCache.Add(id[i], monComponent);
-
-                ObjectPool<Monster> monPool = new ObjectPool<Monster>();
-                monPool.Init((int)DEFAULT_VALUE.PoolingSize, monComponent);
-
-                _MonsterPool.Add(id[i], monPool);
                 i++;
             }
             return;

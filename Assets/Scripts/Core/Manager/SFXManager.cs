@@ -40,10 +40,13 @@ namespace Scripts.Core
         }
         private void Init()
         {
-            _AudioCache = new Dictionary<eSFXType, AudioClip>();
+            _sfxParents = gameObject.transform;
+
+			_AudioCache = new Dictionary<eSFXType, AudioClip>();
             _BatchHandles = new Dictionary<ulong, AsyncOperationHandle<IList<AudioClip>>>();
             _Handles = new Dictionary<eSFXType, AsyncOperationHandle<AudioClip>>();
 
+            //AudioSource는 어딜가든 초기화 x
             _AudioSourcePool = new ObjectPool<SFXEntity>();
             _AudioSourcePool.Init(24, _sfxParents, _sfxPrefab);
         }
@@ -136,14 +139,16 @@ namespace Scripts.Core
             }
             else
             {
-                handle = Addressables.LoadAssetsAsync<AudioClip>(groupId.ToString(), (loaded) => { });
+				IList<string> keys = Array.ConvertAll(clipsId, (id) => id.ToString());
+				handle = Addressables.LoadAssetsAsync<AudioClip>(keys, (loaded) => { }, Addressables.MergeMode.Union);
                 _BatchHandles.Add((ulong)groupId, handle);
                 clips = await handle.Task;
             }
 
             if (clips.Count != clipsId.Length)
             {
-                CustomLogger.LogError("The number of resources requested SFX to load is not the same as the number of id arrays.");
+				CustomLogger.LogWarning("You may Request Same SFX in one Batch. Please Check Your ExcelFile!\n");
+				CustomLogger.LogError("The number of resources requested SFX to load is not the same as the number of id arrays.\n");
             }
             int i = 0;
             foreach (AudioClip clip in clips)

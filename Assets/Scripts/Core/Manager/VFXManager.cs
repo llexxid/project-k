@@ -42,14 +42,29 @@ namespace Scripts.Core
             _Handles = new Dictionary<eVFXType, AsyncOperationHandle<GameObject>>();
         }
         /// <summary>
-        /// 씬에 진압할 때, VFXManager 리소스 정리함수입니다.
+        /// 씬에 진압할 때, VFXManager 리소스를 WarmUp하는 함수입니다.
         /// </summary>
         public void OnEnterScene()
         {
             GameObject obj = new GameObject("VFX_Root");
             _vfxParents = obj.transform;
-            Clear();
+
+            //지우고, 등록을 했다는건 내가 Load한것들이 Cache에 있음.
+            foreach (var Item in _effectCache)
+            {
+				VFXEntity vfxObj = Item.Value;
+                eVFXType id = Item.Key;
+				//만약 pooling effect면, pooling해주기.
+				if (CheckPoolingEffect(id))
+				{
+					ObjectPool<VFXEntity> objectpool = new ObjectPool<VFXEntity>();
+					objectpool.Init((int)DEFAULT_VALUE.PoolingSize, _vfxParents, vfxObj);
+					_VFXPools.Add(id, objectpool);
+				}
+			}
         }
+
+
 
         /// <summary>
         /// VFX cache를 데우는 비동기 함수입니다. 로딩에서 통제합니다. 
@@ -134,7 +149,9 @@ namespace Scripts.Core
             }
             else 
             {
-                 handle = Addressables.LoadAssetsAsync<GameObject>(groupId.ToString(), (loaded) => { });
+				//ToFIx : eVFXType에 있는걸 아이디로 넣어야함.
+				IList<string> keys = Array.ConvertAll(IdList, (id) => id.ToString());
+				handle = Addressables.LoadAssetsAsync<GameObject>(keys, (loaded) => { }, Addressables.MergeMode.Union);
                 _BatchHandles.Add((ulong)groupId, handle);
                 result = await handle.Task;
             }
@@ -206,13 +223,6 @@ namespace Scripts.Core
             if (_effectCache.ContainsKey(id) == false)
             {
 				_effectCache.Add(id, obj);
-				//만약 pooling effect면, pooling해주기.
-				if (CheckPoolingEffect(id))
-				{
-					ObjectPool<VFXEntity> objectpool = new ObjectPool<VFXEntity>();
-					objectpool.Init((int)DEFAULT_VALUE.PoolingSize, _vfxParents, obj);
-					_VFXPools.Add(id, objectpool);
-				}
 			}
         }
         public void Clear()

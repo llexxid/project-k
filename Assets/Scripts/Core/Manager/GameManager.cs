@@ -2,6 +2,8 @@
 using Cysharp.Threading.Tasks.CompilerServices;
 using ExcelDataReader;
 using Scripts.Core.SO;
+using Scripts.Core.Utils;
+using Scripts.Monster;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -15,6 +17,8 @@ using UnityEngine.SceneManagement;
 
 namespace Scripts.Core
 {
+	using static Scripts.Monster.Monster;
+	using Monster = Scripts.Monster.Monster;
     public class GameManager : MonoBehaviour
     {
         public static GameManager Instance;
@@ -100,6 +104,8 @@ namespace Scripts.Core
                 case eSceneType.title: return titleSceneName;
                 case eSceneType.main: return mainSceneName;
                 case eSceneType.dungeon: return dungeonSceneName;
+                case eSceneType.JunGiScene: return "JunGiScene";
+                case eSceneType.TestSceneJunGi: return "TestSceneJunGi";
                 default:
                     return type.ToString();
             }
@@ -135,7 +141,8 @@ namespace Scripts.Core
 
             //기존의 핸들이 있다면, 핸들들을 Release시켜줘야함.
             CheckHandle();
-            LoadingScene(type).Forget();
+            //LoadingScene(type).Forget();
+            LoadingSceneForTest(type).Forget();
         }
         //Stage를 전환하는 기능
         public void LoadAsyncStage(eStage stage)
@@ -264,13 +271,111 @@ namespace Scripts.Core
             SceneLoadFinished?.Invoke(type);
             //임시패치
         }
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            //MainScene전환시
+            if (scene.name == "JunGiScene")
+            {
+				Debug.Log("Scene전환!");
+				Vector3 pos = new Vector3( 5, 0, 0 );
+                Monster mon;
 
-        /// <summary>
-        /// 리소스가 바뀌는 스테이지 Load함수.
-        /// </summary>
-        /// <param name="stage"></param>
-        /// <returns></returns>
-        private async UniTaskVoid LoadStage(eStage stage)
+                MonsterSpawner.Instance.OnEnterScene();
+                VFXManager.Instance.OnEnterScene();
+
+                MonsterSpawner.Instance.SpawnMonster(eMonsterType.MON_ORC, pos, Quaternion.identity, out mon);
+                _monsterMetaDataSO.TryGetMonsterInfo(eMonsterType.MON_ORC, out MonsterInfo monInfo);
+                MonsterStat stat = new MonsterStat(monInfo._baseHp, 0, monInfo._baseAtk, monInfo._baseMoveSpeed, monInfo._baseAtkSpeed);
+
+                mon.Init(eMonsterType.MON_ORC, stat, monInfo._dropTableNumber);
+            }
+        }
+        private async UniTaskVoid LoadingSceneForTest(eSceneType type)
+        {
+			if (_token == null) _token = new CancellationTokenSource();
+
+			SceneLoadStarted?.Invoke(type);
+
+			string sceneName = GetSceneName(type);
+			float startRealtime = Time.realtimeSinceStartup;
+
+			_UnitySceneLoaderOp = SceneManager.LoadSceneAsync(sceneName);
+			_UnitySceneLoaderOp.allowSceneActivation = false;
+
+			eStage currentStage = UserManager.Instance.GetUserCurrentStage();
+			_StageLoaderHandle = StageManager.Instance.PreLoadAssets(currentStage);
+			LoadResourceInMonster(currentStage);
+			//각 씬에 필요한 VFX,SFX 로딩
+			/*List<eVFXType> vfxList;
+            List<eSFXType> sfxList;
+            _SceneVFXMetaSO.TryGeteVFXTypeList(type, out vfxList);
+            _SceneSFXMetaSO.TryGeteSFXTypeList(type, out sfxList);
+
+            _VFXSceneHandle = VFXManager.Instance.PreLoadVFX((ulong)type, vfxList.ToArray());
+            _SFXSceneHandle = SFXManager.Instance.PreLoadSFX((ulong)type, sfxList.ToArray());*/
+
+            SceneManager.sceneLoaded += OnSceneLoaded;
+
+			
+			while (true)
+			{
+				bool stageDone = _StageLoaderHandle.IsDone;
+				bool vfxDone = _VFXSceneHandle.IsDone;
+				bool sfxDone = _SFXSceneHandle.IsDone;
+                //bool vfxMonsterDone = _VFXMonsterHandle.IsDone;
+                //bool sfxMonsterDone = _SFXMonsterHandle.IsDone;
+
+				//로딩창 Scroll조절
+				//timer += Time.unscaledDeltaTime;
+				//scrollbar.fillAmount = Mathf.Lerp(0.9f, 1f, timer);
+
+				float normalized = Mathf.Clamp01(_UnitySceneLoaderOp.progress / 0.9f);
+
+				// 최소 로딩 시간 옵션
+				if (minLoadingSeconds > 0f)
+				{
+					float t = Mathf.Clamp01((Time.realtimeSinceStartup - startRealtime) / minLoadingSeconds);
+					normalized = Mathf.Min(normalized, t);
+				}
+
+				SceneLoadProgress?.Invoke(type, normalized);
+
+				// (에셋 로딩 완료) + (씬 로딩 0.9 도달) + (최소 로딩 시간 충족) => 씬 활성화로 넘어감
+				if (stageDone && 
+                    vfxDone && 
+                    sfxDone &&
+
+					_UnitySceneLoaderOp.progress >= 0.9f)
+				{
+					if (minLoadingSeconds <= 0f || (Time.realtimeSinceStartup - startRealtime) >= minLoadingSeconds)
+					{
+						break;
+					}
+				}
+
+				//스크롤바가 다 채워졌다면, SceneActive하기.
+				await UniTask.Yield(_token.Token);
+			}
+
+			_UnitySceneLoaderOp.allowSceneActivation = true;
+
+			// 실제 씬 활성화 완료까지 대기
+			while (!_UnitySceneLoaderOp.isDone)
+			{
+				await UniTask.Yield(_token.Token);
+			}
+
+			SceneLoadProgress?.Invoke(type, 1f);
+			SceneLoadFinished?.Invoke(type);
+           
+			//임시패치
+		}
+		/// <summary>
+		/// 리소스가 바뀌는 스테이지 Load함수.
+		/// </summary>
+		/// <param name="stage"></param>
+		/// <returns></returns>
+		private async UniTaskVoid LoadStage(eStage stage)
         {
 			float startRealtime = Time.realtimeSinceStartup;
 			/*
@@ -346,7 +451,7 @@ namespace Scripts.Core
 			{
 				for (int j = 0; j < neededSFXs[i].Length; j++)
 				{
-					Ids[j] = neededSFXs[i][j];
+					Ids[i] = neededSFXs[i][j];
 				}
 			}
 		}
@@ -371,7 +476,7 @@ namespace Scripts.Core
 			{
 				for (int j = 0; j < neededVFXs[i].Length; j++)
 				{
-					Ids[j] = neededVFXs[i][j];
+					Ids[i] = neededVFXs[i][j];
 				}
 			}
 		}

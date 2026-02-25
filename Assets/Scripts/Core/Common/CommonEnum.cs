@@ -35,6 +35,10 @@ namespace Scripts.Core
         main = 2,
         dungeon = 3,
         SCENE_COUNT,
+
+        //For Test
+        JunGiScene = 5,
+        TestSceneJunGi = 6,
     }
 
     public enum DEFAULT_VALUE

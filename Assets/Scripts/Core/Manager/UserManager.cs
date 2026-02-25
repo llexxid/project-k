@@ -85,7 +85,7 @@ public class UserManager : MonoBehaviour
 	{
 		// Todo : 추후에는 서버로 부터, 유저 정보를 받아와야함. 
 		// 지금은 테스트 
-		DummyUserData dummyUser = new DummyUserData(0,"zx지존zx", eStage.Stage1_1, 1, 0, 0);
+		DummyUserData dummyUser = new DummyUserData(0,"zx지존zx", eStage.Stage1, 1, 0, 0);
 		CreateUser(dummyUser);
 	}
 

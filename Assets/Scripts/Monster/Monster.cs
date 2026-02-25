@@ -38,7 +38,7 @@ namespace Scripts.Monster
     {
         public struct MonsterStat
         {
-            public MonsterStat(int hp, int extraHp, int atk, int moveSpeed, int atkSpeed)
+            public MonsterStat(int hp, int extraHp, int atk, double moveSpeed, double atkSpeed)
             {
                 _hp = hp;
                 _extraHp = extraHp;
@@ -51,8 +51,8 @@ namespace Scripts.Monster
 
             public int _atk;
 
-            public int _moveSpeed;
-            public int _atkSpeed;
+            public double _moveSpeed;
+            public double _atkSpeed;
         }
         private MonsterStat _stat;
         eMonsterType _type;
@@ -133,8 +133,10 @@ namespace Scripts.Monster
         void Update()
         {
             _prevAction = _monAction;
+
             if (_monAI != null)
             {
+                Debug.Log("_MonAI is Not NULL");
                 _monAI.ExecuteNode();
             }
         }
@@ -186,7 +188,7 @@ namespace Scripts.Monster
         {
             _monAction = action;
         }
-        public int GetSpeed()
+        public double GetSpeed()
         {
             return _stat._moveSpeed;
         }
@@ -211,6 +213,8 @@ namespace Scripts.Monster
 
         public void OnAlloc()
         {
+            //생성자 느낌쓰
+
             return;
         }
 

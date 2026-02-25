@@ -21,6 +21,7 @@ namespace Scripts.Monster.MonsterNode
         {
             if (_monster.Target != null)
             {
+                CustomLogger.Log($"탐색을 이미 끝냈음!\n");
                 return false;
             }
 
@@ -36,7 +37,8 @@ namespace Scripts.Monster.MonsterNode
             int around = Physics2D.OverlapCircle(_monster.attackerPos, radius, filter, _res);
             if (around == 0)
             {
-                return false;
+				CustomLogger.Log($"탐색범위 밖인 경우");
+				return false;
             }
             IDamageable target = _res[0].GetComponent<IDamageable>();
             _monster.SetTarget(target);
