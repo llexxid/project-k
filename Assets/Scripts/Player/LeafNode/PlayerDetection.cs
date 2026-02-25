@@ -28,7 +28,7 @@ public class PlayerDetection
         // 리스트를 재사용하여 가비지 발생을 최소화하는 방식
         int count = Physics2D.OverlapCircle(player.transform.position, detectionRadius, filter, detectedResults);
 
-        Debug.Log(count);
+        //Debug.Log(count);
 
         for (int i = 0; i < count; i++)
         {

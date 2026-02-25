@@ -17,7 +17,7 @@ public class PlayerMove
     // 행동 트리에서 호출할 함수 (반환값 NodeState로 변경)
     public NodeState Move()
     {
-        Debug.Log("Moving...");
+        //Debug.Log("Moving...");
 
 
         // 1. 타겟이 없으면 실패 (적이 사라짐)

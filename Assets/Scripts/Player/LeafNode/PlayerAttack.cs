@@ -34,6 +34,12 @@ public class PlayerAttack
 
     public NodeState Attack()
     {
+        // 스킬 쿨타임 체크 ("WindLance")
+        string skillName = "Wind_Lance";
+        SkillData data;
+        data = skillDatabase.GetSkill(skillName);
+        skillManager.ActivateSkill(skillName);
+
         // Debug.Log("Attack");
 
         // 1. 일반 공격 쿨타임 체크
@@ -52,28 +58,27 @@ public class PlayerAttack
         // 리스트를 재사용하여 가비지 발생을 최소화하는 방식
         int hitCount = Physics2D.OverlapCircle(player.transform.position, attackRadius, filter, _hitResults);
 
+        // 쿨타임 갱신
+        _skillCooldowns[skillName] = Time.time + data.cooldown;
+
         for (int i = 0; i < hitCount; i++)
         {
             if (_hitResults[i].TryGetComponent<IDamageable>(out var targetEnemy))
             {
-                // 3. 스킬 쿨타임 체크 ("WindLance")
-                string skillName = "Wind_Lance";
-
-                SkillData data = skillDatabase.GetSkill(skillName);
-                skillManager.ActivateSkill(skillName, player.transform.position);
-
                 // Debug.Log(targetEnemy);
 
-                // VFX 및 쿨타임 갱신
-                VFXManager.Instance.GetVFX(eVFXType.Wind_Lance, targetEnemy.targetPos, player.transform.rotation, (vfx) => {vfx.ActiveEffect(200);});
+                if (_skillCooldowns[skillName] >= data.cooldown)
+                {
+                    // Debug.Log("123");
 
-                // Debug.Log(data);
+                    // VFX 및 쿨타임 갱신
+                    VFXManager.Instance.GetVFX(eVFXType.Wind_Lance, targetEnemy.targetPos, player.transform.rotation, (vfx) => { vfx.ActiveEffect(200); });
 
-                // 쿨타임 갱신
-                _skillCooldowns[skillName] = Time.time + data.cooldown;
+                    // Debug.Log(data);
 
-                // 4. 공격 적용
-                targetEnemy.TakeDamage(attackable);
+                    // 3. 공격 적용
+                    targetEnemy.TakeDamage(attackable);
+                }
             }
         }
         return NodeState.Success;
