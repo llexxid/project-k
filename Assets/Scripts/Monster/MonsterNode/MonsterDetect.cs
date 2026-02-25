@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Scripts.Core.inteface;
-
+using Scripts.Core.Utils;
 
 namespace Scripts.Monster.MonsterNode
 {

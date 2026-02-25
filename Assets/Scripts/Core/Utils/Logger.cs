@@ -3,7 +3,7 @@
 //2. 로그 레벨에 따라서, 로그 관리.
 //   일일히 다 주석처리 , 전처리 처리는 힘듦.
 
-namespace Scripts.Core
+namespace Scripts.Core.Utils
 {
     public static class CustomLogger
     {

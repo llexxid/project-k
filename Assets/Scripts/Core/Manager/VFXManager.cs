@@ -5,8 +5,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
-using static UnityEngine.Networking.UnityWebRequest;
-using static UnityEngine.Rendering.VirtualTexturing.Debugging;
+using Scripts.Core.DataStructure;
+using Scripts.Core.Utils;
 
 namespace Scripts.Core
 {

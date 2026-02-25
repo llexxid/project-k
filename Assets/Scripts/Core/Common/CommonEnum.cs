@@ -17,9 +17,9 @@ namespace Scripts.Core
         public static readonly string SFX_AUDIOCLIP_PATH = $"Assets/Scripts/Core/TestResource/SFX";
 
         //AutoGenerate Path
-        public static readonly string STAGE_ENUM_PATH = @"Scripts\Core\StageEnum.cs";
-        public static readonly string GENERATE_ENUM_PATH = @"Scripts\Core\GenerateEnum.cs";
-        public static readonly string GENERATE_ENUMHELPER_PATH = @"Scripts\Core\EnumHelper.cs";
+        public static readonly string STAGE_ENUM_PATH = @"Scripts\Core\AutoGenEnum\StageEnum.cs";
+        public static readonly string GENERATE_ENUM_PATH = @"Scripts\Core\AutoGenEnum\GenerateEnum.cs";
+        public static readonly string GENERATE_ENUMHELPER_PATH = @"Scripts\Core\AutoGenEnum\EnumHelper.cs";
 
         public static readonly string GENERATE_STAGEMETA_PATH = @"Scripts\Core\SO\StageMetaDataSO.cs";
         public static readonly string GENERATE_MONSTERMETA_PATH = @"Scripts\Core\SO\MonsterMetaDataSO.cs";

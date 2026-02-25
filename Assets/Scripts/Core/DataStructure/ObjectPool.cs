@@ -2,8 +2,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Scripts.Core.Utils;
 
-namespace Scripts.Core
+namespace Scripts.Core.DataStructure
 {
     public class ObjectPool<T> where T : MonoBehaviour, IPoolable
     {

@@ -2,7 +2,7 @@ using Scripts.Core;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-
+using Scripts.Core.Utils;
 public class MonsterSpawnerTest : MonoBehaviour
 {
     // Start is called before the first frame update

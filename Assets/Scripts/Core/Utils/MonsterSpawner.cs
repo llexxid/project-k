@@ -7,8 +7,9 @@ using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using Scripts.Monster;
+using Scripts.Core.DataStructure;
 
-namespace Scripts.Core
+namespace Scripts.Core.Utils
 {
     using Monster = Scripts.Monster.Monster;
     public class MonsterSpawner : MonoBehaviour
