@@ -117,12 +117,6 @@ namespace Scripts.Core.Parser
             AutoAddressable auto = new AutoAddressable();
             auto.GenerateEnumCode();
         }
-        [MenuItem("MyTools/TestForSceneMeta")]
-        private static void GenerateSceneMetaTest()
-        {
-            AutoAddressable auto = new AutoAddressable();
-            auto.GenerateSceneResourceMetaSO();
-		}
 
         private void GenerateEnumCode()
         {
