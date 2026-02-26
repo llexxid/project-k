@@ -33,6 +33,7 @@ namespace Scripts.Monster.MonsterNode
             
             //공격범위 안에 있고, Target이 여전히 있다.
             bool IsAlive;
+            CustomLogger.Log("monster Attack!!");
             IsAlive = _monster.Target.TakeDamage(_monster);
             if (!IsAlive)
             {
