@@ -1,5 +1,6 @@
 using Scripts.Users;
 using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -28,7 +29,7 @@ namespace Scripts.Wallets
 
 		public void AddCoins(eCurrency type, int amount)
 		{
-			// ÀÌ¹Ì ÀÖ´Â ÀçÈ­¸é °³¼ö¸¸ ´õÇÏ°í, Ã³À½ÀÌ¸é »õ·Î Ãß°¡
+			// ï¿½Ì¹ï¿½ ï¿½Ö´ï¿½ ï¿½ï¿½È­ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ï°ï¿½, Ã³ï¿½ï¿½ï¿½Ì¸ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ß°ï¿½
 			if (pocket.ContainsKey(type))
 			{
 				pocket[type] += amount;
@@ -41,4 +42,40 @@ namespace Scripts.Wallets
 
 	}
 
+    public void AddCoins(eCurrency type, int amount)
+    {
+        // ì´ë¯¸ ìˆëŠ” ì¬í™”ë©´ ê°œìˆ˜ë§Œ ë”í•˜ê³ , ì²˜ìŒì´ë©´ ìƒˆë¡œ ì¶”ê°€
+        if (wallet.ContainsKey(type))
+        {
+            wallet[type] += amount;
+        }
+        else
+        {
+            wallet.Add(type, amount);
+        }
+
+        /*
+        foreach (var pair in wallet)
+        {
+            Debug.Log($"ì¬í™”: {pair.Key}, ìˆ˜ëŸ‰: {pair.Value}");
+        }
+        */
+    }
+
+    public bool TryGetAmount(eCurrency type, out int amount)
+    {
+        return wallet.TryGetValue(type, out amount);
+    }
+
+    void Start()
+    {
+        // Enumì„ Listë¡œ ë³€í™˜
+        var values = (eCurrency[])System.Enum.GetValues(typeof(eCurrency));
+        currencies = new List<eCurrency>(values);
+    }
+
+    void Update()
+    {
+
+    }
 }
