@@ -203,7 +203,15 @@ namespace Scripts.Core
             //Callback으로 등록
             resourceVfx = loadedObj.GetComponent<VFXEntity>();
             OnLoadAsset(id, resourceVfx);
-            InstantiateEffect(id, resourceVfx, pos, rotation, out VFXEntity instance);
+			//만약 pooling effect면, pooling해주기.
+			if (CheckPoolingEffect(id))
+			{
+				ObjectPool<VFXEntity> objectpool = new ObjectPool<VFXEntity>();
+				objectpool.Init((int)DEFAULT_VALUE.PoolingSize, _vfxParents, resourceVfx);
+				_VFXPools.Add(id, objectpool);
+			}
+
+			InstantiateEffect(id, resourceVfx, pos, rotation, out VFXEntity instance);
             instance.SetId(id);
             OnLoaded?.Invoke(instance);
             return;

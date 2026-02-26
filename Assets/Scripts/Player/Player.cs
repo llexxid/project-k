@@ -46,6 +46,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
     public bool TakeDamage(IAttackable attacker)
     {
 		ulong dmg = attacker.damage;
+        CustomLogger.Log($"Player가 공격을 받고있습니다! DMG : {dmg}");
 		bool IsAlive = setHp(dmg);
 
 		if (!IsAlive)

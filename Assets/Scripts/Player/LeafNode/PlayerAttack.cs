@@ -77,7 +77,7 @@ public class PlayerAttack
                     // Debug.Log(data);
 
                     // 3. 공격 적용
-                    targetEnemy.TakeDamage(attackable);
+                    targetEnemy.TakeDamage(player);
                 }
             }
         }
