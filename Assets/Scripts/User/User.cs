@@ -8,16 +8,14 @@ namespace Scripts.Users
 {
 	public class User
 	{
-		public Wallet wallet;
+		public Wallet _wallet;
 		UserData _userData;
 
 		public List<Player> players;
 
 		public User(UserData data)
 		{
-			wallet = new Wallet(this, data._coin, data._coin);
-
-
+			_wallet = new Wallet(this, data._coin, data._coin);
 		}
 
 		public UserData GetData()
@@ -44,6 +42,11 @@ namespace Scripts.Users
 		public eStage GetStage()
 		{
 			return _userData._currentStage;
+		}
+
+		public void GainCoin(eCurrency type, int amount)
+		{
+			_wallet.AddCoins(type, amount);
 		}
 
 		public void ConnectCharacters(Player player)

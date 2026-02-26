@@ -10,9 +10,10 @@ GameObject:
   m_Component:
   - component: {fileID: 2057704345339096838}
   - component: {fileID: 2466260967820744483}
-  m_Layer: 0
+  - component: {fileID: -7400342957546074819}
+  m_Layer: 6
   m_Name: MON_ORC
-  m_TagString: Untagged
+  m_TagString: Enemy
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -45,14 +46,43 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7edcfd68a078f374cbff730b0167d530, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _stat:
-    _hp: 0
-    _extraHp: 0
-    _atk: 0
-    _moveSpeed: 0
-    _atkSpeed: 0
   _attackRadius: 0
   _detectRadius: 0
+--- !u!58 &-7400342957546074819
+CircleCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4697798537841318625}
+  m_Enabled: 1
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 1
+  m_UsedByEffector: 0
+  m_UsedByComposite: 0
+  m_Offset: {x: 0, y: 0}
+  serializedVersion: 2
+  m_Radius: 0.5
 --- !u!1 &7115206474704773811
 GameObject:
   m_ObjectHideFlags: 0
@@ -64,7 +94,7 @@ GameObject:
   - component: {fileID: 6038876291017178717}
   - component: {fileID: 6404539971367980414}
   - component: {fileID: 8641488406843906781}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: OrcRender
   m_TagString: Untagged
   m_Icon: {fileID: 0}
