@@ -7,6 +7,7 @@ namespace Scripts.Monster.MonsterNode
 {
     using Scripts.Core.inteface;
 	using Scripts.Core.Utils;
+	using Scripts.Monster.State;
 
 	public class MonsterMove : MonsterNode
     {
@@ -33,7 +34,7 @@ namespace Scripts.Monster.MonsterNode
             Vector3 myPos = monTrans.position;
             Vector3 dir = (targetPos - myPos).normalized;
 
-            _monster.ChangeMonsterAction(eMonsterAction.Walk);
+            _monster.ChangeState(new MonsterMoveState(_monster));
             _monster.SetFlip(dir.x);
             CustomLogger.Log($"몬스터가 {_monster.GetSpeed()} 속도로 0,0,0을 향해 움직임");
             //rb는 기본적으로 월드좌표 기준.
