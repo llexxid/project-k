@@ -278,7 +278,7 @@ namespace Scripts.Core
                 //MainScene진입시 SpawnLogic
                 MonsterSpawner.Instance.SpawnMonster(eMonsterType.MON_ORC, pos, Quaternion.identity, out mon);
                 _monsterMetaDataSO.TryGetMonsterInfo(eMonsterType.MON_ORC, out MonsterInfo monInfo);
-                MonsterStat stat = new MonsterStat(monInfo._baseHp, 0, monInfo._baseAtk, monInfo._baseMoveSpeed, monInfo._baseAtkSpeed);
+                MonsterStat stat = new MonsterStat(monInfo._baseHp, 0, (ulong)monInfo._baseAtk, monInfo._baseMoveSpeed, monInfo._baseAtkSpeed);
                 mon.Init(eMonsterType.MON_ORC, stat, monInfo._dropTableNumber);
             }
         }

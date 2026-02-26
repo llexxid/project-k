@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Security.Cryptography;
 using UnityEngine;
 
 namespace Scripts.Core
@@ -96,4 +97,59 @@ namespace Scripts.Core
         Hurt,
         ACTION_END,
     }
+
+	public struct UserData
+	{
+		public UserData(long Id, string nickname, eStage stage, int level, int coin, int ancientcoin)
+		{
+			_Id = Id;
+			_nickname = nickname;
+			_currentStage = stage;
+
+			_level = level;
+			_coin = coin;
+			_ancientCoin = ancientcoin;
+		}
+
+		long _Id;
+		public string _nickname;
+		public eStage _currentStage;
+
+		public int _level;
+		public int _coin;//Wallet정보들은 직렬화 되서 올테니
+		public int _ancientCoin;
+
+		//Todo : Token을 저장하고 있어야함.
+	}
+
+    //PlayerData
+    public struct PlayerData
+    {
+        public PlayerData(long id, string jobname, int enforce, ulong atk, long hp)
+        {
+            _Id = id;
+			_jobName = jobname;
+            _enforce = enforce;
+			_atk = atk;
+            _Hp = hp;
+
+            _extraAtk = 0;
+            _extraHp = 0;
+		}
+
+        long _Id;
+        //직업이름, 직업 코드
+        public string _jobName;
+
+        //Todo : 강화기능 추가시, 추가될 데이터
+        public int _enforce;
+
+        public ulong _atk;
+        public long _Hp;
+		public uint _extraAtk;
+		public int _extraHp;
+
+
+    }
+
 }
