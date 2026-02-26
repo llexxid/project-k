@@ -1,46 +1,22 @@
-using Scripts.Users;
-using System.Collections;
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Scripts.Wallets
+public class Wallet : MonoBehaviour
 {
-	public class Wallet
-	{
-		private User _user;
-		private Dictionary<eCurrency, int> pocket = new Dictionary<eCurrency, int>();
+    private Player player;
+    private Coin coin;
+    private List<eCurrency> currencies;
+    private Dictionary<eCurrency, int> wallet = new Dictionary<eCurrency, int>();
 
-		[SerializeField]
-		private int totalCoins;
+    [SerializeField]
+    private int totalCoins;
 
-		public Wallet(User user, int coins, int ancientCoins)
-		{
-			_user = user;
-			AddCoins(eCurrency.Gold, coins);
-			AddCoins(eCurrency.AncientCoin, ancientCoins);
-		}
-
-		public int TotalCoins
-		{
-			get { return totalCoins; }
-			set { totalCoins = value; }
-		}
-
-		public void AddCoins(eCurrency type, int amount)
-		{
-			// �̹� �ִ� ��ȭ�� ������ ���ϰ�, ó���̸� ���� �߰�
-			if (pocket.ContainsKey(type))
-			{
-				pocket[type] += amount;
-			}
-			else
-			{
-				pocket.Add(type, amount);
-			}
-		}
-
-	}
+    public int TotalCoins
+    {
+        get { return totalCoins; }
+        set { totalCoins = value; }
+    }
 
     public void AddCoins(eCurrency type, int amount)
     {
