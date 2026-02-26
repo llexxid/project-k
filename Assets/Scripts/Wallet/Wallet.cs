@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -20,7 +20,7 @@ public class Wallet : MonoBehaviour
 
     public void AddCoins(eCurrency type, int amount)
     {
-        // ÀÌ¹Ì ÀÖ´Â ÀçÈ­¸é °³¼ö¸¸ ´õÇÏ°í, Ã³À½ÀÌ¸é »õ·Î Ãß°¡
+        // ì´ë¯¸ ìˆëŠ” ì¬í™”ë©´ ê°œìˆ˜ë§Œ ë”í•˜ê³ , ì²˜ìŒì´ë©´ ìƒˆë¡œ ì¶”ê°€
         if (wallet.ContainsKey(type))
         {
             wallet[type] += amount;
@@ -33,21 +33,25 @@ public class Wallet : MonoBehaviour
         /*
         foreach (var pair in wallet)
         {
-            Debug.Log($"ÀçÈ­: {pair.Key}, ¼ö·®: {pair.Value}");
+            Debug.Log($"ì¬í™”: {pair.Key}, ìˆ˜ëŸ‰: {pair.Value}");
         }
         */
     }
 
+    public bool TryGetAmount(eCurrency type, out int amount)
+    {
+        return wallet.TryGetValue(type, out amount);
+    }
+
     void Start()
     {
-        // EnumÀ» List·Î º¯È¯
+        // Enumì„ Listë¡œ ë³€í™˜
         var values = (eCurrency[])System.Enum.GetValues(typeof(eCurrency));
-
         currencies = new List<eCurrency>(values);
     }
 
     void Update()
     {
-        
+
     }
 }

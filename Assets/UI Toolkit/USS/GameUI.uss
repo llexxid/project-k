@@ -1,3 +1,4 @@
+﻿/* GameUI.uss */
 /* ===== Common ===== */
 .root { width: 100%; height: 100%; }
 .safe-area { position: absolute; left: 0%; right: 0%; top: 0%; bottom: 0%; }
@@ -12,10 +13,11 @@
     background-color: rgba(0,0,0,0.25);
 }
 
-/* 배경 클릭 캐처가 전체 영역을 덮도록 */
+/* Full-screen invisible click catcher ("press anywhere") */
 .title-bg {
     position: absolute;
     left: 0; right: 0; top: 0; bottom: 0;
+    background-color: rgba(0,0,0,0);
 }
 
 .title-big {
@@ -87,7 +89,6 @@
 
 .hud-left-wrap { flex-direction: row; align-items: center; gap: 18px; }
 
-/* 프로필 버튼: 원형 유지 */
 .profile-blank-btn {
     width: 92px;
     height: 92px;
@@ -107,7 +108,6 @@
 
 .hud-right-wrap { flex-direction: row; align-items: center; gap: 14px; }
 
-/* 재화 표시: 버튼이지만 칩처럼 */
 .currency-btn {
     height: 100px;
     padding-left: 16px;
@@ -146,22 +146,28 @@
 .dropdown-item { font-size: 24px; color: rgba(255,255,255,0.9); }
 .dropdown-btn { height: 80px; font-size: 26px; }
 
-/* 햄버거 드롭다운: 햄버거 버튼 폭(90px)에 맞춤 */
+/* Currency dropdown: tighter spacing */
+#PopupCurrencies {
+    padding: 12px;
+    gap: 6px;
+}
+
+/* Hamburger dropdown: same thickness as the hamburger button */
 .hamburger-dropdown {
     width: 90px;
-    padding: 0px;
-    gap: 10px;
-    border-radius: 14px;
+    padding: 8px;
+    gap: 8px;
 }
+
 .hamburger-dropdown .dropdown-btn {
     width: 90px;
     height: 90px;
-    font-size: 44px;
-    padding-left: 0px;
-    padding-right: 0px;
+    padding-left: 0;
+    padding-right: 0;
+    -unity-background-scale-mode: scale-to-fit;
 }
 
-/* ===== Stage Area (FIX) ===== */
+/* ===== Stage Area ===== */
 .stage-area {
     position: absolute;
     left: 0;
@@ -214,17 +220,6 @@
 }
 .side-btn { width: 170px; height: 86px; font-size: 28px; }
 
-/* Main content */
-.main-content {
-    position: absolute;
-    left: 0; right: 0;
-    top: 180px;
-    bottom: 190px;
-    align-items: center;
-    justify-content: center;
-}
-.lobby-hint { font-size: 30px; color: rgba(255,255,255,0.85); }
-
 /* Bottom bar */
 .bottom-bar {
     position: absolute;
@@ -243,11 +238,6 @@
     left: 0; right: 0; top: 0; bottom: 0;
 }
 
-/*
-   NOTE:
-   - bottom 값은 코드에서 BottomBar 실제 높이로 동적으로 설정한다.
-   - 기본값은 190px로 두되, 해상도/폰트 변경으로 BottomBar가 커져도 탭이 가려지지 않게 한다.
-*/
 .panel-backdrop {
     position: absolute;
     left: 0; right: 0; top: 0; bottom: 190px;
@@ -258,8 +248,8 @@
     position: absolute;
     left: 0; right: 0;
     bottom: 190px;
-    height: 70%;
-    min-height: 420px;
+    height: 60%;
+    min-height: 380px;
     background-color: rgba(0,0,0,0.72);
     border-top-left-radius: 22px;
     border-top-right-radius: 22px;
@@ -267,25 +257,115 @@
     gap: 14px;
 }
 
-.panel-header {
-    flex-direction: row;
+/* ===== Settings Modal ===== */
+.settings-overlay {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    background-color: rgba(0,0,0,0.65);
+    justify-content: center;
     align-items: center;
-    justify-content: space-between;
 }
 
-.panel-title {
+.settings-panel {
+    width: 88%;
+    max-width: 760px;
+    background-color: rgba(35, 30, 45, 0.95);
+    border-radius: 18px;
+    padding: 18px;
+    gap: 12px;
+    overflow: hidden;
+}
+
+.settings-titlebar {
+    height: 74px;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(0,0,0,0.28);
+    border-radius: 14px;
+}
+
+.settings-title {
     font-size: 34px;
     -unity-font-style: bold;
     color: rgba(255,255,255,0.95);
+    -unity-text-align: middle-center;
 }
 
-.panel-close-btn {
-    width: 80px;
-    height: 80px;
-    font-size: 34px;
+.settings-subrow { flex-direction: row; justify-content: space-between; align-items: center; gap: 10px; }
+.settings-chip-btn { height: 72px; flex-grow: 1; font-size: 24px; }
+.settings-version { height: 72px; width: 220px; justify-content: center; align-items: center; background-color: rgba(255,255,255,0.10); border-radius: 12px; }
+.settings-version-label { font-size: 24px; color: rgba(255,255,255,0.9); }
+
+.settings-coupon-row { flex-direction: row; align-items: center; gap: 10px; }
+.settings-coupon-tag { width: 150px; height: 62px; justify-content: center; align-items: center; background-color: rgba(0,0,0,0.28); border-radius: 10px; }
+.settings-coupon-tag-label { font-size: 22px; color: rgba(255,255,255,0.9); }
+.settings-coupon-field-wrap { flex-grow: 1; height: 62px; border-radius: 10px; background-color: rgba(255,255,255,0.10); padding-left: 10px; padding-right: 10px; justify-content: center; }
+.settings-coupon-field { flex-grow: 1; }
+.settings-coupon-btn { width: 110px; height: 62px; font-size: 22px; }
+
+.settings-grid { flex-direction: row; gap: 14px; }
+.settings-col { flex-grow: 1; gap: 10px; }
+
+.settings-volume-row { flex-direction: row; align-items: center; gap: 10px; }
+.settings-volume-label {
+    width: 110px;
+    font-size: 22px;
+    color: rgba(255,255,255,0.9);
+    flex-shrink: 0;
 }
 
-.panel-body-hint {
-    font-size: 28px;
-    color: rgba(255,255,255,0.85);
+.settings-mute-btn {
+    width: 100px;
+    height: 54px;
+    font-size: 22px;
+    border-radius: 12px;
+    background-color: rgba(255,255,255,0.10);
+    color: rgba(255,255,255,0.95);
+    flex-shrink: 0;
+}
+.settings-mute-btn.is-on { background-color: rgba(255,80,80,0.35); }
+.settings-slider { flex-grow: 1; min-width: 0; flex-shrink: 1; }
+
+/* Settings toggles: improve label visibility */
+.settings-panel .unity-base-field__label,
+.settings-panel .unity-toggle__text {
+    color: rgba(255,255,255,0.95);
+}
+
+.settings-inquiry { height: 62px; justify-content: center; align-items: center; background-color: rgba(0,0,0,0.28); border-radius: 10px; }
+.settings-inquiry-label { font-size: 22px; color: rgba(255,255,255,0.9); }
+
+.settings-wide-btn { height: 70px; font-size: 24px; }
+.settings-danger-btn { height: 70px; font-size: 24px; color: rgba(255,80,80,1); }
+
+.settings-bottom-row { flex-direction: row; gap: 12px; }
+.settings-bottom-btn { flex-grow: 1; height: 76px; font-size: 26px; }
+
+.settings-hint-close {
+    position: absolute;
+    left: 0; right: 0; bottom: 38px;
+    -unity-text-align: middle-center;
+    font-size: 22px;
+    color: rgba(255,255,255,0.75);
+}
+
+/* ===== Toast ===== */
+.toast-overlay {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
+}
+
+.toast-box {
+    padding: 16px 22px;
+    background-color: rgba(0,0,0,0.7);
+    border-radius: 10px;
+}
+
+.toast-text {
+    font-size: 24px;
+    color: rgba(255,255,255,0.95);
+    -unity-text-align: middle-center;
 }
