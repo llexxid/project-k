@@ -16,7 +16,7 @@ namespace Scripts.Core.inteface
     /// </summary>
     public interface IAttackable
     {
-        public int damage { get;}
+        public ulong damage { get;}
         public Vector3 attackerPos { get; }
     }
     /// <summary>

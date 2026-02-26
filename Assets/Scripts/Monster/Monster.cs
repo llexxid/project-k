@@ -12,7 +12,7 @@ namespace Scripts.Monster
 
     public struct MonsterInfo
     {
-        public MonsterInfo(string name, int exp, int baseHp, int baseAtk, double baseMoveSpeed, double baseAtkSpeed, long dropTable)
+        public MonsterInfo(string name, ulong exp, long baseHp, ulong baseAtk, double baseMoveSpeed, double baseAtkSpeed, long dropTable)
         {
             _name = name;
             _exp = exp;
@@ -24,9 +24,9 @@ namespace Scripts.Monster
         }
 
         public readonly string _name;
-        public readonly int _exp;
-        public readonly int _baseHp;
-        public readonly int _baseAtk;
+        public readonly ulong _exp;
+        public readonly long _baseHp;
+        public readonly ulong _baseAtk;
 
         public readonly double _baseMoveSpeed;
         public readonly double _baseAtkSpeed;
@@ -38,7 +38,7 @@ namespace Scripts.Monster
     {
         public struct MonsterStat
         {
-            public MonsterStat(int hp, int extraHp, int atk, double moveSpeed, double atkSpeed)
+            public MonsterStat(long hp, int extraHp, ulong atk, double moveSpeed, double atkSpeed)
             {
                 _hp = hp;
                 _extraHp = extraHp;
@@ -46,10 +46,10 @@ namespace Scripts.Monster
                 _moveSpeed = moveSpeed;
                 _atkSpeed = atkSpeed;
             }
-            public int _hp;
+            public long _hp;
             public int _extraHp;
 
-            public int _atk;
+            public ulong _atk;
 
             public double _moveSpeed;
             public double _atkSpeed;
@@ -79,7 +79,7 @@ namespace Scripts.Monster
         }
         public eMonsterAction MonAction { get { return _monAction; } }
         public bool IsActive { get; set; }
-        public int damage 
+        public ulong damage 
         {
             get
             {
@@ -227,7 +227,7 @@ namespace Scripts.Monster
 
         public bool TakeDamage(IAttackable attacker)
         {
-            int dmg = attacker.damage;
+            ulong dmg = attacker.damage;
             bool IsAlive = setHp(dmg);
 
             if (!IsAlive)
@@ -297,25 +297,26 @@ namespace Scripts.Monster
             }
         }
 
-        private bool setHp(int damage)
+        private bool setHp(ulong damage)
         {
             long totalHp = _stat._hp + _stat._extraHp;
             //죽는경우
-            if (totalHp - damage <= 0)
+            if (totalHp - (long)damage <= 0)
             {
                 OnDead();
                 return false;
             }
 
             //ExtraHp먼저 깍기
-            if (damage > _stat._extraHp)
+            if ((long)damage > _stat._extraHp)
             {
-                int remainDamage = damage - _stat._extraHp;
+                long remainDamage = (long)damage - _stat._extraHp;
                 _stat._extraHp = 0;
                 _stat._hp -= remainDamage;
                 return true;
             }
-            _stat._extraHp -= damage;
+
+            _stat._extraHp = _stat._extraHp - (int)damage;
             return true;
         }
 
