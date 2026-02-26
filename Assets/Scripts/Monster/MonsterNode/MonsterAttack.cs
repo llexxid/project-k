@@ -1,4 +1,5 @@
 using Scripts.Core;
+using Scripts.Core.Utils;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -17,6 +18,7 @@ namespace Scripts.Monster.MonsterNode
             //타겟이 없으면 Fail!
             if (_monster.Target == null)
             {
+                CustomLogger.Log($"공격 타겟을 찾지 못함");
                 return NodeState.Failure;
             }
 
@@ -25,7 +27,8 @@ namespace Scripts.Monster.MonsterNode
             float distance = Vector3.Distance(_monster.attackerPos, targetPos);
             if (distance > _monster.AttackRadius)
             {
-                return NodeState.Failure;
+				CustomLogger.Log($"공격 범위 밖");
+				return NodeState.Failure;
             }
             
             //공격범위 안에 있고, Target이 여전히 있다.

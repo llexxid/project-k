@@ -12,8 +12,7 @@ using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEngine;
-
-
+using Scripts.Core.Utils;
 
 namespace Scripts.Core.Parser
 {
@@ -118,12 +117,6 @@ namespace Scripts.Core.Parser
             AutoAddressable auto = new AutoAddressable();
             auto.GenerateEnumCode();
         }
-        [MenuItem("MyTools/TestForSceneMeta")]
-        private static void GenerateSceneMetaTest()
-        {
-            AutoAddressable auto = new AutoAddressable();
-            auto.GenerateSceneResourceMetaSO();
-		}
 
         private void GenerateEnumCode()
         {
@@ -514,7 +507,7 @@ namespace Scripts.Core.Parser
 
             sb.Append($"namespace Scripts.Core.SO");
             OpenBrace(sb);
-			sb.Append($"[CreateAssetMenu(fileName = \"SceneVFXMetaSO\", menuName = \"ScriptableObjects/Scene{types}MetaSO\")]");
+			sb.Append($"[CreateAssetMenu(fileName = \"Scen{types}MetaSO\", menuName = \"ScriptableObjects/Scen{types}MetaSO\")]");
 			sb.Append($"public class Scen{types}MetaSO : ScriptableObject");
 			OpenBrace(sb);
 			sb.Append($"Dictionary<eSceneType, List<{types}>> _dic;\n");
