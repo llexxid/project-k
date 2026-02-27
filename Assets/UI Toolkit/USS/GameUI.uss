@@ -369,3 +369,120 @@
     color: rgba(255,255,255,0.95);
     -unity-text-align: middle-center;
 }
+
+/* ===== Party HUD (Bottom) ===== */
+.party-hud {
+    position: absolute;
+    left: 0;
+    right: 0;
+    /* bottom은 스크립트에서 BottomBar/Panel Sheet 높이 기준으로 동적으로 조정 */
+    bottom: 202px;
+    height: 150px;
+    padding-left: 16px;
+    padding-right: 16px;
+    justify-content: center;
+    align-items: center;
+}
+
+.party-row {
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+}
+
+.party-member {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    background-color: rgba(0,0,0,0.30);
+    border-radius: 18px;
+}
+
+.party-portrait-btn {
+    width: 74px;
+    height: 74px;
+    border-radius: 999px;
+    background-color: rgba(255,255,255,0.10);
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-left-color: rgba(255,255,255,0.25);
+    border-right-color: rgba(255,255,255,0.25);
+    border-top-color: rgba(255,255,255,0.25);
+    border-bottom-color: rgba(255,255,255,0.25);
+    padding-left: 0;
+    padding-right: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+.party-portrait-btn:hover { background-color: rgba(255,255,255,0.12); }
+.party-portrait-btn:active { background-color: rgba(255,255,255,0.16); }
+
+.party-info-col {
+    flex-direction: column;
+    gap: 8px;
+}
+
+.party-hpbar {
+    width: 180px;
+    height: 16px;
+    background-color: rgba(255,255,255,0.12);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.party-hpfill {
+    height: 100%;
+    width: 100%;
+    background-color: rgba(120,255,120,0.85);
+}
+
+.party-skill-row {
+    flex-direction: row;
+    gap: 8px;
+}
+
+.party-skill {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background-color: rgba(255,255,255,0.14);
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+.party-skill-cd-mask {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    background-color: rgba(0,0,0,0.55);
+    border-radius: 12px;
+}
+
+.party-skill-cd-text {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    -unity-text-align: middle-center;
+    font-size: 18px;
+    -unity-font-style: bold;
+    color: rgba(255,255,255,0.95);
+}
+
+/* ===== Damage Text ===== */
+.damage-text-layer {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+}
+
+.damage-text {
+    position: absolute;
+    -unity-text-align: middle-center;
+    font-size: 30px;
+    -unity-font-style: bold;
+    color: rgba(255,80,80,0.95);
+    -unity-text-outline-width: 1px;
+    -unity-text-outline-color: rgba(0,0,0,0.70);
+}

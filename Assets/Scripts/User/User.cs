@@ -1,4 +1,4 @@
-using Scripts.Core;
+﻿using Scripts.Core;
 using System.Collections.Generic;
 using Scripts.Wallets;
 
@@ -54,7 +54,6 @@ namespace Scripts.Users
 			_players.Add(player);
 		}
 	}
-
 }
 // User 스크립트에 지갑 정보, Player 3마리 연결, Player에서 User로 연결 로직 추가
 
