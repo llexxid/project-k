@@ -1,5 +1,6 @@
 using ExcelDataReader;
 using Scripts.Core;
+using Scripts.Core.Utils;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -12,7 +13,7 @@ using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEngine;
-using Scripts.Core.Utils;
+using static UnityEngine.Networking.UnityWebRequest;
 
 namespace Scripts.Core.Parser
 {
@@ -64,10 +65,10 @@ namespace Scripts.Core.Parser
         private AssetData[][] AssetDatas;
         private Dictionary<string, string> FileNameToGuID;
         private int excelSheetCount;
-        public void Init()
+		public void Init()
         {
             FileNameToGuID = new Dictionary<string, string>();
-        }
+		}
 
         [MenuItem("MyTools/SetVFXAddress")]
         private static void SetVFXAddress()
@@ -86,8 +87,8 @@ namespace Scripts.Core.Parser
             auto.GenerateStageMetaSO();
             auto.GenerateMonsterMetaSO();
 			auto.GenerateDropTableMetaSO();
-            auto.GenerateSceneResourceMetaSO();
-
+            auto.GenerateSceneVFXMetaSO();
+			auto.GenerateSceneSFXMetaSO();
 		}
         [MenuItem("MyTools/SetMonsterAddress")]
         private static void SetMonsterAddress()
@@ -117,6 +118,15 @@ namespace Scripts.Core.Parser
             AutoAddressable auto = new AutoAddressable();
             auto.GenerateEnumCode();
         }
+        [MenuItem("MyTools/GenerateEnumTest")]
+        private static void Test()
+        {
+            AutoAddressable auto = new AutoAddressable();
+            auto.Init();
+            auto.GenerateDropTableEnumFile();
+            auto.GenerateStageEnumFile();
+			auto.GenerateStageMetaSO();
+		}
 
         private void GenerateEnumCode()
         {
@@ -134,437 +144,138 @@ namespace Scripts.Core.Parser
             _ReadFromXlsx.Add(new ReadFromXlsx(AssetDatas, $"eSFXType"));
             GenerateEnumFile(_ReadFromXlsx);
             GenerateStageEnumFile();
-        }
+            GenerateDropTableEnumFile();
+		}
 
         private void GenerateStageEnumFile()
         {
             string FilePath = Path.Combine(Application.dataPath, ConstPath.STAGE_EXCEL_PATH);
-
-            FileStream fs = File.Open(FilePath, FileMode.Open, FileAccess.Read);
-            IExcelDataReader reader = ExcelReaderFactory.CreateReader(fs);
-
-            var config = new ExcelDataSetConfiguration
-            {
-                ConfigureDataTable = (reader) => new ExcelDataTableConfiguration
-                {
-                    UseHeaderRow = true
-                }
-            };
-
-            DataSet data = reader.AsDataSet(config);
-            //StageEnum
-            // stageEnum  = key 
-            StringBuilder sb = new StringBuilder();
-
-            //중복검사
-            HashSet<long> duplicateKey = new HashSet<long>();
-            HashSet<long> duplicateStage = new HashSet<long>();
-
-            var ExcelTable = data.Tables;
-
-            //Sheet순회
-            for (int i = 0; i < ExcelTable.Count; i++)
-            {
-                DataTable table = ExcelTable[i];
-                sb.Append($"namespace Scripts.Core {{\n");
-                sb.Append($"public enum eStage : long\n{{");
-                for (int row = 0; row < table.Rows.Count; row++)
-                {
-                    DataRow dataRow = table.Rows[row];
-                    short stage = Convert.ToInt16(dataRow["Stage"]);
-                    short wave = Convert.ToInt16(dataRow["Wave"]);
-
-                    int maskedStage = stage << 16;
-					long key = maskedStage | (int)wave;
-
-                    long maskedStageKey = maskedStage;
-                    maskedStageKey |= stageIDMask;
-					key |= stageIDMask;
-
-					if (duplicateStage.Add(maskedStage) == true)
-					{
-						sb.Append($"Stage{stage} = {maskedStageKey},\n");
-					}
-					if (duplicateKey.Add(key) == true)
-                    {
-                        sb.Append($"Stage{stage}_{wave} = {key},\n");
-                    }
-                }
-                sb.Append($"}}\n}}");
-            }
-            fs.Close();
-
-            string enumPath = Path.Combine(Application.dataPath, ConstPath.STAGE_ENUM_PATH);
-            WriteToFIle(enumPath, sb);
+			string storePath = Path.Combine(Application.dataPath, ConstPath.STAGE_ENUM_PATH);
+            StringBuilder sb;
+            ExcelFileReader reader = new ExcelFileReader(FilePath, storePath);
+            reader.ReadExcelFile(ReadStageLogic_for_CreateEnum, out sb);
+            reader.WriteToFile(sb);
         }
-
+		private void GenerateDropTableEnumFile()
+		{
+			string FilePath = Path.Combine(Application.dataPath, ConstPath.DROPTABLE_EXCEL_PATH);
+			string storePath = Path.Combine(Application.dataPath, ConstPath.DROPTABLE_ENUM_PATH);
+			ExcelFileReader reader = new ExcelFileReader(FilePath, storePath);
+			StringBuilder sb;
+			reader.ReadExcelFile(ReadDropTableLogic_for_CreateEnum, out sb);
+		}
         private void GenerateStageMetaSO()
         {
             string FilePath = Path.Combine(Application.dataPath, ConstPath.STAGE_EXCEL_PATH);
-
-            FileStream fs = File.Open(FilePath, FileMode.Open, FileAccess.Read);
-            IExcelDataReader reader = ExcelReaderFactory.CreateReader(fs);
-
-            var config = new ExcelDataSetConfiguration
-            {
-                ConfigureDataTable = (reader) => new ExcelDataTableConfiguration
-                {
-                    UseHeaderRow = true
-                }
-            };
-
-            DataSet data = reader.AsDataSet(config);
-            //StageEnum
-            // stageEnum  = key 
-            StringBuilder sb = new StringBuilder();
-
-            //중복검사
-            Dictionary<long, HashSet<string>> _monDics = new Dictionary<long, HashSet<string>>();
-            Dictionary<long, List<stageInfo>> _stageDics = new Dictionary<long, List<stageInfo>>();
-
-            var ExcelTable = data.Tables;
-            //Sheet순회
-            for (int i = 0; i < ExcelTable.Count; i++)
-            {
-                DataTable table = ExcelTable[i];
-
-				CreateMetaSOHeader(sb);
-                OpenBrace(sb);
-
-				sb.Append($"[CreateAssetMenu(fileName = \"StageMetaDataSO\", menuName = \"ScriptableObjects/StageMetaDataSO\")]");
-                sb.Append($"public class StageMetaDataSO : ScriptableObject\n");
-				OpenBrace(sb);
-                CreateStageInfo_Struct(sb);
-				sb.Append($"Dictionary<eStage, List<StageInfo_v>> _dic;\n");
-				sb.Append($"Dictionary<eStage, List<eMonsterType>> _monDic;\n");
-                sb.Append($"public void Init()");
-				OpenBrace(sb);
-				sb.Append($"_dic = new Dictionary<eStage, List<StageInfo_v>>();\n");
-				sb.Append($"_monDic = new Dictionary<eStage, List<eMonsterType>>();\n");
-                for (int row = 0; row < table.Rows.Count; row++)
-                {
-                    DataRow dataRow = table.Rows[row];
-                    long key;
-
-                    short stage = Convert.ToInt16(dataRow[$"Stage"]);
-                    string fileName = dataRow[$"MonsterName"].ToString();
-
-                    short wave = Convert.ToInt16(dataRow[$"Wave"]);
-                    int count = Convert.ToInt32(dataRow[$"Count"]);
-
-                    int tmp = stage << 16;
-                    key = tmp | (int)wave;
-                    key |= stageIDMask;
-
-                    if (!_stageDics.ContainsKey(key))
-                    {
-                        List<stageInfo> list = new List<stageInfo>();
-                        list.Add(new stageInfo(fileName, count));
-                        _stageDics.Add(key, list);
-                    }
-                    else 
-                    {
-                        _stageDics[key].Add(new stageInfo(fileName, count));
-                    }
-                    if (!_monDics.ContainsKey(stage))
-                    {
-						HashSet<string> strList = new HashSet<string>();
-                        strList.Add(fileName);
-                        _monDics.Add(stage, strList);
-                    }
-                    else
-                    {
-                        _monDics[stage].Add(fileName);
-                    }
-				}
-
-                foreach (var sinfo in _stageDics)
-                {
-                    List<stageInfo> value = sinfo.Value;
-                    long key = sinfo.Key;
-                    key &= ~(stageIDMask);
-
-					OpenBrace(sb);
-					sb.Append($"List<StageInfo_v> list = new List<StageInfo_v>();\n");
-					sb.Append($"StageInfo_v info;\n");
-					for (int j = 0; j < value.Count; j++)
-                    {
-						sb.Append($"info = new StageInfo_v(eMonsterType.{value[j]._monName}, {value[j]._count});\n");
-						sb.Append($"list.Add(info);\n");
-					}
-                    int stage = (int)((key & (0x00000000FFFF0000)) >> 16);
-                    int wave = (int)(key & (0x000000000000FFFF));
-                    sb.Append($"_dic.Add(eStage.Stage{stage}_{wave},list);\n");
-                    CloseBrace(sb);
-				}
-				foreach (var Item in _monDics)
-                {
-					HashSet<string> strList = Item.Value;
-                    sb.Append($"List<eMonsterType> list_{Item.Key} = new List<eMonsterType>();\n");
-                    foreach (var str in strList)
-                    {
-						sb.Append($"list_{Item.Key}.Add(eMonsterType.{str});\n");
-					}
-                    sb.Append($"_monDic.Add(eStage.Stage{Item.Key}, list_{Item.Key});\n");
-                }
-                
-				CloseBrace(sb);
-				CreateTryStageInfo(sb);
-                CreateTryGetStageMonsterInfo(sb);
-				//namespace,function,class 괄호
-				CloseBrace(sb);
-				CloseBrace(sb);
-			}
-            fs.Close();
-            string storePath = Path.Combine(Application.dataPath, ConstPath.GENERATE_STAGEMETA_PATH);
-            WriteToFIle(storePath, sb);
+			string storePath = Path.Combine(Application.dataPath, ConstPath.GENERATE_STAGEMETA_PATH);
+            ExcelFileReader reader = new ExcelFileReader(FilePath, storePath);
+			StringBuilder sb;
+			reader.ReadExcelFile(ReadStageLogic_for_CreateMetaSO, out sb);
+			reader.WriteToFile(sb);
         }
-
         private void GenerateMonsterMetaSO()
         {
             string FilePath = Path.Combine(Application.dataPath, ConstPath.MONSTER_EXCEL_PATH);
-            FileStream fstream = File.Open(FilePath, FileMode.Open, FileAccess.Read);
+			string storePath = Path.Combine(Application.dataPath, ConstPath.GENERATE_MONSTERMETA_PATH);
+			ExcelFileReader reader = new ExcelFileReader(FilePath, storePath);
 
-            IExcelDataReader reader = ExcelReaderFactory.CreateReader(fstream);
-            StringBuilder sb = new StringBuilder();
-            //Header제외 옵션
-            var conf = new ExcelDataSetConfiguration
-            {
-                ConfigureDataTable = _ => new ExcelDataTableConfiguration
-                {
-                    UseHeaderRow = true
-                }
-            };
-            DataSet result = reader.AsDataSet(conf);
-
-			CreateMetaSOHeader(sb);
-            OpenBrace(sb);
-			sb.Append($"using Scripts.Monster;\n");
-            sb.Append($"[CreateAssetMenu(fileName = \"MonsterMetaDataSO\", menuName = \"ScriptableObjects/MonsterMetaDataSO\")]");
-            sb.Append($"public class MonsterMetaSO : ScriptableObject");
-            OpenBrace(sb);
-            sb.Append($"Dictionary<eMonsterType, List<eVFXType>> _dic;\n");
-            sb.Append($"Dictionary<eMonsterType, List<eSFXType>> _dic2;\n");
-            sb.Append($"Dictionary<eMonsterType, MonsterInfo> _mInfodic;\n");
-            sb.Append($"public void Init()");
-			OpenBrace(sb);
-			sb.Append($"_dic = new Dictionary<eMonsterType, List<eVFXType>>();\n");
-			sb.Append($"_dic2 = new Dictionary<eMonsterType, List<eSFXType>>();\n");
-            sb.Append($"_mInfodic = new Dictionary<eMonsterType, MonsterInfo>();\n");
-            var tables = result.Tables;
-            for (int sheetIndex = 0; sheetIndex < tables.Count; sheetIndex++)
-            {
-                DataTable sheet = tables[sheetIndex];
-                int ArrayLength = sheet.Rows.Count;         
-                for (int row = 0; row < sheet.Rows.Count; row++)
-                {
-                    sb.Append($"List<eVFXType> list_vfx{row} = new List<eVFXType>();\n");
-                    sb.Append($"List<eSFXType> list_sfx{row} = new List<eSFXType>();\n");
-                    DataRow data = sheet.Rows[row];
-                    string name = data["fileName"].ToString();
-
-					string _monName = data["Name"].ToString();
-					int hp = Convert.ToInt32(data["Hp"]);
-					int atk = Convert.ToInt32(data["Atk"]);
-					int exp = Convert.ToInt32(data["Atk"]);
-
-					double movespeed = Convert.ToDouble(data["MoveSpeed"]);
-					double atkspeed = Convert.ToDouble(data["AttackSpeed"]);
-
-					long dropTableNum = Convert.ToInt64(data["DropTable"]);
-
-					ulong maskedId = Convert.ToUInt64(data["MaskedId"]);
-
-                    string vfx = data["VFX"].ToString();
-                    string sfx = data["SFX"].ToString();
-
-                    string[] vfxs = vfx.Split(new char[] { ',', ' ' });
-                    string[] sfxs = sfx.Split(new char[] { ',', ' ' });
-
-                    for (int k = 0; k < vfxs.Length; k++)
-                    {
-                        sb.Append($"list_vfx{row}.Add(eVFXType.{vfxs[k]});\n");
-                    }
-
-					for (int k = 0; k < sfxs.Length; k++)
-					{
-						sb.Append($"list_sfx{row}.Add(eSFXType.{sfxs[k]});\n");
-					}
-
-
-					//SFX도 지원
-					sb.Append($"_dic.Add(eMonsterType.{name},list_vfx{row});\n");
-					sb.Append($"_dic2.Add(eMonsterType.{name},list_sfx{row});\n");
-
-                    sb.Append($"MonsterInfo monInfo_{name} = new MonsterInfo(\"{_monName}\",{exp},{hp},{atk}, {movespeed},{atkspeed},{dropTableNum});\n");
-                    sb.Append($"_mInfodic.Add(eMonsterType.{name},monInfo_{name});\n");
-                }
-            }
-            CloseBrace(sb);
-            CreateTryGetVFXList(sb);
-            CreateTryGetMonsterInfo(sb);
-            CreateTryGetSFXList(sb);
-			//
-			CloseBrace(sb);
-			CloseBrace(sb);
-			//AssetDatabase.StopAssetEditing();
-			reader.Close();
-            fstream.Close();
-
-            string storePath = Path.Combine(Application.dataPath, ConstPath.GENERATE_MONSTERMETA_PATH);
-            WriteToFIle(storePath, sb);
+			StringBuilder sb;
+			reader.ReadExcelFile(ReadMonsterLogic_for_CreateMonsterMetaSO, out sb);
+			reader.WriteToFile(sb);
         }
-
         private void GenerateDropTableMetaSO()
         {
 			string FilePath = Path.Combine(Application.dataPath, ConstPath.DROPTABLE_EXCEL_PATH);
-			FileStream fstream = File.Open(FilePath, FileMode.Open, FileAccess.Read);
-
-			IExcelDataReader reader = ExcelReaderFactory.CreateReader(fstream);
-			StringBuilder sb = new StringBuilder();
-			//Header제외 옵션
-			var conf = new ExcelDataSetConfiguration
-			{
-				ConfigureDataTable = _ => new ExcelDataTableConfiguration
-				{
-					UseHeaderRow = true
-				}
-			};
-			DataSet result = reader.AsDataSet(conf);
-
-            CreateMetaSOHeader(sb);
-            OpenBrace(sb);
-			CreateDropTable_DropTableInfo_Struct(sb);
-
-			sb.Append($"[CreateAssetMenu(fileName = \"DropTableMetaSO\", menuName = \"ScriptableObjects/DropTableMetaSO\")]");
-            sb.Append($"public class DropTableMetaSO : ScriptableObject");
-            OpenBrace(sb);
-			sb.Append($"Dictionary<long, DropInfo> _dic;\n");
-			sb.Append($"public void Init()");
-            OpenBrace(sb);
-			sb.Append($"_dic = new Dictionary<long, DropInfo>();\n");
-
-			var tables = result.Tables;
-			for (int sheetIndex = 0; sheetIndex < tables.Count; sheetIndex++)
-			{
-				DataTable sheet = tables[sheetIndex];
-				int ArrayLength = sheet.Rows.Count;
-
-
-				for (int row = 0; row < sheet.Rows.Count; row++)
-				{
-
-					DataRow data = sheet.Rows[row];
-					long Id = Convert.ToInt64(data["Id"]);
-					int gold = Convert.ToInt32(data["Gold"]);
-					int AncientCoin = Convert.ToInt32(data["AncientCoin"]);
-
-                    sb.Append($"_dic.Add({Id},new DropInfo({gold},{AncientCoin}));\n");
-				}
-			}
-            CloseBrace(sb);
-            
-            CreateTryGetDropInfo(sb);
-
-			CloseBrace(sb);
-			CloseBrace(sb);
-			//AssetDatabase.StopAssetEditing();
-			reader.Close();
-			fstream.Close();
-
 			string storePath = Path.Combine(Application.dataPath, ConstPath.GENERATE_DROPTABLE_META_PATH);
-			WriteToFIle(storePath, sb);
+			ExcelFileReader reader = new ExcelFileReader(FilePath, storePath);
+			StringBuilder sb;
+			reader.ReadExcelFile(ReadDropTableLogic_for_CreateDropTableMetaSO, out sb);
+			reader.WriteToFile(sb);
 		}
-		private void GenerateSceneResourceMetaSO()
+		private void GenerateSceneVFXMetaSO()
 		{
 			//VFX dic생성
 			string FilePath = Path.Combine(Application.dataPath, ConstPath.VFX_EXCEL_PATH);
-			StringBuilder sb = new StringBuilder();
+			string storePath = Path.Combine(Application.dataPath, ConstPath.GENERATE_SCENE_VFX_META_PATH);
+			StringBuilder sb;
+			ExcelFileReader reader = new ExcelFileReader(FilePath, storePath);
+			reader.ReadExcelFile(ReadLogic_for_SceneMetaVFXSO, out sb);
+			reader.WriteToFile(sb);
+		}
+		private void GenerateSceneSFXMetaSO()
+		{
+			string FilePath = Path.Combine(Application.dataPath, ConstPath.SFX_EXCEL_PATH);
+			string storePath = Path.Combine(Application.dataPath, ConstPath.GENERATE_SCENE_SFX_META_PATH);
+			StringBuilder sb;
+
+			ExcelFileReader reader = new ExcelFileReader(FilePath, storePath);
+			reader.ReadExcelFile(ReadLogic_for_SceneMetaSFXSO, out sb);
+			reader.WriteToFile(sb);
+		}
+		private void ReadLogic_for_SceneMetaVFXSO(StringBuilder sb, DataSet data)
+		{
 			sb.Append($"using UnityEngine;\n");
 			sb.Append($"using System.Collections.Generic;\n");
-			GenerateSceneMetaSO(FilePath, sb, "eVFXType");
-			//sfx dic생성
-			string FilePath_sfx = Path.Combine(Application.dataPath, ConstPath.SFX_EXCEL_PATH);
-			GenerateSceneMetaSO(FilePath_sfx, sb, "eSFXType");
-
-			string storePath = Path.Combine(Application.dataPath, ConstPath.GENERATE_SCENE_META_PATH);
-			WriteToFIle(storePath, sb);
-		}
-
-		private void GenerateSceneMetaSO(string filePath, StringBuilder sb, string types)
-        {
-			FileStream fstream = File.Open(filePath, FileMode.Open, FileAccess.Read);
-
-			IExcelDataReader reader = ExcelReaderFactory.CreateReader(fstream);
-			//Header제외 옵션
-			var conf = new ExcelDataSetConfiguration
-			{
-				ConfigureDataTable = _ => new ExcelDataTableConfiguration
-				{
-					UseHeaderRow = true
-				}
-			};
-
-            sb.Append($"namespace Scripts.Core.SO");
-            OpenBrace(sb);
-			sb.Append($"[CreateAssetMenu(fileName = \"Scen{types}MetaSO\", menuName = \"ScriptableObjects/Scen{types}MetaSO\")]");
-			sb.Append($"public class Scen{types}MetaSO : ScriptableObject");
+			sb.Append($"namespace Scripts.Core.SO");
 			OpenBrace(sb);
-			sb.Append($"Dictionary<eSceneType, List<{types}>> _dic;\n");
+			sb.Append($"[CreateAssetMenu(fileName = \"SceneVFXMetaSO\", menuName = \"ScriptableObjects/SceneVFXMetaSO\")]");
+			sb.Append($"public class SceneVFXMetaSO : ScriptableObject");
+			OpenBrace(sb);
+			sb.Append($"Dictionary<eSceneType, List<eVFXType>> _dic;\n");
 			sb.Append($"public void Init()");
 			OpenBrace(sb);
-            sb.Append($"_dic = new Dictionary<eSceneType, List<{types}>>();\n");
-			DataSet result = reader.AsDataSet(conf);
-            //씬 타입 - VFX[]을 생성
-            Dictionary<string, List<string>> _dics = new Dictionary<string, List<string>>();
+			sb.Append($"_dic = new Dictionary<eSceneType, List<eVFXType>>();\n");
 
-			var tables = result.Tables;
+			//씬 타입 - VFX[]을 생성
+			Dictionary<string, List<string>> _dics = new Dictionary<string, List<string>>();
+
+			var tables = data.Tables;
 			for (int sheetIndex = 0; sheetIndex < tables.Count; sheetIndex++)
 			{
 				DataTable sheet = tables[sheetIndex];
 
 				for (int row = 0; row < sheet.Rows.Count; row++)
 				{
-					DataRow data = sheet.Rows[row];
+					DataRow rowData = sheet.Rows[row];
 
-					string SceneName = data["Scene"].ToString();
-					string eVFXTypeName = data["fileName"].ToString();
+					string SceneName = rowData["Scene"].ToString();
+					string eVFXTypeName = rowData["fileName"].ToString();
 
-                    if (SceneName == "exclusive")
-                    {
-                        continue;
-                    }
-                    if (_dics.ContainsKey(SceneName))
-                    {
-                        _dics[SceneName].Add(eVFXTypeName);
-                    }
-                    else
-                    {
-                        List<string> list = new List<string>();
-                        list.Add(eVFXTypeName);
-                        _dics.Add(SceneName, list);
+					if (SceneName == "exclusive")
+					{
+						continue;
+					}
+					if (_dics.ContainsKey(SceneName))
+					{
+						_dics[SceneName].Add(eVFXTypeName);
+					}
+					else
+					{
+						List<string> list = new List<string>();
+						list.Add(eVFXTypeName);
+						_dics.Add(SceneName, list);
 					}
 				}
 			}
-            //씬 이름 - eVFXList완성 
-            foreach (var Item in _dics)
-            {
-                List<string> value = Item.Value;
-                OpenBrace(sb);
-                sb.Append($"List<{types}> list = new List<{types}>();\n");
-                foreach (var eVFXTypeName in value)
-                {
-					sb.Append($"list.Add({types}.{eVFXTypeName});\n");
+			//씬 이름 - eVFXList완성 
+			foreach (var Item in _dics)
+			{
+				List<string> value = Item.Value;
+				OpenBrace(sb);
+				sb.Append($"List<eVFXType> list = new List<eVFXType>();\n");
+				foreach (var eVFXTypeName in value)
+				{
+					sb.Append($"list.Add(eVFXType.{eVFXTypeName});\n");
 				}
-                sb.Append($"_dic.Add(eSceneType.{Item.Key}, list);\n");
-                CloseBrace(sb);
-            }
+				sb.Append($"_dic.Add(eSceneType.{Item.Key}, list);\n");
+				CloseBrace(sb);
+			}
 
 			CloseBrace(sb);
-            sb.Append($"public bool TryGet{types}List(eSceneType type, out List<{types}> outList)");
-            OpenBrace(sb);
-            sb.Append($"List<{types}> ret;\n");
-            sb.Append($"if(_dic.TryGetValue(type, out ret))");
+			sb.Append($"public bool TryGetVFXTypeList(eSceneType type, out List<eVFXType> outList)");
+			OpenBrace(sb);
+			sb.Append($"List<eVFXType> ret;\n");
+			sb.Append($"if(_dic.TryGetValue(type, out ret))");
 			OpenBrace(sb);
 			sb.Append($"outList = ret;\n");
 			sb.Append($"return true;\n");
@@ -572,13 +283,83 @@ namespace Scripts.Core.Parser
 			sb.Append($"outList = default;\n");
 			sb.Append($"return false;\n");
 			CloseBrace(sb);
-            CloseBrace(sb);
 			CloseBrace(sb);
-
-			reader.Close();
-			fstream.Close();
+			CloseBrace(sb);
 		}
+		private void ReadLogic_for_SceneMetaSFXSO(StringBuilder sb, DataSet data)
+		{
+			sb.Append($"using UnityEngine;\n");
+			sb.Append($"using System.Collections.Generic;\n");
+			sb.Append($"namespace Scripts.Core.SO");
+			OpenBrace(sb);
+			sb.Append($"[CreateAssetMenu(fileName = \"SceneSFXMetaSO\", menuName = \"ScriptableObjects/SceneSFXMetaSO\")]");
+			sb.Append($"public class SceneSFXMetaSO : ScriptableObject");
+			OpenBrace(sb);
+			sb.Append($"Dictionary<eSceneType, List<eSFXType>> _dic;\n");
+			sb.Append($"public void Init()");
+			OpenBrace(sb);
+			sb.Append($"_dic = new Dictionary<eSceneType, List<eSFXType>>();\n");
 
+			//씬 타입 - VFX[]을 생성
+			Dictionary<string, List<string>> _dics = new Dictionary<string, List<string>>();
+
+			var tables = data.Tables;
+			for (int sheetIndex = 0; sheetIndex < tables.Count; sheetIndex++)
+			{
+				DataTable sheet = tables[sheetIndex];
+
+				for (int row = 0; row < sheet.Rows.Count; row++)
+				{
+					DataRow rowData = sheet.Rows[row];
+
+					string SceneName = rowData["Scene"].ToString();
+					string eSFXTypeName = rowData["fileName"].ToString();
+
+					if (SceneName == "exclusive")
+					{
+						continue;
+					}
+					if (_dics.ContainsKey(SceneName))
+					{
+						_dics[SceneName].Add(eSFXTypeName);
+					}
+					else
+					{
+						List<string> list = new List<string>();
+						list.Add(eSFXTypeName);
+						_dics.Add(SceneName, list);
+					}
+				}
+			}
+			//씬 이름 - eVFXList완성 
+			foreach (var Item in _dics)
+			{
+				List<string> value = Item.Value;
+				OpenBrace(sb);
+				sb.Append($"List<eSFXType> list = new List<eSFXType>();\n");
+				foreach (var eSFXTypeName in value)
+				{
+					sb.Append($"list.Add(eSFXType.{eSFXTypeName});\n");
+				}
+				sb.Append($"_dic.Add(eSceneType.{Item.Key}, list);\n");
+				CloseBrace(sb);
+			}
+
+			CloseBrace(sb);
+			sb.Append($"public bool TryGetSFXTypeList(eSceneType type, out List<eSFXType> outList)");
+			OpenBrace(sb);
+			sb.Append($"List<eSFXType> ret;\n");
+			sb.Append($"if(_dic.TryGetValue(type, out ret))");
+			OpenBrace(sb);
+			sb.Append($"outList = ret;\n");
+			sb.Append($"return true;\n");
+			CloseBrace(sb);
+			sb.Append($"outList = default;\n");
+			sb.Append($"return false;\n");
+			CloseBrace(sb);
+			CloseBrace(sb);
+			CloseBrace(sb);
+		}
 		private void GenerateEnumFile(List<ReadFromXlsx> _ReadFromXlsx)
         {
             StringBuilder sb = new StringBuilder();
@@ -734,7 +515,285 @@ namespace Scripts.Core.Parser
             fs.Close();
         }
 
-        private void CreateMetaSOHeader(StringBuilder sb)
+		private void ReadStageLogic_for_CreateEnum(StringBuilder sb, DataSet data)
+		{
+			//중복검사
+			HashSet<long> duplicateKey = new HashSet<long>();
+			HashSet<long> duplicateStage = new HashSet<long>();
+
+			var ExcelTable = data.Tables;
+
+			//Sheet순회
+			for (int i = 0; i < ExcelTable.Count; i++)
+			{
+				DataTable table = ExcelTable[i];
+				sb.Append($"namespace Scripts.Core {{\n");
+				sb.Append($"public enum eStage : long\n{{");
+				for (int row = 0; row < table.Rows.Count; row++)
+				{
+					DataRow dataRow = table.Rows[row];
+					short stage = Convert.ToInt16(dataRow["Stage"]);
+					short wave = Convert.ToInt16(dataRow["Wave"]);
+
+					int maskedStage = stage << 16;
+					long key = maskedStage | (int)wave;
+
+					long maskedStageKey = maskedStage;
+					maskedStageKey |= stageIDMask;
+					key |= stageIDMask;
+
+					if (duplicateStage.Add(maskedStage) == true)
+					{
+						sb.Append($"Stage{stage} = {maskedStageKey},\n");
+					}
+					if (duplicateKey.Add(key) == true)
+					{
+						sb.Append($"Stage{stage}_{wave} = {key},\n");
+					}
+				}
+				sb.Append($"}}\n}}");
+			}
+		}
+		private void ReadDropTableLogic_for_CreateEnum(StringBuilder sb, DataSet data)
+		{
+			sb.Append($"namespace Scripts.Core");
+			OpenBrace(sb);
+			sb.Append($"public enum eDropTable : long");
+			OpenBrace(sb);
+
+			var tables = data.Tables;
+			for (int sheetIndex = 0; sheetIndex < tables.Count; sheetIndex++)
+			{
+				DataTable sheet = tables[sheetIndex];
+				int ArrayLength = sheet.Rows.Count;
+				for (int row = 0; row < sheet.Rows.Count; row++)
+				{
+
+					DataRow rowData = sheet.Rows[row];
+					long Id = Convert.ToInt64(rowData["Id"]);
+					string tableName = rowData["TableName"].ToString();
+					sb.Append($"{tableName} = {Id},\n");
+				}
+			}
+			CloseBrace(sb);
+			CloseBrace(sb);
+		}
+		private void ReadStageLogic_for_CreateMetaSO(StringBuilder sb, DataSet data)
+		{
+			//중복검사
+			Dictionary<long, HashSet<string>> _monDics = new Dictionary<long, HashSet<string>>();
+			Dictionary<long, List<stageInfo>> _stageDics = new Dictionary<long, List<stageInfo>>();
+
+			var ExcelTable = data.Tables;
+			//Sheet순회
+			for (int i = 0; i < ExcelTable.Count; i++)
+			{
+				DataTable table = ExcelTable[i];
+
+				CreateMetaSOHeader(sb);
+				OpenBrace(sb);
+
+				sb.Append($"[CreateAssetMenu(fileName = \"StageMetaDataSO\", menuName = \"ScriptableObjects/StageMetaDataSO\")]");
+				sb.Append($"public class StageMetaDataSO : ScriptableObject\n");
+				OpenBrace(sb);
+				CreateStageInfo_Struct(sb);
+				sb.Append($"Dictionary<eStage, List<StageInfo_v>> _dic;\n");
+				sb.Append($"Dictionary<eStage, List<eMonsterType>> _monDic;\n");
+				sb.Append($"public void Init()");
+				OpenBrace(sb);
+				sb.Append($"_dic = new Dictionary<eStage, List<StageInfo_v>>();\n");
+				sb.Append($"_monDic = new Dictionary<eStage, List<eMonsterType>>();\n");
+				for (int row = 0; row < table.Rows.Count; row++)
+				{
+					DataRow dataRow = table.Rows[row];
+					long key;
+
+					short stage = Convert.ToInt16(dataRow[$"Stage"]);
+					string fileName = dataRow[$"MonsterName"].ToString();
+
+					short wave = Convert.ToInt16(dataRow[$"Wave"]);
+					int count = Convert.ToInt32(dataRow[$"Count"]);
+
+					int tmp = stage << 16;
+					key = tmp | (int)wave;
+					key |= stageIDMask;
+
+					if (!_stageDics.ContainsKey(key))
+					{
+						List<stageInfo> list = new List<stageInfo>();
+						list.Add(new stageInfo(fileName, count));
+						_stageDics.Add(key, list);
+					}
+					else
+					{
+						_stageDics[key].Add(new stageInfo(fileName, count));
+					}
+					if (!_monDics.ContainsKey(stage))
+					{
+						HashSet<string> strList = new HashSet<string>();
+						strList.Add(fileName);
+						_monDics.Add(stage, strList);
+					}
+					else
+					{
+						_monDics[stage].Add(fileName);
+					}
+				}
+
+				foreach (var sinfo in _stageDics)
+				{
+					List<stageInfo> value = sinfo.Value;
+					long key = sinfo.Key;
+					key &= ~(stageIDMask);
+
+					OpenBrace(sb);
+					sb.Append($"List<StageInfo_v> list = new List<StageInfo_v>();\n");
+					sb.Append($"StageInfo_v info;\n");
+					for (int j = 0; j < value.Count; j++)
+					{
+						sb.Append($"info = new StageInfo_v(eMonsterType.{value[j]._monName}, {value[j]._count});\n");
+						sb.Append($"list.Add(info);\n");
+					}
+					int stage = (int)((key & (0x00000000FFFF0000)) >> 16);
+					int wave = (int)(key & (0x000000000000FFFF));
+					sb.Append($"_dic.Add(eStage.Stage{stage}_{wave},list);\n");
+					CloseBrace(sb);
+				}
+				foreach (var Item in _monDics)
+				{
+					HashSet<string> strList = Item.Value;
+					sb.Append($"List<eMonsterType> list_{Item.Key} = new List<eMonsterType>();\n");
+					foreach (var str in strList)
+					{
+						sb.Append($"list_{Item.Key}.Add(eMonsterType.{str});\n");
+					}
+					sb.Append($"_monDic.Add(eStage.Stage{Item.Key}, list_{Item.Key});\n");
+				}
+
+				CloseBrace(sb);
+				CreateTryStageInfo(sb);
+				CreateTryGetStageMonsterInfo(sb);
+				//namespace,function,class 괄호
+				CloseBrace(sb);
+				CloseBrace(sb);
+			}
+		}
+		private void ReadMonsterLogic_for_CreateMonsterMetaSO(StringBuilder sb, DataSet data)
+		{
+			CreateMetaSOHeader(sb);
+			OpenBrace(sb);
+			sb.Append($"using Scripts.Monster;\n");
+			sb.Append($"[CreateAssetMenu(fileName = \"MonsterMetaDataSO\", menuName = \"ScriptableObjects/MonsterMetaDataSO\")]");
+			sb.Append($"public class MonsterMetaSO : ScriptableObject");
+			OpenBrace(sb);
+			sb.Append($"Dictionary<eMonsterType, List<eVFXType>> _dic;\n");
+			sb.Append($"Dictionary<eMonsterType, List<eSFXType>> _dic2;\n");
+			sb.Append($"Dictionary<eMonsterType, MonsterInfo> _mInfodic;\n");
+			sb.Append($"public void Init()");
+			OpenBrace(sb);
+			sb.Append($"_dic = new Dictionary<eMonsterType, List<eVFXType>>();\n");
+			sb.Append($"_dic2 = new Dictionary<eMonsterType, List<eSFXType>>();\n");
+			sb.Append($"_mInfodic = new Dictionary<eMonsterType, MonsterInfo>();\n");
+
+			var tables = data.Tables;
+			for (int sheetIndex = 0; sheetIndex < tables.Count; sheetIndex++)
+			{
+				DataTable sheet = tables[sheetIndex];
+				int ArrayLength = sheet.Rows.Count;
+				for (int row = 0; row < sheet.Rows.Count; row++)
+				{
+					sb.Append($"List<eVFXType> list_vfx{row} = new List<eVFXType>();\n");
+					sb.Append($"List<eSFXType> list_sfx{row} = new List<eSFXType>();\n");
+					DataRow rowData = sheet.Rows[row];
+					string name = rowData["fileName"].ToString();
+
+					string _monName = rowData["Name"].ToString();
+					int hp = Convert.ToInt32(rowData["Hp"]);
+					int atk = Convert.ToInt32(rowData["Atk"]);
+					int exp = Convert.ToInt32(rowData["Atk"]);
+
+					double movespeed = Convert.ToDouble(rowData["MoveSpeed"]);
+					double atkspeed = Convert.ToDouble(rowData["AttackSpeed"]);
+
+					long dropTableNum = Convert.ToInt64(rowData["DropTable"]);
+
+					ulong maskedId = Convert.ToUInt64(rowData["MaskedId"]);
+
+					string vfx = rowData["VFX"].ToString();
+					string sfx = rowData["SFX"].ToString();
+
+					string[] vfxs = vfx.Split(new char[] { ',', ' ' });
+					string[] sfxs = sfx.Split(new char[] { ',', ' ' });
+
+					for (int k = 0; k < vfxs.Length; k++)
+					{
+						sb.Append($"list_vfx{row}.Add(eVFXType.{vfxs[k]});\n");
+					}
+
+					for (int k = 0; k < sfxs.Length; k++)
+					{
+						sb.Append($"list_sfx{row}.Add(eSFXType.{sfxs[k]});\n");
+					}
+
+
+					//SFX도 지원
+					sb.Append($"_dic.Add(eMonsterType.{name},list_vfx{row});\n");
+					sb.Append($"_dic2.Add(eMonsterType.{name},list_sfx{row});\n");
+
+					sb.Append($"MonsterInfo monInfo_{name} = new MonsterInfo(\"{_monName}\",{exp},{hp},{atk}, {movespeed},{atkspeed},{dropTableNum});\n");
+					sb.Append($"_mInfodic.Add(eMonsterType.{name},monInfo_{name});\n");
+				}
+			}
+			CloseBrace(sb);
+			CreateTryGetVFXList(sb);
+			CreateTryGetMonsterInfo(sb);
+			CreateTryGetSFXList(sb);
+			//
+			CloseBrace(sb);
+			CloseBrace(sb);
+			//AssetDatabase.StopAssetEditing();
+		}
+		private void ReadDropTableLogic_for_CreateDropTableMetaSO(StringBuilder sb, DataSet data)
+		{
+			CreateMetaSOHeader(sb);
+			OpenBrace(sb);
+			CreateDropTable_DropTableInfo_Struct(sb);
+
+			sb.Append($"[CreateAssetMenu(fileName = \"DropTableMetaSO\", menuName = \"ScriptableObjects/DropTableMetaSO\")]");
+			sb.Append($"public class DropTableMetaSO : ScriptableObject");
+			OpenBrace(sb);
+			sb.Append($"Dictionary<eDropTable, DropInfo> _dic;\n");
+			sb.Append($"public void Init()");
+			OpenBrace(sb);
+			sb.Append($"_dic = new Dictionary<eDropTable, DropInfo>();\n");
+
+			var tables = data.Tables;
+			for (int sheetIndex = 0; sheetIndex < tables.Count; sheetIndex++)
+			{
+				DataTable sheet = tables[sheetIndex];
+				int ArrayLength = sheet.Rows.Count;
+
+
+				for (int row = 0; row < sheet.Rows.Count; row++)
+				{
+
+					DataRow rowData = sheet.Rows[row];
+					int gold = Convert.ToInt32(rowData["Gold"]);
+					int AncientCoin = Convert.ToInt32(rowData["AncientCoin"]);
+					string name = rowData["TableName"].ToString();
+
+					sb.Append($"_dic.Add(eDropTable.{name}, new DropInfo({gold},{AncientCoin}));\n");
+				}
+			}
+			CloseBrace(sb);
+
+			CreateTryGetDropInfo(sb);
+
+			CloseBrace(sb);
+			CloseBrace(sb);
+		}
+
+		private void CreateMetaSOHeader(StringBuilder sb)
         {
 			sb.Append($"using UnityEngine;\n");
 			sb.Append($"using System.Collections.Generic;\n");
@@ -800,7 +859,7 @@ namespace Scripts.Core.Parser
 
         private void CreateTryGetDropInfo(StringBuilder sb)
         {
-            sb.Append($"public bool TryGetDropInfo(long id, out DropInfo info){{\n");
+            sb.Append($"public bool TryGetDropInfo(eDropTable id, out DropInfo info){{\n");
 			sb.Append($"DropInfo ret;\n");
             sb.Append($"if(_dic.TryGetValue(id, out ret)){{\n");
             sb.Append($"info = ret;\n return true;\n");
@@ -855,5 +914,62 @@ namespace Scripts.Core.Parser
             sb.Append(CLOSE_BRACE);
         }
     }
+    class ExcelFileReader
+    {
+        private readonly string _filePath;
+        private StringBuilder _sb;
+        private readonly string _savePath;
+
+        public ExcelFileReader(string filePath, string savePath)
+        {
+            _filePath = filePath;
+            _savePath = savePath;
+		}
+
+        public void ReadExcelFile(Action<StringBuilder, DataSet> readLogic, out StringBuilder sb)
+        {
+			FileStream fs = File.Open(_filePath, FileMode.Open, FileAccess.Read);
+			IExcelDataReader reader = ExcelReaderFactory.CreateReader(fs);
+
+			var config = new ExcelDataSetConfiguration
+			{
+				ConfigureDataTable = (reader) => new ExcelDataTableConfiguration
+				{
+					UseHeaderRow = true
+				}
+			};
+            //읽은 데이터 덩어리
+			DataSet data = reader.AsDataSet(config); 
+            _sb = new StringBuilder();
+            readLogic.Invoke(_sb, data);
+			fs.Close();
+
+            sb = _sb;
+            return;
+		}
+
+        public void WriteToFile(StringBuilder sb)
+        {
+			FileStream fs = File.Open(_savePath, FileMode.Create, FileAccess.ReadWrite);
+			StreamWriter sw = new StreamWriter(fs, Encoding.Unicode, 4096);
+
+			char[] buffer = new char[2048];
+			//실질적으로 쓰는 부분
+			int length = sb.Length;
+			int offset = 0;
+
+			while (offset < length)
+			{
+				int count = Math.Min(length - offset, buffer.Length);
+				sb.CopyTo(offset, buffer, 0, count);
+
+				sw.Write(buffer, 0, count);
+				offset += count;
+			}
+
+			sw.Close();
+			fs.Close();
+		}
+	}
 }
 
