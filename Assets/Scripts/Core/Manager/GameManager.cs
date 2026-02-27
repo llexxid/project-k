@@ -32,15 +32,13 @@ namespace Scripts.Core
         [Header("Async Loading")]
         [SerializeField] private float minLoadingSeconds = 0f;
 
+        //씬 , 스테이지와 관련된 몬스터, SFX,VFX정보들
         [SerializeField]
         MonsterMetaSO _monsterMetaDataSO;
-
         [SerializeField]
-        DropTableMetaSO _DropTableMetaSO;
+        SceneSFXMetaSO _SceneSFXMetaSO;
         [SerializeField]
-        SceneSFXTypeMetaSO _SceneSFXMetaSO;
-        [SerializeField]
-        SceneVFXTypeMetaSO _SceneVFXMetaSO;
+        SceneVFXMetaSO _SceneVFXMetaSO;
 
         public event Action<eSceneType> SceneLoadStarted;
         public event Action<eSceneType> SceneLoadFinished;
@@ -88,7 +86,6 @@ namespace Scripts.Core
             _LoadStageToken = new CancellationTokenSource();
 
 			_monsterMetaDataSO.Init();
-            _DropTableMetaSO.Init();
 
             _SceneSFXMetaSO.Init();
             _SceneVFXMetaSO.Init();
@@ -205,8 +202,8 @@ namespace Scripts.Core
             //각 씬에 필요한 VFX,SFX 로딩
             List<eVFXType> vfxList;
             List<eSFXType> sfxList;
-            _SceneVFXMetaSO.TryGeteVFXTypeList(type, out vfxList);
-            _SceneSFXMetaSO.TryGeteSFXTypeList(type, out sfxList);
+            _SceneVFXMetaSO.TryGetVFXTypeList(type, out vfxList);
+            _SceneSFXMetaSO.TryGetSFXTypeList(type, out sfxList);
 
             _VFXSceneHandle = VFXManager.Instance.PreLoadVFX((ulong)type, vfxList.ToArray());
             _SFXSceneHandle = SFXManager.Instance.PreLoadSFX((ulong)type, sfxList.ToArray());

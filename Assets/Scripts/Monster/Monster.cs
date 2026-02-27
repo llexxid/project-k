@@ -246,6 +246,11 @@ namespace Scripts.Monster
             if (!IsAlive)
             {
                 //Todo : Reward 주기
+                if (attacker is IRewardable target)
+                {
+
+                    //target.GiveReward();
+				}
                 return false;
             }
             return true;

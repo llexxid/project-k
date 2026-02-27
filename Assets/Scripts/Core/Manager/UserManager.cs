@@ -49,13 +49,13 @@ namespace Scripts.Core
 			PlayerData dummyData = new PlayerData(i, $"Test{i}", 1, 10, 500);
 			//Init Player
 			p1 = obj1.GetComponent<Player>();
-			p1.Init(dummyData);
+			p1.Init(dummyData, _user);
 			++i;
 			p2 = obj2.GetComponent<Player>();
-			p2.Init(dummyData);
+			p2.Init(dummyData, _user);
 			++i;
 			p3 = obj3.GetComponent<Player>();
-			p3.Init(dummyData);
+			p3.Init(dummyData, _user);
 			++i;
 
 			_user.ConnectCharacters(p1);
