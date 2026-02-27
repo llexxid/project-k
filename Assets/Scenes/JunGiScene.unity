@@ -153,7 +153,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f0abb97fae21de84f8657fd5ca88bc99, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  wallet: {fileID: 214768488}
   skillManager: {fileID: 0}
   skillDatabase: {fileID: 0}
   _am: {fileID: 0}
@@ -362,7 +361,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 214768489}
-  - component: {fileID: 214768488}
   m_Layer: 0
   m_Name: Wallet
   m_TagString: Untagged
@@ -370,19 +368,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &214768488
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 214768487}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1aa1b75c681596942a4be30d0edc222e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  totalCoins: 0
 --- !u!4 &214768489
 Transform:
   m_ObjectHideFlags: 0
@@ -487,6 +472,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1080878615}
   - component: {fileID: 1080878616}
+  - component: {fileID: 1080878617}
   m_Layer: 0
   m_Name: TEST
   m_TagString: Untagged
@@ -516,9 +502,21 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1080878613}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5e4a1c9802ff9b541af611e6b723819b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &1080878617
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1080878613}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 62ddb703fa22df7498e0147f436c3b5d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!1 &1101081890

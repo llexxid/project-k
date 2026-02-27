@@ -19,6 +19,7 @@ namespace Scripts.Core
 
         //AutoGenerate Path
         public static readonly string STAGE_ENUM_PATH = @"Scripts\Core\AutoGenEnum\StageEnum.cs";
+        public static readonly string DROPTABLE_ENUM_PATH = @"Scripts\Core\AutoGenEnum\DropTableEnum.cs";
         public static readonly string GENERATE_ENUM_PATH = @"Scripts\Core\AutoGenEnum\GenerateEnum.cs";
         public static readonly string GENERATE_ENUMHELPER_PATH = @"Scripts\Core\AutoGenEnum\EnumHelper.cs";
 
@@ -26,7 +27,9 @@ namespace Scripts.Core
         public static readonly string GENERATE_MONSTERMETA_PATH = @"Scripts\Core\SO\MonsterMetaDataSO.cs";
 		public static readonly string GENERATE_DROPTABLE_META_PATH = @"Scripts\Core\SO\DropTableMetaSO.cs";
 		public static readonly string GENERATE_SFX_PATH = @"Scripts\Core\SO\SoundMetaDataSO.cs";
-		public static readonly string GENERATE_SCENE_META_PATH = @"Scripts\Core\SO\SceneMetaDataSO.cs";
+
+		public static readonly string GENERATE_SCENE_VFX_META_PATH = @"Scripts\Core\SO\SceneVFXMetaSO.cs";
+		public static readonly string GENERATE_SCENE_SFX_META_PATH = @"Scripts\Core\SO\SceneSFXMetaSO.cs";
         
     }
     public enum eSceneType

@@ -7,23 +7,24 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Player : MonoBehaviour, IAttackable, IDamageable
+public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 {
     public PlayerOrder playerOrder;
     public PlayerStatus playerStatus;
     public SkillManager skillManager;
     public SkillDatabase skillDatabase;
 
-    // ¾Ö´Ï¸ŞÀÌÅÍ °ü·Ã
+    // ì• ë‹ˆë©”ì´í„° ê´€ë ¨
     public Animator _am;
     AnimatorComponent<ePlayerAction> _animatorComponent;
 
-    // Çàµ¿ Æ®¸®¿¡¼­ »ç¿ëÇÒ Çàµ¿ »óÅÂ º¯¼ö
+    // í–‰ë™ íŠ¸ë¦¬ì—ì„œ ì‚¬ìš©í•  í–‰ë™ ìƒíƒœ ë³€ìˆ˜
     public ePlayerAction _prevAction;
     public ePlayerAction _playerAction;
 
     public IDamageable currentTarget;
     PlayerData _data;
+    private User _user;
 	public ulong damage 
     {
         get 
@@ -48,12 +49,12 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
     public bool TakeDamage(IAttackable attacker)
     {
         ulong dmg = attacker.damage;
-        CustomLogger.Log($"Player°¡ °ø°İÀ» ¹Ş°íÀÖ½À´Ï´Ù! DMG : {dmg}");
+        CustomLogger.Log($"Playerê°€ ê³µê²©ì„ ë°›ê³ ìˆìŠµë‹ˆë‹¤! DMG : {dmg}");
         bool IsAlive = setHp(dmg);
 
         if (!IsAlive)
         {   
-            // Á×¾úÀ»¶§
+            // ì£½ì—ˆì„ë•Œ
             return false;
         }
 
@@ -88,14 +89,14 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
     private bool setHp(ulong damage)
     {
         long totalHp = _data._Hp + _data._extraHp;
-        //Á×´Â°æ¿ì
+        //ì£½ëŠ”ê²½ìš°
         if (totalHp - (long)damage <= 0)
         {
             OnDead();
             return false;
         }
 
-        //ExtraHp¸ÕÀú ±ï±â
+        //ExtraHpë¨¼ì € ê¹ê¸°
         if ((long)damage > _data._extraHp)
         {
             long remainDamage = (long)damage - _data._extraHp;
@@ -107,16 +108,21 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
         _data._extraHp = _data._extraHp - (int)damage;
         return true;
     }
-    // ÃÊ±âÈ­ ÇÔ¼ö
+    // ì´ˆê¸°í™” í•¨ìˆ˜
     private void Awake()
     {
         InitializeAnimator();
 
         playerOrder = new PlayerOrder();
         playerOrder.Init(this);
-    }
 
-    // ¾Ö´Ï¸ŞÀÌÅÍ ÃÊ±âÈ­ ÇÔ¼ö
+        //For Test 
+        _data._Hp = 50;
+        _data._atk = 10;
+
+	}
+
+    // ì• ë‹ˆë©”ì´í„° ì´ˆê¸°í™” í•¨ìˆ˜
     private void InitializeAnimator()
     {
         Dictionary<ePlayerAction, int> dic = new Dictionary<ePlayerAction, int>();
@@ -128,7 +134,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
         _animatorComponent = new AnimatorComponent<ePlayerAction>(_am, dic);
     }
 
-    // Çàµ¿ Æ®¸®¿¡¼­ ÇÃ·¹ÀÌ¾î Çàµ¿ »óÅÂ°¡ º¯°æµÉ ¶§¸¶´Ù ¾Ö´Ï¸ŞÀÌ¼Ç ¾÷µ¥ÀÌÆ®
+    // í–‰ë™ íŠ¸ë¦¬ì—ì„œ í”Œë ˆì´ì–´ í–‰ë™ ìƒíƒœê°€ ë³€ê²½ë  ë•Œë§ˆë‹¤ ì• ë‹ˆë©”ì´ì…˜ ì—…ë°ì´íŠ¸
     private void UpdateAnimation()
     {
         if (_prevAction != _playerAction)
@@ -136,12 +142,12 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
             TurnOffAnimation(_prevAction);
             TurnOnAnimation(_playerAction);
 
-            // º¯°æ ÈÄ ÀÌÀü »óÅÂ¸¦ ÇöÀç »óÅÂ·Î °»½Å
+            // ë³€ê²½ í›„ ì´ì „ ìƒíƒœë¥¼ í˜„ì¬ ìƒíƒœë¡œ ê°±ì‹ 
             _prevAction = _playerAction;
         }
     }
 
-    // Çàµ¿ »óÅÂ¿¡ µû¸¥ ¾Ö´Ï¸ŞÀÌ¼Ç Á¦¾î ÇÔ¼ö (¾Ö´Ï¸ŞÀÌ¼Ç ²ô±â)
+    // í–‰ë™ ìƒíƒœì— ë”°ë¥¸ ì• ë‹ˆë©”ì´ì…˜ ì œì–´ í•¨ìˆ˜ (ì• ë‹ˆë©”ì´ì…˜ ë„ê¸°)
     public void TurnOffAnimation(ePlayerAction action)
     {
         switch (action)
@@ -153,7 +159,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
         }
     }
 
-    // Çàµ¿ »óÅÂ¿¡ µû¸¥ ¾Ö´Ï¸ŞÀÌ¼Ç Á¦¾î ÇÔ¼ö (¾Ö´Ï¸ŞÀÌ¼Ç ÄÑ±â)
+    // í–‰ë™ ìƒíƒœì— ë”°ë¥¸ ì• ë‹ˆë©”ì´ì…˜ ì œì–´ í•¨ìˆ˜ (ì• ë‹ˆë©”ì´ì…˜ ì¼œê¸°)
     public void TurnOnAnimation(ePlayerAction action)
     {
         switch (action)
@@ -171,31 +177,31 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
 
     void Update()
     {
-        // ÇÃ·¹ÀÌ¾î Çàµ¿ Æ®¸® Æò°¡
+        // í”Œë ˆì´ì–´ í–‰ë™ íŠ¸ë¦¬ í‰ê°€
         playerOrder._rootNode?.Evaluate();
     }
-    // LateUpdate¿¡¼­ ¾Ö´Ï¸ŞÀÌ¼Ç ¾÷µ¥ÀÌÆ® È£Ãâ (Update¿¡¼­ Çàµ¿ Æ®¸® Æò°¡ ÈÄ ¾Ö´Ï¸ŞÀÌ¼Ç »óÅÂ º¯°æ)
+    // LateUpdateì—ì„œ ì• ë‹ˆë©”ì´ì…˜ ì—…ë°ì´íŠ¸ í˜¸ì¶œ (Updateì—ì„œ í–‰ë™ íŠ¸ë¦¬ í‰ê°€ í›„ ì• ë‹ˆë©”ì´ì…˜ ìƒíƒœ ë³€ê²½)
     private void LateUpdate()
     {
         UpdateAnimation();
     }
 
-    // °ø°İ ¾Ö´Ï¸ŞÀÌ¼ÇÀ» Àç»ıÇÏ°í, ¾Ö´Ï¸ŞÀÌ¼ÇÀÌ ³¡³ª¸é onAnimationEnd¸¦ È£Ãâ
+    // ê³µê²© ì• ë‹ˆë©”ì´ì…˜ì„ ì¬ìƒí•˜ê³ , ì• ë‹ˆë©”ì´ì…˜ì´ ëë‚˜ë©´ onAnimationEndë¥¼ í˜¸ì¶œ
     public void PlayAttackAndApplyDamage(Action onAnimationEnd)
     {
-        // °ø°İ »óÅÂ·Î ÀüÈ¯ÇÏ¿© ¾Ö´Ï¸ŞÀÌÅÍ¿¡ ½ÅÈ£¸¦ º¸³¿
+        // ê³µê²© ìƒíƒœë¡œ ì „í™˜í•˜ì—¬ ì• ë‹ˆë©”ì´í„°ì— ì‹ í˜¸ë¥¼ ë³´ëƒ„
         _playerAction = ePlayerAction.Attack;
         TurnOnAnimation(_playerAction);
 
-        // Áßº¹ ÄÚ·çÆ¾ ¹æÁö
+        // ì¤‘ë³µ ì½”ë£¨í‹´ ë°©ì§€
         StopCoroutine(nameof(RunAttackCoroutine));
         StartCoroutine(RunAttackCoroutine(onAnimationEnd));
     }
 
-    // °ø°İ ¾Ö´Ï¸ŞÀÌ¼ÇÀÌ ³¡³¯ ¶§±îÁö ´ë±âÇÏ´Â ÄÚ·çÆ¾
+    // ê³µê²© ì• ë‹ˆë©”ì´ì…˜ì´ ëë‚  ë•Œê¹Œì§€ ëŒ€ê¸°í•˜ëŠ” ì½”ë£¨í‹´
     private IEnumerator RunAttackCoroutine(Action onAnimationEnd)
     {
-        // ¾Ö´Ï¸ŞÀÌÅÍ ÄÄÆ÷³ÍÆ®°¡ ¾ø´Â °æ¿ì ¹Ù·Î Äİ¹é È£Ãâ
+        // ì• ë‹ˆë©”ì´í„° ì»´í¬ë„ŒíŠ¸ê°€ ì—†ëŠ” ê²½ìš° ë°”ë¡œ ì½œë°± í˜¸ì¶œ
         if (_am == null)
         {
             onAnimationEnd?.Invoke();
@@ -204,19 +210,19 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
 
         int attackHash = Animator.StringToHash("Attack");
 
-        // ¾Ö´Ï¸ŞÀÌÅÍ°¡ Attack »óÅÂ·Î ÁøÀÔÇÒ ¶§±îÁö ´ë±â (ÇÁ·¹ÀÓ ´ÜÀ§)
-        // Å¸ÀÓ¾Æ¿ôÀ» ³ÖÁö ¾ÊÀ¸¸é Àß¸øµÈ »óÅÂ¸Ó½Å¿¡¼­ ¹«ÇÑ·çÇÁ µÉ ¼ö ÀÖÀ½.
-        float timeout = 2f; // ¾ÈÀü Å¸ÀÓ¾Æ¿ô (ÃÊ)
+        // ì• ë‹ˆë©”ì´í„°ê°€ Attack ìƒíƒœë¡œ ì§„ì…í•  ë•Œê¹Œì§€ ëŒ€ê¸° (í”„ë ˆì„ ë‹¨ìœ„)
+        // íƒ€ì„ì•„ì›ƒì„ ë„£ì§€ ì•Šìœ¼ë©´ ì˜ëª»ëœ ìƒíƒœë¨¸ì‹ ì—ì„œ ë¬´í•œë£¨í”„ ë  ìˆ˜ ìˆìŒ.
+        float timeout = 2f; // ì•ˆì „ íƒ€ì„ì•„ì›ƒ (ì´ˆ)
         float timer = 0f;
 
-        // ÁøÀÔ ´ë±â: »óÅÂ°¡ AttackÀ¸·Î ¹Ù²î±â Àü±îÁö ±â´Ù¸²
+        // ì§„ì… ëŒ€ê¸°: ìƒíƒœê°€ Attackìœ¼ë¡œ ë°”ë€Œê¸° ì „ê¹Œì§€ ê¸°ë‹¤ë¦¼
         while (_am.GetCurrentAnimatorStateInfo(0).shortNameHash != attackHash && timer < timeout)
         {
             timer += Time.deltaTime;
             yield return null;
         }
 
-        // »óÅÂ¿¡ ÁøÀÔÇßÀ¸¸é normalizedTimeÀÌ 1 ÀÌ»óÀÏ ¶§±îÁö ´ë±â(ÇÑ »çÀÌÅ¬ ¿Ï·á)
+        // ìƒíƒœì— ì§„ì…í–ˆìœ¼ë©´ normalizedTimeì´ 1 ì´ìƒì¼ ë•Œê¹Œì§€ ëŒ€ê¸°(í•œ ì‚¬ì´í´ ì™„ë£Œ)
         timer = 0f;
         while (_am.GetCurrentAnimatorStateInfo(0).shortNameHash == attackHash && _am.GetCurrentAnimatorStateInfo(0).normalizedTime < 1f && timer < timeout)
         {
@@ -224,10 +230,10 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
             yield return null;
         }
 
-        // ¾Ö´Ï¸ŞÀÌ¼Ç ³¡ ½ÃÁ¡¿¡ Äİ¹é È£Ãâ
+        // ì• ë‹ˆë©”ì´ì…˜ ë ì‹œì ì— ì½œë°± í˜¸ì¶œ
         onAnimationEnd?.Invoke();
 
-        // ¾Ö´Ï¸ŞÀÌ¼Ç ³¡³ª¸é Idle·Î ÀüÈ¯
+        // ì• ë‹ˆë©”ì´ì…˜ ëë‚˜ë©´ Idleë¡œ ì „í™˜
         _playerAction = ePlayerAction.Idle;
         TurnOnAnimation(_playerAction);
     }

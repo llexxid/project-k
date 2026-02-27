@@ -32,15 +32,13 @@ namespace Scripts.Core
         [Header("Async Loading")]
         [SerializeField] private float minLoadingSeconds = 0f;
 
+        //씬 , 스테이지와 관련된 몬스터, SFX,VFX정보들
         [SerializeField]
         MonsterMetaSO _monsterMetaDataSO;
-
         [SerializeField]
-        DropTableMetaSO _DropTableMetaSO;
+        SceneSFXMetaSO _SceneSFXMetaSO;
         [SerializeField]
-        SceneSFXTypeMetaSO _SceneSFXMetaSO;
-        [SerializeField]
-        SceneVFXTypeMetaSO _SceneVFXMetaSO;
+        SceneVFXMetaSO _SceneVFXMetaSO;
 
         public event Action<eSceneType> SceneLoadStarted;
         public event Action<eSceneType> SceneLoadFinished;
@@ -71,8 +69,11 @@ namespace Scripts.Core
 
             Destroy(gameObject);
         }
-
-        private void OnDestroy()
+		private void OnEnable()
+		{
+			SceneManager.sceneLoaded += OnSceneLoaded;
+		}
+		private void OnDestroy()
         {
             if (_token != null)
             {
@@ -88,15 +89,12 @@ namespace Scripts.Core
             _LoadStageToken = new CancellationTokenSource();
 
 			_monsterMetaDataSO.Init();
-            _DropTableMetaSO.Init();
 
             _SceneSFXMetaSO.Init();
             _SceneVFXMetaSO.Init();
 		}
 
-
-
-        private string GetSceneName(eSceneType type)
+		private string GetSceneName(eSceneType type)
         {
             switch (type)
             {
@@ -130,8 +128,6 @@ namespace Scripts.Core
             SceneLoadProgress?.Invoke(type, 1f);
             SceneLoadFinished?.Invoke(type);
         }
-
-
         //씬 전환하는 기능
         public void LoadAsyncScene(eSceneType type)
         {
@@ -193,20 +189,22 @@ namespace Scripts.Core
             _UnitySceneLoaderOp = SceneManager.LoadSceneAsync(sceneName);
 			_UnitySceneLoaderOp.allowSceneActivation = false;
 
+			
 			// User의 현재 스테이지 정보를 가져와서 Load준비해야함.
 			if (type == eSceneType.main)
             {
 				eStage currentStage = UserManager.Instance.GetUserCurrentStage();
                 _StageLoaderHandle = StageManager.Instance.PreLoadAssets(currentStage);
 				LoadResourceInMonster(currentStage);
-                //Player에 필요한 VFX,SFX 로딩
+
+				//Player에 필요한 VFX,SFX 로딩
 			}
 
             //각 씬에 필요한 VFX,SFX 로딩
             List<eVFXType> vfxList;
             List<eSFXType> sfxList;
-            _SceneVFXMetaSO.TryGeteVFXTypeList(type, out vfxList);
-            _SceneSFXMetaSO.TryGeteSFXTypeList(type, out sfxList);
+            _SceneVFXMetaSO.TryGetVFXTypeList(type, out vfxList);
+            _SceneSFXMetaSO.TryGetSFXTypeList(type, out sfxList);
 
             _VFXSceneHandle = VFXManager.Instance.PreLoadVFX((ulong)type, vfxList.ToArray());
             _SFXSceneHandle = SFXManager.Instance.PreLoadSFX((ulong)type, sfxList.ToArray());
@@ -276,6 +274,8 @@ namespace Scripts.Core
                 VFXManager.Instance.OnEnterScene();
 
                 //MainScene진입시 SpawnLogic
+                //Stage정보를 가져와서, 해당 스테이지 정보에 맞게 스폰을 요청하게 됨.
+                //아래는 테스트용
                 MonsterSpawner.Instance.SpawnMonster(eMonsterType.MON_ORC, pos, Quaternion.identity, out mon);
                 _monsterMetaDataSO.TryGetMonsterInfo(eMonsterType.MON_ORC, out MonsterInfo monInfo);
                 MonsterStat stat = new MonsterStat(monInfo._baseHp, 0, (ulong)monInfo._baseAtk, monInfo._baseMoveSpeed, monInfo._baseAtkSpeed);
@@ -342,7 +342,6 @@ namespace Scripts.Core
             //몬스터에 필요한 SFX 로딩
             _SFXMonsterHandle = SFXManager.Instance.PreLoadSFX((ulong)stage, sfxList);
 		}
-
         private void GetSFXListIds(List<eMonsterType> monList, out eSFXType[] Ids)
         {
 			int totalArrayLength = 0;
