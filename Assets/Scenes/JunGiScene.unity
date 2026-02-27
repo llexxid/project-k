@@ -153,7 +153,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f0abb97fae21de84f8657fd5ca88bc99, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  wallet: {fileID: 214768488}
+  skillManager: {fileID: 0}
+  skillDatabase: {fileID: 0}
+  _am: {fileID: 0}
+  _prevAction: 0
+  _playerAction: 0
 --- !u!212 &19595516
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -214,13 +218,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 19595514}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
+  m_LocalPosition: {x: -0.09, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
 --- !u!58 &19595518
 CircleCollider2D:
   m_ObjectHideFlags: 0
@@ -357,7 +361,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 214768489}
-  - component: {fileID: 214768488}
   m_Layer: 0
   m_Name: Wallet
   m_TagString: Untagged
@@ -365,19 +368,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &214768488
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 214768487}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1aa1b75c681596942a4be30d0edc222e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  totalCoins: 0
 --- !u!4 &214768489
 Transform:
   m_ObjectHideFlags: 0

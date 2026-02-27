@@ -1,18 +1,24 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PlayerOrder : MonoBehaviour
+public class PlayerOrder
+
 {
     public Node _rootNode;
 
-    [SerializeField] private PlayerDetection _detection;
-    [SerializeField] private PlayerMove _move;
-    [SerializeField] private PlayerAttack _attack;
+    private PlayerDetection _detection;
+    private PlayerMove _move;
+    private PlayerAttack _attack;
 
-    void Start()
+    public void Init(Player player)
     {
+
+        _detection = new PlayerDetection(player);
+        _move = new PlayerMove(player);
+        _attack = new PlayerAttack(player);
+
         // 트리 조립: Selector(전투 OR 대기)
-        _rootNode = new Selector(new List<Node>
+        _rootNode = new Selector(new List<Node> // Selector노드 사용
         {
             // 1. 전투 시퀀스 (감지 -> 이동 -> 공격)
             new Sequence(new List<Node>

@@ -30,7 +30,6 @@ public class SkillDatabase : ScriptableObject
 
         skillDict.TryGetValue(skillName, out SkillData targetSkill);
 
-
         return targetSkill;
     }
 }

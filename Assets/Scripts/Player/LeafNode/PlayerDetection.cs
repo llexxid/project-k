@@ -1,30 +1,46 @@
+using Scripts.Core.inteface;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PlayerDetection : MonoBehaviour
+public class PlayerDetection
 {
-    public LayerMask playerMask;
-    public float detectionRadius;
+    //public LayerMask playerMask;
+    public float detectionRadius = 2f;
     private List<Collider2D> detectedResults = new List<Collider2D>();
-    public Transform currentTarget; // 발견된 적을 저장할 변수
+    public IDamageable currentTarget; // 발견된 적을 저장할 변수
+    public Player player;
+    public PlayerDetection(Player player)
+    {
+        this.player = player;
+    }
 
+    int enemyLayer = 1 << 6;
+
+    // 노드가 플레이어를 갖고 있고, 플레이어에서 transform을 가져오는 방식
     public void Detect()
     {
+        // Debug.Log("Player Detecting...");
         ContactFilter2D filter = new ContactFilter2D(); // 필터 설정
-        filter.SetLayerMask(playerMask); // 레이어 마스크 설정
+        filter.SetLayerMask(enemyLayer); // 레이어 마스크 설정
         filter.useTriggers = true; // 트리거 콜라이더 포함
 
         // 리스트를 재사용하여 가비지 발생을 최소화하는 방식
-        int count = Physics2D.OverlapCircle(transform.position, detectionRadius, filter, detectedResults);
+        int count = Physics2D.OverlapCircle(player.transform.position, detectionRadius, filter, detectedResults);
+
+        //Debug.Log(count);
 
         for (int i = 0; i < count; i++)
         {
             if (detectedResults[i].CompareTag("Enemy"))
             {
-                currentTarget = detectedResults[i].transform; // 타겟 저장
+                currentTarget = detectedResults[i].gameObject.GetComponent<IDamageable>(); // 타겟 저장
+
+                player.currentTarget  = currentTarget; // 플레이어의 타겟 변수에도 저장
+
                 return; // 가장 가까운 적 하나만 찾으면 종료
             }
+            else Debug.Log("적이 감지되지 않음");
         }
     }
 
@@ -42,16 +58,17 @@ public class PlayerDetection : MonoBehaviour
             foreach (var target in _detection.detectedResults)
             {
                 if (target.CompareTag("Enemy")) return NodeState.Success;
+                else Debug.Log("적이 감지되지 않음");
             }
             return NodeState.Failure;
         }
     }
 
-    void OnDrawGizmos() // 범위 그리기
-    {
-        Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(transform.position, detectionRadius);
-    }
+    //void OnDrawGizmos() // 범위 그리기
+    //{
+    //    Gizmos.color = Color.red;
+    //    Gizmos.DrawWireSphere(player.transform.position, detectionRadius);
+    //}
 }
 
 /*
