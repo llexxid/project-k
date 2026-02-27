@@ -1,8 +1,5 @@
 using Scripts.Core;
-using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
-using Scripts.Wallets;
 
 namespace Scripts.Users
 {
@@ -15,7 +12,7 @@ namespace Scripts.Users
 
 		public User(UserData data)
 		{
-			_wallet = new Wallet(this, data._coin, data._coin);
+            _wallet = new Wallet(this, data._coin, data._coin);
 		}
 
 		public UserData GetData()

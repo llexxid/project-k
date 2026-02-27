@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using Scripts.Users;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -11,6 +12,16 @@ public class Wallet : MonoBehaviour
 
     [SerializeField]
     private int totalCoins;
+    private User user;
+    private int coin1;
+    private int coin2;
+
+    public Wallet(User user, int coin1, int coin2)
+    {
+        this.user = user;
+        this.coin1 = coin1;
+        this.coin2 = coin2;
+    }
 
     public int TotalCoins
     {
