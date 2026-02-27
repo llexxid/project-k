@@ -20,7 +20,7 @@ public class PlayerDetection
     // 노드가 플레이어를 갖고 있고, 플레이어에서 transform을 가져오는 방식
     public void Detect()
     {
-        Debug.Log("Player Detecting...");
+        // Debug.Log("Player Detecting...");
         ContactFilter2D filter = new ContactFilter2D(); // 필터 설정
         filter.SetLayerMask(enemyLayer); // 레이어 마스크 설정
         filter.useTriggers = true; // 트리거 콜라이더 포함
