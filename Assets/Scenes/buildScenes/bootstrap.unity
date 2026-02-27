@@ -307,6 +307,8 @@ GameObject:
   - component: {fileID: 755427046}
   - component: {fileID: 755427045}
   - component: {fileID: 755427044}
+  - component: {fileID: 755427049}
+  - component: {fileID: 755427048}
   m_Layer: 5
   m_Name: UITK_UIRoot
   m_TagString: Untagged
@@ -387,6 +389,42 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &755427048
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 755427043}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b5de62627b65b0b428fc2c25d7ba140f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dummySkillCount0: 1
+  dummySkillCount1: 2
+  dummySkillCount2: 3
+  baseGapPx: 12
+  sheetGapPx: 10
+  fallbackBottomBarPx: 190
+--- !u!114 &755427049
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 755427043}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5d32139147bd6574987cf5a058f6850e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  uiDocument: {fileID: 755427046}
+  worldCamera: {fileID: 0}
+  duration: 0.8
+  risePixels: 80
+  screenOffsetPx: {x: 0, y: -22}
+  warmPool: 24
 --- !u!1 &1203379616
 GameObject:
   m_ObjectHideFlags: 0
@@ -574,7 +612,7 @@ MonoBehaviour:
   mainSceneName: main
   dungeonSceneName: dungeon
   minLoadingSeconds: 0
-  _monsterMetaDataSO: {fileID: 11400000, guid: 233a37597c19c9649b1e653aaf17c9c0, type: 2}
+  _monsterMetaDataSO: {fileID: 11400000, guid: 239ad81d91f85744fad4c2fc623245a0, type: 2}
   _SceneSFXMetaSO: {fileID: 11400000, guid: ca72de5c345500c43a7a86a5c2bce328, type: 2}
   _SceneVFXMetaSO: {fileID: 11400000, guid: c38cc3546145e4e4dba649125e90f265, type: 2}
 --- !u!114 &2134808526
