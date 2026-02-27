@@ -279,6 +279,10 @@ namespace Scripts.Core
 				MonsterSpawner.Instance.OnEnterScene();
 				VFXManager.Instance.OnEnterScene();
 
+				//Player 생성
+				UserManager.Instance.CreateCharacter();
+
+
 				//MainScene진입시 SpawnLogic
 				//Stage정보를 가져와서, 해당 스테이지 정보에 맞게 스폰을 요청하게 됨.
 				//아래는 테스트용

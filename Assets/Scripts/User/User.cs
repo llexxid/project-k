@@ -11,11 +11,13 @@ namespace Scripts.Users
 		public Wallet _wallet;
 		UserData _userData;
 
-		public List<Player> players;
+		public List<Player> _players;
 
 		public User(UserData data)
 		{
 			_wallet = new Wallet(this, data._coin, data._coin);
+			_userData = data;
+			_players = new List<Player>();
 		}
 
 		public UserData GetData()
@@ -51,7 +53,7 @@ namespace Scripts.Users
 
 		public void ConnectCharacters(Player player)
 		{
-			players.Add(player);
+			_players.Add(player);
 		}
 	}
 
