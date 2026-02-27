@@ -10,6 +10,7 @@ using Scripts.Monster.State;
 namespace Scripts.Monster
 {
     using Scripts.Core.inteface;
+	using Scripts.Core.SO;
 	using Scripts.Core.StateMachine;
 	using Scripts.Monster.MonsterNode;
 	using Scripts.Monster.SO;
@@ -248,8 +249,8 @@ namespace Scripts.Monster
                 //Todo : Reward 주기
                 if (attacker is IRewardable target)
                 {
-
-                    //target.GiveReward();
+                    DropInfo info = DropManager.Instance.GetDropInfo(eDropTable.ORC_DROPTABLE);
+                    target.GiveReward(info._incomeGold, info._incomeAncientCoin);
 				}
                 return false;
             }
