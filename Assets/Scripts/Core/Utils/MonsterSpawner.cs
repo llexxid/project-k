@@ -30,10 +30,10 @@ namespace Scripts.Core.Utils
             {
                 Instance = this;
                 Instance.Init();
-                DontDestroyOnLoad(this);
+                DontDestroyOnLoad(gameObject);
                 return;
             }
-            Destroy(this);
+            Destroy(gameObject);
             return;
         }
         private void Init()

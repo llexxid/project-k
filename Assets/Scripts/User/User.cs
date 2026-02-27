@@ -8,11 +8,13 @@ namespace Scripts.Users
 		public Wallet _wallet;
 		UserData _userData;
 
-		public List<Player> players;
+		public List<Player> _players;
 
 		public User(UserData data)
 		{
-            _wallet = new Wallet(this, data._coin, data._coin);
+			_wallet = new Wallet(this, data._coin, data._coin);
+			_userData = data;
+			_players = new List<Player>();
 		}
 
 		public UserData GetData()
@@ -27,7 +29,7 @@ namespace Scripts.Users
 		{
 			return _userData._level;
 		}
-		//Todo WalletÀ¸·Î ±³Ã¼
+		//Todo Walletìœ¼ë¡œ êµì²´
 		public int GetCoin()
 		{
 			return _userData._coin;
@@ -48,10 +50,10 @@ namespace Scripts.Users
 
 		public void ConnectCharacters(Player player)
 		{
-			players.Add(player);
+			_players.Add(player);
 		}
 	}
 
 }
-// User ½ºÅ©¸³Æ®¿¡ Áö°© Á¤º¸, Player 3¸¶¸® ¿¬°á, Player¿¡¼­ User·Î ¿¬°á ·ÎÁ÷ Ãß°¡
+// User ìŠ¤í¬ë¦½íŠ¸ì— ì§€ê°‘ ì •ë³´, Player 3ë§ˆë¦¬ ì—°ê²°, Playerì—ì„œ Userë¡œ ì—°ê²° ë¡œì§ ì¶”ê°€
 
