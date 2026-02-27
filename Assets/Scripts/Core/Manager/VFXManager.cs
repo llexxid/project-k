@@ -71,7 +71,13 @@ namespace Scripts.Core
         /// </summary>
         public AsyncOperationHandle<IList<GameObject>> PreLoadVFX(ulong groupId, eVFXType[] IdList)
         {
-            AsyncOperationHandle<IList<GameObject>> handle;
+			if (IdList.Length == 0)
+			{
+				CustomLogger.LogWarning("IDList is EMPTY");
+				return default;
+			}
+
+			AsyncOperationHandle<IList<GameObject>> handle;
             bool IsLoading = _BatchHandles.TryGetValue(groupId, out handle);
             if (IsLoading)
             {
