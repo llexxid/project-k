@@ -11,8 +11,20 @@ namespace Scripts.Monster
     {
         private Node _rootNode;
         private Monster monster;
-
-        public MonsterOrder()
+		bool _isAbort;
+		public bool IsAbort
+        {
+            get { return _isAbort; }
+        }
+	    public void InterruptBT()
+		{
+			_isAbort = true;
+		}
+		public void RecoveryBT()
+		{
+			_isAbort = false;
+		}
+		public MonsterOrder()
         {
             return;
         }
@@ -35,6 +47,10 @@ namespace Scripts.Monster
 
         public void ExecuteNode()
         {
+            if (_isAbort == true)
+            {
+                return;
+            }
             NodeState state = _rootNode.Evaluate();
         }
     }

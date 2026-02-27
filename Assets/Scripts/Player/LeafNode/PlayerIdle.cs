@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PlayerIdle : MonoBehaviour
+public class PlayerIdle
 {
     //public Animator animator;
 

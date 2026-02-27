@@ -1,28 +1,45 @@
 using ExcelDataReader;
+using Scripts.Core;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEngine;
-
-using Scripts.Core;
-using JetBrains.Annotations;
-
+using Scripts.Core.Utils;
 
 namespace Scripts.Core.Parser
 {
 
-    // 엑셀 파일에서 읽어온 데이터를 기반으로
-    // 파일이름 -> GUID -> 프리펩 탐색 -> addressable ID 자동등록
-    // 프리펩들을 Addressable ID를 수정해야함. 
-    public class AutoAddressable
+	// 엑셀 파일에서 읽어온 데이터를 기반으로
+	// 파일이름 -> GUID -> 프리펩 탐색 -> addressable ID 자동등록
+	// 프리펩들을 Addressable ID를 수정해야함. 
+	struct stageInfo
+	{
+        public stageInfo(string name, int count)
+        {
+            _monName = name;
+            _count = count;
+		}
+		public string _monName;
+		public int _count;
+	};
+
+	public class AutoAddressable
     {
-        class AssetData
+		const string OPEN_BRACE = "{\n";
+		const string CLOSE_BRACE = "}\n";
+        const string VFX_STRING = "VFX";
+        const string MONSTER_STRING = "Monster";
+        const string SFX_STRING = "SFX";
+        const long stageIDMask = 0x0000000200000000;
+		class AssetData
         {
             public AssetData(string name, ulong maskedID)
             {
@@ -59,7 +76,7 @@ namespace Scripts.Core.Parser
             auto.Init();
             auto.LoadGuIDFromUnity("t:Prefab", new[] { ConstPath.VFX_PREFEB_PATH });
             auto.ReadXlsxFile(ConstPath.VFX_EXCEL_PATH);
-            auto.SettingAddressable("VFX");
+            auto.SettingAddressable(VFX_STRING);
         }
         [MenuItem("MyTools/GenerateMetaSO")]
         private static void GenerateMetaSO()
@@ -68,8 +85,10 @@ namespace Scripts.Core.Parser
             auto.Init();
             auto.GenerateStageMetaSO();
             auto.GenerateMonsterMetaSO();
-            auto.GenerateSoundMetaSO();
-        }
+			auto.GenerateDropTableMetaSO();
+            auto.GenerateSceneResourceMetaSO();
+
+		}
         [MenuItem("MyTools/SetMonsterAddress")]
         private static void SetMonsterAddress()
         {
@@ -78,7 +97,7 @@ namespace Scripts.Core.Parser
             auto.Init();
             auto.LoadGuIDFromUnity("t:Prefab", new[] { ConstPath.MONSTER_PREFEB_PATH });
             auto.ReadXlsxFile(ConstPath.MONSTER_EXCEL_PATH);
-            auto.SettingAddressable("Monster");
+            auto.SettingAddressable(MONSTER_STRING);
         }
 
         [MenuItem("MyTools/SetSoundAddress")]
@@ -89,7 +108,7 @@ namespace Scripts.Core.Parser
             auto.Init();
             auto.LoadGuIDFromUnity("t: AudioClip", new[] { ConstPath.SFX_AUDIOCLIP_PATH });
             auto.ReadXlsxFile(ConstPath.SFX_EXCEL_PATH);
-            auto.SettingAddressable("SFX");
+            auto.SettingAddressable(SFX_STRING);
         }
 
         [MenuItem("MyTools/GenerateEnum")]
@@ -138,7 +157,8 @@ namespace Scripts.Core.Parser
             StringBuilder sb = new StringBuilder();
 
             //중복검사
-            HashSet<int> duplicate = new HashSet<int>();
+            HashSet<long> duplicateKey = new HashSet<long>();
+            HashSet<long> duplicateStage = new HashSet<long>();
 
             var ExcelTable = data.Tables;
 
@@ -147,15 +167,25 @@ namespace Scripts.Core.Parser
             {
                 DataTable table = ExcelTable[i];
                 sb.Append($"namespace Scripts.Core {{\n");
-                sb.Append($"public enum eStage : int\n{{");
+                sb.Append($"public enum eStage : long\n{{");
                 for (int row = 0; row < table.Rows.Count; row++)
                 {
                     DataRow dataRow = table.Rows[row];
-                    int stage = Convert.ToInt32(dataRow["Stage"]);
-                    int wave = Convert.ToInt32(dataRow["Wave"]);
-                    int key = stage << 16 | wave;
+                    short stage = Convert.ToInt16(dataRow["Stage"]);
+                    short wave = Convert.ToInt16(dataRow["Wave"]);
 
-                    if (duplicate.Add(key) == true)
+                    int maskedStage = stage << 16;
+					long key = maskedStage | (int)wave;
+
+                    long maskedStageKey = maskedStage;
+                    maskedStageKey |= stageIDMask;
+					key |= stageIDMask;
+
+					if (duplicateStage.Add(maskedStage) == true)
+					{
+						sb.Append($"Stage{stage} = {maskedStageKey},\n");
+					}
+					if (duplicateKey.Add(key) == true)
                     {
                         sb.Append($"Stage{stage}_{wave} = {key},\n");
                     }
@@ -189,61 +219,103 @@ namespace Scripts.Core.Parser
             StringBuilder sb = new StringBuilder();
 
             //중복검사
-            HashSet<int> duplicate = new HashSet<int>();
+            Dictionary<long, HashSet<string>> _monDics = new Dictionary<long, HashSet<string>>();
+            Dictionary<long, List<stageInfo>> _stageDics = new Dictionary<long, List<stageInfo>>();
 
             var ExcelTable = data.Tables;
             //Sheet순회
             for (int i = 0; i < ExcelTable.Count; i++)
             {
                 DataTable table = ExcelTable[i];
-                sb.Append($"using UnityEngine;\n");
-                sb.Append($"using System.Collections.Generic;\n");
-                sb.Append($"namespace Scripts.Core.SO {{\n");
-                sb.Append($"[CreateAssetMenu(fileName = \"StageMetaDataSO\", menuName = \"ScriptableObjects/StageMetaDataSO\")]");
-                sb.Append($"public class StageMetaDataSO : ScriptableObject\n{{");
-                sb.Append($"public struct StageInfo_v{{\n");
-                sb.Append($"public StageInfo_v(eMonsterType type, int count){{\n");
-                sb.Append($"_type = type; _count = count;\n");
-                sb.Append($"}}\n");
-                sb.Append($"public eMonsterType _type;\n");
-                sb.Append($"public int _count;\n");
-                sb.Append($"}}\n");
 
-                sb.Append($"Dictionary<eStage, List<StageInfo_v>> _dic;\n");
-                sb.Append($"public void Init(){{\n");
-                sb.Append($"_dic = new Dictionary<eStage, List<StageInfo_v>>();\n");
+				CreateMetaSOHeader(sb);
+                OpenBrace(sb);
+
+				sb.Append($"[CreateAssetMenu(fileName = \"StageMetaDataSO\", menuName = \"ScriptableObjects/StageMetaDataSO\")]");
+                sb.Append($"public class StageMetaDataSO : ScriptableObject\n");
+				OpenBrace(sb);
+                CreateStageInfo_Struct(sb);
+				sb.Append($"Dictionary<eStage, List<StageInfo_v>> _dic;\n");
+				sb.Append($"Dictionary<eStage, List<eMonsterType>> _monDic;\n");
+                sb.Append($"public void Init()");
+				OpenBrace(sb);
+				sb.Append($"_dic = new Dictionary<eStage, List<StageInfo_v>>();\n");
+				sb.Append($"_monDic = new Dictionary<eStage, List<eMonsterType>>();\n");
                 for (int row = 0; row < table.Rows.Count; row++)
                 {
                     DataRow dataRow = table.Rows[row];
-                    int stage = Convert.ToInt32(dataRow[$"Stage"]);
+                    long key;
+
+                    short stage = Convert.ToInt16(dataRow[$"Stage"]);
                     string fileName = dataRow[$"MonsterName"].ToString();
-                    int wave = Convert.ToInt32(dataRow[$"Wave"]);
+
+                    short wave = Convert.ToInt16(dataRow[$"Wave"]);
                     int count = Convert.ToInt32(dataRow[$"Count"]);
-                    int key = stage << 16 | wave;
 
-                    sb.Append($"if(!_dic.ContainsKey(eStage.Stage{stage}_{wave})){{\n");
-                    sb.Append($"List<StageInfo_v> list = new List<StageInfo_v>();\n");
-                    sb.Append($"StageInfo_v info = new StageInfo_v(eMonsterType.{fileName}, {count});\n");
-                    sb.Append($"list.Add(info);\n");
+                    int tmp = stage << 16;
+                    key = tmp | (int)wave;
+                    key |= stageIDMask;
+
+                    if (!_stageDics.ContainsKey(key))
+                    {
+                        List<stageInfo> list = new List<stageInfo>();
+                        list.Add(new stageInfo(fileName, count));
+                        _stageDics.Add(key, list);
+                    }
+                    else 
+                    {
+                        _stageDics[key].Add(new stageInfo(fileName, count));
+                    }
+                    if (!_monDics.ContainsKey(stage))
+                    {
+						HashSet<string> strList = new HashSet<string>();
+                        strList.Add(fileName);
+                        _monDics.Add(stage, strList);
+                    }
+                    else
+                    {
+                        _monDics[stage].Add(fileName);
+                    }
+				}
+
+                foreach (var sinfo in _stageDics)
+                {
+                    List<stageInfo> value = sinfo.Value;
+                    long key = sinfo.Key;
+                    key &= ~(stageIDMask);
+
+					OpenBrace(sb);
+					sb.Append($"List<StageInfo_v> list = new List<StageInfo_v>();\n");
+					sb.Append($"StageInfo_v info;\n");
+					for (int j = 0; j < value.Count; j++)
+                    {
+						sb.Append($"info = new StageInfo_v(eMonsterType.{value[j]._monName}, {value[j]._count});\n");
+						sb.Append($"list.Add(info);\n");
+					}
+                    int stage = (int)((key & (0x00000000FFFF0000)) >> 16);
+                    int wave = (int)(key & (0x000000000000FFFF));
                     sb.Append($"_dic.Add(eStage.Stage{stage}_{wave},list);\n");
-                    sb.Append($"}}\n else{{\n");
-                    sb.Append($"StageInfo_v info = new StageInfo_v(eMonsterType.{fileName}, {count});");
-                    sb.Append($"_dic[eStage.Stage{stage}_{wave}].Add(info);");
-                    sb.Append($"}}\n");
+                    CloseBrace(sb);
+				}
+				foreach (var Item in _monDics)
+                {
+					HashSet<string> strList = Item.Value;
+                    sb.Append($"List<eMonsterType> list_{Item.Key} = new List<eMonsterType>();\n");
+                    foreach (var str in strList)
+                    {
+						sb.Append($"list_{Item.Key}.Add(eMonsterType.{str});\n");
+					}
+                    sb.Append($"_monDic.Add(eStage.Stage{Item.Key}, list_{Item.Key});\n");
                 }
-                sb.Append($"}}\n");
-                sb.Append($"public void GetStageInfo(eStage key, out List<StageInfo_v> stageList){{\n");
-                sb.Append($"List<StageInfo_v> ret;");
-                sb.Append($"if(_dic.TryGetValue(key, out ret)) {{\n");
-                sb.Append($"stageList = ret;\n return;\n");
-                sb.Append($"}}\n");
-                sb.Append($"stageList = default; return;\n");
-                sb.Append($"}}\n");
-                //namespace,function,class 괄호
-                sb.Append($"}}\n}}\n");
-            }
+                
+				CloseBrace(sb);
+				CreateTryStageInfo(sb);
+                CreateTryGetStageMonsterInfo(sb);
+				//namespace,function,class 괄호
+				CloseBrace(sb);
+				CloseBrace(sb);
+			}
             fs.Close();
-
             string storePath = Path.Combine(Application.dataPath, ConstPath.GENERATE_STAGEMETA_PATH);
             WriteToFIle(storePath, sb);
         }
@@ -265,14 +337,20 @@ namespace Scripts.Core.Parser
             };
             DataSet result = reader.AsDataSet(conf);
 
-            sb.Append($"using UnityEngine;\n");
-            sb.Append($"using System.Collections.Generic;\n");
-            sb.Append($"namespace Scripts.Core.SO {{\n");
+			CreateMetaSOHeader(sb);
+            OpenBrace(sb);
+			sb.Append($"using Scripts.Monster;\n");
             sb.Append($"[CreateAssetMenu(fileName = \"MonsterMetaDataSO\", menuName = \"ScriptableObjects/MonsterMetaDataSO\")]");
-            sb.Append($"public class MonsterMetaSO : ScriptableObject {{\n");
+            sb.Append($"public class MonsterMetaSO : ScriptableObject");
+            OpenBrace(sb);
             sb.Append($"Dictionary<eMonsterType, List<eVFXType>> _dic;\n");
-            sb.Append($"public void Init(){{\n");
-            sb.Append($"_dic = new Dictionary<eMonsterType, List<eVFXType>>();\n");
+            sb.Append($"Dictionary<eMonsterType, List<eSFXType>> _dic2;\n");
+            sb.Append($"Dictionary<eMonsterType, MonsterInfo> _mInfodic;\n");
+            sb.Append($"public void Init()");
+			OpenBrace(sb);
+			sb.Append($"_dic = new Dictionary<eMonsterType, List<eVFXType>>();\n");
+			sb.Append($"_dic2 = new Dictionary<eMonsterType, List<eSFXType>>();\n");
+            sb.Append($"_mInfodic = new Dictionary<eMonsterType, MonsterInfo>();\n");
             var tables = result.Tables;
             for (int sheetIndex = 0; sheetIndex < tables.Count; sheetIndex++)
             {
@@ -280,112 +358,228 @@ namespace Scripts.Core.Parser
                 int ArrayLength = sheet.Rows.Count;         
                 for (int row = 0; row < sheet.Rows.Count; row++)
                 {
-                    sb.Append($"List<eVFXType> list_{row} = new List<eVFXType>();\n");
+                    sb.Append($"List<eVFXType> list_vfx{row} = new List<eVFXType>();\n");
+                    sb.Append($"List<eSFXType> list_sfx{row} = new List<eSFXType>();\n");
                     DataRow data = sheet.Rows[row];
                     string name = data["fileName"].ToString();
-                    ulong maskedId = Convert.ToUInt64(data["MaskedId"]);
+
+					string _monName = data["Name"].ToString();
+					int hp = Convert.ToInt32(data["Hp"]);
+					int atk = Convert.ToInt32(data["Atk"]);
+					int exp = Convert.ToInt32(data["Atk"]);
+
+					double movespeed = Convert.ToDouble(data["MoveSpeed"]);
+					double atkspeed = Convert.ToDouble(data["AttackSpeed"]);
+
+					long dropTableNum = Convert.ToInt64(data["DropTable"]);
+
+					ulong maskedId = Convert.ToUInt64(data["MaskedId"]);
 
                     string vfx = data["VFX"].ToString();
+                    string sfx = data["SFX"].ToString();
+
                     string[] vfxs = vfx.Split(new char[] { ',', ' ' });
+                    string[] sfxs = sfx.Split(new char[] { ',', ' ' });
 
                     for (int k = 0; k < vfxs.Length; k++)
                     {
-                        sb.Append($"list_{row}.Add(eVFXType.{vfxs[k]});\n");
+                        sb.Append($"list_vfx{row}.Add(eVFXType.{vfxs[k]});\n");
                     }
-                    //SFX도 지원
-                    sb.Append($"_dic.Add(eMonsterType.{name},list_{row});\n");
+
+					for (int k = 0; k < sfxs.Length; k++)
+					{
+						sb.Append($"list_sfx{row}.Add(eSFXType.{sfxs[k]});\n");
+					}
+
+
+					//SFX도 지원
+					sb.Append($"_dic.Add(eMonsterType.{name},list_vfx{row});\n");
+					sb.Append($"_dic2.Add(eMonsterType.{name},list_sfx{row});\n");
+
+                    sb.Append($"MonsterInfo monInfo_{name} = new MonsterInfo(\"{_monName}\",{exp},{hp},{atk}, {movespeed},{atkspeed},{dropTableNum});\n");
+                    sb.Append($"_mInfodic.Add(eMonsterType.{name},monInfo_{name});\n");
                 }
             }
-            sb.Append($"}}\n");
-            sb.Append($"public void GetVFXList(eMonsterType type, out List<eVFXType> vfxDatas){{\n");
-            sb.Append($"List<eVFXType> ret;\n");
-            sb.Append($"if (_dic.TryGetValue(type, out ret)){{\n");
-            sb.Append($"vfxDatas = ret;");
-            sb.Append($"return;");
-            sb.Append($"}}\n");
-            sb.Append("vfxDatas = default;\n return;");
-            sb.Append($"}}\n");
-
-            sb.Append($"}}\n");
-            sb.Append($"}}\n");
-            //AssetDatabase.StopAssetEditing();
-            reader.Close();
+            CloseBrace(sb);
+            CreateTryGetVFXList(sb);
+            CreateTryGetMonsterInfo(sb);
+            CreateTryGetSFXList(sb);
+			//
+			CloseBrace(sb);
+			CloseBrace(sb);
+			//AssetDatabase.StopAssetEditing();
+			reader.Close();
             fstream.Close();
 
             string storePath = Path.Combine(Application.dataPath, ConstPath.GENERATE_MONSTERMETA_PATH);
             WriteToFIle(storePath, sb);
         }
 
-        private void GenerateSoundMetaSO()
+        private void GenerateDropTableMetaSO()
         {
-            string FilePath = Path.Combine(Application.dataPath, ConstPath.SFX_EXCEL_PATH);
-            FileStream fstream = File.Open(FilePath, FileMode.Open, FileAccess.Read);
+			string FilePath = Path.Combine(Application.dataPath, ConstPath.DROPTABLE_EXCEL_PATH);
+			FileStream fstream = File.Open(FilePath, FileMode.Open, FileAccess.Read);
 
-            IExcelDataReader reader = ExcelReaderFactory.CreateReader(fstream);
-            StringBuilder sb = new StringBuilder();
-            //Header제외 옵션
-            var conf = new ExcelDataSetConfiguration
+			IExcelDataReader reader = ExcelReaderFactory.CreateReader(fstream);
+			StringBuilder sb = new StringBuilder();
+			//Header제외 옵션
+			var conf = new ExcelDataSetConfiguration
+			{
+				ConfigureDataTable = _ => new ExcelDataTableConfiguration
+				{
+					UseHeaderRow = true
+				}
+			};
+			DataSet result = reader.AsDataSet(conf);
+
+            CreateMetaSOHeader(sb);
+            OpenBrace(sb);
+			CreateDropTable_DropTableInfo_Struct(sb);
+
+			sb.Append($"[CreateAssetMenu(fileName = \"DropTableMetaSO\", menuName = \"ScriptableObjects/DropTableMetaSO\")]");
+            sb.Append($"public class DropTableMetaSO : ScriptableObject");
+            OpenBrace(sb);
+			sb.Append($"Dictionary<long, DropInfo> _dic;\n");
+			sb.Append($"public void Init()");
+            OpenBrace(sb);
+			sb.Append($"_dic = new Dictionary<long, DropInfo>();\n");
+
+			var tables = result.Tables;
+			for (int sheetIndex = 0; sheetIndex < tables.Count; sheetIndex++)
+			{
+				DataTable sheet = tables[sheetIndex];
+				int ArrayLength = sheet.Rows.Count;
+
+
+				for (int row = 0; row < sheet.Rows.Count; row++)
+				{
+
+					DataRow data = sheet.Rows[row];
+					long Id = Convert.ToInt64(data["Id"]);
+					int gold = Convert.ToInt32(data["Gold"]);
+					int AncientCoin = Convert.ToInt32(data["AncientCoin"]);
+
+                    sb.Append($"_dic.Add({Id},new DropInfo({gold},{AncientCoin}));\n");
+				}
+			}
+            CloseBrace(sb);
+            
+            CreateTryGetDropInfo(sb);
+
+			CloseBrace(sb);
+			CloseBrace(sb);
+			//AssetDatabase.StopAssetEditing();
+			reader.Close();
+			fstream.Close();
+
+			string storePath = Path.Combine(Application.dataPath, ConstPath.GENERATE_DROPTABLE_META_PATH);
+			WriteToFIle(storePath, sb);
+		}
+		private void GenerateSceneResourceMetaSO()
+		{
+			//VFX dic생성
+			string FilePath = Path.Combine(Application.dataPath, ConstPath.VFX_EXCEL_PATH);
+			StringBuilder sb = new StringBuilder();
+			sb.Append($"using UnityEngine;\n");
+			sb.Append($"using System.Collections.Generic;\n");
+			GenerateSceneMetaSO(FilePath, sb, "eVFXType");
+			//sfx dic생성
+			string FilePath_sfx = Path.Combine(Application.dataPath, ConstPath.SFX_EXCEL_PATH);
+			GenerateSceneMetaSO(FilePath_sfx, sb, "eSFXType");
+
+			string storePath = Path.Combine(Application.dataPath, ConstPath.GENERATE_SCENE_META_PATH);
+			WriteToFIle(storePath, sb);
+		}
+
+		private void GenerateSceneMetaSO(string filePath, StringBuilder sb, string types)
+        {
+			FileStream fstream = File.Open(filePath, FileMode.Open, FileAccess.Read);
+
+			IExcelDataReader reader = ExcelReaderFactory.CreateReader(fstream);
+			//Header제외 옵션
+			var conf = new ExcelDataSetConfiguration
+			{
+				ConfigureDataTable = _ => new ExcelDataTableConfiguration
+				{
+					UseHeaderRow = true
+				}
+			};
+
+            sb.Append($"namespace Scripts.Core.SO");
+            OpenBrace(sb);
+			sb.Append($"[CreateAssetMenu(fileName = \"Scen{types}MetaSO\", menuName = \"ScriptableObjects/Scen{types}MetaSO\")]");
+			sb.Append($"public class Scen{types}MetaSO : ScriptableObject");
+			OpenBrace(sb);
+			sb.Append($"Dictionary<eSceneType, List<{types}>> _dic;\n");
+			sb.Append($"public void Init()");
+			OpenBrace(sb);
+            sb.Append($"_dic = new Dictionary<eSceneType, List<{types}>>();\n");
+			DataSet result = reader.AsDataSet(conf);
+            //씬 타입 - VFX[]을 생성
+            Dictionary<string, List<string>> _dics = new Dictionary<string, List<string>>();
+
+			var tables = result.Tables;
+			for (int sheetIndex = 0; sheetIndex < tables.Count; sheetIndex++)
+			{
+				DataTable sheet = tables[sheetIndex];
+
+				for (int row = 0; row < sheet.Rows.Count; row++)
+				{
+					DataRow data = sheet.Rows[row];
+
+					string SceneName = data["Scene"].ToString();
+					string eVFXTypeName = data["fileName"].ToString();
+
+                    if (SceneName == "exclusive")
+                    {
+                        continue;
+                    }
+                    if (_dics.ContainsKey(SceneName))
+                    {
+                        _dics[SceneName].Add(eVFXTypeName);
+                    }
+                    else
+                    {
+                        List<string> list = new List<string>();
+                        list.Add(eVFXTypeName);
+                        _dics.Add(SceneName, list);
+					}
+				}
+			}
+            //씬 이름 - eVFXList완성 
+            foreach (var Item in _dics)
             {
-                ConfigureDataTable = _ => new ExcelDataTableConfiguration
+                List<string> value = Item.Value;
+                OpenBrace(sb);
+                sb.Append($"List<{types}> list = new List<{types}>();\n");
+                foreach (var eVFXTypeName in value)
                 {
-                    UseHeaderRow = true
-                }
-            };
-            DataSet result = reader.AsDataSet(conf);
-
-            sb.Append($"using UnityEngine;\n");
-            sb.Append($"using System.Collections.Generic;\n");
-            sb.Append($"namespace Scripts.Core.SO {{\n");
-            sb.Append($"[CreateAssetMenu(fileName = \"SoundMetaDataSO\", menuName = \"ScriptableObjects/SoundMetaDataSO\")]");
-            sb.Append($"public class SoundMetaSO : ScriptableObject {{\n");
-            sb.Append($"Dictionary<eSceneType, List<eSFXType>> _dic;\n");
-
-            sb.Append($"public void Init(){{\n");
-            sb.Append($"_dic = new Dictionary<eSceneType, List<eSFXType>>();\n");
-            var tables = result.Tables;
-            for (int sheetIndex = 0; sheetIndex < tables.Count; sheetIndex++)
-            {
-                DataTable sheet = tables[sheetIndex];
-                int ArrayLength = sheet.Rows.Count;
-
-
-                for (int row = 0; row < sheet.Rows.Count; row++)
-                {
-
-                    DataRow data = sheet.Rows[row];
-                    string name = data["fileName"].ToString();
-                    ulong maskedId = Convert.ToUInt64(data["MaskedId"]);
-
-                    string Scene = data["Scene"].ToString();
-                    sb.Append($"if(_dic.ContainsKey(eSceneType.{Scene})){{\n");
-                    sb.Append($"_dic[eSceneType.{Scene}].Add(eSFXType.{name});");
-                    sb.Append($"}}\n");
-                    sb.Append($"else {{\n");
-                        sb.Append($"List<eSFXType> list = new List<eSFXType>();\n");
-                        sb.Append($"list.Add(eSFXType.{name});\n");
-                        sb.Append($"_dic.Add(eSceneType.{Scene},list);\n");
-                    sb.Append($"}}\n");
-                }
+					sb.Append($"list.Add({types}.{eVFXTypeName});\n");
+				}
+                sb.Append($"_dic.Add(eSceneType.{Item.Key}, list);\n");
+                CloseBrace(sb);
             }
-            sb.Append($"}}\n");
-                sb.Append($"public void GetSFXList(eSceneType scene, out List<eSFXType> sfxList){{\n");
-                sb.Append($"List<eSFXType> ret;\n");
-                sb.Append($"if(_dic.TryGetValue(scene, out ret)){{\n");
-                sb.Append($"sfxList = ret;\n return;\n");
-                sb.Append($"}}\n");
-                sb.Append($"sfxList = default;\n return;\n");
-            sb.Append($"}}\n");
-            sb.Append($"}}\n");
-            sb.Append($"}}\n");
-            //AssetDatabase.StopAssetEditing();
-            reader.Close();
-            fstream.Close();
 
-            string storePath = Path.Combine(Application.dataPath, ConstPath.GENERATE_SFX_PATH);
-            WriteToFIle(storePath, sb);
-        }
+			CloseBrace(sb);
+            sb.Append($"public bool TryGet{types}List(eSceneType type, out List<{types}> outList)");
+            OpenBrace(sb);
+            sb.Append($"List<{types}> ret;\n");
+            sb.Append($"if(_dic.TryGetValue(type, out ret))");
+			OpenBrace(sb);
+			sb.Append($"outList = ret;\n");
+			sb.Append($"return true;\n");
+			CloseBrace(sb);
+			sb.Append($"outList = default;\n");
+			sb.Append($"return false;\n");
+			CloseBrace(sb);
+            CloseBrace(sb);
+			CloseBrace(sb);
 
-        private void GenerateEnumFile(List<ReadFromXlsx> _ReadFromXlsx)
+			reader.Close();
+			fstream.Close();
+		}
+
+		private void GenerateEnumFile(List<ReadFromXlsx> _ReadFromXlsx)
         {
             StringBuilder sb = new StringBuilder();
             StringBuilder HelperFuncSb = new StringBuilder();
@@ -540,6 +734,126 @@ namespace Scripts.Core.Parser
             fs.Close();
         }
 
+        private void CreateMetaSOHeader(StringBuilder sb)
+        {
+			sb.Append($"using UnityEngine;\n");
+			sb.Append($"using System.Collections.Generic;\n");
+			sb.Append($"namespace Scripts.Core.SO\n");
+		}
+        private void CreateTryGetVFXList(StringBuilder sb)
+        {
+			sb.Append($"public bool TryGetVFXList(eMonsterType type, out List<eVFXType> vfxDatas){{\n");
+			sb.Append($"List<eVFXType> ret;\n");
+			sb.Append($"if (_dic.TryGetValue(type, out ret)){{\n");
+			sb.Append($"vfxDatas = ret;\n");
+			sb.Append($"return true;\n");
+			sb.Append($"}}\n");
+			sb.Append("vfxDatas = default;\n return false;\n");
+			sb.Append($"}}\n");
+		}
+
+        private void CreateTryGetSFXList(StringBuilder sb)
+        {
+			sb.Append($"public bool TryGetSFXList(eMonsterType type, out List<eSFXType> sfxDatas){{\n");
+			sb.Append($"List<eSFXType> ret;\n");
+			sb.Append($"if (_dic2.TryGetValue(type, out ret)){{\n");
+			sb.Append($"sfxDatas = ret;\n");
+			sb.Append($"return true;\n");
+			sb.Append($"}}\n");
+			sb.Append("sfxDatas = default;\n return false;\n");
+			sb.Append($"}}\n");
+		}
+        private void CreateTryGetStageMonsterInfo(StringBuilder sb)
+        {
+			sb.Append($"public bool TryGetMonsterList(eStage type, out List<eMonsterType> monsterDatas){{\n");
+			sb.Append($"List<eMonsterType> ret;\n");
+			sb.Append($"if (_monDic.TryGetValue(type, out ret)){{\n");
+			sb.Append($"monsterDatas = ret;\n");
+			sb.Append($"return true;\n");
+			sb.Append($"}}\n");
+			sb.Append("monsterDatas = default;\n return false;\n");
+			sb.Append($"}}\n");
+		}
+
+		private void CreateTryGetMonsterInfo(StringBuilder sb)
+        {
+			sb.Append($"public bool TryGetMonsterInfo(eMonsterType type, out MonsterInfo mon){{\n");
+			sb.Append($"MonsterInfo ret;\n");
+			sb.Append($"if (_mInfodic.TryGetValue(type, out ret)){{\n");
+			sb.Append($"mon = ret;\n");
+			sb.Append($"return true;\n");
+			sb.Append($"}}\n");
+			sb.Append($"mon = default;\n return false;\n");
+			sb.Append($"}}\n");
+		}
+
+        private void CreateTryStageInfo(StringBuilder sb)
+        {
+			sb.Append($"public bool TryGetStageInfo(eStage key, out List<StageInfo_v> stageList){{\n");
+			sb.Append($"List<StageInfo_v> ret;");
+			sb.Append($"if(_dic.TryGetValue(key, out ret)) {{\n");
+			sb.Append($"stageList = ret;\n return true;\n");
+			sb.Append($"}}\n");
+			sb.Append($"stageList = default;\n return false;\n");
+			sb.Append($"}}\n");
+		}
+
+        private void CreateTryGetDropInfo(StringBuilder sb)
+        {
+            sb.Append($"public bool TryGetDropInfo(long id, out DropInfo info){{\n");
+			sb.Append($"DropInfo ret;\n");
+            sb.Append($"if(_dic.TryGetValue(id, out ret)){{\n");
+            sb.Append($"info = ret;\n return true;\n");
+			sb.Append($"}}\n");
+            sb.Append($"info = default;\n return false;\n");
+			sb.Append($"}}\n");
+		}
+        private void CreateTryGetSFX(StringBuilder sb)
+        {
+			sb.Append($"public bool TryGetSFXList(eSceneType scene, out List<eSFXType> sfxList)");
+			OpenBrace(sb);
+			sb.Append($"List<eSFXType> ret;\n");
+			sb.Append($"if(_dic.TryGetValue(scene, out ret))");
+			OpenBrace(sb);
+			sb.Append($"sfxList = ret;\n return true;\n");
+			CloseBrace(sb);
+			sb.Append($"sfxList = default;\n return false;\n");
+			CloseBrace(sb);
+		}
+        private void CreateDropTable_DropTableInfo_Struct(StringBuilder sb)
+        {
+			sb.Append($"public struct DropInfo{{\n");
+			sb.Append($"public DropInfo(int gold, int ancientCoin){{\n");
+			sb.Append($"_incomeGold = gold;\n");
+			sb.Append($"_incomeAncientCoin = ancientCoin;\n");
+			sb.Append($"}}\n");
+			sb.Append($"public int _incomeGold;\n");
+			sb.Append($"public int _incomeAncientCoin;\n");
+			sb.Append($"}}\n");
+		}
+
+        private void CreateStageInfo_Struct(StringBuilder sb)
+        {
+			sb.Append($"public struct StageInfo_v");
+			OpenBrace(sb);
+			sb.Append($"public StageInfo_v(eMonsterType type, int count)");
+			OpenBrace(sb);
+
+			sb.Append($"_type = type; _count = count;\n");
+			CloseBrace(sb);
+			sb.Append($"public eMonsterType _type;\n");
+			sb.Append($"public int _count;\n");
+			CloseBrace(sb);
+		}
+
+        private void OpenBrace(StringBuilder sb)
+        {
+            sb.Append(OPEN_BRACE);
+        }
+        private void CloseBrace(StringBuilder sb)
+        {
+            sb.Append(CLOSE_BRACE);
+        }
     }
 }
 

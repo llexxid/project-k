@@ -1,4 +1,6 @@
 using Scripts.Core;
+using Scripts.Core.Utils;
+using Scripts.Monster.State;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -7,16 +9,18 @@ namespace Scripts.Monster.MonsterNode
 {
     public class MonsterAttack : MonsterNode
     {
+        float attackLatency;
         public MonsterAttack(Monster mon) : base(mon)
         {
-
-        }
+            attackLatency = mon.GetAnimationLength(eMonsterAction.Attack);
+		}
 
         private NodeState IsInAttackRange()
         {
             //타겟이 없으면 Fail!
             if (_monster.Target == null)
             {
+                CustomLogger.Log($"공격 타겟을 찾지 못함");
                 return NodeState.Failure;
             }
 
@@ -25,24 +29,27 @@ namespace Scripts.Monster.MonsterNode
             float distance = Vector3.Distance(_monster.attackerPos, targetPos);
             if (distance > _monster.AttackRadius)
             {
-                return NodeState.Failure;
+				CustomLogger.Log($"공격 범위 밖");
+				return NodeState.Failure;
             }
-            
-            //공격범위 안에 있고, Target이 여전히 있다.
-            bool IsAlive;
-            IsAlive = _monster.Target.TakeDamage(_monster);
-            if (!IsAlive)
-            {
-                //상대방을 죽였다면, 다음.
-                _monster.ChangeMonsterAction(eMonsterAction.Idle);
-                _monster.ResetTarget();
-                return NodeState.Success;
-            }
-            //아니라면 전투지속
-            _monster.ChangeMonsterAction(eMonsterAction.Attack);
-            return NodeState.Running;
-        }
 
+            //
+            AttackProcess();
+			_monster.ChangeState(new MonsterAttackState(_monster));
+			return NodeState.Success;
+		}
+        private void AttackProcess()
+        {
+			if ((_monster.LastAttackTime + attackLatency) < Time.time)
+			{
+                CustomLogger.Log("공격 성공 했음");
+				bool IsAlive = _monster.Attack(_monster.Target);
+				if (!IsAlive)
+				{
+					_monster.ChangeState(new MonsterIdleState(_monster));
+				}
+			}
+		}
         // 공격범위에 있다면 공격을 한다.
         // 
         //Player가 공격 범위에 있는가

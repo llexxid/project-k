@@ -1,14 +1,16 @@
 using Scripts.Core;
 using Scripts.Core.inteface;
+using Scripts.Core.Utils;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class Player : MonoBehaviour, IAttackable, IDamageable
 {
-    public Wallet wallet;
     public PlayerOrder playerOrder;
     public PlayerStatus playerStatus;
+    public SkillManager skillManager;
+    public SkillDatabase skillDatabase;
 
     // 애니메이터 관련
     public Animator _am;
@@ -18,16 +20,15 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
     public ePlayerAction _prevAction;
     public ePlayerAction _playerAction;
 
-    // IAttackable 인터페이스 구현
-    public int damage 
+    public IDamageable currentTarget;
+    PlayerData _data;
+	public ulong damage 
     {
         get 
         {
-            return 10; 
+            return (_data._atk + _data._extraAtk); 
         }
     }
-
-    // IAttackable 인터페이스 구현
     public Vector3 targetPos
     {
         get
@@ -35,8 +36,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
             return transform.position;
         }
     }
-
-    // IDamageable 인터페이스 구현
     public Vector3 attackerPos
     {
         get
@@ -44,43 +43,66 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
             return transform.position;
         }
     }
-
-    // IDamageable 인터페이스 구현
     public bool TakeDamage(IAttackable attacker)
     {
-        return true;
-    }
+		ulong dmg = attacker.damage;
+        CustomLogger.Log($"Player가 공격을 받고있습니다! DMG : {dmg}");
+		bool IsAlive = setHp(dmg);
 
-    // 플레이어와 코인이 콜라이더 충돌 감지
-    public void OnTriggerEnter(Collider other)
+        CustomLogger.Log($"Player HP : {_data._Hp}");
+		if (!IsAlive)
+		{   
+            //죽었을때?
+			return false;
+		}
+		return true;
+	}
+
+	public void Init(PlayerData data)
+	{
+        _data = data;
+	}
+    private void OnDead()
     {
-        // 1. 충돌한 물체의 태그(String)를 eCurrency(Enum)로 변환 시도
-        // 성공하면 true를 반환하고, 변환된 Enum 값은 'type' 변수에 담깁니다.
-        if (System.Enum.TryParse(other.tag, out eCurrency type))
-        {
-            // 2. 해당 물체에서 Coin 컴포넌트(Value 값) 가져오기
-            Coin coin = other.GetComponent<Coin>();
+		CustomLogger.Log("Player Is Dead!!");
+		_playerAction = ePlayerAction.Dead;
+        //gameObject.SetActive(false);
+	}
+	private bool setHp(ulong damage)
+	{
+		long totalHp = _data._Hp + _data._extraHp;
+		//죽는경우
+		if (totalHp - (long)damage <= 0)
+		{
+			OnDead();
+			return false;
+		}
 
-            if (coin != null)
-            {
-                // 3. 변환된 Enum 타입(type)과 코인의 값(Value)을 지갑에 전달
-                wallet.AddCoins(type, coin.Value);
+		//ExtraHp먼저 깍기
+		if ((long)damage > _data._extraHp)
+		{
+			long remainDamage = (long)damage - _data._extraHp;
+			_data._extraHp = 0;
+			_data._Hp -= remainDamage;
+			return true;
+		}
 
-                // 코인 획득 후 비활성화
-                other.gameObject.SetActive(false);
-            }
-        }
-        else
-        {
-            Debug.Log("변환 실패");
-        }
-    }
-
-    // 초기화 함수
-    private void Awake()
+		_data._extraHp = _data._extraHp - (int)damage;
+		return true;
+	}
+	// 초기화 함수
+	private void Awake()
     {
         InitializeAnimator();
-    }
+
+        playerOrder = new PlayerOrder();
+        playerOrder.Init(this);
+
+        //For Test 
+        _data._Hp = 50;
+        _data._atk = 10;
+
+	}
 
     // 애니메이터 초기화 함수
     private void InitializeAnimator()
@@ -100,7 +122,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
     {
         if (_prevAction != _playerAction)
         {
-
             TurnOffAnimation(_prevAction);
             TurnOnAnimation(_playerAction);
         }
@@ -141,32 +162,15 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
     {
         // 플레이어 행동 트리 평가
         playerOrder._rootNode?.Evaluate();
-
-
-
-        // 임시 키 입력으로 플레이어 이동 (WASD)
-        // - 삭제 예정
-        if (Input.GetKey(KeyCode.W))
-        {
-            transform.Translate(Vector3.forward * 2 * Time.deltaTime);
-        }
-        if(Input.GetKey(KeyCode.S))
-        {
-            transform.Translate(Vector3.back * 2 * Time.deltaTime);
-        }
-        if(Input.GetKey(KeyCode.A))
-        {
-            transform.Translate(Vector3.left * 2 * Time.deltaTime);
-        }
-        if(Input.GetKey(KeyCode.D))
-        {
-            transform.Translate(Vector3.right * 2 * Time.deltaTime);
-        }
     }
-
     // LateUpdate에서 애니메이션 업데이트 호출 (Update에서 행동 트리 평가 후 애니메이션 상태 변경)
     private void LateUpdate()
     {
         UpdateAnimation();
     }
+
+	public bool Attack(IDamageable target)
+	{
+		throw new System.NotImplementedException();
+	}
 }

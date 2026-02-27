@@ -2,13 +2,15 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Scripts.Core.inteface;
-
+using Scripts.Core.Utils;
 
 namespace Scripts.Monster.MonsterNode
 {
     using Scripts.Core;
     using Scripts.Core.inteface;
-    public class MonsterDetect : MonsterNode
+	using Scripts.Monster.State;
+
+	public class MonsterDetect : MonsterNode
     {
         private List<Collider2D> _res;
         private int playerLayer;
@@ -21,6 +23,7 @@ namespace Scripts.Monster.MonsterNode
         {
             if (_monster.Target != null)
             {
+                CustomLogger.Log($"탐색을 이미 끝냈음!\n");
                 return false;
             }
 
@@ -36,11 +39,12 @@ namespace Scripts.Monster.MonsterNode
             int around = Physics2D.OverlapCircle(_monster.attackerPos, radius, filter, _res);
             if (around == 0)
             {
-                return false;
+				CustomLogger.Log($"탐색범위 밖인 경우");
+				return false;
             }
             IDamageable target = _res[0].GetComponent<IDamageable>();
             _monster.SetTarget(target);
-            _monster.ChangeMonsterAction(eMonsterAction.Walk);
+            _monster.ChangeState(new MonsterMoveState(_monster));
             return true;
         }
 

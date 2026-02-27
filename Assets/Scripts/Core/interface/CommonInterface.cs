@@ -16,8 +16,9 @@ namespace Scripts.Core.inteface
     /// </summary>
     public interface IAttackable
     {
-        public int damage { get;}
+        public ulong damage { get;}
         public Vector3 attackerPos { get; }
+        public bool Attack(IDamageable target);
     }
     /// <summary>
     /// 데미지를 입을 수 있는 개체(피격이 가능한 개체)
