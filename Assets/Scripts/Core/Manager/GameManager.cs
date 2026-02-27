@@ -203,13 +203,19 @@ namespace Scripts.Core
             //각 씬에 필요한 VFX,SFX 로딩
             List<eVFXType> vfxList;
             List<eSFXType> sfxList;
-            _SceneVFXMetaSO.TryGetVFXTypeList(type, out vfxList);
-            _SceneSFXMetaSO.TryGetSFXTypeList(type, out sfxList);
+            bool IsVFXLoadNeed = _SceneVFXMetaSO.TryGetVFXTypeList(type, out vfxList);
+            bool IsSFXLoadNeed = _SceneSFXMetaSO.TryGetSFXTypeList(type, out sfxList);
 
-            _VFXSceneHandle = VFXManager.Instance.PreLoadVFX((ulong)type, vfxList.ToArray());
-            _SFXSceneHandle = SFXManager.Instance.PreLoadSFX((ulong)type, sfxList.ToArray());
+            if (IsVFXLoadNeed)
+            {
+				_VFXSceneHandle = VFXManager.Instance.PreLoadVFX((ulong)type, vfxList.ToArray());
+			}
+            if (IsSFXLoadNeed)
+            {
+				_SFXSceneHandle = SFXManager.Instance.PreLoadSFX((ulong)type, sfxList.ToArray());
+			}
             
-
+           
             while (true)
             {
                 bool stageDone = _StageLoaderHandle.IsDone;
