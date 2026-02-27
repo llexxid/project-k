@@ -26,6 +26,8 @@ namespace Scripts.Core
 				DontDestroyOnLoad(gameObject);
 				return;
 			}
+			Destroy(gameObject);
+			return;
 		}
 
 		private void Init()
@@ -34,33 +36,6 @@ namespace Scripts.Core
 			// 지금은 테스트 
 			UserData dummyUser = new UserData(0, "zx지존zx", eStage.Stage1, 1, 100, 100);
 			CreateUser(dummyUser);
-
-			// Todo : 추후에는 서버로 부터 플레이어 정보를 받고, 유저에서 Instantiate로 
-			// 정보에 맞는 직업 Prefab을 생성해야함.
-			GameObject obj1 = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
-			GameObject obj2 = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
-			GameObject obj3 = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
-
-			Player p1;
-			Player p2;
-			Player p3;
-
-			int i = 0;
-			PlayerData dummyData = new PlayerData(i, $"Test{i}", 1, 10, 500);
-			//Init Player
-			p1 = obj1.GetComponent<Player>();
-			p1.Init(dummyData, _user);
-			++i;
-			p2 = obj2.GetComponent<Player>();
-			p2.Init(dummyData, _user);
-			++i;
-			p3 = obj3.GetComponent<Player>();
-			p3.Init(dummyData, _user);
-			++i;
-
-			_user.ConnectCharacters(p1);
-			_user.ConnectCharacters(p2);
-			_user.ConnectCharacters(p3);
 		}
 
 		public UserData GetUserData()
@@ -95,6 +70,36 @@ namespace Scripts.Core
 		public void CreateUser(UserData data)
 		{
 			_user = new User(data);
+		}
+
+		public void CreateCharacter()
+		{
+			// Todo : 추후에는 서버로 부터 플레이어 정보를 받고, 유저에서 Instantiate로 
+			// 정보에 맞는 직업 Prefab을 생성해야함.
+			GameObject obj1 = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
+			GameObject obj2 = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
+			GameObject obj3 = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
+
+			Player p1;
+			Player p2;
+			Player p3;
+
+			int i = 0;
+			PlayerData dummyData = new PlayerData(i, $"Test{i}", 1, 10, 500);
+			//Init Player
+			p1 = obj1.GetComponent<Player>();
+			p1.Init(dummyData, _user);
+			++i;
+			p2 = obj2.GetComponent<Player>();
+			p2.Init(dummyData, _user);
+			++i;
+			p3 = obj3.GetComponent<Player>();
+			p3.Init(dummyData, _user);
+			++i;
+
+			_user.ConnectCharacters(p1);
+			_user.ConnectCharacters(p2);
+			_user.ConnectCharacters(p3);
 		}
 	}
 

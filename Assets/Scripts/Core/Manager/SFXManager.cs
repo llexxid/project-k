@@ -52,6 +52,11 @@ namespace Scripts.Core
         }
         public AsyncOperationHandle<IList<AudioClip>> PreLoadSFX(ulong groupId, eSFXType[] clipsId)
         {
+            if (clipsId.Length == 0)
+            {
+                CustomLogger.LogWarning("Clips Id List is Empty");
+                return default;
+            }
             //Clip들 로딩
             AsyncOperationHandle<IList<AudioClip>> ret;
             bool IsRequested = _BatchHandles.TryGetValue((ulong)groupId, out ret);
