@@ -1,8 +1,5 @@
 using Scripts.Core;
-using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
-using Scripts.Wallets;
 
 namespace Scripts.Users
 {
@@ -32,7 +29,7 @@ namespace Scripts.Users
 		{
 			return _userData._level;
 		}
-		//Todo WalletÀ¸·Î ±³Ã¼
+		//Todo Walletìœ¼ë¡œ êµì²´
 		public int GetCoin()
 		{
 			return _userData._coin;
@@ -58,5 +55,5 @@ namespace Scripts.Users
 	}
 
 }
-// User ½ºÅ©¸³Æ®¿¡ Áö°© Á¤º¸, Player 3¸¶¸® ¿¬°á, Player¿¡¼­ User·Î ¿¬°á ·ÎÁ÷ Ãß°¡
+// User ìŠ¤í¬ë¦½íŠ¸ì— ì§€ê°‘ ì •ë³´, Player 3ë§ˆë¦¬ ì—°ê²°, Playerì—ì„œ Userë¡œ ì—°ê²° ë¡œì§ ì¶”ê°€
 

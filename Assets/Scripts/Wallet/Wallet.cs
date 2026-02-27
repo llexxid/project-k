@@ -5,7 +5,25 @@ using UnityEngine;
 
 namespace Scripts.Wallets
 {
-    public class Wallet
+    private Player player;
+    private Coin coin;
+    private List<eCurrency> currencies;
+    private Dictionary<eCurrency, int> wallet = new Dictionary<eCurrency, int>();
+
+    [SerializeField]
+    private int totalCoins;
+    private User user;
+    private int coin1;
+    private int coin2;
+
+    public Wallet(User user, int coin1, int coin2)
+    {
+        this.user = user;
+        this.coin1 = coin1;
+        this.coin2 = coin2;
+    }
+
+    public int TotalCoins
     {
         private User _user;
         private Dictionary<eCurrency, int> pocket = new Dictionary<eCurrency, int>();
