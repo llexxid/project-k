@@ -2,6 +2,7 @@ using Cysharp.Threading.Tasks;
 using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Core.Utils;
+using Scripts.Users;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -76,9 +77,10 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         return connect;
     }
 
-    public void Init(PlayerData data)
+    public void Init(PlayerData data, User user)
     {
         _data = data;
+        _user = user;
     }
     private void OnDead()
     {
@@ -237,4 +239,16 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         _playerAction = ePlayerAction.Idle;
         TurnOnAnimation(_playerAction);
     }
+
+	public void GiveReward(int gold, int ancientCoin)
+	{
+        _user.GainCoin(eCurrency.Gold, gold);
+        _user.GainCoin(eCurrency.AncientCoin, ancientCoin);
+        return;
+	}
+
+	public bool Attack(IDamageable target)
+	{
+        return true;
+	}
 }
