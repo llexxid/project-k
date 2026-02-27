@@ -28,4 +28,10 @@ namespace Scripts.Core.inteface
         public Vector3 targetPos { get; }
         public bool TakeDamage(IAttackable attacker);
     }
+
+    public interface IRewardable
+    {
+        public void GiveReward(int gold, int ancientCoin);
+    }
+
 }

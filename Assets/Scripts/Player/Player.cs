@@ -1,11 +1,12 @@
 using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Core.Utils;
+using Scripts.Users;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Player : MonoBehaviour, IAttackable, IDamageable
+public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 {
     public PlayerOrder playerOrder;
     public PlayerStatus playerStatus;
@@ -22,6 +23,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
 
     public IDamageable currentTarget;
     PlayerData _data;
+    private User _user;
 	public ulong damage 
     {
         get 
@@ -58,9 +60,10 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
 		return true;
 	}
 
-	public void Init(PlayerData data)
+	public void Init(PlayerData data, User user)
 	{
         _data = data;
+        _user = user;
 	}
     private void OnDead()
     {
@@ -171,6 +174,14 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
 
 	public bool Attack(IDamageable target)
 	{
-		throw new System.NotImplementedException();
+
+        return true;
+	}
+
+	public void GiveReward(int gold, int ancientCoin)
+	{
+        _user.GainCoin(eCurrency.Gold, gold);
+        _user.GainCoin(eCurrency.AncientCoin, ancientCoin);
+		return;
 	}
 }
