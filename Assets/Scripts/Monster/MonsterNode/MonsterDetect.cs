@@ -8,7 +8,9 @@ namespace Scripts.Monster.MonsterNode
 {
     using Scripts.Core;
     using Scripts.Core.inteface;
-    public class MonsterDetect : MonsterNode
+	using Scripts.Monster.State;
+
+	public class MonsterDetect : MonsterNode
     {
         private List<Collider2D> _res;
         private int playerLayer;
@@ -42,7 +44,7 @@ namespace Scripts.Monster.MonsterNode
             }
             IDamageable target = _res[0].GetComponent<IDamageable>();
             _monster.SetTarget(target);
-            _monster.ChangeMonsterAction(eMonsterAction.Walk);
+            _monster.ChangeState(new MonsterMoveState(_monster));
             return true;
         }
 

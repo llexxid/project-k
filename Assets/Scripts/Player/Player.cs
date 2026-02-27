@@ -49,6 +49,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
         CustomLogger.Log($"Player가 공격을 받고있습니다! DMG : {dmg}");
 		bool IsAlive = setHp(dmg);
 
+        CustomLogger.Log($"Player HP : {_data._Hp}");
 		if (!IsAlive)
 		{   
             //죽었을때?
@@ -65,6 +66,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
     {
 		CustomLogger.Log("Player Is Dead!!");
 		_playerAction = ePlayerAction.Dead;
+        //gameObject.SetActive(false);
 	}
 	private bool setHp(ulong damage)
 	{
@@ -95,7 +97,12 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
 
         playerOrder = new PlayerOrder();
         playerOrder.Init(this);
-    }
+
+        //For Test 
+        _data._Hp = 50;
+        _data._atk = 10;
+
+	}
 
     // 애니메이터 초기화 함수
     private void InitializeAnimator()
@@ -161,4 +168,9 @@ public class Player : MonoBehaviour, IAttackable, IDamageable
     {
         UpdateAnimation();
     }
+
+	public bool Attack(IDamageable target)
+	{
+		throw new System.NotImplementedException();
+	}
 }
