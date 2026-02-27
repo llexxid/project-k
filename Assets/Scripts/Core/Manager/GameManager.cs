@@ -274,6 +274,8 @@ namespace Scripts.Core
                 VFXManager.Instance.OnEnterScene();
 
                 //MainScene진입시 SpawnLogic
+                //Stage정보를 가져와서, 해당 스테이지 정보에 맞게 스폰을 요청하게 됨.
+                //아래는 테스트용
                 MonsterSpawner.Instance.SpawnMonster(eMonsterType.MON_ORC, pos, Quaternion.identity, out mon);
                 _monsterMetaDataSO.TryGetMonsterInfo(eMonsterType.MON_ORC, out MonsterInfo monInfo);
                 MonsterStat stat = new MonsterStat(monInfo._baseHp, 0, (ulong)monInfo._baseAtk, monInfo._baseMoveSpeed, monInfo._baseAtkSpeed);
