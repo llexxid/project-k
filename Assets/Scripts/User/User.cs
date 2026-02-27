@@ -49,6 +49,7 @@ namespace Scripts.Users
 			_wallet.AddCoins(type, amount);
 		}
 
+
 		public void ConnectCharacters(Player player)
 		{
 			_players.Add(player);
