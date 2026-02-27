@@ -244,6 +244,11 @@ namespace Scripts.Monster
             ulong dmg = attacker.damage;
             bool IsAlive = setHp(dmg);
 
+            if (_monAction == eMonsterAction.Dead)
+            {
+                CustomLogger.LogError("죽은 상태인데 공격받음!");
+            }
+
             if (!IsAlive)
             {
                 //Todo : Reward 주기
@@ -297,6 +302,7 @@ namespace Scripts.Monster
             //Institate 동전
             CustomLogger.Log("Monster Is Dead!!");
             _monAction = eMonsterAction.Dead;
+            _stateManchine.ChangeState(new MonsterDeadState(this));
         }
 
         private void InitializeAnimator()
