@@ -8,7 +8,7 @@ public class PlayerOrder
 
     private PlayerDetection _detection;
     private PlayerMove _move;
-    private PlayerAttack _attack;
+    public PlayerAttack _attack;
 
     public void Init(Player player)
     {

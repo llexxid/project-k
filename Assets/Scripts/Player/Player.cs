@@ -1,10 +1,7 @@
-using Cysharp.Threading.Tasks;
 using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Core.Utils;
 using Scripts.Users;
-using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -26,11 +23,12 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     public IDamageable currentTarget;
     PlayerData _data;
     private User _user;
-	public ulong damage 
+    // PlayerStatus.Atk 기반 데미지 (기본 공격력)
+    public ulong damage
     {
-        get 
+        get
         {
-            return (_data._atk + _data._extraAtk); 
+            return (ulong)(playerStatus?.Atk ?? 0);
         }
     }
     public Vector3 targetPos
@@ -118,11 +116,24 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         playerOrder = new PlayerOrder();
         playerOrder.Init(this);
 
+        // [공격 속도 자동 동기화]
+        // Animator에 등록된 "Attack" 클립의 실제 길이를 읽어 attackRate에 주입한다.
+        // 덕분에 Animation 창에서 클립 길이를 수정해도 코드 변경 없이 공격 속도가 자동으로 맞춰진다.
+        //
+        // ⚠ 단점
+        // 1. 클립 이름이 "Attack"과 정확히 일치해야 동작함 (대소문자 포함)
+        //    → 클립 이름이 바뀌면 여기 문자열도 같이 바꿔야 함
+        // 2. runtimeAnimatorController의 모든 클립을 순회하므로,
+        //    클립 수가 많아질수록 Awake 초기화 시간이 약간 늘어날 수 있음 (미미하지만 주의)
+        // 3. Animator가 인스펙터에 연결되지 않은 채 실행되면 fallback(0.4f) 값으로 동작함
+        float attackClipLength = GetClipLength("Attack");
+        playerOrder._attack.attackRate = attackClipLength;
+
         //For Test 
         _data._Hp = 50;
         _data._atk = 10;
 
-	}
+    }
 
     // 애니메이터 초기화 함수
     private void InitializeAnimator()
@@ -134,6 +145,44 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         dic.Add(ePlayerAction.Dead, Animator.StringToHash("Dead"));
 
         _animatorComponent = new AnimatorComponent<ePlayerAction>(_am, dic);
+    }
+
+    /// <summary>
+    /// Animator에 등록된 AnimationClip 중 clipName과 정확히 일치하는 클립의 길이(초)를 반환한다.
+    ///
+    /// [동작 원리]
+    /// runtimeAnimatorController에 연결된 모든 AnimationClip을 순회하여
+    /// clip.name이 clipName과 일치하는 항목의 clip.length를 반환한다.
+    ///
+    /// [단점]
+    /// - 클립 이름 기반 탐색이므로 이름이 바뀌면 찾지 못하고 fallback 반환
+    /// - Animator Override Controller를 사용하는 경우 오버라이드된 클립이 반영되지 않을 수 있음
+    /// - Awake 시점에만 호출되므로 런타임 도중 클립이 교체되어도 attackRate는 갱신되지 않음
+    /// </summary>
+    /// <param name="clipName">찾을 AnimationClip의 이름 (대소문자 구분)</param>
+    /// <param name="fallback">클립을 찾지 못했을 때 반환할 기본 길이 (초)</param>
+    private float GetClipLength(string clipName, float fallback = 0.4f)
+    {
+        // Animator 또는 컨트롤러가 인스펙터에 연결되지 않은 경우
+        if (_am == null || _am.runtimeAnimatorController == null)
+        {
+            Debug.LogWarning($"[Player] Animator가 없어 '{clipName}' 클립 길이를 읽을 수 없습니다. 기본값 {fallback}초 사용.");
+            return fallback;
+        }
+
+        // 등록된 모든 클립을 순회하며 이름이 일치하는 클립 탐색
+        foreach (var clip in _am.runtimeAnimatorController.animationClips)
+        {
+            if (clip.name == clipName)
+            {
+                Debug.Log($"[Player] '{clipName}' 클립 길이: {clip.length}초 → attackRate에 적용");
+                return clip.length;
+            }
+        }
+
+        // 일치하는 클립을 찾지 못한 경우 fallback 반환
+        Debug.LogWarning($"[Player] '{clipName}' 클립을 찾지 못했습니다. 기본값 {fallback}초 사용.");
+        return fallback;
     }
 
     // 행동 트리에서 플레이어 행동 상태가 변경될 때마다 애니메이션 업데이트
@@ -188,55 +237,10 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         UpdateAnimation();
     }
 
-    // 공격 애니메이션을 재생하고, 애니메이션이 끝나면 onAnimationEnd를 호출
-    public void PlayAttackAndApplyDamage(Action onAnimationEnd)
+    // 공격 애니메이션 재생 (데미지와 독립적, 시각적 피드백만 담당)
+    public void PlayAttackAnimation()
     {
-        // 공격 상태로 전환하여 애니메이터에 신호를 보냄
         _playerAction = ePlayerAction.Attack;
-        TurnOnAnimation(_playerAction);
-
-        // 중복 코루틴 방지
-        StopCoroutine(nameof(RunAttackCoroutine));
-        StartCoroutine(RunAttackCoroutine(onAnimationEnd));
-    }
-
-    // 공격 애니메이션이 끝날 때까지 대기하는 코루틴
-    private IEnumerator RunAttackCoroutine(Action onAnimationEnd)
-    {
-        // 애니메이터 컴포넌트가 없는 경우 바로 콜백 호출
-        if (_am == null)
-        {
-            onAnimationEnd?.Invoke();
-            yield break;
-        }
-
-        int attackHash = Animator.StringToHash("Attack");
-
-        // 애니메이터가 Attack 상태로 진입할 때까지 대기 (프레임 단위)
-        // 타임아웃을 넣지 않으면 잘못된 상태머신에서 무한루프 될 수 있음.
-        float timeout = 2f; // 안전 타임아웃 (초)
-        float timer = 0f;
-
-        // 진입 대기: 상태가 Attack으로 바뀌기 전까지 기다림
-        while (_am.GetCurrentAnimatorStateInfo(0).shortNameHash != attackHash && timer < timeout)
-        {
-            timer += Time.deltaTime;
-            yield return null;
-        }
-
-        // 상태에 진입했으면 normalizedTime이 1 이상일 때까지 대기(한 사이클 완료)
-        timer = 0f;
-        while (_am.GetCurrentAnimatorStateInfo(0).shortNameHash == attackHash && _am.GetCurrentAnimatorStateInfo(0).normalizedTime < 1f && timer < timeout)
-        {
-            timer += Time.deltaTime;
-            yield return null;
-        }
-
-        // 애니메이션 끝 시점에 콜백 호출
-        onAnimationEnd?.Invoke();
-
-        // 애니메이션 끝나면 Idle로 전환
-        _playerAction = ePlayerAction.Idle;
         TurnOnAnimation(_playerAction);
     }
 
