@@ -2,6 +2,7 @@ using Cysharp.Threading.Tasks;
 using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Core.Utils;
+using Scripts.Users;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -236,5 +237,16 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         // 애니메이션 끝나면 Idle로 전환
         _playerAction = ePlayerAction.Idle;
         TurnOnAnimation(_playerAction);
+    }
+
+    public void GiveReward(int gold, int ancientCoin)
+    {
+        // TODO: 보상 시스템 구현 예정
+        CustomLogger.Log($"[임시] 보상 획득 - 골드: {gold}, 코인: {ancientCoin}");
+    }
+
+    public bool Attack(IDamageable target)
+    {
+        throw new NotImplementedException();
     }
 }

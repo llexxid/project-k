@@ -258,6 +258,51 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 86f977addf54f644eb91c4f42d97f642, type: 3}
+--- !u!1 &446445148
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 446445150}
+  - component: {fileID: 446445149}
+  m_Layer: 0
+  m_Name: DropManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &446445149
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 446445148}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5305bcbb6c7d5a240ac26813ab373504, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _DropTableMetaSO: {fileID: 11400000, guid: b8f4ce5801e63fd4da91b12278d0f9b4, type: 2}
+--- !u!4 &446445150
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 446445148}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 3.8347042, y: 2.57302, z: 0.18992044}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &779191257
 GameObject:
   m_ObjectHideFlags: 0
@@ -533,7 +578,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 999155279}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5e4a1c9802ff9b541af611e6b723819b, type: 3}
   m_Name: 
@@ -637,7 +682,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   enemyPrefab: {fileID: 1235292229}
   player: {fileID: 0}
-  spawnInterval: 5
+  spawnInterval: 10
   spawnRadius: 5
 --- !u!4 &1232204200
 Transform:
@@ -666,12 +711,12 @@ PrefabInstance:
     - target: {fileID: 2057704345339096838, guid: 6b54f1e589fa17f4d81834fa6fffc83b,
         type: 3}
       propertyPath: m_LocalPosition.x
-      value: -1.75
+      value: 0.31
       objectReference: {fileID: 0}
     - target: {fileID: 2057704345339096838, guid: 6b54f1e589fa17f4d81834fa6fffc83b,
         type: 3}
       propertyPath: m_LocalPosition.y
-      value: 3.83
+      value: 0.01
       objectReference: {fileID: 0}
     - target: {fileID: 2057704345339096838, guid: 6b54f1e589fa17f4d81834fa6fffc83b,
         type: 3}
@@ -977,3 +1022,4 @@ SceneRoots:
   - {fileID: 366975784}
   - {fileID: 358682861}
   - {fileID: 1161411113}
+  - {fileID: 446445150}

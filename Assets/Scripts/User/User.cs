@@ -1,11 +1,12 @@
 using Scripts.Core;
+using Scripts.Wallets;
 using System.Collections.Generic;
 
 namespace Scripts.Users
 {
 	public class User
 	{
-		public Wallet _wallet;
+        private Wallet _wallet;
 		UserData _userData;
 
 		public List<Player> _players;
