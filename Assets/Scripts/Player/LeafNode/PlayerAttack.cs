@@ -1,6 +1,8 @@
+using Cysharp.Threading.Tasks;
 using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Monster;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -28,9 +30,10 @@ public class PlayerAttack
     // 애니메이션 종료 시점에 사용할 대상 목록
     private List<IDamageable> _pendingTargets = new List<IDamageable>();
 
-    public PlayerAttack(Player player)
+    public PlayerAttack(Player player, PlayerDetection detection = null)
     {
         this.player = player;
+        this._detection = detection;
         this.skillDatabase = player.skillDatabase;
         this.skillManager = player.skillManager;
         // 즉시 사용 가능하도록 초기화
@@ -120,25 +123,68 @@ public class PlayerAttack
     // 애니메이션 종료 시점에 호출되는 메서드: pending 리스트에 있는 모든 대상에게 데미지 적용
     private void ApplyPendingTargets()
     {
-        //Debug.Log("애니메이션 종료, pending 대상에게 데미지 적용 시도");
+        if (_pendingTargets == null || _pendingTargets.Count == 0)
+        {
+            Debug.Log("적이 없습니다. 데미지 적용 실패 - 공격 대상 초기화");
+            return;
+        }
 
-        if (_pendingTargets == null || _pendingTargets.Count == 0) return;
+        // 우선 사용 가능한 공격자 확보: Player가 IAttackable이면 사용, 아니면 attackable 필드 사용
+        IAttackable attacker = player as IAttackable ?? attackable;
+
+        if (attacker == null)
+        {
+            Debug.LogWarning("공격자(attacker) 참조가 없습니다. 데미지 적용을 건너뜁니다.");
+            _pendingTargets.Clear();
+            return;
+        }
+
 
         for (int i = 0; i < _pendingTargets.Count; i++)
         {
             var target = _pendingTargets[i];
 
-            if (target != null)
+            if (target == null)
             {
-                target.TakeDamage(player);
-
-                if (target.TakeDamage(player)) Debug.Log("적 데미지 적용 성공");
+                Debug.Log("대상이 null 또는 이미 파괴됨 - 다음 대상로 진행");
+                continue;
             }
             else
             {
-                Debug.Log("대상이 null입니다.");
+                Debug.Log("대상에게 데미지 적용 시도: " + target);
+            }
+
+            // TakeDamage: true = 살아있음, false = 사망 (Player.TakeDamage 구현에 따름)
+            bool isAliveAfterHit = target.TakeDamage(player);
+
+            if (isAliveAfterHit)
+            {
+                Debug.Log("적 데미지 적용 완료 (대상은 아직 살아있음)");
+            }
+            else
+            {
+                Debug.Log("Monster Is Dead!! → 공격 중단 및 Idle 전환");
+
+                // pending 리스트 전체 초기화
+                _pendingTargets.Clear();
+
+                // 다음 공격 가능 시간을 최댓값으로 설정 → Attack()이 Failure를 반환하여 공격 완전 중단
+                _nextAttackTime = float.MaxValue;
+
+                // 플레이어 행동 트리를 Idle로 전환하여 대기 상태로 돌아감
+                player?.TurnOnAnimation(ePlayerAction.Idle);
+
+                // 플레이어와 Detection의 현재 타겟 초기화
+                if (player != null)
+                    player.currentTarget = null;
+                if (_detection != null)
+                    _detection.currentTarget = null;
+
+                // 루프 종료
+                break;
             }
         }
+
         _pendingTargets.Clear();
     }
 
