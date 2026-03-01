@@ -15,12 +15,12 @@ public class PlayerOrder
 
         _detection = new PlayerDetection(player);
         _move = new PlayerMove(player);
-        _attack = new PlayerAttack(player);
+        _attack = new PlayerAttack(player, _detection);
 
-        // Æ®¸® Á¶¸³: Selector(ÀüÅõ OR ´ë±â)
-        _rootNode = new Selector(new List<Node> // Selector³ëµå »ç¿ë
+        // íŠ¸ë¦¬ ì¡°ë¦½: Selector(ì „íˆ¬ OR ëŒ€ê¸°)
+        _rootNode = new Selector(new List<Node> // Selectorë…¸ë“œ ì‚¬ìš©
         {
-            // 1. ÀüÅõ ½ÃÄö½º (°¨Áö -> ÀÌµ¿ -> °ø°Ý)
+            // 1. ì „íˆ¬ ì‹œí€€ìŠ¤ (ê°ì§€ -> ì´ë™ -> ê³µê²©)
             new Sequence(new List<Node>
             {
                 new PlayerDetection.DetectionNode(_detection),
@@ -28,12 +28,12 @@ public class PlayerOrder
                 new PlayerAttack.AttackNode(_attack)
             }),
             
-            // 2. ´ë±â (ÀüÅõ ½ÇÆÐ ½Ã ½ÇÇà)
+            // 2. ëŒ€ê¸° (ì „íˆ¬ ì‹¤íŒ¨ ì‹œ ì‹¤í–‰)
             new IdleNode()
         });
     }
 
-    // °£´ÜÇÑ ´ë±â ³ëµå
+    // ê°„ë‹¨í•œ ëŒ€ê¸° ë…¸ë“œ
     public class IdleNode : Node
     {
         public override NodeState Evaluate()

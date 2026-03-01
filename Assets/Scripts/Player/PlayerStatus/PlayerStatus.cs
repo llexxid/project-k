@@ -4,6 +4,7 @@ using UnityEngine;
 
 public class PlayerStatus
 {
+    public int MaxHP { get; set; } = 100;
     public int HP { get; set; } = 100;
     public int Atk { get; set; } = 10;
     public int MovSpeed { get; set; } = 5;
