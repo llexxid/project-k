@@ -77,9 +77,10 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         return connect;
     }
 
-    public void Init(PlayerData data)
+    public void Init(PlayerData data, User user)
     {
         _data = data;
+        _user = user;
     }
     private void OnDead()
     {
@@ -239,14 +240,15 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         TurnOnAnimation(_playerAction);
     }
 
-    public void GiveReward(int gold, int ancientCoin)
-    {
-        // TODO: 보상 시스템 구현 예정
-        CustomLogger.Log($"[임시] 보상 획득 - 골드: {gold}, 코인: {ancientCoin}");
-    }
+	public void GiveReward(int gold, int ancientCoin)
+	{
+        _user.GainCoin(eCurrency.Gold, gold);
+        _user.GainCoin(eCurrency.AncientCoin, ancientCoin);
+        return;
+	}
 
-    public bool Attack(IDamageable target)
-    {
-        throw new NotImplementedException();
-    }
+	public bool Attack(IDamageable target)
+	{
+        return true;
+	}
 }

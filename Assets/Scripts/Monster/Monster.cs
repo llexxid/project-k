@@ -1,4 +1,4 @@
-using Scripts.Core;
+﻿using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Core.Utils;
 using System;
@@ -6,17 +6,18 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Scripts.Monster.State;
+using KingdomIdle.UIToolkit; // UI 연동(피격 데미지 텍스트)
 
 namespace Scripts.Monster
 {
     using Scripts.Core.inteface;
-	using Scripts.Core.SO;
-	using Scripts.Core.StateMachine;
-	using Scripts.Monster.MonsterNode;
-	using Scripts.Monster.SO;
-	using UnityEditorInternal;
+    using Scripts.Core.SO;
+    using Scripts.Core.StateMachine;
+    using Scripts.Monster.MonsterNode;
+    using Scripts.Monster.SO;
+    using UnityEditorInternal;
 
-	public struct MonsterInfo
+    public struct MonsterInfo
     {
         public MonsterInfo(string name, ulong exp, long baseHp, ulong baseAtk, double baseMoveSpeed, double baseAtkSpeed, long dropTable)
         {
@@ -37,8 +38,8 @@ namespace Scripts.Monster
         public readonly double _baseMoveSpeed;
         public readonly double _baseAtkSpeed;
 
-		public readonly long _dropTableNumber;
-	}
+        public readonly long _dropTableNumber;
+    }
 
     public class Monster : MonoBehaviour, IPoolable, IDamageable, IAttackable
     {
@@ -62,14 +63,14 @@ namespace Scripts.Monster
         }
         private MonsterStat _stat;
         eMonsterType _type;
-		long _dropTableNumber;
+        long _dropTableNumber;
 
         //AI
         private MonsterOrder _monAI;
 
-		//Animation
-		private int _facingDir;
-		private eMonsterAction _monAction;
+        //Animation
+        private int _facingDir;
+        private eMonsterAction _monAction;
         public IDamageable Target { get; private set; }
         private Animator _am;
         [SerializeField]
@@ -81,7 +82,8 @@ namespace Scripts.Monster
         {
             get { return _type; }
         }
-        public Animator Animator { 
+        public Animator Animator
+        {
             get
             {
                 return _am;
@@ -89,19 +91,19 @@ namespace Scripts.Monster
         }
         public eMonsterAction MonAction { get { return _monAction; } }
         public bool IsActive { get; set; }
-        public ulong damage 
+        public ulong damage
         {
             get
             {
                 return _stat._atk;
             }
         }
-        public Vector3 attackerPos 
-        { 
-            get 
-            { 
-                return transform.position; 
-            } 
+        public Vector3 attackerPos
+        {
+            get
+            {
+                return transform.position;
+            }
         }
         public Vector3 targetPos
         {
@@ -145,13 +147,13 @@ namespace Scripts.Monster
             _am = gameObject.GetComponentInChildren<Animator>();
 
             _stateManchine = new StateMachine<Monster>();
-			_monAI = new MonsterOrder();
+            _monAI = new MonsterOrder();
             _monAI.Init(this);
             InitializeAnimator();
         }
         void Start()
         {
-            
+
         }
 
         void Update()
@@ -162,7 +164,7 @@ namespace Scripts.Monster
                 _monAI.ExecuteNode();
             }
             _stateManchine.currentState.OnUpdate();
-		}
+        }
 
         private void LateUpdate()
         {
@@ -229,9 +231,9 @@ namespace Scripts.Monster
         }
         public void OnAlloc()
         {
-			//생성자
-			_stateManchine.BeginMachine(new MonsterMoveState(this));
-			return;
+            //생성자
+            _stateManchine.BeginMachine(new MonsterMoveState(this));
+            return;
         }
         public void OnRelease()
         {
@@ -242,7 +244,16 @@ namespace Scripts.Monster
         public bool TakeDamage(IAttackable attacker)
         {
             ulong dmg = attacker.damage;
+
+            // UI 연동: 몬스터 머리 위로 피격 데미지 표시
+            UITKDamageTextBridge.ShowOnTransform(transform, dmg);
+
             bool IsAlive = setHp(dmg);
+
+            if (_monAction == eMonsterAction.Dead)
+            {
+                CustomLogger.LogError("죽은 상태인데 공격받음!");
+            }
 
             if (!IsAlive)
             {
@@ -251,26 +262,26 @@ namespace Scripts.Monster
                 {
                     DropInfo info = DropManager.Instance.GetDropInfo(eDropTable.ORC_DROPTABLE);
                     target.GiveReward(info._incomeGold, info._incomeAncientCoin);
-				}
+                }
                 return false;
             }
             return true;
         }
 
-		public bool Attack(IDamageable target)
-		{
+        public bool Attack(IDamageable target)
+        {
             bool IsAlive;
-			IsAlive = target.TakeDamage(this);
-			_lastAttackTime = Time.time;
+            IsAlive = target.TakeDamage(this);
+            _lastAttackTime = Time.time;
             CustomLogger.Log("Monster 공격!");
-			if (!IsAlive)
+            if (!IsAlive)
             {
                 CustomLogger.Log("타겟이 죽음");
-				ResetTarget();
+                ResetTarget();
                 return false;
-			}
-			return true;
-		}
+            }
+            return true;
+        }
 
         public void ChangeState(EntityState<Monster> state)
         {
@@ -291,12 +302,13 @@ namespace Scripts.Monster
             return _AnimationClipSO.GetAnimationLength(action);
         }
 
-		private void OnDead()
+        private void OnDead()
         {
             //Todo : DropItem 스폰
             //Institate 동전
             CustomLogger.Log("Monster Is Dead!!");
             _monAction = eMonsterAction.Dead;
+            _stateManchine.ChangeState(new MonsterDeadState(this));
         }
 
         private void InitializeAnimator()
@@ -344,9 +356,5 @@ namespace Scripts.Monster
             // 적의 위치에 구체를 그립니다.
             Gizmos.DrawWireSphere(transform.position, _attackRadius);
         }
-
-
-
-	}
+    }
 }
-
