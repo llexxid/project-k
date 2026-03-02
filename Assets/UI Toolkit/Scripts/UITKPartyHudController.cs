@@ -6,13 +6,7 @@ using KingdomIdle.UI;
 
 namespace KingdomIdle.UIToolkit
 {
-    /// <summary>
-    /// 하단 탭 위에 표시되는 3인 파티 HUD(더미).
-    /// - 초상화(빈 원) 클릭 시 "왕국군" 탭 패널 오픈
-    /// - HP Bar
-    /// - 스킬 아이콘 0~3개 + 쿨다운(어두워짐 + 5..1)
-    /// - 하단 패널(Sheet) 오픈 시, Sheet 위로 자동 이동
-    /// </summary>
+    // 하단 탭 위 3인 파티 HUD
     [DefaultExecutionOrder(-940)]
     public sealed class UITKPartyHudController : MonoBehaviour
     {
@@ -269,9 +263,6 @@ namespace KingdomIdle.UIToolkit
             fill.style.width = new Length(Mathf.Clamp01(normalized01) * 100f, LengthUnit.Percent);
         }
 
-        /// <summary>
-        /// 스킬 슬롯 표시 개수만 설정(더미)
-        /// </summary>
         public void SetMemberSkillCount(int memberIndex, int count)
         {
             if (memberIndex < 0 || memberIndex >= 3) return;
@@ -286,9 +277,6 @@ namespace KingdomIdle.UIToolkit
             }
         }
 
-        /// <summary>
-        /// 스킬 ID 배열 기반으로 슬롯 표시(향후 SkillManager 연동용)
-        /// </summary>
         public void SetMemberSkillIds(int memberIndex, IReadOnlyList<int> skillIds)
         {
             if (memberIndex < 0 || memberIndex >= 3) return;

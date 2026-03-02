@@ -5,10 +5,7 @@ using Scripts.Users;
 
 namespace Scripts.Core
 {
-    /// <summary>
-    /// 재화(지갑) 연동용 브릿지.
-    /// - UITKUIManager는 Wallet.TryGetAmount를 주기적으로 읽어 UI에 반영
-    /// </summary>
+    // 재화(지갑) 연동용 브릿지
     public static class EconomyBridge
     {
         private static User _cachedUser;

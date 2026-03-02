@@ -35,6 +35,9 @@ namespace KingdomIdle.UIToolkit
         [Header("UXML - Panels (temporary)")]
         [SerializeField] private VisualTreeAsset panelPlaceholderUxml;
 
+        [Header("UXML - Panels")]
+        [SerializeField] private VisualTreeAsset panelGuideUxml;
+
         [Header("UXML - Overlays")]
         [SerializeField] private VisualTreeAsset overlayLoadingUxml;
 
@@ -121,6 +124,9 @@ namespace KingdomIdle.UIToolkit
         private VisualElement _toastOverlay;
         private Label _toastLabel;
         private Coroutine _toastCo;
+
+        // Guide
+        private Label _lblGuideBadge;
 
         private const string PrefKeyVolume = "settings_masterVolume";
         private const string PrefKeyPowerSave = "settings_powerSave";
@@ -425,6 +431,15 @@ namespace KingdomIdle.UIToolkit
 
         private VisualElement CreatePanel(UIPanelId id, object payload)
         {
+            if (id == UIPanelId.Guide)
+            {
+                VisualElement guideVe = panelGuideUxml != null
+                    ? panelGuideUxml.CloneTree()
+                    : new Label("Missing Panel_Guide UXML");
+                UITKGuidePanelController.Populate(guideVe, onProgressChanged: RefreshGuideBadge);
+                return guideVe;
+            }
+
             // FIX: 삼항연산 + var 타입 추론 실패(TemplateContainer vs Label) 방지
             VisualElement ve = panelPlaceholderUxml != null
                 ? panelPlaceholderUxml.CloneTree()
@@ -588,6 +603,35 @@ namespace KingdomIdle.UIToolkit
 
             var bMenuMail = root.Q<Button>("BtnMenuMail");
             if (bMenuMail != null) bMenuMail.clicked += () => ShowToast("현재는 지원하지 않는 기능입니다.");
+
+            // Guide 버튼 (좌측 상단)
+            _lblGuideBadge = root.Q<Label>("LblGuideBadge");
+            var btnGuide = root.Q<Button>("BtnGuide");
+            if (btnGuide != null)
+            {
+                btnGuide.clicked += () =>
+                {
+                    if (_currencyOpen) CloseCurrencyPopupImmediate();
+                    if (_hamburgerOpen) CloseHamburgerMenuImmediate();
+                    PushPanel(UIPanelId.Guide, null, clearBefore: false, isTabPanel: false);
+                };
+            }
+            RefreshGuideBadge();
+        }
+
+        public void RefreshGuideBadge()
+        {
+            if (_lblGuideBadge == null) return;
+            int count = TutorialManager.Instance != null ? TutorialManager.Instance.GetIncompleteCount() : 0;
+            if (count > 0)
+            {
+                _lblGuideBadge.text = count.ToString();
+                _lblGuideBadge.RemoveFromClassList("hidden");
+            }
+            else
+            {
+                _lblGuideBadge.AddToClassList("hidden");
+            }
         }
 
         private void BindTab(Button btn, UIPanelId panelId, object panelName)
