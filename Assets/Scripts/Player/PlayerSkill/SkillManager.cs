@@ -5,50 +5,33 @@ public class SkillManager : MonoBehaviour
 {
     public SkillObjectPool pool;
     public SkillDatabase skillDatabase;
-    float remainingTime = 0f;
 
-    // °¢ ½ºÅ³ÀÇ ´ÙÀ½ »ç¿ë °¡´É ½Ã°£À» ÀúÀåÇÏ´Â µñ¼Å³Ê¸®
-    private Dictionary<string, float> _skillCooldowns = new Dictionary<string, float>();
-
-    public float ActivateSkill(string skillName)
+    /// <summary>
+    /// ìŠ¤í‚¬ ì´í™íŠ¸/ì˜¤ë¸Œì íŠ¸ë¥¼ í™œì„±í™”í•œë‹¤.
+    /// ì¿¨íƒ€ì„ ì²´í¬Â·ê°±ì‹ ì€ PlayerAttackì´ ì „ë‹´í•˜ë¯€ë¡œ ì—¬ê¸°ì„œëŠ” ì²˜ë¦¬í•˜ì§€ ì•ŠëŠ”ë‹¤.
+    /// </summary>
+    public void ActivateSkill(string skillName)
     {
         SkillData data = skillDatabase.GetSkill(skillName);
         if (data == null)
         {
-            Debug.LogWarning($"½ºÅ³ µ¥ÀÌÅÍ°¡ ¾ø½À´Ï´Ù: {skillName}");
-            return remainingTime;
+            Debug.LogWarning($"[SkillManager] ìŠ¤í‚¬ ë°ì´í„° ì—†ìŒ: {skillName}");
+            return;
         }
 
-        // 1. ÆĞ½Ãºê ½ºÅ³ ·ÎÁ÷ (ÄğÅ¸ÀÓ ¹ÌÀû¿ë)
+        // íŒ¨ì‹œë¸Œ ìŠ¤í‚¬ì€ ON/OFF ê°œë…ì´ ì—†ìœ¼ë¯€ë¡œ ë³„ë„ ì²˜ë¦¬ ì—†ìŒ
         if (data.skillType == SkillType.Passive)
         {
-            Debug.Log($"{data.skillName} ÆĞ½Ãºê È¿°ú Àû¿ë Áß...");
-            return remainingTime;
+            Debug.Log($"[SkillManager] {data.skillName} íŒ¨ì‹œë¸Œ íš¨ê³¼ ì ìš© ì¤‘...");
+            return;
         }
 
-        // 2. ÄğÅ¸ÀÓ Ã¼Å©
-        if (_skillCooldowns.TryGetValue(skillName, out float nextReadyTime))
+        // ì˜¤ë¸Œì íŠ¸ í’€ì—ì„œ ìŠ¤í‚¬ ì´í™íŠ¸ ì˜¤ë¸Œì íŠ¸ êº¼ë‚´ê¸°
+        GameObject obj = pool?.GetSkillObject(data);
+        if (obj != null)
         {
-            Debug.Log(remainingTime + " : 556");
-
-            if (Time.time < nextReadyTime)
-            {
-                Debug.Log($"{skillName} ÄğÅ¸ÀÓ Áß: {nextReadyTime - Time.time:F1}ÃÊ ³²À½");
-
-                remainingTime = nextReadyTime - Time.time;
-
-                return remainingTime;
-            }
-            else 
-            {
-                Debug.Log($"{skillName} »ç¿ë °¡´É");
-            }
+            Debug.Log($"[SkillManager] {skillName} ì´í™íŠ¸ í™œì„±í™”");
+            // TODO: obj ìœ„ì¹˜Â·ë°©í–¥ ì´ˆê¸°í™” ë“± ì¶”ê°€ ë¡œì§
         }
-        else
-        {
-            Debug.Log($"{skillName} Ã³À½ »ç¿ë");
-        }
-
-            return remainingTime;
     }
 }

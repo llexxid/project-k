@@ -17,6 +17,12 @@ public class PlayerAttack
     // 공격 애니메이션 한 사이클 길이 (초). attackRate의 최솟값 기준으로도 사용
     private const float ANIMATION_DURATION = 0.4f;
 
+    // 스킬 이름 상수 (문자열 하드코딩 방지)
+    private const string SKILL_WIND_LANCE = "Wind_Lance";
+
+    // Wind_Lance VFX 활성화 파라미터 (매직 넘버 제거)
+    private const int WIND_LANCE_VFX_DURATION = 200;
+
     // 일반 공격 간격 (초). 이 값이 작을수록 공격 속도가 빠름
     // 공격 애니메이션 길이(ANIMATION_DURATION)와 맞춰 기본값 설정 → 애니메이션 1사이클 = 공격 1회
     public float attackRate = ANIMATION_DURATION;
@@ -40,8 +46,8 @@ public class PlayerAttack
     [SerializeField]
     public Player player;
 
-    // 6번 레이어(Enemy)만 탐지하도록 설정한 레이어 마스크
-    LayerMask enemyLayer = 1 << 6;
+    // 적 레이어 마스크 (GameLayers 상수 사용, 하드코딩 제거)
+    LayerMask enemyLayer = GameLayers.EnemyMask;
 
     /// <summary>
     /// 생성자: Player로부터 필요한 참조를 가져오고 스킬 쿨타임을 초기화한다.
@@ -63,7 +69,7 @@ public class PlayerAttack
         }
 
         // Wind_Lance 스킬을 게임 시작 즉시 사용할 수 있도록 쿨타임을 0으로 초기화
-        _skillCooldowns["Wind_Lance"] = 0f;
+        _skillCooldowns[SKILL_WIND_LANCE] = 0f;
     }
 
     /// <summary>
@@ -97,7 +103,7 @@ public class PlayerAttack
         int baseAtk = player.playerStatus?.Atk ?? 0;
 
         // [6단계] 스킬 데이터 및 쿨타임 조회
-        string skillName = "Wind_Lance";
+        string skillName = SKILL_WIND_LANCE;
         SkillData data = skillDatabase?.GetSkill(skillName);
         // 해당 스킬의 다음 사용 가능 시각 (없으면 0f → 즉시 사용 가능)
         _skillCooldowns.TryGetValue(skillName, out float nextSkillAvailable);
@@ -122,11 +128,14 @@ public class PlayerAttack
             {
                 if (_hitResults[i].TryGetComponent<IDamageable>(out var target))
                 {
+                    // 이미 Dead 상태인 몬스터는 건너뜀
+                    if (IsTargetDead(_hitResults[i])) continue;
+
                     // VFX는 첫 번째 적에게만 한 번 재생하여 중복 방지
                     if (!vfxPlayed)
                     {
                         VFXManager.Instance?.GetVFX(eVFXType.Wind_Lance, target.targetPos,
-                            player.transform.rotation, (vfx) => { vfx?.ActiveEffect(200); });
+                            player.transform.rotation, (vfx) => { vfx?.ActiveEffect(WIND_LANCE_VFX_DURATION); });
                         vfxPlayed = true;
                     }
 
@@ -150,8 +159,11 @@ public class PlayerAttack
             {
                 if (_hitResults[i].TryGetComponent<IDamageable>(out var target))
                 {
+                    // 이미 Dead 상태인 몬스터는 건너뜀
+                    if (IsTargetDead(_hitResults[i])) continue;
+
                     ApplyDamage(target, (ulong)normalDamage);
-                    break; // 첫 번째 적 처리 후 탈출
+                    break; // 첫 번째 살아있는 적 처리 후 탈출
                 }
             }
         }
@@ -183,9 +195,6 @@ public class PlayerAttack
         {
             Debug.Log("Monster Is Dead!! → Idle 전환");
 
-            // 몬스터 사망 후 다음 적을 즉시 공격할 수 있도록 쿨타임 초기화
-            _nextAttackTime = 0f;
-
             // 플레이어를 Idle 상태로 전환하여 진행 중인 공격 모션 중단
             player?.TurnOnAnimation(ePlayerAction.Idle);
 
@@ -199,6 +208,16 @@ public class PlayerAttack
         }
 
         return isAlive;
+    }
+
+    /// <summary>
+    /// 콜라이더가 이미 Dead 상태인 몬스터인지 확인한다.
+    /// Monster.cs를 수정하지 않고 플레이어 측에서 재공격을 방지하기 위해 사용.
+    /// </summary>
+    private bool IsTargetDead(Collider2D col)
+    {
+        return col.TryGetComponent<Monster>(out var mon)
+               && mon.MonAction == eMonsterAction.Dead;
     }
 
     /// <summary>

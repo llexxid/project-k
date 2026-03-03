@@ -1,0 +1,360 @@
+1: ﻿using Scripts.Core;
+2: using Scripts.Core.inteface;
+3: using Scripts.Core.Utils;
+4: using System;
+5: using System.Collections;
+6: using System.Collections.Generic;
+7: using UnityEngine;
+8: using Scripts.Monster.State;
+9: using KingdomIdle.UIToolkit; // UI 연동(피격 데미지 텍스트)
+10: 
+11: namespace Scripts.Monster
+12: {
+13:     using Scripts.Core.inteface;
+14:     using Scripts.Core.SO;
+15:     using Scripts.Core.StateMachine;
+16:     using Scripts.Monster.MonsterNode;
+17:     using Scripts.Monster.SO;
+18:     using UnityEditorInternal;
+19: 
+20:     public struct MonsterInfo
+21:     {
+22:         public MonsterInfo(string name, ulong exp, long baseHp, ulong baseAtk, double baseMoveSpeed, double baseAtkSpeed, long dropTable)
+23:         {
+24:             _name = name;
+25:             _exp = exp;
+26:             _baseHp = baseHp;
+27:             _baseAtk = baseAtk;
+28:             _baseMoveSpeed = baseMoveSpeed;
+29:             _baseAtkSpeed = baseAtkSpeed;
+30:             _dropTableNumber = dropTable;
+31:         }
+32: 
+33:         public readonly string _name;
+34:         public readonly ulong _exp;
+35:         public readonly long _baseHp;
+36:         public readonly ulong _baseAtk;
+37: 
+38:         public readonly double _baseMoveSpeed;
+39:         public readonly double _baseAtkSpeed;
+40: 
+41:         public readonly long _dropTableNumber;
+42:     }
+43: 
+44:     public class Monster : MonoBehaviour, IPoolable, IDamageable, IAttackable
+45:     {
+46:         public struct MonsterStat
+47:         {
+48:             public MonsterStat(long hp, int extraHp, ulong atk, double moveSpeed, double atkSpeed)
+49:             {
+50:                 _hp = hp;
+51:                 _extraHp = extraHp;
+52:                 _atk = atk;
+53:                 _moveSpeed = moveSpeed;
+54:                 _atkSpeed = atkSpeed;
+55:             }
+56:             public long _hp;
+57:             public int _extraHp;
+58: 
+59:             public ulong _atk;
+60: 
+61:             public double _moveSpeed;
+62:             public double _atkSpeed;
+63:         }
+64:         private MonsterStat _stat;
+65:         eMonsterType _type;
+66:         long _dropTableNumber;
+67: 
+68:         //AI
+69:         private MonsterOrder _monAI;
+70: 
+71:         //Animation
+72:         private int _facingDir;
+73:         private eMonsterAction _monAction;
+74:         public IDamageable Target { get; private set; }
+75:         private Animator _am;
+76:         [SerializeField]
+77:         private float _attackRadius;
+78:         [SerializeField]
+79:         private float _detectRadius;
+80: 
+81:         public eMonsterType Type
+82:         {
+83:             get { return _type; }
+84:         }
+85:         public Animator Animator
+86:         {
+87:             get
+88:             {
+89:                 return _am;
+90:             }
+91:         }
+92:         public eMonsterAction MonAction { get { return _monAction; } }
+93:         public bool IsActive { get; set; }
+94:         public ulong damage
+95:         {
+96:             get
+97:             {
+98:                 return _stat._atk;
+99:             }
+100:         }
+101:         public Vector3 attackerPos
+102:         {
+103:             get
+104:             {
+105:                 return transform.position;
+106:             }
+107:         }
+108:         public Vector3 targetPos
+109:         {
+110:             get
+111:             {
+112:                 return transform.position;
+113:             }
+114:         }
+115:         public float AttackRadius
+116:         {
+117:             get { return _attackRadius; }
+118:         }
+119:         public float DectectRadius
+120:         {
+121:             get { return _detectRadius; }
+122:         }
+123:         public int FacingDir
+124:         {
+125:             get { return _facingDir; }
+126:         }
+127:         AnimatorComponent<eMonsterAction> _animatorComponent;
+128:         public AnimatorComponent<eMonsterAction> AnimationComponent
+129:         {
+130:             get { return _animatorComponent; }
+131:         }
+132:         StateMachine<Monster> _stateManchine;
+133:         [SerializeField]
+134:         MonsterAnimationSO _AnimationClipSO;
+135: 
+136:         float _lastAttackTime;
+137:         public float LastAttackTime
+138:         {
+139:             get { return _lastAttackTime; }
+140:         }
+141:         //Todo : SkillComponent . 몬스터 스킬
+142:         void Awake()
+143:         {
+144:             _detectRadius = 2.5f;
+145:             _attackRadius = 0.8f;
+146:             _facingDir = 1; // 1 : Right, -1 : Left
+147:             _am = gameObject.GetComponentInChildren<Animator>();
+148: 
+149:             _stateManchine = new StateMachine<Monster>();
+150:             _monAI = new MonsterOrder();
+151:             _monAI.Init(this);
+152:             InitializeAnimator();
+153:         }
+154:         void Start()
+155:         {
+156: 
+157:         }
+158: 
+159:         void Update()
+160:         {
+161:             if (_monAI != null)
+162:             {
+163:                 Debug.Log("_MonAI is Not NULL");
+164:                 _monAI.ExecuteNode();
+165:             }
+166:             _stateManchine.currentState.OnUpdate();
+167:         }
+168: 
+169:         private void LateUpdate()
+170:         {
+171: 
+172:             //UpdateAnimation();
+173:             //CleanUpResource();
+174:         }
+175: 
+176:         /// <summary>
+177:         /// 상대좌표 - 내 좌표한 값을 매개변수로 받습니다.
+178:         /// </summary>
+179:         /// <param name="GapBetweenX"></param>
+180:         public void SetFlip(float GapBetweenX)
+181:         {
+182:             //나보다 오른쪽에 있는데 왼쪽을 보는경우
+183:             if (GapBetweenX >= 0 && _facingDir == -1)
+184:             {
+185:                 CustomLogger.Log("Flip To Right");
+186:                 transform.Rotate(0, 180, 0);
+187:                 _facingDir *= -1;
+188:                 return;
+189:             }
+190:             //나보다 왼쪽에 있는데, 내가 오른쪽을 보고있다.
+191:             if (GapBetweenX < 0 && _facingDir == 1)
+192:             {
+193:                 CustomLogger.Log("Flip To Left");
+194:                 transform.Rotate(0, 180, 0);
+195:                 _facingDir *= -1;
+196:                 return;
+197:             }
+198:         }
+199: 
+200:         public void Init(eMonsterType monsterType, MonsterStat stat, long droptable_number)
+201:         {
+202:             _stat = stat;
+203:             _type = monsterType;
+204:             _dropTableNumber = droptable_number;
+205:         }
+206:         public double GetSpeed()
+207:         {
+208:             return _stat._moveSpeed;
+209:         }
+210:         public void ResetTarget()
+211:         {
+212:             Target = null;
+213:         }
+214:         public void SetType(eMonsterType monsterType)
+215:         {
+216:             _type = monsterType;
+217:         }
+218:         public void SetTarget(IDamageable target)
+219:         {
+220:             //개발 모드. null일 때 Log남겨놓고 Crash!
+221:             if (target == null)
+222:             {
+223:                 CustomLogger.LogWarning("Monster SetTarget is Null!");
+224:             }
+225:             Target = target;
+226:         }
+227:         public void SetAction(eMonsterAction action)
+228:         {
+229:             //Action Update.
+230:             _monAction = action;
+231:         }
+232:         public void OnAlloc()
+233:         {
+234:             //생성자
+235:             _stateManchine.BeginMachine(new MonsterMoveState(this));
+236:             return;
+237:         }
+238:         public void OnRelease()
+239:         {
+240:             //만약에 리지드 바디가 있다면, 초기화.
+241:             Target = null;
+242:             return;
+243:         }
+244:         public bool TakeDamage(IAttackable attacker)
+245:         {
+246:             ulong dmg = attacker.damage;
+247: 
+248:             // UI 연동: 몬스터 머리 위로 피격 데미지 표시
+249:             UITKDamageTextBridge.ShowOnTransform(transform, dmg);
+250: 
+251:             bool IsAlive = setHp(dmg);
+252: 
+253:             if (_monAction == eMonsterAction.Dead)
+254:             {
+255:                 CustomLogger.LogError("죽은 상태인데 공격받음!");
+256:             }
+257: 
+258:             if (!IsAlive)
+259:             {
+260:                 //Todo : Reward 주기
+261:                 if (attacker is IRewardable target)
+262:                 {
+263:                     DropInfo info = DropManager.Instance.GetDropInfo(eDropTable.ORC_DROPTABLE);
+264:                     target.GiveReward(info._incomeGold, info._incomeAncientCoin);
+265:                 }
+266:                 return false;
+267:             }
+268:             return true;
+269:         }
+270: 
+271:         public bool Attack(IDamageable target)
+272:         {
+273:             bool IsAlive;
+274:             IsAlive = target.TakeDamage(this);
+275:             _lastAttackTime = Time.time;
+276:             CustomLogger.Log("Monster 공격!");
+277:             if (!IsAlive)
+278:             {
+279:                 CustomLogger.Log("타겟이 죽음");
+280:                 ResetTarget();
+281:                 return false;
+282:             }
+283:             return true;
+284:         }
+285: 
+286:         public void ChangeState(EntityState<Monster> state)
+287:         {
+288:             _stateManchine.ChangeState(state);
+289:         }
+290: 
+291:         public void InterruptBehaviourTree()
+292:         {
+293:             _monAI.InterruptBT();
+294:         }
+295:         public void RestartBehaviourTree()
+296:         {
+297:             _monAI.RecoveryBT();
+298:         }
+299: 
+300:         public float GetAnimationLength(eMonsterAction action)
+301:         {
+302:             return _AnimationClipSO.GetAnimationLength(action);
+303:         }
+304: 
+305:         private void OnDead()
+306:         {
+307:             //Todo : DropItem 스폰
+308:             //Institate 동전
+309:             CustomLogger.Log("Monster Is Dead!!");
+310:             _monAction = eMonsterAction.Dead;
+311:             _stateManchine.ChangeState(new MonsterDeadState(this));
+312:         }
+313: 
+314:         private void InitializeAnimator()
+315:         {
+316:             Dictionary<eMonsterAction, int> dic = new Dictionary<eMonsterAction, int>();
+317:             dic.Add(eMonsterAction.Idle, Animator.StringToHash("Idle"));
+318:             dic.Add(eMonsterAction.Walk, Animator.StringToHash("Walk"));
+319:             dic.Add(eMonsterAction.Attack, Animator.StringToHash("Attack"));
+320:             dic.Add(eMonsterAction.Dead, Animator.StringToHash("Dead"));
+321:             dic.Add(eMonsterAction.Hurt, Animator.StringToHash("Hurt"));
+322: 
+323:             _animatorComponent = new AnimatorComponent<eMonsterAction>(_am, dic);
+324:         }
+325: 
+326:         private bool setHp(ulong damage)
+327:         {
+328:             long totalHp = _stat._hp + _stat._extraHp;
+329:             //죽는경우
+330:             if (totalHp - (long)damage <= 0)
+331:             {
+332:                 OnDead();
+333:                 return false;
+334:             }
+335: 
+336:             //ExtraHp먼저 깍기
+337:             if ((long)damage > _stat._extraHp)
+338:             {
+339:                 long remainDamage = (long)damage - _stat._extraHp;
+340:                 _stat._extraHp = 0;
+341:                 _stat._hp -= remainDamage;
+342:                 return true;
+343:             }
+344: 
+345:             _stat._extraHp = _stat._extraHp - (int)damage;
+346:             return true;
+347:         }
+348: 
+349:         private void OnDrawGizmos()
+350:         {
+351:             Gizmos.color = Color.green;
+352:             Gizmos.DrawWireSphere(transform.position, _detectRadius);
+353: 
+354:             Gizmos.color = Color.red;
+355: 
+356:             // 적의 위치에 구체를 그립니다.
+357:             Gizmos.DrawWireSphere(transform.position, _attackRadius);
+358:         }
+359:     }
+360: }

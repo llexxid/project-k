@@ -16,6 +16,7 @@ public class PlayerOrder
         _detection = new PlayerDetection(player);
         _move = new PlayerMove(player);
         _attack = new PlayerAttack(player, _detection);
+        var _idle = new PlayerIdle();
 
         // 트리 조립: Selector(전투 OR 대기)
         _rootNode = new Selector(new List<Node> // Selector노드 사용
@@ -28,17 +29,8 @@ public class PlayerOrder
                 new PlayerAttack.AttackNode(_attack)
             }),
             
-            // 2. 대기 (전투 실패 시 실행)
-            new IdleNode()
+            // 2. 대기 (전투 실패 시 실행) — PlayerIdle.IdleNode 사용
+            new PlayerIdle.IdleNode(_idle)
         });
-    }
-
-    // 간단한 대기 노드
-    public class IdleNode : Node
-    {
-        public override NodeState Evaluate()
-        {
-            return NodeState.Success;
-        }
     }
 }

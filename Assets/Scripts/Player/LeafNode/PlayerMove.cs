@@ -4,9 +4,9 @@ using UnityEngine;
 
 public class PlayerMove
 {
-    // public PlayerDetection detection; // Inspector¿¡¼­ PlayerDetection ¿¬°á ÇÊ¿ä
+    // public PlayerDetection detection; // Inspectorì—ì„œ PlayerDetection ì—°ê²° í•„ìš”
     public float moveSpeed = 5f;
-    public float stopDistance = 1.0f; // Àû ¾Õ¿¡¼­ ¸ØÃâ °Å¸® (°ø°İ »ç°Å¸®)
+    public float stopDistance = 1.0f; // ì  ì•ì—ì„œ ë©ˆì¶œ ê±°ë¦¬ (ê³µê²© ì‚¬ê±°ë¦¬)
     public Player player; 
 
     public PlayerMove(Player player)
@@ -14,38 +14,44 @@ public class PlayerMove
         this.player = player;
     }
 
-    // Çàµ¿ Æ®¸®¿¡¼­ È£ÃâÇÒ ÇÔ¼ö (¹İÈ¯°ª NodeState·Î º¯°æ)
+    // í–‰ë™ íŠ¸ë¦¬ì—ì„œ í˜¸ì¶œí•  í•¨ìˆ˜ (ë°˜í™˜ê°’ NodeStateë¡œ ë³€ê²½)
     public NodeState Move()
     {
         //Debug.Log("Player Moving...");
 
-        // 1. Å¸°ÙÀÌ ¾øÀ¸¸é ½ÇÆĞ (ÀûÀÌ »ç¶óÁü)
+        // 1. íƒ€ê²Ÿì´ ì—†ìœ¼ë©´ ì‹¤íŒ¨ (ì ì´ ì‚¬ë¼ì§)
         if (player.currentTarget == null)
         {
-            Debug.Log("Å¸°Ù ¾øÀ½");
+            Debug.Log("íƒ€ê²Ÿ ì—†ìŒ");
             return NodeState.Failure;
         }
-        else if (player.currentTarget != null)
+        else
         {
+            // ì´ë™ ë°©í–¥ ê³„ì‚° â†’ ìŠ¤í”„ë¼ì´íŠ¸ ì¢Œìš° í”Œë¦½
             Vector2 direction = (Vector2)player.currentTarget.targetPos - (Vector2)player.transform.position;
-            float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+            if (direction.x != 0f)
+            {
+                Vector3 scale = player.transform.localScale;
+                scale.x = direction.x > 0f ? Mathf.Abs(scale.x) : -Mathf.Abs(scale.x);
+                player.transform.localScale = scale;
+            }
         }
 
-        // 2. °Å¸® °è»ê
+        // 2. ê±°ë¦¬ ê³„ì‚°
         float distance = Vector2.Distance(player.transform.position, player.currentTarget.targetPos);
 
-        // 3. °ø°İ »ç°Å¸® ³»¿¡ µµÂøÇßÀ¸¸é Success ¹İÈ¯ -> ´ÙÀ½ Attack ³ëµå ½ÇÇàµÊ
+        // 3. ê³µê²© ì‚¬ê±°ë¦¬ ë‚´ì— ë„ì°©í–ˆìœ¼ë©´ Success ë°˜í™˜ -> ë‹¤ìŒ Attack ë…¸ë“œ ì‹¤í–‰ë¨
         if (distance <= stopDistance)
         {
             return NodeState.Success;
         }
 
-        // 4. ¾ÆÁ÷ ÀÌµ¿ ÁßÀÌ¸é Running ¹İÈ¯ (°è¼Ó ÀÌµ¿)
+        // 4. ì•„ì§ ì´ë™ ì¤‘ì´ë©´ Running ë°˜í™˜ (ê³„ì† ì´ë™)
         player.transform.position = Vector2.MoveTowards(player.transform.position, player.currentTarget.targetPos, moveSpeed * Time.deltaTime);
         return NodeState.Running;
     }
 
-    // Çàµ¿ Æ®¸® Àü¿ë ³ëµå Å¬·¡½º
+    // í–‰ë™ íŠ¸ë¦¬ ì „ìš© ë…¸ë“œ í´ë˜ìŠ¤
     public class MoveNode : Node
     {
         private PlayerMove _move;
