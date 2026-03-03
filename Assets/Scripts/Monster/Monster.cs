@@ -152,8 +152,10 @@ namespace Scripts.Monster
             _monAI = new MonsterOrder();
             _stateFactory = new MonsterStateFactory(this);
 			_monAI.Init(this);
-            InitializeAnimator();
-        }
+			InitializeAnimator();
+
+			//ForTest
+		}
 
         void Update()
         {

@@ -20,7 +20,6 @@ namespace Scripts.Monster.MonsterNode
             //타겟이 없으면 Fail!
             if (_monster.Target == null)
             {
-                CustomLogger.Log($"공격 타겟을 찾지 못함");
                 return NodeState.Failure;
             }
 
@@ -29,7 +28,6 @@ namespace Scripts.Monster.MonsterNode
             float distance = Vector3.Distance(_monster.attackerPos, targetPos);
             if (distance > _monster.AttackRadius)
             {
-				CustomLogger.Log($"공격 범위 밖");
 				return NodeState.Failure;
             }
 
@@ -41,13 +39,10 @@ namespace Scripts.Monster.MonsterNode
         {
             if (CheckAttackDuration())
             {
-                CustomLogger.Log("공격 딜레이가 다 되었음.");
                 bool IsAlive = _monster.Attack(_monster.Target);
                 _monster.ChangeState(eMonsterAction.Attack);
             }
-            else
-            {
-			}
+
 		}
 
         bool CheckAttackDuration()

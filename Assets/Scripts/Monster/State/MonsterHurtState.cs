@@ -30,7 +30,7 @@ namespace Scripts.Monster.State
 			//Attack으로 진입시
 			_owner.InterruptBehaviourTree();
 			_owner.AnimationComponent.TrySetTrigger(eMonsterAction.Hurt);
-			CustomLogger.Log("Hurt상태 돌입!");
+			//CustomLogger.Log("Hurt상태 돌입!");
 			_owner.SetAction(eMonsterAction.Hurt);
 
 			WaitHitLatency().Forget();
@@ -48,7 +48,8 @@ namespace Scripts.Monster.State
 
 		private async UniTaskVoid WaitHitLatency()
 		{
-			await UniTask.Delay(TimeSpan.FromMilliseconds(hit_latency), cancellationToken: _token.Token);
+			await UniTask.Delay(TimeSpan.FromSeconds(hit_latency), cancellationToken: _token.Token);
+			//CustomLogger.Log("Hurt상태 돌입 끝!");
 			_owner.ChangeState(eMonsterAction.Walk);
 		}
 	}

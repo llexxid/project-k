@@ -21,6 +21,7 @@ namespace Scripts.Monster.State
 			//Attack으로 진입시
 			_owner.AnimationComponent.TrySetTrigger(eMonsterAction.Dead);
 			_owner.SetAction(eMonsterAction.Dead);
+			//_owner.gameObject.SetActive(false);
 			MonsterSpawner.Instance.ReleaseMonster(_owner.Type, _owner);
 		}
 
