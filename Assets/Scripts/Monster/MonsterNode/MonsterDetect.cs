@@ -44,7 +44,7 @@ namespace Scripts.Monster.MonsterNode
             }
             IDamageable target = _res[0].GetComponent<IDamageable>();
             _monster.SetTarget(target);
-            _monster.ChangeState(new MonsterMoveState(_monster));
+            _monster.ChangeState(eMonsterAction.Walk);
             return true;
         }
 

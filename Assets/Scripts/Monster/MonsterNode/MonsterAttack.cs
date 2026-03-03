@@ -33,23 +33,28 @@ namespace Scripts.Monster.MonsterNode
 				return NodeState.Failure;
             }
 
-            //
+            //Enter되면
             AttackProcess();
-			_monster.ChangeState(new MonsterAttackState(_monster));
 			return NodeState.Success;
 		}
         private void AttackProcess()
         {
-			if ((_monster.LastAttackTime + attackLatency) < Time.time)
-			{
-                CustomLogger.Log("공격 성공 했음");
-				bool IsAlive = _monster.Attack(_monster.Target);
-				if (!IsAlive)
-				{
-					_monster.ChangeState(new MonsterIdleState(_monster));
-				}
+            if (CheckAttackDuration())
+            {
+                CustomLogger.Log("공격 딜레이가 다 되었음.");
+                bool IsAlive = _monster.Attack(_monster.Target);
+                _monster.ChangeState(eMonsterAction.Attack);
+            }
+            else
+            {
 			}
 		}
+
+        bool CheckAttackDuration()
+        {
+            return (_monster.LastAttackTime + attackLatency) < Time.time;
+		}
+
         // 공격범위에 있다면 공격을 한다.
         // 
         //Player가 공격 범위에 있는가

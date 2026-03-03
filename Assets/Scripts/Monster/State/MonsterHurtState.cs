@@ -2,6 +2,7 @@ using Cysharp.Threading.Tasks;
 using Cysharp.Threading.Tasks.CompilerServices;
 using Scripts.Core;
 using Scripts.Core.StateMachine;
+using Scripts.Core.Utils;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -13,12 +14,14 @@ namespace Scripts.Monster.State
 	public class MonsterHurtState : EntityState<Monster>
 	{
 		//Hurt같은 상태는 스스로 벗어나야함.
-		float hit_latency = 100;
+		float hit_latency;
 		CancellationTokenSource _token;
 		public MonsterHurtState(Monster owner)
 			: base(owner)
 		{
 			_token = new CancellationTokenSource();
+			hit_latency = _owner.GetAnimationLength(eMonsterAction.Hurt);
+			_canRetriggered = true;
 		}
 
 		public override void OnEnter()
@@ -26,7 +29,8 @@ namespace Scripts.Monster.State
 			base.OnEnter();
 			//Attack으로 진입시
 			_owner.InterruptBehaviourTree();
-			_owner.AnimationComponent.TrySetBool(eMonsterAction.Hurt, true);
+			_owner.AnimationComponent.TrySetTrigger(eMonsterAction.Hurt);
+			CustomLogger.Log("Hurt상태 돌입!");
 			_owner.SetAction(eMonsterAction.Hurt);
 
 			WaitHitLatency().Forget();
@@ -39,14 +43,13 @@ namespace Scripts.Monster.State
 		public override void OnExit()
 		{
 			base.OnExit();
-			_owner.AnimationComponent.TrySetBool(eMonsterAction.Hurt, false);
 			_owner.RestartBehaviourTree();
 		}
 
 		private async UniTaskVoid WaitHitLatency()
 		{
 			await UniTask.Delay(TimeSpan.FromMilliseconds(hit_latency), cancellationToken: _token.Token);
-			_owner.ChangeState(new MonsterIdleState(_owner));
+			_owner.ChangeState(eMonsterAction.Walk);
 		}
 	}
 }

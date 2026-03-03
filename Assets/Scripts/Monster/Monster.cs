@@ -124,12 +124,14 @@ namespace Scripts.Monster
         {
             get { return _facingDir; }
         }
+        
         AnimatorComponent<eMonsterAction> _animatorComponent;
         public AnimatorComponent<eMonsterAction> AnimationComponent
         {
             get { return _animatorComponent; }
         }
         StateMachine<Monster> _stateManchine;
+        MonsterStateFactory _stateFactory;
         [SerializeField]
         MonsterAnimationSO _AnimationClipSO;
 
@@ -148,29 +150,18 @@ namespace Scripts.Monster
 
             _stateManchine = new StateMachine<Monster>();
             _monAI = new MonsterOrder();
-            _monAI.Init(this);
+            _stateFactory = new MonsterStateFactory(this);
+			_monAI.Init(this);
             InitializeAnimator();
-        }
-        void Start()
-        {
-
         }
 
         void Update()
         {
             if (_monAI != null)
             {
-                Debug.Log("_MonAI is Not NULL");
                 _monAI.ExecuteNode();
             }
             _stateManchine.currentState.OnUpdate();
-        }
-
-        private void LateUpdate()
-        {
-
-            //UpdateAnimation();
-            //CleanUpResource();
         }
 
         /// <summary>
@@ -232,7 +223,7 @@ namespace Scripts.Monster
         public void OnAlloc()
         {
             //생성자
-            _stateManchine.BeginMachine(new MonsterMoveState(this));
+            _stateManchine.BeginMachine(_stateFactory.GetState(eMonsterAction.Walk));
             return;
         }
         public void OnRelease()
@@ -247,16 +238,16 @@ namespace Scripts.Monster
 
             // UI 연동: 몬스터 머리 위로 피격 데미지 표시
             UITKDamageTextBridge.ShowOnTransform(transform, dmg);
-
+            CustomLogger.Log($"몬스터가 HP : {_stat._hp} DMG : {dmg} 받음");
             bool IsAlive = setHp(dmg);
-
-            if (_monAction == eMonsterAction.Dead)
+			if (_monAction == eMonsterAction.Dead)
             {
                 CustomLogger.LogError("죽은 상태인데 공격받음!");
             }
 
             if (!IsAlive)
             {
+                //죽었다면 -> 죽은 연출해주고, Reward를 주면됨.
                 //Todo : Reward 주기
                 if (attacker is IRewardable target)
                 {
@@ -265,7 +256,13 @@ namespace Scripts.Monster
                 }
                 return false;
             }
-            return true;
+
+            //연출부
+			if (_monAction != eMonsterAction.Hurt)
+			{
+				ChangeState(eMonsterAction.Hurt);
+			}
+			return true;
         }
 
         public bool Attack(IDamageable target)
@@ -273,7 +270,6 @@ namespace Scripts.Monster
             bool IsAlive;
             IsAlive = target.TakeDamage(this);
             _lastAttackTime = Time.time;
-            CustomLogger.Log("Monster 공격!");
             if (!IsAlive)
             {
                 CustomLogger.Log("타겟이 죽음");
@@ -283,9 +279,9 @@ namespace Scripts.Monster
             return true;
         }
 
-        public void ChangeState(EntityState<Monster> state)
+        public void ChangeState(eMonsterAction action)
         {
-            _stateManchine.ChangeState(state);
+            _stateManchine.ChangeState(_stateFactory.GetState(action));
         }
 
         public void InterruptBehaviourTree()
@@ -308,7 +304,7 @@ namespace Scripts.Monster
             //Institate 동전
             CustomLogger.Log("Monster Is Dead!!");
             _monAction = eMonsterAction.Dead;
-            _stateManchine.ChangeState(new MonsterDeadState(this));
+            _stateManchine.ChangeState(_stateFactory.GetState(eMonsterAction.Dead));
         }
 
         private void InitializeAnimator()

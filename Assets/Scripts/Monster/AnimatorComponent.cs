@@ -21,6 +21,7 @@ public class AnimatorComponent<TAction> where TAction : Enum
         IsExistKey = _hashCode.TryGetValue(action, out int hashValue);
         if (!IsExistKey)
         {
+            Debug.Log("Not Set Animation");
             return false;
         }
         _am.SetBool(hashValue, value);

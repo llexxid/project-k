@@ -116,6 +116,7 @@ public class PlayerAttack
 
             // 일반 공격 애니메이션 재생 및 첫 번째 적에게 데미지 적용
             player.PlayAttackAndApplyDamage(ApplyPendingTargets);
+            
         }
         return NodeState.Success;
     }

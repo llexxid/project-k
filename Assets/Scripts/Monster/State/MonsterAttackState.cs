@@ -13,14 +13,13 @@ namespace Scripts.Monster.State
 		public MonsterAttackState(Monster owner) 
 			: base(owner)
 		{
-
+			_canRetriggered = true;
 		}
 
 		public override void OnEnter()
 		{
 			base.OnEnter();
-			//Attack으로 진입시
-			_owner.AnimationComponent.TrySetBool(eMonsterAction.Attack, true);
+			_owner.AnimationComponent.TrySetTrigger(eMonsterAction.Attack);
 			_owner.SetAction(eMonsterAction.Attack);
 		}
 
@@ -31,7 +30,6 @@ namespace Scripts.Monster.State
 		public override void OnExit()
 		{
 			base.OnExit();
-			_owner.AnimationComponent.TrySetBool(eMonsterAction.Attack, false);
 		}
 	}
 }
