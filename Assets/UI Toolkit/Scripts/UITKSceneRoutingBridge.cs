@@ -5,10 +5,7 @@ using KingdomIdle.UI;
 
 namespace KingdomIdle.UIToolkit
 {
-    /// <summary>
-    /// GameManager.SceneLoadFinished를 받아 UI Toolkit 화면(UIScreenId)을 교체.
-    /// 이벤트를 놓쳤을 때를 대비해, 시작 시 현재 활성 씬 기준으로도 1회 라우팅한다.
-    /// </summary>
+    // GameManager 씬 전환 이벤트 → UITKUIManager 화면 교체
     public sealed class UITKSceneRoutingBridge : MonoBehaviour
     {
         [Header("Options")]
@@ -35,7 +32,7 @@ namespace KingdomIdle.UIToolkit
 
             _gm.SceneLoadFinished += OnSceneLoadFinished;
 
-            // ✅ 이벤트를 놓쳤을 경우 대비: 현재 활성 씬 기준으로도 1회 화면 세팅
+            // 현재 활성 씬 기준으로 1회 라우팅
             RouteFromActiveScene();
         }
 

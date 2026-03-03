@@ -40,7 +40,10 @@
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="HudLeft" class="hud-left">
-            <ui:Button name="BtnQuest" text="퀘스트" class="side-btn" />
+            <ui:VisualElement class="guide-btn-wrap">
+                <ui:Button name="BtnGuide" text="가이드" class="side-btn guide-btn" />
+                <ui:Label name="LblGuideBadge" text="" class="guide-badge hidden" />
+            </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="BottomBar" class="bottom-bar">
             <ui:Button name="BtnDevelopment" text="육성" class="tab-btn" />
