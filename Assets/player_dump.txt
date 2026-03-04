@@ -113,8 +113,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     {
         InitializeAnimator();
 
-        playerStatus = new PlayerStatus();
-
         playerOrder = new PlayerOrder();
         playerOrder.Init(this);
 
@@ -128,14 +126,12 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         // 2. runtimeAnimatorController의 모든 클립을 순회하므로,
         //    클립 수가 많아질수록 Awake 초기화 시간이 약간 늘어날 수 있음 (미미하지만 주의)
         // 3. Animator가 인스펙터에 연결되지 않은 채 실행되면 fallback(0.4f) 값으로 동작함
-        float attackClipLength = GetClipLength("Attack_Anim");
+        float attackClipLength = GetClipLength("Attack");
         playerOrder._attack.attackRate = attackClipLength;
 
-        //For Test (에디터 전용 — 빌드에서는 Init()으로 주입)
-#if UNITY_EDITOR
+        //For Test 
         _data._Hp = 50;
         _data._atk = 10;
-#endif
 
     }
 

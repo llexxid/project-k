@@ -2,21 +2,21 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PlayerIdle : MonoBehaviour
+public class PlayerIdle
 {
     //public Animator animator;
 
-    // ´ë±â Çàµ¿ ·ÎÁ÷
+    // ëŒ€ê¸° í–‰ë™ ë¡œì§
     public NodeState Idle()
     {
-        // ¿©±â¿¡ ´ë±â ¾Ö´Ï¸ŞÀÌ¼ÇÀ» Àç»ıÇÏ°Å³ª, Ã¼·ÂÀ» È¸º¹ÇÏ´Â µîÀÇ ·ÎÁ÷ Ãß°¡
+        // ì—¬ê¸°ì— ëŒ€ê¸° ì• ë‹ˆë©”ì´ì…˜ì„ ì¬ìƒí•˜ê±°ë‚˜, ì²´ë ¥ì„ íšŒë³µí•˜ëŠ” ë“±ì˜ ë¡œì§ ì¶”ê°€
         //animator.SetBool("isMoving", false);
 
-        // ´ë±â´Â Ç×»ó ¼º°ø(¼öÇà °¡´É)ÇÑ »óÅÂ·Î °£ÁÖ
+        // ëŒ€ê¸°ëŠ” í•­ìƒ ì„±ê³µ(ìˆ˜í–‰ ê°€ëŠ¥)í•œ ìƒíƒœë¡œ ê°„ì£¼
         return NodeState.Success;
     }
 
-    // [Ãß°¡] Çàµ¿ Æ®¸® Àü¿ë ³ëµå Å¬·¡½º
+    // [ì¶”ê°€] í–‰ë™ íŠ¸ë¦¬ ì „ìš© ë…¸ë“œ í´ë˜ìŠ¤
     public class IdleNode : Node
     {
         private PlayerIdle _idle;

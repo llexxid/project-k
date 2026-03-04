@@ -8,24 +8,24 @@ public class PlayerDetection
     //public LayerMask playerMask;
     public float detectionRadius = 2f;
     private List<Collider2D> detectedResults = new List<Collider2D>();
-    public IDamageable currentTarget; // ¹ß°ßµÈ ÀûÀ» ÀúÀåÇÒ º¯¼ö
+    public IDamageable currentTarget; // ë°œê²¬ëœ ì ì„ ì €ì¥í•  ë³€ìˆ˜
     public Player player;
     public PlayerDetection(Player player)
     {
         this.player = player;
     }
 
-    int enemyLayer = 1 << 6;
+    LayerMask enemyLayer = GameLayers.EnemyMask;
 
-    // ³ëµå°¡ ÇÃ·¹ÀÌ¾î¸¦ °®°í ÀÖ°í, ÇÃ·¹ÀÌ¾î¿¡¼­ transformÀ» °¡Á®¿À´Â ¹æ½Ä
+    // ë…¸ë“œê°€ í”Œë ˆì´ì–´ë¥¼ ê°–ê³  ìˆê³ , í”Œë ˆì´ì–´ì—ì„œ transformì„ ê°€ì ¸ì˜¤ëŠ” ë°©ì‹
     public void Detect()
     {
         // Debug.Log("Player Detecting...");
-        ContactFilter2D filter = new ContactFilter2D(); // ÇÊÅÍ ¼³Á¤
-        filter.SetLayerMask(enemyLayer); // ·¹ÀÌ¾î ¸¶½ºÅ© ¼³Á¤
-        filter.useTriggers = true; // Æ®¸®°Å Äİ¶óÀÌ´õ Æ÷ÇÔ
+        ContactFilter2D filter = new ContactFilter2D(); // í•„í„° ì„¤ì •
+        filter.SetLayerMask(enemyLayer); // ë ˆì´ì–´ ë§ˆìŠ¤í¬ ì„¤ì •
+        filter.useTriggers = true; // íŠ¸ë¦¬ê±° ì½œë¼ì´ë” í¬í•¨
 
-        // ¸®½ºÆ®¸¦ Àç»ç¿ëÇÏ¿© °¡ºñÁö ¹ß»ıÀ» ÃÖ¼ÒÈ­ÇÏ´Â ¹æ½Ä
+        // ë¦¬ìŠ¤íŠ¸ë¥¼ ì¬ì‚¬ìš©í•˜ì—¬ ê°€ë¹„ì§€ ë°œìƒì„ ìµœì†Œí™”í•˜ëŠ” ë°©ì‹
         int count = Physics2D.OverlapCircle(player.transform.position, detectionRadius, filter, detectedResults);
 
         //Debug.Log(count);
@@ -34,17 +34,17 @@ public class PlayerDetection
         {
             if (detectedResults[i].CompareTag("Enemy"))
             {
-                currentTarget = detectedResults[i].gameObject.GetComponent<IDamageable>(); // Å¸°Ù ÀúÀå
+                currentTarget = detectedResults[i].gameObject.GetComponent<IDamageable>(); // íƒ€ê²Ÿ ì €ì¥
 
-                player.currentTarget  = currentTarget; // ÇÃ·¹ÀÌ¾îÀÇ Å¸°Ù º¯¼ö¿¡µµ ÀúÀå
+                player.currentTarget  = currentTarget; // í”Œë ˆì´ì–´ì˜ íƒ€ê²Ÿ ë³€ìˆ˜ì—ë„ ì €ì¥
 
-                return; // °¡Àå °¡±î¿î Àû ÇÏ³ª¸¸ Ã£À¸¸é Á¾·á
+                return; // ê°€ì¥ ê°€ê¹Œìš´ ì  í•˜ë‚˜ë§Œ ì°¾ìœ¼ë©´ ì¢…ë£Œ
             }
-            else Debug.Log("ÀûÀÌ °¨ÁöµÇÁö ¾ÊÀ½");
+            else Debug.Log("ì ì´ ê°ì§€ë˜ì§€ ì•ŠìŒ");
         }
     }
 
-    // Çàµ¿ Æ®¸® Àü¿ë ³ëµå Å¬·¡½º
+    // í–‰ë™ íŠ¸ë¦¬ ì „ìš© ë…¸ë“œ í´ë˜ìŠ¤
     public class DetectionNode : Node
     {
         private PlayerDetection _detection;
@@ -54,17 +54,17 @@ public class PlayerDetection
         {
             _detection.Detect();
 
-            // ¸®½ºÆ® ³»ºÎ¿¡ ½ÇÁ¦·Î "Enemy" ÅÂ±×¸¦ °¡Áø ³à¼®ÀÌ ÀÖ´ÂÁö È®ÀÎ
+            // ë¦¬ìŠ¤íŠ¸ ë‚´ë¶€ì— ì‹¤ì œë¡œ "Enemy" íƒœê·¸ë¥¼ ê°€ì§„ ë…€ì„ì´ ìˆëŠ”ì§€ í™•ì¸
             foreach (var target in _detection.detectedResults)
             {
                 if (target.CompareTag("Enemy")) return NodeState.Success;
-                else Debug.Log("ÀûÀÌ °¨ÁöµÇÁö ¾ÊÀ½");
+                else Debug.Log("ì ì´ ê°ì§€ë˜ì§€ ì•ŠìŒ");
             }
             return NodeState.Failure;
         }
     }
 
-    //void OnDrawGizmos() // ¹üÀ§ ±×¸®±â
+    //void OnDrawGizmos() // ë²”ìœ„ ê·¸ë¦¬ê¸°
     //{
     //    Gizmos.color = Color.red;
     //    Gizmos.DrawWireSphere(player.transform.position, detectionRadius);
@@ -72,15 +72,15 @@ public class PlayerDetection
 }
 
 /*
-µ¿ÀÛ ¿ø¸®
+ë™ì‘ ì›ë¦¬
 
-1. Sequence ³ëµå (PlayerOrder¿¡ ÀÖ´Â)°¡ ¸ÕÀú DetectionNode¸¦ ½ÇÇàÇÕ´Ï´Ù.
+1. Sequence ë…¸ë“œ (PlayerOrderì— ìˆëŠ”)ê°€ ë¨¼ì € DetectionNodeë¥¼ ì‹¤í–‰í•©ë‹ˆë‹¤.
 
-2. °¨Áö¿¡ ¼º°øÇÏ¸é PlayerDetection.currentTarget¿¡ Àû Á¤º¸°¡ ÀúÀåµÇ°í Success°¡ ¹İÈ¯µË´Ï´Ù.
+2. ê°ì§€ì— ì„±ê³µí•˜ë©´ PlayerDetection.currentTargetì— ì  ì •ë³´ê°€ ì €ì¥ë˜ê³  Successê°€ ë°˜í™˜ë©ë‹ˆë‹¤.
 
-3. ÀÌ¾î¼­ MoveNode°¡ ½ÇÇàµË´Ï´Ù.
+3. ì´ì–´ì„œ MoveNodeê°€ ì‹¤í–‰ë©ë‹ˆë‹¤.
 
-4. ÀûÀÌ ¸Ö¸® ÀÖ´Ù¸é PlayerMove´Â ÀÌµ¿ÇÏ¸ç RunningÀ» ¹İÈ¯ÇÕ´Ï´Ù. (Æ®¸®´Â ´ÙÀ½ ÇÁ·¹ÀÓ¿¡ ´Ù½Ã MoveNode¸¦ ½ÇÇà
+4. ì ì´ ë©€ë¦¬ ìˆë‹¤ë©´ PlayerMoveëŠ” ì´ë™í•˜ë©° Runningì„ ë°˜í™˜í•©ë‹ˆë‹¤. (íŠ¸ë¦¬ëŠ” ë‹¤ìŒ í”„ë ˆì„ì— ë‹¤ì‹œ MoveNodeë¥¼ ì‹¤í–‰
 
-5. Àû¿¡°Ô °¡±î¿öÁö¸é Success¸¦ ¹İÈ¯ÇÏ¿©, ´ÙÀ½ ¼ø¼­ÀÎ °ø°İ(Attack) ´Ü°è·Î ³Ñ¾î°©´Ï´Ù.
+5. ì ì—ê²Œ ê°€ê¹Œì›Œì§€ë©´ Successë¥¼ ë°˜í™˜í•˜ì—¬, ë‹¤ìŒ ìˆœì„œì¸ ê³µê²©(Attack) ë‹¨ê³„ë¡œ ë„˜ì–´ê°‘ë‹ˆë‹¤.
 */

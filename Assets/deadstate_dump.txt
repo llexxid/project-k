@@ -1,0 +1,610 @@
+
+=====MonsterSpawnerTest.cs=====
+using Scripts.Core;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using Scripts.Core.Utils;
+public class MonsterSpawnerTest : MonoBehaviour
+{
+    // Start is called before the first frame update
+    void Start()
+    {
+        Vector3 pos1 = new Vector3(-5, 0, 0);
+        Vector3 pos2 = new Vector3(5, 0, 0);
+
+        MonsterSpawner.Instance.SpawnMonsterForTest(eMonsterType.MON_ORC, pos1, Quaternion.identity,
+            (mon) =>
+            {
+                Debug.Log("MonsterSpawn!");
+            }
+
+            );
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+
+    }
+}
+
+=====AddressableTest.cs=====
+using Cysharp.Threading.Tasks;
+using Scripts.Core;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using UnityEngine;
+using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
+using UnityEngine.SceneManagement;
+using static UnityEngine.Rendering.VirtualTexturing.Debugging;
+
+public class AddressableTest : MonoBehaviour
+{
+    AsyncOperationHandle<GameObject> _handle;
+    AsyncOperationHandle<IList<GameObject>> _handles;
+    GameObject _prefab;
+
+    private void Awake()
+    {
+        //_handle = Addressables.LoadAssetAsync<GameObject>("Monster");
+        //_handle.Completed += OnHandles;
+
+
+
+    }
+
+    private void OnHandles(AsyncOperationHandle<GameObject> obj)
+    {
+        _prefab = obj.Result;
+    }
+    private void Start()
+    {
+    }
+    private async void LoadAssets()
+    {
+        string[] ids = { "Monster", "1", "3", "2", "FireBall" };
+        List<string> idList;
+        idList = ids.ToList<string>();
+
+        string groupKey = "Monster";
+        _handles = Addressables.LoadAssetsAsync<GameObject>(groupKey, (loaded) => { });
+
+        IList<GameObject> objList = await _handles.Task;
+
+        foreach (GameObject obj in objList)
+        {
+            Debug.Log(obj.name);
+        }
+    }
+
+
+    private void Update()
+    {
+
+    }
+
+}
+
+=====MonsterSpawner.cs=====
+using Cysharp.Threading.Tasks.Triggers;
+using Scripts.Core;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
+using Scripts.Monster;
+using Scripts.Core.DataStructure;
+
+namespace Scripts.Core.Utils
+{
+    using Monster = Scripts.Monster.Monster;
+    public class MonsterSpawner : MonoBehaviour
+    {
+        public static MonsterSpawner Instance;
+        //���������� � ���Ͱ� �������� ���ҽ� ����
+        private Dictionary<eMonsterType, Monster> _monsterCache;
+        private Dictionary<eMonsterType, ObjectPool<Monster>> _MonsterPool;
+
+        //Asset
+        private Dictionary<long, AsyncOperationHandle<IList<GameObject>>> _Handles;
+        private Dictionary<eMonsterType, AsyncOperationHandle<GameObject>> _SingleHandle;
+
+        private Transform _monParents;
+        private void Awake()
+        {
+            if (Instance == null)
+            {
+                Instance = this;
+                Instance.Init();
+                DontDestroyOnLoad(gameObject);
+                return;
+            }
+            Destroy(gameObject);
+            return;
+        }
+        private void Init()
+        {
+            _monsterCache = new Dictionary<eMonsterType, Monster>();
+            _MonsterPool = new Dictionary<eMonsterType, ObjectPool<Monster>>();
+
+            _Handles = new Dictionary<long, AsyncOperationHandle<IList<GameObject>>>();
+            _SingleHandle = new Dictionary<eMonsterType, AsyncOperationHandle<GameObject>>();
+        }
+
+        public void OnEnterScene()
+        {
+			GameObject obj = new GameObject("MON_ROOT");
+			_monParents = obj.transform;
+
+            foreach (var Item in _monsterCache)
+            {
+                eMonsterType key = Item.Key;
+                Monster monObj = Item.Value;
+				ObjectPool<Monster> monPool = new ObjectPool<Monster>();
+				monPool.Init((int)DEFAULT_VALUE.PoolingSize, _monParents, monObj);
+
+				_MonsterPool.Add(key, monPool);
+			}		
+		}
+
+        public void Clear()
+        {
+            _monsterCache.Clear();
+            _MonsterPool.Clear();
+
+			foreach (var item in _Handles)
+			{
+				Addressables.Release(item.Value);
+			}
+			foreach (var item in _SingleHandle)
+			{
+				Addressables.Release(item.Value);
+			}
+			_Handles.Clear();
+			_SingleHandle.Clear();
+		}
+
+        public async void SpawnMonsterForTest(eMonsterType id, Vector3 pos, Quaternion rotate, Action<Monster> callback)
+        {
+            AsyncOperationHandle<GameObject> handle;
+            if (_SingleHandle.TryGetValue(id, out handle) == true)
+            {
+                return;
+            }
+            string str = id.ToString();
+            handle = Addressables.LoadAssetAsync<GameObject>(id.ToString());
+            _SingleHandle.Add(id, handle);
+            var result = await handle.Task;
+
+            Monster component = result.GetComponent<Monster>();
+            //Load�Ѵ���, Ǯ���ؼ� �ֱ�
+            ObjectPool<Monster> pool = new ObjectPool<Monster>();
+            pool.Init((int)DEFAULT_VALUE.PoolingSize, component);
+            _MonsterPool.Add(id, pool);
+            Monster mon = pool.Alloc(pos, rotate);
+            mon.gameObject.SetActive(true);
+            //Todo : MonsterStat���� ���ϱ�
+            mon.Init(id, new Monster.MonsterStat(10,0,5,1,1), 0);
+            callback?.Invoke(mon);
+            return;
+        }
+
+        public void SpawnMonster(eMonsterType id, Vector3 pos, Quaternion rotate, out Monster monster)
+        {
+            ObjectPool<Monster> pool;
+
+            //���ʹ� �⺻������ Ǯ�� ��ü
+            bool IsExistMonster = _MonsterPool.TryGetValue(id, out pool);
+            if (!IsExistMonster)
+            {
+                CustomLogger.LogWarning("Pooling���� ���� ���� ������ ��û�߽��ϴ�.");
+                //���⼭ ���ʹ� ��ǻ� ����ó��. ���ַ��� Callback�� �޾ƾ���.
+
+                monster = default;
+                return;
+            }
+            monster = pool.Alloc(pos, rotate);
+            monster.gameObject.SetActive(true);
+            return;
+        }
+
+        public void ReleaseMonster(eMonsterType id, Monster monster)
+        {
+            ObjectPool<Monster> pool;
+            bool IsExistMonster = _MonsterPool.TryGetValue(id, out pool);
+            if (!IsExistMonster)
+            {
+                CustomLogger.LogWarning("Pooling���� ���� ���� �ݳ��� ��û�߽��ϴ�.");
+                return;
+            }
+            pool.Release(monster);
+            return;
+        }
+
+        public AsyncOperationHandle<IList<GameObject>> LoadMonsterAssets(eStage groupId, eMonsterType[] idList)
+        {
+            if (_Handles.ContainsKey((long)groupId))
+            { 
+                return _Handles[(long)groupId];
+			}
+            LoadAssetAsync(groupId, idList);
+            return _Handles[(long)groupId];
+        }
+
+        private async void LoadAssetAsync(eStage groupId, eMonsterType[] id)
+        {
+            IList<GameObject> result;
+            AsyncOperationHandle<IList<GameObject>> handle;
+
+            bool IsRequested = _Handles.TryGetValue((long)groupId, out handle);
+            if (IsRequested)
+            {
+                return;
+            }
+            else
+            {
+                IList<string> keys = Array.ConvertAll(id, (id) => id.ToString());
+				handle = Addressables.LoadAssetsAsync<GameObject>(keys, (loaded) => { }, Addressables.MergeMode.Union);
+                _Handles.Add((long)groupId, handle);
+                result = await handle.Task;
+            }
+            //Stage�� �ִ� Monster�� ����
+            int i = 0;
+            foreach (GameObject mon in result)
+            {
+                Monster monComponent = mon.GetComponent<Monster>();
+                _monsterCache.Add(id[i], monComponent);
+                i++;
+            }
+            return;
+        }
+    }
+
+}
+
+=====MonsterAttackState.cs=====
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using Scripts.Core.StateMachine;
+using Scripts.Core;
+using Scripts.Core.Utils;
+
+namespace Scripts.Monster.State
+{
+	using Monster = Scripts.Monster.Monster;
+	public class MonsterAttackState : EntityState<Monster>
+	{
+		public MonsterAttackState(Monster owner) 
+			: base(owner)
+		{
+
+		}
+
+		public override void OnEnter()
+		{
+			base.OnEnter();
+			//Attack���� ���Խ�
+			_owner.AnimationComponent.TrySetBool(eMonsterAction.Attack, true);
+			_owner.SetAction(eMonsterAction.Attack);
+		}
+
+		public override void OnUpdate()
+		{
+			base.OnUpdate();
+		}
+		public override void OnExit()
+		{
+			base.OnExit();
+			_owner.AnimationComponent.TrySetBool(eMonsterAction.Attack, false);
+		}
+	}
+}
+
+
+=====MonsterDeadState.cs=====
+using Scripts.Core;
+using Scripts.Core.StateMachine;
+using Scripts.Core.Utils;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace Scripts.Monster.State
+{
+	public class MonsterDeadState : EntityState<Monster>
+	{
+		public MonsterDeadState(Monster owner)
+			: base(owner)
+		{
+
+		}
+
+		public override void OnEnter()
+		{
+			base.OnEnter();
+			//Attack���� ���Խ�
+			_owner.AnimationComponent.TrySetTrigger(eMonsterAction.Dead);
+			_owner.SetAction(eMonsterAction.Dead);
+			MonsterSpawner.Instance.ReleaseMonster(_owner.Type, _owner);
+		}
+
+		public override void OnUpdate()
+		{
+			base.OnUpdate();
+		}
+		public override void OnExit()
+		{
+			base.OnExit();
+		}
+
+	}
+}
+
+
+=====MonsterHurtState.cs=====
+using Cysharp.Threading.Tasks;
+using Cysharp.Threading.Tasks.CompilerServices;
+using Scripts.Core;
+using Scripts.Core.StateMachine;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading;
+using UnityEngine;
+
+namespace Scripts.Monster.State
+{
+	public class MonsterHurtState : EntityState<Monster>
+	{
+		//Hurt���� ���´� ������ �������.
+		float hit_latency = 100;
+		CancellationTokenSource _token;
+		public MonsterHurtState(Monster owner)
+			: base(owner)
+		{
+			_token = new CancellationTokenSource();
+		}
+
+		public override void OnEnter()
+		{
+			base.OnEnter();
+			//Attack���� ���Խ�
+			_owner.InterruptBehaviourTree();
+			_owner.AnimationComponent.TrySetBool(eMonsterAction.Hurt, true);
+			_owner.SetAction(eMonsterAction.Hurt);
+
+			WaitHitLatency().Forget();
+		}
+
+		public override void OnUpdate()
+		{
+			base.OnUpdate();
+		}
+		public override void OnExit()
+		{
+			base.OnExit();
+			_owner.AnimationComponent.TrySetBool(eMonsterAction.Hurt, false);
+			_owner.RestartBehaviourTree();
+		}
+
+		private async UniTaskVoid WaitHitLatency()
+		{
+			await UniTask.Delay(TimeSpan.FromMilliseconds(hit_latency), cancellationToken: _token.Token);
+			_owner.ChangeState(new MonsterIdleState(_owner));
+		}
+	}
+}
+
+
+=====MonsterIdleState.cs=====
+using Scripts.Core.StateMachine;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace Scripts.Monster.State
+{
+	public class MonsterIdleState : EntityState<Monster>
+	{
+		public MonsterIdleState(Monster owner) : base(owner)
+		{
+		}
+		public override void OnEnter()
+		{
+			base.OnEnter();
+		}
+		public override void OnExit()
+		{
+			base.OnExit();
+		}
+	}
+}
+
+
+=====MonsterMoveState.cs=====
+using Scripts.Core;
+using Scripts.Core.StateMachine;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace Scripts.Monster.State
+{
+	public class MonsterMoveState : EntityState<Monster>
+	{
+		public MonsterMoveState(Monster owner)
+			: base(owner)
+		{
+
+		}
+
+		public override void OnEnter()
+		{
+			//Attack���� ���Խ�
+			base.OnEnter();
+			_owner.AnimationComponent.TrySetBool(eMonsterAction.Walk, true);
+			_owner.SetAction(eMonsterAction.Walk);
+		}
+
+		public override void OnUpdate()
+		{
+			base.OnUpdate();
+		}
+		public override void OnExit()
+		{
+			base.OnExit();
+			_owner.AnimationComponent.TrySetBool(eMonsterAction.Walk, false);
+		}
+	}
+}
+
+
+=====EntityState.cs=====
+using Scripts.Core;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace Scripts.Core.StateMachine
+{
+	public abstract class EntityState<T>
+	{
+		protected T _owner;
+
+		public EntityState(T owner)
+		{
+			_owner = owner;
+		}
+
+		public virtual void OnEnter()
+		{
+
+		}
+
+		public virtual void OnUpdate()
+		{
+
+		}
+		public virtual void OnExit()
+		{
+			
+		}
+	}
+
+}
+=====StateMachine.cs=====
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace Scripts.Core.StateMachine
+{
+	public class StateMachine<T>
+	{
+		EntityState<T> _currentState;
+		public EntityState<T> currentState
+		{
+			get { return _currentState; }
+		}
+		public void BeginMachine(EntityState<T> state)
+		{
+			_currentState = state;
+			_currentState.OnEnter();
+		}
+
+		public void ChangeState(EntityState<T> state)
+		{
+			_currentState.OnExit();
+			_currentState = state;
+			_currentState.OnEnter();
+		}
+	}
+}
+
+=====EnemySpawner.cs=====
+using UnityEngine;
+using System.Collections;
+
+public class EnemySpawner : MonoBehaviour
+{
+    public GameObject enemyPrefab;  // ������ �� ������
+    public Transform player;        // �÷��̾� ��ġ
+    public float spawnInterval = 5f; // ��ȯ ���� (��)
+    public float spawnRadius = 5f;  // ��ȯ �ݰ�
+
+    void Start()
+    {
+        // ��ȯ ���� ����
+        StartCoroutine(SpawnRoutine());
+    }
+
+    IEnumerator SpawnRoutine()
+    {
+        while (true)
+        {
+            SpawnEnemies(6); // 6���� ��ȯ
+            yield return new WaitForSeconds(spawnInterval);
+        }
+    }
+
+    void SpawnEnemies(int count)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            Vector2 spawnPos;
+            int attempts = 0;
+            bool canSpawn = false;
+
+            while (!canSpawn && attempts < 10) // �ִ� 10�� ��õ�
+            {
+                spawnPos = (Vector2)player.position + Random.insideUnitCircle.normalized * spawnRadius;
+                // Ư�� �ݰ�(��: 0.5f) �ȿ� �ٸ� �ݶ��̴��� �ִ��� üũ
+                if (Physics2D.OverlapCircle(spawnPos, 0.5f) == null)
+                {
+                    Instantiate(enemyPrefab, spawnPos, Quaternion.identity);
+                    enemyPrefab.SetActive(true);
+                    canSpawn = true;
+                }
+                attempts++;
+            }
+        }
+    }
+}
+=====LoadTest.cs=====
+using Scripts.Core;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class LoadTest : MonoBehaviour
+{
+
+}
+
+=====SpawnTest.cs=====
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class SpawnTest : MonoBehaviour
+{
+    // Start is called before the first frame update
+    void Start()
+    {
+        
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        
+    }
+}

@@ -3,12 +3,12 @@ using System.Collections.Generic;
 
 public class SkillObjectPool : MonoBehaviour
 {
-    public static SkillObjectPool Instance; // ½Ì±ÛÅæ
+    public static SkillObjectPool Instance; // ì‹±ê¸€í†¤
     private Dictionary<string, Queue<GameObject>> poolDict = new Dictionary<string, Queue<GameObject>>();
 
     private void Awake() => Instance = this;
 
-    // Ç®¿¡¼­ ½ºÅ³ ¿ÀºêÁ§Æ® °¡Á®¿À±â
+    // í’€ì—ì„œ ìŠ¤í‚¬ ì˜¤ë¸Œì íŠ¸ ê°€ì ¸ì˜¤ê¸°
     public GameObject GetSkillObject(SkillData data)
     {
         string key = data.skillName;
@@ -24,12 +24,18 @@ public class SkillObjectPool : MonoBehaviour
         }
         else
         {
-            // Ç®ÀÌ ºñ¾îÀÖÀ¸¸é »õ·Î »ı¼º
-            return null;
+            // í’€ì´ ë¹„ì–´ìˆìœ¼ë©´ ìƒˆë¡œ ìƒì„± (skillPrefabì´ ì—†ìœ¼ë©´ null ë°˜í™˜)
+            if (data.skillPrefab == null)
+            {
+                Debug.LogWarning($"[SkillObjectPool] '{key}'ì˜ skillPrefabì´ ì—†ìŠµë‹ˆë‹¤. Inspectorì—ì„œ í• ë‹¹í•´ ì£¼ì„¸ìš”.");
+                return null;
+            }
+            GameObject newObj = Object.Instantiate(data.skillPrefab);
+            return newObj;
         }
     }
 
-    // »ç¿ë ÈÄ Ç®·Î ¹İÈ¯
+    // ì‚¬ìš© í›„ í’€ë¡œ ë°˜í™˜
     public void ReturnToPool(string skillName, GameObject obj)
     {
         obj.SetActive(false);

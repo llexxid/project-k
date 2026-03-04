@@ -1,20 +1,20 @@
 using UnityEngine;
 
-// ½ºÅ³ Å¸ÀÔÀ» ±¸ºĞÇÏ±â À§ÇÑ Enum
+// ìŠ¤í‚¬ íƒ€ì…ì„ êµ¬ë¶„í•˜ê¸° ìœ„í•œ Enum
 public enum SkillType { Active, Passive }
 
 [CreateAssetMenu(fileName = "NewSkillData", menuName = "ScriptableObjects/SkillData")]
 public class SkillData : ScriptableObject
 {
-    [Header("±âº» Á¤º¸")]
-    public string skillName;         // ½ºÅ³ ÀÌ¸§
-    public string animationStateName;// ¾Ö´Ï¸ŞÀÌ¼Ç »óÅÂ ÀÌ¸§
-    public SkillType skillType;      // ¾×Æ¼ºê/ÆĞ½Ãºê ±¸ºĞ
+    [Header("ê¸°ë³¸ ì •ë³´")]
+    public string skillName;         // ìŠ¤í‚¬ ì´ë¦„
+    public string animationStateName;// ì• ë‹ˆë©”ì´ì…˜ ìƒíƒœ ì´ë¦„
+    public SkillType skillType;      // ì•¡í‹°ë¸Œ/íŒ¨ì‹œë¸Œ êµ¬ë¶„
 
-    [Header("ÀüÅõ ´É·ÂÄ¡")]
-    public float damage;             // µ¥¹ÌÁö
-    public float cooldown;           // ÄğÅ¸ÀÓ
+    [Header("ì „íˆ¬ ëŠ¥ë ¥ì¹˜")]
+    public float damage;             // ë°ë¯¸ì§€
+    public float cooldown;           // ì¿¨íƒ€ì„
 
-    //[Header("ÇÁ¸®ÆÕ ¼³Á¤")]
-    //public GameObject skillPrefab;   // ¿ÀºêÁ§Æ® Ç®¸µ¿¡¼­ »ı¼ºÇÒ ÇÁ¸®ÆÕ
+    //[Header("í”„ë¦¬íŒ¹ ì„¤ì •")]
+    public GameObject skillPrefab;   // ì˜¤ë¸Œì íŠ¸ í’€ì—ì„œ ì‚¬ìš©í•  í”„ë¦¬íŒ¹
 }

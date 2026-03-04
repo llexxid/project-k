@@ -1,0 +1,56 @@
+1: using System.Collections;
+2: using System.Collections.Generic;
+3: using UnityEngine;
+4: 
+5: public class PlayerMove
+6: {
+7:     // public PlayerDetection detection; // Inspector���� PlayerDetection ���� �ʿ�
+8:     public float moveSpeed = 5f;
+9:     public float stopDistance = 1.0f; // �� �տ��� ���� �Ÿ� (���� ��Ÿ�)
+10:     public Player player; 
+11: 
+12:     public PlayerMove(Player player)
+13:     {
+14:         this.player = player;
+15:     }
+16: 
+17:     // �ൿ Ʈ������ ȣ���� �Լ� (��ȯ�� NodeState�� ����)
+18:     public NodeState Move()
+19:     {
+20:         //Debug.Log("Player Moving...");
+21: 
+22:         // 1. Ÿ���� ������ ���� (���� �����)
+23:         if (player.currentTarget == null)
+24:         {
+25:             Debug.Log("Ÿ�� ����");
+26:             return NodeState.Failure;
+27:         }
+28:         else if (player.currentTarget != null)
+29:         {
+30:             Vector2 direction = (Vector2)player.currentTarget.targetPos - (Vector2)player.transform.position;
+31:             float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+32:         }
+33: 
+34:         // 2. �Ÿ� ���
+35:         float distance = Vector2.Distance(player.transform.position, player.currentTarget.targetPos);
+36: 
+37:         // 3. ���� ��Ÿ� ���� ���������� Success ��ȯ -> ���� Attack ��� �����
+38:         if (distance <= stopDistance)
+39:         {
+40:             return NodeState.Success;
+41:         }
+42: 
+43:         // 4. ���� �̵� ���̸� Running ��ȯ (��� �̵�)
+44:         player.transform.position = Vector2.MoveTowards(player.transform.position, player.currentTarget.targetPos, moveSpeed * Time.deltaTime);
+45:         return NodeState.Running;
+46:     }
+47: 
+48:     // �ൿ Ʈ�� ���� ��� Ŭ����
+49:     public class MoveNode : Node
+50:     {
+51:         private PlayerMove _move;
+52:         public MoveNode(PlayerMove move) { _move = move; }
+53: 
+54:         public override NodeState Evaluate() => _move.Move();
+55:     }
+56: }

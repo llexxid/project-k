@@ -243,19 +243,17 @@ namespace Scripts.Monster
         }
         public bool TakeDamage(IAttackable attacker)
         {
-            // Dead 체크를 먼저: 이미 사망한 몬스터에게는 데미지 적용 안 함
-            if (_monAction == eMonsterAction.Dead)
-            {
-                CustomLogger.LogError("죽은 상태인데 공격받음!");
-                return false;
-            }
-
             ulong dmg = attacker.damage;
 
             // UI 연동: 몬스터 머리 위로 피격 데미지 표시
             UITKDamageTextBridge.ShowOnTransform(transform, dmg);
 
             bool IsAlive = setHp(dmg);
+
+            if (_monAction == eMonsterAction.Dead)
+            {
+                CustomLogger.LogError("죽은 상태인데 공격받음!");
+            }
 
             if (!IsAlive)
             {

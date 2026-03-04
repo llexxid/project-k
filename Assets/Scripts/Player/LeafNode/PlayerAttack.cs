@@ -1,193 +1,248 @@
-using Cysharp.Threading.Tasks;
 using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Monster;
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// 플레이어의 공격 로직을 담당하는 클래스.
+/// 일반 공격과 스킬 공격을 쿨타임 기반으로 관리하며,
+/// 범위 내 적을 탐지하여 즉시 데미지를 적용한다.
+/// </summary>
 public class PlayerAttack
 {
+    // 적 탐지를 담당하는 컴포넌트 (타겟 초기화 시 참조)
     [SerializeField] private PlayerDetection _detection;
-    public float attackRate;
+
+    // 공격 애니메이션 한 사이클 길이 (초). attackRate의 최솟값 기준으로도 사용
+    private const float ANIMATION_DURATION = 0.4f;
+
+    // 스킬 이름 상수 (문자열 하드코딩 방지)
+    private const string SKILL_WIND_LANCE = "Wind_Lance";
+
+    // Wind_Lance VFX 활성화 파라미터 (매직 넘버 제거)
+    private const int WIND_LANCE_VFX_DURATION = 200;
+
+    // 일반 공격 간격 (초). 이 값이 작을수록 공격 속도가 빠름
+    // 공격 애니메이션 길이(ANIMATION_DURATION)와 맞춰 기본값 설정 → 애니메이션 1사이클 = 공격 1회
+    public float attackRate = ANIMATION_DURATION;
+    // 다음 공격이 가능한 시각 (Time.time 기준). 현재 시간이 이 값 이상일 때만 공격 가능
     private float _nextAttackTime = 0f;
 
+    // 스킬 활성화 및 데이터 참조용
     public SkillManager skillManager;
-    public SkillDatabase skillDatabase; // 스킬 데이터 참조용
+    public SkillDatabase skillDatabase;
     public VFXManager vfxManager;
-    public IAttackable attackable;
 
+    // 공격이 닿는 범위 (반지름, 단위: 유니티 단위)
     public float attackRadius = 3f;
+    // Physics2D.OverlapCircle 결과를 재사용하기 위한 버퍼 (GC 최소화)
     private List<Collider2D> _hitResults = new List<Collider2D>();
-    // skillName -> next usable absolute time (Time.time)
+
+    // 스킬별 쿨타임 추적: 스킬 이름 → 다음 사용 가능한 Time.time
     private Dictionary<string, float> _skillCooldowns = new Dictionary<string, float>();
 
+    // 공격 주체인 플레이어 참조
     [SerializeField]
     public Player player;
 
-    LayerMask enemyLayer = 1 << 6;
+    // 적 레이어 마스크 (GameLayers 상수 사용, 하드코딩 제거)
+    LayerMask enemyLayer = GameLayers.EnemyMask;
 
-    // 애니메이션 종료 시점에 사용할 대상 목록
-    private List<IDamageable> _pendingTargets = new List<IDamageable>();
-
+    /// <summary>
+    /// 생성자: Player로부터 필요한 참조를 가져오고 스킬 쿨타임을 초기화한다.
+    /// </summary>
     public PlayerAttack(Player player, PlayerDetection detection = null)
     {
         this.player = player;
         this._detection = detection;
         this.skillDatabase = player.skillDatabase;
         this.skillManager = player.skillManager;
-        // 즉시 사용 가능하도록 초기화
-        _skillCooldowns["Wind_Lance"] = 0f;
+
+        // attackRate가 0 이하면 애니메이션 길이로 자동 보정
+        // (외부에서 잘못된 값이 주입되어 매 프레임 공격되는 상황 방지)
+        if (attackRate <= 0f)
+        {
+            Debug.LogWarning($"[PlayerAttack] attackRate가 {attackRate}로 설정되어 있습니다. " +
+                             $"애니메이션 길이({ANIMATION_DURATION}초)로 자동 보정합니다.");
+            attackRate = ANIMATION_DURATION;
+        }
+
+        // Wind_Lance 스킬을 게임 시작 즉시 사용할 수 있도록 쿨타임을 0으로 초기화
+        _skillCooldowns[SKILL_WIND_LANCE] = 0f;
     }
 
+    /// <summary>
+    /// 행동 트리에서 매 프레임 호출되는 공격 판정 함수.
+    /// 쿨타임 → 범위 탐지 → 스킬/일반 공격 분기 순으로 처리한다.
+    /// </summary>
+    /// <returns>공격이 실행되면 Success, 쿨타임 중이거나 범위 내 적이 없으면 Failure</returns>
     public NodeState Attack()
     {
-        // 일반 공격(attackRate) 쿨타임 체크
+        // [1단계] 일반 공격 쿨타임 체크
+        // 아직 쿨타임이 남아 있으면 이번 프레임은 공격하지 않음
         if (Time.time < _nextAttackTime) return NodeState.Failure;
-        _nextAttackTime = Time.time + attackRate;
 
-        // 스킬 데이터 조회
-        string skillName = "Wind_Lance";
-        SkillData data = skillDatabase?.GetSkill(skillName);
-
-        // 현재 스킬의 다음 사용 가능 시간 조회 (없으면 즉시 사용 가능)
-        _skillCooldowns.TryGetValue(skillName, out float nextAvailable);
-
-        // 탐지 필터 설정
+        // [2단계] 적 탐지 필터 설정
+        // enemyLayer에 속한 Trigger 콜라이더만 탐지
         ContactFilter2D filter = new ContactFilter2D();
         filter.SetLayerMask(enemyLayer);
         filter.useLayerMask = true;
         filter.useTriggers = true;
 
-        // 플레이어 주변의 적 탐지 (쿨타임과 상관없이 항상 탐지)
+        // [3단계] 플레이어 중심으로 attackRadius 반경 내 적 탐지
         int hitCount = Physics2D.OverlapCircle(player.transform.position, attackRadius, filter, _hitResults);
 
-        // pending 리스트 초기화
-        _pendingTargets.Clear();
+        // 범위 내 적이 한 명도 없으면 공격할 필요 없음
+        if (hitCount == 0) return NodeState.Failure;
 
-        // VFX 재생 여부 플래그
-        bool vfxPlayed = false;
+        // [4단계] 쿨타임 소모 (적이 있을 때만 소모하여 낭비 방지)
+        _nextAttackTime = Time.time + attackRate;
 
-        // 스킬 사용 가능하면 광역 스킬 적용 (한 번만 VFX 재생)
-        if (data != null && Time.time >= nextAvailable)
+        // [5단계] PlayerStatus에서 기본 공격력(Atk) 조회
+        int baseAtk = player.playerStatus?.Atk ?? 0;
+
+        // [6단계] 스킬 데이터 및 쿨타임 조회
+        string skillName = SKILL_WIND_LANCE;
+        SkillData data = skillDatabase?.GetSkill(skillName);
+        // 해당 스킬의 다음 사용 가능 시각 (없으면 0f → 즉시 사용 가능)
+        _skillCooldowns.TryGetValue(skillName, out float nextSkillAvailable);
+
+        // [7단계] 스킬 쿨타임이 끝났으면 스킬 공격, 아니면 일반 공격 분기
+        if (data != null && Time.time >= nextSkillAvailable)
         {
-            // 스킬 사용 처리: 쿨다운 갱신, 매니저 호출
+            // ══ 스킬 공격 분기 ══
+            // 최종 데미지 = 기본 Atk × 스킬 계수(SkillData.damage)
+            float skillCoefficient = data.damage;
+            int skillDamage = Mathf.RoundToInt(baseAtk * skillCoefficient);
+
+            Debug.Log($"[스킬 공격] Atk: {baseAtk} × 계수({data.skillName}): {skillCoefficient} = 데미지: {skillDamage}");
+
+            // 스킬 쿨타임 갱신 후 스킬 매니저에 활성화 요청 (이펙트·버프 등 처리)
             _skillCooldowns[skillName] = Time.time + data.cooldown;
             skillManager?.ActivateSkill(skillName);
 
-            // 탐지된 모든 적을 수집 (데미지 적용은 애니메이션 끝에서 일괄 적용)
+            // 범위 내 모든 적에게 스킬 데미지 적용 (광역)
+            bool vfxPlayed = false;
             for (int i = 0; i < hitCount; i++)
             {
-                // 각 적이 IDamageable인지 확인 후 pending 리스트에 추가
-                if (_hitResults[i].TryGetComponent<IDamageable>(out var targetEnemy))
+                if (_hitResults[i].TryGetComponent<IDamageable>(out var target))
                 {
-                    // VFX는 스킬 사용 시 한 번만 재생
+                    // 이미 Dead 상태인 몬스터는 건너뜀
+                    if (IsTargetDead(_hitResults[i])) continue;
+
+                    // VFX는 첫 번째 적에게만 한 번 재생하여 중복 방지
                     if (!vfxPlayed)
                     {
-                        // VFX는 스킬 사용 시 한 번만 재생
-                        VFXManager.Instance?.GetVFX(eVFXType.Wind_Lance, targetEnemy.targetPos, player.transform.rotation, (vfx) => { vfx?.ActiveEffect(200); });
-
-                        // 플래그 설정하여 VFX가 이미 재생되었음을 표시
+                        VFXManager.Instance?.GetVFX(eVFXType.Wind_Lance, target.targetPos,
+                            player.transform.rotation, (vfx) => { vfx?.ActiveEffect(WIND_LANCE_VFX_DURATION); });
                         vfxPlayed = true;
                     }
 
-                    // 데미지 대상에 추가 (실제 TakeDamage는 애니메이션 종료 시점에 실행)
-                    _pendingTargets.Add(targetEnemy);
+                    // 데미지 적용. 적이 사망하면 루프 즉시 중단
+                    bool isAlive = ApplyDamage(target, (ulong)skillDamage);
+                    if (!isAlive) break;
                 }
             }
-
-            // 애니메이션 재생 및 애니메이션 종료 시점에 데미지 적용
-            player.PlayAttackAndApplyDamage(ApplyPendingTargets);
         }
         else
         {
-            // 쿨타임 중이면 일반 공격만 수행 (첫 번째 적에만 적용)
+            // ══ 일반 공격 분기 ══
+            // 최종 데미지 = 기본 Atk × 1.0 (계수 없음, 단일 대상)
+            float normalCoefficient = 1.0f;
+            int normalDamage = Mathf.RoundToInt(baseAtk * normalCoefficient);
+
+            Debug.Log($"[일반 공격] Atk: {baseAtk} × 계수: {normalCoefficient} = 데미지: {normalDamage}");
+
+            // 범위 내 첫 번째 적 한 명에게만 데미지 적용 (단일 타깃)
             for (int i = 0; i < hitCount; i++)
             {
-                // 첫 번째 적을 찾으면 루프 종료 (일반 공격은 한 명에게만 적용)
-                if (_hitResults[i].TryGetComponent<IDamageable>(out var targetEnemy))
+                if (_hitResults[i].TryGetComponent<IDamageable>(out var target))
                 {
-                    // _pendingTargets 리스트에 첫 번째 적 추가
-                    _pendingTargets.Add(targetEnemy);
+                    // 이미 Dead 상태인 몬스터는 건너뜀
+                    if (IsTargetDead(_hitResults[i])) continue;
 
-                    break;
+                    ApplyDamage(target, (ulong)normalDamage);
+                    break; // 첫 번째 살아있는 적 처리 후 탈출
                 }
             }
-
-            // 일반 공격 애니메이션 재생 및 첫 번째 적에게 데미지 적용
-            player.PlayAttackAndApplyDamage(ApplyPendingTargets);
         }
+
+        // [8단계] 데미지와 무관하게 공격 애니메이션 재생 (시각 피드백)
+        player.PlayAttackAnimation();
+
         return NodeState.Success;
     }
 
-    // 애니메이션 종료 시점에 호출되는 메서드: pending 리스트에 있는 모든 대상에게 데미지 적용
-    private void ApplyPendingTargets()
+    /// <summary>
+    /// 지정한 대상에게 계산된 데미지를 적용하고 사망 여부를 처리한다.
+    /// </summary>
+    /// <param name="target">데미지를 받을 IDamageable 대상</param>
+    /// <param name="damage">적용할 최종 데미지 수치</param>
+    /// <returns>대상이 살아있으면 true, 사망했으면 false</returns>
+    private bool ApplyDamage(IDamageable target, ulong damage)
     {
-        if (_pendingTargets == null || _pendingTargets.Count == 0)
+        if (target == null)
         {
-            Debug.Log("적이 없습니다. 데미지 적용 실패 - 공격 대상 초기화");
-            return;
+            Debug.Log("대상이 null 또는 이미 파괴됨 - 건너뜀");
+            return false;
         }
 
-        // 우선 사용 가능한 공격자 확보: Player가 IAttackable이면 사용, 아니면 attackable 필드 사용
-        IAttackable attacker = player as IAttackable ?? attackable;
+        // DamageProxy로 데미지 수치를 IAttackable 형태로 포장하여 TakeDamage에 전달
+        bool isAlive = target.TakeDamage(new DamageProxy(damage));
 
-        if (attacker == null)
+        if (!isAlive)
         {
-            Debug.LogWarning("공격자(attacker) 참조가 없습니다. 데미지 적용을 건너뜁니다.");
-            _pendingTargets.Clear();
-            return;
+            Debug.Log("Monster Is Dead!! → Idle 전환");
+
+            // 플레이어를 Idle 상태로 전환하여 진행 중인 공격 모션 중단
+            player?.TurnOnAnimation(ePlayerAction.Idle);
+
+            // 현재 타겟 참조를 비워 탐지 루틴이 새 타겟을 찾도록 유도
+            if (player != null) player.currentTarget = null;
+            if (_detection != null) _detection.currentTarget = null;
+        }
+        else
+        {
+            Debug.Log("적 데미지 적용 완료 (대상은 아직 살아있음)");
         }
 
-
-        for (int i = 0; i < _pendingTargets.Count; i++)
-        {
-            var target = _pendingTargets[i];
-
-            if (target == null)
-            {
-                Debug.Log("대상이 null 또는 이미 파괴됨 - 다음 대상로 진행");
-                continue;
-            }
-            else
-            {
-                Debug.Log("대상에게 데미지 적용 시도: " + target);
-            }
-
-            // TakeDamage: true = 살아있음, false = 사망 (Player.TakeDamage 구현에 따름)
-            bool isAliveAfterHit = target.TakeDamage(player);
-
-            if (isAliveAfterHit)
-            {
-                Debug.Log("적 데미지 적용 완료 (대상은 아직 살아있음)");
-            }
-            else
-            {
-                Debug.Log("Monster Is Dead!! → 공격 중단 및 Idle 전환");
-
-                // pending 리스트 전체 초기화
-                _pendingTargets.Clear();
-
-                // 다음 공격 가능 시간을 최댓값으로 설정 → Attack()이 Failure를 반환하여 공격 완전 중단
-                _nextAttackTime = float.MaxValue;
-
-                // 플레이어 행동 트리를 Idle로 전환하여 대기 상태로 돌아감
-                player?.TurnOnAnimation(ePlayerAction.Idle);
-
-                // 플레이어와 Detection의 현재 타겟 초기화
-                if (player != null)
-                    player.currentTarget = null;
-                if (_detection != null)
-                    _detection.currentTarget = null;
-
-                // 루프 종료
-                break;
-            }
-        }
-
-        _pendingTargets.Clear();
+        return isAlive;
     }
 
+    /// <summary>
+    /// 콜라이더가 이미 Dead 상태인 몬스터인지 확인한다.
+    /// Monster.cs를 수정하지 않고 플레이어 측에서 재공격을 방지하기 위해 사용.
+    /// </summary>
+    private bool IsTargetDead(Collider2D col)
+    {
+        return col.TryGetComponent<Monster>(out var mon)
+               && mon.MonAction == eMonsterAction.Dead;
+    }
+
+    /// <summary>
+    /// ulong 데미지를 IAttackable 인터페이스로 포장하는 내부 래퍼 클래스.
+    /// TakeDamage(IAttackable)를 호출할 때 계산된 데미지 수치만 넘기기 위해 사용.
+    /// </summary>
+    private class DamageProxy : IAttackable
+    {
+        // 전달할 데미지 수치
+        public ulong damage { get; private set; }
+        // 공격자 위치(사용 안 함, 인터페이스 구현 요건)
+        public Vector3 attackerPos => Vector3.zero;
+        // 공격 메서드(사용 안 함, 인터페이스 구현 요건)
+        public bool Attack(IDamageable target) => false;
+
+        public DamageProxy(ulong damage)
+        {
+            this.damage = damage;
+        }
+    }
+
+    /// <summary>
+    /// 행동 트리에서 PlayerAttack.Attack()을 노드로 감싸는 래퍼 클래스.
+    /// PlayerOrder에서 이 노드를 트리에 등록하여 매 프레임 Evaluate()가 호출된다.
+    /// </summary>
     public class AttackNode : Node
     {
         private PlayerAttack _attack;
