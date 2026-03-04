@@ -20,11 +20,10 @@ namespace KingdomIdle.UIToolkit
         {
             if (Instance != null && Instance != this)
             {
-                Destroy(gameObject);
+                Destroy(this);
                 return;
             }
             Instance = this;
-            DontDestroyOnLoad(gameObject);
         }
 
         private void Update()

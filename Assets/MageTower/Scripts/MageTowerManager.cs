@@ -28,12 +28,11 @@ namespace KingdomIdle.MageTower
         {
             if (Instance != null && Instance != this)
             {
-                Destroy(gameObject);
+                Destroy(this);
                 return;
             }
 
             Instance = this;
-            DontDestroyOnLoad(gameObject);
 
             for (int i = 0; i < SlotCount; i++)
                 _equipped[i] = -1;

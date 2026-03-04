@@ -281,7 +281,7 @@ namespace KingdomIdle.UIToolkit
             item.RegisterCallback<PointerUpEvent>(evt =>
             {
                 if (item.HasPointerCapture(evt.pointerId))
-                    item.ReleasePointerCapture(evt.pointerId);
+                    item.ReleasePointer(evt.pointerId);
             });
 
             return item;
