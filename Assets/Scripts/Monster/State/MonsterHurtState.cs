@@ -1,11 +1,8 @@
 using Cysharp.Threading.Tasks;
-using Cysharp.Threading.Tasks.CompilerServices;
 using Scripts.Core;
 using Scripts.Core.StateMachine;
 using Scripts.Core.Utils;
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
 
@@ -15,11 +12,10 @@ namespace Scripts.Monster.State
 	{
 		//Hurt같은 상태는 스스로 벗어나야함.
 		float hit_latency;
-		CancellationTokenSource _token;
+
 		public MonsterHurtState(Monster owner)
 			: base(owner)
 		{
-			_token = new CancellationTokenSource();
 			hit_latency = _owner.GetAnimationLength(eMonsterAction.Hurt);
 			_canRetriggered = true;
 		}
@@ -45,10 +41,10 @@ namespace Scripts.Monster.State
 			base.OnExit();
 			_owner.RestartBehaviourTree();
 		}
-
+		
 		private async UniTaskVoid WaitHitLatency()
 		{
-			await UniTask.Delay(TimeSpan.FromSeconds(hit_latency), cancellationToken: _token.Token);
+			await UniTask.Delay(TimeSpan.FromSeconds(hit_latency), cancellationToken: _owner.Token.Token);
 			//CustomLogger.Log("Hurt상태 돌입 끝!");
 			_owner.ChangeState(eMonsterAction.Walk);
 		}

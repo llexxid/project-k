@@ -1,12 +1,12 @@
-﻿using Scripts.Core;
+﻿using KingdomIdle.UIToolkit; // UI 연동(피격 데미지 텍스트)
+using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Core.Utils;
+using Scripts.Monster.State;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using Scripts.Monster.State;
-using KingdomIdle.UIToolkit; // UI 연동(피격 데미지 텍스트)
 
 namespace Scripts.Monster
 {
@@ -15,7 +15,8 @@ namespace Scripts.Monster
     using Scripts.Core.StateMachine;
     using Scripts.Monster.MonsterNode;
     using Scripts.Monster.SO;
-    using UnityEditorInternal;
+	using System.Threading;
+	using UnityEditorInternal;
 
     public struct MonsterInfo
     {
@@ -134,9 +135,15 @@ namespace Scripts.Monster
         MonsterStateFactory _stateFactory;
         [SerializeField]
         MonsterAnimationSO _AnimationClipSO;
-
         float _lastAttackTime;
-        public float LastAttackTime
+		public event Action OnDeath;
+		CancellationTokenSource _token;
+
+        public CancellationTokenSource Token
+        {
+            get { return _token; }
+        }
+		public float LastAttackTime
         {
             get { return _lastAttackTime; }
         }
@@ -153,8 +160,6 @@ namespace Scripts.Monster
             _stateFactory = new MonsterStateFactory(this);
 			_monAI.Init(this);
 			InitializeAnimator();
-
-			//ForTest
 		}
 
         void Update()
@@ -202,7 +207,7 @@ namespace Scripts.Monster
         }
         public void ResetTarget()
         {
-            Target = null;
+            this.Target = null;
         }
         public void SetType(eMonsterType monsterType)
         {
@@ -210,12 +215,12 @@ namespace Scripts.Monster
         }
         public void SetTarget(IDamageable target)
         {
-            //개발 모드. null일 때 Log남겨놓고 Crash!
-            if (target == null)
+            if (target != null)
             {
-                CustomLogger.LogWarning("Monster SetTarget is Null!");
+				target.OnDeath -= ResetTarget;
             }
             Target = target;
+			target.OnDeath += ResetTarget;
         }
         public void SetAction(eMonsterAction action)
         {
@@ -226,7 +231,12 @@ namespace Scripts.Monster
         {
             //생성자
             _stateManchine.BeginMachine(_stateFactory.GetState(eMonsterAction.Walk));
-            return;
+            if (_token != null)
+            {
+                _token.Dispose();
+			}
+            _token = new CancellationTokenSource();
+			return;
         }
         public void OnRelease()
         {
@@ -234,7 +244,7 @@ namespace Scripts.Monster
             Target = null;
             return;
         }
-        public bool TakeDamage(IAttackable attacker)
+        public void TakeDamage(IAttackable attacker)
         {
             ulong dmg = attacker.damage;
 
@@ -249,14 +259,15 @@ namespace Scripts.Monster
 
             if (!IsAlive)
             {
-                //죽었다면 -> 죽은 연출해주고, Reward를 주면됨.
-                //Todo : Reward 주기
-                if (attacker is IRewardable target)
+                OnDead();
+				//죽었다면 -> 죽은 연출해주고, Reward를 주면됨.
+				//Todo : Reward 주기
+				if (attacker is IRewardable target)
                 {
                     DropInfo info = DropManager.Instance.GetDropInfo(eDropTable.ORC_DROPTABLE);
                     target.GiveReward(info._incomeGold, info._incomeAncientCoin);
                 }
-                return false;
+                return;
             }
 
             //연출부
@@ -264,21 +275,13 @@ namespace Scripts.Monster
 			{
 				ChangeState(eMonsterAction.Hurt);
 			}
-			return true;
+			return;
         }
 
-        public bool Attack(IDamageable target)
+        public void Attack(IDamageable target)
         {
-            bool IsAlive;
-            IsAlive = target.TakeDamage(this);
+            target.TakeDamage(this);
             _lastAttackTime = Time.time;
-            if (!IsAlive)
-            {
-                CustomLogger.Log("타겟이 죽음");
-                ResetTarget();
-                return false;
-            }
-            return true;
         }
 
         public void ChangeState(eMonsterAction action)
@@ -306,7 +309,9 @@ namespace Scripts.Monster
             //Institate 동전
             CustomLogger.Log("Monster Is Dead!!");
             _monAction = eMonsterAction.Dead;
-            _stateManchine.ChangeState(_stateFactory.GetState(eMonsterAction.Dead));
+			OnDeath.Invoke();
+
+			_stateManchine.ChangeState(_stateFactory.GetState(eMonsterAction.Dead));
         }
 
         private void InitializeAnimator()
@@ -327,7 +332,6 @@ namespace Scripts.Monster
             //죽는경우
             if (totalHp - (long)damage <= 0)
             {
-                OnDead();
                 return false;
             }
 

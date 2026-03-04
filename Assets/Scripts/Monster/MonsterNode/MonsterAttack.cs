@@ -39,7 +39,7 @@ namespace Scripts.Monster.MonsterNode
         {
             if (CheckAttackDuration())
             {
-                bool IsAlive = _monster.Attack(_monster.Target);
+                _monster.Attack(_monster.Target);
                 _monster.ChangeState(eMonsterAction.Attack);
             }
 
