@@ -122,7 +122,7 @@ public class ChangeJob : MonoBehaviour
         if (_spriteRenderer != null && data.jobSprite != null)
             _spriteRenderer.sprite = data.jobSprite;
 
-        // 5. 애니메이터 컨트롤러 교체
+        // 6. 애니메이터 컨트롤러 교체
         if (_player._am != null && data.animatorController != null)
         {
             _player._am.runtimeAnimatorController = data.animatorController;

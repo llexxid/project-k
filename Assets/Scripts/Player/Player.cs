@@ -60,20 +60,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         return true;
     }
 
-    public int ConnectDamage(IAttackable attacker)
-    {
-        int connect;
-
-        if (TakeDamage(attacker))
-        {
-            connect = 0;
-        }
-        else
-        {
-            connect = 1;
-        } 
-        return connect;
-    }
 
     public void Init(PlayerData data, User user)
     {
@@ -231,6 +217,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         switch (action)
         {
             case ePlayerAction.Idle:
+            case ePlayerAction.Walk:
             case ePlayerAction.Attack:
                 _animatorComponent.TrySetBool(action, false);
                 break;
@@ -243,6 +230,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         switch (action)
         {
             case ePlayerAction.Idle:
+            case ePlayerAction.Walk:
             case ePlayerAction.Attack:
             case ePlayerAction.Hurt:
                 _animatorComponent.TrySetBool(action, true);
