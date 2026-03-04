@@ -152,6 +152,29 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     }
 
     /// <summary>
+    /// 전직 시 AnimatorController가 교체된 뒤 호출한다.
+    /// AnimatorComponent 내부의 해시 캐시를 새 컨트롤러 기준으로 재구성한다.
+    /// ChangeJob.ApplyJobByIndex()에서 호출된다.
+    /// </summary>
+    public void RebuildAnimatorComponent()
+    {
+        Dictionary<ePlayerAction, int> dic = new Dictionary<ePlayerAction, int>();
+        dic.Add(ePlayerAction.Idle,   Animator.StringToHash("Idle"));
+        dic.Add(ePlayerAction.Walk,   Animator.StringToHash("Walk"));
+        dic.Add(ePlayerAction.Attack, Animator.StringToHash("Attack"));
+        dic.Add(ePlayerAction.Dead,   Animator.StringToHash("Dead"));
+
+        _animatorComponent = new AnimatorComponent<ePlayerAction>(_am, dic);
+
+        // 새 컨트롤러의 Attack 클립 길이를 읽어 attackRate 재동기화
+        float clipLen = GetClipLength("Attack_Anim");
+        if (playerOrder?._attack != null)
+            playerOrder._attack.attackRate = clipLen;
+
+        Debug.Log($"[Player] AnimatorComponent 재구성 완료. Attack 클립: {clipLen}초");
+    }
+
+    /// <summary>
     /// Animator에 등록된 AnimationClip 중 clipName과 정확히 일치하는 클립의 길이(초)를 반환한다.
     ///
     /// [동작 원리]
@@ -246,6 +269,16 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     {
         _playerAction = ePlayerAction.Attack;
         TurnOnAnimation(_playerAction);
+    }
+
+    /// <summary>
+    /// Animation Event 전용.
+    /// Attack_Anim의 타격 프레임에 이 함수를 등록하면 정확한 타이밍에 데미지가 들어간다.
+    /// Unity Animation 창 → 원하는 프레임 → Add Event → 함수 목록에서 "OnAttackHit" 선택.
+    /// </summary>
+    public void OnAttackHit()
+    {
+        playerOrder?._attack?.DealDamage();
     }
 
 	public void GiveReward(int gold, int ancientCoin)
