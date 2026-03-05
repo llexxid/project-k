@@ -17,6 +17,9 @@ namespace KingdomIdle.UIToolkit
         private static int _selectedSlot;
         private static int _dragSkillId = -1;
         private static bool _dragging;
+        private static bool _dragPending;
+        private static Vector2 _dragStartPos;
+        private const float DragThreshold = 10f;
 
         private static readonly Button[] _equipSlots = new Button[MageTowerManager.SlotCount];
         private static readonly VisualElement[] _equipSlotIcons = new VisualElement[MageTowerManager.SlotCount];
@@ -61,7 +64,6 @@ namespace KingdomIdle.UIToolkit
             _panel = new VisualElement();
             _panel.AddToClassList("mt-equip-panel");
             _panel.pickingMode = PickingMode.Position;
-            _panel.RegisterCallback<PointerDownEvent>(e => e.StopPropagation(), TrickleDown.TrickleDown);
 
             // titlebar
             var titleBar = new VisualElement();
@@ -113,13 +115,6 @@ namespace KingdomIdle.UIToolkit
                 _equipSlots[i] = slot;
                 _equipSlotIcons[i] = icon;
                 _equipSlotLabels[i] = lbl;
-
-                // drop target
-                slot.RegisterCallback<PointerUpEvent>(evt =>
-                {
-                    if (!_dragging || _dragSkillId < 0) return;
-                    FinishDrop(idx, _dragSkillId);
-                });
             }
 
             body.Add(_slotsCol);
@@ -164,15 +159,36 @@ namespace KingdomIdle.UIToolkit
             // drag move
             _overlay.RegisterCallback<PointerMoveEvent>(evt =>
             {
+                if (_dragPending && !_dragging)
+                {
+                    float dist = Vector2.Distance(_dragStartPos, evt.position);
+                    if (dist >= DragThreshold)
+                    {
+                        _dragging = true;
+                        _dragGhost.style.display = DisplayStyle.Flex;
+                    }
+                }
                 if (!_dragging) return;
                 _dragGhost.style.left = evt.position.x - 35;
                 _dragGhost.style.top = evt.position.y - 35;
             });
 
-            // drag cancel on pointer up outside slots
+            // drag drop or cancel on pointer up
             _overlay.RegisterCallback<PointerUpEvent>(evt =>
             {
-                if (_dragging) CancelDrag();
+                if (_dragging)
+                {
+                    int dropSlot = FindSlotUnderPointer(evt.position);
+                    if (dropSlot >= 0)
+                        FinishDrop(dropSlot, _dragSkillId);
+                    else
+                        CancelDrag();
+                }
+                else if (_dragPending)
+                {
+                    _dragPending = false;
+                    _dragSkillId = -1;
+                }
             });
 
             _overlay.AddToClassList("hidden");
@@ -255,32 +271,29 @@ namespace KingdomIdle.UIToolkit
             item.Add(nameLabel);
             item.Add(dmgLabel);
 
-            // click to open detail popup
-            item.RegisterCallback<PointerUpEvent>(evt =>
-            {
-                if (_dragging) return;
-                UITKMageTowerDetailPopupController.Show(id);
-            });
-
-            // drag start
+            // drag start (pending until threshold)
             item.RegisterCallback<PointerDownEvent>(evt =>
             {
                 _dragSkillId = id;
-                _dragging = true;
-                _dragGhost.style.display = DisplayStyle.Flex;
+                _dragPending = true;
+                _dragging = false;
+                _dragStartPos = evt.position;
                 if (skill.icon != null)
                     _dragGhost.style.backgroundImage = new StyleBackground(skill.icon);
                 else
                     _dragGhost.style.backgroundImage = StyleKeyword.None;
-                _dragGhost.style.left = evt.position.x - 35;
-                _dragGhost.style.top = evt.position.y - 35;
-                item.CapturePointer(evt.pointerId);
             });
 
+            // click to open detail popup (only if not dragged)
             item.RegisterCallback<PointerUpEvent>(evt =>
             {
-                if (item.HasPointerCapture(evt.pointerId))
-                    item.ReleasePointer(evt.pointerId);
+                if (_dragging) return;
+                if (_dragPending)
+                {
+                    _dragPending = false;
+                    _dragSkillId = -1;
+                    UITKMageTowerDetailPopupController.Show(id);
+                }
             });
 
             return item;
@@ -298,9 +311,22 @@ namespace KingdomIdle.UIToolkit
         private static void CancelDrag()
         {
             _dragging = false;
+            _dragPending = false;
             _dragSkillId = -1;
             if (_dragGhost != null)
                 _dragGhost.style.display = DisplayStyle.None;
+        }
+
+        private static int FindSlotUnderPointer(Vector2 pointerPos)
+        {
+            for (int i = 0; i < MageTowerManager.SlotCount; i++)
+            {
+                if (_equipSlots[i] == null) continue;
+                var rect = _equipSlots[i].worldBound;
+                if (rect.Contains(pointerPos))
+                    return i;
+            }
+            return -1;
         }
 
         private static void OnEquipSlotClicked(int slotIndex)
