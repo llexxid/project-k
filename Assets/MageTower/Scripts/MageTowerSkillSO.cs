@@ -12,5 +12,8 @@ namespace KingdomIdle.MageTower
         public float baseCooldown;
         public int maxEnhanceLevel = 10;
         public int maxAwakeningLevel = 5;
+        public GameObject prefab;
+        public float castRangeH = 5f;
+        public float castRangeV = 3f;
     }
 }

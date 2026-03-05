@@ -648,7 +648,7 @@
     position: absolute;
     left: 0;
     top: 300px;
-    width: 110px;
+    width: 126px;
     padding: 8px;
     gap: 8px;
     flex-direction: column;
@@ -656,8 +656,8 @@
 }
 
 .mt-hud-slot {
-    width: 80px;
-    height: 80px;
+    width: 96px;
+    height: 96px;
     border-radius: 14px;
     background-color: rgba(255,255,255,0.10);
     border-left-width: 2px;
@@ -671,13 +671,14 @@
     justify-content: center;
     align-items: center;
     padding: 0;
+    overflow: hidden;
 }
 .mt-hud-slot:hover { background-color: rgba(255,255,255,0.14); }
 .mt-hud-slot:active { background-color: rgba(255,255,255,0.20); }
 
 .mt-hud-slot-icon {
-    width: 60px;
-    height: 60px;
+    width: 72px;
+    height: 72px;
     -unity-background-scale-mode: scale-to-fit;
 }
 
@@ -693,7 +694,63 @@
     -unity-text-align: middle-center;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 80px;
+    max-width: 96px;
+}
+
+.mt-hud-tower-btn {
+    width: 96px;
+    height: 96px;
+    border-radius: 14px;
+    background-color: rgba(100,60,180,0.5);
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-left-color: rgba(160,120,255,0.4);
+    border-right-color: rgba(160,120,255,0.4);
+    border-top-color: rgba(160,120,255,0.4);
+    border-bottom-color: rgba(160,120,255,0.4);
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+    font-size: 22px;
+    color: rgba(255,255,255,0.9);
+    -unity-font-style: bold;
+}
+.mt-hud-tower-btn:hover { background-color: rgba(100,60,180,0.65); }
+.mt-hud-tower-btn:active { background-color: rgba(100,60,180,0.8); }
+
+.mt-hud-slot-cooldown-mask {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0,0,0,0.6);
+    border-radius: 12px;
+}
+
+.mt-hud-slot-cooldown-text {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    -unity-text-align: middle-center;
+    font-size: 24px;
+    -unity-font-style: bold;
+    color: rgba(255,255,255,0.9);
+}
+
+.mt-hud-slot-targeting {
+    border-left-color: rgba(255,200,50,0.9);
+    border-right-color: rgba(255,200,50,0.9);
+    border-top-color: rgba(255,200,50,0.9);
+    border-bottom-color: rgba(255,200,50,0.9);
+    border-left-width: 3px;
+    border-right-width: 3px;
+    border-top-width: 3px;
+    border-bottom-width: 3px;
+    background-color: rgba(255,200,50,0.15);
 }
 
 /* ===== MageTower Equip Popup ===== */

@@ -22,7 +22,11 @@ namespace KingdomIdle.MageTower
         private readonly Dictionary<int, int> _fragments = new();
         private readonly Dictionary<int, int> _totalAKSpent = new();
 
+        private readonly float[] _cooldowns = new float[SlotCount];
+        private readonly float[] _cooldownTimers = new float[SlotCount];
+
         public event Action OnStateChanged;
+        public event Action OnCooldownTick;
 
         private void Awake()
         {
@@ -38,7 +42,25 @@ namespace KingdomIdle.MageTower
                 _equipped[i] = -1;
 
             Load();
+        }
+
+        private void Start()
+        {
             InitTestData();
+        }
+
+        private void Update()
+        {
+            bool ticked = false;
+            for (int i = 0; i < SlotCount; i++)
+            {
+                if (_cooldownTimers[i] <= 0f) continue;
+                _cooldownTimers[i] -= Time.deltaTime;
+                if (_cooldownTimers[i] < 0f) _cooldownTimers[i] = 0f;
+                ticked = true;
+            }
+            if (ticked)
+                OnCooldownTick?.Invoke();
         }
 
         // ===== 테스트 데이터 =====
@@ -213,6 +235,51 @@ namespace KingdomIdle.MageTower
 
             Save();
             OnStateChanged?.Invoke();
+            return true;
+        }
+
+        // ===== 쿨타임 =====
+        public bool IsOnCooldown(int slotIndex)
+        {
+            if (slotIndex < 0 || slotIndex >= SlotCount) return false;
+            return _cooldownTimers[slotIndex] > 0f;
+        }
+
+        public float GetCooldownRatio(int slotIndex)
+        {
+            if (slotIndex < 0 || slotIndex >= SlotCount) return 0f;
+            if (_cooldowns[slotIndex] <= 0f) return 0f;
+            return Mathf.Clamp01(_cooldownTimers[slotIndex] / _cooldowns[slotIndex]);
+        }
+
+        // ===== 스킬 시전 =====
+        public bool CastSkill(int slotIndex, Vector3 worldPos)
+        {
+            if (slotIndex < 0 || slotIndex >= SlotCount) return false;
+            if (IsOnCooldown(slotIndex)) return false;
+
+            int skillId = _equipped[slotIndex];
+            if (skillId < 0) return false;
+
+            var so = GetSkillById(skillId);
+            if (so == null || so.prefab == null) return false;
+
+            Vector3 spawnPos = worldPos;
+            Transform centerChild = so.prefab.transform.Find("Center");
+            if (centerChild != null)
+                spawnPos = worldPos - centerChild.localPosition;
+
+            var go = Instantiate(so.prefab, spawnPos, Quaternion.identity);
+            var proj = go.GetComponent<MageTowerSkillProjectile>();
+            if (proj == null) proj = go.AddComponent<MageTowerSkillProjectile>();
+
+            ulong dmg = (ulong)Mathf.RoundToInt(GetEffectiveDamage(skillId));
+            proj.Initialize(dmg, spawnPos);
+
+            float cd = GetEffectiveCooldown(skillId);
+            _cooldowns[slotIndex] = cd;
+            _cooldownTimers[slotIndex] = cd;
+
             return true;
         }
 

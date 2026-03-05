@@ -255,12 +255,11 @@ namespace KingdomIdle.UIToolkit
             item.Add(nameLabel);
             item.Add(dmgLabel);
 
-            // click to equip
+            // click to open detail popup
             item.RegisterCallback<PointerUpEvent>(evt =>
             {
                 if (_dragging) return;
-                mgr.Equip(_selectedSlot, id);
-                Refresh();
+                UITKMageTowerDetailPopupController.Show(id);
             });
 
             // drag start

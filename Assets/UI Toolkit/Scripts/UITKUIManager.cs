@@ -604,18 +604,6 @@ namespace KingdomIdle.UIToolkit
             var bMenuMail = root.Q<Button>("BtnMenuMail");
             if (bMenuMail != null) bMenuMail.clicked += () => ShowToast("현재는 지원하지 않는 기능입니다.");
 
-            // MageTower 버튼 (좌측)
-            var btnMageTower = root.Q<Button>("BtnMageTower");
-            if (btnMageTower != null)
-            {
-                btnMageTower.clicked += () =>
-                {
-                    if (_currencyOpen) CloseCurrencyPopupImmediate();
-                    if (_hamburgerOpen) CloseHamburgerMenuImmediate();
-                    UITKMageTowerPopupController.Show();
-                };
-            }
-
             // Guide 버튼 (좌측 상단)
             _lblGuideBadge = root.Q<Label>("LblGuideBadge");
             var btnGuide = root.Q<Button>("BtnGuide");
