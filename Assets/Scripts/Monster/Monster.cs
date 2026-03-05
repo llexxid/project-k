@@ -62,7 +62,7 @@ namespace Scripts.Monster
             public double _atkSpeed;
         }
         private MonsterStat _stat;
-        eMonsterType _type;
+        [System.NonSerialized] eMonsterType _type;
         long _dropTableNumber;
 
         //AI

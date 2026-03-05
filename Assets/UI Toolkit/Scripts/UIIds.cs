@@ -22,6 +22,8 @@ namespace KingdomIdle.UI
         Notice = 23,
         EventList = 24,
         Settings = 25,
+
+        MageTower = 30,
     }
 
     public enum UIPopupId
@@ -33,6 +35,7 @@ namespace KingdomIdle.UI
         Reward = 4,
         Error = 5,
         OfflineReward = 6,
+        MageTowerDetail = 7,
     }
 
     public enum UIOverlayId
