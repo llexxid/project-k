@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Scripts.Core;
+using Scripts.Monster;
 using Scripts.Wallets;
 
 namespace KingdomIdle.MageTower
@@ -252,11 +253,22 @@ namespace KingdomIdle.MageTower
             return Mathf.Clamp01(_cooldownTimers[slotIndex] / _cooldowns[slotIndex]);
         }
 
+        // ===== 시전 상태 =====
+        private readonly bool[] _casting = new bool[SlotCount];
+        public bool IsCasting(int slotIndex) =>
+            slotIndex >= 0 && slotIndex < SlotCount && _casting[slotIndex];
+
+        public event Action<int, bool> OnCastingChanged;
+
         // ===== 스킬 시전 =====
-        public bool CastSkill(int slotIndex, Vector3 worldPos)
+        /// <summary>
+        /// 화면 중앙에서 가장 가까운 몬스터를 찾아 스킬 체인을 시작한다.
+        /// </summary>
+        public bool CastSkill(int slotIndex)
         {
             if (slotIndex < 0 || slotIndex >= SlotCount) return false;
             if (IsOnCooldown(slotIndex)) return false;
+            if (_casting[slotIndex]) return false;
 
             int skillId = _equipped[slotIndex];
             if (skillId < 0) return false;
@@ -264,23 +276,190 @@ namespace KingdomIdle.MageTower
             var so = GetSkillById(skillId);
             if (so == null || so.prefab == null) return false;
 
-            Vector3 spawnPos = worldPos;
+            Vector3 targetPos = FindNearestMonsterPosition();
+            if (targetPos == Vector3.zero) return false;
+
+            _casting[slotIndex] = true;
+            OnCastingChanged?.Invoke(slotIndex, true);
+
+            var excludedPositions = new List<Vector3>();
+            SpawnChain(slotIndex, so, targetPos, 1, targetPos, excludedPositions);
+
+            return true;
+        }
+
+        private void SpawnChain(int slotIndex, MageTowerSkillSO so, Vector3 castPos,
+                                int castIndex, Vector3 initialTarget,
+                                List<Vector3> excludedPositions)
+        {
+            excludedPositions.Add(castPos);
+
+            int skillId = so.id;
+            ulong dmg = (ulong)Mathf.RoundToInt(GetEffectiveDamage(skillId));
+            bool isLightning = so.castPattern == eCastPattern.RandomAroundTarget;
+
+            Vector3 spawnPos = castPos;
             Transform centerChild = so.prefab.transform.Find("Center");
             if (centerChild != null)
-                spawnPos = worldPos - centerChild.localPosition;
+                spawnPos = castPos - centerChild.localPosition;
 
             var go = Instantiate(so.prefab, spawnPos, Quaternion.identity);
             var proj = go.GetComponent<MageTowerSkillProjectile>();
             if (proj == null) proj = go.AddComponent<MageTowerSkillProjectile>();
 
-            ulong dmg = (ulong)Mathf.RoundToInt(GetEffectiveDamage(skillId));
-            proj.Initialize(dmg, spawnPos);
+            bool isLastCast = castIndex >= so.totalCasts;
+            Action onHit = null;
+
+            if (!isLastCast)
+            {
+                onHit = () =>
+                {
+                    Vector3 nextPos = GetNextCastPosition(so, initialTarget, excludedPositions);
+                    if (nextPos != Vector3.zero)
+                        SpawnChain(slotIndex, so, nextPos, castIndex + 1,
+                                   initialTarget, excludedPositions);
+                    else
+                        FinishCasting(slotIndex, skillId);
+                };
+            }
+            else
+            {
+                onHit = () => FinishCasting(slotIndex, skillId);
+            }
+
+            proj.Initialize(dmg, spawnPos, onHit, isLightning);
+        }
+
+        private void FinishCasting(int slotIndex, int skillId)
+        {
+            _casting[slotIndex] = false;
+            OnCastingChanged?.Invoke(slotIndex, false);
 
             float cd = GetEffectiveCooldown(skillId);
             _cooldowns[slotIndex] = cd;
             _cooldownTimers[slotIndex] = cd;
+        }
 
-            return true;
+        private Vector3 GetNextCastPosition(MageTowerSkillSO so, Vector3 initialTarget,
+                                            List<Vector3> excludedPositions)
+        {
+            switch (so.castPattern)
+            {
+                case eCastPattern.RandomAroundTarget:
+                    // 라이트닝: 첫 시전 성공 시 몬스터 유무 관계없이 전부 시전
+                    Vector2 offset = UnityEngine.Random.insideUnitCircle * so.chainRadius;
+                    return initialTarget + new Vector3(offset.x, offset.y, 0f);
+
+                case eCastPattern.UniqueRandomMonster:
+                    // 얼음송곳: 체인할 몬스터가 없으면 중단하고 쿨다운
+                    return FindRandomMonsterPosition(excludedPositions);
+
+                default:
+                    return FindNearestMonsterPosition();
+            }
+        }
+
+        private static readonly List<Collider2D> _searchResults = new(32);
+
+        /// <summary>
+        /// 카메라 화면 전체를 커버하는 검색을 수행하고 결과 개수를 반환한다.
+        /// worldCenter에 화면 중앙 월드 좌표가 출력된다.
+        /// </summary>
+        private int SearchMonstersOnScreen(out Vector3 worldCenter)
+        {
+            worldCenter = Vector3.zero;
+
+            var cam = Camera.main;
+            if (cam == null) return 0;
+
+            // Perspective 카메라: z 파라미터는 카메라에서의 거리
+            float camDist = Mathf.Abs(cam.transform.position.z);
+
+            Vector3 center = cam.ScreenToWorldPoint(
+                new Vector3(Screen.width * 0.5f, Screen.height * 0.5f, camDist));
+            center.z = 0f;
+            worldCenter = center;
+
+            Vector3 screenEdge = cam.ScreenToWorldPoint(
+                new Vector3(Screen.width, Screen.height, camDist));
+            float searchRadius = Vector2.Distance(center, (Vector2)screenEdge) + 2f;
+
+            ContactFilter2D filter = new ContactFilter2D();
+            filter.SetLayerMask(GameLayers.EnemyMask);
+            filter.useLayerMask = true;
+            filter.useTriggers = true;
+
+            _searchResults.Clear();
+            return Physics2D.OverlapCircle(worldCenter, searchRadius, filter, _searchResults);
+        }
+
+        /// <summary>
+        /// 화면 중앙에서 가장 가까운 살아있는 몬스터의 위치를 반환한다.
+        /// </summary>
+        private Vector3 FindNearestMonsterPosition()
+        {
+            int count = SearchMonstersOnScreen(out Vector3 worldCenter);
+            if (count == 0) return Vector3.zero;
+
+            float bestDist = float.MaxValue;
+            Vector3 bestPos = Vector3.zero;
+            bool found = false;
+
+            for (int i = 0; i < count; i++)
+            {
+                var col = _searchResults[i];
+                if (col == null) continue;
+
+                var monster = col.GetComponent<Monster>();
+                if (monster != null && monster.MonAction == eMonsterAction.Dead) continue;
+
+                float dist = Vector2.Distance(worldCenter, col.transform.position);
+                if (dist < bestDist)
+                {
+                    bestDist = dist;
+                    bestPos = col.transform.position;
+                    found = true;
+                }
+            }
+
+            return found ? bestPos : Vector3.zero;
+        }
+
+        /// <summary>
+        /// excludePositions에 포함된 위치의 몬스터를 제외한 랜덤 살아있는 몬스터의 위치를 반환한다.
+        /// </summary>
+        private Vector3 FindRandomMonsterPosition(List<Vector3> excludePositions)
+        {
+            int count = SearchMonstersOnScreen(out _);
+            if (count == 0) return Vector3.zero;
+
+            var candidates = new List<Vector3>();
+            for (int i = 0; i < count; i++)
+            {
+                var col = _searchResults[i];
+                if (col == null) continue;
+
+                var monster = col.GetComponent<Monster>();
+                if (monster != null && monster.MonAction == eMonsterAction.Dead) continue;
+
+                Vector3 pos = col.transform.position;
+
+                bool excluded = false;
+                for (int j = 0; j < excludePositions.Count; j++)
+                {
+                    if (Vector2.Distance(pos, excludePositions[j]) < 0.1f)
+                    {
+                        excluded = true;
+                        break;
+                    }
+                }
+                if (excluded) continue;
+
+                candidates.Add(pos);
+            }
+
+            if (candidates.Count == 0) return Vector3.zero;
+            return candidates[UnityEngine.Random.Range(0, candidates.Count)];
         }
 
         // ===== 초기화 =====

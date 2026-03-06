@@ -273,8 +273,6 @@ namespace Scripts.Core
 			if (scene.name == "main")
 			{
 				Debug.Log("Scene전환!");
-				Vector3 pos = new Vector3(5, 0, 0);
-				Monster mon;
 
 				MonsterSpawner.Instance.OnEnterScene();
 				VFXManager.Instance.OnEnterScene();
@@ -282,14 +280,23 @@ namespace Scripts.Core
 				//Player 생성
 				UserManager.Instance.CreateCharacter();
 
-
-				//MainScene진입시 SpawnLogic
-				//Stage정보를 가져와서, 해당 스테이지 정보에 맞게 스폰을 요청하게 됨.
-				//아래는 테스트용
-				MonsterSpawner.Instance.SpawnMonster(eMonsterType.MON_ORC, pos, Quaternion.identity, out mon);
+				//테스트용 - 상, 좌, 우 각 3마리씩 스폰
 				_monsterMetaDataSO.TryGetMonsterInfo(eMonsterType.MON_ORC, out MonsterInfo monInfo);
-				MonsterStat stat = new MonsterStat(monInfo._baseHp, 0, (ulong)monInfo._baseAtk, monInfo._baseMoveSpeed, monInfo._baseAtkSpeed);
-				mon.Init(eMonsterType.MON_ORC, stat, monInfo._dropTableNumber);
+				Vector3[][] spawnPositions = new Vector3[][]
+				{
+					new Vector3[] { new Vector3(-2, 8, 0), new Vector3(0, 8, 0), new Vector3(2, 8, 0) },   // 상
+					new Vector3[] { new Vector3(-8, -2, 0), new Vector3(-8, 0, 0), new Vector3(-8, 2, 0) }, // 좌
+					new Vector3[] { new Vector3(8, -2, 0), new Vector3(8, 0, 0), new Vector3(8, 2, 0) },    // 우
+				};
+				foreach (var group in spawnPositions)
+				{
+					foreach (var spawnPos in group)
+					{
+						MonsterSpawner.Instance.SpawnMonster(eMonsterType.MON_ORC, spawnPos, Quaternion.identity, out Monster mon);
+						MonsterStat stat = new MonsterStat(monInfo._baseHp, 0, (ulong)monInfo._baseAtk, monInfo._baseMoveSpeed, monInfo._baseAtkSpeed);
+						mon.Init(eMonsterType.MON_ORC, stat, monInfo._dropTableNumber);
+					}
+				}
 			}
 		}
 
