@@ -741,16 +741,18 @@
     color: rgba(255,255,255,0.9);
 }
 
-.mt-hud-slot-targeting {
-    border-left-color: rgba(255,200,50,0.9);
-    border-right-color: rgba(255,200,50,0.9);
-    border-top-color: rgba(255,200,50,0.9);
-    border-bottom-color: rgba(255,200,50,0.9);
-    border-left-width: 3px;
-    border-right-width: 3px;
-    border-top-width: 3px;
-    border-bottom-width: 3px;
-    background-color: rgba(255,200,50,0.15);
+.mt-hud-slot-casting {
+    border-left-color: rgba(180,220,255,0.85);
+    border-right-color: rgba(180,220,255,0.85);
+    border-top-color: rgba(180,220,255,0.85);
+    border-bottom-color: rgba(180,220,255,0.85);
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    background-color: rgba(180,220,255,0.08);
+    transition-property: border-color, background-color;
+    transition-duration: 0.3s;
 }
 
 /* ===== MageTower Equip Popup ===== */

@@ -2,6 +2,13 @@
 
 namespace KingdomIdle.MageTower
 {
+    public enum eCastPattern
+    {
+        Single,
+        RandomAroundTarget,
+        UniqueRandomMonster,
+    }
+
     [CreateAssetMenu(menuName = "KingdomIdle/MageTower/Skill", fileName = "MageTowerSkill_New")]
     public class MageTowerSkillSO : ScriptableObject
     {
@@ -13,7 +20,8 @@ namespace KingdomIdle.MageTower
         public int maxEnhanceLevel = 10;
         public int maxAwakeningLevel = 5;
         public GameObject prefab;
-        public float castRangeH = 0.4f;
-        public float castRangeV = 0.3f;
+        public int totalCasts = 1;
+        public float chainRadius = 1.5f;
+        public eCastPattern castPattern = eCastPattern.Single;
     }
 }
