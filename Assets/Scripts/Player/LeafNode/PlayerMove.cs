@@ -1,3 +1,4 @@
+using Scripts.Core;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -17,12 +18,11 @@ public class PlayerMove
     // 행동 트리에서 호출할 함수 (반환값 NodeState로 변경)
     public NodeState Move()
     {
-        //Debug.Log("Player Moving...");
-
         // 1. 타겟이 없으면 실패 (적이 사라짐)
         if (player.currentTarget == null)
         {
-            Debug.Log("타겟 없음");
+            // 이동 중단 → Walk 애니메이션 끄기
+            player._playerAction = ePlayerAction.Idle;
             return NodeState.Failure;
         }
         else
@@ -40,13 +40,15 @@ public class PlayerMove
         // 2. 거리 계산
         float distance = Vector2.Distance(player.transform.position, player.currentTarget.targetPos);
 
-        // 3. 공격 사거리 내에 도착했으면 Success 반환 -> 다음 Attack 노드 실행됨
+        // 3. 공격 사거리 내에 도착했으면 Walk 끄고 Success → 다음 Attack 노드 실행
         if (distance <= stopDistance)
         {
+            player._playerAction = ePlayerAction.Idle;
             return NodeState.Success;
         }
 
-        // 4. 아직 이동 중이면 Running 반환 (계속 이동)
+        // 4. 아직 이동 중 → Walk 애니메이션 켜기
+        player._playerAction = ePlayerAction.Walk;
         player.transform.position = Vector2.MoveTowards(player.transform.position, player.currentTarget.targetPos, moveSpeed * Time.deltaTime);
         return NodeState.Running;
     }

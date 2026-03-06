@@ -60,20 +60,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         return true;
     }
 
-    public int ConnectDamage(IAttackable attacker)
-    {
-        int connect;
-
-        if (TakeDamage(attacker))
-        {
-            connect = 0;
-        }
-        else
-        {
-            connect = 1;
-        } 
-        return connect;
-    }
 
     public void Init(PlayerData data, User user)
     {
@@ -231,9 +217,10 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         switch (action)
         {
             case ePlayerAction.Idle:
-            case ePlayerAction.Attack:
+            case ePlayerAction.Walk:
                 _animatorComponent.TrySetBool(action, false);
                 break;
+            // Attack은 Trigger이므로 별도로 끌 필요 없음
         }
     }
 
@@ -243,10 +230,11 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         switch (action)
         {
             case ePlayerAction.Idle:
-            case ePlayerAction.Attack:
+            case ePlayerAction.Walk:
             case ePlayerAction.Hurt:
                 _animatorComponent.TrySetBool(action, true);
                 break;
+            case ePlayerAction.Attack:  // Trigger: 한 번만 발동 후 자동 리셋
             case ePlayerAction.Dead:
                 _animatorComponent.TrySetTrigger(action);
                 break;
