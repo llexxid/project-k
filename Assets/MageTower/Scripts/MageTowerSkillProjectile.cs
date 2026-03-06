@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Scripts.Core;
 using Scripts.Core.inteface;
 using KingdomIdle.UIToolkit;
 
@@ -11,8 +12,9 @@ namespace KingdomIdle.MageTower
     {
         private ulong _damage;
         private Vector3 _spawnPos;
-        private Collider2D _collider;
         private readonly HashSet<int> _hitIds = new();
+
+        private static readonly List<Collider2D> _overlapResults = new(8);
 
         private Action _onHitCallback;
         private bool _shakeOnHit;
@@ -28,9 +30,9 @@ namespace KingdomIdle.MageTower
             _onHitCallback = onHitCallback;
             _shakeOnHit = shakeOnHit;
 
-            _collider = GetComponent<Collider2D>();
-            if (_collider != null)
-                _collider.enabled = false;
+            var collider = GetComponent<Collider2D>();
+            if (collider != null)
+                collider.enabled = false;
 
             // 스킬 이펙트를 캐릭터 뒤, 몬스터 앞에 렌더링
             foreach (var sr in GetComponentsInChildren<SpriteRenderer>(true))
@@ -43,14 +45,10 @@ namespace KingdomIdle.MageTower
             return target.TakeDamage(this);
         }
 
-        // Animation Event — 콜라이더 1프레임 활성화
+        // Animation Event — 데미지 적용 및 체인 콜백
         public void OnHit()
         {
-            if (_collider != null)
-            {
-                _collider.enabled = true;
-                StartCoroutine(DisableColliderNextFrame());
-            }
+            DealDirectDamage();
 
             if (_shakeOnHit)
                 DoScreenShake();
@@ -59,32 +57,41 @@ namespace KingdomIdle.MageTower
             _onHitCallback = null;
         }
 
-        private IEnumerator DisableColliderNextFrame()
+        /// <summary>
+        /// 스킬 위치 기준으로 범위 내 몬스터에게 직접 데미지를 적용한다.
+        /// 콜라이더 온오프 방식 대신 Physics2D.OverlapCircle로 직접 탐색.
+        /// </summary>
+        private void DealDirectDamage()
         {
-            yield return null;
-            if (_collider != null)
-                _collider.enabled = false;
+            ContactFilter2D filter = new ContactFilter2D();
+            filter.SetLayerMask(GameLayers.EnemyMask);
+            filter.useLayerMask = true;
+            filter.useTriggers = true;
+
+            _overlapResults.Clear();
+            int count = Physics2D.OverlapCircle(transform.position, 1.5f, filter, _overlapResults);
+
+            for (int i = 0; i < count; i++)
+            {
+                var col = _overlapResults[i];
+                if (col == null) continue;
+
+                int id = col.gameObject.GetInstanceID();
+                if (!_hitIds.Add(id)) continue;
+
+                var damageable = col.GetComponent<IDamageable>();
+                if (damageable != null)
+                {
+                    Attack(damageable);
+                    UITKDamageTextBridge.ShowOnTransform(col.transform, _damage);
+                }
+            }
         }
 
         // Animation Event
         public void OnAnimationEnd()
         {
             Destroy(gameObject);
-        }
-
-        private void OnTriggerEnter2D(Collider2D other)
-        {
-            if (other.gameObject.layer != GameLayers.Enemy) return;
-
-            int id = other.gameObject.GetInstanceID();
-            if (!_hitIds.Add(id)) return;
-
-            var damageable = other.GetComponent<IDamageable>();
-            if (damageable != null)
-            {
-                Attack(damageable);
-                UITKDamageTextBridge.ShowOnTransform(other.transform, _damage);
-            }
         }
 
         // ===== 화면 흔들림 =====

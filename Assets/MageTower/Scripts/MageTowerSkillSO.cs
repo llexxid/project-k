@@ -7,6 +7,7 @@ namespace KingdomIdle.MageTower
         Single,
         RandomAroundTarget,
         UniqueRandomMonster,
+        PersistentOnTarget,
     }
 
     [CreateAssetMenu(menuName = "KingdomIdle/MageTower/Skill", fileName = "MageTowerSkill_New")]
@@ -17,11 +18,13 @@ namespace KingdomIdle.MageTower
         public Sprite icon;
         public float baseDamage;
         public float baseCooldown;
-        public int maxEnhanceLevel = 10;
-        public int maxAwakeningLevel = 5;
+        public int maxEnhanceLevel = 100;
+        public int maxAwakeningLevel = 10;
         public GameObject prefab;
         public int totalCasts = 1;
         public float chainRadius = 1.5f;
         public eCastPattern castPattern = eCastPattern.Single;
+        public float duration;
+        public float tickInterval;
     }
 }

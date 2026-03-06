@@ -262,7 +262,7 @@ namespace KingdomIdle.MageTower
 
         // ===== 스킬 시전 =====
         /// <summary>
-        /// 화면 중앙에서 가장 가까운 몬스터를 찾아 스킬 체인을 시작한다.
+        /// 화면 내 몬스터를 찾아 스킬을 시전한다.
         /// </summary>
         public bool CastSkill(int slotIndex)
         {
@@ -276,24 +276,31 @@ namespace KingdomIdle.MageTower
             var so = GetSkillById(skillId);
             if (so == null || so.prefab == null) return false;
 
-            Vector3 targetPos = FindNearestMonsterPosition();
+            // 화면에 몬스터가 없으면 시전 불가
+            Vector3 targetPos = FindNearestMonsterPosition(out int nearestId);
             if (targetPos == Vector3.zero) return false;
 
             _casting[slotIndex] = true;
             OnCastingChanged?.Invoke(slotIndex, true);
 
-            var excludedPositions = new List<Vector3>();
-            SpawnChain(slotIndex, so, targetPos, 1, targetPos, excludedPositions);
+            if (so.castPattern == eCastPattern.PersistentOnTarget)
+            {
+                SpawnPersistent(slotIndex, so);
+            }
+            else
+            {
+                var excludedIds = new HashSet<int>();
+                if (nearestId != 0) excludedIds.Add(nearestId);
+                SpawnChain(slotIndex, so, targetPos, 1, targetPos, excludedIds);
+            }
 
             return true;
         }
 
         private void SpawnChain(int slotIndex, MageTowerSkillSO so, Vector3 castPos,
                                 int castIndex, Vector3 initialTarget,
-                                List<Vector3> excludedPositions)
+                                HashSet<int> excludedIds)
         {
-            excludedPositions.Add(castPos);
-
             int skillId = so.id;
             ulong dmg = (ulong)Mathf.RoundToInt(GetEffectiveDamage(skillId));
             bool isLightning = so.castPattern == eCastPattern.RandomAroundTarget;
@@ -314,10 +321,10 @@ namespace KingdomIdle.MageTower
             {
                 onHit = () =>
                 {
-                    Vector3 nextPos = GetNextCastPosition(so, initialTarget, excludedPositions);
+                    Vector3 nextPos = GetNextCastPosition(so, initialTarget, excludedIds);
                     if (nextPos != Vector3.zero)
                         SpawnChain(slotIndex, so, nextPos, castIndex + 1,
-                                   initialTarget, excludedPositions);
+                                   initialTarget, excludedIds);
                     else
                         FinishCasting(slotIndex, skillId);
                 };
@@ -328,6 +335,36 @@ namespace KingdomIdle.MageTower
             }
 
             proj.Initialize(dmg, spawnPos, onHit, isLightning);
+        }
+
+        private void SpawnPersistent(int slotIndex, MageTowerSkillSO so)
+        {
+            // 화면 내 랜덤 몬스터를 타겟으로 선택
+            Transform target = FindRandomMonsterTransform();
+            if (target == null)
+            {
+                FinishCasting(slotIndex, so.id);
+                return;
+            }
+
+            var go = Instantiate(so.prefab, target.position, Quaternion.identity);
+            var persistent = go.GetComponent<MageTowerSkillPersistent>();
+            if (persistent == null)
+                persistent = go.AddComponent<MageTowerSkillPersistent>();
+
+            ulong dmg = (ulong)Mathf.RoundToInt(GetEffectiveDamage(so.id));
+            persistent.Initialize(dmg, so.duration, so.tickInterval, slotIndex, so.id, target);
+        }
+
+        /// <summary>
+        /// 외부(MageTowerSkillPersistent 등)에서 시전 종료를 알릴 때 사용.
+        /// </summary>
+        public void EndCasting(int slotIndex)
+        {
+            if (slotIndex < 0 || slotIndex >= SlotCount) return;
+            int skillId = _equipped[slotIndex];
+            if (skillId < 0) return;
+            FinishCasting(slotIndex, skillId);
         }
 
         private void FinishCasting(int slotIndex, int skillId)
@@ -341,7 +378,7 @@ namespace KingdomIdle.MageTower
         }
 
         private Vector3 GetNextCastPosition(MageTowerSkillSO so, Vector3 initialTarget,
-                                            List<Vector3> excludedPositions)
+                                            HashSet<int> excludedIds)
         {
             switch (so.castPattern)
             {
@@ -352,7 +389,10 @@ namespace KingdomIdle.MageTower
 
                 case eCastPattern.UniqueRandomMonster:
                     // 얼음송곳: 체인할 몬스터가 없으면 중단하고 쿨다운
-                    return FindRandomMonsterPosition(excludedPositions);
+                    Vector3 pos = FindRandomMonsterPosition(excludedIds, out int newId);
+                    if (pos != Vector3.zero && newId != 0)
+                        excludedIds.Add(newId);
+                    return pos;
 
                 default:
                     return FindNearestMonsterPosition();
@@ -398,6 +438,12 @@ namespace KingdomIdle.MageTower
         /// </summary>
         private Vector3 FindNearestMonsterPosition()
         {
+            return FindNearestMonsterPosition(out _);
+        }
+
+        private Vector3 FindNearestMonsterPosition(out int instanceId)
+        {
+            instanceId = 0;
             int count = SearchMonstersOnScreen(out Vector3 worldCenter);
             if (count == 0) return Vector3.zero;
 
@@ -418,6 +464,7 @@ namespace KingdomIdle.MageTower
                 {
                     bestDist = dist;
                     bestPos = col.transform.position;
+                    instanceId = col.gameObject.GetInstanceID();
                     found = true;
                 }
             }
@@ -426,14 +473,15 @@ namespace KingdomIdle.MageTower
         }
 
         /// <summary>
-        /// excludePositions에 포함된 위치의 몬스터를 제외한 랜덤 살아있는 몬스터의 위치를 반환한다.
+        /// excludeIds에 포함된 인스턴스ID의 몬스터를 제외한 랜덤 살아있는 몬스터의 위치를 반환한다.
         /// </summary>
-        private Vector3 FindRandomMonsterPosition(List<Vector3> excludePositions)
+        private Vector3 FindRandomMonsterPosition(HashSet<int> excludeIds, out int selectedId)
         {
+            selectedId = 0;
             int count = SearchMonstersOnScreen(out _);
             if (count == 0) return Vector3.zero;
 
-            var candidates = new List<Vector3>();
+            var candidates = new List<(Vector3 pos, int id)>();
             for (int i = 0; i < count; i++)
             {
                 var col = _searchResults[i];
@@ -442,23 +490,39 @@ namespace KingdomIdle.MageTower
                 var monster = col.GetComponent<Monster>();
                 if (monster != null && monster.MonAction == eMonsterAction.Dead) continue;
 
-                Vector3 pos = col.transform.position;
+                int id = col.gameObject.GetInstanceID();
+                if (excludeIds != null && excludeIds.Contains(id)) continue;
 
-                bool excluded = false;
-                for (int j = 0; j < excludePositions.Count; j++)
-                {
-                    if (Vector2.Distance(pos, excludePositions[j]) < 0.1f)
-                    {
-                        excluded = true;
-                        break;
-                    }
-                }
-                if (excluded) continue;
-
-                candidates.Add(pos);
+                candidates.Add((col.transform.position, id));
             }
 
             if (candidates.Count == 0) return Vector3.zero;
+            var chosen = candidates[UnityEngine.Random.Range(0, candidates.Count)];
+            selectedId = chosen.id;
+            return chosen.pos;
+        }
+
+        /// <summary>
+        /// 화면 내 랜덤 살아있는 몬스터의 Transform을 반환한다.
+        /// </summary>
+        private Transform FindRandomMonsterTransform()
+        {
+            int count = SearchMonstersOnScreen(out _);
+            if (count == 0) return null;
+
+            var candidates = new List<Transform>();
+            for (int i = 0; i < count; i++)
+            {
+                var col = _searchResults[i];
+                if (col == null) continue;
+
+                var monster = col.GetComponent<Monster>();
+                if (monster != null && monster.MonAction == eMonsterAction.Dead) continue;
+
+                candidates.Add(col.transform);
+            }
+
+            if (candidates.Count == 0) return null;
             return candidates[UnityEngine.Random.Range(0, candidates.Count)];
         }
 
