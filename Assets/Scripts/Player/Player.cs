@@ -218,9 +218,9 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         {
             case ePlayerAction.Idle:
             case ePlayerAction.Walk:
-            case ePlayerAction.Attack:
                 _animatorComponent.TrySetBool(action, false);
                 break;
+            // Attack은 Trigger이므로 별도로 끌 필요 없음
         }
     }
 
@@ -231,10 +231,10 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         {
             case ePlayerAction.Idle:
             case ePlayerAction.Walk:
-            case ePlayerAction.Attack:
             case ePlayerAction.Hurt:
                 _animatorComponent.TrySetBool(action, true);
                 break;
+            case ePlayerAction.Attack:  // Trigger: 한 번만 발동 후 자동 리셋
             case ePlayerAction.Dead:
                 _animatorComponent.TrySetTrigger(action);
                 break;

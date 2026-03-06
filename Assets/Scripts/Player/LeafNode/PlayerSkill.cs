@@ -83,7 +83,7 @@ public class PlayerSkill
                 bool isAlive = target.TakeDamage(new DamageProxy(skillDamage));
                 if (!isAlive)
                 {
-                    // _playerAction을 직접 변경해야 UpdateAnimation()이 Attack bool을 꺼줌
+                    // 몬스터 사망 시 Idle로 전환 (Attack은 Trigger라 자동 리셋됨)
                     _player._playerAction = ePlayerAction.Idle;
                     if (_detection != null) _detection.currentTarget = null;
                     _player.currentTarget = null;
