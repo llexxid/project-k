@@ -1,4 +1,4 @@
-using Cysharp.Threading.Tasks.Triggers;
+ï»¿using Cysharp.Threading.Tasks.Triggers;
 using Scripts.Core;
 using Scripts.Users;
 using System;
@@ -32,9 +32,9 @@ namespace Scripts.Core
 
 		private void Init()
 		{
-			// Todo : ÃßÈÄ¿¡´Â ¼­¹ö·Î ºÎÅÍ, À¯Àú Á¤º¸¸¦ ¹Þ¾Æ¿Í¾ßÇÔ. 
-			// Áö±ÝÀº Å×½ºÆ® 
-			UserData dummyUser = new UserData(0, "zxÁöÁ¸zx", eStage.Stage1, 1, 100, 100);
+			// Todo : ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Þ¾Æ¿Í¾ï¿½ï¿½ï¿½. 
+			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½×½ï¿½Æ® 
+			UserData dummyUser = new UserData(0, "zxï¿½ï¿½ï¿½ï¿½zx", eStage.Stage1, 1, 100, 100);
 			CreateUser(dummyUser);
 		}
 
@@ -74,11 +74,9 @@ namespace Scripts.Core
 
 		public void CreateCharacter()
 		{
-			// Todo : ÃßÈÄ¿¡´Â ¼­¹ö·Î ºÎÅÍ ÇÃ·¹ÀÌ¾î Á¤º¸¸¦ ¹Þ°í, À¯Àú¿¡¼­ Instantiate·Î 
-			// Á¤º¸¿¡ ¸Â´Â Á÷¾÷ PrefabÀ» »ý¼ºÇØ¾ßÇÔ.
-			GameObject obj1 = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
-			GameObject obj2 = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
-			GameObject obj3 = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
+			GameObject obj1 = Instantiate(playerPrefab, new Vector3(0, 1.4f, 0), Quaternion.identity);
+			GameObject obj2 = Instantiate(playerPrefab, new Vector3(-1, 0, 0), Quaternion.identity);
+			GameObject obj3 = Instantiate(playerPrefab, new Vector3(1, 0, 0), Quaternion.identity);
 
 			Player p1;
 			Player p2;
