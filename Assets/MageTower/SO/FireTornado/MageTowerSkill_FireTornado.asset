@@ -13,15 +13,14 @@ MonoBehaviour:
   m_Name: MageTowerSkill_FireTornado
   m_EditorClassIdentifier: 
   id: 2
-  skillName: "\uD654\uC5FC\uD3ED\uD48D"
+  nameEng: 
+  nameKor: "\uD654\uC5FC\uB3CC\uD48D"
   icon: {fileID: -430884495, guid: 20ac5947c6e2ee446b3655c107fee947, type: 3}
-  baseDamage: 100
   baseCooldown: 15
   maxEnhanceLevel: 100
   maxAwakeningLevel: 10
   prefab: {fileID: 6282996793818360301, guid: 57a1a79364b5c664daba5050ff4b6cb9, type: 3}
-  totalCasts: 1
-  chainRadius: 0.8
   castPattern: 3
-  duration: 6
-  tickInterval: 0.2
+  effects:
+  - {fileID: 11400000, guid: f20f50c0b60690b43a3952e7c888cba1, type: 2}
+  - {fileID: 11400000, guid: 9044ea46771536247bde2fb01a030266, type: 2}

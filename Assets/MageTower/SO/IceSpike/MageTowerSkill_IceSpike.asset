@@ -13,13 +13,14 @@ MonoBehaviour:
   m_Name: MageTowerSkill_IceSpike
   m_EditorClassIdentifier: 
   id: 1
-  skillName: "\uC5BC\uC74C\uC1A1\uACF3"
+  nameEng: 
+  nameKor: "\uC5BC\uC74C\uC1A1\uACF3"
   icon: {fileID: 323779743, guid: 2c657188f25255445b17348d429882b3, type: 3}
-  baseDamage: 200
   baseCooldown: 5
   maxEnhanceLevel: 100
   maxAwakeningLevel: 10
   prefab: {fileID: 1668027955408260120, guid: 0d1ba20a2474c07428436a9f51943eea, type: 3}
-  totalCasts: 6
-  chainRadius: 1.5
   castPattern: 2
+  effects:
+  - {fileID: 11400000, guid: 854a01d9b8fa3f7408284291830bfd12, type: 2}
+  - {fileID: 11400000, guid: da8434f36e4972544b566bec1925fef2, type: 2}
