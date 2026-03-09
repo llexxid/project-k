@@ -22,7 +22,7 @@ public class PlayerAttack
     private float _nextAttackTime = 0f;
 
     // 공격이 닿는 범위 (반지름, 단위: 유니티 단위)
-    public float attackRadius = 3f;
+    public float attackRadius = 2f;  // 모바일 기준 공격 판정 반경
     // Physics2D.OverlapCircle 결과를 재사용하기 위한 버퍼 (GC 최소화)
     private List<Collider2D> _hitResults = new List<Collider2D>();
 
@@ -57,7 +57,11 @@ public class PlayerAttack
     public NodeState Attack()
     {
         // [1] 일반 공격 쿨타임 체크
-        if (Time.time < _nextAttackTime) return NodeState.Failure;
+        if (Time.time < _nextAttackTime)
+        {
+            Debug.Log($"[PlayerAttack] 쿨타임 대기 중 ({(_nextAttackTime - Time.time):F2}초 남음)");
+            return NodeState.Failure;
+        }
 
         // [2] 적 탐지 필터 설정
         ContactFilter2D filter = new ContactFilter2D();
@@ -69,14 +73,19 @@ public class PlayerAttack
         int hitCount = Physics2D.OverlapCircle(
             player.transform.position, attackRadius, filter, _hitResults);
 
+        Debug.Log($"[PlayerAttack] OverlapCircle 탐지 수: {hitCount} (반경: {attackRadius}, 레이어: {enemyLayer.value})");
         if (hitCount == 0) return NodeState.Failure;
 
         // [4] 쿨타임 소모
         _nextAttackTime = Time.time + attackRate;
 
         // [5] 공격 애니메이션 재생
-        //     실제 데미지는 Attack_Anim의 Animation Event → Player.OnAttackHit() → DealDamage()
         player.PlayAttackAnimation();
+
+        // [6] 데미지 직접 적용
+        // Animation Event(OnAttackHit)가 작동하지 않으므로 여기서 직접 호출
+        DealDamage();
+        Debug.Log($"[PlayerAttack] 공격 실행! 다음 공격: {attackRate:F2}초 후");
 
         return NodeState.Success;
     }
@@ -96,19 +105,23 @@ public class PlayerAttack
         int hitCount = Physics2D.OverlapCircle(
             player.transform.position, attackRadius, filter, _hitResults);
 
+        Debug.Log($"[DealDamage] OverlapCircle 탐지 수: {hitCount} | 반경:{attackRadius} | 레이어:{enemyLayer.value}");
+
         if (hitCount == 0) return;
 
         int baseAtk = player.playerStatus?.Atk ?? 0;
+        Debug.Log($"[DealDamage] baseAtk={baseAtk}");
 
         for (int i = 0; i < hitCount; i++)
         {
-            if (_hitResults[i].TryGetComponent<IDamageable>(out var target))
-            {
-                if (IsTargetDead(_hitResults[i])) continue;
-                bool isAlive = ApplyDamage(target, (ulong)baseAtk);
-                if (!isAlive) break;
-                break; // 단일 타깃
-            }
+            bool hasDamageable = _hitResults[i].TryGetComponent<IDamageable>(out var target);
+            Debug.Log($"[DealDamage] [{i}] {_hitResults[i].name} | IDamageable={hasDamageable} | Dead={IsTargetDead(_hitResults[i])}");
+
+            if (!hasDamageable) continue;
+            if (IsTargetDead(_hitResults[i])) continue;
+            bool isAlive = ApplyDamage(target, (ulong)baseAtk);
+            if (!isAlive) break;
+            break; // 단일 타깃
         }
     }
 
@@ -119,11 +132,22 @@ public class PlayerAttack
     {
         if (target == null) return false;
 
-        bool isAlive = target.TakeDamage(new DamageProxy(damage));
+        Debug.Log($"[ApplyDamage] TakeDamage 호출 → damage={damage}");
+        bool isAlive;
+        try
+        {
+            isAlive = target.TakeDamage(new DamageProxy(damage));
+            Debug.Log($"[ApplyDamage] TakeDamage 완료 → isAlive={isAlive}");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[ApplyDamage] TakeDamage 예외 발생: {e.Message}");
+            return true;
+        }
+
         if (!isAlive)
         {
             Debug.Log("Monster Is Dead!! → Idle 전환");
-            // _playerAction을 직접 변경해야 UpdateAnimation()이 Attack bool을 꺼줌
             if (player != null) player._playerAction = ePlayerAction.Idle;
             if (player != null) player.currentTarget = null;
             if (_detection != null) _detection.currentTarget = null;

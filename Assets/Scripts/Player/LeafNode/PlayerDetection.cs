@@ -6,7 +6,7 @@ using UnityEngine;
 public class PlayerDetection
 {
     //public LayerMask playerMask;
-    public float detectionRadius = 2f;
+    public float detectionRadius = 3.5f; // 모바일 화면 기준, stopDistance보다 커야 함
     private List<Collider2D> detectedResults = new List<Collider2D>();
     public IDamageable currentTarget; // 발견된 적을 저장할 변수
     public Player player;

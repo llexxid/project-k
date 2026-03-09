@@ -256,7 +256,8 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     public void PlayAttackAnimation()
     {
         _playerAction = ePlayerAction.Attack;
-        TurnOnAnimation(_playerAction);
+        bool result = _animatorComponent.TrySetTrigger(_playerAction);
+        Debug.Log($"[PlayAttackAnimation] _am={_am}, TrySetTrigger 결과={result}");
     }
 
     /// <summary>

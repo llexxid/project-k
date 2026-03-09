@@ -7,7 +7,7 @@ public class PlayerMove
 {
     // public PlayerDetection detection; // Inspector에서 PlayerDetection 연결 필요
     public float moveSpeed = 5f;
-    public float stopDistance = 1.0f; // 적 앞에서 멈출 거리 (공격 사거리)
+    public float stopDistance = 1.5f; // 모바일 기준 정지 거리 (attackRadius보다 작게)
     public Player player; 
 
     public PlayerMove(Player player)
@@ -21,7 +21,6 @@ public class PlayerMove
         // 1. 타겟이 없으면 실패 (적이 사라짐)
         if (player.currentTarget == null)
         {
-            // 이동 중단 → Walk 애니메이션 끄기
             player._playerAction = ePlayerAction.Idle;
             return NodeState.Failure;
         }
@@ -40,10 +39,14 @@ public class PlayerMove
         // 2. 거리 계산
         float distance = Vector2.Distance(player.transform.position, player.currentTarget.targetPos);
 
-        // 3. 공격 사거리 내에 도착했으면 Walk 끄고 Success → 다음 Attack 노드 실행
+        // 3. 공격 사거리 내에 도착 → Attack 노드에게 제어권 넘김
+        //    ⚠ 여기서 _playerAction을 Idle로 설정하면 Attack 애니메이션이 즉시 취소됨
+        Debug.Log($"[PlayerMove] 거리: {distance:F2} / 정지거리: {stopDistance}");
         if (distance <= stopDistance)
         {
-            player._playerAction = ePlayerAction.Idle;
+            // 공격 중이 아닐 때만 Idle로 전환 (Attack 애니메이션 보호)
+            if (player._playerAction != ePlayerAction.Attack)
+                player._playerAction = ePlayerAction.Idle;
             return NodeState.Success;
         }
 
