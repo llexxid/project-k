@@ -20,6 +20,9 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     public ePlayerAction _prevAction;
     public ePlayerAction _playerAction;
 
+    // 사망 여부 (true이면 BT 평가 중단)
+    private bool _isDead = false;
+
     public IDamageable currentTarget;
     PlayerData _data;
     private User _user;
@@ -68,9 +71,13 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     }
     private void OnDead()
     {
+        if (_isDead) return; // 중복 호출 방지
+        _isDead = true;
         CustomLogger.Log("Player Is Dead!!");
         _playerAction = ePlayerAction.Dead;
-        TurnOnAnimation(_playerAction);
+        // TurnOnAnimation은 직접 호출하지 않음
+        // → LateUpdate의 UpdateAnimation()이 _prevAction != _playerAction을 감지해
+        //   Dead Trigger를 정확히 1번만 Set한다. (여기서 직접 호출하면 2번 Set됨)
     }
     private bool setHp(ulong damage)
     {
@@ -243,6 +250,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
     void Update()
     {
+        if (_isDead) return; // 사망 시 BT 평가 중단
         // 플레이어 행동 트리 평가
         playerOrder._rootNode?.Evaluate();
     }
@@ -256,7 +264,8 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     public void PlayAttackAnimation()
     {
         _playerAction = ePlayerAction.Attack;
-        TurnOnAnimation(_playerAction);
+        bool result = _animatorComponent.TrySetTrigger(_playerAction);
+        Debug.Log($"[PlayAttackAnimation] _am={_am}, TrySetTrigger 결과={result}");
     }
 
     /// <summary>
