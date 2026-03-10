@@ -148,6 +148,7 @@ public class PlayerAttack
         if (!isAlive)
         {
             Debug.Log("Monster Is Dead!! → Idle 전환");
+            _nextAttackTime = 0f; // 다음 적 즉시 공격 가능하도록 쿨타임 초기화
             if (player != null) player._playerAction = ePlayerAction.Idle;
             if (player != null) player.currentTarget = null;
             if (_detection != null) _detection.currentTarget = null;

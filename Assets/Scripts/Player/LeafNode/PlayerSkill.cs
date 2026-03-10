@@ -104,11 +104,24 @@ public class PlayerSkill
     /// </summary>
     private void TryPlayVFX(IDamageable target)
     {
-        if (!System.Enum.TryParse(_skillData.skillName, out eVFXType vfxType)) return;
+        bool parsed = System.Enum.TryParse(_skillData.skillName, out eVFXType vfxType);
+        Debug.Log($"[TryPlayVFX] skillName={_skillData.skillName} | TryParse={parsed} | vfxType={vfxType}");
+        if (!parsed) return;
 
-        VFXManager.Instance?.GetVFX(vfxType, target.targetPos,
+        if (VFXManager.Instance == null)
+        {
+            Debug.LogWarning("[TryPlayVFX] VFXManager.Instance가 null입니다.");
+            return;
+        }
+
+        Debug.Log($"[TryPlayVFX] GetVFX 호출 → {vfxType}, pos={target.targetPos}");
+        VFXManager.Instance.GetVFX(vfxType, target.targetPos,
             _player.transform.rotation,
-            (vfx) => { vfx?.ActiveEffect(200); });
+            (vfx) =>
+            {
+                Debug.Log($"[TryPlayVFX] 콜백 도달 → vfx={vfx}, ActiveEffect 호출");
+                vfx?.ActiveEffect(500); // 200 → 500ms 로 늘려서 확인
+            });
     }
 
     // ─────────────────────────────────────────────────────────
