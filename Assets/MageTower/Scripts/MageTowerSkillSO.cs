@@ -4,14 +4,6 @@ using UnityEngine.Serialization;
 
 namespace KingdomIdle.MageTower
 {
-    public enum eCastPattern
-    {
-        Single,
-        RandomAroundTarget,
-        UniqueRandomMonster,
-        PersistentOnTarget,
-    }
-
     [CreateAssetMenu(menuName = "KingdomIdle/MageTower/Skill", fileName = "MageTowerSkill_New")]
     public class MageTowerSkillSO : ScriptableObject
     {
@@ -24,7 +16,6 @@ namespace KingdomIdle.MageTower
         public int maxEnhanceLevel = 100;
         public int maxAwakeningLevel = 10;
         public GameObject prefab;
-        public eCastPattern castPattern = eCastPattern.Single;
 
         [SerializeField]
         private List<SkillEffect> effects = new List<SkillEffect>();

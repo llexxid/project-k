@@ -21,6 +21,7 @@ namespace KingdomIdle.MageTower
         private bool _shakeOnHit;
         private float _shakeDuration;
         private float _shakeMagnitude;
+        private Transform _center;
 
         public ulong damage => _damage;
         public Vector3 attackerPos => _spawnPos;
@@ -37,6 +38,8 @@ namespace KingdomIdle.MageTower
             _shakeOnHit = shakeOnHit;
             _shakeDuration = shakeDuration;
             _shakeMagnitude = shakeMagnitude;
+
+            _center = transform.Find("Center");
 
             var collider = GetComponent<Collider2D>();
             if (collider != null)
@@ -77,7 +80,8 @@ namespace KingdomIdle.MageTower
             filter.useTriggers = true;
 
             _overlapResults.Clear();
-            int count = Physics2D.OverlapCircle(transform.position, _damageRadius, filter, _overlapResults);
+            Vector3 circleCenter = _center != null ? _center.position : transform.position;
+            int count = Physics2D.OverlapCircle(circleCenter, _damageRadius, filter, _overlapResults);
 
             for (int i = 0; i < count; i++)
             {
@@ -105,8 +109,9 @@ namespace KingdomIdle.MageTower
         // ===== Gizmo: Scene 뷰에서 damageRadius 시각화 =====
         private void OnDrawGizmos()
         {
-            Gizmos.color = new Color(1f, 1f, 0f, 0.4f); // 반투명 노란색
-            Gizmos.DrawWireSphere(transform.position, _damageRadius > 0f ? _damageRadius : 1.5f);
+            Gizmos.color = new Color(1f, 1f, 0f, 0.4f);
+            Vector3 center = _center != null ? _center.position : transform.position;
+            Gizmos.DrawWireSphere(center, _damageRadius > 0f ? _damageRadius : 1.5f);
         }
 
         // ===== 화면 흔들림 =====

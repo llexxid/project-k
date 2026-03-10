@@ -303,7 +303,7 @@ namespace KingdomIdle.MageTower
             _casting[slotIndex] = true;
             OnCastingChanged?.Invoke(slotIndex, true);
 
-            if (so.castPattern == eCastPattern.PersistentOnTarget)
+            if (so.GetEffect<SkillEffect_FireTornado>() != null)
             {
                 SpawnPersistent(slotIndex, so);
             }
@@ -432,25 +432,25 @@ namespace KingdomIdle.MageTower
         private Vector3 GetNextCastPosition(MageTowerSkillSO so, Vector3 initialTarget,
                                             HashSet<int> excludedIds)
         {
-            switch (so.castPattern)
+            // 라이트닝: 첫 시전 성공 시 몬스터 유무 관계없이 전부 시전
+            var lightningEff = so.GetEffect<SkillEffect_Lightning>();
+            if (lightningEff != null)
             {
-                case eCastPattern.RandomAroundTarget:
-                    // 라이트닝: 첫 시전 성공 시 몬스터 유무 관계없이 전부 시전
-                    var lightningEff = so.GetEffect<SkillEffect_Lightning>();
-                    float radius = lightningEff != null ? lightningEff.chainRadius : 1.5f;
-                    Vector2 offset = UnityEngine.Random.insideUnitCircle * radius;
-                    return initialTarget + new Vector3(offset.x, offset.y, 0f);
-
-                case eCastPattern.UniqueRandomMonster:
-                    // 얼음송곳: 체인할 몬스터가 없으면 중단하고 쿨다운
-                    Vector3 pos = FindRandomMonsterPosition(excludedIds, out int newId);
-                    if (pos != Vector3.zero && newId != 0)
-                        excludedIds.Add(newId);
-                    return pos;
-
-                default:
-                    return FindNearestMonsterPosition();
+                Vector2 offset = UnityEngine.Random.insideUnitCircle * lightningEff.chainRadius;
+                return initialTarget + new Vector3(offset.x, offset.y, 0f);
             }
+
+            // 얼음송곳: 체인할 몬스터가 없으면 중단하고 쿨다운
+            var iceSpikeEff = so.GetEffect<SkillEffect_IceSpike>();
+            if (iceSpikeEff != null)
+            {
+                Vector3 pos = FindRandomMonsterPosition(excludedIds, out int newId);
+                if (pos != Vector3.zero && newId != 0)
+                    excludedIds.Add(newId);
+                return pos;
+            }
+
+            return FindNearestMonsterPosition();
         }
 
         private static readonly List<Collider2D> _searchResults = new(32);
