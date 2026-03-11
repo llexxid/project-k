@@ -76,6 +76,15 @@ public class PlayerAttack
         Debug.Log($"[PlayerAttack] OverlapCircle 탐지 수: {hitCount} (반경: {attackRadius}, 레이어: {enemyLayer.value})");
         if (hitCount == 0) return NodeState.Failure;
 
+        // [3-a] 탐지된 적이 전부 Dead 상태면 공격하지 않음
+        bool hasAliveTarget = false;
+        for (int i = 0; i < hitCount; i++)
+        {
+            if (!IsTargetDead(_hitResults[i])) { hasAliveTarget = true; break; }
+        }
+        if (!hasAliveTarget) return NodeState.Failure;
+
+
         // [4] 쿨타임 소모
         _nextAttackTime = Time.time + attackRate;
 
@@ -159,8 +168,9 @@ public class PlayerAttack
 
     private bool IsTargetDead(Collider2D col)
     {
-        return col.TryGetComponent<Monster>(out var mon)
-               && mon.MonAction == eMonsterAction.Dead;
+        // 콜라이더가 자식 오브젝트에 있어도 부모로 올라가 Monster를 찾음
+        var mon = col.GetComponentInParent<Monster>();
+        return mon != null && mon.MonAction == eMonsterAction.Dead;
     }
 
     /// <summary>
