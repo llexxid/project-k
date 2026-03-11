@@ -17,18 +17,29 @@ namespace KingdomIdle.MageTower
         private static readonly List<Collider2D> _overlapResults = new(8);
 
         private Action _onHitCallback;
+        private float _damageRadius;
         private bool _shakeOnHit;
+        private float _shakeDuration;
+        private float _shakeMagnitude;
+        private Transform _center;
 
         public ulong damage => _damage;
         public Vector3 attackerPos => _spawnPos;
 
-        public void Initialize(ulong dmg, Vector3 pos, Action onHitCallback = null, bool shakeOnHit = false)
+        public void Initialize(ulong dmg, Vector3 pos, Action onHitCallback = null,
+                               float damageRadius = 1.5f, bool shakeOnHit = false,
+                               float shakeDuration = 0.15f, float shakeMagnitude = 0.08f)
         {
             _damage = dmg;
             _spawnPos = pos;
             transform.position = pos;
             _onHitCallback = onHitCallback;
+            _damageRadius = damageRadius;
             _shakeOnHit = shakeOnHit;
+            _shakeDuration = shakeDuration;
+            _shakeMagnitude = shakeMagnitude;
+
+            _center = transform.Find("Center");
 
             var collider = GetComponent<Collider2D>();
             if (collider != null)
@@ -69,7 +80,8 @@ namespace KingdomIdle.MageTower
             filter.useTriggers = true;
 
             _overlapResults.Clear();
-            int count = Physics2D.OverlapCircle(transform.position, 1.5f, filter, _overlapResults);
+            Vector3 circleCenter = _center != null ? _center.position : transform.position;
+            int count = Physics2D.OverlapCircle(circleCenter, _damageRadius, filter, _overlapResults);
 
             for (int i = 0; i < count; i++)
             {
@@ -94,6 +106,14 @@ namespace KingdomIdle.MageTower
             Destroy(gameObject);
         }
 
+        // ===== Gizmo: Scene 뷰에서 damageRadius 시각화 =====
+        private void OnDrawGizmos()
+        {
+            Gizmos.color = new Color(1f, 1f, 0f, 0.4f);
+            Vector3 center = _center != null ? _center.position : transform.position;
+            Gizmos.DrawWireSphere(center, _damageRadius > 0f ? _damageRadius : 1.5f);
+        }
+
         // ===== 화면 흔들림 =====
         private void DoScreenShake()
         {
@@ -107,7 +127,7 @@ namespace KingdomIdle.MageTower
             if (shaker == null)
                 shaker = cam.gameObject.AddComponent<CameraShaker>();
 
-            shaker.Shake(0.15f, 0.08f);
+            shaker.Shake(_shakeDuration, _shakeMagnitude);
         }
     }
 

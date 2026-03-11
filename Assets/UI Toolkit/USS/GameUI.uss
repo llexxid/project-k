@@ -648,22 +648,22 @@
     position: absolute;
     left: 0;
     top: 300px;
-    width: 126px;
-    padding: 8px;
-    gap: 8px;
+    width: 176px;
+    padding: 11px;
+    gap: 11px;
     flex-direction: column;
     align-items: center;
 }
 
 .mt-hud-slot {
-    width: 96px;
-    height: 96px;
-    border-radius: 14px;
+    width: 134px;
+    height: 134px;
+    border-radius: 20px;
     background-color: rgba(255,255,255,0.10);
-    border-left-width: 2px;
-    border-right-width: 2px;
-    border-top-width: 2px;
-    border-bottom-width: 2px;
+    border-left-width: 3px;
+    border-right-width: 3px;
+    border-top-width: 3px;
+    border-bottom-width: 3px;
     border-left-color: rgba(255,255,255,0.18);
     border-right-color: rgba(255,255,255,0.18);
     border-top-color: rgba(255,255,255,0.18);
@@ -677,35 +677,35 @@
 .mt-hud-slot:active { background-color: rgba(255,255,255,0.20); }
 
 .mt-hud-slot-icon {
-    width: 72px;
-    height: 72px;
+    width: 100px;
+    height: 100px;
     -unity-background-scale-mode: scale-to-fit;
 }
 
 .mt-hud-slot-empty {
-    font-size: 20px;
+    font-size: 28px;
     color: rgba(255,255,255,0.35);
     -unity-text-align: middle-center;
 }
 
 .mt-hud-slot-name {
-    font-size: 16px;
+    font-size: 22px;
     color: rgba(255,255,255,0.75);
     -unity-text-align: middle-center;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 96px;
+    max-width: 134px;
 }
 
 .mt-hud-tower-btn {
-    width: 96px;
-    height: 96px;
-    border-radius: 14px;
+    width: 134px;
+    height: 134px;
+    border-radius: 20px;
     background-color: rgba(100,60,180,0.5);
-    border-left-width: 2px;
-    border-right-width: 2px;
-    border-top-width: 2px;
-    border-bottom-width: 2px;
+    border-left-width: 3px;
+    border-right-width: 3px;
+    border-top-width: 3px;
+    border-bottom-width: 3px;
     border-left-color: rgba(160,120,255,0.4);
     border-right-color: rgba(160,120,255,0.4);
     border-top-color: rgba(160,120,255,0.4);
@@ -713,7 +713,7 @@
     justify-content: center;
     align-items: center;
     padding: 0;
-    font-size: 22px;
+    font-size: 31px;
     color: rgba(255,255,255,0.9);
     -unity-font-style: bold;
 }
@@ -726,7 +726,7 @@
     right: 0;
     bottom: 0;
     background-color: rgba(0,0,0,0.6);
-    border-radius: 12px;
+    border-radius: 17px;
 }
 
 .mt-hud-slot-cooldown-text {
@@ -736,7 +736,7 @@
     top: 0;
     bottom: 0;
     -unity-text-align: middle-center;
-    font-size: 24px;
+    font-size: 34px;
     -unity-font-style: bold;
     color: rgba(255,255,255,0.9);
 }
@@ -746,14 +746,54 @@
     border-right-color: rgba(180,220,255,0.85);
     border-top-color: rgba(180,220,255,0.85);
     border-bottom-color: rgba(180,220,255,0.85);
-    border-left-width: 2px;
-    border-right-width: 2px;
-    border-top-width: 2px;
-    border-bottom-width: 2px;
+    border-left-width: 3px;
+    border-right-width: 3px;
+    border-top-width: 3px;
+    border-bottom-width: 3px;
     background-color: rgba(180,220,255,0.08);
     transition-property: border-color, background-color;
     transition-duration: 0.3s;
 }
+
+/* Auto Button */
+.mt-hud-auto-btn {
+    width: 134px;
+    height: 134px;
+    border-radius: 20px;
+    border-left-width: 3px;
+    border-right-width: 3px;
+    border-top-width: 3px;
+    border-bottom-width: 3px;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+    font-size: 31px;
+    -unity-font-style: bold;
+    transition-property: border-color, background-color, color;
+    transition-duration: 0.3s;
+}
+
+.mt-hud-auto-off {
+    background-color: rgba(255,255,255,0.06);
+    border-left-color: rgba(255,255,255,0.12);
+    border-right-color: rgba(255,255,255,0.12);
+    border-top-color: rgba(255,255,255,0.12);
+    border-bottom-color: rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.3);
+}
+.mt-hud-auto-off:hover { background-color: rgba(255,255,255,0.10); }
+.mt-hud-auto-off:active { background-color: rgba(255,255,255,0.15); }
+
+.mt-hud-auto-on {
+    background-color: rgba(40,180,100,0.4);
+    border-left-color: rgba(80,220,140,0.8);
+    border-right-color: rgba(80,220,140,0.8);
+    border-top-color: rgba(80,220,140,0.8);
+    border-bottom-color: rgba(80,220,140,0.8);
+    color: rgba(180,255,210,0.95);
+}
+.mt-hud-auto-on:hover { background-color: rgba(40,180,100,0.55); }
+.mt-hud-auto-on:active { background-color: rgba(40,180,100,0.7); }
 
 /* ===== MageTower Equip Popup ===== */
 .mt-equip-overlay {
@@ -1075,4 +1115,116 @@
     color: rgba(255,80,80,0.95);
     -unity-text-outline-width: 1px;
     -unity-text-outline-color: rgba(0,0,0,0.70);
+}
+
+/* ===== Gacha Panel ===== */
+.gacha-tab-bar {
+    flex-direction: row;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.gacha-tab-btn {
+    flex: 1;
+    height: 64px;
+    font-size: 28px;
+    -unity-font-style: bold;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.gacha-tab-btn-active {
+    background-color: rgba(80, 60, 180, 0.6);
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.gacha-content {
+    flex: 1;
+}
+
+.gacha-desc {
+    font-size: 26px;
+    color: rgba(255, 255, 255, 0.7);
+    white-space: normal;
+    margin-bottom: 8px;
+}
+
+.gacha-cost {
+    font-size: 26px;
+    color: rgba(255, 204, 0, 0.95);
+    margin-bottom: 12px;
+}
+
+.gacha-pull-row {
+    flex-direction: row;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.gacha-pull-btn {
+    flex: 1;
+    height: 90px;
+    font-size: 28px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    white-space: normal;
+    background-color: rgba(60, 120, 220, 0.7);
+    border-radius: 12px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.gacha-pull-btn-disabled {
+    background-color: rgba(100, 100, 100, 0.5);
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.gacha-section-title {
+    font-size: 26px;
+    -unity-font-style: bold;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 10px;
+}
+
+.gacha-reward-grid {
+    flex-wrap: wrap;
+    flex-direction: row;
+    gap: 10px;
+}
+
+.gacha-reward-card {
+    width: 140px;
+    height: 160px;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px;
+}
+
+.gacha-reward-icon {
+    width: 64px;
+    height: 64px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.gacha-reward-name {
+    font-size: 22px;
+    color: rgba(255, 255, 255, 0.9);
+    -unity-text-align: middle-center;
+}
+
+.gacha-reward-rate {
+    font-size: 20px;
+    color: rgba(180, 180, 255, 0.8);
+    -unity-text-align: middle-center;
 }

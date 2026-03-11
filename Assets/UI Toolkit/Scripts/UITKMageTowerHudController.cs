@@ -11,6 +11,8 @@ namespace KingdomIdle.UIToolkit
 
         private UIDocument _uiDocument;
         private VisualElement _hud;
+        private Button _autoBtn;
+        private bool _autoEnabled;
         private readonly Button[] _slotBtns = new Button[MageTowerManager.SlotCount];
         private readonly VisualElement[] _slotIcons = new VisualElement[MageTowerManager.SlotCount];
         private readonly Label[] _slotLabels = new Label[MageTowerManager.SlotCount];
@@ -88,6 +90,14 @@ namespace KingdomIdle.UIToolkit
             var hud = new VisualElement { name = "MageTowerHud" };
             hud.AddToClassList("mt-hud");
             hud.pickingMode = PickingMode.Ignore;
+
+            // Auto 버튼
+            _autoBtn = new Button();
+            _autoBtn.text = "Auto";
+            _autoBtn.AddToClassList("mt-hud-auto-btn");
+            _autoBtn.AddToClassList("mt-hud-auto-off");
+            _autoBtn.clicked += OnAutoBtnClicked;
+            hud.Add(_autoBtn);
 
             for (int i = 0; i < MageTowerManager.SlotCount; i++)
             {
@@ -174,6 +184,26 @@ namespace KingdomIdle.UIToolkit
                 _slotBtns[slotIndex].RemoveFromClassList("mt-hud-slot-casting");
         }
 
+        private void OnAutoBtnClicked()
+        {
+            _autoEnabled = !_autoEnabled;
+
+            if (_autoEnabled)
+            {
+                _autoBtn.RemoveFromClassList("mt-hud-auto-off");
+                _autoBtn.AddToClassList("mt-hud-auto-on");
+            }
+            else
+            {
+                _autoBtn.RemoveFromClassList("mt-hud-auto-on");
+                _autoBtn.AddToClassList("mt-hud-auto-off");
+            }
+
+            var mgr = MageTowerManager.Instance;
+            if (mgr != null)
+                mgr.SetAutoEnabled(_autoEnabled);
+        }
+
         private void OnTowerBtnClicked()
         {
             UITKMageTowerPopupController.Show();
@@ -232,7 +262,7 @@ namespace KingdomIdle.UIToolkit
                     else
                     {
                         _slotIcons[i].style.display = DisplayStyle.None;
-                        _slotLabels[i].text = so.skillName;
+                        _slotLabels[i].text = so.nameKor;
                         _slotLabels[i].RemoveFromClassList("mt-hud-slot-empty");
                         _slotLabels[i].AddToClassList("mt-hud-slot-name");
                     }

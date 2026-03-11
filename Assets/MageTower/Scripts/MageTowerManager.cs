@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 using Scripts.Core;
 using Scripts.Monster;
 using Scripts.Wallets;
@@ -12,7 +13,8 @@ namespace KingdomIdle.MageTower
     {
         public static MageTowerManager Instance { get; private set; }
 
-        [SerializeField] private MageTowerSkillListSO skillList;
+        [SerializeField, FormerlySerializedAs("skillList")]
+        private MageTowerSkillRegistrySO skillRegistry;
 
         public const int SlotCount = 5;
         private const string PrefKey = "mt_save";
@@ -25,6 +27,7 @@ namespace KingdomIdle.MageTower
 
         private readonly float[] _cooldowns = new float[SlotCount];
         private readonly float[] _cooldownTimers = new float[SlotCount];
+        private bool _autoEnabled;
 
         public event Action OnStateChanged;
         public event Action OnCooldownTick;
@@ -62,7 +65,24 @@ namespace KingdomIdle.MageTower
             }
             if (ticked)
                 OnCooldownTick?.Invoke();
+
+            if (_autoEnabled)
+                AutoCastAll();
         }
+
+        private void AutoCastAll()
+        {
+            for (int i = 0; i < SlotCount; i++)
+            {
+                if (_equipped[i] < 0) continue;
+                if (_cooldownTimers[i] > 0f) continue;
+                if (_casting[i]) continue;
+                CastSkill(i);
+            }
+        }
+
+        public bool IsAutoEnabled() => _autoEnabled;
+        public void SetAutoEnabled(bool enabled) => _autoEnabled = enabled;
 
         // ===== 테스트 데이터 =====
         private void InitTestData()
@@ -88,9 +108,9 @@ namespace KingdomIdle.MageTower
         // ===== 데이터 접근 =====
         public IReadOnlyList<MageTowerSkillSO> GetAllSkills()
         {
-            if (skillList == null || skillList.skills == null)
+            if (skillRegistry == null || skillRegistry.skills == null)
                 return Array.Empty<MageTowerSkillSO>();
-            return skillList.skills;
+            return skillRegistry.skills;
         }
 
         public MageTowerSkillSO GetSkillById(int id)
@@ -119,6 +139,14 @@ namespace KingdomIdle.MageTower
         public int GetFragments(int skillId) =>
             _fragments.TryGetValue(skillId, out int f) ? f : 0;
 
+        public void AddFragments(int skillId, int amount)
+        {
+            if (!_fragments.ContainsKey(skillId))
+                _fragments[skillId] = 0;
+            _fragments[skillId] += amount;
+            Save();
+        }
+
         public int GetTotalAKSpent(int skillId) =>
             _totalAKSpent.TryGetValue(skillId, out int s) ? s : 0;
 
@@ -129,7 +157,7 @@ namespace KingdomIdle.MageTower
             if (so == null) return 0f;
             int eLv = GetEnhanceLevel(skillId);
             int aLv = GetAwakeningLevel(skillId);
-            return so.baseDamage * (1f + 0.05f * eLv) * (1f + 0.05f * aLv);
+            return so.BaseDamage * (1f + 0.05f * eLv) * (1f + 0.05f * aLv);
         }
 
         public float GetEffectiveCooldown(int skillId)
@@ -283,7 +311,7 @@ namespace KingdomIdle.MageTower
             _casting[slotIndex] = true;
             OnCastingChanged?.Invoke(slotIndex, true);
 
-            if (so.castPattern == eCastPattern.PersistentOnTarget)
+            if (so.GetEffect<SkillEffect_FireTornado>() != null)
             {
                 SpawnPersistent(slotIndex, so);
             }
@@ -303,7 +331,6 @@ namespace KingdomIdle.MageTower
         {
             int skillId = so.id;
             ulong dmg = (ulong)Mathf.RoundToInt(GetEffectiveDamage(skillId));
-            bool isLightning = so.castPattern == eCastPattern.RandomAroundTarget;
 
             Vector3 spawnPos = castPos;
             Transform centerChild = so.prefab.transform.Find("Center");
@@ -314,7 +341,33 @@ namespace KingdomIdle.MageTower
             var proj = go.GetComponent<MageTowerSkillProjectile>();
             if (proj == null) proj = go.AddComponent<MageTowerSkillProjectile>();
 
-            bool isLastCast = castIndex >= so.totalCasts;
+            // 스킬별 고유 SO에서 totalCasts와 투사체 파라미터 읽기
+            int totalCasts = 1;
+            float damageRadius = 1.5f;
+            bool shakeOnHit = false;
+            float shakeDuration = 0.15f;
+            float shakeMagnitude = 0.08f;
+
+            var lightning = so.GetEffect<SkillEffect_Lightning>();
+            if (lightning != null)
+            {
+                totalCasts = lightning.totalCasts;
+                damageRadius = lightning.damageRadius;
+                shakeOnHit = lightning.shakeOnHit;
+                shakeDuration = lightning.shakeDuration;
+                shakeMagnitude = lightning.shakeMagnitude;
+            }
+            else
+            {
+                var iceSpike = so.GetEffect<SkillEffect_IceSpike>();
+                if (iceSpike != null)
+                {
+                    totalCasts = iceSpike.totalCasts;
+                    damageRadius = iceSpike.damageRadius;
+                }
+            }
+
+            bool isLastCast = castIndex >= totalCasts;
             Action onHit = null;
 
             if (!isLastCast)
@@ -334,7 +387,8 @@ namespace KingdomIdle.MageTower
                 onHit = () => FinishCasting(slotIndex, skillId);
             }
 
-            proj.Initialize(dmg, spawnPos, onHit, isLightning);
+            proj.Initialize(dmg, spawnPos, onHit, damageRadius, shakeOnHit,
+                            shakeDuration, shakeMagnitude);
         }
 
         private void SpawnPersistent(int slotIndex, MageTowerSkillSO so)
@@ -353,7 +407,13 @@ namespace KingdomIdle.MageTower
                 persistent = go.AddComponent<MageTowerSkillPersistent>();
 
             ulong dmg = (ulong)Mathf.RoundToInt(GetEffectiveDamage(so.id));
-            persistent.Initialize(dmg, so.duration, so.tickInterval, slotIndex, so.id, target);
+            var fire = so.GetEffect<SkillEffect_FireTornado>();
+            float duration = fire != null ? fire.duration : 0f;
+            float tickInterval = fire != null ? fire.tickInterval : 0f;
+            float moveSpeed = fire != null ? fire.moveSpeed : 8f;
+            float arrivalThreshold = fire != null ? fire.arrivalThreshold : 0.05f;
+            persistent.Initialize(dmg, duration, tickInterval, moveSpeed,
+                                  arrivalThreshold, slotIndex, so.id, target);
         }
 
         /// <summary>
@@ -380,23 +440,25 @@ namespace KingdomIdle.MageTower
         private Vector3 GetNextCastPosition(MageTowerSkillSO so, Vector3 initialTarget,
                                             HashSet<int> excludedIds)
         {
-            switch (so.castPattern)
+            // 라이트닝: 첫 시전 성공 시 몬스터 유무 관계없이 전부 시전
+            var lightningEff = so.GetEffect<SkillEffect_Lightning>();
+            if (lightningEff != null)
             {
-                case eCastPattern.RandomAroundTarget:
-                    // 라이트닝: 첫 시전 성공 시 몬스터 유무 관계없이 전부 시전
-                    Vector2 offset = UnityEngine.Random.insideUnitCircle * so.chainRadius;
-                    return initialTarget + new Vector3(offset.x, offset.y, 0f);
-
-                case eCastPattern.UniqueRandomMonster:
-                    // 얼음송곳: 체인할 몬스터가 없으면 중단하고 쿨다운
-                    Vector3 pos = FindRandomMonsterPosition(excludedIds, out int newId);
-                    if (pos != Vector3.zero && newId != 0)
-                        excludedIds.Add(newId);
-                    return pos;
-
-                default:
-                    return FindNearestMonsterPosition();
+                Vector2 offset = UnityEngine.Random.insideUnitCircle * lightningEff.chainRadius;
+                return initialTarget + new Vector3(offset.x, offset.y, 0f);
             }
+
+            // 얼음송곳: 체인할 몬스터가 없으면 중단하고 쿨다운
+            var iceSpikeEff = so.GetEffect<SkillEffect_IceSpike>();
+            if (iceSpikeEff != null)
+            {
+                Vector3 pos = FindRandomMonsterPosition(excludedIds, out int newId);
+                if (pos != Vector3.zero && newId != 0)
+                    excludedIds.Add(newId);
+                return pos;
+            }
+
+            return FindNearestMonsterPosition();
         }
 
         private static readonly List<Collider2D> _searchResults = new(32);

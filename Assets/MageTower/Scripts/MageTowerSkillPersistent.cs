@@ -24,7 +24,8 @@ namespace KingdomIdle.MageTower
         private Transform _currentTarget;
         private bool _initialized;
         private bool _moving;
-        private const float MoveSpeed = 8f;
+        private float _moveSpeed;
+        private float _arrivalThreshold;
 
         public ulong damage => _damage;
         public Vector3 attackerPos => transform.position;
@@ -32,11 +33,14 @@ namespace KingdomIdle.MageTower
         private static readonly List<Collider2D> _results = new(32);
 
         public void Initialize(ulong dmg, float duration, float tickInterval,
+                               float moveSpeed, float arrivalThreshold,
                                int slotIndex, int skillId, Transform initialTarget)
         {
             _damage = dmg;
             _duration = duration;
             _tickInterval = tickInterval;
+            _moveSpeed = moveSpeed;
+            _arrivalThreshold = arrivalThreshold;
             _slotIndex = slotIndex;
             _skillId = skillId;
             _currentTarget = initialTarget;
@@ -83,9 +87,9 @@ namespace KingdomIdle.MageTower
                 {
                     Vector3 targetPos = _currentTarget.position;
                     transform.position = Vector3.MoveTowards(
-                        transform.position, targetPos, MoveSpeed * Time.deltaTime);
+                        transform.position, targetPos, _moveSpeed * Time.deltaTime);
 
-                    if (Vector2.Distance(transform.position, targetPos) < 0.05f)
+                    if (Vector2.Distance(transform.position, targetPos) < _arrivalThreshold)
                     {
                         transform.position = targetPos;
                         _moving = false;

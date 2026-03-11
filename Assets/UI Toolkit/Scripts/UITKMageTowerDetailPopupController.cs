@@ -204,7 +204,7 @@ namespace KingdomIdle.UIToolkit
             var so = mgr.GetSkillById(_skillId);
             if (so == null) { Hide(); return; }
 
-            _titleLabel.text = so.skillName;
+            _titleLabel.text = so.nameKor;
 
             if (so.icon != null)
                 _iconVe.style.backgroundImage = new StyleBackground(so.icon);
@@ -216,7 +216,7 @@ namespace KingdomIdle.UIToolkit
             float effDmg = mgr.GetEffectiveDamage(_skillId);
             float effCd = mgr.GetEffectiveCooldown(_skillId);
 
-            _lblBaseDmg.text = $"기본 데미지: {so.baseDamage:F0}";
+            _lblBaseDmg.text = $"기본 데미지: {so.BaseDamage:F0}";
             _lblBaseCd.text = $"기본 쿨타임: {so.baseCooldown:F1}s";
             _lblEffDmg.text = $"최종 데미지: {effDmg:F0}";
             _lblEffCd.text = $"최종 쿨타임: {effCd:F1}s";

@@ -221,7 +221,7 @@ namespace KingdomIdle.UIToolkit
                     else
                     {
                         _equipSlotIcons[i].style.display = DisplayStyle.None;
-                        _equipSlotLabels[i].text = so.skillName;
+                        _equipSlotLabels[i].text = so.nameKor;
                         _equipSlotLabels[i].RemoveFromClassList("mt-equip-slot-empty-label");
                     }
                 }
@@ -258,7 +258,7 @@ namespace KingdomIdle.UIToolkit
             if (skill.icon != null)
                 icon.style.backgroundImage = new StyleBackground(skill.icon);
 
-            var nameLabel = new Label(skill.skillName);
+            var nameLabel = new Label(skill.nameKor);
             nameLabel.AddToClassList("mt-inv-item-name");
             nameLabel.pickingMode = PickingMode.Ignore;
 
