@@ -1116,3 +1116,115 @@
     -unity-text-outline-width: 1px;
     -unity-text-outline-color: rgba(0,0,0,0.70);
 }
+
+/* ===== Gacha Panel ===== */
+.gacha-tab-bar {
+    flex-direction: row;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.gacha-tab-btn {
+    flex: 1;
+    height: 64px;
+    font-size: 28px;
+    -unity-font-style: bold;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.gacha-tab-btn-active {
+    background-color: rgba(80, 60, 180, 0.6);
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.gacha-content {
+    flex: 1;
+}
+
+.gacha-desc {
+    font-size: 26px;
+    color: rgba(255, 255, 255, 0.7);
+    white-space: normal;
+    margin-bottom: 8px;
+}
+
+.gacha-cost {
+    font-size: 26px;
+    color: rgba(255, 204, 0, 0.95);
+    margin-bottom: 12px;
+}
+
+.gacha-pull-row {
+    flex-direction: row;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.gacha-pull-btn {
+    flex: 1;
+    height: 90px;
+    font-size: 28px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    white-space: normal;
+    background-color: rgba(60, 120, 220, 0.7);
+    border-radius: 12px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.gacha-pull-btn-disabled {
+    background-color: rgba(100, 100, 100, 0.5);
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.gacha-section-title {
+    font-size: 26px;
+    -unity-font-style: bold;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 10px;
+}
+
+.gacha-reward-grid {
+    flex-wrap: wrap;
+    flex-direction: row;
+    gap: 10px;
+}
+
+.gacha-reward-card {
+    width: 140px;
+    height: 160px;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px;
+}
+
+.gacha-reward-icon {
+    width: 64px;
+    height: 64px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.gacha-reward-name {
+    font-size: 22px;
+    color: rgba(255, 255, 255, 0.9);
+    -unity-text-align: middle-center;
+}
+
+.gacha-reward-rate {
+    font-size: 20px;
+    color: rgba(180, 180, 255, 0.8);
+    -unity-text-align: middle-center;
+}

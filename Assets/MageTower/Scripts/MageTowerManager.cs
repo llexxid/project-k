@@ -139,6 +139,14 @@ namespace KingdomIdle.MageTower
         public int GetFragments(int skillId) =>
             _fragments.TryGetValue(skillId, out int f) ? f : 0;
 
+        public void AddFragments(int skillId, int amount)
+        {
+            if (!_fragments.ContainsKey(skillId))
+                _fragments[skillId] = 0;
+            _fragments[skillId] += amount;
+            Save();
+        }
+
         public int GetTotalAKSpent(int skillId) =>
             _totalAKSpent.TryGetValue(skillId, out int s) ? s : 0;
 

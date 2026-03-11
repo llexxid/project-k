@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="PanelRoot" class="panel-root">
+        <ui:VisualElement name="Backdrop" class="panel-backdrop" />
+
+        <ui:VisualElement name="Sheet" class="panel-sheet">
+            <ui:VisualElement class="panel-header">
+                <ui:Label name="LblPanelName" text="뽑기" class="panel-title" />
+                <ui:Button name="BtnPanelClose" text="✕" class="panel-close-btn" />
+            </ui:VisualElement>
+
+            <!-- 탭 바 (코드에서 동적으로 버튼 추가) -->
+            <ui:VisualElement name="GachaTabBar" class="gacha-tab-bar" />
+
+            <!-- 콘텐츠 영역 (탭 전환 시 코드에서 갱신) -->
+            <ui:ScrollView name="GachaContent" class="gacha-content" vertical-scroller-visibility="Auto" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

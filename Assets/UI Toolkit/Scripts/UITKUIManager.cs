@@ -37,6 +37,7 @@ namespace KingdomIdle.UIToolkit
 
         [Header("UXML - Panels")]
         [SerializeField] private VisualTreeAsset panelGuideUxml;
+        [SerializeField] private VisualTreeAsset panelGachaUxml;
 
         [Header("UXML - Overlays")]
         [SerializeField] private VisualTreeAsset overlayLoadingUxml;
@@ -385,7 +386,7 @@ namespace KingdomIdle.UIToolkit
             _layerOverlays.Add(_toastOverlay);
         }
 
-        private void ShowToast(string message)
+        public void ShowToast(string message)
         {
             if (_toastOverlay == null) EnsureToastOverlay();
 
@@ -438,6 +439,15 @@ namespace KingdomIdle.UIToolkit
                     : new Label("Missing Panel_Guide UXML");
                 UITKGuidePanelController.Populate(guideVe, onProgressChanged: RefreshGuideBadge);
                 return guideVe;
+            }
+
+            if (id == UIPanelId.Gacha)
+            {
+                VisualElement gachaVe = panelGachaUxml != null
+                    ? panelGachaUxml.CloneTree()
+                    : new Label("Missing Panel_Gacha UXML");
+                UITKGachaPanelController.Populate(gachaVe);
+                return gachaVe;
             }
 
             // FIX: 삼항연산 + var 타입 추론 실패(TemplateContainer vs Label) 방지
