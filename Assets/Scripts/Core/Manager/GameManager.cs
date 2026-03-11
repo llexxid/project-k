@@ -1,4 +1,4 @@
-﻿using Cysharp.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using Cysharp.Threading.Tasks.CompilerServices;
 using ExcelDataReader;
 using Scripts.Core.SO;
@@ -55,6 +55,34 @@ namespace Scripts.Core
 
 		private AsyncOperationHandle<IList<GameObject>> _VFXMonsterHandle;
 		private AsyncOperationHandle<IList<AudioClip>> _SFXMonsterHandle;
+
+		// ── 플레이어 생존 관리 ──────────────────────────────────────
+		// "사망 애니메이션 완료" 횟수를 셈. IsDead는 데미지 즉시 true가 되므로 사용 불가.
+		private int _deathAnimationDoneCount = 0;
+
+		/// <summary>
+		/// 플레이어의 사망 애니메이션이 끝난 뒤 호출.
+		/// 모든 플레이어의 애니메이션이 끝나야 게임을 정지한다.
+		/// </summary>
+		public void ReportPlayerDead()
+		{
+			_deathAnimationDoneCount++;
+
+			int totalPlayers = FindObjectsByType<Player>(FindObjectsSortMode.None).Length;
+			Debug.Log($"[GameManager] 사망 애니메이션 완료: {_deathAnimationDoneCount}/{totalPlayers}");
+
+			if (_deathAnimationDoneCount >= totalPlayers && totalPlayers > 0)
+				OnAllPlayersDead();
+		}
+
+		private void OnAllPlayersDead()
+		{
+			Debug.Log("[GameManager] 전원 사망 애니메이션 완료 → 게임 정지 (timeScale = 0)");
+			_deathAnimationDoneCount = 0; // 씬 재시작 대비 초기화
+			Time.timeScale = 0f;
+			// TODO: 사망 UI 표시
+		}
+		// ────────────────────────────────────────────────────────────
 
 
 		private void Awake()
@@ -293,7 +321,7 @@ namespace Scripts.Core
 					foreach (var spawnPos in group)
 					{
 						MonsterSpawner.Instance.SpawnMonster(eMonsterType.MON_ORC, spawnPos, Quaternion.identity, out Monster mon);
-						MonsterStat stat = new MonsterStat(monInfo._baseHp, 0, (ulong)monInfo._baseAtk, monInfo._baseMoveSpeed, monInfo._baseAtkSpeed);
+						MonsterStat stat = new MonsterStat(10000, 0, (ulong)monInfo._baseAtk, monInfo._baseMoveSpeed, monInfo._baseAtkSpeed);
 						mon.Init(eMonsterType.MON_ORC, stat, monInfo._dropTableNumber);
 					}
 				}
