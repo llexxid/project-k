@@ -2,6 +2,7 @@ using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Core.Utils;
 using Scripts.Users;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -22,6 +23,8 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
     // 사망 여부 (true이면 BT 평가 중단)
     private bool _isDead = false;
+    /// <summary>외부 컴포넌트(ChangeJob 등)에서 사망 여부를 읽기 위한 프로퍼티</summary>
+    public bool IsDead => _isDead;
 
     public IDamageable currentTarget;
     PlayerData _data;
@@ -78,6 +81,24 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         // TurnOnAnimation은 직접 호출하지 않음
         // → LateUpdate의 UpdateAnimation()이 _prevAction != _playerAction을 감지해
         //   Dead Trigger를 정확히 1번만 Set한다. (여기서 직접 호출하면 2번 Set됨)
+
+        // 사망 애니메이션이 끝난 뒤 게임 정지
+        StartCoroutine(PauseAfterDeadAnimation());
+    }
+
+    /// <summary>
+    /// Dead 애니메이션 재생이 완전히 끝난 뒤 Time.timeScale = 0 으로 게임을 정지한다.
+    /// 나중에 사망 UI에서 재시작/종료를 선택한 뒤 Time.timeScale = 1f 로 복원하면 된다.
+    /// </summary>
+    private IEnumerator PauseAfterDeadAnimation()
+    {
+        // Dead_Anim 클립 길이를 읽어서 그만큼 대기
+        float deadAnimLength = GetClipLength("Dead_Anim");
+        Debug.Log($"[Player] 사망 애니메이션 대기: {deadAnimLength}초");
+        yield return new WaitForSeconds(deadAnimLength);
+
+        // GameManager에 사망 보고 → 전원 사망 시 GameManager가 게임을 정지함
+        Scripts.Core.GameManager.Instance?.ReportPlayerDead();
     }
     private bool setHp(ulong damage)
     {

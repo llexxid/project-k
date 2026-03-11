@@ -57,6 +57,9 @@ public class ChangeJob : MonoBehaviour
 
     private void Update()
     {
+        // 사망 후에는 전직 입력 차단 (timeScale=0이어도 Update는 계속 호출됨)
+        if (_player != null && _player.IsDead) return;
+
         if (Input.GetKeyDown(KeyCode.J))
         {
             CycleToNextJob();
