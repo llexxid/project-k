@@ -295,6 +295,52 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 36b06ef5a30a7544ab6168483b95967b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!1 &659282415
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 659282417}
+  - component: {fileID: 659282416}
+  m_Layer: 0
+  m_Name: KingdomArmyManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &659282416
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 659282415}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4b2614f4067d82c4b9c0ac69ecf2853b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  jobDatabase: {fileID: 11400000, guid: 9e03a3b2e50f9024c94a0cb0b2ec46e4, type: 2}
+  defaultFragmentCost: 40
+--- !u!4 &659282417
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 659282415}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.12374325, y: 1.0286425, z: -6.6921535}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &755427043
 GameObject:
   m_ObjectHideFlags: 0
@@ -359,6 +405,8 @@ MonoBehaviour:
   panelGuideUxml: {fileID: 9197481963319205126, guid: f1fe0a898dec35149922530698985b58,
     type: 3}
   panelGachaUxml: {fileID: 9197481963319205126, guid: 0188add00e355824f9aba9e26f54afb4,
+    type: 3}
+  panelKingdomArmyUxml: {fileID: 9197481963319205126, guid: 91719f7e3b4ca7241b5cf28a0a740156,
     type: 3}
   overlayLoadingUxml: {fileID: 9197481963319205126, guid: 88b128c4aa415e647ae568ce0e827dfc,
     type: 3}
@@ -763,4 +811,5 @@ SceneRoots:
   - {fileID: 102526416}
   - {fileID: 1923537046}
   - {fileID: 1203379618}
+  - {fileID: 659282417}
   - {fileID: 235617915}

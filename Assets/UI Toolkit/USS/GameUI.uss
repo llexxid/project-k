@@ -296,11 +296,11 @@
 }
 
 .settings-panel {
-    width: 88%;
-    max-width: 760px;
+    width: 92%;
+    max-width: 860px;
     background-color: rgba(35, 30, 45, 0.95);
     border-radius: 18px;
-    padding: 18px;
+    padding: 22px;
     gap: 12px;
     overflow: hidden;
 }
@@ -321,8 +321,8 @@
 }
 
 .settings-subrow { flex-direction: row; justify-content: space-between; align-items: center; gap: 10px; }
-.settings-chip-btn { height: 72px; flex-grow: 1; font-size: 24px; }
-.settings-version { height: 72px; width: 220px; justify-content: center; align-items: center; background-color: rgba(255,255,255,0.10); border-radius: 12px; }
+.settings-chip-btn { height: 60px; flex-grow: 1; font-size: 22px; }
+.settings-version { height: 60px; width: 200px; justify-content: center; align-items: center; background-color: rgba(255,255,255,0.10); border-radius: 12px; }
 .settings-version-label { font-size: 24px; color: rgba(255,255,255,0.9); }
 
 .settings-coupon-row { flex-direction: row; align-items: center; gap: 10px; }
@@ -330,7 +330,7 @@
 .settings-coupon-tag-label { font-size: 22px; color: rgba(255,255,255,0.9); }
 .settings-coupon-field-wrap { flex-grow: 1; height: 62px; border-radius: 10px; background-color: rgba(255,255,255,0.10); padding-left: 10px; padding-right: 10px; justify-content: center; }
 .settings-coupon-field { flex-grow: 1; }
-.settings-coupon-btn { width: 110px; height: 62px; font-size: 22px; }
+.settings-coupon-btn { width: 100px; height: 54px; font-size: 20px; }
 
 .settings-grid { flex-direction: row; gap: 14px; }
 .settings-col { flex-grow: 1; gap: 10px; }
@@ -344,9 +344,9 @@
 }
 
 .settings-mute-btn {
-    width: 100px;
-    height: 54px;
-    font-size: 22px;
+    width: 90px;
+    height: 48px;
+    font-size: 20px;
     border-radius: 12px;
     background-color: rgba(255,255,255,0.10);
     color: rgba(255,255,255,0.95);
@@ -358,17 +358,18 @@
 /* Settings toggles: improve label visibility */
 .settings-panel .unity-base-field__label,
 .settings-panel .unity-toggle__text {
+    font-size: 26px;
     color: rgba(255,255,255,0.95);
 }
 
 .settings-inquiry { height: 62px; justify-content: center; align-items: center; background-color: rgba(0,0,0,0.28); border-radius: 10px; }
 .settings-inquiry-label { font-size: 22px; color: rgba(255,255,255,0.9); }
 
-.settings-wide-btn { height: 70px; font-size: 24px; }
-.settings-danger-btn { height: 70px; font-size: 24px; color: rgba(255,80,80,1); }
+.settings-wide-btn { height: 58px; font-size: 22px; }
+.settings-danger-btn { height: 58px; font-size: 22px; color: rgba(255,80,80,1); }
 
 .settings-bottom-row { flex-direction: row; gap: 12px; }
-.settings-bottom-btn { flex-grow: 1; height: 76px; font-size: 26px; }
+.settings-bottom-btn { flex-grow: 1; height: 64px; font-size: 24px; }
 
 .settings-hint-close {
     position: absolute;
