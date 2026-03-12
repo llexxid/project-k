@@ -13,6 +13,19 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     public SkillManager skillManager;
     public SkillDatabase skillDatabase;
 
+    // ── [장비 시스템] ─────────────────────────────────────────────
+    /// <summary>장비 시스템 메인 매니저. UI나 외부 로직에서 참조 가능.</summary>
+    public EquipmentManager equipmentManager;
+
+    [SerializeField]
+    [Tooltip("EquipmentDatabase.asset을 인스펙터에서 연결하세요.")]
+    private EquipmentDatabase _equipmentDatabase;
+
+    [SerializeField]
+    [Tooltip("EquipmentDropTableSO.asset을 인스펙터에서 연결하세요.")]
+    private EquipmentDropTableSO _equipmentDropTable;
+    // ── [장비 시스템 끝] ──────────────────────────────────────────
+
     // 애니메이터 관련
     public Animator _am;
     AnimatorComponent<ePlayerAction> _animatorComponent;
@@ -71,6 +84,11 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     {
         _data = data;
         _user = user;
+
+        // ── [장비 시스템] UI Bridge에 레퍼런스 전달 ─────────────────
+        // Player와 User가 모두 준비된 이 시점에 Bridge를 초기화한다.
+        KingdomIdle.UIToolkit.UITKEquipmentPanelBridge.Init(this, _user);
+        // ── [장비 시스템 끝] ─────────────────────────────────────────
     }
     private void OnDead()
     {
@@ -128,6 +146,11 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         InitializeAnimator();
 
         playerStatus = new PlayerStatus();
+
+        // ── [장비 시스템] EquipmentManager 초기화 ──────────────────
+        equipmentManager = new EquipmentManager();
+        equipmentManager.Init(playerStatus, _equipmentDatabase, _equipmentDropTable);
+        // ── [장비 시스템 끝] ────────────────────────────────────────
 
         playerOrder = new PlayerOrder();
         playerOrder.Init(this);
@@ -303,6 +326,10 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 	{
         _user.GainCoin(eCurrency.Gold, gold);
         _user.GainCoin(eCurrency.AncientCoin, ancientCoin);
+
+        // ── [장비 시스템] 몬스터 처치 시 장비 드롭 판정 ──────────
+        equipmentManager?.TryDropEquipment();
+        // ── [장비 시스템 끝] ─────────────────────────────────────
         return;
 	}
 
