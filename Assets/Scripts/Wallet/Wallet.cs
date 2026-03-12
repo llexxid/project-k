@@ -43,5 +43,25 @@ namespace Scripts.Wallets
 			return pocket.TryGetValue(type, out amount);
 		}
 
+		// ── [장비 시스템 추가] User.CanAfford / TrySpendCoin에서 호용 ──────────
+		/// <summary>
+		/// 지정한 통화가 amount 이상 보유 중인지 확인한다.
+		/// </summary>
+		public bool CanAfford(eCurrency type, int amount)
+		{
+			return pocket.TryGetValue(type, out int current) && current >= amount;
+		}
+
+		/// <summary>
+		/// 지정한 통화를 차감한다. 잔액 부족 시 false 반환 (차감하지 않음).
+		/// </summary>
+		public bool TrySpendCoins(eCurrency type, int amount)
+		{
+			if (!CanAfford(type, amount)) return false;
+			pocket[type] -= amount;
+			return true;
+		}
+		// ── [장비 시스템 추가 끝] ────────────────────────────────────
+
 	}
 }

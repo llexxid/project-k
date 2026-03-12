@@ -49,6 +49,26 @@ namespace Scripts.Users
 			_wallet.AddCoins(type, amount);
 		}
 
+		// ── [장비 시스템 추가] ────────────────────────────────────────
+		/// <summary>
+		/// 보유 골드가 amount 이상인지 확인한다.
+		/// EquipmentManager.CanEnhance()에서 강화 가능 여부 판단에 사용.
+		/// </summary>
+		public bool CanAfford(eCurrency type, int amount)
+		{
+			return _wallet.CanAfford(type, amount);
+		}
+
+		/// <summary>
+		/// 골드를 차감한다. 잔액 부족 시 false 반환 (차감하지 않음).
+		/// EquipmentManager.TryEnhance()에서 강화 비용 차감에 사용.
+		/// </summary>
+		public bool TrySpendCoin(eCurrency type, int amount)
+		{
+			return _wallet.TrySpendCoins(type, amount);
+		}
+		// ── [장비 시스템 추가 끝] ───────────────────────────────────────
+
 
 		public void ConnectCharacters(Player player)
 		{

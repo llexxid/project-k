@@ -103,7 +103,7 @@ public class PlayerSkill
                 if (!isAlive)
                 {
                     // 몬스터 사망 시 Idle로 전환 (Attack은 Trigger라 자동 리셋됨)
-                    _player._playerAction = ePlayerAction.Idle;
+                    _player.SetAnimation(ePlayerAction.Idle);
                     if (_detection != null) _detection.currentTarget = null;
                     _player.currentTarget = null;
                     break;
@@ -127,7 +127,7 @@ public class PlayerSkill
 
         VFXManager.Instance?.GetVFX(vfxType, target.targetPos,
             _player.transform.rotation,
-            (vfx) => { vfx?.ActiveEffect(200); });
+            (vfx) => { vfx?.ActiveEffect(1000); });
     }
 
     // ─────────────────────────────────────────────────────────
