@@ -1,4 +1,4 @@
-using Cysharp.Threading.Tasks;
+﻿using Cysharp.Threading.Tasks;
 using Cysharp.Threading.Tasks.CompilerServices;
 using ExcelDataReader;
 using Scripts.Core.SO;
@@ -321,7 +321,7 @@ namespace Scripts.Core
 					foreach (var spawnPos in group)
 					{
 						MonsterSpawner.Instance.SpawnMonster(eMonsterType.MON_ORC, spawnPos, Quaternion.identity, out Monster mon);
-						MonsterStat stat = new MonsterStat(100000, 0, (ulong)monInfo._baseAtk, monInfo._baseMoveSpeed, monInfo._baseAtkSpeed);
+						MonsterStat stat = new MonsterStat(monInfo._baseHp, 0, (ulong)monInfo._baseAtk, monInfo._baseMoveSpeed, monInfo._baseAtkSpeed);
 						mon.Init(eMonsterType.MON_ORC, stat, monInfo._dropTableNumber);
 					}
 				}
