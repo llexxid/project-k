@@ -1,27 +1,30 @@
+using Scripts.Core;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class PlayerIdle
 {
-    //public Animator animator;
+    private readonly Player _player;
 
-    // 대기 행동 로직
+    public PlayerIdle(Player player) { _player = player; }
+
+    /// <summary>
+    /// 대기 상태 진입: _playerAction을 Idle로 되돌려 공격 애니메이션을 멈춘다.
+    /// 적이 없을 때 BT가 이 노드를 호출하므로, 여기서 리셋하지 않으면
+    /// Attack 상태가 영원히 유지되어 공격 애니메이션이 계속 루프된다.
+    /// </summary>
     public NodeState Idle()
     {
-        // 여기에 대기 애니메이션을 재생하거나, 체력을 회복하는 등의 로직 추가
-        //animator.SetBool("isMoving", false);
-
-        // 대기는 항상 성공(수행 가능)한 상태로 간주
+        if (_player != null)
+            _player._playerAction = ePlayerAction.Idle;
         return NodeState.Success;
     }
 
-    // [추가] 행동 트리 전용 노드 클래스
     public class IdleNode : Node
     {
         private PlayerIdle _idle;
         public IdleNode(PlayerIdle idle) { _idle = idle; }
-
         public override NodeState Evaluate() => _idle.Idle();
     }
-}
+}
