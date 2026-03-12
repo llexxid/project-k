@@ -1,4 +1,4 @@
-﻿using Scripts.Core;
+using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Core.Utils;
 using System;
@@ -310,6 +310,13 @@ namespace Scripts.Monster
             //Institate 동전
             CustomLogger.Log("Monster Is Dead!!");
             _monAction = eMonsterAction.Dead;
+
+            // 수정한 부분
+            // 루트·자식 모든 콜라이더 즉시 비활성화 → OverlapCircle에서 감지되지 않음
+            foreach (var col in GetComponentsInChildren<Collider2D>())
+                col.enabled = false;
+            // 여기까지만
+
             _stateManchine.ChangeState(new MonsterDeadState(this));
         }
 

@@ -52,14 +52,33 @@ public class PlayerSkill
 
         if (hitCount == 0) return NodeState.Failure;
 
-        // [3] 쿨타임 소모
-        _nextAvailableTime = Time.time + _skillData.cooldown;
+        // 탐지된 적이 전부 Dead 상태면 스킬 발동하지 않음
+        bool hasAliveTarget = false;
+        for (int i = 0; i < hitCount; i++)
+        {
+            // 자식 콜라이더에서도 부모로 올라가 Monster를 탐색
+            var m = _hitResults[i].GetComponentInParent<Monster>();
+            bool isDead = m != null && m.MonAction == eMonsterAction.Dead;
+            if (!isDead) { hasAliveTarget = true; break; }
+        }
+        if (!hasAliveTarget) return NodeState.Failure;
 
-        // [4] 데미지 계산: 기본 Atk × 스킬 계수
-        int baseAtk     = _player.playerStatus?.Atk ?? 0;
-        int skillDamage = Mathf.RoundToInt(baseAtk * _skillData.damage);
 
-        Debug.Log($"[스킬] {_skillData.skillName} | Atk:{baseAtk} × {_skillData.damage} = {skillDamage}");
+        // [3] 쿨타임 소모 (강화 레벨 반영)
+        var enhancer = SkillEnhanceManager.Instance;
+        float finalCooldown = enhancer != null
+            ? enhancer.Runtime.GetFinalCooldown(_skillData)
+            : _skillData.cooldown;
+        _nextAvailableTime = Time.time + finalCooldown;
+
+        // [4] 데미지 계산: 기본 Atk × 강화된 스킬 계수
+        int   baseAtk      = _player.playerStatus?.Atk ?? 0;
+        float finalDamage  = enhancer != null
+            ? enhancer.Runtime.GetFinalDamage(_skillData)
+            : _skillData.damage;
+        int   skillDamage  = Mathf.RoundToInt(baseAtk * finalDamage);
+
+        Debug.Log($"[스킬] {_skillData.skillName} | Atk:{baseAtk} × {finalDamage:F2}(Lv.{enhancer?.Runtime.GetLevel(_skillData.skillName) ?? 0}) = {skillDamage} | CD:{finalCooldown:F2}s");
 
         // [5] VFX 재생 (eVFXType이 스킬 이름과 일치하는 경우)
         bool vfxPlayed = false;

@@ -18,7 +18,7 @@ public class PlayerOrder
         _detection = new PlayerDetection(player);
         _move      = new PlayerMove(player);
         _attack    = new PlayerAttack(player, _detection);
-        _idle      = new PlayerIdle();
+        _idle      = new PlayerIdle(player);
 
         // 공격 Selector: 스킬(없으면 생략) → 일반 공격 fallback
         _attackSelector = new Selector(new List<Node>
