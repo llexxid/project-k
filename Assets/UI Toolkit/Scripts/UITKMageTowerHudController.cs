@@ -72,14 +72,14 @@ namespace KingdomIdle.UIToolkit
             if (root == null) return;
             if (_hud != null && _hud.panel != null) return;
 
-            var popups = root.Q<VisualElement>("Layer_Popups");
-            if (popups == null) return;
+            var screens = root.Q<VisualElement>("Layer_Screens");
+            if (screens == null) return;
 
-            _hud = popups.Q<VisualElement>("MageTowerHud");
+            _hud = screens.Q<VisualElement>("MageTowerHud");
             if (_hud == null)
             {
                 _hud = BuildHud();
-                popups.Add(_hud);
+                screens.Add(_hud);
             }
 
             RefreshSlots();

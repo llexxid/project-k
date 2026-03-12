@@ -38,6 +38,7 @@ namespace KingdomIdle.UIToolkit
         [Header("UXML - Panels")]
         [SerializeField] private VisualTreeAsset panelGuideUxml;
         [SerializeField] private VisualTreeAsset panelGachaUxml;
+        [SerializeField] private VisualTreeAsset panelKingdomArmyUxml;
 
         [Header("UXML - Overlays")]
         [SerializeField] private VisualTreeAsset overlayLoadingUxml;
@@ -448,6 +449,15 @@ namespace KingdomIdle.UIToolkit
                     : new Label("Missing Panel_Gacha UXML");
                 UITKGachaPanelController.Populate(gachaVe);
                 return gachaVe;
+            }
+
+            if (id == UIPanelId.KingdomArmy)
+            {
+                VisualElement armyVe = panelKingdomArmyUxml != null
+                    ? panelKingdomArmyUxml.CloneTree()
+                    : new Label("Missing Panel_KingdomArmy UXML");
+                UITKKingdomArmyPanelController.Populate(armyVe);
+                return armyVe;
             }
 
             // FIX: 삼항연산 + var 타입 추론 실패(TemplateContainer vs Label) 방지
@@ -949,7 +959,7 @@ namespace KingdomIdle.UIToolkit
             var values = (eCurrency[])Enum.GetValues(typeof(eCurrency));
             foreach (var c in values)
             {
-                if (c == eCurrency.Gold || c == eCurrency.AncientCoin)
+                if (c == eCurrency.Gold || c == eCurrency.AncientCoin || c == eCurrency.ClassFragment)
                     continue;
 
                 var line = new Label($"{c}: {GetCurrencyText(c)}");

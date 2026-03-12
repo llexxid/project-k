@@ -257,7 +257,7 @@
     flex-direction: row;
     justify-content: space-around;
     align-items: center;
-    background-color: rgba(0,0,0,0.4);
+    background-color: rgba(0,0,0,1);
 }
 .tab-btn { width: 170px; height: 110px; font-size: 32px; }
 
@@ -279,7 +279,7 @@
     bottom: 190px;
     height: 60%;
     min-height: 380px;
-    background-color: rgba(0,0,0,0.72);
+    background-color: rgba(10,10,15,1);
     border-top-left-radius: 22px;
     border-top-right-radius: 22px;
     padding: 20px;
@@ -1227,4 +1227,306 @@
     font-size: 20px;
     color: rgba(180, 180, 255, 0.8);
     -unity-text-align: middle-center;
+}
+
+/* ===== Kingdom Army Panel ===== */
+.ka-member-tabs {
+    flex-direction: row;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.ka-member-tab {
+    flex: 1;
+    height: 56px;
+    font-size: 24px;
+    -unity-font-style: bold;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.ka-member-tab-active {
+    background-color: rgba(60, 140, 80, 0.6);
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.ka-content {
+    flex: 1;
+}
+
+.ka-nav-bar {
+    flex-direction: row;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.ka-nav-btn {
+    flex: 1;
+    height: 52px;
+    font-size: 22px;
+    background-color: rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.ka-nav-btn-active {
+    background-color: rgba(80, 60, 180, 0.5);
+    color: rgba(255, 255, 255, 0.95);
+}
+
+/* Character View */
+.ka-char-header {
+    flex-direction: row;
+    gap: 16px;
+    margin-bottom: 14px;
+    padding: 12px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+}
+
+.ka-char-portrait {
+    width: 120px;
+    height: 120px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.ka-char-info {
+    flex: 1;
+    justify-content: center;
+    gap: 4px;
+}
+
+.ka-section-title {
+    font-size: 28px;
+    -unity-font-style: bold;
+    color: rgba(255, 255, 255, 0.85);
+    margin-bottom: 10px;
+}
+
+.ka-subsection-title {
+    font-size: 24px;
+    -unity-font-style: bold;
+    color: rgba(255, 255, 255, 0.75);
+    margin-top: 12px;
+    margin-bottom: 6px;
+}
+
+.ka-stat-line {
+    font-size: 24px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.ka-placeholder-text {
+    font-size: 24px;
+    color: rgba(255, 255, 255, 0.4);
+    -unity-text-align: middle-center;
+    margin: 20px 0;
+}
+
+/* Enhance View */
+.ka-enhance-row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 8px;
+    background-color: rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+    margin-bottom: 6px;
+}
+
+.ka-enhance-name {
+    font-size: 24px;
+    color: rgba(255, 255, 255, 0.8);
+    flex: 1;
+}
+
+.ka-enhance-btn-row {
+    flex-direction: row;
+    gap: 6px;
+}
+
+.ka-small-btn {
+    height: 44px;
+    min-width: 100px;
+    font-size: 20px;
+    background-color: rgba(60, 120, 220, 0.5);
+    border-radius: 8px;
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Equipment View */
+.ka-equip-grid {
+    flex-wrap: wrap;
+    flex-direction: row;
+    gap: 10px;
+}
+
+.ka-equip-slot {
+    width: 140px;
+    height: 120px;
+    background-color: rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.ka-equip-slot-name {
+    font-size: 22px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.ka-equip-slot-empty {
+    font-size: 18px;
+    color: rgba(255, 255, 255, 0.3);
+}
+
+/* Skill View */
+.ka-skill-row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 8px;
+    background-color: rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+    margin-bottom: 6px;
+}
+
+.ka-skill-info {
+    flex: 1;
+    gap: 2px;
+}
+
+.ka-skill-name {
+    font-size: 24px;
+    -unity-font-style: bold;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.ka-skill-detail {
+    font-size: 20px;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+/* Job Change View */
+.ka-job-grid {
+    flex-wrap: wrap;
+    flex-direction: row;
+    gap: 12px;
+}
+
+.ka-job-card {
+    width: 160px;
+    background-color: rgba(255, 255, 255, 0.07);
+    border-radius: 12px;
+    align-items: center;
+    padding: 12px 8px;
+    gap: 8px;
+}
+
+.ka-job-card-img {
+    width: 80px;
+    height: 80px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.ka-job-card-name {
+    font-size: 24px;
+    -unity-font-style: bold;
+    color: rgba(255, 255, 255, 0.9);
+    -unity-text-align: middle-center;
+}
+
+.ka-job-card-frag {
+    font-size: 20px;
+    color: rgba(255, 200, 100, 0.8);
+    -unity-text-align: middle-center;
+}
+
+.ka-frag-ready {
+    color: rgba(100, 255, 100, 0.9);
+}
+
+/* Job Detail View */
+.ka-back-btn {
+    height: 44px;
+    font-size: 22px;
+    align-self: flex-start;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 8px;
+    padding: 0 16px;
+}
+
+.ka-job-detail-header {
+    flex-direction: row;
+    gap: 16px;
+    margin-bottom: 14px;
+    padding: 14px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+}
+
+.ka-job-detail-img {
+    width: 120px;
+    height: 120px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.ka-job-detail-info {
+    flex: 1;
+    justify-content: center;
+    gap: 4px;
+}
+
+.ka-job-detail-name {
+    font-size: 30px;
+    -unity-font-style: bold;
+    color: rgba(255, 255, 255, 0.95);
+    margin-bottom: 6px;
+}
+
+.ka-frag-bar {
+    padding: 10px;
+    background-color: rgba(255, 200, 100, 0.08);
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+
+.ka-frag-status {
+    font-size: 26px;
+    color: rgba(255, 200, 100, 0.9);
+    -unity-text-align: middle-center;
+}
+
+.ka-change-btn {
+    height: 72px;
+    font-size: 32px;
+    -unity-font-style: bold;
+    background-color: rgba(60, 180, 80, 0.7);
+    border-radius: 12px;
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.ka-change-btn-disabled {
+    background-color: rgba(100, 100, 100, 0.5);
+    color: rgba(255, 255, 255, 0.4);
 }

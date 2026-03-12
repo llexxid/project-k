@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="PanelRoot" class="panel-root">
+        <ui:VisualElement name="Backdrop" class="panel-backdrop" />
+
+        <ui:VisualElement name="Sheet" class="panel-sheet">
+            <ui:VisualElement class="panel-header">
+                <ui:Label name="LblPanelName" text="왕국군" class="panel-title" />
+                <ui:Button name="BtnPanelClose" text="✕" class="panel-close-btn" />
+            </ui:VisualElement>
+
+            <!-- 왕국군 탭 (왕국군1/2/3) -->
+            <ui:VisualElement name="ArmyMemberTabs" class="ka-member-tabs" />
+
+            <!-- 메인 콘텐츠 (동적) -->
+            <ui:ScrollView name="ArmyContent" class="ka-content" vertical-scroller-visibility="Auto" />
+
+            <!-- 하단 네비게이션 (강화 / 장비 / 왕국군스킬 / 전직) -->
+            <ui:VisualElement name="ArmyNavBar" class="ka-nav-bar" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
