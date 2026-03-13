@@ -14,6 +14,7 @@ public class PlayerSkill
     private readonly Player _player;
     private readonly SkillData _skillData;
     private readonly PlayerDetection _detection;
+    private readonly SkillSharedState _sharedState;
 
     // 적 레이어 마스크
     private readonly LayerMask _enemyLayer = GameLayers.EnemyMask;
@@ -24,11 +25,21 @@ public class PlayerSkill
     // Physics2D 결과 버퍼 (GC 최소화)
     private readonly List<Collider2D> _hitResults = new List<Collider2D>();
 
-    public PlayerSkill(Player player, SkillData skillData, PlayerDetection detection)
+    public PlayerSkill(Player player, SkillData skillData, PlayerDetection detection, SkillSharedState sharedState)
     {
-        _player    = player;
-        _skillData = skillData;
-        _detection = detection;
+        _player      = player;
+        _skillData   = skillData;
+        _detection   = detection;
+        _sharedState = sharedState;
+    }
+
+    /// <summary>
+    /// 같은 플레이어의 모든 스킬 인스턴스가 공유하는 잠금 상태.
+    /// 어느 스킬이 발동하면 나머지 스킬도 해당 쿨타임 동안 대기한다.
+    /// </summary>
+    public class SkillSharedState
+    {
+        public float nextAvailableTime;
     }
 
     /// <summary>
@@ -37,8 +48,9 @@ public class PlayerSkill
     /// </summary>
     public NodeState Execute()
     {
-        // [1] 쿨타임 체크
+        // [1] 쿨타임 체크 (개별 + 공유)
         if (Time.time < _nextAvailableTime) return NodeState.Failure;
+        if (_sharedState != null && Time.time < _sharedState.nextAvailableTime) return NodeState.Failure;
 
         // [2] 범위 내 적 탐지
         ContactFilter2D filter = new ContactFilter2D();
@@ -79,6 +91,8 @@ public class PlayerSkill
             ? enhancer.Runtime.GetFinalCooldown(_skillData)
             : _skillData.cooldown;
         _nextAvailableTime = Time.time + finalCooldown;
+        // 공유 잠금은 애니메이션 길이만큼만 → 다음 스킬이 자연스럽게 이어서 발동
+        if (_sharedState != null) _sharedState.nextAvailableTime = Time.time + 0.8f;
 
         // [4] 데미지 계산: 기본 Atk × 강화된 스킬 계수
         int   baseAtk      = _player.playerStatus?.Atk ?? 0;
