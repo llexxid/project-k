@@ -1,5 +1,7 @@
 using UnityEngine;
 using System;
+using System.Collections.Generic;
+using Scripts.Users;
 
 /// <summary>
 /// 플레이어 전직 시스템.
@@ -18,17 +20,20 @@ public class ChangeJob : MonoBehaviour
     /// <summary>현재 적용된 직업의 인덱스 (순환에 사용)</summary>
     private int _currentJobIndex = 0;
 
+    /// <summary>한 번이라도 해금한 직업 인덱스 목록 (PlayerPrefs에 저장)</summary>
+    private HashSet<int> _unlockedJobs = new HashSet<int>();
+    private const string UNLOCK_SAVE_KEY = "UnlockedJobs";
+
     // ───────────────────────────────────────────
     // UI 연동 이벤트
-    // UI 쪽에서 OnJobChanged를 구독하면 전직 완료 시 알림을 받을 수 있다.
     // ───────────────────────────────────────────
     #region UI Events
 
-    /// <summary>
-    /// 전직이 완료됐을 때 발행된다.
-    /// 인자: (직업 이름, 현재 인덱스, 전체 직업 수)
-    /// </summary>
+    /// <summary>전직이 완료됐을 때 발행. 인자: (직업 이름, 현재 인덱스, 전체 직업 수)</summary>
     public event Action<string, int, int> OnJobChanged;
+
+    /// <summary>새 직업이 처음 해금됐을 때 발행. 인자: (직업 인덱스)</summary>
+    public event Action<int> OnJobUnlocked;
 
     #endregion
     // ───────────────────────────────────────────
@@ -51,6 +56,13 @@ public class ChangeJob : MonoBehaviour
             return;
         }
 
+        // 저장된 해금 목록 불러오기
+        LoadUnlockedJobs();
+
+        // 시작 직업(index 0)은 항상 해금
+        _unlockedJobs.Add(0);
+        SaveUnlockedJobs();
+
         // 시작 시 첫 번째 직업(index 0) 적용
         ApplyJobByIndex(0);
     }
@@ -64,21 +76,38 @@ public class ChangeJob : MonoBehaviour
         {
             CycleToNextJob();
         }
+
+        // [테스트] G키 → 골드 1000 지급
+        if (Input.GetKeyDown(KeyCode.G))
+        {
+            _player.User?.GainCoin(eCurrency.Gold, 1000);
+            Debug.Log("[테스트] 골드 +1000 지급");
+        }
+
+        // [테스트] R키 → 해금 목록 초기화 (PlayerPrefs 삭제 후 index 0만 재등록)
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            PlayerPrefs.DeleteKey(UNLOCK_SAVE_KEY);
+            _unlockedJobs.Clear();
+            _unlockedJobs.Add(0);
+            SaveUnlockedJobs();
+            Debug.Log("[테스트] 해금 목록 초기화 완료 (시작 직업만 유지)");
+        }
     }
 
     /// <summary>
-    /// 다음 직업으로 순환 전직한다.
+    /// 다음 직업으로 순환 전직을 시도한다.
     /// </summary>
     private void CycleToNextJob()
     {
         if (jobDatabase == null || jobDatabase.Count == 0) return;
 
-        _currentJobIndex = (_currentJobIndex + 1) % jobDatabase.Count;
-        ApplyJobByIndex(_currentJobIndex);
+        int next = (_currentJobIndex + 1) % jobDatabase.Count;
+        TryChangeJob(next);
     }
 
     /// <summary>
-    /// 직업 이름으로 즉시 전직한다.
+    /// 직업 이름으로 전직을 시도한다.
     /// </summary>
     public void ChangeJobByName(string jobName)
     {
@@ -90,8 +119,65 @@ public class ChangeJob : MonoBehaviour
             Debug.LogWarning($"[ChangeJob] 직업 '{jobName}'을 JobDatabase에서 찾을 수 없습니다.");
             return;
         }
-        _currentJobIndex = idx;
-        ApplyJobByIndex(_currentJobIndex);
+        TryChangeJob(idx);
+    }
+
+    /// <summary>
+    /// 이미 해금된 직업이면 무료로 전직.
+    /// 처음 전직이면 골드를 소모하고 해금한 뒤 전직.
+    /// 골드 부족 시 전직하지 않는다.
+    /// </summary>
+    public bool TryChangeJob(int index)
+    {
+        JobData data = jobDatabase.GetJob(index);
+        if (data == null) return false;
+
+        // 이미 해금된 직업 → 무료 전직
+        if (_unlockedJobs.Contains(index))
+        {
+            _currentJobIndex = index;
+            ApplyJobByIndex(index);
+            return true;
+        }
+
+        // 첫 전직 → 골드 확인 후 차감
+        User user = _player.User;
+        if (user == null || !user.CanAfford(eCurrency.Gold, data.unlockCost))
+        {
+            Debug.LogWarning($"[ChangeJob] 전직 불가 — {data.jobName} 해금 비용: {data.unlockCost}G (골드 부족)");
+            return false;
+        }
+
+        user.TrySpendCoin(eCurrency.Gold, data.unlockCost);
+        _unlockedJobs.Add(index);
+        SaveUnlockedJobs();
+        OnJobUnlocked?.Invoke(index);
+
+        _currentJobIndex = index;
+        ApplyJobByIndex(index);
+        return true;
+    }
+
+    /// <summary>해당 직업이 이미 해금됐는지 반환 (UI에서 자물쇠 표시 등에 활용)</summary>
+    public bool IsJobUnlocked(int index) => _unlockedJobs.Contains(index);
+
+    private void SaveUnlockedJobs()
+    {
+        PlayerPrefs.SetString(UNLOCK_SAVE_KEY, string.Join(",", _unlockedJobs));
+        PlayerPrefs.Save();
+    }
+
+    private void LoadUnlockedJobs()
+    {
+        _unlockedJobs.Clear();
+        string saved = PlayerPrefs.GetString(UNLOCK_SAVE_KEY, "");
+        if (string.IsNullOrEmpty(saved)) return;
+
+        foreach (var token in saved.Split(','))
+        {
+            if (int.TryParse(token, out int idx))
+                _unlockedJobs.Add(idx);
+        }
     }
 
     /// <summary>

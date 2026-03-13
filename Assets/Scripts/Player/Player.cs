@@ -41,6 +41,8 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     private bool _isDead = false;
     /// <summary>외부 컴포넌트(ChangeJob 등)에서 사망 여부를 읽기 위한 프로퍼티</summary>
     public bool IsDead => _isDead;
+    /// <summary>전직 비용 차감 등 외부에서 User에 접근할 때 사용</summary>
+    public User User => _user;
 
     public IDamageable currentTarget;
     PlayerData _data;

@@ -51,11 +51,13 @@ public class PlayerOrder
         var nodes = new List<Node>();
 
         // 보유 스킬마다 PlayerSkill LeafNode 생성 (쿨타임 짧은 스킬이 우선)
+        // 모든 스킬이 하나의 sharedState를 공유 → 동시 발동 방지
         if (skills != null)
         {
+            var sharedState = new PlayerSkill.SkillSharedState();
             foreach (var skillData in skills)
             {
-                var skill = new PlayerSkill(player, skillData, _detection);
+                var skill = new PlayerSkill(player, skillData, _detection, sharedState);
                 nodes.Add(new PlayerSkill.SkillNode(skill));
             }
         }
