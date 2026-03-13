@@ -21,6 +21,10 @@ public class JobData : ScriptableObject
     public int movSpeed;            // 이동 속도
     public float atkSpeed;          // 공격 속도 (초)
 
+    [Header("전직 비용")]
+    [Tooltip("첫 전직 시 필요한 골드. 이미 해금된 직업은 무료.")]
+    public int unlockCost;
+
     [Header("직업 전용 스킬")]
     public List<SkillData> skills;  // 이 직업이 사용할 스킬 목록
 }

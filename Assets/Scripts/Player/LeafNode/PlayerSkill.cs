@@ -164,12 +164,20 @@ public class PlayerSkill
 
         Vector3 vfxPos = _player.transform.position
                          + (Vector3)(facingDir * _skillData.vfxForwardOffset);
-        Quaternion vfxRot = facingDir.x >= 0f
-            ? Quaternion.identity
-            : Quaternion.Euler(0f, 180f, 0f);
+        float facing = facingDir.x;
+        int duration = _skillData.vfxDuration;
 
-        VFXManager.Instance?.GetVFX(vfxType, vfxPos, vfxRot,
-            (vfx) => { vfx?.ActiveEffect(_skillData.vfxDuration); });
+        VFXManager.Instance?.GetVFX(vfxType, vfxPos, Quaternion.identity,
+            (vfx) =>
+            {
+                if (vfx == null) return;
+                // 플레이어와 동일한 방식(scale.x 부호)으로 방향 반영
+                Vector3 s = vfx.transform.localScale;
+                bool flip = facing >= 0f ? _skillData.flipVFX : !_skillData.flipVFX;
+                s.x = flip ? -Mathf.Abs(s.x) : Mathf.Abs(s.x);
+                vfx.transform.localScale = s;
+                vfx.ActiveEffect(duration);
+            });
     }
 
     // ─────────────────────────────────────────────────────────

@@ -23,6 +23,8 @@ public class SkillData : ScriptableObject
     public float vfxForwardOffset = 1f;
     [Tooltip("VFX 재생 지속 시간 (밀리초, 1000=1초)")]
     public int vfxDuration = 1000;
+    [Tooltip("VFX 기본 방향이 반대일 때 체크 (좌우 반전)")]
+    public bool flipVFX = false;
 
     [Header("강화 설정")]
     [Tooltip("최대 강화 가능 레벨")]
