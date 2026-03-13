@@ -1,3 +1,4 @@
+using KingdomIdle.UIToolkit;
 using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Core.Utils;
@@ -63,6 +64,13 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     {
         ulong dmg = attacker.damage;
         CustomLogger.Log($"Player가 공격을 받고있습니다! DMG : {dmg}");
+
+        // 플레이어 피격 데미지 텍스트 (하얀색)
+        UITKDamageTextBridge.ShowOnTransform(transform, dmg, Color.white);
+
+        // ── [DEBUG] 플레이어 무적 — 제거 시 이 블록 삭제 ──
+        if (UITKDebugMenuController.PlayerInvincible) return true;
+
         bool IsAlive = setHp(dmg);
         if (!IsAlive) return false;
         return true;

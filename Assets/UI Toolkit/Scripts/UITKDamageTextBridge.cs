@@ -15,11 +15,24 @@ namespace KingdomIdle.UIToolkit
             ShowWorld(GetHeadWorldPos(target), amount);
         }
 
+        public static void ShowOnTransform(Transform target, ulong amount, Color color)
+        {
+            if (target == null) return;
+            ShowWorld(GetHeadWorldPos(target), amount, color);
+        }
+
         public static void ShowWorld(Vector3 worldPos, ulong amount)
         {
             var mgr = EnsureManager();
             if (mgr == null) return;
             mgr.ShowWorldDamage(worldPos, amount);
+        }
+
+        public static void ShowWorld(Vector3 worldPos, ulong amount, Color color)
+        {
+            var mgr = EnsureManager();
+            if (mgr == null) return;
+            mgr.ShowWorldDamage(worldPos, amount, color);
         }
 
         private static UITKDamageTextManager EnsureManager()

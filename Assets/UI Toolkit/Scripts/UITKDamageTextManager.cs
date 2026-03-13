@@ -20,7 +20,7 @@ namespace KingdomIdle.UIToolkit
         [Header("Animation")]
         [SerializeField] private float duration = 0.8f;
         [SerializeField] private float risePixels = 80f;
-        [SerializeField] private Vector2 screenOffsetPx = new Vector2(0f, -22f);
+        [SerializeField] private Vector2 screenOffsetPx = new Vector2(0f, 0f);
 
         [Header("Pooling")]
         [SerializeField] private int warmPool = 24;
@@ -80,6 +80,16 @@ namespace KingdomIdle.UIToolkit
 
         public void ShowWorldDamage(Vector3 worldPos, ulong amount)
         {
+            ShowWorldDamageInternal(worldPos, amount, null);
+        }
+
+        public void ShowWorldDamage(Vector3 worldPos, ulong amount, Color color)
+        {
+            ShowWorldDamageInternal(worldPos, amount, color);
+        }
+
+        private void ShowWorldDamageInternal(Vector3 worldPos, ulong amount, Color? overrideColor)
+        {
             // 설정(데미지 문구 출력) OFF면 표시하지 않음
             if (PlayerPrefs.GetInt(PrefKeyDamageText, 1) == 0)
                 return;
@@ -104,6 +114,17 @@ namespace KingdomIdle.UIToolkit
             var lbl = GetOrCreate();
             lbl.text = amount.ToString("N0");
             lbl.style.opacity = 1f;
+
+            // 색상 오버라이드 (지정하지 않으면 CSS 기본 빨간색 사용)
+            if (overrideColor.HasValue)
+            {
+                var c = overrideColor.Value;
+                lbl.style.color = new StyleColor(c);
+            }
+            else
+            {
+                lbl.style.color = StyleKeyword.Null; // CSS 기본값 사용
+            }
 
             // 간단 중앙 정렬(고정 폭)
             const float w = 120f;

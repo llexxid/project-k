@@ -637,6 +637,9 @@ namespace KingdomIdle.UIToolkit
                 };
             }
             RefreshGuideBadge();
+
+            // ── [DEBUG] 디버그 메뉴 초기화 — 제거 시 이 줄 삭제 ──
+            UITKDebugMenuController.Init(root);
         }
 
         public void RefreshGuideBadge()

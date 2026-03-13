@@ -255,6 +255,9 @@ namespace Scripts.Monster
             // UI 연동: 몬스터 머리 위로 피격 데미지 표시
             UITKDamageTextBridge.ShowOnTransform(transform, dmg);
 
+            // ── [DEBUG] 몬스터 무적 — 제거 시 이 블록 삭제 ──
+            if (KingdomIdle.UIToolkit.UITKDebugMenuController.MonsterInvincible) return true;
+
             bool IsAlive = setHp(dmg);
 
             if (!IsAlive)
