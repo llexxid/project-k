@@ -52,6 +52,16 @@ public class PlayerSkill
 
         if (hitCount == 0) return NodeState.Failure;
 
+        // [2-a] 플레이어 정면 방향 계산 (스케일 X 부호 기준)
+        float facingSign = _player.transform.localScale.x >= 0f ? 1f : -1f;
+        Vector2 facingDir = new Vector2(facingSign, 0f);
+
+        // [2-b] 방향성 스킬이면 정면 원뿔 밖의 적 제거
+        if (_skillData.attackAngle < 360f)
+            hitCount = FilterByAngle(hitCount, facingDir, _skillData.attackAngle * 0.5f);
+
+        if (hitCount == 0) return NodeState.Failure;
+
         // 탐지된 적이 전부 Dead 상태면 스킬 발동하지 않음
         bool hasAliveTarget = false;
         for (int i = 0; i < hitCount; i++)
@@ -62,7 +72,6 @@ public class PlayerSkill
             if (!isDead) { hasAliveTarget = true; break; }
         }
         if (!hasAliveTarget) return NodeState.Failure;
-
 
         // [3] 쿨타임 소모 (강화 레벨 반영)
         var enhancer = SkillEnhanceManager.Instance;
@@ -80,8 +89,8 @@ public class PlayerSkill
 
         Debug.Log($"[스킬] {_skillData.skillName} | Atk:{baseAtk} × {finalDamage:F2}(Lv.{enhancer?.Runtime.GetLevel(_skillData.skillName) ?? 0}) = {skillDamage} | CD:{finalCooldown:F2}s");
 
-        // [5] VFX 재생 (eVFXType이 스킬 이름과 일치하는 경우)
-        bool vfxPlayed = false;
+        // [5] VFX 재생 (플레이어 정면 고정 위치)
+        TryPlayVFX(facingDir);
 
         // [6] 범위 내 적에게 데미지 적용 (광역)
         for (int i = 0; i < hitCount; i++)
@@ -91,13 +100,6 @@ public class PlayerSkill
                 // 이미 Dead 상태인 몬스터는 건너뜀
                 if (_hitResults[i].TryGetComponent<Monster>(out var mon)
                     && mon.MonAction == eMonsterAction.Dead) continue;
-
-                // VFX는 첫 번째 적 위치에서만 한 번 재생
-                if (!vfxPlayed)
-                {
-                    TryPlayVFX(target);
-                    vfxPlayed = true;
-                }
 
                 bool isAlive = target.TakeDamage(new DamageProxy(skillDamage));
                 if (!isAlive)
@@ -118,16 +120,42 @@ public class PlayerSkill
     }
 
     /// <summary>
-    /// 스킬 이름 기반으로 VFX 재생을 시도한다.
+    /// OverlapCircle 결과에서 플레이어 정면 원뿔 범위 밖의 적을 제거한다.
+    /// 유효한 적 수를 반환한다.
+    /// </summary>
+    private int FilterByAngle(int hitCount, Vector2 facingDir, float halfAngle)
+    {
+        int validCount = 0;
+        for (int i = 0; i < hitCount; i++)
+        {
+            Vector2 toEnemy = ((Vector2)_hitResults[i].transform.position
+                               - (Vector2)_player.transform.position);
+            // 플레이어와 겹쳐있는 경우는 항상 통과
+            if (toEnemy == Vector2.zero || Vector2.Angle(facingDir, toEnemy) <= halfAngle)
+            {
+                _hitResults[validCount] = _hitResults[i];
+                validCount++;
+            }
+        }
+        return validCount;
+    }
+
+    /// <summary>
+    /// 스킬 이름 기반으로 VFX를 플레이어 정면 고정 위치에서 재생한다.
     /// eVFXType 열거형에 해당 이름이 없으면 조용히 스킵한다.
     /// </summary>
-    private void TryPlayVFX(IDamageable target)
+    private void TryPlayVFX(Vector2 facingDir)
     {
         if (!System.Enum.TryParse(_skillData.skillName, out eVFXType vfxType)) return;
 
-        VFXManager.Instance?.GetVFX(vfxType, target.targetPos,
-            _player.transform.rotation,
-            (vfx) => { vfx?.ActiveEffect(1000); });
+        Vector3 vfxPos = _player.transform.position
+                         + (Vector3)(facingDir * _skillData.vfxForwardOffset);
+        Quaternion vfxRot = facingDir.x >= 0f
+            ? Quaternion.identity
+            : Quaternion.Euler(0f, 180f, 0f);
+
+        VFXManager.Instance?.GetVFX(vfxType, vfxPos, vfxRot,
+            (vfx) => { vfx?.ActiveEffect(_skillData.vfxDuration); });
     }
 
     // ─────────────────────────────────────────────────────────
