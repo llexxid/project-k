@@ -14,7 +14,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     public SkillManager skillManager;
     public SkillDatabase skillDatabase;
 
-    // ── [장비 시스템] ─────────────────────────────────────────────
     /// <summary>장비 시스템 메인 매니저. UI나 외부 로직에서 참조 가능.</summary>
     public EquipmentManager equipmentManager;
 
@@ -25,9 +24,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     [SerializeField]
     [Tooltip("EquipmentDropTableSO.asset을 인스펙터에서 연결하세요.")]
     private EquipmentDropTableSO _equipmentDropTable;
-    // ── [장비 시스템 끝] ──────────────────────────────────────────
 
-    // 애니메이터 관련
     public Animator _am;
     AnimatorComponent<ePlayerAction> _animatorComponent;
 
@@ -48,7 +45,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     PlayerData _data;
     private User _user;
 
-    // PlayerStatus.Atk 기반 데미지 (기본 공격력)
     public ulong damage
     {
         get { return (ulong)(playerStatus?.Atk ?? 0); }
@@ -83,9 +79,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         _data = data;
         _user = user;
 
-        // ── [장비 시스템] UI Bridge에 레퍼런스 전달 ─────────────────
         KingdomIdle.UIToolkit.UITKEquipmentPanelBridge.Init(this, _user);
-        // ── [장비 시스템 끝] ─────────────────────────────────────────
     }
 
     private void OnDead()
@@ -132,10 +126,8 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
         playerStatus = new PlayerStatus();
 
-        // ── [장비 시스템] EquipmentManager 초기화 ──────────────────
         equipmentManager = new EquipmentManager();
         equipmentManager.Init(playerStatus, _equipmentDatabase, _equipmentDropTable);
-        // ── [장비 시스템 끝] ────────────────────────────────────────
 
         playerOrder = new PlayerOrder();
         playerOrder.Init(this);
@@ -208,8 +200,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         playerOrder._rootNode?.Evaluate();
     }
 
-    // ── [애니메이션] ──────────────────────────────────────────────
-
     /// <summary>
     /// 애니메이션 상태 변경의 단일 진입점.
     /// - 공격 애니메이션 재생 중에는 Idle/Walk 요청을 무시한다 (Attack 보호).
@@ -274,8 +264,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         _currentAction = next;
     }
 
-    // ── [애니메이션 끝] ───────────────────────────────────────────
-
     /// <summary>
     /// Animation Event 전용.
     /// Attack_Anim의 타격 프레임에 이 함수를 등록하면 정확한 타이밍에 데미지가 들어간다.
@@ -290,9 +278,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         _user.GainCoin(eCurrency.Gold, gold);
         _user.GainCoin(eCurrency.AncientCoin, ancientCoin);
 
-        // ── [장비 시스템] 몬스터 처치 시 장비 드롭 판정 ──────────
         equipmentManager?.TryDropEquipment();
-        // ── [장비 시스템 끝] ─────────────────────────────────────
         return;
     }
 

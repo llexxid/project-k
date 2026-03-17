@@ -6,9 +6,9 @@ public class Enemy : MonoBehaviour, IDamageable
 {
     public Enemy enemy;
     public int hp;
-    public Transform player; // 추적할 플레이어 타겟
-    public float moveSpeed = 3f; // 적 이동 속도
-    public float detectionRange = 10f; // 추적 시작 거리
+    public Transform player;
+    public float moveSpeed = 3f;
+    public float detectionRange = 10f;
 
     public Vector3 targetPos
     {
@@ -24,13 +24,11 @@ public class Enemy : MonoBehaviour, IDamageable
 
     void Update()
     {
-        // 플레이어가 할당되어 있고 일정 거리 안에 있을 때 추적 수행
         if (player != null)
         {
             float distance = Vector2.Distance(transform.position, player.position);
             if (distance <= detectionRange)
             {
-                // 플레이어 방향으로 이동
                 transform.position = Vector2.MoveTowards(transform.position, player.position, moveSpeed * Time.deltaTime);
             }
         }

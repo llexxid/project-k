@@ -1,11 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
-using Scripts.Users;
 using UnityEngine;
 
 /// <summary>
 /// 장비 시스템 메인 매니저.
-/// 장착/해제, 드롭, 강화, 합성을 모두 담당한다.
+/// 장착/해제, 드롭, 강화(재료 소모+확률), 합성, 직업 필터를 담당한다.
 /// Player.Awake()에서 new → Init() 순서로 초기화한다.
 /// </summary>
 public class EquipmentManager
@@ -21,6 +20,9 @@ public class EquipmentManager
     private EquipmentDropTableSO _dropTable;
     private PlayerStatus         _playerStatus;
 
+    // ── [직업 필터] 현재 직업명 ─────────────────────────────────
+    private string _currentJobName = "";
+
     // ── 인벤토리 외부 접근 ────────────────────────────────────────
     public EquipmentInventory Inventory => _inventory;
 
@@ -34,8 +36,11 @@ public class EquipmentManager
     /// <summary>드롭으로 장비 획득 시 발행. (획득한 인스턴스)</summary>
     public System.Action<EquipmentInstance> OnItemDropped;
 
-    /// <summary>강화 완료 시 발행. (강화된 인스턴스)</summary>
+    /// <summary>강화 성공 시 발행. (강화된 인스턴스)</summary>
     public System.Action<EquipmentInstance> OnEnhanced;
+
+    /// <summary>강화 실패 시 발행. (재료만 소모되고 레벨은 유지된 인스턴스)</summary>
+    public System.Action<EquipmentInstance> OnEnhanceFailed;
 
     /// <summary>합성 완료 시 발행. (합성 결과 인스턴스)</summary>
     public System.Action<EquipmentInstance> OnSynthesized;
@@ -51,6 +56,16 @@ public class EquipmentManager
         _database     = database;
         _dropTable    = dropTable;
         _inventory    = new EquipmentInventory();
+    }
+
+    /// <summary>
+    /// 전직 시 ChangeJob.ApplyJobByIndex()에서 호출한다.
+    /// 이후 드롭은 이 직업에 허용된 장비만 선택된다.
+    /// </summary>
+    public void SetCurrentJob(string jobName)
+    {
+        _currentJobName = jobName ?? "";
+        Debug.Log($"[EquipmentManager] 현재 직업 설정: '{_currentJobName}'");
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -109,6 +124,7 @@ public class EquipmentManager
 
     /// <summary>
     /// 몬스터 처치 시 장비 드롭 여부를 판정하고, 드롭되면 인벤토리에 추가한다.
+    /// 현재 직업에 허용된 장비만 드롭된다. 창병(Spearman)처럼 허용 장비가 없으면 드롭 안 됨.
     /// Player.GiveReward()에서 호출된다.
     /// </summary>
     public void TryDropEquipment()
@@ -118,15 +134,19 @@ public class EquipmentManager
         eEquipmentRarity? rarity = _dropTable.RollDrop();
         if (rarity == null) return;
 
-        // 해당 등급 장비 목록에서 랜덤 선택
-        List<EquipmentData> candidates = _database.GetEquipmentsByRarity(rarity.Value);
+        // 현재 직업에 허용된 등급 장비 목록에서 랜덤 선택
+        List<EquipmentData> candidates = string.IsNullOrEmpty(_currentJobName)
+            ? _database.GetEquipmentsByRarity(rarity.Value)
+            : _database.GetEquipmentsByJob(_currentJobName, rarity.Value);
+
         if (candidates.Count == 0)
         {
-            Debug.LogWarning($"[EquipmentManager] 드롭 실패: {rarity.Value} 등급 장비가 Database에 없습니다.");
+            // 창병처럼 직업에 해당 장비가 없는 경우 조용히 스킵
+            Debug.Log($"[EquipmentManager] 드롭 스킵: '{_currentJobName}' 직업에 {rarity.Value} 등급 장비 없음.");
             return;
         }
 
-        EquipmentData picked  = candidates[UnityEngine.Random.Range(0, candidates.Count)];
+        EquipmentData picked   = candidates[UnityEngine.Random.Range(0, candidates.Count)];
         EquipmentInstance item = new EquipmentInstance(picked);
 
         _inventory.Add(item);
@@ -136,44 +156,80 @@ public class EquipmentManager
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  강화
+    //  강화 (동일 장비 소모 + 확률)
     // ═══════════════════════════════════════════════════════════════
 
     /// <summary>
     /// 강화 가능 여부를 확인한다.
-    /// 조건: 최대 레벨 미만 AND 골드 충분
+    /// 조건: 최대 레벨 미만 AND 인벤토리에 동일 장비가 소모 개수 이상 존재
+    /// (강화 대상 장비 자신은 소모 개수에 포함되지 않음)
     /// </summary>
-    public bool CanEnhance(EquipmentInstance instance, User user)
+    public bool CanEnhance(EquipmentInstance instance)
     {
         if (instance == null || instance.IsMaxLevel()) return false;
-        return user.CanAfford(eCurrency.Gold, instance.GetNextEnhanceCost());
+
+        int materialCount = instance.GetMaterialCount();
+        int available = _inventory.Items
+            .Where(i => i != instance && i.baseData == instance.baseData)
+            .Count();
+
+        return available >= materialCount;
     }
 
     /// <summary>
     /// 강화를 실행한다.
-    /// 골드를 차감하고 강화 레벨을 1 올린다. 성공 시 true 반환.
-    /// 착용 중인 장비라면 스탯도 즉시 재계산된다.
+    /// 동일 장비 N개를 인벤토리에서 소모하고 확률을 굴려 성공 시 레벨+1.
+    /// 실패해도 재료는 소모된다.
+    /// 성공 시 true, 실패 시 false 반환.
     /// </summary>
-    public bool TryEnhance(EquipmentInstance instance, User user)
+    public bool TryEnhance(EquipmentInstance instance)
     {
-        if (!CanEnhance(instance, user))
+        if (!CanEnhance(instance))
         {
-            Debug.LogWarning("[EquipmentManager] 강화 실패: 조건 미충족 (레벨 상한 또는 골드 부족)");
+            Debug.LogWarning("[EquipmentManager] 강화 불가: 최대 레벨 또는 재료 부족.");
             return false;
         }
 
-        int cost = instance.GetNextEnhanceCost();
-        if (!user.TrySpendCoin(eCurrency.Gold, cost)) return false;
+        int materialCount = instance.GetMaterialCount();
+        float successRate = instance.GetEnhanceSuccessRate();
 
-        instance.enhancementLevel++;
+        // 재료(동일 장비 N개, 자기 자신 제외) 소모
+        List<EquipmentInstance> materials = _inventory.Items
+            .Where(i => i != instance && i.baseData == instance.baseData)
+            .Take(materialCount)
+            .ToList();
 
-        // 착용 중인 장비라면 스탯 즉시 재계산
-        if (_equipped.ContainsValue(instance))
-            RecalculateStats();
+        foreach (var mat in materials)
+        {
+            // 착용 중인 재료 장비는 자동 해제 후 제거
+            if (_equipped.TryGetValue(mat.baseData.slot, out var eq) && eq == mat)
+                Unequip(mat.baseData.slot);
+            _inventory.Remove(mat);
+        }
 
-        OnEnhanced?.Invoke(instance);
-        Debug.Log($"[EquipmentManager] 강화 완료: {instance.baseData.equipmentName} → +{instance.enhancementLevel} (비용: {cost}골드)");
-        return true;
+        // 성공 확률 판정
+        bool success = UnityEngine.Random.value <= successRate;
+
+        if (success)
+        {
+            instance.enhancementLevel++;
+
+            // 착용 중인 장비라면 스탯 즉시 재계산
+            if (_equipped.ContainsValue(instance))
+                RecalculateStats();
+
+            OnEnhanced?.Invoke(instance);
+            Debug.Log($"[EquipmentManager] 강화 성공: {instance.baseData.equipmentName} → +{instance.enhancementLevel} " +
+                      $"(확률: {successRate * 100:F0}%, 재료 {materialCount}개 소모)");
+        }
+        else
+        {
+            OnEnhanceFailed?.Invoke(instance);
+            Debug.Log($"[EquipmentManager] 강화 실패: {instance.baseData.equipmentName} +{instance.enhancementLevel} 유지 " +
+                      $"(확률: {successRate * 100:F0}%, 재료 {materialCount}개 소모)");
+        }
+
+        return success;
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -231,9 +287,15 @@ public class EquipmentManager
             _inventory.Remove(mat);
         }
 
-        // ── 결과 장비 선택 (다음 등급에서 랜덤) ─────────────────
+        // ── 결과 장비 선택 (다음 등급, 현재 직업 필터 적용) ─────
         eEquipmentRarity nextRarity = (eEquipmentRarity)((int)baseData.rarity + 1);
-        List<EquipmentData> candidates = _database.GetEquipmentsByRarity(nextRarity);
+        List<EquipmentData> candidates = string.IsNullOrEmpty(_currentJobName)
+            ? _database.GetEquipmentsByRarity(nextRarity)
+            : _database.GetEquipmentsByJob(_currentJobName, nextRarity);
+
+        // 직업 필터 후 후보가 없으면 전체에서 선택 (fallback)
+        if (candidates.Count == 0)
+            candidates = _database.GetEquipmentsByRarity(nextRarity);
 
         if (candidates.Count == 0)
         {
@@ -241,8 +303,8 @@ public class EquipmentManager
             return null;
         }
 
-        EquipmentData picked         = candidates[UnityEngine.Random.Range(0, candidates.Count)];
-        EquipmentInstance result     = new EquipmentInstance(picked);
+        EquipmentData picked     = candidates[UnityEngine.Random.Range(0, candidates.Count)];
+        EquipmentInstance result = new EquipmentInstance(picked);
         _inventory.Add(result);
 
         OnSynthesized?.Invoke(result);

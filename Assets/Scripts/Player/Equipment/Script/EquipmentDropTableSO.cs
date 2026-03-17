@@ -2,24 +2,6 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-// ================================================================
-//  드롭 테이블 설정 방법 (에디터에서만 작업)
-// ================================================================
-//
-//  ── STEP 1. EquipmentDropTableSO 에셋 생성 ────────────────────
-//  Project 창 우클릭 → Create > ScriptableObjects > EquipmentDropTableSO
-//
-//  ── STEP 2. 드롭 확률 설정 ────────────────────────────────────
-//  · Drop Chance       : 몬스터 1마리 처치 시 장비가 드롭될 확률 (0~1)
-//                        예) 0.1 = 10% 확률
-//
-//  · Rarity Weights    : 드롭 발생 시 등급 결정 가중치 (높을수록 자주)
-//     예) Normal:70 / Rare:25 / Epic:5 → 총 100 기준으로 비율 계산
-//
-//  ── STEP 3. Player 인스펙터에 연결 ────────────────────────────
-//  Player 인스펙터 > Equipment Drop Table 필드에 이 에셋 드래그
-// ================================================================
-
 [Serializable]
 public struct EquipmentDropRarityWeight
 {
@@ -49,10 +31,8 @@ public class EquipmentDropTableSO : ScriptableObject
     /// </summary>
     public eEquipmentRarity? RollDrop()
     {
-        // dropChance 판정
         if (UnityEngine.Random.value > dropChance) return null;
 
-        // 가중치 합산 후 등급 결정
         return RollRarity();
     }
 

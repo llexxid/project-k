@@ -10,7 +10,6 @@ using UnityEngine;
 /// </summary>
 public class PlayerAttack
 {
-    // 적 탐지를 담당하는 컴포넌트 (타겟 초기화 시 참조)
     private PlayerDetection _detection;
 
     // 공격 애니메이션 한 사이클 길이 (초). attackRate의 최솟값 기준으로도 사용
@@ -26,7 +25,6 @@ public class PlayerAttack
     // Physics2D.OverlapCircle 결과를 재사용하기 위한 버퍼 (GC 최소화)
     private List<Collider2D> _hitResults = new List<Collider2D>();
 
-    // 공격 주체인 플레이어 참조
     public Player player;
 
     // 적 레이어 마스크 (GameLayers 상수 사용, 하드코딩 제거)
