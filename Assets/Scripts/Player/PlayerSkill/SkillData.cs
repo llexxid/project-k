@@ -1,6 +1,5 @@
 using UnityEngine;
 
-// 스킬 타입을 구분하기 위한 Enum
 public enum SkillType { Active, Passive }
 
 [CreateAssetMenu(fileName = "NewSkillData", menuName = "ScriptableObjects/SkillData")]
@@ -34,6 +33,5 @@ public class SkillData : ScriptableObject
     [Tooltip("레벨당 쿨타임 감소율 (0.02 = 2%). 최소는 원본의 10%")]
     public float cooldownReductionPerLevel = 0.02f;
 
-    //[Header("프리팹 설정")]
-    public GameObject skillPrefab;    // 오브젝트 풀에서 사용할 프리팹
+    public GameObject skillPrefab;
 }

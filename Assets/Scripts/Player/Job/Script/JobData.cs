@@ -1,5 +1,20 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
+
+/// <summary>
+/// 직업 단위의 스킬 강화 레벨 정보.
+/// JobData.skillLevels 리스트의 원소로 사용된다.
+/// </summary>
+[Serializable]
+public struct JobSkillLevel
+{
+    [Tooltip("스킬 이름 (SkillData.skillName과 일치해야 함)")]
+    public string skillName;
+
+    [Tooltip("이 직업에서 해당 스킬의 현재 강화 레벨")]
+    public int level;
+}
 
 /// <summary>
 /// 직업 하나의 스탯·비주얼·스킬 목록을 담는 ScriptableObject.
@@ -27,5 +42,9 @@ public class JobData : ScriptableObject
 
     [Header("직업 전용 스킬")]
     public List<SkillData> skills;  // 이 직업이 사용할 스킬 목록
+
+    [Header("스킬 레벨")]
+    [Tooltip("이 직업에서 각 스킬의 강화 레벨. 전직 시 PlayerSkillRuntime에 적용된다.")]
+    public List<JobSkillLevel> skillLevels;
 }
 

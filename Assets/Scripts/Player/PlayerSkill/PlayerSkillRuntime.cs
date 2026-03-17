@@ -109,6 +109,25 @@ public class PlayerSkillRuntime
         }
     }
 
+    /// <summary>
+    /// 직업 데이터(JobData)의 skillLevels로 런타임 레벨을 즉시 덮어쓴다.
+    /// 전직 시 ChangeJob.ApplyJobByIndex()에서 호출한다.
+    /// skillLevels가 null이거나 비어있으면 아무 변경도 하지 않는다.
+    /// </summary>
+    public void Load(JobData data)
+    {
+        if (data == null || data.skillLevels == null || data.skillLevels.Count == 0)
+            return;
+
+        foreach (var entry in data.skillLevels)
+        {
+            if (string.IsNullOrEmpty(entry.skillName)) continue;
+            _skillLevels[entry.skillName] = Mathf.Max(0, entry.level);
+        }
+
+        Debug.Log($"[PlayerSkillRuntime] 직업 '{data.jobName}'의 스킬 레벨 로드 완료. ({data.skillLevels.Count}개)");
+    }
+
     // ─────────────────────────────────────
     //  직렬화 헬퍼 (JsonUtility는 Dictionary 미지원)
     // ─────────────────────────────────────

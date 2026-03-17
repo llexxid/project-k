@@ -23,6 +23,18 @@ public class EquipmentInstance
         instanceId       = Guid.NewGuid().ToString();
     }
 
+    // ── 비트 패킹 ────────────────────────────────────────────────
+
+    /// <summary>
+    /// 아이템 코드(32bit) + 강화 수치(16bit)를 64비트 long으로 패킹한 값.
+    ///   [63-32] itemCode
+    ///   [31-16] enhancementLevel
+    ///   [15- 8] 개수 (예약)
+    ///   [ 7- 0] 유효기간 (예약)
+    /// 네트워크 전송, DB 저장, 디버그 로그에 활용한다.
+    /// </summary>
+    public long PackedData => ItemCode.PackInstance(baseData.itemCode, enhancementLevel);
+
     // ── 최종 스탯 계산 (강화 레벨 반영) ──────────────────────────
 
     /// <summary>강화 레벨이 반영된 최종 공격력 보너스</summary>
@@ -39,12 +51,16 @@ public class EquipmentInstance
 
     // ── 강화 관련 ────────────────────────────────────────────────
 
-    /// <summary>다음 강화에 필요한 골드 비용. 레벨이 높을수록 비용 증가.</summary>
-    public int GetNextEnhanceCost()
-    {
-        return baseData.baseEnhanceCost * (enhancementLevel + 1);
-    }
-
     /// <summary>최대 강화 레벨에 도달했는지 여부</summary>
     public bool IsMaxLevel() => enhancementLevel >= baseData.maxEnhancementLevel;
+
+    /// <summary>
+    /// 현재 강화 레벨에서의 성공 확률(0~1)을 반환한다.
+    /// </summary>
+    public float GetEnhanceSuccessRate() => baseData.GetSuccessRate(enhancementLevel);
+
+    /// <summary>
+    /// 강화에 필요한 동일 장비 소모 개수.
+    /// </summary>
+    public int GetMaterialCount() => baseData.enhanceMaterialCount;
 }

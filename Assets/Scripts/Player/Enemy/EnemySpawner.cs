@@ -3,14 +3,13 @@ using System.Collections;
 
 public class EnemySpawner : MonoBehaviour
 {
-    public GameObject enemyPrefab;  // 생성할 적 프리팹
-    public Transform player;        // 플레이어 위치
-    public float spawnInterval = 5f; // 소환 간격 (초)
-    public float spawnRadius = 5f;  // 소환 반경
+    public GameObject enemyPrefab;
+    public Transform player;
+    public float spawnInterval = 5f;
+    public float spawnRadius = 5f;
 
     void Start()
     {
-        // 소환 루프 시작
         StartCoroutine(SpawnRoutine());
     }
 
@@ -18,7 +17,7 @@ public class EnemySpawner : MonoBehaviour
     {
         while (true)
         {
-            SpawnEnemies(6); // 6마리 소환
+            SpawnEnemies(6);
             yield return new WaitForSeconds(spawnInterval);
         }
     }
@@ -31,10 +30,9 @@ public class EnemySpawner : MonoBehaviour
             int attempts = 0;
             bool canSpawn = false;
 
-            while (!canSpawn && attempts < 10) // 최대 10번 재시도
+            while (!canSpawn && attempts < 10)
             {
                 spawnPos = (Vector2)player.position + Random.insideUnitCircle.normalized * spawnRadius;
-                // 특정 반경(예: 0.5f) 안에 다른 콜라이더가 있는지 체크
                 if (Physics2D.OverlapCircle(spawnPos, 0.5f) == null)
                 {
                     Instantiate(enemyPrefab, spawnPos, Quaternion.identity);
