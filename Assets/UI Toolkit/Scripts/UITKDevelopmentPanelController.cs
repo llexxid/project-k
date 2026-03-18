@@ -1,89 +1,34 @@
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
-using KingdomIdle.KingdomArmy;
 
 namespace KingdomIdle.UIToolkit
 {
     /// <summary>
     /// 육성 패널 컨트롤러.
-    /// 왕국군 멤버별 강화 기능을 제공한다.
+    /// 모든 캐릭터 공용 강화 기능을 제공한다. (캐릭터별 탭 없음)
     /// </summary>
     public static class UITKDevelopmentPanelController
     {
         private enum SubMenu { Enhance }
 
-        private static int _activeMemberIndex;
         private static SubMenu _activeSubMenu;
 
-        private static VisualElement _memberTabs;
         private static ScrollView _content;
         private static VisualElement _navBar;
-
-        private static List<Player> _players;
-        private static KingdomArmyManager _mgr;
 
         public static void Populate(VisualElement panelRoot)
         {
             if (panelRoot == null) return;
 
-            _memberTabs = panelRoot.Q<VisualElement>("DevMemberTabs");
             _content = panelRoot.Q<ScrollView>("DevContent");
             _navBar = panelRoot.Q<VisualElement>("DevNavBar");
 
-            if (_memberTabs == null || _content == null || _navBar == null) return;
+            if (_content == null || _navBar == null) return;
 
-            _mgr = KingdomArmyManager.Instance;
-            if (_mgr == null)
-            {
-                _content.Add(new Label("KingdomArmyManager를 씬에 배치해주세요."));
-                return;
-            }
-
-            _players = _mgr.GetPlayers();
-            _activeMemberIndex = 0;
             _activeSubMenu = SubMenu.Enhance;
 
-            BuildMemberTabs();
             BuildNavBar();
             Refresh();
-        }
-
-        // ── 상단 멤버 탭 ──
-
-        private static void BuildMemberTabs()
-        {
-            _memberTabs.Clear();
-            int count = Mathf.Max(_players.Count, 3);
-            for (int i = 0; i < count; i++)
-            {
-                int idx = i;
-                string label = $"왕국군{i + 1}";
-                if (i < _players.Count && _players[i] != null)
-                {
-                    string job = _players[i].playerStatus?.JobName;
-                    if (!string.IsNullOrEmpty(job))
-                        label = $"왕국군{i + 1} ({job})";
-                }
-
-                var btn = new Button(() => { _activeMemberIndex = idx; Refresh(); UpdateMemberTabStyles(); });
-                btn.text = label;
-                btn.AddToClassList("ka-member-tab");
-                _memberTabs.Add(btn);
-            }
-            UpdateMemberTabStyles();
-        }
-
-        private static void UpdateMemberTabStyles()
-        {
-            if (_memberTabs == null) return;
-            for (int i = 0; i < _memberTabs.childCount; i++)
-            {
-                if (i == _activeMemberIndex)
-                    _memberTabs[i].AddToClassList("ka-member-tab-active");
-                else
-                    _memberTabs[i].RemoveFromClassList("ka-member-tab-active");
-            }
         }
 
         // ── 하단 네비게이션 ──
@@ -135,12 +80,13 @@ namespace KingdomIdle.UIToolkit
         }
 
         // ══════════════════════════════════════
-        //  강화 (왕국군에서 이동)
+        //  강화 (모든 캐릭터 공용)
         // ══════════════════════════════════════
 
         private static void BuildEnhanceView()
         {
             _content.Add(MakeLabel("강화", "ka-section-title"));
+            _content.Add(MakeLabel("모든 캐릭터에게 공용으로 적용됩니다.", "ka-placeholder-text"));
 
             var items = new string[] { "공격력 강화", "크리티컬 강화", "치명타 피해 강화", "HP 강화" };
             foreach (var item in items)

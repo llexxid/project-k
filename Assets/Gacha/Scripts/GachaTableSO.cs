@@ -8,7 +8,8 @@ namespace KingdomIdle.Gacha
     public enum eGachaRewardType
     {
         Currency,
-        Skill
+        Skill,
+        Equipment
     }
 
     [Serializable]
@@ -17,9 +18,18 @@ namespace KingdomIdle.Gacha
         public string nameKor;
         public Sprite icon;
         public eGachaRewardType rewardType;
+
+        [Header("Currency 보상")]
         public eCurrency currency;
         public int amount;
+
+        [Header("Skill 보상")]
         public int skillId;
+
+        [Header("Equipment 보상")]
+        [Tooltip("rewardType이 Equipment일 때 뽑기로 획득할 장비 데이터")]
+        public EquipmentData equipmentData;
+
         [Min(0f)] public float weight;
     }
 

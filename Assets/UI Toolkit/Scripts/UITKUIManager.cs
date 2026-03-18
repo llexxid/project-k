@@ -40,6 +40,7 @@ namespace KingdomIdle.UIToolkit
         [SerializeField] private VisualTreeAsset panelGachaUxml;
         [SerializeField] private VisualTreeAsset panelKingdomArmyUxml;
         [SerializeField] private VisualTreeAsset panelDevelopmentUxml;
+        [SerializeField] private VisualTreeAsset panelInventoryUxml;
 
         [Header("UXML - Overlays")]
         [SerializeField] private VisualTreeAsset overlayLoadingUxml;
@@ -470,6 +471,15 @@ namespace KingdomIdle.UIToolkit
                 return devVe;
             }
 
+            if (id == UIPanelId.Inventory)
+            {
+                VisualElement invVe = panelInventoryUxml != null
+                    ? panelInventoryUxml.CloneTree()
+                    : new Label("Missing Panel_Inventory UXML");
+                UITKInventoryPanelController.Populate(invVe);
+                return invVe;
+            }
+
             // FIX: 삼항연산 + var 타입 추론 실패(TemplateContainer vs Label) 방지
             VisualElement ve = panelPlaceholderUxml != null
                 ? panelPlaceholderUxml.CloneTree()
@@ -614,6 +624,17 @@ namespace KingdomIdle.UIToolkit
                         PushPanel(profileId, "프로필", clearBefore: false, isTabPanel: false);
                     else
                         PushPanel(UIPanelId.KingdomArmy, "프로필", clearBefore: false, isTabPanel: false);
+                };
+            }
+
+            var bMenuInventory = root.Q<Button>("BtnMenuInventory");
+            if (bMenuInventory != null)
+            {
+                bMenuInventory.clicked += () =>
+                {
+                    CloseHamburgerMenu();
+                    if (_currencyOpen) CloseCurrencyPopup();
+                    PushPanel(UIPanelId.Inventory, null, clearBefore: false, isTabPanel: false);
                 };
             }
 

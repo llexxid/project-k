@@ -153,17 +153,42 @@ namespace KingdomIdle.UIToolkit
                 var card = new VisualElement();
                 card.AddToClassList("gacha-reward-card");
 
-                if (entry.icon != null)
+                // 장비 보상이면 등급별 테두리 색상 적용
+                if (entry.rewardType == eGachaRewardType.Equipment && entry.equipmentData != null)
+                {
+                    card.AddToClassList($"gacha-rarity-{entry.equipmentData.rarity.ToString().ToLower()}");
+                }
+
+                // 아이콘: 장비 보상이면 equipmentData.icon 우선 사용
+                Sprite displayIcon = entry.icon;
+                if (entry.rewardType == eGachaRewardType.Equipment && entry.equipmentData != null && entry.equipmentData.icon != null)
+                    displayIcon = entry.equipmentData.icon;
+
+                if (displayIcon != null)
                 {
                     var iconVe = new VisualElement();
                     iconVe.AddToClassList("gacha-reward-icon");
-                    iconVe.style.backgroundImage = new StyleBackground(entry.icon);
+                    iconVe.style.backgroundImage = new StyleBackground(displayIcon);
                     card.Add(iconVe);
                 }
 
-                var nameLbl = new Label(entry.nameKor);
+                // 이름: 장비 보상이면 equipmentData.equipmentName 우선 사용
+                string displayName = entry.nameKor;
+                if (entry.rewardType == eGachaRewardType.Equipment && entry.equipmentData != null)
+                    displayName = string.IsNullOrEmpty(entry.nameKor) ? entry.equipmentData.equipmentName : entry.nameKor;
+
+                var nameLbl = new Label(displayName);
                 nameLbl.AddToClassList("gacha-reward-name");
                 card.Add(nameLbl);
+
+                // 장비 보상이면 등급 라벨 추가
+                if (entry.rewardType == eGachaRewardType.Equipment && entry.equipmentData != null)
+                {
+                    var rarityLbl = new Label(GetRarityText(entry.equipmentData.rarity));
+                    rarityLbl.AddToClassList("gacha-reward-rarity");
+                    rarityLbl.AddToClassList($"gacha-rarity-text-{entry.equipmentData.rarity.ToString().ToLower()}");
+                    card.Add(rarityLbl);
+                }
 
                 float pct = totalWeight > 0f ? (entry.weight / totalWeight) * 100f : 0f;
                 var rateLbl = new Label($"{pct:F1}%");
@@ -216,7 +241,13 @@ namespace KingdomIdle.UIToolkit
             for (int i = 0; i < results.Count; i++)
             {
                 var r = results[i];
-                string key = r.nameKor;
+                string key;
+
+                if (r.rewardType == eGachaRewardType.Equipment && r.equipmentData != null)
+                    key = $"[{GetRarityText(r.equipmentData.rarity)}] {r.equipmentData.equipmentName}";
+                else
+                    key = r.nameKor;
+
                 int amt = r.rewardType == eGachaRewardType.Currency ? r.amount : 1;
 
                 if (summary.ContainsKey(key))
@@ -234,6 +265,17 @@ namespace KingdomIdle.UIToolkit
             sb.Append(" 획득!");
 
             uiMgr.ShowToast(sb.ToString());
+        }
+
+        private static string GetRarityText(eEquipmentRarity rarity)
+        {
+            switch (rarity)
+            {
+                case eEquipmentRarity.Normal: return "일반";
+                case eEquipmentRarity.Rare:   return "레어";
+                case eEquipmentRarity.Epic:   return "에픽";
+                default:                      return rarity.ToString();
+            }
         }
     }
 }
