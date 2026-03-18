@@ -87,23 +87,24 @@ namespace KingdomIdle.UIToolkit
         {
             if (_equipMgr == null) return;
 
-            // 각 이벤트마다 대응하는 Refresh 메서드를 연결한다.
-            _equipMgr.OnEquipped     += OnEquipped;
-            _equipMgr.OnUnequipped   += OnUnequipped;
-            _equipMgr.OnItemDropped  += OnItemDropped;
-            _equipMgr.OnEnhanced     += OnEnhanced;
-            _equipMgr.OnSynthesized  += OnSynthesized;
+            _equipMgr.OnEquipped       += OnEquipped;
+            _equipMgr.OnUnequipped     += OnUnequipped;
+            _equipMgr.OnItemDropped    += OnItemDropped;
+            _equipMgr.OnEnhanced       += OnEnhanced;
+            _equipMgr.OnEnhanceFailed  += OnEnhanceFailed;
+            _equipMgr.OnSynthesized    += OnSynthesized;
         }
 
         private void UnsubscribeEvents()
         {
             if (_equipMgr == null) return;
 
-            _equipMgr.OnEquipped     -= OnEquipped;
-            _equipMgr.OnUnequipped   -= OnUnequipped;
-            _equipMgr.OnItemDropped  -= OnItemDropped;
-            _equipMgr.OnEnhanced     -= OnEnhanced;
-            _equipMgr.OnSynthesized  -= OnSynthesized;
+            _equipMgr.OnEquipped       -= OnEquipped;
+            _equipMgr.OnUnequipped     -= OnUnequipped;
+            _equipMgr.OnItemDropped    -= OnItemDropped;
+            _equipMgr.OnEnhanced       -= OnEnhanced;
+            _equipMgr.OnEnhanceFailed  -= OnEnhanceFailed;
+            _equipMgr.OnSynthesized    -= OnSynthesized;
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -131,12 +132,19 @@ namespace KingdomIdle.UIToolkit
             RefreshInventory();
         }
 
-        /// <summary>강화 완료 시 호출 — 슬롯/인벤토리 스탯 수치 갱신</summary>
+        /// <summary>강화 성공 시 호출 — 슬롯/인벤토리 스탯 수치 갱신</summary>
         private void OnEnhanced(EquipmentInstance instance)
         {
             RefreshSlot(instance.baseData.slot, instance);
             RefreshInventory();
-            ShowEnhanceResult(instance);
+            ShowEnhanceResult(instance, success: true);
+        }
+
+        /// <summary>강화 실패 시 호출 — 인벤토리 갱신 + 실패 알림 표시</summary>
+        private void OnEnhanceFailed(EquipmentInstance instance)
+        {
+            RefreshInventory();
+            ShowEnhanceResult(instance, success: false);
         }
 
         /// <summary>합성 완료 시 호출 — 인벤토리 갱신 + 결과 표시</summary>
@@ -195,16 +203,16 @@ namespace KingdomIdle.UIToolkit
         }
 
         /// <summary>
-        /// 강화 완료 결과를 표시한다 (강화 레벨, 변경된 스탯 등).
+        /// 강화 결과를 표시한다.
+        /// success=true이면 성공 연출, false이면 실패 알림.
         ///
         /// [작성 가이드]
-        ///   instance.enhancementLevel
-        ///   instance.GetFinalAtk()
-        ///   instance.GetFinalMaxHP()
+        ///   instance.enhancementLevel, instance.GetFinalAtk(), instance.GetFinalMaxHP()
         /// </summary>
-        private void ShowEnhanceResult(EquipmentInstance instance)
+        private void ShowEnhanceResult(EquipmentInstance instance, bool success)
         {
-            // TODO: 강화 결과 표시 코드 작성
+            // TODO: 강화 성공/실패 결과 표시 코드 작성
+            // 예) success ? "강화 성공!" : "강화 실패..."
         }
 
         /// <summary>
@@ -250,8 +258,12 @@ namespace KingdomIdle.UIToolkit
         /// </summary>
         public void OnEnhanceBtnClicked(EquipmentInstance item)
         {
-            if (!_equipMgr.TryEnhance(item, _user))
-                Debug.Log("[EquipmentUI] 강화 실패 — 골드 부족 또는 최대 레벨");
+            if (!_equipMgr.CanEnhance(item))
+            {
+                Debug.Log("[EquipmentUI] 강화 불가 — 재료 부족 또는 최대 레벨");
+                return;
+            }
+            _equipMgr.TryEnhance(item);
         }
 
         /// <summary>

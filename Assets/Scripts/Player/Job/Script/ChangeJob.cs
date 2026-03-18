@@ -231,7 +231,16 @@ public class ChangeJob : MonoBehaviour
             _player.RebuildAnimatorComponent();
         }
 
-        // 6. UI 이벤트 발행
+        // 7. [스킬 레벨] 이 직업의 스킬 레벨을 PlayerSkillRuntime에 로드
+        if (SkillEnhanceManager.Instance != null)
+        {
+            SkillEnhanceManager.Instance.Runtime.Load(data);
+        }
+
+        // 8. [장비 시스템] 현재 직업명을 EquipmentManager에 전달
+        _player.equipmentManager?.SetCurrentJob(data.jobName);
+
+        // 9. UI 이벤트 발행
         OnJobChanged?.Invoke(data.jobName, index, jobDatabase.Count);
 
         Debug.Log($"[ChangeJob] 전직 완료: {data.jobName} (HP:{data.maxHP} ATK:{data.atk})");
