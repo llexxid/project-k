@@ -9,7 +9,7 @@ namespace Scripts.Core
     public class VFXEntity : MonoBehaviour, IPoolable
     {
         
-        private eVFXType _id;
+        [System.NonSerialized] private eVFXType _id;
         private Animator _am;
         private CancellationTokenSource _token;
         public bool IsActive { get; set; }

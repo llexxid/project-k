@@ -2,16 +2,16 @@ using Scripts.Core.inteface;
 using System.Collections.Generic;
 using UnityEngine;
 
-// »óÅÂ Á¤ÀÇ
+// ìƒíƒœ ì •ì˜
 public enum NodeState { Running, Success, Failure }
 
-// ±âº» ³ëµå (Ãß»ó Å¬·¡½º)
+// ê¸°ë³¸ ë…¸ë“œ (ì¶”ìƒ í´ë˜ìŠ¤)
 public abstract class Node
 {
     public abstract NodeState Evaluate();
 }
 
-// [Sequence] ¸ğµç ÀÚ½ÄÀÌ ¼º°øÇØ¾ß ¼º°ø (AND)
+// [Sequence] ëª¨ë“  ìì‹ì´ ì„±ê³µí•´ì•¼ ì„±ê³µ (AND)
 public class Sequence : Node
 {
     private List<Node> nodes = new List<Node>();
@@ -35,7 +35,7 @@ public class Sequence : Node
     }
 }
 
-// [Selector] ÀÚ½Ä Áß ÇÏ³ª¶óµµ ¼º°øÇÏ¸é ¼º°ø (OR)
+// [Selector] ìì‹ ì¤‘ í•˜ë‚˜ë¼ë„ ì„±ê³µí•˜ë©´ ì„±ê³µ (OR)
 public class Selector : Node
 {
     private List<Node> nodes = new List<Node>();
@@ -56,5 +56,14 @@ public class Selector : Node
             }
         }
         return NodeState.Failure;
+    }
+
+    /// <summary>
+    /// ìì‹ ë…¸ë“œ ëª©ë¡ì„ í†µì§¸ë¡œ êµì²´í•œë‹¤.
+    /// PlayerOrder.RebuildSkillTree()ì—ì„œ ì „ì§ ì‹œ ìŠ¤í‚¬ ë…¸ë“œë¥¼ ë™ì ìœ¼ë¡œ êµì²´í•  ë•Œ ì‚¬ìš©.
+    /// </summary>
+    public void ReplaceChildren(List<Node> newNodes)
+    {
+        nodes = newNodes;
     }
 }

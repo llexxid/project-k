@@ -5,46 +5,40 @@ using UnityEngine;
 
 public class PlayerDetection
 {
-    //public LayerMask playerMask;
-    public float detectionRadius = 2f;
+    public float detectionRadius = 3.5f; // ëª¨ë°”ì¼ í™”ë©´ ê¸°ì¤€, stopDistanceë³´ë‹¤ ì»¤ì•¼ í•¨
     private List<Collider2D> detectedResults = new List<Collider2D>();
-    public IDamageable currentTarget; // ¹ß°ßµÈ ÀûÀ» ÀúÀåÇÒ º¯¼ö
+    public IDamageable currentTarget;
     public Player player;
     public PlayerDetection(Player player)
     {
         this.player = player;
     }
 
-    int enemyLayer = 1 << 6;
+    LayerMask enemyLayer = GameLayers.EnemyMask;
 
-    // ³ëµå°¡ ÇÃ·¹ÀÌ¾î¸¦ °®°í ÀÖ°í, ÇÃ·¹ÀÌ¾î¿¡¼­ transformÀ» °¡Á®¿À´Â ¹æ½Ä
     public void Detect()
     {
-        // Debug.Log("Player Detecting...");
-        ContactFilter2D filter = new ContactFilter2D(); // ÇÊÅÍ ¼³Á¤
-        filter.SetLayerMask(enemyLayer); // ·¹ÀÌ¾î ¸¶½ºÅ© ¼³Á¤
-        filter.useTriggers = true; // Æ®¸®°Å Äİ¶óÀÌ´õ Æ÷ÇÔ
+        ContactFilter2D filter = new ContactFilter2D();
+        filter.SetLayerMask(enemyLayer);
+        filter.useTriggers = true;
 
-        // ¸®½ºÆ®¸¦ Àç»ç¿ëÇÏ¿© °¡ºñÁö ¹ß»ıÀ» ÃÖ¼ÒÈ­ÇÏ´Â ¹æ½Ä
+        // ë¦¬ìŠ¤íŠ¸ë¥¼ ì¬ì‚¬ìš©í•˜ì—¬ ê°€ë¹„ì§€ ë°œìƒì„ ìµœì†Œí™”í•˜ëŠ” ë°©ì‹
         int count = Physics2D.OverlapCircle(player.transform.position, detectionRadius, filter, detectedResults);
-
-        //Debug.Log(count);
 
         for (int i = 0; i < count; i++)
         {
             if (detectedResults[i].CompareTag("Enemy"))
             {
-                currentTarget = detectedResults[i].gameObject.GetComponent<IDamageable>(); // Å¸°Ù ÀúÀå
+                currentTarget = detectedResults[i].gameObject.GetComponent<IDamageable>(); // íƒ€ê²Ÿ ì €ì¥
 
-                player.currentTarget  = currentTarget; // ÇÃ·¹ÀÌ¾îÀÇ Å¸°Ù º¯¼ö¿¡µµ ÀúÀå
+                player.currentTarget  = currentTarget; // í”Œë ˆì´ì–´ì˜ íƒ€ê²Ÿ ë³€ìˆ˜ì—ë„ ì €ì¥
 
-                return; // °¡Àå °¡±î¿î Àû ÇÏ³ª¸¸ Ã£À¸¸é Á¾·á
+                return; // ê°€ì¥ ê°€ê¹Œìš´ ì  í•˜ë‚˜ë§Œ ì°¾ìœ¼ë©´ ì¢…ë£Œ
             }
-            else Debug.Log("ÀûÀÌ °¨ÁöµÇÁö ¾ÊÀ½");
+            else Debug.Log("ì ì´ ê°ì§€ë˜ì§€ ì•ŠìŒ");
         }
     }
 
-    // Çàµ¿ Æ®¸® Àü¿ë ³ëµå Å¬·¡½º
     public class DetectionNode : Node
     {
         private PlayerDetection _detection;
@@ -54,33 +48,13 @@ public class PlayerDetection
         {
             _detection.Detect();
 
-            // ¸®½ºÆ® ³»ºÎ¿¡ ½ÇÁ¦·Î "Enemy" ÅÂ±×¸¦ °¡Áø ³à¼®ÀÌ ÀÖ´ÂÁö È®ÀÎ
             foreach (var target in _detection.detectedResults)
             {
                 if (target.CompareTag("Enemy")) return NodeState.Success;
-                else Debug.Log("ÀûÀÌ °¨ÁöµÇÁö ¾ÊÀ½");
+                else Debug.Log("ì ì´ ê°ì§€ë˜ì§€ ì•ŠìŒ");
             }
             return NodeState.Failure;
         }
     }
 
-    //void OnDrawGizmos() // ¹üÀ§ ±×¸®±â
-    //{
-    //    Gizmos.color = Color.red;
-    //    Gizmos.DrawWireSphere(player.transform.position, detectionRadius);
-    //}
 }
-
-/*
-µ¿ÀÛ ¿ø¸®
-
-1. Sequence ³ëµå (PlayerOrder¿¡ ÀÖ´Â)°¡ ¸ÕÀú DetectionNode¸¦ ½ÇÇàÇÕ´Ï´Ù.
-
-2. °¨Áö¿¡ ¼º°øÇÏ¸é PlayerDetection.currentTarget¿¡ Àû Á¤º¸°¡ ÀúÀåµÇ°í Success°¡ ¹İÈ¯µË´Ï´Ù.
-
-3. ÀÌ¾î¼­ MoveNode°¡ ½ÇÇàµË´Ï´Ù.
-
-4. ÀûÀÌ ¸Ö¸® ÀÖ´Ù¸é PlayerMove´Â ÀÌµ¿ÇÏ¸ç RunningÀ» ¹İÈ¯ÇÕ´Ï´Ù. (Æ®¸®´Â ´ÙÀ½ ÇÁ·¹ÀÓ¿¡ ´Ù½Ã MoveNode¸¦ ½ÇÇà
-
-5. Àû¿¡°Ô °¡±î¿öÁö¸é Success¸¦ ¹İÈ¯ÇÏ¿©, ´ÙÀ½ ¼ø¼­ÀÎ °ø°İ(Attack) ´Ü°è·Î ³Ñ¾î°©´Ï´Ù.
-*/

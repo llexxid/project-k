@@ -5,50 +5,58 @@ public class SkillManager : MonoBehaviour
 {
     public SkillObjectPool pool;
     public SkillDatabase skillDatabase;
-    float remainingTime = 0f;
 
-    // �� ��ų�� ���� ��� ���� �ð��� �����ϴ� ��ųʸ�
-    private Dictionary<string, float> _skillCooldowns = new Dictionary<string, float>();
+    // 현재 직업에서 사용 가능한 스킬 목록
+    private List<SkillData> _currentSkills = new List<SkillData>();
 
-    public float ActivateSkill(string skillName)
+    /// <summary>
+    /// 스킬 이펙트/오브젝트를 활성화한다.
+    /// 쿨타임 체크·갱신은 PlayerAttack이 전담하므로 여기서는 처리하지 않는다.
+    /// </summary>
+    public void ActivateSkill(string skillName)
     {
         SkillData data = skillDatabase.GetSkill(skillName);
         if (data == null)
         {
-            Debug.LogWarning($"��ų �����Ͱ� �����ϴ�: {skillName}");
-            return remainingTime;
+            Debug.LogWarning($"[SkillManager] 스킬 데이터 없음: {skillName}");
+            return;
         }
 
-        // 1. �нú� ��ų ���� (��Ÿ�� ������)
+        // 패시브 스킬은 ON/OFF 개념이 없으므로 별도 처리 없음
         if (data.skillType == SkillType.Passive)
         {
-            Debug.Log($"{data.skillName} �нú� ȿ�� ���� ��...");
-            return remainingTime;
+            Debug.Log($"[SkillManager] {data.skillName} 패시브 효과 적용 중...");
+            return;
         }
 
-        // 2. ��Ÿ�� üũ
-        if (_skillCooldowns.TryGetValue(skillName, out float nextReadyTime))
+        // 오브젝트 풀에서 스킬 이펙트 오브젝트 꺼내기
+        GameObject obj = pool?.GetSkillObject(data);
+        if (obj != null)
         {
-            Debug.Log(remainingTime + " : 556");
-
-            if (Time.time < nextReadyTime)
-            {
-                Debug.Log($"{skillName} ��Ÿ�� ��: {nextReadyTime - Time.time:F1}�� ����");
-
-                remainingTime = nextReadyTime - Time.time;
-
-                return remainingTime;
-            }
-            else 
-            {
-                Debug.Log($"{skillName} ��� ����");
-            }
+            Debug.Log($"[SkillManager] {skillName} 이펙트 활성화");
+            // TODO: obj 위치·방향 초기화 등 추가 로직
         }
-        else
-        {
-            Debug.Log($"{skillName} ó�� ���");
-        }
-
-            return remainingTime;
     }
+
+    /// <summary>
+    /// 전직 시 새 직업의 스킬 목록으로 교체한다.
+    /// ChangeJob.ApplyJobByIndex()에서 호출된다.
+    /// </summary>
+    public void RefreshSkills(List<SkillData> newSkills)
+    {
+        if (newSkills == null)
+        {
+            _currentSkills.Clear();
+            Debug.Log("[SkillManager] 스킬 목록이 초기화되었습니다.");
+            return;
+        }
+
+        _currentSkills = new List<SkillData>(newSkills);
+        Debug.Log($"[SkillManager] 스킬 {_currentSkills.Count}개 갱신 완료");
+    }
+
+    /// <summary>
+    /// 현재 직업의 스킬 목록을 반환한다.
+    /// </summary>
+    public IReadOnlyList<SkillData> GetCurrentSkills() => _currentSkills.AsReadOnly();
 }

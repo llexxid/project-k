@@ -1,20 +1,37 @@
 using UnityEngine;
 
-// ½ºÅ³ Å¸ÀÔÀ» ±¸ºĞÇÏ±â À§ÇÑ Enum
 public enum SkillType { Active, Passive }
 
 [CreateAssetMenu(fileName = "NewSkillData", menuName = "ScriptableObjects/SkillData")]
 public class SkillData : ScriptableObject
 {
-    [Header("±âº» Á¤º¸")]
-    public string skillName;         // ½ºÅ³ ÀÌ¸§
-    public string animationStateName;// ¾Ö´Ï¸ŞÀÌ¼Ç »óÅÂ ÀÌ¸§
-    public SkillType skillType;      // ¾×Æ¼ºê/ÆĞ½Ãºê ±¸ºĞ
+    [Header("ê¸°ë³¸ ì •ë³´")]
+    public string skillName;          // ìŠ¤í‚¬ ì´ë¦„
+    public string animationStateName; // ì• ë‹ˆë©”ì´ì…˜ ìƒíƒœ ì´ë¦„
+    public SkillType skillType;       // ì•¡í‹°ë¸Œ/íŒ¨ì‹œë¸Œ êµ¬ë¶„
 
-    [Header("ÀüÅõ ´É·ÂÄ¡")]
-    public float damage;             // µ¥¹ÌÁö
-    public float cooldown;           // ÄğÅ¸ÀÓ
+    [Header("ì „íˆ¬ ëŠ¥ë ¥ì¹˜ (ë² ì´ìŠ¤)")]
+    public float damage;              // ë°ë¯¸ì§€ ê³„ìˆ˜ (Atk Ã— damage)
+    public float cooldown;            // ì¿¨íƒ€ì„ (ì´ˆ, ë² ì´ìŠ¤)
 
-    //[Header("ÇÁ¸®ÆÕ ¼³Á¤")]
-    //public GameObject skillPrefab;   // ¿ÀºêÁ§Æ® Ç®¸µ¿¡¼­ »ı¼ºÇÒ ÇÁ¸®ÆÕ
+    [Header("ê³µê²© ë²”ìœ„ ì„¤ì •")]
+    [Tooltip("ì •ë©´ ê³µê²© ì›ë¿” ê°ë„ (360=ì „ë°©í–¥, 180=ì •ë©´ ë°˜ì›, 90=ì¢ì€ ì›ë¿”). Spearman=90, Knight=120 ê¶Œì¥")]
+    [Range(1f, 360f)]
+    public float attackAngle = 360f;
+    [Tooltip("VFX ìŠ¤í° ìœ„ì¹˜ - í”Œë ˆì´ì–´ ì •ë©´ ê¸°ì¤€ ê±°ë¦¬ (0=í”Œë ˆì´ì–´ ì¤‘ì‹¬)")]
+    public float vfxForwardOffset = 1f;
+    [Tooltip("VFX ì¬ìƒ ì§€ì† ì‹œê°„ (ë°€ë¦¬ì´ˆ, 1000=1ì´ˆ)")]
+    public int vfxDuration = 1000;
+    [Tooltip("VFX ê¸°ë³¸ ë°©í–¥ì´ ë°˜ëŒ€ì¼ ë•Œ ì²´í¬ (ì¢Œìš° ë°˜ì „)")]
+    public bool flipVFX = false;
+
+    [Header("ê°•í™” ì„¤ì •")]
+    [Tooltip("ìµœëŒ€ ê°•í™” ê°€ëŠ¥ ë ˆë²¨")]
+    public int maxLevel = 999999;
+    [Tooltip("ë ˆë²¨ë‹¹ ë°ë¯¸ì§€ ê³„ìˆ˜ ì¦ê°€ìœ¨ (0.1 = 10%)")]
+    public float damagePerLevel = 0.1f;
+    [Tooltip("ë ˆë²¨ë‹¹ ì¿¨íƒ€ì„ ê°ì†Œìœ¨ (0.02 = 2%). ìµœì†ŒëŠ” ì›ë³¸ì˜ 10%")]
+    public float cooldownReductionPerLevel = 0.02f;
+
+    public GameObject skillPrefab;
 }

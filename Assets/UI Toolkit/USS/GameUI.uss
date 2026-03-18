@@ -220,6 +220,35 @@
 }
 .side-btn { width: 170px; height: 86px; font-size: 28px; }
 
+/* ===== Guide Button & Badge ===== */
+.guide-btn-wrap {
+    position: relative;
+    width: 170px;
+}
+
+.guide-btn {
+    width: 170px;
+    height: 86px;
+}
+
+.guide-badge {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    background-color: rgba(235, 60, 60, 0.92);
+    color: rgba(255, 255, 255, 0.98);
+    font-size: 22px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+}
+
 /* Bottom bar */
 .bottom-bar {
     position: absolute;
@@ -228,7 +257,7 @@
     flex-direction: row;
     justify-content: space-around;
     align-items: center;
-    background-color: rgba(0,0,0,0.4);
+    background-color: rgba(0,0,0,1);
 }
 .tab-btn { width: 170px; height: 110px; font-size: 32px; }
 
@@ -250,7 +279,7 @@
     bottom: 190px;
     height: 60%;
     min-height: 380px;
-    background-color: rgba(0,0,0,0.72);
+    background-color: rgba(10,10,15,1);
     border-top-left-radius: 22px;
     border-top-right-radius: 22px;
     padding: 20px;
@@ -267,17 +296,18 @@
 }
 
 .settings-panel {
-    width: 88%;
-    max-width: 760px;
+    width: 92%;
+    max-width: 860px;
+    height: 60%;
     background-color: rgba(35, 30, 45, 0.95);
     border-radius: 18px;
-    padding: 18px;
-    gap: 12px;
+    padding: 26px 22px 34px 22px;
+    gap: 16px;
     overflow: hidden;
 }
 
 .settings-titlebar {
-    height: 74px;
+    height: 88px;
     justify-content: center;
     align-items: center;
     background-color: rgba(0,0,0,0.28);
@@ -285,39 +315,39 @@
 }
 
 .settings-title {
-    font-size: 34px;
+    font-size: 38px;
     -unity-font-style: bold;
     color: rgba(255,255,255,0.95);
     -unity-text-align: middle-center;
 }
 
-.settings-subrow { flex-direction: row; justify-content: space-between; align-items: center; gap: 10px; }
-.settings-chip-btn { height: 72px; flex-grow: 1; font-size: 24px; }
+.settings-subrow { flex-direction: row; justify-content: space-between; align-items: center; gap: 12px; }
+.settings-chip-btn { height: 72px; flex-grow: 1; font-size: 26px; }
 .settings-version { height: 72px; width: 220px; justify-content: center; align-items: center; background-color: rgba(255,255,255,0.10); border-radius: 12px; }
-.settings-version-label { font-size: 24px; color: rgba(255,255,255,0.9); }
+.settings-version-label { font-size: 26px; color: rgba(255,255,255,0.9); }
 
-.settings-coupon-row { flex-direction: row; align-items: center; gap: 10px; }
-.settings-coupon-tag { width: 150px; height: 62px; justify-content: center; align-items: center; background-color: rgba(0,0,0,0.28); border-radius: 10px; }
-.settings-coupon-tag-label { font-size: 22px; color: rgba(255,255,255,0.9); }
-.settings-coupon-field-wrap { flex-grow: 1; height: 62px; border-radius: 10px; background-color: rgba(255,255,255,0.10); padding-left: 10px; padding-right: 10px; justify-content: center; }
+.settings-coupon-row { flex-direction: row; align-items: center; gap: 12px; }
+.settings-coupon-tag { width: 160px; height: 74px; justify-content: center; align-items: center; background-color: rgba(0,0,0,0.28); border-radius: 10px; }
+.settings-coupon-tag-label { font-size: 26px; color: rgba(255,255,255,0.9); }
+.settings-coupon-field-wrap { flex-grow: 1; height: 74px; border-radius: 10px; background-color: rgba(255,255,255,0.10); padding-left: 12px; padding-right: 12px; justify-content: center; }
 .settings-coupon-field { flex-grow: 1; }
-.settings-coupon-btn { width: 110px; height: 62px; font-size: 22px; }
+.settings-coupon-btn { width: 120px; height: 66px; font-size: 24px; }
 
-.settings-grid { flex-direction: row; gap: 14px; }
-.settings-col { flex-grow: 1; gap: 10px; }
+.settings-grid { flex-direction: row; gap: 18px; }
+.settings-col { flex-grow: 1; gap: 14px; }
 
-.settings-volume-row { flex-direction: row; align-items: center; gap: 10px; }
+.settings-volume-row { flex-direction: row; align-items: center; gap: 12px; }
 .settings-volume-label {
-    width: 110px;
-    font-size: 22px;
+    width: 120px;
+    font-size: 26px;
     color: rgba(255,255,255,0.9);
     flex-shrink: 0;
 }
 
 .settings-mute-btn {
     width: 100px;
-    height: 54px;
-    font-size: 22px;
+    height: 58px;
+    font-size: 24px;
     border-radius: 12px;
     background-color: rgba(255,255,255,0.10);
     color: rgba(255,255,255,0.95);
@@ -329,17 +359,18 @@
 /* Settings toggles: improve label visibility */
 .settings-panel .unity-base-field__label,
 .settings-panel .unity-toggle__text {
+    font-size: 28px;
     color: rgba(255,255,255,0.95);
 }
 
-.settings-inquiry { height: 62px; justify-content: center; align-items: center; background-color: rgba(0,0,0,0.28); border-radius: 10px; }
-.settings-inquiry-label { font-size: 22px; color: rgba(255,255,255,0.9); }
+.settings-inquiry { height: 74px; justify-content: center; align-items: center; background-color: rgba(0,0,0,0.28); border-radius: 10px; }
+.settings-inquiry-label { font-size: 26px; color: rgba(255,255,255,0.9); }
 
-.settings-wide-btn { height: 70px; font-size: 24px; }
-.settings-danger-btn { height: 70px; font-size: 24px; color: rgba(255,80,80,1); }
+.settings-wide-btn { height: 72px; font-size: 26px; }
+.settings-danger-btn { height: 72px; font-size: 26px; color: rgba(255,80,80,1); }
 
-.settings-bottom-row { flex-direction: row; gap: 12px; }
-.settings-bottom-btn { flex-grow: 1; height: 76px; font-size: 26px; }
+.settings-bottom-row { flex-direction: row; gap: 14px; }
+.settings-bottom-btn { flex-grow: 1; height: 78px; font-size: 28px; }
 
 .settings-hint-close {
     position: absolute;
@@ -369,3 +400,1384 @@
     color: rgba(255,255,255,0.95);
     -unity-text-align: middle-center;
 }
+
+/* ===== Party HUD (Bottom) ===== */
+.party-hud {
+    position: absolute;
+    left: 0;
+    right: 0;
+    /* bottom은 스크립트에서 BottomBar/Panel Sheet 높이 기준으로 동적으로 조정 */
+    bottom: 202px;
+    height: 150px;
+    padding-left: 16px;
+    padding-right: 16px;
+    justify-content: center;
+    align-items: center;
+}
+
+.party-row {
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+}
+
+.party-member {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    background-color: rgba(0,0,0,0.30);
+    border-radius: 18px;
+}
+
+.party-portrait-btn {
+    width: 74px;
+    height: 74px;
+    border-radius: 999px;
+    background-color: rgba(255,255,255,0.10);
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-left-color: rgba(255,255,255,0.25);
+    border-right-color: rgba(255,255,255,0.25);
+    border-top-color: rgba(255,255,255,0.25);
+    border-bottom-color: rgba(255,255,255,0.25);
+    padding-left: 0;
+    padding-right: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+.party-portrait-btn:hover { background-color: rgba(255,255,255,0.12); }
+.party-portrait-btn:active { background-color: rgba(255,255,255,0.16); }
+
+.party-info-col {
+    flex-direction: column;
+    gap: 8px;
+}
+
+.party-hpbar {
+    width: 180px;
+    height: 16px;
+    background-color: rgba(255,255,255,0.12);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.party-hpfill {
+    height: 100%;
+    width: 100%;
+    background-color: rgba(120,255,120,0.85);
+}
+
+.party-skill-row {
+    flex-direction: row;
+    gap: 8px;
+}
+
+.party-skill {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background-color: rgba(255,255,255,0.14);
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+.party-skill-cd-mask {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    background-color: rgba(0,0,0,0.55);
+    border-radius: 12px;
+}
+
+.party-skill-cd-text {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    -unity-text-align: middle-center;
+    font-size: 18px;
+    -unity-font-style: bold;
+    color: rgba(255,255,255,0.95);
+}
+
+/* ===== Guide Panel ===== */
+.guide-sheet {
+    height: 72%;
+}
+
+.guide-progress-bar {
+    height: 14px;
+    background-color: rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+
+.guide-progress-fill {
+    height: 100%;
+    width: 0%;
+    background-color: rgba(100, 210, 130, 0.9);
+}
+
+.guide-progress-label {
+    font-size: 22px;
+    color: rgba(255, 255, 255, 0.75);
+    -unity-text-align: middle-right;
+    margin-bottom: 10px;
+}
+
+.guide-scroll {
+    flex-grow: 1;
+    overflow: hidden;
+}
+
+.guide-empty-hint {
+    font-size: 26px;
+    color: rgba(255, 255, 255, 0.5);
+    -unity-text-align: middle-center;
+    padding-top: 40px;
+}
+
+/* 가이드 단계 행 */
+.guide-step-row {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 16px 12px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+}
+
+.guide-step-done {
+    opacity: 0.55;
+}
+
+/* 체크 버튼 */
+.guide-check-btn {
+    width: 52px;
+    height: 52px;
+    flex-shrink: 0;
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.10);
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-left-color: rgba(255, 255, 255, 0.25);
+    border-right-color: rgba(255, 255, 255, 0.25);
+    border-top-color: rgba(255, 255, 255, 0.25);
+    border-bottom-color: rgba(255, 255, 255, 0.25);
+    font-size: 26px;
+    -unity-font-style: bold;
+    color: rgba(100, 210, 130, 0.95);
+    -unity-text-align: middle-center;
+    padding-left: 0;
+    padding-right: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+.guide-check-btn:hover { background-color: rgba(255, 255, 255, 0.14); }
+.guide-check-btn:active { background-color: rgba(255, 255, 255, 0.20); }
+
+/* 텍스트 영역 */
+.guide-text-col {
+    flex-grow: 1;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.guide-step-title {
+    font-size: 28px;
+    -unity-font-style: bold;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.guide-step-title-done {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.guide-step-desc {
+    font-size: 23px;
+    color: rgba(255, 255, 255, 0.80);
+}
+
+.guide-step-hint {
+    font-size: 21px;
+    color: rgba(180, 200, 255, 0.75);
+    margin-top: 4px;
+}
+
+/* Panel header (공통) */
+.panel-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+.panel-title {
+    font-size: 34px;
+    -unity-font-style: bold;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.panel-close-btn {
+    width: 72px;
+    height: 72px;
+    font-size: 30px;
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.10);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.panel-body-hint {
+    font-size: 26px;
+    color: rgba(255, 255, 255, 0.5);
+    -unity-text-align: middle-center;
+}
+
+/* ===== MageTower HUD ===== */
+.mt-hud {
+    position: absolute;
+    left: 0;
+    top: 300px;
+    width: 176px;
+    padding: 11px;
+    gap: 11px;
+    flex-direction: column;
+    align-items: center;
+}
+
+.mt-hud-slot {
+    width: 134px;
+    height: 134px;
+    border-radius: 20px;
+    background-color: rgba(255,255,255,0.10);
+    border-left-width: 3px;
+    border-right-width: 3px;
+    border-top-width: 3px;
+    border-bottom-width: 3px;
+    border-left-color: rgba(255,255,255,0.18);
+    border-right-color: rgba(255,255,255,0.18);
+    border-top-color: rgba(255,255,255,0.18);
+    border-bottom-color: rgba(255,255,255,0.18);
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+    overflow: hidden;
+}
+.mt-hud-slot:hover { background-color: rgba(255,255,255,0.14); }
+.mt-hud-slot:active { background-color: rgba(255,255,255,0.20); }
+
+.mt-hud-slot-icon {
+    width: 100px;
+    height: 100px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.mt-hud-slot-empty {
+    font-size: 28px;
+    color: rgba(255,255,255,0.35);
+    -unity-text-align: middle-center;
+}
+
+.mt-hud-slot-name {
+    font-size: 22px;
+    color: rgba(255,255,255,0.75);
+    -unity-text-align: middle-center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 134px;
+}
+
+.mt-hud-tower-btn {
+    width: 134px;
+    height: 134px;
+    border-radius: 20px;
+    background-color: rgba(100,60,180,0.5);
+    border-left-width: 3px;
+    border-right-width: 3px;
+    border-top-width: 3px;
+    border-bottom-width: 3px;
+    border-left-color: rgba(160,120,255,0.4);
+    border-right-color: rgba(160,120,255,0.4);
+    border-top-color: rgba(160,120,255,0.4);
+    border-bottom-color: rgba(160,120,255,0.4);
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+    font-size: 31px;
+    color: rgba(255,255,255,0.9);
+    -unity-font-style: bold;
+}
+.mt-hud-tower-btn:hover { background-color: rgba(100,60,180,0.65); }
+.mt-hud-tower-btn:active { background-color: rgba(100,60,180,0.8); }
+
+.mt-hud-slot-cooldown-mask {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0,0,0,0.6);
+    border-radius: 17px;
+}
+
+.mt-hud-slot-cooldown-text {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    -unity-text-align: middle-center;
+    font-size: 34px;
+    -unity-font-style: bold;
+    color: rgba(255,255,255,0.9);
+}
+
+.mt-hud-slot-casting {
+    border-left-color: rgba(180,220,255,0.85);
+    border-right-color: rgba(180,220,255,0.85);
+    border-top-color: rgba(180,220,255,0.85);
+    border-bottom-color: rgba(180,220,255,0.85);
+    border-left-width: 3px;
+    border-right-width: 3px;
+    border-top-width: 3px;
+    border-bottom-width: 3px;
+    background-color: rgba(180,220,255,0.08);
+    transition-property: border-color, background-color;
+    transition-duration: 0.3s;
+}
+
+/* Auto Button */
+.mt-hud-auto-btn {
+    width: 134px;
+    height: 134px;
+    border-radius: 20px;
+    border-left-width: 3px;
+    border-right-width: 3px;
+    border-top-width: 3px;
+    border-bottom-width: 3px;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+    font-size: 31px;
+    -unity-font-style: bold;
+    transition-property: border-color, background-color, color;
+    transition-duration: 0.3s;
+}
+
+.mt-hud-auto-off {
+    background-color: rgba(255,255,255,0.06);
+    border-left-color: rgba(255,255,255,0.12);
+    border-right-color: rgba(255,255,255,0.12);
+    border-top-color: rgba(255,255,255,0.12);
+    border-bottom-color: rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.3);
+}
+.mt-hud-auto-off:hover { background-color: rgba(255,255,255,0.10); }
+.mt-hud-auto-off:active { background-color: rgba(255,255,255,0.15); }
+
+.mt-hud-auto-on {
+    background-color: rgba(40,180,100,0.4);
+    border-left-color: rgba(80,220,140,0.8);
+    border-right-color: rgba(80,220,140,0.8);
+    border-top-color: rgba(80,220,140,0.8);
+    border-bottom-color: rgba(80,220,140,0.8);
+    color: rgba(180,255,210,0.95);
+}
+.mt-hud-auto-on:hover { background-color: rgba(40,180,100,0.55); }
+.mt-hud-auto-on:active { background-color: rgba(40,180,100,0.7); }
+
+/* ===== MageTower Equip Popup ===== */
+.mt-equip-overlay {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    background-color: rgba(0,0,0,0.65);
+    justify-content: center;
+    align-items: center;
+}
+
+.mt-equip-panel {
+    width: 92%;
+    max-width: 900px;
+    height: 70%;
+    max-height: 680px;
+    background-color: rgba(35, 30, 45, 0.95);
+    border-radius: 18px;
+    padding: 18px;
+    gap: 14px;
+    flex-direction: column;
+}
+
+.mt-equip-titlebar {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.mt-equip-title {
+    font-size: 34px;
+    -unity-font-style: bold;
+    color: rgba(255,255,255,0.95);
+}
+
+.mt-equip-close {
+    width: 72px;
+    height: 72px;
+    font-size: 30px;
+    border-radius: 999px;
+    background-color: rgba(255,255,255,0.10);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    color: rgba(255,255,255,0.9);
+}
+
+.mt-equip-body {
+    flex-grow: 1;
+    flex-direction: row;
+    gap: 18px;
+}
+
+.mt-equip-slots-col {
+    width: 130px;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+}
+
+.mt-equip-slots-label {
+    font-size: 22px;
+    color: rgba(255,255,255,0.75);
+    -unity-text-align: middle-center;
+    margin-bottom: 4px;
+}
+
+.mt-equip-slot {
+    width: 100px;
+    height: 100px;
+    border-radius: 14px;
+    background-color: rgba(255,255,255,0.08);
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-left-color: rgba(255,255,255,0.20);
+    border-right-color: rgba(255,255,255,0.20);
+    border-top-color: rgba(255,255,255,0.20);
+    border-bottom-color: rgba(255,255,255,0.20);
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+}
+.mt-equip-slot:hover { background-color: rgba(255,255,255,0.12); }
+
+.mt-equip-slot-active {
+    border-left-color: rgba(100,210,130,0.7);
+    border-right-color: rgba(100,210,130,0.7);
+    border-top-color: rgba(100,210,130,0.7);
+    border-bottom-color: rgba(100,210,130,0.7);
+}
+
+.mt-equip-slot-icon {
+    width: 70px;
+    height: 70px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.mt-equip-slot-empty-label {
+    font-size: 18px;
+    color: rgba(255,255,255,0.3);
+}
+
+.mt-inv-col {
+    flex-grow: 1;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.mt-inv-label {
+    font-size: 22px;
+    color: rgba(255,255,255,0.75);
+    margin-bottom: 4px;
+}
+
+.mt-inv-scroll {
+    flex-grow: 1;
+    overflow: hidden;
+}
+
+.mt-inv-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 4px;
+}
+
+.mt-inv-item {
+    width: 110px;
+    height: 130px;
+    border-radius: 12px;
+    background-color: rgba(255,255,255,0.08);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 6px;
+}
+.mt-inv-item:hover { background-color: rgba(255,255,255,0.14); }
+.mt-inv-item:active { background-color: rgba(255,255,255,0.20); }
+
+.mt-inv-item-equipped {
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-left-color: rgba(100,210,130,0.6);
+    border-right-color: rgba(100,210,130,0.6);
+    border-top-color: rgba(100,210,130,0.6);
+    border-bottom-color: rgba(100,210,130,0.6);
+}
+
+.mt-inv-item-icon {
+    width: 60px;
+    height: 60px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.mt-inv-item-name {
+    font-size: 18px;
+    color: rgba(255,255,255,0.85);
+    -unity-text-align: middle-center;
+}
+
+.mt-inv-item-dmg {
+    font-size: 16px;
+    color: rgba(255,255,255,0.6);
+    -unity-text-align: middle-center;
+}
+
+.mt-drag-ghost {
+    position: absolute;
+    width: 70px;
+    height: 70px;
+    -unity-background-scale-mode: scale-to-fit;
+    opacity: 0.8;
+}
+
+/* ===== MageTower Detail Popup ===== */
+.mt-detail-overlay {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    background-color: rgba(0,0,0,0.55);
+    justify-content: center;
+    align-items: center;
+}
+
+.mt-detail-panel {
+    width: 80%;
+    max-width: 600px;
+    background-color: rgba(35, 30, 45, 0.96);
+    border-radius: 18px;
+    padding: 22px;
+    gap: 14px;
+}
+
+.mt-detail-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.mt-detail-title {
+    font-size: 32px;
+    -unity-font-style: bold;
+    color: rgba(255,255,255,0.95);
+}
+
+.mt-detail-close {
+    width: 60px;
+    height: 60px;
+    font-size: 28px;
+    border-radius: 999px;
+    background-color: rgba(255,255,255,0.10);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    color: rgba(255,255,255,0.9);
+}
+
+.mt-detail-icon-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+}
+
+.mt-detail-icon {
+    width: 90px;
+    height: 90px;
+    border-radius: 14px;
+    background-color: rgba(255,255,255,0.08);
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.mt-detail-stats {
+    flex-direction: column;
+    gap: 6px;
+}
+
+.mt-detail-stat-label {
+    font-size: 24px;
+    color: rgba(255,255,255,0.85);
+}
+
+.mt-detail-stat-value {
+    font-size: 24px;
+    -unity-font-style: bold;
+    color: rgba(255,255,255,0.95);
+}
+
+.mt-detail-section {
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    background-color: rgba(0,0,0,0.25);
+    border-radius: 12px;
+}
+
+.mt-detail-section-title {
+    font-size: 22px;
+    -unity-font-style: bold;
+    color: rgba(255,255,255,0.9);
+}
+
+.mt-detail-section-info {
+    font-size: 20px;
+    color: rgba(255,255,255,0.7);
+}
+
+.mt-detail-btn {
+    height: 62px;
+    font-size: 24px;
+    border-radius: 12px;
+}
+
+.mt-detail-btn-enhance {
+    background-color: rgba(80, 140, 220, 0.7);
+    color: rgba(255,255,255,0.95);
+}
+.mt-detail-btn-enhance:hover { background-color: rgba(80, 140, 220, 0.85); }
+.mt-detail-btn-enhance:disabled { background-color: rgba(80, 140, 220, 0.3); color: rgba(255,255,255,0.4); }
+
+.mt-detail-btn-awaken {
+    background-color: rgba(160, 80, 220, 0.7);
+    color: rgba(255,255,255,0.95);
+}
+.mt-detail-btn-awaken:hover { background-color: rgba(160, 80, 220, 0.85); }
+.mt-detail-btn-awaken:disabled { background-color: rgba(160, 80, 220, 0.3); color: rgba(255,255,255,0.4); }
+
+.mt-detail-btn-reset {
+    background-color: rgba(200, 70, 70, 0.6);
+    color: rgba(255,255,255,0.9);
+}
+.mt-detail-btn-reset:hover { background-color: rgba(200, 70, 70, 0.75); }
+.mt-detail-btn-reset:disabled { background-color: rgba(200, 70, 70, 0.2); color: rgba(255,255,255,0.35); }
+
+.mt-detail-btn-row {
+    flex-direction: row;
+    gap: 10px;
+}
+
+.mt-detail-btn-row > .mt-detail-btn {
+    flex-grow: 1;
+}
+
+/* ===== Damage Text ===== */
+.damage-text-layer {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+}
+
+.damage-text {
+    position: absolute;
+    -unity-text-align: middle-center;
+    font-size: 30px;
+    -unity-font-style: bold;
+    color: rgba(255,80,80,0.95);
+    -unity-text-outline-width: 1px;
+    -unity-text-outline-color: rgba(0,0,0,0.70);
+}
+
+/* ===== Gacha Panel ===== */
+.gacha-tab-bar {
+    flex-direction: row;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.gacha-tab-btn {
+    flex: 1;
+    height: 64px;
+    font-size: 28px;
+    -unity-font-style: bold;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.gacha-tab-btn-active {
+    background-color: rgba(80, 60, 180, 0.6);
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.gacha-content {
+    flex: 1;
+}
+
+.gacha-desc {
+    font-size: 26px;
+    color: rgba(255, 255, 255, 0.7);
+    white-space: normal;
+    margin-bottom: 8px;
+}
+
+.gacha-cost {
+    font-size: 26px;
+    color: rgba(255, 204, 0, 0.95);
+    margin-bottom: 12px;
+}
+
+.gacha-pull-row {
+    flex-direction: row;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.gacha-pull-btn {
+    flex: 1;
+    height: 90px;
+    font-size: 28px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    white-space: normal;
+    background-color: rgba(60, 120, 220, 0.7);
+    border-radius: 12px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.gacha-pull-btn-disabled {
+    background-color: rgba(100, 100, 100, 0.5);
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.gacha-section-title {
+    font-size: 26px;
+    -unity-font-style: bold;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 10px;
+}
+
+.gacha-reward-grid {
+    flex-wrap: wrap;
+    flex-direction: row;
+    gap: 10px;
+}
+
+.gacha-reward-card {
+    width: 140px;
+    height: 160px;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px;
+}
+
+.gacha-reward-icon {
+    width: 64px;
+    height: 64px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.gacha-reward-name {
+    font-size: 22px;
+    color: rgba(255, 255, 255, 0.9);
+    -unity-text-align: middle-center;
+}
+
+.gacha-reward-rate {
+    font-size: 20px;
+    color: rgba(180, 180, 255, 0.8);
+    -unity-text-align: middle-center;
+}
+
+/* 장비 등급별 카드 테두리 색상 */
+.gacha-rarity-normal {
+    border-width: 2px;
+    border-color: rgba(180, 180, 180, 0.8);
+}
+
+.gacha-rarity-rare {
+    border-width: 2px;
+    border-color: rgba(80, 140, 255, 0.9);
+}
+
+.gacha-rarity-epic {
+    border-width: 2px;
+    border-color: rgba(180, 80, 255, 0.9);
+}
+
+/* 장비 등급 텍스트 색상 */
+.gacha-reward-rarity {
+    font-size: 18px;
+    -unity-text-align: middle-center;
+    -unity-font-style: bold;
+}
+
+.gacha-rarity-text-normal {
+    color: rgba(200, 200, 200, 0.9);
+}
+
+.gacha-rarity-text-rare {
+    color: rgba(100, 160, 255, 1);
+}
+
+.gacha-rarity-text-epic {
+    color: rgba(200, 100, 255, 1);
+}
+
+/* ===== Kingdom Army Panel ===== */
+.ka-member-tabs {
+    flex-direction: row;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.ka-member-tab {
+    flex: 1;
+    height: 56px;
+    font-size: 24px;
+    -unity-font-style: bold;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.ka-member-tab-active {
+    background-color: rgba(60, 140, 80, 0.6);
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.ka-content {
+    flex: 1;
+}
+
+.ka-nav-bar {
+    flex-direction: row;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.ka-nav-btn {
+    flex: 1;
+    height: 52px;
+    font-size: 22px;
+    background-color: rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.ka-nav-btn-active {
+    background-color: rgba(80, 60, 180, 0.5);
+    color: rgba(255, 255, 255, 0.95);
+}
+
+/* Character View */
+.ka-char-header {
+    flex-direction: row;
+    gap: 16px;
+    margin-bottom: 14px;
+    padding: 12px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+}
+
+.ka-char-portrait {
+    width: 120px;
+    height: 120px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.ka-char-portrait-inner {
+    position: absolute;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.ka-char-info {
+    flex: 1;
+    justify-content: center;
+    gap: 4px;
+}
+
+.ka-section-title {
+    font-size: 28px;
+    -unity-font-style: bold;
+    color: rgba(255, 255, 255, 0.85);
+    margin-bottom: 10px;
+}
+
+.ka-subsection-title {
+    font-size: 24px;
+    -unity-font-style: bold;
+    color: rgba(255, 255, 255, 0.75);
+    margin-top: 12px;
+    margin-bottom: 6px;
+}
+
+.ka-stat-line {
+    font-size: 24px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.ka-placeholder-text {
+    font-size: 24px;
+    color: rgba(255, 255, 255, 0.4);
+    -unity-text-align: middle-center;
+    margin: 20px 0;
+}
+
+/* Enhance View */
+.ka-enhance-row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 8px;
+    background-color: rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+    margin-bottom: 6px;
+}
+
+.ka-enhance-name {
+    font-size: 24px;
+    color: rgba(255, 255, 255, 0.8);
+    flex: 1;
+}
+
+.ka-enhance-btn-row {
+    flex-direction: row;
+    gap: 6px;
+}
+
+.ka-small-btn {
+    height: 44px;
+    min-width: 100px;
+    font-size: 20px;
+    background-color: rgba(60, 120, 220, 0.5);
+    border-radius: 8px;
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Equipment View */
+.ka-equip-grid {
+    flex-wrap: wrap;
+    flex-direction: row;
+    gap: 10px;
+}
+
+.ka-equip-slot {
+    width: 140px;
+    height: 120px;
+    background-color: rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.ka-equip-slot-name {
+    font-size: 22px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.ka-equip-slot-empty {
+    font-size: 18px;
+    color: rgba(255, 255, 255, 0.3);
+}
+
+/* Equipment: icon placeholder */
+.ka-equip-icon {
+    width: 60px;
+    height: 60px;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+/* Equipment: dimmed (not allowed for current job) */
+.ka-equip-dimmed {
+    opacity: 0.35;
+}
+
+/* Equipment: equipped item border highlight */
+.ka-equip-equipped {
+    border-width: 3px;
+    border-color: rgb(80, 200, 120);
+    border-radius: 10px;
+}
+
+/* Skill View */
+.ka-skill-row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 8px;
+    background-color: rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+    margin-bottom: 6px;
+}
+
+.ka-skill-info {
+    flex: 1;
+    gap: 2px;
+}
+
+.ka-skill-name {
+    font-size: 24px;
+    -unity-font-style: bold;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.ka-skill-detail {
+    font-size: 20px;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+/* Job Change View */
+.ka-job-grid {
+    flex-wrap: wrap;
+    flex-direction: row;
+    gap: 12px;
+}
+
+.ka-job-card {
+    width: 160px;
+    background-color: rgba(255, 255, 255, 0.07);
+    border-radius: 12px;
+    align-items: center;
+    padding: 12px 8px;
+    gap: 8px;
+}
+
+.ka-job-card-img {
+    width: 80px;
+    height: 80px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.ka-job-card-name {
+    font-size: 24px;
+    -unity-font-style: bold;
+    color: rgba(255, 255, 255, 0.9);
+    -unity-text-align: middle-center;
+}
+
+.ka-job-card-frag {
+    font-size: 20px;
+    color: rgba(255, 200, 100, 0.8);
+    -unity-text-align: middle-center;
+}
+
+.ka-frag-ready {
+    color: rgba(100, 255, 100, 0.9);
+}
+
+/* Job Detail View */
+.ka-back-btn {
+    height: 44px;
+    font-size: 22px;
+    align-self: flex-start;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 8px;
+    padding: 0 16px;
+}
+
+.ka-job-detail-header {
+    flex-direction: row;
+    gap: 16px;
+    margin-bottom: 14px;
+    padding: 14px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+}
+
+.ka-job-detail-img {
+    width: 120px;
+    height: 120px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.ka-job-detail-info {
+    flex: 1;
+    justify-content: center;
+    gap: 4px;
+}
+
+.ka-job-detail-name {
+    font-size: 30px;
+    -unity-font-style: bold;
+    color: rgba(255, 255, 255, 0.95);
+    margin-bottom: 6px;
+}
+
+.ka-frag-bar {
+    padding: 10px;
+    background-color: rgba(255, 200, 100, 0.08);
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+
+.ka-frag-status {
+    font-size: 26px;
+    color: rgba(255, 200, 100, 0.9);
+    -unity-text-align: middle-center;
+}
+
+.ka-change-btn {
+    height: 72px;
+    font-size: 32px;
+    -unity-font-style: bold;
+    background-color: rgba(60, 180, 80, 0.7);
+    border-radius: 12px;
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.ka-change-btn-disabled {
+    background-color: rgba(100, 100, 100, 0.5);
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* ===== Inventory Panel ===== */
+.inv-equip-card {
+    padding: 8px 6px;
+}
+
+.inv-rarity-bar {
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+}
+
+.inv-rarity-normal {
+    background-color: rgba(180, 180, 180, 0.6);
+}
+
+.inv-rarity-rare {
+    background-color: rgba(60, 140, 255, 0.8);
+}
+
+.inv-rarity-epic {
+    background-color: rgba(180, 60, 255, 0.8);
+}
+
+.inv-owner-label {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.4);
+    -unity-text-align: middle-center;
+}
+
+/* ===== 장비 액션 팝업 ===== */
+.ka-equip-action-row {
+    flex-direction: row;
+    gap: 12px;
+    margin-top: 12px;
+    margin-bottom: 8px;
+    justify-content: center;
+}
+
+.ka-action-btn {
+    flex: 1;
+    height: 64px;
+    max-width: 200px;
+    font-size: 28px;
+    -unity-font-style: bold;
+    background-color: rgba(60, 120, 220, 0.7);
+    border-radius: 10px;
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.ka-action-btn-enhance {
+    background-color: rgba(220, 160, 40, 0.8);
+}
+
+.ka-action-btn-disabled {
+    background-color: rgba(100, 100, 100, 0.5);
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.ka-equip-dimmed-text {
+    color: rgba(255, 80, 80, 0.9);
+}
+
+/* ===== [DEBUG] 디버그 메뉴 — 제거 시 이 섹션 전체 삭제 ===== */
+.debug-menu-btn {
+    width: 72px;
+    height: 72px;
+    border-radius: 999px;
+    background-color: rgba(255, 200, 50, 0.85);
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    font-size: 22px;
+    -unity-font-style: bold;
+    color: rgba(0, 0, 0, 0.9);
+}
+.debug-menu-btn:hover { background-color: rgba(255, 200, 50, 1); }
+
+.debug-overlay {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+}
+
+.debug-backdrop {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    background-color: rgba(0, 0, 0, 0.55);
+}
+
+.debug-panel {
+    position: absolute;
+    left: 50%;
+    top: 8%;
+    width: 560px;
+    margin-left: -280px;
+    background-color: rgba(30, 28, 40, 0.97);
+    border-radius: 18px;
+    padding: 22px;
+    gap: 12px;
+}
+
+.debug-title {
+    font-size: 32px;
+    -unity-font-style: bold;
+    color: rgba(255, 200, 50, 0.95);
+    -unity-text-align: middle-center;
+    margin-bottom: 6px;
+}
+
+.debug-section-label {
+    font-size: 24px;
+    -unity-font-style: bold;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 4px;
+}
+
+.debug-currency-grid {
+    gap: 6px;
+}
+
+.debug-currency-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+}
+
+.debug-currency-name {
+    font-size: 24px;
+    color: rgba(255, 255, 255, 0.85);
+    flex: 1;
+}
+
+.debug-currency-btn {
+    height: 48px;
+    min-width: 120px;
+    font-size: 22px;
+    -unity-font-style: bold;
+    background-color: rgba(60, 160, 80, 0.7);
+    border-radius: 8px;
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.95);
+}
+.debug-currency-btn:hover { background-color: rgba(60, 160, 80, 0.9); }
+
+.debug-toggle-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+}
+
+.debug-toggle-label {
+    font-size: 24px;
+    color: rgba(255, 255, 255, 0.85);
+    flex: 1;
+}
+
+.debug-toggle-btn {
+    height: 48px;
+    min-width: 100px;
+    font-size: 22px;
+    background-color: rgba(80, 80, 200, 0.7);
+    border-radius: 8px;
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.95);
+}
+.debug-toggle-btn:hover { background-color: rgba(80, 80, 200, 0.9); }
+
+.debug-close-btn {
+    height: 56px;
+    font-size: 24px;
+    background-color: rgba(180, 60, 60, 0.7);
+    border-radius: 10px;
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.95);
+    margin-top: 6px;
+}
+.debug-close-btn:hover { background-color: rgba(180, 60, 60, 0.9); }
+/* ===== [DEBUG] 디버그 메뉴 끝 ===== */

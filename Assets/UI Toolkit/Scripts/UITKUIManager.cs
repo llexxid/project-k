@@ -1,5 +1,4 @@
-﻿// UITKUIManager.cs
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
@@ -35,6 +34,13 @@ namespace KingdomIdle.UIToolkit
 
         [Header("UXML - Panels (temporary)")]
         [SerializeField] private VisualTreeAsset panelPlaceholderUxml;
+
+        [Header("UXML - Panels")]
+        [SerializeField] private VisualTreeAsset panelGuideUxml;
+        [SerializeField] private VisualTreeAsset panelGachaUxml;
+        [SerializeField] private VisualTreeAsset panelKingdomArmyUxml;
+        [SerializeField] private VisualTreeAsset panelDevelopmentUxml;
+        [SerializeField] private VisualTreeAsset panelInventoryUxml;
 
         [Header("UXML - Overlays")]
         [SerializeField] private VisualTreeAsset overlayLoadingUxml;
@@ -122,6 +128,9 @@ namespace KingdomIdle.UIToolkit
         private VisualElement _toastOverlay;
         private Label _toastLabel;
         private Coroutine _toastCo;
+
+        // Guide
+        private Label _lblGuideBadge;
 
         private const string PrefKeyVolume = "settings_masterVolume";
         private const string PrefKeyPowerSave = "settings_powerSave";
@@ -380,7 +389,7 @@ namespace KingdomIdle.UIToolkit
             _layerOverlays.Add(_toastOverlay);
         }
 
-        private void ShowToast(string message)
+        public void ShowToast(string message)
         {
             if (_toastOverlay == null) EnsureToastOverlay();
 
@@ -426,6 +435,51 @@ namespace KingdomIdle.UIToolkit
 
         private VisualElement CreatePanel(UIPanelId id, object payload)
         {
+            if (id == UIPanelId.Guide)
+            {
+                VisualElement guideVe = panelGuideUxml != null
+                    ? panelGuideUxml.CloneTree()
+                    : new Label("Missing Panel_Guide UXML");
+                UITKGuidePanelController.Populate(guideVe, onProgressChanged: RefreshGuideBadge);
+                return guideVe;
+            }
+
+            if (id == UIPanelId.Gacha)
+            {
+                VisualElement gachaVe = panelGachaUxml != null
+                    ? panelGachaUxml.CloneTree()
+                    : new Label("Missing Panel_Gacha UXML");
+                UITKGachaPanelController.Populate(gachaVe);
+                return gachaVe;
+            }
+
+            if (id == UIPanelId.KingdomArmy)
+            {
+                VisualElement armyVe = panelKingdomArmyUxml != null
+                    ? panelKingdomArmyUxml.CloneTree()
+                    : new Label("Missing Panel_KingdomArmy UXML");
+                UITKKingdomArmyPanelController.Populate(armyVe);
+                return armyVe;
+            }
+
+            if (id == UIPanelId.Development)
+            {
+                VisualElement devVe = panelDevelopmentUxml != null
+                    ? panelDevelopmentUxml.CloneTree()
+                    : new Label("Missing Panel_Development UXML");
+                UITKDevelopmentPanelController.Populate(devVe);
+                return devVe;
+            }
+
+            if (id == UIPanelId.Inventory)
+            {
+                VisualElement invVe = panelInventoryUxml != null
+                    ? panelInventoryUxml.CloneTree()
+                    : new Label("Missing Panel_Inventory UXML");
+                UITKInventoryPanelController.Populate(invVe);
+                return invVe;
+            }
+
             // FIX: 삼항연산 + var 타입 추론 실패(TemplateContainer vs Label) 방지
             VisualElement ve = panelPlaceholderUxml != null
                 ? panelPlaceholderUxml.CloneTree()
@@ -573,6 +627,17 @@ namespace KingdomIdle.UIToolkit
                 };
             }
 
+            var bMenuInventory = root.Q<Button>("BtnMenuInventory");
+            if (bMenuInventory != null)
+            {
+                bMenuInventory.clicked += () =>
+                {
+                    CloseHamburgerMenu();
+                    if (_currencyOpen) CloseCurrencyPopup();
+                    PushPanel(UIPanelId.Inventory, null, clearBefore: false, isTabPanel: false);
+                };
+            }
+
             var bMenuSettings = root.Q<Button>("BtnMenuSettings");
             if (bMenuSettings != null)
             {
@@ -589,6 +654,38 @@ namespace KingdomIdle.UIToolkit
 
             var bMenuMail = root.Q<Button>("BtnMenuMail");
             if (bMenuMail != null) bMenuMail.clicked += () => ShowToast("현재는 지원하지 않는 기능입니다.");
+
+            // Guide 버튼 (좌측 상단)
+            _lblGuideBadge = root.Q<Label>("LblGuideBadge");
+            var btnGuide = root.Q<Button>("BtnGuide");
+            if (btnGuide != null)
+            {
+                btnGuide.clicked += () =>
+                {
+                    if (_currencyOpen) CloseCurrencyPopupImmediate();
+                    if (_hamburgerOpen) CloseHamburgerMenuImmediate();
+                    PushPanel(UIPanelId.Guide, null, clearBefore: false, isTabPanel: false);
+                };
+            }
+            RefreshGuideBadge();
+
+            // ── [DEBUG] 디버그 메뉴 초기화 — 제거 시 이 줄 삭제 ──
+            UITKDebugMenuController.Init(root);
+        }
+
+        public void RefreshGuideBadge()
+        {
+            if (_lblGuideBadge == null) return;
+            int count = TutorialManager.Instance != null ? TutorialManager.Instance.GetIncompleteCount() : 0;
+            if (count > 0)
+            {
+                _lblGuideBadge.text = count.ToString();
+                _lblGuideBadge.RemoveFromClassList("hidden");
+            }
+            else
+            {
+                _lblGuideBadge.AddToClassList("hidden");
+            }
         }
 
         private void BindTab(Button btn, UIPanelId panelId, object panelName)
@@ -896,7 +993,7 @@ namespace KingdomIdle.UIToolkit
             var values = (eCurrency[])Enum.GetValues(typeof(eCurrency));
             foreach (var c in values)
             {
-                if (c == eCurrency.Gold || c == eCurrency.AncientCoin)
+                if (c == eCurrency.Gold || c == eCurrency.AncientCoin || c == eCurrency.ClassFragment)
                     continue;
 
                 var line = new Label($"{c}: {GetCurrencyText(c)}");

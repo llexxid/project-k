@@ -1,9 +1,8 @@
-using Cysharp.Threading.Tasks;
+using KingdomIdle.UIToolkit;
 using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Core.Utils;
 using Scripts.Users;
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -15,90 +14,100 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     public SkillManager skillManager;
     public SkillDatabase skillDatabase;
 
-    // 애니메이터 관련
+    /// <summary>장비 시스템 메인 매니저. UI나 외부 로직에서 참조 가능.</summary>
+    public EquipmentManager equipmentManager;
+
+    [SerializeField]
+    [Tooltip("EquipmentDatabase.asset을 인스펙터에서 연결하세요.")]
+    private EquipmentDatabase _equipmentDatabase;
+
+    [SerializeField]
+    [Tooltip("EquipmentDropTableSO.asset을 인스펙터에서 연결하세요.")]
+    private EquipmentDropTableSO _equipmentDropTable;
+
     public Animator _am;
     AnimatorComponent<ePlayerAction> _animatorComponent;
 
-    // 행동 트리에서 사용할 행동 상태 변수
-    public ePlayerAction _prevAction;
-    public ePlayerAction _playerAction;
+    // 현재 재생 중인 애니메이션 상태 (SetAnimation의 단일 진입점이 관리)
+    private ePlayerAction _currentAction = ePlayerAction.Idle;
+
+    // 공격 애니메이션 보호 타이머: 이 시간 동안 Idle/Walk가 애니메이션을 덮어쓰지 못함
+    private float _attackAnimEndTime = 0f;
+
+    // 사망 여부 (true이면 BT 평가 중단)
+    private bool _isDead = false;
+    /// <summary>외부 컴포넌트(ChangeJob 등)에서 사망 여부를 읽기 위한 프로퍼티</summary>
+    public bool IsDead => _isDead;
+    /// <summary>전직 비용 차감 등 외부에서 User에 접근할 때 사용</summary>
+    public User User => _user;
 
     public IDamageable currentTarget;
     PlayerData _data;
     private User _user;
-	public ulong damage 
+
+    public ulong damage
     {
-        get 
-        {
-            return (_data._atk + _data._extraAtk); 
-        }
+        get { return (ulong)(playerStatus?.Atk ?? 0); }
     }
     public Vector3 targetPos
     {
-        get
-        {
-            return transform.position;
-        }
+        get { return transform.position; }
     }
     public Vector3 attackerPos
     {
-        get
-        {
-            return transform.position;
-        }
+        get { return transform.position; }
     }
+
     public bool TakeDamage(IAttackable attacker)
     {
         ulong dmg = attacker.damage;
         CustomLogger.Log($"Player가 공격을 받고있습니다! DMG : {dmg}");
+
+        // 플레이어 피격 데미지 텍스트 (하얀색)
+        UITKDamageTextBridge.ShowOnTransform(transform, dmg, Color.white);
+
+        // ── [DEBUG] 플레이어 무적 — 제거 시 이 블록 삭제 ──
+        if (UITKDebugMenuController.PlayerInvincible) return true;
+
         bool IsAlive = setHp(dmg);
-
-        if (!IsAlive)
-        {   
-            // 죽었을때
-            return false;
-        }
-
+        if (!IsAlive) return false;
         return true;
-    }
-
-    public int ConnectDamage(IAttackable attacker)
-    {
-        int connect;
-
-        if (TakeDamage(attacker))
-        {
-            connect = 0;
-        }
-        else
-        {
-            connect = 1;
-        } 
-        return connect;
     }
 
     public void Init(PlayerData data, User user)
     {
         _data = data;
         _user = user;
+
+        KingdomIdle.UIToolkit.UITKEquipmentPanelBridge.Init(this, _user);
     }
+
     private void OnDead()
     {
+        if (_isDead) return;
+        _isDead = true;
         CustomLogger.Log("Player Is Dead!!");
-        _playerAction = ePlayerAction.Dead;
-        TurnOnAnimation(_playerAction);
+        SetAnimation(ePlayerAction.Dead);
+        StartCoroutine(PauseAfterDeadAnimation());
     }
+
+    private IEnumerator PauseAfterDeadAnimation()
+    {
+        float deadAnimLength = GetClipLength("Dead_Anim");
+        Debug.Log($"[Player] 사망 애니메이션 대기: {deadAnimLength}초");
+        yield return new WaitForSeconds(deadAnimLength);
+        Scripts.Core.GameManager.Instance?.ReportPlayerDead();
+    }
+
     private bool setHp(ulong damage)
     {
         long totalHp = _data._Hp + _data._extraHp;
-        //죽는경우
         if (totalHp - (long)damage <= 0)
         {
             OnDead();
             return false;
         }
 
-        //ExtraHp먼저 깍기
         if ((long)damage > _data._extraHp)
         {
             long remainDamage = (long)damage - _data._extraHp;
@@ -110,145 +119,171 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         _data._extraHp = _data._extraHp - (int)damage;
         return true;
     }
-    // 초기화 함수
+
     private void Awake()
     {
         InitializeAnimator();
 
+        playerStatus = new PlayerStatus();
+
+        equipmentManager = new EquipmentManager();
+        equipmentManager.Init(playerStatus, _equipmentDatabase, _equipmentDropTable);
+
         playerOrder = new PlayerOrder();
         playerOrder.Init(this);
 
-        //For Test 
+        float attackClipLength = GetClipLength("Attack_Anim");
+        playerOrder._attack.attackRate = attackClipLength;
+
+        //For Test (에디터 전용 — 빌드에서는 Init()으로 주입)
+#if UNITY_EDITOR
         _data._Hp = 50;
         _data._atk = 10;
+#endif
+    }
 
-	}
-
-    // 애니메이터 초기화 함수
     private void InitializeAnimator()
     {
         Dictionary<ePlayerAction, int> dic = new Dictionary<ePlayerAction, int>();
-        dic.Add(ePlayerAction.Idle, Animator.StringToHash("Idle"));
-        dic.Add(ePlayerAction.Walk, Animator.StringToHash("Walk"));
+        dic.Add(ePlayerAction.Idle,   Animator.StringToHash("Idle"));
+        dic.Add(ePlayerAction.Walk,   Animator.StringToHash("Walk"));
         dic.Add(ePlayerAction.Attack, Animator.StringToHash("Attack"));
-        dic.Add(ePlayerAction.Dead, Animator.StringToHash("Dead"));
+        dic.Add(ePlayerAction.Dead,   Animator.StringToHash("Dead"));
 
         _animatorComponent = new AnimatorComponent<ePlayerAction>(_am, dic);
     }
 
-    // 행동 트리에서 플레이어 행동 상태가 변경될 때마다 애니메이션 업데이트
-    private void UpdateAnimation()
+    /// <summary>
+    /// 전직 시 AnimatorController가 교체된 뒤 호출한다.
+    /// </summary>
+    public void RebuildAnimatorComponent()
     {
-        if (_prevAction != _playerAction)
-        {
-            TurnOffAnimation(_prevAction);
-            TurnOnAnimation(_playerAction);
+        Dictionary<ePlayerAction, int> dic = new Dictionary<ePlayerAction, int>();
+        dic.Add(ePlayerAction.Idle,   Animator.StringToHash("Idle"));
+        dic.Add(ePlayerAction.Walk,   Animator.StringToHash("Walk"));
+        dic.Add(ePlayerAction.Attack, Animator.StringToHash("Attack"));
+        dic.Add(ePlayerAction.Dead,   Animator.StringToHash("Dead"));
 
-            // 변경 후 이전 상태를 현재 상태로 갱신
-            _prevAction = _playerAction;
-        }
+        _animatorComponent = new AnimatorComponent<ePlayerAction>(_am, dic);
+
+        float clipLen = GetClipLength("Attack_Anim");
+        if (playerOrder?._attack != null)
+            playerOrder._attack.attackRate = clipLen;
+
+        Debug.Log($"[Player] AnimatorComponent 재구성 완료. Attack 클립: {clipLen}초");
     }
 
-    // 행동 상태에 따른 애니메이션 제어 함수 (애니메이션 끄기)
-    public void TurnOffAnimation(ePlayerAction action)
+    private float GetClipLength(string clipName, float fallback = 0.4f)
     {
-        switch (action)
+        if (_am == null || _am.runtimeAnimatorController == null)
         {
-            case ePlayerAction.Idle:
-            case ePlayerAction.Attack:
-                _animatorComponent.TrySetBool(action, false);
-                break;
+            Debug.LogWarning($"[Player] Animator가 없어 '{clipName}' 클립 길이를 읽을 수 없습니다. 기본값 {fallback}초 사용.");
+            return fallback;
         }
-    }
 
-    // 행동 상태에 따른 애니메이션 제어 함수 (애니메이션 켜기)
-    public void TurnOnAnimation(ePlayerAction action)
-    {
-        switch (action)
+        foreach (var clip in _am.runtimeAnimatorController.animationClips)
         {
-            case ePlayerAction.Idle:
-            case ePlayerAction.Attack:
-            case ePlayerAction.Hurt:
-                _animatorComponent.TrySetBool(action, true);
-                break;
-            case ePlayerAction.Dead:
-                _animatorComponent.TrySetTrigger(action);
-                break;
+            if (clip.name == clipName)
+            {
+                Debug.Log($"[Player] '{clipName}' 클립 길이: {clip.length}초");
+                return clip.length;
+            }
         }
+
+        Debug.LogWarning($"[Player] '{clipName}' 클립을 찾지 못했습니다. 기본값 {fallback}초 사용.");
+        return fallback;
     }
 
     void Update()
     {
-        // 플레이어 행동 트리 평가
+        if (_isDead) return;
         playerOrder._rootNode?.Evaluate();
     }
-    // LateUpdate에서 애니메이션 업데이트 호출 (Update에서 행동 트리 평가 후 애니메이션 상태 변경)
-    private void LateUpdate()
-    {
-        UpdateAnimation();
-    }
 
-    // 공격 애니메이션을 재생하고, 애니메이션이 끝나면 onAnimationEnd를 호출
-    public void PlayAttackAndApplyDamage(Action onAnimationEnd)
+    /// <summary>
+    /// 애니메이션 상태 변경의 단일 진입점.
+    /// - 공격 애니메이션 재생 중에는 Idle/Walk 요청을 무시한다 (Attack 보호).
+    /// - 현재 상태와 동일하면 중복 적용하지 않는다 (Attack/Dead Trigger 제외).
+    /// - 이전 상태의 bool을 끄고 새 상태의 bool/trigger를 켠다.
+    /// BT 리프 노드는 _playerAction을 직접 건드리지 않고 이 메서드만 호출한다.
+    /// </summary>
+    public void SetAnimation(ePlayerAction next)
     {
-        // 공격 상태로 전환하여 애니메이터에 신호를 보냄
-        _playerAction = ePlayerAction.Attack;
-        TurnOnAnimation(_playerAction);
-
-        // 중복 코루틴 방지
-        StopCoroutine(nameof(RunAttackCoroutine));
-        StartCoroutine(RunAttackCoroutine(onAnimationEnd));
-    }
-
-    // 공격 애니메이션이 끝날 때까지 대기하는 코루틴
-    private IEnumerator RunAttackCoroutine(Action onAnimationEnd)
-    {
-        // 애니메이터 컴포넌트가 없는 경우 바로 콜백 호출
-        if (_am == null)
+        // Dead는 항상 즉시 적용
+        if (next == ePlayerAction.Dead)
         {
-            onAnimationEnd?.Invoke();
-            yield break;
+            ApplyAnimation(next);
+            return;
         }
 
-        int attackHash = Animator.StringToHash("Attack");
-
-        // 애니메이터가 Attack 상태로 진입할 때까지 대기 (프레임 단위)
-        // 타임아웃을 넣지 않으면 잘못된 상태머신에서 무한루프 될 수 있음.
-        float timeout = 2f; // 안전 타임아웃 (초)
-        float timer = 0f;
-
-        // 진입 대기: 상태가 Attack으로 바뀌기 전까지 기다림
-        while (_am.GetCurrentAnimatorStateInfo(0).shortNameHash != attackHash && timer < timeout)
+        // 공격 애니메이션 재생 중에는 Idle/Walk 무시
+        if (Time.time < _attackAnimEndTime
+            && next != ePlayerAction.Attack)
         {
-            timer += Time.deltaTime;
-            yield return null;
+            return;
         }
 
-        // 상태에 진입했으면 normalizedTime이 1 이상일 때까지 대기(한 사이클 완료)
-        timer = 0f;
-        while (_am.GetCurrentAnimatorStateInfo(0).shortNameHash == attackHash && _am.GetCurrentAnimatorStateInfo(0).normalizedTime < 1f && timer < timeout)
-        {
-            timer += Time.deltaTime;
-            yield return null;
-        }
+        // 동일 상태 중복 적용 방지 (Trigger인 Attack은 매번 발동해야 하므로 예외)
+        if (next == _currentAction && next != ePlayerAction.Attack)
+            return;
 
-        // 애니메이션 끝 시점에 콜백 호출
-        onAnimationEnd?.Invoke();
-
-        // 애니메이션 끝나면 Idle로 전환
-        _playerAction = ePlayerAction.Idle;
-        TurnOnAnimation(_playerAction);
+        ApplyAnimation(next);
     }
 
-	public void GiveReward(int gold, int ancientCoin)
-	{
+    /// <summary>
+    /// 공격 애니메이션 재생. 타이머를 설정한 뒤 SetAnimation에 위임한다.
+    /// PlayerAttack, PlayerSkill에서 호출한다.
+    /// </summary>
+    public void PlayAttackAnimation()
+    {
+        // 타이머를 먼저 설정해야 SetAnimation 내부에서 보호가 즉시 유효해짐
+        _attackAnimEndTime = Time.time + (playerOrder?._attack?.attackRate ?? 0.4f);
+        SetAnimation(ePlayerAction.Attack);
+    }
+
+    private void ApplyAnimation(ePlayerAction next)
+    {
+        // 이전 bool 기반 상태 끄기 (Idle, Walk만 bool 파라미터)
+        if (_currentAction == ePlayerAction.Idle || _currentAction == ePlayerAction.Walk)
+            _animatorComponent.TrySetBool(_currentAction, false);
+
+        // 새 상태 켜기
+        switch (next)
+        {
+            case ePlayerAction.Idle:
+            case ePlayerAction.Walk:
+            case ePlayerAction.Hurt:
+                _animatorComponent.TrySetBool(next, true);
+                break;
+            case ePlayerAction.Attack:
+            case ePlayerAction.Dead:
+                _animatorComponent.TrySetTrigger(next);
+                break;
+        }
+
+        _currentAction = next;
+    }
+
+    /// <summary>
+    /// Animation Event 전용.
+    /// Attack_Anim의 타격 프레임에 이 함수를 등록하면 정확한 타이밍에 데미지가 들어간다.
+    /// </summary>
+    public void OnAttackHit()
+    {
+        playerOrder?._attack?.DealDamage();
+    }
+
+    public void GiveReward(int gold, int ancientCoin)
+    {
         _user.GainCoin(eCurrency.Gold, gold);
         _user.GainCoin(eCurrency.AncientCoin, ancientCoin);
-        return;
-	}
 
-	public bool Attack(IDamageable target)
-	{
+        equipmentManager?.TryDropEquipment();
+        return;
+    }
+
+    public bool Attack(IDamageable target)
+    {
         return true;
-	}
+    }
 }
