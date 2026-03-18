@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="PanelRoot" class="panel-root">
+        <ui:VisualElement name="Backdrop" class="panel-backdrop" />
+
+        <ui:VisualElement name="Sheet" class="panel-sheet">
+            <ui:VisualElement class="panel-header">
+                <ui:Label name="LblPanelName" text="육성" class="panel-title" />
+                <ui:Button name="BtnPanelClose" text="&#x2715;" class="panel-close-btn" />
+            </ui:VisualElement>
+
+            <!-- 왕국군 멤버 탭 (왕국군1/2/3) -->
+            <ui:VisualElement name="DevMemberTabs" class="ka-member-tabs" />
+
+            <!-- 메인 콘텐츠 (동적) -->
+            <ui:ScrollView name="DevContent" class="ka-content" vertical-scroller-visibility="Auto" />
+
+            <!-- 하단 네비게이션 (강화 등) -->
+            <ui:VisualElement name="DevNavBar" class="ka-nav-bar" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

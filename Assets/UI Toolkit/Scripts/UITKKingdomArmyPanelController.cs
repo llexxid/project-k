@@ -7,12 +7,12 @@ namespace KingdomIdle.UIToolkit
 {
     /// <summary>
     /// 왕국군 패널 컨트롤러.
-    /// 플로우: 왕국군 메뉴 → (강화/장비/스킬/전직) 서브 메뉴
+    /// 플로우: 왕국군 메뉴 → (종합/장비/스킬/전직) 서브 메뉴
     /// 전직 메뉴 → 전직 선택지 → 전직 상세 팝업
     /// </summary>
     public static class UITKKingdomArmyPanelController
     {
-        private enum SubMenu { Character, Enhance, Equipment, Skill, JobChange }
+        private enum SubMenu { Character, Equipment, Skill, JobChange }
 
         private static int _activeMemberIndex;
         private static SubMenu _activeSubMenu;
@@ -24,6 +24,11 @@ namespace KingdomIdle.UIToolkit
         // 캐시된 플레이어 목록
         private static List<Player> _players;
         private static KingdomArmyManager _mgr;
+
+        // 종합 탭 실시간 갱신용 캐시
+        private static IVisualElementScheduledItem _charUpdateSchedule;
+        private static Label _lblHp;
+        private static VisualElement _charPortrait;
 
         // ── 진입점 ──
 
@@ -90,7 +95,7 @@ namespace KingdomIdle.UIToolkit
             }
         }
 
-        // ── 하단 네비게이션 (강화 / 장비 / 왕국군스킬 / 전직) ──
+        // ── 하단 네비게이션 (종합 / 장비 / 스킬 / 전직) ──
 
         private static void BuildNavBar()
         {
@@ -98,10 +103,9 @@ namespace KingdomIdle.UIToolkit
 
             var navItems = new (SubMenu menu, string label)[]
             {
-                (SubMenu.Character, "캐릭터"),
-                (SubMenu.Enhance, "강화"),
+                (SubMenu.Character, "종합"),
                 (SubMenu.Equipment, "장비"),
-                (SubMenu.Skill, "왕국군 스킬"),
+                (SubMenu.Skill, "스킬"),
                 (SubMenu.JobChange, "전직"),
             };
 
@@ -135,12 +139,17 @@ namespace KingdomIdle.UIToolkit
 
         private static void Refresh()
         {
+            // 이전 실시간 갱신 스케줄 해제
+            _charUpdateSchedule?.Pause();
+            _charUpdateSchedule = null;
+            _lblHp = null;
+            _charPortrait = null;
+
             _content.Clear();
 
             switch (_activeSubMenu)
             {
                 case SubMenu.Character: BuildCharacterView(); break;
-                case SubMenu.Enhance:   BuildEnhanceView();   break;
                 case SubMenu.Equipment: BuildEquipmentView(); break;
                 case SubMenu.Skill:     BuildSkillView();     break;
                 case SubMenu.JobChange: BuildJobChangeView(); break;
@@ -166,20 +175,23 @@ namespace KingdomIdle.UIToolkit
             var header = new VisualElement();
             header.AddToClassList("ka-char-header");
 
-            var portrait = new VisualElement();
-            portrait.AddToClassList("ka-char-portrait");
+            _charPortrait = new VisualElement();
+            _charPortrait.AddToClassList("ka-char-portrait");
 
-            // 스프라이트가 있으면 표시
+            // 스프라이트가 있으면 표시 (실시간 갱신 대상)
             var sr = player.GetComponent<SpriteRenderer>();
             if (sr != null && sr.sprite != null)
-                portrait.style.backgroundImage = new StyleBackground(sr.sprite);
+                _charPortrait.style.backgroundImage = new StyleBackground(sr.sprite);
 
-            header.Add(portrait);
+            header.Add(_charPortrait);
 
             var infoCol = new VisualElement();
             infoCol.AddToClassList("ka-char-info");
             infoCol.Add(MakeLabel($"직업: {ps.JobName}", "ka-stat-line"));
-            infoCol.Add(MakeLabel($"HP: {ps.HP} / {ps.MaxHP}", "ka-stat-line"));
+
+            _lblHp = MakeLabel($"HP: {ps.HP} / {ps.MaxHP}", "ka-stat-line");
+            infoCol.Add(_lblHp);
+
             infoCol.Add(MakeLabel($"공격력: {ps.Atk}", "ka-stat-line"));
             infoCol.Add(MakeLabel($"이동속도: {ps.MovSpeed}", "ka-stat-line"));
             infoCol.Add(MakeLabel($"공격속도: {ps.AtkSpeed:F2}초", "ka-stat-line"));
@@ -187,64 +199,175 @@ namespace KingdomIdle.UIToolkit
 
             _content.Add(header);
 
-            // 장착 장비 (더미)
+            // 장착 장비 표시
             _content.Add(MakeLabel("장착 장비", "ka-section-title"));
-            _content.Add(MakeLabel("장비 시스템 미구현", "ka-placeholder-text"));
-        }
+            var equipped = player.equipmentManager?.GetEquipped(eEquipmentSlot.Weapon);
+            if (equipped != null)
+                _content.Add(MakeLabel($"{equipped.baseData.equipmentName} +{equipped.enhancementLevel} (ATK +{equipped.GetFinalAtk()})", "ka-stat-line"));
+            else
+                _content.Add(MakeLabel("없음", "ka-placeholder-text"));
 
-        // ══════════════════════════════════════
-        //  강화 (더미)
-        // ══════════════════════════════════════
-
-        private static void BuildEnhanceView()
-        {
-            _content.Add(MakeLabel("강화", "ka-section-title"));
-
-            var items = new string[] { "공격력 강화", "크리티컬 강화", "치명타 피해 강화", "HP 강화" };
-            foreach (var item in items)
+            // 실시간 갱신 스케줄 (200ms 간격으로 HP, 초상화 스프라이트 업데이트)
+            _charUpdateSchedule = _content.schedule.Execute(() =>
             {
-                var row = new VisualElement();
-                row.AddToClassList("ka-enhance-row");
-                row.Add(MakeLabel(item, "ka-enhance-name"));
+                var p = GetCurrentPlayer();
+                if (p == null) return;
 
-                var btnRow = new VisualElement();
-                btnRow.AddToClassList("ka-enhance-btn-row");
+                // HP 갱신
+                if (_lblHp != null)
+                    _lblHp.text = $"HP: {p.playerStatus.HP} / {p.playerStatus.MaxHP}";
 
-                var btn1 = new Button(() => ShowToast("강화 시스템 미구현"));
-                btn1.text = "강화 x1";
-                btn1.AddToClassList("ka-small-btn");
-                btnRow.Add(btn1);
-
-                var btn10 = new Button(() => ShowToast("강화 시스템 미구현"));
-                btn10.text = "강화 x10";
-                btn10.AddToClassList("ka-small-btn");
-                btnRow.Add(btn10);
-
-                row.Add(btnRow);
-                _content.Add(row);
-            }
+                // 초상화 스프라이트 실시간 갱신
+                if (_charPortrait != null)
+                {
+                    var sprRend = p.GetComponent<SpriteRenderer>();
+                    if (sprRend != null && sprRend.sprite != null)
+                        _charPortrait.style.backgroundImage = new StyleBackground(sprRend.sprite);
+                }
+            }).Every(200);
         }
 
         // ══════════════════════════════════════
-        //  장비 (더미)
+        //  장비
         // ══════════════════════════════════════
 
         private static void BuildEquipmentView()
         {
-            _content.Add(MakeLabel("장비", "ka-section-title"));
-            _content.Add(MakeLabel("장비 시스템 미구현", "ka-placeholder-text"));
+            var player = GetCurrentPlayer();
+            string jobName = player?.playerStatus?.JobName ?? "";
+            var equipMgr = player?.equipmentManager;
 
-            // 더미 장비 슬롯
+            _content.Add(MakeLabel("장비", "ka-section-title"));
+
+            // 현재 장착 슬롯 표시
+            _content.Add(MakeLabel("장착 중", "ka-subsection-title"));
+            var equippedRow = new VisualElement();
+            equippedRow.AddToClassList("ka-equip-grid");
+
+            var equipped = equipMgr?.GetEquipped(eEquipmentSlot.Weapon);
+            var equippedCard = new VisualElement();
+            equippedCard.AddToClassList("ka-equip-slot");
+            if (equipped != null)
+            {
+                equippedCard.AddToClassList("ka-equip-equipped");
+                equippedCard.Add(MakeLabel("무기", "ka-equip-slot-name"));
+                var iconVe = new VisualElement();
+                iconVe.AddToClassList("ka-equip-icon");
+                if (equipped.baseData.icon != null)
+                    iconVe.style.backgroundImage = new StyleBackground(equipped.baseData.icon);
+                equippedCard.Add(iconVe);
+                equippedCard.Add(MakeLabel($"{equipped.baseData.equipmentName} +{equipped.enhancementLevel}", "ka-equip-slot-name"));
+                equippedCard.Add(MakeLabel($"ATK +{equipped.GetFinalAtk()}  HP +{equipped.GetFinalMaxHP()}", "ka-equip-slot-empty"));
+            }
+            else
+            {
+                equippedCard.Add(MakeLabel("무기", "ka-equip-slot-name"));
+                equippedCard.Add(MakeLabel("비어있음", "ka-equip-slot-empty"));
+            }
+            equippedRow.Add(equippedCard);
+            _content.Add(equippedRow);
+
+            // 전체 장비 목록 (EquipmentDatabase에서 가져오기)
+            _content.Add(MakeLabel("장비 목록", "ka-subsection-title"));
+
+            var equipDB = _mgr.EquipDB;
+            if (equipDB == null || equipDB.equipmentList == null || equipDB.equipmentList.Count == 0)
+            {
+                _content.Add(MakeLabel("장비 데이터가 없습니다. (더미 표시)", "ka-placeholder-text"));
+                BuildDummyEquipmentList(jobName, equipped);
+                return;
+            }
+
+            // 실제 EquipmentDatabase에서 장비 표시
             var grid = new VisualElement();
             grid.AddToClassList("ka-equip-grid");
 
-            var slots = new string[] { "무기", "방어구", "투구", "장갑", "신발", "악세서리" };
-            foreach (var slot in slots)
+            foreach (var data in equipDB.equipmentList)
+            {
+                if (data == null) continue;
+                BuildEquipmentCard(grid, data, jobName, equipped);
+            }
+            _content.Add(grid);
+        }
+
+        private static void BuildEquipmentCard(VisualElement grid, EquipmentData data, string jobName, EquipmentInstance equipped)
+        {
+            var card = new VisualElement();
+            card.AddToClassList("ka-equip-slot");
+
+            bool isAllowed = data.IsAllowedForJob(jobName);
+            bool isEquipped = equipped != null && equipped.baseData == data;
+
+            // 전직에 맞지 않는 장비는 어둡게
+            if (!isAllowed)
+                card.AddToClassList("ka-equip-dimmed");
+
+            // 장착된 장비는 테두리 색 변경
+            if (isEquipped)
+                card.AddToClassList("ka-equip-equipped");
+
+            // 등급 표시
+            string rarityStr = data.rarity switch
+            {
+                eEquipmentRarity.Normal => "[일반]",
+                eEquipmentRarity.Rare   => "[레어]",
+                eEquipmentRarity.Epic   => "[에픽]",
+                _ => ""
+            };
+            card.Add(MakeLabel($"{rarityStr} {data.equipmentName}", "ka-equip-slot-name"));
+
+            // 아이콘
+            var iconVe = new VisualElement();
+            iconVe.AddToClassList("ka-equip-icon");
+            if (data.icon != null)
+                iconVe.style.backgroundImage = new StyleBackground(data.icon);
+            card.Add(iconVe);
+
+            // 스탯
+            card.Add(MakeLabel($"ATK +{data.bonusAtk}  HP +{data.bonusMaxHP}", "ka-equip-slot-empty"));
+
+            if (isEquipped)
+                card.Add(MakeLabel("장착 중", "ka-frag-ready"));
+
+            grid.Add(card);
+        }
+
+        /// <summary>EquipmentDatabase가 비어있을 때 더미 장비 목록을 표시한다.</summary>
+        private static void BuildDummyEquipmentList(string jobName, EquipmentInstance equipped)
+        {
+            var grid = new VisualElement();
+            grid.AddToClassList("ka-equip-grid");
+
+            // 더미 데이터: 각 직업별 무기 샘플
+            var dummyItems = new (string name, string job, string rarity)[]
+            {
+                ("마법사의 지팡이",   "Mage",     "[일반]"),
+                ("화염 지팡이",       "Mage",     "[레어]"),
+                ("궁극의 지팡이",     "Mage",     "[에픽]"),
+                ("사냥꾼의 활",       "Archer",   "[일반]"),
+                ("정밀 활",           "Archer",   "[레어]"),
+                ("전설의 활",         "Archer",   "[에픽]"),
+                ("기사의 검",         "Knight",   "[일반]"),
+                ("강화 검",           "Knight",   "[레어]"),
+                ("성스러운 검",       "Knight",   "[에픽]"),
+            };
+
+            foreach (var (name, job, rarity) in dummyItems)
             {
                 var card = new VisualElement();
                 card.AddToClassList("ka-equip-slot");
-                card.Add(MakeLabel(slot, "ka-equip-slot-name"));
-                card.Add(MakeLabel("비어있음", "ka-equip-slot-empty"));
+
+                bool isAllowed = string.IsNullOrEmpty(jobName) || job == jobName;
+                if (!isAllowed)
+                    card.AddToClassList("ka-equip-dimmed");
+
+                card.Add(MakeLabel($"{rarity} {name}", "ka-equip-slot-name"));
+
+                var iconVe = new VisualElement();
+                iconVe.AddToClassList("ka-equip-icon");
+                card.Add(iconVe);
+
+                card.Add(MakeLabel($"직업: {job}", "ka-equip-slot-empty"));
                 grid.Add(card);
             }
             _content.Add(grid);
@@ -256,7 +379,7 @@ namespace KingdomIdle.UIToolkit
 
         private static void BuildSkillView()
         {
-            _content.Add(MakeLabel("왕국군 스킬", "ka-section-title"));
+            _content.Add(MakeLabel("스킬", "ka-section-title"));
 
             var player = GetCurrentPlayer();
             if (player == null || player.playerStatus == null)

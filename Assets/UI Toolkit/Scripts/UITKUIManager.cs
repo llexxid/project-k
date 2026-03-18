@@ -39,6 +39,7 @@ namespace KingdomIdle.UIToolkit
         [SerializeField] private VisualTreeAsset panelGuideUxml;
         [SerializeField] private VisualTreeAsset panelGachaUxml;
         [SerializeField] private VisualTreeAsset panelKingdomArmyUxml;
+        [SerializeField] private VisualTreeAsset panelDevelopmentUxml;
 
         [Header("UXML - Overlays")]
         [SerializeField] private VisualTreeAsset overlayLoadingUxml;
@@ -458,6 +459,15 @@ namespace KingdomIdle.UIToolkit
                     : new Label("Missing Panel_KingdomArmy UXML");
                 UITKKingdomArmyPanelController.Populate(armyVe);
                 return armyVe;
+            }
+
+            if (id == UIPanelId.Development)
+            {
+                VisualElement devVe = panelDevelopmentUxml != null
+                    ? panelDevelopmentUxml.CloneTree()
+                    : new Label("Missing Panel_Development UXML");
+                UITKDevelopmentPanelController.Populate(devVe);
+                return devVe;
             }
 
             // FIX: 삼항연산 + var 타입 추론 실패(TemplateContainer vs Label) 방지

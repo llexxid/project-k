@@ -1392,6 +1392,27 @@
     color: rgba(255, 255, 255, 0.3);
 }
 
+/* Equipment: icon placeholder */
+.ka-equip-icon {
+    width: 60px;
+    height: 60px;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+/* Equipment: dimmed (not allowed for current job) */
+.ka-equip-dimmed {
+    opacity: 0.35;
+}
+
+/* Equipment: equipped item border highlight */
+.ka-equip-equipped {
+    border-width: 3px;
+    border-color: rgb(80, 200, 120);
+    border-radius: 10px;
+}
+
 /* Skill View */
 .ka-skill-row {
     flex-direction: row;
