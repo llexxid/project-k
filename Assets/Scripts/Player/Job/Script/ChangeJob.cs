@@ -107,7 +107,9 @@ public class ChangeJob : MonoBehaviour
     }
 
     /// <summary>
-    /// 직업 이름으로 전직을 시도한다.
+    /// 직업 이름으로 전직을 적용한다.
+    /// 외부 시스템(KingdomArmyManager 등)에서 비용 처리를 마친 뒤 호출하므로
+    /// 골드 비용 검사 없이 직접 해금 및 적용한다.
     /// </summary>
     public void ChangeJobByName(string jobName)
     {
@@ -119,7 +121,17 @@ public class ChangeJob : MonoBehaviour
             Debug.LogWarning($"[ChangeJob] 직업 '{jobName}'을 JobDatabase에서 찾을 수 없습니다.");
             return;
         }
-        TryChangeJob(idx);
+
+        // 해금 처리 (비용은 호출자가 이미 처리)
+        if (!_unlockedJobs.Contains(idx))
+        {
+            _unlockedJobs.Add(idx);
+            SaveUnlockedJobs();
+            OnJobUnlocked?.Invoke(idx);
+        }
+
+        _currentJobIndex = idx;
+        ApplyJobByIndex(idx);
     }
 
     /// <summary>

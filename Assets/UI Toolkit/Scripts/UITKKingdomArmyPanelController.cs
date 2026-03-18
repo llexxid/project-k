@@ -338,10 +338,12 @@ namespace KingdomIdle.UIToolkit
                 var job = jobDB.GetJob(i);
                 if (job == null) continue;
 
+                // 창병(Spearman)은 전직 목록에서 제외
+                if (job.jobName == "Spearman") continue;
+
                 int idx = i;
-                var card = new VisualElement();
+                var card = new Button(() => ShowJobDetail(job));
                 card.AddToClassList("ka-job-card");
-                card.RegisterCallback<PointerUpEvent>(_ => ShowJobDetail(job));
 
                 // 전직 이미지
                 var imgVe = new VisualElement();
