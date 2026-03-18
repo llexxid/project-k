@@ -1,5 +1,4 @@
 using Scripts.Core.inteface;
-using UnityEditor.Tilemaps;
 using UnityEngine;
 
 public class Enemy : MonoBehaviour, IDamageable

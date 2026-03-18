@@ -15,8 +15,6 @@ namespace Scripts.Monster
     using Scripts.Core.StateMachine;
     using Scripts.Monster.MonsterNode;
     using Scripts.Monster.SO;
-    using UnityEditorInternal;
-
     public struct MonsterInfo
     {
         public MonsterInfo(string name, ulong exp, long baseHp, ulong baseAtk, double baseMoveSpeed, double baseAtkSpeed, long dropTable)

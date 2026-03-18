@@ -338,10 +338,11 @@ namespace KingdomIdle.UIToolkit
                 return;
             }
 
-            if (_activeScreenId == UIScreenId.Main && GameManager.Instance != null)
-            {
-                GameManager.Instance.LoadAsyncScene(eSceneType.title);
-            }
+            // ESC로 타이틀 복귀 비활성화
+            // if (_activeScreenId == UIScreenId.Main && GameManager.Instance != null)
+            // {
+            //     GameManager.Instance.LoadAsyncScene(eSceneType.title);
+            // }
         }
 
         private static bool IsBackPressedThisFrame()
