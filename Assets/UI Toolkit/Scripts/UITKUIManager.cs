@@ -314,6 +314,13 @@ namespace KingdomIdle.UIToolkit
 
         public void RequestBack()
         {
+            // 뽑기 결과 팝업이 열려있으면 먼저 닫기
+            if (_gachaResultOverlay != null)
+            {
+                CloseGachaResultPopup();
+                return;
+            }
+
             if (_settingsOverlay != null && !_settingsOverlay.ClassListContains("hidden"))
             {
                 CloseSettings();
@@ -407,6 +414,167 @@ namespace KingdomIdle.UIToolkit
             yield return new WaitForSecondsRealtime(seconds);
             if (_toastOverlay != null) _toastOverlay.AddToClassList("hidden");
             _toastCo = null;
+        }
+
+        // ═══════════════════════════════════════════
+        //  뽑기 결과 팝업
+        // ═══════════════════════════════════════════
+
+        private VisualElement _gachaResultOverlay;
+
+        /// <summary>
+        /// 뽑기 결과를 아이콘+개수 팝업으로 표시한다.
+        /// 하단에 완료 / 다시뽑기x1 / 다시뽑기xN 버튼.
+        /// </summary>
+        public void ShowGachaResultPopup(
+            List<KingdomIdle.Gacha.GachaRewardEntry> results,
+            KingdomIdle.Gacha.GachaTableSO table,
+            int lastPullCount)
+        {
+            CloseGachaResultPopup();
+
+            _gachaResultOverlay = new VisualElement();
+            _gachaResultOverlay.name = "GachaResultOverlay";
+            ForceFullScreen(_gachaResultOverlay);
+            _gachaResultOverlay.AddToClassList("gacha-result-overlay");
+            _gachaResultOverlay.pickingMode = PickingMode.Position; // 외부 클릭 차단
+
+            // 팝업 본체
+            var popup = new VisualElement();
+            popup.AddToClassList("gacha-result-popup");
+
+            popup.Add(new Label("뽑기 결과") { name = "GachaResultTitle" });
+            popup.Q<Label>("GachaResultTitle")?.AddToClassList("gacha-result-title");
+
+            // 결과 아이템 그리드
+            var grid = new VisualElement();
+            grid.AddToClassList("gacha-result-grid");
+
+            // 아이템별 합산 (같은 보상은 수량 합산)
+            var merged = new List<(KingdomIdle.Gacha.GachaRewardEntry entry, int count)>();
+            foreach (var r in results)
+            {
+                string key = r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Equipment && r.equipmentData != null
+                    ? $"equip_{r.equipmentData.GetInstanceID()}"
+                    : $"{r.rewardType}_{r.nameKor}_{r.currency}";
+
+                bool found = false;
+                for (int i = 0; i < merged.Count; i++)
+                {
+                    string mKey = merged[i].entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Equipment && merged[i].entry.equipmentData != null
+                        ? $"equip_{merged[i].entry.equipmentData.GetInstanceID()}"
+                        : $"{merged[i].entry.rewardType}_{merged[i].entry.nameKor}_{merged[i].entry.currency}";
+
+                    if (mKey == key)
+                    {
+                        int amt = r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency ? r.amount : 1;
+                        merged[i] = (merged[i].entry, merged[i].count + amt);
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                {
+                    int amt = r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency ? r.amount : 1;
+                    merged.Add((r, amt));
+                }
+            }
+
+            foreach (var (entry, count) in merged)
+            {
+                var card = new VisualElement();
+                card.AddToClassList("gacha-result-card");
+
+                // 등급 테두리
+                if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Equipment && entry.equipmentData != null)
+                    card.AddToClassList($"gacha-rarity-{entry.equipmentData.rarity.ToString().ToLower()}");
+
+                // 아이콘
+                Sprite icon = entry.icon;
+                if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Equipment && entry.equipmentData != null && entry.equipmentData.icon != null)
+                    icon = entry.equipmentData.icon;
+
+                if (icon != null)
+                {
+                    var iconVe = new VisualElement();
+                    iconVe.AddToClassList("gacha-result-icon");
+                    iconVe.style.backgroundImage = new StyleBackground(icon);
+                    card.Add(iconVe);
+                }
+
+                // 이름
+                string displayName;
+                if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Equipment && entry.equipmentData != null)
+                    displayName = entry.equipmentData.equipmentName;
+                else
+                    displayName = entry.nameKor;
+
+                var nameLbl = new Label(displayName);
+                nameLbl.AddToClassList("gacha-result-name");
+                card.Add(nameLbl);
+
+                // 수량
+                var countLbl = new Label($"x{count}");
+                countLbl.AddToClassList("gacha-result-count");
+                card.Add(countLbl);
+
+                grid.Add(card);
+            }
+
+            var gridScroll = new ScrollView(ScrollViewMode.Vertical);
+            gridScroll.AddToClassList("gacha-result-scroll");
+            gridScroll.Add(grid);
+            popup.Add(gridScroll);
+
+            _gachaResultOverlay.Add(popup);
+
+            // 하단 버튼들 (팝업 하단 가장자리에 겹치는 위치)
+            var btnRow = new VisualElement();
+            btnRow.AddToClassList("gacha-result-btn-row");
+
+            // 완료 버튼
+            var doneBtn = new Button(() => CloseGachaResultPopup());
+            doneBtn.text = "완료";
+            doneBtn.AddToClassList("gacha-result-btn");
+            doneBtn.AddToClassList("gacha-result-btn-done");
+            btnRow.Add(doneBtn);
+
+            // 다시 뽑기 x1
+            var rePull1Btn = new Button(() =>
+            {
+                CloseGachaResultPopup();
+                UITKGachaPanelController.PullAndShowResult(table, 1);
+            });
+            rePull1Btn.text = "다시 뽑기 x1";
+            rePull1Btn.AddToClassList("gacha-result-btn");
+            btnRow.Add(rePull1Btn);
+
+            // 다시 뽑기 xN (마지막 뽑기 수량)
+            if (lastPullCount > 1)
+            {
+                var rePullNBtn = new Button(() =>
+                {
+                    CloseGachaResultPopup();
+                    UITKGachaPanelController.PullAndShowResult(table, lastPullCount);
+                });
+                rePullNBtn.text = $"다시 뽑기 x{lastPullCount}";
+                rePullNBtn.AddToClassList("gacha-result-btn");
+                btnRow.Add(rePullNBtn);
+            }
+
+            popup.Add(btnRow);
+
+            _layerOverlays.Add(_gachaResultOverlay);
+            _gachaResultOverlay.BringToFront();
+        }
+
+        public void CloseGachaResultPopup()
+        {
+            if (_gachaResultOverlay != null)
+            {
+                _gachaResultOverlay.RemoveFromHierarchy();
+                _gachaResultOverlay = null;
+            }
         }
 
         private static void ForceFullScreen(VisualElement ve)

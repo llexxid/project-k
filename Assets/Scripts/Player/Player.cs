@@ -104,6 +104,9 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         long totalHp = _data._Hp + _data._extraHp;
         if (totalHp - (long)damage <= 0)
         {
+            _data._Hp = 0;
+            _data._extraHp = 0;
+            SyncHpToStatus();
             OnDead();
             return false;
         }
@@ -113,11 +116,32 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
             long remainDamage = (long)damage - _data._extraHp;
             _data._extraHp = 0;
             _data._Hp -= remainDamage;
-            return true;
+        }
+        else
+        {
+            _data._extraHp = _data._extraHp - (int)damage;
         }
 
-        _data._extraHp = _data._extraHp - (int)damage;
+        SyncHpToStatus();
         return true;
+    }
+
+    /// <summary>_data._Hp + _data._extraHp 합산값을 playerStatus.HP에 동기화</summary>
+    private void SyncHpToStatus()
+    {
+        if (playerStatus == null) return;
+        playerStatus.HP = (int)(_data._Hp + _data._extraHp);
+    }
+
+    /// <summary>
+    /// 전직 등으로 MaxHP가 변경된 뒤 _data._Hp를 playerStatus.HP와 동기화한다.
+    /// ChangeJob.ApplyJobByIndex에서 호출.
+    /// </summary>
+    public void SyncHpFromStatus()
+    {
+        if (playerStatus == null) return;
+        _data._Hp = playerStatus.HP;
+        _data._extraHp = 0;
     }
 
     private void Awake()
@@ -140,6 +164,8 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         _data._Hp = 50;
         _data._atk = 10;
 #endif
+        // _data와 playerStatus HP 초기 동기화
+        SyncHpToStatus();
     }
 
     private void InitializeAnimator()

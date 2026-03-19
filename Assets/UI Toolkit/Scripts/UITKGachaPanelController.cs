@@ -203,6 +203,15 @@ namespace KingdomIdle.UIToolkit
 
         private static void OnPullClicked(GachaTableSO table, int count)
         {
+            PullAndShowResult(table, count);
+        }
+
+        /// <summary>
+        /// 뽑기를 실행하고 결과를 팝업으로 표시한다.
+        /// 외부(UITKUIManager 다시뽑기 버튼)에서도 호출 가능.
+        /// </summary>
+        public static void PullAndShowResult(GachaTableSO table, int count)
+        {
             var uiMgr = UITKUIManager.Instance;
 
             if (!table.isImplemented)
@@ -227,44 +236,11 @@ namespace KingdomIdle.UIToolkit
                 return;
             }
 
-            ShowResults(results);
+            // 결과를 팝업으로 표시
+            if (uiMgr != null)
+                uiMgr.ShowGachaResultPopup(results, table, count);
+
             RefreshContent();
-        }
-
-        private static void ShowResults(List<GachaRewardEntry> results)
-        {
-            var uiMgr = UITKUIManager.Instance;
-            if (uiMgr == null) return;
-
-            // 보상 합산 요약
-            var summary = new Dictionary<string, int>();
-            for (int i = 0; i < results.Count; i++)
-            {
-                var r = results[i];
-                string key;
-
-                if (r.rewardType == eGachaRewardType.Equipment && r.equipmentData != null)
-                    key = $"[{GetRarityText(r.equipmentData.rarity)}] {r.equipmentData.equipmentName}";
-                else
-                    key = r.nameKor;
-
-                int amt = r.rewardType == eGachaRewardType.Currency ? r.amount : 1;
-
-                if (summary.ContainsKey(key))
-                    summary[key] += amt;
-                else
-                    summary[key] = amt;
-            }
-
-            var sb = new System.Text.StringBuilder();
-            foreach (var kv in summary)
-            {
-                if (sb.Length > 0) sb.Append(", ");
-                sb.Append($"{kv.Key} x{kv.Value}");
-            }
-            sb.Append(" 획득!");
-
-            uiMgr.ShowToast(sb.ToString());
         }
 
         private static string GetRarityText(eEquipmentRarity rarity)

@@ -143,7 +143,38 @@ namespace KingdomIdle.UIToolkit
 
             _players = mgr.GetPlayers();
             if (_players != null && _players.Count > 0)
+            {
                 _playersResolved = true;
+
+                // 플레이어 최초 resolve 시 idle 스프라이트를 초상화에 자동 적용
+                for (int i = 0; i < 3 && i < _players.Count; i++)
+                {
+                    if (GetPortraitSprite(i) != null) continue; // 이미 에디터에서 설정됨
+
+                    var player = _players[i];
+                    if (player == null) continue;
+
+                    // jobSprite(전직 대표 스프라이트) 우선, 없으면 현재 SpriteRenderer 스프라이트
+                    Sprite idleSprite = null;
+                    var jobDB = mgr.JobDB;
+                    if (jobDB != null && player.playerStatus != null)
+                    {
+                        var jobData = jobDB.GetJob(player.playerStatus.JobName);
+                        if (jobData != null && jobData.jobSprite != null)
+                            idleSprite = jobData.jobSprite;
+                    }
+
+                    if (idleSprite == null)
+                    {
+                        var sr = player.GetComponent<SpriteRenderer>();
+                        if (sr != null && sr.sprite != null)
+                            idleSprite = sr.sprite;
+                    }
+
+                    if (idleSprite != null)
+                        SetPortraitSprite(i, idleSprite);
+                }
+            }
         }
 
         private void EnsureHudBuilt()

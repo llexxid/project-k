@@ -1623,6 +1623,103 @@
     -unity-text-align: middle-center;
 }
 
+/* ===== 뽑기 결과 팝업 ===== */
+.gacha-result-overlay {
+    background-color: rgba(0, 0, 0, 0.7);
+    justify-content: center;
+    align-items: center;
+}
+
+.gacha-result-popup {
+    width: 80%;
+    max-width: 700px;
+    max-height: 70%;
+    background-color: rgba(30, 30, 50, 0.95);
+    border-radius: 16px;
+    padding: 20px;
+    border-left-width: 2px; border-right-width: 2px;
+    border-top-width: 2px; border-bottom-width: 2px;
+    border-color: rgba(200, 180, 100, 0.6);
+}
+
+.gacha-result-title {
+    font-size: 32px;
+    -unity-font-style: bold;
+    color: rgba(255, 220, 100, 0.95);
+    -unity-text-align: upper-center;
+    margin-bottom: 16px;
+}
+
+.gacha-result-scroll {
+    flex: 1;
+    min-height: 120px;
+    max-height: 400px;
+}
+
+.gacha-result-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    padding: 8px;
+}
+
+.gacha-result-card {
+    width: 110px;
+    padding: 8px 4px;
+    background-color: rgba(50, 50, 70, 0.8);
+    border-radius: 10px;
+    border-left-width: 2px; border-right-width: 2px;
+    border-top-width: 2px; border-bottom-width: 2px;
+    border-color: rgba(100, 100, 120, 0.5);
+    align-items: center;
+}
+
+.gacha-result-icon {
+    width: 64px;
+    height: 64px;
+    -unity-background-scale-mode: scale-to-fit;
+    margin-bottom: 4px;
+}
+
+.gacha-result-name {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.9);
+    -unity-text-align: upper-center;
+    white-space: normal;
+}
+
+.gacha-result-count {
+    font-size: 20px;
+    -unity-font-style: bold;
+    color: rgba(255, 220, 100, 0.95);
+    -unity-text-align: upper-center;
+}
+
+.gacha-result-btn-row {
+    flex-direction: row;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.gacha-result-btn {
+    height: 56px;
+    min-width: 120px;
+    padding: 0 16px;
+    font-size: 22px;
+    -unity-font-style: bold;
+    background-color: rgba(60, 120, 220, 0.7);
+    border-radius: 10px;
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.gacha-result-btn-done {
+    background-color: rgba(100, 100, 100, 0.7);
+}
+
 /* ===== 장비 액션 팝업 ===== */
 .ka-equip-action-row {
     flex-direction: row;
