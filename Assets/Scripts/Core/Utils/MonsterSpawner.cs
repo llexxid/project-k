@@ -1,19 +1,23 @@
 using Cysharp.Threading.Tasks.Triggers;
 using Scripts.Core;
+using Scripts.Core.DataStructure;
+using Scripts.Core.SO;
+using Scripts.Monster;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
-using Scripts.Monster;
-using Scripts.Core.DataStructure;
 
 namespace Scripts.Core.Utils
 {
     using Monster = Scripts.Monster.Monster;
     public class MonsterSpawner : MonoBehaviour
     {
+        [SerializeField]
+        MonsterInfoSO _monsterInfo;
+
         public static MonsterSpawner Instance;
         //스테이지에 어떤 몬스터가 나오는지 리소스 관리
         private Dictionary<eMonsterType, Monster> _monsterCache;
@@ -118,6 +122,11 @@ namespace Scripts.Core.Utils
                 return;
             }
             monster = pool.Alloc(pos, rotate);
+            _monsterInfo.TryGetMonsterInfo(id, out MonsterInfo info);
+
+			//몬스터 스텟 초기화해서 주기
+			Monster.MonsterStat stat = new Monster.MonsterStat(info._baseHp, 0, (ulong)info._baseAtk, info._baseMoveSpeed, info._baseAtkSpeed);
+            monster.Init(id, stat, info._dropTableNumber);
             monster.gameObject.SetActive(true);
             return;
         }

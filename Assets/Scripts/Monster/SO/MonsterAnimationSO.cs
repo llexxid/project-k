@@ -13,7 +13,7 @@ namespace Scripts.Monster.SO
 		public AnimationClip clip;     
 	}
 
-	[CreateAssetMenu(fileName = "MonsterAnimationDataSO", menuName = "ScriptableObjects/MonsterAnimationDataSO")]
+	[CreateAssetMenu(fileName = "MonsterAnimationDataSO", menuName = "ScriptableObjects/Monster/MonsterAnimationDataSO")]
 	public class MonsterAnimationSO : ScriptableObject
 	{
 		[SerializeField]

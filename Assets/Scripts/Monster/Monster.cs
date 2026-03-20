@@ -314,6 +314,8 @@ namespace Scripts.Monster
             CustomLogger.Log("Monster Is Dead!!");
             _monAction = eMonsterAction.Dead;
 
+            //StageManager에게 알려줘야함.
+            StageManager.Instance.DecrementMonCount();
             // 수정한 부분
             // 루트·자식 모든 콜라이더 즉시 비활성화 → OverlapCircle에서 감지되지 않음
             foreach (var col in GetComponentsInChildren<Collider2D>())

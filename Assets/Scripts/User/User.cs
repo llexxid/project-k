@@ -44,6 +44,11 @@ namespace Scripts.Users
 			return _userData._currentStage;
 		}
 
+		public void SetStage(eStage stage)
+		{
+			_userData._currentStage = stage;
+		}
+
 		public void GainCoin(eCurrency type, int amount)
 		{
 			_wallet.AddCoins(type, amount);
