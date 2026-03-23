@@ -1,5 +1,6 @@
 using Scripts.Core;
 using Scripts.Core.inteface;
+using Scripts.Core.Utils;
 using Scripts.Monster;
 using System.Collections.Generic;
 using UnityEngine;
@@ -80,7 +81,11 @@ public class PlayerAttack
         {
             if (!IsTargetDead(_hitResults[i])) { hasAliveTarget = true; break; }
         }
-        if (!hasAliveTarget) return NodeState.Failure;
+        if (!hasAliveTarget)
+        {
+			CustomLogger.Log("Player가 공격범위 내에 대상이 없습니다..");
+			return NodeState.Failure;
+		} 
 
 
         // [4] 쿨타임 소모
@@ -162,7 +167,6 @@ public class PlayerAttack
         }
         return isAlive;
     }
-
 
     private bool IsTargetDead(Collider2D col)
     {

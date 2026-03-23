@@ -43,6 +43,7 @@ namespace Scripts.Monster
 
     public class Monster : MonoBehaviour, IPoolable, IDamageable, IAttackable
     {
+        [Serializable]
         public struct MonsterStat
         {
             public MonsterStat(long hp, int extraHp, ulong atk, double moveSpeed, double atkSpeed)
@@ -61,6 +62,7 @@ namespace Scripts.Monster
             public double _moveSpeed;
             public double _atkSpeed;
         }
+        [SerializeField]
         private MonsterStat _stat;
         [System.NonSerialized] eMonsterType _type;
         long _dropTableNumber;
@@ -125,16 +127,19 @@ namespace Scripts.Monster
             get { return _facingDir; }
         }
         AnimatorComponent<eMonsterAction> _animatorComponent;
-        public AnimatorComponent<eMonsterAction> AnimationComponent
+
+		public AnimatorComponent<eMonsterAction> AnimationComponent
         {
             get { return _animatorComponent; }
         }
         StateMachine<Monster> _stateManchine;
-        [SerializeField]
-        MonsterAnimationSO _AnimationClipSO;
 
+		[SerializeField]
+        MonsterAnimationSO _AnimationClipSO;
         float _lastAttackTime;
-        public float LastAttackTime
+		public event Action OnDeath;
+
+		public float LastAttackTime
         {
             get { return _lastAttackTime; }
         }
@@ -160,7 +165,6 @@ namespace Scripts.Monster
         {
             if (_monAI != null)
             {
-                Debug.Log("_MonAI is Not NULL");
                 _monAI.ExecuteNode();
             }
             _stateManchine.currentState.OnUpdate();
@@ -210,6 +214,7 @@ namespace Scripts.Monster
         public void ResetTarget()
         {
             Target = null;
+            CustomLogger.Log("Target 초기화!");
         }
         public void SetType(eMonsterType monsterType)
         {
@@ -217,13 +222,15 @@ namespace Scripts.Monster
         }
         public void SetTarget(IDamageable target)
         {
-            //개발 모드. null일 때 Log남겨놓고 Crash!
             if (target == null)
             {
-                CustomLogger.LogWarning("Monster SetTarget is Null!");
+                CustomLogger.Log("Target IS NULL");
+                return;
             }
+
             Target = target;
-        }
+			target.OnDeath += ResetTarget;
+		}
         public void SetAction(eMonsterAction action)
         {
             //Action Update.
@@ -233,7 +240,11 @@ namespace Scripts.Monster
         {
             //생성자
             _stateManchine.BeginMachine(new MonsterMoveState(this));
-            return;
+
+			foreach (var col in GetComponentsInChildren<Collider2D>())
+				col.enabled = true;
+
+			return;
         }
         public void OnRelease()
         {
@@ -276,16 +287,14 @@ namespace Scripts.Monster
         public bool Attack(IDamageable target)
         {
             bool IsAlive;
-            IsAlive = target.TakeDamage(this);
-            _lastAttackTime = Time.time;
-            CustomLogger.Log("Monster 공격!");
+            IsAlive = target.TakeDamage(this);    
             if (!IsAlive)
             {
                 CustomLogger.Log("타겟이 죽음");
-                ResetTarget();
                 return false;
             }
-            return true;
+			_lastAttackTime = Time.time;
+			return true;
         }
 
         public void ChangeState(EntityState<Monster> state)
@@ -315,15 +324,18 @@ namespace Scripts.Monster
             _monAction = eMonsterAction.Dead;
 
             //StageManager에게 알려줘야함.
-            StageManager.Instance.DecrementMonCount();
-            // 수정한 부분
-            // 루트·자식 모든 콜라이더 즉시 비활성화 → OverlapCircle에서 감지되지 않음
-            foreach (var col in GetComponentsInChildren<Collider2D>())
+			OnDeath?.Invoke();
+			OnDeath = null;
+
+			// 수정한 부분
+			// 루트·자식 모든 콜라이더 즉시 비활성화 → OverlapCircle에서 감지되지 않음
+			foreach (var col in GetComponentsInChildren<Collider2D>())
                 col.enabled = false;
             // 여기까지만
 
             _stateManchine.ChangeState(new MonsterDeadState(this));
-        }
+
+		}
 
         private void InitializeAnimator()
         {

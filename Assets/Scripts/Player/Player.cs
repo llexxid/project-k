@@ -3,6 +3,7 @@ using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Core.Utils;
 using Scripts.Users;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -41,11 +42,14 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     /// <summary>전직 비용 차감 등 외부에서 User에 접근할 때 사용</summary>
     public User User => _user;
 
+    [SerializeField]
     public IDamageable currentTarget;
     PlayerData _data;
     private User _user;
 
-    public ulong damage
+	public event Action OnDeath;
+
+	public ulong damage
     {
         get { return (ulong)(playerStatus?.Atk ?? 0); }
     }
@@ -88,7 +92,15 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         _isDead = true;
         CustomLogger.Log("Player Is Dead!!");
         SetAnimation(ePlayerAction.Dead);
-        StartCoroutine(PauseAfterDeadAnimation());
+
+        OnDeath?.Invoke();
+        OnDeath = null;
+
+        //즉시 콜라이더 비활성화
+		foreach (var col in GetComponentsInChildren<Collider2D>())
+			col.enabled = false;
+
+		StartCoroutine(PauseAfterDeadAnimation());
     }
 
     private IEnumerator PauseAfterDeadAnimation()

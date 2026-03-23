@@ -47,7 +47,8 @@ namespace Scripts.Core.Utils
 
             _Handles = new Dictionary<long, AsyncOperationHandle<IList<GameObject>>>();
             _SingleHandle = new Dictionary<eMonsterType, AsyncOperationHandle<GameObject>>();
-        }
+            _monsterInfo.Init();
+		}
 
         public void OnEnterScene()
         {
@@ -80,6 +81,13 @@ namespace Scripts.Core.Utils
 			}
 			_Handles.Clear();
 			_SingleHandle.Clear();
+		}
+
+        public MonsterInfo GetMonsterInfo(eMonsterType type)
+        {
+            MonsterInfo ret;
+			_monsterInfo.TryGetMonsterInfo(type, out ret);
+            return ret;
 		}
 
         public async void SpawnMonsterForTest(eMonsterType id, Vector3 pos, Quaternion rotate, Action<Monster> callback)

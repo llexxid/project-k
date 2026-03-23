@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 namespace Scripts.Core.inteface
 {
@@ -25,6 +26,7 @@ namespace Scripts.Core.inteface
     /// </summary>
     public interface IDamageable
     {
+        event Action OnDeath;
         public Vector3 targetPos { get; }
         public bool TakeDamage(IAttackable attacker);
     }

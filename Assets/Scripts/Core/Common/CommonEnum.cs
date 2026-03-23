@@ -153,8 +153,6 @@ namespace Scripts.Core
         public long _Hp;
 		public uint _extraAtk;
 		public int _extraHp;
-
-
     }
 
 }

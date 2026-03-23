@@ -129,6 +129,7 @@ namespace Scripts.Core
 
 					Monster mon;
 					MonsterSpawner.Instance.SpawnMonster(type, pos, Quaternion.identity, out mon);
+                    mon.OnDeath += DecrementMonCount;
 				}
 			}
 		}
