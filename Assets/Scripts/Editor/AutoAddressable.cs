@@ -2,18 +2,15 @@ using ExcelDataReader;
 using Scripts.Core;
 using Scripts.Core.Utils;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
-using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEngine;
-using static UnityEngine.Networking.UnityWebRequest;
+
 
 namespace Scripts.Core.Parser
 {
@@ -86,6 +83,7 @@ namespace Scripts.Core.Parser
             auto.Init();
             auto.GenerateStageMetaSO();
             auto.GenerateMonsterMetaSO();
+			auto.GenerateMonsterInfoSO();
 			auto.GenerateDropTableMetaSO();
             auto.GenerateSceneVFXMetaSO();
 			auto.GenerateSceneSFXMetaSO();
@@ -118,15 +116,6 @@ namespace Scripts.Core.Parser
             AutoAddressable auto = new AutoAddressable();
             auto.GenerateEnumCode();
         }
-        [MenuItem("MyTools/GenerateEnumTest")]
-        private static void Test()
-        {
-            AutoAddressable auto = new AutoAddressable();
-            auto.Init();
-            auto.GenerateDropTableEnumFile();
-            auto.GenerateStageEnumFile();
-			auto.GenerateStageMetaSO();
-		}
 
         private void GenerateEnumCode()
         {
@@ -163,6 +152,7 @@ namespace Scripts.Core.Parser
 			ExcelFileReader reader = new ExcelFileReader(FilePath, storePath);
 			StringBuilder sb;
 			reader.ReadExcelFile(ReadDropTableLogic_for_CreateEnum, out sb);
+			reader.WriteToFile(sb);
 		}
         private void GenerateStageMetaSO()
         {
@@ -183,6 +173,18 @@ namespace Scripts.Core.Parser
 			reader.ReadExcelFile(ReadMonsterLogic_for_CreateMonsterMetaSO, out sb);
 			reader.WriteToFile(sb);
         }
+
+		private void GenerateMonsterInfoSO()
+		{
+			string FilePath = Path.Combine(Application.dataPath, ConstPath.MONSTER_EXCEL_PATH);
+			string storePath = Path.Combine(Application.dataPath, ConstPath.GENERATE_MONSTERINFO_PATH);
+			ExcelFileReader reader = new ExcelFileReader(FilePath, storePath);
+
+			StringBuilder sb;
+			reader.ReadExcelFile(ReadMonsterLogic_for_CreateMonsterInfoSO, out sb);
+			reader.WriteToFile(sb);
+		}
+
         private void GenerateDropTableMetaSO()
         {
 			string FilePath = Path.Combine(Application.dataPath, ConstPath.DROPTABLE_EXCEL_PATH);
@@ -568,7 +570,6 @@ namespace Scripts.Core.Parser
 				int ArrayLength = sheet.Rows.Count;
 				for (int row = 0; row < sheet.Rows.Count; row++)
 				{
-
 					DataRow rowData = sheet.Rows[row];
 					long Id = Convert.ToInt64(rowData["Id"]);
 					string tableName = rowData["TableName"].ToString();
@@ -678,21 +679,18 @@ namespace Scripts.Core.Parser
 				CloseBrace(sb);
 			}
 		}
-		private void ReadMonsterLogic_for_CreateMonsterMetaSO(StringBuilder sb, DataSet data)
+
+		private void ReadMonsterLogic_for_CreateMonsterInfoSO(StringBuilder sb, DataSet data)
 		{
 			CreateMetaSOHeader(sb);
 			OpenBrace(sb);
 			sb.Append($"using Scripts.Monster;\n");
-			sb.Append($"[CreateAssetMenu(fileName = \"MonsterMetaDataSO\", menuName = \"ScriptableObjects/MonsterMetaDataSO\")]");
-			sb.Append($"public class MonsterMetaSO : ScriptableObject");
+			sb.Append($"[CreateAssetMenu(fileName = \"MonsterInfoSO\", menuName = \"ScriptableObjects/Monster/MonsterInfoSO\")]");
+			sb.Append($"public class MonsterInfoSO : ScriptableObject");
 			OpenBrace(sb);
-			sb.Append($"Dictionary<eMonsterType, List<eVFXType>> _dic;\n");
-			sb.Append($"Dictionary<eMonsterType, List<eSFXType>> _dic2;\n");
 			sb.Append($"Dictionary<eMonsterType, MonsterInfo> _mInfodic;\n");
 			sb.Append($"public void Init()");
 			OpenBrace(sb);
-			sb.Append($"_dic = new Dictionary<eMonsterType, List<eVFXType>>();\n");
-			sb.Append($"_dic2 = new Dictionary<eMonsterType, List<eSFXType>>();\n");
 			sb.Append($"_mInfodic = new Dictionary<eMonsterType, MonsterInfo>();\n");
 
 			var tables = data.Tables;
@@ -702,8 +700,6 @@ namespace Scripts.Core.Parser
 				int ArrayLength = sheet.Rows.Count;
 				for (int row = 0; row < sheet.Rows.Count; row++)
 				{
-					sb.Append($"List<eVFXType> list_vfx{row} = new List<eVFXType>();\n");
-					sb.Append($"List<eSFXType> list_sfx{row} = new List<eSFXType>();\n");
 					DataRow rowData = sheet.Rows[row];
 					string name = rowData["fileName"].ToString();
 
@@ -714,39 +710,75 @@ namespace Scripts.Core.Parser
 
 					double movespeed = Convert.ToDouble(rowData["MoveSpeed"]);
 					double atkspeed = Convert.ToDouble(rowData["AttackSpeed"]);
-
 					long dropTableNum = Convert.ToInt64(rowData["DropTable"]);
+
+					//MonsterInfo
+					sb.Append($"MonsterInfo monInfo_{name} = new MonsterInfo(\"{_monName}\",{exp},{hp},{atk}, {movespeed},{atkspeed},{dropTableNum});\n");
+					sb.Append($"_mInfodic.Add(eMonsterType.{name},monInfo_{name});\n");
+				}
+			}
+			CloseBrace(sb);
+			CreateTryGetMonsterInfo(sb);
+			//
+			CloseBrace(sb);
+			CloseBrace(sb);
+		}
+
+		private void ReadMonsterLogic_for_CreateMonsterMetaSO(StringBuilder sb, DataSet data)
+		{
+			CreateMetaSOHeader(sb);
+			OpenBrace(sb);
+			sb.Append($"using Scripts.Monster;\n");
+			sb.Append($"[CreateAssetMenu(fileName = \"MonsterMetaDataSO\", menuName = \"ScriptableObjects/MonsterMetaDataSO\")]");
+			sb.Append($"public class MonsterMetaSO : ScriptableObject");
+			OpenBrace(sb);
+			sb.Append($"Dictionary<eMonsterType, List<eVFXType>> _dic;\n");
+			sb.Append($"Dictionary<eMonsterType, List<eSFXType>> _dic2;\n");
+			sb.Append($"public void Init()");
+			OpenBrace(sb);
+			sb.Append($"_dic = new Dictionary<eMonsterType, List<eVFXType>>();\n");
+			sb.Append($"_dic2 = new Dictionary<eMonsterType, List<eSFXType>>();\n");
+
+			var tables = data.Tables;
+			for (int sheetIndex = 0; sheetIndex < tables.Count; sheetIndex++)
+			{
+				DataTable sheet = tables[sheetIndex];
+				int ArrayLength = sheet.Rows.Count;
+				for (int row = 0; row < sheet.Rows.Count; row++)
+				{
+					DataRow rowData = sheet.Rows[row];
+					string name = rowData["fileName"].ToString();
 
 					ulong maskedId = Convert.ToUInt64(rowData["MaskedId"]);
 
 					string vfx = rowData["VFX"].ToString();
 					string sfx = rowData["SFX"].ToString();
 
-					string[] vfxs = vfx.Split(new char[] { ',', ' ' });
-					string[] sfxs = sfx.Split(new char[] { ',', ' ' });
-
-					for (int k = 0; k < vfxs.Length; k++)
+					if (!string.IsNullOrEmpty(vfx))
 					{
-						sb.Append($"list_vfx{row}.Add(eVFXType.{vfxs[k]});\n");
+						sb.Append($"List<eVFXType> list_vfx{row} = new List<eVFXType>();\n");
+						string[] vfxs = vfx.Split(new char[] { ',', ' ' });
+						for (int k = 0; k < vfxs.Length; k++)
+						{
+							sb.Append($"list_vfx{row}.Add(eVFXType.{vfxs[k]});\n");
+						}
+						sb.Append($"_dic.Add(eMonsterType.{name},list_vfx{row});\n");
 					}
-
-					for (int k = 0; k < sfxs.Length; k++)
+					if (!string.IsNullOrEmpty(sfx))
 					{
-						sb.Append($"list_sfx{row}.Add(eSFXType.{sfxs[k]});\n");
+						sb.Append($"List<eSFXType> list_sfx{row} = new List<eSFXType>();\n");
+						string[] sfxs = sfx.Split(new char[] { ',', ' ' });
+						for (int k = 0; k < sfxs.Length; k++)
+						{
+							sb.Append($"list_sfx{row}.Add(eSFXType.{sfxs[k]});\n");
+						}
+						sb.Append($"_dic2.Add(eMonsterType.{name},list_sfx{row});\n");
 					}
-
-
-					//SFXµµ Áö¿ø
-					sb.Append($"_dic.Add(eMonsterType.{name},list_vfx{row});\n");
-					sb.Append($"_dic2.Add(eMonsterType.{name},list_sfx{row});\n");
-
-					sb.Append($"MonsterInfo monInfo_{name} = new MonsterInfo(\"{_monName}\",{exp},{hp},{atk}, {movespeed},{atkspeed},{dropTableNum});\n");
-					sb.Append($"_mInfodic.Add(eMonsterType.{name},monInfo_{name});\n");
+		
 				}
 			}
 			CloseBrace(sb);
 			CreateTryGetVFXList(sb);
-			CreateTryGetMonsterInfo(sb);
 			CreateTryGetSFXList(sb);
 			//
 			CloseBrace(sb);

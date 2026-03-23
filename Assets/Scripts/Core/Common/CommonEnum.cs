@@ -28,6 +28,8 @@ namespace Scripts.Core
 		public static readonly string GENERATE_DROPTABLE_META_PATH = @"Scripts\Core\SO\DropTableMetaSO.cs";
 		public static readonly string GENERATE_SFX_PATH = @"Scripts\Core\SO\SoundMetaDataSO.cs";
 
+		public static readonly string GENERATE_MONSTERINFO_PATH = @"Scripts\Core\SO\MonsterInfoSO.cs";
+
 		public static readonly string GENERATE_SCENE_VFX_META_PATH = @"Scripts\Core\SO\SceneVFXMetaSO.cs";
 		public static readonly string GENERATE_SCENE_SFX_META_PATH = @"Scripts\Core\SO\SceneSFXMetaSO.cs";
         
@@ -151,8 +153,6 @@ namespace Scripts.Core
         public long _Hp;
 		public uint _extraAtk;
 		public int _extraHp;
-
-
     }
 
 }

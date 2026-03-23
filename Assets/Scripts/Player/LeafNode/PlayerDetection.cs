@@ -1,4 +1,5 @@
 using Scripts.Core.inteface;
+using Scripts.Core.Utils;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -18,6 +19,7 @@ public class PlayerDetection
 
     public void Detect()
     {
+        CustomLogger.Log("Player가 탐지중입니다...");
         ContactFilter2D filter = new ContactFilter2D();
         filter.SetLayerMask(enemyLayer);
         filter.useTriggers = true;
@@ -70,7 +72,6 @@ public class PlayerDetection
         public override NodeState Evaluate()
         {
             _detection.Detect();
-
             foreach (var target in _detection.detectedResults)
             {
                 if (target.CompareTag("Enemy")) return NodeState.Success;
