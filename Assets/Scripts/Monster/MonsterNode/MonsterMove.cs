@@ -36,7 +36,7 @@ namespace Scripts.Monster.MonsterNode
 
             _monster.ChangeState(new MonsterMoveState(_monster));
             _monster.SetFlip(dir.x);
-            CustomLogger.Log($"몬스터가 {_monster.GetSpeed()} 속도로 0,0,0을 향해 움직임");
+            //CustomLogger.Log($"몬스터가 {_monster.GetSpeed()} 속도로 0,0,0을 향해 움직임");
             //rb는 기본적으로 월드좌표 기준.
             //Translate는 로컬 좌표를 기준으로 움직임.
             //Rotate를 하면, 로컬 좌표계도 뒤집히므로, Translate할 때, 내가 바라보는 방향 반대로 가게됨.
