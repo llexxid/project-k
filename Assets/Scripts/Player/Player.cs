@@ -264,6 +264,54 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         _currentAction = next;
     }
 
+    // PlayerSkill이 애니메이션 트리거 직전에 채워두는 VFX 대기 데이터
+    private eVFXType _pendingVFXType;
+    private Vector3  _pendingVFXPos;      // Execute() 시점에 계산된 월드 좌표
+    private float    _pendingVFXFacing;   // 방향 반전 판단용 (scale.x 부호)
+    private int      _pendingVFXDuration;
+    private bool     _pendingVFXFlip;
+    private bool     _hasPendingVFX;
+
+    /// <summary>
+    /// PlayerSkill이 애니메이션 트리거 전에 호출.
+    /// VFX 위치는 Execute() 시점에 확정해서 저장한다.
+    /// </summary>
+    public void SetPendingSkillVFX(eVFXType vfxType, Vector3 vfxPos, float facing, int duration, bool flip)
+    {
+        _pendingVFXType     = vfxType;
+        _pendingVFXPos      = vfxPos;
+        _pendingVFXFacing   = facing;
+        _pendingVFXDuration = duration;
+        _pendingVFXFlip     = flip;
+        _hasPendingVFX      = true;
+    }
+
+    /// <summary>
+    /// Animation Event 전용.
+    /// 스킬 공격 애니메이션의 VFX 시작 프레임에 등록한다.
+    /// </summary>
+    public void OnSkillVFXStart()
+    {
+        if (!_hasPendingVFX) return;
+        _hasPendingVFX = false;
+
+        Vector3 vfxPos   = _pendingVFXPos;
+        float   facing   = _pendingVFXFacing;
+        int     duration = _pendingVFXDuration;
+        bool    flipVFX  = _pendingVFXFlip;
+
+        VFXManager.Instance?.GetVFX(_pendingVFXType, vfxPos, Quaternion.identity,
+            (vfx) =>
+            {
+                if (vfx == null) return;
+                Vector3 s    = vfx.transform.localScale;
+                bool    flip = facing >= 0f ? flipVFX : !flipVFX;
+                s.x = flip ? -Mathf.Abs(s.x) : Mathf.Abs(s.x);
+                vfx.transform.localScale = s;
+                vfx.ActiveEffect(duration);
+            });
+    }
+
     /// <summary>
     /// Animation Event 전용.
     /// Attack_Anim의 타격 프레임에 이 함수를 등록하면 정확한 타이밍에 데미지가 들어간다.

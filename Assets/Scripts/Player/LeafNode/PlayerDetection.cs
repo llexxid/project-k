@@ -25,17 +25,40 @@ public class PlayerDetection
         // 리스트를 재사용하여 가비지 발생을 최소화하는 방식
         int count = Physics2D.OverlapCircle(player.transform.position, detectionRadius, filter, detectedResults);
 
+        // 기존 타겟이 살아있고 범위 안에 있으면 그대로 유지 (겹침 시 타겟 흔들림 방지)
+        if (currentTarget != null)
+        {
+            var currentMono = currentTarget as MonoBehaviour;
+            if (currentMono != null && currentMono.gameObject.activeInHierarchy)
+            {
+                float distToCurrent = Vector2.Distance(
+                    player.transform.position, currentMono.transform.position);
+                if (distToCurrent <= detectionRadius)
+                    return;
+            }
+        }
+
+        // 범위 내 가장 가까운 적을 타겟으로 선택
+        IDamageable closest = null;
+        float closestDist = float.MaxValue;
+
         for (int i = 0; i < count; i++)
         {
-            if (detectedResults[i].CompareTag("Enemy"))
+            if (!detectedResults[i].CompareTag("Enemy")) continue;
+
+            float dist = Vector2.Distance(
+                player.transform.position, detectedResults[i].transform.position);
+            if (dist < closestDist)
             {
-                currentTarget = detectedResults[i].gameObject.GetComponent<IDamageable>(); // 타겟 저장
-
-                player.currentTarget  = currentTarget; // 플레이어의 타겟 변수에도 저장
-
-                return; // 가장 가까운 적 하나만 찾으면 종료
+                closestDist = dist;
+                closest = detectedResults[i].GetComponent<IDamageable>();
             }
-            else Debug.Log("적이 감지되지 않음");
+        }
+
+        if (closest != null)
+        {
+            currentTarget        = closest;
+            player.currentTarget = closest;
         }
     }
 

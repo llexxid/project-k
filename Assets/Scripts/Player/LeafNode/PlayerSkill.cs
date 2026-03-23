@@ -103,8 +103,15 @@ public class PlayerSkill
 
         Debug.Log($"[스킬] {_skillData.skillName} | Atk:{baseAtk} × {finalDamage:F2}(Lv.{enhancer?.Runtime.GetLevel(_skillData.skillName) ?? 0}) = {skillDamage} | CD:{finalCooldown:F2}s");
 
-        // [5] VFX 재생 (플레이어 정면 고정 위치)
-        TryPlayVFX(facingDir);
+        // [5] VFX 정보를 Player에 등록 (Animation Event OnSkillVFXStart에서 재생)
+        // 위치는 지금 시점(Execute)에 확정해서 저장 — 이벤트 발화 시 플레이어가 이동해도 위치가 흔들리지 않는다
+        if (System.Enum.TryParse(_skillData.skillName, out eVFXType vfxType))
+        {
+            Vector3 vfxPos = _player.transform.position
+                             + (Vector3)(facingDir * _skillData.vfxForwardOffset);
+            _player.SetPendingSkillVFX(vfxType, vfxPos, facingDir.x,
+                _skillData.vfxDuration, _skillData.flipVFX);
+        }
 
         // [6] 범위 내 적에게 데미지 적용 (광역)
         for (int i = 0; i < hitCount; i++)
@@ -152,32 +159,6 @@ public class PlayerSkill
             }
         }
         return validCount;
-    }
-
-    /// <summary>
-    /// 스킬 이름 기반으로 VFX를 플레이어 정면 고정 위치에서 재생한다.
-    /// eVFXType 열거형에 해당 이름이 없으면 조용히 스킵한다.
-    /// </summary>
-    private void TryPlayVFX(Vector2 facingDir)
-    {
-        if (!System.Enum.TryParse(_skillData.skillName, out eVFXType vfxType)) return;
-
-        Vector3 vfxPos = _player.transform.position
-                         + (Vector3)(facingDir * _skillData.vfxForwardOffset);
-        float facing = facingDir.x;
-        int duration = _skillData.vfxDuration;
-
-        VFXManager.Instance?.GetVFX(vfxType, vfxPos, Quaternion.identity,
-            (vfx) =>
-            {
-                if (vfx == null) return;
-                // 플레이어와 동일한 방식(scale.x 부호)으로 방향 반영
-                Vector3 s = vfx.transform.localScale;
-                bool flip = facing >= 0f ? _skillData.flipVFX : !_skillData.flipVFX;
-                s.x = flip ? -Mathf.Abs(s.x) : Mathf.Abs(s.x);
-                vfx.transform.localScale = s;
-                vfx.ActiveEffect(duration);
-            });
     }
 
     // ─────────────────────────────────────────────────────────
