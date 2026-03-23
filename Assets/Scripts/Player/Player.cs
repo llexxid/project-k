@@ -96,10 +96,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         OnDeath?.Invoke();
         OnDeath = null;
 
-        //즉시 콜라이더 비활성화
-		foreach (var col in GetComponentsInChildren<Collider2D>())
-			col.enabled = false;
-
+		gameObject.SetActive(false);
 		StartCoroutine(PauseAfterDeadAnimation());
     }
 
@@ -108,7 +105,8 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         float deadAnimLength = GetClipLength("Dead_Anim");
         Debug.Log($"[Player] 사망 애니메이션 대기: {deadAnimLength}초");
         yield return new WaitForSeconds(deadAnimLength);
-        Scripts.Core.GameManager.Instance?.ReportPlayerDead();
+
+		Scripts.Core.GameManager.Instance?.ReportPlayerDead();
     }
 
     private bool setHp(ulong damage)
