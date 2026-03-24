@@ -10,23 +10,24 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b0bf9f3ec7ddc5c4eb623d546affe6a2, type: 3}
-  m_Name: Slash_Attack
+  m_Name: Parrying
   m_EditorClassIdentifier: 
-  skillName: Slash_Attack
-  animationStateName: 
+  skillName: Parrying
+  animationStateName: Elite_Knight_Parrying
   skillType: 0
-  damage: 60
-  cooldown: 3
-  attackAngle: 120
-  vfxForwardOffset: 0.4
+  skillEffectType: 1
+  damage: 50
+  cooldown: 0
+  attackAngle: 360
+  vfxForwardOffset: 1
   vfxDuration: 1000
-  flipVFX: 1
+  flipVFX: 0
+  parryDuration: 2
   passiveAtkBonus: 0
   passiveRange: 5
   passiveShieldHPThreshold: 0
   passiveShieldAmount: 0
-  maxLevel: 99999
+  maxLevel: 999999
   damagePerLevel: 0.1
   cooldownReductionPerLevel: 0.02
-  skillPrefab: {fileID: 6825692289099562299, guid: a5d655a3818eff942845c7d326279cf0,
-    type: 3}
+  skillPrefab: {fileID: 0}
