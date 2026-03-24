@@ -165,7 +165,17 @@ namespace Scripts.Core
                 ++i;
             }
         }
-       
+
+        public void unloadSFXBatch(ulong groupId)
+        {
+			bool flag;
+			flag = _BatchHandles.TryGetValue(groupId, out var handle);
+			if (flag)
+			{
+				Addressables.Release(handle);
+				_BatchHandles.Remove(groupId);
+			}
+		}
     }
 }
 

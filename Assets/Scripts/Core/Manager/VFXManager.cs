@@ -132,7 +132,8 @@ namespace Scripts.Core
             if (flag)
             {
                 Addressables.Release(handle);
-            }
+                _BatchHandles.Remove(groupId);
+			}
         }
         public void unloadSingleVFX(eVFXType id)
         {
@@ -141,6 +142,7 @@ namespace Scripts.Core
             if (flag)
             {
                 Addressables.Release(handle);
+                _Handles.Remove(id);
             }
         }       
         

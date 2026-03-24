@@ -20,7 +20,6 @@ namespace Scripts.Monster.MonsterNode
             //타겟이 없으면 Fail!
             if (_monster.Target == null)
             {
-                CustomLogger.Log($"공격 타겟을 찾지 못함");
                 return NodeState.Failure;
             }
 
@@ -29,29 +28,23 @@ namespace Scripts.Monster.MonsterNode
             float distance = Vector3.Distance(_monster.attackerPos, targetPos);
             if (distance > _monster.AttackRadius)
             {
-				CustomLogger.Log($"공격 범위 밖");
 				return NodeState.Failure;
             }
 
-            //
             AttackProcess();
-			_monster.ChangeState(new MonsterAttackState(_monster));
 			return NodeState.Success;
 		}
         private void AttackProcess()
         {
+			//CustomLogger.Log($"_monster.LastAttackTime + attackLatency : {_monster.LastAttackTime + attackLatency} | Time : {Time.time}");
 			if ((_monster.LastAttackTime + attackLatency) < Time.time)
-			{
-                CustomLogger.Log("공격 성공 했음");
-				bool IsAlive = _monster.Attack(_monster.Target);
-				if (!IsAlive)
-				{
-					_monster.ChangeState(new MonsterIdleState(_monster));
-				}
-			}
+            {
+                //CustomLogger.Log("공격 성공 했음");
+                bool IsAlive = _monster.Attack(_monster.Target);
+				_monster.ChangeState(new MonsterAttackState(_monster));
+            }
 		}
         // 공격범위에 있다면 공격을 한다.
-        // 
         //Player가 공격 범위에 있는가
         public override NodeState Evaluate()
         {

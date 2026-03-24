@@ -34,7 +34,7 @@ namespace Scripts.Core
 		{
 			// Todo : ���Ŀ��� ������ ����, ���� ������ �޾ƿ;���. 
 			// ������ �׽�Ʈ 
-			UserData dummyUser = new UserData(0, "zx����zx", eStage.Stage1, 1, 0, 0);
+			UserData dummyUser = new UserData(0, "zx����zx", eStage.Stage1_1, 1, 0, 0);
 			CreateUser(dummyUser);
 		}
 

@@ -25,6 +25,9 @@ public class PlayerSkill
     // Physics2D 결과 버퍼 (GC 최소화)
     private readonly List<Collider2D> _hitResults = new List<Collider2D>();
 
+    // Animation Event 전달용 타격 대상 버퍼 (GC 최소화)
+    private readonly List<IDamageable> _pendingTargets = new List<IDamageable>();
+
     public PlayerSkill(Player player, SkillData skillData, PlayerDetection detection, SkillSharedState sharedState)
     {
         _player      = player;
@@ -103,32 +106,57 @@ public class PlayerSkill
 
         Debug.Log($"[스킬] {_skillData.skillName} | Atk:{baseAtk} × {finalDamage:F2}(Lv.{enhancer?.Runtime.GetLevel(_skillData.skillName) ?? 0}) = {skillDamage} | CD:{finalCooldown:F2}s");
 
-        // [5] VFX 재생 (플레이어 정면 고정 위치)
-        TryPlayVFX(facingDir);
-
-        // [6] 범위 내 적에게 데미지 적용 (광역)
-        for (int i = 0; i < hitCount; i++)
+        // [5] VFX 정보를 Player에 등록 (Animation Event OnSkillVFXStart에서 재생)
+        // 위치는 지금 시점(Execute)에 확정해서 저장 — 이벤트 발화 시 플레이어가 이동해도 위치가 흔들리지 않는다
+        if (System.Enum.TryParse(_skillData.skillName, out eVFXType vfxType))
         {
-            if (_hitResults[i].TryGetComponent<IDamageable>(out var target))
-            {
-                // 이미 Dead 상태인 몬스터는 건너뜀
-                if (_hitResults[i].TryGetComponent<Monster>(out var mon)
-                    && mon.MonAction == eMonsterAction.Dead) continue;
+            Vector3 vfxPos = _player.transform.position
+                             + (Vector3)(facingDir * _skillData.vfxForwardOffset);
+            _player.SetPendingSkillVFX(vfxType, vfxPos, facingDir.x,
+                _skillData.vfxDuration, _skillData.flipVFX);
+        }
 
-                bool isAlive = target.TakeDamage(new DamageProxy(skillDamage));
-                if (!isAlive)
+        // [6] 데미지 적용
+        // animationStateName이 설정된 스킬 → Animation Event(OnSkillHit)에서 적용
+        // animationStateName이 없는 스킬  → 즉시 적용 (VFX 스킬 등 전용 애니메이션 없는 경우)
+        if (!string.IsNullOrEmpty(_skillData.animationStateName))
+        {
+            _pendingTargets.Clear();
+            for (int i = 0; i < hitCount; i++)
+            {
+                if (_hitResults[i].TryGetComponent<IDamageable>(out var target))
                 {
-                    // 몬스터 사망 시 Idle로 전환 (Attack은 Trigger라 자동 리셋됨)
-                    _player.SetAnimation(ePlayerAction.Idle);
-                    if (_detection != null) _detection.currentTarget = null;
-                    _player.currentTarget = null;
-                    break;
+                    if (_hitResults[i].TryGetComponent<Monster>(out var mon)
+                        && mon.MonAction == eMonsterAction.Dead) continue;
+
+                    _pendingTargets.Add(target);
+                }
+            }
+            _player.SetPendingSkillDamage(_pendingTargets, skillDamage);
+        }
+        else
+        {
+            for (int i = 0; i < hitCount; i++)
+            {
+                if (_hitResults[i].TryGetComponent<IDamageable>(out var target))
+                {
+                    if (_hitResults[i].TryGetComponent<Monster>(out var mon)
+                        && mon.MonAction == eMonsterAction.Dead) continue;
+
+                    bool isAlive = target.TakeDamage(new DamageProxy(skillDamage));
+                    if (!isAlive)
+                    {
+                        _player.SetAnimation(ePlayerAction.Idle);
+                        if (_detection != null) _detection.currentTarget = null;
+                        _player.currentTarget = null;
+                        break;
+                    }
                 }
             }
         }
 
-        // [7] 공격 애니메이션 재생
-        _player.PlayAttackAnimation();
+        // [7] 스킬 전용 애니메이션 재생 (animationStateName 미설정 시 기본 Attack으로 폴백)
+        _player.PlaySkillAnimation(_skillData.animationStateName);
 
         return NodeState.Success;
     }
@@ -154,32 +182,6 @@ public class PlayerSkill
         return validCount;
     }
 
-    /// <summary>
-    /// 스킬 이름 기반으로 VFX를 플레이어 정면 고정 위치에서 재생한다.
-    /// eVFXType 열거형에 해당 이름이 없으면 조용히 스킵한다.
-    /// </summary>
-    private void TryPlayVFX(Vector2 facingDir)
-    {
-        if (!System.Enum.TryParse(_skillData.skillName, out eVFXType vfxType)) return;
-
-        Vector3 vfxPos = _player.transform.position
-                         + (Vector3)(facingDir * _skillData.vfxForwardOffset);
-        float facing = facingDir.x;
-        int duration = _skillData.vfxDuration;
-
-        VFXManager.Instance?.GetVFX(vfxType, vfxPos, Quaternion.identity,
-            (vfx) =>
-            {
-                if (vfx == null) return;
-                // 플레이어와 동일한 방식(scale.x 부호)으로 방향 반영
-                Vector3 s = vfx.transform.localScale;
-                bool flip = facing >= 0f ? _skillData.flipVFX : !_skillData.flipVFX;
-                s.x = flip ? -Mathf.Abs(s.x) : Mathf.Abs(s.x);
-                vfx.transform.localScale = s;
-                vfx.ActiveEffect(duration);
-            });
-    }
-
     // ─────────────────────────────────────────────────────────
     // BT 래퍼 노드
     // ─────────────────────────────────────────────────────────
@@ -198,7 +200,7 @@ public class PlayerSkill
     // 데미지 래퍼
     // ─────────────────────────────────────────────────────────
 
-    private class DamageProxy : IAttackable
+    public class DamageProxy : IAttackable
     {
         public ulong damage { get; }
         public Vector3 attackerPos => Vector3.zero;

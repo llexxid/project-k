@@ -3,6 +3,7 @@ using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Core.Utils;
 using Scripts.Users;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -34,6 +35,14 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     // 공격 애니메이션 보호 타이머: 이 시간 동안 Idle/Walk가 애니메이션을 덮어쓰지 못함
     private float _attackAnimEndTime = 0f;
 
+    // 보호막 패시브 발동 여부 (전직 시 리셋, 직업당 1회)
+    private bool _shieldPassiveActivated = false;
+
+    // 패링 상태
+    private float _parryEndTime        = 0f;
+    private float _parryCounterMultiplier = 0f;
+    public bool IsParrying => Time.time < _parryEndTime;
+
     // 사망 여부 (true이면 BT 평가 중단)
     private bool _isDead = false;
     /// <summary>외부 컴포넌트(ChangeJob 등)에서 사망 여부를 읽기 위한 프로퍼티</summary>
@@ -41,11 +50,14 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     /// <summary>전직 비용 차감 등 외부에서 User에 접근할 때 사용</summary>
     public User User => _user;
 
+    [SerializeField]
     public IDamageable currentTarget;
     PlayerData _data;
     private User _user;
 
-    public ulong damage
+	public event Action OnDeath;
+
+	public ulong damage
     {
         get { return (ulong)(playerStatus?.Atk ?? 0); }
     }
@@ -60,6 +72,18 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
     public bool TakeDamage(IAttackable attacker)
     {
+        // 패링 중 피격: 데미지 무효화 + 반격
+        if (IsParrying)
+        {
+            int counterDamage = Mathf.RoundToInt(playerStatus.Atk * _parryCounterMultiplier);
+            var damageable = attacker as IDamageable;
+            damageable?.TakeDamage(new PlayerSkill.DamageProxy(counterDamage));
+
+            UITKDamageTextBridge.ShowOnTransform(transform, (ulong)counterDamage, Color.yellow);
+            Debug.Log($"[Player] 패링 성공! 반격 데미지: {counterDamage}");
+            return true;
+        }
+
         ulong dmg = attacker.damage;
         CustomLogger.Log($"Player가 공격을 받고있습니다! DMG : {dmg}");
 
@@ -88,7 +112,12 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         _isDead = true;
         CustomLogger.Log("Player Is Dead!!");
         SetAnimation(ePlayerAction.Dead);
-        StartCoroutine(PauseAfterDeadAnimation());
+
+        OnDeath?.Invoke();
+        OnDeath = null;
+
+		gameObject.SetActive(false);
+		StartCoroutine(PauseAfterDeadAnimation());
     }
 
     private IEnumerator PauseAfterDeadAnimation()
@@ -96,7 +125,8 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         float deadAnimLength = GetClipLength("Dead_Anim");
         Debug.Log($"[Player] 사망 애니메이션 대기: {deadAnimLength}초");
         yield return new WaitForSeconds(deadAnimLength);
-        Scripts.Core.GameManager.Instance?.ReportPlayerDead();
+
+		Scripts.Core.GameManager.Instance?.ReportPlayerDead();
     }
 
     private bool setHp(ulong damage)
@@ -104,9 +134,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         long totalHp = _data._Hp + _data._extraHp;
         if (totalHp - (long)damage <= 0)
         {
-            _data._Hp = 0;
-            _data._extraHp = 0;
-            SyncHpToStatus();
             OnDead();
             return false;
         }
@@ -122,26 +149,51 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
             _data._extraHp = _data._extraHp - (int)damage;
         }
 
-        SyncHpToStatus();
+        TryActivateShieldPassive();
         return true;
     }
 
-    /// <summary>_data._Hp + _data._extraHp 합산값을 playerStatus.HP에 동기화</summary>
-    private void SyncHpToStatus()
+    /// <summary>
+    /// HP 감소 후 호출. 보호막 패시브 조건을 충족하면 보호막을 부여한다.
+    /// 전직당 1회만 발동된다 (ResetShieldPassive로 리셋).
+    /// </summary>
+    private void TryActivateShieldPassive()
     {
-        if (playerStatus == null) return;
-        playerStatus.HP = (int)(_data._Hp + _data._extraHp);
+        if (_shieldPassiveActivated) return;
+        if (skillManager == null || playerStatus == null) return;
+
+        float hpRatio = (float)_data._Hp / playerStatus.MaxHP;
+
+        foreach (var skill in skillManager.GetCurrentSkills())
+        {
+            if (skill.skillType != SkillType.Passive) continue;
+            if (skill.passiveShieldAmount <= 0) continue;
+            if (hpRatio > skill.passiveShieldHPThreshold) continue;
+
+            _data._extraHp += skill.passiveShieldAmount;
+            _shieldPassiveActivated = true;
+            Debug.Log($"[Player] 보호막 패시브 발동: +{skill.passiveShieldAmount} " +
+                      $"(현재 HP {hpRatio:P0} ≤ 임계값 {skill.passiveShieldHPThreshold:P0})");
+            break;
+        }
     }
 
     /// <summary>
-    /// 전직 등으로 MaxHP가 변경된 뒤 _data._Hp를 playerStatus.HP와 동기화한다.
-    /// ChangeJob.ApplyJobByIndex에서 호출.
+    /// 전직 시 ChangeJob에서 호출. 보호막 패시브 발동 기록을 초기화한다.
     /// </summary>
-    public void SyncHpFromStatus()
+    public void ResetShieldPassive()
     {
-        if (playerStatus == null) return;
-        _data._Hp = playerStatus.HP;
-        _data._extraHp = 0;
+        _shieldPassiveActivated = false;
+    }
+
+    /// <summary>
+    /// PlayerParry에서 호출. duration 초 동안 패링 상태를 활성화한다.
+    /// 패링 중 TakeDamage()가 호출되면 데미지 무효화 + 반격이 발동된다.
+    /// </summary>
+    public void ActivateParry(float duration, float counterMultiplier)
+    {
+        _parryEndTime          = Time.time + duration;
+        _parryCounterMultiplier = counterMultiplier;
     }
 
     private void Awake()
@@ -164,8 +216,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         _data._Hp = 50;
         _data._atk = 10;
 #endif
-        // _data와 playerStatus HP 초기 동기화
-        SyncHpToStatus();
     }
 
     private void InitializeAnimator()
@@ -258,13 +308,37 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
     /// <summary>
     /// 공격 애니메이션 재생. 타이머를 설정한 뒤 SetAnimation에 위임한다.
-    /// PlayerAttack, PlayerSkill에서 호출한다.
+    /// PlayerAttack에서 호출한다.
     /// </summary>
     public void PlayAttackAnimation()
     {
         // 타이머를 먼저 설정해야 SetAnimation 내부에서 보호가 즉시 유효해짐
         _attackAnimEndTime = Time.time + (playerOrder?._attack?.attackRate ?? 0.4f);
         SetAnimation(ePlayerAction.Attack);
+    }
+
+    /// <summary>
+    /// 스킬 전용 애니메이션 재생.
+    /// stateName이 있으면 Animator 상태를 직접 재생하고, 비어있으면 기본 Attack으로 폴백한다.
+    /// PlayerSkill에서 호출한다.
+    /// </summary>
+    public void PlaySkillAnimation(string stateName)
+    {
+        _attackAnimEndTime = Time.time + (playerOrder?._attack?.attackRate ?? 0.4f);
+
+        if (!string.IsNullOrEmpty(stateName) && _am != null)
+        {
+            // 이전 bool 상태(Idle/Walk) 해제
+            if (_currentAction == ePlayerAction.Idle || _currentAction == ePlayerAction.Walk)
+                _animatorComponent.TrySetBool(_currentAction, false);
+
+            _am.Play(Animator.StringToHash(stateName));
+            _currentAction = ePlayerAction.Attack;
+        }
+        else
+        {
+            SetAnimation(ePlayerAction.Attack);
+        }
     }
 
     private void ApplyAnimation(ePlayerAction next)
@@ -288,6 +362,97 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         }
 
         _currentAction = next;
+    }
+
+    // PlayerSkill이 애니메이션 트리거 직전에 채워두는 스킬 데미지 대기 데이터
+    private readonly List<IDamageable> _pendingSkillTargets = new List<IDamageable>();
+    private int  _pendingSkillDamage;
+    private bool _hasPendingSkillDamage;
+
+    /// <summary>
+    /// PlayerSkill이 애니메이션 트리거 전에 호출. 타격 대상과 데미지를 등록한다.
+    /// </summary>
+    public void SetPendingSkillDamage(List<IDamageable> targets, int damage)
+    {
+        _pendingSkillTargets.Clear();
+        _pendingSkillTargets.AddRange(targets);
+        _pendingSkillDamage      = damage;
+        _hasPendingSkillDamage   = _pendingSkillTargets.Count > 0;
+    }
+
+    /// <summary>
+    /// Animation Event 전용.
+    /// 스킬 애니메이션의 타격 프레임에 등록한다.
+    /// </summary>
+    public void OnSkillHit()
+    {
+        if (!_hasPendingSkillDamage) return;
+        _hasPendingSkillDamage = false;
+
+        for (int i = 0; i < _pendingSkillTargets.Count; i++)
+        {
+            IDamageable target = _pendingSkillTargets[i];
+
+            // 이미 비활성화된 오브젝트(사망 등) 건너뜀
+            var mono = target as MonoBehaviour;
+            if (mono == null || !mono.gameObject.activeInHierarchy) continue;
+
+            bool isAlive = target.TakeDamage(new PlayerSkill.DamageProxy(_pendingSkillDamage));
+            if (!isAlive)
+            {
+                SetAnimation(ePlayerAction.Idle);
+                currentTarget = null;
+            }
+        }
+        _pendingSkillTargets.Clear();
+    }
+
+    // PlayerSkill이 애니메이션 트리거 직전에 채워두는 VFX 대기 데이터
+    private eVFXType _pendingVFXType;
+    private Vector3  _pendingVFXPos;      // Execute() 시점에 계산된 월드 좌표
+    private float    _pendingVFXFacing;   // 방향 반전 판단용 (scale.x 부호)
+    private int      _pendingVFXDuration;
+    private bool     _pendingVFXFlip;
+    private bool     _hasPendingVFX;
+
+    /// <summary>
+    /// PlayerSkill이 애니메이션 트리거 전에 호출.
+    /// VFX 위치는 Execute() 시점에 확정해서 저장한다.
+    /// </summary>
+    public void SetPendingSkillVFX(eVFXType vfxType, Vector3 vfxPos, float facing, int duration, bool flip)
+    {
+        _pendingVFXType     = vfxType;
+        _pendingVFXPos      = vfxPos;
+        _pendingVFXFacing   = facing;
+        _pendingVFXDuration = duration;
+        _pendingVFXFlip     = flip;
+        _hasPendingVFX      = true;
+    }
+
+    /// <summary>
+    /// Animation Event 전용.
+    /// 스킬 공격 애니메이션의 VFX 시작 프레임에 등록한다.
+    /// </summary>
+    public void OnSkillVFXStart()
+    {
+        if (!_hasPendingVFX) return;
+        _hasPendingVFX = false;
+
+        Vector3 vfxPos   = _pendingVFXPos;
+        float   facing   = _pendingVFXFacing;
+        int     duration = _pendingVFXDuration;
+        bool    flipVFX  = _pendingVFXFlip;
+
+        VFXManager.Instance?.GetVFX(_pendingVFXType, vfxPos, Quaternion.identity,
+            (vfx) =>
+            {
+                if (vfx == null) return;
+                Vector3 s    = vfx.transform.localScale;
+                bool    flip = facing >= 0f ? flipVFX : !flipVFX;
+                s.x = flip ? -Mathf.Abs(s.x) : Mathf.Abs(s.x);
+                vfx.transform.localScale = s;
+                vfx.ActiveEffect(duration);
+            });
     }
 
     /// <summary>

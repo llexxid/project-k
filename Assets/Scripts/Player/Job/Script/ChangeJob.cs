@@ -173,6 +173,42 @@ public class ChangeJob : MonoBehaviour
     /// <summary>해당 직업이 이미 해금됐는지 반환 (UI에서 자물쇠 표시 등에 활용)</summary>
     public bool IsJobUnlocked(int index) => _unlockedJobs.Contains(index);
 
+    /// <summary>
+    /// 씬의 모든 플레이어 패시브 보너스를 초기화한 뒤 재계산한다.
+    /// 어느 플레이어든 전직할 때마다 호출한다.
+    /// </summary>
+    private void RefreshAllPassiveBonuses()
+    {
+        Player[] allPlayers = FindObjectsByType<Player>(FindObjectsSortMode.None);
+
+        // 1. 모든 플레이어의 패시브 보너스 초기화
+        foreach (var p in allPlayers)
+            p.playerStatus.ResetPassiveBonus();
+
+        // 2. 패시브 스킬 보유 플레이어가 범위 내 플레이어에게 보너스 부여
+        foreach (var source in allPlayers)
+        {
+            if (source.skillManager == null) continue;
+
+            foreach (var skill in source.skillManager.GetCurrentSkills())
+            {
+                if (skill.skillType != SkillType.Passive || skill.passiveAtkBonus <= 0)
+                    continue;
+
+                foreach (var target in allPlayers)
+                {
+                    float dist = Vector2.Distance(
+                        source.transform.position, target.transform.position);
+                    if (dist > skill.passiveRange) continue;
+
+                    target.playerStatus.AddPassiveBonus(skill.passiveAtkBonus);
+                }
+            }
+        }
+
+        Debug.Log("[ChangeJob] 패시브 스킬 보너스 재계산 완료");
+    }
+
     private void SaveUnlockedJobs()
     {
         PlayerPrefs.SetString(UNLOCK_SAVE_KEY, string.Join(",", _unlockedJobs));
@@ -248,6 +284,12 @@ public class ChangeJob : MonoBehaviour
 
         // 9. UI 이벤트 발행
         OnJobChanged?.Invoke(data.jobName, index, jobDatabase.Count);
+
+        // 10. 보호막 패시브 발동 기록 초기화 (전직 시 재발동 가능하도록)
+        _player.ResetShieldPassive();
+
+        // 11. 패시브 스킬 보너스 전체 재계산
+        RefreshAllPassiveBonuses();
 
         Debug.Log($"[ChangeJob] 전직 완료: {data.jobName} (HP:{data.maxHP} ATK:{data.atk})");
     }

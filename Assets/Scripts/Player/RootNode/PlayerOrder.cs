@@ -57,8 +57,19 @@ public class PlayerOrder
             var sharedState = new PlayerSkill.SkillSharedState();
             foreach (var skillData in skills)
             {
-                var skill = new PlayerSkill(player, skillData, _detection, sharedState);
-                nodes.Add(new PlayerSkill.SkillNode(skill));
+                // 패시브 스킬은 BT에서 실행하지 않음 (ChangeJob에서 별도 적용)
+                if (skillData.skillType == SkillType.Passive) continue;
+
+                if (skillData.skillEffectType == SkillEffectType.Parry)
+                {
+                    var parry = new PlayerParry(player, skillData);
+                    nodes.Add(new PlayerParry.ParryNode(parry));
+                }
+                else
+                {
+                    var skill = new PlayerSkill(player, skillData, _detection, sharedState);
+                    nodes.Add(new PlayerSkill.SkillNode(skill));
+                }
             }
         }
 

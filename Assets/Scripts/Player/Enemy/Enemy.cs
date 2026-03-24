@@ -1,4 +1,6 @@
 using Scripts.Core.inteface;
+using System;
+using UnityEditor.Tilemaps;
 using UnityEngine;
 
 public class Enemy : MonoBehaviour, IDamageable
@@ -9,7 +11,9 @@ public class Enemy : MonoBehaviour, IDamageable
     public float moveSpeed = 3f;
     public float detectionRange = 10f;
 
-    public Vector3 targetPos
+	public event Action OnDeath;
+
+	public Vector3 targetPos
     {
         get { return gameObject.transform.position; }
     }
