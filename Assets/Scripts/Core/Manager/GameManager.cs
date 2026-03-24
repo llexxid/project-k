@@ -304,7 +304,6 @@ namespace Scripts.Core
 
 				//Player 생성
 				UserManager.Instance.CreateCharacter();
-
 				eStage curUserStage = UserManager.Instance.GetUserCurrentStage();
 				StageManager.Instance.StartStage(curUserStage);
 

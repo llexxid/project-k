@@ -101,7 +101,8 @@ namespace Scripts.Core
 		public void StartStage(eStage stage)
 		{
 			_currentStage = stage;
-            _totalCharacterCnt = 3;
+            //_totalCnt = 0;
+			_totalCharacterCnt = 3;
 
 			List<StageInfo_v> stageInfos;
 			bool flag = _stageSO.TryGetStageInfo(stage, out stageInfos);
@@ -132,6 +133,7 @@ namespace Scripts.Core
                     mon.OnDeath += DecrementMonCount;
 				}
 			}
+            Debug.Log($"Stage진입 {_currentStage} 몬스터 마릿수 : {_totalCnt}");
 		}
 
         //몬스터를 잡을 때 부르는 함수
@@ -193,6 +195,10 @@ namespace Scripts.Core
 				eStage prevStage;
                 CalculatePrevStage(_currentStage, out prevStage);
 				CustomLogger.Log($"GoTo Prev Wave");
+                
+                //Todo : 캐릭터 부활처리
+
+
 				StartStage(prevStage);
 			}
 		}

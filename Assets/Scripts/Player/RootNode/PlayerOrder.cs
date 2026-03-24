@@ -35,6 +35,7 @@ public class PlayerOrder
                 new PlayerDetection.DetectionNode(_detection),
                 new PlayerMove.MoveNode(_move),
                 _attackSelector
+                //사실상 여기어 Attack - Skill - AttackNode가 엮어있는거네.
             }),
 
             // 2. 대기 (전투 실패 시 실행)
@@ -63,7 +64,10 @@ public class PlayerOrder
         }
 
         // 마지막에 일반 공격 fallback 추가
-        nodes.Add(new PlayerAttack.AttackNode(_attack));
+        //여기서 Attack
+        PlayerAttack.AttackNode Anode = new PlayerAttack.AttackNode(_attack);
+        Debug.Log($"[AttackNodePlayer]{Anode._attack.player.gameobj.GetInstanceID()}");
+		nodes.Add(Anode);
 
         // 기존 Selector의 자식 노드 목록을 교체
         _attackSelector.ReplaceChildren(nodes);

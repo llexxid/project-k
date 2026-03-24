@@ -49,8 +49,10 @@ public class PlayerSkill
     public NodeState Execute()
     {
         // [1] 쿨타임 체크 (개별 + 공유)
-        if (Time.time < _nextAvailableTime) return NodeState.Failure;
-        if (_sharedState != null && Time.time < _sharedState.nextAvailableTime) return NodeState.Failure;
+        if (Time.time < _nextAvailableTime) 
+            return NodeState.Failure;
+        if (_sharedState != null && Time.time < _sharedState.nextAvailableTime) 
+            return NodeState.Failure;
 
         // [2] 범위 내 적 탐지
         ContactFilter2D filter = new ContactFilter2D();
@@ -62,7 +64,8 @@ public class PlayerSkill
         int hitCount = Physics2D.OverlapCircle(
             _player.transform.position, radius, filter, _hitResults);
 
-        if (hitCount == 0) return NodeState.Failure;
+        if (hitCount == 0) 
+            return NodeState.Failure;
 
         // [2-a] 플레이어 정면 방향 계산 (스케일 X 부호 기준)
         float facingSign = _player.transform.localScale.x >= 0f ? 1f : -1f;
@@ -72,7 +75,8 @@ public class PlayerSkill
         if (_skillData.attackAngle < 360f)
             hitCount = FilterByAngle(hitCount, facingDir, _skillData.attackAngle * 0.5f);
 
-        if (hitCount == 0) return NodeState.Failure;
+        if (hitCount == 0) 
+            return NodeState.Failure;
 
         // 탐지된 적이 전부 Dead 상태면 스킬 발동하지 않음
         bool hasAliveTarget = false;
@@ -83,7 +87,8 @@ public class PlayerSkill
             bool isDead = m != null && m.MonAction == eMonsterAction.Dead;
             if (!isDead) { hasAliveTarget = true; break; }
         }
-        if (!hasAliveTarget) return NodeState.Failure;
+        if (!hasAliveTarget) 
+            return NodeState.Failure;
 
         // [3] 쿨타임 소모 (강화 레벨 반영)
         var enhancer = SkillEnhanceManager.Instance;
@@ -119,16 +124,19 @@ public class PlayerSkill
             if (_hitResults[i].TryGetComponent<IDamageable>(out var target))
             {
                 // 이미 Dead 상태인 몬스터는 건너뜀
-                if (_hitResults[i].TryGetComponent<Monster>(out var mon)
-                    && mon.MonAction == eMonsterAction.Dead) continue;
+                Monster mon = _hitResults[i].GetComponent<Monster>();
+                if (mon.MonAction == eMonsterAction.Dead)
+                {
+					continue;
+				}
 
-                bool isAlive = target.TakeDamage(new DamageProxy(skillDamage));
+                bool isAlive = target.TakeDamage(_player);
                 if (!isAlive)
                 {
                     // 몬스터 사망 시 Idle로 전환 (Attack은 Trigger라 자동 리셋됨)
+                    Debug.Log($"[스킬 사망] {_skillData.skillName} attacker : {_player.gameobj.GetInstanceID()} | monster : {mon.gameobj.GetInstanceID()}");
                     _player.SetAnimation(ePlayerAction.Idle);
-                    if (_detection != null) _detection.currentTarget = null;
-                    _player.currentTarget = null;
+                    //_player.currentTarget = null;
                     break;
                 }
             }
@@ -136,8 +144,8 @@ public class PlayerSkill
 
         // [7] 공격 애니메이션 재생
         _player.PlayAttackAnimation();
-
-        return NodeState.Success;
+		Debug.Log("SKill Node Success");
+		return NodeState.Success;
     }
 
     /// <summary>
@@ -183,7 +191,10 @@ public class PlayerSkill
     {
         public ulong damage { get; }
         public Vector3 attackerPos => Vector3.zero;
-        public bool Attack(IDamageable target) => false;
+
+		public GameObject gameobj => throw new System.NotImplementedException();
+
+		public bool Attack(IDamageable target) => false;
         public DamageProxy(int dmg) { damage = (ulong)dmg; }
     }
 }
