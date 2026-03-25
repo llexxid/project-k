@@ -66,7 +66,6 @@ public class PlayerOrder
         // 마지막에 일반 공격 fallback 추가
         //여기서 Attack
         PlayerAttack.AttackNode Anode = new PlayerAttack.AttackNode(_attack);
-        Debug.Log($"[AttackNodePlayer]{Anode._attack.player.gameobj.GetInstanceID()}");
 		nodes.Add(Anode);
 
         // 기존 Selector의 자식 노드 목록을 교체
