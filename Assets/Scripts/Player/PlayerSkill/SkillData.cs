@@ -26,6 +26,8 @@ public class SkillData : ScriptableObject
     public int vfxDuration = 1000;
     [Tooltip("VFX 기본 방향이 반대일 때 체크 (좌우 반전)")]
     public bool flipVFX = false;
+    [Tooltip("체크 시 VFX가 플레이어 위치가 아닌 피격 대상 위치에서 재생됨")]
+    public bool vfxOnTarget = false;
 
     [Header("패링 설정")]
     [Tooltip("패링 지속 시간 (초). damage = 반격 데미지 계수 (ATK × damage)")]

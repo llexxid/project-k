@@ -409,7 +409,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
     // PlayerSkill이 애니메이션 트리거 직전에 채워두는 VFX 대기 데이터
     private eVFXType _pendingVFXType;
-    private Vector3  _pendingVFXPos;      // Execute() 시점에 계산된 월드 좌표
+    private Vector3  _pendingVFXPos;      // Execute() 시점에 확정된 월드 좌표
     private float    _pendingVFXFacing;   // 방향 반전 판단용 (scale.x 부호)
     private int      _pendingVFXDuration;
     private bool     _pendingVFXFlip;
@@ -429,7 +429,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         _hasPendingVFX      = true;
     }
 
-    /// <summary>
+/// <summary>
     /// Animation Event 전용.
     /// 스킬 공격 애니메이션의 VFX 시작 프레임에 등록한다.
     /// </summary>
