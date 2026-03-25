@@ -53,10 +53,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
     [SerializeField]
     private IDamageable _currentTarget;
-    public IDamageable currentTarget
-    {
-        get { return _currentTarget; }
-    }
+    public IDamageable currentTarget;
     PlayerData _data;
     private User _user;
 
@@ -134,6 +131,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     {
         Debug.Log($"Player : {gameObject.GetInstanceID()} Reset Target");
         _currentTarget = null;
+        currentTarget = null;
 	}
 
     public void SetTarget(IDamageable target)
@@ -145,7 +143,8 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         Debug.Log($"Player : {gameObject.GetInstanceID()} |Player SetMonster : {target.gameobj.GetInstanceID()} | target_action : {target.gameobj.GetComponent<Monster>().MonAction}");
         target.OnDeath += ResetTarget;
         _currentTarget = target;
-	}
+        currentTarget = target;
+    }
 
     private IEnumerator PauseAfterDeadAnimation()
     {

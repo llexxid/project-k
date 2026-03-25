@@ -152,7 +152,7 @@ public class PlayerSkill
 					continue;
 				}
 
-                bool isAlive = target.TakeDamage(_player);
+                bool isAlive = mon.TakeDamage(_player);
                 if (!isAlive)
                 {
                     // 몬스터 사망 시 Idle로 전환 (Attack은 Trigger라 자동 리셋됨)
