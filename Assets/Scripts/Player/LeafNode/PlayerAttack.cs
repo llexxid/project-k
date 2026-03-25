@@ -94,7 +94,6 @@ public class PlayerAttack
 
         // [6] 데미지 직접 적용
         // Animation Event(OnAttackHit)가 작동하지 않으므로 여기서 직접 호출
-        DealDamage();
         Debug.Log($"[PlayerAttack] 공격 실행! 다음 공격: {attackRate:F2}초 후");
 
         return NodeState.Success;
@@ -144,16 +143,8 @@ public class PlayerAttack
 
         Debug.Log($"[ApplyDamage] TakeDamage 호출 → damage={damage}");
         bool isAlive;
-        try
-        {
-            isAlive = target.TakeDamage(new DamageProxy(damage));
-            Debug.Log($"[ApplyDamage] TakeDamage 완료 → isAlive={isAlive}");
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"[ApplyDamage] TakeDamage 예외 발생: {e.Message}");
-            return true;
-        }
+        isAlive = target.TakeDamage(new DamageProxy(damage, player.gameObject));
+        Debug.Log(isAlive);
 
         if (!isAlive)
         {
@@ -180,10 +171,10 @@ public class PlayerAttack
     {
         public ulong damage { get; private set; }
         public Vector3 attackerPos => Vector3.zero;
-        public GameObject gameobj => throw new System.NotImplementedException();
+        public GameObject gameobj {get;}
 
         public bool Attack(IDamageable target) => false;
-        public DamageProxy(ulong damage) { this.damage = damage; }
+        public DamageProxy(ulong damage, GameObject owner) { this.damage = damage; this.gameobj = owner; }
     }
 
     /// <summary>

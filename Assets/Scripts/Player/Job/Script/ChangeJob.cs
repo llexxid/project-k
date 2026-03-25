@@ -39,11 +39,14 @@ public class ChangeJob : MonoBehaviour
     // ───────────────────────────────────────────
 
 
-    private void Start()
+    private void Awake()
     {
         _player = GetComponent<Player>();
         _spriteRenderer = GetComponent<SpriteRenderer>();
+    }
 
+    private void Start()
+    {
         if (_player == null)
         {
             Debug.LogError("[ChangeJob] Player 컴포넌트를 찾을 수 없습니다.");
@@ -62,9 +65,6 @@ public class ChangeJob : MonoBehaviour
         // 시작 직업(index 0)은 항상 해금
         _unlockedJobs.Add(0);
         SaveUnlockedJobs();
-
-        // 시작 시 첫 번째 직업(index 0) 적용
-        ApplyJobByIndex(0);
     }
 
     private void Update()
@@ -231,7 +231,7 @@ public class ChangeJob : MonoBehaviour
     /// <summary>
     /// 인덱스로 직업을 적용한다. PlayerStatus 스탯 갱신 + SkillManager 스킬 교체.
     /// </summary>
-    private void ApplyJobByIndex(int index)
+    public void ApplyJobByIndex(int index)
     {
         JobData data = jobDatabase.GetJob(index);
         if (data == null)
@@ -247,6 +247,17 @@ public class ChangeJob : MonoBehaviour
         if (_player.playerOrder?._attack != null)
         {
             _player.playerOrder._attack.attackRate = data.atkSpeed;
+
+            // Archer / Mage 계열 직업은 공격 범위 2배
+            const float baseRadius = 2f;
+            bool isRanged = data.jobName.Contains("Archer") || data.jobName.Contains("Mage");
+            // 공격 범위 수정 가능
+            float finalRadius = isRanged ? baseRadius * 2f : baseRadius;
+            _player.playerOrder._attack.attackRadius = finalRadius;
+
+            // 공격 범위에 들어오면 이동 멈추도록 stopDistance 연동
+            if (_player.playerOrder._move != null)
+                _player.playerOrder._move.stopDistance = finalRadius;
         }
 
         // 3. SkillManager에 직업 스킬 갱신

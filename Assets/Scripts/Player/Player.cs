@@ -156,7 +156,9 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 		OnDeath = null;
 		gameObject.SetActive(false);
 
-		Scripts.Core.GameManager.Instance?.ReportPlayerDead();
+        playerOrder?.InterruptBT();
+
+        Scripts.Core.GameManager.Instance?.ReportPlayerDead();
     }
 
     private bool setHp(ulong damage)
