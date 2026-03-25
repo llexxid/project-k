@@ -34,19 +34,18 @@ public class PlayerMove
         // 2. 거리 계산
         float distance = Vector2.Distance(player.transform.position, player.currentTarget.targetPos);
 
-        Debug.Log($"[PlayerMove] 거리: {distance:F2} / 정지거리: {stopDistance}");
+        //Debug.Log($"[PlayerMove] 거리: {distance:F2} / 정지거리: {stopDistance}");
 
-        // 3. 공격 사거리 내 도착 → Attack 노드에 제어권 넘김
         if (distance <= stopDistance)
         {
-            player.SetAnimation(ePlayerAction.Idle);
+            //player.SetAnimation(ePlayerAction.Idle);
             return NodeState.Success;
         }
 
         // 4. 이동 중
         player.SetAnimation(ePlayerAction.Walk);
         player.transform.position = Vector2.MoveTowards(
-            player.transform.position, player.currentTarget.targetPos, moveSpeed * Time.deltaTime);
+        player.transform.position, player.currentTarget.targetPos, moveSpeed * Time.deltaTime);
         return NodeState.Running;
     }
 

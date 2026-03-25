@@ -1,6 +1,5 @@
 using Scripts.Core.inteface;
 using System;
-using UnityEditor.Tilemaps;
 using UnityEngine;
 
 public class Enemy : MonoBehaviour, IDamageable
@@ -18,7 +17,9 @@ public class Enemy : MonoBehaviour, IDamageable
         get { return gameObject.transform.position; }
     }
 
-    void Start()
+	public GameObject gameobj => throw new NotImplementedException();
+
+	void Start()
     {
         enemy = GetComponent<Enemy>();
         player = GameObject.FindWithTag("Player").transform;

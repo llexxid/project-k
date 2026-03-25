@@ -2,6 +2,7 @@ using KingdomIdle.UIToolkit;
 using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Core.Utils;
+using Scripts.Monster;
 using Scripts.Users;
 using System;
 using System.Collections;
@@ -51,12 +52,20 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     public User User => _user;
 
     [SerializeField]
-    public IDamageable currentTarget;
+    private IDamageable _currentTarget;
+    public IDamageable currentTarget
+    {
+        get { return _currentTarget; }
+    }
     PlayerData _data;
     private User _user;
 
 	public event Action OnDeath;
 
+    public ePlayerAction CurrentAction
+    {
+        get { return _currentAction; }
+    }
 	public ulong damage
     {
         get { return (ulong)(playerStatus?.Atk ?? 0); }
@@ -70,7 +79,12 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         get { return transform.position; }
     }
 
-    public bool TakeDamage(IAttackable attacker)
+	public GameObject gameobj
+    {
+        get { return transform.gameObject; }
+    }
+
+	public bool TakeDamage(IAttackable attacker)
     {
         // 패링 중 피격: 데미지 무효화 + 반격
         if (IsParrying)
@@ -113,18 +127,35 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         CustomLogger.Log("Player Is Dead!!");
         SetAnimation(ePlayerAction.Dead);
 
-        OnDeath?.Invoke();
-        OnDeath = null;
-
-		gameObject.SetActive(false);
 		StartCoroutine(PauseAfterDeadAnimation());
     }
+
+    public void ResetTarget()
+    {
+        Debug.Log($"Player : {gameObject.GetInstanceID()} Reset Target");
+        _currentTarget = null;
+	}
+
+    public void SetTarget(IDamageable target)
+    {
+        if (target == null)
+        {
+            return;
+        }
+        Debug.Log($"Player : {gameObject.GetInstanceID()} |Player SetMonster : {target.gameobj.GetInstanceID()} | target_action : {target.gameobj.GetComponent<Monster>().MonAction}");
+        target.OnDeath += ResetTarget;
+        _currentTarget = target;
+	}
 
     private IEnumerator PauseAfterDeadAnimation()
     {
         float deadAnimLength = GetClipLength("Dead_Anim");
         Debug.Log($"[Player] 사망 애니메이션 대기: {deadAnimLength}초");
         yield return new WaitForSeconds(deadAnimLength);
+
+		OnDeath?.Invoke();
+		OnDeath = null;
+		gameObject.SetActive(false);
 
 		Scripts.Core.GameManager.Instance?.ReportPlayerDead();
     }
@@ -409,7 +440,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
     // PlayerSkill이 애니메이션 트리거 직전에 채워두는 VFX 대기 데이터
     private eVFXType _pendingVFXType;
-    private Vector3  _pendingVFXPos;      // Execute() 시점에 계산된 월드 좌표
+    private Vector3  _pendingVFXPos;      // Execute() 시점에 확정된 월드 좌표
     private float    _pendingVFXFacing;   // 방향 반전 판단용 (scale.x 부호)
     private int      _pendingVFXDuration;
     private bool     _pendingVFXFlip;
@@ -429,7 +460,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         _hasPendingVFX      = true;
     }
 
-    /// <summary>
+/// <summary>
     /// Animation Event 전용.
     /// 스킬 공격 애니메이션의 VFX 시작 프레임에 등록한다.
     /// </summary>
