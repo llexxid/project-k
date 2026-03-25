@@ -249,7 +249,7 @@ namespace Scripts.Monster
 			_stateManchine.BeginMachine(new MonsterMoveState(this));
 			foreach (var col in GetComponentsInChildren<Collider2D>())
 				col.enabled = true;
-
+			_monAI.RecoveryBT();
 			return;
 		}
 		public void OnRelease()
@@ -283,7 +283,7 @@ namespace Scripts.Monster
 			if (!IsAlive)
 			{
 				_monAction = eMonsterAction.Dead;
-
+				_monAI.InterruptBT();
 				Debug.Log($"Monster Is Dead {gameObject.GetInstanceID()} By attacker : {attacker.gameobj.GetInstanceID()}");
 				Debug.Log($"after MonAction : {_monAction}");
 
@@ -292,6 +292,7 @@ namespace Scripts.Monster
 				{
 					GiveRewardToAttacker(target);
 				}
+				
 				return false;
 			}
 			return true;

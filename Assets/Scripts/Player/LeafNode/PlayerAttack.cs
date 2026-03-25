@@ -38,8 +38,6 @@ public class PlayerAttack
         // attackRate가 0 이하면 애니메이션 길이로 자동 보정
         if (attackRate <= 0f)
         {
-            //Debug.LogWarning($"[PlayerAttack] attackRate가 {attackRate}로 설정되어 있습니다. " +
-                             //$"애니메이션 길이({ANIMATION_DURATION}초)로 자동 보정합니다.");
             attackRate = ANIMATION_DURATION;
         }
     }
@@ -72,25 +70,6 @@ public class PlayerAttack
         //공격범위에 있다면
 		_nextAttackTime = Time.time + attackRate;
 		_player.PlayAttackAnimation();
-		//DealDamage();
-        // [3-a] 탐지된 적이 전부 Dead 상태면 공격하지 않음
-        /* bool hasAliveTarget = false;
-		 for (int i = 0; i < hitCount; i++)
-		 {
-			 if (!IsTargetDead(_hitResults[i])) { hasAliveTarget = true; break; }
-		 }
-		 if (!hasAliveTarget)
-		 {
-			 CustomLogger.Log("Player가 공격범위 내에 대상이 없습니다..");
-			 return NodeState.Failure;
-		 } */
-
-
-        // [5] 공격 애니메이션 재생
-
-
-        // [6] 데미지 직접 적용
-        // Animation Event(OnAttackHit)가 작동하지 않으므로 여기서 직접 호출
         ApplyDamage(_player.currentTarget, (ulong)_player.playerStatus.Atk);
 		//Debug.Log($"[PlayerAttack] 공격 실행! 다음 공격: {attackRate:F2}초 후");
 
@@ -138,7 +117,6 @@ public class PlayerAttack
         isAlive = target.TakeDamage(_player);
         if (!isAlive)
         {
-			Debug.Log($"[공격사망] TakeDamage 완료 → isAlive={isAlive} | target : {target.gameobj.GetInstanceID()}");
 			//Debug.Log("Monster Is Dead!! → Idle 전환");
 			//_nextAttackTime = 0f; // 다음 적 즉시 공격 가능하도록 쿨타임 초기화
 			_player.SetAnimation(ePlayerAction.Idle);
