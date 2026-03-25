@@ -253,6 +253,8 @@ public class ChangeJob : MonoBehaviour
         _player.skillManager?.RefreshSkills(data.skills);
 
         // 4. BT 스킬 트리 재조립 (새 직업 스킬 → BT LeafNode로 자동 등록)
+        // PlayerID
+        Debug.Log($"[ChangeJob]Player ID : {_player.gameobj.GetInstanceID()}");
         _player.playerOrder?.RebuildSkillTree(data.skills, _player);
 
         // 5. 스프라이트 교체

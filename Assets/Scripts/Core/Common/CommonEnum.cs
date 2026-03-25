@@ -13,9 +13,9 @@ namespace Scripts.Core
         public static readonly string DROPTABLE_EXCEL_PATH = @"Scripts\Core\Parser\DropTable.xlsx";
 
         //PrefebPath
-        public static readonly string VFX_PREFEB_PATH = $"Assets/Scripts/Core/TestResource/VFX";
-        public static readonly string MONSTER_PREFEB_PATH = $"Assets/Scripts/Core/TestResource/Monster";
-        public static readonly string SFX_AUDIOCLIP_PATH = $"Assets/Scripts/Core/TestResource/SFX";
+        public static readonly string VFX_PREFEB_PATH = $"Assets/Prefabs/VFX";
+        public static readonly string MONSTER_PREFEB_PATH = $"Assets/Prefabs/Monster";
+        public static readonly string SFX_AUDIOCLIP_PATH = $"Assets/Sounds";
 
         //AutoGenerate Path
         public static readonly string STAGE_ENUM_PATH = @"Scripts\Core\AutoGenEnum\StageEnum.cs";

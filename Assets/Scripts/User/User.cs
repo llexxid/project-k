@@ -17,7 +17,6 @@ namespace Scripts.Users
 			_userData = data;
 			_players = new List<Player>();
 		}
-
 		public UserData GetData()
 		{
 			return _userData;
@@ -73,8 +72,6 @@ namespace Scripts.Users
 			return _wallet.TrySpendCoins(type, amount);
 		}
 		// ── [장비 시스템 추가 끝] ───────────────────────────────────────
-
-
 		public void ConnectCharacters(Player player)
 		{
 			_players.Add(player);

@@ -40,7 +40,7 @@ namespace Scripts.Monster.MonsterNode
 			if ((_monster.LastAttackTime + attackLatency) < Time.time)
             {
                 //CustomLogger.Log("공격 성공 했음");
-                bool IsAlive = _monster.Attack(_monster.Target);
+                _monster.Attack(_monster.Target);
 				_monster.ChangeState(new MonsterAttackState(_monster));
             }
 		}

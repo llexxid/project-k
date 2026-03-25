@@ -7,11 +7,11 @@ using KingdomIdle.UIToolkit;
 
 namespace KingdomIdle.MageTower
 {
-    /// <summary>
-    /// 지속형 마탑 스킬. 대상 몬스터에 붙어서 일정 간격으로 데미지를 가하고,
-    /// 대상이 죽으면 가장 가까운 몬스터로 이동한다. 지속시간이 끝나면 쿨다운 시작.
-    /// </summary>
-    public class MageTowerSkillPersistent : MonoBehaviour, IAttackable
+	/// <summary>
+	/// 지속형 마탑 스킬. 대상 몬스터에 붙어서 일정 간격으로 데미지를 가하고,
+	/// 대상이 죽으면 가장 가까운 몬스터로 이동한다. 지속시간이 끝나면 쿨다운 시작.
+	/// </summary>
+	public class MageTowerSkillPersistent : MonoBehaviour, IAttackable
     {
         private ulong _damage;
         private float _duration;
@@ -30,7 +30,9 @@ namespace KingdomIdle.MageTower
         public ulong damage => _damage;
         public Vector3 attackerPos => transform.position;
 
-        private static readonly List<Collider2D> _results = new(32);
+		public GameObject gameobj => throw new System.NotImplementedException();
+
+		private static readonly List<Collider2D> _results = new(32);
 
         public void Initialize(ulong dmg, float duration, float tickInterval,
                                float moveSpeed, float arrivalThreshold,
