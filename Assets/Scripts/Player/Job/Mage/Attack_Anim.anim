@@ -49,8 +49,26 @@ AnimationClip:
     m_Center: {x: 0, y: 0, z: 0}
     m_Extent: {x: 0, y: 0, z: 0}
   m_ClipBindingConstant:
-    genericBindings: []
-    pptrCurveMapping: []
+    genericBindings:
+    - serializedVersion: 2
+      path: 0
+      attribute: 0
+      script: {fileID: 0}
+      typeID: 212
+      customType: 23
+      isPPtrCurve: 1
+      isIntCurve: 0
+      isSerializeReferenceCurve: 0
+    pptrCurveMapping:
+    - {fileID: -395425561, guid: cf4eae3f18c17294aa17192f1daece0c, type: 3}
+    - {fileID: -319875324, guid: cf4eae3f18c17294aa17192f1daece0c, type: 3}
+    - {fileID: 742602180, guid: cf4eae3f18c17294aa17192f1daece0c, type: 3}
+    - {fileID: 1806027260, guid: cf4eae3f18c17294aa17192f1daece0c, type: 3}
+    - {fileID: 1276031374, guid: cf4eae3f18c17294aa17192f1daece0c, type: 3}
+    - {fileID: 1122508847, guid: cf4eae3f18c17294aa17192f1daece0c, type: 3}
+    - {fileID: -1763919827, guid: cf4eae3f18c17294aa17192f1daece0c, type: 3}
+    - {fileID: 1098970071, guid: cf4eae3f18c17294aa17192f1daece0c, type: 3}
+    - {fileID: 24148894, guid: cf4eae3f18c17294aa17192f1daece0c, type: 3}
   m_AnimationClipSettings:
     serializedVersion: 2
     m_AdditiveReferencePoseClip: {fileID: 0}
@@ -78,6 +96,13 @@ AnimationClip:
   m_Events:
   - time: 0.6666667
     functionName: OnAttackHit
+    data: 
+    objectReferenceParameter: {fileID: 0}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 0.6666667
+    functionName: OnSkillVFXStart
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0

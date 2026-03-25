@@ -28,6 +28,7 @@ public class PlayerSkill
     // Animation Event 전달용 타격 대상 버퍼 (GC 최소화)
     private readonly List<IDamageable> _pendingTargets = new List<IDamageable>();
 
+
     public PlayerSkill(Player player, SkillData skillData, PlayerDetection detection, SkillSharedState sharedState)
     {
         _player      = player;
@@ -115,10 +116,25 @@ public class PlayerSkill
         // 위치는 지금 시점(Execute)에 확정해서 저장 — 이벤트 발화 시 플레이어가 이동해도 위치가 흔들리지 않는다
         if (System.Enum.TryParse(_skillData.skillName, out eVFXType vfxType))
         {
-            Vector3 vfxPos = _player.transform.position
-                             + (Vector3)(facingDir * _skillData.vfxForwardOffset);
-            _player.SetPendingSkillVFX(vfxType, vfxPos, facingDir.x,
-                _skillData.vfxDuration, _skillData.flipVFX);
+            if (_skillData.vfxOnTarget)
+            {
+                var targetMono = _detection?.currentTarget as MonoBehaviour;
+                if (targetMono != null)
+                {
+                    Vector3 enemyPos = targetMono.transform.position;
+                    Vector3 toPlayer = (_player.transform.position - enemyPos).normalized;
+                    _player.SetPendingSkillVFX(vfxType,
+                        enemyPos + toPlayer * _skillData.vfxForwardOffset,
+                        facingDir.x, _skillData.vfxDuration, _skillData.flipVFX);
+                }
+            }
+            else
+            {
+                Vector3 vfxPos = _player.transform.position
+                                 + (Vector3)(facingDir * _skillData.vfxForwardOffset);
+                _player.SetPendingSkillVFX(vfxType, vfxPos, facingDir.x,
+                    _skillData.vfxDuration, _skillData.flipVFX);
+            }
         }
 
         // [6] 데미지 적용
