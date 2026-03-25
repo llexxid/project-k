@@ -11,6 +11,7 @@ public class PlayerDetection
     public float detectionRadius = 3.5f; // 모바일 화면 기준, stopDistance보다 커야 함
     private List<Collider2D> detectedResults = new List<Collider2D>();
     public Player player;
+    public IDamageable currentTarget;
     public PlayerDetection(Player player)
     {
         this.player = player;
@@ -37,22 +38,8 @@ public class PlayerDetection
             return false; //Node Failure
         }
 
-        // 기존 타겟이 살아있고 범위 안에 있으면 그대로 유지 (겹침 시 타겟 흔들림 방지)
-        /*
-        if (currentTarget != null)
-        {
-            var currentMono = currentTarget as MonoBehaviour;
-            if (currentMono != null && currentMono.gameObject.activeInHierarchy)
-            {
-                float distToCurrent = Vector2.Distance(
-                    player.transform.position, currentMono.transform.position);
-                if (distToCurrent <= detectionRadius)
-                    return;
-            }
-        } */
-
         // 범위 내 가장 가까운 적을 타겟으로 선택
-        IDamageable closest = null;
+        currentTarget = null;
         Monster mon;
         float closestDist = float.MaxValue;
 
@@ -75,14 +62,14 @@ public class PlayerDetection
 			if (dist < closestDist)
             {
                 closestDist = dist;
-                closest = detectedResults[i].GetComponent<IDamageable>();
+                currentTarget = detectedResults[i].GetComponent<IDamageable>();
             }
         }
 
         //Debug.Log($"Player Current Target : {player.currentTarget.gameobj.GetInstanceID()}");
-        if (closest != null)
+        if (currentTarget != null)
         {
-            player.SetTarget(closest);
+            player.SetTarget(currentTarget);
 			return true;
 		}
         return false;
