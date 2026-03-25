@@ -61,6 +61,7 @@ namespace Scripts.Core.DataStructure
             ret.gameObject.transform.rotation = rotate;
             ret.IsActive = true;
             ret.OnAlloc();
+            Debug.Log($"[Alloc] obj : {ret.gameObject.GetInstanceID()}");
             return ret;
         }
 
@@ -74,7 +75,7 @@ namespace Scripts.Core.DataStructure
 
             if (obj.IsActive == false)
             {
-                CustomLogger.LogError("Double Deallocation In MemoryPool");
+                CustomLogger.LogError($"[Double Deallocation In MemoryPool] objname : {obj.gameObject.name} obj : {obj.gameObject.GetInstanceID()}");
                 return;
             }
             obj.gameObject.SetActive(false);

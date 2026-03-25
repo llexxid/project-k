@@ -37,16 +37,37 @@ namespace Scripts.Monster.MonsterNode
 
             _res = new List<Collider2D>();
             int around = Physics2D.OverlapCircle(_monster.attackerPos, radius, filter, _res);
-            if (around == 0)
-            {
+			if (around == 0)
+			{
 				CustomLogger.Log($"탐색범위 밖인 경우");
 				return false;
+			}
+
+            bool IsDectedDeadPlayer = DetectedDeadPlayer(_res);
+			if (IsDectedDeadPlayer)
+            {
+                return false;
             }
-            IDamageable target = _res[0].GetComponent<IDamageable>();
-            _monster.SetTarget(target);
-            _monster.ChangeState(new MonsterMoveState(_monster));
-            return true;
+
+			return true;
         }
+
+        private bool DetectedDeadPlayer(List<Collider2D> coliders)
+        {
+			//탐색한 대상 중, 하나라도 살아있다면 ㄱㅊ.
+            //근데 죽었다면?
+			foreach (Collider2D detected in coliders)
+			{
+				Player p = detected.GetComponent<Player>();
+				if (p.CurrentAction != ePlayerAction.Dead)
+				{
+					_monster.SetTarget(p);
+					_monster.ChangeState(new MonsterMoveState(_monster));
+                    return false;
+				}
+			}
+            return true;
+		}
 
         public override NodeState Evaluate()
         {
