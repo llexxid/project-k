@@ -25,6 +25,9 @@ public class PlayerSkill
     // Physics2D 결과 버퍼 (GC 최소화)
     private readonly List<Collider2D> _hitResults = new List<Collider2D>();
 
+    // Animation Event 전달용 타격 대상 버퍼 (GC 최소화)
+    private readonly List<IDamageable> _pendingTargets = new List<IDamageable>();
+
     public PlayerSkill(Player player, SkillData skillData, PlayerDetection detection, SkillSharedState sharedState)
     {
         _player      = player;
@@ -118,10 +121,13 @@ public class PlayerSkill
                 _skillData.vfxDuration, _skillData.flipVFX);
         }
 
-        // [6] 범위 내 적에게 데미지 적용 (광역)
-        for (int i = 0; i < hitCount; i++)
+        // [6] 데미지 적용
+        // animationStateName이 설정된 스킬 → Animation Event(OnSkillHit)에서 적용
+        // animationStateName이 없는 스킬  → 즉시 적용 (VFX 스킬 등 전용 애니메이션 없는 경우)
+        if (!string.IsNullOrEmpty(_skillData.animationStateName))
         {
-            if (_hitResults[i].TryGetComponent<IDamageable>(out var target))
+            _pendingTargets.Clear();
+            for (int i = 0; i < hitCount; i++)
             {
                 // 이미 Dead 상태인 몬스터는 건너뜀
                 Monster mon = _hitResults[i].GetComponent<Monster>();
@@ -187,7 +193,7 @@ public class PlayerSkill
     // 데미지 래퍼
     // ─────────────────────────────────────────────────────────
 
-    private class DamageProxy : IAttackable
+    public class DamageProxy : IAttackable
     {
         public ulong damage { get; }
         public Vector3 attackerPos => Vector3.zero;
