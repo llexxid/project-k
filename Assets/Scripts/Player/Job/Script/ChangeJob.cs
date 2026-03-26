@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System;
 using System.Collections.Generic;
 using Scripts.Users;
@@ -243,9 +243,6 @@ public class ChangeJob : MonoBehaviour
         // 1. PlayerStatus 스탯 갱신
         _player.playerStatus.ApplyJob(data);
 
-        // 1-1. _data._Hp를 playerStatus.HP(MaxHP)와 동기화
-        _player.SyncHpFromStatus();
-
         // 2. 공격속도 변경 시 attackRate도 동기화
         if (_player.playerOrder?._attack != null)
         {
@@ -275,9 +272,6 @@ public class ChangeJob : MonoBehaviour
         if (_spriteRenderer != null && data.jobSprite != null)
             _spriteRenderer.sprite = data.jobSprite;
 
-        // 5-1. 하단 HUD 초상화를 전직 idle 스프라이트로 자동 갱신
-        UpdatePartyHudPortrait(data);
-
         // 6. 애니메이터 컨트롤러 교체
         if (_player._am != null && data.animatorController != null)
         {
@@ -305,32 +299,5 @@ public class ChangeJob : MonoBehaviour
         RefreshAllPassiveBonuses();
 
         Debug.Log($"[ChangeJob] 전직 완료: {data.jobName} (HP:{data.maxHP} ATK:{data.atk})");
-    }
-
-    /// <summary>
-    /// 전직 시 하단 HUD 초상화를 해당 직업의 idle 스프라이트로 자동 갱신.
-    /// KingdomArmyManager에서 플레이어 인덱스를 찾아 PartyHud에 반영한다.
-    /// </summary>
-    private void UpdatePartyHudPortrait(JobData data)
-    {
-        var hudCtrl = KingdomIdle.UIToolkit.UITKPartyHudController.Instance;
-        if (hudCtrl == null) return;
-
-        var armyMgr = KingdomIdle.KingdomArmy.KingdomArmyManager.Instance;
-        if (armyMgr == null) return;
-
-        var players = armyMgr.GetPlayers();
-        if (players == null) return;
-
-        int memberIdx = players.IndexOf(_player);
-        if (memberIdx < 0) return;
-
-        // 전직 idle 스프라이트 결정: jobSprite > 현재 SpriteRenderer 스프라이트
-        Sprite portrait = data.jobSprite;
-        if (portrait == null && _spriteRenderer != null)
-            portrait = _spriteRenderer.sprite;
-
-        if (portrait != null)
-            hudCtrl.SetPortraitSprite(memberIdx, portrait);
     }
 }
