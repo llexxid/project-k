@@ -123,15 +123,12 @@ public class PlayerSkill
                 {
                     Vector3 enemyPos = targetMono.transform.position;
                     Vector3 toPlayer = (_player.transform.position - enemyPos).normalized;
-                    _player.SetPendingSkillVFX(vfxType,
-                        enemyPos + toPlayer * _skillData.vfxForwardOffset,
-                        facingDir.x, _skillData.vfxDuration, _skillData.flipVFX);
+                    _player.SetPendingSkillVFX(vfxType, enemyPos, facingDir.x, _skillData.vfxDuration, _skillData.flipVFX);
                 }
             }
             else
             {
-                Vector3 vfxPos = _player.transform.position
-                                 + (Vector3)(facingDir * _skillData.vfxForwardOffset);
+                Vector3 vfxPos = _player.transform.position + (Vector3)(facingDir * _skillData.vfxForwardOffset);
                 _player.SetPendingSkillVFX(vfxType, vfxPos, facingDir.x,
                     _skillData.vfxDuration, _skillData.flipVFX);
             }
@@ -146,7 +143,8 @@ public class PlayerSkill
             for (int i = 0; i < hitCount; i++)
             {
                 // 이미 Dead 상태인 몬스터는 건너뜀
-                Monster mon = _hitResults[i].GetComponent<Monster>();
+                Monster mon = _hitResults[i].GetComponentInParent<Monster>(); // GetComponent → GetComponentInParent
+
                 if (mon.MonAction == eMonsterAction.Dead)
                 {
 					continue;
@@ -179,8 +177,7 @@ public class PlayerSkill
         int validCount = 0;
         for (int i = 0; i < hitCount; i++)
         {
-            Vector2 toEnemy = ((Vector2)_hitResults[i].transform.position
-                               - (Vector2)_player.transform.position);
+            Vector2 toEnemy = ((Vector2)_hitResults[i].transform.position - (Vector2)_player.transform.position);
             // 플레이어와 겹쳐있는 경우는 항상 통과
             if (toEnemy == Vector2.zero || Vector2.Angle(facingDir, toEnemy) <= halfAngle)
             {

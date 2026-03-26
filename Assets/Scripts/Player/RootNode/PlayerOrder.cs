@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class PlayerOrder
@@ -6,7 +7,7 @@ public class PlayerOrder
     public Node _rootNode;
 
     private PlayerDetection _detection;
-    private PlayerMove _move;
+    public PlayerMove _move;
     public PlayerAttack _attack;
     private PlayerIdle _idle;
 
@@ -41,6 +42,9 @@ public class PlayerOrder
             // 2. 대기 (전투 실패 시 실행)
             new PlayerIdle.IdleNode(_idle)
         });
+
+        // PlayerOrder.cs - 현재 코드 수정
+        RebuildSkillTree(player.skillManager.GetCurrentSkills().ToList(), player);
     }
 
     /// <summary>
@@ -83,5 +87,25 @@ public class PlayerOrder
         _attackSelector.ReplaceChildren(nodes);
 
         Debug.Log($"[PlayerOrder] 스킬 트리 재조립 완료. 스킬 {skills?.Count ?? 0}개 + 일반 공격");
+    }
+
+    private bool _isAbort;
+
+    public bool IsAbort => _isAbort;
+
+    public void InterruptBT()
+    {
+        _isAbort = true;
+    }
+
+    public void RecoveryBT()
+    {         
+        _isAbort = false;
+    }
+
+    public void ExecuteNode()
+    {
+        if (_isAbort) return;
+        _rootNode.Evaluate();
     }
 }
