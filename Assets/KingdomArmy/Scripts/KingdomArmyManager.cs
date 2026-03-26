@@ -15,6 +15,7 @@ namespace KingdomIdle.KingdomArmy
         public static KingdomArmyManager Instance { get; private set; }
 
         [SerializeField] private JobDatabase jobDatabase;
+        [SerializeField] private EquipmentDatabase equipmentDatabase;
         [SerializeField] private int defaultFragmentCost = 40;
 
         /// <summary>jobName → 보유 파편 수</summary>
@@ -26,6 +27,7 @@ namespace KingdomIdle.KingdomArmy
         private const string PrefKey = "KingdomArmy_Save";
 
         public JobDatabase JobDB => jobDatabase;
+        public EquipmentDatabase EquipDB => equipmentDatabase;
 
         public event Action OnStateChanged;
 

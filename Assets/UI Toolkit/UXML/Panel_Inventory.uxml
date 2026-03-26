@@ -1,0 +1,13 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <ui:VisualElement name="PanelRoot" class="panel-root">
+        <ui:VisualElement name="Backdrop" class="panel-backdrop" />
+        <ui:VisualElement name="Sheet" class="panel-sheet">
+            <ui:VisualElement class="panel-header">
+                <ui:Label name="LblPanelName" text="인벤토리" class="panel-title" />
+                <ui:Button name="BtnPanelClose" text="&#x2715;" class="panel-close-btn" />
+            </ui:VisualElement>
+            <ui:VisualElement name="InvNavBar" class="ka-nav-bar" />
+            <ui:ScrollView name="InvContent" class="ka-content" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

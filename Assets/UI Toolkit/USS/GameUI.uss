@@ -1231,6 +1231,41 @@
     -unity-text-align: middle-center;
 }
 
+/* 장비 등급별 카드 테두리 색상 */
+.gacha-rarity-normal {
+    border-width: 2px;
+    border-color: rgba(180, 180, 180, 0.8);
+}
+
+.gacha-rarity-rare {
+    border-width: 2px;
+    border-color: rgba(80, 140, 255, 0.9);
+}
+
+.gacha-rarity-epic {
+    border-width: 2px;
+    border-color: rgba(180, 80, 255, 0.9);
+}
+
+/* 장비 등급 텍스트 색상 */
+.gacha-reward-rarity {
+    font-size: 18px;
+    -unity-text-align: middle-center;
+    -unity-font-style: bold;
+}
+
+.gacha-rarity-text-normal {
+    color: rgba(200, 200, 200, 0.9);
+}
+
+.gacha-rarity-text-rare {
+    color: rgba(100, 160, 255, 1);
+}
+
+.gacha-rarity-text-epic {
+    color: rgba(200, 100, 255, 1);
+}
+
 /* ===== Kingdom Army Panel ===== */
 .ka-member-tabs {
     flex-direction: row;
@@ -1296,6 +1331,11 @@
     height: 120px;
     background-color: rgba(255, 255, 255, 0.1);
     border-radius: 10px;
+    overflow: hidden;
+}
+
+.ka-char-portrait-inner {
+    position: absolute;
     -unity-background-scale-mode: scale-to-fit;
 }
 
@@ -1390,6 +1430,27 @@
 .ka-equip-slot-empty {
     font-size: 18px;
     color: rgba(255, 255, 255, 0.3);
+}
+
+/* Equipment: icon placeholder */
+.ka-equip-icon {
+    width: 60px;
+    height: 60px;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+/* Equipment: dimmed (not allowed for current job) */
+.ka-equip-dimmed {
+    opacity: 0.35;
+}
+
+/* Equipment: equipped item border highlight */
+.ka-equip-equipped {
+    border-width: 3px;
+    border-color: rgb(80, 200, 120);
+    border-radius: 10px;
 }
 
 /* Skill View */
@@ -1531,6 +1592,167 @@
 .ka-change-btn-disabled {
     background-color: rgba(100, 100, 100, 0.5);
     color: rgba(255, 255, 255, 0.4);
+}
+
+/* ===== Inventory Panel ===== */
+.inv-equip-card {
+    padding: 8px 6px;
+}
+
+.inv-rarity-bar {
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+}
+
+.inv-rarity-normal {
+    background-color: rgba(180, 180, 180, 0.6);
+}
+
+.inv-rarity-rare {
+    background-color: rgba(60, 140, 255, 0.8);
+}
+
+.inv-rarity-epic {
+    background-color: rgba(180, 60, 255, 0.8);
+}
+
+.inv-owner-label {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.4);
+    -unity-text-align: middle-center;
+}
+
+/* ===== 뽑기 결과 팝업 ===== */
+.gacha-result-overlay {
+    background-color: rgba(0, 0, 0, 0.7);
+    justify-content: center;
+    align-items: center;
+}
+
+.gacha-result-popup {
+    width: 80%;
+    max-width: 700px;
+    max-height: 70%;
+    background-color: rgba(30, 30, 50, 0.95);
+    border-radius: 16px;
+    padding: 20px;
+    border-left-width: 2px; border-right-width: 2px;
+    border-top-width: 2px; border-bottom-width: 2px;
+    border-color: rgba(200, 180, 100, 0.6);
+}
+
+.gacha-result-title {
+    font-size: 32px;
+    -unity-font-style: bold;
+    color: rgba(255, 220, 100, 0.95);
+    -unity-text-align: upper-center;
+    margin-bottom: 16px;
+}
+
+.gacha-result-scroll {
+    flex: 1;
+    min-height: 120px;
+    max-height: 400px;
+}
+
+.gacha-result-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    padding: 8px;
+}
+
+.gacha-result-card {
+    width: 110px;
+    padding: 8px 4px;
+    background-color: rgba(50, 50, 70, 0.8);
+    border-radius: 10px;
+    border-left-width: 2px; border-right-width: 2px;
+    border-top-width: 2px; border-bottom-width: 2px;
+    border-color: rgba(100, 100, 120, 0.5);
+    align-items: center;
+}
+
+.gacha-result-icon {
+    width: 64px;
+    height: 64px;
+    -unity-background-scale-mode: scale-to-fit;
+    margin-bottom: 4px;
+}
+
+.gacha-result-name {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.9);
+    -unity-text-align: upper-center;
+    white-space: normal;
+}
+
+.gacha-result-count {
+    font-size: 20px;
+    -unity-font-style: bold;
+    color: rgba(255, 220, 100, 0.95);
+    -unity-text-align: upper-center;
+}
+
+.gacha-result-btn-row {
+    flex-direction: row;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.gacha-result-btn {
+    height: 56px;
+    min-width: 120px;
+    padding: 0 16px;
+    font-size: 22px;
+    -unity-font-style: bold;
+    background-color: rgba(60, 120, 220, 0.7);
+    border-radius: 10px;
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.gacha-result-btn-done {
+    background-color: rgba(100, 100, 100, 0.7);
+}
+
+/* ===== 장비 액션 팝업 ===== */
+.ka-equip-action-row {
+    flex-direction: row;
+    gap: 12px;
+    margin-top: 12px;
+    margin-bottom: 8px;
+    justify-content: center;
+}
+
+.ka-action-btn {
+    flex: 1;
+    height: 64px;
+    max-width: 200px;
+    font-size: 28px;
+    -unity-font-style: bold;
+    background-color: rgba(60, 120, 220, 0.7);
+    border-radius: 10px;
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.ka-action-btn-enhance {
+    background-color: rgba(220, 160, 40, 0.8);
+}
+
+.ka-action-btn-disabled {
+    background-color: rgba(100, 100, 100, 0.5);
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.ka-equip-dimmed-text {
+    color: rgba(255, 80, 80, 0.9);
 }
 
 /* ===== [DEBUG] 디버그 메뉴 — 제거 시 이 섹션 전체 삭제 ===== */

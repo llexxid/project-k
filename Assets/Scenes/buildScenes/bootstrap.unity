@@ -325,6 +325,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   jobDatabase: {fileID: 11400000, guid: 9e03a3b2e50f9024c94a0cb0b2ec46e4, type: 2}
+  equipmentDatabase: {fileID: 11400000, guid: 0cabf66954ae3c2448ff5eba03efac0c, type: 2}
   defaultFragmentCost: 40
 --- !u!4 &659282417
 Transform:
@@ -408,6 +409,10 @@ MonoBehaviour:
     type: 3}
   panelKingdomArmyUxml: {fileID: 9197481963319205126, guid: 91719f7e3b4ca7241b5cf28a0a740156,
     type: 3}
+  panelDevelopmentUxml: {fileID: 9197481963319205126, guid: 2d10fa05a7682f348ab435c3799194df,
+    type: 3}
+  panelInventoryUxml: {fileID: 9197481963319205126, guid: fcd93deec782aad40b4f0e46167ba826,
+    type: 3}
   overlayLoadingUxml: {fileID: 9197481963319205126, guid: 88b128c4aa415e647ae568ce0e827dfc,
     type: 3}
   dontDestroyOnLoad: 1
@@ -455,9 +460,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b5de62627b65b0b428fc2c25d7ba140f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  dummySkillCount0: 1
-  dummySkillCount1: 2
-  dummySkillCount2: 3
+  portraitSprite0: {fileID: 0}
+  portraitSprite1: {fileID: 0}
+  portraitSprite2: {fileID: 0}
   baseGapPx: 12
   sheetGapPx: 10
   fallbackBottomBarPx: 190

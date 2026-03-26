@@ -1,8 +1,9 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 using KingdomIdle.UI;
+using KingdomIdle.KingdomArmy;
 
 namespace KingdomIdle.UIToolkit
 {
@@ -12,10 +13,13 @@ namespace KingdomIdle.UIToolkit
     {
         public static UITKPartyHudController Instance { get; private set; }
 
-        [Header("Dummy Setup")]
-        [SerializeField, Range(0, 3)] private int dummySkillCount0 = 1;
-        [SerializeField, Range(0, 3)] private int dummySkillCount1 = 2;
-        [SerializeField, Range(0, 3)] private int dummySkillCount2 = 3;
+        [Header("Portrait Sprites (에디터에서 직업별 정적 초상화 설정)")]
+        [Tooltip("왕국군1 초상화 스프라이트 (전직에 맞게 직접 설정)")]
+        [SerializeField] private Sprite portraitSprite0;
+        [Tooltip("왕국군2 초상화 스프라이트 (전직에 맞게 직접 설정)")]
+        [SerializeField] private Sprite portraitSprite1;
+        [Tooltip("왕국군3 초상화 스프라이트 (전직에 맞게 직접 설정)")]
+        [SerializeField] private Sprite portraitSprite2;
 
         [Header("Layout")]
         [SerializeField] private float baseGapPx = 12f;      // BottomBar 위 기본 간격
@@ -28,6 +32,8 @@ namespace KingdomIdle.UIToolkit
         private VisualElement _bottomBar;
 
         private readonly MemberUI[] _members = new MemberUI[3];
+        private List<Player> _players;
+        private bool _playersResolved;
 
         private struct MemberUI
         {
@@ -72,6 +78,49 @@ namespace KingdomIdle.UIToolkit
             EnsureRefs();
             EnsureHudBuilt();
             UpdateHudVisibilityAndPosition();
+            SyncFromPlayers();
+        }
+
+        /// <summary>
+        /// 초상화 스프라이트를 런타임에 변경한다.
+        /// 전직 시 ChangeJob에서 호출하거나 외부에서 갱신 가능.
+        /// </summary>
+        public void SetPortraitSprite(int memberIndex, Sprite sprite)
+        {
+            if (memberIndex < 0 || memberIndex >= 3) return;
+
+            switch (memberIndex)
+            {
+                case 0: portraitSprite0 = sprite; break;
+                case 1: portraitSprite1 = sprite; break;
+                case 2: portraitSprite2 = sprite; break;
+            }
+
+            ApplyPortraitSprite(memberIndex);
+        }
+
+        private Sprite GetPortraitSprite(int index)
+        {
+            return index switch
+            {
+                0 => portraitSprite0,
+                1 => portraitSprite1,
+                2 => portraitSprite2,
+                _ => null
+            };
+        }
+
+        private void ApplyPortraitSprite(int index)
+        {
+            if (index < 0 || index >= 3) return;
+            var portrait = _members[index].Portrait;
+            if (portrait == null) return;
+
+            var sprite = GetPortraitSprite(index);
+            if (sprite != null)
+                portrait.style.backgroundImage = new StyleBackground(sprite);
+            else
+                portrait.style.backgroundImage = StyleKeyword.None;
         }
 
         private void EnsureRefs()
@@ -85,6 +134,49 @@ namespace KingdomIdle.UIToolkit
                 _uiDocument = FindFirstObjectByType<UIDocument>();
         }
 
+        private void ResolvePlayers()
+        {
+            if (_playersResolved) return;
+
+            var mgr = KingdomArmyManager.Instance;
+            if (mgr == null) return;
+
+            _players = mgr.GetPlayers();
+            if (_players != null && _players.Count > 0)
+            {
+                _playersResolved = true;
+
+                // 플레이어 최초 resolve 시 idle 스프라이트를 초상화에 자동 적용
+                for (int i = 0; i < 3 && i < _players.Count; i++)
+                {
+                    if (GetPortraitSprite(i) != null) continue; // 이미 에디터에서 설정됨
+
+                    var player = _players[i];
+                    if (player == null) continue;
+
+                    // jobSprite(전직 대표 스프라이트) 우선, 없으면 현재 SpriteRenderer 스프라이트
+                    Sprite idleSprite = null;
+                    var jobDB = mgr.JobDB;
+                    if (jobDB != null && player.playerStatus != null)
+                    {
+                        var jobData = jobDB.GetJob(player.playerStatus.JobName);
+                        if (jobData != null && jobData.jobSprite != null)
+                            idleSprite = jobData.jobSprite;
+                    }
+
+                    if (idleSprite == null)
+                    {
+                        var sr = player.GetComponent<SpriteRenderer>();
+                        if (sr != null && sr.sprite != null)
+                            idleSprite = sr.sprite;
+                    }
+
+                    if (idleSprite != null)
+                        SetPortraitSprite(i, idleSprite);
+                }
+            }
+        }
+
         private void EnsureHudBuilt()
         {
             if (_uiDocument == null) return;
@@ -94,7 +186,6 @@ namespace KingdomIdle.UIToolkit
             if (_partyHud != null && _partyHud.panel != null)
                 return;
 
-            // Panels 위(항상 표시) + Settings/Loading 등 오버레이 아래에 있어야 하므로 Popups 레이어 사용
             var popups = root.Q<VisualElement>("Layer_Popups");
             if (popups == null) return;
 
@@ -107,17 +198,46 @@ namespace KingdomIdle.UIToolkit
                 popups.Add(_partyHud);
             }
 
-            // Popups 레이어 내에서 최상단 유지(패널보다 위에 그려지도록)
             _partyHud.BringToFront();
 
-            // 더미 초기값
-            SetMemberHealth01(0, 1f);
-            SetMemberHealth01(1, 1f);
-            SetMemberHealth01(2, 1f);
+            // 초상화 스프라이트 적용
+            for (int i = 0; i < 3; i++)
+                ApplyPortraitSprite(i);
 
-            SetMemberSkillCount(0, dummySkillCount0);
-            SetMemberSkillCount(1, dummySkillCount1);
-            SetMemberSkillCount(2, dummySkillCount2);
+            // 초기 HP 100%
+            for (int i = 0; i < 3; i++)
+                SetMemberHealth01(i, 1f);
+        }
+
+        /// <summary>
+        /// 매 프레임 플레이어 데이터를 읽어서 HP와 스킬을 동기화한다.
+        /// </summary>
+        private void SyncFromPlayers()
+        {
+            if (_partyHud == null) return;
+
+            ResolvePlayers();
+            if (_players == null) return;
+
+            for (int i = 0; i < 3 && i < _players.Count; i++)
+            {
+                var player = _players[i];
+                if (player == null || player.playerStatus == null) continue;
+
+                var ps = player.playerStatus;
+
+                // HP 동기화
+                SetMemberHealth(i, ps.HP, ps.MaxHP);
+
+                // 스킬 수 동기화 (직업 스킬 기반)
+                var jobDB = KingdomArmyManager.Instance?.JobDB;
+                if (jobDB != null)
+                {
+                    var jobData = jobDB.GetJob(ps.JobName);
+                    int skillCount = jobData?.skills?.Count ?? 0;
+                    SetMemberSkillCount(i, Mathf.Min(skillCount, 3));
+                }
+            }
         }
 
         private VisualElement BuildHudTree()
@@ -159,7 +279,6 @@ namespace KingdomIdle.UIToolkit
                 skillRow.AddToClassList("party-skill-row");
                 skillRow.pickingMode = PickingMode.Ignore;
 
-                // 0~3 스킬 슬롯
                 for (int s = 0; s < 3; s++)
                 {
                     var slot = new VisualElement();
@@ -180,10 +299,7 @@ namespace KingdomIdle.UIToolkit
                     _members[i].Skills[s] = new SkillSlot { Root = slot, Mask = mask, CooldownLabel = cd, Co = null };
                     _members[i].SkillIds[s] = -1;
 
-                    // 기본은 비표시(스킬 보유 수만큼만 표시)
                     slot.style.display = DisplayStyle.None;
-
-                    // 쿨다운 UI 기본 off
                     mask.style.display = DisplayStyle.None;
                     cd.style.display = DisplayStyle.None;
 
@@ -241,13 +357,11 @@ namespace KingdomIdle.UIToolkit
         private void OpenKingdomArmyPanel()
         {
             if (UITKUIManager.Instance == null) return;
-
-            // 탭 버튼과 동일한 동작(다른 탭 패널이 열려있다면 교체)
             UITKUIManager.Instance.ClearPanels();
             UITKUIManager.Instance.PushPanel(UIPanelId.KingdomArmy, "kingdomArmyPanel", clearBefore: false, isTabPanel: true);
         }
 
-        // ===== 외부(팀원) 호출 API =====
+        // ===== 외부 호출 API (기존 유지) =====
         public void SetMemberHealth(int memberIndex, float current, float max)
         {
             if (memberIndex < 0 || memberIndex >= 3) return;
@@ -273,7 +387,7 @@ namespace KingdomIdle.UIToolkit
                 var slot = _members[memberIndex].Skills[s].Root;
                 if (slot == null) continue;
                 slot.style.display = s < count ? DisplayStyle.Flex : DisplayStyle.None;
-                _members[memberIndex].SkillIds[s] = s < count ? s : -1; // 더미 ID
+                _members[memberIndex].SkillIds[s] = s < count ? s : -1;
             }
         }
 

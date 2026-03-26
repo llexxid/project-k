@@ -153,17 +153,42 @@ namespace KingdomIdle.UIToolkit
                 var card = new VisualElement();
                 card.AddToClassList("gacha-reward-card");
 
-                if (entry.icon != null)
+                // 장비 보상이면 등급별 테두리 색상 적용
+                if (entry.rewardType == eGachaRewardType.Equipment && entry.equipmentData != null)
+                {
+                    card.AddToClassList($"gacha-rarity-{entry.equipmentData.rarity.ToString().ToLower()}");
+                }
+
+                // 아이콘: 장비 보상이면 equipmentData.icon 우선 사용
+                Sprite displayIcon = entry.icon;
+                if (entry.rewardType == eGachaRewardType.Equipment && entry.equipmentData != null && entry.equipmentData.icon != null)
+                    displayIcon = entry.equipmentData.icon;
+
+                if (displayIcon != null)
                 {
                     var iconVe = new VisualElement();
                     iconVe.AddToClassList("gacha-reward-icon");
-                    iconVe.style.backgroundImage = new StyleBackground(entry.icon);
+                    iconVe.style.backgroundImage = new StyleBackground(displayIcon);
                     card.Add(iconVe);
                 }
 
-                var nameLbl = new Label(entry.nameKor);
+                // 이름: 장비 보상이면 equipmentData.equipmentName 우선 사용
+                string displayName = entry.nameKor;
+                if (entry.rewardType == eGachaRewardType.Equipment && entry.equipmentData != null)
+                    displayName = string.IsNullOrEmpty(entry.nameKor) ? entry.equipmentData.equipmentName : entry.nameKor;
+
+                var nameLbl = new Label(displayName);
                 nameLbl.AddToClassList("gacha-reward-name");
                 card.Add(nameLbl);
+
+                // 장비 보상이면 등급 라벨 추가
+                if (entry.rewardType == eGachaRewardType.Equipment && entry.equipmentData != null)
+                {
+                    var rarityLbl = new Label(GetRarityText(entry.equipmentData.rarity));
+                    rarityLbl.AddToClassList("gacha-reward-rarity");
+                    rarityLbl.AddToClassList($"gacha-rarity-text-{entry.equipmentData.rarity.ToString().ToLower()}");
+                    card.Add(rarityLbl);
+                }
 
                 float pct = totalWeight > 0f ? (entry.weight / totalWeight) * 100f : 0f;
                 var rateLbl = new Label($"{pct:F1}%");
@@ -177,6 +202,15 @@ namespace KingdomIdle.UIToolkit
         }
 
         private static void OnPullClicked(GachaTableSO table, int count)
+        {
+            PullAndShowResult(table, count);
+        }
+
+        /// <summary>
+        /// 뽑기를 실행하고 결과를 팝업으로 표시한다.
+        /// 외부(UITKUIManager 다시뽑기 버튼)에서도 호출 가능.
+        /// </summary>
+        public static void PullAndShowResult(GachaTableSO table, int count)
         {
             var uiMgr = UITKUIManager.Instance;
 
@@ -202,38 +236,22 @@ namespace KingdomIdle.UIToolkit
                 return;
             }
 
-            ShowResults(results);
+            // 결과를 팝업으로 표시
+            if (uiMgr != null)
+                uiMgr.ShowGachaResultPopup(results, table, count);
+
             RefreshContent();
         }
 
-        private static void ShowResults(List<GachaRewardEntry> results)
+        private static string GetRarityText(eEquipmentRarity rarity)
         {
-            var uiMgr = UITKUIManager.Instance;
-            if (uiMgr == null) return;
-
-            // 보상 합산 요약
-            var summary = new Dictionary<string, int>();
-            for (int i = 0; i < results.Count; i++)
+            switch (rarity)
             {
-                var r = results[i];
-                string key = r.nameKor;
-                int amt = r.rewardType == eGachaRewardType.Currency ? r.amount : 1;
-
-                if (summary.ContainsKey(key))
-                    summary[key] += amt;
-                else
-                    summary[key] = amt;
+                case eEquipmentRarity.Normal: return "일반";
+                case eEquipmentRarity.Rare:   return "레어";
+                case eEquipmentRarity.Epic:   return "에픽";
+                default:                      return rarity.ToString();
             }
-
-            var sb = new System.Text.StringBuilder();
-            foreach (var kv in summary)
-            {
-                if (sb.Length > 0) sb.Append(", ");
-                sb.Append($"{kv.Key} x{kv.Value}");
-            }
-            sb.Append(" 획득!");
-
-            uiMgr.ShowToast(sb.ToString());
         }
     }
 }
