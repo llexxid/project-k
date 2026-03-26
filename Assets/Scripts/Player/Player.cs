@@ -441,7 +441,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
     // PlayerSkill이 애니메이션 트리거 직전에 채워두는 VFX 대기 데이터
     private eVFXType _pendingVFXType;
-    private Vector3  _pendingVFXPos;      // Execute() 시점에 확정된 월드 좌표
+    private readonly List<Vector3> _pendingVFXPositions = new List<Vector3>(); // Execute() 시점에 확정된 월드 좌표 목록
     private float    _pendingVFXFacing;   // 방향 반전 판단용 (scale.x 부호)
     private int      _pendingVFXDuration;
     private bool     _pendingVFXFlip;
@@ -454,14 +454,24 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     public void SetPendingSkillVFX(eVFXType vfxType, Vector3 vfxPos, float facing, int duration, bool flip)
     {
         _pendingVFXType     = vfxType;
-        _pendingVFXPos      = vfxPos;
+        _pendingVFXPositions.Clear();
+        _pendingVFXPositions.Add(vfxPos);
         _pendingVFXFacing   = facing;
         _pendingVFXDuration = duration;
         _pendingVFXFlip     = flip;
         _hasPendingVFX      = true;
     }
 
-/// <summary>
+    /// <summary>
+    /// vfxOnTarget 스킬에서 추가 타겟 위치를 등록할 때 호출.
+    /// SetPendingSkillVFX 호출 이후에 사용해야 한다.
+    /// </summary>
+    public void AddPendingSkillVFXTarget(Vector3 vfxPos)
+    {
+        _pendingVFXPositions.Add(vfxPos);
+    }
+
+    /// <summary>
     /// Animation Event 전용.
     /// 스킬 공격 애니메이션의 VFX 시작 프레임에 등록한다.
     /// </summary>
@@ -470,21 +480,25 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         if (!_hasPendingVFX) return;
         _hasPendingVFX = false;
 
-        Vector3 vfxPos   = _pendingVFXPos;
-        float   facing   = _pendingVFXFacing;
-        int     duration = _pendingVFXDuration;
-        bool    flipVFX  = _pendingVFXFlip;
+        eVFXType vfxType = _pendingVFXType;
+        float    facing  = _pendingVFXFacing;
+        int      duration = _pendingVFXDuration;
+        bool     flipVFX = _pendingVFXFlip;
 
-        VFXManager.Instance?.GetVFX(_pendingVFXType, vfxPos, Quaternion.identity,
-            (vfx) =>
-            {
-                if (vfx == null) return;
-                Vector3 s    = vfx.transform.localScale;
-                bool    flip = facing >= 0f ? flipVFX : !flipVFX;
-                s.x = flip ? -Mathf.Abs(s.x) : Mathf.Abs(s.x);
-                vfx.transform.localScale = s;
-                vfx.ActiveEffect(duration);
-            });
+        foreach (Vector3 vfxPos in _pendingVFXPositions)
+        {
+            Vector3 capturedPos = vfxPos;
+            VFXManager.Instance?.GetVFX(vfxType, capturedPos, Quaternion.identity,
+                (vfx) =>
+                {
+                    if (vfx == null) return;
+                    Vector3 s    = vfx.transform.localScale;
+                    bool    flip = facing >= 0f ? flipVFX : !flipVFX;
+                    s.x = flip ? -Mathf.Abs(s.x) : Mathf.Abs(s.x);
+                    vfx.transform.localScale = s;
+                    vfx.ActiveEffect(duration);
+                });
+        }
     }
 
     /// <summary>
