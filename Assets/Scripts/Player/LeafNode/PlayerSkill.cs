@@ -211,9 +211,9 @@ public class PlayerSkill
         public ulong damage { get; }
         public Vector3 attackerPos => Vector3.zero;
 
-		public GameObject gameobj => throw new System.NotImplementedException();
+        public GameObject gameobj { get; }
 
-		public bool Attack(IDamageable target) => false;
-        public DamageProxy(int dmg) { damage = (ulong)dmg; }
+        public bool Attack(IDamageable target) => false;
+        public DamageProxy(ulong damage, GameObject owner) { this.damage = damage; this.gameobj = owner; }
     }
 }

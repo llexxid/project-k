@@ -86,9 +86,9 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         // 패링 중 피격: 데미지 무효화 + 반격
         if (IsParrying)
         {
-            int counterDamage = Mathf.RoundToInt(playerStatus.Atk * _parryCounterMultiplier);
+            ulong counterDamage = (ulong)Mathf.RoundToInt(playerStatus.Atk * _parryCounterMultiplier);
             var damageable = attacker as IDamageable;
-            damageable?.TakeDamage(new PlayerSkill.DamageProxy(counterDamage));
+            damageable?.TakeDamage(new PlayerSkill.DamageProxy(counterDamage, gameobj));
 
             UITKDamageTextBridge.ShowOnTransform(transform, (ulong)counterDamage, Color.yellow);
             Debug.Log($"[Player] 패링 성공! 반격 데미지: {counterDamage}");
@@ -398,7 +398,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
     // PlayerSkill이 애니메이션 트리거 직전에 채워두는 스킬 데미지 대기 데이터
     private readonly List<IDamageable> _pendingSkillTargets = new List<IDamageable>();
-    private int  _pendingSkillDamage;
+    private ulong  _pendingSkillDamage;
     private bool _hasPendingSkillDamage;
 
     /// <summary>
@@ -408,7 +408,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     {
         _pendingSkillTargets.Clear();
         _pendingSkillTargets.AddRange(targets);
-        _pendingSkillDamage      = damage;
+        _pendingSkillDamage      = (ulong)damage;
         _hasPendingSkillDamage   = _pendingSkillTargets.Count > 0;
     }
 
@@ -429,7 +429,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
             var mono = target as MonoBehaviour;
             if (mono == null || !mono.gameObject.activeInHierarchy) continue;
 
-            bool isAlive = target.TakeDamage(new PlayerSkill.DamageProxy(_pendingSkillDamage));
+            bool isAlive = target.TakeDamage(new PlayerSkill.DamageProxy(_pendingSkillDamage, gameobj));
             if (!isAlive)
             {
                 SetAnimation(ePlayerAction.Idle);
