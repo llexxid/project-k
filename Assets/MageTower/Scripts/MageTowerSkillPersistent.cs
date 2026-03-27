@@ -30,7 +30,7 @@ namespace KingdomIdle.MageTower
         public ulong damage => _damage;
         public Vector3 attackerPos => transform.position;
 
-		public GameObject gameobj => throw new System.NotImplementedException();
+		public GameObject gameobj => gameObject;
 
 		private static readonly List<Collider2D> _results = new(32);
 

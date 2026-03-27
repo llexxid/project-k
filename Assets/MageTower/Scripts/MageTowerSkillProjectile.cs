@@ -26,7 +26,7 @@ namespace KingdomIdle.MageTower
         public ulong damage => _damage;
         public Vector3 attackerPos => _spawnPos;
 
-		public GameObject gameobj => throw new NotImplementedException();
+		public GameObject gameobj => gameObject;
 
 		public void Initialize(ulong dmg, Vector3 pos, Action onHitCallback = null,
                                float damageRadius = 1.5f, bool shakeOnHit = false,

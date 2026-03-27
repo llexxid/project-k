@@ -145,29 +145,20 @@ public class PlayerSkill
             }
         }
 
-        // [6] 데미지 적용
-        // animationStateName이 설정된 스킬 → Animation Event(OnSkillHit)에서 적용
-        // animationStateName이 없는 스킬  → 즉시 적용 (VFX 스킬 등 전용 애니메이션 없는 경우)
-        if (!string.IsNullOrEmpty(_skillData.animationStateName))
+        // [6] 데미지 적용 (스킬 데미지 계수 반영)
         {
-            _pendingTargets.Clear();
+            var dmgProxy = new DamageProxy((ulong)skillDamage, _player.gameobj, _player);
             for (int i = 0; i < hitCount; i++)
             {
-                // 이미 Dead 상태인 몬스터는 건너뜀
-                Monster mon = _hitResults[i].GetComponentInParent<Monster>(); // GetComponent → GetComponentInParent
+                Monster mon = _hitResults[i].GetComponentInParent<Monster>();
+                if (mon == null || mon.MonAction == eMonsterAction.Dead)
+                    continue;
 
-                if (mon.MonAction == eMonsterAction.Dead)
-                {
-					continue;
-				}
-
-                bool isAlive = mon.TakeDamage(_player);
+                bool isAlive = mon.TakeDamage(dmgProxy);
                 if (!isAlive)
                 {
-                    // 몬스터 사망 시 Idle로 전환 (Attack은 Trigger라 자동 리셋됨)
                     Debug.Log($"[스킬 사망] {_skillData.skillName} attacker : {_player.gameobj.GetInstanceID()} | monster : {mon.gameobj.GetInstanceID()}");
                     _player.SetAnimation(ePlayerAction.Idle);
-                    //_player.currentTarget = null;
                     break;
                 }
             }
@@ -217,14 +208,21 @@ public class PlayerSkill
     // 데미지 래퍼
     // ─────────────────────────────────────────────────────────
 
-    public class DamageProxy : IAttackable
+    public class DamageProxy : IAttackable, IRewardable
     {
         public ulong damage { get; }
         public Vector3 attackerPos => Vector3.zero;
-
         public GameObject gameobj { get; }
+        private readonly IRewardable _rewarder;
 
         public bool Attack(IDamageable target) => false;
-        public DamageProxy(ulong damage, GameObject owner) { this.damage = damage; this.gameobj = owner; }
+        public void GiveReward(int gold, int ancientCoin) => _rewarder?.GiveReward(gold, ancientCoin);
+
+        public DamageProxy(ulong damage, GameObject owner, IRewardable rewarder = null)
+        {
+            this.damage = damage;
+            this.gameobj = owner;
+            _rewarder = rewarder;
+        }
     }
 }
