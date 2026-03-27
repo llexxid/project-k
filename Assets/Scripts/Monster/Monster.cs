@@ -233,7 +233,7 @@ namespace Scripts.Monster
 				CustomLogger.Log("Target IS NULL");
 				return;
 			}
-
+			
 			Target = target;
 			target.OnDeath += ResetTarget;
 		}

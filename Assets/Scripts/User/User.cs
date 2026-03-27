@@ -21,6 +21,7 @@ namespace Scripts.Users
 		{
 			return _userData;
 		}
+
 		public string GetNickName()
 		{
 			return _userData._nickname;

@@ -118,7 +118,7 @@ public class PlayerSkill
         {
             if (_skillData.vfxOnTarget)
             {
-                var targetMono = _detection?.currentTarget as MonoBehaviour;
+                var targetMono = _player.currentTarget as MonoBehaviour;
                 if (targetMono != null)
                 {
                     Vector3 enemyPos = targetMono.transform.position;
@@ -152,7 +152,7 @@ public class PlayerSkill
 					continue;
 				}
 
-                bool isAlive = target.TakeDamage(_player);
+                bool isAlive = _player.currentTarget.TakeDamage(_player);
                 if (!isAlive)
                 {
                     // 몬스터 사망 시 Idle로 전환 (Attack은 Trigger라 자동 리셋됨)

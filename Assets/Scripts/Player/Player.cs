@@ -142,6 +142,11 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         {
             return;
         }
+        if (_currentTarget != null)
+        {
+			_currentTarget.OnDeath -= ResetTarget;
+		}
+
         Debug.Log($"Player : {gameObject.GetInstanceID()} |Player SetMonster : {target.gameobj.GetInstanceID()} | target_action : {target.gameobj.GetComponent<Monster>().MonAction}");
         target.OnDeath += ResetTarget;
         _currentTarget = target;
@@ -432,7 +437,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
             if (!isAlive)
             {
                 SetAnimation(ePlayerAction.Idle);
-                currentTarget = null;
             }
         }
         _pendingSkillTargets.Clear();

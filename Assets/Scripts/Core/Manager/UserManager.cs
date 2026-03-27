@@ -42,12 +42,10 @@ namespace Scripts.Core
 		{
 			return _user.GetData();
 		}
-
 		public int GetUserLevel()
 		{
 			return _user.GetLevel();
 		}
-
 		public string GetUserName()
 		{
 			return _user.GetNickName();
@@ -61,7 +59,6 @@ namespace Scripts.Core
 		{
 			return _user.GetAncientCoin();
 		}
-
 		public eStage GetUserCurrentStage()
 		{
 			return _user.GetStage();
@@ -71,7 +68,7 @@ namespace Scripts.Core
 		{
 			_user = new User(data);
 		}
-
+		
 		public void CreateCharacter()
 		{
 			GameObject obj1 = Instantiate(playerPrefab, new Vector3(0, 1.4f, 0), Quaternion.identity);
