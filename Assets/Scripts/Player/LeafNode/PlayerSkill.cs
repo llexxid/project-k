@@ -118,12 +118,23 @@ public class PlayerSkill
         {
             if (_skillData.vfxOnTarget)
             {
-                var targetMono = _detection?.currentTarget as MonoBehaviour;
-                if (targetMono != null)
+                // 탐지된 모든 살아있는 적에게 VFX 등록
+                bool first = true;
+                for (int i = 0; i < hitCount; i++)
                 {
-                    Vector3 enemyPos = targetMono.transform.position;
-                    Vector3 toPlayer = (_player.transform.position - enemyPos).normalized;
-                    _player.SetPendingSkillVFX(vfxType, enemyPos, facingDir.x, _skillData.vfxDuration, _skillData.flipVFX);
+                    var m = _hitResults[i].GetComponentInParent<Monster>();
+                    if (m == null || m.MonAction == eMonsterAction.Dead) continue;
+
+                    Vector3 enemyPos = m.transform.position;
+                    if (first)
+                    {
+                        _player.SetPendingSkillVFX(vfxType, enemyPos, facingDir.x, _skillData.vfxDuration, _skillData.flipVFX);
+                        first = false;
+                    }
+                    else
+                    {
+                        _player.AddPendingSkillVFXTarget(enemyPos);
+                    }
                 }
             }
             else
@@ -163,8 +174,8 @@ public class PlayerSkill
         }
 
         // [7] 공격 애니메이션 재생
-        _player.PlayAttackAnimation();
-		Debug.Log("SKill Node Success");
+        _player.PlaySkillAnimation(_skillData.animationStateName);
+        Debug.Log("SKill Node Success");
 		return NodeState.Success;
     }
 

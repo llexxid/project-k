@@ -65,6 +65,9 @@ public class ChangeJob : MonoBehaviour
         // 시작 직업(index 0)은 항상 해금
         _unlockedJobs.Add(0);
         SaveUnlockedJobs();
+
+        // 초기 직업 적용 — Awake 시점엔 스킬이 비어있으므로 Start에서 반드시 적용
+        ApplyJobByIndex(_currentJobIndex);
     }
 
     private void Update()
