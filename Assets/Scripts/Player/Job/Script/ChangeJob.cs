@@ -188,23 +188,30 @@ public class ChangeJob : MonoBehaviour
         foreach (var p in allPlayers)
             p.playerStatus.ResetPassiveBonus();
 
-        // 2. 패시브 스킬 보유 플레이어가 범위 내 플레이어에게 보너스 부여
+        // 2. 패시브 스킬 처리
         foreach (var source in allPlayers)
         {
             if (source.skillManager == null) continue;
 
             foreach (var skill in source.skillManager.GetCurrentSkills())
             {
-                if (skill.skillType != SkillType.Passive || skill.passiveAtkBonus <= 0)
-                    continue;
+                if (skill.skillType != SkillType.Passive) continue;
 
-                foreach (var target in allPlayers)
+                // 자기 강화 패시브 — 스킬 보유자 본인에게만 적용
+                if (skill.selfBonusAtk > 0 || skill.selfBonusMaxHP > 0)
+                    source.playerStatus.AddPassiveSelfBonus(skill.selfBonusAtk, skill.selfBonusMaxHP);
+
+                // 공격력 오라 패시브 — 범위 내 모든 플레이어에게 적용
+                if (skill.passiveAtkBonus > 0)
                 {
-                    float dist = Vector2.Distance(
-                        source.transform.position, target.transform.position);
-                    if (dist > skill.passiveRange) continue;
+                    foreach (var target in allPlayers)
+                    {
+                        float dist = Vector2.Distance(
+                            source.transform.position, target.transform.position);
+                        if (dist > skill.passiveRange) continue;
 
-                    target.playerStatus.AddPassiveBonus(skill.passiveAtkBonus);
+                        target.playerStatus.AddPassiveBonus(skill.passiveAtkBonus);
+                    }
                 }
             }
         }
