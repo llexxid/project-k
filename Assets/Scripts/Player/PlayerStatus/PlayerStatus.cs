@@ -13,14 +13,15 @@ public class PlayerStatus
     private int _equipAtk   = 0;
     private int _equipMaxHP = 0;
 
-    // ── 패시브 스킬 보너스 스탯 (다른 플레이어의 패시브로 부여됨) ─
-    private int _passiveAtk = 0;
+    // ── 패시브 스킬 보너스 스탯 ────────────────────────────────────────────────
+    private int _passiveAtk    = 0;   // 오라/자기 강화로 누적된 공격력 보너스
+    private int _passiveMaxHP  = 0;   // 자기 강화 패시브로 누적된 최대 HP 보너스
 
     // ── 현재 체력 (별도 관리, 직업/장비와 독립적으로 증감) ───────
     public int HP { get; set; } = 100;
 
     // ── 최종 스탯 프로퍼티 (기본 + 장비 보너스 합산) ─────────────
-    public int   MaxHP    => _baseMaxHP    + _equipMaxHP;
+    public int   MaxHP    => _baseMaxHP    + _equipMaxHP + _passiveMaxHP;
     public int   Atk      => _baseAtk      + _equipAtk + _passiveAtk;
     public int   MovSpeed => _baseMovSpeed;          // 현재 장비 보너스 없음
     public float AtkSpeed => _baseAtkSpeed;          // 현재 장비 보너스 없음
@@ -63,12 +64,25 @@ public class PlayerStatus
     }
 
     /// <summary>
-    /// 패시브 스킬 재계산 전 호출. 누적된 패시브 보너스를 0으로 초기화한다.
+    /// 패시브 스킬 재계산 전 호출. 누적된 모든 패시브 보너스를 0으로 초기화한다.
     /// </summary>
-    public void ResetPassiveBonus() => _passiveAtk = 0;
+    public void ResetPassiveBonus()
+    {
+        _passiveAtk   = 0;
+        _passiveMaxHP = 0;
+    }
 
     /// <summary>
-    /// 다른 플레이어의 패시브 스킬로부터 공격력 보너스를 누적한다.
+    /// 다른 플레이어의 오라 패시브로부터 공격력 보너스를 누적한다.
     /// </summary>
     public void AddPassiveBonus(int bonusAtk) => _passiveAtk += bonusAtk;
+
+    /// <summary>
+    /// 자기 강화 패시브 스킬의 공격력·최대 HP 보너스를 본인에게 누적한다.
+    /// </summary>
+    public void AddPassiveSelfBonus(int bonusAtk, int bonusMaxHP)
+    {
+        _passiveAtk   += bonusAtk;
+        _passiveMaxHP += bonusMaxHP;
+    }
 }
