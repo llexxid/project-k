@@ -1372,37 +1372,83 @@
     margin: 20px 0;
 }
 
-/* Enhance View */
+/* ═══ Enhance View (강화 메뉴) ═══ */
+
 .ka-enhance-row {
+    flex-direction: column;
+    padding: 14px 14px;
+    background-color: rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    margin-bottom: 10px;
+    border-left-width: 2px;
+    border-left-color: rgba(100, 180, 255, 0.4);
+}
+
+.ka-enhance-header {
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 8px;
-    background-color: rgba(255, 255, 255, 0.04);
-    border-radius: 8px;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
 }
 
 .ka-enhance-name {
-    font-size: 24px;
-    color: rgba(255, 255, 255, 0.8);
-    flex: 1;
+    font-size: 26px;
+    -unity-font-style: bold;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.ka-enhance-level {
+    font-size: 22px;
+    color: rgba(100, 200, 255, 0.95);
+    -unity-font-style: bold;
+}
+
+.ka-enhance-bonus {
+    font-size: 20px;
+    color: rgba(120, 255, 160, 0.9);
+    margin-bottom: 10px;
+}
+
+.ka-enhance-dummy-tag {
+    font-size: 18px;
+    color: rgba(255, 200, 80, 0.7);
+    -unity-font-style: italic;
+    margin-bottom: 10px;
 }
 
 .ka-enhance-btn-row {
     flex-direction: row;
-    gap: 6px;
+    gap: 10px;
 }
 
 .ka-small-btn {
-    height: 44px;
-    min-width: 100px;
+    flex: 1;
+    height: 52px;
+    min-width: 120px;
     font-size: 20px;
-    background-color: rgba(60, 120, 220, 0.5);
-    border-radius: 8px;
+    -unity-font-style: bold;
+    background-color: rgba(60, 130, 230, 0.6);
+    border-radius: 10px;
     border-left-width: 0; border-right-width: 0;
     border-top-width: 0; border-bottom-width: 0;
-    color: rgba(255, 255, 255, 0.9);
+    color: rgba(255, 255, 255, 0.95);
+    transition-property: scale, background-color;
+    transition-duration: 0.08s, 0.08s;
+}
+
+.ka-small-btn:hover {
+    background-color: rgba(80, 150, 255, 0.75);
+    scale: 1.03;
+}
+
+.ka-small-btn:active {
+    background-color: rgba(40, 100, 200, 0.9);
+    scale: 0.93;
+}
+
+.ka-enhance-cost {
+    font-size: 18px;
+    color: rgba(255, 220, 100, 0.85);
 }
 
 /* Equipment View */

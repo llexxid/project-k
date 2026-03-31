@@ -118,6 +118,14 @@ namespace Scripts.Core
 
 			_SceneSFXMetaSO.Init();
 			_SceneVFXMetaSO.Init();
+
+			// 글로벌 스탯 강화 매니저 자동 생성
+			if (StatEnhanceManager.Instance == null)
+			{
+				var go = new GameObject("StatEnhanceManager");
+				go.AddComponent<StatEnhanceManager>();
+				DontDestroyOnLoad(go);
+			}
 		}
 
 		private string GetSceneName(eSceneType type)

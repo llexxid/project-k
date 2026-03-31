@@ -83,33 +83,110 @@ namespace KingdomIdle.UIToolkit
         //  강화 (모든 캐릭터 공용)
         // ══════════════════════════════════════
 
+        private static readonly StatEnhanceManager.EnhanceType[] _enhanceTypes = new[]
+        {
+            StatEnhanceManager.EnhanceType.Attack,
+            StatEnhanceManager.EnhanceType.MaxHP,
+            StatEnhanceManager.EnhanceType.CritRate,
+            StatEnhanceManager.EnhanceType.CritDamage,
+            StatEnhanceManager.EnhanceType.ExpGain,
+        };
+
         private static void BuildEnhanceView()
         {
             _content.Add(MakeLabel("강화", "ka-section-title"));
             _content.Add(MakeLabel("모든 캐릭터에게 공용으로 적용됩니다.", "ka-placeholder-text"));
 
-            var items = new string[] { "공격력 강화", "크리티컬 강화", "치명타 피해 강화", "HP 강화" };
-            foreach (var item in items)
+            var mgr = StatEnhanceManager.Instance;
+
+            foreach (var type in _enhanceTypes)
             {
+                var t = type;
+                string typeName = StatEnhanceManager.GetTypeName(t);
+                bool implemented = StatEnhanceManager.IsStatImplemented(t);
+                int level = mgr != null ? mgr.GetLevel(t) : 0;
+                string bonusText = mgr != null ? mgr.GetBonusText(t) : "";
+
                 var row = new VisualElement();
                 row.AddToClassList("ka-enhance-row");
-                row.Add(MakeLabel(item, "ka-enhance-name"));
+
+                // 상단: 이름 + 레벨
+                var header = new VisualElement();
+                header.AddToClassList("ka-enhance-header");
+                header.Add(MakeLabel(typeName, "ka-enhance-name"));
+                header.Add(MakeLabel($"Lv. {level}", "ka-enhance-level"));
+                row.Add(header);
+
+                // 보너스 표시
+                row.Add(MakeLabel($"효과: {bonusText}", "ka-enhance-bonus"));
+
+                // 더미 태그
+                if (!implemented)
+                    row.Add(MakeLabel("캐릭터 스탯 미구현 (더미 데이터)", "ka-enhance-dummy-tag"));
+
+                // 하단: 버튼
+                int cost1 = mgr != null ? mgr.GetCost(t, 1) : 0;
+                int cost10 = mgr != null ? mgr.GetCost(t, 10) : 0;
 
                 var btnRow = new VisualElement();
                 btnRow.AddToClassList("ka-enhance-btn-row");
 
-                var btn1 = new Button(() => ShowToast("강화 시스템 미구현"));
-                btn1.text = "강화 x1";
+                var btn1 = new Button(() => OnEnhanceClicked(t, 1));
                 btn1.AddToClassList("ka-small-btn");
                 btnRow.Add(btn1);
 
-                var btn10 = new Button(() => ShowToast("강화 시스템 미구현"));
-                btn10.text = "강화 x10";
+                // 버튼 내부: 텍스트 + 비용을 분리 표시
+                var lbl1 = MakeLabel("강화 x1", null);
+                var cost1Lbl = MakeLabel($"{FormatGold(cost1)} G", "ka-enhance-cost");
+                btn1.Add(lbl1);
+                btn1.Add(cost1Lbl);
+
+                var btn10 = new Button(() => OnEnhanceClicked(t, 10));
                 btn10.AddToClassList("ka-small-btn");
                 btnRow.Add(btn10);
 
+                var lbl10 = MakeLabel("강화 x10", null);
+                var cost10Lbl = MakeLabel($"{FormatGold(cost10)} G", "ka-enhance-cost");
+                btn10.Add(lbl10);
+                btn10.Add(cost10Lbl);
+
                 row.Add(btnRow);
                 _content.Add(row);
+            }
+        }
+
+        private static string FormatGold(int gold)
+        {
+            return gold.ToString("N0");
+        }
+
+        private static void OnEnhanceClicked(StatEnhanceManager.EnhanceType type, int count)
+        {
+            var mgr = StatEnhanceManager.Instance;
+            if (mgr == null)
+            {
+                ShowToast("강화 시스템이 초기화되지 않았습니다.");
+                return;
+            }
+
+            bool implemented = StatEnhanceManager.IsStatImplemented(type);
+
+            if (mgr.TryEnhance(type, count))
+            {
+                string name = StatEnhanceManager.GetTypeName(type);
+                string bonus = mgr.GetBonusText(type);
+                int lv = mgr.GetLevel(type);
+
+                if (!implemented)
+                    ShowToast($"{name} Lv.{lv} ({bonus}) - 캐릭터 스탯 미구현 (더미 데이터)");
+                else
+                    ShowToast($"{name} Lv.{lv} ({bonus}) 강화 완료!");
+
+                Refresh();
+            }
+            else
+            {
+                ShowToast("골드가 부족합니다.");
             }
         }
 
@@ -118,7 +195,8 @@ namespace KingdomIdle.UIToolkit
         private static Label MakeLabel(string text, string className)
         {
             var lbl = new Label(text);
-            lbl.AddToClassList(className);
+            if (!string.IsNullOrEmpty(className))
+                lbl.AddToClassList(className);
             return lbl;
         }
 
