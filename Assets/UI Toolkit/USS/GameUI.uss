@@ -172,16 +172,15 @@
     position: absolute;
     left: 0;
     right: 0;
-    top: 30%;
+    top: 180px;
     align-items: center;
-    justify-content: center;
 }
 
 .stage-row {
     flex-direction: row;
     align-items: center;
     justify-content: center;
-    gap: 22px;
+    gap: 16px;
 }
 
 .stage-label {
@@ -191,20 +190,109 @@
 }
 
 .boss-challenge {
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    justify-content: center;
+    gap: 8px;
 }
 
 .boss-label {
     font-size: 18px;
     color: rgba(255,255,255,0.85);
-    margin-bottom: 6px;
 }
 
 .boss-toggle {
     width: 34px;
     height: 34px;
+}
+
+/* 웨이브 반복 아이콘 */
+.loop-icon {
+    width: 44px;
+    height: 44px;
+    font-size: 28px;
+    -unity-text-align: middle-center;
+    background-color: rgba(255, 200, 60, 0.15);
+    border-radius: 22px;
+    border-left-width: 2px; border-right-width: 2px;
+    border-top-width: 2px; border-bottom-width: 2px;
+    border-color: rgba(255, 200, 60, 0.8);
+    color: rgba(255, 220, 80, 1);
+    transition-property: scale;
+    transition-duration: 0.1s;
+}
+.loop-icon:active { scale: 0.85; }
+
+/* 보스 타이머 */
+.boss-timer-bar {
+    width: 300px;
+    height: 8px;
+    background-color: rgba(255,255,255,0.15);
+    border-radius: 4px;
+    margin-top: 8px;
+    overflow: hidden;
+}
+.boss-timer-fill {
+    height: 100%;
+    width: 100%;
+    background-color: rgba(255, 80, 80, 0.9);
+    border-radius: 4px;
+}
+
+/* ===== 사망 팝업 ===== */
+.death-popup {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    align-items: center;
+    justify-content: center;
+}
+.death-popup-title {
+    font-size: 42px;
+    -unity-font-style: bold;
+    color: rgba(255, 80, 80, 0.95);
+    margin-bottom: 16px;
+}
+.death-popup-msg {
+    font-size: 28px;
+    color: rgba(255,255,255,0.9);
+    margin-bottom: 28px;
+}
+.death-popup-btns {
+    flex-direction: row;
+    gap: 24px;
+    margin-bottom: 20px;
+}
+.death-popup-btn {
+    width: 180px;
+    height: 64px;
+    font-size: 28px;
+    -unity-font-style: bold;
+    border-radius: 12px;
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    transition-property: scale;
+    transition-duration: 0.08s;
+}
+.death-popup-btn:active { scale: 0.9; }
+.death-popup-yes {
+    background-color: rgba(60, 180, 80, 0.8);
+    color: rgba(255,255,255,0.95);
+}
+.death-popup-no {
+    background-color: rgba(180, 60, 60, 0.8);
+    color: rgba(255,255,255,0.95);
+}
+.death-timer-bar {
+    width: 340px;
+    height: 10px;
+    background-color: rgba(255,255,255,0.15);
+    border-radius: 5px;
+    overflow: hidden;
+}
+.death-timer-fill {
+    height: 100%;
+    width: 100%;
+    background-color: rgba(255, 200, 60, 0.9);
+    border-radius: 5px;
 }
 
 /* Left side */

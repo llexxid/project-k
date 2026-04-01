@@ -75,10 +75,16 @@ namespace Scripts.Core
 
 		private void OnAllPlayersDead()
 		{
-			Debug.Log("[GameManager] 전원 사망 애니메이션 완료 → 게임 정지 (timeScale = 0)");
-			_deathAnimationDoneCount = 0; // 씬 재시작 대비 초기화
+			Debug.Log("[GameManager] 전원 사망 애니메이션 완료");
+			_deathAnimationDoneCount = 0;
+
+			if (WaveManager.Instance != null)
+			{
+				WaveManager.Instance.HandleAllPlayersDead();
+				return;
+			}
+
 			Time.timeScale = 0f;
-			// TODO: 사망 UI 표시 + 부활처리
 		}
 		// ────────────────────────────────────────────────────────────
 
@@ -119,13 +125,6 @@ namespace Scripts.Core
 			_SceneSFXMetaSO.Init();
 			_SceneVFXMetaSO.Init();
 
-			// 글로벌 스탯 강화 매니저 자동 생성
-			if (StatEnhanceManager.Instance == null)
-			{
-				var go = new GameObject("StatEnhanceManager");
-				go.AddComponent<StatEnhanceManager>();
-				DontDestroyOnLoad(go);
-			}
 		}
 
 		private string GetSceneName(eSceneType type)
@@ -310,10 +309,21 @@ namespace Scripts.Core
 				MonsterSpawner.Instance.OnEnterScene();
 				VFXManager.Instance.OnEnterScene();
 
-				//Player 생성
+				if (Camera.main != null && Camera.main.GetComponent<Scripts.Core.Utils.CameraFade>() == null)
+					Camera.main.gameObject.AddComponent<Scripts.Core.Utils.CameraFade>();
+
 				UserManager.Instance.CreateCharacter();
 				eStage curUserStage = UserManager.Instance.GetUserCurrentStage();
-				StageManager.Instance.StartStage(curUserStage);
+
+				// WaveManager가 있으면 웨이브 흐름을 위임
+				if (WaveManager.Instance != null)
+				{
+					WaveManager.Instance.BeginFromStage(curUserStage);
+				}
+				else
+				{
+					StageManager.Instance.StartStage(curUserStage);
+				}
 
 				//Stage가 시작하는 지점
 

@@ -838,6 +838,9 @@ namespace KingdomIdle.UIToolkit
             }
             RefreshGuideBadge();
 
+            // ── Wave UI 초기화 ──
+            WaveUIController.Init(root);
+
             // ── [DEBUG] 디버그 메뉴 초기화 — 제거 시 이 줄 삭제 ──
             UITKDebugMenuController.Init(root);
         }

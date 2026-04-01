@@ -218,6 +218,21 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         _shieldPassiveActivated = false;
     }
 
+    // ── [WaveManager] 플레이어 부활 ──
+    public void Revive()
+    {
+        _isDead = false;
+        _shieldPassiveActivated = false;
+        _data._Hp = playerStatus.MaxHP;
+        _data._extraHp = 0;
+        playerStatus.HP = playerStatus.MaxHP;
+        gameObject.SetActive(true);
+        SetAnimation(ePlayerAction.Idle);
+        playerOrder?.Init(this);
+        ResetTarget();
+    }
+    // ── [WaveManager 끝] ──
+
     /// <summary>
     /// PlayerParry에서 호출. duration 초 동안 패링 상태를 활성화한다.
     /// 패링 중 TakeDamage()가 호출되면 데미지 무효화 + 반격이 발동된다.

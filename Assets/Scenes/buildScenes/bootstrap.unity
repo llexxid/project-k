@@ -305,6 +305,7 @@ GameObject:
   m_Component:
   - component: {fileID: 659282417}
   - component: {fileID: 659282416}
+  - component: {fileID: 659282418}
   m_Layer: 0
   m_Name: KingdomArmyManager
   m_TagString: Untagged
@@ -342,6 +343,18 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &659282418
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 659282415}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9eec3b8c90c455b49941d4d21d41baaa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &755427043
 GameObject:
   m_ObjectHideFlags: 0
@@ -706,6 +719,7 @@ GameObject:
   - component: {fileID: 2134808526}
   - component: {fileID: 2134808528}
   - component: {fileID: 2134808529}
+  - component: {fileID: 2134808530}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -806,6 +820,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   skillRegistry: {fileID: 11400000, guid: 58fd89c7110460d408086c4e3f3de327, type: 2}
+--- !u!114 &2134808530
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2134808522}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec76570c5a2d4764782260097d8ba493, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _bossTimeLimit: 30
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
