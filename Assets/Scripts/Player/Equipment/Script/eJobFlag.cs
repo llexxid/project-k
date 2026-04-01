@@ -10,9 +10,12 @@ using System;
 [Flags]
 public enum eJobFlag
 {
-    None     = 0,
-    Mage     = 1 << 0,   // 0000 0001
-    Archer   = 1 << 1,   // 0000 0010
-    Knight   = 1 << 2,   // 0000 0100
-    Spearman = 1 << 3,   // 0000 1000
+    None         = 0,
+    Mage         = 1 << 0,   // 0000 0001  (  1)
+    Archer       = 1 << 1,   // 0000 0010  (  2)
+    Knight       = 1 << 2,   // 0000 0100  (  4)
+    Spearman     = 1 << 3,   // 0000 1000  (  8)
+    Elite_Mage   = 1 << 4,   // 0001 0000  ( 16)
+    Elite_Knight = 1 << 5,   // 0010 0000  ( 32)
+    Elite_Archer = 1 << 6,   // 0100 0000  ( 64)
 }
