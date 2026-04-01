@@ -26,11 +26,11 @@ public class EquipmentInstance
     // ── 비트 패킹 ────────────────────────────────────────────────
 
     /// <summary>
-    /// 아이템 코드(32bit) + 강화 수치(16bit)를 64비트 long으로 패킹한 값.
-    ///   [63-32] itemCode
-    ///   [31-16] enhancementLevel
-    ///   [15- 8] 개수 (예약)
-    ///   [ 7- 0] 유효기간 (예약)
+    /// 아이템 코드(32bit) + 강화 수치(8bit) + 개수(16bit)를 64비트 long으로 패킹한 값.
+    ///   [63-56] 예약 공간  (8bit)
+    ///   [55-24] itemCode  (32bit)
+    ///   [23-16] 강화 수치  (8bit)
+    ///   [15- 0] 개수      (16bit)
     /// 네트워크 전송, DB 저장, 디버그 로그에 활용한다.
     /// </summary>
     public long PackedData => ItemCode.PackInstance(baseData.itemCode, enhancementLevel);

@@ -8,13 +8,13 @@
 ///   [ 7- 0]  직업 마스크 (8bit)  → eJobFlag  (0 = 모든 직업 공용)
 ///
 /// ── 64비트 인스턴스 패킹 레이아웃 ────────────────────────────────
-///   [63-48]  예약 공간   (16bit)
-///   [47-32]  아이템 ID   (16bit) ┐
-///   [31-28]  레어도      (4bit)  │ ← 32비트 아이템 코드 (itemCode << 16)
-///   [27-24]  슬롯        (4bit)  │
-///   [23-16]  직업 마스크  (8bit)  ┘
-///   [15- 8]  강화 수치    (8bit)
-///   [ 7- 0]  개수        (8bit)
+///   [63-56]  예약 공간    (8bit)
+///   [55-40]  아이템 ID   (16bit) ┐
+///   [39-36]  레어도      (4bit)  │ ← 32비트 아이템 코드 (itemCode << 24)
+///   [35-32]  슬롯        (4bit)  │
+///   [31-24]  직업 마스크  (8bit)  ┘
+///   [23-16]  강화 수치    (8bit)
+///   [15- 0]  개수        (16bit)
 /// </summary>
 public static class ItemCode
 {
@@ -29,8 +29,8 @@ public static class ItemCode
     private const int JOB_MASK    = 0xFF;   // 8bit
 
     // ── 64비트 시프트 ──────────────────────────────────────────────
-    private const int PACKED_CODE_SHIFT    = 16;
-    private const int PACKED_ENHANCE_SHIFT =  8;
+    private const int PACKED_CODE_SHIFT    = 24;
+    private const int PACKED_ENHANCE_SHIFT = 16;
 
     // ── 인코딩 ────────────────────────────────────────────────────
 
@@ -78,7 +78,7 @@ public static class ItemCode
     {
         return ((long)itemCode                     << PACKED_CODE_SHIFT)
              | ((long)(enhancementLevel & 0xFF)    << PACKED_ENHANCE_SHIFT)
-             |  (long)(quantity         & 0xFF);
+             |  (long)(quantity         & 0xFFFF);
     }
 
     public static int UnpackItemCode(long packed)
@@ -88,5 +88,5 @@ public static class ItemCode
         => (int)((packed >> PACKED_ENHANCE_SHIFT) & 0xFF);
 
     public static int UnpackQuantity(long packed)
-        => (int)(packed & 0xFF);
+        => (int)(packed & 0xFFFF);
 }
