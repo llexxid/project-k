@@ -9,7 +9,8 @@ namespace Scripts.Core
         public static WaveManager Instance { get; private set; }
 
         [Header("Boss")]
-        [SerializeField] private eStage _bossStage;
+        [Tooltip("eStage의 long 값 (예: Stage1_1 = 8590000129)")]
+        [SerializeField] private long _bossStageValue;
         [SerializeField] private float _bossTimeLimit = 30f;
 
         // ── 상태 ──
@@ -109,7 +110,7 @@ namespace Scripts.Core
             {
                 _bossTimer = _bossTimeLimit;
                 _bossTimerActive = true;
-                StageManager.Instance.StartStage(_bossStage);
+                StageManager.Instance.StartStage((eStage)_bossStageValue);
             }
             else
             {
@@ -289,7 +290,7 @@ namespace Scripts.Core
                         {
                             _bossTimer = _bossTimeLimit;
                             _bossTimerActive = true;
-                            StageManager.Instance.StartStage(_bossStage);
+                            StageManager.Instance.StartStage((eStage)_bossStageValue);
                         }
                         else
                         {
@@ -316,7 +317,7 @@ namespace Scripts.Core
             {
                 _bossTimer = _bossTimeLimit;
                 _bossTimerActive = true;
-                StageManager.Instance.StartStage(_bossStage);
+                StageManager.Instance.StartStage((eStage)_bossStageValue);
             }
             else
             {

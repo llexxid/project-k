@@ -609,6 +609,66 @@ namespace KingdomIdle.MageTower
             return true;
         }
 
+        // ===== 서버 동기화 =====
+
+        /// <summary>
+        /// 모든 스킬 상태를 64비트 배열로 패킹한다. 서버 전송용.
+        /// </summary>
+        public long[] PackAllSkills()
+        {
+            var skills = GetAllSkills();
+            var result = new long[skills.Count];
+            for (int i = 0; i < skills.Count; i++)
+            {
+                int id = skills[i].id;
+                result[i] = MageTowerSkillCode.Pack(
+                    id,
+                    GetAwakeningLevel(id),
+                    GetEnhanceLevel(id),
+                    GetFragments(id));
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// 64비트 배열에서 스킬 상태를 복원한다. 서버 로드용.
+        /// </summary>
+        public void UnpackAllSkills(long[] packed)
+        {
+            if (packed == null) return;
+
+            _enhanceLevels.Clear();
+            _awakeningLevels.Clear();
+            _fragments.Clear();
+
+            for (int i = 0; i < packed.Length; i++)
+            {
+                int id  = MageTowerSkillCode.UnpackSkillId(packed[i]);
+                int aLv = MageTowerSkillCode.UnpackAwakeningLevel(packed[i]);
+                int eLv = MageTowerSkillCode.UnpackEnhanceLevel(packed[i]);
+                int qty = MageTowerSkillCode.UnpackQuantity(packed[i]);
+
+                if (eLv > 0) _enhanceLevels[id] = eLv;
+                if (aLv > 0) _awakeningLevels[id] = aLv;
+                if (qty > 0) _fragments[id] = qty;
+            }
+
+            Save();
+            OnStateChanged?.Invoke();
+        }
+
+        /// <summary>
+        /// 단일 스킬의 64비트 코드를 반환한다.
+        /// </summary>
+        public long PackSkill(int skillId)
+        {
+            return MageTowerSkillCode.Pack(
+                skillId,
+                GetAwakeningLevel(skillId),
+                GetEnhanceLevel(skillId),
+                GetFragments(skillId));
+        }
+
         // ===== 저장/로드 =====
         [Serializable]
         private class SaveData
