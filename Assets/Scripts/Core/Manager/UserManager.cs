@@ -102,6 +102,10 @@ namespace Scripts.Core
 			_user.ConnectCharacters(p1);
 			_user.ConnectCharacters(p2);
 			_user.ConnectCharacters(p3);
+
+			// 글로벌 강화 보너스 적용
+			if (StatEnhanceManager.Instance != null)
+				StatEnhanceManager.Instance.ApplyToAllPlayers();
 		}
 	}
 
