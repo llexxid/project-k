@@ -33,6 +33,12 @@ public class SkillData : ScriptableObject
     [Tooltip("패링 지속 시간 (초). damage = 반격 데미지 계수 (ATK × damage)")]
     public float parryDuration = 2f;
 
+    [Header("패시브 - 자기 강화")]
+    [Tooltip("자기 자신에게만 적용되는 공격력 보너스 (고정값)")]
+    public int selfBonusAtk = 0;
+    [Tooltip("자기 자신에게만 적용되는 최대 HP 보너스 (고정값)")]
+    public int selfBonusMaxHP = 0;
+
     [Header("패시브 - 공격력 오라")]
     [Tooltip("패시브 공격력 보너스 (고정값, 범위 내 모든 플레이어에게 적용)")]
     public int passiveAtkBonus = 0;
