@@ -247,9 +247,13 @@ namespace KingdomIdle.UIToolkit
         private static VisualElement BuildInvItem(MageTowerSkillSO skill, MageTowerManager mgr)
         {
             int id = skill.id;
+            bool owned = mgr.IsOwned(id);
+
             var item = new VisualElement();
             item.AddToClassList("mt-inv-item");
-            if (mgr.IsEquipped(id))
+            if (!owned)
+                item.AddToClassList("mt-inv-item-locked");
+            else if (mgr.IsEquipped(id))
                 item.AddToClassList("mt-inv-item-equipped");
 
             var icon = new VisualElement();
@@ -262,39 +266,40 @@ namespace KingdomIdle.UIToolkit
             nameLabel.AddToClassList("mt-inv-item-name");
             nameLabel.pickingMode = PickingMode.Ignore;
 
-            float dmg = mgr.GetEffectiveDamage(id);
-            var dmgLabel = new Label($"DMG {dmg:F0}");
-            dmgLabel.AddToClassList("mt-inv-item-dmg");
-            dmgLabel.pickingMode = PickingMode.Ignore;
-
             item.Add(icon);
             item.Add(nameLabel);
-            item.Add(dmgLabel);
 
-            // drag start (pending until threshold)
-            item.RegisterCallback<PointerDownEvent>(evt =>
+            if (owned)
             {
-                _dragSkillId = id;
-                _dragPending = true;
-                _dragging = false;
-                _dragStartPos = evt.position;
-                if (skill.icon != null)
-                    _dragGhost.style.backgroundImage = new StyleBackground(skill.icon);
-                else
-                    _dragGhost.style.backgroundImage = StyleKeyword.None;
-            });
+                float dmg = mgr.GetEffectiveDamage(id);
+                var dmgLabel = new Label($"DMG {dmg:F0}");
+                dmgLabel.AddToClassList("mt-inv-item-dmg");
+                dmgLabel.pickingMode = PickingMode.Ignore;
+                item.Add(dmgLabel);
 
-            // click to open detail popup (only if not dragged)
-            item.RegisterCallback<PointerUpEvent>(evt =>
-            {
-                if (_dragging) return;
-                if (_dragPending)
+                item.RegisterCallback<PointerDownEvent>(evt =>
                 {
-                    _dragPending = false;
-                    _dragSkillId = -1;
-                    UITKMageTowerDetailPopupController.Show(id);
-                }
-            });
+                    _dragSkillId = id;
+                    _dragPending = true;
+                    _dragging = false;
+                    _dragStartPos = evt.position;
+                    if (skill.icon != null)
+                        _dragGhost.style.backgroundImage = new StyleBackground(skill.icon);
+                    else
+                        _dragGhost.style.backgroundImage = StyleKeyword.None;
+                });
+
+                item.RegisterCallback<PointerUpEvent>(evt =>
+                {
+                    if (_dragging) return;
+                    if (_dragPending)
+                    {
+                        _dragPending = false;
+                        _dragSkillId = -1;
+                        UITKMageTowerDetailPopupController.Show(id);
+                    }
+                });
+            }
 
             return item;
         }

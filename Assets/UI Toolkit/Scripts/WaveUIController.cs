@@ -27,8 +27,14 @@ namespace KingdomIdle.UIToolkit
 
         public static void Init(VisualElement root)
         {
+            Dispose();
+
             _wm = WaveManager.Instance;
-            if (_wm == null) return;
+            if (_wm == null)
+            {
+                Debug.LogWarning("[WaveUIController] WaveManager.Instance가 null — 이벤트 미등록");
+                return;
+            }
 
             // 요소 바인딩
             _lblStage = root.Q<Label>("LblStage");

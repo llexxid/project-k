@@ -50,7 +50,6 @@ namespace KingdomIdle.MageTower
 
         private void Start()
         {
-            InitTestData();
         }
 
         private void Update()
@@ -104,6 +103,15 @@ namespace KingdomIdle.MageTower
                     _fragments[id] = 15;
             }
         }
+
+        // ===== 보유 판정 =====
+
+        /// <summary>
+        /// 가차에서 한 번이라도 획득한 스킬인지 반환한다.
+        /// fragments가 1 이상이면 보유 상태.
+        /// </summary>
+        public bool IsOwned(int skillId) =>
+            _fragments.TryGetValue(skillId, out int f) && f >= 1;
 
         // ===== 데이터 접근 =====
         public IReadOnlyList<MageTowerSkillSO> GetAllSkills()
@@ -173,6 +181,7 @@ namespace KingdomIdle.MageTower
         {
             if (slotIndex < 0 || slotIndex >= SlotCount) return false;
             if (GetSkillById(skillId) == null) return false;
+            if (!IsOwned(skillId)) return false;
 
             for (int i = 0; i < SlotCount; i++)
             {
@@ -215,6 +224,7 @@ namespace KingdomIdle.MageTower
         {
             var so = GetSkillById(skillId);
             if (so == null) return false;
+            if (!IsOwned(skillId)) return false;
             if (GetEnhanceLevel(skillId) >= so.maxEnhanceLevel) return false;
             EconomyBridge.TryGetAmount(eCurrency.ArcaneKnowledge, out int ak);
             return ak >= GetEnhanceCost(skillId);

@@ -1026,6 +1026,12 @@
 .mt-inv-item:hover { background-color: rgba(255,255,255,0.14); }
 .mt-inv-item:active { background-color: rgba(255,255,255,0.20); }
 
+.mt-inv-item-locked {
+    opacity: 0.35;
+}
+.mt-inv-item-locked:hover { background-color: rgba(0,0,0,0); }
+.mt-inv-item-locked:active { background-color: rgba(0,0,0,0); }
+
 .mt-inv-item-equipped {
     border-left-width: 2px;
     border-right-width: 2px;
