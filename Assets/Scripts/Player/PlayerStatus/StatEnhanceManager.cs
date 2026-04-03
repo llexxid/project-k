@@ -92,7 +92,7 @@ public class StatEnhanceManager : MonoBehaviour
     public bool TryEnhance(EnhanceType type, int count = 1)
     {
         int cost = GetCost(type, count);
-        if (!EconomyBridge.TryGetAmount(eCurrency.Gold, out int gold) || gold < cost)
+        if (!EconomyBridge.TryGetAmount(eCurrency.Gold, out long gold) || gold < cost)
             return false;
 
         EconomyBridge.Add(eCurrency.Gold, -cost);
