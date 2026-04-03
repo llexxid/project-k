@@ -234,7 +234,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         gameObject.SetActive(true);
         SetAnimation(ePlayerAction.Idle);
         playerOrder?.Init(this);
-        ResetTarget();
+        ResetTarget(null);
     }
     // ── [WaveManager 끝] ──
 
