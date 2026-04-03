@@ -672,13 +672,27 @@ namespace KingdomIdle.UIToolkit
                 // 직업명
                 card.Add(MakeLabel(job.jobName, "ka-job-card-name"));
 
-                // 파편 현황
+                // 파편 현황 (2차 전직은 1차 파편 표시)
+                string baseFrag = KingdomArmyManager.GetBaseFragmentName(job.jobName);
                 int owned = _mgr.GetFragments(job.jobName);
                 int cost = _mgr.GetFragmentCost(job.jobName);
-                var fragLbl = MakeLabel($"파편: {owned}/{cost}", "ka-job-card-frag");
+                string fragText = baseFrag != job.jobName
+                    ? $"{baseFrag} 파편: {owned}/{cost}"
+                    : $"파편: {owned}/{cost}";
+                var fragLbl = MakeLabel(fragText, "ka-job-card-frag");
                 if (owned >= cost)
                     fragLbl.AddToClassList("ka-frag-ready");
                 card.Add(fragLbl);
+
+                // 2차 전직 선행 조건 미충족 표시
+                string prereq = KingdomArmyManager.GetPrerequisiteJob(job.jobName);
+                if (prereq != null)
+                {
+                    var player = GetCurrentPlayer();
+                    bool prereqMet = _mgr.HasCompletedPromotion(player, prereq);
+                    if (!prereqMet)
+                        card.Add(MakeLabel($"{prereq} 전직 필요", "ka-frag-locked"));
+                }
 
                 grid.Add(card);
             }
@@ -739,25 +753,49 @@ namespace KingdomIdle.UIToolkit
             // 전직 파편 현황
             _content.Add(MakeLabel("전직 파편", "ka-subsection-title"));
 
+            string baseFrag = KingdomArmyManager.GetBaseFragmentName(job.jobName);
             int owned = _mgr.GetFragments(job.jobName);
             int cost = _mgr.GetFragmentCost(job.jobName);
             var fragBar = new VisualElement();
             fragBar.AddToClassList("ka-frag-bar");
 
-            var fragLbl = MakeLabel($"{job.jobName} 전직 파편: {owned} / {cost}", "ka-frag-status");
+            string fragLabel = baseFrag != job.jobName
+                ? $"{baseFrag} 전직 파편: {owned} / {cost}"
+                : $"{job.jobName} 전직 파편: {owned} / {cost}";
+            var fragLbl = MakeLabel(fragLabel, "ka-frag-status");
             if (owned >= cost) fragLbl.AddToClassList("ka-frag-ready");
             fragBar.Add(fragLbl);
             _content.Add(fragBar);
 
-            // 전직하기 버튼
+            // 선행 조건 표시
+            string prereq = KingdomArmyManager.GetPrerequisiteJob(job.jobName);
             var player = GetCurrentPlayer();
-            bool canChange = _mgr.CanChangeJob(job.jobName) && player != null;
+            bool prereqMet = true;
+
+            if (prereq != null)
+            {
+                prereqMet = _mgr.HasCompletedPromotion(player, prereq);
+                var prereqLbl = MakeLabel(
+                    prereqMet ? $"✓ {prereq} 전직 완료" : $"✕ {prereq} 전직 필요 (선행 조건)",
+                    prereqMet ? "ka-frag-ready" : "ka-frag-locked");
+                _content.Add(prereqLbl);
+            }
+
+            // 전직하기 버튼
+            bool canChange = _mgr.CanChangeJob(job.jobName, player) && player != null;
             bool alreadyThis = player != null && player.playerStatus?.JobName == job.jobName;
 
             var changeBtn = new Button(() => OnJobChangeClicked(player, job));
             if (alreadyThis)
             {
                 changeBtn.text = "현재 직업";
+                changeBtn.AddToClassList("ka-change-btn");
+                changeBtn.AddToClassList("ka-change-btn-disabled");
+                changeBtn.SetEnabled(false);
+            }
+            else if (!prereqMet)
+            {
+                changeBtn.text = $"전직하기 ({prereq} 전직 필요)";
                 changeBtn.AddToClassList("ka-change-btn");
                 changeBtn.AddToClassList("ka-change-btn-disabled");
                 changeBtn.SetEnabled(false);

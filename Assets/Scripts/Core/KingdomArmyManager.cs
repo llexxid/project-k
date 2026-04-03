@@ -7,6 +7,7 @@ namespace KingdomIdle.KingdomArmy
     /// <summary>
     /// 왕국군 관리 매니저.
     /// - 전직별 고유 파편 관리 (jobName 기반 Dictionary)
+    /// - 2차 전직(Elite)은 1차 전직 파편을 공유하며, 1차 전직 완료가 선행 조건
     /// - 전직 비용/실행 래핑
     /// - 서버 마이그레이션 시 내부만 교체
     /// </summary>
@@ -23,6 +24,14 @@ namespace KingdomIdle.KingdomArmy
 
         /// <summary>jobName → 전직 비용 (파편 수). SO에서 확장 가능.</summary>
         private readonly Dictionary<string, int> _fragmentCosts = new();
+
+        /// <summary>2차 전직 → 1차 전직 매핑 (파편 공유 + 선행 조건)</summary>
+        private static readonly Dictionary<string, string> _eliteToBase = new()
+        {
+            { "Elite_Knight", "Knight" },
+            { "Elite_Archer", "Archer" },
+            { "Elite_Mage",   "Mage"   },
+        };
 
         private const string PrefKey = "KingdomArmy_Save";
 
@@ -50,14 +59,38 @@ namespace KingdomIdle.KingdomArmy
 
         // ── 파편 ──
 
-        public int GetFragments(string jobName) =>
-            _fragments.TryGetValue(jobName, out int f) ? f : 0;
+        /// <summary>2차 전직이면 1차 전직 이름 반환, 아니면 그대로 반환</summary>
+        public static string GetBaseFragmentName(string jobName) =>
+            _eliteToBase.TryGetValue(jobName, out string baseName) ? baseName : jobName;
+
+        /// <summary>2차 전직의 선행 조건 직업 이름 반환. 선행 조건이 없으면 null.</summary>
+        public static string GetPrerequisiteJob(string jobName) =>
+            _eliteToBase.TryGetValue(jobName, out string baseName) ? baseName : null;
+
+        /// <summary>해당 플레이어가 특정 전직을 완료했는지 확인</summary>
+        public bool HasCompletedPromotion(Player player, string jobName)
+        {
+            if (player == null) return false;
+            var changeJob = player.GetComponent<ChangeJob>();
+            if (changeJob == null || jobDatabase == null) return false;
+
+            int idx = jobDatabase.jobs.FindIndex(j => j.jobName == jobName);
+            if (idx < 0) return false;
+            return changeJob.IsJobUnlocked(idx);
+        }
+
+        public int GetFragments(string jobName)
+        {
+            string key = GetBaseFragmentName(jobName);
+            return _fragments.TryGetValue(key, out int f) ? f : 0;
+        }
 
         public void AddFragments(string jobName, int amount)
         {
-            if (!_fragments.ContainsKey(jobName))
-                _fragments[jobName] = 0;
-            _fragments[jobName] += amount;
+            string key = GetBaseFragmentName(jobName);
+            if (!_fragments.ContainsKey(key))
+                _fragments[key] = 0;
+            _fragments[key] += amount;
             Save();
             OnStateChanged?.Invoke();
         }
@@ -65,8 +98,18 @@ namespace KingdomIdle.KingdomArmy
         public int GetFragmentCost(string jobName) =>
             _fragmentCosts.TryGetValue(jobName, out int c) ? c : defaultFragmentCost;
 
-        public bool CanChangeJob(string jobName) =>
-            GetFragments(jobName) >= GetFragmentCost(jobName);
+        /// <summary>전직 가능 여부. 2차 전직은 1차 전직 완료 + 파편 충분 조건 모두 필요.</summary>
+        public bool CanChangeJob(string jobName, Player player = null)
+        {
+            if (GetFragments(jobName) < GetFragmentCost(jobName))
+                return false;
+
+            string prereq = GetPrerequisiteJob(jobName);
+            if (prereq != null && player != null)
+                return HasCompletedPromotion(player, prereq);
+
+            return true;
+        }
 
         // ── 전직 실행 ──
 
@@ -77,10 +120,11 @@ namespace KingdomIdle.KingdomArmy
         public bool TryChangeJob(Player player, string jobName)
         {
             if (player == null || string.IsNullOrEmpty(jobName)) return false;
-            if (!CanChangeJob(jobName)) return false;
+            if (!CanChangeJob(jobName, player)) return false;
 
             int cost = GetFragmentCost(jobName);
-            _fragments[jobName] -= cost;
+            string fragKey = GetBaseFragmentName(jobName);
+            _fragments[fragKey] -= cost;
 
             var changeJob = player.GetComponent<ChangeJob>();
             if (changeJob != null)
