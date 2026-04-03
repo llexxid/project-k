@@ -224,7 +224,7 @@ namespace KingdomIdle.UIToolkit
             // enhance
             _lblEnhLevel.text = $"강화 레벨: {eLv} / {so.maxEnhanceLevel}";
             int enhCost = mgr.GetEnhanceCost(_skillId);
-            EconomyBridge.TryGetAmount(eCurrency.ArcaneKnowledge, out int ak);
+            EconomyBridge.TryGetAmount(eCurrency.ArcaneKnowledge, out long ak);
             _lblEnhCost.text = $"비용: {enhCost} AK (보유: {ak})";
             _btnEnhance.SetEnabled(mgr.CanEnhance(_skillId));
             _btnEnhance.text = eLv >= so.maxEnhanceLevel ? "최대 레벨" : "강화하기";

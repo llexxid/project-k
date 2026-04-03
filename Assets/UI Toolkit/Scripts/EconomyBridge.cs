@@ -10,7 +10,7 @@ namespace Scripts.Core
     {
         private static User _cachedUser;
 
-        public static bool TryGetAmount(eCurrency currency, out int amount)
+        public static bool TryGetAmount(eCurrency currency, out long amount)
         {
             amount = 0;
             var u = EnsureUser();
@@ -22,7 +22,7 @@ namespace Scripts.Core
             return w.TryGetAmount(currency, out amount);
         }
 
-        public static void Add(eCurrency currency, int amount)
+        public static void Add(eCurrency currency, long amount)
         {
             if (amount == 0) return;
             var u = EnsureUser();

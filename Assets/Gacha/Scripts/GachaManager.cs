@@ -33,7 +33,7 @@ namespace KingdomIdle.Gacha
         public bool CanPull(GachaTableSO table)
         {
             if (table == null || !table.isImplemented) return false;
-            EconomyBridge.TryGetAmount(table.costCurrency, out int cur);
+            EconomyBridge.TryGetAmount(table.costCurrency, out long cur);
             return cur >= table.costAmount;
         }
 
@@ -43,7 +43,7 @@ namespace KingdomIdle.Gacha
         public bool CanPullMulti(GachaTableSO table, int count)
         {
             if (table == null || !table.isImplemented || count <= 0) return false;
-            EconomyBridge.TryGetAmount(table.costCurrency, out int cur);
+            EconomyBridge.TryGetAmount(table.costCurrency, out long cur);
             return cur >= table.costAmount * count;
         }
 
@@ -56,7 +56,7 @@ namespace KingdomIdle.Gacha
             if (table == null || !table.isImplemented || count <= 0) return null;
 
             int totalCost = table.costAmount * count;
-            EconomyBridge.TryGetAmount(table.costCurrency, out int cur);
+            EconomyBridge.TryGetAmount(table.costCurrency, out long cur);
             if (cur < totalCost) return null;
 
             EconomyBridge.Add(table.costCurrency, -totalCost);

@@ -100,7 +100,7 @@ namespace KingdomIdle.UIToolkit
             }
 
             // 비용 & 보유량
-            EconomyBridge.TryGetAmount(table.costCurrency, out int current);
+            EconomyBridge.TryGetAmount(table.costCurrency, out long current);
             var costLbl = new Label($"1회 비용: {table.costAmount} {table.costCurrency}  |  보유: {current}");
             costLbl.AddToClassList("gacha-cost");
             _content.Add(costLbl);

@@ -1,9 +1,10 @@
+using Newtonsoft.Json;
 using Scripts.Core;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEngine;
-using Newtonsoft.Json;
 
 namespace Scripts.Server.DTO
 {
@@ -136,14 +137,15 @@ namespace Scripts.Server.DTO
 	}
 	public class CharacterDataQuery
 	{
-		public CharacterDataQuery(string nickname, ulong jobcode, long hp, long atk)
+		public CharacterDataQuery(string nickname, ulong jobcode, long hp, long atk, int index)
 		{
 			NickName = nickname;
 			JobCode = jobcode;
 			Hp = hp;
 			Atk = atk;
+			Index = index;
 		}
-
+		public int Index { get; set; }
 		public string NickName { get; set; }
 		public ulong JobCode { get; set; }
 		public long Hp { get; set; }
@@ -168,5 +170,26 @@ namespace Scripts.Server.DTO
 			return JsonConvert.SerializeObject(this);
 		}
 	}
+	public class CurrencyQueryDTO
+	{
+		public CurrencyQueryDTO(long gold, long ancientCoin, long kingdomSupply, long arcaneKnowledge, long classFragment)
+		{
+			Gold = gold;
+			AncientCoin = ancientCoin;
+			KingdomSupply = kingdomSupply;
+			ArcaneKnowledge = arcaneKnowledge;
+			ClassFragment = classFragment;
+		}
 
+		public long Gold { get; set; } //기본적인 강화
+		public long AncientCoin { get; set; } //유료재화
+		public long KingdomSupply { get; set; } //장비뽑기
+		public long ArcaneKnowledge { get; set; } //마탑스킬강화
+		public long ClassFragment { get; set; } // 전직재화
+
+		public string PasreToJson()
+		{
+			return JsonConvert.SerializeObject(this);
+		}
+	}
 }
