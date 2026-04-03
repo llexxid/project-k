@@ -17,7 +17,7 @@ namespace Scripts.Server.DTO
 		//강화 수치
 		public long EnchantHPCount { get; set; }
 		public long EnchantATKCount { get; set; }
-
+		public CurrencyQueryDTO Currency { get; set; }
 		public List<CharacterDataQuery> CharacterDatas { get; set; }
 	}
 
@@ -36,6 +36,9 @@ namespace Scripts.Server.DTO
 		public List<CharacterDataQuery> CharacterDatas { get; set; }
 		//캐릭터가 장착한 장비정보
 		public List<CharacterEquipmentQuery> CharacterEquipmentDatas { get; set; }
+
+		public CurrencyQueryDTO Currency { get; set; }
+
 		//SkillTree
 		public List<SkillCode> SkillTreeDatas { get; set; }
 		//Inventory

@@ -4,7 +4,6 @@ using Newtonsoft.Json.Linq;
 using PlayFab;
 using PlayFab.ClientModels;
 using PlayFab.CloudScriptModels;
-using PlayFab.PfEditor.EditorModels;
 using Scripts.Core;
 using Scripts.Core.Manager;
 using Scripts.Server.DTO;
@@ -38,6 +37,7 @@ namespace Scripts.Server.Auth
 		private readonly string key_characterData = "CharacterData";
 		private readonly string key_skillTreeData = "SkillTreeData";
 		private readonly string key_inventoryData = "Inventory";
+		private readonly string key_currency = "Currency";
 
 
 		public Authentication()
@@ -133,6 +133,7 @@ namespace Scripts.Server.Auth
 					key_characterData,
 					key_skillTreeData,
 					key_inventoryData,
+					key_currency,
 					//MailSlot
 					//
 				},
@@ -164,7 +165,9 @@ namespace Scripts.Server.Auth
 			Dictionary<string, UserDataRecord> datas = result.InfoResultPayload.UserReadOnlyData;
 
 			//필수정보들
+			string nickName = result.InfoResultPayload.PlayerProfile.DisplayName;
 			long currentStage = Convert.ToInt64(datas[key_userStage].Value);
+			CurrencyQueryDTO currency = JsonConvert.DeserializeObject<CurrencyQueryDTO>(datas[key_currency].Value);
 			UserDataQuery userdata = JsonConvert.DeserializeObject<UserDataQuery>(datas[key_userData].Value);
 			UserEnhanceMentQuery enhancement = JsonConvert.DeserializeObject<UserEnhanceMentQuery>(datas[key_userEnhancement].Value);
 			List<CharacterDataQuery> characterData = JsonConvert.DeserializeObject<List<CharacterDataQuery>>(datas[key_characterData].Value);
@@ -178,6 +181,13 @@ namespace Scripts.Server.Auth
 			{
 				List<ItemID> inventory = JsonConvert.DeserializeObject<List<ItemID>>(datas[key_inventoryData].Value);
 			}
+
+			//Todo : 유저에서 Inventory랑 SkillTree가 연결되어야함.
+
+			//유저셋팅
+			UserManager.Instance.CreateUser(nickName,(eStage)currentStage, userdata, enhancement);
+			UserManager.Instance.SetCharacterData(characterData);
+			UserManager.Instance.SetWallet(currency);
 		}
 		private void pfAuthSuccessCallback(LoginResult authresult)
 		{
@@ -209,7 +219,9 @@ namespace Scripts.Server.Auth
 			Dictionary<string, UserDataRecord> datas = authresult.InfoResultPayload.UserReadOnlyData;
 
 			//필수정보들
+			string nickName = authresult.InfoResultPayload.PlayerProfile.DisplayName;
 			long currentStage = Convert.ToInt64(datas[key_userStage].Value);
+			CurrencyQueryDTO currency = JsonConvert.DeserializeObject<CurrencyQueryDTO>(datas[key_currency].Value);
 			UserDataQuery userdata = JsonConvert.DeserializeObject<UserDataQuery>(datas[key_userData].Value);
 			UserEnhanceMentQuery enhancement = JsonConvert.DeserializeObject<UserEnhanceMentQuery>(datas[key_userEnhancement].Value);
 			List<CharacterDataQuery> characterData = JsonConvert.DeserializeObject<List<CharacterDataQuery>>(datas[key_characterData].Value);
@@ -223,6 +235,13 @@ namespace Scripts.Server.Auth
 			{
 				List<ItemID> inventory = JsonConvert.DeserializeObject<List<ItemID>>(datas[key_inventoryData].Value);
 			}
+
+
+			//Todo : 유저에서 Inventory랑 SkillTree가 연결되어야함.
+			//유저셋팅
+			UserManager.Instance.CreateUser(nickName, (eStage)currentStage, userdata, enhancement);
+			UserManager.Instance.SetCharacterData(characterData);
+			UserManager.Instance.SetWallet(currency);
 		}
 
 		void pfAuthErrorCallback(PlayFab.PlayFabError error)
