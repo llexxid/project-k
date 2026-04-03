@@ -1,4 +1,4 @@
-﻿using Cysharp.Threading.Tasks.Triggers;
+using Cysharp.Threading.Tasks.Triggers;
 using Scripts.Core;
 using Scripts.Users;
 using System;
@@ -92,9 +92,17 @@ namespace Scripts.Core
 			p3.Init(dummyData, _user);
 			++i;
 
+			obj1.GetComponent<ChangeJob>().ApplyJobByIndex(0);
+			obj2.GetComponent<ChangeJob>().ApplyJobByIndex(0);
+			obj3.GetComponent<ChangeJob>().ApplyJobByIndex(0);
+
 			_user.ConnectCharacters(p1);
 			_user.ConnectCharacters(p2);
 			_user.ConnectCharacters(p3);
+
+			// 글로벌 강화 보너스 적용
+			if (StatEnhanceManager.Instance != null)
+				StatEnhanceManager.Instance.ApplyToAllPlayers();
 		}
 	}
 

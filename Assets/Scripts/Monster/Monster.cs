@@ -63,6 +63,7 @@ namespace Scripts.Monster
 		}
 		[SerializeField]
 		private MonsterStat _stat;
+		private MonsterStat _initialStat; // 여기 추가함
 		[System.NonSerialized] eMonsterType _type;
 		long _dropTableNumber;
 
@@ -157,6 +158,10 @@ namespace Scripts.Monster
 			_facingDir = 1; // 1 : Right, -1 : Left
 			_am = gameObject.GetComponentInChildren<Animator>();
 
+			// 몬스터 스프라이트를 타일맵 위에 렌더링하기 위해 Enemy 소팅 레이어 적용
+			var sr = GetComponentInChildren<SpriteRenderer>();
+			if (sr != null) sr.sortingLayerName = "Enemy";
+
 			_stateManchine = new StateMachine<Monster>();
 			_monAI = new MonsterOrder();
 			_monAI.Init(this);
@@ -210,6 +215,7 @@ namespace Scripts.Monster
 		public void Init(eMonsterType monsterType, MonsterStat stat, long droptable_number)
 		{
 			_stat = stat;
+			_initialStat = stat; // 이거 추가함
 			_type = monsterType;
 			_dropTableNumber = droptable_number;
 		}
@@ -246,6 +252,7 @@ namespace Scripts.Monster
 		{
 			//생성자
 			OnDeath = null;
+			_stat = _initialStat; // 이거 추가함
 			_stateManchine.BeginMachine(new MonsterMoveState(this));
 			foreach (var col in GetComponentsInChildren<Collider2D>())
 				col.enabled = true;

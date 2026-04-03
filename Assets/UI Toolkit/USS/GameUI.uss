@@ -172,16 +172,15 @@
     position: absolute;
     left: 0;
     right: 0;
-    top: 30%;
+    top: 180px;
     align-items: center;
-    justify-content: center;
 }
 
 .stage-row {
     flex-direction: row;
     align-items: center;
     justify-content: center;
-    gap: 22px;
+    gap: 16px;
 }
 
 .stage-label {
@@ -191,20 +190,109 @@
 }
 
 .boss-challenge {
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    justify-content: center;
+    gap: 8px;
 }
 
 .boss-label {
     font-size: 18px;
     color: rgba(255,255,255,0.85);
-    margin-bottom: 6px;
 }
 
 .boss-toggle {
     width: 34px;
     height: 34px;
+}
+
+/* 웨이브 반복 아이콘 */
+.loop-icon {
+    width: 44px;
+    height: 44px;
+    font-size: 28px;
+    -unity-text-align: middle-center;
+    background-color: rgba(255, 200, 60, 0.15);
+    border-radius: 22px;
+    border-left-width: 2px; border-right-width: 2px;
+    border-top-width: 2px; border-bottom-width: 2px;
+    border-color: rgba(255, 200, 60, 0.8);
+    color: rgba(255, 220, 80, 1);
+    transition-property: scale;
+    transition-duration: 0.1s;
+}
+.loop-icon:active { scale: 0.85; }
+
+/* 보스 타이머 */
+.boss-timer-bar {
+    width: 300px;
+    height: 8px;
+    background-color: rgba(255,255,255,0.15);
+    border-radius: 4px;
+    margin-top: 8px;
+    overflow: hidden;
+}
+.boss-timer-fill {
+    height: 100%;
+    width: 100%;
+    background-color: rgba(255, 80, 80, 0.9);
+    border-radius: 4px;
+}
+
+/* ===== 사망 팝업 ===== */
+.death-popup {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    align-items: center;
+    justify-content: center;
+}
+.death-popup-title {
+    font-size: 42px;
+    -unity-font-style: bold;
+    color: rgba(255, 80, 80, 0.95);
+    margin-bottom: 16px;
+}
+.death-popup-msg {
+    font-size: 28px;
+    color: rgba(255,255,255,0.9);
+    margin-bottom: 28px;
+}
+.death-popup-btns {
+    flex-direction: row;
+    gap: 24px;
+    margin-bottom: 20px;
+}
+.death-popup-btn {
+    width: 180px;
+    height: 64px;
+    font-size: 28px;
+    -unity-font-style: bold;
+    border-radius: 12px;
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    transition-property: scale;
+    transition-duration: 0.08s;
+}
+.death-popup-btn:active { scale: 0.9; }
+.death-popup-yes {
+    background-color: rgba(60, 180, 80, 0.8);
+    color: rgba(255,255,255,0.95);
+}
+.death-popup-no {
+    background-color: rgba(180, 60, 60, 0.8);
+    color: rgba(255,255,255,0.95);
+}
+.death-timer-bar {
+    width: 340px;
+    height: 10px;
+    background-color: rgba(255,255,255,0.15);
+    border-radius: 5px;
+    overflow: hidden;
+}
+.death-timer-fill {
+    height: 100%;
+    width: 100%;
+    background-color: rgba(255, 200, 60, 0.9);
+    border-radius: 5px;
 }
 
 /* Left side */
@@ -938,6 +1026,12 @@
 .mt-inv-item:hover { background-color: rgba(255,255,255,0.14); }
 .mt-inv-item:active { background-color: rgba(255,255,255,0.20); }
 
+.mt-inv-item-locked {
+    opacity: 0.35;
+}
+.mt-inv-item-locked:hover { background-color: rgba(0,0,0,0); }
+.mt-inv-item-locked:active { background-color: rgba(0,0,0,0); }
+
 .mt-inv-item-equipped {
     border-left-width: 2px;
     border-right-width: 2px;
@@ -1231,6 +1325,41 @@
     -unity-text-align: middle-center;
 }
 
+/* 장비 등급별 카드 테두리 색상 */
+.gacha-rarity-normal {
+    border-width: 2px;
+    border-color: rgba(180, 180, 180, 0.8);
+}
+
+.gacha-rarity-rare {
+    border-width: 2px;
+    border-color: rgba(80, 140, 255, 0.9);
+}
+
+.gacha-rarity-epic {
+    border-width: 2px;
+    border-color: rgba(180, 80, 255, 0.9);
+}
+
+/* 장비 등급 텍스트 색상 */
+.gacha-reward-rarity {
+    font-size: 18px;
+    -unity-text-align: middle-center;
+    -unity-font-style: bold;
+}
+
+.gacha-rarity-text-normal {
+    color: rgba(200, 200, 200, 0.9);
+}
+
+.gacha-rarity-text-rare {
+    color: rgba(100, 160, 255, 1);
+}
+
+.gacha-rarity-text-epic {
+    color: rgba(200, 100, 255, 1);
+}
+
 /* ===== Kingdom Army Panel ===== */
 .ka-member-tabs {
     flex-direction: row;
@@ -1296,6 +1425,11 @@
     height: 120px;
     background-color: rgba(255, 255, 255, 0.1);
     border-radius: 10px;
+    overflow: hidden;
+}
+
+.ka-char-portrait-inner {
+    position: absolute;
     -unity-background-scale-mode: scale-to-fit;
 }
 
@@ -1332,37 +1466,83 @@
     margin: 20px 0;
 }
 
-/* Enhance View */
+/* ═══ Enhance View (강화 메뉴) ═══ */
+
 .ka-enhance-row {
+    flex-direction: column;
+    padding: 14px 14px;
+    background-color: rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    margin-bottom: 10px;
+    border-left-width: 2px;
+    border-left-color: rgba(100, 180, 255, 0.4);
+}
+
+.ka-enhance-header {
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 8px;
-    background-color: rgba(255, 255, 255, 0.04);
-    border-radius: 8px;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
 }
 
 .ka-enhance-name {
-    font-size: 24px;
-    color: rgba(255, 255, 255, 0.8);
-    flex: 1;
+    font-size: 26px;
+    -unity-font-style: bold;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.ka-enhance-level {
+    font-size: 22px;
+    color: rgba(100, 200, 255, 0.95);
+    -unity-font-style: bold;
+}
+
+.ka-enhance-bonus {
+    font-size: 20px;
+    color: rgba(120, 255, 160, 0.9);
+    margin-bottom: 10px;
+}
+
+.ka-enhance-dummy-tag {
+    font-size: 18px;
+    color: rgba(255, 200, 80, 0.7);
+    -unity-font-style: italic;
+    margin-bottom: 10px;
 }
 
 .ka-enhance-btn-row {
     flex-direction: row;
-    gap: 6px;
+    gap: 10px;
 }
 
 .ka-small-btn {
-    height: 44px;
-    min-width: 100px;
+    flex: 1;
+    height: 52px;
+    min-width: 120px;
     font-size: 20px;
-    background-color: rgba(60, 120, 220, 0.5);
-    border-radius: 8px;
+    -unity-font-style: bold;
+    background-color: rgba(60, 130, 230, 0.6);
+    border-radius: 10px;
     border-left-width: 0; border-right-width: 0;
     border-top-width: 0; border-bottom-width: 0;
-    color: rgba(255, 255, 255, 0.9);
+    color: rgba(255, 255, 255, 0.95);
+    transition-property: scale, background-color;
+    transition-duration: 0.08s, 0.08s;
+}
+
+.ka-small-btn:hover {
+    background-color: rgba(80, 150, 255, 0.75);
+    scale: 1.03;
+}
+
+.ka-small-btn:active {
+    background-color: rgba(40, 100, 200, 0.9);
+    scale: 0.93;
+}
+
+.ka-enhance-cost {
+    font-size: 18px;
+    color: rgba(255, 220, 100, 0.85);
 }
 
 /* Equipment View */
@@ -1390,6 +1570,27 @@
 .ka-equip-slot-empty {
     font-size: 18px;
     color: rgba(255, 255, 255, 0.3);
+}
+
+/* Equipment: icon placeholder */
+.ka-equip-icon {
+    width: 60px;
+    height: 60px;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+/* Equipment: dimmed (not allowed for current job) */
+.ka-equip-dimmed {
+    opacity: 0.35;
+}
+
+/* Equipment: equipped item border highlight */
+.ka-equip-equipped {
+    border-width: 3px;
+    border-color: rgb(80, 200, 120);
+    border-radius: 10px;
 }
 
 /* Skill View */
@@ -1531,6 +1732,167 @@
 .ka-change-btn-disabled {
     background-color: rgba(100, 100, 100, 0.5);
     color: rgba(255, 255, 255, 0.4);
+}
+
+/* ===== Inventory Panel ===== */
+.inv-equip-card {
+    padding: 8px 6px;
+}
+
+.inv-rarity-bar {
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+}
+
+.inv-rarity-normal {
+    background-color: rgba(180, 180, 180, 0.6);
+}
+
+.inv-rarity-rare {
+    background-color: rgba(60, 140, 255, 0.8);
+}
+
+.inv-rarity-epic {
+    background-color: rgba(180, 60, 255, 0.8);
+}
+
+.inv-owner-label {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.4);
+    -unity-text-align: middle-center;
+}
+
+/* ===== 뽑기 결과 팝업 ===== */
+.gacha-result-overlay {
+    background-color: rgba(0, 0, 0, 0.7);
+    justify-content: center;
+    align-items: center;
+}
+
+.gacha-result-popup {
+    width: 80%;
+    max-width: 700px;
+    max-height: 70%;
+    background-color: rgba(30, 30, 50, 0.95);
+    border-radius: 16px;
+    padding: 20px;
+    border-left-width: 2px; border-right-width: 2px;
+    border-top-width: 2px; border-bottom-width: 2px;
+    border-color: rgba(200, 180, 100, 0.6);
+}
+
+.gacha-result-title {
+    font-size: 32px;
+    -unity-font-style: bold;
+    color: rgba(255, 220, 100, 0.95);
+    -unity-text-align: upper-center;
+    margin-bottom: 16px;
+}
+
+.gacha-result-scroll {
+    flex: 1;
+    min-height: 120px;
+    max-height: 400px;
+}
+
+.gacha-result-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    padding: 8px;
+}
+
+.gacha-result-card {
+    width: 110px;
+    padding: 8px 4px;
+    background-color: rgba(50, 50, 70, 0.8);
+    border-radius: 10px;
+    border-left-width: 2px; border-right-width: 2px;
+    border-top-width: 2px; border-bottom-width: 2px;
+    border-color: rgba(100, 100, 120, 0.5);
+    align-items: center;
+}
+
+.gacha-result-icon {
+    width: 64px;
+    height: 64px;
+    -unity-background-scale-mode: scale-to-fit;
+    margin-bottom: 4px;
+}
+
+.gacha-result-name {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.9);
+    -unity-text-align: upper-center;
+    white-space: normal;
+}
+
+.gacha-result-count {
+    font-size: 20px;
+    -unity-font-style: bold;
+    color: rgba(255, 220, 100, 0.95);
+    -unity-text-align: upper-center;
+}
+
+.gacha-result-btn-row {
+    flex-direction: row;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.gacha-result-btn {
+    height: 56px;
+    min-width: 120px;
+    padding: 0 16px;
+    font-size: 22px;
+    -unity-font-style: bold;
+    background-color: rgba(60, 120, 220, 0.7);
+    border-radius: 10px;
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.gacha-result-btn-done {
+    background-color: rgba(100, 100, 100, 0.7);
+}
+
+/* ===== 장비 액션 팝업 ===== */
+.ka-equip-action-row {
+    flex-direction: row;
+    gap: 12px;
+    margin-top: 12px;
+    margin-bottom: 8px;
+    justify-content: center;
+}
+
+.ka-action-btn {
+    flex: 1;
+    height: 64px;
+    max-width: 200px;
+    font-size: 28px;
+    -unity-font-style: bold;
+    background-color: rgba(60, 120, 220, 0.7);
+    border-radius: 10px;
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.ka-action-btn-enhance {
+    background-color: rgba(220, 160, 40, 0.8);
+}
+
+.ka-action-btn-disabled {
+    background-color: rgba(100, 100, 100, 0.5);
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.ka-equip-dimmed-text {
+    color: rgba(255, 80, 80, 0.9);
 }
 
 /* ===== [DEBUG] 디버그 메뉴 — 제거 시 이 섹션 전체 삭제 ===== */

@@ -23,6 +23,8 @@ namespace KingdomIdle.UI
         EventList = 24,
         Settings = 25,
 
+        Inventory = 26,
+
         MageTower = 30,
     }
 

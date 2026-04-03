@@ -118,55 +118,55 @@ public class PlayerSkill
         {
             if (_skillData.vfxOnTarget)
             {
-                var targetMono = _player.currentTarget as MonoBehaviour;
-                if (targetMono != null)
+                // 탐지된 모든 살아있는 적에게 VFX 등록
+                bool first = true;
+                for (int i = 0; i < hitCount; i++)
                 {
-                    Vector3 enemyPos = targetMono.transform.position;
-                    Vector3 toPlayer = (_player.transform.position - enemyPos).normalized;
-                    _player.SetPendingSkillVFX(vfxType,
-                        enemyPos + toPlayer * _skillData.vfxForwardOffset,
-                        facingDir.x, _skillData.vfxDuration, _skillData.flipVFX);
+                    var m = _hitResults[i].GetComponentInParent<Monster>();
+                    if (m == null || m.MonAction == eMonsterAction.Dead) continue;
+
+                    Vector3 enemyPos = m.transform.position;
+                    if (first)
+                    {
+                        _player.SetPendingSkillVFX(vfxType, enemyPos, facingDir.x, _skillData.vfxDuration, _skillData.flipVFX);
+                        first = false;
+                    }
+                    else
+                    {
+                        _player.AddPendingSkillVFXTarget(enemyPos);
+                    }
                 }
             }
             else
             {
-                Vector3 vfxPos = _player.transform.position
-                                 + (Vector3)(facingDir * _skillData.vfxForwardOffset);
+                Vector3 vfxPos = _player.transform.position + (Vector3)(facingDir * _skillData.vfxForwardOffset);
                 _player.SetPendingSkillVFX(vfxType, vfxPos, facingDir.x,
                     _skillData.vfxDuration, _skillData.flipVFX);
             }
         }
 
-        // [6] 데미지 적용
-        // animationStateName이 설정된 스킬 → Animation Event(OnSkillHit)에서 적용
-        // animationStateName이 없는 스킬  → 즉시 적용 (VFX 스킬 등 전용 애니메이션 없는 경우)
-        if (!string.IsNullOrEmpty(_skillData.animationStateName))
+        // [6] 데미지 적용 (스킬 데미지 계수 반영)
         {
-            _pendingTargets.Clear();
+            var dmgProxy = new DamageProxy((ulong)skillDamage, _player.gameobj, _player);
             for (int i = 0; i < hitCount; i++)
             {
-                // 이미 Dead 상태인 몬스터는 건너뜀
-                Monster mon = _hitResults[i].GetComponent<Monster>();
-                if (mon.MonAction == eMonsterAction.Dead)
-                {
-					continue;
-				}
+                Monster mon = _hitResults[i].GetComponentInParent<Monster>();
+                if (mon == null || mon.MonAction == eMonsterAction.Dead)
+                    continue;
 
-                bool isAlive = _player.currentTarget.TakeDamage(_player);
+                bool isAlive = mon.TakeDamage(dmgProxy);
                 if (!isAlive)
                 {
-                    // 몬스터 사망 시 Idle로 전환 (Attack은 Trigger라 자동 리셋됨)
                     Debug.Log($"[스킬 사망] {_skillData.skillName} attacker : {_player.gameobj.GetInstanceID()} | monster : {mon.gameobj.GetInstanceID()}");
                     _player.SetAnimation(ePlayerAction.Idle);
-                    //_player.currentTarget = null;
                     break;
                 }
             }
         }
 
         // [7] 공격 애니메이션 재생
-        _player.PlayAttackAnimation();
-		Debug.Log("SKill Node Success");
+        _player.PlaySkillAnimation(_skillData.animationStateName);
+        Debug.Log("SKill Node Success");
 		return NodeState.Success;
     }
 
@@ -179,8 +179,7 @@ public class PlayerSkill
         int validCount = 0;
         for (int i = 0; i < hitCount; i++)
         {
-            Vector2 toEnemy = ((Vector2)_hitResults[i].transform.position
-                               - (Vector2)_player.transform.position);
+            Vector2 toEnemy = ((Vector2)_hitResults[i].transform.position - (Vector2)_player.transform.position);
             // 플레이어와 겹쳐있는 경우는 항상 통과
             if (toEnemy == Vector2.zero || Vector2.Angle(facingDir, toEnemy) <= halfAngle)
             {
@@ -209,14 +208,21 @@ public class PlayerSkill
     // 데미지 래퍼
     // ─────────────────────────────────────────────────────────
 
-    public class DamageProxy : IAttackable
+    public class DamageProxy : IAttackable, IRewardable
     {
         public ulong damage { get; }
         public Vector3 attackerPos => Vector3.zero;
+        public GameObject gameobj { get; }
+        private readonly IRewardable _rewarder;
 
-		public GameObject gameobj => throw new System.NotImplementedException();
+        public bool Attack(IDamageable target) => false;
+        public void GiveReward(int gold, int ancientCoin) => _rewarder?.GiveReward(gold, ancientCoin);
 
-		public bool Attack(IDamageable target) => false;
-        public DamageProxy(int dmg) { damage = (ulong)dmg; }
+        public DamageProxy(ulong damage, GameObject owner, IRewardable rewarder = null)
+        {
+            this.damage = damage;
+            this.gameobj = owner;
+            _rewarder = rewarder;
+        }
     }
 }

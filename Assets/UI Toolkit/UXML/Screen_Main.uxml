@@ -24,6 +24,7 @@
                 </ui:VisualElement>
                 <ui:Button name="BtnHamburgerRight" class="hamburger-right" style="background-image: url(&quot;project://database/Assets/UI/Art/Textures/Icons/8/MinusBlueDark.png?fileID=2800000&amp;guid=15f9041f0bb456f429d27aadd95819e9&amp;type=3#MinusBlueDark&quot;);" />
                 <ui:VisualElement name="PopupHamburger" class="dropdown hamburger-dropdown hidden">
+                    <ui:Button name="BtnMenuInventory" text="📦" class="dropdown-btn" />
                     <ui:Button name="BtnMenuSettings" class="dropdown-btn" style="background-image: url(&quot;project://database/Assets/UI/Art/Textures/Icons/8/WrenchBlueDark.png?fileID=2800000&amp;guid=d1852c715746ab64a83ee6aa17e44c13&amp;type=3#WrenchBlueDark&quot;);" />
                     <ui:Button name="BtnMenuNotice" text="!" class="dropdown-btn" style="background-image: url(&quot;project://database/Assets/UI/Art/Textures/Icons/8/WarningBlueDark.png?fileID=2800000&amp;guid=15f1f540720f1864d8c263a65e250fc8&amp;type=3#WarningBlueDark&quot;);" />
                     <ui:Button name="BtnMenuMail" text="✉" class="dropdown-btn" />
@@ -32,11 +33,26 @@
         </ui:VisualElement>
         <ui:VisualElement name="StageArea" class="stage-area">
             <ui:VisualElement class="stage-row">
+                <ui:Button name="BtnLoopIcon" text="🔁" tooltip="웨이브 반복중 — 클릭하여 해제" class="loop-icon hidden" />
                 <ui:Label name="LblStage" text="스테이지 1-1" class="stage-label" />
                 <ui:VisualElement class="boss-challenge">
-                    <ui:Label name="LblBossChain" text="보스 연속 도전" class="boss-label" />
-                    <ui:Toggle name="TglBossChain" class="boss-toggle" />
+                    <ui:Label name="LblBossChain" text="보스 자동 도전" class="boss-label" />
+                    <ui:Toggle name="TglBossChain" value="true" class="boss-toggle" />
                 </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="BossTimerBar" class="boss-timer-bar hidden">
+                <ui:VisualElement name="BossTimerFill" class="boss-timer-fill" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="DeathPopup" class="death-popup hidden">
+            <ui:Label text="전원 사망" class="death-popup-title" />
+            <ui:Label name="LblDeathMsg" text="같은 웨이브를 도전하시겠습니까?" class="death-popup-msg" />
+            <ui:VisualElement class="death-popup-btns">
+                <ui:Button name="BtnDeathYes" text="예" class="death-popup-btn death-popup-yes" />
+                <ui:Button name="BtnDeathNo" text="아니요" class="death-popup-btn death-popup-no" />
+            </ui:VisualElement>
+            <ui:VisualElement name="DeathTimerBar" class="death-timer-bar">
+                <ui:VisualElement name="DeathTimerFill" class="death-timer-fill" />
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="HudLeft" class="hud-left">

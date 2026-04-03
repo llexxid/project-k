@@ -50,7 +50,6 @@ namespace KingdomIdle.MageTower
 
         private void Start()
         {
-            InitTestData();
         }
 
         private void Update()
@@ -104,6 +103,15 @@ namespace KingdomIdle.MageTower
                     _fragments[id] = 15;
             }
         }
+
+        // ===== 보유 판정 =====
+
+        /// <summary>
+        /// 가차에서 한 번이라도 획득한 스킬인지 반환한다.
+        /// fragments가 1 이상이면 보유 상태.
+        /// </summary>
+        public bool IsOwned(int skillId) =>
+            _fragments.TryGetValue(skillId, out int f) && f >= 1;
 
         // ===== 데이터 접근 =====
         public IReadOnlyList<MageTowerSkillSO> GetAllSkills()
@@ -173,6 +181,7 @@ namespace KingdomIdle.MageTower
         {
             if (slotIndex < 0 || slotIndex >= SlotCount) return false;
             if (GetSkillById(skillId) == null) return false;
+            if (!IsOwned(skillId)) return false;
 
             for (int i = 0; i < SlotCount; i++)
             {
@@ -215,6 +224,7 @@ namespace KingdomIdle.MageTower
         {
             var so = GetSkillById(skillId);
             if (so == null) return false;
+            if (!IsOwned(skillId)) return false;
             if (GetEnhanceLevel(skillId) >= so.maxEnhanceLevel) return false;
             EconomyBridge.TryGetAmount(eCurrency.ArcaneKnowledge, out int ak);
             return ak >= GetEnhanceCost(skillId);
@@ -607,6 +617,66 @@ namespace KingdomIdle.MageTower
             Save();
             OnStateChanged?.Invoke();
             return true;
+        }
+
+        // ===== 서버 동기화 =====
+
+        /// <summary>
+        /// 모든 스킬 상태를 64비트 배열로 패킹한다. 서버 전송용.
+        /// </summary>
+        public long[] PackAllSkills()
+        {
+            var skills = GetAllSkills();
+            var result = new long[skills.Count];
+            for (int i = 0; i < skills.Count; i++)
+            {
+                int id = skills[i].id;
+                result[i] = MageTowerSkillCode.Pack(
+                    id,
+                    GetAwakeningLevel(id),
+                    GetEnhanceLevel(id),
+                    GetFragments(id));
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// 64비트 배열에서 스킬 상태를 복원한다. 서버 로드용.
+        /// </summary>
+        public void UnpackAllSkills(long[] packed)
+        {
+            if (packed == null) return;
+
+            _enhanceLevels.Clear();
+            _awakeningLevels.Clear();
+            _fragments.Clear();
+
+            for (int i = 0; i < packed.Length; i++)
+            {
+                int id  = MageTowerSkillCode.UnpackSkillId(packed[i]);
+                int aLv = MageTowerSkillCode.UnpackAwakeningLevel(packed[i]);
+                int eLv = MageTowerSkillCode.UnpackEnhanceLevel(packed[i]);
+                int qty = MageTowerSkillCode.UnpackQuantity(packed[i]);
+
+                if (eLv > 0) _enhanceLevels[id] = eLv;
+                if (aLv > 0) _awakeningLevels[id] = aLv;
+                if (qty > 0) _fragments[id] = qty;
+            }
+
+            Save();
+            OnStateChanged?.Invoke();
+        }
+
+        /// <summary>
+        /// 단일 스킬의 64비트 코드를 반환한다.
+        /// </summary>
+        public long PackSkill(int skillId)
+        {
+            return MageTowerSkillCode.Pack(
+                skillId,
+                GetAwakeningLevel(skillId),
+                GetEnhanceLevel(skillId),
+                GetFragments(skillId));
         }
 
         // ===== 저장/로드 =====

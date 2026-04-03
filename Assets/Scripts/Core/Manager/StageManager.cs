@@ -69,13 +69,13 @@ namespace Scripts.Core
 		}
 
         /// <summary>
-        /// ½ºÅ×ÀÌÁö°¡ ¹Ù²ð¶§, Stage¿¡ ÇÊ¿äÇÑ Á¤º¸µéÀ» ºñµ¿±âÀûÀ¸·Î LoadÇÏ´Â ÇÔ¼öÀÔ´Ï´Ù.
+        /// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ù²ï¿½, Stageï¿½ï¿½ ï¿½Ê¿ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ñµ¿±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Loadï¿½Ï´ï¿½ ï¿½Ô¼ï¿½ï¿½Ô´Ï´ï¿½.
         /// </summary>
         /// <param name="stage"></param>
         /// <returns></returns>
         public AsyncOperationHandle<IList<GameObject>> PreLoadAssets(eStage stage)
         {
-            //½ºÅ×ÀÌÁö Á¤º¸¿¡ ÀÖ´Â Monster Typeµé Load
+            //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ö´ï¿½ Monster Typeï¿½ï¿½ Load
             List<eMonsterType> monsterTypes;
 
             _stageSO.TryGetMonsterList(stage, out monsterTypes);
@@ -90,7 +90,7 @@ namespace Scripts.Core
 			IsValid = _stageSO.TryGetStageInfo(stage, out ret);
             if (!IsValid)
             {
-                CustomLogger.LogWarning("StageÀÇ Á¤º¸¸¦ ¿äÃ»ÇßÁö¸¸, CacheµÇÁö ¾Ê¾Ò½À´Ï´Ù.");
+                CustomLogger.LogWarning("Stageï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, Cacheï¿½ï¿½ï¿½ï¿½ ï¿½Ê¾Ò½ï¿½ï¿½Ï´ï¿½.");
                 return null;
             }
             return ret;
@@ -103,7 +103,7 @@ namespace Scripts.Core
             IsValid = _stageSO.TryGetMonsterList(stage, out ret);
             if (!IsValid)
             {
-				CustomLogger.LogWarning("StageÀÇ ¸ó½ºÅÍÁ¤º¸¸¦ ¿äÃ»ÇßÁö¸¸, CacheµÇÁö ¾Ê¾Ò½À´Ï´Ù.");
+				CustomLogger.LogWarning("Stageï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, Cacheï¿½ï¿½ï¿½ï¿½ ï¿½Ê¾Ò½ï¿½ï¿½Ï´ï¿½.");
 				return null;
 			}
 			return ret;
@@ -125,7 +125,7 @@ namespace Scripts.Core
 			}
 
             int spawnLocationCnt = _locationSO.GetLocationCount();
-			//½ºÅ×ÀÌÁö¿¡ ¸Â´Â ¸ó½ºÅÍ Á¤º¸¸¦ ±Ü¾î¿È.
+			//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Â´ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ü¾ï¿½ï¿½.
 			foreach (StageInfo_v info in stageInfos)
 			{
 				eMonsterType type = info._type;
@@ -144,10 +144,10 @@ namespace Scripts.Core
                     mon.OnDeath += DecrementMonCount;
 				}
 			}
-            Debug.Log($"StageÁøÀÔ {_currentStage} ¸ó½ºÅÍ ¸¶¸´¼ö : {_totalCnt}");
+            Debug.Log($"Stageï¿½ï¿½ï¿½ï¿½ {_currentStage} ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ : {_totalCnt}");
 		}
 
-        //¸ó½ºÅÍ¸¦ ÀâÀ» ¶§ ºÎ¸£´Â ÇÔ¼ö
+        //ï¿½ï¿½ï¿½Í¸ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½Î¸ï¿½ï¿½ï¿½ ï¿½Ô¼ï¿½
         public void DecrementMonCount(IDamageable mon)
         {
             int count = 0;
@@ -157,10 +157,15 @@ namespace Scripts.Core
 
 			--_totalCnt;
             CustomLogger.Log($"totalCount : {_totalCnt}");
-            //¸ó½ºÅÍ¸¦ ´Ù ÀâÀº °æ¿ì
             if (_totalCnt <= 0)
             {
-                //Loop°¡ ÄÑÁ®ÀÖ´Â °æ¿ì
+                // WaveManagerê°€ ì¡´ìž¬í•˜ë©´ íë¦„ì„ ìœ„ìž„
+                if (WaveManager.Instance != null)
+                {
+                    WaveManager.Instance.OnWaveCleared();
+                    return;
+                }
+
                 if (_IsLoop)
                 {
 					StartStage(_currentStage);
@@ -170,26 +175,27 @@ namespace Scripts.Core
 			}
         }
 
+
         private void GoToNextStage()
         {
 			eStage nxtStage;
 			eStageResult res = CalculateNextStage(_currentStage, out nxtStage);
 
-			//Stage¸¦ ¹Ù²ã¾ßÇÑ´Ù -> ¸®¼Ò½º ·ÎµùÀÌ ÇÊ¿äÇÔ.
+			//Stageï¿½ï¿½ ï¿½Ù²ï¿½ï¿½ï¿½Ñ´ï¿½ -> ï¿½ï¿½ï¿½Ò½ï¿½ ï¿½Îµï¿½ï¿½ï¿½ ï¿½Ê¿ï¿½ï¿½ï¿½.
 			if (res == eStageResult._StageChanged)
 			{
-				//¸®¼Ò½º ·ÎµùÀÌ ³¡³ª¸é, ¸ó½ºÅÍ ½ºÆù ¿äÃ»
+				//ï¿½ï¿½ï¿½Ò½ï¿½ ï¿½Îµï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ã»
 				CustomLogger.Log($"Go To Next Stage");
 
-                //½ºÅ×ÀÌÁö¸¦ ³Ñ¾î°¥ ¶©, »ç³É°á°ú¸¦ ÇÑ¹ø ¼­¹ö¿¡ ÀúÀåÇÏ°í °¡ÀÚ.
+                //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ñ¾î°¥ ï¿½ï¿½, ï¿½ï¿½É°ï¿½ï¿½ï¿½ï¿½ ï¿½Ñ¹ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï°ï¿½ ï¿½ï¿½ï¿½ï¿½.
 				GameManager.Instance.LoadStage(_currentStage, nxtStage, StartStage);
 			}
 			else
 			{
-				//Wave¸¦ ¹Ù²ã¾ßÇÑ´Ù -> Àá½Ã FadeOut/ Ä³¸¯ÅÍµé HPÈ¸º¹
+				//Waveï¿½ï¿½ ï¿½Ù²ï¿½ï¿½ï¿½Ñ´ï¿½ -> ï¿½ï¿½ï¿½ FadeOut/ Ä³ï¿½ï¿½ï¿½Íµï¿½ HPÈ¸ï¿½ï¿½
 				CustomLogger.Log($"Go To Next Wave");
 				StartStage(nxtStage);
-				//Todo : Ä³¸¯ÅÍ HPÈ¸º¹
+				//Todo : Ä³ï¿½ï¿½ï¿½ï¿½ HPÈ¸ï¿½ï¿½
 			}
 		}
 
@@ -202,7 +208,7 @@ namespace Scripts.Core
         {
 			_IsLoop = false;
 		}
-        //Ä³¸¯ÅÍ°¡ ¸ðµÎ Á×Àº °æ¿ì, ÀÌÀü ½ºÅ×ÀÌÁö·Î ³Ñ°Ü¾ßÇÔ.
+        //Ä³ï¿½ï¿½ï¿½Í°ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ñ°Ü¾ï¿½ï¿½ï¿½.
         public void DecrementCharacterCount()
         {
             --_totalCharacterCnt;
@@ -214,7 +220,7 @@ namespace Scripts.Core
                 CalculatePrevStage(_currentStage, out prevStage);
 				CustomLogger.Log($"GoTo Prev Wave");
                 
-                //Todo : Ä³¸¯ÅÍ ºÎÈ°Ã³¸®
+                //Todo : Ä³ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½È°Ã³ï¿½ï¿½
 
 
 				StartStage(prevStage);
@@ -222,7 +228,7 @@ namespace Scripts.Core
 		}
         private eStageResult CalculateNextStage(eStage curstage, out eStage nxtstage)
         {
-            //wave°¡ 10ÀÌ¸é ´ÙÀ½ ½ºÅ×ÀÌÁö·Î
+            //waveï¿½ï¿½ 10ï¿½Ì¸ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             ulong waveMask = 0x000000000000FFFF;
 
             ulong wave = ((ulong)curstage & waveMask);
@@ -240,7 +246,7 @@ namespace Scripts.Core
 		}
         private eStageResult CalculatePrevStage(eStage curstage, out eStage prevstage)
         {
-			//wave°¡ 1ÀÌ¸é ÀÌÀü ½ºÅ×ÀÌÁö·Î ¸ø°¨.
+			//waveï¿½ï¿½ 1ï¿½Ì¸ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½.
 			ulong waveMask = 0x000000000000FFFF;
 
 			ulong wave = ((ulong)curstage & waveMask);
@@ -262,7 +268,7 @@ namespace Scripts.Core
                 return;
             }
 
-            //Á÷·ÄÈ­
+            //ï¿½ï¿½ï¿½ï¿½È­
             List<RewardCode> sendmsg = new List<RewardCode>();
             RewardCode code;
 
@@ -285,7 +291,7 @@ namespace Scripts.Core
         private void OnHuntRewardSuccess(ExecuteFunctionResult result)
         {
 			OnHuntResponseDTO response = JObject.FromObject(result.FunctionResult).ToObject<OnHuntResponseDTO>();
-            //·¹º§¾÷ º¸»óÀÌ ÀÖ´Ù¸é ·¹º§¾÷ º¸»ó UIÃ³¸® ¹× °¢Á¾ UIÃ³¸®
+            //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ö´Ù¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ UIÃ³ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ UIÃ³ï¿½ï¿½
 		}
 
         private void OnError(PlayFab.PlayFabError error)

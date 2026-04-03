@@ -305,6 +305,7 @@ GameObject:
   m_Component:
   - component: {fileID: 659282417}
   - component: {fileID: 659282416}
+  - component: {fileID: 659282418}
   m_Layer: 0
   m_Name: KingdomArmyManager
   m_TagString: Untagged
@@ -325,6 +326,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   jobDatabase: {fileID: 11400000, guid: 9e03a3b2e50f9024c94a0cb0b2ec46e4, type: 2}
+  equipmentDatabase: {fileID: 11400000, guid: 0cabf66954ae3c2448ff5eba03efac0c, type: 2}
   defaultFragmentCost: 40
 --- !u!4 &659282417
 Transform:
@@ -341,6 +343,18 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &659282418
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 659282415}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9eec3b8c90c455b49941d4d21d41baaa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &755427043
 GameObject:
   m_ObjectHideFlags: 0
@@ -408,6 +422,10 @@ MonoBehaviour:
     type: 3}
   panelKingdomArmyUxml: {fileID: 9197481963319205126, guid: 91719f7e3b4ca7241b5cf28a0a740156,
     type: 3}
+  panelDevelopmentUxml: {fileID: 9197481963319205126, guid: 2d10fa05a7682f348ab435c3799194df,
+    type: 3}
+  panelInventoryUxml: {fileID: 9197481963319205126, guid: fcd93deec782aad40b4f0e46167ba826,
+    type: 3}
   overlayLoadingUxml: {fileID: 9197481963319205126, guid: 88b128c4aa415e647ae568ce0e827dfc,
     type: 3}
   dontDestroyOnLoad: 1
@@ -455,9 +473,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b5de62627b65b0b428fc2c25d7ba140f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  dummySkillCount0: 1
-  dummySkillCount1: 2
-  dummySkillCount2: 3
+  portraitSprite0: {fileID: 0}
+  portraitSprite1: {fileID: 0}
+  portraitSprite2: {fileID: 0}
   baseGapPx: 12
   sheetGapPx: 10
   fallbackBottomBarPx: 190
@@ -702,6 +720,7 @@ GameObject:
   - component: {fileID: 2134808526}
   - component: {fileID: 2134808528}
   - component: {fileID: 2134808529}
+  - component: {fileID: 2134808530}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -811,9 +830,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 2134808522}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a39c5ea9f40610f48b75133d9dc6365e, type: 3}
+  m_Script: {fileID: 11500000, guid: ec76570c5a2d4764782260097d8ba493, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _bossTimeLimit: 30
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

@@ -53,10 +53,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
     [SerializeField]
     private IDamageable _currentTarget;
-    public IDamageable currentTarget
-    {
-        get { return _currentTarget; }
-    }
+    public IDamageable currentTarget;
     PlayerData _data;
     private User _user;
 
@@ -89,9 +86,9 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         // 패링 중 피격: 데미지 무효화 + 반격
         if (IsParrying)
         {
-            int counterDamage = Mathf.RoundToInt(playerStatus.Atk * _parryCounterMultiplier);
+            ulong counterDamage = (ulong)Mathf.RoundToInt(playerStatus.Atk * _parryCounterMultiplier);
             var damageable = attacker as IDamageable;
-            damageable?.TakeDamage(new PlayerSkill.DamageProxy(counterDamage));
+            damageable?.TakeDamage(new PlayerSkill.DamageProxy(counterDamage, gameobj));
 
             UITKDamageTextBridge.ShowOnTransform(transform, (ulong)counterDamage, Color.yellow);
             Debug.Log($"[Player] 패링 성공! 반격 데미지: {counterDamage}");
@@ -134,6 +131,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     {
         Debug.Log($"Player : {gameObject.GetInstanceID()} Reset Target");
         _currentTarget = null;
+        currentTarget = null;
 	}
 
     public void SetTarget(IDamageable target)
@@ -150,7 +148,8 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         Debug.Log($"Player : {gameObject.GetInstanceID()} |Player SetMonster : {target.gameobj.GetInstanceID()} | target_action : {target.gameobj.GetComponent<Monster>().MonAction}");
         target.OnDeath += ResetTarget;
         _currentTarget = target;
-	}
+        currentTarget = target;
+    }
 
     private IEnumerator PauseAfterDeadAnimation()
     {
@@ -162,7 +161,9 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 		OnDeath = null;
 		gameObject.SetActive(false);
 
-		Scripts.Core.GameManager.Instance?.ReportPlayerDead();
+        playerOrder?.InterruptBT();
+
+        Scripts.Core.GameManager.Instance?.ReportPlayerDead();
     }
 
     private bool setHp(ulong damage)
@@ -221,6 +222,21 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     {
         _shieldPassiveActivated = false;
     }
+
+    // ── [WaveManager] 플레이어 부활 ──
+    public void Revive()
+    {
+        _isDead = false;
+        _shieldPassiveActivated = false;
+        _data._Hp = playerStatus.MaxHP;
+        _data._extraHp = 0;
+        playerStatus.HP = playerStatus.MaxHP;
+        gameObject.SetActive(true);
+        SetAnimation(ePlayerAction.Idle);
+        playerOrder?.Init(this);
+        ResetTarget();
+    }
+    // ── [WaveManager 끝] ──
 
     /// <summary>
     /// PlayerParry에서 호출. duration 초 동안 패링 상태를 활성화한다.
@@ -402,7 +418,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
     // PlayerSkill이 애니메이션 트리거 직전에 채워두는 스킬 데미지 대기 데이터
     private readonly List<IDamageable> _pendingSkillTargets = new List<IDamageable>();
-    private int  _pendingSkillDamage;
+    private ulong  _pendingSkillDamage;
     private bool _hasPendingSkillDamage;
 
     /// <summary>
@@ -412,7 +428,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     {
         _pendingSkillTargets.Clear();
         _pendingSkillTargets.AddRange(targets);
-        _pendingSkillDamage      = damage;
+        _pendingSkillDamage      = (ulong)damage;
         _hasPendingSkillDamage   = _pendingSkillTargets.Count > 0;
     }
 
@@ -433,7 +449,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
             var mono = target as MonoBehaviour;
             if (mono == null || !mono.gameObject.activeInHierarchy) continue;
 
-            bool isAlive = target.TakeDamage(new PlayerSkill.DamageProxy(_pendingSkillDamage));
+            bool isAlive = target.TakeDamage(new PlayerSkill.DamageProxy(_pendingSkillDamage, gameobj));
             if (!isAlive)
             {
                 SetAnimation(ePlayerAction.Idle);
@@ -444,7 +460,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
     // PlayerSkill이 애니메이션 트리거 직전에 채워두는 VFX 대기 데이터
     private eVFXType _pendingVFXType;
-    private Vector3  _pendingVFXPos;      // Execute() 시점에 확정된 월드 좌표
+    private readonly List<Vector3> _pendingVFXPositions = new List<Vector3>(); // Execute() 시점에 확정된 월드 좌표 목록
     private float    _pendingVFXFacing;   // 방향 반전 판단용 (scale.x 부호)
     private int      _pendingVFXDuration;
     private bool     _pendingVFXFlip;
@@ -457,14 +473,24 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     public void SetPendingSkillVFX(eVFXType vfxType, Vector3 vfxPos, float facing, int duration, bool flip)
     {
         _pendingVFXType     = vfxType;
-        _pendingVFXPos      = vfxPos;
+        _pendingVFXPositions.Clear();
+        _pendingVFXPositions.Add(vfxPos);
         _pendingVFXFacing   = facing;
         _pendingVFXDuration = duration;
         _pendingVFXFlip     = flip;
         _hasPendingVFX      = true;
     }
 
-/// <summary>
+    /// <summary>
+    /// vfxOnTarget 스킬에서 추가 타겟 위치를 등록할 때 호출.
+    /// SetPendingSkillVFX 호출 이후에 사용해야 한다.
+    /// </summary>
+    public void AddPendingSkillVFXTarget(Vector3 vfxPos)
+    {
+        _pendingVFXPositions.Add(vfxPos);
+    }
+
+    /// <summary>
     /// Animation Event 전용.
     /// 스킬 공격 애니메이션의 VFX 시작 프레임에 등록한다.
     /// </summary>
@@ -473,21 +499,25 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         if (!_hasPendingVFX) return;
         _hasPendingVFX = false;
 
-        Vector3 vfxPos   = _pendingVFXPos;
-        float   facing   = _pendingVFXFacing;
-        int     duration = _pendingVFXDuration;
-        bool    flipVFX  = _pendingVFXFlip;
+        eVFXType vfxType = _pendingVFXType;
+        float    facing  = _pendingVFXFacing;
+        int      duration = _pendingVFXDuration;
+        bool     flipVFX = _pendingVFXFlip;
 
-        VFXManager.Instance?.GetVFX(_pendingVFXType, vfxPos, Quaternion.identity,
-            (vfx) =>
-            {
-                if (vfx == null) return;
-                Vector3 s    = vfx.transform.localScale;
-                bool    flip = facing >= 0f ? flipVFX : !flipVFX;
-                s.x = flip ? -Mathf.Abs(s.x) : Mathf.Abs(s.x);
-                vfx.transform.localScale = s;
-                vfx.ActiveEffect(duration);
-            });
+        foreach (Vector3 vfxPos in _pendingVFXPositions)
+        {
+            Vector3 capturedPos = vfxPos;
+            VFXManager.Instance?.GetVFX(vfxType, capturedPos, Quaternion.identity,
+                (vfx) =>
+                {
+                    if (vfx == null) return;
+                    Vector3 s    = vfx.transform.localScale;
+                    bool    flip = facing >= 0f ? flipVFX : !flipVFX;
+                    s.x = flip ? -Mathf.Abs(s.x) : Mathf.Abs(s.x);
+                    vfx.transform.localScale = s;
+                    vfx.ActiveEffect(duration);
+                });
+        }
     }
 
     /// <summary>
