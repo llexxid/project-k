@@ -6,6 +6,8 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using Scripts.Core;
 using KingdomIdle.UI;
+using Scripts.Core.Manager;
+
 
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
@@ -495,7 +497,11 @@ namespace KingdomIdle.UIToolkit
             var pressHint = root.Q<Label>("LblPressHint");
 
             if (btnLogin != null && popupLogin != null)
-                btnLogin.clicked += () => popupLogin.RemoveFromClassList("hidden");
+            {
+                btnLogin.clicked += NetworkManager.Instance.AuthenticateTest;
+				btnLogin.clicked += () => popupLogin.RemoveFromClassList("hidden");
+			}
+                
 
             if (pressHint != null)
                 StartPressHintBlink(pressHint);
