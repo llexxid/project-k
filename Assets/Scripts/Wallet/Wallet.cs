@@ -1,6 +1,7 @@
 ﻿using Scripts.Users;
 using System.Collections;
 using System.Collections.Generic;
+using System.Drawing;
 using UnityEngine;
 
 namespace Scripts.Wallets
@@ -8,16 +9,21 @@ namespace Scripts.Wallets
     class Wallet
     {
 		private User _user;
-		private Dictionary<eCurrency, int> pocket = new Dictionary<eCurrency, int>();
+		private Dictionary<eCurrency, long> pocket;
 		
 		[SerializeField]
 		private int totalCoins;
 
-		public Wallet(User user, int coins, int ancientCoins)
+		public void SetOwner(User user, long golds, long ancientCoins, long kingdomSupplys, long arcaneKnowledges, long classfragments)
 		{
 			_user = user;
-			AddCoins(eCurrency.Gold, coins);
+			pocket = new Dictionary<eCurrency, long>();
+
+			AddCoins(eCurrency.Gold, golds);
 			AddCoins(eCurrency.AncientCoin, ancientCoins);
+			AddCoins(eCurrency.KingdomSupply, kingdomSupplys);
+			AddCoins(eCurrency.ArcaneKnowledge, arcaneKnowledges);
+			AddCoins(eCurrency.ClassFragment, classfragments);
 		}
 
 		public int TotalCoins
@@ -26,7 +32,7 @@ namespace Scripts.Wallets
 			set { totalCoins = value; }
 		}
 
-		public void AddCoins(eCurrency type, int amount)
+		public void AddCoins(eCurrency type, long amount)
 		{
 			if (pocket.ContainsKey(type))
 			{
@@ -38,7 +44,7 @@ namespace Scripts.Wallets
 			}
 		}
 
-		public bool TryGetAmount(eCurrency type, out int amount)
+		public bool TryGetAmount(eCurrency type, out long amount)
 		{
 			return pocket.TryGetValue(type, out amount);
 		}
@@ -47,15 +53,15 @@ namespace Scripts.Wallets
 		/// <summary>
 		/// 지정한 통화가 amount 이상 보유 중인지 확인한다.
 		/// </summary>
-		public bool CanAfford(eCurrency type, int amount)
+		public bool CanAfford(eCurrency type, long amount)
 		{
-			return pocket.TryGetValue(type, out int current) && current >= amount;
+			return pocket.TryGetValue(type, out long current) && current >= amount;
 		}
 
 		/// <summary>
 		/// 지정한 통화를 차감한다. 잔액 부족 시 false 반환 (차감하지 않음).
 		/// </summary>
-		public bool TrySpendCoins(eCurrency type, int amount)
+		public bool TrySpendCoins(eCurrency type, long amount)
 		{
 			if (!CanAfford(type, amount)) return false;
 			pocket[type] -= amount;

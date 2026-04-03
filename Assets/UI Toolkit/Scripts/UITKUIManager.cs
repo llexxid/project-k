@@ -697,11 +697,14 @@ namespace KingdomIdle.UIToolkit
 
             if (bgCatcher != null)
             {
-                ForceFullScreen(bgCatcher);
+				ForceFullScreen(bgCatcher);
                 bgCatcher.pickingMode = PickingMode.Position;
                 bgCatcher.RegisterCallback<PointerUpEvent>(_ =>
                 {
-                    if (popupLogin != null && !popupLogin.ClassListContains("hidden")) return;
+                    if (popupLogin != null && !popupLogin.ClassListContains("hidden"))
+                    {
+						return;
+					}                    
                     LoadMainOnce();
                 }, TrickleDown.TrickleDown);
             }
@@ -965,9 +968,14 @@ namespace KingdomIdle.UIToolkit
 
         private void LoadMainOnce()
         {
-            if (_requestedScene) return;
+            Debug.Log("Call Load Main Once");
+            if (_requestedScene)
+            {
+				Debug.Log($"Request Scene is true : {_requestedScene}");
+				return;
+			}
+                
             _requestedScene = true;
-
             if (GameManager.Instance != null)
                 GameManager.Instance.LoadAsyncScene(eSceneType.main);
         }
@@ -1117,7 +1125,7 @@ namespace KingdomIdle.UIToolkit
             return m != null && m.ReturnType == typeof(bool);
         }
 
-        private static bool TryGetAmountFromWallet(object walletObj, eCurrency currency, out int amount)
+        private static bool TryGetAmountFromWallet(object walletObj, eCurrency currency, out long amount)
         {
             amount = 0;
             if (walletObj == null) return false;
@@ -1183,7 +1191,7 @@ namespace KingdomIdle.UIToolkit
         private string GetCurrencyText(eCurrency currency)
         {
             if (_wallet == null) return "null";
-            if (TryGetAmountFromWallet(_wallet, currency, out int amount))
+            if (TryGetAmountFromWallet(_wallet, currency, out long amount))
                 return amount.ToString("N0");
             return "null";
         }

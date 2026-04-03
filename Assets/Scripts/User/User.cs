@@ -6,17 +6,27 @@ namespace Scripts.Users
 {
 	public class User
 	{
-		private Wallet _wallet;
 		UserData _userData;
 
+		private Wallet _wallet;
 		public List<Player> _players;
 
-		public User(UserData data)
+		
+		public User()
 		{
-			_wallet = new Wallet(this, data._coin, data._coin);
-			_userData = data;
+			_wallet = new Wallet();
 			_players = new List<Player>();
 		}
+
+		public void SetWallet(User owner, long golds, long ancientCoins, long kingdomSupplys, long arcaneKnowledges, long classfragments)
+		{
+			_wallet.SetOwner(owner, golds, ancientCoins, kingdomSupplys, arcaneKnowledges, classfragments);
+		}
+		public void SetUserData(UserData data)
+		{
+			_userData = data;
+		}
+
 		public UserData GetData()
 		{
 			return _userData;
@@ -31,13 +41,17 @@ namespace Scripts.Users
 			return _userData._level;
 		}
 		//Todo Wallet으로 교체
-		public int GetCoin()
+		public long GetCoin()
 		{
-			return _userData._coin;
+			long ret;
+			_wallet.TryGetAmount(eCurrency.Gold, out ret);
+			return ret;
 		}
-		public int GetAncientCoin()
+		public long GetAncientCoin()
 		{
-			return _userData._ancientCoin;
+			long ret;
+			_wallet.TryGetAmount(eCurrency.AncientCoin, out ret);
+			return ret;
 		}
 		public eStage GetStage()
 		{
@@ -49,7 +63,7 @@ namespace Scripts.Users
 			_userData._currentStage = stage;
 		}
 
-		public void GainCoin(eCurrency type, int amount)
+		public void GainCoin(eCurrency type, long amount)
 		{
 			_wallet.AddCoins(type, amount);
 		}
@@ -59,7 +73,7 @@ namespace Scripts.Users
 		/// 보유 골드가 amount 이상인지 확인한다.
 		/// EquipmentManager.CanEnhance()에서 강화 가능 여부 판단에 사용.
 		/// </summary>
-		public bool CanAfford(eCurrency type, int amount)
+		public bool CanAfford(eCurrency type, long amount)
 		{
 			return _wallet.CanAfford(type, amount);
 		}

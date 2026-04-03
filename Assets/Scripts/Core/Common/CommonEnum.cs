@@ -105,52 +105,52 @@ namespace Scripts.Core
 
 	public struct UserData
 	{
-		public UserData(long Id, string nickname, eStage stage, int level, int coin, int ancientcoin)
+		public UserData(string nickname, long exp, long killscore, eStage stage, int level, ulong enchantHpCount, ulong enchantAtkCount)
 		{
-			_Id = Id;
 			_nickname = nickname;
 			_currentStage = stage;
-
+            _exp = exp;
 			_level = level;
-			_coin = coin;
-			_ancientCoin = ancientcoin;
+            _killScore = killscore;
+
+            _enchantHPCount = enchantHpCount;
+            _enchantATKCount = enchantAtkCount;
 		}
 
-		long _Id;
+        public long _exp;
+        public long _killScore;
 		public string _nickname;
 		public eStage _currentStage;
 
 		public int _level;
-		public int _coin;//Wallet정보들은 직렬화 되서 올테니
-		public int _ancientCoin;
-
-		//Todo : Token을 저장하고 있어야함.
+		public ulong _enchantHPCount { get; set; }
+		public ulong _enchantATKCount { get; set; }
 	}
 
     //PlayerData
     public struct PlayerData
     {
-        public PlayerData(long id, string jobname, int enforce, ulong atk, long hp)
+        public PlayerData(string nickname, int index, ulong jobcode, long atk, long hp)
         {
-            _Id = id;
-			_jobName = jobname;
-            _enforce = enforce;
+            _nickname = nickname;
+			_job = jobcode;
 			_atk = atk;
+
             _Hp = hp;
+            _MaxHp = hp;
 
             _extraAtk = 0;
             _extraHp = 0;
 		}
+        public string _nickname;
 
-        long _Id;
-        //직업이름, 직업 코드
-        public string _jobName;
+        //직업 코드
+        public ulong _job;
 
-        //Todo : 강화기능 추가시, 추가될 데이터
-        public int _enforce;
-
-        public ulong _atk;
+        public long _atk;
         public long _Hp;
+        public long _MaxHp;
+
 		public uint _extraAtk;
 		public int _extraHp;
     }

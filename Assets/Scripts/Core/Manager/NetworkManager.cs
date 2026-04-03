@@ -10,7 +10,6 @@ using Scripts.Users;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEditor.PackageManager;
 using UnityEngine;
 
 namespace Scripts.Core.Manager
