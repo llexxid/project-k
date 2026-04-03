@@ -57,7 +57,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     PlayerData _data;
     private User _user;
 
-	public event Action OnDeath;
+	public event Action<IDamageable> OnDeath;
 
     public ePlayerAction CurrentAction
     {
@@ -127,7 +127,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 		StartCoroutine(PauseAfterDeadAnimation());
     }
 
-    public void ResetTarget()
+    public void ResetTarget(IDamageable target)
     {
         Debug.Log($"Player : {gameObject.GetInstanceID()} Reset Target");
         _currentTarget = null;
@@ -140,6 +140,11 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         {
             return;
         }
+        if (_currentTarget != null)
+        {
+			_currentTarget.OnDeath -= ResetTarget;
+		}
+
         Debug.Log($"Player : {gameObject.GetInstanceID()} |Player SetMonster : {target.gameobj.GetInstanceID()} | target_action : {target.gameobj.GetComponent<Monster>().MonAction}");
         target.OnDeath += ResetTarget;
         _currentTarget = target;
@@ -152,7 +157,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         Debug.Log($"[Player] 사망 애니메이션 대기: {deadAnimLength}초");
         yield return new WaitForSeconds(deadAnimLength);
 
-		OnDeath?.Invoke();
+		OnDeath?.Invoke(this);
 		OnDeath = null;
 		gameObject.SetActive(false);
 
@@ -448,7 +453,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
             if (!isAlive)
             {
                 SetAnimation(ePlayerAction.Idle);
-                currentTarget = null;
             }
         }
         _pendingSkillTargets.Clear();
@@ -538,4 +542,9 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     {
         return true;
     }
+
+	public ulong GetTypeId()
+	{
+        return 0;
+	}
 }

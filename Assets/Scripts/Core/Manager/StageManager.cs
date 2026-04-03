@@ -1,13 +1,18 @@
+using Newtonsoft.Json.Linq;
+using PlayFab.CloudScriptModels;
+using Scripts.Core.inteface;
+using Scripts.Core.Manager;
+using Scripts.Core.SO;
+using Scripts.Core.Utils;
+using Scripts.Monster.SO;
+using Scripts.Server.DTO;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
-
 using static Scripts.Core.SO.StageMetaDataSO;
-using Scripts.Core.SO;
-using Scripts.Core.Utils;
-using Scripts.Monster.SO;
+using static UnityEngine.Networking.UnityWebRequest;
 
 namespace Scripts.Core
 {
@@ -32,6 +37,10 @@ namespace Scripts.Core
 		private bool _IsLoop;
 
         const int LAST_WAVE = 10;
+        const float TICK_INTERVAL = 3f;
+        private float _LastTick;
+        //SendBuffer
+        private Dictionary<eMonsterType, int> _huntResultList;
 		private void Awake()
         {
             if (Instance == null)
@@ -49,6 +58,8 @@ namespace Scripts.Core
             _stageSO.Init();
 			_totalCnt = 0;
 			_IsLoop = false;
+            _huntResultList = new Dictionary<eMonsterType, int>();
+			_LastTick = Time.time;
 			//PreLoadStageFile();
 		}
 
@@ -137,9 +148,14 @@ namespace Scripts.Core
 		}
 
         //���͸� ���� �� �θ��� �Լ�
-        public void DecrementMonCount()
+        public void DecrementMonCount(IDamageable mon)
         {
-            --_totalCnt;
+            int count = 0;
+            eMonsterType type = (eMonsterType)mon.GetTypeId();
+            bool flag = _huntResultList.TryGetValue(type, out count);
+            _huntResultList[type] = count + 1;
+
+			--_totalCnt;
             CustomLogger.Log($"totalCount : {_totalCnt}");
             if (_totalCnt <= 0)
             {
@@ -170,6 +186,8 @@ namespace Scripts.Core
 			{
 				//���ҽ� �ε��� ������, ���� ���� ��û
 				CustomLogger.Log($"Go To Next Stage");
+
+                //���������� �Ѿ ��, ��ɰ���� �ѹ� ������ �����ϰ� ����.
 				GameManager.Instance.LoadStage(_currentStage, nxtStage, StartStage);
 			}
 			else
@@ -241,6 +259,54 @@ namespace Scripts.Core
 
 			prevstage = (eStage)((ulong)--curstage);
 			return eStageResult._WaveChanged;
+		}
+
+        private void SendHuntResult()
+        {
+            if (_huntResultList.Count <= 0)
+            {
+                return;
+            }
+
+            //����ȭ
+            List<RewardCode> sendmsg = new List<RewardCode>();
+            RewardCode code;
+
+			foreach (var mon in _huntResultList)
+            {
+                eMonsterType type = mon.Key;
+                int count = mon.Value;
+
+                code = new RewardCode
+                {
+                    Code = (ulong)type << 16 | (uint)count,
+                };
+                sendmsg.Add(code);
+			}
+            //
+            NetworkManager.Instance.OnHuntReward(sendmsg, OnHuntRewardSuccess, OnError);
+            _huntResultList.Clear();
+		}
+
+        private void OnHuntRewardSuccess(ExecuteFunctionResult result)
+        {
+			OnHuntResponseDTO response = JObject.FromObject(result.FunctionResult).ToObject<OnHuntResponseDTO>();
+            //������ ������ �ִٸ� ������ ���� UIó�� �� ���� UIó��
+		}
+
+        private void OnError(PlayFab.PlayFabError error)
+        {
+            Debug.Log(error.ErrorMessage);
+        }
+
+		private void Update()
+		{
+            float curTime = Time.time;
+			if (_LastTick + TICK_INTERVAL > curTime)
+            {
+                SendHuntResult();
+                _LastTick = Time.time;
+			}
 		}
 	}
 }

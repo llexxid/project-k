@@ -138,7 +138,7 @@ namespace Scripts.Monster
 		[SerializeField]
 		MonsterAnimationSO _AnimationClipSO;
 		float _lastAttackTime;
-		public event Action OnDeath;
+		public event Action<IDamageable> OnDeath;
 
 		public float LastAttackTime
 		{
@@ -223,7 +223,7 @@ namespace Scripts.Monster
 		{
 			return _stat._moveSpeed;
 		}
-		public void ResetTarget()
+		public void ResetTarget(IDamageable target)
 		{
 			Target = null;
 			CustomLogger.Log("Target 초기화!");
@@ -239,7 +239,7 @@ namespace Scripts.Monster
 				CustomLogger.Log("Target IS NULL");
 				return;
 			}
-
+			
 			Target = target;
 			target.OnDeath += ResetTarget;
 		}
@@ -341,7 +341,7 @@ namespace Scripts.Monster
 		{
 			//Todo : DropItem 스폰
 			//Institate 동전
-			OnDeath?.Invoke();
+			OnDeath?.Invoke(this);
 			foreach (var col in GetComponentsInChildren<Collider2D>())
 				col.enabled = false;
 		}
@@ -397,6 +397,11 @@ namespace Scripts.Monster
 
 			// 적의 위치에 구체를 그립니다.
 			Gizmos.DrawWireSphere(transform.position, _attackRadius);
+		}
+
+		public ulong GetTypeId()
+		{
+			return (ulong)_type;
 		}
 	}
 }
