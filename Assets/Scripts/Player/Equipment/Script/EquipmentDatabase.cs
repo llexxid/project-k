@@ -8,13 +8,12 @@ public class EquipmentDatabase : ScriptableObject
     public List<EquipmentData> equipmentList = new List<EquipmentData>();
 
     private Dictionary<string, EquipmentData> _dict;
+    private Dictionary<int, EquipmentData> _codeDict;
 
     public void Initialize()
     {
-        _dict = new Dictionary<string, EquipmentData>();
-
-        // itemCode 중복 검사용 임시 딕셔너리
-        var codeCheck = new Dictionary<int, string>();
+        _dict     = new Dictionary<string, EquipmentData>();
+        _codeDict = new Dictionary<int, EquipmentData>();
 
         foreach (var data in equipmentList)
         {
@@ -23,13 +22,21 @@ public class EquipmentDatabase : ScriptableObject
             if (!_dict.ContainsKey(data.equipmentName))
                 _dict.Add(data.equipmentName, data);
 
-            // 같은 itemCode가 다른 에셋에 중복되면 경고
+            // 같은 itemCode가 다른 에셋에 중복되면 경고, 첫 번째 등록 유지
             int code = data.itemCode;
-            if (codeCheck.TryGetValue(code, out string conflict))
-                Debug.LogWarning($"[EquipmentDatabase] itemCode 충돌: 0x{code:X8} — '{conflict}' vs '{data.equipmentName}'");
+            if (_codeDict.TryGetValue(code, out EquipmentData conflict))
+                Debug.LogWarning($"[EquipmentDatabase] itemCode 충돌: 0x{code:X8} — '{conflict.equipmentName}' vs '{data.equipmentName}'");
             else
-                codeCheck[code] = data.equipmentName;
+                _codeDict.Add(code, data);
         }
+    }
+
+    /// <summary>서버에서 받은 itemCode로 장비 데이터를 가져온다. 없으면 null 반환.</summary>
+    public EquipmentData GetEquipmentByCode(int itemCode)
+    {
+        if (_codeDict == null) Initialize();
+        _codeDict.TryGetValue(itemCode, out EquipmentData result);
+        return result;
     }
 
     /// <summary>이름으로 장비 데이터를 가져온다.</summary>
