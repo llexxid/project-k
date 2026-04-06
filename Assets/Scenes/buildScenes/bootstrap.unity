@@ -325,9 +325,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4b2614f4067d82c4b9c0ac69ecf2853b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  jobDatabase: {fileID: 11400000, guid: 9e03a3b2e50f9024c94a0cb0b2ec46e4, type: 2}
-  equipmentDatabase: {fileID: 11400000, guid: 0cabf66954ae3c2448ff5eba03efac0c, type: 2}
-  defaultFragmentCost: 40
 --- !u!4 &659282417
 Transform:
   m_ObjectHideFlags: 0
@@ -371,6 +368,7 @@ GameObject:
   - component: {fileID: 755427048}
   - component: {fileID: 755427051}
   - component: {fileID: 755427050}
+  - component: {fileID: 755427052}
   m_Layer: 5
   m_Name: UITK_UIRoot
   m_TagString: Untagged
@@ -519,6 +517,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8252d0edd881c4f408af718ba4e8f262, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &755427052
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 755427043}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a39c5ea9f40610f48b75133d9dc6365e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!1 &1203379616
@@ -720,7 +730,6 @@ GameObject:
   - component: {fileID: 2134808526}
   - component: {fileID: 2134808528}
   - component: {fileID: 2134808529}
-  - component: {fileID: 2134808531}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged

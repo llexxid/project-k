@@ -88,6 +88,7 @@ namespace Scripts.Server.Auth
 					key_characterData,
 					key_skillTreeData,
 					key_inventoryData,
+					key_currency,
 					//MailSlot
 					//
 				},
@@ -155,15 +156,22 @@ namespace Scripts.Server.Auth
 				);
 
 		}
+
+		private void callbacks(ExecuteFunctionResult result)
+		{
+			Debug.Log("성공");
+		}
+
 		private void pfAuthSuccessTest(LoginResult result)
 		{
+			//더미유저
 			NetworkManager.Instance.SetSessionID(result.PlayFabId);
 			NetworkManager.Instance.SetSessionTicket(result.SessionTicket);
 
 			//NetworkManager.Instance.OnExistUserInit(OnSignUpUserSucccess, pfAuthErrorCallback);
 
 			Dictionary<string, UserDataRecord> datas = result.InfoResultPayload.UserReadOnlyData;
-
+			//NetworkManager.Instance.OnSignUpInitUser(callbacks, pfAuthErrorCallback);
 			//필수정보들
 			string nickName = result.InfoResultPayload.PlayerProfile.DisplayName;
 			long currentStage = Convert.ToInt64(datas[key_userStage].Value);
@@ -171,6 +179,8 @@ namespace Scripts.Server.Auth
 			UserDataQuery userdata = JsonConvert.DeserializeObject<UserDataQuery>(datas[key_userData].Value);
 			UserEnhanceMentQuery enhancement = JsonConvert.DeserializeObject<UserEnhanceMentQuery>(datas[key_userEnhancement].Value);
 			List<CharacterDataQuery> characterData = JsonConvert.DeserializeObject<List<CharacterDataQuery>>(datas[key_characterData].Value);
+
+			
 
 			//가진 장비나 스킬이 없을수도 있음.
 			if (datas.ContainsKey(key_skillTreeData))
@@ -188,6 +198,8 @@ namespace Scripts.Server.Auth
 			UserManager.Instance.CreateUser(nickName,(eStage)currentStage, userdata, enhancement);
 			UserManager.Instance.SetCharacterData(characterData);
 			UserManager.Instance.SetWallet(currency);
+
+			GameManager.Instance.LoadAsyncScene(eSceneType.main);
 		}
 		private void pfAuthSuccessCallback(LoginResult authresult)
 		{

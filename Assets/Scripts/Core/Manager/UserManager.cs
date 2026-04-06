@@ -33,7 +33,7 @@ namespace Scripts.Core
 
 		private void Init()
 		{
-			User user = new User();
+			_user = new User();
 		}
 
 		public UserData GetUserData()
