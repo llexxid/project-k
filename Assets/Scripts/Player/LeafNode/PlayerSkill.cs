@@ -145,6 +145,18 @@ public class PlayerSkill
             }
         }
 
+        // [5-a] SFX 재생
+        if (!string.IsNullOrEmpty(_skillData.skillSFXName) &&
+            System.Enum.TryParse(_skillData.skillSFXName, out eSFXType sfxType))
+        {
+            SFXManager.Instance.GetSFX(
+                sfxType,
+                _player.transform.position,
+                Quaternion.identity,
+                sfx => sfx.PlaySFX()
+            );
+        }
+
         // [6] 데미지 적용 (스킬 데미지 계수 반영)
         {
             var dmgProxy = new DamageProxy((ulong)skillDamage, _player.gameobj, _player);
