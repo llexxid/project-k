@@ -838,13 +838,10 @@ namespace KingdomIdle.UIToolkit
             var btnGuide = root.Q<Button>("BtnGuide");
             if (btnGuide != null)
             {
-                btnGuide.clicked += () =>
-                {
-                    if (_currencyOpen) CloseCurrencyPopupImmediate();
-                    if (_hamburgerOpen) CloseHamburgerMenuImmediate();
-                    PushPanel(UIPanelId.Guide, null, clearBefore: false, isTabPanel: false);
-                };
+                btnGuide.style.display = DisplayStyle.None;
             }
+            if (_lblGuideBadge != null)
+                _lblGuideBadge.style.display = DisplayStyle.None;
             RefreshGuideBadge();
 
             // ── Wave UI 초기화 ──

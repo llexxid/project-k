@@ -112,7 +112,7 @@ namespace Scripts.Core
 
 		public void StartStage(eStage stage)
 		{
-			Debug.Log("StageManager ����");
+			Debug.Log("StageManager ����");
 			_currentStage = stage;
             //_totalCnt = 0;
 			_totalCharacterCnt = 3;
@@ -162,7 +162,7 @@ namespace Scripts.Core
             CustomLogger.Log($"totalCount : {_totalCnt}");
             if (_totalCnt <= 0)
             {
-                // WaveManager가 존재?�면 ?�름???�임
+                // WaveManager가 존재?�면 ?�름???�임
                 if (WaveManager.Instance != null)
                 {
                     WaveManager.Instance.OnWaveCleared();
@@ -184,7 +184,7 @@ namespace Scripts.Core
 			eStage nxtStage;
 			eStageResult res = CalculateNextStage(_currentStage, out nxtStage);
 
-			//Stage�� �ٲ���Ѵ�?-> ���ҽ� �ε��� �ʿ���.
+			//Stage�� �ٲ���Ѵ�?-> ���ҽ� �ε��� �ʿ���.
 			if (res == eStageResult._StageChanged)
 			{
 				//���ҽ� �ε��� ������, ���� ���� ��û
@@ -195,7 +195,7 @@ namespace Scripts.Core
 			}
 			else
 			{
-				//Wave�� �ٲ���Ѵ�?-> ���?FadeOut/ ĳ���͵� HPȸ��
+				//Wave�� �ٲ���Ѵ�?-> ���?FadeOut/ ĳ���͵� HPȸ��
 				CustomLogger.Log($"Go To Next Wave");
 				StartStage(nxtStage);
 				//Todo : ĳ���� HPȸ��
@@ -211,7 +211,7 @@ namespace Scripts.Core
         {
 			_IsLoop = false;
 		}
-        //ĳ���Ͱ� ���?���� ���? ���� ���������� �Ѱܾ���.
+        //ĳ���Ͱ� ���?���� ���? ���� ���������� �Ѱܾ���.
         public void DecrementCharacterCount()
         {
             --_totalCharacterCnt;

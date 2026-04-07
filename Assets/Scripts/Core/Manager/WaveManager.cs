@@ -195,12 +195,7 @@ namespace Scripts.Core
         public void HandleAllPlayersDead()
         {
             _bossTimerActive = false;
-
-            var fade = CameraFade.Instance;
-            if (fade != null)
-                fade.FadeOut(0.3f, () => ShowDeathPopup());
-            else
-                ShowDeathPopup();
+            ShowDeathPopup();
         }
 
         private void ShowDeathPopup()

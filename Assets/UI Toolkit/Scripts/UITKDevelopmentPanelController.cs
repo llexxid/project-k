@@ -87,8 +87,6 @@ namespace KingdomIdle.UIToolkit
         {
             StatEnhanceManager.EnhanceType.Attack,
             StatEnhanceManager.EnhanceType.MaxHP,
-            StatEnhanceManager.EnhanceType.CritRate,
-            StatEnhanceManager.EnhanceType.CritDamage,
             StatEnhanceManager.EnhanceType.ExpGain,
         };
 
