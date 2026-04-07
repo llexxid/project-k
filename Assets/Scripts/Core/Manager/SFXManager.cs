@@ -45,6 +45,9 @@ namespace Scripts.Core
 		{
 			_sfxParents = gameObject.transform;
 
+			if (_bgmSource == null)
+				_bgmSource = gameObject.AddComponent<AudioSource>();
+
 			_AudioCache = new Dictionary<eSFXType, AudioClip>();
 			_BatchHandles = new Dictionary<ulong, AsyncOperationHandle<IList<AudioClip>>>();
 			_Handles = new Dictionary<eSFXType, AsyncOperationHandle<AudioClip>>();
@@ -105,6 +108,8 @@ namespace Scripts.Core
 			{
 				Addressables.Release(handle);
 			}
+			_Handles.Clear();
+			_BatchHandles.Clear();
 		}
 		private async void LoadClipAsync(eSFXType Id, Vector3 pos, Quaternion rotation, Action<SFXEntity> OnLoaded)
 		{
@@ -152,20 +157,10 @@ namespace Scripts.Core
 
 
 			clips = await handle.Task;
-			if (clips.Count != clipsId.Length)
-			{
-				CustomLogger.LogWarning("You may Request Same SFX in one Batch. Please Check Your ExcelFile!\n");
-				CustomLogger.LogError("The number of resources requested SFX to load is not the same as the number of id arrays.\n");
-				return;
-			}
-			int i = 0;
 			foreach (AudioClip clip in clips)
 			{
-				if (_AudioCache.ContainsKey(clipsId[i]) == false)
-				{
-					_AudioCache.Add(clipsId[i], clip);
-				}
-				++i;
+				if (System.Enum.TryParse(clip.name, out eSFXType key) && !_AudioCache.ContainsKey(key))
+					_AudioCache.Add(key, clip);
 			}
 		}
 

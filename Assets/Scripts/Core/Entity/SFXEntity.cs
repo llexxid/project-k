@@ -50,7 +50,7 @@ namespace Scripts.Core
             AudioClip clip = _source.clip;
             Delay(duration).Forget();
             _source.Play();
-            AutoRelease(clip.length * 1000.0f);
+            AutoRelease(clip.length * 1000.0f).Forget();
         }
 
         //효과음 길이만큼 발생
@@ -58,7 +58,7 @@ namespace Scripts.Core
         {
             AudioClip clip = _source.clip;
             _source.Play();
-            AutoRelease(clip.length * 1000.0f);
+            AutoRelease(clip.length * 1000.0f).Forget();
         }
 
         private async UniTaskVoid Delay(float duration)
@@ -66,14 +66,15 @@ namespace Scripts.Core
             await UniTask.Delay(TimeSpan.FromMilliseconds(duration), cancellationToken: _token.Token);
         }
 
-        private void AutoRelease(float duration)
+        private async UniTaskVoid AutoRelease(float duration)
         {
-            Delay(duration).Forget();
+            await UniTask.Delay(TimeSpan.FromMilliseconds(duration), cancellationToken: _token.Token);
             SFXManager.Instance.DestroySFX(this);
         }
 
         public void OnAlloc()
         {
+            _source.volume = 1f;
             return;
         }
 

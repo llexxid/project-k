@@ -384,7 +384,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
             if (_currentAction == ePlayerAction.Idle || _currentAction == ePlayerAction.Walk)
                 _animatorComponent.TrySetBool(_currentAction, false);
 
-            _am.Play(Animator.StringToHash(stateName));
+            _am.Play(Animator.StringToHash(stateName), 0);
             _currentAction = ePlayerAction.Attack;
         }
         else
