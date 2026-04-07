@@ -36,6 +36,14 @@ namespace Scripts.Core
 			_user = new User();
 		}
 
+		public void SetHuntResult(OnHuntResponseDTO res)
+		{
+			_user.SetLevel(res.Level);
+			_user.SetExp(res.Exp);
+			_user.SetKillScore(res.KillScore);
+			_user.SetCoin(eCurrency.Gold, res.Gold);
+			_user.SetCoin(eCurrency.AncientCoin, res.AncientCoin);
+		}
 		public UserData GetUserData()
 		{
 			return _user.GetData();
@@ -61,6 +69,12 @@ namespace Scripts.Core
 		{
 			return _user.GetStage();
 		}
+
+		public void HealAllCharacter()
+		{
+			_user.HealAllCharacter();
+		}
+
 
 		public void CreateUser(string name, eStage stage, UserDataQuery Userquery, UserEnhanceMentQuery EnchantQuery)
 		{

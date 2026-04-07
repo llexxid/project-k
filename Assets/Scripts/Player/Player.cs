@@ -109,6 +109,11 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         return true;
     }
 
+    public void HealingHp()
+    {
+        _data._Hp = _data._MaxHp;
+    }
+
     public void Init(PlayerData data, User user)
     {
         _data = data;

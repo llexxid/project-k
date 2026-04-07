@@ -109,7 +109,7 @@ namespace Scripts.Core.Manager
 			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
 		}
 
-		public void OnHuntReward(List<RewardCode> sendMsg, Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
+		public void OnHuntReward(List<HuntResult> sendMsg, Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
 		{
 			OnRewardRequestDTO request = new OnRewardRequestDTO
 			{

@@ -1,3 +1,4 @@
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using PlayFab.CloudScriptModels;
 using Scripts.Core;
@@ -42,6 +43,7 @@ namespace Scripts.Core
         private float _LastTick;
         //SendBuffer
         private Dictionary<eMonsterType, int> _huntResultList;
+        private List<HuntResult> _sendmsg;
 		private void Awake()
         {
             if (Instance == null)
@@ -61,6 +63,7 @@ namespace Scripts.Core
 			_IsLoop = false;
             _huntResultList = new Dictionary<eMonsterType, int>();
 			_LastTick = Time.time;
+            _sendmsg = new List<HuntResult>();
 			//PreLoadStageFile();
 		}
 
@@ -187,16 +190,13 @@ namespace Scripts.Core
 			//Stageï¿½ï¿½ ï¿½Ù²ï¿½ï¿½ï¿½Ñ´ï¿?-> ï¿½ï¿½ï¿½Ò½ï¿½ ï¿½Îµï¿½ï¿½ï¿½ ï¿½Ê¿ï¿½ï¿½ï¿½.
 			if (res == eStageResult._StageChanged)
 			{
-				//ï¿½ï¿½ï¿½Ò½ï¿½ ï¿½Îµï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ã»
 				CustomLogger.Log($"Go To Next Stage");
-
-                //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ñ¾î°¥ ï¿½ï¿½, ï¿½ï¿½É°ï¿½ï¿½ï¿½ï¿½ ï¿½Ñ¹ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï°ï¿½ ï¿½ï¿½ï¿½ï¿½.
 				GameManager.Instance.LoadStage(_currentStage, nxtStage, StartStage);
 			}
 			else
 			{
-				//Waveï¿½ï¿½ ï¿½Ù²ï¿½ï¿½ï¿½Ñ´ï¿?-> ï¿½ï¿½ï¿?FadeOut/ Ä³ï¿½ï¿½ï¿½Íµï¿½ HPÈ¸ï¿½ï¿½
 				CustomLogger.Log($"Go To Next Wave");
+                //Ã¼·ÂÈ¸º¹
 				StartStage(nxtStage);
 				//Todo : Ä³ï¿½ï¿½ï¿½ï¿½ HPÈ¸ï¿½ï¿½
 			}
@@ -215,7 +215,6 @@ namespace Scripts.Core
         public void DecrementCharacterCount()
         {
             --_totalCharacterCnt;
-
             if (_totalCharacterCnt <= 0)
             {
 				_IsLoop = true;
@@ -223,9 +222,6 @@ namespace Scripts.Core
                 CalculatePrevStage(_currentStage, out prevStage);
 				CustomLogger.Log($"GoTo Prev Wave");
                 
-                //Todo : Ä³ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½È°Ã³ï¿½ï¿½
-
-
 				StartStage(prevStage);
 			}
 		}
@@ -268,33 +264,41 @@ namespace Scripts.Core
         {
             if (_huntResultList.Count <= 0)
             {
-                return;
+				Debug.Log($"[StageManager] ÀâÀº ¸ó½ºÅÍ°¡ ¾ø½À´Ï´Ù.");
+				return;
             }
 
-            //ï¿½ï¿½ï¿½ï¿½È­
-            List<RewardCode> sendmsg = new List<RewardCode>();
-            RewardCode code;
+            //ÀÌ°Å Ç®¸µÇÏÀÚ
+            HuntResult code;
 
 			foreach (var mon in _huntResultList)
             {
                 eMonsterType type = mon.Key;
                 int count = mon.Value;
 
-                code = new RewardCode
-                {
-                    Code = (ulong)type << 16 | (uint)count,
+                code = new HuntResult
+				{
+                    MonsterType = type,
+                    Count = (short)count
                 };
-                sendmsg.Add(code);
+                Debug.Log($"[StageManager] ÀâÀº ¸ó½ºÅÍ : {type} | count : {count}");
+                _sendmsg.Add(code);
 			}
+
             //
-            NetworkManager.Instance.OnHuntReward(sendmsg, OnHuntRewardSuccess, OnError);
+            NetworkManager.Instance.OnHuntReward(_sendmsg, OnHuntRewardSuccess, OnError);
             _huntResultList.Clear();
+            _sendmsg.Clear();
 		}
 
         private void OnHuntRewardSuccess(ExecuteFunctionResult result)
         {
-			OnHuntResponseDTO response = JObject.FromObject(result.FunctionResult).ToObject<OnHuntResponseDTO>();
-            //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ö´Ù¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ UIÃ³ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ UIÃ³ï¿½ï¿½
+			string response = JsonConvert.SerializeObject(result.FunctionResult);
+
+            OnHuntResponseDTO huntResult = JsonConvert.DeserializeObject<OnHuntResponseDTO>(response);
+
+            //À¯ÀúÁ¤º¸ ¼ÂÆÃ (°ñµå, Å³½ºÄÚ¾î, °æÇèÄ¡, °ñµå, AncientGold)
+            UserManager.Instance.SetHuntResult(huntResult);
 		}
 
         private void OnError(PlayFab.PlayFabError error)
@@ -302,12 +306,12 @@ namespace Scripts.Core
             Debug.Log(error.ErrorMessage);
         }
 
+
 		private void Update()
 		{
-            float curTime = Time.time;
-			if (_LastTick + TICK_INTERVAL > curTime)
+            if (_LastTick + TICK_INTERVAL < Time.time)
             {
-                //SendHuntResult();
+                SendHuntResult();
                 _LastTick = Time.time;
 			}
 		}

@@ -264,6 +264,7 @@ namespace Scripts.Server.Auth
 
 		private void OnSignUpUserSucccess(ExecuteFunctionResult result)
 		{
+			
 			//For Debugging
 			string JsonString = JsonConvert.SerializeObject(result.FunctionResult);
 

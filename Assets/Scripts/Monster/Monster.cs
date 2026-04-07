@@ -291,10 +291,8 @@ namespace Scripts.Monster
 			{
 				_monAction = eMonsterAction.Dead;
 				_monAI.InterruptBT();
-				Debug.Log($"Monster Is Dead {gameObject.GetInstanceID()} By attacker : {attacker.gameobj.GetInstanceID()}");
-				Debug.Log($"after MonAction : {_monAction}");
-
 				_stateManchine.ChangeState(new MonsterDeadState(this));
+
 				if (attacker is IRewardable target)
 				{
 					GiveRewardToAttacker(target);
