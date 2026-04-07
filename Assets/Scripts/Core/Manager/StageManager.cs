@@ -187,6 +187,9 @@ namespace Scripts.Core
 			eStage nxtStage;
 			eStageResult res = CalculateNextStage(_currentStage, out nxtStage);
 
+            /*Dummy °èÁ¤ÀÌ¶ó, ¾ÆÁ÷Àº Ãß°¡x. ÇÃ·¹ÀÌÇÏ´Â°É ºÁ¾ßÇÔ.*/
+
+			//NetworkManager.Instance.OnStageClear(OnStageClearSuccess, OnError);
 			//Stageï¿½ï¿½ ï¿½Ù²ï¿½ï¿½ï¿½Ñ´ï¿?-> ï¿½ï¿½ï¿½Ò½ï¿½ ï¿½Îµï¿½ï¿½ï¿½ ï¿½Ê¿ï¿½ï¿½ï¿½.
 			if (res == eStageResult._StageChanged)
 			{
@@ -294,11 +297,16 @@ namespace Scripts.Core
         private void OnHuntRewardSuccess(ExecuteFunctionResult result)
         {
 			string response = JsonConvert.SerializeObject(result.FunctionResult);
-
             OnHuntResponseDTO huntResult = JsonConvert.DeserializeObject<OnHuntResponseDTO>(response);
 
             //À¯ÀúÁ¤º¸ ¼ÂÆÃ (°ñµå, Å³½ºÄÚ¾î, °æÇèÄ¡, °ñµå, AncientGold)
             UserManager.Instance.SetHuntResult(huntResult);
+		}
+
+        private void OnStageClearSuccess(ExecuteFunctionResult result)
+        {
+            //For Debugging
+			string response = JsonConvert.SerializeObject(result.FunctionResult);
 		}
 
         private void OnError(PlayFab.PlayFabError error)

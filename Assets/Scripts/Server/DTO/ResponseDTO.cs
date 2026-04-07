@@ -57,5 +57,10 @@ namespace Scripts.Server.DTO
 		public int Gold { get; set; }
 		public int AncientCoin { get; set; }
 	}
+	public class OnStageClearResponseDTO
+	{
+		//For Debugging
+		public eStage Stage { get; set; }
+	}
 }
 

@@ -127,6 +127,23 @@ namespace Scripts.Core.Manager
 			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
 		}
 
+		public void OnStageClear(Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
+		{
+			OnStageClearRequestDTO request = new OnStageClearRequestDTO
+			{
+				SessionID = _sessionGUID,
+			};
+
+			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
+			{
+				FunctionName = "OnStageClear",
+				GeneratePlayStreamEvent = true,
+			};
+
+			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
+		}
+
+
 		private void OnDuplicatedNickNameCallback(PlayFab.PlayFabError error)
 		{
 			Debug.Log("닉네임이 중복됩니다.");

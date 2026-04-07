@@ -19,6 +19,11 @@ namespace Scripts.Server.DTO
 		public string SessinID { get; set; }
 	}
 
+	public class OnStageClearRequestDTO
+	{
+		public string SessionID { get; set; }
+	}
+
 	public class OnRewardRequestDTO
 	{
 		public string SessionID { get; set; }
