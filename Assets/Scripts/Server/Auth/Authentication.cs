@@ -21,7 +21,10 @@ namespace Scripts.Server.Auth
 	{
 		GooglePlayGame,
 		GoogleWebLogin,
-		CustomLogin, //For Test
+
+		//For Test
+		CustomLogin, 
+		DummyLogin,
 	}
 
 	public class Authentication
@@ -70,9 +73,40 @@ namespace Scripts.Server.Auth
 				case eAuthType.CustomLogin:
 					LoginTest();
 					break;
+				case eAuthType.DummyLogin:
+					DummyLogin();
+					break;
 				default:
 					break;
 			}
+		}
+
+		private void DummyLogin()
+		{
+			GetPlayerCombinedInfoRequestParams infoRequestParams = new GetPlayerCombinedInfoRequestParams
+			{
+				GetUserReadOnlyData = true,
+				UserReadOnlyDataKeys = new List<string>
+				{
+					key_userStage,
+					key_userData,
+					key_userEnhancement,
+					key_characterData,
+					key_skillTreeData,
+					key_inventoryData,
+					key_currency,
+					//MailSlot
+					//
+				},
+				GetPlayerProfile = true,
+			};
+
+			LoginWithCustomIDRequest req = new LoginWithCustomIDRequest
+			{
+				CustomId = "516A4AAD45F1CC09",
+				InfoRequestParameters = infoRequestParams,
+			};
+			PlayFabClientAPI.LoginWithCustomID(req, OnDummyLoginSuccess, pfAuthErrorCallback);
 		}
 
 		private void LoginTest()
@@ -168,7 +202,7 @@ namespace Scripts.Server.Auth
 			NetworkManager.Instance.SetSessionID(result.PlayFabId);
 			NetworkManager.Instance.SetSessionTicket(result.SessionTicket);
 
-			//NetworkManager.Instance.OnExistUserInit(OnSignUpUserSucccess, pfAuthErrorCallback);
+			NetworkManager.Instance.OnExistUserInit(OnExistUserSuccess, pfAuthErrorCallback);
 
 			Dictionary<string, UserDataRecord> datas = result.InfoResultPayload.UserReadOnlyData;
 			//NetworkManager.Instance.OnSignUpInitUser(callbacks, pfAuthErrorCallback);
@@ -254,6 +288,8 @@ namespace Scripts.Server.Auth
 			UserManager.Instance.CreateUser(nickName, (eStage)currentStage, userdata, enhancement);
 			UserManager.Instance.SetCharacterData(characterData);
 			UserManager.Instance.SetWallet(currency);
+
+			GameManager.Instance.LoadAsyncScene(eSceneType.main);
 		}
 
 		void pfAuthErrorCallback(PlayFab.PlayFabError error)
@@ -261,22 +297,29 @@ namespace Scripts.Server.Auth
 			Debug.Log(error.Error);
 		}
 
+		void OnDummyLoginSuccess(LoginResult result)
+		{
+			NetworkManager.Instance.SetSessionID(result.PlayFabId);
+			NetworkManager.Instance.SetSessionTicket(result.SessionTicket);
+
+			NetworkManager.Instance.OnExistUserInit(OnExistUserSuccess, pfAuthErrorCallback);
+
+			Debug.Log("DummyLogin성공!");
+		}
 
 		private void OnSignUpUserSucccess(ExecuteFunctionResult result)
 		{
 			
-			//For Debugging
-			string JsonString = JsonConvert.SerializeObject(result.FunctionResult);
-
-			//Todo : 유저 정보 셋팅하기
-			UserOnSignUpInitResponseDTO response = JsonConvert.DeserializeObject<UserOnSignUpInitResponseDTO>(JsonString);
-
 		}
 
 		private void OnExistUserSuccess(ExecuteFunctionResult result)
 		{
 			//For Debugging
+			Debug.Log("Redis에 세션 생성요청 성공!");
 			string SessionId = JsonConvert.SerializeObject(result.FunctionResult);
+			OnAuthInitResponseDTO responsedto = JsonConvert.DeserializeObject<OnAuthInitResponseDTO>(SessionId);
+			Debug.Log($"SessionID : {responsedto.SessionID}");
+			NetworkManager.Instance.SetSessionGUID(responsedto.SessionID);
 			//Session ID 셋팅 
 
 		}

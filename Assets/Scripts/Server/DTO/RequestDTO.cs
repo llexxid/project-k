@@ -12,11 +12,17 @@ namespace Scripts.Server.DTO
 	}
 	public class InitUserRequestDTO
 	{
+
 	}
 
-	public class AuthRequestDTO
+	public struct AuthRequestDTO
 	{
 		public string SessinID { get; set; }
+	}
+	public class OnRewardRequestDTO
+	{
+		public string SessionID { get; set; }
+		public List<HuntResult> Loots { get; set; }
 	}
 
 	public class OnStageClearRequestDTO
@@ -24,10 +30,10 @@ namespace Scripts.Server.DTO
 		public string SessionID { get; set; }
 	}
 
-	public class OnRewardRequestDTO
+	public class OnGachaRequestDTO
 	{
 		public string SessionID { get; set; }
-		public List<HuntResult> Loots { get; set; }
+		public int Count { get; set; }
 	}
 }
 
