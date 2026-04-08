@@ -19,6 +19,19 @@ public class Enemy : MonoBehaviour, IDamageable
 
 	public GameObject gameobj => throw new NotImplementedException();
 
+	event Action<IDamageable> IDamageable.OnDeath
+	{
+		add
+		{
+			throw new NotImplementedException();
+		}
+
+		remove
+		{
+			throw new NotImplementedException();
+		}
+	}
+
 	void Start()
     {
         enemy = GetComponent<Enemy>();
@@ -42,4 +55,9 @@ public class Enemy : MonoBehaviour, IDamageable
     {
         return true;
     }
+
+	public ulong GetTypeId()
+	{
+		throw new NotImplementedException();
+	}
 }

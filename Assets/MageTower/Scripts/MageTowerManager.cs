@@ -86,10 +86,10 @@ namespace KingdomIdle.MageTower
         // ===== 테스트 데이터 =====
         private void InitTestData()
         {
-            EconomyBridge.TryGetAmount(eCurrency.ArcaneKnowledge, out int ak);
+            EconomyBridge.TryGetAmount(eCurrency.ArcaneKnowledge, out long ak);
             if (ak < 1000) EconomyBridge.Add(eCurrency.ArcaneKnowledge, 1000 - ak);
 
-            EconomyBridge.TryGetAmount(eCurrency.AncientCoin, out int ac);
+            EconomyBridge.TryGetAmount(eCurrency.AncientCoin, out long ac);
             if (ac < 1000) EconomyBridge.Add(eCurrency.AncientCoin, 1000 - ac);
 
             var skills = GetAllSkills();
@@ -226,7 +226,7 @@ namespace KingdomIdle.MageTower
             if (so == null) return false;
             if (!IsOwned(skillId)) return false;
             if (GetEnhanceLevel(skillId) >= so.maxEnhanceLevel) return false;
-            EconomyBridge.TryGetAmount(eCurrency.ArcaneKnowledge, out int ak);
+            EconomyBridge.TryGetAmount(eCurrency.ArcaneKnowledge, out long ak);
             return ak >= GetEnhanceCost(skillId);
         }
 

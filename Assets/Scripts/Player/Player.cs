@@ -57,7 +57,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     PlayerData _data;
     private User _user;
 
-	public event Action OnDeath;
+	public event Action<IDamageable> OnDeath;
 
     public ePlayerAction CurrentAction
     {
@@ -109,10 +109,22 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         return true;
     }
 
+    // ── [Spawn] 초기 스폰 위치 — 부활/웨이브 시작 시 이 위치로 복귀 ──
+    private Vector3 _initialSpawnPos;
+    private bool _initialSpawnPosCaptured;
+    // ── [Spawn 끝] ──
+
     public void Init(PlayerData data, User user)
     {
         _data = data;
         _user = user;
+
+        // 최초 Init 시점의 transform.position을 초기 스폰 위치로 캡처
+        if (!_initialSpawnPosCaptured)
+        {
+            _initialSpawnPos = transform.position;
+            _initialSpawnPosCaptured = true;
+        }
 
         KingdomIdle.UIToolkit.UITKEquipmentPanelBridge.Init(this, _user);
     }
@@ -127,7 +139,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 		StartCoroutine(PauseAfterDeadAnimation());
     }
 
-    public void ResetTarget()
+    public void ResetTarget(IDamageable target)
     {
         Debug.Log($"Player : {gameObject.GetInstanceID()} Reset Target");
         _currentTarget = null;
@@ -140,6 +152,11 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         {
             return;
         }
+        if (_currentTarget != null)
+        {
+			_currentTarget.OnDeath -= ResetTarget;
+		}
+
         Debug.Log($"Player : {gameObject.GetInstanceID()} |Player SetMonster : {target.gameobj.GetInstanceID()} | target_action : {target.gameobj.GetComponent<Monster>().MonAction}");
         target.OnDeath += ResetTarget;
         _currentTarget = target;
@@ -152,7 +169,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         Debug.Log($"[Player] 사망 애니메이션 대기: {deadAnimLength}초");
         yield return new WaitForSeconds(deadAnimLength);
 
-		OnDeath?.Invoke();
+		OnDeath?.Invoke(this);
 		OnDeath = null;
 		gameObject.SetActive(false);
 
@@ -226,10 +243,15 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         _data._Hp = playerStatus.MaxHP;
         _data._extraHp = 0;
         playerStatus.HP = playerStatus.MaxHP;
+
+        // 초기 스폰 위치로 복귀 (캡처 안 됐다면 현재 위치 유지)
+        if (_initialSpawnPosCaptured)
+            transform.position = _initialSpawnPos;
+
         gameObject.SetActive(true);
         SetAnimation(ePlayerAction.Idle);
         playerOrder?.Init(this);
-        ResetTarget();
+        ResetTarget(this);
     }
     // ── [WaveManager 끝] ──
 
@@ -379,7 +401,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
             if (_currentAction == ePlayerAction.Idle || _currentAction == ePlayerAction.Walk)
                 _animatorComponent.TrySetBool(_currentAction, false);
 
-            _am.Play(Animator.StringToHash(stateName));
+            _am.Play(Animator.StringToHash(stateName), 0);
             _currentAction = ePlayerAction.Attack;
         }
         else
@@ -448,7 +470,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
             if (!isAlive)
             {
                 SetAnimation(ePlayerAction.Idle);
-                currentTarget = null;
             }
         }
         _pendingSkillTargets.Clear();
@@ -538,4 +559,9 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     {
         return true;
     }
+
+	public ulong GetTypeId()
+	{
+        return 0;
+	}
 }

@@ -6,6 +6,8 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using Scripts.Core;
 using KingdomIdle.UI;
+using Scripts.Core.Manager;
+
 
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
@@ -133,6 +135,7 @@ namespace KingdomIdle.UIToolkit
         private Label _lblGuideBadge;
 
         private const string PrefKeyVolume = "settings_masterVolume";
+        private const string PrefKeyMute = "settings_muted";
         private const string PrefKeyPowerSave = "settings_powerSave";
         private const string PrefKeyHideItem = "settings_hideItem";
         private const string PrefKeyDamageText = "settings_damageText";
@@ -186,6 +189,22 @@ namespace KingdomIdle.UIToolkit
 
             BuildOverlays();
             EnsureToastOverlay();
+
+            // ── [Settings] 저장된 음량/음소거 상태를 게임 시작 시점에 즉시 적용 ──
+            // 설정 패널을 열지 않더라도 마지막 저장값이 그대로 유지되도록 한다.
+            ApplyPersistedAudioSettings();
+            // ── [Settings 끝] ──
+        }
+
+        /// <summary>
+        /// PlayerPrefs에 저장된 음량/음소거 상태를 AudioListener에 적용한다.
+        /// 게임 진입 시점과 설정 로드 시점 양쪽에서 사용한다.
+        /// </summary>
+        private static void ApplyPersistedAudioSettings()
+        {
+            float vol = PlayerPrefs.HasKey(PrefKeyVolume) ? PlayerPrefs.GetFloat(PrefKeyVolume) : 1f;
+            bool muted = PlayerPrefs.GetInt(PrefKeyMute, 0) == 1;
+            AudioListener.volume = muted ? 0f : Mathf.Clamp01(vol);
         }
 
         private void Update()
@@ -681,21 +700,61 @@ namespace KingdomIdle.UIToolkit
             var btnLogin = root.Q<Button>("BtnLogin");
             var popupLogin = root.Q<VisualElement>("PopupLogin");
             var popupLoginBox = root.Q<VisualElement>("PopupLoginBox");
+            var popupLoginDim = root.Q<VisualElement>("PopupLoginDim");
+            var btnLoginClose = root.Q<Button>("BtnLoginClose");
+            var btnLoginGuest = root.Q<Button>("BtnLoginGuest");
+            var btnLoginGoogle = root.Q<Button>("BtnLoginGoogle");
+            var btnLoginApple = root.Q<Button>("BtnLoginApple");
             var pressHint = root.Q<Label>("LblPressHint");
 
             if (btnLogin != null && popupLogin != null)
-                btnLogin.clicked += () => popupLogin.RemoveFromClassList("hidden");
+            {
+                // 로그인 버튼: 팝업만 띄우고, 실제 인증은 게스트 버튼에서 호출
+                btnLogin.clicked += () =>
+                {
+                    popupLogin.RemoveFromClassList("hidden");
+                    popupLogin.BringToFront();
+                };
+            }
+
+            if (btnLoginClose != null && popupLogin != null)
+            {
+                btnLoginClose.clicked += () => popupLogin.AddToClassList("hidden");
+            }
+
+            // ── [Login] 게스트 로그인: NetworkManager null-safe 호출 ──
+            if (btnLoginGuest != null && popupLogin != null)
+            {
+                btnLoginGuest.clicked += () =>
+                {
+                    var nm = NetworkManager.Instance;
+                    if (nm != null) nm.AuthenticateTest();
+                    popupLogin.AddToClassList("hidden");
+                    LoadMainOnce();
+                };
+            }
+            // ── [Login 끝] ──
+
+            // 구글/애플 로그인은 아직 미지원 — 토스트로 안내
+            if (btnLoginGoogle != null)
+                btnLoginGoogle.clicked += () => ShowToast("Google 로그인은 준비 중입니다.");
+            if (btnLoginApple != null)
+                btnLoginApple.clicked += () => ShowToast("Apple 로그인은 준비 중입니다.");
+
 
             if (pressHint != null)
                 StartPressHintBlink(pressHint);
 
             if (bgCatcher != null)
             {
-                ForceFullScreen(bgCatcher);
+				ForceFullScreen(bgCatcher);
                 bgCatcher.pickingMode = PickingMode.Position;
                 bgCatcher.RegisterCallback<PointerUpEvent>(_ =>
                 {
-                    if (popupLogin != null && !popupLogin.ClassListContains("hidden")) return;
+                    if (popupLogin != null && !popupLogin.ClassListContains("hidden"))
+                    {
+						return;
+					}                    
                     LoadMainOnce();
                 }, TrickleDown.TrickleDown);
             }
@@ -829,13 +888,10 @@ namespace KingdomIdle.UIToolkit
             var btnGuide = root.Q<Button>("BtnGuide");
             if (btnGuide != null)
             {
-                btnGuide.clicked += () =>
-                {
-                    if (_currencyOpen) CloseCurrencyPopupImmediate();
-                    if (_hamburgerOpen) CloseHamburgerMenuImmediate();
-                    PushPanel(UIPanelId.Guide, null, clearBefore: false, isTabPanel: false);
-                };
+                btnGuide.style.display = DisplayStyle.None;
             }
+            if (_lblGuideBadge != null)
+                _lblGuideBadge.style.display = DisplayStyle.None;
             RefreshGuideBadge();
 
             // ── Wave UI 초기화 ──
@@ -959,9 +1015,14 @@ namespace KingdomIdle.UIToolkit
 
         private void LoadMainOnce()
         {
-            if (_requestedScene) return;
+            Debug.Log("Call Load Main Once");
+            if (_requestedScene)
+            {
+				Debug.Log($"Request Scene is true : {_requestedScene}");
+				return;
+			}
+                
             _requestedScene = true;
-
             if (GameManager.Instance != null)
                 GameManager.Instance.LoadAsyncScene(eSceneType.main);
         }
@@ -1111,7 +1172,7 @@ namespace KingdomIdle.UIToolkit
             return m != null && m.ReturnType == typeof(bool);
         }
 
-        private static bool TryGetAmountFromWallet(object walletObj, eCurrency currency, out int amount)
+        private static bool TryGetAmountFromWallet(object walletObj, eCurrency currency, out long amount)
         {
             amount = 0;
             if (walletObj == null) return false;
@@ -1177,7 +1238,7 @@ namespace KingdomIdle.UIToolkit
         private string GetCurrencyText(eCurrency currency)
         {
             if (_wallet == null) return "null";
-            if (TryGetAmountFromWallet(_wallet, currency, out int amount))
+            if (TryGetAmountFromWallet(_wallet, currency, out long amount))
                 return amount.ToString("N0");
             return "null";
         }
@@ -1705,6 +1766,7 @@ namespace KingdomIdle.UIToolkit
         private void LoadSettingsToUI()
         {
             float vol = PlayerPrefs.HasKey(PrefKeyVolume) ? PlayerPrefs.GetFloat(PrefKeyVolume) : 1f;
+            bool muted = PlayerPrefs.GetInt(PrefKeyMute, 0) == 1;
             bool powerSave = PlayerPrefs.GetInt(PrefKeyPowerSave, 0) == 1;
             bool hideItem = PlayerPrefs.GetInt(PrefKeyHideItem, 0) == 1;
             bool damageText = PlayerPrefs.GetInt(PrefKeyDamageText, 1) == 1;
@@ -1713,9 +1775,9 @@ namespace KingdomIdle.UIToolkit
             bool nightPush = PlayerPrefs.GetInt(PrefKeyNightPush, 0) == 1;
 
             _sldVolume.SetValueWithoutNotify(vol);
-            _isMuted = false;
+            _isMuted = muted;
             ApplyMuteVisual();
-            AudioListener.volume = vol;
+            ApplyVolumeToSystem();
 
             _tglPowerSave.SetValueWithoutNotify(powerSave);
             _tglHideItem.SetValueWithoutNotify(hideItem);
@@ -1730,6 +1792,7 @@ namespace KingdomIdle.UIToolkit
         private void SaveSettingsFromUI()
         {
             PlayerPrefs.SetFloat(PrefKeyVolume, _sldVolume.value);
+            PlayerPrefs.SetInt(PrefKeyMute, _isMuted ? 1 : 0);
             PlayerPrefs.SetInt(PrefKeyPowerSave, _tglPowerSave.value ? 1 : 0);
             PlayerPrefs.SetInt(PrefKeyHideItem, _tglHideItem.value ? 1 : 0);
             PlayerPrefs.SetInt(PrefKeyDamageText, _tglDamageText.value ? 1 : 0);

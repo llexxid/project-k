@@ -610,7 +610,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2a9028e8214d71b4797954c146fdfe96, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _sfxParents: {fileID: 0}
+  _sfxParents: {fileID: 1205537619}
   _sfxPrefab: {fileID: 8752049568125769380, guid: 198e473de19468648a425ea9d8462a13,
     type: 3}
 --- !u!1 &1238927880
@@ -716,10 +716,11 @@ GameObject:
   - component: {fileID: 2134808523}
   - component: {fileID: 2134808524}
   - component: {fileID: 2134808527}
+  - component: {fileID: 2134808530}
   - component: {fileID: 2134808526}
   - component: {fileID: 2134808528}
   - component: {fileID: 2134808529}
-  - component: {fileID: 2134808530}
+  - component: {fileID: 2134808531}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -832,7 +833,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ec76570c5a2d4764782260097d8ba493, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _bossStageValue: 0
   _bossTimeLimit: 30
+--- !u!114 &2134808531
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2134808522}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a39c5ea9f40610f48b75133d9dc6365e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

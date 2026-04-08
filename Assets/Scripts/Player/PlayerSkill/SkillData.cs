@@ -61,4 +61,8 @@ public class SkillData : ScriptableObject
     public float cooldownReductionPerLevel = 0.02f;
 
     public GameObject skillPrefab;
+
+    [Header("SFX")]
+    [Tooltip("재생할 SFX 이름 (eSFXType 항목과 정확히 일치해야 함. 예: Slash_Attack_SFX)")]
+    public string skillSFXName;
 }

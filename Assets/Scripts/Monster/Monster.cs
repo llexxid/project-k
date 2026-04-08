@@ -135,10 +135,17 @@ namespace Scripts.Monster
 		}
 		StateMachine<Monster> _stateManchine;
 
+		// ── [WaveManager] Alloc 세대 카운터 ──
+		// 풀에서 재할당될 때마다 증가. MonsterDeadState의 stale 비동기 태스크가
+		// 재할당된 몬스터에 OnDead를 잘못 발사하는 것을 막기 위함.
+		private int _allocGen;
+		public int AllocGen => _allocGen;
+		// ── [WaveManager 끝] ──
+
 		[SerializeField]
 		MonsterAnimationSO _AnimationClipSO;
 		float _lastAttackTime;
-		public event Action OnDeath;
+		public event Action<IDamageable> OnDeath;
 
 		public float LastAttackTime
 		{
@@ -223,7 +230,7 @@ namespace Scripts.Monster
 		{
 			return _stat._moveSpeed;
 		}
-		public void ResetTarget()
+		public void ResetTarget(IDamageable target)
 		{
 			Target = null;
 			CustomLogger.Log("Target 초기화!");
@@ -239,7 +246,7 @@ namespace Scripts.Monster
 				CustomLogger.Log("Target IS NULL");
 				return;
 			}
-
+			
 			Target = target;
 			target.OnDeath += ResetTarget;
 		}
@@ -253,6 +260,8 @@ namespace Scripts.Monster
 			//생성자
 			OnDeath = null;
 			_stat = _initialStat; // 이거 추가함
+			_monAction = eMonsterAction.Walk; // stale Dead 상태 방지: 재사용 시 Action 초기화
+			_allocGen++; // stale 비동기 태스크 차단용 세대 갱신
 			_stateManchine.BeginMachine(new MonsterMoveState(this));
 			foreach (var col in GetComponentsInChildren<Collider2D>())
 				col.enabled = true;
@@ -341,7 +350,7 @@ namespace Scripts.Monster
 		{
 			//Todo : DropItem 스폰
 			//Institate 동전
-			OnDeath?.Invoke();
+			OnDeath?.Invoke(this);
 			foreach (var col in GetComponentsInChildren<Collider2D>())
 				col.enabled = false;
 		}
@@ -397,6 +406,11 @@ namespace Scripts.Monster
 
 			// 적의 위치에 구체를 그립니다.
 			Gizmos.DrawWireSphere(transform.position, _attackRadius);
+		}
+
+		public ulong GetTypeId()
+		{
+			return (ulong)_type;
 		}
 	}
 }

@@ -11,6 +11,12 @@ namespace Scripts.Monster.State
 {
 	public class MonsterDeadState : EntityState<Monster>
 	{
+		// ── [WaveManager] stale 태스크 방지 ──
+		// OnEnter 시점의 AllocGen을 캡처. 비동기 대기 후 풀 재할당으로 AllocGen이
+		// 변했다면 (= 같은 인스턴스가 다른 wave 몬스터로 재사용됨) OnDead를 발사하지 않는다.
+		private int _allocGenAtEnter;
+		// ── [WaveManager 끝] ──
+
 		public MonsterDeadState(Monster owner)
 			: base(owner)
 		{
@@ -23,7 +29,8 @@ namespace Scripts.Monster.State
 			//Attack���� ���Խ�
 			_owner.AnimationComponent.TrySetTrigger(eMonsterAction.Dead);
 			float time = _owner.GetAnimationLength(eMonsterAction.Dead);
-			
+
+			_allocGenAtEnter = _owner.AllocGen;
 			AfterAnimationEnd(time).Forget();
 		}
 
@@ -31,7 +38,9 @@ namespace Scripts.Monster.State
 		{
 			await UniTask.Delay(TimeSpan.FromSeconds(time));
 			// 이미 풀에 반환된 경우 (이중 해제 방지)
-			if (!_owner.IsActive) return;
+			if (_owner == null || !_owner.IsActive) return;
+			// 재할당된 몬스터(=다른 wave에서 재사용 중)에는 OnDead를 발사하지 않음
+			if (_owner.AllocGen != _allocGenAtEnter) return;
 			Debug.Log($"monster Release |{_owner.gameObject.name} | {_owner.gameObject.GetInstanceID()}");
 			_owner.OnDead();
 			MonsterSpawner.Instance.ReleaseMonster(_owner.Type, _owner);

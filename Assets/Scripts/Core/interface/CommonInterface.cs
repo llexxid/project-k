@@ -28,9 +28,9 @@ namespace Scripts.Core.inteface
     /// </summary>
     public interface IDamageable
     {
-        event Action OnDeath;
+        event Action<IDamageable> OnDeath;
         public Vector3 targetPos { get; }
-
+        public ulong GetTypeId();
         //For debugging
         public GameObject gameobj { get; }
         public bool TakeDamage(IAttackable attacker);

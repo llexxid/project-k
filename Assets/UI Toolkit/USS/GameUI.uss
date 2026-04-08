@@ -57,13 +57,145 @@
     align-items: center;
 }
 
+.login-popup-dim {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    background-color: rgba(0,0,0,0.65);
+}
+
 .login-popup-box {
-    width: 70%;
-    max-width: 760px;
-    padding: 28px;
-    background-color: rgba(0,0,0,0.75);
-    border-radius: 18px;
-    gap: 14px;
+    width: 80%;
+    max-width: 820px;
+    padding-left: 36px;
+    padding-right: 36px;
+    padding-top: 28px;
+    padding-bottom: 32px;
+    background-color: rgba(28, 32, 48, 0.98);
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-left-color: rgba(120, 150, 220, 0.85);
+    border-right-color: rgba(120, 150, 220, 0.85);
+    border-top-color: rgba(120, 150, 220, 0.85);
+    border-bottom-color: rgba(120, 150, 220, 0.85);
+    border-top-left-radius: 22px;
+    border-top-right-radius: 22px;
+    border-bottom-left-radius: 22px;
+    border-bottom-right-radius: 22px;
+}
+
+.login-popup-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.login-popup-title {
+    font-size: 40px;
+    -unity-font-style: bold;
+    color: rgba(255, 235, 180, 1);
+    -unity-text-align: middle-left;
+}
+
+.login-popup-close {
+    width: 56px;
+    height: 56px;
+    font-size: 36px;
+    color: rgba(255,255,255,0.9);
+    background-color: rgba(60, 70, 95, 0.95);
+    border-left-width: 0; border-right-width: 0; border-top-width: 0; border-bottom-width: 0;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+    -unity-text-align: middle-center;
+}
+
+.login-popup-close:hover {
+    background-color: rgba(90, 100, 130, 1);
+}
+
+.login-popup-subtitle {
+    font-size: 26px;
+    color: rgba(210, 220, 240, 0.9);
+    -unity-text-align: middle-left;
+    margin-bottom: 14px;
+}
+
+.login-popup-divider {
+    height: 2px;
+    background-color: rgba(120, 150, 220, 0.35);
+    margin-bottom: 18px;
+}
+
+.login-provider-list {
+    flex-direction: column;
+}
+
+.login-provider-btn {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    height: 110px;
+    margin-bottom: 14px;
+    padding-left: 28px;
+    padding-right: 28px;
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    border-bottom-left-radius: 16px;
+    border-bottom-right-radius: 16px;
+    border-left-width: 0; border-right-width: 0; border-top-width: 0; border-bottom-width: 0;
+}
+
+.login-provider-guest {
+    background-color: rgba(70, 130, 90, 1);
+}
+.login-provider-guest:hover { background-color: rgba(90, 160, 110, 1); }
+
+.login-provider-google {
+    background-color: rgba(245, 245, 245, 1);
+}
+.login-provider-google:hover { background-color: rgba(255, 255, 255, 1); }
+.login-provider-google .login-provider-label { color: rgba(40, 40, 40, 1); }
+
+.login-provider-apple {
+    background-color: rgba(15, 15, 15, 1);
+}
+.login-provider-apple:hover { background-color: rgba(45, 45, 45, 1); }
+
+.login-provider-icon {
+    width: 64px;
+    height: 64px;
+    margin-right: 22px;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+}
+
+.login-provider-icon-guest { background-color: rgba(255,255,255,0.85); }
+.login-provider-icon-google { background-color: rgba(66, 133, 244, 1); }
+.login-provider-icon-apple { background-color: rgba(255,255,255,0.95); }
+
+.login-provider-label {
+    font-size: 30px;
+    -unity-font-style: bold;
+    color: rgba(255,255,255,0.95);
+    -unity-text-align: middle-left;
+    flex-grow: 1;
+}
+
+.login-popup-footer {
+    margin-top: 6px;
+}
+
+.login-popup-terms {
+    font-size: 20px;
+    color: rgba(180, 190, 210, 0.85);
+    -unity-text-align: middle-center;
+    white-space: normal;
 }
 
 .popup-title { font-size: 34px; -unity-font-style: bold; color: rgba(255,255,255,0.95); }
@@ -384,13 +516,13 @@
 }
 
 .settings-panel {
-    width: 92%;
-    max-width: 860px;
-    height: 60%;
+    width: 94%;
+    max-width: 920px;
+    height: 86%;
     background-color: rgba(35, 30, 45, 0.95);
     border-radius: 18px;
-    padding: 26px 22px 34px 22px;
-    gap: 16px;
+    padding: 30px 26px 36px 26px;
+    gap: 18px;
     overflow: hidden;
 }
 
@@ -421,35 +553,63 @@
 .settings-coupon-field { flex-grow: 1; }
 .settings-coupon-btn { width: 120px; height: 66px; font-size: 24px; }
 
-.settings-grid { flex-direction: row; gap: 18px; }
-.settings-col { flex-grow: 1; gap: 14px; }
+.settings-grid { flex-direction: row; gap: 22px; flex-grow: 1; }
+.settings-col { flex-grow: 1; gap: 22px; }
 
-.settings-volume-row { flex-direction: row; align-items: center; gap: 12px; }
+/* 토글(체크박스+텍스트) 한 줄을 크게 — 설정 패널 내부를 꽉 채운다 */
+.settings-panel .unity-toggle {
+    height: 86px;
+    background-color: rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding-left: 18px;
+    padding-right: 18px;
+    margin: 0;
+}
+.settings-panel .unity-toggle > .unity-base-field__input {
+    flex-grow: 1;
+    align-items: center;
+}
+.settings-panel .unity-toggle__checkmark {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+}
+.settings-panel .unity-base-field__label,
+.settings-panel .unity-toggle__text {
+    font-size: 32px;
+    color: rgba(255,255,255,0.95);
+    -unity-font-style: bold;
+}
+
+.settings-volume-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    height: 90px;
+    background-color: rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding-left: 18px;
+    padding-right: 18px;
+}
 .settings-volume-label {
-    width: 120px;
-    font-size: 26px;
-    color: rgba(255,255,255,0.9);
+    width: 150px;
+    font-size: 30px;
+    -unity-font-style: bold;
+    color: rgba(255,255,255,0.95);
     flex-shrink: 0;
 }
 
 .settings-mute-btn {
-    width: 100px;
-    height: 58px;
-    font-size: 24px;
+    width: 130px;
+    height: 70px;
+    font-size: 28px;
     border-radius: 12px;
     background-color: rgba(255,255,255,0.10);
     color: rgba(255,255,255,0.95);
     flex-shrink: 0;
 }
 .settings-mute-btn.is-on { background-color: rgba(255,80,80,0.35); }
-.settings-slider { flex-grow: 1; min-width: 0; flex-shrink: 1; }
-
-/* Settings toggles: improve label visibility */
-.settings-panel .unity-base-field__label,
-.settings-panel .unity-toggle__text {
-    font-size: 28px;
-    color: rgba(255,255,255,0.95);
-}
+.settings-slider { flex-grow: 1; min-width: 0; flex-shrink: 1; height: 50px; }
 
 .settings-inquiry { height: 74px; justify-content: center; align-items: center; background-color: rgba(0,0,0,0.28); border-radius: 10px; }
 .settings-inquiry-label { font-size: 26px; color: rgba(255,255,255,0.9); }
@@ -1661,6 +1821,12 @@
     color: rgba(100, 255, 100, 0.9);
 }
 
+.ka-frag-locked {
+    color: rgba(255, 80, 80, 0.9);
+    font-size: 16px;
+    margin-top: 4px;
+}
+
 /* Job Detail View */
 .ka-back-btn {
     height: 44px;
@@ -1732,6 +1898,249 @@
 .ka-change-btn-disabled {
     background-color: rgba(100, 100, 100, 0.5);
     color: rgba(255, 255, 255, 0.4);
+}
+
+.ka-change-btn-free {
+    background-color: rgba(80, 140, 220, 0.85);
+}
+
+/* ===== Job Change RPG-style Enhancements ===== */
+.ka-job-section {
+    margin-bottom: 18px;
+}
+
+.ka-job-section-title {
+    font-size: 24px;
+    -unity-font-style: bold;
+    color: rgba(255, 220, 140, 0.95);
+    margin-bottom: 8px;
+    margin-top: 4px;
+    padding-left: 4px;
+    border-left-width: 4px;
+    border-left-color: rgba(255, 200, 100, 0.9);
+}
+
+.ka-job-card {
+    position: relative;
+}
+
+.ka-job-card-elite {
+    background-color: rgba(110, 80, 160, 0.18);
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-left-color: rgba(180, 130, 240, 0.55);
+    border-right-color: rgba(180, 130, 240, 0.55);
+    border-top-color: rgba(180, 130, 240, 0.55);
+    border-bottom-color: rgba(180, 130, 240, 0.55);
+}
+
+.ka-job-card-current {
+    border-left-width: 3px;
+    border-right-width: 3px;
+    border-top-width: 3px;
+    border-bottom-width: 3px;
+    border-left-color: rgba(255, 230, 100, 1);
+    border-right-color: rgba(255, 230, 100, 1);
+    border-top-color: rgba(255, 230, 100, 1);
+    border-bottom-color: rgba(255, 230, 100, 1);
+    background-color: rgba(255, 220, 100, 0.16);
+}
+
+.ka-job-card-owned {
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-left-color: rgba(120, 200, 255, 0.85);
+    border-right-color: rgba(120, 200, 255, 0.85);
+    border-top-color: rgba(120, 200, 255, 0.85);
+    border-bottom-color: rgba(120, 200, 255, 0.85);
+}
+
+.ka-job-card-locked {
+    background-color: rgba(60, 60, 60, 0.45);
+}
+
+.ka-job-card-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    font-size: 16px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    padding-left: 8px;
+    padding-right: 8px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.ka-badge-current { background-color: rgba(255, 200, 60, 0.95); color: rgba(40, 30, 0, 1); }
+.ka-badge-owned   { background-color: rgba(80, 160, 230, 0.9); }
+.ka-badge-locked  { background-color: rgba(180, 60, 60, 0.85); }
+.ka-badge-ready   { background-color: rgba(80, 180, 100, 0.9); }
+.ka-badge-tier    { background-color: rgba(120, 120, 130, 0.75); }
+
+.ka-job-card-stat {
+    font-size: 18px;
+    color: rgba(220, 220, 230, 0.85);
+    -unity-text-align: middle-center;
+}
+
+/* ── 전직 상세 (Job Detail) ── */
+.ka-job-detail-name-row {
+    flex-direction: row;
+    align-items: center;
+}
+
+.ka-job-detail-state {
+    font-size: 18px;
+    -unity-font-style: bold;
+    margin-left: 12px;
+    padding-left: 10px;
+    padding-right: 10px;
+    padding-top: 3px;
+    padding-bottom: 3px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    color: rgba(255,255,255,0.95);
+}
+
+.ka-job-detail-role {
+    font-size: 20px;
+    color: rgba(180, 200, 230, 0.85);
+    margin-top: 4px;
+}
+
+/* ── 스탯 비교 표 ── */
+.ka-stat-compare-table {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+    padding-left: 12px;
+    padding-right: 12px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+}
+
+.ka-stat-compare-row {
+    flex-direction: row;
+    align-items: center;
+    height: 36px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+.ka-stat-compare-head {
+    border-bottom-width: 2px;
+    border-bottom-color: rgba(255, 200, 100, 0.45);
+}
+
+.ka-stat-compare-cell {
+    flex: 1;
+    font-size: 20px;
+    color: rgba(230, 230, 240, 0.9);
+    -unity-text-align: middle-center;
+}
+
+.ka-stat-compare-cell-name {
+    -unity-text-align: middle-left;
+    -unity-font-style: bold;
+    color: rgba(255, 220, 160, 0.9);
+}
+
+.ka-stat-compare-up   { color: rgba(120, 230, 130, 1); -unity-font-style: bold; }
+.ka-stat-compare-down { color: rgba(255, 110, 110, 1); -unity-font-style: bold; }
+
+/* ── 직업 스킬 카드 ── */
+.ka-job-skill-list { margin-bottom: 12px; }
+
+.ka-job-skill-row {
+    flex-direction: row;
+    align-items: center;
+    padding-left: 12px;
+    padding-right: 12px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    margin-bottom: 6px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+.ka-job-skill-type {
+    width: 70px;
+    height: 30px;
+    font-size: 16px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    color: rgba(255,255,255,0.95);
+    background-color: rgba(80, 140, 220, 0.85);
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+    margin-right: 14px;
+}
+
+.ka-job-skill-type-passive { background-color: rgba(160, 100, 200, 0.85); }
+
+.ka-job-skill-info { flex: 1; }
+
+.ka-job-skill-name {
+    font-size: 22px;
+    -unity-font-style: bold;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.ka-job-skill-detail {
+    font-size: 18px;
+    color: rgba(200, 210, 230, 0.8);
+}
+
+/* ── 전직 조건 박스 ── */
+.ka-job-cond-box {
+    background-color: rgba(255, 200, 100, 0.08);
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+    padding-left: 14px;
+    padding-right: 14px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+}
+
+.ka-frag-row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    height: 36px;
+}
+
+.ka-frag-row-name {
+    font-size: 22px;
+    color: rgba(255, 220, 160, 0.9);
+    -unity-font-style: bold;
+}
+
+.ka-frag-row-val {
+    font-size: 22px;
+    color: rgba(255, 200, 100, 0.95);
 }
 
 /* ===== Inventory Panel ===== */

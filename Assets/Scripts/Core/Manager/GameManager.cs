@@ -165,7 +165,7 @@ namespace Scripts.Core
 		public void LoadAsyncScene(eSceneType type)
 		{
 			Time.timeScale = 1f;
-
+			Debug.Log($"LoadAsyncScene : {type}");
 			//기존의 핸들이 있다면, 핸들들을 Release시켜줘야함.
 			CheckHandle();
 			LoadingScene(type).Forget();
@@ -212,16 +212,14 @@ namespace Scripts.Core
 
 		private async UniTaskVoid LoadingScene(eSceneType type)
 		{
-			if (_token == null) _token = new CancellationTokenSource();
+			Debug.Log($"Scene Loading Request : {type}");
+			if (_token == null)
+				_token = new CancellationTokenSource();
 
 			SceneLoadStarted?.Invoke(type);
 
 			string sceneName = GetSceneName(type);
 			float startRealtime = Time.realtimeSinceStartup;
-
-			_UnitySceneLoaderOp = SceneManager.LoadSceneAsync(sceneName);
-			_UnitySceneLoaderOp.allowSceneActivation = false;
-
 
 			// User의 현재 스테이지 정보를 가져와서 Load준비해야함.
 			if (type == eSceneType.main)
@@ -230,6 +228,7 @@ namespace Scripts.Core
 				ulong resourceId = GetResourceGroupId(currentStage);
 				_StageLoaderHandle = StageManager.Instance.PreLoadAssets((eStage)resourceId);
 				LoadResourceInMonster(resourceId);
+				Debug.Log("Main Stage Loading");
 				//Player에 필요한 VFX,SFX 로딩
 			}
 
@@ -247,20 +246,21 @@ namespace Scripts.Core
 				_SFXSceneHandle = SFXManager.Instance.PreLoadSFX((ulong)type, sfxList.ToArray());
 			}
 
+			Debug.Log("SFX/VFX Loading");
 
+			//ReSourceLoading
 			while (true)
 			{
-				bool stageDone = _StageLoaderHandle.IsDone;
-				bool vfxDone = !_VFXSceneHandle.IsValid() | _VFXSceneHandle.IsDone;
-				bool sfxDone = !_SFXSceneHandle.IsValid() | _SFXSceneHandle.IsDone;
-				bool vfxMonsterDone = !_VFXMonsterHandle.IsValid() | _VFXMonsterHandle.IsDone;
-				bool sfxMonsterDone = !_SFXMonsterHandle.IsValid() | _SFXMonsterHandle.IsDone;
-
+				bool stageDone = !_StageLoaderHandle.IsValid() || _StageLoaderHandle.IsDone;
+				bool vfxDone = !_VFXSceneHandle.IsValid() || _VFXSceneHandle.IsDone;
+				bool sfxDone = !_SFXSceneHandle.IsValid() || _SFXSceneHandle.IsDone;
+				bool vfxMonsterDone = !_VFXMonsterHandle.IsValid() || _VFXMonsterHandle.IsDone;
+				bool sfxMonsterDone = !_SFXMonsterHandle.IsValid() || _SFXMonsterHandle.IsDone;
 				//로딩창 Scroll조절
 				//timer += Time.unscaledDeltaTime;
 				//scrollbar.fillAmount = Mathf.Lerp(0.9f, 1f, timer);
 
-				float normalized = Mathf.Clamp01(_UnitySceneLoaderOp.progress / 0.9f);
+				/*float normalized = Mathf.Clamp01(_UnitySceneLoaderOp.progress / 0.9f);
 
 				if (minLoadingSeconds > 0f)
 				{
@@ -268,48 +268,53 @@ namespace Scripts.Core
 					normalized = Mathf.Min(normalized, t);
 				}
 
-				SceneLoadProgress?.Invoke(type, normalized);
+				SceneLoadProgress?.Invoke(type, normalized);*/
 
 				if (stageDone &&
 					vfxDone &&
 					sfxDone &&
 					vfxMonsterDone &&
-					sfxMonsterDone &&
-					_UnitySceneLoaderOp.progress >= 0.9f)
+					sfxMonsterDone
+					)
 				{
-					if (minLoadingSeconds <= 0f || (Time.realtimeSinceStartup - startRealtime) >= minLoadingSeconds)
-					{
-						break;
-					}
+					break;
 				}
 
 				//스크롤바가 다 채워졌다면, SceneActive하기.
 				await UniTask.Yield(_token.Token);
 			}
+			Debug.Log("While Loop Break");
 
-			_UnitySceneLoaderOp.allowSceneActivation = true;
-
+			_UnitySceneLoaderOp = SceneManager.LoadSceneAsync(sceneName);
+			_UnitySceneLoaderOp.allowSceneActivation = false;
 			// 실제 씬 활성화 완료까지 대기
 			while (!_UnitySceneLoaderOp.isDone)
 			{
+				if (_UnitySceneLoaderOp.progress >= 0.9f)
+				{
+					_UnitySceneLoaderOp.allowSceneActivation = true;
+				}
 				await UniTask.Yield(_token.Token);
 			}
 
 			SceneLoadProgress?.Invoke(type, 1f);
 			SceneLoadFinished?.Invoke(type);
+			Debug.Log($"SceneActive Request Done | {type}");
 			//임시패치
 		}
 		private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
 		{
+
 			//MainScene전환시
 			if (scene.name == "main")
 			{
-				Debug.Log("Scene전환!");
+				Debug.Log("메인 씬 진입");
 
 				MonsterSpawner.Instance.OnEnterScene();
 				VFXManager.Instance.OnEnterScene();
+                SFXManager.Instance.PlayBGM(eSFXType.MainBGM);
 
-				if (Camera.main != null && Camera.main.GetComponent<Scripts.Core.Utils.CameraFade>() == null)
+                if (Camera.main != null && Camera.main.GetComponent<Scripts.Core.Utils.CameraFade>() == null)
 					Camera.main.gameObject.AddComponent<Scripts.Core.Utils.CameraFade>();
 
 				UserManager.Instance.CreateCharacter();
@@ -339,10 +344,10 @@ namespace Scripts.Core
 				};
 */
 				//Vector3 pos = new Vector3(-5, 0, 0);
-	
+
 				//MonsterSpawner.Instance.SpawnMonster(eMonsterType.MON_BANDIT_LEADER, pos, Quaternion.identity, out Monster mon);
-						//MonsterStat stat = new MonsterStat(monInfo._baseHp, 0, (ulong)monInfo._baseAtk, monInfo._baseMoveSpeed, monInfo._baseAtkSpeed);
-						//mon.Init(eMonsterType.MON_BANDIT_ARCHER, stat, monInfo._dropTableNumber);
+				//MonsterStat stat = new MonsterStat(monInfo._baseHp, 0, (ulong)monInfo._baseAtk, monInfo._baseMoveSpeed, monInfo._baseAtkSpeed);
+				//mon.Init(eMonsterType.MON_BANDIT_ARCHER, stat, monInfo._dropTableNumber);
 
 
 			}
@@ -419,10 +424,12 @@ namespace Scripts.Core
 
 			if (IsNeedToLoadVFX)
 			{
+				Debug.Log("[MONSTER_VFX_Request]");
 				_VFXMonsterHandle = VFXManager.Instance.PreLoadVFX((ulong)resourceId, vfxList);
 			}
 			if (IsNeedToLoadSFX)
 			{
+				Debug.Log("[MONSTER_SFX_Request]");
 				_SFXMonsterHandle = SFXManager.Instance.PreLoadSFX((ulong)resourceId, sfxList);
 			}
 		}
