@@ -109,10 +109,22 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         return true;
     }
 
+    // ── [Spawn] 초기 스폰 위치 — 부활/웨이브 시작 시 이 위치로 복귀 ──
+    private Vector3 _initialSpawnPos;
+    private bool _initialSpawnPosCaptured;
+    // ── [Spawn 끝] ──
+
     public void Init(PlayerData data, User user)
     {
         _data = data;
         _user = user;
+
+        // 최초 Init 시점의 transform.position을 초기 스폰 위치로 캡처
+        if (!_initialSpawnPosCaptured)
+        {
+            _initialSpawnPos = transform.position;
+            _initialSpawnPosCaptured = true;
+        }
 
         KingdomIdle.UIToolkit.UITKEquipmentPanelBridge.Init(this, _user);
     }
@@ -231,6 +243,11 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         _data._Hp = playerStatus.MaxHP;
         _data._extraHp = 0;
         playerStatus.HP = playerStatus.MaxHP;
+
+        // 초기 스폰 위치로 복귀 (캡처 안 됐다면 현재 위치 유지)
+        if (_initialSpawnPosCaptured)
+            transform.position = _initialSpawnPos;
+
         gameObject.SetActive(true);
         SetAnimation(ePlayerAction.Idle);
         playerOrder?.Init(this);

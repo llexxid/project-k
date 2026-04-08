@@ -26,6 +26,7 @@ namespace Scripts.Core
         private bool _bossTimerActive;
 
         private bool _deathPopupActive;
+        private bool _deathPopupHandled; // 중복 호출(클릭+타임아웃) 방지
         private float _deathPopupTimer;
         private const float DeathPopupDuration = 15f;
 
@@ -103,6 +104,7 @@ namespace Scripts.Core
 
             ReviveAllPlayers();
             DespawnAllMonsters();
+            StageManager.Instance.ResetWaveCount();
 
             OnWaveChanged?.Invoke(_currentStageNumber, _currentWave, _isBossWave);
 
@@ -202,12 +204,17 @@ namespace Scripts.Core
         {
             Time.timeScale = 0f;
             _deathPopupActive = true;
+            _deathPopupHandled = false;
             _deathPopupTimer = DeathPopupDuration;
             OnDeathPopupShow?.Invoke();
         }
 
         public void OnDeathPopupChoose(bool retryCurrentWave)
         {
+            // 버튼 클릭과 타이머 만료가 같은 프레임에 겹치는 경우 두 번 호출되어
+            // _currentWave가 중복 감소되는 것을 방지
+            if (_deathPopupHandled) return;
+            _deathPopupHandled = true;
             _deathPopupActive = false;
             OnDeathPopupHide?.Invoke();
 
@@ -280,6 +287,7 @@ namespace Scripts.Core
                     {
                         DespawnAllMonsters();
                         ReviveAllPlayers();
+                        StageManager.Instance.ResetWaveCount();
                         OnWaveChanged?.Invoke(_currentStageNumber, _currentWave, _isBossWave);
                         if (_isBossWave)
                         {
@@ -304,6 +312,7 @@ namespace Scripts.Core
             var fade = CameraFade.Instance;
             DespawnAllMonsters();
             ReviveAllPlayers();
+            StageManager.Instance.ResetWaveCount();
 
             Time.timeScale = 1f;
             OnWaveChanged?.Invoke(_currentStageNumber, _currentWave, _isBossWave);

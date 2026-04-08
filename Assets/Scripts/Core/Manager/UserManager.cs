@@ -34,6 +34,12 @@ namespace Scripts.Core
 		private void Init()
 		{
 			_user = new User();
+
+			// ── [Login 우회 폴백] 기본 UserData를 미리 세팅 ──
+			// 로그인 없이 진입 시 GetUserCurrentStage() 등이 NRE를 일으키지 않도록.
+			// 정식 로그인 흐름에서 SetUserData가 다시 호출되면 덮어쓰므로 영향 없음.
+			_user.SetUserData(new UserData("Guest", 0, 0, eStage.Stage1_1, 1, 0, 0));
+			// ── [Login 우회 폴백 끝] ──
 		}
 
 		public UserData GetUserData()
@@ -85,6 +91,20 @@ namespace Scripts.Core
 		}
 		public void CreateCharacter()
 		{
+			// ── [Login 우회 폴백] 서버 캐릭터 데이터가 없으면 기본값 사용 ──
+			// 로그인 없이 타이틀에서 화면 클릭만으로 진입한 경우 _characterDataFromServer가 null이라 NRE가 발생.
+			// 정식 로그인 흐름에는 영향 없음.
+			if (_characterDataFromServer == null || _characterDataFromServer.Count < 3)
+			{
+				_characterDataFromServer = new List<CharacterDataQuery>
+				{
+					new CharacterDataQuery("Knight",  0, 50, 10, 0),
+					new CharacterDataQuery("Archer",  0, 50, 10, 1),
+					new CharacterDataQuery("Mage",    0, 50, 10, 2),
+				};
+			}
+			// ── [Login 우회 폴백 끝] ──
+
 			GameObject obj1 = Instantiate(playerPrefab, new Vector3(0, 1.4f, 0), Quaternion.identity);
 			GameObject obj2 = Instantiate(playerPrefab, new Vector3(-1, 0, 0), Quaternion.identity);
 			GameObject obj3 = Instantiate(playerPrefab, new Vector3(1, 0, 0), Quaternion.identity);
@@ -94,18 +114,18 @@ namespace Scripts.Core
 			Player p3;
 
 			int i = 0;
-			PlayerData playerData0 = new PlayerData(_characterDataFromServer[0].NickName, 
+			PlayerData playerData0 = new PlayerData(_characterDataFromServer[0].NickName,
 				0,
 				_characterDataFromServer[0].JobCode,
 				_characterDataFromServer[0].Atk,
 				_characterDataFromServer[0].Hp);
 
-			PlayerData playerData1 = new PlayerData(_characterDataFromServer[1].NickName, 
+			PlayerData playerData1 = new PlayerData(_characterDataFromServer[1].NickName,
 				1,
 				_characterDataFromServer[1].JobCode,
 				_characterDataFromServer[1].Atk,
 				_characterDataFromServer[1].Hp);
-			PlayerData playerData2 = new PlayerData(_characterDataFromServer[2].NickName, 
+			PlayerData playerData2 = new PlayerData(_characterDataFromServer[2].NickName,
 				2,
 				_characterDataFromServer[2].JobCode,
 				_characterDataFromServer[2].Atk,

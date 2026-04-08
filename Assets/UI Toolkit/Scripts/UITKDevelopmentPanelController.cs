@@ -83,11 +83,11 @@ namespace KingdomIdle.UIToolkit
         //  강화 (모든 캐릭터 공용)
         // ══════════════════════════════════════
 
+        // 실제 구현된 강화 항목만 노출. 더미 항목은 IsStatImplemented 필터로 숨김.
         private static readonly StatEnhanceManager.EnhanceType[] _enhanceTypes = new[]
         {
             StatEnhanceManager.EnhanceType.Attack,
             StatEnhanceManager.EnhanceType.MaxHP,
-            StatEnhanceManager.EnhanceType.ExpGain,
         };
 
         private static void BuildEnhanceView()
@@ -99,9 +99,11 @@ namespace KingdomIdle.UIToolkit
 
             foreach (var type in _enhanceTypes)
             {
+                // 더미 항목 숨김
+                if (!StatEnhanceManager.IsStatImplemented(type)) continue;
+
                 var t = type;
                 string typeName = StatEnhanceManager.GetTypeName(t);
-                bool implemented = StatEnhanceManager.IsStatImplemented(t);
                 int level = mgr != null ? mgr.GetLevel(t) : 0;
                 string bonusText = mgr != null ? mgr.GetBonusText(t) : "";
 
@@ -117,10 +119,6 @@ namespace KingdomIdle.UIToolkit
 
                 // 보너스 표시
                 row.Add(MakeLabel($"효과: {bonusText}", "ka-enhance-bonus"));
-
-                // 더미 태그
-                if (!implemented)
-                    row.Add(MakeLabel("캐릭터 스탯 미구현 (더미 데이터)", "ka-enhance-dummy-tag"));
 
                 // 하단: 버튼
                 int cost1 = mgr != null ? mgr.GetCost(t, 1) : 0;
@@ -167,19 +165,12 @@ namespace KingdomIdle.UIToolkit
                 return;
             }
 
-            bool implemented = StatEnhanceManager.IsStatImplemented(type);
-
             if (mgr.TryEnhance(type, count))
             {
                 string name = StatEnhanceManager.GetTypeName(type);
                 string bonus = mgr.GetBonusText(type);
                 int lv = mgr.GetLevel(type);
-
-                if (!implemented)
-                    ShowToast($"{name} Lv.{lv} ({bonus}) - 캐릭터 스탯 미구현 (더미 데이터)");
-                else
-                    ShowToast($"{name} Lv.{lv} ({bonus}) 강화 완료!");
-
+                ShowToast($"{name} Lv.{lv} ({bonus}) 강화 완료!");
                 Refresh();
             }
             else

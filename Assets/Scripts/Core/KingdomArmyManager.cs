@@ -99,8 +99,13 @@ namespace KingdomIdle.KingdomArmy
             _fragmentCosts.TryGetValue(jobName, out int c) ? c : defaultFragmentCost;
 
         /// <summary>전직 가능 여부. 2차 전직은 1차 전직 완료 + 파편 충분 조건 모두 필요.</summary>
+        /// <remarks>해당 플레이어가 이미 그 직업을 해금한 적이 있으면 파편 없이도 자유롭게 재전직 가능.</remarks>
         public bool CanChangeJob(string jobName, Player player = null)
         {
+            // 이미 해금된 직업이면 파편/선행 조건 무관 — 무료 재전직
+            if (player != null && HasCompletedPromotion(player, jobName))
+                return true;
+
             if (GetFragments(jobName) < GetFragmentCost(jobName))
                 return false;
 
@@ -111,20 +116,34 @@ namespace KingdomIdle.KingdomArmy
             return true;
         }
 
+        /// <summary>해당 플레이어가 이 직업을 이미 해금했는지 (UI에서 "재전직 무료" 표시 등에 사용)</summary>
+        public bool IsAlreadyUnlocked(Player player, string jobName) =>
+            HasCompletedPromotion(player, jobName);
+
         // ── 전직 실행 ──
 
         /// <summary>
         /// 지정 플레이어를 jobName 직업으로 전직.
-        /// 파편을 소모하고 ChangeJob 컴포넌트를 통해 실제 전직 적용.
+        /// 처음 전직이면 파편을 소모하고, 이미 해금된 직업이면 무료로 재전직한다.
+        /// 실제 전직 적용은 ChangeJob 컴포넌트가 담당.
         /// </summary>
+        /// <remarks>
+        /// 서버 연동 시: 직업별 해금 상태(_unlockedJobs)는 캐릭터별로 서버에 영구 저장되어야 한다.
+        /// 현재는 ChangeJob 내부 PlayerPrefs(UnlockedJobs)에 보관 중.
+        /// </remarks>
         public bool TryChangeJob(Player player, string jobName)
         {
             if (player == null || string.IsNullOrEmpty(jobName)) return false;
             if (!CanChangeJob(jobName, player)) return false;
 
-            int cost = GetFragmentCost(jobName);
-            string fragKey = GetBaseFragmentName(jobName);
-            _fragments[fragKey] -= cost;
+            // 이미 해금된 직업은 무료 재전직 — 파편 차감 생략
+            bool alreadyUnlocked = HasCompletedPromotion(player, jobName);
+            if (!alreadyUnlocked)
+            {
+                int cost = GetFragmentCost(jobName);
+                string fragKey = GetBaseFragmentName(jobName);
+                _fragments[fragKey] -= cost;
+            }
 
             var changeJob = player.GetComponent<ChangeJob>();
             if (changeJob != null)
