@@ -312,8 +312,9 @@ namespace Scripts.Core
 
 				MonsterSpawner.Instance.OnEnterScene();
 				VFXManager.Instance.OnEnterScene();
+                SFXManager.Instance.PlayBGM(eSFXType.MainBGM);
 
-				if (Camera.main != null && Camera.main.GetComponent<Scripts.Core.Utils.CameraFade>() == null)
+                if (Camera.main != null && Camera.main.GetComponent<Scripts.Core.Utils.CameraFade>() == null)
 					Camera.main.gameObject.AddComponent<Scripts.Core.Utils.CameraFade>();
 
 				UserManager.Instance.CreateCharacter();

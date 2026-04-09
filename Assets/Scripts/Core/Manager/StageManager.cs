@@ -38,6 +38,12 @@ namespace Scripts.Core
 
 		private bool _IsLoop;
 
+		// ── [WaveManager] 같은 wave 내 OnWaveCleared 중복 호출 방지 ──
+		// stale 비동기/이벤트로 _totalCnt가 음수로 떨어져 OnWaveCleared가
+		// 여러 번 발사되는 것을 막는다. StartStage/ResetWaveCount에서 false로 초기화.
+		private bool _waveCleared;
+		// ── [WaveManager 끝] ──
+
         const int LAST_WAVE = 10;
         const float TICK_INTERVAL = 3f;
         private float _LastTick;
@@ -115,10 +121,11 @@ namespace Scripts.Core
 
 		public void StartStage(eStage stage)
 		{
-			Debug.Log("StageManager ����");
+			Debug.Log("StageManager ����");
 			_currentStage = stage;
             //_totalCnt = 0;
 			_totalCharacterCnt = 3;
+			_waveCleared = false; // 새 wave 시작 — 클리어 가드 해제
             
 			List<StageInfo_v> stageInfos;
 			bool flag = _stageSO.TryGetStageInfo(stage, out stageInfos);
@@ -163,9 +170,10 @@ namespace Scripts.Core
 
 			--_totalCnt;
             CustomLogger.Log($"totalCount : {_totalCnt}");
-            if (_totalCnt <= 0)
+            if (_totalCnt <= 0 && !_waveCleared)
             {
-                // WaveManager가 존재?�면 ?�름???�임
+                _waveCleared = true; // 이 wave 내 추가 클리어 호출 차단
+                // WaveManager가 존재?�면 ?�름???�임
                 if (WaveManager.Instance != null)
                 {
                     WaveManager.Instance.OnWaveCleared();
@@ -187,10 +195,10 @@ namespace Scripts.Core
 			eStage nxtStage;
 			eStageResult res = CalculateNextStage(_currentStage, out nxtStage);
 
-            /*Dummy �����̶�, ������ �߰�x. �÷����ϴ°� ������.*/
+            /*Dummy �����̶�, ������ �߰�x. �÷����ϴ°� ������.*/
 
 			//NetworkManager.Instance.OnStageClear(OnStageClearSuccess, OnError);
-			//Stage�� �ٲ���Ѵ�?-> ���ҽ� �ε��� �ʿ���.
+			//Stage�� �ٲ���Ѵ�?-> ���ҽ� �ε��� �ʿ���.
 			if (res == eStageResult._StageChanged)
 			{
 				CustomLogger.Log($"Go To Next Stage");
@@ -199,7 +207,7 @@ namespace Scripts.Core
 			else
 			{
 				CustomLogger.Log($"Go To Next Wave");
-                //ü��ȸ��
+                //ü��ȸ��
 				StartStage(nxtStage);
 				//Todo : ĳ���� HPȸ��
 			}
@@ -214,7 +222,19 @@ namespace Scripts.Core
         {
 			_IsLoop = false;
 		}
-        //ĳ���Ͱ� ���?���� ���? ���� ���������� �Ѱܾ���.
+
+        // ── [WaveManager 추가] 웨이브 재시작 시 몬스터 카운트 리셋 ──
+        // WaveManager가 이전 웨이브로 복귀하거나 같은 웨이브 재시작 전 호출.
+        // StartStage 내부의 _totalCnt += count가 누적되는 문제를 막는다.
+        public void ResetWaveCount()
+        {
+            _totalCnt = 0;
+            _totalCharacterCnt = 3;
+            _waveCleared = false;
+        }
+        // ── [WaveManager 추가 끝] ──
+
+        //ĳ���Ͱ� ���?���� ���? ���� ���������� �Ѱܾ���.
         public void DecrementCharacterCount()
         {
             --_totalCharacterCnt;
@@ -267,11 +287,11 @@ namespace Scripts.Core
         {
             if (_huntResultList.Count <= 0)
             {
-				Debug.Log($"[StageManager] ���� ���Ͱ� �����ϴ�.");
+				Debug.Log($"[StageManager] ���� ���Ͱ� �����ϴ�.");
 				return;
             }
 
-            //�̰� Ǯ������
+            //�̰� Ǯ������
             HuntResult code;
 
 			foreach (var mon in _huntResultList)
@@ -284,7 +304,7 @@ namespace Scripts.Core
                     MonsterType = type,
                     Count = (short)count
                 };
-                Debug.Log($"[StageManager] ���� ���� : {type} | count : {count}");
+                Debug.Log($"[StageManager] ���� ���� : {type} | count : {count}");
                 _sendmsg.Add(code);
 			}
 
@@ -299,7 +319,7 @@ namespace Scripts.Core
 			string response = JsonConvert.SerializeObject(result.FunctionResult);
             OnHuntResponseDTO huntResult = JsonConvert.DeserializeObject<OnHuntResponseDTO>(response);
 
-            //�������� ���� (���, ų���ھ�, ����ġ, ���, AncientGold)
+            //�������� ���� (���, ų���ھ�, ����ġ, ���, AncientGold)
             UserManager.Instance.SetHuntResult(huntResult);
 		}
 

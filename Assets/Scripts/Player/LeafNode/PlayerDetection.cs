@@ -19,10 +19,29 @@ public class PlayerDetection
 
     LayerMask enemyLayer = GameLayers.EnemyMask;
 
+    // 카메라 경계 내부 판정용 여유(0~0.5). 0.05 = 화면 경계에서 5% 안쪽까지만 유효
+    private const float CameraBoundsInset = 0.05f;
+
+    private static bool IsInCameraBounds(Vector3 worldPos)
+    {
+        var cam = Camera.main;
+        if (cam == null) return true;
+        Vector3 vp = cam.WorldToViewportPoint(worldPos);
+        if (vp.z < 0f) return false;
+        return vp.x >= CameraBoundsInset && vp.x <= 1f - CameraBoundsInset
+            && vp.y >= CameraBoundsInset && vp.y <= 1f - CameraBoundsInset;
+    }
+
     public bool Detect()
     {
 		if (player.currentTarget != null)
 		{
+            // 기존 타겟이 카메라 밖으로 나가면 추격/공격을 멈춘다
+            if (!IsInCameraBounds(player.currentTarget.targetPos))
+            {
+                player.ResetTarget(player.currentTarget);
+                return false;
+            }
             return true; // 다음 스텝
 		}
 		//CustomLogger.Log("Player가 탐지중입니다...");
@@ -57,6 +76,10 @@ public class PlayerDetection
                 Debug.Log($"{i} | Player Detect DeadMonster : {mon.gameObject.GetInstanceID()}");
                 continue;
 			}
+
+			// 카메라 경계 밖의 적은 타겟 후보에서 제외
+			if (!IsInCameraBounds(detectedResults[i].transform.position))
+			    continue;
 
 			float dist = Vector2.Distance(player.transform.position, detectedResults[i].transform.position);
 			if (dist < closestDist)

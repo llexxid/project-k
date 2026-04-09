@@ -51,6 +51,7 @@ namespace Scripts.Core.DataStructure
             if (!IsPop)
             {
                 ret = GameObject.Instantiate(_prefab, position, rotate);
+                ret.gameObject.SetActive(true);
                 ret.OnAlloc();
                 ++_capacity;
                 ret.IsActive = true;
@@ -59,6 +60,7 @@ namespace Scripts.Core.DataStructure
 
             ret.gameObject.transform.position = position;
             ret.gameObject.transform.rotation = rotate;
+            ret.gameObject.SetActive(true);
             ret.IsActive = true;
             ret.OnAlloc();
             Debug.Log($"[Alloc] obj : {ret.gameObject.GetInstanceID()}");
