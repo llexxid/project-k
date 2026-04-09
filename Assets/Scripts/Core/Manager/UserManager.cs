@@ -1,4 +1,5 @@
 using Cysharp.Threading.Tasks.Triggers;
+using KingdomIdle.KingdomArmy;
 using Scripts.Core;
 using Scripts.Server.DTO;
 using Scripts.Users;
@@ -18,6 +19,7 @@ namespace Scripts.Core
 		[SerializeField]
 		GameObject playerPrefab;
 		List<CharacterDataQuery> _characterDataFromServer;
+	List<Scripts.Server.DTO.ItemCode> _inventoryDataFromServer;
 		private void Awake()
 		{
 			if (Instance == null)
@@ -98,6 +100,10 @@ namespace Scripts.Core
 		{
 			_characterDataFromServer = query;
 		}
+		public void SetInventoryData(List<Scripts.Server.DTO.ItemCode> inventory)
+		{
+			_inventoryDataFromServer = inventory;
+		}
 		public void CreateCharacter()
 		{
 			// ── [Login 우회 폴백] 서버 캐릭터 데이터가 없으면 기본값 사용 ──
@@ -161,6 +167,35 @@ namespace Scripts.Core
 			// 글로벌 강화 보너스 적용
 			if (StatEnhanceManager.Instance != null)
 				StatEnhanceManager.Instance.ApplyToAllPlayers();
+
+			// 서버에서 받은 인벤토리 복원
+			if (_inventoryDataFromServer != null && _inventoryDataFromServer.Count > 0)
+			{
+				var equipDB = KingdomArmyManager.Instance?.EquipDB;
+				if (equipDB != null)
+				{
+					var players = new Player[] { p1, p2, p3 };
+					foreach (Scripts.Server.DTO.ItemCode itemCode in _inventoryDataFromServer)
+					{
+						EquipmentData data = equipDB.GetEquipmentByCode((int)itemCode.GetItemCode());
+						if (data == null) continue;
+
+						Player target = p1;
+						foreach (var p in players)
+						{
+							if (p?.equipmentManager == null) continue;
+							if (data.IsAllowedForJob(p.playerStatus?.JobName ?? ""))
+							{
+								target = p;
+								break;
+							}
+						}
+
+						var instance = new EquipmentInstance(data);
+						target.equipmentManager.Inventory.Add(instance);
+					}
+				}
+			}
 		}
 	}
 

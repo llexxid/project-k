@@ -15,6 +15,7 @@ namespace KingdomIdle.Gacha
         public static GachaManager Instance { get; private set; }
 
         [SerializeField] private List<GachaTableSO> gachaTables = new List<GachaTableSO>();
+        [SerializeField] private EquipmentDatabase _equipmentDatabase;
 
         public IReadOnlyList<GachaTableSO> GetAllTables() => gachaTables;
 
@@ -167,10 +168,16 @@ namespace KingdomIdle.Gacha
 
 		private void OnGachaSuccess(ExecuteFunctionResult result)
         {
-			//For Debugging
 			string json = JsonConvert.SerializeObject(result.FunctionResult);
 			OnGachaEquipmentClassFragmentResponseDTO responsedto = JsonConvert.DeserializeObject<OnGachaEquipmentClassFragmentResponseDTO>(json);
+			if (responsedto?.GachaList == null) return;
 
+			foreach (var itemCode in responsedto.GachaList)
+			{
+				EquipmentData data = _equipmentDatabase.GetEquipmentByCode((int)itemCode.GetItemCode());
+				if (data == null) continue;
+				DistributeEquipmentReward(new GachaRewardEntry { rewardType = eGachaRewardType.Equipment, equipmentData = data });
+			}
 		}
 	}
 }
