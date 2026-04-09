@@ -76,11 +76,6 @@ namespace Scripts.Core
 			return _user.GetStage();
 		}
 
-		public void HealAllCharacter()
-		{
-			_user.HealAllCharacter();
-		}
-
 
 		public void CreateUser(string name, eStage stage, UserDataQuery Userquery, UserEnhanceMentQuery EnchantQuery)
 		{

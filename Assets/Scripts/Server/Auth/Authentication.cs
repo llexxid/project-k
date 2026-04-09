@@ -42,7 +42,6 @@ namespace Scripts.Server.Auth
 		private readonly string key_inventoryData = "Inventory";
 		private readonly string key_currency = "Currency";
 
-
 		public Authentication()
 		{
 			GoogleSignInConfiguration conf = new GoogleSignInConfiguration
@@ -188,7 +187,6 @@ namespace Scripts.Server.Auth
 				pfAuthSuccessCallback,
 				pfAuthErrorCallback
 				);
-
 		}
 
 		private void callbacks(ExecuteFunctionResult result)
@@ -196,6 +194,7 @@ namespace Scripts.Server.Auth
 			Debug.Log("성공");
 		}
 
+		//Test용
 		private void pfAuthSuccessTest(LoginResult result)
 		{
 			//더미유저
@@ -213,21 +212,20 @@ namespace Scripts.Server.Auth
 			UserDataQuery userdata = JsonConvert.DeserializeObject<UserDataQuery>(datas[key_userData].Value);
 			UserEnhanceMentQuery enhancement = JsonConvert.DeserializeObject<UserEnhanceMentQuery>(datas[key_userEnhancement].Value);
 			List<CharacterDataQuery> characterData = JsonConvert.DeserializeObject<List<CharacterDataQuery>>(datas[key_characterData].Value);
-
-			
-
+		
 			//가진 장비나 스킬이 없을수도 있음.
 			if (datas.ContainsKey(key_skillTreeData))
 			{
 				List<SkillCode> skillCodes = JsonConvert.DeserializeObject<List<SkillCode>>(datas[key_skillTreeData].Value);
+				//Todo : 유저에서 Inventory랑 SkillTree가 연결되어야함.
 			}
 			if (datas.ContainsKey(key_inventoryData))
 			{
 				List<ItemID> inventory = JsonConvert.DeserializeObject<List<ItemID>>(datas[key_inventoryData].Value);
+				//Todo : 유저에서 Inventory랑 SkillTree가 연결되어야함.
 			}
 
-			//Todo : 유저에서 Inventory랑 SkillTree가 연결되어야함.
-
+	
 			//유저셋팅
 			UserManager.Instance.CreateUser(nickName,(eStage)currentStage, userdata, enhancement);
 			UserManager.Instance.SetCharacterData(characterData);
@@ -235,6 +233,7 @@ namespace Scripts.Server.Auth
 
 			GameManager.Instance.LoadAsyncScene(eSceneType.main);
 		}
+		//얘가 Release시 실핼될 Google Login함수
 		private void pfAuthSuccessCallback(LoginResult authresult)
 		{
 			//User에 playFabId 셋팅 / SessionTicket셋팅 
@@ -276,10 +275,12 @@ namespace Scripts.Server.Auth
 			if (datas.ContainsKey(key_skillTreeData))
 			{
 				List<SkillCode> skillCodes = JsonConvert.DeserializeObject<List<SkillCode>>(datas[key_skillTreeData].Value);
+				//Todo : 유저에서 Inventory랑 SkillTree가 연결되어야함.
 			}
 			if (datas.ContainsKey(key_inventoryData))
 			{
 				List<ItemID> inventory = JsonConvert.DeserializeObject<List<ItemID>>(datas[key_inventoryData].Value);
+				//Todo : 유저에서 Inventory랑 SkillTree가 연결되어야함.
 			}
 
 
