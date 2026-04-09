@@ -88,14 +88,6 @@ namespace Scripts.Users
 			_userData._killScore = score;
 		}
 
-		public void HealAllCharacter()
-		{
-			int count = 3;
-			for (int i = 0; i < 3; i++)
-			{
-				_players[i].HealingHp();
-			}
-		}
 
 		// ── [장비 시스템 추가] ────────────────────────────────────────
 		/// <summary>
