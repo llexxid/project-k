@@ -20,14 +20,17 @@ namespace KingdomIdle.UIToolkit
 
         public static void Populate(VisualElement panelRoot)
         {
+            Debug.Log($"[DIAG] GachaPanel.Populate ENTER: panelRoot={(panelRoot != null ? panelRoot.GetType().Name : "null")}");
             if (panelRoot == null) return;
 
             _tabBar = panelRoot.Q<VisualElement>("GachaTabBar");
             _content = panelRoot.Q<ScrollView>("GachaContent");
+            Debug.Log($"[DIAG] GachaPanel.Populate: GachaTabBar={(_tabBar != null)} GachaContent={(_content != null)}");
 
-            if (_tabBar == null || _content == null) return;
+            if (_tabBar == null || _content == null) { Debug.LogWarning("[DIAG] GachaPanel.Populate: early return — TabBar or Content null"); return; }
 
             var mgr = GachaManager.Instance;
+            Debug.Log($"[DIAG] GachaPanel.Populate: GachaManager.Instance={(mgr != null ? "OK" : "NULL")}");
             if (mgr == null)
             {
                 _content.Add(new Label("GachaManager를 씬에 배치해주세요."));
@@ -35,6 +38,7 @@ namespace KingdomIdle.UIToolkit
             }
 
             _tables = mgr.GetAllTables();
+            Debug.Log($"[DIAG] GachaPanel.Populate: tables.Count={_tables?.Count ?? -1}");
             if (_tables.Count == 0)
             {
                 _content.Add(new Label("등록된 뽑기 테이블이 없습니다."));
@@ -44,6 +48,7 @@ namespace KingdomIdle.UIToolkit
             _activeTabIndex = 0;
             BuildTabs();
             RefreshContent();
+            Debug.Log("[DIAG] GachaPanel.Populate: EXIT OK");
         }
 
         private static void BuildTabs()

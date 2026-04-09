@@ -265,6 +265,7 @@ namespace KingdomIdle.UIToolkit
 
         public void PushPanel(UIPanelId id, object payload = null, bool clearBefore = false, bool isTabPanel = false)
         {
+            Debug.Log($"[DIAG] PushPanel ENTER: id={id} isTabPanel={isTabPanel} clearBefore={clearBefore}");
             if (clearBefore)
                 ClearPanels();
 
@@ -272,15 +273,18 @@ namespace KingdomIdle.UIToolkit
                 _panelStack.Peek().Ve.AddToClassList("hidden");
 
             var ve = CreatePanel(id, payload);
+            Debug.Log($"[DIAG] PushPanel: CreatePanel({id}) returned ve={(ve != null ? ve.GetType().Name : "null")} childCount={ve?.childCount ?? -1}");
             ForceFullScreen(ve);
 
             ve.pickingMode = PickingMode.Ignore;
 
             _layerPanels.Add(ve);
+            Debug.Log($"[DIAG] PushPanel: added to _layerPanels. _layerPanels.childCount={_layerPanels.childCount} _layerPanels.visible={_layerPanels.visible} _layerPanels.style.display={_layerPanels.style.display.value}");
             _panelStack.Push(new PanelEntry(id, isTabPanel, ve));
 
             BindPanelCommon(ve);
             RefreshActiveTabPanelState();
+            Debug.Log($"[DIAG] PushPanel EXIT: id={id} ve.worldBound={ve.worldBound} ve.resolvedStyle.display={ve.resolvedStyle.display}");
         }
 
         public void PopPanel()
@@ -634,10 +638,21 @@ namespace KingdomIdle.UIToolkit
 
             if (id == UIPanelId.Gacha)
             {
+                Debug.Log($"[DIAG] CreatePanel(Gacha): panelGachaUxml={(panelGachaUxml != null ? "OK" : "NULL")}");
                 VisualElement gachaVe = panelGachaUxml != null
                     ? panelGachaUxml.CloneTree()
                     : new Label("Missing Panel_Gacha UXML");
-                UITKGachaPanelController.Populate(gachaVe);
+                Debug.Log($"[DIAG] CreatePanel(Gacha): gachaVe={gachaVe.GetType().Name} childCount={gachaVe.childCount}");
+                try
+                {
+                    UITKGachaPanelController.Populate(gachaVe);
+                    Debug.Log($"[DIAG] CreatePanel(Gacha): Populate returned OK");
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError($"[DIAG] CreatePanel(Gacha): Populate THREW: {ex}");
+                    throw;
+                }
                 return gachaVe;
             }
 
@@ -786,119 +801,173 @@ namespace KingdomIdle.UIToolkit
 
         private void BindMain(VisualElement root)
         {
-            _bottomBar = root.Q<VisualElement>("BottomBar");
-            if (_bottomBar != null)
+            // NOTE: BindMain 전체를 try/catch로 감싼다. 과거에 이 안의 한 줄(특히 wallet 리플렉션)에서
+            // 예외가 던져지면 이후의 햄버거 바인딩 / WaveUIController.Init 이 전부 실행되지 않아
+            // 햄버거 메뉴 / 뽑기 / 스테이지 UI / 재도전 팝업이 동시에 먹통이 되는 증상이 있었다.
+            // 이제는 예외가 나도 로그만 찍고 나머지 바인딩을 계속 진행한다.
+            try
             {
-                _bottomBar.RegisterCallback<GeometryChangedEvent>(evt =>
+                _bottomBar = root.Q<VisualElement>("BottomBar");
+                if (_bottomBar != null)
                 {
-                    var h = evt.newRect.height;
-                    if (h > 1f)
+                    _bottomBar.RegisterCallback<GeometryChangedEvent>(evt =>
                     {
-                        _bottomBarHeightPx = h;
-                        UpdateAllPanelOffsets();
-                    }
-                });
+                        var h = evt.newRect.height;
+                        if (h > 1f)
+                        {
+                            _bottomBarHeightPx = h;
+                            UpdateAllPanelOffsets();
+                        }
+                    });
 
-                if (_bottomBar.resolvedStyle.height > 1f)
-                    _bottomBarHeightPx = _bottomBar.resolvedStyle.height;
+                    if (_bottomBar.resolvedStyle.height > 1f)
+                        _bottomBarHeightPx = _bottomBar.resolvedStyle.height;
+                }
             }
+            catch (System.Exception ex) { Debug.LogError($"[DIAG] BindMain.BottomBar THREW: {ex}"); }
 
-            BindTab(root.Q<Button>("BtnDevelopment"), UIPanelId.Development, "developmentPanel");
-            BindTab(root.Q<Button>("BtnKingdomArmy"), UIPanelId.KingdomArmy, "kingdomArmyPanel");
-            BindTab(root.Q<Button>("BtnGacha"), UIPanelId.Gacha, "gachaPanel");
-            BindTab(root.Q<Button>("BtnStore"), UIPanelId.Store, "storePanel");
-            BindTab(root.Q<Button>("BtnDungeon"), UIPanelId.Dungeon, "dungeonPanel");
-
-            var bCurrency = root.Q<Button>("BtnCurrency");
-            _popupCurrencies = root.Q<VisualElement>("PopupCurrencies");
-            _lblGold = root.Q<Label>("LblGold");
-            _lblAncientCoin = root.Q<Label>("LblAncientCoin");
-            _wallet = FindAnyWallet();
-            RefreshTopCurrencyLabels();
-
-            if (bCurrency != null && _popupCurrencies != null)
+            try
             {
-                bCurrency.clicked += () =>
+                var btnDev = root.Q<Button>("BtnDevelopment");
+                var btnArmy = root.Q<Button>("BtnKingdomArmy");
+                var btnGacha = root.Q<Button>("BtnGacha");
+                var btnStore = root.Q<Button>("BtnStore");
+                var btnDungeon = root.Q<Button>("BtnDungeon");
+                Debug.Log($"[DIAG] BindMain: BtnDevelopment={(btnDev != null)} BtnKingdomArmy={(btnArmy != null)} BtnGacha={(btnGacha != null)} BtnStore={(btnStore != null)} BtnDungeon={(btnDungeon != null)}");
+                BindTab(btnDev, UIPanelId.Development, "developmentPanel");
+                BindTab(btnArmy, UIPanelId.KingdomArmy, "kingdomArmyPanel");
+                BindTab(btnGacha, UIPanelId.Gacha, "gachaPanel");
+                BindTab(btnStore, UIPanelId.Store, "storePanel");
+                BindTab(btnDungeon, UIPanelId.Dungeon, "dungeonPanel");
+            }
+            catch (System.Exception ex) { Debug.LogError($"[DIAG] BindMain.Tabs THREW: {ex}"); }
+
+            // ── 재화 UI + wallet 탐색 ── (리플렉션 사용 — 예외 가능 지점)
+            try
+            {
+                var bCurrency = root.Q<Button>("BtnCurrency");
+                _popupCurrencies = root.Q<VisualElement>("PopupCurrencies");
+                _lblGold = root.Q<Label>("LblGold");
+                _lblAncientCoin = root.Q<Label>("LblAncientCoin");
+                Debug.Log($"[DIAG] BindMain.Currency: BtnCurrency={(bCurrency != null)} PopupCurrencies={(_popupCurrencies != null)} LblGold={(_lblGold != null)} LblAncientCoin={(_lblAncientCoin != null)}");
+
+                try
+                {
+                    _wallet = FindAnyWallet();
+                    Debug.Log($"[DIAG] BindMain.Currency: FindAnyWallet => {(_wallet != null ? _wallet.GetType().Name : "null")}");
+                }
+                catch (System.Exception wEx)
+                {
+                    Debug.LogError($"[DIAG] BindMain.Currency: FindAnyWallet THREW: {wEx}");
+                    _wallet = null;
+                }
+
+                try
                 {
                     RefreshTopCurrencyLabels();
-                    RebuildCurrencyPopupContents();
-
-                    if (_hamburgerOpen)
-                        CloseHamburgerMenuImmediate();
-
-                    ToggleCurrencyPopup();
-                };
-            }
-
-            _btnHamburgerRight = root.Q<Button>("BtnHamburgerRight");
-            _popupHamburger = root.Q<VisualElement>("PopupHamburger");
-            if (_btnHamburgerRight != null && _popupHamburger != null)
-            {
-                _popupHamburger.style.position = Position.Absolute;
-                _btnHamburgerRight.clicked += ToggleHamburgerMenu;
-                _btnHamburgerRight.RegisterCallback<GeometryChangedEvent>(_ => AlignHamburgerPopup());
-                _popupHamburger.RegisterCallback<GeometryChangedEvent>(_ => AlignHamburgerPopup());
-            }
-
-            var btnProfile = root.Q<Button>("BtnProfileBlank");
-            if (btnProfile != null)
-            {
-                btnProfile.clicked += () =>
+                }
+                catch (System.Exception rEx)
                 {
-                    if (_currencyOpen) CloseCurrencyPopup();
-                    if (_hamburgerOpen) CloseHamburgerMenu();
+                    Debug.LogError($"[DIAG] BindMain.Currency: RefreshTopCurrencyLabels THREW: {rEx}");
+                }
 
-                    if (Enum.TryParse("Profile", true, out UIPanelId profileId))
-                        PushPanel(profileId, "프로필", clearBefore: false, isTabPanel: false);
-                    else
-                        PushPanel(UIPanelId.KingdomArmy, "프로필", clearBefore: false, isTabPanel: false);
-                };
-            }
-
-            var bMenuInventory = root.Q<Button>("BtnMenuInventory");
-            if (bMenuInventory != null)
-            {
-                bMenuInventory.clicked += () =>
+                if (bCurrency != null && _popupCurrencies != null)
                 {
-                    CloseHamburgerMenu();
-                    if (_currencyOpen) CloseCurrencyPopup();
-                    PushPanel(UIPanelId.Inventory, null, clearBefore: false, isTabPanel: false);
-                };
-            }
+                    bCurrency.clicked += () =>
+                    {
+                        RefreshTopCurrencyLabels();
+                        RebuildCurrencyPopupContents();
 
-            var bMenuSettings = root.Q<Button>("BtnMenuSettings");
-            if (bMenuSettings != null)
+                        if (_hamburgerOpen)
+                            CloseHamburgerMenuImmediate();
+
+                        ToggleCurrencyPopup();
+                    };
+                }
+            }
+            catch (System.Exception ex) { Debug.LogError($"[DIAG] BindMain.Currency THREW: {ex}"); }
+
+            // ── 햄버거 버튼 / 팝업 바인딩 ──
+            try
             {
-                bMenuSettings.clicked += () =>
+                _btnHamburgerRight = root.Q<Button>("BtnHamburgerRight");
+                _popupHamburger = root.Q<VisualElement>("PopupHamburger");
+                Debug.Log($"[DIAG] BindMain: BtnHamburgerRight={(_btnHamburgerRight != null)} PopupHamburger={(_popupHamburger != null)} PopupHamburger.parent={(_popupHamburger?.parent?.name ?? "null")}");
+                if (_btnHamburgerRight != null && _popupHamburger != null)
                 {
-                    CloseHamburgerMenu();
-                    if (_currencyOpen) CloseCurrencyPopup();
-                    OpenSettings();
-                };
+                    _popupHamburger.style.position = Position.Absolute;
+                    _btnHamburgerRight.clicked += ToggleHamburgerMenu;
+                    _btnHamburgerRight.clicked += () => Debug.Log("[DIAG] BtnHamburgerRight.clicked fired");
+                    _btnHamburgerRight.RegisterCallback<GeometryChangedEvent>(_ => AlignHamburgerPopup());
+                    _popupHamburger.RegisterCallback<GeometryChangedEvent>(_ => AlignHamburgerPopup());
+                }
             }
+            catch (System.Exception ex) { Debug.LogError($"[DIAG] BindMain.Hamburger THREW: {ex}"); }
 
-            var bMenuNotice = root.Q<Button>("BtnMenuNotice");
-            if (bMenuNotice != null) bMenuNotice.clicked += () => ShowToast("현재는 지원하지 않는 기능입니다.");
-
-            var bMenuMail = root.Q<Button>("BtnMenuMail");
-            if (bMenuMail != null) bMenuMail.clicked += () => ShowToast("현재는 지원하지 않는 기능입니다.");
-
-            // Guide 버튼 (좌측 상단)
-            _lblGuideBadge = root.Q<Label>("LblGuideBadge");
-            var btnGuide = root.Q<Button>("BtnGuide");
-            if (btnGuide != null)
+            try
             {
-                btnGuide.style.display = DisplayStyle.None;
+                var btnProfile = root.Q<Button>("BtnProfileBlank");
+                if (btnProfile != null)
+                {
+                    btnProfile.clicked += () =>
+                    {
+                        if (_currencyOpen) CloseCurrencyPopup();
+                        if (_hamburgerOpen) CloseHamburgerMenu();
+
+                        if (Enum.TryParse("Profile", true, out UIPanelId profileId))
+                            PushPanel(profileId, "프로필", clearBefore: false, isTabPanel: false);
+                        else
+                            PushPanel(UIPanelId.KingdomArmy, "프로필", clearBefore: false, isTabPanel: false);
+                    };
+                }
+
+                var bMenuInventory = root.Q<Button>("BtnMenuInventory");
+                if (bMenuInventory != null)
+                {
+                    bMenuInventory.clicked += () =>
+                    {
+                        CloseHamburgerMenu();
+                        if (_currencyOpen) CloseCurrencyPopup();
+                        PushPanel(UIPanelId.Inventory, null, clearBefore: false, isTabPanel: false);
+                    };
+                }
+
+                var bMenuSettings = root.Q<Button>("BtnMenuSettings");
+                if (bMenuSettings != null)
+                {
+                    bMenuSettings.clicked += () =>
+                    {
+                        CloseHamburgerMenu();
+                        if (_currencyOpen) CloseCurrencyPopup();
+                        OpenSettings();
+                    };
+                }
+
+                var bMenuNotice = root.Q<Button>("BtnMenuNotice");
+                if (bMenuNotice != null) bMenuNotice.clicked += () => ShowToast("현재는 지원하지 않는 기능입니다.");
+
+                var bMenuMail = root.Q<Button>("BtnMenuMail");
+                if (bMenuMail != null) bMenuMail.clicked += () => ShowToast("현재는 지원하지 않는 기능입니다.");
             }
-            if (_lblGuideBadge != null)
-                _lblGuideBadge.style.display = DisplayStyle.None;
-            RefreshGuideBadge();
+            catch (System.Exception ex) { Debug.LogError($"[DIAG] BindMain.Menus THREW: {ex}"); }
+
+            // Guide 버튼은 UXML에서 제거됨 — 더이상 아무것도 하지 않는다.
+            _lblGuideBadge = null;
 
             // ── Wave UI 초기화 ──
-            WaveUIController.Init(root);
+            try
+            {
+                WaveUIController.Init(root);
+                Debug.Log("[DIAG] BindMain: WaveUIController.Init OK");
+            }
+            catch (System.Exception ex) { Debug.LogError($"[DIAG] BindMain.WaveUIController.Init THREW: {ex}"); }
 
             // ── [DEBUG] 디버그 메뉴 초기화 — 제거 시 이 줄 삭제 ──
-            UITKDebugMenuController.Init(root);
+            try
+            {
+                UITKDebugMenuController.Init(root);
+            }
+            catch (System.Exception ex) { Debug.LogError($"[DIAG] BindMain.DebugMenu.Init THREW: {ex}"); }
         }
 
         public void RefreshGuideBadge()
@@ -918,20 +987,36 @@ namespace KingdomIdle.UIToolkit
 
         private void BindTab(Button btn, UIPanelId panelId, object panelName)
         {
-            if (btn == null) return;
-            btn.clicked += () => OnTabPressed(panelId, panelName);
+            if (btn == null) { Debug.LogWarning($"[DIAG] BindTab: btn is NULL for panelId={panelId}"); return; }
+            btn.clicked += () =>
+            {
+                Debug.Log($"[DIAG] Tab button clicked: panelId={panelId}");
+                OnTabPressed(panelId, panelName);
+            };
         }
 
         private void OnTabPressed(UIPanelId panelId, object panelName)
         {
+            Debug.Log($"[DIAG] OnTabPressed ENTER: panelId={panelId} _hasActiveTabPanel={_hasActiveTabPanel} _activeTabPanelId={_activeTabPanelId} _panelStack.Count={_panelStack.Count}");
             if (_hasActiveTabPanel && _activeTabPanelId.Equals(panelId))
             {
+                Debug.Log($"[DIAG] OnTabPressed: same tab pressed, clearing panels and returning");
                 ClearPanels();
                 return;
             }
 
             ClearPanels();
-            PushPanel(panelId, panelName, clearBefore: false, isTabPanel: true);
+            Debug.Log($"[DIAG] OnTabPressed: calling PushPanel({panelId})");
+            try
+            {
+                PushPanel(panelId, panelName, clearBefore: false, isTabPanel: true);
+                Debug.Log($"[DIAG] OnTabPressed: PushPanel({panelId}) returned OK. _panelStack.Count={_panelStack.Count}");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[DIAG] OnTabPressed: PushPanel({panelId}) THREW: {ex}");
+                throw;
+            }
         }
 
         private void BindPanelCommon(VisualElement panelRoot)
@@ -1339,13 +1424,19 @@ namespace KingdomIdle.UIToolkit
 
         private void ToggleHamburgerMenu()
         {
-            if (_popupHamburger == null || _btnHamburgerRight == null) return;
+            Debug.Log($"[DIAG] ToggleHamburgerMenu ENTER: _popupHamburger={(_popupHamburger != null)} _btnHamburgerRight={(_btnHamburgerRight != null)} _hamburgerOpen={_hamburgerOpen}");
+            if (_popupHamburger == null || _btnHamburgerRight == null)
+            {
+                Debug.LogWarning("[DIAG] ToggleHamburgerMenu: early return — null reference");
+                return;
+            }
             if (_hamburgerOpen) CloseHamburgerMenu();
             else OpenHamburgerMenu();
         }
 
         private void OpenHamburgerMenu()
         {
+            Debug.Log($"[DIAG] OpenHamburgerMenu ENTER: _popupHamburger={(_popupHamburger != null)} parent={_popupHamburger?.parent?.name ?? "null"}");
             if (_popupHamburger == null) return;
 
             if (_currencyOpen)
@@ -1355,6 +1446,7 @@ namespace KingdomIdle.UIToolkit
             _popupHamburger.pickingMode = PickingMode.Position;
             _popupHamburger.BringToFront();
             AlignHamburgerPopup();
+            Debug.Log($"[DIAG] OpenHamburgerMenu: after Align — worldBound={_popupHamburger.worldBound} resolvedStyle.display={_popupHamburger.resolvedStyle.display} resolvedStyle.width={_popupHamburger.resolvedStyle.width} resolvedStyle.height={_popupHamburger.resolvedStyle.height} hasHidden={_popupHamburger.ClassListContains("hidden")}");
 
             RegisterHamburgerOutsideClose();
 
@@ -1477,6 +1569,7 @@ namespace KingdomIdle.UIToolkit
             _popupHamburger.style.right = new StyleLength(StyleKeyword.Auto);
             _popupHamburger.style.left = left;
             _popupHamburger.style.top = top;
+            Debug.Log($"[DIAG] AlignHamburgerPopup: parent={parent.name} btnWorld={_btnHamburgerRight.worldBound} parentWorld={parent.worldBound} left={left} top={top} popupW={popupW}");
         }
 
         private void RegisterHamburgerOutsideClose()
