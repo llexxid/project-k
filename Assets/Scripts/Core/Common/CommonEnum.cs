@@ -56,6 +56,13 @@ namespace Scripts.Core
         WaveMask = 0x0000FFFF,
     }
 
+    public enum eSkillCode
+    {
+		LIGTENING = 0,
+		ICESPIKE = 1,
+		FIRETORNADO = 2,
+	}
+
     public enum AssetIdMask : ulong
     {
         //StageNumber는 최상위 30bit가 모두 0이어야함.

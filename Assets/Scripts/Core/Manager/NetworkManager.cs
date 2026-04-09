@@ -39,6 +39,12 @@ namespace Scripts.Core.Manager
 		{
 			_AuthComponent = new Authentication();
 		}
+
+		public void SetSessionGUID(string guid)
+		{
+			_sessionGUID = guid;
+		}
+
 		public void SetSessionID(string id)
 		{
 			_playFabId = id;
@@ -71,6 +77,12 @@ namespace Scripts.Core.Manager
 		public void AuthenticateTest()
 		{
 			_AuthComponent.Authenticate(eAuthType.CustomLogin);
+		}
+
+		//For Testing
+		public void DummyLogin()
+		{
+			_AuthComponent.Authenticate(eAuthType.DummyLogin);
 		}
 
 		public void Authenticate(eAuthType authType)
@@ -109,7 +121,7 @@ namespace Scripts.Core.Manager
 			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
 		}
 
-		public void OnHuntReward(List<RewardCode> sendMsg, Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
+		public void OnHuntReward(List<HuntResult> sendMsg, Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
 		{
 			OnRewardRequestDTO request = new OnRewardRequestDTO
 			{
@@ -126,6 +138,41 @@ namespace Scripts.Core.Manager
 
 			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
 		}
+
+		public void OnStageClear(Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
+		{
+			OnStageClearRequestDTO request = new OnStageClearRequestDTO
+			{
+				SessionID = _sessionGUID,
+			};
+
+			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
+			{
+				FunctionName = "OnStageClear",
+				GeneratePlayStreamEvent = true,
+			};
+
+			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
+		}
+
+		public void OnGachaClick(int count, Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
+		{
+			OnGachaRequestDTO request = new OnGachaRequestDTO
+			{
+				SessionID = _sessionGUID,
+				Count = count,
+			};
+
+			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
+			{
+				FunctionName = "OnGachaEquipmentClassFragment",
+				FunctionParameter = request,
+				GeneratePlayStreamEvent = true,
+			};
+
+			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
+		}
+
 
 		private void OnDuplicatedNickNameCallback(PlayFab.PlayFabError error)
 		{

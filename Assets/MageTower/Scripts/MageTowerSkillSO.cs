@@ -17,6 +17,12 @@ namespace KingdomIdle.MageTower
         public int maxAwakeningLevel = 10;
         public GameObject prefab;
 
+        [Header("SFX")]
+        [Tooltip("스킬 발동 시 1회 재생되는 SFX 이름 (eSFXType 항목과 정확히 일치해야 함)")]
+        public string sfxName;
+        [Tooltip("스킬 지속 동안 루프 재생되는 SFX 이름 (지속형 스킬 전용)")]
+        public string sfxLoopName;
+
         [SerializeField]
         private List<SkillEffect> effects = new List<SkillEffect>();
 

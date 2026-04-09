@@ -26,6 +26,10 @@ namespace Scripts.Wallets
 			AddCoins(eCurrency.ClassFragment, classfragments);
 		}
 
+		public void SetCoin(eCurrency type, long amount)
+		{
+			pocket[type] = amount;
+		}
 		public int TotalCoins
 		{
 			get { return totalCoins; }
