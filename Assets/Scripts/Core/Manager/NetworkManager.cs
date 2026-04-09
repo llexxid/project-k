@@ -14,6 +14,7 @@ using UnityEngine;
 
 namespace Scripts.Core.Manager
 {
+	using ItemCode = Scripts.Server.DTO.ItemCode;
 	public class NetworkManager : MonoBehaviour
 	{
 		public static NetworkManager Instance;
@@ -155,7 +156,7 @@ namespace Scripts.Core.Manager
 			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
 		}
 
-		public void OnGachaClick(int count, Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
+		public void OnGachaEquipmentClick(int count, Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
 		{
 			OnGachaRequestDTO request = new OnGachaRequestDTO
 			{
@@ -172,7 +173,110 @@ namespace Scripts.Core.Manager
 
 			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
 		}
+		
+		//TestÇØ¾ßÇÔ.
+		public void OnGachaSkillClick(int count, Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
+		{
+			OnGachaRequestDTO request = new OnGachaRequestDTO
+			{
+				SessionID = _sessionGUID,
+				Count = count,
+			};
 
+			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
+			{
+				FunctionName = "OnGachaSkillArcaneKnowledge",
+				FunctionParameter = request,
+				GeneratePlayStreamEvent = true,
+			};
+
+			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
+		}
+		public void OnEnchantHp(int count, Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
+		{
+			OnEnchantRequestDTO request = new OnEnchantRequestDTO
+			{
+				SessionID = _sessionGUID,
+				Count = count,
+			};
+
+			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
+			{
+				FunctionName = "OnEnChantHP",
+				FunctionParameter = request,
+				GeneratePlayStreamEvent = true,
+			};
+
+			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
+		}
+		public void OnEnchantATK(int count, Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
+		{
+			OnEnchantRequestDTO request = new OnEnchantRequestDTO
+			{
+				SessionID = _sessionGUID,
+				Count = count,
+			};
+
+			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
+			{
+				FunctionName = "OnEnChantATK",
+				FunctionParameter = request,
+				GeneratePlayStreamEvent = true,
+			};
+
+			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
+		}
+		
+		public void OnEnchantEquipment(ItemCode code, Action<ExecuteFunctionResult> successCallback, Action<PlayFabError> errorCallback)
+		{
+			OnEnchantEquipmentRequestDTO request = new OnEnchantEquipmentRequestDTO
+			{
+				SessionID = _sessionGUID,
+				ItemCode = code,
+			};
+
+			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
+			{
+				FunctionName = "OnEnchantEquipment",
+				FunctionParameter = request,
+				GeneratePlayStreamEvent = true,
+			};
+
+			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
+		}
+		public void OnEnchantSkill(SkillCode code, Action<ExecuteFunctionResult> successCallback, Action<PlayFabError> errorCallback)
+		{
+			OnEnchantSkillRequestDTO request = new OnEnchantSkillRequestDTO
+			{
+				SessionID = _sessionGUID,
+				SkillCode = code,
+			};
+
+			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
+			{
+				FunctionName = "OnEnChantSkill",
+				FunctionParameter = request,
+				GeneratePlayStreamEvent = true,
+			};
+
+			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
+		}
+		public void OnAwakenSkill(SkillCode code, Action<ExecuteFunctionResult> successCallback, Action<PlayFabError> errorCallback)
+		{
+			OnAwakeningSkillRequestDTO request = new OnAwakeningSkillRequestDTO
+			{
+				SessionID = _sessionGUID,
+				SkillCode = code,
+			};
+
+			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
+			{
+				FunctionName = "OnAwakeningSkill",
+				FunctionParameter = request,
+				GeneratePlayStreamEvent = true,
+			};
+			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
+		}
 
 		private void OnDuplicatedNickNameCallback(PlayFab.PlayFabError error)
 		{

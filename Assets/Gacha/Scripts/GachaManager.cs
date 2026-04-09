@@ -10,7 +10,9 @@ using Scripts.Core.Manager;
 
 namespace KingdomIdle.Gacha
 {
-    public class GachaManager : MonoBehaviour
+    using ItemCode = Scripts.Server.DTO.ItemCode;
+
+	public class GachaManager : MonoBehaviour
     {
         public static GachaManager Instance { get; private set; }
 
@@ -155,7 +157,6 @@ namespace KingdomIdle.Gacha
 
 		private void Update()
 		{
-
 		}
 
         private void OnGachaError(PlayFab.PlayFabError error)
@@ -164,12 +165,16 @@ namespace KingdomIdle.Gacha
             Debug.Log(error.ErrorMessage);
         }
 
+		private void OnSuccess(ExecuteFunctionResult result)
+		{
+			Debug.Log("Success");
+		}
 
 		private void OnGachaSuccess(ExecuteFunctionResult result)
         {
 			//For Debugging
 			string json = JsonConvert.SerializeObject(result.FunctionResult);
-			OnGachaEquipmentClassFragmentResponseDTO responsedto = JsonConvert.DeserializeObject<OnGachaEquipmentClassFragmentResponseDTO>(json);
+			OnGachaSkillArcaneKnowledgeResponseDTO responsedto = JsonConvert.DeserializeObject<OnGachaSkillArcaneKnowledgeResponseDTO>(json);
 
 		}
 	}

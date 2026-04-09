@@ -41,6 +41,8 @@ namespace Scripts.Server.Auth
 		private readonly string key_skillTreeData = "SkillTreeData";
 		private readonly string key_inventoryData = "Inventory";
 		private readonly string key_currency = "Currency";
+		private readonly string key_jobTree = "JobTree";
+		
 
 		public Authentication()
 		{
@@ -212,7 +214,7 @@ namespace Scripts.Server.Auth
 			UserDataQuery userdata = JsonConvert.DeserializeObject<UserDataQuery>(datas[key_userData].Value);
 			UserEnhanceMentQuery enhancement = JsonConvert.DeserializeObject<UserEnhanceMentQuery>(datas[key_userEnhancement].Value);
 			List<CharacterDataQuery> characterData = JsonConvert.DeserializeObject<List<CharacterDataQuery>>(datas[key_characterData].Value);
-		
+			List<JobTreeQuery> jobtree = JsonConvert.DeserializeObject<List<JobTreeQuery>>(datas[key_jobTree].Value);
 			//가진 장비나 스킬이 없을수도 있음.
 			if (datas.ContainsKey(key_skillTreeData))
 			{
@@ -270,6 +272,7 @@ namespace Scripts.Server.Auth
 			UserDataQuery userdata = JsonConvert.DeserializeObject<UserDataQuery>(datas[key_userData].Value);
 			UserEnhanceMentQuery enhancement = JsonConvert.DeserializeObject<UserEnhanceMentQuery>(datas[key_userEnhancement].Value);
 			List<CharacterDataQuery> characterData = JsonConvert.DeserializeObject<List<CharacterDataQuery>>(datas[key_characterData].Value);
+			List<JobTreeQuery> jobtree = JsonConvert.DeserializeObject<List<JobTreeQuery>>(datas[key_jobTree].Value);
 
 			//가진 장비나 스킬이 없을수도 있음.
 			if (datas.ContainsKey(key_skillTreeData))

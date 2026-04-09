@@ -35,5 +35,44 @@ namespace Scripts.Server.DTO
 		public string SessionID { get; set; }
 		public int Count { get; set; }
 	}
+
+	public class OnEnchantRequestDTO
+	{
+		public string SessionID { get; set; }
+		public int Count { get; set; }
+	}
+
+	public class OnEnchantEquipmentRequestDTO
+	{
+		public string SessionID { get; set; }
+		public ItemCode ItemCode { get; set; }
+	}
+
+	public class OnEnchantSkillBaseRequest
+	{
+		public string SessionID { get; set; }
+		public SkillCode SkillCode { get; set; }
+	}
+
+	public class OnEnchantSkillRequestDTO : OnEnchantSkillBaseRequest
+	{
+
+	}
+
+	public class OnAwakeningSkillRequestDTO : OnEnchantSkillBaseRequest
+	{
+
+	}
+	public class OnJobRequestBaseDTO
+	{
+		public string SessionID { get; set; }
+		public int Index { get; set; }
+		public ulong JobCode { get; set; }
+	}
+	public class OnGetJobRequestDTO : OnJobRequestBaseDTO
+	{
+
+	}
+
 }
 

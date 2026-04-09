@@ -15,10 +15,18 @@ namespace Scripts.Server.DTO
 		public int ATK { get; set; }
 	}
 
+	public class JobTreeQuery
+	{
+		//캐릭터 인덱스
+		public int Index { get; set; }
+		public List<ulong> JobList { get; set; }
+	}
+
 	/* 스킬트리 LayOut 
  * 스킬트리 코드
 	[63 - 52] 예약 공간 (12bit)
 	[51 - 36] 스킬 코드 (16bit)
+
 	[35 - 28] 강화수치 (8bit)
 	[27 - 16] 각성수치 (12bit)
 	[15 - 0] 갯수 (16bit)
@@ -38,8 +46,7 @@ namespace Scripts.Server.DTO
 
 		public override int GetHashCode()
 		{
-			// ulong 내부에 구현된 GetHashCode를 그대로 사용합니다.
-			return Code.GetHashCode();
+			return GetSkillId().GetHashCode();
 		}
 
 		//기존 Equals override
@@ -54,7 +61,7 @@ namespace Scripts.Server.DTO
 		//IEquatable Equals 구현
 		public bool Equals(SkillCode other)
 		{
-			return this.Code == other.Code;
+			return GetSkillId() == other.GetSkillId();
 		}
 
 		public static bool operator ==(SkillCode lhs, SkillCode rhs)
@@ -67,15 +74,47 @@ namespace Scripts.Server.DTO
 			return !(lhs.Equals(rhs));
 		}
 
-		public void IncreaseCount(int gap = 1)
+		public ulong IncreaseCount(int gap = 1)
 		{
-			ulong count = GetEnchantCount();
+			ulong count = GetSkillAmount();
 			if (count + (ulong)gap >= 0x0000000000010000)
 			{
-				return;
+				return 0;
 			}
-			Code = Code + (ulong)gap;
+			return Code + (ulong)gap;
 		}
+
+		public ulong IncreaseEnchant(int gap = 1)
+		{
+			ulong enchantCnt = GetEnchantCount();
+			if (enchantCnt + (ulong)gap >= 0x0000000000000100)
+			{
+				return 0;
+			}
+			ulong enchantAdder = (ulong)gap << 28;
+			return Code + enchantAdder;
+		}
+		public ulong IncreaseAwakening(int gap = 1)
+		{
+			ulong awaken = GetAwakeningCount();
+			if (awaken + (ulong)gap >= 0x0000000000001000)
+			{
+				return 0;
+			}
+			ulong AwakenAdder = (ulong)gap << 28;
+			return Code + AwakenAdder;
+		}
+		public ulong DecreaseCount(int gap = 1)
+		{
+			ulong count = GetSkillAmount();
+			if ((long)count - (long)gap < 0)
+			{
+				return 0;
+			}
+			ulong retAmount = Code - (ulong)gap;
+			return retAmount;
+		}
+
 		public ulong GetSkillId()
 		{
 			ulong skillcodeMask = 0x000FFFF000000000;
@@ -91,10 +130,10 @@ namespace Scripts.Server.DTO
 			ulong AwakeCountMask = 0x000000000FFF0000;
 			return (Code & AwakeCountMask) >> 16;
 		}
-		public ulong GetItemAmount()
+		public ulong GetSkillAmount()
 		{
-			ulong ItemAmountMask = 0x000000000000FFFF;
-			return (Code & ItemAmountMask);
+			ulong SkillAmountMask = 0x000000000000FFFF;
+			return (Code & SkillAmountMask);
 		}
 	}
 	/*
@@ -115,7 +154,7 @@ namespace Scripts.Server.DTO
 		public override int GetHashCode()
 		{
 			// ulong 내부에 구현된 GetHashCode를 그대로 사용합니다.
-			return Code.GetHashCode();
+			return GetItemCode().GetHashCode();
 		}
 
 		//기존 Equals override
@@ -153,14 +192,39 @@ namespace Scripts.Server.DTO
 			return ret;
 		}
 
-		public void IncreaseCount(int gap = 1)
+		public ulong IncreaseCount(int gap = 1)
 		{
 			ulong count = GetItemAmount();
 			if (count + (ulong)gap >= 0x0000000000010000)
 			{
-				return;
+				return Code;
 			}
-			Code = Code + (ulong)gap;
+			return Code + (ulong)gap;
+		}
+
+		public ulong IncreaseEnchant(int gap = 1)
+		{
+			ulong enchantCnt = GetItemEnchantCount();
+
+			//강화 횟수 초과
+			if (enchantCnt + (ulong)gap >= 0x0000000000000100)
+			{
+				return Code;
+			}
+
+			ulong enchantAdder = (ulong)gap << 16;
+			return Code + enchantAdder;
+		}
+
+		public ulong DecreaseCount(int gap = 1)
+		{
+			ulong count = GetItemAmount();
+			//음수인 경우
+			if ((long)count - (long)gap < 0)
+			{
+				return Code;
+			}
+			return Code - (ulong)gap;
 		}
 
 		public ulong GetItemCode()
@@ -195,8 +259,6 @@ namespace Scripts.Server.DTO
 			return (Code & ItemEnchantCountMask);
 		}
 	}
-
-
 	public class UserCurrentStageQuery
 	{
 		public eStage CurrentStage { get; set; }
@@ -306,6 +368,15 @@ namespace Scripts.Server.DTO
 	public class InventoryQueryDTO
 	{
 		public List<ItemCode> Items { get; set; }
+		public string PasreToJson()
+		{
+			return JsonConvert.SerializeObject(this);
+		}
+	}
+
+	public class SkillTreeDTO
+	{
+		public List<SkillCode> SkillTrees { get; set; }
 		public string PasreToJson()
 		{
 			return JsonConvert.SerializeObject(this);
