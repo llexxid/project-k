@@ -13,13 +13,12 @@ namespace Scripts.Core
         {
             _stack = new Stack<T>(capacity);
             _capacity = capacity;
-            _generator = generator;
 
             T obj;
             for (int i = 0; i < capacity; i++)
             {
-                obj = _generator.Invoke();
-                _stack.Push(obj);
+                obj = generator.Invoke();
+				_stack.Push(obj);
             }
         }
 
@@ -31,7 +30,6 @@ namespace Scripts.Core
             IsPop = _stack.TryPop(out ret);
             if (!IsPop)
             {
-                ret = _generator.Invoke();
                 ret.OnAlloc();
                 ++_capacity;
                 ret.IsActive = true;

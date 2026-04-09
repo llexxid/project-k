@@ -5,6 +5,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
+using static PlayerSkill;
 
 namespace Scripts.Server.DTO
 {
@@ -22,10 +23,59 @@ namespace Scripts.Server.DTO
 	[27 - 16] 각성수치 (12bit)
 	[15 - 0] 갯수 (16bit)
 */
-	public struct SkillCode
+	public struct SkillCode : IEquatable<SkillCode>
 	{
 		public ulong Code { get; set; }
 
+		public static SkillCode GenerateSkillCode(eSkillCode skillID)
+		{
+			SkillCode ret = new SkillCode
+			{
+				Code = (ulong)skillID << 36
+			};
+			return ret;
+		}
+
+		public override int GetHashCode()
+		{
+			// ulong 내부에 구현된 GetHashCode를 그대로 사용합니다.
+			return Code.GetHashCode();
+		}
+
+		//기존 Equals override
+		public override bool Equals(object obj)
+		{
+			if (obj is SkillCode other)
+			{
+				return Equals(other);
+			}
+			return false;
+		}
+		//IEquatable Equals 구현
+		public bool Equals(SkillCode other)
+		{
+			return this.Code == other.Code;
+		}
+
+		public static bool operator ==(SkillCode lhs, SkillCode rhs)
+		{
+			return lhs.Equals(rhs);
+		}
+
+		public static bool operator !=(SkillCode lhs, SkillCode rhs)
+		{
+			return !(lhs.Equals(rhs));
+		}
+
+		public void IncreaseCount(int gap = 1)
+		{
+			ulong count = GetEnchantCount();
+			if (count + (ulong)gap >= 0x0000000000010000)
+			{
+				return;
+			}
+			Code = Code + (ulong)gap;
+		}
 		public ulong GetSkillId()
 		{
 			ulong skillcodeMask = 0x000FFFF000000000;
@@ -57,14 +107,66 @@ namespace Scripts.Server.DTO
 [23 - 16]  강화 수치    (8bit)
 [15 - 0]  갯수 (16bit)
 	 */
-	public struct ItemCode
+	public struct ItemCode : IEquatable<ItemCode>
 	{
 		public ulong Code { get; set; }
 		public ulong ExpireTimesc { get; set; } // 0인경우 무제한
-		public ulong GetItemId()
+
+		public override int GetHashCode()
 		{
-			ulong ItemIDMask = 0x00FFFF0000000000;
-			return (Code & ItemIDMask) >> 40;
+			// ulong 내부에 구현된 GetHashCode를 그대로 사용합니다.
+			return Code.GetHashCode();
+		}
+
+		//기존 Equals override
+		public override bool Equals(object obj)
+		{
+			if (obj is ItemCode other)
+			{
+				return Equals(other);
+			}
+			return false;
+		}
+		//IEquatable Equals 구현
+		public bool Equals(ItemCode other)
+		{
+			ulong itemCode = GetItemCode();
+			ulong otherItemCode = other.GetItemCode();
+			return itemCode == otherItemCode;
+		}
+
+		public static bool operator ==(ItemCode lhs, ItemCode rhs)
+		{
+			return lhs.Equals(rhs);
+		}
+
+		public static bool operator !=(ItemCode lhs, ItemCode rhs)
+		{
+			return !(lhs.Equals(rhs));
+		}
+
+		public static ItemCode GenerateItemCode(int itemCode)
+		{
+			ItemCode ret = new ItemCode();
+			ret.Code = (ulong)itemCode << 24;
+			ret.ExpireTimesc = 0;
+			return ret;
+		}
+
+		public void IncreaseCount(int gap = 1)
+		{
+			ulong count = GetItemAmount();
+			if (count + (ulong)gap >= 0x0000000000010000)
+			{
+				return;
+			}
+			Code = Code + (ulong)gap;
+		}
+
+		public ulong GetItemCode()
+		{
+			ulong ItemIDMask = 0x00FFFFFFFF000000;
+			return (Code & ItemIDMask) >> 24;
 		}
 
 		public ulong GetItemRarity()
@@ -107,15 +209,20 @@ namespace Scripts.Server.DTO
 			Level = level;
 			Exp = exp;
 			MonsterKilled = monsterkilled;
+
+			dtLastLoginTime = DateTime.UtcNow;
+			LastLogInTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+			LastRewardTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 		}
 
 		public int Level { get; set; }
 		public long Exp { get; set; }
 		public long MonsterKilled { get; set; }
-
+		//Time
 		public DateTime dtLastLoginTime { get; set; }
 		public long LastLogInTime { get; set; }
 		public long LastRewardTime { get; set; }
+
 		public string PasreToJson()
 		{
 			return JsonConvert.SerializeObject(this);
@@ -128,8 +235,10 @@ namespace Scripts.Server.DTO
 			EnhancementHp = enhancementHp;
 			EnhancementAtk = enhancementatk;
 		}
+
 		public ulong EnhancementHp { get; set; }
 		public ulong EnhancementAtk { get; set; }
+
 		public string PasreToJson()
 		{
 			return JsonConvert.SerializeObject(this);
@@ -163,13 +272,14 @@ namespace Scripts.Server.DTO
 			CharacterNum = characternum;
 			ItemCode = itemcode;
 		}
-		public int CharacterNum;
-		public ulong ItemCode;
+		public int CharacterNum { get; set; }
+		public ulong ItemCode { get; set; }
 		public string PasreToJson()
 		{
 			return JsonConvert.SerializeObject(this);
 		}
 	}
+
 	public class CurrencyQueryDTO
 	{
 		public CurrencyQueryDTO(long gold, long ancientCoin, long kingdomSupply, long arcaneKnowledge, long classFragment)
@@ -187,6 +297,15 @@ namespace Scripts.Server.DTO
 		public long ArcaneKnowledge { get; set; } //마탑스킬강화
 		public long ClassFragment { get; set; } // 전직재화
 
+		public string PasreToJson()
+		{
+			return JsonConvert.SerializeObject(this);
+		}
+	}
+
+	public class InventoryQueryDTO
+	{
+		public List<ItemCode> Items { get; set; }
 		public string PasreToJson()
 		{
 			return JsonConvert.SerializeObject(this);
