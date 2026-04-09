@@ -70,7 +70,6 @@ public class PlayerDetection
         Monster mon;
         float closestDist = float.MaxValue;
 
-		Debug.Log($"Detect Count : {count}");
 		for (int i = 0; i < count; i++)
         {
             if (!detectedResults[i].CompareTag("Enemy"))
@@ -81,7 +80,6 @@ public class PlayerDetection
             mon = detectedResults[i].GetComponent<Monster>();
 			if (mon.MonAction == eMonsterAction.Dead)
 			{
-                Debug.Log($"{i} | Player Detect DeadMonster : {mon.gameObject.GetInstanceID()}");
                 continue;
 			}
 

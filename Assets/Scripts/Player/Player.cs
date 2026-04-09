@@ -91,7 +91,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
             damageable?.TakeDamage(new PlayerSkill.DamageProxy(counterDamage, gameobj));
 
             UITKDamageTextBridge.ShowOnTransform(transform, (ulong)counterDamage, Color.yellow);
-            Debug.Log($"[Player] 패링 성공! 반격 데미지: {counterDamage}");
             return true;
         }
 
@@ -141,7 +140,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
     public void ResetTarget(IDamageable target)
     {
-        Debug.Log($"Player : {gameObject.GetInstanceID()} Reset Target");
         _currentTarget = null;
         currentTarget = null;
 	}
@@ -157,7 +155,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 			_currentTarget.OnDeath -= ResetTarget;
 		}
 
-        Debug.Log($"Player : {gameObject.GetInstanceID()} |Player SetMonster : {target.gameobj.GetInstanceID()} | target_action : {target.gameobj.GetComponent<Monster>().MonAction}");
         target.OnDeath += ResetTarget;
         _currentTarget = target;
         currentTarget = target;
@@ -166,7 +163,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     private IEnumerator PauseAfterDeadAnimation()
     {
         float deadAnimLength = GetClipLength("Dead_Anim");
-        Debug.Log($"[Player] 사망 애니메이션 대기: {deadAnimLength}초");
         yield return new WaitForSeconds(deadAnimLength);
 
 		OnDeath?.Invoke(this);
@@ -221,8 +217,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
             _data._extraHp += skill.passiveShieldAmount;
             _shieldPassiveActivated = true;
-            Debug.Log($"[Player] 보호막 패시브 발동: +{skill.passiveShieldAmount} " +
-                      $"(현재 HP {hpRatio:P0} ≤ 임계값 {skill.passiveShieldHPThreshold:P0})");
             break;
         }
     }
@@ -314,8 +308,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         float clipLen = GetClipLength("Attack_Anim");
         if (playerOrder?._attack != null)
             playerOrder._attack.attackRate = clipLen;
-
-        Debug.Log($"[Player] AnimatorComponent 재구성 완료. Attack 클립: {clipLen}초");
     }
 
     private float GetClipLength(string clipName, float fallback = 0.4f)
@@ -330,7 +322,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         {
             if (clip.name == clipName)
             {
-                Debug.Log($"[Player] '{clipName}' 클립 길이: {clip.length}초");
                 return clip.length;
             }
         }

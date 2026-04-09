@@ -85,8 +85,6 @@ public class PlayerOrder
 
         // 기존 Selector의 자식 노드 목록을 교체
         _attackSelector.ReplaceChildren(nodes);
-
-        Debug.Log($"[PlayerOrder] 스킬 트리 재조립 완료. 스킬 {skills?.Count ?? 0}개 + 일반 공격");
     }
 
     private bool _isAbort;

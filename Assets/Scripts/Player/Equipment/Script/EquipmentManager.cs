@@ -65,7 +65,6 @@ public class EquipmentManager
     public void SetCurrentJob(string jobName)
     {
         _currentJobName = jobName ?? "";
-        Debug.Log($"[EquipmentManager] 현재 직업 설정: '{_currentJobName}'");
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -87,8 +86,6 @@ public class EquipmentManager
         _equipped[instance.baseData.slot] = instance;
         RecalculateStats();
         OnEquipped?.Invoke(instance.baseData.slot, instance);
-
-        Debug.Log($"[EquipmentManager] 착용: {instance.baseData.equipmentName} +{instance.enhancementLevel} ({instance.baseData.rarity})");
     }
 
     /// <summary>지정 슬롯의 장비를 해제한다.</summary>
@@ -104,8 +101,6 @@ public class EquipmentManager
         _equipped.Remove(slot);
         RecalculateStats();
         OnUnequipped?.Invoke(slot);
-
-        Debug.Log($"[EquipmentManager] 해제: {removedName}");
     }
 
     /// <summary>슬롯에 착용된 인스턴스를 반환한다. 없으면 null.</summary>
@@ -141,8 +136,6 @@ public class EquipmentManager
 
         if (candidates.Count == 0)
         {
-            // 창병처럼 직업에 해당 장비가 없는 경우 조용히 스킵
-            Debug.Log($"[EquipmentManager] 드롭 스킵: '{_currentJobName}' 직업에 {rarity.Value} 등급 장비 없음.");
             return;
         }
 
@@ -151,8 +144,6 @@ public class EquipmentManager
 
         _inventory.Add(item);
         OnItemDropped?.Invoke(item);
-
-        Debug.Log($"[EquipmentManager] 드롭 획득: {picked.equipmentName} ({picked.rarity})");
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -219,14 +210,10 @@ public class EquipmentManager
                 RecalculateStats();
 
             OnEnhanced?.Invoke(instance);
-            Debug.Log($"[EquipmentManager] 강화 성공: {instance.baseData.equipmentName} → +{instance.enhancementLevel} " +
-                      $"(확률: {successRate * 100:F0}%, 재료 {materialCount}개 소모)");
         }
         else
         {
             OnEnhanceFailed?.Invoke(instance);
-            Debug.Log($"[EquipmentManager] 강화 실패: {instance.baseData.equipmentName} +{instance.enhancementLevel} 유지 " +
-                      $"(확률: {successRate * 100:F0}%, 재료 {materialCount}개 소모)");
         }
 
         return success;
@@ -308,7 +295,6 @@ public class EquipmentManager
         _inventory.Add(result);
 
         OnSynthesized?.Invoke(result);
-        Debug.Log($"[EquipmentManager] 합성 완료: {baseData.equipmentName} ×{SYNTHESIS_REQUIRED_COUNT} → {picked.equipmentName} ({picked.rarity})");
         return result;
     }
 
