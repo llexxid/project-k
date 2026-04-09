@@ -23,12 +23,6 @@
                     <ui:Label text="예: 티켓 0" class="dropdown-item" />
                 </ui:VisualElement>
                 <ui:Button name="BtnHamburgerRight" class="hamburger-right" style="background-image: url(&quot;project://database/Assets/UI/Art/Textures/Icons/8/MinusBlueDark.png?fileID=2800000&amp;guid=15f9041f0bb456f429d27aadd95819e9&amp;type=3#MinusBlueDark&quot;);" />
-                <ui:VisualElement name="PopupHamburger" class="dropdown hamburger-dropdown hidden">
-                    <ui:Button name="BtnMenuInventory" text="📦" class="dropdown-btn" />
-                    <ui:Button name="BtnMenuSettings" class="dropdown-btn" style="background-image: url(&quot;project://database/Assets/UI/Art/Textures/Icons/8/WrenchBlueDark.png?fileID=2800000&amp;guid=d1852c715746ab64a83ee6aa17e44c13&amp;type=3#WrenchBlueDark&quot;);" />
-                    <ui:Button name="BtnMenuNotice" text="!" class="dropdown-btn" style="background-image: url(&quot;project://database/Assets/UI/Art/Textures/Icons/8/WarningBlueDark.png?fileID=2800000&amp;guid=15f1f540720f1864d8c263a65e250fc8&amp;type=3#WarningBlueDark&quot;);" />
-                    <ui:Button name="BtnMenuMail" text="✉" class="dropdown-btn" />
-                </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="StageArea" class="stage-area">
@@ -67,6 +61,13 @@
             <ui:Button name="BtnGacha" text="뽑기" class="tab-btn" />
             <ui:Button name="BtnStore" text="상점" class="tab-btn" />
             <ui:Button name="BtnDungeon" text="던전" class="tab-btn" />
+        </ui:VisualElement>
+        <!-- Hamburger dropdown: reparented to ScreenMain so absolute positioning is relative to full screen, not the auto-height hud-right-wrap (which was clipping/hiding the popup). Placed last so it renders on top. -->
+        <ui:VisualElement name="PopupHamburger" class="dropdown hamburger-dropdown hidden">
+            <ui:Button name="BtnMenuInventory" text="📦" class="dropdown-btn" />
+            <ui:Button name="BtnMenuSettings" class="dropdown-btn" style="background-image: url(&quot;project://database/Assets/UI/Art/Textures/Icons/8/WrenchBlueDark.png?fileID=2800000&amp;guid=d1852c715746ab64a83ee6aa17e44c13&amp;type=3#WrenchBlueDark&quot;);" />
+            <ui:Button name="BtnMenuNotice" text="!" class="dropdown-btn" style="background-image: url(&quot;project://database/Assets/UI/Art/Textures/Icons/8/WarningBlueDark.png?fileID=2800000&amp;guid=15f1f540720f1864d8c263a65e250fc8&amp;type=3#WarningBlueDark&quot;);" />
+            <ui:Button name="BtnMenuMail" text="✉" class="dropdown-btn" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>
