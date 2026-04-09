@@ -398,7 +398,7 @@ namespace KingdomIdle.MageTower
             }
 
             proj.Initialize(dmg, spawnPos, onHit, damageRadius, shakeOnHit,
-                            shakeDuration, shakeMagnitude);
+                            shakeDuration, shakeMagnitude, so.sfxName);
         }
 
         private void SpawnPersistent(int slotIndex, MageTowerSkillSO so)
@@ -416,6 +416,13 @@ namespace KingdomIdle.MageTower
             if (persistent == null)
                 persistent = go.AddComponent<MageTowerSkillPersistent>();
 
+            if (!string.IsNullOrEmpty(so.sfxName) &&
+                System.Enum.TryParse(so.sfxName, out eSFXType fireSfxType))
+            {
+                SFXManager.Instance.GetSFX(
+                    fireSfxType, target.position, Quaternion.identity, sfx => sfx.PlaySFX());
+            }
+
             ulong dmg = (ulong)Mathf.RoundToInt(GetEffectiveDamage(so.id));
             var fire = so.GetEffect<SkillEffect_FireTornado>();
             float duration = fire != null ? fire.duration : 0f;
@@ -423,7 +430,7 @@ namespace KingdomIdle.MageTower
             float moveSpeed = fire != null ? fire.moveSpeed : 8f;
             float arrivalThreshold = fire != null ? fire.arrivalThreshold : 0.05f;
             persistent.Initialize(dmg, duration, tickInterval, moveSpeed,
-                                  arrivalThreshold, slotIndex, so.id, target);
+                                  arrivalThreshold, slotIndex, so.id, target, so.sfxLoopName);
         }
 
         /// <summary>
