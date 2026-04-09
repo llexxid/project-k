@@ -155,15 +155,7 @@ namespace KingdomIdle.Gacha
 
 		private void Update()
 		{
-            if (Input.GetKeyDown(KeyCode.R))
-            {
-                NetworkManager.Instance.DummyLogin();    
-            }
 
-			if (Input.GetKeyDown(KeyCode.E))
-			{
-				NetworkManager.Instance.OnGachaClick(1, OnGachaSuccess, OnGachaError);
-			}
 		}
 
         private void OnGachaError(PlayFab.PlayFabError error)
@@ -177,8 +169,8 @@ namespace KingdomIdle.Gacha
         {
 			//For Debugging
 			string json = JsonConvert.SerializeObject(result.FunctionResult);
-
 			OnGachaEquipmentClassFragmentResponseDTO responsedto = JsonConvert.DeserializeObject<OnGachaEquipmentClassFragmentResponseDTO>(json);
+
 		}
 	}
 }
