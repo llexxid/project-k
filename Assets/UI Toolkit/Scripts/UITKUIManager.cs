@@ -50,6 +50,13 @@ namespace KingdomIdle.UIToolkit
         [Header("Behaviour")]
         [SerializeField] private bool dontDestroyOnLoad = true;
 
+        [Header("SFX")]
+        [SerializeField] private AudioClip _panelOpenSfx;
+        [SerializeField] private AudioClip _panelCloseSfx;
+        [SerializeField] private AudioClip _buttonClickSfx;
+
+        private AudioSource _uiAudioSource;
+
         private VisualElement _root;
         private VisualElement _layerScreens;
         private VisualElement _layerPanels;
@@ -153,6 +160,9 @@ namespace KingdomIdle.UIToolkit
 
             Instance = this;
             if (dontDestroyOnLoad) DontDestroyOnLoad(gameObject);
+
+            _uiAudioSource = gameObject.AddComponent<AudioSource>();
+            _uiAudioSource.playOnAwake = false;
 
             if (uiDocument == null) uiDocument = GetComponent<UIDocument>();
             if (uiDocument == null)
@@ -281,6 +291,9 @@ namespace KingdomIdle.UIToolkit
 
             BindPanelCommon(ve);
             RefreshActiveTabPanelState();
+
+            if (_panelOpenSfx != null)
+                _uiAudioSource.PlayOneShot(_panelOpenSfx);
         }
 
         public void PopPanel()
@@ -294,6 +307,9 @@ namespace KingdomIdle.UIToolkit
                 _panelStack.Peek().Ve.RemoveFromClassList("hidden");
 
             RefreshActiveTabPanelState();
+
+            if (_panelCloseSfx != null)
+                _uiAudioSource.PlayOneShot(_panelCloseSfx);
         }
 
         public void ClearPanels()
@@ -690,6 +706,19 @@ namespace KingdomIdle.UIToolkit
                     BindMain(screenRoot);
                     break;
             }
+
+            RegisterButtonClickSfx(screenRoot);
+        }
+
+        private void RegisterButtonClickSfx(VisualElement root)
+        {
+            if (_buttonClickSfx == null) return;
+            root.Query<Button>().ForEach(btn => btn.clicked += PlayButtonClickSfx);
+        }
+
+        public void PlayButtonClickSfx()
+        {
+            _uiAudioSource.PlayOneShot(_buttonClickSfx);
         }
 
         private void BindTitle(VisualElement root)
@@ -1001,6 +1030,7 @@ namespace KingdomIdle.UIToolkit
             if (closeBtn != null)
                 closeBtn.clicked += PopPanel;
 
+            RegisterButtonClickSfx(panelRoot);
             ApplyPanelOffsets(panelRoot);
         }
 

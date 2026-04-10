@@ -24,6 +24,7 @@ public class PlayerParry
     public NodeState Execute()
     {
         if (Time.time < _nextAvailableTime) return NodeState.Failure;
+        Debug.Log($"[PlayerParry] FIRING player={_player.name} Time={Time.time:F2}");
 
         // 쿨타임 소모 (강화 레벨 반영)
         var enhancer = SkillEnhanceManager.Instance;

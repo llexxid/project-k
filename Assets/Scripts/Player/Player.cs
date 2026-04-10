@@ -245,6 +245,8 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         gameObject.SetActive(true);
         SetAnimation(ePlayerAction.Idle);
         playerOrder?.Init(this);
+        playerOrder?.RecoveryBT();
+        Scripts.Core.GameManager.Instance?.ReportPlayerRevived();
         ResetTarget(this);
     }
     // ── [WaveManager 끝] ──
@@ -477,7 +479,8 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
     // PlayerSkill이 애니메이션 트리거 직전에 채워두는 VFX 대기 데이터
     private eVFXType _pendingVFXType;
-    private readonly List<Vector3> _pendingVFXPositions = new List<Vector3>(); // Execute() 시점에 확정된 월드 좌표 목록
+    private readonly List<Vector3>   _pendingVFXPositions = new List<Vector3>(); // Execute() 시점에 확정된 월드 좌표 목록
+    private readonly List<Transform> _pendingVFXTargets   = new List<Transform>(); // 몬스터 추적용 Transform (null이면 고정 위치)
     private float    _pendingVFXFacing;   // 방향 반전 판단용 (scale.x 부호)
     private int      _pendingVFXDuration;
     private bool     _pendingVFXFlip;
@@ -487,11 +490,13 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     /// PlayerSkill이 애니메이션 트리거 전에 호출.
     /// VFX 위치는 Execute() 시점에 확정해서 저장한다.
     /// </summary>
-    public void SetPendingSkillVFX(eVFXType vfxType, Vector3 vfxPos, float facing, int duration, bool flip)
+    public void SetPendingSkillVFX(eVFXType vfxType, Vector3 vfxPos, float facing, int duration, bool flip, Transform followTarget = null)
     {
         _pendingVFXType     = vfxType;
         _pendingVFXPositions.Clear();
         _pendingVFXPositions.Add(vfxPos);
+        _pendingVFXTargets.Clear();
+        _pendingVFXTargets.Add(followTarget);
         _pendingVFXFacing   = facing;
         _pendingVFXDuration = duration;
         _pendingVFXFlip     = flip;
@@ -502,9 +507,10 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     /// vfxOnTarget 스킬에서 추가 타겟 위치를 등록할 때 호출.
     /// SetPendingSkillVFX 호출 이후에 사용해야 한다.
     /// </summary>
-    public void AddPendingSkillVFXTarget(Vector3 vfxPos)
+    public void AddPendingSkillVFXTarget(Vector3 vfxPos, Transform followTarget = null)
     {
         _pendingVFXPositions.Add(vfxPos);
+        _pendingVFXTargets.Add(followTarget);
     }
 
     /// <summary>
@@ -521,9 +527,10 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         int      duration = _pendingVFXDuration;
         bool     flipVFX = _pendingVFXFlip;
 
-        foreach (Vector3 vfxPos in _pendingVFXPositions)
+        for (int i = 0; i < _pendingVFXPositions.Count; i++)
         {
-            Vector3 capturedPos = vfxPos;
+            Vector3   capturedPos    = _pendingVFXPositions[i];
+            Transform capturedTarget = i < _pendingVFXTargets.Count ? _pendingVFXTargets[i] : null;
             VFXManager.Instance?.GetVFX(vfxType, capturedPos, Quaternion.identity,
                 (vfx) =>
                 {
@@ -532,7 +539,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
                     bool    flip = facing >= 0f ? flipVFX : !flipVFX;
                     s.x = flip ? -Mathf.Abs(s.x) : Mathf.Abs(s.x);
                     vfx.transform.localScale = s;
-                    vfx.ActiveEffect(duration);
+                    vfx.ActiveEffect(duration, capturedTarget);
                 });
         }
     }

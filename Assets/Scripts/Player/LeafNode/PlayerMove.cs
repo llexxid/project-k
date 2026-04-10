@@ -34,13 +34,13 @@ public class PlayerMove
         // 2. 거리 계산
         float distance = Vector2.Distance(player.transform.position, player.currentTarget.targetPos);
 
-        //Debug.Log($"[PlayerMove] 거리: {distance:F2} / 정지거리: {stopDistance}");
-
         if (distance <= stopDistance)
         {
             //player.SetAnimation(ePlayerAction.Idle);
             return NodeState.Success;
         }
+
+        Debug.Log($"[PlayerMove] {player.name} 이동중 거리: {distance:F2} / 정지거리: {stopDistance}");
 
         // 4. 이동 중
         player.SetAnimation(ePlayerAction.Walk);
