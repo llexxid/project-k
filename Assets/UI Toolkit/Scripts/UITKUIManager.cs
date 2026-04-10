@@ -727,17 +727,22 @@ namespace KingdomIdle.UIToolkit
             {
                 btnLoginGuest.clicked += () =>
                 {
-                    var nm = NetworkManager.Instance;
-                    if (nm != null) nm.AuthenticateTest();
+                    NetworkManager.Instance.AuthenticateTest();
                     popupLogin.AddToClassList("hidden");
-                    LoadMainOnce();
+                    //LoadMainOnce();
                 };
             }
             // ── [Login 끝] ──
 
             // 구글/애플 로그인은 아직 미지원 — 토스트로 안내
             if (btnLoginGoogle != null)
-                btnLoginGoogle.clicked += () => ShowToast("Google 로그인은 준비 중입니다.");
+            {
+				btnLoginGoogle.clicked += () =>
+				{
+					NetworkManager.Instance.Authenticate(Scripts.Server.Auth.eAuthType.GoogleWebLogin);
+				};
+			}
+                
             if (btnLoginApple != null)
                 btnLoginApple.clicked += () => ShowToast("Apple 로그인은 준비 중입니다.");
 

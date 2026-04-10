@@ -21,6 +21,8 @@ namespace Scripts.Server.DTO
 		public CurrencyQueryDTO Currency { get; set; }
 
 		public List<CharacterDataQuery> CharacterDatas { get; set; }
+
+		public List<JobTreeQuery> JobTrees { get; set; }
 	}
 	public class UserInitResponseDTO
 	{
@@ -64,17 +66,50 @@ namespace Scripts.Server.DTO
 		//For Debugging
 		public eStage Stage { get; set; }
 	}
-	public struct GachaEquipMentClassFragmentResult
-	{
-		public Dictionary<ItemCode, int> Items { get; set; }
-		public int ClassFramentCount { get; set; }
-	}
 
 	public class OnGachaEquipmentClassFragmentResponseDTO
 	{
 		//For Debugging
 		public List<ItemCode> GachaList { get; set; }
 		public int TotalCount { get; set; }
+	}
+
+	public class OnGachaSkillArcaneKnowledgeResponseDTO
+	{
+		//For Debugging
+		public List<SkillCode> GachaList { get; set; }
+		public int TotalCount { get; set; }
+	}
+
+	public class OnEnchantResponseDTO
+	{
+		public long CurrentLevel { get; set; }
+	}
+
+	public class OnEnchantEquipmentResponseDTO
+	{
+		public ItemCode ItemCode { get; set; }
+	}
+
+	public class OnEnchantSkillResponseDTO
+	{
+		public SkillCode SkillCode { get; set; }
+	}
+
+	public class OnAwakeningSkillResponseDTO
+	{
+		public SkillCode SkillCode { get; set; }
+	}
+	public class OnGetJobResponseDTO
+	{
+		public int Index { get; set; }
+		public ulong JobCode { get; set; }
+	}
+
+	public class OnChangeJobResponseDTO
+	{
+		public int Index { get; set; }
+		public ulong JobCode { get; set; }
 	}
 }
 

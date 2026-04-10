@@ -10,12 +10,13 @@ using Scripts.Core.Manager;
 
 namespace KingdomIdle.Gacha
 {
-    public class GachaManager : MonoBehaviour
+    using ItemCode = Scripts.Server.DTO.ItemCode;
+
+	public class GachaManager : MonoBehaviour
     {
         public static GachaManager Instance { get; private set; }
 
         [SerializeField] private List<GachaTableSO> gachaTables = new List<GachaTableSO>();
-        [SerializeField] private EquipmentDatabase _equipmentDatabase;
 
         public IReadOnlyList<GachaTableSO> GetAllTables() => gachaTables;
 
@@ -156,28 +157,24 @@ namespace KingdomIdle.Gacha
 
 		private void Update()
 		{
-
 		}
 
         private void OnGachaError(PlayFab.PlayFabError error)
         {
-            Debug.Log("Gacha Error");
             Debug.Log(error.ErrorMessage);
         }
 
+		private void OnSuccess(ExecuteFunctionResult result)
+		{
+			Debug.Log("Success");
+		}
 
 		private void OnGachaSuccess(ExecuteFunctionResult result)
         {
+			//For Debugging
 			string json = JsonConvert.SerializeObject(result.FunctionResult);
-			OnGachaEquipmentClassFragmentResponseDTO responsedto = JsonConvert.DeserializeObject<OnGachaEquipmentClassFragmentResponseDTO>(json);
-			if (responsedto?.GachaList == null) return;
+			OnGachaSkillArcaneKnowledgeResponseDTO responsedto = JsonConvert.DeserializeObject<OnGachaSkillArcaneKnowledgeResponseDTO>(json);
 
-			foreach (var itemCode in responsedto.GachaList)
-			{
-				EquipmentData data = _equipmentDatabase.GetEquipmentByCode((int)itemCode.GetItemCode());
-				if (data == null) continue;
-				DistributeEquipmentReward(new GachaRewardEntry { rewardType = eGachaRewardType.Equipment, equipmentData = data });
-			}
 		}
 	}
 }
