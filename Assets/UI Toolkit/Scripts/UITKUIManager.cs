@@ -707,63 +707,64 @@ namespace KingdomIdle.UIToolkit
             var btnLoginApple = root.Q<Button>("BtnLoginApple");
             var pressHint = root.Q<Label>("LblPressHint");
 
-            if (btnLogin != null && popupLogin != null)
+            // 로그인 팝업 열기 헬퍼
+            System.Action openLoginPopup = () =>
             {
-                // 로그인 버튼: 팝업만 띄우고, 실제 인증은 게스트 버튼에서 호출
-                btnLogin.clicked += () =>
-                {
-                    popupLogin.RemoveFromClassList("hidden");
-                    popupLogin.BringToFront();
-                };
-            }
+                if (popupLogin == null) return;
+                popupLogin.RemoveFromClassList("hidden");
+                popupLogin.BringToFront();
+            };
 
-            if (btnLoginClose != null && popupLogin != null)
-            {
-                btnLoginClose.clicked += () => popupLogin.AddToClassList("hidden");
-            }
+            // 로그인 버튼 → 팝업 띄우기
+            if (btnLogin != null)
+                btnLogin.clicked += openLoginPopup;
 
-            // ── [Login] 게스트 로그인: NetworkManager null-safe 호출 ──
-            if (btnLoginGuest != null && popupLogin != null)
+            // X 닫기 버튼은 제거 — 로그인 없이 진행 불가
+            // (BtnLoginClose가 UXML에 남아있더라도 아무것도 바인딩하지 않음)
+
+            // ── [Login] 게스트 로그인 ──
+            if (btnLoginGuest != null)
             {
                 btnLoginGuest.clicked += () =>
                 {
                     NetworkManager.Instance.AuthenticateTest();
-                    popupLogin.AddToClassList("hidden");
-                    //LoadMainOnce();
+                    if (popupLogin != null) popupLogin.AddToClassList("hidden");
                 };
             }
-            // ── [Login 끝] ──
 
-            // 구글/애플 로그인은 아직 미지원 — 토스트로 안내
+            // ── [Login] 구글 로그인 ──
             if (btnLoginGoogle != null)
             {
-				btnLoginGoogle.clicked += () =>
-				{
-					NetworkManager.Instance.Authenticate(Scripts.Server.Auth.eAuthType.GoogleWebLogin);
-				};
-			}
-                
+                btnLoginGoogle.clicked += () =>
+                {
+                    NetworkManager.Instance.Authenticate(Scripts.Server.Auth.eAuthType.GoogleWebLogin);
+                };
+            }
+
+            // ── [Login] 애플 로그인 (미지원) ──
             if (btnLoginApple != null)
                 btnLoginApple.clicked += () => ShowToast("Apple 로그인은 준비 중입니다.");
-
 
             if (pressHint != null)
                 StartPressHintBlink(pressHint);
 
+            // bgCatcher: 화면 아무데나 터치 → 로그인 팝업 열기 (로그인 전에는 main 진입 불가)
             if (bgCatcher != null)
             {
-				ForceFullScreen(bgCatcher);
+                ForceFullScreen(bgCatcher);
                 bgCatcher.pickingMode = PickingMode.Position;
                 bgCatcher.RegisterCallback<PointerUpEvent>(_ =>
                 {
+                    // 팝업이 이미 열려있으면 무시
                     if (popupLogin != null && !popupLogin.ClassListContains("hidden"))
-                    {
-						return;
-					}                    
-                    LoadMainOnce();
+                        return;
+
+                    openLoginPopup();
                 }, TrickleDown.TrickleDown);
             }
 
+            // popupLogin: 팝업 바깥 클릭 시 아무것도 하지 않음 (로그인 필수)
+            // dim 영역 터치를 먹어서 bgCatcher까지 전파되지 않게만 하면 된다.
             if (popupLogin != null)
             {
                 popupLogin.pickingMode = PickingMode.Position;
@@ -774,19 +775,21 @@ namespace KingdomIdle.UIToolkit
                     var targetVe = evt.target as VisualElement;
                     if (targetVe == null) return;
 
+                    // 팝업 박스 안쪽 클릭은 버튼이 처리 → 통과
                     if (IsInside(targetVe, popupLoginBox)) return;
 
-                    popupLogin.AddToClassList("hidden");
+                    // 팝업 바깥(딤 영역) 클릭 → 닫지 않고 이벤트만 소비
                     evt.StopPropagation();
                 }, TrickleDown.TrickleDown);
             }
 
+            // PopupLoginBox: StopPropagation 제거
+            // 이전에는 TrickleDown + StopPropagation 으로 자식 버튼(BtnLoginGoogle 등)의
+            // PointerDown/Up 이벤트까지 차단하여 모바일에서 버튼 클릭이 안 되는 버그가 있었다.
+            // PopupLogin 핸들러의 IsInside 체크가 이미 "박스 안쪽 클릭 시 닫지 않기"를
+            // 처리하므로 여기서 별도로 StopPropagation 할 필요가 없다.
             if (popupLoginBox != null)
-            {
                 popupLoginBox.pickingMode = PickingMode.Position;
-                popupLoginBox.RegisterCallback<PointerDownEvent>(evt => evt.StopPropagation(), TrickleDown.TrickleDown);
-                popupLoginBox.RegisterCallback<PointerUpEvent>(evt => evt.StopPropagation(), TrickleDown.TrickleDown);
-            }
         }
 
         private void BindMain(VisualElement root)
