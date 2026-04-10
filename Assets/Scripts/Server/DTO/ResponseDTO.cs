@@ -24,6 +24,7 @@ namespace Scripts.Server.DTO
 
 		public List<JobTreeQuery> JobTrees { get; set; }
 	}
+	//.
 	public class UserInitResponseDTO
 	{
 		public string SessionGUID { get; set; }

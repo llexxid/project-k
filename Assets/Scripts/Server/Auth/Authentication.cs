@@ -286,7 +286,7 @@ namespace Scripts.Server.Auth
 			if (datas.ContainsKey(key_inventoryData))
 			{
 				InventoryQueryDTO inventory = JsonConvert.DeserializeObject<InventoryQueryDTO>(datas[key_inventoryData].Value);
-				//Todo : 유저에서 Inventory랑 SkillTree가 연결되어야함.
+				//Todo : 유저에서 Inventory랑 SkillTree가 연결되어야함...
 			}
 
 

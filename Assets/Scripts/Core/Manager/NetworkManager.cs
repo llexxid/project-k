@@ -15,6 +15,7 @@ using UnityEngine;
 
 namespace Scripts.Core.Manager
 {
+	//.
 	using ItemCode = Scripts.Server.DTO.ItemCode;
 	public class NetworkManager : MonoBehaviour
 	{

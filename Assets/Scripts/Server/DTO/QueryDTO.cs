@@ -9,6 +9,7 @@ using static PlayerSkill;
 
 namespace Scripts.Server.DTO
 {
+	//.
 	public struct JobStat
 	{
 		public int HP { get; set; }
