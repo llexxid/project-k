@@ -279,9 +279,8 @@ namespace Scripts.Server.Auth
 			}
 			if (datas.ContainsKey(key_inventoryData))
 			{
-				List<ItemID> inventory = JObject.Parse(datas[key_inventoryData].Value)["Items"].ToObject<List<ItemID>>();
-				//Todo : 여기에서 Inventory와 SkillTree가 적용되어야함.
-				UserManager.Instance.SetInventoryData(inventory);
+				InventoryQueryDTO inventory = JsonConvert.DeserializeObject<InventoryQueryDTO>(datas[key_inventoryData].Value);
+				//Todo : �������� Inventory�� SkillTree�� ����Ǿ����...
 			}
 
 			//��������

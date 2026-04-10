@@ -77,5 +77,6 @@ namespace Scripts.Server.DTO
 	{
 
 	}
+	//.
 }
 
