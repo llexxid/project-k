@@ -31,6 +31,7 @@ namespace Scripts.Server.Auth
 	{
 		private string _authToken;
 		private eAuthType _type;
+		private GetPlayerCombinedInfoRequestParams _infoRequestParams;
 		//�ϵ��ڵ� �ص� �ǳ�?
 		private readonly string _webClientId = "222024339558-o157jmef5jhip2s9vtfo3kto1ojfpejf.apps.googleusercontent.com";
 
@@ -41,6 +42,7 @@ namespace Scripts.Server.Auth
 		private readonly string key_skillTreeData = "SkillTreeData";
 		private readonly string key_inventoryData = "Inventory";
 		private readonly string key_currency = "Currency";
+		private readonly string key_jobTree = "JobTree";
 
 		public Authentication()
 		{
@@ -56,6 +58,25 @@ namespace Scripts.Server.Auth
 			GoogleSignIn.Configuration = conf;
 			GoogleSignIn.Configuration.UseGameSignIn = false;
 			GoogleSignIn.Configuration.RequestIdToken = true;
+
+			_infoRequestParams = new GetPlayerCombinedInfoRequestParams
+			{
+				GetUserReadOnlyData = true,
+				UserReadOnlyDataKeys = new List<string>
+				{
+					key_userStage,
+					key_userData,
+					key_userEnhancement,
+					key_characterData,
+					key_skillTreeData,
+					key_inventoryData,
+					key_currency,
+					key_jobTree,
+					//MailSlot
+					//
+				},
+				GetPlayerProfile = true,
+			};
 		}
 
 		public void Authenticate(eAuthType type)
@@ -110,28 +131,10 @@ namespace Scripts.Server.Auth
 
 		private void LoginTest()
 		{
-			GetPlayerCombinedInfoRequestParams infoRequestParams = new GetPlayerCombinedInfoRequestParams
-			{
-				GetUserReadOnlyData = true,
-				UserReadOnlyDataKeys = new List<string>
-				{
-					key_userStage,
-					key_userData,
-					key_userEnhancement,
-					key_characterData,
-					key_skillTreeData,
-					key_inventoryData,
-					key_currency,
-					//MailSlot
-					//
-				},
-				GetPlayerProfile = true,
-			};
-
 			LoginWithCustomIDRequest req = new LoginWithCustomIDRequest
 			{
 				CustomId = "516A4AAD45F1CC09",
-				InfoRequestParameters = infoRequestParams,
+				InfoRequestParameters = _infoRequestParams,
 			};
 			PlayFabClientAPI.LoginWithCustomID(req, pfAuthSuccessTest, pfAuthErrorCallback);
 
@@ -145,40 +148,20 @@ namespace Scripts.Server.Auth
 		{
 			if (task.IsFaulted)
 			{
-				Debug.LogError("���� �α��� ����: " + task.Exception);
 				return;
 			}
 			else if (task.IsCanceled)
 			{
-				Debug.Log("���� �α����� ��ҵǾ����ϴ�.");
 				return;
 			}
 
-			//PlayFab�� �α����� ��û�� ��, � ������ ���� ��û�� ���ΰ�?
-			//�κ��丮 ������,���� ������, ĳ���� ������, ��ȭ��ġ, ��ȭ
-			GetPlayerCombinedInfoRequestParams infoRequestParams = new GetPlayerCombinedInfoRequestParams
-			{
-				GetUserReadOnlyData = true,
-				UserReadOnlyDataKeys = new List<string>
-				{
-					key_userStage,
-					key_userData,
-					key_userEnhancement,
-					key_characterData,
-					key_skillTreeData,
-					key_inventoryData,
-					key_currency,
-					//MailSlot
-					//
-				},
-				GetPlayerProfile = true,
-			};
+	
 			_authToken = task.Result.AuthCode;
 			LoginWithGoogleAccountRequest pfLoginRequest = new LoginWithGoogleAccountRequest
 			{
 				TitleId = PlayFabSettings.TitleId,
 				ServerAuthCode = _authToken,
-				InfoRequestParameters = infoRequestParams,
+				InfoRequestParameters = _infoRequestParams,
 				CreateAccount = true
 			};
 
@@ -197,7 +180,6 @@ namespace Scripts.Server.Auth
 		//Test��
 		private void pfAuthSuccessTest(LoginResult result)
 		{
-			//��������
 			NetworkManager.Instance.SetSessionID(result.PlayFabId);
 			NetworkManager.Instance.SetSessionTicket(result.SessionTicket);
 
@@ -205,7 +187,7 @@ namespace Scripts.Server.Auth
 
 			Dictionary<string, UserDataRecord> datas = result.InfoResultPayload.UserReadOnlyData;
 			//NetworkManager.Instance.OnSignUpInitUser(callbacks, pfAuthErrorCallback);
-			//�ʼ�������
+
 			string nickName = result.InfoResultPayload.PlayerProfile.DisplayName;
 			long currentStage = Convert.ToInt64(datas[key_userStage].Value);
 			CurrencyQueryDTO currency = JsonConvert.DeserializeObject<CurrencyQueryDTO>(datas[key_currency].Value);
@@ -213,43 +195,34 @@ namespace Scripts.Server.Auth
 			UserEnhanceMentQuery enhancement = JsonConvert.DeserializeObject<UserEnhanceMentQuery>(datas[key_userEnhancement].Value);
 			List<CharacterDataQuery> characterData = JsonConvert.DeserializeObject<List<CharacterDataQuery>>(datas[key_characterData].Value);
 		
-			//���� ��� ��ų�� �������� ����.
 			if (datas.ContainsKey(key_skillTreeData))
 			{
-				List<SkillCode> skillCodes = JObject.Parse(datas[key_skillTreeData].Value)["SkillTrees"].ToObject<List<SkillCode>>();
-				//Todo : �������� Inventory�� SkillTree�� ����Ǿ����.
+				SkillTreeDTO skillCodes = JsonConvert.DeserializeObject<SkillTreeDTO>(datas[key_skillTreeData].Value);
 			}
 			if (datas.ContainsKey(key_inventoryData))
 			{
-				List<ItemID> inventory = JObject.Parse(datas[key_inventoryData].Value)["Items"].ToObject<List<ItemID>>();
+				InventoryQueryDTO inventory = JsonConvert.DeserializeObject<InventoryQueryDTO>(datas[key_inventoryData].Value);
 				//Todo : 여기에서 Inventory와 SkillTree가 적용되어야함.
-				UserManager.Instance.SetInventoryData(inventory);
+				UserManager.Instance.SetInventoryData(inventory.Items);
 			}
 
-			//��������
 			UserManager.Instance.CreateUser(nickName,(eStage)currentStage, userdata, enhancement);
 			UserManager.Instance.SetCharacterData(characterData);
 			UserManager.Instance.SetWallet(currency);
 
 			GameManager.Instance.LoadAsyncScene(eSceneType.main);
 		}
-		//�갡 Release�� ���۵� Google Login�Լ�
+
 		private void pfAuthSuccessCallback(LoginResult authresult)
 		{
-			//User�� playFabId ���� / SessionTicket���� 
-			//User�� SEssion�� �����ִ� ������ �ϴϱ�, User�� �����ϴ� ������
-			// ó�� �����ϴ°Ÿ�, �����͸� ���� �ް� -> �г��� ���� -> ���� ���� ���� 
-			// ��, user�� Session�� ����������.
 			NetworkManager.Instance.SetSessionID(authresult.PlayFabId);
 			NetworkManager.Instance.SetSessionTicket(authresult.SessionTicket);
 			if (authresult.NewlyCreated == true)
 			{
-				//TODO : �г��� ���� UI ����
-				// �г��� ���� UI���� NetworkManager�� ���� ���� ���� �Լ��� �θ��� ��.
+				//TODO : 닉네임 설정 UI
 				return;
 			}
 
-			//�г��� �ߺ�üũ�ϰ�, Ȯ�ι�ư�� �ȴ����� ���� ����.
 			string nickname = authresult.InfoResultPayload.PlayerProfile.DisplayName;
 			if (nickname.Length == 0)
 			{
@@ -274,7 +247,7 @@ namespace Scripts.Server.Auth
 			//���� ��� ��ų�� �������� ����.
 			if (datas.ContainsKey(key_skillTreeData))
 			{
-				List<SkillCode> skillCodes = JObject.Parse(datas[key_skillTreeData].Value)["SkillTrees"].ToObject<List<SkillCode>>();
+				SkillTreeDTO skillCodes = JsonConvert.DeserializeObject<SkillTreeDTO>(datas[key_skillTreeData].Value);
 				//Todo : �������� Inventory�� SkillTree�� ����Ǿ����.
 			}
 			if (datas.ContainsKey(key_inventoryData))

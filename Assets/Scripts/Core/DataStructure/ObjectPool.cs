@@ -63,7 +63,6 @@ namespace Scripts.Core.DataStructure
             ret.gameObject.SetActive(true);
             ret.IsActive = true;
             ret.OnAlloc();
-            Debug.Log($"[Alloc] obj : {ret.gameObject.GetInstanceID()}");
             return ret;
         }
 
