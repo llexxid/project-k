@@ -23,13 +23,14 @@ namespace Scripts.Server.Auth
 		GoogleWebLogin,
 
 		//For Test
-		CustomLogin, 
+		CustomLogin,
 		DummyLogin,
 	}
 
 	public class Authentication
 	{
 		private string _authToken;
+		private string _displayName;
 		private eAuthType _type;
 		private GetPlayerCombinedInfoRequestParams _infoRequestParams;
 		//�ϵ��ڵ� �ص� �ǳ�?
@@ -43,6 +44,9 @@ namespace Scripts.Server.Auth
 		private readonly string key_inventoryData = "Inventory";
 		private readonly string key_currency = "Currency";
 		private readonly string key_jobTree = "JobTree";
+
+
+		private readonly string DummyUser1 = "516A4AAD45F1CC09";
 
 		public Authentication()
 		{
@@ -93,40 +97,9 @@ namespace Scripts.Server.Auth
 				case eAuthType.CustomLogin:
 					LoginTest();
 					break;
-				case eAuthType.DummyLogin:
-					DummyLogin();
-					break;
 				default:
 					break;
 			}
-		}
-
-		private void DummyLogin()
-		{
-			GetPlayerCombinedInfoRequestParams infoRequestParams = new GetPlayerCombinedInfoRequestParams
-			{
-				GetUserReadOnlyData = true,
-				UserReadOnlyDataKeys = new List<string>
-				{
-					key_userStage,
-					key_userData,
-					key_userEnhancement,
-					key_characterData,
-					key_skillTreeData,
-					key_inventoryData,
-					key_currency,
-					//MailSlot
-					//
-				},
-				GetPlayerProfile = true,
-			};
-
-			LoginWithCustomIDRequest req = new LoginWithCustomIDRequest
-			{
-				CustomId = "516A4AAD45F1CC09",
-				InfoRequestParameters = infoRequestParams,
-			};
-			PlayFabClientAPI.LoginWithCustomID(req, OnDummyLoginSuccess, pfAuthErrorCallback);
 		}
 
 		private void LoginTest()
@@ -154,8 +127,7 @@ namespace Scripts.Server.Auth
 			{
 				return;
 			}
-
-	
+			Debug.Log("[GoogleAuth] Google Auth Success");
 			_authToken = task.Result.AuthCode;
 			LoginWithGoogleAccountRequest pfLoginRequest = new LoginWithGoogleAccountRequest
 			{
@@ -172,54 +144,25 @@ namespace Scripts.Server.Auth
 				);
 		}
 
-		private void callbacks(ExecuteFunctionResult result)
-		{
-			Debug.Log("����");
-		}
-
 		//Test��
 		private void pfAuthSuccessTest(LoginResult result)
 		{
 			NetworkManager.Instance.SetSessionID(result.PlayFabId);
 			NetworkManager.Instance.SetSessionTicket(result.SessionTicket);
 
-			NetworkManager.Instance.OnExistUserInit(OnExistUserSuccess, pfAuthErrorCallback);
-
-			Dictionary<string, UserDataRecord> datas = result.InfoResultPayload.UserReadOnlyData;
-			//NetworkManager.Instance.OnSignUpInitUser(callbacks, pfAuthErrorCallback);
-
-			string nickName = result.InfoResultPayload.PlayerProfile.DisplayName;
-			long currentStage = Convert.ToInt64(datas[key_userStage].Value);
-			CurrencyQueryDTO currency = JsonConvert.DeserializeObject<CurrencyQueryDTO>(datas[key_currency].Value);
-			UserDataQuery userdata = JsonConvert.DeserializeObject<UserDataQuery>(datas[key_userData].Value);
-			UserEnhanceMentQuery enhancement = JsonConvert.DeserializeObject<UserEnhanceMentQuery>(datas[key_userEnhancement].Value);
-			List<CharacterDataQuery> characterData = JsonConvert.DeserializeObject<List<CharacterDataQuery>>(datas[key_characterData].Value);
-		
-			if (datas.ContainsKey(key_skillTreeData))
-			{
-				SkillTreeDTO skillCodes = JsonConvert.DeserializeObject<SkillTreeDTO>(datas[key_skillTreeData].Value);
-			}
-			if (datas.ContainsKey(key_inventoryData))
-			{
-				InventoryQueryDTO inventory = JsonConvert.DeserializeObject<InventoryQueryDTO>(datas[key_inventoryData].Value);
-				//Todo : 여기에서 Inventory와 SkillTree가 적용되어야함.
-				UserManager.Instance.SetInventoryData(inventory.Items);
-			}
-
-			UserManager.Instance.CreateUser(nickName,(eStage)currentStage, userdata, enhancement);
-			UserManager.Instance.SetCharacterData(characterData);
-			UserManager.Instance.SetWallet(currency);
-
-			GameManager.Instance.LoadAsyncScene(eSceneType.main);
+			LoginLogic(result);
 		}
 
 		private void pfAuthSuccessCallback(LoginResult authresult)
 		{
 			NetworkManager.Instance.SetSessionID(authresult.PlayFabId);
 			NetworkManager.Instance.SetSessionTicket(authresult.SessionTicket);
+			Debug.Log("[Google Login Success Callback]");
 			if (authresult.NewlyCreated == true)
 			{
-				//TODO : 닉네임 설정 UI
+				Debug.Log("[First Time Sign Up Account]");
+				string uuid = Guid.NewGuid().ToString().Substring(0, 18);
+				NetworkManager.Instance.CheckDuplicatedNickName(uuid, duplicatedNameSuccessCallback, pfAuthErrorCallback);
 				return;
 			}
 
@@ -230,38 +173,7 @@ namespace Scripts.Server.Auth
 				return;
 			}
 
-			//���������� �α����� ���
-			NetworkManager.Instance.OnExistUserInit(OnExistUserSuccess, pfAuthErrorCallback);
-			//ReadOnlyData�� PF������ �״�� �޾ƿ�.
-			//For Debugging
-			Dictionary<string, UserDataRecord> datas = authresult.InfoResultPayload.UserReadOnlyData;
-
-			//�ʼ�������
-			string nickName = authresult.InfoResultPayload.PlayerProfile.DisplayName;
-			long currentStage = Convert.ToInt64(datas[key_userStage].Value);
-			CurrencyQueryDTO currency = JsonConvert.DeserializeObject<CurrencyQueryDTO>(datas[key_currency].Value);
-			UserDataQuery userdata = JsonConvert.DeserializeObject<UserDataQuery>(datas[key_userData].Value);
-			UserEnhanceMentQuery enhancement = JsonConvert.DeserializeObject<UserEnhanceMentQuery>(datas[key_userEnhancement].Value);
-			List<CharacterDataQuery> characterData = JsonConvert.DeserializeObject<List<CharacterDataQuery>>(datas[key_characterData].Value);
-
-			//���� ��� ��ų�� �������� ����.
-			if (datas.ContainsKey(key_skillTreeData))
-			{
-				SkillTreeDTO skillCodes = JsonConvert.DeserializeObject<SkillTreeDTO>(datas[key_skillTreeData].Value);
-				//Todo : �������� Inventory�� SkillTree�� ����Ǿ����.
-			}
-			if (datas.ContainsKey(key_inventoryData))
-			{
-				InventoryQueryDTO inventory = JsonConvert.DeserializeObject<InventoryQueryDTO>(datas[key_inventoryData].Value);
-				//Todo : �������� Inventory�� SkillTree�� ����Ǿ����...
-			}
-
-			//��������
-			UserManager.Instance.CreateUser(nickName, (eStage)currentStage, userdata, enhancement);
-			UserManager.Instance.SetCharacterData(characterData);
-			UserManager.Instance.SetWallet(currency);
-
-			GameManager.Instance.LoadAsyncScene(eSceneType.main);
+			LoginLogic(authresult);
 		}
 
 		void pfAuthErrorCallback(PlayFab.PlayFabError error)
@@ -269,19 +181,23 @@ namespace Scripts.Server.Auth
 			Debug.Log(error.Error);
 		}
 
-		void OnDummyLoginSuccess(LoginResult result)
-		{
-			NetworkManager.Instance.SetSessionID(result.PlayFabId);
-			NetworkManager.Instance.SetSessionTicket(result.SessionTicket);
-
-			NetworkManager.Instance.OnExistUserInit(OnExistUserSuccess, pfAuthErrorCallback);
-
-			Debug.Log("DummyLogin����!");
-		}
-
 		private void OnSignUpUserSucccess(ExecuteFunctionResult result)
 		{
-			
+			string json = JsonConvert.SerializeObject(result.FunctionResult);
+			UserOnSignUpInitResponseDTO userSignUpDTO = JsonConvert.DeserializeObject<UserOnSignUpInitResponseDTO>(json);
+
+			UserManager.Instance.CreateUser(
+				_displayName,
+				(eStage)userSignUpDTO.CurrentStage,
+				userSignUpDTO.Exp,
+				userSignUpDTO.KillScore,
+				userSignUpDTO.Level,
+				(ulong)userSignUpDTO.EnchantHPCount,
+				(ulong)userSignUpDTO.EnchantATKCount);
+			UserManager.Instance.SetCharacterData(userSignUpDTO.CharacterDatas);
+			UserManager.Instance.SetWallet(userSignUpDTO.Currency);
+
+			GameManager.Instance.LoadAsyncScene(eSceneType.main);
 		}
 
 		private void OnExistUserSuccess(ExecuteFunctionResult result)
@@ -294,6 +210,42 @@ namespace Scripts.Server.Auth
 			NetworkManager.Instance.SetSessionGUID(responsedto.SessionID);
 			//Session ID ���� 
 
+		}
+		private void duplicatedNameSuccessCallback(UpdateUserTitleDisplayNameResult result)
+		{
+			_displayName = result.DisplayName;
+			NetworkManager.Instance.OnSignUpInitUser(OnSignUpUserSucccess, pfAuthErrorCallback);
+		}
+		private void LoginLogic(LoginResult result)
+		{
+			NetworkManager.Instance.OnExistUserInit(OnExistUserSuccess, pfAuthErrorCallback);
+
+			Dictionary<string, UserDataRecord> datas = result.InfoResultPayload.UserReadOnlyData;
+			//NetworkManager.Instance.OnSignUpInitUser(callbacks, pfAuthErrorCallback);
+
+			string nickName = result.InfoResultPayload.PlayerProfile.DisplayName;
+			long currentStage = Convert.ToInt64(datas[key_userStage].Value);
+			CurrencyQueryDTO currency = JsonConvert.DeserializeObject<CurrencyQueryDTO>(datas[key_currency].Value);
+			UserDataQuery userdata = JsonConvert.DeserializeObject<UserDataQuery>(datas[key_userData].Value);
+			UserEnhanceMentQuery enhancement = JsonConvert.DeserializeObject<UserEnhanceMentQuery>(datas[key_userEnhancement].Value);
+			List<CharacterDataQuery> characterData = JsonConvert.DeserializeObject<List<CharacterDataQuery>>(datas[key_characterData].Value);
+
+			if (datas.ContainsKey(key_skillTreeData))
+			{
+				SkillTreeDTO skillCodes = JsonConvert.DeserializeObject<SkillTreeDTO>(datas[key_skillTreeData].Value);
+			}
+			if (datas.ContainsKey(key_inventoryData))
+			{
+				InventoryQueryDTO inventory = JsonConvert.DeserializeObject<InventoryQueryDTO>(datas[key_inventoryData].Value);
+				//Todo : 여기에서 Inventory와 SkillTree가 적용되어야함.
+				UserManager.Instance.SetInventoryData(inventory.Items);
+			}
+
+			UserManager.Instance.CreateUser(nickName, (eStage)currentStage, userdata, enhancement);
+			UserManager.Instance.SetCharacterData(characterData);
+			UserManager.Instance.SetWallet(currency);
+
+			GameManager.Instance.LoadAsyncScene(eSceneType.main);
 		}
 	}
 }
