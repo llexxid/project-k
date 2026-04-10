@@ -25,7 +25,6 @@ public class SkillManager : MonoBehaviour
         // 패시브 스킬은 ON/OFF 개념이 없으므로 별도 처리 없음
         if (data.skillType == SkillType.Passive)
         {
-            Debug.Log($"[SkillManager] {data.skillName} 패시브 효과 적용 중...");
             return;
         }
 
@@ -33,7 +32,6 @@ public class SkillManager : MonoBehaviour
         GameObject obj = pool?.GetSkillObject(data);
         if (obj != null)
         {
-            Debug.Log($"[SkillManager] {skillName} 이펙트 활성화");
             // TODO: obj 위치·방향 초기화 등 추가 로직
         }
     }
@@ -47,12 +45,10 @@ public class SkillManager : MonoBehaviour
         if (newSkills == null)
         {
             _currentSkills.Clear();
-            Debug.Log("[SkillManager] 스킬 목록이 초기화되었습니다.");
             return;
         }
 
         _currentSkills = new List<SkillData>(newSkills);
-        Debug.Log($"[SkillManager] 스킬 {_currentSkills.Count}개 갱신 완료");
     }
 
     /// <summary>

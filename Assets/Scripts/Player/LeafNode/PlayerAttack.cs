@@ -54,27 +54,28 @@ public class PlayerAttack
     /// </summary>
     public NodeState Attack()
     {
-        // [1] 일반 공격 쿨타임 체크
+        // [1] 패링 중에는 공격 애니메이션이 패링을 덮어쓰지 않도록 차단
+        if (player.IsParrying) return NodeState.Failure;
+
+        // [2] 일반 공격 쿨타임 체크
         if (Time.time < _nextAttackTime)
         {
-            Debug.Log($"[PlayerAttack] 쿨타임 대기 중 ({(_nextAttackTime - Time.time):F2}초 남음)");
             return NodeState.Failure;
         }
 
-        // [2] 적 탐지 필터 설정
+        // [3] 적 탐지 필터 설정
         ContactFilter2D filter = new ContactFilter2D();
         filter.SetLayerMask(enemyLayer);
         filter.useLayerMask = true;
         filter.useTriggers = true;
 
-        // [3] 범위 내 적 탐지 — 적이 없으면 공격하지 않음
+        // [4] 범위 내 적 탐지 — 적이 없으면 공격하지 않음
         int hitCount = Physics2D.OverlapCircle(
             player.transform.position, attackRadius, filter, _hitResults);
 
-        Debug.Log($"[PlayerAttack] OverlapCircle 탐지 수: {hitCount} (반경: {attackRadius}, 레이어: {enemyLayer.value})");
         if (hitCount == 0) return NodeState.Failure;
 
-        // [3-a] 탐지된 적이 전부 Dead 상태면 공격하지 않음
+        // [4-a] 탐지된 적이 전부 Dead 상태면 공격하지 않음
         bool hasAliveTarget = false;
         for (int i = 0; i < hitCount; i++)
         {
@@ -86,15 +87,11 @@ public class PlayerAttack
 			return NodeState.Failure;
 		}
 
-        // [4] 쿨타임 소모
+        // [5] 쿨타임 소모
         _nextAttackTime = Time.time + attackRate;
 
-        // [5] 공격 애니메이션 재생
+        // [6] 공격 애니메이션 재생
         player.PlayAttackAnimation();
-
-        // [6] 데미지 직접 적용
-        // Animation Event(OnAttackHit)가 작동하지 않으므로 여기서 직접 호출
-        Debug.Log($"[PlayerAttack] 공격 실행! 다음 공격: {attackRate:F2}초 후");
 
         return NodeState.Success;
     }
@@ -114,17 +111,13 @@ public class PlayerAttack
         int hitCount = Physics2D.OverlapCircle(
             player.transform.position, attackRadius, filter, _hitResults);
 
-        Debug.Log($"[DealDamage] OverlapCircle 탐지 수: {hitCount} | 반경:{attackRadius} | 레이어:{enemyLayer.value}");
-
         if (hitCount == 0) return;
 
         int baseAtk = player.playerStatus?.Atk ?? 0;
-        Debug.Log($"[DealDamage] baseAtk={baseAtk}");
 
         for (int i = 0; i < hitCount; i++)
         {
             bool hasDamageable = _hitResults[i].TryGetComponent<IDamageable>(out var target);
-            Debug.Log($"[DealDamage] [{i}] {_hitResults[i].name} | IDamageable={hasDamageable} | Dead={IsTargetDead(_hitResults[i])}");
 
             if (!hasDamageable) continue;
             if (IsTargetDead(_hitResults[i])) continue;
@@ -141,14 +134,11 @@ public class PlayerAttack
     {
         if (target == null) return false;
 
-        Debug.Log($"[ApplyDamage] TakeDamage 호출 → damage={damage}");
         bool isAlive;
         isAlive = target.TakeDamage(new DamageProxy(damage, player.gameObject));
-        Debug.Log(isAlive);
 
         if (!isAlive)
         {
-            Debug.Log("Monster Is Dead!! → Idle 전환");
             _nextAttackTime = 0f; // 다음 적 즉시 공격 가능하도록 쿨타임 초기화
             if (player != null) player.SetAnimation(ePlayerAction.Idle);
             if (player != null) player.currentTarget = null;

@@ -1,4 +1,5 @@
 using Cysharp.Threading.Tasks.Triggers;
+using KingdomIdle.KingdomArmy;
 using Scripts.Core;
 using Scripts.Server.DTO;
 using Scripts.Users;
@@ -18,6 +19,7 @@ namespace Scripts.Core
 		[SerializeField]
 		GameObject playerPrefab;
 		List<CharacterDataQuery> _characterDataFromServer;
+		List<Scripts.Server.DTO.ItemCode> _inventoryDataFromServer;
 		private void Awake()
 		{
 			if (Instance == null)
@@ -42,6 +44,14 @@ namespace Scripts.Core
 			// ── [Login 우회 폴백 끝] ──
 		}
 
+		public void SetHuntResult(OnHuntResponseDTO res)
+		{
+			_user.SetLevel(res.Level);
+			_user.SetExp(res.Exp);
+			_user.SetKillScore(res.KillScore);
+			_user.SetCoin(eCurrency.Gold, res.Gold);
+			_user.SetCoin(eCurrency.AncientCoin, res.AncientCoin);
+		}
 		public UserData GetUserData()
 		{
 			return _user.GetData();
@@ -68,6 +78,7 @@ namespace Scripts.Core
 			return _user.GetStage();
 		}
 
+
 		public void CreateUser(string name, eStage stage, UserDataQuery Userquery, UserEnhanceMentQuery EnchantQuery)
 		{
 			UserData userData = new UserData(
@@ -81,6 +92,20 @@ namespace Scripts.Core
 				);
 			_user.SetUserData(userData);
 		}
+
+		public void CreateUser(string name, eStage stage, long exp, long monsterkill, int level, ulong enchantHp, ulong enchantAtk)
+		{
+			UserData userData = new UserData(
+				name,
+				exp,
+				monsterkill,
+				stage,
+				level,
+				enchantHp,
+				enchantAtk
+				);
+			_user.SetUserData(userData);
+		}
 		public void SetWallet(CurrencyQueryDTO query)
 		{
 			_user.SetWallet(_user, query.Gold, query.AncientCoin, query.KingdomSupply, query.ArcaneKnowledge, query.ClassFragment);
@@ -88,6 +113,10 @@ namespace Scripts.Core
 		public void SetCharacterData(List<CharacterDataQuery> query)
 		{
 			_characterDataFromServer = query;
+		}
+		public void SetInventoryData(List<Scripts.Server.DTO.ItemCode> inventory)
+		{
+			_inventoryDataFromServer = inventory;
 		}
 		public void CreateCharacter()
 		{
@@ -152,6 +181,35 @@ namespace Scripts.Core
 			// 글로벌 강화 보너스 적용
 			if (StatEnhanceManager.Instance != null)
 				StatEnhanceManager.Instance.ApplyToAllPlayers();
+
+			// 서버에서 받은 인벤토리 복원
+			if (_inventoryDataFromServer != null && _inventoryDataFromServer.Count > 0)
+			{
+				var equipDB = KingdomArmyManager.Instance?.EquipDB;
+				if (equipDB != null)
+				{
+					var players = new Player[] { p1, p2, p3 };
+					foreach (Scripts.Server.DTO.ItemCode itemCode in _inventoryDataFromServer)
+					{
+						EquipmentData data = equipDB.GetEquipmentByCode((int)itemCode.GetItemCode());
+						if (data == null) continue;
+
+						Player target = p1;
+						foreach (var p in players)
+						{
+							if (p?.equipmentManager == null) continue;
+							if (data.IsAllowedForJob(p.playerStatus?.JobName ?? ""))
+							{
+								target = p;
+								break;
+							}
+						}
+
+						var instance = new EquipmentInstance(data);
+						target.equipmentManager.Inventory.Add(instance);
+					}
+				}
+			}
 		}
 	}
 

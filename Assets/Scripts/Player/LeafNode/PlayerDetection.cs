@@ -36,6 +36,14 @@ public class PlayerDetection
     {
 		if (player.currentTarget != null)
 		{
+            // 타겟이 이미 Dead 상태면 즉시 해제 → 스폰 위치 복귀 가능
+            Monster currentMon = player.currentTarget.gameobj?.GetComponent<Monster>();
+            if (currentMon != null && currentMon.MonAction == eMonsterAction.Dead)
+            {
+                player.ResetTarget(player.currentTarget);
+                return false;
+            }
+
             // 기존 타겟이 카메라 밖으로 나가면 추격/공격을 멈춘다
             if (!IsInCameraBounds(player.currentTarget.targetPos))
             {
@@ -62,7 +70,6 @@ public class PlayerDetection
         Monster mon;
         float closestDist = float.MaxValue;
 
-		Debug.Log($"Detect Count : {count}");
 		for (int i = 0; i < count; i++)
         {
             if (!detectedResults[i].CompareTag("Enemy"))
@@ -73,7 +80,6 @@ public class PlayerDetection
             mon = detectedResults[i].GetComponent<Monster>();
 			if (mon.MonAction == eMonsterAction.Dead)
 			{
-                Debug.Log($"{i} | Player Detect DeadMonster : {mon.gameObject.GetInstanceID()}");
                 continue;
 			}
 

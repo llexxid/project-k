@@ -91,7 +91,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
             damageable?.TakeDamage(new PlayerSkill.DamageProxy(counterDamage, gameobj));
 
             UITKDamageTextBridge.ShowOnTransform(transform, (ulong)counterDamage, Color.yellow);
-            Debug.Log($"[Player] 패링 성공! 반격 데미지: {counterDamage}");
             return true;
         }
 
@@ -141,7 +140,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
     public void ResetTarget(IDamageable target)
     {
-        Debug.Log($"Player : {gameObject.GetInstanceID()} Reset Target");
         _currentTarget = null;
         currentTarget = null;
 	}
@@ -157,7 +155,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 			_currentTarget.OnDeath -= ResetTarget;
 		}
 
-        Debug.Log($"Player : {gameObject.GetInstanceID()} |Player SetMonster : {target.gameobj.GetInstanceID()} | target_action : {target.gameobj.GetComponent<Monster>().MonAction}");
         target.OnDeath += ResetTarget;
         _currentTarget = target;
         currentTarget = target;
@@ -166,7 +163,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     private IEnumerator PauseAfterDeadAnimation()
     {
         float deadAnimLength = GetClipLength("Dead_Anim");
-        Debug.Log($"[Player] 사망 애니메이션 대기: {deadAnimLength}초");
         yield return new WaitForSeconds(deadAnimLength);
 
 		OnDeath?.Invoke(this);
@@ -221,8 +217,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
             _data._extraHp += skill.passiveShieldAmount;
             _shieldPassiveActivated = true;
-            Debug.Log($"[Player] 보호막 패시브 발동: +{skill.passiveShieldAmount} " +
-                      $"(현재 HP {hpRatio:P0} ≤ 임계값 {skill.passiveShieldHPThreshold:P0})");
             break;
         }
     }
@@ -314,8 +308,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         float clipLen = GetClipLength("Attack_Anim");
         if (playerOrder?._attack != null)
             playerOrder._attack.attackRate = clipLen;
-
-        Debug.Log($"[Player] AnimatorComponent 재구성 완료. Attack 클립: {clipLen}초");
     }
 
     private float GetClipLength(string clipName, float fallback = 0.4f)
@@ -330,7 +322,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         {
             if (clip.name == clipName)
             {
-                Debug.Log($"[Player] '{clipName}' 클립 길이: {clip.length}초");
                 return clip.length;
             }
         }
@@ -389,17 +380,26 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     /// <summary>
     /// 스킬 전용 애니메이션 재생.
     /// stateName이 있으면 Animator 상태를 직접 재생하고, 비어있으면 기본 Attack으로 폴백한다.
-    /// PlayerSkill에서 호출한다.
+    /// animProtectDuration > 0이면 해당 시간만큼 Idle/Walk 덮어쓰기를 차단한다 (패링 등 장시간 스킬용).
+    /// PlayerSkill/PlayerParry에서 호출한다.
     /// </summary>
-    public void PlaySkillAnimation(string stateName)
+    public void PlaySkillAnimation(string stateName, float animProtectDuration = -1f)
     {
-        _attackAnimEndTime = Time.time + (playerOrder?._attack?.attackRate ?? 0.4f);
+        float protect = animProtectDuration > 0f
+            ? animProtectDuration
+            : (playerOrder?._attack?.attackRate ?? 0.4f);
+        _attackAnimEndTime = Time.time + protect;
 
         if (!string.IsNullOrEmpty(stateName) && _am != null)
         {
             // 이전 bool 상태(Idle/Walk) 해제
             if (_currentAction == ePlayerAction.Idle || _currentAction == ePlayerAction.Walk)
                 _animatorComponent.TrySetBool(_currentAction, false);
+
+            // Attack_Anim에는 Attack trigger outgoing transition이 없어서 trigger가 소비되지 않고
+            // pending 상태로 남을 수 있다. 스킬 상태 진입 직전에 초기화하지 않으면
+            // Elite_Knight_Parrying처럼 Attack trigger 조건이 있는 상태에서 즉시 Attack_Anim으로 전환된다.
+            _am.ResetTrigger(Animator.StringToHash("Attack"));
 
             _am.Play(Animator.StringToHash(stateName), 0);
             _currentAction = ePlayerAction.Attack;

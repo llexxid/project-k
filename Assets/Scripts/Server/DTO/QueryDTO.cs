@@ -5,26 +5,116 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
+using static PlayerSkill;
 
 namespace Scripts.Server.DTO
 {
+	//.
 	public struct JobStat
 	{
 		public int HP { get; set; }
 		public int ATK { get; set; }
 	}
 
+	public class JobTreeQuery
+	{
+		//캐릭터 인덱스
+		public int Index { get; set; }
+		public List<ulong> JobList { get; set; }
+	}
+
 	/* 스킬트리 LayOut 
  * 스킬트리 코드
 	[63 - 52] 예약 공간 (12bit)
 	[51 - 36] 스킬 코드 (16bit)
+
 	[35 - 28] 강화수치 (8bit)
 	[27 - 16] 각성수치 (12bit)
 	[15 - 0] 갯수 (16bit)
 */
-	public struct SkillCode
+	public struct SkillCode : IEquatable<SkillCode>
 	{
 		public ulong Code { get; set; }
+
+		public static SkillCode GenerateSkillCode(eSkillCode skillID)
+		{
+			SkillCode ret = new SkillCode
+			{
+				Code = (ulong)skillID << 36
+			};
+			return ret;
+		}
+
+		public override int GetHashCode()
+		{
+			return GetSkillId().GetHashCode();
+		}
+
+		//기존 Equals override
+		public override bool Equals(object obj)
+		{
+			if (obj is SkillCode other)
+			{
+				return Equals(other);
+			}
+			return false;
+		}
+		//IEquatable Equals 구현
+		public bool Equals(SkillCode other)
+		{
+			return GetSkillId() == other.GetSkillId();
+		}
+
+		public static bool operator ==(SkillCode lhs, SkillCode rhs)
+		{
+			return lhs.Equals(rhs);
+		}
+
+		public static bool operator !=(SkillCode lhs, SkillCode rhs)
+		{
+			return !(lhs.Equals(rhs));
+		}
+
+		public ulong IncreaseCount(int gap = 1)
+		{
+			ulong count = GetSkillAmount();
+			if (count + (ulong)gap >= 0x0000000000010000)
+			{
+				return 0;
+			}
+			return Code + (ulong)gap;
+		}
+
+		public ulong IncreaseEnchant(int gap = 1)
+		{
+			ulong enchantCnt = GetEnchantCount();
+			if (enchantCnt + (ulong)gap >= 0x0000000000000100)
+			{
+				return 0;
+			}
+			ulong enchantAdder = (ulong)gap << 28;
+			return Code + enchantAdder;
+		}
+		public ulong IncreaseAwakening(int gap = 1)
+		{
+			ulong awaken = GetAwakeningCount();
+			if (awaken + (ulong)gap >= 0x0000000000001000)
+			{
+				return 0;
+			}
+			ulong AwakenAdder = (ulong)gap << 28;
+			return Code + AwakenAdder;
+		}
+		public ulong DecreaseCount(int gap = 1)
+		{
+			ulong count = GetSkillAmount();
+			if ((long)count - (long)gap < 0)
+			{
+				return 0;
+			}
+			ulong retAmount = Code - (ulong)gap;
+			return retAmount;
+		}
 
 		public ulong GetSkillId()
 		{
@@ -41,10 +131,10 @@ namespace Scripts.Server.DTO
 			ulong AwakeCountMask = 0x000000000FFF0000;
 			return (Code & AwakeCountMask) >> 16;
 		}
-		public ulong GetItemAmount()
+		public ulong GetSkillAmount()
 		{
-			ulong ItemAmountMask = 0x000000000000FFFF;
-			return (Code & ItemAmountMask);
+			ulong SkillAmountMask = 0x000000000000FFFF;
+			return (Code & SkillAmountMask);
 		}
 	}
 	/*
@@ -57,14 +147,91 @@ namespace Scripts.Server.DTO
 [23 - 16]  강화 수치    (8bit)
 [15 - 0]  갯수 (16bit)
 	 */
-	public struct ItemCode
+	public struct ItemCode : IEquatable<ItemCode>
 	{
 		public ulong Code { get; set; }
 		public ulong ExpireTimesc { get; set; } // 0인경우 무제한
-		public ulong GetItemId()
+
+		public override int GetHashCode()
 		{
-			ulong ItemIDMask = 0x00FFFF0000000000;
-			return (Code & ItemIDMask) >> 40;
+			// ulong 내부에 구현된 GetHashCode를 그대로 사용합니다.
+			return GetItemCode().GetHashCode();
+		}
+
+		//기존 Equals override
+		public override bool Equals(object obj)
+		{
+			if (obj is ItemCode other)
+			{
+				return Equals(other);
+			}
+			return false;
+		}
+		//IEquatable Equals 구현
+		public bool Equals(ItemCode other)
+		{
+			ulong itemCode = GetItemCode();
+			ulong otherItemCode = other.GetItemCode();
+			return itemCode == otherItemCode;
+		}
+
+		public static bool operator ==(ItemCode lhs, ItemCode rhs)
+		{
+			return lhs.Equals(rhs);
+		}
+
+		public static bool operator !=(ItemCode lhs, ItemCode rhs)
+		{
+			return !(lhs.Equals(rhs));
+		}
+
+		public static ItemCode GenerateItemCode(int itemCode)
+		{
+			ItemCode ret = new ItemCode();
+			ret.Code = (ulong)itemCode << 24;
+			ret.ExpireTimesc = 0;
+			return ret;
+		}
+
+		public ulong IncreaseCount(int gap = 1)
+		{
+			ulong count = GetItemAmount();
+			if (count + (ulong)gap >= 0x0000000000010000)
+			{
+				return Code;
+			}
+			return Code + (ulong)gap;
+		}
+
+		public ulong IncreaseEnchant(int gap = 1)
+		{
+			ulong enchantCnt = GetItemEnchantCount();
+
+			//강화 횟수 초과
+			if (enchantCnt + (ulong)gap >= 0x0000000000000100)
+			{
+				return Code;
+			}
+
+			ulong enchantAdder = (ulong)gap << 16;
+			return Code + enchantAdder;
+		}
+
+		public ulong DecreaseCount(int gap = 1)
+		{
+			ulong count = GetItemAmount();
+			//음수인 경우
+			if ((long)count - (long)gap < 0)
+			{
+				return Code;
+			}
+			return Code - (ulong)gap;
+		}
+
+		public ulong GetItemCode()
+		{
+			ulong ItemIDMask = 0x00FFFFFFFF000000;
+			return (Code & ItemIDMask) >> 24;
 		}
 
 		public ulong GetItemRarity()
@@ -93,8 +260,6 @@ namespace Scripts.Server.DTO
 			return (Code & ItemEnchantCountMask);
 		}
 	}
-
-
 	public class UserCurrentStageQuery
 	{
 		public eStage CurrentStage { get; set; }
@@ -107,15 +272,20 @@ namespace Scripts.Server.DTO
 			Level = level;
 			Exp = exp;
 			MonsterKilled = monsterkilled;
+
+			dtLastLoginTime = DateTime.UtcNow;
+			LastLogInTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+			LastRewardTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 		}
 
 		public int Level { get; set; }
 		public long Exp { get; set; }
 		public long MonsterKilled { get; set; }
-
+		//Time
 		public DateTime dtLastLoginTime { get; set; }
 		public long LastLogInTime { get; set; }
 		public long LastRewardTime { get; set; }
+
 		public string PasreToJson()
 		{
 			return JsonConvert.SerializeObject(this);
@@ -128,8 +298,10 @@ namespace Scripts.Server.DTO
 			EnhancementHp = enhancementHp;
 			EnhancementAtk = enhancementatk;
 		}
+
 		public ulong EnhancementHp { get; set; }
 		public ulong EnhancementAtk { get; set; }
+
 		public string PasreToJson()
 		{
 			return JsonConvert.SerializeObject(this);
@@ -163,13 +335,14 @@ namespace Scripts.Server.DTO
 			CharacterNum = characternum;
 			ItemCode = itemcode;
 		}
-		public int CharacterNum;
-		public ulong ItemCode;
+		public int CharacterNum { get; set; }
+		public ulong ItemCode { get; set; }
 		public string PasreToJson()
 		{
 			return JsonConvert.SerializeObject(this);
 		}
 	}
+
 	public class CurrencyQueryDTO
 	{
 		public CurrencyQueryDTO(long gold, long ancientCoin, long kingdomSupply, long arcaneKnowledge, long classFragment)
@@ -187,6 +360,24 @@ namespace Scripts.Server.DTO
 		public long ArcaneKnowledge { get; set; } //마탑스킬강화
 		public long ClassFragment { get; set; } // 전직재화
 
+		public string PasreToJson()
+		{
+			return JsonConvert.SerializeObject(this);
+		}
+	}
+
+	public class InventoryQueryDTO
+	{
+		public List<ItemCode> Items { get; set; }
+		public string PasreToJson()
+		{
+			return JsonConvert.SerializeObject(this);
+		}
+	}
+
+	public class SkillTreeDTO
+	{
+		public List<SkillCode> SkillTrees { get; set; }
 		public string PasreToJson()
 		{
 			return JsonConvert.SerializeObject(this);

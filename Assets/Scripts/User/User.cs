@@ -63,10 +63,31 @@ namespace Scripts.Users
 			_userData._currentStage = stage;
 		}
 
+		public void SetCoin(eCurrency type, long amount)
+		{
+			_wallet.SetCoin(type, amount);
+		}
+
 		public void GainCoin(eCurrency type, long amount)
 		{
 			_wallet.AddCoins(type, amount);
 		}
+
+		public void SetLevel(int level)
+		{
+			_userData._level = level;
+		}
+
+		public void SetExp(long exp)
+		{
+			_userData._exp = exp;
+		}
+
+		public void SetKillScore(long score)
+		{
+			_userData._killScore = score;
+		}
+
 
 		// ── [장비 시스템 추가] ────────────────────────────────────────
 		/// <summary>

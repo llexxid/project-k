@@ -276,11 +276,8 @@ namespace Scripts.Monster
 		}
 		public bool TakeDamage(IAttackable attacker)
 		{
-			// Dead 체크를 먼저: 이미 사망한 몬스터에게는 데미지 적용 안 함
-			Debug.Log($"prev _monAction : {_monAction}");
 			if (_monAction == eMonsterAction.Dead)
 			{
-				Debug.Log($"Monster is {gameObject.GetInstanceID()} Dead But attack By attacker : {attacker.gameobj.GetInstanceID()}");
 				//CustomLogger.LogError("죽은 상태인데 공격받음!");
 				return false;
 			}
@@ -300,10 +297,8 @@ namespace Scripts.Monster
 			{
 				_monAction = eMonsterAction.Dead;
 				_monAI.InterruptBT();
-				Debug.Log($"Monster Is Dead {gameObject.GetInstanceID()} By attacker : {attacker.gameobj.GetInstanceID()}");
-				Debug.Log($"after MonAction : {_monAction}");
-
 				_stateManchine.ChangeState(new MonsterDeadState(this));
+
 				if (attacker is IRewardable target)
 				{
 					GiveRewardToAttacker(target);

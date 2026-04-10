@@ -9,7 +9,7 @@ namespace Scripts.Wallets
     class Wallet
     {
 		private User _user;
-		private Dictionary<eCurrency, long> pocket;
+		private Dictionary<eCurrency, long> pocket = new Dictionary<eCurrency, long>();
 		
 		[SerializeField]
 		private int totalCoins;
@@ -26,6 +26,10 @@ namespace Scripts.Wallets
 			AddCoins(eCurrency.ClassFragment, classfragments);
 		}
 
+		public void SetCoin(eCurrency type, long amount)
+		{
+			pocket[type] = amount;
+		}
 		public int TotalCoins
 		{
 			get { return totalCoins; }

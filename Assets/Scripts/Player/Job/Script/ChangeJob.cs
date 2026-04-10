@@ -84,7 +84,6 @@ public class ChangeJob : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.G))
         {
             _player.User?.GainCoin(eCurrency.Gold, 1000);
-            Debug.Log("[테스트] 골드 +1000 지급");
         }
 
         // [테스트] R키 → 해금 목록 초기화 (PlayerPrefs 삭제 후 index 0만 재등록)
@@ -94,7 +93,6 @@ public class ChangeJob : MonoBehaviour
             _unlockedJobs.Clear();
             _unlockedJobs.Add(0);
             SaveUnlockedJobs();
-            Debug.Log("[테스트] 해금 목록 초기화 완료 (시작 직업만 유지)");
         }
     }
 
@@ -216,7 +214,6 @@ public class ChangeJob : MonoBehaviour
             }
         }
 
-        Debug.Log("[ChangeJob] 패시브 스킬 보너스 재계산 완료");
     }
 
     private void SaveUnlockedJobs()
@@ -274,8 +271,6 @@ public class ChangeJob : MonoBehaviour
         _player.skillManager?.RefreshSkills(data.skills);
 
         // 4. BT 스킬 트리 재조립 (새 직업 스킬 → BT LeafNode로 자동 등록)
-        // PlayerID
-        Debug.Log($"[ChangeJob]Player ID : {_player.gameobj.GetInstanceID()}");
         _player.playerOrder?.RebuildSkillTree(data.skills, _player);
 
         // 5. 스프라이트 교체
@@ -307,7 +302,5 @@ public class ChangeJob : MonoBehaviour
 
         // 11. 패시브 스킬 보너스 전체 재계산
         RefreshAllPassiveBonuses();
-
-        Debug.Log($"[ChangeJob] 전직 완료: {data.jobName} (HP:{data.maxHP} ATK:{data.atk})");
     }
 }

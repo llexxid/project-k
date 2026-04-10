@@ -100,11 +100,11 @@ namespace Scripts.Core
 		public void Clear()
 		{
 			_AudioCache.Clear();
-			foreach (var handle in _Handles)
+			foreach (var handle in _Handles.Values)
 			{
 				Addressables.Release(handle);
 			}
-			foreach (var handle in _BatchHandles)
+			foreach (var handle in _BatchHandles.Values)
 			{
 				Addressables.Release(handle);
 			}

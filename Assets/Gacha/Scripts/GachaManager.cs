@@ -3,10 +3,16 @@ using UnityEngine;
 using Scripts.Core;
 using KingdomIdle.MageTower;
 using KingdomIdle.KingdomArmy;
+using PlayFab.CloudScriptModels;
+using Newtonsoft.Json;
+using Scripts.Server.DTO;
+using Scripts.Core.Manager;
 
 namespace KingdomIdle.Gacha
 {
-    public class GachaManager : MonoBehaviour
+    using ItemCode = Scripts.Server.DTO.ItemCode;
+
+	public class GachaManager : MonoBehaviour
     {
         public static GachaManager Instance { get; private set; }
 
@@ -148,5 +154,27 @@ namespace KingdomIdle.Gacha
 
             Debug.Log($"[GachaManager] 장비 지급: {reward.equipmentData.equipmentName} ({reward.equipmentData.rarity}) → {targetPlayer.name}");
         }
-    }
+
+		private void Update()
+		{
+		}
+
+        private void OnGachaError(PlayFab.PlayFabError error)
+        {
+            Debug.Log(error.ErrorMessage);
+        }
+
+		private void OnSuccess(ExecuteFunctionResult result)
+		{
+			Debug.Log("Success");
+		}
+
+		private void OnGachaSuccess(ExecuteFunctionResult result)
+        {
+			//For Debugging
+			string json = JsonConvert.SerializeObject(result.FunctionResult);
+			OnGachaSkillArcaneKnowledgeResponseDTO responsedto = JsonConvert.DeserializeObject<OnGachaSkillArcaneKnowledgeResponseDTO>(json);
+
+		}
+	}
 }
