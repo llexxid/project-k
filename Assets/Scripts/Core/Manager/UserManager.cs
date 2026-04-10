@@ -19,7 +19,7 @@ namespace Scripts.Core
 		[SerializeField]
 		GameObject playerPrefab;
 		List<CharacterDataQuery> _characterDataFromServer;
-	List<Scripts.Server.DTO.ItemCode> _inventoryDataFromServer;
+		List<Scripts.Server.DTO.ItemCode> _inventoryDataFromServer;
 		private void Awake()
 		{
 			if (Instance == null)
@@ -89,6 +89,20 @@ namespace Scripts.Core
 					Userquery.Level,
 					EnchantQuery.EnhancementHp,
 					EnchantQuery.EnhancementAtk
+				);
+			_user.SetUserData(userData);
+		}
+
+		public void CreateUser(string name, eStage stage, long exp, long monsterkill, int level, ulong enchantHp, ulong enchantAtk)
+		{
+			UserData userData = new UserData(
+				name,
+				exp,
+				monsterkill,
+				stage,
+				level,
+				enchantHp,
+				enchantAtk
 				);
 			_user.SetUserData(userData);
 		}

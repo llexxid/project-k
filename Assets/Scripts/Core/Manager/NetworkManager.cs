@@ -25,6 +25,8 @@ namespace Scripts.Core.Manager
 		private string _sessionGUID;
 
 		private Authentication _AuthComponent;
+
+
 		private void Awake()
 		{
 			if (Instance == null)
