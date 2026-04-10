@@ -67,7 +67,7 @@ public class PlayerOrder
 
                 if (skillData.skillEffectType == SkillEffectType.Parry)
                 {
-                    var parry = new PlayerParry(player, skillData);
+                    var parry = new PlayerParry(player, skillData, sharedState);
                     nodes.Add(new PlayerParry.ParryNode(parry));
                 }
                 else

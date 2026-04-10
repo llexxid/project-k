@@ -380,17 +380,26 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     /// <summary>
     /// 스킬 전용 애니메이션 재생.
     /// stateName이 있으면 Animator 상태를 직접 재생하고, 비어있으면 기본 Attack으로 폴백한다.
-    /// PlayerSkill에서 호출한다.
+    /// animProtectDuration > 0이면 해당 시간만큼 Idle/Walk 덮어쓰기를 차단한다 (패링 등 장시간 스킬용).
+    /// PlayerSkill/PlayerParry에서 호출한다.
     /// </summary>
-    public void PlaySkillAnimation(string stateName)
+    public void PlaySkillAnimation(string stateName, float animProtectDuration = -1f)
     {
-        _attackAnimEndTime = Time.time + (playerOrder?._attack?.attackRate ?? 0.4f);
+        float protect = animProtectDuration > 0f
+            ? animProtectDuration
+            : (playerOrder?._attack?.attackRate ?? 0.4f);
+        _attackAnimEndTime = Time.time + protect;
 
         if (!string.IsNullOrEmpty(stateName) && _am != null)
         {
             // 이전 bool 상태(Idle/Walk) 해제
             if (_currentAction == ePlayerAction.Idle || _currentAction == ePlayerAction.Walk)
                 _animatorComponent.TrySetBool(_currentAction, false);
+
+            // Attack_Anim에는 Attack trigger outgoing transition이 없어서 trigger가 소비되지 않고
+            // pending 상태로 남을 수 있다. 스킬 상태 진입 직전에 초기화하지 않으면
+            // Elite_Knight_Parrying처럼 Attack trigger 조건이 있는 상태에서 즉시 Attack_Anim으로 전환된다.
+            _am.ResetTrigger(Animator.StringToHash("Attack"));
 
             _am.Play(Animator.StringToHash(stateName), 0);
             _currentAction = ePlayerAction.Attack;

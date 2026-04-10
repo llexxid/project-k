@@ -1,3 +1,4 @@
+using Scripts.Core;
 using UnityEngine;
 
 /// <summary>
@@ -9,13 +10,15 @@ public class PlayerParry
 {
     private readonly Player    _player;
     private readonly SkillData _skillData;
+    private readonly PlayerSkill.SkillSharedState _sharedState;
 
     private float _nextAvailableTime = 0f;
 
-    public PlayerParry(Player player, SkillData skillData)
+    public PlayerParry(Player player, SkillData skillData, PlayerSkill.SkillSharedState sharedState)
     {
-        _player    = player;
-        _skillData = skillData;
+        _player      = player;
+        _skillData   = skillData;
+        _sharedState = sharedState;
     }
 
     public NodeState Execute()
@@ -37,8 +40,24 @@ public class PlayerParry
         // 패링 활성화
         _player.ActivateParry(_skillData.parryDuration, counterMultiplier);
 
-        // 애니메이션 재생
-        _player.PlaySkillAnimation(_skillData.animationStateName);
+        // 공유 잠금: 패링 지속 시간 동안 다른 스킬 발동 방지 (패링 애니메이션 보호)
+        if (_sharedState != null)
+            _sharedState.nextAvailableTime = Time.time + _skillData.parryDuration;
+
+        // SFX 재생
+        if (!string.IsNullOrEmpty(_skillData.skillSFXName) &&
+            System.Enum.TryParse(_skillData.skillSFXName, out eSFXType sfxType))
+        {
+            SFXManager.Instance.GetSFX(
+                sfxType,
+                _player.transform.position,
+                Quaternion.identity,
+                sfx => sfx.PlaySFX()
+            );
+        }
+
+        // 애니메이션 재생 (parryDuration 동안 Idle/Walk 덮어쓰기 차단)
+        _player.PlaySkillAnimation(_skillData.animationStateName, _skillData.parryDuration);
 
         return NodeState.Success;
     }

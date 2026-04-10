@@ -54,25 +54,28 @@ public class PlayerAttack
     /// </summary>
     public NodeState Attack()
     {
-        // [1] 일반 공격 쿨타임 체크
+        // [1] 패링 중에는 공격 애니메이션이 패링을 덮어쓰지 않도록 차단
+        if (player.IsParrying) return NodeState.Failure;
+
+        // [2] 일반 공격 쿨타임 체크
         if (Time.time < _nextAttackTime)
         {
             return NodeState.Failure;
         }
 
-        // [2] 적 탐지 필터 설정
+        // [3] 적 탐지 필터 설정
         ContactFilter2D filter = new ContactFilter2D();
         filter.SetLayerMask(enemyLayer);
         filter.useLayerMask = true;
         filter.useTriggers = true;
 
-        // [3] 범위 내 적 탐지 — 적이 없으면 공격하지 않음
+        // [4] 범위 내 적 탐지 — 적이 없으면 공격하지 않음
         int hitCount = Physics2D.OverlapCircle(
             player.transform.position, attackRadius, filter, _hitResults);
 
         if (hitCount == 0) return NodeState.Failure;
 
-        // [3-a] 탐지된 적이 전부 Dead 상태면 공격하지 않음
+        // [4-a] 탐지된 적이 전부 Dead 상태면 공격하지 않음
         bool hasAliveTarget = false;
         for (int i = 0; i < hitCount; i++)
         {
@@ -84,10 +87,10 @@ public class PlayerAttack
 			return NodeState.Failure;
 		}
 
-        // [4] 쿨타임 소모
+        // [5] 쿨타임 소모
         _nextAttackTime = Time.time + attackRate;
 
-        // [5] 공격 애니메이션 재생
+        // [6] 공격 애니메이션 재생
         player.PlayAttackAnimation();
 
         return NodeState.Success;
