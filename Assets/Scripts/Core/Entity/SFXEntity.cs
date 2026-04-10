@@ -61,6 +61,19 @@ namespace Scripts.Core
             AutoRelease(clip.length * 1000.0f).Forget();
         }
 
+        // 루프 재생 — 호출자가 StopSFX() + SFXManager.DestroySFX()로 직접 해제해야 함
+        public void PlaySFXLoop()
+        {
+            _source.loop = true;
+            _source.Play();
+        }
+
+        public void StopSFX()
+        {
+            _source.Stop();
+            _source.loop = false;
+        }
+
         private async UniTaskVoid Delay(float duration)
         {
             await UniTask.Delay(TimeSpan.FromMilliseconds(duration), cancellationToken: _token.Token);

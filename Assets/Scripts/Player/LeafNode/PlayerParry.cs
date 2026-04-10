@@ -40,9 +40,6 @@ public class PlayerParry
         // 애니메이션 재생
         _player.PlaySkillAnimation(_skillData.animationStateName);
 
-        Debug.Log($"[패링] {_skillData.skillName} 활성화 " +
-                  $"(지속: {_skillData.parryDuration}s, 반격계수: {counterMultiplier:F2})");
-
         return NodeState.Success;
     }
 

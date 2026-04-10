@@ -87,9 +87,6 @@ public class SkillEnhanceManager : MonoBehaviour
             Runtime.AddLevel(skill, amount);
             int after = Runtime.GetLevel(skill.skillName);
 
-            Debug.Log($"[강화] {skill.skillName} Lv.{before} → Lv.{after} " +
-                      $"| 데미지계수 {Runtime.GetFinalDamage(skill):F2} " +
-                      $"| 쿨타임 {Runtime.GetFinalCooldown(skill):F2}s");
         }
 
         Runtime.Save();
@@ -101,7 +98,6 @@ public class SkillEnhanceManager : MonoBehaviour
     {
         Runtime.ResetAll();
         Runtime.Save();
-        Debug.Log("[SkillEnhanceManager] ★ 모든 스킬 강화 레벨 초기화 완료");
     }
 
     /// <summary>특정 스킬 하나를 amount 레벨 강화한다. (향후 UI 연동용)</summary>
@@ -110,11 +106,6 @@ public class SkillEnhanceManager : MonoBehaviour
         if (skill == null) return;
         int before = Runtime.GetLevel(skill.skillName);
         Runtime.AddLevel(skill, amount);
-        int after = Runtime.GetLevel(skill.skillName);
-
-        Debug.Log($"[강화] {skill.skillName} Lv.{before} → Lv.{after} " +
-                  $"| 데미지계수 {Runtime.GetFinalDamage(skill):F2} " +
-                  $"| 쿨타임 {Runtime.GetFinalCooldown(skill):F2}s");
         Runtime.Save();
     }
 }

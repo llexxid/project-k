@@ -23,7 +23,7 @@ namespace Scripts.Server.Auth
 		GoogleWebLogin,
 
 		//For Test
-		CustomLogin,
+		CustomLogin, 
 		DummyLogin,
 	}
 
@@ -31,7 +31,7 @@ namespace Scripts.Server.Auth
 	{
 		private string _authToken;
 		private eAuthType _type;
-		//ÇÏµåÄÚµù ÇØµµ µÇ³ª?
+		//ï¿½Ïµï¿½ï¿½Úµï¿½ ï¿½Øµï¿½ ï¿½Ç³ï¿½?
 		private readonly string _webClientId = "222024339558-o157jmef5jhip2s9vtfo3kto1ojfpejf.apps.googleusercontent.com";
 
 		private readonly string key_userStage = "UserCurrentStage";
@@ -41,8 +41,6 @@ namespace Scripts.Server.Auth
 		private readonly string key_skillTreeData = "SkillTreeData";
 		private readonly string key_inventoryData = "Inventory";
 		private readonly string key_currency = "Currency";
-		private readonly string key_jobTree = "JobTree";
-
 
 		public Authentication()
 		{
@@ -62,7 +60,7 @@ namespace Scripts.Server.Auth
 
 		public void Authenticate(eAuthType type)
 		{
-			//³»°¡ ·Î±×ÀÎ ÇÑ Å¸ÀÔ ÀúÀåÇØ³õ±â (ÃßÈÄ µð¹ö±ë¿ë)
+			//ï¿½ï¿½ï¿½ï¿½ ï¿½Î±ï¿½ï¿½ï¿½ ï¿½ï¿½ Å¸ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ø³ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)
 			_type = type;
 			switch (type)
 			{
@@ -124,7 +122,6 @@ namespace Scripts.Server.Auth
 					key_skillTreeData,
 					key_inventoryData,
 					key_currency,
-					key_jobTree,
 					//MailSlot
 					//
 				},
@@ -148,17 +145,17 @@ namespace Scripts.Server.Auth
 		{
 			if (task.IsFaulted)
 			{
-				Debug.LogError("±¸±Û ·Î±×ÀÎ ½ÇÆÐ: " + task.Exception);
+				Debug.LogError("ï¿½ï¿½ï¿½ï¿½ ï¿½Î±ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½: " + task.Exception);
 				return;
 			}
 			else if (task.IsCanceled)
 			{
-				Debug.Log("±¸±Û ·Î±×ÀÎÀÌ Ãë¼ÒµÇ¾ú½À´Ï´Ù.");
+				Debug.Log("ï¿½ï¿½ï¿½ï¿½ ï¿½Î±ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ÒµÇ¾ï¿½ï¿½ï¿½ï¿½Ï´ï¿½.");
 				return;
 			}
 
-			//PlayFab¿¡ ·Î±×ÀÎÀ» ¿äÃ»ÇÒ ¶§, ¾î¶² Á¤º¸¸¦ °°ÀÌ ¿äÃ»ÇÒ °ÍÀÎ°¡?
-			//ÀÎº¥Åä¸® µ¥ÀÌÅÍ,À¯Àú µ¥ÀÌÅÍ, Ä³¸¯ÅÍ µ¥ÀÌÅÍ, °­È­¼öÄ¡, ÀçÈ­
+			//PlayFabï¿½ï¿½ ï¿½Î±ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ã»ï¿½ï¿½ ï¿½ï¿½, ï¿½î¶² ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ã»ï¿½ï¿½ ï¿½ï¿½ï¿½Î°ï¿½?
+			//ï¿½Îºï¿½ï¿½ä¸® ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½,ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, Ä³ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½È­ï¿½ï¿½Ä¡, ï¿½ï¿½È­
 			GetPlayerCombinedInfoRequestParams infoRequestParams = new GetPlayerCombinedInfoRequestParams
 			{
 				GetUserReadOnlyData = true,
@@ -171,7 +168,6 @@ namespace Scripts.Server.Auth
 					key_skillTreeData,
 					key_inventoryData,
 					key_currency,
-					key_jobTree,
 					//MailSlot
 					//
 				},
@@ -195,13 +191,13 @@ namespace Scripts.Server.Auth
 
 		private void callbacks(ExecuteFunctionResult result)
 		{
-			Debug.Log("¼º°ø");
+			Debug.Log("ï¿½ï¿½ï¿½ï¿½");
 		}
 
-		//Test¿ë
+		//Testï¿½ï¿½
 		private void pfAuthSuccessTest(LoginResult result)
 		{
-			//´õ¹ÌÀ¯Àú
+			//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 			NetworkManager.Instance.SetSessionID(result.PlayFabId);
 			NetworkManager.Instance.SetSessionTicket(result.SessionTicket);
 
@@ -209,52 +205,51 @@ namespace Scripts.Server.Auth
 
 			Dictionary<string, UserDataRecord> datas = result.InfoResultPayload.UserReadOnlyData;
 			//NetworkManager.Instance.OnSignUpInitUser(callbacks, pfAuthErrorCallback);
-			//ÇÊ¼öÁ¤º¸µé
+			//ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 			string nickName = result.InfoResultPayload.PlayerProfile.DisplayName;
 			long currentStage = Convert.ToInt64(datas[key_userStage].Value);
 			CurrencyQueryDTO currency = JsonConvert.DeserializeObject<CurrencyQueryDTO>(datas[key_currency].Value);
 			UserDataQuery userdata = JsonConvert.DeserializeObject<UserDataQuery>(datas[key_userData].Value);
 			UserEnhanceMentQuery enhancement = JsonConvert.DeserializeObject<UserEnhanceMentQuery>(datas[key_userEnhancement].Value);
 			List<CharacterDataQuery> characterData = JsonConvert.DeserializeObject<List<CharacterDataQuery>>(datas[key_characterData].Value);
-			List<JobTreeQuery> jobtree = JsonConvert.DeserializeObject<List<JobTreeQuery>>(datas[key_jobTree].Value);
-			//°¡Áø Àåºñ³ª ½ºÅ³ÀÌ ¾øÀ»¼öµµ ÀÖÀ½.
+		
+			//ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½Å³ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½.
 			if (datas.ContainsKey(key_skillTreeData))
 			{
-				SkillTreeDTO skillCodes = JsonConvert.DeserializeObject<SkillTreeDTO>(datas[key_skillTreeData].Value);
-				//Todo : À¯Àú¿¡¼­ Inventory¶û SkillTree°¡ ¿¬°áµÇ¾î¾ßÇÔ.
+				List<SkillCode> skillCodes = JObject.Parse(datas[key_skillTreeData].Value)["SkillTrees"].ToObject<List<SkillCode>>();
+				//Todo : ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Inventoryï¿½ï¿½ SkillTreeï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ç¾ï¿½ï¿½ï¿½ï¿½.
 			}
 			if (datas.ContainsKey(key_inventoryData))
 			{
-				InventoryQueryDTO inventory = JsonConvert.DeserializeObject<InventoryQueryDTO>(datas[key_inventoryData].Value);
-				//Todo : À¯Àú¿¡¼­ Inventory¶û SkillTree°¡ ¿¬°áµÇ¾î¾ßÇÔ.
+				List<ItemID> inventory = JObject.Parse(datas[key_inventoryData].Value)["Items"].ToObject<List<ItemID>>();
+				//Todo : ì—¬ê¸°ì—ì„œ Inventoryì™€ SkillTreeê°€ ì ìš©ë˜ì–´ì•¼í•¨.
+				UserManager.Instance.SetInventoryData(inventory);
 			}
 
-			//Todo : JobTree ¼ÂÆÃ
-
-			//À¯Àú¼ÂÆÃ
-			UserManager.Instance.CreateUser(nickName, (eStage)currentStage, userdata, enhancement);
+			//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			UserManager.Instance.CreateUser(nickName,(eStage)currentStage, userdata, enhancement);
 			UserManager.Instance.SetCharacterData(characterData);
 			UserManager.Instance.SetWallet(currency);
 
 			GameManager.Instance.LoadAsyncScene(eSceneType.main);
 		}
-		//¾ê°¡ Release½Ã ½ÇÇÛµÉ Google LoginÇÔ¼ö
+		//ï¿½ê°¡ Releaseï¿½ï¿½ ï¿½ï¿½ï¿½Ûµï¿½ Google Loginï¿½Ô¼ï¿½
 		private void pfAuthSuccessCallback(LoginResult authresult)
 		{
-			//User¿¡ playFabId ¼ÂÆÃ / SessionTicket¼ÂÆÃ 
-			//User¿Í SEssionÀÌ ÇÕÃÄÀÖ´Â ±¸Á¶·Î ÇÏ´Ï±î, User¸¦ »ý¼ºÇÏ´Â ½ÃÁ¡¿¡
-			// Ã³À½ »ý¼ºÇÏ´Â°Å¸é, µ¥ÀÌÅÍ¸¦ ¸ÕÀú ¹Þ°í -> ´Ð³×ÀÓ ¼³Á¤ -> À¯Àú Á¤º¸ ¼ÂÆÃ 
-			// Áï, user¿Í SessionÀÌ ³ª´²Á®¾ßÇÔ.
+			//Userï¿½ï¿½ playFabId ï¿½ï¿½ï¿½ï¿½ / SessionTicketï¿½ï¿½ï¿½ï¿½ 
+			//Userï¿½ï¿½ SEssionï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ö´ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ï´Ï±ï¿½, Userï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			// Ã³ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï´Â°Å¸ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½Í¸ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Þ°ï¿½ -> ï¿½Ð³ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ -> ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ 
+			// ï¿½ï¿½, userï¿½ï¿½ Sessionï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½.
 			NetworkManager.Instance.SetSessionID(authresult.PlayFabId);
 			NetworkManager.Instance.SetSessionTicket(authresult.SessionTicket);
 			if (authresult.NewlyCreated == true)
 			{
-				//TODO : ´Ð³×ÀÓ ¼³Á¤ UI ¶ç¿ì±â
-				// ´Ð³×ÀÓ ¼³Á¤ UI¿¡¼­ NetworkManagerÀÇ À¯Àú »ý¼º µîÀÇ ÇÔ¼ö¸¦ ºÎ¸£¸é µÊ.
+				//TODO : ï¿½Ð³ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ UI ï¿½ï¿½ï¿½ï¿½
+				// ï¿½Ð³ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ UIï¿½ï¿½ï¿½ï¿½ NetworkManagerï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ô¼ï¿½ï¿½ï¿½ ï¿½Î¸ï¿½ï¿½ï¿½ ï¿½ï¿½.
 				return;
 			}
 
-			//´Ð³×ÀÓ Áßº¹Ã¼Å©ÇÏ°í, È®ÀÎ¹öÆ°À» ¾È´­·¶À» ¼öµµ ÀÖÀ½.
+			//ï¿½Ð³ï¿½ï¿½ï¿½ ï¿½ßºï¿½Ã¼Å©ï¿½Ï°ï¿½, È®ï¿½Î¹ï¿½Æ°ï¿½ï¿½ ï¿½È´ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½.
 			string nickname = authresult.InfoResultPayload.PlayerProfile.DisplayName;
 			if (nickname.Length == 0)
 			{
@@ -262,38 +257,33 @@ namespace Scripts.Server.Auth
 				return;
 			}
 
-			//¼º°øÀûÀ¸·Î ·Î±×ÀÎÇÑ °æ¿ì
+			//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Î±ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
 			NetworkManager.Instance.OnExistUserInit(OnExistUserSuccess, pfAuthErrorCallback);
-			//ReadOnlyData¿¡ PFÁ¤º¸¸¦ ±×´ë·Î ¹Þ¾Æ¿È.
+			//ReadOnlyDataï¿½ï¿½ PFï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½×´ï¿½ï¿½ ï¿½Þ¾Æ¿ï¿½.
 			//For Debugging
 			Dictionary<string, UserDataRecord> datas = authresult.InfoResultPayload.UserReadOnlyData;
 
-			//ÇÊ¼öÁ¤º¸µé
+			//ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 			string nickName = authresult.InfoResultPayload.PlayerProfile.DisplayName;
 			long currentStage = Convert.ToInt64(datas[key_userStage].Value);
 			CurrencyQueryDTO currency = JsonConvert.DeserializeObject<CurrencyQueryDTO>(datas[key_currency].Value);
 			UserDataQuery userdata = JsonConvert.DeserializeObject<UserDataQuery>(datas[key_userData].Value);
 			UserEnhanceMentQuery enhancement = JsonConvert.DeserializeObject<UserEnhanceMentQuery>(datas[key_userEnhancement].Value);
 			List<CharacterDataQuery> characterData = JsonConvert.DeserializeObject<List<CharacterDataQuery>>(datas[key_characterData].Value);
-			List<JobTreeQuery> jobtree = JsonConvert.DeserializeObject<List<JobTreeQuery>>(datas[key_jobTree].Value);
 
-			//°¡Áø Àåºñ³ª ½ºÅ³ÀÌ ¾øÀ»¼öµµ ÀÖÀ½.
+			//ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½Å³ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½.
 			if (datas.ContainsKey(key_skillTreeData))
 			{
-				SkillTreeDTO skillCodes = JsonConvert.DeserializeObject<SkillTreeDTO>(datas[key_skillTreeData].Value);
-				//Todo : À¯Àú¿¡¼­ Inventory¶û SkillTree°¡ ¿¬°áµÇ¾î¾ßÇÔ.
+				List<SkillCode> skillCodes = JObject.Parse(datas[key_skillTreeData].Value)["SkillTrees"].ToObject<List<SkillCode>>();
+				//Todo : ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Inventoryï¿½ï¿½ SkillTreeï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ç¾ï¿½ï¿½ï¿½ï¿½.
 			}
 			if (datas.ContainsKey(key_inventoryData))
 			{
 				InventoryQueryDTO inventory = JsonConvert.DeserializeObject<InventoryQueryDTO>(datas[key_inventoryData].Value);
-				//Todo : À¯Àú¿¡¼­ Inventory¶û SkillTree°¡ ¿¬°áµÇ¾î¾ßÇÔ...
+				//Todo : ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Inventoryï¿½ï¿½ SkillTreeï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ç¾ï¿½ï¿½ï¿½ï¿½...
 			}
 
-
-			//Todo : JobTree ¼ÂÆÃ
-
-			//Todo : À¯Àú¿¡¼­ Inventory¶û SkillTree°¡ ¿¬°áµÇ¾î¾ßÇÔ.
-			//À¯Àú¼ÂÆÃ
+			//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 			UserManager.Instance.CreateUser(nickName, (eStage)currentStage, userdata, enhancement);
 			UserManager.Instance.SetCharacterData(characterData);
 			UserManager.Instance.SetWallet(currency);
@@ -313,23 +303,23 @@ namespace Scripts.Server.Auth
 
 			NetworkManager.Instance.OnExistUserInit(OnExistUserSuccess, pfAuthErrorCallback);
 
-			Debug.Log("DummyLogin¼º°ø!");
+			Debug.Log("DummyLoginï¿½ï¿½ï¿½ï¿½!");
 		}
 
 		private void OnSignUpUserSucccess(ExecuteFunctionResult result)
 		{
-
+			
 		}
 
 		private void OnExistUserSuccess(ExecuteFunctionResult result)
 		{
 			//For Debugging
-			Debug.Log("Redis¿¡ ¼¼¼Ç »ý¼º¿äÃ» ¼º°ø!");
+			Debug.Log("Redisï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã» ï¿½ï¿½ï¿½ï¿½!");
 			string SessionId = JsonConvert.SerializeObject(result.FunctionResult);
 			OnAuthInitResponseDTO responsedto = JsonConvert.DeserializeObject<OnAuthInitResponseDTO>(SessionId);
 			Debug.Log($"SessionID : {responsedto.SessionID}");
 			NetworkManager.Instance.SetSessionGUID(responsedto.SessionID);
-			//Session ID ¼ÂÆÃ 
+			//Session ID ï¿½ï¿½ï¿½ï¿½ 
 
 		}
 	}

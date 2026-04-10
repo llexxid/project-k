@@ -791,119 +791,150 @@ namespace KingdomIdle.UIToolkit
 
         private void BindMain(VisualElement root)
         {
-            _bottomBar = root.Q<VisualElement>("BottomBar");
-            if (_bottomBar != null)
+            // 각 섹션을 try/catch로 격리한다. 한 섹션(특히 wallet 리플렉션)에서 예외가 나도
+            // 이후 섹션(햄버거, WaveUIController.Init 등)은 정상적으로 바인딩되어야 한다.
+            try
             {
-                _bottomBar.RegisterCallback<GeometryChangedEvent>(evt =>
+                _bottomBar = root.Q<VisualElement>("BottomBar");
+                if (_bottomBar != null)
                 {
-                    var h = evt.newRect.height;
-                    if (h > 1f)
+                    _bottomBar.RegisterCallback<GeometryChangedEvent>(evt =>
                     {
-                        _bottomBarHeightPx = h;
-                        UpdateAllPanelOffsets();
-                    }
-                });
+                        var h = evt.newRect.height;
+                        if (h > 1f)
+                        {
+                            _bottomBarHeightPx = h;
+                            UpdateAllPanelOffsets();
+                        }
+                    });
 
-                if (_bottomBar.resolvedStyle.height > 1f)
-                    _bottomBarHeightPx = _bottomBar.resolvedStyle.height;
+                    if (_bottomBar.resolvedStyle.height > 1f)
+                        _bottomBarHeightPx = _bottomBar.resolvedStyle.height;
+                }
             }
+            catch (System.Exception ex) { Debug.LogError($"BindMain.BottomBar failed: {ex}"); }
 
-            BindTab(root.Q<Button>("BtnDevelopment"), UIPanelId.Development, "developmentPanel");
-            BindTab(root.Q<Button>("BtnKingdomArmy"), UIPanelId.KingdomArmy, "kingdomArmyPanel");
-            BindTab(root.Q<Button>("BtnGacha"), UIPanelId.Gacha, "gachaPanel");
-            BindTab(root.Q<Button>("BtnStore"), UIPanelId.Store, "storePanel");
-            BindTab(root.Q<Button>("BtnDungeon"), UIPanelId.Dungeon, "dungeonPanel");
-
-            var bCurrency = root.Q<Button>("BtnCurrency");
-            _popupCurrencies = root.Q<VisualElement>("PopupCurrencies");
-            _lblGold = root.Q<Label>("LblGold");
-            _lblAncientCoin = root.Q<Label>("LblAncientCoin");
-            _wallet = FindAnyWallet();
-            RefreshTopCurrencyLabels();
-
-            if (bCurrency != null && _popupCurrencies != null)
+            try
             {
-                bCurrency.clicked += () =>
+                var btnDev = root.Q<Button>("BtnDevelopment");
+                var btnArmy = root.Q<Button>("BtnKingdomArmy");
+                var btnGacha = root.Q<Button>("BtnGacha");
+                var btnStore = root.Q<Button>("BtnStore");
+                var btnDungeon = root.Q<Button>("BtnDungeon");
+                BindTab(btnDev, UIPanelId.Development, "developmentPanel");
+                BindTab(btnArmy, UIPanelId.KingdomArmy, "kingdomArmyPanel");
+                BindTab(btnGacha, UIPanelId.Gacha, "gachaPanel");
+                BindTab(btnStore, UIPanelId.Store, "storePanel");
+                BindTab(btnDungeon, UIPanelId.Dungeon, "dungeonPanel");
+            }
+            catch (System.Exception ex) { Debug.LogError($"BindMain.Tabs failed: {ex}"); }
+
+            // ── 재화 UI + wallet 탐색 ── (리플렉션 사용 — 예외 가능 지점)
+            try
+            {
+                var bCurrency = root.Q<Button>("BtnCurrency");
+                _popupCurrencies = root.Q<VisualElement>("PopupCurrencies");
+                _lblGold = root.Q<Label>("LblGold");
+                _lblAncientCoin = root.Q<Label>("LblAncientCoin");
+
+                try { _wallet = FindAnyWallet(); }
+                catch (System.Exception wEx)
                 {
-                    RefreshTopCurrencyLabels();
-                    RebuildCurrencyPopupContents();
+                    Debug.LogError($"BindMain.FindAnyWallet failed: {wEx}");
+                    _wallet = null;
+                }
 
-                    if (_hamburgerOpen)
-                        CloseHamburgerMenuImmediate();
+                try { RefreshTopCurrencyLabels(); }
+                catch (System.Exception rEx) { Debug.LogError($"BindMain.RefreshTopCurrencyLabels failed: {rEx}"); }
 
-                    ToggleCurrencyPopup();
-                };
-            }
-
-            _btnHamburgerRight = root.Q<Button>("BtnHamburgerRight");
-            _popupHamburger = root.Q<VisualElement>("PopupHamburger");
-            if (_btnHamburgerRight != null && _popupHamburger != null)
-            {
-                _popupHamburger.style.position = Position.Absolute;
-                _btnHamburgerRight.clicked += ToggleHamburgerMenu;
-                _btnHamburgerRight.RegisterCallback<GeometryChangedEvent>(_ => AlignHamburgerPopup());
-                _popupHamburger.RegisterCallback<GeometryChangedEvent>(_ => AlignHamburgerPopup());
-            }
-
-            var btnProfile = root.Q<Button>("BtnProfileBlank");
-            if (btnProfile != null)
-            {
-                btnProfile.clicked += () =>
+                if (bCurrency != null && _popupCurrencies != null)
                 {
-                    if (_currencyOpen) CloseCurrencyPopup();
-                    if (_hamburgerOpen) CloseHamburgerMenu();
+                    bCurrency.clicked += () =>
+                    {
+                        RefreshTopCurrencyLabels();
+                        RebuildCurrencyPopupContents();
 
-                    if (Enum.TryParse("Profile", true, out UIPanelId profileId))
-                        PushPanel(profileId, "프로필", clearBefore: false, isTabPanel: false);
-                    else
-                        PushPanel(UIPanelId.KingdomArmy, "프로필", clearBefore: false, isTabPanel: false);
-                };
+                        if (_hamburgerOpen)
+                            CloseHamburgerMenuImmediate();
+
+                        ToggleCurrencyPopup();
+                    };
+                }
             }
+            catch (System.Exception ex) { Debug.LogError($"BindMain.Currency failed: {ex}"); }
 
-            var bMenuInventory = root.Q<Button>("BtnMenuInventory");
-            if (bMenuInventory != null)
+            // ── 햄버거 버튼 / 팝업 바인딩 ──
+            try
             {
-                bMenuInventory.clicked += () =>
+                _btnHamburgerRight = root.Q<Button>("BtnHamburgerRight");
+                _popupHamburger = root.Q<VisualElement>("PopupHamburger");
+                if (_btnHamburgerRight != null && _popupHamburger != null)
                 {
-                    CloseHamburgerMenu();
-                    if (_currencyOpen) CloseCurrencyPopup();
-                    PushPanel(UIPanelId.Inventory, null, clearBefore: false, isTabPanel: false);
-                };
+                    _popupHamburger.style.position = Position.Absolute;
+                    _btnHamburgerRight.clicked += ToggleHamburgerMenu;
+                    _btnHamburgerRight.RegisterCallback<GeometryChangedEvent>(_ => AlignHamburgerPopup());
+                    _popupHamburger.RegisterCallback<GeometryChangedEvent>(_ => AlignHamburgerPopup());
+                }
             }
+            catch (System.Exception ex) { Debug.LogError($"BindMain.Hamburger failed: {ex}"); }
 
-            var bMenuSettings = root.Q<Button>("BtnMenuSettings");
-            if (bMenuSettings != null)
+            try
             {
-                bMenuSettings.clicked += () =>
+                var btnProfile = root.Q<Button>("BtnProfileBlank");
+                if (btnProfile != null)
                 {
-                    CloseHamburgerMenu();
-                    if (_currencyOpen) CloseCurrencyPopup();
-                    OpenSettings();
-                };
+                    btnProfile.clicked += () =>
+                    {
+                        if (_currencyOpen) CloseCurrencyPopup();
+                        if (_hamburgerOpen) CloseHamburgerMenu();
+
+                        if (Enum.TryParse("Profile", true, out UIPanelId profileId))
+                            PushPanel(profileId, "프로필", clearBefore: false, isTabPanel: false);
+                        else
+                            PushPanel(UIPanelId.KingdomArmy, "프로필", clearBefore: false, isTabPanel: false);
+                    };
+                }
+
+                var bMenuInventory = root.Q<Button>("BtnMenuInventory");
+                if (bMenuInventory != null)
+                {
+                    bMenuInventory.clicked += () =>
+                    {
+                        CloseHamburgerMenu();
+                        if (_currencyOpen) CloseCurrencyPopup();
+                        PushPanel(UIPanelId.Inventory, null, clearBefore: false, isTabPanel: false);
+                    };
+                }
+
+                var bMenuSettings = root.Q<Button>("BtnMenuSettings");
+                if (bMenuSettings != null)
+                {
+                    bMenuSettings.clicked += () =>
+                    {
+                        CloseHamburgerMenu();
+                        if (_currencyOpen) CloseCurrencyPopup();
+                        OpenSettings();
+                    };
+                }
+
+                var bMenuNotice = root.Q<Button>("BtnMenuNotice");
+                if (bMenuNotice != null) bMenuNotice.clicked += () => ShowToast("현재는 지원하지 않는 기능입니다.");
+
+                var bMenuMail = root.Q<Button>("BtnMenuMail");
+                if (bMenuMail != null) bMenuMail.clicked += () => ShowToast("현재는 지원하지 않는 기능입니다.");
             }
+            catch (System.Exception ex) { Debug.LogError($"BindMain.Menus failed: {ex}"); }
 
-            var bMenuNotice = root.Q<Button>("BtnMenuNotice");
-            if (bMenuNotice != null) bMenuNotice.clicked += () => ShowToast("현재는 지원하지 않는 기능입니다.");
-
-            var bMenuMail = root.Q<Button>("BtnMenuMail");
-            if (bMenuMail != null) bMenuMail.clicked += () => ShowToast("현재는 지원하지 않는 기능입니다.");
-
-            // Guide 버튼 (좌측 상단)
-            _lblGuideBadge = root.Q<Label>("LblGuideBadge");
-            var btnGuide = root.Q<Button>("BtnGuide");
-            if (btnGuide != null)
-            {
-                btnGuide.style.display = DisplayStyle.None;
-            }
-            if (_lblGuideBadge != null)
-                _lblGuideBadge.style.display = DisplayStyle.None;
-            RefreshGuideBadge();
+            // Guide 버튼은 UXML에서 제거됨 — 참조 필드도 null 로 고정.
+            _lblGuideBadge = null;
 
             // ── Wave UI 초기화 ──
-            WaveUIController.Init(root);
+            try { WaveUIController.Init(root); }
+            catch (System.Exception ex) { Debug.LogError($"BindMain.WaveUIController.Init failed: {ex}"); }
 
             // ── [DEBUG] 디버그 메뉴 초기화 — 제거 시 이 줄 삭제 ──
-            UITKDebugMenuController.Init(root);
+            try { UITKDebugMenuController.Init(root); }
+            catch (System.Exception ex) { Debug.LogError($"BindMain.DebugMenu.Init failed: {ex}"); }
         }
 
         public void RefreshGuideBadge()

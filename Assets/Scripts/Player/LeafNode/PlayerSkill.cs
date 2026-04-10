@@ -110,8 +110,6 @@ public class PlayerSkill
             : _skillData.damage;
         int   skillDamage  = Mathf.RoundToInt(baseAtk * finalDamage);
 
-        Debug.Log($"[스킬] {_skillData.skillName} | Atk:{baseAtk} × {finalDamage:F2}(Lv.{enhancer?.Runtime.GetLevel(_skillData.skillName) ?? 0}) = {skillDamage} | CD:{finalCooldown:F2}s");
-
         // [5] VFX 정보를 Player에 등록 (Animation Event OnSkillVFXStart에서 재생)
         // 위치는 지금 시점(Execute)에 확정해서 저장 — 이벤트 발화 시 플레이어가 이동해도 위치가 흔들리지 않는다
         if (System.Enum.TryParse(_skillData.skillName, out eVFXType vfxType))
@@ -169,7 +167,6 @@ public class PlayerSkill
                 bool isAlive = mon.TakeDamage(dmgProxy);
                 if (!isAlive)
                 {
-                    Debug.Log($"[스킬 사망] {_skillData.skillName} attacker : {_player.gameobj.GetInstanceID()} | monster : {mon.gameobj.GetInstanceID()}");
                     _player.SetAnimation(ePlayerAction.Idle);
                     break;
                 }
@@ -178,7 +175,6 @@ public class PlayerSkill
 
         // [7] 공격 애니메이션 재생
         _player.PlaySkillAnimation(_skillData.animationStateName);
-        Debug.Log("SKill Node Success");
 		return NodeState.Success;
     }
 

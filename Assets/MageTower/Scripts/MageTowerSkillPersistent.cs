@@ -26,6 +26,7 @@ namespace KingdomIdle.MageTower
         private bool _moving;
         private float _moveSpeed;
         private float _arrivalThreshold;
+        private SFXEntity _loopSfx;
 
         public ulong damage => _damage;
         public Vector3 attackerPos => transform.position;
@@ -36,7 +37,8 @@ namespace KingdomIdle.MageTower
 
         public void Initialize(ulong dmg, float duration, float tickInterval,
                                float moveSpeed, float arrivalThreshold,
-                               int slotIndex, int skillId, Transform initialTarget)
+                               int slotIndex, int skillId, Transform initialTarget,
+                               string sfxLoopName = null)
         {
             _damage = dmg;
             _duration = duration;
@@ -56,6 +58,14 @@ namespace KingdomIdle.MageTower
             // 스킬 이펙트를 캐릭터 뒤, 몬스터 앞에 렌더링
             foreach (var sr in GetComponentsInChildren<SpriteRenderer>(true))
                 sr.sortingOrder = 1;
+
+            if (!string.IsNullOrEmpty(sfxLoopName) &&
+                System.Enum.TryParse(sfxLoopName, out eSFXType loopSfxType))
+            {
+                SFXManager.Instance.GetSFX(
+                    loopSfxType, transform.position, Quaternion.identity,
+                    sfx => { _loopSfx = sfx; sfx.PlaySFXLoop(); });
+            }
         }
 
         public bool Attack(IDamageable target)
@@ -186,6 +196,13 @@ namespace KingdomIdle.MageTower
 
         private void Finish()
         {
+            if (_loopSfx != null)
+            {
+                _loopSfx.StopSFX();
+                SFXManager.Instance.DestroySFX(_loopSfx);
+                _loopSfx = null;
+            }
+
             var mgr = MageTowerManager.Instance;
             if (mgr != null)
                 mgr.EndCasting(_slotIndex);

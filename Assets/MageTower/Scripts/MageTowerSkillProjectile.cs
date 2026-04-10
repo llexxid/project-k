@@ -22,6 +22,7 @@ namespace KingdomIdle.MageTower
         private float _shakeDuration;
         private float _shakeMagnitude;
         private Transform _center;
+        private string _sfxName;
 
         public ulong damage => _damage;
         public Vector3 attackerPos => _spawnPos;
@@ -30,7 +31,8 @@ namespace KingdomIdle.MageTower
 
 		public void Initialize(ulong dmg, Vector3 pos, Action onHitCallback = null,
                                float damageRadius = 1.5f, bool shakeOnHit = false,
-                               float shakeDuration = 0.15f, float shakeMagnitude = 0.08f)
+                               float shakeDuration = 0.15f, float shakeMagnitude = 0.08f,
+                               string sfxName = null)
         {
             _damage = dmg;
             _spawnPos = pos;
@@ -41,6 +43,7 @@ namespace KingdomIdle.MageTower
             _shakeDuration = shakeDuration;
             _shakeMagnitude = shakeMagnitude;
 
+            _sfxName = sfxName;
             _center = transform.Find("Center");
 
             var collider = GetComponent<Collider2D>();
@@ -65,6 +68,13 @@ namespace KingdomIdle.MageTower
 
             if (_shakeOnHit)
                 DoScreenShake();
+
+            if (!string.IsNullOrEmpty(_sfxName) &&
+                System.Enum.TryParse(_sfxName, out Scripts.Core.eSFXType sfxType))
+            {
+                Scripts.Core.SFXManager.Instance.GetSFX(
+                    sfxType, transform.position, Quaternion.identity, sfx => sfx.PlaySFX());
+            }
 
             _onHitCallback?.Invoke();
             _onHitCallback = null;
