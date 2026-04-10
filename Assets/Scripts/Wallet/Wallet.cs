@@ -9,7 +9,7 @@ namespace Scripts.Wallets
     class Wallet
     {
 		private User _user;
-		private Dictionary<eCurrency, long> pocket;
+		private Dictionary<eCurrency, long> pocket = new Dictionary<eCurrency, long>();
 		
 		[SerializeField]
 		private int totalCoins;

@@ -216,12 +216,12 @@ namespace Scripts.Server.Auth
 			//���� ��� ��ų�� �������� ����.
 			if (datas.ContainsKey(key_skillTreeData))
 			{
-				List<SkillCode> skillCodes = JsonConvert.DeserializeObject<List<SkillCode>>(datas[key_skillTreeData].Value);
+				List<SkillCode> skillCodes = JObject.Parse(datas[key_skillTreeData].Value)["SkillTrees"].ToObject<List<SkillCode>>();
 				//Todo : �������� Inventory�� SkillTree�� ����Ǿ����.
 			}
 			if (datas.ContainsKey(key_inventoryData))
 			{
-				List<ItemID> inventory = JsonConvert.DeserializeObject<List<ItemID>>(datas[key_inventoryData].Value);
+				List<ItemID> inventory = JObject.Parse(datas[key_inventoryData].Value)["Items"].ToObject<List<ItemID>>();
 				//Todo : 여기에서 Inventory와 SkillTree가 적용되어야함.
 				UserManager.Instance.SetInventoryData(inventory);
 			}
@@ -274,12 +274,12 @@ namespace Scripts.Server.Auth
 			//���� ��� ��ų�� �������� ����.
 			if (datas.ContainsKey(key_skillTreeData))
 			{
-				List<SkillCode> skillCodes = JsonConvert.DeserializeObject<List<SkillCode>>(datas[key_skillTreeData].Value);
+				List<SkillCode> skillCodes = JObject.Parse(datas[key_skillTreeData].Value)["SkillTrees"].ToObject<List<SkillCode>>();
 				//Todo : �������� Inventory�� SkillTree�� ����Ǿ����.
 			}
 			if (datas.ContainsKey(key_inventoryData))
 			{
-				List<ItemID> inventory = JsonConvert.DeserializeObject<List<ItemID>>(datas[key_inventoryData].Value);
+				List<ItemID> inventory = JObject.Parse(datas[key_inventoryData].Value)["Items"].ToObject<List<ItemID>>();
 				//Todo : 여기에서 Inventory와 SkillTree가 적용되어야함.
 				UserManager.Instance.SetInventoryData(inventory);
 			}
