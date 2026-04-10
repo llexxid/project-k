@@ -21,6 +21,8 @@ namespace Scripts.Server.DTO
 		public CurrencyQueryDTO Currency { get; set; }
 
 		public List<CharacterDataQuery> CharacterDatas { get; set; }
+
+		public List<JobTreeQuery> JobTrees { get; set; }
 	}
 	public class UserInitResponseDTO
 	{
@@ -99,6 +101,12 @@ namespace Scripts.Server.DTO
 		public SkillCode SkillCode { get; set; }
 	}
 	public class OnGetJobResponseDTO
+	{
+		public int Index { get; set; }
+		public ulong JobCode { get; set; }
+	}
+
+	public class OnChangeJobResponseDTO
 	{
 		public int Index { get; set; }
 		public ulong JobCode { get; set; }

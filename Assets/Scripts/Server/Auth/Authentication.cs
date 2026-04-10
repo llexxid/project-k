@@ -23,7 +23,7 @@ namespace Scripts.Server.Auth
 		GoogleWebLogin,
 
 		//For Test
-		CustomLogin, 
+		CustomLogin,
 		DummyLogin,
 	}
 
@@ -42,7 +42,7 @@ namespace Scripts.Server.Auth
 		private readonly string key_inventoryData = "Inventory";
 		private readonly string key_currency = "Currency";
 		private readonly string key_jobTree = "JobTree";
-		
+
 
 		public Authentication()
 		{
@@ -124,6 +124,7 @@ namespace Scripts.Server.Auth
 					key_skillTreeData,
 					key_inventoryData,
 					key_currency,
+					key_jobTree,
 					//MailSlot
 					//
 				},
@@ -170,6 +171,7 @@ namespace Scripts.Server.Auth
 					key_skillTreeData,
 					key_inventoryData,
 					key_currency,
+					key_jobTree,
 					//MailSlot
 					//
 				},
@@ -218,18 +220,19 @@ namespace Scripts.Server.Auth
 			//가진 장비나 스킬이 없을수도 있음.
 			if (datas.ContainsKey(key_skillTreeData))
 			{
-				List<SkillCode> skillCodes = JsonConvert.DeserializeObject<List<SkillCode>>(datas[key_skillTreeData].Value);
+				SkillTreeDTO skillCodes = JsonConvert.DeserializeObject<SkillTreeDTO>(datas[key_skillTreeData].Value);
 				//Todo : 유저에서 Inventory랑 SkillTree가 연결되어야함.
 			}
 			if (datas.ContainsKey(key_inventoryData))
 			{
-				List<ItemID> inventory = JsonConvert.DeserializeObject<List<ItemID>>(datas[key_inventoryData].Value);
+				InventoryQueryDTO inventory = JsonConvert.DeserializeObject<InventoryQueryDTO>(datas[key_inventoryData].Value);
 				//Todo : 유저에서 Inventory랑 SkillTree가 연결되어야함.
 			}
 
-	
+			//Todo : JobTree 셋팅
+
 			//유저셋팅
-			UserManager.Instance.CreateUser(nickName,(eStage)currentStage, userdata, enhancement);
+			UserManager.Instance.CreateUser(nickName, (eStage)currentStage, userdata, enhancement);
 			UserManager.Instance.SetCharacterData(characterData);
 			UserManager.Instance.SetWallet(currency);
 
@@ -277,15 +280,17 @@ namespace Scripts.Server.Auth
 			//가진 장비나 스킬이 없을수도 있음.
 			if (datas.ContainsKey(key_skillTreeData))
 			{
-				List<SkillCode> skillCodes = JsonConvert.DeserializeObject<List<SkillCode>>(datas[key_skillTreeData].Value);
+				SkillTreeDTO skillCodes = JsonConvert.DeserializeObject<SkillTreeDTO>(datas[key_skillTreeData].Value);
 				//Todo : 유저에서 Inventory랑 SkillTree가 연결되어야함.
 			}
 			if (datas.ContainsKey(key_inventoryData))
 			{
-				List<ItemID> inventory = JsonConvert.DeserializeObject<List<ItemID>>(datas[key_inventoryData].Value);
+				InventoryQueryDTO inventory = JsonConvert.DeserializeObject<InventoryQueryDTO>(datas[key_inventoryData].Value);
 				//Todo : 유저에서 Inventory랑 SkillTree가 연결되어야함.
 			}
 
+
+			//Todo : JobTree 셋팅
 
 			//Todo : 유저에서 Inventory랑 SkillTree가 연결되어야함.
 			//유저셋팅
@@ -313,7 +318,7 @@ namespace Scripts.Server.Auth
 
 		private void OnSignUpUserSucccess(ExecuteFunctionResult result)
 		{
-			
+
 		}
 
 		private void OnExistUserSuccess(ExecuteFunctionResult result)

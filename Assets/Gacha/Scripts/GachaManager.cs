@@ -161,7 +161,6 @@ namespace KingdomIdle.Gacha
 
         private void OnGachaError(PlayFab.PlayFabError error)
         {
-            Debug.Log("Gacha Error");
             Debug.Log(error.ErrorMessage);
         }
 

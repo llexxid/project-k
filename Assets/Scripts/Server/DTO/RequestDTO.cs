@@ -73,6 +73,9 @@ namespace Scripts.Server.DTO
 	{
 
 	}
+	public class OnChangeJobRequestDTO : OnJobRequestBaseDTO
+	{
 
+	}
 }
 

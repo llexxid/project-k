@@ -34,7 +34,19 @@ namespace Scripts.Core
 		public static readonly string GENERATE_SCENE_SFX_META_PATH = @"Scripts\Core\SO\SceneSFXMetaSO.cs";
         
     }
-    public enum eSceneType
+
+	public enum eJobCode
+	{
+		Mage = 1,
+		Archer = 2,
+		Knight = 4,
+		Spearman = 8,
+		EliteMage = 16,
+		EliteKnight = 32,
+		EliteArcher = 64
+	}
+
+	public enum eSceneType
     {
         bootstrap = 0,
         title = 1,

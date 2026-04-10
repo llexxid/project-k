@@ -10,6 +10,7 @@ using Scripts.Users;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Jobs;
 using UnityEngine;
 
 namespace Scripts.Core.Manager
@@ -272,6 +273,55 @@ namespace Scripts.Core.Manager
 			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
 			{
 				FunctionName = "OnAwakeningSkill",
+				FunctionParameter = request,
+				GeneratePlayStreamEvent = true,
+			};
+			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
+		}
+
+		public void OnGetJob(ulong job, int characterIdx, Action<ExecuteFunctionResult> successCallback, Action<PlayFabError> errorCallback)
+		{
+			OnGetJobRequestDTO request = new OnGetJobRequestDTO
+			{
+				SessionID = _sessionGUID,
+				JobCode = job,
+			};
+
+			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
+			{
+				FunctionName = "OnGetJob",
+				FunctionParameter = request,
+				GeneratePlayStreamEvent = true,
+			};
+			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
+		}
+		public void OnChangeJob(ulong job, int characterIdx, Action<ExecuteFunctionResult> successCallback, Action<PlayFabError> errorCallback)
+		{
+			OnGetJobRequestDTO request = new OnGetJobRequestDTO
+			{
+				SessionID = _sessionGUID,
+				JobCode = job,
+			};
+
+			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
+			{
+				FunctionName = "OnChangeJob",
+				FunctionParameter = request,
+				GeneratePlayStreamEvent = true,
+			};
+			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
+		}
+
+		//Test
+		public void OnSetJobTree(Action<ExecuteFunctionResult> successCallback, Action<PlayFabError> errorCallback)
+		{
+			InitUserRequestDTO request = new InitUserRequestDTO
+			{
+			};
+
+			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
+			{
+				FunctionName = "OnSetJobTree",
 				FunctionParameter = request,
 				GeneratePlayStreamEvent = true,
 			};
