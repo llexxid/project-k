@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &5151211775538623675
+--- !u!1 &6319212090526891283
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,25 +8,25 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 4605650312151238301}
-  - component: {fileID: 4472664789247217592}
-  - component: {fileID: 5876978194549934533}
-  - component: {fileID: -908509758671231258}
-  - component: {fileID: 787416664468954256}
-  m_Layer: 0
-  m_Name: Orc King
-  m_TagString: Untagged
+  - component: {fileID: 8645703862589320244}
+  - component: {fileID: 8026432186204403862}
+  - component: {fileID: 145950478994862871}
+  - component: {fileID: -3205332639954491212}
+  - component: {fileID: -742219502687629194}
+  m_Layer: 6
+  m_Name: ORC
+  m_TagString: Enemy
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &4605650312151238301
+--- !u!4 &8645703862589320244
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5151211775538623675}
+  m_GameObject: {fileID: 6319212090526891283}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -35,13 +35,13 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!212 &4472664789247217592
+--- !u!212 &8026432186204403862
 SpriteRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5151211775538623675}
+  m_GameObject: {fileID: 6319212090526891283}
   m_Enabled: 1
   m_CastShadows: 0
   m_ReceiveShadows: 0
@@ -76,7 +76,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
-  m_Sprite: {fileID: 1696549694, guid: 2750a736408fc1e48946a335045d6cf1, type: 3}
+  m_Sprite: {fileID: 455533647, guid: ee62fc0ba09753245bc575e3ba625272, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -87,34 +87,34 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
---- !u!114 &5876978194549934533
+--- !u!114 &145950478994862871
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5151211775538623675}
+  m_GameObject: {fileID: 6319212090526891283}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7edcfd68a078f374cbff730b0167d530, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   _stat:
-    _hp: 1000
+    _hp: 100
     _extraHp: 0
-    _atk: 200
-    _moveSpeed: 20
-    _atkSpeed: 15
-  _attackRadius: 5
-  _detectRadius: 15
-  _AnimationClipSO: {fileID: 11400000, guid: 5daaba9afad23da4186046d2946bcd95, type: 2}
---- !u!70 &-908509758671231258
+    _atk: 10
+    _moveSpeed: 8
+    _atkSpeed: 1
+  _attackRadius: 1
+  _detectRadius: 5
+  _AnimationClipSO: {fileID: 11400000, guid: ab1f5798d5eb1cb439a202d2abf35436, type: 2}
+--- !u!70 &-3205332639954491212
 CapsuleCollider2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5151211775538623675}
+  m_GameObject: {fileID: 6319212090526891283}
   m_Enabled: 1
   m_Density: 1
   m_Material: {fileID: 0}
@@ -137,23 +137,23 @@ CapsuleCollider2D:
   m_CallbackLayers:
     serializedVersion: 2
     m_Bits: 4294967295
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_UsedByEffector: 0
   m_UsedByComposite: 0
   m_Offset: {x: 0, y: 0}
   m_Size: {x: 3.125, y: 3.125}
   m_Direction: 0
---- !u!95 &787416664468954256
+--- !u!95 &-742219502687629194
 Animator:
   serializedVersion: 5
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5151211775538623675}
+  m_GameObject: {fileID: 6319212090526891283}
   m_Enabled: 1
   m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 9100000, guid: dfa132f075c4f94448a53eefc3ee64fd, type: 2}
+  m_Controller: {fileID: 9100000, guid: 0dcab985e506c404f85d8ead5e2122b0, type: 2}
   m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 0

@@ -286,10 +286,10 @@ public class ChangeJob : MonoBehaviour
         }
 
         // 7. [스킬 레벨] 이 직업의 스킬 레벨을 PlayerSkillRuntime에 로드
-        if (SkillEnhanceManager.Instance != null)
-        {
-            SkillEnhanceManager.Instance.Runtime.Load(data);
-        }
+        //if (SkillEnhanceManager.Instance != null)
+        //{
+        //    SkillEnhanceManager.Instance.Runtime.Load(data);
+        //}
 
         // 8. [장비 시스템] 현재 직업명을 EquipmentManager에 전달
         _player.equipmentManager?.SetCurrentJob(data.jobName);
