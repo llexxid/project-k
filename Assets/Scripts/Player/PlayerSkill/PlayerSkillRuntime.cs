@@ -100,8 +100,9 @@ public class PlayerSkillRuntime
             var wrapper = JsonUtility.FromJson<SaveWrapper>(json);
             _skillLevels = wrapper.ToDictionary();
         }
-        catch (Exception)
+        catch (Exception e)
         {
+            Debug.LogError($"[PlayerSkillRuntime] 불러오기 실패: {e.Message}");
         }
     }
 

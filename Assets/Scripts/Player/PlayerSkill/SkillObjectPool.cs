@@ -25,7 +25,11 @@ public class SkillObjectPool : MonoBehaviour
         else
         {
             // 풀이 비어있으면 새로 생성 (skillPrefab이 없으면 null 반환)
-            if (data.skillPrefab == null) return null;
+            if (data.skillPrefab == null)
+            {
+                Debug.LogWarning($"[SkillObjectPool] '{key}'의 skillPrefab이 없습니다. Inspector에서 할당해 주세요.");
+                return null;
+            }
             GameObject newObj = Object.Instantiate(data.skillPrefab);
             return newObj;
         }

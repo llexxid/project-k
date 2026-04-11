@@ -24,12 +24,19 @@ public class PlayerParry
     public NodeState Execute()
     {
         if (Time.time < _nextAvailableTime) return NodeState.Failure;
+        Debug.Log($"[PlayerParry] FIRING player={_player.name} Time={Time.time:F2}");
 
-        // 쿨타임 소모
-        _nextAvailableTime = Time.time + _skillData.cooldown;
+        // 쿨타임 소모 (강화 레벨 반영)
+        var enhancer = SkillEnhanceManager.Instance;
+        float finalCooldown = enhancer != null
+            ? enhancer.Runtime.GetFinalCooldown(_skillData)
+            : _skillData.cooldown;
+        _nextAvailableTime = Time.time + finalCooldown;
 
-        // 반격 데미지 계수 (damage 필드를 계수로 재활용)
-        float counterMultiplier = _skillData.damage;
+        // 반격 데미지 계수 (강화 레벨 반영, damage 필드를 계수로 재활용)
+        float counterMultiplier = enhancer != null
+            ? enhancer.Runtime.GetFinalDamage(_skillData)
+            : _skillData.damage;
 
         // 패링 활성화
         _player.ActivateParry(_skillData.parryDuration, counterMultiplier);

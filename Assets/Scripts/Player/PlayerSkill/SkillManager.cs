@@ -16,7 +16,11 @@ public class SkillManager : MonoBehaviour
     public void ActivateSkill(string skillName)
     {
         SkillData data = skillDatabase.GetSkill(skillName);
-        if (data == null) return;
+        if (data == null)
+        {
+            Debug.LogWarning($"[SkillManager] 스킬 데이터 없음: {skillName}");
+            return;
+        }
 
         // 패시브 스킬은 ON/OFF 개념이 없으므로 별도 처리 없음
         if (data.skillType == SkillType.Passive)
