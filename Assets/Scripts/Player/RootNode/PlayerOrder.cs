@@ -79,6 +79,7 @@ public class PlayerOrder
         }
 
         int skillNodeCount = nodes.Count; // 마지막 AttackNode 추가 전 개수
+        Debug.Log($"[RebuildSkillTree] player={player.name} skillNodes={skillNodeCount} skills={skills?.Count ?? 0}");
 
         // 마지막에 일반 공격 fallback 추가
         //여기서 Attack

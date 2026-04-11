@@ -94,14 +94,21 @@ public class PlayerSkill
         if (!hasAliveTarget) 
             return NodeState.Failure;
 
-        // [3] 쿨타임 소모
-        _nextAvailableTime = Time.time + _skillData.cooldown;
+        // [3] 쿨타임 소모 (강화 레벨 반영)
+        var enhancer = SkillEnhanceManager.Instance;
+        float finalCooldown = enhancer != null
+            ? enhancer.Runtime.GetFinalCooldown(_skillData)
+            : _skillData.cooldown;
+        _nextAvailableTime = Time.time + finalCooldown;
         // 공유 잠금은 애니메이션 길이만큼만 → 다음 스킬이 자연스럽게 이어서 발동
         if (_sharedState != null) _sharedState.nextAvailableTime = Time.time + 0.8f;
 
-        // [4] 데미지 계산: 기본 Atk × 스킬 계수
+        // [4] 데미지 계산: 기본 Atk × 강화된 스킬 계수
         int   baseAtk      = _player.playerStatus?.Atk ?? 0;
-        int   skillDamage  = Mathf.RoundToInt(baseAtk * _skillData.damage);
+        float finalDamage  = enhancer != null
+            ? enhancer.Runtime.GetFinalDamage(_skillData)
+            : _skillData.damage;
+        int   skillDamage  = Mathf.RoundToInt(baseAtk * finalDamage);
 
         // [5] VFX 정보를 Player에 등록 (Animation Event OnSkillVFXStart에서 재생)
         // 위치는 지금 시점(Execute)에 확정해서 저장 — 이벤트 발화 시 플레이어가 이동해도 위치가 흔들리지 않는다

@@ -316,6 +316,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     {
         if (_am == null || _am.runtimeAnimatorController == null)
         {
+            Debug.LogWarning($"[Player] Animator가 없어 '{clipName}' 클립 길이를 읽을 수 없습니다. 기본값 {fallback}초 사용.");
             return fallback;
         }
 
@@ -327,6 +328,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
             }
         }
 
+        Debug.LogWarning($"[Player] '{clipName}' 클립을 찾지 못했습니다. 기본값 {fallback}초 사용.");
         return fallback;
     }
 
