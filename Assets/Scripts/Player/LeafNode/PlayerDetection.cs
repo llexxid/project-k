@@ -77,8 +77,8 @@ public class PlayerDetection
                 continue;
             }
 
-            mon = detectedResults[i].GetComponent<Monster>();
-			if (mon.MonAction == eMonsterAction.Dead)
+            mon = detectedResults[i].GetComponentInParent<Monster>();
+            if (mon == null || mon.MonAction == eMonsterAction.Dead)
 			{
                 continue;
 			}
@@ -91,11 +91,10 @@ public class PlayerDetection
 			if (dist < closestDist)
             {
                 closestDist = dist;
-                currentTarget = detectedResults[i].GetComponent<IDamageable>();
+                currentTarget = detectedResults[i].GetComponentInParent<IDamageable>();
             }
         }
 
-        //Debug.Log($"Player Current Target : {player.currentTarget.gameobj.GetInstanceID()}");
         if (currentTarget != null)
         {
             player.SetTarget(currentTarget);

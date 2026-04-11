@@ -8,11 +8,19 @@ namespace Scripts.Core
 {
     public class VFXEntity : MonoBehaviour, IPoolable
     {
-        
+
         [System.NonSerialized] private eVFXType _id;
         private Animator _am;
         private CancellationTokenSource _token;
         public bool IsActive { get; set; }
+
+        private Transform _followTarget;
+
+        private void Update()
+        {
+            if (_followTarget != null)
+                transform.position = _followTarget.position;
+        }
 
         private void OnEnable()
         {
@@ -43,12 +51,13 @@ namespace Scripts.Core
         /// 단위는 밀리초입니다.
         /// </summary>
         /// <param name="durationMs"></param>
-        public void ActiveEffect(float durationMs)
+        public void ActiveEffect(float durationMs, Transform followTarget = null)
         {
             if (_token == null)
             {
                 _token = new CancellationTokenSource();
             }
+            _followTarget = followTarget;
             UseEffect(durationMs).Forget();
         }
 
@@ -68,7 +77,7 @@ namespace Scripts.Core
 
         public void OnRelease()
         {
-            return;
+            _followTarget = null;
         }
     }
 }

@@ -1,7 +1,12 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System;
 using System.Collections.Generic;
 using Scripts.Users;
+using Scripts.Core.Manager;
+using Scripts.Core;
+using Scripts.Server.DTO;
+using PlayFab.CloudScriptModels;
+using Newtonsoft.Json;
 
 /// <summary>
 /// 플레이어 전직 시스템.
@@ -19,6 +24,10 @@ public class ChangeJob : MonoBehaviour
 
     /// <summary>현재 적용된 직업의 인덱스 (순환에 사용)</summary>
     private int _currentJobIndex = 0;
+
+    private bool _isProcessing = false;
+
+    [SerializeField] private int _characterIndex = 0;
 
     /// <summary>한 번이라도 해금한 직업 인덱스 목록 (PlayerPrefs에 저장)</summary>
     private HashSet<int> _unlockedJobs = new HashSet<int>();
@@ -47,20 +56,12 @@ public class ChangeJob : MonoBehaviour
 
     private void Start()
     {
-        if (_player == null)
-        {
-            Debug.LogError("[ChangeJob] Player 컴포넌트를 찾을 수 없습니다.");
-            return;
-        }
+        if (_player == null) return;
 
-        if (jobDatabase == null || jobDatabase.Count == 0)
-        {
-            Debug.LogError("[ChangeJob] JobDatabase가 비어있거나 연결되지 않았습니다.");
-            return;
-        }
+        if (jobDatabase == null || jobDatabase.Count == 0) return;
 
         // 저장된 해금 목록 불러오기
-        LoadUnlockedJobs();
+        LoadUnlockedJobsFromServer();
 
         // 시작 직업(index 0)은 항상 해금
         _unlockedJobs.Add(0);
@@ -75,7 +76,7 @@ public class ChangeJob : MonoBehaviour
         // 사망 후에는 전직 입력 차단 (timeScale=0이어도 Update는 계속 호출됨)
         if (_player != null && _player.IsDead) return;
 
-        if (Input.GetKeyDown(KeyCode.J))
+        if (Input.GetKeyDown(KeyCode.J) && !_isProcessing)
         {
             CycleToNextJob();
         }
@@ -115,24 +116,48 @@ public class ChangeJob : MonoBehaviour
     public void ChangeJobByName(string jobName)
     {
         if (jobDatabase == null) return;
+        if (_isProcessing) return;
 
         int idx = jobDatabase.jobs.FindIndex(j => j.jobName == jobName);
-        if (idx < 0)
-        {
-            Debug.LogWarning($"[ChangeJob] 직업 '{jobName}'을 JobDatabase에서 찾을 수 없습니다.");
-            return;
-        }
+        if (idx < 0) return;
 
-        // 해금 처리 (비용은 호출자가 이미 처리)
-        if (!_unlockedJobs.Contains(idx))
-        {
-            _unlockedJobs.Add(idx);
-            SaveUnlockedJobs();
-            OnJobUnlocked?.Invoke(idx);
-        }
+        _isProcessing = true;
+        ulong jobCode = GetJobCode(jobDatabase.GetJob(idx));
+        if (jobCode == 0) { _isProcessing = false; return; }
 
-        _currentJobIndex = idx;
-        ApplyJobByIndex(idx);
+        if (_unlockedJobs.Contains(idx))
+        {
+            // 이미 해금된 직업 → OnChangeJob
+            NetworkManager.Instance.OnChangeJob(jobCode, _characterIndex,
+                result =>
+                {
+                    _currentJobIndex = idx;
+                    ApplyJobByIndex(idx);
+                    _isProcessing = false;
+                },
+                error =>
+                {
+                    _isProcessing = false;
+                });
+        }
+        else
+        {
+            // 최초 해금 → OnGetJob (비용은 호출자가 이미 처리했으므로 골드 차감 없음)
+            NetworkManager.Instance.OnGetJob(jobCode, _characterIndex,
+                result =>
+                {
+                    _unlockedJobs.Add(idx);
+                    SaveUnlockedJobs();
+                    OnJobUnlocked?.Invoke(idx);
+                    _currentJobIndex = idx;
+                    ApplyJobByIndex(idx);
+                    _isProcessing = false;
+                },
+                error =>
+                {
+                    _isProcessing = false;
+                });
+        }
     }
 
     /// <summary>
@@ -142,14 +167,28 @@ public class ChangeJob : MonoBehaviour
     /// </summary>
     public bool TryChangeJob(int index)
     {
+        if (_isProcessing) return false;
         JobData data = jobDatabase.GetJob(index);
         if (data == null) return false;
+
+        ulong jobCode = GetJobCode(data);
+        if (jobCode == 0) { _isProcessing = false; return false; }
+        _isProcessing = true;
 
         // 이미 해금된 직업 → 무료 전직
         if (_unlockedJobs.Contains(index))
         {
-            _currentJobIndex = index;
-            ApplyJobByIndex(index);
+            NetworkManager.Instance.OnChangeJob(jobCode, _characterIndex,
+                result =>
+                {
+                    _currentJobIndex = index;
+                    ApplyJobByIndex(index);
+                    _isProcessing = false;
+                },
+                error =>
+                {
+                    _isProcessing = false;
+                });
             return true;
         }
 
@@ -157,17 +196,27 @@ public class ChangeJob : MonoBehaviour
         User user = _player.User;
         if (user == null || !user.CanAfford(eCurrency.Gold, data.unlockCost))
         {
-            Debug.LogWarning($"[ChangeJob] 전직 불가 — {data.jobName} 해금 비용: {data.unlockCost}G (골드 부족)");
+            _isProcessing = false;
             return false;
         }
 
         user.TrySpendCoin(eCurrency.Gold, data.unlockCost);
-        _unlockedJobs.Add(index);
-        SaveUnlockedJobs();
-        OnJobUnlocked?.Invoke(index);
 
-        _currentJobIndex = index;
-        ApplyJobByIndex(index);
+        NetworkManager.Instance.OnGetJob(jobCode, _characterIndex,
+            result =>
+            {
+                _unlockedJobs.Add(index);
+                SaveUnlockedJobs();
+                OnJobUnlocked?.Invoke(index);
+                _currentJobIndex = index;
+                ApplyJobByIndex(index);
+                _isProcessing = false;
+            },
+            error =>
+            {
+                user.GainCoin(eCurrency.Gold, data.unlockCost);
+                _isProcessing = false;
+            });
         return true;
     }
 
@@ -236,16 +285,60 @@ public class ChangeJob : MonoBehaviour
     }
 
     /// <summary>
+    /// 서버 JobTree 기준으로 _unlockedJobs를 초기화한다.
+    /// 서버 데이터가 없으면 PlayerPrefs 캐시로 폴백한다.
+    /// </summary>
+    private void LoadUnlockedJobsFromServer()
+    {
+        List<ulong> serverJobList = UserManager.Instance?.GetJobTreeForCharacter(_characterIndex);
+        if (serverJobList != null && serverJobList.Count > 0)
+        {
+            _unlockedJobs.Clear();
+            foreach (ulong jobCode in serverJobList)
+            {
+                int idx = GetIndexFromJobCode(jobCode);
+                if (idx >= 0) _unlockedJobs.Add(idx);
+            }
+            SaveUnlockedJobs();
+        }
+        else
+        {
+            // 서버 데이터 없음 → PlayerPrefs 캐시 사용
+            LoadUnlockedJobs();
+        }
+    }
+
+    /// <summary>JobData의 jobName을 eJobCode로 변환해 ulong으로 반환. 매핑 실패 시 0.</summary>
+    private ulong GetJobCode(JobData data)
+    {
+        if (data == null) return 0;
+        string normalized = data.jobName.Replace("_", "");
+        if (Enum.TryParse<eJobCode>(normalized, out eJobCode code))
+            return (ulong)code;
+        return 0;
+    }
+
+    /// <summary>서버 jobCode(eJobCode ulong)를 JobDatabase 인덱스로 변환. 없으면 -1.</summary>
+    private int GetIndexFromJobCode(ulong jobCode)
+    {
+        for (int i = 0; i < jobDatabase.Count; i++)
+        {
+            JobData d = jobDatabase.GetJob(i);
+            if (d == null) continue;
+            string normalized = d.jobName.Replace("_", "");
+            if (Enum.TryParse<eJobCode>(normalized, out eJobCode code) && (ulong)code == jobCode)
+                return i;
+        }
+        return -1;
+    }
+
+    /// <summary>
     /// 인덱스로 직업을 적용한다. PlayerStatus 스탯 갱신 + SkillManager 스킬 교체.
     /// </summary>
     public void ApplyJobByIndex(int index)
     {
         JobData data = jobDatabase.GetJob(index);
-        if (data == null)
-        {
-            Debug.LogWarning($"[ChangeJob] index {index}에 해당하는 JobData가 없습니다.");
-            return;
-        }
+        if (data == null) return;
 
         // 1. PlayerStatus 스탯 갱신
         _player.playerStatus.ApplyJob(data);
@@ -286,10 +379,10 @@ public class ChangeJob : MonoBehaviour
         }
 
         // 7. [스킬 레벨] 이 직업의 스킬 레벨을 PlayerSkillRuntime에 로드
-        if (SkillEnhanceManager.Instance != null)
-        {
-            SkillEnhanceManager.Instance.Runtime.Load(data);
-        }
+        //if (SkillEnhanceManager.Instance != null)
+        //{
+        //    SkillEnhanceManager.Instance.Runtime.Load(data);
+        //}
 
         // 8. [장비 시스템] 현재 직업명을 EquipmentManager에 전달
         _player.equipmentManager?.SetCurrentJob(data.jobName);

@@ -20,6 +20,7 @@ namespace Scripts.Core
 		GameObject playerPrefab;
 		List<CharacterDataQuery> _characterDataFromServer;
 		List<Scripts.Server.DTO.ItemCode> _inventoryDataFromServer;
+		List<JobTreeQuery> _jobTreeDataFromServer;
 		private void Awake()
 		{
 			if (Instance == null)
@@ -117,6 +118,17 @@ namespace Scripts.Core
 		public void SetInventoryData(List<Scripts.Server.DTO.ItemCode> inventory)
 		{
 			_inventoryDataFromServer = inventory;
+		}
+		public void SetJobTreeData(List<JobTreeQuery> jobTrees)
+		{
+			_jobTreeDataFromServer = jobTrees;
+		}
+		/// <summary>해당 캐릭터 슬롯의 서버 JobTree(획득한 jobCode 목록)를 반환. 없으면 null.</summary>
+		public List<ulong> GetJobTreeForCharacter(int characterIndex)
+		{
+			if (_jobTreeDataFromServer == null) return null;
+			JobTreeQuery tree = _jobTreeDataFromServer.Find(t => t.Index == characterIndex);
+			return tree?.JobList;
 		}
 		public void CreateCharacter()
 		{

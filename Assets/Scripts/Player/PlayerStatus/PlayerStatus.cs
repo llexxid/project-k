@@ -41,11 +41,7 @@ public class PlayerStatus
     /// </summary>
     public void ApplyJob(JobData data)
     {
-        if (data == null)
-        {
-            Debug.LogWarning("[PlayerStatus] ApplyJob: JobData가 null입니다.");
-            return;
-        }
+        if (data == null) return;
 
         _baseMaxHP    = data.maxHP;
         HP            = data.maxHP;   // 전직 시 HP 풀회복

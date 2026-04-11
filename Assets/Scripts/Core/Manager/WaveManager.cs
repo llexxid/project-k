@@ -112,7 +112,7 @@ namespace Scripts.Core
             {
                 _bossTimer = _bossTimeLimit;
                 _bossTimerActive = true;
-                StageManager.Instance.StartStage((eStage)_bossStageValue);
+                StageManager.Instance.StartStage(GetBossStage());
             }
             else
             {
@@ -293,7 +293,7 @@ namespace Scripts.Core
                         {
                             _bossTimer = _bossTimeLimit;
                             _bossTimerActive = true;
-                            StageManager.Instance.StartStage((eStage)_bossStageValue);
+                            StageManager.Instance.StartStage(GetBossStage());
                         }
                         else
                         {
@@ -321,7 +321,7 @@ namespace Scripts.Core
             {
                 _bossTimer = _bossTimeLimit;
                 _bossTimerActive = true;
-                StageManager.Instance.StartStage((eStage)_bossStageValue);
+                StageManager.Instance.StartStage(GetBossStage());
             }
             else
             {
@@ -371,6 +371,12 @@ namespace Scripts.Core
             ulong stage1Base = (ulong)eStage.Stage1 & 0xFFFFFFFFFFFF0000;
             ulong diff = stageRaw - stage1Base;
             stageNum = (int)(diff / 0x10000) + 1;
+        }
+
+        private eStage GetBossStage()
+        {
+            ulong baseStage = (ulong)_currentStage & 0xFFFFFFFFFFFF0000;
+            return (eStage)(baseStage + 11);
         }
     }
 }
