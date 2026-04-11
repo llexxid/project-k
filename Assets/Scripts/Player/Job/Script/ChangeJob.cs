@@ -2,11 +2,6 @@
 using System;
 using System.Collections.Generic;
 using Scripts.Users;
-using Scripts.Core.Manager;
-using Scripts.Core;
-using Scripts.Server.DTO;
-using PlayFab.CloudScriptModels;
-using Newtonsoft.Json;
 
 /// <summary>
 /// 플레이어 전직 시스템.
@@ -18,18 +13,12 @@ public class ChangeJob : MonoBehaviour
     [Tooltip("게임에 등록된 모든 직업 데이터. 인스펙터에서 JobDatabase.asset을 연결하세요.")]
     [SerializeField] private JobDatabase jobDatabase;
 
-    [Tooltip("멀티 캐릭터 구조에서 이 플레이어의 캐릭터 슬롯 인덱스.")]
-    [SerializeField] private int _characterIndex = 0;
-
     // Player 컴포넌트를 통해 playerStatus / skillManager / Animator를 참조
     private Player _player;
     private SpriteRenderer _spriteRenderer;
 
     /// <summary>현재 적용된 직업의 인덱스 (순환에 사용)</summary>
     private int _currentJobIndex = 0;
-
-    /// <summary>서버 요청 진행 중 여부 — 중복 요청 방지</summary>
-    private bool _isProcessing = false;
 
     /// <summary>한 번이라도 해금한 직업 인덱스 목록 (PlayerPrefs에 저장)</summary>
     private HashSet<int> _unlockedJobs = new HashSet<int>();
@@ -62,8 +51,8 @@ public class ChangeJob : MonoBehaviour
 
         if (jobDatabase == null || jobDatabase.Count == 0) return;
 
-        // 서버 JobTree에서 이미 획득한 직업 목록 로드 (없으면 PlayerPrefs 캐시 사용)
-        LoadUnlockedJobsFromServer();
+        // 저장된 해금 목록 불러오기
+        LoadUnlockedJobs();
 
         // 시작 직업(index 0)은 항상 해금
         _unlockedJobs.Add(0);
@@ -78,7 +67,7 @@ public class ChangeJob : MonoBehaviour
         // 사망 후에는 전직 입력 차단 (timeScale=0이어도 Update는 계속 호출됨)
         if (_player != null && _player.IsDead) return;
 
-        if (Input.GetKeyDown(KeyCode.J) && !_isProcessing)
+        if (Input.GetKeyDown(KeyCode.J))
         {
             CycleToNextJob();
         }
@@ -118,15 +107,19 @@ public class ChangeJob : MonoBehaviour
     public void ChangeJobByName(string jobName)
     {
         if (jobDatabase == null) return;
-        if (_isProcessing) return;
 
         int idx = jobDatabase.jobs.FindIndex(j => j.jobName == jobName);
         if (idx < 0) return;
 
-        _isProcessing = true;
-        ulong jobCode = GetJobCode(jobDatabase.GetJob(idx));
-        if (jobCode == 0) { _isProcessing = false; return; }
+        // 해금 처리 (비용은 호출자가 이미 처리)
+        if (!_unlockedJobs.Contains(idx))
+        {
+            _unlockedJobs.Add(idx);
+            SaveUnlockedJobs();
+            OnJobUnlocked?.Invoke(idx);
+        }
 
+<<<<<<< HEAD
         if (_unlockedJobs.Contains(idx))
         {
             // 이미 해금된 직업 → OnChangeJob
@@ -160,28 +153,26 @@ public class ChangeJob : MonoBehaviour
                     _isProcessing = false;
                 });
         }
+=======
+        _currentJobIndex = idx;
+        ApplyJobByIndex(idx);
+>>>>>>> parent of 50df133b (전직 시스템 서버 반영)
     }
 
     /// <summary>
     /// 이미 해금된 직업이면 무료로 전직.
     /// 처음 전직이면 골드를 소모하고 해금한 뒤 전직.
     /// 골드 부족 시 전직하지 않는다.
-    /// 서버 요청 중에는 즉시 false를 반환한다.
     /// </summary>
     public bool TryChangeJob(int index)
     {
-        if (_isProcessing) return false;
-
         JobData data = jobDatabase.GetJob(index);
         if (data == null) return false;
 
-        ulong jobCode = GetJobCode(data);
-        if (jobCode == 0) { _isProcessing = false; return false; }
-        _isProcessing = true;
-
-        // 이미 해금된 직업 → OnChangeJob
+        // 이미 해금된 직업 → 무료 전직
         if (_unlockedJobs.Contains(index))
         {
+<<<<<<< HEAD
             NetworkManager.Instance.OnChangeJob(jobCode, _characterIndex,
                 result =>
                 {
@@ -193,20 +184,31 @@ public class ChangeJob : MonoBehaviour
                 {
                     _isProcessing = false;
                 });
+=======
+            _currentJobIndex = index;
+            ApplyJobByIndex(index);
+>>>>>>> parent of 50df133b (전직 시스템 서버 반영)
             return true;
         }
 
-        // 첫 전직 → 골드 확인 후 차감 → OnGetJob
+        // 첫 전직 → 골드 확인 후 차감
         User user = _player.User;
         if (user == null || !user.CanAfford(eCurrency.Gold, data.unlockCost))
         {
+<<<<<<< HEAD
             _isProcessing = false;
+=======
+            Debug.LogWarning($"[ChangeJob] 전직 불가 — {data.jobName} 해금 비용: {data.unlockCost}G (골드 부족)");
+>>>>>>> parent of 50df133b (전직 시스템 서버 반영)
             return false;
         }
 
-        // 낙관적 차감: 서버 실패 시 환불
         user.TrySpendCoin(eCurrency.Gold, data.unlockCost);
+        _unlockedJobs.Add(index);
+        SaveUnlockedJobs();
+        OnJobUnlocked?.Invoke(index);
 
+<<<<<<< HEAD
         NetworkManager.Instance.OnGetJob(jobCode, _characterIndex,
             result =>
             {
@@ -222,6 +224,10 @@ public class ChangeJob : MonoBehaviour
                 user.GainCoin(eCurrency.Gold, data.unlockCost);
                 _isProcessing = false;
             });
+=======
+        _currentJobIndex = index;
+        ApplyJobByIndex(index);
+>>>>>>> parent of 50df133b (전직 시스템 서버 반영)
         return true;
     }
 
@@ -290,6 +296,7 @@ public class ChangeJob : MonoBehaviour
     }
 
     /// <summary>
+<<<<<<< HEAD
     /// 서버 JobTree 기준으로 _unlockedJobs를 초기화한다.
     /// 서버 데이터가 없으면 PlayerPrefs 캐시로 폴백한다.
     /// </summary>
@@ -338,6 +345,8 @@ public class ChangeJob : MonoBehaviour
     }
 
     /// <summary>
+=======
+>>>>>>> parent of 50df133b (전직 시스템 서버 반영)
     /// 인덱스로 직업을 적용한다. PlayerStatus 스탯 갱신 + SkillManager 스킬 교체.
     /// </summary>
     public void ApplyJobByIndex(int index)

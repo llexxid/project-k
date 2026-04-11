@@ -116,7 +116,7 @@ public class PlayerSkill
                     var m = _hitResults[i].GetComponentInParent<Monster>();
                     if (m == null || m.MonAction == eMonsterAction.Dead) continue;
 
-                    Vector3 enemyPos = m.transform.position;
+                    Vector3   enemyPos       = m.transform.position;
                     Transform enemyTransform = m.transform;
                     if (first)
                     {
