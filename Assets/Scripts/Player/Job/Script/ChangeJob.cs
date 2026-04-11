@@ -58,17 +58,9 @@ public class ChangeJob : MonoBehaviour
 
     private void Start()
     {
-        if (_player == null)
-        {
-            Debug.LogError("[ChangeJob] Player 컴포넌트를 찾을 수 없습니다.");
-            return;
-        }
+        if (_player == null) return;
 
-        if (jobDatabase == null || jobDatabase.Count == 0)
-        {
-            Debug.LogError("[ChangeJob] JobDatabase가 비어있거나 연결되지 않았습니다.");
-            return;
-        }
+        if (jobDatabase == null || jobDatabase.Count == 0) return;
 
         // 서버 JobTree에서 이미 획득한 직업 목록 로드 (없으면 PlayerPrefs 캐시 사용)
         LoadUnlockedJobsFromServer();
@@ -129,11 +121,7 @@ public class ChangeJob : MonoBehaviour
         if (_isProcessing) return;
 
         int idx = jobDatabase.jobs.FindIndex(j => j.jobName == jobName);
-        if (idx < 0)
-        {
-            Debug.LogWarning($"[ChangeJob] 직업 '{jobName}'을 JobDatabase에서 찾을 수 없습니다.");
-            return;
-        }
+        if (idx < 0) return;
 
         _isProcessing = true;
         ulong jobCode = GetJobCode(jobDatabase.GetJob(idx));
@@ -151,7 +139,6 @@ public class ChangeJob : MonoBehaviour
                 },
                 error =>
                 {
-                    Debug.LogError($"[ChangeJob] 서버 전직 실패 ({jobName}): {error.ErrorMessage}");
                     _isProcessing = false;
                 });
         }
@@ -170,7 +157,6 @@ public class ChangeJob : MonoBehaviour
                 },
                 error =>
                 {
-                    Debug.LogError($"[ChangeJob] 서버 직업 해금 실패 ({jobName}): {error.ErrorMessage}");
                     _isProcessing = false;
                 });
         }
@@ -205,7 +191,6 @@ public class ChangeJob : MonoBehaviour
                 },
                 error =>
                 {
-                    Debug.LogError($"[ChangeJob] 서버 전직 실패 ({data.jobName}): {error.ErrorMessage}");
                     _isProcessing = false;
                 });
             return true;
@@ -215,7 +200,6 @@ public class ChangeJob : MonoBehaviour
         User user = _player.User;
         if (user == null || !user.CanAfford(eCurrency.Gold, data.unlockCost))
         {
-            Debug.LogWarning($"[ChangeJob] 전직 불가 — {data.jobName} 해금 비용: {data.unlockCost}G (골드 부족)");
             _isProcessing = false;
             return false;
         }
@@ -235,9 +219,7 @@ public class ChangeJob : MonoBehaviour
             },
             error =>
             {
-                // 서버 실패 시 차감한 골드 환불
                 user.GainCoin(eCurrency.Gold, data.unlockCost);
-                Debug.LogError($"[ChangeJob] 서버 직업 해금 실패 ({data.jobName}): {error.ErrorMessage}");
                 _isProcessing = false;
             });
         return true;
@@ -338,7 +320,6 @@ public class ChangeJob : MonoBehaviour
         string normalized = data.jobName.Replace("_", "");
         if (Enum.TryParse<eJobCode>(normalized, out eJobCode code))
             return (ulong)code;
-        Debug.LogError($"[ChangeJob] eJobCode에 '{data.jobName}'이 없습니다. CommonEnum의 eJobCode를 확인하세요.");
         return 0;
     }
 
@@ -362,11 +343,7 @@ public class ChangeJob : MonoBehaviour
     public void ApplyJobByIndex(int index)
     {
         JobData data = jobDatabase.GetJob(index);
-        if (data == null)
-        {
-            Debug.LogWarning($"[ChangeJob] index {index}에 해당하는 JobData가 없습니다.");
-            return;
-        }
+        if (data == null) return;
 
         // 1. PlayerStatus 스탯 갱신
         _player.playerStatus.ApplyJob(data);
