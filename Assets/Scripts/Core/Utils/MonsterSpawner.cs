@@ -1,4 +1,4 @@
-﻿using Cysharp.Threading.Tasks.Triggers;
+using Cysharp.Threading.Tasks.Triggers;
 using Scripts.Core;
 using Scripts.Core.DataStructure;
 using Scripts.Core.SO;
@@ -19,7 +19,7 @@ namespace Scripts.Core.Utils
 		MonsterInfoSO _monsterInfo;
 
 		public static MonsterSpawner Instance;
-		//���������� � ���Ͱ� �������� ���ҽ� ����
+		//  Ͱ  ҽ 
 		private Dictionary<eMonsterType, Monster> _monsterCache;
 		private Dictionary<eMonsterType, ObjectPool<Monster>> _MonsterPool;
 
@@ -103,13 +103,17 @@ namespace Scripts.Core.Utils
 			var result = await handle.Task;
 
 			Monster component = result.GetComponent<Monster>();
-			//Load�Ѵ���, Ǯ���ؼ� �ֱ�
+			//LoadѴ, Ǯؼ ֱ
 			ObjectPool<Monster> pool = new ObjectPool<Monster>();
 			pool.Init((int)DEFAULT_VALUE.PoolingSize, component);
 			_MonsterPool.Add(id, pool);
 			Monster mon = pool.Alloc(pos, rotate);
 			mon.gameObject.SetActive(true);
-			//Todo : MonsterStat���� ���ϱ�
+            
+            // 테스트용 스폰 시에도 태그 강제 설정
+            mon.tag = "Enemy";
+
+			//Todo : MonsterStat ϱ
 			mon.Init(id, new Monster.MonsterStat(10, 0, 5, 1, 1), 0);
 			callback?.Invoke(mon);
 			return;
@@ -119,7 +123,7 @@ namespace Scripts.Core.Utils
 		{
 			ObjectPool<Monster> pool;
 
-			//���ʹ� �⺻������ Ǯ�� ��ü
+			//ʹ ⺻ Ǯ ü
 			bool IsExistMonster = _MonsterPool.TryGetValue(id, out pool);
 			if (!IsExistMonster)
 			{
@@ -138,10 +142,15 @@ namespace Scripts.Core.Utils
 					return;
 				}
 			}
+            
 			monster = pool.Alloc(pos, rotate);
+            
+            // 몬스터 태그 강제 설정 (PlayerDetection 인식 보장)
+            monster.tag = "Enemy";
+
 			_monsterInfo.TryGetMonsterInfo(id, out MonsterInfo info);
 
-			//���� ���� �ʱ�ȭ�ؼ� �ֱ�
+			//  ʱȭؼ ֱ
 			Monster.MonsterStat stat = new Monster.MonsterStat(info._baseHp, 0, (ulong)info._baseAtk, info._baseMoveSpeed, info._baseAtkSpeed);
 			monster.Init(id, stat, info._dropTableNumber);
 			monster.gameObject.SetActive(true);
@@ -154,7 +163,7 @@ namespace Scripts.Core.Utils
 			bool IsExistMonster = _MonsterPool.TryGetValue(id, out pool);
 			if (!IsExistMonster)
 			{
-				CustomLogger.LogWarning("Pooling���� ���� ���� �ݳ��� ��û�߽��ϴ�.");
+				CustomLogger.LogWarning("Pooling   ݳ û߽ϴ.");
 				return;
 			}
 			pool.Release(monster);
@@ -186,7 +195,7 @@ namespace Scripts.Core.Utils
 			_Handles.Add((long)groupId, handle);
 	
 			result = await handle.Task;
-			//Stage�� �ִ� Monster�� ����
+			//Stage ִ Monster 
 			int i = 0;
 			foreach (GameObject mon in result)
 			{
