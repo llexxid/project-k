@@ -1,4 +1,4 @@
-using ExcelDataReader;
+ï»¿using ExcelDataReader;
 using Scripts.Core;
 using Scripts.Core.Utils;
 using System;
@@ -15,9 +15,9 @@ using UnityEngine;
 namespace Scripts.Core.Parser
 {
 
-	// ¿¢¼¿ ÆÄÀÏ¿¡¼­ ÀÐ¾î¿Â µ¥ÀÌÅÍ¸¦ ±â¹ÝÀ¸·Î
-	// ÆÄÀÏÀÌ¸§ -> GUID -> ÇÁ¸®Æé Å½»ö -> addressable ID ÀÚµ¿µî·Ï
-	// ÇÁ¸®ÆéµéÀ» Addressable ID¸¦ ¼öÁ¤ÇØ¾ßÇÔ. 
+	// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ï¿ï¿½ï¿½ï¿½ ï¿½Ð¾ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Í¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	// ï¿½ï¿½ï¿½ï¿½ï¿½Ì¸ï¿½ -> GUID -> ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Å½ï¿½ï¿½ -> addressable ID ï¿½Úµï¿½ï¿½ï¿½ï¿½
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Addressable IDï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ø¾ï¿½ï¿½ï¿½. 
 	struct stageInfo
 	{
         public stageInfo(string name, int count)
@@ -91,7 +91,7 @@ namespace Scripts.Core.Parser
         [MenuItem("MyTools/SetMonsterAddress")]
         private static void SetMonsterAddress()
         {
-            //¸ó½ºÅÍ PrefabµéÀ» Addressable·Î µî·ÏÇÏ´Â °úÁ¤
+            //ï¿½ï¿½ï¿½ï¿½ Prefabï¿½ï¿½ï¿½ï¿½ Addressableï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ ï¿½ï¿½ï¿½ï¿½
             AutoAddressable auto = new AutoAddressable();
             auto.Init();
             auto.LoadGuIDFromUnity("t:Prefab", new[] { ConstPath.MONSTER_PREFEB_PATH });
@@ -102,7 +102,7 @@ namespace Scripts.Core.Parser
         [MenuItem("MyTools/SetSoundAddress")]
         private static void SetSoundAddress()
         {
-            //¸ó½ºÅÍ PrefabµéÀ» Addressable·Î µî·ÏÇÏ´Â °úÁ¤
+            //ï¿½ï¿½ï¿½ï¿½ Prefabï¿½ï¿½ï¿½ï¿½ Addressableï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ ï¿½ï¿½ï¿½ï¿½
             AutoAddressable auto = new AutoAddressable();
             auto.Init();
             auto.LoadGuIDFromUnity("t: AudioClip", new[] { ConstPath.SFX_AUDIOCLIP_PATH });
@@ -119,7 +119,7 @@ namespace Scripts.Core.Parser
 
         private void GenerateEnumCode()
         {
-            //VFX,SFX,MONSTERÀÇ ID¿Í ENUMÀ» ÀÚµ¿»ý¼ºÇÏ´Â ÄÚµå.
+            //VFX,SFX,MONSTERï¿½ï¿½ IDï¿½ï¿½ ENUMï¿½ï¿½ ï¿½Úµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ ï¿½Úµï¿½.
             List<ReadFromXlsx> _ReadFromXlsx = new List<ReadFromXlsx>();
 
             ReadXlsxFile(ConstPath.VFX_EXCEL_PATH);
@@ -196,7 +196,7 @@ namespace Scripts.Core.Parser
 		}
 		private void GenerateSceneVFXMetaSO()
 		{
-			//VFX dic»ý¼º
+			//VFX dicï¿½ï¿½ï¿½ï¿½
 			string FilePath = Path.Combine(Application.dataPath, ConstPath.VFX_EXCEL_PATH);
 			string storePath = Path.Combine(Application.dataPath, ConstPath.GENERATE_SCENE_VFX_META_PATH);
 			StringBuilder sb;
@@ -228,7 +228,7 @@ namespace Scripts.Core.Parser
 			OpenBrace(sb);
 			sb.Append($"_dic = new Dictionary<eSceneType, List<eVFXType>>();\n");
 
-			//¾À Å¸ÀÔ - VFX[]À» »ý¼º
+			//ï¿½ï¿½ Å¸ï¿½ï¿½ - VFX[]ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 			Dictionary<string, List<string>> _dics = new Dictionary<string, List<string>>();
 
 			var tables = data.Tables;
@@ -259,7 +259,7 @@ namespace Scripts.Core.Parser
 					}
 				}
 			}
-			//¾À ÀÌ¸§ - eVFXList¿Ï¼º 
+			//ï¿½ï¿½ ï¿½Ì¸ï¿½ - eVFXListï¿½Ï¼ï¿½ 
 			foreach (var Item in _dics)
 			{
 				List<string> value = Item.Value;
@@ -302,7 +302,7 @@ namespace Scripts.Core.Parser
 			OpenBrace(sb);
 			sb.Append($"_dic = new Dictionary<eSceneType, List<eSFXType>>();\n");
 
-			//¾À Å¸ÀÔ - VFX[]À» »ý¼º
+			//ï¿½ï¿½ Å¸ï¿½ï¿½ - VFX[]ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 			Dictionary<string, List<string>> _dics = new Dictionary<string, List<string>>();
 
 			var tables = data.Tables;
@@ -333,7 +333,7 @@ namespace Scripts.Core.Parser
 					}
 				}
 			}
-			//¾À ÀÌ¸§ - eVFXList¿Ï¼º 
+			//ï¿½ï¿½ ï¿½Ì¸ï¿½ - eVFXListï¿½Ï¼ï¿½ 
 			foreach (var Item in _dics)
 			{
 				List<string> value = Item.Value;
@@ -403,14 +403,14 @@ namespace Scripts.Core.Parser
             WriteToFIle(enumPath, sb);
             WriteToFIle(helperPath, HelperFuncSb);
         }
-        //¿¢¼¿ ÆÄÀÏÀ» ÀÐ¾î¿Í¾ßÇÔ.
+        //ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ð¾ï¿½Í¾ï¿½ï¿½ï¿½.
         private void ReadXlsxFile(string path)
         {
             string FilePath = Path.Combine(Application.dataPath, path);
             FileStream fstream = File.Open(FilePath, FileMode.Open, FileAccess.Read);
             IExcelDataReader reader = ExcelReaderFactory.CreateReader(fstream);
 
-            //HeaderÁ¦¿Ü ¿É¼Ç
+            //Headerï¿½ï¿½ï¿½ï¿½ ï¿½É¼ï¿½
             var conf = new ExcelDataSetConfiguration
             {
                 ConfigureDataTable = _ => new ExcelDataTableConfiguration
@@ -460,16 +460,16 @@ namespace Scripts.Core.Parser
         }
         private void SettingAddressable(string groupName)
         {
-            //Addressable ¼³Á¤
+            //Addressable ï¿½ï¿½ï¿½ï¿½
             AddressableAssetSettings settings = AddressableAssetSettingsDefaultObject.Settings;
             AddressableAssetGroup group = settings.FindGroup(groupName);
             if (group == null)
             {
                 group = settings.CreateGroup(groupName, false, false, true, null);
-                Debug.Log($"»õ ±×·ì »ý¼ºµÊ");
+                Debug.Log($"ï¿½ï¿½ ï¿½×·ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
             }
             //AssetDatabase.StartAssetEditing();
-            //µ¹¸é¼­, ÇØ´ç fileNameÀÇ GUID Á¶È¸.
+            //ï¿½ï¿½ï¿½é¼­, ï¿½Ø´ï¿½ fileNameï¿½ï¿½ GUID ï¿½ï¿½È¸.
             for (int i = 0; i < AssetDatas.Length; i++)
             {
                 for (int j = 0; j < AssetDatas[i].Length; j++)
@@ -479,7 +479,7 @@ namespace Scripts.Core.Parser
                     {
                         Debug.Log("FileName is not found");
                     }
-                    //ÀÌ°Ô ½ÇÁ¦·Î Addressable¼³Á¤ÇØÁÖ´Â API
+                    //ï¿½Ì°ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Addressableï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö´ï¿½ API
                     AddressableAssetEntry entry = settings.CreateOrMoveEntry(guid, group);
 
                     if (entry != null)
@@ -487,7 +487,7 @@ namespace Scripts.Core.Parser
                         entry.labels.Add(groupName);
                         //entry.address = maskedId.ToString();
                         entry.address = AssetDatas[i][j].fileName;
-                        CustomLogger.Log($"[µî·Ï ¼º°ø] ÆÄÀÏ: {AssetDatas[i][j].fileName} -> ÁÖ¼Ò: {AssetDatas[i][j]._MaskedId}");
+                        CustomLogger.Log($"[ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½] ï¿½ï¿½ï¿½ï¿½: {AssetDatas[i][j].fileName} -> ï¿½Ö¼ï¿½: {AssetDatas[i][j]._MaskedId}");
                     }
                 }
             }
@@ -500,7 +500,7 @@ namespace Scripts.Core.Parser
             StreamWriter sw = new StreamWriter(fs, Encoding.Unicode, 4096);
 
             char[] buffer = new char[2048];
-            //½ÇÁúÀûÀ¸·Î ¾²´Â ºÎºÐ
+            //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Îºï¿½
             int length = sb.Length;
             int offset = 0;
 
@@ -519,13 +519,13 @@ namespace Scripts.Core.Parser
 
 		private void ReadStageLogic_for_CreateEnum(StringBuilder sb, DataSet data)
 		{
-			//Áßº¹°Ë»ç
+			//ï¿½ßºï¿½ï¿½Ë»ï¿½
 			HashSet<long> duplicateKey = new HashSet<long>();
 			HashSet<long> duplicateStage = new HashSet<long>();
 
 			var ExcelTable = data.Tables;
 
-			//Sheet¼øÈ¸
+			//Sheetï¿½ï¿½È¸
 			for (int i = 0; i < ExcelTable.Count; i++)
 			{
 				DataTable table = ExcelTable[i];
@@ -581,12 +581,12 @@ namespace Scripts.Core.Parser
 		}
 		private void ReadStageLogic_for_CreateMetaSO(StringBuilder sb, DataSet data)
 		{
-			//Áßº¹°Ë»ç
+			//ï¿½ßºï¿½ï¿½Ë»ï¿½
 			Dictionary<long, HashSet<string>> _monDics = new Dictionary<long, HashSet<string>>();
 			Dictionary<long, List<stageInfo>> _stageDics = new Dictionary<long, List<stageInfo>>();
 
 			var ExcelTable = data.Tables;
-			//Sheet¼øÈ¸
+			//Sheetï¿½ï¿½È¸
 			for (int i = 0; i < ExcelTable.Count; i++)
 			{
 				DataTable table = ExcelTable[i];
@@ -674,7 +674,7 @@ namespace Scripts.Core.Parser
 				CloseBrace(sb);
 				CreateTryStageInfo(sb);
 				CreateTryGetStageMonsterInfo(sb);
-				//namespace,function,class °ýÈ£
+				//namespace,function,class ï¿½ï¿½È£
 				CloseBrace(sb);
 				CloseBrace(sb);
 			}
@@ -970,7 +970,7 @@ namespace Scripts.Core.Parser
 					UseHeaderRow = true
 				}
 			};
-            //ÀÐÀº µ¥ÀÌÅÍ µ¢¾î¸®
+            //ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½î¸®
 			DataSet data = reader.AsDataSet(config); 
             _sb = new StringBuilder();
             readLogic.Invoke(_sb, data);
@@ -986,7 +986,7 @@ namespace Scripts.Core.Parser
 			StreamWriter sw = new StreamWriter(fs, Encoding.Unicode, 4096);
 
 			char[] buffer = new char[2048];
-			//½ÇÁúÀûÀ¸·Î ¾²´Â ºÎºÐ
+			//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Îºï¿½
 			int length = sb.Length;
 			int offset = 0;
 

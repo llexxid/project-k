@@ -40,8 +40,6 @@ public class PlayerMove
             return NodeState.Success;
         }
 
-        Debug.Log($"[PlayerMove] {player.name} 이동중 거리: {distance:F2} / 정지거리: {stopDistance}");
-
         // 4. 이동 중
         player.SetAnimation(ePlayerAction.Walk);
         player.transform.position = Vector2.MoveTowards(
