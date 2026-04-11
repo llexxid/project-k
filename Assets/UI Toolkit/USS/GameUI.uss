@@ -43,11 +43,38 @@
     position: absolute;
     left: 50%;
     top: 52%;
-    width: 520px;
-    height: 140px;
-    margin-left: -260px;
-    margin-top: -70px;
-    font-size: 36px;
+    width: 480px;
+    height: 120px;
+    margin-left: -240px;
+    margin-top: -60px;
+    font-size: 34px;
+    -unity-font-style: bold;
+    color: rgba(255, 235, 180, 0.95);
+    background-color: rgba(60, 80, 140, 0.85);
+    border-left-color: rgba(120, 150, 220, 0.7);
+    border-right-color: rgba(120, 150, 220, 0.7);
+    border-top-color: rgba(120, 150, 220, 0.7);
+    border-bottom-color: rgba(120, 150, 220, 0.7);
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-top-left-radius: 18px;
+    border-top-right-radius: 18px;
+    border-bottom-left-radius: 18px;
+    border-bottom-right-radius: 18px;
+    letter-spacing: 4px;
+}
+.login-btn:hover {
+    background-color: rgba(75, 100, 170, 0.92);
+    border-left-color: rgba(150, 180, 240, 0.85);
+    border-right-color: rgba(150, 180, 240, 0.85);
+    border-top-color: rgba(150, 180, 240, 0.85);
+    border-bottom-color: rgba(150, 180, 240, 0.85);
+}
+.login-btn:active {
+    background-color: rgba(45, 60, 110, 0.95);
+    color: rgba(255, 245, 200, 1);
 }
 
 .login-popup {
@@ -100,21 +127,7 @@
 }
 
 .login-popup-close {
-    width: 56px;
-    height: 56px;
-    font-size: 36px;
-    color: rgba(255,255,255,0.9);
-    background-color: rgba(60, 70, 95, 0.95);
-    border-left-width: 0; border-right-width: 0; border-top-width: 0; border-bottom-width: 0;
-    border-top-left-radius: 12px;
-    border-top-right-radius: 12px;
-    border-bottom-left-radius: 12px;
-    border-bottom-right-radius: 12px;
-    -unity-text-align: middle-center;
-}
-
-.login-popup-close:hover {
-    background-color: rgba(90, 100, 130, 1);
+    display: none;
 }
 
 .login-popup-subtitle {
@@ -158,6 +171,7 @@
     background-color: rgba(245, 245, 245, 1);
 }
 .login-provider-google:hover { background-color: rgba(255, 255, 255, 1); }
+.login-provider-google:active { background-color: rgba(190, 190, 190, 1); }
 .login-provider-google .login-provider-label { color: rgba(40, 40, 40, 1); }
 
 .login-provider-apple {

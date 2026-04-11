@@ -768,7 +768,9 @@ namespace KingdomIdle.UIToolkit
             {
 				btnLoginGoogle.clicked += () =>
 				{
+                    Debug.Log("[Option] Clicked");
 					NetworkManager.Instance.Authenticate(Scripts.Server.Auth.eAuthType.GoogleWebLogin);
+					popupLogin.AddToClassList("hidden");
 				};
 			}
                 
