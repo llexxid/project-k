@@ -115,7 +115,7 @@ namespace Scripts.Core.Utils
 			return;
 		}
 
-		public void SpawnMonster(eMonsterType id, Vector3 pos, Quaternion rotate, out Monster monster)
+		public void SpawnMonster(eMonsterType id, double ratio, Vector3 pos, Quaternion rotate, out Monster monster)
 		{
 			ObjectPool<Monster> pool;
 
@@ -133,7 +133,14 @@ namespace Scripts.Core.Utils
 			_monsterInfo.TryGetMonsterInfo(id, out MonsterInfo info);
 
 			//몬스터 스텟 초기화해서 주기
-			Monster.MonsterStat stat = new Monster.MonsterStat(info._baseHp, 0, (ulong)info._baseAtk, info._baseMoveSpeed, info._baseAtkSpeed);
+
+			Monster.MonsterStat stat = new Monster.MonsterStat(
+				(long)(info._baseHp * ratio), 
+				0, 
+				(ulong)(info._baseAtk* ratio), 
+				info._baseMoveSpeed, 
+				info._baseAtkSpeed
+				);
 			monster.Init(id, stat, info._dropTableNumber);
 			monster.gameObject.SetActive(true);
 			return;
