@@ -1,4 +1,4 @@
-using Cysharp.Threading.Tasks.Triggers;
+ï»¿using Cysharp.Threading.Tasks.Triggers;
 using Scripts.Core;
 using Scripts.Core.DataStructure;
 using Scripts.Core.SO;
@@ -19,7 +19,7 @@ namespace Scripts.Core.Utils
 		MonsterInfoSO _monsterInfo;
 
 		public static MonsterSpawner Instance;
-		//½ºÅ×ÀÌÁö¿¡ ¾î¶² ¸ó½ºÅÍ°¡ ³ª¿À´ÂÁö ¸®¼Ò½º °ü¸®
+		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½î¶² ï¿½ï¿½ï¿½Í°ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ò½ï¿½ ï¿½ï¿½ï¿½ï¿½
 		private Dictionary<eMonsterType, Monster> _monsterCache;
 		private Dictionary<eMonsterType, ObjectPool<Monster>> _MonsterPool;
 
@@ -103,13 +103,13 @@ namespace Scripts.Core.Utils
 			var result = await handle.Task;
 
 			Monster component = result.GetComponent<Monster>();
-			//LoadÇÑ´ÙÀ½, Ç®¸µÇØ¼­ ÁÖ±â
+			//Loadï¿½Ñ´ï¿½ï¿½ï¿½, Ç®ï¿½ï¿½ï¿½Ø¼ï¿½ ï¿½Ö±ï¿½
 			ObjectPool<Monster> pool = new ObjectPool<Monster>();
 			pool.Init((int)DEFAULT_VALUE.PoolingSize, component);
 			_MonsterPool.Add(id, pool);
 			Monster mon = pool.Alloc(pos, rotate);
 			mon.gameObject.SetActive(true);
-			//Todo : MonsterStatÁ¤º¸ Á¤ÇÏ±â
+			//Todo : MonsterStatï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ï±ï¿½
 			mon.Init(id, new Monster.MonsterStat(10, 0, 5, 1, 1), 0);
 			callback?.Invoke(mon);
 			return;
@@ -119,20 +119,29 @@ namespace Scripts.Core.Utils
 		{
 			ObjectPool<Monster> pool;
 
-			//¸ó½ºÅÍ´Â ±âº»ÀûÀ¸·Î Ç®¸µ °³Ã¼
+			//ï¿½ï¿½ï¿½Í´ï¿½ ï¿½âº»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ç®ï¿½ï¿½ ï¿½ï¿½Ã¼
 			bool IsExistMonster = _MonsterPool.TryGetValue(id, out pool);
 			if (!IsExistMonster)
 			{
-				CustomLogger.LogWarning("PoolingµÇÁö ¾ÊÀº ¸ó½ºÅÍ ½ºÆùÀ» ¿äÃ»Çß½À´Ï´Ù.");
-				//¿©±â¼­ ºÎÅÍ´Â »ç½Ç»ó ¿¹¿ÜÃ³¸®. ÇØÁÖ·Á¸é CallbackÀ» ¹Ş¾Æ¾ßÇÔ.
-
-				monster = default;
-				return;
+				// ?ã…½ë€’?ëŒ? ?ê¾ªì†š ??pool?Â€ ï§Â€?ëš¯ì£±ï§Â€ï§?cache?ë¨®ë’— ?ëˆë’— å¯ƒìŒìŠ¦ ï§ë±ê½ ?ì•¹ê½¦
+				Monster cached;
+				if (_monsterCache.TryGetValue(id, out cached) && _monParents != null)
+				{
+					pool = new ObjectPool<Monster>();
+					pool.Init((int)DEFAULT_VALUE.PoolingSize, _monParents, cached);
+					_MonsterPool.Add(id, pool);
+				}
+				else
+				{
+					CustomLogger.LogWarning("Pooling?ë¨¯ê½Œ ï§¡ì– ì“£ ???ë…¿ë’— ï§ÑŠë’ª???ë¶¿ê»Œ???ë‰ë’¿?ëˆë–.");
+					monster = default;
+					return;
+				}
 			}
 			monster = pool.Alloc(pos, rotate);
 			_monsterInfo.TryGetMonsterInfo(id, out MonsterInfo info);
 
-			//¸ó½ºÅÍ ½ºÅİ ÃÊ±âÈ­ÇØ¼­ ÁÖ±â
+			//ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ê±ï¿½È­ï¿½Ø¼ï¿½ ï¿½Ö±ï¿½
 			Monster.MonsterStat stat = new Monster.MonsterStat(info._baseHp, 0, (ulong)info._baseAtk, info._baseMoveSpeed, info._baseAtkSpeed);
 			monster.Init(id, stat, info._dropTableNumber);
 			monster.gameObject.SetActive(true);
@@ -145,7 +154,7 @@ namespace Scripts.Core.Utils
 			bool IsExistMonster = _MonsterPool.TryGetValue(id, out pool);
 			if (!IsExistMonster)
 			{
-				CustomLogger.LogWarning("PoolingµÇÁö ¾ÊÀº ¸ó½ºÅÍ ¹İ³³À» ¿äÃ»Çß½À´Ï´Ù.");
+				CustomLogger.LogWarning("Poolingï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½İ³ï¿½ï¿½ï¿½ ï¿½ï¿½Ã»ï¿½ß½ï¿½ï¿½Ï´ï¿½.");
 				return;
 			}
 			pool.Release(monster);
@@ -177,7 +186,7 @@ namespace Scripts.Core.Utils
 			_Handles.Add((long)groupId, handle);
 	
 			result = await handle.Task;
-			//Stage¿¡ ÀÖ´Â Monsterµé »ı¼º
+			//Stageï¿½ï¿½ ï¿½Ö´ï¿½ Monsterï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 			int i = 0;
 			foreach (GameObject mon in result)
 			{

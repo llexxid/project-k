@@ -95,13 +95,11 @@ public class PlayerDetection
             }
         }
 
-        //Debug.Log($"Player Current Target : {player.currentTarget.gameobj.GetInstanceID()}");
         if (currentTarget != null)
         {
             player.SetTarget(currentTarget);
 			return true;
 		}
-        Debug.Log($"[PlayerDetection] {player.name} detect count={count} but no valid target");
         return false;
     }
 
