@@ -66,9 +66,9 @@ namespace Scripts.Core.Manager
 		{
 			return _sessionTicket;
 		}
-		//NetWork Messageï¿½ï¿½ ï¿½ï¿½ï¿½â¼­ ï¿½Ô¼ï¿½ Callï¿½ï¿½ ï¿½Ò·ï¿½ï¿½Ù°ï¿½ï¿½ï¿½.
+		//NetWork Message´Â ¿©±â¼­ ÇÔ¼ö Call·Î ºÒ·¯ÁÙ°ÅÀÓ.
 
-		//ï¿½Ð³ï¿½ï¿½ï¿½ ï¿½ßºï¿½Ã¼Å©
+		//´Ð³×ÀÓ Áßº¹Ã¼Å©
 		public void CheckDuplicatedNickName(string nickname, Action<UpdateUserTitleDisplayNameResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
 		{
 			UpdateUserTitleDisplayNameRequest req = new UpdateUserTitleDisplayNameRequest
@@ -102,7 +102,7 @@ namespace Scripts.Core.Manager
 		}
 
 
-		//Ä³ï¿½ï¿½ï¿½ï¿½ Ã³ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ ï¿½Ô¼ï¿½
+		//Ä³¸¯ÅÍ Ã³À½ »ý¼ºÇÏ´Â ÇÔ¼ö
 		public void OnSignUpInitUser(Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
 		{
 			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
@@ -178,7 +178,7 @@ namespace Scripts.Core.Manager
 			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
 		}
 		
-		//Testï¿½Ø¾ï¿½ï¿½ï¿½.
+		//TestÇØ¾ßÇÔ.
 		public void OnGachaSkillClick(int count, Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
 		{
 			OnGachaRequestDTO request = new OnGachaRequestDTO
@@ -288,7 +288,6 @@ namespace Scripts.Core.Manager
 			{
 				SessionID = _sessionGUID,
 				JobCode = job,
-				Index = characterIdx,
 			};
 
 			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
@@ -301,11 +300,10 @@ namespace Scripts.Core.Manager
 		}
 		public void OnChangeJob(ulong job, int characterIdx, Action<ExecuteFunctionResult> successCallback, Action<PlayFabError> errorCallback)
 		{
-			OnChangeJobRequestDTO request = new OnChangeJobRequestDTO
+			OnGetJobRequestDTO request = new OnGetJobRequestDTO
 			{
 				SessionID = _sessionGUID,
 				JobCode = job,
-				Index = characterIdx,
 			};
 
 			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
@@ -335,11 +333,11 @@ namespace Scripts.Core.Manager
 
 		private void OnDuplicatedNickNameCallback(PlayFab.PlayFabError error)
 		{
-			Debug.Log("ï¿½Ð³ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ßºï¿½ï¿½Ë´Ï´ï¿½.");
+			Debug.Log("´Ð³×ÀÓÀÌ Áßº¹µË´Ï´Ù.");
 		}
 		private void OnEnableNicknameCallback(UpdateUserTitleDisplayNameResult result)
 		{
-			Debug.Log("ï¿½ßºï¿½ï¿½ï¿½ ï¿½Ð³ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½.");
+			Debug.Log("Áßº¹µÈ ´Ð³×ÀÓÀÌ ¾ø½À´Ï´Ù.");
 		}
 
 
