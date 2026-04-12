@@ -47,6 +47,9 @@ namespace Scripts.Core
         const int LAST_WAVE = 10;
         const float TICK_INTERVAL = 3f;
         private float _LastTick;
+
+        const double stageRatioMultiplier = 0.4;
+        const double waveRatioMultiplier = 0.04;
         //SendBuffer
         private Dictionary<eMonsterType, int> _huntResultList;
         private List<HuntResult> _sendmsg;
@@ -153,10 +156,14 @@ namespace Scripts.Core
 				ulong waveNumber = (ulong)stage & waveMask;
 				double pointNumber = 0;
 
-				SpawnRatio = (double)stageNumber + pointNumber - 1;
+                // - 스테이지당 0.4배씩 강해짐.
+                //3스테이지는 1.2배, wave당 0.04배.
+                //4스테이지는 1.6배
+                //5스테이지는 2배  
+				SpawnRatio = (double)(stageNumber * stageRatioMultiplier) + pointNumber;
 				if (waveNumber < 11)
 				{
-					pointNumber = waveNumber * 0.1;
+					pointNumber = waveNumber * waveRatioMultiplier;
 				}
 			}
 
