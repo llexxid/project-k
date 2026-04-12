@@ -73,6 +73,11 @@ namespace Scripts.Core
 				OnAllPlayersDead();
 		}
 
+		public void ReportPlayerRevived()
+		{
+			_deathAnimationDoneCount = Mathf.Max(0, _deathAnimationDoneCount - 1);
+		}
+
 		private void OnAllPlayersDead()
 		{
 			Debug.Log("[GameManager] 전원 사망 애니메이션 완료");
