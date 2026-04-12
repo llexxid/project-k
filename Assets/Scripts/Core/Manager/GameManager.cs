@@ -217,7 +217,6 @@ namespace Scripts.Core
 
 		private async UniTaskVoid LoadingScene(eSceneType type)
 		{
-			Debug.Log($"Scene Loading Request : {type}");
 			if (_token == null)
 				_token = new CancellationTokenSource();
 
@@ -233,7 +232,6 @@ namespace Scripts.Core
 				ulong resourceId = GetResourceGroupId(currentStage);
 				_StageLoaderHandle = StageManager.Instance.PreLoadAssets((eStage)resourceId);
 				LoadResourceInMonster(resourceId);
-				Debug.Log("Main Stage Loading");
 				//Player에 필요한 VFX,SFX 로딩
 			}
 
@@ -250,8 +248,6 @@ namespace Scripts.Core
 			{
 				_SFXSceneHandle = SFXManager.Instance.PreLoadSFX((ulong)type, sfxList.ToArray());
 			}
-
-			Debug.Log("SFX/VFX Loading");
 
 			//ReSourceLoading
 			while (true)
@@ -288,7 +284,6 @@ namespace Scripts.Core
 				//스크롤바가 다 채워졌다면, SceneActive하기.
 				await UniTask.Yield(_token.Token);
 			}
-			Debug.Log("While Loop Break");
 
 			_UnitySceneLoaderOp = SceneManager.LoadSceneAsync(sceneName);
 			_UnitySceneLoaderOp.allowSceneActivation = false;
@@ -304,7 +299,6 @@ namespace Scripts.Core
 
 			SceneLoadProgress?.Invoke(type, 1f);
 			SceneLoadFinished?.Invoke(type);
-			Debug.Log($"SceneActive Request Done | {type}");
 			//임시패치
 		}
 		private void OnSceneLoaded(Scene scene, LoadSceneMode mode)

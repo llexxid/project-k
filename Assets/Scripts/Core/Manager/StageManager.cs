@@ -121,14 +121,43 @@ namespace Scripts.Core
 
 		public void StartStage(eStage stage)
 		{
-			Debug.Log("StageManager ����");
 			_currentStage = stage;
             //_totalCnt = 0;
 			_totalCharacterCnt = 3;
 			_waveCleared = false; // 새 wave 시작 — 클리어 가드 해제
-            
+
+            ulong stageMask = 0x00000000FFFF0000;
+            ulong waveMask = 0x000000000000FFFF;
+            ulong stageUniuqId = 0x0000000200000000;
+
+			//stage가 짝수인지 홀수인지 검사
+			ulong stageNumber = ((ulong)stage & stageMask) >> 16;
+			bool IsOddNmuber = (stageNumber) % 2 == 1 ? true : false;
+
+            ulong stageKey;
+            double SpawnRatio;
+            //1,3,5,7...stage는 bandit들 
+            if (IsOddNmuber)
+            {
+                stageKey = ((ulong)stage & ~stageMask) | 0x0000000000010000;
+            }
+            else
+            {
+                stageKey = ((ulong)stage & ~stageMask) | 0x0000000000020000;
+			}
+            stageKey = stageKey | stageUniuqId;
+
+			
+            ulong waveNumber = (ulong)stage & waveMask;
+            double pointNumber = 0;
+            if (waveNumber < 10)
+            {
+                pointNumber = waveNumber * 0.1;
+			}
+			SpawnRatio = (double)stageNumber + pointNumber;
+
 			List<StageInfo_v> stageInfos;
-			bool flag = _stageSO.TryGetStageInfo(stage, out stageInfos);
+			bool flag = _stageSO.TryGetStageInfo((eStage)stageKey, out stageInfos);
 
 			if (!flag)
 			{
@@ -151,7 +180,7 @@ namespace Scripts.Core
 					_locationSO.TryGetPos(randomIndex, out pos);
 
 					Monster mon;
-					MonsterSpawner.Instance.SpawnMonster(type, pos, Quaternion.identity, out mon);
+					MonsterSpawner.Instance.SpawnMonster(type, SpawnRatio, pos, Quaternion.identity, out mon);
                     mon.OnDeath += DecrementMonCount;
 				}
 			}
