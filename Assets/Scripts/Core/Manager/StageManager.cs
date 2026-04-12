@@ -135,7 +135,7 @@ namespace Scripts.Core
 			bool IsOddNmuber = (stageNumber) % 2 == 1 ? true : false;
 
             ulong stageKey;
-            double SpawnRatio;
+            double SpawnRatio = 1.0;
             //1,3,5,7...stage는 bandit들 
             if (IsOddNmuber)
             {
@@ -147,14 +147,19 @@ namespace Scripts.Core
 			}
             stageKey = stageKey | stageUniuqId;
 
-			
-            ulong waveNumber = (ulong)stage & waveMask;
-            double pointNumber = 0;
-            if (waveNumber < 10)
-            {
-                pointNumber = waveNumber * 0.1;
+            //3스테이지 부터는 Ratio 조절
+			if (stageNumber > 2)
+			{
+				ulong waveNumber = (ulong)stage & waveMask;
+				double pointNumber = 0;
+
+				SpawnRatio = (double)stageNumber + pointNumber - 1;
+				if (waveNumber < 11)
+				{
+					pointNumber = waveNumber * 0.1;
+				}
 			}
-			SpawnRatio = (double)stageNumber + pointNumber;
+
 
 			List<StageInfo_v> stageInfos;
 			bool flag = _stageSO.TryGetStageInfo((eStage)stageKey, out stageInfos);
