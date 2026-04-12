@@ -42,7 +42,6 @@ public class PlayerAttack
         // attackRate가 0 이하면 애니메이션 길이로 자동 보정
         if (attackRate <= 0f)
         {
-            Debug.LogWarning($"[PlayerAttack] attackRate가 {attackRate}로 설정되어 있습니다. " + $"애니메이션 길이({ANIMATION_DURATION}초)로 자동 보정합니다.");
             attackRate = ANIMATION_DURATION;
         }
     }
