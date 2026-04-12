@@ -128,7 +128,11 @@ namespace Scripts.Core
 
             ulong stageMask = 0x00000000FFFF0000;
             ulong waveMask = 0x000000000000FFFF;
-            bool IsOddNmuber = ((ulong)stage & stageMask) % 2 == 1 ? true : false;
+            ulong stageUniuqId = 0x0000000200000000;
+
+			//stage가 짝수인지 홀수인지 검사
+			ulong stageNumber = ((ulong)stage & stageMask) >> 16;
+			bool IsOddNmuber = (stageNumber) % 2 == 1 ? true : false;
 
             ulong stageKey;
             double SpawnRatio;
@@ -141,8 +145,9 @@ namespace Scripts.Core
             {
                 stageKey = ((ulong)stage & ~stageMask) | 0x0000000000020000;
 			}
+            stageKey = stageKey | stageUniuqId;
 
-            ulong stageNumber = ((ulong)stage & stageMask) >> 16;
+			
             ulong waveNumber = (ulong)stage & waveMask;
             double pointNumber = 0;
             if (waveNumber < 10)

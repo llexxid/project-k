@@ -133,11 +133,10 @@ namespace Scripts.Core.Utils
 			_monsterInfo.TryGetMonsterInfo(id, out MonsterInfo info);
 
 			//몬스터 스텟 초기화해서 주기
-
 			Monster.MonsterStat stat = new Monster.MonsterStat(
 				(long)(info._baseHp * ratio), 
 				0, 
-				(ulong)(info._baseAtk* ratio), 
+				(ulong)(info._baseAtk * ratio), 
 				info._baseMoveSpeed, 
 				info._baseAtkSpeed
 				);
