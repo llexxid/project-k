@@ -290,7 +290,7 @@ namespace Scripts.Core
 		{
 			if (_huntResultList.Count <= 0)
 			{
-				Debug.Log($"[StageManager] ���� ���Ͱ� �����ϴ�.");
+				//Debug.Log($"[StageManager Send] Buffer Is Empty.");
 				return;
 			}
 
@@ -307,7 +307,7 @@ namespace Scripts.Core
 					MonsterType = type,
 					Count = (short)count
 				};
-				Debug.Log($"[StageManager] ���� ���� : {type} | count : {count}");
+				//Debug.Log($"[StageManager Send] Type : {type} | count : {count}");
 				_sendmsg.Add(code);
 			}
 
@@ -322,7 +322,6 @@ namespace Scripts.Core
 			string response = JsonConvert.SerializeObject(result.FunctionResult);
 			OnHuntResponseDTO huntResult = JsonConvert.DeserializeObject<OnHuntResponseDTO>(response);
 
-			//�������� ���� (���, ų���ھ�, ����ġ, ���, AncientGold)
 			UserManager.Instance.SetHuntResult(huntResult);
 		}
 
