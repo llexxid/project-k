@@ -78,6 +78,10 @@ namespace Scripts.Core
 			return _user.GetStage();
 		}
 
+		public void GainExp(long exp)
+		{
+			_user.GainExp(exp);
+		}
 
 		public void CreateUser(string name, eStage stage, UserDataQuery Userquery, UserEnhanceMentQuery EnchantQuery)
 		{

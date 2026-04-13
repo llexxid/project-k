@@ -158,6 +158,8 @@ namespace Scripts.Core.Utils
 				info._baseMoveSpeed, 
 				info._baseAtkSpeed
 				);
+			monster.Exp = (long)info._exp;
+			monster.Ratio = ratio;
 			monster.Init(id, stat, info._dropTableNumber);
 			monster.gameObject.SetActive(true);
 			return;

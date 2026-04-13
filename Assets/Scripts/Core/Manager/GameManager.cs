@@ -1,6 +1,7 @@
 ﻿using Cysharp.Threading.Tasks;
 using Cysharp.Threading.Tasks.CompilerServices;
 using ExcelDataReader;
+using Scripts.Core.Manager;
 using Scripts.Core.SO;
 using Scripts.Core.Utils;
 using Scripts.Monster;
@@ -360,6 +361,14 @@ namespace Scripts.Core
 		public async UniTaskVoid LoadStage(eStage curstage, eStage nxtStage, Action<eStage> onStageLoaded_callback)
 		{
 			float startRealtime = Time.realtimeSinceStartup;
+
+			//1,2스테이지 반복하는 형태이므로, 2스테이지이상이라면 로딩할필요 x.
+			if (StageParser.GetStageNumber(nxtStage) >= 3)
+			{
+				return;
+			}
+
+
 			/*
             _StageLoaderHandle = StageManager.Instance.PreLoadAssets(stage);
             LoadResourceInMonster(stage);
@@ -367,7 +376,9 @@ namespace Scripts.Core
 			ulong resource_prevId = GetResourceGroupId(curstage);
 			ulong resource_nxtId = GetResourceGroupId(nxtStage);
 			//이전 Stage에 있던 리소스 클리어 요청
-			ClearCurrentStageResource(resource_prevId);
+			//ClearCurrentStageResource(resource_prevId);
+
+			//다음 stage resoucre요청
 			_StageLoaderHandle = StageManager.Instance.PreLoadAssets((eStage)resource_nxtId);
 			LoadResourceInMonster(resource_nxtId);
 
