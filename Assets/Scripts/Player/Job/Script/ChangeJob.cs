@@ -20,6 +20,15 @@ public class ChangeJob : MonoBehaviour
     /// <summary>현재 적용된 직업의 인덱스 (순환에 사용)</summary>
     private int _currentJobIndex = 0;
 
+    /// <summary>
+    /// 현재 이 플레이어에 적용된 직업의 스킬 목록 (SkillManager가 씬 공유 오브젝트이므로
+    /// 패시브 계산 등에서 skillManager.GetCurrentSkills() 대신 이 값을 사용한다).
+    /// </summary>
+    private List<SkillData> _currentJobSkills = new List<SkillData>();
+
+    /// <summary>현재 직업의 스킬 목록을 반환한다. (플레이어별 독립)</summary>
+    public IReadOnlyList<SkillData> GetCurrentSkills() => _currentJobSkills.AsReadOnly();
+
     /// <summary>한 번이라도 해금한 직업 인덱스 목록 (PlayerPrefs에 저장)</summary>
     private HashSet<int> _unlockedJobs = new HashSet<int>();
     private const string UNLOCK_SAVE_KEY = "UnlockedJobs";
@@ -189,9 +198,11 @@ public class ChangeJob : MonoBehaviour
         // 2. 패시브 스킬 처리
         foreach (var source in allPlayers)
         {
-            if (source.skillManager == null) continue;
+            // SkillManager는 씬 공유 오브젝트일 수 있으므로 per-player ChangeJob 캐시를 사용
+            var sourceJob = source.GetComponent<ChangeJob>();
+            if (sourceJob == null) continue;
 
-            foreach (var skill in source.skillManager.GetCurrentSkills())
+            foreach (var skill in sourceJob.GetCurrentSkills())
             {
                 if (skill.skillType != SkillType.Passive) continue;
 
@@ -247,30 +258,46 @@ public class ChangeJob : MonoBehaviour
             return;
         }
 
+        // 0. 이 플레이어의 스킬 목록을 캐시 (공유 SkillManager 대신 여기서 읽어야 함)
+        _currentJobSkills = data.skills != null
+            ? new List<SkillData>(data.skills)
+            : new List<SkillData>();
+
         // 1. PlayerStatus 스탯 갱신
         _player.playerStatus.ApplyJob(data);
 
         // 2. 공격속도 변경 시 attackRate도 동기화
         if (_player.playerOrder?._attack != null)
         {
+            // 각 플레이어 인스턴스의 개별 PlayerAttack/PlayerDetection 수치 수정
             _player.playerOrder._attack.attackRate = data.atkSpeed;
 
-            // Archer / Mage 계열 직업은 공격 범위 2배
-            const float baseRadius = 2f;
+            // 직업군에 따른 독립적인 공격/탐지 범위 설정
+            const float baseAttackRadius = 2f;
+            const float baseDetectionRadius = 5f;
+            
             bool isRanged = data.jobName.Contains("Archer") || data.jobName.Contains("Mage");
-            // 공격 범위 수정 가능
-            float finalRadius = isRanged ? baseRadius * 2f : baseRadius;
-            _player.playerOrder._attack.attackRadius = finalRadius;
+            float finalAttackRadius = isRanged ? baseAttackRadius * 1.5f : baseAttackRadius;
+            float finalDetectionRadius = isRanged ? baseDetectionRadius * 1.5f : baseDetectionRadius;
 
-            // 공격 범위에 들어오면 이동 멈추도록 stopDistance 연동
+            _player.playerOrder._attack.attackRadius = finalAttackRadius;
+
+            if (_player.playerOrder._detection != null)
+                _player.playerOrder._detection.detectionRadius = finalDetectionRadius;
+
+            // [개선] 이동 중지 거리를 공격 범위보다 약간 짧게(90%) 설정하여 
+            // 확실하게 사거리 내로 진입시킨 뒤 공격이 즉시 발동되도록 유도
             if (_player.playerOrder._move != null)
-                _player.playerOrder._move.stopDistance = finalRadius;
+                _player.playerOrder._move.stopDistance = finalAttackRadius * 0.9f;
         }
 
-        // 3. SkillManager에 직업 스킬 갱신
-        _player.skillManager?.RefreshSkills(data.skills);
+        // 3. 개별 SkillManager에 직업 스킬 갱신 (공유 오브젝트가 아닌 각 플레이어의 자식 컴포넌트여야 함)
+        if (_player.skillManager != null)
+        {
+            _player.skillManager.RefreshSkills(data.skills);
+        }
 
-        // 4. BT 스킬 트리 재조립 (새 직업 스킬 → BT LeafNode로 자동 등록)
+        // 4. BT 스킬 트리 재조립 (이 플레이어만의 독립적인 BT 노드 구성)
         _player.playerOrder?.RebuildSkillTree(data.skills, _player);
 
         // 5. 스프라이트 교체
