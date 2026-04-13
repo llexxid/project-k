@@ -96,7 +96,7 @@ public class SkillSystem
 
             case "Elite_Mage":
                 _basicAttack = new BasicAttackProjectile(_player, range: 5f, cooldown: 2f, aoeRadius: 0.5f);
-                _specials.Add(new EnergyPulse(_player, triggerRange: 3f, cooldown: 10f, knockbackForce: 5f));
+                _specials.Add(new EnergyPulse(_player, _basicAttack, triggerRange: 3f, cooldown: 10f, knockbackForce: 5f));
                 AttackRange = 5f;
                 SetSlot(0, "기본공격", false);
                 SetSlot(1, "마력의 오라", true);
@@ -124,6 +124,10 @@ public class SkillSystem
                 return true;
             }
         }
+
+        // 스페셜 스킬이 활성 상태(애니메이션 재생 중)이면 기본공격 차단
+        for (int i = 0; i < _specials.Count; i++)
+            if (_specials[i].IsActive) return false;
 
         // 기본공격
         if (_basicAttack != null && _basicAttack.IsReady && _basicAttack.CanExecute())

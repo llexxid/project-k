@@ -5,7 +5,7 @@ using UnityEngine;
 
 /// <summary>
 /// 투사체 기본공격 (Mage · Elite_Mage).
-/// 직선 발사 → 몬스터 접촉 시 소멸 + 소범위 AoE.
+/// 공격 애니메이션 종료 시점에 투사체 발사 → 적 접촉 또는 수명 만료 시 소멸.
 /// </summary>
 public sealed class BasicAttackProjectile : ActiveSkill
 {
@@ -13,6 +13,14 @@ public sealed class BasicAttackProjectile : ActiveSkill
     private readonly float _cooldown;
     private readonly float _aoeRadius;
     private readonly Queue<MageProjectile> _pool = new Queue<MageProjectile>();
+
+    private const float PROJECTILE_LIFETIME = 10f;
+
+    // 애니메이션 종료 후 발사를 위한 상태
+    private enum Phase { Idle, WaitingForAnimEnd }
+    private Phase _phase = Phase.Idle;
+    private float _fireTime;
+    private int _pendingDamage;
 
     public override string DisplayName => "기본공격";
     public override float Cooldown => _cooldown;
@@ -43,22 +51,37 @@ public sealed class BasicAttackProjectile : ActiveSkill
 
     public override float Execute()
     {
-        var target = _player.currentTarget;
-        Vector2 dir = ((Vector2)target.targetPos - (Vector2)_player.transform.position).normalized;
-
-        int baseAtk = _player.playerStatus?.Atk ?? 0;
-        MageProjectile proj = GetProjectile();
-        if (proj != null)
-        {
-            proj.transform.position = _player.transform.position;
-            proj.Fire(_player, dir, speed: 8f, damage: baseAtk, _aoeRadius, _range);
-        }
+        _pendingDamage = _player.playerStatus?.Atk ?? 0;
 
         float animLen = GetAttackAnimLength();
         _player.SetAnimation(ePlayerAction.Attack);
 
+        _phase = Phase.WaitingForAnimEnd;
+        _fireTime = Time.time + animLen;
+
         _nextAvailableTime = Time.time + animLen + _cooldown;
         return animLen;
+    }
+
+    public override void Tick()
+    {
+        if (_phase != Phase.WaitingForAnimEnd) return;
+        if (Time.time < _fireTime) return;
+
+        _phase = Phase.Idle;
+
+        // 애니메이션 끝 시점에 현재 타겟 방향으로 발사
+        Vector2 dir = Vector2.right;
+        var target = _player.currentTarget;
+        if (target != null)
+            dir = ((Vector2)target.targetPos - (Vector2)_player.transform.position).normalized;
+
+        MageProjectile proj = GetProjectile();
+        if (proj != null)
+        {
+            proj.transform.position = _player.transform.position;
+            proj.Fire(_player, dir, speed: 4f, damage: _pendingDamage, _aoeRadius, PROJECTILE_LIFETIME);
+        }
     }
 
     private MageProjectile GetProjectile()

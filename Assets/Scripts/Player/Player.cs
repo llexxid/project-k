@@ -27,6 +27,10 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     private MageProjectile _mageProjectilePrefab;
     public MageProjectile MageProjectilePrefab => _mageProjectilePrefab;
 
+    [SerializeField]
+    private EnergyPulseVFX _energyPulseVFXPrefab;
+    public EnergyPulseVFX EnergyPulseVFXPrefab => _energyPulseVFXPrefab;
+
     public Animator _am;
     AnimatorComponent<ePlayerAction> _animatorComponent;
 

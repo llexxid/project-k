@@ -16,8 +16,8 @@ public class MageProjectile : MonoBehaviour
     private float _speed;
     private int _damage;
     private float _aoeRadius;
-    private float _maxRange;
-    private Vector2 _startPos;
+    private float _lifetime;
+    private float _expireTime;
     private bool _alive;
 
     private float _collisionRadius = 0.2f;
@@ -47,15 +47,15 @@ public class MageProjectile : MonoBehaviour
     }
 
     /// <summary>투사체 발사.</summary>
-    public void Fire(Player owner, Vector2 direction, float speed, int damage, float aoeRadius, float maxRange)
+    public void Fire(Player owner, Vector2 direction, float speed, int damage, float aoeRadius, float lifetime)
     {
         _owner = owner;
         _direction = direction.normalized;
         _speed = speed;
         _damage = damage;
         _aoeRadius = aoeRadius;
-        _maxRange = maxRange;
-        _startPos = transform.position;
+        _lifetime = lifetime;
+        _expireTime = Time.time + lifetime;
         _alive = true;
         _returnTime = -1f;
 
@@ -66,10 +66,9 @@ public class MageProjectile : MonoBehaviour
             _animator.Play("MagicMissile", 0, 0f);
         }
 
-        // 방향에 따라 스프라이트 뒤집기
-        Vector3 ls = transform.localScale;
-        ls.x = direction.x < 0 ? -Mathf.Abs(ls.x) : Mathf.Abs(ls.x);
-        transform.localScale = ls;
+        // 이동 방향으로 스프라이트 회전 (기본 스프라이트가 오른쪽을 향한다고 가정)
+        float angle = Mathf.Atan2(_direction.y, _direction.x) * Mathf.Rad2Deg;
+        transform.rotation = Quaternion.Euler(0f, 0f, angle);
     }
 
     private void Update()
@@ -107,8 +106,8 @@ public class MageProjectile : MonoBehaviour
             }
         }
 
-        // 최대 사거리 초과 → 소멸
-        if (Vector2.Distance(_startPos, transform.position) >= _maxRange)
+        // 수명 초과 → 소멸
+        if (Time.time >= _expireTime)
             DoReturnToPool();
     }
 

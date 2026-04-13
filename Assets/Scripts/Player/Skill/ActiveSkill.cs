@@ -18,6 +18,9 @@ public abstract class ActiveSkill
     /// <summary>자기 트리거 스킬이면 true (BT 밖에서 Tick으로 발동).</summary>
     public virtual bool IsSelfTriggered => false;
 
+    /// <summary>스킬이 현재 활성 상태(애니메이션 재생 중 등)이면 true.</summary>
+    public virtual bool IsActive => false;
+
     protected ActiveSkill(Player player) { _player = player; }
 
     /// <summary>발동 조건 충족 여부.</summary>
