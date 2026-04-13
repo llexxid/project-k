@@ -205,11 +205,15 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     private void TryActivateShieldPassive()
     {
         if (_shieldPassiveActivated) return;
-        if (skillManager == null || playerStatus == null) return;
+        if (playerStatus == null) return;
+
+        // SkillManager는 씬 공유 오브젝트일 수 있으므로 per-player ChangeJob 캐시를 사용
+        var changeJob = GetComponent<ChangeJob>();
+        if (changeJob == null) return;
 
         float hpRatio = (float)_data._Hp / playerStatus.MaxHP;
 
-        foreach (var skill in skillManager.GetCurrentSkills())
+        foreach (var skill in changeJob.GetCurrentSkills())
         {
             if (skill.skillType != SkillType.Passive) continue;
             if (skill.passiveShieldAmount <= 0) continue;
@@ -244,7 +248,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
         gameObject.SetActive(true);
         SetAnimation(ePlayerAction.Idle);
-        playerOrder?.Init(this);
         playerOrder?.RecoveryBT();
         Scripts.Core.GameManager.Instance?.ReportPlayerRevived();
         ResetTarget(this);
@@ -466,7 +469,11 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
             var mono = target as MonoBehaviour;
             if (mono == null || !mono.gameObject.activeInHierarchy) continue;
 
-            bool isAlive = target.TakeDamage(new PlayerSkill.DamageProxy(_pendingSkillDamage, gameobj));
+            // 몬스터인 경우 추가로 사망 상태 체크 (데미지 지연 시점 사이에 죽었을 수 있음)
+            var monster = mono.GetComponentInParent<Monster>();
+            if (monster != null && monster.MonAction == eMonsterAction.Dead) continue;
+
+            bool isAlive = target.TakeDamage(new PlayerSkill.DamageProxy(_pendingSkillDamage, gameobj, this));
             if (!isAlive)
             {
                 SetAnimation(ePlayerAction.Idle);
@@ -517,7 +524,8 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     /// </summary>
     public void OnSkillVFXStart()
     {
-        if (!_hasPendingVFX) return;
+        // [Safety] 예약된 VFX 데이터가 없거나 이미 처리된 경우 실행하지 않음 (이벤트 중복 호출 방지)
+        if (!_hasPendingVFX || _pendingVFXPositions.Count == 0) return;
         _hasPendingVFX = false;
 
         eVFXType vfxType = _pendingVFXType;
@@ -538,6 +546,13 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
                     s.x = flip ? -Mathf.Abs(s.x) : Mathf.Abs(s.x);
                     vfx.transform.localScale = s;
                     vfx.ActiveEffect(duration, capturedTarget);
+
+                    // [추가] VFX 레이어를 몬스터(Enemy)보다 항상 위에 표시되도록 소팅 레이어 강제 설정
+                    foreach (var renderer in vfx.GetComponentsInChildren<Renderer>(true))
+                    {
+                        renderer.sortingLayerName = "Enemy";
+                        renderer.sortingOrder = 100; // 몬스터보다 높은 우선순위
+                    }
                 });
         }
     }

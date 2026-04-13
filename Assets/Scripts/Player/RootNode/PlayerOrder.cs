@@ -6,7 +6,7 @@ public class PlayerOrder
 {
     public Node _rootNode;
 
-    private PlayerDetection _detection;
+    public PlayerDetection _detection;
     public PlayerMove _move;
     public PlayerAttack _attack;
     private PlayerIdle _idle;
@@ -43,8 +43,9 @@ public class PlayerOrder
             new PlayerIdle.IdleNode(_idle)
         });
 
-        // PlayerOrder.cs - 현재 코드 수정
-        RebuildSkillTree(player.skillManager.GetCurrentSkills().ToList(), player);
+        // 초기화 시점(Awake)에는 아직 직업이 적용되지 않았으므로 빈 목록으로 조립.
+        // 실제 스킬 조립은 ChangeJob.ApplyJobByIndex → RebuildSkillTree에서 수행된다.
+        RebuildSkillTree(null, player);
     }
 
     /// <summary>

@@ -149,23 +149,17 @@ public class PlayerSkill
             );
         }
 
-        // [6] 데미지 적용 (스킬 데미지 계수 반영)
+        // [6] 데미지 적용 대상 등록 (실제 데미지는 Animation Event OnSkillHit에서 처리)
+        _pendingTargets.Clear();
+        for (int i = 0; i < hitCount; i++)
         {
-            var dmgProxy = new DamageProxy((ulong)skillDamage, _player.gameobj, _player);
-            for (int i = 0; i < hitCount; i++)
-            {
-                Monster mon = _hitResults[i].GetComponentInParent<Monster>();
-                if (mon == null || mon.MonAction == eMonsterAction.Dead)
-                    continue;
+            Monster mon = _hitResults[i].GetComponentInParent<Monster>();
+            if (mon == null || mon.MonAction == eMonsterAction.Dead)
+                continue;
 
-                bool isAlive = mon.TakeDamage(dmgProxy);
-                if (!isAlive)
-                {
-                    _player.SetAnimation(ePlayerAction.Idle);
-                    break;
-                }
-            }
+            _pendingTargets.Add(mon);
         }
+        _player.SetPendingSkillDamage(_pendingTargets, skillDamage);
 
         // [7] 공격 애니메이션 재생
         _player.PlaySkillAnimation(_skillData.animationStateName);

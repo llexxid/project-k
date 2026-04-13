@@ -59,10 +59,24 @@ public class PlayerAttack
         // [2] 일반 공격 쿨타임 체크
         if (Time.time < _nextAttackTime)
         {
-            return NodeState.Failure;
+            // 쿨타임 중이라도 공격 시퀀스 자체는 성공으로 유지 (스폰 위치 복귀 방지)
+            return NodeState.Success;
         }
 
-        // [3] 적 탐지 필터 설정
+        // [3] 현재 타겟이 이미 있고 공격 범위 내에 있는지 우선 확인 (공격 반응 속도 향상)
+        if (player.currentTarget != null && !player.currentTarget.gameobj.GetComponent<Monster>().MonAction.Equals(eMonsterAction.Dead))
+        {
+            float distToTarget = Vector2.Distance(player.transform.position, player.currentTarget.targetPos);
+            if (distToTarget <= attackRadius)
+            {
+                // 즉시 공격 시작
+                _nextAttackTime = Time.time + attackRate;
+                player.PlayAttackAnimation();
+                return NodeState.Success;
+            }
+        }
+
+        // [4] 적 탐지 필터 설정 (기본 로직 유지)
         ContactFilter2D filter = new ContactFilter2D();
         filter.SetLayerMask(enemyLayer);
         filter.useLayerMask = true;
@@ -120,9 +134,7 @@ public class PlayerAttack
 
             if (!hasDamageable) continue;
             if (IsTargetDead(_hitResults[i])) continue;
-            bool isAlive = ApplyDamage(target, (ulong)baseAtk);
-            if (!isAlive) break;
-            break; // 단일 타깃
+            ApplyDamage(target, (ulong)baseAtk);
         }
     }
 
@@ -134,7 +146,7 @@ public class PlayerAttack
         if (target == null) return false;
 
         bool isAlive;
-        isAlive = target.TakeDamage(new DamageProxy(damage, player.gameObject));
+        isAlive = target.TakeDamage(new PlayerSkill.DamageProxy(damage, player.gameObject, player));
 
         if (!isAlive)
         {
@@ -151,19 +163,6 @@ public class PlayerAttack
         // 콜라이더가 자식 오브젝트에 있어도 부모로 올라가 Monster를 찾음
         var mon = col.GetComponentInParent<Monster>();
         return mon != null && mon.MonAction == eMonsterAction.Dead;
-    }
-
-    /// <summary>
-    /// ulong 데미지를 IAttackable 인터페이스로 포장하는 내부 래퍼 클래스.
-    /// </summary>
-    private class DamageProxy : IAttackable
-    {
-        public ulong damage { get; private set; }
-        public Vector3 attackerPos => Vector3.zero;
-        public GameObject gameobj {get;}
-
-        public bool Attack(IDamageable target) => false;
-        public DamageProxy(ulong damage, GameObject owner) { this.damage = damage; this.gameobj = owner; }
     }
 
     /// <summary>
