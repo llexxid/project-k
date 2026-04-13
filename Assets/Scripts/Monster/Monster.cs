@@ -66,11 +66,10 @@ namespace Scripts.Monster
 		private MonsterStat _initialStat; // 여기 추가함
 		[System.NonSerialized] eMonsterType _type;
 		long _dropTableNumber;
-
+		public long Exp { get; set; }
+		public double Ratio { get; set; }
 		//AI
 		private MonsterOrder _monAI;
-
-		int a = 10;
 		//Animation
 		private int _facingDir;
 		private eMonsterAction _monAction;
@@ -174,10 +173,6 @@ namespace Scripts.Monster
 			_monAI.Init(this);
 			InitializeAnimator();
 		}
-		void Start()
-		{
-
-		}
 
 		void Update()
 		{
@@ -186,13 +181,6 @@ namespace Scripts.Monster
 				_monAI.ExecuteNode();
 			}
 			_stateManchine.currentState.OnUpdate();
-		}
-
-		private void LateUpdate()
-		{
-
-			//UpdateAnimation();
-			//CleanUpResource();
 		}
 
 		/// <summary>
@@ -252,13 +240,13 @@ namespace Scripts.Monster
 		}
 		public void SetAction(eMonsterAction action)
 		{
-			//Action Update.
 			_monAction = action;
 		}
 		public void OnAlloc()
 		{
 			//생성자
 			OnDeath = null;
+			Ratio = 1.0;
 			_stat = _initialStat; // 이거 추가함
 			_monAction = eMonsterAction.Walk; // stale Dead 상태 방지: 재사용 시 Action 초기화
 			_allocGen++; // stale 비동기 태스크 차단용 세대 갱신
@@ -282,12 +270,9 @@ namespace Scripts.Monster
 				return false;
 			}
 
-
 			ulong dmg = attacker.damage;
-
 			// UI 연동: 몬스터 머리 위로 피격 데미지 표시
 			UITKDamageTextBridge.ShowOnTransform(transform, dmg);
-
 			// ── [DEBUG] 몬스터 무적 — 제거 시 이 블록 삭제 ──
 			if (KingdomIdle.UIToolkit.UITKDebugMenuController.MonsterInvincible) return true;
 
@@ -299,9 +284,11 @@ namespace Scripts.Monster
 				_monAI.InterruptBT();
 				_stateManchine.ChangeState(new MonsterDeadState(this));
 
-				if (attacker is IRewardable target)
+				if (attacker is Player target)
 				{
-					GiveRewardToAttacker(target);
+					long totalExp = (long)(Exp * Ratio);
+					UserManager.Instance.GainExp(totalExp);
+					GiveRewardToPlayer(target);
 				}
 				
 				return false;
@@ -384,12 +371,13 @@ namespace Scripts.Monster
 			return true;
 		}
 
-		private void GiveRewardToAttacker(IRewardable target)
+		private void GiveRewardToPlayer(Player target)
 		{
-
 			DropInfo info = DropManager.Instance.GetDropInfo((eDropTable)_dropTableNumber);
-			target.GiveReward(info._incomeGold, info._incomeAncientCoin);
 
+			int totalGold = (int)(info._incomeGold * Ratio);
+			int totalAncientCoin = (int)(info._incomeAncientCoin * Ratio);
+			target.GiveReward(totalGold, totalAncientCoin);
 		}
 
 		private void OnDrawGizmos()

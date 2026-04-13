@@ -11,6 +11,7 @@ namespace Scripts.Users
 		private Wallet _wallet;
 		public List<Player> _players;
 
+		const long MAX_EXP = 150;
 		
 		public User()
 		{
@@ -81,6 +82,24 @@ namespace Scripts.Users
 		public void SetExp(long exp)
 		{
 			_userData._exp = exp;
+		}
+
+		public void GainExp(long exp)
+		{
+			long currentExp = _userData._exp;
+			if (currentExp + exp > MAX_EXP)
+			{
+				//150이상이면 레벨업
+				long totalExp = currentExp + exp;
+				long levelUp = totalExp / MAX_EXP;
+				long remainExp = totalExp % MAX_EXP;
+
+				_userData._level = _userData._level + (int)levelUp;
+				_userData._exp = remainExp;
+				return;
+			}
+			_userData._exp = currentExp + exp;
+			return;
 		}
 
 		public void SetKillScore(long score)
