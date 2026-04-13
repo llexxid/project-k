@@ -590,31 +590,28 @@ namespace KingdomIdle.UIToolkit
                 return;
             }
 
-            // JobDatabase에서 현재 직업의 스킬 목록 가져오기
-            var jobDB = _mgr.JobDB;
-            if (jobDB == null) return;
+            // 현재 직업의 스킬 목록 표시
+            string jobName = player.playerStatus?.JobName ?? "";
+            var skillInfos = SkillSystem.GetJobSkillInfo(jobName);
 
-            var jobData = jobDB.GetJob(player.playerStatus.JobName);
-            if (jobData == null || jobData.skills == null)
+            if (skillInfos == null || skillInfos.Length == 0)
             {
                 _content.Add(MakeLabel("직업 스킬이 없습니다.", "ka-placeholder-text"));
                 return;
             }
 
-            foreach (var skill in jobData.skills)
+            foreach (var si in skillInfos)
             {
-                if (skill == null) continue;
-
                 var row = new VisualElement();
                 row.AddToClassList("ka-skill-row");
 
                 var info = new VisualElement();
                 info.AddToClassList("ka-skill-info");
-                info.Add(MakeLabel(skill.skillName, "ka-skill-name"));
-                info.Add(MakeLabel($"데미지: {skill.damage}  쿨타임: {skill.cooldown}초", "ka-skill-detail"));
+                info.Add(MakeLabel(si.Name, "ka-skill-name"));
+                string typeTag = si.IsPassive ? "[패시브]" : "[액티브]";
+                info.Add(MakeLabel($"{typeTag}  {si.Description}", "ka-skill-detail"));
                 row.Add(info);
 
-                // 스킬 강화(x1/x10) 버튼은 미구현 더미이므로 노출하지 않음
                 _content.Add(row);
             }
         }
@@ -809,28 +806,28 @@ namespace KingdomIdle.UIToolkit
             _content.Add(BuildStatCompareTable(ps, job));
 
             // ── 직업 스킬 ──
-            if (job.skills != null && job.skills.Count > 0)
+            var jobSkills = SkillSystem.GetJobSkillInfo(job.jobName);
+            if (jobSkills != null && jobSkills.Length > 0)
             {
                 _content.Add(MakeLabel("직업 스킬", "ka-subsection-title"));
                 var skillList = new VisualElement();
                 skillList.AddToClassList("ka-job-skill-list");
 
-                foreach (var skill in job.skills)
+                foreach (var si in jobSkills)
                 {
-                    if (skill == null) continue;
                     var skillRow = new VisualElement();
                     skillRow.AddToClassList("ka-job-skill-row");
 
-                    var typeBadge = new Label(skill.skillType == SkillType.Passive ? "패시브" : "액티브");
+                    var typeBadge = new Label(si.IsPassive ? "패시브" : "액티브");
                     typeBadge.AddToClassList("ka-job-skill-type");
-                    if (skill.skillType == SkillType.Passive)
+                    if (si.IsPassive)
                         typeBadge.AddToClassList("ka-job-skill-type-passive");
                     skillRow.Add(typeBadge);
 
                     var skillCol = new VisualElement();
                     skillCol.AddToClassList("ka-job-skill-info");
-                    skillCol.Add(MakeLabel(skill.skillName, "ka-job-skill-name"));
-                    skillCol.Add(MakeLabel($"데미지 {skill.damage}  ·  쿨타임 {skill.cooldown:F1}초", "ka-job-skill-detail"));
+                    skillCol.Add(MakeLabel(si.Name, "ka-job-skill-name"));
+                    skillCol.Add(MakeLabel(si.Description, "ka-job-skill-detail"));
                     skillRow.Add(skillCol);
 
                     skillList.Add(skillRow);
