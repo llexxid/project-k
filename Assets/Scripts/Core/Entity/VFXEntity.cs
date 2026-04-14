@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using Scripts.Core.inteface;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -70,6 +70,11 @@ namespace Scripts.Core
             VFXManager.Instance.DestroyEffect(_id, this);
         }
 
+        public ulong GetTypeId()
+        {
+            return 0;
+        }
+
         public void OnAlloc()
         {
             return;
@@ -81,4 +86,3 @@ namespace Scripts.Core
         }
     }
 }
-

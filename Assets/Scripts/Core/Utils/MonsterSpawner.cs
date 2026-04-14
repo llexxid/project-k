@@ -119,7 +119,7 @@ namespace Scripts.Core.Utils
 			return;
 		}
 
-		public void SpawnMonster(eMonsterType id, Vector3 pos, Quaternion rotate, out Monster monster)
+		public void SpawnMonster(eMonsterType id, double ratio, Vector3 pos, Quaternion rotate, out Monster monster)
 		{
 			ObjectPool<Monster> pool;
 
@@ -150,8 +150,16 @@ namespace Scripts.Core.Utils
 
 			_monsterInfo.TryGetMonsterInfo(id, out MonsterInfo info);
 
-			//  ʱȭؼ ֱ
-			Monster.MonsterStat stat = new Monster.MonsterStat(info._baseHp, 0, (ulong)info._baseAtk, info._baseMoveSpeed, info._baseAtkSpeed);
+			//���� ���� �ʱ�ȭ�ؼ� �ֱ�
+			Monster.MonsterStat stat = new Monster.MonsterStat(
+				(long)(info._baseHp * ratio), 
+				0, 
+				(ulong)(info._baseAtk * ratio), 
+				info._baseMoveSpeed, 
+				info._baseAtkSpeed
+				);
+			monster.Exp = (long)info._exp;
+			monster.Ratio = ratio;
 			monster.Init(id, stat, info._dropTableNumber);
 			monster.gameObject.SetActive(true);
 			return;
