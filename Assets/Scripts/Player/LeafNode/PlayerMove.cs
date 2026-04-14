@@ -40,6 +40,10 @@ public class PlayerMove
             return NodeState.Success;
         }
 
+        // 3. 공격 애니메이션 재생 중에는 이동 금지 (제자리에서 애니메이션 완료)
+        if (player.IsInAttackAnimation)
+            return NodeState.Running;
+
         // 4. 이동 중
         player.SetAnimation(ePlayerAction.Walk);
         player.transform.position = Vector2.MoveTowards(

@@ -12,16 +12,18 @@ public sealed class BasicAttackSingle : ActiveSkill
 {
     private readonly float _range;
     private readonly float _cooldown;
+    private readonly float _damageMultiplier;
     private readonly List<IDamageable> _targets = new List<IDamageable>(1);
 
     public override string DisplayName => "기본공격";
     public override float Cooldown => _cooldown;
     public float Range => _range;
 
-    public BasicAttackSingle(Player player, float range, float cooldown) : base(player)
+    public BasicAttackSingle(Player player, float range, float cooldown, float damageMultiplier = 1f) : base(player)
     {
         _range = range;
         _cooldown = cooldown;
+        _damageMultiplier = damageMultiplier;
     }
 
     public override bool CanExecute()
@@ -43,10 +45,11 @@ public sealed class BasicAttackSingle : ActiveSkill
     {
         var target = _player.currentTarget;
         int baseAtk = _player.playerStatus?.Atk ?? 0;
+        int damage = Mathf.RoundToInt(baseAtk * _damageMultiplier);
 
         _targets.Clear();
         _targets.Add(target);
-        _player.SetPendingSkillDamage(_targets, baseAtk);
+        _player.SetPendingSkillDamage(_targets, damage);
 
         float animLen = GetAttackAnimLength();
         _player.SetAnimation(ePlayerAction.Attack);

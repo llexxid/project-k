@@ -29,6 +29,7 @@ public class PlayerOrder
         });
 
         ApplyRanges(player.skillSystem);
+        SyncMoveSpeed(player.playerStatus);
     }
 
     /// <summary>스킬 사거리에 따라 탐지/정지 거리 갱신.</summary>
@@ -40,6 +41,13 @@ public class PlayerOrder
             _move.stopDistance = range;
         if (range > 0f && _detection != null)
             _detection.detectionRadius = range + 1.5f;
+    }
+
+    /// <summary>PlayerStatus.MovSpeed → PlayerMove.moveSpeed 동기화.</summary>
+    public void SyncMoveSpeed(PlayerStatus status)
+    {
+        if (status == null || _move == null) return;
+        _move.moveSpeed = status.MovSpeed;
     }
 
     private bool _isAbort;

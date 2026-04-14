@@ -15,12 +15,16 @@ MonoBehaviour:
   jobName: Mage
   jobSprite: {fileID: 1701109891, guid: cf4eae3f18c17294aa17192f1daece0c, type: 3}
   animatorController: {fileID: 9100000, guid: be77858bdac3bf3409729359d65b6d38, type: 2}
-  maxHP: 130
-  atk: 40
-  movSpeed: 5
-  atkSpeed: 2
-  unlockCost: 0
-  skills:
-  - {fileID: 11400000, guid: 33669a13f88b47147b28de2f6a77d716, type: 2}
-  - {fileID: 11400000, guid: 3d850ad5fd738b6448aa46b75553c2f8, type: 2}
-  skillLevels: []
+  maxHP: 200
+  atk: 60
+  movSpeed: 3
+  basicAttack:
+    type: 2
+    range: 5
+    cooldown: 2
+    damageMultiplier: 1
+    halfWidth: 1.5
+    halfHeight: 1
+    aoeRadius: 0.5
+    projectileSpeed: 4
+  specialSkills: []

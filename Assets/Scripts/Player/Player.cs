@@ -42,6 +42,9 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     public bool IsDead => _isDead;
     public User User => _user;
 
+    /// <summary>기본공격/스킬 애니메이션이 재생 중이면 true. 이동 금지 판정에 사용.</summary>
+    public bool IsInAttackAnimation => Time.time < _attackAnimEndTime;
+
     [SerializeField]
     private IDamageable _currentTarget;
     public IDamageable currentTarget;
@@ -184,6 +187,15 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         if (_isDead || amount <= 0) return;
         long maxHP = playerStatus?.MaxHP ?? _data._MaxHp;
         _data._Hp = System.Math.Min(_data._Hp + amount, maxHP);
+    }
+
+    /// <summary>현재 HP 를 MaxHP 로 채운다 (직업 변경 등 전체 스탯 리셋 시).</summary>
+    public void RefillHP()
+    {
+        if (playerStatus == null) return;
+        _data._Hp = playerStatus.MaxHP;
+        _data._extraHp = 0;
+        playerStatus.HP = playerStatus.MaxHP;
     }
 
     public void Revive()

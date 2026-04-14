@@ -13,6 +13,7 @@ public sealed class BasicAttackRect : ActiveSkill
     private readonly float _halfWidth;
     private readonly float _halfHeight;
     private readonly float _cooldown;
+    private readonly float _damageMultiplier;
 
     private readonly List<Collider2D> _hitResults = new List<Collider2D>();
     private readonly List<IDamageable> _targets = new List<IDamageable>();
@@ -22,13 +23,14 @@ public sealed class BasicAttackRect : ActiveSkill
     public override float Cooldown => _cooldown;
     public float Range => _range;
 
-    public BasicAttackRect(Player player, float range, float halfWidth, float halfHeight, float cooldown)
+    public BasicAttackRect(Player player, float range, float halfWidth, float halfHeight, float cooldown, float damageMultiplier = 1f)
         : base(player)
     {
         _range = range;
         _halfWidth = halfWidth;
         _halfHeight = halfHeight;
         _cooldown = cooldown;
+        _damageMultiplier = damageMultiplier;
     }
 
     public override bool CanExecute()
@@ -60,6 +62,7 @@ public sealed class BasicAttackRect : ActiveSkill
             center, new Vector2(_halfWidth * 2f, _halfHeight * 2f), 0f, filter, _hitResults);
 
         int baseAtk = _player.playerStatus?.Atk ?? 0;
+        int damage = Mathf.RoundToInt(baseAtk * _damageMultiplier);
         _targets.Clear();
 
         for (int i = 0; i < hitCount; i++)
@@ -73,7 +76,7 @@ public sealed class BasicAttackRect : ActiveSkill
         }
 
         if (_targets.Count > 0)
-            _player.SetPendingSkillDamage(_targets, baseAtk);
+            _player.SetPendingSkillDamage(_targets, damage);
 
         float animLen = GetAttackAnimLength();
         _player.SetAnimation(ePlayerAction.Attack);

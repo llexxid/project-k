@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// 강철 의지 (Elite_Knight).
-/// HP 50% 미만 → 자동 발동 → 지속시간 동안 최대HP의 n%/초 회복.
+/// HP 비율 미만 → 자동 발동 → 지속시간 동안 최대HP의 n%/초 회복.
 /// 쿨다운은 효과 종료 후 시작.
 /// </summary>
 public sealed class IronWill : ActiveSkill
@@ -10,6 +10,7 @@ public sealed class IronWill : ActiveSkill
     private readonly float _cooldown;
     private readonly float _healPercent;   // 초당 회복 비율 (0.1 = 10%)
     private readonly float _duration;      // 회복 지속시간(초)
+    private readonly float _triggerHPRatio;// 자동 발동 HP 비율 (0.5 = 50% 미만)
 
     private enum Phase { Idle, Animating, Healing }
     private Phase _phase = Phase.Idle;
@@ -20,16 +21,17 @@ public sealed class IronWill : ActiveSkill
     public override float Cooldown => _cooldown;
     public override bool IsSelfTriggered => true;
 
-    public IronWill(Player player, float cooldown, float healPercent, float duration) : base(player)
+    public IronWill(Player player, float cooldown, float healPercent, float duration, float triggerHPRatio = 0.5f) : base(player)
     {
         _cooldown = cooldown;
         _healPercent = healPercent;
         _duration = duration;
+        _triggerHPRatio = triggerHPRatio;
     }
 
     public override bool CanExecute()
     {
-        return _player.HPRatio < 0.5f;
+        return _player.HPRatio < _triggerHPRatio;
     }
 
     public override float Execute()

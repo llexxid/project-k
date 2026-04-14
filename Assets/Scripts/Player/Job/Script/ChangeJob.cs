@@ -47,32 +47,6 @@ public class ChangeJob : MonoBehaviour
         ApplyJobByIndex(_currentJobIndex);
     }
 
-    private void Update()
-    {
-        if (_player != null && _player.IsDead) return;
-
-        if (Input.GetKeyDown(KeyCode.J))
-            CycleToNextJob();
-
-        if (Input.GetKeyDown(KeyCode.G))
-            _player.User?.GainCoin(eCurrency.Gold, 1000);
-
-        if (Input.GetKeyDown(KeyCode.R))
-        {
-            PlayerPrefs.DeleteKey(UNLOCK_SAVE_KEY);
-            _unlockedJobs.Clear();
-            _unlockedJobs.Add(0);
-            SaveUnlockedJobs();
-        }
-    }
-
-    private void CycleToNextJob()
-    {
-        if (jobDatabase == null || jobDatabase.Count == 0) return;
-        int next = (_currentJobIndex + 1) % jobDatabase.Count;
-        TryChangeJob(next);
-    }
-
     public void ChangeJobByName(string jobName)
     {
         if (jobDatabase == null) return;
@@ -95,29 +69,21 @@ public class ChangeJob : MonoBehaviour
         ApplyJobByIndex(idx);
     }
 
+    /// <summary>
+    /// 직업 변경. 해금되어 있지 않으면 자동으로 해금한다.
+    /// (해금 비용 — 전직파편 등 — 은 외부 UI/시스템에서 별도로 처리.)
+    /// </summary>
     public bool TryChangeJob(int index)
     {
         JobData data = jobDatabase.GetJob(index);
         if (data == null) return false;
 
-        if (_unlockedJobs.Contains(index))
+        if (!_unlockedJobs.Contains(index))
         {
-            _currentJobIndex = index;
-            ApplyJobByIndex(index);
-            return true;
+            _unlockedJobs.Add(index);
+            SaveUnlockedJobs();
+            OnJobUnlocked?.Invoke(index);
         }
-
-        User user = _player.User;
-        if (user == null || !user.CanAfford(eCurrency.Gold, data.unlockCost))
-        {
-            Debug.LogWarning($"[ChangeJob] 전직 불가 — {data.jobName} 해금 비용: {data.unlockCost}G (골드 부족)");
-            return false;
-        }
-
-        user.TrySpendCoin(eCurrency.Gold, data.unlockCost);
-        _unlockedJobs.Add(index);
-        SaveUnlockedJobs();
-        OnJobUnlocked?.Invoke(index);
 
         _currentJobIndex = index;
         ApplyJobByIndex(index);
@@ -197,10 +163,12 @@ public class ChangeJob : MonoBehaviour
         }
 
         _player.playerStatus.ApplyJob(data);
+        _player.RefillHP();
 
-        _player.skillSystem?.Setup(data.jobName);
+        _player.skillSystem?.Setup(data);
 
         _player.playerOrder?.ApplyRanges(_player.skillSystem);
+        _player.playerOrder?.SyncMoveSpeed(_player.playerStatus);
 
         if (_spriteRenderer != null && data.jobSprite != null)
             _spriteRenderer.sprite = data.jobSprite;

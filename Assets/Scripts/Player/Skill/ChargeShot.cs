@@ -13,6 +13,7 @@ public sealed class ChargeShot : ActiveSkill
     private readonly float _range;
     private readonly float _cooldown;
     private readonly int _hitCount;
+    private readonly float _damageMultiplier;
 
     private enum Phase { Idle, Animating, Hitting }
     private Phase _phase = Phase.Idle;
@@ -27,11 +28,12 @@ public sealed class ChargeShot : ActiveSkill
     public override string DisplayName => "집중 사격";
     public override float Cooldown => _cooldown;
 
-    public ChargeShot(Player player, float range, float cooldown, int hitCount) : base(player)
+    public ChargeShot(Player player, float range, float cooldown, int hitCount, float damageMultiplier = 1f) : base(player)
     {
         _range = range;
         _cooldown = cooldown;
         _hitCount = hitCount;
+        _damageMultiplier = damageMultiplier;
     }
 
     public override bool CanExecute()
@@ -52,7 +54,8 @@ public sealed class ChargeShot : ActiveSkill
     public override float Execute()
     {
         _target = _player.currentTarget;
-        _hitDamage = _player.playerStatus?.Atk ?? 0;
+        int baseAtk = _player.playerStatus?.Atk ?? 0;
+        _hitDamage = Mathf.RoundToInt(baseAtk * _damageMultiplier);
         _hitsRemaining = _hitCount;
 
         string animName = "Tripple_Shot_Anim";

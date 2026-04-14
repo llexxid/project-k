@@ -15,6 +15,7 @@ public sealed class EnergyPulse : ActiveSkill
     private readonly float _triggerRange;
     private readonly float _cooldown;
     private readonly float _knockbackForce;
+    private readonly float _damageMultiplier;
     private readonly ActiveSkill _basicAttackRef;
 
     private readonly LayerMask _enemyLayer = GameLayers.EnemyMask;
@@ -29,13 +30,14 @@ public sealed class EnergyPulse : ActiveSkill
     public override bool IsActive => _isPlaying;
 
     public EnergyPulse(Player player, ActiveSkill basicAttack,
-                       float triggerRange, float cooldown, float knockbackForce)
+                       float triggerRange, float cooldown, float knockbackForce, float damageMultiplier = 2f)
         : base(player)
     {
         _basicAttackRef = basicAttack;
         _triggerRange = triggerRange;
         _cooldown = cooldown;
         _knockbackForce = knockbackForce;
+        _damageMultiplier = damageMultiplier;
     }
 
     public override bool CanExecute()
@@ -70,7 +72,7 @@ public sealed class EnergyPulse : ActiveSkill
             _player.transform.position, _triggerRange, filter, _hitResults);
 
         int baseAtk = _player.playerStatus?.Atk ?? 0;
-        int skillDamage = baseAtk * 2;
+        int skillDamage = Mathf.RoundToInt(baseAtk * _damageMultiplier);
         var proxy = new DamageProxy((ulong)skillDamage, _player);
 
         for (int i = 0; i < hitCount; i++)
@@ -90,13 +92,16 @@ public sealed class EnergyPulse : ActiveSkill
 
         string animName = "CastEnergyPulse";
         float animLen = _player.GetClipLength(animName, 0.6f);
-        _player.PlaySkillAnimation(animName, animLen);
+        // 애니메이션이 마지막 프레임까지 완전히 재생되도록 약간의 버퍼를 둔다.
+        // (버퍼가 없으면 _pendingAnimRecovery 가 끝 프레임을 Attack_Anim 로 덮어쓴다)
+        float protectLen = animLen + 0.1f;
+        _player.PlaySkillAnimation(animName, protectLen);
 
         _isPlaying = true;
-        _playEndTime = Time.time + animLen;
+        _playEndTime = Time.time + protectLen;
 
-        _nextAvailableTime = Time.time + animLen + _cooldown;
-        return animLen;
+        _nextAvailableTime = Time.time + protectLen + _cooldown;
+        return protectLen;
     }
 
     public override void Tick()

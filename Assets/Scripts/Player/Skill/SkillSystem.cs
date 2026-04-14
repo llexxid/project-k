@@ -37,9 +37,9 @@ public class SkillSystem
     public SkillSystem(Player player) { _player = player; }
 
     // ────────────────────────────────────────────
-    //  Setup — 직업별 스킬 구성
+    //  Setup — JobData SO 기반 스킬 구성
     // ────────────────────────────────────────────
-    public void Setup(string jobName)
+    public void Setup(JobData data)
     {
         _basicAttack = null;
         _specials.Clear();
@@ -47,62 +47,80 @@ public class SkillSystem
         AttackRange = 2f;
         for (int i = 0; i < 3; i++) _slots[i] = default;
 
+        if (data == null) return;
+
+        // ── 기본공격 ──
+        if (data.basicAttack != null)
+        {
+            _basicAttack = CreateBasicAttack(data.basicAttack);
+            AttackRange = data.basicAttack.range;
+            SetSlot(0, "기본공격", false);
+        }
+
+        // ── 직업별 패시브 오라 (UI 표시만, 실제 적용은 ChangeJob) ──
+        string auraName = GetAuraName(data.jobName);
+        if (!string.IsNullOrEmpty(auraName))
+            SetSlot(1, auraName, true);
+
+        // ── 스페셜 스킬 ──
+        if (data.specialSkills != null)
+        {
+            foreach (var cfg in data.specialSkills)
+            {
+                if (cfg == null || cfg.kind == SpecialSkillKind.None) continue;
+                var skill = CreateSpecialSkill(cfg);
+                if (skill == null) continue;
+                _specials.Add(skill);
+                // 첫 번째 스페셜 스킬을 슬롯 2 에 표시
+                if (_specials.Count == 1)
+                    SetSlot(2, skill.DisplayName, skill.IsSelfTriggered ? false : false);
+            }
+        }
+    }
+
+    private ActiveSkill CreateBasicAttack(BasicAttackConfig cfg)
+    {
+        switch (cfg.type)
+        {
+            case BasicAttackType.Single:
+                return new BasicAttackSingle(_player, cfg.range, cfg.cooldown, cfg.damageMultiplier);
+            case BasicAttackType.Rect:
+                return new BasicAttackRect(_player, cfg.range, cfg.halfWidth, cfg.halfHeight, cfg.cooldown, cfg.damageMultiplier);
+            case BasicAttackType.Projectile:
+                return new BasicAttackProjectile(_player, cfg.range, cfg.cooldown, cfg.aoeRadius, cfg.projectileSpeed, cfg.damageMultiplier);
+        }
+        return null;
+    }
+
+    private ActiveSkill CreateSpecialSkill(SpecialSkillConfig cfg)
+    {
+        switch (cfg.kind)
+        {
+            case SpecialSkillKind.IronWill:
+                return new IronWill(_player, cfg.cooldown, cfg.healPercent, cfg.duration, cfg.triggerHPRatio);
+            case SpecialSkillKind.ChargeShot:
+                return new ChargeShot(_player, cfg.range, cfg.cooldown, cfg.hitCount, cfg.damageMultiplier);
+            case SpecialSkillKind.EnergyPulse:
+                return new EnergyPulse(_player, _basicAttack, cfg.triggerRange, cfg.cooldown, cfg.knockbackForce, cfg.damageMultiplier);
+        }
+        return null;
+    }
+
+    private static string GetAuraName(string jobName)
+    {
         switch (jobName)
         {
-            case "Spearman":
-                _basicAttack = new BasicAttackSingle(_player, range: 2f, cooldown: 0.5f);
-                AttackRange = 2f;
-                SetSlot(0, "기본공격", false);
-                break;
-
             case "Knight":
-                _basicAttack = new BasicAttackSingle(_player, range: 2f, cooldown: 1f);
-                AttackRange = 2f;
-                SetSlot(0, "기본공격", false);
-                SetSlot(1, "수호의 오라", true);
-                break;
-
             case "Elite_Knight":
-                _basicAttack = new BasicAttackRect(_player, range: 2f, halfWidth: 1.5f, halfHeight: 1f, cooldown: 1f);
-                _specials.Add(new IronWill(_player, cooldown: 30f, healPercent: 0.1f, duration: 15f));
-                AttackRange = 2f;
-                SetSlot(0, "기본공격", false);
-                SetSlot(1, "수호의 오라", true);
-                SetSlot(2, "강철 의지", false);
-                break;
-
+                return "수호의 오라";
             case "Archer":
-                _basicAttack = new BasicAttackSingle(_player, range: 4f, cooldown: 2f);
-                AttackRange = 4f;
-                SetSlot(0, "기본공격", false);
-                SetSlot(1, "명중의 오라", true);
-                break;
-
             case "Elite_Archer":
-                _basicAttack = new BasicAttackSingle(_player, range: 4f, cooldown: 2f);
-                _specials.Add(new ChargeShot(_player, range: 4f, cooldown: 8f, hitCount: 3));
-                AttackRange = 4f;
-                SetSlot(0, "기본공격", false);
-                SetSlot(1, "명중의 오라", true);
-                SetSlot(2, "집중 사격", false);
-                break;
-
+                return "명중의 오라";
             case "Mage":
-                _basicAttack = new BasicAttackProjectile(_player, range: 5f, cooldown: 2f, aoeRadius: 0.5f);
-                AttackRange = 5f;
-                SetSlot(0, "기본공격", false);
-                SetSlot(1, "마력의 오라", true);
-                break;
-
             case "Elite_Mage":
-                _basicAttack = new BasicAttackProjectile(_player, range: 5f, cooldown: 2f, aoeRadius: 0.5f);
-                _specials.Add(new EnergyPulse(_player, _basicAttack, triggerRange: 3f, cooldown: 10f, knockbackForce: 5f));
-                AttackRange = 5f;
-                SetSlot(0, "기본공격", false);
-                SetSlot(1, "마력의 오라", true);
-                SetSlot(2, "에너지 파동", false);
-                break;
+                return "마력의 오라";
         }
+        return null;
     }
 
     // ────────────────────────────────────────────

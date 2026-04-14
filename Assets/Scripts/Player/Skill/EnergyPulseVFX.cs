@@ -17,7 +17,7 @@ public class EnergyPulseVFX : MonoBehaviour
     public void Play(Vector3 position)
     {
         transform.position = position;
-        transform.localScale = Vector3.one * 2f;
+        transform.localScale = Vector3.one * 3f;
         gameObject.SetActive(true);
 
         float length = 0.5f;

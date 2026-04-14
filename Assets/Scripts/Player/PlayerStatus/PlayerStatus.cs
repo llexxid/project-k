@@ -5,7 +5,6 @@ public class PlayerStatus
     private int   _baseMaxHP    = 100;
     private int   _baseAtk      = 1;
     private int   _baseMovSpeed = 5;
-    private float _baseAtkSpeed = 1f;
 
     private int _equipAtk   = 0;
     private int _equipMaxHP = 0;
@@ -22,14 +21,15 @@ public class PlayerStatus
 
     public int HP { get; set; } = 100;
 
-    public int   MaxHP    => Mathf.RoundToInt((_baseMaxHP + _equipMaxHP + _passiveMaxHP) * _buffMaxHPMultiplier * (1f + _enhanceMaxHPRate));
-    public int   Atk      => Mathf.RoundToInt((_baseAtk + _equipAtk + _passiveAtk) * _buffAtkMultiplier * (1f + _enhanceAtkRate));
-    public int   MovSpeed => _baseMovSpeed;
-    public float AtkSpeed => _baseAtkSpeed;
+    public int MaxHP    => Mathf.RoundToInt((_baseMaxHP + _equipMaxHP + _passiveMaxHP) * _buffMaxHPMultiplier * (1f + _enhanceMaxHPRate));
+    public int Atk      => Mathf.RoundToInt((_baseAtk + _equipAtk + _passiveAtk) * _buffAtkMultiplier * (1f + _enhanceAtkRate));
+    public int MovSpeed => _baseMovSpeed;
 
     public string JobName { get; set; } = "Warrior";
 
     public System.Action<string> OnJobChanged;
+    /// <summary>Atk / MaxHP / MovSpeed 재계산이 필요한 변경이 발생할 때 호출.</summary>
+    public System.Action OnStatsChanged;
 
     public void ApplyJob(JobData data)
     {
@@ -38,18 +38,19 @@ public class PlayerStatus
         _baseMaxHP    = data.maxHP;
         _baseAtk      = data.atk;
         _baseMovSpeed = data.movSpeed;
-        _baseAtkSpeed = data.atkSpeed;
 
         JobName = data.jobName;
         OnJobChanged?.Invoke(JobName);
 
         HP = MaxHP;
+        OnStatsChanged?.Invoke();
     }
 
     public void SetEquipmentBonus(int bonusAtk, int bonusMaxHP)
     {
         _equipAtk   = bonusAtk;
         _equipMaxHP = bonusMaxHP;
+        OnStatsChanged?.Invoke();
     }
 
     public void ResetPassiveBonus()
@@ -58,25 +59,33 @@ public class PlayerStatus
         _passiveMaxHP = 0;
         _buffAtkMultiplier   = 1f;
         _buffMaxHPMultiplier = 1f;
+        OnStatsChanged?.Invoke();
     }
 
-    public void AddPassiveBonus(int bonusAtk) => _passiveAtk += bonusAtk;
+    public void AddPassiveBonus(int bonusAtk)
+    {
+        _passiveAtk += bonusAtk;
+        OnStatsChanged?.Invoke();
+    }
 
     public void AddPassiveSelfBonus(int bonusAtk, int bonusMaxHP)
     {
         _passiveAtk   += bonusAtk;
         _passiveMaxHP += bonusMaxHP;
+        OnStatsChanged?.Invoke();
     }
 
     public void ApplyBuffMultiplier(float atkMult, float hpMult)
     {
         _buffAtkMultiplier   *= atkMult;
         _buffMaxHPMultiplier *= hpMult;
+        OnStatsChanged?.Invoke();
     }
 
     public void SetEnhanceBonus(float atkRate, float maxHPRate)
     {
         _enhanceAtkRate   = atkRate;
         _enhanceMaxHPRate = maxHPRate;
+        OnStatsChanged?.Invoke();
     }
 }

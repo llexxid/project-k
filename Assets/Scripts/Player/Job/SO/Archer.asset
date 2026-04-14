@@ -15,12 +15,16 @@ MonoBehaviour:
   jobName: Archer
   jobSprite: {fileID: 751383870, guid: afc0bd48281b36d4886726be3e9a81a4, type: 3}
   animatorController: {fileID: 9100000, guid: cb5fcbbe7d2454b41a4954f1d044d8be, type: 2}
-  maxHP: 130
-  atk: 40
+  maxHP: 150
+  atk: 80
   movSpeed: 3
-  atkSpeed: 2
-  unlockCost: 0
-  skills:
-  - {fileID: 11400000, guid: b279fc645c1e40d4cb1b60232012d218, type: 2}
-  - {fileID: 11400000, guid: e03258e94c91d8046a216db353dca4dc, type: 2}
-  skillLevels: []
+  basicAttack:
+    type: 0
+    range: 5
+    cooldown: 0.5
+    damageMultiplier: 1
+    halfWidth: 1.5
+    halfHeight: 1
+    aoeRadius: 0.5
+    projectileSpeed: 4
+  specialSkills: []

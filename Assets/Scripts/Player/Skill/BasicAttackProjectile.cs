@@ -12,6 +12,8 @@ public sealed class BasicAttackProjectile : ActiveSkill
     private readonly float _range;
     private readonly float _cooldown;
     private readonly float _aoeRadius;
+    private readonly float _projectileSpeed;
+    private readonly float _damageMultiplier;
     private readonly Queue<MageProjectile> _pool = new Queue<MageProjectile>();
 
     private const float PROJECTILE_LIFETIME = 10f;
@@ -26,12 +28,14 @@ public sealed class BasicAttackProjectile : ActiveSkill
     public override float Cooldown => _cooldown;
     public float Range => _range;
 
-    public BasicAttackProjectile(Player player, float range, float cooldown, float aoeRadius)
+    public BasicAttackProjectile(Player player, float range, float cooldown, float aoeRadius, float projectileSpeed = 4f, float damageMultiplier = 1f)
         : base(player)
     {
         _range = range;
         _cooldown = cooldown;
         _aoeRadius = aoeRadius;
+        _projectileSpeed = projectileSpeed;
+        _damageMultiplier = damageMultiplier;
     }
 
     public override bool CanExecute()
@@ -51,7 +55,8 @@ public sealed class BasicAttackProjectile : ActiveSkill
 
     public override float Execute()
     {
-        _pendingDamage = _player.playerStatus?.Atk ?? 0;
+        int baseAtk = _player.playerStatus?.Atk ?? 0;
+        _pendingDamage = Mathf.RoundToInt(baseAtk * _damageMultiplier);
 
         float animLen = GetAttackAnimLength();
         _player.SetAnimation(ePlayerAction.Attack);
@@ -80,7 +85,7 @@ public sealed class BasicAttackProjectile : ActiveSkill
         if (proj != null)
         {
             proj.transform.position = _player.transform.position;
-            proj.Fire(_player, dir, speed: 4f, damage: _pendingDamage, _aoeRadius, PROJECTILE_LIFETIME);
+            proj.Fire(_player, dir, speed: _projectileSpeed, damage: _pendingDamage, _aoeRadius, PROJECTILE_LIFETIME);
         }
     }
 

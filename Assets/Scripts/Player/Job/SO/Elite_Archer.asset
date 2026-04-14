@@ -15,13 +15,26 @@ MonoBehaviour:
   jobName: Elite_Archer
   jobSprite: {fileID: -2021303674, guid: 33eb29e88f768c847b43509b0a5c9fb4, type: 3}
   animatorController: {fileID: 9100000, guid: 50543c6f92d68b94ba85c579c2b86802, type: 2}
-  maxHP: 150
-  atk: 55
-  movSpeed: 20
-  atkSpeed: 20
-  unlockCost: 0
-  skills:
-  - {fileID: 11400000, guid: 63866e571c745dc4dacf88c4aff0294a, type: 2}
-  - {fileID: 11400000, guid: 815775e7ddd2e0b489ff041673860483, type: 2}
-  - {fileID: 11400000, guid: 2c92d355ba1ba524ba947367333618a6, type: 2}
-  skillLevels: []
+  maxHP: 500
+  atk: 140
+  movSpeed: 3
+  basicAttack:
+    type: 0
+    range: 5
+    cooldown: 0.5
+    damageMultiplier: 1
+    halfWidth: 1.5
+    halfHeight: 1
+    aoeRadius: 0.5
+    projectileSpeed: 4
+  specialSkills:
+  - kind: 2
+    cooldown: 8
+    damageMultiplier: 3
+    range: 6
+    hitCount: 3
+    healPercent: 0.1
+    duration: 15
+    triggerHPRatio: 0.5
+    triggerRange: 1.5
+    knockbackForce: 5

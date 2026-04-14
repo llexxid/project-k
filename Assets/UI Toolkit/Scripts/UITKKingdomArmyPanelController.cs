@@ -209,7 +209,6 @@ namespace KingdomIdle.UIToolkit
 
             infoCol.Add(MakeLabel($"공격력: {ps.Atk}", "ka-stat-line"));
             infoCol.Add(MakeLabel($"이동속도: {ps.MovSpeed}", "ka-stat-line"));
-            infoCol.Add(MakeLabel($"공격속도: {ps.AtkSpeed:F2}초", "ka-stat-line"));
             header.Add(infoCol);
 
             _content.Add(header);
@@ -937,8 +936,6 @@ namespace KingdomIdle.UIToolkit
             AddStatCompareRow(table, "HP",       current?.MaxHP ?? 0,       job.maxHP,    higherIsBetter:true);
             AddStatCompareRow(table, "공격력",   current?.Atk ?? 0,         job.atk,      higherIsBetter:true);
             AddStatCompareRow(table, "이동속도", current?.MovSpeed ?? 0f,   job.movSpeed, higherIsBetter:true);
-            // 공격속도는 초 단위 — 작을수록 좋음
-            AddStatCompareRow(table, "공격속도", current?.AtkSpeed ?? 0f,   job.atkSpeed, higherIsBetter:false, suffix:"초");
 
             return table;
         }
