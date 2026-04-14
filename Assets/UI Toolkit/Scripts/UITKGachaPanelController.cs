@@ -208,6 +208,7 @@ namespace KingdomIdle.UIToolkit
 
         /// <summary>
         /// 뽑기를 실행하고 결과를 팝업으로 표시한다.
+        /// 서버 가챠는 비동기이므로 콜백으로 결과를 받는다.
         /// 외부(UITKUIManager 다시뽑기 버튼)에서도 호출 가능.
         /// </summary>
         public static void PullAndShowResult(GachaTableSO table, int count)
@@ -229,18 +230,23 @@ namespace KingdomIdle.UIToolkit
                 return;
             }
 
-            var results = mgr.TryPull(table, count);
-            if (results == null || results.Count == 0)
-            {
-                if (uiMgr != null) uiMgr.ShowToast("뽑기에 실패했습니다.");
-                return;
-            }
-
-            // 결과를 팝업으로 표시
-            if (uiMgr != null)
-                uiMgr.ShowGachaResultPopup(results, table, count);
-
-            RefreshContent();
+            mgr.TryPull(table, count,
+                onSuccess: results =>
+                {
+                    if (results == null || results.Count == 0)
+                    {
+                        if (uiMgr != null) uiMgr.ShowToast("뽑기에 실패했습니다.");
+                        return;
+                    }
+                    if (uiMgr != null)
+                        uiMgr.ShowGachaResultPopup(results, table, count);
+                    RefreshContent();
+                },
+                onError: message =>
+                {
+                    if (uiMgr != null) uiMgr.ShowToast(string.IsNullOrEmpty(message) ? "뽑기에 실패했습니다." : message);
+                    RefreshContent();
+                });
         }
 
         private static string GetRarityText(eEquipmentRarity rarity)
