@@ -1072,6 +1072,11 @@ namespace KingdomIdle.UIToolkit
                 }, TrickleDown.TrickleDown);
             }
 
+            // ── [중요] 팝업 바깥 탭 감지는 반드시 BubbleUp 으로 ──
+            //   TrickleDown + StopPropagation 을 박스에 걸면 자식 버튼(Guest/Google/Apple/Close)
+            //   으로 내려가는 PointerDown/Up 이벤트까지 모두 차단되어 RegisterMobileTap 이
+            //   아예 동작하지 않는다. BubbleUp 단계에서 타겟이 박스 내부인지만 검사하면
+            //   "바깥 탭 → 닫기" 동작을 그대로 달성할 수 있다.
             if (popupLogin != null)
             {
                 popupLogin.pickingMode = PickingMode.Position;
@@ -1082,22 +1087,22 @@ namespace KingdomIdle.UIToolkit
                     var targetVe = evt.target as VisualElement;
                     if (targetVe == null) return;
 
+                    // 버튼/박스 내부 탭이면 이미 버튼 핸들러가 처리함 — 닫지 않는다.
                     if (IsInside(targetVe, popupLoginBox)) return;
 
                     popupLogin.AddToClassList("hidden");
-                    evt.StopPropagation();
-                }, TrickleDown.TrickleDown);
+                });
             }
 
+            // popupLoginBox 자체에는 별도 이벤트 차단 핸들러를 걸지 않는다.
+            //   - 자식 버튼 이벤트 흐름을 막지 않도록 pickingMode 만 명시.
+            //   - "바깥 탭 닫기" 방지는 popupLogin 의 BubbleUp 핸들러가 IsInside 체크로 이미 담당.
             if (popupLoginBox != null)
             {
                 popupLoginBox.pickingMode = PickingMode.Position;
-                popupLoginBox.RegisterCallback<PointerDownEvent>(evt => evt.StopPropagation(), TrickleDown.TrickleDown);
-                popupLoginBox.RegisterCallback<PointerUpEvent>(evt => evt.StopPropagation(), TrickleDown.TrickleDown);
             }
 
             // 백드롭(dim) 은 pickingMode 를 명시적으로 Position 으로 고정해 터치 흐름을 예측 가능하게 한다.
-            // (기본값 Auto 는 자식이 없을 때만 무시되므로 모바일에서 드물게 이벤트 경로 이상 유발)
             if (popupLoginDim != null)
             {
                 popupLoginDim.pickingMode = PickingMode.Position;
