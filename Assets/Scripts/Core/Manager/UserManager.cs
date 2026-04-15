@@ -186,9 +186,9 @@ namespace Scripts.Core
 			p3.Init(playerData2, _user);
 			++i;
 
-			obj1.GetComponent<ChangeJob>().ApplyJobByIndex(0);
-			obj2.GetComponent<ChangeJob>().ApplyJobByIndex(0);
-			obj3.GetComponent<ChangeJob>().ApplyJobByIndex(0);
+obj1.GetComponent<ChangeJob>().ChangeJobByCode(_characterDataFromServer[0].JobCode);
+			obj2.GetComponent<ChangeJob>().ChangeJobByCode(_characterDataFromServer[1].JobCode);
+			obj3.GetComponent<ChangeJob>().ChangeJobByCode(_characterDataFromServer[2].JobCode);
 
 			_user.ConnectCharacters(p1);
 			_user.ConnectCharacters(p2);
