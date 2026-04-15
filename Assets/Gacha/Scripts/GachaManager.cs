@@ -258,6 +258,9 @@ namespace KingdomIdle.Gacha
                 return;
             }
 
+            // 서버 응답을 엔트리로 변환 + 즉시 지급.
+            // 뽑기 자체는 서버 CloudScript 가 수행하고 결과만 내려준다.
+            // 클라이언트는 그 결과를 해석/표시하고 per-job 파편 지급만 반영한다.
             var results = new List<GachaRewardEntry>(dto.GachaList.Count);
             foreach (var itemCode in dto.GachaList)
             {
@@ -280,17 +283,14 @@ namespace KingdomIdle.Gacha
                 }
                 else
                 {
-                    // 장비 DB 에 없는 ItemCode 는 전직 파편(ClassFragment) 드롭으로 간주한다.
-                    // 서버는 장비 가챠 10% 확률로 전직 파편을 섞어 내려보낸다.
+                    // 장비 DB 에 없는 ItemCode 는 전직 파편(ClassFragment) 드롭으로 간주.
+                    // 서버가 장비 가챠에 섞어 내려보내는 10% 확률 파편.
                     //
                     // ItemCode 레이아웃:
                     //   [31-24] eJobFlag  → GetItemJobCode()  : 어떤 직업의 파편인지
                     //   [15- 0] amount    → GetItemAmount()   : 파편 개수
-                    //
-                    // 직업별 파편은 `KingdomArmyManager.AddFragments(jobName, amount)` 로 지급한다.
-                    // (제네릭 eCurrency.ClassFragment 지갑이 아니라 per-job Dictionary 가 실제 시스템)
                     eJobFlag jobFlag = (eJobFlag)itemCode.GetItemJobCode();
-                    string   jobName = JobNameFromFlag(jobFlag);   // 단일 비트만 안전 매핑
+                    string   jobName = JobNameFromFlag(jobFlag);
                     string   jobKor  = GetJobKoreanName(jobName);
 
                     int fragmentAmount = (int)itemCode.GetItemAmount();
@@ -302,11 +302,9 @@ namespace KingdomIdle.Gacha
                         currency   = eCurrency.ClassFragment,
                         amount     = fragmentAmount,
                         nameKor    = string.IsNullOrEmpty(jobKor) ? "전직 파편" : $"{jobKor} 파편",
-                        // skillId 에 jobFlag 를 저장해두어 UI 머지키/표시에 활용한다.
                         skillId    = (int)jobFlag,
                     };
 
-                    // 실제 per-job 파편 시스템에 지급 (KingdomArmyManager._fragments)
                     var armyMgr = KingdomArmyManager.Instance;
                     if (armyMgr != null && !string.IsNullOrEmpty(jobName))
                     {
@@ -318,7 +316,7 @@ namespace KingdomIdle.Gacha
                     }
                     else
                     {
-                        Debug.LogWarning($"[GachaManager] 전직 파편의 jobFlag 해석 실패 (itemCode=0x{itemCode.Code:X16}) — 지급을 건너뜁니다.");
+                        Debug.LogWarning($"[GachaManager] 서버 응답의 전직 파편 jobFlag 해석 실패 — 지급을 건너뜁니다.");
                     }
 
                     results.Add(fragmentEntry);

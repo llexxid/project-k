@@ -489,17 +489,143 @@
     border-bottom-width: 0;
 }
 
-/* Bottom bar */
+/* =========================================================
+   Bottom bar (tab navigation)
+   - 주변 HUD/드롭다운과 어울리는 반투명 톤
+   - 모바일 터치 안전 (각 버튼 ≥ 150px × 200px, 44dp 이상)
+   - hover / active / selected 상태별 피드백 제공
+   ========================================================= */
 .bottom-bar {
     position: absolute;
     left: 0; right: 0; bottom: 0;
     height: 190px;
-    flex-direction: row;
-    justify-content: space-around;
-    align-items: center;
-    background-color: rgba(0,0,0,1);
+    flex-direction: column;
+    justify-content: center;
+    align-items: stretch;
+    background-color: rgba(8, 10, 16, 0.92);
+    border-top-width: 1px;
+    border-top-color: rgba(255, 255, 255, 0.08);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-bottom-width: 0;
 }
-.tab-btn { width: 170px; height: 110px; font-size: 32px; }
+
+.bottom-bar-safe-area {
+    flex-grow: 1;
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: space-around;
+    padding-left: 14px;
+    padding-right: 14px;
+    padding-top: 10px;
+    padding-bottom: 14px;
+    gap: 10px;
+}
+
+/* 기본 탭 버튼 (Button 컨트롤) — 모바일 터치 타겟 충분히 크게 */
+.tab-btn {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    min-width: 200px;
+    min-height: 150px;
+    padding-left: 6px;
+    padding-right: 6px;
+    padding-top: 8px;
+    padding-bottom: 10px;
+    background-color: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.9);
+    border-radius: 18px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    transition-property: scale, background-color;
+    transition-duration: 0.12s, 0.12s;
+    transition-timing-function: ease-out;
+}
+
+.tab-btn:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+    scale: 1.02 1.02;
+}
+
+.tab-btn:active {
+    background-color: rgba(255, 255, 255, 0.18);
+    scale: 0.94 0.94;
+}
+
+/* 버튼 내부 컨텐츠 (아이콘 + 라벨) */
+.tab-btn-inner {
+    flex-grow: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.tab-btn-icon {
+    font-size: 56px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    color: rgba(255, 255, 255, 0.88);
+    transition-property: color, scale;
+    transition-duration: 0.15s, 0.15s;
+}
+
+.tab-btn-label {
+    font-size: 26px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    color: rgba(255, 255, 255, 0.85);
+    transition-property: color;
+    transition-duration: 0.15s;
+}
+
+/* 선택 표시 바 (상단에 얇게 — 선택 시 표시, 평상시 투명) */
+.tab-btn-indicator {
+    position: absolute;
+    left: 30%;
+    right: 30%;
+    top: 6px;
+    height: 4px;
+    border-radius: 2px;
+    background-color: rgba(255, 205, 120, 0);
+    transition-property: background-color, left, right;
+    transition-duration: 0.18s, 0.18s, 0.18s;
+    transition-timing-function: ease-out;
+}
+
+/* ===== Selected (현재 열린 탭 패널) ===== */
+.tab-btn-selected {
+    background-color: rgba(110, 180, 255, 0.22);
+    scale: 1.04 1.04;
+}
+
+.tab-btn-selected:hover {
+    background-color: rgba(120, 190, 255, 0.28);
+    scale: 1.04 1.04;
+}
+
+.tab-btn-selected:active {
+    background-color: rgba(140, 200, 255, 0.34);
+    scale: 0.98 0.98;
+}
+
+.tab-btn-selected .tab-btn-icon {
+    color: rgba(255, 220, 150, 1);
+    scale: 1.08 1.08;
+}
+
+.tab-btn-selected .tab-btn-label {
+    color: rgba(255, 230, 180, 1);
+}
+
+.tab-btn-selected .tab-btn-indicator {
+    left: 22%;
+    right: 22%;
+    background-color: rgba(255, 205, 120, 0.95);
+}
 
 /* ===== Push Panel (Bottom Sheet) ===== */
 .panel-root {
