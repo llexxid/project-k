@@ -2416,6 +2416,41 @@
     color: rgba(255, 200, 100, 0.95);
 }
 
+/* ─── 전직 탭 상단 통합 전직 파편 배너 ─── */
+.ka-frag-banner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 14px 20px;
+    margin-bottom: 14px;
+    background-color: rgba(60, 45, 20, 0.55);
+    border-radius: 14px;
+    border-left-width: 1px; border-right-width: 1px;
+    border-top-width: 1px; border-bottom-width: 1px;
+    border-color: rgba(255, 205, 120, 0.35);
+}
+
+.ka-frag-banner-name {
+    font-size: 26px;
+    -unity-font-style: bold;
+    color: rgba(255, 220, 160, 0.95);
+}
+
+.ka-frag-banner-val {
+    font-size: 34px;
+    -unity-font-style: bold;
+    color: rgba(255, 225, 140, 1);
+    min-width: 80px;
+}
+
+.ka-frag-banner-hint {
+    font-size: 20px;
+    color: rgba(255, 255, 255, 0.6);
+    flex-grow: 1;
+    -unity-text-align: middle-right;
+}
+
 /* ===== Inventory Panel ===== */
 .inv-equip-card {
     padding: 8px 6px;

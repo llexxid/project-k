@@ -260,7 +260,11 @@ namespace KingdomIdle.Gacha
 
             // 서버 응답을 엔트리로 변환 + 즉시 지급.
             // 뽑기 자체는 서버 CloudScript 가 수행하고 결과만 내려준다.
-            // 클라이언트는 그 결과를 해석/표시하고 per-job 파편 지급만 반영한다.
+            // 클라이언트는 그 결과를 해석/표시하고 통합 전직 파편 지급만 반영한다.
+            //
+            // 서버는 동일 ItemCode 를 한 건으로 묶어 내려보내고 개수를
+            // ItemCode 하위 16비트(= GetItemAmount) 에 Count 로 인코딩한다.
+            // 장비/파편 모두 동일한 규칙을 사용한다.
             var results = new List<GachaRewardEntry>(dto.GachaList.Count);
             foreach (var itemCode in dto.GachaList)
             {
@@ -269,30 +273,35 @@ namespace KingdomIdle.Gacha
 
                 if (data != null)
                 {
-                    // 장비 드롭
+                    // 장비 드롭 — 서버가 동일 장비 N 개를 한 엔트리로 묶어 내려줄 수 있다.
+                    int equipCount = (int)itemCode.GetItemAmount();
+                    if (equipCount <= 0) equipCount = 1;
+
                     var equipEntry = new GachaRewardEntry
                     {
                         rewardType    = eGachaRewardType.Equipment,
                         equipmentData = data,
                         nameKor       = data.equipmentName,
                         icon          = data.icon,
-                        amount        = 1,
+                        amount        = equipCount,
                     };
-                    DistributeEquipmentReward(equipEntry);
+
+                    // N 개 지급 — EquipmentInstance 는 인스턴스별로 생성해야 하므로 반복 호출.
+                    for (int i = 0; i < equipCount; i++)
+                        DistributeEquipmentReward(equipEntry);
+
                     results.Add(equipEntry);
                 }
                 else
                 {
-                    // 장비 DB 에 없는 ItemCode 는 전직 파편(ClassFragment) 드롭으로 간주.
-                    // 서버가 장비 가챠에 섞어 내려보내는 10% 확률 파편.
+                    // 장비 DB 에 없는 ItemCode 는 통합 전직 파편(ClassFragment) 드롭으로 간주.
+                    // 서버가 장비 가챠에 섞어 내려보내는 10% 확률 파편이다.
                     //
-                    // ItemCode 레이아웃:
-                    //   [31-24] eJobFlag  → GetItemJobCode()  : 어떤 직업의 파편인지
-                    //   [15- 0] amount    → GetItemAmount()   : 파편 개수
-                    eJobFlag jobFlag = (eJobFlag)itemCode.GetItemJobCode();
-                    string   jobName = JobNameFromFlag(jobFlag);
-                    string   jobKor  = GetJobKoreanName(jobName);
-
+                    // 통합 전직 파편 체제:
+                    //   - 직업별 파편이 아니라 단일 파편 재화 (eCurrency.ClassFragment) 로 누적.
+                    //   - ItemCode 의 jobFlag(= GetItemJobCode) 는 무시해도 무방하나,
+                    //     서버가 직업 구분을 계속 내려보낸다면 보관만 하고 지급은 통합 풀로 진행.
+                    //   - GetItemAmount() 가 파편 개수.
                     int fragmentAmount = (int)itemCode.GetItemAmount();
                     if (fragmentAmount <= 0) fragmentAmount = 1;
 
@@ -301,22 +310,19 @@ namespace KingdomIdle.Gacha
                         rewardType = eGachaRewardType.Currency,
                         currency   = eCurrency.ClassFragment,
                         amount     = fragmentAmount,
-                        nameKor    = string.IsNullOrEmpty(jobKor) ? "전직 파편" : $"{jobKor} 파편",
-                        skillId    = (int)jobFlag,
+                        nameKor    = "전직 파편",
                     };
 
                     var armyMgr = KingdomArmyManager.Instance;
-                    if (armyMgr != null && !string.IsNullOrEmpty(jobName))
+                    if (armyMgr != null)
                     {
-                        armyMgr.AddFragments(jobName, fragmentAmount);
-                    }
-                    else if (armyMgr == null)
-                    {
-                        Debug.LogWarning("[GachaManager] KingdomArmyManager 가 없어 전직 파편을 지급할 수 없습니다.");
+                        armyMgr.AddFragments(fragmentAmount);
                     }
                     else
                     {
-                        Debug.LogWarning($"[GachaManager] 서버 응답의 전직 파편 jobFlag 해석 실패 — 지급을 건너뜁니다.");
+                        // KingdomArmyManager 가 없어도 Wallet 에 직접 반영해 손실을 방지.
+                        EconomyBridge.Add(eCurrency.ClassFragment, fragmentAmount);
+                        Debug.LogWarning("[GachaManager] KingdomArmyManager 미초기화 — Wallet 에 직접 지급.");
                     }
 
                     results.Add(fragmentEntry);
@@ -372,6 +378,8 @@ namespace KingdomIdle.Gacha
                 return;
             }
 
+            // 서버는 동일 SkillCode 를 한 건으로 묶어 내려보내고 개수를
+            // SkillCode 하위 16비트(= GetSkillAmount) 에 Count 로 인코딩한다.
             var results = new List<GachaRewardEntry>(dto.GachaList.Count);
 
             foreach (var skillCode in dto.GachaList)
@@ -384,16 +392,20 @@ namespace KingdomIdle.Gacha
                     continue;
                 }
 
+                int skillCount = (int)skillCode.GetSkillAmount();
+                if (skillCount <= 0) skillCount = 1;
+
                 var entry = new GachaRewardEntry
                 {
                     rewardType = eGachaRewardType.Skill,
                     skillId    = skillId,
-                    amount     = 1,
+                    amount     = skillCount,
                     nameKor    = so.nameKor,
                     icon       = so.icon,
                 };
 
-                mtMgr.AddFragments(skillId, 1);
+                // 스킬 파편 N 개 지급.
+                mtMgr.AddFragments(skillId, skillCount);
                 results.Add(entry);
             }
 
@@ -499,46 +511,6 @@ namespace KingdomIdle.Gacha
             targetPlayer.equipmentManager.OnItemDropped?.Invoke(instance);
 
             Debug.Log($"[GachaManager] 장비 지급: {reward.equipmentData.equipmentName} ({reward.equipmentData.rarity}) → {targetPlayer.name}");
-        }
-
-        /// <summary>
-        /// eJobFlag → 해당 직업의 영문 이름 (JobData.jobName 과 일치).
-        /// Flags 가 여러 비트 조합이거나 None 이면 빈 문자열을 반환하여
-        /// 호출부가 파편 지급을 건너뛸 수 있도록 한다.
-        /// </summary>
-        private static string JobNameFromFlag(eJobFlag flag)
-        {
-            switch (flag)
-            {
-                case eJobFlag.Mage:         return "Mage";
-                case eJobFlag.Archer:       return "Archer";
-                case eJobFlag.Knight:       return "Knight";
-                case eJobFlag.Spearman:     return "Spearman";
-                case eJobFlag.Elite_Mage:   return "Elite_Mage";
-                case eJobFlag.Elite_Knight: return "Elite_Knight";
-                case eJobFlag.Elite_Archer: return "Elite_Archer";
-                default:                    return string.Empty;   // None 또는 복합 플래그
-            }
-        }
-
-        /// <summary>
-        /// 영문 jobName(eJobFlag 멤버명) → 한글 표시 이름.
-        /// 2차 전직은 1차 전직 파편을 공유하므로 1차 전직 이름으로 매핑한다.
-        /// </summary>
-        private static string GetJobKoreanName(string jobName)
-        {
-            if (string.IsNullOrEmpty(jobName)) return string.Empty;
-
-            // 2차 전직은 1차 전직 파편을 공유 (KingdomArmyManager.GetBaseFragmentName 과 동일 규칙)
-            string baseName = KingdomArmyManager.GetBaseFragmentName(jobName);
-            switch (baseName)
-            {
-                case "Knight":   return "기사";
-                case "Archer":   return "궁수";
-                case "Mage":     return "마법사";
-                case "Spearman": return "창병";
-                default:         return baseName;
-            }
         }
     }
 }

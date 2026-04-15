@@ -118,17 +118,15 @@ namespace KingdomIdle.UIToolkit
 
             panel.Add(currencyGrid);
 
-            // ── 전직 파편 ──
+            // ── 전직 파편 (통합) ──
+            // 직업별이 아니라 단일 통합 파편이므로 버튼 하나만 둔다.
             var fragLabel = new Label("전직 파편 추가");
             fragLabel.AddToClassList("debug-section-label");
             panel.Add(fragLabel);
 
             var fragGrid = new VisualElement();
             fragGrid.AddToClassList("debug-currency-grid");
-
-            // 각 직업별 파편 +50 버튼 (런타임에 JobDatabase에서 동적 생성)
-            BuildFragmentRows(fragGrid);
-
+            AddUnifiedFragmentRow(fragGrid);
             panel.Add(fragGrid);
 
             // ── 토글 섹션 ──
@@ -195,41 +193,28 @@ namespace KingdomIdle.UIToolkit
             parent.Add(row);
         }
 
-        private static void BuildFragmentRows(VisualElement parent)
-        {
-            var mgr = KingdomArmyManager.Instance;
-            if (mgr == null || mgr.JobDB == null)
-            {
-                // 매니저 미초기화 시 안내 행 하나만 표시
-                var hint = new Label("(KingdomArmyManager 미초기화)");
-                hint.AddToClassList("debug-currency-name");
-                hint.style.opacity = 0.5f;
-                parent.Add(hint);
-                return;
-            }
-
-            for (int i = 0; i < mgr.JobDB.Count; i++)
-            {
-                var job = mgr.JobDB.GetJob(i);
-                if (job == null) continue;
-                AddFragmentRow(parent, job.jobName);
-            }
-        }
-
-        private static void AddFragmentRow(VisualElement parent, string jobName)
+        private static void AddUnifiedFragmentRow(VisualElement parent)
         {
             var row = new VisualElement();
             row.AddToClassList("debug-currency-row");
 
-            var lbl = new Label($"{jobName} 파편");
+            var lbl = new Label("전직 파편 (통합)");
             lbl.AddToClassList("debug-currency-name");
 
             var btn = new Button(() =>
             {
+                // 매니저 경유 — UI 갱신 이벤트(OnStateChanged) 전파를 유지하기 위함.
                 var mgr = KingdomArmyManager.Instance;
-                if (mgr == null) return;
-                mgr.AddFragments(jobName, 50);
-                UITKUIManager.Instance?.ShowToast($"{jobName} 파편 +50");
+                if (mgr != null)
+                {
+                    mgr.AddFragments(50);
+                }
+                else
+                {
+                    // 매니저 미초기화 시 Wallet 에 직접 지급.
+                    EconomyBridge.Add(eCurrency.ClassFragment, 50);
+                }
+                UITKUIManager.Instance?.ShowToast("전직 파편 +50");
             }) { text = "+50" };
             btn.AddToClassList("debug-currency-btn");
 

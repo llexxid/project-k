@@ -577,8 +577,8 @@ namespace KingdomIdle.UIToolkit
                 {
                     // 같은 통화(예: 전직 파편) 보상은 머지되어 한 카드로 표시되고
                     // 총 수량은 별도의 count 라벨로 노출된다.
-                    // 단, 전직 파편은 직업별(기사/궁수/마법사/창병)로 다르게 떨어지므로
-                    // entry.nameKor 가 설정되어 있으면 그 값을 우선 사용한다.
+                    // 전직 파편은 이제 단일 통합 재화이지만, 서버/드롭 측에서 nameKor 를
+                    // 명시한 경우를 우선 사용한다 (향후 다른 커스텀 라벨 대비).
                     displayName = !string.IsNullOrEmpty(entry.nameKor)
                         ? entry.nameKor
                         : GetCurrencyLabelKor(entry.currency);
@@ -590,8 +590,9 @@ namespace KingdomIdle.UIToolkit
                 nameLbl.AddToClassList("gacha-result-name");
                 card.Add(nameLbl);
 
-                // 수량
-                var countLbl = new Label($"x{count}");
+                // 수량 — "× 1,500" 형식. 천단위 콤마 + 정식 곱셈 기호.
+                // 파편처럼 수량이 큰 보상도 가독성 유지.
+                var countLbl = new Label(FormatGachaCount(count));
                 countLbl.AddToClassList("gacha-result-count");
                 card.Add(countLbl);
 
@@ -673,18 +674,19 @@ namespace KingdomIdle.UIToolkit
             var merged = new List<(KingdomIdle.Gacha.GachaRewardEntry entry, int count)>();
             if (results == null) return merged;
 
+            // 서버가 동일 보상(장비/스킬/파편)을 하나의 엔트리에 Count 로 묶어 내려주므로
+            // 모든 타입에 대해 entry.amount 를 누적한다. (amount 가 0 이하이면 1 로 보정)
             foreach (var r in results)
             {
                 if (r == null) continue;
                 string key = MakeMergeKey(r);
+                int amt = Mathf.Max(1, r.amount);
 
                 bool found = false;
                 for (int i = 0; i < merged.Count; i++)
                 {
                     if (MakeMergeKey(merged[i].entry) == key)
                     {
-                        int amt = r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency
-                                    ? Mathf.Max(1, r.amount) : 1;
                         merged[i] = (merged[i].entry, merged[i].count + amt);
                         found = true;
                         break;
@@ -692,12 +694,22 @@ namespace KingdomIdle.UIToolkit
                 }
                 if (!found)
                 {
-                    int amt = r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency
-                                ? Mathf.Max(1, r.amount) : 1;
                     merged.Add((r, amt));
                 }
             }
             return merged;
+        }
+
+        /// <summary>
+        /// 가챠 결과 카드의 수량 라벨 포맷.
+        /// - 1 : "×1"  (카드마다 일관된 표기)
+        /// - 100+ : "×100" / "×1,500" (천단위 콤마)
+        /// - 기호는 정식 곱셈 기호(U+00D7) 사용.
+        /// </summary>
+        private static string FormatGachaCount(int count)
+        {
+            int safe = Mathf.Max(1, count);
+            return $"×{safe:N0}";
         }
 
         private static string MakeMergeKey(KingdomIdle.Gacha.GachaRewardEntry r)

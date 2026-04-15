@@ -649,6 +649,18 @@ namespace KingdomIdle.UIToolkit
                 return;
             }
 
+            // 통합 전직 파편 보유량 배너 — 어떤 직업이든 파편 40개로 전직 가능.
+            int ownedFrags = _mgr.GetFragments();
+            int fragCost = _mgr.GetFragmentCost();
+            var fragBanner = new VisualElement();
+            fragBanner.AddToClassList("ka-frag-banner");
+            fragBanner.Add(MakeLabel("전직 파편", "ka-frag-banner-name"));
+            var fragBannerVal = MakeLabel($"{ownedFrags:N0}", "ka-frag-banner-val");
+            if (ownedFrags >= fragCost) fragBannerVal.AddToClassList("ka-frag-ready");
+            fragBanner.Add(fragBannerVal);
+            fragBanner.Add(MakeLabel($"(전직당 {fragCost}개 소모)", "ka-frag-banner-hint"));
+            _content.Add(fragBanner);
+
             var player = GetCurrentPlayer();
             string currentJob = player?.playerStatus?.JobName ?? "";
 
@@ -702,8 +714,9 @@ namespace KingdomIdle.UIToolkit
             string prereq = KingdomArmyManager.GetPrerequisiteJob(job.jobName);
             bool prereqMet = prereq == null || (player != null && _mgr.HasCompletedPromotion(player, prereq));
 
-            int owned = _mgr.GetFragments(job.jobName);
-            int cost = _mgr.GetFragmentCost(job.jobName);
+            // 통합 전직 파편 — 모든 직업이 동일한 파편 풀을 공유한다.
+            int owned = _mgr.GetFragments();
+            int cost = _mgr.GetFragmentCost();
             bool fragReady = owned >= cost;
 
             if (isCurrent) card.AddToClassList("ka-job-card-current");
@@ -733,18 +746,14 @@ namespace KingdomIdle.UIToolkit
             // 핵심 스탯 한 줄 (HP / ATK)
             card.Add(MakeLabel($"HP {job.maxHP}  ·  ATK {job.atk}", "ka-job-card-stat"));
 
-            // 파편 현황 / 무료 재전직 안내
+            // 파편 현황 / 무료 재전직 안내 — 통합 전직 파편을 기준으로 진행도 표시.
             if (isUnlocked)
             {
                 card.Add(MakeLabel("무료 재전직", "ka-job-card-frag ka-frag-ready"));
             }
             else
             {
-                string baseFrag = KingdomArmyManager.GetBaseFragmentName(job.jobName);
-                string fragText = baseFrag != job.jobName
-                    ? $"{baseFrag} 파편 {owned}/{cost}"
-                    : $"파편 {owned}/{cost}";
-                var fragLbl = MakeLabel(fragText, "ka-job-card-frag");
+                var fragLbl = MakeLabel($"전직 파편 {owned}/{cost}", "ka-job-card-frag");
                 if (fragReady) fragLbl.AddToClassList("ka-frag-ready");
                 card.Add(fragLbl);
             }
@@ -856,9 +865,9 @@ namespace KingdomIdle.UIToolkit
             // ── 전직 비용 / 조건 ──
             _content.Add(MakeLabel("전직 조건", "ka-subsection-title"));
 
-            string baseFrag = KingdomArmyManager.GetBaseFragmentName(job.jobName);
-            int owned = _mgr.GetFragments(job.jobName);
-            int cost = _mgr.GetFragmentCost(job.jobName);
+            // 통합 전직 파편 — 어떤 직업이든 동일한 파편 풀에서 40개 소모.
+            int owned = _mgr.GetFragments();
+            int cost = _mgr.GetFragmentCost();
 
             var condBox = new VisualElement();
             condBox.AddToClassList("ka-job-cond-box");
@@ -869,19 +878,16 @@ namespace KingdomIdle.UIToolkit
             }
             else
             {
-                // 파편 진행 바
+                // 파편 진행 바 — 통합 전직 파편 하나만 표시.
                 var fragRow = new VisualElement();
                 fragRow.AddToClassList("ka-frag-row");
-                string fragLabel = baseFrag != job.jobName
-                    ? $"{baseFrag} 전직 파편"
-                    : $"{job.jobName} 전직 파편";
-                fragRow.Add(MakeLabel(fragLabel, "ka-frag-row-name"));
+                fragRow.Add(MakeLabel("전직 파편", "ka-frag-row-name"));
                 var fragVal = MakeLabel($"{owned} / {cost}", "ka-frag-row-val");
                 if (owned >= cost) fragVal.AddToClassList("ka-frag-ready");
                 fragRow.Add(fragVal);
                 condBox.Add(fragRow);
 
-                // 선행 조건
+                // 선행 조건 — 2차 전직의 순서 보장.
                 if (prereq != null)
                 {
                     var prereqRow = new VisualElement();
@@ -922,11 +928,11 @@ namespace KingdomIdle.UIToolkit
             }
             else if (canChange)
             {
-                changeBtn.text = "전직하기";
+                changeBtn.text = $"전직하기 (파편 {cost}개)";
             }
             else
             {
-                changeBtn.text = $"파편 부족 ({owned}/{cost})";
+                changeBtn.text = $"전직 파편 부족 ({owned}/{cost})";
                 changeBtn.AddToClassList("ka-change-btn-disabled");
                 changeBtn.SetEnabled(false);
             }

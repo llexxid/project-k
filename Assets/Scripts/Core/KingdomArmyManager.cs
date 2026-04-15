@@ -1,15 +1,16 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Scripts.Core;
 
 namespace KingdomIdle.KingdomArmy
 {
     /// <summary>
     /// 왕국군 관리 매니저.
-    /// - 전직별 고유 파편 관리 (jobName 기반 Dictionary)
-    /// - 2차 전직(Elite)은 1차 전직 파편을 공유하며, 1차 전직 완료가 선행 조건
-    /// - 전직 비용/실행 래핑
-    /// - 서버 마이그레이션 시 내부만 교체
+    /// - 전직 파편은 단일 통합 재화 (eCurrency.ClassFragment). 어떤 직업이든 파편 40개로 전직.
+    ///   실제 저장소는 Wallet(EconomyBridge) 이고, 이 매니저는 비용/선행 조건/전직 실행을 래핑한다.
+    /// - 2차 전직(Elite)은 1차 전직 완료를 선행 조건으로 한다 (_eliteToBase).
+    /// - 서버 마이그레이션 시에도 이 매니저의 API 는 유지된다 (Wallet 내부만 교체).
     /// </summary>
     public class KingdomArmyManager : MonoBehaviour
     {
@@ -19,13 +20,7 @@ namespace KingdomIdle.KingdomArmy
         [SerializeField] private EquipmentDatabase equipmentDatabase;
         [SerializeField] private int defaultFragmentCost = 40;
 
-        /// <summary>jobName → 보유 파편 수</summary>
-        private readonly Dictionary<string, int> _fragments = new();
-
-        /// <summary>jobName → 전직 비용 (파편 수). SO에서 확장 가능.</summary>
-        private readonly Dictionary<string, int> _fragmentCosts = new();
-
-        /// <summary>2차 전직 → 1차 전직 매핑 (파편 공유 + 선행 조건)</summary>
+        /// <summary>2차 전직 → 1차 전직 선행 조건 매핑</summary>
         private static readonly Dictionary<string, string> _eliteToBase = new()
         {
             { "Elite_Knight", "Knight" },
@@ -33,11 +28,10 @@ namespace KingdomIdle.KingdomArmy
             { "Elite_Mage",   "Mage"   },
         };
 
-        private const string PrefKey = "KingdomArmy_Save";
-
         public JobDatabase JobDB => jobDatabase;
         public EquipmentDatabase EquipDB => equipmentDatabase;
 
+        /// <summary>파편 수량 / 전직 상태 변경 시 발생. UI 갱신에 사용.</summary>
         public event Action OnStateChanged;
 
         private void Awake()
@@ -49,7 +43,6 @@ namespace KingdomIdle.KingdomArmy
             }
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            Load();
         }
 
         private void OnDestroy()
@@ -57,13 +50,15 @@ namespace KingdomIdle.KingdomArmy
             if (Instance == this) Instance = null;
         }
 
-        // ── 파편 ──
+        // ── 파편 (통합) ──
 
-        /// <summary>2차 전직이면 1차 전직 이름 반환, 아니면 그대로 반환</summary>
-        public static string GetBaseFragmentName(string jobName) =>
-            _eliteToBase.TryGetValue(jobName, out string baseName) ? baseName : jobName;
+        /// <summary>
+        /// 호환성 유지용. 예전 per-job 구조가 남아있는 호출부를 위해 남겨둔다.
+        /// 통합 파편 체제에서는 모든 jobName 에 대해 동일한 전체 파편 수량을 반환.
+        /// </summary>
+        public static string GetBaseFragmentName(string jobName) => jobName;
 
-        /// <summary>2차 전직의 선행 조건 직업 이름 반환. 선행 조건이 없으면 null.</summary>
+        /// <summary>2차 전직의 선행 조건 직업 이름. 선행 조건이 없으면 null.</summary>
         public static string GetPrerequisiteJob(string jobName) =>
             _eliteToBase.TryGetValue(jobName, out string baseName) ? baseName : null;
 
@@ -79,24 +74,40 @@ namespace KingdomIdle.KingdomArmy
             return changeJob.IsJobUnlocked(idx);
         }
 
-        public int GetFragments(string jobName)
+        /// <summary>현재 보유한 통합 전직 파편 수량.</summary>
+        public int GetFragments()
         {
-            string key = GetBaseFragmentName(jobName);
-            return _fragments.TryGetValue(key, out int f) ? f : 0;
+            EconomyBridge.TryGetAmount(eCurrency.ClassFragment, out long amount);
+            if (amount < 0) amount = 0;
+            if (amount > int.MaxValue) amount = int.MaxValue;
+            return (int)amount;
         }
 
-        public void AddFragments(string jobName, int amount)
+        /// <summary>
+        /// [호환성] jobName 매개변수를 무시하고 통합 파편 수량을 반환한다.
+        /// 과거 per-job 호출부를 깨지 않기 위해 남겨둔 오버로드.
+        /// </summary>
+        public int GetFragments(string jobName) => GetFragments();
+
+        /// <summary>통합 전직 파편을 지급한다.</summary>
+        public void AddFragments(int amount)
         {
-            string key = GetBaseFragmentName(jobName);
-            if (!_fragments.ContainsKey(key))
-                _fragments[key] = 0;
-            _fragments[key] += amount;
-            Save();
+            if (amount == 0) return;
+            EconomyBridge.Add(eCurrency.ClassFragment, amount);
             OnStateChanged?.Invoke();
         }
 
-        public int GetFragmentCost(string jobName) =>
-            _fragmentCosts.TryGetValue(jobName, out int c) ? c : defaultFragmentCost;
+        /// <summary>
+        /// [호환성] jobName 을 무시하고 통합 파편을 지급한다.
+        /// 기존 per-job 호출부 호환용.
+        /// </summary>
+        public void AddFragments(string jobName, int amount) => AddFragments(amount);
+
+        /// <summary>전직 1 회 비용(파편 수). 모든 전직에 동일 적용.</summary>
+        public int GetFragmentCost() => defaultFragmentCost;
+
+        /// <summary>[호환성] jobName 무시 — 모든 전직 비용은 동일.</summary>
+        public int GetFragmentCost(string jobName) => defaultFragmentCost;
 
         /// <summary>전직 가능 여부. 2차 전직은 1차 전직 완료 + 파편 충분 조건 모두 필요.</summary>
         /// <remarks>해당 플레이어가 이미 그 직업을 해금한 적이 있으면 파편 없이도 자유롭게 재전직 가능.</remarks>
@@ -106,7 +117,7 @@ namespace KingdomIdle.KingdomArmy
             if (player != null && HasCompletedPromotion(player, jobName))
                 return true;
 
-            if (GetFragments(jobName) < GetFragmentCost(jobName))
+            if (GetFragments() < GetFragmentCost())
                 return false;
 
             string prereq = GetPrerequisiteJob(jobName);
@@ -124,13 +135,9 @@ namespace KingdomIdle.KingdomArmy
 
         /// <summary>
         /// 지정 플레이어를 jobName 직업으로 전직.
-        /// 처음 전직이면 파편을 소모하고, 이미 해금된 직업이면 무료로 재전직한다.
+        /// 처음 전직이면 통합 파편 40개를 소모하고, 이미 해금된 직업이면 무료로 재전직한다.
         /// 실제 전직 적용은 ChangeJob 컴포넌트가 담당.
         /// </summary>
-        /// <remarks>
-        /// 서버 연동 시: 직업별 해금 상태(_unlockedJobs)는 캐릭터별로 서버에 영구 저장되어야 한다.
-        /// 현재는 ChangeJob 내부 PlayerPrefs(UnlockedJobs)에 보관 중.
-        /// </remarks>
         public bool TryChangeJob(Player player, string jobName)
         {
             if (player == null || string.IsNullOrEmpty(jobName)) return false;
@@ -140,26 +147,16 @@ namespace KingdomIdle.KingdomArmy
             bool alreadyUnlocked = HasCompletedPromotion(player, jobName);
             if (!alreadyUnlocked)
             {
-                int cost = GetFragmentCost(jobName);
-                string fragKey = GetBaseFragmentName(jobName);
-                _fragments[fragKey] -= cost;
+                int cost = GetFragmentCost();
+                EconomyBridge.Add(eCurrency.ClassFragment, -cost);
             }
 
             var changeJob = player.GetComponent<ChangeJob>();
             if (changeJob != null)
                 changeJob.ChangeJobByName(jobName);
 
-            Save();
             OnStateChanged?.Invoke();
             return true;
-        }
-
-        /// <summary>
-        /// 전직 비용을 동적으로 설정 (SO 확장 시 사용)
-        /// </summary>
-        public void SetFragmentCost(string jobName, int cost)
-        {
-            _fragmentCosts[jobName] = cost;
         }
 
         // ── 플레이어 접근 헬퍼 ──
@@ -180,40 +177,6 @@ namespace KingdomIdle.KingdomArmy
             if (user == null || user._players == null) return new List<Player>();
 
             return user._players;
-        }
-
-        // ── Save / Load ──
-
-        [Serializable]
-        private class SaveData
-        {
-            public List<string> fKeys = new();
-            public List<int> fVals = new();
-        }
-
-        private void Save()
-        {
-            var d = new SaveData();
-            foreach (var kv in _fragments)
-            {
-                d.fKeys.Add(kv.Key);
-                d.fVals.Add(kv.Value);
-            }
-            PlayerPrefs.SetString(PrefKey, JsonUtility.ToJson(d));
-            PlayerPrefs.Save();
-        }
-
-        private void Load()
-        {
-            string raw = PlayerPrefs.GetString(PrefKey, "");
-            if (string.IsNullOrEmpty(raw)) return;
-
-            var d = JsonUtility.FromJson<SaveData>(raw);
-            if (d == null) return;
-
-            int len = Mathf.Min(d.fKeys.Count, d.fVals.Count);
-            for (int i = 0; i < len; i++)
-                _fragments[d.fKeys[i]] = d.fVals[i];
         }
     }
 }
