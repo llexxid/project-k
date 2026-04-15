@@ -83,6 +83,7 @@ namespace Scripts.Server.DTO
 	public class OnEnchantResponseDTO
 	{
 		public long CurrentLevel { get; set; }
+		public long CurrentGold { get; set; }
 	}
 
 	public class OnEnchantEquipmentResponseDTO
@@ -109,6 +110,11 @@ namespace Scripts.Server.DTO
 	{
 		public int Index { get; set; }
 		public ulong JobCode { get; set; }
+	}
+
+	public class ErrorRetryEnchantDTO
+	{
+		public int Count { get; set; }
 	}
 }
 

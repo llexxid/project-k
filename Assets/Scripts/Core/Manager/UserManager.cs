@@ -79,6 +79,11 @@ namespace Scripts.Core
 			return _user.GetStage();
 		}
 
+		public void SetGold(long amount)
+		{
+			_user.SetCoin(eCurrency.Gold, amount);
+		}
+
 		public void GainExp(long exp)
 		{
 			_user.GainExp(exp);

@@ -1,10 +1,12 @@
-using System;
-using System.Collections.Generic;
-using UnityEngine;
+using Cysharp.Threading.Tasks;
+using Newtonsoft.Json;
+using PlayFab.CloudScriptModels;
 using Scripts.Core;
 using Scripts.Core.Manager;
 using Scripts.Server.DTO;
-using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
+using UnityEngine;
 
 /// <summary>
 /// 모든 캐릭터에 일괄 적용되는 글로벌 스탯 강화 시스템.
@@ -63,7 +65,7 @@ public class StatEnhanceManager : MonoBehaviour
     private const float CostGrowthRate = 1.15f;
 
     public event Action OnEnhanced;
-
+    private int currentLevel;
     private void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(this); return; }
@@ -139,8 +141,10 @@ public class StatEnhanceManager : MonoBehaviour
 
         if (!_levels.ContainsKey(type)) _levels[type] = 0;
         _levels[type] += count;
+        //추가
+        currentLevel = _levels[type];
 
-        ApplyToAllPlayers();
+		ApplyToAllPlayers();
         Save();
         OnEnhanced?.Invoke();
 
@@ -177,7 +181,7 @@ public class StatEnhanceManager : MonoBehaviour
             return;
         }
 
-        Action<PlayFab.CloudScriptModels.ExecuteFunctionResult> onSuccess = (result) =>
+        Action<ExecuteFunctionResult> onSuccess = (result) =>
         {
             // 서버가 현재 레벨을 내려주면 로컬과 비교하여 보정한다.
             if (result == null || result.FunctionResult == null) return;
@@ -188,7 +192,9 @@ public class StatEnhanceManager : MonoBehaviour
                 if (dto == null) return;
 
                 int serverLevel = (int)dto.CurrentLevel;
-                int localLevel = _levels.TryGetValue(type, out int lv) ? lv : 0;
+				long amount = dto.CurrentGold;
+				UserManager.Instance.SetGold(amount);
+				int localLevel = _levels.TryGetValue(type, out int lv) ? lv : 0;
                 if (serverLevel != localLevel)
                 {
                     Debug.LogWarning($"[StatEnhanceManager] {type} 서버 레벨({serverLevel}) ↔ 로컬({localLevel}) 불일치 — 서버 기준으로 보정");
@@ -220,7 +226,43 @@ public class StatEnhanceManager : MonoBehaviour
         }
     }
 
-    private void RollbackEnhance(EnhanceType type, int count, int refundCost, string reason)
+
+	//NetworkCallback
+	private void OnClickedSuccess(ExecuteFunctionResult result)
+	{
+		string JsonStr = JsonConvert.SerializeObject(result.FunctionResult);
+		OnEnchantResponseDTO responseDto = JsonConvert.DeserializeObject<OnEnchantResponseDTO>(JsonStr);
+
+		int serverLevel = (int)responseDto.CurrentLevel;
+        long amount = responseDto.CurrentGold;
+        UserManager.Instance.SetGold(amount);
+		if (serverLevel != currentLevel)
+		{
+			Debug.LogWarning($"[StatEnhanceManager] 서버 레벨({serverLevel}) ↔ 로컬({currentLevel}) 불일치 — 서버 기준으로 보정");
+			ApplyToAllPlayers();
+			Save();
+			OnEnhanced?.Invoke();
+		}
+	}
+
+	private void OnClickedFailed(PlayFab.PlayFabError result)
+	{
+		if (result.HttpCode == 409)
+		{
+			string errorMsg = result.ErrorDetails["CloudScriptError"][0];
+			ErrorRetryEnchantDTO dto = JsonConvert.DeserializeObject<ErrorRetryEnchantDTO>(errorMsg);
+			RetryEnchant(dto.Count).Forget();
+		}
+	}
+
+	private async UniTaskVoid RetryEnchant(int count)
+	{
+		int random = UnityEngine.Random.Range(0, 100);
+		await UniTask.Delay(200 + random);
+		NetworkManager.Instance.OnEnchantATK(count, OnClickedSuccess, OnClickedFailed);
+	}
+
+	private void RollbackEnhance(EnhanceType type, int count, int refundCost, string reason)
     {
         Debug.LogWarning($"[StatEnhanceManager] 강화 롤백 ({type}, count={count}, refund={refundCost}): {reason}");
 
