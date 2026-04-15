@@ -365,6 +365,7 @@ namespace Scripts.Core
 			//1,2스테이지 반복하는 형태이므로, 2스테이지이상이라면 로딩할필요 x.
 			if (StageParser.GetStageNumber(nxtStage) >= 3)
 			{
+				onStageLoaded_callback.Invoke(nxtStage);
 				return;
 			}
 

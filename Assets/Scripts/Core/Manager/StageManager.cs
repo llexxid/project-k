@@ -44,7 +44,7 @@ namespace Scripts.Core
 		private bool _waveCleared;
 		// ── [WaveManager 끝] ──
 
-		const int LAST_WAVE = 10;
+		const int LAST_WAVE = 11;
 		const float TICK_INTERVAL = 3f;
 		private float _LastTick;
 
