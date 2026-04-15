@@ -103,8 +103,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
         UITKDamageTextBridge.ShowOnTransform(transform, dmg, Color.white);
 
-        if (UITKDebugMenuController.PlayerInvincible) return true;
-
         bool IsAlive = setHp(dmg);
         if (!IsAlive) return false;
         return true;

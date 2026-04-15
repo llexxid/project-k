@@ -26,6 +26,18 @@ public class StatEnhanceManager : MonoBehaviour
         ExpGain
     }
 
+    /// <summary>
+    /// 강화 시도 결과. UI 가 구체적인 실패 원인을 사용자에게 보여주기 위해 분리.
+    /// 기존 bool TryEnhance 는 Success 만 true 로 치환해 호환성 유지.
+    /// </summary>
+    public enum EnhanceResult
+    {
+        Success,
+        NotEnoughGold,
+        NetworkNotReady,
+        ManagerNotReady,
+    }
+
     // ── 강화 레벨 저장소 ──
     private Dictionary<EnhanceType, int> _levels = new();
 
@@ -94,18 +106,32 @@ public class StatEnhanceManager : MonoBehaviour
     // ── 강화 실행 ──
     // 구현된 스탯(공격력/체력)은 서버 세션을 통해 PlayFab CloudScript로 동기화된다.
     // 낙관적(optimistic)으로 로컬 차감/레벨 반영 후, 서버 오류 시 자동 롤백한다.
+    /// <summary>
+    /// 기존 bool 반환 API (호환성 유지). Success 만 true 로 변환한다.
+    /// 새 코드는 가능하면 <see cref="TryEnhanceEx"/> 를 써서 실패 원인을 구체적으로 다룰 것.
+    /// </summary>
     public bool TryEnhance(EnhanceType type, int count = 1)
+        => TryEnhanceEx(type, count) == EnhanceResult.Success;
+
+    /// <summary>
+    /// 강화 시도. 실패 시 구체적 사유(EnhanceResult) 반환.
+    /// - NotEnoughGold: 골드 부족
+    /// - NetworkNotReady: 서버 동기화가 필요한 스탯인데 세션 미준비
+    /// - Success: 낙관적 로컬 차감/레벨 반영 완료 (서버 동기화는 비동기 진행)
+    /// </summary>
+    public EnhanceResult TryEnhanceEx(EnhanceType type, int count = 1)
     {
         int cost = GetCost(type, count);
         if (!EconomyBridge.TryGetAmount(eCurrency.Gold, out long gold) || gold < cost)
-            return false;
+            return EnhanceResult.NotEnoughGold;
 
         // 공격력/체력 강화는 서버가 실제 권한을 가진다.
         // 네트워크 세션이 준비되지 않았다면 로컬 진행 자체를 막는다.
+        // (이전엔 false 만 반환해 UI 가 "골드 부족"으로 잘못 안내하는 버그가 있었다.)
         if (IsServerBacked(type) && !IsNetworkReady())
         {
             Debug.LogWarning("[StatEnhanceManager] 네트워크 세션이 준비되지 않아 강화를 진행할 수 없습니다.");
-            return false;
+            return EnhanceResult.NetworkNotReady;
         }
 
         // 낙관적 로컬 차감 + 레벨 반영
@@ -124,7 +150,7 @@ public class StatEnhanceManager : MonoBehaviour
             TrySyncServer(type, count, cost);
         }
 
-        return true;
+        return EnhanceResult.Success;
     }
 
     // ── 서버 동기화 ────────────────────────────────────────────────

@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System;
+using System.Reflection;
 using UnityEngine;
 using Scripts.Wallets;
 using Scripts.Users;
@@ -9,6 +10,17 @@ namespace Scripts.Core
     public static class EconomyBridge
     {
         private static User _cachedUser;
+
+        /// <summary>
+        /// 재화가 변경될 때마다 (currency, 변경 후 잔액) 로 발생한다.
+        /// UI 측에서 HUD 재화 라벨 등을 즉시 갱신하는 데 사용한다.
+        /// 내부적으로 Wallet.OnAnyChanged 를 래핑해 노출한다.
+        /// </summary>
+        public static event Action<eCurrency, long> OnAmountChanged
+        {
+            add    { Wallet.OnAnyChanged += value; }
+            remove { Wallet.OnAnyChanged -= value; }
+        }
 
         public static bool TryGetAmount(eCurrency currency, out long amount)
         {

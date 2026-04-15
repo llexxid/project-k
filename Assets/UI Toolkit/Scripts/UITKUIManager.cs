@@ -105,6 +105,9 @@ namespace KingdomIdle.UIToolkit
         private float _currencyPollTimer;
         private const float CurrencyPollInterval = 0.5f;
 
+        // EconomyBridge 변경 이벤트 핸들러 — 구독 해제용
+        private System.Action<eCurrency, long> _economyChangeHandler;
+
         private bool _currencyOpen;
         private Coroutine _currencyCo;
         private const float CurrencyAnimDuration = 0.18f;
@@ -995,29 +998,32 @@ namespace KingdomIdle.UIToolkit
                 });
             }
 
+            // ── [Login] 모든 로그인 팝업 버튼은 RegisterMobileTap 사용 ──
+            //   UI Toolkit 기본 Button.clicked 는 모바일에서 손가락이 버튼 경계를
+            //   살짝 벗어나는 순간 클릭이 취소되는 이슈가 있다. RegisterMobileTap 은
+            //   PointerDown 시 포인터를 캡처해 PointerUp 을 안정적으로 받는다.
             if (btnLoginClose != null && popupLogin != null)
             {
-                btnLoginClose.clicked += () => popupLogin.AddToClassList("hidden");
+                RegisterMobileTap(btnLoginClose, () => popupLogin.AddToClassList("hidden"));
             }
 
-            // ── [Login] 게스트 로그인: NetworkManager null-safe 호출 ──
+            // 게스트 로그인: NetworkManager null-safe 호출
             if (btnLoginGuest != null && popupLogin != null)
             {
-                btnLoginGuest.clicked += () =>
+                RegisterMobileTap(btnLoginGuest, () =>
                 {
                     if (NetworkManager.Instance != null)
                         NetworkManager.Instance.AuthenticateTest();
                     else
                         ShowToast("네트워크가 초기화되지 않았습니다.");
                     popupLogin.AddToClassList("hidden");
-                };
+                });
             }
-            // ── [Login 끝] ──
 
-            // 구글/애플 로그인은 아직 미지원 — 토스트로 안내
+            // Google 로그인 — 비동기 Task 진입 전 버튼 이벤트는 메인 스레드에서 즉시 반응해야 함
             if (btnLoginGoogle != null && popupLogin != null)
             {
-                btnLoginGoogle.clicked += () =>
+                RegisterMobileTap(btnLoginGoogle, () =>
                 {
                     Debug.Log("[Option] Clicked");
                     if (NetworkManager.Instance != null)
@@ -1025,11 +1031,13 @@ namespace KingdomIdle.UIToolkit
                     else
                         ShowToast("네트워크가 초기화되지 않았습니다.");
                     popupLogin.AddToClassList("hidden");
-                };
+                });
             }
 
+            // Apple 로그인은 미지원 — 토스트 안내만
             if (btnLoginApple != null)
-                btnLoginApple.clicked += () => ShowToast("Apple 로그인은 준비 중입니다.");
+                RegisterMobileTap(btnLoginApple, () => ShowToast("Apple 로그인은 준비 중입니다."));
+            // ── [Login 끝] ──
 
 
             if (pressHint != null)
@@ -1086,6 +1094,13 @@ namespace KingdomIdle.UIToolkit
                 popupLoginBox.pickingMode = PickingMode.Position;
                 popupLoginBox.RegisterCallback<PointerDownEvent>(evt => evt.StopPropagation(), TrickleDown.TrickleDown);
                 popupLoginBox.RegisterCallback<PointerUpEvent>(evt => evt.StopPropagation(), TrickleDown.TrickleDown);
+            }
+
+            // 백드롭(dim) 은 pickingMode 를 명시적으로 Position 으로 고정해 터치 흐름을 예측 가능하게 한다.
+            // (기본값 Auto 는 자식이 없을 때만 무시되므로 모바일에서 드물게 이벤트 경로 이상 유발)
+            if (popupLoginDim != null)
+            {
+                popupLoginDim.pickingMode = PickingMode.Position;
             }
         }
 
@@ -1144,6 +1159,10 @@ namespace KingdomIdle.UIToolkit
 
                 try { RefreshTopCurrencyLabels(); }
                 catch (System.Exception rEx) { Debug.LogError($"BindMain.RefreshTopCurrencyLabels failed: {rEx}"); }
+
+                // 재화 변경 이벤트 구독 — 강화/가챠/전투 보상 시 즉시 HUD 갱신.
+                // (폴링은 그대로 유지하되, 이벤트로도 선반영해 체감 딜레이 제거)
+                HookEconomyChangeHandler();
 
                 if (bCurrency != null && _popupCurrencies != null)
                 {
@@ -1229,10 +1248,6 @@ namespace KingdomIdle.UIToolkit
             // ── Wave UI 초기화 ──
             try { WaveUIController.Init(root); }
             catch (System.Exception ex) { Debug.LogError($"BindMain.WaveUIController.Init failed: {ex}"); }
-
-            // ── [DEBUG] 디버그 메뉴 초기화 — 제거 시 이 줄 삭제 ──
-            try { UITKDebugMenuController.Init(root); }
-            catch (System.Exception ex) { Debug.LogError($"BindMain.DebugMenu.Init failed: {ex}"); }
         }
 
         public void RefreshGuideBadge()
@@ -1580,6 +1595,43 @@ namespace KingdomIdle.UIToolkit
 
             if (_lblGold != null) _lblGold.text = GetCurrencyText(eCurrency.Gold);
             if (_lblAncientCoin != null) _lblAncientCoin.text = GetCurrencyText(eCurrency.AncientCoin);
+        }
+
+        // ── EconomyBridge 재화 변경 이벤트 훅 ─────────────────────────────
+        //   Wallet.AddCoins / TrySpendCoins / SetCoin 이 호출되면 메인 스레드에서
+        //   즉시 HUD 라벨을 갱신한다. 폴링만으론 최대 CurrencyPollInterval(0.5s)
+        //   지연이 있어 사용자가 "재화가 소모되지 않는다"고 느꼈던 문제를 해결.
+        private void HookEconomyChangeHandler()
+        {
+            if (_economyChangeHandler != null) return; // 이미 구독됨
+
+            _economyChangeHandler = (currency, _) =>
+            {
+                try
+                {
+                    if (_activeScreenId != UIScreenId.Main) return;
+
+                    if (currency == eCurrency.Gold || currency == eCurrency.AncientCoin)
+                        RefreshTopCurrencyLabels();
+
+                    if (_popupCurrencies != null && !_popupCurrencies.ClassListContains("hidden"))
+                        RebuildCurrencyPopupContents();
+                }
+                catch (System.Exception ex) { Debug.LogError($"EconomyChangeHandler failed: {ex}"); }
+            };
+            EconomyBridge.OnAmountChanged += _economyChangeHandler;
+        }
+
+        private void UnhookEconomyChangeHandler()
+        {
+            if (_economyChangeHandler == null) return;
+            EconomyBridge.OnAmountChanged -= _economyChangeHandler;
+            _economyChangeHandler = null;
+        }
+
+        private void OnDestroy()
+        {
+            UnhookEconomyChangeHandler();
         }
 
         private void RebuildCurrencyPopupContents()

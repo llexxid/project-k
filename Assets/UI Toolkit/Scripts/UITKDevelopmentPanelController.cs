@@ -16,6 +16,11 @@ namespace KingdomIdle.UIToolkit
         private static ScrollView _content;
         private static VisualElement _navBar;
 
+        // StatEnhanceManager.OnEnhanced 구독 상태 — 서버 응답에 의한 레벨 보정 시
+        // 패널을 자동 갱신하기 위함. 패널이 여러 번 populate 되더라도 중복 구독 방지.
+        private static bool _hookedEnhanceEvent;
+        private static StatEnhanceManager _hookedMgr;
+
         public static void Populate(VisualElement panelRoot)
         {
             if (panelRoot == null) return;
@@ -27,8 +32,37 @@ namespace KingdomIdle.UIToolkit
 
             _activeSubMenu = SubMenu.Enhance;
 
+            HookEnhanceEvent();
+
             BuildNavBar();
             Refresh();
+        }
+
+        private static void HookEnhanceEvent()
+        {
+            var mgr = StatEnhanceManager.Instance;
+            if (mgr == null) return;
+
+            // 매니저 인스턴스가 바뀌었을 경우 이전 구독 해제
+            if (_hookedMgr != null && _hookedMgr != mgr)
+            {
+                _hookedMgr.OnEnhanced -= HandleEnhanced;
+                _hookedEnhanceEvent = false;
+            }
+
+            if (_hookedEnhanceEvent) return;
+
+            mgr.OnEnhanced += HandleEnhanced;
+            _hookedMgr = mgr;
+            _hookedEnhanceEvent = true;
+        }
+
+        private static void HandleEnhanced()
+        {
+            // 서버 응답으로 레벨이 보정되거나 롤백된 경우에도 UI 에 즉시 반영.
+            if (_content == null) return;
+            try { Refresh(); }
+            catch (System.Exception ex) { UnityEngine.Debug.LogError($"Enhance refresh failed: {ex}"); }
         }
 
         // ── 하단 네비게이션 ──
@@ -165,17 +199,30 @@ namespace KingdomIdle.UIToolkit
                 return;
             }
 
-            if (mgr.TryEnhance(type, count))
+            // 이벤트 구독이 Populate 시점에 실패했을 수도 있으니(매니저가 늦게 생성되는 경우) 재시도
+            HookEnhanceEvent();
+
+            var result = mgr.TryEnhanceEx(type, count);
+            switch (result)
             {
-                string name = StatEnhanceManager.GetTypeName(type);
-                string bonus = mgr.GetBonusText(type);
-                int lv = mgr.GetLevel(type);
-                ShowToast($"{name} Lv.{lv} ({bonus}) 강화 완료!");
-                Refresh();
-            }
-            else
-            {
-                ShowToast("골드가 부족합니다.");
+                case StatEnhanceManager.EnhanceResult.Success:
+                {
+                    string name = StatEnhanceManager.GetTypeName(type);
+                    string bonus = mgr.GetBonusText(type);
+                    int lv = mgr.GetLevel(type);
+                    ShowToast($"{name} Lv.{lv} ({bonus}) 강화 완료!");
+                    Refresh();
+                    break;
+                }
+                case StatEnhanceManager.EnhanceResult.NotEnoughGold:
+                    ShowToast("골드가 부족합니다.");
+                    break;
+                case StatEnhanceManager.EnhanceResult.NetworkNotReady:
+                    ShowToast("네트워크 연결이 필요합니다. 잠시 후 다시 시도해주세요.");
+                    break;
+                default:
+                    ShowToast("강화에 실패했습니다.");
+                    break;
             }
         }
 
