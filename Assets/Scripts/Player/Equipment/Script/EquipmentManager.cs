@@ -77,11 +77,7 @@ public class EquipmentManager
     /// </summary>
     public void Equip(EquipmentInstance instance)
     {
-        if (instance == null)
-        {
-            Debug.LogWarning("[EquipmentManager] Equip: null 장비는 착용할 수 없습니다.");
-            return;
-        }
+        if (instance == null) return;
 
         _equipped[instance.baseData.slot] = instance;
         RecalculateStats();
@@ -91,11 +87,7 @@ public class EquipmentManager
     /// <summary>지정 슬롯의 장비를 해제한다.</summary>
     public void Unequip(eEquipmentSlot slot)
     {
-        if (!_equipped.ContainsKey(slot))
-        {
-            Debug.LogWarning($"[EquipmentManager] Unequip: {slot} 슬롯에 착용된 장비가 없습니다.");
-            return;
-        }
+        if (!_equipped.ContainsKey(slot)) return;
 
         string removedName = _equipped[slot].baseData.equipmentName;
         _equipped.Remove(slot);
@@ -175,11 +167,7 @@ public class EquipmentManager
     /// </summary>
     public bool TryEnhance(EquipmentInstance instance)
     {
-        if (!CanEnhance(instance))
-        {
-            Debug.LogWarning("[EquipmentManager] 강화 불가: 최대 레벨 또는 재료 부족.");
-            return false;
-        }
+        if (!CanEnhance(instance)) return false;
 
         int materialCount = instance.GetMaterialCount();
         float successRate = instance.GetEnhanceSuccessRate();
@@ -235,33 +223,17 @@ public class EquipmentManager
     public EquipmentInstance TrySynthesize(List<EquipmentInstance> materials)
     {
         // ── 재료 유효성 검사 ──────────────────────────────────────
-        if (materials == null || materials.Count < SYNTHESIS_REQUIRED_COUNT)
-        {
-            Debug.LogWarning($"[EquipmentManager] 합성 실패: 재료가 {SYNTHESIS_REQUIRED_COUNT}개 미만입니다.");
-            return null;
-        }
+        if (materials == null || materials.Count < SYNTHESIS_REQUIRED_COUNT) return null;
 
         EquipmentData baseData = materials[0].baseData;
 
-        if (materials.Any(m => m.baseData != baseData))
-        {
-            Debug.LogWarning("[EquipmentManager] 합성 실패: 서로 다른 종류의 장비는 합성할 수 없습니다.");
-            return null;
-        }
+        if (materials.Any(m => m.baseData != baseData)) return null;
 
-        if (baseData.rarity == eEquipmentRarity.Epic)
-        {
-            Debug.LogWarning("[EquipmentManager] 합성 실패: Epic 등급은 합성할 수 없습니다.");
-            return null;
-        }
+        if (baseData.rarity == eEquipmentRarity.Epic) return null;
 
         foreach (var mat in materials)
         {
-            if (!_inventory.Items.Contains(mat))
-            {
-                Debug.LogWarning("[EquipmentManager] 합성 실패: 인벤토리에 없는 재료가 포함되어 있습니다.");
-                return null;
-            }
+            if (!_inventory.Items.Contains(mat)) return null;
         }
 
         // ── 재료 소모 ─────────────────────────────────────────────
@@ -284,11 +256,7 @@ public class EquipmentManager
         if (candidates.Count == 0)
             candidates = _database.GetEquipmentsByRarity(nextRarity);
 
-        if (candidates.Count == 0)
-        {
-            Debug.LogWarning($"[EquipmentManager] 합성 실패: {nextRarity} 등급 장비가 Database에 없습니다.");
-            return null;
-        }
+        if (candidates.Count == 0) return null;
 
         EquipmentData picked     = candidates[UnityEngine.Random.Range(0, candidates.Count)];
         EquipmentInstance result = new EquipmentInstance(picked);

@@ -238,6 +238,11 @@ namespace Scripts.Server.Auth
 				//Todo : 여기에서 Inventory와 SkillTree가 적용되어야함.
 				UserManager.Instance.SetInventoryData(inventory.Items);
 			}
+			if (datas.ContainsKey(key_jobTree))
+			{
+				List<JobTreeQuery> jobTrees = JsonConvert.DeserializeObject<List<JobTreeQuery>>(datas[key_jobTree].Value);
+				UserManager.Instance.SetJobTreeData(jobTrees);
+			}
 
 			UserManager.Instance.CreateUser(nickName, (eStage)currentStage, userdata, enhancement);
 			UserManager.Instance.SetCharacterData(characterData);

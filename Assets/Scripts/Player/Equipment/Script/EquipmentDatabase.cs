@@ -24,9 +24,7 @@ public class EquipmentDatabase : ScriptableObject
 
             // 같은 itemCode가 다른 에셋에 중복되면 경고, 첫 번째 등록 유지
             int code = data.itemCode;
-            if (_codeDict.TryGetValue(code, out EquipmentData conflict))
-                Debug.LogWarning($"[EquipmentDatabase] itemCode 충돌: 0x{code:X8} — '{conflict.equipmentName}' vs '{data.equipmentName}'");
-            else
+            if (!_codeDict.ContainsKey(code))
                 _codeDict.Add(code, data);
         }
     }
