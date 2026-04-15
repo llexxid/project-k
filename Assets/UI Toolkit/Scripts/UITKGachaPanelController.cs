@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 using KingdomIdle.Gacha;
+using KingdomIdle.MageTower;
 using Scripts.Core;
 
 namespace KingdomIdle.UIToolkit
@@ -258,6 +259,12 @@ namespace KingdomIdle.UIToolkit
                 Sprite displayIcon = entry.icon;
                 if (entry.rewardType == eGachaRewardType.Equipment && entry.equipmentData != null && entry.equipmentData.icon != null)
                     displayIcon = entry.equipmentData.icon;
+                else if (entry.rewardType == eGachaRewardType.Skill && displayIcon == null)
+                {
+                    var mtMgr = MageTowerManager.Instance;
+                    var so = mtMgr != null ? mtMgr.GetSkillById(entry.skillId) : null;
+                    if (so != null && so.icon != null) displayIcon = so.icon;
+                }
 
                 if (displayIcon != null)
                 {
@@ -270,6 +277,12 @@ namespace KingdomIdle.UIToolkit
                 string displayName = entry.nameKor;
                 if (entry.rewardType == eGachaRewardType.Equipment && entry.equipmentData != null)
                     displayName = string.IsNullOrEmpty(entry.nameKor) ? entry.equipmentData.equipmentName : entry.nameKor;
+                else if (entry.rewardType == eGachaRewardType.Skill && string.IsNullOrEmpty(displayName))
+                {
+                    var mtMgr = MageTowerManager.Instance;
+                    var so = mtMgr != null ? mtMgr.GetSkillById(entry.skillId) : null;
+                    if (so != null) displayName = !string.IsNullOrEmpty(so.nameKor) ? so.nameKor : so.nameEng;
+                }
 
                 var nameLbl = new Label(displayName);
                 nameLbl.AddToClassList("gacha-reward-name");

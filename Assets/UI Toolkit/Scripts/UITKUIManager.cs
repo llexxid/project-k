@@ -528,6 +528,12 @@ namespace KingdomIdle.UIToolkit
                 Sprite icon = entry.icon;
                 if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Equipment && entry.equipmentData != null && entry.equipmentData.icon != null)
                     icon = entry.equipmentData.icon;
+                else if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Skill && icon == null)
+                {
+                    var mtMgr = KingdomIdle.MageTower.MageTowerManager.Instance;
+                    var so = mtMgr != null ? mtMgr.GetSkillById(entry.skillId) : null;
+                    if (so != null && so.icon != null) icon = so.icon;
+                }
 
                 if (icon != null)
                 {
@@ -541,6 +547,12 @@ namespace KingdomIdle.UIToolkit
                 string displayName;
                 if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Equipment && entry.equipmentData != null)
                     displayName = entry.equipmentData.equipmentName;
+                else if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Skill && string.IsNullOrEmpty(entry.nameKor))
+                {
+                    var mtMgr = KingdomIdle.MageTower.MageTowerManager.Instance;
+                    var so = mtMgr != null ? mtMgr.GetSkillById(entry.skillId) : null;
+                    displayName = so != null && !string.IsNullOrEmpty(so.nameKor) ? so.nameKor : (so != null ? so.nameEng : "?");
+                }
                 else
                     displayName = string.IsNullOrEmpty(entry.nameKor) ? "?" : entry.nameKor;
 
@@ -832,11 +844,80 @@ namespace KingdomIdle.UIToolkit
         private void RegisterButtonClickSfx(VisualElement root)
         {
             if (_buttonClickSfx == null) return;
-            root.Query<Button>().ForEach(btn => btn.clicked += PlayButtonClickSfx);
+            root.Query<Button>().ForEach(btn =>
+            {
+                // 모바일 탭 핸들러가 이미 붙은 버튼은 자체적으로 SFX를 재생하므로 중복 방지
+                if (btn.ClassListContains("mobile-tap-custom")) return;
+                btn.clicked += PlayButtonClickSfx;
+            });
+        }
+
+        /// <summary>
+        /// 모바일 터치 친화적 탭 핸들러를 등록한다.
+        /// UI Toolkit 의 기본 Button.clicked(= Clickable 매니퓰레이터)는 손가락이 press 중 버튼 경계를 살짝 벗어나면
+        /// 클릭이 취소되는 이슈가 있어, PointerDown 시 포인터 캡처로 이를 보완한다.
+        /// 캡처된 포인터는 경계를 벗어나도 PointerUp 이벤트가 원 타겟으로 도달하므로,
+        /// "눌렀다 릴리즈" 의도가 있으면 바운스 여부와 관계없이 항상 onTap 이 호출된다.
+        /// 기존 Clickable 매니퓰레이터는 제거하고 커스텀 핸들러만 사용한다(중복 호출 방지).
+        /// </summary>
+        private void RegisterMobileTap(VisualElement target, Action onTap)
+        {
+            if (target == null || onTap == null) return;
+
+            // Button 의 기본 Clickable 제거 — 바운스 체크가 모바일에서 문제를 일으킴
+            if (target is Button btn && btn.clickable != null)
+            {
+                btn.RemoveManipulator(btn.clickable);
+                btn.clickable = null;
+            }
+
+            target.AddToClassList("mobile-tap-custom");
+
+            int activePointerId = -1;
+
+            target.RegisterCallback<PointerDownEvent>(evt =>
+            {
+                activePointerId = evt.pointerId;
+                target.CapturePointer(evt.pointerId);
+                target.AddToClassList("mobile-tap-pressed");
+                evt.StopPropagation();
+            });
+
+            target.RegisterCallback<PointerUpEvent>(evt =>
+            {
+                if (activePointerId != evt.pointerId) return;
+                int pid = activePointerId;
+                activePointerId = -1;
+                target.RemoveFromClassList("mobile-tap-pressed");
+
+                if (target.HasPointerCapture(pid))
+                    target.ReleasePointer(pid);
+
+                // 캡처된 포인터에서의 릴리즈는 항상 탭으로 간주
+                try { onTap.Invoke(); }
+                catch (Exception ex) { Debug.LogException(ex); }
+                PlayButtonClickSfx();
+                evt.StopPropagation();
+            });
+
+            target.RegisterCallback<PointerCaptureOutEvent>(_ =>
+            {
+                activePointerId = -1;
+                target.RemoveFromClassList("mobile-tap-pressed");
+            });
+
+            // 캔슬 계열(외부 가로챔/창 포커스 잃음) 대비
+            target.RegisterCallback<PointerLeaveEvent>(evt =>
+            {
+                // 포인터를 캡처했으면 leave 해도 상태 유지 (모바일 드래그 허용)
+                if (target.HasPointerCapture(evt.pointerId)) return;
+                target.RemoveFromClassList("mobile-tap-pressed");
+            });
         }
 
         public void PlayButtonClickSfx()
         {
+            if (_uiAudioSource == null || _buttonClickSfx == null) return;
             _uiAudioSource.PlayOneShot(_buttonClickSfx);
         }
 
@@ -858,11 +939,12 @@ namespace KingdomIdle.UIToolkit
             if (btnLogin != null && popupLogin != null)
             {
                 // 로그인 버튼: 팝업만 띄우고, 실제 인증은 게스트 버튼에서 호출
-                btnLogin.clicked += () =>
+                // 모바일 터치 안정성을 위해 RegisterMobileTap 사용
+                RegisterMobileTap(btnLogin, () =>
                 {
                     popupLogin.RemoveFromClassList("hidden");
                     popupLogin.BringToFront();
-                };
+                });
             }
 
             if (btnLoginClose != null && popupLogin != null)
@@ -875,24 +957,29 @@ namespace KingdomIdle.UIToolkit
             {
                 btnLoginGuest.clicked += () =>
                 {
-                    NetworkManager.Instance.AuthenticateTest();
+                    if (NetworkManager.Instance != null)
+                        NetworkManager.Instance.AuthenticateTest();
+                    else
+                        ShowToast("네트워크가 초기화되지 않았습니다.");
                     popupLogin.AddToClassList("hidden");
-                    //LoadMainOnce();
                 };
             }
             // ── [Login 끝] ──
 
             // 구글/애플 로그인은 아직 미지원 — 토스트로 안내
-            if (btnLoginGoogle != null)
+            if (btnLoginGoogle != null && popupLogin != null)
             {
-				btnLoginGoogle.clicked += () =>
-				{
+                btnLoginGoogle.clicked += () =>
+                {
                     Debug.Log("[Option] Clicked");
-					NetworkManager.Instance.Authenticate(Scripts.Server.Auth.eAuthType.GoogleWebLogin);
-					popupLogin.AddToClassList("hidden");
-				};
-			}
-                
+                    if (NetworkManager.Instance != null)
+                        NetworkManager.Instance.Authenticate(Scripts.Server.Auth.eAuthType.GoogleWebLogin);
+                    else
+                        ShowToast("네트워크가 초기화되지 않았습니다.");
+                    popupLogin.AddToClassList("hidden");
+                };
+            }
+
             if (btnLoginApple != null)
                 btnLoginApple.clicked += () => ShowToast("Apple 로그인은 준비 중입니다.");
 
@@ -906,10 +993,25 @@ namespace KingdomIdle.UIToolkit
                 bgCatcher.pickingMode = PickingMode.Position;
                 bgCatcher.RegisterCallback<PointerUpEvent>(_ =>
                 {
+                    // 팝업이 열려있으면 팝업 자체 핸들러가 처리하므로 무시
                     if (popupLogin != null && !popupLogin.ClassListContains("hidden"))
                     {
-						return;
-					}                    
+                        return;
+                    }
+
+                    // 인증되지 않은 상태에서 "아무데나 탭" 으로 메인 씬 진입을 허용하면
+                    // null(익명) 계정으로 로그인되어버리는 문제가 발생한다.
+                    // → 세션이 없으면 메인 진입을 차단하고 로그인 팝업을 띄운다.
+                    if (!IsAuthenticatedSession())
+                    {
+                        if (popupLogin != null)
+                        {
+                            popupLogin.RemoveFromClassList("hidden");
+                            popupLogin.BringToFront();
+                        }
+                        return;
+                    }
+
                     LoadMainOnce();
                 }, TrickleDown.TrickleDown);
             }
@@ -1208,10 +1310,22 @@ namespace KingdomIdle.UIToolkit
 				Debug.Log($"Request Scene is true : {_requestedScene}");
 				return;
 			}
-                
+
             _requestedScene = true;
             if (GameManager.Instance != null)
                 GameManager.Instance.LoadAsyncScene(eSceneType.main);
+        }
+
+        /// <summary>
+        /// PlayFab 인증(세션 발급)이 완료되었는지 확인.
+        /// 타이틀 화면에서 bgCatcher 로 바로 메인 씬에 진입하는 것을 차단할 때 사용.
+        /// </summary>
+        private static bool IsAuthenticatedSession()
+        {
+            var net = NetworkManager.Instance;
+            if (net == null) return false;
+            string sid = net.GetSessionID();
+            return !string.IsNullOrEmpty(sid);
         }
 
         private static bool IsInside(VisualElement target, VisualElement container)
