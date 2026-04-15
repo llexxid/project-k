@@ -468,6 +468,12 @@ namespace KingdomIdle.UIToolkit
         {
             CloseGachaResultPopup();
 
+            if (results == null || results.Count == 0)
+            {
+                ShowToast("뽑기 결과가 없습니다.");
+                return;
+            }
+
             _gachaResultOverlay = new VisualElement();
             _gachaResultOverlay.name = "GachaResultOverlay";
             ForceFullScreen(_gachaResultOverlay);
@@ -477,52 +483,46 @@ namespace KingdomIdle.UIToolkit
             // 팝업 본체
             var popup = new VisualElement();
             popup.AddToClassList("gacha-result-popup");
+            popup.pickingMode = PickingMode.Position;
 
-            popup.Add(new Label("뽑기 결과") { name = "GachaResultTitle" });
-            popup.Q<Label>("GachaResultTitle")?.AddToClassList("gacha-result-title");
+            // 최고 등급 계산 (제목 강조용)
+            var bestRarity = ComputeBestRarity(results);
+            string titleText = BuildTitleText(bestRarity);
 
-            // 결과 아이템 그리드
+            var titleLbl = new Label(titleText) { name = "GachaResultTitle" };
+            titleLbl.AddToClassList("gacha-result-title");
+            if (bestRarity.HasValue)
+                titleLbl.AddToClassList($"gacha-result-title-{bestRarity.Value.ToString().ToLower()}");
+            popup.Add(titleLbl);
+
+            // 결과 아이템 그리드 (Epic → Rare → Normal → Skill → Currency 순 정렬)
             var grid = new VisualElement();
             grid.AddToClassList("gacha-result-grid");
 
             // 아이템별 합산 (같은 보상은 수량 합산)
-            var merged = new List<(KingdomIdle.Gacha.GachaRewardEntry entry, int count)>();
-            foreach (var r in results)
+            var merged = MergeResults(results);
+            merged.Sort(CompareResultEntries);
+
+            foreach (var m in merged)
             {
-                string key = r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Equipment && r.equipmentData != null
-                    ? $"equip_{r.equipmentData.GetInstanceID()}"
-                    : $"{r.rewardType}_{r.nameKor}_{r.currency}";
+                var entry = m.entry;
+                int count = m.count;
 
-                bool found = false;
-                for (int i = 0; i < merged.Count; i++)
-                {
-                    string mKey = merged[i].entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Equipment && merged[i].entry.equipmentData != null
-                        ? $"equip_{merged[i].entry.equipmentData.GetInstanceID()}"
-                        : $"{merged[i].entry.rewardType}_{merged[i].entry.nameKor}_{merged[i].entry.currency}";
-
-                    if (mKey == key)
-                    {
-                        int amt = r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency ? r.amount : 1;
-                        merged[i] = (merged[i].entry, merged[i].count + amt);
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found)
-                {
-                    int amt = r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency ? r.amount : 1;
-                    merged.Add((r, amt));
-                }
-            }
-
-            foreach (var (entry, count) in merged)
-            {
                 var card = new VisualElement();
                 card.AddToClassList("gacha-result-card");
 
                 // 등급 테두리
                 if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Equipment && entry.equipmentData != null)
+                {
                     card.AddToClassList($"gacha-rarity-{entry.equipmentData.rarity.ToString().ToLower()}");
+
+                    // 최고 등급 카드 강조
+                    if (bestRarity.HasValue && entry.equipmentData.rarity == bestRarity.Value
+                        && bestRarity.Value == eEquipmentRarity.Epic)
+                    {
+                        card.AddToClassList("gacha-result-card-best");
+                    }
+                }
 
                 // 아이콘
                 Sprite icon = entry.icon;
@@ -542,7 +542,7 @@ namespace KingdomIdle.UIToolkit
                 if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Equipment && entry.equipmentData != null)
                     displayName = entry.equipmentData.equipmentName;
                 else
-                    displayName = entry.nameKor;
+                    displayName = string.IsNullOrEmpty(entry.nameKor) ? "?" : entry.nameKor;
 
                 var nameLbl = new Label(displayName);
                 nameLbl.AddToClassList("gacha-result-name");
@@ -563,7 +563,7 @@ namespace KingdomIdle.UIToolkit
 
             _gachaResultOverlay.Add(popup);
 
-            // 하단 버튼들 (팝업 하단 가장자리에 겹치는 위치)
+            // 하단 버튼 행
             var btnRow = new VisualElement();
             btnRow.AddToClassList("gacha-result-btn-row");
 
@@ -575,11 +575,7 @@ namespace KingdomIdle.UIToolkit
             btnRow.Add(doneBtn);
 
             // 다시 뽑기 x1
-            var rePull1Btn = new Button(() =>
-            {
-                CloseGachaResultPopup();
-                UITKGachaPanelController.PullAndShowResult(table, 1);
-            });
+            var rePull1Btn = new Button(() => HandleRePull(table, 1));
             rePull1Btn.text = "다시 뽑기 x1";
             rePull1Btn.AddToClassList("gacha-result-btn");
             btnRow.Add(rePull1Btn);
@@ -587,20 +583,143 @@ namespace KingdomIdle.UIToolkit
             // 다시 뽑기 xN (마지막 뽑기 수량)
             if (lastPullCount > 1)
             {
-                var rePullNBtn = new Button(() =>
-                {
-                    CloseGachaResultPopup();
-                    UITKGachaPanelController.PullAndShowResult(table, lastPullCount);
-                });
+                var rePullNBtn = new Button(() => HandleRePull(table, lastPullCount));
                 rePullNBtn.text = $"다시 뽑기 x{lastPullCount}";
                 rePullNBtn.AddToClassList("gacha-result-btn");
                 btnRow.Add(rePullNBtn);
+            }
+
+            // 진행 중이면 다시뽑기 버튼 비활성
+            var mgr = KingdomIdle.Gacha.GachaManager.Instance;
+            if (mgr != null && mgr.IsPulling)
+            {
+                rePull1Btn.SetEnabled(false);
+                rePull1Btn.AddToClassList("gacha-result-btn-disabled");
+                for (int i = 0; i < btnRow.childCount; i++)
+                {
+                    if (btnRow[i] is Button b && b != doneBtn && b != rePull1Btn)
+                    {
+                        b.SetEnabled(false);
+                        b.AddToClassList("gacha-result-btn-disabled");
+                    }
+                }
             }
 
             popup.Add(btnRow);
 
             _layerOverlays.Add(_gachaResultOverlay);
             _gachaResultOverlay.BringToFront();
+        }
+
+        private void HandleRePull(KingdomIdle.Gacha.GachaTableSO table, int count)
+        {
+            var mgr = KingdomIdle.Gacha.GachaManager.Instance;
+            if (mgr != null && mgr.IsPulling)
+            {
+                ShowToast("이미 뽑기가 진행 중입니다.");
+                return;
+            }
+            if (table == null) return;
+
+            CloseGachaResultPopup();
+            UITKGachaPanelController.PullAndShowResult(table, count);
+        }
+
+        private static List<(KingdomIdle.Gacha.GachaRewardEntry entry, int count)> MergeResults(
+            List<KingdomIdle.Gacha.GachaRewardEntry> results)
+        {
+            var merged = new List<(KingdomIdle.Gacha.GachaRewardEntry entry, int count)>();
+            if (results == null) return merged;
+
+            foreach (var r in results)
+            {
+                if (r == null) continue;
+                string key = MakeMergeKey(r);
+
+                bool found = false;
+                for (int i = 0; i < merged.Count; i++)
+                {
+                    if (MakeMergeKey(merged[i].entry) == key)
+                    {
+                        int amt = r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency
+                                    ? Mathf.Max(1, r.amount) : 1;
+                        merged[i] = (merged[i].entry, merged[i].count + amt);
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                {
+                    int amt = r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency
+                                ? Mathf.Max(1, r.amount) : 1;
+                    merged.Add((r, amt));
+                }
+            }
+            return merged;
+        }
+
+        private static string MakeMergeKey(KingdomIdle.Gacha.GachaRewardEntry r)
+        {
+            if (r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Equipment && r.equipmentData != null)
+                return $"equip_{r.equipmentData.GetInstanceID()}";
+            if (r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Skill)
+                return $"skill_{r.skillId}";
+            if (r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency)
+                return $"currency_{r.currency}";
+            return $"other_{r.nameKor}";
+        }
+
+        private static int CompareResultEntries(
+            (KingdomIdle.Gacha.GachaRewardEntry entry, int count) a,
+            (KingdomIdle.Gacha.GachaRewardEntry entry, int count) b)
+        {
+            int ra = GetResultSortRank(a.entry);
+            int rb = GetResultSortRank(b.entry);
+            return ra != rb ? ra - rb : 0;
+        }
+
+        private static int GetResultSortRank(KingdomIdle.Gacha.GachaRewardEntry e)
+        {
+            if (e == null) return 999;
+            if (e.rewardType == KingdomIdle.Gacha.eGachaRewardType.Equipment && e.equipmentData != null)
+            {
+                switch (e.equipmentData.rarity)
+                {
+                    case eEquipmentRarity.Epic:   return 0;
+                    case eEquipmentRarity.Rare:   return 1;
+                    case eEquipmentRarity.Normal: return 2;
+                }
+            }
+            if (e.rewardType == KingdomIdle.Gacha.eGachaRewardType.Skill)    return 3;
+            if (e.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency) return 4;
+            return 5;
+        }
+
+        private static eEquipmentRarity? ComputeBestRarity(List<KingdomIdle.Gacha.GachaRewardEntry> results)
+        {
+            eEquipmentRarity? best = null;
+            foreach (var r in results)
+            {
+                if (r == null) continue;
+                if (r.rewardType != KingdomIdle.Gacha.eGachaRewardType.Equipment) continue;
+                if (r.equipmentData == null) continue;
+
+                var rar = r.equipmentData.rarity;
+                if (!best.HasValue || (int)rar > (int)best.Value)
+                    best = rar;
+            }
+            return best;
+        }
+
+        private static string BuildTitleText(eEquipmentRarity? best)
+        {
+            if (!best.HasValue) return "뽑기 결과";
+            switch (best.Value)
+            {
+                case eEquipmentRarity.Epic: return "뽑기 결과 — 에픽 획득!";
+                case eEquipmentRarity.Rare: return "뽑기 결과 — 레어 획득!";
+                default:                    return "뽑기 결과";
+            }
         }
 
         public void CloseGachaResultPopup()

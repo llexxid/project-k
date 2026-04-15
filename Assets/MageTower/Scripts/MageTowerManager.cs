@@ -149,10 +149,13 @@ namespace KingdomIdle.MageTower
 
         public void AddFragments(int skillId, int amount)
         {
+            if (amount == 0) return;
             if (!_fragments.ContainsKey(skillId))
                 _fragments[skillId] = 0;
             _fragments[skillId] += amount;
             Save();
+            // 가챠로 파편 획득 시 열려있는 마탑 UI가 즉시 갱신되도록 통지
+            OnStateChanged?.Invoke();
         }
 
         public int GetTotalAKSpent(int skillId) =>

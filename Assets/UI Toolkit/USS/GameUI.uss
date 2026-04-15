@@ -1458,6 +1458,45 @@
     color: rgba(255, 255, 255, 0.4);
 }
 
+/* ── 확률 요약 필(pill) 행 ── */
+.gacha-rate-row {
+    flex-direction: row;
+    gap: 8px;
+    margin-bottom: 14px;
+    justify-content: flex-start;
+}
+
+.gacha-rate-pill {
+    padding: 6px 14px;
+    border-radius: 14px;
+    background-color: rgba(255, 255, 255, 0.06);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-color: rgba(255, 255, 255, 0.12);
+    align-items: center;
+    justify-content: center;
+}
+
+.gacha-rate-pill-label {
+    font-size: 20px;
+    -unity-font-style: bold;
+    color: rgba(255, 255, 255, 0.9);
+    -unity-text-align: middle-center;
+}
+
+.gacha-rate-pill-normal {
+    border-color: rgba(180, 180, 180, 0.7);
+}
+.gacha-rate-pill-rare {
+    border-color: rgba(100, 160, 255, 0.9);
+}
+.gacha-rate-pill-epic {
+    border-color: rgba(200, 100, 255, 0.95);
+    background-color: rgba(180, 80, 255, 0.12);
+}
+
 .gacha-section-title {
     font-size: 26px;
     -unity-font-style: bold;
@@ -2346,6 +2385,28 @@
 
 .gacha-result-btn-done {
     background-color: rgba(100, 100, 100, 0.7);
+}
+
+.gacha-result-btn-disabled {
+    background-color: rgba(80, 80, 90, 0.5);
+    color: rgba(255, 255, 255, 0.35);
+}
+
+/* 최고 등급(Epic) 카드 강조 — 배경 글로우 */
+.gacha-result-card-best {
+    background-color: rgba(180, 80, 255, 0.22);
+    border-color: rgba(230, 150, 255, 1);
+}
+
+/* 최고 등급별 제목 색상 */
+.gacha-result-title-epic {
+    color: rgba(220, 140, 255, 1);
+}
+.gacha-result-title-rare {
+    color: rgba(120, 180, 255, 1);
+}
+.gacha-result-title-normal {
+    color: rgba(220, 220, 220, 1);
 }
 
 /* ===== 장비 액션 팝업 ===== */

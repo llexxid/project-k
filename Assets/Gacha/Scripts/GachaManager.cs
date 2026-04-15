@@ -15,6 +15,14 @@ namespace KingdomIdle.Gacha
     using ItemCode = Scripts.Server.DTO.ItemCode;
     using SkillCode = Scripts.Server.DTO.SkillCode;
 
+    /// <summary>
+    /// 가챠 매니저.
+    /// - ClassFragment / ArcaneKnowledge 통화 → PlayFab CloudScript 서버 가챠
+    /// - 그 외(Gold 등 테스트용) → 클라이언트 가중 롤
+    /// - 낙관적 재화 차감 후 서버 오류 시 자동 롤백
+    /// - In-flight 락으로 중복 요청 차단
+    /// - OnPullStateChanged 이벤트로 UI(버튼 활성/비활성) 동기화
+    /// </summary>
     public class GachaManager : MonoBehaviour
     {
         public static GachaManager Instance { get; private set; }
@@ -22,6 +30,13 @@ namespace KingdomIdle.Gacha
         [SerializeField] private List<GachaTableSO> gachaTables = new List<GachaTableSO>();
 
         public IReadOnlyList<GachaTableSO> GetAllTables() => gachaTables;
+
+        // ── In-flight 락 ───────────────────────────────────────────────
+        private bool _isPulling;
+        public bool IsPulling => _isPulling;
+
+        /// <summary>풀 시작/완료 시 호출. UI 버튼 활성 여부 동기화에 사용.</summary>
+        public event Action<bool> OnPullStateChanged;
 
         private void Awake()
         {
@@ -39,6 +54,8 @@ namespace KingdomIdle.Gacha
             if (Instance == this) Instance = null;
         }
 
+        // ── 사전 검사 ──────────────────────────────────────────────────
+
         public bool CanPull(GachaTableSO table)
         {
             if (table == null || !table.isImplemented) return false;
@@ -53,7 +70,7 @@ namespace KingdomIdle.Gacha
         {
             if (table == null || !table.isImplemented || count <= 0) return false;
             EconomyBridge.TryGetAmount(table.costCurrency, out long cur);
-            return cur >= table.costAmount * count;
+            return cur >= (long)table.costAmount * count;
         }
 
         /// <summary>
@@ -65,17 +82,38 @@ namespace KingdomIdle.Gacha
             (table.costCurrency == eCurrency.ClassFragment ||
              table.costCurrency == eCurrency.ArcaneKnowledge);
 
+        // ── 퍼블릭 진입점 ─────────────────────────────────────────────
+
         /// <summary>
-        /// 다중 뽑기(비동기). 서버 응답을 받아 콜백으로 결과 전달.
+        /// 가챠 요청(비동기). 서버 응답을 받아 콜백으로 결과 전달.
         /// 서버 에러 시 차감된 재화를 롤백한다.
+        /// 이미 진행 중인 요청이 있으면 중복 실행을 방지한다.
         /// </summary>
         public void TryPull(GachaTableSO table, int count,
                             Action<List<GachaRewardEntry>> onSuccess,
                             Action<string> onError)
         {
-            if (table == null || !table.isImplemented || count <= 0)
+            if (_isPulling)
             {
-                onError?.Invoke("invalid");
+                onError?.Invoke("이미 뽑기가 진행 중입니다.");
+                return;
+            }
+
+            if (table == null)
+            {
+                onError?.Invoke("뽑기 테이블이 유효하지 않습니다.");
+                return;
+            }
+
+            if (!table.isImplemented)
+            {
+                onError?.Invoke("미구현 기능입니다.");
+                return;
+            }
+
+            if (count <= 0)
+            {
+                onError?.Invoke("뽑기 횟수가 잘못되었습니다.");
                 return;
             }
 
@@ -87,7 +125,15 @@ namespace KingdomIdle.Gacha
                 return;
             }
 
-            // 낙관적 차감: 서버 오류 시 롤백
+            // 서버 가챠는 세션이 확립되어야 가능
+            if (IsServerBacked(table) && !IsNetworkReady())
+            {
+                onError?.Invoke("네트워크 세션이 준비되지 않았습니다.");
+                return;
+            }
+
+            // 락 설정 + 낙관적 차감
+            SetPulling(true);
             EconomyBridge.Add(table.costCurrency, -totalCost);
 
             if (IsServerBacked(table))
@@ -99,15 +145,48 @@ namespace KingdomIdle.Gacha
                 var results = RollClient(table, count);
                 if (results == null || results.Count == 0)
                 {
-                    EconomyBridge.Add(table.costCurrency, totalCost); // 롤백
-                    onError?.Invoke("뽑기에 실패했습니다.");
+                    FailWithRefund(table, totalCost, "뽑기에 실패했습니다.", onError);
                     return;
                 }
-                onSuccess?.Invoke(results);
+                CompleteSuccess(results, onSuccess);
             }
         }
 
-        // ===== 서버 가챠 =====
+        // ── 내부 상태 ──────────────────────────────────────────────────
+
+        private void SetPulling(bool v)
+        {
+            if (_isPulling == v) return;
+            _isPulling = v;
+            OnPullStateChanged?.Invoke(v);
+        }
+
+        private void CompleteSuccess(List<GachaRewardEntry> results,
+                                     Action<List<GachaRewardEntry>> onSuccess)
+        {
+            SetPulling(false);
+            onSuccess?.Invoke(results);
+        }
+
+        private void FailWithRefund(GachaTableSO table, int refundAmount,
+                                    string message, Action<string> onError)
+        {
+            if (refundAmount > 0 && table != null)
+                EconomyBridge.Add(table.costCurrency, refundAmount);
+            SetPulling(false);
+            Debug.LogWarning($"[GachaManager] 실패: {message}");
+            onError?.Invoke(message);
+        }
+
+        private static bool IsNetworkReady()
+        {
+            var net = NetworkManager.Instance;
+            if (net == null) return false;
+            string sid = net.GetSessionID();
+            return !string.IsNullOrEmpty(sid);
+        }
+
+        // ── 서버 가챠 ──────────────────────────────────────────────────
 
         private void RequestServerPull(GachaTableSO table, int count, int refundAmount,
                                        Action<List<GachaRewardEntry>> onSuccess,
@@ -116,8 +195,7 @@ namespace KingdomIdle.Gacha
             var net = NetworkManager.Instance;
             if (net == null)
             {
-                EconomyBridge.Add(table.costCurrency, refundAmount);
-                onError?.Invoke("네트워크가 초기화되지 않았습니다.");
+                FailWithRefund(table, refundAmount, "네트워크가 초기화되지 않았습니다.", onError);
                 return;
             }
 
@@ -135,8 +213,7 @@ namespace KingdomIdle.Gacha
             }
             else
             {
-                EconomyBridge.Add(table.costCurrency, refundAmount);
-                onError?.Invoke("지원하지 않는 재화입니다.");
+                FailWithRefund(table, refundAmount, "지원하지 않는 재화입니다.", onError);
             }
         }
 
@@ -145,6 +222,12 @@ namespace KingdomIdle.Gacha
                                              Action<string> onError,
                                              GachaTableSO table, int refundAmount)
         {
+            if (result == null || result.FunctionResult == null)
+            {
+                FailWithRefund(table, refundAmount, "서버 응답이 비어있습니다.", onError);
+                return;
+            }
+
             OnGachaEquipmentClassFragmentResponseDTO dto;
             try
             {
@@ -153,33 +236,31 @@ namespace KingdomIdle.Gacha
             }
             catch (Exception ex)
             {
-                EconomyBridge.Add(table.costCurrency, refundAmount);
-                onError?.Invoke($"응답 파싱 실패: {ex.Message}");
+                FailWithRefund(table, refundAmount, $"응답 파싱 실패: {ex.Message}", onError);
                 return;
             }
 
             if (dto?.GachaList == null || dto.GachaList.Count == 0)
             {
-                EconomyBridge.Add(table.costCurrency, refundAmount);
-                onError?.Invoke("서버에서 보상을 받지 못했습니다.");
+                FailWithRefund(table, refundAmount, "서버에서 보상을 받지 못했습니다.", onError);
                 return;
             }
 
             var equipDB = KingdomArmyManager.Instance?.EquipDB;
             if (equipDB == null)
             {
-                Debug.LogWarning("[GachaManager] EquipmentDatabase 없음 - 보상 지급 불가");
-                onError?.Invoke("장비 데이터베이스가 없습니다.");
+                FailWithRefund(table, refundAmount, "장비 데이터베이스가 없습니다.", onError);
                 return;
             }
 
             var results = new List<GachaRewardEntry>(dto.GachaList.Count);
             foreach (var itemCode in dto.GachaList)
             {
-                EquipmentData data = equipDB.GetEquipmentByCode((int)itemCode.GetItemCode());
+                int code = (int)itemCode.GetItemCode();
+                EquipmentData data = equipDB.GetEquipmentByCode(code);
                 if (data == null)
                 {
-                    Debug.LogWarning($"[GachaManager] itemCode {itemCode.GetItemCode()} 에 해당하는 장비 없음");
+                    Debug.LogWarning($"[GachaManager] itemCode 0x{code:X8} 에 해당하는 장비 없음 — 건너뜀");
                     continue;
                 }
 
@@ -197,11 +278,15 @@ namespace KingdomIdle.Gacha
 
             if (results.Count == 0)
             {
-                onError?.Invoke("유효한 보상이 없습니다.");
+                // 차감은 유지(서버는 이미 보상을 기록함) — 단, UI 가 빈 결과를 표시하지 않도록 에러로 처리.
+                // 재화 롤백은 하지 않는다(서버/클라 상태 불일치 방지).
+                SetPulling(false);
+                Debug.LogWarning("[GachaManager] 서버는 보상을 내려줬으나 클라이언트에서 해석 가능한 항목이 없습니다.");
+                onError?.Invoke("보상 데이터가 올바르지 않습니다. 관리자에게 문의해주세요.");
                 return;
             }
 
-            onSuccess?.Invoke(results);
+            CompleteSuccess(results, onSuccess);
         }
 
         private void HandleSkillResponse(ExecuteFunctionResult result,
@@ -209,6 +294,12 @@ namespace KingdomIdle.Gacha
                                          Action<string> onError,
                                          GachaTableSO table, int refundAmount)
         {
+            if (result == null || result.FunctionResult == null)
+            {
+                FailWithRefund(table, refundAmount, "서버 응답이 비어있습니다.", onError);
+                return;
+            }
+
             OnGachaSkillArcaneKnowledgeResponseDTO dto;
             try
             {
@@ -217,61 +308,68 @@ namespace KingdomIdle.Gacha
             }
             catch (Exception ex)
             {
-                EconomyBridge.Add(table.costCurrency, refundAmount);
-                onError?.Invoke($"응답 파싱 실패: {ex.Message}");
+                FailWithRefund(table, refundAmount, $"응답 파싱 실패: {ex.Message}", onError);
                 return;
             }
 
             if (dto?.GachaList == null || dto.GachaList.Count == 0)
             {
-                EconomyBridge.Add(table.costCurrency, refundAmount);
-                onError?.Invoke("서버에서 보상을 받지 못했습니다.");
+                FailWithRefund(table, refundAmount, "서버에서 보상을 받지 못했습니다.", onError);
                 return;
             }
 
             var mtMgr = MageTowerManager.Instance;
+            if (mtMgr == null)
+            {
+                FailWithRefund(table, refundAmount, "마탑 매니저가 없습니다.", onError);
+                return;
+            }
+
             var results = new List<GachaRewardEntry>(dto.GachaList.Count);
 
             foreach (var skillCode in dto.GachaList)
             {
                 int skillId = (int)skillCode.GetSkillId();
-                var so = mtMgr != null ? mtMgr.GetSkillById(skillId) : null;
+                var so = mtMgr.GetSkillById(skillId);
+                if (so == null)
+                {
+                    Debug.LogWarning($"[GachaManager] skillId {skillId} 에 해당하는 MageTowerSkillSO 없음 — 건너뜀");
+                    continue;
+                }
 
                 var entry = new GachaRewardEntry
                 {
                     rewardType = eGachaRewardType.Skill,
                     skillId    = skillId,
                     amount     = 1,
-                    nameKor    = so != null ? so.nameKor : $"Skill #{skillId}",
-                    icon       = so != null ? so.icon : null,
+                    nameKor    = so.nameKor,
+                    icon       = so.icon,
                 };
 
-                if (mtMgr != null)
-                    mtMgr.AddFragments(skillId, 1);
-
+                mtMgr.AddFragments(skillId, 1);
                 results.Add(entry);
             }
 
             if (results.Count == 0)
             {
-                onError?.Invoke("유효한 보상이 없습니다.");
+                SetPulling(false);
+                Debug.LogWarning("[GachaManager] 서버는 스킬 보상을 내려줬으나 클라이언트에서 해석 가능한 스킬이 없습니다.");
+                onError?.Invoke("스킬 데이터가 올바르지 않습니다. 관리자에게 문의해주세요.");
                 return;
             }
 
-            onSuccess?.Invoke(results);
+            CompleteSuccess(results, onSuccess);
         }
 
         private void HandleServerError(PlayFab.PlayFabError error,
                                        Action<string> onError,
                                        GachaTableSO table, int refundAmount)
         {
-            EconomyBridge.Add(table.costCurrency, refundAmount);
             string msg = error != null ? error.ErrorMessage : "알 수 없는 서버 오류";
-            Debug.LogWarning($"[GachaManager] 서버 가챠 실패: {msg}");
-            onError?.Invoke(msg);
+            FailWithRefund(table, refundAmount, $"서버 오류: {msg}", onError);
         }
 
-        // ===== 클라이언트 롤(테스트/비서버 통화용) =====
+        // ── 클라이언트 롤 (테스트/비서버 통화용) ──────────────────────
 
         private List<GachaRewardEntry> RollClient(GachaTableSO table, int count)
         {
