@@ -2,6 +2,7 @@ using UnityEngine;
 using System;
 using System.Collections.Generic;
 using Scripts.Users;
+using Scripts.Core;
 
 public class ChangeJob : MonoBehaviour
 {
@@ -44,7 +45,22 @@ public class ChangeJob : MonoBehaviour
         _unlockedJobs.Add(0);
         SaveUnlockedJobs();
 
-        ApplyJobByIndex(_currentJobIndex);
+        //ApplyJobByIndex(_currentJobIndex);
+    }
+
+    public void ChangeJobByCode(ulong jobCode)
+    {
+        switch ((eJobCode)jobCode)
+        {
+            case eJobCode.Mage:        ChangeJobByName("Mage");        break;
+            case eJobCode.Archer:      ChangeJobByName("Archer");      break;
+            case eJobCode.Knight:      ChangeJobByName("Knight");      break;
+            case eJobCode.EliteMage:   ChangeJobByName("Elite_Mage");  break;
+            case eJobCode.EliteKnight: ChangeJobByName("Elite_Knight");break;
+            case eJobCode.EliteArcher: ChangeJobByName("Elite_Archer");break;
+            case eJobCode.Spearman:
+            default:                   ChangeJobByName("Spearman");    break;
+        }
     }
 
     public void ChangeJobByName(string jobName)
