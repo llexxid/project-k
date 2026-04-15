@@ -84,6 +84,9 @@ namespace KingdomIdle.UIToolkit
         private bool _hasActiveTabPanel;
         private UIPanelId _activeTabPanelId;
 
+        // 탭 버튼(하단 메뉴) 선택 상태 시각화용 (버튼 → 패널 ID 매핑)
+        private readonly Dictionary<Button, UIPanelId> _tabButtons = new();
+
         private VisualElement _bottomBar;
         private float _bottomBarHeightPx = 190f;
 
@@ -323,6 +326,7 @@ namespace KingdomIdle.UIToolkit
             _layerPanels.Clear();
             _hasActiveTabPanel = false;
             _activeTabPanelId = default;
+            RefreshTabButtonSelection();
         }
 
         public void SetLoading(bool visible, string message = "Loading...")
@@ -523,6 +527,12 @@ namespace KingdomIdle.UIToolkit
                         card.AddToClassList("gacha-result-card-best");
                     }
                 }
+                else if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency
+                         && entry.currency == eCurrency.ClassFragment)
+                {
+                    // 전직 파편 전용 테두리/배경 (GameUI.uss 에 정의됨)
+                    card.AddToClassList("gacha-rarity-classfragment");
+                }
 
                 // 아이콘
                 Sprite icon = entry.icon;
@@ -541,6 +551,16 @@ namespace KingdomIdle.UIToolkit
                     iconVe.AddToClassList("gacha-result-icon");
                     iconVe.style.backgroundImage = new StyleBackground(icon);
                     card.Add(iconVe);
+                }
+                else if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency
+                         && entry.currency == eCurrency.ClassFragment)
+                {
+                    // 아이콘 에셋이 없어도 파편 카드가 빈 면으로 보이지 않도록
+                    // 텍스트 기반 플레이스홀더를 표시한다.
+                    var placeholder = new Label("전직 파편");
+                    placeholder.AddToClassList("gacha-result-icon");
+                    placeholder.AddToClassList("gacha-rarity-text-classfragment");
+                    card.Add(placeholder);
                 }
 
                 // 이름
@@ -1084,16 +1104,14 @@ namespace KingdomIdle.UIToolkit
 
             try
             {
-                var btnDev = root.Q<Button>("BtnDevelopment");
-                var btnArmy = root.Q<Button>("BtnKingdomArmy");
+                _tabButtons.Clear();
+                var btnDev   = root.Q<Button>("BtnDevelopment");
+                var btnArmy  = root.Q<Button>("BtnKingdomArmy");
                 var btnGacha = root.Q<Button>("BtnGacha");
-                var btnStore = root.Q<Button>("BtnStore");
-                var btnDungeon = root.Q<Button>("BtnDungeon");
-                BindTab(btnDev, UIPanelId.Development, "developmentPanel");
-                BindTab(btnArmy, UIPanelId.KingdomArmy, "kingdomArmyPanel");
-                BindTab(btnGacha, UIPanelId.Gacha, "gachaPanel");
-                BindTab(btnStore, UIPanelId.Store, "storePanel");
-                BindTab(btnDungeon, UIPanelId.Dungeon, "dungeonPanel");
+                BindTab(btnDev,   UIPanelId.Development, "developmentPanel");
+                BindTab(btnArmy,  UIPanelId.KingdomArmy, "kingdomArmyPanel");
+                BindTab(btnGacha, UIPanelId.Gacha,       "gachaPanel");
+                RefreshTabButtonSelection();
             }
             catch (System.Exception ex) { Debug.LogError($"BindMain.Tabs failed: {ex}"); }
 
@@ -1224,6 +1242,26 @@ namespace KingdomIdle.UIToolkit
         {
             if (btn == null) return;
             btn.clicked += () => OnTabPressed(panelId, panelName);
+
+            // 선택 상태 시각화를 위해 (버튼, 패널 ID) 매핑을 저장한다.
+            _tabButtons[btn] = panelId;
+        }
+
+        /// <summary>
+        /// 현재 활성 탭 버튼에 `tab-btn-selected` CSS 클래스를 적용하고
+        /// 다른 탭에서는 제거한다. USS 에서 이 클래스로 강조 효과를 준다.
+        /// </summary>
+        private void RefreshTabButtonSelection()
+        {
+            foreach (var kv in _tabButtons)
+            {
+                if (kv.Key == null) continue;
+                bool isSelected = _hasActiveTabPanel && _activeTabPanelId.Equals(kv.Value);
+                if (isSelected)
+                    kv.Key.AddToClassList("tab-btn-selected");
+                else
+                    kv.Key.RemoveFromClassList("tab-btn-selected");
+            }
         }
 
         private void OnTabPressed(UIPanelId panelId, object panelName)
@@ -1313,9 +1351,11 @@ namespace KingdomIdle.UIToolkit
                 {
                     _hasActiveTabPanel = true;
                     _activeTabPanelId = entry.Id;
-                    return;
+                    break;
                 }
             }
+
+            RefreshTabButtonSelection();
         }
 
         private void LoadMainOnce()

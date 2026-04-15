@@ -50,11 +50,29 @@
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="BottomBar" class="bottom-bar">
-            <ui:Button name="BtnDevelopment" text="육성" class="tab-btn" />
-            <ui:Button name="BtnKingdomArmy" text="왕국군" class="tab-btn" />
-            <ui:Button name="BtnGacha" text="뽑기" class="tab-btn" />
-            <ui:Button name="BtnStore" text="상점" class="tab-btn" />
-            <ui:Button name="BtnDungeon" text="던전" class="tab-btn" />
+            <ui:VisualElement name="BottomBarSafeArea" class="bottom-bar-safe-area">
+                <ui:Button name="BtnDevelopment" class="tab-btn">
+                    <ui:VisualElement class="tab-btn-inner">
+                        <ui:Label text="⚔" class="tab-btn-icon" />
+                        <ui:Label text="육성" class="tab-btn-label" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="tab-btn-indicator" />
+                </ui:Button>
+                <ui:Button name="BtnKingdomArmy" class="tab-btn">
+                    <ui:VisualElement class="tab-btn-inner">
+                        <ui:Label text="♞" class="tab-btn-icon" />
+                        <ui:Label text="왕국군" class="tab-btn-label" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="tab-btn-indicator" />
+                </ui:Button>
+                <ui:Button name="BtnGacha" class="tab-btn">
+                    <ui:VisualElement class="tab-btn-inner">
+                        <ui:Label text="✦" class="tab-btn-icon" />
+                        <ui:Label text="뽑기" class="tab-btn-label" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="tab-btn-indicator" />
+                </ui:Button>
+            </ui:VisualElement>
         </ui:VisualElement>
         <!-- Hamburger dropdown: reparented to ScreenMain so absolute positioning is relative to full screen, not the auto-height hud-right-wrap (which was clipping/hiding the popup). Placed last so it renders on top. -->
         <ui:VisualElement name="PopupHamburger" class="dropdown hamburger-dropdown hidden">
