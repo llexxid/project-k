@@ -553,6 +553,16 @@ namespace KingdomIdle.UIToolkit
                     var so = mtMgr != null ? mtMgr.GetSkillById(entry.skillId) : null;
                     displayName = so != null && !string.IsNullOrEmpty(so.nameKor) ? so.nameKor : (so != null ? so.nameEng : "?");
                 }
+                else if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency)
+                {
+                    // 같은 통화(예: 전직 파편) 보상은 머지되어 한 카드로 표시되고
+                    // 총 수량은 별도의 count 라벨로 노출된다.
+                    // 단, 전직 파편은 직업별(기사/궁수/마법사/창병)로 다르게 떨어지므로
+                    // entry.nameKor 가 설정되어 있으면 그 값을 우선 사용한다.
+                    displayName = !string.IsNullOrEmpty(entry.nameKor)
+                        ? entry.nameKor
+                        : GetCurrencyLabelKor(entry.currency);
+                }
                 else
                     displayName = string.IsNullOrEmpty(entry.nameKor) ? "?" : entry.nameKor;
 
@@ -677,7 +687,13 @@ namespace KingdomIdle.UIToolkit
             if (r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Skill)
                 return $"skill_{r.skillId}";
             if (r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency)
-                return $"currency_{r.currency}";
+            {
+                // 전직 파편은 직업별로 분리 표시해야 하므로 nameKor 까지 키에 포함.
+                // (GachaManager 가 "{직업} 파편" 형식으로 설정해 내려준다)
+                return string.IsNullOrEmpty(r.nameKor)
+                    ? $"currency_{r.currency}"
+                    : $"currency_{r.currency}_{r.nameKor}";
+            }
             return $"other_{r.nameKor}";
         }
 
@@ -1556,6 +1572,7 @@ namespace KingdomIdle.UIToolkit
                 case eCurrency.Gold:            return "골드";
                 case eCurrency.AncientCoin:     return "고대주화";
                 case eCurrency.ArcaneKnowledge: return "비전지식";
+                case eCurrency.ClassFragment:   return "전직 파편";
                 default:                        return c.ToString();
             }
         }

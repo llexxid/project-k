@@ -186,13 +186,22 @@ namespace KingdomIdle.UIToolkit
 
             // 등급별 가중치 집계 — 장비 보상이 섞여있을 때만 표시
             float wNormal = 0f, wRare = 0f, wEpic = 0f;
-            bool hasAny = false;
+            float wClassFragment = 0f;
+            bool hasAnyEquipment = false;
             for (int i = 0; i < table.rewards.Count; i++)
             {
                 var r = table.rewards[i];
                 if (r == null) continue;
+
+                // 전직 파편 드롭(장비 가챠에 10% 섞여 들어옴)은 별도 핀으로 표시
+                if (r.rewardType == eGachaRewardType.Currency && r.currency == eCurrency.ClassFragment)
+                {
+                    wClassFragment += r.weight;
+                    continue;
+                }
+
                 if (r.rewardType != eGachaRewardType.Equipment || r.equipmentData == null) continue;
-                hasAny = true;
+                hasAnyEquipment = true;
                 switch (r.equipmentData.rarity)
                 {
                     case eEquipmentRarity.Normal: wNormal += r.weight; break;
@@ -201,14 +210,21 @@ namespace KingdomIdle.UIToolkit
                 }
             }
 
-            if (!hasAny) return null;
+            if (!hasAnyEquipment && wClassFragment <= 0f) return null;
 
             var row = new VisualElement();
             row.AddToClassList("gacha-rate-row");
 
-            row.Add(MakeRatePill("일반", wNormal / total * 100f, "gacha-rate-pill-normal"));
-            row.Add(MakeRatePill("레어", wRare   / total * 100f, "gacha-rate-pill-rare"));
-            row.Add(MakeRatePill("에픽", wEpic   / total * 100f, "gacha-rate-pill-epic"));
+            if (hasAnyEquipment)
+            {
+                row.Add(MakeRatePill("일반", wNormal / total * 100f, "gacha-rate-pill-normal"));
+                row.Add(MakeRatePill("레어", wRare   / total * 100f, "gacha-rate-pill-rare"));
+                row.Add(MakeRatePill("에픽", wEpic   / total * 100f, "gacha-rate-pill-epic"));
+            }
+            if (wClassFragment > 0f)
+            {
+                row.Add(MakeRatePill("전직 파편", wClassFragment / total * 100f, "gacha-rate-pill-classfragment"));
+            }
 
             return row;
         }
@@ -255,6 +271,8 @@ namespace KingdomIdle.UIToolkit
 
                 if (entry.rewardType == eGachaRewardType.Equipment && entry.equipmentData != null)
                     card.AddToClassList($"gacha-rarity-{entry.equipmentData.rarity.ToString().ToLower()}");
+                else if (entry.rewardType == eGachaRewardType.Currency && entry.currency == eCurrency.ClassFragment)
+                    card.AddToClassList("gacha-rarity-classfragment");
 
                 Sprite displayIcon = entry.icon;
                 if (entry.rewardType == eGachaRewardType.Equipment && entry.equipmentData != null && entry.equipmentData.icon != null)
@@ -294,6 +312,13 @@ namespace KingdomIdle.UIToolkit
                     rarityLbl.AddToClassList("gacha-reward-rarity");
                     rarityLbl.AddToClassList($"gacha-rarity-text-{entry.equipmentData.rarity.ToString().ToLower()}");
                     card.Add(rarityLbl);
+                }
+                else if (entry.rewardType == eGachaRewardType.Currency && entry.currency == eCurrency.ClassFragment)
+                {
+                    var tagLbl = new Label("전직 파편");
+                    tagLbl.AddToClassList("gacha-reward-rarity");
+                    tagLbl.AddToClassList("gacha-rarity-text-classfragment");
+                    card.Add(tagLbl);
                 }
 
                 float pct = totalWeight > 0f ? (entry.weight / totalWeight) * 100f : 0f;
