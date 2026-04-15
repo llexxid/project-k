@@ -70,14 +70,14 @@ namespace Scripts.Server.DTO
 	{
 		//For Debugging
 		public List<ItemCode> GachaList { get; set; }
-		public int TotalCount { get; set; }
+		public int ClassFragmentCnt { get; set; }
 	}
 
 	public class OnGachaSkillArcaneKnowledgeResponseDTO
 	{
 		//For Debugging
 		public List<SkillCode> GachaList { get; set; }
-		public int TotalCount { get; set; }
+		public int ArcaneKnowledgeCnt { get; set; }
 	}
 
 	public class OnEnchantResponseDTO
