@@ -468,6 +468,12 @@ namespace KingdomIdle.UIToolkit
         {
             CloseGachaResultPopup();
 
+            if (results == null || results.Count == 0)
+            {
+                ShowToast("뽑기 결과가 없습니다.");
+                return;
+            }
+
             _gachaResultOverlay = new VisualElement();
             _gachaResultOverlay.name = "GachaResultOverlay";
             ForceFullScreen(_gachaResultOverlay);
@@ -477,57 +483,57 @@ namespace KingdomIdle.UIToolkit
             // 팝업 본체
             var popup = new VisualElement();
             popup.AddToClassList("gacha-result-popup");
+            popup.pickingMode = PickingMode.Position;
 
-            popup.Add(new Label("뽑기 결과") { name = "GachaResultTitle" });
-            popup.Q<Label>("GachaResultTitle")?.AddToClassList("gacha-result-title");
+            // 최고 등급 계산 (제목 강조용)
+            var bestRarity = ComputeBestRarity(results);
+            string titleText = BuildTitleText(bestRarity);
 
-            // 결과 아이템 그리드
+            var titleLbl = new Label(titleText) { name = "GachaResultTitle" };
+            titleLbl.AddToClassList("gacha-result-title");
+            if (bestRarity.HasValue)
+                titleLbl.AddToClassList($"gacha-result-title-{bestRarity.Value.ToString().ToLower()}");
+            popup.Add(titleLbl);
+
+            // 결과 아이템 그리드 (Epic → Rare → Normal → Skill → Currency 순 정렬)
             var grid = new VisualElement();
             grid.AddToClassList("gacha-result-grid");
 
             // 아이템별 합산 (같은 보상은 수량 합산)
-            var merged = new List<(KingdomIdle.Gacha.GachaRewardEntry entry, int count)>();
-            foreach (var r in results)
+            var merged = MergeResults(results);
+            merged.Sort(CompareResultEntries);
+
+            foreach (var m in merged)
             {
-                string key = r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Equipment && r.equipmentData != null
-                    ? $"equip_{r.equipmentData.GetInstanceID()}"
-                    : $"{r.rewardType}_{r.nameKor}_{r.currency}";
+                var entry = m.entry;
+                int count = m.count;
 
-                bool found = false;
-                for (int i = 0; i < merged.Count; i++)
-                {
-                    string mKey = merged[i].entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Equipment && merged[i].entry.equipmentData != null
-                        ? $"equip_{merged[i].entry.equipmentData.GetInstanceID()}"
-                        : $"{merged[i].entry.rewardType}_{merged[i].entry.nameKor}_{merged[i].entry.currency}";
-
-                    if (mKey == key)
-                    {
-                        int amt = r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency ? r.amount : 1;
-                        merged[i] = (merged[i].entry, merged[i].count + amt);
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found)
-                {
-                    int amt = r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency ? r.amount : 1;
-                    merged.Add((r, amt));
-                }
-            }
-
-            foreach (var (entry, count) in merged)
-            {
                 var card = new VisualElement();
                 card.AddToClassList("gacha-result-card");
 
                 // 등급 테두리
                 if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Equipment && entry.equipmentData != null)
+                {
                     card.AddToClassList($"gacha-rarity-{entry.equipmentData.rarity.ToString().ToLower()}");
+
+                    // 최고 등급 카드 강조
+                    if (bestRarity.HasValue && entry.equipmentData.rarity == bestRarity.Value
+                        && bestRarity.Value == eEquipmentRarity.Epic)
+                    {
+                        card.AddToClassList("gacha-result-card-best");
+                    }
+                }
 
                 // 아이콘
                 Sprite icon = entry.icon;
                 if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Equipment && entry.equipmentData != null && entry.equipmentData.icon != null)
                     icon = entry.equipmentData.icon;
+                else if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Skill && icon == null)
+                {
+                    var mtMgr = KingdomIdle.MageTower.MageTowerManager.Instance;
+                    var so = mtMgr != null ? mtMgr.GetSkillById(entry.skillId) : null;
+                    if (so != null && so.icon != null) icon = so.icon;
+                }
 
                 if (icon != null)
                 {
@@ -541,8 +547,24 @@ namespace KingdomIdle.UIToolkit
                 string displayName;
                 if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Equipment && entry.equipmentData != null)
                     displayName = entry.equipmentData.equipmentName;
+                else if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Skill && string.IsNullOrEmpty(entry.nameKor))
+                {
+                    var mtMgr = KingdomIdle.MageTower.MageTowerManager.Instance;
+                    var so = mtMgr != null ? mtMgr.GetSkillById(entry.skillId) : null;
+                    displayName = so != null && !string.IsNullOrEmpty(so.nameKor) ? so.nameKor : (so != null ? so.nameEng : "?");
+                }
+                else if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency)
+                {
+                    // 같은 통화(예: 전직 파편) 보상은 머지되어 한 카드로 표시되고
+                    // 총 수량은 별도의 count 라벨로 노출된다.
+                    // 단, 전직 파편은 직업별(기사/궁수/마법사/창병)로 다르게 떨어지므로
+                    // entry.nameKor 가 설정되어 있으면 그 값을 우선 사용한다.
+                    displayName = !string.IsNullOrEmpty(entry.nameKor)
+                        ? entry.nameKor
+                        : GetCurrencyLabelKor(entry.currency);
+                }
                 else
-                    displayName = entry.nameKor;
+                    displayName = string.IsNullOrEmpty(entry.nameKor) ? "?" : entry.nameKor;
 
                 var nameLbl = new Label(displayName);
                 nameLbl.AddToClassList("gacha-result-name");
@@ -563,7 +585,7 @@ namespace KingdomIdle.UIToolkit
 
             _gachaResultOverlay.Add(popup);
 
-            // 하단 버튼들 (팝업 하단 가장자리에 겹치는 위치)
+            // 하단 버튼 행
             var btnRow = new VisualElement();
             btnRow.AddToClassList("gacha-result-btn-row");
 
@@ -575,11 +597,7 @@ namespace KingdomIdle.UIToolkit
             btnRow.Add(doneBtn);
 
             // 다시 뽑기 x1
-            var rePull1Btn = new Button(() =>
-            {
-                CloseGachaResultPopup();
-                UITKGachaPanelController.PullAndShowResult(table, 1);
-            });
+            var rePull1Btn = new Button(() => HandleRePull(table, 1));
             rePull1Btn.text = "다시 뽑기 x1";
             rePull1Btn.AddToClassList("gacha-result-btn");
             btnRow.Add(rePull1Btn);
@@ -587,20 +605,149 @@ namespace KingdomIdle.UIToolkit
             // 다시 뽑기 xN (마지막 뽑기 수량)
             if (lastPullCount > 1)
             {
-                var rePullNBtn = new Button(() =>
-                {
-                    CloseGachaResultPopup();
-                    UITKGachaPanelController.PullAndShowResult(table, lastPullCount);
-                });
+                var rePullNBtn = new Button(() => HandleRePull(table, lastPullCount));
                 rePullNBtn.text = $"다시 뽑기 x{lastPullCount}";
                 rePullNBtn.AddToClassList("gacha-result-btn");
                 btnRow.Add(rePullNBtn);
+            }
+
+            // 진행 중이면 다시뽑기 버튼 비활성
+            var mgr = KingdomIdle.Gacha.GachaManager.Instance;
+            if (mgr != null && mgr.IsPulling)
+            {
+                rePull1Btn.SetEnabled(false);
+                rePull1Btn.AddToClassList("gacha-result-btn-disabled");
+                for (int i = 0; i < btnRow.childCount; i++)
+                {
+                    if (btnRow[i] is Button b && b != doneBtn && b != rePull1Btn)
+                    {
+                        b.SetEnabled(false);
+                        b.AddToClassList("gacha-result-btn-disabled");
+                    }
+                }
             }
 
             popup.Add(btnRow);
 
             _layerOverlays.Add(_gachaResultOverlay);
             _gachaResultOverlay.BringToFront();
+        }
+
+        private void HandleRePull(KingdomIdle.Gacha.GachaTableSO table, int count)
+        {
+            var mgr = KingdomIdle.Gacha.GachaManager.Instance;
+            if (mgr != null && mgr.IsPulling)
+            {
+                ShowToast("이미 뽑기가 진행 중입니다.");
+                return;
+            }
+            if (table == null) return;
+
+            CloseGachaResultPopup();
+            UITKGachaPanelController.PullAndShowResult(table, count);
+        }
+
+        private static List<(KingdomIdle.Gacha.GachaRewardEntry entry, int count)> MergeResults(
+            List<KingdomIdle.Gacha.GachaRewardEntry> results)
+        {
+            var merged = new List<(KingdomIdle.Gacha.GachaRewardEntry entry, int count)>();
+            if (results == null) return merged;
+
+            foreach (var r in results)
+            {
+                if (r == null) continue;
+                string key = MakeMergeKey(r);
+
+                bool found = false;
+                for (int i = 0; i < merged.Count; i++)
+                {
+                    if (MakeMergeKey(merged[i].entry) == key)
+                    {
+                        int amt = r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency
+                                    ? Mathf.Max(1, r.amount) : 1;
+                        merged[i] = (merged[i].entry, merged[i].count + amt);
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                {
+                    int amt = r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency
+                                ? Mathf.Max(1, r.amount) : 1;
+                    merged.Add((r, amt));
+                }
+            }
+            return merged;
+        }
+
+        private static string MakeMergeKey(KingdomIdle.Gacha.GachaRewardEntry r)
+        {
+            if (r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Equipment && r.equipmentData != null)
+                return $"equip_{r.equipmentData.GetInstanceID()}";
+            if (r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Skill)
+                return $"skill_{r.skillId}";
+            if (r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency)
+            {
+                // 전직 파편은 직업별로 분리 표시해야 하므로 nameKor 까지 키에 포함.
+                // (GachaManager 가 "{직업} 파편" 형식으로 설정해 내려준다)
+                return string.IsNullOrEmpty(r.nameKor)
+                    ? $"currency_{r.currency}"
+                    : $"currency_{r.currency}_{r.nameKor}";
+            }
+            return $"other_{r.nameKor}";
+        }
+
+        private static int CompareResultEntries(
+            (KingdomIdle.Gacha.GachaRewardEntry entry, int count) a,
+            (KingdomIdle.Gacha.GachaRewardEntry entry, int count) b)
+        {
+            int ra = GetResultSortRank(a.entry);
+            int rb = GetResultSortRank(b.entry);
+            return ra != rb ? ra - rb : 0;
+        }
+
+        private static int GetResultSortRank(KingdomIdle.Gacha.GachaRewardEntry e)
+        {
+            if (e == null) return 999;
+            if (e.rewardType == KingdomIdle.Gacha.eGachaRewardType.Equipment && e.equipmentData != null)
+            {
+                switch (e.equipmentData.rarity)
+                {
+                    case eEquipmentRarity.Epic:   return 0;
+                    case eEquipmentRarity.Rare:   return 1;
+                    case eEquipmentRarity.Normal: return 2;
+                }
+            }
+            if (e.rewardType == KingdomIdle.Gacha.eGachaRewardType.Skill)    return 3;
+            if (e.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency) return 4;
+            return 5;
+        }
+
+        private static eEquipmentRarity? ComputeBestRarity(List<KingdomIdle.Gacha.GachaRewardEntry> results)
+        {
+            eEquipmentRarity? best = null;
+            foreach (var r in results)
+            {
+                if (r == null) continue;
+                if (r.rewardType != KingdomIdle.Gacha.eGachaRewardType.Equipment) continue;
+                if (r.equipmentData == null) continue;
+
+                var rar = r.equipmentData.rarity;
+                if (!best.HasValue || (int)rar > (int)best.Value)
+                    best = rar;
+            }
+            return best;
+        }
+
+        private static string BuildTitleText(eEquipmentRarity? best)
+        {
+            if (!best.HasValue) return "뽑기 결과";
+            switch (best.Value)
+            {
+                case eEquipmentRarity.Epic: return "뽑기 결과 — 에픽 획득!";
+                case eEquipmentRarity.Rare: return "뽑기 결과 — 레어 획득!";
+                default:                    return "뽑기 결과";
+            }
         }
 
         public void CloseGachaResultPopup()
@@ -713,11 +860,80 @@ namespace KingdomIdle.UIToolkit
         private void RegisterButtonClickSfx(VisualElement root)
         {
             if (_buttonClickSfx == null) return;
-            root.Query<Button>().ForEach(btn => btn.clicked += PlayButtonClickSfx);
+            root.Query<Button>().ForEach(btn =>
+            {
+                // 모바일 탭 핸들러가 이미 붙은 버튼은 자체적으로 SFX를 재생하므로 중복 방지
+                if (btn.ClassListContains("mobile-tap-custom")) return;
+                btn.clicked += PlayButtonClickSfx;
+            });
+        }
+
+        /// <summary>
+        /// 모바일 터치 친화적 탭 핸들러를 등록한다.
+        /// UI Toolkit 의 기본 Button.clicked(= Clickable 매니퓰레이터)는 손가락이 press 중 버튼 경계를 살짝 벗어나면
+        /// 클릭이 취소되는 이슈가 있어, PointerDown 시 포인터 캡처로 이를 보완한다.
+        /// 캡처된 포인터는 경계를 벗어나도 PointerUp 이벤트가 원 타겟으로 도달하므로,
+        /// "눌렀다 릴리즈" 의도가 있으면 바운스 여부와 관계없이 항상 onTap 이 호출된다.
+        /// 기존 Clickable 매니퓰레이터는 제거하고 커스텀 핸들러만 사용한다(중복 호출 방지).
+        /// </summary>
+        private void RegisterMobileTap(VisualElement target, Action onTap)
+        {
+            if (target == null || onTap == null) return;
+
+            // Button 의 기본 Clickable 제거 — 바운스 체크가 모바일에서 문제를 일으킴
+            if (target is Button btn && btn.clickable != null)
+            {
+                btn.RemoveManipulator(btn.clickable);
+                btn.clickable = null;
+            }
+
+            target.AddToClassList("mobile-tap-custom");
+
+            int activePointerId = -1;
+
+            target.RegisterCallback<PointerDownEvent>(evt =>
+            {
+                activePointerId = evt.pointerId;
+                target.CapturePointer(evt.pointerId);
+                target.AddToClassList("mobile-tap-pressed");
+                evt.StopPropagation();
+            });
+
+            target.RegisterCallback<PointerUpEvent>(evt =>
+            {
+                if (activePointerId != evt.pointerId) return;
+                int pid = activePointerId;
+                activePointerId = -1;
+                target.RemoveFromClassList("mobile-tap-pressed");
+
+                if (target.HasPointerCapture(pid))
+                    target.ReleasePointer(pid);
+
+                // 캡처된 포인터에서의 릴리즈는 항상 탭으로 간주
+                try { onTap.Invoke(); }
+                catch (Exception ex) { Debug.LogException(ex); }
+                PlayButtonClickSfx();
+                evt.StopPropagation();
+            });
+
+            target.RegisterCallback<PointerCaptureOutEvent>(_ =>
+            {
+                activePointerId = -1;
+                target.RemoveFromClassList("mobile-tap-pressed");
+            });
+
+            // 캔슬 계열(외부 가로챔/창 포커스 잃음) 대비
+            target.RegisterCallback<PointerLeaveEvent>(evt =>
+            {
+                // 포인터를 캡처했으면 leave 해도 상태 유지 (모바일 드래그 허용)
+                if (target.HasPointerCapture(evt.pointerId)) return;
+                target.RemoveFromClassList("mobile-tap-pressed");
+            });
         }
 
         public void PlayButtonClickSfx()
         {
+            if (_uiAudioSource == null || _buttonClickSfx == null) return;
             _uiAudioSource.PlayOneShot(_buttonClickSfx);
         }
 
@@ -739,11 +955,12 @@ namespace KingdomIdle.UIToolkit
             if (btnLogin != null && popupLogin != null)
             {
                 // 로그인 버튼: 팝업만 띄우고, 실제 인증은 게스트 버튼에서 호출
-                btnLogin.clicked += () =>
+                // 모바일 터치 안정성을 위해 RegisterMobileTap 사용
+                RegisterMobileTap(btnLogin, () =>
                 {
                     popupLogin.RemoveFromClassList("hidden");
                     popupLogin.BringToFront();
-                };
+                });
             }
 
             if (btnLoginClose != null && popupLogin != null)
@@ -756,24 +973,29 @@ namespace KingdomIdle.UIToolkit
             {
                 btnLoginGuest.clicked += () =>
                 {
-                    NetworkManager.Instance.AuthenticateTest();
+                    if (NetworkManager.Instance != null)
+                        NetworkManager.Instance.AuthenticateTest();
+                    else
+                        ShowToast("네트워크가 초기화되지 않았습니다.");
                     popupLogin.AddToClassList("hidden");
-                    //LoadMainOnce();
                 };
             }
             // ── [Login 끝] ──
 
             // 구글/애플 로그인은 아직 미지원 — 토스트로 안내
-            if (btnLoginGoogle != null)
+            if (btnLoginGoogle != null && popupLogin != null)
             {
-				btnLoginGoogle.clicked += () =>
-				{
+                btnLoginGoogle.clicked += () =>
+                {
                     Debug.Log("[Option] Clicked");
-					NetworkManager.Instance.Authenticate(Scripts.Server.Auth.eAuthType.GoogleWebLogin);
-					popupLogin.AddToClassList("hidden");
-				};
-			}
-                
+                    if (NetworkManager.Instance != null)
+                        NetworkManager.Instance.Authenticate(Scripts.Server.Auth.eAuthType.GoogleWebLogin);
+                    else
+                        ShowToast("네트워크가 초기화되지 않았습니다.");
+                    popupLogin.AddToClassList("hidden");
+                };
+            }
+
             if (btnLoginApple != null)
                 btnLoginApple.clicked += () => ShowToast("Apple 로그인은 준비 중입니다.");
 
@@ -787,10 +1009,25 @@ namespace KingdomIdle.UIToolkit
                 bgCatcher.pickingMode = PickingMode.Position;
                 bgCatcher.RegisterCallback<PointerUpEvent>(_ =>
                 {
+                    // 팝업이 열려있으면 팝업 자체 핸들러가 처리하므로 무시
                     if (popupLogin != null && !popupLogin.ClassListContains("hidden"))
                     {
-						return;
-					}                    
+                        return;
+                    }
+
+                    // 인증되지 않은 상태에서 "아무데나 탭" 으로 메인 씬 진입을 허용하면
+                    // null(익명) 계정으로 로그인되어버리는 문제가 발생한다.
+                    // → 세션이 없으면 메인 진입을 차단하고 로그인 팝업을 띄운다.
+                    if (!IsAuthenticatedSession())
+                    {
+                        if (popupLogin != null)
+                        {
+                            popupLogin.RemoveFromClassList("hidden");
+                            popupLogin.BringToFront();
+                        }
+                        return;
+                    }
+
                     LoadMainOnce();
                 }, TrickleDown.TrickleDown);
             }
@@ -1089,10 +1326,22 @@ namespace KingdomIdle.UIToolkit
 				Debug.Log($"Request Scene is true : {_requestedScene}");
 				return;
 			}
-                
+
             _requestedScene = true;
             if (GameManager.Instance != null)
                 GameManager.Instance.LoadAsyncScene(eSceneType.main);
+        }
+
+        /// <summary>
+        /// PlayFab 인증(세션 발급)이 완료되었는지 확인.
+        /// 타이틀 화면에서 bgCatcher 로 바로 메인 씬에 진입하는 것을 차단할 때 사용.
+        /// </summary>
+        private static bool IsAuthenticatedSession()
+        {
+            var net = NetworkManager.Instance;
+            if (net == null) return false;
+            string sid = net.GetSessionID();
+            return !string.IsNullOrEmpty(sid);
         }
 
         private static bool IsInside(VisualElement target, VisualElement container)
@@ -1291,24 +1540,49 @@ namespace KingdomIdle.UIToolkit
             title.AddToClassList("dropdown-title");
             _popupCurrencies.Add(title);
 
+            // 팝업에는 상단에 이미 노출된 재화(Gold/AncientCoin)와 사용하지 않는 재화는 숨긴다.
+            // 현재 표시 재화: ArcaneKnowledge(비전지식) 만 노출.
             var values = (eCurrency[])Enum.GetValues(typeof(eCurrency));
             foreach (var c in values)
             {
-                if (c == eCurrency.Gold || c == eCurrency.AncientCoin || c == eCurrency.ClassFragment)
-                    continue;
+                if (!IsDisplayedCurrency(c)) continue;
+                if (c == eCurrency.Gold || c == eCurrency.AncientCoin) continue;
 
-                var line = new Label($"{c}: {GetCurrencyText(c)}");
+                var line = new Label($"{GetCurrencyLabelKor(c)}: {GetCurrencyText(c)}");
                 line.AddToClassList("dropdown-item");
                 _popupCurrencies.Add(line);
             }
         }
 
+        /// <summary>
+        /// UI 상 표시할 재화 필터. Gold / AncientCoin / ArcaneKnowledge 만 노출한다.
+        /// 나머지(KingdomSupply, TrainingTome, ClassFragment 등)는 내부 로직용이라 숨김.
+        /// </summary>
+        private static bool IsDisplayedCurrency(eCurrency c)
+        {
+            return c == eCurrency.Gold
+                || c == eCurrency.AncientCoin
+                || c == eCurrency.ArcaneKnowledge;
+        }
+
+        private static string GetCurrencyLabelKor(eCurrency c)
+        {
+            switch (c)
+            {
+                case eCurrency.Gold:            return "골드";
+                case eCurrency.AncientCoin:     return "고대주화";
+                case eCurrency.ArcaneKnowledge: return "비전지식";
+                case eCurrency.ClassFragment:   return "전직 파편";
+                default:                        return c.ToString();
+            }
+        }
+
         private string GetCurrencyText(eCurrency currency)
         {
-            if (_wallet == null) return "null";
+            if (_wallet == null) return "0";
             if (TryGetAmountFromWallet(_wallet, currency, out long amount))
                 return amount.ToString("N0");
-            return "null";
+            return "0";
         }
 
         private void ToggleCurrencyPopup()

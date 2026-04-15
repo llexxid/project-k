@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -7,23 +6,19 @@ using KingdomIdle.KingdomArmy;
 
 namespace KingdomIdle.UIToolkit
 {
-    // 하단 탭 위 3인 파티 HUD
     [DefaultExecutionOrder(-940)]
     public sealed class UITKPartyHudController : MonoBehaviour
     {
         public static UITKPartyHudController Instance { get; private set; }
 
-        [Header("Portrait Sprites (에디터에서 직업별 정적 초상화 설정)")]
-        [Tooltip("왕국군1 초상화 스프라이트 (전직에 맞게 직접 설정)")]
+        [Header("Portrait Sprites")]
         [SerializeField] private Sprite portraitSprite0;
-        [Tooltip("왕국군2 초상화 스프라이트 (전직에 맞게 직접 설정)")]
         [SerializeField] private Sprite portraitSprite1;
-        [Tooltip("왕국군3 초상화 스프라이트 (전직에 맞게 직접 설정)")]
         [SerializeField] private Sprite portraitSprite2;
 
         [Header("Layout")]
-        [SerializeField] private float baseGapPx = 12f;      // BottomBar 위 기본 간격
-        [SerializeField] private float sheetGapPx = 10f;     // Sheet 위 추가 간격
+        [SerializeField] private float baseGapPx = 12f;
+        [SerializeField] private float sheetGapPx = 10f;
         [SerializeField] private float fallbackBottomBarPx = 190f;
 
         private UIDocument _uiDocument;
@@ -40,14 +35,12 @@ namespace KingdomIdle.UIToolkit
             public Button Portrait;
             public VisualElement HpFill;
             public readonly SkillSlot[] Skills;
-            public readonly int[] SkillIds;
 
             public MemberUI(int skillSlots)
             {
                 Portrait = null;
                 HpFill = null;
                 Skills = new SkillSlot[skillSlots];
-                SkillIds = new int[skillSlots];
             }
         }
 
@@ -56,7 +49,7 @@ namespace KingdomIdle.UIToolkit
             public VisualElement Root;
             public VisualElement Mask;
             public Label CooldownLabel;
-            public Coroutine Co;
+            public Label NameLabel;
         }
 
         private void Awake()
@@ -81,10 +74,6 @@ namespace KingdomIdle.UIToolkit
             SyncFromPlayers();
         }
 
-        /// <summary>
-        /// 초상화 스프라이트를 런타임에 변경한다.
-        /// 전직 시 ChangeJob에서 호출하거나 외부에서 갱신 가능.
-        /// </summary>
         public void SetPortraitSprite(int memberIndex, Sprite sprite)
         {
             if (memberIndex < 0 || memberIndex >= 3) return;
@@ -146,15 +135,13 @@ namespace KingdomIdle.UIToolkit
             {
                 _playersResolved = true;
 
-                // 플레이어 최초 resolve 시 idle 스프라이트를 초상화에 자동 적용
                 for (int i = 0; i < 3 && i < _players.Count; i++)
                 {
-                    if (GetPortraitSprite(i) != null) continue; // 이미 에디터에서 설정됨
+                    if (GetPortraitSprite(i) != null) continue;
 
                     var player = _players[i];
                     if (player == null) continue;
 
-                    // jobSprite(전직 대표 스프라이트) 우선, 없으면 현재 SpriteRenderer 스프라이트
                     Sprite idleSprite = null;
                     var jobDB = mgr.JobDB;
                     if (jobDB != null && player.playerStatus != null)
@@ -200,18 +187,13 @@ namespace KingdomIdle.UIToolkit
 
             _partyHud.BringToFront();
 
-            // 초상화 스프라이트 적용
             for (int i = 0; i < 3; i++)
                 ApplyPortraitSprite(i);
 
-            // 초기 HP 100%
             for (int i = 0; i < 3; i++)
                 SetMemberHealth01(i, 1f);
         }
 
-        /// <summary>
-        /// 매 프레임 플레이어 데이터를 읽어서 HP와 스킬을 동기화한다.
-        /// </summary>
         private void SyncFromPlayers()
         {
             if (_partyHud == null) return;
@@ -225,17 +207,66 @@ namespace KingdomIdle.UIToolkit
                 if (player == null || player.playerStatus == null) continue;
 
                 var ps = player.playerStatus;
-
-                // HP 동기화
                 SetMemberHealth(i, ps.HP, ps.MaxHP);
 
-                // 스킬 수 동기화 (직업 스킬 기반)
-                var jobDB = KingdomArmyManager.Instance?.JobDB;
-                if (jobDB != null)
+                var sys = player.skillSystem;
+                if (sys == null) continue;
+
+                SyncSkillSlots(i, sys);
+            }
+        }
+
+        private void SyncSkillSlots(int memberIdx, SkillSystem sys)
+        {
+            for (int s = 0; s < 3; s++)
+            {
+                var slot = _members[memberIdx].Skills[s];
+                if (slot.Root == null) continue;
+
+                var displaySlot = sys.GetSlot(s);
+                if (!displaySlot.Active)
                 {
-                    var jobData = jobDB.GetJob(ps.JobName);
-                    int skillCount = jobData?.skills?.Count ?? 0;
-                    SetMemberSkillCount(i, Mathf.Min(skillCount, 3));
+                    slot.Root.style.display = DisplayStyle.None;
+                    continue;
+                }
+
+                slot.Root.style.display = DisplayStyle.Flex;
+
+                if (slot.NameLabel != null)
+                    slot.NameLabel.text = displaySlot.Name ?? "";
+
+                if (displaySlot.IsPassive)
+                {
+                    if (slot.Mask != null) slot.Mask.style.display = DisplayStyle.None;
+                    if (slot.CooldownLabel != null)
+                    {
+                        slot.CooldownLabel.text = "상시";
+                        slot.CooldownLabel.style.display = DisplayStyle.Flex;
+                        slot.CooldownLabel.style.color = new Color(0.4f, 1f, 0.4f, 1f);
+                    }
+                }
+                else
+                {
+                    float cd = sys.GetSlotCooldown(s);
+                    if (cd > 0f)
+                    {
+                        if (slot.Mask != null) slot.Mask.style.display = DisplayStyle.Flex;
+                        if (slot.CooldownLabel != null)
+                        {
+                            slot.CooldownLabel.text = Mathf.CeilToInt(cd).ToString();
+                            slot.CooldownLabel.style.display = DisplayStyle.Flex;
+                            slot.CooldownLabel.style.color = Color.white;
+                        }
+                    }
+                    else
+                    {
+                        if (slot.Mask != null) slot.Mask.style.display = DisplayStyle.None;
+                        if (slot.CooldownLabel != null)
+                        {
+                            slot.CooldownLabel.text = "";
+                            slot.CooldownLabel.style.display = DisplayStyle.None;
+                        }
+                    }
                 }
             }
         }
@@ -293,11 +324,28 @@ namespace KingdomIdle.UIToolkit
                     cd.AddToClassList("party-skill-cd-text");
                     cd.pickingMode = PickingMode.Ignore;
 
+                    var nameLabel = new Label("");
+                    nameLabel.AddToClassList("party-skill-name");
+                    nameLabel.pickingMode = PickingMode.Ignore;
+                    nameLabel.style.fontSize = 8;
+                    nameLabel.style.unityTextAlign = TextAnchor.LowerCenter;
+                    nameLabel.style.color = Color.white;
+                    nameLabel.style.position = Position.Absolute;
+                    nameLabel.style.bottom = 0;
+                    nameLabel.style.left = 0;
+                    nameLabel.style.right = 0;
+
                     slot.Add(mask);
                     slot.Add(cd);
+                    slot.Add(nameLabel);
 
-                    _members[i].Skills[s] = new SkillSlot { Root = slot, Mask = mask, CooldownLabel = cd, Co = null };
-                    _members[i].SkillIds[s] = -1;
+                    _members[i].Skills[s] = new SkillSlot
+                    {
+                        Root = slot,
+                        Mask = mask,
+                        CooldownLabel = cd,
+                        NameLabel = nameLabel
+                    };
 
                     slot.style.display = DisplayStyle.None;
                     mask.style.display = DisplayStyle.None;
@@ -361,7 +409,6 @@ namespace KingdomIdle.UIToolkit
             UITKUIManager.Instance.PushPanel(UIPanelId.KingdomArmy, "kingdomArmyPanel", clearBefore: false, isTabPanel: true);
         }
 
-        // ===== 외부 호출 API (기존 유지) =====
         public void SetMemberHealth(int memberIndex, float current, float max)
         {
             if (memberIndex < 0 || memberIndex >= 3) return;
@@ -387,86 +434,6 @@ namespace KingdomIdle.UIToolkit
                 var slot = _members[memberIndex].Skills[s].Root;
                 if (slot == null) continue;
                 slot.style.display = s < count ? DisplayStyle.Flex : DisplayStyle.None;
-                _members[memberIndex].SkillIds[s] = s < count ? s : -1;
-            }
-        }
-
-        public void SetMemberSkillIds(int memberIndex, IReadOnlyList<int> skillIds)
-        {
-            if (memberIndex < 0 || memberIndex >= 3) return;
-            int count = skillIds == null ? 0 : Mathf.Clamp(skillIds.Count, 0, 3);
-
-            for (int s = 0; s < 3; s++)
-            {
-                var slot = _members[memberIndex].Skills[s].Root;
-                if (slot == null) continue;
-
-                bool show = s < count;
-                slot.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
-                _members[memberIndex].SkillIds[s] = show ? skillIds[s] : -1;
-            }
-        }
-
-        public void NotifySkillUsedBySlotIndex(int memberIndex, int slotIndex, float cooldownSeconds)
-        {
-            if (memberIndex < 0 || memberIndex >= 3) return;
-            if (slotIndex < 0 || slotIndex >= 3) return;
-            StartCooldown(memberIndex, slotIndex, cooldownSeconds);
-        }
-
-        public void NotifySkillUsedBySkillId(int memberIndex, int skillId, float cooldownSeconds)
-        {
-            if (memberIndex < 0 || memberIndex >= 3) return;
-
-            for (int s = 0; s < 3; s++)
-            {
-                if (_members[memberIndex].SkillIds[s] == skillId)
-                {
-                    StartCooldown(memberIndex, s, cooldownSeconds);
-                    return;
-                }
-            }
-        }
-
-        private void StartCooldown(int memberIndex, int slotIndex, float cooldownSeconds)
-        {
-            var slot = _members[memberIndex].Skills[slotIndex];
-            if (slot.Root == null) return;
-            if (slot.Root.resolvedStyle.display == DisplayStyle.None) return;
-
-            if (slot.Co != null)
-                StopCoroutine(slot.Co);
-
-            slot.Co = StartCoroutine(CooldownRoutine(slot.Mask, slot.CooldownLabel, cooldownSeconds));
-            _members[memberIndex].Skills[slotIndex] = slot;
-        }
-
-        private static IEnumerator CooldownRoutine(VisualElement mask, Label label, float seconds)
-        {
-            seconds = Mathf.Max(0f, seconds);
-            if (mask != null) mask.style.display = seconds > 0f ? DisplayStyle.Flex : DisplayStyle.None;
-            if (label != null) label.style.display = seconds > 0f ? DisplayStyle.Flex : DisplayStyle.None;
-
-            float t = seconds;
-            int last = -1;
-            while (t > 0f)
-            {
-                t -= Time.unscaledDeltaTime;
-                int now = Mathf.CeilToInt(t);
-                if (now != last)
-                {
-                    last = now;
-                    if (label != null)
-                        label.text = Mathf.Max(0, now).ToString();
-                }
-                yield return null;
-            }
-
-            if (mask != null) mask.style.display = DisplayStyle.None;
-            if (label != null)
-            {
-                label.text = "";
-                label.style.display = DisplayStyle.None;
             }
         }
     }

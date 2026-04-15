@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Scripts.Core;
+using Scripts.Core.Manager;
+using Scripts.Server.DTO;
+using Newtonsoft.Json;
 
 /// <summary>
 /// 모든 캐릭터에 일괄 적용되는 글로벌 스탯 강화 시스템.
@@ -89,12 +92,23 @@ public class StatEnhanceManager : MonoBehaviour
     }
 
     // ── 강화 실행 ──
+    // 구현된 스탯(공격력/체력)은 서버 세션을 통해 PlayFab CloudScript로 동기화된다.
+    // 낙관적(optimistic)으로 로컬 차감/레벨 반영 후, 서버 오류 시 자동 롤백한다.
     public bool TryEnhance(EnhanceType type, int count = 1)
     {
         int cost = GetCost(type, count);
         if (!EconomyBridge.TryGetAmount(eCurrency.Gold, out long gold) || gold < cost)
             return false;
 
+        // 공격력/체력 강화는 서버가 실제 권한을 가진다.
+        // 네트워크 세션이 준비되지 않았다면 로컬 진행 자체를 막는다.
+        if (IsServerBacked(type) && !IsNetworkReady())
+        {
+            Debug.LogWarning("[StatEnhanceManager] 네트워크 세션이 준비되지 않아 강화를 진행할 수 없습니다.");
+            return false;
+        }
+
+        // 낙관적 로컬 차감 + 레벨 반영
         EconomyBridge.Add(eCurrency.Gold, -cost);
 
         if (!_levels.ContainsKey(type)) _levels[type] = 0;
@@ -103,7 +117,97 @@ public class StatEnhanceManager : MonoBehaviour
         ApplyToAllPlayers();
         Save();
         OnEnhanced?.Invoke();
+
+        // 서버 동기화 (공격력 / 체력)
+        if (IsServerBacked(type))
+        {
+            TrySyncServer(type, count, cost);
+        }
+
         return true;
+    }
+
+    // ── 서버 동기화 ────────────────────────────────────────────────
+    private static bool IsServerBacked(EnhanceType type)
+    {
+        // 서버에 대응되는 CloudScript (OnEnChantATK / OnEnChantHP) 가 존재하는 타입만 서버로 보낸다.
+        return type == EnhanceType.Attack || type == EnhanceType.MaxHP;
+    }
+
+    private static bool IsNetworkReady()
+    {
+        var net = NetworkManager.Instance;
+        if (net == null) return false;
+        string sid = net.GetSessionID();
+        return !string.IsNullOrEmpty(sid);
+    }
+
+    private void TrySyncServer(EnhanceType type, int count, int refundCost)
+    {
+        var net = NetworkManager.Instance;
+        if (net == null)
+        {
+            RollbackEnhance(type, count, refundCost, "NetworkManager 없음");
+            return;
+        }
+
+        Action<PlayFab.CloudScriptModels.ExecuteFunctionResult> onSuccess = (result) =>
+        {
+            // 서버가 현재 레벨을 내려주면 로컬과 비교하여 보정한다.
+            if (result == null || result.FunctionResult == null) return;
+            try
+            {
+                string json = JsonConvert.SerializeObject(result.FunctionResult);
+                var dto = JsonConvert.DeserializeObject<OnEnchantResponseDTO>(json);
+                if (dto == null) return;
+
+                int serverLevel = (int)dto.CurrentLevel;
+                int localLevel = _levels.TryGetValue(type, out int lv) ? lv : 0;
+                if (serverLevel != localLevel)
+                {
+                    Debug.LogWarning($"[StatEnhanceManager] {type} 서버 레벨({serverLevel}) ↔ 로컬({localLevel}) 불일치 — 서버 기준으로 보정");
+                    _levels[type] = serverLevel;
+                    ApplyToAllPlayers();
+                    Save();
+                    OnEnhanced?.Invoke();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[StatEnhanceManager] 강화 응답 파싱 실패: {ex.Message}");
+            }
+        };
+
+        Action<PlayFab.PlayFabError> onError = (error) =>
+        {
+            string msg = error != null ? error.ErrorMessage : "알 수 없는 서버 오류";
+            RollbackEnhance(type, count, refundCost, msg);
+        };
+
+        if (type == EnhanceType.Attack)
+        {
+            net.OnEnchantATK(count, onSuccess, onError);
+        }
+        else if (type == EnhanceType.MaxHP)
+        {
+            net.OnEnchantHp(count, onSuccess, onError);
+        }
+    }
+
+    private void RollbackEnhance(EnhanceType type, int count, int refundCost, string reason)
+    {
+        Debug.LogWarning($"[StatEnhanceManager] 강화 롤백 ({type}, count={count}, refund={refundCost}): {reason}");
+
+        EconomyBridge.Add(eCurrency.Gold, refundCost);
+
+        if (_levels.TryGetValue(type, out int lv))
+        {
+            _levels[type] = Mathf.Max(0, lv - count);
+        }
+
+        ApplyToAllPlayers();
+        Save();
+        OnEnhanced?.Invoke();
     }
 
     // ── 모든 플레이어에 강화 보너스 적용 ──

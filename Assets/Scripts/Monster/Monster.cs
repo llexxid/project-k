@@ -176,6 +176,8 @@ namespace Scripts.Monster
 
 		void Update()
 		{
+			ApplyKnockbackMovement();
+
 			if (_monAI != null)
 			{
 				_monAI.ExecuteNode();
@@ -378,6 +380,22 @@ namespace Scripts.Monster
 			int totalGold = (int)(info._incomeGold * Ratio);
 			int totalAncientCoin = (int)(info._incomeAncientCoin * Ratio);
 			target.GiveReward(totalGold, totalAncientCoin);
+		}
+
+		// ── 넉백 ──
+		private Vector2 _knockbackVelocity;
+
+		/// <summary>지정 방향으로 넉백 적용.</summary>
+		public void ApplyKnockback(Vector2 direction, float force)
+		{
+			_knockbackVelocity = direction.normalized * force;
+		}
+
+		private void ApplyKnockbackMovement()
+		{
+			if (_knockbackVelocity.sqrMagnitude < 0.01f) return;
+			transform.position += (Vector3)(_knockbackVelocity * Time.deltaTime);
+			_knockbackVelocity = Vector2.Lerp(_knockbackVelocity, Vector2.zero, Time.deltaTime * 10f);
 		}
 
 		private void OnDrawGizmos()

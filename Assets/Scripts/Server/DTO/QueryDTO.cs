@@ -5,8 +5,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
-using static PlayerSkill;
-
 namespace Scripts.Server.DTO
 {
 	//.
@@ -18,19 +16,19 @@ namespace Scripts.Server.DTO
 
 	public class JobTreeQuery
 	{
-		//Ä³¸¯ÅÍ ÀÎµ¦½º
+		//Ä³ï¿½ï¿½ï¿½ï¿½ ï¿½Îµï¿½ï¿½ï¿½
 		public int Index { get; set; }
 		public List<ulong> JobList { get; set; }
 	}
 
-	/* ½ºÅ³Æ®¸® LayOut 
- * ½ºÅ³Æ®¸® ÄÚµå
-	[63 - 52] ¿¹¾à °ø°£ (12bit)
-	[51 - 36] ½ºÅ³ ÄÚµå (16bit)
+	/* ï¿½ï¿½Å³Æ®ï¿½ï¿½ LayOut 
+ * ï¿½ï¿½Å³Æ®ï¿½ï¿½ ï¿½Úµï¿½
+	[63 - 52] ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ (12bit)
+	[51 - 36] ï¿½ï¿½Å³ ï¿½Úµï¿½ (16bit)
 
-	[35 - 28] °­È­¼öÄ¡ (8bit)
-	[27 - 16] °¢¼º¼öÄ¡ (12bit)
-	[15 - 0] °¹¼ö (16bit)
+	[35 - 28] ï¿½ï¿½È­ï¿½ï¿½Ä¡ (8bit)
+	[27 - 16] ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¡ (12bit)
+	[15 - 0] ï¿½ï¿½ï¿½ï¿½ (16bit)
 */
 	public struct SkillCode : IEquatable<SkillCode>
 	{
@@ -50,7 +48,7 @@ namespace Scripts.Server.DTO
 			return GetSkillId().GetHashCode();
 		}
 
-		//±âÁ¸ Equals override
+		//ï¿½ï¿½ï¿½ï¿½ Equals override
 		public override bool Equals(object obj)
 		{
 			if (obj is SkillCode other)
@@ -59,7 +57,7 @@ namespace Scripts.Server.DTO
 			}
 			return false;
 		}
-		//IEquatable Equals ±¸Çö
+		//IEquatable Equals ï¿½ï¿½ï¿½ï¿½
 		public bool Equals(SkillCode other)
 		{
 			return GetSkillId() == other.GetSkillId();
@@ -138,27 +136,27 @@ namespace Scripts.Server.DTO
 		}
 	}
 	/*
-	 ¾ÆÀÌÅÛ ÄÚµå
-[63 - 56]  ¿¹¾à°ø°£   (8bit)
-[55 - 40]  ¾ÆÀÌÅÛ ID (16bit)
-[39 - 36]  ·¹¾îµµ    (4bit) ¡æ eEquipmentRarity
-[35 - 32]   ½½·Ô      (4bit) ¡æ eEquipmentSlot
-[31 - 24] Á÷¾÷ ¸¶½ºÅ©(8bit) ¡æ eJobFlag  (0 = ¸ðµç Á÷¾÷ °ø¿ë) 
-[23 - 16]  °­È­ ¼öÄ¡    (8bit)
-[15 - 0]  °¹¼ö (16bit)
+	 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Úµï¿½
+[63 - 56]  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½   (8bit)
+[55 - 40]  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ID (16bit)
+[39 - 36]  ï¿½ï¿½ï¿½îµµ    (4bit) ï¿½ï¿½ eEquipmentRarity
+[35 - 32]   ï¿½ï¿½ï¿½ï¿½      (4bit) ï¿½ï¿½ eEquipmentSlot
+[31 - 24] ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Å©(8bit) ï¿½ï¿½ eJobFlag  (0 = ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½) 
+[23 - 16]  ï¿½ï¿½È­ ï¿½ï¿½Ä¡    (8bit)
+[15 - 0]  ï¿½ï¿½ï¿½ï¿½ (16bit)
 	 */
 	public struct ItemCode : IEquatable<ItemCode>
 	{
 		public ulong Code { get; set; }
-		public ulong ExpireTimesc { get; set; } // 0ÀÎ°æ¿ì ¹«Á¦ÇÑ
+		public ulong ExpireTimesc { get; set; } // 0ï¿½Î°ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 		public override int GetHashCode()
 		{
-			// ulong ³»ºÎ¿¡ ±¸ÇöµÈ GetHashCode¸¦ ±×´ë·Î »ç¿ëÇÕ´Ï´Ù.
+			// ulong ï¿½ï¿½ï¿½Î¿ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ GetHashCodeï¿½ï¿½ ï¿½×´ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Õ´Ï´ï¿½.
 			return GetItemCode().GetHashCode();
 		}
 
-		//±âÁ¸ Equals override
+		//ï¿½ï¿½ï¿½ï¿½ Equals override
 		public override bool Equals(object obj)
 		{
 			if (obj is ItemCode other)
@@ -167,7 +165,7 @@ namespace Scripts.Server.DTO
 			}
 			return false;
 		}
-		//IEquatable Equals ±¸Çö
+		//IEquatable Equals ï¿½ï¿½ï¿½ï¿½
 		public bool Equals(ItemCode other)
 		{
 			ulong itemCode = GetItemCode();
@@ -207,7 +205,7 @@ namespace Scripts.Server.DTO
 		{
 			ulong enchantCnt = GetItemEnchantCount();
 
-			//°­È­ È½¼ö ÃÊ°ú
+			//ï¿½ï¿½È­ È½ï¿½ï¿½ ï¿½Ê°ï¿½
 			if (enchantCnt + (ulong)gap >= 0x0000000000000100)
 			{
 				return Code;
@@ -220,7 +218,7 @@ namespace Scripts.Server.DTO
 		public ulong DecreaseCount(int gap = 1)
 		{
 			ulong count = GetItemAmount();
-			//À½¼öÀÎ °æ¿ì
+			//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
 			if ((long)count - (long)gap < 0)
 			{
 				return Code;
@@ -327,7 +325,7 @@ namespace Scripts.Server.DTO
 			return JsonConvert.SerializeObject(this);
 		}
 	}
-	//Ä³¸¯ÅÍ°¡ ÀåÂøÇÑ Àåºñ Á¤º¸
+	//Ä³ï¿½ï¿½ï¿½Í°ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	public class CharacterEquipmentQuery
 	{
 		public CharacterEquipmentQuery(int characternum, ulong itemcode)
@@ -354,11 +352,11 @@ namespace Scripts.Server.DTO
 			ClassFragment = classFragment;
 		}
 
-		public long Gold { get; set; } //±âº»ÀûÀÎ °­È­
-		public long AncientCoin { get; set; } //À¯·áÀçÈ­
-		public long KingdomSupply { get; set; } //Àåºñ»Ì±â
-		public long ArcaneKnowledge { get; set; } //¸¶Å¾½ºÅ³°­È­
-		public long ClassFragment { get; set; } // ÀüÁ÷ÀçÈ­
+		public long Gold { get; set; } //ï¿½âº»ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½È­
+		public long AncientCoin { get; set; } //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È­
+		public long KingdomSupply { get; set; } //ï¿½ï¿½ï¿½Ì±ï¿½
+		public long ArcaneKnowledge { get; set; } //ï¿½ï¿½Å¾ï¿½ï¿½Å³ï¿½ï¿½È­
+		public long ClassFragment { get; set; } // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È­
 
 		public string PasreToJson()
 		{

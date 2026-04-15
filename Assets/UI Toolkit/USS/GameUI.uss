@@ -72,9 +72,15 @@
     border-top-color: rgba(150, 180, 240, 0.85);
     border-bottom-color: rgba(150, 180, 240, 0.85);
 }
-.login-btn:active {
+.login-btn:active,
+.login-btn.mobile-tap-pressed {
     background-color: rgba(45, 60, 110, 0.95);
     color: rgba(255, 245, 200, 1);
+}
+
+/* 모바일 탭: 캡처 기반 커스텀 핸들러가 적용된 요소의 press 시각 피드백 */
+.mobile-tap-pressed {
+    opacity: 0.85;
 }
 
 .login-popup {
@@ -941,8 +947,8 @@
 .mt-hud-slot:active { background-color: rgba(255,255,255,0.20); }
 
 .mt-hud-slot-icon {
-    width: 100px;
-    height: 100px;
+    width: 124px;
+    height: 124px;
     -unity-background-scale-mode: scale-to-fit;
 }
 
@@ -1152,8 +1158,8 @@
 }
 
 .mt-equip-slot-icon {
-    width: 70px;
-    height: 70px;
+    width: 92px;
+    height: 92px;
     -unity-background-scale-mode: scale-to-fit;
 }
 
@@ -1196,6 +1202,10 @@
     justify-content: center;
     gap: 4px;
     padding: 6px;
+    opacity: 1;
+    transition-property: opacity;
+    transition-duration: 0.7s;
+    transition-timing-function: ease-in-out;
 }
 .mt-inv-item:hover { background-color: rgba(255,255,255,0.14); }
 .mt-inv-item:active { background-color: rgba(255,255,255,0.20); }
@@ -1217,6 +1227,11 @@
     border-bottom-color: rgba(100,210,130,0.6);
 }
 
+/* 선택 모드에서 장착 가능 아이템을 부드럽게 어둡게/밝게 토글 */
+.mt-inv-item-pulse-dim {
+    opacity: 0.35;
+}
+
 .mt-inv-item-icon {
     width: 60px;
     height: 60px;
@@ -1233,14 +1248,6 @@
     font-size: 16px;
     color: rgba(255,255,255,0.6);
     -unity-text-align: middle-center;
-}
-
-.mt-drag-ghost {
-    position: absolute;
-    width: 70px;
-    height: 70px;
-    -unity-background-scale-mode: scale-to-fit;
-    opacity: 0.8;
 }
 
 /* ===== MageTower Detail Popup ===== */
@@ -1457,6 +1464,59 @@
     color: rgba(255, 255, 255, 0.4);
 }
 
+/* ── 확률 요약 필(pill) 행 ── */
+.gacha-rate-row {
+    flex-direction: row;
+    gap: 8px;
+    margin-bottom: 14px;
+    justify-content: flex-start;
+}
+
+.gacha-rate-pill {
+    padding: 6px 14px;
+    border-radius: 14px;
+    background-color: rgba(255, 255, 255, 0.06);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-color: rgba(255, 255, 255, 0.12);
+    align-items: center;
+    justify-content: center;
+}
+
+.gacha-rate-pill-label {
+    font-size: 20px;
+    -unity-font-style: bold;
+    color: rgba(255, 255, 255, 0.9);
+    -unity-text-align: middle-center;
+}
+
+.gacha-rate-pill-normal {
+    border-color: rgba(180, 180, 180, 0.7);
+}
+.gacha-rate-pill-rare {
+    border-color: rgba(80, 150, 255, 1.0);
+    background-color: rgba(60, 130, 255, 0.18);
+}
+.gacha-rate-pill-rare .gacha-rate-pill-label {
+    color: rgba(140, 195, 255, 1.0);
+}
+.gacha-rate-pill-epic {
+    border-color: rgba(200, 100, 255, 0.95);
+    background-color: rgba(180, 80, 255, 0.12);
+}
+.gacha-rate-pill-epic .gacha-rate-pill-label {
+    color: rgba(230, 170, 255, 1.0);
+}
+.gacha-rate-pill-classfragment {
+    border-color: rgba(255, 200, 80, 0.95);
+    background-color: rgba(255, 180, 60, 0.15);
+}
+.gacha-rate-pill-classfragment .gacha-rate-pill-label {
+    color: rgba(255, 220, 130, 1.0);
+}
+
 .gacha-section-title {
     font-size: 26px;
     -unity-font-style: bold;
@@ -1534,6 +1594,15 @@
     color: rgba(200, 100, 255, 1);
 }
 
+.gacha-rarity-text-classfragment {
+    color: rgba(255, 210, 100, 1);
+}
+
+.gacha-rarity-classfragment {
+    border-color: rgba(255, 200, 80, 0.95);
+    background-color: rgba(255, 180, 60, 0.12);
+}
+
 /* ===== Kingdom Army Panel ===== */
 .ka-member-tabs {
     flex-direction: row;
@@ -1560,6 +1629,70 @@
 
 .ka-content {
     flex: 1;
+}
+
+/* ── 모바일 스타일 스크롤바 (전직 메뉴 등) ── */
+/* PC 스타일 화살표 버튼 제거 */
+.ka-content .unity-scroller__low-button,
+.ka-content .unity-scroller__high-button {
+    display: none;
+}
+
+/* 수직 스크롤러 컨테이너: 가늘게 + 투명 배경 */
+.ka-content .unity-scroller--vertical {
+    width: 8px;
+    background-color: rgba(0, 0, 0, 0);
+    margin-top: 4px;
+    margin-bottom: 4px;
+    margin-left: 2px;
+    margin-right: 2px;
+}
+
+/* 슬라이더 폭 축소 */
+.ka-content .unity-scroller--vertical .unity-scroller__slider {
+    width: 8px;
+    min-width: 8px;
+    margin: 0;
+}
+.ka-content .unity-scroller--vertical .unity-base-slider--vertical {
+    width: 8px;
+    min-width: 8px;
+}
+.ka-content .unity-scroller--vertical .unity-base-slider__input {
+    width: 8px;
+    min-width: 8px;
+    margin: 0;
+    padding: 0;
+}
+
+/* 트랙: 아주 옅은 반투명 기둥 */
+.ka-content .unity-scroller--vertical .unity-base-slider__tracker {
+    background-color: rgba(255, 255, 255, 0.06);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    border-radius: 4px;
+    left: 0;
+    right: 0;
+    width: 8px;
+}
+
+/* 드래거(Thumb): 반투명 길쭉한 둥근 기둥 */
+.ka-content .unity-scroller--vertical .unity-base-slider__dragger {
+    background-color: rgba(255, 255, 255, 0.35);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    border-radius: 4px;
+    width: 8px;
+    left: 0;
+    right: 0;
+    margin: 0;
+}
+.ka-content .unity-scroller--vertical .unity-base-slider__dragger:hover {
+    background-color: rgba(255, 255, 255, 0.5);
 }
 
 .ka-nav-bar {
@@ -2281,6 +2414,28 @@
 
 .gacha-result-btn-done {
     background-color: rgba(100, 100, 100, 0.7);
+}
+
+.gacha-result-btn-disabled {
+    background-color: rgba(80, 80, 90, 0.5);
+    color: rgba(255, 255, 255, 0.35);
+}
+
+/* 최고 등급(Epic) 카드 강조 — 배경 글로우 */
+.gacha-result-card-best {
+    background-color: rgba(180, 80, 255, 0.22);
+    border-color: rgba(230, 150, 255, 1);
+}
+
+/* 최고 등급별 제목 색상 */
+.gacha-result-title-epic {
+    color: rgba(220, 140, 255, 1);
+}
+.gacha-result-title-rare {
+    color: rgba(120, 180, 255, 1);
+}
+.gacha-result-title-normal {
+    color: rgba(220, 220, 220, 1);
 }
 
 /* ===== 장비 액션 팝업 ===== */
