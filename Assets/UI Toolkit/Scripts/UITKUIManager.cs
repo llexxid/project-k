@@ -1291,24 +1291,48 @@ namespace KingdomIdle.UIToolkit
             title.AddToClassList("dropdown-title");
             _popupCurrencies.Add(title);
 
+            // 팝업에는 상단에 이미 노출된 재화(Gold/AncientCoin)와 사용하지 않는 재화는 숨긴다.
+            // 현재 표시 재화: ArcaneKnowledge(비전지식) 만 노출.
             var values = (eCurrency[])Enum.GetValues(typeof(eCurrency));
             foreach (var c in values)
             {
-                if (c == eCurrency.Gold || c == eCurrency.AncientCoin || c == eCurrency.ClassFragment)
-                    continue;
+                if (!IsDisplayedCurrency(c)) continue;
+                if (c == eCurrency.Gold || c == eCurrency.AncientCoin) continue;
 
-                var line = new Label($"{c}: {GetCurrencyText(c)}");
+                var line = new Label($"{GetCurrencyLabelKor(c)}: {GetCurrencyText(c)}");
                 line.AddToClassList("dropdown-item");
                 _popupCurrencies.Add(line);
             }
         }
 
+        /// <summary>
+        /// UI 상 표시할 재화 필터. Gold / AncientCoin / ArcaneKnowledge 만 노출한다.
+        /// 나머지(KingdomSupply, TrainingTome, ClassFragment 등)는 내부 로직용이라 숨김.
+        /// </summary>
+        private static bool IsDisplayedCurrency(eCurrency c)
+        {
+            return c == eCurrency.Gold
+                || c == eCurrency.AncientCoin
+                || c == eCurrency.ArcaneKnowledge;
+        }
+
+        private static string GetCurrencyLabelKor(eCurrency c)
+        {
+            switch (c)
+            {
+                case eCurrency.Gold:            return "골드";
+                case eCurrency.AncientCoin:     return "고대주화";
+                case eCurrency.ArcaneKnowledge: return "비전지식";
+                default:                        return c.ToString();
+            }
+        }
+
         private string GetCurrencyText(eCurrency currency)
         {
-            if (_wallet == null) return "null";
+            if (_wallet == null) return "0";
             if (TryGetAmountFromWallet(_wallet, currency, out long amount))
                 return amount.ToString("N0");
-            return "null";
+            return "0";
         }
 
         private void ToggleCurrencyPopup()

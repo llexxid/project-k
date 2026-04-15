@@ -1196,6 +1196,10 @@
     justify-content: center;
     gap: 4px;
     padding: 6px;
+    opacity: 1;
+    transition-property: opacity;
+    transition-duration: 0.7s;
+    transition-timing-function: ease-in-out;
 }
 .mt-inv-item:hover { background-color: rgba(255,255,255,0.14); }
 .mt-inv-item:active { background-color: rgba(255,255,255,0.20); }
@@ -1217,6 +1221,11 @@
     border-bottom-color: rgba(100,210,130,0.6);
 }
 
+/* 선택 모드에서 장착 가능 아이템을 부드럽게 어둡게/밝게 토글 */
+.mt-inv-item-pulse-dim {
+    opacity: 0.35;
+}
+
 .mt-inv-item-icon {
     width: 60px;
     height: 60px;
@@ -1233,14 +1242,6 @@
     font-size: 16px;
     color: rgba(255,255,255,0.6);
     -unity-text-align: middle-center;
-}
-
-.mt-drag-ghost {
-    position: absolute;
-    width: 70px;
-    height: 70px;
-    -unity-background-scale-mode: scale-to-fit;
-    opacity: 0.8;
 }
 
 /* ===== MageTower Detail Popup ===== */
@@ -1560,6 +1561,70 @@
 
 .ka-content {
     flex: 1;
+}
+
+/* ── 모바일 스타일 스크롤바 (전직 메뉴 등) ── */
+/* PC 스타일 화살표 버튼 제거 */
+.ka-content .unity-scroller__low-button,
+.ka-content .unity-scroller__high-button {
+    display: none;
+}
+
+/* 수직 스크롤러 컨테이너: 가늘게 + 투명 배경 */
+.ka-content .unity-scroller--vertical {
+    width: 8px;
+    background-color: rgba(0, 0, 0, 0);
+    margin-top: 4px;
+    margin-bottom: 4px;
+    margin-left: 2px;
+    margin-right: 2px;
+}
+
+/* 슬라이더 폭 축소 */
+.ka-content .unity-scroller--vertical .unity-scroller__slider {
+    width: 8px;
+    min-width: 8px;
+    margin: 0;
+}
+.ka-content .unity-scroller--vertical .unity-base-slider--vertical {
+    width: 8px;
+    min-width: 8px;
+}
+.ka-content .unity-scroller--vertical .unity-base-slider__input {
+    width: 8px;
+    min-width: 8px;
+    margin: 0;
+    padding: 0;
+}
+
+/* 트랙: 아주 옅은 반투명 기둥 */
+.ka-content .unity-scroller--vertical .unity-base-slider__tracker {
+    background-color: rgba(255, 255, 255, 0.06);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    border-radius: 4px;
+    left: 0;
+    right: 0;
+    width: 8px;
+}
+
+/* 드래거(Thumb): 반투명 길쭉한 둥근 기둥 */
+.ka-content .unity-scroller--vertical .unity-base-slider__dragger {
+    background-color: rgba(255, 255, 255, 0.35);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    border-radius: 4px;
+    width: 8px;
+    left: 0;
+    right: 0;
+    margin: 0;
+}
+.ka-content .unity-scroller--vertical .unity-base-slider__dragger:hover {
+    background-color: rgba(255, 255, 255, 0.5);
 }
 
 .ka-nav-bar {

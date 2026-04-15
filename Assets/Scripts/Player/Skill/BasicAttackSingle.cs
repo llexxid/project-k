@@ -53,6 +53,8 @@ public sealed class BasicAttackSingle : ActiveSkill
 
         float animLen = GetAttackAnimLength();
         _player.SetAnimation(ePlayerAction.Attack);
+        // 기본공격 사이클(애니메이션 + 쿨타임) 동안 이동 금지
+        _player.ExtendAttackLock(animLen + _cooldown);
 
         _nextAvailableTime = Time.time + animLen + _cooldown;
         return animLen;

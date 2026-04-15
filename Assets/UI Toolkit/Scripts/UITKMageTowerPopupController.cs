@@ -1,25 +1,28 @@
-using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 using KingdomIdle.MageTower;
 
 namespace KingdomIdle.UIToolkit
 {
-    // 마탑 스킬 장착 팝업 (드래그 & 드롭 + 클릭 장착)
+    // 마탑 스킬 장착 팝업 (탭 기반 장착 — 모바일 친화)
+    // - 장착된 슬롯 탭 → 장착해제
+    // - 빈 슬롯 탭 → 선택 모드 진입, 장착 가능한 스킬만 펄스 애니메이션
+    // - 펄스 중인 스킬 탭 → 해당 슬롯에 장착
     public static class UITKMageTowerPopupController
     {
         private static VisualElement _overlay;
         private static VisualElement _panel;
         private static VisualElement _slotsCol;
         private static VisualElement _invGrid;
-        private static VisualElement _dragGhost;
 
         private static int _selectedSlot;
-        private static int _dragSkillId = -1;
-        private static bool _dragging;
-        private static bool _dragPending;
-        private static Vector2 _dragStartPos;
-        private const float DragThreshold = 10f;
+        private static bool _pickingMode;
+
+        // 펄스 스케줄러 (선택 모드 동안 장착 가능 아이콘들 opacity 토글)
+        private static IVisualElementScheduledItem _pulseSched;
+        private static readonly List<VisualElement> _equippableItems = new List<VisualElement>();
+        private const long PulseIntervalMs = 700;
 
         private static readonly Button[] _equipSlots = new Button[MageTowerManager.SlotCount];
         private static readonly VisualElement[] _equipSlotIcons = new VisualElement[MageTowerManager.SlotCount];
@@ -30,6 +33,7 @@ namespace KingdomIdle.UIToolkit
         public static void Show(int focusSlot = 0)
         {
             _selectedSlot = Mathf.Clamp(focusSlot, 0, MageTowerManager.SlotCount - 1);
+            _pickingMode = false;
             EnsureBuilt();
             Refresh();
             _overlay.RemoveFromClassList("hidden");
@@ -39,8 +43,8 @@ namespace KingdomIdle.UIToolkit
         public static void Hide()
         {
             if (_overlay == null) return;
+            ExitPickingMode();
             _overlay.AddToClassList("hidden");
-            CancelDrag();
             if (UITKMageTowerHudController.Instance != null)
                 UITKMageTowerHudController.Instance.RefreshSlots();
         }
@@ -139,57 +143,15 @@ namespace KingdomIdle.UIToolkit
             body.Add(invCol);
             _panel.Add(body);
 
-            // drag ghost
-            _dragGhost = new VisualElement();
-            _dragGhost.AddToClassList("mt-drag-ghost");
-            _dragGhost.pickingMode = PickingMode.Ignore;
-            _dragGhost.style.display = DisplayStyle.None;
-
             _overlay.Add(_panel);
-            _overlay.Add(_dragGhost);
 
-            // close on backdrop click
+            // 바탕 클릭 → 닫기 (패널 클릭은 안 닫힘)
             _overlay.RegisterCallback<PointerDownEvent>(evt =>
             {
                 var target = evt.target as VisualElement;
                 if (target == _overlay)
                     Hide();
             }, TrickleDown.TrickleDown);
-
-            // drag move
-            _overlay.RegisterCallback<PointerMoveEvent>(evt =>
-            {
-                if (_dragPending && !_dragging)
-                {
-                    float dist = Vector2.Distance(_dragStartPos, evt.position);
-                    if (dist >= DragThreshold)
-                    {
-                        _dragging = true;
-                        _dragGhost.style.display = DisplayStyle.Flex;
-                    }
-                }
-                if (!_dragging) return;
-                _dragGhost.style.left = evt.position.x - 35;
-                _dragGhost.style.top = evt.position.y - 35;
-            });
-
-            // drag drop or cancel on pointer up
-            _overlay.RegisterCallback<PointerUpEvent>(evt =>
-            {
-                if (_dragging)
-                {
-                    int dropSlot = FindSlotUnderPointer(evt.position);
-                    if (dropSlot >= 0)
-                        FinishDrop(dropSlot, _dragSkillId);
-                    else
-                        CancelDrag();
-                }
-                else if (_dragPending)
-                {
-                    _dragPending = false;
-                    _dragSkillId = -1;
-                }
-            });
 
             _overlay.AddToClassList("hidden");
             overlays.Add(_overlay);
@@ -207,7 +169,7 @@ namespace KingdomIdle.UIToolkit
                 var so = skillId >= 0 ? mgr.GetSkillById(skillId) : null;
 
                 _equipSlots[i].RemoveFromClassList("mt-equip-slot-active");
-                if (i == _selectedSlot)
+                if (_pickingMode && i == _selectedSlot)
                     _equipSlots[i].AddToClassList("mt-equip-slot-active");
 
                 if (so != null)
@@ -235,6 +197,8 @@ namespace KingdomIdle.UIToolkit
 
             // inventory
             _invGrid.Clear();
+            _equippableItems.Clear();
+
             var skills = mgr.GetAllSkills();
             for (int i = 0; i < skills.Count; i++)
             {
@@ -242,18 +206,22 @@ namespace KingdomIdle.UIToolkit
                 if (skill == null) continue;
                 _invGrid.Add(BuildInvItem(skill, mgr));
             }
+
+            UpdatePulseState();
         }
 
         private static VisualElement BuildInvItem(MageTowerSkillSO skill, MageTowerManager mgr)
         {
             int id = skill.id;
             bool owned = mgr.IsOwned(id);
+            bool equipped = owned && mgr.IsEquipped(id);
+            bool equippable = owned && !equipped;
 
             var item = new VisualElement();
             item.AddToClassList("mt-inv-item");
             if (!owned)
                 item.AddToClassList("mt-inv-item-locked");
-            else if (mgr.IsEquipped(id))
+            else if (equipped)
                 item.AddToClassList("mt-inv-item-equipped");
 
             var icon = new VisualElement();
@@ -277,61 +245,32 @@ namespace KingdomIdle.UIToolkit
                 dmgLabel.pickingMode = PickingMode.Ignore;
                 item.Add(dmgLabel);
 
-                item.RegisterCallback<PointerDownEvent>(evt =>
-                {
-                    _dragSkillId = id;
-                    _dragPending = true;
-                    _dragging = false;
-                    _dragStartPos = evt.position;
-                    if (skill.icon != null)
-                        _dragGhost.style.backgroundImage = new StyleBackground(skill.icon);
-                    else
-                        _dragGhost.style.backgroundImage = StyleKeyword.None;
-                });
-
-                item.RegisterCallback<PointerUpEvent>(evt =>
-                {
-                    if (_dragging) return;
-                    if (_dragPending)
-                    {
-                        _dragPending = false;
-                        _dragSkillId = -1;
-                        UITKMageTowerDetailPopupController.Show(id);
-                    }
-                });
+                item.RegisterCallback<PointerUpEvent>(evt => OnInvItemTapped(id, equippable));
             }
+
+            if (equippable)
+                _equippableItems.Add(item);
 
             return item;
         }
 
-        private static void FinishDrop(int slotIndex, int skillId)
+        private static void OnInvItemTapped(int skillId, bool equippable)
         {
-            CancelDrag();
             var mgr = MageTowerManager.Instance;
             if (mgr == null) return;
-            mgr.Equip(slotIndex, skillId);
-            Refresh();
-        }
 
-        private static void CancelDrag()
-        {
-            _dragging = false;
-            _dragPending = false;
-            _dragSkillId = -1;
-            if (_dragGhost != null)
-                _dragGhost.style.display = DisplayStyle.None;
-        }
-
-        private static int FindSlotUnderPointer(Vector2 pointerPos)
-        {
-            for (int i = 0; i < MageTowerManager.SlotCount; i++)
+            if (_pickingMode)
             {
-                if (_equipSlots[i] == null) continue;
-                var rect = _equipSlots[i].worldBound;
-                if (rect.Contains(pointerPos))
-                    return i;
+                if (!equippable) return; // 장착 불가능한 스킬은 무시
+                mgr.Equip(_selectedSlot, skillId);
+                ExitPickingMode();
+                Refresh();
             }
-            return -1;
+            else
+            {
+                // 일반 모드 — 상세 팝업 열기
+                UITKMageTowerDetailPopupController.Show(skillId);
+            }
         }
 
         private static void OnEquipSlotClicked(int slotIndex)
@@ -342,13 +281,71 @@ namespace KingdomIdle.UIToolkit
             int skillId = mgr.GetEquippedSkillId(slotIndex);
             if (skillId >= 0)
             {
+                // 장착된 슬롯 탭 → 장착해제 (선택 모드였으면 종료)
                 mgr.Unequip(slotIndex);
+                ExitPickingMode();
                 Refresh();
             }
             else
             {
+                // 빈 슬롯 탭 → 선택 모드 진입 (다른 슬롯을 이미 고르던 상태면 대상만 변경)
                 _selectedSlot = slotIndex;
+                _pickingMode = true;
                 Refresh();
+            }
+        }
+
+        private static void ExitPickingMode()
+        {
+            _pickingMode = false;
+            StopPulse();
+        }
+
+        // ─── 펄스 애니메이션 ───
+        // 선택 모드에서 장착 가능 아이템들의 opacity 를 주기적으로 토글.
+        // USS transition(opacity) 로 부드러운 fade 처리.
+
+        private static void UpdatePulseState()
+        {
+            if (_pickingMode && _equippableItems.Count > 0)
+                StartPulse();
+            else
+                StopPulse();
+        }
+
+        private static void StartPulse()
+        {
+            if (_panel == null) return;
+            StopPulse();
+
+            // 초기 상태: dim class 제거
+            for (int i = 0; i < _equippableItems.Count; i++)
+                _equippableItems[i].RemoveFromClassList("mt-inv-item-pulse-dim");
+
+            _pulseSched = _panel.schedule.Execute(TogglePulse).Every(PulseIntervalMs);
+        }
+
+        private static void StopPulse()
+        {
+            if (_pulseSched != null)
+            {
+                _pulseSched.Pause();
+                _pulseSched = null;
+            }
+            for (int i = 0; i < _equippableItems.Count; i++)
+                _equippableItems[i]?.RemoveFromClassList("mt-inv-item-pulse-dim");
+        }
+
+        private static void TogglePulse()
+        {
+            for (int i = 0; i < _equippableItems.Count; i++)
+            {
+                var el = _equippableItems[i];
+                if (el == null) continue;
+                if (el.ClassListContains("mt-inv-item-pulse-dim"))
+                    el.RemoveFromClassList("mt-inv-item-pulse-dim");
+                else
+                    el.AddToClassList("mt-inv-item-pulse-dim");
             }
         }
     }

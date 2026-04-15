@@ -48,6 +48,8 @@ namespace KingdomIdle.UIToolkit
 
             if (_memberTabs == null || _content == null || _navBar == null) return;
 
+            ConfigureScrollViewForTouch(_content);
+
             _mgr = KingdomArmyManager.Instance;
             if (_mgr == null)
             {
@@ -62,6 +64,23 @@ namespace KingdomIdle.UIToolkit
             BuildMemberTabs();
             BuildNavBar();
             Refresh();
+        }
+
+        /// <summary>
+        /// 왕국군 콘텐츠 ScrollView 를 모바일(안드로이드) 느낌으로 설정.
+        /// - 수직 전용
+        /// - 터치 드래그 팬 (Clamped — 끝에서 튕기지 않음)
+        /// - 관성 감속
+        /// - 자동 노출 스크롤바(USS 가 모바일 스타일로 재스킨)
+        /// </summary>
+        private static void ConfigureScrollViewForTouch(ScrollView sv)
+        {
+            if (sv == null) return;
+            sv.mode = ScrollViewMode.Vertical;
+            sv.verticalScrollerVisibility = ScrollerVisibility.Auto;
+            sv.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            sv.touchScrollBehavior = ScrollView.TouchScrollBehavior.Clamped;
+            sv.scrollDecelerationRate = 0.135f;
         }
 
         // ── 상단 멤버 탭 (왕국군1 / 왕국군2 / 왕국군3) ──

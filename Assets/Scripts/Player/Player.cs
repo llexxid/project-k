@@ -45,6 +45,18 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     /// <summary>기본공격/스킬 애니메이션이 재생 중이면 true. 이동 금지 판정에 사용.</summary>
     public bool IsInAttackAnimation => Time.time < _attackAnimEndTime;
 
+    /// <summary>
+    /// 기본공격 사이클(애니메이션 + 쿨타임) 동안 이동 금지를 유지하기 위해
+    /// _attackAnimEndTime 을 연장한다. 이미 더 먼 시점이면 유지.
+    /// </summary>
+    public void ExtendAttackLock(float duration)
+    {
+        if (duration <= 0f) return;
+        float newEnd = Time.time + duration;
+        if (newEnd > _attackAnimEndTime)
+            _attackAnimEndTime = newEnd;
+    }
+
     [SerializeField]
     private IDamageable _currentTarget;
     public IDamageable currentTarget;
