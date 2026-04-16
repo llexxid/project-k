@@ -41,7 +41,6 @@ namespace Scripts.Monster.State
 			if (_owner == null || !_owner.IsActive) return;
 			// 재할당된 몬스터(=다른 wave에서 재사용 중)에는 OnDead를 발사하지 않음
 			if (_owner.AllocGen != _allocGenAtEnter) return;
-			Debug.Log($"monster Release |{_owner.gameObject.name} | {_owner.gameObject.GetInstanceID()}");
 			_owner.OnDead();
 			MonsterSpawner.Instance.ReleaseMonster(_owner.Type, _owner);
 		}

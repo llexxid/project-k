@@ -329,10 +329,17 @@ namespace KingdomIdle.Gacha
                 }
             }
 
+            // 서버 응답의 전직파편 총량으로 클라이언트 동기화
+            if (dto.ClassFragmentCnt >= 0)
+            {
+                EconomyBridge.TryGetAmount(eCurrency.ClassFragment, out long curFragment);
+                long diff = dto.ClassFragmentCnt - curFragment;
+                if (diff != 0)
+                    EconomyBridge.Add(eCurrency.ClassFragment, (int)diff);
+            }
+
             if (results.Count == 0)
             {
-                // 차감은 유지(서버는 이미 보상을 기록함) — 단, UI 가 빈 결과를 표시하지 않도록 에러로 처리.
-                // 재화 롤백은 하지 않는다(서버/클라 상태 불일치 방지).
                 SetPulling(false);
                 Debug.LogWarning("[GachaManager] 서버는 보상을 내려줬으나 클라이언트에서 해석 가능한 항목이 없습니다.");
                 onError?.Invoke("보상 데이터가 올바르지 않습니다. 관리자에게 문의해주세요.");
@@ -407,6 +414,29 @@ namespace KingdomIdle.Gacha
                 // 스킬 파편 N 개 지급.
                 mtMgr.AddFragments(skillId, skillCount);
                 results.Add(entry);
+            }
+
+            // 서버 응답의 비전지식 총량으로 클라이언트 동기화.
+            // 서버 응답 SkillCode 리스트에는 스킬만 포함되며, 비전지식 드롭은
+            // ArcaneKnowledgeCnt(누적 총량) 과 현재 지갑 잔액의 차이로만 판단 가능하다.
+            // 차감(서버) 후 지갑 대비 서버 총량이 양수 = 드롭. 뽑기 팝업에 보상 엔트리로 추가.
+            if (dto.ArcaneKnowledgeCnt >= 0)
+            {
+                EconomyBridge.TryGetAmount(eCurrency.ArcaneKnowledge, out long curAK);
+                long diff = dto.ArcaneKnowledgeCnt - curAK;
+                if (diff != 0)
+                    EconomyBridge.Add(eCurrency.ArcaneKnowledge, (int)diff);
+
+                if (diff > 0)
+                {
+                    results.Add(new GachaRewardEntry
+                    {
+                        rewardType = eGachaRewardType.Currency,
+                        currency   = eCurrency.ArcaneKnowledge,
+                        amount     = (int)diff,
+                        nameKor    = "비전지식",
+                    });
+                }
             }
 
             if (results.Count == 0)

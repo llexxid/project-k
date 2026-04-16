@@ -231,6 +231,8 @@ namespace Scripts.Server.Auth
 			if (datas.ContainsKey(key_skillTreeData))
 			{
 				SkillTreeDTO skillCodes = JsonConvert.DeserializeObject<SkillTreeDTO>(datas[key_skillTreeData].Value);
+				if (skillCodes?.SkillTrees != null)
+					UserManager.Instance.SetSkillTreeData(skillCodes.SkillTrees);
 			}
 			if (datas.ContainsKey(key_inventoryData))
 			{

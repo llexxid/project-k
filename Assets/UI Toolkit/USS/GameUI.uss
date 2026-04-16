@@ -1635,6 +1635,13 @@
 .gacha-rate-pill-epic .gacha-rate-pill-label {
     color: rgba(230, 170, 255, 1.0);
 }
+.gacha-rate-pill-skill {
+    border-color: rgba(100, 220, 180, 0.95);
+    background-color: rgba(80, 200, 160, 0.15);
+}
+.gacha-rate-pill-skill .gacha-rate-pill-label {
+    color: rgba(150, 240, 210, 1.0);
+}
 .gacha-rate-pill-classfragment {
     border-color: rgba(255, 200, 80, 0.95);
     background-color: rgba(255, 180, 60, 0.15);
@@ -1729,6 +1736,24 @@
     background-color: rgba(255, 180, 60, 0.12);
 }
 
+.gacha-rarity-text-arcaneknowledge {
+    color: rgba(150, 240, 210, 1);
+}
+
+.gacha-rarity-arcaneknowledge {
+    border-color: rgba(100, 220, 180, 0.95);
+    background-color: rgba(80, 200, 160, 0.12);
+}
+
+.gacha-rate-pill-arcaneknowledge {
+    border-color: rgba(100, 220, 180, 0.95);
+    background-color: rgba(80, 200, 160, 0.15);
+}
+
+.gacha-rate-pill-arcaneknowledge .gacha-rate-pill-label {
+    color: rgba(150, 240, 210, 1);
+}
+
 /* ===== Kingdom Army Panel ===== */
 .ka-member-tabs {
     flex-direction: row;
@@ -1755,6 +1780,54 @@
 
 .ka-content {
     flex: 1;
+}
+
+/* ── 왕국군 하단 네비게이션 (종합 / 장비 / 스킬 / 전직) ──
+   게임 전반의 탭/패널 UI 언어(.gacha-tab-bar + .gacha-tab-btn)와 동일한 비주얼.
+   상단 멤버 탭과 대칭을 이루도록 같은 리듬(높이/라운딩)을 사용한다. */
+.ka-nav-bar {
+    flex-direction: row;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.ka-nav-btn {
+    flex: 1;
+    height: 72px;
+    font-size: 26px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.6);
+    transition-property: scale, background-color;
+    transition-duration: 0.08s, 0.08s;
+}
+
+.ka-nav-btn:hover {
+    background-color: rgba(255, 255, 255, 0.14);
+    color: rgba(255, 255, 255, 0.85);
+    scale: 1.02;
+}
+
+.ka-nav-btn:active {
+    background-color: rgba(40, 100, 200, 0.55);
+    scale: 0.96;
+}
+
+.ka-nav-btn-active {
+    background-color: rgba(60, 120, 220, 0.7);
+    color: rgba(255, 255, 255, 0.98);
+    border-top-width: 2px;
+    border-top-color: rgba(140, 200, 255, 0.95);
+}
+
+.ka-nav-btn-active:hover {
+    background-color: rgba(80, 150, 255, 0.8);
 }
 
 /* ── 모바일 스타일 스크롤바 (전직 메뉴 등) ── */
@@ -1821,28 +1894,6 @@
     background-color: rgba(255, 255, 255, 0.5);
 }
 
-.ka-nav-bar {
-    flex-direction: row;
-    gap: 6px;
-    margin-top: 8px;
-}
-
-.ka-nav-btn {
-    flex: 1;
-    height: 52px;
-    font-size: 22px;
-    background-color: rgba(255, 255, 255, 0.06);
-    border-radius: 8px;
-    border-left-width: 0; border-right-width: 0;
-    border-top-width: 0; border-bottom-width: 0;
-    color: rgba(255, 255, 255, 0.5);
-}
-
-.ka-nav-btn-active {
-    background-color: rgba(80, 60, 180, 0.5);
-    color: rgba(255, 255, 255, 0.95);
-}
-
 /* Character View */
 .ka-char-header {
     flex-direction: row;
@@ -1899,55 +1950,125 @@
     margin: 20px 0;
 }
 
-/* ═══ Enhance View (강화 메뉴) ═══ */
+/* ═══ Enhance View (강화 메뉴) — 뽑기 패널과 동일한 비주얼 언어 ═══ */
 
-.ka-enhance-row {
-    flex-direction: column;
-    padding: 14px 14px;
-    background-color: rgba(255, 255, 255, 0.06);
-    border-radius: 12px;
-    margin-bottom: 10px;
-    border-left-width: 2px;
-    border-left-color: rgba(100, 180, 255, 0.4);
-}
-
-.ka-enhance-header {
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
+/* 상단 설명 — .gacha-desc 와 동일 톤 */
+.ka-dev-desc {
+    font-size: 22px;
+    color: rgba(255, 255, 255, 0.7);
+    white-space: normal;
     margin-bottom: 8px;
 }
 
-.ka-enhance-name {
+/* 보유 골드 바 — .gacha-cost 와 동일 톤 */
+.ka-dev-gold-bar {
     font-size: 26px;
+    -unity-font-style: bold;
+    color: rgba(255, 204, 0, 0.95);
+    margin-bottom: 14px;
+}
+
+/* 강화 카드 — .ka-enhance-row 의 후속 명칭 */
+.ka-enhance-card {
+    flex-direction: column;
+    padding: 14px 16px;
+    background-color: rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    margin-bottom: 12px;
+    border-left-width: 3px;
+    border-left-color: rgba(100, 180, 255, 0.55);
+}
+
+.ka-enhance-card-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.ka-enhance-card-name {
+    font-size: 28px;
     -unity-font-style: bold;
     color: rgba(255, 255, 255, 0.95);
 }
 
-.ka-enhance-level {
+.ka-enhance-card-level {
     font-size: 22px;
-    color: rgba(100, 200, 255, 0.95);
     -unity-font-style: bold;
+    color: rgba(100, 200, 255, 0.95);
 }
 
-.ka-enhance-bonus {
+.ka-enhance-card-bonus {
     font-size: 20px;
     color: rgba(120, 255, 160, 0.9);
-    margin-bottom: 10px;
+    margin-bottom: 12px;
 }
 
-.ka-enhance-dummy-tag {
-    font-size: 18px;
-    color: rgba(255, 200, 80, 0.7);
-    -unity-font-style: italic;
-    margin-bottom: 10px;
-}
-
+/* 버튼 행 */
 .ka-enhance-btn-row {
     flex-direction: row;
     gap: 10px;
 }
 
+/* 강화 버튼 — .gacha-pull-btn 와 동일 치수/색 — 일관된 게임 UI */
+.ka-enhance-pull-btn {
+    flex: 1;
+    height: 90px;
+    -unity-text-align: middle-center;
+    white-space: normal;
+    background-color: rgba(60, 120, 220, 0.7);
+    border-radius: 12px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.95);
+    padding: 6px 8px;
+    align-items: center;
+    justify-content: center;
+    transition-property: scale, background-color;
+    transition-duration: 0.08s, 0.08s;
+}
+
+.ka-enhance-pull-btn:hover {
+    background-color: rgba(80, 150, 255, 0.85);
+    scale: 1.02;
+}
+
+.ka-enhance-pull-btn:active {
+    background-color: rgba(40, 100, 200, 0.95);
+    scale: 0.96;
+}
+
+.ka-enhance-pull-btn-disabled,
+.ka-enhance-pull-btn:disabled {
+    background-color: rgba(100, 100, 100, 0.5);
+    color: rgba(255, 255, 255, 0.4);
+    opacity: 0.7;
+    scale: 1;
+}
+
+.ka-enhance-pull-btn-title {
+    font-size: 26px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    color: rgba(255, 255, 255, 0.98);
+}
+
+.ka-enhance-pull-btn-cost {
+    font-size: 20px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    color: rgba(255, 220, 100, 0.95);
+    margin-top: 2px;
+}
+
+.ka-enhance-pull-btn-disabled .ka-enhance-pull-btn-cost,
+.ka-enhance-pull-btn:disabled .ka-enhance-pull-btn-cost {
+    color: rgba(255, 180, 180, 0.65);
+}
+
+/* 소형 보조 버튼 — 장비 해제 등 인벤토리/왕국군에서 공용으로 사용 */
 .ka-small-btn {
     flex: 1;
     height: 52px;
@@ -1973,9 +2094,11 @@
     scale: 0.93;
 }
 
-.ka-enhance-cost {
-    font-size: 18px;
-    color: rgba(255, 220, 100, 0.85);
+.ka-small-btn:disabled {
+    background-color: rgba(90, 100, 120, 0.4);
+    color: rgba(255, 255, 255, 0.4);
+    opacity: 0.6;
+    scale: 1;
 }
 
 /* Equipment View */

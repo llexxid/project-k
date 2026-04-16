@@ -180,23 +180,48 @@ namespace KingdomIdle.UIToolkit
         {
             if (table?.rewards == null || table.rewards.Count == 0) return null;
 
-            float total = 0f;
-            for (int i = 0; i < table.rewards.Count; i++) total += Mathf.Max(0f, table.rewards[i].weight);
-            if (total <= 0f) return null;
+            bool isSkillGacha = table.costCurrency == eCurrency.ArcaneKnowledge;
+            bool isEquipGacha = table.costCurrency == eCurrency.AncientCoin;
 
-            // 등급별 가중치 집계 — 장비 보상이 섞여있을 때만 표시
-            float wNormal = 0f, wRare = 0f, wEpic = 0f;
-            float wClassFragment = 0f;
-            bool hasAnyEquipment = false;
+            // 비용 통화 기준으로 유효한 보상만 집계
+            float total = 0f;
             for (int i = 0; i < table.rewards.Count; i++)
             {
                 var r = table.rewards[i];
                 if (r == null) continue;
+                if (!IsRewardValidForGacha(r, isSkillGacha, isEquipGacha)) continue;
+                total += Mathf.Max(0f, r.weight);
+            }
+            if (total <= 0f) return null;
 
-                // 전직 파편 드롭(장비 가챠에 10% 섞여 들어옴)은 별도 핀으로 표시
+            float wNormal = 0f, wRare = 0f, wEpic = 0f;
+            float wClassFragment = 0f;
+            float wArcaneKnowledge = 0f;
+            float wSkill = 0f;
+            bool hasAnyEquipment = false;
+            bool hasAnySkill = false;
+            for (int i = 0; i < table.rewards.Count; i++)
+            {
+                var r = table.rewards[i];
+                if (r == null) continue;
+                if (!IsRewardValidForGacha(r, isSkillGacha, isEquipGacha)) continue;
+
                 if (r.rewardType == eGachaRewardType.Currency && r.currency == eCurrency.ClassFragment)
                 {
                     wClassFragment += r.weight;
+                    continue;
+                }
+
+                if (r.rewardType == eGachaRewardType.Currency && r.currency == eCurrency.ArcaneKnowledge)
+                {
+                    wArcaneKnowledge += r.weight;
+                    continue;
+                }
+
+                if (r.rewardType == eGachaRewardType.Skill)
+                {
+                    wSkill += r.weight;
+                    hasAnySkill = true;
                     continue;
                 }
 
@@ -210,7 +235,7 @@ namespace KingdomIdle.UIToolkit
                 }
             }
 
-            if (!hasAnyEquipment && wClassFragment <= 0f) return null;
+            if (!hasAnyEquipment && !hasAnySkill && wClassFragment <= 0f && wArcaneKnowledge <= 0f) return null;
 
             var row = new VisualElement();
             row.AddToClassList("gacha-rate-row");
@@ -221,12 +246,36 @@ namespace KingdomIdle.UIToolkit
                 row.Add(MakeRatePill("레어", wRare   / total * 100f, "gacha-rate-pill-rare"));
                 row.Add(MakeRatePill("에픽", wEpic   / total * 100f, "gacha-rate-pill-epic"));
             }
+            if (hasAnySkill)
+            {
+                row.Add(MakeRatePill("마탑 스킬", wSkill / total * 100f, "gacha-rate-pill-skill"));
+            }
+            if (wArcaneKnowledge > 0f)
+            {
+                row.Add(MakeRatePill("비전지식", wArcaneKnowledge / total * 100f, "gacha-rate-pill-arcaneknowledge"));
+            }
             if (wClassFragment > 0f)
             {
                 row.Add(MakeRatePill("전직 파편", wClassFragment / total * 100f, "gacha-rate-pill-classfragment"));
             }
 
             return row;
+        }
+
+        // 비용 통화 기준으로 해당 보상 항목이 유효한지 판정.
+        // 스킬 가챠(ArcaneKnowledge): Skill + ArcaneKnowledge(비전지식) 만 허용
+        //   — 서버 응답도 SkillCode 와 비전지식 누적 총량만 내려준다.
+        // 장비 가챠(AncientCoin): Equipment + ClassFragment(전직 파편) 만 허용
+        //   — 서버가 장비 ItemCode 에 10% 확률로 전직 파편을 섞어 내려준다.
+        private static bool IsRewardValidForGacha(GachaRewardEntry r, bool isSkillGacha, bool isEquipGacha)
+        {
+            if (isSkillGacha)
+                return r.rewardType == eGachaRewardType.Skill
+                    || (r.rewardType == eGachaRewardType.Currency && r.currency == eCurrency.ArcaneKnowledge);
+            if (isEquipGacha)
+                return r.rewardType == eGachaRewardType.Equipment
+                    || (r.rewardType == eGachaRewardType.Currency && r.currency == eCurrency.ClassFragment);
+            return true;
         }
 
         private static VisualElement MakeRatePill(string label, float pct, string colorClass)
@@ -246,6 +295,9 @@ namespace KingdomIdle.UIToolkit
         {
             if (table.rewards == null || table.rewards.Count == 0) return;
 
+            bool isSkillGacha = table.costCurrency == eCurrency.ArcaneKnowledge;
+            bool isEquipGacha = table.costCurrency == eCurrency.AncientCoin;
+
             var sectionTitle = new Label("획득 가능 보상");
             sectionTitle.AddToClassList("gacha-section-title");
             _content.Add(sectionTitle);
@@ -255,9 +307,13 @@ namespace KingdomIdle.UIToolkit
 
             float totalWeight = 0f;
             for (int i = 0; i < table.rewards.Count; i++)
-                totalWeight += Mathf.Max(0f, table.rewards[i].weight);
+            {
+                var r = table.rewards[i];
+                if (r == null) continue;
+                if (!IsRewardValidForGacha(r, isSkillGacha, isEquipGacha)) continue;
+                totalWeight += Mathf.Max(0f, r.weight);
+            }
 
-            // Epic 먼저, 그다음 Rare, Normal, Skill, Currency 순서로 정렬 표시
             var sorted = new List<GachaRewardEntry>(table.rewards);
             sorted.Sort(CompareForPreview);
 
@@ -265,6 +321,7 @@ namespace KingdomIdle.UIToolkit
             {
                 var entry = sorted[i];
                 if (entry == null) continue;
+                if (!IsRewardValidForGacha(entry, isSkillGacha, isEquipGacha)) continue;
 
                 var card = new VisualElement();
                 card.AddToClassList("gacha-reward-card");
@@ -273,6 +330,8 @@ namespace KingdomIdle.UIToolkit
                     card.AddToClassList($"gacha-rarity-{entry.equipmentData.rarity.ToString().ToLower()}");
                 else if (entry.rewardType == eGachaRewardType.Currency && entry.currency == eCurrency.ClassFragment)
                     card.AddToClassList("gacha-rarity-classfragment");
+                else if (entry.rewardType == eGachaRewardType.Currency && entry.currency == eCurrency.ArcaneKnowledge)
+                    card.AddToClassList("gacha-rarity-arcaneknowledge");
 
                 Sprite displayIcon = entry.icon;
                 if (entry.rewardType == eGachaRewardType.Equipment && entry.equipmentData != null && entry.equipmentData.icon != null)
@@ -318,6 +377,13 @@ namespace KingdomIdle.UIToolkit
                     var tagLbl = new Label("전직 파편");
                     tagLbl.AddToClassList("gacha-reward-rarity");
                     tagLbl.AddToClassList("gacha-rarity-text-classfragment");
+                    card.Add(tagLbl);
+                }
+                else if (entry.rewardType == eGachaRewardType.Currency && entry.currency == eCurrency.ArcaneKnowledge)
+                {
+                    var tagLbl = new Label("비전지식");
+                    tagLbl.AddToClassList("gacha-reward-rarity");
+                    tagLbl.AddToClassList("gacha-rarity-text-arcaneknowledge");
                     card.Add(tagLbl);
                 }
 

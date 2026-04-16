@@ -536,6 +536,12 @@ namespace KingdomIdle.UIToolkit
                     // 전직 파편 전용 테두리/배경 (GameUI.uss 에 정의됨)
                     card.AddToClassList("gacha-rarity-classfragment");
                 }
+                else if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency
+                         && entry.currency == eCurrency.ArcaneKnowledge)
+                {
+                    // 비전지식 전용 테두리/배경 (GameUI.uss 에 정의됨)
+                    card.AddToClassList("gacha-rarity-arcaneknowledge");
+                }
 
                 // 아이콘
                 Sprite icon = entry.icon;
@@ -563,6 +569,15 @@ namespace KingdomIdle.UIToolkit
                     var placeholder = new Label("전직 파편");
                     placeholder.AddToClassList("gacha-result-icon");
                     placeholder.AddToClassList("gacha-rarity-text-classfragment");
+                    card.Add(placeholder);
+                }
+                else if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency
+                         && entry.currency == eCurrency.ArcaneKnowledge)
+                {
+                    // 비전지식도 아이콘 누락 시 동일하게 텍스트 플레이스홀더 사용.
+                    var placeholder = new Label("비전지식");
+                    placeholder.AddToClassList("gacha-result-icon");
+                    placeholder.AddToClassList("gacha-rarity-text-arcaneknowledge");
                     card.Add(placeholder);
                 }
 
@@ -910,8 +925,9 @@ namespace KingdomIdle.UIToolkit
         /// 캡처된 포인터는 경계를 벗어나도 PointerUp 이벤트가 원 타겟으로 도달하므로,
         /// "눌렀다 릴리즈" 의도가 있으면 바운스 여부와 관계없이 항상 onTap 이 호출된다.
         /// 기존 Clickable 매니퓰레이터는 제거하고 커스텀 핸들러만 사용한다(중복 호출 방지).
+        /// 외부(패널 컨트롤러)에서도 동일한 탭 안정성을 얻기 위해 public 으로 노출한다.
         /// </summary>
-        private void RegisterMobileTap(VisualElement target, Action onTap)
+        public void RegisterMobileTap(VisualElement target, Action onTap)
         {
             if (target == null || onTap == null) return;
 
@@ -1337,7 +1353,12 @@ namespace KingdomIdle.UIToolkit
 
             var closeBtn = panelRoot.Q<Button>("BtnPanelClose");
             if (closeBtn != null)
+            {
+                // 표준 Button.clicked 사용.
+                // RegisterMobileTap 은 Sheet 의 PointerDown/Up StopPropagation 과 충돌해
+                // 이벤트가 누락되는 문제가 있어 제거했다. 뽑기/육성 패널 버튼과 동일 패턴.
                 closeBtn.clicked += PopPanel;
+            }
 
             RegisterButtonClickSfx(panelRoot);
             ApplyPanelOffsets(panelRoot);

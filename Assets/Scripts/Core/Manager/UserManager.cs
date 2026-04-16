@@ -21,6 +21,7 @@ namespace Scripts.Core
 		List<CharacterDataQuery> _characterDataFromServer;
 		List<Scripts.Server.DTO.ItemCode> _inventoryDataFromServer;
 		List<JobTreeQuery> _jobTreeDataFromServer;
+		List<Scripts.Server.DTO.SkillCode> _skillTreeDataFromServer;
 		private void Awake()
 		{
 			if (Instance == null)
@@ -132,6 +133,10 @@ namespace Scripts.Core
 		{
 			_jobTreeDataFromServer = jobTrees;
 		}
+		public void SetSkillTreeData(List<Scripts.Server.DTO.SkillCode> skillCodes)
+		{
+			_skillTreeDataFromServer = skillCodes;
+		}
 		/// <summary>해당 캐릭터 슬롯의 서버 JobTree(획득한 jobCode 목록)를 반환. 없으면 null.</summary>
 		public List<ulong> GetJobTreeForCharacter(int characterIndex)
 		{
@@ -229,6 +234,19 @@ obj1.GetComponent<ChangeJob>().ChangeJobByCode(_characterDataFromServer[0].JobCo
 						var instance = new EquipmentInstance(data);
 						target.equipmentManager.Inventory.Add(instance);
 					}
+				}
+			}
+
+			// 서버 스킬트리 데이터 복원
+			if (_skillTreeDataFromServer != null && _skillTreeDataFromServer.Count > 0)
+			{
+				var mtMgr = KingdomIdle.MageTower.MageTowerManager.Instance;
+				if (mtMgr != null)
+				{
+					long[] packed = new long[_skillTreeDataFromServer.Count];
+					for (int s = 0; s < _skillTreeDataFromServer.Count; s++)
+						packed[s] = (long)_skillTreeDataFromServer[s].Code;
+					mtMgr.UnpackAllSkills(packed);
 				}
 			}
 		}

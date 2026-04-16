@@ -159,8 +159,6 @@ namespace Scripts.Core
 				}
 			}
 
-			Debug.Log($"Stage���� {_currentStage} ���� ������ : {_totalCnt}");
-
 		}
 
 		//���͸� ���� �� �θ��� �Լ�
