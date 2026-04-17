@@ -15,14 +15,6 @@ namespace KingdomIdle.Gacha
     using ItemCode = Scripts.Server.DTO.ItemCode;
     using SkillCode = Scripts.Server.DTO.SkillCode;
 
-    /// <summary>
-    /// 가챠 매니저.
-    /// - ClassFragment / ArcaneKnowledge 통화 → PlayFab CloudScript 서버 가챠
-    /// - 그 외(Gold 등 테스트용) → 클라이언트 가중 롤
-    /// - 낙관적 재화 차감 후 서버 오류 시 자동 롤백
-    /// - In-flight 락으로 중복 요청 차단
-    /// - OnPullStateChanged 이벤트로 UI(버튼 활성/비활성) 동기화
-    /// </summary>
     public class GachaManager : MonoBehaviour
     {
         public static GachaManager Instance { get; private set; }
@@ -31,11 +23,9 @@ namespace KingdomIdle.Gacha
 
         public IReadOnlyList<GachaTableSO> GetAllTables() => gachaTables;
 
-        // ── In-flight 락 ───────────────────────────────────────────────
         private bool _isPulling;
         public bool IsPulling => _isPulling;
 
-        /// <summary>풀 시작/완료 시 호출. UI 버튼 활성 여부 동기화에 사용.</summary>
         public event Action<bool> OnPullStateChanged;
 
         private void Awake()
@@ -54,8 +44,6 @@ namespace KingdomIdle.Gacha
             if (Instance == this) Instance = null;
         }
 
-        // ── 사전 검사 ──────────────────────────────────────────────────
-
         public bool CanPull(GachaTableSO table)
         {
             if (table == null || !table.isImplemented) return false;
@@ -73,25 +61,11 @@ namespace KingdomIdle.Gacha
             return cur >= (long)table.costAmount * count;
         }
 
-        /// <summary>
-        /// AncientCoin(장비 가챠) / ArcaneKnowledge(스킬 가챠) 통화로 뽑는 테이블은
-        /// 서버 CloudScript 로 라우팅된다(서버에 `OnGachaEquipmentClassFragment` /
-        /// `OnGachaSkillArcaneKnowledge` CloudScript 함수가 존재).
-        /// 장비 가챠는 서버에서 10% 확률로 전직 파편(ClassFragment) 이 섞여 떨어진다.
-        /// 그 외(Gold 등 테스트용)는 클라이언트 가중 롤.
-        /// </summary>
         private static bool IsServerBacked(GachaTableSO table) =>
             table != null &&
-            (table.costCurrency == eCurrency.AncientCoin ||
-             table.costCurrency == eCurrency.ArcaneKnowledge);
+            (table.gachaType == eGachaType.Equipment ||
+             table.gachaType == eGachaType.Skill);
 
-        // ── 퍼블릭 진입점 ─────────────────────────────────────────────
-
-        /// <summary>
-        /// 가챠 요청(비동기). 서버 응답을 받아 콜백으로 결과 전달.
-        /// 서버 에러 시 차감된 재화를 롤백한다.
-        /// 이미 진행 중인 요청이 있으면 중복 실행을 방지한다.
-        /// </summary>
         public void TryPull(GachaTableSO table, int count,
                             Action<List<GachaRewardEntry>> onSuccess,
                             Action<string> onError)
@@ -135,7 +109,6 @@ namespace KingdomIdle.Gacha
                 return;
             }
 
-            // 락 설정 + 낙관적 차감
             SetPulling(true);
             EconomyBridge.Add(table.costCurrency, -totalCost);
 
@@ -154,8 +127,6 @@ namespace KingdomIdle.Gacha
                 CompleteSuccess(results, onSuccess);
             }
         }
-
-        // ── 내부 상태 ──────────────────────────────────────────────────
 
         private void SetPulling(bool v)
         {
@@ -177,7 +148,6 @@ namespace KingdomIdle.Gacha
             if (refundAmount > 0 && table != null)
                 EconomyBridge.Add(table.costCurrency, refundAmount);
             SetPulling(false);
-            Debug.LogWarning($"[GachaManager] 실패: {message}");
             onError?.Invoke(message);
         }
 
@@ -188,8 +158,6 @@ namespace KingdomIdle.Gacha
             string sid = net.GetSessionID();
             return !string.IsNullOrEmpty(sid);
         }
-
-        // ── 서버 가챠 ──────────────────────────────────────────────────
 
         private void RequestServerPull(GachaTableSO table, int count, int refundAmount,
                                        Action<List<GachaRewardEntry>> onSuccess,
@@ -202,23 +170,21 @@ namespace KingdomIdle.Gacha
                 return;
             }
 
-            // 장비 가챠(AncientCoin) — 서버 CloudScript `OnGachaEquipmentClassFragment`
-            // 스킬 가챠(ArcaneKnowledge) — 서버 CloudScript `OnGachaSkillArcaneKnowledge`
-            if (table.costCurrency == eCurrency.AncientCoin)
+            switch (table.gachaType)
             {
-                net.OnGachaEquipmentClick(count,
-                    result => HandleEquipmentResponse(result, onSuccess, onError, table, refundAmount),
-                    error  => HandleServerError(error, onError, table, refundAmount));
-            }
-            else if (table.costCurrency == eCurrency.ArcaneKnowledge)
-            {
-                net.OnGachaSkillClick(count,
-                    result => HandleSkillResponse(result, onSuccess, onError, table, refundAmount),
-                    error  => HandleServerError(error, onError, table, refundAmount));
-            }
-            else
-            {
-                FailWithRefund(table, refundAmount, "지원하지 않는 재화입니다.", onError);
+                case eGachaType.Equipment:
+                    net.OnGachaEquipmentClick(count,
+                        result => HandleEquipmentResponse(result, onSuccess, onError, table, refundAmount),
+                        error  => HandleServerError(error, onError, table, refundAmount));
+                    break;
+                case eGachaType.Skill:
+                    net.OnGachaSkillClick(count,
+                        result => HandleSkillResponse(result, onSuccess, onError, table, refundAmount),
+                        error  => HandleServerError(error, onError, table, refundAmount));
+                    break;
+                default:
+                    FailWithRefund(table, refundAmount, "지원하지 않는 뽑기 타입입니다.", onError);
+                    break;
             }
         }
 
@@ -258,13 +224,6 @@ namespace KingdomIdle.Gacha
                 return;
             }
 
-            // 서버 응답을 엔트리로 변환 + 즉시 지급.
-            // 뽑기 자체는 서버 CloudScript 가 수행하고 결과만 내려준다.
-            // 클라이언트는 그 결과를 해석/표시하고 통합 전직 파편 지급만 반영한다.
-            //
-            // 서버는 동일 ItemCode 를 한 건으로 묶어 내려보내고 개수를
-            // ItemCode 하위 16비트(= GetItemAmount) 에 Count 로 인코딩한다.
-            // 장비/파편 모두 동일한 규칙을 사용한다.
             var results = new List<GachaRewardEntry>(dto.GachaList.Count);
             foreach (var itemCode in dto.GachaList)
             {
@@ -273,7 +232,6 @@ namespace KingdomIdle.Gacha
 
                 if (data != null)
                 {
-                    // 장비 드롭 — 서버가 동일 장비 N 개를 한 엔트리로 묶어 내려줄 수 있다.
                     int equipCount = (int)itemCode.GetItemAmount();
                     if (equipCount <= 0) equipCount = 1;
 
@@ -286,7 +244,6 @@ namespace KingdomIdle.Gacha
                         amount        = equipCount,
                     };
 
-                    // N 개 지급 — EquipmentInstance 는 인스턴스별로 생성해야 하므로 반복 호출.
                     for (int i = 0; i < equipCount; i++)
                         DistributeEquipmentReward(equipEntry);
 
@@ -294,38 +251,18 @@ namespace KingdomIdle.Gacha
                 }
                 else
                 {
-                    // 장비 DB 에 없는 ItemCode 는 통합 전직 파편(ClassFragment) 드롭으로 간주.
-                    // 서버가 장비 가챠에 섞어 내려보내는 10% 확률 파편이다.
-                    //
-                    // 통합 전직 파편 체제:
-                    //   - 직업별 파편이 아니라 단일 파편 재화 (eCurrency.ClassFragment) 로 누적.
-                    //   - ItemCode 의 jobFlag(= GetItemJobCode) 는 무시해도 무방하나,
-                    //     서버가 직업 구분을 계속 내려보낸다면 보관만 하고 지급은 통합 풀로 진행.
-                    //   - GetItemAmount() 가 파편 개수.
                     int fragmentAmount = (int)itemCode.GetItemAmount();
                     if (fragmentAmount <= 0) fragmentAmount = 1;
 
-                    var fragmentEntry = new GachaRewardEntry
+                    KingdomArmyManager.Instance.AddFragments(fragmentAmount);
+
+                    results.Add(new GachaRewardEntry
                     {
                         rewardType = eGachaRewardType.Currency,
                         currency   = eCurrency.ClassFragment,
                         amount     = fragmentAmount,
                         nameKor    = "전직 파편",
-                    };
-
-                    var armyMgr = KingdomArmyManager.Instance;
-                    if (armyMgr != null)
-                    {
-                        armyMgr.AddFragments(fragmentAmount);
-                    }
-                    else
-                    {
-                        // KingdomArmyManager 가 없어도 Wallet 에 직접 반영해 손실을 방지.
-                        EconomyBridge.Add(eCurrency.ClassFragment, fragmentAmount);
-                        Debug.LogWarning("[GachaManager] KingdomArmyManager 미초기화 — Wallet 에 직접 지급.");
-                    }
-
-                    results.Add(fragmentEntry);
+                    });
                 }
             }
 
@@ -341,7 +278,6 @@ namespace KingdomIdle.Gacha
             if (results.Count == 0)
             {
                 SetPulling(false);
-                Debug.LogWarning("[GachaManager] 서버는 보상을 내려줬으나 클라이언트에서 해석 가능한 항목이 없습니다.");
                 onError?.Invoke("보상 데이터가 올바르지 않습니다. 관리자에게 문의해주세요.");
                 return;
             }
@@ -385,41 +321,36 @@ namespace KingdomIdle.Gacha
                 return;
             }
 
-            // 서버는 동일 SkillCode 를 한 건으로 묶어 내려보내고 개수를
-            // SkillCode 하위 16비트(= GetSkillAmount) 에 Count 로 인코딩한다.
             var results = new List<GachaRewardEntry>(dto.GachaList.Count);
 
             foreach (var skillCode in dto.GachaList)
             {
                 int skillId = (int)skillCode.GetSkillId();
                 var so = mtMgr.GetSkillById(skillId);
-                if (so == null)
-                {
-                    Debug.LogWarning($"[GachaManager] skillId {skillId} 에 해당하는 MageTowerSkillSO 없음 — 건너뜀");
-                    continue;
-                }
+                if (so == null) continue;
 
                 int skillCount = (int)skillCode.GetSkillAmount();
                 if (skillCount <= 0) skillCount = 1;
 
-                var entry = new GachaRewardEntry
+                int fragmentAmount = skillCount;
+                if (!mtMgr.IsOwned(skillId))
+                {
+                    mtMgr.Unlock(skillId);
+                    fragmentAmount -= 1;
+                }
+                if (fragmentAmount > 0)
+                    mtMgr.AddFragments(skillId, fragmentAmount);
+
+                results.Add(new GachaRewardEntry
                 {
                     rewardType = eGachaRewardType.Skill,
                     skillId    = skillId,
                     amount     = skillCount,
                     nameKor    = so.nameKor,
                     icon       = so.icon,
-                };
-
-                // 스킬 파편 N 개 지급.
-                mtMgr.AddFragments(skillId, skillCount);
-                results.Add(entry);
+                });
             }
 
-            // 서버 응답의 비전지식 총량으로 클라이언트 동기화.
-            // 서버 응답 SkillCode 리스트에는 스킬만 포함되며, 비전지식 드롭은
-            // ArcaneKnowledgeCnt(누적 총량) 과 현재 지갑 잔액의 차이로만 판단 가능하다.
-            // 차감(서버) 후 지갑 대비 서버 총량이 양수 = 드롭. 뽑기 팝업에 보상 엔트리로 추가.
             if (dto.ArcaneKnowledgeCnt >= 0)
             {
                 EconomyBridge.TryGetAmount(eCurrency.ArcaneKnowledge, out long curAK);
@@ -442,7 +373,6 @@ namespace KingdomIdle.Gacha
             if (results.Count == 0)
             {
                 SetPulling(false);
-                Debug.LogWarning("[GachaManager] 서버는 스킬 보상을 내려줬으나 클라이언트에서 해석 가능한 스킬이 없습니다.");
                 onError?.Invoke("스킬 데이터가 올바르지 않습니다. 관리자에게 문의해주세요.");
                 return;
             }
@@ -457,8 +387,6 @@ namespace KingdomIdle.Gacha
             string msg = error != null ? error.ErrorMessage : "알 수 없는 서버 오류";
             FailWithRefund(table, refundAmount, $"서버 오류: {msg}", onError);
         }
-
-        // ── 클라이언트 롤 (테스트/비서버 통화용) ──────────────────────
 
         private List<GachaRewardEntry> RollClient(GachaTableSO table, int count)
         {
@@ -486,7 +414,16 @@ namespace KingdomIdle.Gacha
                 case eGachaRewardType.Skill:
                     var mtMgr = MageTowerManager.Instance;
                     if (mtMgr != null)
-                        mtMgr.AddFragments(reward.skillId, reward.amount);
+                    {
+                        int amt = reward.amount;
+                        if (!mtMgr.IsOwned(reward.skillId))
+                        {
+                            mtMgr.Unlock(reward.skillId);
+                            amt -= 1;
+                        }
+                        if (amt > 0)
+                            mtMgr.AddFragments(reward.skillId, amt);
+                    }
                     break;
 
                 case eGachaRewardType.Equipment:
@@ -495,40 +432,18 @@ namespace KingdomIdle.Gacha
             }
         }
 
-        /// <summary>
-        /// 장비 보상을 직업이 호환되는 플레이어(없으면 첫 번째)의 인벤토리에 추가한다.
-        /// </summary>
         private void DistributeEquipmentReward(GachaRewardEntry reward)
         {
-            if (reward.equipmentData == null)
-            {
-                Debug.LogWarning("[GachaManager] Equipment 보상이지만 equipmentData가 null입니다.");
-                return;
-            }
+            if (reward.equipmentData == null) return;
 
-            var armyMgr = KingdomArmyManager.Instance;
-            if (armyMgr == null)
-            {
-                Debug.LogWarning("[GachaManager] KingdomArmyManager가 없어 장비를 지급할 수 없습니다.");
-                return;
-            }
-
-            var players = armyMgr.GetPlayers();
-            if (players == null || players.Count == 0)
-            {
-                Debug.LogWarning("[GachaManager] 플레이어가 없어 장비를 지급할 수 없습니다.");
-                return;
-            }
+            var players = KingdomArmyManager.Instance.GetPlayers();
+            if (players == null || players.Count == 0) return;
 
             Player targetPlayer = players[0];
             for (int i = 0; i < players.Count; i++)
             {
                 var p = players[i];
                 if (p?.equipmentManager == null) continue;
-
-                var changeJob = p.GetComponent<ChangeJob>();
-                if (changeJob == null) continue;
-
                 if (reward.equipmentData.IsAllowedForJob(p.playerStatus?.JobName ?? ""))
                 {
                     targetPlayer = p;
@@ -539,8 +454,6 @@ namespace KingdomIdle.Gacha
             var instance = new EquipmentInstance(reward.equipmentData);
             targetPlayer.equipmentManager.Inventory.Add(instance);
             targetPlayer.equipmentManager.OnItemDropped?.Invoke(instance);
-
-            Debug.Log($"[GachaManager] 장비 지급: {reward.equipmentData.equipmentName} ({reward.equipmentData.rarity}) → {targetPlayer.name}");
         }
     }
 }

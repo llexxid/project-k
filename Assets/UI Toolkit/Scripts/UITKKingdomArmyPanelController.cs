@@ -998,19 +998,14 @@ namespace KingdomIdle.UIToolkit
         {
             if (player == null || _mgr == null) return;
 
-            bool success = _mgr.TryChangeJob(player, job.jobName);
-            if (success)
-            {
-                ShowToast($"{job.jobName}(으)로 전직 완료!");
-                // 탭 라벨 갱신
-                BuildMemberTabs();
-                // 상세 화면 갱신
-                ShowJobDetail(job);
-            }
-            else
-            {
-                ShowToast("전직에 실패했습니다.");
-            }
+            _mgr.TryChangeJob(player, job.jobName,
+                onSuccess: () =>
+                {
+                    ShowToast($"{job.jobName}(으)로 전직 완료!");
+                    BuildMemberTabs();
+                    ShowJobDetail(job);
+                },
+                onError: msg => ShowToast(string.IsNullOrEmpty(msg) ? "전직에 실패했습니다." : msg));
         }
 
         // ── 유틸 ──

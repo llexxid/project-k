@@ -20,6 +20,7 @@ namespace KingdomIdle.MageTower
         private const string PrefKey = "mt_save";
 
         private readonly int[] _equipped = new int[SlotCount];
+        private readonly HashSet<int> _unlocked = new();
         private readonly Dictionary<int, int> _enhanceLevels = new();
         private readonly Dictionary<int, int> _awakeningLevels = new();
         private readonly Dictionary<int, int> _fragments = new();
@@ -46,10 +47,6 @@ namespace KingdomIdle.MageTower
                 _equipped[i] = -1;
 
             Load();
-        }
-
-        private void Start()
-        {
         }
 
         private void Update()
@@ -83,35 +80,14 @@ namespace KingdomIdle.MageTower
         public bool IsAutoEnabled() => _autoEnabled;
         public void SetAutoEnabled(bool enabled) => _autoEnabled = enabled;
 
-        // ===== 테스트 데이터 =====
-        private void InitTestData()
+        public bool IsOwned(int skillId) => _unlocked.Contains(skillId);
+
+        public void Unlock(int skillId)
         {
-            EconomyBridge.TryGetAmount(eCurrency.ArcaneKnowledge, out long ak);
-            if (ak < 1000) EconomyBridge.Add(eCurrency.ArcaneKnowledge, 1000 - ak);
-
-            EconomyBridge.TryGetAmount(eCurrency.AncientCoin, out long ac);
-            if (ac < 1000) EconomyBridge.Add(eCurrency.AncientCoin, 1000 - ac);
-
-            var skills = GetAllSkills();
-            for (int i = 0; i < skills.Count; i++)
-            {
-                if (skills[i] == null) continue;
-                int id = skills[i].id;
-                if (!_fragments.ContainsKey(id))
-                    _fragments[id] = 15;
-                else if (_fragments[id] < 15)
-                    _fragments[id] = 15;
-            }
+            if (!_unlocked.Add(skillId)) return;
+            Save();
+            OnStateChanged?.Invoke();
         }
-
-        // ===== 보유 판정 =====
-
-        /// <summary>
-        /// 가차에서 한 번이라도 획득한 스킬인지 반환한다.
-        /// fragments가 1 이상이면 보유 상태.
-        /// </summary>
-        public bool IsOwned(int skillId) =>
-            _fragments.TryGetValue(skillId, out int f) && f >= 1;
 
         // ===== 데이터 접근 =====
         public IReadOnlyList<MageTowerSkillSO> GetAllSkills()
@@ -154,7 +130,6 @@ namespace KingdomIdle.MageTower
                 _fragments[skillId] = 0;
             _fragments[skillId] += amount;
             Save();
-            // 가챠로 파편 획득 시 열려있는 마탑 UI가 즉시 갱신되도록 통지
             OnStateChanged?.Invoke();
         }
 
@@ -657,6 +632,7 @@ namespace KingdomIdle.MageTower
         {
             if (packed == null) return;
 
+            _unlocked.Clear();
             _enhanceLevels.Clear();
             _awakeningLevels.Clear();
             _fragments.Clear();
@@ -671,6 +647,7 @@ namespace KingdomIdle.MageTower
                 if (eLv > 0) _enhanceLevels[id] = eLv;
                 if (aLv > 0) _awakeningLevels[id] = aLv;
                 if (qty > 0) _fragments[id] = qty;
+                if (qty > 0 || aLv > 0 || eLv > 0) _unlocked.Add(id);
             }
 
             Save();
@@ -694,6 +671,7 @@ namespace KingdomIdle.MageTower
         private class SaveData
         {
             public int[] equipped;
+            public List<int> unlocked = new();
             public List<int> eKeys = new();
             public List<int> eVals = new();
             public List<int> aKeys = new();
@@ -707,6 +685,7 @@ namespace KingdomIdle.MageTower
         private void Save()
         {
             var d = new SaveData { equipped = (int[])_equipped.Clone() };
+            foreach (int id in _unlocked) d.unlocked.Add(id);
             SerializeDict(_enhanceLevels, d.eKeys, d.eVals);
             SerializeDict(_awakeningLevels, d.aKeys, d.aVals);
             SerializeDict(_fragments, d.fKeys, d.fVals);
@@ -729,10 +708,18 @@ namespace KingdomIdle.MageTower
                 for (int i = 0; i < len; i++) _equipped[i] = d.equipped[i];
             }
 
+            _unlocked.Clear();
+            if (d.unlocked != null)
+                for (int i = 0; i < d.unlocked.Count; i++) _unlocked.Add(d.unlocked[i]);
+
             DeserializeDict(d.eKeys, d.eVals, _enhanceLevels);
             DeserializeDict(d.aKeys, d.aVals, _awakeningLevels);
             DeserializeDict(d.fKeys, d.fVals, _fragments);
             DeserializeDict(d.sKeys, d.sVals, _totalAKSpent);
+
+            foreach (var kv in _fragments) if (kv.Value > 0) _unlocked.Add(kv.Key);
+            foreach (var kv in _enhanceLevels) if (kv.Value > 0) _unlocked.Add(kv.Key);
+            foreach (var kv in _awakeningLevels) if (kv.Value > 0) _unlocked.Add(kv.Key);
         }
 
         private static void SerializeDict(Dictionary<int, int> dict, List<int> keys, List<int> vals)

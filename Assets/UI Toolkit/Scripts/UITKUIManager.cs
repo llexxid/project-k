@@ -128,7 +128,6 @@ namespace KingdomIdle.UIToolkit
         private VisualElement _settingsPanel;
         private Label _lblServer;
         private Label _lblVersion;
-        private TextField _couponField;
         private Toggle _tglPowerSave;
         private Toggle _tglHideItem;
         private Toggle _tglDamageText;
@@ -2019,61 +2018,26 @@ namespace KingdomIdle.UIToolkit
 
             _settingsPanel.Add(titleBar);
 
-            var serverRow = new VisualElement();
-            serverRow.AddToClassList("settings-subrow");
+            // 정보 행: 서버 (좌) + 버전 (우) — 한 줄로 통합해 중복 제거.
+            var infoRow = new VisualElement();
+            infoRow.AddToClassList("settings-subrow");
 
             _lblServer = new Label("현재 서버: null");
-            _lblServer.AddToClassList("settings-version-label");
+            _lblServer.AddToClassList("settings-info-label");
 
             string ver = string.IsNullOrWhiteSpace(Application.version) ? "0.0.1" : Application.version;
             _lblVersion = new Label($"Version {ver}");
-            _lblVersion.AddToClassList("settings-version-label");
+            _lblVersion.AddToClassList("settings-info-label");
 
-            serverRow.Add(_lblServer);
-            serverRow.Add(_lblVersion);
-            _settingsPanel.Add(serverRow);
+            infoRow.Add(_lblServer);
+            infoRow.Add(_lblVersion);
+            _settingsPanel.Add(infoRow);
 
-            var gpRow = new VisualElement();
-            gpRow.AddToClassList("settings-subrow");
-
+            // Google Play 연동 칩 (가로 풀폭)
             var btnGoogle = new Button(() => ShowToast("현재는 지원하지 않는 기능입니다."));
             btnGoogle.text = "Google Play 연동됨";
             btnGoogle.AddToClassList("settings-chip-btn");
-
-            var versionBox = new VisualElement();
-            versionBox.AddToClassList("settings-version");
-            var versionLabel = new Label(_lblVersion.text);
-            versionLabel.AddToClassList("settings-version-label");
-            versionBox.Add(versionLabel);
-
-            gpRow.Add(btnGoogle);
-            gpRow.Add(versionBox);
-            _settingsPanel.Add(gpRow);
-
-            var couponRow = new VisualElement();
-            couponRow.AddToClassList("settings-coupon-row");
-
-            var couponTag = new VisualElement();
-            couponTag.AddToClassList("settings-coupon-tag");
-            var couponTagLbl = new Label("※ 쿠폰 입력");
-            couponTagLbl.AddToClassList("settings-coupon-tag-label");
-            couponTag.Add(couponTagLbl);
-
-            var fieldWrap = new VisualElement();
-            fieldWrap.AddToClassList("settings-coupon-field-wrap");
-
-            _couponField = new TextField();
-            _couponField.AddToClassList("settings-coupon-field");
-            fieldWrap.Add(_couponField);
-
-            var btnCoupon = new Button(() => ShowToast("현재는 지원하지 않는 기능입니다."));
-            btnCoupon.text = "입력";
-            btnCoupon.AddToClassList("settings-coupon-btn");
-
-            couponRow.Add(couponTag);
-            couponRow.Add(fieldWrap);
-            couponRow.Add(btnCoupon);
-            _settingsPanel.Add(couponRow);
+            _settingsPanel.Add(btnGoogle);
 
             var grid = new VisualElement();
             grid.AddToClassList("settings-grid");
@@ -2138,11 +2102,6 @@ namespace KingdomIdle.UIToolkit
             inquiry.Add(inquiryLbl);
             _settingsPanel.Add(inquiry);
 
-            var btnCafe = new Button(() => ShowToast("현재는 지원하지 않는 기능입니다."));
-            btnCafe.text = "네이버 공식 카페 바로가기";
-            btnCafe.AddToClassList("settings-wide-btn");
-            _settingsPanel.Add(btnCafe);
-
             var btnWithdraw = new Button(() => ShowToast("현재는 지원하지 않는 기능입니다."));
             btnWithdraw.text = "회원 탈퇴 & 계정 삭제";
             btnWithdraw.AddToClassList("settings-danger-btn");
@@ -2151,6 +2110,7 @@ namespace KingdomIdle.UIToolkit
             var bottomRow = new VisualElement();
             bottomRow.AddToClassList("settings-bottom-row");
 
+            // 보조 액션: 저장만 (외곽선 톤)
             var btnSave = new Button(() =>
             {
                 SaveSettingsFromUI();
@@ -2158,7 +2118,9 @@ namespace KingdomIdle.UIToolkit
             });
             btnSave.text = "저장하기";
             btnSave.AddToClassList("settings-bottom-btn");
+            btnSave.AddToClassList("settings-bottom-btn-secondary");
 
+            // 주요 액션: 저장 + 닫기 (강조 블루)
             var btnSaveClose = new Button(() =>
             {
                 SaveSettingsFromUI();
@@ -2166,6 +2128,7 @@ namespace KingdomIdle.UIToolkit
             });
             btnSaveClose.text = "저장 후 닫기";
             btnSaveClose.AddToClassList("settings-bottom-btn");
+            btnSaveClose.AddToClassList("settings-bottom-btn-primary");
 
             bottomRow.Add(btnSave);
             bottomRow.Add(btnSaveClose);

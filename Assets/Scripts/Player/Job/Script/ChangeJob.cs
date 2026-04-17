@@ -29,23 +29,9 @@ public class ChangeJob : MonoBehaviour
 
     private void Start()
     {
-        if (_player == null)
-        {
-            Debug.LogError("[ChangeJob] Player 컴포넌트를 찾을 수 없습니다.");
-            return;
-        }
-
-        if (jobDatabase == null || jobDatabase.Count == 0)
-        {
-            Debug.LogError("[ChangeJob] JobDatabase가 비어있거나 연결되지 않았습니다.");
-            return;
-        }
-
         LoadUnlockedJobs();
         _unlockedJobs.Add(0);
         SaveUnlockedJobs();
-
-        //ApplyJobByIndex(_currentJobIndex);
     }
 
     public void ChangeJobByCode(ulong jobCode)
@@ -65,14 +51,8 @@ public class ChangeJob : MonoBehaviour
 
     public void ChangeJobByName(string jobName)
     {
-        if (jobDatabase == null) return;
-
         int idx = jobDatabase.jobs.FindIndex(j => j.jobName == jobName);
-        if (idx < 0)
-        {
-            Debug.LogWarning($"[ChangeJob] 직업 '{jobName}'을 JobDatabase에서 찾을 수 없습니다.");
-            return;
-        }
+        if (idx < 0) return;
 
         if (!_unlockedJobs.Contains(idx))
         {
@@ -172,11 +152,7 @@ public class ChangeJob : MonoBehaviour
     public void ApplyJobByIndex(int index)
     {
         JobData data = jobDatabase.GetJob(index);
-        if (data == null)
-        {
-            Debug.LogWarning($"[ChangeJob] index {index}에 해당하는 JobData가 없습니다.");
-            return;
-        }
+        if (data == null) return;
 
         _player.playerStatus.ApplyJob(data);
         _player.RefillHP();

@@ -661,110 +661,192 @@
     align-items: center;
 }
 
+/* 패널 — auto-size (내용에 딱 맞춤, 공백 제거) */
 .settings-panel {
     width: 94%;
-    max-width: 920px;
-    height: 86%;
-    background-color: rgba(35, 30, 45, 0.95);
+    max-width: 860px;
+    max-height: 92%;
+    background-color: rgba(35, 30, 45, 0.96);
     border-radius: 18px;
-    padding: 30px 26px 36px 26px;
-    gap: 18px;
-    overflow: hidden;
+    padding: 20px 22px 22px 22px;
+    gap: 10px;
 }
 
+/* 타이틀바 */
 .settings-titlebar {
-    height: 88px;
+    height: 64px;
     justify-content: center;
     align-items: center;
     background-color: rgba(0,0,0,0.28);
-    border-radius: 14px;
+    border-radius: 12px;
 }
-
 .settings-title {
-    font-size: 38px;
+    font-size: 30px;
     -unity-font-style: bold;
     color: rgba(255,255,255,0.95);
     -unity-text-align: middle-center;
 }
 
-.settings-subrow { flex-direction: row; justify-content: space-between; align-items: center; gap: 12px; }
-.settings-chip-btn { height: 72px; flex-grow: 1; font-size: 26px; }
-.settings-version { height: 72px; width: 220px; justify-content: center; align-items: center; background-color: rgba(255,255,255,0.10); border-radius: 12px; }
-.settings-version-label { font-size: 26px; color: rgba(255,255,255,0.9); }
+/* 정보 행 (서버 / 버전) — 한 줄 슬림 */
+.settings-subrow {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    height: 44px;
+    padding-left: 6px;
+    padding-right: 6px;
+}
+.settings-info-label {
+    font-size: 22px;
+    color: rgba(255,255,255,0.65);
+}
 
-.settings-coupon-row { flex-direction: row; align-items: center; gap: 12px; }
-.settings-coupon-tag { width: 160px; height: 74px; justify-content: center; align-items: center; background-color: rgba(0,0,0,0.28); border-radius: 10px; }
-.settings-coupon-tag-label { font-size: 26px; color: rgba(255,255,255,0.9); }
-.settings-coupon-field-wrap { flex-grow: 1; height: 74px; border-radius: 10px; background-color: rgba(255,255,255,0.10); padding-left: 12px; padding-right: 12px; justify-content: center; }
-.settings-coupon-field { flex-grow: 1; }
-.settings-coupon-btn { width: 120px; height: 66px; font-size: 24px; }
+/* Google Play 풀폭 칩 */
+.settings-chip-btn {
+    height: 60px;
+    font-size: 24px;
+    border-radius: 12px;
+    background-color: rgba(255,255,255,0.10);
+    color: rgba(255,255,255,0.92);
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+}
+.settings-chip-btn:hover  { background-color: rgba(255,255,255,0.16); }
+.settings-chip-btn:active { background-color: rgba(255,255,255,0.22); }
 
-.settings-grid { flex-direction: row; gap: 22px; flex-grow: 1; }
-.settings-col { flex-grow: 1; gap: 22px; }
+/* ── 토글 그리드 (3 × 2) ── */
+.settings-grid { flex-direction: row; gap: 10px; }
+.settings-col  { flex-grow: 1; gap: 8px; }
 
-/* 토글(체크박스+텍스트) 한 줄을 크게 — 설정 패널 내부를 꽉 채운다 */
+/* 체크박스 행 — 카드형, 좌측 텍스트 / 우측 체크 정렬 */
 .settings-panel .unity-toggle {
-    height: 86px;
+    height: 60px;
     background-color: rgba(255,255,255,0.06);
     border-radius: 12px;
-    padding-left: 18px;
-    padding-right: 18px;
+    padding-left: 16px;
+    padding-right: 16px;
     margin: 0;
 }
 .settings-panel .unity-toggle > .unity-base-field__input {
     flex-grow: 1;
     align-items: center;
+    flex-direction: row-reverse;
+    justify-content: space-between;
 }
 .settings-panel .unity-toggle__checkmark {
-    width: 44px;
-    height: 44px;
-    border-radius: 8px;
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    background-color: rgba(0,0,0,0.35);
+    border-left-width: 1px; border-right-width: 1px;
+    border-top-width: 1px; border-bottom-width: 1px;
+    border-color: rgba(255,255,255,0.25);
+    -unity-background-image-tint-color: rgba(120, 200, 255, 1);
+}
+.settings-panel .unity-toggle:checked .unity-toggle__checkmark {
+    background-color: rgba(60, 130, 220, 0.85);
+    border-color: rgba(120, 200, 255, 0.95);
 }
 .settings-panel .unity-base-field__label,
 .settings-panel .unity-toggle__text {
-    font-size: 32px;
-    color: rgba(255,255,255,0.95);
+    font-size: 22px;
+    color: rgba(255,255,255,0.92);
     -unity-font-style: bold;
 }
 
+/* ── 볼륨 행 ── */
 .settings-volume-row {
     flex-direction: row;
     align-items: center;
-    gap: 16px;
-    height: 90px;
+    gap: 12px;
+    height: 64px;
     background-color: rgba(255,255,255,0.06);
     border-radius: 12px;
-    padding-left: 18px;
-    padding-right: 18px;
+    padding-left: 16px;
+    padding-right: 16px;
 }
 .settings-volume-label {
-    width: 150px;
-    font-size: 30px;
+    width: 120px;
+    font-size: 22px;
     -unity-font-style: bold;
-    color: rgba(255,255,255,0.95);
+    color: rgba(255,255,255,0.92);
     flex-shrink: 0;
 }
-
 .settings-mute-btn {
-    width: 130px;
-    height: 70px;
-    font-size: 28px;
-    border-radius: 12px;
+    width: 100px;
+    height: 44px;
+    font-size: 20px;
+    border-radius: 10px;
     background-color: rgba(255,255,255,0.10);
-    color: rgba(255,255,255,0.95);
+    color: rgba(255,255,255,0.92);
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
     flex-shrink: 0;
 }
-.settings-mute-btn.is-on { background-color: rgba(255,80,80,0.35); }
-.settings-slider { flex-grow: 1; min-width: 0; flex-shrink: 1; height: 50px; }
+.settings-mute-btn:hover  { background-color: rgba(255,255,255,0.16); }
+.settings-mute-btn.is-on  { background-color: rgba(220, 70, 70, 0.55); color: rgba(255,255,255,0.98); }
+.settings-slider { flex-grow: 1; min-width: 0; flex-shrink: 1; height: 40px; }
 
-.settings-inquiry { height: 74px; justify-content: center; align-items: center; background-color: rgba(0,0,0,0.28); border-radius: 10px; }
-.settings-inquiry-label { font-size: 26px; color: rgba(255,255,255,0.9); }
+/* ── 문의 / 위험(탈퇴) ── */
+.settings-inquiry {
+    height: 44px;
+    justify-content: center;
+    padding-left: 14px;
+    background-color: rgba(0,0,0,0.22);
+    border-radius: 10px;
+}
+.settings-inquiry-label { font-size: 20px; color: rgba(255,255,255,0.75); }
 
-.settings-wide-btn { height: 72px; font-size: 26px; }
-.settings-danger-btn { height: 72px; font-size: 26px; color: rgba(255,80,80,1); }
+.settings-danger-btn {
+    height: 52px;
+    font-size: 22px;
+    border-radius: 12px;
+    background-color: rgba(120, 30, 30, 0.35);
+    color: rgba(255, 130, 130, 1);
+    border-left-width: 1px; border-right-width: 1px;
+    border-top-width: 1px; border-bottom-width: 1px;
+    border-color: rgba(255, 90, 90, 0.45);
+}
+.settings-danger-btn:hover  { background-color: rgba(150, 40, 40, 0.50); }
+.settings-danger-btn:active { background-color: rgba(170, 40, 40, 0.65); }
 
-.settings-bottom-row { flex-direction: row; gap: 14px; }
-.settings-bottom-btn { flex-grow: 1; height: 78px; font-size: 28px; }
+/* ── 하단 액션 행 ── */
+.settings-bottom-row {
+    flex-direction: row;
+    gap: 12px;
+    margin-top: 6px;
+}
+.settings-bottom-btn {
+    flex-grow: 1;
+    height: 64px;
+    font-size: 24px;
+    -unity-font-style: bold;
+    border-radius: 12px;
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    transition-property: scale, background-color;
+    transition-duration: 0.08s, 0.08s;
+}
+.settings-bottom-btn:hover  { scale: 1.02; }
+.settings-bottom-btn:active { scale: 0.96; }
+
+/* 보조 — 저장하기 (외곽선 + 약한 배경) */
+.settings-bottom-btn-secondary {
+    background-color: rgba(255,255,255,0.10);
+    color: rgba(255,255,255,0.90);
+    border-left-width: 1px; border-right-width: 1px;
+    border-top-width: 1px; border-bottom-width: 1px;
+    border-color: rgba(255,255,255,0.20);
+}
+.settings-bottom-btn-secondary:hover { background-color: rgba(255,255,255,0.16); }
+
+/* 주요 — 저장 후 닫기 (강조 블루, 게임 전반 액션 컬러와 일치) */
+.settings-bottom-btn-primary {
+    background-color: rgba(60, 120, 220, 0.85);
+    color: rgba(255,255,255,0.98);
+}
+.settings-bottom-btn-primary:hover { background-color: rgba(80, 150, 255, 0.95); }
 
 .settings-hint-close {
     position: absolute;

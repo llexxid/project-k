@@ -180,8 +180,8 @@ namespace KingdomIdle.UIToolkit
         {
             if (table?.rewards == null || table.rewards.Count == 0) return null;
 
-            bool isSkillGacha = table.costCurrency == eCurrency.ArcaneKnowledge;
-            bool isEquipGacha = table.costCurrency == eCurrency.AncientCoin;
+            bool isSkillGacha = table.gachaType == eGachaType.Skill;
+            bool isEquipGacha = table.gachaType == eGachaType.Equipment;
 
             // 비용 통화 기준으로 유효한 보상만 집계
             float total = 0f;
@@ -262,11 +262,8 @@ namespace KingdomIdle.UIToolkit
             return row;
         }
 
-        // 비용 통화 기준으로 해당 보상 항목이 유효한지 판정.
-        // 스킬 가챠(ArcaneKnowledge): Skill + ArcaneKnowledge(비전지식) 만 허용
-        //   — 서버 응답도 SkillCode 와 비전지식 누적 총량만 내려준다.
-        // 장비 가챠(AncientCoin): Equipment + ClassFragment(전직 파편) 만 허용
-        //   — 서버가 장비 ItemCode 에 10% 확률로 전직 파편을 섞어 내려준다.
+        // 스킬 가챠: Skill + ArcaneKnowledge(비전지식) 보상만 허용.
+        // 장비 가챠: Equipment + ClassFragment(전직 파편) 보상만 허용.
         private static bool IsRewardValidForGacha(GachaRewardEntry r, bool isSkillGacha, bool isEquipGacha)
         {
             if (isSkillGacha)
@@ -295,8 +292,8 @@ namespace KingdomIdle.UIToolkit
         {
             if (table.rewards == null || table.rewards.Count == 0) return;
 
-            bool isSkillGacha = table.costCurrency == eCurrency.ArcaneKnowledge;
-            bool isEquipGacha = table.costCurrency == eCurrency.AncientCoin;
+            bool isSkillGacha = table.gachaType == eGachaType.Skill;
+            bool isEquipGacha = table.gachaType == eGachaType.Equipment;
 
             var sectionTitle = new Label("획득 가능 보상");
             sectionTitle.AddToClassList("gacha-section-title");

@@ -2,16 +2,10 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Scripts.Core;
+using Scripts.Core.Manager;
 
 namespace KingdomIdle.KingdomArmy
 {
-    /// <summary>
-    /// 왕국군 관리 매니저.
-    /// - 전직 파편은 단일 통합 재화 (eCurrency.ClassFragment). 어떤 직업이든 파편 40개로 전직.
-    ///   실제 저장소는 Wallet(EconomyBridge) 이고, 이 매니저는 비용/선행 조건/전직 실행을 래핑한다.
-    /// - 2차 전직(Elite)은 1차 전직 완료를 선행 조건으로 한다 (_eliteToBase).
-    /// - 서버 마이그레이션 시에도 이 매니저의 API 는 유지된다 (Wallet 내부만 교체).
-    /// </summary>
     public class KingdomArmyManager : MonoBehaviour
     {
         public static KingdomArmyManager Instance { get; private set; }
@@ -133,30 +127,80 @@ namespace KingdomIdle.KingdomArmy
 
         // ── 전직 실행 ──
 
-        /// <summary>
-        /// 지정 플레이어를 jobName 직업으로 전직.
-        /// 처음 전직이면 통합 파편 40개를 소모하고, 이미 해금된 직업이면 무료로 재전직한다.
-        /// 실제 전직 적용은 ChangeJob 컴포넌트가 담당.
-        /// </summary>
-        public bool TryChangeJob(Player player, string jobName)
-        {
-            if (player == null || string.IsNullOrEmpty(jobName)) return false;
-            if (!CanChangeJob(jobName, player)) return false;
+        private bool _isChangingJob;
+        public bool IsChangingJob => _isChangingJob;
 
-            // 이미 해금된 직업은 무료 재전직 — 파편 차감 생략
-            bool alreadyUnlocked = HasCompletedPromotion(player, jobName);
-            if (!alreadyUnlocked)
+        public void TryChangeJob(Player player, string jobName,
+                                 Action onSuccess, Action<string> onError)
+        {
+            if (_isChangingJob)
             {
-                int cost = GetFragmentCost();
-                EconomyBridge.Add(eCurrency.ClassFragment, -cost);
+                onError?.Invoke("이미 전직 요청이 진행 중입니다.");
+                return;
+            }
+            if (player == null || string.IsNullOrEmpty(jobName))
+            {
+                onError?.Invoke("유효하지 않은 전직 요청입니다.");
+                return;
+            }
+            if (!CanChangeJob(jobName, player))
+            {
+                onError?.Invoke("전직 조건을 만족하지 않습니다.");
+                return;
             }
 
-            var changeJob = player.GetComponent<ChangeJob>();
-            if (changeJob != null)
-                changeJob.ChangeJobByName(jobName);
+            var net = NetworkManager.Instance;
+            if (net == null || string.IsNullOrEmpty(net.GetSessionID()))
+            {
+                onError?.Invoke("네트워크 세션이 준비되지 않았습니다.");
+                return;
+            }
 
-            OnStateChanged?.Invoke();
-            return true;
+            bool alreadyUnlocked = HasCompletedPromotion(player, jobName);
+            ulong jobCode = (ulong)JobNameToCode(jobName);
+            int characterIdx = GetPlayers().IndexOf(player);
+
+            _isChangingJob = true;
+
+            Action<PlayFab.CloudScriptModels.ExecuteFunctionResult> onServerSuccess = _ =>
+            {
+                if (!alreadyUnlocked)
+                    EconomyBridge.Add(eCurrency.ClassFragment, -GetFragmentCost());
+
+                var changeJob = player.GetComponent<ChangeJob>();
+                if (changeJob != null)
+                    changeJob.ChangeJobByName(jobName);
+
+                _isChangingJob = false;
+                OnStateChanged?.Invoke();
+                onSuccess?.Invoke();
+            };
+
+            Action<PlayFab.PlayFabError> onServerError = err =>
+            {
+                _isChangingJob = false;
+                onError?.Invoke(err != null ? err.ErrorMessage : "서버 오류");
+            };
+
+            if (alreadyUnlocked)
+                net.OnChangeJob(jobCode, characterIdx, onServerSuccess, onServerError);
+            else
+                net.OnGetJob(jobCode, characterIdx, onServerSuccess, onServerError);
+        }
+
+        private static eJobCode JobNameToCode(string jobName)
+        {
+            switch (jobName)
+            {
+                case "Mage":         return eJobCode.Mage;
+                case "Archer":       return eJobCode.Archer;
+                case "Knight":       return eJobCode.Knight;
+                case "Spearman":     return eJobCode.Spearman;
+                case "Elite_Mage":   return eJobCode.EliteMage;
+                case "Elite_Knight": return eJobCode.EliteKnight;
+                case "Elite_Archer": return eJobCode.EliteArcher;
+                default:             return eJobCode.Spearman;
+            }
         }
 
         // ── 플레이어 접근 헬퍼 ──
