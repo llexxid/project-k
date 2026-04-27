@@ -48,6 +48,8 @@ namespace KingdomIdle.UIToolkit
 
             if (_memberTabs == null || _content == null || _navBar == null) return;
 
+            ConfigureScrollViewForTouch(_content);
+
             _mgr = KingdomArmyManager.Instance;
             if (_mgr == null)
             {
@@ -62,6 +64,23 @@ namespace KingdomIdle.UIToolkit
             BuildMemberTabs();
             BuildNavBar();
             Refresh();
+        }
+
+        /// <summary>
+        /// 왕국군 콘텐츠 ScrollView 를 모바일(안드로이드) 느낌으로 설정.
+        /// - 수직 전용
+        /// - 터치 드래그 팬 (Clamped — 끝에서 튕기지 않음)
+        /// - 관성 감속
+        /// - 자동 노출 스크롤바(USS 가 모바일 스타일로 재스킨)
+        /// </summary>
+        private static void ConfigureScrollViewForTouch(ScrollView sv)
+        {
+            if (sv == null) return;
+            sv.mode = ScrollViewMode.Vertical;
+            sv.verticalScrollerVisibility = ScrollerVisibility.Auto;
+            sv.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            sv.touchScrollBehavior = ScrollView.TouchScrollBehavior.Clamped;
+            sv.scrollDecelerationRate = 0.135f;
         }
 
         // ── 상단 멤버 탭 (왕국군1 / 왕국군2 / 왕국군3) ──
@@ -209,7 +228,6 @@ namespace KingdomIdle.UIToolkit
 
             infoCol.Add(MakeLabel($"공격력: {ps.Atk}", "ka-stat-line"));
             infoCol.Add(MakeLabel($"이동속도: {ps.MovSpeed}", "ka-stat-line"));
-            infoCol.Add(MakeLabel($"공격속도: {ps.AtkSpeed:F2}초", "ka-stat-line"));
             header.Add(infoCol);
 
             _content.Add(header);
@@ -590,31 +608,28 @@ namespace KingdomIdle.UIToolkit
                 return;
             }
 
-            // JobDatabase에서 현재 직업의 스킬 목록 가져오기
-            var jobDB = _mgr.JobDB;
-            if (jobDB == null) return;
+            // 현재 직업의 스킬 목록 표시
+            string jobName = player.playerStatus?.JobName ?? "";
+            var skillInfos = SkillSystem.GetJobSkillInfo(jobName);
 
-            var jobData = jobDB.GetJob(player.playerStatus.JobName);
-            if (jobData == null || jobData.skills == null)
+            if (skillInfos == null || skillInfos.Length == 0)
             {
                 _content.Add(MakeLabel("직업 스킬이 없습니다.", "ka-placeholder-text"));
                 return;
             }
 
-            foreach (var skill in jobData.skills)
+            foreach (var si in skillInfos)
             {
-                if (skill == null) continue;
-
                 var row = new VisualElement();
                 row.AddToClassList("ka-skill-row");
 
                 var info = new VisualElement();
                 info.AddToClassList("ka-skill-info");
-                info.Add(MakeLabel(skill.skillName, "ka-skill-name"));
-                info.Add(MakeLabel($"데미지: {skill.damage}  쿨타임: {skill.cooldown}초", "ka-skill-detail"));
+                info.Add(MakeLabel(si.Name, "ka-skill-name"));
+                string typeTag = si.IsPassive ? "[패시브]" : "[액티브]";
+                info.Add(MakeLabel($"{typeTag}  {si.Description}", "ka-skill-detail"));
                 row.Add(info);
 
-                // 스킬 강화(x1/x10) 버튼은 미구현 더미이므로 노출하지 않음
                 _content.Add(row);
             }
         }
@@ -633,6 +648,18 @@ namespace KingdomIdle.UIToolkit
                 _content.Add(MakeLabel("직업 데이터가 없습니다.", "ka-placeholder-text"));
                 return;
             }
+
+            // 통합 전직 파편 보유량 배너 — 어떤 직업이든 파편 40개로 전직 가능.
+            int ownedFrags = _mgr.GetFragments();
+            int fragCost = _mgr.GetFragmentCost();
+            var fragBanner = new VisualElement();
+            fragBanner.AddToClassList("ka-frag-banner");
+            fragBanner.Add(MakeLabel("전직 파편", "ka-frag-banner-name"));
+            var fragBannerVal = MakeLabel($"{ownedFrags:N0}", "ka-frag-banner-val");
+            if (ownedFrags >= fragCost) fragBannerVal.AddToClassList("ka-frag-ready");
+            fragBanner.Add(fragBannerVal);
+            fragBanner.Add(MakeLabel($"(전직당 {fragCost}개 소모)", "ka-frag-banner-hint"));
+            _content.Add(fragBanner);
 
             var player = GetCurrentPlayer();
             string currentJob = player?.playerStatus?.JobName ?? "";
@@ -687,8 +714,9 @@ namespace KingdomIdle.UIToolkit
             string prereq = KingdomArmyManager.GetPrerequisiteJob(job.jobName);
             bool prereqMet = prereq == null || (player != null && _mgr.HasCompletedPromotion(player, prereq));
 
-            int owned = _mgr.GetFragments(job.jobName);
-            int cost = _mgr.GetFragmentCost(job.jobName);
+            // 통합 전직 파편 — 모든 직업이 동일한 파편 풀을 공유한다.
+            int owned = _mgr.GetFragments();
+            int cost = _mgr.GetFragmentCost();
             bool fragReady = owned >= cost;
 
             if (isCurrent) card.AddToClassList("ka-job-card-current");
@@ -718,18 +746,14 @@ namespace KingdomIdle.UIToolkit
             // 핵심 스탯 한 줄 (HP / ATK)
             card.Add(MakeLabel($"HP {job.maxHP}  ·  ATK {job.atk}", "ka-job-card-stat"));
 
-            // 파편 현황 / 무료 재전직 안내
+            // 파편 현황 / 무료 재전직 안내 — 통합 전직 파편을 기준으로 진행도 표시.
             if (isUnlocked)
             {
                 card.Add(MakeLabel("무료 재전직", "ka-job-card-frag ka-frag-ready"));
             }
             else
             {
-                string baseFrag = KingdomArmyManager.GetBaseFragmentName(job.jobName);
-                string fragText = baseFrag != job.jobName
-                    ? $"{baseFrag} 파편 {owned}/{cost}"
-                    : $"파편 {owned}/{cost}";
-                var fragLbl = MakeLabel(fragText, "ka-job-card-frag");
+                var fragLbl = MakeLabel($"전직 파편 {owned}/{cost}", "ka-job-card-frag");
                 if (fragReady) fragLbl.AddToClassList("ka-frag-ready");
                 card.Add(fragLbl);
             }
@@ -809,28 +833,28 @@ namespace KingdomIdle.UIToolkit
             _content.Add(BuildStatCompareTable(ps, job));
 
             // ── 직업 스킬 ──
-            if (job.skills != null && job.skills.Count > 0)
+            var jobSkills = SkillSystem.GetJobSkillInfo(job.jobName);
+            if (jobSkills != null && jobSkills.Length > 0)
             {
                 _content.Add(MakeLabel("직업 스킬", "ka-subsection-title"));
                 var skillList = new VisualElement();
                 skillList.AddToClassList("ka-job-skill-list");
 
-                foreach (var skill in job.skills)
+                foreach (var si in jobSkills)
                 {
-                    if (skill == null) continue;
                     var skillRow = new VisualElement();
                     skillRow.AddToClassList("ka-job-skill-row");
 
-                    var typeBadge = new Label(skill.skillType == SkillType.Passive ? "패시브" : "액티브");
+                    var typeBadge = new Label(si.IsPassive ? "패시브" : "액티브");
                     typeBadge.AddToClassList("ka-job-skill-type");
-                    if (skill.skillType == SkillType.Passive)
+                    if (si.IsPassive)
                         typeBadge.AddToClassList("ka-job-skill-type-passive");
                     skillRow.Add(typeBadge);
 
                     var skillCol = new VisualElement();
                     skillCol.AddToClassList("ka-job-skill-info");
-                    skillCol.Add(MakeLabel(skill.skillName, "ka-job-skill-name"));
-                    skillCol.Add(MakeLabel($"데미지 {skill.damage}  ·  쿨타임 {skill.cooldown:F1}초", "ka-job-skill-detail"));
+                    skillCol.Add(MakeLabel(si.Name, "ka-job-skill-name"));
+                    skillCol.Add(MakeLabel(si.Description, "ka-job-skill-detail"));
                     skillRow.Add(skillCol);
 
                     skillList.Add(skillRow);
@@ -841,9 +865,9 @@ namespace KingdomIdle.UIToolkit
             // ── 전직 비용 / 조건 ──
             _content.Add(MakeLabel("전직 조건", "ka-subsection-title"));
 
-            string baseFrag = KingdomArmyManager.GetBaseFragmentName(job.jobName);
-            int owned = _mgr.GetFragments(job.jobName);
-            int cost = _mgr.GetFragmentCost(job.jobName);
+            // 통합 전직 파편 — 어떤 직업이든 동일한 파편 풀에서 40개 소모.
+            int owned = _mgr.GetFragments();
+            int cost = _mgr.GetFragmentCost();
 
             var condBox = new VisualElement();
             condBox.AddToClassList("ka-job-cond-box");
@@ -854,19 +878,16 @@ namespace KingdomIdle.UIToolkit
             }
             else
             {
-                // 파편 진행 바
+                // 파편 진행 바 — 통합 전직 파편 하나만 표시.
                 var fragRow = new VisualElement();
                 fragRow.AddToClassList("ka-frag-row");
-                string fragLabel = baseFrag != job.jobName
-                    ? $"{baseFrag} 전직 파편"
-                    : $"{job.jobName} 전직 파편";
-                fragRow.Add(MakeLabel(fragLabel, "ka-frag-row-name"));
+                fragRow.Add(MakeLabel("전직 파편", "ka-frag-row-name"));
                 var fragVal = MakeLabel($"{owned} / {cost}", "ka-frag-row-val");
                 if (owned >= cost) fragVal.AddToClassList("ka-frag-ready");
                 fragRow.Add(fragVal);
                 condBox.Add(fragRow);
 
-                // 선행 조건
+                // 선행 조건 — 2차 전직의 순서 보장.
                 if (prereq != null)
                 {
                     var prereqRow = new VisualElement();
@@ -907,11 +928,11 @@ namespace KingdomIdle.UIToolkit
             }
             else if (canChange)
             {
-                changeBtn.text = "전직하기";
+                changeBtn.text = $"전직하기 (파편 {cost}개)";
             }
             else
             {
-                changeBtn.text = $"파편 부족 ({owned}/{cost})";
+                changeBtn.text = $"전직 파편 부족 ({owned}/{cost})";
                 changeBtn.AddToClassList("ka-change-btn-disabled");
                 changeBtn.SetEnabled(false);
             }
@@ -940,8 +961,6 @@ namespace KingdomIdle.UIToolkit
             AddStatCompareRow(table, "HP",       current?.MaxHP ?? 0,       job.maxHP,    higherIsBetter:true);
             AddStatCompareRow(table, "공격력",   current?.Atk ?? 0,         job.atk,      higherIsBetter:true);
             AddStatCompareRow(table, "이동속도", current?.MovSpeed ?? 0f,   job.movSpeed, higherIsBetter:true);
-            // 공격속도는 초 단위 — 작을수록 좋음
-            AddStatCompareRow(table, "공격속도", current?.AtkSpeed ?? 0f,   job.atkSpeed, higherIsBetter:false, suffix:"초");
 
             return table;
         }
@@ -979,19 +998,14 @@ namespace KingdomIdle.UIToolkit
         {
             if (player == null || _mgr == null) return;
 
-            bool success = _mgr.TryChangeJob(player, job.jobName);
-            if (success)
-            {
-                ShowToast($"{job.jobName}(으)로 전직 완료!");
-                // 탭 라벨 갱신
-                BuildMemberTabs();
-                // 상세 화면 갱신
-                ShowJobDetail(job);
-            }
-            else
-            {
-                ShowToast("전직에 실패했습니다.");
-            }
+            _mgr.TryChangeJob(player, job.jobName,
+                onSuccess: () =>
+                {
+                    ShowToast($"{job.jobName}(으)로 전직 완료!");
+                    BuildMemberTabs();
+                    ShowJobDetail(job);
+                },
+                onError: msg => ShowToast(string.IsNullOrEmpty(msg) ? "전직에 실패했습니다." : msg));
         }
 
         // ── 유틸 ──

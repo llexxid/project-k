@@ -60,7 +60,6 @@ public class Selector : Node
 
     /// <summary>
     /// 자식 노드 목록을 통째로 교체한다.
-    /// PlayerOrder.RebuildSkillTree()에서 전직 시 스킬 노드를 동적으로 교체할 때 사용.
     /// </summary>
     public void ReplaceChildren(List<Node> newNodes)
     {

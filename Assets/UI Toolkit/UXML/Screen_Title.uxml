@@ -1,18 +1,9 @@
-<?xml version="1.0" encoding="utf-8"?>
-<ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <ui:VisualElement name="ScreenTitle" class="title-screen">
-
-        <!-- Background click catcher: handles "press anywhere" without interfering with Login button/popup -->
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <ui:VisualElement name="ScreenTitle" class="title-screen" style="background-image: url(&quot;project://database/Assets/UI%20Toolkit/Art/Sprite/%ED%83%80%EC%9D%B4%ED%8B%80%EB%B0%B0%EA%B2%BD3.jpg?fileID=2800000&amp;guid=f31f25eafade2c34dbc355e36f693c1d&amp;type=3#타이틀배경3&quot;); -unity-background-scale-mode: stretch-to-fill;">
         <ui:VisualElement name="BgClickCatcher" class="title-bg" />
-
-        <ui:Label name="LblTitle" text="왕국군 키우기" class="title-big" />
-
+        <ui:Label name="LblTitle" class="title-big" style="background-image: url(&quot;project://database/Assets/UI%20Toolkit/Art/Sprite/%ED%83%80%EC%9D%B4%ED%8B%801.jpg?fileID=2800000&amp;guid=b9c40fb974e04b14999f727ed745c1f6&amp;type=3#타이틀1&quot;); width: auto; height: 600px;" />
         <ui:Button name="BtnLogin" text="로그인" class="login-btn" />
-
         <ui:Label name="LblPressHint" text="PRESS ANYWHERE TO CONTINUE" class="press-hint" />
-
-        <!-- Login Popup -->
-        <!-- Dimmed backdrop covers the screen; clicks outside the box close the popup -->
         <ui:VisualElement name="PopupLogin" class="login-popup hidden">
             <ui:VisualElement name="PopupLoginDim" class="login-popup-dim" />
             <ui:VisualElement name="PopupLoginBox" class="login-popup-box">
@@ -20,33 +11,26 @@
                     <ui:Label text="계정 로그인" class="login-popup-title" />
                     <ui:Button name="BtnLoginClose" text="×" class="login-popup-close" />
                 </ui:VisualElement>
-
                 <ui:Label text="계정을 선택하여 게임을 시작하세요." class="login-popup-subtitle" />
-
                 <ui:VisualElement class="login-popup-divider" />
-
                 <ui:VisualElement class="login-provider-list">
                     <ui:Button name="BtnLoginGuest" class="login-provider-btn login-provider-guest">
                         <ui:VisualElement class="login-provider-icon login-provider-icon-guest" />
                         <ui:Label text="게스트로 시작" class="login-provider-label" />
                     </ui:Button>
-
                     <ui:Button name="BtnLoginGoogle" class="login-provider-btn login-provider-google">
                         <ui:VisualElement class="login-provider-icon login-provider-icon-google" />
                         <ui:Label text="Google 계정으로 로그인" class="login-provider-label" />
                     </ui:Button>
-
                     <ui:Button name="BtnLoginApple" class="login-provider-btn login-provider-apple">
                         <ui:VisualElement class="login-provider-icon login-provider-icon-apple" />
                         <ui:Label text="Apple 계정으로 로그인" class="login-provider-label" />
                     </ui:Button>
                 </ui:VisualElement>
-
                 <ui:VisualElement class="login-popup-footer">
                     <ui:Label text="로그인 시 이용약관 및 개인정보 처리방침에 동의한 것으로 간주됩니다." class="login-popup-terms" />
                 </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
-
     </ui:VisualElement>
 </ui:UXML>

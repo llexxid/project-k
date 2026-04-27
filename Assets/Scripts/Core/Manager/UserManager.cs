@@ -21,6 +21,7 @@ namespace Scripts.Core
 		List<CharacterDataQuery> _characterDataFromServer;
 		List<Scripts.Server.DTO.ItemCode> _inventoryDataFromServer;
 		List<JobTreeQuery> _jobTreeDataFromServer;
+		List<Scripts.Server.DTO.SkillCode> _skillTreeDataFromServer;
 		private void Awake()
 		{
 			if (Instance == null)
@@ -79,6 +80,15 @@ namespace Scripts.Core
 			return _user.GetStage();
 		}
 
+		public void SetGold(long amount)
+		{
+			_user.SetCoin(eCurrency.Gold, amount);
+		}
+
+		public void GainExp(long exp)
+		{
+			_user.GainExp(exp);
+		}
 
 		public void CreateUser(string name, eStage stage, UserDataQuery Userquery, UserEnhanceMentQuery EnchantQuery)
 		{
@@ -122,6 +132,10 @@ namespace Scripts.Core
 		public void SetJobTreeData(List<JobTreeQuery> jobTrees)
 		{
 			_jobTreeDataFromServer = jobTrees;
+		}
+		public void SetSkillTreeData(List<Scripts.Server.DTO.SkillCode> skillCodes)
+		{
+			_skillTreeDataFromServer = skillCodes;
 		}
 		/// <summary>해당 캐릭터 슬롯의 서버 JobTree(획득한 jobCode 목록)를 반환. 없으면 null.</summary>
 		public List<ulong> GetJobTreeForCharacter(int characterIndex)
@@ -182,9 +196,9 @@ namespace Scripts.Core
 			p3.Init(playerData2, _user);
 			++i;
 
-			obj1.GetComponent<ChangeJob>().ApplyJobByIndex(0);
-			obj2.GetComponent<ChangeJob>().ApplyJobByIndex(0);
-			obj3.GetComponent<ChangeJob>().ApplyJobByIndex(0);
+obj1.GetComponent<ChangeJob>().ChangeJobByCode(_characterDataFromServer[0].JobCode);
+			obj2.GetComponent<ChangeJob>().ChangeJobByCode(_characterDataFromServer[1].JobCode);
+			obj3.GetComponent<ChangeJob>().ChangeJobByCode(_characterDataFromServer[2].JobCode);
 
 			_user.ConnectCharacters(p1);
 			_user.ConnectCharacters(p2);
@@ -220,6 +234,19 @@ namespace Scripts.Core
 						var instance = new EquipmentInstance(data);
 						target.equipmentManager.Inventory.Add(instance);
 					}
+				}
+			}
+
+			// 서버 스킬트리 데이터 복원
+			if (_skillTreeDataFromServer != null && _skillTreeDataFromServer.Count > 0)
+			{
+				var mtMgr = KingdomIdle.MageTower.MageTowerManager.Instance;
+				if (mtMgr != null)
+				{
+					long[] packed = new long[_skillTreeDataFromServer.Count];
+					for (int s = 0; s < _skillTreeDataFromServer.Count; s++)
+						packed[s] = (long)_skillTreeDataFromServer[s].Code;
+					mtMgr.UnpackAllSkills(packed);
 				}
 			}
 		}

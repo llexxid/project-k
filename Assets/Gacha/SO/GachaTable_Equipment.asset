@@ -11,10 +11,11 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fffc1cb3beda3f447b1d835ad750478d, type: 3}
   m_Name: GachaTable_Equipment
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier:
   nameKor: "\uC7A5\uBE44"
   nameEng: Equipment
-  description: 
+  description:
+  gachaType: 0
   costCurrency: 1
   costAmount: 50
   isImplemented: 1
@@ -26,7 +27,7 @@ MonoBehaviour:
     amount: 0
     skillId: 0
     equipmentData: {fileID: 11400000, guid: 5e310d82a4905a941ae2b918a2efff09, type: 2}
-    weight: 1
+    weight: 10
   - nameKor: "\uB098\uBB34 \uD65C2"
     icon: {fileID: 0}
     rewardType: 2
@@ -34,7 +35,7 @@ MonoBehaviour:
     amount: 0
     skillId: 0
     equipmentData: {fileID: 11400000, guid: 9501957fd97f20e44ad7cf0460653230, type: 2}
-    weight: 1
+    weight: 10
   - nameKor: "\uB098\uBB34 \uD65C3"
     icon: {fileID: 0}
     rewardType: 2
@@ -42,52 +43,132 @@ MonoBehaviour:
     amount: 0
     skillId: 0
     equipmentData: {fileID: 11400000, guid: 0afe4c9f970c9dd45b4a5012318a035a, type: 2}
-    weight: 1
-  - nameKor: "\uAC801"
+    weight: 10
+  - nameKor: "\uB098\uBB34\uAC801"
     icon: {fileID: 0}
     rewardType: 2
     currency: 0
     amount: 0
     skillId: 0
     equipmentData: {fileID: 11400000, guid: 3361952dd8a30464680240717621a95a, type: 2}
-    weight: 1
-  - nameKor: "\uAC802"
+    weight: 10
+  - nameKor: "\uB098\uBB34\uAC802"
     icon: {fileID: 0}
     rewardType: 2
     currency: 0
     amount: 0
     skillId: 0
     equipmentData: {fileID: 11400000, guid: de4f97d76743076409bcf122836c5900, type: 2}
-    weight: 1
-  - nameKor: "\uAC803"
+    weight: 10
+  - nameKor: "\uB098\uBB34\uAC803"
     icon: {fileID: 0}
     rewardType: 2
     currency: 0
     amount: 0
     skillId: 0
     equipmentData: {fileID: 11400000, guid: 8f12f4afab80ee64d9a0446686add10d, type: 2}
-    weight: 1
-  - nameKor: "\uC9C0\uD321\uC7741"
+    weight: 10
+  - nameKor: "\uB098\uBB34\uC9C0\uD321\uC7741"
     icon: {fileID: 0}
     rewardType: 2
     currency: 0
     amount: 0
     skillId: 0
     equipmentData: {fileID: 11400000, guid: f05b9e2f74917db45abaad7858af2995, type: 2}
-    weight: 1
-  - nameKor: "\uC9C0\uD321\uC7742"
+    weight: 10
+  - nameKor: "\uB098\uBB34\uC9C0\uD321\uC7742"
     icon: {fileID: 0}
     rewardType: 2
     currency: 0
     amount: 0
     skillId: 0
     equipmentData: {fileID: 11400000, guid: d09cccb101af00443a659eae01605e74, type: 2}
-    weight: 1
-  - nameKor: "\uC9C0\uD321\uC7743"
+    weight: 10
+  - nameKor: "\uB098\uBB34\uC9C0\uD321\uC7743"
     icon: {fileID: 0}
     rewardType: 2
     currency: 0
     amount: 0
     skillId: 0
     equipmentData: {fileID: 11400000, guid: bcb3adf8657621a469604394dc7f61f8, type: 2}
+    weight: 10
+  - nameKor: "\uD669\uAE08\uD65C1"
+    icon: {fileID: 0}
+    rewardType: 2
+    currency: 0
+    amount: 0
+    skillId: 0
+    equipmentData: {fileID: 11400000, guid: 920fcf0981eb5054d99b2171a9989922, type: 2}
+    weight: 3
+  - nameKor: "\uD669\uAE08\uD65C2"
+    icon: {fileID: 0}
+    rewardType: 2
+    currency: 0
+    amount: 0
+    skillId: 0
+    equipmentData: {fileID: 11400000, guid: 08c5e9f5a892c734da51d64b988488a7, type: 2}
+    weight: 3
+  - nameKor: "\uAC15\uCCA0\uAC801"
+    icon: {fileID: 0}
+    rewardType: 2
+    currency: 0
+    amount: 0
+    skillId: 0
+    equipmentData: {fileID: 11400000, guid: a55efba95ebf92a49bd95bf5049ab5d1, type: 2}
+    weight: 3
+  - nameKor: "\uAC15\uCCA0\uAC802"
+    icon: {fileID: 0}
+    rewardType: 2
+    currency: 0
+    amount: 0
+    skillId: 0
+    equipmentData: {fileID: 11400000, guid: 03947253cbb2ac14fb832473599ac0f2, type: 2}
+    weight: 3
+  - nameKor: "\uBCC4\uBE5B\uC9C0\uD321\uC7741"
+    icon: {fileID: 0}
+    rewardType: 2
+    currency: 0
+    amount: 0
+    skillId: 0
+    equipmentData: {fileID: 11400000, guid: d8199a193b213c24db2a1bc935790889, type: 2}
+    weight: 3
+  - nameKor: "\uBCC4\uBE5B\uC9C0\uD321\uC7742"
+    icon: {fileID: 0}
+    rewardType: 2
+    currency: 0
+    amount: 0
+    skillId: 0
+    equipmentData: {fileID: 11400000, guid: 7058da19a860daf47ba6dfe580b25762, type: 2}
+    weight: 3
+  - nameKor: "\uC6A9\uC758 \uD65C"
+    icon: {fileID: 0}
+    rewardType: 2
+    currency: 0
+    amount: 0
+    skillId: 0
+    equipmentData: {fileID: 11400000, guid: 659a02cf2cdba5c4784b650f73c55ac2, type: 2}
     weight: 1
+  - nameKor: "\uC6A9\uC758 \uB300\uAC80"
+    icon: {fileID: 0}
+    rewardType: 2
+    currency: 0
+    amount: 0
+    skillId: 0
+    equipmentData: {fileID: 11400000, guid: 5eed4e10aaf3dfc4399c93fd3e914d32, type: 2}
+    weight: 1
+  - nameKor: "\uC6A9\uC758 \uC9C0\uD321\uC774"
+    icon: {fileID: 0}
+    rewardType: 2
+    currency: 0
+    amount: 0
+    skillId: 0
+    equipmentData: {fileID: 11400000, guid: d90cd281471103b40bc98ab8fc292ce7, type: 2}
+    weight: 1
+  - nameKor: "\uC804\uC9C1 \uD30C\uD3B8"
+    icon: {fileID: 0}
+    rewardType: 0
+    currency: 4
+    amount: 1
+    skillId: 0
+    equipmentData: {fileID: 0}
+    weight: 12.333

@@ -18,21 +18,6 @@ namespace Scripts.Core
             _currentStage = current;
             totalEnemy = 0;
         }
-        //Todo : SpawnLocation 정해야함.
-        public void OnStageEnter()
-        {
-            //MonsterSpawn시작
-            List<StageInfo_v> needStageInfo = StageManager.Instance.GetStageMonsterInfo(_currentStage);
-
-            for (int i = 0; i < needStageInfo.Count; i++)
-            {
-                totalEnemy += needStageInfo[i]._count;
-                //Spawn하기 
-                MonsterSpawner.Instance.SpawnMonster(needStageInfo[i]._type, Vector3.zero, Quaternion.identity, out Monster mon);
-
-                //Todo : Monster에게 Stage주입해주기
-            }
-        }
 
         public void OnMonsterDead()
         {

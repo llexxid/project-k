@@ -72,9 +72,15 @@
     border-top-color: rgba(150, 180, 240, 0.85);
     border-bottom-color: rgba(150, 180, 240, 0.85);
 }
-.login-btn:active {
+.login-btn:active,
+.login-btn.mobile-tap-pressed {
     background-color: rgba(45, 60, 110, 0.95);
     color: rgba(255, 245, 200, 1);
+}
+
+/* 모바일 탭: 캡처 기반 커스텀 핸들러가 적용된 요소의 press 시각 피드백 */
+.mobile-tap-pressed {
+    opacity: 0.85;
 }
 
 .login-popup {
@@ -483,17 +489,143 @@
     border-bottom-width: 0;
 }
 
-/* Bottom bar */
+/* =========================================================
+   Bottom bar (tab navigation)
+   - 주변 HUD/드롭다운과 어울리는 반투명 톤
+   - 모바일 터치 안전 (각 버튼 ≥ 150px × 200px, 44dp 이상)
+   - hover / active / selected 상태별 피드백 제공
+   ========================================================= */
 .bottom-bar {
     position: absolute;
     left: 0; right: 0; bottom: 0;
     height: 190px;
-    flex-direction: row;
-    justify-content: space-around;
-    align-items: center;
-    background-color: rgba(0,0,0,1);
+    flex-direction: column;
+    justify-content: center;
+    align-items: stretch;
+    background-color: rgba(8, 10, 16, 0.92);
+    border-top-width: 1px;
+    border-top-color: rgba(255, 255, 255, 0.08);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-bottom-width: 0;
 }
-.tab-btn { width: 170px; height: 110px; font-size: 32px; }
+
+.bottom-bar-safe-area {
+    flex-grow: 1;
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: space-around;
+    padding-left: 14px;
+    padding-right: 14px;
+    padding-top: 10px;
+    padding-bottom: 14px;
+    gap: 10px;
+}
+
+/* 기본 탭 버튼 (Button 컨트롤) — 모바일 터치 타겟 충분히 크게 */
+.tab-btn {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    min-width: 200px;
+    min-height: 150px;
+    padding-left: 6px;
+    padding-right: 6px;
+    padding-top: 8px;
+    padding-bottom: 10px;
+    background-color: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.9);
+    border-radius: 18px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    transition-property: scale, background-color;
+    transition-duration: 0.12s, 0.12s;
+    transition-timing-function: ease-out;
+}
+
+.tab-btn:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+    scale: 1.02 1.02;
+}
+
+.tab-btn:active {
+    background-color: rgba(255, 255, 255, 0.18);
+    scale: 0.94 0.94;
+}
+
+/* 버튼 내부 컨텐츠 (아이콘 + 라벨) */
+.tab-btn-inner {
+    flex-grow: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.tab-btn-icon {
+    font-size: 56px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    color: rgba(255, 255, 255, 0.88);
+    transition-property: color, scale;
+    transition-duration: 0.15s, 0.15s;
+}
+
+.tab-btn-label {
+    font-size: 26px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    color: rgba(255, 255, 255, 0.85);
+    transition-property: color;
+    transition-duration: 0.15s;
+}
+
+/* 선택 표시 바 (상단에 얇게 — 선택 시 표시, 평상시 투명) */
+.tab-btn-indicator {
+    position: absolute;
+    left: 30%;
+    right: 30%;
+    top: 6px;
+    height: 4px;
+    border-radius: 2px;
+    background-color: rgba(255, 205, 120, 0);
+    transition-property: background-color, left, right;
+    transition-duration: 0.18s, 0.18s, 0.18s;
+    transition-timing-function: ease-out;
+}
+
+/* ===== Selected (현재 열린 탭 패널) ===== */
+.tab-btn-selected {
+    background-color: rgba(110, 180, 255, 0.22);
+    scale: 1.04 1.04;
+}
+
+.tab-btn-selected:hover {
+    background-color: rgba(120, 190, 255, 0.28);
+    scale: 1.04 1.04;
+}
+
+.tab-btn-selected:active {
+    background-color: rgba(140, 200, 255, 0.34);
+    scale: 0.98 0.98;
+}
+
+.tab-btn-selected .tab-btn-icon {
+    color: rgba(255, 220, 150, 1);
+    scale: 1.08 1.08;
+}
+
+.tab-btn-selected .tab-btn-label {
+    color: rgba(255, 230, 180, 1);
+}
+
+.tab-btn-selected .tab-btn-indicator {
+    left: 22%;
+    right: 22%;
+    background-color: rgba(255, 205, 120, 0.95);
+}
 
 /* ===== Push Panel (Bottom Sheet) ===== */
 .panel-root {
@@ -529,110 +661,192 @@
     align-items: center;
 }
 
+/* 패널 — auto-size (내용에 딱 맞춤, 공백 제거) */
 .settings-panel {
     width: 94%;
-    max-width: 920px;
-    height: 86%;
-    background-color: rgba(35, 30, 45, 0.95);
+    max-width: 860px;
+    max-height: 92%;
+    background-color: rgba(35, 30, 45, 0.96);
     border-radius: 18px;
-    padding: 30px 26px 36px 26px;
-    gap: 18px;
-    overflow: hidden;
+    padding: 20px 22px 22px 22px;
+    gap: 10px;
 }
 
+/* 타이틀바 */
 .settings-titlebar {
-    height: 88px;
+    height: 64px;
     justify-content: center;
     align-items: center;
     background-color: rgba(0,0,0,0.28);
-    border-radius: 14px;
+    border-radius: 12px;
 }
-
 .settings-title {
-    font-size: 38px;
+    font-size: 30px;
     -unity-font-style: bold;
     color: rgba(255,255,255,0.95);
     -unity-text-align: middle-center;
 }
 
-.settings-subrow { flex-direction: row; justify-content: space-between; align-items: center; gap: 12px; }
-.settings-chip-btn { height: 72px; flex-grow: 1; font-size: 26px; }
-.settings-version { height: 72px; width: 220px; justify-content: center; align-items: center; background-color: rgba(255,255,255,0.10); border-radius: 12px; }
-.settings-version-label { font-size: 26px; color: rgba(255,255,255,0.9); }
+/* 정보 행 (서버 / 버전) — 한 줄 슬림 */
+.settings-subrow {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    height: 44px;
+    padding-left: 6px;
+    padding-right: 6px;
+}
+.settings-info-label {
+    font-size: 22px;
+    color: rgba(255,255,255,0.65);
+}
 
-.settings-coupon-row { flex-direction: row; align-items: center; gap: 12px; }
-.settings-coupon-tag { width: 160px; height: 74px; justify-content: center; align-items: center; background-color: rgba(0,0,0,0.28); border-radius: 10px; }
-.settings-coupon-tag-label { font-size: 26px; color: rgba(255,255,255,0.9); }
-.settings-coupon-field-wrap { flex-grow: 1; height: 74px; border-radius: 10px; background-color: rgba(255,255,255,0.10); padding-left: 12px; padding-right: 12px; justify-content: center; }
-.settings-coupon-field { flex-grow: 1; }
-.settings-coupon-btn { width: 120px; height: 66px; font-size: 24px; }
+/* Google Play 풀폭 칩 */
+.settings-chip-btn {
+    height: 60px;
+    font-size: 24px;
+    border-radius: 12px;
+    background-color: rgba(255,255,255,0.10);
+    color: rgba(255,255,255,0.92);
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+}
+.settings-chip-btn:hover  { background-color: rgba(255,255,255,0.16); }
+.settings-chip-btn:active { background-color: rgba(255,255,255,0.22); }
 
-.settings-grid { flex-direction: row; gap: 22px; flex-grow: 1; }
-.settings-col { flex-grow: 1; gap: 22px; }
+/* ── 토글 그리드 (3 × 2) ── */
+.settings-grid { flex-direction: row; gap: 10px; }
+.settings-col  { flex-grow: 1; gap: 8px; }
 
-/* 토글(체크박스+텍스트) 한 줄을 크게 — 설정 패널 내부를 꽉 채운다 */
+/* 체크박스 행 — 카드형, 좌측 텍스트 / 우측 체크 정렬 */
 .settings-panel .unity-toggle {
-    height: 86px;
+    height: 60px;
     background-color: rgba(255,255,255,0.06);
     border-radius: 12px;
-    padding-left: 18px;
-    padding-right: 18px;
+    padding-left: 16px;
+    padding-right: 16px;
     margin: 0;
 }
 .settings-panel .unity-toggle > .unity-base-field__input {
     flex-grow: 1;
     align-items: center;
+    flex-direction: row-reverse;
+    justify-content: space-between;
 }
 .settings-panel .unity-toggle__checkmark {
-    width: 44px;
-    height: 44px;
-    border-radius: 8px;
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    background-color: rgba(0,0,0,0.35);
+    border-left-width: 1px; border-right-width: 1px;
+    border-top-width: 1px; border-bottom-width: 1px;
+    border-color: rgba(255,255,255,0.25);
+    -unity-background-image-tint-color: rgba(120, 200, 255, 1);
+}
+.settings-panel .unity-toggle:checked .unity-toggle__checkmark {
+    background-color: rgba(60, 130, 220, 0.85);
+    border-color: rgba(120, 200, 255, 0.95);
 }
 .settings-panel .unity-base-field__label,
 .settings-panel .unity-toggle__text {
-    font-size: 32px;
-    color: rgba(255,255,255,0.95);
+    font-size: 22px;
+    color: rgba(255,255,255,0.92);
     -unity-font-style: bold;
 }
 
+/* ── 볼륨 행 ── */
 .settings-volume-row {
     flex-direction: row;
     align-items: center;
-    gap: 16px;
-    height: 90px;
+    gap: 12px;
+    height: 64px;
     background-color: rgba(255,255,255,0.06);
     border-radius: 12px;
-    padding-left: 18px;
-    padding-right: 18px;
+    padding-left: 16px;
+    padding-right: 16px;
 }
 .settings-volume-label {
-    width: 150px;
-    font-size: 30px;
+    width: 120px;
+    font-size: 22px;
     -unity-font-style: bold;
-    color: rgba(255,255,255,0.95);
+    color: rgba(255,255,255,0.92);
     flex-shrink: 0;
 }
-
 .settings-mute-btn {
-    width: 130px;
-    height: 70px;
-    font-size: 28px;
-    border-radius: 12px;
+    width: 100px;
+    height: 44px;
+    font-size: 20px;
+    border-radius: 10px;
     background-color: rgba(255,255,255,0.10);
-    color: rgba(255,255,255,0.95);
+    color: rgba(255,255,255,0.92);
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
     flex-shrink: 0;
 }
-.settings-mute-btn.is-on { background-color: rgba(255,80,80,0.35); }
-.settings-slider { flex-grow: 1; min-width: 0; flex-shrink: 1; height: 50px; }
+.settings-mute-btn:hover  { background-color: rgba(255,255,255,0.16); }
+.settings-mute-btn.is-on  { background-color: rgba(220, 70, 70, 0.55); color: rgba(255,255,255,0.98); }
+.settings-slider { flex-grow: 1; min-width: 0; flex-shrink: 1; height: 40px; }
 
-.settings-inquiry { height: 74px; justify-content: center; align-items: center; background-color: rgba(0,0,0,0.28); border-radius: 10px; }
-.settings-inquiry-label { font-size: 26px; color: rgba(255,255,255,0.9); }
+/* ── 문의 / 위험(탈퇴) ── */
+.settings-inquiry {
+    height: 44px;
+    justify-content: center;
+    padding-left: 14px;
+    background-color: rgba(0,0,0,0.22);
+    border-radius: 10px;
+}
+.settings-inquiry-label { font-size: 20px; color: rgba(255,255,255,0.75); }
 
-.settings-wide-btn { height: 72px; font-size: 26px; }
-.settings-danger-btn { height: 72px; font-size: 26px; color: rgba(255,80,80,1); }
+.settings-danger-btn {
+    height: 52px;
+    font-size: 22px;
+    border-radius: 12px;
+    background-color: rgba(120, 30, 30, 0.35);
+    color: rgba(255, 130, 130, 1);
+    border-left-width: 1px; border-right-width: 1px;
+    border-top-width: 1px; border-bottom-width: 1px;
+    border-color: rgba(255, 90, 90, 0.45);
+}
+.settings-danger-btn:hover  { background-color: rgba(150, 40, 40, 0.50); }
+.settings-danger-btn:active { background-color: rgba(170, 40, 40, 0.65); }
 
-.settings-bottom-row { flex-direction: row; gap: 14px; }
-.settings-bottom-btn { flex-grow: 1; height: 78px; font-size: 28px; }
+/* ── 하단 액션 행 ── */
+.settings-bottom-row {
+    flex-direction: row;
+    gap: 12px;
+    margin-top: 6px;
+}
+.settings-bottom-btn {
+    flex-grow: 1;
+    height: 64px;
+    font-size: 24px;
+    -unity-font-style: bold;
+    border-radius: 12px;
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    transition-property: scale, background-color;
+    transition-duration: 0.08s, 0.08s;
+}
+.settings-bottom-btn:hover  { scale: 1.02; }
+.settings-bottom-btn:active { scale: 0.96; }
+
+/* 보조 — 저장하기 (외곽선 + 약한 배경) */
+.settings-bottom-btn-secondary {
+    background-color: rgba(255,255,255,0.10);
+    color: rgba(255,255,255,0.90);
+    border-left-width: 1px; border-right-width: 1px;
+    border-top-width: 1px; border-bottom-width: 1px;
+    border-color: rgba(255,255,255,0.20);
+}
+.settings-bottom-btn-secondary:hover { background-color: rgba(255,255,255,0.16); }
+
+/* 주요 — 저장 후 닫기 (강조 블루, 게임 전반 액션 컬러와 일치) */
+.settings-bottom-btn-primary {
+    background-color: rgba(60, 120, 220, 0.85);
+    color: rgba(255,255,255,0.98);
+}
+.settings-bottom-btn-primary:hover { background-color: rgba(80, 150, 255, 0.95); }
 
 .settings-hint-close {
     position: absolute;
@@ -941,8 +1155,8 @@
 .mt-hud-slot:active { background-color: rgba(255,255,255,0.20); }
 
 .mt-hud-slot-icon {
-    width: 100px;
-    height: 100px;
+    width: 124px;
+    height: 124px;
     -unity-background-scale-mode: scale-to-fit;
 }
 
@@ -1152,8 +1366,8 @@
 }
 
 .mt-equip-slot-icon {
-    width: 70px;
-    height: 70px;
+    width: 92px;
+    height: 92px;
     -unity-background-scale-mode: scale-to-fit;
 }
 
@@ -1196,6 +1410,10 @@
     justify-content: center;
     gap: 4px;
     padding: 6px;
+    opacity: 1;
+    transition-property: opacity;
+    transition-duration: 0.7s;
+    transition-timing-function: ease-in-out;
 }
 .mt-inv-item:hover { background-color: rgba(255,255,255,0.14); }
 .mt-inv-item:active { background-color: rgba(255,255,255,0.20); }
@@ -1217,6 +1435,11 @@
     border-bottom-color: rgba(100,210,130,0.6);
 }
 
+/* 선택 모드에서 장착 가능 아이템을 부드럽게 어둡게/밝게 토글 */
+.mt-inv-item-pulse-dim {
+    opacity: 0.35;
+}
+
 .mt-inv-item-icon {
     width: 60px;
     height: 60px;
@@ -1233,14 +1456,6 @@
     font-size: 16px;
     color: rgba(255,255,255,0.6);
     -unity-text-align: middle-center;
-}
-
-.mt-drag-ghost {
-    position: absolute;
-    width: 70px;
-    height: 70px;
-    -unity-background-scale-mode: scale-to-fit;
-    opacity: 0.8;
 }
 
 /* ===== MageTower Detail Popup ===== */
@@ -1457,6 +1672,66 @@
     color: rgba(255, 255, 255, 0.4);
 }
 
+/* ── 확률 요약 필(pill) 행 ── */
+.gacha-rate-row {
+    flex-direction: row;
+    gap: 8px;
+    margin-bottom: 14px;
+    justify-content: flex-start;
+}
+
+.gacha-rate-pill {
+    padding: 6px 14px;
+    border-radius: 14px;
+    background-color: rgba(255, 255, 255, 0.06);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-color: rgba(255, 255, 255, 0.12);
+    align-items: center;
+    justify-content: center;
+}
+
+.gacha-rate-pill-label {
+    font-size: 20px;
+    -unity-font-style: bold;
+    color: rgba(255, 255, 255, 0.9);
+    -unity-text-align: middle-center;
+}
+
+.gacha-rate-pill-normal {
+    border-color: rgba(180, 180, 180, 0.7);
+}
+.gacha-rate-pill-rare {
+    border-color: rgba(80, 150, 255, 1.0);
+    background-color: rgba(60, 130, 255, 0.18);
+}
+.gacha-rate-pill-rare .gacha-rate-pill-label {
+    color: rgba(140, 195, 255, 1.0);
+}
+.gacha-rate-pill-epic {
+    border-color: rgba(200, 100, 255, 0.95);
+    background-color: rgba(180, 80, 255, 0.12);
+}
+.gacha-rate-pill-epic .gacha-rate-pill-label {
+    color: rgba(230, 170, 255, 1.0);
+}
+.gacha-rate-pill-skill {
+    border-color: rgba(100, 220, 180, 0.95);
+    background-color: rgba(80, 200, 160, 0.15);
+}
+.gacha-rate-pill-skill .gacha-rate-pill-label {
+    color: rgba(150, 240, 210, 1.0);
+}
+.gacha-rate-pill-classfragment {
+    border-color: rgba(255, 200, 80, 0.95);
+    background-color: rgba(255, 180, 60, 0.15);
+}
+.gacha-rate-pill-classfragment .gacha-rate-pill-label {
+    color: rgba(255, 220, 130, 1.0);
+}
+
 .gacha-section-title {
     font-size: 26px;
     -unity-font-style: bold;
@@ -1534,6 +1809,33 @@
     color: rgba(200, 100, 255, 1);
 }
 
+.gacha-rarity-text-classfragment {
+    color: rgba(255, 210, 100, 1);
+}
+
+.gacha-rarity-classfragment {
+    border-color: rgba(255, 200, 80, 0.95);
+    background-color: rgba(255, 180, 60, 0.12);
+}
+
+.gacha-rarity-text-arcaneknowledge {
+    color: rgba(150, 240, 210, 1);
+}
+
+.gacha-rarity-arcaneknowledge {
+    border-color: rgba(100, 220, 180, 0.95);
+    background-color: rgba(80, 200, 160, 0.12);
+}
+
+.gacha-rate-pill-arcaneknowledge {
+    border-color: rgba(100, 220, 180, 0.95);
+    background-color: rgba(80, 200, 160, 0.15);
+}
+
+.gacha-rate-pill-arcaneknowledge .gacha-rate-pill-label {
+    color: rgba(150, 240, 210, 1);
+}
+
 /* ===== Kingdom Army Panel ===== */
 .ka-member-tabs {
     flex-direction: row;
@@ -1562,26 +1864,116 @@
     flex: 1;
 }
 
+/* ── 왕국군 하단 네비게이션 (종합 / 장비 / 스킬 / 전직) ──
+   게임 전반의 탭/패널 UI 언어(.gacha-tab-bar + .gacha-tab-btn)와 동일한 비주얼.
+   상단 멤버 탭과 대칭을 이루도록 같은 리듬(높이/라운딩)을 사용한다. */
 .ka-nav-bar {
     flex-direction: row;
-    gap: 6px;
-    margin-top: 8px;
+    gap: 8px;
+    margin-top: 10px;
 }
 
 .ka-nav-btn {
     flex: 1;
-    height: 52px;
-    font-size: 22px;
-    background-color: rgba(255, 255, 255, 0.06);
-    border-radius: 8px;
-    border-left-width: 0; border-right-width: 0;
-    border-top-width: 0; border-bottom-width: 0;
-    color: rgba(255, 255, 255, 0.5);
+    height: 72px;
+    font-size: 26px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.6);
+    transition-property: scale, background-color;
+    transition-duration: 0.08s, 0.08s;
+}
+
+.ka-nav-btn:hover {
+    background-color: rgba(255, 255, 255, 0.14);
+    color: rgba(255, 255, 255, 0.85);
+    scale: 1.02;
+}
+
+.ka-nav-btn:active {
+    background-color: rgba(40, 100, 200, 0.55);
+    scale: 0.96;
 }
 
 .ka-nav-btn-active {
-    background-color: rgba(80, 60, 180, 0.5);
-    color: rgba(255, 255, 255, 0.95);
+    background-color: rgba(60, 120, 220, 0.7);
+    color: rgba(255, 255, 255, 0.98);
+    border-top-width: 2px;
+    border-top-color: rgba(140, 200, 255, 0.95);
+}
+
+.ka-nav-btn-active:hover {
+    background-color: rgba(80, 150, 255, 0.8);
+}
+
+/* ── 모바일 스타일 스크롤바 (전직 메뉴 등) ── */
+/* PC 스타일 화살표 버튼 제거 */
+.ka-content .unity-scroller__low-button,
+.ka-content .unity-scroller__high-button {
+    display: none;
+}
+
+/* 수직 스크롤러 컨테이너: 가늘게 + 투명 배경 */
+.ka-content .unity-scroller--vertical {
+    width: 8px;
+    background-color: rgba(0, 0, 0, 0);
+    margin-top: 4px;
+    margin-bottom: 4px;
+    margin-left: 2px;
+    margin-right: 2px;
+}
+
+/* 슬라이더 폭 축소 */
+.ka-content .unity-scroller--vertical .unity-scroller__slider {
+    width: 8px;
+    min-width: 8px;
+    margin: 0;
+}
+.ka-content .unity-scroller--vertical .unity-base-slider--vertical {
+    width: 8px;
+    min-width: 8px;
+}
+.ka-content .unity-scroller--vertical .unity-base-slider__input {
+    width: 8px;
+    min-width: 8px;
+    margin: 0;
+    padding: 0;
+}
+
+/* 트랙: 아주 옅은 반투명 기둥 */
+.ka-content .unity-scroller--vertical .unity-base-slider__tracker {
+    background-color: rgba(255, 255, 255, 0.06);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    border-radius: 4px;
+    left: 0;
+    right: 0;
+    width: 8px;
+}
+
+/* 드래거(Thumb): 반투명 길쭉한 둥근 기둥 */
+.ka-content .unity-scroller--vertical .unity-base-slider__dragger {
+    background-color: rgba(255, 255, 255, 0.35);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    border-radius: 4px;
+    width: 8px;
+    left: 0;
+    right: 0;
+    margin: 0;
+}
+.ka-content .unity-scroller--vertical .unity-base-slider__dragger:hover {
+    background-color: rgba(255, 255, 255, 0.5);
 }
 
 /* Character View */
@@ -1640,55 +2032,125 @@
     margin: 20px 0;
 }
 
-/* ═══ Enhance View (강화 메뉴) ═══ */
+/* ═══ Enhance View (강화 메뉴) — 뽑기 패널과 동일한 비주얼 언어 ═══ */
 
-.ka-enhance-row {
-    flex-direction: column;
-    padding: 14px 14px;
-    background-color: rgba(255, 255, 255, 0.06);
-    border-radius: 12px;
-    margin-bottom: 10px;
-    border-left-width: 2px;
-    border-left-color: rgba(100, 180, 255, 0.4);
-}
-
-.ka-enhance-header {
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
+/* 상단 설명 — .gacha-desc 와 동일 톤 */
+.ka-dev-desc {
+    font-size: 22px;
+    color: rgba(255, 255, 255, 0.7);
+    white-space: normal;
     margin-bottom: 8px;
 }
 
-.ka-enhance-name {
+/* 보유 골드 바 — .gacha-cost 와 동일 톤 */
+.ka-dev-gold-bar {
     font-size: 26px;
+    -unity-font-style: bold;
+    color: rgba(255, 204, 0, 0.95);
+    margin-bottom: 14px;
+}
+
+/* 강화 카드 — .ka-enhance-row 의 후속 명칭 */
+.ka-enhance-card {
+    flex-direction: column;
+    padding: 14px 16px;
+    background-color: rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    margin-bottom: 12px;
+    border-left-width: 3px;
+    border-left-color: rgba(100, 180, 255, 0.55);
+}
+
+.ka-enhance-card-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.ka-enhance-card-name {
+    font-size: 28px;
     -unity-font-style: bold;
     color: rgba(255, 255, 255, 0.95);
 }
 
-.ka-enhance-level {
+.ka-enhance-card-level {
     font-size: 22px;
-    color: rgba(100, 200, 255, 0.95);
     -unity-font-style: bold;
+    color: rgba(100, 200, 255, 0.95);
 }
 
-.ka-enhance-bonus {
+.ka-enhance-card-bonus {
     font-size: 20px;
     color: rgba(120, 255, 160, 0.9);
-    margin-bottom: 10px;
+    margin-bottom: 12px;
 }
 
-.ka-enhance-dummy-tag {
-    font-size: 18px;
-    color: rgba(255, 200, 80, 0.7);
-    -unity-font-style: italic;
-    margin-bottom: 10px;
-}
-
+/* 버튼 행 */
 .ka-enhance-btn-row {
     flex-direction: row;
     gap: 10px;
 }
 
+/* 강화 버튼 — .gacha-pull-btn 와 동일 치수/색 — 일관된 게임 UI */
+.ka-enhance-pull-btn {
+    flex: 1;
+    height: 90px;
+    -unity-text-align: middle-center;
+    white-space: normal;
+    background-color: rgba(60, 120, 220, 0.7);
+    border-radius: 12px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    color: rgba(255, 255, 255, 0.95);
+    padding: 6px 8px;
+    align-items: center;
+    justify-content: center;
+    transition-property: scale, background-color;
+    transition-duration: 0.08s, 0.08s;
+}
+
+.ka-enhance-pull-btn:hover {
+    background-color: rgba(80, 150, 255, 0.85);
+    scale: 1.02;
+}
+
+.ka-enhance-pull-btn:active {
+    background-color: rgba(40, 100, 200, 0.95);
+    scale: 0.96;
+}
+
+.ka-enhance-pull-btn-disabled,
+.ka-enhance-pull-btn:disabled {
+    background-color: rgba(100, 100, 100, 0.5);
+    color: rgba(255, 255, 255, 0.4);
+    opacity: 0.7;
+    scale: 1;
+}
+
+.ka-enhance-pull-btn-title {
+    font-size: 26px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    color: rgba(255, 255, 255, 0.98);
+}
+
+.ka-enhance-pull-btn-cost {
+    font-size: 20px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    color: rgba(255, 220, 100, 0.95);
+    margin-top: 2px;
+}
+
+.ka-enhance-pull-btn-disabled .ka-enhance-pull-btn-cost,
+.ka-enhance-pull-btn:disabled .ka-enhance-pull-btn-cost {
+    color: rgba(255, 180, 180, 0.65);
+}
+
+/* 소형 보조 버튼 — 장비 해제 등 인벤토리/왕국군에서 공용으로 사용 */
 .ka-small-btn {
     flex: 1;
     height: 52px;
@@ -1714,9 +2176,11 @@
     scale: 0.93;
 }
 
-.ka-enhance-cost {
-    font-size: 18px;
-    color: rgba(255, 220, 100, 0.85);
+.ka-small-btn:disabled {
+    background-color: rgba(90, 100, 120, 0.4);
+    color: rgba(255, 255, 255, 0.4);
+    opacity: 0.6;
+    scale: 1;
 }
 
 /* Equipment View */
@@ -2157,6 +2621,41 @@
     color: rgba(255, 200, 100, 0.95);
 }
 
+/* ─── 전직 탭 상단 통합 전직 파편 배너 ─── */
+.ka-frag-banner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 14px 20px;
+    margin-bottom: 14px;
+    background-color: rgba(60, 45, 20, 0.55);
+    border-radius: 14px;
+    border-left-width: 1px; border-right-width: 1px;
+    border-top-width: 1px; border-bottom-width: 1px;
+    border-color: rgba(255, 205, 120, 0.35);
+}
+
+.ka-frag-banner-name {
+    font-size: 26px;
+    -unity-font-style: bold;
+    color: rgba(255, 220, 160, 0.95);
+}
+
+.ka-frag-banner-val {
+    font-size: 34px;
+    -unity-font-style: bold;
+    color: rgba(255, 225, 140, 1);
+    min-width: 80px;
+}
+
+.ka-frag-banner-hint {
+    font-size: 20px;
+    color: rgba(255, 255, 255, 0.6);
+    flex-grow: 1;
+    -unity-text-align: middle-right;
+}
+
 /* ===== Inventory Panel ===== */
 .inv-equip-card {
     padding: 8px 6px;
@@ -2283,6 +2782,28 @@
     background-color: rgba(100, 100, 100, 0.7);
 }
 
+.gacha-result-btn-disabled {
+    background-color: rgba(80, 80, 90, 0.5);
+    color: rgba(255, 255, 255, 0.35);
+}
+
+/* 최고 등급(Epic) 카드 강조 — 배경 글로우 */
+.gacha-result-card-best {
+    background-color: rgba(180, 80, 255, 0.22);
+    border-color: rgba(230, 150, 255, 1);
+}
+
+/* 최고 등급별 제목 색상 */
+.gacha-result-title-epic {
+    color: rgba(220, 140, 255, 1);
+}
+.gacha-result-title-rare {
+    color: rgba(120, 180, 255, 1);
+}
+.gacha-result-title-normal {
+    color: rgba(220, 220, 220, 1);
+}
+
 /* ===== 장비 액션 팝업 ===== */
 .ka-equip-action-row {
     flex-direction: row;
@@ -2317,127 +2838,3 @@
 .ka-equip-dimmed-text {
     color: rgba(255, 80, 80, 0.9);
 }
-
-/* ===== [DEBUG] 디버그 메뉴 — 제거 시 이 섹션 전체 삭제 ===== */
-.debug-menu-btn {
-    width: 72px;
-    height: 72px;
-    border-radius: 999px;
-    background-color: rgba(255, 200, 50, 0.85);
-    border-left-width: 0; border-right-width: 0;
-    border-top-width: 0; border-bottom-width: 0;
-    font-size: 22px;
-    -unity-font-style: bold;
-    color: rgba(0, 0, 0, 0.9);
-}
-.debug-menu-btn:hover { background-color: rgba(255, 200, 50, 1); }
-
-.debug-overlay {
-    position: absolute;
-    left: 0; right: 0; top: 0; bottom: 0;
-}
-
-.debug-backdrop {
-    position: absolute;
-    left: 0; right: 0; top: 0; bottom: 0;
-    background-color: rgba(0, 0, 0, 0.55);
-}
-
-.debug-panel {
-    position: absolute;
-    left: 50%;
-    top: 8%;
-    width: 560px;
-    margin-left: -280px;
-    background-color: rgba(30, 28, 40, 0.97);
-    border-radius: 18px;
-    padding: 22px;
-    gap: 12px;
-}
-
-.debug-title {
-    font-size: 32px;
-    -unity-font-style: bold;
-    color: rgba(255, 200, 50, 0.95);
-    -unity-text-align: middle-center;
-    margin-bottom: 6px;
-}
-
-.debug-section-label {
-    font-size: 24px;
-    -unity-font-style: bold;
-    color: rgba(255, 255, 255, 0.7);
-    margin-top: 4px;
-}
-
-.debug-currency-grid {
-    gap: 6px;
-}
-
-.debug-currency-row {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    padding: 4px 8px;
-    background-color: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
-}
-
-.debug-currency-name {
-    font-size: 24px;
-    color: rgba(255, 255, 255, 0.85);
-    flex: 1;
-}
-
-.debug-currency-btn {
-    height: 48px;
-    min-width: 120px;
-    font-size: 22px;
-    -unity-font-style: bold;
-    background-color: rgba(60, 160, 80, 0.7);
-    border-radius: 8px;
-    border-left-width: 0; border-right-width: 0;
-    border-top-width: 0; border-bottom-width: 0;
-    color: rgba(255, 255, 255, 0.95);
-}
-.debug-currency-btn:hover { background-color: rgba(60, 160, 80, 0.9); }
-
-.debug-toggle-row {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    padding: 6px 8px;
-    background-color: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
-}
-
-.debug-toggle-label {
-    font-size: 24px;
-    color: rgba(255, 255, 255, 0.85);
-    flex: 1;
-}
-
-.debug-toggle-btn {
-    height: 48px;
-    min-width: 100px;
-    font-size: 22px;
-    background-color: rgba(80, 80, 200, 0.7);
-    border-radius: 8px;
-    border-left-width: 0; border-right-width: 0;
-    border-top-width: 0; border-bottom-width: 0;
-    color: rgba(255, 255, 255, 0.95);
-}
-.debug-toggle-btn:hover { background-color: rgba(80, 80, 200, 0.9); }
-
-.debug-close-btn {
-    height: 56px;
-    font-size: 24px;
-    background-color: rgba(180, 60, 60, 0.7);
-    border-radius: 10px;
-    border-left-width: 0; border-right-width: 0;
-    border-top-width: 0; border-bottom-width: 0;
-    color: rgba(255, 255, 255, 0.95);
-    margin-top: 6px;
-}
-.debug-close-btn:hover { background-color: rgba(180, 60, 60, 0.9); }
-/* ===== [DEBUG] 디버그 메뉴 끝 ===== */

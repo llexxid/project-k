@@ -13,43 +13,49 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 {
     public PlayerOrder playerOrder;
     public PlayerStatus playerStatus;
-    public SkillManager skillManager;
-    public SkillDatabase skillDatabase;
+    public SkillSystem skillSystem;
 
-    /// <summary>장비 시스템 메인 매니저. UI나 외부 로직에서 참조 가능.</summary>
     public EquipmentManager equipmentManager;
 
     [SerializeField]
-    [Tooltip("EquipmentDatabase.asset을 인스펙터에서 연결하세요.")]
     private EquipmentDatabase _equipmentDatabase;
 
     [SerializeField]
-    [Tooltip("EquipmentDropTableSO.asset을 인스펙터에서 연결하세요.")]
     private EquipmentDropTableSO _equipmentDropTable;
+
+    [SerializeField]
+    private MageProjectile _mageProjectilePrefab;
+    public MageProjectile MageProjectilePrefab => _mageProjectilePrefab;
+
+    [SerializeField]
+    private EnergyPulseVFX _energyPulseVFXPrefab;
+    public EnergyPulseVFX EnergyPulseVFXPrefab => _energyPulseVFXPrefab;
 
     public Animator _am;
     AnimatorComponent<ePlayerAction> _animatorComponent;
 
-    // 현재 재생 중인 애니메이션 상태 (SetAnimation의 단일 진입점이 관리)
     private ePlayerAction _currentAction = ePlayerAction.Idle;
-
-    // 공격 애니메이션 보호 타이머: 이 시간 동안 Idle/Walk가 애니메이션을 덮어쓰지 못함
     private float _attackAnimEndTime = 0f;
+    private bool _pendingAnimRecovery = false;
 
-    // 보호막 패시브 발동 여부 (전직 시 리셋, 직업당 1회)
-    private bool _shieldPassiveActivated = false;
-
-    // 패링 상태
-    private float _parryEndTime        = 0f;
-    private float _parryCounterMultiplier = 0f;
-    public bool IsParrying => Time.time < _parryEndTime;
-
-    // 사망 여부 (true이면 BT 평가 중단)
     private bool _isDead = false;
-    /// <summary>외부 컴포넌트(ChangeJob 등)에서 사망 여부를 읽기 위한 프로퍼티</summary>
     public bool IsDead => _isDead;
-    /// <summary>전직 비용 차감 등 외부에서 User에 접근할 때 사용</summary>
     public User User => _user;
+
+    /// <summary>기본공격/스킬 애니메이션이 재생 중이면 true. 이동 금지 판정에 사용.</summary>
+    public bool IsInAttackAnimation => Time.time < _attackAnimEndTime;
+
+    /// <summary>
+    /// 기본공격 사이클(애니메이션 + 쿨타임) 동안 이동 금지를 유지하기 위해
+    /// _attackAnimEndTime 을 연장한다. 이미 더 먼 시점이면 유지.
+    /// </summary>
+    public void ExtendAttackLock(float duration)
+    {
+        if (duration <= 0f) return;
+        float newEnd = Time.time + duration;
+        if (newEnd > _attackAnimEndTime)
+            _attackAnimEndTime = newEnd;
+    }
 
     [SerializeField]
     private IDamageable _currentTarget;
@@ -57,13 +63,13 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     PlayerData _data;
     private User _user;
 
-	public event Action<IDamageable> OnDeath;
+    public event Action<IDamageable> OnDeath;
 
     public ePlayerAction CurrentAction
     {
         get { return _currentAction; }
     }
-	public ulong damage
+    public ulong damage
     {
         get { return (ulong)(playerStatus?.Atk ?? 0); }
     }
@@ -75,50 +81,41 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     {
         get { return transform.position; }
     }
-
-	public GameObject gameobj
+    public GameObject gameobj
     {
         get { return transform.gameObject; }
     }
 
-	public bool TakeDamage(IAttackable attacker)
+    /// <summary>현재 HP 비율 (0~1).</summary>
+    public float HPRatio
     {
-        // 패링 중 피격: 데미지 무효화 + 반격
-        if (IsParrying)
+        get
         {
-            ulong counterDamage = (ulong)Mathf.RoundToInt(playerStatus.Atk * _parryCounterMultiplier);
-            var damageable = attacker as IDamageable;
-            damageable?.TakeDamage(new PlayerSkill.DamageProxy(counterDamage, gameobj));
-
-            UITKDamageTextBridge.ShowOnTransform(transform, (ulong)counterDamage, Color.yellow);
-            return true;
+            int maxHP = playerStatus?.MaxHP ?? 1;
+            return maxHP > 0 ? (float)_data._Hp / maxHP : 1f;
         }
+    }
 
+    public bool TakeDamage(IAttackable attacker)
+    {
         ulong dmg = attacker.damage;
         CustomLogger.Log($"Player가 공격을 받고있습니다! DMG : {dmg}");
 
-        // 플레이어 피격 데미지 텍스트 (하얀색)
         UITKDamageTextBridge.ShowOnTransform(transform, dmg, Color.white);
-
-        // ── [DEBUG] 플레이어 무적 — 제거 시 이 블록 삭제 ──
-        if (UITKDebugMenuController.PlayerInvincible) return true;
 
         bool IsAlive = setHp(dmg);
         if (!IsAlive) return false;
         return true;
     }
 
-    // ── [Spawn] 초기 스폰 위치 — 부활/웨이브 시작 시 이 위치로 복귀 ──
     private Vector3 _initialSpawnPos;
     private bool _initialSpawnPosCaptured;
-    // ── [Spawn 끝] ──
 
     public void Init(PlayerData data, User user)
     {
         _data = data;
         _user = user;
 
-        // 최초 Init 시점의 transform.position을 초기 스폰 위치로 캡처
         if (!_initialSpawnPosCaptured)
         {
             _initialSpawnPos = transform.position;
@@ -135,25 +132,22 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         CustomLogger.Log("Player Is Dead!!");
         SetAnimation(ePlayerAction.Dead);
 
-		StartCoroutine(PauseAfterDeadAnimation());
+        StartCoroutine(PauseAfterDeadAnimation());
     }
 
     public void ResetTarget(IDamageable target)
     {
         _currentTarget = null;
         currentTarget = null;
-	}
+    }
 
     public void SetTarget(IDamageable target)
     {
-        if (target == null)
-        {
-            return;
-        }
+        if (target == null) return;
         if (_currentTarget != null)
         {
-			_currentTarget.OnDeath -= ResetTarget;
-		}
+            _currentTarget.OnDeath -= ResetTarget;
+        }
 
         target.OnDeath += ResetTarget;
         _currentTarget = target;
@@ -165,9 +159,9 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         float deadAnimLength = GetClipLength("Dead_Anim");
         yield return new WaitForSeconds(deadAnimLength);
 
-		OnDeath?.Invoke(this);
-		OnDeath = null;
-		gameObject.SetActive(false);
+        OnDeath?.Invoke(this);
+        OnDeath = null;
+        gameObject.SetActive(false);
 
         playerOrder?.InterruptBT();
 
@@ -194,51 +188,33 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
             _data._extraHp = _data._extraHp - (int)damage;
         }
 
-        TryActivateShieldPassive();
         return true;
     }
 
-    /// <summary>
-    /// HP 감소 후 호출. 보호막 패시브 조건을 충족하면 보호막을 부여한다.
-    /// 전직당 1회만 발동된다 (ResetShieldPassive로 리셋).
-    /// </summary>
-    private void TryActivateShieldPassive()
+    /// <summary>HP 회복 (IronWill 등).</summary>
+    public void Heal(int amount)
     {
-        if (_shieldPassiveActivated) return;
-        if (skillManager == null || playerStatus == null) return;
-
-        float hpRatio = (float)_data._Hp / playerStatus.MaxHP;
-
-        foreach (var skill in skillManager.GetCurrentSkills())
-        {
-            if (skill.skillType != SkillType.Passive) continue;
-            if (skill.passiveShieldAmount <= 0) continue;
-            if (hpRatio > skill.passiveShieldHPThreshold) continue;
-
-            _data._extraHp += skill.passiveShieldAmount;
-            _shieldPassiveActivated = true;
-            break;
-        }
+        if (_isDead || amount <= 0) return;
+        long maxHP = playerStatus?.MaxHP ?? _data._MaxHp;
+        _data._Hp = System.Math.Min(_data._Hp + amount, maxHP);
     }
 
-    /// <summary>
-    /// 전직 시 ChangeJob에서 호출. 보호막 패시브 발동 기록을 초기화한다.
-    /// </summary>
-    public void ResetShieldPassive()
+    /// <summary>현재 HP 를 MaxHP 로 채운다 (직업 변경 등 전체 스탯 리셋 시).</summary>
+    public void RefillHP()
     {
-        _shieldPassiveActivated = false;
+        if (playerStatus == null) return;
+        _data._Hp = playerStatus.MaxHP;
+        _data._extraHp = 0;
+        playerStatus.HP = playerStatus.MaxHP;
     }
 
-    // ── [WaveManager] 플레이어 부활 ──
     public void Revive()
     {
         _isDead = false;
-        _shieldPassiveActivated = false;
         _data._Hp = playerStatus.MaxHP;
         _data._extraHp = 0;
         playerStatus.HP = playerStatus.MaxHP;
 
-        // 초기 스폰 위치로 복귀 (캡처 안 됐다면 현재 위치 유지)
         if (_initialSpawnPosCaptured)
             transform.position = _initialSpawnPos;
 
@@ -248,17 +224,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         playerOrder?.RecoveryBT();
         Scripts.Core.GameManager.Instance?.ReportPlayerRevived();
         ResetTarget(this);
-    }
-    // ── [WaveManager 끝] ──
-
-    /// <summary>
-    /// PlayerParry에서 호출. duration 초 동안 패링 상태를 활성화한다.
-    /// 패링 중 TakeDamage()가 호출되면 데미지 무효화 + 반격이 발동된다.
-    /// </summary>
-    public void ActivateParry(float duration, float counterMultiplier)
-    {
-        _parryEndTime          = Time.time + duration;
-        _parryCounterMultiplier = counterMultiplier;
     }
 
     private void Awake()
@@ -270,13 +235,11 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         equipmentManager = new EquipmentManager();
         equipmentManager.Init(playerStatus, _equipmentDatabase, _equipmentDropTable);
 
+        skillSystem = new SkillSystem(this);
+
         playerOrder = new PlayerOrder();
         playerOrder.Init(this);
 
-        float attackClipLength = GetClipLength("Attack_Anim");
-        playerOrder._attack.attackRate = attackClipLength;
-
-        //For Test (에디터 전용 — 빌드에서는 Init()으로 주입)
 #if UNITY_EDITOR
         _data._Hp = 50;
         _data._atk = 10;
@@ -286,45 +249,34 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     private void InitializeAnimator()
     {
         Dictionary<ePlayerAction, int> dic = new Dictionary<ePlayerAction, int>();
-        dic.Add(ePlayerAction.Idle,   Animator.StringToHash("Idle"));
-        dic.Add(ePlayerAction.Walk,   Animator.StringToHash("Walk"));
+        dic.Add(ePlayerAction.Idle, Animator.StringToHash("Idle"));
+        dic.Add(ePlayerAction.Walk, Animator.StringToHash("Walk"));
         dic.Add(ePlayerAction.Attack, Animator.StringToHash("Attack"));
-        dic.Add(ePlayerAction.Dead,   Animator.StringToHash("Dead"));
+        dic.Add(ePlayerAction.Dead, Animator.StringToHash("Dead"));
 
         _animatorComponent = new AnimatorComponent<ePlayerAction>(_am, dic);
     }
 
-    /// <summary>
-    /// 전직 시 AnimatorController가 교체된 뒤 호출한다.
-    /// </summary>
     public void RebuildAnimatorComponent()
     {
         Dictionary<ePlayerAction, int> dic = new Dictionary<ePlayerAction, int>();
-        dic.Add(ePlayerAction.Idle,   Animator.StringToHash("Idle"));
-        dic.Add(ePlayerAction.Walk,   Animator.StringToHash("Walk"));
+        dic.Add(ePlayerAction.Idle, Animator.StringToHash("Idle"));
+        dic.Add(ePlayerAction.Walk, Animator.StringToHash("Walk"));
         dic.Add(ePlayerAction.Attack, Animator.StringToHash("Attack"));
-        dic.Add(ePlayerAction.Dead,   Animator.StringToHash("Dead"));
+        dic.Add(ePlayerAction.Dead, Animator.StringToHash("Dead"));
 
         _animatorComponent = new AnimatorComponent<ePlayerAction>(_am, dic);
-
-        float clipLen = GetClipLength("Attack_Anim");
-        if (playerOrder?._attack != null)
-            playerOrder._attack.attackRate = clipLen;
     }
 
-    private float GetClipLength(string clipName, float fallback = 0.4f)
+    public float GetClipLength(string clipName, float fallback = 0.4f)
     {
         if (_am == null || _am.runtimeAnimatorController == null)
-        {
             return fallback;
-        }
 
         foreach (var clip in _am.runtimeAnimatorController.animationClips)
         {
-            if (clip.name == clipName)
-            {
+            if (string.Equals(clip.name, clipName, System.StringComparison.OrdinalIgnoreCase))
                 return clip.length;
-            }
         }
 
         return fallback;
@@ -333,90 +285,78 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     void Update()
     {
         if (_isDead) return;
+
+        // 스킬 애니메이션(IronWill, EnergyPulse, Tripple_Shot 등)이 끝난 뒤
+        // outgoing transition이 없는 상태에서 빠져나오기 위해
+        // Attack_Anim(정상 전이가 있는 상태) 끝 지점으로 강제 이동
+        if (_pendingAnimRecovery && Time.time >= _attackAnimEndTime)
+        {
+            _pendingAnimRecovery = false;
+            if (_am != null)
+                _am.Play(Animator.StringToHash("Attack_Anim"), 0, 1f);
+        }
+
+        skillSystem?.Tick();
         playerOrder._rootNode?.Evaluate();
     }
 
-    /// <summary>
-    /// 애니메이션 상태 변경의 단일 진입점.
-    /// - 공격 애니메이션 재생 중에는 Idle/Walk 요청을 무시한다 (Attack 보호).
-    /// - 현재 상태와 동일하면 중복 적용하지 않는다 (Attack/Dead Trigger 제외).
-    /// - 이전 상태의 bool을 끄고 새 상태의 bool/trigger를 켠다.
-    /// BT 리프 노드는 _playerAction을 직접 건드리지 않고 이 메서드만 호출한다.
-    /// </summary>
     public void SetAnimation(ePlayerAction next)
     {
-        // Dead는 항상 즉시 적용
         if (next == ePlayerAction.Dead)
         {
             ApplyAnimation(next);
             return;
         }
 
-        // 공격 애니메이션 재생 중에는 Idle/Walk 무시
-        if (Time.time < _attackAnimEndTime
-            && next != ePlayerAction.Attack)
-        {
+        if (Time.time < _attackAnimEndTime && next != ePlayerAction.Attack)
             return;
-        }
 
-        // 동일 상태 중복 적용 방지 (Trigger인 Attack은 매번 발동해야 하므로 예외)
         if (next == _currentAction && next != ePlayerAction.Attack)
             return;
+
+        // 기본공격(BasicAttack → SetAnimation(Attack) 경유) 시
+        // 애니메이션 보호 시간을 설정하여 IdleNode 등이 공격을 즉시 덮어쓰지 못하게 한다.
+        // PlaySkillAnimation 이 이미 보호 시간을 잡은 경우에는 중복 설정하지 않는다.
+        if (next == ePlayerAction.Attack && Time.time >= _attackAnimEndTime)
+        {
+            _attackAnimEndTime = Time.time + GetClipLength("Attack_Anim", 0.4f);
+        }
 
         ApplyAnimation(next);
     }
 
-    /// <summary>
-    /// 공격 애니메이션 재생. 타이머를 설정한 뒤 SetAnimation에 위임한다.
-    /// PlayerAttack에서 호출한다.
-    /// </summary>
-    public void PlayAttackAnimation()
-    {
-        // 타이머를 먼저 설정해야 SetAnimation 내부에서 보호가 즉시 유효해짐
-        _attackAnimEndTime = Time.time + (playerOrder?._attack?.attackRate ?? 0.4f);
-        SetAnimation(ePlayerAction.Attack);
-    }
-
-    /// <summary>
-    /// 스킬 전용 애니메이션 재생.
-    /// stateName이 있으면 Animator 상태를 직접 재생하고, 비어있으면 기본 Attack으로 폴백한다.
-    /// animProtectDuration > 0이면 해당 시간만큼 Idle/Walk 덮어쓰기를 차단한다 (패링 등 장시간 스킬용).
-    /// PlayerSkill/PlayerParry에서 호출한다.
-    /// </summary>
     public void PlaySkillAnimation(string stateName, float animProtectDuration = -1f)
     {
         float protect = animProtectDuration > 0f
             ? animProtectDuration
-            : (playerOrder?._attack?.attackRate ?? 0.4f);
+            : GetClipLength("Attack_Anim", 0.4f);
         _attackAnimEndTime = Time.time + protect;
 
         if (!string.IsNullOrEmpty(stateName) && _am != null)
         {
-            // 이전 bool 상태(Idle/Walk) 해제
             if (_currentAction == ePlayerAction.Idle || _currentAction == ePlayerAction.Walk)
                 _animatorComponent.TrySetBool(_currentAction, false);
 
-            // Attack_Anim에는 Attack trigger outgoing transition이 없어서 trigger가 소비되지 않고
-            // pending 상태로 남을 수 있다. 스킬 상태 진입 직전에 초기화하지 않으면
-            // Elite_Knight_Parrying처럼 Attack trigger 조건이 있는 상태에서 즉시 Attack_Anim으로 전환된다.
             _am.ResetTrigger(Animator.StringToHash("Attack"));
-
             _am.Play(Animator.StringToHash(stateName), 0);
             _currentAction = ePlayerAction.Attack;
+
+            // IronWill, EnergyPulse, Tripple_Shot_Anim 등
+            // outgoing transition이 없는 상태 → protect 시간 후 Attack_Anim 끝으로 복귀
+            _pendingAnimRecovery = true;
         }
         else
         {
+            _pendingAnimRecovery = false;
             SetAnimation(ePlayerAction.Attack);
         }
     }
 
     private void ApplyAnimation(ePlayerAction next)
     {
-        // 이전 bool 기반 상태 끄기 (Idle, Walk만 bool 파라미터)
         if (_currentAction == ePlayerAction.Idle || _currentAction == ePlayerAction.Walk)
             _animatorComponent.TrySetBool(_currentAction, false);
 
-        // 새 상태 켜기
         switch (next)
         {
             case ePlayerAction.Idle:
@@ -433,26 +373,19 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         _currentAction = next;
     }
 
-    // PlayerSkill이 애니메이션 트리거 직전에 채워두는 스킬 데미지 대기 데이터
     private readonly List<IDamageable> _pendingSkillTargets = new List<IDamageable>();
-    private ulong  _pendingSkillDamage;
+    private ulong _pendingSkillDamage;
     private bool _hasPendingSkillDamage;
 
-    /// <summary>
-    /// PlayerSkill이 애니메이션 트리거 전에 호출. 타격 대상과 데미지를 등록한다.
-    /// </summary>
     public void SetPendingSkillDamage(List<IDamageable> targets, int damage)
     {
         _pendingSkillTargets.Clear();
         _pendingSkillTargets.AddRange(targets);
-        _pendingSkillDamage      = (ulong)damage;
-        _hasPendingSkillDamage   = _pendingSkillTargets.Count > 0;
+        _pendingSkillDamage = (ulong)damage;
+        _hasPendingSkillDamage = _pendingSkillTargets.Count > 0;
     }
 
-    /// <summary>
-    /// Animation Event 전용.
-    /// 스킬 애니메이션의 타격 프레임에 등록한다.
-    /// </summary>
+    // 스킬 데미지 적용 (Animation Event)
     public void OnSkillHit()
     {
         if (!_hasPendingSkillDamage) return;
@@ -462,11 +395,10 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         {
             IDamageable target = _pendingSkillTargets[i];
 
-            // 이미 비활성화된 오브젝트(사망 등) 건너뜀
             var mono = target as MonoBehaviour;
             if (mono == null || !mono.gameObject.activeInHierarchy) continue;
 
-            bool isAlive = target.TakeDamage(new PlayerSkill.DamageProxy(_pendingSkillDamage, gameobj));
+            bool isAlive = target.TakeDamage(new ActiveSkill.DamageProxy(_pendingSkillDamage, this));
             if (!isAlive)
             {
                 SetAnimation(ePlayerAction.Idle);
@@ -475,80 +407,64 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         _pendingSkillTargets.Clear();
     }
 
-    // PlayerSkill이 애니메이션 트리거 직전에 채워두는 VFX 대기 데이터
-    private eVFXType _pendingVFXType;
-    private readonly List<Vector3>   _pendingVFXPositions = new List<Vector3>(); // Execute() 시점에 확정된 월드 좌표 목록
-    private readonly List<Transform> _pendingVFXTargets   = new List<Transform>(); // 몬스터 추적용 Transform (null이면 고정 위치)
-    private float    _pendingVFXFacing;   // 방향 반전 판단용 (scale.x 부호)
-    private int      _pendingVFXDuration;
-    private bool     _pendingVFXFlip;
-    private bool     _hasPendingVFX;
+    // 기본공격 Animation Event → OnSkillHit 위임
+    public void OnAttackHit()
+    {
+        OnSkillHit();
+    }
 
-    /// <summary>
-    /// PlayerSkill이 애니메이션 트리거 전에 호출.
-    /// VFX 위치는 Execute() 시점에 확정해서 저장한다.
-    /// </summary>
+    private eVFXType _pendingVFXType;
+    private readonly List<Vector3> _pendingVFXPositions = new List<Vector3>();
+    private readonly List<Transform> _pendingVFXTargets = new List<Transform>();
+    private float _pendingVFXFacing;
+    private int _pendingVFXDuration;
+    private bool _pendingVFXFlip;
+    private bool _hasPendingVFX;
+
     public void SetPendingSkillVFX(eVFXType vfxType, Vector3 vfxPos, float facing, int duration, bool flip, Transform followTarget = null)
     {
-        _pendingVFXType     = vfxType;
+        _pendingVFXType = vfxType;
         _pendingVFXPositions.Clear();
         _pendingVFXPositions.Add(vfxPos);
         _pendingVFXTargets.Clear();
         _pendingVFXTargets.Add(followTarget);
-        _pendingVFXFacing   = facing;
+        _pendingVFXFacing = facing;
         _pendingVFXDuration = duration;
-        _pendingVFXFlip     = flip;
-        _hasPendingVFX      = true;
+        _pendingVFXFlip = flip;
+        _hasPendingVFX = true;
     }
 
-    /// <summary>
-    /// vfxOnTarget 스킬에서 추가 타겟 위치를 등록할 때 호출.
-    /// SetPendingSkillVFX 호출 이후에 사용해야 한다.
-    /// </summary>
     public void AddPendingSkillVFXTarget(Vector3 vfxPos, Transform followTarget = null)
     {
         _pendingVFXPositions.Add(vfxPos);
         _pendingVFXTargets.Add(followTarget);
     }
 
-    /// <summary>
-    /// Animation Event 전용.
-    /// 스킬 공격 애니메이션의 VFX 시작 프레임에 등록한다.
-    /// </summary>
     public void OnSkillVFXStart()
     {
         if (!_hasPendingVFX) return;
         _hasPendingVFX = false;
 
         eVFXType vfxType = _pendingVFXType;
-        float    facing  = _pendingVFXFacing;
-        int      duration = _pendingVFXDuration;
-        bool     flipVFX = _pendingVFXFlip;
+        float facing = _pendingVFXFacing;
+        int duration = _pendingVFXDuration;
+        bool flipVFX = _pendingVFXFlip;
 
         for (int i = 0; i < _pendingVFXPositions.Count; i++)
         {
-            Vector3   capturedPos    = _pendingVFXPositions[i];
+            Vector3 capturedPos = _pendingVFXPositions[i];
             Transform capturedTarget = i < _pendingVFXTargets.Count ? _pendingVFXTargets[i] : null;
             VFXManager.Instance?.GetVFX(vfxType, capturedPos, Quaternion.identity,
                 (vfx) =>
                 {
                     if (vfx == null) return;
-                    Vector3 s    = vfx.transform.localScale;
-                    bool    flip = facing >= 0f ? flipVFX : !flipVFX;
+                    Vector3 s = vfx.transform.localScale;
+                    bool flip = facing >= 0f ? flipVFX : !flipVFX;
                     s.x = flip ? -Mathf.Abs(s.x) : Mathf.Abs(s.x);
                     vfx.transform.localScale = s;
                     vfx.ActiveEffect(duration, capturedTarget);
                 });
         }
-    }
-
-    /// <summary>
-    /// Animation Event 전용.
-    /// Attack_Anim의 타격 프레임에 이 함수를 등록하면 정확한 타이밍에 데미지가 들어간다.
-    /// </summary>
-    public void OnAttackHit()
-    {
-        playerOrder?._attack?.DealDamage();
     }
 
     public void GiveReward(int gold, int ancientCoin)
@@ -565,8 +481,8 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         return true;
     }
 
-	public ulong GetTypeId()
-	{
+    public ulong GetTypeId()
+    {
         return 0;
-	}
+    }
 }

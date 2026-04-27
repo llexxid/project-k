@@ -1,11 +1,7 @@
-﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace KingdomIdle.UIToolkit
 {
-    /// <summary>
-    /// 파티 HUD 외부 호출용 브릿지
-    /// </summary>
     public static class UITKPartyHudBridge
     {
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -27,7 +23,6 @@ namespace KingdomIdle.UIToolkit
                 return c;
             }
 
-            // 없으면 임시 오브젝트 생성(씬 전환해도 유지)
             var obj = new GameObject("UITKPartyHudController");
             Object.DontDestroyOnLoad(obj);
             return obj.AddComponent<UITKPartyHudController>();
@@ -43,19 +38,9 @@ namespace KingdomIdle.UIToolkit
             Ensure()?.SetMemberSkillCount(memberIndex, count);
         }
 
-        public static void SetMemberSkillIds(int memberIndex, IReadOnlyList<int> skillIds)
+        public static void SetPortraitSprite(int memberIndex, Sprite sprite)
         {
-            Ensure()?.SetMemberSkillIds(memberIndex, skillIds);
-        }
-
-        public static void NotifySkillUsedBySlotIndex(int memberIndex, int slotIndex, float cooldownSeconds)
-        {
-            Ensure()?.NotifySkillUsedBySlotIndex(memberIndex, slotIndex, cooldownSeconds);
-        }
-
-        public static void NotifySkillUsedBySkillId(int memberIndex, int skillId, float cooldownSeconds)
-        {
-            Ensure()?.NotifySkillUsedBySkillId(memberIndex, skillId, cooldownSeconds);
+            Ensure()?.SetPortraitSprite(memberIndex, sprite);
         }
     }
 }

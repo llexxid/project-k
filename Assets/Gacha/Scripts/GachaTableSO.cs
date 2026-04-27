@@ -12,6 +12,12 @@ namespace KingdomIdle.Gacha
         Equipment
     }
 
+    public enum eGachaType
+    {
+        Equipment,
+        Skill,
+    }
+
     [Serializable]
     public class GachaRewardEntry
     {
@@ -40,6 +46,7 @@ namespace KingdomIdle.Gacha
         public string nameEng;
         [TextArea(2, 4)]
         public string description;
+        public eGachaType gachaType;
         public eCurrency costCurrency;
         public int costAmount;
         public bool isImplemented;

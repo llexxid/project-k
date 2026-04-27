@@ -186,6 +186,7 @@ namespace Scripts.Server.Auth
 			string json = JsonConvert.SerializeObject(result.FunctionResult);
 			UserOnSignUpInitResponseDTO userSignUpDTO = JsonConvert.DeserializeObject<UserOnSignUpInitResponseDTO>(json);
 
+			NetworkManager.Instance.SetSessionGUID(userSignUpDTO.SessionGUID);
 			UserManager.Instance.CreateUser(
 				_displayName,
 				(eStage)userSignUpDTO.CurrentStage,
@@ -203,13 +204,10 @@ namespace Scripts.Server.Auth
 		private void OnExistUserSuccess(ExecuteFunctionResult result)
 		{
 			//For Debugging
-			Debug.Log("Redis�� ���� ������û ����!");
 			string SessionId = JsonConvert.SerializeObject(result.FunctionResult);
 			OnAuthInitResponseDTO responsedto = JsonConvert.DeserializeObject<OnAuthInitResponseDTO>(SessionId);
-			Debug.Log($"SessionID : {responsedto.SessionID}");
 			NetworkManager.Instance.SetSessionGUID(responsedto.SessionID);
 			//Session ID ���� 
-
 		}
 		private void duplicatedNameSuccessCallback(UpdateUserTitleDisplayNameResult result)
 		{
@@ -233,6 +231,8 @@ namespace Scripts.Server.Auth
 			if (datas.ContainsKey(key_skillTreeData))
 			{
 				SkillTreeDTO skillCodes = JsonConvert.DeserializeObject<SkillTreeDTO>(datas[key_skillTreeData].Value);
+				if (skillCodes?.SkillTrees != null)
+					UserManager.Instance.SetSkillTreeData(skillCodes.SkillTrees);
 			}
 			if (datas.ContainsKey(key_inventoryData))
 			{

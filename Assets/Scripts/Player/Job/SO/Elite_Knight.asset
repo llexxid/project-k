@@ -15,12 +15,26 @@ MonoBehaviour:
   jobName: Elite_Knight
   jobSprite: {fileID: 1876455869, guid: a25cf3adc39000d48bbc1b34076ee1d9, type: 3}
   animatorController: {fileID: 9100000, guid: 5fa98b94c9c7d7740a1d2bffaa180ca9, type: 2}
-  maxHP: 170
-  atk: 50
-  movSpeed: 10
-  atkSpeed: 5
-  unlockCost: 2000
-  skills:
-  - {fileID: 11400000, guid: e0d5f77de195dbc4c8c885ef6f9232c7, type: 2}
-  - {fileID: 11400000, guid: c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9, type: 2}
-  skillLevels: []
+  maxHP: 1600
+  atk: 90
+  movSpeed: 3
+  basicAttack:
+    type: 1
+    range: 2
+    cooldown: 1.5
+    damageMultiplier: 1
+    halfWidth: 1.5
+    halfHeight: 1
+    aoeRadius: 0.5
+    projectileSpeed: 4
+  specialSkills:
+  - kind: 1
+    cooldown: 30
+    damageMultiplier: 1
+    range: 4
+    hitCount: 3
+    healPercent: 0.1
+    duration: 15
+    triggerHPRatio: 0.5
+    triggerRange: 1.5
+    knockbackForce: 5

@@ -2,51 +2,24 @@ using UnityEngine;
 using System;
 using System.Collections.Generic;
 using Scripts.Users;
-using Scripts.Core.Manager;
 using Scripts.Core;
-using Scripts.Server.DTO;
-using PlayFab.CloudScriptModels;
-using Newtonsoft.Json;
 
-/// <summary>
-/// 플레이어 전직 시스템.
-/// J키를 누르면 JobDatabase에 등록된 직업을 순서대로 순환한다.
-/// UI 연동이 필요할 경우 OnJobChanged 이벤트를 구독하면 된다.
-/// </summary>
 public class ChangeJob : MonoBehaviour
 {
-    [Tooltip("게임에 등록된 모든 직업 데이터. 인스펙터에서 JobDatabase.asset을 연결하세요.")]
     [SerializeField] private JobDatabase jobDatabase;
 
-    // Player 컴포넌트를 통해 playerStatus / skillManager / Animator를 참조
     private Player _player;
     private SpriteRenderer _spriteRenderer;
 
-    /// <summary>현재 적용된 직업의 인덱스 (순환에 사용)</summary>
     private int _currentJobIndex = 0;
 
-    private bool _isProcessing = false;
-
-    [SerializeField] private int _characterIndex = 0;
-
-    /// <summary>한 번이라도 해금한 직업 인덱스 목록 (PlayerPrefs에 저장)</summary>
     private HashSet<int> _unlockedJobs = new HashSet<int>();
     private const string UNLOCK_SAVE_KEY = "UnlockedJobs";
 
-    // ───────────────────────────────────────────
-    // UI 연동 이벤트
-    // ───────────────────────────────────────────
     #region UI Events
-
-    /// <summary>전직이 완료됐을 때 발행. 인자: (직업 이름, 현재 인덱스, 전체 직업 수)</summary>
     public event Action<string, int, int> OnJobChanged;
-
-    /// <summary>새 직업이 처음 해금됐을 때 발행. 인자: (직업 인덱스)</summary>
     public event Action<int> OnJobUnlocked;
-
     #endregion
-    // ───────────────────────────────────────────
-
 
     private void Awake()
     {
@@ -56,213 +29,105 @@ public class ChangeJob : MonoBehaviour
 
     private void Start()
     {
-        if (_player == null) return;
-
-        if (jobDatabase == null || jobDatabase.Count == 0) return;
-
-        // 저장된 해금 목록 불러오기
-        LoadUnlockedJobsFromServer();
-
-        // 시작 직업(index 0)은 항상 해금
+        LoadUnlockedJobs();
         _unlockedJobs.Add(0);
         SaveUnlockedJobs();
-
-        // 초기 직업 적용 — Awake 시점엔 스킬이 비어있으므로 Start에서 반드시 적용
-        ApplyJobByIndex(_currentJobIndex);
     }
 
-    private void Update()
+    public void ChangeJobByCode(ulong jobCode)
     {
-        // 사망 후에는 전직 입력 차단 (timeScale=0이어도 Update는 계속 호출됨)
-        if (_player != null && _player.IsDead) return;
-
-        if (Input.GetKeyDown(KeyCode.J) && !_isProcessing)
+        switch ((eJobCode)jobCode)
         {
-            CycleToNextJob();
-        }
-
-        // [테스트] G키 → 골드 1000 지급
-        if (Input.GetKeyDown(KeyCode.G))
-        {
-            _player.User?.GainCoin(eCurrency.Gold, 1000);
-        }
-
-        // [테스트] R키 → 해금 목록 초기화 (PlayerPrefs 삭제 후 index 0만 재등록)
-        if (Input.GetKeyDown(KeyCode.R))
-        {
-            PlayerPrefs.DeleteKey(UNLOCK_SAVE_KEY);
-            _unlockedJobs.Clear();
-            _unlockedJobs.Add(0);
-            SaveUnlockedJobs();
+            case eJobCode.Mage:        ChangeJobByName("Mage");        break;
+            case eJobCode.Archer:      ChangeJobByName("Archer");      break;
+            case eJobCode.Knight:      ChangeJobByName("Knight");      break;
+            case eJobCode.EliteMage:   ChangeJobByName("Elite_Mage");  break;
+            case eJobCode.EliteKnight: ChangeJobByName("Elite_Knight");break;
+            case eJobCode.EliteArcher: ChangeJobByName("Elite_Archer");break;
+            case eJobCode.Spearman:
+            default:                   ChangeJobByName("Spearman");    break;
         }
     }
 
-    /// <summary>
-    /// 다음 직업으로 순환 전직을 시도한다.
-    /// </summary>
-    private void CycleToNextJob()
-    {
-        if (jobDatabase == null || jobDatabase.Count == 0) return;
-
-        int next = (_currentJobIndex + 1) % jobDatabase.Count;
-        TryChangeJob(next);
-    }
-
-    /// <summary>
-    /// 직업 이름으로 전직을 적용한다.
-    /// 외부 시스템(KingdomArmyManager 등)에서 비용 처리를 마친 뒤 호출하므로
-    /// 골드 비용 검사 없이 직접 해금 및 적용한다.
-    /// </summary>
     public void ChangeJobByName(string jobName)
     {
-        if (jobDatabase == null) return;
-        if (_isProcessing) return;
-
         int idx = jobDatabase.jobs.FindIndex(j => j.jobName == jobName);
         if (idx < 0) return;
 
-        _isProcessing = true;
-        ulong jobCode = GetJobCode(jobDatabase.GetJob(idx));
-        if (jobCode == 0) { _isProcessing = false; return; }
+        if (!_unlockedJobs.Contains(idx))
+        {
+            _unlockedJobs.Add(idx);
+            SaveUnlockedJobs();
+            OnJobUnlocked?.Invoke(idx);
+        }
 
-        if (_unlockedJobs.Contains(idx))
-        {
-            // 이미 해금된 직업 → OnChangeJob
-            NetworkManager.Instance.OnChangeJob(jobCode, _characterIndex,
-                result =>
-                {
-                    _currentJobIndex = idx;
-                    ApplyJobByIndex(idx);
-                    _isProcessing = false;
-                },
-                error =>
-                {
-                    _isProcessing = false;
-                });
-        }
-        else
-        {
-            // 최초 해금 → OnGetJob (비용은 호출자가 이미 처리했으므로 골드 차감 없음)
-            NetworkManager.Instance.OnGetJob(jobCode, _characterIndex,
-                result =>
-                {
-                    _unlockedJobs.Add(idx);
-                    SaveUnlockedJobs();
-                    OnJobUnlocked?.Invoke(idx);
-                    _currentJobIndex = idx;
-                    ApplyJobByIndex(idx);
-                    _isProcessing = false;
-                },
-                error =>
-                {
-                    _isProcessing = false;
-                });
-        }
+        _currentJobIndex = idx;
+        ApplyJobByIndex(idx);
     }
 
     /// <summary>
-    /// 이미 해금된 직업이면 무료로 전직.
-    /// 처음 전직이면 골드를 소모하고 해금한 뒤 전직.
-    /// 골드 부족 시 전직하지 않는다.
+    /// 직업 변경. 해금되어 있지 않으면 자동으로 해금한다.
+    /// (해금 비용 — 전직파편 등 — 은 외부 UI/시스템에서 별도로 처리.)
     /// </summary>
     public bool TryChangeJob(int index)
     {
-        if (_isProcessing) return false;
         JobData data = jobDatabase.GetJob(index);
         if (data == null) return false;
 
-        ulong jobCode = GetJobCode(data);
-        if (jobCode == 0) { _isProcessing = false; return false; }
-        _isProcessing = true;
-
-        // 이미 해금된 직업 → 무료 전직
-        if (_unlockedJobs.Contains(index))
+        if (!_unlockedJobs.Contains(index))
         {
-            NetworkManager.Instance.OnChangeJob(jobCode, _characterIndex,
-                result =>
-                {
-                    _currentJobIndex = index;
-                    ApplyJobByIndex(index);
-                    _isProcessing = false;
-                },
-                error =>
-                {
-                    _isProcessing = false;
-                });
-            return true;
+            _unlockedJobs.Add(index);
+            SaveUnlockedJobs();
+            OnJobUnlocked?.Invoke(index);
         }
 
-        // 첫 전직 → 골드 확인 후 차감
-        User user = _player.User;
-        if (user == null || !user.CanAfford(eCurrency.Gold, data.unlockCost))
-        {
-            _isProcessing = false;
-            return false;
-        }
-
-        user.TrySpendCoin(eCurrency.Gold, data.unlockCost);
-
-        NetworkManager.Instance.OnGetJob(jobCode, _characterIndex,
-            result =>
-            {
-                _unlockedJobs.Add(index);
-                SaveUnlockedJobs();
-                OnJobUnlocked?.Invoke(index);
-                _currentJobIndex = index;
-                ApplyJobByIndex(index);
-                _isProcessing = false;
-            },
-            error =>
-            {
-                user.GainCoin(eCurrency.Gold, data.unlockCost);
-                _isProcessing = false;
-            });
+        _currentJobIndex = index;
+        ApplyJobByIndex(index);
         return true;
     }
 
-    /// <summary>해당 직업이 이미 해금됐는지 반환 (UI에서 자물쇠 표시 등에 활용)</summary>
     public bool IsJobUnlocked(int index) => _unlockedJobs.Contains(index);
 
-    /// <summary>
-    /// 씬의 모든 플레이어 패시브 보너스를 초기화한 뒤 재계산한다.
-    /// 어느 플레이어든 전직할 때마다 호출한다.
-    /// </summary>
+    /// <summary>직업 경로별 패시브 버프를 팀 전체에 곱연산 적용.</summary>
     private void RefreshAllPassiveBonuses()
     {
         Player[] allPlayers = FindObjectsByType<Player>(FindObjectsSortMode.None);
 
-        // 1. 모든 플레이어의 패시브 보너스 초기화
         foreach (var p in allPlayers)
             p.playerStatus.ResetPassiveBonus();
 
-        // 2. 패시브 스킬 처리
         foreach (var source in allPlayers)
         {
-            if (source.skillManager == null) continue;
+            string jobName = source.playerStatus?.JobName;
+            if (string.IsNullOrEmpty(jobName)) continue;
 
-            foreach (var skill in source.skillManager.GetCurrentSkills())
+            float atkPct = 0f, hpPct = 0f;
+            switch (jobName)
             {
-                if (skill.skillType != SkillType.Passive) continue;
+                case "Knight":
+                case "Elite_Knight":
+                    hpPct = 1f;          // HP +100%
+                    break;
+                case "Archer":
+                case "Elite_Archer":
+                    atkPct = 1f;         // ATK +100%
+                    break;
+                case "Mage":
+                case "Elite_Mage":
+                    atkPct = 0.5f;       // ATK +50%
+                    hpPct = 0.5f;        // HP  +50%
+                    break;
+                // Spearman: 패시브 없음
+            }
 
-                // 자기 강화 패시브 — 스킬 보유자 본인에게만 적용
-                if (skill.selfBonusAtk > 0 || skill.selfBonusMaxHP > 0)
-                    source.playerStatus.AddPassiveSelfBonus(skill.selfBonusAtk, skill.selfBonusMaxHP);
-
-                // 공격력 오라 패시브 — 범위 내 모든 플레이어에게 적용
-                if (skill.passiveAtkBonus > 0)
-                {
-                    foreach (var target in allPlayers)
-                    {
-                        float dist = Vector2.Distance(
-                            source.transform.position, target.transform.position);
-                        if (dist > skill.passiveRange) continue;
-
-                        target.playerStatus.AddPassiveBonus(skill.passiveAtkBonus);
-                    }
-                }
+            if (atkPct > 0f || hpPct > 0f)
+            {
+                float atkMult = 1f + atkPct;
+                float hpMult  = 1f + hpPct;
+                foreach (var target in allPlayers)
+                    target.playerStatus.ApplyBuffMultiplier(atkMult, hpMult);
             }
         }
-
     }
 
     private void SaveUnlockedJobs()
@@ -284,116 +149,32 @@ public class ChangeJob : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 서버 JobTree 기준으로 _unlockedJobs를 초기화한다.
-    /// 서버 데이터가 없으면 PlayerPrefs 캐시로 폴백한다.
-    /// </summary>
-    private void LoadUnlockedJobsFromServer()
-    {
-        List<ulong> serverJobList = UserManager.Instance?.GetJobTreeForCharacter(_characterIndex);
-        if (serverJobList != null && serverJobList.Count > 0)
-        {
-            _unlockedJobs.Clear();
-            foreach (ulong jobCode in serverJobList)
-            {
-                int idx = GetIndexFromJobCode(jobCode);
-                if (idx >= 0) _unlockedJobs.Add(idx);
-            }
-            SaveUnlockedJobs();
-        }
-        else
-        {
-            // 서버 데이터 없음 → PlayerPrefs 캐시 사용
-            LoadUnlockedJobs();
-        }
-    }
-
-    /// <summary>JobData의 jobName을 eJobCode로 변환해 ulong으로 반환. 매핑 실패 시 0.</summary>
-    private ulong GetJobCode(JobData data)
-    {
-        if (data == null) return 0;
-        string normalized = data.jobName.Replace("_", "");
-        if (Enum.TryParse<eJobCode>(normalized, out eJobCode code))
-            return (ulong)code;
-        return 0;
-    }
-
-    /// <summary>서버 jobCode(eJobCode ulong)를 JobDatabase 인덱스로 변환. 없으면 -1.</summary>
-    private int GetIndexFromJobCode(ulong jobCode)
-    {
-        for (int i = 0; i < jobDatabase.Count; i++)
-        {
-            JobData d = jobDatabase.GetJob(i);
-            if (d == null) continue;
-            string normalized = d.jobName.Replace("_", "");
-            if (Enum.TryParse<eJobCode>(normalized, out eJobCode code) && (ulong)code == jobCode)
-                return i;
-        }
-        return -1;
-    }
-
-    /// <summary>
-    /// 인덱스로 직업을 적용한다. PlayerStatus 스탯 갱신 + SkillManager 스킬 교체.
-    /// </summary>
     public void ApplyJobByIndex(int index)
     {
         JobData data = jobDatabase.GetJob(index);
         if (data == null) return;
 
-        // 1. PlayerStatus 스탯 갱신
         _player.playerStatus.ApplyJob(data);
+        _player.RefillHP();
 
-        // 2. 공격속도 변경 시 attackRate도 동기화
-        if (_player.playerOrder?._attack != null)
-        {
-            _player.playerOrder._attack.attackRate = data.atkSpeed;
+        _player.skillSystem?.Setup(data);
 
-            // Archer / Mage 계열 직업은 공격 범위 2배
-            const float baseRadius = 2f;
-            bool isRanged = data.jobName.Contains("Archer") || data.jobName.Contains("Mage");
-            // 공격 범위 수정 가능
-            float finalRadius = isRanged ? baseRadius * 2f : baseRadius;
-            _player.playerOrder._attack.attackRadius = finalRadius;
+        _player.playerOrder?.ApplyRanges(_player.skillSystem);
+        _player.playerOrder?.SyncMoveSpeed(_player.playerStatus);
 
-            // 공격 범위에 들어오면 이동 멈추도록 stopDistance 연동
-            if (_player.playerOrder._move != null)
-                _player.playerOrder._move.stopDistance = finalRadius;
-        }
-
-        // 3. SkillManager에 직업 스킬 갱신
-        _player.skillManager?.RefreshSkills(data.skills);
-
-        // 4. BT 스킬 트리 재조립 (새 직업 스킬 → BT LeafNode로 자동 등록)
-        _player.playerOrder?.RebuildSkillTree(data.skills, _player);
-
-        // 5. 스프라이트 교체
         if (_spriteRenderer != null && data.jobSprite != null)
             _spriteRenderer.sprite = data.jobSprite;
 
-        // 6. 애니메이터 컨트롤러 교체
         if (_player._am != null && data.animatorController != null)
         {
             _player._am.runtimeAnimatorController = data.animatorController;
-            // 컨트롤러 교체 후 AnimatorComponent의 해시 캐시를 재구성
             _player.RebuildAnimatorComponent();
         }
 
-        // 7. [스킬 레벨] 이 직업의 스킬 레벨을 PlayerSkillRuntime에 로드
-        //if (SkillEnhanceManager.Instance != null)
-        //{
-        //    SkillEnhanceManager.Instance.Runtime.Load(data);
-        //}
-
-        // 8. [장비 시스템] 현재 직업명을 EquipmentManager에 전달
         _player.equipmentManager?.SetCurrentJob(data.jobName);
 
-        // 9. UI 이벤트 발행
         OnJobChanged?.Invoke(data.jobName, index, jobDatabase.Count);
 
-        // 10. 보호막 패시브 발동 기록 초기화 (전직 시 재발동 가능하도록)
-        _player.ResetShieldPassive();
-
-        // 11. 패시브 스킬 보너스 전체 재계산
         RefreshAllPassiveBonuses();
     }
 }

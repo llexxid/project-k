@@ -19,8 +19,8 @@ public class PlayerDetection
 
     LayerMask enemyLayer = GameLayers.EnemyMask;
 
-    // 카메라 경계 내부 판정용 여유(0~0.5). 0.05 = 화면 경계에서 5% 안쪽까지만 유효
-    private const float CameraBoundsInset = 0.05f;
+    // 카메라 경계 내부 판정용 여유(0~0.5). 0.02 = 화면 경계에서 2% 안쪽까지만 유효
+    private const float CameraBoundsInset = 0.02f;
 
     private static bool IsInCameraBounds(Vector3 worldPos)
     {
@@ -44,54 +44,44 @@ public class PlayerDetection
                 return false;
             }
 
-            // 기존 타겟이 카메라 밖으로 나가면 추격/공격을 멈춘다
-            if (!IsInCameraBounds(player.currentTarget.targetPos))
+            // [개선] 기존 타겟이 카메라 밖으로 나가더라도, 플레이어와 매우 가깝다면(2.0f) 추격을 유지
+            float distToCurrent = Vector2.Distance(player.transform.position, player.currentTarget.targetPos);
+            if (!IsInCameraBounds(player.currentTarget.targetPos) && distToCurrent > 2.0f)
             {
                 player.ResetTarget(player.currentTarget);
                 return false;
             }
             return true; // 다음 스텝
 		}
-		//CustomLogger.Log("Player가 탐지중입니다...");
+
         ContactFilter2D filter = new ContactFilter2D();
         filter.SetLayerMask(enemyLayer);
 		filter.useLayerMask = true;
 		filter.useTriggers = true;
 
-		// 리스트를 재사용하여 가비지 발생을 최소화하는 방식
 		int count = Physics2D.OverlapCircle(player.transform.position, detectionRadius, filter, detectedResults);
-        if (count == 0)
-        {
-            return false; //Node Failure
-        }
+        if (count == 0) return false;
 
-        // 범위 내 가장 가까운 적을 타겟으로 선택
         currentTarget = null;
-        Monster mon;
         float closestDist = float.MaxValue;
 
 		for (int i = 0; i < count; i++)
         {
-            if (!detectedResults[i].CompareTag("Enemy"))
+            if (!detectedResults[i].CompareTag("Enemy")) continue;
+
+            var mon = detectedResults[i].GetComponentInParent<Monster>();
+            if (mon == null || mon.MonAction == eMonsterAction.Dead) continue;
+
+            float dist = Vector2.Distance(player.transform.position, detectedResults[i].transform.position);
+
+			// [핵심 개선] 카메라 안에 있거나, 카메라 밖이라도 플레이어와 매우 가깝다면(2.0f) 탐지 허용
+			if (IsInCameraBounds(detectedResults[i].transform.position) || dist <= 2.0f)
             {
-                continue;
-            }
-
-            mon = detectedResults[i].GetComponentInParent<Monster>();
-            if (mon == null || mon.MonAction == eMonsterAction.Dead)
-			{
-                continue;
-			}
-
-			// 카메라 경계 밖의 적은 타겟 후보에서 제외
-			if (!IsInCameraBounds(detectedResults[i].transform.position))
-			    continue;
-
-			float dist = Vector2.Distance(player.transform.position, detectedResults[i].transform.position);
-			if (dist < closestDist)
-            {
-                closestDist = dist;
-                currentTarget = detectedResults[i].GetComponentInParent<IDamageable>();
+                if (dist < closestDist)
+                {
+                    closestDist = dist;
+                    currentTarget = detectedResults[i].GetComponentInParent<IDamageable>();
+                }
             }
         }
 

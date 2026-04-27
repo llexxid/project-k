@@ -1,160 +1,202 @@
-using UnityEngine;
+using System.Collections.Generic;
+using Scripts.Core;
 using UnityEngine.UIElements;
 
 namespace KingdomIdle.UIToolkit
 {
     /// <summary>
     /// 육성 패널 컨트롤러.
-    /// 모든 캐릭터 공용 강화 기능을 제공한다. (캐릭터별 탭 없음)
+    /// 모든 캐릭터 공용 강화(공격력 / 체력) 기능을 제공한다.
+    /// 뽑기 패널과 동일한 비주얼 언어(설명/보유 바/ x1·x10 버튼 행)를 사용해
+    /// 전반적인 UI 일관성을 유지한다.
+    ///
+    /// 버튼은 표준 <see cref="Button"/> + clicked 이벤트를 사용한다.
+    /// 일부 모바일 안정화 경로(RegisterMobileTap)가 이벤트 전파와 충돌해
+    /// 클릭이 누락되는 현상이 있었기 때문에, 뽑기 패널과 동일한 방식으로
+    /// 되돌려 안정성을 확보했다.
+    ///
+    /// 서버 동기화는 <see cref="StatEnhanceManager.TryEnhanceEx"/> 내부에서
+    /// 낙관적 로컬 차감 + PlayFab CloudScript(OnEnChantATK / OnEnChantHP) 호출로
+    /// 처리되며, 실패 시 자동 롤백된다. 클라이언트는 UI만 담당한다.
     /// </summary>
     public static class UITKDevelopmentPanelController
     {
-        private enum SubMenu { Enhance }
+        // 방치형 표준: x1 / x10
+        private static readonly int[] PullCounts = { 1, 10 };
 
-        private static SubMenu _activeSubMenu;
+        // 실제로 플레이어 스탯에 반영되는 강화 항목만 노출.
+        // CritRate / CritDamage / ExpGain 은 더미라서 StatEnhanceManager.IsStatImplemented 로도 걸러진다.
+        private static readonly StatEnhanceManager.EnhanceType[] EnhanceTypes =
+        {
+            StatEnhanceManager.EnhanceType.Attack,
+            StatEnhanceManager.EnhanceType.MaxHP,
+        };
 
         private static ScrollView _content;
-        private static VisualElement _navBar;
+        private static readonly List<Button> _activeButtons = new List<Button>();
+        private static bool _subscribedCurrency;
+        private static StatEnhanceManager _subscribedEnhanceMgr;
 
         public static void Populate(VisualElement panelRoot)
         {
             if (panelRoot == null) return;
 
             _content = panelRoot.Q<ScrollView>("DevContent");
-            _navBar = panelRoot.Q<VisualElement>("DevNavBar");
+            if (_content == null) return;
 
-            if (_content == null || _navBar == null) return;
-
-            _activeSubMenu = SubMenu.Enhance;
-
-            BuildNavBar();
+            SubscribeEvents();
             Refresh();
         }
 
-        // ── 하단 네비게이션 ──
+        // ── 이벤트 구독 ────────────────────────────────────────────────
+        // 골드 변경 / 강화 완료 시 자동 새로고침. 정적 컨트롤러이므로 한 번만 구독한다.
 
-        private static void BuildNavBar()
+        private static void SubscribeEvents()
         {
-            _navBar.Clear();
-
-            var navItems = new (SubMenu menu, string label)[]
+            // 통화 이벤트는 한 번만 구독.
+            if (!_subscribedCurrency)
             {
-                (SubMenu.Enhance, "강화"),
-            };
-
-            foreach (var (menu, label) in navItems)
-            {
-                var m = menu;
-                var btn = new Button(() => { _activeSubMenu = m; Refresh(); UpdateNavStyles(); });
-                btn.text = label;
-                btn.AddToClassList("ka-nav-btn");
-                _navBar.Add(btn);
+                EconomyBridge.OnAmountChanged += OnCurrencyChanged;
+                _subscribedCurrency = true;
             }
-            UpdateNavStyles();
-        }
 
-        private static void UpdateNavStyles()
-        {
-            if (_navBar == null) return;
-            int idx = 0;
-            foreach (var child in _navBar.Children())
+            // 강화 매니저는 Populate 시점에 아직 초기화 전일 수 있으므로
+            // 현재 Instance 를 매번 확인해 (필요 시 재구독) 지연 등장한 매니저에도 대응.
+            var mgr = StatEnhanceManager.Instance;
+            if (mgr != null && _subscribedEnhanceMgr != mgr)
             {
-                if (idx == (int)_activeSubMenu)
-                    child.AddToClassList("ka-nav-btn-active");
-                else
-                    child.RemoveFromClassList("ka-nav-btn-active");
-                idx++;
+                if (_subscribedEnhanceMgr != null)
+                    _subscribedEnhanceMgr.OnEnhanced -= OnEnhanced;
+                mgr.OnEnhanced += OnEnhanced;
+                _subscribedEnhanceMgr = mgr;
             }
         }
 
-        // ── 콘텐츠 라우터 ──
+        private static void OnCurrencyChanged(eCurrency currency, long amount)
+        {
+            if (currency != eCurrency.Gold) return;
+            if (_content == null || _content.panel == null) return;
+            Refresh();
+        }
+
+        private static void OnEnhanced()
+        {
+            if (_content == null || _content.panel == null) return;
+            Refresh();
+        }
+
+        // ── 본문 ──────────────────────────────────────────────────────
 
         private static void Refresh()
         {
+            if (_content == null) return;
+
             _content.Clear();
+            _activeButtons.Clear();
 
-            switch (_activeSubMenu)
-            {
-                case SubMenu.Enhance: BuildEnhanceView(); break;
-            }
-        }
+            // 설명
+            var desc = new Label("골드를 소비해 모든 캐릭터의 공격력과 체력을 영구 강화합니다.");
+            desc.AddToClassList("ka-dev-desc");
+            _content.Add(desc);
 
-        // ══════════════════════════════════════
-        //  강화 (모든 캐릭터 공용)
-        // ══════════════════════════════════════
-
-        // 실제 구현된 강화 항목만 노출. 더미 항목은 IsStatImplemented 필터로 숨김.
-        private static readonly StatEnhanceManager.EnhanceType[] _enhanceTypes = new[]
-        {
-            StatEnhanceManager.EnhanceType.Attack,
-            StatEnhanceManager.EnhanceType.MaxHP,
-        };
-
-        private static void BuildEnhanceView()
-        {
-            _content.Add(MakeLabel("강화", "ka-section-title"));
-            _content.Add(MakeLabel("모든 캐릭터에게 공용으로 적용됩니다.", "ka-placeholder-text"));
+            // 보유 골드 바
+            EconomyBridge.TryGetAmount(eCurrency.Gold, out long gold);
+            var goldBar = new Label($"보유 골드  {gold:N0} G");
+            goldBar.AddToClassList("ka-dev-gold-bar");
+            _content.Add(goldBar);
 
             var mgr = StatEnhanceManager.Instance;
 
-            foreach (var type in _enhanceTypes)
+            foreach (var type in EnhanceTypes)
             {
-                // 더미 항목 숨김
                 if (!StatEnhanceManager.IsStatImplemented(type)) continue;
 
-                var t = type;
-                string typeName = StatEnhanceManager.GetTypeName(t);
-                int level = mgr != null ? mgr.GetLevel(t) : 0;
-                string bonusText = mgr != null ? mgr.GetBonusText(t) : "";
+                _content.Add(BuildEnhanceCard(mgr, type, gold));
+            }
 
-                var row = new VisualElement();
-                row.AddToClassList("ka-enhance-row");
-
-                // 상단: 이름 + 레벨
-                var header = new VisualElement();
-                header.AddToClassList("ka-enhance-header");
-                header.Add(MakeLabel(typeName, "ka-enhance-name"));
-                header.Add(MakeLabel($"Lv. {level}", "ka-enhance-level"));
-                row.Add(header);
-
-                // 보너스 표시
-                row.Add(MakeLabel($"효과: {bonusText}", "ka-enhance-bonus"));
-
-                // 하단: 버튼
-                int cost1 = mgr != null ? mgr.GetCost(t, 1) : 0;
-                int cost10 = mgr != null ? mgr.GetCost(t, 10) : 0;
-
-                var btnRow = new VisualElement();
-                btnRow.AddToClassList("ka-enhance-btn-row");
-
-                var btn1 = new Button(() => OnEnhanceClicked(t, 1));
-                btn1.AddToClassList("ka-small-btn");
-                btnRow.Add(btn1);
-
-                // 버튼 내부: 텍스트 + 비용을 분리 표시
-                var lbl1 = MakeLabel("강화 x1", null);
-                var cost1Lbl = MakeLabel($"{FormatGold(cost1)} G", "ka-enhance-cost");
-                btn1.Add(lbl1);
-                btn1.Add(cost1Lbl);
-
-                var btn10 = new Button(() => OnEnhanceClicked(t, 10));
-                btn10.AddToClassList("ka-small-btn");
-                btnRow.Add(btn10);
-
-                var lbl10 = MakeLabel("강화 x10", null);
-                var cost10Lbl = MakeLabel($"{FormatGold(cost10)} G", "ka-enhance-cost");
-                btn10.Add(lbl10);
-                btn10.Add(cost10Lbl);
-
-                row.Add(btnRow);
-                _content.Add(row);
+            if (_content.childCount <= 2)
+            {
+                var empty = new Label("강화 가능한 항목이 없습니다.");
+                empty.AddToClassList("ka-placeholder-text");
+                _content.Add(empty);
             }
         }
 
-        private static string FormatGold(int gold)
+        private static VisualElement BuildEnhanceCard(
+            StatEnhanceManager mgr, StatEnhanceManager.EnhanceType type, long gold)
         {
-            return gold.ToString("N0");
+            int level = mgr != null ? mgr.GetLevel(type) : 0;
+            string bonusText = mgr != null ? mgr.GetBonusText(type) : "+0%";
+            string typeName = StatEnhanceManager.GetTypeName(type);
+
+            var card = new VisualElement();
+            card.AddToClassList("ka-enhance-card");
+
+            // 헤더: 이름 + 레벨 배지
+            var header = new VisualElement();
+            header.AddToClassList("ka-enhance-card-header");
+
+            var nameLbl = new Label(typeName);
+            nameLbl.AddToClassList("ka-enhance-card-name");
+            header.Add(nameLbl);
+
+            var levelLbl = new Label($"Lv. {level}");
+            levelLbl.AddToClassList("ka-enhance-card-level");
+            header.Add(levelLbl);
+
+            card.Add(header);
+
+            // 현재 효과
+            var bonusLbl = new Label($"현재 효과  {bonusText}");
+            bonusLbl.AddToClassList("ka-enhance-card-bonus");
+            card.Add(bonusLbl);
+
+            // 버튼 행 (x1 / x10)
+            var btnRow = new VisualElement();
+            btnRow.AddToClassList("ka-enhance-btn-row");
+
+            for (int i = 0; i < PullCounts.Length; i++)
+            {
+                int count = PullCounts[i];
+                int cost = mgr != null ? mgr.GetCost(type, count) : 0;
+                bool canAfford = gold >= cost;
+
+                // 캡처용 로컬 변수 — 람다가 순회 변수를 그대로 붙잡지 않도록 복사.
+                var capturedType = type;
+                var capturedCount = count;
+
+                var btn = new Button(() => OnEnhanceClicked(capturedType, capturedCount));
+                btn.AddToClassList("ka-enhance-pull-btn");
+
+                // 버튼 내부 텍스트: 상단 "강화 x1" + 하단 "50 G"
+                var titleLbl = new Label($"강화 x{count}");
+                titleLbl.AddToClassList("ka-enhance-pull-btn-title");
+                titleLbl.pickingMode = PickingMode.Ignore;
+                btn.Add(titleLbl);
+
+                var costLbl = new Label($"{cost:N0} G");
+                costLbl.AddToClassList("ka-enhance-pull-btn-cost");
+                costLbl.pickingMode = PickingMode.Ignore;
+                btn.Add(costLbl);
+
+                if (!canAfford)
+                {
+                    btn.SetEnabled(false);
+                    btn.AddToClassList("ka-enhance-pull-btn-disabled");
+                }
+
+                _activeButtons.Add(btn);
+                btnRow.Add(btn);
+            }
+
+            card.Add(btnRow);
+            return card;
         }
+
+        // ── 액션 ──────────────────────────────────────────────────────
+        // 서버 동기화는 StatEnhanceManager 내부에서 수행된다.
+        // (Attack / MaxHP 는 OnEnChantATK / OnEnChantHP CloudScript 호출)
+        // 실패 시 TryEnhanceEx 가 구체적 사유를 반환하고 로컬 상태는 자동 롤백된다.
 
         private static void OnEnhanceClicked(StatEnhanceManager.EnhanceType type, int count)
         {
@@ -165,28 +207,28 @@ namespace KingdomIdle.UIToolkit
                 return;
             }
 
-            if (mgr.TryEnhance(type, count))
+            var result = mgr.TryEnhanceEx(type, count);
+            switch (result)
             {
-                string name = StatEnhanceManager.GetTypeName(type);
-                string bonus = mgr.GetBonusText(type);
-                int lv = mgr.GetLevel(type);
-                ShowToast($"{name} Lv.{lv} ({bonus}) 강화 완료!");
-                Refresh();
+                case StatEnhanceManager.EnhanceResult.Success:
+                {
+                    string n = StatEnhanceManager.GetTypeName(type);
+                    string b = mgr.GetBonusText(type);
+                    int lv = mgr.GetLevel(type);
+                    ShowToast($"{n} Lv.{lv} ({b})");
+                    // UI 갱신은 OnEnhanced 이벤트 핸들러가 Refresh 를 호출해 수행.
+                    break;
+                }
+                case StatEnhanceManager.EnhanceResult.NotEnoughGold:
+                    ShowToast("골드가 부족합니다.");
+                    break;
+                case StatEnhanceManager.EnhanceResult.NetworkNotReady:
+                    ShowToast("네트워크 세션이 준비되지 않았습니다.");
+                    break;
+                default:
+                    ShowToast("강화에 실패했습니다.");
+                    break;
             }
-            else
-            {
-                ShowToast("골드가 부족합니다.");
-            }
-        }
-
-        // ── 유틸 ──
-
-        private static Label MakeLabel(string text, string className)
-        {
-            var lbl = new Label(text);
-            if (!string.IsNullOrEmpty(className))
-                lbl.AddToClassList(className);
-            return lbl;
         }
 
         private static void ShowToast(string msg)

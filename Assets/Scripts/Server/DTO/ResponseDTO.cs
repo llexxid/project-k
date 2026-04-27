@@ -2,8 +2,6 @@ using Scripts.Core;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using static PlayerSkill;
-
 namespace Scripts.Server.DTO
 {
 	public class UserOnSignUpInitResponseDTO
@@ -14,7 +12,7 @@ namespace Scripts.Server.DTO
 		public long KillScore { get; set; }
 
 		public eStage CurrentStage { get; set; }
-		//°­È­ ¼öÄ¡
+		//ï¿½ï¿½È­ ï¿½ï¿½Ä¡
 		public long EnchantHPCount { get; set; }
 		public long EnchantATKCount { get; set; }
 
@@ -33,14 +31,14 @@ namespace Scripts.Server.DTO
 		public long KillScore { get; set; }
 
 		public eStage CurrentStage { get; set; }
-		//°­È­ ¼öÄ¡
+		//ï¿½ï¿½È­ ï¿½ï¿½Ä¡
 		public long EnchantHPCount { get; set; }
 		public long EnchantATKCount { get; set; }
 
 		public List<CharacterDataQuery> CharacterDatas { get; set; }
-		//Ä³¸¯ÅÍ°¡ ÀåÂøÇÑ ÀåºñÁ¤º¸
+		//Ä³ï¿½ï¿½ï¿½Í°ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		public List<CharacterEquipmentQuery> CharacterEquipmentDatas { get; set; }
-		//ÀçÈ­ 
+		//ï¿½ï¿½È­ 
 		public CurrencyQueryDTO Currency { get; set; }
 
 		//SkillTree
@@ -72,19 +70,20 @@ namespace Scripts.Server.DTO
 	{
 		//For Debugging
 		public List<ItemCode> GachaList { get; set; }
-		public int TotalCount { get; set; }
+		public int ClassFragmentCnt { get; set; }
 	}
 
 	public class OnGachaSkillArcaneKnowledgeResponseDTO
 	{
 		//For Debugging
 		public List<SkillCode> GachaList { get; set; }
-		public int TotalCount { get; set; }
+		public int ArcaneKnowledgeCnt { get; set; }
 	}
 
 	public class OnEnchantResponseDTO
 	{
 		public long CurrentLevel { get; set; }
+		public long CurrentGold { get; set; }
 	}
 
 	public class OnEnchantEquipmentResponseDTO
@@ -111,6 +110,11 @@ namespace Scripts.Server.DTO
 	{
 		public int Index { get; set; }
 		public ulong JobCode { get; set; }
+	}
+
+	public class ErrorRetryEnchantDTO
+	{
+		public int Count { get; set; }
 	}
 }
 

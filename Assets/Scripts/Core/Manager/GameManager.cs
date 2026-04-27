@@ -1,6 +1,7 @@
 ﻿using Cysharp.Threading.Tasks;
 using Cysharp.Threading.Tasks.CompilerServices;
 using ExcelDataReader;
+using Scripts.Core.Manager;
 using Scripts.Core.SO;
 using Scripts.Core.Utils;
 using Scripts.Monster;
@@ -217,7 +218,6 @@ namespace Scripts.Core
 
 		private async UniTaskVoid LoadingScene(eSceneType type)
 		{
-			Debug.Log($"Scene Loading Request : {type}");
 			if (_token == null)
 				_token = new CancellationTokenSource();
 
@@ -233,7 +233,6 @@ namespace Scripts.Core
 				ulong resourceId = GetResourceGroupId(currentStage);
 				_StageLoaderHandle = StageManager.Instance.PreLoadAssets((eStage)resourceId);
 				LoadResourceInMonster(resourceId);
-				Debug.Log("Main Stage Loading");
 				//Player에 필요한 VFX,SFX 로딩
 			}
 
@@ -250,8 +249,6 @@ namespace Scripts.Core
 			{
 				_SFXSceneHandle = SFXManager.Instance.PreLoadSFX((ulong)type, sfxList.ToArray());
 			}
-
-			Debug.Log("SFX/VFX Loading");
 
 			//ReSourceLoading
 			while (true)
@@ -288,7 +285,6 @@ namespace Scripts.Core
 				//스크롤바가 다 채워졌다면, SceneActive하기.
 				await UniTask.Yield(_token.Token);
 			}
-			Debug.Log("While Loop Break");
 
 			_UnitySceneLoaderOp = SceneManager.LoadSceneAsync(sceneName);
 			_UnitySceneLoaderOp.allowSceneActivation = false;
@@ -304,7 +300,6 @@ namespace Scripts.Core
 
 			SceneLoadProgress?.Invoke(type, 1f);
 			SceneLoadFinished?.Invoke(type);
-			Debug.Log($"SceneActive Request Done | {type}");
 			//임시패치
 		}
 		private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -317,7 +312,7 @@ namespace Scripts.Core
 
 				MonsterSpawner.Instance.OnEnterScene();
 				VFXManager.Instance.OnEnterScene();
-                SFXManager.Instance.PlayBGM(eSFXType.MainBGM);
+                SFXManager.Instance.PlayBGM(eSFXType.BGM);
 
                 if (Camera.main != null && Camera.main.GetComponent<Scripts.Core.Utils.CameraFade>() == null)
 					Camera.main.gameObject.AddComponent<Scripts.Core.Utils.CameraFade>();
@@ -366,6 +361,15 @@ namespace Scripts.Core
 		public async UniTaskVoid LoadStage(eStage curstage, eStage nxtStage, Action<eStage> onStageLoaded_callback)
 		{
 			float startRealtime = Time.realtimeSinceStartup;
+
+			//1,2스테이지 반복하는 형태이므로, 2스테이지이상이라면 로딩할필요 x.
+			if (StageParser.GetStageNumber(nxtStage) >= 3)
+			{
+				onStageLoaded_callback.Invoke(nxtStage);
+				return;
+			}
+
+
 			/*
             _StageLoaderHandle = StageManager.Instance.PreLoadAssets(stage);
             LoadResourceInMonster(stage);
@@ -373,7 +377,9 @@ namespace Scripts.Core
 			ulong resource_prevId = GetResourceGroupId(curstage);
 			ulong resource_nxtId = GetResourceGroupId(nxtStage);
 			//이전 Stage에 있던 리소스 클리어 요청
-			ClearCurrentStageResource(resource_prevId);
+			//ClearCurrentStageResource(resource_prevId);
+
+			//다음 stage resoucre요청
 			_StageLoaderHandle = StageManager.Instance.PreLoadAssets((eStage)resource_nxtId);
 			LoadResourceInMonster(resource_nxtId);
 

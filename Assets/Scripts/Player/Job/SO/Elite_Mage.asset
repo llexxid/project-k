@@ -15,12 +15,26 @@ MonoBehaviour:
   jobName: Elite_Mage
   jobSprite: {fileID: 441877242, guid: 81dfc8aa6c7abd84592c884a2c6cdf3b, type: 3}
   animatorController: {fileID: 9100000, guid: de6e541a7248e594c8008ba33ec3c698, type: 2}
-  maxHP: 150
-  atk: 55
-  movSpeed: 15
-  atkSpeed: 15
-  unlockCost: 0
-  skills:
-  - {fileID: 11400000, guid: d78cf457dc56f0d44ba55d9983f61947, type: 2}
-  - {fileID: 11400000, guid: acceb08be3b5e844ea185aa111a9adfa, type: 2}
-  skillLevels: []
+  maxHP: 1200
+  atk: 100
+  movSpeed: 3
+  basicAttack:
+    type: 2
+    range: 5
+    cooldown: 2
+    damageMultiplier: 1
+    halfWidth: 1.5
+    halfHeight: 1
+    aoeRadius: 0.5
+    projectileSpeed: 4
+  specialSkills:
+  - kind: 3
+    cooldown: 7
+    damageMultiplier: 5
+    range: 4
+    hitCount: 3
+    healPercent: 0.1
+    duration: 15
+    triggerHPRatio: 0.5
+    triggerRange: 1.5
+    knockbackForce: 5
