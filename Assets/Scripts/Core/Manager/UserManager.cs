@@ -46,6 +46,39 @@ namespace Scripts.Core
 			// ── [Login 우회 폴백 끝] ──
 		}
 
+		//오프라인 테스트용 유저세팅
+		public void SetupOfflineUser(eStage startStage)
+		{
+			CreateUser(
+				"OfflineGuest",
+				startStage,
+				exp: 0,
+				monsterkill: 0,
+				level: 50,
+				enchantHp: 0,
+				enchantAtk: 0
+			);
+
+			SetCharacterData(new List<CharacterDataQuery>
+			{
+				new CharacterDataQuery("Knight", 0, 50, 10, 0),
+				new CharacterDataQuery("Archer", 0, 50, 10, 1),
+				new CharacterDataQuery("Mage", 0, 50, 10, 2),
+			});
+
+			SetWallet(new CurrencyQueryDTO(
+				gold: 100000,
+				ancientCoin: 1000,
+				kingdomSupply: 1000,
+				arcaneKnowledge: 1000,
+				classFragment: 1000
+			));
+			
+			SetInventoryData(null);
+			SetSkillTreeData(null);
+			SetJobTreeData(null);
+		}
+		
 		public void SetHuntResult(OnHuntResponseDTO res)
 		{
 			_user.SetLevel(res.Level);
