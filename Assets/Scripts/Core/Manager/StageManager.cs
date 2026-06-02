@@ -80,13 +80,13 @@ namespace Scripts.Core
 		}
 
 		/// <summary>
-		/// ���������� �ٲ�, Stage�� �ʿ��� �������� �񵿱������� Load�ϴ� �Լ��Դϴ�.
+		/// 스테이지 전환 전 필요한 몬스터 리소스를 비동기로 로드한다.
 		/// </summary>
 		/// <param name="stage"></param>
 		/// <returns></returns>
 		public AsyncOperationHandle<IList<GameObject>> PreLoadAssets(eStage stage)
 		{
-			//�������� ������ �ִ� Monster Type�� Load
+			// 스테이지 정보에 포함된 몬스터 타입을 로드
 			List<eMonsterType> monsterTypes;
 
 			_stageSO.TryGetMonsterList(stage, out monsterTypes);
@@ -101,7 +101,7 @@ namespace Scripts.Core
 			IsValid = _stageSO.TryGetStageInfo(stage, out ret);
 			if (!IsValid)
 			{
-				CustomLogger.LogWarning("Stage�� ������ ��û������, Cache���� �ʾҽ��ϴ�.");
+				CustomLogger.LogWarning("StageInfo was requested, but it was not found in cache.");
 				return null;
 			}
 			return ret;
@@ -114,7 +114,7 @@ namespace Scripts.Core
 			IsValid = _stageSO.TryGetMonsterList(stage, out ret);
 			if (!IsValid)
 			{
-				CustomLogger.LogWarning("Stage�� ���������� ��û������, Cache���� �ʾҽ��ϴ�.");
+				CustomLogger.LogWarning("Stage monster types were requested, but they were not found in cache.");
 				return null;
 			}
 			return ret;
@@ -161,7 +161,7 @@ namespace Scripts.Core
 
 		}
 
-		//���͸� ���� �� �θ��� �Լ�
+		// 몬스터가 사망할 때 호출되는 함수
 		public void DecrementMonCount(IDamageable mon)
 		{
 			int count = 0;
@@ -174,7 +174,7 @@ namespace Scripts.Core
 			if (_totalCnt <= 0 && !_waveCleared)
 			{
 				_waveCleared = true; // 이 wave 내 추가 클리어 호출 차단
-									 // WaveManager가 존재?�면 ?�름???�임
+									 // WaveManager가 존재하면 웨이브 진행을 위임
 				if (WaveManager.Instance != null)
 				{
 					WaveManager.Instance.OnWaveCleared();
@@ -196,10 +196,10 @@ namespace Scripts.Core
 			eStage nxtStage;
 			eStageResult res = CalculateNextStage(_currentStage, out nxtStage);
 
-			/*Dummy �����̶�, ������ �߰�x. �÷����ϴ°� ������.*/
+			/* Dummy 로직. 서버 스테이지 클리어 처리는 추후 연결. */
 
 			//NetworkManager.Instance.OnStageClear(OnStageClearSuccess, OnError);
-			//Stage�� �ٲ���Ѵ�?-> ���ҽ� �ε��� �ʿ���.
+			// Stage가 바뀌는 경우 리소스 로드가 필요하다.
 			if (res == eStageResult._StageChanged)
 			{
 				CustomLogger.Log($"Go To Next Stage");
@@ -208,9 +208,9 @@ namespace Scripts.Core
 			else
 			{
 				CustomLogger.Log($"Go To Next Wave");
-				//ü��ȸ��
+				// 체력 회복
 				StartStage(nxtStage);
-				//Todo : ĳ���� HPȸ��
+				// Todo: 캐릭터 HP 회복
 			}
 		}
 
@@ -235,7 +235,7 @@ namespace Scripts.Core
 		}
 		// ── [WaveManager 추가 끝] ──
 
-		//ĳ���Ͱ� ���?���� ���? ���� ���������� �Ѱܾ���.
+		// 캐릭터가 모두 사망하면 이전 웨이브로 되돌린다.
 		public void DecrementCharacterCount()
 		{
 			--_totalCharacterCnt;
@@ -251,7 +251,7 @@ namespace Scripts.Core
 		}
 		private eStageResult CalculateNextStage(eStage curstage, out eStage nxtstage)
 		{
-			//wave�� 10�̸� ���� ����������
+			// wave가 마지막이면 다음 스테이지로 이동
 			ulong waveMask = 0x000000000000FFFF;
 
 			ulong wave = ((ulong)curstage & waveMask);
@@ -269,7 +269,7 @@ namespace Scripts.Core
 		}
 		private eStageResult CalculatePrevStage(eStage curstage, out eStage prevstage)
 		{
-			//wave�� 1�̸� ���� ���������� ����.
+			// wave가 1이면 이전 스테이지로 이동하지 않는다.
 			ulong waveMask = 0x000000000000FFFF;
 
 			ulong wave = ((ulong)curstage & waveMask);
@@ -292,7 +292,7 @@ namespace Scripts.Core
 				return;
 			}
 
-			//�̰� Ǯ������
+			// 사냥 결과를 전송용 DTO로 변환
 			HuntResult code;
 
 			foreach (var mon in _huntResultList)

@@ -19,7 +19,7 @@ namespace Scripts.Core.Utils
 		MonsterInfoSO _monsterInfo;
 
 		public static MonsterSpawner Instance;
-		//  Ͱ  ҽ 
+		// 몬스터 리소스 캐시
 		private Dictionary<eMonsterType, Monster> _monsterCache;
 		private Dictionary<eMonsterType, ObjectPool<Monster>> _MonsterPool;
 
@@ -103,7 +103,7 @@ namespace Scripts.Core.Utils
 			var result = await handle.Task;
 
 			Monster component = result.GetComponent<Monster>();
-			//LoadѴ, Ǯؼ ֱ
+			// 로드 후 풀에 등록
 			ObjectPool<Monster> pool = new ObjectPool<Monster>();
 			pool.Init((int)DEFAULT_VALUE.PoolingSize, component);
 			_MonsterPool.Add(id, pool);
@@ -113,7 +113,7 @@ namespace Scripts.Core.Utils
             // 테스트용 스폰 시에도 태그 강제 설정
             mon.tag = "Enemy";
 
-			//Todo : MonsterStat ϱ
+			// Todo: MonsterStat 적용
 			mon.Init(id, new Monster.MonsterStat(10, 0, 5, 1, 1), 0);
 			callback?.Invoke(mon);
 			return;
@@ -123,11 +123,11 @@ namespace Scripts.Core.Utils
 		{
 			ObjectPool<Monster> pool;
 
-			//ʹ ⺻ Ǯ ü
+			// 기본 풀 존재 여부 확인
 			bool IsExistMonster = _MonsterPool.TryGetValue(id, out pool);
 			if (!IsExistMonster)
 			{
-				// ?ㅽ뀒?댁? ?꾪솚 ??pool? 吏?뚯죱吏留?cache?먮뒗 ?덈뒗 寃쎌슦 利됱꽍 ?앹꽦
+				// 스테이지 전환 중 pool은 지워졌지만 cache에는 남아 있는 경우 즉석 생성
 				Monster cached;
 				if (_monsterCache.TryGetValue(id, out cached) && _monParents != null)
 				{
@@ -137,7 +137,7 @@ namespace Scripts.Core.Utils
 				}
 				else
 				{
-					CustomLogger.LogWarning("Pooling?먯꽌 李얠쓣 ???녿뒗 紐ъ뒪???붿껌???덉뒿?덈떎.");
+					CustomLogger.LogWarning("Requested monster was not found in the pool.");
 					monster = default;
 					return;
 				}
@@ -150,7 +150,7 @@ namespace Scripts.Core.Utils
 
 			_monsterInfo.TryGetMonsterInfo(id, out MonsterInfo info);
 
-			//���� ���� �ʱ�ȭ�ؼ� �ֱ�
+			// 배율을 적용해 몬스터 스탯 초기화
 			Monster.MonsterStat stat = new Monster.MonsterStat(
 				(long)(info._baseHp * ratio), 
 				0, 
@@ -171,7 +171,7 @@ namespace Scripts.Core.Utils
 			bool IsExistMonster = _MonsterPool.TryGetValue(id, out pool);
 			if (!IsExistMonster)
 			{
-				CustomLogger.LogWarning("Pooling   ݳ û߽ϴ.");
+				CustomLogger.LogWarning("Tried to release a monster that does not have a pool.");
 				return;
 			}
 			pool.Release(monster);
@@ -203,7 +203,7 @@ namespace Scripts.Core.Utils
 			_Handles.Add((long)groupId, handle);
 	
 			result = await handle.Task;
-			//Stage ִ Monster 
+			// Stage에 포함된 Monster 캐싱
 			int i = 0;
 			foreach (GameObject mon in result)
 			{

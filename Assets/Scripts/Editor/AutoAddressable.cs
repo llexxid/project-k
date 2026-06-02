@@ -15,9 +15,9 @@ using UnityEngine;
 namespace Scripts.Core.Parser
 {
 
-	// ���� ���Ͽ��� �о�� �����͸� �������
-	// �����̸� -> GUID -> ������ Ž�� -> addressable ID �ڵ����
-	// ��������� Addressable ID�� �����ؾ���. 
+	// 엑셀 파일에서 읽은 데이터를 기반으로 Addressable 설정을 자동화한다.
+	// 파일명 -> GUID -> Addressable ID 순서로 매핑한다.
+	// Addressable ID는 파일명 기준으로 설정한다.
 	struct stageInfo
 	{
         public stageInfo(string name, int count)
@@ -91,7 +91,7 @@ namespace Scripts.Core.Parser
         [MenuItem("MyTools/SetMonsterAddress")]
         private static void SetMonsterAddress()
         {
-            //���� Prefab���� Addressable�� ����ϴ� ����
+            // 몬스터 Prefab을 Addressable에 등록
             AutoAddressable auto = new AutoAddressable();
             auto.Init();
             auto.LoadGuIDFromUnity("t:Prefab", new[] { ConstPath.MONSTER_PREFEB_PATH });
@@ -102,7 +102,7 @@ namespace Scripts.Core.Parser
         [MenuItem("MyTools/SetSoundAddress")]
         private static void SetSoundAddress()
         {
-            //���� Prefab���� Addressable�� ����ϴ� ����
+            // 사운드 AudioClip을 Addressable에 등록
             AutoAddressable auto = new AutoAddressable();
             auto.Init();
             auto.LoadGuIDFromUnity("t: AudioClip", new[] { ConstPath.SFX_AUDIOCLIP_PATH });
@@ -119,7 +119,7 @@ namespace Scripts.Core.Parser
 
         private void GenerateEnumCode()
         {
-            //VFX,SFX,MONSTER�� ID�� ENUM�� �ڵ������ϴ� �ڵ�.
+            // VFX, SFX, MONSTER ID를 enum으로 자동 생성한다.
             List<ReadFromXlsx> _ReadFromXlsx = new List<ReadFromXlsx>();
 
             ReadXlsxFile(ConstPath.VFX_EXCEL_PATH);
@@ -196,7 +196,7 @@ namespace Scripts.Core.Parser
 		}
 		private void GenerateSceneVFXMetaSO()
 		{
-			//VFX dic����
+			// VFX dictionary 생성
 			string FilePath = Path.Combine(Application.dataPath, ConstPath.VFX_EXCEL_PATH);
 			string storePath = Path.Combine(Application.dataPath, ConstPath.GENERATE_SCENE_VFX_META_PATH);
 			StringBuilder sb;
@@ -228,7 +228,7 @@ namespace Scripts.Core.Parser
 			OpenBrace(sb);
 			sb.Append($"_dic = new Dictionary<eSceneType, List<eVFXType>>();\n");
 
-			//�� Ÿ�� - VFX[]�� ����
+			// 씬 타입별 VFX 목록 저장
 			Dictionary<string, List<string>> _dics = new Dictionary<string, List<string>>();
 
 			var tables = data.Tables;
@@ -259,7 +259,7 @@ namespace Scripts.Core.Parser
 					}
 				}
 			}
-			//�� �̸� - eVFXList�ϼ� 
+			// 씬 이름별 eVFXType 리스트 생성
 			foreach (var Item in _dics)
 			{
 				List<string> value = Item.Value;
@@ -302,7 +302,7 @@ namespace Scripts.Core.Parser
 			OpenBrace(sb);
 			sb.Append($"_dic = new Dictionary<eSceneType, List<eSFXType>>();\n");
 
-			//�� Ÿ�� - VFX[]�� ����
+			// 씬 타입별 SFX 목록 저장
 			Dictionary<string, List<string>> _dics = new Dictionary<string, List<string>>();
 
 			var tables = data.Tables;
@@ -333,7 +333,7 @@ namespace Scripts.Core.Parser
 					}
 				}
 			}
-			//�� �̸� - eVFXList�ϼ� 
+			// 씬 이름별 eSFXType 리스트 생성
 			foreach (var Item in _dics)
 			{
 				List<string> value = Item.Value;
@@ -403,14 +403,14 @@ namespace Scripts.Core.Parser
             WriteToFIle(enumPath, sb);
             WriteToFIle(helperPath, HelperFuncSb);
         }
-        //���� ������ �о�;���.
+        // 엑셀 데이터를 읽어온다.
         private void ReadXlsxFile(string path)
         {
             string FilePath = Path.Combine(Application.dataPath, path);
             FileStream fstream = File.Open(FilePath, FileMode.Open, FileAccess.Read);
             IExcelDataReader reader = ExcelReaderFactory.CreateReader(fstream);
 
-            //Header���� �ɼ�
+            // 첫 행을 헤더로 사용
             var conf = new ExcelDataSetConfiguration
             {
                 ConfigureDataTable = _ => new ExcelDataTableConfiguration
@@ -460,16 +460,16 @@ namespace Scripts.Core.Parser
         }
         private void SettingAddressable(string groupName)
         {
-            //Addressable ����
+            // Addressable 설정
             AddressableAssetSettings settings = AddressableAssetSettingsDefaultObject.Settings;
             AddressableAssetGroup group = settings.FindGroup(groupName);
             if (group == null)
             {
                 group = settings.CreateGroup(groupName, false, false, true, null);
-                Debug.Log($"�� �׷� ������");
+                Debug.Log($"새 Addressable 그룹을 생성했습니다.");
             }
             //AssetDatabase.StartAssetEditing();
-            //���鼭, �ش� fileName�� GUID ��ȸ.
+            // 파일명을 기준으로 GUID 조회
             for (int i = 0; i < AssetDatas.Length; i++)
             {
                 for (int j = 0; j < AssetDatas[i].Length; j++)
@@ -479,7 +479,7 @@ namespace Scripts.Core.Parser
                     {
                         Debug.Log("FileName is not found");
                     }
-                    //�̰� ������ Addressable�������ִ� API
+                    // 실제 Addressable entry 생성/이동 API
                     AddressableAssetEntry entry = settings.CreateOrMoveEntry(guid, group);
 
                     if (entry != null)
@@ -487,7 +487,7 @@ namespace Scripts.Core.Parser
                         entry.labels.Add(groupName);
                         //entry.address = maskedId.ToString();
                         entry.address = AssetDatas[i][j].fileName;
-                        CustomLogger.Log($"[��� ����] ����: {AssetDatas[i][j].fileName} -> �ּ�: {AssetDatas[i][j]._MaskedId}");
+                        CustomLogger.Log($"[주소 설정] 파일: {AssetDatas[i][j].fileName} -> 주소: {AssetDatas[i][j]._MaskedId}");
                     }
                 }
             }
@@ -500,7 +500,7 @@ namespace Scripts.Core.Parser
             StreamWriter sw = new StreamWriter(fs, Encoding.Unicode, 4096);
 
             char[] buffer = new char[2048];
-            //���������� ���� �κ�
+            // StringBuilder 내용을 파일로 쓰는 부분
             int length = sb.Length;
             int offset = 0;
 
@@ -519,13 +519,13 @@ namespace Scripts.Core.Parser
 
 		private void ReadStageLogic_for_CreateEnum(StringBuilder sb, DataSet data)
 		{
-			//�ߺ��˻�
+			// 중복 검사
 			HashSet<long> duplicateKey = new HashSet<long>();
 			HashSet<long> duplicateStage = new HashSet<long>();
 
 			var ExcelTable = data.Tables;
 
-			//Sheet��ȸ
+			// Sheet 순회
 			for (int i = 0; i < ExcelTable.Count; i++)
 			{
 				DataTable table = ExcelTable[i];
@@ -581,12 +581,12 @@ namespace Scripts.Core.Parser
 		}
 		private void ReadStageLogic_for_CreateMetaSO(StringBuilder sb, DataSet data)
 		{
-			//�ߺ��˻�
+			// 중복 검사
 			Dictionary<long, HashSet<string>> _monDics = new Dictionary<long, HashSet<string>>();
 			Dictionary<long, List<stageInfo>> _stageDics = new Dictionary<long, List<stageInfo>>();
 
 			var ExcelTable = data.Tables;
-			//Sheet��ȸ
+			// Sheet 순회
 			for (int i = 0; i < ExcelTable.Count; i++)
 			{
 				DataTable table = ExcelTable[i];
@@ -674,7 +674,7 @@ namespace Scripts.Core.Parser
 				CloseBrace(sb);
 				CreateTryStageInfo(sb);
 				CreateTryGetStageMonsterInfo(sb);
-				//namespace,function,class ��ȣ
+				// namespace, function, class 괄호 닫기
 				CloseBrace(sb);
 				CloseBrace(sb);
 			}
@@ -970,7 +970,7 @@ namespace Scripts.Core.Parser
 					UseHeaderRow = true
 				}
 			};
-            //���� ������ ���
+            // 엑셀 데이터를 DataSet으로 변환
 			DataSet data = reader.AsDataSet(config); 
             _sb = new StringBuilder();
             readLogic.Invoke(_sb, data);
@@ -986,7 +986,7 @@ namespace Scripts.Core.Parser
 			StreamWriter sw = new StreamWriter(fs, Encoding.Unicode, 4096);
 
 			char[] buffer = new char[2048];
-			//���������� ���� �κ�
+			// StringBuilder 내용을 파일로 쓰는 부분
 			int length = sb.Length;
 			int offset = 0;
 
