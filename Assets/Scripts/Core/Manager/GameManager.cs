@@ -9,6 +9,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using System.Threading;
 using System.Timers;
 using UnityEngine;
@@ -428,92 +429,69 @@ namespace Scripts.Core
 			//Stage에 필요한 몬스터 프리펩들 로딩
 			_StageLoaderHandle = StageManager.Instance.PreLoadAssets((eStage)resourceId);
 
-			//스테이지에 필요한 VFX로딩
+			//스테이지의 몬스터들이 Vfx / Sfx가 있는지 확인 후 있다면 preLoad
 			List<eMonsterType> monList = StageManager.Instance.GetStageMonsterTypes((eStage)resourceId);
-			bool IsNeedToLoadVFX = TryGetVFXListIds(monList, out eVFXType[] vfxList);
-			bool IsNeedToLoadSFX = TryGetSFXListIds(monList, out eSFXType[] sfxList);
+			bool hasMonsterVfx = TryGetVFXListIds(monList, out eVFXType[] vfxList);
+			bool hasMonsterSfx = TryGetSFXListIds(monList, out eSFXType[] sfxList);
 
-			if (IsNeedToLoadVFX)
+			if (hasMonsterVfx)
 			{
 				Debug.Log("[MONSTER_VFX_Request]");
 				_VFXMonsterHandle = VFXManager.Instance.PreLoadVFX((ulong)resourceId, vfxList);
 			}
-			if (IsNeedToLoadSFX)
+			if (hasMonsterSfx)
 			{
 				Debug.Log("[MONSTER_SFX_Request]");
 				_SFXMonsterHandle = SFXManager.Instance.PreLoadSFX((ulong)resourceId, sfxList);
 			}
 		}
+		/// <summary> 스테이지에 등장할 몬스터 타입들을 기준으로 미리 로드할 SFX 목록을 수집한다. </summary>
+		/// <param name="monList">스테이지에 등장할 몬스터 타입 목록</param>
+		/// <param name="Ids">미리 로드할 SFX 타입 배열. 대상이 없으면 빈 배열</param>
+		/// <returns>미리 로드할 SFX가 하나라도 있으면 true</returns>
 		private bool TryGetSFXListIds(List<eMonsterType> monList, out eSFXType[] Ids)
 		{
-			int totalArrayLength = 0;
-			//각 스테이지의 몬스터 목록의 SFXList담기
-			List<eSFXType[]> neededSFXs = new List<eSFXType[]>();
+			//중복된 SFX프리로드를 피하기 위해 해시셋 사용
+			HashSet<eSFXType> result = new HashSet<eSFXType>();
 
-			for (int i = 0; i < monList.Count; i++)
+			//몬스터 타입별로 등록된 SFX 메타를 모아 미리 로딩할 목록을 만든다.
+			foreach (eMonsterType monster in monList)
 			{
-				List<eSFXType> ret;
-				bool IsSFXListNeed = _monsterMetaDataSO.TryGetSFXList(monList[i], out ret);
-				if (!IsSFXListNeed)
-				{
+				bool hasMonsterSfx = _monsterMetaDataSO.TryGetSFXList(monster, out List<eSFXType> sfxList);
+				if (!hasMonsterSfx || sfxList.Count == 0)
 					continue;
-				}
-				eSFXType[] tmp = ret.ToArray();
-				neededSFXs.Add(tmp);
-				totalArrayLength += ret.Count;
-			}
-
-			if (totalArrayLength == 0)
-			{
-				Ids = null;
-				return false;
-			}
-
-			//1차원 배열로 만들기
-			Ids = new eSFXType[totalArrayLength];
-			for (int i = 0; i < neededSFXs.Count; i++)
-			{
-				for (int j = 0; j < neededSFXs[i].Length; j++)
+				foreach (eSFXType sfx in sfxList)
 				{
-					Ids[i] = neededSFXs[i][j];
+					result.Add(sfx);
 				}
 			}
-			return true;
+			
+			Ids = result.ToArray();
+			return Ids.Length > 0;
 		}
+		/// <summary> 스테이지에 등장할 몬스터 타입들을 기준으로 미리 로드할 VFX 목록을 수집한다. </summary>
+		/// <param name="monList">스테이지에 등장할 몬스터 타입 목록</param>
+		/// <param name="Ids">미리 로드할 VFX 타입 배열. 대상이 없으면 빈 배열</param>
+		/// <returns>미리 로드할 VFX가 하나라도 있으면 true</returns>
 		private bool TryGetVFXListIds(List<eMonsterType> monList, out eVFXType[] Ids)
 		{
-			int totalArrayLength = 0;
-			//각 스테이지의 몬스터 목록의 VFXList담기
-			List<eVFXType[]> neededVFXs = new List<eVFXType[]>();
+			//중복된 VFX프리로드를 피하기 위해 해시셋 사용
+			HashSet<eVFXType> result = new HashSet<eVFXType>();
 
-			for (int i = 0; i < monList.Count; i++)
+			//몬스터 타입별로 등록된 VFX 메타를 모아 미리 로딩할 목록을 만든다.
+			foreach (eMonsterType monster in monList)
 			{
-				List<eVFXType> ret;
-				bool IsVFXListNeed = _monsterMetaDataSO.TryGetVFXList(monList[i], out ret);
-				if (!IsVFXListNeed)
-				{
+				bool hasMonsterVfx = _monsterMetaDataSO.TryGetVFXList(monster, out List<eVFXType> vfxList);
+				if (!hasMonsterVfx || vfxList.Count == 0)
 					continue;
-				}
-				eVFXType[] tmp = ret.ToArray();
-				neededVFXs.Add(tmp);
-				totalArrayLength += ret.Count;
-			}
-
-			if (totalArrayLength == 0)
-			{
-				Ids = null;
-				return false;
-			}
-
-			Ids = new eVFXType[totalArrayLength];
-			for (int i = 0; i < neededVFXs.Count; i++)
-			{
-				for (int j = 0; j < neededVFXs[i].Length; j++)
+				foreach (eVFXType vfx in vfxList)
 				{
-					Ids[i] = neededVFXs[i][j];
+					result.Add(vfx);
 				}
 			}
-			return true;
+			
+			Ids = result.ToArray();
+			return Ids.Length > 0;
 		}
 
 
