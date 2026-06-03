@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.SceneManagement;
 
@@ -45,12 +46,10 @@ namespace Scripts.Core
 
         private AsyncOperationHandle<IList<GameObject>> _VFXSceneHandle;
         private AsyncOperationHandle<IList<AudioClip>> _SFXSceneHandle;
-        private AsyncOperationHandle<IList<GameObject>> _StageLoaderHandle;
-
-        private AsyncOperationHandle<IList<GameObject>> _VFXMonsterHandle;
-        private AsyncOperationHandle<IList<AudioClip>> _SFXMonsterHandle;
 
         private bool _isSceneLoading; //중복로딩 방지 플래그
+        private Dictionary<ulong, StageResourceCache> _stageResourceCaches = new();
+        private eSceneType _curType = default;
 
         // ── 플레이어 생존 관리 ──────────────────────────────────────
         // "사망 애니메이션 완료" 횟수를 셈. IsDead는 데미지 즉시 true가 되므로 사용 불가.
@@ -183,44 +182,16 @@ namespace Scripts.Core
             LoadingScene(type).Forget();
         }
 
-        //Stage를 전환하는 기능
-        public void LoadAsyncStage(eStage stage)
-        {
-            Time.timeScale = 1f;
-
-            //몬스터들 정보 정도만 Clear. VFX는 어차피 그렇게 많지 않음.
-            //VFX Manager자체를 초기화 시키거나, stage에 요청한 VFX들을 
-            //Handle , Pool, effectCache에서 delete해야하는데, delete하는 작업이 더 느릴거 같음.
-            if (_StageLoaderHandle.IsValid())
-            {
-                StageManager.Instance.Clear();
-                _StageLoaderHandle = default;
-            }
-            //LoadStage(stage).Forget();
-        }
-
         private void CheckHandle()
         {
+            SFXManager.Instance.unloadSFXBatch((ulong)_curType);
+            VFXManager.Instance.unloadVFXBatch((ulong)_curType);
             //뭔가 값이 있다면 해제
-            if (_StageLoaderHandle.IsValid())
+            foreach (var cache in _stageResourceCaches.Values)
             {
-                StageManager.Instance.Clear();
-                _StageLoaderHandle = default;
+                cache.Release();   
             }
-
-            if (_VFXSceneHandle.IsValid() || _VFXMonsterHandle.IsValid())
-            {
-                VFXManager.Instance.Clear();
-                _VFXSceneHandle = default;
-                _VFXMonsterHandle = default;
-            }
-
-            if (_SFXSceneHandle.IsValid() || _SFXMonsterHandle.IsValid())
-            {
-                SFXManager.Instance.Clear();
-                _SFXSceneHandle = default;
-                _SFXMonsterHandle = default;
-            }
+            _stageResourceCaches.Clear();
         }
 
         private async UniTaskVoid LoadingScene(eSceneType type)
@@ -234,15 +205,13 @@ namespace Scripts.Core
 
                 string sceneName = GetSceneName(type);
                 float startRealtime = Time.realtimeSinceStartup;
-
+                StageResourceCache cache = null;
                 // User의 현재 스테이지 정보를 가져와서 Load준비해야함.
                 if (type == eSceneType.main)
                 {
                     eStage currentStage = UserManager.Instance.GetUserCurrentStage();
                     ulong resourceId = GetResourceGroupId(currentStage);
-                    _StageLoaderHandle = StageManager.Instance.PreLoadAssets((eStage)resourceId);
-                    LoadResourceInMonster(resourceId);
-                    //Player에 필요한 VFX,SFX 로딩
+                    cache = PreloadCache(resourceId);
                 }
 
                 //각 씬에 필요한 VFX,SFX 로딩
@@ -251,23 +220,18 @@ namespace Scripts.Core
                 bool IsVFXLoadNeed = _SceneVFXMetaSO.TryGetVFXTypeList(type, out vfxList);
                 bool IsSFXLoadNeed = _SceneSFXMetaSO.TryGetSFXTypeList(type, out sfxList);
                 if (IsVFXLoadNeed)
-                {
                     _VFXSceneHandle = VFXManager.Instance.PreLoadVFX((ulong)type, vfxList.ToArray());
-                }
-
                 if (IsSFXLoadNeed)
-                {
                     _SFXSceneHandle = SFXManager.Instance.PreLoadSFX((ulong)type, sfxList.ToArray());
-                }
+                
+                bool vfxDone = !_VFXSceneHandle.IsValid() || _VFXSceneHandle.IsDone;
+                bool sfxDone = !_SFXSceneHandle.IsValid() || _SFXSceneHandle.IsDone;
 
                 //ReSourceLoading
-                while (true)
+                while (!((cache == null || cache.IsDone) && (vfxDone && sfxDone)))
                 {
-                    bool stageDone = !_StageLoaderHandle.IsValid() || _StageLoaderHandle.IsDone;
-                    bool vfxDone = !_VFXSceneHandle.IsValid() || _VFXSceneHandle.IsDone;
-                    bool sfxDone = !_SFXSceneHandle.IsValid() || _SFXSceneHandle.IsDone;
-                    bool vfxMonsterDone = !_VFXMonsterHandle.IsValid() || _VFXMonsterHandle.IsDone;
-                    bool sfxMonsterDone = !_SFXMonsterHandle.IsValid() || _SFXMonsterHandle.IsDone;
+                    vfxDone = !_VFXSceneHandle.IsValid() || _VFXSceneHandle.IsDone;
+                    sfxDone = !_SFXSceneHandle.IsValid() || _SFXSceneHandle.IsDone;
                     //로딩창 Scroll조절
                     //timer += Time.unscaledDeltaTime;
                     //scrollbar.fillAmount = Mathf.Lerp(0.9f, 1f, timer);
@@ -282,17 +246,6 @@ namespace Scripts.Core
 
                     SceneLoadProgress?.Invoke(type, normalized);*/
 
-                    if (stageDone &&
-                        vfxDone &&
-                        sfxDone &&
-                        vfxMonsterDone &&
-                        sfxMonsterDone
-                       )
-                    {
-                        break;
-                    }
-
-                    //스크롤바가 다 채워졌다면, SceneActive하기.
                     await UniTask.Yield(_token.Token);
                 }
 
@@ -323,6 +276,7 @@ namespace Scripts.Core
             finally
             {
                 _isSceneLoading = false;
+                _curType = type; 
             }
         }
 
@@ -374,33 +328,40 @@ namespace Scripts.Core
             }
         }
 
-        /// <summary>
-        /// 리소스가 바뀌는 스테이지 Load함수.
-        /// </summary>
-        /// <param name="stage"></param>
-        /// <returns></returns>
-        public async UniTaskVoid LoadStage(eStage curstage, eStage nxtStage, Action<eStage> onStageLoaded_callback)
+        /// <summary> 스테이지 단위 변경 시 필요한 리소스 로딩</summary>
+        /// <param name="curStage">현재 스테이지</param>
+        /// <param name="nextStage">이동할 스테이지</param>
+        /// <param name="onStageLoaded_callback">로딩 완료시 콜백할 액션</param>
+        public async UniTaskVoid LoadStage(eStage curStage, eStage nextStage, Action<eStage> onStageLoaded_callback)
         {
             float startRealtime = Time.realtimeSinceStartup;
+            ulong resourceId = GetResourceGroupId(nextStage);
 
-            //1,2스테이지 반복하는 형태이므로, 2스테이지이상이라면 로딩할필요 x.
-            if (StageParser.GetStageNumber(nxtStage) >= 3)
+            StageResourceCache cache = PreloadCache(resourceId);
+
+            while (!cache.IsDone)
             {
-                onStageLoaded_callback.Invoke(nxtStage);
-                return;
+                await UniTask.Yield(_LoadStageToken.Token);
             }
-
-
+            
+            onStageLoaded_callback.Invoke(nextStage);
+            
             /*
             _StageLoaderHandle = StageManager.Instance.PreLoadAssets(stage);
             LoadResourceInMonster(stage);
             */
-            ulong resource_prevId = GetResourceGroupId(curstage);
-            ulong resource_nxtId = GetResourceGroupId(nxtStage);
-            //이전 Stage에 있던 리소스 클리어 요청
-            //ClearCurrentStageResource(resource_prevId);
 
-            //다음 stage resoucre요청
+            /*
+            //1,2스테이지 반복하는 형태이므로, 2스테이지이상이라면 로딩할필요 x.
+            if (StageParser.GetStageNumber(nextStage) >= 3)
+            {
+                onStageLoaded_callback.Invoke(nextStage);
+                return;
+            }
+             ulong resource_prevId = GetResourceGroupId(curStage);
+            ulong resource_nxtId = GetResourceGroupId(nextStage);
+
+
             _StageLoaderHandle = StageManager.Instance.PreLoadAssets((eStage)resource_nxtId);
             LoadResourceInMonster(resource_nxtId);
 
@@ -414,57 +375,86 @@ namespace Scripts.Core
                 //timer += Time.unscaledDeltaTime;
                 //scrollbar.fillAmount = Mathf.Lerp(0.9f, 1f, timer);
 
-                float normalized = Mathf.Clamp01(_UnitySceneLoaderOp.progress / 0.9f);
-
                 // 최소 로딩 시간 옵션
                 if (minLoadingSeconds > 0f)
                 {
                     float t = Mathf.Clamp01((Time.realtimeSinceStartup - startRealtime) / minLoadingSeconds);
-                    normalized = Mathf.Min(normalized, t);
                 }
 
 
-                if (stageDone && vfxDone && sfxDone && _UnitySceneLoaderOp.progress >= 0.9f)
+                if (stageDone && vfxDone && sfxDone)
                 {
                     if (minLoadingSeconds <= 0f || (Time.realtimeSinceStartup - startRealtime) >= minLoadingSeconds)
                     {
-                        onStageLoaded_callback.Invoke(nxtStage);
+                        onStageLoaded_callback.Invoke(nextStage);
                         break;
                     }
                 }
-
                 await UniTask.Yield(_LoadStageToken.Token);
-            }
+            }*/
         }
 
+        private StageResourceCache PreloadCache(ulong resourceId)
+        {
+            if (_stageResourceCaches.TryGetValue(resourceId, out StageResourceCache oldCache))
+                return oldCache;
+
+            StageResourceCache cache = new StageResourceCache();
+            cache.MonsterHandle = StageManager.Instance.PreLoadAssets((eStage)resourceId);
+            List<eMonsterType> monList = StageManager.Instance.GetStageMonsterTypes((eStage)resourceId);
+
+            if (TryGetSFXListIds(monList, out eSFXType[] sfxList))
+            {
+                Debug.Log("[MONSTER_SFX_Request]");
+                cache.MonsterSfxHandle = SFXManager.Instance.PreLoadSFX(resourceId, sfxList);
+            }
+
+            if (TryGetVFXListIds(monList, out eVFXType[] vfxList))
+            {
+                Debug.Log("[MONSTER_VFX_Request]");
+                cache.MonsterVfxHandle = VFXManager.Instance.PreLoadVFX(resourceId, vfxList);
+            }
+            
+            _stageResourceCaches.Add(resourceId, cache);
+            return cache;
+        }
+        private class StageResourceCache
+        {
+            public AsyncOperationHandle<IList<GameObject>> MonsterHandle;
+            public AsyncOperationHandle<IList<AudioClip>> MonsterSfxHandle;
+            public AsyncOperationHandle<IList<GameObject>> MonsterVfxHandle;
+
+            public bool IsDone =>
+                (!MonsterHandle.IsValid() || MonsterHandle.IsDone) &&
+                (!MonsterSfxHandle.IsValid() || MonsterSfxHandle.IsDone) &&
+                (!MonsterVfxHandle.IsValid() || MonsterVfxHandle.IsDone);
+
+            public void Release()
+            {
+                if (MonsterHandle.IsValid())
+                    Addressables.Release(MonsterHandle);
+
+                if (MonsterSfxHandle.IsValid())
+                    Addressables.Release(MonsterSfxHandle);
+
+                if (MonsterVfxHandle.IsValid())
+                    Addressables.Release(MonsterVfxHandle);
+
+                MonsterHandle = default;
+                MonsterSfxHandle = default;
+                MonsterVfxHandle = default;
+            }
+        }
+        
+        private float GetOperationHandlePercent<T>(AsyncOperationHandle<T> handle)
+        {
+            return handle.IsValid() ? handle.PercentComplete : 1f;
+        }
         private void ClearCurrentStageResource(ulong resourceId)
         {
             StageManager.Instance.Clear();
             VFXManager.Instance.unloadVFXBatch((ulong)resourceId);
             SFXManager.Instance.unloadSFXBatch((ulong)resourceId);
-        }
-
-        private void LoadResourceInMonster(ulong resourceId)
-        {
-            //Stage에 필요한 몬스터 프리펩들 로딩
-            _StageLoaderHandle = StageManager.Instance.PreLoadAssets((eStage)resourceId);
-
-            //스테이지의 몬스터들이 Vfx / Sfx가 있는지 확인 후 있다면 preLoad
-            List<eMonsterType> monList = StageManager.Instance.GetStageMonsterTypes((eStage)resourceId);
-            bool hasMonsterVfx = TryGetVFXListIds(monList, out eVFXType[] vfxList);
-            bool hasMonsterSfx = TryGetSFXListIds(monList, out eSFXType[] sfxList);
-
-            if (hasMonsterVfx)
-            {
-                Debug.Log("[MONSTER_VFX_Request]");
-                _VFXMonsterHandle = VFXManager.Instance.PreLoadVFX((ulong)resourceId, vfxList);
-            }
-
-            if (hasMonsterSfx)
-            {
-                Debug.Log("[MONSTER_SFX_Request]");
-                _SFXMonsterHandle = SFXManager.Instance.PreLoadSFX((ulong)resourceId, sfxList);
-            }
         }
 
         /// <summary> 스테이지에 등장할 몬스터 타입들을 기준으로 미리 로드할 SFX 목록을 수집한다. </summary>
