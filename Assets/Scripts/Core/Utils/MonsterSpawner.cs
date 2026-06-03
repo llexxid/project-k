@@ -208,10 +208,13 @@ namespace Scripts.Core.Utils
 			foreach (GameObject mon in result)
 			{
 				Monster monComponent = mon.GetComponent<Monster>();
-				_monsterCache.Add(id[i], monComponent);
+				//몬스터 중복로딩 방지
+				if (!_monsterCache.ContainsKey(id[i]))
+				{
+					_monsterCache.Add(id[i], monComponent);
+				}
 				i++;
 			}
-			return;
 		}
 	}
 
