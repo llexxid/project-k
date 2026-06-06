@@ -13,16 +13,12 @@ using UnityEngine.SceneManagement;
 
 namespace Scripts.Core
 {
-    using static Scripts.Monster.Monster;
-    using Monster = Scripts.Monster.Monster;
-
     public class GameManager : MonoBehaviour
     {
         public static GameManager Instance;
 
-        [Header("Scene Name Mapping")] [SerializeField]
-        private string bootstrapSceneName = "bootstrap";
-
+        [Header("Scene Name Mapping")] 
+        [SerializeField] private string bootstrapSceneName = "bootstrap";
         [SerializeField] private string titleSceneName = "title";
         [SerializeField] private string mainSceneName = "main";
         [SerializeField] private string dungeonSceneName = "dungeon";
@@ -51,6 +47,7 @@ namespace Scripts.Core
         private Dictionary<ulong, StageResourceCache> _stageResourceCaches = new();
         private eSceneType _curType = default;
 
+        #region 플레이어 생존 관리
         // ── 플레이어 생존 관리 ──────────────────────────────────────
         // "사망 애니메이션 완료" 횟수를 셈. IsDead는 데미지 즉시 true가 되므로 사용 불가.
         private int _deathAnimationDoneCount = 0;
@@ -86,8 +83,7 @@ namespace Scripts.Core
 
             Time.timeScale = 0f;
         }
-        // ────────────────────────────────────────────────────────────
-
+        #endregion
 
         private void Awake()
         {
@@ -116,7 +112,6 @@ namespace Scripts.Core
                 _token = null;
             }
         }
-
 
         private void Init()
         {
@@ -149,7 +144,48 @@ namespace Scripts.Core
             var current = SceneManager.GetActiveScene().name;
             SceneManager.LoadScene(current);
         }
+        /// <summary> 씬 변경이 완료되었을 시 진행되는 후처리과정 </summary>
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode) => HandleSceneReadyAsync(scene, mode).Forget();
 
+        /// <summary> 1프레임 대기한 후 실제로 후처리 진행하는 메서드</summary>
+        private async UniTaskVoid HandleSceneReadyAsync(Scene scene, LoadSceneMode mode)
+        {
+            //해당 메서드는 나중에 씬별 메서드를 따로 만들거나 핸들러 딕셔너리 등 정리할 필요가 있음
+            try
+            {
+                // 1프레임 대기해서 Start()까지 다 끝난 뒤 실행을 보장
+                await UniTask.NextFrame();
+                if (scene.name == mainSceneName)
+                {
+                    Debug.Log("메인 씬 진입");
+
+                    MonsterSpawner.Instance.OnEnterScene();
+                    VFXManager.Instance.OnEnterScene();
+                    SFXManager.Instance.PlayBGM(eSFXType.BGM);
+
+                    if (Camera.main != null && Camera.main.GetComponent<CameraFade>() == null)
+                        Camera.main.gameObject.AddComponent<CameraFade>();
+
+                    UserManager.Instance.CreateCharacter();
+                    eStage curUserStage = UserManager.Instance.GetUserCurrentStage();
+
+                    // WaveManager가 있으면 웨이브 흐름을 위임
+                    if (WaveManager.Instance != null)
+                    {
+                        WaveManager.Instance.BeginFromStage(curUserStage);
+                    }
+                    else
+                    {
+                        StageManager.Instance.StartStage(curUserStage);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[GameManager] Scene ready handling failed: {scene.name}\n{ex}");
+            }
+        }
+        
         // 동기 로드
         public void LoadScene(eSceneType type)
         {
@@ -165,7 +201,10 @@ namespace Scripts.Core
             SceneLoadFinished?.Invoke(type);
         }
 
-        //씬 전환하는 기능
+        /// <summary>
+        /// 비동기 씬 전환
+        /// </summary>
+        /// <param name="type">변경하려는 씬</param>
         public void LoadAsyncScene(eSceneType type)
         {
             if (_isSceneLoading)
@@ -178,11 +217,11 @@ namespace Scripts.Core
             Time.timeScale = 1f;
             Debug.Log($"LoadAsyncScene : {type}");
             //기존의 핸들이 있다면, 핸들들을 Release시켜줘야함.
-            CheckHandle();
+            ReleaseHandle();
             LoadingScene(type).Forget();
         }
 
-        private void CheckHandle()
+        private void ReleaseHandle()
         {
             SFXManager.Instance.unloadSFXBatch((ulong)_curType);
             VFXManager.Instance.unloadVFXBatch((ulong)_curType);
@@ -194,6 +233,11 @@ namespace Scripts.Core
             _stageResourceCaches.Clear();
         }
 
+        // * 씬 늘어날 시 개선필요함
+        /// <summary>
+        /// 변경하려는 씬의 리소스를 로딩하는 메서드
+        /// </summary>
+        /// <param name="type"> 변경하려는 씬 </param>
         private async UniTaskVoid LoadingScene(eSceneType type)
         {
             try
@@ -204,47 +248,35 @@ namespace Scripts.Core
                 SceneLoadStarted?.Invoke(type);
 
                 string sceneName = GetSceneName(type);
-                float startRealtime = Time.realtimeSinceStartup;
                 StageResourceCache cache = null;
-                // User의 현재 스테이지 정보를 가져와서 Load준비해야함.
+                // 사용자의 현재 스테이지 정보를 가져와서 로딩 준비.
                 if (type == eSceneType.main)
                 {
                     eStage currentStage = UserManager.Instance.GetUserCurrentStage();
                     ulong resourceId = GetResourceGroupId(currentStage);
-                    cache = PreloadCache(resourceId);
+                    cache = GetOrPreloadStageResources(resourceId);
                 }
 
-                //각 씬에 필요한 VFX,SFX 로딩
-                List<eVFXType> vfxList;
-                List<eSFXType> sfxList;
-                bool IsVFXLoadNeed = _SceneVFXMetaSO.TryGetVFXTypeList(type, out vfxList);
-                bool IsSFXLoadNeed = _SceneSFXMetaSO.TryGetSFXTypeList(type, out sfxList);
+                //씬에 필요한 VFX,SFX 로딩
+                List<eVFXType> sceneVfxList;
+                List<eSFXType> sceneSfxList;
+                //불러와야 할 리소스가 있으면 프리로드
+                bool IsVFXLoadNeed = _SceneVFXMetaSO.TryGetVFXTypeList(type, out sceneVfxList);
+                bool IsSFXLoadNeed = _SceneSFXMetaSO.TryGetSFXTypeList(type, out sceneSfxList);
                 if (IsVFXLoadNeed)
-                    _VFXSceneHandle = VFXManager.Instance.PreLoadVFX((ulong)type, vfxList.ToArray());
+                    _VFXSceneHandle = VFXManager.Instance.PreLoadVFX((ulong)type, sceneVfxList.ToArray());
                 if (IsSFXLoadNeed)
-                    _SFXSceneHandle = SFXManager.Instance.PreLoadSFX((ulong)type, sfxList.ToArray());
+                    _SFXSceneHandle = SFXManager.Instance.PreLoadSFX((ulong)type, sceneSfxList.ToArray());
                 
                 bool vfxDone = !_VFXSceneHandle.IsValid() || _VFXSceneHandle.IsDone;
                 bool sfxDone = !_SFXSceneHandle.IsValid() || _SFXSceneHandle.IsDone;
 
-                //ReSourceLoading
+                //리소스가 전부 로딩될때까지 대기
+                // * 현재는 main씬밖에 없으니까 상관없지만, 나중에 씬이 늘어나면 cache를 공통으로 묶어야 할 필요 있음
                 while (!((cache == null || cache.IsDone) && (vfxDone && sfxDone)))
                 {
                     vfxDone = !_VFXSceneHandle.IsValid() || _VFXSceneHandle.IsDone;
                     sfxDone = !_SFXSceneHandle.IsValid() || _SFXSceneHandle.IsDone;
-                    //로딩창 Scroll조절
-                    //timer += Time.unscaledDeltaTime;
-                    //scrollbar.fillAmount = Mathf.Lerp(0.9f, 1f, timer);
-
-                    /*float normalized = Mathf.Clamp01(_UnitySceneLoaderOp.progress / 0.9f);
-
-                    if (minLoadingSeconds > 0f)
-                    {
-                        float t = Mathf.Clamp01((Time.realtimeSinceStartup - startRealtime) / minLoadingSeconds);
-                        normalized = Mathf.Min(normalized, t);
-                    }
-
-                    SceneLoadProgress?.Invoke(type, normalized);*/
 
                     await UniTask.Yield(_token.Token);
                 }
@@ -261,7 +293,7 @@ namespace Scripts.Core
 
                     await UniTask.Yield(_token.Token);
                 }
-
+                _curType = type; 
                 SceneLoadProgress?.Invoke(type, 1f);
                 SceneLoadFinished?.Invoke(type);
             }
@@ -276,57 +308,10 @@ namespace Scripts.Core
             finally
             {
                 _isSceneLoading = false;
-                _curType = type; 
             }
         }
 
-        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
-        {
-            //MainScene전환시
-            if (scene.name == "main")
-            {
-                Debug.Log("메인 씬 진입");
 
-                MonsterSpawner.Instance.OnEnterScene();
-                VFXManager.Instance.OnEnterScene();
-                SFXManager.Instance.PlayBGM(eSFXType.BGM);
-
-                if (Camera.main != null && Camera.main.GetComponent<Scripts.Core.Utils.CameraFade>() == null)
-                    Camera.main.gameObject.AddComponent<Scripts.Core.Utils.CameraFade>();
-
-                UserManager.Instance.CreateCharacter();
-                eStage curUserStage = UserManager.Instance.GetUserCurrentStage();
-
-                // WaveManager가 있으면 웨이브 흐름을 위임
-                if (WaveManager.Instance != null)
-                {
-                    WaveManager.Instance.BeginFromStage(curUserStage);
-                }
-                else
-                {
-                    StageManager.Instance.StartStage(curUserStage);
-                }
-
-                //Stage가 시작하는 지점
-
-                //Stage
-
-                //테스트용 - 상, 좌, 우 각 3마리씩 스폰
-                //MonsterInfo monInfo = MonsterSpawner.Instance.GetMonsterInfo(eMonsterType.MON_BANDIT_LEADER);
-                /*Vector3[][] spawnPositions = new Vector3[][]
-                {
-                    new Vector3[] { new Vector3(-2, 8, 0), new Vector3(0, 8, 0), new Vector3(2, 8, 0) },   // 상
-                    new Vector3[] { new Vector3(-8, -2, 0), new Vector3(-8, 0, 0), new Vector3(-8, 2, 0) }, // 좌
-                    new Vector3[] { new Vector3(8, -2, 0), new Vector3(8, 0, 0), new Vector3(8, 2, 0) },    // 우
-                };
-*/
-                //Vector3 pos = new Vector3(-5, 0, 0);
-
-                //MonsterSpawner.Instance.SpawnMonster(eMonsterType.MON_BANDIT_LEADER, pos, Quaternion.identity, out Monster mon);
-                //MonsterStat stat = new MonsterStat(monInfo._baseHp, 0, (ulong)monInfo._baseAtk, monInfo._baseMoveSpeed, monInfo._baseAtkSpeed);
-                //mon.Init(eMonsterType.MON_BANDIT_ARCHER, stat, monInfo._dropTableNumber);
-            }
-        }
 
         /// <summary> 스테이지 단위 변경 시 필요한 리소스 로딩</summary>
         /// <param name="curStage">현재 스테이지</param>
@@ -337,7 +322,7 @@ namespace Scripts.Core
             float startRealtime = Time.realtimeSinceStartup;
             ulong resourceId = GetResourceGroupId(nextStage);
 
-            StageResourceCache cache = PreloadCache(resourceId);
+            StageResourceCache cache = GetOrPreloadStageResources(resourceId);
 
             while (!cache.IsDone)
             {
@@ -345,70 +330,39 @@ namespace Scripts.Core
             }
             
             onStageLoaded_callback.Invoke(nextStage);
-            
-            /*
-            _StageLoaderHandle = StageManager.Instance.PreLoadAssets(stage);
-            LoadResourceInMonster(stage);
-            */
-
-            /*
-            //1,2스테이지 반복하는 형태이므로, 2스테이지이상이라면 로딩할필요 x.
-            if (StageParser.GetStageNumber(nextStage) >= 3)
-            {
-                onStageLoaded_callback.Invoke(nextStage);
-                return;
-            }
-             ulong resource_prevId = GetResourceGroupId(curStage);
-            ulong resource_nxtId = GetResourceGroupId(nextStage);
-
-
-            _StageLoaderHandle = StageManager.Instance.PreLoadAssets((eStage)resource_nxtId);
-            LoadResourceInMonster(resource_nxtId);
-
-            while (true)
-            {
-                bool stageDone = !_StageLoaderHandle.IsValid() || _StageLoaderHandle.IsDone;
-                bool vfxDone = !_VFXMonsterHandle.IsValid() || _VFXMonsterHandle.IsDone;
-                bool sfxDone = !_SFXMonsterHandle.IsValid() || _SFXMonsterHandle.IsDone;
-
-                //화면 검게 Fade Out - FadeIn 연출 작성하기
-                //timer += Time.unscaledDeltaTime;
-                //scrollbar.fillAmount = Mathf.Lerp(0.9f, 1f, timer);
-
-                // 최소 로딩 시간 옵션
-                if (minLoadingSeconds > 0f)
-                {
-                    float t = Mathf.Clamp01((Time.realtimeSinceStartup - startRealtime) / minLoadingSeconds);
-                }
-
-
-                if (stageDone && vfxDone && sfxDone)
-                {
-                    if (minLoadingSeconds <= 0f || (Time.realtimeSinceStartup - startRealtime) >= minLoadingSeconds)
-                    {
-                        onStageLoaded_callback.Invoke(nextStage);
-                        break;
-                    }
-                }
-                await UniTask.Yield(_LoadStageToken.Token);
-            }*/
         }
 
-        private StageResourceCache PreloadCache(ulong resourceId)
+        /// <summary>
+        /// 특정 스테이지에 필요한 몬스터, 몬스터 VFX, 몬스터 SFX리소스 로딩.
+        /// 캐싱되어있으면 그대로 가지고 오고, 없으면 프리로딩
+        /// </summary>
+        /// <param name="resourceId">스테이지 그룹 ID</param>
+        /// <returns> 해당 스테이지 그룹에 사용되는 리소스 묶음</returns>
+        private StageResourceCache GetOrPreloadStageResources(ulong resourceId)
         {
+            //해당 스테이지의 리소스가 캐싱되어 있었다면 그대로 반환
             if (_stageResourceCaches.TryGetValue(resourceId, out StageResourceCache oldCache))
                 return oldCache;
 
             StageResourceCache cache = new StageResourceCache();
             cache.MonsterHandle = StageManager.Instance.PreLoadAssets((eStage)resourceId);
+            //스테이지 그룹에 사용되는 몬스터 리스트 받아오기
             List<eMonsterType> monList = StageManager.Instance.GetStageMonsterTypes((eStage)resourceId);
-
+            //몬스터 리스트가 비어있을 때 방지
+            if (monList == null || monList.Count == 0)
+            {
+                Debug.LogWarning($"[GameManager] No monster types for resourceId: {resourceId}");
+                _stageResourceCaches.Add(resourceId, cache);
+                return cache;
+            }
+            
+            //몬스터들의 SFX 프리로딩
             if (TryGetSFXListIds(monList, out eSFXType[] sfxList))
             {
                 Debug.Log("[MONSTER_SFX_Request]");
                 cache.MonsterSfxHandle = SFXManager.Instance.PreLoadSFX(resourceId, sfxList);
             }
-
+            //몬스터들의 VFX 프리로딩
             if (TryGetVFXListIds(monList, out eVFXType[] vfxList))
             {
                 Debug.Log("[MONSTER_VFX_Request]");
@@ -418,12 +372,19 @@ namespace Scripts.Core
             _stageResourceCaches.Add(resourceId, cache);
             return cache;
         }
+        /// <summary>
+        /// 특정 스테이지 그룹에서 사용되는 리소스 그룹
+        /// 1. MonsterHandle : 몬스터 프리팹
+        /// 2. MonsterSfxHandle : 몬스터 SFX(사운드) 리소스
+        /// 3. MonsterVfxHandle : 몬스터 VFX(피격/공격이펙트 등..) 리소스
+        /// </summary>
         private class StageResourceCache
         {
             public AsyncOperationHandle<IList<GameObject>> MonsterHandle;
             public AsyncOperationHandle<IList<AudioClip>> MonsterSfxHandle;
             public AsyncOperationHandle<IList<GameObject>> MonsterVfxHandle;
-
+            
+            //스테이지의 모든 리소스가 로딩되었는지 확인
             public bool IsDone =>
                 (!MonsterHandle.IsValid() || MonsterHandle.IsDone) &&
                 (!MonsterSfxHandle.IsValid() || MonsterSfxHandle.IsDone) &&
@@ -444,19 +405,9 @@ namespace Scripts.Core
                 MonsterSfxHandle = default;
                 MonsterVfxHandle = default;
             }
+            
         }
         
-        private float GetOperationHandlePercent<T>(AsyncOperationHandle<T> handle)
-        {
-            return handle.IsValid() ? handle.PercentComplete : 1f;
-        }
-        private void ClearCurrentStageResource(ulong resourceId)
-        {
-            StageManager.Instance.Clear();
-            VFXManager.Instance.unloadVFXBatch((ulong)resourceId);
-            SFXManager.Instance.unloadSFXBatch((ulong)resourceId);
-        }
-
         /// <summary> 스테이지에 등장할 몬스터 타입들을 기준으로 미리 로드할 SFX 목록을 수집한다. </summary>
         /// <param name="monList">스테이지에 등장할 몬스터 타입 목록</param>
         /// <param name="Ids">미리 로드할 SFX 타입 배열. 대상이 없으면 빈 배열</param>
