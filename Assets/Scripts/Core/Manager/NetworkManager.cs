@@ -27,8 +27,6 @@ namespace Scripts.Core.Manager
 		private string _sessionGUID;
 
 		private Authentication _AuthComponent;
-
-		[OfflineMode] private bool isOfflineMode;
 		
 		private void Awake()
 		{
@@ -46,12 +44,6 @@ namespace Scripts.Core.Manager
 		private void Init()
 		{
 			_AuthComponent = new Authentication();
-		}
-
-		[OfflineMode]
-		public void SetOfflineMode(bool value)
-		{
-			isOfflineMode = value;
 		}
 
 		public void SetSessionGUID(string guid)
@@ -137,12 +129,6 @@ namespace Scripts.Core.Manager
 
 		public void OnHuntReward(List<HuntResult> sendMsg, Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
 		{
-			if (isOfflineMode)
-			{
-				OfflineTestManager.Instance.ApplyHuntReward(sendMsg);
-				return;
-			}
-
 			OnRewardRequestDTO request = new OnRewardRequestDTO
 			{
 				SessionID = _sessionGUID,
@@ -213,12 +199,6 @@ namespace Scripts.Core.Manager
 		}
 		public void OnEnchantHp(int count, Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
 		{
-			if (isOfflineMode)
-			{
-				OfflineTestManager.Instance.ApplyEnchantHp(count);
-				return;
-			}
-			
 			OnEnchantRequestDTO request = new OnEnchantRequestDTO
 			{
 				SessionID = _sessionGUID,
@@ -236,12 +216,6 @@ namespace Scripts.Core.Manager
 		}
 		public void OnEnchantATK(int count, Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
 		{
-			if (isOfflineMode)
-			{
-				OfflineTestManager.Instance.ApplyEnchantAtk(count);
-				return;
-			}
-			
 			OnEnchantRequestDTO request = new OnEnchantRequestDTO
 			{
 				SessionID = _sessionGUID,
