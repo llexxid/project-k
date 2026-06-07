@@ -10,6 +10,7 @@ using Scripts.Monster.SO;
 using Scripts.Server.DTO;
 using System;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
@@ -84,14 +85,12 @@ namespace Scripts.Core
 		/// </summary>
 		/// <param name="stage"></param>
 		/// <returns></returns>
-		public AsyncOperationHandle<IList<GameObject>> PreLoadAssets(eStage stage)
+		public UniTask PreLoadAssets(eStage stage)
 		{
 			// 스테이지 정보에 포함된 몬스터 타입을 로드
-			List<eMonsterType> monsterTypes;
-
-			_stageSO.TryGetMonsterList(stage, out monsterTypes);
-			var Handle = MonsterSpawner.Instance.LoadMonsterAssets(stage, monsterTypes.ToArray());
-			return Handle;
+			_stageSO.TryGetMonsterList(stage, out List<eMonsterType> monsterTypes);
+			var handle = MonsterSpawner.Instance.LoadMonsterAssets(stage, monsterTypes.ToArray());
+			return handle;
 		}
 
 		public List<StageInfo_v> GetStageMonsterInfo(eStage stage)

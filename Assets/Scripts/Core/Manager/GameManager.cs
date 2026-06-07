@@ -98,19 +98,17 @@ namespace Scripts.Core
             Destroy(gameObject);
         }
 
-        private void OnEnable()
-        {
-            SceneManager.sceneLoaded += OnSceneLoaded;
-        }
+        private void OnEnable() => SceneManager.sceneLoaded += OnSceneLoaded;
+        private void OnDisable() => SceneManager.sceneLoaded -= OnSceneLoaded;
 
         private void OnDestroy()
         {
-            if (_token != null)
-            {
-                _token.Cancel();
-                _token.Dispose();
-                _token = null;
-            }
+            _LoadStageToken?.Cancel();
+            _LoadStageToken?.Dispose();
+            _LoadStageToken = null;
+            _token?.Cancel();
+            _token?.Dispose();
+            _token = null;
         }
 
         private void Init()
@@ -216,7 +214,7 @@ namespace Scripts.Core
             _isSceneLoading = true;
             Time.timeScale = 1f;
             Debug.Log($"LoadAsyncScene : {type}");
-            //기존의 핸들이 있다면, 핸들들을 Release시켜줘야함.
+            //새 씬 로딩 전에 이전 씬/스테이지에서 사용하던 리소스를 정리한다.
             ReleaseHandle();
             LoadingScene(type).Forget();
         }
@@ -225,7 +223,7 @@ namespace Scripts.Core
         {
             SFXManager.Instance.unloadSFXBatch((ulong)_curType);
             VFXManager.Instance.unloadVFXBatch((ulong)_curType);
-            //뭔가 값이 있다면 해제
+            //GameManager가 추적 중인 스테이지 리소스 캐시를 모두 해제한다.
             foreach (var cache in _stageResourceCaches.Values)
             {
                 cache.Release();   
@@ -267,17 +265,14 @@ namespace Scripts.Core
                     _VFXSceneHandle = VFXManager.Instance.PreLoadVFX((ulong)type, sceneVfxList.ToArray());
                 if (IsSFXLoadNeed)
                     _SFXSceneHandle = SFXManager.Instance.PreLoadSFX((ulong)type, sceneSfxList.ToArray());
-                
-                bool vfxDone = !_VFXSceneHandle.IsValid() || _VFXSceneHandle.IsDone;
-                bool sfxDone = !_SFXSceneHandle.IsValid() || _SFXSceneHandle.IsDone;
-
                 //리소스가 전부 로딩될때까지 대기
                 // * 현재는 main씬밖에 없으니까 상관없지만, 나중에 씬이 늘어나면 cache를 공통으로 묶어야 할 필요 있음
-                while (!((cache == null || cache.IsDone) && (vfxDone && sfxDone)))
+                if (cache != null)
                 {
-                    vfxDone = !_VFXSceneHandle.IsValid() || _VFXSceneHandle.IsDone;
-                    sfxDone = !_SFXSceneHandle.IsValid() || _SFXSceneHandle.IsDone;
-
+                    await cache.WaitUntilDone(_token.Token);
+                }
+                while (_VFXSceneHandle.IsLoading() || _SFXSceneHandle.IsLoading())
+                {
                     await UniTask.Yield(_token.Token);
                 }
 
@@ -313,20 +308,19 @@ namespace Scripts.Core
 
 
 
-        /// <summary> 스테이지 단위 변경 시 필요한 리소스 로딩</summary>
-        /// <param name="curStage">현재 스테이지</param>
-        /// <param name="nextStage">이동할 스테이지</param>
-        /// <param name="onStageLoaded_callback">로딩 완료시 콜백할 액션</param>
+        /// <summary>
+        /// 스테이지 전환 시 다음 스테이지 그룹에 필요한 리소스를 준비한 뒤 콜백을 호출한다.
+        /// 씬은 바꾸지 않고 스테이지 그룹의 몬스터/SFX/VFX 리소스만 갱신한다.
+        /// </summary>
         public async UniTaskVoid LoadStage(eStage curStage, eStage nextStage, Action<eStage> onStageLoaded_callback)
         {
             float startRealtime = Time.realtimeSinceStartup;
             ulong resourceId = GetResourceGroupId(nextStage);
 
             StageResourceCache cache = GetOrPreloadStageResources(resourceId);
-
-            while (!cache.IsDone)
+            if (cache != null)
             {
-                await UniTask.Yield(_LoadStageToken.Token);
+                await cache.WaitUntilDone(_LoadStageToken.Token);
             }
             
             onStageLoaded_callback.Invoke(nextStage);
@@ -344,8 +338,10 @@ namespace Scripts.Core
             if (_stageResourceCaches.TryGetValue(resourceId, out StageResourceCache oldCache))
                 return oldCache;
 
-            StageResourceCache cache = new StageResourceCache();
-            cache.MonsterHandle = StageManager.Instance.PreLoadAssets((eStage)resourceId);
+            StageResourceCache cache = new StageResourceCache
+            {
+                MonsterLoadTask = StageManager.Instance.PreLoadAssets((eStage)resourceId)
+            };
             //스테이지 그룹에 사용되는 몬스터 리스트 받아오기
             List<eMonsterType> monList = StageManager.Instance.GetStageMonsterTypes((eStage)resourceId);
             //몬스터 리스트가 비어있을 때 방지
@@ -373,41 +369,43 @@ namespace Scripts.Core
             return cache;
         }
         /// <summary>
-        /// 특정 스테이지 그룹에서 사용되는 리소스 그룹
-        /// 1. MonsterHandle : 몬스터 프리팹
-        /// 2. MonsterSfxHandle : 몬스터 SFX(사운드) 리소스
-        /// 3. MonsterVfxHandle : 몬스터 VFX(피격/공격이펙트 등..) 리소스
+        /// 특정 스테이지 그룹의 몬스터, 몬스터 SFX, 몬스터 VFX 로딩 상태를 함께 추적한다.
+        /// <br/>* 몬스터 프리팹 로딩은 MonsterSpawner가 UniTask로 진행하며,
+        /// GameManager는 반환된 Task를 기다려 스테이지 리소스 준비 완료 시점만 맞춘다.
         /// </summary>
         private class StageResourceCache
         {
-            public AsyncOperationHandle<IList<GameObject>> MonsterHandle;
+            public UniTask MonsterLoadTask;
             public AsyncOperationHandle<IList<AudioClip>> MonsterSfxHandle;
             public AsyncOperationHandle<IList<GameObject>> MonsterVfxHandle;
             
-            //스테이지의 모든 리소스가 로딩되었는지 확인
-            public bool IsDone =>
-                (!MonsterHandle.IsValid() || MonsterHandle.IsDone) &&
-                (!MonsterSfxHandle.IsValid() || MonsterSfxHandle.IsDone) &&
-                (!MonsterVfxHandle.IsValid() || MonsterVfxHandle.IsDone);
+            /// <summary>
+            /// 몬스터 프리팹 Task와 몬스터 SFX/VFX handle이 모두 끝날 때까지 기다린다.
+            /// </summary>
+            public async UniTask WaitUntilDone(CancellationToken token)
+            {
+                await MonsterLoadTask;
+                while (MonsterSfxHandle.IsLoading() || MonsterVfxHandle.IsLoading())
+                {
+                    Debug.Log("await");
+                    await UniTask.Yield(token);
+                }
+            }
 
             public void Release()
             {
-                if (MonsterHandle.IsValid())
-                    Addressables.Release(MonsterHandle);
-
                 if (MonsterSfxHandle.IsValid())
                     Addressables.Release(MonsterSfxHandle);
 
                 if (MonsterVfxHandle.IsValid())
                     Addressables.Release(MonsterVfxHandle);
 
-                MonsterHandle = default;
                 MonsterSfxHandle = default;
                 MonsterVfxHandle = default;
             }
             
         }
-        
+
         /// <summary> 스테이지에 등장할 몬스터 타입들을 기준으로 미리 로드할 SFX 목록을 수집한다. </summary>
         /// <param name="monList">스테이지에 등장할 몬스터 타입 목록</param>
         /// <param name="Ids">미리 로드할 SFX 타입 배열. 대상이 없으면 빈 배열</param>

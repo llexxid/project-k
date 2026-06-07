@@ -64,7 +64,7 @@ namespace Scripts.Monster
 		[SerializeField]
 		private MonsterStat _stat;
 		private MonsterStat _initialStat; // 여기 추가함
-		[System.NonSerialized] eMonsterType _type;
+		[NonSerialized] eMonsterType _type;
 		long _dropTableNumber;
 		public long Exp { get; set; }
 		public double Ratio { get; set; }
@@ -80,58 +80,24 @@ namespace Scripts.Monster
 		[SerializeField]
 		private float _detectRadius;
 
-		public eMonsterType Type
-		{
-			get { return _type; }
-		}
-		public Animator Animator
-		{
-			get
-			{
-				return _am;
-			}
-		}
-		public eMonsterAction MonAction { get { return _monAction; } }
+		public eMonsterType Type => _type;
+		public Animator Animator => _am;
+		public eMonsterAction MonAction => _monAction;
 		public bool IsActive { get; set; }
-		public ulong damage
-		{
-			get
-			{
-				return _stat._atk;
-			}
-		}
-		public Vector3 attackerPos
-		{
-			get
-			{
-				return transform.position;
-			}
-		}
-		public Vector3 targetPos
-		{
-			get
-			{
-				return transform.position;
-			}
-		}
-		public float AttackRadius
-		{
-			get { return _attackRadius; }
-		}
-		public float DectectRadius
-		{
-			get { return _detectRadius; }
-		}
-		public int FacingDir
-		{
-			get { return _facingDir; }
-		}
+		public ulong damage => _stat._atk;
+
+		public Vector3 attackerPos => transform.position;
+
+		public Vector3 targetPos => transform.position;
+
+		public float AttackRadius => _attackRadius;
+
+		public float DectectRadius => _detectRadius;
+
+		public int FacingDir => _facingDir;
 		AnimatorComponent<eMonsterAction> _animatorComponent;
 
-		public AnimatorComponent<eMonsterAction> AnimationComponent
-		{
-			get { return _animatorComponent; }
-		}
+		public AnimatorComponent<eMonsterAction> AnimationComponent => _animatorComponent;
 		StateMachine<Monster> _stateManchine;
 
 		// ── [WaveManager] Alloc 세대 카운터 ──
