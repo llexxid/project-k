@@ -163,7 +163,7 @@ namespace Scripts.Core.Utils
 			cache = new MonsterAssetGroupCache();
 			_monsterAssetGroup.Add((long)groupId, cache);
 			cache.LoadTask = LoadAssetAsync(cache, ids);
-			// 호출자는 이 Task를 await해서 몬스터 캐시가 준비될 때까지 기다릴 수 있다.
+			// 호출자는 이 Task를 await해서 몬스터 캐시가 준비될 때까지 기다릴 수 있다
 			return cache.LoadTask;
 		}
 
@@ -171,7 +171,7 @@ namespace Scripts.Core.Utils
 		{
 			var tasks = new List<UniTask>();
 			// LoadAssetsAsync는 결과 순서가 요청 순서와 다를 수 있으므로
-			// 몬스터 타입별로 단일 LoadAssetAsync를 요청하고 id와 handle을 직접 매핑한다.
+			// 몬스터 타입별로 단일 LoadAssetAsync를 요청하고 id와 handle을 직접 매핑
 			foreach (eMonsterType id in ids)
 			{
 				//해당 몬스터가 이미 로딩되어 있거나, 핸들에 있을 때 넘기기(cache.Handles 덮어쓰기 방지)
@@ -188,7 +188,7 @@ namespace Scripts.Core.Utils
 
 		private async UniTask CacheMonster(eMonsterType id, AsyncOperationHandle<GameObject> handle)
 		{
-			// Addressables 로드가 끝난 prefab에서 Monster 컴포넌트를 꺼내 전역 몬스터 캐시에 등록한다.
+			// Addressables 로드가 끝난 prefab에서 Monster 컴포넌트를 꺼내 전역 몬스터 캐시에 등록
 			GameObject prefab = await handle.Task;
 			Monster monster = prefab.GetComponent<Monster>();
 			if (monster == null)

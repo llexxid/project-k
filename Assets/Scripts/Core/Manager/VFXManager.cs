@@ -165,19 +165,38 @@ namespace Scripts.Core
 			_BatchHandles.Add((ulong)groupId, handle);
 
 			result = await handle.Task;
-			//완료가 되었을 때 하는 로직
+			//IdList에 중복이 있거나 MergeMode.Union으로 중복을 합치면 result와 IdList에 차이가 날 수 있음. 로그만 찍고 계속진행
 			if (result.Count != IdList.Length)
 			{
-				CustomLogger.LogError("The number of resources requested to load is not the same as the number of id arrays. check IdList[]");
-				return;
+				CustomLogger.LogWarning($"[VFXManager] Requested VFX count and loaded count differ. Requested:{IdList.Length}, Loaded:{result.Count}");
 			}
 
-			VFXEntity resource;
-			for (int i = 0; i < result.Count; i++)
+			/*
+			 * Log : 기존 방식은 IDList[i]와 result[i]가 동일하다는 보장이 없음.
+			 * ex. IDList = ["HittedVFX", "HittedVFX2"]지만 resuilt = ["HittedVFX2", "HittedVFX"]일 수 있음
+			 * 이로인해 오류는 발생하지 않지만 이펙트 출력이 꼬일 위험이 존재해서 이를 수정함
+			 */
+			foreach (GameObject obj in result)
 			{
-				resource = result[i].gameObject.GetComponent<VFXEntity>();
-				OnLoadAsset(IdList[i], resource);
+				//result 프리팹의 이름을 가진 eVFXType을 변환
+				//ex. 오브젝트의 이름이 HittedVFX -> eVFXType의 HittedVFX = 2147483649로 변환
+				//여기서 주의할점은 프리팹(Assets.Prefabs.VFX)의 이름과 eVFXType내부의 이름이 일치해야함 
+				if (!Enum.TryParse(obj.name, out eVFXType key))
+				{
+					CustomLogger.LogWarning($"[VFXManager] VFX 이름을 eVFXType으로 변환할 수 없습니다: {obj.name}");
+					continue;
+				}
+
+				VFXEntity resource = obj.GetComponent<VFXEntity>();
+				if (resource == null)
+				{
+					CustomLogger.LogWarning($"[VFXManager] VFXEntity가 없습니다: {obj.name}");
+					continue;
+				}
+				
+				CacheAssets(key, resource);
 			}
+			
 		}
 
 		private bool TryLoadFromCache(eVFXType id, Vector3 pos, Quaternion rotation, out VFXEntity ret)
@@ -214,7 +233,7 @@ namespace Scripts.Core
 			}
 			//Callback으로 등록
 			resourceVfx = loadedObj.GetComponent<VFXEntity>();
-			OnLoadAsset(id, resourceVfx);
+			CacheAssets(id, resourceVfx);
 			//만약 pooling effect면, pooling해주기.
 			if (CheckPoolingEffect(id))
 			{
@@ -236,13 +255,13 @@ namespace Scripts.Core
 			}
 			return true;
 		}
-		private void OnLoadAsset(eVFXType id, VFXEntity obj)
+		/// <summary> _effectCache에 새로운 VFX 오브젝트 추가</summary>
+		private void CacheAssets(eVFXType id, VFXEntity obj)
 		{
-			//이미 cache에 등록된 경우가 있을 수 있음.
-			//ex. 몬스터들이 중복적으로 똑같은 VFX를 가져야하는 경우(휴먼에러든, 기획상으로든)
-			if (_effectCache.ContainsKey(id) == false)
+			if(!_effectCache.TryAdd(id, obj))
 			{
-				_effectCache.Add(id, obj);
+				//디버깅용으로 필수는 아님
+				CustomLogger.LogWarning($"[VFXManager] VFX already cached: {id}");
 			}
 		}
 		public void Clear()
