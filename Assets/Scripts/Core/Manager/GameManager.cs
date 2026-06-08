@@ -35,7 +35,7 @@ namespace Scripts.Core
         public event Action<eSceneType> SceneLoadFinished;
         public event Action<eSceneType, float> SceneLoadProgress;
 
-        private CancellationTokenSource _token;
+        private CancellationTokenSource _loadingToken;
         private CancellationTokenSource _LoadStageToken;
 
         private AsyncOperation _UnitySceneLoaderOp;
@@ -106,14 +106,14 @@ namespace Scripts.Core
             _LoadStageToken?.Cancel();
             _LoadStageToken?.Dispose();
             _LoadStageToken = null;
-            _token?.Cancel();
-            _token?.Dispose();
-            _token = null;
+            _loadingToken?.Cancel();
+            _loadingToken?.Dispose();
+            _loadingToken = null;
         }
 
         private void Init()
         {
-            _token = new CancellationTokenSource();
+            _loadingToken = new CancellationTokenSource();
             _LoadStageToken = new CancellationTokenSource();
 
             _monsterMetaDataSO.Init();
@@ -248,65 +248,35 @@ namespace Scripts.Core
         {
             try
             {
-                if (_token == null)
-                    _token = new CancellationTokenSource();
+                if (_loadingToken == null)
+                    _loadingToken = new CancellationTokenSource();
 
                 SceneLoadStarted?.Invoke(type);
 
-                string sceneName = GetSceneName(type);
-                StageResourceCache cache = null;
-                // 사용자의 현재 스테이지 정보를 가져와서 로딩 준비.
-                if (type == eSceneType.main)
+                switch (type)
                 {
-                    eStage currentStage = UserManager.Instance.GetUserCurrentStage();
-                    ulong resourceId = GetResourceGroupId(currentStage);
-                    cache = GetOrPreloadStageResources(resourceId);
+                    case eSceneType.title:
+                        await LoadingTitleScene();
+                        break;
+                    case eSceneType.main:
+                        await LoadingMainScene();
+                        break;
+                    default :
+                        CustomLogger.LogError("아직 구현되지 않은 씬입니다.");
+                        return;
                 }
 
-                //씬에 필요한 VFX,SFX 로딩
-                List<eVFXType> sceneVfxList;
-                List<eSFXType> sceneSfxList;
-                //불러와야 할 리소스가 있으면 프리로드
-                bool IsVFXLoadNeed = _SceneVFXMetaSO.TryGetVFXTypeList(type, out sceneVfxList);
-                bool IsSFXLoadNeed = _SceneSFXMetaSO.TryGetSFXTypeList(type, out sceneSfxList);
-                if (IsVFXLoadNeed)
-                    _VFXSceneHandle = VFXManager.Instance.PreLoadVFX((ulong)type, sceneVfxList.ToArray());
-                if (IsSFXLoadNeed)
-                    _SFXSceneHandle = SFXManager.Instance.PreLoadSFX((ulong)type, sceneSfxList.ToArray());
-                //리소스가 전부 로딩될때까지 대기
-                // * 현재는 main씬밖에 없으니까 상관없지만, 나중에 씬이 늘어나면 cache를 공통으로 묶어야 할 필요 있음
-                if (cache != null)
-                {
-                    await cache.WaitUntilDone(_token.Token);
-                }
-                while (_VFXSceneHandle.IsLoading() || _SFXSceneHandle.IsLoading())
-                {
-                    await UniTask.Yield(_token.Token);
-                }
-
-                _UnitySceneLoaderOp = SceneManager.LoadSceneAsync(sceneName);
-                _UnitySceneLoaderOp.allowSceneActivation = false;
-                // 실제 씬 활성화 완료까지 대기
-                while (!_UnitySceneLoaderOp.isDone)
-                {
-                    if (_UnitySceneLoaderOp.progress >= 0.9f)
-                    {
-                        _UnitySceneLoaderOp.allowSceneActivation = true;
-                    }
-
-                    await UniTask.Yield(_token.Token);
-                }
-                _curType = type; 
+                _curType = type;
                 SceneLoadProgress?.Invoke(type, 1f);
                 SceneLoadFinished?.Invoke(type);
             }
             catch (OperationCanceledException)
             {
-                Debug.LogWarning($"[GameManager] Scene loading canceled: {type}");
+                CustomLogger.LogWarning($"[GameManager] Scene loading canceled: {type}");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[GameManager] Scene loading failed: {type}\n{ex}");
+                CustomLogger.LogError($"[GameManager] Scene loading failed: {type}\n{ex}");
             }
             finally
             {
@@ -314,8 +284,88 @@ namespace Scripts.Core
             }
         }
 
+        /// <summary> 메인 씬 로딩</summary>
+        private async UniTask LoadingMainScene()
+        {
+            eSceneType type = eSceneType.main;
+            StageResourceCache cache = LoadStageResources(type);
+            LoadSceneResources(type);
+            
+            await WaitForLoadingResources(cache, _loadingToken.Token);
+            await LoadUnitySceneAsync(type);
+        }
 
+        /// <summary> 타이틀 씬 로딩</summary>
+        private async UniTask LoadingTitleScene()
+        {
+            eSceneType type = eSceneType.title;
+            LoadSceneResources(type);
 
+            await WaitForLoadingResources(null, _loadingToken.Token);
+            await LoadUnitySceneAsync(type);
+        }
+        /// <summary> 씬에서 사용할 리소스 프리로딩 </summary>
+        private void LoadSceneResources(eSceneType type)
+        {
+            //씬에 필요한 VFX,SFX 로딩
+            List<eVFXType> sceneVfxList;
+            List<eSFXType> sceneSfxList;
+            //불러와야 할 리소스가 있으면 프리로드
+            bool IsVFXLoadNeed = _SceneVFXMetaSO.TryGetVFXTypeList(type, out sceneVfxList);
+            bool IsSFXLoadNeed = _SceneSFXMetaSO.TryGetSFXTypeList(type, out sceneSfxList);
+            if (IsVFXLoadNeed)
+                _VFXSceneHandle = VFXManager.Instance.PreLoadVFX((ulong)type, sceneVfxList.ToArray());
+            if (IsSFXLoadNeed)
+                _SFXSceneHandle = SFXManager.Instance.PreLoadSFX((ulong)type, sceneSfxList.ToArray());
+        }
+
+        /// <summary> 스테이지에서 사용할 리소스를 프리로드 </summary>
+        private StageResourceCache LoadStageResources(eSceneType type)
+        {
+            StageResourceCache cache = null;
+
+            if (type != eSceneType.main)
+            {
+                return null;
+            }
+            // 사용자의 현재 스테이지 정보를 가져와서 로딩 준비.
+            eStage currentStage = UserManager.Instance.GetUserCurrentStage();
+            ulong resourceId = GetResourceGroupId(currentStage);
+            
+            return GetOrPreloadStageResources(resourceId);
+        }
+
+        /// <summary> 모든 리소스 로딩을 대기하는 메서드</summary>
+        private async UniTask WaitForLoadingResources(StageResourceCache cache, CancellationToken token)
+        {
+            if (cache != null)
+            {
+                await cache.WaitUntilDone(token);
+            }
+
+            while (_SFXSceneHandle.IsLoading() || _VFXSceneHandle.IsLoading())
+            {
+                await UniTask.Yield(token);
+            }
+        }
+        /// <summary> 유니티 씬 이동준비 </summary>
+        private async UniTask LoadUnitySceneAsync(eSceneType type)
+        {
+            string sceneName = GetSceneName(type);
+
+            _UnitySceneLoaderOp = SceneManager.LoadSceneAsync(sceneName);
+            _UnitySceneLoaderOp.allowSceneActivation = false;
+            // 실제 씬 활성화 완료까지 대기
+            while (!_UnitySceneLoaderOp.isDone)
+            {
+                if (_UnitySceneLoaderOp.progress >= 0.9f)
+                {
+                    _UnitySceneLoaderOp.allowSceneActivation = true;
+                }
+
+                await UniTask.Yield(_loadingToken.Token);
+            }
+        }
         /// <summary>
         /// 스테이지 전환 시 다음 스테이지 그룹에 필요한 리소스를 준비한 뒤 콜백을 호출한다.
         /// 씬은 바꾸지 않고 스테이지 그룹의 몬스터/SFX/VFX 리소스만 갱신한다.
