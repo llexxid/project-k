@@ -3,6 +3,7 @@ using Scripts.Core.Utils;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
@@ -94,8 +95,7 @@ namespace Scripts.Core
 
 			}
 			//Load해야함.
-			LoadClipAsync(Id, pos, rotation, OnLoaded);
-			return;
+			LoadClipAsync(Id, pos, rotation, OnLoaded).Forget();
 		}
 		public void DestroySFX(SFXEntity sfx)
 		{
@@ -115,41 +115,49 @@ namespace Scripts.Core
 			_Handles.Clear();
 			_BatchHandles.Clear();
 		}
-		private async void LoadClipAsync(eSFXType Id, Vector3 pos, Quaternion rotation, Action<SFXEntity> OnLoaded)
+		private async UniTask LoadClipAsync(eSFXType Id, Vector3 pos, Quaternion rotation, Action<SFXEntity> OnLoaded)
 		{
-			bool IsLoaded = _Handles.TryGetValue(Id, out var handle);
-			AudioClip clip;
-
-			if (IsLoaded)
+			try
 			{
-				CustomLogger.LogWarning("You requested to load SFX while the system was already in a loading state.");
-				return;
+				bool IsLoaded = _Handles.TryGetValue(Id, out var handle);
+				AudioClip clip;
+
+				if (IsLoaded)
+				{
+					CustomLogger.LogWarning("You requested to load SFX while the system was already in a loading state.");
+					return;
+				}
+				
+				handle = Addressables.LoadAssetAsync<AudioClip>(Id.ToString());
+				_Handles.Add(Id, handle);
+				clip = await handle.Task;
+				
+				SFXEntity sfx;
+				_AudioCache.Add(Id, clip);
+				sfx = _AudioSourcePool.Alloc(pos, rotation);
+				sfx.SetClip(clip);
+				OnLoaded?.Invoke(sfx);
 			}
-			
-			handle = Addressables.LoadAssetAsync<AudioClip>(Id.ToString());
-			_Handles.Add(Id, handle);
-			clip = await handle.Task;
-			
-			SFXEntity sfx;
-			_AudioCache.Add(Id, clip);
-			sfx = _AudioSourcePool.Alloc(pos, rotation);
-			sfx.SetClip(clip);
-			OnLoaded?.Invoke(sfx);
-			return;
+			catch (OperationCanceledException)
+			{
+				CustomLogger.LogWarning($"[SFXManager] AudioClip loading canceled: {Id}");
+			}
+			catch (Exception ex)
+			{
+				CustomLogger.LogError($"[SFXManager] AudioClip loading failed: {Id}\n{ex}");
+			}
 		}
 		/// <summary>
 		/// 필요한 SFX들 로드하는 함수
 		/// </summary>
 		/// <param name="groupId"></param>
 		/// <param name="clipsId"></param>
-		public async void LoadClipsAsync(ulong groupId, eSFXType[] clipsId)
+		public async UniTask LoadClipsAsync(ulong groupId, eSFXType[] clipsId)
 		{
-			//만약 여러번 요청한다면..
-			bool IsLoaded = _BatchHandles.TryGetValue((ulong)groupId, out var handle);
+			bool IsLoaded = _BatchHandles.TryGetValue(groupId, out var handle);
 			IList<AudioClip> clips;
 			if (IsLoaded)
 			{
-				//이럴일은 없겠지만..있어서도 안되겠지만..
 				CustomLogger.LogWarning("You requested to load SFX while the system was already in a loading state.");
 				return;
 			}
@@ -158,18 +166,16 @@ namespace Scripts.Core
 			handle = Addressables.LoadAssetsAsync<AudioClip>(keys, (loaded) => { }, Addressables.MergeMode.Union);
 			_BatchHandles.Add((ulong)groupId, handle);
 
-
 			clips = await handle.Task;
 			foreach (AudioClip clip in clips)
 			{
-				if (System.Enum.TryParse(clip.name, out eSFXType key) && !_AudioCache.ContainsKey(key))
+				if (Enum.TryParse(clip.name, out eSFXType key) && !_AudioCache.ContainsKey(key))
 					_AudioCache.Add(key, clip);
 			}
 		}
 
 		public void unloadSFXBatch(ulong groupId)
 		{
-			//
 			bool flag;
 			flag = _BatchHandles.TryGetValue(groupId, out var handle);
 			if (flag)
@@ -202,7 +208,7 @@ namespace Scripts.Core
 				SetAndPlayBGM(clip);
 				return;
 			}
-			LoadBGMAsync(id);
+			LoadBGMAsync(id).Forget();
 		}
 
 		public void StopBGM()
@@ -217,7 +223,7 @@ namespace Scripts.Core
 			_bgmSource.Play();
 		}
 
-		private async void LoadBGMAsync(eSFXType id)
+		private async UniTask LoadBGMAsync(eSFXType id)
 		{
 			bool isLoaded = _Handles.TryGetValue(id, out var handle);
 			if (isLoaded)
