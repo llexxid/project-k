@@ -214,21 +214,29 @@ namespace Scripts.Core
             _isSceneLoading = true;
             Time.timeScale = 1f;
             Debug.Log($"LoadAsyncScene : {type}");
-            //새 씬 로딩 전에 이전 씬/스테이지에서 사용하던 리소스를 정리한다.
+            //새 씬 로딩 전에 이전 씬/스테이지에서 사용하던 리소스를 정리
             ReleaseHandle();
             LoadingScene(type).Forget();
         }
 
+        /// <summary> 씬 변경등의 이유로 모든 리소스를 해제하는 메서드</summary>
         private void ReleaseHandle()
         {
-            SFXManager.Instance.unloadSFXBatch((ulong)_curType);
-            VFXManager.Instance.unloadVFXBatch((ulong)_curType);
-            //GameManager가 추적 중인 스테이지 리소스 캐시를 모두 해제한다.
-            foreach (var cache in _stageResourceCaches.Values)
+            /*
+             * GameManager가 추적 중인 씬 리소스 캐시를 모두 해제
+             * Log : 기존 SFXManager.Instance.unloadSFXBatch((ulong)_curType) 처럼 특정 씬의 리소스만 제거하는 형식이나
+             * 이 과정에서 핸들은 제거되었지만 실제 캐시들은 제거되지 않는 형식이어서 일단 전부 제거로 수정함
+             * 해당 ReleaseHandle()은 씬 변경등 전체 리소스를 제거할 소요가 있을 부분이기 때문으로 판단
+             */
+            SFXManager.Instance.unloadSFXBatch();
+            VFXManager.Instance.unloadVFXBatch();
+            //GameManager가 추적 중인 스테이지 리소스 캐시를 모두 해제
+            foreach ((ulong resourceId, StageResourceCache cache) in _stageResourceCaches)
             {
-                cache.Release();   
+                cache.Release(resourceId);   
             }
             _stageResourceCaches.Clear();
+            MonsterSpawner.Instance.Clear();
         }
 
         // * 씬 늘어날 시 개선필요함
@@ -392,16 +400,18 @@ namespace Scripts.Core
                 }
             }
 
-            public void Release()
+            public void Release(ulong resourceId)
             {
+                MonsterSpawner.Instance.Clear();
                 if (MonsterSfxHandle.IsValid())
-                    Addressables.Release(MonsterSfxHandle);
+                    SFXManager.Instance.unloadSFXBatch(resourceId);
 
                 if (MonsterVfxHandle.IsValid())
-                    Addressables.Release(MonsterVfxHandle);
+                    VFXManager.Instance.unloadVFXBatch(resourceId);
 
                 MonsterSfxHandle = default;
                 MonsterVfxHandle = default;
+                MonsterLoadTask = default;
             }
             
         }

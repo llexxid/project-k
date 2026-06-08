@@ -26,6 +26,10 @@ namespace Scripts.Core
 		//SFX DataStore
 		private Dictionary<eSFXType, AudioClip> _AudioCache;
 		private Dictionary<eSFXType, AsyncOperationHandle<AudioClip>> _Handles;
+		//각 스테이지 / 씬에 어떤 SFX리소스가 존재하는지에 대한 딕셔너리.
+		//현재는 구현안되어있지만 이후 Preload하는 등 새로 캐시를 불러올때 해당 딕셔너리에 추가할 예정
+		private Dictionary<ulong, HashSet<eSFXType>> _BatchLoadedSfxIds; 
+
 
 		private Dictionary<ulong, AsyncOperationHandle<IList<AudioClip>>> _BatchHandles;
 
@@ -121,12 +125,11 @@ namespace Scripts.Core
 				CustomLogger.LogWarning("You requested to load SFX while the system was already in a loading state.");
 				return;
 			}
-			else
-			{
-				handle = Addressables.LoadAssetAsync<AudioClip>(Id.ToString());
-				_Handles.Add(Id, handle);
-				clip = await handle.Task;
-			}
+			
+			handle = Addressables.LoadAssetAsync<AudioClip>(Id.ToString());
+			_Handles.Add(Id, handle);
+			clip = await handle.Task;
+			
 			SFXEntity sfx;
 			_AudioCache.Add(Id, clip);
 			sfx = _AudioSourcePool.Alloc(pos, rotation);
@@ -166,6 +169,7 @@ namespace Scripts.Core
 
 		public void unloadSFXBatch(ulong groupId)
 		{
+			//
 			bool flag;
 			flag = _BatchHandles.TryGetValue(groupId, out var handle);
 			if (flag)
@@ -173,6 +177,20 @@ namespace Scripts.Core
 				Addressables.Release(handle);
 				_BatchHandles.Remove(groupId);
 			}
+		}
+
+		/// <summary> 전체 SFX 리소스를 정리하는 메서드</summary>
+		public void unloadSFXBatch()
+		{
+			_AudioCache.Clear();
+			
+			foreach (var handle in _BatchHandles.Values)
+			{
+				if (handle.IsValid())
+					Addressables.Release(handle);
+			}
+
+			_BatchHandles.Clear();
 		}
 
 		public void PlayBGM(eSFXType id)

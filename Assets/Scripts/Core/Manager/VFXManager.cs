@@ -10,16 +10,29 @@ using Scripts.Core.Utils;
 
 namespace Scripts.Core
 {
+	/// <summary>
+	/// 1. 씬/스테이지 진입 전 필요한 VFX를 미리 로딩
+	/// <br/>2. 게임 중 특정 VFX 요청이 오면 캐시에서 꺼내 재생
+	/// <br/>3. 풀링 VFX는 재사용, 비풀링 VFX는 사용 후 파괴
+	/// </summary>
 	public class VFXManager : MonoBehaviour
 	{
 		public static VFXManager Instance;
 
 		Transform _vfxParents;
-
-		private Dictionary<eVFXType, VFXEntity> _effectCache;
+		//게임플레이 중 VFX 사용목적 변수들
+		//로드된 VFX 프리팹의 저장소
+		private Dictionary<eVFXType, VFXEntity> _effectCache; 
+		//씬에서 사용할 VFX 타입별 오브젝트 풀
 		private Dictionary<eVFXType, ObjectPool<VFXEntity>> _VFXPools;
-
+		//각 스테이지 / 씬에 어떤 VFX리소스가 존재하는지에 대한 딕셔너리.
+		//현재는 구현안되어있지만 이후 Preload하는 등 새로 캐시를 불러올때 해당 딕셔너리에 추가할 예정
+		private Dictionary<ulong, HashSet<eVFXType>> _BatchLoadedVfxIds;
+		
+		//Addressable 생명주기 관리용 변수들
+		//Addressables 리소스 해제용 handle 저장소
 		private Dictionary<ulong, AsyncOperationHandle<IList<GameObject>>> _BatchHandles;
+		//개별 VFX를 즉시 로딩했을 때의 단일 handle 저장소
 		private Dictionary<eVFXType, AsyncOperationHandle<GameObject>> _Handles;
 
 		private void Awake()
@@ -28,7 +41,7 @@ namespace Scripts.Core
 			{
 				Instance = this;
 				Instance.Init();
-				DontDestroyOnLoad(this);
+				DontDestroyOnLoad(gameObject);
 				return;
 			}
 			Destroy(this);
@@ -42,29 +55,32 @@ namespace Scripts.Core
 			_Handles = new Dictionary<eVFXType, AsyncOperationHandle<GameObject>>();
 		}
 		/// <summary>
-		/// 씬에 진압할 때, VFXManager 리소스를 WarmUp하는 함수입니다.
+		/// _effectCache에 로딩되어 있는 VFX 프리팹들을 보고, 풀링 대상이면 _VFXPools에 풀을 만드는 메서드
 		/// </summary>
 		public void OnEnterScene()
 		{
+			//기존 루트가 남아있으면 내부의 오브젝트들이 제거되지 않을 수 있어 정리하고 새로 만들어주기
+			if (_vfxParents != null)
+			{
+				Destroy(_vfxParents.gameObject);
+				_vfxParents = null;
+			}
 			GameObject obj = new GameObject("VFX_Root");
 			_vfxParents = obj.transform;
-
-			//지우고, 등록을 했다는건 내가 Load한것들이 Cache에 있음.
-			foreach (var Item in _effectCache)
+			
+			_VFXPools.Clear();
+			
+			foreach ((eVFXType id, VFXEntity vfxObj) in _effectCache)
 			{
-				VFXEntity vfxObj = Item.Value;
-				eVFXType id = Item.Key;
 				//만약 pooling effect면, pooling해주기.
 				if (CheckPoolingEffect(id))
 				{
-					ObjectPool<VFXEntity> objectpool = new ObjectPool<VFXEntity>();
-					objectpool.Init((int)DEFAULT_VALUE.PoolingSize, _vfxParents, vfxObj);
-					_VFXPools.Add(id, objectpool);
+					ObjectPool<VFXEntity> objectPool = new ObjectPool<VFXEntity>();
+					objectPool.Init((int)DEFAULT_VALUE.PoolingSize, _vfxParents, vfxObj);
+					_VFXPools.Add(id, objectPool);
 				}
 			}
 		}
-
-
 
 		/// <summary>
 		/// VFX cache를 데우는 비동기 함수입니다. 로딩에서 통제합니다. 
@@ -127,13 +143,23 @@ namespace Scripts.Core
 		}
 		public void unloadVFXBatch(ulong groupId)
 		{
-			bool flag;
-			flag = _BatchHandles.TryGetValue(groupId, out var handle);
-			if (flag)
+			if (!_BatchHandles.TryGetValue(groupId, out var handle)) 
+				return;
+			
+			Addressables.Release(handle);
+			_BatchHandles.Remove(groupId);
+		}
+		/// <summary> 전체 VFX 리소스를 제거하는 메서드 </summary>
+		public void unloadVFXBatch()
+		{
+			_effectCache.Clear();
+			_VFXPools.Clear();
+			foreach (var handle in _BatchHandles.Values)
 			{
-				Addressables.Release(handle);
-				_BatchHandles.Remove(groupId);
+				if (handle.IsValid())
+					Addressables.Release(handle);
 			}
+			_BatchHandles.Clear();
 		}
 		public void unloadSingleVFX(eVFXType id)
 		{
