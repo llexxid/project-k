@@ -20,13 +20,15 @@ using static UnityEngine.Networking.UnityWebRequest;
 namespace Scripts.Core
 {
 	using Monster = Scripts.Monster.Monster;
+	public enum eStageResult
+	{
+		None, //변경사항 없음
+		WaveChanged, 
+		BossWaveEntered,
+		StageChanged,
+	}
 	public class StageManager : MonoBehaviour
 	{
-		enum eStageResult
-		{
-			_WaveChanged,
-			_StageChanged
-		}
 		public static StageManager Instance;
 		[SerializeField]
 		private StageMetaDataSO _stageSO;
@@ -199,7 +201,7 @@ namespace Scripts.Core
 
 			//NetworkManager.Instance.OnStageClear(OnStageClearSuccess, OnError);
 			// Stage가 바뀌는 경우 리소스 로드가 필요하다.
-			if (res == eStageResult._StageChanged)
+			if (res == eStageResult.StageChanged)
 			{
 				CustomLogger.Log($"Go To Next Stage");
 				LoadManager.Instance.LoadStage(_currentStage, nxtStage, StartStage);
@@ -260,11 +262,11 @@ namespace Scripts.Core
 				ulong stageAdder = 0x0000000000010000;
 				nxtstage = (eStage)((ulong)curstage + stageAdder);
 				++nxtstage;
-				return eStageResult._StageChanged;
+				return eStageResult.StageChanged;
 			}
 
 			nxtstage = (eStage)((ulong)++curstage);
-			return eStageResult._WaveChanged;
+			return eStageResult.WaveChanged;
 		}
 		private eStageResult CalculatePrevStage(eStage curstage, out eStage prevstage)
 		{
@@ -276,11 +278,11 @@ namespace Scripts.Core
 			if (wave <= 1)
 			{
 				prevstage = curstage;
-				return eStageResult._StageChanged;
+				return eStageResult.StageChanged;
 			}
 
 			prevstage = (eStage)((ulong)--curstage);
-			return eStageResult._WaveChanged;
+			return eStageResult.WaveChanged;
 		}
 
 		private void SendHuntResult()
