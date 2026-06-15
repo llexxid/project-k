@@ -7,30 +7,30 @@ namespace KingdomIdle.UIToolkit
     {
         [SerializeField] private string loadingText = "Loading...";
 
-        private GameManager _gm;
+        private LoadManager _lm;
 
         private void Start()
         {
-            _gm = GameManager.Instance;
-            if (_gm == null || UITKUIManager.Instance == null)
+            _lm = LoadManager.Instance;
+            if (_lm == null || UITKUIManager.Instance == null)
             {
                 Debug.LogError("[UITKLoadingOverlayBridge] Missing GameManager/UITKUIManager.");
                 enabled = false;
                 return;
             }
 
-            _gm.SceneLoadStarted += HandleStarted;
-            _gm.SceneLoadProgress += HandleProgress;
-            _gm.SceneLoadFinished += HandleFinished;
+            _lm.SceneLoadStarted += HandleStarted;
+            _lm.SceneLoadProgress += HandleProgress;
+            _lm.SceneLoadFinished += HandleFinished;
         }
 
         private void OnDestroy()
         {
-            if (_gm == null) return;
+            if (_lm == null) return;
 
-            _gm.SceneLoadStarted -= HandleStarted;
-            _gm.SceneLoadProgress -= HandleProgress;
-            _gm.SceneLoadFinished -= HandleFinished;
+            _lm.SceneLoadStarted -= HandleStarted;
+            _lm.SceneLoadProgress -= HandleProgress;
+            _lm.SceneLoadFinished -= HandleFinished;
         }
 
         private void HandleStarted(eSceneType type)

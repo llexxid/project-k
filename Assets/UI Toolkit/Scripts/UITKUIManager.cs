@@ -1420,8 +1420,8 @@ namespace KingdomIdle.UIToolkit
 			}
 
             _requestedScene = true;
-            if (GameManager.Instance != null)
-                GameManager.Instance.LoadAsyncScene(eSceneType.main);
+            if (LoadManager.Instance != null)
+                LoadManager.Instance.LoadAsyncScene(eSceneType.main);
         }
 
         /// <summary>

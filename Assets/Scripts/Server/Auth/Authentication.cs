@@ -198,7 +198,7 @@ namespace Scripts.Server.Auth
 			UserManager.Instance.SetCharacterData(userSignUpDTO.CharacterDatas);
 			UserManager.Instance.SetWallet(userSignUpDTO.Currency);
 
-			GameManager.Instance.LoadAsyncScene(eSceneType.main);
+			LoadManager.Instance.LoadAsyncScene(eSceneType.main);
 		}
 
 		private void OnExistUserSuccess(ExecuteFunctionResult result)
@@ -250,7 +250,7 @@ namespace Scripts.Server.Auth
 			UserManager.Instance.SetCharacterData(characterData);
 			UserManager.Instance.SetWallet(currency);
 
-			GameManager.Instance.LoadAsyncScene(eSceneType.main);
+			LoadManager.Instance.LoadAsyncScene(eSceneType.main);
 		}
 	}
 }

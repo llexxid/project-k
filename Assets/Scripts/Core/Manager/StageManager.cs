@@ -202,7 +202,7 @@ namespace Scripts.Core
 			if (res == eStageResult._StageChanged)
 			{
 				CustomLogger.Log($"Go To Next Stage");
-				GameManager.Instance.LoadStage(_currentStage, nxtStage, StartStage);
+				LoadManager.Instance.LoadStage(_currentStage, nxtStage, StartStage);
 			}
 			else
 			{

@@ -18,19 +18,19 @@ namespace KingdomIdle.UIToolkit
         [SerializeField] private string mainSceneName = "main";
         [SerializeField] private string dungeonSceneName = "dungeon";
 
-        private GameManager _gm;
+        private LoadManager _lm;
 
         private void Start()
         {
-            _gm = GameManager.Instance;
-            if (_gm == null || UITKUIManager.Instance == null)
+            _lm = LoadManager.Instance;
+            if (_lm == null || UITKUIManager.Instance == null)
             {
                 Debug.LogError("[UITKSceneRoutingBridge] Missing GameManager/UITKUIManager.");
                 enabled = false;
                 return;
             }
 
-            _gm.SceneLoadFinished += OnSceneLoadFinished;
+            _lm.SceneLoadFinished += OnSceneLoadFinished;
 
             // 현재 활성 씬 기준으로 1회 라우팅
             RouteFromActiveScene();
@@ -38,8 +38,8 @@ namespace KingdomIdle.UIToolkit
 
         private void OnDestroy()
         {
-            if (_gm != null)
-                _gm.SceneLoadFinished -= OnSceneLoadFinished;
+            if (_lm != null)
+                _lm.SceneLoadFinished -= OnSceneLoadFinished;
         }
 
         private void OnSceneLoadFinished(eSceneType type)

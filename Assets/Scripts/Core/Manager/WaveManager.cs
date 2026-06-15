@@ -175,7 +175,7 @@ namespace Scripts.Core
                 fade.FadeOut(0.4f, () =>
                 {
                     eStage prevResource = (eStage)((ulong)_currentStage - stageAdder - 1 + 10);
-                    GameManager.Instance.LoadStage(prevResource, _currentStage, (stage) =>
+                    LoadManager.Instance.LoadStage(prevResource, _currentStage, (stage) =>
                     {
                         _currentStage = stage;
                         ParseStage(stage, out _currentStageNumber, out _currentWave);

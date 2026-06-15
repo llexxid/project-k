@@ -11,15 +11,15 @@ namespace Scripts.Core
         
         private void Start()
         {
-            if (GameManager.Instance == null)
+            if (LoadManager.Instance == null)
             {
-                Debug.LogError("[BootstrapEntry] GameManager.Instance is null. Put GameManager in bootstrap scene.");
+                Debug.LogError("[BootstrapEntry] LoadManager.Instance is null. Put LoadManager in bootstrap scene.");
                 return;
             }
             if (useAsyncLoad)
-                GameManager.Instance.LoadAsyncScene(firstScene);
+                LoadManager.Instance.LoadAsyncScene(firstScene);
             else
-                GameManager.Instance.LoadScene(firstScene);
+                LoadManager.Instance.LoadScene(firstScene);
         }
     }
 }
