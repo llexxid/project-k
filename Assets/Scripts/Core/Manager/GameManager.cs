@@ -137,10 +137,14 @@ namespace Scripts.Core
 		{
 			switch (type)
 			{
-				case eSceneType.bootstrap: return bootstrapSceneName;
-				case eSceneType.title: return titleSceneName;
-				case eSceneType.main: return mainSceneName;
-				case eSceneType.dungeon: return dungeonSceneName;
+				case eSceneType.bootstrap:
+					return bootstrapSceneName;
+				case eSceneType.title:
+					return titleSceneName;
+				case eSceneType.main: 
+					return mainSceneName;
+				case eSceneType.dungeon: 
+					return dungeonSceneName;
 				default:
 					return type.ToString();
 			}

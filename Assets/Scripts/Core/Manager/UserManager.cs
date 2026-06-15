@@ -85,6 +85,16 @@ namespace Scripts.Core
 			_user.SetCoin(eCurrency.Gold, amount);
 		}
 
+		public void GainAracneKnowledge(long amount)
+		{
+			_user.GainArcaneKnowledge(amount);
+		}
+
+		public void GainClassFragment(long amount)
+		{
+			_user.GainClassFragment(amount);
+		}
+
 		public void GainExp(long exp)
 		{
 			_user.GainExp(exp);

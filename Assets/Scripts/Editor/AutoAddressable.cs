@@ -466,7 +466,6 @@ namespace Scripts.Core.Parser
             if (group == null)
             {
                 group = settings.CreateGroup(groupName, false, false, true, null);
-                Debug.Log($"�� �׷� ������");
             }
             //AssetDatabase.StartAssetEditing();
             //���鼭, �ش� fileName�� GUID ��ȸ.
@@ -487,7 +486,7 @@ namespace Scripts.Core.Parser
                         entry.labels.Add(groupName);
                         //entry.address = maskedId.ToString();
                         entry.address = AssetDatas[i][j].fileName;
-                        CustomLogger.Log($"[��� ����] ����: {AssetDatas[i][j].fileName} -> �ּ�: {AssetDatas[i][j]._MaskedId}");
+                        CustomLogger.Log($"[SetAddressable] filename: {AssetDatas[i][j].fileName} -> SetId: {AssetDatas[i][j]._MaskedId}");
                     }
                 }
             }

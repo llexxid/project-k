@@ -46,6 +46,7 @@ namespace Scripts.Wallets
 			pocket[type] = amount;
 			Notify(type);
 		}
+
 		public int TotalCoins
 		{
 			get { return totalCoins; }
