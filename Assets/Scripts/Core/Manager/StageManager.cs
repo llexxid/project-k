@@ -121,7 +121,7 @@ namespace Scripts.Core
 			return ret;
 		}
 
-		public void StartStage(eStage stage)
+		public void SpawnStageMonster(eStage stage)
 		{
 			_currentStage = stage;
 			//_totalCnt = 0;
@@ -184,7 +184,7 @@ namespace Scripts.Core
 
 				if (_IsLoop)
 				{
-					StartStage(_currentStage);
+					SpawnStageMonster(_currentStage);
 					return;
 				}
 				GoToNextStage();
@@ -204,13 +204,13 @@ namespace Scripts.Core
 			if (res == eStageResult.StageChanged)
 			{
 				CustomLogger.Log($"Go To Next Stage");
-				LoadManager.Instance.LoadStage(_currentStage, nxtStage, StartStage);
+				LoadManager.Instance.LoadStage(_currentStage, nxtStage, SpawnStageMonster);
 			}
 			else
 			{
 				CustomLogger.Log($"Go To Next Wave");
 				// 체력 회복
-				StartStage(nxtStage);
+				SpawnStageMonster(nxtStage);
 				// Todo: 캐릭터 HP 회복
 			}
 		}
@@ -247,7 +247,7 @@ namespace Scripts.Core
 				CalculatePrevStage(_currentStage, out prevStage);
 				CustomLogger.Log($"GoTo Prev Wave");
 
-				StartStage(prevStage);
+				SpawnStageMonster(prevStage);
 			}
 		}
 		private eStageResult CalculateNextStage(eStage curstage, out eStage nxtstage)

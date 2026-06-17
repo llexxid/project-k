@@ -14,12 +14,12 @@ namespace Scripts.Core
         [SerializeField] private float _bossTimeLimit = 30f;
 
         // ── 상태 ──
-        private eStage _currentStage;
+        /*private eStage _currentStage;
         private int _currentStageNumber;
         private int _currentWave;
         private bool _isBossWave;
         private bool _bossAutoChallenge = true;
-        private bool _loopMode;
+        private bool _loopMode;*/
         private bool _bossFailedReturn;
 
         private float _bossTimer;
@@ -30,6 +30,7 @@ namespace Scripts.Core
         private float _deathPopupTimer;
         private const float DeathPopupDuration = 15f;
 
+        private StageClass _stage;
         // ── 이벤트 ──
         public event Action<int, int, bool> OnWaveChanged;
         public event Action<bool> OnLoopModeChanged;
@@ -43,6 +44,7 @@ namespace Scripts.Core
         {
             if (Instance != null && Instance != this) { Destroy(this); return; }
             Instance = this;
+            _stage = new StageClass();
         }
 
         private void Update()
@@ -71,31 +73,27 @@ namespace Scripts.Core
         }
 
         // ── 외부 접근 ──
-        public int CurrentStageNumber => _currentStageNumber;
-        public int CurrentWave => _currentWave;
-        public bool IsBossWave => _isBossWave;
-        public bool IsLoopMode => _loopMode;
-        public bool BossAutoChallenge => _bossAutoChallenge;
-        public eStage CurrentStage => _currentStage;
-
+        
+         public int CurrentStageNumber => _stage.StageNumber;
+        public int CurrentWave => _stage.WaveNumber;
+        public bool IsBossWave => _stage.IsBossWave;
+        public bool IsLoopMode => _stage.IsLoopMode;
+        public bool BossAutoChallenge => _stage.BossAutoChallenge;
+        public eStage CurrentStage => _stage.CurrentStage;
+        
         // ══════════════════════════════════════
         //  초기 진입
         // ══════════════════════════════════════
 
         public void BeginFromStage(eStage stage)
         {
-            ParseStage(stage, out _currentStageNumber, out _currentWave);
-            _currentStage = stage;
-            _isBossWave = false;
-            _loopMode = false;
-            _bossFailedReturn = false;
+            _stage.Reset(stage);
             StartWave();
         }
 
         // ══════════════════════════════════════
         //  웨이브 시작/종료
         // ══════════════════════════════════════
-
         private void StartWave()
         {
             _bossTimerActive = false;
@@ -106,18 +104,15 @@ namespace Scripts.Core
             DespawnAllMonsters();
             StageManager.Instance.ResetWaveCount();
 
-            OnWaveChanged?.Invoke(_currentStageNumber, _currentWave, _isBossWave);
+            OnWaveChanged?.Invoke(_stage.StageNumber, _stage.WaveNumber, _stage.IsBossWave);
 
-            if (_isBossWave)
+            if (_stage.IsBossWave)
             {
                 _bossTimer = _bossTimeLimit;
                 _bossTimerActive = true;
-                StageManager.Instance.StartStage(GetBossStage());
             }
-            else
-            {
-                StageManager.Instance.StartStage(_currentStage);
-            }
+            StageManager.Instance.SpawnStageMonster(_stage.CurrentStage);
+            
         }
 
         // ══════════════════════════════════════
@@ -126,69 +121,33 @@ namespace Scripts.Core
 
         public void OnWaveCleared()
         {
-            if (_isBossWave)
+            eStageResult result = StageRule.GetNextWave(_stage.CurrentStage, out var nextStage);
+            switch (result)
             {
-                _bossTimerActive = false;
-                OnBossCleared();
-                return;
-            }
-
-            if (_currentWave >= 10)
-            {
-                if (_bossAutoChallenge)
-                {
-                    _isBossWave = true;
-                    FadeAndStart();
-                    return;
-                }
-                else
-                {
-                    _loopMode = true;
-                    OnLoopModeChanged?.Invoke(true);
-                    FadeAndStart();
-                    return;
-                }
-            }
-
-            _currentWave++;
-            _currentStage = (eStage)((ulong)_currentStage + 1);
-            _loopMode = false;
-            OnLoopModeChanged?.Invoke(false);
-            FadeAndStart();
-        }
-
-        private void OnBossCleared()
-        {
-            _isBossWave = false;
-
-            _currentStageNumber++;
-            _currentWave = 1;
-            _bossFailedReturn = false;
-
-            ulong stageAdder = 0x0000000000010000;
-            ulong baseStage = (ulong)_currentStage & 0xFFFFFFFFFFFF0000;
-            _currentStage = (eStage)(baseStage + stageAdder + 1);
-
-            var fade = CameraFade.Instance;
-            if (fade != null)
-            {
-                fade.FadeOut(0.4f, () =>
-                {
-                    eStage prevResource = (eStage)((ulong)_currentStage - stageAdder - 1 + 10);
-                    LoadManager.Instance.LoadStage(prevResource, _currentStage, (stage) =>
+                case eStageResult.StageChanged: //보스 클리어로 스테이지 변경
+                    OnBossCleared();
+                    break;
+                case eStageResult.BossWaveEntered: //보스 스테이지 입장
+                    if (_stage.BossAutoChallenge)
                     {
-                        _currentStage = stage;
-                        ParseStage(stage, out _currentStageNumber, out _currentWave);
-                        StartWave();
-                        fade.FadeIn(0.4f);
-                    });
-                });
-            }
-            else
-            {
-                StartWave();
+                        OnWaveClear();
+                        break;
+                    }
+                    _stage.SetLoopMode(true);
+                    OnLoopModeChanged?.Invoke(true);
+                    OnWaveClear();
+                    break;
+                case eStageResult.WaveChanged: //일반 스테이지 클리어
+                    _stage.SetLoopMode(false);
+                    OnLoopModeChanged?.Invoke(false);
+                    OnWaveClear();
+                    break;
+                default:
+                    CustomLogger.LogError($"[WaveManager]: 웨이브 클리어 작동방식이 작동하지 않습니다 {result}");
+                    break;
             }
         }
+
 
         // ══════════════════════════════════════
         //  전원 사망 처리
@@ -211,49 +170,39 @@ namespace Scripts.Core
 
         public void OnDeathPopupChoose(bool retryCurrentWave)
         {
-            // 버튼 클릭과 타이머 만료가 같은 프레임에 겹치는 경우 두 번 호출되어
-            // _currentWave가 중복 감소되는 것을 방지
+            // 메서드 중복실행 방지
             if (_deathPopupHandled) return;
             _deathPopupHandled = true;
             _deathPopupActive = false;
             OnDeathPopupHide?.Invoke();
 
-            if (_isBossWave)
+            if (_stage.IsBossWave)
             {
-                _isBossWave = false;
                 _bossFailedReturn = true;
-
-                _bossAutoChallenge = false;
+                _stage.MovePrev(); //이전 스테이지로 이동
+                
+                _stage.SetBossAutoChallenge(false);
                 OnBossAutoChallengeChanged?.Invoke(false);
-
-                _loopMode = true;
+                _stage.SetLoopMode(true);
                 OnLoopModeChanged?.Invoke(true);
-
-                _currentWave = 10;
-                ulong baseStage = (ulong)_currentStage & 0xFFFFFFFFFFFF0000;
-                _currentStage = (eStage)(baseStage + 10);
-
-                FadeInAndStart();
+                
+                OnWaveRestart();
                 return;
             }
 
             if (retryCurrentWave)
             {
-                _loopMode = false;
+                _stage.SetLoopMode(false);
                 OnLoopModeChanged?.Invoke(false);
-                FadeInAndStart();
+                OnWaveRestart();
             }
             else
             {
-                if (_currentWave > 1)
-                {
-                    _currentWave--;
-                    _currentStage = (eStage)((ulong)_currentStage - 1);
-                }
+                _stage.MovePrev();
 
-                _loopMode = true;
+                _stage.SetLoopMode(true);
                 OnLoopModeChanged?.Invoke(true);
-                FadeInAndStart();
+                OnWaveRestart();
             }
         }
 
@@ -263,51 +212,80 @@ namespace Scripts.Core
 
         public void DisableLoopMode()
         {
-            _loopMode = false;
+            _stage.SetLoopMode(false);
             OnLoopModeChanged?.Invoke(false);
         }
 
-        public void SetBossAutoChallenge(bool enabled)
+        public void SetBossAutoChallenge(bool value)
         {
-            _bossAutoChallenge = enabled;
-            OnBossAutoChallengeChanged?.Invoke(enabled);
+            CustomLogger.Log($"[WaveManager] : BossAutoChallenge is Changed : {value}");
+            _stage.SetBossAutoChallenge(value);
+            OnBossAutoChallengeChanged?.Invoke(value);
         }
 
-        // ══════════════════════════════════════
-        //  페이드 유틸
-        // ══════════════════════════════════════
-
-        private void FadeAndStart()
+        /// <summary>
+        /// 보스 처치후 다음 스테이지로 넘어가는 메서드
+        /// </summary>
+        private void OnBossCleared()
         {
+            _bossTimerActive = false;
+            _bossFailedReturn = false;
+
+            eStage prevStage = _stage.CurrentStage;
+            _stage.MoveNext(); //스테이지 이동은 여기서 
             var fade = CameraFade.Instance;
             if (fade != null)
             {
-                fade.FadeOutIn(0.3f, 0.3f,
-                    onDark: () =>
+                fade.FadeOut(0.4f, () =>
+                {
+                    LoadManager.Instance.LoadStage(prevStage, _stage.CurrentStage, (stage) =>
                     {
-                        DespawnAllMonsters();
-                        ReviveAllPlayers();
-                        StageManager.Instance.ResetWaveCount();
-                        OnWaveChanged?.Invoke(_currentStageNumber, _currentWave, _isBossWave);
-                        if (_isBossWave)
-                        {
-                            _bossTimer = _bossTimeLimit;
-                            _bossTimerActive = true;
-                            StageManager.Instance.StartStage(GetBossStage());
-                        }
-                        else
-                        {
-                            StageManager.Instance.StartStage(_currentStage);
-                        }
-                    });
+                        StartWave();
+                        fade.FadeIn(0.4f);
+                    }); 
+                });
             }
             else
             {
                 StartWave();
             }
         }
+        /// <summary>
+        /// 웨이브 클리어 후 새로운 웨이브 몬스터를 스폰하는 메서드
+        /// </summary>
+        private void OnWaveClear()
+        {
+            var fade = CameraFade.Instance;
+            if (fade != null)
+            {
+                fade.FadeOutIn(0.3f, 0.3f, onDark: () =>
+                    {
+                        DespawnAllMonsters();
+                        ReviveAllPlayers();
+                        StageManager.Instance.ResetWaveCount();
+                        if (!_stage.IsLoopMode)
+                            _stage.MoveNext();
+                        OnWaveChanged?.Invoke(_stage.StageNumber, _stage.WaveNumber, _stage.IsBossWave);
+                        if (_stage.IsBossWave)
+                        {
+                            _bossTimer = _bossTimeLimit;
+                            _bossTimerActive = true;
+                        }
+                        StageManager.Instance.SpawnStageMonster(_stage.CurrentStage);
+                    });
+            }
+            else
+            {
+                if (!_stage.IsLoopMode)
+                    _stage.MoveNext();
+                StartWave();
+            }
+        }
 
-        private void FadeInAndStart()
+        /// <summary>
+        /// 웨이브 실패 후 다시 시작하는 메서드
+        /// </summary>
+        private void OnWaveRestart() 
         {
             var fade = CameraFade.Instance;
             DespawnAllMonsters();
@@ -315,19 +293,10 @@ namespace Scripts.Core
             StageManager.Instance.ResetWaveCount();
 
             Time.timeScale = 1f;
-            OnWaveChanged?.Invoke(_currentStageNumber, _currentWave, _isBossWave);
-
-            if (_isBossWave)
-            {
-                _bossTimer = _bossTimeLimit;
-                _bossTimerActive = true;
-                StageManager.Instance.StartStage(GetBossStage());
-            }
-            else
-            {
-                StageManager.Instance.StartStage(_currentStage);
-            }
-
+            OnWaveChanged?.Invoke(_stage.StageNumber, _stage.WaveNumber, _stage.IsBossWave);
+ 
+            StageManager.Instance.SpawnStageMonster(_stage.CurrentStage);
+            
             if (fade != null)
                 fade.FadeIn(0.4f);
         }
@@ -361,22 +330,6 @@ namespace Scripts.Core
                 m.gameObject.SetActive(false);
                 MonsterSpawner.Instance.ReleaseMonster(m.Type, m);
             }
-        }
-
-        private void ParseStage(eStage stage, out int stageNum, out int wave)
-        {
-            ulong val = (ulong)stage;
-            wave = (int)(val & 0xFFFF);
-            ulong stageRaw = (val & 0xFFFFFFFFFFFF0000);
-            ulong stage1Base = (ulong)eStage.Stage1 & 0xFFFFFFFFFFFF0000;
-            ulong diff = stageRaw - stage1Base;
-            stageNum = (int)(diff / 0x10000) + 1;
-        }
-
-        private eStage GetBossStage()
-        {
-            ulong baseStage = (ulong)_currentStage & 0xFFFFFFFFFFFF0000;
-            return (eStage)(baseStage + 11);
         }
     }
 }

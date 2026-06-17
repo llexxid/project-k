@@ -114,7 +114,7 @@ namespace Scripts.Core
             }
             else
             {
-                StageManager.Instance.StartStage(curUserStage);
+                StageManager.Instance.SpawnStageMonster(curUserStage);
             }
         }
     }

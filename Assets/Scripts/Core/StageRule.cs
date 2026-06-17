@@ -6,7 +6,7 @@ namespace Scripts.Core
         private const ulong StageNumberMask = 0x000000007FFF0000; //스테이지 번호 검출용 마스크
         private const ulong StageBaseMask = 0xFFFFFFFFFFFF0000; //스테이지 베이스 검출용 마스크
         private const int WaveBitSize = 16; //웨이브 할당 비트
-        private const ulong BossWaveNumber = 11;
+        public const ulong BossWaveNumber = 11;
         
         /// <summary>
         /// eStage 값에서 스테이지 번호만 추출한다.
@@ -71,6 +71,8 @@ namespace Scripts.Core
             return (eStage)(stageBase + BossWaveNumber);
         }
 
+        public static bool IsBossWave(eStage stage) => GetWaveNumber(stage) == (int)BossWaveNumber;
+        
         /// <summary>
         /// 현재 스테이지 값을 기준으로 다음 웨이브 또는 다음 스테이지를 계산한다.
         /// </summary>
