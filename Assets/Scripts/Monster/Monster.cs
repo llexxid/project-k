@@ -160,7 +160,7 @@ namespace Scripts.Monster
 			//나보다 오른쪽에 있는데 왼쪽을 보는경우
 			if (GapBetweenX >= 0 && _facingDir == -1)
 			{
-				CustomLogger.Log("Flip To Right");
+				//CustomLogger.Log("Flip To Right");
 				transform.Rotate(0, 180, 0);
 				_facingDir *= -1;
 				return;
@@ -168,7 +168,7 @@ namespace Scripts.Monster
 			//나보다 왼쪽에 있는데, 내가 오른쪽을 보고있다.
 			if (GapBetweenX < 0 && _facingDir == 1)
 			{
-				CustomLogger.Log("Flip To Left");
+				//CustomLogger.Log("Flip To Left");
 				transform.Rotate(0, 180, 0);
 				_facingDir *= -1;
 				return;

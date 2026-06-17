@@ -23,7 +23,7 @@ namespace Scripts.Monster.MonsterNode
         {
             if (_monster.Target != null)
             {
-                CustomLogger.Log($"탐색을 이미 끝냈음!\n");
+                //CustomLogger.Log($"탐색을 이미 끝냈음!\n");
                 return false;
             }
 
@@ -39,7 +39,7 @@ namespace Scripts.Monster.MonsterNode
             int around = Physics2D.OverlapCircle(_monster.attackerPos, radius, filter, _res);
 			if (around == 0)
 			{
-				CustomLogger.Log($"탐색범위 밖인 경우");
+				//CustomLogger.Log($"탐색범위 밖인 경우");
 				return false;
 			}
 
@@ -73,7 +73,7 @@ namespace Scripts.Monster.MonsterNode
         {
             if (DetectChracter())
             {
-                CustomLogger.Log("Dectect Enemy!");
+                //CustomLogger.Log("Dectect Enemy!");
                 return NodeState.Success;
             }
             else
