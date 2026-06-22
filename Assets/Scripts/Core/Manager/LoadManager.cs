@@ -400,7 +400,7 @@ namespace Scripts.Core
         /// LoadManager는 반환된 Task를 기다려 스테이지 리소스 준비 완료 시점만 맞춘다.
         /// </summary>
         //현재의 스테이지를 기반으로 ResourceGroupID를 얻어냄.
-        private ulong GetResourceGroupId(eStage curstage)
+        public ulong GetResourceGroupId(eStage curstage)
         {
             return ((ulong)curstage & 0xFFFFFFFFFFFF0000);
         }
