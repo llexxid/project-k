@@ -73,6 +73,14 @@ namespace Scripts.Users
 		{
 			_wallet.AddCoins(type, amount);
 		}
+		public void GainArcaneKnowledge(long amount)
+		{
+			_wallet.AddCoins(eCurrency.ArcaneKnowledge, amount);
+		}
+		public void GainClassFragment(long amount)
+		{
+			_wallet.AddCoins(eCurrency.ClassFragment, amount);
+		}
 
 		public void SetLevel(int level)
 		{
