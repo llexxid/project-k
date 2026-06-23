@@ -10,6 +10,7 @@ using Scripts.Users;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Scripts.Core.Utils;
 using Unity.Jobs;
 using UnityEngine;
 
@@ -25,8 +26,7 @@ namespace Scripts.Core.Manager
 		private string _sessionGUID;
 
 		private Authentication _AuthComponent;
-
-
+		
 		private void Awake()
 		{
 			if (Instance == null)
@@ -66,9 +66,9 @@ namespace Scripts.Core.Manager
 		{
 			return _sessionTicket;
 		}
-		//NetWork Message´Â ¿©±â¼­ ÇÔ¼ö Call·Î ºÒ·¯ÁÙ°ÅÀÓ.
+		//NetWork Messageï¿½ï¿½ ï¿½ï¿½ï¿½â¼­ ï¿½Ô¼ï¿½ Callï¿½ï¿½ ï¿½Ò·ï¿½ï¿½Ù°ï¿½ï¿½ï¿½.
 
-		//´Ð³×ÀÓ Áßº¹Ã¼Å©
+		//ï¿½Ð³ï¿½ï¿½ï¿½ ï¿½ßºï¿½Ã¼Å©
 		public void CheckDuplicatedNickName(string nickname, Action<UpdateUserTitleDisplayNameResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
 		{
 			UpdateUserTitleDisplayNameRequest req = new UpdateUserTitleDisplayNameRequest
@@ -102,7 +102,7 @@ namespace Scripts.Core.Manager
 		}
 
 
-		//Ä³¸¯ÅÍ Ã³À½ »ý¼ºÇÏ´Â ÇÔ¼ö
+		//Ä³ï¿½ï¿½ï¿½ï¿½ Ã³ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ ï¿½Ô¼ï¿½
 		public void OnSignUpInitUser(Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
 		{
 			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
@@ -178,7 +178,7 @@ namespace Scripts.Core.Manager
 			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
 		}
 		
-		//TestÇØ¾ßÇÔ.
+		//Testï¿½Ø¾ï¿½ï¿½ï¿½.
 		public void OnGachaSkillClick(int count, Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
 		{
 			OnGachaRequestDTO request = new OnGachaRequestDTO
@@ -333,11 +333,11 @@ namespace Scripts.Core.Manager
 
 		private void OnDuplicatedNickNameCallback(PlayFab.PlayFabError error)
 		{
-			Debug.Log("´Ð³×ÀÓÀÌ Áßº¹µË´Ï´Ù.");
+			Debug.Log("ï¿½Ð³ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ßºï¿½ï¿½Ë´Ï´ï¿½.");
 		}
 		private void OnEnableNicknameCallback(UpdateUserTitleDisplayNameResult result)
 		{
-			Debug.Log("Áßº¹µÈ ´Ð³×ÀÓÀÌ ¾ø½À´Ï´Ù.");
+			Debug.Log("ï¿½ßºï¿½ï¿½ï¿½ ï¿½Ð³ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½.");
 		}
 
 

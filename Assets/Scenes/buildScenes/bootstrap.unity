@@ -718,12 +718,14 @@ GameObject:
   m_Component:
   - component: {fileID: 2134808523}
   - component: {fileID: 2134808524}
+  - component: {fileID: 2134808534}
   - component: {fileID: 2134808527}
   - component: {fileID: 2134808530}
   - component: {fileID: 2134808526}
   - component: {fileID: 2134808528}
   - component: {fileID: 2134808529}
   - component: {fileID: 2134808531}
+  - component: {fileID: 2134808533}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -758,14 +760,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cf0c68b823279934e9512fdc32363aa2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  bootstrapSceneName: bootstrap
-  titleSceneName: title
-  mainSceneName: main
-  dungeonSceneName: dungeon
-  minLoadingSeconds: 0
-  _monsterMetaDataSO: {fileID: 11400000, guid: 239ad81d91f85744fad4c2fc623245a0, type: 2}
-  _SceneSFXMetaSO: {fileID: 11400000, guid: ca72de5c345500c43a7a86a5c2bce328, type: 2}
-  _SceneVFXMetaSO: {fileID: 11400000, guid: c38cc3546145e4e4dba649125e90f265, type: 2}
 --- !u!114 &2134808526
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -850,6 +844,37 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a39c5ea9f40610f48b75133d9dc6365e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &2134808533
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2134808522}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 52e9bade06ff26443b405b94cfd703b7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &2134808534
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2134808522}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6dd092a3631f7814abb03ffa257f2765, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _monsterMetaDataSO: {fileID: 11400000, guid: 239ad81d91f85744fad4c2fc623245a0, type: 2}
+  _sceneSFXMetaSO: {fileID: 11400000, guid: ca72de5c345500c43a7a86a5c2bce328, type: 2}
+  _sceneVFXMetaSO: {fileID: 11400000, guid: c38cc3546145e4e4dba649125e90f265, type: 2}
+  bootstrapSceneName: bootstrap
+  titleSceneName: title
+  mainSceneName: main
+  dungeonSceneName: dungeon
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

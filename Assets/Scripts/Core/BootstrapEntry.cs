@@ -1,4 +1,6 @@
-﻿using UnityEngine;
+﻿using Scripts.Core.Manager;
+using Scripts.Core.Utils;
+using UnityEngine;
 
 namespace Scripts.Core
 {
@@ -6,19 +8,18 @@ namespace Scripts.Core
     {
         [SerializeField] private eSceneType firstScene = eSceneType.title;
         [SerializeField] private bool useAsyncLoad = true;
-
+        
         private void Start()
         {
-            if (GameManager.Instance == null)
+            if (LoadManager.Instance == null)
             {
-                Debug.LogError("[BootstrapEntry] GameManager.Instance is null. Put GameManager in bootstrap scene.");
+                Debug.LogError("[BootstrapEntry] LoadManager.Instance is null. Put LoadManager in bootstrap scene.");
                 return;
             }
-
             if (useAsyncLoad)
-                GameManager.Instance.LoadAsyncScene(firstScene);
+                LoadManager.Instance.LoadAsyncScene(firstScene);
             else
-                GameManager.Instance.LoadScene(firstScene);
+                LoadManager.Instance.LoadScene(firstScene);
         }
     }
 }

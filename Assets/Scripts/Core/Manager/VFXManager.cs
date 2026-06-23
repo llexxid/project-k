@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
@@ -10,16 +11,29 @@ using Scripts.Core.Utils;
 
 namespace Scripts.Core
 {
+	/// <summary>
+	/// 1. 씬/스테이지 진입 전 필요한 VFX를 미리 로딩
+	/// <br/>2. 게임 중 특정 VFX 요청이 오면 캐시에서 꺼내 재생
+	/// <br/>3. 풀링 VFX는 재사용, 비풀링 VFX는 사용 후 파괴
+	/// </summary>
 	public class VFXManager : MonoBehaviour
 	{
 		public static VFXManager Instance;
 
 		Transform _vfxParents;
-
-		private Dictionary<eVFXType, VFXEntity> _effectCache;
+		//게임플레이 중 VFX 사용목적 변수들
+		//로드된 VFX 프리팹의 저장소
+		private Dictionary<eVFXType, VFXEntity> _effectCache; 
+		//씬에서 사용할 VFX 타입별 오브젝트 풀
 		private Dictionary<eVFXType, ObjectPool<VFXEntity>> _VFXPools;
-
+		//각 스테이지 / 씬에 어떤 VFX리소스가 존재하는지에 대한 딕셔너리.
+		//현재는 구현안되어있지만 이후 Preload하는 등 새로 캐시를 불러올때 해당 딕셔너리에 추가할 예정
+		private Dictionary<ulong, HashSet<eVFXType>> _BatchLoadedVfxIds;
+		
+		//Addressable 생명주기 관리용 변수들
+		//Addressables 리소스 해제용 handle 저장소
 		private Dictionary<ulong, AsyncOperationHandle<IList<GameObject>>> _BatchHandles;
+		//개별 VFX를 즉시 로딩했을 때의 단일 handle 저장소
 		private Dictionary<eVFXType, AsyncOperationHandle<GameObject>> _Handles;
 
 		private void Awake()
@@ -28,7 +42,7 @@ namespace Scripts.Core
 			{
 				Instance = this;
 				Instance.Init();
-				DontDestroyOnLoad(this);
+				DontDestroyOnLoad(gameObject);
 				return;
 			}
 			Destroy(this);
@@ -42,29 +56,32 @@ namespace Scripts.Core
 			_Handles = new Dictionary<eVFXType, AsyncOperationHandle<GameObject>>();
 		}
 		/// <summary>
-		/// 씬에 진압할 때, VFXManager 리소스를 WarmUp하는 함수입니다.
+		/// _effectCache에 로딩되어 있는 VFX 프리팹들을 보고, 풀링 대상이면 _VFXPools에 풀을 만드는 메서드
 		/// </summary>
 		public void OnEnterScene()
 		{
+			//기존 루트가 남아있으면 내부의 오브젝트들이 제거되지 않을 수 있어 정리하고 새로 만들어주기
+			if (_vfxParents != null)
+			{
+				Destroy(_vfxParents.gameObject);
+				_vfxParents = null;
+			}
 			GameObject obj = new GameObject("VFX_Root");
 			_vfxParents = obj.transform;
-
-			//지우고, 등록을 했다는건 내가 Load한것들이 Cache에 있음.
-			foreach (var Item in _effectCache)
+			
+			_VFXPools.Clear();
+			
+			foreach ((eVFXType id, VFXEntity vfxObj) in _effectCache)
 			{
-				VFXEntity vfxObj = Item.Value;
-				eVFXType id = Item.Key;
 				//만약 pooling effect면, pooling해주기.
 				if (CheckPoolingEffect(id))
 				{
-					ObjectPool<VFXEntity> objectpool = new ObjectPool<VFXEntity>();
-					objectpool.Init((int)DEFAULT_VALUE.PoolingSize, _vfxParents, vfxObj);
-					_VFXPools.Add(id, objectpool);
+					ObjectPool<VFXEntity> objectPool = new ObjectPool<VFXEntity>();
+					objectPool.Init((int)DEFAULT_VALUE.PoolingSize, _vfxParents, vfxObj);
+					_VFXPools.Add(id, objectPool);
 				}
 			}
 		}
-
-
 
 		/// <summary>
 		/// VFX cache를 데우는 비동기 함수입니다. 로딩에서 통제합니다. 
@@ -77,16 +94,21 @@ namespace Scripts.Core
 				return default;
 			}
 
-			AsyncOperationHandle<IList<GameObject>> handle;
-			bool IsLoading = _BatchHandles.TryGetValue(groupId, out handle);
-			if (IsLoading)
+			if (_BatchHandles.TryGetValue(groupId, out AsyncOperationHandle<IList<GameObject>> oldHandle))
 			{
-				CustomLogger.LogWarning("You requested to load VFX while the system was already in a loading state.");
-				return handle;
+				return oldHandle;
 			}
+			
+			//ToFIx : eVFXType에 있는걸 아이디로 넣어야함.
+			IList<string> keys = Array.ConvertAll(IdList, (id) => id.ToString());
+			AsyncOperationHandle<IList<GameObject>> handle = Addressables.LoadAssetsAsync<GameObject>(
+				keys, 
+				(loaded) => { }, 
+				Addressables.MergeMode.Union);
+			_BatchHandles.Add(groupId, handle);
+			
 			//요청한 뒤, Handle반환
-			RequestAsyncLoadAssets(groupId, IdList);
-			_BatchHandles.TryGetValue((ulong)groupId, out handle);
+			RequestAsyncLoadAssets(groupId, IdList, handle).Forget();
 			return handle;
 		}
 		/// <summary>
@@ -107,8 +129,7 @@ namespace Scripts.Core
 			}
 			// Load하는걸 허용해준다!
 			// Load하는 그 딜레이를 허용해줌. 혹은, Load되었을 때, 실행할 Callback을 던져줘야함. 
-			RequestAsyncLoadAsset(id, pos, rotation, OnLoaded);
-			return;
+			RequestAsyncLoadAsset(id, pos, rotation, OnLoaded).Forget();
 		}
 		public void DestroyEffect(eVFXType id, VFXEntity vfx)
 		{
@@ -127,13 +148,23 @@ namespace Scripts.Core
 		}
 		public void unloadVFXBatch(ulong groupId)
 		{
-			bool flag;
-			flag = _BatchHandles.TryGetValue(groupId, out var handle);
-			if (flag)
+			if (!_BatchHandles.TryGetValue(groupId, out var handle)) 
+				return;
+			
+			Addressables.Release(handle);
+			_BatchHandles.Remove(groupId);
+		}
+		/// <summary> 전체 VFX 리소스를 제거하는 메서드 </summary>
+		public void unloadVFXBatch()
+		{
+			_effectCache.Clear();
+			_VFXPools.Clear();
+			foreach (var handle in _BatchHandles.Values)
 			{
-				Addressables.Release(handle);
-				_BatchHandles.Remove(groupId);
+				if (handle.IsValid())
+					Addressables.Release(handle);
 			}
+			_BatchHandles.Clear();
 		}
 		public void unloadSingleVFX(eVFXType id)
 		{
@@ -146,37 +177,43 @@ namespace Scripts.Core
 			}
 		}
 
-		private async void RequestAsyncLoadAssets(ulong groupId, eVFXType[] IdList)
+		private async UniTask RequestAsyncLoadAssets(ulong groupId, eVFXType[] IdList, AsyncOperationHandle<IList<GameObject>> handle)
 		{
-			IList<GameObject> result;
-			AsyncOperationHandle<IList<GameObject>> handle;
-			bool IsRequested = _BatchHandles.TryGetValue((ulong)groupId, out handle);
-			if (IsRequested)
+			try
 			{
-				return;
+				IList<GameObject> result = await handle.Task;
+				//IdList에 중복이 있거나 MergeMode.Union으로 중복을 합치면 result와 IdList에 차이가 날 수 있음. 로그만 찍고 계속진행
+				if (result.Count != IdList.Length)
+				{
+					CustomLogger.LogWarning($"[VFXManager] Requested VFX count and loaded count differ. Requested:{IdList.Length}, Loaded:{result.Count}");
+				}
+				/*
+				 * Log : 기존 방식은 IDList[i]와 result[i]가 동일하다는 보장이 없음.
+				 * ex. IDList = ["HittedVFX", "HittedVFX2"]지만 resuilt = ["HittedVFX2", "HittedVFX"]일 수 있음
+				 * 이로인해 오류는 발생하지 않지만 이펙트 출력이 꼬일 위험이 존재해서 이를 수정함
+				 */
+				foreach (GameObject obj in result)
+				{
+					//result 프리팹의 이름을 가진 eVFXType을 변환
+					//ex. 오브젝트의 이름이 HittedVFX -> eVFXType의 HittedVFX = 2147483649로 변환
+					//여기서 주의할점은 프리팹(Assets.Prefabs.VFX)의 이름과 eVFXType내부의 이름이 일치해야함 
+					if (!Enum.TryParse(obj.name, out eVFXType key))
+					{
+						CustomLogger.LogWarning($"[VFXManager] VFX 이름을 eVFXType으로 변환할 수 없습니다: {obj.name}");
+						continue;
+					}
+
+					if (!obj.TryGetComponent(out VFXEntity resource))
+					{
+						CustomLogger.LogWarning($"[VFXManager] VFXEntity가 없습니다: {obj.name}");
+						continue;
+					}
+					CacheAssets(key, resource);
+				}
 			}
-
-			//ToFIx : eVFXType에 있는걸 아이디로 넣어야함.
-			IList<string> keys = Array.ConvertAll(IdList, (id) => id.ToString());
-			handle = Addressables.LoadAssetsAsync<GameObject>(keys, (loaded) =>
+			catch (Exception ex)
 			{
-
-			}, Addressables.MergeMode.Union);
-			_BatchHandles.Add((ulong)groupId, handle);
-
-			result = await handle.Task;
-			//완료가 되었을 때 하는 로직
-			if (result.Count != IdList.Length)
-			{
-				CustomLogger.LogError("The number of resources requested to load is not the same as the number of id arrays. check IdList[]");
-				return;
-			}
-
-			VFXEntity resource;
-			for (int i = 0; i < result.Count; i++)
-			{
-				resource = result[i].gameObject.GetComponent<VFXEntity>();
-				OnLoadAsset(IdList[i], resource);
+				CustomLogger.LogError($"[VFXManager] VFX preload failed: {groupId}\n{ex}");
 			}
 		}
 
@@ -192,41 +229,48 @@ namespace Scripts.Core
 			InstantiateEffect(id, vfx, pos, rotation, out ret);
 			return true;
 		}
-		private async void RequestAsyncLoadAsset(eVFXType id, Vector3 pos, Quaternion rotation, Action<VFXEntity> OnLoaded)
+		private async UniTask RequestAsyncLoadAsset(eVFXType id, Vector3 pos, Quaternion rotation, Action<VFXEntity> OnLoaded)
 		{
-			GameObject loadedObj;
-			AsyncOperationHandle<GameObject> handle;
-			VFXEntity resourceVfx;
-			//Load중에 또 요청하는 경우
-			bool IsLoading = _Handles.TryGetValue(id, out handle);
-			if (IsLoading)
+			try
 			{
-				CustomLogger.LogWarning("You requested to load while the system was already in a loading state.");
-				return;
-			}
-			//처음 Load하는 경우
-			else
-			{
+				GameObject loadedObj;
+				
+				//Load중에 또 요청하는 경우
+				bool IsLoading = _Handles.TryGetValue(id, out AsyncOperationHandle<GameObject> handle);
+				if (IsLoading)
+				{
+					CustomLogger.LogWarning("You requested to load while the system was already in a loading state.");
+					return;
+				}
+				//처음 Load하는 경우
 				CustomLogger.Log("You Request to load Asset!");
 				handle = Addressables.LoadAssetAsync<GameObject>(id.ToString());
 				_Handles.Add(id, handle);
-				loadedObj = await handle.Task; // nonBlocking, 아래를 실행하지 않고 흐름을 넘김.
-			}
-			//Callback으로 등록
-			resourceVfx = loadedObj.GetComponent<VFXEntity>();
-			OnLoadAsset(id, resourceVfx);
-			//만약 pooling effect면, pooling해주기.
-			if (CheckPoolingEffect(id))
-			{
-				ObjectPool<VFXEntity> objectpool = new ObjectPool<VFXEntity>();
-				objectpool.Init((int)DEFAULT_VALUE.PoolingSize, _vfxParents, resourceVfx);
-				_VFXPools.Add(id, objectpool);
-			}
+				loadedObj = await handle.Task; // 어드레서블 로딩이 완료될때까지 대기
+				
+				//Callback으로 등록
+				VFXEntity resourceVfx = loadedObj.GetComponent<VFXEntity>();
+				CacheAssets(id, resourceVfx);
+				//만약 pooling effect면, pooling해주기.
+				if (CheckPoolingEffect(id))
+				{
+					ObjectPool<VFXEntity> objectpool = new ObjectPool<VFXEntity>();
+					objectpool.Init((int)DEFAULT_VALUE.PoolingSize, _vfxParents, resourceVfx);
+					_VFXPools.Add(id, objectpool);
+				}
 
-			InstantiateEffect(id, resourceVfx, pos, rotation, out VFXEntity instance);
-			instance.SetId(id);
-			OnLoaded?.Invoke(instance);
-			return;
+				InstantiateEffect(id, resourceVfx, pos, rotation, out VFXEntity instance);
+				instance.SetId(id);
+				OnLoaded?.Invoke(instance);
+			}
+			catch (OperationCanceledException)
+			{
+				CustomLogger.LogWarning($"[VFXManager] VFXAssets loading canceled: {id}");
+			}
+			catch (Exception ex)
+			{
+				CustomLogger.LogError($"[VFXManager] VFXAssets loading failed: {id}\n{ex}");
+			}
 		}
 		private bool CheckPoolingEffect(eVFXType id)
 		{
@@ -236,13 +280,13 @@ namespace Scripts.Core
 			}
 			return true;
 		}
-		private void OnLoadAsset(eVFXType id, VFXEntity obj)
+		/// <summary> _effectCache에 새로운 VFX 오브젝트 추가</summary>
+		private void CacheAssets(eVFXType id, VFXEntity obj)
 		{
-			//이미 cache에 등록된 경우가 있을 수 있음.
-			//ex. 몬스터들이 중복적으로 똑같은 VFX를 가져야하는 경우(휴먼에러든, 기획상으로든)
-			if (_effectCache.ContainsKey(id) == false)
+			if(!_effectCache.TryAdd(id, obj))
 			{
-				_effectCache.Add(id, obj);
+				//디버깅용으로 필수는 아님
+				CustomLogger.LogWarning($"[VFXManager] VFX already cached: {id}");
 			}
 		}
 		public void Clear()

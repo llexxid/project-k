@@ -6,6 +6,7 @@ using Scripts.Monster;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
@@ -19,13 +20,13 @@ namespace Scripts.Core.Utils
 		MonsterInfoSO _monsterInfo;
 
 		public static MonsterSpawner Instance;
-		//  Ͱ  ҽ 
-		private Dictionary<eMonsterType, Monster> _monsterCache;
+		
+		// 몬스터 리소스 캐시
 		private Dictionary<eMonsterType, ObjectPool<Monster>> _MonsterPool;
+		private Dictionary<eMonsterType, Monster> _monsterCache;
 
 		//Asset
-		private Dictionary<long, AsyncOperationHandle<IList<GameObject>>> _Handles;
-		private Dictionary<eMonsterType, AsyncOperationHandle<GameObject>> _SingleHandle;
+		private Dictionary<long, MonsterAssetGroupCache> _monsterAssetGroup;
 
 		private Transform _monParents;
 		private void Awake()
@@ -44,9 +45,7 @@ namespace Scripts.Core.Utils
 		{
 			_monsterCache = new Dictionary<eMonsterType, Monster>();
 			_MonsterPool = new Dictionary<eMonsterType, ObjectPool<Monster>>();
-
-			_Handles = new Dictionary<long, AsyncOperationHandle<IList<GameObject>>>();
-			_SingleHandle = new Dictionary<eMonsterType, AsyncOperationHandle<GameObject>>();
+			_monsterAssetGroup = new Dictionary<long, MonsterAssetGroupCache>();
 			_monsterInfo.Init();
 		}
 
@@ -54,7 +53,7 @@ namespace Scripts.Core.Utils
 		{
 			GameObject obj = new GameObject("MON_ROOT");
 			_monParents = obj.transform;
-
+			_MonsterPool.Clear();
 			foreach (var Item in _monsterCache)
 			{
 				eMonsterType key = Item.Key;
@@ -71,16 +70,12 @@ namespace Scripts.Core.Utils
 			_monsterCache.Clear();
 			_MonsterPool.Clear();
 
-			foreach (var item in _Handles)
+			foreach (var item in _monsterAssetGroup.Values)
 			{
-				Addressables.Release(item.Value);
+				item.Release();
 			}
-			foreach (var item in _SingleHandle)
-			{
-				Addressables.Release(item.Value);
-			}
-			_Handles.Clear();
-			_SingleHandle.Clear();
+
+			_monsterAssetGroup.Clear();
 		}
 
 		public MonsterInfo GetMonsterInfo(eMonsterType type)
@@ -90,44 +85,16 @@ namespace Scripts.Core.Utils
 			return ret;
 		}
 
-		public async void SpawnMonsterForTest(eMonsterType id, Vector3 pos, Quaternion rotate, Action<Monster> callback)
-		{
-			AsyncOperationHandle<GameObject> handle;
-			if (_SingleHandle.TryGetValue(id, out handle) == true)
-			{
-				return;
-			}
-			string str = id.ToString();
-			handle = Addressables.LoadAssetAsync<GameObject>(id.ToString());
-			_SingleHandle.Add(id, handle);
-			var result = await handle.Task;
-
-			Monster component = result.GetComponent<Monster>();
-			//LoadѴ, Ǯؼ ֱ
-			ObjectPool<Monster> pool = new ObjectPool<Monster>();
-			pool.Init((int)DEFAULT_VALUE.PoolingSize, component);
-			_MonsterPool.Add(id, pool);
-			Monster mon = pool.Alloc(pos, rotate);
-			mon.gameObject.SetActive(true);
-            
-            // 테스트용 스폰 시에도 태그 강제 설정
-            mon.tag = "Enemy";
-
-			//Todo : MonsterStat ϱ
-			mon.Init(id, new Monster.MonsterStat(10, 0, 5, 1, 1), 0);
-			callback?.Invoke(mon);
-			return;
-		}
 
 		public void SpawnMonster(eMonsterType id, double ratio, Vector3 pos, Quaternion rotate, out Monster monster)
 		{
 			ObjectPool<Monster> pool;
 
-			//ʹ ⺻ Ǯ ü
+			// 기본 풀 존재 여부 확인
 			bool IsExistMonster = _MonsterPool.TryGetValue(id, out pool);
 			if (!IsExistMonster)
 			{
-				// ?ㅽ뀒?댁? ?꾪솚 ??pool? 吏?뚯죱吏留?cache?먮뒗 ?덈뒗 寃쎌슦 利됱꽍 ?앹꽦
+				// 스테이지 전환 중 pool은 지워졌지만 cache에는 남아 있는 경우 즉석 생성
 				Monster cached;
 				if (_monsterCache.TryGetValue(id, out cached) && _monParents != null)
 				{
@@ -137,7 +104,7 @@ namespace Scripts.Core.Utils
 				}
 				else
 				{
-					CustomLogger.LogWarning("Pooling?먯꽌 李얠쓣 ???녿뒗 紐ъ뒪???붿껌???덉뒿?덈떎.");
+					CustomLogger.LogWarning("Requested monster was not found in the pool.");
 					monster = default;
 					return;
 				}
@@ -150,7 +117,7 @@ namespace Scripts.Core.Utils
 
 			_monsterInfo.TryGetMonsterInfo(id, out MonsterInfo info);
 
-			//���� ���� �ʱ�ȭ�ؼ� �ֱ�
+			// 배율을 적용해 몬스터 스탯 초기화
 			Monster.MonsterStat stat = new Monster.MonsterStat(
 				(long)(info._baseHp * ratio), 
 				0, 
@@ -171,48 +138,91 @@ namespace Scripts.Core.Utils
 			bool IsExistMonster = _MonsterPool.TryGetValue(id, out pool);
 			if (!IsExistMonster)
 			{
-				CustomLogger.LogWarning("Pooling   ݳ û߽ϴ.");
+				CustomLogger.LogWarning("Tried to release a monster that does not have a pool.");
 				return;
 			}
 			pool.Release(monster);
 			return;
 		}
 
-		public AsyncOperationHandle<IList<GameObject>> LoadMonsterAssets(eStage groupId, eMonsterType[] idList)
+		/// <summary>
+		/// 스테이지 그룹에 필요한 몬스터 프리팹을 비동기로 로딩해 캐시에 등록한다.
+		/// 같은 그룹 로딩이 이미 진행 중이면 기존 Task를 반환한다.
+		/// </summary>
+		/// <param name="groupId">스테이지 리소스 그룹 ID</param>
+		/// <param name="ids">해당 그룹에서 사용할 몬스터 타입 목록</param>
+		/// <returns>몬스터 프리팹 캐싱이 끝날 때 완료되는 Task</returns>
+		public UniTask LoadMonsterAssets(eStage groupId, eMonsterType[] ids)
 		{
-			if (_Handles.ContainsKey((long)groupId))
+			long key = (long)groupId;
+			//같은 스테이지 그룹 로딩 요청이 이미 있으면 기존 LoadTask를 반환한다.
+			if (_monsterAssetGroup.TryGetValue(key, out MonsterAssetGroupCache cache))
 			{
-				return _Handles[(long)groupId];
+				return cache.LoadTask;
 			}
-			LoadAssetAsync(groupId, idList);
-			return _Handles[(long)groupId];
+			cache = new MonsterAssetGroupCache();
+			_monsterAssetGroup.Add((long)groupId, cache);
+			cache.LoadTask = LoadAssetAsync(cache, ids);
+			// 호출자는 이 Task를 await해서 몬스터 캐시가 준비될 때까지 기다릴 수 있다
+			return cache.LoadTask;
 		}
 
-		private async void LoadAssetAsync(eStage groupId, eMonsterType[] id)
+		private async UniTask LoadAssetAsync(MonsterAssetGroupCache cache, eMonsterType[] ids)
 		{
-			IList<GameObject> result;
-			AsyncOperationHandle<IList<GameObject>> handle;
-			bool IsRequested = _Handles.TryGetValue((long)groupId, out handle);
-			if (IsRequested)
+			var tasks = new List<UniTask>();
+			// LoadAssetsAsync는 결과 순서가 요청 순서와 다를 수 있으므로
+			// 몬스터 타입별로 단일 LoadAssetAsync를 요청하고 id와 handle을 직접 매핑
+			foreach (eMonsterType id in ids)
 			{
+				//해당 몬스터가 이미 로딩되어 있거나, 핸들에 있을 때 넘기기(cache.Handles 덮어쓰기 방지)
+				if(_monsterCache.ContainsKey(id) || cache.Handles.ContainsKey(id))
+					continue;
+				
+				var handle = Addressables.LoadAssetAsync<GameObject>(id.ToString());
+				cache.Handles.Add(id, handle);
+				tasks.Add(CacheMonster(id, handle));
+			}
+
+			await UniTask.WhenAll(tasks);
+		}
+
+		private async UniTask CacheMonster(eMonsterType id, AsyncOperationHandle<GameObject> handle)
+		{
+			// Addressables 로드가 끝난 prefab에서 Monster 컴포넌트를 꺼내 전역 몬스터 캐시에 등록
+			GameObject prefab = await handle.Task;
+			Monster monster = prefab.GetComponent<Monster>();
+			if (monster == null)
+			{
+				Debug.LogWarning($"[MonsterSpawner] No monster types for AsyncOperationHandle<GameObject>: {handle}");
 				return;
 			}
+			_monsterCache.TryAdd(id, monster);
+		}
 
-			IList<string> keys = Array.ConvertAll(id, (id) => id.ToString());
-			handle = Addressables.LoadAssetsAsync<GameObject>(keys, (loaded) => { }, Addressables.MergeMode.Union);
-			_Handles.Add((long)groupId, handle);
-	
-			result = await handle.Task;
-			//Stage ִ Monster 
-			int i = 0;
-			foreach (GameObject mon in result)
+		private class MonsterAssetGroupCache
+		{
+			public UniTask LoadTask;
+
+			public Dictionary<eMonsterType, AsyncOperationHandle<GameObject>> Handles =
+				new Dictionary<eMonsterType, AsyncOperationHandle<GameObject>>();
+
+			public bool Contains(eMonsterType type)
 			{
-				Monster monComponent = mon.GetComponent<Monster>();
-				_monsterCache.Add(id[i], monComponent);
-				i++;
+				return Handles.ContainsKey(type);
 			}
-			return;
+
+			public void Release()
+			{
+				foreach (var handle in Handles.Values)
+				{
+					if (handle.IsValid())
+					{
+						Addressables.Release(handle);
+					}
+				}
+				Handles.Clear();
+			}
 		}
 	}
-
+	
 }

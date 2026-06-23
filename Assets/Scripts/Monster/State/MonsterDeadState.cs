@@ -26,7 +26,7 @@ namespace Scripts.Monster.State
 		public override void OnEnter()
 		{
 			base.OnEnter();
-			//Attack���� ���Խ�
+			// 사망 애니메이션 진입
 			_owner.AnimationComponent.TrySetTrigger(eMonsterAction.Dead);
 			float time = _owner.GetAnimationLength(eMonsterAction.Dead);
 

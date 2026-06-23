@@ -99,7 +99,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     public bool TakeDamage(IAttackable attacker)
     {
         ulong dmg = attacker.damage;
-        CustomLogger.Log($"Player가 공격을 받고있습니다! DMG : {dmg}");
+        //CustomLogger.Log($"Player가 공격을 받고있습니다! DMG : {dmg}");
 
         UITKDamageTextBridge.ShowOnTransform(transform, dmg, Color.white);
 

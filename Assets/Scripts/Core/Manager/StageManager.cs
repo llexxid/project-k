@@ -10,6 +10,8 @@ using Scripts.Monster.SO;
 using Scripts.Server.DTO;
 using System;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
+using Scripts.Users;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
@@ -19,38 +21,52 @@ using static UnityEngine.Networking.UnityWebRequest;
 namespace Scripts.Core
 {
 	using Monster = Scripts.Monster.Monster;
+	public enum eStageResult
+	{
+		None, //변경사항 없음
+		WaveChanged, 
+		BossWaveEntered,
+		StageChanged,
+	}
 	public class StageManager : MonoBehaviour
 	{
-		enum eStageResult
-		{
-			_WaveChanged,
-			_StageChanged
-		}
 		public static StageManager Instance;
+
+		public eStage CurrentStage => _currentStage;
+		public int StageNumber { get; private set; }
+		public int WaveNumber { get; private set; }
+		public bool IsBossWave { get; private set; }
+		public bool IsLoopMode { get; private set; }
+		public void SetLoopMode(bool value) => IsLoopMode = value;
+		public bool BossAutoChallenge { get; private set; }
+		public void SetBossAutoChallenge(bool value) => BossAutoChallenge = value;
+		
+		public event Action<int, int, bool> OnWaveChanged;
+		public event Action<bool> OnLoopModeChanged;
+		public event Action<bool> OnBossAutoChallengeChanged;
+		public event Action OnDeathPopupShow;
+		public event Action OnDeathPopupHide;
+		public event Action<float> OnDeathPopupTick;
+		public event Action<float> OnBossTimerTick;
+
 		[SerializeField]
 		private StageMetaDataSO _stageSO;
 		[SerializeField]
 		private MonsterSpawnLocationSO _locationSO;
+		private StageDefinition _currentDefinition;
+		private StageSession _currentSession;
 
 		private eStage _currentStage;
-		private int _totalCnt;
 		private int _totalCharacterCnt;
 
-		private bool _IsLoop;
-
-		// ── [WaveManager] 같은 wave 내 OnWaveCleared 중복 호출 방지 ──
-		// stale 비동기/이벤트로 _totalCnt가 음수로 떨어져 OnWaveCleared가
-		// 여러 번 발사되는 것을 막는다. StartStage/ResetWaveCount에서 false로 초기화.
-		private bool _waveCleared;
-		// ── [WaveManager 끝] ──
-
-		const int LAST_WAVE = 11;
 		const float TICK_INTERVAL = 3f;
 		private float _LastTick;
 
-		//SendBuffer
+		//서버통신용 
 		private Dictionary<eMonsterType, int> _huntResultList;
 		private List<HuntResult> _sendmsg;
+		
+		
 		private void Awake()
 		{
 			if (Instance == null)
@@ -66,223 +82,250 @@ namespace Scripts.Core
 		private void Init()
 		{
 			_stageSO.Init();
-			_totalCnt = 0;
-			_IsLoop = false;
 			_huntResultList = new Dictionary<eMonsterType, int>();
 			_LastTick = Time.time;
 			_sendmsg = new List<HuntResult>();
 			//PreLoadStageFile();
 		}
-
-		public void Clear()
-		{
-			MonsterSpawner.Instance.Clear();
-		}
-
-		/// <summary>
-		/// ���������� �ٲ�, Stage�� �ʿ��� �������� �񵿱������� Load�ϴ� �Լ��Դϴ�.
-		/// </summary>
-		/// <param name="stage"></param>
-		/// <returns></returns>
-		public AsyncOperationHandle<IList<GameObject>> PreLoadAssets(eStage stage)
-		{
-			//�������� ������ �ִ� Monster Type�� Load
-			List<eMonsterType> monsterTypes;
-
-			_stageSO.TryGetMonsterList(stage, out monsterTypes);
-			var Handle = MonsterSpawner.Instance.LoadMonsterAssets(stage, monsterTypes.ToArray());
-			return Handle;
-		}
-
-		public List<StageInfo_v> GetStageMonsterInfo(eStage stage)
-		{
-			List<StageInfo_v> ret;
-			bool IsValid;
-			IsValid = _stageSO.TryGetStageInfo(stage, out ret);
-			if (!IsValid)
-			{
-				CustomLogger.LogWarning("Stage�� ������ ��û������, Cache���� �ʾҽ��ϴ�.");
-				return null;
-			}
-			return ret;
-		}
-
-		public List<eMonsterType> GetStageMonsterTypes(eStage stage)
-		{
-			List<eMonsterType> ret;
-			bool IsValid;
-			IsValid = _stageSO.TryGetMonsterList(stage, out ret);
-			if (!IsValid)
-			{
-				CustomLogger.LogWarning("Stage�� ���������� ��û������, Cache���� �ʾҽ��ϴ�.");
-				return null;
-			}
-			return ret;
-		}
-
-		public void StartStage(eStage stage)
+		public void InitStage(eStage stage)
 		{
 			_currentStage = stage;
-			//_totalCnt = 0;
-			_totalCharacterCnt = 3;
-			_waveCleared = false; // 새 wave 시작 — 클리어 가드 해제
+			StageNumber = StageRule.GetStageNumber(stage);
+			WaveNumber = StageRule.GetWaveNumber(stage);
+			IsBossWave = StageRule.IsBossWave(stage);
 
-			eStage stageKey = StageParser.GetFixedStageKey(stage);
-			double SpawnRatio = StageParser.GetRatio(stage);
+			IsLoopMode = false;
+			BossAutoChallenge = true;
+		}
 
-			List<StageInfo_v> stageInfos;
-			bool flag = _stageSO.TryGetStageInfo((eStage)stageKey, out stageInfos);
+		public void BeginStage(eStage stage)
+		{
+			InitStage(stage);
+			ReviveAllPlayers();
+			
+		}
 
-			if (!flag)
+		#region 데이터 관리
+
+		/// <summary>
+        /// 스테이지 전환 전 필요한 몬스터 리소스를 비동기로 로드한다.
+        /// </summary>
+        /// <param name="stage"></param>
+        /// <returns></returns>
+        public UniTask PreLoadAssets(eStage stage)
+        {
+        	// 스테이지 정보에 포함된 몬스터 타입을 로드
+        	_stageSO.TryGetMonsterList(stage, out List<eMonsterType> monsterTypes);
+        	var handle = MonsterSpawner.Instance.LoadMonsterAssets(stage, monsterTypes.ToArray());
+        	return handle;
+        }
+
+        public List<StageInfo_v> GetStageMonsterInfo(eStage stage)
+        {
+        	List<StageInfo_v> ret;
+        	bool IsValid;
+        	IsValid = _stageSO.TryGetStageInfo(stage, out ret);
+        	if (!IsValid)
+        	{
+        		CustomLogger.LogWarning("StageInfo was requested, but it was not found in cache.");
+        		return null;
+        	}
+        	return ret;
+        }
+
+        public List<eMonsterType> GetStageMonsterTypes(eStage stage)
+        {
+        	List<eMonsterType> ret;
+        	bool IsValid;
+        	IsValid = _stageSO.TryGetMonsterList(stage, out ret);
+        	if (!IsValid)
+        	{
+        		CustomLogger.LogWarning("Stage monster types were requested, but they were not found in cache.");
+        		return null;
+        	}
+        	return ret;
+        }
+
+		#endregion
+		
+		
+		private bool CreateStageSession(eStage stage)
+		{
+			ExitCurrentSession();
+
+			_currentDefinition = CreateStageDefinition(stage);
+			if (_currentDefinition == null)
 			{
-				CustomLogger.LogWarning("There is no StageInfo");
+				CustomLogger.LogWarning($"[StageManager] : Create Session if Failed: {stage}");
+				return false;
+			}
+
+			_currentSession = new StageSession(
+				_currentDefinition,
+				MonsterSpawner.Instance
+				);
+
+			_currentSession.MonsterKilled += HandleMonsterKilled;
+			_currentSession.Cleared += HandleWaveCleared;
+			_currentSession.Enter();
+			return true;
+		}
+
+		private void ExitCurrentSession()
+		{
+			if (_currentSession == null)
+			{
 				return;
 			}
+			
+			_currentSession.MonsterKilled -= HandleMonsterKilled;
+			_currentSession.Cleared -= HandleWaveCleared;
+			_currentSession.Exit();
 
-			int spawnLocationCnt = _locationSO.GetLocationCount();
-			foreach (StageInfo_v info in stageInfos)
+			_currentSession = null;
+			_currentDefinition = null;
+		}
+		
+		private void HandleMonsterKilled(Monster monster)
+		{
+			_huntResultList.TryGetValue(monster.Type, out int count);
+			_huntResultList[monster.Type] = count + 1;
+		}
+
+		private void HandleWaveCleared()
+		{
+			WaveManager.Instance.OnWaveCleared();
+		}
+		
+		public void SpawnStageMonster(eStage stage)
+		{
+			if (!CreateStageSession(stage))
+				return;
+			
+			int locationCount = _locationSO.GetLocationCount();
+			foreach (StageInfo_v entry in _currentDefinition.MonsterEntries)
 			{
-				eMonsterType type = info._type;
-				int count = info._count;
-
-				_totalCnt += count;
-
-				for (int i = 0; i < count; i++)
+				for (int i = 0; i < entry._count; i++)
 				{
-					int randomIndex = UnityEngine.Random.Range(0, spawnLocationCnt);
-					Vector2 pos;
-					_locationSO.TryGetPos(randomIndex, out pos);
-
-					Monster mon;
-					MonsterSpawner.Instance.SpawnMonster(type, SpawnRatio, pos, Quaternion.identity, out mon);
-					mon.OnDeath += DecrementMonCount;
+					int index = UnityEngine.Random.Range(0, locationCount);
+					_locationSO.TryGetPos(index, out Vector2 position);
+					MonsterSpawner.Instance.SpawnMonster(
+						entry._type,
+						_currentDefinition.SpawnRatio,
+						position,
+						Quaternion.identity,
+						out Monster monster);
+					if (monster != null)
+					{
+						_currentSession.RegisterMonster(monster);
+					}
 				}
 			}
-
+			_currentSession.CompleteSpawning();
 		}
 
-		//���͸� ���� �� �θ��� �Լ�
-		public void DecrementMonCount(IDamageable mon)
+		//신규작성
+		private StageDefinition CreateStageDefinition(eStage stage)
 		{
-			int count = 0;
-			eMonsterType type = (eMonsterType)mon.GetTypeId();
-			bool flag = _huntResultList.TryGetValue(type, out count);
-			_huntResultList[type] = count + 1;
-
-			--_totalCnt;
-			CustomLogger.Log($"totalCount : {_totalCnt}");
-			if (_totalCnt <= 0 && !_waveCleared)
+			eStage stageKey = StageParser.GetFixedStageKey(stage);
+			double spawnRatio = StageParser.GetRatio(stage);
+			Debug.Log(stageKey);
+			if (!_stageSO.TryGetStageInfo(stageKey, out List<StageInfo_v> entries))
 			{
-				_waveCleared = true; // 이 wave 내 추가 클리어 호출 차단
-									 // WaveManager가 존재?�면 ?�름???�임
-				if (WaveManager.Instance != null)
-				{
-					WaveManager.Instance.OnWaveCleared();
-					return;
-				}
-
-				if (_IsLoop)
-				{
-					StartStage(_currentStage);
-					return;
-				}
-				GoToNextStage();
+				CustomLogger.LogWarning($"[StageManager] : Stage definition not found: {stage}");
+				return null;
 			}
+
+			ulong resourceGroupId = LoadManager.Instance.GetResourceGroupId(stage);
+
+			return new StageDefinition(
+				stage,
+				resourceGroupId,
+				spawnRatio,
+				entries
+			);
 		}
 
-
-		private void GoToNextStage()
+		public eStageResult MoveNext()
 		{
-			eStage nxtStage;
-			eStageResult res = CalculateNextStage(_currentStage, out nxtStage);
+			eStageResult result = StageRule.GetNextWave(CurrentStage, out eStage nextStage);
+    
+			_currentStage = nextStage;
+			StageNumber = StageRule.GetStageNumber(CurrentStage);
+			WaveNumber = StageRule.GetWaveNumber(CurrentStage);
+			IsBossWave = result == eStageResult.BossWaveEntered;
+    
+			if (result == eStageResult.WaveChanged)
+				IsLoopMode = false;
+    
+			return result;
+		}
+    
+		public eStageResult MovePrev()
+		{
+			eStageResult result = StageRule.GetPreviousWave(CurrentStage, out eStage prevStage);
+    
+			//스테이지의 이동이 없었을 때
+			if (result == eStageResult.None) 
+				return result;
+			_currentStage = prevStage;
+			StageNumber = StageRule.GetStageNumber(CurrentStage);
+			WaveNumber = StageRule.GetWaveNumber(CurrentStage);
+			IsBossWave = false;
+			IsLoopMode = true;
+            
+			return result;
+		}
+    
+		public void EnterBossWave()
+		{
+			_currentStage = StageRule.GetBossStage(CurrentStage);
+			StageNumber = StageRule.GetStageNumber(CurrentStage);
+			WaveNumber = StageRule.GetWaveNumber(CurrentStage);
+			IsBossWave = true;
+		}
+		public void ReviveAllPlayers()
+		{
+			var um = UserManager.Instance;
+			if (um == null) return;
+			var userField = typeof(UserManager).GetField("_user",
+				System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+			if (userField == null) return;
+			var user = userField.GetValue(um) as User;
+			if (user?._players == null) return;
 
-			/*Dummy �����̶�, ������ �߰�x. �÷����ϴ°� ������.*/
-
-			//NetworkManager.Instance.OnStageClear(OnStageClearSuccess, OnError);
-			//Stage�� �ٲ���Ѵ�?-> ���ҽ� �ε��� �ʿ���.
-			if (res == eStageResult._StageChanged)
+			foreach (var p in user._players)
 			{
-				CustomLogger.Log($"Go To Next Stage");
-				GameManager.Instance.LoadStage(_currentStage, nxtStage, StartStage);
+				if (p != null) p.Revive();
 			}
-			else
-			{
-				CustomLogger.Log($"Go To Next Wave");
-				//ü��ȸ��
-				StartStage(nxtStage);
-				//Todo : ĳ���� HPȸ��
-			}
-		}
 
-		public void TurnOnLoopStage()
-		{
-			_IsLoop = true;
+			_totalCharacterCnt = user._players.Count;
 		}
-
-		public void TurnOffLoopStage()
-		{
-			_IsLoop = false;
-		}
-
+		
 		// ── [WaveManager 추가] 웨이브 재시작 시 몬스터 카운트 리셋 ──
 		// WaveManager가 이전 웨이브로 복귀하거나 같은 웨이브 재시작 전 호출.
 		// StartStage 내부의 _totalCnt += count가 누적되는 문제를 막는다.
 		public void ResetWaveCount()
 		{
-			_totalCnt = 0;
 			_totalCharacterCnt = 3;
-			_waveCleared = false;
 		}
 		// ── [WaveManager 추가 끝] ──
 
-		//ĳ���Ͱ� ���?���� ���? ���� ���������� �Ѱܾ���.
+		// 캐릭터가 모두 사망하면 이전 웨이브로 되돌린다.
 		public void DecrementCharacterCount()
 		{
 			--_totalCharacterCnt;
 			if (_totalCharacterCnt <= 0)
 			{
-				_IsLoop = true;
 				eStage prevStage;
-				CalculatePrevStage(_currentStage, out prevStage);
+				StageRule.GetPreviousWave(_currentStage, out prevStage);
 				CustomLogger.Log($"GoTo Prev Wave");
 
-				StartStage(prevStage);
+				SpawnStageMonster(prevStage);
 			}
 		}
-		private eStageResult CalculateNextStage(eStage curstage, out eStage nxtstage)
-		{
-			//wave�� 10�̸� ���� ����������
-			ulong waveMask = 0x000000000000FFFF;
 
-			ulong wave = ((ulong)curstage & waveMask);
-
-			if (wave >= LAST_WAVE)
-			{
-				ulong stageAdder = 0x0000000000010000;
-				nxtstage = (eStage)((ulong)curstage + stageAdder);
-				++nxtstage;
-				return eStageResult._StageChanged;
-			}
-
-			nxtstage = (eStage)((ulong)++curstage);
-			return eStageResult._WaveChanged;
-		}
-		private eStageResult CalculatePrevStage(eStage curstage, out eStage prevstage)
-		{
-			//wave�� 1�̸� ���� ���������� ����.
-			ulong waveMask = 0x000000000000FFFF;
-
-			ulong wave = ((ulong)curstage & waveMask);
-
-			if (wave <= 1)
-			{
-				prevstage = curstage;
-				return eStageResult._StageChanged;
-			}
-
-			prevstage = (eStage)((ulong)--curstage);
-			return eStageResult._WaveChanged;
-		}
+		#region 서버 연동파트
 
 		private void SendHuntResult()
 		{
@@ -292,7 +335,7 @@ namespace Scripts.Core
 				return;
 			}
 
-			//�̰� Ǯ������
+			// 사냥 결과를 전송용 DTO로 변환
 			HuntResult code;
 
 			foreach (var mon in _huntResultList)
@@ -333,8 +376,10 @@ namespace Scripts.Core
 		{
 			Debug.Log(error.ErrorMessage);
 		}
+		
 
-
+		#endregion
+		
 		private void Update()
 		{
 			if (_LastTick + TICK_INTERVAL < Time.time)
@@ -345,4 +390,3 @@ namespace Scripts.Core
 		}
 	}
 }
-
