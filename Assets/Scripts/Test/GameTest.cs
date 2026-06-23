@@ -19,9 +19,9 @@ namespace Scripts.Test
 
         private async UniTaskVoid DuplicationLoadingTest()
         {
-            GameManager.Instance.LoadAsyncScene(eSceneType.main);
+            LoadManager.Instance.LoadAsyncScene(eSceneType.main);
             await UniTask.WaitForSeconds(0.1f);
-            GameManager.Instance.LoadAsyncScene(eSceneType.main);
+            LoadManager.Instance.LoadAsyncScene(eSceneType.main);
         }
     }
 }

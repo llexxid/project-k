@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using Scripts.Core.Utils;
+using Scripts.Users;
 
 namespace Scripts.Core
 {
@@ -269,7 +270,6 @@ namespace Scripts.Core
                             _bossTimer = _bossTimeLimit;
                             _bossTimerActive = true;
                         }
-                        Debug.Log("begin");
                         StageManager.Instance.SpawnStageMonster(stageManager.CurrentStage);
                     });
             }
@@ -304,14 +304,14 @@ namespace Scripts.Core
         //  유틸
         // ══════════════════════════════════════
 
-        private void ReviveAllPlayers()
+        public void ReviveAllPlayers()
         {
             var um = UserManager.Instance;
             if (um == null) return;
             var userField = typeof(UserManager).GetField("_user",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
             if (userField == null) return;
-            var user = userField.GetValue(um) as Scripts.Users.User;
+            var user = userField.GetValue(um) as User;
             if (user?._players == null) return;
 
             foreach (var p in user._players)
@@ -319,16 +319,5 @@ namespace Scripts.Core
                 if (p != null) p.Revive();
             }
         }
-
-        // private void DespawnAllMonsters()
-        // {
-        //     var monsters = FindObjectsByType<Scripts.Monster.Monster>(FindObjectsSortMode.None);
-        //     foreach (var m in monsters)
-        //     {
-        //         if (m == null || !m.gameObject.activeInHierarchy) continue;
-        //         m.gameObject.SetActive(false);
-        //         MonsterSpawner.Instance.ReleaseMonster(m.Type, m);
-        //     }
-        // }
     }
 }
