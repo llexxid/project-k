@@ -44,9 +44,9 @@ namespace Scripts.Core
             Debug.Log("[GameManager] 전원 사망 애니메이션 완료");
             _deathAnimationDoneCount = 0;
 
-            if (WaveManager.Instance != null)
+            if (StageManager.Instance != null)
             {
-                WaveManager.Instance.HandleAllPlayersDead();
+                StageManager.Instance.DefeatWave();
                 return;
             }
 
@@ -107,14 +107,10 @@ namespace Scripts.Core
             UserManager.Instance.CreateCharacter();
             eStage curUserStage = UserManager.Instance.GetUserCurrentStage();
 
-            // WaveManager가 있으면 웨이브 흐름을 위임
-            if (WaveManager.Instance != null)
+            // stageManager가 없을때 조치를 어떻게 하지?
+            if (StageManager.Instance != null)
             {
-                WaveManager.Instance.BeginFromStage(curUserStage);
-            }
-            else
-            {
-                StageManager.Instance.SpawnStageMonster(curUserStage);
+                StageManager.Instance.BeginStage(curUserStage);
             }
         }
     }

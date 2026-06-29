@@ -23,16 +23,16 @@ namespace KingdomIdle.UIToolkit
         private static VisualElement _deathTimerBar;
         private static VisualElement _deathTimerFill;
 
-        private static WaveManager _wm;
+        private static StageManager _sm;
 
         public static void Init(VisualElement root)
         {
             Dispose();
 
-            _wm = WaveManager.Instance;
-            if (_wm == null)
+            _sm = StageManager.Instance;
+            if (_sm == null)
             {
-                Debug.LogWarning("[WaveUIController] WaveManager.Instance가 null — 이벤트 미등록");
+                Debug.LogWarning("[WaveUIController] StageManager.Instance가 null — 이벤트 미등록");
                 return;
             }
 
@@ -53,50 +53,50 @@ namespace KingdomIdle.UIToolkit
             _deathTimerFill = root.Q<VisualElement>("DeathTimerFill");
 
             // 이벤트 구독
-            _wm.OnWaveChanged += HandleWaveChanged;
-            _wm.OnLoopModeChanged += HandleLoopModeChanged;
-            _wm.OnBossAutoChallengeChanged += HandleBossAutoChallengeChanged;
-            _wm.OnDeathPopupShow += HandleDeathPopupShow;
-            _wm.OnDeathPopupHide += HandleDeathPopupHide;
-            _wm.OnDeathPopupTick += HandleDeathPopupTick;
-            _wm.OnBossTimerTick += HandleBossTimerTick;
+            _sm.OnWaveChanged += HandleWaveChanged;
+            _sm.OnLoopModeChanged += HandleLoopModeChanged;
+            _sm.OnBossAutoChallengeChanged += HandleBossAutoChallengeChanged;
+            _sm.OnDefeatPopupShow += HandleDefeatPopupShow;
+            _sm.OnDefeatPopupHide += HandleDefeatPopupHide;
+            _sm.OnDeathPopupTick += HandleDeathPopupTick;
+            _sm.OnBossTimerTick += HandleBossTimerTick;
 
             // 버튼 클릭
             if (_btnLoopIcon != null)
-                _btnLoopIcon.clicked += () => _wm.DisableLoopMode();
+                _btnLoopIcon.clicked += () => _sm.StopLoop();
 
             if (_tglBossChain != null)
             {
-                _tglBossChain.value = _wm.BossAutoChallenge;
+                _tglBossChain.value = _sm.BossAutoChallenge;
                 _tglBossChain.RegisterValueChangedCallback(evt =>
-                    _wm.SetBossAutoChallenge(evt.newValue));
+                    _sm.SetBossAutoChallenge(evt.newValue));
             }
 
             if (_btnDeathYes != null)
-                _btnDeathYes.clicked += () => _wm.OnDeathPopupChoose(true);
+                _btnDeathYes.clicked += () => _sm.ChooseDefeatAction(true);
 
             if (_btnDeathNo != null)
-                _btnDeathNo.clicked += () => _wm.OnDeathPopupChoose(false);
+                _btnDeathNo.clicked += () => _sm.ChooseDefeatAction(false);
 
             // 초기 상태
             SetHidden(_bossTimerBar, true);
             SetHidden(_deathPopup, true);
             SetHidden(_btnLoopIcon, true);
 
-            UpdateStageLabel(_wm.CurrentStageNumber, _wm.CurrentWave, _wm.IsBossWave);
+            UpdateStageLabel(_sm.StageNumber, _sm.WaveNumber, _sm.IsBossWave);
         }
 
         public static void Dispose()
         {
-            if (_wm == null) return;
-            _wm.OnWaveChanged -= HandleWaveChanged;
-            _wm.OnLoopModeChanged -= HandleLoopModeChanged;
-            _wm.OnBossAutoChallengeChanged -= HandleBossAutoChallengeChanged;
-            _wm.OnDeathPopupShow -= HandleDeathPopupShow;
-            _wm.OnDeathPopupHide -= HandleDeathPopupHide;
-            _wm.OnDeathPopupTick -= HandleDeathPopupTick;
-            _wm.OnBossTimerTick -= HandleBossTimerTick;
-            _wm = null;
+            if (_sm == null) return;
+            _sm.OnWaveChanged -= HandleWaveChanged;
+            _sm.OnLoopModeChanged -= HandleLoopModeChanged;
+            _sm.OnBossAutoChallengeChanged -= HandleBossAutoChallengeChanged;
+            _sm.OnDefeatPopupShow -= HandleDefeatPopupShow;
+            _sm.OnDefeatPopupHide -= HandleDefeatPopupHide;
+            _sm.OnDeathPopupTick -= HandleDeathPopupTick;
+            _sm.OnBossTimerTick -= HandleBossTimerTick;
+            _sm = null;
         }
 
         // ── 이벤트 핸들러 ──
@@ -118,13 +118,13 @@ namespace KingdomIdle.UIToolkit
                 _tglBossChain.SetValueWithoutNotify(enabled);
         }
 
-        private static void HandleDeathPopupShow()
+        private static void HandleDefeatPopupShow()
         {
             SetHidden(_deathPopup, false);
             SetHidden(_bossTimerBar, true);
         }
 
-        private static void HandleDeathPopupHide()
+        private static void HandleDefeatPopupHide()
         {
             SetHidden(_deathPopup, true);
         }

@@ -98,7 +98,6 @@ namespace Scripts.Core
             _killCounts[monster.Type] = killCount + 1;
 
             MonsterKilled?.Invoke(monster);
-            //_monsterSpawner.ReleaseMonster(monster.Type, monster);
 
             TryNotifyCleared();
         }
