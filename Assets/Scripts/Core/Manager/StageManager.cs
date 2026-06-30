@@ -24,8 +24,16 @@ namespace Scripts.Core
 		StageChanged,
 	}
 	/// <summary>
-	/// 스테이지 진입, 웨이브 진행, 클리어/패배 분기와 전환 흐름을 관리한다.
-	/// 정적 정보는 StageDefinition, 진행 중인 몬스터 상태는 StageSession이 담당한다.
+	/// 스테이지 진입, 웨이브 진행, 클리어/패배 분기와 전환 흐름을 관리한다
+	/// 
+	/// <br/>BeginStage() → StartWave() 순서로 웨이브를 시작하고,
+	/// StageSession의 모든 몬스터가 처치되면 ClearWave()에서 다음 흐름을 결정한다
+	/// <br/>일반 웨이브는 AdvanceWave(), 보스 클리어 후 스테이지 전환은 AdvanceStage()로 진행한다
+	/// <br/>플레이어 전멸 또는 보스 제한 시간 초과 시 DefeatWave()로 패배 상태에 진입하고,
+	/// ChooseDefeatAction() 결과에 따라 RetryWave() 또는 이전 웨이브 복귀로 분기한다
+	/// 
+	/// <br/>정적 정보는 StageDefinition, 진행 중인 몬스터 상태는 StageSession,
+	/// 스테이지/웨이브 계산은 StageRule이 담당한다
 	/// </summary>
 	public class StageManager : MonoBehaviour
 	{
@@ -82,6 +90,13 @@ namespace Scripts.Core
 
 		#endregion
 
+		#if UNITY_EDITOR
+		[ContextMenu("Clear Wave")]
+		private void DebugClearWave()
+		{
+			ClearWave();
+		}
+		#endif
 		#region 유니티 생명주기
 		/// <summary>싱글톤을 구성하고 스테이지 메타 데이터를 초기화한다.</summary>
 		private void Awake()
