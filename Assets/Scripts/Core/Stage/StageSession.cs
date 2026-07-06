@@ -14,6 +14,8 @@ namespace Scripts.Core
     /// </summary>
     public sealed class StageSession
     {
+        public event Action<Monster> MonsterKilled;
+        public event Action Cleared;
         private readonly HashSet<Monster> _monsters = new();
         private readonly Dictionary<eMonsterType, int> _killCounts = new();
         private readonly MonsterSpawner _monsterSpawner;
@@ -29,8 +31,7 @@ namespace Scripts.Core
         public IReadOnlyCollection<Monster> Monsters => _monsters;
         public IReadOnlyDictionary<eMonsterType, int> KillCounts => _killCounts;
 
-        public event Action<Monster> MonsterKilled;
-        public event Action Cleared;
+
 
         public StageSession(StageDefinition definition, MonsterSpawner monsterSpawner)
         {

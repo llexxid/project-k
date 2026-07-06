@@ -10,14 +10,11 @@ using UnityEngine;
 /// </summary>
 public class PlayerEquipmentManager
 {
-    #region 이벤트
-    
     /// <summary>장비 착용 완료 시 발행. (슬롯, 착용된 인스턴스)</summary>
     public event Action<PlayerEquipmentManager, eEquipmentSlot, EquipmentInstance> OnEquipped;
     /// <summary>장비 해제 완료 시 발행. (슬롯)</summary>
     public event Action<PlayerEquipmentManager, eEquipmentSlot, EquipmentInstance> OnUnequipped;
 
-    #endregion
     public int PlayerIndex => _playerIndex;
     
     // 현재 착용 중인 장비 (슬롯 → 인스턴스)
@@ -25,8 +22,7 @@ public class PlayerEquipmentManager
 
     private int _playerIndex = -1;
     private PlayerStatus _playerStatus;
-
-    private string _currentJobName = ""; //현재 직업명
+    
     /// <summary>
     /// Player.Awake()에서 반드시 호출해야 한다.
     /// </summary>
@@ -36,16 +32,6 @@ public class PlayerEquipmentManager
         _playerIndex = playerIndex;
         Debug.Log($"index:{_playerIndex}");
     }
-
-    /// <summary>
-    /// 전직 시 ChangeJob.ApplyJobByIndex()에서 호출한다.
-    /// 이후 드롭은 이 직업에 허용된 장비만 선택된다.
-    /// </summary>
-    public void SetCurrentJob(string jobName)
-    {
-        _currentJobName = jobName ?? "";
-    }
-
 
     #region 장비 장착 / 해제
 

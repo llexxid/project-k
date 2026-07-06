@@ -13,14 +13,23 @@ public class EquipmentInstance
 
     /// <summary>현재 강화 레벨 (0 = 미강화)</summary>
     public int enhancementLevel;
-
     /// <summary>인스턴스 고유 ID (인벤토리에서 동일 장비 구분용)</summary>
     public readonly string instanceId;
-
     /// <summary> 장비를 장착하고 있는 플레이어(캐릭터)의 인덱스, null이면 미장착</summary>
     public int? equipmentPlayerIndex;
 
     public bool IsEquipped => equipmentPlayerIndex.HasValue;
+        /// <summary>
+        /// 아이템 코드(32bit) + 강화 수치(8bit) + 개수(16bit)를 64비트 long으로 패킹한 값.
+        ///   [63-56] 예약 공간  (8bit)
+        ///   [55-24] itemCode  (32bit)
+        ///   [23-16] 강화 수치  (8bit)
+        ///   [15- 0] 개수      (16bit)
+        /// 네트워크 전송, DB 저장, 디버그 로그에 활용한다.
+        /// </summary>
+        public long PackedData => ItemCode.PackInstance(baseData.itemCode, enhancementLevel);
+        
+    #region 수치 계산
     
     public EquipmentInstance(EquipmentData data)
     {
@@ -30,21 +39,6 @@ public class EquipmentInstance
 
         equipmentPlayerIndex = null;
     }
-
-    // ── 비트 패킹 ────────────────────────────────────────────────
-
-    /// <summary>
-    /// 아이템 코드(32bit) + 강화 수치(8bit) + 개수(16bit)를 64비트 long으로 패킹한 값.
-    ///   [63-56] 예약 공간  (8bit)
-    ///   [55-24] itemCode  (32bit)
-    ///   [23-16] 강화 수치  (8bit)
-    ///   [15- 0] 개수      (16bit)
-    /// 네트워크 전송, DB 저장, 디버그 로그에 활용한다.
-    /// </summary>
-    public long PackedData => ItemCode.PackInstance(baseData.itemCode, enhancementLevel);
-
-    #region 수치 계산
-
     public void AddStatsTo(EquipmentStatBlock block)
     {
         if (block == null || baseData == null) return;

@@ -13,10 +13,19 @@ public enum GetEffect
     Popup,
     
 }
+// EquipmentManager
+// ├─ EquipmentInventory
+// │  └─ 유저 공용 장비 인벤토리
+// └─ PlayerEquipmentManager 참조/조회
+//    └─ Player별 장착 상태 접근 및 장착 장비 강화 후 스탯 갱신
+//
+// Player
+// └─ PlayerEquipmentManager
+//    └─ 해당 Player의 장착/해제와 장비 스탯 반영
 public class EquipmentManager : MonoBehaviour
 {
     public static EquipmentManager Instance;
-    #region 이벤트
+
     /// <summary>드롭으로 장비 획득 시 발행. (획득한 인스턴스)</summary>
     public event Action<EquipmentInstance> OnItemDropped;
     /// <summary>강화 성공 시 발행. (강화된 인스턴스)</summary>
@@ -28,25 +37,21 @@ public class EquipmentManager : MonoBehaviour
     public event Action<Player, eEquipmentSlot, EquipmentInstance> OnEquipped;
     public event Action<Player, eEquipmentSlot, EquipmentInstance> OnUnequipped;
 
-
-    #endregion
-
     public EquipmentInventory Inventory => _inventory; //외부접근용 프로퍼티
+    
     [SerializeField]private EquipmentDatabase    _database;
     [SerializeField]private EquipmentDropTableSO _dropTable;
 
-    // 합성에 필요한 동일 장비 개수
-    private const int SYNTHESIS_REQUIRED_COUNT = 3;
-
-    // 현재 착용 중인 장비 (슬롯 → 인스턴스)
-    private readonly Dictionary<PlayerEquipmentManager, Player> _ownerByEquipmentManager = new();
     private EquipmentInventory   _inventory;
-    private PlayerStatus         _playerStatus;
-
-    private string _currentJobName = ""; //현재 직업명
-
+    
+    // 플레이어들의 개별 playerEquipmentManager
     private readonly Dictionary<int, PlayerEquipmentManager> _playerEquipments = new();
+    // 플레이어 캐시
     private readonly Dictionary<int, Player> _players = new();
+    //장비 장착/해제시 어떤 플레이어가 시도했는지 확인용
+    private readonly Dictionary<PlayerEquipmentManager, Player> _ownerByEquipmentManager = new();
+    
+
 
     private void Awake()
     {
@@ -226,6 +231,10 @@ public class EquipmentManager : MonoBehaviour
         _inventory.Add(item);
         OnItemDropped?.Invoke(item);
     }
+    // 합성에 필요한 동일 장비 개수
+    private const int SYNTHESIS_REQUIRED_COUNT = 3;
+    private string _currentJobName = ""; //현재 직업명
+    private PlayerStatus _playerStatus;
     /// <summary>
     /// *** 기획에서 제외!!! 미사용 코드임***
     /// 동일한 장비 3개를 합성해 다음 등급 장비 1개를 획득한다.

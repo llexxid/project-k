@@ -19,7 +19,6 @@ public enum eEquipmentRarity
     Normal = 0,
     Rare   = 1,
     Epic   = 2,
-    
     MaxRarity //차후 장비확장 대비
 }
 
@@ -82,17 +81,24 @@ public class EquipmentData : ScriptableObject
     public string equipmentName;
     public string description;
     public Sprite icon;
+    
     public eEquipmentSlot slot;
     public eEquipmentRarity rarity;
-
+    [Header("허용 직업 (비트 플래그)")]
+    [Tooltip("이 장비를 드롭/사용할 수 있는 직업 플래그.\n"
+           + "None(0)이면 모든 직업 공용.\n"
+           + "예) Warrior | Knight → 전사·기사만 허용.")]
+    [SerializeField] private eJobFlag _jobMask;
+    [Header("아이템 코드")]
+    [Tooltip("이 장비의 고유 번호 (0~65535). 같은 레어도·슬롯 내에서 중복 없이 입력.")]
+    [SerializeField] private int _itemId;
+    
     [Header("기본 스탯 보너스")] 
     public List<EquipmentOption> MainOption = new();
-
-    //[Header("랜덤 추가 옵션")]  보류
-    //public List<EquipmentOption> AdditionalOption = new();
-
     [Header("강화 옵션")] 
     public List<EquipmentOption> ReinforceOption = new();
+    //[Header("랜덤 추가 옵션")]  보류
+    //public List<EquipmentOption> AdditionalOption = new();
     
     [Header("기본 스탯 보너스(구버전)")]
     public int bonusAtk;
@@ -115,16 +121,6 @@ public class EquipmentData : ScriptableObject
            + "예) [1.0, 0.8, 0.6, 0.4, 0.2] → +0→+1은 100%, +4→+5는 20%\n"
            + "리스트보다 레벨이 높으면 마지막 값 사용.")]
     public List<float> enhanceSuccessRates = new List<float> { 1f, 0.8f, 0.6f, 0.4f, 0.2f };
-
-    [Header("허용 직업 (비트 플래그)")]
-    [Tooltip("이 장비를 드롭/사용할 수 있는 직업 플래그.\n"
-           + "None(0)이면 모든 직업 공용.\n"
-           + "예) Warrior | Knight → 전사·기사만 허용.")]
-    [SerializeField] private eJobFlag _jobMask;
-
-    [Header("아이템 코드")]
-    [Tooltip("이 장비의 고유 번호 (0~65535). 같은 레어도·슬롯 내에서 중복 없이 입력.")]
-    [SerializeField] private int _itemId;
 
     // ── 아이템 코드 ───────────────────────────────────────────────────
 
