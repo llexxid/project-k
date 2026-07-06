@@ -15,7 +15,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     public PlayerStatus playerStatus;
     public SkillSystem skillSystem;
 
-    public EquipmentManager equipmentManager;
+    public PlayerEquipmentManager PlayerEquipmentManager;
 
     [SerializeField]
     private EquipmentDatabase _equipmentDatabase;
@@ -41,6 +41,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     private bool _isDead = false;
     public bool IsDead => _isDead;
     public User User => _user;
+    public int PlayerIndex => _data._index;
 
     /// <summary>기본공격/스킬 애니메이션이 재생 중이면 true. 이동 금지 판정에 사용.</summary>
     public bool IsInAttackAnimation => Time.time < _attackAnimEndTime;
@@ -121,7 +122,8 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
             _initialSpawnPos = transform.position;
             _initialSpawnPosCaptured = true;
         }
-
+        //각 플레이어별 장비 매니저 초기화용 호출입니다. awake에서는 _data가 초기화되어있지 않아 init에서 실행합니다
+        PlayerEquipmentManager.Init(playerStatus, _data._index);  
         KingdomIdle.UIToolkit.UITKEquipmentPanelBridge.Init(this, _user);
     }
 
@@ -232,8 +234,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
         playerStatus = new PlayerStatus();
 
-        equipmentManager = new EquipmentManager();
-        equipmentManager.Init(playerStatus, _equipmentDatabase, _equipmentDropTable);
+        PlayerEquipmentManager = new PlayerEquipmentManager();
 
         skillSystem = new SkillSystem(this);
 
@@ -472,7 +473,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         _user.GainCoin(eCurrency.Gold, gold);
         _user.GainCoin(eCurrency.AncientCoin, ancientCoin);
 
-        equipmentManager?.TryDropEquipment();
+        EquipmentManager.Instance.TryDropEquipment();
         return;
     }
 

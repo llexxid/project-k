@@ -171,7 +171,7 @@ public class ChangeJob : MonoBehaviour
             _player.RebuildAnimatorComponent();
         }
 
-        _player.equipmentManager?.SetCurrentJob(data.jobName);
+        _player.PlayerEquipmentManager?.SetCurrentJob(data.jobName);
 
         OnJobChanged?.Invoke(data.jobName, index, jobDatabase.Count);
 

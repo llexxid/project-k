@@ -726,6 +726,7 @@ GameObject:
   - component: {fileID: 2134808529}
   - component: {fileID: 2134808531}
   - component: {fileID: 2134808533}
+  - component: {fileID: 2134808535}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -805,6 +806,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _stageSO: {fileID: 11400000, guid: 407fad990909cf046afc04393a08b306, type: 2}
   _locationSO: {fileID: 11400000, guid: da51644bd74579446b17b7f43d20d4e1, type: 2}
+  _bossTimeLimit: 30
 --- !u!114 &2134808529
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -830,8 +832,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ec76570c5a2d4764782260097d8ba493, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _bossStageValue: 0
-  _bossTimeLimit: 30
 --- !u!114 &2134808531
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -875,6 +875,20 @@ MonoBehaviour:
   titleSceneName: title
   mainSceneName: main
   dungeonSceneName: dungeon
+--- !u!114 &2134808535
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2134808522}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0b401b176eb86bf44a4d032045164328, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _database: {fileID: 11400000, guid: 0cabf66954ae3c2448ff5eba03efac0c, type: 2}
+  _dropTable: {fileID: 11400000, guid: 6713f77879bf6084abc02ae0e053a7cf, type: 2}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

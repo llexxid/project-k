@@ -140,7 +140,6 @@ namespace Scripts.Core
         public long _killScore;
 		public string _nickname;
 		public eStage _currentStage;
-
 		public int _level;
 		public ulong _enchantHPCount { get; set; }
 		public ulong _enchantATKCount { get; set; }
@@ -152,6 +151,7 @@ namespace Scripts.Core
         public PlayerData(string nickname, int index, ulong jobcode, long atk, long hp)
         {
             _nickname = nickname;
+            _index = index;
 			_job = jobcode;
 			_atk = atk;
 
@@ -162,7 +162,7 @@ namespace Scripts.Core
             _extraHp = 0;
 		}
         public string _nickname;
-
+        public int _index;
         //직업 코드
         public ulong _job;
 

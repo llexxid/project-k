@@ -1,3 +1,4 @@
+using System;
 using Scripts.Users;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -27,23 +28,23 @@ namespace KingdomIdle.UIToolkit
     {
         public static UITKEquipmentPanelController Instance { get; private set; }
 
-        // ── 레퍼런스 ─────────────────────────────────────────────────
-        private Player           _player;
-        private User             _user;
-        private EquipmentManager _equipMgr;
-
+        private EquipmentManager equipManager;
         // ── UIToolkit ─────────────────────────────────────────────────
         private UIDocument    _uiDocument;
         private VisualElement _panelRoot;   // 패널 최상위 요소 (BuildPanelTree에서 생성)
 
         // ─────────────────────────────────────────────────────────────
+        private bool _ensured;
+        private bool _subscribed;
 
         private void Awake()
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
             DontDestroyOnLoad(gameObject);
+            Init();
         }
+
 
         private void OnDestroy()
         {
@@ -58,11 +59,9 @@ namespace KingdomIdle.UIToolkit
         /// UITKEquipmentPanelBridge.Init()에서 호출.
         /// Player.Start() 이후에 불려야 EquipmentManager가 준비된 상태다.
         /// </summary>
-        public void Init(Player player, User user)
+        public void Init()
         {
-            _player   = player;
-            _user     = user;
-            _equipMgr = player.equipmentManager;
+            if (_ensured && _subscribed) return;
 
             EnsureUiDocument();
             SubscribeEvents();
@@ -77,6 +76,7 @@ namespace KingdomIdle.UIToolkit
 
             if (_uiDocument == null)
                 _uiDocument = FindFirstObjectByType<UIDocument>();
+            _ensured = true;
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -85,26 +85,29 @@ namespace KingdomIdle.UIToolkit
 
         private void SubscribeEvents()
         {
-            if (_equipMgr == null) return;
-
-            _equipMgr.OnEquipped       += OnEquipped;
-            _equipMgr.OnUnequipped     += OnUnequipped;
-            _equipMgr.OnItemDropped    += OnItemDropped;
-            _equipMgr.OnEnhanced       += OnEnhanced;
-            _equipMgr.OnEnhanceFailed  += OnEnhanceFailed;
-            _equipMgr.OnSynthesized    += OnSynthesized;
+            if (EquipmentManager.Instance == null) return;
+            equipManager = EquipmentManager.Instance;
+            
+            equipManager.OnEquipped       += OnEquipped;
+            equipManager.OnUnequipped     += OnUnequipped;
+            equipManager.OnItemDropped    += OnItemDropped;
+            equipManager.OnEnhanced       += OnEnhanced;
+            equipManager.OnEnhanceFailed  += OnEnhanceFailed;
+            equipManager.OnSynthesized    += OnSynthesized;
+            _subscribed = true;
         }
 
         private void UnsubscribeEvents()
         {
-            if (_equipMgr == null) return;
+            if (EquipmentManager.Instance == null) return;
+            equipManager = EquipmentManager.Instance;
 
-            _equipMgr.OnEquipped       -= OnEquipped;
-            _equipMgr.OnUnequipped     -= OnUnequipped;
-            _equipMgr.OnItemDropped    -= OnItemDropped;
-            _equipMgr.OnEnhanced       -= OnEnhanced;
-            _equipMgr.OnEnhanceFailed  -= OnEnhanceFailed;
-            _equipMgr.OnSynthesized    -= OnSynthesized;
+            equipManager.OnEquipped       -= OnEquipped;
+            equipManager.OnUnequipped     -= OnUnequipped;
+            equipManager.OnItemDropped    -= OnItemDropped;
+            equipManager.OnEnhanced       -= OnEnhanced;
+            equipManager.OnEnhanceFailed  -= OnEnhanceFailed;
+            equipManager.OnSynthesized    -= OnSynthesized;
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -112,14 +115,14 @@ namespace KingdomIdle.UIToolkit
         // ═══════════════════════════════════════════════════════════════
 
         /// <summary>장비 착용 시 호출 — 해당 슬롯 아이콘 갱신</summary>
-        private void OnEquipped(eEquipmentSlot slot, EquipmentInstance instance)
+        private void OnEquipped(Player player, eEquipmentSlot slot, EquipmentInstance equip)
         {
-            RefreshSlot(slot, instance);
+            RefreshSlot(slot, equip);
             RefreshInventory();
         }
 
         /// <summary>장비 해제 시 호출 — 해당 슬롯 비우기</summary>
-        private void OnUnequipped(eEquipmentSlot slot)
+        private void OnUnequipped(Player playere, eEquipmentSlot slot, EquipmentInstance equip)
         {
             RefreshSlot(slot, null);
             RefreshInventory();
@@ -231,26 +234,7 @@ namespace KingdomIdle.UIToolkit
         // ═══════════════════════════════════════════════════════════════
         //  UI 버튼 → EquipmentManager 호출 (버튼 콜백에서 사용)
         // ═══════════════════════════════════════════════════════════════
-
-        /// <summary>
-        /// 인벤토리 아이템 클릭 → 착용 처리.
-        /// 아이템 카드 버튼의 clicked 이벤트에 등록한다.
-        ///   btn.clicked += () => OnInventoryItemClicked(item);
-        /// </summary>
-        public void OnInventoryItemClicked(EquipmentInstance item)
-        {
-            _equipMgr.Equip(item);
-        }
-
-        /// <summary>
-        /// 착용 슬롯 클릭 → 해제 처리.
-        /// 슬롯 버튼의 clicked 이벤트에 등록한다.
-        ///   btn.clicked += () => OnSlotClicked(eEquipmentSlot.Weapon);
-        /// </summary>
-        public void OnSlotClicked(eEquipmentSlot slot)
-        {
-            _equipMgr.Unequip(slot);
-        }
+        
 
         /// <summary>
         /// 강화 버튼 클릭.
@@ -258,12 +242,12 @@ namespace KingdomIdle.UIToolkit
         /// </summary>
         public void OnEnhanceBtnClicked(EquipmentInstance item)
         {
-            if (!_equipMgr.CanEnhance(item))
+            if (!equipManager.CanEnhance(item))
             {
                 Debug.Log("[EquipmentUI] 강화 불가 — 재료 부족 또는 최대 레벨");
                 return;
             }
-            _equipMgr.TryEnhance(item);
+            equipManager.TryEnhance(item);
         }
 
         /// <summary>
@@ -272,7 +256,7 @@ namespace KingdomIdle.UIToolkit
         /// </summary>
         public void OnSynthBtnClicked(System.Collections.Generic.List<EquipmentInstance> materials)
         {
-            var result = _equipMgr.TrySynthesize(materials);
+            var result = equipManager.TrySynthesize(materials);
             if (result == null)
                 Debug.Log("[EquipmentUI] 합성 실패 — 재료 조건 미충족");
         }

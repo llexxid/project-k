@@ -2,8 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 /// <summary>
-/// 플레이어가 보유한 장비 인스턴스 목록 관리.
-/// EquipmentManager 내부에서 생성·참조한다.
+/// 유저가 보유한 전체 인벤토리 관리
 /// </summary>
 public class EquipmentInventory
 {
@@ -22,6 +21,12 @@ public class EquipmentInventory
     public bool Remove(EquipmentInstance instance)
     {
         return _items.Remove(instance);
+    }
+
+    public bool RemoveAll(HashSet<EquipmentInstance> instances)
+    {
+        _items.RemoveAll(instances.Contains);
+        return instances.All(item => !_items.Contains(item));
     }
 
     /// <summary>

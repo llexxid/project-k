@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -18,6 +19,52 @@ public enum eEquipmentRarity
     Normal = 0,
     Rare   = 1,
     Epic   = 2,
+    
+    MaxRarity //차후 장비확장 대비
+}
+
+/// <summary>
+/// 장비가 제공할 수 있는 스탯
+/// </summary>
+public enum EquipmentStatType
+{
+    AtkFlat, //데미지 증가량(상수)
+    AtkMultiplier, //데미지 증가량(배율)
+    HpFlat, //체력 증가량(상수)
+    HpMultiplier //체력 증가량(배율)
+}
+
+/// <summary>
+/// 실제 스탯 타입과 옵션
+/// </summary>
+[Serializable]
+public struct EquipmentOption
+{
+    public EquipmentStatType type;
+    public float value;
+    public bool isPercent; //배율인지, 상수인지 여부
+}
+
+/// <summary>
+/// 장비 옵션들을 딕셔너리로 모아서 관리할 수 있는 헬퍼 클래스
+/// </summary>
+public class EquipmentStatBlock
+{
+    private readonly Dictionary<EquipmentStatType, float> _values = new();
+
+    public float Get(EquipmentStatType statType)
+        => _values.GetValueOrDefault(statType, 0f);
+
+    /// <summary> EquipmentOption 필드만으로 값을 추가할 수 있게 만들어주는 래퍼</summary>
+    public void Add(EquipmentOption option)
+    {
+        Add(option.type, option.value);
+    }
+
+    public void Add(EquipmentStatType statType, float value)
+    {
+        _values[statType] = Get(statType) + value;
+    }
 }
 
 /// <summary>
@@ -38,7 +85,16 @@ public class EquipmentData : ScriptableObject
     public eEquipmentSlot slot;
     public eEquipmentRarity rarity;
 
-    [Header("기본 스탯 보너스")]
+    [Header("기본 스탯 보너스")] 
+    public List<EquipmentOption> MainOption = new();
+
+    //[Header("랜덤 추가 옵션")]  보류
+    //public List<EquipmentOption> AdditionalOption = new();
+
+    [Header("강화 옵션")] 
+    public List<EquipmentOption> ReinforceOption = new();
+    
+    [Header("기본 스탯 보너스(구버전)")]
     public int bonusAtk;
     public int bonusMaxHP;
 
