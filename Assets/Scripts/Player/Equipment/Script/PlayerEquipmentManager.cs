@@ -108,4 +108,10 @@ public class PlayerEquipmentManager
         
         _playerStatus.SetEquipmentBonus(totalAtk,totalMaxHP);
     }
+
+    //현재는 사용하지 않으나 ChangeJob.cs에서 사용
+    public void SetCurrentJob(string name)
+    {
+        
+    }
 }
