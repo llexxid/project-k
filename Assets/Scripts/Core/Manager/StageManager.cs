@@ -46,6 +46,8 @@ namespace Scripts.Core
         		public event Action OnDefeatPopupHide;
         		public event Action<float> OnDeathPopupTick;
         		public event Action<float> OnBossTimerTick;
+		        public event Action<StageDefinition> OnWaveCleared;
+		        public event Action<StageDefinition, Monster> OnMonsterKilled;
 		#endregion
 		#region 필드 / 상태
 
@@ -62,6 +64,7 @@ namespace Scripts.Core
         public bool IsBossWave => _isBossWave;
         public bool IsLoopMode => _isLoopMode;
         public bool BossAutoChallenge => _bossAutoChallenge;
+        public eStage MaxClearedStage => maxStage;
 
         private const float DefeatPopupDuration = 15f;
         private const float TickInterval = 3f;
@@ -77,6 +80,8 @@ namespace Scripts.Core
         private StageDefinition _currentDefinition;
         private CancellationTokenSource _token;
 
+        private eStage maxStage; // 현재 최대 진행된 스테이지 확인(서버붙이기 전까지 사용)
+        
         // 서버 전송용 사냥 결과 버퍼.
         private Dictionary<eMonsterType, int> _huntResultList;
         private List<HuntResult> _sendmsg;
@@ -425,12 +430,40 @@ namespace Scripts.Core
 				_currentDefinition,
 				MonsterSpawner.Instance
 				);
-
-			_currentSession.MonsterKilled += CountKill;
-			_currentSession.Cleared += ClearWave;
+			
+			_currentSession.MonsterKilled += HandleMonsterKilled;
+			_currentSession.Cleared += HandleWaveClear;
 			_currentSession.Enter();
 			return true;
         }
+
+		private void HandleWaveClear(StageSession session)
+		{
+			UpdateMaxClearedStage(session.Definition.MainStageId);
+			OnWaveCleared?.Invoke(session.Definition);
+			ClearWave();
+		}
+
+		public bool IsStageCleared(eStage stage)
+		{
+			return (ulong)stage <= (ulong)maxStage;
+		}
+
+		private void UpdateMaxClearedStage(eStage? clearedStage)
+		{
+			if (clearedStage == null) //클리어한 스테이지가 메인이 아니라 던전일경우
+			{
+				return;
+			}
+			if ((ulong)clearedStage > (ulong)maxStage)
+				maxStage = (eStage)clearedStage;
+		}
+
+		private void HandleMonsterKilled(StageSession session, Monster monster)
+		{
+			CountKill(monster);
+			OnMonsterKilled?.Invoke(session.Definition, monster);
+		}
 		/// <summary>현재 세션의 이벤트를 해제하고 남은 몬스터를 정리한다</summary>
 		private void EndSession()
 		{
@@ -439,8 +472,8 @@ namespace Scripts.Core
 				return;
 			}
 
-			_currentSession.MonsterKilled -= CountKill;
-			_currentSession.Cleared -= ClearWave;
+			_currentSession.MonsterKilled -= HandleMonsterKilled;
+			_currentSession.Cleared -= HandleWaveClear;
 			_currentSession.Exit();
 
 			_currentSession = null;
