@@ -522,7 +522,7 @@ namespace KingdomIdle.Gacha
 			for (int i = 0; i < players.Count; i++)
 			{
 				var p = players[i];
-				if (p?.equipmentManager == null) continue;
+				if (p?.PlayerEquipmentManager == null) continue;
 
 				var changeJob = p.GetComponent<ChangeJob>();
 				if (changeJob == null) continue;
@@ -535,8 +535,8 @@ namespace KingdomIdle.Gacha
 			}
 
 			var instance = new EquipmentInstance(reward.equipmentData);
-			targetPlayer.equipmentManager.Inventory.Add(instance);
-			targetPlayer.equipmentManager.OnItemDropped?.Invoke(instance);
+			EquipmentManager.Instance.GetEquipment(instance,GetEffect.None);
+			
 
 			Debug.Log($"[GachaManager] 장비 지급: {reward.equipmentData.equipmentName} ({reward.equipmentData.rarity}) → {targetPlayer.name}");
 		}

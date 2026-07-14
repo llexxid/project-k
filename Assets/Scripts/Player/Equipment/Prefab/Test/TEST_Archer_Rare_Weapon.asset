@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db16d9c73e04b5d48bf6acb34b09a1e8, type: 3}
+  m_Name: TEST_Archer_Rare_Weapon
+  m_EditorClassIdentifier: 
+  equipmentName: TEST_Archer_Rare_Weapon
+  description: Archer Rare test weapon
+  icon: {fileID: 0}
+  slot: 0
+  rarity: 1
+  MainOption:
+  - type: 0
+    value: 30
+    isPercent: 0
+  - type: 2
+    value: 300
+    isPercent: 0
+  AdditionalOption: []
+  ReinforceOption:
+  - type: 0
+    value: 3
+    isPercent: 0
+  - type: 2
+    value: 30
+    isPercent: 0
+  bonusAtk: 30
+  bonusMaxHP: 300
+  maxEnhancementLevel: 10
+  atkGrowthPerLevel: 0.1
+  hpGrowthPerLevel: 0.1
+  enhanceMaterialCount: 2
+  enhanceSuccessRates:
+  - 1
+  - 0.8
+  - 0.6
+  - 0.4
+  - 0.2
+  _jobMask: 2
+  _itemId: 1100

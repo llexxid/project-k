@@ -231,12 +231,15 @@ namespace Scripts.Core
 			//Init Player
 			p1 = obj1.GetComponent<Player>();
 			p1.Init(playerData0, _user);
+			EquipmentManager.Instance.RegisterPlayer(p1);
 			++i;
 			p2 = obj2.GetComponent<Player>();
 			p2.Init(playerData1, _user);
+			EquipmentManager.Instance.RegisterPlayer(p2);
 			++i;
 			p3 = obj3.GetComponent<Player>();
 			p3.Init(playerData2, _user);
+			EquipmentManager.Instance.RegisterPlayer(p3);
 			++i;
 
 obj1.GetComponent<ChangeJob>().ChangeJobByCode(_characterDataFromServer[0].JobCode);
@@ -266,7 +269,7 @@ obj1.GetComponent<ChangeJob>().ChangeJobByCode(_characterDataFromServer[0].JobCo
 						Player target = p1;
 						foreach (var p in players)
 						{
-							if (p?.equipmentManager == null) continue;
+							if (p?.PlayerEquipmentManager == null) continue;
 							if (data.IsAllowedForJob(p.playerStatus?.JobName ?? ""))
 							{
 								target = p;
@@ -275,7 +278,7 @@ obj1.GetComponent<ChangeJob>().ChangeJobByCode(_characterDataFromServer[0].JobCo
 						}
 
 						var instance = new EquipmentInstance(data);
-						target.equipmentManager.Inventory.Add(instance);
+						EquipmentManager.Instance.GetEquipment(instance,GetEffect.None);
 					}
 				}
 			}

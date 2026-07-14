@@ -40,7 +40,7 @@ namespace KingdomIdle.UIToolkit
         /// </summary>
         public static void Init(Player player, User user)
         {
-            Ensure()?.Init(player, user);
+            //Ensure()?.Init(player, user);
         }
 
         // ── 외부에서 패널 열기/닫기 ──────────────────────────────────

@@ -234,7 +234,7 @@ namespace KingdomIdle.UIToolkit
 
             // 장착 장비 표시
             _content.Add(MakeLabel("장착 장비", "ka-section-title"));
-            var equipped = player.equipmentManager?.GetEquipped(eEquipmentSlot.Weapon);
+            var equipped = player.PlayerEquipmentManager?.GetSlotEquipment(eEquipmentSlot.Weapon);
             if (equipped != null)
                 _content.Add(MakeLabel($"{equipped.baseData.equipmentName} +{equipped.enhancementLevel} (ATK +{equipped.GetFinalAtk()})", "ka-stat-line"));
             else
@@ -268,8 +268,8 @@ namespace KingdomIdle.UIToolkit
         {
             var player = GetCurrentPlayer();
             string jobName = player?.playerStatus?.JobName ?? "";
-            var equipMgr = player?.equipmentManager;
-
+            var equipMgr = player?.PlayerEquipmentManager;
+            EquipmentManager equipmentManager = EquipmentManager.Instance;
             _content.Add(MakeLabel("장비", "ka-section-title"));
 
             // ── 현재 장착 슬롯 표시 ──
@@ -277,7 +277,7 @@ namespace KingdomIdle.UIToolkit
             var equippedRow = new VisualElement();
             equippedRow.AddToClassList("ka-equip-grid");
 
-            var equipped = equipMgr?.GetEquipped(eEquipmentSlot.Weapon);
+            var equipped = equipMgr?.GetSlotEquipment(eEquipmentSlot.Weapon);
             var equippedCard = new VisualElement();
             equippedCard.AddToClassList("ka-equip-slot");
             if (equipped != null)
@@ -315,7 +315,7 @@ namespace KingdomIdle.UIToolkit
             // ── 인벤토리 내 장비 목록 ──
             _content.Add(MakeLabel("보유 장비", "ka-subsection-title"));
 
-            if (equipMgr?.Inventory == null || equipMgr.Inventory.Items.Count == 0)
+            if (equipmentManager?.Inventory == null || equipmentManager.Inventory.Items.Count == 0)
             {
                 _content.Add(MakeLabel("보유한 장비가 없습니다.", "ka-placeholder-text"));
                 return;
@@ -325,7 +325,7 @@ namespace KingdomIdle.UIToolkit
             grid.AddToClassList("ka-equip-grid");
 
             // 1차: 장착가능(해당 전직) > 장착불가  2차: 등급 내림차순  3차: 강화레벨 내림차순
-            var sortedItems = equipMgr.Inventory.Items
+            var sortedItems = equipmentManager.Inventory.Items
                 .OrderByDescending(i => i.baseData.IsAllowedForJob(jobName) ? 1 : 0)
                 .ThenByDescending(i => i.baseData.rarity)
                 .ThenByDescending(i => i.enhancementLevel)
@@ -340,7 +340,7 @@ namespace KingdomIdle.UIToolkit
 
         private static void BuildInventoryEquipCard(
             VisualElement grid, EquipmentInstance item, string jobName,
-            EquipmentInstance equipped, EquipmentManager equipMgr)
+            EquipmentInstance equipped, PlayerEquipmentManager equipMgr)
         {
             bool isAllowed = item.baseData.IsAllowedForJob(jobName);
             bool isEquipped = equipped != null && equipped == item;
@@ -388,7 +388,7 @@ namespace KingdomIdle.UIToolkit
         // ── 장비 액션 팝업 (장착/강화 선택) ──
 
         private static void ShowEquipmentActionPopup(
-            EquipmentInstance item, bool isEquipped, bool isAllowed, EquipmentManager equipMgr)
+            EquipmentInstance item, bool isEquipped, bool isAllowed, PlayerEquipmentManager equipMgr)
         {
             _content.Clear();
 
@@ -485,7 +485,7 @@ namespace KingdomIdle.UIToolkit
         /// <summary>
         /// 강화 버튼을 생성한다. 왕국군 장비 탭과 인벤토리에서 공용 사용.
         /// </summary>
-        private static void BuildEnhanceButton(VisualElement parent, EquipmentInstance item, EquipmentManager equipMgr)
+        private static void BuildEnhanceButton(VisualElement parent, EquipmentInstance item, PlayerEquipmentManager equipMgr)
         {
             if (item.IsMaxLevel())
             {
@@ -508,7 +508,7 @@ namespace KingdomIdle.UIToolkit
         /// <summary>
         /// 강화 시도. 재료 부족 시 부족 수량을 토스트로 안내.
         /// </summary>
-        private static void TryEnhanceEquipment(EquipmentInstance item, EquipmentManager equipMgr)
+        private static void TryEnhanceEquipment(EquipmentInstance item, PlayerEquipmentManager equipMgr)
         {
             if (item.IsMaxLevel())
             {
@@ -518,13 +518,14 @@ namespace KingdomIdle.UIToolkit
 
             int needed = item.GetMaterialCount();
             int available = 0;
-            if (equipMgr?.Inventory != null)
+            if (EquipmentManager.Instance.Inventory != null)
             {
-                foreach (var inv in equipMgr.Inventory.Items)
+                foreach (var inv in EquipmentManager.Instance.Inventory.Items)
                 {
-                    if (inv != item && inv.baseData == item.baseData)
+                    if (inv != item && inv.baseData == item.baseData && !inv.IsEquipped)
                         available++;
                 }
+                Debug.Log($"abailable : {available}");
             }
 
             if (available < needed)
@@ -534,7 +535,7 @@ namespace KingdomIdle.UIToolkit
                 return;
             }
 
-            bool success = equipMgr.TryEnhance(item);
+            bool success = EquipmentManager.Instance.TryEnhance(item);
             if (success)
             {
                 float nextRate = item.GetEnhanceSuccessRate() * 100f;
@@ -547,13 +548,13 @@ namespace KingdomIdle.UIToolkit
 
             // 현재 화면이 액션 팝업이면 다시 표시
             ShowEquipmentActionPopup(item,
-                equipMgr.GetEquipped(item.baseData.slot) == item,
+                equipMgr.GetSlotEquipment(item.baseData.slot) == item,
                 item.baseData.IsAllowedForJob(GetCurrentPlayer()?.playerStatus?.JobName ?? ""),
                 equipMgr);
         }
 
         /// <summary>강화 관련 정보 (필요 재료, 성공 확률 등)</summary>
-        private static void BuildEnhanceInfo(EquipmentInstance item, EquipmentManager equipMgr)
+        private static void BuildEnhanceInfo(EquipmentInstance item, PlayerEquipmentManager equipMgr)
         {
             if (item.IsMaxLevel()) return;
 
@@ -561,9 +562,9 @@ namespace KingdomIdle.UIToolkit
 
             int needed = item.GetMaterialCount();
             int available = 0;
-            if (equipMgr?.Inventory != null)
+            if (EquipmentManager.Instance?.Inventory != null)
             {
-                foreach (var inv in equipMgr.Inventory.Items)
+                foreach (var inv in EquipmentManager.Instance.Inventory.Items)
                 {
                     if (inv != item && inv.baseData == item.baseData)
                         available++;

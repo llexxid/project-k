@@ -5,7 +5,7 @@ using Scripts.Users;
 
 namespace Scripts.Core
 {
-    public class WaveManager : MonoBehaviour
+    /*public class WaveManager : MonoBehaviour
     {
         public static WaveManager Instance { get; private set; }
         private StageManager stageManager;
@@ -15,12 +15,12 @@ namespace Scripts.Core
         [SerializeField] private float _bossTimeLimit = 30f;
 
         // ── 상태 ──
-        /*private eStage _currentStage;
+        private eStage _currentStage;
         private int _currentStageNumber;
         private int _currentWave;
         private bool _isBossWave;
         private bool _bossAutoChallenge = true;
-        private bool _loopMode;*/
+        private bool _loopMode;
         private bool _bossFailedReturn;
 
         private float _bossTimer;
@@ -33,6 +33,13 @@ namespace Scripts.Core
 
         // ── 이벤트 ──
         public event Action<int, int, bool> OnWaveChanged;
+
+        public void WaveChanged(int stageNumber, int waveNumber, bool isBossWave)
+        {
+            OnWaveChanged?.Invoke(stageNumber, waveNumber, isBossWave);
+        }
+        //OnWaveChanged?.Invoke(stageManager.StageNumber, stageManager.WaveNumber, stageManager.IsBossWave);
+
         public event Action<bool> OnLoopModeChanged;
         public event Action<bool> OnBossAutoChallengeChanged;
         public event Action OnDeathPopupShow;
@@ -319,5 +326,5 @@ namespace Scripts.Core
                 if (p != null) p.Revive();
             }
         }
-    }
+    }*/
 }

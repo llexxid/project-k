@@ -153,8 +153,8 @@ namespace KingdomIdle.UIToolkit
 
                 string jobName = owner?.playerStatus?.JobName ?? "";
                 bool isAllowed = item.baseData.IsAllowedForJob(jobName);
-                bool isEquipped = owner?.equipmentManager != null &&
-                                  owner.equipmentManager.GetEquipped(item.baseData.slot) == item;
+                bool isEquipped = owner?.PlayerEquipmentManager != null &&
+                                  owner.PlayerEquipmentManager.GetSlotEquipment(item.baseData.slot) == item;
 
                 if (!isAllowed)
                     card.AddToClassList("ka-equip-dimmed");
@@ -239,8 +239,8 @@ namespace KingdomIdle.UIToolkit
             infoCol.Add(MakeLabel($"HP 보너스: +{item.GetFinalMaxHP()}", "ka-stat-line"));
             infoCol.Add(MakeLabel($"강화 레벨: {item.enhancementLevel} / {item.baseData.maxEnhancementLevel}", "ka-stat-line"));
 
-            bool isEquipped = owner?.equipmentManager != null &&
-                              owner.equipmentManager.GetEquipped(item.baseData.slot) == item;
+            bool isEquipped = owner?.PlayerEquipmentManager != null &&
+                              owner.PlayerEquipmentManager.GetSlotEquipment(item.baseData.slot) == item;
             if (isEquipped)
                 infoCol.Add(MakeLabel("현재 장착 중", "ka-frag-ready"));
 
@@ -284,7 +284,7 @@ namespace KingdomIdle.UIToolkit
             _content.Add(btnRow);
 
             // 강화 정보
-            BuildEnhanceInfo(item, owner?.equipmentManager);
+            BuildEnhanceInfo(item, owner?.PlayerEquipmentManager);
         }
 
         /// <summary>
@@ -292,7 +292,8 @@ namespace KingdomIdle.UIToolkit
         /// </summary>
         private static void TryEnhanceFromInventory(EquipmentInstance item, Player owner)
         {
-            var equipMgr = owner?.equipmentManager;
+            var equipMgr = owner?.PlayerEquipmentManager;
+            EquipmentManager equipmentManager = EquipmentManager.Instance;
             if (equipMgr == null) return;
 
             if (item.IsMaxLevel())
@@ -303,9 +304,9 @@ namespace KingdomIdle.UIToolkit
 
             int needed = item.GetMaterialCount();
             int available = 0;
-            if (equipMgr.Inventory != null)
+            if (equipmentManager.Inventory != null)
             {
-                foreach (var inv in equipMgr.Inventory.Items)
+                foreach (var inv in equipmentManager.Inventory.Items)
                 {
                     if (inv != item && inv.baseData == item.baseData)
                         available++;
@@ -319,7 +320,7 @@ namespace KingdomIdle.UIToolkit
                 return;
             }
 
-            bool success = equipMgr.TryEnhance(item);
+            bool success = equipmentManager.TryEnhance(item);
             if (success)
             {
                 float nextRate = item.GetEnhanceSuccessRate() * 100f;
@@ -335,7 +336,7 @@ namespace KingdomIdle.UIToolkit
         }
 
         /// <summary>강화 관련 정보 (필요 재료, 성공 확률 등)</summary>
-        private static void BuildEnhanceInfo(EquipmentInstance item, EquipmentManager equipMgr)
+        private static void BuildEnhanceInfo(EquipmentInstance item, PlayerEquipmentManager equipMgr)
         {
             if (item.IsMaxLevel()) return;
 
@@ -343,9 +344,9 @@ namespace KingdomIdle.UIToolkit
 
             int needed = item.GetMaterialCount();
             int available = 0;
-            if (equipMgr?.Inventory != null)
+            if (EquipmentManager.Instance != null)
             {
-                foreach (var inv in equipMgr.Inventory.Items)
+                foreach (var inv in EquipmentManager.Instance.Inventory.Items)
                 {
                     if (inv != item && inv.baseData == item.baseData)
                         available++;
@@ -375,11 +376,16 @@ namespace KingdomIdle.UIToolkit
             var result = new List<(EquipmentInstance item, Player owner)>();
             if (_players == null) return result;
 
-            foreach (var p in _players)
+            // foreach (var p in _players)
+            // {
+            //     if (EquipmentManager.Instance.Inventory == null) continue;
+            //     foreach (var item in p.PlayerEquipmentManager.Inventory.Items)
+            //         result.Add((item, p));
+            // }
+            //현재 인벤토리는 전체 인벤토리 1개로 통합하고 각 플레이어마다의 인벤토리는 제거한 상태입니다. 따라서 현재는 임시로 p[0] 플레이어를 지정해 놓았습니다
+            foreach (var item in EquipmentManager.Instance.Inventory.Items)
             {
-                if (p?.equipmentManager?.Inventory == null) continue;
-                foreach (var item in p.equipmentManager.Inventory.Items)
-                    result.Add((item, p));
+                result.Add((item, _players[0]));
             }
 
             // 등급 내림차순 → 강화레벨 내림차순 정렬

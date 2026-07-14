@@ -14,6 +14,8 @@ namespace Scripts.Core
     /// </summary>
     public sealed class StageSession
     {
+        public event Action<StageSession, Monster> MonsterKilled;
+        public event Action<StageSession> Cleared;
         private readonly HashSet<Monster> _monsters = new();
         private readonly Dictionary<eMonsterType, int> _killCounts = new();
         private readonly MonsterSpawner _monsterSpawner;
@@ -29,8 +31,7 @@ namespace Scripts.Core
         public IReadOnlyCollection<Monster> Monsters => _monsters;
         public IReadOnlyDictionary<eMonsterType, int> KillCounts => _killCounts;
 
-        public event Action<Monster> MonsterKilled;
-        public event Action Cleared;
+
 
         public StageSession(StageDefinition definition, MonsterSpawner monsterSpawner)
         {
@@ -97,8 +98,7 @@ namespace Scripts.Core
             _killCounts.TryGetValue(monster.Type, out int killCount);
             _killCounts[monster.Type] = killCount + 1;
 
-            MonsterKilled?.Invoke(monster);
-            //_monsterSpawner.ReleaseMonster(monster.Type, monster);
+            MonsterKilled?.Invoke(this, monster);
 
             TryNotifyCleared();
         }
@@ -109,7 +109,7 @@ namespace Scripts.Core
                 return;
 
             _clearNotified = true;
-            Cleared?.Invoke();
+            Cleared?.Invoke(this);
         }
     }
 }

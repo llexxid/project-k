@@ -1,0 +1,63 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c52b359fa2d2f3143863f6b40b173288, type: 3}
+  m_Name: Quest Database SO
+  m_EditorClassIdentifier: 
+  quests:
+  - QuestId: 1
+    Category: 0
+    Title: "[\uAC00\uC774\uB4DC1] \uC2A4\uD14C\uC774\uC9C0 \uD074\uB9AC\uC5B4"
+    Description: "\uC2A4\uD14C\uC774\uC9C0 1 - 1 \uD074\uB9AC\uC5B4"
+    ObjectiveType: 0
+    ProgressMode: 1
+    TargetId: 8590000129
+    RequiredCount: 1
+    NextQuestId: 2
+    RewardGroupId: 0
+    IsRepeatable: 0
+    PresentationType: 0
+  - QuestId: 2
+    Category: 0
+    Title: "[\uAC00\uC774\uB4DC2] \uBAAC\uC2A4\uD130 \uCC98\uCE58"
+    Description: "\uBAAC\uC2A4\uD130 10\uB9C8\uB9AC \uCC98\uCE58"
+    ObjectiveType: 1
+    ProgressMode: 0
+    TargetId: 0
+    RequiredCount: 10
+    NextQuestId: 3
+    RewardGroupId: 0
+    IsRepeatable: 0
+    PresentationType: 0
+  - QuestId: 3
+    Category: 0
+    Title: "[\uAC00\uC774\uB4DC3] \uC2A4\uD14C\uC774\uC9C0 \uD074\uB9AC\uC5B4"
+    Description: "\uC2A4\uD14C\uC774\uC9C0 1-2 \uD074\uB9AC\uC5B4"
+    ObjectiveType: 0
+    ProgressMode: 1
+    TargetId: 8590000130
+    RequiredCount: 1
+    NextQuestId: 4
+    RewardGroupId: 0
+    IsRepeatable: 0
+    PresentationType: 0
+  - QuestId: 4
+    Category: 0
+    Title: "[\uAC00\uC774\uB4DC4] \uBAAC\uC2A4\uD130 \uCC98\uCE58"
+    Description: "\uBAAC\uC2A4\uD130 10\uB9C8\uB9AC \uCC98\uCE58"
+    ObjectiveType: 1
+    ProgressMode: 0
+    TargetId: 0
+    RequiredCount: 10
+    NextQuestId: 0
+    RewardGroupId: 0
+    IsRepeatable: 0
+    PresentationType: 0
