@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Scripts.Core.Manager;
 using Scripts.Core.SO;
 using Scripts.Core.Utils;
 using UnityEngine;
@@ -131,9 +132,9 @@ namespace Scripts.Core
         /// 스테이지 전환 시 다음 스테이지 그룹에 필요한 리소스를 준비한 뒤 콜백을 호출한다.
         /// 씬은 바꾸지 않고 스테이지 그룹의 몬스터/SFX/VFX 리소스만 갱신한다.
         /// </summary>
-        public async UniTaskVoid LoadStage(eStage curStage, eStage nextStage, Action<eStage> onStageLoaded_callback)
+        public async UniTask LoadStage(eStage curStage, eStage nextStage, Action<eStage> onStageLoaded_callback)
         {
-            ulong resourceId = GetResourceGroupId(nextStage);
+            ulong resourceId = StageParser.GetResourceGroupId(nextStage);
 
             StageResourceCache cache = GetOrPreloadStageResources(resourceId);
             if (cache != null)
@@ -238,7 +239,7 @@ namespace Scripts.Core
 
             // 사용자의 현재 스테이지 정보를 가져와서 로딩 준비.
             eStage currentStage = UserManager.Instance.GetUserCurrentStage();
-            ulong resourceId = GetResourceGroupId(currentStage);
+            ulong resourceId = StageParser.GetResourceGroupId(currentStage);
 
             return GetOrPreloadStageResources(resourceId);
         }
@@ -256,7 +257,7 @@ namespace Scripts.Core
 
             StageResourceCache cache = new StageResourceCache
             {
-                MonsterLoadTask = StageManager.Instance.PreLoadAssets((eStage)resourceId)
+                MonsterLoadTask = StageManager.Instance.PreLoadAssets((eStage)resourceId).Preserve()
             };
             //스테이지 그룹에 사용되는 몬스터 리스트 받아오기
             List<eMonsterType> monList = StageManager.Instance.GetStageMonsterTypes((eStage)resourceId);
@@ -394,16 +395,7 @@ namespace Scripts.Core
             Ids = result.ToArray();
             return Ids.Length > 0;
         }
-        /// <summary>
-        /// 특정 스테이지 그룹의 몬스터, 몬스터 SFX, 몬스터 VFX 로딩 상태를 함께 추적한다.
-        /// <br/>* 몬스터 프리팹 로딩은 MonsterSpawner가 UniTask로 진행하며,
-        /// LoadManager는 반환된 Task를 기다려 스테이지 리소스 준비 완료 시점만 맞춘다.
-        /// </summary>
-        //현재의 스테이지를 기반으로 ResourceGroupID를 얻어냄.
-        public ulong GetResourceGroupId(eStage curstage)
-        {
-            return ((ulong)curstage & 0xFFFFFFFFFFFF0000);
-        }
+
         public string GetSceneName(eSceneType type)
                 {
                     switch (type)

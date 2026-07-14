@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Scripts.Core;
+using Scripts.Core.Manager;
 using Scripts.Monster;
 using UnityEngine;
 
@@ -77,7 +78,7 @@ public class QuestManager : MonoBehaviour
         if (StageManager.Instance == null)
             return;
 
-        StageManager.Instance.OnWaveCleared += HandleStageClear;
+        StageManager.Instance.OnStageCleared += HandleStageClear;
         StageManager.Instance.OnMonsterKilled += HandleMonsterKilled;
     }
 
@@ -86,7 +87,7 @@ public class QuestManager : MonoBehaviour
         if (StageManager.Instance == null)
             return;
 
-        StageManager.Instance.OnWaveCleared -= HandleStageClear;
+        StageManager.Instance.OnStageCleared -= HandleStageClear;
         StageManager.Instance.OnMonsterKilled -= HandleMonsterKilled;
     }
 
@@ -227,7 +228,7 @@ public class QuestManager : MonoBehaviour
         ApplyQuestEvent(new QuestEvent
         {
             EventType = eQuestEventType.StageCleared,
-            TargetId = (long)definition.MainStageId,
+            TargetId = (long)definition.Id,
             Amount = 1
         });
     }

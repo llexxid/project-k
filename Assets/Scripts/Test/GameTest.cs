@@ -1,38 +1,26 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Scripts.Core;
+using Scripts.Core.Manager;
 using UnityEngine;
 
 namespace Scripts.Test
 {
     public class GameTest : MonoBehaviour
     {
-        #if UNITY_EDITOR
         private void Update()
         {
-            if (Input.GetKeyDown(KeyCode.F1))
+            if (Input.GetKeyDown(KeyCode.G))
             {
-                StageManager.Instance.ClearWave();
+                StageManager.Instance.EnterGoldDungeon();
             }
 
-            if (Input.GetKeyDown(KeyCode.F2))
+            if (Input.GetKeyDown(KeyCode.M))
             {
-                
-            }
-            if (Input.GetKeyDown(KeyCode.Alpha1))
-            {
-                Debug.Log("Duplication Loading Test");
-                DuplicationLoadingTest().Forget();
+                StageManager.Instance.ReturnToMainStage();
             }
         }
-
-        private async UniTaskVoid DuplicationLoadingTest()
-        {
-            LoadManager.Instance.LoadAsyncScene(eSceneType.main);
-            await UniTask.WaitForSeconds(0.1f);
-            LoadManager.Instance.LoadAsyncScene(eSceneType.main);
-        }
-        #endif
     }
 }

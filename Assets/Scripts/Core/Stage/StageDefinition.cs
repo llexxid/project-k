@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using Scripts.Core.Manager;
 using Scripts.Core.SO;
+using UnityEngine;
 
 namespace Scripts.Core
 {
@@ -8,9 +10,9 @@ namespace Scripts.Core
     public enum eStageFlowType
     {
         MainProgress, //메인 스토리
-        BossKill, //보스 처치후 종료
-        Survival, //일정시간 생존
-        KillCount, //특정 마릿수 처치
+        BossChallenge, //보스 처치후 종료
+        TimedSurvival, //일정시간 생존
+        KillCountChallenge, //특정 마릿수 처치
         
         MaxCount
     }
@@ -23,45 +25,77 @@ namespace Scripts.Core
         
         MaxCount //타입 카운팅용
     }
+
+    //각 스테이지별 리소스(배경, 몬스터 등..)
+    public enum eEnvironment
+    {
+        Main1,
+        Main2,
+        GoldDungeon,
+        RubyDungeon
+    }
     /// <summary>
     /// 특정 웨이브를 구성하는 정적 설정을 나타낸다.
     /// 실제 리소스 핸들과 생성된 몬스터는 소유하지 않는다.
     /// </summary>
     public sealed class StageDefinition
     {
-        private readonly StageMetaDataSO.StageInfo_v[] _monsterEntries;
-
-        public long ContentId { get;  }
-        public eStage? MainStageId { get; }
+        public eStage Id { get;  }
+        public eStage? MainStageId { get; } //현재 스테이지 타입이 메인이면 Id, 아니면 null 반환
         public eStageType Type { get; }
+        public eStageFlowType FlowType { get; }
+        public eEnvironment Environment { get; } 
+        
         public int StageNumber { get; }
         public int WaveNumber { get; }
-        public bool IsBossWave { get; }
+        public double MonsterStatMultiplier { get; }
+        
+        public float TimeLimitSec { get; }
         public ulong ResourceGroupId { get; }
-        public double SpawnRatio { get; }
-        public int TotalMonsterCount { get; }
-
+        public IStageFlowConfig FlowConfig { get; }
+        
         public IReadOnlyList<StageMetaDataSO.StageInfo_v> MonsterEntries => _monsterEntries;
+        public string RewardGroupId { get; }
+        public eSFXType? BgmType { get; }
+        public bool Enabled { get; }
+        
+        private readonly StageMetaDataSO.StageInfo_v[] _monsterEntries;
+        
+        public List<Vector2> SpawnPointSet { get; }
+        
 
         public StageDefinition(
-            eStage mainStageId,
-            ulong resourceGroupId,
-            double spawnRatio,
-            IReadOnlyList<StageMetaDataSO.StageInfo_v> monsterEntries)
+            eStage stageId,
+            eStageFlowType flowType,
+            eEnvironment environment,
+            double monsterStatMultiplier,
+            IReadOnlyList<StageMetaDataSO.StageInfo_v> monsterEntries,
+            float timeLimitSec = 0f,
+            IStageFlowConfig flowConfig = null,
+            string rewardGroupId = null,
+            eSFXType? bgmType = null,
+            bool enabled = true)
         {
-            MainStageId = mainStageId;
-            StageNumber = StageRule.GetStageNumber(mainStageId);
-            WaveNumber = StageRule.GetWaveNumber(mainStageId);
-            IsBossWave = StageRule.IsBossWave(mainStageId);
-            ResourceGroupId = resourceGroupId;
-            SpawnRatio = spawnRatio;
+            Id = stageId;
+            Type = StageParser.GetStageType(stageId);
+            FlowType = flowType;
+            Environment = environment;
 
-            if (monsterEntries == null)
-            {
-                _monsterEntries = Array.Empty<StageMetaDataSO.StageInfo_v>();
-                return;
-            }
+            StageNumber = StageParser.GetStageNumber(stageId);
+            WaveNumber = StageParser.GetWaveNumber(stageId);
+            ResourceGroupId = StageParser.GetResourceGroupId(stageId);
 
+            MainStageId = Type == eStageType.Main
+                ? stageId
+                : null;
+
+            MonsterStatMultiplier = monsterStatMultiplier;
+            TimeLimitSec = timeLimitSec;
+            FlowConfig = flowConfig;
+            RewardGroupId = rewardGroupId;
+            BgmType = bgmType;
+            Enabled = enabled;
+            
             _monsterEntries = new StageMetaDataSO.StageInfo_v[monsterEntries.Count];
 
             int totalMonsterCount = 0;
@@ -73,8 +107,6 @@ namespace Scripts.Core
                 if (entry._count > 0)
                     totalMonsterCount += entry._count;
             }
-
-            TotalMonsterCount = totalMonsterCount;
         }
     }
 }

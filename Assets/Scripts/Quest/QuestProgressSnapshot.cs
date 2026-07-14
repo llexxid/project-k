@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using Scripts.Core;
+using Scripts.Core.Manager;
 using UnityEngine;
 
 public class QuestProgressSnapshot : MonoBehaviour, IQuestProgressSnapshot

@@ -162,7 +162,7 @@ namespace Scripts.Core.Utils
 			}
 			cache = new MonsterAssetGroupCache();
 			_monsterAssetGroup.Add((long)groupId, cache);
-			cache.LoadTask = LoadAssetAsync(cache, ids);
+			cache.LoadTask = LoadAssetAsync(cache, ids).Preserve();
 			// 호출자는 이 Task를 await해서 몬스터 캐시가 준비될 때까지 기다릴 수 있다
 			return cache.LoadTask;
 		}

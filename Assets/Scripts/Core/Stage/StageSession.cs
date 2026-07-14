@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using Core.Stage;
 using Scripts.Core.inteface;
 using Scripts.Core.Utils;
 using Scripts.Monster;
+using UnityEngine;
+using UnityEngine.PlayerLoop;
 
 namespace Scripts.Core
 {
@@ -14,28 +17,29 @@ namespace Scripts.Core
     /// </summary>
     public sealed class StageSession
     {
+        public event Action<StageSession, StageRuleResult> ResultProduced;
         public event Action<StageSession, Monster> MonsterKilled;
-        public event Action<StageSession> Cleared;
+        
+        public StageDefinition Definition { get; }
+        public bool IsRunning { get; private set; }
+        public bool IsCleared => _spawningCompleted && _monsters.Count <= 0;
+        public int RemainingMonsterCount => _monsters.Count;
+        
+        private IStageRule _rule;
         private readonly HashSet<Monster> _monsters = new();
         private readonly Dictionary<eMonsterType, int> _killCounts = new();
         private readonly MonsterSpawner _monsterSpawner;
 
         private bool _spawningCompleted;
         private bool _clearNotified;
-
-        public StageDefinition Definition { get; }
-        public bool IsRunning { get; private set; }
-        public bool IsCleared => _spawningCompleted && _monsters.Count == 0;
-        public int RemainingMonsterCount => _monsters.Count;
-
+        private bool _resultProduced;
         public IReadOnlyCollection<Monster> Monsters => _monsters;
         public IReadOnlyDictionary<eMonsterType, int> KillCounts => _killCounts;
 
-
-
-        public StageSession(StageDefinition definition, MonsterSpawner monsterSpawner)
+        public StageSession(StageDefinition definition, IStageRule rule, MonsterSpawner monsterSpawner)
         {
             Definition = definition ?? throw new ArgumentNullException(nameof(definition));
+            _rule = rule ?? throw new ArgumentNullException(nameof(rule));
             _monsterSpawner = monsterSpawner ?? throw new ArgumentNullException(nameof(monsterSpawner));
         }
 
@@ -45,9 +49,20 @@ namespace Scripts.Core
             IsRunning = true;
             _spawningCompleted = false;
             _clearNotified = false;
+            _resultProduced = false;
             _killCounts.Clear();
+            
+            _rule.Enter(this);
         }
 
+        public void Tick(float deltaTime)
+        {
+            
+            if (!IsRunning || _resultProduced)
+                return;
+
+            PublishResult(_rule.Tick(this, deltaTime));
+        }
         /// <summary>외부에서 생성한 몬스터를 현재 웨이브 소속으로 등록한다.</summary>
         public bool RegisterMonster(Monster monster)
         {
@@ -65,7 +80,6 @@ namespace Scripts.Core
                 return;
 
             _spawningCompleted = true;
-            TryNotifyCleared();
         }
 
         /// <summary>현재 웨이브를 종료하고 남아 있는 몬스터를 풀에 반환한다.</summary>
@@ -75,6 +89,7 @@ namespace Scripts.Core
                 return;
 
             IsRunning = false;
+            _rule.Exit(this);
 
             var remainingMonsters = new List<Monster>(_monsters);
             foreach (Monster monster in remainingMonsters)
@@ -87,7 +102,13 @@ namespace Scripts.Core
             _spawningCompleted = false;
             _clearNotified = false;
         }
+        public void NotifyPartyDefeated()
+        {
+            if (!IsRunning || _resultProduced)
+                return;
 
+            PublishResult(_rule.OnPartyDefeated(this));
+        }
         private void HandleMonsterKilled(IDamageable target)
         {
             if (!IsRunning || target is not Monster monster || !_monsters.Remove(monster))
@@ -98,18 +119,22 @@ namespace Scripts.Core
             _killCounts.TryGetValue(monster.Type, out int killCount);
             _killCounts[monster.Type] = killCount + 1;
 
-            MonsterKilled?.Invoke(this, monster);
+            // 상태 갱신이 끝난 뒤 Rule 판정
+            StageRuleResult result =
+                _rule.OnMonsterKilled(this, monster);
 
-            TryNotifyCleared();
+            MonsterKilled?.Invoke(this, monster);
+            PublishResult(result);
         }
 
-        private void TryNotifyCleared()
+        private void PublishResult(StageRuleResult result)
         {
-            if (_clearNotified || !IsCleared)
-                return;
+            if (result.Action == eStageFlowAction.None) return;
+            if (_resultProduced) return;
 
-            _clearNotified = true;
-            Cleared?.Invoke(this);
+            _resultProduced = true;
+            ResultProduced?.Invoke(this, result);
+            
         }
     }
 }
