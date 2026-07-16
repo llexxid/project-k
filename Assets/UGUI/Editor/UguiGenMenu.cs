@@ -134,7 +134,13 @@ namespace KingdomIdle.UGUI.Editor
             var behaviours = prefab.GetComponentsInChildren<MonoBehaviour>(true);
             foreach (var mb in behaviours)
             {
-                if (mb == null) continue;
+                // 클래스명 ≠ 파일명 등으로 MonoScript 참조가 끊긴 경우 — 치명적 오류
+                if (mb == null)
+                {
+                    Debug.LogError($"[UguiGen] {prefab.name}에 missing script가 있습니다! (View 클래스가 파일명과 일치하는지 확인)");
+                    errors++;
+                    continue;
+                }
                 var type = mb.GetType();
                 if (type.Namespace == null || !type.Namespace.StartsWith("KingdomIdle.UGUI")) continue;
 

@@ -11,7 +11,9 @@ namespace KingdomIdle.UGUI.Editor
     internal static class UguiGenAssets
     {
         // 프로젝트에 이미 존재하는 에셋 GUID (탐색으로 확정)
-        private const string GuidFontGalmuri = "e8c81bad0478536459fd7c980f22b8c0";     // Galmuri11 SDF (TMP)
+        // 주의: "Galmuri11 SDF"(e8c81bad…)는 소스 폰트 참조가 끊겨 있어 동적 글리프 추가가 실패한다.
+        // UITK가 기본 폰트로 쓰던 "Galmuri11 SDF 1"을 사용한다 (소스 Galmuri11.ttf 정상 연결).
+        private const string GuidFontGalmuri = "98dc408a15ae7424c84a770c05b4bc31";     // Galmuri11 SDF 1 (TMP)
         private const string GuidSfxPanelOpen = "903de372b5fa6404abdb6413592bf28f";
         private const string GuidSfxPanelClose = "9d24e3663f195324abd2c16503f04bda";
         private const string GuidSfxButtonClick = "1830b8c536e5ead4db1d11e5f9c8d36e";

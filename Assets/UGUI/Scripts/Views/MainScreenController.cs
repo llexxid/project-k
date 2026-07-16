@@ -572,7 +572,10 @@ namespace KingdomIdle.UGUI
                 : (_view.popupHamburger != null ? _view.popupHamburger.transform : null);
             if (openPopup == null) return;
 
+            // SetSiblingIndex로 캐처를 팝업 자리에 밀어넣으면 캐처가 팝업 '위'로 올 수 있으므로
+            // 팝업을 다시 최상단으로 올려 캐처가 항상 팝업 아래에 있도록 보장한다.
             _view.outsideCatcher.transform.SetSiblingIndex(openPopup.GetSiblingIndex());
+            openPopup.SetAsLastSibling();
         }
     }
 }
