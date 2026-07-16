@@ -1,4 +1,4 @@
-using KingdomIdle.UIToolkit;
+using KingdomIdle.UGUI;
 using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Core.Utils;
@@ -102,7 +102,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         ulong dmg = attacker.damage;
         //CustomLogger.Log($"Player가 공격을 받고있습니다! DMG : {dmg}");
 
-        UITKDamageTextBridge.ShowOnTransform(transform, dmg, Color.white);
+        DamageTextBridge.ShowOnTransform(transform, dmg, Color.white);
 
         bool IsAlive = setHp(dmg);
         if (!IsAlive) return false;
@@ -123,8 +123,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
             _initialSpawnPosCaptured = true;
         }
         //각 플레이어별 장비 매니저 초기화용 호출입니다. awake에서는 _data가 초기화되어있지 않아 init에서 실행합니다
-        PlayerEquipmentManager.Init(playerStatus, _data._index);  
-        KingdomIdle.UIToolkit.UITKEquipmentPanelBridge.Init(this, _user);
+        PlayerEquipmentManager.Init(playerStatus, _data._index);
     }
 
     private void OnDead()

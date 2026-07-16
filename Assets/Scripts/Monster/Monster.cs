@@ -1,4 +1,4 @@
-using KingdomIdle.UIToolkit; // UI 연동(피격 데미지 텍스트)
+using KingdomIdle.UGUI; // UI 연동(피격 데미지 텍스트)
 using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Core.Utils;
@@ -240,7 +240,7 @@ namespace Scripts.Monster
 
 			ulong dmg = attacker.damage;
 			// UI 연동: 몬스터 머리 위로 피격 데미지 표시
-			UITKDamageTextBridge.ShowOnTransform(transform, dmg);
+			DamageTextBridge.ShowOnTransform(transform, dmg);
 
 			bool IsAlive = setHp(dmg);
 			
