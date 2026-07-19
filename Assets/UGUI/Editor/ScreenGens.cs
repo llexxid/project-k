@@ -324,7 +324,7 @@ namespace KingdomIdle.UGUI.Editor
             // 픽셀 키트 아이콘 (⚔♞✦ 글리프는 Galmuri11에 없어 스프라이트 사용)
             var iconWrap = F.Container(inner, "IconWrap");
             F.Preferred(iconWrap.gameObject.AddComponent<LayoutElement>(), height: 68f);
-            var iconImg = F.IconImage(iconWrap, icon, 60f, 60f);
+            var iconImg = F.IconImage(iconWrap, "Icon", icon, 60f, 60f);
             F.AnchorCenter(iconImg.rectTransform, 60f, 60f);
             tab.icon = iconImg;
 
