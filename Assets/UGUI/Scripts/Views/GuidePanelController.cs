@@ -97,9 +97,25 @@ namespace KingdomIdle.UGUI
             checkBtn.colors = UguiTheme.MakeColorBlock();
             checkBorder.gameObject.AddComponent<PlayClickSfxOnClick>();
 
-            var checkLabel = UguiRuntimeFactory.Label(
-                checkBorder.transform, done ? "✓" : "", 26f, CheckColor, TextAlignmentOptions.Center, bold: true);
-            UguiRuntimeFactory.Stretch(checkLabel.rectTransform);
+            // 체크 표시 — 픽셀 키트 아이콘 (✓ 글리프는 Galmuri11에 없음), 없으면 "V" 폴백
+            var catalogForIcon = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
+            Image checkIcon = null;
+            TMP_Text checkLabel = null;
+            if (catalogForIcon != null && catalogForIcon.iconCheck != null)
+            {
+                checkIcon = UguiRuntimeFactory.Icon(checkBorder.transform, catalogForIcon.iconCheck, 30f, 30f);
+                var iconRt = checkIcon.rectTransform;
+                iconRt.anchorMin = new Vector2(0.5f, 0.5f);
+                iconRt.anchorMax = new Vector2(0.5f, 0.5f);
+                iconRt.anchoredPosition = Vector2.zero;
+                checkIcon.gameObject.SetActive(done);
+            }
+            else
+            {
+                checkLabel = UguiRuntimeFactory.Label(
+                    checkBorder.transform, done ? "V" : "", 26f, CheckColor, TextAlignmentOptions.Center, bold: true);
+                UguiRuntimeFactory.Stretch(checkLabel.rectTransform);
+            }
 
             // ── .guide-text-col ──
             var textCol = UguiRuntimeFactory.Container(inner, "TextCol");
@@ -134,7 +150,8 @@ namespace KingdomIdle.UGUI
                     manager.CompleteStep(step.id);
 
                 bool nowDone = manager.IsStepCompleted(step.id);
-                checkLabel.text = nowDone ? "✓" : "";
+                if (checkIcon != null) checkIcon.gameObject.SetActive(nowDone);
+                if (checkLabel != null) checkLabel.text = nowDone ? "V" : "";
 
                 rowGroup.alpha = nowDone ? 0.55f : 1f;
                 titleLabel.color = nowDone ? TitleDoneColor : TitleColor;

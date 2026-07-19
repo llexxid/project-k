@@ -190,6 +190,11 @@ namespace KingdomIdle.UGUI
                 btn.onClick.AddListener(() => OnEnhanceClicked(capturedType, capturedCount));
                 btn.interactable = canAfford;
 
+                // 픽셀 키트 버튼 스킨
+                var skinCatalog = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
+                UguiPixelSkin.ApplyButton(btnBg, btn,
+                    canAfford ? UguiTheme.AccentBlue : UguiTheme.DisabledGrey, skinCatalog);
+
                 // 버튼 내부 텍스트: 상단 "강화 x1" + 하단 "50 G"
                 var titleLbl = UguiRuntimeFactory.Label(btnBg.transform, $"강화 x{count}", 26f,
                     canAfford ? UguiTheme.TextPrimary : new Color(1f, 1f, 1f, 0.40f),

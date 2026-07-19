@@ -1,9 +1,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEngine;
 using KingdomIdle.UI;
 using Scripts.Core;
+using Scripts.Users;
 
 namespace KingdomIdle.UGUI
 {
@@ -120,9 +122,38 @@ namespace KingdomIdle.UGUI
             {
                 _currencyPollTimer = 0f;
                 RefreshTopCurrencyLabels();
+                RefreshNickname();
 
                 if (_currencyOpen)
                     RebuildCurrencyPopupContents();
+            }
+        }
+
+        /// <summary>
+        /// 상단 HUD 닉네임을 서버 유저 데이터와 연동한다.
+        /// UserManager의 유저는 비공개 필드라 EconomyBridge와 동일하게 리플렉션으로 접근.
+        /// (서버 동기화가 늦게 끝나는 경우를 위해 폴링에서도 갱신)
+        /// </summary>
+        private void RefreshNickname()
+        {
+            if (_view == null || _view.lblNickname == null) return;
+
+            try
+            {
+                var um = UserManager.Instance;
+                if (um == null) return;
+
+                var userField = um.GetType().GetField("_user",
+                    BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                var user = userField?.GetValue(um) as User;
+                string nick = user?.GetNickName();
+
+                if (!string.IsNullOrWhiteSpace(nick) && _view.lblNickname.text != nick)
+                    _view.lblNickname.text = nick;
+            }
+            catch
+            {
+                // 닉네임은 표시용 — 실패해도 무시 (기본 "닉네임" 유지)
             }
         }
 

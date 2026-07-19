@@ -43,10 +43,15 @@ namespace KingdomIdle.UGUI.Editor
             var block = F.Box(parent, $"Member{index}", new Color(0f, 0f, 0f, 0.30f), rounded: true);
             F.HLayout(block.gameObject, 12f, new RectOffset(10, 10, 10, 10), TextAnchor.MiddleLeft);
 
-            // 초상화 버튼 (74×74 원형)
+            // 초상화 버튼 (74×74 원형 — 픽셀 원형 프레임 유지, 버튼 스킨 미적용)
             var portrait = F.CircleBox(block.transform, "Portrait", new Color(1f, 1f, 1f, 0.25f), raycast: true);
             F.Preferred(portrait, width: 74f, height: 74f);
-            member.portrait = F.ButtonOn(portrait);
+            var portraitBtn = portrait.gameObject.AddComponent<Button>();
+            portraitBtn.targetGraphic = portrait;
+            portraitBtn.transition = Selectable.Transition.ColorTint;
+            portraitBtn.colors = UguiTheme.MakeColorBlock();
+            portrait.gameObject.AddComponent<PlayClickSfxOnClick>();
+            member.portrait = portraitBtn;
 
             var portraitImg = F.Container(portrait.transform, "Sprite");
             F.Stretch(portraitImg);
@@ -73,7 +78,8 @@ namespace KingdomIdle.UGUI.Editor
             {
                 var slot = new PartyHudView.SkillSlot();
 
-                var slotBg = F.Box(skillRow, $"Skill{s}", new Color(1f, 1f, 1f, 0.14f), rounded: true);
+                var slotBg = F.PixelPanel(skillRow, $"Skill{s}",
+                    F.Catalog != null ? F.Catalog.kitSlot : null, Color.white, 0.3f);
                 F.Preferred(slotBg, width: 40f, height: 40f);
                 slot.root = slotBg.gameObject;
 
@@ -136,10 +142,16 @@ namespace KingdomIdle.UGUI.Editor
             {
                 var slot = new MageTowerHudView.Slot();
 
-                var frame = F.Box(rootRt, $"Slot{i}", new Color(1f, 1f, 1f, 0.10f), rounded: true, raycast: true);
+                var frame = F.PixelPanel(rootRt, $"Slot{i}",
+                    F.Catalog != null ? F.Catalog.kitSlot : null, Color.white, 0.3f, raycast: true);
                 F.Preferred(frame, width: slotSize, height: slotSize);
                 slot.frame = frame;
-                slot.button = F.ButtonOn(frame);
+                var slotBtn = frame.gameObject.AddComponent<Button>();
+                slotBtn.targetGraphic = frame;
+                slotBtn.transition = Selectable.Transition.ColorTint;
+                slotBtn.colors = UguiTheme.MakeColorBlock();
+                frame.gameObject.AddComponent<PlayClickSfxOnClick>();
+                slot.button = slotBtn;
 
                 var icon = F.Container(frame.transform, "Icon");
                 F.Stretch(icon);

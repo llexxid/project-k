@@ -24,7 +24,10 @@ namespace KingdomIdle.UGUI
         public void SetSelected(bool selected, Color activeBg)
         {
             if (background != null)
-                background.color = selected ? activeBg : UguiTheme.SurfaceLight;
+            {
+                // 픽셀 스프라이트 틴트 — 반투명 대신 불투명 틴트 (비활성=스프라이트 원색)
+                background.color = selected ? UguiPixelSkin.Opaque(activeBg) : Color.white;
+            }
             if (label != null)
                 label.color = selected ? UguiTheme.TextPrimary : new Color(1f, 1f, 1f, 0.60f);
         }

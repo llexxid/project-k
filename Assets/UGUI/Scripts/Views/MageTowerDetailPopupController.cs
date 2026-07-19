@@ -103,7 +103,7 @@ namespace KingdomIdle.UGUI
             closeBtn.colors = UguiTheme.MakeColorBlock();
             closeBg.gameObject.AddComponent<PlayClickSfxOnClick>();
             closeBtn.onClick.AddListener(Hide);
-            var closeLbl = UguiRuntimeFactory.Label(closeBg.transform, "✕", 28f, UguiTheme.TextPrimary, TextAlignmentOptions.Center, bold: true);
+            var closeLbl = UguiRuntimeFactory.Label(closeBg.transform, "X", 28f, UguiTheme.TextPrimary, TextAlignmentOptions.Center, bold: true);
             UguiRuntimeFactory.Stretch(closeLbl.rectTransform);
 
             // icon + stats row

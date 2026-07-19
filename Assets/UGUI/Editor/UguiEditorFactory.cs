@@ -15,6 +15,7 @@ namespace KingdomIdle.UGUI.Editor
         internal static TMP_FontAsset Font;
         internal static Sprite Rounded;
         internal static Sprite Circle;
+        internal static UIViewCatalog Catalog;   // GenerateAll이 공용 에셋 배선 후 주입
 
         internal static void Init()
         {
@@ -70,9 +71,41 @@ namespace KingdomIdle.UGUI.Editor
         {
             var rt = Container(parent, name);
             var img = rt.gameObject.AddComponent<Image>();
-            img.color = color;
             img.raycastTarget = raycast;
-            img.sprite = Circle;
+
+            // 픽셀 키트 원형 우선 (판타지 프레임), 없으면 절차 생성 원
+            if (Catalog != null && Catalog.kitEllipse != null)
+            {
+                img.sprite = Catalog.kitEllipse;
+                img.color = UguiPixelSkin.Opaque(color.a < 0.5f ? Color.white : color);
+            }
+            else
+            {
+                img.sprite = Circle;
+                img.color = color;
+            }
+            return img;
+        }
+
+        /// <summary>픽셀 키트 9-slice 패널 (윈도우/카드/슬롯).</summary>
+        internal static Image PixelPanel(Transform parent, string name, Sprite sprite, Color tint, float ppuMultiplier, bool raycast = false)
+        {
+            var rt = Container(parent, name);
+            var img = rt.gameObject.AddComponent<Image>();
+            img.raycastTarget = raycast;
+            if (sprite != null)
+            {
+                img.sprite = sprite;
+                img.type = Image.Type.Sliced;
+                img.pixelsPerUnitMultiplier = ppuMultiplier;
+                img.color = tint;
+            }
+            else
+            {
+                img.sprite = Rounded;
+                img.type = Image.Type.Sliced;
+                img.color = new Color(0.1f, 0.1f, 0.14f, 0.97f);
+            }
             return img;
         }
 
@@ -102,6 +135,9 @@ namespace KingdomIdle.UGUI.Editor
             btn.colors = UguiTheme.MakeColorBlock();
             target.raycastTarget = true;
             target.gameObject.AddComponent<PlayClickSfxOnClick>();
+
+            // 픽셀 키트 버튼 스킨 (요청 색 → Blue/Green 전용 스프라이트 또는 Grey 틴트, 눌림/비활성 상태 포함)
+            UguiPixelSkin.ApplyButton(target, btn, target.color, Catalog);
             return btn;
         }
 
@@ -139,17 +175,44 @@ namespace KingdomIdle.UGUI.Editor
             return img;
         }
 
-        /// <summary>가로 게이지 (트랙 + Filled fill). 반환: fill.</summary>
+        /// <summary>가로 게이지 (트랙 + Filled fill). 픽셀 키트 바 스프라이트 사용. 반환: fill.</summary>
         internal static Image HFillBar(Transform parent, string name, Color track, Color fill, out Image trackImg)
         {
-            trackImg = Box(parent, name, track);
+            if (Catalog != null && Catalog.kitBarTrack != null)
+            {
+                trackImg = PixelPanel(parent, name, Catalog.kitBarTrack, Color.white, 0.2f);
+            }
+            else
+            {
+                trackImg = Box(parent, name, track);
+            }
+
+            var fillSprite = PickFillSprite(fill);
             var fillImg = Box(trackImg.transform, "Fill", fill);
             Stretch(fillImg.rectTransform);
+            if (fillSprite != null)
+            {
+                fillImg.sprite = fillSprite;
+                fillImg.color = Color.white;
+                // 트랙 프레임 안쪽으로 살짝 인셋
+                fillImg.rectTransform.offsetMin = new Vector2(3f, 3f);
+                fillImg.rectTransform.offsetMax = new Vector2(-3f, -3f);
+            }
             fillImg.type = Image.Type.Filled;
             fillImg.fillMethod = Image.FillMethod.Horizontal;
             fillImg.fillOrigin = (int)Image.OriginHorizontal.Left;
             fillImg.fillAmount = 1f;
             return fillImg;
+        }
+
+        /// <summary>요청 색과 가장 가까운 키트 게이지 스프라이트 선택.</summary>
+        internal static Sprite PickFillSprite(Color c)
+        {
+            if (Catalog == null) return null;
+            if (c.r > 0.7f && c.g > 0.6f && c.b < 0.5f) return Catalog.kitFillYellow;   // 앰버/골드
+            if (c.r > c.g && c.r > c.b) return Catalog.kitFillRed;
+            if (c.g > c.r && c.g > c.b) return Catalog.kitFillGreen;
+            return Catalog.kitFillBlue;
         }
 
         /// <summary>세로 마스크 (아래에서 차오름, 쿨다운용).</summary>
@@ -166,14 +229,29 @@ namespace KingdomIdle.UGUI.Editor
 
         internal static Toggle SimpleToggle(Transform parent, string name, float size)
         {
-            var bg = Box(parent, name, UguiTheme.SurfaceMid, rounded: true, raycast: true);
-            bg.rectTransform.sizeDelta = new Vector2(size, size);
+            Image bg;
+            Image check;
 
-            var check = Box(bg.transform, "Checkmark", new Color(60f / 255f, 130f / 255f, 220f / 255f, 0.85f));
-            var checkRt = check.rectTransform;
-            Stretch(checkRt);
-            checkRt.offsetMin = new Vector2(6f, 6f);
-            checkRt.offsetMax = new Vector2(-6f, -6f);
+            if (Catalog != null && Catalog.kitToggleOff != null && Catalog.kitToggleOn != null)
+            {
+                // 픽셀 키트 토글: Off 스프라이트 위에 On 스프라이트 오버레이
+                bg = PixelPanel(parent, name, Catalog.kitToggleOff, Color.white, 0.2f, raycast: true);
+                bg.rectTransform.sizeDelta = new Vector2(size * 1.6f, size);   // 키트 토글은 가로형
+
+                check = PixelPanel(bg.transform, "Checkmark", Catalog.kitToggleOn, Color.white, 0.2f);
+                Stretch(check.rectTransform);
+            }
+            else
+            {
+                bg = Box(parent, name, UguiTheme.SurfaceMid, rounded: true, raycast: true);
+                bg.rectTransform.sizeDelta = new Vector2(size, size);
+
+                check = Box(bg.transform, "Checkmark", new Color(60f / 255f, 130f / 255f, 220f / 255f, 0.85f));
+                var checkRt = check.rectTransform;
+                Stretch(checkRt);
+                checkRt.offsetMin = new Vector2(6f, 6f);
+                checkRt.offsetMax = new Vector2(-6f, -6f);
+            }
 
             var toggle = bg.gameObject.AddComponent<Toggle>();
             toggle.targetGraphic = bg;
@@ -188,12 +266,26 @@ namespace KingdomIdle.UGUI.Editor
             var rootRt = Container(parent, name);
             var slider = rootRt.gameObject.AddComponent<Slider>();
 
-            var bg = Box(rootRt, "Background", track, rounded: true, raycast: interactable);
+            Image bg;
+            if (Catalog != null && Catalog.kitBarTrack != null)
+                bg = PixelPanel(rootRt, "Background", Catalog.kitBarTrack, Color.white, 0.2f, raycast: interactable);
+            else
+                bg = Box(rootRt, "Background", track, rounded: true, raycast: interactable);
             Stretch(bg.rectTransform);
 
             var fillArea = Container(rootRt, "Fill Area");
             Stretch(fillArea);
-            var fillImg = Box(fillArea, "Fill", fill);
+            fillArea.offsetMin = new Vector2(3f, 3f);
+            fillArea.offsetMax = new Vector2(-3f, -3f);
+
+            var fillSprite = PickFillSprite(fill);
+            var fillImg = Box(fillArea, "Fill", fillSprite != null ? Color.white : fill);
+            if (fillSprite != null)
+            {
+                fillImg.sprite = fillSprite;
+                fillImg.type = Image.Type.Sliced;
+                fillImg.pixelsPerUnitMultiplier = 0.2f;
+            }
             var fillRt = fillImg.rectTransform;
             fillRt.anchorMin = Vector2.zero;
             fillRt.anchorMax = new Vector2(0f, 1f);
@@ -212,7 +304,18 @@ namespace KingdomIdle.UGUI.Editor
             {
                 var handleArea = Container(rootRt, "Handle Slide Area");
                 Stretch(handleArea);
-                var handle = CircleBox(handleArea, "Handle", new Color(1f, 1f, 1f, 0.9f), raycast: true);
+
+                Image handle;
+                if (Catalog != null && Catalog.kitBarHandle != null)
+                {
+                    handle = PixelPanel(handleArea, "Handle", Catalog.kitBarHandle, Color.white, 1f, raycast: true);
+                    handle.type = Image.Type.Simple;
+                    handle.preserveAspect = true;
+                }
+                else
+                {
+                    handle = CircleBox(handleArea, "Handle", new Color(1f, 1f, 1f, 0.9f), raycast: true);
+                }
                 handle.rectTransform.sizeDelta = new Vector2(36f, 36f);
                 slider.handleRect = handle.rectTransform;
                 slider.targetGraphic = handle;

@@ -39,26 +39,41 @@ namespace KingdomIdle.UGUI.Editor
             backdropBtn.targetGraphic = backdropImg;
             backdropBtn.transition = Selectable.Transition.None;
 
-            // Sheet (.panel-sheet: bottom 190, height N%, bg #0A0A0F, 상단 라운드)
+            // Sheet — 픽셀 키트 윈도우 프레임 (판타지 창)
             float sheetHeight = Mathf.Max(UguiTheme.PanelSheetMinHeight, UguiTheme.RefHeight * heightPct);
-            var sheetImg = F.Box(root, "Sheet", UguiTheme.PanelSheetBg, rounded: true, raycast: true);
+            var sheetImg = F.PixelPanel(root, "Sheet",
+                F.Catalog != null ? F.Catalog.kitWindow : null, Color.white, 0.4f, raycast: true);
             F.AnchorBottomStretch(sheetImg.rectTransform, UguiTheme.BottomBarHeight, sheetHeight);
-            F.VLayout(sheetImg.gameObject, 14f, new RectOffset(20, 20, 20, 20));
+            F.VLayout(sheetImg.gameObject, 14f, new RectOffset(26, 26, 22, 26));
 
-            // 헤더 (.panel-header: 제목 + 닫기)
-            var header = F.Container(sheetImg.transform, "Header");
-            F.HLayout(header.gameObject, 8f, null, TextAnchor.MiddleLeft);
+            // 헤더: 타이틀바 스트립 + 제목 + 닫기(X 아이콘)
+            var header = F.PixelPanel(sheetImg.transform, "Header",
+                F.Catalog != null ? F.Catalog.kitTitleBar : null, Color.white, 0.3f);
+            F.HLayout(header.gameObject, 8f, new RectOffset(18, 10, 6, 6), TextAnchor.MiddleLeft);
             F.Preferred(header.gameObject.AddComponent<LayoutElement>(), height: 76f);
 
-            var titleLbl = F.Text(header, "LblPanelName", title, UguiTheme.FontPanelTitle, UguiTheme.TextPrimary,
+            var titleLbl = F.Text(header.transform, "LblPanelName", title, UguiTheme.FontPanelTitle, UguiTheme.TextPrimary,
                 TextAlignmentOptions.Left, bold: true);
             F.Flexible(titleLbl, flexWidth: 1f);
 
-            var closeImg = F.CircleBox(header, "BtnPanelClose", UguiTheme.SurfaceMid, raycast: true);
+            var closeImg = F.CircleBox(header.transform, "BtnPanelClose", Color.white, raycast: true);
             F.Preferred(closeImg, width: UguiTheme.PanelCloseBtnSize, height: UguiTheme.PanelCloseBtnSize);
-            var closeBtn = F.ButtonOn(closeImg);
-            var closeLbl = F.Text(closeImg.transform, "Label", "✕", 30f, UguiTheme.TextPrimary, TextAlignmentOptions.Center);
-            F.Stretch(closeLbl.rectTransform);
+            var closeBtn = closeImg.gameObject.AddComponent<Button>();
+            closeBtn.targetGraphic = closeImg;
+            closeBtn.transition = Selectable.Transition.ColorTint;
+            closeBtn.colors = UguiTheme.MakeColorBlock();
+            closeImg.gameObject.AddComponent<PlayClickSfxOnClick>();
+            if (F.Catalog != null && F.Catalog.iconX != null)
+            {
+                var xIcon = F.IconImage(closeImg.transform, "Icon", F.Catalog.iconX, 34f, 34f);
+                F.AnchorCenter(xIcon.rectTransform, 34f, 34f);
+            }
+            else
+            {
+                // 폴백: ASCII X (✕ 는 Galmuri11에 없음)
+                var closeLbl = F.Text(closeImg.transform, "Label", "X", 30f, UguiTheme.TextPrimary, TextAlignmentOptions.Center, bold: true);
+                F.Stretch(closeLbl.rectTransform);
+            }
 
             // 본문 컨테이너
             var body = F.Container(sheetImg.transform, "Body");

@@ -259,7 +259,7 @@ namespace KingdomIdle.UGUI
         private static string FormatGachaCount(int count)
         {
             int safe = Mathf.Max(1, count);
-            return $"×{safe:N0}";
+            return $"x{safe:N0}";
         }
 
         private static string MakeMergeKey(KingdomIdle.Gacha.GachaRewardEntry r)
@@ -325,8 +325,8 @@ namespace KingdomIdle.UGUI
             if (!best.HasValue) return "뽑기 결과";
             switch (best.Value)
             {
-                case eEquipmentRarity.Epic: return "뽑기 결과 — 에픽 획득!";
-                case eEquipmentRarity.Rare: return "뽑기 결과 — 레어 획득!";
+                case eEquipmentRarity.Epic: return "뽑기 결과 - 에픽 획득!";
+                case eEquipmentRarity.Rare: return "뽑기 결과 - 레어 획득!";
                 default: return "뽑기 결과";
             }
         }

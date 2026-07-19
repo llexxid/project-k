@@ -71,7 +71,7 @@ namespace KingdomIdle.UGUI
             return tmp;
         }
 
-        /// <summary>텍스트 버튼 (배경 Image + Button + 자식 TMP 라벨 + 클릭 SFX).</summary>
+        /// <summary>텍스트 버튼 (배경 Image + Button + 자식 TMP 라벨 + 클릭 SFX + 픽셀 키트 스킨).</summary>
         public static Button TextButton(
             Transform parent, string text, float fontSize, Color bg, Action onClick,
             out TMP_Text label, bool bold = true, Color? textColor = null)
@@ -83,6 +83,10 @@ namespace KingdomIdle.UGUI
             btn.colors = UguiTheme.MakeColorBlock();
             if (onClick != null) btn.onClick.AddListener(() => onClick());
             img.gameObject.AddComponent<PlayClickSfxOnClick>();
+
+            // 픽셀 아트 키트 버튼 스킨 (Blue/Green 전용 스프라이트, 그 외 색은 Grey 틴트)
+            var catalog = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
+            UguiPixelSkin.ApplyButton(img, btn, bg, catalog);
 
             label = Label(img.transform, text, fontSize, textColor ?? UguiTheme.TextPrimary,
                 TextAlignmentOptions.Center, bold);

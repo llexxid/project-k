@@ -21,6 +21,10 @@ namespace KingdomIdle.UGUI.Editor
 
             var catalog = PrefabGenUtil.GetOrCreateCatalog();
 
+            // 공용 에셋(폰트/SFX/픽셀 키트)을 먼저 배선 — 팩토리가 카탈로그를 참조한다
+            CatalogGen.AssignSharedAssets(catalog);
+            F.Catalog = catalog;
+
             // 루트 캔버스 (카탈로그 참조 포함)
             RootCanvasGen.Generate(catalog);
 
@@ -52,8 +56,8 @@ namespace KingdomIdle.UGUI.Editor
             ItemGens.GenerateGachaCard();
             ItemGens.GenerateCurrencyLine();
 
-            // 카탈로그 배선 (프리팹 생성 후)
-            CatalogGen.AssignAll(catalog);
+            // 프리팹 참조 배선 (프리팹 생성 후)
+            CatalogGen.AssignPrefabs(catalog);
 
             AssetDatabase.Refresh();
             Debug.Log("[UguiGen] Generate All: OK");

@@ -7,10 +7,12 @@ namespace KingdomIdle.UGUI.Editor
     /// <summary>UIViewCatalog 에셋에 생성된 프리팹/공용 에셋을 배선한다.</summary>
     internal static class CatalogGen
     {
-        internal static void AssignAll(UIViewCatalog catalog)
+        /// <summary>
+        /// 폰트/SFX/공용 스프라이트/픽셀 키트 배선.
+        /// 프리팹 생성 전에 실행해야 팩토리가 카탈로그의 키트 스프라이트를 쓸 수 있다.
+        /// </summary>
+        internal static void AssignSharedAssets(UIViewCatalog catalog)
         {
-            string p = PrefabGenUtil.PrefabRoot;
-
             catalog.defaultFont = UguiGenAssets.Font;
             catalog.damageTextMaterial = GetOrCreateDamageOutlineMaterial();
 
@@ -20,6 +22,47 @@ namespace KingdomIdle.UGUI.Editor
             catalog.panelOpenSfx = UguiGenAssets.SfxPanelOpen;
             catalog.panelCloseSfx = UguiGenAssets.SfxPanelClose;
             catalog.buttonClickSfx = UguiGenAssets.SfxButtonClick;
+
+            // ── 픽셀 아트 키트 ──
+            catalog.kitWindow = UguiGenAssets.KitWindow;
+            catalog.kitTitleBar = UguiGenAssets.KitTitleBar;
+            catalog.kitCard = UguiGenAssets.KitCard;
+            catalog.kitSlot = UguiGenAssets.KitSlot;
+            catalog.kitEllipse = UguiGenAssets.KitEllipse;
+            catalog.kitBtnBlue = UguiGenAssets.KitBtnBlue;
+            catalog.kitBtnBlueDown = UguiGenAssets.KitBtnBlueDown;
+            catalog.kitBtnGreen = UguiGenAssets.KitBtnGreen;
+            catalog.kitBtnGreenDown = UguiGenAssets.KitBtnGreenDown;
+            catalog.kitBtnGrey = UguiGenAssets.KitBtnGrey;
+            catalog.kitBtnGreyDown = UguiGenAssets.KitBtnGreyDown;
+            catalog.kitBtnInactive = UguiGenAssets.KitBtnInactive;
+            catalog.kitToggleOn = UguiGenAssets.KitToggleOn;
+            catalog.kitToggleOff = UguiGenAssets.KitToggleOff;
+            catalog.kitBarTrack = UguiGenAssets.KitBarTrack;
+            catalog.kitFillBlue = UguiGenAssets.KitFillBlue;
+            catalog.kitFillGreen = UguiGenAssets.KitFillGreen;
+            catalog.kitFillRed = UguiGenAssets.KitFillRed;
+            catalog.kitFillYellow = UguiGenAssets.KitFillYellow;
+            catalog.kitBarHandle = UguiGenAssets.KitBarHandle;
+
+            catalog.iconX = UguiGenAssets.IconX;
+            catalog.iconCheck = UguiGenAssets.IconCheck;
+            catalog.iconArrowLeft = UguiGenAssets.IconArrowLeft;
+            catalog.iconSwords = UguiGenAssets.IconSwords;
+            catalog.iconHelmet = UguiGenAssets.IconHelmet;
+            catalog.iconStar = UguiGenAssets.IconStar;
+            catalog.iconBag = UguiGenAssets.IconBag;
+            catalog.iconEnvelope = UguiGenAssets.IconEnvelope;
+            catalog.iconRepeat = UguiGenAssets.IconRepeat;
+
+            EditorUtility.SetDirty(catalog);
+            AssetDatabase.SaveAssets();
+            Debug.Log("[UguiGen] 카탈로그 공용 에셋 배선 완료");
+        }
+
+        internal static void AssignPrefabs(UIViewCatalog catalog)
+        {
+            string p = PrefabGenUtil.PrefabRoot;
 
             catalog.screenTitle = Load($"{p}/Screens/Screen_Title.prefab");
             catalog.screenMain = Load($"{p}/Screens/Screen_Main.prefab");

@@ -30,7 +30,11 @@ namespace KingdomIdle.UGUI.Editor
         /// <summary>가챠 카드 (미리보기/결과 공용: 등급 프레임 + 아이콘 + 이름 + 서브 라벨).</summary>
         internal static GameObject GenerateGachaCard()
         {
-            var bg = F.Box(null, "Item_GachaCard", new Color(50f / 255f, 50f / 255f, 70f / 255f, 0.80f), rounded: true);
+            Image bg;
+            if (F.Catalog != null && F.Catalog.kitCard != null)
+                bg = F.PixelPanel(null, "Item_GachaCard", F.Catalog.kitCard, Color.white, 0.25f);
+            else
+                bg = F.Box(null, "Item_GachaCard", new Color(50f / 255f, 50f / 255f, 70f / 255f, 0.80f), rounded: true);
             F.VLayout(bg.gameObject, 4f, new RectOffset(6, 6, 8, 6), TextAnchor.UpperCenter);
             var view = bg.gameObject.AddComponent<GachaCardItemView>();
             view.background = bg;

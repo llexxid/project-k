@@ -32,10 +32,9 @@ namespace KingdomIdle.UGUI.Editor
             F.AnchorTopStretch(logo.rectTransform, 90f, 600f);
             logo.preserveAspect = true;
 
-            // 로그인 버튼 480×120 (화면 중심에서 약간 아래 = top 52%)
+            // 로그인 버튼 480×120 (화면 중심에서 약간 아래 = top 52%) — 픽셀 키트 버튼
             var loginImg = F.Box(rootRt, "BtnLogin", UguiTheme.LoginBtnBg, rounded: true, raycast: true);
             F.AnchorCenter(loginImg.rectTransform, 480f, 120f, 0f, -(0.52f - 0.5f) * UguiTheme.RefHeight);
-            F.Frame(loginImg.transform, "Border", UguiTheme.LoginBtnBorder);
             view.btnLogin = F.ButtonOn(loginImg);
             var loginLbl = F.Text(loginImg.transform, "Label", "로그인", 34f, UguiTheme.AccentGold, TextAlignmentOptions.Center, bold: true);
             loginLbl.characterSpacing = 8f;
@@ -64,13 +63,13 @@ namespace KingdomIdle.UGUI.Editor
             dimBtn.transition = Selectable.Transition.None;
             view.popupLoginDim = dimBtn;
 
-            var box = F.Box(popup, "PopupLoginBox", UguiTheme.LoginBoxBg, rounded: true, raycast: true);
+            var box = F.PixelPanel(popup, "PopupLoginBox",
+                F.Catalog != null ? F.Catalog.kitWindow : null, Color.white, 0.4f, raycast: true);
             var boxRt = box.rectTransform;
             F.AnchorCenter(boxRt, 820f, 0f);
             var boxFitter = box.gameObject.AddComponent<ContentSizeFitter>();
             boxFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            F.VLayout(box.gameObject, 14f, new RectOffset(32, 28, 36, 36));
-            F.Frame(box.transform, "Border", new Color(120f / 255f, 150f / 255f, 220f / 255f, 0.85f));
+            F.VLayout(box.gameObject, 14f, new RectOffset(34, 30, 38, 38));
             view.popupLoginBox = boxRt;
 
             var popupTitle = F.Text(box.transform, "Title", "계정 로그인", 40f, UguiTheme.TextPrimary, TextAlignmentOptions.Left, bold: true);
@@ -157,7 +156,12 @@ namespace KingdomIdle.UGUI.Editor
 
             var profile = F.CircleBox(leftWrap, "BtnProfileBlank", UguiTheme.SurfaceMid, raycast: true);
             F.Preferred(profile, width: 92f, height: 92f);
-            view.btnProfile = F.ButtonOn(profile);
+            var profileBtn = profile.gameObject.AddComponent<Button>();
+            profileBtn.targetGraphic = profile;
+            profileBtn.transition = Selectable.Transition.ColorTint;
+            profileBtn.colors = UguiTheme.MakeColorBlock();
+            profile.gameObject.AddComponent<PlayClickSfxOnClick>();
+            view.btnProfile = profileBtn;
             var profileIcon = F.IconImage(profile.transform, "Icon", UguiGenAssets.IconUser, 56f, 56f);
             F.AnchorCenter(profileIcon.rectTransform, 56f, 56f);
 
@@ -217,11 +221,14 @@ namespace KingdomIdle.UGUI.Editor
             F.HLayout(row.gameObject, 16f, null, TextAnchor.MiddleCenter);
             F.Preferred(row.gameObject.AddComponent<LayoutElement>(), height: 60f);
 
-            var loopImg = F.Box(row, "BtnLoopIcon", new Color(1f, 200f / 255f, 60f / 255f, 0.15f), rounded: true, raycast: true);
-            F.Preferred(loopImg, width: 44f, height: 44f);
+            var loopImg = F.Box(row, "BtnLoopIcon", new Color(1f, 200f / 255f, 60f / 255f, 1f), rounded: true, raycast: true);
+            F.Preferred(loopImg, width: 48f, height: 48f);
             waveView.btnLoopIcon = F.ButtonOn(loopImg);
-            var loopLbl = F.Text(loopImg.transform, "Label", "🔁", 28f, new Color(1f, 220f / 255f, 80f / 255f, 1f), TextAlignmentOptions.Center);
-            F.Stretch(loopLbl.rectTransform);
+            if (F.Catalog != null && F.Catalog.iconRepeat != null)
+            {
+                var loopIcon = F.IconImage(loopImg.transform, "Icon", F.Catalog.iconRepeat, 30f, 30f);
+                F.AnchorCenter(loopIcon.rectTransform, 30f, 30f);
+            }
             loopImg.gameObject.SetActive(false);
 
             var stageLbl = F.Text(row, "LblStage", "스테이지 1-1", UguiTheme.FontStageLabel, UguiTheme.TextPrimary,
@@ -237,7 +244,7 @@ namespace KingdomIdle.UGUI.Editor
             F.Preferred(bossLbl, width: 130f, height: 34f);
 
             var toggle = F.SimpleToggle(bossGroup, "TglBossChain", 34f);
-            F.Preferred((RectTransform)toggle.transform, width: 34f, height: 34f);
+            F.Preferred((RectTransform)toggle.transform, width: 54f, height: 34f);
             waveView.tglBossChain = toggle;
 
             // ── 보스 타이머 바 (300×8) ──
@@ -292,12 +299,15 @@ namespace KingdomIdle.UGUI.Editor
             F.HLayout(bar.gameObject, 10f, new RectOffset(14, 14, 10, 14), TextAnchor.MiddleCenter, expandWidth: true);
             view.bottomBar = bar.rectTransform;
 
-            view.tabDevelopment = MakeTabButton(bar.transform, "BtnDevelopment", "⚔", "육성");
-            view.tabKingdomArmy = MakeTabButton(bar.transform, "BtnKingdomArmy", "♞", "왕국군");
-            view.tabGacha = MakeTabButton(bar.transform, "BtnGacha", "✦", "뽑기");
+            view.tabDevelopment = MakeTabButton(bar.transform, "BtnDevelopment",
+                F.Catalog != null ? F.Catalog.iconSwords : null, "육성");
+            view.tabKingdomArmy = MakeTabButton(bar.transform, "BtnKingdomArmy",
+                F.Catalog != null ? F.Catalog.iconHelmet : null, "왕국군");
+            view.tabGacha = MakeTabButton(bar.transform, "BtnGacha",
+                F.Catalog != null ? F.Catalog.iconStar : null, "뽑기");
         }
 
-        private static MainTabButtonView MakeTabButton(Transform parent, string name, string icon, string label)
+        private static MainTabButtonView MakeTabButton(Transform parent, string name, Sprite icon, string label)
         {
             var bg = F.Box(parent, name, UguiTheme.TabNormalBg, rounded: true, raycast: true);
             F.Flexible(bg, flexWidth: 1f);
@@ -309,12 +319,14 @@ namespace KingdomIdle.UGUI.Editor
 
             var inner = F.Container(bg.transform, "Inner");
             F.Stretch(inner);
-            F.VLayout(inner.gameObject, 4f, new RectOffset(0, 0, 14, 8), TextAnchor.MiddleCenter, expandWidth: true);
+            F.VLayout(inner.gameObject, 4f, new RectOffset(0, 0, 16, 10), TextAnchor.MiddleCenter, expandWidth: true);
 
-            var iconLbl = F.Text(inner, "Icon", icon, UguiTheme.FontTabIcon, UguiTheme.TabNormalText,
-                TextAlignmentOptions.Center, bold: true);
-            F.Preferred(iconLbl, height: 74f);
-            tab.icon = iconLbl;
+            // 픽셀 키트 아이콘 (⚔♞✦ 글리프는 Galmuri11에 없어 스프라이트 사용)
+            var iconWrap = F.Container(inner, "IconWrap");
+            F.Preferred(iconWrap.gameObject.AddComponent<LayoutElement>(), height: 68f);
+            var iconImg = F.IconImage(iconWrap, icon, 60f, 60f);
+            F.AnchorCenter(iconImg.rectTransform, 60f, 60f);
+            tab.icon = iconImg;
 
             var nameLbl = F.Text(inner, "Label", label, UguiTheme.FontTabLabel, new Color(1f, 1f, 1f, 0.85f),
                 TextAlignmentOptions.Center, bold: true);
@@ -374,10 +386,12 @@ namespace KingdomIdle.UGUI.Editor
             view.popupHamburgerRect = hamRt;
             view.popupHamburgerGroup = hamGroup;
 
-            view.btnMenuInventory = MakeHamburgerItem(hamburger.transform, "BtnMenuInventory", "📦", null);
+            view.btnMenuInventory = MakeHamburgerItem(hamburger.transform, "BtnMenuInventory", null,
+                F.Catalog != null ? F.Catalog.iconBag : null);
             view.btnMenuSettings = MakeHamburgerItem(hamburger.transform, "BtnMenuSettings", null, UguiGenAssets.IconWrench);
             view.btnMenuNotice = MakeHamburgerItem(hamburger.transform, "BtnMenuNotice", null, UguiGenAssets.IconWarning);
-            view.btnMenuMail = MakeHamburgerItem(hamburger.transform, "BtnMenuMail", "✉", null);
+            view.btnMenuMail = MakeHamburgerItem(hamburger.transform, "BtnMenuMail", null,
+                F.Catalog != null ? F.Catalog.iconEnvelope : null);
 
             hamburger.gameObject.SetActive(false);
         }

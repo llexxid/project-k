@@ -16,9 +16,10 @@ namespace KingdomIdle.UGUI.Editor
             var dim = F.Box(root, "Dim", UguiTheme.DimHeavy, rounded: false, raycast: true);
             F.Stretch(dim.rectTransform);
 
-            var box = F.Box(root, "Box", UguiTheme.LoginBoxBg, rounded: true);
+            var box = F.PixelPanel(root, "Box",
+                F.Catalog != null ? F.Catalog.kitWindow : null, Color.white, 0.4f);
             F.AnchorCenter(box.rectTransform, 620f, 220f);
-            F.VLayout(box.gameObject, 18f, new RectOffset(40, 40, 32, 32), TextAnchor.MiddleCenter);
+            F.VLayout(box.gameObject, 18f, new RectOffset(40, 40, 34, 34), TextAnchor.MiddleCenter);
 
             var lbl = F.Text(box.transform, "LblLoading", "Loading...", 30f, UguiTheme.TextPrimary,
                 TextAlignmentOptions.Center, bold: true);
@@ -76,16 +77,18 @@ namespace KingdomIdle.UGUI.Editor
             hintRt.anchoredPosition = new Vector2(0f, 38f);
             hintRt.sizeDelta = new Vector2(0f, 30f);
 
-            // 패널 (.settings-panel: max-width 860, bg #231E2D@96%)
-            var panel = F.Box(root, "Panel", UguiTheme.ModalBg, rounded: true, raycast: true);
+            // 패널 — 픽셀 키트 윈도우
+            var panel = F.PixelPanel(root, "Panel",
+                F.Catalog != null ? F.Catalog.kitWindow : null, Color.white, 0.4f, raycast: true);
             F.AnchorCenter(panel.rectTransform, 860f, 0f);
-            F.VLayout(panel.gameObject, 10f, new RectOffset(22, 22, 20, 20));
+            F.VLayout(panel.gameObject, 10f, new RectOffset(26, 26, 24, 26));
             var panelFitter = panel.gameObject.AddComponent<ContentSizeFitter>();
             panelFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             view.panel = panel.rectTransform;
 
-            // 타이틀바
-            var titleBar = F.Box(panel.transform, "TitleBar", new Color(0f, 0f, 0f, 0.28f), rounded: true);
+            // 타이틀바 — 메탈 스트립
+            var titleBar = F.PixelPanel(panel.transform, "TitleBar",
+                F.Catalog != null ? F.Catalog.kitTitleBar : null, Color.white, 0.3f);
             F.Preferred(titleBar, height: 64f);
             var title = F.Text(titleBar.transform, "Title", "환경설정", 30f, UguiTheme.TextPrimary,
                 TextAlignmentOptions.Center, bold: true);
@@ -186,7 +189,7 @@ namespace KingdomIdle.UGUI.Editor
             F.Flexible(lbl, flexWidth: 1f);
 
             var toggle = F.SimpleToggle(row.transform, "Toggle", 34f);
-            F.Preferred((RectTransform)toggle.transform, width: 34f, height: 34f);
+            F.Preferred((RectTransform)toggle.transform, width: 54f, height: 34f);
             return toggle;
         }
 
@@ -200,12 +203,20 @@ namespace KingdomIdle.UGUI.Editor
             var dim = F.Box(root, "Dim", UguiTheme.DimHeavy, rounded: false, raycast: true);
             F.Stretch(dim.rectTransform);
 
-            // 팝업 본체 (max-width 700, 골드 테두리)
-            var popup = F.Box(root, "Popup", UguiTheme.GachaResultBg, rounded: true, raycast: true);
+            // 팝업 본체 — 픽셀 키트 윈도우 + 골드 코너 장식 (가챠 특별감)
+            var popup = F.PixelPanel(root, "Popup",
+                F.Catalog != null ? F.Catalog.kitWindow : null, Color.white, 0.4f, raycast: true);
             F.AnchorCenter(popup.rectTransform, 700f, 1150f);
-            F.VLayout(popup.gameObject, 14f, new RectOffset(20, 20, 20, 20));
-            F.Frame(popup.transform, "Border", new Color(200f / 255f, 180f / 255f, 100f / 255f, 0.60f))
-                .gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            F.VLayout(popup.gameObject, 14f, new RectOffset(24, 24, 24, 24));
+
+            var goldCorners = UguiGenAssets.FindIconSprite("CornersGold");
+            if (goldCorners != null)
+            {
+                var deco = F.PixelPanel(popup.transform, "GoldCorners", goldCorners, Color.white, 0.4f);
+                F.Stretch(deco.rectTransform);
+                deco.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+                deco.raycastTarget = false;
+            }
 
             // 제목
             var title = F.Text(popup.transform, "Title", "뽑기 결과", 32f, UguiTheme.AccentGoldStrong,

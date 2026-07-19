@@ -242,7 +242,7 @@ namespace KingdomIdle.UGUI
             var content = _view.content;
 
             // 뒤로가기 (.ka-back-btn: h44 / 22px)
-            var backBtn = UguiRuntimeFactory.TextButton(content, "← 인벤토리", 22f, UguiTheme.SurfaceLight, () => Refresh(), out _);
+            var backBtn = UguiRuntimeFactory.TextButton(content, "< 인벤토리", 22f, UguiTheme.SurfaceLight, () => Refresh(), out _);
             UguiRuntimeFactory.Preferred((RectTransform)backBtn.transform, height: 44f);
 
             AddSectionTitle("장비 상세");

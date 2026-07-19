@@ -430,7 +430,7 @@ namespace KingdomIdle.UGUI
             var content = _view.content;
 
             // 뒤로가기
-            var backBtn = UguiRuntimeFactory.TextButton(content, "← 장비 목록", 22f, UguiTheme.SurfaceLight,
+            var backBtn = UguiRuntimeFactory.TextButton(content, "< 장비 목록", 22f, UguiTheme.SurfaceLight,
                 () => { _activeSubMenu = SubMenu.Equipment; Refresh(); }, out _);
             UguiRuntimeFactory.Preferred((RectTransform)backBtn.transform, height: 44f);
 
@@ -810,7 +810,7 @@ namespace KingdomIdle.UGUI
             AddCardLabel(card.transform, job.jobName, 24f, UguiTheme.TextPrimary);
 
             // 핵심 스탯 한 줄 (HP / ATK)
-            AddCardLabel(card.transform, $"HP {job.maxHP}  ·  ATK {job.atk}", 18f, new Color(1f, 1f, 1f, 0.60f));
+            AddCardLabel(card.transform, $"HP {job.maxHP} / ATK {job.atk}", 18f, new Color(1f, 1f, 1f, 0.60f));
 
             // 파편 현황 / 무료 재전직 안내 — 통합 전직 파편을 기준으로 진행도 표시.
             if (isUnlocked)
@@ -847,7 +847,7 @@ namespace KingdomIdle.UGUI
             bool prereqMet = prereq == null || _mgr.HasCompletedPromotion(player, prereq);
 
             // 뒤로가기 버튼
-            var backBtn = UguiRuntimeFactory.TextButton(content, "← 전직 목록", 22f, UguiTheme.SurfaceLight,
+            var backBtn = UguiRuntimeFactory.TextButton(content, "< 전직 목록", 22f, UguiTheme.SurfaceLight,
                 () => { _activeSubMenu = SubMenu.JobChange; Refresh(); }, out _);
             UguiRuntimeFactory.Preferred((RectTransform)backBtn.transform, height: 44f);
 
@@ -948,7 +948,7 @@ namespace KingdomIdle.UGUI
 
             if (isUnlocked)
             {
-                var freeLbl = UguiRuntimeFactory.Label(condBox.transform, "✓ 이미 해금된 직업 — 무료 재전직 가능",
+                var freeLbl = UguiRuntimeFactory.Label(condBox.transform, "이미 해금된 직업 - 무료 재전직 가능",
                     22f, UguiTheme.SuccessGreenBright);
                 UguiRuntimeFactory.Preferred(freeLbl, height: 32f);
             }
@@ -961,7 +961,7 @@ namespace KingdomIdle.UGUI
                 if (prereq != null)
                 {
                     AddCondRow(condBox.transform, "선행 조건",
-                        prereqMet ? $"✓ {prereq} 전직 완료" : $"✕ {prereq} 전직 필요",
+                        prereqMet ? $"{prereq} 전직 완료" : $"{prereq} 전직 필요",
                         prereqMet ? UguiTheme.SuccessGreenBright : FragLockedColor);
                 }
             }
@@ -1036,15 +1036,15 @@ namespace KingdomIdle.UGUI
             Color diffColor;
             if (Mathf.Abs(diff) < 0.001f)
             {
-                diffText = "—";
+                diffText = "-";
                 diffColor = new Color(1f, 1f, 1f, 0.60f);
             }
             else
             {
                 bool isUp = diff > 0f;
                 bool isGood = isUp == higherIsBetter;
-                string arrow = isUp ? "▲" : "▼";
-                diffText = $"{arrow} {Mathf.Abs(diff):0.##}{suffix}";
+                string arrow = isUp ? "+" : "-";
+                diffText = $"{arrow}{Mathf.Abs(diff):0.##}{suffix}";
                 diffColor = isGood ? UguiTheme.SuccessGreenBright : UguiTheme.WarnRed;
             }
 

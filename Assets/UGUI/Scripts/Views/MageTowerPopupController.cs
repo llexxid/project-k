@@ -124,7 +124,7 @@ namespace KingdomIdle.UGUI
             var title = UguiRuntimeFactory.Label(titleBar, "마탑 스킬 장착", 34f, UguiTheme.TextPrimary, bold: true);
             UguiRuntimeFactory.Flexible(title, 1f);
 
-            var closeBtn = UguiRuntimeFactory.TextButton(titleBar, "✕", 30f, CloseBtnBg, Hide,
+            var closeBtn = UguiRuntimeFactory.TextButton(titleBar, "X", 30f, CloseBtnBg, Hide,
                 out _, bold: false, textColor: new Color(1f, 1f, 1f, 0.9f));
             MakeCircle(closeBtn.image);
             UguiRuntimeFactory.Preferred(closeBtn, 72f, 72f);

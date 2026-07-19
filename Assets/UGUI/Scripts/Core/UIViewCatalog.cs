@@ -18,6 +18,43 @@ namespace KingdomIdle.UGUI
         public Sprite roundedRect;   // 흰색 9-slice 라운드 사각형 (틴트용)
         public Sprite circle;        // 흰색 원형 (틴트용)
 
+        [Header("Pixel art kit — panels/frames")]
+        public Sprite kitWindow;        // 메인 윈도우 프레임 (시트/모달)
+        public Sprite kitTitleBar;      // 타이틀 바 (헤더 스트립)
+        public Sprite kitCard;          // 카드/섹션 배경 (UniversalPanel2)
+        public Sprite kitSlot;          // 아이템 슬롯 프레임 (SkillSlot)
+        public Sprite kitEllipse;       // 원형 (Ellipse64)
+
+        [Header("Pixel art kit — buttons")]
+        public Sprite kitBtnBlue;
+        public Sprite kitBtnBlueDown;
+        public Sprite kitBtnGreen;
+        public Sprite kitBtnGreenDown;
+        public Sprite kitBtnGrey;
+        public Sprite kitBtnGreyDown;
+        public Sprite kitBtnInactive;
+        public Sprite kitToggleOn;
+        public Sprite kitToggleOff;
+
+        [Header("Pixel art kit — bars")]
+        public Sprite kitBarTrack;      // ScrollBarBg (트랙)
+        public Sprite kitFillBlue;
+        public Sprite kitFillGreen;
+        public Sprite kitFillRed;
+        public Sprite kitFillYellow;
+        public Sprite kitBarHandle;     // BubbleHandle (슬라이더 핸들)
+
+        [Header("Pixel art kit — icons (글리프 대체)")]
+        public Sprite iconX;            // 닫기 (✕ 대체)
+        public Sprite iconCheck;        // 체크 (✓ 대체)
+        public Sprite iconArrowLeft;    // 뒤로 (← 대체)
+        public Sprite iconSwords;       // 육성 탭 (⚔ 대체)
+        public Sprite iconHelmet;       // 왕국군 탭 (♞ 대체)
+        public Sprite iconStar;         // 뽑기 탭 (✦ 대체)
+        public Sprite iconBag;          // 인벤토리 (📦 대체)
+        public Sprite iconEnvelope;     // 우편 (✉ 대체)
+        public Sprite iconRepeat;       // 루프 (🔁 대체)
+
         [Header("SFX")]
         public AudioClip panelOpenSfx;
         public AudioClip panelCloseSfx;

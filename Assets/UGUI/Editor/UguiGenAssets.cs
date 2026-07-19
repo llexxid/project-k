@@ -32,6 +32,39 @@ namespace KingdomIdle.UGUI.Editor
         internal static Sprite IconWrench => FindIconSprite("WrenchBlueDark");
         internal static Sprite IconWarning => FindIconSprite("WarningBlueDark");
 
+        // ── 픽셀 아트 키트 (Assets/UI Toolkit/Art/Textures — Sprite 타입 + 9-slice border 설정 완료) ──
+        internal static Sprite KitWindow => FindIconSprite("Window");
+        internal static Sprite KitTitleBar => FindIconSprite("TitleBarMetal");
+        internal static Sprite KitCard => FindIconSprite("UniversalPanel2");
+        internal static Sprite KitSlot => FindIconSprite("SkillSlot");
+        internal static Sprite KitEllipse => FindIconSprite("Ellipse64");
+        internal static Sprite KitBtnBlue => FindIconSprite("Blue");
+        internal static Sprite KitBtnBlueDown => FindIconSprite("BlueDown");
+        internal static Sprite KitBtnGreen => FindIconSprite("Green");
+        internal static Sprite KitBtnGreenDown => FindIconSprite("GreenDown");
+        internal static Sprite KitBtnGrey => FindIconSprite("Grey");
+        internal static Sprite KitBtnGreyDown => FindIconSprite("GreyDown");
+        internal static Sprite KitBtnInactive => FindIconSprite("Inactive");
+        internal static Sprite KitToggleOn => FindIconSprite("ToggleOn");
+        internal static Sprite KitToggleOff => FindIconSprite("ToggleOff");
+        internal static Sprite KitBarTrack => FindIconSprite("ScrollBarBg");
+        internal static Sprite KitFillBlue => FindIconSprite("FillBlue");
+        internal static Sprite KitFillGreen => FindIconSprite("FillGreen");
+        internal static Sprite KitFillRed => FindIconSprite("FillRed");
+        internal static Sprite KitFillYellow => FindIconSprite("FillYellow");
+        internal static Sprite KitBarHandle => FindIconSprite("BubbleHandle");
+
+        // 글리프 대체용 아이콘 (Galmuri11에 없는 ✕✓←⚔♞✦📦✉🔁 대응)
+        internal static Sprite IconX => FindIconSprite("X");
+        internal static Sprite IconCheck => FindIconSprite("CheckGreen");
+        internal static Sprite IconArrowLeft => FindIconSprite("Arrow01Left");
+        internal static Sprite IconSwords => FindIconSprite("Swords");
+        internal static Sprite IconHelmet => FindIconSprite("Helmet");
+        internal static Sprite IconStar => FindIconSprite("Star");
+        internal static Sprite IconBag => FindIconSprite("Bag");
+        internal static Sprite IconEnvelope => FindIconSprite("Envelope");
+        internal static Sprite IconRepeat => FindIconSprite("Repeat");
+
         private static T LoadByGuid<T>(string guid) where T : Object
         {
             string path = AssetDatabase.GUIDToAssetPath(guid);
