@@ -7,7 +7,9 @@
       "Bash(xargs grep -l \"new InputSystem\\\\|InputManager\\\\|Input\\\\.GetMouse\\\\|Input\\\\.GetTouch\")",
       "Bash(xargs grep -l \"Camera\\\\|Orthographic\\\\|world.*coordinate\\\\|raycast\")",
       "Bash(xargs grep:*)",
-      "Bash(find C:UsersUSERDesktopproject-kAssets -name CONSTANT* -o -name Constant*)"
+      "Bash(find C:UsersUSERDesktopproject-kAssets -name CONSTANT* -o -name Constant*)",
+      "PowerShell(Get-ChildItem -Path \"Assets\\\\UI Toolkit\" -Recurse -File | Where-Object { $_.Extension -ne '.meta' } | ForEach-Object { $_.FullName.Replace\\(\\(Get-Location\\).Path + '\\\\', ''\\) + \"  \\(\" + [math]::Round\\($_.Length/1KB,1\\) + \" KB\\)\" })",
+      "PowerShell(Get-ChildItem \"Assets\\\\UI Toolkit\\\\Scripts\" -Recurse -File | Where-Object { $_.Name -match '\\(EconomyBridge|TutorialManager|TutorialStepDataSO|TutorialGuideListSO|UIIds\\)' } | Select-Object -ExpandProperty FullName; Write-Output \"===\"; Test-Path \"Assets\\\\Scripts\\\\Core\")"
     ]
   }
 }
