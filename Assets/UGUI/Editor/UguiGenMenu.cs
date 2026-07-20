@@ -60,6 +60,9 @@ namespace KingdomIdle.UGUI.Editor
             CatalogGen.AssignPrefabs(catalog);
 
             AssetDatabase.Refresh();
+
+            // 메뉴 실행 시에도 항상 검증 — 카탈로그 빈 필드/missing script를 바로 드러낸다
+            CheckViewWiring();
             Debug.Log("[UguiGen] Generate All: OK");
         }
 
@@ -168,7 +171,6 @@ namespace KingdomIdle.UGUI.Editor
         {
             GenerateAll();
             BootstrapRewireGen.SwitchToUgui();
-            CheckViewWiring();
             Debug.Log("[UguiGen] GenerateAllAndRewire: OK");
         }
 

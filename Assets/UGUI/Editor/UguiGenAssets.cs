@@ -11,16 +11,41 @@ namespace KingdomIdle.UGUI.Editor
     internal static class UguiGenAssets
     {
         // 프로젝트에 이미 존재하는 에셋 GUID (탐색으로 확정)
-        // 주의: "Galmuri11 SDF"(e8c81bad…)는 소스 폰트 참조가 끊겨 있어 동적 글리프 추가가 실패한다.
-        // UITK가 기본 폰트로 쓰던 "Galmuri11 SDF 1"을 사용한다 (소스 Galmuri11.ttf 정상 연결).
-        private const string GuidFontGalmuri = "98dc408a15ae7424c84a770c05b4bc31";     // Galmuri11 SDF 1 (TMP)
+        // "Galmuri11 SDF"(e8c81bad…) 사용 — 소스 폰트 참조는 복구 완료(동적 한글 정상),
+        // "SDF 1"은 메인 오브젝트가 아틀라스(Texture2D)라 타입 로드가 실패하는 이력이 있음.
+        private const string GuidFontGalmuri = "e8c81bad0478536459fd7c980f22b8c0";     // Galmuri11 SDF (TMP)
         private const string GuidSfxPanelOpen = "903de372b5fa6404abdb6413592bf28f";
         private const string GuidSfxPanelClose = "9d24e3663f195324abd2c16503f04bda";
         private const string GuidSfxButtonClick = "1830b8c536e5ead4db1d11e5f9c8d36e";
         private const string GuidTitleBg = "f31f25eafade2c34dbc355e36f693c1d";        // 타이틀배경3.jpg
         private const string GuidTitleLogo = "b9c40fb974e04b14999f727ed745c1f6";      // 타이틀1.jpg
 
-        internal static TMP_FontAsset Font => LoadByGuid<TMP_FontAsset>(GuidFontGalmuri);
+        internal static TMP_FontAsset Font => LoadFontByGuid(GuidFontGalmuri);
+
+        /// <summary>
+        /// TMP 폰트 로드. 에셋 파일의 메인 오브젝트가 아틀라스(Texture2D)로 잡혀 있으면
+        /// 타입 지정 로드가 null을 반환하므로, 실패 시 전체 오브젝트에서 폰트를 찾는다.
+        /// </summary>
+        private static TMP_FontAsset LoadFontByGuid(string guid)
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            if (string.IsNullOrEmpty(path))
+            {
+                Debug.LogWarning($"[UguiGen] 폰트 GUID {guid} 에셋을 찾을 수 없습니다.");
+                return null;
+            }
+
+            var direct = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(path);
+            if (direct != null) return direct;
+
+            foreach (var obj in AssetDatabase.LoadAllAssetsAtPath(path))
+            {
+                if (obj is TMP_FontAsset font) return font;
+            }
+
+            Debug.LogWarning($"[UguiGen] {path} 에서 TMP_FontAsset을 찾지 못했습니다.");
+            return null;
+        }
         internal static AudioClip SfxPanelOpen => LoadByGuid<AudioClip>(GuidSfxPanelOpen);
         internal static AudioClip SfxPanelClose => LoadByGuid<AudioClip>(GuidSfxPanelClose);
         internal static AudioClip SfxButtonClick => LoadByGuid<AudioClip>(GuidSfxButtonClick);
