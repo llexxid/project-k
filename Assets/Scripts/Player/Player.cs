@@ -414,7 +414,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         OnSkillHit();
     }
 
-    private eVFXType _pendingVFXType;
+    [NonSerialized] private eVFXType _pendingVFXType;
     private readonly List<Vector3> _pendingVFXPositions = new List<Vector3>();
     private readonly List<Transform> _pendingVFXTargets = new List<Transform>();
     private float _pendingVFXFacing;

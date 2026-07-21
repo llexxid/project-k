@@ -33,8 +33,10 @@ namespace Scripts.Core
         private bool _spawningCompleted;
         private bool _clearNotified;
         private bool _resultProduced;
+        private int _totalKillCount;
         public IReadOnlyCollection<Monster> Monsters => _monsters;
         public IReadOnlyDictionary<eMonsterType, int> KillCounts => _killCounts;
+        public int TotalKillCount => _totalKillCount;
 
         public StageSession(StageDefinition definition, IStageRule rule, MonsterSpawner monsterSpawner)
         {
@@ -51,6 +53,7 @@ namespace Scripts.Core
             _clearNotified = false;
             _resultProduced = false;
             _killCounts.Clear();
+            _totalKillCount = 0;
             
             _rule.Enter(this);
         }
@@ -73,6 +76,10 @@ namespace Scripts.Core
             return true;
         }
 
+        public int GetKillCount(eMonsterType type)
+        {
+            return _killCounts.GetValueOrDefault(type, 0);
+        }
         /// <summary>예정된 몬스터 등록이 끝났음을 알리고 클리어 여부를 확인한다.</summary>
         public void CompleteSpawning()
         {
@@ -118,7 +125,7 @@ namespace Scripts.Core
 
             _killCounts.TryGetValue(monster.Type, out int killCount);
             _killCounts[monster.Type] = killCount + 1;
-
+            _totalKillCount++;
             // 상태 갱신이 끝난 뒤 Rule 판정
             StageRuleResult result =
                 _rule.OnMonsterKilled(this, monster);

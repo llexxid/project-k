@@ -81,7 +81,6 @@ namespace Scripts.Core.Parser
         {
             AutoAddressable auto = new AutoAddressable();
             auto.Init();
-            auto.GenerateStageMetaSO();
             auto.GenerateMonsterMetaSO();
 			auto.GenerateMonsterInfoSO();
 			auto.GenerateDropTableMetaSO();
@@ -132,7 +131,6 @@ namespace Scripts.Core.Parser
             ReadXlsxFile(ConstPath.SFX_EXCEL_PATH);
             _ReadFromXlsx.Add(new ReadFromXlsx(AssetDatas, $"eSFXType"));
             GenerateEnumFile(_ReadFromXlsx);
-            GenerateStageEnumFile();
             GenerateDropTableEnumFile();
 		}
 

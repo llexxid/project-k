@@ -1,10 +1,12 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Scripts.Core;
 using Scripts.Core.Manager;
+using Scripts.Core.Utils;
 using Scripts.Monster;
-using UnityEngine;
+using Debug = UnityEngine.Debug;
 
 namespace Core.Stage
 {
@@ -40,6 +42,17 @@ namespace Core.Stage
 
         public static StageRuleResult ReturnToMain =>new(eStageFlowAction.ReturnToMainStage);
         
+        public static StageRuleResult FromDefeatAction(
+            eStageFlowAction action)
+        {
+            return action switch
+            {
+                eStageFlowAction.RestartStage => Restart,
+                eStageFlowAction.AwaitDefeatChoice => AwaitDefeatChoice,
+                eStageFlowAction.ReturnToMainStage => ReturnToMain,
+                _ => throw new ArgumentOutOfRangeException(nameof(action))
+            };
+        }
     }
     public interface IStageRule
     {
@@ -182,7 +195,7 @@ namespace Core.Stage
 
         public StageRuleResult OnPartyDefeated(StageSession session)
         {
-            return StageRuleResult.AwaitDefeatChoice;
+            return StageRuleResult.FromDefeatAction(_config.DefeatAction);
         }
 
         public void Exit(StageSession session)
@@ -193,29 +206,52 @@ namespace Core.Stage
 
     public sealed class KillCountRule : IStageRule
     {
+        private KillCountChallengeConfig _config;
         public void Enter(StageSession session)
         {
-            throw new NotImplementedException();
+            Debug.Log($"KillCountChallengeStage 던전 진입 {session.Definition.Type}, {session.Definition.FlowConfig.ConfigId}");
+            IStageFlowConfig flowConfig = session.Definition.FlowConfig;
+
+            if (flowConfig is not KillCountChallengeConfig killCountConfig)
+            {
+                string actualType =
+                    flowConfig?.GetType().Name ?? "null";
+
+                Debug.LogError(
+                    "[KillCountStageRule] 잘못된 FlowConfig 타입입니다. " +
+                    $"Expected: {nameof(KillCountChallengeConfig)}, " +
+                    $"Actual: {actualType}");
+
+                return;
+            }
+
+            _config = killCountConfig;
         }
 
         public StageRuleResult OnMonsterKilled(StageSession session, Monster monster)
         {
-            throw new NotImplementedException();
+            int killCount = _config.TargetMonsterType.HasValue 
+                ? session.GetKillCount(_config.TargetMonsterType.Value) //목표 몬스터가 있을 때는 해당 몬스터만 카운트
+                : session.TotalKillCount; //목표 몬스터가 없을 때는 전체 카운트
+            CustomLogger.Log($"목표 처치 수 : {_config.RequiredKillCount} / 현재 처치 수 : {killCount}");
+            return killCount >= _config.RequiredKillCount 
+                ? StageRuleResult.ShowResult 
+                : StageRuleResult.None;
         }
 
         public StageRuleResult Tick(StageSession session, float deltaTime)
         {
-            throw new NotImplementedException();
+            return StageRuleResult.None;
         }
 
         public StageRuleResult OnPartyDefeated(StageSession session)
         {
-            throw new NotImplementedException();
+            return StageRuleResult.FromDefeatAction(_config.DefeatAction);
         }
 
         public void Exit(StageSession session)
         {
-            throw new NotImplementedException();
+            Debug.Log($"BossStage 던전 퇴장 {session.Definition.Type}, {session.Definition.FlowConfig.ConfigId}");
         }
     }
 }

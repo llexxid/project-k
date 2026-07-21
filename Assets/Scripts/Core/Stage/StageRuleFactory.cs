@@ -16,7 +16,7 @@ public class StageRuleFactory
 
         return definition.FlowType switch
         {
-            eStageFlowType.MainProgress => new MainStageRule(),
+            eStageFlowType.MainProgression => new MainStageRule(),
             eStageFlowType.BossChallenge => new BossStageRule(),
             eStageFlowType.KillCountChallenge => new KillCountRule(),
             _ => throw new ArgumentOutOfRangeException(

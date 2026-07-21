@@ -77,8 +77,8 @@ namespace Scripts.Core.Manager
 		#endregion
 		#region 필드 / 상태
 
-		[SerializeField]
-        private StageMetaDataSO _stageSO;
+        [SerializeField]
+        private StageDatabaseSO _stageDatabaseSO;
         [SerializeField]
         private MonsterSpawnLocationSO _locationSO;
         [SerializeField]
@@ -106,6 +106,7 @@ namespace Scripts.Core.Manager
         private CancellationTokenSource _token;
         private MainStageSnapshot _mainStageSnapshot;
         private eStageRunState _currentState;
+        private StageSpawnController _currentSpawnController;
         private eStage maxStage; // 현재 최대 진행된 스테이지 확인(서버붙이기 전까지 사용)
         
         // 서버 전송용 사냥 결과 버퍼.
@@ -121,7 +122,7 @@ namespace Scripts.Core.Manager
 
 		#endregion
 
-		private LegacyStageDefinitionProvider _provider; //임시
+		private IStageDefinitionProvider _provider;
 
 		#region 유니티 생명주기
 		/// <summary>싱글톤을 구성하고 스테이지 메타 데이터를 초기화한다.</summary>
@@ -151,6 +152,7 @@ namespace Scripts.Core.Manager
 				}
             }
 	        _currentSession?.Tick(Time.deltaTime);
+	        _currentSpawnController?.Tick(Time.deltaTime);
             if (_defeatPopupActive)
             {
 				_defeatPopupTimer -= Time.unscaledDeltaTime;
@@ -165,8 +167,16 @@ namespace Scripts.Core.Manager
 		/// <summary>StageManager가 사용하는 데이터 버퍼를 초기화한다</summary>
 		private void Init()
 		{
-			_stageSO.Init();
-			_provider = new LegacyStageDefinitionProvider(_stageSO);
+			if (_stageDatabaseSO != null)
+			{
+				// 새 엑셀 생성 경로에서는 StageDatabaseSO가 모든 콘텐츠의 Definition 원본이 된다.
+				_stageDatabaseSO.Init();
+				_provider = new StageDefinitionProvider(_stageDatabaseSO);
+			}
+			else
+			{
+				Debug.LogError("[StageManager] StageDatabaseSO가 연결되지 않았습니다.");
+			}
 
 			_huntResultList = new Dictionary<eMonsterType, int>();
 			_sendmsg = new List<HuntResult>();
@@ -195,6 +205,16 @@ namespace Scripts.Core.Manager
 			TransitionStage(eStage.GoldDungeon1_1);
 		}
 
+		public void EnterRubyDungeon()
+		{
+			if (_currentState != eStageRunState.Running ||
+			    _currentSession?.Definition.Type != eStageType.Main)
+			{
+				return;
+			}
+			CaptureMainStageSnapshot();
+			TransitionStage(eStage.RubyDungeon1_1);
+		}
 		public void ReturnToMainStage()
 		{
 			if (StageParser.GetStageType(_currentStage) == eStageType.Main || _currentState == eStageRunState.Transitioning) return;
@@ -208,7 +228,14 @@ namespace Scripts.Core.Manager
 			_isLoopMode = _mainStageSnapshot.LoopMode;
 			_bossAutoChallenge = _mainStageSnapshot.BossAutoChallenge;
 			TransitionStage(_mainStageSnapshot.StageId);
+		}
+
+		public void RestartDungeon()
+		{
+			if (_currentState != eStageRunState.ResultPending || _currentSession.Definition.Type == eStageType.Main) 
+				return;
 			
+			RestartStage();
 		}
 		#endregion
 		#region 스테이지 시작
@@ -255,7 +282,9 @@ namespace Scripts.Core.Manager
 			}
 
 			StageSession session = BuildSession(definition);
-			SpawnMonsters(session);
+			_currentSpawnController = new StageSpawnController();
+			_currentSpawnController.Begin(_currentSession, _locationSO);
+			//SpawnMonsters(session);
 			_currentState = eStageRunState.Running;
         }
 
@@ -286,12 +315,12 @@ namespace Scripts.Core.Manager
 				return;
 			}
 			_currentState = eStageRunState.Transitioning;
-			
 			eStage previous = _currentStage;
 			bool requiresLoad =
 				StageParser.GetResourceGroupId(previous) !=
 				StageParser.GetResourceGroupId(target);
 
+			EndSession();
 			SetCurrentStage(definition.Id);
 			CameraFade fade = CameraFade.Instance;
 
@@ -361,20 +390,20 @@ namespace Scripts.Core.Manager
 					TransitionStage(target);					
 					break;
 				case eStageFlowAction.RestartStage:
-					Debug.Log("RestartStage");
+					Debug.Log("스테이지를 재시작 합니다");
 					RestartStage();
 					break;
 				case eStageFlowAction.ShowResult:
-					Debug.Log("EnterResult");
+					Debug.Log("스테이지 클리어 후 결과를 보고 있습니다");
 					NotifyStageCleared(session);
 					EnterResultPending();
 					break;
 				case eStageFlowAction.AwaitDefeatChoice:
-					Debug.Log("AwaitDefeat");
+					Debug.Log("스테이지 패배 후 작업을 선택중입니다");
 					EnterDefeatPending();
 					break;
 				case eStageFlowAction.ReturnToMainStage:
-					Debug.Log("ReturnToMain");
+					Debug.Log("메인 스테이지로 복귀합니다");
 					ReturnToMainStage();
 					break;
 			}
@@ -457,8 +486,7 @@ namespace Scripts.Core.Manager
         private void RestartStage()
         {
         	var fade = CameraFade.Instance;
-        	ReviveAllPlayers();
-
+	        _currentState = eStageRunState.Transitioning;
         	Time.timeScale = 1f;
         	StartStage(_currentSession.Definition);
 
@@ -468,6 +496,22 @@ namespace Scripts.Core.Manager
 
 		#endregion
 
+		#region 던전 조작
+
+		public void ContinueDungeon()
+		{
+			if (_currentState != eStageRunState.ResultPending)
+				return;
+
+			StageDefinition definition = _currentSession?.Definition;
+
+			if (definition == null || definition.Type == eStageType.Main || !definition.NextDifficultyId.HasValue)
+				return;
+
+			Time.timeScale = 1f;
+			TransitionStage(definition.NextDifficultyId.Value);
+		}
+		#endregion
 		#region 스테이지 상태 변경
 		
 		/// <summary>스테이지 값을 지정하고 진행 상태를 기본값으로 초기화한다</summary>
@@ -600,21 +644,12 @@ namespace Scripts.Core.Manager
 			_currentSession.MonsterKilled -= HandleMonsterKilled;
 			_currentSession.ResultProduced -= HandleRuleResult;
 			_currentSession.Exit();
-
-			_currentSession = null;
+			_currentSpawnController.Stop();
 		}
 		/// <summary>스테이지 메타 데이터와 로드 그룹을 모아 StageDefinition을 만든다</summary>
 		private StageDefinition BuildDefinition(eStage stage)
 		{
-			eStage stageKey = StageParser.GetFixedStageKey(stage);
-			Debug.Log(stageKey);
-			if (!_stageSO.TryGetStageInfo(stageKey, out List<StageInfo_v> entries))
-			{
-				CustomLogger.LogWarning($"[StageManager] : Stage definition not found: {stage}");
-				return null;
-			}
-
-			return _provider.TryGet(stage, out StageDefinition definition)
+			return _provider != null && _provider.TryGet(stage, out StageDefinition definition)
 				? definition : null;		
 		}
 		/// <summary>현재 StageDefinition의 몬스터 목록을 실제 필드에 스폰하고 세션에 등록한다</summary>
@@ -622,25 +657,27 @@ namespace Scripts.Core.Manager
 		{
 			int locationCount = _locationSO.GetLocationCount();
 			StageDefinition definition = session.Definition;
-			foreach (StageInfo_v entry in definition.MonsterEntries)
+			foreach (StageMonsterEntry entry in definition.MonsterEntries)
 			{
-				for (int i = 0; i < entry._count; i++)
+				for (int i = 0; i < entry.Count; i++)
 				{
+					// SpawnPointSetId/SpawnPointGroupId 프리셋 연결 전까지는 기존 위치 후보군을 사용한다.
+					// 위치 데이터가 연결되면 이 좌표 선택 부분만 전용 Resolver로 교체하면 된다.
 					int index = UnityEngine.Random.Range(0, locationCount);
 					_locationSO.TryGetPos(index, out Vector2 position);
 					MonsterSpawner.Instance.SpawnMonster(
-						entry._type,
+						entry.MonsterType,
 						definition.MonsterStatMultiplier,
 						position,
 						Quaternion.identity,
 						out Monster monster);
 					if (monster != null)
 					{
-						_currentSession.RegisterMonster(monster);
+						session.RegisterMonster(monster);
 					}
 				}
 			}
-			_currentSession.CompleteSpawning();
+			session.CompleteSpawning();
 		}
 		/// <summary>몬스터 처치 수를 서버 전송용 버퍼에 누적한다</summary>
 		private void CountKill(Monster monster)
@@ -679,38 +716,30 @@ namespace Scripts.Core.Manager
 		/// <summary>스테이지 진입 전 필요한 몬스터 에셋을 미리 로드한다</summary>
         public UniTask PreLoadAssets(eStage stage)
         {
-	        UniTask handle = default;
-	        if (_stageSO.TryGetMonsterList(stage, out List<eMonsterType> monsterTypes))
+	        if (_stageDatabaseSO != null &&
+	            _stageDatabaseSO.TryGetMonsterTypes(stage, out IReadOnlyList<eMonsterType> databaseTypes))
 	        {
-				handle = MonsterSpawner.Instance.LoadMonsterAssets(stage, monsterTypes.ToArray());
+		        var types = new eMonsterType[databaseTypes.Count];
+		        for (int i = 0; i < databaseTypes.Count; i++)
+			        types[i] = databaseTypes[i];
+
+		        return MonsterSpawner.Instance.LoadMonsterAssets(stage, types);
 	        }
-			return handle;
+	        
+			return default;
         }
-        /// <summary>스테이지에 설정된 몬스터 스폰 정보를 조회한다</summary>
-        public List<StageInfo_v> GetStageMonsterInfo(eStage stage)
-        {
-			List<StageInfo_v> ret;
-			bool IsValid;
-			IsValid = _stageSO.TryGetStageInfo(stage, out ret);
-			if (!IsValid)
-			{
-				CustomLogger.LogWarning("StageInfo was requested, but it was not found in cache.");
-				return null;
-			}
-			return ret;
-        }
+		
         /// <summary>스테이지에 필요한 몬스터 타입 목록을 조회한다</summary>
         public List<eMonsterType> GetStageMonsterTypes(eStage stage)
         {
-			List<eMonsterType> ret;
-			bool IsValid;
-			IsValid = _stageSO.TryGetMonsterList(stage, out ret);
-			if (!IsValid)
+			if (_stageDatabaseSO != null &&
+			    _stageDatabaseSO.TryGetMonsterTypes(stage, out IReadOnlyList<eMonsterType> databaseTypes))
 			{
-				CustomLogger.LogWarning("Stage monster types were requested, but they were not found in cache.");
-				return null;
+				return new List<eMonsterType>(databaseTypes);
 			}
-			return ret;
+			CustomLogger.LogWarning(
+				$"Stage monster types were requested, but they were not found in cache. Stage: {stage}");
+			return null;
         }
 
 		#endregion
