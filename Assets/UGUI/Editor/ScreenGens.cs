@@ -334,7 +334,7 @@ namespace KingdomIdle.UGUI.Editor
             view.tabKingdomArmy = MakeTabButton(bar.transform, "BtnKingdomArmy",
                 F.Catalog != null ? F.Catalog.iconHelmet : null, "왕국군");
             view.tabGacha = MakeTabButton(bar.transform, "BtnGacha",
-                F.Catalog != null ? F.Catalog.iconStar : null, "뽑기");
+                F.Catalog != null ? F.Catalog.iconChest : null, "뽑기");
         }
 
         private static MainTabButtonView MakeTabButton(Transform parent, string name, Sprite icon, string label)

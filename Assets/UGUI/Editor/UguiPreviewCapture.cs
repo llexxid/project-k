@@ -84,7 +84,78 @@ namespace KingdomIdle.UGUI.Editor
                 Object.DestroyImmediate(inst);
             }
 
+            CaptureNavTabs(scene, cam, catalog, layers);
+
             Debug.Log($"[Preview] 캡처 완료: {OutDir}");
+        }
+
+        /// <summary>
+        /// 탭/네비 버튼은 런타임에 생성되므로 프리팹 캡처엔 안 잡힌다.
+        /// 실제 컨트롤러와 동일하게 아이콘·라벨·선택 상태를 넣어 샘플 바를 렌더링한다.
+        /// </summary>
+        private static void CaptureNavTabs(UnityEngine.SceneManagement.Scene scene, Camera cam,
+            UIViewCatalog catalog, Dictionary<string, RectTransform> layers)
+        {
+            if (catalog == null || catalog.itemNavTabButton == null) return;
+            if (!layers.TryGetValue("LayerPanels", out var parent)) return;
+
+            var host = new GameObject("NavTabPreview", typeof(RectTransform));
+            var hostRt = (RectTransform)host.transform;
+            hostRt.SetParent(parent, false);
+            hostRt.anchorMin = new Vector2(0f, 0.5f);
+            hostRt.anchorMax = new Vector2(1f, 0.5f);
+            hostRt.pivot = new Vector2(0.5f, 0.5f);
+            hostRt.offsetMin = new Vector2(40f, -200f);
+            hostRt.offsetMax = new Vector2(-40f, 200f);
+            var col = host.AddComponent<VerticalLayoutGroup>();
+            col.spacing = 24f;
+            col.childControlWidth = true;
+            col.childControlHeight = true;
+            col.childForceExpandWidth = true;
+
+            // 왕국군 네비 (종합/장비/스킬/전직) + 뽑기 탭 두 줄
+            MakeBar(host.transform, catalog, 104f, new[]
+            {
+                ("종합", catalog.iconUser), ("장비", catalog.iconSword),
+                ("스킬", catalog.iconBook), ("전직", catalog.iconStar),
+            }, selectedIndex: 1, activeBg: UguiTheme.AccentBlue);
+
+            MakeBar(host.transform, catalog, 104f, new[]
+            {
+                ("장비 뽑기", catalog.iconChest), ("마탑 스킬 뽑기", catalog.iconWand),
+            }, selectedIndex: 0, activeBg: new Color(80f / 255f, 60f / 255f, 180f / 255f, 0.6f));
+
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(hostRt);
+            Canvas.ForceUpdateCanvases();
+
+            Render(cam, Path.Combine(OutDir, "06_navtabs.png"));
+            Object.DestroyImmediate(host);
+        }
+
+        private static void MakeBar(Transform parent, UIViewCatalog catalog, float height,
+            (string label, Sprite icon)[] items, int selectedIndex, Color activeBg)
+        {
+            var bar = new GameObject("Bar", typeof(RectTransform));
+            bar.transform.SetParent(parent, false);
+            var row = bar.AddComponent<HorizontalLayoutGroup>();
+            row.spacing = 8f;
+            row.childControlWidth = true;
+            row.childControlHeight = true;
+            row.childForceExpandWidth = true;
+            var le = bar.AddComponent<LayoutElement>();
+            le.preferredHeight = height;
+
+            for (int i = 0; i < items.Length; i++)
+            {
+                var go = (GameObject)PrefabUtility.InstantiatePrefab(catalog.itemNavTabButton);
+                go.transform.SetParent(bar.transform, false);
+                var v = go.GetComponent<NavTabButtonView>();
+                if (v == null) continue;
+                v.SetLabel(items[i].label);
+                v.SetIcon(items[i].icon);
+                v.SetSelected(i == selectedIndex, activeBg);
+            }
         }
 
         private static void Render(Camera cam, string path)
