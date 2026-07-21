@@ -69,7 +69,7 @@ namespace KingdomIdle.UGUI.Editor
             view.popupLoginDim = dimBtn;
 
             var box = F.PixelPanel(popup, "PopupLoginBox",
-                F.Catalog != null ? F.Catalog.kitWindow : null, Color.white, 0.5f, raycast: true,
+                F.Catalog != null ? F.Catalog.kitWindow : null, F.FrameGold, 24f, raycast: true,
                 baseColor: F.PanelBaseDarker);
             var boxRt = box.rectTransform;
             F.AnchorCenter(boxRt, 820f, 0f);

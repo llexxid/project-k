@@ -17,7 +17,7 @@ namespace KingdomIdle.UGUI.Editor
             F.Stretch(dim.rectTransform);
 
             var box = F.PixelPanel(root, "Box",
-                F.Catalog != null ? F.Catalog.kitWindow : null, Color.white, 0.5f, baseColor: F.PanelBaseDarker);
+                F.Catalog != null ? F.Catalog.kitWindow : null, F.FrameGold, 24f, baseColor: F.PanelBaseDarker);
             F.AnchorCenter(box.rectTransform, 620f, 220f);
             F.VLayout(box.gameObject, 18f, new RectOffset(40, 40, 34, 34), TextAnchor.MiddleCenter);
 
@@ -79,7 +79,7 @@ namespace KingdomIdle.UGUI.Editor
 
             // 패널 — 어두운 배경 + 픽셀 윈도우 프레임
             var panel = F.PixelPanel(root, "Panel",
-                F.Catalog != null ? F.Catalog.kitWindow : null, Color.white, 0.5f, raycast: true,
+                F.Catalog != null ? F.Catalog.kitWindow : null, F.FrameGold, 24f, raycast: true,
                 baseColor: F.PanelBaseDarker);
             F.AnchorCenter(panel.rectTransform, 860f, 0f);
             F.VLayout(panel.gameObject, 10f, new RectOffset(30, 30, 26, 28));
@@ -89,7 +89,7 @@ namespace KingdomIdle.UGUI.Editor
 
             // 타이틀바 — 메탈 스트립 (텍스처 채움)
             var titleBar = F.PixelPanel(panel.transform, "TitleBar",
-                F.Catalog != null ? F.Catalog.kitTitleBar : null, Color.white, 0.3f, frameOnly: false);
+                F.Catalog != null ? F.Catalog.kitTitleBar : null, Color.white, 14f, frameOnly: false);
             F.Preferred(titleBar, height: 64f);
             var title = F.Text(titleBar.transform, "Title", "환경설정", 30f, UguiTheme.TextPrimary,
                 TextAlignmentOptions.Center, bold: true);
@@ -208,7 +208,7 @@ namespace KingdomIdle.UGUI.Editor
             var goldCorners = UguiGenAssets.FindIconSprite("CornersGold");
             var popup = F.PixelPanel(root, "Popup",
                 goldCorners != null ? goldCorners : (F.Catalog != null ? F.Catalog.kitWindow : null),
-                Color.white, 0.5f, raycast: true, baseColor: F.PanelBaseDarker);
+                F.FrameGold, 24f, raycast: true, baseColor: F.PanelBaseDarker);
             F.AnchorCenter(popup.rectTransform, 700f, 1150f);
             F.VLayout(popup.gameObject, 14f, new RectOffset(28, 28, 26, 26));
 

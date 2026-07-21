@@ -83,9 +83,9 @@ namespace KingdomIdle.UGUI.Editor
         internal static Sprite IconX => FindIconSprite("X");
         internal static Sprite IconCheck => FindIconSprite("CheckGreen");
         internal static Sprite IconArrowLeft => FindIconSprite("Arrow01Left");
-        internal static Sprite IconSwords => FindIconSprite("Swords");
+        internal static Sprite IconSwords => FindIconSprite("Hammer");
         internal static Sprite IconHelmet => FindIconSprite("Helmet");
-        internal static Sprite IconStar => FindIconSprite("Star");
+        internal static Sprite IconStar => FindIconSprite("Chest01");
         internal static Sprite IconBag => FindIconSprite("Bag");
         internal static Sprite IconEnvelope => FindIconSprite("Envelope");
         internal static Sprite IconRepeat => FindIconSprite("Repeat");

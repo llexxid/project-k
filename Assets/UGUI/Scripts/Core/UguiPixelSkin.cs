@@ -41,8 +41,12 @@ namespace KingdomIdle.UGUI
                 default:
                     normal = catalog.kitBtnGrey;
                     down = catalog.kitBtnGreyDown;
-                    // 회색 스프라이트는 요청 색으로 틴트 (불투명 보정 — 반투명 틴트는 픽셀 아트를 죽인다)
-                    img.color = Opaque(accent);
+                    // Grey 스프라이트는 밝은 회색(밝기 0.64)이라 흰색 틴트를 주면 '흰 박스'가 된다.
+                    // 반투명 서페이스 색(예: white@12%)은 '은은한 배경' 의도이므로 어두운 톤으로 틴트하고,
+                    // 불투명한 색만 그 색 그대로 사용한다.
+                    img.color = accent.a < 0.5f
+                        ? new Color(0.34f, 0.36f, 0.45f, 1f)   // 어두운 슬레이트 버튼
+                        : Opaque(accent);
                     break;
             }
 
@@ -75,15 +79,33 @@ namespace KingdomIdle.UGUI
             return Bucket.Grey;   // 빨강/주황/보라 등은 Grey 틴트
         }
 
-        /// <summary>
-        /// 버튼 픽셀 스프라이트 9-slice 확대 배율.
-        /// 버튼 스프라이트는 16×16 / border 2px → 0.3에서 약 6.6px 테두리.
-        /// 작은 버튼(≥14px)에서도 코너가 겹치지 않아 십자 아티팩트가 없고,
-        /// Point 필터와 함께 선명한 픽셀 테두리가 된다.
-        /// </summary>
+        /// <summary>버튼 픽셀 테두리 목표 두께(기준 해상도 px).</summary>
+        private const float ButtonBorderPx = 8f;
+
         private static float PixelPpuMultiplier(Sprite sprite)
         {
-            return 0.3f;
+            return PpuMultiplierForBorder(sprite, ButtonBorderPx);
+        }
+
+        /// <summary>
+        /// 9-slice 테두리를 '원하는 px 두께'로 렌더링하기 위한 pixelsPerUnitMultiplier를 계산한다.
+        ///
+        /// Unity는 테두리를 다음 크기로 그린다:
+        ///     border(px) * (canvas.referencePixelsPerUnit / sprite.pixelsPerUnit) / multiplier
+        ///
+        /// 이 프로젝트의 픽셀 키트는 sprite.pixelsPerUnit = 16 이라 기준(100) 대비 6.25배로
+        /// 확대된다. 그대로 두면 테두리가 요소보다 커져 코너가 겹치고 십자 모양으로 뭉개진다.
+        /// </summary>
+        public static float PpuMultiplierForBorder(Sprite sprite, float desiredBorderPx, float referencePpu = 100f)
+        {
+            if (sprite == null || desiredBorderPx <= 0f) return 1f;
+
+            var b = sprite.border;
+            float border = Mathf.Max(Mathf.Max(b.x, b.y), Mathf.Max(b.z, b.w));
+            if (border <= 0f) return 1f;
+
+            float spritePpu = sprite.pixelsPerUnit > 0f ? sprite.pixelsPerUnit : referencePpu;
+            return border * (referencePpu / spritePpu) / desiredBorderPx;
         }
 
         public static Color Opaque(Color c)

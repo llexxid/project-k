@@ -32,7 +32,7 @@ namespace KingdomIdle.UGUI.Editor
         {
             Image bg;
             if (F.Catalog != null && F.Catalog.kitCard != null)
-                bg = F.PixelPanel(null, "Item_GachaCard", F.Catalog.kitCard, Color.white, 0.25f);
+                bg = F.PixelPanel(null, "Item_GachaCard", F.Catalog.kitCard, F.CardDark, 8f);
             else
                 bg = F.Box(null, "Item_GachaCard", new Color(50f / 255f, 50f / 255f, 70f / 255f, 0.80f), rounded: true);
             F.VLayout(bg.gameObject, 4f, new RectOffset(6, 6, 8, 6), TextAnchor.UpperCenter);
