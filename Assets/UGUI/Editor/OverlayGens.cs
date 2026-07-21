@@ -17,7 +17,7 @@ namespace KingdomIdle.UGUI.Editor
             F.Stretch(dim.rectTransform);
 
             var box = F.PixelPanel(root, "Box",
-                F.Catalog != null ? F.Catalog.kitWindow : null, Color.white, 0.4f);
+                F.Catalog != null ? F.Catalog.kitWindow : null, Color.white, 0.5f, baseColor: F.PanelBaseDarker);
             F.AnchorCenter(box.rectTransform, 620f, 220f);
             F.VLayout(box.gameObject, 18f, new RectOffset(40, 40, 34, 34), TextAnchor.MiddleCenter);
 
@@ -77,18 +77,19 @@ namespace KingdomIdle.UGUI.Editor
             hintRt.anchoredPosition = new Vector2(0f, 38f);
             hintRt.sizeDelta = new Vector2(0f, 30f);
 
-            // 패널 — 픽셀 키트 윈도우
+            // 패널 — 어두운 배경 + 픽셀 윈도우 프레임
             var panel = F.PixelPanel(root, "Panel",
-                F.Catalog != null ? F.Catalog.kitWindow : null, Color.white, 0.4f, raycast: true);
+                F.Catalog != null ? F.Catalog.kitWindow : null, Color.white, 0.5f, raycast: true,
+                baseColor: F.PanelBaseDarker);
             F.AnchorCenter(panel.rectTransform, 860f, 0f);
-            F.VLayout(panel.gameObject, 10f, new RectOffset(26, 26, 24, 26));
+            F.VLayout(panel.gameObject, 10f, new RectOffset(30, 30, 26, 28));
             var panelFitter = panel.gameObject.AddComponent<ContentSizeFitter>();
             panelFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             view.panel = panel.rectTransform;
 
-            // 타이틀바 — 메탈 스트립
+            // 타이틀바 — 메탈 스트립 (텍스처 채움)
             var titleBar = F.PixelPanel(panel.transform, "TitleBar",
-                F.Catalog != null ? F.Catalog.kitTitleBar : null, Color.white, 0.3f);
+                F.Catalog != null ? F.Catalog.kitTitleBar : null, Color.white, 0.3f, frameOnly: false);
             F.Preferred(titleBar, height: 64f);
             var title = F.Text(titleBar.transform, "Title", "환경설정", 30f, UguiTheme.TextPrimary,
                 TextAlignmentOptions.Center, bold: true);
@@ -203,20 +204,13 @@ namespace KingdomIdle.UGUI.Editor
             var dim = F.Box(root, "Dim", UguiTheme.DimHeavy, rounded: false, raycast: true);
             F.Stretch(dim.rectTransform);
 
-            // 팝업 본체 — 픽셀 키트 윈도우 + 골드 코너 장식 (가챠 특별감)
-            var popup = F.PixelPanel(root, "Popup",
-                F.Catalog != null ? F.Catalog.kitWindow : null, Color.white, 0.4f, raycast: true);
-            F.AnchorCenter(popup.rectTransform, 700f, 1150f);
-            F.VLayout(popup.gameObject, 14f, new RectOffset(24, 24, 24, 24));
-
+            // 팝업 본체 — 어두운 배경 + 골드 프레임 (가챠 특별감)
             var goldCorners = UguiGenAssets.FindIconSprite("CornersGold");
-            if (goldCorners != null)
-            {
-                var deco = F.PixelPanel(popup.transform, "GoldCorners", goldCorners, Color.white, 0.4f);
-                F.Stretch(deco.rectTransform);
-                deco.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
-                deco.raycastTarget = false;
-            }
+            var popup = F.PixelPanel(root, "Popup",
+                goldCorners != null ? goldCorners : (F.Catalog != null ? F.Catalog.kitWindow : null),
+                Color.white, 0.5f, raycast: true, baseColor: F.PanelBaseDarker);
+            F.AnchorCenter(popup.rectTransform, 700f, 1150f);
+            F.VLayout(popup.gameObject, 14f, new RectOffset(28, 28, 26, 26));
 
             // 제목
             var title = F.Text(popup.transform, "Title", "뽑기 결과", 32f, UguiTheme.AccentGoldStrong,

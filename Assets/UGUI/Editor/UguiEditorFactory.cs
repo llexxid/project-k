@@ -73,11 +73,12 @@ namespace KingdomIdle.UGUI.Editor
             var img = rt.gameObject.AddComponent<Image>();
             img.raycastTarget = raycast;
 
-            // 픽셀 키트 원형 우선 (판타지 프레임), 없으면 절차 생성 원
+            // 픽셀 키트 원형 우선 (판타지 프레임), 없으면 절차 생성 원.
+            // 반투명(subtle bg) 요청은 어두운 슬롯 색으로 대체 — 흰 원 방지.
             if (Catalog != null && Catalog.kitEllipse != null)
             {
                 img.sprite = Catalog.kitEllipse;
-                img.color = UguiPixelSkin.Opaque(color.a < 0.5f ? Color.white : color);
+                img.color = color.a < 0.6f ? new Color(0.12f, 0.13f, 0.18f, 1f) : UguiPixelSkin.Opaque(color);
             }
             else
             {
@@ -87,26 +88,54 @@ namespace KingdomIdle.UGUI.Editor
             return img;
         }
 
-        /// <summary>픽셀 키트 9-slice 패널 (윈도우/카드/슬롯).</summary>
-        internal static Image PixelPanel(Transform parent, string name, Sprite sprite, Color tint, float ppuMultiplier, bool raycast = false)
+        // 어두운 패널 기본 배경색 (가독성 확보 — 픽셀 프레임의 불투명 중앙이 UI를 덮지 않도록)
+        internal static readonly Color PanelBaseDark = new Color(0.07f, 0.07f, 0.11f, 0.96f);
+        internal static readonly Color PanelBaseDarker = new Color(0.05f, 0.05f, 0.08f, 0.98f);
+
+        /// <summary>
+        /// 픽셀 키트 9-slice 패널.
+        /// 기본(frameOnly=true): 어두운 solid 배경 + 픽셀 프레임 테두리만(중앙 투명) → 가독성 + 픽셀 감성.
+        /// frameOnly=false: 스프라이트가 중앙까지 채움(타이틀바 메탈 스트립 등 텍스처가 보여야 할 때).
+        /// 반환값은 콘텐츠를 붙일 기본 배경 Image.
+        /// </summary>
+        internal static Image PixelPanel(Transform parent, string name, Sprite sprite, Color tint, float ppuMultiplier,
+            bool raycast = false, bool frameOnly = true, Color? baseColor = null)
         {
             var rt = Container(parent, name);
-            var img = rt.gameObject.AddComponent<Image>();
-            img.raycastTarget = raycast;
+            var baseImg = rt.gameObject.AddComponent<Image>();
+            baseImg.raycastTarget = raycast;
+
+            if (!frameOnly && sprite != null)
+            {
+                // 스프라이트가 중앙까지 채우는 모드 (메탈 스트립 등)
+                baseImg.sprite = sprite;
+                baseImg.type = Image.Type.Sliced;
+                baseImg.pixelsPerUnitMultiplier = ppuMultiplier;
+                baseImg.color = tint;
+                return baseImg;
+            }
+
+            // 어두운 기본 배경 (라운드 사각형)
+            baseImg.sprite = Rounded;
+            baseImg.type = Image.Type.Sliced;
+            baseImg.color = baseColor ?? PanelBaseDark;
+
+            // 픽셀 프레임 테두리만 오버레이 (fillCenter=false → 중앙 투명)
             if (sprite != null)
             {
-                img.sprite = sprite;
-                img.type = Image.Type.Sliced;
-                img.pixelsPerUnitMultiplier = ppuMultiplier;
-                img.color = tint;
+                var frame = Container(rt, "Frame");
+                Stretch(frame);
+                var frameImg = frame.gameObject.AddComponent<Image>();
+                frameImg.sprite = sprite;
+                frameImg.type = Image.Type.Sliced;
+                frameImg.fillCenter = false;
+                frameImg.pixelsPerUnitMultiplier = ppuMultiplier;
+                frameImg.color = tint;
+                frameImg.raycastTarget = false;
+                frame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
             }
-            else
-            {
-                img.sprite = Rounded;
-                img.type = Image.Type.Sliced;
-                img.color = new Color(0.1f, 0.1f, 0.14f, 0.97f);
-            }
-            return img;
+
+            return baseImg;
         }
 
         internal static TextMeshProUGUI Text(
@@ -180,7 +209,7 @@ namespace KingdomIdle.UGUI.Editor
         {
             if (Catalog != null && Catalog.kitBarTrack != null)
             {
-                trackImg = PixelPanel(parent, name, Catalog.kitBarTrack, Color.white, 0.2f);
+                trackImg = PixelPanel(parent, name, Catalog.kitBarTrack, Color.white, 0.2f, frameOnly: false);
             }
             else
             {
@@ -234,11 +263,11 @@ namespace KingdomIdle.UGUI.Editor
 
             if (Catalog != null && Catalog.kitToggleOff != null && Catalog.kitToggleOn != null)
             {
-                // 픽셀 키트 토글: Off 스프라이트 위에 On 스프라이트 오버레이
-                bg = PixelPanel(parent, name, Catalog.kitToggleOff, Color.white, 0.2f, raycast: true);
+                // 픽셀 키트 토글: Off 스프라이트 위에 On 스프라이트 오버레이 (스프라이트 채움)
+                bg = PixelPanel(parent, name, Catalog.kitToggleOff, Color.white, 0.2f, raycast: true, frameOnly: false);
                 bg.rectTransform.sizeDelta = new Vector2(size * 1.6f, size);   // 키트 토글은 가로형
 
-                check = PixelPanel(bg.transform, "Checkmark", Catalog.kitToggleOn, Color.white, 0.2f);
+                check = PixelPanel(bg.transform, "Checkmark", Catalog.kitToggleOn, Color.white, 0.2f, frameOnly: false);
                 Stretch(check.rectTransform);
             }
             else
@@ -268,7 +297,7 @@ namespace KingdomIdle.UGUI.Editor
 
             Image bg;
             if (Catalog != null && Catalog.kitBarTrack != null)
-                bg = PixelPanel(rootRt, "Background", Catalog.kitBarTrack, Color.white, 0.2f, raycast: interactable);
+                bg = PixelPanel(rootRt, "Background", Catalog.kitBarTrack, Color.white, 0.2f, raycast: interactable, frameOnly: false);
             else
                 bg = Box(rootRt, "Background", track, rounded: true, raycast: interactable);
             Stretch(bg.rectTransform);
@@ -308,7 +337,7 @@ namespace KingdomIdle.UGUI.Editor
                 Image handle;
                 if (Catalog != null && Catalog.kitBarHandle != null)
                 {
-                    handle = PixelPanel(handleArea, "Handle", Catalog.kitBarHandle, Color.white, 1f, raycast: true);
+                    handle = PixelPanel(handleArea, "Handle", Catalog.kitBarHandle, Color.white, 1f, raycast: true, frameOnly: false);
                     handle.type = Image.Type.Simple;
                     handle.preserveAspect = true;
                 }

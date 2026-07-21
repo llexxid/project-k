@@ -19,15 +19,16 @@ namespace KingdomIdle.UGUI
 
         public Button Button => button;
 
+        private static readonly Color TabBgNormal = new Color(1f, 1f, 1f, 0.05f);
+        private static readonly Color TabBgSelected = new Color(110f / 255f, 180f / 255f, 1f, 0.22f);
+
         public void SetSelected(bool selected)
         {
+            // 배경은 라운드 박스(반투명) — 선택 시 은은한 파란 하이라이트
             if (background != null)
-            {
-                // 픽셀 스프라이트 위 틴트 — 반투명 틴트는 픽셀 아트를 죽이므로 불투명 유지
-                background.color = selected
-                    ? UguiPixelSkin.Opaque(UguiTheme.TabSelectedIcon)
-                    : Color.white;
-            }
+                background.color = selected ? TabBgSelected : TabBgNormal;
+
+            // 아이콘은 픽셀 스프라이트 — 선택 시 골드 틴트, 평소 흰색
             if (icon != null)
                 icon.color = selected ? UguiPixelSkin.Opaque(UguiTheme.TabSelectedIcon) : Color.white;
             if (label != null)

@@ -39,16 +39,17 @@ namespace KingdomIdle.UGUI.Editor
             backdropBtn.targetGraphic = backdropImg;
             backdropBtn.transition = Selectable.Transition.None;
 
-            // Sheet — 픽셀 키트 윈도우 프레임 (판타지 창)
+            // Sheet — 어두운 배경 + 픽셀 윈도우 프레임 테두리 (가독성 + 판타지 창)
             float sheetHeight = Mathf.Max(UguiTheme.PanelSheetMinHeight, UguiTheme.RefHeight * heightPct);
             var sheetImg = F.PixelPanel(root, "Sheet",
-                F.Catalog != null ? F.Catalog.kitWindow : null, Color.white, 0.4f, raycast: true);
+                F.Catalog != null ? F.Catalog.kitWindow : null, Color.white, 0.5f, raycast: true,
+                baseColor: F.PanelBaseDarker);
             F.AnchorBottomStretch(sheetImg.rectTransform, UguiTheme.BottomBarHeight, sheetHeight);
-            F.VLayout(sheetImg.gameObject, 14f, new RectOffset(26, 26, 22, 26));
+            F.VLayout(sheetImg.gameObject, 14f, new RectOffset(30, 30, 24, 28));
 
-            // 헤더: 타이틀바 스트립 + 제목 + 닫기(X 아이콘)
+            // 헤더: 메탈 타이틀바 스트립(텍스처 채움) + 제목 + 닫기(X 아이콘)
             var header = F.PixelPanel(sheetImg.transform, "Header",
-                F.Catalog != null ? F.Catalog.kitTitleBar : null, Color.white, 0.3f);
+                F.Catalog != null ? F.Catalog.kitTitleBar : null, Color.white, 0.3f, frameOnly: false);
             F.HLayout(header.gameObject, 8f, new RectOffset(18, 10, 6, 6), TextAnchor.MiddleLeft);
             F.Preferred(header.gameObject.AddComponent<LayoutElement>(), height: 76f);
 
@@ -56,7 +57,7 @@ namespace KingdomIdle.UGUI.Editor
                 TextAlignmentOptions.Left, bold: true);
             F.Flexible(titleLbl, flexWidth: 1f);
 
-            var closeImg = F.CircleBox(header.transform, "BtnPanelClose", Color.white, raycast: true);
+            var closeImg = F.CircleBox(header.transform, "BtnPanelClose", new Color(0.55f, 0.2f, 0.2f, 1f), raycast: true);
             F.Preferred(closeImg, width: UguiTheme.PanelCloseBtnSize, height: UguiTheme.PanelCloseBtnSize);
             var closeBtn = closeImg.gameObject.AddComponent<Button>();
             closeBtn.targetGraphic = closeImg;

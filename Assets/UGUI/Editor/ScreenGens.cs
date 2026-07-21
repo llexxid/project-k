@@ -27,10 +27,32 @@ namespace KingdomIdle.UGUI.Editor
             // 아무 곳이나 탭 캐처
             view.bgClickCatcher = F.InvisibleCatcher(rootRt, "BgClickCatcher");
 
-            // 타이틀 로고 (top 90, height 600)
-            var logo = F.IconImage(rootRt, "TitleLogo", UguiGenAssets.TitleLogo, 0f, 0f);
-            F.AnchorTopStretch(logo.rectTransform, 90f, 600f);
-            logo.preserveAspect = true;
+            // 타이틀 로고 — 원본 타이틀1.jpg가 프로젝트에 없어 텍스트 타이틀로 대체.
+            //   (팀이 로고 스프라이트를 준비하면 이 Image의 sprite만 교체하면 됨)
+            var logoSprite = UguiGenAssets.TitleLogo;
+            if (logoSprite != null)
+            {
+                var logo = F.IconImage(rootRt, "TitleLogo", logoSprite, 0f, 0f);
+                F.AnchorTopStretch(logo.rectTransform, 120f, 520f);
+                logo.preserveAspect = true;
+            }
+            else
+            {
+                // 텍스트 타이틀 (흰 박스 방지). 골드 색 + 큰 픽셀 폰트.
+                var titleCol = F.Container(rootRt, "TitleText");
+                F.AnchorTopStretch(titleCol.rectTransform, 260f, 260f);
+                F.VLayout(titleCol.gameObject, 6f, null, TextAnchor.UpperCenter, expandWidth: true);
+
+                var lineMain = F.Text(titleCol.transform, "TitleMain", "왕국 키우기", 96f, UguiTheme.AccentGoldStrong,
+                    TextAlignmentOptions.Center, bold: true);
+                F.Preferred(lineMain, height: 130f);
+                lineMain.characterSpacing = 4f;
+
+                var lineSub = F.Text(titleCol.transform, "TitleSub", "KINGDOM  IDLE", 40f,
+                    new Color(1f, 1f, 1f, 0.85f), TextAlignmentOptions.Center, bold: true);
+                F.Preferred(lineSub, height: 56f);
+                lineSub.characterSpacing = 12f;
+            }
 
             // 로그인 버튼 480×120 (화면 중심에서 약간 아래 = top 52%) — 픽셀 키트 버튼
             var loginImg = F.Box(rootRt, "BtnLogin", UguiTheme.LoginBtnBg, rounded: true, raycast: true);
@@ -64,12 +86,13 @@ namespace KingdomIdle.UGUI.Editor
             view.popupLoginDim = dimBtn;
 
             var box = F.PixelPanel(popup, "PopupLoginBox",
-                F.Catalog != null ? F.Catalog.kitWindow : null, Color.white, 0.4f, raycast: true);
+                F.Catalog != null ? F.Catalog.kitWindow : null, Color.white, 0.5f, raycast: true,
+                baseColor: F.PanelBaseDarker);
             var boxRt = box.rectTransform;
             F.AnchorCenter(boxRt, 820f, 0f);
             var boxFitter = box.gameObject.AddComponent<ContentSizeFitter>();
             boxFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            F.VLayout(box.gameObject, 14f, new RectOffset(34, 30, 38, 38));
+            F.VLayout(box.gameObject, 16f, new RectOffset(40, 36, 40, 40));
             view.popupLoginBox = boxRt;
 
             var popupTitle = F.Text(box.transform, "Title", "계정 로그인", 40f, UguiTheme.TextPrimary, TextAlignmentOptions.Left, bold: true);
@@ -146,9 +169,21 @@ namespace KingdomIdle.UGUI.Editor
 
         private static void BuildTopHud(RectTransform rootRt, MainScreenView view)
         {
-            var hud = F.Box(rootRt, "HudTop", UguiTheme.HudTopBg, rounded: false);
+            // 불투명 어두운 상단 바 (게임 배경 위에서 확실히 보이도록)
+            var hud = F.Box(rootRt, "HudTop", new Color(0.06f, 0.07f, 0.11f, 0.94f), rounded: false);
             F.AnchorTopStretch(hud.rectTransform, 0f, UguiTheme.HudTopHeight);
             F.HLayout(hud.gameObject, 0f, new RectOffset(22, 22, 0, 0), TextAnchor.MiddleLeft);
+
+            // 하단 골드 구분선
+            var underline = F.Box(hud.transform, "Underline", new Color(1f, 220f / 255f, 120f / 255f, 0.35f), rounded: false);
+            var ulRt = underline.rectTransform;
+            ulRt.anchorMin = new Vector2(0f, 0f);
+            ulRt.anchorMax = new Vector2(1f, 0f);
+            ulRt.pivot = new Vector2(0.5f, 0f);
+            ulRt.anchoredPosition = Vector2.zero;
+            ulRt.sizeDelta = new Vector2(0f, 3f);
+            underline.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            underline.raycastTarget = false;
 
             // ── 좌측: 프로필 + 닉네임 ──
             var leftWrap = F.Container(hud.transform, "LeftWrap");
@@ -294,10 +329,22 @@ namespace KingdomIdle.UGUI.Editor
 
         private static void BuildBottomBar(RectTransform rootRt, MainScreenView view)
         {
-            var bar = F.Box(rootRt, "BottomBar", UguiTheme.BottomBarBg, rounded: false);
+            // 불투명 어두운 하단 탭 바
+            var bar = F.Box(rootRt, "BottomBar", new Color(0.04f, 0.05f, 0.08f, 0.97f), rounded: false);
             F.AnchorBottomStretch(bar.rectTransform, 0f, UguiTheme.BottomBarHeight);
-            F.HLayout(bar.gameObject, 10f, new RectOffset(14, 14, 10, 14), TextAnchor.MiddleCenter, expandWidth: true);
+            F.HLayout(bar.gameObject, 12f, new RectOffset(16, 16, 12, 16), TextAnchor.MiddleCenter, expandWidth: true);
             view.bottomBar = bar.rectTransform;
+
+            // 상단 골드 구분선
+            var topline = F.Box(bar.transform, "Topline", new Color(1f, 220f / 255f, 120f / 255f, 0.35f), rounded: false);
+            var tlRt = topline.rectTransform;
+            tlRt.anchorMin = new Vector2(0f, 1f);
+            tlRt.anchorMax = new Vector2(1f, 1f);
+            tlRt.pivot = new Vector2(0.5f, 1f);
+            tlRt.anchoredPosition = Vector2.zero;
+            tlRt.sizeDelta = new Vector2(0f, 3f);
+            topline.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            topline.raycastTarget = false;
 
             view.tabDevelopment = MakeTabButton(bar.transform, "BtnDevelopment",
                 F.Catalog != null ? F.Catalog.iconSwords : null, "육성");
@@ -309,23 +356,31 @@ namespace KingdomIdle.UGUI.Editor
 
         private static MainTabButtonView MakeTabButton(Transform parent, string name, Sprite icon, string label)
         {
-            var bg = F.Box(parent, name, UguiTheme.TabNormalBg, rounded: true, raycast: true);
+            // 탭 배경 — 은은한 반투명 (픽셀 버튼 스킨 미적용; 선택 시 SetSelected가 색을 강조)
+            var bg = F.Box(parent, name, new Color(1f, 1f, 1f, 0.05f), rounded: true, raycast: true);
             F.Flexible(bg, flexWidth: 1f);
             F.Preferred(bg, height: 150f);
 
             var tab = bg.gameObject.AddComponent<MainTabButtonView>();
             tab.background = bg;
-            tab.button = F.ButtonOn(bg);
+
+            // 픽셀 버튼 스킨을 적용하지 않는 순수 버튼 (배경 색상은 SetSelected가 직접 제어)
+            var btn = bg.gameObject.AddComponent<Button>();
+            btn.targetGraphic = bg;
+            btn.transition = Selectable.Transition.ColorTint;
+            btn.colors = UguiTheme.MakeColorBlock();
+            bg.gameObject.AddComponent<PlayClickSfxOnClick>();
+            tab.button = btn;
 
             var inner = F.Container(bg.transform, "Inner");
             F.Stretch(inner);
-            F.VLayout(inner.gameObject, 4f, new RectOffset(0, 0, 16, 10), TextAnchor.MiddleCenter, expandWidth: true);
+            F.VLayout(inner.gameObject, 6f, new RectOffset(0, 0, 18, 12), TextAnchor.MiddleCenter, expandWidth: true);
 
             // 픽셀 키트 아이콘 (⚔♞✦ 글리프는 Galmuri11에 없어 스프라이트 사용)
             var iconWrap = F.Container(inner, "IconWrap");
-            F.Preferred(iconWrap.gameObject.AddComponent<LayoutElement>(), height: 68f);
-            var iconImg = F.IconImage(iconWrap, "Icon", icon, 60f, 60f);
-            F.AnchorCenter(iconImg.rectTransform, 60f, 60f);
+            F.Preferred(iconWrap.gameObject.AddComponent<LayoutElement>(), height: 72f);
+            var iconImg = F.IconImage(iconWrap, "Icon", icon, 64f, 64f);
+            F.AnchorCenter(iconImg.rectTransform, 64f, 64f);
             tab.icon = iconImg;
 
             var nameLbl = F.Text(inner, "Label", label, UguiTheme.FontTabLabel, new Color(1f, 1f, 1f, 0.85f),

@@ -78,8 +78,10 @@ namespace KingdomIdle.UGUI.Editor
             {
                 var slot = new PartyHudView.SkillSlot();
 
-                var slotBg = F.PixelPanel(skillRow, $"Skill{s}",
-                    F.Catalog != null ? F.Catalog.kitSlot : null, Color.white, 0.3f);
+                // 어두운 슬롯 박스 + 은은한 테두리 (다이아몬드 SkillSlot 대신 정사각 슬롯)
+                var slotBg = F.Box(skillRow, $"Skill{s}", new Color(0.1f, 0.11f, 0.16f, 0.9f), rounded: true);
+                F.Frame(slotBg.transform, "Border", new Color(1f, 1f, 1f, 0.22f))
+                    .gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
                 F.Preferred(slotBg, width: 40f, height: 40f);
                 slot.root = slotBg.gameObject;
 
@@ -142,8 +144,10 @@ namespace KingdomIdle.UGUI.Editor
             {
                 var slot = new MageTowerHudView.Slot();
 
-                var frame = F.PixelPanel(rootRt, $"Slot{i}",
-                    F.Catalog != null ? F.Catalog.kitSlot : null, Color.white, 0.3f, raycast: true);
+                // 어두운 슬롯 박스 + 골드 테두리 (정사각 마법탑 스킬 슬롯)
+                var frame = F.Box(rootRt, $"Slot{i}", new Color(0.1f, 0.11f, 0.16f, 0.92f), rounded: true, raycast: true);
+                F.Frame(frame.transform, "Border", new Color(1f, 220f / 255f, 130f / 255f, 0.35f))
+                    .gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
                 F.Preferred(frame, width: slotSize, height: slotSize);
                 slot.frame = frame;
                 var slotBtn = frame.gameObject.AddComponent<Button>();

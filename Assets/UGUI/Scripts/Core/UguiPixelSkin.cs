@@ -76,13 +76,13 @@ namespace KingdomIdle.UGUI
         }
 
         /// <summary>
-        /// 픽셀 스프라이트가 큰 UI 요소에서 프레임이 너무 얇아 보이지 않도록
-        /// 9-slice 확대 배율을 낮게 유지한다. 버튼 스프라이트 border는 2px라
-        /// 0.12 → 기준 해상도(1080)에서 약 17px 프레임으로 보인다.
+        /// 버튼 픽셀 스프라이트 9-slice 확대 배율.
+        /// 버튼 스프라이트 border는 2~3px라 0.18 → 기준 해상도(1080)에서 약 11~16px 프레임.
+        /// Point 필터와 함께 쓰면 선명한 픽셀 테두리가 된다.
         /// </summary>
         private static float PixelPpuMultiplier(Sprite sprite)
         {
-            return 0.12f;
+            return 0.18f;
         }
 
         public static Color Opaque(Color c)

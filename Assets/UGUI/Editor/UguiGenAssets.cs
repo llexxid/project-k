@@ -125,19 +125,44 @@ namespace KingdomIdle.UGUI.Editor
             return null;
         }
 
-        /// <summary>텍스처를 Sprite로 로드. 임포트 타입이 Sprite가 아니면 고쳐서 재임포트.</summary>
+        /// <summary>
+        /// 텍스처를 Sprite로 로드. Sprite 타입 + Point 필터(픽셀 아트 선명도) + border 유지를 보장한다.
+        /// 이미 올바르게 임포트돼 있으면 재임포트하지 않는다.
+        /// </summary>
         internal static Sprite EnsureSprite(string path)
         {
-            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
-            if (sprite != null) return sprite;
-
             var importer = AssetImporter.GetAtPath(path) as TextureImporter;
-            if (importer == null) return null;
+            if (importer == null)
+                return AssetDatabase.LoadAssetAtPath<Sprite>(path);
 
-            importer.textureType = TextureImporterType.Sprite;
-            importer.spriteImportMode = SpriteImportMode.Single;
-            importer.mipmapEnabled = false;
-            importer.SaveAndReimport();
+            bool needsReimport = false;
+
+            if (importer.textureType != TextureImporterType.Sprite)
+            {
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spriteImportMode = SpriteImportMode.Single;
+                needsReimport = true;
+            }
+
+            // 픽셀 아트 선명도 — Point 필터 + 압축 없음 (블러/뭉개짐 방지)
+            if (importer.filterMode != FilterMode.Point)
+            {
+                importer.filterMode = FilterMode.Point;
+                needsReimport = true;
+            }
+            if (importer.textureCompression != TextureImporterCompression.Uncompressed)
+            {
+                importer.textureCompression = TextureImporterCompression.Uncompressed;
+                needsReimport = true;
+            }
+            if (importer.mipmapEnabled)
+            {
+                importer.mipmapEnabled = false;
+                needsReimport = true;
+            }
+
+            if (needsReimport)
+                importer.SaveAndReimport();
 
             return AssetDatabase.LoadAssetAtPath<Sprite>(path);
         }
