@@ -115,6 +115,7 @@ namespace KingdomIdle.UGUI
             var iconLe = UguiRuntimeFactory.Preferred(iconBg, width: 90f, height: 90f);
             iconLe.minWidth = 90f;
             _icon = UguiRuntimeFactory.Box(iconBg.transform, "Icon", Color.white, rounded: false);
+            _icon.enabled = false;   // 스프라이트가 붙기 전엔 비활성 (흰 박스 방지)
             _icon.preserveAspect = true;
             UguiRuntimeFactory.Stretch(_icon.rectTransform);
             _icon.rectTransform.offsetMin = new Vector2(6f, 6f);

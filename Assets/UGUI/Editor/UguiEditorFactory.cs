@@ -198,6 +198,7 @@ namespace KingdomIdle.UGUI.Editor
             var rt = Container(parent, name);
             var img = rt.gameObject.AddComponent<Image>();
             img.sprite = sprite;
+            img.enabled = sprite != null;   // null이면 흰 사각형이 나오므로 비활성
             img.preserveAspect = true;
             img.raycastTarget = false;
             rt.sizeDelta = new Vector2(w, h);

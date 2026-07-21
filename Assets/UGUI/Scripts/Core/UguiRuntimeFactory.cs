@@ -99,12 +99,13 @@ namespace KingdomIdle.UGUI
             return TextButton(parent, text, fontSize, bg, onClick, out _);
         }
 
-        /// <summary>아이콘 Image (스프라이트 유지 비율).</summary>
+        /// <summary>아이콘 Image (스프라이트 유지 비율). 스프라이트 없으면 숨김(흰 박스 방지).</summary>
         public static Image Icon(Transform parent, Sprite sprite, float w, float h)
         {
             var rt = Container(parent, "Icon");
             var img = rt.gameObject.AddComponent<Image>();
             img.sprite = sprite;
+            img.enabled = sprite != null;   // null이면 흰 사각형이 나오므로 비활성
             img.preserveAspect = true;
             img.raycastTarget = false;
             SetSize(rt, w, h);

@@ -27,31 +27,14 @@ namespace KingdomIdle.UGUI.Editor
             // 아무 곳이나 탭 캐처
             view.bgClickCatcher = F.InvisibleCatcher(rootRt, "BgClickCatcher");
 
-            // 타이틀 로고 — 원본 타이틀1.jpg가 프로젝트에 없어 텍스트 타이틀로 대체.
-            //   (팀이 로고 스프라이트를 준비하면 이 Image의 sprite만 교체하면 됨)
+            // 타이틀 로고 — 제목은 배경 이미지(타이틀배경3.jpg)에 이미 포함되어 있으므로
+            //   별도 로고/텍스트를 그리지 않는다. (전용 로고 스프라이트가 생기면 여기에 Image 추가)
             var logoSprite = UguiGenAssets.TitleLogo;
             if (logoSprite != null)
             {
                 var logo = F.IconImage(rootRt, "TitleLogo", logoSprite, 0f, 0f);
                 F.AnchorTopStretch(logo.rectTransform, 120f, 520f);
                 logo.preserveAspect = true;
-            }
-            else
-            {
-                // 텍스트 타이틀 (흰 박스 방지). 골드 색 + 큰 픽셀 폰트.
-                var titleCol = F.Container(rootRt, "TitleText");
-                F.AnchorTopStretch(titleCol, 260f, 260f);
-                F.VLayout(titleCol.gameObject, 6f, null, TextAnchor.UpperCenter, expandWidth: true);
-
-                var lineMain = F.Text(titleCol.transform, "TitleMain", "왕국 키우기", 96f, UguiTheme.AccentGoldStrong,
-                    TextAlignmentOptions.Center, bold: true);
-                F.Preferred(lineMain, height: 130f);
-                lineMain.characterSpacing = 4f;
-
-                var lineSub = F.Text(titleCol.transform, "TitleSub", "KINGDOM  IDLE", 40f,
-                    new Color(1f, 1f, 1f, 0.85f), TextAlignmentOptions.Center, bold: true);
-                F.Preferred(lineSub, height: 56f);
-                lineSub.characterSpacing = 12f;
             }
 
             // 로그인 버튼 480×120 (화면 중심에서 약간 아래 = top 52%) — 픽셀 키트 버튼

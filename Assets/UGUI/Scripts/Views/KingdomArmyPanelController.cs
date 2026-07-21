@@ -218,7 +218,9 @@ namespace KingdomIdle.UGUI
             portraitLe.minWidth = PORTRAIT_SIZE;
             portrait.gameObject.AddComponent<RectMask2D>();
 
+            // 스프라이트가 붙기 전엔 비활성 (흰 박스 방지)
             _charPortraitInner = UguiRuntimeFactory.Box(portrait.transform, "Inner", Color.white, rounded: false);
+            _charPortraitInner.enabled = false;
             _charPortraitInner.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
             _charPortraitInner.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             _charPortraitInner.rectTransform.pivot = new Vector2(0.5f, 0.5f);
@@ -1114,6 +1116,7 @@ namespace KingdomIdle.UGUI
             _charPortraitInner.rectTransform.sizeDelta = new Vector2(w, h);
             _charPortraitInner.rectTransform.anchoredPosition = Vector2.zero;   // 중앙 정렬
             _charPortraitInner.sprite = sprite;
+            _charPortraitInner.enabled = true;
         }
 
         private static Player GetCurrentPlayer()

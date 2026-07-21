@@ -58,10 +58,12 @@ namespace KingdomIdle.UGUI.Editor
 
         internal static Sprite GetOrCreateRoundedRect()
         {
+            // 작은 테두리(8px/32px) — 작은 요소에서도 9-slice 코너가 겹치지 않아
+            // 십자/흰박스 아티팩트가 생기지 않는다. (요소 폭·높이 ≥16px에서 안전)
             return GetOrCreateGeneratedSprite(
                 $"{SpriteRoot}/RoundedRect.png",
-                () => MakeRoundedRectTex(64, 20),
-                border: new Vector4(24, 24, 24, 24));
+                () => MakeRoundedRectTex(32, 8),
+                border: new Vector4(8, 8, 8, 8));
         }
 
         internal static Sprite GetOrCreateCircle()
