@@ -40,7 +40,7 @@ namespace KingdomIdle.UGUI.Editor
             {
                 // 텍스트 타이틀 (흰 박스 방지). 골드 색 + 큰 픽셀 폰트.
                 var titleCol = F.Container(rootRt, "TitleText");
-                F.AnchorTopStretch(titleCol.rectTransform, 260f, 260f);
+                F.AnchorTopStretch(titleCol, 260f, 260f);
                 F.VLayout(titleCol.gameObject, 6f, null, TextAnchor.UpperCenter, expandWidth: true);
 
                 var lineMain = F.Text(titleCol.transform, "TitleMain", "왕국 키우기", 96f, UguiTheme.AccentGoldStrong,
