@@ -1,3 +1,5 @@
+using Scripts.Core.Manager;
+
 namespace Scripts.Core
 {
     public static class StageRule 
@@ -6,49 +8,8 @@ namespace Scripts.Core
         private const ulong StageNumberMask = 0x000000007FFF0000; //스테이지 번호 검출용 마스크
         private const ulong StageBaseMask = 0xFFFFFFFFFFFF0000; //스테이지 베이스 검출용 마스크
         private const int WaveBitSize = 16; //웨이브 할당 비트
-        public const ulong BossWaveNumber = 11;
-        
-        /// <summary>
-        /// eStage 값에서 스테이지 번호만 추출한다.
-        /// </summary>
-        /// <remarks>
-        /// eStage는 하나의 정수값 안에 스테이지 번호와 웨이브 번호를 함께 저장한다.
-        /// 
-        /// <br/>예:
-        /// Stage1   = 0x200010000
-        /// <br/>Stage1_1 = 0x200010001
-        /// <br/>Stage1_2 = 0x200010002
-        /// <br/>Stage2   = 0x200020000
-        /// 
-        /// <br/>여기서 하위 16비트(0x0000FFFF)는 웨이브 번호이고,
-        /// 그 위의 15비트(0x7FFF0000)는 스테이지 번호 영역이다.
-        /// <br/>따라서 0x7FFF0000으로 스테이지 영역만 남긴 뒤 
-        /// 하위 16비트만큼 오른쪽으로 이동해서 실제 번호로 변환한다.
-        /// </remarks>
-        public static int GetStageNumber(eStage stage)
-        {
-            ulong value = (ulong)stage;
-            return (int)((value & StageNumberMask) >> WaveBitSize);
-        }
+        private const ulong BossWaveNumber = 11;
 
-        /// <summary>
-        /// eStage 값에서 웨이브 번호만 추출한다.
-        /// </summary>
-        /// <remarks>
-        /// eStage의 하위 16비트는 웨이브 번호로 사용된다.
-        /// 
-        /// <br/>예:
-        /// Stage1   = 0x200010000 -> wave 0
-        /// <br/>Stage1_1 = 0x200010001 -> wave 1
-        /// <br/>Stage1_10 = 0x20001000A -> wave 10
-        /// 
-        /// <br/>따라서 0x0000FFFF 마스크를 적용하면 스테이지/분류 영역은 제거되고 웨이브 번호만 남는다.
-        /// </remarks>
-        public static int GetWaveNumber(eStage stage)
-        {
-            ulong value = (ulong)stage;
-            return (int)(value & WaveMask);
-        }
 
         /// <summary>
         /// 현재 스테이지와 같은 스테이지 그룹의 보스 웨이브 eStage 값을 반환한다.
@@ -71,7 +32,7 @@ namespace Scripts.Core
             return (eStage)(stageBase + BossWaveNumber);
         }
 
-        public static bool IsBossWave(eStage stage) => GetWaveNumber(stage) == (int)BossWaveNumber;
+        public static bool IsBossWave(eStage stage) => StageParser.GetWaveNumber(stage) == (int)BossWaveNumber;
         
         /// <summary>
         /// 현재 스테이지 값을 기준으로 다음 웨이브 또는 다음 스테이지를 계산한다.

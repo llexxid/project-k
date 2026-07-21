@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 using Scripts.Core;
+using Scripts.Core.Manager;
 
 namespace KingdomIdle.UIToolkit
 {
@@ -83,7 +84,7 @@ namespace KingdomIdle.UIToolkit
             SetHidden(_deathPopup, true);
             SetHidden(_btnLoopIcon, true);
 
-            UpdateStageLabel(_sm.StageNumber, _sm.WaveNumber, _sm.IsBossWave);
+            UpdateStageLabel(_sm.CurrentStageNumber, _sm.CurrentWaveNumber, _sm.IsBossWave);
         }
 
         public static void Dispose()

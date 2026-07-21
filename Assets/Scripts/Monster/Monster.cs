@@ -189,7 +189,7 @@ namespace Scripts.Monster
 		public void ResetTarget(IDamageable target)
 		{
 			Target = null;
-			CustomLogger.Log("Target 초기화!");
+			//CustomLogger.Log("Target 초기화!");
 		}
 		public void SetType(eMonsterType monsterType)
 		{
@@ -268,7 +268,7 @@ namespace Scripts.Monster
 			IsAlive = target.TakeDamage(this);
 			if (!IsAlive)
 			{
-				CustomLogger.Log("타겟이 죽음");
+				//CustomLogger.Log("타겟이 죽음");
 				return false;
 			}
 			_lastAttackTime = Time.time;
