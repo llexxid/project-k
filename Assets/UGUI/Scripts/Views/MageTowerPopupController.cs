@@ -107,27 +107,54 @@ namespace KingdomIdle.UGUI
 
             _pulse = _overlayGo.AddComponent<PulseDriver>();
 
-            // 패널 (중앙 900x680)
-            var panel = UguiRuntimeFactory.Box(overlay.transform, "Panel", PanelBg, rounded: true, raycastTarget: true);
+            // 패널 (중앙 900x680) — 다른 패널과 동일한 어두운 배경 + 금색 픽셀 프레임
+            var panel = UguiRuntimeFactory.PixelWindow(overlay.transform, "Panel");
             var panelRt = panel.rectTransform;
             panelRt.anchorMin = new Vector2(0.5f, 0.5f);
             panelRt.anchorMax = new Vector2(0.5f, 0.5f);
             panelRt.pivot = new Vector2(0.5f, 0.5f);
             UguiRuntimeFactory.SetSize(panelRt, PanelW, PanelH);
             UguiRuntimeFactory.VerticalLayout(panel.gameObject, PanelGap,
-                new RectOffset(PanelPad, PanelPad, PanelPad, PanelPad));
+                new RectOffset(PanelPad + 12, PanelPad + 12, PanelPad + 6, PanelPad + 10));
 
-            // titlebar
-            var titleBar = UguiRuntimeFactory.Container(panel.transform, "TitleBar");
-            UguiRuntimeFactory.HorizontalLayout(titleBar.gameObject, 0f, null, TextAnchor.MiddleLeft);
+            // titlebar — 메탈 스트립 (패널 헤더와 동일 스타일)
+            var catalog = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
+            var titleBar = UguiRuntimeFactory.Box(panel.transform, "TitleBar", Color.white, rounded: true);
+            if (catalog != null && catalog.kitTitleBar != null)
+            {
+                titleBar.sprite = catalog.kitTitleBar;
+                titleBar.type = Image.Type.Sliced;
+                titleBar.pixelsPerUnitMultiplier = UguiPixelSkin.PpuMultiplierForBorder(catalog.kitTitleBar, 14f);
+            }
+            UguiRuntimeFactory.HorizontalLayout(titleBar.gameObject, 8f, new RectOffset(18, 10, 6, 6), TextAnchor.MiddleLeft);
+            UguiRuntimeFactory.Preferred(titleBar, height: 76f);
 
-            var title = UguiRuntimeFactory.Label(titleBar, "마탑 스킬 장착", 34f, UguiTheme.TextPrimary, bold: true);
+            var title = UguiRuntimeFactory.Label(titleBar.transform, "마탑 스킬 장착", 34f, UguiTheme.TextPrimary, bold: true);
             UguiRuntimeFactory.Flexible(title, 1f);
 
-            var closeBtn = UguiRuntimeFactory.TextButton(titleBar, "X", 30f, CloseBtnBg, Hide,
-                out _, bold: false, textColor: new Color(1f, 1f, 1f, 0.9f));
-            MakeCircle(closeBtn.image);
-            UguiRuntimeFactory.Preferred(closeBtn, 72f, 72f);
+            // 닫기 버튼 — 패널 헤더와 동일한 어두운 적색 원형 + X 아이콘
+            var closeImg = UguiRuntimeFactory.Box(titleBar.transform, "BtnClose", new Color(0.55f, 0.2f, 0.2f, 1f), rounded: true, raycastTarget: true);
+            MakeCircle(closeImg);
+            UguiRuntimeFactory.Preferred(closeImg, 72f, 72f);
+            var closeBtn = closeImg.gameObject.AddComponent<Button>();
+            closeBtn.targetGraphic = closeImg;
+            closeBtn.transition = Selectable.Transition.ColorTint;
+            closeBtn.colors = UguiTheme.MakeColorBlock();
+            closeImg.gameObject.AddComponent<PlayClickSfxOnClick>();
+            closeBtn.onClick.AddListener(Hide);
+            if (catalog != null && catalog.iconX != null)
+            {
+                var xIcon = UguiRuntimeFactory.Icon(closeImg.transform, catalog.iconX, 34f, 34f);
+                var xRt = xIcon.rectTransform;
+                xRt.anchorMin = new Vector2(0.5f, 0.5f);
+                xRt.anchorMax = new Vector2(0.5f, 0.5f);
+                xRt.anchoredPosition = Vector2.zero;
+            }
+            else
+            {
+                var xLbl = UguiRuntimeFactory.Label(closeImg.transform, "X", 30f, UguiTheme.TextPrimary, TextAlignmentOptions.Center, bold: true);
+                UguiRuntimeFactory.Stretch(xLbl.rectTransform);
+            }
 
             // body
             var body = UguiRuntimeFactory.Container(panel.transform, "Body");

@@ -94,6 +94,8 @@ namespace KingdomIdle.UGUI
                 : null;
             if (prefab == null) return;
 
+            var cat = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
+
             for (int i = 0; i < _tables.Count; i++)
             {
                 int idx = i;
@@ -101,7 +103,20 @@ namespace KingdomIdle.UGUI
                 var tab = go.GetComponent<NavTabButtonView>();
                 if (tab == null) continue;
 
-                tab.SetLabel(_tables[i] != null ? _tables[i].nameKor : "?");
+                var table = _tables[i];
+                tab.SetLabel(table != null ? table.nameKor : "?");
+
+                // 비용 통화로 뽑기 종류를 구분해 아이콘 지정
+                //   비전지식 = 마법탑 스킬 뽑기(지팡이), 그 외 = 장비 뽑기(보물상자)
+                Sprite tabIcon = null;
+                if (cat != null && table != null)
+                {
+                    tabIcon = table.costCurrency == eCurrency.ArcaneKnowledge
+                        ? cat.iconWand
+                        : cat.iconChest;
+                }
+                tab.SetIcon(tabIcon);
+
                 tab.Button.onClick.AddListener(() => OnTabClicked(idx));
                 _tabButtons.Add(tab);
             }

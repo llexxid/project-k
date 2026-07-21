@@ -65,18 +65,18 @@ namespace KingdomIdle.UGUI
         {
             bool done = manager.IsStepCompleted(step.id);
 
-            // .guide-step-row: 행 본문 + 1px 하단 구분선을 세로로 묶는다.
-            var row = UguiRuntimeFactory.Container(view.listContent, "GuideStepRow");
+            // 각 단계를 카드 박스로 (구분선 대신 픽셀 카드 배경 — 목록이 깔끔하게 구분된다)
+            var row = UguiRuntimeFactory.PixelCard(view.listContent, "GuideStepCard");
             UguiRuntimeFactory.VerticalLayout(row.gameObject, 0f);
 
-            // .guide-step-done { opacity: 0.55; }
+            // 완료된 단계는 흐리게
             var rowGroup = row.gameObject.AddComponent<CanvasGroup>();
             rowGroup.alpha = done ? 0.55f : 1f;
 
-            // 본문: padding 16px 12px, gap 16, align-items flex-start
-            var inner = UguiRuntimeFactory.Container(row, "RowInner");
+            // 본문: padding, gap 16, align-items flex-start
+            var inner = UguiRuntimeFactory.Container(row.transform, "RowInner");
             UguiRuntimeFactory.HorizontalLayout(
-                inner.gameObject, 16f, new RectOffset(12, 12, 16, 16), TextAnchor.UpperLeft);
+                inner.gameObject, 16f, new RectOffset(16, 16, 16, 16), TextAnchor.UpperLeft);
 
             // ── .guide-check-btn: 52x52 원형, 흰색 10% 배경 + 2px 테두리(외곽 원 + 내부 원) ──
             var checkBorder = UguiRuntimeFactory.Box(inner, "CheckBtn", CheckBorderColor, rounded: false, raycastTarget: true);
@@ -125,22 +125,21 @@ namespace KingdomIdle.UGUI
             var titleLabel = UguiRuntimeFactory.Label(
                 textCol, step.title, 28f, done ? TitleDoneColor : TitleColor,
                 TextAlignmentOptions.Left, bold: true, wrap: true);
+            UguiRuntimeFactory.Preferred(titleLabel, height: 36f);
 
-            UguiRuntimeFactory.Label(
+            var descLabel = UguiRuntimeFactory.Label(
                 textCol, step.description, 23f, DescColor,
                 TextAlignmentOptions.Left, bold: false, wrap: true);
+            UguiRuntimeFactory.Preferred(descLabel, height: 32f);
 
             // 미완료 단계에만 힌트 노출 (원본과 동일 — 토글 시 갱신하지 않음)
             if (!string.IsNullOrEmpty(step.completionHint) && !done)
             {
-                UguiRuntimeFactory.Label(
+                var hintLabel = UguiRuntimeFactory.Label(
                     textCol, step.completionHint, 21f, UguiTheme.GuideHintBlue,
                     TextAlignmentOptions.Left, bold: false, wrap: true);
+                UguiRuntimeFactory.Preferred(hintLabel, height: 28f);
             }
-
-            // .guide-step-row border-bottom: 1px rgba(255,255,255,0.08)
-            var divider = UguiRuntimeFactory.Box(row, "Divider", DividerColor, rounded: false);
-            UguiRuntimeFactory.Preferred(divider, height: 1f);
 
             checkBtn.onClick.AddListener(() =>
             {

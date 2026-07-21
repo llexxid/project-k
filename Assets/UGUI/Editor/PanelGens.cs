@@ -164,7 +164,7 @@ namespace KingdomIdle.UGUI.Editor
             var view = shell.Root.gameObject.AddComponent<GachaPanelView>();
             WireBase(view, shell);
 
-            view.tabBar = AddBar(shell.Body, "GachaTabBar", 64f);
+            view.tabBar = AddBar(shell.Body, "GachaTabBar", 104f);
             view.scroll = AddScroll(shell.Body, out var content);
             view.content = content;
 
@@ -177,10 +177,10 @@ namespace KingdomIdle.UGUI.Editor
             var view = shell.Root.gameObject.AddComponent<KingdomArmyPanelView>();
             WireBase(view, shell);
 
-            view.memberTabs = AddBar(shell.Body, "ArmyMemberTabs", 56f);
+            view.memberTabs = AddBar(shell.Body, "ArmyMemberTabs", 92f);
             view.scroll = AddScroll(shell.Body, out var content);
             view.content = content;
-            view.navBar = AddBar(shell.Body, "ArmyNavBar", 72f);
+            view.navBar = AddBar(shell.Body, "ArmyNavBar", 104f);
 
             return PrefabGenUtil.SavePrefab(shell.Root.gameObject, $"{PrefabGenUtil.PrefabRoot}/Panels/Panel_KingdomArmy.prefab");
         }
@@ -203,7 +203,7 @@ namespace KingdomIdle.UGUI.Editor
             var view = shell.Root.gameObject.AddComponent<InventoryPanelView>();
             WireBase(view, shell);
 
-            view.navBar = AddBar(shell.Body, "InvNavBar", 72f);
+            view.navBar = AddBar(shell.Body, "InvNavBar", 104f);
             view.scroll = AddScroll(shell.Body, out var content);
             view.content = content;
 

@@ -53,6 +53,55 @@ namespace KingdomIdle.UGUI
             return img;
         }
 
+        // ── 픽셀 테마 색상 (에디터 생성기 F와 동일 값) ──
+        public static readonly Color PanelBaseDarker = new Color(0.05f, 0.05f, 0.08f, 0.98f);
+        public static readonly Color FrameGold = new Color(0.72f, 0.58f, 0.32f, 1f);
+        public static readonly Color CardDark = new Color(0.17f, 0.18f, 0.24f, 1f);
+
+        /// <summary>
+        /// 픽셀 프레임 창 (어두운 배경 + 금색 9-slice 테두리).
+        /// 런타임 생성 팝업(마법탑 등)이 에디터 생성 패널과 동일한 외형을 갖도록 한다.
+        /// borderPx = 화면에 보일 테두리 두께.
+        /// </summary>
+        public static Image PixelWindow(Transform parent, string name, float borderPx = 24f,
+            bool raycastTarget = true, Color? baseColor = null, Color? frameTint = null)
+        {
+            var catalog = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
+
+            var baseImg = Box(parent, name, baseColor ?? PanelBaseDarker, rounded: true, raycastTarget: raycastTarget);
+
+            var frameSprite = catalog != null ? catalog.kitWindow : null;
+            if (frameSprite != null)
+            {
+                var frame = Container(baseImg.transform, "Frame");
+                Stretch(frame);
+                var frameImg = frame.gameObject.AddComponent<Image>();
+                frameImg.sprite = frameSprite;
+                frameImg.type = Image.Type.Sliced;
+                frameImg.fillCenter = false;
+                frameImg.pixelsPerUnitMultiplier = UguiPixelSkin.PpuMultiplierForBorder(frameSprite, borderPx);
+                frameImg.color = frameTint ?? FrameGold;
+                frameImg.raycastTarget = false;
+                frame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            }
+
+            return baseImg;
+        }
+
+        /// <summary>픽셀 카드 배경 (섹션/행 묶음용, 프레임 없는 어두운 박스).</summary>
+        public static Image PixelCard(Transform parent, string name, bool raycastTarget = false)
+        {
+            var catalog = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
+            var img = Box(parent, name, CardDark, rounded: true, raycastTarget: raycastTarget);
+            if (catalog != null && catalog.kitCard != null)
+            {
+                img.sprite = catalog.kitCard;
+                img.type = Image.Type.Sliced;
+                img.pixelsPerUnitMultiplier = UguiPixelSkin.PpuMultiplierForBorder(catalog.kitCard, 8f);
+            }
+            return img;
+        }
+
         public static TMP_Text Label(
             Transform parent, string text, float size, Color color,
             TextAlignmentOptions align = TextAlignmentOptions.Left, bool bold = false, bool wrap = false)

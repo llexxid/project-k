@@ -90,6 +90,15 @@ namespace KingdomIdle.UGUI.Editor
         internal static Sprite IconEnvelope => FindIconSprite("Envelope");
         internal static Sprite IconRepeat => FindIconSprite("Repeat");
 
+        // 메뉴 역할 구분 아이콘
+        internal static Sprite IconUserRole => FindIconSprite("User");
+        internal static Sprite IconSword => FindIconSprite("Sword");
+        internal static Sprite IconBook => FindIconSprite("Book01");
+        internal static Sprite IconWand => FindIconSprite("Wand");
+        internal static Sprite IconChest => FindIconSprite("Chest01");
+        internal static Sprite IconGem => FindIconSprite("Gem01");
+        internal static Sprite IconCoin => FindIconSprite("Coin01");
+
         private static T LoadByGuid<T>(string guid) where T : Object
         {
             string path = AssetDatabase.GUIDToAssetPath(guid);

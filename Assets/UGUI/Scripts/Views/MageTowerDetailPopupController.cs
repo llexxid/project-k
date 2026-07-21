@@ -78,7 +78,8 @@ namespace KingdomIdle.UGUI
             dimBtn.onClick.AddListener(Hide);
 
             // ── 패널 (mt-detail-panel: max-width 600, bg #231E2D@96%, radius 18, padding 22, gap 14) ──
-            var panel = UguiRuntimeFactory.Box(dim.transform, "Panel", UguiTheme.ModalBg, rounded: true, raycastTarget: true);
+            // 다른 패널과 동일한 어두운 배경 + 금색 픽셀 프레임
+            var panel = UguiRuntimeFactory.PixelWindow(dim.transform, "Panel");
             var panelRt = panel.rectTransform;
             panelRt.anchorMin = new Vector2(0.5f, 0.5f);
             panelRt.anchorMax = new Vector2(0.5f, 0.5f);

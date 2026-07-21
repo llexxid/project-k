@@ -109,6 +109,14 @@ namespace KingdomIdle.UGUI
                 if (tab == null) continue;
 
                 tab.SetLabel(label);
+                // 멤버 탭은 해당 캐릭터의 직업 스프라이트를 아이콘으로 — 누가 누구인지 즉시 구분
+                Sprite memberIcon = null;
+                if (i < _players.Count && _players[i] != null && _mgr.JobDB != null && _players[i].playerStatus != null)
+                {
+                    var jobData = _mgr.JobDB.GetJob(_players[i].playerStatus.JobName);
+                    if (jobData != null) memberIcon = jobData.jobSprite;
+                }
+                tab.SetIcon(memberIcon);
                 tab.Button.onClick.AddListener(() =>
                 {
                     _activeMemberIndex = idx;
@@ -137,15 +145,16 @@ namespace KingdomIdle.UGUI
             var prefab = GetNavPrefab();
             if (prefab == null) return;
 
-            var navItems = new (SubMenu menu, string label)[]
+            var cat = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
+            var navItems = new (SubMenu menu, string label, Sprite icon)[]
             {
-                (SubMenu.Character, "종합"),
-                (SubMenu.Equipment, "장비"),
-                (SubMenu.Skill, "스킬"),
-                (SubMenu.JobChange, "전직"),
+                (SubMenu.Character, "종합", cat != null ? cat.iconUser : null),
+                (SubMenu.Equipment, "장비", cat != null ? cat.iconSword : null),
+                (SubMenu.Skill, "스킬", cat != null ? cat.iconBook : null),
+                (SubMenu.JobChange, "전직", cat != null ? cat.iconStar : null),
             };
 
-            foreach (var (menu, label) in navItems)
+            foreach (var (menu, label, icon) in navItems)
             {
                 var m = menu;
                 var go = Object.Instantiate(prefab, _view.navBar, false);
@@ -153,6 +162,7 @@ namespace KingdomIdle.UGUI
                 if (tab == null) continue;
 
                 tab.SetLabel(label);
+                tab.SetIcon(icon);
                 tab.Button.onClick.AddListener(() =>
                 {
                     _activeSubMenu = m;

@@ -7,21 +7,47 @@ namespace KingdomIdle.UGUI.Editor
     /// <summary>동적 리스트 아이템 프리팹 생성기 (탭 버튼 / 가챠 카드 / 재화 라인).</summary>
     internal static class ItemGens
     {
-        /// <summary>범용 탭/네비 버튼 (gacha-tab-btn / ka-member-tab / ka-nav-btn 공용).</summary>
+        /// <summary>
+        /// 범용 탭/네비 버튼 (gacha-tab-btn / ka-member-tab / ka-nav-btn 공용).
+        /// 아이콘 + 라벨 세로 배치 — 어떤 메뉴인지 한눈에 구분되도록.
+        /// </summary>
         internal static GameObject GenerateNavTabButton()
         {
-            var bg = F.Box(null, "Item_NavTabButton", UguiTheme.SurfaceLight, rounded: true, raycast: true);
+            var bg = F.Box(null, "Item_NavTabButton", new Color(0.16f, 0.17f, 0.23f, 1f), rounded: true, raycast: true);
             var view = bg.gameObject.AddComponent<NavTabButtonView>();
             view.background = bg;
-            view.button = F.ButtonOn(bg);
+
+            // 픽셀 버튼 스킨은 적용하지 않는다 (선택 상태 색을 SetSelected가 직접 제어)
+            var btn = bg.gameObject.AddComponent<Button>();
+            btn.targetGraphic = bg;
+            btn.transition = Selectable.Transition.ColorTint;
+            btn.colors = UguiTheme.MakeColorBlock();
+            bg.gameObject.AddComponent<PlayClickSfxOnClick>();
+            view.button = btn;
 
             // 부모 HorizontalLayout에서 flex-grow 1
             var le = bg.gameObject.AddComponent<LayoutElement>();
             le.flexibleWidth = 1f;
 
-            var lbl = F.Text(bg.transform, "Label", "탭", 24f, new Color(1f, 1f, 1f, 0.60f),
+            // 선택 강조 테두리 (평소 투명)
+            var frame = F.Frame(bg.transform, "SelectedFrame", new Color(1f, 1f, 1f, 0f));
+            frame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            view.selectedFrame = frame;
+
+            // 세로 배치: 아이콘 + 라벨
+            var inner = F.Container(bg.transform, "Inner");
+            F.Stretch(inner);
+            F.VLayout(inner.gameObject, 2f, new RectOffset(4, 4, 8, 6), TextAnchor.MiddleCenter, expandWidth: true);
+
+            var iconWrap = F.Container(inner, "IconWrap");
+            F.Preferred(iconWrap.gameObject.AddComponent<LayoutElement>(), height: 42f);
+            var iconImg = F.IconImage(iconWrap, "Icon", null, 38f, 38f);
+            F.AnchorCenter(iconImg.rectTransform, 38f, 38f);
+            view.icon = iconImg;
+
+            var lbl = F.Text(inner, "Label", "탭", 22f, new Color(1f, 1f, 1f, 0.62f),
                 TextAlignmentOptions.Center, bold: true);
-            F.Stretch(lbl.rectTransform);
+            F.Preferred(lbl, height: 30f);
             view.label = lbl;
 
             return PrefabGenUtil.SavePrefab(bg.gameObject, $"{PrefabGenUtil.PrefabRoot}/Items/Item_NavTabButton.prefab");

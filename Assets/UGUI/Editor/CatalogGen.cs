@@ -55,6 +55,14 @@ namespace KingdomIdle.UGUI.Editor
             catalog.iconEnvelope = UguiGenAssets.IconEnvelope;
             catalog.iconRepeat = UguiGenAssets.IconRepeat;
 
+            catalog.iconUser = UguiGenAssets.IconUserRole;
+            catalog.iconSword = UguiGenAssets.IconSword;
+            catalog.iconBook = UguiGenAssets.IconBook;
+            catalog.iconWand = UguiGenAssets.IconWand;
+            catalog.iconChest = UguiGenAssets.IconChest;
+            catalog.iconGem = UguiGenAssets.IconGem;
+            catalog.iconCoin = UguiGenAssets.IconCoin;
+
             EditorUtility.SetDirty(catalog);
             AssetDatabase.SaveAssets();
             Debug.Log("[UguiGen] 카탈로그 공용 에셋 배선 완료");

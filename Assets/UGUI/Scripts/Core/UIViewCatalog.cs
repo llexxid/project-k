@@ -55,6 +55,15 @@ namespace KingdomIdle.UGUI
         public Sprite iconEnvelope;     // 우편 (✉ 대체)
         public Sprite iconRepeat;       // 루프 (🔁 대체)
 
+        [Header("Pixel art kit — 메뉴 역할 아이콘 (탭/네비 구분용)")]
+        public Sprite iconUser;         // 종합(캐릭터)
+        public Sprite iconSword;        // 장비
+        public Sprite iconBook;         // 스킬
+        public Sprite iconWand;         // 마법탑 스킬 뽑기
+        public Sprite iconChest;        // 장비 뽑기 / 보상
+        public Sprite iconGem;          // 재료·기타
+        public Sprite iconCoin;         // 재화
+
         [Header("SFX")]
         public AudioClip panelOpenSfx;
         public AudioClip panelCloseSfx;

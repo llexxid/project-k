@@ -68,6 +68,8 @@ namespace KingdomIdle.UGUI
                 : null;
             if (prefab == null) return;
 
+            var cat = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
+
             foreach (var (tab, label) in tabs)
             {
                 var t = tab;
@@ -76,6 +78,19 @@ namespace KingdomIdle.UGUI
                 if (navBtn == null) continue;
 
                 navBtn.SetLabel(label);
+
+                Sprite tabIcon = null;
+                if (cat != null)
+                {
+                    switch (t)
+                    {
+                        case InvTab.All: tabIcon = cat.iconBag; break;
+                        case InvTab.Equipment: tabIcon = cat.iconSword; break;
+                        case InvTab.Material: tabIcon = cat.iconGem; break;
+                        default: tabIcon = cat.iconCoin; break;
+                    }
+                }
+                navBtn.SetIcon(tabIcon);
                 navBtn.Button.onClick.AddListener(() =>
                 {
                     _activeTab = t;
