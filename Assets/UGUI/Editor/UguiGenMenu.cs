@@ -59,6 +59,10 @@ namespace KingdomIdle.UGUI.Editor
             // 프리팹 참조 배선 (프리팹 생성 후)
             CatalogGen.AssignPrefabs(catalog);
 
+            // 기존 UGUI 가이드 퀘스트 팝업 픽셀 리스킨 (실패해도 전체 생성은 계속)
+            try { QuestUIReskin.Reskin(); }
+            catch (System.Exception ex) { Debug.LogError($"[UguiGen] 가이드 퀘스트 리스킨 실패: {ex}"); }
+
             AssetDatabase.Refresh();
 
             // 메뉴 실행 시에도 항상 검증 — 카탈로그 빈 필드/missing script를 바로 드러낸다
