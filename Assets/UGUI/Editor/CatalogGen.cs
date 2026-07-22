@@ -95,6 +95,9 @@ namespace KingdomIdle.UGUI.Editor
             catalog.itemGachaCard = Load($"{p}/Items/Item_GachaCard.prefab");
             catalog.itemCurrencyLine = Load($"{p}/Items/Item_CurrencyLine.prefab");
             catalog.itemDamageText = Load($"{p}/Items/Item_DamageText.prefab");
+            catalog.itemGachaPullButton = Load($"{p}/Items/Item_GachaPullButton.prefab");
+            catalog.itemRatePill = Load($"{p}/Items/Item_RatePill.prefab");
+            catalog.itemActionButton = Load($"{p}/Items/Item_ActionButton.prefab");
 
             EditorUtility.SetDirty(catalog);
             AssetDatabase.SaveAssets();

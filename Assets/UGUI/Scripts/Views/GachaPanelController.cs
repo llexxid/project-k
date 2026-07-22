@@ -171,31 +171,46 @@ namespace KingdomIdle.UGUI
             // 확률 요약 (등급별 가중치 집계)
             BuildRateSummaryRow(content, table);
 
-            // 뽑기 버튼 행 (.gacha-pull-row / .gacha-pull-btn: h90)
+            // 뽑기 버튼 행 — 크고 명확한 프리팹 버튼 (Item_GachaPullButton)
             var btnRow = UguiRuntimeFactory.Container(content, "PullRow");
-            UguiRuntimeFactory.HorizontalLayout(btnRow.gameObject, 10f, null, TextAnchor.MiddleCenter, expandWidth: true);
-            UguiRuntimeFactory.Preferred(btnRow.gameObject.AddComponent<LayoutElement>(), height: 90f);
+            UguiRuntimeFactory.HorizontalLayout(btnRow.gameObject, 14f, null, TextAnchor.MiddleCenter, expandWidth: true);
+            UguiRuntimeFactory.Preferred(btnRow.gameObject.AddComponent<LayoutElement>(), height: 140f);
 
             bool pulling = GachaManager.Instance != null && GachaManager.Instance.IsPulling;
+            var cat = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
+            string curLabel = GetCurrencyLabel(table.costCurrency);
 
             for (int i = 0; i < PullCounts.Length; i++)
             {
                 int count = PullCounts[i];
                 long totalCost = (long)table.costAmount * count;
-
-                bool disabled = !table.isImplemented
-                             || current < totalCost
-                             || pulling;
+                bool disabled = !table.isImplemented || current < totalCost || pulling;
 
                 var capturedTable = table;
+
+                if (cat != null && cat.itemGachaPullButton != null)
+                {
+                    var go = Object.Instantiate(cat.itemGachaPullButton, btnRow, false);
+                    var pull = go.GetComponent<GachaPullButtonView>();
+                    if (pull != null)
+                    {
+                        string title = count == 1 ? "1회 뽑기" : $"{count}연 뽑기";
+                        pull.Set(title, $"{totalCost:N0} {curLabel}", !disabled,
+                            cat != null ? cat.iconChest : null);
+                        pull.Button.onClick.AddListener(() => OnPullClicked(capturedTable, count));
+                        _activePullButtons.Add(pull.Button);
+                        continue;
+                    }
+                }
+
+                // 폴백: 프리팹이 없을 때 코드 버튼
                 var pullBtn = UguiRuntimeFactory.TextButton(btnRow,
-                    $"뽑기 x{count}\n({totalCost:N0})", 26f,
+                    $"{(count == 1 ? "1회" : count + "연")} 뽑기\n{totalCost:N0}", 26f,
                     disabled ? UguiTheme.DisabledGrey : UguiTheme.AccentBlue,
                     () => OnPullClicked(capturedTable, count), out var lbl);
                 lbl.enableWordWrapping = true;
                 UguiRuntimeFactory.Flexible((RectTransform)pullBtn.transform, 1f);
                 pullBtn.interactable = !disabled;
-
                 _activePullButtons.Add(pullBtn);
             }
 
@@ -304,18 +319,29 @@ namespace KingdomIdle.UGUI
             return true;
         }
 
-        /// <summary>.gacha-rate-pill: 등급색 테두리 알약 라벨.</summary>
+        /// <summary>확률 알약 — 프리팹(Item_RatePill) 우선, 없으면 코드 생성.</summary>
         private static void MakeRatePill(RectTransform parent, string label, float pct, Color color)
         {
-            var pill = UguiRuntimeFactory.Box(parent, "RatePill", new Color(color.r, color.g, color.b, 0.12f));
-            UguiRuntimeFactory.HorizontalLayout(pill.gameObject, 0f, new RectOffset(14, 14, 6, 6), TextAnchor.MiddleCenter);
+            var cat = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
+            if (cat != null && cat.itemRatePill != null)
+            {
+                var go = Object.Instantiate(cat.itemRatePill, parent, false);
+                var pill = go.GetComponent<RatePillView>();
+                if (pill != null)
+                {
+                    pill.Set($"{label}  {pct:F1}%", color);
+                    return;
+                }
+            }
 
-            var frame = UguiRuntimeFactory.Box(pill.transform, "Frame", color);
+            // 폴백
+            var pillBox = UguiRuntimeFactory.Box(parent, "RatePill", new Color(color.r, color.g, color.b, 0.12f));
+            UguiRuntimeFactory.HorizontalLayout(pillBox.gameObject, 0f, new RectOffset(14, 14, 6, 6), TextAnchor.MiddleCenter);
+            var frame = UguiRuntimeFactory.Box(pillBox.transform, "Frame", color);
             frame.fillCenter = false;
             UguiRuntimeFactory.Stretch(frame.rectTransform);
             frame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
-
-            var lbl = UguiRuntimeFactory.Label(pill.transform, $"{label}  {pct:F1}%", 20f, color,
+            var lbl = UguiRuntimeFactory.Label(pillBox.transform, $"{label}  {pct:F1}%", 20f, color,
                 TextAlignmentOptions.Center, bold: true);
             UguiRuntimeFactory.Preferred(lbl, height: 28f);
         }

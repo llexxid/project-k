@@ -85,6 +85,7 @@ namespace KingdomIdle.UGUI.Editor
             }
 
             CaptureNavTabs(scene, cam, catalog, layers);
+            CaptureGachaWidgets(scene, cam, catalog, layers);
 
             Debug.Log($"[Preview] 캡처 완료: {OutDir}");
         }
@@ -156,6 +157,71 @@ namespace KingdomIdle.UGUI.Editor
                 v.SetIcon(items[i].icon);
                 v.SetSelected(i == selectedIndex, activeBg);
             }
+        }
+
+        /// <summary>뽑기 옵션 버튼 / 확률 알약 프리팹을 실제 데이터로 렌더링해 확인.</summary>
+        private static void CaptureGachaWidgets(UnityEngine.SceneManagement.Scene scene, Camera cam,
+            UIViewCatalog catalog, Dictionary<string, RectTransform> layers)
+        {
+            if (catalog == null || !layers.TryGetValue("LayerPanels", out var parent)) return;
+
+            var host = new GameObject("GachaWidgetPreview", typeof(RectTransform));
+            var hostRt = (RectTransform)host.transform;
+            hostRt.SetParent(parent, false);
+            hostRt.anchorMin = new Vector2(0f, 0.5f);
+            hostRt.anchorMax = new Vector2(1f, 0.5f);
+            hostRt.pivot = new Vector2(0.5f, 0.5f);
+            hostRt.offsetMin = new Vector2(40f, -240f);
+            hostRt.offsetMax = new Vector2(-40f, 240f);
+            var col = host.AddComponent<VerticalLayoutGroup>();
+            col.spacing = 24f; col.childControlWidth = true; col.childControlHeight = true; col.childForceExpandWidth = true;
+
+            // 확률 알약 행
+            if (catalog.itemRatePill != null)
+            {
+                var pillRow = new GameObject("Pills", typeof(RectTransform));
+                pillRow.transform.SetParent(host.transform, false);
+                var pr = pillRow.AddComponent<HorizontalLayoutGroup>();
+                pr.spacing = 8f; pr.childControlWidth = false; pr.childControlHeight = true; pr.childAlignment = TextAnchor.MiddleLeft;
+                pillRow.AddComponent<LayoutElement>().preferredHeight = 56f;
+                MakePill(pillRow.transform, catalog, "일반  70.0%", UguiTheme.RarityNormal);
+                MakePill(pillRow.transform, catalog, "레어  25.0%", UguiTheme.RarityRare);
+                MakePill(pillRow.transform, catalog, "에픽  5.0%", UguiTheme.RarityEpic);
+            }
+
+            // 뽑기 옵션 버튼 행
+            if (catalog.itemGachaPullButton != null)
+            {
+                var btnRow = new GameObject("Pulls", typeof(RectTransform));
+                btnRow.transform.SetParent(host.transform, false);
+                var br = btnRow.AddComponent<HorizontalLayoutGroup>();
+                br.spacing = 14f; br.childControlWidth = true; br.childControlHeight = true; br.childForceExpandWidth = true;
+                btnRow.AddComponent<LayoutElement>().preferredHeight = 140f;
+                MakePull(btnRow.transform, catalog, "1회 뽑기", "1,000 고대주화", true);
+                MakePull(btnRow.transform, catalog, "10연 뽑기", "10,000 고대주화", false);
+            }
+
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(hostRt);
+            Canvas.ForceUpdateCanvases();
+            Render(cam, Path.Combine(OutDir, "07_gachawidgets.png"));
+            Object.DestroyImmediate(host);
+        }
+
+        private static void MakePill(Transform parent, UIViewCatalog catalog, string text, Color c)
+        {
+            var go = (GameObject)PrefabUtility.InstantiatePrefab(catalog.itemRatePill);
+            go.transform.SetParent(parent, false);
+            var v = go.GetComponent<RatePillView>();
+            if (v != null) v.Set(text, c);
+        }
+
+        private static void MakePull(Transform parent, UIViewCatalog catalog, string title, string cost, bool afford)
+        {
+            var go = (GameObject)PrefabUtility.InstantiatePrefab(catalog.itemGachaPullButton);
+            go.transform.SetParent(parent, false);
+            var v = go.GetComponent<GachaPullButtonView>();
+            if (v != null) v.Set(title, cost, afford, catalog.iconChest);
         }
 
         private static void Render(Camera cam, string path)

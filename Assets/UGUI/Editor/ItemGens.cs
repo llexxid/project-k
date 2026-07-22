@@ -25,29 +25,30 @@ namespace KingdomIdle.UGUI.Editor
             bg.gameObject.AddComponent<PlayClickSfxOnClick>();
             view.button = btn;
 
-            // 부모 HorizontalLayout에서 flex-grow 1
+            // 부모 HorizontalLayout에서 flex-grow 1 + 최소 높이 확보
             var le = bg.gameObject.AddComponent<LayoutElement>();
             le.flexibleWidth = 1f;
+            le.minHeight = 96f;
 
             // 선택 강조 테두리 (평소 투명)
             var frame = F.Frame(bg.transform, "SelectedFrame", new Color(1f, 1f, 1f, 0f));
             frame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
             view.selectedFrame = frame;
 
-            // 세로 배치: 아이콘 + 라벨
+            // 세로 배치: 아이콘 + 라벨 (아이콘 크게 — 역할이 잘 보이도록)
             var inner = F.Container(bg.transform, "Inner");
             F.Stretch(inner);
-            F.VLayout(inner.gameObject, 2f, new RectOffset(4, 4, 8, 6), TextAnchor.MiddleCenter, expandWidth: true);
+            F.VLayout(inner.gameObject, 4f, new RectOffset(6, 6, 10, 8), TextAnchor.MiddleCenter, expandWidth: true);
 
             var iconWrap = F.Container(inner, "IconWrap");
-            F.Preferred(iconWrap.gameObject.AddComponent<LayoutElement>(), height: 42f);
-            var iconImg = F.IconImage(iconWrap, "Icon", null, 38f, 38f);
-            F.AnchorCenter(iconImg.rectTransform, 38f, 38f);
+            F.Preferred(iconWrap.gameObject.AddComponent<LayoutElement>(), height: 56f);
+            var iconImg = F.IconImage(iconWrap, "Icon", null, 52f, 52f);
+            F.AnchorCenter(iconImg.rectTransform, 52f, 52f);
             view.icon = iconImg;
 
-            var lbl = F.Text(inner, "Label", "탭", 22f, new Color(1f, 1f, 1f, 0.62f),
+            var lbl = F.Text(inner, "Label", "탭", 26f, new Color(1f, 1f, 1f, 0.62f),
                 TextAlignmentOptions.Center, bold: true);
-            F.Preferred(lbl, height: 30f);
+            F.Preferred(lbl, height: 32f);
             view.label = lbl;
 
             return PrefabGenUtil.SavePrefab(bg.gameObject, $"{PrefabGenUtil.PrefabRoot}/Items/Item_NavTabButton.prefab");
@@ -125,6 +126,91 @@ namespace KingdomIdle.UGUI.Editor
             le.preferredHeight = 34f;
 
             return PrefabGenUtil.SavePrefab(go, $"{PrefabGenUtil.PrefabRoot}/Items/Item_CurrencyLine.prefab");
+        }
+
+        /// <summary>
+        /// 뽑기 옵션 버튼 (1회 / 10연). 크고 명확한 버튼 — 아이콘 + 제목 + 비용.
+        /// 얇은 텍스트 버튼 대신 사용해 구분·클릭이 쉽도록 한다.
+        /// </summary>
+        internal static GameObject GenerateGachaPullButton()
+        {
+            var bg = F.Box(null, "Item_GachaPullButton", UguiTheme.AccentBlue, rounded: true, raycast: true);
+            var view = bg.gameObject.AddComponent<GachaPullButtonView>();
+            view.background = bg;
+            view.button = F.ButtonOn(bg);
+
+            var le = bg.gameObject.AddComponent<LayoutElement>();
+            le.flexibleWidth = 1f;
+            le.minHeight = 132f;
+
+            F.VLayout(bg.gameObject, 2f, new RectOffset(10, 10, 12, 12), TextAnchor.MiddleCenter, expandWidth: true);
+
+            var iconWrap = F.Container(bg.transform, "IconWrap");
+            F.Preferred(iconWrap.gameObject.AddComponent<LayoutElement>(), height: 46f);
+            var iconImg = F.IconImage(iconWrap, "Icon", null, 44f, 44f);
+            F.AnchorCenter(iconImg.rectTransform, 44f, 44f);
+            view.icon = iconImg;
+
+            var title = F.Text(bg.transform, "Title", "뽑기 x1", 30f, UguiTheme.TextPrimary,
+                TextAlignmentOptions.Center, bold: true);
+            F.Preferred(title, height: 40f);
+            view.titleLabel = title;
+
+            var cost = F.Text(bg.transform, "Cost", "0", 24f, UguiTheme.AccentGoldStrong,
+                TextAlignmentOptions.Center, bold: true);
+            F.Preferred(cost, height: 32f);
+            view.costLabel = cost;
+
+            return PrefabGenUtil.SavePrefab(bg.gameObject, $"{PrefabGenUtil.PrefabRoot}/Items/Item_GachaPullButton.prefab");
+        }
+
+        /// <summary>확률 요약 알약 (등급별 %). 프레임 + 라벨.</summary>
+        internal static GameObject GenerateRatePill()
+        {
+            var bg = F.Box(null, "Item_RatePill", new Color(0.18f, 0.18f, 0.24f, 1f), rounded: true);
+            var view = bg.gameObject.AddComponent<RatePillView>();
+            view.background = bg;
+
+            F.HLayout(bg.gameObject, 0f, new RectOffset(16, 16, 8, 8), TextAnchor.MiddleCenter);
+            var le = bg.gameObject.AddComponent<LayoutElement>();
+            le.minHeight = 48f;
+
+            var frame = F.Frame(bg.transform, "Frame", UguiTheme.RarityNormal);
+            frame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            view.frame = frame;
+
+            var lbl = F.Text(bg.transform, "Label", "일반 0%", 22f, UguiTheme.RarityNormal,
+                TextAlignmentOptions.Center, bold: true);
+            F.Preferred(lbl, height: 30f);
+            view.label = lbl;
+
+            return PrefabGenUtil.SavePrefab(bg.gameObject, $"{PrefabGenUtil.PrefabRoot}/Items/Item_RatePill.prefab");
+        }
+
+        /// <summary>범용 액션 버튼 (강화/장착/전직 등). 아이콘 + 라벨.</summary>
+        internal static GameObject GenerateActionButton()
+        {
+            var bg = F.Box(null, "Item_ActionButton", UguiTheme.AccentBlue, rounded: true, raycast: true);
+            var view = bg.gameObject.AddComponent<ActionButtonView>();
+            view.background = bg;
+            view.button = F.ButtonOn(bg);
+
+            var le = bg.gameObject.AddComponent<LayoutElement>();
+            le.flexibleWidth = 1f;
+            le.minHeight = 84f;
+
+            F.HLayout(bg.gameObject, 8f, new RectOffset(16, 16, 0, 0), TextAnchor.MiddleCenter);
+
+            var iconImg = F.IconImage(bg.transform, "Icon", null, 40f, 40f);
+            F.Preferred(iconImg, width: 40f, height: 40f);
+            view.icon = iconImg;
+
+            var lbl = F.Text(bg.transform, "Label", "버튼", 28f, UguiTheme.TextPrimary,
+                TextAlignmentOptions.Center, bold: true);
+            F.Preferred(lbl, height: 36f);
+            view.label = lbl;
+
+            return PrefabGenUtil.SavePrefab(bg.gameObject, $"{PrefabGenUtil.PrefabRoot}/Items/Item_ActionButton.prefab");
         }
     }
 }

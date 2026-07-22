@@ -95,11 +95,14 @@ namespace KingdomIdle.UGUI
         public GameObject hudMageTower;
 
         [Header("Item prefabs (dynamic list contents)")]
-        public GameObject itemNavTabButton;   // 탭/네비 버튼 공용
-        public GameObject itemGachaCard;      // 가챠 미리보기/결과 카드 공용
-        public GameObject itemCurrencyLine;   // 재화 드롭다운 한 줄
-        public GameObject itemDamageText;     // 데미지 텍스트 (아웃라인 머티리얼)
-        // 그 외 동적 행(가이드/장비/스킬/전직/인벤토리 등)은 원본과 동일하게
-        // UguiRuntimeFactory 로 코드 생성한다.
+        public GameObject itemNavTabButton;    // 탭/네비 버튼 공용
+        public GameObject itemGachaCard;       // 가챠 미리보기/결과 카드 공용
+        public GameObject itemCurrencyLine;    // 재화 드롭다운 한 줄
+        public GameObject itemDamageText;      // 데미지 텍스트 (아웃라인 머티리얼)
+        public GameObject itemGachaPullButton; // 뽑기 옵션 버튼 (1회/10연)
+        public GameObject itemRatePill;        // 확률 요약 알약
+        public GameObject itemActionButton;    // 범용 액션 버튼 (강화/장착/전직)
+        // 그 외 복잡한 동적 행(캐릭터 시트/스탯 비교표 등)은 UguiRuntimeFactory 로 코드 생성.
+        // 반복되는 단순 위젯은 위 프리팹을 인스펙터에서 편집하면 전 화면에 반영된다.
     }
 }
