@@ -1,5 +1,6 @@
 using UnityEngine;
 using Scripts.Core;
+using Scripts.Core.Manager;
 
 namespace KingdomIdle.UGUI
 {
@@ -60,7 +61,7 @@ namespace KingdomIdle.UGUI
             SetHidden(_view.deathPopup, true);
             if (_view.btnLoopIcon != null) _view.btnLoopIcon.gameObject.SetActive(false);
 
-            UpdateStageLabel(_sm.StageNumber, _sm.WaveNumber, _sm.IsBossWave);
+            UpdateStageLabel(_sm.CurrentStageNumber, _sm.CurrentWaveNumber, _sm.IsBossWave);
         }
 
         public static void Dispose()
