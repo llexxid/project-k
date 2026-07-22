@@ -164,24 +164,28 @@ namespace KingdomIdle.UGUI.Editor
             return PrefabGenUtil.SavePrefab(bg.gameObject, $"{PrefabGenUtil.PrefabRoot}/Items/Item_GachaPullButton.prefab");
         }
 
-        /// <summary>확률 요약 알약 (등급별 %). 프레임 + 라벨.</summary>
+        /// <summary>확률 요약 알약 (등급별 %). 내용 폭에 맞춰 크기 조절(ContentSizeFitter).</summary>
         internal static GameObject GenerateRatePill()
         {
             var bg = F.Box(null, "Item_RatePill", new Color(0.18f, 0.18f, 0.24f, 1f), rounded: true);
             var view = bg.gameObject.AddComponent<RatePillView>();
             view.background = bg;
 
-            F.HLayout(bg.gameObject, 0f, new RectOffset(16, 16, 8, 8), TextAnchor.MiddleCenter);
+            // 라벨 내용 만큼 가로로 늘어나도록 — 부모 행은 childControlWidth=false 로 이 크기를 존중
+            var lay = F.HLayout(bg.gameObject, 0f, new RectOffset(18, 18, 8, 8), TextAnchor.MiddleCenter, expandWidth: true);
+            lay.childForceExpandHeight = false;
+            var fitter = bg.gameObject.AddComponent<UnityEngine.UI.ContentSizeFitter>();
+            fitter.horizontalFit = UnityEngine.UI.ContentSizeFitter.FitMode.PreferredSize;
+            fitter.verticalFit = UnityEngine.UI.ContentSizeFitter.FitMode.Unconstrained;
             var le = bg.gameObject.AddComponent<LayoutElement>();
-            le.minHeight = 48f;
+            le.minHeight = 46f;
 
             var frame = F.Frame(bg.transform, "Frame", UguiTheme.RarityNormal);
             frame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
             view.frame = frame;
 
-            var lbl = F.Text(bg.transform, "Label", "일반 0%", 22f, UguiTheme.RarityNormal,
+            var lbl = F.Text(bg.transform, "Label", "일반 0.0%", 22f, UguiTheme.RarityNormal,
                 TextAlignmentOptions.Center, bold: true);
-            F.Preferred(lbl, height: 30f);
             view.label = lbl;
 
             return PrefabGenUtil.SavePrefab(bg.gameObject, $"{PrefabGenUtil.PrefabRoot}/Items/Item_RatePill.prefab");

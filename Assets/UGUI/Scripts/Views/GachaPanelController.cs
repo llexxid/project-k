@@ -280,8 +280,9 @@ namespace KingdomIdle.UGUI
             if (!hasAnyEquipment && !hasAnySkill && wClassFragment <= 0f && wArcaneKnowledge <= 0f) return;
 
             var row = UguiRuntimeFactory.Container(content, "RateRow");
-            UguiRuntimeFactory.HorizontalLayout(row.gameObject, 8f, null, TextAnchor.MiddleLeft);
-            UguiRuntimeFactory.Preferred(row.gameObject.AddComponent<LayoutElement>(), height: 46f);
+            // 알약이 자체 ContentSizeFitter 폭을 쓰도록 childControlWidth=false
+            UguiRuntimeFactory.HorizontalLayout(row.gameObject, 8f, null, TextAnchor.MiddleLeft, childControlWidth: false);
+            UguiRuntimeFactory.Preferred(row.gameObject.AddComponent<LayoutElement>(), height: 50f);
 
             if (hasAnyEquipment)
             {

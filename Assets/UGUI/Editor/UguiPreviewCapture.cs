@@ -182,7 +182,7 @@ namespace KingdomIdle.UGUI.Editor
                 var pillRow = new GameObject("Pills", typeof(RectTransform));
                 pillRow.transform.SetParent(host.transform, false);
                 var pr = pillRow.AddComponent<HorizontalLayoutGroup>();
-                pr.spacing = 8f; pr.childControlWidth = false; pr.childControlHeight = true; pr.childAlignment = TextAnchor.MiddleLeft;
+                pr.spacing = 8f; pr.childControlWidth = false; pr.childControlHeight = false; pr.childForceExpandWidth = false; pr.childAlignment = TextAnchor.MiddleLeft;
                 pillRow.AddComponent<LayoutElement>().preferredHeight = 56f;
                 MakePill(pillRow.transform, catalog, "일반  70.0%", UguiTheme.RarityNormal);
                 MakePill(pillRow.transform, catalog, "레어  25.0%", UguiTheme.RarityRare);
