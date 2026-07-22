@@ -1,9 +1,9 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Monster;
-using KingdomIdle.UIToolkit;
+using KingdomIdle.UGUI;
 
 namespace KingdomIdle.MageTower
 {
@@ -191,7 +191,7 @@ namespace KingdomIdle.MageTower
             if (damageable == null) return;
 
             Attack(damageable);
-            UITKDamageTextBridge.ShowOnTransform(_currentTarget, _damage);
+            DamageTextBridge.ShowOnTransform(_currentTarget, _damage);
         }
 
         private void Finish()

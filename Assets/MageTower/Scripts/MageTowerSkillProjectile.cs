@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Scripts.Core;
 using Scripts.Core.inteface;
-using KingdomIdle.UIToolkit;
+using KingdomIdle.UGUI;
 
 namespace KingdomIdle.MageTower
 {
@@ -107,7 +107,7 @@ namespace KingdomIdle.MageTower
                 if (damageable != null)
                 {
                     Attack(damageable);
-                    UITKDamageTextBridge.ShowOnTransform(col.transform, _damage);
+                    DamageTextBridge.ShowOnTransform(col.transform, _damage);
                 }
             }
         }
