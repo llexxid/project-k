@@ -102,6 +102,10 @@ namespace KingdomIdle.UGUI
         public GameObject itemGachaPullButton; // 뽑기 옵션 버튼 (1회/10연)
         public GameObject itemRatePill;        // 확률 요약 알약
         public GameObject itemActionButton;    // 범용 액션 버튼 (강화/장착/전직)
+        public GameObject itemEquipCell;       // 장비 그리드 셀 (왕국군/인벤토리)
+        public GameObject itemJobCard;         // 전직 카드
+        public GameObject itemEnhanceCard;     // 육성 강화 카드
+        public GameObject itemSkillRow;        // 스킬 행
         // 그 외 복잡한 동적 행(캐릭터 시트/스탯 비교표 등)은 UguiRuntimeFactory 로 코드 생성.
         // 반복되는 단순 위젯은 위 프리팹을 인스펙터에서 편집하면 전 화면에 반영된다.
     }

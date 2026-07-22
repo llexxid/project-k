@@ -134,36 +134,73 @@ namespace KingdomIdle.UGUI
             string bonusText = mgr != null ? mgr.GetBonusText(type) : "+0%";
             string typeName = StatEnhanceManager.GetTypeName(type);
 
+            var cat = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
+            if (cat == null || cat.itemEnhanceCard == null)
+            {
+                BuildEnhanceCardFallback(parent, mgr, type, gold, level, bonusText, typeName);
+                return;
+            }
+
+            // 프리팹 카드 (외형은 Item_EnhanceCard.prefab 에서 편집)
+            var go = Object.Instantiate(cat.itemEnhanceCard, parent, false);
+            var view = go.GetComponent<EnhanceCardView>();
+            if (view == null) return;
+
+            view.Set(typeName, $"Lv. {level}", $"현재 효과  {bonusText}");
+
+            // x1 / x10 버튼을 Item_GachaPullButton 스타일(제목+비용)의 큰 버튼으로
+            for (int i = 0; i < PullCounts.Length; i++)
+            {
+                int count = PullCounts[i];
+                int cost = mgr != null ? mgr.GetCost(type, count) : 0;
+                bool canAfford = gold >= cost;
+                var capturedType = type;
+                var capturedCount = count;
+
+                if (cat.itemGachaPullButton != null)
+                {
+                    var btnGo = Object.Instantiate(cat.itemGachaPullButton, view.ButtonRow, false);
+                    var pull = btnGo.GetComponent<GachaPullButtonView>();
+                    if (pull != null)
+                    {
+                        pull.Set($"강화 x{count}", $"{cost:N0} G", canAfford, null);
+                        pull.Button.onClick.AddListener(() => OnEnhanceClicked(capturedType, capturedCount));
+                        continue;
+                    }
+                }
+
+                // 폴백: 액션 버튼
+                if (cat.itemActionButton != null)
+                {
+                    var abGo = Object.Instantiate(cat.itemActionButton, view.ButtonRow, false);
+                    var ab = abGo.GetComponent<ActionButtonView>();
+                    if (ab != null)
+                    {
+                        ab.Set($"강화 x{count} ({cost:N0}G)", UguiTheme.AccentBlue, canAfford);
+                        ab.OnClick(() => OnEnhanceClicked(capturedType, capturedCount));
+                    }
+                }
+            }
+        }
+
+        /// <summary>카탈로그 프리팹이 없을 때의 코드 폴백.</summary>
+        private static void BuildEnhanceCardFallback(
+            RectTransform parent, StatEnhanceManager mgr, StatEnhanceManager.EnhanceType type, long gold,
+            int level, string bonusText, string typeName)
+        {
             var card = UguiRuntimeFactory.Box(parent, "EnhanceCard", UguiTheme.SurfaceFaint);
             UguiRuntimeFactory.VerticalLayout(card.gameObject, 8f, new RectOffset(16, 16, 14, 14));
 
-            // 좌측 액센트 바 (border-left: 3px #64B4FF@55%)
-            var accent = UguiRuntimeFactory.Box(card.transform, "Accent", new Color(100f / 255f, 180f / 255f, 1f, 0.55f), rounded: false);
-            var accentRt = accent.rectTransform;
-            accentRt.anchorMin = new Vector2(0f, 0f);
-            accentRt.anchorMax = new Vector2(0f, 1f);
-            accentRt.pivot = new Vector2(0f, 0.5f);
-            accentRt.anchoredPosition = Vector2.zero;
-            accentRt.sizeDelta = new Vector2(3f, 0f);
-            var accentLe = accent.gameObject.AddComponent<LayoutElement>();
-            accentLe.ignoreLayout = true;
-
-            // 헤더: 이름 + 레벨 배지
             var header = UguiRuntimeFactory.Container(card.transform, "Header");
             UguiRuntimeFactory.HorizontalLayout(header.gameObject, 10f, null, TextAnchor.MiddleLeft);
             UguiRuntimeFactory.Preferred(header, height: 40f);
-
             var nameLbl = UguiRuntimeFactory.Label(header, typeName, 28f, UguiTheme.TextPrimary, TextAlignmentOptions.Left, bold: true);
             UguiRuntimeFactory.Flexible(nameLbl, 1f);
-
             UguiRuntimeFactory.Label(header, $"Lv. {level}", 22f, new Color(100f / 255f, 180f / 255f, 1f, 1f), TextAlignmentOptions.Right, bold: true);
 
-            // 현재 효과
-            var bonusLbl = UguiRuntimeFactory.Label(card.transform, $"현재 효과  {bonusText}", 20f,
-                UguiTheme.SuccessGreenBright);
+            var bonusLbl = UguiRuntimeFactory.Label(card.transform, $"현재 효과  {bonusText}", 20f, UguiTheme.SuccessGreenBright);
             UguiRuntimeFactory.Preferred(bonusLbl, height: 30f);
 
-            // 버튼 행 (x1 / x10)
             var btnRow = UguiRuntimeFactory.Container(card.transform, "BtnRow");
             UguiRuntimeFactory.HorizontalLayout(btnRow.gameObject, 10f, null, TextAnchor.MiddleCenter, expandWidth: true);
             UguiRuntimeFactory.Preferred(btnRow.gameObject.AddComponent<LayoutElement>(), height: 90f);
@@ -173,38 +210,14 @@ namespace KingdomIdle.UGUI
                 int count = PullCounts[i];
                 int cost = mgr != null ? mgr.GetCost(type, count) : 0;
                 bool canAfford = gold >= cost;
-
-                // 캡처용 로컬 변수 — 람다가 순회 변수를 그대로 붙잡지 않도록 복사.
                 var capturedType = type;
                 var capturedCount = count;
-
-                var btnBg = UguiRuntimeFactory.Box(btnRow, $"BtnEnhanceX{count}",
-                    canAfford ? UguiTheme.AccentBlue : UguiTheme.DisabledGrey, raycastTarget: true);
-                UguiRuntimeFactory.Flexible(btnBg, 1f);
-                UguiRuntimeFactory.VerticalLayout(btnBg.gameObject, 2f, new RectOffset(0, 0, 12, 12), TextAnchor.MiddleCenter);
-
-                var btn = btnBg.gameObject.AddComponent<Button>();
-                btn.targetGraphic = btnBg;
-                btn.colors = UguiTheme.MakeColorBlock();
-                btnBg.gameObject.AddComponent<PlayClickSfxOnClick>();
-                btn.onClick.AddListener(() => OnEnhanceClicked(capturedType, capturedCount));
-                btn.interactable = canAfford;
-
-                // 픽셀 키트 버튼 스킨
-                var skinCatalog = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
-                UguiPixelSkin.ApplyButton(btnBg, btn,
-                    canAfford ? UguiTheme.AccentBlue : UguiTheme.DisabledGrey, skinCatalog);
-
-                // 버튼 내부 텍스트: 상단 "강화 x1" + 하단 "50 G"
-                var titleLbl = UguiRuntimeFactory.Label(btnBg.transform, $"강화 x{count}", 26f,
-                    canAfford ? UguiTheme.TextPrimary : new Color(1f, 1f, 1f, 0.40f),
-                    TextAlignmentOptions.Center, bold: true);
-                UguiRuntimeFactory.Preferred(titleLbl, height: 36f);
-
-                var costLbl = UguiRuntimeFactory.Label(btnBg.transform, $"{cost:N0} G", 20f,
-                    canAfford ? UguiTheme.AccentGoldStrong : new Color(1f, 1f, 1f, 0.40f),
-                    TextAlignmentOptions.Center);
-                UguiRuntimeFactory.Preferred(costLbl, height: 28f);
+                var pullBtn = UguiRuntimeFactory.TextButton(btnRow, $"강화 x{count}\n{cost:N0} G", 24f,
+                    canAfford ? UguiTheme.AccentBlue : UguiTheme.DisabledGrey,
+                    () => OnEnhanceClicked(capturedType, capturedCount), out var lbl);
+                lbl.enableWordWrapping = true;
+                UguiRuntimeFactory.Flexible((RectTransform)pullBtn.transform, 1f);
+                pullBtn.interactable = canAfford;
             }
         }
 

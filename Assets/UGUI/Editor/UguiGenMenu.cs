@@ -58,6 +58,10 @@ namespace KingdomIdle.UGUI.Editor
             ItemGens.GenerateGachaPullButton();
             ItemGens.GenerateRatePill();
             ItemGens.GenerateActionButton();
+            ItemGens.GenerateEquipCell();
+            ItemGens.GenerateJobCard();
+            ItemGens.GenerateEnhanceCard();
+            ItemGens.GenerateSkillRow();
 
             // 프리팹 참조 배선 (프리팹 생성 후)
             CatalogGen.AssignPrefabs(catalog);

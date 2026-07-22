@@ -177,74 +177,26 @@ namespace KingdomIdle.UGUI
 
             foreach (var (item, owner) in items)
             {
-                var card = UguiRuntimeFactory.Box(grid, "EquipCard", UguiTheme.SurfaceFaint, raycastTarget: true);
-                UguiRuntimeFactory.VerticalLayout(card.gameObject, 4f, new RectOffset(6, 6, 6, 8), TextAnchor.UpperCenter);
-
                 var capturedItem = item;
                 var capturedOwner = owner;
-                var btn = card.gameObject.AddComponent<Button>();
-                btn.targetGraphic = card;
-                btn.colors = UguiTheme.MakeColorBlock();
-                card.gameObject.AddComponent<PlayClickSfxOnClick>();
-                btn.onClick.AddListener(() => ShowInventoryEquipPopup(capturedItem, capturedOwner));
+                System.Action onClick = () => ShowInventoryEquipPopup(capturedItem, capturedOwner);
 
                 string jobName = owner?.playerStatus?.JobName ?? "";
                 bool isAllowed = item.baseData.IsAllowedForJob(jobName);
                 bool isEquipped = owner?.PlayerEquipmentManager != null &&
                                   owner.PlayerEquipmentManager.GetSlotEquipment(item.baseData.slot) == item;
 
-                // .ka-equip-dimmed { opacity: 0.35 }
-                if (!isAllowed)
-                {
-                    var group = card.gameObject.AddComponent<CanvasGroup>();
-                    group.alpha = 0.35f;
-                }
-
-                // .ka-equip-equipped: 3px 녹색 테두리
-                if (isEquipped)
-                {
-                    var frame = UguiRuntimeFactory.Box(card.transform, "EquippedFrame",
-                        new Color(80f / 255f, 200f / 255f, 120f / 255f, 1f));
-                    frame.fillCenter = false;
-                    UguiRuntimeFactory.Stretch(frame.rectTransform);
-                    frame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
-                }
-
-                // 등급 색상 바 (.inv-rarity-bar: 100%×4)
-                var rarityBar = UguiRuntimeFactory.Box(card.transform, "RarityBar",
-                    UguiTheme.RarityColor(item.baseData.rarity), rounded: false);
-                UguiRuntimeFactory.Preferred(rarityBar, height: 4f);
-
-                // 아이콘 (.ka-equip-icon: 60×60)
-                var iconWrap = UguiRuntimeFactory.Container(card.transform, "IconWrap");
-                UguiRuntimeFactory.Preferred(iconWrap.gameObject.AddComponent<LayoutElement>(), height: 64f);
-                var icon = UguiRuntimeFactory.Box(iconWrap, "Icon", UguiTheme.SurfaceLight);
-                UguiRuntimeFactory.SetSize(icon.rectTransform, 60f, 60f);
-                icon.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-                icon.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-                icon.rectTransform.anchoredPosition = Vector2.zero;
-                if (item.baseData.icon != null)
-                {
-                    icon.sprite = item.baseData.icon;
-                    icon.color = Color.white;
-                    icon.preserveAspect = true;
-                }
-
-                // 이름 + 강화
                 string enhStr = item.enhancementLevel > 0 ? $" +{item.enhancementLevel}" : "";
-                AddCardLabel(card.transform, $"{item.baseData.equipmentName}{enhStr}", 20f, new Color(1f, 1f, 1f, 0.85f));
-
-                // 스탯
-                AddCardLabel(card.transform, $"ATK +{item.GetFinalAtk()}", 18f, new Color(1f, 1f, 1f, 0.45f));
-
-                // 장착 상태
-                if (isEquipped)
-                    AddCardLabel(card.transform, "장착 중", 18f, UguiTheme.SuccessGreenBright);
-
-                // 소유자
                 int ownerIdx = _players.IndexOf(owner);
-                if (ownerIdx >= 0)
-                    AddCardLabel(card.transform, $"왕국군{ownerIdx + 1}", 16f, new Color(1f, 1f, 1f, 0.40f));
+                string sub = ownerIdx >= 0
+                    ? $"ATK +{item.GetFinalAtk()}  (왕국군{ownerIdx + 1})"
+                    : $"ATK +{item.GetFinalAtk()}";
+
+                // 공용 장비 셀 프리팹 사용 (왕국군과 동일)
+                KingdomArmyPanelController.InstantiateEquipCell(
+                    grid, item.baseData.icon, $"{item.baseData.equipmentName}{enhStr}",
+                    new Color(1f, 1f, 1f, 0.85f), sub, UguiTheme.RarityColor(item.baseData.rarity),
+                    isEquipped, !isAllowed, isEquipped ? "장착 중" : null, onClick);
             }
         }
 

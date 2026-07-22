@@ -86,6 +86,7 @@ namespace KingdomIdle.UGUI.Editor
 
             CaptureNavTabs(scene, cam, catalog, layers);
             CaptureGachaWidgets(scene, cam, catalog, layers);
+            CaptureKingdomArmyWidgets(scene, cam, catalog, layers);
 
             Debug.Log($"[Preview] 캡처 완료: {OutDir}");
         }
@@ -222,6 +223,106 @@ namespace KingdomIdle.UGUI.Editor
             go.transform.SetParent(parent, false);
             var v = go.GetComponent<GachaPullButtonView>();
             if (v != null) v.Set(title, cost, afford, catalog.iconChest);
+        }
+
+        /// <summary>장비 셀 / 전직 카드 / 강화 카드 / 스킬 행 프리팹을 샘플 데이터로 렌더링.</summary>
+        private static void CaptureKingdomArmyWidgets(UnityEngine.SceneManagement.Scene scene, Camera cam,
+            UIViewCatalog catalog, Dictionary<string, RectTransform> layers)
+        {
+            if (catalog == null || !layers.TryGetValue("LayerPanels", out var parent)) return;
+
+            var host = new GameObject("KaWidgetPreview", typeof(RectTransform));
+            var hostRt = (RectTransform)host.transform;
+            hostRt.SetParent(parent, false);
+            hostRt.anchorMin = new Vector2(0f, 1f); hostRt.anchorMax = new Vector2(1f, 1f); hostRt.pivot = new Vector2(0.5f, 1f);
+            hostRt.anchoredPosition = new Vector2(0f, -120f);
+            hostRt.offsetMin = new Vector2(40f, hostRt.offsetMin.y);
+            hostRt.sizeDelta = new Vector2(-80f, 1600f);
+            var col = host.AddComponent<VerticalLayoutGroup>();
+            col.spacing = 20f; col.childControlWidth = true; col.childControlHeight = true;
+            col.childForceExpandWidth = true; col.childForceExpandHeight = false; col.padding = new RectOffset(0, 0, 0, 0);
+
+            // 장비 셀 / 전직 카드 그리드
+            if (catalog.itemEquipCell != null || catalog.itemJobCard != null)
+            {
+                var gridGo = new GameObject("Grid", typeof(RectTransform));
+                gridGo.transform.SetParent(host.transform, false);
+                var g = gridGo.AddComponent<GridLayoutGroup>();
+                g.cellSize = new Vector2(180f, 240f); g.spacing = new Vector2(12f, 12f);
+                g.constraint = GridLayoutGroup.Constraint.FixedColumnCount; g.constraintCount = 5;
+                gridGo.AddComponent<LayoutElement>().preferredHeight = 500f;
+
+                if (catalog.itemEquipCell != null)
+                {
+                    MakeEquipCell(gridGo.transform, catalog, "롱소드 +3", UguiTheme.RarityRare, "ATK +42  HP +10", UguiTheme.RarityRare, true, false, "장착 중");
+                    MakeEquipCell(gridGo.transform, catalog, "고대 검 +1", UguiTheme.RarityEpic, "ATK +88", UguiTheme.RarityEpic, false, false, null);
+                    MakeEquipCell(gridGo.transform, catalog, "낡은 단검", UguiTheme.RarityNormal, "ATK +5", UguiTheme.RarityNormal, false, true, null);
+                }
+                if (catalog.itemJobCard != null)
+                {
+                    MakeJobCard(gridGo.transform, catalog, "Knight", "현재", UguiTheme.AccentGoldStrong, "HP 320 / ATK 45", "무료 재전직", UguiTheme.SuccessGreenBright, null, new Color(1f, 230f/255f, 100f/255f, 0.12f), new Color(1f, 230f/255f, 100f/255f, 1f));
+                    MakeJobCard(gridGo.transform, catalog, "Archer", "전직가능", UguiTheme.SuccessGreenBright, "HP 240 / ATK 60", "전직 파편 40/40", UguiTheme.SuccessGreenBright, null, new Color(1f,1f,1f,0.07f), null);
+                }
+            }
+
+            // 강화 카드
+            if (catalog.itemEnhanceCard != null)
+            {
+                var go = (GameObject)PrefabUtility.InstantiatePrefab(catalog.itemEnhanceCard);
+                go.transform.SetParent(host.transform, false);
+                var v = go.GetComponent<EnhanceCardView>();
+                if (v != null)
+                {
+                    v.Set("공격력", "Lv. 12", "현재 효과  +24%");
+                    if (catalog.itemGachaPullButton != null)
+                    {
+                        for (int i = 0; i < 2; i++)
+                        {
+                            var b = (GameObject)PrefabUtility.InstantiatePrefab(catalog.itemGachaPullButton);
+                            b.transform.SetParent(v.ButtonRow, false);
+                            b.GetComponent<GachaPullButtonView>()?.Set(i == 0 ? "강화 x1" : "강화 x10", i == 0 ? "50 G" : "480 G", i == 0);
+                        }
+                    }
+                }
+            }
+
+            // 스킬 행
+            if (catalog.itemSkillRow != null)
+            {
+                MakeSkillRow(host.transform, catalog, "강타", "적에게 200% 피해", false);
+                MakeSkillRow(host.transform, catalog, "인내", "받는 피해 15% 감소", true);
+            }
+
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(hostRt);
+            Canvas.ForceUpdateCanvases();
+            Render(cam, Path.Combine(OutDir, "08_kawidgets.png"));
+            Object.DestroyImmediate(host);
+        }
+
+        private static void MakeEquipCell(Transform parent, UIViewCatalog cat, string name, Color nameColor, string sub, Color rarity, bool equipped, bool dim, string state)
+        {
+            var go = (GameObject)PrefabUtility.InstantiatePrefab(cat.itemEquipCell);
+            go.transform.SetParent(parent, false);
+            go.GetComponent<EquipCellView>()?.Set(null, name, nameColor, sub, rarity, equipped, dim, state);
+        }
+
+        private static void MakeJobCard(Transform parent, UIViewCatalog cat, string jobName, string badge, Color badgeC, string stat, string frag, Color fragC, string prereq, Color bg, Color? frame)
+        {
+            var go = (GameObject)PrefabUtility.InstantiatePrefab(cat.itemJobCard);
+            go.transform.SetParent(parent, false);
+            var v = go.GetComponent<JobCardView>();
+            if (v == null) return;
+            // JobData 없이 이름/스탯만 세팅 (job=null 이면 이미지·이름은 View가 처리하므로 라벨 직접 지정)
+            v.Set(null, bg, frame, badge, badgeC, stat, frag, fragC, prereq);
+            if (v.nameLabel != null) v.nameLabel.text = jobName;
+        }
+
+        private static void MakeSkillRow(Transform parent, UIViewCatalog cat, string name, string detail, bool passive)
+        {
+            var go = (GameObject)PrefabUtility.InstantiatePrefab(cat.itemSkillRow);
+            go.transform.SetParent(parent, false);
+            go.GetComponent<SkillRowView>()?.Set(name, detail, passive);
         }
 
         private static void Render(Camera cam, string path)
