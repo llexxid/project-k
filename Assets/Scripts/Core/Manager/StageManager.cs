@@ -73,6 +73,7 @@ namespace Scripts.Core.Manager
         public event Action<float> OnDeathPopupTick;
         public event Action<float> OnBossTimerTick;
         public event Action<StageDefinition> OnStageCleared;
+        public event Action<StageDefinition> OnStageEnter;
         public event Action<StageDefinition, Monster> OnMonsterKilled;
 		#endregion
 		#region 필드 / 상태
@@ -85,8 +86,10 @@ namespace Scripts.Core.Manager
         private float _bossTimeLimit = 30f;
         
         public eStage CurrentStage => _currentStage;
+        public StageDefinition CurrentDefinition => _currentSession?.Definition;
         public int CurrentStageNumber => _currentStageNumber;
         public int CurrentWaveNumber => _currentWaveNumber;
+        public eStageRunState CurrentRunState => _currentState;
         public bool IsBossWave => _isBossWave;
         public bool IsLoopMode => _isLoopMode;
         public bool BossAutoChallenge => _bossAutoChallenge;
@@ -266,6 +269,27 @@ namespace Scripts.Core.Manager
 			
 			RestartStage();
 		}
+
+		public bool TryResetMainProgress()
+		{
+			if (_currentState != eStageRunState.Running ||
+			    _currentSession?.Definition.Type != eStageType.Main)
+			{
+				return false;
+			}
+
+			// TODO(서버 연동):
+			// TransitionStage의 true는 전환 요청 수락을 의미하며 비동기 리소스 로딩 완료를 보장하지 않는다.
+			// 추후 StartStage 완료를 확인한 뒤 서버 환생 트랜잭션을 확정해야 한다.
+			if (!TransitionStage(eStage.Stage1_1))
+				return false;
+
+			_mainStageSnapshot = null;
+			StopLoop();
+			SetBossAutoChallenge(false);
+
+			return true;
+		}
 		#endregion
 		#region 스테이지 시작
 
@@ -313,8 +337,8 @@ namespace Scripts.Core.Manager
 			StageSession session = BuildSession(definition);
 			_currentSpawnController = new StageSpawnController();
 			_currentSpawnController.Begin(_currentSession, _locationSO);
-			//SpawnMonsters(session);
 			_currentState = eStageRunState.Running;
+			OnStageEnter?.Invoke(definition);
         }
 
 		#endregion
@@ -333,15 +357,15 @@ namespace Scripts.Core.Manager
 
 			OnStageCleared?.Invoke(definition);
 		}
-		private void TransitionStage(eStage target)
+		private bool TransitionStage(eStage target)
 		{
 			Debug.Log($"{target}");
-			if (_currentState == eStageRunState.Transitioning) return;
+			if (_currentState == eStageRunState.Transitioning) return false;
 			
 			if (!_provider.TryGet(target, out StageDefinition definition))
 			{ 
 				Debug.LogError($"StageDefinition을 찾을 수 없습니다. Stage: {target}");
-				return;
+				return false;
 			}
 			_currentState = eStageRunState.Transitioning;
 			eStage previous = _currentStage;
@@ -377,7 +401,7 @@ namespace Scripts.Core.Manager
 						_ => StartStage(definition));
 				}
 
-				return;
+				return true;
 			}
 			if (fade != null)
 			{
@@ -390,6 +414,7 @@ namespace Scripts.Core.Manager
 			{
 				StartStage(definition);
 			}
+			return true;
 		}
 
 		private bool ShouldRestart(eStage target)
@@ -624,8 +649,8 @@ namespace Scripts.Core.Manager
 				MonsterSpawner.Instance
 				);
 			
-			session.MonsterKilled += HandleMonsterKilled;
-			session.ResultProduced += HandleRuleResult;
+			session.OnMonsterKilled += HandleMonsterKilled;
+			session.OnResultProduced += HandleRuleResult;
 			
 			_currentSession = session;
 			session.Enter();
@@ -670,8 +695,8 @@ namespace Scripts.Core.Manager
 				return;
 			}
 
-			_currentSession.MonsterKilled -= HandleMonsterKilled;
-			_currentSession.ResultProduced -= HandleRuleResult;
+			_currentSession.OnMonsterKilled -= HandleMonsterKilled;
+			_currentSession.OnResultProduced -= HandleRuleResult;
 			_currentSession.Exit();
 			_currentSpawnController.Stop();
 		}

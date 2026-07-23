@@ -17,8 +17,8 @@ namespace Scripts.Core
     /// </summary>
     public sealed class StageSession
     {
-        public event Action<StageSession, StageRuleResult> ResultProduced;
-        public event Action<StageSession, Monster> MonsterKilled;
+        public event Action<StageSession, StageRuleResult> OnResultProduced;
+        public event Action<StageSession, Monster> OnMonsterKilled;
         
         public StageDefinition Definition { get; }
         public bool IsRunning { get; private set; }
@@ -44,7 +44,6 @@ namespace Scripts.Core
             _rule = rule ?? throw new ArgumentNullException(nameof(rule));
             _monsterSpawner = monsterSpawner ?? throw new ArgumentNullException(nameof(monsterSpawner));
         }
-
         #if UNITY_EDITOR
                 public bool TestPublishResult(StageRuleResult result)
                 {
@@ -140,7 +139,7 @@ namespace Scripts.Core
             StageRuleResult result =
                 _rule.OnMonsterKilled(this, monster);
 
-            MonsterKilled?.Invoke(this, monster);
+            OnMonsterKilled?.Invoke(this, monster);
             PublishResult(result);
         }
 
@@ -150,7 +149,7 @@ namespace Scripts.Core
             if (_resultProduced) return;
 
             _resultProduced = true;
-            ResultProduced?.Invoke(this, result);
+            OnResultProduced?.Invoke(this, result);
             
         }
     }
