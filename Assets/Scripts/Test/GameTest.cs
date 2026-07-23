@@ -10,6 +10,7 @@ namespace Scripts.Test
 {
     public class GameTest : MonoBehaviour
     {
+    #if UNITY_EDITOR
         private StageManager manager;
         private void Update()
         {
@@ -24,6 +25,15 @@ namespace Scripts.Test
             }
         }
 
+        [ContextMenu("Stage Test/Clear Stage")]
+        public void TestClearStage()
+        {
+            if (!TryGetStageManager())
+                return;
+
+            if (!manager.TestClearStage())
+                Debug.LogWarning("[GameTest] 현재 스테이지를 클리어할 수 없습니다.");
+        }
         [ContextMenu("Stage Test/Enter Gold Dungeon")]
         public void TestEnterGoldDungeon()
         {
@@ -69,5 +79,12 @@ namespace Scripts.Test
             manager = StageManager.Instance;
             return true;
         }
+
+        [ContextMenu("ReincarnationTest/Reincarnation")]
+        public void Reincarnation()
+        {
+            GameManager.Instance.Reincarnation.TryReincarnate();
+        }
+    #endif
     }
 }

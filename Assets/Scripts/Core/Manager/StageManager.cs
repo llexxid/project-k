@@ -193,6 +193,35 @@ namespace Scripts.Core.Manager
 
 		#region 외부 접근 메서드
 
+		#if UNITY_EDITOR
+		public bool TestClearStage()
+		{
+			if (_currentState != eStageRunState.Running ||
+			    _currentSession == null)
+			{
+				return false;
+			}
+
+			StageDefinition definition = _currentSession.Definition;
+			StageRuleResult result;
+
+			if (definition.FlowType == eStageFlowType.MainProgression)
+			{
+				MainStageRule.GetNextWave(
+					definition.Id,
+					out eStage nextStage);
+
+				result = StageRuleResult.MoveTo(nextStage);
+			}
+			else
+			{
+				result = StageRuleResult.ShowResult;
+			}
+
+			return _currentSession.TestPublishResult(result);
+		}
+
+		#endif
 		public void EnterGoldDungeon()
 		{
 			if (_currentState != eStageRunState.Running ||

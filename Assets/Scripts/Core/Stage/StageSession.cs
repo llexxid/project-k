@@ -45,6 +45,16 @@ namespace Scripts.Core
             _monsterSpawner = monsterSpawner ?? throw new ArgumentNullException(nameof(monsterSpawner));
         }
 
+        #if UNITY_EDITOR
+                public bool TestPublishResult(StageRuleResult result)
+                {
+                    if (!IsRunning)
+                        return false;
+
+                    PublishResult(result);
+                    return true;
+                }
+        #endif
         /// <summary>몬스터 등록을 받을 수 있도록 세션을 시작한다.</summary>
         public void Enter()
         {
