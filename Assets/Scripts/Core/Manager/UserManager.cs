@@ -6,6 +6,8 @@ using Scripts.Users;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Scripts.Core.Manager;
+using Scripts.Core.Utils;
 using UnityEngine;
 
 namespace Scripts.Core
@@ -46,6 +48,32 @@ namespace Scripts.Core
 			// ── [Login 우회 폴백 끝] ──
 		}
 
+		private void Start()
+		{
+			if (StageManager.Instance == null)
+			{
+				CustomLogger.LogWarning("[UserManager] StageManager가 초기화되지 않았습니다");
+			}
+			StageManager.Instance.OnStageEnter += HandleStageStarted;
+		}
+
+		private void OnDisable()
+		{
+			StageManager.Instance.OnStageEnter -= HandleStageStarted;
+		}
+
+		private void HandleStageStarted(StageDefinition definition)
+		{
+			if (definition.Type != eStageType.Main)
+				return;
+			CustomLogger.Log($"[UserManager] 현재 유저 스테이지 갱신 : {definition.Id}");
+			SetUserCurrentStage(definition.Id);
+		}
+
+		private void SetUserCurrentStage(eStage stage)
+		{
+			_user.SetStage(stage);
+		}
 		//오프라인 테스트용 유저세팅
 		public void SetupOfflineUser(eStage startStage)
 		{
