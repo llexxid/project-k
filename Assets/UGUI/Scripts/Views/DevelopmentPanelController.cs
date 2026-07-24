@@ -29,6 +29,7 @@ namespace KingdomIdle.UGUI
         };
 
         private static DevelopmentPanelView _view;
+        private static DevelopmentBodyView _body;
         private static bool _subscribedCurrency;
         private static StatEnhanceManager _subscribedEnhanceMgr;
 
@@ -43,7 +44,7 @@ namespace KingdomIdle.UGUI
             // 핸들러가 파괴된 뷰를 만지지 않도록 가드)
             view.OnClosed = () =>
             {
-                if (_view == view) _view = null;
+                if (_view == view) { _view = null; _body = null; }
             };
 
             SubscribeEvents();
@@ -92,20 +93,16 @@ namespace KingdomIdle.UGUI
         {
             if (_view == null || _view.content == null) return;
 
-            var content = _view.content;
-            UguiRuntimeFactory.Clear(content);
+            var body = EnsureBody(_view.content);
+            if (body == null) return;
 
-            // 설명 (.ka-dev-desc: 22px @70%)
-            var desc = UguiRuntimeFactory.Label(content,
-                "골드를 소비해 모든 캐릭터의 공격력과 체력을 영구 강화합니다.",
-                22f, new Color(1f, 1f, 1f, 0.70f), TextAlignmentOptions.Left, wrap: true);
-            UguiRuntimeFactory.Preferred(desc, height: 60f);
-
-            // 보유 골드 바 (.ka-dev-gold-bar: 26px gold bold)
+            // 보유 골드 바 (.ka-dev-gold-bar: 26px gold bold) — 텍스트만 갱신
             EconomyBridge.TryGetAmount(eCurrency.Gold, out long gold);
-            var goldBar = UguiRuntimeFactory.Label(content,
-                $"보유 골드  {gold:N0} G", 26f, UguiTheme.AccentGoldStrong, TextAlignmentOptions.Left, bold: true);
-            UguiRuntimeFactory.Preferred(goldBar, height: 44f);
+            if (body.goldLabel != null)
+                body.goldLabel.text = $"보유 골드  {gold:N0} G";
+
+            // 카드 컨테이너 비우기 (레이아웃에 끼지 않도록 비활성 후 파괴)
+            ClearChildren(body.CardsRoot);
 
             var mgr = StatEnhanceManager.Instance;
 
@@ -113,21 +110,55 @@ namespace KingdomIdle.UGUI
             foreach (var type in EnhanceTypes)
             {
                 if (!StatEnhanceManager.IsStatImplemented(type)) continue;
-
-                BuildEnhanceCard(content, mgr, type, gold);
-                cardCount++;
+                if (BuildEnhanceCard(body.CardsRoot, mgr, type, gold)) cardCount++;
             }
 
-            if (cardCount == 0)
+            // 빈 상태 라벨 토글 (강화 항목이 하나도 없을 때만 표시)
+            if (body.emptyLabel != null)
+                body.emptyLabel.gameObject.SetActive(cardCount == 0);
+        }
+
+        /// <summary>본문 셸(Body_Development)을 스크롤 콘텐츠에 1회 인스턴스화하고 캐시한다.</summary>
+        private static DevelopmentBodyView EnsureBody(RectTransform content)
+        {
+            // 유효한 캐시(동일 콘텐츠 하위)면 재사용. 패널 재오픈 시 콘텐츠가 바뀌면 재생성.
+            if (_body != null && _body.transform.parent == content) return _body;
+
+            ClearChildren(content);
+
+            var cat = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
+            if (cat == null || cat.bodyDevelopment == null)
             {
-                var empty = UguiRuntimeFactory.Label(content, "강화 가능한 항목이 없습니다.",
-                    24f, new Color(1f, 1f, 1f, 0.40f), TextAlignmentOptions.Center);
-                UguiRuntimeFactory.Preferred(empty, height: 60f);
+                Debug.LogWarning("[DevelopmentPanel] 카탈로그의 bodyDevelopment 프리팹이 없습니다.");
+                _body = null;
+                return null;
+            }
+
+            var go = Object.Instantiate(cat.bodyDevelopment, content, false);
+            _body = go.GetComponent<DevelopmentBodyView>();
+            if (_body == null)
+            {
+                Debug.LogError("[DevelopmentPanel] DevelopmentBodyView 컴포넌트가 없습니다.");
+                Object.Destroy(go);
+            }
+            return _body;
+        }
+
+        /// <summary>자식 전부 비활성화 후 파괴 (동적 리스트 재구성용).</summary>
+        private static void ClearChildren(Transform parent)
+        {
+            if (parent == null) return;
+            for (int i = parent.childCount - 1; i >= 0; i--)
+            {
+                var child = parent.GetChild(i).gameObject;
+                child.SetActive(false);
+                Object.Destroy(child);
             }
         }
 
-        /// <summary>.ka-enhance-card: bg white@6% radius12 + 3px 좌측 액센트, 이름/레벨/효과/버튼 행.</summary>
-        private static void BuildEnhanceCard(
+        /// <summary>.ka-enhance-card: 이름/레벨/효과/버튼 행. Item_EnhanceCard 프리팹 인스턴스화.</summary>
+        /// <returns>카드를 실제로 생성했으면 true.</returns>
+        private static bool BuildEnhanceCard(
             RectTransform parent, StatEnhanceManager mgr, StatEnhanceManager.EnhanceType type, long gold)
         {
             int level = mgr != null ? mgr.GetLevel(type) : 0;
@@ -135,16 +166,12 @@ namespace KingdomIdle.UGUI
             string typeName = StatEnhanceManager.GetTypeName(type);
 
             var cat = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
-            if (cat == null || cat.itemEnhanceCard == null)
-            {
-                BuildEnhanceCardFallback(parent, mgr, type, gold, level, bonusText, typeName);
-                return;
-            }
+            if (cat == null || cat.itemEnhanceCard == null) return false;
 
             // 프리팹 카드 (외형은 Item_EnhanceCard.prefab 에서 편집)
             var go = Object.Instantiate(cat.itemEnhanceCard, parent, false);
             var view = go.GetComponent<EnhanceCardView>();
-            if (view == null) return;
+            if (view == null) { Object.Destroy(go); return false; }
 
             view.Set(typeName, $"Lv. {level}", $"현재 효과  {bonusText}");
 
@@ -181,44 +208,8 @@ namespace KingdomIdle.UGUI
                     }
                 }
             }
-        }
 
-        /// <summary>카탈로그 프리팹이 없을 때의 코드 폴백.</summary>
-        private static void BuildEnhanceCardFallback(
-            RectTransform parent, StatEnhanceManager mgr, StatEnhanceManager.EnhanceType type, long gold,
-            int level, string bonusText, string typeName)
-        {
-            var card = UguiRuntimeFactory.Box(parent, "EnhanceCard", UguiTheme.SurfaceFaint);
-            UguiRuntimeFactory.VerticalLayout(card.gameObject, 8f, new RectOffset(16, 16, 14, 14));
-
-            var header = UguiRuntimeFactory.Container(card.transform, "Header");
-            UguiRuntimeFactory.HorizontalLayout(header.gameObject, 10f, null, TextAnchor.MiddleLeft);
-            UguiRuntimeFactory.Preferred(header, height: 40f);
-            var nameLbl = UguiRuntimeFactory.Label(header, typeName, 28f, UguiTheme.TextPrimary, TextAlignmentOptions.Left, bold: true);
-            UguiRuntimeFactory.Flexible(nameLbl, 1f);
-            UguiRuntimeFactory.Label(header, $"Lv. {level}", 22f, new Color(100f / 255f, 180f / 255f, 1f, 1f), TextAlignmentOptions.Right, bold: true);
-
-            var bonusLbl = UguiRuntimeFactory.Label(card.transform, $"현재 효과  {bonusText}", 20f, UguiTheme.SuccessGreenBright);
-            UguiRuntimeFactory.Preferred(bonusLbl, height: 30f);
-
-            var btnRow = UguiRuntimeFactory.Container(card.transform, "BtnRow");
-            UguiRuntimeFactory.HorizontalLayout(btnRow.gameObject, 10f, null, TextAnchor.MiddleCenter, expandWidth: true);
-            UguiRuntimeFactory.Preferred(btnRow.gameObject.AddComponent<LayoutElement>(), height: 90f);
-
-            for (int i = 0; i < PullCounts.Length; i++)
-            {
-                int count = PullCounts[i];
-                int cost = mgr != null ? mgr.GetCost(type, count) : 0;
-                bool canAfford = gold >= cost;
-                var capturedType = type;
-                var capturedCount = count;
-                var pullBtn = UguiRuntimeFactory.TextButton(btnRow, $"강화 x{count}\n{cost:N0} G", 24f,
-                    canAfford ? UguiTheme.AccentBlue : UguiTheme.DisabledGrey,
-                    () => OnEnhanceClicked(capturedType, capturedCount), out var lbl);
-                lbl.enableWordWrapping = true;
-                UguiRuntimeFactory.Flexible((RectTransform)pullBtn.transform, 1f);
-                pullBtn.interactable = canAfford;
-            }
+            return true;
         }
 
         // ── 액션 ──────────────────────────────────────────────────────

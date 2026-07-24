@@ -236,7 +236,10 @@ namespace KingdomIdle.UGUI
             RefreshActiveTabPanelState();
 
             if (view != null && view.sheet != null)
+            {
                 LayoutRebuilder.ForceRebuildLayoutImmediate(view.sheet);
+                UITween.SlideUp(view.sheet, 170f, 0.28f);   // 바텀시트 아래→위 슬라이드 인
+            }
 
             PanelStackChanged?.Invoke();
 

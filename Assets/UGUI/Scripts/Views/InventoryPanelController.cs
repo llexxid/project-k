@@ -1,15 +1,16 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 using KingdomIdle.KingdomArmy;
 
 namespace KingdomIdle.UGUI
 {
     /// <summary>
-    /// 인벤토리 패널 컨트롤러 (UITKInventoryPanelController 이식).
+    /// 인벤토리 패널 컨트롤러 (UITKInventoryPanelController 이식 → 프리팹 기반 전환 완료).
     /// 종류별 탭(전체/장비/재료/기타)으로 분류된 아이템을 표시한다.
     /// 현재는 장비(EquipmentInventory)만 실제 데이터가 있다.
+    /// 고정 구조(목록 페이지/상세 페이지)는 프리팹 + View로, 반복 셀은 itemEquipCell 프리팹으로 채운다.
+    /// (런타임 코드 UI 생성 제거 완료 — 프리팹/View만 사용)
     /// </summary>
     public static class InventoryPanelController
     {
@@ -21,6 +22,9 @@ namespace KingdomIdle.UGUI
 
         // 플레이어 목록 (왕국군 전원의 인벤토리를 합산 표시)
         private static List<Player> _players;
+
+        private static UIViewCatalog Catalog =>
+            UIManager.Instance != null ? UIManager.Instance.Catalog : null;
 
         // ── 진입점 ──
 
@@ -52,7 +56,7 @@ namespace KingdomIdle.UGUI
 
         private static void BuildNavBar()
         {
-            UguiRuntimeFactory.Clear(_view.navBar);
+            ClearChildren(_view.navBar);
             _navButtons.Clear();
 
             var tabs = new (InvTab tab, string label)[]
@@ -63,12 +67,9 @@ namespace KingdomIdle.UGUI
                 (InvTab.Etc, "기타"),
             };
 
-            var prefab = UIManager.Instance != null && UIManager.Instance.Catalog != null
-                ? UIManager.Instance.Catalog.itemNavTabButton
-                : null;
+            var cat = Catalog;
+            var prefab = cat != null ? cat.itemNavTabButton : null;
             if (prefab == null) return;
-
-            var cat = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
 
             foreach (var (tab, label) in tabs)
             {
@@ -113,7 +114,7 @@ namespace KingdomIdle.UGUI
         private static void Refresh()
         {
             if (_view == null || _view.content == null) return;
-            UguiRuntimeFactory.Clear(_view.content);
+            ClearChildren(_view.content);
 
             switch (_activeTab)
             {
@@ -124,10 +125,10 @@ namespace KingdomIdle.UGUI
                     BuildEquipmentView();
                     break;
                 case InvTab.Material:
-                    BuildPlaceholder("재료 아이템이 없습니다.");
+                    BuildPlaceholderPage("재료 아이템이 없습니다.");
                     break;
                 case InvTab.Etc:
-                    BuildPlaceholder("기타 아이템이 없습니다.");
+                    BuildPlaceholderPage("기타 아이템이 없습니다.");
                     break;
             }
         }
@@ -136,44 +137,77 @@ namespace KingdomIdle.UGUI
 
         private static void BuildAllView()
         {
-            AddSectionTitle("인벤토리");
+            var page = SpawnListPage();
+            if (page == null) return;
+
+            page.SetSection("인벤토리");
 
             var equipItems = GatherAllEquipmentItems();
             if (equipItems.Count > 0)
             {
-                AddSubsectionTitle("장비");
-                BuildEquipmentGrid(equipItems);
+                page.SetSubsection("장비");
+                page.SetGridActive(true);
+                FillEquipmentGrid(page.grid, equipItems);
+                page.SetPlaceholder(null);
             }
-
-            if (equipItems.Count == 0)
-                BuildPlaceholder("인벤토리가 비어있습니다.");
+            else
+            {
+                page.SetSubsection(null);
+                page.SetGridActive(false);
+                page.SetPlaceholder("인벤토리가 비어있습니다.");
+            }
         }
 
         // ── 장비 탭 ──
 
         private static void BuildEquipmentView()
         {
-            AddSectionTitle("장비");
+            var page = SpawnListPage();
+            if (page == null) return;
+
+            page.SetSection("장비");
+            page.SetSubsection(null);
 
             var equipItems = GatherAllEquipmentItems();
             if (equipItems.Count == 0)
             {
-                BuildPlaceholder("보유한 장비가 없습니다.");
+                page.SetGridActive(false);
+                page.SetPlaceholder("보유한 장비가 없습니다.");
                 return;
             }
 
-            BuildEquipmentGrid(equipItems);
+            page.SetGridActive(true);
+            FillEquipmentGrid(page.grid, equipItems);
+            page.SetPlaceholder(null);
         }
 
-        // ── 장비 그리드 빌드 ──
+        // ── 재료/기타 (플레이스홀더 전용) ──
 
-        private static void BuildEquipmentGrid(List<(EquipmentInstance item, Player owner)> items)
+        private static void BuildPlaceholderPage(string msg)
         {
-            var grid = UguiRuntimeFactory.Container(_view.content, "EquipGrid");
-            var gridLayout = UguiRuntimeFactory.GridLayout(grid.gameObject,
-                new Vector2(160f, 220f), new Vector2(10f, 10f));
-            gridLayout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            gridLayout.constraintCount = 6;
+            var page = SpawnListPage();
+            if (page == null) return;
+
+            page.SetSection(null);
+            page.SetSubsection(null);
+            page.SetGridActive(false);
+            page.SetPlaceholder(msg);
+        }
+
+        private static InventoryListPageView SpawnListPage()
+        {
+            var cat = Catalog;
+            var prefab = cat != null ? cat.itemInventoryListPage : null;
+            if (prefab == null) return null;
+            var go = Object.Instantiate(prefab, _view.content, false);
+            return go.GetComponent<InventoryListPageView>();
+        }
+
+        // ── 장비 그리드 채우기 (공용 장비 셀 프리팹 재사용) ──
+
+        private static void FillEquipmentGrid(RectTransform grid, List<(EquipmentInstance item, Player owner)> items)
+        {
+            if (grid == null) return;
 
             foreach (var (item, owner) in items)
             {
@@ -200,37 +234,20 @@ namespace KingdomIdle.UGUI
             }
         }
 
-        // ── 인벤토리 장비 클릭 → 상세/강화 팝업 ──
+        // ── 인벤토리 장비 클릭 → 상세/강화 페이지 ──
 
         private static void ShowInventoryEquipPopup(EquipmentInstance item, Player owner)
         {
             if (_view == null || _view.content == null) return;
-            UguiRuntimeFactory.Clear(_view.content);
-            var content = _view.content;
+            ClearChildren(_view.content);
 
-            // 뒤로가기 (.ka-back-btn: h44 / 22px)
-            var backBtn = UguiRuntimeFactory.TextButton(content, "< 인벤토리", 22f, UguiTheme.SurfaceLight, () => Refresh(), out _);
-            UguiRuntimeFactory.Preferred((RectTransform)backBtn.transform, height: 44f);
+            var cat = Catalog;
+            var prefab = cat != null ? cat.itemInventoryEquipDetail : null;
+            if (prefab == null) return;
 
-            AddSectionTitle("장비 상세");
-
-            // 장비 정보 (.ka-job-detail-header)
-            var infoBox = UguiRuntimeFactory.Box(content, "InfoBox", new Color(1f, 1f, 1f, 0.05f));
-            UguiRuntimeFactory.HorizontalLayout(infoBox.gameObject, 16f, new RectOffset(14, 14, 14, 14), TextAnchor.UpperLeft);
-
-            var iconBg = UguiRuntimeFactory.Box(infoBox.transform, "Icon", UguiTheme.SurfaceLight);
-            var iconLe = UguiRuntimeFactory.Preferred(iconBg, width: 120f, height: 120f);
-            iconLe.minWidth = 120f;
-            if (item.baseData.icon != null)
-            {
-                iconBg.sprite = item.baseData.icon;
-                iconBg.color = Color.white;
-                iconBg.preserveAspect = true;
-            }
-
-            var infoCol = UguiRuntimeFactory.Container(infoBox.transform, "InfoCol");
-            UguiRuntimeFactory.VerticalLayout(infoCol.gameObject, 6f);
-            UguiRuntimeFactory.Flexible(infoCol, 1f);
+            var go = Object.Instantiate(prefab, _view.content, false);
+            var detail = go.GetComponent<InventoryEquipDetailView>();
+            if (detail == null) return;
 
             string rarityStr = item.baseData.rarity switch
             {
@@ -241,47 +258,61 @@ namespace KingdomIdle.UGUI
             };
 
             string enhStr = item.enhancementLevel > 0 ? $" +{item.enhancementLevel}" : "";
-            AddInfoLine(infoCol, $"{item.baseData.equipmentName}{enhStr}", 30f, UguiTheme.TextPrimary, bold: true);
-            AddInfoLine(infoCol, $"등급: {rarityStr}", 24f, new Color(1f, 1f, 1f, 0.70f));
-            AddInfoLine(infoCol, $"공격력 보너스: +{item.GetFinalAtk()}", 24f, new Color(1f, 1f, 1f, 0.70f));
-            AddInfoLine(infoCol, $"HP 보너스: +{item.GetFinalMaxHP()}", 24f, new Color(1f, 1f, 1f, 0.70f));
-            AddInfoLine(infoCol, $"강화 레벨: {item.enhancementLevel} / {item.baseData.maxEnhancementLevel}", 24f, new Color(1f, 1f, 1f, 0.70f));
 
             bool isEquipped = owner?.PlayerEquipmentManager != null &&
                               owner.PlayerEquipmentManager.GetSlotEquipment(item.baseData.slot) == item;
-            if (isEquipped)
-                AddInfoLine(infoCol, "현재 장착 중", 24f, UguiTheme.SuccessGreenBright);
 
             int ownerIdx = _players.IndexOf(owner);
-            if (ownerIdx >= 0)
-                AddInfoLine(infoCol, $"소유: 왕국군{ownerIdx + 1}", 24f, new Color(1f, 1f, 1f, 0.70f));
+            string ownerText = ownerIdx >= 0 ? $"소유: 왕국군{ownerIdx + 1}" : null;
 
-            // ── 액션 버튼들 (.ka-equip-action-row / .ka-action-btn) ──
-            var btnRow = UguiRuntimeFactory.Container(content, "ActionRow");
-            UguiRuntimeFactory.HorizontalLayout(btnRow.gameObject, 12f, null, TextAnchor.MiddleCenter, expandWidth: true);
-            UguiRuntimeFactory.Preferred(btnRow.gameObject.AddComponent<LayoutElement>(), height: 64f);
+            bool maxLevel = item.IsMaxLevel();
 
-            var detailBtn = UguiRuntimeFactory.TextButton(btnRow, "상세", 28f, UguiTheme.AccentBlue,
-                () => ShowToast("상세 기능 미구현"), out _);
-            UguiRuntimeFactory.Flexible((RectTransform)detailBtn.transform, 1f);
-
-            if (item.IsMaxLevel())
+            // 강화 정보 (MAX가 아닐 때만)
+            string matText = null, rateText = null, expectedText = null;
+            bool matShortage = false;
+            if (!maxLevel)
             {
-                var maxBtn = UguiRuntimeFactory.TextButton(btnRow, "강화 MAX", 28f, UguiTheme.DisabledGrey, null, out _);
-                maxBtn.interactable = false;
-                UguiRuntimeFactory.Flexible((RectTransform)maxBtn.transform, 1f);
+                int needed = item.GetMaterialCount();
+                int available = 0;
+                if (EquipmentManager.Instance != null && EquipmentManager.Instance.Inventory != null)
+                {
+                    foreach (var inv in EquipmentManager.Instance.Inventory.Items)
+                    {
+                        if (inv != item && inv.baseData == item.baseData)
+                            available++;
+                    }
+                }
+                matShortage = available < needed;
+                matText = $"필요 재료: {item.baseData.equipmentName} x{needed} (보유: {available}개)";
+
+                float successRate = item.GetEnhanceSuccessRate() * 100f;
+                rateText = $"성공 확률: {successRate:F0}%";
+
+                int nextAtk = item.baseData.bonusAtk + (int)(item.baseData.bonusAtk * item.baseData.atkGrowthPerLevel * (item.enhancementLevel + 1));
+                int nextHP = item.baseData.bonusMaxHP + (int)(item.baseData.bonusMaxHP * item.baseData.hpGrowthPerLevel * (item.enhancementLevel + 1));
+                expectedText = $"강화 시 예상: ATK +{item.GetFinalAtk()} → +{nextAtk}  HP +{item.GetFinalMaxHP()} → +{nextHP}";
             }
-            else
+
+            detail.Set(
+                item.baseData.icon,
+                $"{item.baseData.equipmentName}{enhStr}",
+                $"등급: {rarityStr}",
+                $"공격력 보너스: +{item.GetFinalAtk()}",
+                $"HP 보너스: +{item.GetFinalMaxHP()}",
+                $"강화 레벨: {item.enhancementLevel} / {item.baseData.maxEnhancementLevel}",
+                isEquipped, ownerText,
+                maxLevel, matText, matShortage, rateText, expectedText);
+
+            if (detail.backButton != null)
+                detail.backButton.onClick.AddListener(() => Refresh());
+            if (detail.detailButton != null)
+                detail.detailButton.onClick.AddListener(() => ShowToast("상세 기능 미구현"));
+            if (!maxLevel && detail.enhanceButton != null)
             {
                 var capturedItem = item;
                 var capturedOwner = owner;
-                var enhBtn = UguiRuntimeFactory.TextButton(btnRow, "강화", 28f, UguiTheme.EnhanceOrange,
-                    () => TryEnhanceFromInventory(capturedItem, capturedOwner), out _);
-                UguiRuntimeFactory.Flexible((RectTransform)enhBtn.transform, 1f);
+                detail.enhanceButton.onClick.AddListener(() => TryEnhanceFromInventory(capturedItem, capturedOwner));
             }
-
-            // 강화 정보
-            BuildEnhanceInfo(item);
         }
 
         /// <summary>인벤토리에서 강화를 시도한다. 왕국군 장비 탭의 강화와 동일한 로직.</summary>
@@ -330,40 +361,6 @@ namespace KingdomIdle.UGUI
             ShowInventoryEquipPopup(item, owner);
         }
 
-        /// <summary>강화 관련 정보 (필요 재료, 성공 확률 등)</summary>
-        private static void BuildEnhanceInfo(EquipmentInstance item)
-        {
-            if (_view == null || item.IsMaxLevel()) return;
-            var content = _view.content;
-
-            AddSubsectionTitle("강화 정보");
-
-            int needed = item.GetMaterialCount();
-            int available = 0;
-            if (EquipmentManager.Instance != null)
-            {
-                foreach (var inv in EquipmentManager.Instance.Inventory.Items)
-                {
-                    if (inv != item && inv.baseData == item.baseData)
-                        available++;
-                }
-            }
-
-            float successRate = item.GetEnhanceSuccessRate() * 100f;
-
-            var matColor = available < needed ? UguiTheme.WarnRed : new Color(1f, 1f, 1f, 0.70f);
-            AddInfoLine(content, $"필요 재료: {item.baseData.equipmentName} x{needed} (보유: {available}개)", 24f, matColor);
-
-            AddInfoLine(content, $"성공 확률: {successRate:F0}%", 24f, new Color(1f, 1f, 1f, 0.70f));
-
-            // 강화 후 예상 스탯
-            int nextAtk = item.baseData.bonusAtk + (int)(item.baseData.bonusAtk * item.baseData.atkGrowthPerLevel * (item.enhancementLevel + 1));
-            int nextHP = item.baseData.bonusMaxHP + (int)(item.baseData.bonusMaxHP * item.baseData.hpGrowthPerLevel * (item.enhancementLevel + 1));
-            AddInfoLine(content,
-                $"강화 시 예상: ATK +{item.GetFinalAtk()} → +{nextAtk}  HP +{item.GetFinalMaxHP()} → +{nextHP}",
-                24f, new Color(1f, 1f, 1f, 0.70f));
-        }
-
         // ── 데이터 수집 ──
 
         /// <summary>모든 왕국군 멤버의 EquipmentInventory를 합산하여 반환한다.</summary>
@@ -392,34 +389,12 @@ namespace KingdomIdle.UGUI
 
         // ── 유틸 ──
 
-        private static void AddSectionTitle(string text)
+        /// <summary>부모의 자식 전부 파괴 (동적 리스트 재구성용).</summary>
+        private static void ClearChildren(Transform parent)
         {
-            var lbl = UguiRuntimeFactory.Label(_view.content, text, 28f, UguiTheme.TextPrimary, TextAlignmentOptions.Left, bold: true);
-            UguiRuntimeFactory.Preferred(lbl, height: 40f);
-        }
-
-        private static void AddSubsectionTitle(string text)
-        {
-            var lbl = UguiRuntimeFactory.Label(_view.content, text, 24f, new Color(1f, 1f, 1f, 0.90f), TextAlignmentOptions.Left, bold: true);
-            UguiRuntimeFactory.Preferred(lbl, height: 34f);
-        }
-
-        private static void BuildPlaceholder(string msg)
-        {
-            var lbl = UguiRuntimeFactory.Label(_view.content, msg, 24f, new Color(1f, 1f, 1f, 0.40f), TextAlignmentOptions.Center);
-            UguiRuntimeFactory.Preferred(lbl, height: 60f);
-        }
-
-        private static void AddCardLabel(Transform parent, string text, float size, Color color)
-        {
-            var lbl = UguiRuntimeFactory.Label(parent, text, size, color, TextAlignmentOptions.Center);
-            UguiRuntimeFactory.Preferred(lbl, height: size + 8f);
-        }
-
-        private static void AddInfoLine(RectTransform parent, string text, float size, Color color, bool bold = false)
-        {
-            var lbl = UguiRuntimeFactory.Label(parent, text, size, color, TextAlignmentOptions.Left, bold, wrap: true);
-            UguiRuntimeFactory.Preferred(lbl, height: size + 10f);
+            if (parent == null) return;
+            for (int i = parent.childCount - 1; i >= 0; i--)
+                Object.Destroy(parent.GetChild(i).gameObject);
         }
 
         private static void ShowToast(string msg)

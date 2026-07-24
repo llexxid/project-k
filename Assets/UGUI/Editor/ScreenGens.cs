@@ -15,10 +15,11 @@ namespace KingdomIdle.UGUI.Editor
             var rootRt = F.Root("Screen_Title");
             var view = rootRt.gameObject.AddComponent<TitleScreenView>();
 
-            // 배경 이미지 (stretch-to-fill) + 25% 어둡게
+            // 배경 이미지 (stretch-to-fill). 전용 타이틀 아트가 없으면 단색 다크 배경.
             var bg = rootRt.gameObject.AddComponent<Image>();
-            bg.sprite = UguiGenAssets.TitleBg;
-            bg.color = Color.white;
+            var titleBg = UguiGenAssets.TitleBg;
+            bg.sprite = titleBg;
+            bg.color = titleBg != null ? Color.white : new Color(0.09f, 0.10f, 0.14f, 1f);
             bg.raycastTarget = false;
 
             var dark = F.Box(rootRt, "Dark", new Color(0f, 0f, 0f, 0.25f), rounded: false);
@@ -191,37 +192,44 @@ namespace KingdomIdle.UGUI.Editor
             var spacer = F.Container(hud.transform, "Spacer");
             F.Flexible(spacer.gameObject.AddComponent<LayoutElement>(), flexWidth: 1f);
 
-            // ── 우측: 재화 버튼 + 햄버거 ──
+            // ── 우측: 재화 칩 2종(아이콘+값) + 햄버거 ──
             var rightWrap = F.Container(hud.transform, "RightWrap");
-            F.HLayout(rightWrap.gameObject, 14f, null, TextAnchor.MiddleRight);
+            F.HLayout(rightWrap.gameObject, 12f, null, TextAnchor.MiddleRight);
 
-            var currencyBtnImg = F.Box(rightWrap, "BtnCurrency", UguiTheme.SurfaceMid, rounded: true, raycast: true);
-            F.Preferred(currencyBtnImg, height: 100f);
-            F.HLayout(currencyBtnImg.gameObject, 10f, new RectOffset(16, 16, 0, 0), TextAnchor.MiddleLeft);
-            view.btnCurrency = F.ButtonOn(currencyBtnImg);
-
-            var goldName = F.Text(currencyBtnImg.transform, "GoldName", "골드", UguiTheme.FontCurrencyName,
-                new Color(1f, 1f, 1f, 0.85f));
-            F.Preferred(goldName, width: 58f, height: 34f);
-            var goldValue = F.Text(currencyBtnImg.transform, "LblGold", "0", UguiTheme.FontCurrencyValue,
-                UguiTheme.TextPrimary, TextAlignmentOptions.Left, bold: true);
-            F.Preferred(goldValue, width: 140f, height: 36f);
+            // 골드 칩 (클릭 → 재화 드롭다운)
+            var goldChip = MakeCurrencyChip(rightWrap, "BtnCurrency",
+                F.Catalog != null ? F.Catalog.iconCoin : null, out var goldValue);
+            view.btnCurrency = F.ButtonOn(goldChip);
             view.lblGold = goldValue;
 
-            var coinName = F.Text(currencyBtnImg.transform, "CoinName", "고대주화", UguiTheme.FontCurrencyName,
-                new Color(1f, 1f, 1f, 0.85f));
-            F.Preferred(coinName, width: 110f, height: 34f);
-            var coinValue = F.Text(currencyBtnImg.transform, "LblAncientCoin", "0", UguiTheme.FontCurrencyValue,
-                UguiTheme.TextPrimary, TextAlignmentOptions.Left, bold: true);
-            F.Preferred(coinValue, width: 120f, height: 36f);
+            // 고대주화 칩
+            var coinChip = MakeCurrencyChip(rightWrap, "AncientCoinChip",
+                F.Catalog != null ? F.Catalog.iconGem : null, out var coinValue);
             view.lblAncientCoin = coinValue;
+            view.btnAncientCoin = F.ButtonOn(coinChip);
 
-            var hamburger = F.Box(rightWrap, "BtnHamburgerRight", UguiTheme.SurfaceMid, rounded: true, raycast: true);
-            F.Preferred(hamburger, width: 90f, height: 90f);
+            var hamburger = F.Box(rightWrap, "BtnHamburgerRight", new Color(0.16f, 0.17f, 0.24f, 1f), rounded: true, raycast: true);
+            F.Preferred(hamburger, width: 92f, height: 92f);
             view.btnHamburger = F.ButtonOn(hamburger);
             view.btnHamburgerRect = hamburger.rectTransform;
-            var hamburgerIcon = F.IconImage(hamburger.transform, "Icon", UguiGenAssets.IconMinus, 44f, 44f);
-            F.AnchorCenter(hamburgerIcon.rectTransform, 44f, 44f);
+            var hamburgerIcon = F.IconImage(hamburger.transform, "Icon", UguiGenAssets.IconMenu, 48f, 48f);
+            F.AnchorCenter(hamburgerIcon.rectTransform, 48f, 48f);
+        }
+
+        /// <summary>재화 칩: 어두운 알약 + 아이콘 + 값 라벨. 반환: 칩 배경 Image(버튼 대상), out 값 라벨.</summary>
+        private static Image MakeCurrencyChip(Transform parent, string name, Sprite icon, out TextMeshProUGUI valueLabel)
+        {
+            var chip = F.Box(parent, name, new Color(0.03f, 0.04f, 0.07f, 0.95f), rounded: true, raycast: true);
+            F.Preferred(chip, width: 214f, height: 88f);
+            F.HLayout(chip.gameObject, 8f, new RectOffset(12, 22, 0, 0), TextAnchor.MiddleLeft);
+
+            var ic = F.IconImage(chip.transform, "Icon", icon, 56f, 56f);
+            F.Preferred(ic, width: 56f, height: 56f);
+
+            valueLabel = F.Text(chip.transform, "Value", "0", UguiTheme.FontCurrencyValue, UguiTheme.TextPrimary,
+                TextAlignmentOptions.Left, bold: true);
+            F.Flexible(valueLabel, flexWidth: 1f);
+            return chip;
         }
 
         private static void BuildStageArea(RectTransform rootRt, MainScreenView view)
@@ -339,8 +347,8 @@ namespace KingdomIdle.UGUI.Editor
 
         private static MainTabButtonView MakeTabButton(Transform parent, string name, Sprite icon, string label)
         {
-            // 탭 배경 — 은은한 반투명 (픽셀 버튼 스킨 미적용; 선택 시 SetSelected가 색을 강조)
-            var bg = F.Box(parent, name, new Color(1f, 1f, 1f, 0.05f), rounded: true, raycast: true);
+            // 탭 배경 — 어두운 슬레이트 기본(선택 시 SetSelected가 파란색 강조). 상업 게임식 하단 탭.
+            var bg = F.Box(parent, name, new Color(0.13f, 0.15f, 0.22f, 1f), rounded: true, raycast: true);
             F.Flexible(bg, flexWidth: 1f);
             F.Preferred(bg, height: 150f);
 

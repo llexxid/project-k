@@ -8,7 +8,12 @@ using KingdomIdle.KingdomArmy;
 namespace KingdomIdle.UGUI
 {
     /// <summary>
-    /// 왕국군 패널 컨트롤러 (UITKKingdomArmyPanelController 이식).
+    /// 왕국군 패널 컨트롤러 (프리팹 기반).
+    /// 각 서브 화면(종합/장비/스킬/전직)과 드릴다운(장비 상세/전직 상세)은
+    /// 콘텐츠 프리팹(Panel_KA*) 을 스크롤 Content 에 Instantiate 하고 View 로 값을 채운다.
+    /// 반복 셀/행은 기존 Item_* 프리팹(EquipCell/JobCard/SkillRow/NavTabButton/ActionButton/StatCompareRow)을 재사용한다.
+    /// 코드로 UI 구조를 생성하지 않는다(UguiRuntimeFactory 참조 제거 완료).
+    ///
     /// 플로우: 왕국군 메뉴 → (종합/장비/스킬/전직) 서브 메뉴
     /// 전직 메뉴 → 전직 선택지 → 전직 상세 팝업
     /// </summary>
@@ -32,7 +37,7 @@ namespace KingdomIdle.UGUI
         private static List<Player> _players;
         private static KingdomArmyManager _mgr;
 
-        // 종합 탭 실시간 갱신용 캐시 (기존 IVisualElementScheduledItem → FrameTick 타이머)
+        // 종합 탭 실시간 갱신용 캐시 (FrameTick 타이머)
         private static bool _charTickSubscribed;
         private static float _charTickTimer;
         private const float CharTickInterval = 0.2f;
@@ -42,6 +47,9 @@ namespace KingdomIdle.UGUI
         /// <summary>초기 idle 스프라이트 기준 1px당 표시 크기 (고정 스케일)</summary>
         private static float _portraitScale;
         private const float PORTRAIT_SIZE = 120f;
+
+        private static UIViewCatalog Cat =>
+            UIManager.Instance != null ? UIManager.Instance.Catalog : null;
 
         // ── 진입점 ──
 
@@ -68,7 +76,7 @@ namespace KingdomIdle.UGUI
             _mgr = KingdomArmyManager.Instance;
             if (_mgr == null)
             {
-                AddPlaceholder("KingdomArmyManager를 씬에 배치해주세요.");
+                ShowMessageInContent("KingdomArmyManager를 씬에 배치해주세요.");
                 return;
             }
 
@@ -86,7 +94,7 @@ namespace KingdomIdle.UGUI
         private static void BuildMemberTabs()
         {
             if (_view == null) return;
-            UguiRuntimeFactory.Clear(_view.memberTabs);
+            ClearChildren(_view.memberTabs);
             _memberTabButtons.Clear();
 
             var prefab = GetNavPrefab();
@@ -139,13 +147,13 @@ namespace KingdomIdle.UGUI
         private static void BuildNavBar()
         {
             if (_view == null) return;
-            UguiRuntimeFactory.Clear(_view.navBar);
+            ClearChildren(_view.navBar);
             _navButtons.Clear();
 
             var prefab = GetNavPrefab();
             if (prefab == null) return;
 
-            var cat = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
+            var cat = Cat;
             var navItems = new (SubMenu menu, string label, Sprite icon)[]
             {
                 (SubMenu.Character, "종합", cat != null ? cat.iconUser : null),
@@ -186,12 +194,10 @@ namespace KingdomIdle.UGUI
         {
             if (_view == null || _view.content == null) return;
 
-            // 이전 실시간 갱신 해제
+            // 이전 실시간 갱신 해제 (콘텐츠는 각 Build 가 InstantiateContent 에서 교체)
             UnsubscribeCharTick();
             _lblHp = null;
             _charPortraitInner = null;
-
-            UguiRuntimeFactory.Clear(_view.content);
 
             switch (_activeSubMenu)
             {
@@ -211,31 +217,39 @@ namespace KingdomIdle.UGUI
             var player = GetCurrentPlayer();
             if (player == null)
             {
-                AddPlaceholder("플레이어 정보를 불러올 수 없습니다.");
+                ShowMessageInContent("플레이어 정보를 불러올 수 없습니다.");
                 return;
             }
 
+            var sheet = InstantiateContent<KACharacterSheetView>(Cat != null ? Cat.panelKACharacterSheet : null);
+            if (sheet == null) return;
+
             var ps = player.playerStatus;
-            var content = _view.content;
 
-            // 초상화 + 직업명 (.ka-char-header)
-            var header = UguiRuntimeFactory.Box(content, "CharHeader", new Color(1f, 1f, 1f, 0.05f));
-            UguiRuntimeFactory.HorizontalLayout(header.gameObject, 16f, new RectOffset(12, 12, 12, 12), TextAnchor.UpperLeft);
+            if (sheet.jobLabel != null) sheet.jobLabel.text = $"직업: {ps.JobName}";
+            if (sheet.hpLabel != null) sheet.hpLabel.text = $"HP: {ps.HP} / {ps.MaxHP}";
+            if (sheet.atkLabel != null) sheet.atkLabel.text = $"공격력: {ps.Atk}";
+            if (sheet.moveLabel != null) sheet.moveLabel.text = $"이동속도: {ps.MovSpeed}";
+            _lblHp = sheet.hpLabel;
 
-            // 초상화 컨테이너 (120×120, overflow hidden 대응 → RectMask2D)
-            var portrait = UguiRuntimeFactory.Box(header.transform, "Portrait", UguiTheme.SurfaceLight);
-            var portraitLe = UguiRuntimeFactory.Preferred(portrait, width: PORTRAIT_SIZE, height: PORTRAIT_SIZE);
-            portraitLe.minWidth = PORTRAIT_SIZE;
-            portrait.gameObject.AddComponent<RectMask2D>();
+            // 장착 장비 라벨
+            var equipped = player.PlayerEquipmentManager?.GetSlotEquipment(eEquipmentSlot.Weapon);
+            if (sheet.equippedLabel != null)
+            {
+                if (equipped != null)
+                {
+                    sheet.equippedLabel.text = $"{equipped.baseData.equipmentName} +{equipped.enhancementLevel} (ATK +{equipped.GetFinalAtk()})";
+                    sheet.equippedLabel.color = StatLineColor;
+                }
+                else
+                {
+                    sheet.equippedLabel.text = "없음";
+                    sheet.equippedLabel.color = PlaceholderColor;
+                }
+            }
 
-            // 스프라이트가 붙기 전엔 비활성 (흰 박스 방지)
-            _charPortraitInner = UguiRuntimeFactory.Box(portrait.transform, "Inner", Color.white, rounded: false);
-            _charPortraitInner.enabled = false;
-            _charPortraitInner.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-            _charPortraitInner.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-            _charPortraitInner.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-
-            // idle 스프라이트 기준으로 고정 스케일 산출
+            // 초상화 (idle 스프라이트 기준 고정 스케일)
+            _charPortraitInner = sheet.portraitInner;
             var sr = player.GetComponent<SpriteRenderer>();
             if (sr != null && sr.sprite != null)
             {
@@ -243,23 +257,6 @@ namespace KingdomIdle.UGUI
                 _portraitScale = (idleH > 0f) ? PORTRAIT_SIZE / idleH : 1f;
                 ApplyPortraitSprite(sr.sprite);
             }
-
-            var infoCol = UguiRuntimeFactory.Container(header.transform, "Info");
-            UguiRuntimeFactory.VerticalLayout(infoCol.gameObject, 6f);
-            UguiRuntimeFactory.Flexible(infoCol, 1f);
-
-            AddStatLine(infoCol, $"직업: {ps.JobName}");
-            _lblHp = AddStatLine(infoCol, $"HP: {ps.HP} / {ps.MaxHP}");
-            AddStatLine(infoCol, $"공격력: {ps.Atk}");
-            AddStatLine(infoCol, $"이동속도: {ps.MovSpeed}");
-
-            // 장착 장비 표시
-            AddSectionTitle("장착 장비");
-            var equipped = player.PlayerEquipmentManager?.GetSlotEquipment(eEquipmentSlot.Weapon);
-            if (equipped != null)
-                AddStatLine(content, $"{equipped.baseData.equipmentName} +{equipped.enhancementLevel} (ATK +{equipped.GetFinalAtk()})");
-            else
-                AddPlaceholder("없음");
 
             // 실시간 갱신 (200ms 간격으로 HP, 초상화 스프라이트 업데이트)
             SubscribeCharTick();
@@ -309,58 +306,71 @@ namespace KingdomIdle.UGUI
 
         private static void BuildEquipmentView()
         {
+            var equip = InstantiateContent<KAEquipmentView>(Cat != null ? Cat.panelKAEquipment : null);
+            if (equip == null) return;
+
             var player = GetCurrentPlayer();
             string jobName = player?.playerStatus?.JobName ?? "";
             var equipMgr = player?.PlayerEquipmentManager;
             EquipmentManager equipmentManager = EquipmentManager.Instance;
-            var content = _view.content;
-
-            AddSectionTitle("장비");
-
-            // ── 현재 장착 슬롯 표시 ──
-            AddSubsectionTitle("장착 중");
-            var equippedRow = MakeEquipGrid(content);
 
             var equipped = equipMgr?.GetSlotEquipment(eEquipmentSlot.Weapon);
-            var equippedCard = UguiRuntimeFactory.Box(equippedRow, "EquippedCard", UguiTheme.SurfaceFaint);
-            UguiRuntimeFactory.VerticalLayout(equippedCard.gameObject, 4f, new RectOffset(6, 6, 8, 8), TextAnchor.UpperCenter);
+
+            // ── 장착 중 카드 ──
+            if (equip.equippedFrame != null) equip.equippedFrame.gameObject.SetActive(equipped != null);
+            if (equip.equippedSlotLabel != null) equip.equippedSlotLabel.text = "무기";
+
             if (equipped != null)
             {
-                AddEquippedFrame(equippedCard);
-                AddCardLabel(equippedCard.transform, "무기", 20f, new Color(1f, 1f, 1f, 0.85f));
-                AddCardIcon(equippedCard.transform, equipped.baseData.icon);
-                string enhStr0 = equipped.enhancementLevel > 0 ? $" +{equipped.enhancementLevel}" : "";
-                AddCardLabel(equippedCard.transform, $"{equipped.baseData.equipmentName}{enhStr0}", 20f, new Color(1f, 1f, 1f, 0.85f));
-                AddCardLabel(equippedCard.transform, $"ATK +{equipped.GetFinalAtk()}  HP +{equipped.GetFinalMaxHP()}", 18f, new Color(1f, 1f, 1f, 0.45f));
+                if (equip.equippedIconWrap != null) equip.equippedIconWrap.gameObject.SetActive(true);
+                SetIconSprite(equip.equippedIcon, equipped.baseData.icon);
 
-                // 장착 해제 버튼 (.ka-small-btn)
-                var capturedEquipped = equipped;
-                var capturedMgr = equipMgr;
-                var unequipBtn = UguiRuntimeFactory.TextButton(equippedCard.transform, "해제", 20f,
-                    new Color(60f / 255f, 130f / 255f, 230f / 255f, 0.60f), () =>
+                string enhStr0 = equipped.enhancementLevel > 0 ? $" +{equipped.enhancementLevel}" : "";
+                if (equip.equippedNameLabel != null)
+                {
+                    equip.equippedNameLabel.text = $"{equipped.baseData.equipmentName}{enhStr0}";
+                    equip.equippedNameLabel.color = new Color(1f, 1f, 1f, 0.85f);
+                }
+                if (equip.equippedStatLabel != null)
+                {
+                    equip.equippedStatLabel.gameObject.SetActive(true);
+                    equip.equippedStatLabel.text = $"ATK +{equipped.GetFinalAtk()}  HP +{equipped.GetFinalMaxHP()}";
+                }
+                if (equip.unequipButton != null)
+                {
+                    equip.unequipButton.gameObject.SetActive(true);
+                    var capturedEquipped = equipped;
+                    var capturedMgr = equipMgr;
+                    equip.unequipButton.onClick.RemoveAllListeners();
+                    equip.unequipButton.onClick.AddListener(() =>
                     {
                         capturedMgr.Unequip(eEquipmentSlot.Weapon);
                         ShowToast($"{capturedEquipped.baseData.equipmentName} 해제");
                         Refresh();
-                    }, out _);
-                UguiRuntimeFactory.Preferred((RectTransform)unequipBtn.transform, height: 44f);
+                    });
+                }
             }
             else
             {
-                AddCardLabel(equippedCard.transform, "무기", 20f, new Color(1f, 1f, 1f, 0.85f));
-                AddCardLabel(equippedCard.transform, "비어있음", 18f, new Color(1f, 1f, 1f, 0.30f));
+                if (equip.equippedIconWrap != null) equip.equippedIconWrap.gameObject.SetActive(false);
+                if (equip.equippedNameLabel != null)
+                {
+                    equip.equippedNameLabel.text = "비어있음";
+                    equip.equippedNameLabel.color = new Color(1f, 1f, 1f, 0.30f);
+                }
+                if (equip.equippedStatLabel != null) equip.equippedStatLabel.gameObject.SetActive(false);
+                if (equip.unequipButton != null) equip.unequipButton.gameObject.SetActive(false);
             }
 
-            // ── 인벤토리 내 장비 목록 ──
-            AddSubsectionTitle("보유 장비");
+            // ── 보유 장비 목록 ──
+            ClearChildren(equip.inventoryGrid);
 
             if (equipmentManager?.Inventory == null || equipmentManager.Inventory.Items.Count == 0)
             {
-                AddPlaceholder("보유한 장비가 없습니다.");
+                if (equip.emptyLabel != null) equip.emptyLabel.gameObject.SetActive(true);
                 return;
             }
-
-            var grid = MakeEquipGrid(content);
+            if (equip.emptyLabel != null) equip.emptyLabel.gameObject.SetActive(false);
 
             // 1차: 장착가능(해당 전직) > 장착불가  2차: 등급 내림차순  3차: 강화레벨 내림차순
             var sortedItems = equipmentManager.Inventory.Items
@@ -370,9 +380,7 @@ namespace KingdomIdle.UGUI
                 .ToList();
 
             foreach (var item in sortedItems)
-            {
-                BuildInventoryEquipCard(grid, item, jobName, equipped, equipMgr);
-            }
+                BuildInventoryEquipCard(equip.inventoryGrid, item, jobName, equipped, equipMgr);
         }
 
         private static void BuildInventoryEquipCard(
@@ -397,38 +405,20 @@ namespace KingdomIdle.UGUI
                 isEquipped, !isAllowed, isEquipped ? "장착 중" : null, onClick);
         }
 
-        /// <summary>공용 장비 셀 생성 (왕국군/인벤토리). 프리팹 우선, 없으면 코드 폴백.</summary>
+        /// <summary>공용 장비 셀 생성 (왕국군/인벤토리). Item_EquipCell 프리팹 인스턴스화.</summary>
         internal static void InstantiateEquipCell(
             RectTransform grid, Sprite icon, string name, Color nameColor, string sub, Color rarityColor,
             bool equipped, bool dimmed, string state, System.Action onClick)
         {
-            var cat = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
-            if (cat != null && cat.itemEquipCell != null)
-            {
-                var go = Object.Instantiate(cat.itemEquipCell, grid, false);
-                var cell = go.GetComponent<EquipCellView>();
-                if (cell != null)
-                {
-                    cell.Set(icon, name, nameColor, sub, rarityColor, equipped, dimmed, state);
-                    cell.OnClick(onClick);
-                    return;
-                }
-            }
+            var cat = Cat;
+            if (cat == null || cat.itemEquipCell == null) return;
 
-            // 폴백 (코드 생성)
-            var card = UguiRuntimeFactory.Box(grid, "EquipCard", UguiTheme.SurfaceFaint, raycastTarget: true);
-            UguiRuntimeFactory.VerticalLayout(card.gameObject, 4f, new RectOffset(6, 6, 8, 8), TextAnchor.UpperCenter);
-            var btn = card.gameObject.AddComponent<Button>();
-            btn.targetGraphic = card;
-            btn.colors = UguiTheme.MakeColorBlock();
-            card.gameObject.AddComponent<PlayClickSfxOnClick>();
-            if (onClick != null) btn.onClick.AddListener(() => onClick());
-            if (dimmed) card.gameObject.AddComponent<CanvasGroup>().alpha = 0.35f;
-            if (equipped) AddEquippedFrame(card);
-            AddCardIcon(card.transform, icon);
-            AddCardLabel(card.transform, name, 20f, nameColor);
-            AddCardLabel(card.transform, sub, 18f, new Color(1f, 1f, 1f, 0.45f));
-            if (!string.IsNullOrEmpty(state)) AddCardLabel(card.transform, state, 18f, UguiTheme.SuccessGreenBright);
+            var go = Object.Instantiate(cat.itemEquipCell, grid, false);
+            var cell = go.GetComponent<EquipCellView>();
+            if (cell == null) { Object.Destroy(go); return; }
+
+            cell.Set(icon, name, nameColor, sub, rarityColor, equipped, dimmed, state);
+            cell.OnClick(onClick);
         }
 
         // ── 장비 액션 팝업 (장착/강화 선택) ──
@@ -438,33 +428,21 @@ namespace KingdomIdle.UGUI
         {
             if (_view == null) return;
             UnsubscribeCharTick();
-            UguiRuntimeFactory.Clear(_view.content);
-            var content = _view.content;
+            _lblHp = null;
+            _charPortraitInner = null;
+
+            var detail = InstantiateContent<KAEquipDetailView>(Cat != null ? Cat.panelKAEquipDetail : null);
+            if (detail == null) return;
 
             // 뒤로가기
-            var backBtn = UguiRuntimeFactory.TextButton(content, "< 장비 목록", 22f, UguiTheme.SurfaceLight,
-                () => { _activeSubMenu = SubMenu.Equipment; Refresh(); }, out _);
-            UguiRuntimeFactory.Preferred((RectTransform)backBtn.transform, height: 44f);
-
-            AddSectionTitle("장비 상세");
-
-            // 장비 정보 (.ka-job-detail-header)
-            var infoBox = UguiRuntimeFactory.Box(content, "InfoBox", new Color(1f, 1f, 1f, 0.05f));
-            UguiRuntimeFactory.HorizontalLayout(infoBox.gameObject, 16f, new RectOffset(14, 14, 14, 14), TextAnchor.UpperLeft);
-
-            var iconBg = UguiRuntimeFactory.Box(infoBox.transform, "Icon", UguiTheme.SurfaceLight);
-            var iconLe = UguiRuntimeFactory.Preferred(iconBg, width: 120f, height: 120f);
-            iconLe.minWidth = 120f;
-            if (item.baseData.icon != null)
+            if (detail.backButton != null)
             {
-                iconBg.sprite = item.baseData.icon;
-                iconBg.color = Color.white;
-                iconBg.preserveAspect = true;
+                detail.backButton.onClick.RemoveAllListeners();
+                detail.backButton.onClick.AddListener(() => { _activeSubMenu = SubMenu.Equipment; Refresh(); });
             }
 
-            var infoCol = UguiRuntimeFactory.Container(infoBox.transform, "InfoCol");
-            UguiRuntimeFactory.VerticalLayout(infoCol.gameObject, 6f);
-            UguiRuntimeFactory.Flexible(infoCol, 1f);
+            // 장비 정보
+            SetIconSprite(detail.icon, item.baseData.icon);
 
             string rarityStr = item.baseData.rarity switch
             {
@@ -473,79 +451,61 @@ namespace KingdomIdle.UGUI
                 eEquipmentRarity.Epic => "에픽",
                 _ => ""
             };
-
             string enhStr = item.enhancementLevel > 0 ? $" +{item.enhancementLevel}" : "";
-            var nameLbl = UguiRuntimeFactory.Label(infoCol, $"{item.baseData.equipmentName}{enhStr}", 30f,
-                UguiTheme.TextPrimary, TextAlignmentOptions.Left, bold: true);
-            UguiRuntimeFactory.Preferred(nameLbl, height: 40f);
-            AddStatLine(infoCol, $"등급: {rarityStr}");
-            AddStatLine(infoCol, $"공격력 보너스: +{item.GetFinalAtk()}");
-            AddStatLine(infoCol, $"HP 보너스: +{item.GetFinalMaxHP()}");
-            AddStatLine(infoCol, $"강화 레벨: {item.enhancementLevel} / {item.baseData.maxEnhancementLevel}");
 
-            if (isEquipped)
-            {
-                var lbl = UguiRuntimeFactory.Label(infoCol, "현재 장착 중", 24f, UguiTheme.SuccessGreenBright);
-                UguiRuntimeFactory.Preferred(lbl, height: 32f);
-            }
+            if (detail.nameLabel != null) detail.nameLabel.text = $"{item.baseData.equipmentName}{enhStr}";
+            if (detail.rarityLabel != null) detail.rarityLabel.text = $"등급: {rarityStr}";
+            if (detail.atkLabel != null) detail.atkLabel.text = $"공격력 보너스: +{item.GetFinalAtk()}";
+            if (detail.hpLabel != null) detail.hpLabel.text = $"HP 보너스: +{item.GetFinalMaxHP()}";
+            if (detail.enhanceLabel != null) detail.enhanceLabel.text = $"강화 레벨: {item.enhancementLevel} / {item.baseData.maxEnhancementLevel}";
+            if (detail.equippedNowLabel != null) detail.equippedNowLabel.gameObject.SetActive(isEquipped);
 
-            // ── 액션 버튼들 (.ka-equip-action-row) ──
-            var btnRow = UguiRuntimeFactory.Container(content, "ActionRow");
-            UguiRuntimeFactory.HorizontalLayout(btnRow.gameObject, 12f, null, TextAnchor.MiddleCenter, expandWidth: true);
-            UguiRuntimeFactory.Preferred(btnRow.gameObject.AddComponent<LayoutElement>(), height: 64f);
+            // ── 액션 버튼들 (Item_ActionButton) ──
+            ClearChildren(detail.actionRow);
 
             // 장착 / 해제 버튼
             if (isEquipped)
             {
-                var unequipBtn = UguiRuntimeFactory.TextButton(btnRow, "해제", 28f, UguiTheme.AccentBlue, () =>
+                var capturedItem = item;
+                var capturedMgr = equipMgr;
+                AddActionButton(detail.actionRow, "해제", UguiTheme.AccentBlue, true, () =>
                 {
-                    equipMgr.Unequip(item.baseData.slot);
-                    ShowToast($"{item.baseData.equipmentName} 해제");
+                    capturedMgr.Unequip(capturedItem.baseData.slot);
+                    ShowToast($"{capturedItem.baseData.equipmentName} 해제");
                     Refresh();
-                }, out _);
-                UguiRuntimeFactory.Flexible((RectTransform)unequipBtn.transform, 1f);
+                });
             }
             else if (isAllowed)
             {
-                var equipBtn = UguiRuntimeFactory.TextButton(btnRow, "장착", 28f, UguiTheme.AccentBlue, () =>
+                var capturedItem = item;
+                var capturedMgr = equipMgr;
+                AddActionButton(detail.actionRow, "장착", UguiTheme.AccentBlue, true, () =>
                 {
-                    equipMgr.Equip(item);
-                    ShowToast($"{item.baseData.equipmentName} 장착!");
+                    capturedMgr.Equip(capturedItem);
+                    ShowToast($"{capturedItem.baseData.equipmentName} 장착!");
                     Refresh();
-                }, out _);
-                UguiRuntimeFactory.Flexible((RectTransform)equipBtn.transform, 1f);
+                });
             }
             else
             {
-                var disabledBtn = UguiRuntimeFactory.TextButton(btnRow, "장착 불가 (직업 제한)", 24f,
-                    UguiTheme.DisabledGrey, null, out _);
-                disabledBtn.interactable = false;
-                UguiRuntimeFactory.Flexible((RectTransform)disabledBtn.transform, 1f);
+                AddActionButton(detail.actionRow, "장착 불가 (직업 제한)", UguiTheme.DisabledGrey, false, null);
             }
 
             // 강화 버튼
-            BuildEnhanceButton(btnRow, item, equipMgr);
-
-            // 강화 정보 표시
-            BuildEnhanceInfo(item);
-        }
-
-        /// <summary>강화 버튼을 생성한다. 장비 상세에서 사용.</summary>
-        private static void BuildEnhanceButton(RectTransform parent, EquipmentInstance item, PlayerEquipmentManager equipMgr)
-        {
             if (item.IsMaxLevel())
             {
-                var maxBtn = UguiRuntimeFactory.TextButton(parent, "강화 MAX", 28f, UguiTheme.DisabledGrey, null, out _);
-                maxBtn.interactable = false;
-                UguiRuntimeFactory.Flexible((RectTransform)maxBtn.transform, 1f);
-                return;
+                AddActionButton(detail.actionRow, "강화 MAX", UguiTheme.DisabledGrey, false, null);
+            }
+            else
+            {
+                var capturedItem = item;
+                var capturedMgr = equipMgr;
+                AddActionButton(detail.actionRow, "강화", UguiTheme.EnhanceOrange, true,
+                    () => TryEnhanceEquipment(capturedItem, capturedMgr));
             }
 
-            var capturedItem = item;
-            var capturedMgr = equipMgr;
-            var enhBtn = UguiRuntimeFactory.TextButton(parent, "강화", 28f, UguiTheme.EnhanceOrange,
-                () => TryEnhanceEquipment(capturedItem, capturedMgr), out _);
-            UguiRuntimeFactory.Flexible((RectTransform)enhBtn.transform, 1f);
+            // 강화 정보 표시
+            BuildEnhanceInfo(detail, item);
         }
 
         /// <summary>강화 시도. 재료 부족 시 부족 수량을 토스트로 안내.</summary>
@@ -593,13 +553,17 @@ namespace KingdomIdle.UGUI
                 equipMgr);
         }
 
-        /// <summary>강화 관련 정보 (필요 재료, 성공 확률 등)</summary>
-        private static void BuildEnhanceInfo(EquipmentInstance item)
+        /// <summary>강화 관련 정보 (필요 재료, 성공 확률 등)를 상세 뷰에 채운다.</summary>
+        private static void BuildEnhanceInfo(KAEquipDetailView detail, EquipmentInstance item)
         {
-            if (_view == null || item.IsMaxLevel()) return;
-            var content = _view.content;
+            if (detail.enhanceInfoGroup == null) return;
 
-            AddSubsectionTitle("강화 정보");
+            if (item.IsMaxLevel())
+            {
+                detail.enhanceInfoGroup.gameObject.SetActive(false);
+                return;
+            }
+            detail.enhanceInfoGroup.gameObject.SetActive(true);
 
             int needed = item.GetMaterialCount();
             int available = 0;
@@ -614,17 +578,19 @@ namespace KingdomIdle.UGUI
 
             float successRate = item.GetEnhanceSuccessRate() * 100f;
 
-            var matColor = available < needed ? FragLockedColor : StatLineColor;
-            var matLbl = UguiRuntimeFactory.Label(content,
-                $"필요 재료: {item.baseData.equipmentName} x{needed} (보유: {available}개)", 24f, matColor, wrap: true);
-            UguiRuntimeFactory.Preferred(matLbl, height: 34f);
-
-            AddStatLine(content, $"성공 확률: {successRate:F0}%");
+            if (detail.materialLabel != null)
+            {
+                detail.materialLabel.text = $"필요 재료: {item.baseData.equipmentName} x{needed} (보유: {available}개)";
+                detail.materialLabel.color = available < needed ? FragLockedColor : StatLineColor;
+            }
+            if (detail.successRateLabel != null)
+                detail.successRateLabel.text = $"성공 확률: {successRate:F0}%";
 
             // 강화 후 예상 스탯
             int nextAtk = item.baseData.bonusAtk + (int)(item.baseData.bonusAtk * item.baseData.atkGrowthPerLevel * (item.enhancementLevel + 1));
             int nextHP = item.baseData.bonusMaxHP + (int)(item.baseData.bonusMaxHP * item.baseData.hpGrowthPerLevel * (item.enhancementLevel + 1));
-            AddStatLine(content, $"강화 시 예상: ATK +{item.GetFinalAtk()} → +{nextAtk}  HP +{item.GetFinalMaxHP()} → +{nextHP}");
+            if (detail.expectedLabel != null)
+                detail.expectedLabel.text = $"강화 시 예상: ATK +{item.GetFinalAtk()} → +{nextAtk}  HP +{item.GetFinalMaxHP()} → +{nextHP}";
         }
 
         // ══════════════════════════════════════
@@ -633,59 +599,56 @@ namespace KingdomIdle.UGUI
 
         private static void BuildSkillView()
         {
-            var content = _view.content;
-            AddSectionTitle("스킬");
+            var skill = InstantiateContent<KASkillView>(Cat != null ? Cat.panelKASkill : null);
+            if (skill == null) return;
 
             var player = GetCurrentPlayer();
             if (player == null || player.playerStatus == null)
             {
-                AddPlaceholder("플레이어 정보 없음");
+                ShowSkillPlaceholder(skill, "플레이어 정보 없음");
                 return;
             }
 
-            // 현재 직업의 스킬 표시
             var changeJob = player.GetComponent<ChangeJob>();
             if (changeJob == null)
             {
-                AddPlaceholder("스킬 정보 없음");
+                ShowSkillPlaceholder(skill, "스킬 정보 없음");
                 return;
             }
 
-            // 현재 직업의 스킬 목록 표시
             string jobName = player.playerStatus?.JobName ?? "";
             var skillInfos = SkillSystem.GetJobSkillInfo(jobName);
 
             if (skillInfos == null || skillInfos.Length == 0)
             {
-                AddPlaceholder("직업 스킬이 없습니다.");
+                ShowSkillPlaceholder(skill, "직업 스킬이 없습니다.");
                 return;
             }
 
+            if (skill.placeholder != null) skill.placeholder.gameObject.SetActive(false);
+            ClearChildren(skill.skillList);
             foreach (var si in skillInfos)
-                InstantiateSkillRow(content, si.Name, si.Description, si.IsPassive);
+                InstantiateSkillRow(skill.skillList, si.Name, si.Description, si.IsPassive);
         }
 
-        /// <summary>공용 스킬 행 생성 (프리팹 우선). 왕국군 스킬/전직 상세 공용.</summary>
+        private static void ShowSkillPlaceholder(KASkillView skill, string msg)
+        {
+            ClearChildren(skill.skillList);
+            if (skill.placeholder == null) return;
+            skill.placeholder.gameObject.SetActive(true);
+            skill.placeholder.text = msg;
+        }
+
+        /// <summary>공용 스킬 행 생성. 왕국군 스킬/전직 상세 공용. Item_SkillRow 프리팹 인스턴스화.</summary>
         internal static void InstantiateSkillRow(RectTransform parent, string name, string detail, bool isPassive)
         {
-            var cat = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
-            if (cat != null && cat.itemSkillRow != null)
-            {
-                var go = Object.Instantiate(cat.itemSkillRow, parent, false);
-                var view = go.GetComponent<SkillRowView>();
-                if (view != null) { view.Set(name, detail, isPassive); return; }
-            }
+            var cat = Cat;
+            if (cat == null || cat.itemSkillRow == null) return;
 
-            // 폴백 (코드 생성)
-            var row = UguiRuntimeFactory.Box(parent, "SkillRow", new Color(1f, 1f, 1f, 0.04f));
-            UguiRuntimeFactory.VerticalLayout(row.gameObject, 4f, new RectOffset(10, 10, 8, 8));
-            var nameLbl = UguiRuntimeFactory.Label(row.transform, name, 24f, UguiTheme.TextPrimary,
-                TextAlignmentOptions.Left, bold: true);
-            UguiRuntimeFactory.Preferred(nameLbl, height: 32f);
-            string typeTag = isPassive ? "[패시브]" : "[액티브]";
-            var descLbl = UguiRuntimeFactory.Label(row.transform, $"{typeTag}  {detail}", 20f,
-                new Color(1f, 1f, 1f, 0.55f), TextAlignmentOptions.Left, wrap: true);
-            UguiRuntimeFactory.Preferred(descLbl, height: 30f);
+            var go = Object.Instantiate(cat.itemSkillRow, parent, false);
+            var view = go.GetComponent<SkillRowView>();
+            if (view == null) { Object.Destroy(go); return; }
+            view.Set(name, detail, isPassive);
         }
 
         // ══════════════════════════════════════
@@ -694,47 +657,37 @@ namespace KingdomIdle.UGUI
 
         private static void BuildJobChangeView()
         {
-            var content = _view.content;
-            AddSectionTitle("전직");
+            var jc = InstantiateContent<KAJobChangeView>(Cat != null ? Cat.panelKAJobChange : null);
+            if (jc == null) return;
 
             var jobDB = _mgr.JobDB;
             if (jobDB == null || jobDB.Count == 0)
             {
-                AddPlaceholder("직업 데이터가 없습니다.");
+                if (jc.placeholder != null) jc.placeholder.gameObject.SetActive(true);
+                if (jc.contentGroup != null) jc.contentGroup.gameObject.SetActive(false);
                 return;
             }
+            if (jc.placeholder != null) jc.placeholder.gameObject.SetActive(false);
+            if (jc.contentGroup != null) jc.contentGroup.gameObject.SetActive(true);
 
             // 통합 전직 파편 보유량 배너 — 어떤 직업이든 파편 40개로 전직 가능.
             int ownedFrags = _mgr.GetFragments();
             int fragCost = _mgr.GetFragmentCost();
 
-            // .ka-frag-banner: 갈색 bg + 골드 테두리
-            var fragBanner = UguiRuntimeFactory.Box(content, "FragBanner", new Color(60f / 255f, 45f / 255f, 20f / 255f, 0.55f));
-            UguiRuntimeFactory.HorizontalLayout(fragBanner.gameObject, 12f, new RectOffset(16, 16, 10, 10), TextAnchor.MiddleLeft);
-            UguiRuntimeFactory.Preferred(fragBanner, height: 64f);
-            var bannerFrame = UguiRuntimeFactory.Box(fragBanner.transform, "Frame", new Color(1f, 220f / 255f, 100f / 255f, 0.60f));
-            bannerFrame.fillCenter = false;
-            UguiRuntimeFactory.Stretch(bannerFrame.rectTransform);
-            bannerFrame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
-
-            var bannerName = UguiRuntimeFactory.Label(fragBanner.transform, "전직 파편", 24f, new Color(1f, 1f, 1f, 0.85f), bold: true);
-            UguiRuntimeFactory.Preferred(bannerName, width: 130f, height: 40f);
-
-            var bannerVal = UguiRuntimeFactory.Label(fragBanner.transform, $"{ownedFrags:N0}", 34f,
-                ownedFrags >= fragCost ? UguiTheme.SuccessGreenBright : UguiTheme.AccentGoldStrong,
-                TextAlignmentOptions.Left, bold: true);
-            UguiRuntimeFactory.Preferred(bannerVal, width: 140f, height: 44f);
-
-            var bannerHint = UguiRuntimeFactory.Label(fragBanner.transform, $"(전직당 {fragCost}개 소모)", 20f, new Color(1f, 1f, 1f, 0.55f));
-            UguiRuntimeFactory.Flexible(bannerHint, 1f);
+            if (jc.bannerValue != null)
+            {
+                jc.bannerValue.text = $"{ownedFrags:N0}";
+                jc.bannerValue.color = ownedFrags >= fragCost ? UguiTheme.SuccessGreenBright : UguiTheme.AccentGoldStrong;
+            }
+            if (jc.bannerHint != null) jc.bannerHint.text = $"(전직당 {fragCost}개 소모)";
 
             var player = GetCurrentPlayer();
             string currentJob = player?.playerStatus?.JobName ?? "";
 
-            // 1차 전직 / 2차 전직 그룹 분리
-            AddJobSectionTitle("1차 전직");
-            var basicGrid = MakeJobGrid(content);
+            ClearChildren(jc.basicGrid);
+            ClearChildren(jc.eliteGrid);
 
+            // 1차 전직 / 2차 전직 그룹 분리
             var eliteJobs = new List<JobData>();
             for (int i = 0; i < jobDB.Count; i++)
             {
@@ -750,17 +703,15 @@ namespace KingdomIdle.UGUI
                     eliteJobs.Add(job);
                     continue;
                 }
-                BuildJobCard(basicGrid, job, player, currentJob, isElite: false);
+                BuildJobCard(jc.basicGrid, job, player, currentJob, isElite: false);
             }
 
-            AddJobSectionTitle("2차 전직 (정예)");
-            var eliteGrid = MakeJobGrid(content);
             foreach (var job in eliteJobs)
-                BuildJobCard(eliteGrid, job, player, currentJob, isElite: true);
+                BuildJobCard(jc.eliteGrid, job, player, currentJob, isElite: true);
         }
 
         /// <summary>
-        /// 전직 카드를 생성한다. 상태에 따라 시각적으로 구분:
+        /// 전직 카드를 생성한다 (Item_JobCard). 상태에 따라 시각적으로 구분:
         /// - 현재 직업: "현재" 배지 + 강조 테두리
         /// - 보유 직업: "보유" 배지 + 무료 재전직 안내
         /// - 잠김 직업: 어두운 색 + 잠금 표시
@@ -805,46 +756,15 @@ namespace KingdomIdle.UGUI
             string prereqText = !prereqMet ? $"{prereq} 전직 필요" : null;
 
             var capturedJob = job;
-            var cat = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
-            if (cat != null && cat.itemJobCard != null)
-            {
-                var go = Object.Instantiate(cat.itemJobCard, grid, false);
-                var view = go.GetComponent<JobCardView>();
-                if (view != null)
-                {
-                    view.Set(job, bg, frameColor, badgeText, badgeColor, statText, fragText, fragColor, prereqText);
-                    view.OnClick(() => ShowJobDetail(capturedJob));
-                    return;
-                }
-            }
+            var cat = Cat;
+            if (cat == null || cat.itemJobCard == null) return;
 
-            // 폴백 (코드 생성)
-            var card = UguiRuntimeFactory.Box(grid, "JobCard", bg, raycastTarget: true);
-            UguiRuntimeFactory.VerticalLayout(card.gameObject, 6f, new RectOffset(8, 8, 12, 8), TextAnchor.UpperCenter);
-            var btn = card.gameObject.AddComponent<Button>();
-            btn.targetGraphic = card;
-            btn.colors = UguiTheme.MakeColorBlock();
-            card.gameObject.AddComponent<PlayClickSfxOnClick>();
-            btn.onClick.AddListener(() => ShowJobDetail(capturedJob));
-            if (frameColor.HasValue) AddCardFrame(card, frameColor.Value);
-            var badge = UguiRuntimeFactory.Label(card.transform, badgeText, 16f, badgeColor, TextAlignmentOptions.Right, bold: true);
-            var badgeRt = badge.rectTransform;
-            badgeRt.anchorMin = new Vector2(1f, 1f); badgeRt.anchorMax = new Vector2(1f, 1f); badgeRt.pivot = new Vector2(1f, 1f);
-            badgeRt.anchoredPosition = new Vector2(-6f, -6f); badgeRt.sizeDelta = new Vector2(90f, 22f);
-            badge.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
-            var imgWrap = UguiRuntimeFactory.Container(card.transform, "ImgWrap");
-            UguiRuntimeFactory.Preferred(imgWrap.gameObject.AddComponent<LayoutElement>(), height: 84f);
-            if (job.jobSprite != null)
-            {
-                var img = UguiRuntimeFactory.Icon(imgWrap, job.jobSprite, 80f, 80f);
-                img.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-                img.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-                img.rectTransform.anchoredPosition = Vector2.zero;
-            }
-            AddCardLabel(card.transform, job.jobName, 24f, UguiTheme.TextPrimary);
-            AddCardLabel(card.transform, statText, 18f, new Color(1f, 1f, 1f, 0.60f));
-            AddCardLabel(card.transform, fragText, 20f, fragColor);
-            if (prereqText != null) AddCardLabel(card.transform, prereqText, 18f, FragLockedColor);
+            var go = Object.Instantiate(cat.itemJobCard, grid, false);
+            var view = go.GetComponent<JobCardView>();
+            if (view == null) { Object.Destroy(go); return; }
+
+            view.Set(job, bg, frameColor, badgeText, badgeColor, statText, fragText, fragColor, prereqText);
+            view.OnClick(() => ShowJobDetail(capturedJob));
         }
 
         // ══════════════════════════════════════
@@ -855,8 +775,11 @@ namespace KingdomIdle.UGUI
         {
             if (_view == null) return;
             UnsubscribeCharTick();
-            UguiRuntimeFactory.Clear(_view.content);
-            var content = _view.content;
+            _lblHp = null;
+            _charPortraitInner = null;
+
+            var detail = InstantiateContent<KAJobDetailView>(Cat != null ? Cat.panelKAJobDetail : null);
+            if (detail == null) return;
 
             var player = GetCurrentPlayer();
             var ps = player?.playerStatus;
@@ -866,37 +789,15 @@ namespace KingdomIdle.UGUI
             bool prereqMet = prereq == null || _mgr.HasCompletedPromotion(player, prereq);
 
             // 뒤로가기 버튼
-            var backBtn = UguiRuntimeFactory.TextButton(content, "< 전직 목록", 22f, UguiTheme.SurfaceLight,
-                () => { _activeSubMenu = SubMenu.JobChange; Refresh(); }, out _);
-            UguiRuntimeFactory.Preferred((RectTransform)backBtn.transform, height: 44f);
-
-            AddSectionTitle("전직 상세");
-
-            // ── 직업 헤더 (이미지 + 이름 + 상태 배지) ──
-            var header = UguiRuntimeFactory.Box(content, "JobHeader", new Color(1f, 1f, 1f, 0.05f));
-            UguiRuntimeFactory.HorizontalLayout(header.gameObject, 16f, new RectOffset(14, 14, 14, 14), TextAnchor.UpperLeft);
-
-            var imgBg = UguiRuntimeFactory.Box(header.transform, "Img", UguiTheme.SurfaceLight);
-            var imgLe = UguiRuntimeFactory.Preferred(imgBg, width: 120f, height: 120f);
-            imgLe.minWidth = 120f;
-            if (job.jobSprite != null)
+            if (detail.backButton != null)
             {
-                imgBg.sprite = job.jobSprite;
-                imgBg.color = Color.white;
-                imgBg.preserveAspect = true;
+                detail.backButton.onClick.RemoveAllListeners();
+                detail.backButton.onClick.AddListener(() => { _activeSubMenu = SubMenu.JobChange; Refresh(); });
             }
 
-            var nameCol = UguiRuntimeFactory.Container(header.transform, "NameCol");
-            UguiRuntimeFactory.VerticalLayout(nameCol.gameObject, 6f);
-            UguiRuntimeFactory.Flexible(nameCol, 1f);
-
-            var nameRow = UguiRuntimeFactory.Container(nameCol, "NameRow");
-            UguiRuntimeFactory.HorizontalLayout(nameRow.gameObject, 12f, null, TextAnchor.MiddleLeft);
-            UguiRuntimeFactory.Preferred(nameRow.gameObject.AddComponent<LayoutElement>(), height: 42f);
-
-            var jobNameLbl = UguiRuntimeFactory.Label(nameRow, job.jobName, 30f, UguiTheme.TextPrimary,
-                TextAlignmentOptions.Left, bold: true);
-            UguiRuntimeFactory.Preferred(jobNameLbl, height: 42f);
+            // ── 직업 헤더 (이미지 + 이름 + 상태 배지) ──
+            SetIconSprite(detail.image, job.jobSprite);
+            if (detail.jobNameLabel != null) detail.jobNameLabel.text = job.jobName;
 
             // 상태 배지
             string stateText;
@@ -904,62 +805,71 @@ namespace KingdomIdle.UGUI
             if (isCurrent) { stateText = "현재"; stateColor = UguiTheme.AccentGoldStrong; }
             else if (isUnlocked) { stateText = "보유"; stateColor = new Color(120f / 255f, 180f / 255f, 1f, 1f); }
             else { stateText = prereq != null ? "2차" : "1차"; stateColor = new Color(1f, 1f, 1f, 0.55f); }
-            var stateLbl = UguiRuntimeFactory.Label(nameRow, stateText, 18f, stateColor, TextAlignmentOptions.Left, bold: true);
-            UguiRuntimeFactory.Preferred(stateLbl, width: 90f, height: 30f);
+            if (detail.stateBadge != null) { detail.stateBadge.text = stateText; detail.stateBadge.color = stateColor; }
 
             // 직업 설명 — JobData에 description 필드가 없으므로 간단한 분류 텍스트로 대체
             string roleText = job.jobName.Contains("Knight") ? "근접 탱커 / 근거리 딜러"
                               : job.jobName.Contains("Archer") ? "원거리 물리 딜러"
                               : job.jobName.Contains("Mage") ? "원거리 마법 딜러"
                               : "근접 전사";
-            var roleLbl = UguiRuntimeFactory.Label(nameCol, roleText, 22f, new Color(1f, 1f, 1f, 0.65f));
-            UguiRuntimeFactory.Preferred(roleLbl, height: 30f);
+            if (detail.roleLabel != null) detail.roleLabel.text = roleText;
 
             // ── 스탯 비교 (현재 직업 vs 신규 직업) ──
-            AddSubsectionTitle("스탯 비교");
-            BuildStatCompareTable(content, ps, job);
+            BuildStatCompareTable(detail.compareTable, ps, job);
 
             // ── 직업 스킬 ──
             var jobSkills = SkillSystem.GetJobSkillInfo(job.jobName);
             if (jobSkills != null && jobSkills.Length > 0)
             {
-                AddSubsectionTitle("직업 스킬");
-
+                if (detail.skillGroup != null) detail.skillGroup.gameObject.SetActive(true);
+                ClearChildren(detail.skillList);
                 foreach (var si in jobSkills)
-                    InstantiateSkillRow(content, si.Name, si.Description, si.IsPassive);
+                    InstantiateSkillRow(detail.skillList, si.Name, si.Description, si.IsPassive);
+            }
+            else
+            {
+                if (detail.skillGroup != null) detail.skillGroup.gameObject.SetActive(false);
             }
 
             // ── 전직 비용 / 조건 ──
-            AddSubsectionTitle("전직 조건");
-
             // 통합 전직 파편 — 어떤 직업이든 동일한 파편 풀에서 40개 소모.
             int owned = _mgr.GetFragments();
             int cost = _mgr.GetFragmentCost();
 
-            var condBox = UguiRuntimeFactory.Box(content, "CondBox", new Color(0f, 0f, 0f, 0.25f));
-            UguiRuntimeFactory.VerticalLayout(condBox.gameObject, 6f, new RectOffset(12, 12, 12, 12));
-
             if (isUnlocked)
             {
-                var freeLbl = UguiRuntimeFactory.Label(condBox.transform, "이미 해금된 직업 - 무료 재전직 가능",
-                    22f, UguiTheme.SuccessGreenBright);
-                UguiRuntimeFactory.Preferred(freeLbl, height: 32f);
+                if (detail.freeLabel != null) detail.freeLabel.gameObject.SetActive(true);
+                if (detail.fragCondRow != null) detail.fragCondRow.gameObject.SetActive(false);
+                if (detail.prereqCondRow != null) detail.prereqCondRow.gameObject.SetActive(false);
             }
             else
             {
-                AddCondRow(condBox.transform, "전직 파편", $"{owned} / {cost}",
-                    owned >= cost ? UguiTheme.SuccessGreenBright : UguiTheme.TextPrimary);
+                if (detail.freeLabel != null) detail.freeLabel.gameObject.SetActive(false);
+
+                if (detail.fragCondRow != null) detail.fragCondRow.gameObject.SetActive(true);
+                if (detail.fragCondValue != null)
+                {
+                    detail.fragCondValue.text = $"{owned} / {cost}";
+                    detail.fragCondValue.color = owned >= cost ? UguiTheme.SuccessGreenBright : UguiTheme.TextPrimary;
+                }
 
                 // 선행 조건 — 2차 전직의 순서 보장.
                 if (prereq != null)
                 {
-                    AddCondRow(condBox.transform, "선행 조건",
-                        prereqMet ? $"{prereq} 전직 완료" : $"{prereq} 전직 필요",
-                        prereqMet ? UguiTheme.SuccessGreenBright : FragLockedColor);
+                    if (detail.prereqCondRow != null) detail.prereqCondRow.gameObject.SetActive(true);
+                    if (detail.prereqCondValue != null)
+                    {
+                        detail.prereqCondValue.text = prereqMet ? $"{prereq} 전직 완료" : $"{prereq} 전직 필요";
+                        detail.prereqCondValue.color = prereqMet ? UguiTheme.SuccessGreenBright : FragLockedColor;
+                    }
+                }
+                else
+                {
+                    if (detail.prereqCondRow != null) detail.prereqCondRow.gameObject.SetActive(false);
                 }
             }
 
-            // ── 전직하기 버튼 (.ka-change-btn: h72 / 32px bold) ──
+            // ── 전직하기 버튼 (Item_ActionButton) ──
             bool canChange = player != null && _mgr.CanChangeJob(job.jobName, player);
 
             string btnText;
@@ -998,31 +908,30 @@ namespace KingdomIdle.UGUI
 
             var capturedPlayer = player;
             var capturedJob = job;
-            var changeBtn = UguiRuntimeFactory.TextButton(content, btnText, 32f, btnColor,
-                () => OnJobChangeClicked(capturedPlayer, capturedJob), out _);
-            changeBtn.interactable = btnEnabled;
-            UguiRuntimeFactory.Preferred((RectTransform)changeBtn.transform, height: 72f);
+            ClearChildren(detail.changeRow);
+            AddActionButton(detail.changeRow, btnText, btnColor, btnEnabled,
+                () => OnJobChangeClicked(capturedPlayer, capturedJob));
         }
 
         /// <summary>
-        /// 현재 직업의 스탯 vs 신규 직업의 스탯을 비교하는 표를 만든다.
+        /// 현재 직업의 스탯 vs 신규 직업의 스탯을 비교하는 표를 만든다 (Item_StatCompareRow).
         /// 변화량을 색으로 강조 (▲상승=초록, ▼하락=빨강).
         /// </summary>
-        private static void BuildStatCompareTable(RectTransform content, PlayerStatus current, JobData job)
+        private static void BuildStatCompareTable(RectTransform table, PlayerStatus current, JobData job)
         {
-            var table = UguiRuntimeFactory.Box(content, "StatCompareTable", new Color(0f, 0f, 0f, 0.20f));
-            UguiRuntimeFactory.VerticalLayout(table.gameObject, 2f, new RectOffset(10, 10, 8, 8));
+            if (table == null) return;
+            ClearChildren(table);
 
             // 헤더
-            AddCompareRow(table.transform, "스탯", "현재", "신규", "변화",
+            AddCompareRow(table, "스탯", "현재", "신규", "변화",
                 UguiTheme.TextSecondary, UguiTheme.TextSecondary, isHead: true);
 
-            AddStatCompareRow(table.transform, "HP", current?.MaxHP ?? 0, job.maxHP, higherIsBetter: true);
-            AddStatCompareRow(table.transform, "공격력", current?.Atk ?? 0, job.atk, higherIsBetter: true);
-            AddStatCompareRow(table.transform, "이동속도", current?.MovSpeed ?? 0f, job.movSpeed, higherIsBetter: true);
+            AddStatCompareRow(table, "HP", current?.MaxHP ?? 0, job.maxHP, higherIsBetter: true);
+            AddStatCompareRow(table, "공격력", current?.Atk ?? 0, job.atk, higherIsBetter: true);
+            AddStatCompareRow(table, "이동속도", current?.MovSpeed ?? 0f, job.movSpeed, higherIsBetter: true);
         }
 
-        private static void AddStatCompareRow(Transform table, string name, float curVal, float newVal, bool higherIsBetter, string suffix = "")
+        private static void AddStatCompareRow(RectTransform table, string name, float curVal, float newVal, bool higherIsBetter, string suffix = "")
         {
             float diff = newVal - curVal;
             string diffText;
@@ -1045,34 +954,16 @@ namespace KingdomIdle.UGUI
                 new Color(1f, 1f, 1f, 0.85f), diffColor, isHead: false);
         }
 
-        private static void AddCompareRow(Transform table, string c0, string c1, string c2, string c3,
+        private static void AddCompareRow(RectTransform table, string c0, string c1, string c2, string c3,
             Color normalColor, Color diffColor, bool isHead)
         {
-            var row = UguiRuntimeFactory.Container(table, "Row");
-            UguiRuntimeFactory.HorizontalLayout(row.gameObject, 4f, null, TextAnchor.MiddleLeft);
-            UguiRuntimeFactory.Preferred(row.gameObject.AddComponent<LayoutElement>(), height: 36f);
+            var cat = Cat;
+            if (cat == null || cat.itemStatCompareRow == null) return;
 
-            var cell0 = UguiRuntimeFactory.Label(row, c0, 20f, normalColor, TextAlignmentOptions.Left, bold: isHead);
-            UguiRuntimeFactory.Flexible(cell0, 1.4f);
-            var cell1 = UguiRuntimeFactory.Label(row, c1, 20f, normalColor, TextAlignmentOptions.Center, bold: isHead);
-            UguiRuntimeFactory.Flexible(cell1, 1f);
-            var cell2 = UguiRuntimeFactory.Label(row, c2, 20f, normalColor, TextAlignmentOptions.Center, bold: isHead);
-            UguiRuntimeFactory.Flexible(cell2, 1f);
-            var cell3 = UguiRuntimeFactory.Label(row, c3, 20f, diffColor, TextAlignmentOptions.Center, bold: true);
-            UguiRuntimeFactory.Flexible(cell3, 1f);
-        }
-
-        private static void AddCondRow(Transform parent, string name, string value, Color valueColor)
-        {
-            var row = UguiRuntimeFactory.Container(parent, "CondRow");
-            UguiRuntimeFactory.HorizontalLayout(row.gameObject, 10f, null, TextAnchor.MiddleLeft);
-            UguiRuntimeFactory.Preferred(row.gameObject.AddComponent<LayoutElement>(), height: 34f);
-
-            var nameLbl = UguiRuntimeFactory.Label(row, name, 22f, new Color(1f, 1f, 1f, 0.70f));
-            UguiRuntimeFactory.Preferred(nameLbl, width: 130f, height: 30f);
-
-            var valLbl = UguiRuntimeFactory.Label(row, value, 22f, valueColor, TextAlignmentOptions.Left, bold: true);
-            UguiRuntimeFactory.Flexible(valLbl, 1f);
+            var go = Object.Instantiate(cat.itemStatCompareRow, table, false);
+            var view = go.GetComponent<StatCompareRowView>();
+            if (view == null) { Object.Destroy(go); return; }
+            view.Set(c0, c1, c2, c3, normalColor, diffColor, isHead);
         }
 
         private static void OnJobChangeClicked(Player player, JobData job)
@@ -1118,105 +1009,75 @@ namespace KingdomIdle.UGUI
 
         private static GameObject GetNavPrefab()
         {
-            return UIManager.Instance != null && UIManager.Instance.Catalog != null
-                ? UIManager.Instance.Catalog.itemNavTabButton
-                : null;
+            return Cat != null ? Cat.itemNavTabButton : null;
         }
 
-        private static RectTransform MakeEquipGrid(RectTransform content)
+        /// <summary>콘텐츠를 비우고 지정 프리팹을 스크롤 Content 에 인스턴스화한 뒤 View 를 반환.</summary>
+        private static T InstantiateContent<T>(GameObject prefab) where T : Component
         {
-            var grid = UguiRuntimeFactory.Container(content, "EquipGrid");
-            var layout = UguiRuntimeFactory.GridLayout(grid.gameObject, new Vector2(160f, 210f), new Vector2(10f, 10f));
-            layout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            layout.constraintCount = 6;
-            return grid;
-        }
+            if (_view == null || _view.content == null) return null;
 
-        private static RectTransform MakeJobGrid(RectTransform content)
-        {
-            var grid = UguiRuntimeFactory.Container(content, "JobGrid");
-            var layout = UguiRuntimeFactory.GridLayout(grid.gameObject, new Vector2(190f, 260f), new Vector2(12f, 12f));
-            layout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            layout.constraintCount = 5;
-            return grid;
-        }
+            ClearChildren(_view.content);
 
-        private static void AddEquippedFrame(Image card)
-        {
-            var frame = UguiRuntimeFactory.Box(card.transform, "EquippedFrame", new Color(80f / 255f, 200f / 255f, 120f / 255f, 1f));
-            frame.fillCenter = false;
-            UguiRuntimeFactory.Stretch(frame.rectTransform);
-            frame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
-        }
-
-        private static void AddCardFrame(Image card, Color color)
-        {
-            var frame = UguiRuntimeFactory.Box(card.transform, "StateFrame", color);
-            frame.fillCenter = false;
-            UguiRuntimeFactory.Stretch(frame.rectTransform);
-            frame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
-        }
-
-        private static void AddCardIcon(Transform parent, Sprite sprite)
-        {
-            var wrap = UguiRuntimeFactory.Container(parent, "IconWrap");
-            UguiRuntimeFactory.Preferred(wrap.gameObject.AddComponent<LayoutElement>(), height: 64f);
-            var icon = UguiRuntimeFactory.Box(wrap, "Icon", UguiTheme.SurfaceLight);
-            UguiRuntimeFactory.SetSize(icon.rectTransform, 60f, 60f);
-            icon.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-            icon.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-            icon.rectTransform.anchoredPosition = Vector2.zero;
-            if (sprite != null)
+            if (prefab == null)
             {
-                icon.sprite = sprite;
-                icon.color = Color.white;
-                icon.preserveAspect = true;
+                Debug.LogWarning($"[KingdomArmyPanel] 카탈로그의 {typeof(T).Name} 프리팹이 없습니다.");
+                return null;
             }
+
+            var go = Object.Instantiate(prefab, _view.content, false);
+            var comp = go.GetComponent<T>();
+            if (comp == null)
+            {
+                Debug.LogError($"[KingdomArmyPanel] {typeof(T).Name} 컴포넌트가 없습니다.");
+                Object.Destroy(go);
+                return null;
+            }
+            return comp;
         }
 
-        private static void AddCardLabel(Transform parent, string text, float size, Color color)
+        /// <summary>단독 안내 메시지 화면(Panel_KAMessage)을 콘텐츠에 표시.</summary>
+        private static void ShowMessageInContent(string message)
         {
-            var lbl = UguiRuntimeFactory.Label(parent, text, size, color, TextAlignmentOptions.Center);
-            UguiRuntimeFactory.Preferred(lbl, height: size + 8f);
+            var msg = InstantiateContent<KAMessageView>(Cat != null ? Cat.panelKAMessage : null);
+            if (msg != null) msg.Set(message);
         }
 
-        private static TMP_Text AddStatLine(RectTransform parent, string text)
+        /// <summary>액션 버튼(Item_ActionButton) 하나를 부모 행에 추가.</summary>
+        private static void AddActionButton(RectTransform parent, string text, Color bg, bool interactable, System.Action onClick)
         {
-            var lbl = UguiRuntimeFactory.Label(parent, text, 24f, StatLineColor);
-            UguiRuntimeFactory.Preferred(lbl, height: 32f);
-            return lbl;
+            var cat = Cat;
+            if (cat == null || cat.itemActionButton == null || parent == null) return;
+
+            var go = Object.Instantiate(cat.itemActionButton, parent, false);
+            var view = go.GetComponent<ActionButtonView>();
+            if (view == null) { Object.Destroy(go); return; }
+
+            view.Set(text, bg, interactable);
+            if (onClick != null) view.OnClick(onClick);
         }
 
-        private static void AddSectionTitle(string text)
+        /// <summary>아이콘 Image 에 스프라이트 적용 (스프라이트 없으면 원본 배경 유지).</summary>
+        private static void SetIconSprite(Image img, Sprite sprite)
         {
-            var lbl = UguiRuntimeFactory.Label(_view.content, text, 28f, UguiTheme.TextPrimary, TextAlignmentOptions.Left, bold: true);
-            UguiRuntimeFactory.Preferred(lbl, height: 40f);
+            if (img == null || sprite == null) return;
+            img.sprite = sprite;
+            img.color = Color.white;
+            img.type = Image.Type.Simple;
+            img.preserveAspect = true;
+            img.enabled = true;
         }
 
-        private static void AddSubsectionTitle(string text)
+        /// <summary>자식 전부 비활성화 후 파괴 (동적 리스트 재구성용).</summary>
+        private static void ClearChildren(Transform parent)
         {
-            var lbl = UguiRuntimeFactory.Label(_view.content, text, 24f, new Color(1f, 1f, 1f, 0.90f), TextAlignmentOptions.Left, bold: true);
-            UguiRuntimeFactory.Preferred(lbl, height: 34f);
-        }
-
-        /// <summary>.ka-job-section-title: 골드 + 좌측 4px 보더.</summary>
-        private static void AddJobSectionTitle(string text)
-        {
-            var row = UguiRuntimeFactory.Container(_view.content, "JobSectionTitle");
-            UguiRuntimeFactory.HorizontalLayout(row.gameObject, 10f, null, TextAnchor.MiddleLeft);
-            UguiRuntimeFactory.Preferred(row.gameObject.AddComponent<LayoutElement>(), height: 36f);
-
-            var bar = UguiRuntimeFactory.Box(row, "Bar", UguiTheme.AccentGoldStrong, rounded: false);
-            UguiRuntimeFactory.Preferred(bar, width: 4f, height: 26f);
-
-            var lbl = UguiRuntimeFactory.Label(row, text, 24f, UguiTheme.AccentGold, TextAlignmentOptions.Left, bold: true);
-            UguiRuntimeFactory.Flexible(lbl, 1f);
-        }
-
-        private static void AddPlaceholder(string msg)
-        {
-            var lbl = UguiRuntimeFactory.Label(_view.content, msg, 24f, PlaceholderColor, TextAlignmentOptions.Center);
-            UguiRuntimeFactory.Preferred(lbl, height: 60f);
+            if (parent == null) return;
+            for (int i = parent.childCount - 1; i >= 0; i--)
+            {
+                var child = parent.GetChild(i).gameObject;
+                child.SetActive(false);
+                Object.Destroy(child);
+            }
         }
 
         private static void ShowToast(string msg)

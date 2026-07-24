@@ -63,6 +63,17 @@ namespace KingdomIdle.UGUI.Editor
             ItemGens.GenerateEnhanceCard();
             ItemGens.GenerateSkillRow();
 
+            // 런타임 코드생성 → 프리팹 전환
+            PopupGens.GenerateMageEquipSlot();
+            PopupGens.GenerateMageSkillCell();
+            PopupGens.GenerateMageTowerEquipPopup();
+            MageTowerDetailPopupPrefabGens.GenerateMageTowerDetailPopup();
+            GuidePanelPrefabGens.GenerateAll();
+            DevelopmentPanelPrefabGens.GenerateAll();
+            GachaPanelPrefabGens.GenerateAll();
+            InventoryPanelPrefabGens.GenerateAll();
+            KingdomArmyPanelPrefabGens.GenerateAll();
+
             // 프리팹 참조 배선 (프리팹 생성 후)
             CatalogGen.AssignPrefabs(catalog);
 

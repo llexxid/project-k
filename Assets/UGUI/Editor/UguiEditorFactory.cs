@@ -58,12 +58,27 @@ namespace KingdomIdle.UGUI.Editor
             return img;
         }
 
-        /// <summary>테두리만 그리는 프레임 (Sliced + fillCenter=false).</summary>
+        /// <summary>등급·상태 테두리 프레임. LL 라운드 보더 스프라이트(속 빈)를 색상 틴트. 없으면 라운드 사각형 border.</summary>
         internal static Image Frame(Transform parent, string name, Color color)
         {
-            var img = Box(parent, name, color);
-            img.fillCenter = false;
-            Stretch(img.rectTransform);
+            var rt = Container(parent, name);
+            var img = rt.gameObject.AddComponent<Image>();
+            img.color = color;
+            img.raycastTarget = false;
+
+            var border = Catalog != null ? Catalog.frameBorder : null;
+            if (border != null)
+            {
+                img.sprite = border;                 // 속이 빈 LL 라운드 보더
+                img.type = Image.Type.Sliced;
+            }
+            else if (Rounded != null)
+            {
+                img.sprite = Rounded;
+                img.type = Image.Type.Sliced;
+                img.fillCenter = false;
+            }
+            Stretch(rt);
             return img;
         }
 
@@ -114,6 +129,18 @@ namespace KingdomIdle.UGUI.Editor
             var rt = Container(parent, name);
             var baseImg = rt.gameObject.AddComponent<Image>();
             baseImg.raycastTarget = raycast;
+
+            // Layer Lab 스프라이트(PPU≈100 + 올바른 9-slice 보더): 채워진 패널로 직접 렌더.
+            //  frameOnly=true(패널 의도) → baseColor(어두운 패널색)로 틴트,
+            //  frameOnly=false(테마 스프라이트를 그대로 보여줄 의도: 트랙/토글/타이틀) → 요청 tint 사용.
+            if (sprite != null && sprite.pixelsPerUnit >= 50f)
+            {
+                baseImg.sprite = sprite;
+                baseImg.type = Image.Type.Sliced;
+                // 패널(baseColor 지정)은 그 색, 카드/스트립은 tint로 채운다. (흰 마스터 → 실제 색)
+                baseImg.color = baseColor ?? tint;
+                return baseImg;
+            }
 
             if (!frameOnly && sprite != null)
             {
@@ -245,15 +272,8 @@ namespace KingdomIdle.UGUI.Editor
             return fillImg;
         }
 
-        /// <summary>요청 색과 가장 가까운 키트 게이지 스프라이트 선택.</summary>
-        internal static Sprite PickFillSprite(Color c)
-        {
-            if (Catalog == null) return null;
-            if (c.r > 0.7f && c.g > 0.6f && c.b < 0.5f) return Catalog.kitFillYellow;   // 앰버/골드
-            if (c.r > c.g && c.r > c.b) return Catalog.kitFillRed;
-            if (c.g > c.r && c.g > c.b) return Catalog.kitFillGreen;
-            return Catalog.kitFillBlue;
-        }
+        /// <summary>게이지 채움은 LL에선 흰색 라운드(roundedRect)를 색으로 틴트하므로 전용 스프라이트가 없다.</summary>
+        internal static Sprite PickFillSprite(Color c) => null;
 
         /// <summary>세로 마스크 (아래에서 차오름, 쿨다운용).</summary>
         internal static Image VFillMask(Transform parent, string name, Color color)

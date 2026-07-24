@@ -17,6 +17,7 @@ namespace KingdomIdle.UGUI
         [Header("Shared sprites")]
         public Sprite roundedRect;   // 흰색 9-slice 라운드 사각형 (틴트용)
         public Sprite circle;        // 흰색 원형 (틴트용)
+        public Sprite frameBorder;   // 셀/카드 등급·상태 테두리 (LL 라운드 보더, 등급색 틴트)
 
         [Header("Pixel art kit — panels/frames")]
         public Sprite kitWindow;        // 메인 윈도우 프레임 (시트/모달)
@@ -27,22 +28,14 @@ namespace KingdomIdle.UGUI
 
         [Header("Pixel art kit — buttons")]
         public Sprite kitBtnBlue;
-        public Sprite kitBtnBlueDown;
         public Sprite kitBtnGreen;
-        public Sprite kitBtnGreenDown;
         public Sprite kitBtnGrey;
-        public Sprite kitBtnGreyDown;
-        public Sprite kitBtnInactive;
         public Sprite kitToggleOn;
         public Sprite kitToggleOff;
 
         [Header("Pixel art kit — bars")]
-        public Sprite kitBarTrack;      // ScrollBarBg (트랙)
-        public Sprite kitFillBlue;
-        public Sprite kitFillGreen;
-        public Sprite kitFillRed;
-        public Sprite kitFillYellow;
-        public Sprite kitBarHandle;     // BubbleHandle (슬라이더 핸들)
+        public Sprite kitBarTrack;      // 슬라이더/게이지 트랙
+        public Sprite kitBarHandle;     // 슬라이더 핸들
 
         [Header("Pixel art kit — icons (글리프 대체)")]
         public Sprite iconX;            // 닫기 (✕ 대체)
@@ -83,7 +76,7 @@ namespace KingdomIdle.UGUI
 
         [Header("Popups")]
         public GameObject popupGachaResult;
-        // 마법탑 장착/상세 팝업은 원본(UITK)과 동일하게 100% 코드 생성 — 프리팹 없음
+        public GameObject popupMageTowerEquip;   // 마탑 스킬 장착 팝업 (프리팹화됨)
 
         [Header("Overlays")]
         public GameObject overlayLoading;
@@ -106,7 +99,28 @@ namespace KingdomIdle.UGUI
         public GameObject itemJobCard;         // 전직 카드
         public GameObject itemEnhanceCard;     // 육성 강화 카드
         public GameObject itemSkillRow;        // 스킬 행
-        // 그 외 복잡한 동적 행(캐릭터 시트/스탯 비교표 등)은 UguiRuntimeFactory 로 코드 생성.
-        // 반복되는 단순 위젯은 위 프리팹을 인스펙터에서 편집하면 전 화면에 반영된다.
+        public GameObject itemMageEquipSlot;   // 마탑 장착 슬롯 셀
+        public GameObject itemMageSkillCell;   // 마탑 보유 스킬 그리드 셀
+
+        [Header("프리팹 전환 (런타임 코드빌드 → 프리팹)")]
+        public GameObject popupMageTowerDetail;      // 마탑 스킬 상세 팝업
+        public GameObject bodyDevelopment;           // 육성 패널 본문
+        public GameObject gachaTabContent;           // 뽑기 탭 콘텐츠
+        public GameObject itemGuideStepRow;          // 가이드 단계 행
+        public GameObject itemGuideEmptyHint;        // 가이드 빈 힌트
+        public GameObject itemInventoryListPage;     // 인벤토리 리스트 페이지
+        public GameObject itemInventoryEquipDetail;  // 인벤토리 장비 상세 팝업
+
+        [Header("왕국군 서브뷰 프리팹")]
+        public GameObject panelKACharacterSheet;   // 캐릭터 시트
+        public GameObject panelKAEquipment;         // 장비 뷰
+        public GameObject panelKAEquipDetail;       // 장비 상세/액션
+        public GameObject panelKASkill;             // 스킬 뷰
+        public GameObject panelKAJobChange;         // 전직 뷰
+        public GameObject panelKAJobDetail;         // 전직 상세
+        public GameObject panelKAMessage;           // 안내 메시지
+        public GameObject itemStatCompareRow;       // 스탯 비교 행
+        // 모든 UI가 프리팹 기반 — 위 프리팹을 인스펙터에서 편집하면 전 화면에 반영된다.
+        // (런타임 코드빌드 UguiRuntimeFactory는 전면 프리팹화 완료로 제거됨. 데이터 N개는 item 프리팹 인스턴스화.)
     }
 }

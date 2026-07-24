@@ -18,6 +18,7 @@ namespace KingdomIdle.UGUI.Editor
 
             catalog.roundedRect = PrefabGenUtil.GetOrCreateRoundedRect();
             catalog.circle = PrefabGenUtil.GetOrCreateCircle();
+            catalog.frameBorder = UguiGenAssets.KitFrameBorder;
 
             catalog.panelOpenSfx = UguiGenAssets.SfxPanelOpen;
             catalog.panelCloseSfx = UguiGenAssets.SfxPanelClose;
@@ -30,19 +31,11 @@ namespace KingdomIdle.UGUI.Editor
             catalog.kitSlot = UguiGenAssets.KitSlot;
             catalog.kitEllipse = UguiGenAssets.KitEllipse;
             catalog.kitBtnBlue = UguiGenAssets.KitBtnBlue;
-            catalog.kitBtnBlueDown = UguiGenAssets.KitBtnBlueDown;
             catalog.kitBtnGreen = UguiGenAssets.KitBtnGreen;
-            catalog.kitBtnGreenDown = UguiGenAssets.KitBtnGreenDown;
             catalog.kitBtnGrey = UguiGenAssets.KitBtnGrey;
-            catalog.kitBtnGreyDown = UguiGenAssets.KitBtnGreyDown;
-            catalog.kitBtnInactive = UguiGenAssets.KitBtnInactive;
             catalog.kitToggleOn = UguiGenAssets.KitToggleOn;
             catalog.kitToggleOff = UguiGenAssets.KitToggleOff;
             catalog.kitBarTrack = UguiGenAssets.KitBarTrack;
-            catalog.kitFillBlue = UguiGenAssets.KitFillBlue;
-            catalog.kitFillGreen = UguiGenAssets.KitFillGreen;
-            catalog.kitFillRed = UguiGenAssets.KitFillRed;
-            catalog.kitFillYellow = UguiGenAssets.KitFillYellow;
             catalog.kitBarHandle = UguiGenAssets.KitBarHandle;
 
             catalog.iconX = UguiGenAssets.IconX;
@@ -83,6 +76,7 @@ namespace KingdomIdle.UGUI.Editor
             catalog.panelInventory = Load($"{p}/Panels/Panel_Inventory.prefab");
 
             catalog.popupGachaResult = Load($"{p}/Popups/Popup_GachaResult.prefab");
+            catalog.popupMageTowerEquip = Load($"{p}/Popups/Panel_MageTowerEquip.prefab");
 
             catalog.overlayLoading = Load($"{p}/Overlays/Overlay_Loading.prefab");
             catalog.overlayToast = Load($"{p}/Overlays/Overlay_Toast.prefab");
@@ -102,6 +96,25 @@ namespace KingdomIdle.UGUI.Editor
             catalog.itemJobCard = Load($"{p}/Items/Item_JobCard.prefab");
             catalog.itemEnhanceCard = Load($"{p}/Items/Item_EnhanceCard.prefab");
             catalog.itemSkillRow = Load($"{p}/Items/Item_SkillRow.prefab");
+            catalog.itemMageEquipSlot = Load($"{p}/Items/Item_MageEquipSlot.prefab");
+            catalog.itemMageSkillCell = Load($"{p}/Items/Item_MageSkillCell.prefab");
+
+            catalog.popupMageTowerDetail = Load($"{p}/Popups/Panel_MageTowerDetail.prefab");
+            catalog.bodyDevelopment = Load($"{p}/Panels/Body_Development.prefab");
+            catalog.gachaTabContent = Load($"{p}/Panels/GachaTabContent.prefab");
+            catalog.itemGuideStepRow = Load($"{p}/Items/Item_GuideStepRow.prefab");
+            catalog.itemGuideEmptyHint = Load($"{p}/Items/Item_GuideEmptyHint.prefab");
+            catalog.itemInventoryListPage = Load($"{p}/Items/Item_InventoryListPage.prefab");
+            catalog.itemInventoryEquipDetail = Load($"{p}/Items/Item_InventoryEquipDetail.prefab");
+
+            catalog.panelKACharacterSheet = Load($"{p}/Panels/Panel_KACharacterSheet.prefab");
+            catalog.panelKAEquipment = Load($"{p}/Panels/Panel_KAEquipment.prefab");
+            catalog.panelKAEquipDetail = Load($"{p}/Panels/Panel_KAEquipDetail.prefab");
+            catalog.panelKASkill = Load($"{p}/Panels/Panel_KASkill.prefab");
+            catalog.panelKAJobChange = Load($"{p}/Panels/Panel_KAJobChange.prefab");
+            catalog.panelKAJobDetail = Load($"{p}/Panels/Panel_KAJobDetail.prefab");
+            catalog.panelKAMessage = Load($"{p}/Panels/Panel_KAMessage.prefab");
+            catalog.itemStatCompareRow = Load($"{p}/Items/Item_StatCompareRow.prefab");
 
             EditorUtility.SetDirty(catalog);
             AssetDatabase.SaveAssets();

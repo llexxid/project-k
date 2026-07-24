@@ -13,6 +13,7 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal Button btnCurrency;
         [SerializeField] internal TMP_Text lblGold;
         [SerializeField] internal TMP_Text lblAncientCoin;
+        [SerializeField] internal Button btnAncientCoin;
         [SerializeField] internal Button btnHamburger;
         [SerializeField] internal RectTransform btnHamburgerRect;
 

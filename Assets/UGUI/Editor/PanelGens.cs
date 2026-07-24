@@ -47,9 +47,9 @@ namespace KingdomIdle.UGUI.Editor
             F.AnchorBottomStretch(sheetImg.rectTransform, UguiTheme.BottomBarHeight, sheetHeight);
             F.VLayout(sheetImg.gameObject, 14f, new RectOffset(30, 30, 24, 28));
 
-            // 헤더: 메탈 타이틀바 스트립(텍스처 채움) + 제목 + 닫기(X 아이콘)
+            // 헤더: 슬레이트 스트립(속 채운 9-slice, 어둡게 틴트) + 제목 + 닫기(X 아이콘)
             var header = F.PixelPanel(sheetImg.transform, "Header",
-                F.Catalog != null ? F.Catalog.kitTitleBar : null, Color.white, 14f, frameOnly: false);
+                F.Catalog != null ? F.Catalog.kitTitleBar : null, new Color(0.20f, 0.22f, 0.30f, 1f), 14f, frameOnly: false);
             F.HLayout(header.gameObject, 8f, new RectOffset(18, 10, 6, 6), TextAnchor.MiddleLeft);
             F.Preferred(header.gameObject.AddComponent<LayoutElement>(), height: 76f);
 

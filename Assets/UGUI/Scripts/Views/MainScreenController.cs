@@ -223,19 +223,32 @@ namespace KingdomIdle.UGUI
             if (_view.popupCurrencies != null)
                 _view.popupCurrencies.SetActive(false);
 
-            if (_view.btnCurrency != null && _view.popupCurrencies != null)
+            if (_view.popupCurrencies != null)
             {
-                _view.btnCurrency.onClick.AddListener(() =>
-                {
-                    RefreshTopCurrencyLabels();
-                    RebuildCurrencyPopupContents();
-
-                    if (_hamburgerOpen)
-                        CloseHamburgerMenuImmediate();
-
-                    ToggleCurrencyPopup();
-                });
+                if (_view.btnCurrency != null)
+                    _view.btnCurrency.onClick.AddListener(() => OnCurrencyChipTapped(premium: false));
+                if (_view.btnAncientCoin != null)
+                    _view.btnAncientCoin.onClick.AddListener(() => OnCurrencyChipTapped(premium: true));
             }
+        }
+
+        private bool _currencyPremiumGroup;
+
+        /// <summary>재화 칩 탭: 골드=무료 재화 목록, 고대주화=유료 재화 목록을 그 아래로 펼친다.</summary>
+        private void OnCurrencyChipTapped(bool premium)
+        {
+            RefreshTopCurrencyLabels();
+            if (_hamburgerOpen) CloseHamburgerMenuImmediate();
+
+            // 같은 칩 재탭 → 닫기, 다른 칩 탭 → 그룹 교체 후 열기
+            if (_currencyOpen && _currencyPremiumGroup == premium)
+            {
+                CloseCurrencyPopup();
+                return;
+            }
+            _currencyPremiumGroup = premium;
+            RebuildCurrencyPopupContents();
+            if (!_currencyOpen) OpenCurrencyPopup();
         }
 
         /// <summary>재화 변경 이벤트 구독 — 강화/가챠/전투 보상 시 즉시 HUD 갱신 (폴링 지연 보완).</summary>
@@ -292,17 +305,23 @@ namespace KingdomIdle.UGUI
             for (int i = content.childCount - 1; i >= 0; i--)
                 UnityEngine.Object.Destroy(content.GetChild(i).gameObject);
 
-            AddCurrencyLine(content, "재화 상세", isTitle: true);
+            AddCurrencyLine(content, _currencyPremiumGroup ? "유료 재화" : "보유 재화", isTitle: true);
 
-            // 상단에 이미 노출된 재화(Gold/AncientCoin)와 내부 로직용 재화는 숨긴다.
+            // 탭한 칩의 재화 그룹만 표시 (골드칩=무료/소프트, 고대주화칩=유료/프리미엄)
             var values = (eCurrency[])Enum.GetValues(typeof(eCurrency));
             foreach (var c in values)
             {
-                if (!IsDisplayedCurrency(c)) continue;
-                if (c == eCurrency.Gold || c == eCurrency.AncientCoin) continue;
-
+                if (!IsGroupCurrency(c, _currencyPremiumGroup)) continue;
                 AddCurrencyLine(content, $"{GetCurrencyLabelKor(c)}: {GetCurrencyText(c)}", isTitle: false);
             }
+        }
+
+        /// <summary>재화 그룹 분류: 프리미엄=고대주화, 무료=골드·비전지식·전직파편.</summary>
+        private static bool IsGroupCurrency(eCurrency c, bool premium)
+        {
+            bool isPremium = c == eCurrency.AncientCoin;
+            if (premium) return isPremium;
+            return c == eCurrency.Gold || c == eCurrency.ArcaneKnowledge || c == eCurrency.ClassFragment;
         }
 
         private void AddCurrencyLine(RectTransform parent, string text, bool isTitle)

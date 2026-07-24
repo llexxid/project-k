@@ -41,10 +41,12 @@ namespace KingdomIdle.UGUI.Editor
             var layerOverlays = F.Container(safeArea, "LayerOverlays");
             F.Stretch(layerOverlays);
 
-            // 데미지 텍스트 레이어 — 중첩 Canvas로 리빌드 격리 (레이캐스터 없음 = 입력 통과)
-            var damageLayer = F.Container(layerPopups, "DamageTextLayer");
+            // 데미지 텍스트 레이어 — 화면 레이어 최하단(게임 위, 다른 UI 아래)에 배치해
+            // 패널/HUD를 가리지 않게 한다. 중첩 Canvas로 리빌드 격리(레이캐스터 없음 = 입력 통과).
+            var damageLayer = F.Container(layerScreens, "DamageTextLayer");
             F.Stretch(damageLayer);
             damageLayer.gameObject.AddComponent<Canvas>();
+            damageLayer.SetAsFirstSibling();
 
             // ── 매니저 컴포넌트 ──
             var uiMgr = go.AddComponent<UIManager>();

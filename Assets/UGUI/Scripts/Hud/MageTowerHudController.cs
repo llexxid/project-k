@@ -228,32 +228,22 @@ namespace KingdomIdle.UGUI
                 int skillId = mgr != null ? mgr.GetEquippedSkillId(i) : -1;
                 var so = mgr != null && skillId >= 0 ? mgr.GetSkillById(skillId) : null;
 
-                if (so != null)
+                // 아이콘 슬롯이 실제로 배선돼 있고 스킬 아이콘이 있을 때만 아이콘 표시.
+                // 그 외에는 항상 스킬명(또는 빈 슬롯 "-")을 보여줘 '빈 박스'가 남지 않게 한다.
+                bool hasIcon = so != null && so.icon != null && slot.icon != null;
+                if (slot.icon != null) slot.icon.gameObject.SetActive(hasIcon);
+                if (hasIcon) slot.icon.sprite = so.icon;
+
+                if (slot.label != null)
                 {
-                    if (so.icon != null)
+                    if (so != null)
                     {
-                        if (slot.icon != null)
-                        {
-                            slot.icon.sprite = so.icon;
-                            slot.icon.gameObject.SetActive(true);
-                        }
-                        if (slot.label != null) slot.label.text = "";
+                        // 아이콘이 보이면 라벨 숨김, 아이콘이 없으면 스킬명 표시
+                        slot.label.text = hasIcon ? "" : so.nameKor;
+                        slot.label.fontSize = 22f;
+                        slot.label.color = UguiTheme.TextPrimary;
                     }
                     else
-                    {
-                        if (slot.icon != null) slot.icon.gameObject.SetActive(false);
-                        if (slot.label != null)
-                        {
-                            slot.label.text = so.nameKor;
-                            slot.label.fontSize = 22f;
-                            slot.label.color = UguiTheme.TextPrimary;
-                        }
-                    }
-                }
-                else
-                {
-                    if (slot.icon != null) slot.icon.gameObject.SetActive(false);
-                    if (slot.label != null)
                     {
                         slot.label.text = "-";
                         slot.label.fontSize = 28f;

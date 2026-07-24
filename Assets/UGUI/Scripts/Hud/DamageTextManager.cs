@@ -27,12 +27,15 @@ namespace KingdomIdle.UGUI
 
         private readonly Stack<TMP_Text> _pool = new();
         private readonly List<Entry> _active = new();
+        private int _spawnCount;
 
         private struct Entry
         {
             public TMP_Text Label;
             public Vector2 Start;
             public float StartTime;
+            public float DriftX;
+            public float BaseScale;
         }
 
         private void Awake()
@@ -60,11 +63,21 @@ namespace KingdomIdle.UGUI
                     continue;
                 }
 
-                // UGUI는 y+가 위 — 위로 상승
-                float y = Mathf.Lerp(e.Start.y, e.Start.y + risePixels, t);
                 var rt = e.Label.rectTransform;
-                rt.anchoredPosition = new Vector2(e.Start.x, y);
-                e.Label.alpha = 1f - t;
+
+                // 팝 스케일: 0.4 → 1.22(오버슈트) → 1.0 정착 (메이플스토리식 튀어나오는 느낌)
+                float s;
+                if (t < 0.16f) s = Mathf.Lerp(0.4f, 1.22f, t / 0.16f);
+                else if (t < 0.30f) s = Mathf.Lerp(1.22f, 1f, (t - 0.16f) / 0.14f);
+                else s = 1f;
+                rt.localScale = Vector3.one * (s * e.BaseScale);
+
+                // 이즈아웃 상승 + 좌우 흩뿌림 드리프트
+                float riseK = 1f - (1f - t) * (1f - t);
+                rt.anchoredPosition = new Vector2(e.Start.x + e.DriftX * t, e.Start.y + riseK * risePixels);
+
+                // 후반부(55%~)만 페이드아웃 — 숫자가 충분히 읽힌 뒤 사라짐
+                e.Label.alpha = t < 0.55f ? 1f : Mathf.Clamp01(1f - (t - 0.55f) / 0.45f);
             }
         }
 
@@ -100,21 +113,30 @@ namespace KingdomIdle.UGUI
 
             local += screenOffsetPx;
 
+            // 큰 피해일수록 크게·금색으로 → 타격감(크리티컬 같은 강조)
+            _spawnCount++;
+            float driftX = ((_spawnCount & 1) == 0 ? 1f : -1f) * (18f + (_spawnCount % 3) * 10f);
+            float baseScale = amount >= 100000 ? 1.4f : amount >= 10000 ? 1.18f : 1f;
+            Color col = overrideColor ?? (amount >= 10000 ? UguiTheme.AccentGoldStrong : UguiTheme.WarnRed);
+
             var lbl = GetOrCreate();
             lbl.text = amount.ToString("N0");
             lbl.alpha = 1f;
-            lbl.color = overrideColor ?? UguiTheme.WarnRed;
+            lbl.color = col;
 
             var rt = lbl.rectTransform;
             rt.SetParent(layer, false);
             rt.anchoredPosition = local;
+            rt.localScale = Vector3.one * baseScale;
             lbl.gameObject.SetActive(true);
 
             _active.Add(new Entry
             {
                 Label = lbl,
                 Start = local,
-                StartTime = Time.unscaledTime
+                StartTime = Time.unscaledTime,
+                DriftX = driftX,
+                BaseScale = baseScale
             });
         }
 
@@ -123,9 +145,10 @@ namespace KingdomIdle.UGUI
             if (layer != null) return;
 
             var mgr = UIManager.Instance;
-            if (mgr == null || mgr.LayerPopups == null) return;
+            // 데미지 텍스트는 게임 위·다른 UI 아래(화면 레이어 최하단)에 둔다 → 패널/HUD를 가리지 않음.
+            if (mgr == null || mgr.LayerScreens == null) return;
 
-            var existing = mgr.LayerPopups.Find("DamageTextLayer") as RectTransform;
+            var existing = mgr.LayerScreens.Find("DamageTextLayer") as RectTransform;
             if (existing != null)
             {
                 layer = existing;
@@ -134,12 +157,12 @@ namespace KingdomIdle.UGUI
 
             var go = new GameObject("DamageTextLayer", typeof(RectTransform));
             var rt = (RectTransform)go.transform;
-            rt.SetParent(mgr.LayerPopups, false);
+            rt.SetParent(mgr.LayerScreens, false);
             rt.anchorMin = Vector2.zero;
             rt.anchorMax = Vector2.one;
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
-            rt.SetAsLastSibling();
+            rt.SetAsFirstSibling();   // 화면 레이어의 맨 뒤(게임 위, 화면/패널 UI 아래)
             layer = rt;
         }
 
@@ -198,6 +221,7 @@ namespace KingdomIdle.UGUI
             if (lbl == null) return;
             lbl.gameObject.SetActive(false);
             lbl.alpha = 1f;
+            lbl.rectTransform.localScale = Vector3.one;
             _pool.Push(lbl);
         }
     }
