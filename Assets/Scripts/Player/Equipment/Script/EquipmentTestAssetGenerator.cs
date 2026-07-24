@@ -1,3 +1,6 @@
+// 에디터 전용 유틸리티(MenuItem/AssetDatabase/SerializedObject 등 UnityEditor API 사용).
+// 런타임 폴더에 있으므로 UNITY_EDITOR로 가드하지 않으면 플레이어 빌드에서 컴파일 실패한다.
+#if UNITY_EDITOR
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -138,3 +141,4 @@ public static class EquipmentTestAssetGenerator
         Directory.CreateDirectory(folderPath);
     }
 }
+#endif
