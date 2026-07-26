@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Security.Cryptography;
 using UnityEngine;
 
@@ -134,12 +135,16 @@ namespace Scripts.Core
 
             _enchantHPCount = enchantHpCount;
             _enchantATKCount = enchantAtkCount;
+            _maxStageDictionary = new Dictionary<eStageType, eStage>();
+            _maxStageList = new List<eStageType>();
 		}
 
         public long _exp;
         public long _killScore;
 		public string _nickname;
 		public eStage _currentStage;
+		public Dictionary<eStageType, eStage> _maxStageDictionary;
+		public List<eStageType> _maxStageList;
 		public int _level;
 		public ulong _enchantHPCount { get; set; }
 		public ulong _enchantATKCount { get; set; }

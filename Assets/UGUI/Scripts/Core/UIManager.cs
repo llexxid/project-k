@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using KingdomIdle.UI;
+using Scripts.Core;
+using Scripts.Core.Manager;
 
 namespace KingdomIdle.UGUI
 {
@@ -23,6 +25,7 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal RectTransform layerPanels;
         [SerializeField] internal RectTransform layerPopups;
         [SerializeField] internal RectTransform layerOverlays;
+        [SerializeField] internal RectTransform layerHud;
 
         [Header("Behaviour")]
         [SerializeField] private bool dontDestroyOnLoad = true;
@@ -77,6 +80,7 @@ namespace KingdomIdle.UGUI
         private ToastView _toast;
         private Coroutine _toastCo;
         private SettingsModalController _settings;
+        private StageManager _boundStageManager;
 
         // ── PlayerPrefs 키 (기존 값과 호환 유지 — 변경 금지) ──
         internal const string PrefKeyVolume = "settings_masterVolume";
@@ -143,6 +147,8 @@ namespace KingdomIdle.UGUI
 
         private void Update()
         {
+            EnsureStageManagerBinding();
+
             if (Input.GetKeyDown(KeyCode.Escape))
                 RequestBack();
 
@@ -151,7 +157,31 @@ namespace KingdomIdle.UGUI
 
         private void OnDestroy()
         {
+            BindStageManager(null);
             if (Instance == this) Instance = null;
+        }
+
+        private void EnsureStageManagerBinding()
+        {
+            if (_boundStageManager != StageManager.Instance)
+                BindStageManager(StageManager.Instance);
+        }
+
+        private void BindStageManager(StageManager stageManager)
+        {
+            if (_boundStageManager != null)
+                _boundStageManager.OnStageCleared -= HandleStageCleared;
+
+            _boundStageManager = stageManager;
+
+            if (_boundStageManager != null)
+                _boundStageManager.OnStageCleared += HandleStageCleared;
+        }
+
+        private static void HandleStageCleared(StageDefinition definition)
+        {
+            if (definition != null && definition.Type != eStageType.Main)
+                DungeonClearPopupController.Show(definition);
         }
 
         // ═══════════════════════════════════════════
@@ -198,14 +228,24 @@ namespace KingdomIdle.UGUI
                 }
                 case UIScreenId.Main:
                 {
-                    _activeScreenGo = InstantiateFullStretch(catalog != null ? catalog.screenMain : null, layerScreens, "Screen_Main");
+                    layerHud.gameObject.SetActive(true);
+
+                    var view = layerHud.GetComponentInChildren<MainScreenView>(true);
+                    if (view != null)
+                    {
+                        _mainController = new MainScreenController();
+                        _mainController.Bind(view, this);
+                    }
+
+                    break;
+                    /*_activeScreenGo = InstantiateFullStretch(catalog != null ? catalog.screenMain : null, layerScreens, "Screen_Main");
                     var view = _activeScreenGo != null ? _activeScreenGo.GetComponent<MainScreenView>() : null;
                     if (view != null)
                     {
                         _mainController = new MainScreenController();
                         _mainController.Bind(view, this);
                     }
-                    break;
+                    break;*/
                 }
                 default:
                     Debug.LogWarning($"[UIManager] '{id}' 화면은 아직 구현되지 않았습니다.");
@@ -297,6 +337,7 @@ namespace KingdomIdle.UGUI
                 case UIPanelId.KingdomArmy: prefab = catalog.panelKingdomArmy; break;
                 case UIPanelId.Development: prefab = catalog.panelDevelopment; break;
                 case UIPanelId.Inventory: prefab = catalog.panelInventory; break;
+                case UIPanelId.Dungeon: prefab = catalog.panelDungeon; break;
                 default: prefab = catalog.panelPlaceholder; break;
             }
 

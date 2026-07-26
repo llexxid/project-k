@@ -1,6 +1,5 @@
 ﻿using Newtonsoft.Json;
 using PlayFab.CloudScriptModels;
-using Scripts.Core.Manager;
 using Scripts.Core.SO;
 using Scripts.Core.Utils;
 using Scripts.Monster.SO;
@@ -12,7 +11,6 @@ using Core.Stage;
 using Cysharp.Threading.Tasks;
 using Scripts.Users;
 using UnityEngine;
-using static Scripts.Core.SO.StageMetaDataSO;
 
 namespace Scripts.Core.Manager
 {
@@ -77,6 +75,9 @@ namespace Scripts.Core.Manager
         public event Action<StageDefinition, Monster> OnMonsterKilled;
 		#endregion
 		#region 필드 / 상태
+
+		public eStage GoldDungeonProgress = eStage.GoldDungeon2_1;
+		public eStage RubyDungeonProgress = eStage.RubyDungeon3_1;
 
         [SerializeField]
         private StageDatabaseSO _stageDatabaseSO;
@@ -225,28 +226,51 @@ namespace Scripts.Core.Manager
 		}
 
 		#endif
+		public bool IsDungeonStageUnlocked(eStage stage)
+		{
+			eStage progress = StageParser.GetStageType(stage) switch
+			{
+				eStageType.GoldDungeon => GoldDungeonProgress,
+				eStageType.RubyDungeon => RubyDungeonProgress,
+				_ => throw new ArgumentException("던전 스테이지가 아닙니다.")
+			};
+
+			return StageParser.GetStageNumber(stage)
+			       <= StageParser.GetStageNumber(progress);
+		}
+
 		public void EnterGoldDungeon()
 		{
-			if (_currentState != eStageRunState.Running ||
-			    _currentSession?.Definition.Type != eStageType.Main)
-			{
-				return;
-			}
-			
-			CaptureMainStageSnapshot();
-			TransitionStage(eStage.GoldDungeon1_1);
+			TryEnterDungeon(eStage.GoldDungeon1_1);
 		}
 
 		public void EnterRubyDungeon()
 		{
+			TryEnterDungeon(eStage.RubyDungeon1_1);
+		}
+
+		public bool TryEnterDungeon(eStage stage)
+		{
 			if (_currentState != eStageRunState.Running ||
 			    _currentSession?.Definition.Type != eStageType.Main)
 			{
-				return;
+				return false;
 			}
+
+			eStageType type = StageParser.GetStageType(stage);
+			if (type != eStageType.GoldDungeon &&
+			    type != eStageType.RubyDungeon)
+			{
+				return false;
+			}
+
+			if (!IsDungeonStageUnlocked(stage))
+				return false;
+
 			CaptureMainStageSnapshot();
-			TransitionStage(eStage.RubyDungeon1_1);
+			return TransitionStage(stage);
 		}
+
 		public void ReturnToMainStage()
 		{
 			if (StageParser.GetStageType(_currentStage) == eStageType.Main || _currentState == eStageRunState.Transitioning) return;
@@ -349,12 +373,7 @@ namespace Scripts.Core.Manager
 			StageDefinition definition =
 				session.Definition;
 
-			if (definition.Type == eStageType.Main)
-			{
-				UpdateMaxClearedStage(
-					definition.MainStageId);
-			}
-
+			UpdateMaxClearedStage(definition);
 			OnStageCleared?.Invoke(definition);
 		}
 		private bool TransitionStage(eStage target)
@@ -672,14 +691,37 @@ namespace Scripts.Core.Manager
 			return (ulong)stage <= (ulong)maxStage;
 		}
 
-		private void UpdateMaxClearedStage(eStage? clearedStage)
+		private void UpdateMaxClearedStage(StageDefinition definition)
 		{
-			if (clearedStage == null) //클리어한 스테이지가 메인이 아니라 던전일경우
+			switch (definition.Type)
 			{
-				return;
+				case eStageType.Main:
+					var clearedStage = definition.Id;
+					if ((ulong)clearedStage > (ulong)maxStage)
+						maxStage = clearedStage;
+					break;
+				case eStageType.GoldDungeon:
+					AdvanceDungeonProgress(ref GoldDungeonProgress, definition);
+					break;
+				case eStageType.RubyDungeon:
+					AdvanceDungeonProgress(ref RubyDungeonProgress, definition);
+					break;
 			}
-			if ((ulong)clearedStage > (ulong)maxStage)
-				maxStage = (eStage)clearedStage;
+		}
+
+		private static void AdvanceDungeonProgress(
+			ref eStage progress,
+			StageDefinition definition)
+		{
+			if (!definition.NextDifficultyId.HasValue)
+				return;
+
+			eStage nextStage = definition.NextDifficultyId.Value;
+			if (StageParser.GetStageNumber(nextStage) >
+			    StageParser.GetStageNumber(progress))
+			{
+				progress = nextStage;
+			}
 		}
 
 		private void HandleMonsterKilled(StageSession session, Monster monster)

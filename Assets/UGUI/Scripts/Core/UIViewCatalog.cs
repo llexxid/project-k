@@ -80,9 +80,11 @@ namespace KingdomIdle.UGUI
         public GameObject panelKingdomArmy;
         public GameObject panelDevelopment;
         public GameObject panelInventory;
+        public GameObject panelDungeon;
 
         [Header("Popups")]
         public GameObject popupGachaResult;
+        public GameObject popupDungeonClear;
         // 마법탑 장착/상세 팝업은 원본(UITK)과 동일하게 100% 코드 생성 — 프리팹 없음
 
         [Header("Overlays")]
