@@ -184,6 +184,25 @@ namespace KingdomIdle.UGUI.Editor
             var profileIcon = F.IconImage(profile.transform, "Icon", UguiGenAssets.IconUser, 56f, 56f);
             F.AnchorCenter(profileIcon.rectTransform, 56f, 56f);
 
+            // 레벨 훈장 배지 (LL Badge_Crimped, 8각 별 — 초상화 우하단에 겹침)
+            var badge = F.Container(profile.transform, "LevelBadge");
+            var badgeImg = badge.gameObject.AddComponent<Image>();
+            badgeImg.sprite = UguiGenAssets.BadgeCrimped;
+            badgeImg.color = new Color(0.95f, 0.72f, 0.24f, 1f);   // 금색 훈장
+            badgeImg.raycastTarget = false;
+            badgeImg.preserveAspect = true;
+            badge.anchorMin = new Vector2(1f, 0f); badge.anchorMax = new Vector2(1f, 0f); badge.pivot = new Vector2(1f, 0f);
+            badge.anchoredPosition = new Vector2(8f, -6f);
+            badge.sizeDelta = new Vector2(54f, 54f);
+            var badgeShadow = badge.gameObject.AddComponent<Shadow>();
+            badgeShadow.effectColor = new Color(0f, 0f, 0f, 0.5f);
+            badgeShadow.effectDistance = new Vector2(0f, -2f);
+            var lvlLbl = F.Text(badge, "Lvl", "1", 28f, new Color(0.16f, 0.11f, 0.02f, 1f), TextAlignmentOptions.Center, bold: true);
+            var lvlRt = lvlLbl.rectTransform;
+            F.Stretch(lvlRt);
+            lvlRt.offsetMin = new Vector2(0f, 2f); lvlRt.offsetMax = new Vector2(0f, 0f);
+            view.lblProfileLevel = lvlLbl;
+
             var nick = F.Text(leftWrap, "LblNickname", "닉네임", 34f, UguiTheme.TextPrimary, TextAlignmentOptions.Left, bold: true);
             F.Preferred(nick, width: 240f, height: 44f);
             view.lblNickname = nick;
@@ -350,10 +369,34 @@ namespace KingdomIdle.UGUI.Editor
 
         private static MainTabButtonView MakeTabButton(Transform parent, string name, Sprite icon, string label)
         {
-            // 탭 배경 — 어두운 슬레이트 기본(선택 시 SetSelected가 파란색 강조). 상업 게임식 하단 탭.
-            var bg = F.Box(parent, name, new Color(0.13f, 0.15f, 0.22f, 1f), rounded: true, raycast: true);
+            // 탭 배경 — LL Button_01 정품 룩(Bg 스프라이트=그라디언트+외곽선 구움)을 어두운 슬레이트로 틴트.
+            // 선택 시 SetSelected가 파란색 강조. 상업 게임식 하단 탭.
+            var bg = F.Box(parent, name, new Color(0.15f, 0.17f, 0.24f, 1f), rounded: true, raycast: true);
             F.Flexible(bg, flexWidth: 1f);
             F.Preferred(bg, height: 150f);
+            if (F.Catalog != null && F.Catalog.kitBtnGrey != null)
+            {
+                bg.sprite = F.Catalog.kitBtnGrey;   // Button_01_White_Bg
+                bg.type = Image.Type.Sliced;
+                bg.pixelsPerUnitMultiplier = 1f;
+            }
+
+            // 입체감: 아래 드롭 섀도우(검정, Linear 안전) + LL 정품 이너 림.
+            var tabShadow = bg.gameObject.AddComponent<UnityEngine.UI.Shadow>();
+            tabShadow.effectColor = new Color(0f, 0f, 0f, 0.5f);
+            tabShadow.effectDistance = new Vector2(0f, -4f);
+            tabShadow.useGraphicAlpha = true;
+            if (F.Catalog != null && F.Catalog.kitBtnBorder != null)
+            {
+                var rim = F.Box(bg.transform, "InnerRim", new Color(1f, 1f, 1f, 0.7f));
+                rim.sprite = F.Catalog.kitBtnBorder;
+                rim.type = Image.Type.Sliced;
+                var rrt = rim.rectTransform;
+                rrt.anchorMin = Vector2.zero; rrt.anchorMax = Vector2.one;
+                rrt.offsetMin = new Vector2(4f, 4f); rrt.offsetMax = new Vector2(-4f, -7f);
+                rim.raycastTarget = false;
+                rim.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            }
 
             var tab = bg.gameObject.AddComponent<MainTabButtonView>();
             tab.background = bg;

@@ -196,12 +196,17 @@ namespace KingdomIdle.UGUI.Editor
         {
             var card = F.Box(null, "Item_EquipCell", UguiTheme.SurfaceFaint, rounded: true, raycast: true);
             var view = card.gameObject.AddComponent<EquipCellView>();
-            view.button = F.ButtonOn(card);
+            view.button = F.ButtonOn(card, gloss: false);   // 콘텐츠 셀 — 광택 끔(글자 가림 방지)
             view.background = card;
             view.dimGroup = card.gameObject.AddComponent<CanvasGroup>();
             F.VLayout(card.gameObject, 4f, new RectOffset(6, 6, 8, 8), TextAnchor.UpperCenter, expandWidth: true);
 
-            // 장착 초록 테두리 (기본 비활성)
+            // 상시 등급색 테두리 (아이템 카드 느낌 — Set에서 등급색으로 틴트)
+            var rframe = F.Frame(card.transform, "RarityFrame", UguiTheme.RarityNormal);
+            rframe.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            view.rarityFrame = rframe;
+
+            // 장착 초록 테두리 (기본 비활성 — 장착 시 등급 테두리 대신 표시)
             var frame = F.Frame(card.transform, "EquippedFrame", new Color(80f / 255f, 200f / 255f, 120f / 255f, 1f));
             frame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
             frame.gameObject.SetActive(false);
@@ -236,7 +241,7 @@ namespace KingdomIdle.UGUI.Editor
             var card = F.Box(null, "Item_JobCard", new Color(1f, 1f, 1f, 0.07f), rounded: true, raycast: true);
             var view = card.gameObject.AddComponent<JobCardView>();
             view.background = card;
-            view.button = F.ButtonOn(card);
+            view.button = F.ButtonOn(card, gloss: false);   // 콘텐츠 셀 — 광택 끔
             F.VLayout(card.gameObject, 6f, new RectOffset(8, 8, 12, 8), TextAnchor.UpperCenter, expandWidth: true);
 
             var frame = F.Frame(card.transform, "StateFrame", new Color(1f, 230f / 255f, 100f / 255f, 1f));

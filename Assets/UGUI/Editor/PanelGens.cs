@@ -47,16 +47,12 @@ namespace KingdomIdle.UGUI.Editor
             F.AnchorBottomStretch(sheetImg.rectTransform, UguiTheme.BottomBarHeight, sheetHeight);
             F.VLayout(sheetImg.gameObject, 14f, new RectOffset(30, 30, 24, 28));
 
-            // 헤더(데모 스타일): 중앙 제목 + ◇ 데코 디바이더 + 우상단 원형 닫기 버튼
+            // 헤더(데모 스타일): LL 리본 배너에 얹은 중앙 제목 + 우상단 원형 닫기 버튼
             var header = F.Container(sheetImg.transform, "Header");
             F.VLayout(header.gameObject, 2f, new RectOffset(70, 70, 2, 2), TextAnchor.UpperCenter);
-            F.Preferred(header.gameObject.AddComponent<LayoutElement>(), height: 86f);
+            F.Preferred(header.gameObject.AddComponent<LayoutElement>(), height: 112f);
 
-            var titleLbl = F.Text(header, "LblPanelName", title, 40f, UguiTheme.TextPrimary,
-                TextAlignmentOptions.Center, bold: true);
-            F.Preferred(titleLbl, height: 52f);
-
-            F.DecoDivider(header);
+            var titleLbl = F.HeaderBanner(header, title);
 
             // 닫기 — 시트 우상단 절대 위치(레이아웃 무시)
             var closeImg = F.CircleBox(sheetImg.transform, "BtnPanelClose", new Color(0.62f, 0.24f, 0.24f, 1f), raycast: true);

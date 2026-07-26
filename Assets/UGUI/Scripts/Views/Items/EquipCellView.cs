@@ -18,6 +18,7 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal TMP_Text subLabel;    // 스탯
         [SerializeField] internal TMP_Text stateLabel;  // "장착 중" 등
         [SerializeField] internal Image equippedFrame;  // 장착 시 초록 테두리
+        [SerializeField] internal Image rarityFrame;    // 상시 등급색 테두리 (아이템 카드 느낌)
         [SerializeField] internal CanvasGroup dimGroup; // 직업 불가 시 흐리게
         [SerializeField] internal Image background;     // 셀 배경 (등급색 다크 틴트)
 
@@ -35,6 +36,12 @@ namespace KingdomIdle.UGUI
             if (nameLabel != null) { nameLabel.text = name; nameLabel.color = nameColor; }
             if (subLabel != null) subLabel.text = sub;
             if (rarityBar != null) rarityBar.color = rarityColor;
+            // 상시 등급 테두리(장착 중이 아니면 표시) — 아이템 카드처럼 또렷한 등급 테두리
+            if (rarityFrame != null)
+            {
+                rarityFrame.color = rarityColor;
+                rarityFrame.gameObject.SetActive(!equipped);
+            }
             // 셀 배경을 등급색으로 살짝 물들여 등급감을 강조(텍스트 가독성 위해 어둡게 바이어스)
             if (background != null)
                 background.color = Color.Lerp(rarityColor, new Color(0.09f, 0.10f, 0.14f, 1f), 0.64f);

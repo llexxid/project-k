@@ -10,6 +10,7 @@ namespace KingdomIdle.UGUI
         [Header("Top HUD")]
         [SerializeField] internal Button btnProfile;
         [SerializeField] internal TMP_Text lblNickname;
+        [SerializeField] internal TMP_Text lblProfileLevel;
         [SerializeField] internal Button btnCurrency;
         [SerializeField] internal TMP_Text lblGold;
         [SerializeField] internal TMP_Text lblAncientCoin;

@@ -304,7 +304,9 @@ namespace KingdomIdle.UGUI.Editor
         {
             var go = (GameObject)PrefabUtility.InstantiatePrefab(cat.itemEquipCell);
             go.transform.SetParent(parent, false);
-            go.GetComponent<EquipCellView>()?.Set(null, name, nameColor, sub, rarity, equipped, dim, state);
+            // 샘플 무기 아이콘으로 셀 레이아웃 검증 (실게임은 item.baseData.icon 사용)
+            var sampleIcon = UguiGenAssets.IconSword;
+            go.GetComponent<EquipCellView>()?.Set(sampleIcon, name, nameColor, sub, rarity, equipped, dim, state);
         }
 
         private static void MakeJobCard(Transform parent, UIViewCatalog cat, string jobName, string badge, Color badgeC, string stat, string frag, Color fragC, string prereq, Color bg, Color? frame)
@@ -323,6 +325,59 @@ namespace KingdomIdle.UGUI.Editor
             var go = (GameObject)PrefabUtility.InstantiatePrefab(cat.itemSkillRow);
             go.transform.SetParent(parent, false);
             go.GetComponent<SkillRowView>()?.Set(name, detail, passive);
+        }
+
+        /// <summary>Layer Lab 원본 프리팹 갤러리 렌더 — 실제 에셋 컴포넌트 외형 확인용.</summary>
+        internal static void CaptureLLGallery()
+        {
+            Directory.CreateDirectory(OutDir);
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            var camGo = new GameObject("Cam");
+            var cam = camGo.AddComponent<Camera>();
+            cam.orthographic = true; cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.12f, 0.13f, 0.16f, 1f);
+            cam.transform.position = new Vector3(0, 0, -100);
+
+            var canvasGo = new GameObject("Canvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            var canvas = canvasGo.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = cam; canvas.planeDistance = 10f;
+            var scaler = canvasGo.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(W, H); scaler.matchWidthOrHeight = 0.5f;
+
+            string[] names = {
+                "Button_03_Blue", "Button_01_Green", "Button_02_Red", "Button_Auto_01",
+                "Tab_01", "Popup_Box_02_DecoLine_Basic_Blue", "PanelFrame_03",
+                "CardFrame_02_Blue", "ItemFrame_02_Blue", "Title_LineDeco_01_l", "Slider_01_Blue",
+            };
+            float y = 850f;
+            foreach (var n in names)
+            {
+                var prefab = FindLLPrefab(n);
+                if (prefab == null) { Debug.LogWarning($"[LLGallery] 없음: {n}"); continue; }
+                var inst = (GameObject)PrefabUtility.InstantiatePrefab(prefab, scene);
+                var rt = inst.transform as RectTransform;
+                rt.SetParent(canvas.transform, false);
+                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.anchoredPosition = new Vector2(0f, y);
+                float h = rt.sizeDelta.y > 10f ? rt.sizeDelta.y : 120f;
+                y -= h + 44f;
+            }
+            Canvas.ForceUpdateCanvases();
+            Render(cam, Path.Combine(OutDir, "ll_gallery.png"));
+            Debug.Log("[Preview] LL 갤러리 캡처 완료: " + Path.Combine(OutDir, "ll_gallery.png"));
+        }
+
+        private static GameObject FindLLPrefab(string exactName)
+        {
+            foreach (var g in AssetDatabase.FindAssets($"{exactName} t:Prefab", new[] { "Assets/ExternalAssets/Layer Lab" }))
+            {
+                var path = AssetDatabase.GUIDToAssetPath(g);
+                if (Path.GetFileNameWithoutExtension(path) == exactName)
+                    return AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            }
+            return null;
         }
 
         private static void Render(Camera cam, string path)

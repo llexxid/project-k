@@ -53,12 +53,14 @@ namespace KingdomIdle.UGUI.Editor
         internal static Sprite KitSlot => LL("ItemFrame_02_White_Bg");     // 아이템 슬롯 배경(속 채움)
         internal static Sprite KitEllipse => LL("BasicFrame_Circle_H68_White_Bg"); // 원형 배경(속 채움)
         internal static Sprite KitFrameBorder => LL("BasicFrame_Rectangle_01~04_White_Border1"); // 셀/카드 등급·상태 테두리(속 빈 라운드 보더)
+        internal static Sprite TitleBanner => LL("Title_01_NoDeco_Navy"); // 패널 헤더 리본 배너(가로 9-slice, 접힌 끝)
+        internal static Sprite BadgeCrimped => LL("Badge_Crimped_01_White_Bg"); // 레벨/랭크 훈장 배지(8각 별)
 
         // ── 버튼 (Layer Lab Button_01: 흰색 Bg를 accent로 틴트, 눌림은 스케일 애니메이션) ──
         internal static Sprite KitBtnBlue => LL("Button_01_White_Bg");
         internal static Sprite KitBtnGreen => LL("Button_01_White_Bg");
         internal static Sprite KitBtnGrey => LL("Button_01_White_Bg");
-        internal static Sprite KitBtnBorder => LL("Button_01_White_InnerBorder2"); // 어두운 외곽선 오버레이
+        internal static Sprite KitBtnBorder => LL("Button_01_White_InnerBorder1"); // 정품 이너 림(광택/입체) — LL Button_01 베이스와 동일
         // 눌림/비활성은 UIButtonPress 스케일 + ColorBlock disabledColor로 처리(SpriteSwap 미사용).
 
         // ── 토글/스위치 (Layer Lab Dark 테마, 이미 채색됨 → 틴트 없이 사용) ──

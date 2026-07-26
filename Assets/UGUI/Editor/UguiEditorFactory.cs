@@ -13,6 +13,7 @@ namespace KingdomIdle.UGUI.Editor
     internal static class F
     {
         internal static TMP_FontAsset Font;
+        internal static Material OutlineMat;      // 굵은 텍스트용 다크 아웃라인 머티리얼
         internal static Sprite Rounded;
         internal static Sprite Circle;
         internal static UIViewCatalog Catalog;   // GenerateAll이 공용 에셋 배선 후 주입
@@ -20,6 +21,7 @@ namespace KingdomIdle.UGUI.Editor
         internal static void Init()
         {
             Font = UguiGenAssets.Font;
+            OutlineMat = CatalogGen.GetOrCreateUIOutlineMaterial();
             Rounded = PrefabGenUtil.GetOrCreateRoundedRect();
             Circle = PrefabGenUtil.GetOrCreateCircle();
         }
@@ -139,6 +141,28 @@ namespace KingdomIdle.UGUI.Editor
                 baseImg.type = Image.Type.Sliced;
                 // 패널(baseColor 지정)은 그 색, 카드/스트립은 tint로 채운다. (흰 마스터 → 실제 색)
                 baseImg.color = baseColor ?? tint;
+
+                if (frameOnly)   // 패널/팝업 의도 → LL 프레임 룩: 두꺼운 다크 아웃라인 + 은은한 이너 프레임
+                {
+                    var ol = baseImg.gameObject.AddComponent<Outline>();
+                    ol.effectColor = new Color(0f, 0f, 0f, 0.85f);
+                    ol.effectDistance = new Vector2(4f, 4f);
+                    ol.useGraphicAlpha = true;
+
+                    if (Catalog != null && Catalog.frameBorder != null)
+                    {
+                        var innerFrame = Container(baseImg.transform, "InnerFrame");
+                        Stretch(innerFrame);
+                        innerFrame.offsetMin = new Vector2(7f, 7f);
+                        innerFrame.offsetMax = new Vector2(-7f, -7f);
+                        var fi = innerFrame.gameObject.AddComponent<Image>();
+                        fi.sprite = Catalog.frameBorder;
+                        fi.type = Image.Type.Sliced;
+                        fi.color = new Color(1f, 1f, 1f, 0.16f);
+                        fi.raycastTarget = false;
+                        innerFrame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+                    }
+                }
                 return baseImg;
             }
 
@@ -190,10 +214,12 @@ namespace KingdomIdle.UGUI.Editor
             tmp.enableWordWrapping = wrap;
             tmp.overflowMode = wrap ? TextOverflowModes.Overflow : TextOverflowModes.Ellipsis;
             tmp.raycastTarget = false;
+            // 굵은 텍스트엔 다크 아웃라인(상업 게임식 또렷함). 얇은 본문은 기본 머티리얼 유지.
+            if (bold && OutlineMat != null) tmp.fontSharedMaterial = OutlineMat;
             return tmp;
         }
 
-        internal static Button ButtonOn(Image target)
+        internal static Button ButtonOn(Image target, bool gloss = true)
         {
             var btn = target.gameObject.AddComponent<Button>();
             btn.targetGraphic = target;
@@ -202,8 +228,8 @@ namespace KingdomIdle.UGUI.Editor
             target.raycastTarget = true;
             target.gameObject.AddComponent<PlayClickSfxOnClick>();
 
-            // 픽셀 키트 버튼 스킨 (요청 색 → Blue/Green 전용 스프라이트 또는 Grey 틴트, 눌림/비활성 상태 포함)
-            UguiPixelSkin.ApplyButton(target, btn, target.color, Catalog);
+            // LL 버튼 스킨(다크 아웃라인 + 광택). 콘텐츠 셀은 gloss:false로 글자 가림 방지.
+            UguiPixelSkin.ApplyButton(target, btn, target.color, Catalog, gloss);
             return btn;
         }
 
@@ -228,6 +254,49 @@ namespace KingdomIdle.UGUI.Editor
             btn.targetGraphic = img;
             btn.transition = Selectable.Transition.None;
             return btn;
+        }
+
+        /// <summary>
+        /// LL 리본 배너 헤더 (Title_01_NoDeco, 가로 9-slice — 접힌 끝 + 중앙 박스).
+        /// 배너 중앙 박스에 제목 텍스트를 얹는다. 없으면 일반 텍스트 + ◇디바이더로 폴백.
+        /// 반환: 제목 라벨(뷰 배선용).
+        /// </summary>
+        internal static TextMeshProUGUI HeaderBanner(Transform parent, string title, float width = 460f, float height = 104f, float fontSize = 38f)
+        {
+            var wrap = Container(parent, "TitleBanner");
+            wrap.gameObject.AddComponent<LayoutElement>().preferredHeight = height + 6f;
+
+            var banner = Catalog != null ? Catalog.titleBanner : null;
+            if (banner != null)
+            {
+                var bImg = banner != null ? Container(wrap, "Banner") : null;
+                var img = bImg.gameObject.AddComponent<Image>();
+                img.sprite = banner;
+                img.type = Image.Type.Sliced;
+                img.color = Color.white;
+                img.raycastTarget = false;
+                AnchorCenter(bImg, width, height);
+                // 아래로 떨어지는 그림자로 헤더가 시트에서 살짝 떠 보이게
+                var sh = img.gameObject.AddComponent<Shadow>();
+                sh.effectColor = new Color(0f, 0f, 0f, 0.4f);
+                sh.effectDistance = new Vector2(0f, -3f);
+
+                // 제목 텍스트 — 배너 중앙 박스 (접힌 끝 안쪽 + 꼬리 위로 살짝 올림)
+                var titleLbl = Text(bImg, "LblTitle", title, fontSize, UguiTheme.TextPrimary, TextAlignmentOptions.Center, bold: true);
+                var trt = titleLbl.rectTransform;
+                trt.anchorMin = Vector2.zero; trt.anchorMax = Vector2.one;
+                trt.offsetMin = new Vector2(width * 0.24f, height * 0.20f);
+                trt.offsetMax = new Vector2(-width * 0.24f, -height * 0.06f);
+                return titleLbl;
+            }
+
+            // 폴백: 일반 중앙 제목 + ◇ 디바이더
+            var lbl = Text(wrap, "LblTitle", title, fontSize, UguiTheme.TextPrimary, TextAlignmentOptions.Center, bold: true);
+            var lrt = lbl.rectTransform;
+            lrt.anchorMin = new Vector2(0f, 0.35f); lrt.anchorMax = new Vector2(1f, 1f);
+            lrt.offsetMin = Vector2.zero; lrt.offsetMax = Vector2.zero;
+            DecoDivider(wrap);
+            return lbl;
         }
 
         /// <summary>데모식 ◇ 데코 디바이더 (얇은 라인 + 중앙 회전 다이아몬드). 헤더/섹션 구분용.</summary>

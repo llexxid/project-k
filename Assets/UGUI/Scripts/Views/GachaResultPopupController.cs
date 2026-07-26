@@ -63,6 +63,7 @@ namespace KingdomIdle.UGUI
             BindButtons(view, table, lastPullCount);
 
             _instanceGo.transform.SetAsLastSibling();
+            if (view.box != null) UITween.PopIn(view.box);
         }
 
         public static void Close()

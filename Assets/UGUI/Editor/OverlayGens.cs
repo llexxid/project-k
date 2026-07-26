@@ -87,13 +87,8 @@ namespace KingdomIdle.UGUI.Editor
             panelFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             view.panel = panel.rectTransform;
 
-            // 타이틀바 — 슬레이트 스트립(속 채운 9-slice, 어둡게 틴트)
-            var titleBar = F.PixelPanel(panel.transform, "TitleBar",
-                F.Catalog != null ? F.Catalog.kitTitleBar : null, new Color(0.20f, 0.22f, 0.30f, 1f), 14f, frameOnly: false);
-            F.Preferred(titleBar, height: 64f);
-            var title = F.Text(titleBar.transform, "Title", "환경설정", 30f, UguiTheme.TextPrimary,
-                TextAlignmentOptions.Center, bold: true);
-            F.Stretch(title.rectTransform);
+            // 헤더(데모 스타일): LL 리본 배너에 얹은 중앙 제목
+            F.HeaderBanner(panel.transform, "환경설정");
 
             // 정보 행: 서버 + 버전
             var infoRow = F.Container(panel.transform, "InfoRow");
@@ -210,11 +205,11 @@ namespace KingdomIdle.UGUI.Editor
                 F.FrameGold, 24f, raycast: true, baseColor: F.PanelBaseDarker);
             F.AnchorCenter(popup.rectTransform, 700f, 1150f);
             F.VLayout(popup.gameObject, 14f, new RectOffset(28, 28, 26, 26));
+            view.box = popup.rectTransform;
 
-            // 제목
-            var title = F.Text(popup.transform, "Title", "뽑기 결과", 32f, UguiTheme.AccentGoldStrong,
-                TextAlignmentOptions.Center, bold: true);
-            F.Preferred(title, height: 48f);
+            // 제목 — LL 리본 배너 (가챠 특별감: 금색 제목)
+            var title = F.HeaderBanner(popup.transform, "뽑기 결과");
+            title.color = UguiTheme.AccentGoldStrong;
             view.title = title;
 
             // 결과 그리드 스크롤

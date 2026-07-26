@@ -22,27 +22,48 @@ namespace KingdomIdle.UGUI
         /// 캐주얼 모바일 특유의 촉감 있는 버튼을 만든다.
         /// 반투명 accent(은은한 서페이스 의도)는 어두운 슬레이트 색으로 대체한다.
         /// </summary>
-        public static void ApplyButton(Image img, Button btn, Color accent, UIViewCatalog catalog)
+        public static void ApplyButton(Image img, Button btn, Color accent, UIViewCatalog catalog, bool addGloss = true)
         {
             if (img == null || btn == null || catalog == null || catalog.kitBtnGrey == null) return;
 
+            // Layer Lab Button_01 정품 구조를 재현한다:
+            //  ① Bg = Button_01_White_Bg — 그라디언트 + 어두운 외곽선이 스프라이트에 이미 구워져 있다(accent로 틴트).
+            //  ② InnerBorder1 오버레이 = 안쪽 광택 림(흰색). LL 베이스 프리팹과 동일한 인셋.
+            // 프로젝트가 Linear 색공간이라 '흰색 저알파 박스' 오버레이는 밝게 터진다 → 합성 gloss 박스는 쓰지 않는다.
             var bg = catalog.kitBtnGrey;   // = Button_01_White_Bg (Layer Lab)
             img.sprite = bg;
             img.type = Image.Type.Sliced;
             img.pixelsPerUnitMultiplier = 1f;   // LL: PPU100 + 올바른 보더 → 네이티브 렌더
             img.color = accent.a < 0.5f
-                ? new Color(0.30f, 0.32f, 0.40f, 1f)   // 어두운 슬레이트 버튼(은은한 서페이스 의도)
+                ? new Color(0.24f, 0.26f, 0.34f, 1f)   // 어두운 슬레이트 버튼(은은한 서페이스 의도)
                 : Opaque(accent);
 
             btn.transition = Selectable.Transition.ColorTint;
             btn.colors = UguiTheme.MakeColorBlock();
 
-            // 입체감: 하단 드롭섀도우 (상업 게임 버튼 룩 — 살짝 떠 보이게)
+            // 입체감: 아래로 떨어지는 은은한 드롭 섀도우(검정 → Linear에서 안전).
             var shadow = img.GetComponent<Shadow>();
             if (shadow == null) shadow = img.gameObject.AddComponent<Shadow>();
-            shadow.effectColor = new Color(0f, 0f, 0f, 0.35f);
-            shadow.effectDistance = new Vector2(0f, -5f);
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.45f);
+            shadow.effectDistance = new Vector2(0f, -4f);
             shadow.useGraphicAlpha = true;
+
+            // LL 정품 이너 림(InnerBorder1) — 버튼 안쪽에 미묘한 밝은 테두리(광택감). 콘텐츠 셀은 끔.
+            if (addGloss && catalog.kitBtnBorder != null && img.transform.Find("InnerRim") == null)
+            {
+                var g = new GameObject("InnerRim", typeof(RectTransform));
+                var grt = (RectTransform)g.transform;
+                grt.SetParent(img.transform, false);
+                grt.anchorMin = Vector2.zero; grt.anchorMax = Vector2.one;
+                grt.offsetMin = new Vector2(4f, 4f); grt.offsetMax = new Vector2(-4f, -7f);   // LL 베이스: sizeDelta(-8,-11), y+1.5
+                var gi = g.AddComponent<Image>();
+                gi.sprite = catalog.kitBtnBorder;
+                gi.type = Image.Type.Sliced;
+                gi.color = new Color(1f, 1f, 1f, 0.85f);
+                gi.raycastTarget = false;
+                g.AddComponent<LayoutElement>().ignoreLayout = true;
+                grt.SetAsFirstSibling();   // 라벨/아이콘 뒤에 깔리도록
+            }
 
             if (img.GetComponent<UIButtonPress>() == null)
                 img.gameObject.AddComponent<UIButtonPress>();

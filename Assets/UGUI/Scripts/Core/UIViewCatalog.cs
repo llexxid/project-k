@@ -18,6 +18,7 @@ namespace KingdomIdle.UGUI
         public Sprite roundedRect;   // 흰색 9-slice 라운드 사각형 (틴트용)
         public Sprite circle;        // 흰색 원형 (틴트용)
         public Sprite frameBorder;   // 셀/카드 등급·상태 테두리 (LL 라운드 보더, 등급색 틴트)
+        public Sprite titleBanner;   // 패널/헤더용 리본 배너 (LL Title_01_NoDeco, 가로 9-slice)
 
         [Header("Pixel art kit — panels/frames")]
         public Sprite kitWindow;        // 메인 윈도우 프레임 (시트/모달)
@@ -30,6 +31,7 @@ namespace KingdomIdle.UGUI
         public Sprite kitBtnBlue;
         public Sprite kitBtnGreen;
         public Sprite kitBtnGrey;
+        public Sprite kitBtnBorder;   // LL Button_01 InnerBorder1 — 정품 이너 림(광택/입체용)
         public Sprite kitToggleOn;
         public Sprite kitToggleOff;
 

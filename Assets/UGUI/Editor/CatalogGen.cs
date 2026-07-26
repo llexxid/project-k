@@ -19,6 +19,7 @@ namespace KingdomIdle.UGUI.Editor
             catalog.roundedRect = PrefabGenUtil.GetOrCreateRoundedRect();
             catalog.circle = PrefabGenUtil.GetOrCreateCircle();
             catalog.frameBorder = UguiGenAssets.KitFrameBorder;
+            catalog.titleBanner = UguiGenAssets.TitleBanner;
 
             catalog.panelOpenSfx = UguiGenAssets.SfxPanelOpen;
             catalog.panelCloseSfx = UguiGenAssets.SfxPanelClose;
@@ -33,6 +34,7 @@ namespace KingdomIdle.UGUI.Editor
             catalog.kitBtnBlue = UguiGenAssets.KitBtnBlue;
             catalog.kitBtnGreen = UguiGenAssets.KitBtnGreen;
             catalog.kitBtnGrey = UguiGenAssets.KitBtnGrey;
+            catalog.kitBtnBorder = UguiGenAssets.KitBtnBorder;
             catalog.kitToggleOn = UguiGenAssets.KitToggleOn;
             catalog.kitToggleOff = UguiGenAssets.KitToggleOff;
             catalog.kitBarTrack = UguiGenAssets.KitBarTrack;
@@ -127,6 +129,24 @@ namespace KingdomIdle.UGUI.Editor
             if (go == null)
                 Debug.LogWarning($"[UguiGen] 카탈로그 배선: 프리팹 없음 — {path}");
             return go;
+        }
+
+        /// <summary>UI 굵은 텍스트(제목/버튼/라벨)용 얇은 다크 아웃라인 머티리얼 — 상업 게임식 또렷한 글자.</summary>
+        internal static Material GetOrCreateUIOutlineMaterial()
+        {
+            const string path = "Assets/UGUI/Fonts/Galmuri11 SDF - UIOutline.mat";
+            var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (existing != null) return existing;
+
+            var font = UguiGenAssets.Font;
+            if (font == null || font.material == null) return null;
+
+            PrefabGenUtil.EnsureFolder("Assets/UGUI/Fonts");
+            var mat = new Material(font.material) { name = "Galmuri11 SDF - UIOutline" };
+            mat.SetFloat(ShaderUtilities.ID_OutlineWidth, 0.14f);
+            mat.SetColor(ShaderUtilities.ID_OutlineColor, new Color(0f, 0f, 0f, 0.85f));
+            AssetDatabase.CreateAsset(mat, path);
+            return mat;
         }
 
         /// <summary>데미지 텍스트용 아웃라인 머티리얼 프리셋 (공유 머티리얼 오염 방지).</summary>

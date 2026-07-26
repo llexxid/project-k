@@ -150,6 +150,14 @@ namespace KingdomIdle.UGUI
 
                 if (!string.IsNullOrWhiteSpace(nick) && _view.lblNickname.text != nick)
                     _view.lblNickname.text = nick;
+
+                // 프로필 레벨 훈장 배지 갱신 (실제 유저 레벨)
+                if (_view.lblProfileLevel != null && user != null)
+                {
+                    string lvl = user.GetLevel().ToString();
+                    if (_view.lblProfileLevel.text != lvl)
+                        _view.lblProfileLevel.text = lvl;
+                }
             }
             catch
             {
@@ -280,13 +288,35 @@ namespace KingdomIdle.UGUI
             _economyChangeHandler = null;
         }
 
+        private long _prevGold = -1, _prevAncient = -1;
+
         private void RefreshTopCurrencyLabels()
         {
             if (_wallet == null) _wallet = WalletLocator.FindAnyWallet();
             if (_view == null) return;
 
-            if (_view.lblGold != null) _view.lblGold.text = GetCurrencyText(eCurrency.Gold);
-            if (_view.lblAncientCoin != null) _view.lblAncientCoin.text = GetCurrencyText(eCurrency.AncientCoin);
+            long gold = GetCurrencyAmount(eCurrency.Gold);
+            long ancient = GetCurrencyAmount(eCurrency.AncientCoin);
+
+            if (_view.lblGold != null)
+            {
+                _view.lblGold.text = gold.ToString("N0");
+                if (_prevGold >= 0 && gold != _prevGold && _view.btnCurrency != null)
+                    UITween.Punch(_view.btnCurrency.transform as RectTransform);
+            }
+            if (_view.lblAncientCoin != null)
+            {
+                _view.lblAncientCoin.text = ancient.ToString("N0");
+                if (_prevAncient >= 0 && ancient != _prevAncient && _view.btnAncientCoin != null)
+                    UITween.Punch(_view.btnAncientCoin.transform as RectTransform);
+            }
+            _prevGold = gold; _prevAncient = ancient;
+        }
+
+        private long GetCurrencyAmount(eCurrency c)
+        {
+            if (_wallet == null) return 0;
+            return WalletLocator.TryGetAmount(_wallet, c, out long amount) ? amount : 0;
         }
 
         private string GetCurrencyText(eCurrency currency)

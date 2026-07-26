@@ -23,6 +23,7 @@ namespace KingdomIdle.UGUI
             LoadSettingsToUI();
             _view.gameObject.SetActive(true);
             _view.transform.SetAsLastSibling();
+            if (_view.panel != null) UITween.PopIn(_view.panel);
         }
 
         public void Close()
