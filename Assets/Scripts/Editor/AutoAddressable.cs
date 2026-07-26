@@ -66,7 +66,7 @@ namespace Scripts.Core.Parser
         {
             FileNameToGuID = new Dictionary<string, string>();
 		}
-
+		
         [MenuItem("MyTools/SetVFXAddress")]
         private static void SetVFXAddress()
         {
