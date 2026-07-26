@@ -53,8 +53,11 @@ namespace KingdomIdle.UGUI.Editor
         internal static Sprite KitSlot => LL("ItemFrame_02_White_Bg");     // 아이템 슬롯 배경(속 채움)
         internal static Sprite KitEllipse => LL("BasicFrame_Circle_H68_White_Bg"); // 원형 배경(속 채움)
         internal static Sprite KitFrameBorder => LL("BasicFrame_Rectangle_01~04_White_Border1"); // 셀/카드 등급·상태 테두리(속 빈 라운드 보더)
-        internal static Sprite TitleBanner => LL("Title_01_NoDeco_Navy"); // 패널 헤더 리본 배너(가로 9-slice, 접힌 끝)
+        internal static Sprite TitleBanner => LL("Title_01_NoDeco_LightBrown"); // 패널 헤더 리본 배너(러스틱 브라운, 가로 9-slice)
+        internal static Sprite TitleBannerDeco => LL("Title_01_Deco_LightBrown"); // 타이틀/특별 헤더(장식 리본)
         internal static Sprite BadgeCrimped => LL("Badge_Crimped_01_White_Bg"); // 레벨/랭크 훈장 배지(8각 별)
+        internal static Sprite PanelGradient => LL("Popup_Box_02_White_Gradient"); // 패널 세로 그라디언트 오버레이
+        internal static Sprite HeaderDeco => LL("Popup_Box_02_White_Deco"); // ◇—◇ 헤더 플로리시(장식 디바이더)
 
         // ── 버튼 (Layer Lab Button_01: 흰색 Bg를 accent로 틴트, 눌림은 스케일 애니메이션) ──
         internal static Sprite KitBtnBlue => LL("Button_01_White_Bg");
@@ -79,18 +82,18 @@ namespace KingdomIdle.UGUI.Editor
         internal static Sprite IconSwords => LL("hammer_1");     // 육성
         internal static Sprite IconHelmet => LL("headgear");     // 왕국군
         internal static Sprite IconStar => LL("star_1");         // 별/등급
-        internal static Sprite IconBag => LL("bag_1");           // 인벤토리
-        internal static Sprite IconEnvelope => LL("mail_unread_1"); // 우편
+        internal static Sprite IconBag => LL("UI_Common_Bag_01_Brown");   // 인벤토리(러스틱 가죽 가방)
+        internal static Sprite IconEnvelope => LL("UI_Common_Inbox_01");  // 우편(풀컬러)
         internal static Sprite IconRepeat => LL("refresh");      // 루프
 
         internal static Sprite IconUser => LL("headgear");
         internal static Sprite IconMenu => LL("menu_1");
         internal static Sprite IconMinus => LL("minus");
         internal static Sprite IconPlus => LL("plus");
-        internal static Sprite IconSetting => LL("setting_1");
+        internal static Sprite IconSetting => LL("UI_System_Setting_01");  // 설정 기어(풀컬러)
         internal static Sprite IconLock => LL("lock");
-        internal static Sprite IconWrench => LL("hammer_2");
-        internal static Sprite IconWarning => LL("info");
+        internal static Sprite IconWrench => LL("UI_System_Setting_01");   // 설정(메뉴) — 기어 통일
+        internal static Sprite IconWarning => LL("UI_Common_Notice_01_Red"); // 공지(풀컬러 확성기)
 
         // 메뉴 역할 구분 아이콘
         internal static Sprite IconUserRole => LL("headgear");   // 종합(캐릭터)
@@ -98,8 +101,22 @@ namespace KingdomIdle.UGUI.Editor
         internal static Sprite IconBook => LL("book");           // 스킬
         internal static Sprite IconWand => LL("wand_star");      // 마법탑 스킬
         internal static Sprite IconChest => LL("chest");         // 장비 뽑기/보상
-        internal static Sprite IconGem => LL("gem_4");           // 재료·기타·고대주화
-        internal static Sprite IconCoin => LL("coin_2");         // 골드
+        internal static Sprite IconGem => LL("Economy_Gem_02_Red");   // 재료·기타·고대주화(풀컬러 러스틱)
+        internal static Sprite IconCoin => LL("Economy_Coin_02_Gold"); // 골드(풀컬러 러스틱)
+        internal static Sprite IconAncientCoin => LL("Economy_Coin_02_Bronze"); // 고대주화(청동)
+        internal static Sprite IconArcane => LL("Economy_Gem_01_Purple");        // 비전지식
+        internal static Sprite IconFragment => LL("Item_Scroll_01_Red");         // 전직 파편
+
+        internal static Sprite IconStageMap => LL("UI_Play_Map_01_Brown"); // 스테이지 지도 마커(러스틱)
+        internal static Sprite IconCrown => LL("Economy_Crown_01_Gold");    // 왕관(타이틀 엠블럼/랭크)
+        internal static Sprite IconTrophy => LL("UI_Rewards_Trophy_01_Gold"); // 트로피(랭킹)
+        internal static Sprite IconPower => LL("Stat_Power_01");            // 전투력(CP)
+
+        // ── 스탯 칩 아이콘 (LL 풀컬러 픽토, 틴트 없이 사용) ──
+        internal static Sprite IconStatAtk => LL("Stat_Attack_01");      // 공격력(검)
+        internal static Sprite IconStatHp => LL("Economy_Heart_02_Red");  // 체력(하트)
+        internal static Sprite IconStatMove => LL("Stat_MoveSpeed_01");   // 이동속도(부츠)
+        internal static Sprite IconStatDef => LL("Gear_Shield_03_Blue");  // 방어(방패)
 
         private static T LoadByGuid<T>(string guid) where T : UnityEngine.Object
         {

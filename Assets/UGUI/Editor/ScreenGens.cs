@@ -38,6 +38,34 @@ namespace KingdomIdle.UGUI.Editor
                 logo.preserveAspect = true;
             }
 
+            // ── 게임 타이틀 "왕국군 키우기" (러스틱 엠블럼 + 골드 텍스트 + 은은한 부유 애니메이션) ──
+            var titleGroup = F.Container(rootRt, "GameTitle");
+            titleGroup.anchorMin = new Vector2(0.5f, 1f);
+            titleGroup.anchorMax = new Vector2(0.5f, 1f);
+            titleGroup.pivot = new Vector2(0.5f, 1f);
+            titleGroup.anchoredPosition = new Vector2(0f, -300f);
+            titleGroup.sizeDelta = new Vector2(900f, 320f);
+            F.VLayout(titleGroup.gameObject, 6f, null, TextAnchor.UpperCenter, childControlHeight: true, expandWidth: false);
+
+            // 왕관 엠블럼
+            var crown = F.IconImage(titleGroup, "CrownEmblem", UguiGenAssets.IconCrown, 132f, 132f);
+            F.Preferred(crown, width: 132f, height: 132f);
+
+            // 타이틀 텍스트 (골드, 두꺼운 다크 아웃라인 + 드롭섀도우)
+            var titleText = F.Text(titleGroup, "TitleText", "왕국군 키우기", 96f, UguiTheme.AccentGoldStrong,
+                TextAlignmentOptions.Center, bold: true);
+            F.Preferred(titleText, width: 900f, height: 130f);
+            titleText.characterSpacing = 4f;
+            var titleShadow = titleText.gameObject.AddComponent<Shadow>();
+            titleShadow.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            titleShadow.effectDistance = new Vector2(0f, -6f);
+
+            // 데코 디바이더 라인 (중앙 다이아)
+            F.DecoDivider(titleGroup, height: 30f, gemColor: UguiTheme.AccentGoldStrong);
+
+            // 은은한 부유 + 호흡 애니메이션
+            titleGroup.gameObject.AddComponent<UITitleFloat>();
+
             // 로그인 버튼 480×120 (화면 중심에서 약간 아래 = top 52%) — 픽셀 키트 버튼
             var loginImg = F.Box(rootRt, "BtnLogin", UguiTheme.LoginBtnBg, rounded: true, raycast: true);
             F.AnchorCenter(loginImg.rectTransform, 480f, 120f, 0f, -(0.52f - 0.5f) * UguiTheme.RefHeight);
@@ -153,8 +181,8 @@ namespace KingdomIdle.UGUI.Editor
 
         private static void BuildTopHud(RectTransform rootRt, MainScreenView view)
         {
-            // 불투명 어두운 상단 바 (게임 배경 위에서 확실히 보이도록)
-            var hud = F.Box(rootRt, "HudTop", new Color(0.06f, 0.07f, 0.11f, 0.94f), rounded: false);
+            // 러스틱 상단 바 (따뜻한 다크 우드)
+            var hud = F.Box(rootRt, "HudTop", UguiTheme.RusticBar, rounded: false);
             F.AnchorTopStretch(hud.rectTransform, 0f, UguiTheme.HudTopHeight);
             F.HLayout(hud.gameObject, 0f, new RectOffset(22, 22, 0, 0), TextAnchor.MiddleLeft);
 
@@ -173,15 +201,18 @@ namespace KingdomIdle.UGUI.Editor
             var leftWrap = F.Container(hud.transform, "LeftWrap");
             F.HLayout(leftWrap.gameObject, 18f, null, TextAnchor.MiddleLeft);
 
-            var profile = F.CircleBox(leftWrap, "BtnProfileBlank", UguiTheme.SurfaceMid, raycast: true);
-            F.Preferred(profile, width: 92f, height: 92f);
+            // 프로필: 청동 링 + 어두운 소켓 + 아이콘 (아바타 프레임 느낌)
+            var profile = F.CircleBox(leftWrap, "BtnProfileBlank", UguiTheme.Bronze, raycast: true);
+            F.Preferred(profile, width: 96f, height: 96f);
             var profileBtn = profile.gameObject.AddComponent<Button>();
             profileBtn.targetGraphic = profile;
             profileBtn.transition = Selectable.Transition.ColorTint;
             profileBtn.colors = UguiTheme.MakeColorBlock();
             profile.gameObject.AddComponent<PlayClickSfxOnClick>();
             view.btnProfile = profileBtn;
-            var profileIcon = F.IconImage(profile.transform, "Icon", UguiGenAssets.IconUser, 56f, 56f);
+            var profileSocket = F.CircleBox(profile.transform, "Socket", new Color(0.16f, 0.13f, 0.10f, 1f), raycast: false);
+            F.AnchorCenter(profileSocket.rectTransform, 80f, 80f);
+            var profileIcon = F.IconImage(profileSocket.transform, "Icon", UguiGenAssets.IconUser, 56f, 56f);
             F.AnchorCenter(profileIcon.rectTransform, 56f, 56f);
 
             // 레벨 훈장 배지 (LL Badge_Crimped, 8각 별 — 초상화 우하단에 겹침)
@@ -221,13 +252,13 @@ namespace KingdomIdle.UGUI.Editor
             view.btnCurrency = F.ButtonOn(goldChip);
             view.lblGold = goldValue;
 
-            // 고대주화 칩
+            // 고대주화 칩 (청동 고대주화 아이콘)
             var coinChip = MakeCurrencyChip(rightWrap, "AncientCoinChip",
-                F.Catalog != null ? F.Catalog.iconGem : null, out var coinValue);
+                UguiGenAssets.IconAncientCoin, out var coinValue);
             view.lblAncientCoin = coinValue;
             view.btnAncientCoin = F.ButtonOn(coinChip);
 
-            var hamburger = F.Box(rightWrap, "BtnHamburgerRight", new Color(0.16f, 0.17f, 0.24f, 1f), rounded: true, raycast: true);
+            var hamburger = F.Box(rightWrap, "BtnHamburgerRight", UguiTheme.RusticSurface, rounded: true, raycast: true);
             F.Preferred(hamburger, width: 92f, height: 92f);
             view.btnHamburger = F.ButtonOn(hamburger);
             view.btnHamburgerRect = hamburger.rectTransform;
@@ -235,19 +266,31 @@ namespace KingdomIdle.UGUI.Editor
             F.AnchorCenter(hamburgerIcon.rectTransform, 48f, 48f);
         }
 
-        /// <summary>재화 칩: 어두운 알약 + 아이콘 + 값 라벨. 반환: 칩 배경 Image(버튼 대상), out 값 라벨.</summary>
+        /// <summary>재화 칩(데모식): 어두운 알약 + 좌측 오버행 아이콘 소켓(청동 링) + 우측 값. 반환: 칩 배경 Image, out 값 라벨.</summary>
         private static Image MakeCurrencyChip(Transform parent, string name, Sprite icon, out TextMeshProUGUI valueLabel)
         {
-            var chip = F.Box(parent, name, new Color(0.03f, 0.04f, 0.07f, 0.95f), rounded: true, raycast: true);
-            F.Preferred(chip, width: 214f, height: 88f);
-            F.HLayout(chip.gameObject, 8f, new RectOffset(12, 22, 0, 0), TextAnchor.MiddleLeft);
-
-            var ic = F.IconImage(chip.transform, "Icon", icon, 56f, 56f);
-            F.Preferred(ic, width: 56f, height: 56f);
+            var chip = F.Box(parent, name, UguiTheme.RusticSurfaceDark, rounded: true, raycast: true);
+            F.Preferred(chip, width: 220f, height: 84f);
+            // 왼쪽 여백을 크게 잡아 오버행 아이콘 자리 확보, 값은 우측 정렬
+            F.HLayout(chip.gameObject, 0f, new RectOffset(78, 22, 0, 0), TextAnchor.MiddleRight);
+            // 알약 구분감 — 청동 얇은 테두리
+            var chipFrame = F.Frame(chip.transform, "Frame", new Color(UguiTheme.Bronze.r, UguiTheme.Bronze.g, UguiTheme.Bronze.b, 0.6f));
+            chipFrame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
 
             valueLabel = F.Text(chip.transform, "Value", "0", UguiTheme.FontCurrencyValue, UguiTheme.TextPrimary,
-                TextAlignmentOptions.Left, bold: true);
+                TextAlignmentOptions.Right, bold: true);
             F.Flexible(valueLabel, flexWidth: 1f);
+
+            // 좌측 오버행 아이콘 소켓 (청동 링 + 풀컬러 아이콘) — 레이아웃 무시, 왼쪽 가장자리에 걸침
+            var ring = F.CircleBox(chip.transform, "IconRing", UguiTheme.Bronze, raycast: false);
+            var rrt = ring.rectTransform;
+            rrt.anchorMin = new Vector2(0f, 0.5f); rrt.anchorMax = new Vector2(0f, 0.5f); rrt.pivot = new Vector2(0.5f, 0.5f);
+            rrt.anchoredPosition = new Vector2(4f, 0f); rrt.sizeDelta = new Vector2(78f, 78f);
+            ring.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            var socket = F.CircleBox(ring.transform, "Socket", UguiTheme.RusticSurfaceDark, raycast: false);
+            F.AnchorCenter(socket.rectTransform, 66f, 66f);
+            var ic = F.IconImage(socket.transform, "Icon", icon, 58f, 58f);
+            F.AnchorCenter(ic.rectTransform, 58f, 58f);
             return chip;
         }
 
@@ -261,13 +304,19 @@ namespace KingdomIdle.UGUI.Editor
             var col = F.VLayout(waveGo.gameObject, 8f, null, TextAnchor.UpperCenter, childControlHeight: true, expandWidth: false);
             col.childForceExpandWidth = false;
 
-            // ── 스테이지 행 ──
-            // 스테이지 배너 (데모 미션 배너풍 — 다크 라운드 고정폭)
-            var rowBg = F.Box(waveGo, "StageRow", new Color(0.05f, 0.06f, 0.10f, 0.90f), rounded: true);
-            F.HLayout(rowBg.gameObject, 14f, new RectOffset(26, 26, 8, 8), TextAnchor.MiddleCenter);
+            // ── 스테이지 행 (러스틱 프레임 플라크 + 지도 마커) ──
+            var rowBg = F.Box(waveGo, "StageRow", UguiTheme.RusticPanelDeep, rounded: true);
+            F.HLayout(rowBg.gameObject, 12f, new RectOffset(20, 26, 8, 8), TextAnchor.MiddleCenter);
             var rowLe = rowBg.gameObject.AddComponent<LayoutElement>();
-            rowLe.preferredWidth = 700f; rowLe.preferredHeight = 70f;
+            rowLe.preferredWidth = 720f; rowLe.preferredHeight = 78f;
             var row = rowBg.rectTransform;
+            // 청동 프레임 테두리(플라크 느낌)
+            var stageFrame = F.Frame(rowBg.transform, "Frame", UguiTheme.Bronze);
+            stageFrame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+
+            // 스테이지 지도 마커 아이콘
+            var stageIcon = F.IconImage(row, "StageIcon", UguiGenAssets.IconStageMap, 48f, 48f);
+            F.Preferred(stageIcon, width: 48f, height: 48f);
 
             var loopImg = F.Box(row, "BtnLoopIcon", new Color(1f, 200f / 255f, 60f / 255f, 1f), rounded: true, raycast: true);
             F.Preferred(loopImg, width: 48f, height: 48f);
@@ -342,8 +391,8 @@ namespace KingdomIdle.UGUI.Editor
 
         private static void BuildBottomBar(RectTransform rootRt, MainScreenView view)
         {
-            // 불투명 어두운 하단 탭 바
-            var bar = F.Box(rootRt, "BottomBar", new Color(0.04f, 0.05f, 0.08f, 0.97f), rounded: false);
+            // 러스틱 하단 탭 바 (더 어두운 다크 우드)
+            var bar = F.Box(rootRt, "BottomBar", UguiTheme.RusticBarDeep, rounded: false);
             F.AnchorBottomStretch(bar.rectTransform, 0f, UguiTheme.BottomBarHeight);
             F.HLayout(bar.gameObject, 12f, new RectOffset(16, 16, 12, 16), TextAnchor.MiddleCenter, expandWidth: true);
             view.bottomBar = bar.rectTransform;
@@ -371,7 +420,7 @@ namespace KingdomIdle.UGUI.Editor
         {
             // 탭 배경 — LL Button_01 정품 룩(Bg 스프라이트=그라디언트+외곽선 구움)을 어두운 슬레이트로 틴트.
             // 선택 시 SetSelected가 파란색 강조. 상업 게임식 하단 탭.
-            var bg = F.Box(parent, name, new Color(0.15f, 0.17f, 0.24f, 1f), rounded: true, raycast: true);
+            var bg = F.Box(parent, name, UguiTheme.RusticSurface, rounded: true, raycast: true);
             F.Flexible(bg, flexWidth: 1f);
             F.Preferred(bg, height: 150f);
             if (F.Catalog != null && F.Catalog.kitBtnGrey != null)
@@ -450,10 +499,11 @@ namespace KingdomIdle.UGUI.Editor
             curRt.pivot = new Vector2(1f, 1f);
             curRt.anchoredPosition = new Vector2(0f, -UguiTheme.DropdownTop);
             curRt.sizeDelta = new Vector2(UguiTheme.DropdownWidth, 100f);
-            F.VLayout(currencies.gameObject, 6f, new RectOffset(12, 12, 12, 12));
+            F.VLayout(currencies.gameObject, 6f, new RectOffset(14, 14, 14, 14));
             var curFitter = currencies.gameObject.AddComponent<ContentSizeFitter>();
             curFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             var curGroup = currencies.gameObject.AddComponent<CanvasGroup>();
+            AddDropdownFrame(currencies);
 
             view.popupCurrencies = currencies.gameObject;
             view.popupCurrenciesRect = curRt;
@@ -469,10 +519,11 @@ namespace KingdomIdle.UGUI.Editor
             hamRt.pivot = new Vector2(1f, 1f);
             hamRt.anchoredPosition = new Vector2(-8f, -UguiTheme.DropdownTop);
             hamRt.sizeDelta = new Vector2(UguiTheme.HamburgerDropdownWidth + 16f, 100f);
-            F.VLayout(hamburger.gameObject, 10f, new RectOffset(8, 8, 8, 8), TextAnchor.UpperCenter);
+            F.VLayout(hamburger.gameObject, 10f, new RectOffset(10, 10, 10, 10), TextAnchor.UpperCenter);
             var hamFitter = hamburger.gameObject.AddComponent<ContentSizeFitter>();
             hamFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             var hamGroup = hamburger.gameObject.AddComponent<CanvasGroup>();
+            AddDropdownFrame(hamburger);
 
             view.popupHamburger = hamburger.gameObject;
             view.popupHamburgerRect = hamRt;
@@ -488,9 +539,20 @@ namespace KingdomIdle.UGUI.Editor
             hamburger.gameObject.SetActive(false);
         }
 
+        /// <summary>드롭다운에 청동 프레임 테두리(패널과 동일 러스틱 룩) 오버레이.</summary>
+        private static void AddDropdownFrame(Image box)
+        {
+            var ol = box.gameObject.AddComponent<UnityEngine.UI.Outline>();
+            ol.effectColor = new Color(0f, 0f, 0f, 0.8f);
+            ol.effectDistance = new Vector2(3f, 3f);
+            ol.useGraphicAlpha = true;
+            var frame = F.Frame(box.transform, "Frame", UguiTheme.Bronze);
+            frame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+        }
+
         private static Button MakeHamburgerItem(Transform parent, string name, string text, Sprite icon)
         {
-            var bg = F.Box(parent, name, UguiTheme.SurfaceLight, rounded: true, raycast: true);
+            var bg = F.Box(parent, name, UguiTheme.RusticSurface, rounded: true, raycast: true);
             F.Preferred(bg, width: 90f, height: 90f);
             var btn = F.ButtonOn(bg);
 

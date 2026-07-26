@@ -39,13 +39,13 @@ namespace KingdomIdle.UGUI.Editor
         {
             var member = new PartyHudView.Member();
 
-            // .party-member: row gap 12 padding 10 bg black@30% radius 18
-            var block = F.Box(parent, $"Member{index}", new Color(0f, 0f, 0f, 0.30f), rounded: true);
+            // .party-member: 러스틱 웜 다크 블록
+            var block = F.Box(parent, $"Member{index}", new Color(0.16f, 0.12f, 0.09f, 0.66f), rounded: true);
             F.HLayout(block.gameObject, 12f, new RectOffset(10, 10, 10, 10), TextAnchor.MiddleLeft);
 
-            // 초상화 버튼 (74×74 원형 — 픽셀 원형 프레임 유지, 버튼 스킨 미적용)
-            var portrait = F.CircleBox(block.transform, "Portrait", new Color(1f, 1f, 1f, 0.25f), raycast: true);
-            F.Preferred(portrait, width: 74f, height: 74f);
+            // 초상화 메달리온(버튼): 청동 링 + 어두운 원 + preserveAspect 스프라이트 (균일 초상화)
+            var portrait = F.CircleBox(block.transform, "Portrait", UguiTheme.Bronze, raycast: true);
+            F.Preferred(portrait, width: 78f, height: 78f);
             var portraitBtn = portrait.gameObject.AddComponent<Button>();
             portraitBtn.targetGraphic = portrait;
             portraitBtn.transition = Selectable.Transition.ColorTint;
@@ -53,10 +53,11 @@ namespace KingdomIdle.UGUI.Editor
             portrait.gameObject.AddComponent<PlayClickSfxOnClick>();
             member.portrait = portraitBtn;
 
-            var portraitImg = F.Container(portrait.transform, "Sprite");
-            F.Stretch(portraitImg);
-            portraitImg.offsetMin = new Vector2(4f, 4f);
-            portraitImg.offsetMax = new Vector2(-4f, -4f);
+            var disc = F.CircleBox(portrait.transform, "Disc", new Color(0.11f, 0.09f, 0.07f, 1f), raycast: false);
+            F.AnchorCenter(disc.rectTransform, 68f, 68f);
+
+            var portraitImg = F.Container(disc.transform, "Sprite");
+            F.AnchorCenter(portraitImg, 60f, 60f);
             var img = portraitImg.gameObject.AddComponent<Image>();
             img.preserveAspect = true;
             img.raycastTarget = false;
@@ -66,8 +67,10 @@ namespace KingdomIdle.UGUI.Editor
             var infoCol = F.Container(block.transform, "InfoCol");
             F.VLayout(infoCol.gameObject, 6f, null, TextAnchor.MiddleLeft, expandWidth: false);
 
-            var hpFill = F.HFillBar(infoCol, "HpBar", new Color(1f, 1f, 1f, 0.12f), UguiTheme.HpGreen, out var hpTrack);
-            F.Preferred(hpTrack, width: 180f, height: 16f);
+            var hpFill = F.HFillBar(infoCol, "HpBar", F.TrackDark, UguiTheme.HpGreen, out var hpTrack);
+            F.Preferred(hpTrack, width: 190f, height: 22f);
+            F.Frame(hpTrack.transform, "Frame", new Color(UguiTheme.Bronze.r, UguiTheme.Bronze.g, UguiTheme.Bronze.b, 0.7f))
+                .gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
             member.hpFill = hpFill;
 
             var skillRow = F.Container(infoCol, "SkillRow");
@@ -78,9 +81,9 @@ namespace KingdomIdle.UGUI.Editor
             {
                 var slot = new PartyHudView.SkillSlot();
 
-                // 어두운 슬롯 박스 + 은은한 테두리 (다이아몬드 SkillSlot 대신 정사각 슬롯)
-                var slotBg = F.Box(skillRow, $"Skill{s}", new Color(0.1f, 0.11f, 0.16f, 0.9f), rounded: true);
-                F.Frame(slotBg.transform, "Border", new Color(1f, 1f, 1f, 0.22f))
+                // 어두운 슬롯 박스 + 청동 테두리 (정사각 스킬 슬롯, 러스틱)
+                var slotBg = F.Box(skillRow, $"Skill{s}", new Color(0.16f, 0.12f, 0.09f, 0.95f), rounded: true);
+                F.Frame(slotBg.transform, "Border", new Color(UguiTheme.Bronze.r, UguiTheme.Bronze.g, UguiTheme.Bronze.b, 0.5f))
                     .gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
                 F.Preferred(slotBg, width: 40f, height: 40f);
                 slot.root = slotBg.gameObject;
@@ -127,8 +130,8 @@ namespace KingdomIdle.UGUI.Editor
 
             float slotSize = UguiTheme.MageTowerSlotSize;
 
-            // Auto 버튼
-            var autoBg = F.Box(rootRt, "BtnAuto", UguiTheme.SurfaceFaint, rounded: true, raycast: true);
+            // Auto 버튼 (러스틱)
+            var autoBg = F.Box(rootRt, "BtnAuto", UguiTheme.RusticSurface, rounded: true, raycast: true);
             F.Preferred(autoBg, width: slotSize, height: slotSize);
             view.autoButton = F.ButtonOn(autoBg);
             view.autoButtonBg = autoBg;
@@ -144,9 +147,9 @@ namespace KingdomIdle.UGUI.Editor
             {
                 var slot = new MageTowerHudView.Slot();
 
-                // 어두운 슬롯 박스 + 골드 테두리 (정사각 마법탑 스킬 슬롯)
-                var frame = F.Box(rootRt, $"Slot{i}", new Color(0.1f, 0.11f, 0.16f, 0.92f), rounded: true, raycast: true);
-                F.Frame(frame.transform, "Border", new Color(1f, 220f / 255f, 130f / 255f, 0.35f))
+                // 어두운 슬롯 박스 + 청동 테두리 (정사각 마법탑 스킬 슬롯, 러스틱)
+                var frame = F.Box(rootRt, $"Slot{i}", new Color(0.16f, 0.12f, 0.09f, 0.95f), rounded: true, raycast: true);
+                F.Frame(frame.transform, "Border", new Color(UguiTheme.Bronze.r, UguiTheme.Bronze.g, UguiTheme.Bronze.b, 0.55f))
                     .gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
                 F.Preferred(frame, width: slotSize, height: slotSize);
                 slot.frame = frame;
@@ -184,8 +187,8 @@ namespace KingdomIdle.UGUI.Editor
                 view.slots[i] = slot;
             }
 
-            // 마탑 버튼
-            var towerBg = F.Box(rootRt, "BtnTower", new Color(100f / 255f, 60f / 255f, 180f / 255f, 0.50f),
+            // 마탑 버튼 (마법 보라 — 리치하게)
+            var towerBg = F.Box(rootRt, "BtnTower", new Color(0.42f, 0.28f, 0.62f, 0.95f),
                 rounded: true, raycast: true);
             F.Preferred(towerBg, width: slotSize, height: slotSize);
             view.towerButton = F.ButtonOn(towerBg);

@@ -64,8 +64,8 @@ namespace KingdomIdle.UGUI
         public static readonly Color AccentGoldStrong = Rgba(255, 220, 100, 1f);
         public static readonly Color AccentBlue = Rgba(60, 120, 220, 0.85f);
         public static readonly Color AccentBlueSoft = Rgba(110, 180, 255, 0.22f);
-        public static readonly Color LoginBtnBg = Rgba(60, 80, 140, 0.85f);
-        public static readonly Color LoginBtnBorder = Rgba(120, 150, 220, 0.70f);
+        public static readonly Color LoginBtnBg = Rgba(104, 72, 38, 0.98f);   // 러스틱 청동-브라운(골드 텍스트와 대비)
+        public static readonly Color LoginBtnBorder = Rgba(170, 130, 70, 0.80f);
         public static readonly Color SuccessGreen = Rgba(60, 180, 80, 1f);
         public static readonly Color SuccessGreenBright = Rgba(100, 210, 130, 1f);
         public static readonly Color DangerRed = Rgba(180, 60, 60, 1f);
@@ -83,10 +83,26 @@ namespace KingdomIdle.UGUI
         public static readonly Color TimerAmber = Rgba(255, 200, 60, 1f);
         public static readonly Color ToastBg = Rgba(0, 0, 0, 0.70f);
         public static readonly Color HudTopBg = Rgba(0, 0, 0, 0.35f);
-        public static readonly Color DropdownBg = Rgba(0, 0, 0, 0.78f);
+
+        // ── 러스틱 판타지 테마 (따뜻한 나무/가죽/청동) — 평평한 검정 배경 대신 리치한 웜톤 ──
+        public static readonly Color RusticPanel = Rgba(38, 29, 21, 0.98f);       // 패널 본문 (다크 우드/가죽)
+        public static readonly Color RusticPanelDeep = Rgba(28, 21, 15, 0.99f);   // 더 깊은 본문/팝업
+        public static readonly Color RusticBar = Rgba(32, 24, 17, 0.97f);         // 상/하단 바
+        public static readonly Color RusticBarDeep = Rgba(24, 18, 12, 0.98f);     // 하단 바(더 어둡게)
+        public static readonly Color RusticSurface = Rgba(56, 43, 30, 1f);        // 칩/버튼/탭 표면
+        public static readonly Color RusticSurfaceDark = Rgba(22, 16, 11, 0.96f); // 어두운 칩(재화 등)
+        public static readonly Color Bronze = Rgba(150, 110, 60, 1f);             // 청동 프레임/테두리
+        public static readonly Color BronzeLight = Rgba(196, 154, 92, 1f);        // 밝은 청동
+        public static readonly Color Parchment = Rgba(242, 230, 208, 0.97f);      // 양피지 텍스트
+        public static readonly Color DropdownBg = Rgba(38, 29, 21, 0.98f);
         public static readonly Color GuideHintBlue = Rgba(180, 200, 255, 0.75f);
         public static readonly Color EnhanceOrange = Rgba(220, 160, 40, 0.80f);
         public static readonly Color DisabledGrey = Rgba(100, 100, 100, 0.50f);
+
+        // ── 버튼 컬러 언어 (데모: 빨강=주/소모, 골드=확정/장착, 다크=취소/파괴) ──
+        public static readonly Color BtnSpend   = Rgba(170, 58, 50, 1f);   // 주 행동/소모(뽑기·강화·구매) — 러스틱 크림슨
+        public static readonly Color BtnConfirm = Rgba(178, 132, 60, 1f);  // 확정/장착/전직 — 청동-골드
+        public static readonly Color BtnCancel  = Rgba(54, 43, 34, 1f);    // 취소/해제/닫기 — 다크 우드
 
         // ── 탭 선택 상태 (tab-btn-selected) ──
         public static readonly Color TabSelectedBg = AccentBlueSoft;

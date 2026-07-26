@@ -19,9 +19,9 @@ namespace KingdomIdle.UGUI
 
         public Button Button => button;
 
-        // 상업 게임식 하단 탭: 평소 어두운 슬레이트, 선택 시 선명한 파란 탭
-        private static readonly Color TabBgNormal = new Color(0.13f, 0.15f, 0.22f, 1f);
-        private static readonly Color TabBgSelected = new Color(0.26f, 0.42f, 0.80f, 1f);
+        // 러스틱 하단 탭: 평소 어두운 다크 우드, 선택 시 밝은 청동/앰버
+        private static readonly Color TabBgNormal = UguiTheme.RusticSurface;
+        private static readonly Color TabBgSelected = new Color(0.72f, 0.52f, 0.24f, 1f);
 
         public void SetSelected(bool selected)
         {

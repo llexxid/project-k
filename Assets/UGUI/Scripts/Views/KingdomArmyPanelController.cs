@@ -32,6 +32,7 @@ namespace KingdomIdle.UGUI
         private static KingdomArmyPanelView _view;
         private static readonly List<NavTabButtonView> _memberTabButtons = new();
         private static readonly List<NavTabButtonView> _navButtons = new();
+        private static readonly List<SubMenu> _navMenus = new();
 
         // 캐시된 플레이어 목록
         private static List<Player> _players;
@@ -41,7 +42,8 @@ namespace KingdomIdle.UGUI
         private static bool _charTickSubscribed;
         private static float _charTickTimer;
         private const float CharTickInterval = 0.2f;
-        private static TMP_Text _lblHp;
+        private static KACharacterSheetView _charSheet;   // 종합 시트(실시간 HP 갱신용)
+        private static bool _statDetailOpen;
         private static Image _charPortraitInner;
 
         /// <summary>초기 idle 스프라이트 기준 1px당 표시 크기 (고정 스케일)</summary>
@@ -68,7 +70,7 @@ namespace KingdomIdle.UGUI
                     _view = null;
                     _memberTabButtons.Clear();
                     _navButtons.Clear();
-                    _lblHp = null;
+                    _charSheet = null;
                     _charPortraitInner = null;
                 }
             };
@@ -149,16 +151,17 @@ namespace KingdomIdle.UGUI
             if (_view == null) return;
             ClearChildren(_view.navBar);
             _navButtons.Clear();
+            _navMenus.Clear();
 
             var prefab = GetNavPrefab();
             if (prefab == null) return;
 
             var cat = Cat;
+            // 스킬 탭 제거 — 스킬은 종합(스탯) 탭 하단에 표시된다.
             var navItems = new (SubMenu menu, string label, Sprite icon)[]
             {
                 (SubMenu.Character, "종합", cat != null ? cat.iconUser : null),
                 (SubMenu.Equipment, "장비", cat != null ? cat.iconSword : null),
-                (SubMenu.Skill, "스킬", cat != null ? cat.iconBook : null),
                 (SubMenu.JobChange, "전직", cat != null ? cat.iconStar : null),
             };
 
@@ -178,6 +181,7 @@ namespace KingdomIdle.UGUI
                     UpdateNavStyles();
                 });
                 _navButtons.Add(tab);
+                _navMenus.Add(m);
             }
             UpdateNavStyles();
         }
@@ -185,7 +189,7 @@ namespace KingdomIdle.UGUI
         private static void UpdateNavStyles()
         {
             for (int i = 0; i < _navButtons.Count; i++)
-                _navButtons[i].SetSelected(i == (int)_activeSubMenu, UguiTheme.AccentBlue);
+                _navButtons[i].SetSelected(_navMenus[i] == _activeSubMenu, UguiTheme.AccentBlue);
         }
 
         // ── 콘텐츠 라우터 ──
@@ -196,7 +200,7 @@ namespace KingdomIdle.UGUI
 
             // 이전 실시간 갱신 해제 (콘텐츠는 각 Build 가 InstantiateContent 에서 교체)
             UnsubscribeCharTick();
-            _lblHp = null;
+            _charSheet = null;
             _charPortraitInner = null;
 
             switch (_activeSubMenu)
@@ -223,14 +227,39 @@ namespace KingdomIdle.UGUI
 
             var sheet = InstantiateContent<KACharacterSheetView>(Cat != null ? Cat.panelKACharacterSheet : null);
             if (sheet == null) return;
+            _charSheet = sheet;
 
             var ps = player.playerStatus;
 
-            if (sheet.jobLabel != null) sheet.jobLabel.text = $"직업: {ps.JobName}";
-            if (sheet.hpLabel != null) sheet.hpLabel.text = $"HP: {ps.HP} / {ps.MaxHP}";
-            if (sheet.atkLabel != null) sheet.atkLabel.text = $"공격력: {ps.Atk}";
-            if (sheet.moveLabel != null) sheet.moveLabel.text = $"이동속도: {ps.MovSpeed}";
-            _lblHp = sheet.hpLabel;
+            // 직업명 + 칩 값
+            if (sheet.jobLabel != null) sheet.jobLabel.text = ps.JobName;
+            if (sheet.atkValueLabel != null) sheet.atkValueLabel.text = ps.Atk.ToString("N0");
+            if (sheet.moveValueLabel != null) sheet.moveValueLabel.text = ps.MovSpeed.ToString();
+            UpdateHpBar(player, sheet);
+
+            // 상세 스탯 방정식 (탭 가능한 항 + 설명 팝업)
+            BuildStatEquation(sheet, sheet.atkEqRow, ps.AtkBreakdown(), atk: true);
+            BuildStatEquation(sheet, sheet.hpEqRow, ps.MaxHPBreakdown(), atk: false);
+
+            // 스탯 블록 = 버튼 → 상세 롤다운 토글
+            _statDetailOpen = false;
+            if (sheet.detailRoot != null) sheet.detailRoot.SetActive(false);
+            if (sheet.expandArrow != null) sheet.expandArrow.localRotation = Quaternion.identity;
+            if (sheet.statsButton != null)
+            {
+                sheet.statsButton.onClick.RemoveAllListeners();
+                sheet.statsButton.onClick.AddListener(ToggleStatDetail);
+            }
+
+            // 스킬 (스탯 탭 하단)
+            if (sheet.skillsRoot != null)
+            {
+                ClearChildren(sheet.skillsRoot);
+                var infos = SkillSystem.GetJobSkillInfo(ps.JobName);
+                if (infos != null)
+                    foreach (var si in infos)
+                        InstantiateSkillRow(sheet.skillsRoot, si.Name, si.Description, si.IsPassive);
+            }
 
             // 장착 장비 라벨
             var equipped = player.PlayerEquipmentManager?.GetSlotEquipment(eEquipmentSlot.Weapon);
@@ -258,8 +287,90 @@ namespace KingdomIdle.UGUI
                 ApplyPortraitSprite(sr.sprite);
             }
 
-            // 실시간 갱신 (200ms 간격으로 HP, 초상화 스프라이트 업데이트)
+            // 실시간 갱신 (200ms 간격으로 HP 바, 초상화 스프라이트 업데이트)
             SubscribeCharTick();
+        }
+
+        /// <summary>HP 바 채움 + 값 + 색(비율). 피격 시 낮아지고 붉어진다.</summary>
+        private static void UpdateHpBar(Player player, KACharacterSheetView sheet)
+        {
+            if (player == null || sheet == null || player.playerStatus == null) return;
+            int maxHp = player.playerStatus.MaxHP;
+            float ratio = Mathf.Clamp01(player.HPRatio);
+            int curHp = Mathf.RoundToInt(ratio * maxHp);
+            if (sheet.hpFill != null)
+            {
+                sheet.hpFill.fillAmount = ratio;
+                // 초록(가득) → 노랑 → 빨강(위험)
+                Color full = new Color(0.42f, 0.85f, 0.35f, 1f);
+                Color low = new Color(0.88f, 0.25f, 0.2f, 1f);
+                sheet.hpFill.color = Color.Lerp(low, full, Mathf.SmoothStep(0f, 1f, ratio));
+            }
+            if (sheet.hpValueLabel != null)
+                sheet.hpValueLabel.text = $"{curHp:N0} / {maxHp:N0}";
+        }
+
+        /// <summary>스탯 블록 롤다운 토글.</summary>
+        private static void ToggleStatDetail()
+        {
+            if (_charSheet == null || _charSheet.detailRoot == null) return;
+            _statDetailOpen = !_statDetailOpen;
+            _charSheet.detailRoot.SetActive(_statDetailOpen);
+            if (_charSheet.expandArrow != null)
+                _charSheet.expandArrow.localRotation = Quaternion.Euler(0f, 0f, _statDetailOpen ? 180f : 0f);
+            // 스크롤 콘텐츠 재배치 (롤다운 펼침/접힘 반영)
+            var contentRt = _view != null ? _view.content : null;
+            if (contentRt != null) UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(contentRt);
+        }
+
+        /// <summary>방정식 컨테이너에 탭 가능한 항 + 연산자 라벨을 채운다: (base + equip + passive) × mult × (1+rate) = final.</summary>
+        private static void BuildStatEquation(KACharacterSheetView sheet, RectTransform container, PlayerStatus.StatBreakdown b, bool atk)
+        {
+            if (container == null) return;
+            ClearChildren(container);
+            string kind = atk ? "공격력" : "체력";
+
+            AddOperator(container, "(");
+            AddTerm(sheet, container, b.Base.ToString("N0"), $"전직 기본 {kind}");
+            if (b.Equip != 0) { AddOperator(container, "+"); AddTerm(sheet, container, b.Equip.ToString("N0"), $"장비 {kind}"); }
+            if (b.Passive != 0) { AddOperator(container, "+"); AddTerm(sheet, container, b.Passive.ToString("N0"), $"패시브 {kind}"); }
+            AddOperator(container, ")");
+            if (b.HasBuff) { AddOperator(container, "×"); AddTerm(sheet, container, b.BuffMult.ToString("0.##"), $"버프/오라 배수 ×{b.BuffMult:0.##}"); }
+            if (b.HasEnhance) { AddOperator(container, "×"); AddTerm(sheet, container, (1f + b.EnhanceRate).ToString("0.##"), $"강화 보너스 +{b.EnhanceRate * 100f:0.#}%"); }
+            AddOperator(container, "=");
+            AddTerm(sheet, container, b.Final.ToString("N0"), $"최종 {kind}");
+        }
+
+        private static void AddTerm(KACharacterSheetView sheet, RectTransform container, string text, string explanation)
+        {
+            var prefab = Cat != null ? Cat.itemStatTerm : null;
+            if (prefab == null) return;
+            var go = Object.Instantiate(prefab, container, false);
+            var term = go.GetComponent<StatTermView>();
+            if (term != null) term.Set(text, explanation, (expl, _) => ShowTermPopup(sheet, expl));
+        }
+
+        private static void AddOperator(RectTransform container, string op)
+        {
+            var go = new GameObject("Op", typeof(RectTransform));
+            go.layer = 5;
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(container, false);
+            var t = go.AddComponent<TextMeshProUGUI>();
+            if (UIManager.Instance != null && UIManager.Instance.Catalog != null)
+                t.font = UIManager.Instance.Catalog.defaultFont;
+            t.text = op; t.fontSize = 26f; t.color = UguiTheme.TextSecondary;
+            t.alignment = TextAlignmentOptions.Center; t.raycastTarget = false;
+            t.fontStyle = FontStyles.Bold;
+            var le = go.AddComponent<LayoutElement>();
+            le.preferredWidth = op == "(" || op == ")" ? 14f : 26f; le.preferredHeight = 44f;
+        }
+
+        private static void ShowTermPopup(KACharacterSheetView sheet, string explanation)
+        {
+            if (sheet == null || sheet.termPopup == null) return;
+            sheet.termPopup.SetActive(true);
+            if (sheet.termPopupLabel != null) sheet.termPopupLabel.text = explanation;
         }
 
         private static void SubscribeCharTick()
@@ -287,9 +398,9 @@ namespace KingdomIdle.UGUI
             var p = GetCurrentPlayer();
             if (p == null) return;
 
-            // HP 갱신
-            if (_lblHp != null)
-                _lblHp.text = $"HP: {p.playerStatus.HP} / {p.playerStatus.MaxHP}";
+            // HP 바 실시간 갱신 (피격 시 채움/색 반영)
+            if (_charSheet != null)
+                UpdateHpBar(p, _charSheet);
 
             // 초상화 스프라이트 실시간 갱신 (고정 스케일 유지)
             if (_charPortraitInner != null)
@@ -428,7 +539,7 @@ namespace KingdomIdle.UGUI
         {
             if (_view == null) return;
             UnsubscribeCharTick();
-            _lblHp = null;
+            _charSheet = null;
             _charPortraitInner = null;
 
             var detail = InstantiateContent<KAEquipDetailView>(Cat != null ? Cat.panelKAEquipDetail : null);
@@ -468,7 +579,7 @@ namespace KingdomIdle.UGUI
             {
                 var capturedItem = item;
                 var capturedMgr = equipMgr;
-                AddActionButton(detail.actionRow, "해제", UguiTheme.AccentBlue, true, () =>
+                AddActionButton(detail.actionRow, "해제", UguiTheme.BtnCancel, true, () =>
                 {
                     capturedMgr.Unequip(capturedItem.baseData.slot);
                     ShowToast($"{capturedItem.baseData.equipmentName} 해제");
@@ -479,7 +590,7 @@ namespace KingdomIdle.UGUI
             {
                 var capturedItem = item;
                 var capturedMgr = equipMgr;
-                AddActionButton(detail.actionRow, "장착", UguiTheme.AccentBlue, true, () =>
+                AddActionButton(detail.actionRow, "장착", UguiTheme.BtnConfirm, true, () =>
                 {
                     capturedMgr.Equip(capturedItem);
                     ShowToast($"{capturedItem.baseData.equipmentName} 장착!");
@@ -500,7 +611,7 @@ namespace KingdomIdle.UGUI
             {
                 var capturedItem = item;
                 var capturedMgr = equipMgr;
-                AddActionButton(detail.actionRow, "강화", UguiTheme.EnhanceOrange, true,
+                AddActionButton(detail.actionRow, "강화", UguiTheme.BtnSpend, true,
                     () => TryEnhanceEquipment(capturedItem, capturedMgr));
             }
 
@@ -775,7 +886,7 @@ namespace KingdomIdle.UGUI
         {
             if (_view == null) return;
             UnsubscribeCharTick();
-            _lblHp = null;
+            _charSheet = null;
             _charPortraitInner = null;
 
             var detail = InstantiateContent<KAJobDetailView>(Cat != null ? Cat.panelKAJobDetail : null);
@@ -884,7 +995,7 @@ namespace KingdomIdle.UGUI
             else if (isUnlocked)
             {
                 btnText = "재전직 (무료)";
-                btnColor = UguiTheme.AccentBlue;
+                btnColor = UguiTheme.BtnConfirm;
                 btnEnabled = true;
             }
             else if (!prereqMet)
@@ -896,7 +1007,7 @@ namespace KingdomIdle.UGUI
             else if (canChange)
             {
                 btnText = $"전직하기 (파편 {cost}개)";
-                btnColor = new Color(60f / 255f, 180f / 255f, 80f / 255f, 0.70f);
+                btnColor = UguiTheme.BtnSpend;
                 btnEnabled = true;
             }
             else

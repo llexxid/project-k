@@ -255,8 +255,33 @@ namespace KingdomIdle.UGUI
                 return;
             }
             _currencyPremiumGroup = premium;
+
+            // 탭한 칩 바로 아래로 드롭다운 정렬
+            var target = premium ? _view.btnAncientCoin : _view.btnCurrency;
+            PositionDropdownUnder(_view.popupCurrenciesRect, target != null ? target.transform as RectTransform : null);
+            if (_view.popupCurrenciesRect != null) _currencyBasePos = _view.popupCurrenciesRect.anchoredPosition;
+
             RebuildCurrencyPopupContents();
             if (!_currencyOpen) OpenCurrencyPopup();
+            else ApplyDropdownVisual(_view.popupCurrenciesRect, _view.popupCurrenciesGroup, _currencyBasePos, 0f, 1f); // 열린 채 그룹 전환 시 새 위치로 스냅
+        }
+
+        /// <summary>드롭다운을 대상 버튼의 바로 아래·오른쪽 정렬로 배치한다(부모 버튼에 라인업).</summary>
+        private void PositionDropdownUnder(RectTransform dropdown, RectTransform target, float gap = 10f)
+        {
+            if (dropdown == null || target == null) return;
+            var parent = dropdown.parent as RectTransform;
+            if (parent == null) return;
+
+            Canvas.ForceUpdateCanvases();
+            var corners = new Vector3[4];
+            target.GetWorldCorners(corners); // 0=BL,1=TL,2=TR,3=BR
+            Vector2 brLocal = parent.InverseTransformPoint(corners[3]); // 대상 우하단(부모 로컬)
+
+            dropdown.anchorMin = dropdown.anchorMax = new Vector2(1f, 1f);
+            dropdown.pivot = new Vector2(1f, 1f);
+            Rect pr = parent.rect;   // 앵커(1,1) 기준점 = 부모 우상단
+            dropdown.anchoredPosition = new Vector2(brLocal.x - pr.xMax, brLocal.y - pr.yMax - gap);
         }
 
         /// <summary>재화 변경 이벤트 구독 — 강화/가챠/전투 보상 시 즉시 HUD 갱신 (폴링 지연 보완).</summary>
@@ -335,14 +360,29 @@ namespace KingdomIdle.UGUI
             for (int i = content.childCount - 1; i >= 0; i--)
                 UnityEngine.Object.Destroy(content.GetChild(i).gameObject);
 
-            AddCurrencyLine(content, _currencyPremiumGroup ? "유료 재화" : "보유 재화", isTitle: true);
+            AddCurrencyLine(content, null, _currencyPremiumGroup ? "유료 재화" : "보유 재화", null, isTitle: true);
 
             // 탭한 칩의 재화 그룹만 표시 (골드칩=무료/소프트, 고대주화칩=유료/프리미엄)
             var values = (eCurrency[])Enum.GetValues(typeof(eCurrency));
             foreach (var c in values)
             {
                 if (!IsGroupCurrency(c, _currencyPremiumGroup)) continue;
-                AddCurrencyLine(content, $"{GetCurrencyLabelKor(c)}: {GetCurrencyText(c)}", isTitle: false);
+                AddCurrencyLine(content, GetCurrencyIcon(c), GetCurrencyLabelKor(c), GetCurrencyText(c), isTitle: false);
+            }
+        }
+
+        /// <summary>재화별 러스틱 아이콘 (드롭다운 행용).</summary>
+        private Sprite GetCurrencyIcon(eCurrency c)
+        {
+            var cat = _host != null ? _host.Catalog : null;
+            if (cat == null) return null;
+            switch (c)
+            {
+                case eCurrency.Gold: return cat.iconCoin;
+                case eCurrency.AncientCoin: return cat.iconAncientCoin;
+                case eCurrency.ArcaneKnowledge: return cat.iconArcane;
+                case eCurrency.ClassFragment: return cat.iconFragment;
+                default: return cat.iconGem;
             }
         }
 
@@ -354,22 +394,14 @@ namespace KingdomIdle.UGUI
             return c == eCurrency.Gold || c == eCurrency.ArcaneKnowledge || c == eCurrency.ClassFragment;
         }
 
-        private void AddCurrencyLine(RectTransform parent, string text, bool isTitle)
+        private void AddCurrencyLine(RectTransform parent, Sprite icon, string name, string value, bool isTitle)
         {
             var prefab = _host != null && _host.Catalog != null ? _host.Catalog.itemCurrencyLine : null;
             if (prefab == null) return;
 
             var go = UnityEngine.Object.Instantiate(prefab, parent, false);
             var line = go.GetComponent<CurrencyLineItemView>();
-            if (line != null && line.label != null)
-            {
-                line.label.text = text;
-                if (isTitle)
-                {
-                    line.label.fontSize = 28f;
-                    line.label.fontStyle = TMPro.FontStyles.Bold;
-                }
-            }
+            if (line != null) line.Set(icon, name, value, isTitle);
         }
 
         /// <summary>UI 상 표시할 재화 필터. Gold / AncientCoin / ArcaneKnowledge 만 노출.</summary>
@@ -468,6 +500,11 @@ namespace KingdomIdle.UGUI
             if (_currencyOpen)
                 CloseCurrencyPopupImmediate();
 
+            // 햄버거 버튼 바로 아래로 정렬
+            PositionDropdownUnder(_view.popupHamburgerRect,
+                _view.btnHamburgerRect != null ? _view.btnHamburgerRect : (_view.btnHamburger != null ? _view.btnHamburger.transform as RectTransform : null));
+            if (_view.popupHamburgerRect != null) _hamburgerBasePos = _view.popupHamburgerRect.anchoredPosition;
+
             _view.popupHamburger.SetActive(true);
             _view.popupHamburger.transform.SetAsLastSibling();
 
@@ -553,6 +590,64 @@ namespace KingdomIdle.UGUI
         //  메뉴 버튼 (프로필/인벤토리/설정/공지/우편)
         // ═══════════════════════════════════════════
 
+        // ── 프로필 팝업(더미) ──
+        private GameObject _profilePopup;
+        private ProfilePopupView _profileView;
+
+        private void OpenProfilePopup()
+        {
+            if (_view == null) return;
+            if (_profilePopup == null)
+            {
+                var prefab = _host != null && _host.Catalog != null ? _host.Catalog.popupProfile : null;
+                if (prefab == null)
+                {
+                    _host?.PushPanel(UIPanelId.KingdomArmy, "프로필", clearBefore: false, isTabPanel: false);
+                    return;
+                }
+                var parent = _view.transform as RectTransform;
+                _profilePopup = UnityEngine.Object.Instantiate(prefab, parent, false);
+                var prt = _profilePopup.transform as RectTransform;
+                if (prt != null) { prt.anchorMin = Vector2.zero; prt.anchorMax = Vector2.one; prt.offsetMin = Vector2.zero; prt.offsetMax = Vector2.zero; }
+                _profileView = _profilePopup.GetComponent<ProfilePopupView>();
+                if (_profileView != null)
+                {
+                    if (_profileView.closeButton != null) _profileView.closeButton.onClick.AddListener(CloseProfilePopup);
+                    if (_profileView.backdrop != null) _profileView.backdrop.onClick.AddListener(CloseProfilePopup);
+                }
+            }
+            PopulateProfilePopup();
+            _profilePopup.SetActive(true);
+            _profilePopup.transform.SetAsLastSibling();
+            if (_profileView != null && _profileView.panel != null) UITween.PopIn(_profileView.panel);
+        }
+
+        private void CloseProfilePopup()
+        {
+            if (_profilePopup != null) _profilePopup.SetActive(false);
+        }
+
+        /// <summary>보유 데이터(닉네임/레벨)만 실제로 채우고 나머지는 프리팹 샘플값 유지(더미).</summary>
+        private void PopulateProfilePopup()
+        {
+            if (_profileView == null) return;
+            try
+            {
+                var um = UserManager.Instance;
+                var userField = um?.GetType().GetField("_user",
+                    BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                var user = userField?.GetValue(um) as User;
+                if (user != null)
+                {
+                    string nick = user.GetNickName();
+                    if (!string.IsNullOrWhiteSpace(nick) && _profileView.nameLabel != null) _profileView.nameLabel.text = nick;
+                    if (_profileView.levelLabel != null) _profileView.levelLabel.text = user.GetLevel().ToString();
+                    if (_profileView.kingdomLevelLabel != null) _profileView.kingdomLevelLabel.text = $"Lv. {user.GetLevel()}";
+                }
+            }
+            catch (Exception ex) { Debug.LogWarning($"PopulateProfilePopup: {ex.Message}"); }
+        }
+
         private void BindMenus()
         {
             if (_view.btnProfile != null)
@@ -561,9 +656,7 @@ namespace KingdomIdle.UGUI
                 {
                     if (_currencyOpen) CloseCurrencyPopup();
                     if (_hamburgerOpen) CloseHamburgerMenu();
-
-                    // Profile 패널 미구현 — 기존 동작대로 왕국군 패널로 대체
-                    _host.PushPanel(UIPanelId.KingdomArmy, "프로필", clearBefore: false, isTabPanel: false);
+                    OpenProfilePopup();
                 });
             }
 

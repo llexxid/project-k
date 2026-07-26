@@ -88,4 +88,47 @@ public class PlayerStatus
         _enhanceMaxHPRate = maxHPRate;
         OnStatsChanged?.Invoke();
     }
+
+    // ── 스탯 구성요소 접근자 (상세 스탯 방정식 UI / 팀 공용) ──
+    // 최종값 = (base + equip + passive) × buffMultiplier × (1 + enhanceRate)
+    public int   BaseAtk            => _baseAtk;
+    public int   EquipAtk           => _equipAtk;
+    public int   PassiveAtk         => _passiveAtk;
+    public float BuffAtkMultiplier  => _buffAtkMultiplier;
+    public float EnhanceAtkRate     => _enhanceAtkRate;
+
+    public int   BaseMaxHP          => _baseMaxHP;
+    public int   EquipMaxHP         => _equipMaxHP;
+    public int   PassiveMaxHP       => _passiveMaxHP;
+    public float BuffMaxHPMultiplier => _buffMaxHPMultiplier;
+    public float EnhanceMaxHPRate   => _enhanceMaxHPRate;
+
+    public int   BaseMovSpeed       => _baseMovSpeed;
+
+    /// <summary>스탯 방정식 표시용 구성요소 묶음. 최종 = (Base+Equip+Passive) × BuffMult × (1+EnhanceRate).</summary>
+    public struct StatBreakdown
+    {
+        public int   Base;         // 전직 기본
+        public int   Equip;        // 장비
+        public int   Passive;      // 패시브(가산)
+        public float BuffMult;     // 오라 승수 (곱)
+        public float EnhanceRate;  // 강화 비율 (예: 0.24 = +24%)
+        public int   Final;        // 최종값
+
+        public int   AdditiveSum => Base + Equip + Passive;
+        public bool  HasBuff     => Mathf.Abs(BuffMult - 1f) > 0.0001f;
+        public bool  HasEnhance  => Mathf.Abs(EnhanceRate) > 0.0001f;
+    }
+
+    public StatBreakdown AtkBreakdown() => new StatBreakdown
+    {
+        Base = _baseAtk, Equip = _equipAtk, Passive = _passiveAtk,
+        BuffMult = _buffAtkMultiplier, EnhanceRate = _enhanceAtkRate, Final = Atk
+    };
+
+    public StatBreakdown MaxHPBreakdown() => new StatBreakdown
+    {
+        Base = _baseMaxHP, Equip = _equipMaxHP, Passive = _passiveMaxHP,
+        BuffMult = _buffMaxHPMultiplier, EnhanceRate = _enhanceMaxHPRate, Final = MaxHP
+    };
 }

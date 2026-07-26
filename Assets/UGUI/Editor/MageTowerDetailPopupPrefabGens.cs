@@ -41,6 +41,7 @@ namespace KingdomIdle.UGUI.Editor
             F.VLayout(panel.gameObject, 14f, new RectOffset(22, 22, 22, 22));
             var fitter = panel.gameObject.AddComponent<ContentSizeFitter>();
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            F.CornerBrackets(panel.transform);
 
             // ── 헤더 (타이틀 + 닫기) ──
             var header = F.Container(panel.transform, "Header");

@@ -27,7 +27,7 @@ namespace KingdomIdle.UGUI.Editor
             view.lblLoading = lbl;
 
             var slider = F.SimpleSlider(box.transform, "PbLoading", new Color(1f, 1f, 1f, 0.12f),
-                UguiTheme.AccentBlue, interactable: false);
+                UguiTheme.TimerAmber, interactable: false);
             F.Preferred((RectTransform)slider.transform, height: 24f);
             view.progressBar = slider;
 
@@ -86,6 +86,7 @@ namespace KingdomIdle.UGUI.Editor
             var panelFitter = panel.gameObject.AddComponent<ContentSizeFitter>();
             panelFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             view.panel = panel.rectTransform;
+            F.CornerBrackets(panel.transform);
 
             // 헤더(데모 스타일): LL 리본 배너에 얹은 중앙 제목
             F.HeaderBanner(panel.transform, "환경설정");
@@ -145,7 +146,7 @@ namespace KingdomIdle.UGUI.Editor
             F.Stretch(muteLbl.rectTransform);
 
             var slider = F.SimpleSlider(volRow.transform, "SldVolume", new Color(1f, 1f, 1f, 0.12f),
-                UguiTheme.AccentBlue, interactable: true);
+                UguiTheme.TimerAmber, interactable: true);
             F.Flexible((RectTransform)slider.transform, flexWidth: 1f);
             F.Preferred((RectTransform)slider.transform, height: 40f);
             view.sldVolume = slider;
@@ -168,7 +169,7 @@ namespace KingdomIdle.UGUI.Editor
             view.btnSave = F.TextButton(bottomRow, "BtnSave", "저장하기", 24f, UguiTheme.SurfaceMid, out _);
             F.Flexible((RectTransform)view.btnSave.transform, flexWidth: 1f);
 
-            view.btnSaveClose = F.TextButton(bottomRow, "BtnSaveClose", "저장 후 닫기", 24f, UguiTheme.AccentBlue, out _);
+            view.btnSaveClose = F.TextButton(bottomRow, "BtnSaveClose", "저장 후 닫기", 24f, UguiTheme.BtnConfirm, out _);
             F.Flexible((RectTransform)view.btnSaveClose.transform, flexWidth: 1f);
 
             return PrefabGenUtil.SavePrefab(root.gameObject, $"{PrefabGenUtil.PrefabRoot}/Overlays/Overlay_Settings.prefab");
@@ -206,6 +207,7 @@ namespace KingdomIdle.UGUI.Editor
             F.AnchorCenter(popup.rectTransform, 700f, 1150f);
             F.VLayout(popup.gameObject, 14f, new RectOffset(28, 28, 26, 26));
             view.box = popup.rectTransform;
+            F.CornerBrackets(popup.transform);
 
             // 제목 — LL 리본 배너 (가챠 특별감: 금색 제목)
             var title = F.HeaderBanner(popup.transform, "뽑기 결과");
@@ -232,14 +234,15 @@ namespace KingdomIdle.UGUI.Editor
             F.Preferred(btnRow.gameObject.AddComponent<LayoutElement>(), height: 56f);
             view.buttonRow = btnRow;
 
-            view.btnDone = F.TextButton(btnRow, "BtnDone", "완료", 22f, new Color(0.35f, 0.35f, 0.40f, 0.85f), out _);
+            // 완료=닫기(다크 우드), 다시 뽑기=재화 소모(스펜드 크림슨)
+            view.btnDone = F.TextButton(btnRow, "BtnDone", "완료", 22f, UguiTheme.BtnCancel, out _);
             F.Flexible((RectTransform)view.btnDone.transform, flexWidth: 1f);
 
-            view.btnRePull1 = F.TextButton(btnRow, "BtnRePull1", "다시 뽑기 x1", 22f, UguiTheme.AccentBlue, out var rePull1Lbl);
+            view.btnRePull1 = F.TextButton(btnRow, "BtnRePull1", "다시 뽑기 x1", 22f, UguiTheme.BtnSpend, out var rePull1Lbl);
             F.Flexible((RectTransform)view.btnRePull1.transform, flexWidth: 1f);
             view.btnRePull1Label = rePull1Lbl;
 
-            view.btnRePullN = F.TextButton(btnRow, "BtnRePullN", "다시 뽑기 xN", 22f, UguiTheme.AccentBlue, out var rePullNLbl);
+            view.btnRePullN = F.TextButton(btnRow, "BtnRePullN", "다시 뽑기 xN", 22f, UguiTheme.BtnSpend, out var rePullNLbl);
             F.Flexible((RectTransform)view.btnRePullN.transform, flexWidth: 1f);
             view.btnRePullNLabel = rePullNLbl;
 

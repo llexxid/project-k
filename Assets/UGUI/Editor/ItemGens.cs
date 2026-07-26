@@ -106,26 +106,31 @@ namespace KingdomIdle.UGUI.Editor
             return PrefabGenUtil.SavePrefab(bg.gameObject, $"{PrefabGenUtil.PrefabRoot}/Items/Item_GachaCard.prefab");
         }
 
-        /// <summary>재화 드롭다운 한 줄 (dropdown-item).</summary>
+        /// <summary>재화 드롭다운 한 줄 (dropdown-item): 아이콘 + 이름 + 값(우측).</summary>
         internal static GameObject GenerateCurrencyLine()
         {
-            var go = new GameObject("Item_CurrencyLine", typeof(RectTransform));
-            go.layer = 5;
-            var view = go.AddComponent<CurrencyLineItemView>();
+            var row = F.Container(null, "Item_CurrencyLine");
+            var view = row.gameObject.AddComponent<CurrencyLineItemView>();
+            F.HLayout(row.gameObject, 10f, new RectOffset(2, 2, 2, 2), TextAnchor.MiddleLeft);
+            F.Preferred(row.gameObject.AddComponent<LayoutElement>(), height: 42f);
 
-            var lbl = go.AddComponent<TextMeshProUGUI>();
-            if (F.Font != null) lbl.font = F.Font;
-            lbl.text = "";
-            lbl.fontSize = 24f;
-            lbl.color = new Color(1f, 1f, 1f, 0.85f);
-            lbl.alignment = TextAlignmentOptions.Left;
-            lbl.raycastTarget = false;
-            view.label = lbl;
+            // 재화 아이콘 (32×32, 풀컬러 러스틱)
+            var iconImg = F.IconImage(row, "Icon", null, 32f, 32f);
+            var iconLe = iconImg.gameObject.AddComponent<LayoutElement>();
+            iconLe.preferredWidth = 34f; iconLe.preferredHeight = 34f; iconLe.flexibleWidth = 0f;
+            view.icon = iconImg;
 
-            var le = go.AddComponent<LayoutElement>();
-            le.preferredHeight = 34f;
+            // 이름 (좌측)
+            var name = F.Text(row, "Name", "", 24f, new Color(1f, 1f, 1f, 0.85f), TextAlignmentOptions.Left);
+            F.Flexible(name, flexWidth: 1f);
+            view.label = name;
 
-            return PrefabGenUtil.SavePrefab(go, $"{PrefabGenUtil.PrefabRoot}/Items/Item_CurrencyLine.prefab");
+            // 값 (우측 정렬, 골드)
+            var val = F.Text(row, "Value", "", 24f, UguiTheme.AccentGoldStrong, TextAlignmentOptions.Right, bold: true);
+            F.Flexible(val, flexWidth: 1f);
+            view.valueLabel = val;
+
+            return PrefabGenUtil.SavePrefab(row.gameObject, $"{PrefabGenUtil.PrefabRoot}/Items/Item_CurrencyLine.prefab");
         }
 
         /// <summary>
@@ -257,12 +262,22 @@ namespace KingdomIdle.UGUI.Editor
             badge.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
             view.badge = badge;
 
-            // 직업 이미지
+            // 직업 초상화 메달리온 (고정 크기 청동 림 + 어두운 원 — jobSprite 프레임 편차를 흡수해
+            // 모든 카드가 균일한 초상화 룩이 되도록. 캐릭터 스프라이트는 preserveAspect 로 원 안에 정규화.)
             var imgWrap = F.Container(card.transform, "ImgWrap");
-            F.Preferred(imgWrap.gameObject.AddComponent<LayoutElement>(), height: 84f);
-            var img = F.Container(imgWrap, "Image");
-            img.sizeDelta = new Vector2(80f, 80f);
-            img.anchorMin = new Vector2(0.5f, 0.5f); img.anchorMax = new Vector2(0.5f, 0.5f); img.anchoredPosition = Vector2.zero;
+            F.Preferred(imgWrap.gameObject.AddComponent<LayoutElement>(), height: 100f);
+
+            var ring = F.CircleBox(imgWrap, "PortraitRing", UguiTheme.Bronze);
+            F.AnchorCenter(ring.rectTransform, 94f, 94f);
+            ring.raycastTarget = false;
+            ring.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+
+            var disc = F.CircleBox(ring.transform, "PortraitDisc", new Color(0.11f, 0.09f, 0.07f, 1f));
+            F.AnchorCenter(disc.rectTransform, 84f, 84f);
+            disc.raycastTarget = false;
+
+            var img = F.Container(disc.transform, "Image");
+            F.AnchorCenter(img, 74f, 74f);
             var imgImg = img.gameObject.AddComponent<Image>();
             imgImg.preserveAspect = true; imgImg.raycastTarget = false; imgImg.enabled = false;
             view.image = imgImg;

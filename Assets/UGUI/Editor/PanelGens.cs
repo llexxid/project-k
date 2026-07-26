@@ -47,6 +47,9 @@ namespace KingdomIdle.UGUI.Editor
             F.AnchorBottomStretch(sheetImg.rectTransform, UguiTheme.BottomBarHeight, sheetHeight);
             F.VLayout(sheetImg.gameObject, 14f, new RectOffset(30, 30, 24, 28));
 
+            // 데모식 청동 코너 브래킷 (금속 보강 룩)
+            F.CornerBrackets(sheetImg.transform);
+
             // 헤더(데모 스타일): LL 리본 배너에 얹은 중앙 제목 + 우상단 원형 닫기 버튼
             var header = F.Container(sheetImg.transform, "Header");
             F.VLayout(header.gameObject, 2f, new RectOffset(70, 70, 2, 2), TextAnchor.UpperCenter);

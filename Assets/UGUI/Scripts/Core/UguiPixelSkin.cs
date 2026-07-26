@@ -35,7 +35,7 @@ namespace KingdomIdle.UGUI
             img.type = Image.Type.Sliced;
             img.pixelsPerUnitMultiplier = 1f;   // LL: PPU100 + 올바른 보더 → 네이티브 렌더
             img.color = accent.a < 0.5f
-                ? new Color(0.24f, 0.26f, 0.34f, 1f)   // 어두운 슬레이트 버튼(은은한 서페이스 의도)
+                ? UguiTheme.RusticSurface              // 러스틱 웜 버튼(은은한 서페이스 의도)
                 : Opaque(accent);
 
             btn.transition = Selectable.Transition.ColorTint;

@@ -23,6 +23,7 @@ namespace KingdomIdle.UGUI.Editor
         internal static void GenerateAll()
         {
             GenerateStatCompareRow();
+            GenerateStatTerm();
             GenerateMessage();
             GenerateCharacterSheet();
             GenerateEquipment();
@@ -35,38 +36,137 @@ namespace KingdomIdle.UGUI.Editor
         // ══════════════════════════════════════
         //  종합(캐릭터) 시트
         // ══════════════════════════════════════
+        private static readonly Color CardBg = new Color(0.13f, 0.10f, 0.075f, 1f);
+        private static readonly Color CardBgDeep = new Color(0.10f, 0.08f, 0.06f, 1f);
+
         internal static GameObject GenerateCharacterSheet()
         {
             var (root, view) = NewContent<KACharacterSheetView>("Panel_KACharacterSheet");
 
-            var header = F.Box(root, "CharHeader", new Color(1f, 1f, 1f, 0.05f));
-            F.HLayout(header.gameObject, 16f, new RectOffset(12, 12, 12, 12), TextAnchor.UpperLeft);
+            // ── 스탯 블록(버튼) — 탭하면 상세 방정식 롤다운 ──
+            var block = F.Box(root, "StatsBlock", CardBg, rounded: true, raycast: true);
+            view.statsButton = F.ButtonOn(block, gloss: false);
+            F.HLayout(block.gameObject, 16f, new RectOffset(16, 16, 14, 14), TextAnchor.MiddleLeft);
+            F.Preferred(block.gameObject.AddComponent<LayoutElement>(), height: 210f);
+            var blockFrame = F.Frame(block.transform, "Frame", UguiTheme.Bronze);
+            blockFrame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
 
-            // 초상화 (120x120 + RectMask2D 클리핑)
-            var portrait = F.Box(header.transform, "Portrait", UguiTheme.SurfaceLight);
-            var ple = F.Preferred(portrait, width: 120f, height: 120f);
-            ple.minWidth = 120f;
-            portrait.gameObject.AddComponent<RectMask2D>();
-
-            var inner = F.Box(portrait.transform, "Inner", Color.white, rounded: false);
+            // 초상화(균일): 청동 링 + 소켓(RectMask2D) + 내부 스프라이트(컨트롤러가 고정 스케일)
+            var ring = F.CircleBox(block.transform, "PortraitRing", UguiTheme.Bronze, raycast: false);
+            F.Preferred(ring, width: 168f, height: 168f);
+            var socket = F.CircleBox(ring.transform, "Socket", new Color(0.16f, 0.13f, 0.10f, 1f), raycast: false);
+            F.AnchorCenter(socket.rectTransform, 150f, 150f);
+            socket.gameObject.AddComponent<RectMask2D>();
+            var inner = F.Box(socket.transform, "Inner", Color.white, rounded: false);
             inner.enabled = false;
             inner.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
             inner.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             inner.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             view.portraitInner = inner;
 
-            var info = F.Container(header.transform, "Info");
-            F.VLayout(info.gameObject, 6f);
+            // 정보 열: 직업명 + HP 바(채움) + ATK/이동 칩
+            var info = F.Container(block.transform, "Info");
+            F.VLayout(info.gameObject, 10f, null, TextAnchor.MiddleLeft);
             F.Flexible(info, flexWidth: 1f);
-            view.jobLabel = StatLine(info, "직업: -");
-            view.hpLabel = StatLine(info, "HP: -");
-            view.atkLabel = StatLine(info, "공격력: -");
-            view.moveLabel = StatLine(info, "이동속도: -");
 
+            view.jobLabel = F.Text(info, "JobLabel", "-", 30f, UguiTheme.Parchment, TextAlignmentOptions.Left, bold: true);
+            F.Preferred(view.jobLabel, height: 40f);
+
+            // HP 바 (채움 — ATK/이동과 다른 디자인)
+            var hpRow = F.Container(info, "HpRow");
+            F.HLayout(hpRow.gameObject, 8f, null, TextAnchor.MiddleLeft);
+            F.Preferred(hpRow.gameObject.AddComponent<LayoutElement>(), height: 42f);
+            var hpIcon = F.IconImage(hpRow, "HpIcon", UguiGenAssets.IconStatHp, 34f, 34f);
+            F.Preferred(hpIcon, width: 34f, height: 34f);
+            var hpFill = F.HFillBar(hpRow, "HpBar", F.TrackDark, UguiTheme.HpGreen, out var hpTrack);
+            F.Flexible(hpTrack, flexWidth: 1f); F.Preferred(hpTrack, height: 30f);
+            hpFill.fillAmount = 1f;
+            view.hpFill = hpFill;
+            view.hpValueLabel = F.Text(hpTrack.transform, "HpVal", "-", 20f, UguiTheme.TextPrimary, TextAlignmentOptions.Center, bold: true);
+            F.Stretch(view.hpValueLabel.rectTransform);
+
+            // ATK / 이동 칩 행
+            var chips = F.Container(info, "StatChips");
+            F.HLayout(chips.gameObject, 8f, null, TextAnchor.MiddleLeft, childControlWidth: true, expandWidth: true);
+            F.Preferred(chips.gameObject.AddComponent<LayoutElement>(), height: 54f);
+            view.atkValueLabel = StatChip(chips, UguiGenAssets.IconStatAtk, "-");
+            view.moveValueLabel = StatChip(chips, UguiGenAssets.IconStatMove, "-");
+
+            // 펼침 화살표
+            view.expandArrow = F.Text(block.transform, "Arrow", "▼", 30f, UguiTheme.AccentGold, TextAlignmentOptions.Center, bold: true).rectTransform;
+            F.Preferred((RectTransform)view.expandArrow, width: 40f, height: 40f);
+
+            // ── 상세 롤다운 (기본 접힘) ──
+            var detail = F.Box(root, "DetailRoot", CardBgDeep, rounded: true);
+            F.VLayout(detail.gameObject, 10f, new RectOffset(18, 18, 14, 16));
+            var detailFrame = F.Frame(detail.transform, "Frame", new Color(UguiTheme.Bronze.r, UguiTheme.Bronze.g, UguiTheme.Bronze.b, 0.5f));
+            detailFrame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            view.detailRoot = detail.gameObject;
+
+            SubsectionTitle(detail.transform, "상세 스탯");
+            view.atkEqRow = MakeEquationRow(detail.transform, "공격력");
+            view.hpEqRow = MakeEquationRow(detail.transform, "체력");
+
+            // term 설명 팝업(롤다운 하단 고정 라인)
+            var popup = F.Box(detail.transform, "TermPopup", new Color(0.05f, 0.04f, 0.03f, 0.95f), rounded: true);
+            F.HLayout(popup.gameObject, 8f, new RectOffset(14, 14, 8, 8), TextAnchor.MiddleLeft);
+            F.Preferred(popup.gameObject.AddComponent<LayoutElement>(), height: 50f);
+            var popupFrame = F.Frame(popup.transform, "Frame", new Color(UguiTheme.Bronze.r, UguiTheme.Bronze.g, UguiTheme.Bronze.b, 0.5f));
+            popupFrame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            view.termPopupLabel = F.Text(popup.transform, "Label", "숫자를 눌러 항목을 확인하세요", 22f, UguiTheme.AccentGold, TextAlignmentOptions.Left);
+            F.Flexible(view.termPopupLabel, flexWidth: 1f);
+            view.termPopup = popup.gameObject;
+            view.termPopupRect = popup.rectTransform;
+
+            detail.gameObject.SetActive(false);
+
+            // ── 스킬 (스탯 탭 하단) ──
+            SectionTitle(root, "스킬");
+            var skills = F.Container(root, "SkillsRoot");
+            F.VLayout(skills.gameObject, 8f);
+            view.skillsRoot = skills;
+
+            // ── 장착 장비 ──
             SectionTitle(root, "장착 장비");
             view.equippedLabel = StatLine(root, "없음");
 
             return Save(root, "Panels/Panel_KACharacterSheet.prefab");
+        }
+
+        /// <summary>방정식 행: "라벨" + term 컨테이너(HLayout). 반환: term 컨테이너.</summary>
+        private static RectTransform MakeEquationRow(Transform parent, string label)
+        {
+            var row = F.Container(parent, "EqRow");
+            F.HLayout(row.gameObject, 8f, null, TextAnchor.MiddleLeft);
+            F.Preferred(row.gameObject.AddComponent<LayoutElement>(), height: 54f);
+            var lbl = F.Text(row, "Label", label, 24f, UguiTheme.TextSecondary, TextAlignmentOptions.Left, bold: true);
+            F.Preferred(lbl, width: 96f, height: 40f);
+            var terms = F.Container(row, "Terms");
+            F.HLayout(terms.gameObject, 5f, null, TextAnchor.MiddleLeft);
+            F.Flexible(terms.gameObject.AddComponent<LayoutElement>(), flexWidth: 1f);
+            return terms;
+        }
+
+        /// <summary>탭 가능한 방정식 항 프리팹.</summary>
+        internal static GameObject GenerateStatTerm()
+        {
+            var box = F.Box(null, "Item_StatTerm", new Color(0.24f, 0.18f, 0.12f, 1f), rounded: true, raycast: true);
+            var view = box.gameObject.AddComponent<StatTermView>();
+            view.background = box;
+            view.button = F.ButtonOn(box, gloss: false);
+            var frame = F.Frame(box.transform, "Frame", new Color(UguiTheme.Bronze.r, UguiTheme.Bronze.g, UguiTheme.Bronze.b, 0.6f));
+            frame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            // 라벨 크기에 맞춰 박스가 늘어나도록 HLayout(패딩) + ContentSizeFitter
+            F.HLayout(box.gameObject, 0f, new RectOffset(14, 14, 4, 4), TextAnchor.MiddleCenter, childControlWidth: true, expandWidth: false);
+            var fitter = box.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            var le = box.gameObject.AddComponent<LayoutElement>();
+            le.minWidth = 52f; le.minHeight = 48f; le.preferredHeight = 48f;
+            view.label = F.Text(box.transform, "Label", "0", 24f, UguiTheme.AccentGold, TextAlignmentOptions.Center, bold: true);
+            view.label.enableWordWrapping = false;
+            view.label.overflowMode = TextOverflowModes.Overflow;
+            F.Preferred(view.label, height: 40f);
+            return PrefabGenUtil.SavePrefab(box.gameObject, $"{PrefabGenUtil.PrefabRoot}/Items/Item_StatTerm.prefab");
         }
 
         // ══════════════════════════════════════
@@ -83,27 +183,24 @@ namespace KingdomIdle.UGUI.Editor
             var equippedGrid = F.Container(root, "EquippedGrid");
             MakeEquipGrid(equippedGrid.gameObject);
 
-            var card = F.Box(equippedGrid, "EquippedCard", UguiTheme.SurfaceFaint);
+            var card = F.Box(equippedGrid, "EquippedCard", CardBg);
             F.VLayout(card.gameObject, 4f, new RectOffset(6, 6, 8, 8), TextAnchor.UpperCenter);
 
             var frame = F.Frame(card.transform, "EquippedFrame", EquippedGreen);
             frame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
             view.equippedFrame = frame;
 
-            view.equippedSlotLabel = CardLabel(card.transform, "무기", 20f, new Color(1f, 1f, 1f, 0.85f));
+            view.equippedSlotLabel = CardLabel(card.transform, "무기", 20f, UguiTheme.Parchment);
 
             var iconWrap = F.Container(card.transform, "IconWrap");
-            F.Preferred(iconWrap.gameObject.AddComponent<LayoutElement>(), height: 64f);
-            var icon = F.Box(iconWrap, "Icon", UguiTheme.SurfaceLight);
-            F.AnchorCenter(icon.rectTransform, 60f, 60f);
+            F.Preferred(iconWrap.gameObject.AddComponent<LayoutElement>(), height: 72f);
             view.equippedIconWrap = iconWrap;
-            view.equippedIcon = icon;
+            view.equippedIcon = ItemSlotCentered(iconWrap, 66f, 54f);
 
-            view.equippedNameLabel = CardLabel(card.transform, "-", 20f, new Color(1f, 1f, 1f, 0.85f));
-            view.equippedStatLabel = CardLabel(card.transform, "-", 18f, new Color(1f, 1f, 1f, 0.45f));
+            view.equippedNameLabel = CardLabel(card.transform, "-", 20f, UguiTheme.Parchment);
+            view.equippedStatLabel = CardLabel(card.transform, "-", 15f, new Color(1f, 1f, 1f, 0.55f));
 
-            var unBtn = F.TextButton(card.transform, "BtnUnequip", "해제", 20f,
-                new Color(60f / 255f, 130f / 255f, 230f / 255f, 0.60f), out _);
+            var unBtn = F.TextButton(card.transform, "BtnUnequip", "해제", 20f, UguiTheme.BtnCancel, out _);
             F.Preferred(unBtn, height: 44f);
             view.unequipButton = unBtn;
 
@@ -130,13 +227,10 @@ namespace KingdomIdle.UGUI.Editor
 
             SectionTitle(root, "장비 상세");
 
-            var infoBox = F.Box(root, "InfoBox", new Color(1f, 1f, 1f, 0.05f));
+            var infoBox = F.Box(root, "InfoBox", CardBg);
             F.HLayout(infoBox.gameObject, 16f, new RectOffset(14, 14, 14, 14), TextAnchor.UpperLeft);
 
-            var iconBg = F.Box(infoBox.transform, "Icon", UguiTheme.SurfaceLight);
-            var iconLe = F.Preferred(iconBg, width: 120f, height: 120f);
-            iconLe.minWidth = 120f;
-            view.icon = iconBg;
+            view.icon = ItemSlotLayout(infoBox.transform, 120f, 96f);
 
             var infoCol = F.Container(infoBox.transform, "InfoCol");
             F.VLayout(infoCol.gameObject, 6f);
@@ -242,13 +336,22 @@ namespace KingdomIdle.UGUI.Editor
 
             SectionTitle(root, "전직 상세");
 
-            var header = F.Box(root, "JobHeader", new Color(1f, 1f, 1f, 0.05f));
+            var header = F.Box(root, "JobHeader", CardBg);
             F.HLayout(header.gameObject, 16f, new RectOffset(14, 14, 14, 14), TextAnchor.UpperLeft);
 
-            var imgBg = F.Box(header.transform, "Img", UguiTheme.SurfaceLight);
-            var imgLe = F.Preferred(imgBg, width: 120f, height: 120f);
-            imgLe.minWidth = 120f;
-            view.image = imgBg;
+            // 초상화 메달리온 (청동 링 + 어두운 원 + preserveAspect 캐릭터 — jobSprite 프레임 편차 흡수)
+            var medWrap = F.Container(header.transform, "PortraitWrap");
+            var medLe = F.Preferred(medWrap, width: 128f, height: 128f);
+            medLe.minWidth = 128f;
+            var jdRing = F.CircleBox(medWrap, "Ring", UguiTheme.Bronze);
+            F.AnchorCenter(jdRing.rectTransform, 124f, 124f);
+            var jdDisc = F.CircleBox(jdRing.transform, "Disc", new Color(0.11f, 0.09f, 0.07f, 1f));
+            F.AnchorCenter(jdDisc.rectTransform, 112f, 112f);
+            var jdImgRt = F.Container(jdDisc.transform, "Image");
+            F.AnchorCenter(jdImgRt, 100f, 100f);
+            var jdImg = jdImgRt.gameObject.AddComponent<Image>();
+            jdImg.preserveAspect = true; jdImg.raycastTarget = false; jdImg.enabled = false;
+            view.image = jdImg;
 
             var nameCol = F.Container(header.transform, "NameCol");
             F.VLayout(nameCol.gameObject, 6f);
@@ -361,6 +464,30 @@ namespace KingdomIdle.UGUI.Editor
             return lbl;
         }
 
+        /// <summary>스탯 칩: 어두운 알약 + 아이콘 + 값. 반환: 값 라벨(컨트롤러가 값 세팅).</summary>
+        private static TextMeshProUGUI StatChip(Transform parent, Sprite icon, string value)
+        {
+            var chip = F.Box(parent, "StatChip", new Color(0.04f, 0.05f, 0.08f, 0.92f), rounded: true);
+            F.HLayout(chip.gameObject, 6f, new RectOffset(10, 12, 0, 0), TextAnchor.MiddleLeft);
+            F.Flexible(chip, flexWidth: 1f);
+            F.Preferred(chip, height: 52f);
+            // 정품 LL 이너 림으로 칩에 입체감
+            if (F.Catalog != null && F.Catalog.kitBtnBorder != null)
+            {
+                var rim = F.Box(chip.transform, "InnerRim", new Color(1f, 1f, 1f, 0.6f));
+                rim.sprite = F.Catalog.kitBtnBorder; rim.type = Image.Type.Sliced;
+                var rrt = rim.rectTransform; rrt.anchorMin = Vector2.zero; rrt.anchorMax = Vector2.one;
+                rrt.offsetMin = new Vector2(3f, 3f); rrt.offsetMax = new Vector2(-3f, -5f);
+                rim.raycastTarget = false;
+                rim.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            }
+            var ic = F.IconImage(chip.transform, "Icon", icon, 34f, 34f);
+            F.Preferred(ic, width: 34f, height: 34f);
+            var val = F.Text(chip.transform, "Value", value, 24f, UguiTheme.TextPrimary, TextAlignmentOptions.Left, bold: true);
+            F.Flexible(val, flexWidth: 1f);
+            return val;
+        }
+
         private static void SectionTitle(Transform parent, string text)
         {
             var lbl = F.Text(parent, "SectionTitle", text, 28f, UguiTheme.TextPrimary, TextAlignmentOptions.Left, bold: true);
@@ -397,6 +524,35 @@ namespace KingdomIdle.UGUI.Editor
             var lbl = F.Text(parent, "CardLabel", text, size, color, TextAlignmentOptions.Center);
             F.Preferred(lbl, height: size + 8f);
             return lbl;
+        }
+
+        /// <summary>어두운 아이템 슬롯(청동 프레임) 배경 이미지에 preserveAspect 아이콘을 얹는다.</summary>
+        private static Image FillItemSlot(Image bg, float iconSize)
+        {
+            var frame = F.Frame(bg.transform, "SlotFrame", new Color(UguiTheme.Bronze.r, UguiTheme.Bronze.g, UguiTheme.Bronze.b, 0.85f));
+            frame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            var iconRt = F.Container(bg.transform, "Icon");
+            F.AnchorCenter(iconRt, iconSize, iconSize);
+            var icon = iconRt.gameObject.AddComponent<Image>();
+            icon.preserveAspect = true; icon.raycastTarget = false; icon.enabled = false;
+            return icon;
+        }
+
+        /// <summary>부모(레이아웃 없음) 중앙에 배치되는 아이템 슬롯. 반환: 컨트롤러가 스프라이트를 세팅할 아이콘.</summary>
+        private static Image ItemSlotCentered(Transform parent, float size, float iconSize)
+        {
+            var bg = F.Box(parent, "SlotBg", new Color(0.10f, 0.085f, 0.065f, 1f), rounded: true);
+            F.AnchorCenter(bg.rectTransform, size, size);
+            return FillItemSlot(bg, iconSize);
+        }
+
+        /// <summary>HLayout 자식으로 들어가는 고정폭 아이템 슬롯. 반환: 아이콘.</summary>
+        private static Image ItemSlotLayout(Transform parent, float size, float iconSize)
+        {
+            var bg = F.Box(parent, "SlotBg", new Color(0.10f, 0.085f, 0.065f, 1f), rounded: true);
+            var le = F.Preferred(bg, width: size, height: size);
+            le.minWidth = size;
+            return FillItemSlot(bg, iconSize);
         }
 
         private static RectTransform CondRow(Transform parent, string name, out TextMeshProUGUI value)

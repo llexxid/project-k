@@ -60,6 +60,7 @@ namespace KingdomIdle.UGUI.Editor
                 ("03_kingdomarmy", catalog.panelKingdomArmy, "LayerPanels"),
                 ("04_settings",    catalog.overlaySettings,  "LayerOverlays"),
                 ("05_gacharesult", catalog.popupGachaResult, "LayerOverlays"),
+                ("10_profile",     catalog.popupProfile,     "LayerOverlays"),
             };
 
             foreach (var s in shots)
@@ -87,6 +88,9 @@ namespace KingdomIdle.UGUI.Editor
             CaptureNavTabs(scene, cam, catalog, layers);
             CaptureGachaWidgets(scene, cam, catalog, layers);
             CaptureKingdomArmyWidgets(scene, cam, catalog, layers);
+            CaptureKASubPanels(scene, cam, catalog, layers);
+            CapturePartyHud(scene, cam, catalog, layers);
+            CaptureDropdown(scene, cam, catalog, layers);
 
             Debug.Log($"[Preview] 캡처 완료: {OutDir}");
         }
@@ -95,6 +99,103 @@ namespace KingdomIdle.UGUI.Editor
         /// 탭/네비 버튼은 런타임에 생성되므로 프리팹 캡처엔 안 잡힌다.
         /// 실제 컨트롤러와 동일하게 아이콘·라벨·선택 상태를 넣어 샘플 바를 렌더링한다.
         /// </summary>
+        /// <summary>메인 화면 + 재화 드롭다운을 골드 칩 아래로 정렬해 렌더(스타일/정렬 검증). 09_dropdown.png</summary>
+        private static void CaptureDropdown(UnityEngine.SceneManagement.Scene scene, Camera cam,
+            UIViewCatalog catalog, Dictionary<string, RectTransform> layers)
+        {
+            if (catalog == null || catalog.screenMain == null) return;
+            if (!layers.TryGetValue("LayerScreens", out var parent)) return;
+
+            var inst = (GameObject)PrefabUtility.InstantiatePrefab(catalog.screenMain, scene);
+            inst.transform.SetParent(parent, false);
+            var irt = (RectTransform)inst.transform;
+            irt.anchorMin = Vector2.zero; irt.anchorMax = Vector2.one; irt.offsetMin = Vector2.zero; irt.offsetMax = Vector2.zero;
+            inst.SetActive(true);
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(irt);
+            Canvas.ForceUpdateCanvases();
+
+            var view = inst.GetComponent<MainScreenView>();
+            if (view != null)
+            {
+                if (view.lblGold != null) view.lblGold.text = "1,284,300";
+                if (view.lblAncientCoin != null) view.lblAncientCoin.text = "1,720";
+
+                if (view.popupCurrencies != null && view.popupCurrenciesContent != null && catalog.itemCurrencyLine != null)
+                {
+                    AddCurrencySample(view.popupCurrenciesContent, catalog, null, "보유 재화", null, true);
+                    AddCurrencySample(view.popupCurrenciesContent, catalog, catalog.iconCoin, "골드", "1,284,300", false);
+                    AddCurrencySample(view.popupCurrenciesContent, catalog, catalog.iconArcane, "비전 지식", "820", false);
+                    AddCurrencySample(view.popupCurrenciesContent, catalog, catalog.iconFragment, "전직 파편", "40", false);
+
+                    view.popupCurrencies.SetActive(true);
+                    view.popupCurrencies.transform.SetAsLastSibling();
+                    var target = view.btnCurrency != null ? view.btnCurrency.transform as RectTransform : null;
+                    PositionUnder(view.popupCurrenciesRect, target, irt);
+                }
+            }
+
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(irt);
+            Canvas.ForceUpdateCanvases();
+            Render(cam, Path.Combine(OutDir, "09_dropdown.png"));
+            Object.DestroyImmediate(inst);
+        }
+
+        private static void SampleEquation(RectTransform container, UIViewCatalog catalog, string a, string b, string mult, string final)
+        {
+            if (container == null || catalog == null || catalog.itemStatTerm == null) return;
+            OpSample(container, catalog, "(");
+            TermSample(container, catalog, a);
+            OpSample(container, catalog, "+");
+            TermSample(container, catalog, b);
+            OpSample(container, catalog, ")");
+            OpSample(container, catalog, "×");
+            TermSample(container, catalog, mult);
+            OpSample(container, catalog, "=");
+            TermSample(container, catalog, final);
+        }
+
+        private static void TermSample(RectTransform c, UIViewCatalog cat, string t)
+        {
+            var go = (GameObject)PrefabUtility.InstantiatePrefab(cat.itemStatTerm);
+            go.transform.SetParent(c, false);
+            var term = go.GetComponent<StatTermView>();
+            if (term != null && term.label != null) term.label.text = t;
+        }
+
+        private static void OpSample(RectTransform c, UIViewCatalog cat, string op)
+        {
+            var go = new GameObject("Op", typeof(RectTransform)); go.layer = 5;
+            var rt = (RectTransform)go.transform; rt.SetParent(c, false);
+            var tmp = go.AddComponent<TMPro.TextMeshProUGUI>();
+            if (cat != null && cat.defaultFont != null) tmp.font = cat.defaultFont;
+            tmp.text = op; tmp.fontSize = 26f; tmp.color = UguiTheme.TextSecondary;
+            tmp.alignment = TMPro.TextAlignmentOptions.Center; tmp.raycastTarget = false; tmp.fontStyle = TMPro.FontStyles.Bold;
+            var le = go.AddComponent<LayoutElement>(); le.preferredWidth = (op == "(" || op == ")") ? 14f : 26f; le.preferredHeight = 44f;
+        }
+
+        private static void AddCurrencySample(RectTransform content, UIViewCatalog catalog, Sprite icon, string name, string value, bool isTitle)
+        {
+            var go = (GameObject)PrefabUtility.InstantiatePrefab(catalog.itemCurrencyLine);
+            go.transform.SetParent(content, false);
+            var line = go.GetComponent<CurrencyLineItemView>();
+            if (line != null) line.Set(icon, name, value, isTitle);
+        }
+
+        private static void PositionUnder(RectTransform dropdown, RectTransform target, RectTransform parent, float gap = 10f)
+        {
+            if (dropdown == null || target == null || parent == null) return;
+            Canvas.ForceUpdateCanvases();
+            var corners = new Vector3[4];
+            target.GetWorldCorners(corners);
+            Vector2 brLocal = parent.InverseTransformPoint(corners[3]);
+            dropdown.anchorMin = dropdown.anchorMax = new Vector2(1f, 1f);
+            dropdown.pivot = new Vector2(1f, 1f);
+            Rect pr = parent.rect;
+            dropdown.anchoredPosition = new Vector2(brLocal.x - pr.xMax, brLocal.y - pr.yMax - gap);
+        }
+
         private static void CaptureNavTabs(UnityEngine.SceneManagement.Scene scene, Camera cam,
             UIViewCatalog catalog, Dictionary<string, RectTransform> layers)
         {
@@ -242,6 +343,36 @@ namespace KingdomIdle.UGUI.Editor
             col.spacing = 20f; col.childControlWidth = true; col.childControlHeight = true;
             col.childForceExpandWidth = true; col.childForceExpandHeight = false; col.padding = new RectOffset(0, 0, 0, 0);
 
+            // 캐릭터 시트 (스탯 블록 + 상세 방정식 롤다운 검증)
+            if (catalog.panelKACharacterSheet != null)
+            {
+                var cs = (GameObject)PrefabUtility.InstantiatePrefab(catalog.panelKACharacterSheet);
+                cs.transform.SetParent(host.transform, false);
+                cs.AddComponent<LayoutElement>().preferredHeight = 620f;
+                var v = cs.GetComponent<KACharacterSheetView>();
+                if (v != null)
+                {
+                    if (v.jobLabel != null) v.jobLabel.text = "기사 (Knight)";
+                    if (v.atkValueLabel != null) v.atkValueLabel.text = "1,240";
+                    if (v.moveValueLabel != null) v.moveValueLabel.text = "5";
+                    if (v.hpFill != null) { v.hpFill.fillAmount = 0.7f; v.hpFill.color = new Color(0.8f, 0.6f, 0.2f, 1f); }
+                    if (v.hpValueLabel != null) v.hpValueLabel.text = "2,520 / 3,600";
+                    if (v.equippedLabel != null) v.equippedLabel.text = "롱소드 +3 (ATK +42)";
+                    // 상세 롤다운 펼친 상태로 샘플 방정식
+                    if (v.detailRoot != null) v.detailRoot.SetActive(true);
+                    SampleEquation(v.atkEqRow, catalog, "50", "42", "1.08", "99");
+                    SampleEquation(v.hpEqRow, catalog, "600", "10", "2.00", "1220");
+                    if (v.termPopupLabel != null) v.termPopupLabel.text = "장비 공격력";
+                    // 스킬 샘플(스탯 탭 하단)
+                    if (v.skillsRoot != null)
+                    {
+                        MakeSkillRow(v.skillsRoot, catalog, "기본 공격", "적 1체 공격", false);
+                        MakeSkillRow(v.skillsRoot, catalog, "수호의 오라", "아군 방어 강화", true);
+                        MakeSkillRow(v.skillsRoot, catalog, "강철 의지", "체력 낮을 때 회복", false);
+                    }
+                }
+            }
+
             // 장비 셀 / 전직 카드 그리드
             if (catalog.itemEquipCell != null || catalog.itemJobCard != null)
             {
@@ -260,8 +391,13 @@ namespace KingdomIdle.UGUI.Editor
                 }
                 if (catalog.itemJobCard != null)
                 {
-                    MakeJobCard(gridGo.transform, catalog, "Knight", "현재", UguiTheme.AccentGoldStrong, "HP 320 / ATK 45", "무료 재전직", UguiTheme.SuccessGreenBright, null, new Color(1f, 230f/255f, 100f/255f, 0.12f), new Color(1f, 230f/255f, 100f/255f, 1f));
-                    MakeJobCard(gridGo.transform, catalog, "Archer", "전직가능", UguiTheme.SuccessGreenBright, "HP 240 / ATK 60", "전직 파편 40/40", UguiTheme.SuccessGreenBright, null, new Color(1f,1f,1f,0.07f), null);
+                    // 실제 JobData 로드 → 진짜 jobSprite 로 초상화 메달리온 균일성 검증
+                    var knight = AssetDatabase.LoadAssetAtPath<JobData>("Assets/Scripts/Player/Job/SO/Knight.asset");
+                    var archer = AssetDatabase.LoadAssetAtPath<JobData>("Assets/Scripts/Player/Job/SO/Archer.asset");
+                    var mage = AssetDatabase.LoadAssetAtPath<JobData>("Assets/Scripts/Player/Job/SO/Mage.asset");
+                    MakeJobCard(gridGo.transform, catalog, knight, "Knight", "현재", UguiTheme.AccentGoldStrong, "HP 600 / ATK 50", "무료 재전직", UguiTheme.SuccessGreenBright, null, new Color(1f, 230f/255f, 100f/255f, 0.12f), new Color(1f, 230f/255f, 100f/255f, 1f));
+                    MakeJobCard(gridGo.transform, catalog, archer, "Archer", "전직가능", UguiTheme.SuccessGreenBright, "HP 320 / ATK 80", "전직 파편 40/40", UguiTheme.SuccessGreenBright, null, new Color(1f,1f,1f,0.07f), null);
+                    MakeJobCard(gridGo.transform, catalog, mage, "Mage", "전직가능", UguiTheme.WarnRed, "HP 400 / ATK 60", "전직 파편 30/40", UguiTheme.WarnRed, "선행: Archer 필요", new Color(1f,1f,1f,0.07f), null);
                 }
             }
 
@@ -300,6 +436,160 @@ namespace KingdomIdle.UGUI.Editor
             Object.DestroyImmediate(host);
         }
 
+        /// <summary>KA 장비 탭 / 전직 상세 서브패널의 러스틱 스타일(아이템 슬롯·초상화 메달리온·버튼 컬러) 검증. 11_kasub.png</summary>
+        private static void CaptureKASubPanels(UnityEngine.SceneManagement.Scene scene, Camera cam,
+            UIViewCatalog catalog, Dictionary<string, RectTransform> layers)
+        {
+            if (catalog == null || !layers.TryGetValue("LayerPanels", out var parent)) return;
+
+            var host = new GameObject("KaSubPreview", typeof(RectTransform));
+            var hostRt = (RectTransform)host.transform;
+            hostRt.SetParent(parent, false);
+            hostRt.anchorMin = new Vector2(0f, 1f); hostRt.anchorMax = new Vector2(1f, 1f); hostRt.pivot = new Vector2(0.5f, 1f);
+            hostRt.anchoredPosition = new Vector2(0f, -60f);
+            hostRt.offsetMin = new Vector2(40f, hostRt.offsetMin.y);
+            hostRt.sizeDelta = new Vector2(-80f, 1760f);
+            var col = host.AddComponent<VerticalLayoutGroup>();
+            col.spacing = 26f; col.childControlWidth = true; col.childControlHeight = true;
+            col.childForceExpandWidth = true; col.childForceExpandHeight = false;
+
+            var archer = AssetDatabase.LoadAssetAtPath<JobData>("Assets/Scripts/Player/Job/SO/Archer.asset");
+
+            // 장비 탭 (장착 카드 슬롯 + 보유 장비 그리드)
+            if (catalog.panelKAEquipment != null)
+            {
+                var eq = (GameObject)PrefabUtility.InstantiatePrefab(catalog.panelKAEquipment);
+                eq.transform.SetParent(host.transform, false);
+                eq.AddComponent<LayoutElement>().preferredHeight = 560f;
+                var v = eq.GetComponent<KAEquipmentView>();
+                if (v != null)
+                {
+                    if (v.equippedFrame != null) v.equippedFrame.gameObject.SetActive(true);
+                    if (v.equippedIcon != null) { v.equippedIcon.sprite = catalog.iconSword; v.equippedIcon.enabled = true; }
+                    if (v.equippedNameLabel != null) v.equippedNameLabel.text = "롱소드 +3";
+                    if (v.equippedStatLabel != null) v.equippedStatLabel.text = "ATK +42  HP +10";
+                    if (v.emptyLabel != null) v.emptyLabel.gameObject.SetActive(false);
+                    if (v.inventoryGrid != null)
+                    {
+                        MakeEquipCell(v.inventoryGrid, catalog, "고대 검 +1", UguiTheme.RarityEpic, "ATK +88", UguiTheme.RarityEpic, false, false, null);
+                        MakeEquipCell(v.inventoryGrid, catalog, "롱소드 +3", UguiTheme.RarityRare, "ATK +42", UguiTheme.RarityRare, true, false, "장착 중");
+                        MakeEquipCell(v.inventoryGrid, catalog, "낡은 단검", UguiTheme.RarityNormal, "ATK +5", UguiTheme.RarityNormal, false, false, null);
+                    }
+                }
+            }
+
+            // 전직 상세 (초상화 메달리온 + 스탯 비교 + 전직 버튼)
+            if (catalog.panelKAJobDetail != null)
+            {
+                var jd = (GameObject)PrefabUtility.InstantiatePrefab(catalog.panelKAJobDetail);
+                jd.transform.SetParent(host.transform, false);
+                jd.AddComponent<LayoutElement>().preferredHeight = 900f;
+                var v = jd.GetComponent<KAJobDetailView>();
+                if (v != null)
+                {
+                    if (v.image != null && archer != null) { v.image.sprite = archer.jobSprite; v.image.enabled = archer.jobSprite != null; v.image.preserveAspect = true; }
+                    if (v.jobNameLabel != null) v.jobNameLabel.text = "궁수 (Archer)";
+                    if (v.stateBadge != null) v.stateBadge.text = "전직 가능";
+                    if (v.roleLabel != null) v.roleLabel.text = "원거리 물리 딜러";
+                    if (v.freeLabel != null) v.freeLabel.gameObject.SetActive(false);
+                    if (v.fragCondValue != null) v.fragCondValue.text = "40 / 40";
+                    if (v.prereqCondValue != null) v.prereqCondValue.text = "충족";
+                    if (v.compareTable != null && catalog.itemStatCompareRow != null)
+                    {
+                        AddCompareSample(v.compareTable, catalog, "스탯", "현재", "신규", "변화");
+                        AddCompareSample(v.compareTable, catalog, "HP", "600", "320", "▼280");
+                        AddCompareSample(v.compareTable, catalog, "공격력", "50", "80", "▲30");
+                    }
+                    if (v.skillList != null)
+                        MakeSkillRow(v.skillList, catalog, "집중 사격", "3회 연속 타격", false);
+                    if (v.changeRow != null && catalog.itemActionButton != null)
+                    {
+                        var b = (GameObject)PrefabUtility.InstantiatePrefab(catalog.itemActionButton);
+                        b.transform.SetParent(v.changeRow, false);
+                        b.GetComponent<ActionButtonView>()?.Set("전직하기 (파편 40개)", UguiTheme.BtnSpend, true);
+                    }
+                }
+            }
+
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(hostRt);
+            Canvas.ForceUpdateCanvases();
+            Render(cam, Path.Combine(OutDir, "11_kasub.png"));
+            Object.DestroyImmediate(host);
+        }
+
+        private static void AddCompareSample(RectTransform table, UIViewCatalog cat, string a, string b, string c, string d)
+        {
+            var go = (GameObject)PrefabUtility.InstantiatePrefab(cat.itemStatCompareRow);
+            go.transform.SetParent(table, false);
+            var v = go.GetComponent<StatCompareRowView>();
+            if (v == null) return;
+            if (v.cell0 != null) v.cell0.text = a;
+            if (v.cell1 != null) v.cell1.text = b;
+            if (v.cell2 != null) v.cell2.text = c;
+            if (v.cell3 != null) v.cell3.text = d;
+        }
+
+        /// <summary>파티 HUD(초상화 메달리온·HP바·스킬 슬롯) 러스틱 스타일 검증. 12_partyhud.png</summary>
+        private static void CapturePartyHud(UnityEngine.SceneManagement.Scene scene, Camera cam,
+            UIViewCatalog catalog, Dictionary<string, RectTransform> layers)
+        {
+            if (catalog == null || catalog.hudParty == null || !layers.TryGetValue("LayerPopups", out var parent)) return;
+
+            var go = (GameObject)PrefabUtility.InstantiatePrefab(catalog.hudParty);
+            go.transform.SetParent(parent, false);
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+
+            var v = go.GetComponent<PartyHudView>();
+            if (v != null)
+            {
+                var jobs = new[]
+                {
+                    AssetDatabase.LoadAssetAtPath<JobData>("Assets/Scripts/Player/Job/SO/Knight.asset"),
+                    AssetDatabase.LoadAssetAtPath<JobData>("Assets/Scripts/Player/Job/SO/Archer.asset"),
+                    AssetDatabase.LoadAssetAtPath<JobData>("Assets/Scripts/Player/Job/SO/Mage.asset"),
+                };
+                float[] hp = { 0.85f, 0.45f, 1f };
+                string[] names = { "공격", "오라", "특수" };
+                for (int i = 0; i < 3 && i < v.members.Length; i++)
+                {
+                    var m = v.members[i];
+                    if (m == null) continue;
+                    if (m.portraitImage != null && jobs[i] != null)
+                    {
+                        m.portraitImage.sprite = jobs[i].jobSprite;
+                        m.portraitImage.enabled = jobs[i].jobSprite != null;
+                    }
+                    if (m.hpFill != null) m.hpFill.fillAmount = hp[i];
+                    for (int s = 0; s < m.skills.Length; s++)
+                    {
+                        var slot = m.skills[s];
+                        if (slot?.root == null) continue;
+                        slot.root.SetActive(true);
+                        if (slot.nameLabel != null) { slot.nameLabel.gameObject.SetActive(true); slot.nameLabel.text = names[s]; }
+                        bool passive = s == 1, cooling = s == 2;
+                        if (slot.cooldownMask != null) slot.cooldownMask.gameObject.SetActive(cooling);
+                        if (slot.cooldownLabel != null)
+                        {
+                            slot.cooldownLabel.gameObject.SetActive(passive || cooling);
+                            slot.cooldownLabel.text = passive ? "상시" : cooling ? "5" : "";
+                            slot.cooldownLabel.color = passive ? new Color(0.4f, 1f, 0.4f, 1f) : Color.white;
+                            slot.cooldownLabel.fontSize = passive ? 14f : 18f;
+                        }
+                    }
+                }
+            }
+
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
+            Canvas.ForceUpdateCanvases();
+            Render(cam, Path.Combine(OutDir, "12_partyhud.png"));
+            Object.DestroyImmediate(go);
+        }
+
         private static void MakeEquipCell(Transform parent, UIViewCatalog cat, string name, Color nameColor, string sub, Color rarity, bool equipped, bool dim, string state)
         {
             var go = (GameObject)PrefabUtility.InstantiatePrefab(cat.itemEquipCell);
@@ -309,15 +599,14 @@ namespace KingdomIdle.UGUI.Editor
             go.GetComponent<EquipCellView>()?.Set(sampleIcon, name, nameColor, sub, rarity, equipped, dim, state);
         }
 
-        private static void MakeJobCard(Transform parent, UIViewCatalog cat, string jobName, string badge, Color badgeC, string stat, string frag, Color fragC, string prereq, Color bg, Color? frame)
+        private static void MakeJobCard(Transform parent, UIViewCatalog cat, JobData job, string fallbackName, string badge, Color badgeC, string stat, string frag, Color fragC, string prereq, Color bg, Color? frame)
         {
             var go = (GameObject)PrefabUtility.InstantiatePrefab(cat.itemJobCard);
             go.transform.SetParent(parent, false);
             var v = go.GetComponent<JobCardView>();
             if (v == null) return;
-            // JobData 없이 이름/스탯만 세팅 (job=null 이면 이미지·이름은 View가 처리하므로 라벨 직접 지정)
-            v.Set(null, bg, frame, badge, badgeC, stat, frag, fragC, prereq);
-            if (v.nameLabel != null) v.nameLabel.text = jobName;
+            v.Set(job, bg, frame, badge, badgeC, stat, frag, fragC, prereq);
+            if (job == null && v.nameLabel != null) v.nameLabel.text = fallbackName;
         }
 
         private static void MakeSkillRow(Transform parent, UIViewCatalog cat, string name, string detail, bool passive)

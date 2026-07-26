@@ -32,8 +32,9 @@ namespace KingdomIdle.UGUI
                 icon.gameObject.SetActive(iconSprite != null);
             }
 
+            // 뽑기·강화는 재화를 소모하는 '주 행동' → 크림슨(스펜드). 부족하면 회색 비활성.
             if (background != null)
-                background.color = affordable ? UguiTheme.AccentBlue : UguiTheme.DisabledGrey;
+                background.color = affordable ? UguiTheme.BtnSpend : UguiTheme.DisabledGrey;
 
             if (costLabel != null)
                 costLabel.color = affordable ? UguiTheme.AccentGoldStrong : new Color(1f, 1f, 1f, 0.4f);

@@ -105,14 +105,14 @@ namespace KingdomIdle.UGUI.Editor
             return img;
         }
 
-        // 어두운 패널 기본 배경색 (가독성 확보 — 픽셀 프레임의 불투명 중앙이 UI를 덮지 않도록)
-        internal static readonly Color PanelBaseDark = new Color(0.07f, 0.07f, 0.11f, 0.96f);
-        internal static readonly Color PanelBaseDarker = new Color(0.05f, 0.05f, 0.08f, 0.98f);
+        // 러스틱 패널 기본 배경색 (따뜻한 다크 우드/가죽 — 평평한 검정 대신)
+        internal static readonly Color PanelBaseDark = UguiTheme.RusticPanel;
+        internal static readonly Color PanelBaseDarker = UguiTheme.RusticPanelDeep;
 
         // ── 키트 스프라이트 틴트 ──
         // Window / UniversalPanel* / ScrollBarBg 는 순백색 스프라이트라 반드시 틴트해서 써야 한다.
         // (흰색으로 두면 화면에 흰 박스로 보인다)
-        internal static readonly Color FrameGold = new Color(0.72f, 0.58f, 0.32f, 1f);   // 판타지 황동 프레임
+        internal static readonly Color FrameGold = UguiTheme.Bronze;   // 러스틱 청동 프레임
         internal static readonly Color TrackDark = new Color(0.15f, 0.16f, 0.21f, 1f);   // 게이지/슬라이더 트랙
         internal static readonly Color CardDark = new Color(0.17f, 0.18f, 0.24f, 1f);    // 카드 배경
 
@@ -148,6 +148,19 @@ namespace KingdomIdle.UGUI.Editor
                     ol.effectColor = new Color(0f, 0f, 0f, 0.85f);
                     ol.effectDistance = new Vector2(4f, 4f);
                     ol.useGraphicAlpha = true;
+
+                    // 리치 배경: 상단 웜 시엔(청동 그라디언트) — 평평함 방지. 흰색이 아닌 청동이라 Linear 안전.
+                    if (Catalog != null && Catalog.panelGradient != null)
+                    {
+                        var grad = Container(baseImg.transform, "Sheen");
+                        Stretch(grad);
+                        var gi = grad.gameObject.AddComponent<Image>();
+                        gi.sprite = Catalog.panelGradient;
+                        gi.type = Image.Type.Sliced;
+                        gi.color = new Color(0.62f, 0.47f, 0.27f, 0.20f);  // 은은한 청동 상단광
+                        gi.raycastTarget = false;
+                        grad.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+                    }
 
                     if (Catalog != null && Catalog.frameBorder != null)
                     {
@@ -316,6 +329,45 @@ namespace KingdomIdle.UGUI.Editor
             gem.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 45f);
             gem.raycastTarget = false;
             return wrap;
+        }
+
+        /// <summary>
+        /// 패널 네 모서리에 러스틱 청동 ㄱ자 브래킷(금속 보강) — 데모식 코너 데코.
+        /// 스프라이트 없이 얇은 밝은-청동 바 2개로 L 을 만든다(경량, Linear 안전: 불투명 웜톤).
+        /// </summary>
+        internal static void CornerBrackets(Transform panel, float arm = 44f, float thick = 5f, float inset = 13f, Color? color = null)
+        {
+            if (panel == null) return;
+            var c = color ?? UguiTheme.BronzeLight;
+            // (anchorX, anchorY, insetDirX, insetDirY) — 각 모서리로 arm 이 안쪽을 향하도록
+            var corners = new (float ax, float ay, float dx, float dy)[]
+            {
+                (0f, 1f,  1f, -1f), // 좌상
+                (1f, 1f, -1f, -1f), // 우상
+                (0f, 0f,  1f,  1f), // 좌하
+                (1f, 0f, -1f,  1f), // 우하
+            };
+            foreach (var cn in corners)
+            {
+                var anchor = new Vector2(cn.ax, cn.ay);
+                var pos = new Vector2(cn.dx * inset, cn.dy * inset);
+
+                var h = Box(panel, "Bracket_H", c, rounded: false);
+                var hrt = h.rectTransform;
+                hrt.anchorMin = hrt.anchorMax = anchor; hrt.pivot = anchor;
+                hrt.sizeDelta = new Vector2(arm, thick);
+                hrt.anchoredPosition = pos;
+                h.raycastTarget = false;
+                h.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+
+                var v = Box(panel, "Bracket_V", c, rounded: false);
+                var vrt = v.rectTransform;
+                vrt.anchorMin = vrt.anchorMax = anchor; vrt.pivot = anchor;
+                vrt.sizeDelta = new Vector2(thick, arm);
+                vrt.anchoredPosition = pos;
+                v.raycastTarget = false;
+                v.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            }
         }
 
         internal static Image IconImage(Transform parent, string name, Sprite sprite, float w, float h)

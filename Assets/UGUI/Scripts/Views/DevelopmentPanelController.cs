@@ -203,7 +203,7 @@ namespace KingdomIdle.UGUI
                     var ab = abGo.GetComponent<ActionButtonView>();
                     if (ab != null)
                     {
-                        ab.Set($"강화 x{count} ({cost:N0}G)", UguiTheme.AccentBlue, canAfford);
+                        ab.Set($"강화 x{count} ({cost:N0}G)", UguiTheme.BtnSpend, canAfford);
                         ab.OnClick(() => OnEnhanceClicked(capturedType, capturedCount));
                     }
                 }

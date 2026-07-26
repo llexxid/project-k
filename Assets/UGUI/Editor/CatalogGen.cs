@@ -20,6 +20,7 @@ namespace KingdomIdle.UGUI.Editor
             catalog.circle = PrefabGenUtil.GetOrCreateCircle();
             catalog.frameBorder = UguiGenAssets.KitFrameBorder;
             catalog.titleBanner = UguiGenAssets.TitleBanner;
+            catalog.panelGradient = UguiGenAssets.PanelGradient;
 
             catalog.panelOpenSfx = UguiGenAssets.SfxPanelOpen;
             catalog.panelCloseSfx = UguiGenAssets.SfxPanelClose;
@@ -57,6 +58,9 @@ namespace KingdomIdle.UGUI.Editor
             catalog.iconChest = UguiGenAssets.IconChest;
             catalog.iconGem = UguiGenAssets.IconGem;
             catalog.iconCoin = UguiGenAssets.IconCoin;
+            catalog.iconAncientCoin = UguiGenAssets.IconAncientCoin;
+            catalog.iconArcane = UguiGenAssets.IconArcane;
+            catalog.iconFragment = UguiGenAssets.IconFragment;
 
             EditorUtility.SetDirty(catalog);
             AssetDatabase.SaveAssets();
@@ -78,6 +82,7 @@ namespace KingdomIdle.UGUI.Editor
             catalog.panelInventory = Load($"{p}/Panels/Panel_Inventory.prefab");
 
             catalog.popupGachaResult = Load($"{p}/Popups/Popup_GachaResult.prefab");
+            catalog.popupProfile = Load($"{p}/Popups/Popup_Profile.prefab");
             catalog.popupMageTowerEquip = Load($"{p}/Popups/Panel_MageTowerEquip.prefab");
 
             catalog.overlayLoading = Load($"{p}/Overlays/Overlay_Loading.prefab");
@@ -117,6 +122,7 @@ namespace KingdomIdle.UGUI.Editor
             catalog.panelKAJobDetail = Load($"{p}/Panels/Panel_KAJobDetail.prefab");
             catalog.panelKAMessage = Load($"{p}/Panels/Panel_KAMessage.prefab");
             catalog.itemStatCompareRow = Load($"{p}/Items/Item_StatCompareRow.prefab");
+            catalog.itemStatTerm = Load($"{p}/Items/Item_StatTerm.prefab");
 
             EditorUtility.SetDirty(catalog);
             AssetDatabase.SaveAssets();

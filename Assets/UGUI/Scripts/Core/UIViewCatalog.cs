@@ -19,6 +19,7 @@ namespace KingdomIdle.UGUI
         public Sprite circle;        // 흰색 원형 (틴트용)
         public Sprite frameBorder;   // 셀/카드 등급·상태 테두리 (LL 라운드 보더, 등급색 틴트)
         public Sprite titleBanner;   // 패널/헤더용 리본 배너 (LL Title_01_NoDeco, 가로 9-slice)
+        public Sprite panelGradient; // 패널 본문 세로 그라디언트 오버레이 (평평함 방지 — 상단 밝고 하단 어둡게)
 
         [Header("Pixel art kit — panels/frames")]
         public Sprite kitWindow;        // 메인 윈도우 프레임 (시트/모달)
@@ -57,7 +58,10 @@ namespace KingdomIdle.UGUI
         public Sprite iconWand;         // 마법탑 스킬 뽑기
         public Sprite iconChest;        // 장비 뽑기 / 보상
         public Sprite iconGem;          // 재료·기타
-        public Sprite iconCoin;         // 재화
+        public Sprite iconCoin;         // 골드
+        public Sprite iconAncientCoin;  // 고대주화(청동)
+        public Sprite iconArcane;       // 비전 지식(보라 젬)
+        public Sprite iconFragment;     // 전직 파편(붉은 두루마리)
 
         [Header("SFX")]
         public AudioClip panelOpenSfx;
@@ -78,6 +82,7 @@ namespace KingdomIdle.UGUI
 
         [Header("Popups")]
         public GameObject popupGachaResult;
+        public GameObject popupProfile;          // 프로필 팝업(더미/플레이스홀더)
         public GameObject popupMageTowerEquip;   // 마탑 스킬 장착 팝업 (프리팹화됨)
 
         [Header("Overlays")]
@@ -121,7 +126,8 @@ namespace KingdomIdle.UGUI
         public GameObject panelKAJobChange;         // 전직 뷰
         public GameObject panelKAJobDetail;         // 전직 상세
         public GameObject panelKAMessage;           // 안내 메시지
-        public GameObject itemStatCompareRow;       // 스탯 비교 행
+        public GameObject itemStatCompareRow;
+        public GameObject itemStatTerm;   // 상세 스탯 방정식 탭 항       // 스탯 비교 행
         // 모든 UI가 프리팹 기반 — 위 프리팹을 인스펙터에서 편집하면 전 화면에 반영된다.
         // (런타임 코드빌드 UguiRuntimeFactory는 전면 프리팹화 완료로 제거됨. 데이터 N개는 item 프리팹 인스턴스화.)
     }
