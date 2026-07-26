@@ -243,9 +243,12 @@ namespace KingdomIdle.UGUI.Editor
             col.childForceExpandWidth = false;
 
             // ── 스테이지 행 ──
-            var row = F.Container(waveGo, "StageRow");
-            F.HLayout(row.gameObject, 16f, null, TextAnchor.MiddleCenter);
-            F.Preferred(row.gameObject.AddComponent<LayoutElement>(), height: 60f);
+            // 스테이지 배너 (데모 미션 배너풍 — 다크 라운드 고정폭)
+            var rowBg = F.Box(waveGo, "StageRow", new Color(0.05f, 0.06f, 0.10f, 0.90f), rounded: true);
+            F.HLayout(rowBg.gameObject, 14f, new RectOffset(26, 26, 8, 8), TextAnchor.MiddleCenter);
+            var rowLe = rowBg.gameObject.AddComponent<LayoutElement>();
+            rowLe.preferredWidth = 700f; rowLe.preferredHeight = 70f;
+            var row = rowBg.rectTransform;
 
             var loopImg = F.Box(row, "BtnLoopIcon", new Color(1f, 200f / 255f, 60f / 255f, 1f), rounded: true, raycast: true);
             F.Preferred(loopImg, width: 48f, height: 48f);

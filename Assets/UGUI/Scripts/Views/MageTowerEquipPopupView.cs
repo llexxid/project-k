@@ -10,6 +10,7 @@ namespace KingdomIdle.UGUI
     /// </summary>
     public sealed class MageTowerEquipPopupView : MonoBehaviour
     {
+        public RectTransform panelBox;         // 중앙 900x680 박스 (열릴 때 PopIn 애니메이션 대상)
         public Button backdropButton;         // 딤 배경 클릭 → 닫기
         public Button closeButton;            // 타이틀바 X → 닫기
         public TMP_Text titleLabel;

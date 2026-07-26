@@ -47,18 +47,23 @@ namespace KingdomIdle.UGUI.Editor
             F.AnchorBottomStretch(sheetImg.rectTransform, UguiTheme.BottomBarHeight, sheetHeight);
             F.VLayout(sheetImg.gameObject, 14f, new RectOffset(30, 30, 24, 28));
 
-            // 헤더: 슬레이트 스트립(속 채운 9-slice, 어둡게 틴트) + 제목 + 닫기(X 아이콘)
-            var header = F.PixelPanel(sheetImg.transform, "Header",
-                F.Catalog != null ? F.Catalog.kitTitleBar : null, new Color(0.20f, 0.22f, 0.30f, 1f), 14f, frameOnly: false);
-            F.HLayout(header.gameObject, 8f, new RectOffset(18, 10, 6, 6), TextAnchor.MiddleLeft);
-            F.Preferred(header.gameObject.AddComponent<LayoutElement>(), height: 76f);
+            // 헤더(데모 스타일): 중앙 제목 + ◇ 데코 디바이더 + 우상단 원형 닫기 버튼
+            var header = F.Container(sheetImg.transform, "Header");
+            F.VLayout(header.gameObject, 2f, new RectOffset(70, 70, 2, 2), TextAnchor.UpperCenter);
+            F.Preferred(header.gameObject.AddComponent<LayoutElement>(), height: 86f);
 
-            var titleLbl = F.Text(header.transform, "LblPanelName", title, UguiTheme.FontPanelTitle, UguiTheme.TextPrimary,
-                TextAlignmentOptions.Left, bold: true);
-            F.Flexible(titleLbl, flexWidth: 1f);
+            var titleLbl = F.Text(header, "LblPanelName", title, 40f, UguiTheme.TextPrimary,
+                TextAlignmentOptions.Center, bold: true);
+            F.Preferred(titleLbl, height: 52f);
 
-            var closeImg = F.CircleBox(header.transform, "BtnPanelClose", new Color(0.55f, 0.2f, 0.2f, 1f), raycast: true);
-            F.Preferred(closeImg, width: UguiTheme.PanelCloseBtnSize, height: UguiTheme.PanelCloseBtnSize);
+            F.DecoDivider(header);
+
+            // 닫기 — 시트 우상단 절대 위치(레이아웃 무시)
+            var closeImg = F.CircleBox(sheetImg.transform, "BtnPanelClose", new Color(0.62f, 0.24f, 0.24f, 1f), raycast: true);
+            var closeRt = closeImg.rectTransform;
+            closeRt.anchorMin = new Vector2(1f, 1f); closeRt.anchorMax = new Vector2(1f, 1f); closeRt.pivot = new Vector2(1f, 1f);
+            closeRt.anchoredPosition = new Vector2(-14f, -14f); closeRt.sizeDelta = new Vector2(64f, 64f);
+            closeImg.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
             var closeBtn = closeImg.gameObject.AddComponent<Button>();
             closeBtn.targetGraphic = closeImg;
             closeBtn.transition = Selectable.Transition.ColorTint;
@@ -66,13 +71,12 @@ namespace KingdomIdle.UGUI.Editor
             closeImg.gameObject.AddComponent<PlayClickSfxOnClick>();
             if (F.Catalog != null && F.Catalog.iconX != null)
             {
-                var xIcon = F.IconImage(closeImg.transform, "Icon", F.Catalog.iconX, 34f, 34f);
-                F.AnchorCenter(xIcon.rectTransform, 34f, 34f);
+                var xIcon = F.IconImage(closeImg.transform, "Icon", F.Catalog.iconX, 32f, 32f);
+                F.AnchorCenter(xIcon.rectTransform, 32f, 32f);
             }
             else
             {
-                // 폴백: ASCII X (✕ 는 Galmuri11에 없음)
-                var closeLbl = F.Text(closeImg.transform, "Label", "X", 30f, UguiTheme.TextPrimary, TextAlignmentOptions.Center, bold: true);
+                var closeLbl = F.Text(closeImg.transform, "Label", "X", 28f, UguiTheme.TextPrimary, TextAlignmentOptions.Center, bold: true);
                 F.Stretch(closeLbl.rectTransform);
             }
 

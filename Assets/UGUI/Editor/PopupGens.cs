@@ -97,6 +97,7 @@ namespace KingdomIdle.UGUI.Editor
                 F.FrameGold, 24f, raycast: true, baseColor: F.PanelBaseDarker);
             F.AnchorCenter(panel.rectTransform, 900f, 680f);
             F.VLayout(panel.gameObject, 14f, new RectOffset(30, 30, 24, 28));
+            view.panelBox = panel.rectTransform;
 
             // 타이틀바
             var titleBar = F.PixelPanel(panel.transform, "TitleBar", F.Catalog != null ? F.Catalog.kitTitleBar : null,

@@ -230,6 +230,25 @@ namespace KingdomIdle.UGUI.Editor
             return btn;
         }
 
+        /// <summary>데모식 ◇ 데코 디바이더 (얇은 라인 + 중앙 회전 다이아몬드). 헤더/섹션 구분용.</summary>
+        internal static RectTransform DecoDivider(Transform parent, float height = 22f, Color? lineColor = null, Color? gemColor = null)
+        {
+            var wrap = Container(parent, "DecoDivider");
+            wrap.gameObject.AddComponent<LayoutElement>().preferredHeight = height;
+
+            var line = Box(wrap, "Line", lineColor ?? new Color(1f, 1f, 1f, 0.14f), rounded: false);
+            var lrt = line.rectTransform;
+            lrt.anchorMin = new Vector2(0.06f, 0.5f); lrt.anchorMax = new Vector2(0.94f, 0.5f); lrt.pivot = new Vector2(0.5f, 0.5f);
+            lrt.sizeDelta = new Vector2(0f, 2f); lrt.anchoredPosition = Vector2.zero;
+            line.raycastTarget = false;
+
+            var gem = Box(wrap, "Gem", gemColor ?? UguiTheme.AccentGold, rounded: false);
+            AnchorCenter(gem.rectTransform, 12f, 12f);
+            gem.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 45f);
+            gem.raycastTarget = false;
+            return wrap;
+        }
+
         internal static Image IconImage(Transform parent, string name, Sprite sprite, float w, float h)
         {
             var rt = Container(parent, name);

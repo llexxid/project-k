@@ -32,6 +32,7 @@ namespace KingdomIdle.UGUI
 
             _view.gameObject.SetActive(true);
             _view.transform.SetAsLastSibling();   // BringToFront
+            if (_view.panelBox != null) UITween.PopIn(_view.panelBox);
             Refresh();
         }
 

@@ -197,6 +197,7 @@ namespace KingdomIdle.UGUI.Editor
             var card = F.Box(null, "Item_EquipCell", UguiTheme.SurfaceFaint, rounded: true, raycast: true);
             var view = card.gameObject.AddComponent<EquipCellView>();
             view.button = F.ButtonOn(card);
+            view.background = card;
             view.dimGroup = card.gameObject.AddComponent<CanvasGroup>();
             F.VLayout(card.gameObject, 4f, new RectOffset(6, 6, 8, 8), TextAnchor.UpperCenter, expandWidth: true);
 
