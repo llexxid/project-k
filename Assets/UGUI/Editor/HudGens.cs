@@ -2,12 +2,136 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using KingdomIdle.MageTower;
+using UnityEditor;
 
 namespace KingdomIdle.UGUI.Editor
 {
     /// <summary>파티 HUD / 마법탑 HUD / 데미지 텍스트 아이템 프리팹 생성기.</summary>
     internal static class HudGens
     {
+        [MenuItem("KingdomIdle/UGUI/Generate Main Actions HUD", false, 5)]
+        internal static void GenerateMainActionsOnly()
+        {
+            F.Init();
+            var catalog = AssetDatabase.LoadAssetAtPath<UIViewCatalog>(
+                PrefabGenUtil.CatalogPath);
+            F.Catalog = catalog;
+            GenerateMainActionsHud();
+            if (catalog != null)
+                CatalogGen.AssignPrefabs(catalog);
+            AssetDatabase.Refresh();
+        }
+
+        internal static GameObject GenerateMainActionsHud()
+        {
+            var rootGo = new GameObject(
+                "Hud_MainActions",
+                typeof(RectTransform));
+            rootGo.layer = 5;
+            var root = (RectTransform)rootGo.transform;
+            root.anchorMin = new Vector2(1f, 0.5f);
+            root.anchorMax = new Vector2(1f, 0.5f);
+            root.pivot = new Vector2(1f, 0.5f);
+            root.anchoredPosition = new Vector2(-24f, 80f);
+            root.sizeDelta = new Vector2(150f, 270f);
+
+            var layout = rootGo.AddComponent<VerticalLayoutGroup>();
+            layout.spacing = 14f;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+
+            var view = rootGo.AddComponent<MainActionsView>();
+            view.dungeonButton = MakeMainActionButton(
+                root,
+                "BtnDungeon",
+                "던전",
+                "Assets/UGUI/UsingAssets/Dungeon_Chest01.png");
+            view.reincarnationButton = MakeMainActionButton(
+                root,
+                "BtnReincarnation",
+                "환생",
+                "Assets/UGUI/UsingAssets/Dungeon_Gem01.png");
+
+            return PrefabGenUtil.SavePrefab(
+                rootGo,
+                $"{PrefabGenUtil.PrefabRoot}/Huds/Hud_MainActions.prefab");
+        }
+
+        private static Button MakeMainActionButton(
+            Transform parent,
+            string name,
+            string label,
+            string iconPath)
+        {
+            var go = new GameObject(
+                name,
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image),
+                typeof(Button),
+                typeof(LayoutElement));
+            go.layer = 5;
+            go.transform.SetParent(parent, false);
+
+            var image = go.GetComponent<Image>();
+            image.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(
+                "Assets/UGUI/UsingAssets/Dungeon_Grey.png");
+            image.type = Image.Type.Sliced;
+
+            var button = go.GetComponent<Button>();
+            button.targetGraphic = image;
+            button.colors = UguiTheme.MakeColorBlock();
+
+            var element = go.GetComponent<LayoutElement>();
+            element.preferredWidth = 142f;
+            element.preferredHeight = 124f;
+
+            var iconGo = new GameObject(
+                "Icon",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image));
+            iconGo.layer = 5;
+            iconGo.transform.SetParent(go.transform, false);
+            var iconRect = (RectTransform)iconGo.transform;
+            iconRect.anchorMin = new Vector2(0.5f, 1f);
+            iconRect.anchorMax = new Vector2(0.5f, 1f);
+            iconRect.pivot = new Vector2(0.5f, 1f);
+            iconRect.anchoredPosition = new Vector2(0f, -14f);
+            iconRect.sizeDelta = new Vector2(58f, 58f);
+            var icon = iconGo.GetComponent<Image>();
+            icon.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(iconPath);
+            icon.preserveAspect = true;
+            icon.raycastTarget = false;
+
+            var labelGo = new GameObject(
+                "Label",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(TextMeshProUGUI));
+            labelGo.layer = 5;
+            labelGo.transform.SetParent(go.transform, false);
+            var labelRect = (RectTransform)labelGo.transform;
+            labelRect.anchorMin = new Vector2(0f, 0f);
+            labelRect.anchorMax = new Vector2(1f, 0f);
+            labelRect.pivot = new Vector2(0.5f, 0f);
+            labelRect.anchoredPosition = new Vector2(0f, 10f);
+            labelRect.sizeDelta = new Vector2(-16f, 34f);
+            var text = labelGo.GetComponent<TextMeshProUGUI>();
+            text.font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
+                "Assets/UGUI/UsingAssets/Dungeon_Galmuri11 SDF.asset");
+            text.text = label;
+            text.fontSize = 25f;
+            text.fontStyle = FontStyles.Bold;
+            text.alignment = TextAlignmentOptions.Center;
+            text.color = Color.white;
+            text.raycastTarget = false;
+
+            return button;
+        }
         // ═══ 파티 HUD (.party-*) ═══
         internal static GameObject GeneratePartyHud()
         {

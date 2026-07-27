@@ -49,12 +49,14 @@ namespace Scripts.Monster
 			{
 				_hp = hp;
 				_extraHp = extraHp;
+				_maxHp = hp + extraHp;
 				_atk = atk;
 				_moveSpeed = moveSpeed;
 				_atkSpeed = atkSpeed;
 			}
 			public long _hp;
 			public int _extraHp;
+			public long _maxHp;
 
 			public ulong _atk;
 
@@ -63,6 +65,7 @@ namespace Scripts.Monster
 		}
 		[SerializeField]
 		private MonsterStat _stat;
+		public event Action<float> OnHpChanged;
 		private MonsterStat _initialStat; // 여기 추가함
 		[NonSerialized] eMonsterType _type;
 		long _dropTableNumber;
@@ -151,6 +154,15 @@ namespace Scripts.Monster
 			_stateManchine.currentState.OnUpdate();
 		}
 
+		public float GetHpRatio()
+		{
+			if (_stat._maxHp <= 0)
+				return 0f;
+
+			long currentHp = Math.Max(0L, _stat._hp + _stat._extraHp);
+			return Mathf.Clamp01((float)currentHp / _stat._maxHp);
+		}
+
 		/// <summary>
 		/// 상대좌표 - 내 좌표한 값을 매개변수로 받습니다.
 		/// </summary>
@@ -178,9 +190,10 @@ namespace Scripts.Monster
 		public void Init(eMonsterType monsterType, MonsterStat stat, long droptable_number)
 		{
 			_stat = stat;
-			_initialStat = stat; // 이거 추가함
+			_initialStat = stat;
 			_type = monsterType;
 			_dropTableNumber = droptable_number;
+			OnHpChanged?.Invoke(GetHpRatio());
 		}
 		public double GetSpeed()
 		{
@@ -215,15 +228,17 @@ namespace Scripts.Monster
 			//생성자
 			OnDeath = null;
 			Ratio = 1.0;
-			_stat = _initialStat; // 이거 추가함
+			_stat = _initialStat;
 			_monAction = eMonsterAction.Walk; // stale Dead 상태 방지: 재사용 시 Action 초기화
 			_allocGen++; // stale 비동기 태스크 차단용 세대 갱신
 			_stateManchine.BeginMachine(new MonsterMoveState(this));
 			foreach (var col in GetComponentsInChildren<Collider2D>())
 				col.enabled = true;
 			_monAI.RecoveryBT();
+			OnHpChanged?.Invoke(GetHpRatio());
 			return;
 		}
+
 		public void OnRelease()
 		{
 			//만약에 리지드 바디가 있다면, 초기화.
@@ -243,6 +258,7 @@ namespace Scripts.Monster
 			DamageTextBridge.ShowOnTransform(transform, dmg);
 
 			bool IsAlive = setHp(dmg);
+			OnHpChanged?.Invoke(GetHpRatio());
 			
 			if (!IsAlive)
 			{
@@ -321,6 +337,8 @@ namespace Scripts.Monster
 			//죽는경우
 			if (totalHp - (long)damage <= 0)
 			{
+				_stat._hp = 0;
+				_stat._extraHp = 0;
 				return false;
 			}
 

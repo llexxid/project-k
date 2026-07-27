@@ -50,6 +50,7 @@ namespace KingdomIdle.UGUI.Editor
             // HUD
             HudGens.GeneratePartyHud();
             HudGens.GenerateMageTowerHud();
+            HudGens.GenerateMainActionsHud();
             HudGens.GenerateDamageTextItem(CatalogGen.GetOrCreateDamageOutlineMaterial());
 
             // 아이템
@@ -74,6 +75,7 @@ namespace KingdomIdle.UGUI.Editor
             GachaPanelPrefabGens.GenerateAll();
             InventoryPanelPrefabGens.GenerateAll();
             KingdomArmyPanelPrefabGens.GenerateAll();
+            DungeonFeaturePrefabGens.GenerateAll();
 
             // 프리팹 참조 배선 (프리팹 생성 후)
             CatalogGen.AssignPrefabs(catalog);
@@ -143,12 +145,16 @@ namespace KingdomIdle.UGUI.Editor
             errors += CheckPrefabViews(catalog.panelKingdomArmy);
             errors += CheckPrefabViews(catalog.panelDevelopment);
             errors += CheckPrefabViews(catalog.panelInventory);
+            errors += CheckPrefabViews(catalog.panelDungeon);
             errors += CheckPrefabViews(catalog.popupGachaResult);
+            errors += CheckPrefabViews(catalog.popupDungeonClear);
+            errors += CheckPrefabViews(catalog.popupReincarnation);
             errors += CheckPrefabViews(catalog.overlayLoading);
             errors += CheckPrefabViews(catalog.overlayToast);
             errors += CheckPrefabViews(catalog.overlaySettings);
             errors += CheckPrefabViews(catalog.hudParty);
             errors += CheckPrefabViews(catalog.hudMageTower);
+            errors += CheckPrefabViews(catalog.hudMainActions);
 
             if (errors == 0)
                 Debug.Log("[UguiGen] View 배선 검사: 통과");

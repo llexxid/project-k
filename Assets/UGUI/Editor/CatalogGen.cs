@@ -80,10 +80,13 @@ namespace KingdomIdle.UGUI.Editor
             catalog.panelKingdomArmy = Load($"{p}/Panels/Panel_KingdomArmy.prefab");
             catalog.panelDevelopment = Load($"{p}/Panels/Panel_Development.prefab");
             catalog.panelInventory = Load($"{p}/Panels/Panel_Inventory.prefab");
+            catalog.panelDungeon = Load($"{p}/Panels/Panel_Dungeon.prefab");
 
             catalog.popupGachaResult = Load($"{p}/Popups/Popup_GachaResult.prefab");
             catalog.popupProfile = Load($"{p}/Popups/Popup_Profile.prefab");
             catalog.popupMageTowerEquip = Load($"{p}/Popups/Panel_MageTowerEquip.prefab");
+            catalog.popupDungeonClear = Load($"{p}/Popups/Popup_DungeonClear.prefab");
+            catalog.popupReincarnation = Load($"{p}/Popups/Popup_Reincarnation.prefab");
 
             catalog.overlayLoading = Load($"{p}/Overlays/Overlay_Loading.prefab");
             catalog.overlayToast = Load($"{p}/Overlays/Overlay_Toast.prefab");
@@ -91,6 +94,7 @@ namespace KingdomIdle.UGUI.Editor
 
             catalog.hudParty = Load($"{p}/Huds/Hud_Party.prefab");
             catalog.hudMageTower = Load($"{p}/Huds/Hud_MageTower.prefab");
+            catalog.hudMainActions = Load($"{p}/Huds/Hud_MainActions.prefab");
 
             catalog.itemNavTabButton = Load($"{p}/Items/Item_NavTabButton.prefab");
             catalog.itemGachaCard = Load($"{p}/Items/Item_GachaCard.prefab");
