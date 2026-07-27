@@ -52,19 +52,27 @@ namespace Scripts.Monster
 				_atk = atk;
 				_moveSpeed = moveSpeed;
 				_atkSpeed = atkSpeed;
+
+				_maxHp = _hp + _extraHp;
 			}
+
 			public long _hp;
 			public int _extraHp;
+			public long _maxHp;
 
 			public ulong _atk;
 
 			public double _moveSpeed;
 			public double _atkSpeed;
 		}
-		[SerializeField]
-		private MonsterStat _stat;
+		//ui에서 바로 가져다 쓸 수 있게 남은 hp비율을 인자로 주게 만들었지만 차후 용도가 늘어나면 인자를 빼도 상관없음 
+		public event Action<float> OnHpChanged; 
+		
+		[SerializeField] private MonsterStat _stat;
 		private MonsterStat _initialStat; // 여기 추가함
 		[NonSerialized] eMonsterType _type;
+
+
 		long _dropTableNumber;
 		public long Exp { get; set; }
 		public double Ratio { get; set; }
@@ -150,7 +158,12 @@ namespace Scripts.Monster
 			}
 			_stateManchine.currentState.OnUpdate();
 		}
-
+		//hp바 구현용 메서드
+		public float GetHpRatio()
+		{
+			if (_stat._maxHp <= 0) return 0f;
+			return Mathf.Clamp01((float)_stat._hp / _stat._maxHp);
+		}
 		/// <summary>
 		/// 상대좌표 - 내 좌표한 값을 매개변수로 받습니다.
 		/// </summary>
@@ -181,6 +194,8 @@ namespace Scripts.Monster
 			_initialStat = stat; // 이거 추가함
 			_type = monsterType;
 			_dropTableNumber = droptable_number;
+			
+			OnHpChanged?.Invoke(GetHpRatio());
 		}
 		public double GetSpeed()
 		{
@@ -243,7 +258,7 @@ namespace Scripts.Monster
 			DamageTextBridge.ShowOnTransform(transform, dmg);
 
 			bool IsAlive = setHp(dmg);
-			
+			OnHpChanged?.Invoke(GetHpRatio());
 			if (!IsAlive)
 			{
 				_monAction = eMonsterAction.Dead;
@@ -321,6 +336,9 @@ namespace Scripts.Monster
 			//죽는경우
 			if (totalHp - (long)damage <= 0)
 			{
+				_stat._hp = 0;
+				_stat._extraHp = 0;
+
 				return false;
 			}
 
