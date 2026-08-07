@@ -21,8 +21,8 @@ namespace Scripts.Core.Parser
     public static class StageDataGenerator
     {
         private const string ExcelRelativePath = "personalDocs/Stage_Revised.xlsx";
-        private const string DatabaseAssetPath = "Assets/So/StageDatabaseSO.asset";
-        private const string StageEnumAssetPath = "Assets/Scripts/Core/AutoGenEnum/StageEnum.cs";
+        private const string DatabaseAssetPath = "Assets/_Project/ScriptableObjects/StageDatabaseSO.asset";
+        private const string StageEnumAssetPath = "Assets/_Project/Scripts/Core/AutoGenEnum/StageEnum.cs";
 
         // 기존 eStage ID의 상위 분류 값이다. StageParser의 비트 마스크와 반드시 같은 배치를 사용해야 한다.
         private const long StageCategoryMask = 0x0000000200000000;

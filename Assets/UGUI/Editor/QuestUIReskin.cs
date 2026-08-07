@@ -12,7 +12,7 @@ namespace KingdomIdle.UGUI.Editor
     /// </summary>
     internal static class QuestUIReskin
     {
-        private const string PrefabPath = "Assets/Prefabs/QuestUI/GuideQuestPannel.prefab";
+        private const string PrefabPath = "Assets/_Project/Prefabs/QuestUI/GuideQuestPannel.prefab";
 
         internal static void Reskin()
         {

@@ -9,7 +9,7 @@ using UnityEngine;
 
 public static class EquipmentTestAssetGenerator
 {
-    private const string TestFolderPath = "Assets/Scripts/Player/Equipment/Prefab/Test";
+    private const string TestFolderPath = "Assets/_Project/Scripts/Player/Equipment/Prefab/Test";
 
     private static readonly (string jobName, eJobFlag jobFlag)[] Jobs =
     {
