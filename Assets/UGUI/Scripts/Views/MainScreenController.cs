@@ -21,6 +21,7 @@ namespace KingdomIdle.UGUI
 
         private MainScreenView _view;
         private UIManager _host;
+        private MainActionsView _mainActions;
 
         // 재화
         private object _wallet;
@@ -56,6 +57,9 @@ namespace KingdomIdle.UGUI
             try { BindMenus(); }
             catch (Exception ex) { Debug.LogError($"MainScreen.Menus failed: {ex}"); }
 
+            try { BindMainActions(); }
+            catch (Exception ex) { Debug.LogError($"MainScreen.MainActions failed: {ex}"); }
+
             try { WaveUIController.Init(_view.waveHud); }
             catch (Exception ex) { Debug.LogError($"MainScreen.WaveUIController.Init failed: {ex}"); }
 
@@ -86,9 +90,12 @@ namespace KingdomIdle.UGUI
 
             UnhookEconomyChangeHandler();
             WaveUIController.Dispose();
+            if (_mainActions != null)
+                UnityEngine.Object.Destroy(_mainActions.gameObject);
 
             _currencyCo = null;
             _hamburgerCo = null;
+            _mainActions = null;
             _view = null;
             _host = null;
             _wallet = null;
@@ -646,6 +653,47 @@ namespace KingdomIdle.UGUI
                 }
             }
             catch (Exception ex) { Debug.LogWarning($"PopulateProfilePopup: {ex.Message}"); }
+        }
+
+        private void BindMainActions()
+        {
+            if (_host?.Catalog?.hudMainActions == null ||
+                _host.LayerScreens == null)
+            {
+                return;
+            }
+
+            var actionsGo = UnityEngine.Object.Instantiate(
+                _host.Catalog.hudMainActions,
+                _host.LayerScreens,
+                false);
+            actionsGo.transform.SetAsLastSibling();
+            _mainActions = actionsGo.GetComponent<MainActionsView>();
+            if (_mainActions == null)
+            {
+                UnityEngine.Object.Destroy(actionsGo);
+                return;
+            }
+
+            if (_mainActions.dungeonButton != null)
+            {
+                _mainActions.dungeonButton.onClick.AddListener(() =>
+                {
+                    if (_currencyOpen) CloseCurrencyPopup();
+                    if (_hamburgerOpen) CloseHamburgerMenu();
+                    _host.PushPanel(UIPanelId.Dungeon, "dungeonPanel", clearBefore: false, isTabPanel: false);
+                });
+            }
+
+            if (_mainActions.reincarnationButton != null)
+            {
+                _mainActions.reincarnationButton.onClick.AddListener(() =>
+                {
+                    if (_currencyOpen) CloseCurrencyPopup();
+                    if (_hamburgerOpen) CloseHamburgerMenu();
+                    ReincarnationPopupController.Show();
+                });
+            }
         }
 
         private void BindMenus()

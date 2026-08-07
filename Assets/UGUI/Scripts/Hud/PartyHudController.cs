@@ -278,10 +278,11 @@ namespace KingdomIdle.UGUI
 
             var mgr = UIManager.Instance;
             bool onMain = mgr != null && mgr.ActiveScreenId == UIScreenId.Main;
+            bool shouldShow = onMain && !mgr.HasBlockingPanel;
 
-            if (_view.gameObject.activeSelf != onMain)
-                _view.gameObject.SetActive(onMain);
-            if (!onMain) return;
+            if (_view.gameObject.activeSelf != shouldShow)
+                _view.gameObject.SetActive(shouldShow);
+            if (!shouldShow) return;
 
             float sheetH = mgr.GetTopSheetHeight();
             float bottom = fallbackBottomBarPx + baseGapPx + (sheetH > 1f ? sheetH + sheetGapPx : 0f);

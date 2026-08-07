@@ -84,6 +84,9 @@ namespace Scripts.Core.Manager
         private MonsterSpawnLocationSO _locationSO;
         [SerializeField]
         private float _bossTimeLimit = 30f;
+        [Header("Dungeon Progress (temporary)")]
+        [SerializeField, Min(1)] private int _goldDungeonProgress = 2;
+        [SerializeField, Min(1)] private int _rubyDungeonProgress = 3;
         
         public eStage CurrentStage => _currentStage;
         public StageDefinition CurrentDefinition => _currentSession?.Definition;
@@ -98,6 +101,7 @@ namespace Scripts.Core.Manager
         private const float DefeatPopupDuration = 15f;
         private const float TickInterval = 3f;
         
+        [NonSerialized]
         private eStage _currentStage;
         private int _currentStageNumber;
         private int _currentWaveNumber;
@@ -110,6 +114,7 @@ namespace Scripts.Core.Manager
         private MainStageSnapshot _mainStageSnapshot;
         private eStageRunState _currentState;
         private StageSpawnController _currentSpawnController;
+        [NonSerialized]
         private eStage maxStage; // 현재 최대 진행된 스테이지 확인(서버붙이기 전까지 사용)
         
         // 서버 전송용 사냥 결과 버퍼.
@@ -225,27 +230,53 @@ namespace Scripts.Core.Manager
 		}
 
 		#endif
+		public bool IsDungeonStageUnlocked(eStage stage)
+		{
+			eStageType type = StageParser.GetStageType(stage);
+			int progress;
+			switch (type)
+			{
+				case eStageType.GoldDungeon:
+					progress = _goldDungeonProgress;
+					break;
+				case eStageType.RubyDungeon:
+					progress = _rubyDungeonProgress;
+					break;
+				default:
+					return false;
+			}
+
+			return StageParser.GetStageNumber(stage) <= progress;
+		}
+
 		public void EnterGoldDungeon()
 		{
-			if (_currentState != eStageRunState.Running ||
-			    _currentSession?.Definition.Type != eStageType.Main)
-			{
-				return;
-			}
-			
-			CaptureMainStageSnapshot();
-			TransitionStage(eStage.GoldDungeon1_1);
+			TryEnterDungeon(eStage.GoldDungeon1_1);
 		}
 
 		public void EnterRubyDungeon()
 		{
+			TryEnterDungeon(eStage.RubyDungeon1_1);
+		}
+
+		public bool TryEnterDungeon(eStage stage)
+		{
 			if (_currentState != eStageRunState.Running ||
 			    _currentSession?.Definition.Type != eStageType.Main)
 			{
-				return;
+				return false;
 			}
+
+			eStageType type = StageParser.GetStageType(stage);
+			if ((type != eStageType.GoldDungeon &&
+			     type != eStageType.RubyDungeon) ||
+			    !IsDungeonStageUnlocked(stage))
+			{
+				return false;
+			}
+
 			CaptureMainStageSnapshot();
-			TransitionStage(eStage.RubyDungeon1_1);
+			return TransitionStage(stage);
 		}
 		public void ReturnToMainStage()
 		{
@@ -349,12 +380,7 @@ namespace Scripts.Core.Manager
 			StageDefinition definition =
 				session.Definition;
 
-			if (definition.Type == eStageType.Main)
-			{
-				UpdateMaxClearedStage(
-					definition.MainStageId);
-			}
-
+			UpdateMaxClearedStage(definition);
 			OnStageCleared?.Invoke(definition);
 		}
 		private bool TransitionStage(eStage target)
@@ -672,14 +698,34 @@ namespace Scripts.Core.Manager
 			return (ulong)stage <= (ulong)maxStage;
 		}
 
-		private void UpdateMaxClearedStage(eStage? clearedStage)
+		private void UpdateMaxClearedStage(StageDefinition definition)
 		{
-			if (clearedStage == null) //클리어한 스테이지가 메인이 아니라 던전일경우
+			switch (definition.Type)
 			{
-				return;
+				case eStageType.Main:
+					if ((ulong)definition.Id > (ulong)maxStage)
+						maxStage = definition.Id;
+					break;
+				case eStageType.GoldDungeon:
+					AdvanceDungeonProgress(ref _goldDungeonProgress, definition);
+					break;
+				case eStageType.RubyDungeon:
+					AdvanceDungeonProgress(ref _rubyDungeonProgress, definition);
+					break;
 			}
-			if ((ulong)clearedStage > (ulong)maxStage)
-				maxStage = (eStage)clearedStage;
+		}
+
+		private static void AdvanceDungeonProgress(
+			ref int progress,
+			StageDefinition definition)
+		{
+			if (!definition.NextDifficultyId.HasValue)
+				return;
+
+			int nextStageNumber =
+				StageParser.GetStageNumber(definition.NextDifficultyId.Value);
+			if (nextStageNumber > progress)
+				progress = nextStageNumber;
 		}
 
 		private void HandleMonsterKilled(StageSession session, Monster monster)

@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using KingdomIdle.UI;
+using Scripts.Core;
+using Scripts.Core.Manager;
 
 namespace KingdomIdle.UGUI
 {
@@ -65,6 +67,8 @@ namespace KingdomIdle.UGUI
 
         public bool HasActiveTabPanel { get; private set; }
         public UIPanelId ActiveTabPanelId { get; private set; }
+        public bool HasBlockingPanel =>
+            _panelStack.Count > 0 && !_panelStack.Peek().IsTab;
 
         /// <summary>패널 스택이 변할 때마다 발생 — 탭 선택 시각화, 파티 HUD 위치 갱신용.</summary>
         public event Action PanelStackChanged;
@@ -77,6 +81,7 @@ namespace KingdomIdle.UGUI
         private ToastView _toast;
         private Coroutine _toastCo;
         private SettingsModalController _settings;
+        private StageManager _boundStageManager;
 
         // ── PlayerPrefs 키 (기존 값과 호환 유지 — 변경 금지) ──
         internal const string PrefKeyVolume = "settings_masterVolume";
@@ -143,6 +148,8 @@ namespace KingdomIdle.UGUI
 
         private void Update()
         {
+            EnsureStageManagerBinding();
+
             if (Input.GetKeyDown(KeyCode.Escape))
                 RequestBack();
 
@@ -151,7 +158,37 @@ namespace KingdomIdle.UGUI
 
         private void OnDestroy()
         {
+            BindStageManager(null);
+            DungeonClearPopupController.Hide();
+            ReincarnationPopupController.Hide();
             if (Instance == this) Instance = null;
+        }
+
+        private void EnsureStageManagerBinding()
+        {
+            if (_boundStageManager != StageManager.Instance)
+                BindStageManager(StageManager.Instance);
+        }
+
+        private void BindStageManager(StageManager stageManager)
+        {
+            if (_boundStageManager != null)
+                _boundStageManager.OnStageCleared -= HandleStageCleared;
+
+            _boundStageManager = stageManager;
+
+            if (_boundStageManager != null)
+                _boundStageManager.OnStageCleared += HandleStageCleared;
+        }
+
+        private static void HandleStageCleared(
+            StageDefinition definition)
+        {
+            if (definition != null &&
+                definition.Type != eStageType.Main)
+            {
+                DungeonClearPopupController.Show(definition);
+            }
         }
 
         // ═══════════════════════════════════════════
@@ -164,6 +201,8 @@ namespace KingdomIdle.UGUI
                 ClearPanels();
 
             GachaResultPopupController.Close();
+            DungeonClearPopupController.Hide();
+            ReincarnationPopupController.Hide();
             _settings?.Close();
 
             _titleController?.Dispose();
@@ -300,6 +339,7 @@ namespace KingdomIdle.UGUI
                 case UIPanelId.KingdomArmy: prefab = catalog.panelKingdomArmy; break;
                 case UIPanelId.Development: prefab = catalog.panelDevelopment; break;
                 case UIPanelId.Inventory: prefab = catalog.panelInventory; break;
+                case UIPanelId.Dungeon: prefab = catalog.panelDungeon; break;
                 default: prefab = catalog.panelPlaceholder; break;
             }
 
