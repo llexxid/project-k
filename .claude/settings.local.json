@@ -12,5 +12,9 @@
       "PowerShell(Get-ChildItem \"Assets\\\\UI Toolkit\\\\Scripts\" -Recurse -File | Where-Object { $_.Name -match '\\(EconomyBridge|TutorialManager|TutorialStepDataSO|TutorialGuideListSO|UIIds\\)' } | Select-Object -ExpandProperty FullName; Write-Output \"===\"; Test-Path \"Assets\\\\Scripts\\\\Core\")",
       "WebSearch"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "comfy-cloud"
+  ],
+  "enableAllProjectMcpServers": true
 }

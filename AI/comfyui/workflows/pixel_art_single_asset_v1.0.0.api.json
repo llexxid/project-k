@@ -1,0 +1,65 @@
+{
+  "3": {
+    "class_type": "KSampler",
+    "_meta": { "title": "INPUT — Seed and Sampling" },
+    "inputs": {
+      "model": ["10", 0],
+      "seed": 1942837601,
+      "steps": 30,
+      "cfg": 7,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "positive": ["6", 0],
+      "negative": ["7", 0],
+      "latent_image": ["5", 0],
+      "denoise": 1
+    }
+  },
+  "4": {
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": { "title": "LOCKED — Base Model (SDXL)" },
+    "inputs": { "ckpt_name": "sd_xl_base_1.0.safetensors" }
+  },
+  "5": {
+    "class_type": "EmptyLatentImage",
+    "_meta": { "title": "INPUT — Source Dimensions" },
+    "inputs": { "width": 1024, "height": 1024, "batch_size": 1 }
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "INPUT — Positive Prompt" },
+    "inputs": {
+      "clip": ["10", 1],
+      "text": "pixel art, single full-body fantasy goblin miner enemy, facing right, neutral readable idle stance, short stocky body, large round mining helmet, small pickaxe attached to the back, clear silhouette, centered composition, orthographic 2D mobile game sprite, limited color palette, hard-edged color clusters, dark outline, three-value shading, top-left lighting, flat solid magenta background, no cast shadow, one character only, sharp focus"
+    }
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "INPUT — Negative Prompt" },
+    "inputs": {
+      "clip": ["10", 1],
+      "text": "photograph, photorealistic, 3d render, painterly, watercolor, vector art, smooth gradient, soft anti-aliasing, depth of field, bloom, motion blur, text, letters, numbers, logo, watermark, multiple characters, duplicate character, extra arms, extra legs, cropped head, cropped feet, detailed scenery, cast shadow, semi-transparent edges, blurry, lowres, jpeg artifacts"
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "_meta": { "title": "LOCKED — Decode" },
+    "inputs": { "samples": ["3", 0], "vae": ["4", 2] }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "_meta": { "title": "OUTPUT — Raw Source" },
+    "inputs": { "images": ["8", 0], "filename_prefix": "game_pixel_art/raw/pixel_art_single_asset" }
+  },
+  "10": {
+    "class_type": "LoraLoader",
+    "_meta": { "title": "MODEL AND STYLE — Pixel Art XL LoRA" },
+    "inputs": {
+      "model": ["4", 0],
+      "clip": ["4", 1],
+      "lora_name": "sdxl-pixel_art_xl.safetensors",
+      "strength_model": 1,
+      "strength_clip": 1
+    }
+  }
+}

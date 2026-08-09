@@ -1,0 +1,100 @@
+{
+  "workflow_id": "pixel_art_single_asset",
+  "workflow_version": "1.0.0",
+  "status": "verified",
+  "generated_by": "Comfy Cloud (hosted) via comfy-cloud MCP",
+  "editable_workflow": {
+    "location": "Comfy Cloud workspace",
+    "saved_name": "pixel_art_single_asset_v1.0.0",
+    "saved_slug": "pixel-art-single-asset-v1-0-0",
+    "note": "Cloud has no local editable/API file split. The reopenable canvas lives in the Cloud workspace (open it in the Comfy canvas or via get_workflow_canvas_url). The repo API JSON below is the source of truth for automation."
+  },
+  "api_workflow_path": "AI/comfyui/workflows/pixel_art_single_asset_v1.0.0.api.json",
+  "comfyui": {
+    "mode": "cloud",
+    "server_address": "https://cloud.comfy.org",
+    "mcp_server": "comfy-cloud (https://cloud.comfy.org/mcp)",
+    "mcp_server_version": "0.37.0",
+    "mcp_environment": "production",
+    "auth": "OAuth (authenticated)",
+    "local_install": "none — Comfy Cloud cannot drive a local ComfyUI; there is no /object_info, no local model dir, no VRAM figure"
+  },
+  "environment": {
+    "compute": "Comfy Cloud remote GPU (not local)",
+    "local_gpu_irrelevant": "GTX 1650 4GB — NOT used; all generation runs on Comfy Cloud",
+    "os_of_orchestrator": "Windows 11 (Claude Code host)"
+  },
+  "model_stack": [
+    {
+      "role": "checkpoint",
+      "filename": "sd_xl_base_1.0.safetensors",
+      "loader": "CheckpointLoaderSimple",
+      "architecture": "SDXL 1.0",
+      "provides": ["MODEL", "CLIP", "VAE"],
+      "license": "CreativeML OpenRAIL++-M (SDXL base 1.0)",
+      "sha256": "not_calculated — model is hosted on Comfy Cloud, not local"
+    },
+    {
+      "role": "style_lora",
+      "filename": "sdxl-pixel_art_xl.safetensors",
+      "display_name": "Pixel Art XL",
+      "loader": "LoraLoader",
+      "base_model": "SDXL 1.0",
+      "strength_model": 1.0,
+      "strength_clip": 1.0,
+      "license": "unknown — verify at the Civitai source before commercial release; do not infer from filename",
+      "sha256": "not_calculated — model is hosted on Comfy Cloud, not local"
+    }
+  ],
+  "custom_nodes": [],
+  "node_class_types": [
+    "CheckpointLoaderSimple",
+    "LoraLoader",
+    "CLIPTextEncode",
+    "EmptyLatentImage",
+    "KSampler",
+    "VAEDecode",
+    "SaveImage"
+  ],
+  "automation_slots": {
+    "positive_prompt": { "node_id": "6", "input": "text" },
+    "negative_prompt": { "node_id": "7", "input": "text" },
+    "seed": { "node_id": "3", "input": "seed" },
+    "steps": { "node_id": "3", "input": "steps" },
+    "cfg": { "node_id": "3", "input": "cfg" },
+    "source_width": { "node_id": "5", "input": "width" },
+    "source_height": { "node_id": "5", "input": "height" },
+    "batch_size": { "node_id": "5", "input": "batch_size" },
+    "lora_strength_model": { "node_id": "10", "input": "strength_model" },
+    "lora_strength_clip": { "node_id": "10", "input": "strength_clip" },
+    "raw_filename_prefix": { "node_id": "9", "input": "filename_prefix" }
+  },
+  "locked_components": {
+    "base_checkpoint": { "node_id": "4", "input": "ckpt_name", "value": "sd_xl_base_1.0.safetensors" },
+    "style_lora_file": { "node_id": "10", "input": "lora_name", "value": "sdxl-pixel_art_xl.safetensors" },
+    "sampler_architecture": { "node_id": "3", "inputs": ["sampler_name", "scheduler"], "values": ["dpmpp_2m", "karras"] },
+    "vae_source": "checkpoint VAE (node 4 output 2) — SDXL base bundles its VAE; no separate VAE loader",
+    "node_wiring": "do not re-route links without re-validation"
+  },
+  "test": {
+    "prompt_id": "bbedef07-3ee0-4259-905f-6e7db6c7c6e6",
+    "seed": 1942837601,
+    "source_width": 1024,
+    "source_height": 1024,
+    "preview_width": 64,
+    "preview_height": 64,
+    "preview_interpolation": "nearest (PIL, deterministic, done locally after download)",
+    "raw_output": "AI/comfyui/tests/outputs/pixel_art_single_asset_v1.0.0/raw_pixel_art_single_asset_00001.png",
+    "preview_output": "AI/comfyui/tests/outputs/pixel_art_single_asset_v1.0.0/preview_pixel_art_single_asset_64x64_00001.png",
+    "raw_dimensions_verified": "1024x1024 RGB (PIL)",
+    "preview_dimensions_verified": "64x64 RGB (PIL)",
+    "validation_result": "dry_run: validated, 0 warnings; estimate_credits: 0 paid API credits (OSS model, GPU-time only)",
+    "execution_result": "completed (wait_for_job: job_status=completed)"
+  },
+  "known_limitations": [
+    "Background rendered near-white despite a 'magenta key-color' prompt — SDXL pixel models tend to ignore background color. Deterministic background removal / alpha extraction is a separate later post-processing stage, not part of v1.0.0.",
+    "Pose read front-facing rather than strictly right-facing; directional control is a v1.1 concern (prompt tuning or ControlNet).",
+    "The 64x64 preview is a nearest downscale for pixel-level review only — it is NOT an approved final sprite. Human pixel cleanup / palette enforcement still required.",
+    "Model SHA-256 not computed (models are hosted on Comfy Cloud, not on the local disk)."
+  ]
+}
