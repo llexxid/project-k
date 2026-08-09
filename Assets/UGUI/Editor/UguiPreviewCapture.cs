@@ -392,9 +392,9 @@ namespace KingdomIdle.UGUI.Editor
                 if (catalog.itemJobCard != null)
                 {
                     // 실제 JobData 로드 → 진짜 jobSprite 로 초상화 메달리온 균일성 검증
-                    var knight = AssetDatabase.LoadAssetAtPath<JobData>("Assets/Scripts/Player/Job/SO/Knight.asset");
-                    var archer = AssetDatabase.LoadAssetAtPath<JobData>("Assets/Scripts/Player/Job/SO/Archer.asset");
-                    var mage = AssetDatabase.LoadAssetAtPath<JobData>("Assets/Scripts/Player/Job/SO/Mage.asset");
+                    var knight = AssetDatabase.LoadAssetAtPath<JobData>("Assets/_Project/Scripts/Player/Job/SO/Knight.asset");
+                    var archer = AssetDatabase.LoadAssetAtPath<JobData>("Assets/_Project/Scripts/Player/Job/SO/Archer.asset");
+                    var mage = AssetDatabase.LoadAssetAtPath<JobData>("Assets/_Project/Scripts/Player/Job/SO/Mage.asset");
                     MakeJobCard(gridGo.transform, catalog, knight, "Knight", "현재", UguiTheme.AccentGoldStrong, "HP 600 / ATK 50", "무료 재전직", UguiTheme.SuccessGreenBright, null, new Color(1f, 230f/255f, 100f/255f, 0.12f), new Color(1f, 230f/255f, 100f/255f, 1f));
                     MakeJobCard(gridGo.transform, catalog, archer, "Archer", "전직가능", UguiTheme.SuccessGreenBright, "HP 320 / ATK 80", "전직 파편 40/40", UguiTheme.SuccessGreenBright, null, new Color(1f,1f,1f,0.07f), null);
                     MakeJobCard(gridGo.transform, catalog, mage, "Mage", "전직가능", UguiTheme.WarnRed, "HP 400 / ATK 60", "전직 파편 30/40", UguiTheme.WarnRed, "선행: Archer 필요", new Color(1f,1f,1f,0.07f), null);
@@ -453,7 +453,7 @@ namespace KingdomIdle.UGUI.Editor
             col.spacing = 26f; col.childControlWidth = true; col.childControlHeight = true;
             col.childForceExpandWidth = true; col.childForceExpandHeight = false;
 
-            var archer = AssetDatabase.LoadAssetAtPath<JobData>("Assets/Scripts/Player/Job/SO/Archer.asset");
+            var archer = AssetDatabase.LoadAssetAtPath<JobData>("Assets/_Project/Scripts/Player/Job/SO/Archer.asset");
 
             // 장비 탭 (장착 카드 슬롯 + 보유 장비 그리드)
             if (catalog.panelKAEquipment != null)
@@ -548,9 +548,9 @@ namespace KingdomIdle.UGUI.Editor
             {
                 var jobs = new[]
                 {
-                    AssetDatabase.LoadAssetAtPath<JobData>("Assets/Scripts/Player/Job/SO/Knight.asset"),
-                    AssetDatabase.LoadAssetAtPath<JobData>("Assets/Scripts/Player/Job/SO/Archer.asset"),
-                    AssetDatabase.LoadAssetAtPath<JobData>("Assets/Scripts/Player/Job/SO/Mage.asset"),
+                    AssetDatabase.LoadAssetAtPath<JobData>("Assets/_Project/Scripts/Player/Job/SO/Knight.asset"),
+                    AssetDatabase.LoadAssetAtPath<JobData>("Assets/_Project/Scripts/Player/Job/SO/Archer.asset"),
+                    AssetDatabase.LoadAssetAtPath<JobData>("Assets/_Project/Scripts/Player/Job/SO/Mage.asset"),
                 };
                 float[] hp = { 0.85f, 0.45f, 1f };
                 string[] names = { "공격", "오라", "특수" };

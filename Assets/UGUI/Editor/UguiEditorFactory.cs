@@ -142,13 +142,9 @@ namespace KingdomIdle.UGUI.Editor
                 // 패널(baseColor 지정)은 그 색, 카드/스트립은 tint로 채운다. (흰 마스터 → 실제 색)
                 baseImg.color = baseColor ?? tint;
 
-                if (frameOnly)   // 패널/팝업 의도 → LL 프레임 룩: 두꺼운 다크 아웃라인 + 은은한 이너 프레임
+                if (frameOnly)   // 패널/팝업 의도 → LL 프레임 룩: 청동 시엔(구운 스프라이트 사용, 합성 아웃라인/이너프레임 제거)
                 {
-                    var ol = baseImg.gameObject.AddComponent<Outline>();
-                    ol.effectColor = new Color(0f, 0f, 0f, 0.85f);
-                    ol.effectDistance = new Vector2(4f, 4f);
-                    ol.useGraphicAlpha = true;
-
+                    // [최적화] 합성 Outline 컴포넌트 제거 — LL BasicFrame Bg 스프라이트에 이미 어두운 엣지가 구워져 있음.
                     // 리치 배경: 상단 웜 시엔(청동 그라디언트) — 평평함 방지. 흰색이 아닌 청동이라 Linear 안전.
                     if (Catalog != null && Catalog.panelGradient != null)
                     {
@@ -161,20 +157,7 @@ namespace KingdomIdle.UGUI.Editor
                         gi.raycastTarget = false;
                         grad.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
                     }
-
-                    if (Catalog != null && Catalog.frameBorder != null)
-                    {
-                        var innerFrame = Container(baseImg.transform, "InnerFrame");
-                        Stretch(innerFrame);
-                        innerFrame.offsetMin = new Vector2(7f, 7f);
-                        innerFrame.offsetMax = new Vector2(-7f, -7f);
-                        var fi = innerFrame.gameObject.AddComponent<Image>();
-                        fi.sprite = Catalog.frameBorder;
-                        fi.type = Image.Type.Sliced;
-                        fi.color = new Color(1f, 1f, 1f, 0.16f);
-                        fi.raycastTarget = false;
-                        innerFrame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
-                    }
+                    // [최적화] InnerFrame(흰 α0.16) 제거 — Linear 색공간에서 밝게 터지는 저알파 흰 오버레이(사실상 안 보이는 낭비 레이어).
                 }
                 return baseImg;
             }

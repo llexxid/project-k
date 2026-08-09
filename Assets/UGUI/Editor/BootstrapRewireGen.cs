@@ -12,7 +12,7 @@ namespace KingdomIdle.UGUI.Editor
     /// </summary>
     internal static class BootstrapRewireGen
     {
-        private const string BootstrapPath = "Assets/Scenes/buildScenes/bootstrap.unity";
+        private const string BootstrapPath = "Assets/_Project/Scenes/buildScenes/bootstrap.unity";
         private const string UitkRootName = "UITK_UIRoot";
         private const string UguiRootName = "UGUI_UIRoot";
 

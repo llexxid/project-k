@@ -9,7 +9,8 @@
       "Bash(xargs grep:*)",
       "Bash(find C:UsersUSERDesktopproject-kAssets -name CONSTANT* -o -name Constant*)",
       "PowerShell(Get-ChildItem -Path \"Assets\\\\UI Toolkit\" -Recurse -File | Where-Object { $_.Extension -ne '.meta' } | ForEach-Object { $_.FullName.Replace\\(\\(Get-Location\\).Path + '\\\\', ''\\) + \"  \\(\" + [math]::Round\\($_.Length/1KB,1\\) + \" KB\\)\" })",
-      "PowerShell(Get-ChildItem \"Assets\\\\UI Toolkit\\\\Scripts\" -Recurse -File | Where-Object { $_.Name -match '\\(EconomyBridge|TutorialManager|TutorialStepDataSO|TutorialGuideListSO|UIIds\\)' } | Select-Object -ExpandProperty FullName; Write-Output \"===\"; Test-Path \"Assets\\\\Scripts\\\\Core\")"
+      "PowerShell(Get-ChildItem \"Assets\\\\UI Toolkit\\\\Scripts\" -Recurse -File | Where-Object { $_.Name -match '\\(EconomyBridge|TutorialManager|TutorialStepDataSO|TutorialGuideListSO|UIIds\\)' } | Select-Object -ExpandProperty FullName; Write-Output \"===\"; Test-Path \"Assets\\\\Scripts\\\\Core\")",
+      "WebSearch"
     ]
   }
 }
