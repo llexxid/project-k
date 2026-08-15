@@ -64,7 +64,7 @@ public sealed class BasicAttackProjectile : ActiveSkill
         _phase = Phase.WaitingForAnimEnd;
         _fireTime = Time.time + animLen;
 
-        _nextAvailableTime = Time.time + animLen + _cooldown;
+        _nextAvailableTime = Time.time + animLen + ScaledCooldown(_cooldown);
         return animLen;
     }
 

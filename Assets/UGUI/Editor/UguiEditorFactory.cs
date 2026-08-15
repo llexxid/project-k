@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -401,7 +401,13 @@ namespace KingdomIdle.UGUI.Editor
         /// <summary>세로 마스크 (아래에서 차오름, 쿨다운용).</summary>
         internal static Image VFillMask(Transform parent, string name, Color color)
         {
-            var img = Box(parent, name, color, rounded: false);
+            // Image.Type.Filled 는 sprite 가 null 이면 fillAmount 를 통째로 무시한다
+            // (Image.OnPopulateMesh 가 Graphic 기본 구현으로 빠져 그냥 사각형을 그린다).
+            // 따라서 rounded:true 로 먼저 스프라이트를 물린 뒤 Filled 로 바꿔야 실제로 차오른다.
+            var img = Box(parent, name, color, rounded: true);
+            if (img.sprite == null)
+                Debug.LogWarning($"[UGUI] VFillMask '{name}': 스프라이트가 없어 쿨다운 채움이 동작하지 않습니다. F.Init() 이후에 호출하세요.");
+
             Stretch(img.rectTransform);
             img.type = Image.Type.Filled;
             img.fillMethod = Image.FillMethod.Vertical;

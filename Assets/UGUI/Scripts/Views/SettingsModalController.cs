@@ -160,7 +160,11 @@ namespace KingdomIdle.UGUI
             PlayerPrefs.SetInt(UIManager.PrefKeyMute, _isMuted ? 1 : 0);
             if (_view.tglPowerSave != null) PlayerPrefs.SetInt(UIManager.PrefKeyPowerSave, _view.tglPowerSave.isOn ? 1 : 0);
             if (_view.tglHideItem != null) PlayerPrefs.SetInt(UIManager.PrefKeyHideItem, _view.tglHideItem.isOn ? 1 : 0);
-            if (_view.tglDamageText != null) PlayerPrefs.SetInt(UIManager.PrefKeyDamageText, _view.tglDamageText.isOn ? 1 : 0);
+            if (_view.tglDamageText != null)
+            {
+                PlayerPrefs.SetInt(UIManager.PrefKeyDamageText, _view.tglDamageText.isOn ? 1 : 0);
+                DamageTextBridge.RefreshSettings(); // 매니저의 캐시된 토글 즉시 반영
+            }
             if (_view.tglScreenShake != null) PlayerPrefs.SetInt(UIManager.PrefKeyScreenShake, _view.tglScreenShake.isOn ? 1 : 0);
             if (_view.tglPush != null) PlayerPrefs.SetInt(UIManager.PrefKeyPush, _view.tglPush.isOn ? 1 : 0);
             if (_view.tglNightPush != null) PlayerPrefs.SetInt(UIManager.PrefKeyNightPush, _view.tglNightPush.isOn ? 1 : 0);

@@ -1,0 +1,55 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 27aec6e447c88bf4c8025094ea9b86da, type: 3}
+  m_Name: DivineSkill_Astra
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomIdle.Divine.DivineSkillSO
+  id: 7
+  nameEng: Astra
+  nameKor: "\uC2EC\uD310\uC758 \uC5EC\uC2E0 \uC544\uC2A4\uD2B8\uB77C"
+  skillNameKor: "\uBCC4\uC758 \uB099\uD558"
+  description: "\uC804\uC7A5 \uC804\uCCB4 \uD30C\uD2F0 ATK\uD569 \xD7 40 \uC989\uBC1C
+    + 3\uCD08 \uAE30\uC808."
+  grade: 2
+  cooldown: 50
+  icon: {fileID: 21300000, guid: af2c96fde1ec5ac4a8fe95fe4503dc6c, type: 3}
+  illustration: {fileID: 21300000, guid: 7c62359685c05964691c0805be7c5f2e, type: 3}
+  effectKind: 0
+  skillMult: 40
+  hitCount: 1
+  duration: 0
+  castDelay: 0
+  crowdControl: 1
+  ccDuration: 3
+  slowPercent: 0.5
+  damageReducePercent: 0.2
+  skillIntervalReducePercent: 0.3
+  moveSpeedIncreasePercent: 0.3
+  burstVfxPrefab: {fileID: 7052166587925867496, guid: 9fcf4e648561c2745b279ad266a736c6,
+    type: 3}
+  impactVfxPrefab: {fileID: 2609753407647784696, guid: d00c6918405e21d4b8220742a6e23adf,
+    type: 3}
+  statusVfxPrefab: {fileID: 8339537300116477324, guid: 1a2c04c81510057438f04f21559894ac,
+    type: 3}
+  vfxPrefab: {fileID: 0}
+  burstVfxLifetime: 1
+  impactVfxLifetime: 0.6
+  impactVfxScale: 2
+  statusVfxOffset: {x: 0, y: 1.1, z: 0}
+  impactDelay: 0.35
+  impactStagger: 0.05
+  screenShake: 1
+  shakeDuration: 0.3
+  shakeMagnitude: 0.14
+  sfxName: Lightning_SFX
+  impactSfxName: Parrying_SFX
+  cutInEnabled: 1
+  cutInDuration: 1.2

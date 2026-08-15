@@ -34,6 +34,23 @@ namespace KingdomIdle.UGUI
         public const float MageTowerHudWidth = 176f;
         public const float MageTowerSlotSize = 134f;
 
+        // ── 신성 스킬(궁극기) HUD — 좌하단. 마탑 열(좌상단, 아래끝 ≈594)과
+        //    파티 HUD(하단 중앙, 위끝 ≈300) 사이의 빈 자리를 쓴다 ──
+        public const float DivineHudLeft = 24f;       // 화면 가장자리 여백 (우하단 앵커 — 우측 가장자리 기준)
+        public const float DivineHudBottom = 340f;    // 하단바(190) + 파티 HUD 행 위
+        public const float DivineHudSize = 200f;      // 버튼 한 변 (마탑 슬롯 134의 1.5배 — 화면 최대 버튼)
+        public const float DivineHudGlowPad = 18f;    // 준비 완료 후광이 버튼 밖으로 번지는 여유
+        public const float DivineHudIconInset = 14f;  // 버튼 안쪽 아이콘 인셋
+
+        // ── 신성 스킬 컷인 오버레이 ──
+        public const float DivineCutInIllustWidth = 620f;
+        public const float DivineCutInIllustHeight = 860f;
+        public const float DivineCutInIllustY = 180f;    // 화면 중앙 기준 일러스트 y 오프셋
+        public const float DivineCutInSlideX = 420f;     // 일러스트가 옆에서 밀려 들어오는 시작 오프셋
+        public const float DivineCutInPlateWidth = 900f;
+        public const float DivineCutInPlateHeight = 260f;
+        public const float DivineCutInPlateY = -480f;    // 화면 중앙 기준 이름 플레이트 y 오프셋
+
         // ── 폰트 크기 (USS px) ──
         public const float FontTitleBig = 72f;
         public const float FontPressHint = 30f;
@@ -50,6 +67,11 @@ namespace KingdomIdle.UGUI
         public const float FontSmall = 20f;
         public const float FontBadge = 16f;
         public const float FontDamageText = 30f;
+        public const float FontDivineCooldown = 48f;   // 궁극기 버튼 남은 초
+        public const float FontDivineEmpty = 26f;      // 궁극기 버튼 미장착/이름 대체 표기
+        public const float FontCutInGrade = 28f;       // 컷인 등급 리본
+        public const float FontCutInName = 34f;        // 컷인 카드(초월자) 이름
+        public const float FontCutInSkill = 62f;       // 컷인 스킬 이름
 
         // ── 공통 색상 ──
         public static readonly Color PanelSheetBg = Rgba(10, 10, 15, 1f);

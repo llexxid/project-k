@@ -91,10 +91,12 @@ namespace KingdomIdle.UGUI.Editor
             catalog.overlayLoading = Load($"{p}/Overlays/Overlay_Loading.prefab");
             catalog.overlayToast = Load($"{p}/Overlays/Overlay_Toast.prefab");
             catalog.overlaySettings = Load($"{p}/Overlays/Overlay_Settings.prefab");
+            catalog.overlayDivineCutIn = Load($"{p}/Overlays/Overlay_DivineCutIn.prefab");
 
             catalog.hudParty = Load($"{p}/Huds/Hud_Party.prefab");
             catalog.hudMageTower = Load($"{p}/Huds/Hud_MageTower.prefab");
             catalog.hudMainActions = Load($"{p}/Huds/Hud_MainActions.prefab");
+            catalog.hudDivineSkill = Load($"{p}/Huds/Hud_DivineSkill.prefab");
 
             catalog.itemNavTabButton = Load($"{p}/Items/Item_NavTabButton.prefab");
             catalog.itemGachaCard = Load($"{p}/Items/Item_GachaCard.prefab");

@@ -323,6 +323,107 @@ namespace KingdomIdle.UGUI.Editor
             return PrefabGenUtil.SavePrefab(rootGo, $"{PrefabGenUtil.PrefabRoot}/Huds/Hud_MageTower.prefab");
         }
 
+        // ═══ 신성 스킬(궁극기) HUD — 좌하단 대형 버튼 1개 ═══
+
+        /// <summary>단일 대상 재생성 — 손댄 다른 프리팹을 건드리지 않고 궁극기 HUD만 다시 만든다.</summary>
+        [MenuItem("KingdomIdle/UGUI/Generate Divine Skill HUD", false, 6)]
+        internal static void GenerateDivineSkillHudOnly()
+        {
+            F.Init();
+            var catalog = AssetDatabase.LoadAssetAtPath<UIViewCatalog>(
+                PrefabGenUtil.CatalogPath);
+            F.Catalog = catalog;
+            GenerateDivineSkillHud();
+            if (catalog != null)
+                CatalogGen.AssignPrefabs(catalog);
+            AssetDatabase.Refresh();
+        }
+
+        internal static GameObject GenerateDivineSkillHud()
+        {
+            var rootGo = new GameObject("Hud_DivineSkill", typeof(RectTransform));
+            rootGo.layer = 5;
+            var rootRt = (RectTransform)rootGo.transform;
+
+            // 우하단 앵커 — 좌측은 마탑 열(슬롯 5개 = 세로 1026px)이 노치/짧은 화면에서
+            // 하단 y≈594 까지 내려와 좌하단 배치와 충돌한다. 우하단은 하단바(0-190)와
+            // MainActions(우측 중앙, y≈960 부근)의 사이라 세로 여유가 넉넉하다.
+            // 레이아웃 그룹 없이 고정 크기 1칸이라 ContentSizeFitter도 쓰지 않는다.
+            rootRt.anchorMin = new Vector2(1f, 0f);
+            rootRt.anchorMax = new Vector2(1f, 0f);
+            rootRt.pivot = new Vector2(1f, 0f);
+            rootRt.anchoredPosition = new Vector2(-UguiTheme.DivineHudLeft, UguiTheme.DivineHudBottom);
+            rootRt.sizeDelta = new Vector2(UguiTheme.DivineHudSize, UguiTheme.DivineHudSize);
+
+            // 이 HUD 는 쿨다운 동안 0.1초마다 다시 그린다 — 자체 Canvas 로 리빌드를 격리해
+            // 루트 캔버스(화면 전체) 리빌드를 막는다. 버튼이 있으므로 GraphicRaycaster 필수
+            // (중첩 캔버스의 그래픽은 부모 캔버스의 레이캐스터에 잡히지 않는다).
+            rootGo.AddComponent<Canvas>();
+            rootGo.AddComponent<GraphicRaycaster>();
+
+            var view = rootGo.AddComponent<DivineSkillHudView>();
+            view.pulse = rootGo.AddComponent<UIPulseGroup>();
+
+            // ① 준비 완료 후광 — 버튼보다 조금 크게, 첫 형제(=맨 뒤)에서 맥동한다
+            float pad = UguiTheme.DivineHudGlowPad;
+            var glow = F.Box(rootRt, "ReadyGlow", new Color(1f, 0.86f, 0.42f, 0.55f), rounded: true);
+            F.Stretch(glow.rectTransform);
+            glow.rectTransform.offsetMin = new Vector2(-pad, -pad);
+            glow.rectTransform.offsetMax = new Vector2(pad, pad);
+            glow.raycastTarget = false;
+            view.readyGlow = glow;
+            view.readyGlowGroup = glow.gameObject.AddComponent<CanvasGroup>();
+            glow.gameObject.SetActive(false);
+
+            // ② 버튼 본체 — LL 버튼 스킨(드롭섀도우 + 눌림 스케일). gloss는 아이콘을 덮으므로 끈다.
+            var frame = F.Box(rootRt, "Btn", new Color(0.34f, 0.22f, 0.48f, 1f), rounded: true, raycast: true);
+            F.Stretch(frame.rectTransform);
+            view.frame = frame;
+            view.button = F.ButtonOn(frame, gloss: false);
+
+            // 등급 색 테두리 (컨트롤러가 장착 카드 등급색으로 칠한다)
+            view.gradeBorder = F.Frame(frame.transform, "GradeBorder", UguiTheme.Bronze);
+
+            // 아이콘 — 스프라이트가 없으면 컨트롤러가 꺼서 흰 박스를 막는다
+            var iconRt = F.Container(frame.transform, "Icon");
+            F.Stretch(iconRt);
+            float inset = UguiTheme.DivineHudIconInset;
+            iconRt.offsetMin = new Vector2(inset, inset);
+            iconRt.offsetMax = new Vector2(-inset, -inset);
+            var iconImg = iconRt.gameObject.AddComponent<Image>();
+            iconImg.preserveAspect = true;
+            iconImg.raycastTarget = false;
+            view.icon = iconImg;
+            iconRt.gameObject.SetActive(false);
+
+            // 미장착 / 아이콘 없음 표기
+            var empty = F.Text(frame.transform, "EmptyLabel", "궁극기\n미장착", UguiTheme.FontDivineEmpty,
+                UguiTheme.TextTertiary, TextAlignmentOptions.Center, bold: true, wrap: true);
+            F.Stretch(empty.rectTransform);
+            view.emptyLabel = empty;
+
+            // 방사형 쿨다운 — Image.Type.Filled는 sprite가 null이면 fillAmount를 무시한다.
+            // (F.VFillMask는 rounded:false로 만들어 sprite가 없으므로 여기서는 쓰지 않는다)
+            var cdFill = F.Box(frame.transform, "CdFill", new Color(0f, 0f, 0f, 0.62f), rounded: true);
+            F.Stretch(cdFill.rectTransform);
+            cdFill.type = Image.Type.Filled;
+            cdFill.fillMethod = Image.FillMethod.Radial360;
+            cdFill.fillOrigin = (int)Image.Origin360.Top;
+            cdFill.fillClockwise = true;
+            cdFill.fillAmount = 0f;
+            cdFill.raycastTarget = false;
+            view.cooldownFill = cdFill;
+            cdFill.gameObject.SetActive(false);
+
+            var cdText = F.Text(frame.transform, "CdText", "", UguiTheme.FontDivineCooldown, Color.white,
+                TextAlignmentOptions.Center, bold: true);
+            F.Stretch(cdText.rectTransform);
+            view.cooldownText = cdText;
+            cdText.gameObject.SetActive(false);
+
+            return PrefabGenUtil.SavePrefab(rootGo, $"{PrefabGenUtil.PrefabRoot}/Huds/Hud_DivineSkill.prefab");
+        }
+
         // ═══ 데미지 텍스트 아이템 (.damage-text: 30px bold 빨강 + 아웃라인) ═══
         internal static GameObject GenerateDamageTextItem(Material outlineMaterial)
         {

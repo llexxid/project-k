@@ -67,6 +67,8 @@ namespace Scripts.Monster
 		private MonsterStat _stat;
 		public event Action<float> OnHpChanged;
 		private MonsterStat _initialStat; // 여기 추가함
+		private double _speedMultiplier = 1d;
+		private Renderer _cachedRenderer; // 데미지 텍스트 머리 좌표용 (풀링 시 계층이 안 바뀌므로 1회 캐시)
 		[NonSerialized] eMonsterType _type;
 		long _dropTableNumber;
 		public long Exp { get; set; }
@@ -197,8 +199,18 @@ namespace Scripts.Monster
 		}
 		public double GetSpeed()
 		{
-			return _stat._moveSpeed;
+			return _stat._moveSpeed * _speedMultiplier;
 		}
+
+		/// <summary>이동속도 배율. 신 스킬의 둔화(Slow) 등 외부 효과가 일시적으로 낮춘다.</summary>
+		public double SpeedMultiplier
+		{
+			get { return _speedMultiplier; }
+			set { _speedMultiplier = value <= 0d ? 0d : value; }
+		}
+
+		/// <summary>최대 체력. 단일 대상 스킬의 보스 우선 타게팅 판정 등에 사용.</summary>
+		public long MaxHp => _stat._maxHp;
 		public void ResetTarget(IDamageable target)
 		{
 			Target = null;
@@ -229,6 +241,7 @@ namespace Scripts.Monster
 			OnDeath = null;
 			Ratio = 1.0;
 			_stat = _initialStat;
+			_speedMultiplier = 1d; // 외부 둔화 효과 잔류 방지
 			_monAction = eMonsterAction.Walk; // stale Dead 상태 방지: 재사용 시 Action 초기화
 			_allocGen++; // stale 비동기 태스크 차단용 세대 갱신
 			_stateManchine.BeginMachine(new MonsterMoveState(this));
@@ -254,8 +267,14 @@ namespace Scripts.Monster
 			}
 
 			ulong dmg = attacker.damage;
-			// UI 연동: 몬스터 머리 위로 피격 데미지 표시
-			DamageTextBridge.ShowOnTransform(transform, dmg);
+			// UI 연동: 몬스터 머리 위로 피격 데미지 표시.
+			// ShowOnTransform 은 호출마다 GetComponentInChildren<Renderer> 를 타므로,
+			// 광역 스킬(웨이브 전체 동시 타격)을 위해 캐시한 렌더러로 머리 좌표를 직접 계산한다.
+			if (_cachedRenderer == null) _cachedRenderer = GetComponentInChildren<Renderer>();
+			Vector3 headPos = _cachedRenderer != null
+				? new Vector3(_cachedRenderer.bounds.center.x, _cachedRenderer.bounds.max.y, _cachedRenderer.bounds.center.z)
+				: transform.position + Vector3.up * 1.2f;
+			DamageTextBridge.ShowWorld(headPos, dmg);
 
 			bool IsAlive = setHp(dmg);
 			OnHpChanged?.Invoke(GetHpRatio());
@@ -266,11 +285,13 @@ namespace Scripts.Monster
 				_monAI.InterruptBT();
 				_stateManchine.ChangeState(new MonsterDeadState(this));
 
-				if (attacker is Player target)
+				// 직접 타격(Player)뿐 아니라 스킬 대리 공격자(DamageProxy 등)도 보상을 귀속시킨다.
+				// IRewardable 이면 내부적으로 시전자 Player 에게 전달된다.
+				if (attacker is IRewardable rewardable)
 				{
 					long totalExp = (long)(Exp * Ratio);
 					UserManager.Instance.GainExp(totalExp);
-					GiveRewardToPlayer(target);
+					GiveRewardToPlayer(rewardable);
 				}
 				
 				return false;
@@ -355,7 +376,7 @@ namespace Scripts.Monster
 			return true;
 		}
 
-		private void GiveRewardToPlayer(Player target)
+		private void GiveRewardToPlayer(IRewardable target)
 		{
 			DropInfo info = DropManager.Instance.GetDropInfo((eDropTable)_dropTableNumber);
 

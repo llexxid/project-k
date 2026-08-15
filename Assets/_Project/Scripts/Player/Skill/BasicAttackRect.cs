@@ -81,7 +81,7 @@ public sealed class BasicAttackRect : ActiveSkill
         float animLen = GetAttackAnimLength();
         _player.SetAnimation(ePlayerAction.Attack);
 
-        _nextAvailableTime = Time.time + animLen + _cooldown;
+        _nextAvailableTime = Time.time + animLen + ScaledCooldown(_cooldown);
         return animLen;
     }
 }

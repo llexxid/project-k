@@ -11,7 +11,7 @@ namespace KingdomIdle.MageTower
 	/// 지속형 마탑 스킬. 대상 몬스터에 붙어서 일정 간격으로 데미지를 가하고,
 	/// 대상이 죽으면 가장 가까운 몬스터로 이동한다. 지속시간이 끝나면 쿨다운 시작.
 	/// </summary>
-	public class MageTowerSkillPersistent : MonoBehaviour, IAttackable
+	public class MageTowerSkillPersistent : MonoBehaviour, IAttackable, IRewardable
     {
         private ulong _damage;
         private float _duration;
@@ -32,6 +32,10 @@ namespace KingdomIdle.MageTower
         public Vector3 attackerPos => transform.position;
 
 		public GameObject gameobj => gameObject;
+
+		/// <summary>마탑 스킬로 처치한 몬스터의 골드/고대주화를 파티에 귀속시킨다.</summary>
+		public void GiveReward(int gold, int ancientCoin)
+			=> MageTowerReward.GiveToParty(gold, ancientCoin);
 
 		private static readonly List<Collider2D> _results = new(32);
 

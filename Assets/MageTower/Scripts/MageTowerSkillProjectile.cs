@@ -8,7 +8,7 @@ using KingdomIdle.UGUI;
 
 namespace KingdomIdle.MageTower
 {
-    public class MageTowerSkillProjectile : MonoBehaviour, IAttackable
+    public class MageTowerSkillProjectile : MonoBehaviour, IAttackable, IRewardable
     {
         private ulong _damage;
         private Vector3 _spawnPos;
@@ -28,6 +28,10 @@ namespace KingdomIdle.MageTower
         public Vector3 attackerPos => _spawnPos;
 
 		public GameObject gameobj => gameObject;
+
+		/// <summary>마탑 스킬로 처치한 몬스터의 골드/고대주화를 파티에 귀속시킨다.</summary>
+		public void GiveReward(int gold, int ancientCoin)
+			=> MageTowerReward.GiveToParty(gold, ancientCoin);
 
 		public void Initialize(ulong dmg, Vector3 pos, Action onHitCallback = null,
                                float damageRadius = 1.5f, bool shakeOnHit = false,

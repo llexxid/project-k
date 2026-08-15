@@ -43,11 +43,11 @@ public class PlayerOrder
             _detection.detectionRadius = range + 1.5f;
     }
 
-    /// <summary>PlayerStatus.MovSpeed → PlayerMove.moveSpeed 동기화.</summary>
+    /// <summary>PlayerStatus.MovSpeed → PlayerMove.moveSpeed 동기화 (신 스킬 가속 버프 포함).</summary>
     public void SyncMoveSpeed(PlayerStatus status)
     {
         if (status == null || _move == null) return;
-        _move.moveSpeed = status.MovSpeed;
+        _move.moveSpeed = status.MovSpeed * KingdomIdle.Divine.DivineBuffState.MoveSpeedMult;
     }
 
     private bool _isAbort;

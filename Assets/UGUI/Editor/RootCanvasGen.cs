@@ -62,6 +62,10 @@ namespace KingdomIdle.UGUI.Editor
             go.AddComponent<PartyHudController>();
             go.AddComponent<MageTowerHudController>();
             go.AddComponent<MageTowerHudBridge>();
+            go.AddComponent<DivineSkillHudController>();
+            go.AddComponent<DivineSkillHudBridge>();
+            // 컷인 재생기 — Awake에서 DivinePresentation.CutInHandler에 등록(루트가 DontDestroyOnLoad)
+            go.AddComponent<DivineCutInController>();
 
             return PrefabGenUtil.SavePrefab(go, $"{PrefabGenUtil.PrefabRoot}/UGUI_UIRoot.prefab");
         }

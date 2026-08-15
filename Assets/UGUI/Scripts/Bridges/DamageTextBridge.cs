@@ -36,6 +36,13 @@ namespace KingdomIdle.UGUI
             mgr.ShowWorldDamage(worldPos, amount, color);
         }
 
+        /// <summary>설정 팝업이 settings_damageText 를 바꾼 직후 호출 — 매니저의 캐시를 갱신한다.</summary>
+        public static void RefreshSettings()
+        {
+            var mgr = EnsureManager();
+            if (mgr != null) mgr.RefreshFromPrefs();
+        }
+
         private static DamageTextManager EnsureManager()
         {
             if (_cached != null) return _cached;

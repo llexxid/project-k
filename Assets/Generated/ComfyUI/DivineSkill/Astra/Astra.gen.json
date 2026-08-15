@@ -1,0 +1,38 @@
+{
+  "asset_family": "DivineSkill",
+  "card": "Astra",
+  "card_name_kor": "심판의 여신 아스트라",
+  "skill_name_kor": "별의 낙하",
+  "grade": "Myth",
+  "generated_at": "2026-08-15",
+  "generator": {
+    "service": "Comfy Cloud (cloud.comfy.org)",
+    "node": "GeminiNanoBanana2V2",
+    "model": "Nano Banana 2 (Gemini 3.1 Flash Image)",
+    "resolution": "1K",
+    "aspect_ratio": "3:4",
+    "thinking_level": "HIGH",
+    "seed": 20260815,
+    "prompt_id": "2f241645-1c50-44f6-863e-7f74e810f6be",
+    "raw_output": "896x1200"
+  },
+  "style_reference": {
+    "method": "NB2 reference-image style transfer (style ref passed via LoadImage -> model.images.image_1)",
+    "locked_style_set": "Assets/ExternalAssets/CombatRPG/2.08 - 550+ Animated + New Chatarcters/Epic Characters #31 - Animated/100 - Characters - 256x256 - Static",
+    "reference_files": ["13.png", "1.png", "40.png"],
+    "spec": "AI/style/pixel_style_spec.md"
+  },
+  "post_process": [
+    "BOX downscale 896x1200 -> 320x429 (true pixel grid for card key art)",
+    "background removal by border flood-fill (tolerance 42) so interior near-black shadows survive",
+    "alpha binarized at 128 (reference pack is effectively binary alpha)",
+    "per-channel snap to steps of 4 to remove sub-perceptual generation noise (9,932 unique colors, in family with the reference pack's 5.8k-17.7k)",
+    "alpha bbox crop + 8px uniform margin",
+    "icon: largest gold connected component (staff star mandala) -> square canvas -> 128x128 LANCZOS -> alpha rebinarized -> stray components removed"
+  ],
+  "outputs": {
+    "Astra_Illustration.png": "307x427 RGBA - card key art / cut-in",
+    "Astra_Icon.png": "128x128 RGBA - HUD ultimate button + collection grid"
+  },
+  "import_settings": "enforced by Assets/DivineSkill/Editor/GeneratedArtPostprocessor.cs (Sprite / Point / no mipmaps / nPOTScale None / alphaIsTransparency)"
+}

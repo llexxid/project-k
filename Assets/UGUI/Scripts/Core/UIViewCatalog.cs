@@ -92,11 +92,13 @@ namespace KingdomIdle.UGUI
         public GameObject overlayLoading;
         public GameObject overlayToast;
         public GameObject overlaySettings;
+        public GameObject overlayDivineCutIn;    // 궁극기(신성 스킬) 컷인
 
         [Header("HUDs")]
         public GameObject hudParty;
         public GameObject hudMageTower;
         public GameObject hudMainActions;
+        public GameObject hudDivineSkill;        // 궁극기(신성 스킬) 버튼 — 좌하단
 
         [Header("Item prefabs (dynamic list contents)")]
         public GameObject itemNavTabButton;    // 탭/네비 버튼 공용

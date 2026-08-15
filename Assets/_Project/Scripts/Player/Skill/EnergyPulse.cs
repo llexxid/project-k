@@ -100,7 +100,7 @@ public sealed class EnergyPulse : ActiveSkill
         _isPlaying = true;
         _playEndTime = Time.time + protectLen;
 
-        _nextAvailableTime = Time.time + protectLen + _cooldown;
+        _nextAvailableTime = Time.time + protectLen + ScaledCooldown(_cooldown);
         return protectLen;
     }
 

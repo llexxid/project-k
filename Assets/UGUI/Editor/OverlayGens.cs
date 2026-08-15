@@ -190,6 +190,80 @@ namespace KingdomIdle.UGUI.Editor
             return toggle;
         }
 
+        // ═══ 궁극기(신성 스킬) 컷인 오버레이 ═══
+        // 암전 → 일러스트 슬라이드 인 → 등급 리본 + 이름 플레이트 → 섬광 아웃.
+        // 값은 DivineCutInController가 런타임에 채운다(여기서는 뼈대와 초기 상태만 만든다).
+        internal static GameObject GenerateDivineCutIn()
+        {
+            var root = F.Root("Overlay_DivineCutIn");
+            var view = root.gameObject.AddComponent<DivineCutInView>();
+
+            // 암전 — 거의 투명하게 시작(완전 0은 컬링될 수 있어 InvisibleCatcher와 같은 0.004 사용).
+            // 컷인 동안 입력을 막아 연타를 차단한다.
+            var scrim = F.Box(root, "Scrim", new Color(0f, 0f, 0f, 0.004f), rounded: false, raycast: true);
+            F.Stretch(scrim.rectTransform);
+            view.scrim = scrim;
+
+            // 일러스트 홀더 — 오른쪽에서 밀려 들어온다
+            var holder = F.Container(root, "IllustHolder");
+            F.AnchorCenter(holder, UguiTheme.DivineCutInIllustWidth, UguiTheme.DivineCutInIllustHeight,
+                0f, UguiTheme.DivineCutInIllustY);
+            var holderGroup = holder.gameObject.AddComponent<CanvasGroup>();
+            holderGroup.alpha = 0f;
+            holderGroup.blocksRaycasts = false;
+            view.illustHolder = holder;
+            view.illustGroup = holderGroup;
+
+            // 아트 미도입 상태에서도 흰 박스가 나오지 않도록 sprite null이면 Image를 끈 채로 저장한다
+            var illust = F.IconImage(holder, "Illust", null,
+                UguiTheme.DivineCutInIllustWidth, UguiTheme.DivineCutInIllustHeight);
+            F.Stretch(illust.rectTransform);
+            view.illust = illust;
+
+            // 이름 플레이트 — 등급 리본 + 카드명 + 스킬명
+            var plate = F.PixelPanel(root, "Plate",
+                F.Catalog != null ? F.Catalog.kitWindow : null, F.FrameGold, 20f,
+                raycast: false, baseColor: F.PanelBaseDarker);
+            F.AnchorCenter(plate.rectTransform, UguiTheme.DivineCutInPlateWidth, UguiTheme.DivineCutInPlateHeight,
+                0f, UguiTheme.DivineCutInPlateY);
+            F.VLayout(plate.gameObject, 8f, new RectOffset(28, 28, 18, 22), TextAnchor.MiddleCenter,
+                expandWidth: false);
+            var plateGroup = plate.gameObject.AddComponent<CanvasGroup>();
+            plateGroup.alpha = 0f;
+            plateGroup.blocksRaycasts = false;
+            view.plate = plate.rectTransform;
+            view.plateGroup = plateGroup;
+            F.CornerBrackets(plate.transform);
+
+            // 등급 리본 — 컨트롤러가 등급색으로 칠하므로 라벨은 어두운 잉크색으로 대비를 준다
+            var ribbon = F.Box(plate.transform, "GradeRibbon", UguiTheme.Bronze, rounded: true);
+            F.Preferred(ribbon, width: 200f, height: 46f);
+            view.gradeRibbon = ribbon;
+            var gradeLbl = F.Text(ribbon.transform, "Label", "영웅", UguiTheme.FontCutInGrade,
+                UguiTheme.RusticPanelDeep, TextAlignmentOptions.Center, bold: true);
+            F.Stretch(gradeLbl.rectTransform);
+            view.gradeLabel = gradeLbl;
+
+            var nameLbl = F.Text(plate.transform, "Name", "", UguiTheme.FontCutInName, UguiTheme.Parchment,
+                TextAlignmentOptions.Center);
+            F.Preferred(nameLbl, height: 44f);
+            view.nameLabel = nameLbl;
+
+            var skillLbl = F.Text(plate.transform, "SkillName", "", UguiTheme.FontCutInSkill,
+                UguiTheme.AccentGoldStrong, TextAlignmentOptions.Center, bold: true);
+            F.Preferred(skillLbl, height: 80f);
+            view.skillLabel = skillLbl;
+
+            // 마무리 섬광 — 알파 0에서 시작해 컨트롤러가 올렸다 내린다 (맨 위 형제)
+            var flash = F.Box(root, "Flash", new Color(1f, 0.96f, 0.86f, 0f), rounded: false);
+            F.Stretch(flash.rectTransform);
+            flash.raycastTarget = false;
+            view.flash = flash;
+
+            return PrefabGenUtil.SavePrefab(root.gameObject,
+                $"{PrefabGenUtil.PrefabRoot}/Overlays/Overlay_DivineCutIn.prefab");
+        }
+
         // ═══ 가챠 결과 팝업 (.gacha-result-*) ═══
         internal static GameObject GenerateGachaResult()
         {

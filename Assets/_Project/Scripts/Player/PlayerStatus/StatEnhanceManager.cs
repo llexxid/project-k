@@ -292,8 +292,10 @@ public class StatEnhanceManager : MonoBehaviour
         var user = userField.GetValue(um) as Scripts.Users.User;
         if (user == null || user._players == null) return;
 
-        float atkRate = GetBonusAtkRate();
-        float hpRate = GetBonusMaxHPRate();
+        // 신 스킬 컬렉션 보너스(카드 종류당 +2%)는 강화와 같은 가산 그룹에 합류한다
+        float collectionRate = KingdomIdle.Divine.DivineSkillManager.CollectionRate;
+        float atkRate = GetBonusAtkRate() + collectionRate;
+        float hpRate = GetBonusMaxHPRate() + collectionRate;
 
         foreach (var player in user._players)
         {

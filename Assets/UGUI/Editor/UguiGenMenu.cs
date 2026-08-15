@@ -45,12 +45,14 @@ namespace KingdomIdle.UGUI.Editor
             OverlayGens.GenerateToast();
             OverlayGens.GenerateSettings();
             OverlayGens.GenerateGachaResult();
+            OverlayGens.GenerateDivineCutIn();
             ProfilePopupPrefabGens.GenerateProfilePopup();
 
             // HUD
             HudGens.GeneratePartyHud();
             HudGens.GenerateMageTowerHud();
             HudGens.GenerateMainActionsHud();
+            HudGens.GenerateDivineSkillHud();
             HudGens.GenerateDamageTextItem(CatalogGen.GetOrCreateDamageOutlineMaterial());
 
             // 아이템
@@ -152,9 +154,11 @@ namespace KingdomIdle.UGUI.Editor
             errors += CheckPrefabViews(catalog.overlayLoading);
             errors += CheckPrefabViews(catalog.overlayToast);
             errors += CheckPrefabViews(catalog.overlaySettings);
+            errors += CheckPrefabViews(catalog.overlayDivineCutIn);
             errors += CheckPrefabViews(catalog.hudParty);
             errors += CheckPrefabViews(catalog.hudMageTower);
             errors += CheckPrefabViews(catalog.hudMainActions);
+            errors += CheckPrefabViews(catalog.hudDivineSkill);
 
             if (errors == 0)
                 Debug.Log("[UguiGen] View 배선 검사: 통과");

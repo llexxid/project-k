@@ -36,6 +36,13 @@ public abstract class ActiveSkill
     protected float GetAttackAnimLength()
         => _player.GetClipLength("Attack_Anim", 0.4f);
 
+    /// <summary>
+    /// 쿨타임에 파티 가속 버프(신 스킬 '폭풍 가속' 등)를 반영한 값.
+    /// 애니메이션 길이는 줄이면 안 되므로 쿨타임 구간에만 적용한다.
+    /// </summary>
+    protected static float ScaledCooldown(float cooldown)
+        => cooldown * KingdomIdle.Divine.DivineBuffState.SkillIntervalMult;
+
     // ── 데미지 전달 프록시 ──
     public class DamageProxy : IAttackable, IRewardable
     {

@@ -23,7 +23,7 @@ namespace KingdomIdle.UGUI
         [SerializeField] private Vector2 screenOffsetPx = new Vector2(0f, 0f);
 
         [Header("Pooling")]
-        [SerializeField] private int warmPool = 24;
+        [SerializeField] private int warmPool = 36; // 최대 웨이브(35마리) 동시 광역 타격을 커버
 
         private readonly Stack<TMP_Text> _pool = new();
         private readonly List<Entry> _active = new();
@@ -38,13 +38,23 @@ namespace KingdomIdle.UGUI
             public float BaseScale;
         }
 
+        // PlayerPrefs 는 네이티브 조회라 히트마다 읽기엔 비싸다 — 캐시하고 설정 변경 시 갱신한다
+        private bool _damageTextEnabled = true;
+
         private void Awake()
         {
             if (worldCamera == null)
                 worldCamera = Camera.main;
 
+            RefreshFromPrefs();
             EnsureLayer();
             WarmupPool();
+        }
+
+        /// <summary>설정 팝업이 settings_damageText 를 바꾼 직후 호출해 캐시를 갱신한다.</summary>
+        internal void RefreshFromPrefs()
+        {
+            _damageTextEnabled = PlayerPrefs.GetInt(PrefKeyDamageText, 1) == 1;
         }
 
         private void Update()
@@ -93,8 +103,8 @@ namespace KingdomIdle.UGUI
 
         private void ShowWorldDamageInternal(Vector3 worldPos, ulong amount, Color? overrideColor)
         {
-            // 설정(데미지 문구 출력) OFF면 표시하지 않음
-            if (PlayerPrefs.GetInt(PrefKeyDamageText, 1) == 0)
+            // 설정(데미지 문구 출력) OFF면 표시하지 않음 (Awake 에서 캐시, 설정 변경 시 RefreshFromPrefs)
+            if (!_damageTextEnabled)
                 return;
 
             if (worldCamera == null) worldCamera = Camera.main;
