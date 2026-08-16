@@ -4,6 +4,7 @@ using UnityEngine.UI;
 using TMPro;
 using KingdomIdle.Gacha;
 using KingdomIdle.MageTower;
+using KingdomIdle.Divine;
 using Scripts.Core;
 
 namespace KingdomIdle.UGUI
@@ -244,8 +245,10 @@ namespace KingdomIdle.UGUI
             float wClassFragment = 0f;
             float wArcaneKnowledge = 0f;
             float wSkill = 0f;
+            float wDivineHero = 0f, wDivineLegend = 0f, wDivineMyth = 0f;
             bool hasAnyEquipment = false;
             bool hasAnySkill = false;
+            bool hasAnyDivine = false;
             for (int i = 0; i < table.rewards.Count; i++)
             {
                 var r = table.rewards[i];
@@ -271,6 +274,22 @@ namespace KingdomIdle.UGUI
                     continue;
                 }
 
+                if (r.rewardType == eGachaRewardType.DivineCard)
+                {
+                    // 등급은 카드 SO 에서 조회. 매니저 부재 시 기본 등급(영웅)으로 집계.
+                    hasAnyDivine = true;
+                    var divineCard = DivineSkillManager.Instance != null
+                        ? DivineSkillManager.Instance.GetCardById(r.divineCardId)
+                        : null;
+                    switch (divineCard != null ? divineCard.grade : eDivineGrade.Hero)
+                    {
+                        case eDivineGrade.Myth: wDivineMyth += r.weight; break;
+                        case eDivineGrade.Legend: wDivineLegend += r.weight; break;
+                        default: wDivineHero += r.weight; break;
+                    }
+                    continue;
+                }
+
                 if (r.rewardType != eGachaRewardType.Equipment || r.equipmentData == null) continue;
                 hasAnyEquipment = true;
                 switch (r.equipmentData.rarity)
@@ -281,7 +300,8 @@ namespace KingdomIdle.UGUI
                 }
             }
 
-            if (!hasAnyEquipment && !hasAnySkill && wClassFragment <= 0f && wArcaneKnowledge <= 0f)
+            if (!hasAnyEquipment && !hasAnySkill && !hasAnyDivine
+                && wClassFragment <= 0f && wArcaneKnowledge <= 0f)
             {
                 HideRow();
                 return;
@@ -299,6 +319,12 @@ namespace KingdomIdle.UGUI
             if (hasAnySkill)
             {
                 MakeRatePill(row, "마탑 스킬", wSkill / total * 100f, UguiTheme.RaritySkill);
+            }
+            if (hasAnyDivine)
+            {
+                MakeRatePill(row, "영웅", wDivineHero / total * 100f, DivineSkillSO.GetGradeColor(eDivineGrade.Hero));
+                MakeRatePill(row, "전설", wDivineLegend / total * 100f, DivineSkillSO.GetGradeColor(eDivineGrade.Legend));
+                MakeRatePill(row, "신화", wDivineMyth / total * 100f, DivineSkillSO.GetGradeColor(eDivineGrade.Myth));
             }
             if (wArcaneKnowledge > 0f)
             {
@@ -378,6 +404,13 @@ namespace KingdomIdle.UGUI
                 var card = cardGo.GetComponent<GachaCardItemView>();
                 if (card == null) continue;
 
+                // 신 스킬 카드 — 등급/아이콘은 카드 SO 에서 조회 (매니저 부재 시 null 허용)
+                DivineSkillSO divineCard = null;
+                if (entry.rewardType == eGachaRewardType.DivineCard)
+                    divineCard = DivineSkillManager.Instance != null
+                        ? DivineSkillManager.Instance.GetCardById(entry.divineCardId)
+                        : null;
+
                 // 등급 테두리
                 Color frameColor = new Color(1f, 1f, 1f, 0.20f);
                 if (entry.rewardType == eGachaRewardType.Equipment && entry.equipmentData != null)
@@ -388,6 +421,8 @@ namespace KingdomIdle.UGUI
                     frameColor = UguiTheme.RarityArcane;
                 else if (entry.rewardType == eGachaRewardType.Skill)
                     frameColor = UguiTheme.RaritySkill;
+                else if (entry.rewardType == eGachaRewardType.DivineCard && divineCard != null)
+                    frameColor = DivineSkillSO.GetGradeColor(divineCard.grade);
                 card.SetRarityFrame(frameColor);
 
                 // 아이콘
@@ -400,7 +435,25 @@ namespace KingdomIdle.UGUI
                     var so = mtMgr != null ? mtMgr.GetSkillById(entry.skillId) : null;
                     if (so != null && so.icon != null) displayIcon = so.icon;
                 }
-                card.SetIcon(displayIcon, null, Color.white);
+                else if (entry.rewardType == eGachaRewardType.DivineCard && displayIcon == null
+                         && divineCard != null && divineCard.icon != null)
+                {
+                    displayIcon = divineCard.icon;
+                }
+
+                // 신 스킬 카드는 아이콘 미배정(아트 대기)이 흔하므로 등급명 텍스트로 대체 표시
+                string iconFallback = null;
+                Color iconFallbackColor = Color.white;
+                if (entry.rewardType == eGachaRewardType.DivineCard && displayIcon == null)
+                {
+                    iconFallback = divineCard != null
+                        ? DivineSkillSO.GetGradeName(divineCard.grade)
+                        : "신 스킬";
+                    iconFallbackColor = divineCard != null
+                        ? DivineSkillSO.GetGradeColor(divineCard.grade)
+                        : Color.white;
+                }
+                card.SetIcon(displayIcon, iconFallback, iconFallbackColor);
 
                 // 이름
                 string displayName = entry.nameKor;
@@ -412,6 +465,8 @@ namespace KingdomIdle.UGUI
                     var so = mtMgr != null ? mtMgr.GetSkillById(entry.skillId) : null;
                     if (so != null) displayName = !string.IsNullOrEmpty(so.nameKor) ? so.nameKor : so.nameEng;
                 }
+                else if (entry.rewardType == eGachaRewardType.DivineCard && string.IsNullOrEmpty(displayName) && divineCard != null)
+                    displayName = divineCard.DisplayName;
                 if (card.nameLabel != null) card.nameLabel.text = displayName;
 
                 // 하단: 등급/태그 + 확률 — subLabel에 두 줄로 표기
@@ -431,6 +486,11 @@ namespace KingdomIdle.UGUI
                 {
                     tag = "비전지식";
                     tagColor = UguiTheme.RarityArcane;
+                }
+                else if (entry.rewardType == eGachaRewardType.DivineCard)
+                {
+                    tag = divineCard != null ? DivineSkillSO.GetGradeName(divineCard.grade) : "신 스킬";
+                    if (divineCard != null) tagColor = DivineSkillSO.GetGradeColor(divineCard.grade);
                 }
 
                 float pct = totalWeight > 0f ? (entry.weight / totalWeight) * 100f : 0f;
@@ -460,6 +520,19 @@ namespace KingdomIdle.UGUI
                     case eEquipmentRarity.Epic: return 0;
                     case eEquipmentRarity.Rare: return 1;
                     case eEquipmentRarity.Normal: return 2;
+                }
+            }
+            if (e.rewardType == eGachaRewardType.DivineCard)
+            {
+                // 신 스킬 카드는 등급 내림차순 (신화 → 전설 → 영웅). 매니저 부재 시 영웅 취급.
+                var divineCard = DivineSkillManager.Instance != null
+                    ? DivineSkillManager.Instance.GetCardById(e.divineCardId)
+                    : null;
+                switch (divineCard != null ? divineCard.grade : eDivineGrade.Hero)
+                {
+                    case eDivineGrade.Myth: return 0;
+                    case eDivineGrade.Legend: return 1;
+                    default: return 2;
                 }
             }
             if (e.rewardType == eGachaRewardType.Skill) return 3;

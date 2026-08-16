@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using TMPro;
 
 namespace KingdomIdle.UGUI
@@ -87,6 +87,7 @@ namespace KingdomIdle.UGUI
         public GameObject popupMageTowerEquip;   // 마탑 스킬 장착 팝업 (프리팹화됨)
         public GameObject popupDungeonClear;
         public GameObject popupReincarnation;
+        public GameObject popupDivineCollection; // 신 스킬 컬렉션북(도감) 팝업
 
         [Header("Overlays")]
         public GameObject overlayLoading;
@@ -98,7 +99,8 @@ namespace KingdomIdle.UGUI
         public GameObject hudParty;
         public GameObject hudMageTower;
         public GameObject hudMainActions;
-        public GameObject hudDivineSkill;        // 궁극기(신성 스킬) 버튼 — 좌하단
+        public GameObject hudDivineSkill;
+        public GameObject hudMageTowerEnv;       // 마탑 환경 오브젝트 — 좌하단, 하단바 뒤        // 궁극기(신성 스킬) 버튼 — 좌하단
 
         [Header("Item prefabs (dynamic list contents)")]
         public GameObject itemNavTabButton;    // 탭/네비 버튼 공용
@@ -114,6 +116,7 @@ namespace KingdomIdle.UGUI
         public GameObject itemSkillRow;        // 스킬 행
         public GameObject itemMageEquipSlot;   // 마탑 장착 슬롯 셀
         public GameObject itemMageSkillCell;   // 마탑 보유 스킬 그리드 셀
+        public GameObject itemDivineCard;      // 신 스킬 컬렉션 카드 셀
 
         [Header("프리팹 전환 (런타임 코드빌드 → 프리팹)")]
         public GameObject popupMageTowerDetail;      // 마탑 스킬 상세 팝업

@@ -20,8 +20,8 @@ MonoBehaviour:
     -30%, \uC774\uB3D9\uC18D\uB3C4 +30%."
   grade: 0
   cooldown: 40
-  icon: {fileID: 0}
-  illustration: {fileID: 0}
+  icon: {fileID: 21300000, guid: 5c2d1c3d3fc301b49b1d4d3e5f9d490e, type: 3}
+  illustration: {fileID: 21300000, guid: 9502693de3f76b240a835b3ada6f170a, type: 3}
   effectKind: 4
   skillMult: 0
   hitCount: 1
@@ -33,20 +33,22 @@ MonoBehaviour:
   damageReducePercent: 0.2
   skillIntervalReducePercent: 0.3
   moveSpeedIncreasePercent: 0.3
-  burstVfxPrefab: {fileID: 0}
+  burstVfxPrefab: {fileID: 7016514315413965838, guid: 33494cc9699ef5644add37111af555cc,
+    type: 3}
   impactVfxPrefab: {fileID: 0}
-  statusVfxPrefab: {fileID: 0}
+  statusVfxPrefab: {fileID: 1924331133643504190, guid: 89a8127274fc598459502db258b68bdd,
+    type: 3}
   vfxPrefab: {fileID: 0}
-  burstVfxLifetime: 1.2
+  burstVfxLifetime: 0.8
   impactVfxLifetime: 0.6
   impactVfxScale: 2
-  statusVfxOffset: {x: 0, y: 1, z: 0}
+  statusVfxOffset: {x: 0, y: 0.2, z: 0}
   impactDelay: 0.25
   impactStagger: 0.04
-  screenShake: 1
-  shakeDuration: 0.25
-  shakeMagnitude: 0.12
-  sfxName: 
+  screenShake: 0
+  shakeDuration: 0.2
+  shakeMagnitude: 0.08
+  sfxName: Dash
   impactSfxName: 
   cutInEnabled: 1
   cutInDuration: 1.2

@@ -490,6 +490,22 @@ namespace KingdomIdle.Gacha
 				case eGachaRewardType.Equipment:
 					DistributeEquipmentReward(reward);
 					break;
+
+				case eGachaRewardType.DivineCard:
+					var divineMgr = KingdomIdle.Divine.DivineSkillManager.Instance;
+					if (divineMgr != null)
+					{
+						// 최초 획득 = 보유 등록(+미해금이면 자동 해금), 중복 = 레벨업 재료 적립.
+						divineMgr.Acquire(reward.divineCardId);
+					}
+					else
+					{
+						// 이 시점에는 이미 재화가 차감된 뒤라 보상 유실이 확정된다 —
+						// 조용히 넘기면 안 되므로 에러로 남긴다 (bootstrap 씬 매니저 배치 확인 필요).
+						Debug.LogError($"[GachaManager] DivineSkillManager 미초기화 — " +
+									   $"신 스킬 카드(id {reward.divineCardId}) 보상이 지급되지 못했습니다.");
+					}
+					break;
 			}
 		}
 

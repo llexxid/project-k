@@ -155,8 +155,13 @@ namespace KingdomIdle.MageTower
         private float _elapsed;
         private bool _shaking;
 
+        /// <summary>화면 흔들림 발생 통지 (duration, magnitude). UI(마탑 환경 오브젝트 등)가 동기화용으로 구독한다.</summary>
+        public static event System.Action<float, float> OnShake;
+
         public void Shake(float duration, float magnitude)
         {
+            OnShake?.Invoke(duration, magnitude);
+
             if (!_shaking)
                 _originalPos = transform.localPosition;
 

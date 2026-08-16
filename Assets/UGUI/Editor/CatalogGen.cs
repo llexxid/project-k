@@ -1,4 +1,4 @@
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
 using TMPro;
 
@@ -87,6 +87,7 @@ namespace KingdomIdle.UGUI.Editor
             catalog.popupMageTowerEquip = Load($"{p}/Popups/Panel_MageTowerEquip.prefab");
             catalog.popupDungeonClear = Load($"{p}/Popups/Popup_DungeonClear.prefab");
             catalog.popupReincarnation = Load($"{p}/Popups/Popup_Reincarnation.prefab");
+            catalog.popupDivineCollection = Load($"{p}/Popups/Popup_DivineCollection.prefab");
 
             catalog.overlayLoading = Load($"{p}/Overlays/Overlay_Loading.prefab");
             catalog.overlayToast = Load($"{p}/Overlays/Overlay_Toast.prefab");
@@ -97,6 +98,7 @@ namespace KingdomIdle.UGUI.Editor
             catalog.hudMageTower = Load($"{p}/Huds/Hud_MageTower.prefab");
             catalog.hudMainActions = Load($"{p}/Huds/Hud_MainActions.prefab");
             catalog.hudDivineSkill = Load($"{p}/Huds/Hud_DivineSkill.prefab");
+            catalog.hudMageTowerEnv = Load($"{p}/Huds/Hud_MageTowerEnv.prefab");
 
             catalog.itemNavTabButton = Load($"{p}/Items/Item_NavTabButton.prefab");
             catalog.itemGachaCard = Load($"{p}/Items/Item_GachaCard.prefab");
@@ -111,6 +113,7 @@ namespace KingdomIdle.UGUI.Editor
             catalog.itemSkillRow = Load($"{p}/Items/Item_SkillRow.prefab");
             catalog.itemMageEquipSlot = Load($"{p}/Items/Item_MageEquipSlot.prefab");
             catalog.itemMageSkillCell = Load($"{p}/Items/Item_MageSkillCell.prefab");
+            catalog.itemDivineCard = Load($"{p}/Items/Item_DivineCard.prefab");
 
             catalog.popupMageTowerDetail = Load($"{p}/Popups/Panel_MageTowerDetail.prefab");
             catalog.bodyDevelopment = Load($"{p}/Panels/Body_Development.prefab");

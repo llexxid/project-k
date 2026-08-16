@@ -199,6 +199,7 @@ GameObject:
   - component: {fileID: 2542000137474502700}
   - component: {fileID: 898163859345650908}
   - component: {fileID: 7983544613632051810}
+  - component: {fileID: 254531719389517825}
   - component: {fileID: 7916254806463534929}
   - component: {fileID: 6960707329369705570}
   - component: {fileID: 4946343244216574307}
@@ -424,7 +425,7 @@ MonoBehaviour:
   duration: 0.8
   risePixels: 80
   screenOffsetPx: {x: 0, y: 0}
-  warmPool: 24
+  warmPool: 36
 --- !u!114 &2542000137474502700
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -467,6 +468,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d08549d8f23a73247b8d0bbde620aea9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KingdomIdle.UGUI.MageTowerHudBridge
+--- !u!114 &254531719389517825
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5401601321805056808}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 79c304eaf83f94148bf7749252c12d1f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomIdle.UGUI.MageTowerEnvController
 --- !u!114 &7916254806463534929
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -24,8 +24,8 @@ namespace KingdomIdle.Divine
 
         [SerializeField] private DivineSkillRegistrySO registry;
 
-        [Tooltip("전투 중 쿨타임이 돌아오면 자동으로 시전한다.")]
-        [SerializeField] private bool autoCastByDefault = true;
+        [Tooltip("전투 중 쿨타임이 돌아오면 자동으로 시전한다. HUD 원형 버튼이 수동 시전 중심이 되면서 기본값은 꺼짐 — 인게임에서 버튼을 길게 눌러(0.5초) 토글한다.")]
+        [SerializeField] private bool autoCastByDefault = false;
 
         [Header("해금 (기획서 3.4.1)")]
         [Tooltip("이 메인 스테이지를 클리어하면 신 스킬 시스템이 해금된다.")]
@@ -275,6 +275,16 @@ namespace KingdomIdle.Divine
                 return false;
             }
 
+            // 미해금 상태에서 카드를 획득하면(뽑기 등) 시스템을 즉시 해금한다.
+            // 버그가 아니라 의도된 BM 친화 동작 — 카드를 보유했는데 기능이 잠긴
+            // 이상 상태를 막고, 뽑기로 획득한 유저가 3-10 클리어 전에도 쓸 수 있게 한다.
+            // 3-10 스테이지 해금 경로는 그대로 유지된다 (그쪽은 Astra 확정 지급이 추가로 붙는다).
+            if (!_systemUnlocked)
+            {
+                UnlockSystem();
+                Debug.Log($"[DivineSkill] 카드 획득(id {cardId})으로 신 스킬 시스템 자동 해금.");
+            }
+
             bool isNew = !IsOwned(cardId);
             if (isNew)
             {
@@ -508,16 +518,20 @@ namespace KingdomIdle.Divine
             _casting = true;
             OnCastStateChanged?.Invoke(true);
 
+            // 쿨타임을 실행기 호출 "전"에 세운다 — 회복/가속처럼 동기 완료되는 효과는
+            // OnCastFinished(→ casting=false 이벤트)가 이 함수 안에서 즉시 발화하므로,
+            // HUD 가 IsOnCooldown 으로 발동/취소를 구분하려면 이 순서가 필요하다.
+            _cooldownTotal = Mathf.Max(1f, so.cooldown);
+            _cooldownTimer = _cooldownTotal;
+
             bool fired = _caster.Cast(so, value, OnCastFinished);
             if (!fired)
             {
-                // 실행기가 대상을 못 찾은 경우 — 쿨타임을 태우지 않는다
+                ResetCooldown(); // 실행기가 대상을 못 찾은 경우 — 쿨타임을 태우지 않는다
                 OnCastFinished();
                 return false;
             }
 
-            _cooldownTotal = Mathf.Max(1f, so.cooldown);
-            _cooldownTimer = _cooldownTotal;
             OnCooldownTick?.Invoke();
             return true;
         }

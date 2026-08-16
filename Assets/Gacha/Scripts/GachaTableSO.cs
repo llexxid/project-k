@@ -9,13 +9,15 @@ namespace KingdomIdle.Gacha
     {
         Currency,
         Skill,
-        Equipment
+        Equipment,
+        DivineCard
     }
 
     public enum eGachaType
     {
         Equipment,
         Skill,
+        DivineCard,
     }
 
     [Serializable]
@@ -35,6 +37,10 @@ namespace KingdomIdle.Gacha
         [Header("Equipment 보상")]
         [Tooltip("rewardType이 Equipment일 때 뽑기로 획득할 장비 데이터")]
         public EquipmentData equipmentData;
+
+        [Header("DivineCard 보상")]
+        [Tooltip("rewardType이 DivineCard일 때 획득할 신 스킬 카드 id (DivineSkillSO.id)")]
+        public int divineCardId;
 
         [Min(0f)] public float weight;
     }

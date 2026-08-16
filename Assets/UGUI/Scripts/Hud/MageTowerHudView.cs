@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -23,6 +23,5 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal Image autoButtonBg;
         [SerializeField] internal TMP_Text autoButtonLabel;
         [SerializeField] internal Slot[] slots;
-        [SerializeField] internal Button towerButton;
     }
 }

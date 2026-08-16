@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
+using KingdomIdle.Divine;
 using KingdomIdle.UI;
 using Scripts.Core;
 using Scripts.Users;
@@ -715,6 +716,24 @@ namespace KingdomIdle.UGUI
                     CloseHamburgerMenu();
                     if (_currencyOpen) CloseCurrencyPopup();
                     _host.PushPanel(UIPanelId.Inventory, null, clearBefore: false, isTabPanel: false);
+                });
+            }
+
+            // 신 스킬 도감 — HUD 모서리 버튼에서 이사 옴 (원형 버튼 리워크)
+            if (_view.btnMenuDivineCollection != null)
+            {
+                _view.btnMenuDivineCollection.onClick.AddListener(() =>
+                {
+                    CloseHamburgerMenu();
+                    if (_currencyOpen) CloseCurrencyPopup();
+
+                    var divine = DivineSkillManager.Instance;
+                    if (divine == null || !divine.IsSystemUnlocked)
+                    {
+                        _host.ShowToast("신 스킬은 스테이지 3-10 클리어 후 해금됩니다.");
+                        return;
+                    }
+                    DivineCollectionPopupController.Show();
                 });
             }
 

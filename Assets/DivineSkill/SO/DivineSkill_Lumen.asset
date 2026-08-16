@@ -20,8 +20,8 @@ MonoBehaviour:
     \uD30C\uD2F0 ATK\uD569 \xD7 12."
   grade: 0
   cooldown: 30
-  icon: {fileID: 0}
-  illustration: {fileID: 0}
+  icon: {fileID: 21300000, guid: de5ad095af2384a45b9e3bb4993986e9, type: 3}
+  illustration: {fileID: 21300000, guid: c65bd47d7323b22469bc57b890648fe5, type: 3}
   effectKind: 0
   skillMult: 12
   hitCount: 1
@@ -33,20 +33,22 @@ MonoBehaviour:
   damageReducePercent: 0.2
   skillIntervalReducePercent: 0.3
   moveSpeedIncreasePercent: 0.3
-  burstVfxPrefab: {fileID: 0}
-  impactVfxPrefab: {fileID: 0}
+  burstVfxPrefab: {fileID: 2125530512952647224, guid: 624d0d36769a02c45b94d66af85288c3,
+    type: 3}
+  impactVfxPrefab: {fileID: 585565375724873802, guid: 48efcbce8fd8b7d4eb6a35bd2c70e93c,
+    type: 3}
   statusVfxPrefab: {fileID: 0}
   vfxPrefab: {fileID: 0}
-  burstVfxLifetime: 1.2
-  impactVfxLifetime: 0.6
-  impactVfxScale: 2
+  burstVfxLifetime: 0.9
+  impactVfxLifetime: 0.5
+  impactVfxScale: 2.2
   statusVfxOffset: {x: 0, y: 1, z: 0}
-  impactDelay: 0.25
-  impactStagger: 0.04
+  impactDelay: 0.3
+  impactStagger: 0.03
   screenShake: 1
   shakeDuration: 0.25
-  shakeMagnitude: 0.12
-  sfxName: 
-  impactSfxName: 
+  shakeMagnitude: 0.1
+  sfxName: Charge_Shot_SFX
+  impactSfxName: Lightning_SFX
   cutInEnabled: 1
   cutInDuration: 1.2

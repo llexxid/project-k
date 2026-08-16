@@ -1,0 +1,23 @@
+{
+ "asset_family": "DivineSkill",
+ "card": "Lumen",
+ "card_name_kor": "새벽의 여신 루멘",
+ "generated_at": "2026-08-16",
+ "generator": {
+  "service": "Comfy Cloud",
+  "node": "GeminiNanoBanana2V2",
+  "model": "Nano Banana 2 (Gemini 3.1 Flash Image)",
+  "resolution": "1K",
+  "aspect_ratio": "3:4",
+  "thinking_level": "HIGH"
+ },
+ "style_reference": {
+  "spec": "AI/comfyui/style_spec_character.md",
+  "locked_style_set": "CombatRPG 2.08 Epic #31 256x256 Static"
+ },
+ "post_process": "BOX->320w, border flood-fill bg (tol42), alpha bin 128, ch snap /4, bbox+8pad; icon=bust 30% crop 128 LANCZOS",
+ "outputs": {
+  "Lumen_Illustration.png": "265x423",
+  "Lumen_Icon.png": "128x128"
+ }
+}

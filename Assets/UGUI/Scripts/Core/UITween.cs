@@ -17,6 +17,11 @@ namespace KingdomIdle.UGUI
         private Coroutine _scaleCo;
         private Coroutine _fadeCo;
         private Coroutine _moveCo;
+        private Coroutine _breathCo;
+        private Coroutine _rotateCo;
+        private Coroutine _flashCo;
+        private Color _flashBaseColor;      // FlashRing 원래 색 (연출 도중 재호출/중단돼도 복원 기준)
+        private bool _flashBaseCaptured;
 
         private static UITween Get(Component c)
         {
@@ -78,6 +83,63 @@ namespace KingdomIdle.UGUI
             t._moveCo = t.StartCoroutine(t.MoveRoutine(rt, start, target, duration, EaseOutCubic));
         }
 
+        // ── 살아있는 UI: 호흡/회전/플래시 (신 스킬 버튼·마탑 환경 연출 공용) ──────
+        /// <summary>1 ↔ 1+amplitude 사이를 부드럽게 오가는 호흡 스케일 루프. StopBreathScale로 중단.</summary>
+        public static void BreathScale(RectTransform rt, float amplitude = 0.05f, float period = 2.4f)
+        {
+            if (rt == null || !rt.gameObject.activeInHierarchy) return;
+            var t = Get(rt);
+            if (t._breathCo != null) t.StopCoroutine(t._breathCo);
+            t._breathCo = t.StartCoroutine(t.BreathRoutine(rt, amplitude, Mathf.Max(0.1f, period)));
+        }
+
+        /// <summary>호흡 스케일 중단 + 스케일 원복. 대상이 비활성/파괴 상태여도 안전.</summary>
+        public static void StopBreathScale(RectTransform rt)
+        {
+            if (rt == null) return;
+            var t = rt.GetComponent<UITween>();
+            if (t != null && t._breathCo != null) { t.StopCoroutine(t._breathCo); t._breathCo = null; }
+            rt.localScale = Vector3.one;
+        }
+
+        /// <summary>z축 연속 회전 루프(도/초, 양수 = 시계방향). StopRotateLoop로 중단.
+        /// 재호출 시 기존 루프를 교체하므로 재표시 후 재시작 호출이 안전하다.</summary>
+        public static void RotateLoop(RectTransform rt, float degPerSec)
+        {
+            if (rt == null || !rt.gameObject.activeInHierarchy) return;
+            var t = Get(rt);
+            if (t._rotateCo != null) t.StopCoroutine(t._rotateCo);
+            t._rotateCo = t.StartCoroutine(t.RotateRoutine(rt, degPerSec));
+        }
+
+        /// <summary>회전 루프 중단 + 회전 원복.</summary>
+        public static void StopRotateLoop(RectTransform rt)
+        {
+            if (rt == null) return;
+            var t = rt.GetComponent<UITween>();
+            if (t != null && t._rotateCo != null) { t.StopCoroutine(t._rotateCo); t._rotateCo = null; }
+            rt.localRotation = Quaternion.identity;
+        }
+
+        /// <summary>
+        /// 시전 플래시: 비활성 링 Image를 켜서 1→endScale로 커지며 페이드 아웃, 끝나면 다시 끈다.
+        /// 캐시된 1개 인스턴스를 재사용하는 전제(Instantiate 없음). 재호출 시 처음부터 다시 재생.
+        /// </summary>
+        public static void FlashRing(Image ring, float duration = 0.35f, float endScale = 1.6f)
+        {
+            if (ring == null) return;
+            var t = Get(ring);
+            if (t._flashCo != null) { t.StopCoroutine(t._flashCo); t._flashCo = null; }
+            if (!t._flashBaseCaptured)
+            {
+                t._flashBaseColor = ring.color;   // 최초 1회 원색 캡처 (중단된 연출의 중간색 오염 방지)
+                t._flashBaseCaptured = true;
+            }
+            if (!ring.gameObject.activeSelf) ring.gameObject.SetActive(true);
+            if (!ring.gameObject.activeInHierarchy) { ring.gameObject.SetActive(false); return; }
+            t._flashCo = t.StartCoroutine(t.FlashRingRoutine(ring, duration, endScale));
+        }
+
         // ── 코루틴 ───────────────────────────────────────────────────
         private IEnumerator ScaleRoutine(RectTransform rt, Vector3 from, Vector3 to, float dur, Func<float, float> ease)
         {
@@ -122,6 +184,49 @@ namespace KingdomIdle.UGUI
             }
             cg.alpha = to;
             _fadeCo = null;
+        }
+
+        private IEnumerator BreathRoutine(RectTransform rt, float amplitude, float period)
+        {
+            float e = 0f;
+            while (true)
+            {
+                e += Time.unscaledDeltaTime;
+                // 코사인 기반 — 스케일 1에서 시작해 1+amplitude까지 갔다가 되돌아온다 (튐 없음)
+                float s = 1f + amplitude * (0.5f - 0.5f * Mathf.Cos(e / period * 2f * Mathf.PI));
+                rt.localScale = new Vector3(s, s, 1f);
+                yield return null;
+            }
+        }
+
+        private IEnumerator RotateRoutine(RectTransform rt, float degPerSec)
+        {
+            while (true)
+            {
+                rt.Rotate(0f, 0f, -degPerSec * Time.unscaledDeltaTime);   // UGUI z회전은 반시계 양수 → 부호 반전
+                yield return null;
+            }
+        }
+
+        private IEnumerator FlashRingRoutine(Image ring, float dur, float endScale)
+        {
+            var rt = ring.rectTransform;
+            Color c0 = _flashBaseColor;
+            float e = 0f;
+            while (e < dur)
+            {
+                e += Time.unscaledDeltaTime;
+                float k = EaseOutCubic(Mathf.Clamp01(e / dur));
+                float s = Mathf.LerpUnclamped(1f, endScale, k);
+                rt.localScale = new Vector3(s, s, 1f);
+                ring.color = new Color(c0.r, c0.g, c0.b, c0.a * (1f - k));
+                yield return null;
+            }
+            // SetActive(false)가 이 코루틴을 죽이기 전에 원상 복구를 먼저 끝낸다
+            ring.color = c0;
+            rt.localScale = Vector3.one;
+            _flashCo = null;
+            ring.gameObject.SetActive(false);
         }
 
         private IEnumerator MoveRoutine(RectTransform rt, Vector2 from, Vector2 to, float dur, Func<float, float> ease)

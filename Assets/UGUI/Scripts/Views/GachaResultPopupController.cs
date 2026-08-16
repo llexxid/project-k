@@ -124,6 +124,24 @@ namespace KingdomIdle.UGUI
                 frameColor = UguiTheme.RaritySkill;
             }
 
+            // 신 스킬 카드 — 등급 색 테두리 + 아이콘 없으면 등급명 텍스트 대체 (전직파편 관례와 동일)
+            KingdomIdle.Divine.DivineSkillSO divineCard = null;
+            if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.DivineCard)
+            {
+                var divineMgr = KingdomIdle.Divine.DivineSkillManager.Instance;
+                divineCard = divineMgr != null ? divineMgr.GetCardById(entry.divineCardId) : null;
+                if (divineCard != null)
+                {
+                    frameColor = KingdomIdle.Divine.DivineSkillSO.GetGradeColor(divineCard.grade);
+                    fallbackText = KingdomIdle.Divine.DivineSkillSO.GetGradeName(divineCard.grade);
+                    fallbackColor = frameColor;
+                }
+                else
+                {
+                    fallbackText = "신 스킬";
+                }
+            }
+
             card.SetRarityFrame(frameColor);
 
             // 아이콘
@@ -138,6 +156,11 @@ namespace KingdomIdle.UGUI
                 var mtMgr = KingdomIdle.MageTower.MageTowerManager.Instance;
                 var so = mtMgr != null ? mtMgr.GetSkillById(entry.skillId) : null;
                 if (so != null && so.icon != null) icon = so.icon;
+            }
+            else if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.DivineCard && icon == null
+                     && divineCard != null && divineCard.icon != null)
+            {
+                icon = divineCard.icon;
             }
 
             card.SetIcon(icon, fallbackText, fallbackColor);
@@ -159,6 +182,11 @@ namespace KingdomIdle.UGUI
                 displayName = !string.IsNullOrEmpty(entry.nameKor)
                     ? entry.nameKor
                     : MainScreenController.GetCurrencyLabelKor(entry.currency);
+            }
+            else if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.DivineCard
+                     && string.IsNullOrEmpty(entry.nameKor) && divineCard != null)
+            {
+                displayName = divineCard.DisplayName;
             }
             else
             {
@@ -269,6 +297,8 @@ namespace KingdomIdle.UGUI
                 return $"equip_{r.equipmentData.GetInstanceID()}";
             if (r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Skill)
                 return $"skill_{r.skillId}";
+            if (r.rewardType == KingdomIdle.Gacha.eGachaRewardType.DivineCard)
+                return $"divine_{r.divineCardId}";
             if (r.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency)
             {
                 // 전직 파편은 직업별로 분리 표시해야 하므로 nameKor 까지 키에 포함.
@@ -298,6 +328,18 @@ namespace KingdomIdle.UGUI
                     case eEquipmentRarity.Epic: return 0;
                     case eEquipmentRarity.Rare: return 1;
                     case eEquipmentRarity.Normal: return 2;
+                }
+            }
+            if (e.rewardType == KingdomIdle.Gacha.eGachaRewardType.DivineCard)
+            {
+                // 신 스킬 카드는 등급 내림차순 (신화 → 전설 → 영웅). 매니저 부재 시 영웅 취급.
+                var divineMgr = KingdomIdle.Divine.DivineSkillManager.Instance;
+                var divineCard = divineMgr != null ? divineMgr.GetCardById(e.divineCardId) : null;
+                switch (divineCard != null ? divineCard.grade : KingdomIdle.Divine.eDivineGrade.Hero)
+                {
+                    case KingdomIdle.Divine.eDivineGrade.Myth: return 0;
+                    case KingdomIdle.Divine.eDivineGrade.Legend: return 1;
+                    default: return 2;
                 }
             }
             if (e.rewardType == KingdomIdle.Gacha.eGachaRewardType.Skill) return 3;

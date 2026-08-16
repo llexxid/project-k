@@ -20,8 +20,8 @@ MonoBehaviour:
     \uD30C\uD2F0 ATK\uD569 \xD7 20 \uAD11\uC5ED \uB370\uBBF8\uC9C0."
   grade: 1
   cooldown: 45
-  icon: {fileID: 0}
-  illustration: {fileID: 0}
+  icon: {fileID: 21300000, guid: bd208a549ee2b2941a14a2686532bb8e, type: 3}
+  illustration: {fileID: 21300000, guid: f3a90cfc52535204ea9c95195eb6aa94, type: 3}
   effectKind: 0
   skillMult: 20
   hitCount: 1
@@ -33,20 +33,23 @@ MonoBehaviour:
   damageReducePercent: 0.2
   skillIntervalReducePercent: 0.3
   moveSpeedIncreasePercent: 0.3
-  burstVfxPrefab: {fileID: 0}
-  impactVfxPrefab: {fileID: 0}
-  statusVfxPrefab: {fileID: 0}
+  burstVfxPrefab: {fileID: 208510926513423762, guid: 3e3d1a1719e16a94bb88b6b68cbdec48,
+    type: 3}
+  impactVfxPrefab: {fileID: 4672035908896359771, guid: 561b0bf828aa072478b7b35ed88cd93b,
+    type: 3}
+  statusVfxPrefab: {fileID: 5599470465662566247, guid: d1033fe54dd52074092dae82e216c09f,
+    type: 3}
   vfxPrefab: {fileID: 0}
-  burstVfxLifetime: 1.2
-  impactVfxLifetime: 0.6
+  burstVfxLifetime: 1
+  impactVfxLifetime: 0.5
   impactVfxScale: 2
-  statusVfxOffset: {x: 0, y: 1, z: 0}
-  impactDelay: 0.25
-  impactStagger: 0.04
+  statusVfxOffset: {x: 0, y: 1.1, z: 0}
+  impactDelay: 0.35
+  impactStagger: 0.06
   screenShake: 1
   shakeDuration: 0.25
   shakeMagnitude: 0.12
-  sfxName: 
-  impactSfxName: 
+  sfxName: Ice_Spike_SFX
+  impactSfxName: Ice_Block_SFX
   cutInEnabled: 1
   cutInDuration: 1.2

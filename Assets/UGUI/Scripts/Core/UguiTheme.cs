@@ -29,18 +29,22 @@ namespace KingdomIdle.UGUI
         public const float DropdownWidth = 420f;
         public const float HamburgerDropdownWidth = 90f;
         public const float PartyHudBottom = 202f;
-        public const float PartyHudHeight = 150f;
+        // 파티 HUD 15% 확대(초상화 78→90, 스킬 슬롯 40→46) 반영 명목 높이.
+        // 실측 블록 높이는 90 + 패딩 24 = 114px 이지만, 위 요소(신 스킬 버튼) 배치는
+        // 여유를 포함한 이 예약 밴드를 기준으로 계산한다.
+        public const float PartyHudHeight = 172f;
         public const float MageTowerHudTop = 300f;
         public const float MageTowerHudWidth = 176f;
         public const float MageTowerSlotSize = 134f;
 
-        // ── 신성 스킬(궁극기) HUD — 좌하단. 마탑 열(좌상단, 아래끝 ≈594)과
-        //    파티 HUD(하단 중앙, 위끝 ≈300) 사이의 빈 자리를 쓴다 ──
-        public const float DivineHudLeft = 24f;       // 화면 가장자리 여백 (우하단 앵커 — 우측 가장자리 기준)
-        public const float DivineHudBottom = 340f;    // 하단바(190) + 파티 HUD 행 위
-        public const float DivineHudSize = 200f;      // 버튼 한 변 (마탑 슬롯 134의 1.5배 — 화면 최대 버튼)
-        public const float DivineHudGlowPad = 18f;    // 준비 완료 후광이 버튼 밖으로 번지는 여유
-        public const float DivineHudIconInset = 14f;  // 버튼 안쪽 아이콘 인셋
+        // ── 신성 스킬(궁극기) HUD — 하단 중앙 원형 버튼.
+        //    가이드 퀘스트 창(임시 숨김)이 떠 있던 자리 = 파티 HUD 바로 위를 쓴다 ──
+        public const float DivineHudDiameter = 176f;  // 원형 버튼 지름 (마탑 슬롯 134 대비 대형)
+        public const float DivineHudMargin = 24f;     // 파티 HUD 예약 밴드 위 여백
+        // 버튼 하단 y = 파티 HUD 바닥(202) + 파티 밴드(172) + 여백(24) = 398
+        public const float DivineHudBottom = PartyHudBottom + PartyHudHeight + DivineHudMargin;
+        public const float DivineHudGlowPad = 26f;    // 준비 완료 후광이 버튼 밖으로 번지는 여유
+        public const float DivineHudAutoRingPad = 12f; // AUTO 회전 링(틱)이 버튼 밖으로 나가는 반지름 여유
 
         // ── 신성 스킬 컷인 오버레이 ──
         public const float DivineCutInIllustWidth = 620f;

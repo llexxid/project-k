@@ -74,6 +74,15 @@ namespace KingdomIdle.UGUI.Editor
                 border: Vector4.zero);
         }
 
+        /// <summary>중심 1 → 가장자리 0으로 방사형 페이드하는 소프트 원 (후광/플래시용 — 틴트해서 사용).</summary>
+        internal static Sprite GetOrCreateCircleSoft()
+        {
+            return GetOrCreateGeneratedSprite(
+                $"{SpriteRoot}/CircleSoft.png",
+                () => MakeCircleSoftTex(128),
+                border: Vector4.zero);
+        }
+
         private static Sprite GetOrCreateGeneratedSprite(string path, System.Func<Texture2D> maker, Vector4 border)
         {
             var existing = AssetDatabase.LoadAssetAtPath<Sprite>(path);
@@ -116,6 +125,26 @@ namespace KingdomIdle.UGUI.Editor
                         a = Mathf.Clamp01(radius - d + 0.5f);   // 1px 안티앨리어싱
                     }
 
+                    tex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
+                }
+            }
+            tex.Apply();
+            return tex;
+        }
+
+        private static Texture2D MakeCircleSoftTex(int size)
+        {
+            // pow 0.8 — 완만한 감쇠라 버튼(지름의 ~83%)에 가려지고 남는 테두리 후광이 살아있다.
+            // Linear 색공간에서 터지는 저알파 흰 오버레이 대신 청동/골드로 틴트해 쓴다.
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            float r = size * 0.5f - 1f;
+            float c = (size - 1) * 0.5f;
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float d = Mathf.Sqrt((x - c) * (x - c) + (y - c) * (y - c));
+                    float a = Mathf.Pow(Mathf.Clamp01(1f - d / r), 0.8f);
                     tex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
                 }
             }

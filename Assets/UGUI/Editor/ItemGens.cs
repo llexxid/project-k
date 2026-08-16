@@ -356,6 +356,98 @@ namespace KingdomIdle.UGUI.Editor
             return PrefabGenUtil.SavePrefab(row.gameObject, $"{PrefabGenUtil.PrefabRoot}/Items/Item_SkillRow.prefab");
         }
 
+        /// <summary>
+        /// 신 스킬 컬렉션 카드 셀 (등급 테두리 + 아이콘 + 이름 + 레벨/중복/장착 배지 + 미보유 오버레이).
+        /// 팝업이 8칸을 1회 생성 후 제자리 갱신한다 — 상태 표현은 DivineCardItemView.Set이 담당.
+        /// 미보유 셀도 탭해 상세를 볼 수 있으므로 버튼 입력은 항상 살려 둔다.
+        /// </summary>
+        internal static GameObject GenerateDivineCard()
+        {
+            var frame = F.Box(null, "Item_DivineCard", Color.clear, rounded: true, raycast: true);
+            F.Preferred(frame, width: 200f, height: 240f);
+            var view = frame.gameObject.AddComponent<DivineCardItemView>();
+
+            var btn = frame.gameObject.AddComponent<Button>();
+            btn.targetGraphic = frame;
+            btn.transition = Selectable.Transition.ColorTint;
+            btn.colors = UguiTheme.MakeColorBlock();
+            frame.gameObject.AddComponent<PlayClickSfxOnClick>();
+            view.button = btn;
+
+            // 안쪽 배경 (Set이 등급색 다크 틴트)
+            var bg = F.Box(frame.transform, "Bg", UguiTheme.SurfaceLight, rounded: true);
+            F.Stretch(bg.rectTransform);
+            bg.rectTransform.offsetMin = new Vector2(2f, 2f);
+            bg.rectTransform.offsetMax = new Vector2(-2f, -2f);
+            F.VLayout(bg.gameObject, 4f, new RectOffset(6, 6, 10, 8), TextAnchor.UpperCenter);
+            view.background = bg;
+
+            // 등급 테두리 (Set이 등급색/미보유 회색 틴트)
+            var gframe = F.Frame(frame.transform, "GradeFrame", UguiTheme.RarityNormal);
+            view.gradeFrame = gframe;
+
+            // 아이콘 (116x116 중앙) + 아이콘 없음 "?" 폴백
+            var iconWrap = F.Container(bg.transform, "IconWrap");
+            F.Preferred(iconWrap.gameObject.AddComponent<LayoutElement>(), height: 128f);
+            var icon = F.IconImage(iconWrap, "Icon", null, 116f, 116f);
+            F.AnchorCenter(icon.rectTransform, 116f, 116f);
+            view.icon = icon;
+
+            var fallback = F.Text(iconWrap, "IconFallback", "?", 56f, UguiTheme.TextTertiary,
+                TextAlignmentOptions.Center, bold: true);
+            F.Stretch(fallback.rectTransform);
+            fallback.gameObject.SetActive(false);
+            view.iconFallback = fallback;
+
+            // 이름 (미보유 = "???")
+            var name = F.Text(bg.transform, "Name", "", 20f, UguiTheme.TextPrimary, TextAlignmentOptions.Center);
+            F.Preferred(name, height: 30f);
+            view.nameLabel = name;
+
+            // 레벨 배지
+            var lv = F.Text(bg.transform, "Level", "", 18f, UguiTheme.AccentGoldStrong,
+                TextAlignmentOptions.Center, bold: true);
+            F.Preferred(lv, height: 26f);
+            lv.gameObject.SetActive(false);
+            view.levelLabel = lv;
+
+            // 미보유 오버레이 (배지들보다 뒤, 본문 위)
+            var lockOv = F.Box(frame.transform, "LockOverlay", new Color(0f, 0f, 0f, 0.55f), rounded: true);
+            F.Stretch(lockOv.rectTransform);
+            lockOv.gameObject.SetActive(false);
+            view.lockOverlay = lockOv;
+
+            // "장착" 알약 (좌상단)
+            var pill = F.Box(frame.transform, "EquippedPill", UguiTheme.SuccessGreen, rounded: true);
+            var pillRt = pill.rectTransform;
+            pillRt.anchorMin = new Vector2(0f, 1f); pillRt.anchorMax = new Vector2(0f, 1f); pillRt.pivot = new Vector2(0f, 1f);
+            pillRt.anchoredPosition = new Vector2(4f, -4f); pillRt.sizeDelta = new Vector2(56f, 28f);
+            var pillLbl = F.Text(pill.transform, "Label", "장착", 15f, UguiTheme.TextPrimary,
+                TextAlignmentOptions.Center, bold: true);
+            F.Stretch(pillLbl.rectTransform);
+            pill.gameObject.SetActive(false);
+            view.equippedPill = pill;
+
+            // "+N" 중복 배지 (우상단)
+            var dup = F.Box(frame.transform, "DupBadge", new Color(0.16f, 0.12f, 0.09f, 0.95f), rounded: true);
+            var dupRt = dup.rectTransform;
+            dupRt.anchorMin = new Vector2(1f, 1f); dupRt.anchorMax = new Vector2(1f, 1f); dupRt.pivot = new Vector2(1f, 1f);
+            dupRt.anchoredPosition = new Vector2(-4f, -4f); dupRt.sizeDelta = new Vector2(56f, 28f);
+            var dupLbl = F.Text(dup.transform, "Label", "+0", 16f, UguiTheme.AccentGoldStrong,
+                TextAlignmentOptions.Center, bold: true);
+            F.Stretch(dupLbl.rectTransform);
+            dup.gameObject.SetActive(false);
+            view.dupBadge = dup;
+            view.dupLabel = dupLbl;
+
+            // 선택 강조 테두리 (맨 위)
+            var sel = F.Frame(frame.transform, "SelectedFrame", new Color(1f, 0.92f, 0.60f, 0.95f));
+            sel.gameObject.SetActive(false);
+            view.selectedFrame = sel;
+
+            return PrefabGenUtil.SavePrefab(frame.gameObject, $"{PrefabGenUtil.PrefabRoot}/Items/Item_DivineCard.prefab");
+        }
+
         /// <summary>셀/카드용 중앙 정렬 라벨 헬퍼.</summary>
         private static TextMeshProUGUI MakeCellLabel(Transform parent, string text, float size, Color color)
         {

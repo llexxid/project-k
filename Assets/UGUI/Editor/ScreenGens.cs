@@ -391,6 +391,10 @@ namespace KingdomIdle.UGUI.Editor
 
         private static void BuildBottomBar(RectTransform rootRt, MainScreenView view)
         {
+            // [마탑 환경 연출 예약] 바 왼쪽 ~220px 는 별도 작업에서 마법사 탑 환경 스프라이트가
+            // 절대 배치(ignoreLayout 또는 형제 오버레이)로 겹칠 자리다. 탭 3개는 HLayout의
+            // flexible 자식이라 형제 오버레이와 간섭하지 않는다 — 왼쪽에 고정 폭 레이아웃 요소를
+            // 추가하지 말 것(오버레이가 탭을 밀어내는 대신 '위에 겹치는' 구조를 유지한다).
             // 러스틱 하단 탭 바 (더 어두운 다크 우드)
             var bar = F.Box(rootRt, "BottomBar", UguiTheme.RusticBarDeep, rounded: false);
             F.AnchorBottomStretch(bar.rectTransform, 0f, UguiTheme.BottomBarHeight);
@@ -531,6 +535,9 @@ namespace KingdomIdle.UGUI.Editor
 
             view.btnMenuInventory = MakeHamburgerItem(hamburger.transform, "BtnMenuInventory", null,
                 F.Catalog != null ? F.Catalog.iconBag : null);
+            // 신 스킬 도감 — HUD 모서리 버튼에서 이사 옴 (원형 버튼 리워크로 자리 없음)
+            view.btnMenuDivineCollection = MakeHamburgerItem(hamburger.transform, "BtnMenuDivineCollection", null,
+                F.Catalog != null ? F.Catalog.iconBook : null);
             view.btnMenuSettings = MakeHamburgerItem(hamburger.transform, "BtnMenuSettings", null, UguiGenAssets.IconWrench);
             view.btnMenuNotice = MakeHamburgerItem(hamburger.transform, "BtnMenuNotice", null, UguiGenAssets.IconWarning);
             view.btnMenuMail = MakeHamburgerItem(hamburger.transform, "BtnMenuMail", null,

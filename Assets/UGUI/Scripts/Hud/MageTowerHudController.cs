@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using KingdomIdle.MageTower;
 using KingdomIdle.UI;
 
@@ -104,9 +104,6 @@ namespace KingdomIdle.UGUI
             if (_view.autoButton != null)
                 _view.autoButton.onClick.AddListener(OnAutoBtnClicked);
 
-            if (_view.towerButton != null)
-                _view.towerButton.onClick.AddListener(OnTowerBtnClicked);
-
             for (int i = 0; i < _view.slots.Length; i++)
             {
                 int idx = i;
@@ -170,11 +167,6 @@ namespace KingdomIdle.UGUI
                 _view.autoButtonBg.color = _autoEnabled ? AutoOnBg : AutoOffBg;
             if (_view.autoButtonLabel != null)
                 _view.autoButtonLabel.color = _autoEnabled ? AutoOnText : AutoOffText;
-        }
-
-        private void OnTowerBtnClicked()
-        {
-            MageTowerPopupController.Show();
         }
 
         // ===== Cooldown UI =====

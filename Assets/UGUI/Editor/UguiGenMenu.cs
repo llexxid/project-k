@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 
@@ -53,6 +53,7 @@ namespace KingdomIdle.UGUI.Editor
             HudGens.GenerateMageTowerHud();
             HudGens.GenerateMainActionsHud();
             HudGens.GenerateDivineSkillHud();
+            HudGens.GenerateMageTowerEnv();
             HudGens.GenerateDamageTextItem(CatalogGen.GetOrCreateDamageOutlineMaterial());
 
             // 아이템
@@ -66,6 +67,7 @@ namespace KingdomIdle.UGUI.Editor
             ItemGens.GenerateJobCard();
             ItemGens.GenerateEnhanceCard();
             ItemGens.GenerateSkillRow();
+            ItemGens.GenerateDivineCard();
 
             // 런타임 코드생성 → 프리팹 전환
             PopupGens.GenerateMageEquipSlot();
@@ -78,6 +80,7 @@ namespace KingdomIdle.UGUI.Editor
             InventoryPanelPrefabGens.GenerateAll();
             KingdomArmyPanelPrefabGens.GenerateAll();
             DungeonFeaturePrefabGens.GenerateAll();
+            DivineCollectionPopupPrefabGens.GenerateAll();
 
             // 프리팹 참조 배선 (프리팹 생성 후)
             CatalogGen.AssignPrefabs(catalog);
@@ -113,6 +116,19 @@ namespace KingdomIdle.UGUI.Editor
                     "제거", "취소"))
                 return;
             BootstrapRewireGen.RemoveUitkRoot();
+        }
+
+        /// <summary>마탑 환경 오브젝트 프리팹 단일 재생성 (내부/배치 공용).</summary>
+        [MenuItem("KingdomIdle/UGUI/Generate MageTower Env", false, 7)]
+        internal static void RegenMageTowerEnv()
+        {
+            F.Init();
+            var catalog = AssetDatabase.LoadAssetAtPath<UIViewCatalog>(PrefabGenUtil.CatalogPath);
+            F.Catalog = catalog;
+            HudGens.GenerateMageTowerEnv();
+            if (catalog != null)
+                CatalogGen.AssignPrefabs(catalog);
+            AssetDatabase.Refresh();
         }
 
         [MenuItem("KingdomIdle/UGUI/Validate/Check view wiring", false, 40)]
@@ -159,6 +175,9 @@ namespace KingdomIdle.UGUI.Editor
             errors += CheckPrefabViews(catalog.hudMageTower);
             errors += CheckPrefabViews(catalog.hudMainActions);
             errors += CheckPrefabViews(catalog.hudDivineSkill);
+            errors += CheckPrefabViews(catalog.hudMageTowerEnv);
+            errors += CheckPrefabViews(catalog.popupDivineCollection);
+            errors += CheckPrefabViews(catalog.itemDivineCard);
 
             if (errors == 0)
                 Debug.Log("[UguiGen] View 배선 검사: 통과");

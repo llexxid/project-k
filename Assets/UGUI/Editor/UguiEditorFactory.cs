@@ -16,6 +16,7 @@ namespace KingdomIdle.UGUI.Editor
         internal static Material OutlineMat;      // 굵은 텍스트용 다크 아웃라인 머티리얼
         internal static Sprite Rounded;
         internal static Sprite Circle;
+        internal static Sprite CircleSoft;       // 방사형 페이드 원 (후광/플래시)
         internal static UIViewCatalog Catalog;   // GenerateAll이 공용 에셋 배선 후 주입
 
         internal static void Init()
@@ -24,6 +25,7 @@ namespace KingdomIdle.UGUI.Editor
             OutlineMat = CatalogGen.GetOrCreateUIOutlineMaterial();
             Rounded = PrefabGenUtil.GetOrCreateRoundedRect();
             Circle = PrefabGenUtil.GetOrCreateCircle();
+            CircleSoft = PrefabGenUtil.GetOrCreateCircleSoft();
         }
 
         // ═══ 기본 요소 ═══

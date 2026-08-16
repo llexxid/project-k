@@ -70,8 +70,9 @@ namespace KingdomIdle.Divine.EditorTools
         private const string ClipImpactName = "Astra_Impact";
         private const string ClipStunName   = "Astra_Stun";
 
-        /// <summary>VFX 하나(클립 + 컨트롤러 + 프리팹)를 만드는 데 필요한 값 전부.</summary>
-        private struct VfxSpec
+        /// <summary>VFX 하나(클립 + 컨트롤러 + 프리팹)를 만드는 데 필요한 값 전부.
+        /// internal — DivineVfxGen7(나머지 7카드 생성기)이 클립/컨트롤러 파이프라인을 재사용한다.</summary>
+        internal struct VfxSpec
         {
             public string prefabName;
             public string clipName;
@@ -237,7 +238,7 @@ namespace KingdomIdle.Divine.EditorTools
         /// _0 은 .meta 의 rect.y 가 가장 큰 = 시트 '맨 위' 프레임이고, 실제로 그 프레임이
         /// 애니메이션의 시작(작은 씨앗)이라 이름 순서 = 재생 순서가 맞다.
         /// </summary>
-        private static Sprite[] LoadOrderedSprites(string texturePath, int expected)
+        internal static Sprite[] LoadOrderedSprites(string texturePath, int expected)
         {
             if (AssetDatabase.LoadAssetAtPath<Texture2D>(texturePath) == null)
             {
@@ -283,7 +284,7 @@ namespace KingdomIdle.Divine.EditorTools
         /// 루트 SpriteRenderer 의 m_Sprite 에 PPtr 커브를 건 클립.
         /// Slash_Attack.anim 과 동일한 형태(attribute m_Sprite, classID 212, path "")다.
         /// </summary>
-        private static AnimationClip BuildClip(VfxSpec spec, Sprite[] frames)
+        internal static AnimationClip BuildClip(VfxSpec spec, Sprite[] frames)
         {
             string path = $"{AnimDir}/{spec.clipName}.anim";
             var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
@@ -313,7 +314,7 @@ namespace KingdomIdle.Divine.EditorTools
         }
 
         /// <summary>단일 스테이트 컨트롤러. 이미 있으면 기본 스테이트의 모션만 교체해 GUID 를 지킨다.</summary>
-        private static AnimatorController BuildController(string name, AnimationClip clip)
+        internal static AnimatorController BuildController(string name, AnimationClip clip)
         {
             string path = $"{AnimDir}/{name}.controller";
             var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(path);
@@ -534,7 +535,7 @@ namespace KingdomIdle.Divine.EditorTools
             return false;
         }
 
-        private static int CountSubSprites(string assetPath)
+        internal static int CountSubSprites(string assetPath)
         {
             int n = 0;
             foreach (var o in AssetDatabase.LoadAllAssetRepresentationsAtPath(assetPath))
@@ -545,7 +546,7 @@ namespace KingdomIdle.Divine.EditorTools
         // ────────────────────────────────────────────
         //  잡동사니
         // ────────────────────────────────────────────
-        private static void EnsureFolders()
+        internal static void EnsureFolders()
         {
             EnsureFolder("Assets/DivineSkill", "VFX");
             EnsureFolder(VfxDir, "Anim");
@@ -559,19 +560,19 @@ namespace KingdomIdle.Divine.EditorTools
                 AssetDatabase.CreateFolder(parent, child);
         }
 
-        private static GameObject LoadPrefab(string name) =>
+        internal static GameObject LoadPrefab(string name) =>
             AssetDatabase.LoadAssetAtPath<GameObject>($"{VfxDir}/{name}.prefab");
 
-        private static T GetOrAdd<T>(GameObject go) where T : Component
+        internal static T GetOrAdd<T>(GameObject go) where T : Component
         {
             var c = go.GetComponent<T>();
             return c != null ? c : go.AddComponent<T>();
         }
 
-        private static Material SpritesDefaultMaterial() =>
+        internal static Material SpritesDefaultMaterial() =>
             AssetDatabase.GetBuiltinExtraResource<Material>("Sprites-Default.mat");
 
-        private static bool SortingLayerExists(string name)
+        internal static bool SortingLayerExists(string name)
         {
             var layers = SortingLayer.layers;
             for (int i = 0; i < layers.Length; i++)
@@ -579,7 +580,7 @@ namespace KingdomIdle.Divine.EditorTools
             return false;
         }
 
-        private static string ToAbsolutePath(string assetPath)
+        internal static string ToAbsolutePath(string assetPath)
         {
             var projectRoot = Directory.GetParent(Application.dataPath);
             string root = projectRoot != null ? projectRoot.FullName : Environment.CurrentDirectory;
@@ -587,7 +588,7 @@ namespace KingdomIdle.Divine.EditorTools
         }
 
         // ── SerializedObject 헬퍼: 필드가 없으면 조용히 넘어가지 않고 경고를 남긴다 ──
-        private static SerializedProperty Find(SerializedObject so, string field)
+        internal static SerializedProperty Find(SerializedObject so, string field)
         {
             var p = so.FindProperty(field);
             if (p == null)
@@ -595,31 +596,31 @@ namespace KingdomIdle.Divine.EditorTools
             return p;
         }
 
-        private static void SetObj(SerializedObject so, string field, Object value)
+        internal static void SetObj(SerializedObject so, string field, Object value)
         {
             var p = Find(so, field);
             if (p != null) p.objectReferenceValue = value;
         }
 
-        private static void SetStr(SerializedObject so, string field, string value)
+        internal static void SetStr(SerializedObject so, string field, string value)
         {
             var p = Find(so, field);
             if (p != null) p.stringValue = value;
         }
 
-        private static void SetF(SerializedObject so, string field, float value)
+        internal static void SetF(SerializedObject so, string field, float value)
         {
             var p = Find(so, field);
             if (p != null) p.floatValue = value;
         }
 
-        private static void SetBool(SerializedObject so, string field, bool value)
+        internal static void SetBool(SerializedObject so, string field, bool value)
         {
             var p = Find(so, field);
             if (p != null) p.boolValue = value;
         }
 
-        private static void SetVec3(SerializedObject so, string field, Vector3 value)
+        internal static void SetVec3(SerializedObject so, string field, Vector3 value)
         {
             var p = Find(so, field);
             if (p != null) p.vector3Value = value;

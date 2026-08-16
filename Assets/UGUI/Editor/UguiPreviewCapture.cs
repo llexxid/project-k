@@ -91,8 +91,68 @@ namespace KingdomIdle.UGUI.Editor
             CaptureKASubPanels(scene, cam, catalog, layers);
             CapturePartyHud(scene, cam, catalog, layers);
             CaptureDropdown(scene, cam, catalog, layers);
+            CaptureMainComposite(scene, cam, catalog, layers);
 
             Debug.Log($"[Preview] 캡처 완료: {OutDir}");
+        }
+
+        /// <summary>
+        /// 인게임 메인 화면 합성 샷 — 런타임 배치 순서 그대로
+        /// (마탑 환경 → Screen_Main → 파티 HUD → 궁극기 버튼) 를 겹쳐 실제 레이아웃을 검증한다.
+        /// 12_main_composite.png / 13_divine_collection.png
+        /// </summary>
+        private static void CaptureMainComposite(UnityEngine.SceneManagement.Scene scene, Camera cam,
+            UIViewCatalog catalog, Dictionary<string, RectTransform> layers)
+        {
+            if (!layers.TryGetValue("LayerScreens", out var parent)) return;
+
+            var spawned = new List<GameObject>();
+            void Add(GameObject prefab, bool stretch)
+            {
+                if (prefab == null) return;
+                var inst = (GameObject)PrefabUtility.InstantiatePrefab(prefab, scene);
+                inst.transform.SetParent(parent, false);
+                if (stretch)
+                {
+                    var rt = (RectTransform)inst.transform;
+                    rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+                    rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
+                }
+                inst.SetActive(true);
+                spawned.Add(inst);
+            }
+
+            Add(catalog.hudMageTowerEnv, stretch: false);   // 화면 프리팹보다 먼저 = 하단바 뒤
+            Add(catalog.screenMain, stretch: true);
+            Add(catalog.hudParty, stretch: false);
+            Add(catalog.hudDivineSkill, stretch: false);
+
+            Canvas.ForceUpdateCanvases();
+            foreach (var go in spawned)
+                LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)go.transform);
+            Canvas.ForceUpdateCanvases();
+
+            Render(cam, Path.Combine(OutDir, "12_main_composite.png"));
+
+            foreach (var go in spawned) Object.DestroyImmediate(go);
+
+            // 신 스킬 도감 팝업 단독 샷
+            if (catalog.popupDivineCollection != null && layers.TryGetValue("LayerPopups", out var popupLayer))
+            {
+                var popup = (GameObject)PrefabUtility.InstantiatePrefab(catalog.popupDivineCollection, scene);
+                popup.transform.SetParent(popupLayer, false);
+                var prt = (RectTransform)popup.transform;
+                prt.anchorMin = Vector2.zero; prt.anchorMax = Vector2.one;
+                prt.offsetMin = Vector2.zero; prt.offsetMax = Vector2.zero;
+                popup.SetActive(true);
+
+                Canvas.ForceUpdateCanvases();
+                LayoutRebuilder.ForceRebuildLayoutImmediate(prt);
+                Canvas.ForceUpdateCanvases();
+
+                Render(cam, Path.Combine(OutDir, "13_divine_collection.png"));
+                Object.DestroyImmediate(popup);
+            }
         }
 
         /// <summary>

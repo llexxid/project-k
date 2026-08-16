@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 
 namespace KingdomIdle.UGUI.Editor
@@ -62,6 +62,7 @@ namespace KingdomIdle.UGUI.Editor
             go.AddComponent<PartyHudController>();
             go.AddComponent<MageTowerHudController>();
             go.AddComponent<MageTowerHudBridge>();
+            go.AddComponent<MageTowerEnvController>();
             go.AddComponent<DivineSkillHudController>();
             go.AddComponent<DivineSkillHudBridge>();
             // 컷인 재생기 — Awake에서 DivinePresentation.CutInHandler에 등록(루트가 DontDestroyOnLoad)
