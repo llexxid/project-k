@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 7203134592846423034}
   - component: {fileID: 7067631013183245079}
   - component: {fileID: 4474205241350867581}
+  - component: {fileID: 6139220792735994051}
   m_Layer: 6
   m_Name: MON_BANDIT_LEADER
   m_TagString: Enemy
@@ -92,6 +93,21 @@ MonoBehaviour:
   _attackRadius: 0
   _detectRadius: 0
   _AnimationClipSO: {fileID: 11400000, guid: 0ca2dd6e659478844accc427720a1ac6, type: 2}
+--- !u!114 &6139220792735994051
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2349227336609214206}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d91409c8b4b5aea4cb6c2243dafaa00f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Scripts.Monster.MonsterHitFlash
+  _targets: []
+  _holdDuration: 0.04
+  _fadeDuration: 0.06
 --- !u!1 &7390989425219658895
 GameObject:
   m_ObjectHideFlags: 0
@@ -173,7 +189,7 @@ SpriteRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10754, guid: 0000000000000000f000000000000000, type: 0}
+  - {fileID: 2100000, guid: 1c729218564f4e34ea14170aabb64f0a, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

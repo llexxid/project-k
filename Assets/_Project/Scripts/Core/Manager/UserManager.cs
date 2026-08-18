@@ -128,6 +128,13 @@ namespace Scripts.Core
 			return _user.GetNickName();
 		}
 
+		/// <summary>UI 등 읽기 전용 소비자가 현재 연결된 캐릭터를 조회한다.</summary>
+		public IReadOnlyList<Player> GetPlayers()
+		{
+			if (_user == null) return Array.Empty<Player>();
+			return _user._players;
+		}
+
 		public long GetUserCoin()
 		{
 			return _user.GetCoin();

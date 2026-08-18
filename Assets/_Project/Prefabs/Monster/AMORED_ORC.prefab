@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 456837648292828096}
   - component: {fileID: 4765808539803425400}
   - component: {fileID: 3381191092872968861}
+  - component: {fileID: 1169015781804688411}
   - component: {fileID: 6959333790668844751}
   - component: {fileID: -3808334700218724512}
   m_Layer: 6
@@ -61,7 +62,7 @@ SpriteRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10754, guid: 0000000000000000f000000000000000, type: 0}
+  - {fileID: 2100000, guid: 1c729218564f4e34ea14170aabb64f0a, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -116,6 +117,21 @@ MonoBehaviour:
   _attackRadius: 1
   _detectRadius: 5
   _AnimationClipSO: {fileID: 11400000, guid: 161f808c3c408b642bd659525e914377, type: 2}
+--- !u!114 &1169015781804688411
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2930453104557167892}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d91409c8b4b5aea4cb6c2243dafaa00f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Scripts.Monster.MonsterHitFlash
+  _targets: []
+  _holdDuration: 0.04
+  _fadeDuration: 0.06
 --- !u!70 &6959333790668844751
 CapsuleCollider2D:
   m_ObjectHideFlags: 0

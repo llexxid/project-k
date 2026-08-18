@@ -46,6 +46,7 @@ namespace KingdomIdle.UGUI.Editor
             OverlayGens.GenerateSettings();
             OverlayGens.GenerateGachaResult();
             ProfilePopupPrefabGens.GenerateProfilePopup();
+            RankingPopupPrefabGen.Generate();
 
             // HUD
             HudGens.GeneratePartyHud();

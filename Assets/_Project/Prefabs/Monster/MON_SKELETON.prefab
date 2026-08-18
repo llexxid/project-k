@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 8612574518450729966}
   - component: {fileID: 7829651013324847665}
   - component: {fileID: 1780726610921682965}
+  - component: {fileID: 7022285173605537251}
   m_Layer: 6
   m_Name: MON_SKELETON
   m_TagString: Enemy
@@ -77,6 +78,21 @@ MonoBehaviour:
   _attackRadius: 0
   _detectRadius: 0
   _AnimationClipSO: {fileID: 11400000, guid: eb7a29ad88b226a4dbebca77c737ea1a, type: 2}
+--- !u!114 &7022285173605537251
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2501028659066871546}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d91409c8b4b5aea4cb6c2243dafaa00f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Scripts.Monster.MonsterHitFlash
+  _targets: []
+  _holdDuration: 0.04
+  _fadeDuration: 0.06
 --- !u!1 &5965325032111826519
 GameObject:
   m_ObjectHideFlags: 0
@@ -136,7 +152,7 @@ SpriteRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10754, guid: 0000000000000000f000000000000000, type: 0}
+  - {fileID: 2100000, guid: 1c729218564f4e34ea14170aabb64f0a, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
