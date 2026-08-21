@@ -88,6 +88,7 @@ namespace KingdomIdle.UGUI
         public GameObject popupMageTowerEquip;   // 마탑 스킬 장착 팝업 (프리팹화됨)
         public GameObject popupDungeonClear;
         public GameObject popupReincarnation;
+        public GameObject popupOfflineReward;
 
         [Header("Overlays")]
         public GameObject overlayLoading;

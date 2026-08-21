@@ -47,6 +47,7 @@ namespace KingdomIdle.UGUI.Editor
             OverlayGens.GenerateGachaResult();
             ProfilePopupPrefabGens.GenerateProfilePopup();
             RankingPopupPrefabGen.Generate();
+            OfflineRewardPopupPrefabGen.Generate();
 
             // HUD
             HudGens.GeneratePartyHud();
@@ -150,6 +151,7 @@ namespace KingdomIdle.UGUI.Editor
             errors += CheckPrefabViews(catalog.popupGachaResult);
             errors += CheckPrefabViews(catalog.popupDungeonClear);
             errors += CheckPrefabViews(catalog.popupReincarnation);
+            errors += CheckPrefabViews(catalog.popupOfflineReward);
             errors += CheckPrefabViews(catalog.overlayLoading);
             errors += CheckPrefabViews(catalog.overlayToast);
             errors += CheckPrefabViews(catalog.overlaySettings);

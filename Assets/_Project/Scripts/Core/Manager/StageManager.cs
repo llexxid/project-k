@@ -232,6 +232,15 @@ namespace Scripts.Core.Manager
 		}
 
 		#endif
+		/// <summary>스테이지를 시작하지 않고 정적 정의만 조회한다.</summary>
+		public bool TryGetStageDefinition(
+			eStage stage,
+			out StageDefinition definition)
+		{
+			definition = BuildDefinition(stage);
+			return definition != null;
+		}
+
 		public bool IsDungeonStageUnlocked(eStage stage)
 		{
 			eStageType type = StageParser.GetStageType(stage);

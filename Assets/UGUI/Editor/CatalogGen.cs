@@ -88,6 +88,7 @@ namespace KingdomIdle.UGUI.Editor
             catalog.popupMageTowerEquip = Load($"{p}/Popups/Panel_MageTowerEquip.prefab");
             catalog.popupDungeonClear = Load($"{p}/Popups/Popup_DungeonClear.prefab");
             catalog.popupReincarnation = Load($"{p}/Popups/Popup_Reincarnation.prefab");
+            catalog.popupOfflineReward = Load($"{p}/Popups/Popup_OfflineReward.prefab");
 
             catalog.overlayLoading = Load($"{p}/Overlays/Overlay_Loading.prefab");
             catalog.overlayToast = Load($"{p}/Overlays/Overlay_Toast.prefab");

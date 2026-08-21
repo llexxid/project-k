@@ -1,4 +1,5 @@
 ﻿using Cysharp.Threading.Tasks;
+using KingdomIdle.OfflineRewards;
 using Scripts.Core.Manager;
 using Scripts.Core.SO;
 using Scripts.Core.Utils;
@@ -20,6 +21,7 @@ namespace Scripts.Core
         public static GameManager Instance;
         
         public ReincarnationService Reincarnation { get; private set; }
+        public OfflineRewardManager OfflineReward { get; private set; }
         private void Awake()
         {
             if (Instance == null)
@@ -40,6 +42,10 @@ namespace Scripts.Core
             var gateway = new ReincarnationGateway();
 
             Reincarnation = new ReincarnationService(policy, store, gateway);
+
+            OfflineReward = GetComponent<OfflineRewardManager>();
+            if (OfflineReward == null)
+                OfflineReward = gameObject.AddComponent<OfflineRewardManager>();
         }
         private void OnEnable() => SceneManager.sceneLoaded += OnSceneLoaded;
         private void OnDisable() => SceneManager.sceneLoaded -= OnSceneLoaded;
@@ -119,11 +125,17 @@ namespace Scripts.Core
                 UserManager.Instance.CreateCharacter();
                 eStage curUserStage = UserManager.Instance.GetUserCurrentStage();
 
-                // stageManager가 없을때 조치를 어떻게 하지?
-                if (StageManager.Instance != null)
+                void BeginMainStage()
                 {
-                    StageManager.Instance.BeginStage(curUserStage);
+                    if (StageManager.Instance != null)
+                        StageManager.Instance.BeginStage(curUserStage);
                 }
+
+                // 오프라인 보상이 정산된 후 메인스테이지를 시작하게 해서 오프라인 보상 요청과 스테이지 사냥 보상 요청의 순서가 섞이지 않게 조정
+                if (OfflineReward != null)
+                    OfflineReward.TryClaim(curUserStage, BeginMainStage);
+                else
+                    BeginMainStage();
             }
         
         #endregion
