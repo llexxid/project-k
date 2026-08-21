@@ -11,31 +11,40 @@ public class StageSpawnController
     private MonsterSpawnLocationSO _locationSo;
     private StageSession _session;
     private int _locationCount;
-    private float _time;
     private float _elapsedTime;
     private List<LoopSpawnSchedule> _loopSchedules;
-    public void Begin(StageSession session, MonsterSpawnLocationSO locationSo)
+    private Monster _bossMonster;
+
+    public bool Begin(StageSession session, MonsterSpawnLocationSO locationSo)
     {
         if (session == null)
         {
             Debug.LogError("[StageSpawnController] Session is null");
-            return;
+            return false;
         }
 
         if (locationSo == null)
         {
             Debug.LogError("[StageSpawnController] LocationSO is null");
-            return;
+            return false;
         }
         _session = session;
         _locationSo = locationSo;
         _locationCount = _locationSo.GetLocationCount();
+        if (_locationCount <= 0)
+        {
+            Debug.LogError("[StageSpawnController] Spawn location is empty");
+            return false;
+        }
+
         _elapsedTime = 0f;
         _loopSchedules = new List<LoopSpawnSchedule>();
+        _bossMonster = null;
 
         BuildLoopSchedules(session.Definition);
         SpawnMonster();
         _session.CompleteSpawning();
+        return true;
     }
 
     public void Tick(float deltaTime)
@@ -65,6 +74,15 @@ public class StageSpawnController
     public void Stop()
     {
         _loopSchedules?.Clear();
+        _bossMonster = null;
+        _session = null;
+        _locationSo = null;
+    }
+
+    public bool TryGetBossMonster(out Monster monster)
+    {
+        monster = _bossMonster;
+        return monster != null;
     }
 
     //세션의 모든 몬스터 스폰
@@ -87,6 +105,11 @@ public class StageSpawnController
                 if (monster != null)
                 {
                     _session.RegisterMonster(monster);
+                    if (_bossMonster == null &&
+                        monsterEntry.SpawnPhase == eMonsterSpawnPhase.Boss)
+                    {
+                        _bossMonster = monster;
+                    }
                 }
             }
         }

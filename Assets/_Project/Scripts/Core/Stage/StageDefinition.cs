@@ -44,12 +44,19 @@ namespace Scripts.Core
     }
 
     /// <summary>
-    /// StageMonsters 시트 한 행을 런타임에서 사용하는 형태로 옮긴 값이다.
+    /// StageMonsters 시트의 한 행. 몬스터의 종류나 소환량, 
     /// 좌표 자체를 보관하지 않고 SpawnPointGroupId만 보관하므로 위치 프리셋을 나중에 교체할 수 있다.
     /// </summary>
     [Serializable]
     public struct StageMonsterEntry
-    {
+    {        
+        public eMonsterType MonsterType => (eMonsterType)_monsterTypeValue;
+        public int Count => _count;
+        public int SpawnWeight => _spawnWeight;
+        public eMonsterSpawnPhase SpawnPhase => _spawnPhase;
+        public string SpawnPointGroupId => _spawnPointGroupId;
+        public float SpawnDelaySec => _spawnDelaySec;
+        
         // eMonsterType은 ulong 기반 enum이다. Unity는 64비트 enum을 직접 직렬화하지 못하므로 원시값을 저장한다.
         [SerializeField] private ulong _monsterTypeValue;
         [SerializeField] private int _count;
@@ -57,13 +64,6 @@ namespace Scripts.Core
         [SerializeField] private eMonsterSpawnPhase _spawnPhase;
         [SerializeField] private string _spawnPointGroupId;
         [SerializeField] private float _spawnDelaySec;
-
-        public eMonsterType MonsterType => (eMonsterType)_monsterTypeValue;
-        public int Count => _count;
-        public int SpawnWeight => _spawnWeight;
-        public eMonsterSpawnPhase SpawnPhase => _spawnPhase;
-        public string SpawnPointGroupId => _spawnPointGroupId;
-        public float SpawnDelaySec => _spawnDelaySec;
 
         public StageMonsterEntry(
             eMonsterType monsterType,
@@ -88,26 +88,26 @@ namespace Scripts.Core
     /// </summary>
     public sealed class StageDefinition
     {
-        public eStage Id { get; }
-        public eStage? MainStageId { get; }
-        public eStageType Type { get; }
-        public eStageFlowType FlowType { get; }
-        public eEnvironmentId EnvironmentId { get; }
+        public eStage Id { get; } //스테이지의 id값
+        public eStage? MainStageId { get; } 
+        public eStageType Type { get; } //스테이지 종류(메인 스테이지, 골드던전, 루비던전 ....)
+        public eStageFlowType FlowType { get; } //스테이지 진행규칙(메인 스테이지, 보스처치, 몬스터 처치 ....)
+        public eEnvironmentId EnvironmentId { get; } //환경 프리셋 그룹(배경+오디오+리소스 등..)의 id
 
-        public int StageNumber { get; }
-        public int WaveNumber { get; }
-        public double MonsterStatMultiplier { get; }
-        public float TimeLimitSec { get; }
-        public float LoopSpawnIntervalSec { get; }
-        public int LoopSpawnAliveThreshold { get; }
-        public ulong ResourceGroupId { get; }
+        public int StageNumber { get; } //현재 스테이지의 정보(메인 스테이지에서만 사용)
+        public int WaveNumber { get; } //현재 웨이브의 정보(메인 스테이지에서만 사용)
+        public double MonsterStatMultiplier { get; } //몬스터 스탯 계수
+        public float TimeLimitSec { get; } //제한시간(없으면 0)
+        public float LoopSpawnIntervalSec { get; } //몬스터 반복소환 간격
+        public int LoopSpawnAliveThreshold { get; } //몬스터 소환 한도
+        public ulong ResourceGroupId { get; } //리소스 그룹 id
 
-        public IStageFlowConfig FlowConfig { get; }
-        public IReadOnlyList<StageMonsterEntry> MonsterEntries => _monsterEntries;
-        public string SpawnPointSetId { get; }
-        public string RewardGroupId { get; }
-        public eSFXType? BgmType { get; }
-        public bool Enabled { get; }
+        public IStageFlowConfig FlowConfig { get; } //각 스테이지 진행마다 필요한 추가정보(보스flow -> 보스 정보, 몬스터 처치flow -> 목표 처치수량 등...)
+        public IReadOnlyList<StageMonsterEntry> MonsterEntries => _monsterEntries; //각 스테이지별 등장하는 몬스터의 리스트
+        public string SpawnPointSetId { get; } //몬스터 스폰 지점의 id
+        public string RewardGroupId { get; } //보상그룹
+        public eSFXType? BgmType { get; } //BGM 종류
+        public bool Enabled { get; } //활성화 여부
 
         // 던전 결과 팝업의 "다음 단계" 버튼에서 사용한다. 메인 진행은 MainStageRule이 계산한다.
         public eStage? NextDifficultyId { get; }
