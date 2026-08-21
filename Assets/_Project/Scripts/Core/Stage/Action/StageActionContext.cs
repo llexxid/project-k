@@ -1,4 +1,6 @@
+using Core.Stage.Presentation;
 using Scripts.Core;
+using Scripts.Monster;
 using Scripts.Monster.SO;
 
 namespace Core.Stage.Action
@@ -12,16 +14,19 @@ namespace Core.Stage.Action
         public StageSession Session { get; }
         public StageSpawnController SpawnController { get; }
         public MonsterSpawnLocationSO SpawnLocation { get; }
+        public StageCameraDirector CameraDirector { get; }
         public bool HasPendingResult => Session.HasPendingResult;
 
         public StageActionContext(
             StageSession session,
             StageSpawnController spawnController,
-            MonsterSpawnLocationSO spawnLocation)
+            MonsterSpawnLocationSO spawnLocation,
+            StageCameraDirector cameraDirector)
         {
             Session = session;
             SpawnController = spawnController;
             SpawnLocation = spawnLocation;
+            CameraDirector = cameraDirector;
         }
 
         /// <summary>최초 전투 Task가 시작될 때 세션의 전투 상태와 외부 알림을 활성화한다.</summary>
@@ -36,6 +41,12 @@ namespace Core.Stage.Action
             Session.TickRule(time.DeltaTime);
             if (!Session.HasPendingResult)
                 SpawnController.Tick(time.DeltaTime);
+        }
+
+        /// <summary>초기 스폰 단계에서 생성해 둔 보스 몬스터를 연출 대상으로 제공한다.</summary>
+        public bool TryGetBossMonster(out Monster monster)
+        {
+            return SpawnController.TryGetBossMonster(out monster);
         }
 
         /// <summary>Sequence 완료 또는 취소 시 반복 스폰을 중단한다.</summary>
