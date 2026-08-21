@@ -66,6 +66,9 @@ namespace Scripts.Core.Manager
 		{
 			return _sessionTicket;
 		}
+
+		/// <summary>CloudScript 사냥 보상 요청에 필요한 게임 세션 GUID가 준비되었는지 반환한다.</summary>
+		public bool HasSessionGuid => !string.IsNullOrWhiteSpace(_sessionGUID);
 		//NetWork Message�� ���⼭ �Լ� Call�� �ҷ��ٰ���.
 
 		//�г��� �ߺ�üũ

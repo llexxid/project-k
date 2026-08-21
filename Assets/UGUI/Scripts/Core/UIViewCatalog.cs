@@ -83,10 +83,12 @@ namespace KingdomIdle.UGUI
 
         [Header("Popups")]
         public GameObject popupGachaResult;
+        public GameObject popupRanking;          // 전투력 랭킹 팝업
         public GameObject popupProfile;          // 프로필 팝업(더미/플레이스홀더)
         public GameObject popupMageTowerEquip;   // 마탑 스킬 장착 팝업 (프리팹화됨)
         public GameObject popupDungeonClear;
         public GameObject popupReincarnation;
+        public GameObject popupOfflineReward;
 
         [Header("Overlays")]
         public GameObject overlayLoading;
@@ -94,9 +96,9 @@ namespace KingdomIdle.UGUI
         public GameObject overlaySettings;
 
         [Header("HUDs")]
-        public GameObject hudParty;
         public GameObject hudMageTower;
         public GameObject hudMainActions;
+        public GameObject hudParty;
 
         [Header("Item prefabs (dynamic list contents)")]
         public GameObject itemNavTabButton;    // 탭/네비 버튼 공용

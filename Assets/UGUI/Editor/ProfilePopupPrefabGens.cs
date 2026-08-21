@@ -103,6 +103,7 @@ namespace KingdomIdle.UGUI.Editor
             F.HLayout(pillRow.gameObject, 14f, null, TextAnchor.MiddleCenter, expandWidth: true);
             F.Preferred(pillRow.gameObject.AddComponent<LayoutElement>(), height: 84f);
             view.powerLabel = MakeSummaryPill(pillRow, UguiGenAssets.IconPower, "전투력", "12,480");
+            view.powerButton = MakeSummaryPillButton(view.powerLabel);
             view.trophyLabel = MakeSummaryPill(pillRow, UguiGenAssets.IconTrophy, "트로피", "3,600");
 
             // 길드 행
@@ -186,6 +187,20 @@ namespace KingdomIdle.UGUI.Editor
             F.Text(col, "Caption", caption, 18f, UguiTheme.TextTertiary, TextAlignmentOptions.Left);
             var val = F.Text(col, "Value", value, 28f, UguiTheme.TextPrimary, TextAlignmentOptions.Left, bold: true);
             return val;
+        }
+
+        /// <summary>전투력 Pill 전체를 클릭 가능한 영역으로 만든다.</summary>
+        private static Button MakeSummaryPillButton(TMP_Text valueLabel)
+        {
+            var pillImage = valueLabel.transform.parent.parent.GetComponent<Image>();
+            pillImage.raycastTarget = true;
+
+            var button = pillImage.gameObject.AddComponent<Button>();
+            button.targetGraphic = pillImage;
+            button.transition = Selectable.Transition.ColorTint;
+            button.colors = UguiTheme.MakeColorBlock();
+            pillImage.gameObject.AddComponent<PlayClickSfxOnClick>();
+            return button;
         }
 
         private static TMP_Text MakeInfoRow(Transform parent, string label, out TMP_Text value)

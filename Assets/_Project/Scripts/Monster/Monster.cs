@@ -63,45 +63,43 @@ namespace Scripts.Monster
 			public double _moveSpeed;
 			public double _atkSpeed;
 		}
-		[SerializeField]
-		private MonsterStat _stat;
-		public event Action<float> OnHpChanged;
+		public event Action<float> OnHpChanged;		
+		public eMonsterType Type => _type;
+	    public Animator Animator => _am;
+	    public eMonsterAction MonAction => _monAction;
+	    public bool IsActive { get; set; }
+	    public ulong damage => _stat._atk;
+		public long Exp { get; set; }
+		public double Ratio { get; set; }	    
+		public IDamageable Target { get; private set; }
+		public Vector3 attackerPos => transform.position;
+		public Vector3 targetPos => transform.position;
+		public float AttackRadius => _attackRadius;
+		public float DectectRadius => _detectRadius;
+		public int FacingDir => _facingDir;
+		public AnimatorComponent<eMonsterAction> AnimationComponent => _animatorComponent;		
+		public float LastAttackTime => _lastAttackTime;
+		public GameObject gameobj => transform.gameObject;		
+		
+		[SerializeField] private MonsterStat _stat;
 		private MonsterStat _initialStat; // 여기 추가함
 		[NonSerialized] eMonsterType _type;
 		long _dropTableNumber;
-		public long Exp { get; set; }
-		public double Ratio { get; set; }
+
 		//AI
 		private MonsterOrder _monAI;
 		//Animation
 		private int _facingDir;
 		private eMonsterAction _monAction;
-		public IDamageable Target { get; private set; }
 		private Animator _am;
 		[SerializeField]
 		private float _attackRadius;
 		[SerializeField]
 		private float _detectRadius;
-
-		public eMonsterType Type => _type;
-		public Animator Animator => _am;
-		public eMonsterAction MonAction => _monAction;
-		public bool IsActive { get; set; }
-		public ulong damage => _stat._atk;
-
-		public Vector3 attackerPos => transform.position;
-
-		public Vector3 targetPos => transform.position;
-
-		public float AttackRadius => _attackRadius;
-
-		public float DectectRadius => _detectRadius;
-
-		public int FacingDir => _facingDir;
+		
 		AnimatorComponent<eMonsterAction> _animatorComponent;
-
-		public AnimatorComponent<eMonsterAction> AnimationComponent => _animatorComponent;
 		StateMachine<Monster> _stateManchine;
+		private MonsterHitFlash _hitFlash;
 
 		// ── [WaveManager] Alloc 세대 카운터 ──
 		// 풀에서 재할당될 때마다 증가. MonsterDeadState의 stale 비동기 태스크가
@@ -109,21 +107,10 @@ namespace Scripts.Monster
 		private int _allocGen;
 		public int AllocGen => _allocGen;
 		// ── [WaveManager 끝] ──
-
 		[SerializeField]
 		MonsterAnimationSO _AnimationClipSO;
 		float _lastAttackTime;
 		public event Action<IDamageable> OnDeath;
-
-		public float LastAttackTime
-		{
-			get { return _lastAttackTime; }
-		}
-
-		public GameObject gameobj
-		{
-			get { return transform.gameObject; }
-		}
 
 		//Todo : SkillComponent . 몬스터 스킬
 		void Awake()
@@ -136,7 +123,8 @@ namespace Scripts.Monster
 			// 몬스터 스프라이트를 타일맵 위에 렌더링하기 위해 Enemy 소팅 레이어 적용
 			var sr = GetComponentInChildren<SpriteRenderer>();
 			if (sr != null) sr.sortingLayerName = "Enemy";
-
+			TryGetComponent(out _hitFlash);
+			
 			_stateManchine = new StateMachine<Monster>();
 			_monAI = new MonsterOrder();
 			_monAI.Init(this);
@@ -225,6 +213,8 @@ namespace Scripts.Monster
 		}
 		public void OnAlloc()
 		{
+			_hitFlash?.ResetFlash();
+
 			//생성자
 			OnDeath = null;
 			Ratio = 1.0;
@@ -241,6 +231,8 @@ namespace Scripts.Monster
 
 		public void OnRelease()
 		{
+			_hitFlash?.ResetFlash();
+
 			//만약에 리지드 바디가 있다면, 초기화.
 			Target = null;
 			return;
@@ -259,6 +251,7 @@ namespace Scripts.Monster
 
 			bool IsAlive = setHp(dmg);
 			OnHpChanged?.Invoke(GetHpRatio());
+			_hitFlash?.Play();
 			
 			if (!IsAlive)
 			{

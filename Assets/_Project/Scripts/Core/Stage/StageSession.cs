@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Core.Stage;
+using Core.Stage.Action;
 using Scripts.Core.inteface;
 using Scripts.Core.Utils;
 using Scripts.Monster;
@@ -18,10 +19,16 @@ namespace Scripts.Core
     public sealed class StageSession
     {
         public event Action<StageSession, StageRuleResult> OnResultProduced;
+        public event Action<StageSession, StageRuleResult> OnResultAccepted;
+        public event Action<StageSession> OnBattleStarted;
+        public event Action<StageSession, Exception> OnActionSequenceFailed;
         public event Action<StageSession, Monster> OnMonsterKilled;
         
         public StageDefinition Definition { get; }
         public bool IsRunning { get; private set; }
+        public bool IsBattleRunning { get; private set; }
+        public bool HasPendingResult { get; private set; }
+        public StageRuleResult PendingResult { get; private set; }
         public bool IsCleared => _spawningCompleted && _monsters.Count <= 0;
         public int RemainingMonsterCount => _monsters.Count;
         
@@ -29,10 +36,11 @@ namespace Scripts.Core
         private readonly HashSet<Monster> _monsters = new();
         private readonly Dictionary<eMonsterType, int> _killCounts = new();
         private readonly MonsterSpawner _monsterSpawner;
+        private StageActionSequence _actionSequence;
 
         private bool _spawningCompleted;
-        private bool _clearNotified;
-        private bool _resultProduced;
+        private bool _resultDispatched;
+        private bool _actionFailureNotified;
         private int _totalKillCount;
         public IReadOnlyCollection<Monster> Monsters => _monsters;
         public IReadOnlyDictionary<eMonsterType, int> KillCounts => _killCounts;
@@ -50,30 +58,53 @@ namespace Scripts.Core
                     if (!IsRunning)
                         return false;
 
-                    PublishResult(result);
+                    AcceptResult(result);
                     return true;
                 }
         #endif
         /// <summary>몬스터 등록을 받을 수 있도록 세션을 시작한다.</summary>
-        public void Enter()
+        public void Enter(StageActionSequence actionSequence)
         {
+            _actionSequence = actionSequence ?? throw new ArgumentNullException(nameof(actionSequence));
             IsRunning = true;
+            IsBattleRunning = false;
+            HasPendingResult = false;
+            PendingResult = StageRuleResult.None;
             _spawningCompleted = false;
-            _clearNotified = false;
-            _resultProduced = false;
+            _resultDispatched = false;
+            _actionFailureNotified = false;
             _killCounts.Clear();
             _totalKillCount = 0;
             
             _rule.Enter(this);
         }
 
-        public void Tick(float deltaTime)
+        public void Tick(float deltaTime, float unscaledDeltaTime)
         {
-            
-            if (!IsRunning || _resultProduced)
+            if (!IsRunning || _resultDispatched)
                 return;
 
-            PublishResult(_rule.Tick(this, deltaTime));
+            _actionSequence.Tick(new StageActionTime(deltaTime, unscaledDeltaTime));
+
+            if (_actionSequence.State == eStageActionSequenceState.Failed)
+            {
+                if (!_actionFailureNotified)
+                {
+                    _actionFailureNotified = true;
+                    OnActionSequenceFailed?.Invoke(this, _actionSequence.Failure);
+                }
+
+                return;
+            }
+
+            if (_actionSequence.State != eStageActionSequenceState.Completed ||
+                !HasPendingResult)
+            {
+                return;
+            }
+
+            _resultDispatched = true;
+            OnResultProduced?.Invoke(this, PendingResult);
         }
         /// <summary>외부에서 생성한 몬스터를 현재 웨이브 소속으로 등록한다.</summary>
         public bool RegisterMonster(Monster monster)
@@ -104,7 +135,9 @@ namespace Scripts.Core
             if (!IsRunning)
                 return;
 
+            _actionSequence?.Cancel();
             IsRunning = false;
+            IsBattleRunning = false;
             _rule.Exit(this);
 
             var remainingMonsters = new List<Monster>(_monsters);
@@ -116,21 +149,45 @@ namespace Scripts.Core
 
             _monsters.Clear();
             _spawningCompleted = false;
-            _clearNotified = false;
+            HasPendingResult = false;
+            PendingResult = StageRuleResult.None;
+            _actionSequence = null;
         }
         public void NotifyPartyDefeated()
         {
-            if (!IsRunning || _resultProduced)
+            if (!IsRunning || HasPendingResult)
                 return;
 
-            PublishResult(_rule.OnPartyDefeated(this));
+            AcceptResult(_rule.OnPartyDefeated(this));
         }
+
+        internal void BeginBattle()
+        {
+            if (!IsRunning || IsBattleRunning || HasPendingResult)
+                return;
+
+            IsBattleRunning = true;
+            OnBattleStarted?.Invoke(this);
+        }
+
+        internal void TickRule(float deltaTime)
+        {
+            if (!IsRunning || !IsBattleRunning || HasPendingResult)
+                return;
+
+            AcceptResult(_rule.Tick(this, deltaTime));
+        }
+
         private void HandleMonsterKilled(IDamageable target)
         {
             if (!IsRunning || target is not Monster monster || !_monsters.Remove(monster))
                 return;
 
             monster.OnDeath -= HandleMonsterKilled;
+
+            // 결과 연출 중 발생한 추가 사망은 진행도와 퀘스트 처치 수에 포함하지 않는다.
+            if (HasPendingResult)
+                return;
 
             _killCounts.TryGetValue(monster.Type, out int killCount);
             _killCounts[monster.Type] = killCount + 1;
@@ -140,17 +197,18 @@ namespace Scripts.Core
                 _rule.OnMonsterKilled(this, monster);
 
             OnMonsterKilled?.Invoke(this, monster);
-            PublishResult(result);
+            AcceptResult(result);
         }
 
-        private void PublishResult(StageRuleResult result)
+        private void AcceptResult(StageRuleResult result)
         {
             if (result.Action == eStageFlowAction.None) return;
-            if (_resultProduced) return;
+            if (HasPendingResult) return;
 
-            _resultProduced = true;
-            OnResultProduced?.Invoke(this, result);
-            
+            HasPendingResult = true;
+            IsBattleRunning = false;
+            PendingResult = result;
+            OnResultAccepted?.Invoke(this, result);
         }
     }
 }

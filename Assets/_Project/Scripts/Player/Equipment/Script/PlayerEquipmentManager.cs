@@ -30,7 +30,6 @@ public class PlayerEquipmentManager
     {
         _playerStatus = playerStatus;
         _playerIndex = playerIndex;
-        Debug.Log($"index:{_playerIndex}");
     }
 
     #region 장비 장착 / 해제

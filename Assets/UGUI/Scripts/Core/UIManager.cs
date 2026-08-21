@@ -161,6 +161,7 @@ namespace KingdomIdle.UGUI
             BindStageManager(null);
             DungeonClearPopupController.Hide();
             ReincarnationPopupController.Hide();
+            OfflineRewardPopupController.Hide();
             if (Instance == this) Instance = null;
         }
 
@@ -203,6 +204,7 @@ namespace KingdomIdle.UGUI
             GachaResultPopupController.Close();
             DungeonClearPopupController.Hide();
             ReincarnationPopupController.Hide();
+            OfflineRewardPopupController.Hide();
             _settings?.Close();
 
             _titleController?.Dispose();
@@ -439,6 +441,12 @@ namespace KingdomIdle.UGUI
 
         public void RequestBack()
         {
+            if (OfflineRewardPopupController.IsOpen)
+            {
+                OfflineRewardPopupController.Hide();
+                return;
+            }
+
             if (GachaResultPopupController.IsOpen)
             {
                 GachaResultPopupController.Close();

@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Core.Stage;
+using Core.Stage.Action;
 using Cysharp.Threading.Tasks;
 using Scripts.Users;
 using UnityEngine;
@@ -29,7 +30,9 @@ namespace Scripts.Core.Manager
 	{
 		None,
 		Transitioning,
+		Entering,
 		Running,
+		Resolving,
 		DefeatPending,
 		ResultPending,
 		Exiting
@@ -113,7 +116,6 @@ namespace Scripts.Core.Manager
         private CancellationTokenSource _token;
         private MainStageSnapshot _mainStageSnapshot;
         private eStageRunState _currentState;
-        private StageSpawnController _currentSpawnController;
         [NonSerialized]
         private eStage maxStage; // 현재 최대 진행된 스테이지 확인(서버붙이기 전까지 사용)
         
@@ -159,8 +161,7 @@ namespace Scripts.Core.Manager
 					DefeatWave();
 				}
             }
-	        _currentSession?.Tick(Time.deltaTime);
-	        _currentSpawnController?.Tick(Time.deltaTime);
+	        _currentSession?.Tick(Time.deltaTime, Time.unscaledDeltaTime);
             if (_defeatPopupActive)
             {
 				_defeatPopupTimer -= Time.unscaledDeltaTime;
@@ -193,6 +194,7 @@ namespace Scripts.Core.Manager
 		/// <summary>사냥 결과 자동 전송 루프를 중단하고 토큰을 정리한다</summary>
 		private void OnDestroy()
 		{
+			EndSession();
 			_token?.Cancel();
 			_token?.Dispose();
 			_token = null;
@@ -230,6 +232,15 @@ namespace Scripts.Core.Manager
 		}
 
 		#endif
+		/// <summary>스테이지를 시작하지 않고 정적 정의만 조회한다.</summary>
+		public bool TryGetStageDefinition(
+			eStage stage,
+			out StageDefinition definition)
+		{
+			definition = BuildDefinition(stage);
+			return definition != null;
+		}
+
 		public bool IsDungeonStageUnlocked(eStage stage)
 		{
 			eStageType type = StageParser.GetStageType(stage);
@@ -359,17 +370,10 @@ namespace Scripts.Core.Manager
 			ReviveAllPlayers();
 			OnWaveChanged?.Invoke(_currentStageNumber, _currentWaveNumber, _isBossWave);
 
-			if (_isBossWave)
-			{
-				_bossTimer = _bossTimeLimit;
-				_bossTimerActive = true;
-			}
-
+			_currentState = eStageRunState.Entering;
 			StageSession session = BuildSession(definition);
-			_currentSpawnController = new StageSpawnController();
-			_currentSpawnController.Begin(_currentSession, _locationSO);
-			_currentState = eStageRunState.Running;
-			OnStageEnter?.Invoke(definition);
+			// 기본 Task는 즉시 완료되므로 기존처럼 StartStage 호출 안에서 스폰과 전투 시작까지 진행한다.
+			session.Tick(0f, 0f);
         }
 
 		#endregion
@@ -454,6 +458,9 @@ namespace Scripts.Core.Manager
 		}
 		public void HandleRuleResult(StageSession session, StageRuleResult result)
 		{
+			if (session != _currentSession)
+				return;
+
 			switch (result.Action)
 			{
 				case eStageFlowAction.MoveToStage:
@@ -495,7 +502,7 @@ namespace Scripts.Core.Manager
 		/// </summary>
         public void DefeatWave()
         {
-			_currentSession.NotifyPartyDefeated();
+			_currentSession?.NotifyPartyDefeated();
         }
 		private void EnterDefeatPending()
 		{
@@ -565,10 +572,14 @@ namespace Scripts.Core.Manager
         /// <summary>패배 후 현재 상태값 기준으로 웨이브를 다시 시작한다. 재도전/복귀 결정은 호출 전에 끝난다</summary>
         private void RestartStage()
         {
+			StageDefinition definition = _currentSession?.Definition;
+			if (definition == null)
+				return;
+
         	var fade = CameraFade.Instance;
-	        _currentState = eStageRunState.Transitioning;
+			_currentState = eStageRunState.Transitioning;
         	Time.timeScale = 1f;
-        	StartStage(_currentSession.Definition);
+			StartStage(definition);
 
         	if (fade != null)
         		fade.FadeIn(0.4f);
@@ -676,10 +687,15 @@ namespace Scripts.Core.Manager
 				);
 			
 			session.OnMonsterKilled += HandleMonsterKilled;
+			session.OnBattleStarted += HandleBattleStarted;
+			session.OnResultAccepted += HandleResultAccepted;
 			session.OnResultProduced += HandleRuleResult;
+			session.OnActionSequenceFailed += HandleActionSequenceFailed;
 			
 			_currentSession = session;
-			session.Enter();
+			StageActionSequence sequence =
+				StageActionSequenceFactory.Create(session, _locationSO);
+			session.Enter(sequence);
 			return session;
         }
 		private void SetCurrentStage(eStage stage)
@@ -733,6 +749,44 @@ namespace Scripts.Core.Manager
 			CountKill(monster);
 			OnMonsterKilled?.Invoke(session.Definition, monster);
 		}
+
+		private void HandleBattleStarted(StageSession session)
+		{
+			if (session != _currentSession)
+				return;
+
+			_currentState = eStageRunState.Running;
+			if (_isBossWave)
+			{
+				_bossTimer = _bossTimeLimit;
+				_bossTimerActive = true;
+			}
+
+			OnStageEnter?.Invoke(session.Definition);
+		}
+
+		private void HandleResultAccepted(StageSession session, StageRuleResult result)
+		{
+			if (session != _currentSession)
+				return;
+
+			_bossTimerActive = false;
+			_currentState = eStageRunState.Resolving;
+		}
+
+		private void HandleActionSequenceFailed(StageSession session, Exception exception)
+		{
+			if (session != _currentSession)
+				return;
+
+			Debug.LogError(
+				$"[StageManager] Stage action sequence failed. " +
+				$"Stage: {session.Definition.Id}\n{exception}");
+			_bossTimerActive = false;
+			_currentState = eStageRunState.None;
+			EndSession();
+		}
+
 		/// <summary>현재 세션의 이벤트를 해제하고 남은 몬스터를 정리한다</summary>
 		private void EndSession()
 		{
@@ -741,10 +795,15 @@ namespace Scripts.Core.Manager
 				return;
 			}
 
-			_currentSession.OnMonsterKilled -= HandleMonsterKilled;
-			_currentSession.OnResultProduced -= HandleRuleResult;
-			_currentSession.Exit();
-			_currentSpawnController.Stop();
+			StageSession session = _currentSession;
+			_currentSession = null;
+
+			session.OnMonsterKilled -= HandleMonsterKilled;
+			session.OnBattleStarted -= HandleBattleStarted;
+			session.OnResultAccepted -= HandleResultAccepted;
+			session.OnResultProduced -= HandleRuleResult;
+			session.OnActionSequenceFailed -= HandleActionSequenceFailed;
+			session.Exit();
 		}
 		/// <summary>스테이지 메타 데이터와 로드 그룹을 모아 StageDefinition을 만든다</summary>
 		private StageDefinition BuildDefinition(eStage stage)
