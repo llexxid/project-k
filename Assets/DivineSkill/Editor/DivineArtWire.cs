@@ -33,8 +33,10 @@ namespace KingdomIdle.Divine.EditorTools
 
                 var icon = LoadSprite($"{dir}/{key}_Icon.png");
                 var illust = LoadSprite($"{dir}/{key}_Illustration.png");
+                // 링 프레임은 컨셉 단위 공유 에셋 (루멘·아스트라가 Holy 링을 공유)
+                var ring = LoadSprite($"{GenRoot}/Rings/Ring_{card.concept}.png");
 
-                if (icon == null && illust == null)
+                if (icon == null && illust == null && ring == null)
                 {
                     skipped++;
                     continue;
@@ -43,11 +45,12 @@ namespace KingdomIdle.Divine.EditorTools
                 var so = new SerializedObject(card);
                 if (icon != null) so.FindProperty("icon").objectReferenceValue = icon;
                 if (illust != null) so.FindProperty("illustration").objectReferenceValue = illust;
+                if (ring != null) so.FindProperty("buttonRingSprite").objectReferenceValue = ring;
                 so.ApplyModifiedPropertiesWithoutUndo();
                 EditorUtility.SetDirty(card);
                 wired++;
 
-                Debug.Log($"[DivineSkill] {card.name}: icon={(icon != null ? "O" : "-")} illustration={(illust != null ? "O" : "-")}");
+                Debug.Log($"[DivineSkill] {card.name}: icon={(icon != null ? "O" : "-")} illustration={(illust != null ? "O" : "-")} ring={(ring != null ? "O" : "-")}");
             }
 
             AssetDatabase.SaveAssets();

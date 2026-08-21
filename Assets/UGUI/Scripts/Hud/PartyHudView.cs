@@ -12,9 +12,10 @@ namespace KingdomIdle.UGUI
         internal sealed class SkillSlot
         {
             public GameObject root;
+            public Image icon;              // 미니멀 픽셀 아이콘 (텍스트 라벨 대체)
             public Image cooldownMask;
             public TMP_Text cooldownLabel;
-            public TMP_Text nameLabel;
+            public TMP_Text nameLabel;      // 아이콘이 없을 때만 표시하는 폴백
         }
 
         [Serializable]

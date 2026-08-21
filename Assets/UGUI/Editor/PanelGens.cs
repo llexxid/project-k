@@ -39,12 +39,20 @@ namespace KingdomIdle.UGUI.Editor
             backdropBtn.targetGraphic = backdropImg;
             backdropBtn.transition = Selectable.Transition.None;
 
+            // SheetClip — 탭바(190) 위 영역만 그리는 마스크. 시트가 탭바 뒤에서 떠오르는 슬라이드 연출용
+            var clip = F.Container(root, "SheetClip");
+            clip.anchorMin = Vector2.zero;
+            clip.anchorMax = Vector2.one;
+            clip.offsetMin = new Vector2(0f, UguiTheme.BottomBarHeight);
+            clip.offsetMax = Vector2.zero;
+            clip.gameObject.AddComponent<RectMask2D>();
+
             // Sheet — 어두운 배경 + 픽셀 윈도우 프레임 테두리 (가독성 + 판타지 창)
             float sheetHeight = Mathf.Max(UguiTheme.PanelSheetMinHeight, UguiTheme.RefHeight * heightPct);
-            var sheetImg = F.PixelPanel(root, "Sheet",
+            var sheetImg = F.PixelPanel(clip, "Sheet",
                 F.Catalog != null ? F.Catalog.kitWindow : null, F.FrameGold, 24f, raycast: true,
                 baseColor: F.PanelBaseDarker);
-            F.AnchorBottomStretch(sheetImg.rectTransform, UguiTheme.BottomBarHeight, sheetHeight);
+            F.AnchorBottomStretch(sheetImg.rectTransform, 0f, sheetHeight);
             F.VLayout(sheetImg.gameObject, 14f, new RectOffset(30, 30, 24, 28));
 
             // 데모식 청동 코너 브래킷 (금속 보강 룩)

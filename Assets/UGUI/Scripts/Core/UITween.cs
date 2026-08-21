@@ -83,6 +83,18 @@ namespace KingdomIdle.UGUI
             t._moveCo = t.StartCoroutine(t.MoveRoutine(rt, start, target, duration, EaseOutCubic));
         }
 
+        /// <summary>
+        /// 진행 중인 슬라이드(이동) 트윈 중단. 위치는 건드리지 않는다 —
+        /// 다른 주체(퇴장 연출 등)가 같은 anchoredPosition 을 이어서 쓸 때, 두 코루틴이
+        /// 매 프레임 같은 값을 덮어쓰며 싸우는 것을 막기 위한 것이다.
+        /// </summary>
+        public static void StopMove(RectTransform rt)
+        {
+            if (rt == null) return;
+            var t = rt.GetComponent<UITween>();
+            if (t != null && t._moveCo != null) { t.StopCoroutine(t._moveCo); t._moveCo = null; }
+        }
+
         // ── 살아있는 UI: 호흡/회전/플래시 (신 스킬 버튼·마탑 환경 연출 공용) ──────
         /// <summary>1 ↔ 1+amplitude 사이를 부드럽게 오가는 호흡 스케일 루프. StopBreathScale로 중단.</summary>
         public static void BreathScale(RectTransform rt, float amplitude = 0.05f, float period = 2.4f)
@@ -119,6 +131,22 @@ namespace KingdomIdle.UGUI
             var t = rt.GetComponent<UITween>();
             if (t != null && t._rotateCo != null) { t.StopCoroutine(t._rotateCo); t._rotateCo = null; }
             rt.localRotation = Quaternion.identity;
+        }
+
+        /// <summary>
+        /// FlashRing 기준색 교체 (컨셉 스킨 등). FlashRing 은 최초 1회 원색을 캡처해 복원 기준으로
+        /// 쓰므로, 색을 바꿀 땐 이 메서드로 캡처값까지 갱신해야 다음 플래시부터 새 색으로 재생·복원된다.
+        /// </summary>
+        public static void SetFlashRingBaseColor(Image ring, Color color)
+        {
+            if (ring == null) return;
+            ring.color = color;
+            var t = ring.GetComponent<UITween>();
+            if (t != null)
+            {
+                t._flashBaseColor = color;
+                t._flashBaseCaptured = true;
+            }
         }
 
         /// <summary>

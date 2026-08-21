@@ -1,0 +1,68 @@
+{
+ "asset_family": "JobPortraits",
+ "generated_at": "2026-08-17",
+ "method": "NO AI GENERATION - cropped directly from the shipped job sprite sheets",
+ "pipeline": [
+  "first frame of sheet",
+  "white-key if opaque sheet",
+  "upper-body crop (top 60-70% of the figure)",
+  "tight horizontal recrop",
+  "integer NEAREST upscale",
+  "alpha binarize",
+  "center on 64px canvas"
+ ],
+ "why": "생성 초상화는 인게임 스프라이트와 따로 놀고 조잡했다. 원본 도트를 그대로 쓰면 100% 일치한다.",
+ "canvas": "76x76",
+ "source_sheets": {
+  "Spearman": "Assets\\_Project\\Scripts\\Player\\Job\\Spearman\\Royal Spearman Sprite Sheet.png",
+  "Knight": "Assets\\_Project\\Scripts\\Player\\Job\\Knight\\Royal Knight - Alternate 2 Sprite Sheet.png",
+  "Elite_Knight": "Assets\\_Project\\Scripts\\Player\\Job\\Elite_Knight\\Elite Knight Sprite Sheet.png",
+  "Archer": "Assets\\_Project\\Scripts\\Player\\Job\\Archer\\Royal Archer Sprite Sheet.png",
+  "Elite_Archer": "Assets\\_Project\\Scripts\\Player\\Job\\Elite_Archer\\Elite Archer Sprite Sheet.png",
+  "Mage": "Assets\\_Project\\Scripts\\Player\\Job\\Mage\\Royal Mage Sprite Sheet.png",
+  "Elite_Mage": "Assets\\_Project\\Scripts\\Player\\Job\\Elite_Mage\\Elite Mage Sprite Sheet.png",
+  "Arbalest": "Assets\\_Project\\Scripts\\Player\\Job\\Arbalest\\Royal Arbalest Sprite Sheet.png"
+ },
+ "manual_offsets": {
+  "Spearman": {
+   "head_pad": 1,
+   "dx": 0,
+   "dy": 0
+  },
+  "Knight": {
+   "head_pad": 2,
+   "dx": 0,
+   "dy": 0
+  },
+  "Elite_Knight": {
+   "head_pad": 2,
+   "dx": -3,
+   "dy": 3
+  },
+  "Archer": {
+   "head_pad": 1,
+   "dx": 0,
+   "dy": 0
+  },
+  "Elite_Archer": {
+   "head_pad": 1,
+   "dx": 0,
+   "dy": 0
+  },
+  "Mage": {
+   "head_pad": 1,
+   "dx": 0,
+   "dy": 0
+  },
+  "Elite_Mage": {
+   "head_pad": 1,
+   "dx": 0,
+   "dy": 1
+  },
+  "Arbalest": {
+   "head_pad": 1,
+   "dx": 0,
+   "dy": 0
+  }
+ }
+}

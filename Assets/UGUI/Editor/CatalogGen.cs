@@ -56,6 +56,14 @@ namespace KingdomIdle.UGUI.Editor
             catalog.iconBook = UguiGenAssets.IconBook;
             catalog.iconWand = UguiGenAssets.IconWand;
             catalog.iconChest = UguiGenAssets.IconChest;
+
+            catalog.iconSkillSword = UguiGenAssets.PixIconSword;
+            catalog.iconSkillBow = UguiGenAssets.PixIconBow;
+            catalog.iconSkillWand = UguiGenAssets.PixIconWand;
+            catalog.iconSkillShield = UguiGenAssets.PixIconShield;
+            catalog.iconSkillPotion = UguiGenAssets.PixIconPotion;
+            catalog.iconSkillArrows = UguiGenAssets.PixIconArrows;
+            catalog.iconSkillStar = UguiGenAssets.PixIconStar;
             catalog.iconGem = UguiGenAssets.IconGem;
             catalog.iconCoin = UguiGenAssets.IconCoin;
             catalog.iconAncientCoin = UguiGenAssets.IconAncientCoin;

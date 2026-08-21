@@ -22,6 +22,8 @@ namespace KingdomIdle.Divine
         [TextArea(2, 4)]
         public string description;
         public eDivineGrade grade = eDivineGrade.Hero;
+        [Tooltip("시각 컨셉 — 궁극기 버튼 링 프레임/시전 VFX 색 결정.")]
+        public eDivineConcept concept = eDivineConcept.Holy;
 
         [Header("사용")]
         [Tooltip("쿨타임(초). 스테이지 진입 시 초기화된다.")]
@@ -32,6 +34,8 @@ namespace KingdomIdle.Divine
         public Sprite icon;
         [Tooltip("컬렉션북·컷인용 전신 일러스트.")]
         public Sprite illustration;
+        [Tooltip("궁극기 버튼 컨셉 링 프레임(176px 원형, 중앙 투명). 비면 기본 청동 링 유지.")]
+        public Sprite buttonRingSprite;
 
         [Header("효과")]
         public eDivineEffectKind effectKind = eDivineEffectKind.AoeBurst;

@@ -58,6 +58,36 @@ namespace KingdomIdle.UGUI.Editor
         internal static Sprite BadgeCrimped => LL("Badge_Crimped_01_White_Bg"); // 레벨/랭크 훈장 배지(8각 별)
         internal static Sprite PanelGradient => LL("Popup_Box_02_White_Gradient"); // 패널 세로 그라디언트 오버레이
         internal static Sprite HeaderDeco => LL("Popup_Box_02_White_Deco"); // ◇—◇ 헤더 플로리시(장식 디바이더)
+        internal static Sprite PopupPattern => LL("Popup_Box_05_White_Pattern"); // 78x18 타일 텍스처(웜 틴트 → 우드그레인 질감)
+
+        // ── PixelArtGUI2 (진짜 픽셀아트 UI 키트) ────────────────────────────────
+        // Layer Lab 은 플랫 벡터 키트라 도트 게임 톤과 겉돈다. 하단바처럼 "도트 느낌"이 필요한
+        // 곳은 이 키트를 쓴다. 전부 작은 원본(8~48px) + 9-slice 라 확대해도 픽셀이 살아 있고,
+        // 회색/흰색 마스터라 러스틱 팔레트로 틴트하면 그대로 중세 금속·목재가 된다.
+        // ⚠ 이름 검색(LL) 금지 — Icons/{8,32,...} 에 동명 파일이 있어 해상도가 임의로 잡힌다. 경로 고정.
+        private const string PixRoot = "Assets/ExternalAssets/PixelArtGUI2/Textures";
+        private static Sprite Pix(string rel) =>
+            AssetDatabase.LoadAssetAtPath<Sprite>($"{PixRoot}/{rel}");
+
+        internal static Sprite PixBarMetal => Pix("Panels/TitleBarMetal.png");        // 16x16 리벳 금속판 (하단바 배경)
+        internal static Sprite PixBarMetal2 => Pix("Panels/TitleBarMetal02.png");     // 16x16 변형
+        internal static Sprite PixCornersGold => Pix("Panels/CornersGold.png");       // 48x48 금색 코너 장식 4모서리
+        internal static Sprite PixSeparator => Pix("Panels/Separator.png");           // 4x4 구분선
+        internal static Sprite PixPanel => Pix("Panels/UniversalPanel1.png");         // 8x8 흰 마스터 패널
+        internal static Sprite PixTabUp => Pix("Panels/TagUp.png");                   // 8x8 위로 향한 탭 실루엣
+        internal static Sprite PixBtn => Pix("Buttons/Grey.png");                     // 16x16 베벨 버튼(기본)
+        internal static Sprite PixBtnDown => Pix("Buttons/GreyDown.png");             // 16x16 눌림/선택 상태
+        internal static Sprite PixSkillSlot => Pix("Panels/SkillSlot.png");           // 32x32 슬롯 다이아
+
+        // 왕국군 스킬 슬롯용 픽셀 아이콘 (32px 원본, 파티 HUD 46px 슬롯에 적합)
+        internal static Sprite PixIconSword => Pix("Icons/32/Sword01.png");
+        internal static Sprite PixIconBow => Pix("Icons/32/Bow01.png");
+        internal static Sprite PixIconWand => Pix("Icons/32/Wand01.png");
+        internal static Sprite PixIconShield => Pix("Icons/32/Shield01.png");   // 기사의 오라 = 심플한 방패 하나
+        internal static Sprite PixIconPotion => Pix("Icons/32/Potion01.png");   // 자가 회복(강철의지)
+        internal static Sprite PixIconArrows => Pix("Icons/32/Bow02.png");      // 집중사격
+        internal static Sprite PixIconStar => Pix("Icons/32/StarBlue.png");     // 에너지 파동
+        internal static Sprite PixIconBoots => Pix("Icons/32/Boots.png");       // 이동속도 계열
 
         // ── 버튼 (Layer Lab Button_01: 흰색 Bg를 accent로 틴트, 눌림은 스케일 애니메이션) ──
         internal static Sprite KitBtnBlue => LL("Button_01_White_Bg");

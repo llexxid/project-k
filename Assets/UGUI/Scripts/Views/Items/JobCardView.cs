@@ -44,7 +44,7 @@ namespace KingdomIdle.UGUI
 
             if (image != null)
             {
-                image.sprite = job != null ? job.jobSprite : null;
+                image.sprite = job != null ? job.Portrait : null;
                 image.enabled = image.sprite != null;
                 image.gameObject.SetActive(image.sprite != null);
             }

@@ -35,4 +35,26 @@ namespace KingdomIdle.Divine
         /// <summary>이동속도 감소.</summary>
         Slow = 2
     }
+
+    /// <summary>
+    /// 카드의 시각 컨셉 — 궁극기 버튼 링 프레임/시전 VFX 색을 결정한다.
+    /// 카드:컨셉은 N:1 (루멘·아스트라가 신성을 공유). 링 아트는 컨셉 단위로 생성·재사용.
+    /// </summary>
+    public enum eDivineConcept
+    {
+        /// <summary>자연 — 잎·덩굴 (가이엔).</summary>
+        Nature = 0,
+        /// <summary>신성 — 깔끔한 금빛 금속 (루멘 · 아스트라).</summary>
+        Holy = 1,
+        /// <summary>화염 — 용암·붉은 균열 암석 (이그니스).</summary>
+        Flame = 2,
+        /// <summary>바람 — 소용돌이 은빛 기류 (실피르).</summary>
+        Wind = 3,
+        /// <summary>강철 — 리벳 박힌 중갑 강철 (페룸).</summary>
+        Steel = 4,
+        /// <summary>시계 — 황혼빛 톱니·문자반 (호라).</summary>
+        Chrono = 5,
+        /// <summary>심연 — 먹빛 흑요석·보랏빛 심연 (녹스).</summary>
+        Abyss = 6
+    }
 }

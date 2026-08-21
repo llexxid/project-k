@@ -14,6 +14,7 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal Button button;            // 시각(눌림 틴트)·SFX 용 — onClick에 시전을 달지 않는다
         [SerializeField] internal UILongPressButton longPress; // 탭=수동 시전 / 길게=자동 시전 토글
         [SerializeField] internal Image frame;              // 원형 버튼 본체 = 청동 외곽 링 (눌림 스케일 대상)
+        [SerializeField] internal Image conceptRing;        // 컨셉별 링 아트 오버레이 (208px, 아트 있을 때만 활성)
         [SerializeField] internal Image gradeBorder;        // 등급 색 얇은 링 (외곽 링과 디스크 사이)
         [SerializeField] internal Image disc;               // 어두운 원형 디스크 — Mask 겸용(아이콘 원형 크롭)
         [SerializeField] internal Image icon;               // 장착 카드 아이콘 (스프라이트 없으면 꺼둔다)

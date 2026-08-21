@@ -51,12 +51,20 @@ namespace KingdomIdle.EditorTools.Optimization
             BuildAtlas($"{AtlasDir}/Atlas_UI.spriteatlasv2", true, FilterMode.Bilinear,
                 TextureImporterFormat.ASTC_6x6, padding: 8, tight: false, uiPackables, log);
 
+            // --- Atlas_UIPixel : 도트 UI 전용 (Point + ASTC_4x4) ---
+            // 생성 아트(초상화/스킬 아이콘/마탑/링)와 PixelArtGUI2 는 픽셀 아트다.
+            // Atlas_UI 의 Bilinear/ASTC_6x6 에 섞으면 보간으로 흐려지고 블록 블리딩이 난다
+            // (ASTC 는 6x6 이상에서 픽셀 아트를 뭉갠다 — 픽셀 아트는 4x4 가 상한).
+            var pixelPackables = GatherPixelUiSprites(log);
+            BuildAtlas($"{AtlasDir}/Atlas_UIPixel.spriteatlasv2", true, FilterMode.Point,
+                TextureImporterFormat.ASTC_4x4, padding: 4, tight: false, pixelPackables, log);
+
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
             // Pack for the active (Android) target and report sprite counts.
             SpriteAtlasUtility.PackAllAtlases(EditorUserBuildSettings.activeBuildTarget);
-            foreach (var name in new[] { "Atlas_Characters", "Atlas_Equipment", "Atlas_UI" })
+            foreach (var name in new[] { "Atlas_Characters", "Atlas_Equipment", "Atlas_UI", "Atlas_UIPixel" })
             {
                 var sa = AssetDatabase.LoadAssetAtPath<SpriteAtlas>($"{AtlasDir}/{name}.spriteatlasv2");
                 log.AppendLine(sa != null
@@ -64,6 +72,41 @@ namespace KingdomIdle.EditorTools.Optimization
                     : $"[PACKED] {name}: <NULL - not created!>");
             }
             Debug.Log(log.ToString());
+        }
+
+        /// <summary>
+        /// 도트 UI 전용 아틀라스 수집. 생성 아트 폴더는 통째로(앞으로 추가되는 아트도 자동 포함),
+        /// PixelArtGUI2 는 **UI 프리팹이 실제로 참조하는 것만** 넣는다(키트 전체는 수천 장이라 넣으면 안 된다).
+        /// </summary>
+        static List<Object> GatherPixelUiSprites(System.Text.StringBuilder log)
+        {
+            var list = new List<Object>();
+
+            // 생성 아트 — 폴더 packable 이라 이후 추가분도 자동으로 아틀라스에 들어간다
+            foreach (var f in new[] { "Assets/Generated/ComfyUI" })
+            {
+                if (!AssetDatabase.IsValidFolder(f)) { log.AppendLine($"  [Atlas_UIPixel] folder MISSING {f}"); continue; }
+                var o = AssetDatabase.LoadMainAssetAtPath(f);
+                if (o != null) { list.Add(o); log.AppendLine($"  [Atlas_UIPixel] +folder {f}"); }
+            }
+
+            // PixelArtGUI2 — UI 프리팹/카탈로그 의존성에 잡힌 것만
+            var roots = new List<string>();
+            roots.AddRange(AssetDatabase.FindAssets("t:Prefab", new[] { "Assets/UGUI/Prefabs" })
+                .Select(AssetDatabase.GUIDToAssetPath));
+            if (File.Exists("Assets/UGUI/UIViewCatalog.asset")) roots.Add("Assets/UGUI/UIViewCatalog.asset");
+
+            var pix = AssetDatabase.GetDependencies(roots.ToArray(), true)
+                .Select(d => d.Replace('\\', '/'))
+                .Where(d => d.Contains("/PixelArtGUI2/") && (d.EndsWith(".png") || d.EndsWith(".Png")))
+                .Distinct().OrderBy(d => d).ToList();
+            foreach (var p in pix)
+            {
+                var o = AssetDatabase.LoadMainAssetAtPath(p);
+                if (o != null) list.Add(o);
+            }
+            log.AppendLine($"  [Atlas_UIPixel] PixelArtGUI2 sprites referenced by UI: {pix.Count}");
+            return list;
         }
 
         static List<Object> LoadFolders(string[] folders, System.Text.StringBuilder log)

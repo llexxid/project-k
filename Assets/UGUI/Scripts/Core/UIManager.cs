@@ -53,6 +53,7 @@ namespace KingdomIdle.UGUI
             public bool IsTab;
             public GameObject Go;
             public BottomSheetView View;
+            public Vector2 SheetRestingPos;   // 시트 안착 위치 — 중단된 슬라이드 트윈 원복 기준
 
             public PanelEntry(UIPanelId id, bool isTab, GameObject go, BottomSheetView view)
             {
@@ -60,6 +61,7 @@ namespace KingdomIdle.UGUI
                 IsTab = isTab;
                 Go = go;
                 View = view;
+                SheetRestingPos = Vector2.zero;
             }
         }
 
@@ -270,14 +272,28 @@ namespace KingdomIdle.UGUI
             var go = CreatePanel(id, payload, out var view);
             if (go == null) return;
 
-            _panelStack.Push(new PanelEntry(id, isTabPanel, go, view));
+            var entry = new PanelEntry(id, isTabPanel, go, view);
+            if (view != null && view.sheet != null)
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(view.sheet);
+                entry.SheetRestingPos = view.sheet.anchoredPosition;
+            }
+            _panelStack.Push(entry);
             BindPanelCommon(go, view);
             RefreshActiveTabPanelState();
 
             if (view != null && view.sheet != null)
             {
-                LayoutRebuilder.ForceRebuildLayoutImmediate(view.sheet);
-                UITween.SlideUp(view.sheet, 170f, 0.28f);   // 바텀시트 아래→위 슬라이드 인
+                // 시트 전체가 하단 탭바 뒤에서 떠오르는 슬라이드 인 (셸의 SheetClip이 탭바 영역을 가린다)
+                float rise = Mathf.Max(240f, view.sheet.rect.height);
+                UITween.SlideUp(view.sheet, rise, 0.34f);
+                if (view.backdrop != null)
+                {
+                    var cg = view.backdrop.GetComponent<CanvasGroup>();
+                    if (cg == null) cg = view.backdrop.gameObject.AddComponent<CanvasGroup>();
+                    cg.alpha = 0f;
+                    UITween.FadeIn(cg, 0.22f);
+                }
             }
 
             PanelStackChanged?.Invoke();
@@ -292,10 +308,10 @@ namespace KingdomIdle.UGUI
 
             var top = _panelStack.Pop();
             NotifyPanelClosed(top.View);
-            if (top.Go != null) Destroy(top.Go);
+            AnimatePanelCloseAndDestroy(top);
 
             if (_panelStack.Count > 0)
-                _panelStack.Peek().Go.SetActive(true);
+                ReactivatePanel(_panelStack.Peek());
 
             RefreshActiveTabPanelState();
             PanelStackChanged?.Invoke();
@@ -307,16 +323,81 @@ namespace KingdomIdle.UGUI
         public void ClearPanels()
         {
             bool changed = _panelStack.Count > 0;
+            bool first = true;   // 최상단(보이는 패널)만 퇴장 연출, 아래 깔린 비활성 패널은 즉시 파괴
 
             while (_panelStack.Count > 0)
             {
                 var entry = _panelStack.Pop();
                 NotifyPanelClosed(entry.View);
-                if (entry.Go != null) Destroy(entry.Go);
+                if (first) { AnimatePanelCloseAndDestroy(entry); first = false; }
+                else if (entry.Go != null) Destroy(entry.Go);
             }
 
             RefreshActiveTabPanelState();
             if (changed) PanelStackChanged?.Invoke();
+        }
+
+        /// <summary>스택 재노출 — 중단된 트윈으로 어긋난 시트/딤을 원상 복구 후 짧게 재등장.</summary>
+        private static void ReactivatePanel(PanelEntry next)
+        {
+            if (next.Go == null) return;
+            next.Go.SetActive(true);
+            if (next.View == null) return;
+
+            // 위에 패널이 쌓이며 SetActive(false) 로 죽은 딤 페이드가 중간 알파로 얼어붙어 있을 수 있다
+            if (next.View.backdrop != null)
+            {
+                var cg = next.View.backdrop.GetComponent<CanvasGroup>();
+                if (cg != null) cg.alpha = 1f;
+            }
+
+            if (next.View.sheet != null)
+            {
+                next.View.sheet.anchoredPosition = next.SheetRestingPos;
+                UITween.SlideUp(next.View.sheet, 120f, 0.22f);
+            }
+        }
+
+        /// <summary>
+        /// 시트를 아래로 밀어내며 페이드 아웃 후 파괴. 코루틴은 UIManager(영속)에서 구동 —
+        /// 죽는 패널 오브젝트 위 코루틴은 SetActive(false)에 죽어 파괴가 누락될 수 있다.
+        /// </summary>
+        private void AnimatePanelCloseAndDestroy(PanelEntry top)
+        {
+            if (top.Go == null) return;
+            if (top.View == null || top.View.sheet == null || !top.Go.activeInHierarchy)
+            {
+                Destroy(top.Go);
+                return;
+            }
+
+            // 등장 슬라이드가 아직 돌고 있으면 먼저 끈다 — 두 코루틴이 같은 anchoredPosition 을
+            // 매 프레임 덮어쓰면 시트가 내려가지 않고 위로 끌려 올라가다 사라진다(빠른 탭 전환).
+            UITween.StopMove(top.View.sheet);
+
+            var cg = top.Go.GetComponent<CanvasGroup>();
+            if (cg == null) cg = top.Go.AddComponent<CanvasGroup>();
+            cg.blocksRaycasts = false;   // 퇴장 중 입력 차단
+            cg.interactable = false;
+            RunCoroutine(PanelCloseRoutine(top.Go, top.View.sheet, cg));
+        }
+
+        private static IEnumerator PanelCloseRoutine(GameObject go, RectTransform sheet, CanvasGroup rootGroup)
+        {
+            Vector2 from = sheet.anchoredPosition;
+            Vector2 to = from + new Vector2(0f, -Mathf.Max(240f, sheet.rect.height));
+            const float dur = 0.20f;
+            float e = 0f;
+            while (e < dur && go != null && sheet != null)
+            {
+                e += Time.unscaledDeltaTime;
+                float k = Mathf.Clamp01(e / dur);
+                k = k * k * k;   // EaseInCubic — 가속 퇴장
+                sheet.anchoredPosition = Vector2.LerpUnclamped(from, to, k);
+                if (rootGroup != null) rootGroup.alpha = 1f - k;
+                yield return null;
+            }
+            if (go != null) Destroy(go);
         }
 
         private static void NotifyPanelClosed(BottomSheetView view)

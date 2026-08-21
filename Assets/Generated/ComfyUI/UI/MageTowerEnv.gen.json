@@ -1,15 +1,16 @@
 {
- "asset": "MageTowerEnv",
- "generated_at": "2026-08-16",
- "design_reference": "user ChatGPT tower (Downloads)",
- "generator": {
-  "node": "GeminiNanoBanana2V2",
-  "seed": 20260816
- },
- "post_process": "FULL-RES flood-fill key (ring-median bg, tol14) -> BOX 288w -> alpha bin 110 -> snap/4 -> bbox+6pad",
- "lit_variant": "deterministic purple-band brighten, pixel-aligned",
- "outputs": {
-  "MageTowerEnv.png": "164x388",
-  "MageTowerEnv_Lit.png": "same"
- }
+ "asset_family": "MageTowerStoneFront",
+ "generated_at": "2026-08-17",
+ "method": "기존 생성 원본(raw_out/tower_stone.png)을 그대로 사용. 디테일 축소 없음.",
+ "edit": "원본 y<0 구간(위에서 내려다보이는 난간 안쪽 바닥·반대편 총안·소품) 절단 → 정면만 남김",
+ "pipeline": [
+  "dark-bg flood key",
+  "crop top 0px",
+  "tight bbox",
+  "mode downscale to 100px wide",
+  "integer NEAREST x2",
+  "alpha binarize"
+ ],
+ "note": "모드 필터/강한 양자화 금지 — 적용하면 도트가 뭉개진다(사용자 확인).",
+ "output_size": "200x402"
 }

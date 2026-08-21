@@ -164,7 +164,9 @@ namespace KingdomIdle.UGUI.Editor
             var member = new PartyHudView.Member();
 
             // .party-member: 러스틱 웜 다크 블록 (15% 확대 — 초상화 78→90, 슬롯 40→46)
-            var block = F.Box(parent, $"Member{index}", new Color(0.16f, 0.12f, 0.09f, 0.66f), rounded: true);
+            // 알파 0.66 이면 뒤의 마탑 환경 스프라이트가 카드를 뚫고 비쳐 초상화/HP 가독성을 해쳤다.
+            // 마탑은 SetAsFirstSibling 으로 항상 뒤에 있으므로, 카드를 불투명에 가깝게 두면 레이어 충돌이 사라진다.
+            var block = F.Box(parent, $"Member{index}", new Color(0.14f, 0.11f, 0.08f, 0.94f), rounded: true);
             F.HLayout(block.gameObject, 14f, new RectOffset(12, 12, 12, 12), TextAnchor.MiddleLeft);
 
             // 초상화 메달리온(버튼): 청동 링 + 어두운 원 + preserveAspect 스프라이트 (균일 초상화)
@@ -212,6 +214,15 @@ namespace KingdomIdle.UGUI.Editor
                 F.Preferred(slotBg, width: 46f, height: 46f);
                 slot.root = slotBg.gameObject;
 
+                // 미니멀 픽셀 아이콘 (한글 라벨보다 한눈에 읽힌다). 컨트롤러가 스킬별로 채운다.
+                var iconRt = F.Container(slotBg.transform, "Icon");
+                F.AnchorCenter(iconRt, 34f, 34f);
+                var iconImg = iconRt.gameObject.AddComponent<Image>();
+                iconImg.preserveAspect = true;
+                iconImg.raycastTarget = false;
+                slot.icon = iconImg;
+                iconRt.gameObject.SetActive(false);
+
                 var mask = F.Box(slotBg.transform, "CdMask", new Color(0f, 0f, 0f, 0.55f), rounded: true);
                 F.Stretch(mask.rectTransform);
                 slot.cooldownMask = mask;
@@ -220,6 +231,7 @@ namespace KingdomIdle.UGUI.Editor
                 F.Stretch(cd.rectTransform);
                 slot.cooldownLabel = cd;
 
+                // 아이콘이 없을 때만 쓰는 폴백 라벨
                 var name = F.Text(slotBg.transform, "Name", "", 10f, Color.white, TextAlignmentOptions.Bottom);
                 F.Stretch(name.rectTransform);
                 slot.nameLabel = name;
@@ -243,7 +255,7 @@ namespace KingdomIdle.UGUI.Editor
             rootRt.anchorMin = new Vector2(0f, 1f);
             rootRt.anchorMax = new Vector2(0f, 1f);
             rootRt.pivot = new Vector2(0f, 1f);
-            rootRt.anchoredPosition = new Vector2(10f, -UguiTheme.MageTowerHudTop);
+            rootRt.anchoredPosition = new Vector2(UguiTheme.MageTowerHudLeft, -UguiTheme.MageTowerHudTop);
             rootRt.sizeDelta = new Vector2(UguiTheme.MageTowerHudWidth, 100f);
 
             var view = rootGo.AddComponent<MageTowerHudView>();
@@ -323,13 +335,16 @@ namespace KingdomIdle.UGUI.Editor
             rootGo.layer = 5;
             var rootRt = (RectTransform)rootGo.transform;
 
-            // 좌하단 앵커 — 탑의 발치가 화면 바닥 아래(y=-24)에 묻히고 몸통 절반쯤이
-            // 화면 왼쪽 가장자리 밖에 걸쳐 "삐죽" 솟는다. 파티 HUD 첫 멤버 블록(x≈15~)과의
-            // 시각적 겹침을 줄이기 위해 중심을 x=40 까지 밀었다 (블록 배경이 반투명이라 겹치면 비쳐 보인다).
+            // 좌하단 앵커, 중심 x=170 → 폭 300 의 탑이 x 20~320 으로 전부 화면 안에 들어온다.
+            // 슬롯 열(x 10~144)과는 **정렬하지 않는다** — 열은 화면 좌단에 붙고 탑은 독립 배치다.
+            // 파티 HUD 는 1080 기준 x 3~1077 로 사실상 전폭이라 하단 밴드(y 202~316) 겹침은
+            // 폭 조정으로 없앨 수 없다 — 대신 최후면 렌더(SetAsFirstSibling)로 탑을 뒤에 깔고,
+            // 발치를 하단바(0~190) 안쪽 y=70 에 묻는다.
+            // 하단 중앙 궁극기 버튼(x 452~628)과는 무관(탑 우측 경계 x=320).
             rootRt.anchorMin = new Vector2(0f, 0f);
             rootRt.anchorMax = new Vector2(0f, 0f);
             rootRt.pivot = new Vector2(0.5f, 0f);
-            rootRt.anchoredPosition = new Vector2(40f, -24f);
+            rootRt.anchoredPosition = new Vector2(UguiTheme.MageTowerEnvCenterX, UguiTheme.MageTowerEnvBottom);
 
             // 호흡/흔들림/점등이 매 프레임 트랜스폼·알파를 만지므로 자체 Canvas 로 리빌드를 격리한다.
             // 탑에 Button 이 있으므로 GraphicRaycaster 필수 (중첩 캔버스는 부모 레이캐스터에 안 잡힌다).
@@ -346,18 +361,19 @@ namespace KingdomIdle.UGUI.Editor
             if (towerSprite == null)
                 Debug.LogWarning("[UguiGen] MageTowerEnv.png 를 찾지 못했습니다 — 탑 이미지 없이 생성됩니다.");
 
-            // 스프라이트 원본 비율 유지 (164x388 → 표시 폭 208)
-            float dispW = 190f;
+            // 스프라이트 원본 비율 유지 (평면 SD 아트 112x188 → 표시 폭 300, 표시 높이 503.6).
+            // pivot.y = 0 이라 높이가 바뀌어도 발치는 y=70 에 그대로 고정된다 — 위치는 불변.
+            float dispW = UguiTheme.MageTowerEnvWidth;
             float dispH = towerSprite != null
                 ? dispW * towerSprite.rect.height / towerSprite.rect.width
                 : 492f;
             rootRt.sizeDelta = new Vector2(dispW, dispH);
 
-            // 바닥 접합부 보라 광원 — 탑이 바에 '심어진' 느낌을 주는 장식
+            // 바닥 접합부 광원 — 탑이 바에 '심어진' 느낌을 주는 장식 (마탑 컨셉 = 푸른 비전 마법)
             var glow = F.Container(rootRt, "BaseGlow");
             var glowImg = glow.gameObject.AddComponent<Image>();
             glowImg.sprite = F.CircleSoft;
-            glowImg.color = new Color(0.55f, 0.30f, 0.85f, 0.20f);
+            glowImg.color = new Color(0.30f, 0.62f, 0.95f, 0.22f);
             glowImg.raycastTarget = false;
             glow.anchorMin = new Vector2(0.5f, 0f);
             glow.anchorMax = new Vector2(0.5f, 0f);
@@ -401,6 +417,47 @@ namespace KingdomIdle.UGUI.Editor
             litGroup.blocksRaycasts = false;
             view.litImage = litImg;
             view.litGroup = litGroup;
+
+            // ═══ 부유 수정 — 탑과 **독립된 오브젝트**라 탑을 건드리지 않고 따로 애니메이션한다.
+            //     탑 꼭대기(망루) 위에 떠 있고, 컨트롤러가 상하 부유 + 스킬 발동 시 섬광을 준다.
+            var crystalSprite = AssetDatabase.LoadAssetAtPath<Sprite>(
+                "Assets/Generated/ComfyUI/UI/MageTowerCrystal.png");
+
+            var crystalRt = F.Container(rootRt, "Crystal");
+            crystalRt.anchorMin = new Vector2(0.5f, 1f);
+            crystalRt.anchorMax = new Vector2(0.5f, 1f);
+            crystalRt.pivot = new Vector2(0.5f, 0.5f);
+            // 탑 상단보다 조금 위 — 망루 위에 '떠 있는' 간격
+            crystalRt.anchoredPosition = new Vector2(0f, UguiTheme.MageTowerCrystalRise);
+            float cw = UguiTheme.MageTowerCrystalSize;
+            crystalRt.sizeDelta = new Vector2(cw, cw);
+            view.crystalRoot = crystalRt;
+
+            // 수정 뒤 광원 (발동 시 반짝 — 평소엔 은은하게).
+            // 알파는 건드리지 말 것 — MageTowerEnvController.CrystalBob/CrystalFlash 가 매 프레임
+            // 이 CanvasGroup.alpha 를 쓰며 CrystalIdleGlow(=0.28f) 와 짝을 이룬다. 한쪽만 바꾸면
+            // 첫 프레임에 값이 튄다. 세기 조절이 필요하면 **후광의 반경**만 건드릴 것.
+            var cglowRt = F.Container(crystalRt, "CrystalGlow");
+            F.AnchorCenter(cglowRt, cw * 2.1f, cw * 2.1f);
+            var cglow = cglowRt.gameObject.AddComponent<Image>();
+            cglow.sprite = F.CircleSoft;
+            cglow.color = new Color(0.45f, 0.78f, 1f, 0.85f);
+            cglow.raycastTarget = false;
+            var cglowGroup = cglowRt.gameObject.AddComponent<CanvasGroup>();
+            cglowGroup.alpha = 0.28f;          // idle 은은한 발광
+            cglowGroup.blocksRaycasts = false;
+            view.crystalGlow = cglow;
+            view.crystalGlowGroup = cglowGroup;
+
+            var cimgRt = F.Container(crystalRt, "CrystalBody");
+            F.Stretch(cimgRt);
+            var cimg = cimgRt.gameObject.AddComponent<Image>();
+            if (crystalSprite != null) cimg.sprite = crystalSprite;
+            cimg.preserveAspect = true;
+            cimg.raycastTarget = false;        // 탭 판정은 탑 본체가 가진다
+            view.crystalImage = cimg;
+            if (crystalSprite == null)
+                Debug.LogWarning("[UguiGen] MageTowerCrystal.png 를 찾지 못했습니다 — 수정 없이 생성됩니다.");
 
             return PrefabGenUtil.SavePrefab(rootGo, $"{PrefabGenUtil.PrefabRoot}/Huds/Hud_MageTowerEnv.prefab");
         }
@@ -467,6 +524,20 @@ namespace KingdomIdle.UGUI.Editor
             var frame = F.CircleBox(rootRt, "Btn", UguiTheme.Bronze, raycast: true);
             F.Stretch(frame.rectTransform);
             view.frame = frame;
+
+            // 컨셉 링 오버레이 — 장착 카드 컨셉별 링 아트(208px 캔버스)를 프레임 위에 겹친다.
+            // 프레임(=버튼 히트 영역 176)은 절대 리사이즈하지 않는다: 히트 영역·눌림 스케일·
+            // 플래시 기하가 스킨과 무관하게 고정된다. 아트가 있을 때만 컨트롤러가 켜고 청동 링을 숨긴다.
+            var conceptRt = F.Container(frame.transform, "ConceptRing");
+            F.Stretch(conceptRt);
+            float ringPad = (UguiTheme.DivineRingCanvas - d) * 0.5f;   // 208 캔버스 → 좌우 16px 돌출
+            conceptRt.offsetMin = new Vector2(-ringPad, -ringPad);
+            conceptRt.offsetMax = new Vector2(ringPad, ringPad);
+            var conceptImg = conceptRt.gameObject.AddComponent<Image>();
+            conceptImg.preserveAspect = true;
+            conceptImg.raycastTarget = false;
+            view.conceptRing = conceptImg;
+            conceptRt.gameObject.SetActive(false);
             var btn = frame.gameObject.AddComponent<Button>();
             btn.targetGraphic = frame;
             btn.transition = Selectable.Transition.ColorTint;

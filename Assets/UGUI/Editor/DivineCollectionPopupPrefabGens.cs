@@ -100,7 +100,9 @@ namespace KingdomIdle.UGUI.Editor
             F.HLayout(detail.gameObject, 18f, new RectOffset(16, 16, 16, 16), TextAnchor.UpperLeft);
             F.Flexible(detail, flexHeight: 1f);   // 남는 세로 공간(≈410) 차지
 
-            var illustBox = F.Box(detail.transform, "IllustBox", UguiTheme.SurfaceFaint, rounded: true);
+            // 일러스트 뒷판은 **어두워야** 한다. SurfaceFaint(밝은 회색)를 쓰면 알파가 뚫린
+            // 도트 캐릭터 뒤로 회색 판이 그대로 드러나 '플레이스홀더 박스'처럼 보인다.
+            var illustBox = F.Box(detail.transform, "IllustBox", new Color(0.06f, 0.07f, 0.11f, 0.85f), rounded: true);
             var illustLe = F.Preferred(illustBox, width: 280f);
             illustLe.minWidth = 280f;
             illustLe.flexibleHeight = 1f;

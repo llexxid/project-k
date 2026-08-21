@@ -186,16 +186,8 @@ namespace KingdomIdle.UGUI.Editor
             F.AnchorTopStretch(hud.rectTransform, 0f, UguiTheme.HudTopHeight);
             F.HLayout(hud.gameObject, 0f, new RectOffset(22, 22, 0, 0), TextAnchor.MiddleLeft);
 
-            // 하단 골드 구분선
-            var underline = F.Box(hud.transform, "Underline", new Color(1f, 220f / 255f, 120f / 255f, 0.35f), rounded: false);
-            var ulRt = underline.rectTransform;
-            ulRt.anchorMin = new Vector2(0f, 0f);
-            ulRt.anchorMax = new Vector2(1f, 0f);
-            ulRt.pivot = new Vector2(0.5f, 0f);
-            ulRt.anchoredPosition = Vector2.zero;
-            ulRt.sizeDelta = new Vector2(0f, 3f);
-            underline.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
-            underline.raycastTarget = false;
+            // 러스틱 드레싱: 우드그레인 + 광 시엔 + 하단(안쪽) 청동 트림
+            DressRusticBar(hud, trimAtBottom: true);
 
             // ── 좌측: 프로필 + 닉네임 ──
             var leftWrap = F.Container(hud.transform, "LeftWrap");
@@ -264,6 +256,185 @@ namespace KingdomIdle.UGUI.Editor
             view.btnHamburgerRect = hamburger.rectTransform;
             var hamburgerIcon = F.IconImage(hamburger.transform, "Icon", UguiGenAssets.IconMenu, 48f, 48f);
             F.AnchorCenter(hamburgerIcon.rectTransform, 48f, 48f);
+        }
+
+        /// <summary>
+        /// 바 공통 러스틱 드레싱: 우드그레인 타일 + 세로 광 시엔 + 안쪽 모서리 청동 트림.
+        /// 전부 raycast 없는 ignoreLayout 오버레이 — 콘텐츠(칩/탭)보다 먼저 추가해 뒤에 깔린다.
+        /// 어두운 틴트/불투명 청동만 사용 (Linear 색공간에서 흰 저알파 오버레이 금지).
+        /// </summary>
+        private static void DressRusticBar(Image bar, bool trimAtBottom)
+        {
+            if (UguiGenAssets.PopupPattern != null)
+            {
+                var wood = F.Container(bar.transform, "WoodGrain");
+                var woodImg = wood.gameObject.AddComponent<Image>();
+                woodImg.sprite = UguiGenAssets.PopupPattern;
+                woodImg.type = Image.Type.Tiled;
+                woodImg.color = new Color(0.10f, 0.065f, 0.04f, 0.55f);   // 어두운 그레인 라인
+                woodImg.raycastTarget = false;
+                F.Stretch(wood);
+                wood.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            }
+
+            if (UguiGenAssets.PanelGradient != null)
+            {
+                var sheen = F.Container(bar.transform, "Sheen");
+                var sheenImg = sheen.gameObject.AddComponent<Image>();
+                sheenImg.sprite = UguiGenAssets.PanelGradient;
+                sheenImg.type = Image.Type.Sliced;
+                sheenImg.color = new Color(UguiTheme.Bronze.r, UguiTheme.Bronze.g, UguiTheme.Bronze.b, 0.16f);
+                sheenImg.raycastTarget = false;
+                F.Stretch(sheen);
+                sheen.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            }
+
+            // 안쪽 모서리 트림: 근검정 그림자 위에 불투명 청동 라인 (입체 단차)
+            AddTrimLine(bar.transform, "TrimShadow", new Color(0f, 0f, 0f, 0.55f), trimAtBottom, 0f, 3f);
+            AddTrimLine(bar.transform, "TrimBronze", UguiTheme.BronzeLight, trimAtBottom, 3f, 4f);
+        }
+
+        /// <summary>
+        /// 하단 탭바 = 중세 금속판. Layer Lab(플랫 벡터) 대신 **PixelArtGUI2(진짜 도트 키트)** 를 쓴다.
+        /// 원본이 8~48px 이라 확대해도 도트가 살아 있고, 회색 마스터라 러스틱 팔레트로 틴트하면
+        /// 그대로 중세 금속·목재가 된다. 전부 ignoreLayout + raycast off 라 탭 레이아웃과 충돌하지 않는다.
+        /// </summary>
+        private static void DressPixelBottomBar(Image bar)
+        {
+            // ① 배경 자체를 리벳 금속판으로 (여태 스프라이트 없는 민 색면이었다)
+            if (UguiGenAssets.PixBarMetal != null)
+            {
+                bar.sprite = UguiGenAssets.PixBarMetal;
+                bar.type = Image.Type.Sliced;
+                bar.pixelsPerUnitMultiplier = 0.25f;   // 16px 원본을 크게 → 리벳이 굵은 도트로 읽힌다
+                // 바 = '움푹 들어간 어두운 판', 탭 = '위로 솟은 밝은 판'.
+                // 둘을 같은 밝기(0.42대)로 두니 장식이 전부 같은 갈색 노이즈로 뭉개졌다 —
+                // 도트 UI가 풍성해 보이는 건 장식의 개수가 아니라 명도 대비다.
+                bar.color = new Color(0.24f, 0.18f, 0.13f, 1f);
+            }
+
+            // ② 목재 결 — 금속판 위에 얇게 덧대 재질을 섞는다
+            if (UguiGenAssets.PopupPattern != null)
+            {
+                var wood = F.Container(bar.transform, "WoodGrain");
+                var img = wood.gameObject.AddComponent<Image>();
+                img.sprite = UguiGenAssets.PopupPattern;
+                img.type = Image.Type.Tiled;
+                img.color = new Color(0.08f, 0.05f, 0.03f, 0.42f);
+                img.raycastTarget = false;
+                F.Stretch(wood);
+                wood.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            }
+
+            // ③ 상단 캐노피 = 3단 금속 레일 (하이라이트/본체/그늘). 도트 UI의 입체감은
+            //    그라데이션이 아니라 '한 줄씩 끊어지는 명도 계단'에서 나온다.
+            AddTrimLine(bar.transform, "TrimShadow", new Color(0f, 0f, 0f, 0.7f), false, 0f, 3f);
+            AddTrimLine(bar.transform, "TrimGoldHi", new Color(0.98f, 0.86f, 0.52f, 1f), false, 3f, 3f);
+            AddTrimLine(bar.transform, "TrimGold", new Color(0.80f, 0.61f, 0.24f, 1f), false, 6f, 6f);
+            AddTrimLine(bar.transform, "TrimGoldLo", new Color(0.34f, 0.23f, 0.09f, 1f), false, 12f, 4f);
+
+            // ④ 리벳 열 — 금속판 느낌을 확정짓는 요소. 바 상단을 따라 일정 간격으로 박는다.
+            if (UguiGenAssets.PixSeparator != null)
+            {
+                const int rivets = 9;
+                for (int i = 0; i < rivets; i++)
+                {
+                    var rv = F.Container(bar.transform, $"Rivet{i}");
+                    var img = rv.gameObject.AddComponent<Image>();
+                    img.sprite = UguiGenAssets.PixSeparator;
+                    img.color = new Color(0.78f, 0.62f, 0.30f, 0.95f);
+                    img.raycastTarget = false;
+                    rv.anchorMin = rv.anchorMax = new Vector2((i + 0.5f) / rivets, 1f);
+                    rv.pivot = new Vector2(0.5f, 1f);
+                    rv.anchoredPosition = new Vector2(0f, -18f);
+                    rv.sizeDelta = new Vector2(10f, 10f);
+                    rv.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+                }
+            }
+
+            // ⑤ 탭 사이 기둥 — 판이 하나로 쭉 이어지면 아무리 장식을 얹어도 밋밋하다.
+            //    탭 3개 경계에 어두운 목재 기둥 + 금색 캡을 세워 '칸이 나뉜 목공' 으로 읽히게 한다.
+            //    HLayout 자식이 아니라 ignoreLayout 오버레이라 탭 폭에 영향을 주지 않는다.
+            for (int i = 1; i <= 2; i++)
+            {
+                float fx = i / 3f;
+                var post = F.Box(bar.transform, $"Post{i}", new Color(0.16f, 0.11f, 0.07f, 1f), rounded: false);
+                var prt = post.rectTransform;
+                prt.anchorMin = new Vector2(fx, 0f);
+                prt.anchorMax = new Vector2(fx, 1f);
+                prt.pivot = new Vector2(0.5f, 0.5f);
+                prt.anchoredPosition = Vector2.zero;
+                prt.sizeDelta = new Vector2(14f, -14f);
+                post.raycastTarget = false;
+                post.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+
+                // 기둥 왼쪽 하이라이트 한 줄 (도트 셰이딩)
+                var hi = F.Box(post.transform, "Hi", new Color(0.46f, 0.34f, 0.22f, 1f), rounded: false);
+                var hrt = hi.rectTransform;
+                hrt.anchorMin = new Vector2(0f, 0f); hrt.anchorMax = new Vector2(0f, 1f);
+                hrt.pivot = new Vector2(0f, 0.5f);
+                hrt.anchoredPosition = Vector2.zero;
+                hrt.sizeDelta = new Vector2(4f, 0f);
+                hi.raycastTarget = false;
+
+                // 위·아래 금색 캡
+                foreach (var top in new[] { true, false })
+                {
+                    var cap = F.Box(post.transform, top ? "CapTop" : "CapBottom",
+                        new Color(0.82f, 0.64f, 0.28f, 1f), rounded: false);
+                    var crt = cap.rectTransform;
+                    float ay = top ? 1f : 0f;
+                    crt.anchorMin = new Vector2(0.5f, ay);
+                    crt.anchorMax = new Vector2(0.5f, ay);
+                    crt.pivot = new Vector2(0.5f, ay);
+                    crt.anchoredPosition = new Vector2(0f, top ? 0f : 0f);
+                    crt.sizeDelta = new Vector2(22f, 9f);
+                    cap.raycastTarget = false;
+                }
+            }
+
+            // ⑥ 네 모서리 금색 장식 — 원본(48x48)이 이미 4모서리 한 장이므로 늘이지 말고
+            //    모서리마다 정사각으로 조각내 배치한다 (세로로 늘리면 금색 막대로 보인다).
+            if (UguiGenAssets.PixCornersGold != null)
+            {
+                var corners = new[]
+                {
+                    (new Vector2(0f, 1f), new Vector2(0f, 0f)),   // 좌상
+                    (new Vector2(1f, 1f), new Vector2(1f, 0f)),   // 우상
+                    (new Vector2(0f, 0f), new Vector2(0f, 1f)),   // 좌하
+                    (new Vector2(1f, 0f), new Vector2(1f, 1f)),   // 우하
+                };
+                for (int i = 0; i < corners.Length; i++)
+                {
+                    var (anchor, flip) = corners[i];
+                    var c = F.Container(bar.transform, $"Corner{i}");
+                    var img = c.gameObject.AddComponent<Image>();
+                    img.sprite = UguiGenAssets.PixCornersGold;
+                    img.type = Image.Type.Simple;
+                    img.raycastTarget = false;
+                    c.anchorMin = c.anchorMax = anchor;
+                    c.pivot = anchor;
+                    c.anchoredPosition = Vector2.zero;
+                    c.sizeDelta = new Vector2(44f, 44f);
+                    // 원본은 좌상 기준 장식 — 나머지 모서리는 스케일 반전으로 재사용
+                    c.localScale = new Vector3(flip.x > 0 ? -1f : 1f, flip.y > 0 ? -1f : 1f, 1f);
+                    c.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+                }
+            }
+        }
+
+        private static void AddTrimLine(Transform parent, string name, Color color, bool atBottom, float inset, float height)
+        {
+            var line = F.Box(parent, name, color, rounded: false);
+            var rt = line.rectTransform;
+            float ay = atBottom ? 0f : 1f;
+            rt.anchorMin = new Vector2(0f, ay);
+            rt.anchorMax = new Vector2(1f, ay);
+            rt.pivot = new Vector2(0.5f, ay);
+            rt.anchoredPosition = new Vector2(0f, atBottom ? inset : -inset);
+            rt.sizeDelta = new Vector2(0f, height);
+            line.raycastTarget = false;
+            line.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
         }
 
         /// <summary>재화 칩(데모식): 어두운 알약 + 좌측 오버행 아이콘 소켓(청동 링) + 우측 값. 반환: 칩 배경 Image, out 값 라벨.</summary>
@@ -401,16 +572,8 @@ namespace KingdomIdle.UGUI.Editor
             F.HLayout(bar.gameObject, 12f, new RectOffset(16, 16, 12, 16), TextAnchor.MiddleCenter, expandWidth: true);
             view.bottomBar = bar.rectTransform;
 
-            // 상단 골드 구분선
-            var topline = F.Box(bar.transform, "Topline", new Color(1f, 220f / 255f, 120f / 255f, 0.35f), rounded: false);
-            var tlRt = topline.rectTransform;
-            tlRt.anchorMin = new Vector2(0f, 1f);
-            tlRt.anchorMax = new Vector2(1f, 1f);
-            tlRt.pivot = new Vector2(0.5f, 1f);
-            tlRt.anchoredPosition = Vector2.zero;
-            tlRt.sizeDelta = new Vector2(0f, 3f);
-            topline.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
-            topline.raycastTarget = false;
+            // 픽셀아트 중세 드레싱 (하단바 전용 — 상단바보다 훨씬 풍성하게)
+            DressPixelBottomBar(bar);
 
             view.tabDevelopment = MakeTabButton(bar.transform, "BtnDevelopment",
                 F.Catalog != null ? F.Catalog.iconSwords : null, "육성");
@@ -422,9 +585,9 @@ namespace KingdomIdle.UGUI.Editor
 
         private static MainTabButtonView MakeTabButton(Transform parent, string name, Sprite icon, string label)
         {
-            // 탭 배경 — LL Button_01 정품 룩(Bg 스프라이트=그라디언트+외곽선 구움)을 어두운 슬레이트로 틴트.
-            // 선택 시 SetSelected가 파란색 강조. 상업 게임식 하단 탭.
-            var bg = F.Box(parent, name, UguiTheme.RusticSurface, rounded: true, raycast: true);
+            // 탭 배경 — 픽셀 베벨 버튼(PixelArtGUI2). 스프라이트가 중간 회색이라 틴트가 곱해지므로
+            // 어두운 러스틱 색을 그대로 쓰면 탭이 새까맣게 죽는다 → 밝은 웜브라운으로 시작.
+            var bg = F.Box(parent, name, new Color(0.52f, 0.40f, 0.28f, 1f), rounded: true, raycast: true);
             F.Flexible(bg, flexWidth: 1f);
             F.Preferred(bg, height: 150f);
             if (F.Catalog != null && F.Catalog.kitBtnGrey != null)
@@ -434,25 +597,24 @@ namespace KingdomIdle.UGUI.Editor
                 bg.pixelsPerUnitMultiplier = 1f;
             }
 
-            // 입체감: 아래 드롭 섀도우(검정, Linear 안전) + LL 정품 이너 림.
+            // 픽셀아트 베벨 버튼으로 교체 — 도트 게임 톤에 맞고, 눌림 상태 스프라이트가 따로 있다.
+            if (UguiGenAssets.PixBtn != null)
+            {
+                bg.sprite = UguiGenAssets.PixBtn;
+                bg.type = Image.Type.Sliced;
+                bg.pixelsPerUnitMultiplier = 0.25f;   // 16px 원본 → 굵은 베벨
+            }
+
+            // 입체감: 아래 드롭 섀도우(검정, Linear 안전)
             var tabShadow = bg.gameObject.AddComponent<UnityEngine.UI.Shadow>();
             tabShadow.effectColor = new Color(0f, 0f, 0f, 0.5f);
             tabShadow.effectDistance = new Vector2(0f, -4f);
             tabShadow.useGraphicAlpha = true;
-            if (F.Catalog != null && F.Catalog.kitBtnBorder != null)
-            {
-                var rim = F.Box(bg.transform, "InnerRim", new Color(1f, 1f, 1f, 0.7f));
-                rim.sprite = F.Catalog.kitBtnBorder;
-                rim.type = Image.Type.Sliced;
-                var rrt = rim.rectTransform;
-                rrt.anchorMin = Vector2.zero; rrt.anchorMax = Vector2.one;
-                rrt.offsetMin = new Vector2(4f, 4f); rrt.offsetMax = new Vector2(-4f, -7f);
-                rim.raycastTarget = false;
-                rim.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
-            }
 
             var tab = bg.gameObject.AddComponent<MainTabButtonView>();
             tab.background = bg;
+            tab.bgNormalSprite = UguiGenAssets.PixBtn;
+            tab.bgSelectedSprite = UguiGenAssets.PixBtnDown;   // 선택 시 베벨이 눌린 스프라이트로 교체
 
             // 픽셀 버튼 스킨을 적용하지 않는 순수 버튼 (배경 색상은 SetSelected가 직접 제어)
             var btn = bg.gameObject.AddComponent<Button>();
@@ -466,12 +628,43 @@ namespace KingdomIdle.UGUI.Editor
             F.Stretch(inner);
             F.VLayout(inner.gameObject, 6f, new RectOffset(0, 0, 18, 12), TextAnchor.MiddleCenter, expandWidth: true);
 
-            // 픽셀 키트 아이콘 (⚔♞✦ 글리프는 Galmuri11에 없어 스프라이트 사용)
+            // 아이콘 + 뒤에 어두운 금속 소켓 — 아이콘이 판 위에 '박힌' 느낌을 준다
             var iconWrap = F.Container(inner, "IconWrap");
-            F.Preferred(iconWrap.gameObject.AddComponent<LayoutElement>(), height: 72f);
-            var iconImg = F.IconImage(iconWrap, "Icon", icon, 64f, 64f);
-            F.AnchorCenter(iconImg.rectTransform, 64f, 64f);
+            F.Preferred(iconWrap.gameObject.AddComponent<LayoutElement>(), height: 76f);
+            if (UguiGenAssets.PixPanel != null)
+            {
+                // 아이콘 뒤 얕은 소켓 — 너무 진하면 탭 전체가 검게 죽는다
+                var socket = F.Box(iconWrap, "Socket", new Color(0.20f, 0.15f, 0.10f, 0.45f));
+                socket.sprite = UguiGenAssets.PixPanel;
+                socket.type = Image.Type.Sliced;
+                socket.pixelsPerUnitMultiplier = 0.2f;
+                socket.raycastTarget = false;
+                F.AnchorCenter(socket.rectTransform, 74f, 74f);
+                socket.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            }
+            var iconImg = F.IconImage(iconWrap, "Icon", icon, 60f, 60f);
+            F.AnchorCenter(iconImg.rectTransform, 60f, 60f);
+            // 아이콘 마스터는 흰색이라 그대로 두면 순백으로 붕 뜬다. SetSelected 가 런타임에 다시
+            // 칠하지만, 프리팹 초기값도 비선택 톤으로 맞춰 첫 프레임 번쩍임을 없앤다.
+            iconImg.color = new Color(0.80f, 0.70f, 0.55f, 1f);
             tab.icon = iconImg;
+
+            // 탭 네 귀퉁이 금속 스터드 — 판이 '박혀 있는' 느낌. 4개짜리 작은 도트라 가독성을 해치지 않는다.
+            var studs = new[]
+            {
+                new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, 0f), new Vector2(1f, 0f),
+            };
+            for (int i = 0; i < studs.Length; i++)
+            {
+                var stud = F.Box(bg.transform, $"Stud{i}", new Color(0.74f, 0.57f, 0.26f, 0.9f), rounded: false);
+                var srt = stud.rectTransform;
+                srt.anchorMin = srt.anchorMax = studs[i];
+                srt.pivot = studs[i];
+                srt.anchoredPosition = new Vector2(studs[i].x > 0 ? -10f : 10f, studs[i].y > 0 ? -10f : 10f);
+                srt.sizeDelta = new Vector2(8f, 8f);
+                stud.raycastTarget = false;
+                stud.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            }
 
             var nameLbl = F.Text(inner, "Label", label, UguiTheme.FontTabLabel, new Color(1f, 1f, 1f, 0.85f),
                 TextAlignmentOptions.Center, bold: true);

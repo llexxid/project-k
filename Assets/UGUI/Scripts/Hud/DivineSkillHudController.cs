@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using KingdomIdle.Divine;
 using KingdomIdle.UI;
 
@@ -37,6 +38,22 @@ namespace KingdomIdle.UGUI
         private DivineSkillHudView _view;
         private readonly List<CanvasGroup> _pulseTargets = new();
         private bool _subscribed;
+
+        /// <summary>기본 골드 액센트 (생성기가 굽는 readyGlow/castFlash 색과 동일).</summary>
+        private static readonly Color DefaultAccent = new Color(1f, 0.86f, 0.42f, 0.85f);
+
+        /// <summary>컨셉별 액센트 — 준비 후광·시전 플래시 틴트. 링 아트가 없어도 색은 적용된다.</summary>
+        private static Color ConceptAccent(eDivineConcept c) => c switch
+        {
+            eDivineConcept.Nature => new Color(0.45f, 0.85f, 0.35f, 0.85f),   // 신록
+            eDivineConcept.Holy => DefaultAccent,                              // 금빛
+            eDivineConcept.Flame => new Color(1f, 0.45f, 0.18f, 0.88f),       // 용암
+            eDivineConcept.Wind => new Color(0.62f, 0.88f, 0.95f, 0.85f),     // 은빛 기류
+            eDivineConcept.Steel => new Color(0.75f, 0.78f, 0.85f, 0.85f),    // 강철
+            eDivineConcept.Chrono => new Color(0.95f, 0.62f, 0.30f, 0.85f),   // 황혼
+            eDivineConcept.Abyss => new Color(0.62f, 0.35f, 0.95f, 0.85f),    // 심연 보라
+            _ => DefaultAccent
+        };
         private bool _pulsing;
         private bool _wasReady;
         private bool _autoShown;
@@ -229,6 +246,24 @@ namespace KingdomIdle.UGUI
 
             if (_view.gradeBorder != null)
                 _view.gradeBorder.color = equipped ? DivineSkillSO.GetGradeColor(card.grade) : GradeBorderEmpty;
+
+            // 컨셉 스킨 — 링 아트는 전용 오버레이(ConceptRing, 208px)에만 얹는다.
+            // 프레임(청동 원판)은 rect·색 모두 건드리지 않는다: 버튼 히트 영역(176)·눌림 스케일·
+            // 플래시 기하가 스킨과 무관하게 고정되고, Button 의 ColorTint 가 색을 되돌리는 사고도 없다.
+            // 청동의 가시 밴드(r82~88)는 링 아트 몸체(r82~104)에 덮이므로 이중으로 보이지 않는다.
+            if (_view.conceptRing != null)
+            {
+                bool hasRing = equipped && card.buttonRingSprite != null;
+                if (hasRing) _view.conceptRing.sprite = card.buttonRingSprite;
+                if (_view.conceptRing.gameObject.activeSelf != hasRing)
+                    _view.conceptRing.gameObject.SetActive(hasRing);
+            }
+
+            var accent = equipped ? ConceptAccent(card.concept) : DefaultAccent;
+            if (_view.readyGlow != null)
+                _view.readyGlow.color = new Color(accent.r, accent.g, accent.b, _view.readyGlow.color.a);
+            if (_view.castFlash != null)
+                UITween.SetFlashRingBaseColor(_view.castFlash, accent);
 
             // 미장착 = 흐린 빈 디스크 (버튼 링은 disabledColor, 디스크는 직접 알파를 낮춘다)
             if (_view.disc != null)

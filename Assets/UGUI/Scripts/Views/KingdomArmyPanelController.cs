@@ -28,6 +28,10 @@ namespace KingdomIdle.UGUI
 
         private static int _activeMemberIndex;
         private static SubMenu _activeSubMenu;
+        private static int _pendingMemberIndex = -1;   // 다음 Populate에서 선택할 멤버 (파티 HUD 초상화 탭 라우팅)
+
+        /// <summary>패널을 열기 전에 호출하면 해당 멤버가 선택된 상태로 열린다 (1회성).</summary>
+        public static void SetPendingMemberIndex(int index) => _pendingMemberIndex = index;
 
         private static KingdomArmyPanelView _view;
         private static readonly List<NavTabButtonView> _memberTabButtons = new();
@@ -57,6 +61,11 @@ namespace KingdomIdle.UGUI
 
         public static void Populate(KingdomArmyPanelView view)
         {
+            // 예약 인덱스는 어떤 경로로 빠져나가든 여기서 소비한다 — 아래 early return 에 걸려
+            // 살아남으면 나중에 엉뚱한 열기(탭 버튼 등)에서 뒤늦게 발화한다.
+            int pendingMember = _pendingMemberIndex;
+            _pendingMemberIndex = -1;
+
             if (view == null) return;
 
             _view = view;
@@ -83,7 +92,9 @@ namespace KingdomIdle.UGUI
             }
 
             _players = _mgr.GetPlayers();
-            _activeMemberIndex = 0;
+            _activeMemberIndex = pendingMember >= 0 && _players != null && _players.Count > 0
+                ? Mathf.Clamp(pendingMember, 0, _players.Count - 1)
+                : 0;
             _activeSubMenu = SubMenu.Character;
 
             BuildMemberTabs();
@@ -124,7 +135,7 @@ namespace KingdomIdle.UGUI
                 if (i < _players.Count && _players[i] != null && _mgr.JobDB != null && _players[i].playerStatus != null)
                 {
                     var jobData = _mgr.JobDB.GetJob(_players[i].playerStatus.JobName);
-                    if (jobData != null) memberIcon = jobData.jobSprite;
+                    if (jobData != null) memberIcon = jobData.Portrait;
                 }
                 tab.SetIcon(memberIcon);
                 tab.Button.onClick.AddListener(() =>
@@ -907,7 +918,7 @@ namespace KingdomIdle.UGUI
             }
 
             // ── 직업 헤더 (이미지 + 이름 + 상태 배지) ──
-            SetIconSprite(detail.image, job.jobSprite);
+            SetIconSprite(detail.image, job.Portrait);
             if (detail.jobNameLabel != null) detail.jobNameLabel.text = job.jobName;
 
             // 상태 배지

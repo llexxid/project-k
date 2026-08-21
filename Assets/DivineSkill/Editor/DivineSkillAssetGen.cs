@@ -28,6 +28,7 @@ namespace KingdomIdle.Divine.EditorTools
             public string skillNameKor;
             public string description;
             public eDivineGrade grade;
+            public eDivineConcept concept;
             public float cooldown;
             public eDivineEffectKind kind;
             public float mult;
@@ -46,35 +47,35 @@ namespace KingdomIdle.Divine.EditorTools
                 id = 1, assetName = "DivineSkill_Lumen", nameEng = "Lumen",
                 nameKor = "새벽의 여신 루멘", skillNameKor = "여명의 심판",
                 description = "전장 전체에 즉발 데미지. 파티 ATK합 × 12.",
-                grade = eDivineGrade.Hero, cooldown = 30f,
+                grade = eDivineGrade.Hero, concept = eDivineConcept.Holy, cooldown = 30f,
                 kind = eDivineEffectKind.AoeBurst, mult = 12f
             },
             new CardDef {
                 id = 2, assetName = "DivineSkill_Gaien", nameEng = "Gaien",
                 nameKor = "대지의 여신 가이엔", skillNameKor = "대지의 포옹",
                 description = "파티 전체 MAXHP 25% 즉시 회복 + 10초간 받는 피해 -20%.",
-                grade = eDivineGrade.Hero, cooldown = 40f,
+                grade = eDivineGrade.Hero, concept = eDivineConcept.Nature, cooldown = 40f,
                 kind = eDivineEffectKind.HealAndGuard, mult = 0.25f, duration = 10f
             },
             new CardDef {
                 id = 3, assetName = "DivineSkill_Silphir", nameEng = "Silphir",
                 nameKor = "질풍의 여신 실피르", skillNameKor = "폭풍 가속",
                 description = "12초간 파티 기본 스킬 간격 -30%, 이동속도 +30%.",
-                grade = eDivineGrade.Hero, cooldown = 40f,
+                grade = eDivineGrade.Hero, concept = eDivineConcept.Wind, cooldown = 40f,
                 kind = eDivineEffectKind.PartyHaste, mult = 0f, duration = 12f
             },
             new CardDef {
                 id = 4, assetName = "DivineSkill_Ferrum", nameEng = "Ferrum",
                 nameKor = "강철의 마왕 페룸", skillNameKor = "파멸의 참격",
                 description = "단일 대상(보스 우선) 파티 ATK합 × 30. 보스전 특화.",
-                grade = eDivineGrade.Hero, cooldown = 35f,
+                grade = eDivineGrade.Hero, concept = eDivineConcept.Steel, cooldown = 35f,
                 kind = eDivineEffectKind.SingleBurst, mult = 30f
             },
             new CardDef {
                 id = 5, assetName = "DivineSkill_Hora", nameEng = "Hora",
                 nameKor = "시간의 여신 호라", skillNameKor = "시간의 균열",
                 description = "8초간 적 전체 이동속도 -50% + 파티 ATK합 × 20 광역 데미지.",
-                grade = eDivineGrade.Legend, cooldown = 45f,
+                grade = eDivineGrade.Legend, concept = eDivineConcept.Chrono, cooldown = 45f,
                 kind = eDivineEffectKind.AoeBurst, mult = 20f,
                 cc = eDivineCrowdControl.Slow, ccDuration = 8f, slowPercent = 0.5f
             },
@@ -82,14 +83,14 @@ namespace KingdomIdle.Divine.EditorTools
                 id = 6, assetName = "DivineSkill_Ignis", nameEng = "Ignis",
                 nameKor = "폭염의 마왕 이그니스", skillNameKor = "지옥불 강림",
                 description = "전장 광역 지속 피해. 파티 ATK합 × 6 × 6히트 (6초간).",
-                grade = eDivineGrade.Legend, cooldown = 45f,
+                grade = eDivineGrade.Legend, concept = eDivineConcept.Flame, cooldown = 45f,
                 kind = eDivineEffectKind.Dot, mult = 6f, hits = 6, duration = 6f
             },
             new CardDef {
                 id = 7, assetName = "DivineSkill_Astra", nameEng = "Astra",
                 nameKor = "심판의 여신 아스트라", skillNameKor = "별의 낙하",
                 description = "전장 전체 파티 ATK합 × 40 즉발 + 3초 기절.",
-                grade = eDivineGrade.Myth, cooldown = 50f,
+                grade = eDivineGrade.Myth, concept = eDivineConcept.Holy, cooldown = 50f,
                 kind = eDivineEffectKind.AoeBurst, mult = 40f,
                 cc = eDivineCrowdControl.Stun, ccDuration = 3f
             },
@@ -97,7 +98,7 @@ namespace KingdomIdle.Divine.EditorTools
                 id = 8, assetName = "DivineSkill_Nox", nameEng = "Nox",
                 nameKor = "심연의 마왕 녹스", skillNameKor = "심연의 손아귀",
                 description = "적 전체 3초 속박 후 파티 ATK합 × 36. (처치 골드 +100% 는 미구현)",
-                grade = eDivineGrade.Myth, cooldown = 50f,
+                grade = eDivineGrade.Myth, concept = eDivineConcept.Abyss, cooldown = 50f,
                 kind = eDivineEffectKind.AoeBurst, mult = 36f, castDelay = 3f,
                 cc = eDivineCrowdControl.Stun, ccDuration = 3f
             },
@@ -146,6 +147,7 @@ namespace KingdomIdle.Divine.EditorTools
             so.skillNameKor = def.skillNameKor;
             so.description = def.description;
             so.grade = def.grade;
+            so.concept = def.concept;
             so.cooldown = def.cooldown;
 
             so.effectKind = def.kind;

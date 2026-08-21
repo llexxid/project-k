@@ -57,6 +57,15 @@ namespace KingdomIdle.UGUI
         public Sprite iconBook;         // 스킬
         public Sprite iconWand;         // 마법탑 스킬 뽑기
         public Sprite iconChest;        // 장비 뽑기 / 보상
+
+        // 왕국군 스킬 슬롯용 미니멀 픽셀 아이콘 (PixelArtGUI2 32px 원본 — 런타임 참조라 카탈로그에 담는다)
+        public Sprite iconSkillSword;   // 근접 기본공격
+        public Sprite iconSkillBow;     // 원거리 기본공격
+        public Sprite iconSkillWand;    // 마법 기본공격
+        public Sprite iconSkillShield;  // 방어/보호 오라
+        public Sprite iconSkillPotion;  // 자가 회복 (강철의지)
+        public Sprite iconSkillArrows;  // 집중사격
+        public Sprite iconSkillStar;    // 에너지 파동
         public Sprite iconGem;          // 재료·기타
         public Sprite iconCoin;         // 골드
         public Sprite iconAncientCoin;  // 고대주화(청동)

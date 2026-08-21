@@ -12,7 +12,11 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal RectTransform root;      // 흔들림/호흡의 대상
         [SerializeField] internal Image towerImage;        // 기본 마탑
         [SerializeField] internal Image litImage;          // 점등 변형 (알파 0에서 시작)
-        [SerializeField] internal Image baseGlow;          // 바닥 접합부 보라 광원 (장식)
+        [SerializeField] internal Image baseGlow;
+        [SerializeField] internal RectTransform crystalRoot;   // 부유 애니메이션 대상 (탑과 독립)
+        [SerializeField] internal Image crystalImage;          // 푸른 수정 본체
+        [SerializeField] internal Image crystalGlow;           // 수정 뒤 광원 — 스킬 발동 시 반짝인다
+        [SerializeField] internal CanvasGroup crystalGlowGroup;          // 바닥 접합부 보라 광원 (장식)
         [SerializeField] internal Button button;
         [SerializeField] internal CanvasGroup litGroup;    // 점등 크로스페이드용
     }
