@@ -1,6 +1,7 @@
 using Scripts.Core;
 using Scripts.Monster;
 using System.Collections.Generic;
+using Scripts.Core.inteface;
 using UnityEngine;
 
 /// <summary>
@@ -14,12 +15,13 @@ public sealed class BasicAttackProjectile : ActiveSkill
     private readonly float _aoeRadius;
     private readonly float _projectileSpeed;
     private readonly float _damageMultiplier;
+    private IDamageable _pendingTarget;
     private readonly Queue<MageProjectile> _pool = new Queue<MageProjectile>();
 
     private const float PROJECTILE_LIFETIME = 10f;
 
     // 애니메이션 종료 후 발사를 위한 상태
-    private enum Phase { Idle, WaitingForAnimEnd }
+    private enum Phase { Idle, WaitingForReleaseEvent }
     private Phase _phase = Phase.Idle;
     private float _fireTime;
     private int _pendingDamage;
@@ -55,39 +57,85 @@ public sealed class BasicAttackProjectile : ActiveSkill
 
     public override float Execute()
     {
+        _pendingTarget = _player.currentTarget;
+        
         int baseAtk = _player.playerStatus?.Atk ?? 0;
         _pendingDamage = Mathf.RoundToInt(baseAtk * _damageMultiplier);
+        
+         _phase = Phase.WaitingForReleaseEvent;
 
-        float animLen = GetAttackAnimLength();
-        _player.SetAnimation(ePlayerAction.Attack);
+         Player.AttackAnimationTiming timing =
+             _player.PlayBasicSkillAnimation(_cooldown);
 
-        _phase = Phase.WaitingForAnimEnd;
-        _fireTime = Time.time + animLen;
+         _nextAvailableTime =
+             Time.time + timing.EffectiveInterval;
 
-        _nextAvailableTime = Time.time + animLen + _cooldown;
-        return animLen;
+         return timing.AnimationDuration;
     }
 
-    public override void Tick()
+    public void OnProjectileRelease()
     {
-        if (_phase != Phase.WaitingForAnimEnd) return;
-        if (Time.time < _fireTime) return;
+        if (_phase != Phase.WaitingForReleaseEvent)
+            return;
 
         _phase = Phase.Idle;
 
-        // 애니메이션 끝 시점에 현재 타겟 방향으로 발사
-        Vector2 dir = Vector2.right;
-        var target = _player.currentTarget;
-        if (target != null)
-            dir = ((Vector2)target.targetPos - (Vector2)_player.transform.position).normalized;
+        MageProjectile projectile = GetProjectile();
 
-        MageProjectile proj = GetProjectile();
-        if (proj != null)
+        if (projectile == null)
+            return;
+
+        projectile.transform.position =
+            _player.transform.position;
+        
+        projectile.FireToTarget(
+            _player,
+            _pendingTarget,
+            _projectileSpeed,
+            _pendingDamage,
+            _aoeRadius,
+            PROJECTILE_LIFETIME);
+
+        _pendingTarget = null;     
+        
+        /*Vector2 direction =
+            _player.transform.localScale.x >= 0f
+                ? Vector2.right
+                : Vector2.left;
+
+        IDamageable target = _pendingTarget;
+
+        if (target != null)
         {
-            proj.transform.position = _player.transform.position;
-            proj.Fire(_player, dir, speed: _projectileSpeed, damage: _pendingDamage, _aoeRadius, PROJECTILE_LIFETIME);
+            var targetObject = target as MonoBehaviour;
+
+            if (targetObject != null &&
+                targetObject.gameObject.activeInHierarchy)
+            {
+                direction =
+                    ((Vector2)target.targetPos -
+                     (Vector2)_player.transform.position).normalized;
+            }
         }
+
+        MageProjectile projectile = GetProjectile();
+
+        if (projectile == null)
+            return;
+
+        projectile.transform.position =
+            _player.transform.position;
+
+        projectile.Fire(
+            _player,
+            direction,
+            _projectileSpeed,
+            _pendingDamage,
+            _aoeRadius,
+            PROJECTILE_LIFETIME);
+            */
     }
+    public override void Tick(){}
 
     private MageProjectile GetProjectile()
     {

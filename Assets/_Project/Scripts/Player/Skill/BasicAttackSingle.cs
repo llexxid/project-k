@@ -43,20 +43,33 @@ public sealed class BasicAttackSingle : ActiveSkill
 
     public override float Execute()
     {
-        var target = _player.currentTarget;
+        IDamageable target = _player.currentTarget;
         int baseAtk = _player.playerStatus?.Atk ?? 0;
         int damage = Mathf.RoundToInt(baseAtk * _damageMultiplier);
 
         _targets.Clear();
         _targets.Add(target);
+        
+        //아직 피해를 주지 않고 Animation Event까지 예약
         _player.SetPendingSkillDamage(_targets, damage);
 
-        float animLen = GetAttackAnimLength();
+        Player.AttackAnimationTiming timing =
+            _player.PlayBasicSkillAnimation(_cooldown);
+
+        // 쿨타임은 스킬 발동 시작 시점부터 계산한다.
+        _nextAvailableTime =
+            Time.time + timing.EffectiveInterval;
+
+        // SkillSystem의 busy는 실제 애니메이션 시간만 사용한다.
+        return timing.AnimationDuration;
+
+        /*
+         float animLen = GetAttackAnimLength();
         _player.SetAnimation(ePlayerAction.Attack);
         // 기본공격 사이클(애니메이션 + 쿨타임) 동안 이동 금지
         _player.ExtendAttackLock(animLen + _cooldown);
 
         _nextAvailableTime = Time.time + animLen + _cooldown;
-        return animLen;
+        */
     }
 }

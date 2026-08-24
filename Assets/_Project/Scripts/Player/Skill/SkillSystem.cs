@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -8,8 +9,7 @@ public class SkillSystem
 {
     private readonly Player _player;
     private ActiveSkill _basicAttack;
-    private readonly System.Collections.Generic.List<ActiveSkill> _specials
-        = new System.Collections.Generic.List<ActiveSkill>();
+    private readonly List<ActiveSkill> _specials = new();
     private float _busyUntil;
 
     /// <summary>기본공격 사거리 (Move 정지 거리 · Detection 반경 결정).</summary>
@@ -78,6 +78,13 @@ public class SkillSystem
         }
     }
 
+    public void HandleProjectileRelease()
+    {
+        if (_basicAttack is BasicAttackProjectile projectileSkill)
+        {
+            projectileSkill.OnProjectileRelease();
+        }
+    }
     private ActiveSkill CreateBasicAttack(BasicAttackConfig cfg)
     {
         switch (cfg.type)

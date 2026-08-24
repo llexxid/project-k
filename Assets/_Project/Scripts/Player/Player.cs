@@ -61,12 +61,16 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     private PlayerData _data;
     private User _user;
     private bool _isDead;
-    
+    private const float MAX_ATTACK_ANIMATION_SPEED = 3f; //스킬모션 최대 스피드(3배까지) 
+    private const float MIN_SKILL_INTERVAL = 0.1f; //스킬모션 최소 작동시간(0.1초까지)
+
     //Animation
     private AnimatorComponent<ePlayerAction> _animatorComponent;
     private ePlayerAction _currentAction = ePlayerAction.Idle;
     private float _attackAnimEndTime;
     private bool _pendingAnimRecovery;
+    private static readonly int AttackStateHash = Animator.StringToHash("Attack_Anim");
+    private static readonly int AttackAnimationSpeedHash = Animator.StringToHash("AttackAnimSpeed");
     
     //Skill
     private readonly List<IDamageable> _pendingSkillTargets = new List<IDamageable>();
@@ -127,7 +131,68 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     #endregion
 
     #region Animation
+    public readonly struct AttackAnimationTiming
+    {
+        public readonly float AnimationDuration;
+        public readonly float EffectiveInterval;
+        public readonly float PlaybackSpeed;
 
+        public AttackAnimationTiming(
+            float animationDuration,
+            float effectiveInterval,
+            float playbackSpeed)
+        {
+            AnimationDuration = animationDuration;
+            EffectiveInterval = effectiveInterval;
+            PlaybackSpeed = playbackSpeed;
+        }
+    }
+    
+    public AttackAnimationTiming PlayBasicSkillAnimation(
+        float requestedInterval)
+    {
+        float clipLength = GetClipLength("Attack_Anim", 0.4f);
+
+        float safeInterval = Mathf.Max(
+            requestedInterval,
+            MIN_SKILL_INTERVAL);
+
+        // 간격보다 클립이 길 때만 애니메이션을 빠르게 한다.
+        float requiredSpeed = clipLength / safeInterval;
+        float playbackSpeed = Mathf.Clamp(
+            requiredSpeed,
+            1f,
+            MAX_ATTACK_ANIMATION_SPEED);
+
+        float animationDuration = clipLength / playbackSpeed;
+
+        // 3배속으로도 모션을 완료할 수 없는 간격이면 실제 스킬 발동 간격도 애니메이션 완료 시간으로 제한
+        float effectiveInterval = Mathf.Max(
+            safeInterval,
+            animationDuration);
+
+        _pendingAnimRecovery = false;
+        _attackAnimEndTime = Time.time + animationDuration;
+
+        if (_currentAction == ePlayerAction.Idle ||
+            _currentAction == ePlayerAction.Walk)
+        {
+            _animatorComponent.TrySetBool(_currentAction, false);
+        }
+
+        _am.SetFloat(AttackAnimationSpeedHash, playbackSpeed);
+
+        // 바로 전 공격 상태가 아직 남아 있어도 항상 처음부터 재생
+        _am.Play(AttackStateHash, 0, 0f);
+
+        _currentAction = ePlayerAction.Attack;
+
+        return new AttackAnimationTiming(
+            animationDuration,
+            effectiveInterval,
+            playbackSpeed);
+    }
+    
     private IEnumerator PauseAfterDeadAnimation()
     {
         float deadAnimLength = GetClipLength("Dead_Anim");
@@ -256,7 +321,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
     #region Battle
 
-        /// <summary>
+    /// <summary>
     /// 기본공격 사이클(애니메이션 + 쿨타임) 동안 이동 금지를 유지하기 위해
     /// _attackAnimEndTime 을 연장한다. 이미 더 먼 시점이면 유지.
     /// </summary>
@@ -373,6 +438,14 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         _hasPendingSkillDamage = _pendingSkillTargets.Count > 0;
     }
 
+    public void OnProjectileRelease()
+    {
+        skillSystem?.HandleProjectileRelease();
+    }
+    
+    // 기본공격 Animation Event → OnSkillHit 위임
+    public void OnAttackHit() => OnSkillHit();
+    
     // 스킬 데미지 적용 (Animation Event)
     public void OnSkillHit()
     {
@@ -395,11 +468,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         _pendingSkillTargets.Clear();
     }
 
-    // 기본공격 Animation Event → OnSkillHit 위임
-    public void OnAttackHit()
-    {
-        OnSkillHit();
-    }
 
     #endregion
 
