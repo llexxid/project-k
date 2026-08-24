@@ -88,55 +88,56 @@ namespace Scripts.Core
         #endregion
 
         #region 씬 변경 관리
-            /// <summary> 씬 변경이 완료되었을 시 진행되는 후처리과정 </summary>
-            private void OnSceneLoaded(Scene scene, LoadSceneMode mode) => HandleSceneReadyAsync(scene, mode).Forget();
-            /// <summary> 1프레임 대기한 후 실제로 후처리 진행하는 메서드</summary>
-            private async UniTaskVoid HandleSceneReadyAsync(Scene scene, LoadSceneMode mode)
+        
+        /// <summary> 씬 변경이 완료되었을 시 진행되는 후처리과정 </summary>
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode) => HandleSceneReadyAsync(scene, mode).Forget();
+        /// <summary> 1프레임 대기한 후 실제로 후처리 진행하는 메서드</summary>
+        private async UniTaskVoid HandleSceneReadyAsync(Scene scene, LoadSceneMode mode)
+        {
+            //해당 메서드는 나중에 씬별 메서드를 따로 만들거나 핸들러 딕셔너리 등 정리할 필요가 있음
+            try
             {
-                //해당 메서드는 나중에 씬별 메서드를 따로 만들거나 핸들러 딕셔너리 등 정리할 필요가 있음
-                try
+                // 1프레임 대기해서 Start()까지 다 끝난 뒤 실행을 보장
+                await UniTask.NextFrame();
+                if (LoadManager.Instance == null)
+                    return;
+                if (scene.name == LoadManager.Instance.GetSceneName(eSceneType.main))
                 {
-                    // 1프레임 대기해서 Start()까지 다 끝난 뒤 실행을 보장
-                    await UniTask.NextFrame();
-                    if (LoadManager.Instance == null)
-                        return;
-                    if (scene.name == LoadManager.Instance.GetSceneName(eSceneType.main))
-                    {
-                        HandleMainSceneReady();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"[GameManager] Scene ready handling failed: {scene.name}\n{ex}");
+                    HandleMainSceneReady();
                 }
             }
-
-            private void HandleMainSceneReady()
+            catch (Exception ex)
             {
-                Debug.Log("메인 씬 진입");
-
-                MonsterSpawner.Instance.OnEnterScene();
-                VFXManager.Instance.OnEnterScene();
-                SFXManager.Instance.PlayBGM(eSFXType.BGM);
-
-                if (Camera.main != null && Camera.main.GetComponent<CameraFade>() == null)
-                    Camera.main.gameObject.AddComponent<CameraFade>();
-
-                UserManager.Instance.CreateCharacter();
-                eStage curUserStage = UserManager.Instance.GetUserCurrentStage();
-
-                void BeginMainStage()
-                {
-                    if (StageManager.Instance != null)
-                        StageManager.Instance.BeginStage(curUserStage);
-                }
-
-                // 오프라인 보상이 정산된 후 메인스테이지를 시작하게 해서 오프라인 보상 요청과 스테이지 사냥 보상 요청의 순서가 섞이지 않게 조정
-                if (OfflineReward != null)
-                    OfflineReward.TryClaim(curUserStage, BeginMainStage);
-                else
-                    BeginMainStage();
+                Debug.LogError($"[GameManager] Scene ready handling failed: {scene.name}\n{ex}");
             }
+        }
+
+        private void HandleMainSceneReady()
+        {
+            Debug.Log("메인 씬 진입");
+
+            MonsterSpawner.Instance.OnEnterScene();
+            VFXManager.Instance.OnEnterScene();
+            SFXManager.Instance.PlayBGM(eSFXType.BGM);
+
+            if (Camera.main != null && Camera.main.GetComponent<CameraFade>() == null)
+                Camera.main.gameObject.AddComponent<CameraFade>();
+
+            UserManager.Instance.CreateCharacter();
+            eStage curUserStage = UserManager.Instance.GetUserCurrentStage();
+
+            void BeginMainStage()
+            {
+                if (StageManager.Instance != null)
+                    StageManager.Instance.BeginStage(curUserStage);
+            }
+
+            // 오프라인 보상이 정산된 후 메인스테이지를 시작하게 해서 오프라인 보상 요청과 스테이지 사냥 보상 요청의 순서가 섞이지 않게 조정
+            if (OfflineReward != null)
+                OfflineReward.TryClaim(curUserStage, BeginMainStage);
+            else
+                BeginMainStage();
+        }
         
         #endregion
 
