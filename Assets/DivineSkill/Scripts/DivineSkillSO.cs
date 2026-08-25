@@ -32,8 +32,10 @@ namespace KingdomIdle.Divine
         [Header("아트")]
         [Tooltip("HUD 슬롯·컬렉션 그리드용 정사각 아이콘.")]
         public Sprite icon;
-        [Tooltip("컬렉션북·컷인용 전신 일러스트.")]
+        [Tooltip("컬렉션북(도감) 상세용 스탠딩 일러스트.")]
         public Sprite illustration;
+        [Tooltip("컷인 전용 컷씬 컷아웃(투명 배경). 비면 illustration → icon 순으로 대체된다.")]
+        public Sprite cutInIllustration;
         [Tooltip("궁극기 버튼 컨셉 링 프레임(176px 원형, 중앙 투명). 비면 기본 청동 링 유지.")]
         public Sprite buttonRingSprite;
 

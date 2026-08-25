@@ -141,8 +141,10 @@ namespace KingdomIdle.UGUI
             float total = card.cutInDuration > 0.05f ? card.cutInDuration : DefaultDuration;
             var gradeColor = DivineSkillSO.GetGradeColor(card.grade);
 
-            // 일러스트가 없으면 아이콘으로, 둘 다 없으면 이미지 자체를 끄고 이름 플레이트만으로 진행한다
-            var sprite = card.illustration != null ? card.illustration : card.icon;
+            // 컷씬 컷아웃 → 스탠딩 → 아이콘 순. 셋 다 없으면 이미지를 끄고 이름 플레이트만으로 진행한다
+            var sprite = card.cutInIllustration != null ? card.cutInIllustration
+                       : card.illustration != null ? card.illustration
+                       : card.icon;
 
             // 알파 0은 컬링될 수 있어 입력 차단이 풀린다 — 첫 프레임부터 아주 옅게 깔아 둔다
             if (_view.scrim != null)

@@ -2,63 +2,29 @@
 
 Rulebook for AI agents on this project. Complements `CLAUDE.md`. Follow exactly.
 
-## Art assets — ComfyUI first
-1. **Generate all art via ComfyUI** (comfy-cloud MCP): icons, sprites, spritesheets, VFX, UI, portraits.
-2. **Exception (allowed):** first make a temporary base yourself (procedural draw, recolor, keyed frames,
-   clean silhouette) when that produces a better or more on-style result, then feed it to ComfyUI
-   (img2img / style-reference) for the final art. Prefer this over raw text-to-image when structure matters.
-3. **Match project style.** Feed real project reference assets (existing sprites, `FireTornado.png`,
-   hit effects) to ComfyUI as img2img / style reference. Do not ship generic SDXL output that looks
-   off-style. Palette-snap to the project fire/UI ramps where relevant (see `AI/comfyui/style_spec_fire.md`).
-4. **Iterate + verify every time.** Generate → view the result → judge direction. If it is off-style or
-   off-direction, immediately change the ComfyUI workflow (prompt, denoise, LoRA, ControlNet/IP-Adapter,
-   model, resolution) before generating more. Never keep generating in a wrong direction.
-5. **Research when unsure.** Check the web and the Comfy catalog (`search_models`/`search_templates`/
-   `search_nodes`) for the best model/tool/settings for the task.
-6. **Batch candidates** with `submit_batch`; OSS SDXL runs are ~0 paid credits (GPU-time only).
+## Art assets — 조달 순서
 
-## Division of labor
-- **ComfyUI** = the art (diffusion).
-- **Procedural (PIL/numpy)** = only what diffusion can't control: alpha keying, palette-snap, and
-  animation timing / impact (타격감). Tools live in `AI/tools/`.
-- **Deterministic recolor** is fine for exact variants of existing art (e.g. alt-palette class).
+1. **기성 키트 먼저.** 프로젝트에 이미 있는 것: `Assets/ExternalAssets/PixelArtGUI2`
+   (도트 GUI: 패널/버튼/프레임/32·48px 아이콘 — 이 프로젝트 톤에 가장 잘 맞는다),
+   `TinyRPG`, `5000FantasyIcons`, `Medieval Tools & Weapons Package`, Layer Lab Minimal Game Dark.
+   **명시 경로로 로드한다** — 같은 파일명이 여러 해상도에 있어 이름 검색은 8px 아이콘을 집어온다.
+2. **기존 아트에서 결정론적으로 파생.** 초상화·버스트는 실제 스프라이트 시트를 잘라
+   정수배 NEAREST 확대 + 알파 이진화. 확산 모델은 14~29색 시트를 재현하지 못한다.
+3. **그래도 없으면 생성.** 신 캐릭터 아트, 마탑 프롭처럼 원본이 아예 없는 것만.
 
-## Files & hygiene
-- Stage generated art under `AI/` (outside `Assets/`) until reviewed; approved art → `Assets/Generated/ComfyUI/`.
-- Delete rejected candidates to save space. Keep source stills used by a final asset.
+생성 파이프라인의 실행 규칙·환경 제약·하드원 함정은 **`AI/comfyui/README.md`** 에 있다.
+생성 작업 전에 그 문서를 먼저 읽는다.
 
-## Unity / Git
-- See `CLAUDE.md`. Editing a `.cs` file ≠ changing Unity state; use Unity MCP for scene/prefab/SO work.
-- No destructive git without approval.
+## 생성 시 지출 가시성
 
-## Use ALL tools — paid included
-- Do **not** restrict to free OSS models. Use partner/API models (Nano Banana, Seedream, GPT-Image,
-  Ideogram, etc.) **when they help**, and use ControlNet / IP-Adapter / upscalers / video / interpolation.
-- Note: OSS graphs (SDXL, Pixel Art XL, IP-Adapter) estimate as "0 paid credits" but still consume your
-  Comfy Cloud **subscription GPU compute** — "0 credits" ≠ free. Partner nodes cost metered credits.
-- Spend is allowed. Just **report how heavy the run was** (rough count of generations / partner calls /
-  compute) so cost stays visible. Prefer `submit_batch` and multi-agent Workflows to go wide.
+- 지출은 허용되지만 **얼마나 썼는지 보고**한다 (`get_usage_report`).
+- 유료 노드가 실패하면 부분 출력도 회수되지 않고 이미 나간 호출은 과금된다.
+  새 프롬프트는 저비용 설정으로 한 번 검증한 뒤 프로덕션으로 올린다.
 
-## Reference-guided generation (this is the real "customize the workflow")
-- Feed the project's ACTUAL art into ComfyUI — never rely on text prompts alone.
-  - **IP-Adapter** (style): `IPAdapterModelLoader` (`ip-adapter_sdxl_vit-h.safetensors`) +
-    `CLIPVisionLoader` (`CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors`) + `IPAdapterAdvanced`
-    (`weight_type:"style transfer"`, weight ~0.6–0.7; higher bleeds the ref background). Pack:
-    `comfyui_ipadapter_plus`. Fire refs: `FireTornado.png`, `Hit Effect 01`.
-  - **ControlNet** (structure) and **img2img** (from an authored base) to hold composition.
-- Try multiple models/LoRAs; fan out candidates; adversarially judge which best matches the game.
+## 검증은 인게임에서
 
-## Animation / motion (learned the hard way)
-- **ComfyUI cannot create motion** — it styles frames. **Author the motion**, then style each frame.
-- Method: author motion frames → pack into ONE grid image → single img2img+IPAdapter style pass →
-  slice back → key to alpha → palette-snap → assemble. Frames stay consistent (shared seed/structure).
-- **Explosions must be real motion, not scale-in-place.** A blob that grows then shrinks is wrong.
-  Model it **ballistically**: fire gushes UP forcefully → gravity arcs it → it FALLS and SPREADS
-  outward into a wide ground blaze → burns out (up → arc → spread → die). Reference the feel, don't copy.
-
-## Verify in-engine
-- After producing an asset, use **Unity MCP** (`Unity_SceneView_Capture*` / camera capture) to place it in
-  the real scene and screenshot it — judge style **in context**, not just as an isolated sprite.
+에셋을 만든 뒤에는 실제 화면에 올려 캡처해 **맥락 속에서** 판단한다.
+격리된 스프라이트만 보고 판정하지 않는다.
 
 ## Recurring product rules (standing requirements)
 > Meta-rule: whenever the user states a requirement that should apply to future work too
@@ -68,8 +34,7 @@ Rulebook for AI agents on this project. Complements `CLAUDE.md`. Follow exactly.
   Use lightweight unscaled-time coroutines (UITween 계열); restart them on re-activation
   (UGUI coroutines die permanently when the GameObject is deactivated).
 - **Concept consistency:** UI = rustic dark wood + bronze trim (`UguiTheme` Rustic* tokens,
-  Layer Lab Minimal Game Dark assets). Character/card art = `AI/comfyui/style_spec_character.md`
-  (locked reference set), VFX = flat 4–6 colors, no dark outline (§6 of the spec).
+  Layer Lab Minimal Game Dark assets). 신 캐릭터 아트 = `AI/comfyui/README.md` §7 아트 디렉션 락, VFX = flat 4–6 colors, no dark outline (§6 of the spec).
 - **Anything shown next to the in-game sprites must match THEIR dot resolution** — party-HUD
   portraits, skill icons, etc. The real job sprites measure **14–29 unique colors**; the card
   illustration spec (thousands of colors) is for key art only. Follow **§8** of the style spec:
@@ -81,26 +46,20 @@ Rulebook for AI agents on this project. Complements `CLAUDE.md`. Follow exactly.
   (masking, sweeps, palette pulses, Unity Animation) — never per-frame diffusion.
 - **Decoration must never hurt readability or usability.** If ornamentation competes with
   text legibility, tap targets, or information hierarchy, cut the ornamentation.
-- **Existing assets FIRST — generation is the last resort.** Before any Comfy call, search the
-  project's shipped kits. Known kits: `Assets/ExternalAssets/PixelArtGUI2` (도트 GUI: 패널/버튼/
-  프레임/32·48px 아이콘 — 이 프로젝트 톤에 가장 잘 맞는다), `TinyRPG`, `5000FantasyIcons`,
-  `Medieval Tools & Weapons Package`, Layer Lab Minimal Game Dark. Generate only what genuinely
-  does not exist, and say so.
 - **Portraits/busts come from the ACTUAL in-game sprite sheets**, not from generation. Crop the
   upper body, integer-upscale (NEAREST), binarize alpha. Diffusion cannot match a 14-color sheet;
-  the sheet already is the answer. (`AI/tools/bust_from_sprite.py` 계열)
+  the sheet already is the answer. (세션 스크래치패드의 `bust_from_sprite.py` 방식)
 - **Every art task carries an optimization pass.** New sprites must land in a Sprite Atlas
   (`KingdomIdle/Optimize/2) Create In-Build Sprite Atlases`). 도트 아트 = `Atlas_UIPixel`
   (Point + ASTC_4x4); 스무스 UI = `Atlas_UI` (Bilinear + ASTC_6x6). **ASTC 6x6 이상은 픽셀 아트를
   뭉갠다 — 도트는 4x4 가 상한.** mipmap off, readable off, POT/max 2048.
-- **Load shipped-kit sprites by EXPLICIT PATH, never by name search.** These kits ship the same
-  filename at many resolutions (`Icons/8/`, `Icons/32/`, …); `FindAssets("shield")` picks an
-  arbitrary one and the UI silently gets an 8px icon.
 - **FLAT art is authored in code, not generated.** When the brief says flat / no depth / "UI 처럼"
   (mage tower, panels, chips), draw it procedurally: flat color fields + one uniform dark outline,
   separation by **outline, never by shading**, then integer NEAREST upscale from a logical grid.
   Diffusion always sneaks in gradients and bevels, and flat art has no shading to fake — so code
-  wins on accuracy AND costs nothing to iterate. (`AI/tools/flat_tower.py` 계열)
+  wins on accuracy AND costs nothing to iterate. (세션 스크래치패드의 `flat_tower.py` 방식)
+- **신 8종의 디자인은 확정본이 아니다.** 예전 로스터 설정(예: Ignis = 남성 마왕)은 폐기됐다.
+  새 신을 만들 때는 사용자가 그때 주는 디자인 지시만을 기준으로 삼는다.
 - **Review a character ROSTER as a row, never one at a time.** Eight characters that each look fine
   alone can be interchangeable the moment they sit in a banner/collection grid — which is how the
   player actually sees them. Gate on: no two confusable in one second at 96px, no shared silhouette,
@@ -115,10 +74,6 @@ Rulebook for AI agents on this project. Complements `CLAUDE.md`. Follow exactly.
   deleted, not shrunk — express the idea as a notch in the outline instead. Budget detail
   60/30/10 top-weighted (head / torso+prop / below the waist); icons crop the bust, so
   detail below the waist is pure cost.
-- **Comfy partner slugs drift — verify before batching.** `get_prompting_guide(model: "partner")`
-  lists the live registry. Nano Banana 2 is `vertexai/nano-banana-2` (the old `GeminiNanoBanana2V2`
-  now bounces). A wrong slug inside `submit_batch` surfaces only as `validation.schema`, with no
-  hint which item is bad — test one item via `partner_generate` first, which names the real error.
 - **Wrong camera angle is fixed by REFERENCE-GUIDED REGENERATION, not by cropping or redrawing.**
   When existing art is drawn from the wrong angle (e.g. a tower drawn from slightly above so you see
   into its top), cropping cannot fix it — an elliptical element has no horizontal cut line that leaves

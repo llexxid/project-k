@@ -1,0 +1,367 @@
+{
+ "last_node_id": 51,
+ "last_link_id": 6,
+ "nodes": [
+  {
+   "id": 1,
+   "type": "LoadImage",
+   "pos": [
+    40,
+    40
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      1,
+      3,
+      5
+     ],
+     "slot_index": 0
+    },
+    {
+     "name": "MASK",
+     "type": "MASK",
+     "links": [],
+     "slot_index": 1
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "LoadImage"
+   },
+   "widgets_values": [
+    "277590b885e062452f2a286c81afd8a95bc89b3fa2c823df98cce916d81e042c.png"
+   ]
+  },
+  {
+   "id": 30,
+   "type": "OpenAIGPTImageNodeV2",
+   "pos": [
+    40,
+    400
+   ],
+   "size": [
+    420,
+    400
+   ],
+   "flags": {},
+   "order": 1,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "model.images.image_1",
+     "type": "IMAGE",
+     "link": 1
+    }
+   ],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      2
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "OpenAIGPTImageNodeV2"
+   },
+   "widgets_values": [
+    "Using the supplied IGNIS reference image as the exact identity - face, mature adult proportions, hairstyle and hair color order, costume construction and color palette - create IGNIS'S ULTIMATE-SKILL CUTSCENE CUT. Do not redesign her.\n\nPreserve exactly: her mature adult anime face, fully visible glowing crimson-red irises, extremely long red hair falling past her waist that shades from deep crimson roots through bright scarlet to glowing ember-orange tips and lifts at the ends as if caught in heat, her light warm brown skin, and her flame-woven dancer's regalia - a fitted sleeveless bodice of layered fire-silk, a low wrapped hip sash, and long flowing skirt panels split at the sides, fastened with thin blackened-iron rings at the hip and upper arm. The fire-silk reads as solid woven fabric with clean readable shapes; the flame lives only along the hems and trailing edges, never as an all-over blaze that swallows her silhouette. No gold, no crown, no visor, no armor, no cape, no wings, no horns.\n\nRENDERING STYLE - match this exactly, it is as important as the design:\nClean Japanese anime key-art rendering with soft cel shading, smooth even lighting and large flat readable color areas. A luminous, bright overall value key - she must read as clearly lit even against a dark backdrop. Delicate refined anime facial features with a soft jawline, a small nose and large clear expressive eyes. Crisp confident line work, restrained specular highlights, matte evenly-lit skin, minimal texture noise.\nHer complexion is EVEN and calm: the cheeks are the same light warm brown as the rest of her face, with\nat most a barely perceptible hint of warmth. No pink or red blush patch on the cheeks, no flushed nose\nbridge, no rosy cheek circles, no heated glow on the face.\nThis must NOT look like a dark painterly semi-realistic illustration: no heavy chiaroscuro, no dramatic rim-light-on-black, no glossy or oiled skin, no photorealistic muscle striation, no gritty texture overlay, no washed-out silhouette lost in shadow.\n\nWEAPON - a single mythic spear, drawn with strict structural accuracy:\nThe blade is LONG and FLAT - a slender, elongated, flattened double-edged spearhead like a mythic\npolearm, roughly a quarter of the total length, with a pronounced central ridge and a narrow taper\nto a fine point. Not a short leaf shape, not a knife, not a sword.\nThe blade is NOT on fire. It is HEATED METAL: dark steel that glows from within like iron fresh from\nthe forge - deep cherry red near the socket, brightening to orange and pale yellow-white along the\nedges and toward the tip, with faint heat shimmer. No licking flames, no fire wreath around the blade.\nThe haft is long, straight, dark iron-bound wood of even thickness, with small sparse glowing rune\nglyphs etched along it and around the socket - an ancient mystical alphabet, faint and evenly spaced.\nGEOMETRY - the single most important constraint:\nThe BLADE is dead straight. Its two edges are straight converging lines running from the socket to\nthe point, so the blade silhouette is a long narrow isosceles triangle. It is NOT curved, bowed,\nscimitar-shaped, sickle-shaped, leaf-bellied or wavy, and its tip is centered on the shaft axis, not\nswept to one side.\nThe HAFT is one perfectly straight rigid line in three dimensions, of even thickness, with no bow,\nbend, kink, S-curve or uneven taper.\nBLADE AND HAFT SHARE ONE AXIS. Draw the whole weapon as a single straight ruler line first, then put\nthe blade on one end - blade and haft must never meet at an angle.\nTHE SOCKET where blade meets haft must be clean and undistorted: a short plain cylindrical metal\nferrule, perfectly centred on the shaft axis and symmetric on both sides, the blade base flowing\nstraight out of it with no bulge, no kink, no bend, no swelling, no sudden change of direction and no\nsmeared or melted junction. Blade, ferrule and haft are three sections of one straight line.\nTHE ENTIRE WEAPON STAYS OUTSIDE HER SILHOUETTE. From the butt end to the tip, every part of the spear\nis seen against the open background - it never disappears behind her body, her arm, her hip, her hair\nor her flame drapes and then reappear on the other side. There is no hidden segment anywhere. Keep the\nwhole shaft clear of her outline so it reads as one unbroken straight line from end to end. This is\nmandatory: an interrupted shaft is the failure that keeps happening and it must not happen.\nUnder foreshortening the near end is larger and the far end smaller, but the weapon still reads as\ndead straight end to end.\n\nCOMPOSITION - match this camera and pose exactly:\nA BACK-VIEW cutscene cut, upper body and hips, seen from behind and slightly to her left so the\ncamera is largely looking at her BACK and the back of her streaming hair. She faces toward the RIGHT\nof the frame; her head turns into sharp profile toward that same direction, chin lifted, a fierce\ncommanding expression - the moment she orders the advance.\n\nShe holds the spear with her RIGHT HAND ONLY and LEVELS IT FORWARD, aiming in exactly the direction\nshe is facing. Her right arm extends forward and the haft lies along the SAME straight line as her\nforearm, so arm and shaft read as one continuous line.\n\nThe haft passes UNDER her right armpit and continues BACKWARD AND OUTWARD, away from her body, so the\nbutt end trails free in the open background BEHIND her, well clear of her back and her streaming hair.\nIt must travel outboard past her right flank and out into empty space - it must NOT angle inward across\nher torso, must NOT tuck in toward her spine, and must NOT vanish behind her body or her hair at any\npoint. The complete spear, butt end to blade tip, is silhouetted against the green with nothing\noverlapping it anywhere along its length: one straight unbroken line running from the lower-back\nquadrant of the frame out to the blade tip in front.\n\nPROPORTIONS ALONG THE WEAPON - follow these ratios literally:\nDivide the whole spear into ten equal parts measured from the butt end to the tip.\nHer fist closes on part 2, near the back. Parts 3 through 8 - SIX of the ten - are BARE HAFT running\nforward through empty space in front of her hand, with nothing on them but faint rune glyphs. Only\nparts 9 and 10 are the blade.\nSo there is a very long empty stretch of shaft between her fist and the socket: measured along the\nweapon, the fist-to-socket distance is at least THREE TIMES the length of her forearm, and the blade\nbegins far out in front of her, nowhere near her hand. Do not start the blade just past her fist and\ndo not let her hand sit near the socket or the middle of the shaft.\nPull the camera back far enough that this entire long weapon fits inside the frame with margin, even\nif that makes her body smaller in the composition. The weapon's length is the point of the shot. Her hand is closed firmly around the haft with every finger correct.\nHer left arm is free.\n\nHer enormous red hair and the flame drapes of her costume stream in one continuous direction behind\nher, long strands separating into ribbons. Airy, weightless, windswept.\n\nCRITICAL - the character and nothing else:\nThe entire background is one flat, uniform, pure chroma-key green (#00FF00) filling every pixel that is not Ignis herself or her spear. Absolutely nothing else in the frame: no sky, no ground, no scenery, no rocks, no smoke clouds, no scattered particles, no magic circles, no explosion, no floating props, no cast shadow, no background glow, no gradient, no vignette, no frame, no text. Do not use any green anywhere on her body, hair, skin, costume, haft or spearhead.\n\nKeep her head, her extended hand and the entire spear from spearhead to butt completely inside the frame. Clean crisp silhouette edges against the green so she can be cut out as a game cutscene overlay.\n\nPremium Japanese anime mobile-game key art intended for high-resolution pixel-art conversion. Avoid heavy red cheek blush, a flushed face, a shaft that disappears behind her body or hair, a shaft angled inward across her torso, a hand gripping near the middle or front of the haft, a blade close to her fist, a distorted socket, identity drift, a younger face, changed costume, a sword, a second weapon, a bent or warped haft, a curved spearhead, extra limbs, fused fingers, broken wrists or duplicated bodies.",
+    "gpt-image-2",
+    "1152x2048",
+    1024,
+    1024,
+    "opaque",
+    "high",
+    1,
+    20260921
+   ]
+  },
+  {
+   "id": 31,
+   "type": "SaveImage",
+   "pos": [
+    520,
+    400
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 2,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "link": 2
+    }
+   ],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "SaveImage"
+   },
+   "widgets_values": [
+    "Ignis/02_Ignis_Ultimate_Raw_A"
+   ]
+  },
+  {
+   "id": 40,
+   "type": "OpenAIGPTImageNodeV2",
+   "pos": [
+    40,
+    840
+   ],
+   "size": [
+    420,
+    400
+   ],
+   "flags": {},
+   "order": 3,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "model.images.image_1",
+     "type": "IMAGE",
+     "link": 3
+    }
+   ],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      4
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "OpenAIGPTImageNodeV2"
+   },
+   "widgets_values": [
+    "Using the supplied IGNIS reference image as the exact identity - face, mature adult proportions, hairstyle and hair color order, costume construction and color palette - create IGNIS'S ULTIMATE-SKILL CUTSCENE CUT. Do not redesign her.\n\nPreserve exactly: her mature adult anime face, fully visible glowing crimson-red irises, extremely long red hair falling past her waist that shades from deep crimson roots through bright scarlet to glowing ember-orange tips and lifts at the ends as if caught in heat, her light warm brown skin, and her flame-woven dancer's regalia - a fitted sleeveless bodice of layered fire-silk, a low wrapped hip sash, and long flowing skirt panels split at the sides, fastened with thin blackened-iron rings at the hip and upper arm. The fire-silk reads as solid woven fabric with clean readable shapes; the flame lives only along the hems and trailing edges, never as an all-over blaze that swallows her silhouette. No gold, no crown, no visor, no armor, no cape, no wings, no horns.\n\nRENDERING STYLE - match this exactly, it is as important as the design:\nClean Japanese anime key-art rendering with soft cel shading, smooth even lighting and large flat readable color areas. A luminous, bright overall value key - she must read as clearly lit even against a dark backdrop. Delicate refined anime facial features with a soft jawline, a small nose and large clear expressive eyes. Crisp confident line work, restrained specular highlights, matte evenly-lit skin, minimal texture noise.\nHer complexion is EVEN and calm: the cheeks are the same light warm brown as the rest of her face, with\nat most a barely perceptible hint of warmth. No pink or red blush patch on the cheeks, no flushed nose\nbridge, no rosy cheek circles, no heated glow on the face.\nThis must NOT look like a dark painterly semi-realistic illustration: no heavy chiaroscuro, no dramatic rim-light-on-black, no glossy or oiled skin, no photorealistic muscle striation, no gritty texture overlay, no washed-out silhouette lost in shadow.\n\nWEAPON - a single mythic spear, drawn with strict structural accuracy:\nThe blade is LONG and FLAT - a slender, elongated, flattened double-edged spearhead like a mythic\npolearm, roughly a quarter of the total length, with a pronounced central ridge and a narrow taper\nto a fine point. Not a short leaf shape, not a knife, not a sword.\nThe blade is NOT on fire. It is HEATED METAL: dark steel that glows from within like iron fresh from\nthe forge - deep cherry red near the socket, brightening to orange and pale yellow-white along the\nedges and toward the tip, with faint heat shimmer. No licking flames, no fire wreath around the blade.\nThe haft is long, straight, dark iron-bound wood of even thickness, with small sparse glowing rune\nglyphs etched along it and around the socket - an ancient mystical alphabet, faint and evenly spaced.\nGEOMETRY - the single most important constraint:\nThe BLADE is dead straight. Its two edges are straight converging lines running from the socket to\nthe point, so the blade silhouette is a long narrow isosceles triangle. It is NOT curved, bowed,\nscimitar-shaped, sickle-shaped, leaf-bellied or wavy, and its tip is centered on the shaft axis, not\nswept to one side.\nThe HAFT is one perfectly straight rigid line in three dimensions, of even thickness, with no bow,\nbend, kink, S-curve or uneven taper.\nBLADE AND HAFT SHARE ONE AXIS. Draw the whole weapon as a single straight ruler line first, then put\nthe blade on one end - blade and haft must never meet at an angle.\nTHE SOCKET where blade meets haft must be clean and undistorted: a short plain cylindrical metal\nferrule, perfectly centred on the shaft axis and symmetric on both sides, the blade base flowing\nstraight out of it with no bulge, no kink, no bend, no swelling, no sudden change of direction and no\nsmeared or melted junction. Blade, ferrule and haft are three sections of one straight line.\nTHE ENTIRE WEAPON STAYS OUTSIDE HER SILHOUETTE. From the butt end to the tip, every part of the spear\nis seen against the open background - it never disappears behind her body, her arm, her hip, her hair\nor her flame drapes and then reappear on the other side. There is no hidden segment anywhere. Keep the\nwhole shaft clear of her outline so it reads as one unbroken straight line from end to end. This is\nmandatory: an interrupted shaft is the failure that keeps happening and it must not happen.\nUnder foreshortening the near end is larger and the far end smaller, but the weapon still reads as\ndead straight end to end.\n\nCOMPOSITION - match this camera and pose exactly:\nA BACK-VIEW cutscene cut, upper body and hips, seen from behind and slightly to her left so the\ncamera is largely looking at her BACK and the back of her streaming hair. She faces toward the RIGHT\nof the frame; her head turns into sharp profile toward that same direction, chin lifted, a fierce\ncommanding expression - the moment she orders the advance.\n\nShe holds the spear with her RIGHT HAND ONLY and LEVELS IT FORWARD, aiming in exactly the direction\nshe is facing. Her right arm extends forward and the haft lies along the SAME straight line as her\nforearm, so arm and shaft read as one continuous line.\n\nThe haft passes UNDER her right armpit and continues BACKWARD AND OUTWARD, away from her body, so the\nbutt end trails free in the open background BEHIND her, well clear of her back and her streaming hair.\nIt must travel outboard past her right flank and out into empty space - it must NOT angle inward across\nher torso, must NOT tuck in toward her spine, and must NOT vanish behind her body or her hair at any\npoint. The complete spear, butt end to blade tip, is silhouetted against the green with nothing\noverlapping it anywhere along its length: one straight unbroken line running from the lower-back\nquadrant of the frame out to the blade tip in front.\n\nPROPORTIONS ALONG THE WEAPON - follow these ratios literally:\nDivide the whole spear into ten equal parts measured from the butt end to the tip.\nHer fist closes on part 2, near the back. Parts 3 through 8 - SIX of the ten - are BARE HAFT running\nforward through empty space in front of her hand, with nothing on them but faint rune glyphs. Only\nparts 9 and 10 are the blade.\nSo there is a very long empty stretch of shaft between her fist and the socket: measured along the\nweapon, the fist-to-socket distance is at least THREE TIMES the length of her forearm, and the blade\nbegins far out in front of her, nowhere near her hand. Do not start the blade just past her fist and\ndo not let her hand sit near the socket or the middle of the shaft.\nPull the camera back far enough that this entire long weapon fits inside the frame with margin, even\nif that makes her body smaller in the composition. The weapon's length is the point of the shot. Her hand is closed firmly around the haft with every finger correct.\nHer left arm is free.\n\nHer enormous red hair and the flame drapes of her costume stream in one continuous direction behind\nher, long strands separating into ribbons. Airy, weightless, windswept.\n\nCRITICAL - the character and nothing else:\nThe entire background is one flat, uniform, pure chroma-key green (#00FF00) filling every pixel that is not Ignis herself or her spear. Absolutely nothing else in the frame: no sky, no ground, no scenery, no rocks, no smoke clouds, no scattered particles, no magic circles, no explosion, no floating props, no cast shadow, no background glow, no gradient, no vignette, no frame, no text. Do not use any green anywhere on her body, hair, skin, costume, haft or spearhead.\n\nKeep her head, her extended hand and the entire spear from spearhead to butt completely inside the frame. Clean crisp silhouette edges against the green so she can be cut out as a game cutscene overlay.\n\nPremium Japanese anime mobile-game key art intended for high-resolution pixel-art conversion. Avoid heavy red cheek blush, a flushed face, a shaft that disappears behind her body or hair, a shaft angled inward across her torso, a hand gripping near the middle or front of the haft, a blade close to her fist, a distorted socket, identity drift, a younger face, changed costume, a sword, a second weapon, a bent or warped haft, a curved spearhead, extra limbs, fused fingers, broken wrists or duplicated bodies.",
+    "gpt-image-2",
+    "1152x2048",
+    1024,
+    1024,
+    "opaque",
+    "high",
+    1,
+    20260922
+   ]
+  },
+  {
+   "id": 41,
+   "type": "SaveImage",
+   "pos": [
+    520,
+    840
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 4,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "link": 4
+    }
+   ],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "SaveImage"
+   },
+   "widgets_values": [
+    "Ignis/02_Ignis_Ultimate_Raw_B"
+   ]
+  },
+  {
+   "id": 50,
+   "type": "OpenAIGPTImageNodeV2",
+   "pos": [
+    40,
+    1280
+   ],
+   "size": [
+    420,
+    400
+   ],
+   "flags": {},
+   "order": 5,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "model.images.image_1",
+     "type": "IMAGE",
+     "link": 5
+    }
+   ],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      6
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "OpenAIGPTImageNodeV2"
+   },
+   "widgets_values": [
+    "Using the supplied IGNIS reference image as the exact identity - face, mature adult proportions, hairstyle and hair color order, costume construction and color palette - create IGNIS'S ULTIMATE-SKILL CUTSCENE CUT. Do not redesign her.\n\nPreserve exactly: her mature adult anime face, fully visible glowing crimson-red irises, extremely long red hair falling past her waist that shades from deep crimson roots through bright scarlet to glowing ember-orange tips and lifts at the ends as if caught in heat, her light warm brown skin, and her flame-woven dancer's regalia - a fitted sleeveless bodice of layered fire-silk, a low wrapped hip sash, and long flowing skirt panels split at the sides, fastened with thin blackened-iron rings at the hip and upper arm. The fire-silk reads as solid woven fabric with clean readable shapes; the flame lives only along the hems and trailing edges, never as an all-over blaze that swallows her silhouette. No gold, no crown, no visor, no armor, no cape, no wings, no horns.\n\nRENDERING STYLE - match this exactly, it is as important as the design:\nClean Japanese anime key-art rendering with soft cel shading, smooth even lighting and large flat readable color areas. A luminous, bright overall value key - she must read as clearly lit even against a dark backdrop. Delicate refined anime facial features with a soft jawline, a small nose and large clear expressive eyes. Crisp confident line work, restrained specular highlights, matte evenly-lit skin, minimal texture noise.\nHer complexion is EVEN and calm: the cheeks are the same light warm brown as the rest of her face, with\nat most a barely perceptible hint of warmth. No pink or red blush patch on the cheeks, no flushed nose\nbridge, no rosy cheek circles, no heated glow on the face.\nThis must NOT look like a dark painterly semi-realistic illustration: no heavy chiaroscuro, no dramatic rim-light-on-black, no glossy or oiled skin, no photorealistic muscle striation, no gritty texture overlay, no washed-out silhouette lost in shadow.\n\nWEAPON - a single mythic spear, drawn with strict structural accuracy:\nThe blade is LONG and FLAT - a slender, elongated, flattened double-edged spearhead like a mythic\npolearm, roughly a quarter of the total length, with a pronounced central ridge and a narrow taper\nto a fine point. Not a short leaf shape, not a knife, not a sword.\nThe blade is NOT on fire. It is HEATED METAL: dark steel that glows from within like iron fresh from\nthe forge - deep cherry red near the socket, brightening to orange and pale yellow-white along the\nedges and toward the tip, with faint heat shimmer. No licking flames, no fire wreath around the blade.\nThe haft is long, straight, dark iron-bound wood of even thickness, with small sparse glowing rune\nglyphs etched along it and around the socket - an ancient mystical alphabet, faint and evenly spaced.\nGEOMETRY - the single most important constraint:\nThe BLADE is dead straight. Its two edges are straight converging lines running from the socket to\nthe point, so the blade silhouette is a long narrow isosceles triangle. It is NOT curved, bowed,\nscimitar-shaped, sickle-shaped, leaf-bellied or wavy, and its tip is centered on the shaft axis, not\nswept to one side.\nThe HAFT is one perfectly straight rigid line in three dimensions, of even thickness, with no bow,\nbend, kink, S-curve or uneven taper.\nBLADE AND HAFT SHARE ONE AXIS. Draw the whole weapon as a single straight ruler line first, then put\nthe blade on one end - blade and haft must never meet at an angle.\nTHE SOCKET where blade meets haft must be clean and undistorted: a short plain cylindrical metal\nferrule, perfectly centred on the shaft axis and symmetric on both sides, the blade base flowing\nstraight out of it with no bulge, no kink, no bend, no swelling, no sudden change of direction and no\nsmeared or melted junction. Blade, ferrule and haft are three sections of one straight line.\nTHE ENTIRE WEAPON STAYS OUTSIDE HER SILHOUETTE. From the butt end to the tip, every part of the spear\nis seen against the open background - it never disappears behind her body, her arm, her hip, her hair\nor her flame drapes and then reappear on the other side. There is no hidden segment anywhere. Keep the\nwhole shaft clear of her outline so it reads as one unbroken straight line from end to end. This is\nmandatory: an interrupted shaft is the failure that keeps happening and it must not happen.\nUnder foreshortening the near end is larger and the far end smaller, but the weapon still reads as\ndead straight end to end.\n\nCOMPOSITION - match this camera and pose exactly:\nA BACK-VIEW cutscene cut, upper body and hips, seen from behind and slightly to her left so the\ncamera is largely looking at her BACK and the back of her streaming hair. She faces toward the RIGHT\nof the frame; her head turns into sharp profile toward that same direction, chin lifted, a fierce\ncommanding expression - the moment she orders the advance.\n\nShe holds the spear with her RIGHT HAND ONLY and LEVELS IT FORWARD, aiming in exactly the direction\nshe is facing. Her right arm extends forward and the haft lies along the SAME straight line as her\nforearm, so arm and shaft read as one continuous line.\n\nThe haft passes UNDER her right armpit and continues BACKWARD AND OUTWARD, away from her body, so the\nbutt end trails free in the open background BEHIND her, well clear of her back and her streaming hair.\nIt must travel outboard past her right flank and out into empty space - it must NOT angle inward across\nher torso, must NOT tuck in toward her spine, and must NOT vanish behind her body or her hair at any\npoint. The complete spear, butt end to blade tip, is silhouetted against the green with nothing\noverlapping it anywhere along its length: one straight unbroken line running from the lower-back\nquadrant of the frame out to the blade tip in front.\n\nPROPORTIONS ALONG THE WEAPON - follow these ratios literally:\nDivide the whole spear into ten equal parts measured from the butt end to the tip.\nHer fist closes on part 2, near the back. Parts 3 through 8 - SIX of the ten - are BARE HAFT running\nforward through empty space in front of her hand, with nothing on them but faint rune glyphs. Only\nparts 9 and 10 are the blade.\nSo there is a very long empty stretch of shaft between her fist and the socket: measured along the\nweapon, the fist-to-socket distance is at least THREE TIMES the length of her forearm, and the blade\nbegins far out in front of her, nowhere near her hand. Do not start the blade just past her fist and\ndo not let her hand sit near the socket or the middle of the shaft.\nPull the camera back far enough that this entire long weapon fits inside the frame with margin, even\nif that makes her body smaller in the composition. The weapon's length is the point of the shot. Her hand is closed firmly around the haft with every finger correct.\nHer left arm is free.\n\nHer enormous red hair and the flame drapes of her costume stream in one continuous direction behind\nher, long strands separating into ribbons. Airy, weightless, windswept.\n\nCRITICAL - the character and nothing else:\nThe entire background is one flat, uniform, pure chroma-key green (#00FF00) filling every pixel that is not Ignis herself or her spear. Absolutely nothing else in the frame: no sky, no ground, no scenery, no rocks, no smoke clouds, no scattered particles, no magic circles, no explosion, no floating props, no cast shadow, no background glow, no gradient, no vignette, no frame, no text. Do not use any green anywhere on her body, hair, skin, costume, haft or spearhead.\n\nKeep her head, her extended hand and the entire spear from spearhead to butt completely inside the frame. Clean crisp silhouette edges against the green so she can be cut out as a game cutscene overlay.\n\nPremium Japanese anime mobile-game key art intended for high-resolution pixel-art conversion. Avoid heavy red cheek blush, a flushed face, a shaft that disappears behind her body or hair, a shaft angled inward across her torso, a hand gripping near the middle or front of the haft, a blade close to her fist, a distorted socket, identity drift, a younger face, changed costume, a sword, a second weapon, a bent or warped haft, a curved spearhead, extra limbs, fused fingers, broken wrists or duplicated bodies.",
+    "gpt-image-2",
+    "1152x2048",
+    1024,
+    1024,
+    "opaque",
+    "high",
+    1,
+    20260923
+   ]
+  },
+  {
+   "id": 51,
+   "type": "SaveImage",
+   "pos": [
+    520,
+    1280
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 6,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "link": 6
+    }
+   ],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "SaveImage"
+   },
+   "widgets_values": [
+    "Ignis/02_Ignis_Ultimate_Raw_C"
+   ]
+  }
+ ],
+ "links": [
+  [
+   1,
+   1,
+   0,
+   30,
+   0,
+   "IMAGE"
+  ],
+  [
+   2,
+   30,
+   0,
+   31,
+   0,
+   "IMAGE"
+  ],
+  [
+   3,
+   1,
+   0,
+   40,
+   0,
+   "IMAGE"
+  ],
+  [
+   4,
+   40,
+   0,
+   41,
+   0,
+   "IMAGE"
+  ],
+  [
+   5,
+   1,
+   0,
+   50,
+   0,
+   "IMAGE"
+  ],
+  [
+   6,
+   50,
+   0,
+   51,
+   0,
+   "IMAGE"
+  ]
+ ],
+ "groups": [
+  {
+   "title": "1. ASTRA MASTER REFERENCE",
+   "bounding": [
+    20,
+    0,
+    940,
+    380
+   ],
+   "color": "#3f789e",
+   "font_size": 24
+  },
+  {
+   "title": "2. CODEX (도감) — master 참조 편집 + 픽셀 마감",
+   "bounding": [
+    20,
+    380,
+    1600,
+    700
+   ],
+   "color": "#8A8",
+   "font_size": 24
+  },
+  {
+   "title": "3. ULTIMATE CUTSCENE — master 참조 편집 + 픽셀 마감",
+   "bounding": [
+    20,
+    1080,
+    1600,
+    700
+   ],
+   "color": "#a1309b",
+   "font_size": 24
+  }
+ ],
+ "config": {},
+ "extra": {
+  "ds": {
+   "scale": 0.55,
+   "offset": [
+    0,
+    0
+   ]
+  }
+ },
+ "version": 0.4
+}

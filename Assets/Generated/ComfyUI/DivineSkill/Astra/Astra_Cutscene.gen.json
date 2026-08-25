@@ -1,0 +1,25 @@
+{
+  "asset_family": "DivineSkill",
+  "card": "Astra",
+  "card_name_kor": "심판의 여신 아스트라",
+  "asset": "Astra_Cutscene.png",
+  "imported_at": "2026-08-25",
+  "usage": "궁극기 컷인 — DivineSkillSO.cutInIllustration",
+  "source": {
+    "pipeline": "AI/comfyui/README.md (신 캐릭터 아트 생성 파이프라인)",
+    "master": "AI/comfyui/astra/output/Astra_00_Master.png",
+    "delivered": "AI/comfyui/astra/output/Astra_02_Cutscene_Pixel.png",
+    "delivered_resolution": "1152x2048 (RGBA)",
+    "spec": "AI/comfyui/astra/astra_spec.py",
+    "palette": "AI/comfyui/astra/astra_palette_32.png"
+  },
+  "import_step": {
+    "op": "4x NEAREST 업스케일의 역연산 — 4x4 블록 좌상단 픽셀만 취해 논리 해상도로 복원",
+    "lossless": "블록 균일성 검증 통과(모든 4x4 블록이 단색) → 색 손실 0",
+    "result": "288x512 RGBA",
+    "why": "게임은 논리 해상도 원본을 쓰고 확대는 Unity(Point 필터)에 맡긴다 — 4x 텍스처를 그대로 넣으면 메모리 16배에 비정수 축소로 픽셀 그리드가 깨진다."
+  },
+  "display": "컷인 홀더 576x1024 = 논리 288x512 의 정수배 x2 (UguiTheme.DivineCutInIllust*)",
+  "import_settings": "enforced by Assets/DivineSkill/Editor/GeneratedArtPostprocessor.cs (Sprite / Point / no mipmaps / nPOTScale None / Uncompressed / alphaIsTransparency)",
+  "wired_by": "KingdomIdle/Divine/Wire Generated Art (DivineArtWire.WireAll)"
+}

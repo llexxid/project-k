@@ -1,0 +1,367 @@
+{
+ "last_node_id": 25,
+ "last_link_id": 6,
+ "nodes": [
+  {
+   "id": 1,
+   "type": "LoadImage",
+   "pos": [
+    40,
+    40
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      1,
+      3,
+      5
+     ],
+     "slot_index": 0
+    },
+    {
+     "name": "MASK",
+     "type": "MASK",
+     "links": [],
+     "slot_index": 1
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "LoadImage"
+   },
+   "widgets_values": [
+    "a4c890d1125acadb095d6531b58adf4395a6f0a1e406148740ebf2e9e66c6a83.png"
+   ]
+  },
+  {
+   "id": 20,
+   "type": "OpenAIGPTImageNodeV2",
+   "pos": [
+    40,
+    300
+   ],
+   "size": [
+    420,
+    400
+   ],
+   "flags": {},
+   "order": 1,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "model.images.image_1",
+     "type": "IMAGE",
+     "link": 1
+    }
+   ],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      2
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "OpenAIGPTImageNodeV2"
+   },
+   "widgets_values": [
+    "Reproduce the supplied image EXACTLY as it is. This is a targeted retouch, not a redraw: change ONE thing only - the way her right hand grips the sword.\n\nEVERYTHING ELSE IS UNCHANGED AND MUST BE COPIED PRECISELY: the same woman, the same face, expression and eye colour, the same hairstyle and every strand of hair, the same costume with every drape, strap and iron ring, the same bare feet and ankle rings, the same standing pose and the same angle of every limb, the same position of her arm and shoulder, the same background, the same lighting and the same colour palette.\nTHE SWORD DOES NOT MOVE. Its position, its angle, its length, its blade, its glowing runes, its crossguard and its pommel all stay exactly where and as they are. Only the fingers and hand around the grip change.\n\nTHE FIX - how her hand must grip the leather grip:\nWe are looking at her from the front, so we see the BACK of her right hand. Her hand closes around the grip the way a hand closes around a vertical bar held at the hip.\nHer four fingers wrap from the far side of the grip AROUND to the near side, and their curled middle segments cross IN FRONT OF the grip, toward the camera - so along the length of her fist the grip is HIDDEN BEHIND HER FINGERS. The fingertips tuck back in toward her palm. The four fingers are four separate, clearly drawn digits stacked in a row, with visible creases between them and a readable curved row of knuckles across the back of her hand.\nHer thumb comes over the top of the grip and lies down across the side of her index finger, angled along the grip - relaxed, not clamped.\nAbove her fist a short stub of bare grip and the whole pommel are visible; below her fist the grip continues down to the crossguard. Between those two, the grip is behind her fingers and not drawn as a bare cylinder passing through an empty ring of fingers.\nThe grip is relaxed, not clenched white-knuckled - she is carrying the sword, not squeezing it.\nHer wrist stays exactly as it is: straight, continuing the line of her forearm down into the sword.\n\nIt must NOT look like a fist drawn first with a hilt added above and below it, and it must NOT look like a hand gripping a hammer. Do not open the hand, do not rest it on the pommel, do not add a second hand.\n\nExactly five digits, correct human proportions, no extra or missing fingers, no finger passing through the metal, no fused mitten shape, no smooth featureless lump.\n\nMatch the existing rendering exactly - the same clean anime cel shading, the same line weight, the same skin tone and shadow colours - so the retouched hand is indistinguishable in style from the rest of the image.\n\nAvoid changing the pose, the sword, the costume, the hair, the face, the background or the palette; avoid a hammer grip, an open palm, a pencil grip, fingertips only, splayed fingers, six fingers, a bent wrist, text, logo or watermark.",
+    "gpt-image-2",
+    "1024x1536",
+    1024,
+    1024,
+    "opaque",
+    "high",
+    1,
+    20261044
+   ]
+  },
+  {
+   "id": 21,
+   "type": "SaveImage",
+   "pos": [
+    520,
+    300
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 2,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "link": 2
+    }
+   ],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "SaveImage"
+   },
+   "widgets_values": [
+    "Ignis/01_Ignis_Codex_handfix_A"
+   ]
+  },
+  {
+   "id": 22,
+   "type": "OpenAIGPTImageNodeV2",
+   "pos": [
+    40,
+    740
+   ],
+   "size": [
+    420,
+    400
+   ],
+   "flags": {},
+   "order": 3,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "model.images.image_1",
+     "type": "IMAGE",
+     "link": 3
+    }
+   ],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      4
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "OpenAIGPTImageNodeV2"
+   },
+   "widgets_values": [
+    "Reproduce the supplied image EXACTLY as it is. This is a targeted retouch, not a redraw: change ONE thing only - the way her right hand grips the sword.\n\nEVERYTHING ELSE IS UNCHANGED AND MUST BE COPIED PRECISELY: the same woman, the same face, expression and eye colour, the same hairstyle and every strand of hair, the same costume with every drape, strap and iron ring, the same bare feet and ankle rings, the same standing pose and the same angle of every limb, the same position of her arm and shoulder, the same background, the same lighting and the same colour palette.\nTHE SWORD DOES NOT MOVE. Its position, its angle, its length, its blade, its glowing runes, its crossguard and its pommel all stay exactly where and as they are. Only the fingers and hand around the grip change.\n\nTHE FIX - how her hand must grip the leather grip:\nWe are looking at her from the front, so we see the BACK of her right hand. Her hand closes around the grip the way a hand closes around a vertical bar held at the hip.\nHer four fingers wrap from the far side of the grip AROUND to the near side, and their curled middle segments cross IN FRONT OF the grip, toward the camera - so along the length of her fist the grip is HIDDEN BEHIND HER FINGERS. The fingertips tuck back in toward her palm. The four fingers are four separate, clearly drawn digits stacked in a row, with visible creases between them and a readable curved row of knuckles across the back of her hand.\nHer thumb comes over the top of the grip and lies down across the side of her index finger, angled along the grip - relaxed, not clamped.\nAbove her fist a short stub of bare grip and the whole pommel are visible; below her fist the grip continues down to the crossguard. Between those two, the grip is behind her fingers and not drawn as a bare cylinder passing through an empty ring of fingers.\nThe grip is relaxed, not clenched white-knuckled - she is carrying the sword, not squeezing it.\nHer wrist stays exactly as it is: straight, continuing the line of her forearm down into the sword.\n\nIt must NOT look like a fist drawn first with a hilt added above and below it, and it must NOT look like a hand gripping a hammer. Do not open the hand, do not rest it on the pommel, do not add a second hand.\n\nExactly five digits, correct human proportions, no extra or missing fingers, no finger passing through the metal, no fused mitten shape, no smooth featureless lump.\n\nMatch the existing rendering exactly - the same clean anime cel shading, the same line weight, the same skin tone and shadow colours - so the retouched hand is indistinguishable in style from the rest of the image.\n\nAvoid changing the pose, the sword, the costume, the hair, the face, the background or the palette; avoid a hammer grip, an open palm, a pencil grip, fingertips only, splayed fingers, six fingers, a bent wrist, text, logo or watermark.",
+    "gpt-image-2",
+    "1024x1536",
+    1024,
+    1024,
+    "opaque",
+    "high",
+    1,
+    20261045
+   ]
+  },
+  {
+   "id": 23,
+   "type": "SaveImage",
+   "pos": [
+    520,
+    740
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 4,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "link": 4
+    }
+   ],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "SaveImage"
+   },
+   "widgets_values": [
+    "Ignis/01_Ignis_Codex_handfix_B"
+   ]
+  },
+  {
+   "id": 24,
+   "type": "OpenAIGPTImageNodeV2",
+   "pos": [
+    40,
+    1180
+   ],
+   "size": [
+    420,
+    400
+   ],
+   "flags": {},
+   "order": 5,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "model.images.image_1",
+     "type": "IMAGE",
+     "link": 5
+    }
+   ],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      6
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "OpenAIGPTImageNodeV2"
+   },
+   "widgets_values": [
+    "Reproduce the supplied image EXACTLY as it is. This is a targeted retouch, not a redraw: change ONE thing only - the way her right hand grips the sword.\n\nEVERYTHING ELSE IS UNCHANGED AND MUST BE COPIED PRECISELY: the same woman, the same face, expression and eye colour, the same hairstyle and every strand of hair, the same costume with every drape, strap and iron ring, the same bare feet and ankle rings, the same standing pose and the same angle of every limb, the same position of her arm and shoulder, the same background, the same lighting and the same colour palette.\nTHE SWORD DOES NOT MOVE. Its position, its angle, its length, its blade, its glowing runes, its crossguard and its pommel all stay exactly where and as they are. Only the fingers and hand around the grip change.\n\nTHE FIX - how her hand must grip the leather grip:\nWe are looking at her from the front, so we see the BACK of her right hand. Her hand closes around the grip the way a hand closes around a vertical bar held at the hip.\nHer four fingers wrap from the far side of the grip AROUND to the near side, and their curled middle segments cross IN FRONT OF the grip, toward the camera - so along the length of her fist the grip is HIDDEN BEHIND HER FINGERS. The fingertips tuck back in toward her palm. The four fingers are four separate, clearly drawn digits stacked in a row, with visible creases between them and a readable curved row of knuckles across the back of her hand.\nHer thumb comes over the top of the grip and lies down across the side of her index finger, angled along the grip - relaxed, not clamped.\nAbove her fist a short stub of bare grip and the whole pommel are visible; below her fist the grip continues down to the crossguard. Between those two, the grip is behind her fingers and not drawn as a bare cylinder passing through an empty ring of fingers.\nThe grip is relaxed, not clenched white-knuckled - she is carrying the sword, not squeezing it.\nHer wrist stays exactly as it is: straight, continuing the line of her forearm down into the sword.\n\nIt must NOT look like a fist drawn first with a hilt added above and below it, and it must NOT look like a hand gripping a hammer. Do not open the hand, do not rest it on the pommel, do not add a second hand.\n\nExactly five digits, correct human proportions, no extra or missing fingers, no finger passing through the metal, no fused mitten shape, no smooth featureless lump.\n\nMatch the existing rendering exactly - the same clean anime cel shading, the same line weight, the same skin tone and shadow colours - so the retouched hand is indistinguishable in style from the rest of the image.\n\nAvoid changing the pose, the sword, the costume, the hair, the face, the background or the palette; avoid a hammer grip, an open palm, a pencil grip, fingertips only, splayed fingers, six fingers, a bent wrist, text, logo or watermark.",
+    "gpt-image-2",
+    "1024x1536",
+    1024,
+    1024,
+    "opaque",
+    "high",
+    1,
+    20261046
+   ]
+  },
+  {
+   "id": 25,
+   "type": "SaveImage",
+   "pos": [
+    520,
+    1180
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 6,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "link": 6
+    }
+   ],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "SaveImage"
+   },
+   "widgets_values": [
+    "Ignis/01_Ignis_Codex_handfix_C"
+   ]
+  }
+ ],
+ "links": [
+  [
+   1,
+   1,
+   0,
+   20,
+   0,
+   "IMAGE"
+  ],
+  [
+   2,
+   20,
+   0,
+   21,
+   0,
+   "IMAGE"
+  ],
+  [
+   3,
+   1,
+   0,
+   22,
+   0,
+   "IMAGE"
+  ],
+  [
+   4,
+   22,
+   0,
+   23,
+   0,
+   "IMAGE"
+  ],
+  [
+   5,
+   1,
+   0,
+   24,
+   0,
+   "IMAGE"
+  ],
+  [
+   6,
+   24,
+   0,
+   25,
+   0,
+   "IMAGE"
+  ]
+ ],
+ "groups": [
+  {
+   "title": "1. ASTRA MASTER REFERENCE",
+   "bounding": [
+    20,
+    0,
+    940,
+    380
+   ],
+   "color": "#3f789e",
+   "font_size": 24
+  },
+  {
+   "title": "2. CODEX (도감) — master 참조 편집 + 픽셀 마감",
+   "bounding": [
+    20,
+    380,
+    1600,
+    700
+   ],
+   "color": "#8A8",
+   "font_size": 24
+  },
+  {
+   "title": "3. ULTIMATE CUTSCENE — master 참조 편집 + 픽셀 마감",
+   "bounding": [
+    20,
+    1080,
+    1600,
+    700
+   ],
+   "color": "#a1309b",
+   "font_size": 24
+  }
+ ],
+ "config": {},
+ "extra": {
+  "ds": {
+   "scale": 0.55,
+   "offset": [
+    0,
+    0
+   ]
+  }
+ },
+ "version": 0.4
+}

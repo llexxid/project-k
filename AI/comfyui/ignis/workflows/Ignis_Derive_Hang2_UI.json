@@ -1,0 +1,367 @@
+{
+ "last_node_id": 25,
+ "last_link_id": 6,
+ "nodes": [
+  {
+   "id": 1,
+   "type": "LoadImage",
+   "pos": [
+    40,
+    40
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      1,
+      3,
+      5
+     ],
+     "slot_index": 0
+    },
+    {
+     "name": "MASK",
+     "type": "MASK",
+     "links": [],
+     "slot_index": 1
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "LoadImage"
+   },
+   "widgets_values": [
+    "7e616e46ef4b441db6969cd1ad6d27b41f19158822a9711a15aa158a282c4c2e.png"
+   ]
+  },
+  {
+   "id": 20,
+   "type": "OpenAIGPTImageNodeV2",
+   "pos": [
+    40,
+    300
+   ],
+   "size": [
+    420,
+    400
+   ],
+   "flags": {},
+   "order": 1,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "model.images.image_1",
+     "type": "IMAGE",
+     "link": 1
+    }
+   ],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      2
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "OpenAIGPTImageNodeV2"
+   },
+   "widgets_values": [
+    "Using the supplied IGNIS master image as the exact identity, face, body proportion, hairstyle, costume, color palette and prop blueprint, create IGNIS'S FINAL CODEX PORTRAIT. Do not redesign her.\n\nPreserve exactly: her mature adult anime face, fully visible glowing crimson-red irises, extremely long red hair falling past her waist that shades from deep crimson roots through bright scarlet to glowing ember-orange tips and lifts at the ends as if caught in heat, her light warm brown skin, and her flame-woven dancer's regalia - a fitted sleeveless bodice of layered fire-silk, a low wrapped hip sash, and long flowing skirt panels split at the sides, fastened with thin blackened-iron rings at the hip and upper arm. The fire-silk reads as solid woven fabric with clean readable shapes; the flame lives only along the hems and trailing edges, never as an all-over blaze that swallows her silhouette. No gold, no crown, no visor, no armor, no cape, no wings, no horns.\n\nRENDERING STYLE - match this exactly, it is as important as the design:\nClean Japanese anime key-art rendering with soft cel shading, smooth even lighting and large flat readable color areas. A luminous, bright overall value key - she must read as clearly lit even against a dark backdrop. Delicate refined anime facial features with a soft jawline, a small nose and large clear expressive eyes. Crisp confident line work, restrained specular highlights, matte evenly-lit skin, minimal texture noise.\nHer complexion is EVEN and calm: the cheeks are the same light warm brown as the rest of her face, with\nat most a barely perceptible hint of warmth. No pink or red blush patch on the cheeks, no flushed nose\nbridge, no rosy cheek circles, no heated glow on the face.\nThis must NOT look like a dark painterly semi-realistic illustration: no heavy chiaroscuro, no dramatic rim-light-on-black, no glossy or oiled skin, no photorealistic muscle striation, no gritty texture overlay, no washed-out silhouette lost in shadow.\n\nWEAPON - a single mythic LONGSWORD, drawn with strict structural accuracy:\nA classic European cruciform LONGSWORD - a true two-hand war sword, not an arming sword, not a short\nsword and not a broadsword. One long straight double-edged blade, a straight bar crossguard, a long\nleather-wrapped grip sized for two hands, and a heavy rounded pommel. The blade is about three quarters\nof the total length and the hilt the remaining quarter.\nSCALE: the blade alone is LONGER than her arm measured from shoulder to fingertips, and the grip alone\nis long enough to take two of her hands side by side. Held point-down at her hip with a relaxed arm the\npoint reaches the ground. Draw it long and slender - err on the side of too long rather than too short,\nand never let it read as a stubby, wide, dagger-like or hand-and-a-half blade.\nThe BLADE is slender and flat with a shallow fuller running down its centre. Its two edges run straight\nand very nearly parallel for most of the blade, converging evenly to a point only over the last stretch.\nThe blade is NOT on fire. It is HEATED METAL: dark steel that glows from within like iron fresh from\nthe forge - deep cherry red near the crossguard, brightening to orange and pale yellow-white along the\nedges and toward the point, with faint heat shimmer. No licking flames, no fire wreath around the blade.\nThe hilt is dark iron-bound: a plain straight crossguard with slightly flared ends, a dark leather grip\nbound with fine iron wire, and a simple disc pommel. Small sparse glowing rune glyphs are etched along\nthe fuller and around the crossguard - an ancient mystical alphabet, faint and evenly spaced.\nGEOMETRY - the single most important constraint:\nThe blade is DEAD STRAIGHT. Its two edges are straight lines and the point sits exactly on the blade\naxis, centred, not swept to one side. It is NOT curved, bowed, scimitar-shaped, sabre-shaped,\nsickle-shaped, wavy, flame-bladed or leaf-bellied, and it must not bend, bow, warp, twist, kink, ripple,\ntaper unevenly or change width abruptly anywhere along its length.\nBLADE, GRIP AND POMMEL SHARE ONE AXIS. Draw the whole sword as a single straight ruler line first, then\nhang the crossguard across that line at a right angle. The blade runs straight out of the guard along\nthat same line and never sits at an angle to the grip.\nThe CROSSGUARD is one straight bar, perpendicular to the blade and symmetric - both arms the same length\nat the same angle. The junction where blade, guard and grip meet is clean and undistorted: no bulge, no\nkink, no swelling, no sudden change of direction, no smeared or melted join.\nTHE ENTIRE WEAPON STAYS OUTSIDE HER SILHOUETTE. From the pommel to the point, every part of the sword is\nseen against the open background - it never disappears behind her body, her arm, her hip, her hair or\nher flame drapes and then reappear on the other side. There is no hidden segment anywhere. Keep the\nwhole sword clear of her outline so it reads as one unbroken straight line from end to end. This is\nmandatory: an interrupted or bent blade is the failure that keeps happening and it must not happen.\nUnder foreshortening the near end is larger and the far end smaller, but the sword still reads as\ndead straight end to end.\n\nVertical 2:3 full-body composition. Elegant contrapposto and slight 3/4 turn toward the camera, weight on one leg, the longsword held in her RIGHT HAND ONLY at about hip height with the BLADE POINTING DOWN toward the ground.\n\nSHE SIMPLY LETS THE SWORD HANG FROM HER HAND, exactly the way she holds it in her ultimate cut -\nsame hand, same closed grip - only now the arm is relaxed and the weapon hangs down at her side.\n\nARM AND SWORD ARE ONE STRAIGHT LINE. Her right arm hangs down along her right side, held a little away\nfrom her body, the shoulder dropped and the elbow softly unlocked. Lay a single ruler from her elbow\ndown through her forearm, through her fist, through the grip and the crossguard, and on down the blade\nto the point: every one of those parts sits exactly on that one line. Her wrist is STRAIGHT and\ncontinues the forearm - it is not bent, cocked, dropped or angled to keep the blade vertical, and the\nsword never sits at an angle to her arm. The whole limb plus weapon reads as one long relaxed line\nfalling from her shoulder to the floor.\nBecause her arm hangs naturally rather than straight down, that line leans a few degrees, so the blade\npoints down and slightly forward and the point comes to rest just at the ground a little in front of\nher right foot. Let the line lean with the arm - never twist the wrist to force the blade upright.\n\nHOW THE HAND IS DRAWN - copy the hand from the ultimate cut:\nHer hand is closed around the leather grip with every finger correct, the pommel showing just above her\nfist and the crossguard just below it. Draw the fingers wrapping AROUND the grip: the grip is a cylinder\npassing BEHIND her four fingers and IN FRONT OF her palm. Never draw a closed fist first and then add a\nhilt above and below it. The four fingers are separate, clearly drawn digits with a readable knuckle\nline and creases between them - not a fused mitten, not a smooth lump, not a blur. Her thumb is separate\nand relaxed, lying along the grip rather than clamped across her fingers.\nShow the hand from its side, the way it reads in the ultimate cut, so the wrap around the grip is fully\nlegible - not from straight above or straight behind where the fingers collapse into a shape.\nThe grip is relaxed, not clenched: she is carrying the sword, not squeezing it.\nExactly five digits, correct proportions, no finger passing through the metal.\n\nThe sword sits OUTBOARD of her body, off to her right in open space, well clear of her torso, hip,\nskirt and streaming hair.\n\nThe long straight blade runs down through open space on her right to the point set on the floor. No part of the sword is hidden behind her or behind her hair at any point - the pommel, the grip, the crossguard, the full blade and the point are all continuously visible as one straight unbroken line silhouetted against the darker background. Keep the head, hair, hands, the entire sword from pommel to point, every flame drape and both feet completely inside the frame. Make her face, costume construction and silhouette readable on a mobile-game codex screen.\n\nUse a restrained volcanic sanctuary background with stepped deep-ember and charcoal shapes, a thin dark-iron circular diagram and sparse floating embers, all kept flat, simple and clearly darker than she is. The background must not merge with her hair, her flames or the sword.\n\nPremium anime fantasy mobile-game codex key art intended for high-resolution pixel-art conversion. Clean silhouette, large readable shapes, controlled highlights and limited visual noise.\n\nStrictly preserve the master identity and costume. Avoid a hammer grip, a tight vertical fist, knuckles squared to the camera, a locked straight wrist, a rigid straight line from elbow to blade, heavy red cheek blush, a flushed face, a curved or bent blade, a blade hidden behind her body or hair, a distorted hilt junction, an asymmetric crossguard, a pencil grip, a pinch grip, fingertips only, an open palm, splayed fingers, a mitten hand, fused or blurred fingers, a shapeless lump for a hand, a clenched fist with the hilt drawn through it, a hand floating off the hilt, a grip passing through the fingers, six fingers, a bent or broken wrist, a sword that looks weightless or floating, a short or stubby blade, a spear, a polearm, a scimitar, a katana, a younger face, different hairstyle, shortened hair, changed costume construction, a second weapon, extra props, malformed hands, cropped body, text, logo, watermark, card border or UI.",
+    "gpt-image-2",
+    "1024x1536",
+    1024,
+    1024,
+    "opaque",
+    "high",
+    1,
+    20261044
+   ]
+  },
+  {
+   "id": 21,
+   "type": "SaveImage",
+   "pos": [
+    520,
+    300
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 2,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "link": 2
+    }
+   ],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "SaveImage"
+   },
+   "widgets_values": [
+    "Ignis/01_Ignis_Codex_hang2_A"
+   ]
+  },
+  {
+   "id": 22,
+   "type": "OpenAIGPTImageNodeV2",
+   "pos": [
+    40,
+    740
+   ],
+   "size": [
+    420,
+    400
+   ],
+   "flags": {},
+   "order": 3,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "model.images.image_1",
+     "type": "IMAGE",
+     "link": 3
+    }
+   ],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      4
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "OpenAIGPTImageNodeV2"
+   },
+   "widgets_values": [
+    "Using the supplied IGNIS master image as the exact identity, face, body proportion, hairstyle, costume, color palette and prop blueprint, create IGNIS'S FINAL CODEX PORTRAIT. Do not redesign her.\n\nPreserve exactly: her mature adult anime face, fully visible glowing crimson-red irises, extremely long red hair falling past her waist that shades from deep crimson roots through bright scarlet to glowing ember-orange tips and lifts at the ends as if caught in heat, her light warm brown skin, and her flame-woven dancer's regalia - a fitted sleeveless bodice of layered fire-silk, a low wrapped hip sash, and long flowing skirt panels split at the sides, fastened with thin blackened-iron rings at the hip and upper arm. The fire-silk reads as solid woven fabric with clean readable shapes; the flame lives only along the hems and trailing edges, never as an all-over blaze that swallows her silhouette. No gold, no crown, no visor, no armor, no cape, no wings, no horns.\n\nRENDERING STYLE - match this exactly, it is as important as the design:\nClean Japanese anime key-art rendering with soft cel shading, smooth even lighting and large flat readable color areas. A luminous, bright overall value key - she must read as clearly lit even against a dark backdrop. Delicate refined anime facial features with a soft jawline, a small nose and large clear expressive eyes. Crisp confident line work, restrained specular highlights, matte evenly-lit skin, minimal texture noise.\nHer complexion is EVEN and calm: the cheeks are the same light warm brown as the rest of her face, with\nat most a barely perceptible hint of warmth. No pink or red blush patch on the cheeks, no flushed nose\nbridge, no rosy cheek circles, no heated glow on the face.\nThis must NOT look like a dark painterly semi-realistic illustration: no heavy chiaroscuro, no dramatic rim-light-on-black, no glossy or oiled skin, no photorealistic muscle striation, no gritty texture overlay, no washed-out silhouette lost in shadow.\n\nWEAPON - a single mythic LONGSWORD, drawn with strict structural accuracy:\nA classic European cruciform LONGSWORD - a true two-hand war sword, not an arming sword, not a short\nsword and not a broadsword. One long straight double-edged blade, a straight bar crossguard, a long\nleather-wrapped grip sized for two hands, and a heavy rounded pommel. The blade is about three quarters\nof the total length and the hilt the remaining quarter.\nSCALE: the blade alone is LONGER than her arm measured from shoulder to fingertips, and the grip alone\nis long enough to take two of her hands side by side. Held point-down at her hip with a relaxed arm the\npoint reaches the ground. Draw it long and slender - err on the side of too long rather than too short,\nand never let it read as a stubby, wide, dagger-like or hand-and-a-half blade.\nThe BLADE is slender and flat with a shallow fuller running down its centre. Its two edges run straight\nand very nearly parallel for most of the blade, converging evenly to a point only over the last stretch.\nThe blade is NOT on fire. It is HEATED METAL: dark steel that glows from within like iron fresh from\nthe forge - deep cherry red near the crossguard, brightening to orange and pale yellow-white along the\nedges and toward the point, with faint heat shimmer. No licking flames, no fire wreath around the blade.\nThe hilt is dark iron-bound: a plain straight crossguard with slightly flared ends, a dark leather grip\nbound with fine iron wire, and a simple disc pommel. Small sparse glowing rune glyphs are etched along\nthe fuller and around the crossguard - an ancient mystical alphabet, faint and evenly spaced.\nGEOMETRY - the single most important constraint:\nThe blade is DEAD STRAIGHT. Its two edges are straight lines and the point sits exactly on the blade\naxis, centred, not swept to one side. It is NOT curved, bowed, scimitar-shaped, sabre-shaped,\nsickle-shaped, wavy, flame-bladed or leaf-bellied, and it must not bend, bow, warp, twist, kink, ripple,\ntaper unevenly or change width abruptly anywhere along its length.\nBLADE, GRIP AND POMMEL SHARE ONE AXIS. Draw the whole sword as a single straight ruler line first, then\nhang the crossguard across that line at a right angle. The blade runs straight out of the guard along\nthat same line and never sits at an angle to the grip.\nThe CROSSGUARD is one straight bar, perpendicular to the blade and symmetric - both arms the same length\nat the same angle. The junction where blade, guard and grip meet is clean and undistorted: no bulge, no\nkink, no swelling, no sudden change of direction, no smeared or melted join.\nTHE ENTIRE WEAPON STAYS OUTSIDE HER SILHOUETTE. From the pommel to the point, every part of the sword is\nseen against the open background - it never disappears behind her body, her arm, her hip, her hair or\nher flame drapes and then reappear on the other side. There is no hidden segment anywhere. Keep the\nwhole sword clear of her outline so it reads as one unbroken straight line from end to end. This is\nmandatory: an interrupted or bent blade is the failure that keeps happening and it must not happen.\nUnder foreshortening the near end is larger and the far end smaller, but the sword still reads as\ndead straight end to end.\n\nVertical 2:3 full-body composition. Elegant contrapposto and slight 3/4 turn toward the camera, weight on one leg, the longsword held in her RIGHT HAND ONLY at about hip height with the BLADE POINTING DOWN toward the ground.\n\nSHE SIMPLY LETS THE SWORD HANG FROM HER HAND, exactly the way she holds it in her ultimate cut -\nsame hand, same closed grip - only now the arm is relaxed and the weapon hangs down at her side.\n\nARM AND SWORD ARE ONE STRAIGHT LINE. Her right arm hangs down along her right side, held a little away\nfrom her body, the shoulder dropped and the elbow softly unlocked. Lay a single ruler from her elbow\ndown through her forearm, through her fist, through the grip and the crossguard, and on down the blade\nto the point: every one of those parts sits exactly on that one line. Her wrist is STRAIGHT and\ncontinues the forearm - it is not bent, cocked, dropped or angled to keep the blade vertical, and the\nsword never sits at an angle to her arm. The whole limb plus weapon reads as one long relaxed line\nfalling from her shoulder to the floor.\nBecause her arm hangs naturally rather than straight down, that line leans a few degrees, so the blade\npoints down and slightly forward and the point comes to rest just at the ground a little in front of\nher right foot. Let the line lean with the arm - never twist the wrist to force the blade upright.\n\nHOW THE HAND IS DRAWN - copy the hand from the ultimate cut:\nHer hand is closed around the leather grip with every finger correct, the pommel showing just above her\nfist and the crossguard just below it. Draw the fingers wrapping AROUND the grip: the grip is a cylinder\npassing BEHIND her four fingers and IN FRONT OF her palm. Never draw a closed fist first and then add a\nhilt above and below it. The four fingers are separate, clearly drawn digits with a readable knuckle\nline and creases between them - not a fused mitten, not a smooth lump, not a blur. Her thumb is separate\nand relaxed, lying along the grip rather than clamped across her fingers.\nShow the hand from its side, the way it reads in the ultimate cut, so the wrap around the grip is fully\nlegible - not from straight above or straight behind where the fingers collapse into a shape.\nThe grip is relaxed, not clenched: she is carrying the sword, not squeezing it.\nExactly five digits, correct proportions, no finger passing through the metal.\n\nThe sword sits OUTBOARD of her body, off to her right in open space, well clear of her torso, hip,\nskirt and streaming hair.\n\nThe long straight blade runs down through open space on her right to the point set on the floor. No part of the sword is hidden behind her or behind her hair at any point - the pommel, the grip, the crossguard, the full blade and the point are all continuously visible as one straight unbroken line silhouetted against the darker background. Keep the head, hair, hands, the entire sword from pommel to point, every flame drape and both feet completely inside the frame. Make her face, costume construction and silhouette readable on a mobile-game codex screen.\n\nUse a restrained volcanic sanctuary background with stepped deep-ember and charcoal shapes, a thin dark-iron circular diagram and sparse floating embers, all kept flat, simple and clearly darker than she is. The background must not merge with her hair, her flames or the sword.\n\nPremium anime fantasy mobile-game codex key art intended for high-resolution pixel-art conversion. Clean silhouette, large readable shapes, controlled highlights and limited visual noise.\n\nStrictly preserve the master identity and costume. Avoid a hammer grip, a tight vertical fist, knuckles squared to the camera, a locked straight wrist, a rigid straight line from elbow to blade, heavy red cheek blush, a flushed face, a curved or bent blade, a blade hidden behind her body or hair, a distorted hilt junction, an asymmetric crossguard, a pencil grip, a pinch grip, fingertips only, an open palm, splayed fingers, a mitten hand, fused or blurred fingers, a shapeless lump for a hand, a clenched fist with the hilt drawn through it, a hand floating off the hilt, a grip passing through the fingers, six fingers, a bent or broken wrist, a sword that looks weightless or floating, a short or stubby blade, a spear, a polearm, a scimitar, a katana, a younger face, different hairstyle, shortened hair, changed costume construction, a second weapon, extra props, malformed hands, cropped body, text, logo, watermark, card border or UI.",
+    "gpt-image-2",
+    "1024x1536",
+    1024,
+    1024,
+    "opaque",
+    "high",
+    1,
+    20261045
+   ]
+  },
+  {
+   "id": 23,
+   "type": "SaveImage",
+   "pos": [
+    520,
+    740
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 4,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "link": 4
+    }
+   ],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "SaveImage"
+   },
+   "widgets_values": [
+    "Ignis/01_Ignis_Codex_hang2_B"
+   ]
+  },
+  {
+   "id": 24,
+   "type": "OpenAIGPTImageNodeV2",
+   "pos": [
+    40,
+    1180
+   ],
+   "size": [
+    420,
+    400
+   ],
+   "flags": {},
+   "order": 5,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "model.images.image_1",
+     "type": "IMAGE",
+     "link": 5
+    }
+   ],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      6
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "OpenAIGPTImageNodeV2"
+   },
+   "widgets_values": [
+    "Using the supplied IGNIS master image as the exact identity, face, body proportion, hairstyle, costume, color palette and prop blueprint, create IGNIS'S FINAL CODEX PORTRAIT. Do not redesign her.\n\nPreserve exactly: her mature adult anime face, fully visible glowing crimson-red irises, extremely long red hair falling past her waist that shades from deep crimson roots through bright scarlet to glowing ember-orange tips and lifts at the ends as if caught in heat, her light warm brown skin, and her flame-woven dancer's regalia - a fitted sleeveless bodice of layered fire-silk, a low wrapped hip sash, and long flowing skirt panels split at the sides, fastened with thin blackened-iron rings at the hip and upper arm. The fire-silk reads as solid woven fabric with clean readable shapes; the flame lives only along the hems and trailing edges, never as an all-over blaze that swallows her silhouette. No gold, no crown, no visor, no armor, no cape, no wings, no horns.\n\nRENDERING STYLE - match this exactly, it is as important as the design:\nClean Japanese anime key-art rendering with soft cel shading, smooth even lighting and large flat readable color areas. A luminous, bright overall value key - she must read as clearly lit even against a dark backdrop. Delicate refined anime facial features with a soft jawline, a small nose and large clear expressive eyes. Crisp confident line work, restrained specular highlights, matte evenly-lit skin, minimal texture noise.\nHer complexion is EVEN and calm: the cheeks are the same light warm brown as the rest of her face, with\nat most a barely perceptible hint of warmth. No pink or red blush patch on the cheeks, no flushed nose\nbridge, no rosy cheek circles, no heated glow on the face.\nThis must NOT look like a dark painterly semi-realistic illustration: no heavy chiaroscuro, no dramatic rim-light-on-black, no glossy or oiled skin, no photorealistic muscle striation, no gritty texture overlay, no washed-out silhouette lost in shadow.\n\nWEAPON - a single mythic LONGSWORD, drawn with strict structural accuracy:\nA classic European cruciform LONGSWORD - a true two-hand war sword, not an arming sword, not a short\nsword and not a broadsword. One long straight double-edged blade, a straight bar crossguard, a long\nleather-wrapped grip sized for two hands, and a heavy rounded pommel. The blade is about three quarters\nof the total length and the hilt the remaining quarter.\nSCALE: the blade alone is LONGER than her arm measured from shoulder to fingertips, and the grip alone\nis long enough to take two of her hands side by side. Held point-down at her hip with a relaxed arm the\npoint reaches the ground. Draw it long and slender - err on the side of too long rather than too short,\nand never let it read as a stubby, wide, dagger-like or hand-and-a-half blade.\nThe BLADE is slender and flat with a shallow fuller running down its centre. Its two edges run straight\nand very nearly parallel for most of the blade, converging evenly to a point only over the last stretch.\nThe blade is NOT on fire. It is HEATED METAL: dark steel that glows from within like iron fresh from\nthe forge - deep cherry red near the crossguard, brightening to orange and pale yellow-white along the\nedges and toward the point, with faint heat shimmer. No licking flames, no fire wreath around the blade.\nThe hilt is dark iron-bound: a plain straight crossguard with slightly flared ends, a dark leather grip\nbound with fine iron wire, and a simple disc pommel. Small sparse glowing rune glyphs are etched along\nthe fuller and around the crossguard - an ancient mystical alphabet, faint and evenly spaced.\nGEOMETRY - the single most important constraint:\nThe blade is DEAD STRAIGHT. Its two edges are straight lines and the point sits exactly on the blade\naxis, centred, not swept to one side. It is NOT curved, bowed, scimitar-shaped, sabre-shaped,\nsickle-shaped, wavy, flame-bladed or leaf-bellied, and it must not bend, bow, warp, twist, kink, ripple,\ntaper unevenly or change width abruptly anywhere along its length.\nBLADE, GRIP AND POMMEL SHARE ONE AXIS. Draw the whole sword as a single straight ruler line first, then\nhang the crossguard across that line at a right angle. The blade runs straight out of the guard along\nthat same line and never sits at an angle to the grip.\nThe CROSSGUARD is one straight bar, perpendicular to the blade and symmetric - both arms the same length\nat the same angle. The junction where blade, guard and grip meet is clean and undistorted: no bulge, no\nkink, no swelling, no sudden change of direction, no smeared or melted join.\nTHE ENTIRE WEAPON STAYS OUTSIDE HER SILHOUETTE. From the pommel to the point, every part of the sword is\nseen against the open background - it never disappears behind her body, her arm, her hip, her hair or\nher flame drapes and then reappear on the other side. There is no hidden segment anywhere. Keep the\nwhole sword clear of her outline so it reads as one unbroken straight line from end to end. This is\nmandatory: an interrupted or bent blade is the failure that keeps happening and it must not happen.\nUnder foreshortening the near end is larger and the far end smaller, but the sword still reads as\ndead straight end to end.\n\nVertical 2:3 full-body composition. Elegant contrapposto and slight 3/4 turn toward the camera, weight on one leg, the longsword held in her RIGHT HAND ONLY at about hip height with the BLADE POINTING DOWN toward the ground.\n\nSHE SIMPLY LETS THE SWORD HANG FROM HER HAND, exactly the way she holds it in her ultimate cut -\nsame hand, same closed grip - only now the arm is relaxed and the weapon hangs down at her side.\n\nARM AND SWORD ARE ONE STRAIGHT LINE. Her right arm hangs down along her right side, held a little away\nfrom her body, the shoulder dropped and the elbow softly unlocked. Lay a single ruler from her elbow\ndown through her forearm, through her fist, through the grip and the crossguard, and on down the blade\nto the point: every one of those parts sits exactly on that one line. Her wrist is STRAIGHT and\ncontinues the forearm - it is not bent, cocked, dropped or angled to keep the blade vertical, and the\nsword never sits at an angle to her arm. The whole limb plus weapon reads as one long relaxed line\nfalling from her shoulder to the floor.\nBecause her arm hangs naturally rather than straight down, that line leans a few degrees, so the blade\npoints down and slightly forward and the point comes to rest just at the ground a little in front of\nher right foot. Let the line lean with the arm - never twist the wrist to force the blade upright.\n\nHOW THE HAND IS DRAWN - copy the hand from the ultimate cut:\nHer hand is closed around the leather grip with every finger correct, the pommel showing just above her\nfist and the crossguard just below it. Draw the fingers wrapping AROUND the grip: the grip is a cylinder\npassing BEHIND her four fingers and IN FRONT OF her palm. Never draw a closed fist first and then add a\nhilt above and below it. The four fingers are separate, clearly drawn digits with a readable knuckle\nline and creases between them - not a fused mitten, not a smooth lump, not a blur. Her thumb is separate\nand relaxed, lying along the grip rather than clamped across her fingers.\nShow the hand from its side, the way it reads in the ultimate cut, so the wrap around the grip is fully\nlegible - not from straight above or straight behind where the fingers collapse into a shape.\nThe grip is relaxed, not clenched: she is carrying the sword, not squeezing it.\nExactly five digits, correct proportions, no finger passing through the metal.\n\nThe sword sits OUTBOARD of her body, off to her right in open space, well clear of her torso, hip,\nskirt and streaming hair.\n\nThe long straight blade runs down through open space on her right to the point set on the floor. No part of the sword is hidden behind her or behind her hair at any point - the pommel, the grip, the crossguard, the full blade and the point are all continuously visible as one straight unbroken line silhouetted against the darker background. Keep the head, hair, hands, the entire sword from pommel to point, every flame drape and both feet completely inside the frame. Make her face, costume construction and silhouette readable on a mobile-game codex screen.\n\nUse a restrained volcanic sanctuary background with stepped deep-ember and charcoal shapes, a thin dark-iron circular diagram and sparse floating embers, all kept flat, simple and clearly darker than she is. The background must not merge with her hair, her flames or the sword.\n\nPremium anime fantasy mobile-game codex key art intended for high-resolution pixel-art conversion. Clean silhouette, large readable shapes, controlled highlights and limited visual noise.\n\nStrictly preserve the master identity and costume. Avoid a hammer grip, a tight vertical fist, knuckles squared to the camera, a locked straight wrist, a rigid straight line from elbow to blade, heavy red cheek blush, a flushed face, a curved or bent blade, a blade hidden behind her body or hair, a distorted hilt junction, an asymmetric crossguard, a pencil grip, a pinch grip, fingertips only, an open palm, splayed fingers, a mitten hand, fused or blurred fingers, a shapeless lump for a hand, a clenched fist with the hilt drawn through it, a hand floating off the hilt, a grip passing through the fingers, six fingers, a bent or broken wrist, a sword that looks weightless or floating, a short or stubby blade, a spear, a polearm, a scimitar, a katana, a younger face, different hairstyle, shortened hair, changed costume construction, a second weapon, extra props, malformed hands, cropped body, text, logo, watermark, card border or UI.",
+    "gpt-image-2",
+    "1024x1536",
+    1024,
+    1024,
+    "opaque",
+    "high",
+    1,
+    20261046
+   ]
+  },
+  {
+   "id": 25,
+   "type": "SaveImage",
+   "pos": [
+    520,
+    1180
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 6,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "link": 6
+    }
+   ],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "SaveImage"
+   },
+   "widgets_values": [
+    "Ignis/01_Ignis_Codex_hang2_C"
+   ]
+  }
+ ],
+ "links": [
+  [
+   1,
+   1,
+   0,
+   20,
+   0,
+   "IMAGE"
+  ],
+  [
+   2,
+   20,
+   0,
+   21,
+   0,
+   "IMAGE"
+  ],
+  [
+   3,
+   1,
+   0,
+   22,
+   0,
+   "IMAGE"
+  ],
+  [
+   4,
+   22,
+   0,
+   23,
+   0,
+   "IMAGE"
+  ],
+  [
+   5,
+   1,
+   0,
+   24,
+   0,
+   "IMAGE"
+  ],
+  [
+   6,
+   24,
+   0,
+   25,
+   0,
+   "IMAGE"
+  ]
+ ],
+ "groups": [
+  {
+   "title": "1. ASTRA MASTER REFERENCE",
+   "bounding": [
+    20,
+    0,
+    940,
+    380
+   ],
+   "color": "#3f789e",
+   "font_size": 24
+  },
+  {
+   "title": "2. CODEX (도감) — master 참조 편집 + 픽셀 마감",
+   "bounding": [
+    20,
+    380,
+    1600,
+    700
+   ],
+   "color": "#8A8",
+   "font_size": 24
+  },
+  {
+   "title": "3. ULTIMATE CUTSCENE — master 참조 편집 + 픽셀 마감",
+   "bounding": [
+    20,
+    1080,
+    1600,
+    700
+   ],
+   "color": "#a1309b",
+   "font_size": 24
+  }
+ ],
+ "config": {},
+ "extra": {
+  "ds": {
+   "scale": 0.55,
+   "offset": [
+    0,
+    0
+   ]
+  }
+ },
+ "version": 0.4
+}

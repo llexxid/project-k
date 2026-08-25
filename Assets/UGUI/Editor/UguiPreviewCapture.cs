@@ -265,7 +265,10 @@ namespace KingdomIdle.UGUI.Editor
             if (v.illustHolder != null) v.illustHolder.anchoredPosition = Vector2.zero;
             if (v.illust != null)
             {
-                var sp = card.illustration != null ? card.illustration : card.icon;
+                // 런타임(DivineCutInController)과 같은 대체 순서: 컷씬 → 스탠딩 → 아이콘
+                var sp = card.cutInIllustration != null ? card.cutInIllustration
+                       : card.illustration != null ? card.illustration
+                       : card.icon;
                 v.illust.sprite = sp;
                 v.illust.enabled = sp != null;
                 v.illust.color = Color.white;

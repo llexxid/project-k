@@ -1,0 +1,280 @@
+{
+ "last_node_id": 21,
+ "last_link_id": 4,
+ "nodes": [
+  {
+   "id": 1,
+   "type": "LoadImage",
+   "pos": [
+    40,
+    40
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      2
+     ],
+     "slot_index": 0
+    },
+    {
+     "name": "MASK",
+     "type": "MASK",
+     "links": [],
+     "slot_index": 1
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "LoadImage"
+   },
+   "widgets_values": [
+    "9aabd014d8674e3cac41b73c2e6c1b0d9988d59acaffbef063a48c9d1671a08a.png"
+   ]
+  },
+  {
+   "id": 2,
+   "type": "LoadImage",
+   "pos": [
+    40,
+    240
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 1,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      1
+     ],
+     "slot_index": 0
+    },
+    {
+     "name": "MASK",
+     "type": "MASK",
+     "links": [],
+     "slot_index": 1
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "LoadImage"
+   },
+   "widgets_values": [
+    "07e9429b5a003fc360096965c55ef087ac86591fb9ba56d1c93dfb56f08ff427.png"
+   ]
+  },
+  {
+   "id": 3,
+   "type": "ImageToMask",
+   "pos": [
+    300,
+    240
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 2,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "image",
+     "type": "IMAGE",
+     "link": 1
+    }
+   ],
+   "outputs": [
+    {
+     "name": "MASK",
+     "type": "MASK",
+     "links": [
+      3
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "ImageToMask"
+   },
+   "widgets_values": [
+    "red"
+   ]
+  },
+  {
+   "id": 20,
+   "type": "OpenAIGPTImageNodeV2",
+   "pos": [
+    560,
+    40
+   ],
+   "size": [
+    420,
+    400
+   ],
+   "flags": {},
+   "order": 3,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "model.images.image_1",
+     "type": "IMAGE",
+     "link": 2
+    },
+    {
+     "name": "model.mask",
+     "type": "MASK",
+     "link": 3
+    }
+   ],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      4
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "OpenAIGPTImageNodeV2"
+   },
+   "widgets_values": [
+    "Redraw only the masked area of this illustration - her right hand on the sword grip. Everything outside the mask is already correct and must be matched seamlessly at the mask border.\n\nWHAT IS WRONG: the hand has gone flat and small. The back of the hand reads as a plain slab of skin with no structure, the fingers have lost their volume, and the whole hand looks undersized next to the grip.\n\nTHE FIX - give the hand back its weight and structure:\nThe hand is a solid three-dimensional mass, drawn slightly larger so it sits convincingly around the grip - about as deep as the grip is wide, not a thin flap laid against it.\nWe see it from the outside, so the BACK OF THE HAND faces us: a broad plane running from the wrist up to the knuckles, with a clearly drawn curved row of KNUCKLES across the top of the fist and the soft tendon ridges running back toward the wrist.\nThe four fingers curl around the near face of the grip as four SEPARATE, ROUNDED segments stacked in a row - each finger has its own rounded volume and a visible crease shadow between it and the next. They are not flat sausages, not a fused mitten, and not a smooth blur.\nThe thumb comes over the top of the grip and lies down along the near side as a distinct digit with its own volume, joined at a full, rounded base-of-thumb muscle so the hand does not pinch in at the wrist.\nThe wrist flows smoothly into the hand with no narrowing or kink.\nThe grip is relaxed, not clenched white-knuckled.\n\nDO NOT MOVE ANYTHING. The hand stays exactly where it is on the grip - low, just above the crossguard, with the bare grip and pommel showing above it. The sword does not move: same grip, same crossguard, same blade, same runes. Her forearm keeps its angle and the wrist stays straight, in line with the grip.\n\nMatch the surrounding art exactly: the same clean anime cel shading, the same line weight, the same skin tone, the same shadow and highlight colours. The repainted hand must be indistinguishable in style from the rest of the painting, with no seam at the mask edge.\n\nExactly five digits, correct human proportions. Avoid a flat or slab-like back of the hand, a shrunken hand, fused or blurred fingers, a mitten, a pinched wrist, splayed fingers, six fingers, a moved sword, a bent wrist, a visible mask seam, text, logo or watermark.",
+    "gpt-image-2",
+    "1024x1536",
+    1024,
+    1024,
+    "opaque",
+    "high",
+    4,
+    0
+   ]
+  },
+  {
+   "id": 21,
+   "type": "SaveImage",
+   "pos": [
+    1040,
+    40
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 4,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "link": 4
+    }
+   ],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "SaveImage"
+   },
+   "widgets_values": [
+    "Ignis/01_Ignis_HandRoll"
+   ]
+  }
+ ],
+ "links": [
+  [
+   1,
+   2,
+   0,
+   3,
+   0,
+   "IMAGE"
+  ],
+  [
+   2,
+   1,
+   0,
+   20,
+   0,
+   "IMAGE"
+  ],
+  [
+   3,
+   3,
+   0,
+   20,
+   1,
+   "MASK"
+  ],
+  [
+   4,
+   20,
+   0,
+   21,
+   0,
+   "IMAGE"
+  ]
+ ],
+ "groups": [
+  {
+   "title": "1. ASTRA MASTER REFERENCE",
+   "bounding": [
+    20,
+    0,
+    940,
+    380
+   ],
+   "color": "#3f789e",
+   "font_size": 24
+  },
+  {
+   "title": "2. CODEX (도감) — master 참조 편집 + 픽셀 마감",
+   "bounding": [
+    20,
+    380,
+    1600,
+    700
+   ],
+   "color": "#8A8",
+   "font_size": 24
+  },
+  {
+   "title": "3. ULTIMATE CUTSCENE — master 참조 편집 + 픽셀 마감",
+   "bounding": [
+    20,
+    1080,
+    1600,
+    700
+   ],
+   "color": "#a1309b",
+   "font_size": 24
+  }
+ ],
+ "config": {},
+ "extra": {
+  "ds": {
+   "scale": 0.55,
+   "offset": [
+    0,
+    0
+   ]
+  }
+ },
+ "version": 0.4
+}

@@ -1,0 +1,280 @@
+{
+ "last_node_id": 21,
+ "last_link_id": 4,
+ "nodes": [
+  {
+   "id": 1,
+   "type": "LoadImage",
+   "pos": [
+    40,
+    40
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      2
+     ],
+     "slot_index": 0
+    },
+    {
+     "name": "MASK",
+     "type": "MASK",
+     "links": [],
+     "slot_index": 1
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "LoadImage"
+   },
+   "widgets_values": [
+    "1cfb62450f7a7aadb68ec70f248edbdf4ea820d7464eca7a14823b6630d8fbef.png"
+   ]
+  },
+  {
+   "id": 2,
+   "type": "LoadImage",
+   "pos": [
+    40,
+    240
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 1,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      1
+     ],
+     "slot_index": 0
+    },
+    {
+     "name": "MASK",
+     "type": "MASK",
+     "links": [],
+     "slot_index": 1
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "LoadImage"
+   },
+   "widgets_values": [
+    "2b663233de7c7d3ea68924704561e094b4e11c14868c128300b51d8cf4a133ce.png"
+   ]
+  },
+  {
+   "id": 3,
+   "type": "ImageToMask",
+   "pos": [
+    300,
+    240
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 2,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "image",
+     "type": "IMAGE",
+     "link": 1
+    }
+   ],
+   "outputs": [
+    {
+     "name": "MASK",
+     "type": "MASK",
+     "links": [
+      3
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "ImageToMask"
+   },
+   "widgets_values": [
+    "red"
+   ]
+  },
+  {
+   "id": 20,
+   "type": "OpenAIGPTImageNodeV2",
+   "pos": [
+    560,
+    40
+   ],
+   "size": [
+    420,
+    400
+   ],
+   "flags": {},
+   "order": 3,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "model.images.image_1",
+     "type": "IMAGE",
+     "link": 2
+    },
+    {
+     "name": "model.mask",
+     "type": "MASK",
+     "link": 3
+    }
+   ],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      4
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "OpenAIGPTImageNodeV2"
+   },
+   "widgets_values": [
+    "Redraw only the masked area of this illustration. Everything outside the mask is correct and must be matched seamlessly at the mask border.\n\nFIX 1 - DELETE THE SECOND HAND. There is a duplicate hand gripping the blade just below the crossguard. It should not exist. She holds the sword with ONE HAND ONLY, and that hand is ABOVE the crossguard, on the leather grip, outside this mask. Inside the mask, below the crossguard, there is nothing but the flat of the blade against the background - no hand, no fingers, no thumb, no knuckles, no wrist, no skin of any kind. Draw the crossguard as a clean, unobstructed bar with nothing wrapped around it, and let the blade run down from it completely bare.\n\nFIX 2 - TILT THE SWORD SLIGHTLY TO THE RIGHT. At the moment the blade hangs a little too upright, so it does not line up with her hand and forearm and there is a visible kink at the crossguard. Rotate the whole sword a few degrees CLOCKWISE - the point swings to the viewer's right and the blade leans a little further out from her leg. It is a SMALL adjustment, not a dramatic new angle.\nAfter the change, forearm, fist, grip, crossguard and blade must all sit on ONE STRAIGHT AXIS: lay a ruler along her forearm and continue it downward - the crossguard sits square across that line and the blade runs straight down it to the point. No kink, no angle change where the blade leaves the guard.\nThe point still comes down to the ground.\n\nTHE BLADE ITSELF IS UNCHANGED IN DESIGN: the same long slender heated-steel blade glowing cherry red near the guard and brightening toward the edges and point, the same glowing rune glyphs down the fuller, the same straight symmetric crossguard with its flared ends and stud detail. It is DEAD STRAIGHT - both edges straight and very nearly parallel, holding full width for about seven eighths of its length and converging to a short crisp point only at the end. No bow, bend, warp, twist or ripple.\n\nEVERYTHING ELSE INSIDE THE MASK IS REDRAWN EXACTLY AS IT IS: the same skirt fabric with the same folds and flame hem, the same dark floor with its glowing lava cracks, the same background. Do not change her leg, her foot, her skirt or the ground.\n\nMatch the surrounding art exactly: the same clean anime cel shading, line weight and colours, with no seam at the mask edge.\n\nAvoid a second hand, stray fingers, any skin below the crossguard, a bent or curved blade, a kink at the crossguard, a large angle change, a moved hand or forearm, a changed leg, foot, skirt or floor, a visible mask seam, text, logo or watermark.",
+    "gpt-image-2",
+    "1024x1536",
+    1024,
+    1024,
+    "opaque",
+    "high",
+    4,
+    0
+   ]
+  },
+  {
+   "id": 21,
+   "type": "SaveImage",
+   "pos": [
+    1040,
+    40
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 4,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "link": 4
+    }
+   ],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "SaveImage"
+   },
+   "widgets_values": [
+    "Ignis/01_Ignis_SwordFix"
+   ]
+  }
+ ],
+ "links": [
+  [
+   1,
+   2,
+   0,
+   3,
+   0,
+   "IMAGE"
+  ],
+  [
+   2,
+   1,
+   0,
+   20,
+   0,
+   "IMAGE"
+  ],
+  [
+   3,
+   3,
+   0,
+   20,
+   1,
+   "MASK"
+  ],
+  [
+   4,
+   20,
+   0,
+   21,
+   0,
+   "IMAGE"
+  ]
+ ],
+ "groups": [
+  {
+   "title": "1. ASTRA MASTER REFERENCE",
+   "bounding": [
+    20,
+    0,
+    940,
+    380
+   ],
+   "color": "#3f789e",
+   "font_size": 24
+  },
+  {
+   "title": "2. CODEX (도감) — master 참조 편집 + 픽셀 마감",
+   "bounding": [
+    20,
+    380,
+    1600,
+    700
+   ],
+   "color": "#8A8",
+   "font_size": 24
+  },
+  {
+   "title": "3. ULTIMATE CUTSCENE — master 참조 편집 + 픽셀 마감",
+   "bounding": [
+    20,
+    1080,
+    1600,
+    700
+   ],
+   "color": "#a1309b",
+   "font_size": 24
+  }
+ ],
+ "config": {},
+ "extra": {
+  "ds": {
+   "scale": 0.55,
+   "offset": [
+    0,
+    0
+   ]
+  }
+ },
+ "version": 0.4
+}

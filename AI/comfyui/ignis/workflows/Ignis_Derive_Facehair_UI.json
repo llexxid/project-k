@@ -1,0 +1,183 @@
+{
+ "last_node_id": 21,
+ "last_link_id": 2,
+ "nodes": [
+  {
+   "id": 1,
+   "type": "LoadImage",
+   "pos": [
+    40,
+    40
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      1
+     ],
+     "slot_index": 0
+    },
+    {
+     "name": "MASK",
+     "type": "MASK",
+     "links": [],
+     "slot_index": 1
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "LoadImage"
+   },
+   "widgets_values": [
+    "137745f64be39a966c4c5e3308e93bbdbcabdfa151e31b2de89290425e69b7b9.png"
+   ]
+  },
+  {
+   "id": 20,
+   "type": "OpenAIGPTImageNodeV2",
+   "pos": [
+    40,
+    300
+   ],
+   "size": [
+    420,
+    400
+   ],
+   "flags": {},
+   "order": 1,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "model.images.image_1",
+     "type": "IMAGE",
+     "link": 1
+    }
+   ],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      2
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "OpenAIGPTImageNodeV2"
+   },
+   "widgets_values": [
+    "Reproduce the supplied image, changing only TWO things: her face skin and her hair. Everything else must be copied exactly.\n\nFIX 1 - SMOOTH HER FACE.\nHer face is currently broken up by hard crease lines that read as cracks: a harsh vertical line down the bridge of her nose, stiff lines around the eyes, and a hard-edged shadow slab across one cheek with a visible seam.\nRedraw the face as clean anime cel shading: the skin is ONE smooth, even, matte field of light warm brown, broken only by two or three soft, simply-shaped shadows - under the fringe, along one side of the nose, and under the jaw - each with a soft clean edge. No crack lines, no crease lines, no wrinkles, no hard seams, no blotches, no gritty texture, no harsh ridge drawn down the nose. The nose is suggested by a small soft shadow and a tiny highlight, not by a drawn line.\nDelicate refined anime features: a soft jawline, a small nose, and large clear expressive eyes. BOTH EYES MATCH - the same shape, the same size, the same fully visible glowing crimson-red iris with the same highlight, clean even eyelash lines, no smearing or distortion on either eye. A faint confident half-smile. Even complexion with no blush patch.\n\nFIX 2 - THE HAIR: MINIMAL, SOFT, FLOWING DOWNWARD LIKE A SLOW FLAME.\nRight now it reads as a repeating, choppy wave pattern - many ripples of the same size and the same frequency stacked over each other, like corrugated water. That repetition is the problem.\nRedraw it as a SMALL NUMBER of long, broad, smooth locks falling DOWNWARD and slightly back. Each lock is one single long gentle curve from the scalp to its tip - not a series of waves, not a zigzag, not a ripple. Give the locks DIFFERENT widths and DIFFERENT lengths so no two read the same: a few wide dominant locks carry the shape, a few narrower ones sit between them. Leave generous open space between locks so the mass stays airy and light.\nInside each lock, draw only a few long clean highlight lines that follow its curve - not a dense scribble of strands.\nThe tips taper and lift very slightly, brightening from scarlet to glowing ember-orange, like the calm tip of a flame. A few small sparks may leave the tips.\nKeep it RESTRAINED and minimal - fewer, larger, calmer shapes. Keep the same overall silhouette, the same length, the same parting and the same colour order: deep crimson roots through bright scarlet to ember-orange tips.\nAvoid a repeating wave pattern, corrugated ripples, frizz, knots, tangles, matted clumps or a dense mesh of thin strands.\n\nEVERYTHING ELSE IS UNCHANGED: the same pose and the same angle of every limb, the same single right hand closed on the sword grip - SHE HAS ONLY ONE HAND ON THE SWORD and there must be NO second hand or stray fingers anywhere near the crossguard - the same sword at the same angle with the same blade, runes, crossguard and pommel, the same smooth woven crimson cloth costume with every panel, fold, hem and iron ring, the same bare feet and ankle rings, the same background, lighting and palette.\n\nThe costume stays SMOOTH WOVEN CLOTH, clearly distinct from the hair.\n\nMatch the existing rendering: the same clean anime cel shading, line weight, skin tone and shadow colours.\n\nAvoid a changed pose, a changed or duplicated hand, a second hand at the crossguard, six fingers, a moved or re-angled sword, a changed costume, a changed hairstyle silhouette, a cracked or creased face, mismatched eyes, text, logo or watermark.",
+    "gpt-image-2",
+    "1024x1536",
+    1024,
+    1024,
+    "opaque",
+    "high",
+    4,
+    0
+   ]
+  },
+  {
+   "id": 21,
+   "type": "SaveImage",
+   "pos": [
+    520,
+    300
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 2,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "link": 2
+    }
+   ],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "SaveImage"
+   },
+   "widgets_values": [
+    "Ignis/01_Ignis_FaceHair"
+   ]
+  }
+ ],
+ "links": [
+  [
+   1,
+   1,
+   0,
+   20,
+   0,
+   "IMAGE"
+  ],
+  [
+   2,
+   20,
+   0,
+   21,
+   0,
+   "IMAGE"
+  ]
+ ],
+ "groups": [
+  {
+   "title": "1. ASTRA MASTER REFERENCE",
+   "bounding": [
+    20,
+    0,
+    940,
+    380
+   ],
+   "color": "#3f789e",
+   "font_size": 24
+  },
+  {
+   "title": "2. CODEX (도감) — master 참조 편집 + 픽셀 마감",
+   "bounding": [
+    20,
+    380,
+    1600,
+    700
+   ],
+   "color": "#8A8",
+   "font_size": 24
+  },
+  {
+   "title": "3. ULTIMATE CUTSCENE — master 참조 편집 + 픽셀 마감",
+   "bounding": [
+    20,
+    1080,
+    1600,
+    700
+   ],
+   "color": "#a1309b",
+   "font_size": 24
+  }
+ ],
+ "config": {},
+ "extra": {
+  "ds": {
+   "scale": 0.55,
+   "offset": [
+    0,
+    0
+   ]
+  }
+ },
+ "version": 0.4
+}

@@ -1,0 +1,183 @@
+{
+ "last_node_id": 21,
+ "last_link_id": 2,
+ "nodes": [
+  {
+   "id": 1,
+   "type": "LoadImage",
+   "pos": [
+    40,
+    40
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      1
+     ],
+     "slot_index": 0
+    },
+    {
+     "name": "MASK",
+     "type": "MASK",
+     "links": [],
+     "slot_index": 1
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "LoadImage"
+   },
+   "widgets_values": [
+    "e1726e0ae12380725553116799cd5f0a3aa0e15f9139645ca5b51afa4289e0fd.png"
+   ]
+  },
+  {
+   "id": 20,
+   "type": "OpenAIGPTImageNodeV2",
+   "pos": [
+    40,
+    300
+   ],
+   "size": [
+    420,
+    400
+   ],
+   "flags": {},
+   "order": 1,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "model.images.image_1",
+     "type": "IMAGE",
+     "link": 1
+    }
+   ],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      2
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "OpenAIGPTImageNodeV2"
+   },
+   "widgets_values": [
+    "Reproduce the supplied image, keeping everything about it, and make only these adjustments to the sword and where her hand sits on it.\n\nDO NOT TOUCH THE ARM. Her right arm, her wrist and her hand keep exactly the shape, angle and position they already have. The forearm descends steeply and runs in one straight line into the grip, and THE WRIST STAYS PERFECTLY STRAIGHT - no bend, no cock, no kink. Her fingers keep the same wrap around the grip, the same separated digits, the same knuckle line, the same thumb. Her fist stays exactly where it is on the canvas. This is already correct and must not be redrawn differently.\n\nCHANGE 1 - SHE GRIPS NEARER THE HILT. At the moment she looks like she is holding the sword by the very end of the grip. Slide the SWORD upward through her closed hand so that her fist now sits LOW on the grip, close above the crossguard, with only a short gap between the bottom of her fist and the guard. Above her fist a longer run of bare leather grip and the whole disc pommel are now clearly visible. The hand does not move - the sword moves through it.\n\nCHANGE 2 - THE SWORD IS SLIGHTLY LONGER. Lengthen the whole weapon a little, so that even after sliding up through her hand the point still reaches the ground beside her foot. It should read as a long two-hand war sword.\n\nCHANGE 3 - THE BLADE TAPERS LATE. The blade holds its full width for about seven eighths of its length, its two edges running as straight, very nearly parallel lines all the way down, and converges into a short crisp point only over the final eighth near the tip. It must not narrow gradually from the crossguard, and it must not read as a long slow spike.\n\nTHE BLADE IS DEAD STRAIGHT. Lay a ruler along it: both edges are straight lines, the fuller runs straight down the centre, and the point sits exactly on the blade axis. No bow, no bend, no warp, no twist, no ripple, no S-curve, no widening or narrowing anywhere except the final taper. The crossguard stays one straight bar, perpendicular to the blade, both arms the same length at the same angle. The join where blade, guard and grip meet stays clean - no bulge, no kink, no smear.\n\nEVERYTHING ELSE IS UNCHANGED: the same woman, face, expression, eye colour, hairstyle, costume with every drape and iron ring, bare feet and ankle rings, her left arm, the standing pose, the background, the lighting, the palette, and the sword's own design - the same dark steel glowing like heated iron, the same glowing rune glyphs, the same crossguard and disc pommel.\n\nMatch the existing rendering exactly - the same clean anime cel shading, line weight, skin tone and shadow colours.\n\nAvoid a bent, cocked or broken wrist, a redrawn or reshaped hand, a hand still at the very end of the grip, a curved, bowed, warped or wavy blade, a blade that tapers from the guard, a needle-thin point, an asymmetric crossguard, a distorted hilt junction, a changed face, hairstyle, costume, background or palette, text, logo or watermark.",
+    "gpt-image-2",
+    "1024x1536",
+    1024,
+    1024,
+    "opaque",
+    "high",
+    4,
+    0
+   ]
+  },
+  {
+   "id": 21,
+   "type": "SaveImage",
+   "pos": [
+    520,
+    300
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 2,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "link": 2
+    }
+   ],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "SaveImage"
+   },
+   "widgets_values": [
+    "Ignis/01_Ignis_GripHilt"
+   ]
+  }
+ ],
+ "links": [
+  [
+   1,
+   1,
+   0,
+   20,
+   0,
+   "IMAGE"
+  ],
+  [
+   2,
+   20,
+   0,
+   21,
+   0,
+   "IMAGE"
+  ]
+ ],
+ "groups": [
+  {
+   "title": "1. ASTRA MASTER REFERENCE",
+   "bounding": [
+    20,
+    0,
+    940,
+    380
+   ],
+   "color": "#3f789e",
+   "font_size": 24
+  },
+  {
+   "title": "2. CODEX (도감) — master 참조 편집 + 픽셀 마감",
+   "bounding": [
+    20,
+    380,
+    1600,
+    700
+   ],
+   "color": "#8A8",
+   "font_size": 24
+  },
+  {
+   "title": "3. ULTIMATE CUTSCENE — master 참조 편집 + 픽셀 마감",
+   "bounding": [
+    20,
+    1080,
+    1600,
+    700
+   ],
+   "color": "#a1309b",
+   "font_size": 24
+  }
+ ],
+ "config": {},
+ "extra": {
+  "ds": {
+   "scale": 0.55,
+   "offset": [
+    0,
+    0
+   ]
+  }
+ },
+ "version": 0.4
+}

@@ -1,0 +1,280 @@
+{
+ "last_node_id": 21,
+ "last_link_id": 4,
+ "nodes": [
+  {
+   "id": 1,
+   "type": "LoadImage",
+   "pos": [
+    40,
+    40
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      2
+     ],
+     "slot_index": 0
+    },
+    {
+     "name": "MASK",
+     "type": "MASK",
+     "links": [],
+     "slot_index": 1
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "LoadImage"
+   },
+   "widgets_values": [
+    "3f603360a35cf08d7145b72ff082737041d2e68d0c63e28185656bdd15614f7e.png"
+   ]
+  },
+  {
+   "id": 2,
+   "type": "LoadImage",
+   "pos": [
+    40,
+    240
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 1,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      1
+     ],
+     "slot_index": 0
+    },
+    {
+     "name": "MASK",
+     "type": "MASK",
+     "links": [],
+     "slot_index": 1
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "LoadImage"
+   },
+   "widgets_values": [
+    "07e9429b5a003fc360096965c55ef087ac86591fb9ba56d1c93dfb56f08ff427.png"
+   ]
+  },
+  {
+   "id": 3,
+   "type": "ImageToMask",
+   "pos": [
+    300,
+    240
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 2,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "image",
+     "type": "IMAGE",
+     "link": 1
+    }
+   ],
+   "outputs": [
+    {
+     "name": "MASK",
+     "type": "MASK",
+     "links": [
+      3
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "ImageToMask"
+   },
+   "widgets_values": [
+    "red"
+   ]
+  },
+  {
+   "id": 20,
+   "type": "OpenAIGPTImageNodeV2",
+   "pos": [
+    560,
+    40
+   ],
+   "size": [
+    420,
+    400
+   ],
+   "flags": {},
+   "order": 3,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "model.images.image_1",
+     "type": "IMAGE",
+     "link": 2
+    },
+    {
+     "name": "model.mask",
+     "type": "MASK",
+     "link": 3
+    }
+   ],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      4
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "OpenAIGPTImageNodeV2"
+   },
+   "widgets_values": [
+    "Redraw only the masked area - her right hand closed on the sword grip. Everything outside the mask is correct and must be matched seamlessly at the mask border.\n\nDraw the hand exactly the way a life-drawing reference shows a hand carrying a sword at the hip, seen from outside the body:\n\nTHE BACK OF THE HAND FACES US and is tipped slightly toward the viewer, so we read the full width of the hand from the wrist to the knuckles. Across the top of the fist runs a clear, slightly arched ROW OF FOUR KNUCKLES, the index knuckle highest and largest, stepping down toward the little finger. Soft tendon ridges run back from the knuckles toward the wrist.\nTHE FOUR FINGERS wrap around the far side of the grip and curl back toward the palm, and we see their middle segments stacked in a neat descending row on the near face of the grip. Each finger is a separate rounded digit with a crease shadow between it and the next; the index finger sits highest and the little finger lowest, and each is slightly shorter as it goes down.\nTHE THUMB comes across the TOP of the fist and lies over the side of the index finger, its tip pointing down along the grip. There is a small visible hollow between the thumb and the index knuckle, and the base of the thumb is a full rounded muscle so the hand does not pinch in at the wrist.\nThe fist is closed but RELAXED - she is carrying the weight, not squeezing. The hand has real depth, about as thick as the grip is wide.\n\nDO NOT MOVE ANYTHING ELSE. The hand stays exactly where it is on the grip - low, just above the crossguard, with bare grip and pommel showing above it. The sword does not move: same grip, crossguard, blade and runes. The forearm keeps its angle and the wrist stays straight, in line with the grip.\n\nMatch the surrounding art exactly: same clean anime cel shading, line weight, skin tone, shadow and highlight colours, with no seam at the mask edge.\n\nExactly five digits, correct human proportions. Avoid a flat slab back of the hand, a shrunken hand, fused or blurred fingers, a mitten, a pinched wrist, a hidden thumb, splayed fingers, six fingers, a moved sword, a bent wrist, a visible mask seam, text, logo or watermark.",
+    "gpt-image-2",
+    "1024x1536",
+    1024,
+    1024,
+    "opaque",
+    "high",
+    4,
+    0
+   ]
+  },
+  {
+   "id": 21,
+   "type": "SaveImage",
+   "pos": [
+    1040,
+    40
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 4,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "link": 4
+    }
+   ],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "SaveImage"
+   },
+   "widgets_values": [
+    "Ignis/01_Ignis_HandRef"
+   ]
+  }
+ ],
+ "links": [
+  [
+   1,
+   2,
+   0,
+   3,
+   0,
+   "IMAGE"
+  ],
+  [
+   2,
+   1,
+   0,
+   20,
+   0,
+   "IMAGE"
+  ],
+  [
+   3,
+   3,
+   0,
+   20,
+   1,
+   "MASK"
+  ],
+  [
+   4,
+   20,
+   0,
+   21,
+   0,
+   "IMAGE"
+  ]
+ ],
+ "groups": [
+  {
+   "title": "1. ASTRA MASTER REFERENCE",
+   "bounding": [
+    20,
+    0,
+    940,
+    380
+   ],
+   "color": "#3f789e",
+   "font_size": 24
+  },
+  {
+   "title": "2. CODEX (도감) — master 참조 편집 + 픽셀 마감",
+   "bounding": [
+    20,
+    380,
+    1600,
+    700
+   ],
+   "color": "#8A8",
+   "font_size": 24
+  },
+  {
+   "title": "3. ULTIMATE CUTSCENE — master 참조 편집 + 픽셀 마감",
+   "bounding": [
+    20,
+    1080,
+    1600,
+    700
+   ],
+   "color": "#a1309b",
+   "font_size": 24
+  }
+ ],
+ "config": {},
+ "extra": {
+  "ds": {
+   "scale": 0.55,
+   "offset": [
+    0,
+    0
+   ]
+  }
+ },
+ "version": 0.4
+}

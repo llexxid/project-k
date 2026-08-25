@@ -71,8 +71,12 @@ namespace KingdomIdle.UGUI
         public const float DivineHudAutoRingPad = 12f; // AUTO 회전 링(틱)이 버튼 밖으로 나가는 반지름 여유
 
         // ── 신성 스킬 컷인 오버레이 ──
-        public const float DivineCutInIllustWidth = 620f;
-        public const float DivineCutInIllustHeight = 860f;
+        // 컷씬 아트의 논리 해상도는 288x512 (AI/comfyui README §4). 홀더를 그 **정수배(x2)** 로 잡아야
+        // Point 필터에서 픽셀이 균일한 2x2 블록으로 떨어진다 — 620x860 이던 시절엔 1.68배로 깔려
+        // 픽셀 행이 들쭉날쭉했다. 세로 1024 는 y=180 기준 -332..+692 로, 이름 플레이트 윗변(-350)과
+        // 화면 위끝(+960) 어디에도 닿지 않는다.
+        public const float DivineCutInIllustWidth = 576f;    // 288 x2
+        public const float DivineCutInIllustHeight = 1024f;  // 512 x2
         public const float DivineCutInIllustY = 180f;    // 화면 중앙 기준 일러스트 y 오프셋
         public const float DivineCutInSlideX = 420f;     // 일러스트가 옆에서 밀려 들어오는 시작 오프셋
         public const float DivineCutInPlateWidth = 900f;

@@ -1,0 +1,183 @@
+{
+ "last_node_id": 21,
+ "last_link_id": 2,
+ "nodes": [
+  {
+   "id": 1,
+   "type": "LoadImage",
+   "pos": [
+    40,
+    40
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      1
+     ],
+     "slot_index": 0
+    },
+    {
+     "name": "MASK",
+     "type": "MASK",
+     "links": [],
+     "slot_index": 1
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "LoadImage"
+   },
+   "widgets_values": [
+    "541004b9d87e3edc43e16bf2558d6d941a178fc549222bf1d11492db5252e027.png"
+   ]
+  },
+  {
+   "id": 20,
+   "type": "OpenAIGPTImageNodeV2",
+   "pos": [
+    40,
+    300
+   ],
+   "size": [
+    420,
+    400
+   ],
+   "flags": {},
+   "order": 1,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "model.images.image_1",
+     "type": "IMAGE",
+     "link": 1
+    }
+   ],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      2
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "OpenAIGPTImageNodeV2"
+   },
+   "widgets_values": [
+    "Reproduce the supplied image exactly, changing only ONE thing: how her hair is drawn.\n\nHER HAIR MUST READ AS FLOWING FIRE, NOT AS TANGLED HAIR.\nRight now it is a dense, frizzy, knotted mass of many small overlapping curls that reads as messy hair.\nRedraw it as a slow tongue of flame given the shape of hair:\nGroup it into a SMALL NUMBER OF BROAD, SMOOTH LOCKS - long sweeping ribbons of hair, each one wide and\nconfident, each following one long unbroken S-curve from the scalp to its tip. Think of the way a flame\nleans and streams in a draft: one dominant direction, gentle parallel curves, generous open space\nbetween the locks.\nEvery lock flows in the SAME overall direction, so the whole mass reads as one current. Where locks\noverlap they lie cleanly over one another with a crisp edge and a clear tonal step, never merging into\nan undifferentiated red field.\nThe tips are the flame part: each lock tapers and its last stretch lifts and curls upward into a soft\nlicking point, brightening from scarlet to glowing ember-orange as it rises, with a few fine sparks\nleaving the tips.\nRemove the frizz: no dense mesh of tiny curls, no knots, no crinkled or matted texture, no thousands of\nthin strands crossing each other, no wiry flyaways. Interior detail is a few long parallel highlight\nlines following each lock, not a scribble.\nKeep the same silhouette, the same length, the same parting and the same colour order - deep crimson at\nthe roots through bright scarlet to glowing ember-orange at the tips.\n\nBecause she is moving, the whole hair mass streams behind her in one continuous direction - a small number of long, broad, clearly separated ribbons with plenty of open background between them. Keep it restrained: it must not become a large billowing cloud, must not spread wide, and must not crowd her face or the sword.\n\nEVERYTHING ELSE IS UNCHANGED: the same woman, face, expression and eye colour, the same pose and the same angle of every limb, the same hand closed on the sword grip, the same sword with its blade, runes, crossguard and pommel in the same position and at the same angle, the same costume, the same bare feet and ankle rings.\n\nTHE BACKGROUND STAYS EXACTLY AS IT IS: one flat, uniform, pure chroma-key green (#00FF00) filling every pixel that is not Ignis herself or her sword. Nothing else in the frame - no scenery, no smoke, no particles, no glow, no gradient, no shadow. Do not use any green anywhere on her body, hair, skin, costume or sword.\n\nMatch the existing rendering: the same clean anime cel shading, line weight, skin tone and shadow colours.\n\nAvoid a changed pose, a changed hand, wrist or finger count, a moved or re-angled sword, a changed costume, frizzy or matted hair, an oversized cloud of hair, a background that is not flat green, text, logo or watermark.",
+    "gpt-image-2",
+    "1152x2048",
+    1024,
+    1024,
+    "opaque",
+    "high",
+    4,
+    0
+   ]
+  },
+  {
+   "id": 21,
+   "type": "SaveImage",
+   "pos": [
+    520,
+    300
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 2,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "link": 2
+    }
+   ],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "SaveImage"
+   },
+   "widgets_values": [
+    "Ignis/02_Ignis_Hair"
+   ]
+  }
+ ],
+ "links": [
+  [
+   1,
+   1,
+   0,
+   20,
+   0,
+   "IMAGE"
+  ],
+  [
+   2,
+   20,
+   0,
+   21,
+   0,
+   "IMAGE"
+  ]
+ ],
+ "groups": [
+  {
+   "title": "1. ASTRA MASTER REFERENCE",
+   "bounding": [
+    20,
+    0,
+    940,
+    380
+   ],
+   "color": "#3f789e",
+   "font_size": 24
+  },
+  {
+   "title": "2. CODEX (도감) — master 참조 편집 + 픽셀 마감",
+   "bounding": [
+    20,
+    380,
+    1600,
+    700
+   ],
+   "color": "#8A8",
+   "font_size": 24
+  },
+  {
+   "title": "3. ULTIMATE CUTSCENE — master 참조 편집 + 픽셀 마감",
+   "bounding": [
+    20,
+    1080,
+    1600,
+    700
+   ],
+   "color": "#a1309b",
+   "font_size": 24
+  }
+ ],
+ "config": {},
+ "extra": {
+  "ds": {
+   "scale": 0.55,
+   "offset": [
+    0,
+    0
+   ]
+  }
+ },
+ "version": 0.4
+}

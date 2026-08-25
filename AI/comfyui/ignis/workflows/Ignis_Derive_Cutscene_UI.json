@@ -1,0 +1,183 @@
+{
+ "last_node_id": 31,
+ "last_link_id": 2,
+ "nodes": [
+  {
+   "id": 1,
+   "type": "LoadImage",
+   "pos": [
+    40,
+    40
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      1
+     ],
+     "slot_index": 0
+    },
+    {
+     "name": "MASK",
+     "type": "MASK",
+     "links": [],
+     "slot_index": 1
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "LoadImage"
+   },
+   "widgets_values": [
+    "7e616e46ef4b441db6969cd1ad6d27b41f19158822a9711a15aa158a282c4c2e.png"
+   ]
+  },
+  {
+   "id": 30,
+   "type": "OpenAIGPTImageNodeV2",
+   "pos": [
+    40,
+    1620
+   ],
+   "size": [
+    420,
+    400
+   ],
+   "flags": {},
+   "order": 1,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "model.images.image_1",
+     "type": "IMAGE",
+     "link": 1
+    }
+   ],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      2
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "OpenAIGPTImageNodeV2"
+   },
+   "widgets_values": [
+    "Using the supplied IGNIS reference image as the exact identity - face, mature adult proportions, hairstyle and hair color order, costume construction and color palette - create IGNIS'S ULTIMATE-SKILL CUTSCENE CUT. Do not redesign her.\n\nPreserve exactly: her mature adult anime face, fully visible glowing crimson-red irises, extremely long red hair falling past her waist that shades from deep crimson roots through bright scarlet to glowing ember-orange tips and lifts at the ends as if caught in heat, her light warm brown skin, and her flame-woven dancer's regalia - a fitted sleeveless bodice of layered fire-silk, a low wrapped hip sash, and long flowing skirt panels split at the sides, fastened with thin blackened-iron rings at the hip and upper arm. The fire-silk reads as solid woven fabric with clean readable shapes; the flame lives only along the hems and trailing edges, never as an all-over blaze that swallows her silhouette. No gold, no crown, no visor, no armor, no cape, no wings, no horns.\n\nRENDERING STYLE - match this exactly, it is as important as the design:\nClean Japanese anime key-art rendering with soft cel shading, smooth even lighting and large flat readable color areas. A luminous, bright overall value key - she must read as clearly lit even against a dark backdrop. Delicate refined anime facial features with a soft jawline, a small nose and large clear expressive eyes. Crisp confident line work, restrained specular highlights, matte evenly-lit skin, minimal texture noise.\nHer complexion is EVEN and calm: the cheeks are the same light warm brown as the rest of her face, with\nat most a barely perceptible hint of warmth. No pink or red blush patch on the cheeks, no flushed nose\nbridge, no rosy cheek circles, no heated glow on the face.\nThis must NOT look like a dark painterly semi-realistic illustration: no heavy chiaroscuro, no dramatic rim-light-on-black, no glossy or oiled skin, no photorealistic muscle striation, no gritty texture overlay, no washed-out silhouette lost in shadow.\n\nWEAPON - a single mythic LONGSWORD, drawn with strict structural accuracy:\nA classic European cruciform LONGSWORD - a true two-hand war sword, not an arming sword, not a short\nsword and not a broadsword. One long straight double-edged blade, a straight bar crossguard, a long\nleather-wrapped grip sized for two hands, and a heavy rounded pommel. The blade is about three quarters\nof the total length and the hilt the remaining quarter.\nSCALE: the blade alone is LONGER than her arm measured from shoulder to fingertips, and the grip alone\nis long enough to take two of her hands side by side. Held point-down at her hip with a relaxed arm the\npoint reaches the ground. Draw it long and slender - err on the side of too long rather than too short,\nand never let it read as a stubby, wide, dagger-like or hand-and-a-half blade.\nThe BLADE is slender and flat with a shallow fuller running down its centre.\nBLADE PROFILE - follow this literally: the blade holds its full width for about SEVEN EIGHTHS of its\nlength, its two edges running as straight, very nearly parallel lines the whole way down. Only over the\nFINAL EIGHTH, close to the tip, do the edges converge into a short, crisp point. Do not start the taper\nnear the crossguard, do not let the blade narrow gradually along its whole length, and do not draw a\nlong slow spike - it is a parallel-sided war blade with a short point, not a needle.\nThe blade is NOT on fire. It is HEATED METAL: dark steel that glows from within like iron fresh from\nthe forge - deep cherry red near the crossguard, brightening to orange and pale yellow-white along the\nedges and toward the point, with faint heat shimmer. No licking flames, no fire wreath around the blade.\nThe hilt is dark iron-bound: a plain straight crossguard with slightly flared ends, a dark leather grip\nbound with fine iron wire, and a simple disc pommel. Small sparse glowing rune glyphs are etched along\nthe fuller and around the crossguard - an ancient mystical alphabet, faint and evenly spaced.\nGEOMETRY - the single most important constraint:\nThe blade is DEAD STRAIGHT. Its two edges are straight lines and the point sits exactly on the blade\naxis, centred, not swept to one side. It is NOT curved, bowed, scimitar-shaped, sabre-shaped,\nsickle-shaped, wavy, flame-bladed or leaf-bellied, and it must not bend, bow, warp, twist, kink, ripple,\ntaper unevenly or change width abruptly anywhere along its length.\nBLADE, GRIP AND POMMEL SHARE ONE AXIS. Draw the whole sword as a single straight ruler line first, then\nhang the crossguard across that line at a right angle. The blade runs straight out of the guard along\nthat same line and never sits at an angle to the grip.\nThe CROSSGUARD is one straight bar, perpendicular to the blade and symmetric - both arms the same length\nat the same angle. The junction where blade, guard and grip meet is clean and undistorted: no bulge, no\nkink, no swelling, no sudden change of direction, no smeared or melted join.\nTHE ENTIRE WEAPON STAYS OUTSIDE HER SILHOUETTE. From the pommel to the point, every part of the sword is\nseen against the open background - it never disappears behind her body, her arm, her hip, her hair or\nher flame drapes and then reappear on the other side. There is no hidden segment anywhere. Keep the\nwhole sword clear of her outline so it reads as one unbroken straight line from end to end. This is\nmandatory: an interrupted or bent blade is the failure that keeps happening and it must not happen.\nUnder foreshortening the near end is larger and the far end smaller, but the sword still reads as\ndead straight end to end.\n\nCOMPOSITION - match this camera and pose exactly:\nA BACK-VIEW cutscene cut, upper body and hips, seen from behind and slightly to her left so the\ncamera is largely looking at her BACK and the back of her streaming hair. She faces toward the RIGHT\nof the frame; her head turns into sharp profile toward that same direction, chin lifted, a fierce\ncommanding expression - the moment she orders the advance.\n\nShe holds the longsword with her RIGHT HAND ONLY and LEVELS IT FORWARD, aiming the point in exactly\nthe direction she is facing.\n\nARM AND SWORD ARE ONE STRAIGHT LINE. Lay a single ruler from her elbow through her forearm, through her\nfist, through the grip and crossguard, and all the way down the blade to the point - every one of those\nparts sits exactly on that one line. Her wrist is straight and in line with the forearm: it is NOT bent,\ncocked, dropped or angled, and the sword does NOT sit at an angle to her arm. Tilt the whole arm to\nwhatever angle the composition needs, but the sword always follows the arm exactly.\nThis must read as a deliberate aim - arm and weapon together form one long arrow pointing at the target,\nthe way a commander points a blade to order the charge. It must not look like she is merely carrying the\nsword or holding it out sideways.\n\nSHOW THE WHOLE SWORD AT ITS FULL LENGTH. The sword is presented BROADSIDE to the camera: we look at\nthe flat of the blade across its entire length, so the weapon reads at its true size. It is not\nforeshortened, not pointing toward or away from the viewer, and not seen edge-on as a thin line. The\nblade is the second subject of this shot after her face - give it room and let it dominate the upper\nhalf of the composition.\n\nThe sword is held OUT AND AWAY from her body on her right side, roughly at shoulder height, so the whole\nweapon - pommel, grip, crossguard and the entire blade out to the point - is silhouetted against the\nopen green with nothing overlapping it anywhere along its length. It must not cross in front of her\ntorso, must not tuck in toward her spine, and must not vanish behind her body or her hair at any point,\nand her own arm must not cover any part of the blade. Her hand is closed firmly around the grip with\nevery finger correct, the crossguard just in front of her fist. Her left arm is free.\n\nFrame the shot so the ENTIRE longsword is shown at its full length, pommel to point, spanning at least\nthree quarters of the frame - the blade alone is longer than her whole torso and clearly outreaches her\nextended arm several times over. Leave a clear margin of empty green beyond the point and beyond the\npommel so neither end is cut off or crowded against an edge. The sword must read unmistakably as a long two-hand\nwar sword: a long slender blade plus a long grip, never a short or stubby one. She may sit lower, smaller\nand further back in the frame to make room for the full length of the weapon.\n\nHer red hair and the flame drapes of her costume stream in one continuous direction behind her.\nKEEP THE HAIR RESTRAINED. Show it as a small number of long, thick, clearly separated ribbons with\nplenty of open green between them - not a huge billowing cloud, not a dense curtain, not a mass that\nfills the frame. It stays behind her and close to her back rather than spreading wide, takes up clearly\nless room than in a typical windswept shot, and must never compete with the sword or crowd her face.\nAiry and weightless, but sparse and readable.\n\nCRITICAL - the character and nothing else:\nThe entire background is one flat, uniform, pure chroma-key green (#00FF00) filling every pixel that is not Ignis herself or her sword. Absolutely nothing else in the frame: no sky, no ground, no scenery, no rocks, no smoke clouds, no scattered particles, no magic circles, no explosion, no floating props, no cast shadow, no background glow, no gradient, no vignette, no frame, no text. Do not use any green anywhere on her body, hair, skin, costume, grip or blade.\n\nKeep her head, her extended hand and the entire sword from point to pommel completely inside the frame. Clean crisp silhouette edges against the green so she can be cut out as a game cutscene overlay.\n\nPremium Japanese anime mobile-game key art intended for high-resolution pixel-art conversion. Avoid heavy red cheek blush, a flushed face, a curved or bent blade, a blade that disappears behind her body or hair, a sword angled inward across her torso, a distorted hilt junction, an asymmetric crossguard, a foreshortened blade, a blade pointing at the viewer, a blade seen edge-on, a blade partly covered by her arm, a blade angled away from the forearm, a bent or cocked wrist, a short or stubby blade, an arming sword, an oversized cloud of hair, hair filling the frame, hair covering the sword, a cropped point, a cropped pommel, a spear, a polearm, a scimitar, a katana, identity drift, a younger face, changed costume, a second weapon, a bent or warped blade, extra limbs, fused fingers, broken wrists or duplicated bodies.",
+    "gpt-image-2",
+    "1152x2048",
+    1024,
+    1024,
+    "opaque",
+    "high",
+    4,
+    0
+   ]
+  },
+  {
+   "id": 31,
+   "type": "SaveImage",
+   "pos": [
+    520,
+    1620
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 2,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "link": 2
+    }
+   ],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "SaveImage"
+   },
+   "widgets_values": [
+    "Ignis/02_Ignis_Ultimate_Raw"
+   ]
+  }
+ ],
+ "links": [
+  [
+   1,
+   1,
+   0,
+   30,
+   0,
+   "IMAGE"
+  ],
+  [
+   2,
+   30,
+   0,
+   31,
+   0,
+   "IMAGE"
+  ]
+ ],
+ "groups": [
+  {
+   "title": "1. ASTRA MASTER REFERENCE",
+   "bounding": [
+    20,
+    0,
+    940,
+    380
+   ],
+   "color": "#3f789e",
+   "font_size": 24
+  },
+  {
+   "title": "2. CODEX (도감) — master 참조 편집 + 픽셀 마감",
+   "bounding": [
+    20,
+    380,
+    1600,
+    700
+   ],
+   "color": "#8A8",
+   "font_size": 24
+  },
+  {
+   "title": "3. ULTIMATE CUTSCENE — master 참조 편집 + 픽셀 마감",
+   "bounding": [
+    20,
+    1080,
+    1600,
+    700
+   ],
+   "color": "#a1309b",
+   "font_size": 24
+  }
+ ],
+ "config": {},
+ "extra": {
+  "ds": {
+   "scale": 0.55,
+   "offset": [
+    0,
+    0
+   ]
+  }
+ },
+ "version": 0.4
+}

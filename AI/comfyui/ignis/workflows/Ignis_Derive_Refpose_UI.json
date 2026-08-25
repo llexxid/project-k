@@ -1,0 +1,183 @@
+{
+ "last_node_id": 21,
+ "last_link_id": 2,
+ "nodes": [
+  {
+   "id": 1,
+   "type": "LoadImage",
+   "pos": [
+    40,
+    40
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      1
+     ],
+     "slot_index": 0
+    },
+    {
+     "name": "MASK",
+     "type": "MASK",
+     "links": [],
+     "slot_index": 1
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "LoadImage"
+   },
+   "widgets_values": [
+    "3f603360a35cf08d7145b72ff082737041d2e68d0c63e28185656bdd15614f7e.png"
+   ]
+  },
+  {
+   "id": 20,
+   "type": "OpenAIGPTImageNodeV2",
+   "pos": [
+    40,
+    300
+   ],
+   "size": [
+    420,
+    400
+   ],
+   "flags": {},
+   "order": 1,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "model.images.image_1",
+     "type": "IMAGE",
+     "link": 1
+    }
+   ],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      2
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "OpenAIGPTImageNodeV2"
+   },
+   "widgets_values": [
+    "Using the supplied IGNIS image as the exact identity - same face, same hairstyle and hair colour order, same flame-woven costume with every drape and iron ring, same bare feet and ankle rings, same sword, same palette, same background, same rendering style - redraw her in a NEW STANDING POSE. Do not redesign anything; only the pose changes.\n\nTHE POSE, taken from a life-drawing reference:\nShe stands turned roughly three-quarters AWAY from the camera, so we see her back and the long line of her spine, her far shoulder receding. Her head turns back over her near shoulder toward the viewer in a clean three-quarter view, chin slightly lowered, her gaze level and composed with a faint confident half-smile.\nHer weight is on the near leg, which is straight and carries the body. The far leg is extended out and back, the knee soft and the foot resting lightly on the ground, so the legs make a long open stride rather than a symmetric stance. The hips tilt with the weight and the shoulders counter-rotate, giving a relaxed S-curve through the torso.\nHer RIGHT ARM hangs straight down along her side, the elbow only softly bent, the shoulder dropped. Her right hand is closed around the sword grip at about hip height, low on the grip just above the crossguard, with bare grip and pommel showing above her fist. The forearm, wrist and grip run in ONE STRAIGHT LINE - the wrist is not bent or cocked.\nThe sword hangs down and slightly FORWARD from her hand, close beside her leg, its point resting near the ground in front of her feet. Blade, crossguard and grip stay on one straight axis.\nHer LEFT ARM hangs relaxed and free on the far side.\n\nTHE HAND: we see the back of it, with a clear arched row of four knuckles, four separate rounded fingers wrapping the grip in a descending row with creases between them, and the thumb laid across the top over the index finger. Relaxed, not clenched. Exactly five digits.\n\nTHE BLADE IS DEAD STRAIGHT: both edges are straight lines, the blade holds its full width for about seven eighths of its length and converges to a short crisp point only over the final eighth. No bow, bend, warp, twist or ripple. The crossguard is one straight symmetric bar perpendicular to the blade.\n\nKeep her head, hair, both hands, the entire sword from pommel to point, every flame drape and both feet completely inside the frame, with a comfortable margin. Vertical 2:3 full-body composition.\n\nAvoid identity drift, a changed face, hairstyle, costume, palette or background, a front-facing symmetric stance, a bent or cocked wrist, a hammer grip, a flat or mitten hand, six fingers, a curved or bent blade, malformed hands or feet, cropped limbs, text, logo or watermark.",
+    "gpt-image-2",
+    "1024x1536",
+    1024,
+    1024,
+    "opaque",
+    "high",
+    4,
+    0
+   ]
+  },
+  {
+   "id": 21,
+   "type": "SaveImage",
+   "pos": [
+    520,
+    300
+   ],
+   "size": [
+    300,
+    120
+   ],
+   "flags": {},
+   "order": 2,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "link": 2
+    }
+   ],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "SaveImage"
+   },
+   "widgets_values": [
+    "Ignis/01_Ignis_RefPose"
+   ]
+  }
+ ],
+ "links": [
+  [
+   1,
+   1,
+   0,
+   20,
+   0,
+   "IMAGE"
+  ],
+  [
+   2,
+   20,
+   0,
+   21,
+   0,
+   "IMAGE"
+  ]
+ ],
+ "groups": [
+  {
+   "title": "1. ASTRA MASTER REFERENCE",
+   "bounding": [
+    20,
+    0,
+    940,
+    380
+   ],
+   "color": "#3f789e",
+   "font_size": 24
+  },
+  {
+   "title": "2. CODEX (도감) — master 참조 편집 + 픽셀 마감",
+   "bounding": [
+    20,
+    380,
+    1600,
+    700
+   ],
+   "color": "#8A8",
+   "font_size": 24
+  },
+  {
+   "title": "3. ULTIMATE CUTSCENE — master 참조 편집 + 픽셀 마감",
+   "bounding": [
+    20,
+    1080,
+    1600,
+    700
+   ],
+   "color": "#a1309b",
+   "font_size": 24
+  }
+ ],
+ "config": {},
+ "extra": {
+  "ds": {
+   "scale": 0.55,
+   "offset": [
+    0,
+    0
+   ]
+  }
+ },
+ "version": 0.4
+}
