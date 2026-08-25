@@ -77,11 +77,20 @@ public sealed class BasicAttackRect : ActiveSkill
 
         if (_targets.Count > 0)
             _player.SetPendingSkillDamage(_targets, damage);
+        
+        Player.AttackAnimationTiming timing =
+            _player.PlayBasicSkillAnimation(_cooldown);
 
+        _nextAvailableTime =
+            Time.time + timing.EffectiveInterval;
+
+        return timing.AnimationDuration;
+        /*
         float animLen = GetAttackAnimLength();
         _player.SetAnimation(ePlayerAction.Attack);
 
         _nextAvailableTime = Time.time + animLen + _cooldown;
         return animLen;
+        */
     }
 }

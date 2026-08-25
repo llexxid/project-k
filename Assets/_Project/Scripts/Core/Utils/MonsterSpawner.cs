@@ -146,7 +146,6 @@ namespace Scripts.Core.Utils
 			// 몬스터가 비활성화되기 전에 이벤트 구독을 해제하고 HP바를 반환합니다.
 			HpBarManager.Instance?.Unbind(monster);
 			pool.Release(monster);
-			return;
 		}
 
 		/// <summary>

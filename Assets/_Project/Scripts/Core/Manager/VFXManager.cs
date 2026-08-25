@@ -136,7 +136,7 @@ namespace Scripts.Core
 			if (CheckPoolingEffect(id))
 			{
 				_VFXPools.TryGetValue(id, out ObjectPool<VFXEntity> pool);
-				pool.Release(vfx);
+				pool?.Release(vfx);
 				return;
 			}
 
@@ -144,7 +144,6 @@ namespace Scripts.Core
 			Destroy(vfx.gameObject);
 			unloadSingleVFX(id);
 			_effectCache.Remove(id);
-			return;
 		}
 		public void unloadVFXBatch(ulong groupId)
 		{

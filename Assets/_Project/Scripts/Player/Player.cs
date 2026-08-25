@@ -11,82 +11,31 @@ using UnityEngine;
 
 public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 {
-    public PlayerOrder playerOrder;
-    public PlayerStatus playerStatus;
-    public SkillSystem skillSystem;
-
-    public PlayerEquipmentManager PlayerEquipmentManager;
-
-    [SerializeField]
-    private EquipmentDatabase _equipmentDatabase;
-
-    [SerializeField]
-    private EquipmentDropTableSO _equipmentDropTable;
-
-    [SerializeField]
-    private MageProjectile _mageProjectilePrefab;
-    public MageProjectile MageProjectilePrefab => _mageProjectilePrefab;
-
-    [SerializeField]
-    private EnergyPulseVFX _energyPulseVFXPrefab;
-    public EnergyPulseVFX EnergyPulseVFXPrefab => _energyPulseVFXPrefab;
-
-    public Animator _am;
-    AnimatorComponent<ePlayerAction> _animatorComponent;
-
-    private ePlayerAction _currentAction = ePlayerAction.Idle;
-    private float _attackAnimEndTime = 0f;
-    private bool _pendingAnimRecovery = false;
-
-    private bool _isDead = false;
-    public bool IsDead => _isDead;
-    public User User => _user;
-    public int PlayerIndex => _data._index;
-
-    /// <summary>기본공격/스킬 애니메이션이 재생 중이면 true. 이동 금지 판정에 사용.</summary>
-    public bool IsInAttackAnimation => Time.time < _attackAnimEndTime;
-
-    /// <summary>
-    /// 기본공격 사이클(애니메이션 + 쿨타임) 동안 이동 금지를 유지하기 위해
-    /// _attackAnimEndTime 을 연장한다. 이미 더 먼 시점이면 유지.
-    /// </summary>
-    public void ExtendAttackLock(float duration)
-    {
-        if (duration <= 0f) return;
-        float newEnd = Time.time + duration;
-        if (newEnd > _attackAnimEndTime)
-            _attackAnimEndTime = newEnd;
-    }
-
-    [SerializeField]
-    private IDamageable _currentTarget;
-    public IDamageable currentTarget;
-    PlayerData _data;
-    private User _user;
-
+    //Events
     public event Action<IDamageable> OnDeath;
 
-    public ePlayerAction CurrentAction
-    {
-        get { return _currentAction; }
-    }
-    public ulong damage
-    {
-        get { return (ulong)(playerStatus?.Atk ?? 0); }
-    }
-    public Vector3 targetPos
-    {
-        get { return transform.position; }
-    }
-    public Vector3 attackerPos
-    {
-        get { return transform.position; }
-    }
-    public GameObject gameobj
-    {
-        get { return transform.gameObject; }
-    }
-
+    //Public Property
+    public User User => _user;
+    public bool IsDead => _isDead;
+    public ePlayerAction CurrentAction => _currentAction; 
+    public ulong damage => (ulong)(playerStatus?.Atk ?? 0);
+    public Vector3 targetPos => transform.position;
+    public Vector3 attackerPos => transform.position;
+    public GameObject gameobj => transform.gameObject;
+    public int PlayerIndex => _data._index;    
+    /// <summary>현재 공격 애니메이션의 재생 여부를 반환</summary>
+    public bool IsInAttackAnimation => Time.time < _attackAnimEndTime;
+    public MageProjectile MageProjectilePrefab => _mageProjectilePrefab;
+    public EnergyPulseVFX EnergyPulseVFXPrefab => _energyPulseVFXPrefab;
+   
+    //Public Variables
+    public PlayerOrder playerOrder;
+    public PlayerStatus playerStatus;
+    public SkillSystem skillSystem;   
+    public Animator _am;
+    public IDamageable currentTarget;
+    public PlayerEquipmentManager PlayerEquipmentManager;
+    
     /// <summary>현재 HP 비율 (0~1).</summary>
     public float HPRatio
     {
@@ -96,137 +45,53 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
             return maxHP > 0 ? (float)_data._Hp / maxHP : 1f;
         }
     }
+    
+    [SerializeField]
+    private EquipmentDatabase _equipmentDatabase;
+    [SerializeField]
+    private EquipmentDropTableSO _equipmentDropTable;
+    [SerializeField]
+    private MageProjectile _mageProjectilePrefab;
+    [SerializeField]
+    private EnergyPulseVFX _energyPulseVFXPrefab; 
+    [SerializeField]
+    private IDamageable _currentTarget;    
+    
+    //Data
+    private PlayerData _data;
+    private User _user;
+    private bool _isDead;
+    private const float MAX_ATTACK_ANIMATION_SPEED = 3f; //스킬모션 최대 스피드(3배까지) 
+    private const float MIN_SKILL_INTERVAL = 0.1f; //스킬모션 최소 작동시간(0.1초까지)
 
-    public bool TakeDamage(IAttackable attacker)
-    {
-        ulong dmg = attacker.damage;
-        //CustomLogger.Log($"Player가 공격을 받고있습니다! DMG : {dmg}");
-
-        DamageTextBridge.ShowOnTransform(transform, dmg, Color.white);
-
-        bool IsAlive = setHp(dmg);
-        if (!IsAlive) return false;
-        return true;
-    }
-
+    //Animation
+    private AnimatorComponent<ePlayerAction> _animatorComponent;
+    private ePlayerAction _currentAction = ePlayerAction.Idle;
+    private float _attackAnimEndTime;
+    private bool _pendingAnimRecovery;
+    private static readonly int AttackStateHash = Animator.StringToHash("Attack_Anim");
+    private static readonly int AttackAnimationSpeedHash = Animator.StringToHash("AttackAnimSpeed");
+    
+    //Skill
+    private readonly List<IDamageable> _pendingSkillTargets = new List<IDamageable>();
+    private ulong _pendingSkillDamage;
+    private bool _hasPendingSkillDamage;
+    
+    //SpawnPos
     private Vector3 _initialSpawnPos;
     private bool _initialSpawnPosCaptured;
-
-    public void Init(PlayerData data, User user)
-    {
-        _data = data;
-        _user = user;
-
-        if (!_initialSpawnPosCaptured)
-        {
-            _initialSpawnPos = transform.position;
-            _initialSpawnPosCaptured = true;
-        }
-        //각 플레이어별 장비 매니저 초기화용 호출입니다. awake에서는 _data가 초기화되어있지 않아 init에서 실행합니다
-        PlayerEquipmentManager.Init(playerStatus, _data._index);
-    }
-
-    private void OnDead()
-    {
-        if (_isDead) return;
-        _isDead = true;
-        CustomLogger.Log("Player Is Dead!!");
-        SetAnimation(ePlayerAction.Dead);
-
-        StartCoroutine(PauseAfterDeadAnimation());
-    }
-
-    public void ResetTarget(IDamageable target)
-    {
-        _currentTarget = null;
-        currentTarget = null;
-    }
-
-    public void SetTarget(IDamageable target)
-    {
-        if (target == null) return;
-        if (_currentTarget != null)
-        {
-            _currentTarget.OnDeath -= ResetTarget;
-        }
-
-        target.OnDeath += ResetTarget;
-        _currentTarget = target;
-        currentTarget = target;
-    }
-
-    private IEnumerator PauseAfterDeadAnimation()
-    {
-        float deadAnimLength = GetClipLength("Dead_Anim");
-        yield return new WaitForSeconds(deadAnimLength);
-
-        OnDeath?.Invoke(this);
-        OnDeath = null;
-        gameObject.SetActive(false);
-
-        playerOrder?.InterruptBT();
-
-        Scripts.Core.GameManager.Instance?.ReportPlayerDead();
-    }
-
-    private bool setHp(ulong damage)
-    {
-        long totalHp = _data._Hp + _data._extraHp;
-        if (totalHp - (long)damage <= 0)
-        {
-            OnDead();
-            return false;
-        }
-
-        if ((long)damage > _data._extraHp)
-        {
-            long remainDamage = (long)damage - _data._extraHp;
-            _data._extraHp = 0;
-            _data._Hp -= remainDamage;
-        }
-        else
-        {
-            _data._extraHp = _data._extraHp - (int)damage;
-        }
-
-        return true;
-    }
-
-    /// <summary>HP 회복 (IronWill 등).</summary>
-    public void Heal(int amount)
-    {
-        if (_isDead || amount <= 0) return;
-        long maxHP = playerStatus?.MaxHP ?? _data._MaxHp;
-        _data._Hp = System.Math.Min(_data._Hp + amount, maxHP);
-    }
-
-    /// <summary>현재 HP 를 MaxHP 로 채운다 (직업 변경 등 전체 스탯 리셋 시).</summary>
-    public void RefillHP()
-    {
-        if (playerStatus == null) return;
-        _data._Hp = playerStatus.MaxHP;
-        _data._extraHp = 0;
-        playerStatus.HP = playerStatus.MaxHP;
-    }
-
-    public void Revive()
-    {
-        _isDead = false;
-        _data._Hp = playerStatus.MaxHP;
-        _data._extraHp = 0;
-        playerStatus.HP = playerStatus.MaxHP;
-
-        if (_initialSpawnPosCaptured)
-            transform.position = _initialSpawnPos;
-
-        gameObject.SetActive(true);
-        SetAnimation(ePlayerAction.Idle);
-        playerOrder?.Init(this);
-        playerOrder?.RecoveryBT();
-        Scripts.Core.GameManager.Instance?.ReportPlayerRevived();
-        ResetTarget(this);
-    }
-
+    
+    //VFX
+    [NonSerialized] 
+    private eVFXType _pendingVFXType;
+    private readonly List<Vector3> _pendingVFXPositions = new List<Vector3>();
+    private readonly List<Transform> _pendingVFXTargets = new List<Transform>();
+    private float _pendingVFXFacing;
+    private int _pendingVFXDuration;
+    private bool _pendingVFXFlip;
+    private bool _hasPendingVFX;    
+    
+    #region Unity Life Cycle
     private void Awake()
     {
         InitializeAnimator();
@@ -240,13 +105,108 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         playerOrder = new PlayerOrder();
         playerOrder.Init(this);
 
-#if UNITY_EDITOR
-        _data._Hp = 50;
-        _data._atk = 10;
-#endif
+        #if UNITY_EDITOR
+            _data._Hp = 50;
+            _data._atk = 10;
+        #endif
+    }
+    
+    void Update()
+    {
+        if (_isDead) return;
+
+        // 스킬 애니메이션(IronWill, EnergyPulse, Tripple_Shot 등)이 끝난 뒤
+        // outgoing transition이 없는 상태에서 빠져나오기 위해
+        // Attack_Anim(정상 전이가 있는 상태) 끝 지점으로 강제 이동
+        if (_pendingAnimRecovery && Time.time >= _attackAnimEndTime)
+        {
+            _pendingAnimRecovery = false;
+            if (_am != null)
+                _am.Play(Animator.StringToHash("Attack_Anim"), 0, 1f);
+        }
+
+        skillSystem?.Tick();
+        playerOrder._rootNode?.Evaluate();
+    }
+    #endregion
+
+    #region Animation
+    public readonly struct AttackAnimationTiming
+    {
+        public readonly float AnimationDuration;
+        public readonly float EffectiveInterval;
+        public readonly float PlaybackSpeed;
+
+        public AttackAnimationTiming(
+            float animationDuration,
+            float effectiveInterval,
+            float playbackSpeed)
+        {
+            AnimationDuration = animationDuration;
+            EffectiveInterval = effectiveInterval;
+            PlaybackSpeed = playbackSpeed;
+        }
+    }
+    
+    public AttackAnimationTiming PlayBasicSkillAnimation(
+        float requestedInterval)
+    {
+        float clipLength = GetClipLength("Attack_Anim", 0.4f);
+
+        float safeInterval = Mathf.Max(
+            requestedInterval,
+            MIN_SKILL_INTERVAL);
+
+        // 간격보다 클립이 길 때만 애니메이션을 빠르게 한다.
+        float requiredSpeed = clipLength / safeInterval;
+        float playbackSpeed = Mathf.Clamp(
+            requiredSpeed,
+            1f,
+            MAX_ATTACK_ANIMATION_SPEED);
+
+        float animationDuration = clipLength / playbackSpeed;
+
+        // 3배속으로도 모션을 완료할 수 없는 간격이면 실제 스킬 발동 간격도 애니메이션 완료 시간으로 제한
+        float effectiveInterval = Mathf.Max(
+            safeInterval,
+            animationDuration);
+
+        _pendingAnimRecovery = false;
+        _attackAnimEndTime = Time.time + animationDuration;
+
+        if (_currentAction == ePlayerAction.Idle ||
+            _currentAction == ePlayerAction.Walk)
+        {
+            _animatorComponent.TrySetBool(_currentAction, false);
+        }
+
+        _am.SetFloat(AttackAnimationSpeedHash, playbackSpeed);
+
+        // 바로 전 공격 상태가 아직 남아 있어도 항상 처음부터 재생
+        _am.Play(AttackStateHash, 0, 0f);
+
+        _currentAction = ePlayerAction.Attack;
+
+        return new AttackAnimationTiming(
+            animationDuration,
+            effectiveInterval,
+            playbackSpeed);
+    }
+    
+    private IEnumerator PauseAfterDeadAnimation()
+    {
+        float deadAnimLength = GetClipLength("Dead_Anim");
+        yield return new WaitForSeconds(deadAnimLength);
+
+        OnDeath?.Invoke(this);
+        OnDeath = null;
+        gameObject.SetActive(false);
+        playerOrder?.InterruptBT();
+
+        GameManager.Instance?.ReportPlayerDead();
     }
 
-    private void InitializeAnimator()
+        private void InitializeAnimator()
     {
         Dictionary<ePlayerAction, int> dic = new Dictionary<ePlayerAction, int>();
         dic.Add(ePlayerAction.Idle, Animator.StringToHash("Idle"));
@@ -282,23 +242,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         return fallback;
     }
 
-    void Update()
-    {
-        if (_isDead) return;
-
-        // 스킬 애니메이션(IronWill, EnergyPulse, Tripple_Shot 등)이 끝난 뒤
-        // outgoing transition이 없는 상태에서 빠져나오기 위해
-        // Attack_Anim(정상 전이가 있는 상태) 끝 지점으로 강제 이동
-        if (_pendingAnimRecovery && Time.time >= _attackAnimEndTime)
-        {
-            _pendingAnimRecovery = false;
-            if (_am != null)
-                _am.Play(Animator.StringToHash("Attack_Anim"), 0, 1f);
-        }
-
-        skillSystem?.Tick();
-        playerOrder._rootNode?.Evaluate();
-    }
 
     public void SetAnimation(ePlayerAction next)
     {
@@ -373,9 +316,119 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         _currentAction = next;
     }
 
-    private readonly List<IDamageable> _pendingSkillTargets = new List<IDamageable>();
-    private ulong _pendingSkillDamage;
-    private bool _hasPendingSkillDamage;
+
+    #endregion
+
+    #region Battle
+
+    /// <summary>
+    /// 기본공격 사이클(애니메이션 + 쿨타임) 동안 이동 금지를 유지하기 위해
+    /// _attackAnimEndTime 을 연장한다. 이미 더 먼 시점이면 유지.
+    /// </summary>
+    public void ExtendAttackLock(float duration)
+    {
+        if (duration <= 0f) return;
+        float newEnd = Time.time + duration;
+        if (newEnd > _attackAnimEndTime)
+            _attackAnimEndTime = newEnd;
+    }
+
+    public bool TakeDamage(IAttackable attacker)
+    {
+        ulong dmg = attacker.damage;
+
+        DamageTextBridge.ShowOnTransform(transform, dmg, Color.white);
+
+        bool IsAlive = setHp(dmg);
+        if (!IsAlive) return false;
+        return true;
+    }
+    
+    private bool setHp(ulong damage)
+    {
+        long totalHp = _data._Hp + _data._extraHp;
+        if (totalHp - (long)damage <= 0)
+        {
+            OnDead();
+            return false;
+        }
+
+        if ((long)damage > _data._extraHp)
+        {
+            long remainDamage = (long)damage - _data._extraHp;
+            _data._extraHp = 0;
+            _data._Hp -= remainDamage;
+        }
+        else
+        {
+            _data._extraHp -= (int)damage;
+        }
+
+        return true;
+    }
+    
+    public bool Attack(IDamageable target)
+    {
+        return true;
+    }
+
+    // 현재 탐색된 대상이 사망 / 감지불가 상태가 될 때 현재 타겟을 리셋
+    public void ResetTarget(IDamageable target)
+    {
+        _currentTarget = null;
+        currentTarget = null;
+    }
+
+    public void SetTarget(IDamageable target)
+    {
+        if (target == null) return;
+        if (_currentTarget != null)
+        {
+            _currentTarget.OnDeath -= ResetTarget;
+        }
+
+        target.OnDeath += ResetTarget;
+        _currentTarget = target;
+        currentTarget = target;
+    }
+
+
+
+
+    /// <summary>HP 회복 (IronWill 등).</summary>
+    public void Heal(int amount)
+    {
+        if (_isDead || amount <= 0) return;
+        long maxHP = playerStatus?.MaxHP ?? _data._MaxHp;
+        _data._Hp = System.Math.Min(_data._Hp + amount, maxHP);
+    }
+
+    /// <summary>현재 HP 를 MaxHP 로 채운다 (직업 변경 등 전체 스탯 리셋 시).</summary>
+    public void RefillHP()
+    {
+        if (playerStatus == null) return;
+        _data._Hp = playerStatus.MaxHP;
+        _data._extraHp = 0;
+        playerStatus.HP = playerStatus.MaxHP;
+    }
+
+    public void Revive()
+    {
+        _isDead = false;
+        _data._Hp = playerStatus.MaxHP;
+        _data._extraHp = 0;
+        playerStatus.HP = playerStatus.MaxHP;
+
+        if (_initialSpawnPosCaptured)
+            transform.position = _initialSpawnPos;
+
+        gameObject.SetActive(true);
+        SetAnimation(ePlayerAction.Idle);
+        playerOrder?.Init(this);
+        playerOrder?.RecoveryBT();
+        GameManager.Instance?.ReportPlayerRevived();
+        ResetTarget(this);
+    }
 
     public void SetPendingSkillDamage(List<IDamageable> targets, int damage)
     {
@@ -385,6 +438,14 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         _hasPendingSkillDamage = _pendingSkillTargets.Count > 0;
     }
 
+    public void OnProjectileRelease()
+    {
+        skillSystem?.HandleProjectileRelease();
+    }
+    
+    // 기본공격 Animation Event → OnSkillHit 위임
+    public void OnAttackHit() => OnSkillHit();
+    
     // 스킬 데미지 적용 (Animation Event)
     public void OnSkillHit()
     {
@@ -407,19 +468,40 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         _pendingSkillTargets.Clear();
     }
 
-    // 기본공격 Animation Event → OnSkillHit 위임
-    public void OnAttackHit()
+
+    #endregion
+
+    /*
+     * 실행 시점
+     * SceneManager.sceneLoaded이벤트 발행
+     * -> GameManager.HandleSceneReadyAsync()
+     * -> GameManager.HandleMainSceneReady()
+     * -> UserManager.CreateCharacter()
+     * -> Player.Init()
+     */
+    public void Init(PlayerData data, User user)
     {
-        OnSkillHit();
+        _data = data;
+        _user = user;
+
+        if (!_initialSpawnPosCaptured)
+        {
+            _initialSpawnPos = transform.position;
+            _initialSpawnPosCaptured = true;
+        }
+        //각 플레이어별 장비 매니저 초기화용 호출. Awake에서는 _data가 초기화되어있지 않아 init에서 실행
+        PlayerEquipmentManager.Init(playerStatus, _data._index);
     }
 
-    [NonSerialized] private eVFXType _pendingVFXType;
-    private readonly List<Vector3> _pendingVFXPositions = new List<Vector3>();
-    private readonly List<Transform> _pendingVFXTargets = new List<Transform>();
-    private float _pendingVFXFacing;
-    private int _pendingVFXDuration;
-    private bool _pendingVFXFlip;
-    private bool _hasPendingVFX;
+    private void OnDead()
+    {
+        if (_isDead) return;
+        _isDead = true;
+        CustomLogger.Log("Player Is Dead!!");
+        SetAnimation(ePlayerAction.Dead);
+
+        StartCoroutine(PauseAfterDeadAnimation());
+    }
 
     public void SetPendingSkillVFX(eVFXType vfxType, Vector3 vfxPos, float facing, int duration, bool flip, Transform followTarget = null)
     {
@@ -473,13 +555,9 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         _user.GainCoin(eCurrency.AncientCoin, ancientCoin);
 
         EquipmentManager.Instance.TryDropEquipment();
-        return;
     }
 
-    public bool Attack(IDamageable target)
-    {
-        return true;
-    }
+
 
     public ulong GetTypeId()
     {
