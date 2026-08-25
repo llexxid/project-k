@@ -26,6 +26,7 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal TMP_Text idLabel;         // 플레이어 ID
 
         [Header("Summary pills")]
+        [SerializeField] internal Button powerButton;
         [SerializeField] internal TMP_Text powerLabel;      // 전투력(CP)
         [SerializeField] internal TMP_Text trophyLabel;     // 트로피
         [SerializeField] internal TMP_Text guildLabel;      // 길드

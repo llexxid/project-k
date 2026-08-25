@@ -92,11 +92,13 @@ namespace KingdomIdle.UGUI
 
         [Header("Popups")]
         public GameObject popupGachaResult;
+        public GameObject popupRanking;          // 전투력 랭킹 팝업
         public GameObject popupProfile;          // 프로필 팝업(더미/플레이스홀더)
         public GameObject popupMageTowerEquip;   // 마탑 스킬 장착 팝업 (프리팹화됨)
         public GameObject popupDungeonClear;
         public GameObject popupReincarnation;
         public GameObject popupDivineCollection; // 신 스킬 컬렉션북(도감) 팝업
+        public GameObject popupOfflineReward;
 
         [Header("Overlays")]
         public GameObject overlayLoading;
@@ -105,9 +107,9 @@ namespace KingdomIdle.UGUI
         public GameObject overlayDivineCutIn;    // 궁극기(신성 스킬) 컷인
 
         [Header("HUDs")]
-        public GameObject hudParty;
         public GameObject hudMageTower;
         public GameObject hudMainActions;
+        public GameObject hudParty;
         public GameObject hudDivineSkill;
         public GameObject hudMageTowerEnv;       // 마탑 환경 오브젝트 — 좌하단, 하단바 뒤        // 궁극기(신성 스킬) 버튼 — 좌하단
 

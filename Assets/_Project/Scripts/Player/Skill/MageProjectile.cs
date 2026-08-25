@@ -32,6 +32,14 @@ public class MageProjectile : MonoBehaviour
     private readonly List<Collider2D> _aoeResults = new List<Collider2D>();
     private readonly List<Collider2D> _checkResults = new List<Collider2D>();
 
+    private IDamageable _target;
+    private MonoBehaviour _targetBehaviour;
+    private Monster _targetMonster;
+
+    private Vector2 _lastKnownTargetPosition;
+    private int _targetAllocGeneration;
+    private const float ImpactDistance = 0.03f;
+
     /// <summary>풀 생성 시 1회 호출.</summary>
     public void Init(System.Action<MageProjectile> onReturn)
     {
@@ -46,6 +54,48 @@ public class MageProjectile : MonoBehaviour
         }
     }
 
+    public void FireToTarget(
+        Player owner,
+        IDamageable target,
+        float speed,
+        int damage,
+        float aoeRadius,
+        float lifetime)
+    {
+        _alive = true;
+        _returnTime = -1f;
+
+        _speed = speed;
+        _damage = damage;
+        _aoeRadius = aoeRadius;
+        _expireTime = Time.time + lifetime;
+        _lifetime = lifetime;
+
+        _owner = owner;
+        _target = target;
+        _targetBehaviour = target as MonoBehaviour;
+        _targetMonster =
+            _targetBehaviour?.GetComponentInParent<Monster>();
+        
+        //죽은 몬스터가 타겟이었을때, 해당 몬스터가 재사용되면 해당 몬스터에게 날아가는 버그 방지
+        if (_targetMonster != null)
+            _targetAllocGeneration = _targetMonster.AllocGen; 
+
+        _lastKnownTargetPosition =
+            target?.targetPos ?? transform.position;
+
+        // 애니메이터 리셋 → 비행 상태로
+        if (_animator != null)
+        {
+            _animator.ResetTrigger(_isHitHash);
+            _animator.Play("MagicMissile", 0, 0f);
+        }
+        
+        // 이동 방향으로 스프라이트 회전 (기본 스프라이트가 오른쪽을 향한다고 가정)
+        float angle = Mathf.Atan2(_direction.y, _direction.x) * Mathf.Rad2Deg;
+        transform.rotation = Quaternion.Euler(0f, 0f, angle);
+        // 속도, 피해량, 수명, 애니메이터 초기화...
+    }
     /// <summary>투사체 발사.</summary>
     public void Fire(Player owner, Vector2 direction, float speed, int damage, float aoeRadius, float lifetime)
     {
@@ -83,12 +133,53 @@ public class MageProjectile : MonoBehaviour
             }
             return;
         }
-
         if (!_alive) return;
+        
+        if (CanTrackCurrentTarget())
+        {
+            _lastKnownTargetPosition =
+                _target.targetPos;
+        }
+        else
+        {
+            // 마지막 위치를 목적지로 확정하고 풀 재사용된 타겟을 다시 읽지 않는다.
+            ClearTargetReference();
+        }
+        //이동
+        Vector2 currentPosition = transform.position;
+        
+        Vector2 nextPosition = Vector2.MoveTowards(
+            currentPosition,
+            _lastKnownTargetPosition,
+            _speed * Time.deltaTime);
+        
+        transform.position = nextPosition;
 
-        // 이동
-        transform.Translate(_direction * _speed * Time.deltaTime, Space.World);
+        Vector2 movement = nextPosition - currentPosition;
+        UpdateRotation(movement);
+        
+        //목표탐색
+        float arrivalRadius =
+            Mathf.Max(_collisionRadius, 0.05f);
 
+        Vector2 remaining =
+            _lastKnownTargetPosition - nextPosition;
+
+        if (remaining.sqrMagnitude <=
+            ImpactDistance * ImpactDistance)
+        {
+            // 폭발 중심을 목적지에 정확히 맞춘다.
+            transform.position = _lastKnownTargetPosition;
+
+            Explode();
+            return;
+        }
+
+        // 수명 초과 → 소멸
+        if (Time.time >= _expireTime)
+            DoReturnToPool();
+        
+        /* 매 프레임 OverlapCircle은 무거울것 같아서 변경
         // 충돌 판정 (매 프레임 OverlapCircle)
         ContactFilter2D filter = new ContactFilter2D();
         filter.SetLayerMask(_enemyLayer);
@@ -104,13 +195,55 @@ public class MageProjectile : MonoBehaviour
                 Explode();
                 return;
             }
+        }*/
+
+    }
+    
+    private bool CanTrackCurrentTarget()
+    {
+        if (_targetBehaviour == null)
+            return false;
+
+        if (!_targetBehaviour.gameObject.activeInHierarchy)
+            return false;
+
+        if (_targetMonster != null)
+        {
+            //목표 몬스터의 AllocGen과 저장된 AllocGen이 다르면 타겟을 추적하지 않음
+            if (_targetMonster.AllocGen !=
+                _targetAllocGeneration)
+            {
+                return false;
+            }
+
+            if (_targetMonster.MonAction ==
+                eMonsterAction.Dead)
+            {
+                return false;
+            }
         }
 
-        // 수명 초과 → 소멸
-        if (Time.time >= _expireTime)
-            DoReturnToPool();
+        return true;
     }
+    private void UpdateRotation(Vector2 movement)
+    {
+        if (movement.sqrMagnitude < 0.0001f)
+            return;
 
+        float angle =
+            Mathf.Atan2(movement.y, movement.x)
+            * Mathf.Rad2Deg;
+
+        transform.rotation =
+            Quaternion.Euler(0f, 0f, angle);
+    }
+    private void ClearTargetReference()
+    {
+        _target = null;
+        _targetBehaviour = null;
+        _targetMonster = null;
+        _targetAllocGeneration = 0;
+    }
     private void Explode()
     {
         _alive = false;

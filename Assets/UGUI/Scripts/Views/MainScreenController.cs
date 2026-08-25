@@ -1,12 +1,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 using UnityEngine;
 using KingdomIdle.Divine;
 using KingdomIdle.UI;
 using Scripts.Core;
-using Scripts.Users;
 
 namespace KingdomIdle.UGUI
 {
@@ -93,10 +91,18 @@ namespace KingdomIdle.UGUI
             WaveUIController.Dispose();
             if (_mainActions != null)
                 UnityEngine.Object.Destroy(_mainActions.gameObject);
+            if (_profilePopup != null)
+                UnityEngine.Object.Destroy(_profilePopup);
+            if (_rankingPopup != null)
+                UnityEngine.Object.Destroy(_rankingPopup);
 
             _currencyCo = null;
             _hamburgerCo = null;
             _mainActions = null;
+            _profilePopup = null;
+            _profileView = null;
+            _rankingPopup = null;
+            _rankingView = null;
             _view = null;
             _host = null;
             _wallet = null;
@@ -106,6 +112,18 @@ namespace KingdomIdle.UGUI
         /// <summary>뒤로가기 처리 — 재화 팝업/햄버거 메뉴가 열려있으면 닫고 true.</summary>
         public bool HandleBack()
         {
+            if (_rankingPopup != null && _rankingPopup.activeSelf)
+            {
+                CloseRankingPopup();
+                return true;
+            }
+
+            if (_profilePopup != null && _profilePopup.activeSelf)
+            {
+                CloseProfilePopup();
+                return true;
+            }
+
             if (_currencyOpen)
             {
                 CloseCurrencyPopup();
@@ -151,18 +169,15 @@ namespace KingdomIdle.UGUI
                 var um = UserManager.Instance;
                 if (um == null) return;
 
-                var userField = um.GetType().GetField("_user",
-                    BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-                var user = userField?.GetValue(um) as User;
-                string nick = user?.GetNickName();
+                string nick = um.GetUserName();
 
                 if (!string.IsNullOrWhiteSpace(nick) && _view.lblNickname.text != nick)
                     _view.lblNickname.text = nick;
 
                 // 프로필 레벨 훈장 배지 갱신 (실제 유저 레벨)
-                if (_view.lblProfileLevel != null && user != null)
+                if (_view.lblProfileLevel != null)
                 {
-                    string lvl = user.GetLevel().ToString();
+                    string lvl = um.GetUserLevel().ToString();
                     if (_view.lblProfileLevel.text != lvl)
                         _view.lblProfileLevel.text = lvl;
                 }
@@ -613,7 +628,10 @@ namespace KingdomIdle.UGUI
                     _host?.PushPanel(UIPanelId.KingdomArmy, "프로필", clearBefore: false, isTabPanel: false);
                     return;
                 }
-                var parent = _view.transform as RectTransform;
+                // Screen_Main의 형제 HUD보다 위에 그려지도록 전용 팝업 레이어에 생성한다.
+                var parent = _host != null && _host.LayerPopups != null
+                    ? _host.LayerPopups
+                    : _view.transform as RectTransform;
                 _profilePopup = UnityEngine.Object.Instantiate(prefab, parent, false);
                 var prt = _profilePopup.transform as RectTransform;
                 if (prt != null) { prt.anchorMin = Vector2.zero; prt.anchorMax = Vector2.one; prt.offsetMin = Vector2.zero; prt.offsetMax = Vector2.zero; }
@@ -622,6 +640,7 @@ namespace KingdomIdle.UGUI
                 {
                     if (_profileView.closeButton != null) _profileView.closeButton.onClick.AddListener(CloseProfilePopup);
                     if (_profileView.backdrop != null) _profileView.backdrop.onClick.AddListener(CloseProfilePopup);
+                    if (_profileView.powerButton != null) _profileView.powerButton.onClick.AddListener(OpenRankingPopup);
                 }
             }
             PopulateProfilePopup();
@@ -642,18 +661,83 @@ namespace KingdomIdle.UGUI
             try
             {
                 var um = UserManager.Instance;
-                var userField = um?.GetType().GetField("_user",
-                    BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-                var user = userField?.GetValue(um) as User;
-                if (user != null)
+                if (um != null)
                 {
-                    string nick = user.GetNickName();
+                    string nick = um.GetUserName();
+                    int level = um.GetUserLevel();
+                    long power = CombatPowerCalculator.CalculatePartyPowerV1(um.GetPlayers());
                     if (!string.IsNullOrWhiteSpace(nick) && _profileView.nameLabel != null) _profileView.nameLabel.text = nick;
-                    if (_profileView.levelLabel != null) _profileView.levelLabel.text = user.GetLevel().ToString();
-                    if (_profileView.kingdomLevelLabel != null) _profileView.kingdomLevelLabel.text = $"Lv. {user.GetLevel()}";
+                    if (_profileView.levelLabel != null) _profileView.levelLabel.text = level.ToString();
+                    if (_profileView.kingdomLevelLabel != null) _profileView.kingdomLevelLabel.text = $"Lv. {level}";
+                    if (_profileView.powerLabel != null) _profileView.powerLabel.text = power.ToString("N0");
                 }
             }
             catch (Exception ex) { Debug.LogWarning($"PopulateProfilePopup: {ex.Message}"); }
+        }
+
+        // ── 전투력 랭킹 팝업 ──
+        private GameObject _rankingPopup;
+        private PowerRankingPopupView _rankingView;
+
+        /// <summary>프로필을 닫고 현재 전투력 기준의 랭킹 팝업을 연다.</summary>
+        private void OpenRankingPopup()
+        {
+            if (_view == null) return;
+            CloseProfilePopup();
+
+            if (_rankingPopup == null)
+            {
+                var prefab = _host != null && _host.Catalog != null ? _host.Catalog.popupRanking : null;
+                if (prefab == null)
+                {
+                    Debug.LogWarning("[Ranking] Popup_Ranking 프리팹이 UIViewCatalog에 연결되지 않았습니다.");
+                    return;
+                }
+
+                // 프로필과 동일하게 LayerPopups에 두어 MainActions/HUD보다 위에 표시한다.
+                var parent = _host != null && _host.LayerPopups != null
+                    ? _host.LayerPopups
+                    : _view.transform as RectTransform;
+                _rankingPopup = UnityEngine.Object.Instantiate(prefab, parent, false);
+                var rankingRect = _rankingPopup.transform as RectTransform;
+                if (rankingRect != null)
+                {
+                    rankingRect.anchorMin = Vector2.zero;
+                    rankingRect.anchorMax = Vector2.one;
+                    rankingRect.offsetMin = Vector2.zero;
+                    rankingRect.offsetMax = Vector2.zero;
+                }
+
+                _rankingView = _rankingPopup.GetComponent<PowerRankingPopupView>();
+                if (_rankingView != null)
+                {
+                    if (_rankingView.closeButton != null) _rankingView.closeButton.onClick.AddListener(CloseRankingPopup);
+                    if (_rankingView.backdrop != null) _rankingView.backdrop.onClick.AddListener(CloseRankingPopup);
+                }
+            }
+
+            _rankingPopup.SetActive(true);
+            _rankingPopup.transform.SetAsLastSibling();
+            PopulateRankingPopup();
+            if (_rankingView != null && _rankingView.panel != null) UITween.PopIn(_rankingView.panel);
+        }
+
+        private void CloseRankingPopup()
+        {
+            if (_rankingPopup != null) _rankingPopup.SetActive(false);
+        }
+
+        /// <summary>팝업을 열 때마다 실제 전투력과 현재 순위를 다시 계산한다.</summary>
+        private void PopulateRankingPopup()
+        {
+            if (_rankingView == null) return;
+
+            var um = UserManager.Instance;
+            string playerName = um != null ? um.GetUserName() : "Guest";
+            long playerPower = um != null
+                ? CombatPowerCalculator.CalculatePartyPowerV1(um.GetPlayers())
+                : 0L;
+            _rankingView.Populate(playerName, playerPower);
         }
 
         private void BindMainActions()

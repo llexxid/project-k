@@ -129,6 +129,8 @@ namespace Scripts.Core.Utils
 			monster.Ratio = ratio;
 			monster.Init(id, stat, info._dropTableNumber);
 			monster.gameObject.SetActive(true);
+			// 스탯 초기화가 끝난 뒤 현재 HP를 기준으로 Screen Space HP바를 연결합니다.
+			HpBarManager.Instance?.Bind(monster);
 			return;
 		}
 
@@ -141,8 +143,9 @@ namespace Scripts.Core.Utils
 				CustomLogger.LogWarning("Tried to release a monster that does not have a pool.");
 				return;
 			}
+			// 몬스터가 비활성화되기 전에 이벤트 구독을 해제하고 HP바를 반환합니다.
+			HpBarManager.Instance?.Unbind(monster);
 			pool.Release(monster);
-			return;
 		}
 
 		/// <summary>

@@ -83,11 +83,7 @@ namespace Scripts.Core.Manager
 					throw new ArgumentNullException();
 			}
 		}
-		/// <summary>
-		/// 특정 스테이지 그룹의 몬스터, 몬스터 SFX, 몬스터 VFX 로딩 상태를 함께 추적한다.
-		/// <br/>* 몬스터 프리팹 로딩은 MonsterSpawner가 UniTask로 진행하며,
-		/// LoadManager는 반환된 Task를 기다려 스테이지 리소스 준비 완료 시점만 맞춘다.
-		/// </summary>
+		
 		//현재의 스테이지를 기반으로 ResourceGroupID를 얻어냄.
 		public static ulong GetResourceGroupId(eStage curStage)
 		{
