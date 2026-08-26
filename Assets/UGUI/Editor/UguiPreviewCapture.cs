@@ -61,6 +61,7 @@ namespace KingdomIdle.UGUI.Editor
                 ("04_settings",    catalog.overlaySettings,  "LayerOverlays"),
                 ("05_gacharesult", catalog.popupGachaResult, "LayerOverlays"),
                 ("10_profile",     catalog.popupProfile,     "LayerOverlays"),
+                ("18_reincarnation", catalog.popupReincarnation, "LayerPopups"),
             };
 
             foreach (var s in shots)
@@ -92,8 +93,52 @@ namespace KingdomIdle.UGUI.Editor
             CapturePartyHud(scene, cam, catalog, layers);
             CaptureDropdown(scene, cam, catalog, layers);
             CaptureMainComposite(scene, cam, catalog, layers);
+            CaptureDungeon(scene, cam, catalog, layers);
 
             Debug.Log($"[Preview] 캡처 완료: {OutDir}");
+        }
+
+        /// <summary>
+        /// 던전 패널(하단 시트+카드 목록) + 난이도 팝업(샘플 데이터) 정적 캡처.
+        /// 16_dungeon.png / 17_dungeon_difficulty.png
+        /// 에디트 모드라 Awake/OnEnable 이 돌지 않으므로 View 공개 API 로 직접 채운다.
+        /// </summary>
+        private static void CaptureDungeon(UnityEngine.SceneManagement.Scene scene, Camera cam,
+            UIViewCatalog catalog, Dictionary<string, RectTransform> layers)
+        {
+            if (catalog.panelDungeon == null) return;
+            if (!layers.TryGetValue("LayerPanels", out var parent)) return;
+
+            var inst = (GameObject)PrefabUtility.InstantiatePrefab(catalog.panelDungeon, scene);
+            inst.transform.SetParent(parent, false);
+            var irt = (RectTransform)inst.transform;
+            irt.anchorMin = Vector2.zero; irt.anchorMax = Vector2.one;
+            irt.offsetMin = Vector2.zero; irt.offsetMax = Vector2.zero;
+            inst.SetActive(true);
+
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(irt);
+            Canvas.ForceUpdateCanvases();
+            Render(cam, Path.Combine(OutDir, "16_dungeon.png"));
+
+            // 난이도 팝업 — 스테이지 번호 기반 샘플(2단계까지 해금)로 실제 화면 유사 상태를 만든다
+            var popup = inst.GetComponentInChildren<DungeonDifficultyPopupView>(true);
+            var card = inst.GetComponentInChildren<DungeonCardView>(true);
+            if (popup != null && card != null)
+            {
+                var difficulties = new DungeonDifficultyDisplayData[5];
+                for (int i = 0; i < difficulties.Length; i++)
+                    difficulties[i] = new DungeonDifficultyDisplayData(i + 1, i < 2, (i + 1) * 2700L);
+                popup.SetDifficultyData(difficulties, 4000L);
+                popup.Show(card);
+
+                Canvas.ForceUpdateCanvases();
+                LayoutRebuilder.ForceRebuildLayoutImmediate(irt);
+                Canvas.ForceUpdateCanvases();
+                Render(cam, Path.Combine(OutDir, "17_dungeon_difficulty.png"));
+            }
+
+            Object.DestroyImmediate(inst);
         }
 
         /// <summary>
@@ -124,7 +169,6 @@ namespace KingdomIdle.UGUI.Editor
 
             Add(catalog.hudMageTowerEnv, stretch: false);   // 화면 프리팹보다 먼저 = 하단바 뒤
             Add(catalog.screenMain, stretch: true);
-            Add(catalog.hudMageTower, stretch: false);      // 좌상단 마탑 스킬 슬롯 열 (런타임과 동일 순서)
             Add(catalog.hudParty, stretch: false);
             Add(catalog.hudDivineSkill, stretch: false);
 
@@ -359,24 +403,7 @@ namespace KingdomIdle.UGUI.Editor
                     }
                 }
 
-                var tower = go.GetComponent<MageTowerHudView>();
-                if (tower != null && tower.slots != null)
-                {
-                    // 장착된 마탑 스킬 3종을 실제 아이콘으로 채운다 (빈 "-" 슬롯만 찍히면 확인이 안 된다)
-                    string[] keys = { "Lightning", "IceSpike", "FireTornado" };
-                    for (int i = 0; i < tower.slots.Length; i++)
-                    {
-                        var slot = tower.slots[i];
-                        if (slot?.icon == null) continue;
-                        if (i >= keys.Length) continue;
-                        var sp = AssetDatabase.LoadAssetAtPath<Sprite>(
-                            $"Assets/Generated/ComfyUI/MageTower/{keys[i]}/{keys[i]}_Icon.png");
-                        if (sp == null) continue;
-                        slot.icon.sprite = sp;
-                        slot.icon.gameObject.SetActive(true);
-                        if (slot.label != null) slot.label.gameObject.SetActive(false);
-                    }
-                }
+                // (구 좌측 마탑 스킬 슬롯 열 populate 는 HUD 제거와 함께 삭제됨)
 
                 var hud = go.GetComponent<DivineSkillHudView>();
                 if (hud != null)

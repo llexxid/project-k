@@ -41,9 +41,7 @@ namespace KingdomIdle.UGUI
             if (_view == null) return;
             ExitPickingMode();
             _view.gameObject.SetActive(false);
-
-            if (MageTowerHudController.Instance != null)
-                MageTowerHudController.Instance.RefreshSlots();
+            // (좌측 스킬 슬롯 HUD 제거됨 — 장착 변경은 AUTO 시전이 다음 틱에 그대로 반영한다)
         }
 
         private static bool EnsureBuilt()

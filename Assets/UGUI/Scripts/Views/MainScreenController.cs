@@ -20,7 +20,6 @@ namespace KingdomIdle.UGUI
 
         private MainScreenView _view;
         private UIManager _host;
-        private MainActionsView _mainActions;
 
         // 재화
         private object _wallet;
@@ -56,9 +55,6 @@ namespace KingdomIdle.UGUI
             try { BindMenus(); }
             catch (Exception ex) { Debug.LogError($"MainScreen.Menus failed: {ex}"); }
 
-            try { BindMainActions(); }
-            catch (Exception ex) { Debug.LogError($"MainScreen.MainActions failed: {ex}"); }
-
             try { WaveUIController.Init(_view.waveHud); }
             catch (Exception ex) { Debug.LogError($"MainScreen.WaveUIController.Init failed: {ex}"); }
 
@@ -89,8 +85,6 @@ namespace KingdomIdle.UGUI
 
             UnhookEconomyChangeHandler();
             WaveUIController.Dispose();
-            if (_mainActions != null)
-                UnityEngine.Object.Destroy(_mainActions.gameObject);
             if (_profilePopup != null)
                 UnityEngine.Object.Destroy(_profilePopup);
             if (_rankingPopup != null)
@@ -98,7 +92,6 @@ namespace KingdomIdle.UGUI
 
             _currencyCo = null;
             _hamburgerCo = null;
-            _mainActions = null;
             _profilePopup = null;
             _profileView = null;
             _rankingPopup = null;
@@ -149,10 +142,29 @@ namespace KingdomIdle.UGUI
                 _currencyPollTimer = 0f;
                 RefreshTopCurrencyLabels();
                 RefreshNickname();
+                RefreshReincarnationDot();
 
                 if (_currencyOpen)
                     RebuildCurrencyPopupContents();
             }
+        }
+
+        /// <summary>환생 가능해지면 상단 환생 버튼에 붉은 알림 닷을 켠다 (0.5s 폴링).</summary>
+        private void RefreshReincarnationDot()
+        {
+            if (_view == null || _view.reincarnationDot == null) return;
+
+            bool can = false;
+            try
+            {
+                var service = GameManager.Instance != null ? GameManager.Instance.Reincarnation : null;
+                if (service != null)
+                    can = service.GetPreview().CanReincarnate;
+            }
+            catch { /* 초기화 전/서비스 부재 — 닷 숨김 유지 */ }
+
+            if (_view.reincarnationDot.activeSelf != can)
+                _view.reincarnationDot.SetActive(can);
         }
 
         /// <summary>
@@ -197,6 +209,7 @@ namespace KingdomIdle.UGUI
             _tabs.Clear();
             RegisterTab(_view.tabDevelopment, UIPanelId.Development, "developmentPanel");
             RegisterTab(_view.tabKingdomArmy, UIPanelId.KingdomArmy, "kingdomArmyPanel");
+            RegisterTab(_view.tabDungeon, UIPanelId.Dungeon, "dungeonPanel");
             RegisterTab(_view.tabGacha, UIPanelId.Gacha, "gachaPanel");
         }
 
@@ -740,47 +753,6 @@ namespace KingdomIdle.UGUI
             _rankingView.Populate(playerName, playerPower);
         }
 
-        private void BindMainActions()
-        {
-            if (_host?.Catalog?.hudMainActions == null ||
-                _host.LayerScreens == null)
-            {
-                return;
-            }
-
-            var actionsGo = UnityEngine.Object.Instantiate(
-                _host.Catalog.hudMainActions,
-                _host.LayerScreens,
-                false);
-            actionsGo.transform.SetAsLastSibling();
-            _mainActions = actionsGo.GetComponent<MainActionsView>();
-            if (_mainActions == null)
-            {
-                UnityEngine.Object.Destroy(actionsGo);
-                return;
-            }
-
-            if (_mainActions.dungeonButton != null)
-            {
-                _mainActions.dungeonButton.onClick.AddListener(() =>
-                {
-                    if (_currencyOpen) CloseCurrencyPopup();
-                    if (_hamburgerOpen) CloseHamburgerMenu();
-                    _host.PushPanel(UIPanelId.Dungeon, "dungeonPanel", clearBefore: false, isTabPanel: false);
-                });
-            }
-
-            if (_mainActions.reincarnationButton != null)
-            {
-                _mainActions.reincarnationButton.onClick.AddListener(() =>
-                {
-                    if (_currencyOpen) CloseCurrencyPopup();
-                    if (_hamburgerOpen) CloseHamburgerMenu();
-                    ReincarnationPopupController.Show();
-                });
-            }
-        }
-
         private void BindMenus()
         {
             if (_view.btnProfile != null)
@@ -790,6 +762,17 @@ namespace KingdomIdle.UGUI
                     if (_currencyOpen) CloseCurrencyPopup();
                     if (_hamburgerOpen) CloseHamburgerMenu();
                     OpenProfilePopup();
+                });
+            }
+
+            // 환생 — 상단바 프로필 옆 버튼 (구 우측 Hud_MainActions에서 이사)
+            if (_view.btnReincarnation != null)
+            {
+                _view.btnReincarnation.onClick.AddListener(() =>
+                {
+                    if (_currencyOpen) CloseCurrencyPopup();
+                    if (_hamburgerOpen) CloseHamburgerMenu();
+                    ReincarnationPopupController.Show();
                 });
             }
 

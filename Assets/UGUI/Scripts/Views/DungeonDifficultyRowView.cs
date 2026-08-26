@@ -7,11 +7,12 @@ namespace KingdomIdle.UGUI
 {
     public sealed class DungeonDifficultyRowView : MonoBehaviour
     {
-        private static readonly Color NormalColor = new Color(0.16f, 0.18f, 0.22f, 1f);
-        private static readonly Color SelectedColor = new Color(0.17f, 0.38f, 0.48f, 1f);
-        private static readonly Color LockedColor = new Color(0.13f, 0.09f, 0.10f, 0.92f);
-        private static readonly Color PowerNormalColor = new Color(0.74f, 0.78f, 0.82f, 1f);
-        private static readonly Color PowerWarningColor = new Color(1f, 0.28f, 0.32f, 1f);
+        // 러스틱 팔레트 (UGUI 리텍스처 — 다크 우드/청동 골드, UguiTheme 언어와 정렬)
+        private static readonly Color NormalColor = new Color(0.16f, 0.12f, 0.09f, 0.95f);      // 다크 우드
+        private static readonly Color SelectedColor = new Color(0.62f, 0.45f, 0.18f, 1f);       // 청동 골드 하이라이트
+        private static readonly Color LockedColor = new Color(0.09f, 0.07f, 0.05f, 0.92f);      // 더 깊은 우드 (잠금)
+        private static readonly Color PowerNormalColor = new Color(0.90f, 0.85f, 0.75f, 1f);    // 양피지 텍스트
+        private static readonly Color PowerWarningColor = new Color(1f, 0.32f, 0.30f, 1f);      // 전투력 부족 경고
 
         [SerializeField] private Button button;
         [SerializeField] private Image background;

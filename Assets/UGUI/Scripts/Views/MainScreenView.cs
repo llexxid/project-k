@@ -17,6 +17,8 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal Button btnAncientCoin;
         [SerializeField] internal Button btnHamburger;
         [SerializeField] internal RectTransform btnHamburgerRect;
+        [SerializeField] internal Button btnReincarnation;      // 환생 — 프로필 옆
+        [SerializeField] internal GameObject reincarnationDot;  // 환생 가능 알림 닷
 
         [Header("Currency dropdown")]
         [SerializeField] internal GameObject popupCurrencies;
@@ -42,6 +44,7 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal RectTransform bottomBar;
         [SerializeField] internal MainTabButtonView tabDevelopment;
         [SerializeField] internal MainTabButtonView tabKingdomArmy;
+        [SerializeField] internal MainTabButtonView tabDungeon;
         [SerializeField] internal MainTabButtonView tabGacha;
     }
 }

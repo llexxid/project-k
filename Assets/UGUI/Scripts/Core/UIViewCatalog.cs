@@ -107,8 +107,6 @@ namespace KingdomIdle.UGUI
         public GameObject overlayDivineCutIn;    // 궁극기(신성 스킬) 컷인
 
         [Header("HUDs")]
-        public GameObject hudMageTower;
-        public GameObject hudMainActions;
         public GameObject hudParty;
         public GameObject hudDivineSkill;
         public GameObject hudMageTowerEnv;       // 마탑 환경 오브젝트 — 좌하단, 하단바 뒤        // 궁극기(신성 스킬) 버튼 — 좌하단

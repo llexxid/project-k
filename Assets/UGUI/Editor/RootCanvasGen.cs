@@ -60,8 +60,7 @@ namespace KingdomIdle.UGUI.Editor
             dmgMgr.layer = damageLayer;
 
             go.AddComponent<PartyHudController>();
-            go.AddComponent<MageTowerHudController>();
-            go.AddComponent<MageTowerHudBridge>();
+            // (좌측 마탑 스킬 슬롯 HUD 제거됨 — 마탑 진입/AUTO 토글은 MageTowerEnvController가 담당)
             go.AddComponent<MageTowerEnvController>();
             go.AddComponent<DivineSkillHudController>();
             go.AddComponent<DivineSkillHudBridge>();

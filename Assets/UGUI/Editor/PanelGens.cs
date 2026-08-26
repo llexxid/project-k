@@ -1,3 +1,4 @@
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -5,7 +6,7 @@ using TMPro;
 namespace KingdomIdle.UGUI.Editor
 {
     /// <summary>
-    /// 하단 시트형 패널 6종 프리팹 생성기.
+    /// 하단 시트형 패널 프리팹 생성기.
     /// 공통 스켈레톤(UXML 패널 셸 대응): PanelRoot / Backdrop / Sheet(헤더 + 본문).
     /// </summary>
     internal static class PanelGens
@@ -142,6 +143,113 @@ namespace KingdomIdle.UGUI.Editor
             view.hint = hint;
 
             return PrefabGenUtil.SavePrefab(shell.Root.gameObject, $"{PrefabGenUtil.PrefabRoot}/Panels/Panel_Placeholder.prefab");
+        }
+
+        /// <summary>
+        /// 던전 패널 — 다른 탭과 같은 하단 시트 셸 + 던전 카드 목록 + 중첩 난이도 팝업.
+        /// 카드/팝업 프리팹은 DungeonFeaturePrefabGens 가 먼저 생성해 두어야 한다
+        /// (UguiGenMenu.GenerateAll 호출 순서가 이를 보장한다).
+        /// 콘텐츠 로직(DungeonPanelController/DungeonCardView 등)은 기존 멤버 코드 그대로 —
+        /// 직렬화 필드가 private 이라 SerializedObject 로 배선한다.
+        /// </summary>
+        internal static GameObject GenerateDungeon()
+        {
+            var shell = BuildShell("Panel_Dungeon", "던전", UguiTheme.PanelSheetHeightPct);
+            var view = shell.Root.gameObject.AddComponent<DungeonPanelView>();
+            WireBase(view, shell);
+
+            var hint = F.Text(shell.Body, "Hint", "도전할 던전을 선택하세요", 22f,
+                UguiTheme.TextTertiary, TextAlignmentOptions.Center);
+            F.Preferred(hint, height: 32f);
+
+            AddScroll(shell.Body, out var content);
+
+            var cardPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                $"{PrefabGenUtil.PrefabRoot}/Items/Dungeons/Item_DungeonCard.prefab");
+            var popupPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                $"{PrefabGenUtil.PrefabRoot}/Popups/Popup_DungeonDifficulty.prefab");
+            if (cardPrefab == null || popupPrefab == null)
+                Debug.LogError("[UguiGen] 던전 카드/난이도 팝업 프리팹이 없습니다 — DungeonFeaturePrefabGens.GenerateAll 을 먼저 실행하세요.");
+
+            // (표시명, 설명, 프리뷰 틴트, 아이콘, eStageType 값, 잠금 여부)
+            // dungeonType: Main=0 / GoldDungeon=1 / RubyDungeon=2 (StageDefinition.eStageType).
+            // 잠금 카드(dungeonType=0)는 비활성 대신 '준비 중' 딤 표시로 남긴다 — 목록이 비어 보이지 않게.
+            var defs = new (string key, string name, string desc, Color tint, Sprite icon, int stageType, bool locked)[]
+            {
+                ("Gold", "골드 던전", "골드를 대량으로 획득할 수 있습니다.",
+                    new Color(1f, 0.84f, 0.52f, 1f), UguiGenAssets.IconCoin, 1, false),
+                ("Ruby", "루비 던전", "루비를 대량으로 획득할 수 있습니다.",
+                    new Color(1f, 0.60f, 0.62f, 1f), UguiGenAssets.IconGem, 2, false),
+                ("Evolution", "진화석 던전", "클래스 진화에 필요한 보석을 획득합니다.",
+                    new Color(0.66f, 0.92f, 0.70f, 1f), UguiGenAssets.IconGemGreen, 0, true),
+                ("Equipment", "장비 던전", "강력한 장비와 강화 재료를 획득합니다.",
+                    new Color(0.74f, 0.78f, 0.90f, 1f), UguiGenAssets.IconAnvil, 0, true),
+            };
+
+            var cardViews = new DungeonCardView[defs.Length];
+            for (int i = 0; i < defs.Length; i++)
+            {
+                var def = defs[i];
+                var cardGo = cardPrefab != null
+                    ? (GameObject)PrefabUtility.InstantiatePrefab(cardPrefab)
+                    : null;
+                if (cardGo == null) continue;
+                cardGo.transform.SetParent(content, false);
+                cardGo.name = $"DungeonCard_{def.key}";
+
+                var cardView = cardGo.GetComponent<DungeonCardView>();
+                cardViews[i] = cardView;
+
+                // dungeonType 은 private enum 필드 — 인스턴스 오버라이드로 기록
+                var cso = new SerializedObject(cardView);
+                cso.FindProperty("dungeonType").intValue = def.stageType;
+                var nameLbl = cso.FindProperty("dungeonName").objectReferenceValue as TMP_Text;
+                var descLbl = cso.FindProperty("description").objectReferenceValue as TMP_Text;
+                var previewImg = cso.FindProperty("previewImage").objectReferenceValue as Image;
+                var iconImg = cso.FindProperty("dungeonIcon").objectReferenceValue as Image;
+                var cardBtn = cso.FindProperty("button").objectReferenceValue as Button;
+                cso.ApplyModifiedPropertiesWithoutUndo();
+
+                if (nameLbl != null) nameLbl.text = def.name;
+                if (descLbl != null) descLbl.text = def.desc;
+                if (previewImg != null) previewImg.color = def.tint;
+                if (iconImg != null && def.icon != null) iconImg.sprite = def.icon;
+
+                if (def.locked)
+                {
+                    var cg = cardGo.GetComponent<CanvasGroup>();
+                    if (cg != null) cg.alpha = 0.55f;
+                    if (cardBtn != null) cardBtn.interactable = false;
+                    var tag = cardGo.transform.Find("PreviewFrame/LockedTag");
+                    if (tag != null) tag.gameObject.SetActive(true);
+                    if (previewImg != null)
+                        previewImg.color = new Color(def.tint.r * 0.5f, def.tint.g * 0.5f, def.tint.b * 0.5f, 1f);
+                }
+            }
+
+            // 난이도 팝업 — 시트가 아니라 패널 루트의 형제로 (전체 화면 모달, SheetClip 에 잘리지 않게)
+            DungeonDifficultyPopupView popupView = null;
+            if (popupPrefab != null)
+            {
+                var popupGo = (GameObject)PrefabUtility.InstantiatePrefab(popupPrefab);
+                popupGo.transform.SetParent(shell.Root, false);
+                popupGo.name = "Popup_DungeonDifficulty";
+                F.Stretch((RectTransform)popupGo.transform);
+                popupGo.SetActive(false);
+                popupView = popupGo.GetComponent<DungeonDifficultyPopupView>();
+            }
+
+            var controller = shell.Root.gameObject.AddComponent<DungeonPanelController>();
+            var so = new SerializedObject(controller);
+            var cardsProp = so.FindProperty("cards");
+            cardsProp.arraySize = defs.Length;
+            for (int i = 0; i < defs.Length; i++)
+                cardsProp.GetArrayElementAtIndex(i).objectReferenceValue = cardViews[i];
+            so.FindProperty("difficultyPopup").objectReferenceValue = popupView;
+            so.FindProperty("placeholderCurrentPower").longValue = 4000L;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            return PrefabGenUtil.SavePrefab(shell.Root.gameObject, $"{PrefabGenUtil.PrefabRoot}/Panels/Panel_Dungeon.prefab");
         }
 
         internal static GameObject GenerateGuide()

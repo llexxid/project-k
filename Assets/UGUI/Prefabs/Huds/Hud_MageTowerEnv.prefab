@@ -36,7 +36,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 176.4, y: 176.4}
+  m_SizeDelta: {x: 277.19998, y: 277.19998}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &4011090033224905260
 CanvasRenderer:
@@ -176,6 +176,7 @@ GameObject:
   - component: {fileID: 8425039896723203250}
   - component: {fileID: 2164818094084517890}
   - component: {fileID: 1726845037477282193}
+  - component: {fileID: 8903035067776780115}
   m_Layer: 5
   m_Name: Tower
   m_TagString: Untagged
@@ -296,6 +297,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 633533f7b987aab40b664e51b6a90430, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KingdomIdle.UGUI.PlayClickSfxOnClick
+--- !u!114 &8903035067776780115
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5636657600655603771}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f523d10993141d41b284eb7709a3326, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomIdle.UGUI.UILongPressButton
+  longPressSeconds: 0.5
 --- !u!1 &6479913858845184653
 GameObject:
   m_ObjectHideFlags: 0
@@ -418,8 +432,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 1}
   m_AnchorMax: {x: 0.5, y: 1}
-  m_AnchoredPosition: {x: 0, y: 46}
-  m_SizeDelta: {x: 84, y: 84}
+  m_AnchoredPosition: {x: 0, y: 95}
+  m_SizeDelta: {x: 132, y: 132}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &7479584897127817632
 GameObject:
@@ -460,8 +474,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 210, y: 70}
-  m_SizeDelta: {x: 380, y: 585.2}
+  m_AnchoredPosition: {x: 170, y: 70}
+  m_SizeDelta: {x: 300, y: 603}
   m_Pivot: {x: 0.5, y: 0}
 --- !u!223 &5721559815351854092
 Canvas:
@@ -525,6 +539,8 @@ MonoBehaviour:
   crystalGlowGroup: {fileID: 8935505318185352320}
   button: {fileID: 2164818094084517890}
   litGroup: {fileID: 6402939573669154812}
+  longPress: {fileID: 8903035067776780115}
+  crystalOffSprite: {fileID: 21300000, guid: cbd42cfd2d8d49aea1957a3ad9b5e50d, type: 3}
 --- !u!1 &8838243022274239645
 GameObject:
   m_ObjectHideFlags: 0
@@ -560,7 +576,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0}
   m_AnchorMax: {x: 0.5, y: 0}
   m_AnchoredPosition: {x: 0, y: 190}
-  m_SizeDelta: {x: 570, y: 120}
+  m_SizeDelta: {x: 450, y: 120}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &4316100297212031567
 CanvasRenderer:

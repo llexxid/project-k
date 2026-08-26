@@ -105,8 +105,6 @@ namespace KingdomIdle.UGUI.Editor
             catalog.overlayDivineCutIn = Load($"{p}/Overlays/Overlay_DivineCutIn.prefab");
 
             catalog.hudParty = Load($"{p}/Huds/Hud_Party.prefab");
-            catalog.hudMageTower = Load($"{p}/Huds/Hud_MageTower.prefab");
-            catalog.hudMainActions = Load($"{p}/Huds/Hud_MainActions.prefab");
             catalog.hudDivineSkill = Load($"{p}/Huds/Hud_DivineSkill.prefab");
             catalog.hudMageTowerEnv = Load($"{p}/Huds/Hud_MageTowerEnv.prefab");
 

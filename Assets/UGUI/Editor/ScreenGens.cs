@@ -226,8 +226,34 @@ namespace KingdomIdle.UGUI.Editor
             lvlRt.offsetMin = new Vector2(0f, 2f); lvlRt.offsetMax = new Vector2(0f, 0f);
             view.lblProfileLevel = lvlLbl;
 
+            // ── 환생 버튼 — 프로필 원 바로 옆 (닉네임 앞) ──
+            // 좌측 = 성장 정체성 클러스터(프로필→환생). 닉네임 뒤에 두면 우측 재화 칩의
+            // 오버행 코인과 붙어 재화 무리처럼 읽힌다 — 닉네임의 여백이 자연 분리대가 되게
+            // 프로필과 닉네임 사이에 끼운다. 금 모래시계 = "처음부터 다시, 더 강하게".
+            var rebirth = F.Box(leftWrap, "BtnReincarnation", UguiTheme.RusticSurface, rounded: true, raycast: true);
+            F.Preferred(rebirth, width: 92f, height: 92f);
+            view.btnReincarnation = F.ButtonOn(rebirth);
+            var rebirthIcon = F.IconImage(rebirth.transform, "Icon", UguiGenAssets.IconHourglass, 48f, 48f);
+            var riRt = rebirthIcon.rectTransform;
+            riRt.anchorMin = new Vector2(0.5f, 1f); riRt.anchorMax = new Vector2(0.5f, 1f); riRt.pivot = new Vector2(0.5f, 1f);
+            riRt.anchoredPosition = new Vector2(0f, -10f); riRt.sizeDelta = new Vector2(48f, 48f);
+            var rebirthLbl = F.Text(rebirth.transform, "Label", "환생", 18f, new Color(1f, 0.92f, 0.75f, 0.95f),
+                TextAlignmentOptions.Center, bold: true);
+            var rlRt = rebirthLbl.rectTransform;
+            rlRt.anchorMin = new Vector2(0f, 0f); rlRt.anchorMax = new Vector2(1f, 0f); rlRt.pivot = new Vector2(0.5f, 0f);
+            rlRt.anchoredPosition = new Vector2(0f, 7f); rlRt.sizeDelta = new Vector2(0f, 24f);
+
+            // 환생 가능 알림 닷 (우상단, 기본 숨김 — MainScreenController가 폴링으로 켠다)
+            var rebirthDot = F.CircleBox(rebirth.transform, "AlertDot", UguiTheme.DangerRedBright, raycast: false);
+            var rdRt = rebirthDot.rectTransform;
+            rdRt.anchorMin = new Vector2(1f, 1f); rdRt.anchorMax = new Vector2(1f, 1f); rdRt.pivot = new Vector2(0.5f, 0.5f);
+            rdRt.anchoredPosition = new Vector2(-8f, -8f); rdRt.sizeDelta = new Vector2(20f, 20f);
+            rebirthDot.gameObject.SetActive(false);
+            view.reincarnationDot = rebirthDot.gameObject;
+
+            // 닉네임 (긴 이름은 Ellipsis — F.Text 기본)
             var nick = F.Text(leftWrap, "LblNickname", "닉네임", 34f, UguiTheme.TextPrimary, TextAlignmentOptions.Left, bold: true);
-            F.Preferred(nick, width: 240f, height: 44f);
+            F.Preferred(nick, width: 170f, height: 44f);
             view.lblNickname = nick;
 
             // ── 중앙 스페이서 ──
@@ -353,11 +379,11 @@ namespace KingdomIdle.UGUI.Editor
             }
 
             // ⑤ 탭 사이 기둥 — 판이 하나로 쭉 이어지면 아무리 장식을 얹어도 밋밋하다.
-            //    탭 3개 경계에 어두운 목재 기둥 + 금색 캡을 세워 '칸이 나뉜 목공' 으로 읽히게 한다.
+            //    탭 4개 경계에 어두운 목재 기둥 + 금색 캡을 세워 '칸이 나뉜 목공' 으로 읽히게 한다.
             //    HLayout 자식이 아니라 ignoreLayout 오버레이라 탭 폭에 영향을 주지 않는다.
-            for (int i = 1; i <= 2; i++)
+            for (int i = 1; i <= 3; i++)
             {
-                float fx = i / 3f;
+                float fx = i / 4f;
                 var post = F.Box(bar.transform, $"Post{i}", new Color(0.16f, 0.11f, 0.07f, 1f), rounded: false);
                 var prt = post.rectTransform;
                 prt.anchorMin = new Vector2(fx, 0f);
@@ -563,7 +589,7 @@ namespace KingdomIdle.UGUI.Editor
         private static void BuildBottomBar(RectTransform rootRt, MainScreenView view)
         {
             // [마탑 환경 연출 예약] 바 왼쪽 ~220px 는 별도 작업에서 마법사 탑 환경 스프라이트가
-            // 절대 배치(ignoreLayout 또는 형제 오버레이)로 겹칠 자리다. 탭 3개는 HLayout의
+            // 절대 배치(ignoreLayout 또는 형제 오버레이)로 겹칠 자리다. 탭 4개는 HLayout의
             // flexible 자식이라 형제 오버레이와 간섭하지 않는다 — 왼쪽에 고정 폭 레이아웃 요소를
             // 추가하지 말 것(오버레이가 탭을 밀어내는 대신 '위에 겹치는' 구조를 유지한다).
             // 러스틱 하단 탭 바 (더 어두운 다크 우드)
@@ -579,6 +605,8 @@ namespace KingdomIdle.UGUI.Editor
                 F.Catalog != null ? F.Catalog.iconSwords : null, "육성");
             view.tabKingdomArmy = MakeTabButton(bar.transform, "BtnKingdomArmy",
                 F.Catalog != null ? F.Catalog.iconHelmet : null, "왕국군");
+            view.tabDungeon = MakeTabButton(bar.transform, "BtnDungeon",
+                UguiGenAssets.IconDungeon, "던전");
             view.tabGacha = MakeTabButton(bar.transform, "BtnGacha",
                 F.Catalog != null ? F.Catalog.iconChest : null, "뽑기");
         }

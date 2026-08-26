@@ -1,7 +1,6 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
-using KingdomIdle.MageTower;
 using UnityEditor;
 
 namespace KingdomIdle.UGUI.Editor
@@ -9,129 +8,9 @@ namespace KingdomIdle.UGUI.Editor
     /// <summary>파티 HUD / 마법탑 HUD / 데미지 텍스트 아이템 프리팹 생성기.</summary>
     internal static class HudGens
     {
-        [MenuItem("KingdomIdle/UGUI/Generate Main Actions HUD", false, 5)]
-        internal static void GenerateMainActionsOnly()
-        {
-            F.Init();
-            var catalog = AssetDatabase.LoadAssetAtPath<UIViewCatalog>(
-                PrefabGenUtil.CatalogPath);
-            F.Catalog = catalog;
-            GenerateMainActionsHud();
-            if (catalog != null)
-                CatalogGen.AssignPrefabs(catalog);
-            AssetDatabase.Refresh();
-        }
+        // (구 Hud_MainActions — 우측 던전/환생 버튼 — 는 제거됨:
+        //  던전은 하단 4번째 탭, 환생은 상단바 프로필 옆 버튼으로 이사. ScreenGens 참조.)
 
-        internal static GameObject GenerateMainActionsHud()
-        {
-            var rootGo = new GameObject(
-                "Hud_MainActions",
-                typeof(RectTransform));
-            rootGo.layer = 5;
-            var root = (RectTransform)rootGo.transform;
-            root.anchorMin = new Vector2(1f, 0.5f);
-            root.anchorMax = new Vector2(1f, 0.5f);
-            root.pivot = new Vector2(1f, 0.5f);
-            root.anchoredPosition = new Vector2(-24f, 80f);
-            root.sizeDelta = new Vector2(150f, 270f);
-
-            var layout = rootGo.AddComponent<VerticalLayoutGroup>();
-            layout.spacing = 14f;
-            layout.childAlignment = TextAnchor.MiddleCenter;
-            layout.childControlWidth = true;
-            layout.childControlHeight = true;
-            layout.childForceExpandWidth = true;
-            layout.childForceExpandHeight = false;
-
-            var view = rootGo.AddComponent<MainActionsView>();
-            view.dungeonButton = MakeMainActionButton(
-                root,
-                "BtnDungeon",
-                "던전",
-                "Assets/UGUI/UsingAssets/Dungeon_Chest01.png");
-            view.reincarnationButton = MakeMainActionButton(
-                root,
-                "BtnReincarnation",
-                "환생",
-                "Assets/UGUI/UsingAssets/Dungeon_Gem01.png");
-
-            return PrefabGenUtil.SavePrefab(
-                rootGo,
-                $"{PrefabGenUtil.PrefabRoot}/Huds/Hud_MainActions.prefab");
-        }
-
-        private static Button MakeMainActionButton(
-            Transform parent,
-            string name,
-            string label,
-            string iconPath)
-        {
-            var go = new GameObject(
-                name,
-                typeof(RectTransform),
-                typeof(CanvasRenderer),
-                typeof(Image),
-                typeof(Button),
-                typeof(LayoutElement));
-            go.layer = 5;
-            go.transform.SetParent(parent, false);
-
-            var image = go.GetComponent<Image>();
-            image.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(
-                "Assets/UGUI/UsingAssets/Dungeon_Grey.png");
-            image.type = Image.Type.Sliced;
-
-            var button = go.GetComponent<Button>();
-            button.targetGraphic = image;
-            button.colors = UguiTheme.MakeColorBlock();
-
-            var element = go.GetComponent<LayoutElement>();
-            element.preferredWidth = 142f;
-            element.preferredHeight = 124f;
-
-            var iconGo = new GameObject(
-                "Icon",
-                typeof(RectTransform),
-                typeof(CanvasRenderer),
-                typeof(Image));
-            iconGo.layer = 5;
-            iconGo.transform.SetParent(go.transform, false);
-            var iconRect = (RectTransform)iconGo.transform;
-            iconRect.anchorMin = new Vector2(0.5f, 1f);
-            iconRect.anchorMax = new Vector2(0.5f, 1f);
-            iconRect.pivot = new Vector2(0.5f, 1f);
-            iconRect.anchoredPosition = new Vector2(0f, -14f);
-            iconRect.sizeDelta = new Vector2(58f, 58f);
-            var icon = iconGo.GetComponent<Image>();
-            icon.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(iconPath);
-            icon.preserveAspect = true;
-            icon.raycastTarget = false;
-
-            var labelGo = new GameObject(
-                "Label",
-                typeof(RectTransform),
-                typeof(CanvasRenderer),
-                typeof(TextMeshProUGUI));
-            labelGo.layer = 5;
-            labelGo.transform.SetParent(go.transform, false);
-            var labelRect = (RectTransform)labelGo.transform;
-            labelRect.anchorMin = new Vector2(0f, 0f);
-            labelRect.anchorMax = new Vector2(1f, 0f);
-            labelRect.pivot = new Vector2(0.5f, 0f);
-            labelRect.anchoredPosition = new Vector2(0f, 10f);
-            labelRect.sizeDelta = new Vector2(-16f, 34f);
-            var text = labelGo.GetComponent<TextMeshProUGUI>();
-            text.font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
-                "Assets/UGUI/UsingAssets/Dungeon_Galmuri11 SDF.asset");
-            text.text = label;
-            text.fontSize = 25f;
-            text.fontStyle = FontStyles.Bold;
-            text.alignment = TextAlignmentOptions.Center;
-            text.color = Color.white;
-            text.raycastTarget = false;
-
-            return button;
-        }
         // ═══ 파티 HUD (.party-*) ═══
         internal static GameObject GeneratePartyHud()
         {
@@ -246,87 +125,8 @@ namespace KingdomIdle.UGUI.Editor
             return member;
         }
 
-        // ═══ 마법탑 HUD (.mt-hud-*: 좌측 세로 열, top 300) ═══
-        internal static GameObject GenerateMageTowerHud()
-        {
-            var rootGo = new GameObject("Hud_MageTower", typeof(RectTransform));
-            rootGo.layer = 5;
-            var rootRt = (RectTransform)rootGo.transform;
-            rootRt.anchorMin = new Vector2(0f, 1f);
-            rootRt.anchorMax = new Vector2(0f, 1f);
-            rootRt.pivot = new Vector2(0f, 1f);
-            rootRt.anchoredPosition = new Vector2(UguiTheme.MageTowerHudLeft, -UguiTheme.MageTowerHudTop);
-            rootRt.sizeDelta = new Vector2(UguiTheme.MageTowerHudWidth, 100f);
-
-            var view = rootGo.AddComponent<MageTowerHudView>();
-
-            F.VLayout(rootGo, 11f, new RectOffset(11, 11, 11, 11), TextAnchor.UpperCenter, expandWidth: false);
-            var fitter = rootGo.AddComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            float slotSize = UguiTheme.MageTowerSlotSize;
-
-            // Auto 버튼 (러스틱)
-            var autoBg = F.Box(rootRt, "BtnAuto", UguiTheme.RusticSurface, rounded: true, raycast: true);
-            F.Preferred(autoBg, width: slotSize, height: slotSize);
-            view.autoButton = F.ButtonOn(autoBg);
-            view.autoButtonBg = autoBg;
-            var autoLbl = F.Text(autoBg.transform, "Label", "Auto", 26f, new Color(1f, 1f, 1f, 0.30f),
-                TextAlignmentOptions.Center, bold: true);
-            F.Stretch(autoLbl.rectTransform);
-            view.autoButtonLabel = autoLbl;
-
-            // 스킬 슬롯 N개
-            int slotCount = MageTowerManager.SlotCount;
-            view.slots = new MageTowerHudView.Slot[slotCount];
-            for (int i = 0; i < slotCount; i++)
-            {
-                var slot = new MageTowerHudView.Slot();
-
-                // 어두운 슬롯 박스 + 청동 테두리 (정사각 마법탑 스킬 슬롯, 러스틱)
-                var frame = F.Box(rootRt, $"Slot{i}", new Color(0.16f, 0.12f, 0.09f, 0.95f), rounded: true, raycast: true);
-                F.Frame(frame.transform, "Border", new Color(UguiTheme.Bronze.r, UguiTheme.Bronze.g, UguiTheme.Bronze.b, 0.55f))
-                    .gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
-                F.Preferred(frame, width: slotSize, height: slotSize);
-                slot.frame = frame;
-                var slotBtn = frame.gameObject.AddComponent<Button>();
-                slotBtn.targetGraphic = frame;
-                slotBtn.transition = Selectable.Transition.ColorTint;
-                slotBtn.colors = UguiTheme.MakeColorBlock();
-                frame.gameObject.AddComponent<PlayClickSfxOnClick>();
-                slot.button = slotBtn;
-
-                var icon = F.Container(frame.transform, "Icon");
-                F.Stretch(icon);
-                icon.offsetMin = new Vector2(5f, 5f);
-                icon.offsetMax = new Vector2(-5f, -5f);
-                var iconImg = icon.gameObject.AddComponent<Image>();
-                iconImg.preserveAspect = true;
-                iconImg.raycastTarget = false;
-                slot.icon = iconImg;
-                icon.gameObject.SetActive(false);
-
-                var lbl = F.Text(frame.transform, "Label", "-", 28f, new Color(1f, 1f, 1f, 0.35f),
-                    TextAlignmentOptions.Center);
-                F.Stretch(lbl.rectTransform);
-                slot.label = lbl;
-
-                var mask = F.VFillMask(frame.transform, "CdMask", new Color(0f, 0f, 0f, 0.60f));
-                slot.cooldownMask = mask;
-                mask.gameObject.SetActive(false);
-
-                var cdText = F.Text(frame.transform, "CdText", "", 34f, Color.white, TextAlignmentOptions.Center, bold: true);
-                F.Stretch(cdText.rectTransform);
-                slot.cooldownText = cdText;
-                cdText.gameObject.SetActive(false);
-
-                view.slots[i] = slot;
-            }
-
-            // 마탑 진입은 좌하단 환경 오브젝트(Hud_MageTowerEnv)가 담당한다 — 열의 버튼은 제거됨
-
-            return PrefabGenUtil.SavePrefab(rootGo, $"{PrefabGenUtil.PrefabRoot}/Huds/Hud_MageTower.prefab");
-        }
+        // (구 Hud_MageTower — 좌측 수동 스킬 슬롯 열 — 은 제거됨:
+        //  마탑 스킬은 AUTO 전용, 장착/강화는 마탑 메뉴(탑 탭), AUTO 토글은 탑 길게 누르기.)
 
         // ═══ 마탑 환경 오브젝트 — 좌하단, 하단바 뒤에서 솟아오르는 인터랙티브 마탑 ═══
         internal static GameObject GenerateMageTowerEnv()
@@ -400,6 +200,9 @@ namespace KingdomIdle.UGUI.Editor
             btn.colors = UguiTheme.MakeColorBlock();
             towerGo.AddComponent<PlayClickSfxOnClick>();
             view.button = btn;
+            // 탭/길게 판정 — 팝업 진입·AUTO 토글 입력은 Button.onClick이 아니라 이 컴포넌트가 가진다
+            // (신성 스킬 버튼과 동일 관례 — Button은 눌림 틴트/SFX만)
+            view.longPress = towerGo.AddComponent<UILongPressButton>();
 
             // 점등 오버레이 — CanvasGroup 알파로 크로스페이드 (레이캐스트 차단 금지)
             var litGo = new GameObject("Lit", typeof(RectTransform));
@@ -458,6 +261,12 @@ namespace KingdomIdle.UGUI.Editor
             view.crystalImage = cimg;
             if (crystalSprite == null)
                 Debug.LogWarning("[UguiGen] MageTowerCrystal.png 를 찾지 못했습니다 — 수정 없이 생성됩니다.");
+
+            // AUTO OFF 잿빛 수정 (원본의 탈색·감광 변형 — 없으면 컨트롤러가 회색 틴트로 폴백)
+            view.crystalOffSprite = AssetDatabase.LoadAssetAtPath<Sprite>(
+                "Assets/Generated/ComfyUI/UI/MageTowerCrystal_Off.png");
+            if (view.crystalOffSprite == null)
+                Debug.LogWarning("[UguiGen] MageTowerCrystal_Off.png 를 찾지 못했습니다 — 회색 틴트로 폴백합니다.");
 
             return PrefabGenUtil.SavePrefab(rootGo, $"{PrefabGenUtil.PrefabRoot}/Huds/Hud_MageTowerEnv.prefab");
         }

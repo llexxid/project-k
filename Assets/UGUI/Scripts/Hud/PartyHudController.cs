@@ -16,6 +16,13 @@ namespace KingdomIdle.UGUI
     {
         public static PartyHudController Instance { get; private set; }
 
+        /// <summary>
+        /// 전체 화면 모달(예: 던전 난이도 팝업)이 떠 있는 동안 파티 HUD를 잠시 숨기는 카운터.
+        /// 파티 HUD는 LayerPopups에 있어 LayerPanels의 모달 딤 위에 그려지기 때문에,
+        /// 모달 쪽(PartyHudSuppressor)이 활성화 동안 1 올려 겹침을 막는다.
+        /// </summary>
+        internal static int ModalSuppressCount;
+
         [Header("Portrait Sprites")]
         [SerializeField] private Sprite portraitSprite0;
         [SerializeField] private Sprite portraitSprite1;
@@ -399,7 +406,7 @@ namespace KingdomIdle.UGUI
 
             var mgr = UIManager.Instance;
             bool onMain = mgr != null && mgr.ActiveScreenId == UIScreenId.Main;
-            bool shouldShow = onMain && !mgr.HasBlockingPanel;
+            bool shouldShow = onMain && !mgr.HasBlockingPanel && ModalSuppressCount <= 0;
 
             if (_view.gameObject.activeSelf != shouldShow)
                 _view.gameObject.SetActive(shouldShow);

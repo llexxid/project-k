@@ -1,0 +1,8 @@
+{
+  "source": "MageTowerCrystal.png",
+  "tool": "PIL (local post-process, no ComfyUI call)",
+  "recipe": "luminance grayscale -> multiply (0.58, 0.58, 0.63), alpha preserved",
+  "purpose": "마탑 AUTO OFF 상태의 소등(잿빛) 수정. MageTowerEnvView.crystalOffSprite 로 배선 (HudGens.GenerateMageTowerEnv).",
+  "date": "2026-08-26",
+  "note": "원본 임포트 설정(.meta) 복제 + 새 GUID — Point 필터/스프라이트 설정 동일. 원본이 바뀌면 이 레시피로 재생성할 것."
+}

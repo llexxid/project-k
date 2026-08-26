@@ -17,6 +17,11 @@ namespace KingdomIdle.UGUI
     ///  - 유휴(수정): 상하 부유 + 광원 미세 맥동 (CrystalBob)
     ///  - 탭: 창문 점등 플래시 → 마탑 팝업 열기 (탑 트랜스폼은 건드리지 않는다)
     ///  - 스킬 발동: 수정만 번쩍인다 (CrystalFlash)
+    ///
+    /// AUTO 시전 (마탑 스킬 자동 발동) — 좌측 수동 슬롯 열 제거 후 이 오브젝트가 단일 소유자다.
+    ///  - 기본 ON. 길게 누르기(0.5s)로 토글, PlayerPrefs("magetower.auto")에 영속.
+    ///  - OFF 동안 수정이 잿빛으로 소등된다: 부유/광원/섬광 전부 정지, 스프라이트 교체.
+    ///  - 수동 개별 시전 경로는 없다 — 스킬은 AUTO로만 나간다 (장착/강화는 마탑 메뉴).
     /// </summary>
     [DefaultExecutionOrder(-936)]
     public sealed class MageTowerEnvController : MonoBehaviour
@@ -33,14 +38,21 @@ namespace KingdomIdle.UGUI
         private const float CrystalBobPeriod = 2.8f; // 부유 주기(초)
         private const float CrystalIdleGlow = 0.28f; // 평시 광원 알파
 
+        // AUTO 시전 영속 키 — 1=ON (기본). 이 컨트롤러가 MageTowerManager.SetAutoEnabled의 단일 호출자다.
+        private const string PrefKeyAuto = "magetower.auto";
+        private static readonly Color CrystalOffTint = new Color(0.42f, 0.42f, 0.46f, 1f); // 잿빛 폴백 (off 스프라이트 없을 때)
+
         private MageTowerEnvView _view;
         private Coroutine _litCo;
         private Coroutine _litIdleCo;
         private Coroutine _crystalBobCo;
         private Coroutine _crystalFlashCo;
+        private Coroutine _crystalDimCo;
         private Vector2 _crystalBasePos;
         private bool _subscribedCast;
         private MageTowerManager _castMgr;
+        private bool _autoOn = true;
+        private Sprite _crystalOnSprite;
 
         private void Awake()
         {
@@ -50,6 +62,7 @@ namespace KingdomIdle.UGUI
                 return;
             }
             Instance = this;
+            _autoOn = PlayerPrefs.GetInt(PrefKeyAuto, 1) == 1;
         }
 
         private void OnDestroy()
@@ -81,12 +94,16 @@ namespace KingdomIdle.UGUI
             _castMgr = mgr;
             _castMgr.OnCastingChanged += OnSkillCastingChanged;
             _subscribedCast = true;
+
+            // 저장된 AUTO 상태를 매니저에 반영 (매니저 기본값은 false — UI가 소유자)
+            _castMgr.SetAutoEnabled(_autoOn);
         }
 
-        /// <summary>자동·수동 가리지 않고 마탑 스킬이 나갈 때마다 수정이 짧게 번쩍인다.</summary>
+        /// <summary>마탑 스킬이 나갈 때마다 수정이 짧게 번쩍인다 (AUTO 소등 중엔 침묵).</summary>
         private void OnSkillCastingChanged(int slotIndex, bool casting)
         {
             if (!casting) return;                       // 시전 '시작' 순간만
+            if (!_autoOn) return;                       // 소등된 수정은 반응하지 않는다
             if (_view == null || !_view.gameObject.activeInHierarchy) return;
             if (_crystalFlashCo != null) StopCoroutine(_crystalFlashCo);
             _crystalFlashCo = StartCoroutine(CrystalFlash());
@@ -112,17 +129,31 @@ namespace KingdomIdle.UGUI
             // 화면 프리팹(하단바 포함)보다 먼저 그려져야 탑의 하단이 바 뒤로 숨는다
             go.transform.SetAsFirstSibling();
 
-            if (_view.button != null)
+            // 탭=팝업 / 길게(0.5s)=AUTO 토글. Button.onClick에는 달지 않는다(이중 발화 방지) —
+            // Button은 눌림 틴트 + PlayClickSfxOnClick만 담당한다 (신성 스킬 버튼과 동일 관례).
+            if (_view.longPress != null)
+            {
+                _view.longPress.Tapped += OnTowerTapped;
+                _view.longPress.LongPressed += OnLongPressToggleAuto;
+                _view.longPress.allowLongPressWhenDisabled = true;
+            }
+            else if (_view.button != null)
+            {
+                // 구버전 프리팹(장압 컴포넌트 없음) 안전망 — 최소한 탭 진입은 살린다
+                Debug.LogWarning("[MageTowerEnv] UILongPressButton 이 프리팹에 없습니다. HUD를 재생성하세요.");
                 _view.button.onClick.AddListener(OnTowerTapped);
+            }
 
             // 탑의 유휴 연출은 창문 밝기뿐이다 — 트랜스폼은 절대 건드리지 않는다
             StartLitIdle();
 
-            // 부유 수정: 상하로 천천히 떠다닌다. 화면에서 계속 움직이는 유일한 요소.
+            // 부유 수정: AUTO ON일 때만 떠다니며 빛난다. OFF면 잿빛으로 소등 상태 시작.
             if (_view.crystalRoot != null)
             {
                 _crystalBasePos = _view.crystalRoot.anchoredPosition;
-                StartCrystalBob();
+                if (_view.crystalImage != null)
+                    _crystalOnSprite = _view.crystalImage.sprite;
+                ApplyCrystalAutoVisual(animate: false);
             }
         }
 
@@ -141,7 +172,7 @@ namespace KingdomIdle.UGUI
                 if (show)
                 {
                     StartLitIdle();
-                    StartCrystalBob();
+                    ApplyCrystalAutoVisual(animate: false);   // AUTO ON일 때만 부유/발광 재개
                 }
                 else
                 {
@@ -266,11 +297,107 @@ namespace KingdomIdle.UGUI
                 if (_litCo != null) StopCoroutine(_litCo);
                 _litCo = StartCoroutine(LitFlash());
 
-                if (_crystalFlashCo != null) StopCoroutine(_crystalFlashCo);
-                _crystalFlashCo = StartCoroutine(CrystalFlash());
+                // 소등된 수정은 탭에도 빛나지 않는다 (창문 점등만 반응)
+                if (_autoOn)
+                {
+                    if (_crystalFlashCo != null) StopCoroutine(_crystalFlashCo);
+                    _crystalFlashCo = StartCoroutine(CrystalFlash());
+                }
             }
 
             MageTowerPopupController.Show();
+        }
+
+        // ===== 길게 누르기: AUTO 시전 토글 =====
+        private void OnLongPressToggleAuto()
+        {
+            _autoOn = !_autoOn;
+            PlayerPrefs.SetInt(PrefKeyAuto, _autoOn ? 1 : 0);
+
+            var mgr = MageTowerManager.Instance;
+            if (mgr != null) mgr.SetAutoEnabled(_autoOn);
+
+            ApplyCrystalAutoVisual(animate: true);
+
+            var ui = UIManager.Instance;
+            if (ui != null) ui.ShowToast(_autoOn ? "마탑 자동 시전 ON" : "마탑 자동 시전 OFF");
+        }
+
+        /// <summary>
+        /// AUTO 상태를 수정에 반영한다.
+        /// ON  = 푸른 수정 + 부유 + 은은한 발광 (animate 시 재점등 섬광).
+        /// OFF = 잿빛 수정 + 정지 + 무광 (animate 시 광원이 사그라드는 소등 연출).
+        /// </summary>
+        private void ApplyCrystalAutoVisual(bool animate)
+        {
+            if (_view == null || _view.crystalRoot == null) return;
+
+            // 진행 중이던 소등/섬광 연출 정리 — 두 코루틴이 같은 알파를 두고 싸우지 않게
+            if (_crystalDimCo != null) { StopCoroutine(_crystalDimCo); _crystalDimCo = null; }
+            if (_crystalFlashCo != null) { StopCoroutine(_crystalFlashCo); _crystalFlashCo = null; }
+
+            if (_autoOn)
+            {
+                // 재점등: 원래 스프라이트/색 복구 → 부유 재개 → (토글 직후엔) 확 밝아지는 섬광
+                if (_view.crystalImage != null)
+                {
+                    if (_crystalOnSprite != null) _view.crystalImage.sprite = _crystalOnSprite;
+                    _view.crystalImage.color = Color.white;
+                }
+                _view.crystalRoot.localScale = Vector3.one;
+                if (_view.crystalGlowGroup != null) _view.crystalGlowGroup.alpha = CrystalIdleGlow;
+                StartCrystalBob();
+                if (animate)
+                    _crystalFlashCo = StartCoroutine(CrystalFlash());
+            }
+            else
+            {
+                StopCrystalBob();   // 부유 정지 + 기준 위치 복원
+                _view.crystalRoot.localScale = Vector3.one;
+                if (animate)
+                {
+                    _crystalDimCo = StartCoroutine(CrystalDim());
+                }
+                else
+                {
+                    if (_view.crystalGlowGroup != null) _view.crystalGlowGroup.alpha = 0f;
+                    ApplyCrystalOffLook();
+                }
+            }
+        }
+
+        /// <summary>잿빛 수정 룩 — 전용 스프라이트가 있으면 교체, 없으면 회색 틴트 폴백.</summary>
+        private void ApplyCrystalOffLook()
+        {
+            if (_view == null || _view.crystalImage == null) return;
+            if (_view.crystalOffSprite != null)
+            {
+                _view.crystalImage.sprite = _view.crystalOffSprite;
+                _view.crystalImage.color = Color.white;
+            }
+            else
+            {
+                _view.crystalImage.color = CrystalOffTint;
+            }
+        }
+
+        /// <summary>소등 연출 — 광원이 0.35s에 걸쳐 사그라든 뒤 수정이 잿빛으로 식는다.</summary>
+        private IEnumerator CrystalDim()
+        {
+            var g = _view != null ? _view.crystalGlowGroup : null;
+            float from = g != null ? g.alpha : 0f;
+            float e = 0f;
+            const float dur = 0.35f;
+            while (e < dur)
+            {
+                e += Time.unscaledDeltaTime;
+                if (g == null) break;
+                g.alpha = Mathf.Lerp(from, 0f, Mathf.Clamp01(e / dur));
+                yield return null;
+            }
+            if (g != null) g.alpha = 0f;
+            ApplyCrystalOffLook();
+            _crystalDimCo = null;
         }
 
         /// <summary>창문 점등 — 빠르게 켜지고(0.12s) 잠시 유지(0.5s) 천천히 식는다(0.6s).</summary>

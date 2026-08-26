@@ -463,6 +463,10 @@ namespace KingdomIdle.UGUI
                     case UIPanelId.Inventory when view is InventoryPanelView inv:
                         InventoryPanelController.Populate(inv);
                         return;
+                    case UIPanelId.Dungeon when view is DungeonPanelView:
+                        // 던전 패널은 루트의 DungeonPanelController가 OnEnable에서 스스로 구성한다.
+                        // 셸 제목("던전")을 placeholder 제목으로 덮지 않도록 여기서 끝낸다.
+                        return;
                 }
             }
             catch (Exception ex)

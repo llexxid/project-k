@@ -52,8 +52,6 @@ namespace KingdomIdle.UGUI.Editor
 
             // HUD
             HudGens.GeneratePartyHud();
-            HudGens.GenerateMageTowerHud();
-            HudGens.GenerateMainActionsHud();
             HudGens.GenerateDivineSkillHud();
             HudGens.GenerateMageTowerEnv();
             HudGens.GenerateDamageTextItem(CatalogGen.GetOrCreateDamageOutlineMaterial());
@@ -82,6 +80,8 @@ namespace KingdomIdle.UGUI.Editor
             InventoryPanelPrefabGens.GenerateAll();
             KingdomArmyPanelPrefabGens.GenerateAll();
             DungeonFeaturePrefabGens.GenerateAll();
+            // 던전 패널 시트 — 던전 카드/난이도 팝업 프리팹(위 GenerateAll)이 먼저 있어야 한다
+            PanelGens.GenerateDungeon();
             DivineCollectionPopupPrefabGens.GenerateAll();
 
             // 프리팹 참조 배선 (프리팹 생성 후)
@@ -175,8 +175,6 @@ namespace KingdomIdle.UGUI.Editor
             errors += CheckPrefabViews(catalog.overlaySettings);
             errors += CheckPrefabViews(catalog.overlayDivineCutIn);
             errors += CheckPrefabViews(catalog.hudParty);
-            errors += CheckPrefabViews(catalog.hudMageTower);
-            errors += CheckPrefabViews(catalog.hudMainActions);
             errors += CheckPrefabViews(catalog.hudDivineSkill);
             errors += CheckPrefabViews(catalog.hudMageTowerEnv);
             errors += CheckPrefabViews(catalog.popupDivineCollection);

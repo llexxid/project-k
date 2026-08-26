@@ -19,5 +19,7 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal CanvasGroup crystalGlowGroup;          // 바닥 접합부 보라 광원 (장식)
         [SerializeField] internal Button button;
         [SerializeField] internal CanvasGroup litGroup;    // 점등 크로스페이드용
+        [SerializeField] internal UILongPressButton longPress;   // 탭=팝업 / 길게=AUTO 토글
+        [SerializeField] internal Sprite crystalOffSprite;       // AUTO OFF 잿빛 수정 (없으면 회색 틴트 폴백)
     }
 }
