@@ -361,17 +361,44 @@ namespace KingdomIdle.UGUI
 
             if (_view.lblGold != null)
             {
-                _view.lblGold.text = gold.ToString("N0");
+                _view.lblGold.text = FormatChipAmount(gold);
                 if (_prevGold >= 0 && gold != _prevGold && _view.btnCurrency != null)
                     UITween.Punch(_view.btnCurrency.transform as RectTransform);
             }
             if (_view.lblAncientCoin != null)
             {
-                _view.lblAncientCoin.text = ancient.ToString("N0");
+                _view.lblAncientCoin.text = FormatChipAmount(ancient);
                 if (_prevAncient >= 0 && ancient != _prevAncient && _view.btnAncientCoin != null)
                     UITween.Punch(_view.btnAncientCoin.transform as RectTransform);
             }
             _prevGold = gold; _prevAncient = ancient;
+        }
+
+        /// <summary>
+        /// 상단바 칩 전용 축약 표기 — 칩 값 영역이 120px 뿐이라 100만("1,000,000"=약 150px)부터
+        /// 말줄임(…)이 났다. 한국식 단위(만/억/조)로 줄이고, 그 아래는 기존 콤마 표기 유지.
+        /// 재화 드롭다운(420px)은 정확한 값이 중요해 계속 N0 를 쓴다(GetCurrencyText).
+        /// </summary>
+        internal static string FormatChipAmount(long amount)
+        {
+            const long Man = 10_000L;          // 만
+            const long Eok = 100_000_000L;     // 억
+            const long Jo = 1_000_000_000_000L; // 조
+
+            if (amount < 100L * Man)            // < 100만 — "999,999" 까지는 그대로 읽힌다
+                return amount.ToString("N0");
+            if (amount < Eok)
+                return TrimUnit(amount / (double)Man, "만");
+            if (amount < Jo)
+                return TrimUnit(amount / (double)Eok, "억");
+            return TrimUnit(amount / (double)Jo, "조");
+        }
+
+        private static string TrimUnit(double value, string unit)
+        {
+            // 세 자리까지는 소수 1자리, 그 이상은 정수 — "128.4만", "1,234만", "1.2억"
+            string body = value < 1000 ? value.ToString("0.#") : value.ToString("N0");
+            return body + unit;
         }
 
         private long GetCurrencyAmount(eCurrency c)
@@ -789,6 +816,9 @@ namespace KingdomIdle.UGUI
             // 신 스킬 도감 — HUD 모서리 버튼에서 이사 옴 (원형 버튼 리워크)
             if (_view.btnMenuDivineCollection != null)
             {
+                // 신 스킬 시스템 비활성화 상태(bootstrap 에 매니저 미설치)면 진입점 자체를 숨긴다.
+                // 매니저 존재 여부로 게이트 → 시스템 재활성화 시 이 코드는 손대지 않아도 된다.
+                _view.btnMenuDivineCollection.gameObject.SetActive(DivineSkillManager.Instance != null);
                 _view.btnMenuDivineCollection.onClick.AddListener(() =>
                 {
                     CloseHamburgerMenu();

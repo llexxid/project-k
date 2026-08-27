@@ -20,7 +20,8 @@ namespace KingdomIdle.UGUI
     ///
     /// AUTO 시전 (마탑 스킬 자동 발동) — 좌측 수동 슬롯 열 제거 후 이 오브젝트가 단일 소유자다.
     ///  - 기본 ON. 길게 누르기(0.5s)로 토글, PlayerPrefs("magetower.auto")에 영속.
-    ///  - OFF 동안 수정이 잿빛으로 소등된다: 부유/광원/섬광 전부 정지, 스프라이트 교체.
+    ///  - OFF 동안 수정이 잿빛으로 소등된다: 광원/섬광 정지 + 스프라이트 교체.
+    ///    부유(hovering)는 소등 중에도 유지 — 잿빛이어도 떠 있는 마법 물체로 남긴다.
     ///  - 수동 개별 시전 경로는 없다 — 스킬은 AUTO로만 나간다 (장착/강화는 마탑 메뉴).
     /// </summary>
     [DefaultExecutionOrder(-936)]
@@ -129,6 +130,15 @@ namespace KingdomIdle.UGUI
             // 화면 프리팹(하단바 포함)보다 먼저 그려져야 탑의 하단이 바 뒤로 숨는다
             go.transform.SetAsFirstSibling();
 
+            // 탭 판정을 실루엣 픽셀로 제한 — 히트 rect 전체(탑 좌우의 투명 여백 포함)가
+            // 잡히면 빈 땅을 눌러도 팝업이 열리고, 길게 누르면 AUTO 까지 꺼진다.
+            // 텍스처가 Read/Write 가 아니면(임포트 설정 유실) 종전 rect 판정으로 조용히 폴백.
+            if (_view.towerImage != null && _view.towerImage.sprite != null &&
+                _view.towerImage.sprite.texture != null && _view.towerImage.sprite.texture.isReadable)
+            {
+                _view.towerImage.alphaHitTestMinimumThreshold = 0.1f;
+            }
+
             // 탭=팝업 / 길게(0.5s)=AUTO 토글. Button.onClick에는 달지 않는다(이중 발화 방지) —
             // Button은 눌림 틴트 + PlayClickSfxOnClick만 담당한다 (신성 스킬 버튼과 동일 관례).
             if (_view.longPress != null)
@@ -232,7 +242,10 @@ namespace KingdomIdle.UGUI
                 _view.crystalRoot.anchoredPosition = _crystalBasePos;
         }
 
-        /// <summary>수정이 상하로 천천히 떠다닌다. 광원 알파도 같은 위상으로 아주 약하게 맥동.</summary>
+        /// <summary>
+        /// 수정이 상하로 천천히 떠다닌다. 소등(AUTO OFF) 중에도 부유는 유지한다 —
+        /// 잿빛이어도 '떠 있는 마법 물체'라는 정체성은 남긴다. 광원 맥동만 점등 상태 전용.
+        /// </summary>
         private IEnumerator CrystalBob()
         {
             float e = 0f;
@@ -244,8 +257,9 @@ namespace KingdomIdle.UGUI
                 if (rt == null) yield break;
                 rt.anchoredPosition = _crystalBasePos + new Vector2(0f, k * CrystalBobAmp);
 
-                // 섬광 재생 중에는 알파를 건드리지 않는다 (두 코루틴이 같은 값을 두고 싸우지 않게)
-                if (_crystalFlashCo == null && _view.crystalGlowGroup != null)
+                // 광원 맥동은 점등 상태에서만. 섬광/소등 페이드 재생 중에는 알파를 건드리지 않는다
+                // (코루틴들이 같은 값을 두고 싸우지 않게).
+                if (_autoOn && _crystalFlashCo == null && _crystalDimCo == null && _view.crystalGlowGroup != null)
                     _view.crystalGlowGroup.alpha = CrystalIdleGlow + 0.06f * k;
 
                 yield return null;
@@ -352,8 +366,9 @@ namespace KingdomIdle.UGUI
             }
             else
             {
-                StopCrystalBob();   // 부유 정지 + 기준 위치 복원
+                // 소등 상태에서도 부유는 유지 — 광원만 꺼진 잿빛 수정이 그대로 떠다닌다.
                 _view.crystalRoot.localScale = Vector3.one;
+                StartCrystalBob();
                 if (animate)
                 {
                     _crystalDimCo = StartCoroutine(CrystalDim());

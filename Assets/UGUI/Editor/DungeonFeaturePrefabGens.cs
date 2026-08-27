@@ -75,8 +75,9 @@ namespace KingdomIdle.UGUI.Editor
             imgRt.offsetMin = new Vector2(8f, 8f);
             imgRt.offsetMax = new Vector2(-8f, -8f);
             var itemImage = imgRt.gameObject.AddComponent<Image>();
-            // 스프라이트가 없을 때의 색을 Awake가 placeholder 색으로 기억한다 → 은은한 빈 칸
-            itemImage.color = new Color(1f, 1f, 1f, 0.06f);
+            // 스프라이트가 없을 때의 색을 Awake가 placeholder 색으로 기억한다 → 은은한 빈 칸.
+            // (Linear 색공간: 저알파 '흰색' 오버레이는 밝게 터진다 — 청동 저알파로 든다)
+            itemImage.color = new Color(UguiTheme.Bronze.r, UguiTheme.Bronze.g, UguiTheme.Bronze.b, 0.10f);
             itemImage.raycastTarget = false;
 
             var placeholder = F.Text(go.transform, "Placeholder", "?", 24f, UguiTheme.TextTertiary,
@@ -196,6 +197,11 @@ namespace KingdomIdle.UGUI.Editor
             // 잠금 카드용 "준비 중" 태그 (기본 숨김 — 패널 생성기가 인스턴스별로 켠다)
             var lockedTag = F.Box(preview.transform, "LockedTag", new Color(0.08f, 0.06f, 0.05f, 0.88f), rounded: true);
             F.AnchorCenter(lockedTag.rectTransform, 150f, 52f);
+            // 카드 루트의 잠금 딤(CanvasGroup α0.55)에 같이 어두워지면 안 되는 유일한 요소 —
+            // "준비 중" 안내는 원래 알파로 또렷하게 남긴다.
+            var lockedTagCg = lockedTag.gameObject.AddComponent<CanvasGroup>();
+            lockedTagCg.ignoreParentGroups = true;
+            lockedTagCg.blocksRaycasts = false;
             var lockedFrame = F.Frame(lockedTag.transform, "Frame", new Color(UguiTheme.Bronze.r, UguiTheme.Bronze.g, UguiTheme.Bronze.b, 0.6f));
             lockedFrame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
             var lockedLbl = F.Text(lockedTag.transform, "Label", "준비 중", 22f, ParchmentText,
@@ -330,7 +336,9 @@ namespace KingdomIdle.UGUI.Editor
                 TextAlignmentOptions.Left, bold: true);
             F.Flexible(selectedLbl, flexWidth: 1f);
 
-            var enterBtn = F.TextButton(footer, "EnterButton", "입장하기", 28f, UguiTheme.BtnSpend,
+            // 던전 입장은 무료(재화 소모 없음) — 컬러 언어상 '확정/전진'의 청동 골드(BtnConfirm).
+            // 크림슨(BtnSpend)은 소모/리셋 액션(뽑기·강화·환생) 전용이다.
+            var enterBtn = F.TextButton(footer, "EnterButton", "입장하기", 28f, UguiTheme.BtnConfirm,
                 out TextMeshProUGUI enterLbl, UguiTheme.TextPrimary, bold: true);
             F.Preferred(enterBtn, width: 280f, height: 78f);
             F.Stretch(enterLbl.rectTransform);

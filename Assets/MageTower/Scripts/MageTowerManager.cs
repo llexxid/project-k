@@ -68,13 +68,44 @@ namespace KingdomIdle.MageTower
 
         private void AutoCastAll()
         {
+            // 화면 안 몬스터 프리체크는 '시전 가능한 슬롯이 실제로 있을 때' 1회만 —
+            // 전 슬롯이 쿨다운 중인 평상시 프레임에는 물리 쿼리를 아예 하지 않고,
+            // 몬스터가 전부 화면 밖인 프레임에는 슬롯별(최대 5회) 재탐색 대신 1회로 끝낸다.
+            bool prechecked = false;
             for (int i = 0; i < SlotCount; i++)
             {
                 if (_equipped[i] < 0) continue;
                 if (_cooldownTimers[i] > 0f) continue;
                 if (_casting[i]) continue;
+
+                if (!prechecked)
+                {
+                    if (!AnyMonsterOnScreen()) return;
+                    prechecked = true;
+                }
                 CastSkill(i);
             }
+        }
+
+        /// <summary>화면(뷰포트) 안에 살아있는 몬스터가 하나라도 있는지 — AutoCastAll 프레임 프리체크.</summary>
+        private bool AnyMonsterOnScreen()
+        {
+            int count = SearchMonstersOnScreen(out _);
+            if (count == 0) return false;
+
+            var cam = MageTowerTargeting.ResolveCamera();
+            for (int i = 0; i < count; i++)
+            {
+                var col = _searchResults[i];
+                if (col == null) continue;
+
+                var monster = col.GetComponent<Monster>();
+                if (monster != null && monster.MonAction == eMonsterAction.Dead) continue;
+
+                if (!MageTowerTargeting.IsOnScreen(cam, col.transform.position)) continue;
+                return true;
+            }
+            return false;
         }
 
         public bool IsAutoEnabled() => _autoEnabled;
@@ -504,6 +535,7 @@ namespace KingdomIdle.MageTower
             int count = SearchMonstersOnScreen(out Vector3 worldCenter);
             if (count == 0) return Vector3.zero;
 
+            var cam = MageTowerTargeting.ResolveCamera();
             float bestDist = float.MaxValue;
             Vector3 bestPos = Vector3.zero;
             bool found = false;
@@ -515,6 +547,9 @@ namespace KingdomIdle.MageTower
 
                 var monster = col.GetComponent<Monster>();
                 if (monster != null && monster.MonAction == eMonsterAction.Dead) continue;
+
+                // 뷰포트 밖 몬스터 제외 — 외접원 광역 쿼리가 화면 밖 띠까지 잡는다
+                if (!MageTowerTargeting.IsOnScreen(cam, col.transform.position)) continue;
 
                 float dist = Vector2.Distance(worldCenter, col.transform.position);
                 if (dist < bestDist)
@@ -532,13 +567,17 @@ namespace KingdomIdle.MageTower
         /// <summary>
         /// excludeIds에 포함된 인스턴스ID의 몬스터를 제외한 랜덤 살아있는 몬스터의 위치를 반환한다.
         /// </summary>
+        // 시전 중 재사용 스크래치 (AutoCastAll 경로에서 매 시전마다 리스트를 새로 만들지 않게)
+        private static readonly List<(Vector3 pos, int id)> _randomPosCandidates = new(32);
+
         private Vector3 FindRandomMonsterPosition(HashSet<int> excludeIds, out int selectedId)
         {
             selectedId = 0;
             int count = SearchMonstersOnScreen(out _);
             if (count == 0) return Vector3.zero;
 
-            var candidates = new List<(Vector3 pos, int id)>();
+            var cam = MageTowerTargeting.ResolveCamera();
+            _randomPosCandidates.Clear();
             for (int i = 0; i < count; i++)
             {
                 var col = _searchResults[i];
@@ -547,14 +586,17 @@ namespace KingdomIdle.MageTower
                 var monster = col.GetComponent<Monster>();
                 if (monster != null && monster.MonAction == eMonsterAction.Dead) continue;
 
+                // 뷰포트 밖 몬스터 제외 — 얼음송곳 체인이 화면 밖에 생성되지 않게
+                if (!MageTowerTargeting.IsOnScreen(cam, col.transform.position)) continue;
+
                 int id = col.gameObject.GetInstanceID();
                 if (excludeIds != null && excludeIds.Contains(id)) continue;
 
-                candidates.Add((col.transform.position, id));
+                _randomPosCandidates.Add((col.transform.position, id));
             }
 
-            if (candidates.Count == 0) return Vector3.zero;
-            var chosen = candidates[UnityEngine.Random.Range(0, candidates.Count)];
+            if (_randomPosCandidates.Count == 0) return Vector3.zero;
+            var chosen = _randomPosCandidates[UnityEngine.Random.Range(0, _randomPosCandidates.Count)];
             selectedId = chosen.id;
             return chosen.pos;
         }
@@ -562,12 +604,15 @@ namespace KingdomIdle.MageTower
         /// <summary>
         /// 화면 내 랜덤 살아있는 몬스터의 Transform을 반환한다.
         /// </summary>
+        private static readonly List<Transform> _randomTransformCandidates = new(32);
+
         private Transform FindRandomMonsterTransform()
         {
             int count = SearchMonstersOnScreen(out _);
             if (count == 0) return null;
 
-            var candidates = new List<Transform>();
+            var cam = MageTowerTargeting.ResolveCamera();
+            _randomTransformCandidates.Clear();
             for (int i = 0; i < count; i++)
             {
                 var col = _searchResults[i];
@@ -576,11 +621,14 @@ namespace KingdomIdle.MageTower
                 var monster = col.GetComponent<Monster>();
                 if (monster != null && monster.MonAction == eMonsterAction.Dead) continue;
 
-                candidates.Add(col.transform);
+                // 뷰포트 밖 몬스터 제외 — 화염폭풍 최초 대상도 화면 안에서만 고른다
+                if (!MageTowerTargeting.IsOnScreen(cam, col.transform.position)) continue;
+
+                _randomTransformCandidates.Add(col.transform);
             }
 
-            if (candidates.Count == 0) return null;
-            return candidates[UnityEngine.Random.Range(0, candidates.Count)];
+            if (_randomTransformCandidates.Count == 0) return null;
+            return _randomTransformCandidates[UnityEngine.Random.Range(0, _randomTransformCandidates.Count)];
         }
 
         // ===== 초기화 =====

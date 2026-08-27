@@ -135,12 +135,10 @@ namespace KingdomIdle.UGUI.Editor
             rootGo.layer = 5;
             var rootRt = (RectTransform)rootGo.transform;
 
-            // 좌하단 앵커, 중심 x=170 → 폭 300 의 탑이 x 20~320 으로 전부 화면 안에 들어온다.
-            // 슬롯 열(x 10~144)과는 **정렬하지 않는다** — 열은 화면 좌단에 붙고 탑은 독립 배치다.
+            // 좌하단 앵커, 중심 x=170 → 폭 272 의 탑이 x 34~306 으로 전부 화면 안에 들어온다.
             // 파티 HUD 는 1080 기준 x 3~1077 로 사실상 전폭이라 하단 밴드(y 202~316) 겹침은
             // 폭 조정으로 없앨 수 없다 — 대신 최후면 렌더(SetAsFirstSibling)로 탑을 뒤에 깔고,
-            // 발치를 하단바(0~190) 안쪽 y=70 에 묻는다.
-            // 하단 중앙 궁극기 버튼(x 452~628)과는 무관(탑 우측 경계 x=320).
+            // 발치를 하단바(0~190) 안쪽 y=70 에 묻는다. (탑 우측 경계 x=306)
             rootRt.anchorMin = new Vector2(0f, 0f);
             rootRt.anchorMax = new Vector2(0f, 0f);
             rootRt.pivot = new Vector2(0.5f, 0f);
@@ -161,12 +159,12 @@ namespace KingdomIdle.UGUI.Editor
             if (towerSprite == null)
                 Debug.LogWarning("[UguiGen] MageTowerEnv.png 를 찾지 못했습니다 — 탑 이미지 없이 생성됩니다.");
 
-            // 스프라이트 원본 비율 유지 (평면 SD 아트 112x188 → 표시 폭 300, 표시 높이 503.6).
+            // 스프라이트 원본 비율 유지 (200x402 → 표시 폭 272, 표시 높이 546.7).
             // pivot.y = 0 이라 높이가 바뀌어도 발치는 y=70 에 그대로 고정된다 — 위치는 불변.
             float dispW = UguiTheme.MageTowerEnvWidth;
             float dispH = towerSprite != null
                 ? dispW * towerSprite.rect.height / towerSprite.rect.width
-                : 492f;
+                : dispW * 2.01f;   // 스프라이트 유실 폴백 — 원본 종횡비(402/200) 근사
             rootRt.sizeDelta = new Vector2(dispW, dispH);
 
             // 바닥 접합부 광원 — 탑이 바에 '심어진' 느낌을 주는 장식 (마탑 컨셉 = 푸른 비전 마법)

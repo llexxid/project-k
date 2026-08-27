@@ -552,6 +552,19 @@ namespace KingdomIdle.UGUI
 
             if (_panelStack.Count > 0)
             {
+                // 패널 내부 전체화면 모달(던전 난이도 팝업)이 떠 있으면 패널 전체가 아니라
+                // 모달만 닫는다 — 백드롭/X 버튼과 같은 계층 순서의 뒤로가기.
+                var topGo = _panelStack.Peek().Go;
+                if (topGo != null)
+                {
+                    var dungeonModal = topGo.GetComponentInChildren<DungeonDifficultyPopupView>(false);
+                    if (dungeonModal != null && dungeonModal.gameObject.activeInHierarchy)
+                    {
+                        dungeonModal.Hide();
+                        return;
+                    }
+                }
+
                 PopPanel();
                 return;
             }

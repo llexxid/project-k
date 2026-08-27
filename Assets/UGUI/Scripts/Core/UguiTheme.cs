@@ -33,31 +33,21 @@ namespace KingdomIdle.UGUI
         // 실측 블록 높이는 90 + 패딩 24 = 114px 이지만, 위 요소(신 스킬 버튼) 배치는
         // 여유를 포함한 이 예약 밴드를 기준으로 계산한다.
         public const float PartyHudHeight = 172f;
-        public const float MageTowerHudTop = 300f;
-        public const float MageTowerHudWidth = 134f;   // 슬롯(112) + 좌우 패딩 11
-        // 슬롯 열 좌측 x — 화면 좌단에 붙인다(1080 기준 10px = 0.93%).
-        // **마탑 중심에서 파생시키지 않는다.** 예전엔 MageTowerEnvCenterX 로부터 계산해 열을
-        // 탑 아래 중앙에 맞췄는데, 그러면 탑을 옮길 때마다 열이 딸려 오고 열 폭을 바꾸면
-        // 절반만큼 밀린다. 두 요소는 독립적으로 배치되어야 한다.
-        public const float MageTowerHudLeft = 10f;
-        // 마탑 환경 오브젝트 — 파티 HUD 밴드(202~316) 위로 솟게 한다.
+        // (구 좌측 마탑 스킬 슬롯 열 상수들은 HUD 제거와 함께 삭제 — 마탑은 AUTO 전용)
+        // 마탑 환경 오브젝트 — 파티 HUD 예약 밴드(202~374) 위로 솟게 한다.
         // 원본 200x402(석조 망루 정면도 — 기존 아트를 레퍼런스로 각도만 정면 재생성).
-        // 폭 300 → 표시 높이 603, 발치 y=70, 꼭대기 y≈673.
-        public const float MageTowerEnvWidth = 300f;
+        // 폭 272(300에서 ~9% 축소 — 화면 과점유 완화) → 표시 높이 ≈547, 발치 y=70, 꼭대기 y≈617.
+        public const float MageTowerEnvWidth = 272f;
         public const float MageTowerEnvBottom = 70f;
         // 탑 **전체가 화면 안에** 들어와야 한다(이전엔 좌측 1/3 이 잘려 나갔다).
-        // 폭 300, 중심 x=170 → 좌우 경계 20~320 으로 완전히 노출된다.
+        // 폭 272, 중심 x=170 → 좌우 경계 34~306 으로 완전히 노출된다.
         // 스프라이트 안에서 탑이 정확히 중앙(99.5/100)이라 이 중심이 곧 탑의 중심이고,
         // 같은 축에 앵커된 수정도 자동으로 탑 중앙에 온다.
         public const float MageTowerEnvCenterX = 170f;
-        public const float MageTowerCrystalSize = 132f;  // 수정 표시 크기
+        public const float MageTowerCrystalSize = 118f;  // 수정 표시 크기 (탑 축소에 맞춰 132→118)
         // 탑 꼭대기 위로 띄우는 간격(수정 중심 기준). 수정이 커진 만큼 같이 올려야
-        // 아랫부분이 총안에 파묻히지 않는다 — 반지름 66 + 여유 29.
-        public const float MageTowerCrystalRise = 95f;
-
-        // 슬롯 5개 + Auto = 6칸 세로 열. 134 면 열 높이가 881px 이라 좌측을 과점유하고
-        // 확대된 마탑 지붕(꼭대기 y≈780)과 간격이 빠듯해진다 → 112 로 낮춰 열 높이 749, 여유 90px 확보.
-        public const float MageTowerSlotSize = 112f;
+        // 아랫부분이 총안에 파묻히지 않는다 — 반지름 59 + 여유 27.
+        public const float MageTowerCrystalRise = 86f;
 
         // ── 신성 스킬(궁극기) HUD — 하단 중앙 원형 버튼.
         //    가이드 퀘스트 창(임시 숨김)이 떠 있던 자리 = 파티 HUD 바로 위를 쓴다 ──

@@ -28,6 +28,10 @@ namespace KingdomIdle.MageTower
         private float _arrivalThreshold;
         private SFXEntity _loopSfx;
 
+        // 리타겟 실패(화면 안 후보 없음) 시 재시도 간격 — 매 프레임 화면 크기 물리 쿼리 방지
+        private const float RetargetRetryInterval = 0.15f;
+        private float _retargetCooldown;
+
         public ulong damage => _damage;
         public Vector3 attackerPos => transform.position;
 
@@ -89,11 +93,20 @@ namespace KingdomIdle.MageTower
                 return;
             }
 
-            // 타겟 유효성 체크 — 죽었으면 리타겟
-            if (!IsTargetAlive())
+            // 타겟 유효성 체크 — 죽었거나 화면 밖으로 나갔으면 리타겟.
+            // (지속형 스킬은 화면 안의 몬스터만 추적한다는 계약 — 화면 밖까지 쫓아가 잡지 않는다)
+            // 화면 안에 후보가 하나도 없으면 실패가 반복되므로 0.15s 스로틀 —
+            // 몬스터 이동 속도상 재시도 간격이 그보다 촘촘할 이유가 없다 (매 프레임 물리 쿼리 방지).
+            if (_retargetCooldown > 0f) _retargetCooldown -= Time.deltaTime;
+            if (!IsTargetAlive() ||
+                !MageTowerTargeting.IsOnScreen(MageTowerTargeting.ResolveCamera(), _currentTarget.position))
             {
-                Retarget();
-                _moving = _currentTarget != null;
+                if (_retargetCooldown <= 0f)
+                {
+                    Retarget();
+                    _moving = _currentTarget != null;
+                    _retargetCooldown = _currentTarget != null ? 0f : RetargetRetryInterval;
+                }
             }
 
             // 이동 중이면 타겟을 향해 부드럽게 이동
@@ -139,7 +152,10 @@ namespace KingdomIdle.MageTower
         }
 
         /// <summary>
-        /// 현재 위치에서 가장 가까운 살아있는 몬스터로 타겟 변경.
+        /// 현재 위치에서 가장 가까운 **화면 안** 살아있는 몬스터로 타겟 변경.
+        /// 쿼리 원을 토네이도 위치가 아니라 화면 중앙에 걸어 두는 이유:
+        /// 토네이도가 가장자리로 흘러간 상태에서 자기 중심 반경으로 찾으면
+        /// 화면에서 한 화면 지름만큼 떨어진 몬스터까지 후보가 됐다(화면 밖 킬의 주범).
         /// </summary>
         private void Retarget()
         {
@@ -163,7 +179,7 @@ namespace KingdomIdle.MageTower
             filter.useTriggers = true;
 
             _results.Clear();
-            int count = Physics2D.OverlapCircle(transform.position, searchRadius, filter, _results);
+            int count = Physics2D.OverlapCircle(center, searchRadius, filter, _results);
 
             float bestDist = float.MaxValue;
             Transform bestTarget = null;
@@ -175,6 +191,9 @@ namespace KingdomIdle.MageTower
 
                 var monster = col.GetComponent<Monster>();
                 if (monster == null || monster.MonAction == eMonsterAction.Dead) continue;
+
+                // 뷰포트 밖 몬스터는 추적 대상이 아니다
+                if (!MageTowerTargeting.IsOnScreen(cam, col.transform.position)) continue;
 
                 float dist = Vector2.Distance(transform.position, col.transform.position);
                 if (dist < bestDist)

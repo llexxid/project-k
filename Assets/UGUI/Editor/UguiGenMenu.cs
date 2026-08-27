@@ -120,6 +120,23 @@ namespace KingdomIdle.UGUI.Editor
             BootstrapRewireGen.RemoveUitkRoot();
         }
 
+        /// <summary>UGUI_UIRoot 단일 재생성 — 루트 컴포넌트/레이어 구조 변경 시 전체 churn 없이 갱신.</summary>
+        [MenuItem("KingdomIdle/UGUI/Generate UI Root", false, 8)]
+        internal static void RegenUIRoot()
+        {
+            F.Init();
+            var catalog = AssetDatabase.LoadAssetAtPath<UIViewCatalog>(PrefabGenUtil.CatalogPath);
+            if (catalog == null)
+            {
+                // 빈 카탈로그를 새로 만들어 넣으면 UIManager.catalog 가 껍데기로 배선돼 부팅이 죽는다
+                Debug.LogError("[UguiGen] 카탈로그가 없습니다. Generate All을 먼저 실행하세요.");
+                return;
+            }
+            F.Catalog = catalog;
+            RootCanvasGen.Generate(catalog);
+            AssetDatabase.Refresh();
+        }
+
         /// <summary>마탑 환경 오브젝트 프리팹 단일 재생성 (내부/배치 공용).</summary>
         [MenuItem("KingdomIdle/UGUI/Generate MageTower Env", false, 7)]
         internal static void RegenMageTowerEnv()

@@ -11,10 +11,10 @@ Assets/UGUI/
 ├── Prefabs/            ← 화면/패널/팝업/HUD/아이템 프리팹 (여기서 인스펙터로 편집)
 │   ├── UGUI_UIRoot.prefab       루트 캔버스 + 매니저들 (bootstrap 씬에 배치됨)
 │   ├── Screens/                 Screen_Title, Screen_Main
-│   ├── Panels/                  Panel_Guide/Gacha/KingdomArmy/Development/Inventory/Placeholder
-│   ├── Popups/                  Popup_GachaResult
+│   ├── Panels/                  Panel_Guide/Gacha/KingdomArmy/Development/Inventory/Dungeon/Placeholder
+│   ├── Popups/                  Popup_GachaResult/DungeonDifficulty/DungeonClear/Reincarnation ...
 │   ├── Overlays/                Overlay_Loading/Toast/Settings
-│   ├── Huds/                    Hud_Party, Hud_MageTower
+│   ├── Huds/                    Hud_Party, Hud_DivineSkill, Hud_MageTowerEnv
 │   └── Items/                   반복 위젯 (탭버튼/카드/뽑기버튼/알약/액션버튼 등)
 ├── Scripts/
 │   ├── Core/            UIManager, UIViewCatalog, UguiTheme, UguiRuntimeFactory, UguiPixelSkin ...

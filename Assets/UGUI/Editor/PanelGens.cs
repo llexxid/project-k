@@ -174,14 +174,13 @@ namespace KingdomIdle.UGUI.Editor
             // (표시명, 설명, 프리뷰 틴트, 아이콘, eStageType 값, 잠금 여부)
             // dungeonType: Main=0 / GoldDungeon=1 / RubyDungeon=2 (StageDefinition.eStageType).
             // 잠금 카드(dungeonType=0)는 비활성 대신 '준비 중' 딤 표시로 남긴다 — 목록이 비어 보이지 않게.
+            // (진화석 던전 카드는 기획 제외로 삭제 — 2026-08-27)
             var defs = new (string key, string name, string desc, Color tint, Sprite icon, int stageType, bool locked)[]
             {
                 ("Gold", "골드 던전", "골드를 대량으로 획득할 수 있습니다.",
                     new Color(1f, 0.84f, 0.52f, 1f), UguiGenAssets.IconCoin, 1, false),
                 ("Ruby", "루비 던전", "루비를 대량으로 획득할 수 있습니다.",
                     new Color(1f, 0.60f, 0.62f, 1f), UguiGenAssets.IconGem, 2, false),
-                ("Evolution", "진화석 던전", "클래스 진화에 필요한 보석을 획득합니다.",
-                    new Color(0.66f, 0.92f, 0.70f, 1f), UguiGenAssets.IconGemGreen, 0, true),
                 ("Equipment", "장비 던전", "강력한 장비와 강화 재료를 획득합니다.",
                     new Color(0.74f, 0.78f, 0.90f, 1f), UguiGenAssets.IconAnvil, 0, true),
             };

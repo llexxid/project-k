@@ -15,7 +15,7 @@ namespace KingdomIdle.UGUI
 
         [Header("Auto Find (optional)")]
         [SerializeField] private Camera worldCamera;
-        [SerializeField] internal RectTransform layer;   // DamageTextLayer (LayerPopups 하위)
+        [SerializeField] internal RectTransform layer;   // DamageTextLayer (루트/BattleUIArea 하위)
 
         [Header("Animation")]
         [SerializeField] private float duration = 0.8f;
@@ -155,10 +155,28 @@ namespace KingdomIdle.UGUI
             if (layer != null) return;
 
             var mgr = UIManager.Instance;
-            // 데미지 텍스트는 게임 위·다른 UI 아래(화면 레이어 최하단)에 둔다 → 패널/HUD를 가리지 않음.
-            if (mgr == null || mgr.LayerScreens == null) return;
+            // 데미지 텍스트는 루트/BattleUIArea 하위(SafeArea 앞 = 모든 메뉴 뒤)에 둔다.
+            // 전체 화면 rect 기준이라 월드→스크린 좌표 변환이 정확하다 (RootCanvasGen 참조).
+            if (mgr == null) return;
 
-            var existing = mgr.LayerScreens.Find("DamageTextLayer") as RectTransform;
+            var root = mgr.transform as RectTransform;
+            if (root == null) return;
+
+            var battleArea = root.Find("BattleUIArea") as RectTransform;
+            if (battleArea == null)
+            {
+                // 구버전 루트 폴백 — BattleUIArea 가 없으면 만들어 SafeArea 앞에 세운다
+                var areaGo = new GameObject("BattleUIArea", typeof(RectTransform));
+                battleArea = (RectTransform)areaGo.transform;
+                battleArea.SetParent(root, false);
+                battleArea.anchorMin = Vector2.zero;
+                battleArea.anchorMax = Vector2.one;
+                battleArea.offsetMin = Vector2.zero;
+                battleArea.offsetMax = Vector2.zero;
+                battleArea.SetAsFirstSibling();
+            }
+
+            var existing = battleArea.Find("DamageTextLayer") as RectTransform;
             if (existing != null)
             {
                 layer = existing;
@@ -167,12 +185,13 @@ namespace KingdomIdle.UGUI
 
             var go = new GameObject("DamageTextLayer", typeof(RectTransform));
             var rt = (RectTransform)go.transform;
-            rt.SetParent(mgr.LayerScreens, false);
+            rt.SetParent(battleArea, false);
             rt.anchorMin = Vector2.zero;
             rt.anchorMax = Vector2.one;
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
-            rt.SetAsFirstSibling();   // 화면 레이어의 맨 뒤(게임 위, 화면/패널 UI 아래)
+            rt.SetAsFirstSibling();   // HP바 레이어보다 뒤
+            go.AddComponent<Canvas>();   // 리빌드 격리 (생성기 산출물과 동일 구조)
             layer = rt;
         }
 

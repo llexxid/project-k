@@ -99,10 +99,15 @@ namespace KingdomIdle.MageTower
             Vector3 circleCenter = _center != null ? _center.position : transform.position;
             int count = Physics2D.OverlapCircle(circleCenter, _damageRadius, filter, _overlapResults);
 
+            var cam = MageTowerTargeting.ResolveCamera();
             for (int i = 0; i < count; i++)
             {
                 var col = _overlapResults[i];
                 if (col == null) continue;
+
+                // 화면 가장자리 AoE 가 화면 밖 몬스터까지 스치지 않게 — 마탑 스킬 피해의
+                // 단일 관문이라 여기서 거르면 번개 랜덤 홉 포함 전 피해가 화면 안으로 갇힌다.
+                if (!MageTowerTargeting.IsOnScreen(cam, col.transform.position)) continue;
 
                 int id = col.gameObject.GetInstanceID();
                 if (!_hitIds.Add(id)) continue;

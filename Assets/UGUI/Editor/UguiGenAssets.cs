@@ -146,7 +146,6 @@ namespace KingdomIdle.UGUI.Editor
         internal static Sprite IconDungeon => LL("UI_Play_Dungeon_01");        // 던전 탭 (석조 던전 입구)
         internal static Sprite IconHourglass => LL("Item_Hourglass_01_Gold");  // 환생 (금 모래시계 = 시간을 되돌린다)
         internal static Sprite ImageDungeon => LL("Image_Dungeon");            // 던전 카드 프리뷰 일러스트 (동굴 아가리)
-        internal static Sprite IconGemGreen => LL("Economy_Gem_02_Green");     // 진화석 던전 (잠금 카드)
         internal static Sprite IconAnvil => LL("Item_Anvil_01_Light");         // 장비 던전 (잠금 카드)
 
         // ── 스탯 칩 아이콘 (LL 풀컬러 픽토, 틴트 없이 사용) ──
