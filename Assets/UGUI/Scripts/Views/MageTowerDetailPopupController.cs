@@ -46,6 +46,7 @@ namespace KingdomIdle.UGUI
             }
 
             var go = Object.Instantiate(mgr.Catalog.popupMageTowerDetail, mgr.LayerOverlays, false);
+            ModalBackHandler.Bind(go, Hide);
             var rt = (RectTransform)go.transform;
             rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
             rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
@@ -106,7 +107,7 @@ namespace KingdomIdle.UGUI
             if (_view.lblEnhLevel != null) _view.lblEnhLevel.text = $"강화 레벨: {eLv} / {so.maxEnhanceLevel}";
             int enhCost = mgr.GetEnhanceCost(_skillId);
             EconomyBridge.TryGetAmount(eCurrency.ArcaneKnowledge, out long ak);
-            if (_view.lblEnhCost != null) _view.lblEnhCost.text = $"비용: {enhCost} AK (보유: {ak})";
+            if (_view.lblEnhCost != null) _view.lblEnhCost.text = $"지식 {enhCost:N0} 필요 · 보유 {ak:N0}";
             if (_view.btnEnhance != null) _view.btnEnhance.interactable = mgr.CanEnhance(_skillId);
             if (_view.btnEnhanceLabel != null) _view.btnEnhanceLabel.text = eLv >= so.maxEnhanceLevel ? "최대 레벨" : "강화하기";
 
@@ -120,7 +121,8 @@ namespace KingdomIdle.UGUI
 
             // reset
             int refund = mgr.GetResetRefund(_skillId);
-            if (_view.lblResetRefund != null) _view.lblResetRefund.text = $"초기화 시 AK {refund} 반환 (80%)";
+            if (_view.lblResetRefund != null) _view.lblResetRefund.text = mgr.CanReset(_skillId)
+                ? $"강화 초기화 시 지식 {refund:N0} 반환 (80%)" : "강화한 스킬만 초기화할 수 있습니다.";
             if (_view.btnReset != null) _view.btnReset.interactable = mgr.CanReset(_skillId);
         }
 

@@ -353,7 +353,7 @@ namespace KingdomIdle.UGUI
 
         private void RefreshTopCurrencyLabels()
         {
-            if (_wallet == null) _wallet = WalletLocator.FindAnyWallet();
+            _wallet = WalletLocator.FindAnyWallet();
             if (_view == null) return;
 
             long gold = GetCurrencyAmount(eCurrency.Gold);
@@ -385,7 +385,7 @@ namespace KingdomIdle.UGUI
             const long Eok = 100_000_000L;     // 억
             const long Jo = 1_000_000_000_000L; // 조
 
-            if (amount < 100L * Man)            // < 100만 — "999,999" 까지는 그대로 읽힌다
+            if (amount < Man)
                 return amount.ToString("N0");
             if (amount < Eok)
                 return TrimUnit(amount / (double)Man, "만");
@@ -673,6 +673,7 @@ namespace KingdomIdle.UGUI
                     ? _host.LayerPopups
                     : _view.transform as RectTransform;
                 _profilePopup = UnityEngine.Object.Instantiate(prefab, parent, false);
+                ModalBackHandler.Bind(_profilePopup, CloseProfilePopup);
                 var prt = _profilePopup.transform as RectTransform;
                 if (prt != null) { prt.anchorMin = Vector2.zero; prt.anchorMax = Vector2.one; prt.offsetMin = Vector2.zero; prt.offsetMax = Vector2.zero; }
                 _profileView = _profilePopup.GetComponent<ProfilePopupView>();
@@ -739,6 +740,7 @@ namespace KingdomIdle.UGUI
                     ? _host.LayerPopups
                     : _view.transform as RectTransform;
                 _rankingPopup = UnityEngine.Object.Instantiate(prefab, parent, false);
+                ModalBackHandler.Bind(_rankingPopup, CloseRankingPopup);
                 var rankingRect = _rankingPopup.transform as RectTransform;
                 if (rankingRect != null)
                 {
@@ -845,10 +847,10 @@ namespace KingdomIdle.UGUI
             }
 
             if (_view.btnMenuNotice != null)
-                _view.btnMenuNotice.onClick.AddListener(() => _host.ShowToast("현재는 지원하지 않는 기능입니다."));
+                _view.btnMenuNotice.gameObject.SetActive(false);
 
             if (_view.btnMenuMail != null)
-                _view.btnMenuMail.onClick.AddListener(() => _host.ShowToast("현재는 지원하지 않는 기능입니다."));
+                _view.btnMenuMail.gameObject.SetActive(false);
         }
 
         // ═══════════════════════════════════════════

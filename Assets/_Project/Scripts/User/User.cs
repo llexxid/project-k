@@ -9,6 +9,7 @@ namespace Scripts.Users
 		UserData _userData;
 
 		private Wallet _wallet;
+		internal Wallet Wallet => _wallet;
 		public List<Player> _players;
 
 		const long MAX_EXP = 150;

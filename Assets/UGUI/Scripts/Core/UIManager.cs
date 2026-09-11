@@ -123,6 +123,7 @@ namespace KingdomIdle.UGUI
             WarnIfLegacyUiToolkitActive();
             BuildOverlays();
             ApplyPersistedAudioSettings();
+            GamePresentationSettings.Apply();
         }
 
         /// <summary>UITK 매니저가 같은 씬에 살아있으면 이중 UI 상태 — 에러 로그로 경고.</summary>
@@ -526,6 +527,7 @@ namespace KingdomIdle.UGUI
 
         public void RequestBack()
         {
+            if (ModalBackHandler.TryCloseTop()) return;
             if (OfflineRewardPopupController.IsOpen)
             {
                 OfflineRewardPopupController.Hide();

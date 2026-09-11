@@ -41,6 +41,8 @@ namespace KingdomIdle.UGUI
         private KingdomArmyManager _subscribedMgr;
         private float _posVelY;                                 // 시트 연동 부드러운 상승용 SmoothDamp 속도
         private readonly float[,] _cdTotals = new float[3, 3];  // 관측된 총 쿨다운 (남은쿨 최대값 캡처 → 드레인 비율 표시)
+        private readonly int[,] _shownSeconds = new int[3, 3];
+        private float _nextStatusUpdate;
 
         /// <summary>이 값 이상의 남은 쿨 = 스킬 쪽의 "효과 지속 중" 센티널(float.MaxValue)이지 실제 쿨이 아니다.</summary>
         private const float BusyCooldownSentinel = 9999f;
@@ -66,7 +68,11 @@ namespace KingdomIdle.UGUI
             EnsureHudBuilt();
             EnsureArmySubscription();
             UpdateHudVisibilityAndPosition();
-            SyncFromPlayers();
+            if (_view != null && _view.gameObject.activeInHierarchy && Time.unscaledTime >= _nextStatusUpdate)
+            {
+                _nextStatusUpdate = Time.unscaledTime + 0.05f;
+                SyncFromPlayers();
+            }
         }
 
         /// <summary>전직/파티 변경 시 자동 배정 초상화를 다시 해석하도록 구독 (매니저 늦은 초기화 대응 재시도).</summary>
@@ -188,6 +194,8 @@ namespace KingdomIdle.UGUI
                 {
                     int idx = i;   // 탭한 멤버의 왕국군 메뉴로 라우팅 (클로저 캡처)
                     member.portrait.onClick.AddListener(() => OpenKingdomArmyPanel(idx));
+                    var cardButton = member.portrait.transform.parent.GetComponent<Button>();
+                    if (cardButton != null) cardButton.onClick.AddListener(() => OpenKingdomArmyPanel(idx));
                 }
 
                 // 쿨다운 마스크를 세로 드레인 채움으로 (프리팹 재생성 없이 런타임 구성)
@@ -347,7 +355,12 @@ namespace KingdomIdle.UGUI
                         if (slot.cooldownLabel != null)
                         {
                             // 센티널을 CeilToInt 하면 int 오버플로로 "-2147483648" 이 찍힌다
-                            slot.cooldownLabel.text = busy ? "" : Mathf.CeilToInt(cd).ToString();
+                            int seconds = busy ? -1 : Mathf.CeilToInt(cd);
+                            if (_shownSeconds[memberIdx, s] != seconds)
+                            {
+                                _shownSeconds[memberIdx, s] = seconds;
+                                slot.cooldownLabel.text = busy ? "" : seconds.ToString();
+                            }
                             slot.cooldownLabel.gameObject.SetActive(!busy);
                             slot.cooldownLabel.color = Color.white;
                         }
@@ -355,6 +368,7 @@ namespace KingdomIdle.UGUI
                     else
                     {
                         _cdTotals[memberIdx, s] = 0f;
+                        _shownSeconds[memberIdx, s] = 0;
                         if (slot.cooldownMask != null) slot.cooldownMask.gameObject.SetActive(false);
                         if (slot.cooldownLabel != null)
                         {
@@ -407,13 +421,15 @@ namespace KingdomIdle.UGUI
             var mgr = UIManager.Instance;
             bool onMain = mgr != null && mgr.ActiveScreenId == UIScreenId.Main;
             bool shouldShow = onMain && !mgr.HasBlockingPanel && ModalSuppressCount <= 0;
+            float sheetH = mgr != null ? mgr.GetTopSheetHeight() : 0f;
+            float bottom = fallbackBottomBarPx + baseGapPx + (sheetH > 1f ? sheetH + sheetGapPx : 0f);
+            var parentRect = _view.rect.parent as RectTransform;
+            if (sheetH > 1f && parentRect != null && bottom + _view.rect.rect.height > parentRect.rect.height - 350f)
+                shouldShow = false;
 
             if (_view.gameObject.activeSelf != shouldShow)
                 _view.gameObject.SetActive(shouldShow);
             if (!shouldShow) return;
-
-            float sheetH = mgr.GetTopSheetHeight();
-            float bottom = fallbackBottomBarPx + baseGapPx + (sheetH > 1f ? sheetH + sheetGapPx : 0f);
 
             // 프리팹은 bottom-center 앵커/피벗 — 시트 슬라이드에 맞춰 y를 부드럽게 추종
             var pos = _view.rect.anchoredPosition;

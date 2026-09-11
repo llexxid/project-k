@@ -22,7 +22,8 @@ namespace KingdomIdle.UGUI
         /// <summary>셀 표시 갱신. onClick은 owned일 때만 연결(미보유는 입력 차단).</summary>
         public void Set(Sprite iconSprite, string name, bool owned, bool equipped, float dmg, Action onClick)
         {
-            if (frameImage != null) frameImage.color = equipped ? EquippedBorder : Color.clear;
+            if (frameImage != null) frameImage.color = equipped ? UguiTheme.BronzeLight : UguiTheme.RusticSurface;
+            if (background != null) background.color = UguiTheme.RusticSurfaceDark;
 
             if (icon != null)
             {
@@ -32,8 +33,8 @@ namespace KingdomIdle.UGUI
             if (nameLabel != null) nameLabel.text = name;
             if (dmgLabel != null)
             {
-                dmgLabel.gameObject.SetActive(owned);
-                if (owned) dmgLabel.text = $"DMG {dmg:F0}";
+                dmgLabel.gameObject.SetActive(true);
+                dmgLabel.text = owned ? $"{(equipped ? "장착 중 · " : "")}피해 {dmg:F0}" : "미보유";
             }
             if (button != null)
             {
@@ -43,7 +44,7 @@ namespace KingdomIdle.UGUI
             }
             if (canvasGroup != null)
             {
-                canvasGroup.alpha = owned ? 1f : LockedAlpha;
+                canvasGroup.alpha = 1f;
                 canvasGroup.interactable = owned;
                 canvasGroup.blocksRaycasts = owned;
             }

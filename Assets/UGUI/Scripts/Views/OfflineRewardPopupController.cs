@@ -79,6 +79,7 @@ namespace KingdomIdle.UGUI
             }
 
             _view.confirmButton.onClick.AddListener(Hide);
+            ModalBackHandler.Bind(instance, Hide);
             _view.backdropButton.onClick.AddListener(Hide);
             _view.gameObject.SetActive(false);
             return true;

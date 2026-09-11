@@ -1,4 +1,3 @@
-using Cysharp.Threading.Tasks;
 using Newtonsoft.Json;
 using PlayFab.CloudScriptModels;
 using Scripts.Core;
@@ -30,7 +29,7 @@ public class StatEnhanceManager : MonoBehaviour
 
     /// <summary>
     /// 강화 시도 결과. UI 가 구체적인 실패 원인을 사용자에게 보여주기 위해 분리.
-    /// 기존 bool TryEnhance 는 Success 만 true 로 치환해 호환성 유지.
+    /// 기존 bool TryEnhance는 요청 접수 또는 성공을 true로 반환한다.
     /// </summary>
     public enum EnhanceResult
     {
@@ -38,6 +37,9 @@ public class StatEnhanceManager : MonoBehaviour
         NotEnoughGold,
         NetworkNotReady,
         ManagerNotReady,
+        Pending,
+        Busy,
+        InvalidRequest,
     }
 
     // ── 강화 레벨 저장소 ──
@@ -65,7 +67,9 @@ public class StatEnhanceManager : MonoBehaviour
     private const float CostGrowthRate = 1.15f;
 
     public event Action OnEnhanced;
-    private int currentLevel;
+    public event Action<EnhanceType, bool> OnEnhanceCompleted;
+    public bool IsEnhancing { get; private set; }
+    private int _requestVersion;
     private void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(this); return; }
@@ -93,37 +97,44 @@ public class StatEnhanceManager : MonoBehaviour
     public int GetSingleCost(EnhanceType type, int level)
     {
         int baseCost = BaseCost.TryGetValue(type, out int bc) ? bc : 50;
-        return Mathf.RoundToInt(baseCost * Mathf.Pow(CostGrowthRate, level));
+        double cost = Math.Round(baseCost * Math.Pow(CostGrowthRate, Math.Max(0, level)));
+        return cost >= int.MaxValue ? int.MaxValue : (int)cost;
     }
 
     public int GetCost(EnhanceType type, int count = 1)
     {
         int level = GetLevel(type);
-        int total = 0;
+        long total = 0;
         for (int i = 0; i < count; i++)
+        {
             total += GetSingleCost(type, level + i);
-        return total;
+            if (total >= int.MaxValue) return int.MaxValue;
+        }
+        return (int)total;
     }
 
     // ── 강화 실행 ──
     // 구현된 스탯(공격력/체력)은 서버 세션을 통해 PlayFab CloudScript로 동기화된다.
-    // 낙관적(optimistic)으로 로컬 차감/레벨 반영 후, 서버 오류 시 자동 롤백한다.
+    // 비용을 예약하고, 서버 확인 후에만 레벨을 적용한다.
     /// <summary>
-    /// 기존 bool 반환 API (호환성 유지). Success 만 true 로 변환한다.
+    /// 기존 bool 반환 API. 요청 접수를 뜻하며 최종 결과는 OnEnhanceCompleted로 전달한다.
     /// 새 코드는 가능하면 <see cref="TryEnhanceEx"/> 를 써서 실패 원인을 구체적으로 다룰 것.
     /// </summary>
     public bool TryEnhance(EnhanceType type, int count = 1)
-        => TryEnhanceEx(type, count) == EnhanceResult.Success;
+        => TryEnhanceEx(type, count) is EnhanceResult.Success or EnhanceResult.Pending;
 
     /// <summary>
     /// 강화 시도. 실패 시 구체적 사유(EnhanceResult) 반환.
     /// - NotEnoughGold: 골드 부족
     /// - NetworkNotReady: 서버 동기화가 필요한 스탯인데 세션 미준비
-    /// - Success: 낙관적 로컬 차감/레벨 반영 완료 (서버 동기화는 비동기 진행)
+    /// - Pending: 요청 접수. 최종 결과는 OnEnhanceCompleted로 전달한다.
     /// </summary>
     public EnhanceResult TryEnhanceEx(EnhanceType type, int count = 1)
     {
+        if (count <= 0 || count > 100 || !IsStatImplemented(type)) return EnhanceResult.InvalidRequest;
+        if (IsEnhancing) return EnhanceResult.Busy;
         int cost = GetCost(type, count);
+        if (cost == int.MaxValue || GetLevel(type) > int.MaxValue - count) return EnhanceResult.InvalidRequest;
         if (!EconomyBridge.TryGetAmount(eCurrency.Gold, out long gold) || gold < cost)
             return EnhanceResult.NotEnoughGold;
 
@@ -136,25 +147,12 @@ public class StatEnhanceManager : MonoBehaviour
             return EnhanceResult.NetworkNotReady;
         }
 
-        // 낙관적 로컬 차감 + 레벨 반영
+        // Reserve the cost, but expose the upgraded level only after server confirmation.
+        IsEnhancing = true;
         EconomyBridge.Add(eCurrency.Gold, -cost);
-
-        if (!_levels.ContainsKey(type)) _levels[type] = 0;
-        _levels[type] += count;
-        //추가
-        currentLevel = _levels[type];
-
-		ApplyToAllPlayers();
-        Save();
         OnEnhanced?.Invoke();
-
-        // 서버 동기화 (공격력 / 체력)
-        if (IsServerBacked(type))
-        {
-            TrySyncServer(type, count, cost);
-        }
-
-        return EnhanceResult.Success;
+        TrySyncServer(type, count, cost);
+        return EnhanceResult.Pending;
     }
 
     // ── 서버 동기화 ────────────────────────────────────────────────
@@ -169,11 +167,12 @@ public class StatEnhanceManager : MonoBehaviour
         var net = NetworkManager.Instance;
         if (net == null) return false;
         string sid = net.GetSessionID();
-        return !string.IsNullOrEmpty(sid);
+        return !string.IsNullOrEmpty(sid) && PlayFab.PlayFabClientAPI.IsClientLoggedIn();
     }
 
     private void TrySyncServer(EnhanceType type, int count, int refundCost)
     {
+        int request = ++_requestVersion;
         var net = NetworkManager.Instance;
         if (net == null)
         {
@@ -184,98 +183,63 @@ public class StatEnhanceManager : MonoBehaviour
         Action<ExecuteFunctionResult> onSuccess = (result) =>
         {
             // 서버가 현재 레벨을 내려주면 로컬과 비교하여 보정한다.
-            if (result == null || result.FunctionResult == null) return;
+            if (!IsEnhancing || request != _requestVersion) return;
             try
             {
+                if (result == null || result.Error != null || result.FunctionResult == null)
+                    throw new InvalidOperationException("Missing successful enhancement response");
                 string json = JsonConvert.SerializeObject(result.FunctionResult);
+                var payload = Newtonsoft.Json.Linq.JObject.Parse(json);
+                if (!payload.TryGetValue("CurrentLevel", StringComparison.OrdinalIgnoreCase, out var levelToken) ||
+                    !payload.TryGetValue("CurrentGold", StringComparison.OrdinalIgnoreCase, out var goldToken) ||
+                    levelToken.Type != Newtonsoft.Json.Linq.JTokenType.Integer ||
+                    goldToken.Type != Newtonsoft.Json.Linq.JTokenType.Integer)
+                    throw new InvalidOperationException("Incomplete enhancement response");
                 var dto = JsonConvert.DeserializeObject<OnEnchantResponseDTO>(json);
-                if (dto == null) return;
+                if (dto == null || dto.CurrentLevel < 0 || dto.CurrentLevel > int.MaxValue || dto.CurrentGold < 0)
+                    throw new InvalidOperationException("Invalid enhancement response");
 
                 int serverLevel = (int)dto.CurrentLevel;
 				long amount = dto.CurrentGold;
 				UserManager.Instance.SetGold(amount);
-				int localLevel = _levels.TryGetValue(type, out int lv) ? lv : 0;
-                if (serverLevel != localLevel)
-                {
-                    Debug.LogWarning($"[StatEnhanceManager] {type} 서버 레벨({serverLevel}) ↔ 로컬({localLevel}) 불일치 — 서버 기준으로 보정");
-                    _levels[type] = serverLevel;
-                    ApplyToAllPlayers();
-                    Save();
-                    OnEnhanced?.Invoke();
-                }
+                _levels[type] = serverLevel;
+                IsEnhancing = false;
+                ApplyToAllPlayers();
+                Save();
+                OnEnhanced?.Invoke();
+                OnEnhanceCompleted?.Invoke(type, true);
             }
             catch (Exception ex)
             {
                 Debug.LogWarning($"[StatEnhanceManager] 강화 응답 파싱 실패: {ex.Message}");
+                RollbackEnhance(type, count, refundCost, "강화 응답 확인 실패");
             }
         };
 
         Action<PlayFab.PlayFabError> onError = (error) =>
         {
+            if (!IsEnhancing || request != _requestVersion) return;
             string msg = error != null ? error.ErrorMessage : "알 수 없는 서버 오류";
             RollbackEnhance(type, count, refundCost, msg);
         };
 
-        if (type == EnhanceType.Attack)
+        try
         {
-            net.OnEnchantATK(count, onSuccess, onError);
+            if (type == EnhanceType.Attack) net.OnEnchantATK(count, onSuccess, onError);
+            else if (type == EnhanceType.MaxHP) net.OnEnchantHp(count, onSuccess, onError);
         }
-        else if (type == EnhanceType.MaxHP)
-        {
-            net.OnEnchantHp(count, onSuccess, onError);
-        }
+        catch (Exception ex) { RollbackEnhance(type, count, refundCost, ex.Message); }
     }
-
-
-	//NetworkCallback
-	private void OnClickedSuccess(ExecuteFunctionResult result)
-	{
-		string JsonStr = JsonConvert.SerializeObject(result.FunctionResult);
-		OnEnchantResponseDTO responseDto = JsonConvert.DeserializeObject<OnEnchantResponseDTO>(JsonStr);
-
-		int serverLevel = (int)responseDto.CurrentLevel;
-        long amount = responseDto.CurrentGold;
-        UserManager.Instance.SetGold(amount);
-		if (serverLevel != currentLevel)
-		{
-			Debug.LogWarning($"[StatEnhanceManager] 서버 레벨({serverLevel}) ↔ 로컬({currentLevel}) 불일치 — 서버 기준으로 보정");
-			ApplyToAllPlayers();
-			Save();
-			OnEnhanced?.Invoke();
-		}
-	}
-
-	private void OnClickedFailed(PlayFab.PlayFabError result)
-	{
-		if (result.HttpCode == 409)
-		{
-			string errorMsg = result.ErrorDetails["CloudScriptError"][0];
-			ErrorRetryEnchantDTO dto = JsonConvert.DeserializeObject<ErrorRetryEnchantDTO>(errorMsg);
-			RetryEnchant(dto.Count).Forget();
-		}
-	}
-
-	private async UniTaskVoid RetryEnchant(int count)
-	{
-		int random = UnityEngine.Random.Range(0, 100);
-		await UniTask.Delay(200 + random);
-		NetworkManager.Instance.OnEnchantATK(count, OnClickedSuccess, OnClickedFailed);
-	}
 
 	private void RollbackEnhance(EnhanceType type, int count, int refundCost, string reason)
     {
+        if (!IsEnhancing) return;
         Debug.LogWarning($"[StatEnhanceManager] 강화 롤백 ({type}, count={count}, refund={refundCost}): {reason}");
 
+        IsEnhancing = false;
         EconomyBridge.Add(eCurrency.Gold, refundCost);
-
-        if (_levels.TryGetValue(type, out int lv))
-        {
-            _levels[type] = Mathf.Max(0, lv - count);
-        }
-
-        ApplyToAllPlayers();
-        Save();
         OnEnhanced?.Invoke();
+        OnEnhanceCompleted?.Invoke(type, false);
     }
 
     // ── 모든 플레이어에 강화 보너스 적용 ──
@@ -372,6 +336,8 @@ public class StatEnhanceManager : MonoBehaviour
 
     public void LoadFromServer(Dictionary<EnhanceType, int> serverData)
     {
+        ++_requestVersion;
+        IsEnhancing = false;
         _levels = new Dictionary<EnhanceType, int>(serverData);
         ApplyToAllPlayers();
         Save();

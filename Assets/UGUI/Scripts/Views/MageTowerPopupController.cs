@@ -56,6 +56,7 @@ namespace KingdomIdle.UGUI
             }
 
             var go = Object.Instantiate(mgr.Catalog.popupMageTowerEquip, mgr.LayerOverlays, false);
+            ModalBackHandler.Bind(go, Hide);
             var rt = (RectTransform)go.transform;
             rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
             rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;

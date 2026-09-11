@@ -33,6 +33,7 @@ namespace KingdomIdle.UGUI
         private static int _activeTabIndex;
         private static GachaPanelView _view;
         private static GachaTabContentView _content;
+        private static GachaTableSO _contentTable;
         private static IReadOnlyList<GachaTableSO> _tables;
         private static readonly List<NavTabButtonView> _tabButtons = new();
 
@@ -55,6 +56,10 @@ namespace KingdomIdle.UGUI
                 {
                     _view = null;
                     _content = null;
+                    _contentTable = null;
+                    EconomyBridge.OnAmountChanged -= OnWalletChanged;
+                    if (GachaManager.Instance != null) GachaManager.Instance.OnPullStateChanged -= OnPullStateChanged;
+                    _subscribedToManager = false;
                     _tabButtons.Clear();
                     _activePullButtons.Clear();
                 }
@@ -76,7 +81,9 @@ namespace KingdomIdle.UGUI
                 return;
             }
 
-            _activeTabIndex = 0;
+            EconomyBridge.OnAmountChanged -= OnWalletChanged;
+            EconomyBridge.OnAmountChanged += OnWalletChanged;
+            _activeTabIndex = Mathf.Clamp(_activeTabIndex,0,_tables.Count-1);
             BuildTabs();
             RefreshContent();
         }
@@ -117,8 +124,8 @@ namespace KingdomIdle.UGUI
                 Sprite tabIcon = null;
                 if (cat != null && table != null)
                 {
-                    tabIcon = table.costCurrency == eCurrency.ArcaneKnowledge
-                        ? cat.iconWand
+                    tabIcon = IsSkillTable(table)
+                        ? cat.iconSkillWand
                         : cat.iconChest;
                 }
                 tab.SetIcon(tabIcon);
@@ -150,14 +157,16 @@ namespace KingdomIdle.UGUI
         private static void RefreshContent()
         {
             if (_view == null || _view.content == null) return;
+            if (_tables == null || _activeTabIndex >= _tables.Count) return;
+            var table = _tables[_activeTabIndex];
+            if (table == null) return;
+            if (_content != null && _contentTable == table) { UpdateWallet(); return; }
             _activePullButtons.Clear();
 
             var c = SpawnContent();
             if (c == null) return;
 
-            if (_tables == null || _activeTabIndex >= _tables.Count) return;
-            var table = _tables[_activeTabIndex];
-            if (table == null) return;
+            _contentTable = table;
 
             if (c.messageLabel != null) c.messageLabel.gameObject.SetActive(false);
 
@@ -218,6 +227,24 @@ namespace KingdomIdle.UGUI
             }
         }
 
+        private static bool IsSkillTable(GachaTableSO table) => table != null && (table.nameEng == "MageTowerSkill" || table.costCurrency == eCurrency.ArcaneKnowledge);
+        private static void OnWalletChanged(eCurrency currency, long amount)
+        { if (_contentTable != null && _contentTable.costCurrency == currency) UpdateWallet(); }
+        private static void UpdateWallet()
+        {
+            if (_content == null || _contentTable == null) return;
+            EconomyBridge.TryGetAmount(_contentTable.costCurrency,out long current);
+            if (_content.costLabel != null) _content.costLabel.text=$"1회 비용: {_contentTable.costAmount:N0} {GetCurrencyLabel(_contentTable.costCurrency)}  |  보유: {current:N0}";
+            bool pulling=GachaManager.Instance != null && GachaManager.Instance.IsPulling;
+            for(int i=0;i<_activePullButtons.Count;i++)
+            {
+                var button=_activePullButtons[i];
+                if(button==null)continue;
+                int count=PullCounts[i]; long cost=(long)_contentTable.costAmount*count;
+                button.GetComponent<GachaPullButtonView>()?.Set(count==1?"1회 뽑기":$"{count}연 뽑기",$"{cost:N0} {GetCurrencyLabel(_contentTable.costCurrency)}",!pulling&&_contentTable.isImplemented&&current>=cost);
+            }
+        }
+
         private static void BuildRateSummaryRow(GachaTabContentView c, GachaTableSO table)
         {
             var row = c.rateRow;
@@ -227,8 +254,8 @@ namespace KingdomIdle.UGUI
 
             if (table?.rewards == null || table.rewards.Count == 0) { HideRow(); return; }
 
-            bool isSkillGacha = table.costCurrency == eCurrency.ArcaneKnowledge;
-            bool isEquipGacha = table.costCurrency == eCurrency.AncientCoin;
+            bool isSkillGacha = IsSkillTable(table);
+            bool isEquipGacha = !isSkillGacha && table.costCurrency == eCurrency.AncientCoin;
 
             // 비용 통화 기준으로 유효한 보상만 집계
             float total = 0f;
@@ -374,8 +401,8 @@ namespace KingdomIdle.UGUI
             }
             if (!hasRewards) return;
 
-            bool isSkillGacha = table.nameEng == "MageTowerSkill";
-            bool isEquipGacha = table.costCurrency == eCurrency.AncientCoin;
+            bool isSkillGacha = IsSkillTable(table);
+            bool isEquipGacha = !isSkillGacha && table.costCurrency == eCurrency.AncientCoin;
 
             float totalWeight = 0f;
             for (int i = 0; i < table.rewards.Count; i++)

@@ -122,3 +122,13 @@ Unity.exe -batchmode -quit -projectPath <프로젝트> \
 - `UguiRuntimeFactory` — 런타임 UI 헬퍼(Box/Label/TextButton/PixelWindow/PixelCard/스크롤 등)
 - `DamageTextBridge.ShowOnTransform(...)` — 게임플레이에서 데미지 숫자
 - `EconomyBridge` (Assets/Scripts/Core) — 재화 조회/증감
+
+## 8. 모바일 타이포그래피와 내비게이션
+
+- `UguiPolishPass`의 마지막 단계인 `UguiTypeNavPass`가 기존 프리팹을 보정합니다. 전체 생성기는 실행하지 않습니다.
+- 일반 UI는 Galmuri11 기본 머티리얼과 기본 굵기를 사용합니다. 외곽선은 전투 숫자·컷인 등 배경 위에 직접 표시하는 요소에 남깁니다.
+- 1080px 기준: 패널 제목 40, 주요 버튼 30–34, 설명 26–28, 하단 메뉴 라벨 30. 글자 확대 시 해당 영역의 높이도 함께 확인합니다.
+- 하단 메뉴는 공통 다크 우드 바, 4개 동일한 터치 영역, 고정된 라벨 기준선으로 구성합니다. 메뉴 전체를 확대하지 않습니다.
+- 하단 아이콘은 Layer Lab `PictoIcon/64`의 명시 경로를 사용합니다. 파일 크기 대신 알파가 있는 실제 그림의 최대 변이 약 64px이 되도록 표시 크기를 보정합니다.
+- 선택은 황동색 선과 은은한 배경으로 표시합니다. 아이콘 이동과 선의 미세한 맥동은 unscaled time을 사용하며 재활성화 시 복구합니다.
+- 짧은 화면의 시트는 `UguiTheme.StageControlsBottom` 아래에 간격을 확보합니다. 스크롤 내용과 고정된 메뉴의 경계를 유지합니다.

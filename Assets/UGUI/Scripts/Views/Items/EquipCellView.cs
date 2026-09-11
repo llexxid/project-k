@@ -44,23 +44,24 @@ namespace KingdomIdle.UGUI
             }
             // 셀 배경을 등급색으로 살짝 물들여 등급감을 강조(텍스트 가독성 위해 어둡게 바이어스)
             if (background != null)
-                background.color = Color.Lerp(rarityColor, new Color(0.09f, 0.10f, 0.14f, 1f), 0.64f);
+                background.color = UguiTheme.RusticPanelDeep;
 
             if (equippedFrame != null)
                 equippedFrame.gameObject.SetActive(equipped);
 
             if (stateLabel != null)
             {
+                if (string.IsNullOrEmpty(state) && dimmed) state = "직업 불일치";
                 bool has = !string.IsNullOrEmpty(state);
                 stateLabel.gameObject.SetActive(has);
                 if (has)
                 {
                     stateLabel.text = state;
-                    stateLabel.color = stateColor ?? UguiTheme.SuccessGreenBright;
+                    stateLabel.color = stateColor ?? (dimmed ? UguiTheme.TextSecondary : UguiTheme.SuccessGreenBright);
                 }
             }
 
-            if (dimGroup != null) dimGroup.alpha = dimmed ? 0.35f : 1f;
+            if (dimGroup != null) dimGroup.alpha = 1f;
         }
 
         public void OnClick(Action handler)

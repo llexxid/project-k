@@ -24,7 +24,15 @@ namespace KingdomIdle.UGUI
 
         public void SetLabel(string text)
         {
-            if (label != null) label.text = text;
+            if (label == null) return;
+            label.text = text;
+            var layout = label.GetComponent<LayoutElement>();
+            if (layout != null)
+            {
+                float height = !string.IsNullOrEmpty(text) && text.Contains("\n") ? 100 : 64;
+                layout.minHeight = height;
+                layout.preferredHeight = height;
+            }
         }
 
         /// <summary>아이콘 지정. null이면 아이콘 영역을 숨기고 라벨만 표시한다.</summary>
@@ -34,15 +42,17 @@ namespace KingdomIdle.UGUI
             icon.sprite = sprite;
             icon.enabled = sprite != null;
             icon.gameObject.SetActive(sprite != null);
+            if (icon.transform.parent != null && icon.transform.parent.name == "IconWrap")
+                icon.transform.parent.gameObject.SetActive(sprite != null);
         }
 
         public void SetSelected(bool selected, Color activeBg)
         {
             if (background != null)
-                background.color = selected ? UguiPixelSkin.Opaque(activeBg) : IdleBg;
+                background.color = selected ? UguiTheme.RusticSurface : UguiTheme.RusticSurfaceDark;
 
             if (label != null)
-                label.color = selected ? UguiTheme.TextPrimary : IdleLabel;
+                label.color = selected ? UguiTheme.Parchment : UguiTheme.TextSecondary;
 
             if (icon != null)
                 icon.color = selected ? Color.white : new Color(1f, 1f, 1f, 0.65f);
@@ -50,7 +60,7 @@ namespace KingdomIdle.UGUI
             // 선택된 탭만 금색 테두리로 강조 — 어떤 탭이 활성인지 즉시 구분
             if (selectedFrame != null)
             {
-                var c = UguiTheme.AccentGoldStrong;
+                var c = UguiTheme.BronzeLight;
                 selectedFrame.color = selected ? c : new Color(c.r, c.g, c.b, 0f);
             }
         }

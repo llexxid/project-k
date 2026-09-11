@@ -36,6 +36,7 @@ namespace KingdomIdle.UGUI
             }
 
             _instanceGo = Object.Instantiate(host.Catalog.popupGachaResult, host.LayerOverlays, false);
+            ModalBackHandler.Bind(_instanceGo, Close);
             var view = _instanceGo.GetComponent<GachaResultPopupView>();
             if (view == null)
             {
@@ -210,7 +211,7 @@ namespace KingdomIdle.UGUI
 
             if (view.btnRePull1 != null)
             {
-                if (view.btnRePull1Label != null) view.btnRePull1Label.text = "다시 뽑기 x1";
+                if (view.btnRePull1Label != null) view.btnRePull1Label.text = RePullLabel(table, 1);
                 view.btnRePull1.onClick.AddListener(() => HandleRePull(table, 1));
             }
 
@@ -220,7 +221,7 @@ namespace KingdomIdle.UGUI
                 view.btnRePullN.gameObject.SetActive(showN);
                 if (showN)
                 {
-                    if (view.btnRePullNLabel != null) view.btnRePullNLabel.text = $"다시 뽑기 x{lastPullCount}";
+                    if (view.btnRePullNLabel != null) view.btnRePullNLabel.text = RePullLabel(table, lastPullCount);
                     view.btnRePullN.onClick.AddListener(() => HandleRePull(table, lastPullCount));
                 }
             }
@@ -234,6 +235,9 @@ namespace KingdomIdle.UGUI
             }
         }
 
+        private static string RePullLabel(KingdomIdle.Gacha.GachaTableSO table, int count)
+            => table == null ? "다시 뽑기" : $"{count}회 다시 뽑기\n{(long)table.costAmount * count:N0} {MainScreenController.GetCurrencyLabelKor(table.costCurrency)}";
+
         private static void HandleRePull(KingdomIdle.Gacha.GachaTableSO table, int count)
         {
             var mgr = KingdomIdle.Gacha.GachaManager.Instance;
@@ -243,6 +247,12 @@ namespace KingdomIdle.UGUI
                 return;
             }
             if (table == null) return;
+
+            if (mgr == null || !mgr.CanPullMulti(table, count))
+            {
+                _host?.ShowToast("재화가 부족합니다. 획득 결과는 그대로 유지됩니다.");
+                return;
+            }
 
             Close();
             GachaPanelController.PullAndShowResult(table, count);

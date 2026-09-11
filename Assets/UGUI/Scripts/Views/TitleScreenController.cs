@@ -27,14 +27,9 @@ namespace KingdomIdle.UGUI
 
             if (_view.btnLoginGuest != null)
             {
-                _view.btnLoginGuest.onClick.AddListener(() =>
-                {
-                    if (NetworkManager.Instance != null)
-                        NetworkManager.Instance.AuthenticateTest();
-                    else
-                        _host.ShowToast("네트워크가 초기화되지 않았습니다.");
-                    HideLoginPopup();
-                });
+                // The legacy guest action logs into a shared development account.
+                // Keep it out of the player login flow until individual guest auth is available.
+                _view.btnLoginGuest.gameObject.SetActive(false);
             }
 
             if (_view.btnLoginGoogle != null)

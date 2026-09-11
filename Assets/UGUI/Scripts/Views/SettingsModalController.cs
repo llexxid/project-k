@@ -51,6 +51,7 @@ namespace KingdomIdle.UGUI
             }
 
             Bind();
+            ModalBackHandler.Bind(go, Close);
             go.SetActive(false);
         }
 
@@ -72,6 +73,7 @@ namespace KingdomIdle.UGUI
                     _isMuted = !_isMuted;
                     ApplyMuteVisual();
                     ApplyVolumeToSystem();
+                    SaveSettingsFromUI();
                 });
             }
 
@@ -79,8 +81,8 @@ namespace KingdomIdle.UGUI
             {
                 _view.sldVolume.onValueChanged.AddListener(v =>
                 {
-                    if (_isMuted) return;
-                    AudioListener.volume = v;
+                    if (!_isMuted) AudioListener.volume = v;
+                    PlayerPrefs.SetFloat(UIManager.PrefKeyVolume, v);
                 });
             }
 
@@ -107,6 +109,21 @@ namespace KingdomIdle.UGUI
                 string ver = string.IsNullOrWhiteSpace(Application.version) ? "0.0.1" : Application.version;
                 _view.lblVersion.text = $"Version {ver}";
             }
+            BindToggle(_view.tglPowerSave);
+            BindToggle(_view.tglHideItem);
+            BindToggle(_view.tglDamageText);
+            BindToggle(_view.tglScreenShake);
+            if (_view.tglPush != null) _view.tglPush.gameObject.SetActive(false);
+            if (_view.tglNightPush != null) _view.tglNightPush.gameObject.SetActive(false);
+            if (_view.btnWithdraw != null) _view.btnWithdraw.gameObject.SetActive(false);
+            if (_view.btnSave != null) _view.btnSave.gameObject.SetActive(false);
+            if (_view.btnSaveClose != null)
+                _view.btnSaveClose.GetComponentInChildren<TMPro.TMP_Text>().text = "완료";
+        }
+
+        private void BindToggle(UnityEngine.UI.Toggle toggle)
+        {
+            if (toggle != null) toggle.onValueChanged.AddListener(_ => SaveSettingsFromUI());
         }
 
         private void ApplyVolumeToSystem()
@@ -120,8 +137,8 @@ namespace KingdomIdle.UGUI
             if (_view == null || _view.btnMuteBg == null) return;
             // is-on 상태: 빨강 강조 (USS .settings-mute-btn.is-on 대응)
             _view.btnMuteBg.color = _isMuted
-                ? new Color(220f / 255f, 70f / 255f, 70f / 255f, 0.55f)
-                : UguiTheme.SurfaceMid;
+                ? UguiTheme.Bronze
+                : UguiTheme.RusticSurface;
         }
 
         private void LoadSettingsToUI()
@@ -148,8 +165,16 @@ namespace KingdomIdle.UGUI
             if (_view.tglScreenShake != null) _view.tglScreenShake.SetIsOnWithoutNotify(screenShake);
             if (_view.tglPush != null) _view.tglPush.SetIsOnWithoutNotify(push);
             if (_view.tglNightPush != null) _view.tglNightPush.SetIsOnWithoutNotify(nightPush);
+            foreach (var toggle in _view.GetComponentsInChildren<ToggleSwitchView>(true)) toggle.Refresh();
 
-            if (_view.lblServer != null) _view.lblServer.text = "현재 서버: null";
+            bool connected = PlayFab.PlayFabClientAPI.IsClientLoggedIn();
+            if (_view.lblServer != null) _view.lblServer.text = "변경 사항은 자동으로 저장됩니다";
+            if (_view.btnGoogleChip != null)
+            {
+                var label = _view.btnGoogleChip.GetComponentInChildren<TMPro.TMP_Text>();
+                if (label != null) label.text = connected ? "온라인 계정 연결" : "오프라인 · 계정 미연결";
+                _view.btnGoogleChip.interactable = false;
+            }
         }
 
         private void SaveSettingsFromUI()
@@ -169,6 +194,7 @@ namespace KingdomIdle.UGUI
             if (_view.tglPush != null) PlayerPrefs.SetInt(UIManager.PrefKeyPush, _view.tglPush.isOn ? 1 : 0);
             if (_view.tglNightPush != null) PlayerPrefs.SetInt(UIManager.PrefKeyNightPush, _view.tglNightPush.isOn ? 1 : 0);
             PlayerPrefs.Save();
+            GamePresentationSettings.Apply();
         }
     }
 }

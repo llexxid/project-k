@@ -129,14 +129,18 @@ public class EquipmentManager : MonoBehaviour
     /// </summary>
     public bool CanEnhance(EquipmentInstance instance)
     {
-        if (instance == null || instance.IsMaxLevel()) return false;
-
-        int materialCount = instance.GetMaterialCount();
-        int available = _inventory.Items
-            .Count(material => material != instance && material.baseData == instance.baseData && !material.IsEquipped);
-
-        return available >= materialCount;
+        return instance != null && !instance.IsMaxLevel() && _inventory.Items.Contains(instance)
+            && GetEnhanceMaterialCount(instance) >= instance.GetMaterialCount();
     }
+
+    public int GetEnhanceMaterialCount(EquipmentInstance instance)
+    {
+        if (instance == null || instance.baseData == null) return 0;
+        return _inventory.Items.Count(material => material != null && material != instance
+            && material.baseData == instance.baseData && !material.IsEquipped);
+    }
+
+    public enum EnhancementResult { Success, ChanceFailed, NotEnoughMaterials, MaxLevel, InvalidItem }
     
     /// <summary>
     /// 강화를 실행한다.
@@ -145,8 +149,13 @@ public class EquipmentManager : MonoBehaviour
     /// 성공 시 true, 실패 시 false 반환.
     /// </summary>
     public bool TryEnhance(EquipmentInstance instance)
+        => TryEnhanceDetailed(instance) == EnhancementResult.Success;
+
+    public EnhancementResult TryEnhanceDetailed(EquipmentInstance instance)
     {
-        if (!CanEnhance(instance)) return false;
+        if (instance == null || instance.baseData == null || !_inventory.Items.Contains(instance)) return EnhancementResult.InvalidItem;
+        if (instance.IsMaxLevel()) return EnhancementResult.MaxLevel;
+        if (!CanEnhance(instance)) return EnhancementResult.NotEnoughMaterials;
 
         int materialCount = instance.GetMaterialCount();
         float successRate = instance.GetEnhanceSuccessRate();
@@ -159,7 +168,7 @@ public class EquipmentManager : MonoBehaviour
         if (materials.Count < materialCount)
         {
             Debug.LogWarning($"장비 강화에 필요한 개수가 선정되지 못했습니다 (장비 소모량 : {materialCount}, 현재 보유량 : {materials.Count})");
-            return false;
+            return EnhancementResult.NotEnoughMaterials;
         }
 
         if (!_inventory.RemoveAll(materials))
@@ -190,7 +199,7 @@ public class EquipmentManager : MonoBehaviour
             OnEnhanceFailed?.Invoke(instance);
         }
 
-        return success;
+        return success ? EnhancementResult.Success : EnhancementResult.ChanceFailed;
     }
 
     /// <summary>

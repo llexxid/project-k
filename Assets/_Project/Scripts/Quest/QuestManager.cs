@@ -41,6 +41,9 @@ public struct QuestEvent
     public int Amount;
 }
 
+/// <summary>Grant idempotently by quest ID. False preserves the pending reward.</summary>
+public interface IQuestRewardGranter { bool TryGrant(long questId, int rewardGroupId); }
+
 public class QuestManager : MonoBehaviour
 {
     public static QuestManager Instance; 
@@ -51,6 +54,8 @@ public class QuestManager : MonoBehaviour
     [SerializeField] private MonoBehaviour definitionBehaviour;
     [SerializeField] private MonoBehaviour progressSnapshotBehaviour;
     [SerializeField] private long firstGuideQuestId = 1;
+    [SerializeField] private MonoBehaviour rewardGranterBehaviour;
+    public IQuestRewardGranter RewardGranter => rewardGranterBehaviour as IQuestRewardGranter;
 
     private IQuestDefinitionProvider definitionProvider;
     private IQuestProgressSnapshot progressSnapshot;
@@ -102,8 +107,8 @@ public class QuestManager : MonoBehaviour
         QuestDefinition quest;
         foreach (QuestRuntimeState state in questStates.Values)
         {
-            quest = definitionProvider.GetQuestById(state.QuestId);
-            if (quest.Category == eQuestCategory.Guide)
+            quest = definitionProvider?.GetQuestById(state.QuestId);
+            if (quest != null && quest.Category == eQuestCategory.Guide)
             {
                 OnGuideQuestChanged?.Invoke(state,quest);
                 return;
@@ -136,13 +141,22 @@ public class QuestManager : MonoBehaviour
         if (quest == null || !state.IsCompleted || state.IsRewardClaimed)
             return;
 
+        // Group zero is a progression-only guide; other groups require confirmed delivery.
+        if (quest.RewardGroupId != 0 && (RewardGranter == null || !RewardGranter.TryGrant(questId, quest.RewardGroupId))) return;
         state.IsRewardClaimed = true;
-        // TODO: Give reward by quest.RewardGroupId.
 
         questStates.Remove(questId);
 
         if (quest.Category == eQuestCategory.Guide && quest.NextQuestId != 0)
             AddQuestState(quest.NextQuestId);
+        else if (quest.Category == eQuestCategory.Guide) OnGuideQuestChanged?.Invoke(null, null);
+    }
+
+    public bool CanClaimReward(long questId)
+    {
+        if (!questStates.TryGetValue(questId,out var state) || !state.IsCompleted || state.IsRewardClaimed) return false;
+        var quest=definitionProvider?.GetQuestById(questId);
+        return quest != null && (quest.RewardGroupId==0 || RewardGranter != null);
     }
 
     public QuestRuntimeState AddQuestState(long questId)

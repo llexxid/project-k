@@ -226,6 +226,12 @@ namespace KingdomIdle.UGUI.Editor
                     if (field.GetCustomAttribute<SerializeField>() == null && !field.IsPublic) continue;
                     if (!typeof(Object).IsAssignableFrom(field.FieldType)) continue;
 
+                    // Legacy generator skin slots are optional: the current main tabs use
+                    // a shared background and color transitions, without swapping sprites.
+                    if (type == typeof(MainTabButtonView) &&
+                        (field.Name == nameof(MainTabButtonView.bgNormalSprite) ||
+                         field.Name == nameof(MainTabButtonView.bgSelectedSprite))) continue;
+
                     if (field.GetValue(mb) as Object == null)
                     {
                         Debug.LogWarning($"[UguiGen] {prefab.name}/{type.Name}.{field.Name} 필드가 비어있습니다.");

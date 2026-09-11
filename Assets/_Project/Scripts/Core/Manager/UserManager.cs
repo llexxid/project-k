@@ -16,6 +16,7 @@ namespace Scripts.Core
 	{
 		public static UserManager Instance;
 		private User _user;
+		internal User CurrentUser => _user;
 
 		//ForTest
 		[SerializeField]

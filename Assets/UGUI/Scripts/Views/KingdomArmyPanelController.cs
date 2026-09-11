@@ -122,7 +122,7 @@ namespace KingdomIdle.UGUI
                 {
                     string job = _players[i].playerStatus?.JobName;
                     if (!string.IsNullOrEmpty(job))
-                        label = $"왕국군{i + 1} ({job})";
+                        label = $"왕국군{i + 1}\n{JobData.GetDisplayName(job)}";
                 }
 
                 var go = Object.Instantiate(prefab, _view.memberTabs, false);
@@ -243,7 +243,7 @@ namespace KingdomIdle.UGUI
             var ps = player.playerStatus;
 
             // 직업명 + 칩 값
-            if (sheet.jobLabel != null) sheet.jobLabel.text = ps.JobName;
+            if (sheet.jobLabel != null) sheet.jobLabel.text = JobData.GetDisplayName(ps.JobName);
             if (sheet.atkValueLabel != null) sheet.atkValueLabel.text = ps.Atk.ToString("N0");
             if (sheet.moveValueLabel != null) sheet.moveValueLabel.text = ps.MovSpeed.ToString();
             UpdateHpBar(player, sheet);
@@ -290,12 +290,12 @@ namespace KingdomIdle.UGUI
 
             // 초상화 (idle 스프라이트 기준 고정 스케일)
             _charPortraitInner = sheet.portraitInner;
-            var sr = player.GetComponent<SpriteRenderer>();
-            if (sr != null && sr.sprite != null)
+            var portrait = _mgr.JobDB != null ? _mgr.JobDB.GetJob(ps.JobName)?.Portrait : null;
+            if (portrait != null)
             {
-                float idleH = sr.sprite.rect.height;
+                float idleH = portrait.rect.height;
                 _portraitScale = (idleH > 0f) ? PORTRAIT_SIZE / idleH : 1f;
-                ApplyPortraitSprite(sr.sprite);
+                ApplyPortraitSprite(portrait);
             }
 
             // 실시간 갱신 (200ms 간격으로 HP 바, 초상화 스프라이트 업데이트)
@@ -413,13 +413,7 @@ namespace KingdomIdle.UGUI
             if (_charSheet != null)
                 UpdateHpBar(p, _charSheet);
 
-            // 초상화 스프라이트 실시간 갱신 (고정 스케일 유지)
-            if (_charPortraitInner != null)
-            {
-                var sprRend = p.GetComponent<SpriteRenderer>();
-                if (sprRend != null && sprRend.sprite != null)
-                    ApplyPortraitSprite(sprRend.sprite);
-            }
+            // Job portraits are stable; promotion rebuilds this view through the army event.
         }
 
         // ══════════════════════════════════════
@@ -657,16 +651,17 @@ namespace KingdomIdle.UGUI
                 return;
             }
 
-            bool success = EquipmentManager.Instance.TryEnhance(item);
-            if (success)
+            var result = EquipmentManager.Instance.TryEnhanceDetailed(item);
+            if (result == EquipmentManager.EnhancementResult.Success)
             {
                 float nextRate = item.GetEnhanceSuccessRate() * 100f;
                 ShowToast($"강화 성공! {item.baseData.equipmentName} +{item.enhancementLevel} (다음 확률: {nextRate:F0}%)");
             }
-            else
+            else if (result == EquipmentManager.EnhancementResult.ChanceFailed)
             {
                 ShowToast($"강화 실패... 재료 {needed}개가 소모되었습니다.");
             }
+            else ShowToast("강화 조건이 변경되었습니다. 장착하지 않은 동일 장비를 확인해 주세요.");
 
             // 현재 화면이 액션 팝업이면 다시 표시
             ShowEquipmentActionPopup(item,
@@ -693,7 +688,7 @@ namespace KingdomIdle.UGUI
             {
                 foreach (var inv in EquipmentManager.Instance.Inventory.Items)
                 {
-                    if (inv != item && inv.baseData == item.baseData)
+                    if (inv != item && inv.baseData == item.baseData && !inv.IsEquipped)
                         available++;
                 }
             }
@@ -875,7 +870,7 @@ namespace KingdomIdle.UGUI
             string fragText; Color fragColor;
             if (isUnlocked) { fragText = "무료 재전직"; fragColor = UguiTheme.SuccessGreenBright; }
             else { fragText = $"전직 파편 {owned}/{cost}"; fragColor = fragReady ? UguiTheme.SuccessGreenBright : UguiTheme.AccentGoldStrong; }
-            string prereqText = !prereqMet ? $"{prereq} 전직 필요" : null;
+            string prereqText = !prereqMet ? $"{JobData.GetDisplayName(prereq)} 전직 필요" : null;
 
             var capturedJob = job;
             var cat = Cat;
@@ -919,7 +914,7 @@ namespace KingdomIdle.UGUI
 
             // ── 직업 헤더 (이미지 + 이름 + 상태 배지) ──
             SetIconSprite(detail.image, job.Portrait);
-            if (detail.jobNameLabel != null) detail.jobNameLabel.text = job.jobName;
+            if (detail.jobNameLabel != null) detail.jobNameLabel.text = job.DisplayName;
 
             // 상태 배지
             string stateText;
@@ -981,7 +976,7 @@ namespace KingdomIdle.UGUI
                     if (detail.prereqCondRow != null) detail.prereqCondRow.gameObject.SetActive(true);
                     if (detail.prereqCondValue != null)
                     {
-                        detail.prereqCondValue.text = prereqMet ? $"{prereq} 전직 완료" : $"{prereq} 전직 필요";
+                        detail.prereqCondValue.text = prereqMet ? $"{prereq} 전직 완료" : $"{JobData.GetDisplayName(prereq)} 전직 필요";
                         detail.prereqCondValue.color = prereqMet ? UguiTheme.SuccessGreenBright : FragLockedColor;
                     }
                 }
@@ -1011,7 +1006,7 @@ namespace KingdomIdle.UGUI
             }
             else if (!prereqMet)
             {
-                btnText = $"{prereq} 전직 필요";
+                btnText = $"{JobData.GetDisplayName(prereq)} 전직 필요";
                 btnColor = UguiTheme.DisabledGrey;
                 btnEnabled = false;
             }
@@ -1095,7 +1090,7 @@ namespace KingdomIdle.UGUI
             _mgr.TryChangeJob(player, job.jobName,
                 onSuccess: () =>
                 {
-                    ShowToast($"{job.jobName}(으)로 전직 완료!");
+                    ShowToast($"{job.DisplayName}(으)로 전직 완료!");
                     BuildMemberTabs();
                     ShowJobDetail(job);
                 },

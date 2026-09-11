@@ -63,6 +63,7 @@ namespace KingdomIdle.UGUI
             }
 
             view.backdropButton.onClick.AddListener(Hide);
+            ModalBackHandler.Bind(instance, Hide);
             view.cancelButton.onClick.AddListener(Hide);
             view.confirmButton.onClick.AddListener(Confirm);
             view.gameObject.SetActive(false);
@@ -93,12 +94,13 @@ namespace KingdomIdle.UGUI
             view.statusLabel.text = "환생 가능";
             view.statusLabel.color = UguiTheme.SuccessGreen;
             view.infoLabel.text =
-                $"레벨: {current.Level:N0} → " +
+                $"환생 레벨: {current.Level:N0} → " +
                 $"<color={GainColor}>{preview.NextState.Level:N0} " +
                 $"(+{preview.LevelGain:N0})</color>\n" +
                 $"환생 횟수: {current.Count:N0} → " +
                 $"<color={GainColor}>{preview.NextState.Count:N0} " +
-                $"(+{countGain:N0})</color>";
+                $"(+{countGain:N0})</color>\n\n" +
+                "초기화: 메인 스테이지 1-1\n보유 장비와 강화는 유지됩니다.";
             view.confirmButton.interactable = true;
         }
 
@@ -120,13 +122,13 @@ namespace KingdomIdle.UGUI
                 return;
             }
 
-            SetUnavailable($"환생 처리에 실패했습니다. ({result})");
+            SetUnavailable("환생을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.");
         }
 
         private static void SetUnavailable(string reason)
         {
             view.statusLabel.text = "환생 불가";
-            view.statusLabel.color = UguiTheme.DangerRed;
+            view.statusLabel.color = UguiTheme.Parchment;
             view.infoLabel.text = reason;
             view.confirmButton.interactable = false;
         }

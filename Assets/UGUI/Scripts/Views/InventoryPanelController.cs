@@ -216,7 +216,7 @@ namespace KingdomIdle.UGUI
                 System.Action onClick = () => ShowInventoryEquipPopup(capturedItem, capturedOwner);
 
                 string jobName = owner?.playerStatus?.JobName ?? "";
-                bool isAllowed = item.baseData.IsAllowedForJob(jobName);
+                bool isAllowed = _players.Exists(p => p != null && item.baseData.IsAllowedForJob(p.playerStatus?.JobName ?? ""));
                 bool isEquipped = owner?.PlayerEquipmentManager != null &&
                                   owner.PlayerEquipmentManager.GetSlotEquipment(item.baseData.slot) == item;
 
@@ -263,7 +263,7 @@ namespace KingdomIdle.UGUI
                               owner.PlayerEquipmentManager.GetSlotEquipment(item.baseData.slot) == item;
 
             int ownerIdx = _players.IndexOf(owner);
-            string ownerText = ownerIdx >= 0 ? $"소유: 왕국군{ownerIdx + 1}" : null;
+            string ownerText = isEquipped && ownerIdx >= 0 ? $"장착: 왕국군 {ownerIdx + 1}" : "공용 가방";
 
             bool maxLevel = item.IsMaxLevel();
 
@@ -278,7 +278,7 @@ namespace KingdomIdle.UGUI
                 {
                     foreach (var inv in EquipmentManager.Instance.Inventory.Items)
                     {
-                        if (inv != item && inv.baseData == item.baseData)
+                        if (inv != item && inv.baseData == item.baseData && !inv.IsEquipped)
                             available++;
                     }
                 }
@@ -305,8 +305,7 @@ namespace KingdomIdle.UGUI
 
             if (detail.backButton != null)
                 detail.backButton.onClick.AddListener(() => Refresh());
-            if (detail.detailButton != null)
-                detail.detailButton.onClick.AddListener(() => ShowToast("상세 기능 미구현"));
+            if (detail.detailButton != null) detail.detailButton.gameObject.SetActive(false);
             if (!maxLevel && detail.enhanceButton != null)
             {
                 var capturedItem = item;
@@ -318,9 +317,8 @@ namespace KingdomIdle.UGUI
         /// <summary>인벤토리에서 강화를 시도한다. 왕국군 장비 탭의 강화와 동일한 로직.</summary>
         private static void TryEnhanceFromInventory(EquipmentInstance item, Player owner)
         {
-            var equipMgr = owner?.PlayerEquipmentManager;
             EquipmentManager equipmentManager = EquipmentManager.Instance;
-            if (equipMgr == null) return;
+            if (equipmentManager == null) return;
 
             if (item.IsMaxLevel())
             {
@@ -334,7 +332,7 @@ namespace KingdomIdle.UGUI
             {
                 foreach (var inv in equipmentManager.Inventory.Items)
                 {
-                    if (inv != item && inv.baseData == item.baseData)
+                    if (inv != item && inv.baseData == item.baseData && !inv.IsEquipped)
                         available++;
                 }
             }
@@ -346,16 +344,17 @@ namespace KingdomIdle.UGUI
                 return;
             }
 
-            bool success = equipmentManager.TryEnhance(item);
-            if (success)
+            var result = equipmentManager.TryEnhanceDetailed(item);
+            if (result == EquipmentManager.EnhancementResult.Success)
             {
                 float nextRate = item.GetEnhanceSuccessRate() * 100f;
                 ShowToast($"강화 성공! {item.baseData.equipmentName} +{item.enhancementLevel} (다음 확률: {nextRate:F0}%)");
             }
-            else
+            else if (result == EquipmentManager.EnhancementResult.ChanceFailed)
             {
                 ShowToast($"강화 실패... 재료 {needed}개가 소모되었습니다.");
             }
+            else ShowToast("강화 조건이 변경되었습니다. 장착하지 않은 동일 장비를 확인해 주세요.");
 
             // 팝업 다시 표시
             ShowInventoryEquipPopup(item, owner);
@@ -373,7 +372,10 @@ namespace KingdomIdle.UGUI
             // 따라서 현재는 임시로 p[0] 플레이어를 지정해 놓았습니다 (원본 주석 유지)
             foreach (var item in EquipmentManager.Instance.Inventory.Items)
             {
-                result.Add((item, _players[0]));
+                if (item == null || item.baseData == null) continue;
+                Player owner = _players.Find(p => p != null && p.PlayerEquipmentManager != null
+                    && p.PlayerEquipmentManager.GetSlotEquipment(item.baseData.slot) == item);
+                result.Add((item, owner));
             }
 
             // 등급 내림차순 → 강화레벨 내림차순 정렬

@@ -49,7 +49,7 @@ namespace KingdomIdle.UGUI
                 image.gameObject.SetActive(image.sprite != null);
             }
 
-            if (nameLabel != null) nameLabel.text = job != null ? job.jobName : "";
+            if (nameLabel != null) nameLabel.text = job != null ? job.DisplayName : "";
             if (statLabel != null) statLabel.text = statText;
 
             if (fragLabel != null)

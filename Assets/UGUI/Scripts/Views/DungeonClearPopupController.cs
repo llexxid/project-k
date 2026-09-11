@@ -77,6 +77,7 @@ namespace KingdomIdle.UGUI
             }
 
             view.exitButton.onClick.AddListener(Exit);
+            ModalBackHandler.Bind(instance, Exit);
             view.nextButton.onClick.AddListener(Next);
             view.retryButton.onClick.AddListener(Retry);
             view.gameObject.SetActive(false);

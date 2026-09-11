@@ -29,6 +29,9 @@ Rulebook for AI agents on this project. Complements `CLAUDE.md`. Follow exactly.
 ## Recurring product rules (standing requirements)
 > Meta-rule: whenever the user states a requirement that should apply to future work too
 > (not just the current task), record it in this section immediately.
+- **Commercial-quality idle-game UX:** prioritize legible information, comfortable mobile touch targets,
+  consistent navigation, responsive layouts, and low-cost updates. Reuse ExternalAssets first;
+  new art is justified by a concrete gap and must be validated in the running game.
 - **UI elements ship with subtle "alive" micro-animation by default** — breathing scale, light
   flicker/glow pulses, sway — synchronized where it makes sense (e.g. shake with CameraShaker).
   Use lightweight unscaled-time coroutines (UITween 계열); restart them on re-activation

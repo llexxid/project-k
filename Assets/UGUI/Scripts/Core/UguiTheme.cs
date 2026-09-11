@@ -25,6 +25,7 @@ namespace KingdomIdle.UGUI
         public const float PanelPadding = 20f;
         public const float PanelCloseBtnSize = 72f;
         public const float StageAreaTop = 180f;
+        public const float StageControlsBottom = StageAreaTop + 144f;
         public const float DropdownTop = 175f;
         public const float DropdownWidth = 420f;
         public const float HamburgerDropdownWidth = 90f;
@@ -81,7 +82,8 @@ namespace KingdomIdle.UGUI
         public const float FontDeathTitle = 42f;
         public const float FontPanelTitle = 34f;
         public const float FontTabIcon = 56f;
-        public const float FontTabLabel = 26f;
+        public const float FontTabLabel = 30f;
+        public const float MainNavIconSize = 64f;
         public const float FontCurrencyValue = 28f;
         public const float FontCurrencyName = 24f;
         public const float FontSectionTitle = 26f;
@@ -138,6 +140,7 @@ namespace KingdomIdle.UGUI
         public static readonly Color Bronze = Rgba(150, 110, 60, 1f);             // 청동 프레임/테두리
         public static readonly Color BronzeLight = Rgba(196, 154, 92, 1f);        // 밝은 청동
         public static readonly Color Parchment = Rgba(242, 230, 208, 0.97f);      // 양피지 텍스트
+        public static readonly Color NavMuted = Rgba(185, 174, 154, 1f);
         public static readonly Color DropdownBg = Rgba(38, 29, 21, 0.98f);
         public static readonly Color GuideHintBlue = Rgba(180, 200, 255, 0.75f);
         public static readonly Color EnhanceOrange = Rgba(220, 160, 40, 0.80f);

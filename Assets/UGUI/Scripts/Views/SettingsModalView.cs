@@ -7,6 +7,8 @@ namespace KingdomIdle.UGUI
     /// <summary>설정 모달 셸 (환경설정). SettingsModalController가 바인딩.</summary>
     public sealed class SettingsModalView : MonoBehaviour
     {
+        private void OnDisable() => PlayerPrefs.Save();
+        private void OnApplicationPause(bool paused) { if (paused) PlayerPrefs.Save(); }
         [SerializeField] internal Button outsideCatcher;   // 오버레이 딤 자체 — 바깥 탭 닫기
         [SerializeField] internal RectTransform panel;
         [SerializeField] internal TMP_Text lblServer;

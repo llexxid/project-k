@@ -19,7 +19,7 @@ namespace KingdomIdle.UGUI
         /// <summary>슬롯 표시 갱신. iconSprite 있으면 아이콘, 없고 스킬 장착시 name, 빈 슬롯이면 "-".</summary>
         public void Set(Sprite iconSprite, string name, bool empty, bool active)
         {
-            if (borderImage != null) borderImage.color = active ? BorderActive : BorderNormal;
+            if (borderImage != null) borderImage.color = active ? UguiTheme.BronzeLight : UguiTheme.RusticSurface;
 
             bool hasIcon = iconSprite != null && icon != null;
             if (icon != null)
@@ -30,8 +30,8 @@ namespace KingdomIdle.UGUI
             }
             if (label != null)
             {
-                label.text = hasIcon ? "" : (empty ? "-" : name);
-                label.color = empty ? EmptyTextColor : UguiTheme.TextPrimary;
+                label.text = hasIcon ? "" : (empty ? "+" : name);
+                label.color = UguiTheme.Parchment;
             }
         }
     }

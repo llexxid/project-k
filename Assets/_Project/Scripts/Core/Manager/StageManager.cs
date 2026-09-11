@@ -917,6 +917,8 @@ namespace Scripts.Core.Manager
 		/// <summary>사냥 결과 버퍼를 DTO로 변환해 서버에 전송한다</summary>
 		private void SendHuntResult()
 		{
+            if (NetworkManager.Instance == null || string.IsNullOrEmpty(NetworkManager.Instance.GetSessionID())
+                || !PlayFab.PlayFabClientAPI.IsClientLoggedIn()) return;
 			if (_huntResultList.Count <= 0)
 			{
 				Debug.Log($"[StageManager Send] Buffer Is Empty.");

@@ -27,7 +27,6 @@ namespace KingdomIdle.UGUI
 
         [SerializeField] private DungeonCardView[] cards;
         [SerializeField] private DungeonDifficultyPopupView difficultyPopup;
-        [SerializeField] private long placeholderCurrentPower = 4000;
 
         private void OnEnable()
         {
@@ -70,12 +69,12 @@ namespace KingdomIdle.UGUI
                 difficulties[i] = new DungeonDifficultyDisplayData(
                     stage,
                     isUnlocked,
-                    GetPlaceholderRecommendedPower(stage));
+                    0); // No authored recommendation exists; do not fabricate a power gate.
             }
 
             difficultyPopup.SetDifficultyData(
                 difficulties,
-                placeholderCurrentPower);
+                CombatPowerCalculator.CalculatePartyPowerV1(UserManager.Instance != null ? UserManager.Instance.GetPlayers() : null));
             difficultyPopup.Show(card);
         }
 
@@ -92,9 +91,5 @@ namespace KingdomIdle.UGUI
             }
         }
 
-        private static long GetPlaceholderRecommendedPower(eStage stage)
-        {
-            return StageParser.GetStageNumber(stage) * 2700L;
-        }
     }
 }

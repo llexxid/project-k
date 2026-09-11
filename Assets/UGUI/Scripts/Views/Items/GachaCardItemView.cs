@@ -38,7 +38,7 @@ namespace KingdomIdle.UGUI
             if (frame != null) frame.color = color;
             // 카드 배경도 등급색으로 다크 틴트 (등급감 강조, 텍스트 가독성 유지)
             if (background != null)
-                background.color = Color.Lerp(color, new Color(0.11f, 0.12f, 0.17f, 1f), 0.60f);
+                background.color = UguiTheme.RusticPanelDeep;
         }
     }
 }

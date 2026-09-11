@@ -166,7 +166,8 @@ namespace KingdomIdle.EditorTools.Optimization
                 log.AppendLine($"[SKIP] {path} — no packables");
                 return;
             }
-            if (File.Exists(path)) AssetDatabase.DeleteAsset(path);
+            // Overwrite the atlas asset in place. Deleting it first discards importer
+            // settings/GUIDs and can race import workers that still hold the meta file.
 
             var asset = new SpriteAtlasAsset();
             asset.SetIncludeInBuild(includeInBuild);

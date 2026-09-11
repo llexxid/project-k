@@ -11,6 +11,13 @@ public class JobData : ScriptableObject
 {
     [Header("직업 정보")]
     public string jobName;                              // 직업 이름 (예: "Knight", "Mage")
+    public string DisplayName => GetDisplayName(jobName);
+    public static string GetDisplayName(string id) => id switch
+    {
+        "Spearman" => "창병", "Knight" => "기사", "Archer" => "궁수", "Mage" => "마법사",
+        "Elite_Knight" => "정예 기사", "Elite_Archer" => "정예 궁수", "Elite_Mage" => "정예 마법사",
+        _ => id ?? ""
+    };
 
     [Header("비주얼")]
     public Sprite jobSprite;                            // 전직 시 교체할 캐릭터 스프라이트

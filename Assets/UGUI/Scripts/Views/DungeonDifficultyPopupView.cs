@@ -28,9 +28,13 @@ namespace KingdomIdle.UGUI
         [System.NonSerialized] private eStage selectedStageId;
         private bool hasDifficultyData;
         private readonly Dictionary<int, eStage> stageIdsByNumber = new();
+        private readonly HashSet<int> unlockedNumbers = new();
+        private static readonly Dictionary<eStage, int> LastSelection = new();
+        [System.NonSerialized] private eStage dungeonKey;
 
         private void Awake()
         {
+            ModalBackHandler.Bind(gameObject, Hide);
             if (backdropButton != null)
                 backdropButton.onClick.AddListener(Hide);
             if (enterButton != null)
@@ -90,6 +94,8 @@ namespace KingdomIdle.UGUI
             hasDifficultyData = true;
             selectedStageId = default;
             stageIdsByNumber.Clear();
+            unlockedNumbers.Clear();
+            dungeonKey = difficulties != null && difficulties.Count > 0 ? difficulties[0].stageId : default;
             int firstUnlockedStage = 0;
             for (int i = 0; i < difficultyRows.Length; i++)
             {
@@ -119,9 +125,11 @@ namespace KingdomIdle.UGUI
                     SelectDifficulty);
                 if (firstUnlockedStage == 0 && data.isUnlocked)
                     firstUnlockedStage = stageNumber;
+                if (data.isUnlocked) unlockedNumbers.Add(stageNumber);
             }
 
             selectedDifficulty = firstUnlockedStage;
+            if (LastSelection.TryGetValue(dungeonKey, out int previous) && unlockedNumbers.Contains(previous)) selectedDifficulty = previous;
             if (selectedDifficulty > 0)
                 SelectDifficulty(selectedDifficulty);
             else if (selectedDifficultyLabel != null)
@@ -139,11 +147,17 @@ namespace KingdomIdle.UGUI
                 clearRewardCarousel.SetItems(clearRewards);
             if (monsterCarousel != null)
                 monsterCarousel.SetItems(monsters);
+            bool hasRewards = clearRewards != null && clearRewards.Count > 0;
+            bool hasMonsters = monsters != null && monsters.Count > 0;
+            var infoRow = transform.Find("Window/InfoRow");
+            if (infoRow != null) infoRow.gameObject.SetActive(hasRewards || hasMonsters);
         }
 
         private void SelectDifficulty(int stage)
         {
+            if (!unlockedNumbers.Contains(stage)) return;
             selectedDifficulty = stage;
+            LastSelection[dungeonKey] = stage;
             selectedStageId = stageIdsByNumber.TryGetValue(stage, out eStage stageId)
                 ? stageId
                 : default;
@@ -171,6 +185,7 @@ namespace KingdomIdle.UGUI
             if (stageManager == null ||
                 !stageManager.TryEnterDungeon(selectedStageId))
             {
+                UIManager.Instance?.ShowToast("현재는 입장할 수 없습니다. 해금 조건과 진행 중인 전투를 확인해 주세요.");
                 return;
             }
 

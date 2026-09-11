@@ -32,6 +32,13 @@ namespace KingdomIdle.UGUI
         private static DevelopmentBodyView _body;
         private static bool _subscribedCurrency;
         private static StatEnhanceManager _subscribedEnhanceMgr;
+        private sealed class CardBinding
+        {
+            internal EnhanceCardView View;
+            internal StatEnhanceManager.EnhanceType Type;
+            internal readonly List<GachaPullButtonView> Buttons = new();
+        }
+        private static readonly List<CardBinding> Cards = new();
 
         public static void Populate(DevelopmentPanelView view)
         {
@@ -44,7 +51,18 @@ namespace KingdomIdle.UGUI
             // 핸들러가 파괴된 뷰를 만지지 않도록 가드)
             view.OnClosed = () =>
             {
-                if (_view == view) { _view = null; _body = null; }
+                if (_view == view)
+                {
+                    _view = null; _body = null; Cards.Clear();
+                    EconomyBridge.OnAmountChanged -= OnCurrencyChanged;
+                    _subscribedCurrency = false;
+                    if (_subscribedEnhanceMgr != null)
+                    {
+                        _subscribedEnhanceMgr.OnEnhanced -= OnEnhanced;
+                        _subscribedEnhanceMgr.OnEnhanceCompleted -= OnEnhanceCompleted;
+                    }
+                    _subscribedEnhanceMgr = null;
+                }
             };
 
             SubscribeEvents();
@@ -68,8 +86,12 @@ namespace KingdomIdle.UGUI
             if (mgr != null && _subscribedEnhanceMgr != mgr)
             {
                 if (_subscribedEnhanceMgr != null)
+                {
                     _subscribedEnhanceMgr.OnEnhanced -= OnEnhanced;
+                    _subscribedEnhanceMgr.OnEnhanceCompleted -= OnEnhanceCompleted;
+                }
                 mgr.OnEnhanced += OnEnhanced;
+                mgr.OnEnhanceCompleted += OnEnhanceCompleted;
                 _subscribedEnhanceMgr = mgr;
             }
         }
@@ -101,21 +123,29 @@ namespace KingdomIdle.UGUI
             if (body.goldLabel != null)
                 body.goldLabel.text = $"보유 골드  {gold:N0} G";
 
-            // 카드 컨테이너 비우기 (레이아웃에 끼지 않도록 비활성 후 파괴)
-            ClearChildren(body.CardsRoot);
-
             var mgr = StatEnhanceManager.Instance;
-
-            int cardCount = 0;
-            foreach (var type in EnhanceTypes)
+            if (Cards.Count == 0)
             {
-                if (!StatEnhanceManager.IsStatImplemented(type)) continue;
-                if (BuildEnhanceCard(body.CardsRoot, mgr, type, gold)) cardCount++;
+                foreach (var type in EnhanceTypes)
+                    if (StatEnhanceManager.IsStatImplemented(type)) BuildEnhanceCard(body.CardsRoot, mgr, type, gold);
+            }
+            foreach (var card in Cards)
+            {
+                if (card.View == null || mgr == null) continue;
+                card.View.Set(StatEnhanceManager.GetTypeName(card.Type), $"Lv. {mgr.GetLevel(card.Type):N0}",
+                    $"전체 왕국군  {mgr.GetBonusText(card.Type)} → +{mgr.GetBonus(card.Type) + 0.1f:0.#}% (1회)");
+                for (int i = 0; i < card.Buttons.Count; i++)
+                {
+                    int count = PullCounts[i], cost = mgr.GetCost(card.Type, count);
+                    card.Buttons[i].Set(mgr.IsEnhancing ? "강화 처리 중…" : $"{count}회 강화",
+                        cost == int.MaxValue ? "강화 한도" : $"{cost:N0} 골드",
+                        !mgr.IsEnhancing && cost < int.MaxValue && gold >= cost);
+                }
             }
 
             // 빈 상태 라벨 토글 (강화 항목이 하나도 없을 때만 표시)
             if (body.emptyLabel != null)
-                body.emptyLabel.gameObject.SetActive(cardCount == 0);
+                body.emptyLabel.gameObject.SetActive(Cards.Count == 0);
         }
 
         /// <summary>본문 셸(Body_Development)을 스크롤 콘텐츠에 1회 인스턴스화하고 캐시한다.</summary>
@@ -125,6 +155,7 @@ namespace KingdomIdle.UGUI
             if (_body != null && _body.transform.parent == content) return _body;
 
             ClearChildren(content);
+            Cards.Clear();
 
             var cat = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
             if (cat == null || cat.bodyDevelopment == null)
@@ -172,6 +203,8 @@ namespace KingdomIdle.UGUI
             var go = Object.Instantiate(cat.itemEnhanceCard, parent, false);
             var view = go.GetComponent<EnhanceCardView>();
             if (view == null) { Object.Destroy(go); return false; }
+            var binding = new CardBinding { View = view, Type = type };
+            Cards.Add(binding);
 
             view.Set(typeName, $"Lv. {level}", $"현재 효과  {bonusText}");
 
@@ -190,6 +223,7 @@ namespace KingdomIdle.UGUI
                     var pull = btnGo.GetComponent<GachaPullButtonView>();
                     if (pull != null)
                     {
+                        binding.Buttons.Add(pull);
                         pull.Set($"강화 x{count}", $"{cost:N0} G", canAfford, null);
                         pull.Button.onClick.AddListener(() => OnEnhanceClicked(capturedType, capturedCount));
                         continue;
@@ -228,6 +262,10 @@ namespace KingdomIdle.UGUI
             var result = mgr.TryEnhanceEx(type, count);
             switch (result)
             {
+                case StatEnhanceManager.EnhanceResult.Pending:
+                case StatEnhanceManager.EnhanceResult.Busy:
+                    Refresh();
+                    break;
                 case StatEnhanceManager.EnhanceResult.Success:
                 {
                     string n = StatEnhanceManager.GetTypeName(type);
@@ -247,6 +285,14 @@ namespace KingdomIdle.UGUI
                     ShowToast("강화에 실패했습니다.");
                     break;
             }
+        }
+
+        private static void OnEnhanceCompleted(StatEnhanceManager.EnhanceType type, bool success)
+        {
+            var mgr = StatEnhanceManager.Instance;
+            ShowToast(success && mgr != null ? $"{StatEnhanceManager.GetTypeName(type)} Lv.{mgr.GetLevel(type):N0} 완료"
+                : "강화 결과를 확인하지 못했습니다. 연결 상태를 확인해 주세요.");
+            Refresh();
         }
 
         private static void ShowToast(string msg)
