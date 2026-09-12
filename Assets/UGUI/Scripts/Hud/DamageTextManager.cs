@@ -28,6 +28,10 @@ namespace KingdomIdle.UGUI
         private readonly Stack<TMP_Text> _pool = new();
         private readonly List<Entry> _active = new();
         private int _spawnCount;
+        private bool _lowSpec;
+        private float _nextPresentationTick;
+        private readonly char[] _digits = new char[32];
+        private static readonly Unity.Profiling.ProfilerMarker PresentationMarker = new("KingdomIdle.DamagePresentation");
 
         private struct Entry
         {
@@ -51,6 +55,29 @@ namespace KingdomIdle.UGUI
             WarmupPool();
         }
 
+        private void OnEnable()
+        {
+            GamePresentationSettings.Changed += ApplyPresentation;
+            ApplyPresentation();
+        }
+
+        private void OnDisable() => GamePresentationSettings.Changed -= ApplyPresentation;
+
+        private void ApplyPresentation()
+        {
+            _lowSpec = GamePresentationSettings.LowSpec;
+            _nextPresentationTick = 0;
+            if (!_lowSpec) return;
+            // Keep every number and its emphasis, with a simple low-frequency vertical rise.
+            foreach (var entry in _active)
+            {
+                float progress = Mathf.Clamp01((Time.unscaledTime - entry.StartTime) / Mathf.Max(.001f, duration));
+                entry.Label.rectTransform.anchoredPosition = entry.Start + Vector2.up * (progress * risePixels);
+                entry.Label.rectTransform.localScale = Vector3.one * entry.BaseScale;
+                entry.Label.alpha = 1f;
+            }
+        }
+
         /// <summary>설정 팝업이 settings_damageText 를 바꾼 직후 호출해 캐시를 갱신한다.</summary>
         internal void RefreshFromPrefs()
         {
@@ -62,6 +89,9 @@ namespace KingdomIdle.UGUI
             if (_active.Count == 0) return;
 
             float now = Time.unscaledTime;
+            if (_lowSpec && now < _nextPresentationTick) return;
+            _nextPresentationTick = now + 1f / 15f;
+            using var measure = PresentationMarker.Auto();
             for (int i = _active.Count - 1; i >= 0; i--)
             {
                 var e = _active[i];
@@ -70,6 +100,15 @@ namespace KingdomIdle.UGUI
                 {
                     Recycle(e.Label);
                     _active.RemoveAt(i);
+                    continue;
+                }
+
+                if (_lowSpec)
+                {
+                    // Keep successive hits separated: a 15 Hz linear rise, fixed scale and three fade steps.
+                    e.Label.rectTransform.anchoredPosition = new Vector2(e.Start.x, e.Start.y + t * risePixels);
+                    float alpha = t < .65f ? 1f : t < .80f ? .7f : .35f;
+                    if (e.Label.alpha != alpha) e.Label.alpha = alpha;
                     continue;
                 }
 
@@ -130,7 +169,7 @@ namespace KingdomIdle.UGUI
             Color col = overrideColor ?? (amount >= 10000 ? UguiTheme.AccentGoldStrong : UguiTheme.WarnRed);
 
             var lbl = GetOrCreate();
-            lbl.text = amount.ToString("N0");
+            SetAmount(lbl, amount);
             lbl.alpha = 1f;
             lbl.color = col;
 
@@ -148,6 +187,20 @@ namespace KingdomIdle.UGUI
                 DriftX = driftX,
                 BaseScale = baseScale
             });
+        }
+
+        private void SetAmount(TMP_Text label, ulong amount)
+        {
+            // Exact UInt64 digits with grouping, without allocating a string for every combat hit.
+            int index = _digits.Length, group = 0;
+            do
+            {
+                if (group == 3) { _digits[--index] = ','; group = 0; }
+                _digits[--index] = (char)('0' + amount % 10);
+                amount /= 10;
+                group++;
+            } while (amount != 0);
+            label.SetCharArray(_digits, index, _digits.Length - index);
         }
 
         private void EnsureLayer()

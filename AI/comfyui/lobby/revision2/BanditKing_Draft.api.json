@@ -1,0 +1,44 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "ea8198ad6231c717ab2c8f1aa0543e8368287f3b62293f1e9f8d2d371b557b76.png"
+    }
+  },
+  "2": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "22a1a2ba3560967332fd31f9c9ee337b237e9703d6eaf00091b6e7f97ce0d93c.png"
+    }
+  },
+  "3": {
+    "class_type": "GeminiNanoBanana2V2",
+    "inputs": {
+      "prompt": "Image 1 is the actual Bandit King costume/identity reference. Image 2 is ONLY a rendering style reference: polished cute storybook fantasy mobile game illustration, clean dark outlines, broad cel-shaded colors, chibi proportions. Draw ONLY the Bandit King as a small bust peeking above an imaginary bush: bald stocky tough man with a small crooked gold crown, burgundy cloth over mouth, burgundy cape, bare broad muscular shoulders, squinting one eye and raised other eyebrow looking LEFT with a comically suspicious grumpy expression. Short gray sideburns, one eyebrow scar. He clutches the handle of a small wooden spiked club near right shoulder. Distinctive silhouette and face unlike generic black-haired bandits. Front three-quarter view angled LEFT, entire crown and both shoulders visible, crop just below chest. NO actual bush or floor. Solid uniform bright magenta #FF00FF background; no magenta in character. Generous margins. Match second image illustration style, NOT pixel art, no text, no checkerboard, no other people.",
+      "model": "Nano Banana 2 (Gemini 3.1 Flash Image)",
+      "model.aspect_ratio": "1:1",
+      "model.resolution": "1K",
+      "model.thinking_level": "MINIMAL",
+      "model.images.image_1": [
+        "1",
+        0
+      ],
+      "model.images.image_2": [
+        "2",
+        0
+      ],
+      "seed": 912026,
+      "response_modalities": "IMAGE"
+    }
+  },
+  "4": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "3",
+        0
+      ],
+      "filename_prefix": "LobbyR2/BanditKing_Draft"
+    }
+  }
+}

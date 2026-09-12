@@ -1,0 +1,36 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "56bdb3bf0dc448bf4c52522207b1d11e0e32fa28fe7fee36e30c485cf97a1bcf.png"
+    }
+  },
+  "2": {
+    "class_type": "FluxProExpandNode",
+    "inputs": {
+      "image": [
+        "1",
+        0
+      ],
+      "prompt": "Seamlessly extend this original cute cel-shaded storybook forest landscape. Preserve the central existing image exactly. Extend blue green trees and forest on the sides with increasingly quiet darker petrol foliage towards far outer edges. Extend simple pale warm ivory dawn sky at the top with very subtle apricot clouds, plenty of empty space. Extend deep blue-green foreground shrubs and dark earth path shadow at the bottom, subdued and quiet for interface text. Match the crisp painted anime background art, colors, lighting and contours exactly. Only landscape and foliage, empty path, no people or creatures, no letters or decorative symbols, no new castle or buildings. Continuous coherent environment without panel edges. The bottom-right corner consists solely of uninterrupted dark foliage. All corners are plain forest. Absolutely no writing, signatures, watermarks, credits or letters anywhere.",
+      "prompt_upsampling": false,
+      "top": 256,
+      "bottom": 256,
+      "left": 512,
+      "right": 512,
+      "guidance": 45,
+      "steps": 50,
+      "seed": 91209
+    }
+  },
+  "3": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "2",
+        0
+      ],
+      "filename_prefix": "Lobby/Background_Expanded_Production"
+    }
+  }
+}

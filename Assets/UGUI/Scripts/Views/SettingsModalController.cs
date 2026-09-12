@@ -110,6 +110,7 @@ namespace KingdomIdle.UGUI
                 _view.lblVersion.text = $"Version {ver}";
             }
             BindToggle(_view.tglPowerSave);
+            BindToggle(_view.tglLowSpec);
             BindToggle(_view.tglHideItem);
             BindToggle(_view.tglDamageText);
             BindToggle(_view.tglScreenShake);
@@ -160,6 +161,7 @@ namespace KingdomIdle.UGUI
             ApplyVolumeToSystem();
 
             if (_view.tglPowerSave != null) _view.tglPowerSave.SetIsOnWithoutNotify(powerSave);
+            if (_view.tglLowSpec != null) _view.tglLowSpec.SetIsOnWithoutNotify(GamePresentationSettings.LowSpec);
             if (_view.tglHideItem != null) _view.tglHideItem.SetIsOnWithoutNotify(hideItem);
             if (_view.tglDamageText != null) _view.tglDamageText.SetIsOnWithoutNotify(damageText);
             if (_view.tglScreenShake != null) _view.tglScreenShake.SetIsOnWithoutNotify(screenShake);
@@ -184,6 +186,11 @@ namespace KingdomIdle.UGUI
             if (_view.sldVolume != null) PlayerPrefs.SetFloat(UIManager.PrefKeyVolume, _view.sldVolume.value);
             PlayerPrefs.SetInt(UIManager.PrefKeyMute, _isMuted ? 1 : 0);
             if (_view.tglPowerSave != null) PlayerPrefs.SetInt(UIManager.PrefKeyPowerSave, _view.tglPowerSave.isOn ? 1 : 0);
+            if (_view.tglLowSpec != null)
+            {
+                PlayerPrefs.SetInt(GamePresentationSettings.LowSpecKey, _view.tglLowSpec.isOn ? 1 : 0);
+                PlayerPrefs.SetInt("title_ambientMotion", _view.tglLowSpec.isOn ? 0 : 1);
+            }
             if (_view.tglHideItem != null) PlayerPrefs.SetInt(UIManager.PrefKeyHideItem, _view.tglHideItem.isOn ? 1 : 0);
             if (_view.tglDamageText != null)
             {

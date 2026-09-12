@@ -1,0 +1,72 @@
+{
+  "date": "2026-09-12",
+  "project": "Kingdom Idle / 왕국군 키우기",
+  "asset_kind": "illustrated title-screen key art",
+  "reference_roles": {
+    "Character_Reference.png": "Costume and palette identities, cropped from the actual game sprite sheets.",
+    "user_screenshot": "Composition discussion only; never sent to an image generator."
+  },
+  "character_sources": [
+    "Assets/_Project/Scripts/Player/Job/Knight/Royal Knight - Alternate 2 Sprite Sheet.png",
+    "Assets/_Project/Scripts/Player/Job/Archer/Royal Archer Sprite Sheet.png",
+    "Assets/_Project/Scripts/Player/Job/Mage/Royal Mage Sprite Sheet.png",
+    "Assets/_Project/Art/Sprites/Bandit/ShieldBandit/Bandit Sprite Sheet.png"
+  ],
+  "built_in_imagegen": {
+    "calls": 5,
+    "model": null,
+    "seed": null,
+    "dollar_cost": null,
+    "note": "The built-in tool does not expose model, seed or itemized dollar billing. No CLI OpenAI API calls were made.",
+    "prompt_record_format": "Normalized records of the generation directions, not verbatim tool payloads. The Comfy API graphs are preserved exactly in workflows/.",
+    "prompts": [
+      {
+        "output": "source/Lobby_Master.png",
+        "input": "source/Character_Reference.png",
+        "intent": "Original portrait illustration; costume reference only.",
+        "prompt": "Original premium mobile idle RPG title-screen key art. Follow three adorable 2.5-head-tall royal-blue soldiers from behind at a low three-quarter angle as they charge up an asymmetric golden woodland path toward a sunlit ivory kingdom with blue roofs. Knight: square steel bucket helmet, ivory feather, blue tabard and cape, straight pale steel sword pointing up the path, angular shield. Archer: brown ponytail, blue-silver winged cap, navy scarf, leather quiver with three arrows and wooden bow. Mage: bent royal-blue pointed hat with ivory band, blue robe, brown belt and simple wooden staff with restrained cyan light. Black-haired brown-leather bandits with plum scarves peek from the left tree and right shrubs. Distinct recognizable costume silhouettes. Top sky reserved for a separately overlaid title; lower foreground quiet for controls. Clean dark contours, restrained cel shading, matte character surfaces, blue-green and petrol forest, apricot dawn, amber grasses, old waystones. Cute determined profiles, adventurous charm, restrained detail. No text, logos, watermarks, giant monsters, flying enemies or interface. Never imitate another game's title art."
+      },
+      {
+        "output": "source/Logo_KO.png",
+        "intent": "Korean logo followed by alpha-only cleanup.",
+        "prompt": "Original compact custom Korean logo on transparent background. Exact upper word 왕국군; lower word 키우기. Very legible stout squared fortress-block Hangul, luminous warm ivory/champagne letter faces, golden-bronze sides, dark petrol outline. Lower word on a royal-blue enamel pennant. Small integrated three-blue-tower castle/crown emblem with a tilted ivory feather referencing the knight. Bronze rivets, simple broad forms, typography dominant. No crossed swords, round shield backdrop, red lettering, extra text, photorealistic metal or imitation of an existing logo. Cleanup: preserve the exact letters, colors, silhouette and artwork; remove external smoky haze so alpha immediately outside the outline is transparent."
+      },
+      {
+        "output": "source/Logo_EN.png",
+        "input": "Korean logo",
+        "prompt": "Localize the original Korean logo into a matched English companion. Upper word KINGDOM, lower word IDLE. Preserve the three blue-roof castle crown, tilted ivory feather, blue enamel banner, warm ivory-gold carved block faces, bronze edges and dark petrol outline. Tightly fitted custom block-serif lettering, very legible at mobile size, all letterforms inside the canvas. Clean true alpha outside the logo silhouette, no external haze or extra text."
+      },
+      {
+        "output": "source/Background_Clean.png",
+        "input": "source/Background_Expanded_Production.png",
+        "prompt": "Precise cleanup of our generated game background. Remove faint white scribbled writing at top center of the sky and the white scribbled mark at the extreme bottom right. Fill with continuous clean blue sky and dark petrol foliage. These are accidental generation artifacts. Keep the rest identical: exact composition and coordinates, castle, path, trees, stones, palette and drawing. No new objects, crop, camera shift or scaling. Same square landscape, fully text-free."
+      }
+    ]
+  },
+  "comfy_cloud": {
+    "workflows": [
+      {"file":"workflows/Separation_Draft.api.json","job_id":"f406ceff-9e5a-420c-a292-101104d7363f","node":"ByteDanceSeedreamLayerSeparationNode","model":"seedream-5-0-pro-260628","seed":912,"size":"1K","actual_output":[832,1248],"credits_displayed":54.31},
+      {"file":"workflows/Separation_Production.api.json","job_id":"633dde3e-8dba-41ae-a034-eed9f30c0868","node":"ByteDanceSeedreamLayerSeparationNode","model":"seedream-5-0-pro-260628","seed":912,"size":"2K","actual_output":[1664,2496],"credits_displayed":67.89},
+      {"file":"workflows/Expand_Draft.api.json","job_id":"9991d646-987f-4b99-a435-b55d496fbe3a","node":"FluxProExpandNode","model":"flux-pro-1.0-expand","seed":91209,"steps":15,"actual_output":[1264,1264],"credits_displayed":10.55},
+      {"file":"workflows/Expand_Production.api.json","job_id":"92dbdf93-e292-4d51-be06-8535eba201ba","node":"FluxProExpandNode","model":"flux-pro-1.0-expand","seed":91209,"steps":50,"actual_output":[1264,1264],"credits_displayed":10.55}
+    ],
+    "credits_displayed_total": 143.30,
+    "billing_source": "get_billing_activity; five usage events belonging to these four job IDs",
+    "billing_note": "Credit display estimates are not per-job invoiced USD charges. get_usage_report is checked separately for invoice-backed totals."
+  },
+  "delivery": {
+    "folder": "Assets/UGUI/Art/Lobby",
+    "processing": "build_assets.py: alpha crops, coordinate-preserving central plate compositing, Lanczos resize, lossless PNG optimization; code-authored 4x128 footer fade",
+    "canvas": [2048,2048],
+    "original_plate_offset": [512,256],
+    "background_texture": [1536,1536],
+    "logo_max_width": 1024,
+    "atlas": "Atlas_UI",
+    "filter": "Bilinear",
+    "mobile_format": "ASTC_6x6",
+    "mipmaps": false,
+    "readable": false,
+    "max_texture_size": 2048,
+    "animation": "Unity transforms and color pulses only; no generated animation frames ship in the game."
+  }
+}

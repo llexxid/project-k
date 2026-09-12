@@ -31,6 +31,11 @@ namespace KingdomIdle.UGUI
             if (selectable == null) selectable = GetComponent<Selectable>();
         }
 
+        private void OnDisable()
+        {
+            if (target != null) target.localScale = Vector3.one;
+        }
+
         private bool Interactable => selectable == null || selectable.IsInteractable();
 
         public void OnPointerDown(PointerEventData eventData)

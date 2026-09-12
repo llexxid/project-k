@@ -1,0 +1,22 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "Workflow submitted. prompt_id: 9991d646-987f-4b99-a435-b55d496fbe3a\nNote - This workflow includes paid partner-API node(s): Node #2: FluxProExpandNode — running it will incur partner-API charges on the user's account.\nJob queued — poll wait_for_job (or get_job_status) with this prompt_id, then get_output. Conversion/slot warnings above are non-fatal; the job will run as submitted. Do not cancel or resubmit to address a warning."
+    }
+  ],
+  "structuredContent": {
+    "result": {
+      "prompt_id": "9991d646-987f-4b99-a435-b55d496fbe3a",
+      "lifted_from_save": false,
+      "lifecycle": "\nJob queued — poll wait_for_job (or get_job_status) with this prompt_id, then get_output. Conversion/slot warnings above are non-fatal; the job will run as submitted. Do not cancel or resubmit to address a warning.",
+      "status": "succeeded_with_warnings",
+      "warnings": [
+        {
+          "code": "paid_api_nodes",
+          "detail": "This workflow includes paid partner-API node(s): Node #2: FluxProExpandNode — running it will incur partner-API charges on the user's account."
+        }
+      ]
+    }
+  }
+}

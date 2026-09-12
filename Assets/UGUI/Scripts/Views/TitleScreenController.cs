@@ -1,4 +1,3 @@
-using System.Collections;
 using UnityEngine;
 using Scripts.Core;
 using Scripts.Core.Manager;
@@ -13,7 +12,6 @@ namespace KingdomIdle.UGUI
     {
         private TitleScreenView _view;
         private UIManager _host;
-        private Coroutine _pressHintBlink;
         private bool _requestedScene;
 
         public void Bind(TitleScreenView view, UIManager host)
@@ -21,15 +19,23 @@ namespace KingdomIdle.UGUI
             _view = view;
             _host = host;
             _requestedScene = false;
+            if (SFXManager.Instance != null) SFXManager.Instance.PlayBGM(eSFXType.TITLE);
 
             if (_view.btnLogin != null && _view.popupLogin != null)
                 _view.btnLogin.onClick.AddListener(ShowLoginPopup);
 
             if (_view.btnLoginGuest != null)
             {
-                // The legacy guest action logs into a shared development account.
-                // Keep it out of the player login flow until individual guest auth is available.
-                _view.btnLoginGuest.gameObject.SetActive(false);
+                // Development guest entry uses the existing shared test account.
+                _view.btnLoginGuest.gameObject.SetActive(true);
+                _view.btnLoginGuest.onClick.AddListener(() =>
+                {
+                    if (NetworkManager.Instance != null)
+                        NetworkManager.Instance.AuthenticateTest();
+                    else
+                        _host.ShowToast(Localize("네트워크가 초기화되지 않았습니다.", "The network is not ready yet."));
+                    HideLoginPopup();
+                });
             }
 
             if (_view.btnLoginGoogle != null)
@@ -39,13 +45,13 @@ namespace KingdomIdle.UGUI
                     if (NetworkManager.Instance != null)
                         NetworkManager.Instance.Authenticate(Scripts.Server.Auth.eAuthType.GoogleWebLogin);
                     else
-                        _host.ShowToast("네트워크가 초기화되지 않았습니다.");
+                        _host.ShowToast(Localize("네트워크가 초기화되지 않았습니다.", "The network is not ready yet."));
                     HideLoginPopup();
                 });
             }
 
             if (_view.btnLoginApple != null)
-                _view.btnLoginApple.onClick.AddListener(() => _host.ShowToast("Apple 로그인은 준비 중입니다."));
+                _view.btnLoginApple.onClick.AddListener(() => _host.ShowToast(Localize("Apple 로그인은 준비 중입니다.", "Apple sign-in is coming soon.")));
 
             // 팝업 바깥(딤) 탭 → 닫기. 팝업 박스는 별도 Image가 레이캐스트를 막는다.
             if (_view.popupLoginDim != null)
@@ -71,26 +77,18 @@ namespace KingdomIdle.UGUI
                 });
             }
 
-            if (_view.pressHint != null)
-                _pressHintBlink = _host.RunCoroutine(BlinkPressHint());
-
             HideLoginPopup();
         }
 
         public void Dispose()
         {
-            if (_pressHintBlink != null && _host != null)
-            {
-                _host.StopRunningCoroutine(_pressHintBlink);
-                _pressHintBlink = null;
-            }
-
             _view = null;
             _host = null;
         }
 
         public bool HandleBack()
         {
+            if (_view != null && _view.presentation != null && _view.presentation.CloseLanguagePopup()) return true;
             if (_view != null && _view.popupLogin != null && _view.popupLogin.activeSelf)
             {
                 HideLoginPopup();
@@ -102,8 +100,10 @@ namespace KingdomIdle.UGUI
         private void ShowLoginPopup()
         {
             if (_view == null || _view.popupLogin == null) return;
+            if (_view.presentation != null) _view.presentation.CloseLanguagePopup();
             _view.popupLogin.SetActive(true);
             _view.popupLogin.transform.SetAsLastSibling();
+            if (_view.popupLoginBox != null) UITween.PopIn(_view.popupLoginBox, .2f, .96f);
         }
 
         private void HideLoginPopup()
@@ -130,16 +130,7 @@ namespace KingdomIdle.UGUI
             return !string.IsNullOrEmpty(sid);
         }
 
-        private IEnumerator BlinkPressHint()
-        {
-            while (_view != null && _view.pressHint != null)
-            {
-                float t = Time.unscaledTime * 2.2f;
-                float a = 0.35f + 0.65f * Mathf.Abs(Mathf.Sin(t));
-                var c = _view.pressHint.color;
-                _view.pressHint.color = new Color(c.r, c.g, c.b, a);
-                yield return null;
-            }
-        }
+        private string Localize(string korean, string english) =>
+            _view != null && _view.presentation != null ? _view.presentation.Localize(korean, english) : korean;
     }
 }

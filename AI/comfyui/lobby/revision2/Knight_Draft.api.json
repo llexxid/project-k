@@ -1,0 +1,32 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "22a1a2ba3560967332fd31f9c9ee337b237e9703d6eaf00091b6e7f97ce0d93c.png"
+    }
+  },
+  "2": {
+    "class_type": "ByteDanceSeedreamLayerSeparationNode",
+    "inputs": {
+      "image": [
+        "1",
+        0
+      ],
+      "prompt": "Separate into exactly two foreground layers on true transparent alpha: (1) complete knight body, helmet, cape, both legs and left arm, WITHOUT right forearm or greatsword; reconstruct a short intact upper arm behind removed forearm. (2) right silver forearm and gripping gauntlet together with entire greatsword and its long hilt, one connected rigid piece. Preserve exact artwork and positions. Treat gray-white checkerboard as background to remove completely; it must NOT remain in transparent layers. No ground shadow.",
+      "size": "1K",
+      "seed": 912021,
+      "watermark": false,
+      "crop_layers": false
+    }
+  },
+  "3": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "2",
+        0
+      ],
+      "filename_prefix": "LobbyR2/Knight_Draft_Layer"
+    }
+  }
+}

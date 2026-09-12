@@ -149,10 +149,18 @@ namespace KingdomIdle.EditorTools.Optimization
             log.AppendLine($"  [Atlas_UI] Layer Lab shipped sprites referenced by UI: {ll.Count}");
 
             // first-party smooth UI shapes (Bilinear)
-            foreach (var p in new[] { "Assets/UGUI/Sprites/Circle.png", "Assets/UGUI/Sprites/RoundedRect.png" })
+            foreach (var p in new[] { "Assets/UGUI/Sprites/Circle.png", "Assets/UGUI/Sprites/RoundedRect.png", "Assets/UGUI/Sprites/CircleSoft.png" })
             {
                 var o = AssetDatabase.LoadMainAssetAtPath(p);
                 if (o != null) { list.Add(o); log.AppendLine($"  [Atlas_UI] +{p}"); }
+            }
+            // Illustrated title art is smooth key art, not a gameplay pixel sprite.
+            const string lobbyArt = "Assets/UGUI/Art/Lobby";
+            // Pack referenced title art only; removed decoration must not occupy the shipped atlas.
+            foreach (var path in deps.Where(path => path.StartsWith(lobbyArt + "/") && path.EndsWith(".png")).Distinct())
+            {
+                var asset = AssetDatabase.LoadMainAssetAtPath(path);
+                if (asset != null) { list.Add(asset); log.AppendLine("  [Atlas_UI] +" + path); }
             }
             return list;
         }
@@ -202,6 +210,13 @@ namespace KingdomIdle.EditorTools.Optimization
                 textureCompression = TextureImporterCompression.Compressed,
                 compressionQuality = 100,
             });
+            if (path.EndsWith("/Atlas_UI.spriteatlasv2"))
+                imp.SetPlatformSettings(new TextureImporterPlatformSettings
+                {
+                    name = "iPhone", overridden = true, maxTextureSize = 2048,
+                    format = androidFmt, textureCompression = TextureImporterCompression.Compressed,
+                    compressionQuality = 100,
+                });
             imp.SaveAndReimport();
             log.AppendLine($"[BUILT] {Path.GetFileName(path)} includeInBuild={includeInBuild} filter={filter} fmt={androidFmt} pad={padding} tight={tight} packables={packables.Count}");
         }

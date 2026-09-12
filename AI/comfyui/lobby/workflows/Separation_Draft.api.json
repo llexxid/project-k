@@ -1,0 +1,56 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "9d9c0c64483f0f773357df8f7ff2488efc17abfe7a815ecebf88d595521e0b8a.png"
+    }
+  },
+  "2": {
+    "class_type": "ByteDanceSeedreamLayerSeparationNode",
+    "inputs": {
+      "image": [
+        "1",
+        0
+      ],
+      "prompt": "Separate this game key art into independent animation layers, retaining EXACT artwork and original coordinates: 1 background landscape plate with all five characters removed and their hidden backgrounds completed; 2 foreground blue bucket-helmet KNIGHT body with feather, shield and cape; 3 the knight right forearm hand and sword as one separate articulated layer with pivot at elbow; 4 the brown-ponytailed ARCHER with bow and quiver; 5 the blue-hat MAGE with staff; 6 the LEFT black-haired bandit and wooden shield peeking out of tree; 7 the RIGHT small bandit face peeking out of shrub. Preserve existing environment unmodified including castle, foliage and path. Character layers have transparent backgrounds, no scenery and no duplicate characters. Keep exact position, scale, contours, costume details and colors of each subject.",
+      "size": "1K",
+      "seed": 912,
+      "prompt_optimization": "standard",
+      "watermark": false,
+      "crop_layers": false
+    }
+  },
+  "3": {
+    "class_type": "JoinImageWithAlpha",
+    "inputs": {
+      "image": [
+        "2",
+        2
+      ],
+      "alpha": [
+        "2",
+        3
+      ]
+    }
+  },
+  "4": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "2",
+        0
+      ],
+      "filename_prefix": "Lobby/Separation_Draft_Background"
+    }
+  },
+  "5": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "3",
+        0
+      ],
+      "filename_prefix": "Lobby/Separation_Draft_Layer"
+    }
+  }
+}

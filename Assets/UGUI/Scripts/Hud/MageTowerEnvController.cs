@@ -64,16 +64,31 @@ namespace KingdomIdle.UGUI
             }
             Instance = this;
             _autoOn = PlayerPrefs.GetInt(PrefKeyAuto, 1) == 1;
+            GamePresentationSettings.Changed += RefreshPresentation;
         }
 
         private void OnDestroy()
         {
+            GamePresentationSettings.Changed -= RefreshPresentation;
             if (_subscribedCast && _castMgr != null)
             {
                 _castMgr.OnCastingChanged -= OnSkillCastingChanged;
                 _subscribedCast = false;
             }
             if (Instance == this) Instance = null;
+        }
+
+        private void RefreshPresentation()
+        {
+            if (_view == null) return;
+            StopLitIdle();
+            StopCrystalBob();
+            if (_view.litGroup != null) _view.litGroup.alpha = .24f;
+            if (_view.gameObject.activeInHierarchy)
+            {
+                StartLitIdle();
+                ApplyCrystalAutoVisual(animate: false);
+            }
         }
 
         private void Update()
@@ -198,6 +213,8 @@ namespace KingdomIdle.UGUI
         {
             if (_view == null || _view.litGroup == null) return;
             if (_litIdleCo != null) StopCoroutine(_litIdleCo);
+            _litIdleCo = null;
+            if (GamePresentationSettings.LowSpec) { _view.litGroup.alpha = .24f; return; }
             _litIdleCo = StartCoroutine(LitIdle());
         }
 
@@ -232,6 +249,8 @@ namespace KingdomIdle.UGUI
         {
             if (_view == null || _view.crystalRoot == null) return;
             if (_crystalBobCo != null) StopCoroutine(_crystalBobCo);
+            _crystalBobCo = null;
+            if (GamePresentationSettings.LowSpec) { _view.crystalRoot.anchoredPosition = _crystalBasePos; return; }
             _crystalBobCo = StartCoroutine(CrystalBob());
         }
 

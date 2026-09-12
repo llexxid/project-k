@@ -22,6 +22,34 @@ namespace KingdomIdle.UGUI
         private Coroutine _flashCo;
         private Color _flashBaseColor;      // FlashRing 원래 색 (연출 도중 재호출/중단돼도 복원 기준)
         private bool _flashBaseCaptured;
+        private bool _breathRequested, _rotateRequested;
+        private float _breathAmplitude, _breathPeriod, _rotationSpeed;
+
+        private void OnEnable()
+        {
+            GamePresentationSettings.Changed += RefreshAmbient;
+            RefreshAmbient();
+        }
+
+        private void OnDisable()
+        {
+            GamePresentationSettings.Changed -= RefreshAmbient;
+            StopAllCoroutines();
+            _scaleCo = _fadeCo = _moveCo = _breathCo = _rotateCo = _flashCo = null;
+        }
+
+        private void RefreshAmbient()
+        {
+            var rt = transform as RectTransform;
+            if (rt == null) return;
+            if (_breathCo != null) { StopCoroutine(_breathCo); _breathCo = null; }
+            if (_rotateCo != null) { StopCoroutine(_rotateCo); _rotateCo = null; }
+            if (_breathRequested) rt.localScale = Vector3.one;
+            if (_rotateRequested) rt.localRotation = Quaternion.identity;
+            if (GamePresentationSettings.LowSpec || !isActiveAndEnabled) return;
+            if (_breathRequested) _breathCo = StartCoroutine(BreathRoutine(rt, _breathAmplitude, _breathPeriod));
+            if (_rotateRequested) _rotateCo = StartCoroutine(RotateRoutine(rt, _rotationSpeed));
+        }
 
         private static UITween Get(Component c)
         {
@@ -101,8 +129,10 @@ namespace KingdomIdle.UGUI
         {
             if (rt == null || !rt.gameObject.activeInHierarchy) return;
             var t = Get(rt);
-            if (t._breathCo != null) t.StopCoroutine(t._breathCo);
-            t._breathCo = t.StartCoroutine(t.BreathRoutine(rt, amplitude, Mathf.Max(0.1f, period)));
+            t._breathRequested = true;
+            t._breathAmplitude = amplitude;
+            t._breathPeriod = Mathf.Max(.1f, period);
+            t.RefreshAmbient();
         }
 
         /// <summary>호흡 스케일 중단 + 스케일 원복. 대상이 비활성/파괴 상태여도 안전.</summary>
@@ -110,6 +140,7 @@ namespace KingdomIdle.UGUI
         {
             if (rt == null) return;
             var t = rt.GetComponent<UITween>();
+            if (t != null) t._breathRequested = false;
             if (t != null && t._breathCo != null) { t.StopCoroutine(t._breathCo); t._breathCo = null; }
             rt.localScale = Vector3.one;
         }
@@ -120,8 +151,9 @@ namespace KingdomIdle.UGUI
         {
             if (rt == null || !rt.gameObject.activeInHierarchy) return;
             var t = Get(rt);
-            if (t._rotateCo != null) t.StopCoroutine(t._rotateCo);
-            t._rotateCo = t.StartCoroutine(t.RotateRoutine(rt, degPerSec));
+            t._rotateRequested = true;
+            t._rotationSpeed = degPerSec;
+            t.RefreshAmbient();
         }
 
         /// <summary>회전 루프 중단 + 회전 원복.</summary>
@@ -129,6 +161,7 @@ namespace KingdomIdle.UGUI
         {
             if (rt == null) return;
             var t = rt.GetComponent<UITween>();
+            if (t != null) t._rotateRequested = false;
             if (t != null && t._rotateCo != null) { t.StopCoroutine(t._rotateCo); t._rotateCo = null; }
             rt.localRotation = Quaternion.identity;
         }

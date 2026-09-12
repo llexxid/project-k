@@ -123,6 +123,7 @@ namespace KingdomIdle.UGUI.Editor
             F.Flexible(colR.gameObject.AddComponent<LayoutElement>(), flexWidth: 1f);
 
             view.tglPowerSave = MakeToggleRow(colL, "절전 모드");
+            view.tglLowSpec = MakeToggleRow(colL, "저사양 모드");
             view.tglDamageText = MakeToggleRow(colL, "데미지 문구 출력");
             view.tglPush = MakeToggleRow(colL, "푸시 동의");
 

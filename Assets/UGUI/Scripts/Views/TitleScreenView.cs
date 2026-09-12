@@ -10,6 +10,7 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal Button bgClickCatcher;
         [SerializeField] internal Button btnLogin;
         [SerializeField] internal TMP_Text pressHint;
+        [SerializeField] internal TitleLobbyPresentation presentation;
 
         [Header("Login popup")]
         [SerializeField] internal GameObject popupLogin;

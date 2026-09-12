@@ -445,6 +445,15 @@ MonoBehaviour:
   _sfxPrefab: {fileID: 8752049568125769380, guid: 198e473de19468648a425ea9d8462a13,
     type: 3}
   _bgmSource: {fileID: 0}
+  _lobbyMusic:
+  - {fileID: 8300000, guid: 9815f4964d03b2142b8dd046d22a573d, type: 3}
+  - {fileID: 8300000, guid: 656aae73bf339f64191b3e8f3ed4395d, type: 3}
+  _combatMusic:
+  - {fileID: 8300000, guid: 1dbe0af5d12e30a4eafb74ec55f30322, type: 3}
+  - {fileID: 8300000, guid: 5dcd2ddf8546f004a9c8bbc68a2154d7, type: 3}
+  - {fileID: 8300000, guid: 1c4018a019007814082184488718edaa, type: 3}
+  - {fileID: 8300000, guid: d6c0a856b939db14ea95aac2cc7b0503, type: 3}
+  _musicVolume: 0.65
 --- !u!1 &1238927880
 GameObject:
   m_ObjectHideFlags: 0
@@ -670,7 +679,6 @@ GameObject:
   - component: {fileID: 2134808523}
   - component: {fileID: 2134808524}
   - component: {fileID: 2134808534}
-  - component: {fileID: 2134808530}
   - component: {fileID: 2134808528}
   - component: {fileID: 2134808529}
   - component: {fileID: 2134808531}
@@ -742,18 +750,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   skillRegistry: {fileID: 11400000, guid: 58fd89c7110460d408086c4e3f3de327, type: 2}
---- !u!114 &2134808530
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2134808522}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ec76570c5a2d4764782260097d8ba493, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &2134808531
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -901,6 +897,7 @@ MonoBehaviour:
   definitionBehaviour: {fileID: 2144411087}
   progressSnapshotBehaviour: {fileID: 2144411088}
   firstGuideQuestId: 1
+  rewardGranterBehaviour: {fileID: 0}
 --- !u!4 &2144411090
 Transform:
   m_ObjectHideFlags: 0

@@ -29,6 +29,9 @@ Rulebook for AI agents on this project. Complements `CLAUDE.md`. Follow exactly.
 ## Recurring product rules (standing requirements)
 > Meta-rule: whenever the user states a requirement that should apply to future work too
 > (not just the current task), record it in this section immediately.
+- **Every lobby/UI/art rework includes size, memory and rendering optimization, plus in-game
+  checks at multiple screen sizes/aspect ratios and safe areas.** Intended composition, readable
+  text and usable controls must survive narrow phones, tall phones and tablets.
 - **Commercial-quality idle-game UX:** prioritize legible information, comfortable mobile touch targets,
   consistent navigation, responsive layouts, and low-cost updates. Reuse ExternalAssets first;
   new art is justified by a concrete gap and must be validated in the running game.
@@ -93,6 +96,8 @@ Rulebook for AI agents on this project. Complements `CLAUDE.md`. Follow exactly.
   regions (a chain loop, a halo ring). Follow it with a strict global chroma test (kills pure
   green, spares desaturated costume greens), then peel 1–2 px of loose-green pixels that touch
   the background to de-fringe thin anti-aliased lines.
+
+- **Low-spec mode preserves gameplay and controls.** Reduce decorative animation, damage-number presentation costs and other rendering work without removing useful information, changing simulation, touch responsiveness or available features. Share the setting between the title screen and in-game settings, and validate savings on a connected device.
 
 ## Communication
 - Simple, formal, low-token. Keep vital details; omit filler.

@@ -1,0 +1,6 @@
+# 세로 화면의 오른쪽 여백 보정
+
+내장 ImageGen 5번째 편집: `source/Siege_Idle.png` → `source/Siege_Idle_Fit.png`.
+2400px 높이의 실제 Unity 캡처에서 확인한 잘림을 보정한다.
+
+Precise composition edit of this exact wide painted lobby background region. Preserve the complete existing painting, exact framing, warm sky and sunset, castle and fire, left mage tower and small softly glowing BLUE crystal, large left dragon and all anatomy, and the SAME brushwork. No laser, no projectiles, no tower attack. Make one precise layout correction for tall phone screen cropping: move ONLY the SMALL RIGHT DRAGON and its small dark magical CLOUD TOGETHER approximately 10 percent of this image's total width TO THE LEFT (about 190 pixels in this 1898-pixel wide input). Keep their original sizes, their exact heights, their distance from each other, shapes and appearance. The cloud should end well before the right image border. Repaint the vacated area at right as the same continuous warm sky with existing distant mountain behind. Keep the cloud's faint blue edge light subdued and soft, dark indigo body, with no lightning painted in. It must remain in the right half of the image. The castle, large left dragon, tower and crystal MUST NOT MOVE or be resized. Keep this exact wide aspect ratio; no crop or zoom. Do not add any objects.

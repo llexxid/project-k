@@ -273,8 +273,9 @@ namespace KingdomIdle.UGUI.Editor
             var list=grid.GetComponent<VerticalLayoutGroup>()??grid.gameObject.AddComponent<VerticalLayoutGroup>();
             var gridLayout=Layout(grid); gridLayout.minHeight=-1; gridLayout.preferredHeight=-1; gridLayout.flexibleHeight=0;
             list.spacing=14;list.childControlWidth=true;list.childControlHeight=true;list.childForceExpandWidth=true;list.childForceExpandHeight=false;
-            foreach(var toggle in new[]{view.tglPowerSave,view.tglDamageText,view.tglScreenShake})
+            foreach(var toggle in new[]{view.tglLowSpec,view.tglPowerSave,view.tglDamageText,view.tglScreenShake})
             {
+                if (toggle == null) continue;
                 var row=toggle.transform.parent; row.SetParent(grid,false); Height(row,136);
                 var rowImage=row.GetComponent<Image>(); if(rowImage!=null)rowImage.color=UguiTheme.RusticSurfaceDark;
                 var target=row.GetComponent<ToggleRowTarget>()??row.gameObject.AddComponent<ToggleRowTarget>();target.toggle=toggle;

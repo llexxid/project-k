@@ -1,4 +1,4 @@
-﻿using Scripts.Core.DataStructure;
+using Scripts.Core.DataStructure;
 using Scripts.Core.Utils;
 using System;
 using System.Collections;
@@ -23,6 +23,18 @@ namespace Scripts.Core
 		SFXEntity _sfxPrefab;
 		[SerializeField]
 		AudioSource _bgmSource;
+		[SerializeField] AudioClip[] _lobbyMusic;
+		[SerializeField] AudioClip[] _combatMusic;
+		[SerializeField, Range(0f, 1f)] float _musicVolume = .65f;
+		AudioSource _crossfadeSource;
+		AudioSource _activeMusic;
+		Coroutine _playlistRoutine;
+		eSFXType _musicId;
+		int _musicRequest;
+		bool _applicationPaused;
+		readonly WaitForSecondsRealtime _musicTick = new(.1f);
+		public string CurrentMusic => _activeMusic != null && _activeMusic.clip != null ? _activeMusic.clip.name : "";
+		public AudioSource CurrentMusicSource => _activeMusic;
 
 		//SFX DataStore
 		private Dictionary<eSFXType, AudioClip> _AudioCache;
@@ -52,6 +64,11 @@ namespace Scripts.Core
 
 			if (_bgmSource == null)
 				_bgmSource = gameObject.AddComponent<AudioSource>();
+			_bgmSource.playOnAwake = false;
+			_crossfadeSource = gameObject.AddComponent<AudioSource>();
+			_crossfadeSource.playOnAwake = false;
+			_crossfadeSource.spatialBlend = 0f;
+			_activeMusic = _bgmSource;
 
 			_AudioCache = new Dictionary<eSFXType, AudioClip>();
 			_BatchHandles = new Dictionary<ulong, AsyncOperationHandle<IList<AudioClip>>>();
@@ -68,6 +85,9 @@ namespace Scripts.Core
 				CustomLogger.LogWarning("Clips Id List is Empty");
 				return default;
 			}
+			// Configured streaming playlists replace the legacy music Addressables.
+			clipsId = Array.FindAll(clipsId, id => !HasConfiguredMusic(id));
+			if (clipsId.Length == 0) return default;
 			//Clip들 로딩
 			AsyncOperationHandle<IList<AudioClip>> ret;
 			bool IsRequested = _BatchHandles.TryGetValue((ulong)groupId, out ret);
@@ -199,8 +219,26 @@ namespace Scripts.Core
 			_BatchHandles.Clear();
 		}
 
+		bool HasConfiguredMusic(eSFXType id) =>
+			(id == eSFXType.TITLE && _lobbyMusic != null && _lobbyMusic.Length > 0) ||
+			((id == eSFXType.BGM || id == eSFXType.MainBGM) && _combatMusic != null && _combatMusic.Length > 0);
+
 		public void PlayBGM(eSFXType id)
 		{
+			var playlist = id == eSFXType.TITLE ? _lobbyMusic :
+				(id == eSFXType.BGM || id == eSFXType.MainBGM ? _combatMusic : null);
+			if (playlist != null && playlist.Length > 0)
+			{
+				if (_playlistRoutine != null && _musicId == id) return;
+				_musicRequest++;
+				_musicId = id;
+				if (_playlistRoutine != null) StopCoroutine(_playlistRoutine);
+				_playlistRoutine = StartCoroutine(PlayPlaylist(playlist));
+				return;
+			}
+			_musicRequest++;
+			if (_playlistRoutine != null) { StopCoroutine(_playlistRoutine); _playlistRoutine = null; }
+			_crossfadeSource.Stop();
 			AudioClip clip;
 			bool isLoaded = _AudioCache.TryGetValue(id, out clip);
 			if (isLoaded)
@@ -208,22 +246,69 @@ namespace Scripts.Core
 				SetAndPlayBGM(clip);
 				return;
 			}
-			LoadBGMAsync(id).Forget();
+			LoadBGMAsync(id, _musicRequest).Forget();
 		}
 
 		public void StopBGM()
 		{
+			_musicRequest++;
+			if (_playlistRoutine != null) { StopCoroutine(_playlistRoutine); _playlistRoutine = null; }
 			_bgmSource.Stop();
+			_crossfadeSource.Stop();
+		}
+
+		void OnApplicationPause(bool paused) => _applicationPaused = paused;
+
+		IEnumerator PlayPlaylist(AudioClip[] playlist)
+		{
+			int index = 0;
+			while (true)
+			{
+				var clip = playlist[index];
+				index = (index + 1) % playlist.Length;
+				if (clip == null) { yield return _musicTick; continue; }
+				var outgoing = _activeMusic;
+				var incoming = outgoing == _bgmSource ? _crossfadeSource : _bgmSource;
+				incoming.Stop();
+				incoming.clip = clip;
+				incoming.loop = false;
+				incoming.volume = 0f;
+				incoming.Play();
+				_activeMusic = incoming;
+				float from = outgoing.volume;
+				float elapsed = 0f;
+				while (elapsed < 1.2f)
+				{
+					if (!_applicationPaused)
+					{
+						elapsed += Time.unscaledDeltaTime;
+						float t = Mathf.Clamp01(elapsed / 1.2f);
+						incoming.volume = _musicVolume * t;
+						outgoing.volume = from * (1f - t);
+					}
+					yield return null;
+				}
+				outgoing.Stop();
+				outgoing.clip = null;
+				incoming.volume = _musicVolume;
+				while (_applicationPaused || incoming.time < clip.length - 1.3f)
+				{
+					if (!_applicationPaused && !incoming.isPlaying && incoming.time == 0f) break;
+					yield return _musicTick;
+				}
+			}
 		}
 
 		private void SetAndPlayBGM(AudioClip clip)
 		{
 			_bgmSource.clip = clip;
+			_bgmSource.volume = _musicVolume;
+			_activeMusic = _bgmSource;
 			_bgmSource.loop = true;
 			_bgmSource.Play();
 		}
 
-		private async UniTask LoadBGMAsync(eSFXType id)
+		private async UniTask LoadBGMAsync(eSFXType id, int request)
 		{
 			bool isLoaded = _Handles.TryGetValue(id, out var handle);
 			if (isLoaded)
@@ -235,7 +320,7 @@ namespace Scripts.Core
 			_Handles.Add(id, handle);
 			AudioClip clip = await handle.Task;
 			_AudioCache.Add(id, clip);
-			SetAndPlayBGM(clip);
+			if (request == _musicRequest && this != null) SetAndPlayBGM(clip);
 		}
 	}
 }

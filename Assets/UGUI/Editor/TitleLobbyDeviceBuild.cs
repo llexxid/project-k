@@ -1,0 +1,111 @@
+using System;
+using System.IO;
+using System.Linq;
+using UnityEditor;
+using UnityEditor.Build.Reporting;
+using UnityEngine;
+
+namespace KingdomIdle.UGUI.Editor
+{
+    /// <summary>Installs alongside the game, with device diagnostics absent from normal builds.</summary>
+    public static class TitleLobbyDeviceBuild
+    {
+        public static string Output => Environment.GetEnvironmentVariable("LOBBY_QA_OUTPUT") ?? "Recordings/LobbyRevision5/Device";
+        internal static bool ResolvingDependencies { get; private set; }
+
+        public static void Build()
+        {
+            Directory.CreateDirectory(Output);
+            if (File.Exists(Output + "/build.txt")) File.Delete(Output + "/build.txt");
+            if (File.Exists(Output + "/build-failure.txt")) File.Delete(Output + "/build-failure.txt");
+            string identifier = PlayerSettings.GetApplicationIdentifier(BuildTargetGroup.Android);
+            string product = PlayerSettings.productName;
+            bool keystore = PlayerSettings.Android.useCustomKeystore;
+            bool bundle = EditorUserBuildSettings.buildAppBundle;
+            var importMode = EditorSettings.refreshImportMode;
+            var architectures = PlayerSettings.Android.targetArchitectures;
+            const string templatePath = "Assets/Plugins/Android/mainTemplate.gradle";
+            byte[] templateBefore = File.ReadAllBytes(templatePath);
+            try
+            {
+                PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, identifier + ".lobbyqa");
+                PlayerSettings.productName = product + " Lobby QA";
+                PlayerSettings.Android.useCustomKeystore = false;
+                PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
+                EditorUserBuildSettings.buildAppBundle = false;
+                // Resolve the temporary package/ABI before Unity maps Gradle inputs for scene builds.
+                // Resolving from EDM's scene callback can otherwise hit Windows error 1224.
+                AssetDatabase.SaveAssets();
+                LobbyQaResolverFileHandles.ReleaseCount = 0;
+                ResolvingDependencies = true;
+                try
+                {
+                    // Keep resolver imports in this process so its cached file handles
+                    // can actually be released; import workers can retain their own mappings.
+                    EditorSettings.refreshImportMode = AssetDatabase.RefreshImportMode.InProcess;
+                    AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+                    AssetDatabase.ReleaseCachedFileHandles();
+                    PrepareArm64Exclusion(templatePath);
+                    if (!GooglePlayServices.PlayServicesResolver.ResolveSync(true))
+                        throw new InvalidOperationException("Android dependencies could not be resolved before the lobby QA build.");
+                }
+                finally
+                {
+                    Debug.Log("[Lobby QA] Import cache releases: " + LobbyQaResolverFileHandles.ReleaseCount);
+                    ResolvingDependencies = false;
+                }
+                var options = new BuildPlayerOptions
+                {
+                    scenes = EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray(),
+                    locationPathName = Output + "/KingdomIdle-LobbyQA.apk",
+                    target = BuildTarget.Android,
+                    options = BuildOptions.Development | BuildOptions.DetailedBuildReport,
+                    extraScriptingDefines = new[] { "LOBBY_DEVICE_QA" }
+                };
+                BuildReport report = BuildPipeline.BuildPlayer(options);
+                string summary = $"Result: {report.summary.result}\nBytes: {report.summary.totalSize}\nDuration: {report.summary.totalTime}\nErrors: {report.summary.totalErrors}\nWarnings: {report.summary.totalWarnings}\nPackage: {identifier}.lobbyqa\nBackend: {PlayerSettings.GetScriptingBackend(UnityEditor.Build.NamedBuildTarget.Android)}\n";
+                File.WriteAllText(Output + "/build.txt", summary);
+                File.WriteAllLines(Output + "/build-messages.txt", report.steps.SelectMany(step => step.messages.Select(message => $"{message.type}: {step.name}: {message.content}")));
+                Debug.Log("[Lobby Device Build] " + summary);
+                if (report.summary.result != BuildResult.Succeeded || report.summary.totalErrors > 0)
+                    throw new InvalidOperationException("Lobby device build failed. See build report and Editor log.");
+            }
+            catch (Exception exception)
+            {
+                File.WriteAllText(Output + "/build-failure.txt", exception.ToString());
+                Debug.LogException(exception);
+            }
+            finally
+            {
+                PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, identifier);
+                PlayerSettings.productName = product;
+                PlayerSettings.Android.useCustomKeystore = keystore;
+                PlayerSettings.Android.targetArchitectures = architectures;
+                EditorUserBuildSettings.buildAppBundle = bundle;
+                EditorSettings.refreshImportMode = importMode;
+                AssetDatabase.SaveAssets();
+                AssetDatabase.ReleaseCachedFileHandles();
+                File.WriteAllBytes(templatePath, templateBefore);
+            }
+        }
+
+        static void PrepareArm64Exclusion(string path)
+        {
+            // This QA player is ARM64-only. Match EDM's ABI exclusion before it starts
+            // importing local Maven plugins, when this template is still safe to write.
+            // The full resolver still validates every dependency and the resulting template.
+            string text = File.ReadAllText(path);
+            int start = text.IndexOf("// Android Resolver Exclusions Start", StringComparison.Ordinal);
+            int end = text.IndexOf("// Android Resolver Exclusions End", StringComparison.Ordinal);
+            if (start < 0 || end <= start) return;
+            string block = text.Substring(start, end - start);
+            const string arm = "      exclude ('/lib/armeabi/*' + '*')";
+            const string armV7 = "      exclude ('/lib/armeabi-v7a/*' + '*')";
+            if (!block.Contains(arm) || block.Contains(armV7)) return;
+            string newline = text.Contains("\r\n") ? "\r\n" : "\n";
+            block = block.Replace(arm, arm + newline + armV7);
+            File.WriteAllText(path, text.Substring(0, start) + block + text.Substring(end));
+        }
+    }
+
+}

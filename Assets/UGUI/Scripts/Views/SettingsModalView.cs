@@ -17,6 +17,7 @@ namespace KingdomIdle.UGUI
 
         [Header("Toggles")]
         [SerializeField] internal Toggle tglPowerSave;
+        [SerializeField] internal Toggle tglLowSpec;
         [SerializeField] internal Toggle tglHideItem;
         [SerializeField] internal Toggle tglDamageText;
         [SerializeField] internal Toggle tglScreenShake;

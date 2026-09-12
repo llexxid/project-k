@@ -134,6 +134,7 @@ namespace KingdomIdle.UGUI.Editor
 
             popup.gameObject.SetActive(false);
 
+            TitleLobbyBuilder.ApplyTo(rootRt.gameObject);
             return PrefabGenUtil.SavePrefab(rootRt.gameObject, $"{PrefabGenUtil.PrefabRoot}/Screens/Screen_Title.prefab");
         }
 

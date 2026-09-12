@@ -1,0 +1,26 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "Workflow submitted. prompt_id: c7d9555d-b4e4-497f-8dd5-1cdf9afea3e9\nNote - This workflow includes paid partner-API node(s): Node #3: GeminiNanoBanana2V2 \u2014 running it will incur partner-API charges on the user's account.\nNote - Dynamic-combo sub-field values are applied per the selected option's schema \u2014 fetch the output (get_output) and compare the width/height it reports (or measure the downloaded file) against the requested size before reporting it as honoured.\nJob queued \u2014 poll wait_for_job (or get_job_status) with this prompt_id, then get_output. Conversion/slot warnings above are non-fatal; the job will run as submitted. Do not cancel or resubmit to address a warning."
+    }
+  ],
+  "structuredContent": {
+    "result": {
+      "prompt_id": "c7d9555d-b4e4-497f-8dd5-1cdf9afea3e9",
+      "lifted_from_save": false,
+      "lifecycle": "\nJob queued \u2014 poll wait_for_job (or get_job_status) with this prompt_id, then get_output. Conversion/slot warnings above are non-fatal; the job will run as submitted. Do not cancel or resubmit to address a warning.",
+      "status": "succeeded_with_warnings",
+      "warnings": [
+        {
+          "code": "paid_api_nodes",
+          "detail": "This workflow includes paid partner-API node(s): Node #3: GeminiNanoBanana2V2 \u2014 running it will incur partner-API charges on the user's account."
+        },
+        {
+          "code": "dynamic_combo_subfield_advisory",
+          "detail": "Dynamic-combo sub-field values are applied per the selected option's schema \u2014 fetch the output (get_output) and compare the width/height it reports (or measure the downloaded file) against the requested size before reporting it as honoured."
+        }
+      ]
+    }
+  }
+}
