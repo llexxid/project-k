@@ -1,3 +1,6 @@
+using System.Collections;
+using Scripts.Core.Manager;
+using KingdomIdle.Balance;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -19,12 +22,9 @@ namespace KingdomIdle.MageTower
         public const int SlotCount = 5;
         private const string PrefKey = "mt_save";
 
-        private readonly int[] _equipped = new int[SlotCount];
-        private readonly HashSet<int> _unlocked = new();
-        private readonly Dictionary<int, int> _enhanceLevels = new();
-        private readonly Dictionary<int, int> _awakeningLevels = new();
-        private readonly Dictionary<int, int> _fragments = new();
-        private readonly Dictionary<int, int> _totalAKSpent = new();
+        private int[] _equipped => LocalProgression.State.MageSlots;
+        private MageSave Saved(int id) => LocalProgression.State.MageSkills.TryGetValue(id, out var value) ? value : null;
+        public void NotifyCommitted() => OnStateChanged?.Invoke();
 
         private readonly float[] _cooldowns = new float[SlotCount];
         private readonly float[] _cooldownTimers = new float[SlotCount];
@@ -43,10 +43,7 @@ namespace KingdomIdle.MageTower
 
             Instance = this;
 
-            for (int i = 0; i < SlotCount; i++)
-                _equipped[i] = -1;
-
-            Load();
+            _autoEnabled = true;
         }
 
         private void Update()
@@ -111,14 +108,13 @@ namespace KingdomIdle.MageTower
         public bool IsAutoEnabled() => _autoEnabled;
         public void SetAutoEnabled(bool enabled) => _autoEnabled = enabled;
 
-        public bool IsOwned(int skillId) => _unlocked.Contains(skillId);
+        public bool IsOwned(int skillId) => Saved(skillId) != null;
 
         public void Unlock(int skillId)
         {
-            if (!_unlocked.Add(skillId)) return;
-            Save();
-            OnStateChanged?.Invoke();
-        }
+            if (GetSkillById(skillId) == null) return;
+            if (LocalProgression.Execute("mage-grant", state => { Grant(state, skillId); return true; })) NotifyCommitted();
+    }
 
         // ===== 데이터 접근 =====
         public IReadOnlyList<MageTowerSkillSO> GetAllSkills()
@@ -145,73 +141,58 @@ namespace KingdomIdle.MageTower
             return _equipped[slotIndex];
         }
 
-        public int GetEnhanceLevel(int skillId) =>
-            _enhanceLevels.TryGetValue(skillId, out int lv) ? lv : 0;
-
-        public int GetAwakeningLevel(int skillId) =>
-            _awakeningLevels.TryGetValue(skillId, out int lv) ? lv : 0;
-
-        public int GetFragments(int skillId) =>
-            _fragments.TryGetValue(skillId, out int f) ? f : 0;
-
+        public int GetEnhanceLevel(int id) => Saved(id)?.Enhance ?? 0;
+        public int GetAwakeningLevel(int id) => Saved(id)?.Awaken ?? 0;
+        public int GetFragments(int id) => Saved(id)?.Fragments ?? 0;
+        public long GetTotalAKSpent(int id) => Saved(id)?.Spent ?? 0;
+        public static void Grant(ProgressionState state, int skillId)
+        {
+            if (state.MageSkills.TryGetValue(skillId, out var skill)) skill.Fragments = checked(skill.Fragments + 1);
+            else state.MageSkills[skillId] = new MageSave();
+        }
         public void AddFragments(int skillId, int amount)
         {
-            if (amount == 0) return;
-            if (!_fragments.ContainsKey(skillId))
-                _fragments[skillId] = 0;
-            _fragments[skillId] += amount;
-            Save();
-            OnStateChanged?.Invoke();
+            if (amount <= 0 || GetSkillById(skillId) == null) return;
+            if (LocalProgression.Execute("mage-fragments", s => {
+                if (!s.MageSkills.TryGetValue(skillId, out var skill)) s.MageSkills[skillId] = skill = new MageSave();
+                skill.Fragments = checked(skill.Fragments + amount); return true;
+            })) NotifyCommitted();
         }
 
-        public int GetTotalAKSpent(int skillId) =>
-            _totalAKSpent.TryGetValue(skillId, out int s) ? s : 0;
-
         // ===== 스탯 계산 =====
-        public float GetEffectiveDamage(int skillId)
+        public long GetEffectiveDamage(int skillId)
         {
             var so = GetSkillById(skillId);
-            if (so == null) return 0f;
+            if (so == null) return 0;
             int eLv = GetEnhanceLevel(skillId);
             int aLv = GetAwakeningLevel(skillId);
-            return so.BaseDamage * (1f + 0.05f * eLv) * (1f + 0.05f * aLv);
+            return BalanceMath.MageDamage((long)so.BaseDamage, eLv, aLv);
         }
 
         public float GetEffectiveCooldown(int skillId)
         {
             var so = GetSkillById(skillId);
-            if (so == null) return 0f;
+            if (so == null) return 0;
             int aLv = GetAwakeningLevel(skillId);
-            return Mathf.Max(1f, so.baseCooldown - 0.2f * aLv);
+            return (float)BalanceMath.MageInterval((decimal)so.baseCooldown, aLv);
         }
 
         // ===== 장착 =====
         public bool Equip(int slotIndex, int skillId)
         {
-            if (slotIndex < 0 || slotIndex >= SlotCount) return false;
-            if (GetSkillById(skillId) == null) return false;
-            if (!IsOwned(skillId)) return false;
-
-            for (int i = 0; i < SlotCount; i++)
-            {
-                if (_equipped[i] == skillId)
-                    _equipped[i] = -1;
-            }
-
-            _equipped[slotIndex] = skillId;
-            Save();
-            OnStateChanged?.Invoke();
-            return true;
-        }
+            if (slotIndex >= 0 && slotIndex < SlotCount && (_casting[slotIndex] || _cooldownTimers[slotIndex] > 0)) return false;
+            if (slotIndex < 0 || slotIndex >= SlotCount || GetSkillById(skillId) == null || !IsOwned(skillId)) return false;
+            if (IsEquipped(skillId)) return false;
+            bool result = LocalProgression.Execute("mage-equip", state => { state.MageSlots[slotIndex] = skillId; return true; });
+            if (result) NotifyCommitted(); return result;
+    }
 
         public void Unequip(int slotIndex)
         {
-            if (slotIndex < 0 || slotIndex >= SlotCount) return;
-            if (_equipped[slotIndex] == -1) return;
-            _equipped[slotIndex] = -1;
-            Save();
-            OnStateChanged?.Invoke();
-        }
+            if (slotIndex >= 0 && slotIndex < SlotCount && (_casting[slotIndex] || _cooldownTimers[slotIndex] > 0)) return;
+            if (slotIndex < 0 || slotIndex >= SlotCount || _casting[slotIndex]) return;
+            if (LocalProgression.Execute("mage-unequip", state => { state.MageSlots[slotIndex] = -1; return true; })) NotifyCommitted();
+    }
 
         public bool IsEquipped(int skillId)
         {
@@ -225,16 +206,15 @@ namespace KingdomIdle.MageTower
         // ===== 강화 =====
         public int GetEnhanceCost(int skillId)
         {
-            int lv = GetEnhanceLevel(skillId);
-            return 10 * (lv + 1);
-        }
+            return (int)(BalanceMath.MageCost(GetEnhanceLevel(skillId)) ?? -1);
+    }
 
         public bool CanEnhance(int skillId)
         {
             var so = GetSkillById(skillId);
             if (so == null) return false;
             if (!IsOwned(skillId)) return false;
-            if (GetEnhanceLevel(skillId) >= so.maxEnhanceLevel) return false;
+            if (GetEnhanceLevel(skillId) >= BalanceMath.MageCap) return false;
             EconomyBridge.TryGetAmount(eCurrency.ArcaneKnowledge, out long ak);
             return ak >= GetEnhanceCost(skillId);
         }
@@ -242,19 +222,14 @@ namespace KingdomIdle.MageTower
         public bool Enhance(int skillId)
         {
             if (!CanEnhance(skillId)) return false;
-            int cost = GetEnhanceCost(skillId);
-            EconomyBridge.Add(eCurrency.ArcaneKnowledge, -cost);
-
-            if (!_enhanceLevels.ContainsKey(skillId)) _enhanceLevels[skillId] = 0;
-            _enhanceLevels[skillId]++;
-
-            if (!_totalAKSpent.ContainsKey(skillId)) _totalAKSpent[skillId] = 0;
-            _totalAKSpent[skillId] += cost;
-
-            Save();
-            OnStateChanged?.Invoke();
-            return true;
-        }
+            bool result = LocalProgression.Execute("mage-enhance", state => {
+                if (!state.MageSkills.TryGetValue(skillId, out var skill)) return false;
+                long? cost = BalanceMath.MageCost(skill.Enhance);
+                if (!cost.HasValue || !LocalProgression.Spend(state, eCurrency.ArcaneKnowledge, cost.Value)) return false;
+                skill.Enhance++; skill.Spent = checked(skill.Spent + cost.Value); return true;
+            });
+            if (result) NotifyCommitted(); return result;
+    }
 
         // ===== 각성 =====
         public int GetAwakeningCost(int skillId)
@@ -267,24 +242,21 @@ namespace KingdomIdle.MageTower
         {
             var so = GetSkillById(skillId);
             if (so == null) return false;
-            if (GetAwakeningLevel(skillId) >= so.maxAwakeningLevel) return false;
+            if (!IsOwned(skillId) || GetAwakeningLevel(skillId) >= 10) return false;
             return GetFragments(skillId) >= GetAwakeningCost(skillId);
         }
 
         public bool Awaken(int skillId)
         {
             if (!CanAwaken(skillId)) return false;
-            int cost = GetAwakeningCost(skillId);
-
-            _fragments[skillId] -= cost;
-
-            if (!_awakeningLevels.ContainsKey(skillId)) _awakeningLevels[skillId] = 0;
-            _awakeningLevels[skillId]++;
-
-            Save();
-            OnStateChanged?.Invoke();
-            return true;
-        }
+            bool result = LocalProgression.Execute("mage-awaken", state => {
+                var skill = state.MageSkills[skillId];
+                int cost = skill.Awaken + 1;
+                if (skill.Awaken >= 10 || skill.Fragments < cost) return false;
+                skill.Fragments -= cost; skill.Awaken++; return true;
+            });
+            if (result) NotifyCommitted(); return result;
+    }
 
         // ===== 쿨타임 =====
         public bool IsOnCooldown(int slotIndex)
@@ -314,6 +286,7 @@ namespace KingdomIdle.MageTower
         public bool CastSkill(int slotIndex)
         {
             if (slotIndex < 0 || slotIndex >= SlotCount) return false;
+            if (StageManager.Instance?.CurrentRunState != eStageRunState.Running) return false;
             if (IsOnCooldown(slotIndex)) return false;
             if (_casting[slotIndex]) return false;
 
@@ -327,7 +300,9 @@ namespace KingdomIdle.MageTower
             Vector3 targetPos = FindNearestMonsterPosition(out int nearestId);
             if (targetPos == Vector3.zero) return false;
 
+            if (!LocalProgression.Execute("mage-cast", state => { QuestEconomy.Count(state,eQuestObjectiveType.SkillCast,skillId,1); return true; })) return false;
             _casting[slotIndex] = true;
+            _cooldowns[slotIndex] = _cooldownTimers[slotIndex] = GetEffectiveCooldown(skillId);
             OnCastingChanged?.Invoke(slotIndex, true);
 
             if (so.GetEffect<SkillEffect_FireTornado>() != null)
@@ -338,77 +313,47 @@ namespace KingdomIdle.MageTower
             {
                 var excludedIds = new HashSet<int>();
                 if (nearestId != 0) excludedIds.Add(nearestId);
-                SpawnChain(slotIndex, so, targetPos, 1, targetPos, excludedIds);
+                StartCoroutine(CastSeries(slotIndex, so, targetPos, excludedIds));
             }
 
             return true;
+        }
+
+        private readonly ulong[] _castDamage = new ulong[SlotCount];
+        private IEnumerator CastSeries(int slot, MageTowerSkillSO skill, Vector3 initial, HashSet<int> excluded)
+        {
+            string battle = LocalProgression.State.ActiveBattleId;
+            int hits = BalanceMath.MageHits(skill.id == 0 ? 3 : 4, GetAwakeningLevel(skill.id), false);
+            _castDamage[slot] = checked((ulong)GetEffectiveDamage(skill.id));
+            double elapsed = 0, duration = skill.id == 0 ? .6 : .9;
+            int emitted = 0;
+            while (emitted < hits && LocalProgression.State.ActiveBattleId == battle)
+            {
+                while (emitted < hits && elapsed + .000001 >= duration * emitted / (hits - 1))
+                {
+                    Vector3 position = emitted == 0 || skill.id == 0 ? initial : GetNextCastPosition(skill,initial,excluded);
+                    if (position != Vector3.zero) SpawnChain(slot,skill,position,emitted+1,initial,excluded);
+                    emitted++;
+                }
+                yield return null; elapsed += Time.deltaTime;
+            }
+            FinishCasting(slot,skill.id);
         }
 
         private void SpawnChain(int slotIndex, MageTowerSkillSO so, Vector3 castPos,
                                 int castIndex, Vector3 initialTarget,
                                 HashSet<int> excludedIds)
         {
-            int skillId = so.id;
-            ulong dmg = (ulong)Mathf.RoundToInt(GetEffectiveDamage(skillId));
-
+{
+            // Each scheduled strike owns its visual; damage is emitted explicitly once.
             Vector3 spawnPos = castPos;
-            Transform centerChild = so.prefab.transform.Find("Center");
-            if (centerChild != null)
-                spawnPos = castPos - centerChild.localPosition;
-
+            Transform center = so.prefab.transform.Find("Center"); if (center != null) spawnPos -= center.localPosition;
             var go = Instantiate(so.prefab, spawnPos, Quaternion.identity);
-            var proj = go.GetComponent<MageTowerSkillProjectile>();
-            if (proj == null) proj = go.AddComponent<MageTowerSkillProjectile>();
-
-            // 스킬별 고유 SO에서 totalCasts와 투사체 파라미터 읽기
-            int totalCasts = 1;
-            float damageRadius = 1.5f;
-            bool shakeOnHit = false;
-            float shakeDuration = 0.15f;
-            float shakeMagnitude = 0.08f;
-
-            var lightning = so.GetEffect<SkillEffect_Lightning>();
-            if (lightning != null)
-            {
-                totalCasts = lightning.totalCasts;
-                damageRadius = lightning.damageRadius;
-                shakeOnHit = lightning.shakeOnHit;
-                shakeDuration = lightning.shakeDuration;
-                shakeMagnitude = lightning.shakeMagnitude;
-            }
-            else
-            {
-                var iceSpike = so.GetEffect<SkillEffect_IceSpike>();
-                if (iceSpike != null)
-                {
-                    totalCasts = iceSpike.totalCasts;
-                    damageRadius = iceSpike.damageRadius;
-                }
-            }
-
-            bool isLastCast = castIndex >= totalCasts;
-            Action onHit = null;
-
-            if (!isLastCast)
-            {
-                onHit = () =>
-                {
-                    Vector3 nextPos = GetNextCastPosition(so, initialTarget, excludedIds);
-                    if (nextPos != Vector3.zero)
-                        SpawnChain(slotIndex, so, nextPos, castIndex + 1,
-                                   initialTarget, excludedIds);
-                    else
-                        FinishCasting(slotIndex, skillId);
-                };
-            }
-            else
-            {
-                onHit = () => FinishCasting(slotIndex, skillId);
-            }
-
-            proj.Initialize(dmg, spawnPos, onHit, damageRadius, shakeOnHit,
-                            shakeDuration, shakeMagnitude, so.sfxName);
+            var projectile = go.GetComponent<MageTowerSkillProjectile>() ?? go.AddComponent<MageTowerSkillProjectile>();
+            projectile.Initialize(_castDamage[slotIndex],spawnPos,null, so.id == 0 ? .5f : .35f,false,.15f,.08f,so.sfxName);
+            projectile.OnHit();
         }
+    }
 
         private void SpawnPersistent(int slotIndex, MageTowerSkillSO so)
         {
@@ -432,9 +377,9 @@ namespace KingdomIdle.MageTower
                     fireSfxType, target.position, Quaternion.identity, sfx => sfx.PlaySFX());
             }
 
-            ulong dmg = (ulong)Mathf.RoundToInt(GetEffectiveDamage(so.id));
+            ulong dmg = checked((ulong)GetEffectiveDamage(so.id));
             var fire = so.GetEffect<SkillEffect_FireTornado>();
-            float duration = fire != null ? fire.duration : 0f;
+            float duration = 5f + GetAwakeningLevel(so.id) / 4;
             float tickInterval = fire != null ? fire.tickInterval : 0f;
             float moveSpeed = fire != null ? fire.moveSpeed : 8f;
             float arrivalThreshold = fire != null ? fire.arrivalThreshold : 0.05f;
@@ -458,9 +403,7 @@ namespace KingdomIdle.MageTower
             _casting[slotIndex] = false;
             OnCastingChanged?.Invoke(slotIndex, false);
 
-            float cd = GetEffectiveCooldown(skillId);
-            _cooldowns[slotIndex] = cd;
-            _cooldownTimers[slotIndex] = cd;
+
         }
 
         private Vector3 GetNextCastPosition(MageTowerSkillSO so, Vector3 initialTarget,
@@ -470,8 +413,7 @@ namespace KingdomIdle.MageTower
             var lightningEff = so.GetEffect<SkillEffect_Lightning>();
             if (lightningEff != null)
             {
-                Vector2 offset = UnityEngine.Random.insideUnitCircle * lightningEff.chainRadius;
-                return initialTarget + new Vector3(offset.x, offset.y, 0f);
+                return initialTarget;
             }
 
             // 얼음송곳: 체인할 몬스터가 없으면 중단하고 쿨다운
@@ -479,6 +421,7 @@ namespace KingdomIdle.MageTower
             if (iceSpikeEff != null)
             {
                 Vector3 pos = FindRandomMonsterPosition(excludedIds, out int newId);
+                if (newId == 0) pos = FindNearestMonsterPosition(out newId);
                 if (pos != Vector3.zero && newId != 0)
                     excludedIds.Add(newId);
                 return pos;
@@ -631,160 +574,37 @@ namespace KingdomIdle.MageTower
             return _randomTransformCandidates[UnityEngine.Random.Range(0, _randomTransformCandidates.Count)];
         }
 
-        // ===== 초기화 =====
-        public bool CanReset(int skillId) => GetEnhanceLevel(skillId) > 0;
-
-        public int GetResetRefund(int skillId)
+        public bool CanReset(int id) => GetEnhanceLevel(id) > 0;
+        public long GetResetRefund(int id) => BalanceMath.Floor(GetTotalAKSpent(id) * .8m);
+        public bool ResetEnhance(int id)
         {
-            int spent = GetTotalAKSpent(skillId);
-            return Mathf.FloorToInt(spent * 0.8f);
+            if (!CanReset(id)) return false;
+            bool result = LocalProgression.Execute("mage-reset", s => {
+                var skill = s.MageSkills[id];
+                LocalProgression.Credit(s, eCurrency.ArcaneKnowledge, BalanceMath.Floor(skill.Spent * .8m));
+                skill.Enhance = 0; skill.Spent = 0; return true;
+            });
+            if (result) NotifyCommitted(); return result;
         }
-
-        public bool ResetEnhance(int skillId)
-        {
-            if (!CanReset(skillId)) return false;
-            int refund = GetResetRefund(skillId);
-            EconomyBridge.Add(eCurrency.ArcaneKnowledge, refund);
-            _enhanceLevels[skillId] = 0;
-            _totalAKSpent[skillId] = 0;
-            Save();
-            OnStateChanged?.Invoke();
-            return true;
-        }
-
-        // ===== 서버 동기화 =====
-
-        /// <summary>
-        /// 모든 스킬 상태를 64비트 배열로 패킹한다. 서버 전송용.
-        /// </summary>
+        public long PackSkill(int id) => MageTowerSkillCode.Pack(id, GetAwakeningLevel(id), GetEnhanceLevel(id), GetFragments(id), IsOwned(id) ? 1 : 0);
         public long[] PackAllSkills()
         {
-            var skills = GetAllSkills();
-            var result = new long[skills.Count];
-            for (int i = 0; i < skills.Count; i++)
-            {
-                int id = skills[i].id;
-                result[i] = MageTowerSkillCode.Pack(
-                    id,
-                    GetAwakeningLevel(id),
-                    GetEnhanceLevel(id),
-                    GetFragments(id));
-            }
-            return result;
+            var result = new List<long>(); foreach (var skill in GetAllSkills()) if (IsOwned(skill.id)) result.Add(PackSkill(skill.id)); return result.ToArray();
         }
-
-        /// <summary>
-        /// 64비트 배열에서 스킬 상태를 복원한다. 서버 로드용.
-        /// </summary>
         public void UnpackAllSkills(long[] packed)
         {
-            if (packed == null) return;
-
-            _unlocked.Clear();
-            _enhanceLevels.Clear();
-            _awakeningLevels.Clear();
-            _fragments.Clear();
-
-            for (int i = 0; i < packed.Length; i++)
-            {
-                int id  = MageTowerSkillCode.UnpackSkillId(packed[i]);
-                int aLv = MageTowerSkillCode.UnpackAwakeningLevel(packed[i]);
-                int eLv = MageTowerSkillCode.UnpackEnhanceLevel(packed[i]);
-                int qty = MageTowerSkillCode.UnpackQuantity(packed[i]);
-
-                if (eLv > 0) _enhanceLevels[id] = eLv;
-                if (aLv > 0) _awakeningLevels[id] = aLv;
-                if (qty > 0) _fragments[id] = qty;
-                if (qty > 0 || aLv > 0 || eLv > 0) _unlocked.Add(id);
-            }
-
-            Save();
-            OnStateChanged?.Invoke();
-        }
-
-        /// <summary>
-        /// 단일 스킬의 64비트 코드를 반환한다.
-        /// </summary>
-        public long PackSkill(int skillId)
-        {
-            return MageTowerSkillCode.Pack(
-                skillId,
-                GetAwakeningLevel(skillId),
-                GetEnhanceLevel(skillId),
-                GetFragments(skillId));
-        }
-
-        // ===== 저장/로드 =====
-        [Serializable]
-        private class SaveData
-        {
-            public int[] equipped;
-            public List<int> unlocked = new();
-            public List<int> eKeys = new();
-            public List<int> eVals = new();
-            public List<int> aKeys = new();
-            public List<int> aVals = new();
-            public List<int> fKeys = new();
-            public List<int> fVals = new();
-            public List<int> sKeys = new();
-            public List<int> sVals = new();
-        }
-
-        private void Save()
-        {
-            var d = new SaveData { equipped = (int[])_equipped.Clone() };
-            foreach (int id in _unlocked) d.unlocked.Add(id);
-            SerializeDict(_enhanceLevels, d.eKeys, d.eVals);
-            SerializeDict(_awakeningLevels, d.aKeys, d.aVals);
-            SerializeDict(_fragments, d.fKeys, d.fVals);
-            SerializeDict(_totalAKSpent, d.sKeys, d.sVals);
-            PlayerPrefs.SetString(PrefKey, JsonUtility.ToJson(d));
-            PlayerPrefs.Save();
-        }
-
-        private void Load()
-        {
-            string raw = PlayerPrefs.GetString(PrefKey, "");
-            if (string.IsNullOrEmpty(raw)) return;
-
-            var d = JsonUtility.FromJson<SaveData>(raw);
-            if (d == null) return;
-
-            if (d.equipped != null)
-            {
-                int len = Mathf.Min(d.equipped.Length, SlotCount);
-                for (int i = 0; i < len; i++) _equipped[i] = d.equipped[i];
-            }
-
-            _unlocked.Clear();
-            if (d.unlocked != null)
-                for (int i = 0; i < d.unlocked.Count; i++) _unlocked.Add(d.unlocked[i]);
-
-            DeserializeDict(d.eKeys, d.eVals, _enhanceLevels);
-            DeserializeDict(d.aKeys, d.aVals, _awakeningLevels);
-            DeserializeDict(d.fKeys, d.fVals, _fragments);
-            DeserializeDict(d.sKeys, d.sVals, _totalAKSpent);
-
-            foreach (var kv in _fragments) if (kv.Value > 0) _unlocked.Add(kv.Key);
-            foreach (var kv in _enhanceLevels) if (kv.Value > 0) _unlocked.Add(kv.Key);
-            foreach (var kv in _awakeningLevels) if (kv.Value > 0) _unlocked.Add(kv.Key);
-        }
-
-        private static void SerializeDict(Dictionary<int, int> dict, List<int> keys, List<int> vals)
-        {
-            foreach (var kv in dict)
-            {
-                keys.Add(kv.Key);
-                vals.Add(kv.Value);
-            }
-        }
-
-        private static void DeserializeDict(List<int> keys, List<int> vals, Dictionary<int, int> dict)
-        {
-            if (keys == null || vals == null) return;
-            int len = Mathf.Min(keys.Count, vals.Count);
-            for (int i = 0; i < len; i++)
-                dict[keys[i]] = vals[i];
+            if (packed == null || LocalProgression.State.Modules.ContainsKey("mage-imported")) return;
+            if (LocalProgression.Execute("mage-import-once", s => {
+                foreach (long code in packed)
+                {
+                    int id = MageTowerSkillCode.UnpackSkillId(code);
+                    if (GetSkillById(id) == null) continue;
+                    s.MageSkills[id] = new MageSave { Enhance = BalanceMath.Clamp(MageTowerSkillCode.UnpackEnhanceLevel(code), 0, 100),
+                        Awaken = BalanceMath.Clamp(MageTowerSkillCode.UnpackAwakeningLevel(code), 0, 10), Fragments = MageTowerSkillCode.UnpackQuantity(code) };
+                    // No inferred historical spend: imported levels cannot manufacture reset refunds.
+                }
+                s.Modules["mage-imported"] = "1"; return true;
+            })) NotifyCommitted();
         }
     }
 }

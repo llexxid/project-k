@@ -1,134 +1,51 @@
-# UGUI 인게임 UI 구조 안내 (팀 개발자용)
+# UGUI 구조
 
-UI Toolkit → UGUI(+TextMeshPro) 전면 이식본입니다. 이 문서만 보면 **어디를 어떻게 고치는지** 알 수 있습니다.
+공통 작업·아트·기기 검증 규칙은 [AGENTS.md](../../AGENTS.md)를 따른다.
 
----
+## 코드와 에셋
 
-## 1. 폴더 구조
+| 위치 | 역할 |
+|---|---|
+| `Prefabs/Screens`, `Panels`, `Popups`, `Overlays`, `Huds`, `Items` | 인스펙터에서 편집하는 화면과 반복 위젯 |
+| `Scripts/Core/UIManager.cs` | 화면·패널 스택, 뒤로가기, 토스트 |
+| `UIViewCatalog.asset` | 프리팹·폰트·SFX·아이콘 참조 |
+| `Scripts/Views/*Controller.cs` | 데이터 바인딩·사용자 동작 |
+| `Scripts/Hud` | 파티·목표·전투 표시 |
+| `Scripts/Bridges` | 씬 로딩·전투·UGUI 연결 |
+| `Scripts/Core/UguiTheme.cs` | 공용 색·기준 치수 |
+| `Editor` | 프리팹 생성·부분 마이그레이션·검증 |
+| `Art/Font/Galmuri11 SDF.asset` | UI 기본 폰트 |
 
-```
-Assets/UGUI/
-├── Prefabs/            ← 화면/패널/팝업/HUD/아이템 프리팹 (여기서 인스펙터로 편집)
-│   ├── UGUI_UIRoot.prefab       루트 캔버스 + 매니저들 (bootstrap 씬에 배치됨)
-│   ├── Screens/                 Screen_Title, Screen_Main
-│   ├── Panels/                  Panel_Guide/Gacha/KingdomArmy/Development/Inventory/Dungeon/Placeholder
-│   ├── Popups/                  Popup_GachaResult/DungeonDifficulty/DungeonClear/Reincarnation ...
-│   ├── Overlays/                Overlay_Loading/Toast/Settings
-│   ├── Huds/                    Hud_Party, Hud_DivineSkill, Hud_MageTowerEnv
-│   └── Items/                   반복 위젯 (탭버튼/카드/뽑기버튼/알약/액션버튼 등)
-├── Scripts/
-│   ├── Core/            UIManager, UIViewCatalog, UguiTheme, UguiRuntimeFactory, UguiPixelSkin ...
-│   ├── Views/           각 화면/패널의 View(직렬화 참조) + Controller(로직)
-│   │   └── Items/       아이템 프리팹의 View 컴포넌트
-│   ├── Hud/             파티/마탑 HUD, 데미지 텍스트
-│   └── Bridges/         씬 라우팅·로딩·데미지텍스트·마탑 브릿지
-├── Editor/             프리팹 생성기 (아래 "재생성" 참고)
-├── Sprites/            절차 생성 스프라이트(RoundedRect 등)
-├── Fonts/              데미지 텍스트용 TMP 머티리얼
-└── UIViewCatalog.asset ★ 모든 프리팹/폰트/SFX/아이콘의 중앙 배선표
-```
+## 실행·수정
 
-픽셀 아트 원본은 `Assets/UI Toolkit/Art/` (폰트 Galmuri11 SDF, 9-slice 패널/버튼/바, 아이콘 600여 개).
+`bootstrap → UGUI_UIRoot(DontDestroyOnLoad) → SafeArea → 화면/패널/팝업/오버레이`.
+`LoadManager → SceneRoutingBridge → UIManager.ReplaceScreen`, 탐색은 `PushPanel`을 사용한다.
+화면 치수는 1080px 기준이며 실제 CanvasScaler·SafeArea는 루트 프리팹에서 확인한다.
 
----
+프리팹을 직접 수정하거나 대상 프리팹만 마이그레이션한다. **Generate All은 수동 편집을 덮어쓰는 초기 뼈대 생성기**다.
+새 위젯은 View 참조 → Items 프리팹 → UIViewCatalog 참조 → 컨트롤러 데이터 바인딩 순서로 추가한다.
+목록 생성은 패널을 열 때 수행한다. 큰 목록은 가상화·풀링을 검토한다.
 
-## 2. 부팅 흐름
+## 전투 HUD
 
-```
-bootstrap.unity
- └ UGUI_UIRoot (프리팹 인스턴스, DontDestroyOnLoad)
-    ├ Canvas(Overlay, sortingOrder 10) + CanvasScaler(1080×1920, Match 0.5)
-    ├ UIManager  ← UIViewCatalog.asset 참조
-    │   └ 씬 전환 시 카탈로그의 Screen/Panel 프리팹을 Instantiate
-    └ SafeArea / LayerScreens / LayerPanels / LayerPopups / LayerOverlays
-```
+- `CompactHudBuilder.Apply`: `Screen_Main`, `Panel_Guide`, `Item_GuideStepRow`를 갱신한다.
+- 상단 중앙: 작은 반투명 스테이지 배지, 보스전에서 타이머 표시.
+- 좌측 상단: `GuideGoalView`가 실제 `QuestManager`의 현재 단계·목표·진척도를 이벤트로 갱신한다. 진행 중 목적지 이동, 완료 시 다음 단계/보상, 전체 내용은 메뉴에서 확인한다.
+- 햄버거: 퀘스트/가이드, 가방, 신 스킬, 설정, 보스 자동 도전, 반복 사냥 종료(반복 중일 때).
+- `Panel_Guide`의 현재 퀘스트는 HUD와 같은 데이터를 쓴다. 등록된 `TutorialManager` 목록은 수동 확인하는 플레이 도움말이며 퀘스트 완료 판정과 구별한다. 도움말 데이터가 없으면 실제 다음 퀘스트 목록을 표시한다.
+- 하단 네 탭은 육성·왕국군·던전·뽑기. 시트가 열리면 HUD 목표 카드는 숨긴다.
 
-- **화면 전환**: `LoadManager` 이벤트 → `SceneRoutingBridge` → `UIManager.ReplaceScreen(UIScreenId)`
-- **패널 열기**: 하단 탭/햄버거 → `UIManager.PushPanel(UIPanelId)` → 카탈로그 프리팹 Instantiate → 컨트롤러 `Populate(view)`
-- **API는 UITK 시절과 동일**: `UIManager.Instance.PushPanel/ShowToast/ShowGachaResultPopup ...`
+`UguiPolishPass → UguiTypeNavPass`는 기존 스타일 보정 도구다. 전투 HUD의 최종 배치는 `CompactHudBuilder`에서 관리한다.
+일반 글자는 Galmuri11 기본 굵기·공유 머티리얼, 전투 숫자·컷인만 필요한 외곽선을 사용한다.
+1080px 기준 패널 제목 40, 주요 버튼 30–34, 설명 26–28, 하단 라벨 30. 아이콘은 Layer Lab `PictoIcon/64` 명시 경로를 사용한다.
 
----
+## 검증 진입점
 
-## 3. "무엇을 고칠 때 어디를 만지나"
+- `KingdomIdle/UGUI/Validate/Check view wiring`: 직렬화 참조·missing script.
+- `KingdomIdle/UGUI/Run client regression checks`: 기존 클라이언트 회귀 검사.
+- `KingdomIdle/UGUI/Apply compact battle HUD`: 이번 HUD 프리팹 적용.
+- `TitleLobbyDeviceBuild.Build`: 기존 게임과 분리된 `.lobbyqa` ARM64 Development APK. `LOBBY_QA_OUTPUT`으로 출력 위치 지정.
+- `CompactHudBuilder.ApplyAndBuild`: HUD 적용 후 위 Android 빌드.
+- `BattleHudDeviceProbe`: QA 빌드 전용 HUD 상태·레이아웃·진행 fixture. 일반 배포에는 포함되지 않는다.
 
-| 바꾸고 싶은 것 | 위치 | 방법 |
-|---|---|---|
-| 패널/팝업/화면 레이아웃·색·크기 | `Prefabs/**` | **인스펙터에서 직접 편집** (일반 UGUI 프리팹) |
-| 반복 위젯(탭버튼/카드/뽑기버튼/알약/액션버튼) | `Prefabs/Items/**` | 프리팹 하나만 고치면 전 화면 반영 |
-| 공통 색/폰트크기/치수 토큰 | `Scripts/Core/UguiTheme.cs` | 상수 수정 (생성기·런타임 공용) |
-| 버튼 픽셀 스킨(Blue/Green/Grey 매핑) | `Scripts/Core/UguiPixelSkin.cs` | |
-| 패널 안 **동적 콘텐츠**(전직/강화/스탯표 등) | `Scripts/Views/*Controller.cs` | 코드에서 데이터 바인딩. 위젯은 아이템 프리팹 사용 |
-| 카탈로그에 프리팹 새로 연결 | `UIViewCatalog.asset` | 필드에 드래그, 또는 생성기에 추가 |
-
-> ⚠️ **프리팹을 수정한 뒤 생성기를 다시 돌리면 덮어씁니다.** 생성기는 "초기 뼈대 자동 생성"용입니다. 팀이 프리팹을 손보기 시작하면, 구조를 바꿀 때만 생성기를 쓰고 평소엔 프리팹을 직접 편집하세요. (색/크기 조정은 프리팹에서 하는 걸 권장)
-
----
-
-## 4. 프리팹 재생성 (초기 뼈대/구조 변경 시)
-
-Unity 에디터 메뉴:
-- `KingdomIdle → UGUI → Generate All (prefabs + catalog)` — 전 프리팹 + 카탈로그 재생성 + 배선 검증
-- `KingdomIdle → UGUI → Validate → Check view wiring` — missing script/빈 필드 점검
-- `KingdomIdle → UGUI → Bootstrap → Switch to UGUI / back to UITK` — bootstrap 씬 UI 시스템 토글
-
-에디터를 닫고 배치로도 가능:
-```
-Unity.exe -batchmode -quit -projectPath <프로젝트> \
-  -executeMethod KingdomIdle.UGUI.Editor.UguiGenMenu.GenerateAll -logFile gen.log
-```
-
-**렌더 미리보기(플레이 없이 UI 외형 확인)**:
-```
-Unity.exe -batchmode -quit -projectPath <프로젝트> \
-  -executeMethod KingdomIdle.UGUI.Editor.UguiPreviewCapture.CaptureAll -logFile prev.log
-# 결과 PNG: %TEMP%/ugui_preview/
-```
-
----
-
-## 5. 동적 콘텐츠(런타임 생성)와 프리팹의 경계
-
-- **단순·반복 위젯 → 프리팹**: 탭/네비 버튼, 가챠 카드, 뽑기 옵션 버튼, 확률 알약, 액션 버튼, 재화 라인.
-  컨트롤러가 `Instantiate` 후 `View.Set(...)`로 데이터만 넣습니다. 외형은 프리팹에서 편집.
-- **복잡·가변 레이아웃 → 코드 생성**(`UguiRuntimeFactory`): 캐릭터 시트, 스탯 비교표, 전직 상세 등.
-  자주 커스텀하는 부분이 생기면 아이템 프리팹으로 승격하세요 (아래 6번 패턴).
-
-**성능 메모**
-- 패널 콘텐츠는 열 때 1회 생성되고 닫으면 파괴됩니다(가벼움). 매 프레임 재생성 없음.
-- 스크롤은 `ScrollRect + RectMask2D`(가벼운 마스크). 목록이 수백 개로 커지면 가상화/풀링을 고려하세요.
-- 장식 이미지·텍스트는 `raycastTarget=false` 기본. 상호작용 요소만 raycast 켬.
-- 데미지 텍스트는 이미 오브젝트 풀링(`DamageTextManager`, warm 24).
-
----
-
-## 6. 새 위젯을 프리팹화하는 패턴 (예시)
-
-1. `Scripts/Views/Items/XxxItemView.cs` — `[SerializeField] internal` 참조 + `Set(...)` 메서드
-2. `Editor/ItemGens.cs`에 `GenerateXxx()` 추가 (뼈대 생성 + 참조 배선)
-3. `UIViewCatalog.cs`에 `public GameObject itemXxx;` 필드 추가
-4. `Editor/CatalogGen.cs`의 `AssignPrefabs`에 `catalog.itemXxx = Load(...)` 추가
-5. `Editor/UguiGenMenu.cs`의 GenerateAll에 `ItemGens.GenerateXxx()` 추가
-6. 컨트롤러에서 `Instantiate(catalog.itemXxx)` → `view.Set(...)`
-
-가챠 뽑기 버튼(`GachaPullButtonView` + `Item_GachaPullButton`)이 이 패턴의 참고 예시입니다.
-
----
-
-## 7. 자주 쓰는 진입점
-
-- `UIManager.Instance` — 화면/패널/토스트/로딩/뒤로가기
-- `UIViewCatalog` (`UIManager.Instance.Catalog`) — 프리팹/폰트/아이콘 참조
-- `UguiTheme` — 색/치수/폰트크기 토큰
-- `UguiRuntimeFactory` — 런타임 UI 헬퍼(Box/Label/TextButton/PixelWindow/PixelCard/스크롤 등)
-- `DamageTextBridge.ShowOnTransform(...)` — 게임플레이에서 데미지 숫자
-- `EconomyBridge` (Assets/Scripts/Core) — 재화 조회/증감
-
-## 8. 모바일 타이포그래피와 내비게이션
-
-- `UguiPolishPass`의 마지막 단계인 `UguiTypeNavPass`가 기존 프리팹을 보정합니다. 전체 생성기는 실행하지 않습니다.
-- 일반 UI는 Galmuri11 기본 머티리얼과 기본 굵기를 사용합니다. 외곽선은 전투 숫자·컷인 등 배경 위에 직접 표시하는 요소에 남깁니다.
-- 1080px 기준: 패널 제목 40, 주요 버튼 30–34, 설명 26–28, 하단 메뉴 라벨 30. 글자 확대 시 해당 영역의 높이도 함께 확인합니다.
-- 하단 메뉴는 공통 다크 우드 바, 4개 동일한 터치 영역, 고정된 라벨 기준선으로 구성합니다. 메뉴 전체를 확대하지 않습니다.
-- 하단 아이콘은 Layer Lab `PictoIcon/64`의 명시 경로를 사용합니다. 파일 크기 대신 알파가 있는 실제 그림의 최대 변이 약 64px이 되도록 표시 크기를 보정합니다.
-- 선택은 황동색 선과 은은한 배경으로 표시합니다. 아이콘 이동과 선의 미세한 맥동은 unscaled time을 사용하며 재활성화 시 복구합니다.
-- 짧은 화면의 시트는 `UguiTheme.StageControlsBottom` 아래에 간격을 확보합니다. 스크롤 내용과 고정된 메뉴의 경계를 유지합니다.
+Android 검사 도우미·결과는 `AI/qa/hud/`, `Recordings/HudRevision/`에 있다. `Recordings`는 Git 제외다.

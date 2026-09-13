@@ -18,7 +18,7 @@ namespace KingdomIdle.OfflineRewards
         public List<OfflineHuntEntry> hunts = new List<OfflineHuntEntry>();
 
         public bool HasReward =>
-            estimatedKillCount > 0 && hunts != null && hunts.Count > 0;
+            estimatedKillCount > 0;
 
         /// <summary>오프라인 사냥 보상을 기존 OnHuntReward 요청 DTO로 변환한다.
         /// <br/> OnHuntReward를 그대로 쓰지 않은 이유는 HuntResult의 count가 short(최대 32,767) 타입이기 때문에 오버플로 방지용

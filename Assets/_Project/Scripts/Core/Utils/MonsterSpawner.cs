@@ -193,7 +193,8 @@ namespace Scripts.Core.Utils
 		{
 			// Addressables 로드가 끝난 prefab에서 Monster 컴포넌트를 꺼내 전역 몬스터 캐시에 등록
 			GameObject prefab = await handle.Task;
-			Monster monster = prefab.GetComponent<Monster>();
+			if (prefab == null) throw new InvalidOperationException("Monster address failed to load: " + id);
+            Monster monster = prefab.GetComponent<Monster>();
 			if (monster == null)
 			{
 				Debug.LogWarning($"[MonsterSpawner] No monster types for AsyncOperationHandle<GameObject>: {handle}");

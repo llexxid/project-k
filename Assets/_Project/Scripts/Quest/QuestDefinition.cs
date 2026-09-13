@@ -36,7 +36,9 @@ public enum eQuestObjectiveType
     DungeonClear, //던전 클리어
 
     JobChange, //직업 변경
-    SkillEquip //스킬 장착
+    SkillEquip, //스킬 장착
+    PlayerLevel, BossKill, StatEnhance, SkillObtain, SkillEnhance, SkillAwaken,
+    Reincarnate, ReincarnationLevel, OfflineClaim, QuestAllClear, EquipmentEnhance, BattleTime, MainWaveClear, SkillCast
 }
 //퀘스트 종류(가이드, 일일, 주간, 도전과제)
 public enum eQuestCategory

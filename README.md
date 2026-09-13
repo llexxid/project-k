@@ -1,42 +1,13 @@
-# Project- K (가제)
+# 왕국군 키우기 · Project-K
 
-### 왕국군 키우기 - Kingdom Army Idle
- - Approximate Release Date 2026.04.21
+Unity 모바일 방치 RPG. 엔진 버전은 `ProjectSettings/ProjectVersion.txt`, 패키지는 `Packages/manifest.json`을 기준으로 한다.
 
-### 사용 라이브러리
- - Addressable
- - UniTask
- 
-### 팀원
-- 이의찬: PM, 기획, 개발
-- 박준기: 개발리드
-- 유형진: 개발, QA
+- [작업 지침](AGENTS.md): AI·개발 공통 행동 규칙.
+- [UGUI 구조](Assets/UGUI/README.md): 화면·프리팹·데이터 연결 및 검증 진입점.
+- [아트 실행 참고](AI/comfyui/README.md): ComfyUI 공정, 출력·출처 관리, 기존 제작 기록.
+- [신 스킬 모듈](Assets/DivineSkill/README.md): 데이터와 전투·UI 연결.
 
-### 개발일지
- - 2026.02.04 ~ 2026.02.13 
+자체 코드·에셋은 `Assets/_Project/`, UI는 `Assets/UGUI/`에 있다. Unity Hub에서 이 폴더를 열고 `ProjectSettings/EditorBuildSettings.asset`의 활성 씬 순서로 실행한다.
 
-#### 유형진
- - 재화 획득 기능(지갑)
- - 플레이어 캐릭터 이동 상태, 공격 상태(자동 전투)
- - 플레이어 캐릭터 적 탐지 기능(자동 전투)
- - 플레이어 캐릭터 애니메이션
- - 캐릭터 스킬 시스템 
-
-#### 박준기
- - 사운드,이펙트 매니저 구현
- - 오브젝트 풀 구현
- - 자동화 기능 구현 
- - 리소스들 Addressable 자동등록 기능
- - Resource를 관리하는 엑셀 파일에서 SO, Enum을 만들어내는 기능
- - 스테이지 진행 및 스테이지 로딩구현
- - 로거 구현
-
-#### 이의찬
- - UI 매니저; 씬 내부 UI 구현 및 네비게이션
- - UI 아트 삽입 및 조정
- - 씬 구조 확립 및 bootstrap 매니저 호출 구현
- - 적 애니메이션
-
----게임 플로우 미구현; 현재는 대략적인 작업물 병합 상태
-2026.02.14 ~ 2026.02.14 Dev Note
-
+팀: 이의찬(PM·기획·개발), 박준기(개발 리드), 유형진(개발·QA).
+과거 작업 내역은 Git 기록을 참조한다.

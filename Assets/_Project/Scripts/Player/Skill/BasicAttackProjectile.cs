@@ -1,3 +1,4 @@
+using KingdomIdle.Balance;
 using Scripts.Core;
 using Scripts.Monster;
 using System.Collections.Generic;
@@ -16,6 +17,7 @@ public sealed class BasicAttackProjectile : ActiveSkill
     private readonly float _projectileSpeed;
     private readonly float _damageMultiplier;
     private IDamageable _pendingTarget;
+    private int _pendingGeneration;
     private readonly Queue<MageProjectile> _pool = new Queue<MageProjectile>();
 
     private const float PROJECTILE_LIFETIME = 10f;
@@ -24,7 +26,7 @@ public sealed class BasicAttackProjectile : ActiveSkill
     private enum Phase { Idle, WaitingForReleaseEvent }
     private Phase _phase = Phase.Idle;
     private float _fireTime;
-    private int _pendingDamage;
+    private long _pendingDamage;
 
     public override string DisplayName => "기본공격";
     public override float Cooldown => _cooldown;
@@ -58,9 +60,10 @@ public sealed class BasicAttackProjectile : ActiveSkill
     public override float Execute()
     {
         _pendingTarget = _player.currentTarget;
+        _pendingGeneration = (_pendingTarget as MonoBehaviour)?.GetComponentInParent<Monster>()?.AllocGen ?? -1;
         
-        int baseAtk = _player.playerStatus?.Atk ?? 0;
-        _pendingDamage = Mathf.RoundToInt(baseAtk * _damageMultiplier);
+        long baseAtk = _player.playerStatus?.Atk ?? 0;
+        _pendingDamage = BalanceMath.Damage(baseAtk, (decimal)_damageMultiplier);
         
          _phase = Phase.WaitingForReleaseEvent;
 
@@ -79,6 +82,8 @@ public sealed class BasicAttackProjectile : ActiveSkill
             return;
 
         _phase = Phase.Idle;
+        var targetMonster = (_pendingTarget as MonoBehaviour)?.GetComponentInParent<Monster>();
+        if (targetMonster == null || targetMonster.MonAction == eMonsterAction.Dead || targetMonster.AllocGen != _pendingGeneration) { _pendingTarget = null; return; }
 
         MageProjectile projectile = GetProjectile();
 

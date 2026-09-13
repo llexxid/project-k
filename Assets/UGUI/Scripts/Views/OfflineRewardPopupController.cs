@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace KingdomIdle.UGUI
 {
-    /// <summary>서버가 확정한 오프라인 사냥 결과를 LayerPopups의 전용 프리팹에 표시한다.</summary>
+    /// <summary>확정된 오프라인 사냥 결과를 LayerPopups의 전용 프리팹에 표시한다.</summary>
     public static class OfflineRewardPopupController
     {
         private static OfflineRewardPopupView _view;
@@ -34,7 +34,7 @@ namespace KingdomIdle.UGUI
 
             _view.progressLabel.text =
                 $"성장 결과  Lv.{result.CurrentLevel:N0} · EXP {result.CurrentExp:N0}\n" +
-                $"누적 처치 {result.CurrentKillScore:N0}";
+                $"획득 EXP +{result.ExperienceGained:N0} · 전투 처치 기록과 별도";
             _view.gameObject.SetActive(true);
             _view.transform.SetAsLastSibling();
             if (_view.panel != null)

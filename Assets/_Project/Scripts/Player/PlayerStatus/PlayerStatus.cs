@@ -1,134 +1,75 @@
-using UnityEngine;
+using System;
+using KingdomIdle.Balance;
 
 public class PlayerStatus
 {
-    private int   _baseMaxHP    = 100;
-    private int   _baseAtk      = 1;
-    private int   _baseMovSpeed = 5;
-
-    private int _equipAtk   = 0;
-    private int _equipMaxHP = 0;
-
-    private int _passiveAtk   = 0;
-    private int _passiveMaxHP = 0;
-
-    // 오라 버프 승수 (곱연산)
-    private float _buffAtkMultiplier   = 1f;
-    private float _buffMaxHPMultiplier = 1f;
-
-    private float _enhanceAtkRate   = 0f;
-    private float _enhanceMaxHPRate = 0f;
-
-    public int HP { get; set; } = 100;
-
-    public int MaxHP    => Mathf.RoundToInt((_baseMaxHP + _equipMaxHP + _passiveMaxHP) * _buffMaxHPMultiplier * (1f + _enhanceMaxHPRate));
-    public int Atk      => Mathf.RoundToInt((_baseAtk + _equipAtk + _passiveAtk) * _buffAtkMultiplier * (1f + _enhanceAtkRate));
+    private int _baseMaxHP = 200, _baseAtk = 30, _baseMovSpeed = 3;
+    private int _equipAtk, _equipMaxHP, _passiveAtk, _passiveMaxHP;
+    private decimal _auraAttack, _auraHealth;
+    private int _attackLevel, _healthLevel, _accountLevel = 1, _reincarnationLevel;
+    public long HP { get; set; } = 200;
+    public long MaxHP => MaxHPBreakdown().Final;
+    public long Atk => AtkBreakdown().Final;
     public int MovSpeed => _baseMovSpeed;
-
-    public string JobName { get; set; } = "Warrior";
-
-    public System.Action<string> OnJobChanged;
-    /// <summary>Atk / MaxHP / MovSpeed 재계산이 필요한 변경이 발생할 때 호출.</summary>
-    public System.Action OnStatsChanged;
-
+    public string JobName { get; set; } = "Spearman";
+    public Action<string> OnJobChanged;
+    public Action OnStatsChanged;
     public void ApplyJob(JobData data)
     {
         if (data == null) return;
-
-        _baseMaxHP    = data.maxHP;
-        _baseAtk      = data.atk;
-        _baseMovSpeed = data.movSpeed;
-
-        JobName = data.jobName;
-        OnJobChanged?.Invoke(JobName);
-
-        HP = MaxHP;
-        OnStatsChanged?.Invoke();
+        _baseMaxHP = data.maxHP; _baseAtk = data.atk; _baseMovSpeed = data.movSpeed;
+        JobName = data.jobName; HP = Math.Min(HP, MaxHP);
+        OnJobChanged?.Invoke(JobName); OnStatsChanged?.Invoke();
     }
-
-    public void SetEquipmentBonus(int bonusAtk, int bonusMaxHP)
+    public void SetEquipmentBonus(int attack, int health) { _equipAtk = attack; _equipMaxHP = health; HP = Math.Min(HP, MaxHP); OnStatsChanged?.Invoke(); }
+    public void SetProgression(int attack, int health, int account, int reincarnation)
     {
-        _equipAtk   = bonusAtk;
-        _equipMaxHP = bonusMaxHP;
-        OnStatsChanged?.Invoke();
+        _attackLevel = attack; _healthLevel = health; _accountLevel = account; _reincarnationLevel = reincarnation;
+        HP = Math.Min(HP, MaxHP); OnStatsChanged?.Invoke();
     }
-
-    public void ResetPassiveBonus()
+    public void SetAura(decimal attack, decimal health)
     {
-        _passiveAtk   = 0;
-        _passiveMaxHP = 0;
-        _buffAtkMultiplier   = 1f;
-        _buffMaxHPMultiplier = 1f;
-        OnStatsChanged?.Invoke();
+        if (_auraAttack == attack && _auraHealth == health) return;
+        _auraAttack = attack; _auraHealth = health; HP = Math.Min(HP, MaxHP); OnStatsChanged?.Invoke();
     }
-
-    public void AddPassiveBonus(int bonusAtk)
+    public void ResetPassiveBonus() { _passiveAtk = _passiveMaxHP = 0; SetAura(0, 0); }
+    public void AddPassiveBonus(int attack) => AddPassiveSelfBonus(attack, 0);
+    public void AddPassiveSelfBonus(int attack, int health) { _passiveAtk = checked(_passiveAtk + attack); _passiveMaxHP = checked(_passiveMaxHP + health); OnStatsChanged?.Invoke(); }
+    public void ApplyBuffMultiplier(float attack, float health) => SetAura(_auraAttack + (decimal)attack - 1m, _auraHealth + (decimal)health - 1m);
+    public void SetEnhanceBonus(float attack, float health)
     {
-        _passiveAtk += bonusAtk;
-        OnStatsChanged?.Invoke();
+        var s = LocalProgression.State; SetProgression(s.AttackLevel, s.HealthLevel, s.AccountLevel, s.ReincarnationLevel);
     }
-
-    public void AddPassiveSelfBonus(int bonusAtk, int bonusMaxHP)
-    {
-        _passiveAtk   += bonusAtk;
-        _passiveMaxHP += bonusMaxHP;
-        OnStatsChanged?.Invoke();
-    }
-
-    public void ApplyBuffMultiplier(float atkMult, float hpMult)
-    {
-        _buffAtkMultiplier   *= atkMult;
-        _buffMaxHPMultiplier *= hpMult;
-        OnStatsChanged?.Invoke();
-    }
-
-    public void SetEnhanceBonus(float atkRate, float maxHPRate)
-    {
-        _enhanceAtkRate   = atkRate;
-        _enhanceMaxHPRate = maxHPRate;
-        OnStatsChanged?.Invoke();
-    }
-
-    // ── 스탯 구성요소 접근자 (상세 스탯 방정식 UI / 팀 공용) ──
-    // 최종값 = (base + equip + passive) × buffMultiplier × (1 + enhanceRate)
-    public int   BaseAtk            => _baseAtk;
-    public int   EquipAtk           => _equipAtk;
-    public int   PassiveAtk         => _passiveAtk;
-    public float BuffAtkMultiplier  => _buffAtkMultiplier;
-    public float EnhanceAtkRate     => _enhanceAtkRate;
-
-    public int   BaseMaxHP          => _baseMaxHP;
-    public int   EquipMaxHP         => _equipMaxHP;
-    public int   PassiveMaxHP       => _passiveMaxHP;
-    public float BuffMaxHPMultiplier => _buffMaxHPMultiplier;
-    public float EnhanceMaxHPRate   => _enhanceMaxHPRate;
-
-    public int   BaseMovSpeed       => _baseMovSpeed;
-
-    /// <summary>스탯 방정식 표시용 구성요소 묶음. 최종 = (Base+Equip+Passive) × BuffMult × (1+EnhanceRate).</summary>
+    public int BaseAtk => _baseAtk;
+    public int EquipAtk => _equipAtk;
+    public int PassiveAtk => _passiveAtk;
+    public float BuffAtkMultiplier => (float)Group(_auraAttack);
+    public float EnhanceAtkRate => (float)(BalanceMath.GoldMultiplier(_attackLevel) - 1m);
+    public int BaseMaxHP => _baseMaxHP;
+    public int EquipMaxHP => _equipMaxHP;
+    public int PassiveMaxHP => _passiveMaxHP;
+    public float BuffMaxHPMultiplier => (float)Group(_auraHealth);
+    public float EnhanceMaxHPRate => (float)(BalanceMath.GoldMultiplier(_healthLevel) - 1m);
+    public int BaseMovSpeed => _baseMovSpeed;
+    private decimal Group(decimal aura) => 1m + aura + .002m * (_accountLevel - 1) + .01m * _reincarnationLevel;
     public struct StatBreakdown
     {
-        public int   Base;         // 전직 기본
-        public int   Equip;        // 장비
-        public int   Passive;      // 패시브(가산)
-        public float BuffMult;     // 오라 승수 (곱)
-        public float EnhanceRate;  // 강화 비율 (예: 0.24 = +24%)
-        public int   Final;        // 최종값
-
-        public int   AdditiveSum => Base + Equip + Passive;
-        public bool  HasBuff     => Mathf.Abs(BuffMult - 1f) > 0.0001f;
-        public bool  HasEnhance  => Mathf.Abs(EnhanceRate) > 0.0001f;
+        public int Base, Equip, Passive;
+        public float BuffMult, EnhanceRate;
+        public long Final;
+        public decimal AuraRate, AccountRate, ReincarnationRate, GrowthMultiplier;
+        public long AdditiveSum => (long)Base + Equip + Passive;
+        public bool HasBuff => Math.Abs(BuffMult - 1f) > .0001f;
+        public bool HasEnhance => Math.Abs(EnhanceRate) > .0001f;
     }
-
-    public StatBreakdown AtkBreakdown() => new StatBreakdown
+    private StatBreakdown Breakdown(int basis, int equip, int passive, int level, decimal aura) => new()
     {
-        Base = _baseAtk, Equip = _equipAtk, Passive = _passiveAtk,
-        BuffMult = _buffAtkMultiplier, EnhanceRate = _enhanceAtkRate, Final = Atk
+        Base = basis, Equip = equip, Passive = passive, AuraRate = aura,
+        AccountRate = .002m * (_accountLevel - 1), ReincarnationRate = .01m * _reincarnationLevel,
+        GrowthMultiplier = BalanceMath.GoldMultiplier(level), BuffMult = (float)Group(aura),
+        EnhanceRate = (float)(BalanceMath.GoldMultiplier(level) - 1m),
+        Final = BalanceMath.Stat(basis, equip, passive, level, aura, _accountLevel, _reincarnationLevel)
     };
-
-    public StatBreakdown MaxHPBreakdown() => new StatBreakdown
-    {
-        Base = _baseMaxHP, Equip = _equipMaxHP, Passive = _passiveMaxHP,
-        BuffMult = _buffMaxHPMultiplier, EnhanceRate = _enhanceMaxHPRate, Final = MaxHP
-    };
+    public StatBreakdown AtkBreakdown() => Breakdown(_baseAtk, _equipAtk, _passiveAtk, _attackLevel, _auraAttack);
+    public StatBreakdown MaxHPBreakdown() => Breakdown(_baseMaxHP, _equipMaxHP, _passiveMaxHP, _healthLevel, _auraHealth);
 }

@@ -1,5 +1,6 @@
 using UnityEngine;
 using Scripts.Core;
+using System.Collections.Generic;
 
 namespace KingdomIdle.UGUI
 {
@@ -10,39 +11,39 @@ namespace KingdomIdle.UGUI
     {
         public static void Populate(GuidePanelView view, System.Action onProgressChanged = null)
         {
+if (view == null || view.listContent == null) return;
+            var balance = view.GetComponent<BalanceQuestPanel>() ?? view.gameObject.AddComponent<BalanceQuestPanel>();
+            balance.Bind(view);
+    }
+
+        private static void ShowUpcoming(GuidePanelView view)
+        {
             if (view == null) return;
-
-            var manager = TutorialManager.Instance;
-            if (view.listContent == null) return;
-
-            // 원본은 이벤트를 구독하지 않으므로 OnClosed 에서 해제할 것도 없다.
-            // (진행 변경 통지는 onProgressChanged 콜백으로만 전달 — 원본과 동일)
-
             ClearList(view.listContent);
-
-            if (manager == null)
+            if (view.progressFill != null) view.progressFill.transform.parent.gameObject.SetActive(false);
+            var quests = QuestManager.Instance;
+            var current = quests != null ? quests.GetActiveGuideState() : null;
+            var definition = current != null ? quests.GetQuestDefinition(current.QuestId) : null;
+            var visited = new HashSet<long>();
+            var catalog = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
+            int count = 0;
+            while (definition != null && definition.NextQuestId != 0 && visited.Add(definition.NextQuestId))
             {
-                AddEmptyHint(view, "TutorialManager를 씬에 배치해주세요.");
-                return;
+                definition = quests.GetQuestDefinition(definition.NextQuestId);
+                if (definition == null || definition.Category != eQuestCategory.Guide || catalog == null || catalog.itemGuideStepRow == null) break;
+                var go = Object.Instantiate(catalog.itemGuideStepRow, view.listContent, false);
+                var row = go.GetComponent<GuideStepRowView>();
+                row.Set($"가이드 {definition.QuestId:N0}  ·  예정", definition.Description, "", false);
+                if (row.checkButton != null) row.checkButton.gameObject.SetActive(false);
+                row.titleLabel.fontSize = 26;
+                row.titleLabel.color = UguiTheme.AccentGold;
+                row.descLabel.fontSize = 30;
+                var layout = row.descLabel.GetComponent<UnityEngine.UI.LayoutElement>();
+                if (layout != null) layout.preferredHeight = 76;
+                count++;
             }
-
-            var steps = manager.GetSteps();
-
-            if (steps.Count == 0)
-            {
-                AddEmptyHint(view, "등록된 가이드 단계가 없습니다.");
-                RefreshProgress(manager, view);
-                return;
-            }
-
-            for (int i = 0; i < steps.Count; i++)
-            {
-                var step = steps[i];
-                if (step == null) continue;
-                BuildStepRow(view, step, manager, onProgressChanged);
-            }
-
-            RefreshProgress(manager, view);
+            if (view.progressLabel != null) view.progressLabel.text = count > 0 ? "다음 가이드" : "가이드 안내";
+            if (count == 0) AddEmptyHint(view, current != null ? "마지막 가이드를 진행하고 있습니다." : "현재 등록된 가이드를 모두 확인했습니다.");
         }
 
         private static void BuildStepRow(
@@ -87,7 +88,7 @@ namespace KingdomIdle.UGUI
             int done = manager.GetCompletedCount();
 
             if (view.progressLabel != null)
-                view.progressLabel.text = $"{done} / {total} 완료";
+                view.progressLabel.text = $"플레이 도움말  ·  {done}/{total} 확인";
 
             if (view.progressFill != null)
             {

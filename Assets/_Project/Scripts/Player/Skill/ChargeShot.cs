@@ -1,3 +1,4 @@
+using KingdomIdle.Balance;
 using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Monster;
@@ -21,7 +22,9 @@ public sealed class ChargeShot : ActiveSkill
     private int _hitsRemaining;
     private float _nextHitTime;
     private IDamageable _target;
-    private int _hitDamage;
+    private int _generation;
+    public override bool IsActive => _phase != Phase.Idle;
+    private long _hitDamage;
 
     private const float HIT_INTERVAL = 0.15f;
 
@@ -54,21 +57,22 @@ public sealed class ChargeShot : ActiveSkill
     public override float Execute()
     {
         _target = _player.currentTarget;
-        int baseAtk = _player.playerStatus?.Atk ?? 0;
-        _hitDamage = Mathf.RoundToInt(baseAtk * _damageMultiplier);
+        _generation = (_target as MonoBehaviour)?.GetComponentInParent<Monster>()?.AllocGen ?? -1;
+        long baseAtk = _player.playerStatus?.Atk ?? 0;
+        _hitDamage = BalanceMath.Damage(baseAtk, (decimal)_damageMultiplier);
         _hitsRemaining = _hitCount;
 
         string animName = "Tripple_Shot_Anim";
-        float animLen = _player.GetClipLength(animName, 0.5f);
+        float animLen = 0.5f;
         _player.PlaySkillAnimation(animName, animLen);
 
         _phase = Phase.Animating;
         _animEndTime = Time.time + animLen;
 
         // 모든 타격 완료 전까지 쿨다운 시작하지 않음
-        _nextAvailableTime = float.MaxValue;
+        _nextAvailableTime = Time.time + _cooldown;
 
-        return animLen;
+        return 0.8f;
     }
 
     public override void Tick()
@@ -78,19 +82,19 @@ public sealed class ChargeShot : ActiveSkill
         if (_phase == Phase.Animating && Time.time >= _animEndTime)
         {
             _phase = Phase.Hitting;
-            _nextHitTime = Time.time;
+            _nextHitTime = _animEndTime;
         }
 
-        if (_phase == Phase.Hitting && Time.time >= _nextHitTime && _hitsRemaining > 0)
+        while (_phase == Phase.Hitting && Time.time >= _nextHitTime && _hitsRemaining > 0)
         {
             ApplyOneHit();
             _hitsRemaining--;
-            _nextHitTime = Time.time + HIT_INTERVAL;
+            _nextHitTime += HIT_INTERVAL;
 
             if (_hitsRemaining <= 0)
             {
                 _phase = Phase.Idle;
-                _nextAvailableTime = Time.time + _cooldown;
+
             }
         }
     }
@@ -103,7 +107,7 @@ public sealed class ChargeShot : ActiveSkill
         if (mono == null || !mono.gameObject.activeInHierarchy) return;
 
         var mon = mono.GetComponentInParent<Monster>();
-        if (mon != null && mon.MonAction == eMonsterAction.Dead) return;
+        if (mon != null && (mon.MonAction == eMonsterAction.Dead || mon.AllocGen != _generation)) return;
 
         var proxy = new DamageProxy((ulong)_hitDamage, _player);
         _target.TakeDamage(proxy);

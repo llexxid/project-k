@@ -172,9 +172,7 @@ namespace KingdomIdle.UGUI.Editor
                 value.overflowMode=TextOverflowModes.Ellipsis;
             }
 
-            Stage(v.waveHud);
-            var goal = (RectTransform)v.transform.Find("GuideGoal");
-            goal.anchoredPosition = new Vector2(0,-358);
+            CompactHudBuilder.ApplyMain(v.gameObject);
         }
 
         private static void MainTab(MainTabButtonView tab, string iconFile, float opticalSize)
@@ -259,76 +257,6 @@ namespace KingdomIdle.UGUI.Editor
             Pin(label.rectTransform, new Vector2(.5f,.5f), new Vector2(0,-39), new Vector2(132,38));
         }
 
-        private static void Stage(WaveHudView v)
-        {
-            var area = (RectTransform)v.transform;
-            area.sizeDelta = new Vector2(area.sizeDelta.x,164);
-            var row = v.lblStage.transform.parent;
-            Width(row, 984);
-            Height(row, 144);
-            var layout = row.GetComponent<HorizontalLayoutGroup>();
-            layout.padding = new RectOffset(24,20,0,0);
-            layout.spacing = 12;
-            row.Find("Frame").gameObject.SetActive(false);
-            row.Find("StageIcon").gameObject.SetActive(false);
-            Flat(row.GetComponent<Image>(), UguiTheme.RusticPanelDeep);
-            Type(v.lblStage, 34, 76);
-            Width(v.lblStage.transform, 0, 1);
-            v.lblStage.alignment = TextAlignmentOptions.MidlineLeft;
-            v.lblStage.enableAutoSizing = true;
-            v.lblStage.fontSizeMin = 28;
-            v.lblStage.fontSizeMax = 34;
-            v.lblStage.textWrappingMode = TextWrappingModes.NoWrap;
-            v.lblStage.overflowMode = TextOverflowModes.Ellipsis;
-            // Keep the stage name stationary when the repeat affordance becomes visible.
-            v.btnLoopIcon.transform.SetSiblingIndex(v.lblStage.transform.GetSiblingIndex()+1);
-            Width(v.btnLoopIcon.transform,144);
-            Height(v.btnLoopIcon.transform,144);
-            Flat(v.btnLoopIcon.GetComponent<Image>(), UguiTheme.RusticSurface);
-            HeaderAction(v.btnLoopIcon,"refresh.png","반복 중");
-            Width(v.bossChallengeRoot.transform, 316);
-            Height(v.bossChallengeRoot.transform, 144);
-            var bossLabel = v.bossChallengeRoot.transform.Find("LblBossChain").GetComponent<TMP_Text>();
-            bossLabel.text = "보스 자동";
-            Type(bossLabel, 26, 64);
-            Width(bossLabel.transform, 160);
-            bossLabel.alignment = TextAlignmentOptions.Center;
-            Width(v.tglBossChain.transform,144);
-            Height(v.tglBossChain.transform,144);
-            var root = v.tglBossChain.GetComponent<Image>();
-            Flat(root, Color.clear, false);
-            root.raycastTarget = true;
-            v.tglBossChain.targetGraphic = root;
-            v.tglBossChain.graphic = null;
-            v.tglBossChain.transition = Selectable.Transition.None;
-            if (v.tglBossChain.GetComponent<ToggleSwitchView>() == null)
-            {
-                foreach (Transform c in v.tglBossChain.transform) c.gameObject.SetActive(false);
-                var track = NewImage(v.tglBossChain.transform, "SwitchTrack", new Vector2(144,64), Rounded);
-                var knob = NewImage(track.transform,"Knob",new Vector2(54,54),AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/Sprites/Circle.png"));
-                knob.color = UguiTheme.Parchment;
-                var view = v.tglBossChain.gameObject.AddComponent<ToggleSwitchView>();
-                view.track = track;
-                view.knob = knob.rectTransform;
-            }
-            var hit = v.bossChallengeRoot.GetComponent<Image>() ?? v.bossChallengeRoot.AddComponent<Image>();
-            Flat(hit, Color.clear, false);
-            hit.raycastTarget = true;
-            var target = v.bossChallengeRoot.GetComponent<ToggleRowTarget>() ?? v.bossChallengeRoot.AddComponent<ToggleRowTarget>();
-            target.toggle = v.tglBossChain;
-        }
-
-        private static Image NewImage(Transform parent, string name, Vector2 size, Sprite sprite)
-        {
-            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
-            go.transform.SetParent(parent,false);
-            var image = go.GetComponent<Image>();
-            image.sprite = sprite;
-            image.type = Image.Type.Sliced;
-            image.raycastTarget = false;
-            Pin(image.rectTransform,new Vector2(.5f,.5f),Vector2.zero,size);
-            return image;
-        }
         private static LayoutElement Layout(Transform t) => t.GetComponent<LayoutElement>() ?? t.gameObject.AddComponent<LayoutElement>();
         private static void Width(Transform t, float width, float flex = 0)
         { var l=Layout(t); l.minWidth=width; l.preferredWidth=width; l.flexibleWidth=flex; }

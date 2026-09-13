@@ -1,3 +1,4 @@
+using KingdomIdle.Balance;
 using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Monster;
@@ -43,7 +44,7 @@ public sealed class EnergyPulse : ActiveSkill
     public override bool CanExecute()
     {
         // 기본공격이 쿨다운 중이 아니면 발동 불가
-        if (_basicAttackRef != null && _basicAttackRef.IsReady) return false;
+
 
         ContactFilter2D filter = new ContactFilter2D();
         filter.SetLayerMask(_enemyLayer);
@@ -71,14 +72,15 @@ public sealed class EnergyPulse : ActiveSkill
         int hitCount = Physics2D.OverlapCircle(
             _player.transform.position, _triggerRange, filter, _hitResults);
 
-        int baseAtk = _player.playerStatus?.Atk ?? 0;
-        int skillDamage = Mathf.RoundToInt(baseAtk * _damageMultiplier);
+        long baseAtk = _player.playerStatus?.Atk ?? 0;
+        long skillDamage = BalanceMath.Damage(baseAtk, (decimal)_damageMultiplier);
         var proxy = new DamageProxy((ulong)skillDamage, _player);
 
-        for (int i = 0; i < hitCount; i++)
+        var distinct = new HashSet<Monster>();
+        for (int i = 0; i < hitCount && distinct.Count < 6; i++)
         {
             var mon = _hitResults[i].GetComponentInParent<Monster>();
-            if (mon == null || mon.MonAction == eMonsterAction.Dead) continue;
+            if (mon == null || mon.MonAction == eMonsterAction.Dead || !distinct.Add(mon)) continue;
 
             var damageable = _hitResults[i].GetComponentInParent<IDamageable>();
             damageable?.TakeDamage(proxy);
@@ -94,13 +96,13 @@ public sealed class EnergyPulse : ActiveSkill
         float animLen = _player.GetClipLength(animName, 0.6f);
         // 애니메이션이 마지막 프레임까지 완전히 재생되도록 약간의 버퍼를 둔다.
         // (버퍼가 없으면 _pendingAnimRecovery 가 끝 프레임을 Attack_Anim 로 덮어쓴다)
-        float protectLen = animLen + 0.1f;
+        float protectLen = 0.7f;
         _player.PlaySkillAnimation(animName, protectLen);
 
         _isPlaying = true;
         _playEndTime = Time.time + protectLen;
 
-        _nextAvailableTime = Time.time + protectLen + ScaledCooldown(_cooldown);
+        _nextAvailableTime = Time.time + _cooldown;
         return protectLen;
     }
 

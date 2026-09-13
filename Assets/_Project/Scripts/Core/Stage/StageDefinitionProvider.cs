@@ -33,20 +33,8 @@ public sealed class StageDefinitionProvider : IStageDefinitionProvider
         eStage lookupId = id;
         if (!_database.TryGetStage(lookupId, out StageDatabaseRecord record))
         {
-            // 메인은 엑셀의 1·2스테이지를 반복 템플릿으로 사용한다.
-            // 예를 들어 Stage3_1은 Stage1_1의 몬스터/환경 데이터를 사용하되 Id는 Stage3_1로 유지한다.
-            if (StageParser.GetStageType(id) != eStageType.Main)
-            {
-                definition = null;
-                return false;
-            }
-
-            lookupId = StageParser.GetFixedStageKey(id);
-            if (!_database.TryGetStage(lookupId, out record))
-            {
-                definition = null;
-                return false;
-            }
+            definition = null;
+            return false;
         }
 
         bool usesMainTemplate = lookupId != id;

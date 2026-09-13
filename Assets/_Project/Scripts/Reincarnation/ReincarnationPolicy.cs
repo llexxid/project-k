@@ -7,7 +7,7 @@ namespace Reincarnation
 {
     public class ReincarnationPolicy
     {
-        private const int MinimumStageLevel = 2;
+        private const int MinimumStageLevel = 1;
         private const int LevelGainPerStage = 5;
 
         public ReincarnationPreview Evaluate(
@@ -30,7 +30,8 @@ namespace Reincarnation
 
             try
             {
-                long levelGain = checked((long)stageNumber * LevelGainPerStage);
+                long levelGain = Math.Min(Math.Max(0,300-currentState.Level), checked((long)stageNumber * LevelGainPerStage));
+                if (levelGain == 0) return new ReincarnationPreview(false,eReincarnationFailureReason.MaximumLevel);
                 long count = checked(currentState.Count + 1L);
                 long nextLevel = checked(currentState.Level + levelGain);
                 var nextState = new ReincarnationState(nextLevel, count);

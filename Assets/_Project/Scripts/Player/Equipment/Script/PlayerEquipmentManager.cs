@@ -40,39 +40,13 @@ public class PlayerEquipmentManager
     /// </summary>
     public void Equip(EquipmentInstance equipment)
     {
-        if (equipment == null) return;
-        if (equipment.IsEquipped)
-        {
-            Debug.LogWarning($"플레이어{equipment.equipmentPlayerIndex}가 이미 장착중");
-            return;
-        }
-        eEquipmentSlot slot = equipment.baseData.slot;
-        if (_equipped.TryGetValue(slot, out EquipmentInstance prevEquip))
-        {
-            prevEquip.equipmentPlayerIndex = null;
-        }
-        _equipped[slot] = equipment;
-        equipment.equipmentPlayerIndex = _playerIndex;
-        
-        RecalculateStats();
-        OnEquipped?.Invoke(this,equipment.baseData.slot, equipment);
+        EquipmentManager.Instance?.TryEquip(_playerIndex, equipment);
     }
 
     /// <summary>지정 슬롯의 장비를 해제한다.</summary>
     public void Unequip(eEquipmentSlot slot)
     {
-        if (!_equipped.TryGetValue(slot, out EquipmentInstance equipment))
-        {
-            return;
-        }
-
-        string removedName = equipment.baseData.equipmentName;
-        
-        equipment.equipmentPlayerIndex = null;
-        _equipped.Remove(slot);
-        
-        RecalculateStats();
-        OnUnequipped?.Invoke(this,slot,equipment);
+        EquipmentManager.Instance?.Unequip(_playerIndex);
     }
 
     /// <summary>슬롯에 착용된 인스턴스를 반환한다. 없으면 null.</summary>
@@ -111,6 +85,13 @@ public class PlayerEquipmentManager
     //현재는 사용하지 않으나 ChangeJob.cs에서 사용
     public void SetCurrentJob(string name)
     {
-        
+        var item = GetSlotEquipment(eEquipmentSlot.Weapon);
+        if (item != null && !item.baseData.IsAllowedForJob(name)) Unequip(eEquipmentSlot.Weapon);
+    }
+    internal void RestoreSelection(EquipmentInstance item)
+    {
+        _equipped.Clear();
+        if (item != null) _equipped[eEquipmentSlot.Weapon] = item;
+        RecalculateStats();
     }
 }

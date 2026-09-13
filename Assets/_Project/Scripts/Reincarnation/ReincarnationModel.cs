@@ -23,7 +23,7 @@ namespace Reincarnation
         StageRequirementNotMet,
         NumericOverflow,
         RequestDuplication,
-        StateIsNotRunning
+        StateIsNotRunning, MaximumLevel, Cooldown, DailyLimit
     }
     public readonly struct ReincarnationState
     {

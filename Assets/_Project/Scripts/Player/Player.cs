@@ -41,7 +41,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     {
         get
         {
-            int maxHP = playerStatus?.MaxHP ?? 1;
+            long maxHP = playerStatus?.MaxHP ?? 1;
             return maxHP > 0 ? (float)_data._Hp / maxHP : 1f;
         }
     }
@@ -73,6 +73,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     private static readonly int AttackAnimationSpeedHash = Animator.StringToHash("AttackAnimSpeed");
     
     //Skill
+    private readonly Dictionary<IDamageable, int> _pendingGenerations = new();
     private readonly List<IDamageable> _pendingSkillTargets = new List<IDamageable>();
     private ulong _pendingSkillDamage;
     private bool _hasPendingSkillDamage;
@@ -336,7 +337,8 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     public bool TakeDamage(IAttackable attacker)
     {
         // 신 스킬 보호 버프(받는 피해 감소)를 먼저 반영한다. 버프가 없으면 원본 그대로.
-        ulong dmg = KingdomIdle.Divine.DivineBuffState.ApplyDamageReduction(attacker.damage);
+        if (_isDead || attacker == null) return false;
+        ulong dmg = attacker.damage;
 
         DamageTextBridge.ShowOnTransform(transform, dmg, Color.white);
 
@@ -348,8 +350,9 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     private bool setHp(ulong damage)
     {
         long totalHp = _data._Hp + _data._extraHp;
-        if (totalHp - (long)damage <= 0)
+        if (damage >= (ulong)System.Math.Max(0L, totalHp))
         {
+            _data._Hp = 0; _data._extraHp = 0; playerStatus.HP = 0;
             OnDead();
             return false;
         }
@@ -359,6 +362,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
             long remainDamage = (long)damage - _data._extraHp;
             _data._extraHp = 0;
             _data._Hp -= remainDamage;
+            playerStatus.HP = _data._Hp;
         }
         else
         {
@@ -376,6 +380,8 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     // 현재 탐색된 대상이 사망 / 감지불가 상태가 될 때 현재 타겟을 리셋
     public void ResetTarget(IDamageable target)
     {
+        if (target != _currentTarget) return;
+        if (_currentTarget != null) _currentTarget.OnDeath -= ResetTarget;
         _currentTarget = null;
         currentTarget = null;
     }
@@ -397,11 +403,12 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
 
     /// <summary>HP 회복 (IronWill 등).</summary>
-    public void Heal(int amount)
+    public void Heal(long amount)
     {
         if (_isDead || amount <= 0) return;
         long maxHP = playerStatus?.MaxHP ?? _data._MaxHp;
-        _data._Hp = System.Math.Min(_data._Hp + amount, maxHP);
+        _data._Hp = System.Math.Min(checked(_data._Hp + amount), maxHP);
+        playerStatus.HP = _data._Hp;
     }
 
     /// <summary>현재 HP 를 MaxHP 로 채운다 (직업 변경 등 전체 스탯 리셋 시).</summary>
@@ -409,6 +416,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     {
         if (playerStatus == null) return;
         _data._Hp = playerStatus.MaxHP;
+        playerStatus.HP = _data._Hp;
         _data._extraHp = 0;
         playerStatus.HP = playerStatus.MaxHP;
     }
@@ -417,6 +425,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     {
         _isDead = false;
         _data._Hp = playerStatus.MaxHP;
+        playerStatus.HP = _data._Hp;
         _data._extraHp = 0;
         playerStatus.HP = playerStatus.MaxHP;
 
@@ -428,13 +437,19 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         playerOrder?.Init(this);
         playerOrder?.RecoveryBT();
         GameManager.Instance?.ReportPlayerRevived();
-        ResetTarget(this);
+        ResetTarget(_currentTarget);
     }
 
-    public void SetPendingSkillDamage(List<IDamageable> targets, int damage)
+    public void SetPendingSkillDamage(List<IDamageable> targets, long damage)
     {
         _pendingSkillTargets.Clear();
-        _pendingSkillTargets.AddRange(targets);
+        _pendingGenerations.Clear();
+        foreach (var target in targets)
+        {
+            if (target == null || _pendingGenerations.ContainsKey(target)) continue;
+            _pendingSkillTargets.Add(target);
+            _pendingGenerations[target] = (target as MonoBehaviour)?.GetComponentInParent<Monster>()?.AllocGen ?? -1;
+        }
         _pendingSkillDamage = (ulong)damage;
         _hasPendingSkillDamage = _pendingSkillTargets.Count > 0;
     }
@@ -460,6 +475,8 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
             var mono = target as MonoBehaviour;
             if (mono == null || !mono.gameObject.activeInHierarchy) continue;
 
+            var monster = mono.GetComponentInParent<Monster>();
+            if (monster != null && (monster.MonAction == eMonsterAction.Dead || monster.AllocGen != _pendingGenerations[target])) continue;
             bool isAlive = target.TakeDamage(new ActiveSkill.DamageProxy(_pendingSkillDamage, this));
             if (!isAlive)
             {
@@ -552,10 +569,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
     public void GiveReward(int gold, int ancientCoin)
     {
-        _user.GainCoin(eCurrency.Gold, gold);
-        _user.GainCoin(eCurrency.AncientCoin, ancientCoin);
-
-        EquipmentManager.Instance.TryDropEquipment();
+        // StageSession settles rewards once by killed monster, independent of attacker.
     }
 
 

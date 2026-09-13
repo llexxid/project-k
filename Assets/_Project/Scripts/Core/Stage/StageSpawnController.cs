@@ -1,5 +1,6 @@
-using System.Collections;
+using System;
 using System.Collections.Generic;
+using KingdomIdle.Balance;
 using Scripts.Core;
 using Scripts.Core.Utils;
 using Scripts.Monster;
@@ -8,167 +9,58 @@ using UnityEngine;
 
 public class StageSpawnController
 {
-    private MonsterSpawnLocationSO _locationSo;
     private StageSession _session;
-    private int _locationCount;
-    private float _elapsedTime;
-    private List<LoopSpawnSchedule> _loopSchedules;
-    private Monster _bossMonster;
-
-    public bool Begin(StageSession session, MonsterSpawnLocationSO locationSo)
+    private MonsterSpawnLocationSO _locations;
+    private readonly Queue<(eMonsterType type, bool ranged)> _queue = new();
+    private Monster _boss;
+    private float _wait;
+    private int _spawned;
+    public bool Begin(StageSession session, MonsterSpawnLocationSO locations)
     {
-        if (session == null)
+        if (session == null || locations == null || locations.GetLocationCount() <= 0) return false;
+        _session = session; _locations = locations; _queue.Clear(); _spawned = 0; _wait = 0;
+        int entryIndex = 0;
+        foreach (var entry in session.Definition.MonsterEntries)
         {
-            Debug.LogError("[StageSpawnController] Session is null");
-            return false;
+            for (int i = 0; i < entry.Count; i++) _queue.Enqueue((entry.MonsterType, entryIndex > 0));
+            entryIndex++;
         }
-
-        if (locationSo == null)
-        {
-            Debug.LogError("[StageSpawnController] LocationSO is null");
-            return false;
-        }
-        _session = session;
-        _locationSo = locationSo;
-        _locationCount = _locationSo.GetLocationCount();
-        if (_locationCount <= 0)
-        {
-            Debug.LogError("[StageSpawnController] Spawn location is empty");
-            return false;
-        }
-
-        _elapsedTime = 0f;
-        _loopSchedules = new List<LoopSpawnSchedule>();
-        _bossMonster = null;
-
-        BuildLoopSchedules(session.Definition);
-        SpawnMonster();
-        _session.CompleteSpawning();
-        return true;
+        Fill(); return true;
     }
-
-    public void Tick(float deltaTime)
+    public void Tick(float delta)
     {
-        if (_session == null || !_session.IsRunning || _loopSchedules.Count == 0) return;
-        
-        _elapsedTime += deltaTime;
-
-        bool canSpawn =
-            _session.RemainingMonsterCount <
-            _session.Definition.LoopSpawnAliveThreshold;
-
-        foreach (LoopSpawnSchedule schedule in _loopSchedules)
+        if (_session == null || !_session.IsRunning || _queue.Count == 0) return;
+        var kind = _session.Definition.Type;
+        if (kind != eStageType.Main)
         {
-            if (_elapsedTime < schedule.NextSpawnTime)
-                continue;
-
-            // 제한에 걸려도 해당 스폰 시점은 소비한다.
-            schedule.NextSpawnTime =
-                _elapsedTime + schedule.IntervalSec;
-
-            if (canSpawn)
-                SpawnMonster(schedule.Entries);
+            if (_session.RemainingMonsterCount > 0) return;
+            if (kind == eStageType.RubyDungeon) _session.TimerRunning = false;
+            _wait += delta;
+            if (_wait < (kind == eStageType.RubyDungeon ? .8f : .3f)) return;
         }
+        Fill();
     }
-
-    public void Stop()
+    private void Fill()
     {
-        _loopSchedules?.Clear();
-        _bossMonster = null;
-        _session = null;
-        _locationSo = null;
-    }
-
-    public bool TryGetBossMonster(out Monster monster)
-    {
-        monster = _bossMonster;
-        return monster != null;
-    }
-
-    //세션의 모든 몬스터 스폰
-    private void SpawnMonster()
-    {
-        if (_session == null || !_session.IsRunning) return;
-
-        foreach (var monsterEntry in _session.Definition.MonsterEntries)
+        var d = _session.Definition;
+        int cap = d.Type == eStageType.Main ? 6 : d.Type == eStageType.GoldDungeon ? 5 : 1;
+        while (_queue.Count > 0 && _session.RemainingMonsterCount < cap)
         {
-            for (int i = 0; i < monsterEntry.Count; i++)
-            {
-                int index = Random.Range(0, _locationCount);
-                _locationSo.TryGetPos(index, out Vector2 position);
-                MonsterSpawner.Instance.SpawnMonster(
-                    monsterEntry.MonsterType,
-                    _session.Definition.MonsterStatMultiplier,
-                    position,
-                    Quaternion.identity,
-                    out Monster monster);
-                if (monster != null)
-                {
-                    _session.RegisterMonster(monster);
-                    if (_bossMonster == null &&
-                        monsterEntry.SpawnPhase == eMonsterSpawnPhase.Boss)
-                    {
-                        _bossMonster = monster;
-                    }
-                }
-            }
+            var entry = _queue.Peek();
+            _locations.TryGetPos(UnityEngine.Random.Range(0, _locations.GetLocationCount()), out Vector2 position);
+            MonsterSpawner.Instance.SpawnMonster(entry.type, 1, position, Quaternion.identity, out var monster);
+            if (monster == null) throw new InvalidOperationException("Stage monster resource unavailable: " + entry.type);
+            if (_spawned == 0 && !BattleEconomy.Begin(_session)) { MonsterSpawner.Instance.ReleaseMonster(monster.Type,monster); throw new InvalidOperationException("Battle could not be committed."); }
+            bool boss = d.Type == eStageType.RubyDungeon || (d.Type == eStageType.Main && d.WaveNumber == 11);
+            var numbers = d.Type == eStageType.Main ? BalanceMath.MainEnemy(d.StageNumber, d.WaveNumber) :
+                d.Type == eStageType.GoldDungeon ? BalanceMath.Mimic(d.StageNumber) : BalanceMath.RubyBoss(d.StageNumber, _spawned);
+            monster.ApplyBalance(numbers, boss, entry.ranged, d.Type == eStageType.GoldDungeon);
+            _session.RegisterMonster(monster); if (boss) _boss = monster;
+            _queue.Dequeue(); _spawned++; _wait = 0;
+            if (d.Type == eStageType.RubyDungeon) _session.SetTimeLimit(30);
         }
+        if (_queue.Count == 0) _session.CompleteSpawning();
     }
-    
-    private void SpawnMonster(List<StageMonsterEntry> entries)
-    {
-        if (_session == null || !_session.IsRunning) return;
-        
-        foreach (var monsterEntry in entries)
-        {
-            for (int i = 0; i < monsterEntry.Count; i++)
-            {
-                int index = Random.Range(0, _locationCount);
-                _locationSo.TryGetPos(index, out Vector2 position);
-                MonsterSpawner.Instance.SpawnMonster(
-                    monsterEntry.MonsterType,
-                    _session.Definition.MonsterStatMultiplier,
-                    position,
-                    Quaternion.identity,
-                    out Monster monster);
-                if (monster != null)
-                {
-                    _session.RegisterMonster(monster);
-                }
-            }
-        }
-    }
-    private void BuildLoopSchedules(StageDefinition definition)
-    {
-        var loopEntries = new List<StageMonsterEntry>();
-
-        foreach (StageMonsterEntry entry in definition.MonsterEntries)
-        {
-            if (entry.SpawnPhase == eMonsterSpawnPhase.LoopPool)
-                loopEntries.Add(entry);
-        }
-
-        if (loopEntries.Count == 0)
-            return;
-
-        _loopSchedules.Add(new LoopSpawnSchedule(
-            definition.LoopSpawnIntervalSec,
-            loopEntries));
-    }
-    private sealed class LoopSpawnSchedule
-    {
-        public float IntervalSec { get; }
-        public float NextSpawnTime { get; set; }
-        public List<StageMonsterEntry> Entries { get; }
-
-        public LoopSpawnSchedule(
-            float intervalSec,
-            List<StageMonsterEntry> entries)
-        {
-            IntervalSec = intervalSec;
-            NextSpawnTime = intervalSec;
-            Entries = entries;
-        }
-    }
+    public void Stop() { _queue.Clear(); _session = null; _locations = null; _boss = null; }
+    public bool TryGetBossMonster(out Monster monster) { monster = _boss; return monster != null; }
 }
-

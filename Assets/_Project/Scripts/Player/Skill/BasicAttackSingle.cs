@@ -1,3 +1,4 @@
+using KingdomIdle.Balance;
 using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Monster;
@@ -44,8 +45,8 @@ public sealed class BasicAttackSingle : ActiveSkill
     public override float Execute()
     {
         IDamageable target = _player.currentTarget;
-        int baseAtk = _player.playerStatus?.Atk ?? 0;
-        int damage = Mathf.RoundToInt(baseAtk * _damageMultiplier);
+        long baseAtk = _player.playerStatus?.Atk ?? 0;
+        long damage = BalanceMath.Damage(baseAtk, (decimal)_damageMultiplier);
 
         _targets.Clear();
         _targets.Add(target);

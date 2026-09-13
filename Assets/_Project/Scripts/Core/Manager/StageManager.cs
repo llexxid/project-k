@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+using KingdomIdle.Balance;
+using Newtonsoft.Json;
 using PlayFab.CloudScriptModels;
 using Scripts.Core.Manager;
 using Scripts.Core.SO;
@@ -99,7 +100,7 @@ namespace Scripts.Core.Manager
         public bool IsBossWave => _isBossWave;
         public bool IsLoopMode => _isLoopMode;
         public bool BossAutoChallenge => _bossAutoChallenge;
-        public eStage MaxClearedStage => maxStage;
+        public eStage MaxClearedStage => (eStage)LocalProgression.State.HighestMainClear;
 
         private const float DefeatPopupDuration = 15f;
         private const float TickInterval = 3f;
@@ -153,13 +154,9 @@ namespace Scripts.Core.Manager
         {
             if (_bossTimerActive)
             {
-				_bossTimer -= Time.deltaTime;
+				_bossTimer = _currentSession?.RemainingTime ?? 0;
 				OnBossTimerTick?.Invoke(Mathf.Clamp01(_bossTimer / _bossTimeLimit));
-				if (_bossTimer <= 0f)
-				{
-					_bossTimerActive = false;
-					DefeatWave();
-				}
+
             }
 	        _currentSession?.Tick(Time.deltaTime, Time.unscaledDeltaTime);
             if (_defeatPopupActive)
@@ -243,22 +240,12 @@ namespace Scripts.Core.Manager
 
 		public bool IsDungeonStageUnlocked(eStage stage)
 		{
-			eStageType type = StageParser.GetStageType(stage);
-			int progress;
-			switch (type)
-			{
-				case eStageType.GoldDungeon:
-					progress = _goldDungeonProgress;
-					break;
-				case eStageType.RubyDungeon:
-					progress = _rubyDungeonProgress;
-					break;
-				default:
-					return false;
-			}
-
-			return StageParser.GetStageNumber(stage) <= progress;
-		}
+            var s = LocalProgression.State;
+            int number = StageParser.GetStageNumber(stage); var type = StageParser.GetStageType(stage);
+            if (number < 1 || number > 5) return false;
+            return type == eStageType.GoldDungeon ? s.MainClears.Contains(0x20001000B) && number <= s.GoldDungeonClear + 1 :
+                type == eStageType.RubyDungeon && s.MainClears.Contains(0x200020005) && number <= s.RubyDungeonClear + 1;
+    }
 
 		public void EnterGoldDungeon()
 		{
@@ -281,7 +268,7 @@ namespace Scripts.Core.Manager
 			eStageType type = StageParser.GetStageType(stage);
 			if ((type != eStageType.GoldDungeon &&
 			     type != eStageType.RubyDungeon) ||
-			    !IsDungeonStageUnlocked(stage))
+			    (!IsDungeonStageUnlocked(stage) || BattleEconomy.Tickets(type) <= 0))
 			{
 				return false;
 			}
@@ -352,10 +339,10 @@ namespace Scripts.Core.Manager
 	        _token?.Cancel();
 	        _token?.Dispose();
 			_token = new CancellationTokenSource();
-			SendHuntResultLoop(_token.Token).Forget();
-			ResetStage(stage);
-			ReviveAllPlayers();
-			TransitionStage(_currentStage);
+			// Local balance authority never submits legacy hunt deltas.
+			ResetStage((long)_currentStage == 0 ? stage : _currentStage);
+            ReviveAllPlayers();
+            TransitionStage(stage);
         }		
 		
 		/// <summary>
@@ -367,8 +354,12 @@ namespace Scripts.Core.Manager
 			_defeatPopupActive = false;
 			Time.timeScale = 1f;
 
-			ReviveAllPlayers();
-			OnWaveChanged?.Invoke(_currentStageNumber, _currentWaveNumber, _isBossWave);
+            foreach (var player in UserManager.Instance.GetPlayers()) player?.GetComponent<ChangeJob>()?.ApplySavedJob();
+            ChangeJob.RefreshPartyAura();
+            EquipmentManager.Instance?.RestoreEquipment();
+            StatEnhanceManager.Instance?.ApplyToAllPlayers();
+            ReviveAllPlayers();
+            OnWaveChanged?.Invoke(_currentStageNumber, _currentWaveNumber, _isBossWave);
 
 			_currentState = eStageRunState.Entering;
 			StageSession session = BuildSession(definition);
@@ -384,13 +375,30 @@ namespace Scripts.Core.Manager
 			StageDefinition definition =
 				session.Definition;
 
-			UpdateMaxClearedStage(definition);
+			if (!BattleEconomy.Clear(session)) throw new InvalidOperationException("Stage reward could not be committed.");
+            UpdateMaxClearedStage(definition);
 			OnStageCleared?.Invoke(definition);
 		}
-		private bool TransitionStage(eStage target)
+		private eStage? _inventoryBlockedTarget;
+        public void ResumeAfterInventory()
+        {
+            if (!_inventoryBlockedTarget.HasValue || !EquipmentManager.Instance.CanReceiveBattleEquipment) return;
+            var target = _inventoryBlockedTarget.Value; _inventoryBlockedTarget = null; TransitionStage(target);
+        }
+        private void HandleStageLoadFailure(Exception error, CameraFade fade)
+        {
+            _currentState=eStageRunState.None;_bossTimerActive=false;
+            Debug.LogError("Stage resource load failed: " + error.Message);
+            fade?.FadeIn(.2f);
+            KingdomIdle.UGUI.UIManager.Instance?.ShowToast("전투 리소스를 불러오지 못했습니다. 입장권은 사용되지 않았습니다. 재접속해 주세요.");
+        }
+        private bool TransitionStage(eStage target)
 		{
 			Debug.Log($"{target}");
 			if (_currentState == eStageRunState.Transitioning) return false;
+            if (StageParser.GetStageType(target) == eStageType.Main && EquipmentManager.Instance != null && !EquipmentManager.Instance.CanReceiveBattleEquipment)
+            { _inventoryBlockedTarget = target; EndSession(); _currentState = eStageRunState.ResultPending;
+              KingdomIdle.UGUI.UIManager.Instance?.ShowToast("보관 장비를 수령하거나 분해하면 다음 전투가 시작됩니다."); return false; }
 			
 			if (!_provider.TryGet(target, out StageDefinition definition))
 			{ 
@@ -420,7 +428,7 @@ namespace Scripts.Core.Manager
 							{
 								StartStage(definition);
 								fade.FadeIn(0.4f);
-							});
+							}).Forget(error => HandleStageLoadFailure(error, fade));
 					});
 				}
 				else
@@ -428,7 +436,7 @@ namespace Scripts.Core.Manager
 					LoadManager.Instance.LoadStage(
 						previous,
 						target,
-						_ => StartStage(definition));
+						_ => StartStage(definition)).Forget(error => HandleStageLoadFailure(error, fade));
 				}
 
 				return true;
@@ -467,6 +475,7 @@ namespace Scripts.Core.Manager
 					// StageRuleResult의 생성 규칙상 MoveToStage는 항상 TargetStage를 가진다.
 					eStage target = result.TargetStage.Value;
 					NotifyStageCleared(session);
+                    if (LocalProgression.State.ReincarnatedBattle == session.RunId) { SetLoopMode(false); SetBossAutoChallenge(false); TransitionStage((eStage)0x200010001); break; }
 					if (session.Definition.Type == eStageType.Main && ShouldRestart(target))
 					{
 						RestartStage();
@@ -572,18 +581,11 @@ namespace Scripts.Core.Manager
         /// <summary>패배 후 현재 상태값 기준으로 웨이브를 다시 시작한다. 재도전/복귀 결정은 호출 전에 끝난다</summary>
         private void RestartStage()
         {
-			StageDefinition definition = _currentSession?.Definition;
-			if (definition == null)
-				return;
-
-        	var fade = CameraFade.Instance;
-			_currentState = eStageRunState.Transitioning;
-        	Time.timeScale = 1f;
-			StartStage(definition);
-
-        	if (fade != null)
-        		fade.FadeIn(0.4f);
-        }
+var definition = _currentSession?.Definition;
+            if (definition == null) return;
+            if (definition.Type != eStageType.Main && BattleEconomy.Tickets(definition.Type) <= 0) { ReturnToMainStage(); return; }
+            TransitionStage(definition.Id);
+    }
 
 		#endregion
 
@@ -599,7 +601,8 @@ namespace Scripts.Core.Manager
 			if (definition == null || definition.Type == eStageType.Main || !definition.NextDifficultyId.HasValue)
 				return;
 
-			Time.timeScale = 1f;
+			if (BattleEconomy.Tickets(definition.Type) <= 0) return;
+            Time.timeScale = 1f;
 			TransitionStage(definition.NextDifficultyId.Value);
 		}
 		#endregion
@@ -711,8 +714,8 @@ namespace Scripts.Core.Manager
 
 		public bool IsStageCleared(eStage stage)
 		{
-			return (ulong)stage <= (ulong)maxStage;
-		}
+            return LocalProgression.State.MainClears.Contains((long)stage);
+    }
 
 		private void UpdateMaxClearedStage(StageDefinition definition)
 		{
@@ -746,7 +749,8 @@ namespace Scripts.Core.Manager
 
 		private void HandleMonsterKilled(StageSession session, Monster monster)
 		{
-			CountKill(monster);
+			if (!BattleEconomy.Kill(session, monster)) throw new InvalidOperationException("Kill reward could not be committed.");
+            CountKill(monster);
 			OnMonsterKilled?.Invoke(session.Definition, monster);
 		}
 
@@ -756,8 +760,9 @@ namespace Scripts.Core.Manager
 				return;
 
 			_currentState = eStageRunState.Running;
-			if (_isBossWave)
+			if (session.Definition.TimeLimitSec > 0)
 			{
+                _bossTimeLimit = session.Definition.TimeLimitSec;
 				_bossTimer = _bossTimeLimit;
 				_bossTimerActive = true;
 			}
@@ -940,7 +945,7 @@ namespace Scripts.Core.Manager
 				_sendmsg.Add(code);
 			}
 
-			NetworkManager.Instance.OnHuntReward(_sendmsg, OnHuntRewardSuccess, OnError);
+			if (!LocalProgression.IsLocalAuthority) NetworkManager.Instance.OnHuntReward(_sendmsg, OnHuntRewardSuccess, OnError);
 			_huntResultList.Clear();
 			_sendmsg.Clear();
 		}

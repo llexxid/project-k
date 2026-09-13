@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -11,6 +11,8 @@ namespace KingdomIdle.MageTower
     public class MageTowerSkillProjectile : MonoBehaviour, IAttackable, IRewardable
     {
         private ulong _damage;
+        private bool _fired;
+        private string _battle;
         private Vector3 _spawnPos;
         private readonly HashSet<int> _hitIds = new();
 
@@ -38,7 +40,7 @@ namespace KingdomIdle.MageTower
                                float shakeDuration = 0.15f, float shakeMagnitude = 0.08f,
                                string sfxName = null)
         {
-            _damage = dmg;
+            _damage = dmg; _fired = false; _battle = KingdomIdle.Balance.LocalProgression.State.ActiveBattleId;
             _spawnPos = pos;
             transform.position = pos;
             _onHitCallback = onHitCallback;
@@ -68,6 +70,8 @@ namespace KingdomIdle.MageTower
         // Animation Event — 데미지 적용 및 체인 콜백
         public void OnHit()
         {
+            if (_fired || _battle != KingdomIdle.Balance.LocalProgression.State.ActiveBattleId) return;
+            _fired = true;
             DealDirectDamage();
 
             if (_shakeOnHit)
@@ -109,14 +113,16 @@ namespace KingdomIdle.MageTower
                 // 단일 관문이라 여기서 거르면 번개 랜덤 홉 포함 전 피해가 화면 안으로 갇힌다.
                 if (!MageTowerTargeting.IsOnScreen(cam, col.transform.position)) continue;
 
-                int id = col.gameObject.GetInstanceID();
+                var monster = col.GetComponentInParent<Scripts.Monster.Monster>();
+                if (monster == null || monster.MonAction == eMonsterAction.Dead) continue;
+                int id = monster.GetInstanceID();
                 if (!_hitIds.Add(id)) continue;
 
-                var damageable = col.GetComponent<IDamageable>();
+                var damageable = monster as IDamageable;
                 if (damageable != null)
                 {
                     Attack(damageable);
-                    DamageTextBridge.ShowOnTransform(col.transform, _damage);
+                    if (_hitIds.Count >= (_damageRadius < .4f ? 1 : 3)) break;
                 }
             }
         }

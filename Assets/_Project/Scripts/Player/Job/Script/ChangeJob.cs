@@ -1,180 +1,100 @@
-using UnityEngine;
 using System;
 using System.Collections.Generic;
-using Scripts.Users;
+using KingdomIdle.Balance;
 using Scripts.Core;
+using Scripts.Core.Manager;
+using UnityEngine;
 
 public class ChangeJob : MonoBehaviour
 {
     [SerializeField] private JobDatabase jobDatabase;
-
     private Player _player;
     private SpriteRenderer _spriteRenderer;
-
-    private int _currentJobIndex = 0;
-
-    private HashSet<int> _unlockedJobs = new HashSet<int>();
-    private const string UNLOCK_SAVE_KEY = "UnlockedJobs";
-
-    #region UI Events
     public event Action<string, int, int> OnJobChanged;
     public event Action<int> OnJobUnlocked;
-    #endregion
-
-    private void Awake()
+    private void Awake() { _player = GetComponent<Player>(); _spriteRenderer = GetComponent<SpriteRenderer>(); }
+    public static bool CanQueueChange => StageManager.Instance == null || StageManager.Instance.CurrentDefinition == null ||
+        (StageManager.Instance.CurrentDefinition.Type == eStageType.Main && !StageManager.Instance.IsBossWave);
+    public void ChangeJobByCode(ulong code)
     {
-        _player = GetComponent<Player>();
-        _spriteRenderer = GetComponent<SpriteRenderer>();
+        string name = (eJobCode)code switch { eJobCode.Knight => "Knight", eJobCode.Archer => "Archer", eJobCode.Mage => "Mage",
+            eJobCode.EliteKnight => "Elite_Knight", eJobCode.EliteArcher => "Elite_Archer", eJobCode.EliteMage => "Elite_Mage", _ => "Spearman" };
+        int slot = _player.PlayerIndex;
+        if (!LocalProgression.State.Jobs.ContainsKey(slot))
+            LocalProgression.Execute("job-import-once", s => {
+                s.Jobs[slot] = name; s.UnlockedJobs[slot] = new HashSet<string> { "Spearman", name };
+                var tree = UserManager.Instance?.GetJobTreeForCharacter(slot);
+                if (tree != null) foreach (var value in tree)
+                {
+                    string job = ((eJobCode)value) switch { eJobCode.Knight => "Knight", eJobCode.Archer => "Archer", eJobCode.Mage => "Mage", eJobCode.EliteKnight => "Elite_Knight", eJobCode.EliteArcher => "Elite_Archer", eJobCode.EliteMage => "Elite_Mage", _ => "Spearman" };
+                    s.UnlockedJobs[slot].Add(job);
+                }
+                return true;
+            });
+        ApplySavedJob();
     }
-
-    private void Start()
+    public void ChangeJobByName(string name)
     {
-        LoadUnlockedJobs();
-        _unlockedJobs.Add(0);
-        SaveUnlockedJobs();
+        int index = jobDatabase.jobs.FindIndex(j => j != null && j.jobName == name);
+        if (index >= 0) TryChangeJob(index);
     }
-
-    public void ChangeJobByCode(ulong jobCode)
+    public bool IsJobUnlocked(int index)
     {
-        switch ((eJobCode)jobCode)
-        {
-            case eJobCode.Mage:        ChangeJobByName("Mage");        break;
-            case eJobCode.Archer:      ChangeJobByName("Archer");      break;
-            case eJobCode.Knight:      ChangeJobByName("Knight");      break;
-            case eJobCode.EliteMage:   ChangeJobByName("Elite_Mage");  break;
-            case eJobCode.EliteKnight: ChangeJobByName("Elite_Knight");break;
-            case eJobCode.EliteArcher: ChangeJobByName("Elite_Archer");break;
-            case eJobCode.Spearman:
-            default:                   ChangeJobByName("Spearman");    break;
-        }
+        var data = jobDatabase.GetJob(index);
+        return data != null && (data.jobName == "Spearman" || (LocalProgression.State.UnlockedJobs.TryGetValue(_player.PlayerIndex, out var jobs) && jobs.Contains(data.jobName)));
     }
-
-    public void ChangeJobByName(string jobName)
-    {
-        int idx = jobDatabase.jobs.FindIndex(j => j.jobName == jobName);
-        if (idx < 0) return;
-
-        if (!_unlockedJobs.Contains(idx))
-        {
-            _unlockedJobs.Add(idx);
-            SaveUnlockedJobs();
-            OnJobUnlocked?.Invoke(idx);
-        }
-
-        _currentJobIndex = idx;
-        ApplyJobByIndex(idx);
-    }
-
-    /// <summary>
-    /// 직업 변경. 해금되어 있지 않으면 자동으로 해금한다.
-    /// (해금 비용 — 전직파편 등 — 은 외부 UI/시스템에서 별도로 처리.)
-    /// </summary>
     public bool TryChangeJob(int index)
     {
-        JobData data = jobDatabase.GetJob(index);
-        if (data == null) return false;
-
-        if (!_unlockedJobs.Contains(index))
-        {
-            _unlockedJobs.Add(index);
-            SaveUnlockedJobs();
-            OnJobUnlocked?.Invoke(index);
-        }
-
-        _currentJobIndex = index;
-        ApplyJobByIndex(index);
+        var data = jobDatabase.GetJob(index);
+        if (data == null || !CanQueueChange) return false;
+        int slot = _player.PlayerIndex;
+        bool wasUnlocked = IsJobUnlocked(index);
+        bool ok = LocalProgression.Execute("job-select", s => {
+            if (!s.UnlockedJobs.TryGetValue(slot, out var jobs)) s.UnlockedJobs[slot] = jobs = new HashSet<string> { "Spearman" };
+            if (!jobs.Contains(data.jobName))
+            {
+                bool elite = data.jobName.StartsWith("Elite_", StringComparison.Ordinal);
+                if (elite && !jobs.Contains(data.jobName.Substring(6))) return false;
+                if (!LocalProgression.Spend(s, eCurrency.ClassFragment, elite ? 120 : 40)) return false;
+                jobs.Add(data.jobName);
+            }
+            s.Jobs[slot] = data.jobName;
+            foreach (var item in s.Equipment)
+                if (item.Player == slot && EquipmentManager.Instance?.GetData(item.Code) is EquipmentData weapon && !weapon.IsAllowedForJob(data.jobName)) item.Player = null;
+            return true;
+        });
+        if (!ok) return false;
+        if (!wasUnlocked) OnJobUnlocked?.Invoke(index);
+        if (StageManager.Instance?.CurrentDefinition == null) { ApplySavedJob(); RefreshPartyAura(); }
         return true;
     }
-
-    public bool IsJobUnlocked(int index) => _unlockedJobs.Contains(index);
-
-    /// <summary>직업 경로별 패시브 버프를 팀 전체에 곱연산 적용.</summary>
-    private void RefreshAllPassiveBonuses()
+    public void ApplySavedJob()
     {
-        Player[] allPlayers = FindObjectsByType<Player>(FindObjectsSortMode.None);
-
-        foreach (var p in allPlayers)
-            p.playerStatus.ResetPassiveBonus();
-
-        foreach (var source in allPlayers)
-        {
-            string jobName = source.playerStatus?.JobName;
-            if (string.IsNullOrEmpty(jobName)) continue;
-
-            float atkPct = 0f, hpPct = 0f;
-            switch (jobName)
-            {
-                case "Knight":
-                case "Elite_Knight":
-                    hpPct = 1f;          // HP +100%
-                    break;
-                case "Archer":
-                case "Elite_Archer":
-                    atkPct = 1f;         // ATK +100%
-                    break;
-                case "Mage":
-                case "Elite_Mage":
-                    atkPct = 0.5f;       // ATK +50%
-                    hpPct = 0.5f;        // HP  +50%
-                    break;
-                // Spearman: 패시브 없음
-            }
-
-            if (atkPct > 0f || hpPct > 0f)
-            {
-                float atkMult = 1f + atkPct;
-                float hpMult  = 1f + hpPct;
-                foreach (var target in allPlayers)
-                    target.playerStatus.ApplyBuffMultiplier(atkMult, hpMult);
-            }
-        }
+        if (!LocalProgression.State.Jobs.TryGetValue(_player.PlayerIndex, out var name)) name = "Spearman";
+        int index = jobDatabase.jobs.FindIndex(j => j != null && j.jobName == name);
+        if (index >= 0 && _player.playerStatus.JobName != name) ApplyJobByIndex(index);
+        else if (index >= 0 && _player.skillSystem.SlotCount == 0) ApplyJobByIndex(index);
     }
-
-    private void SaveUnlockedJobs()
-    {
-        PlayerPrefs.SetString(UNLOCK_SAVE_KEY, string.Join(",", _unlockedJobs));
-        PlayerPrefs.Save();
-    }
-
-    private void LoadUnlockedJobs()
-    {
-        _unlockedJobs.Clear();
-        string saved = PlayerPrefs.GetString(UNLOCK_SAVE_KEY, "");
-        if (string.IsNullOrEmpty(saved)) return;
-
-        foreach (var token in saved.Split(','))
-        {
-            if (int.TryParse(token, out int idx))
-                _unlockedJobs.Add(idx);
-        }
-    }
-
     public void ApplyJobByIndex(int index)
     {
-        JobData data = jobDatabase.GetJob(index);
-        if (data == null) return;
-
-        _player.playerStatus.ApplyJob(data);
-        _player.RefillHP();
-
-        _player.skillSystem?.Setup(data);
-
-        _player.playerOrder?.ApplyRanges(_player.skillSystem);
-        _player.playerOrder?.SyncMoveSpeed(_player.playerStatus);
-
-        if (_spriteRenderer != null && data.jobSprite != null)
-            _spriteRenderer.sprite = data.jobSprite;
-
-        if (_player._am != null && data.animatorController != null)
-        {
-            _player._am.runtimeAnimatorController = data.animatorController;
-            _player.RebuildAnimatorComponent();
-        }
-
-        _player.PlayerEquipmentManager?.SetCurrentJob(data.jobName);
-
+        JobData data = jobDatabase.GetJob(index); if (data == null) return;
+        _player.playerStatus.ApplyJob(data); _player.skillSystem?.Setup(data);
+        _player.playerOrder?.ApplyRanges(_player.skillSystem); _player.playerOrder?.SyncMoveSpeed(_player.playerStatus);
+        if (_spriteRenderer != null && data.jobSprite != null) _spriteRenderer.sprite = data.jobSprite;
+        if (_player._am != null && data.animatorController != null) { _player._am.runtimeAnimatorController = data.animatorController; _player.RebuildAnimatorComponent(); }
         OnJobChanged?.Invoke(data.jobName, index, jobDatabase.Count);
-
-        RefreshAllPassiveBonuses();
+    }
+    public static void RefreshPartyAura()
+    {
+        var players = UserManager.Instance?.GetPlayers(); if (players == null) return;
+        decimal attack = 0, health = 0;
+        for (int i = 0; i < Math.Min(3, players.Count); i++)
+        {
+            string job = players[i]?.playerStatus?.JobName;
+            if (job == "Knight" || job == "Elite_Knight") health += .1m;
+            if (job == "Archer" || job == "Elite_Archer") attack += .1m;
+            if (job == "Mage" || job == "Elite_Mage") { attack += .05m; health += .05m; }
+        }
+        foreach (var player in players) player?.playerStatus?.SetAura(attack, health);
     }
 }

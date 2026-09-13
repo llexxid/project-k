@@ -32,6 +32,11 @@ namespace Scripts.Core.Parser
         [MenuItem("MyTools/Stage/Generate Stage Data")]
         public static void Generate()
         {
+            if (File.Exists("Assets/_Project/Resources/Balance/catalog.json"))
+            {
+                Debug.LogWarning("현재 베타 밸런스는 AI/balance/20260913/planning-data.txt와 명시적 43개 스테이지를 사용합니다. 이전 Stage_Revised.xlsx 자동 생성은 덮어쓰기를 막기 위해 중단했습니다. AI/balance/20260913/README.md를 확인하세요.");
+                return;
+            }
             try
             {
                 string projectRoot = Directory.GetParent(Application.dataPath).FullName;

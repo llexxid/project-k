@@ -44,216 +44,34 @@ public struct QuestEvent
 /// <summary>Grant idempotently by quest ID. False preserves the pending reward.</summary>
 public interface IQuestRewardGranter { bool TryGrant(long questId, int rewardGroupId); }
 
+
 public class QuestManager : MonoBehaviour
 {
-    public static QuestManager Instance; 
-    
+    public static QuestManager Instance;
     public event Action<QuestRuntimeState, QuestDefinition> OnGuideQuestChanged;
     public event Action<QuestRuntimeState, QuestDefinition> OnQuestProgressChanged;
-
-    [SerializeField] private MonoBehaviour definitionBehaviour;
-    [SerializeField] private MonoBehaviour progressSnapshotBehaviour;
-    [SerializeField] private long firstGuideQuestId = 1;
-    [SerializeField] private MonoBehaviour rewardGranterBehaviour;
-    public IQuestRewardGranter RewardGranter => rewardGranterBehaviour as IQuestRewardGranter;
-
-    private IQuestDefinitionProvider definitionProvider;
-    private IQuestProgressSnapshot progressSnapshot;
-    private readonly Dictionary<long, QuestRuntimeState> questStates = new();
-
-    private void Awake()
-    {
-        if (Instance != null)
-        {
-            Destroy(gameObject);
-            return;
-        }
-
-        Instance = this;
-        DontDestroyOnLoad(gameObject);
-        definitionProvider = definitionBehaviour as IQuestDefinitionProvider;
-        progressSnapshot = progressSnapshotBehaviour as IQuestProgressSnapshot;
-
-        if (definitionProvider == null)
-            Debug.LogError("Quest definition provider is missing.");
-    }
-
-    private void OnEnable()
-    {
-        if (StageManager.Instance == null)
-            return;
-
-        StageManager.Instance.OnStageCleared += HandleStageClear;
-        StageManager.Instance.OnMonsterKilled += HandleMonsterKilled;
-    }
-
-    private void OnDisable()
-    {
-        if (StageManager.Instance == null)
-            return;
-
-        StageManager.Instance.OnStageCleared -= HandleStageClear;
-        StageManager.Instance.OnMonsterKilled -= HandleMonsterKilled;
-    }
-
-    private void Start()
-    {
-        if (firstGuideQuestId != 0 && !questStates.ContainsKey(firstGuideQuestId))
-            AddQuestState(firstGuideQuestId);
-    }
-
-    public void ClaimUIRefresh()
-    {
-        QuestDefinition quest;
-        foreach (QuestRuntimeState state in questStates.Values)
-        {
-            quest = definitionProvider?.GetQuestById(state.QuestId);
-            if (quest != null && quest.Category == eQuestCategory.Guide)
-            {
-                OnGuideQuestChanged?.Invoke(state,quest);
-                return;
-            }
-        }
-    }
+    public IQuestRewardGranter RewardGranter => null;
+    private void Awake() { if (Instance != null && Instance != this) { Destroy(gameObject); return; } Instance = this; DontDestroyOnLoad(gameObject); }
+    private void OnEnable() { KingdomIdle.Balance.LocalProgression.Changed += ClaimUIRefresh; }
+    private void OnDisable() { KingdomIdle.Balance.LocalProgression.Changed -= ClaimUIRefresh; }
+    private void Start() { ClaimUIRefresh(); }
+    public QuestDefinition GetQuestDefinition(long id) => System.Linq.Enumerable.FirstOrDefault(KingdomIdle.Balance.QuestEconomy.Definitions, x => x.QuestId == id);
     public QuestRuntimeState GetActiveGuideState()
     {
-        foreach (QuestRuntimeState state in questStates.Values)
-        {
-            QuestDefinition definition = definitionProvider?.GetQuestById(state.QuestId);
-            if (definition != null && definition.Category == eQuestCategory.Guide)
-                return state;
-        }
-
-        return null;
+        var s = KingdomIdle.Balance.LocalProgression.State;
+        var q = System.Linq.Enumerable.FirstOrDefault(KingdomIdle.Balance.QuestEconomy.Definitions, x => x.Category == eQuestCategory.Guide && !s.Claims.Contains(KingdomIdle.Balance.QuestEconomy.Key(x,s)));
+        return q == null ? null : AddQuestState(q.QuestId);
     }
-
-    public QuestDefinition GetQuestDefinition(long questId)
+    public QuestRuntimeState AddQuestState(long id)
     {
-        return definitionProvider?.GetQuestById(questId);
+        var q = GetQuestDefinition(id); if (q == null) return null;
+        var s = KingdomIdle.Balance.LocalProgression.State;
+        int value = (int)Math.Min(q.RequiredCount, KingdomIdle.Balance.QuestEconomy.Progress(q,s));
+        return new QuestRuntimeState { QuestId = id, CurrentProgress = value, IsCompleted = value >= q.RequiredCount || s.PendingQuests.ContainsKey(KingdomIdle.Balance.QuestEconomy.Key(q,s)), IsRewardClaimed = s.Claims.Contains(KingdomIdle.Balance.QuestEconomy.Key(q,s)), ClampToRequire = true };
     }
-
-    public void ClaimQuestReward(long questId)
-    {
-        if (!questStates.TryGetValue(questId, out QuestRuntimeState state))
-            return;
-
-        QuestDefinition quest = definitionProvider?.GetQuestById(state.QuestId);
-        if (quest == null || !state.IsCompleted || state.IsRewardClaimed)
-            return;
-
-        // Group zero is a progression-only guide; other groups require confirmed delivery.
-        if (quest.RewardGroupId != 0 && (RewardGranter == null || !RewardGranter.TryGrant(questId, quest.RewardGroupId))) return;
-        state.IsRewardClaimed = true;
-
-        questStates.Remove(questId);
-
-        if (quest.Category == eQuestCategory.Guide && quest.NextQuestId != 0)
-            AddQuestState(quest.NextQuestId);
-        else if (quest.Category == eQuestCategory.Guide) OnGuideQuestChanged?.Invoke(null, null);
-    }
-
-    public bool CanClaimReward(long questId)
-    {
-        if (!questStates.TryGetValue(questId,out var state) || !state.IsCompleted || state.IsRewardClaimed) return false;
-        var quest=definitionProvider?.GetQuestById(questId);
-        return quest != null && (quest.RewardGroupId==0 || RewardGranter != null);
-    }
-
-    public QuestRuntimeState AddQuestState(long questId)
-    {
-        if (questStates.TryGetValue(questId, out QuestRuntimeState existingState))
-            return existingState;
-
-        QuestRuntimeState state = new QuestRuntimeState
-        {
-            QuestId = questId,
-            CurrentProgress = 0,
-            IsCompleted = false,
-            IsRewardClaimed = false
-        };
-
-        questStates.Add(state.QuestId, state);
-
-        QuestDefinition quest = definitionProvider?.GetQuestById(questId);
-        if (quest != null)
-        {
-            RefreshProgressFromSnapshot(state, quest);
-            NotifyQuestChanged(state, quest);
-        }
-
-        return state;
-    }
-
-    public void ApplyQuestEvent(QuestEvent questEvent)
-    {
-        foreach (QuestRuntimeState state in questStates.Values)
-        {
-            if (state.IsCompleted)
-                continue;
-
-            QuestDefinition quest = definitionProvider?.GetQuestById(state.QuestId);
-            if (quest == null)
-                continue;
-
-            if (QuestObjectMatcher.CanProgressByEvent(quest, questEvent))
-            {
-                AddProgress(state, quest, questEvent.Amount);
-                continue;
-            }
-
-            if (QuestObjectMatcher.ShouldRefreshFromSnapshot(quest, questEvent))
-                RefreshProgressFromSnapshot(state, quest);
-        }
-    }
-
-    public void RefreshProgressFromSnapshot(QuestRuntimeState state, QuestDefinition quest)
-    {
-        if (!QuestObjectMatcher.TryGetSnapshotProgress(quest, progressSnapshot, out int progress))
-            return;
-
-        state.CurrentProgress = progress;
-
-        if (QuestObjectMatcher.IsCompleted(quest, state.CurrentProgress))
-            state.IsCompleted = true;
-
-        OnQuestProgressChanged?.Invoke(state, quest);
-    }
-
-    private void AddProgress(QuestRuntimeState state, QuestDefinition quest, int amount)
-    {
-        state.CurrentProgress += amount;
-
-        if (QuestObjectMatcher.IsCompleted(quest, state.CurrentProgress))
-            state.IsCompleted = true;
-
-        OnQuestProgressChanged?.Invoke(state, quest);
-    }
-
-    private void NotifyQuestChanged(QuestRuntimeState state, QuestDefinition quest)
-    {
-        if (quest.Category == eQuestCategory.Guide)
-            OnGuideQuestChanged?.Invoke(state, quest);
-
-        OnQuestProgressChanged?.Invoke(state, quest);
-    }
-
-    private void HandleStageClear(StageDefinition definition)
-    {
-        ApplyQuestEvent(new QuestEvent
-        {
-            EventType = eQuestEventType.StageCleared,
-            TargetId = (long)definition.Id,
-            Amount = 1
-        });
-    }
-
-    private void HandleMonsterKilled(StageDefinition definition, Monster monster)
-    {
-        ApplyQuestEvent(new QuestEvent
-        {
-            EventType = eQuestEventType.MonsterKilled,
-            TargetId = (long)monster.Type,
-            Amount = 1
-        });
-    }
+    public void ClaimUIRefresh() { var state = GetActiveGuideState(); OnGuideQuestChanged?.Invoke(state, state == null ? null : GetQuestDefinition(state.QuestId)); }
+    public void ClaimQuestReward(long id) { KingdomIdle.Balance.QuestEconomy.Claim(id); }
+    public bool CanClaimReward(long id) => KingdomIdle.Balance.QuestEconomy.CanClaim(GetQuestDefinition(id), KingdomIdle.Balance.LocalProgression.State);
+    public void ApplyQuestEvent(QuestEvent evt) { ClaimUIRefresh(); }
+    public void RefreshProgressFromSnapshot(QuestRuntimeState state, QuestDefinition quest) { OnQuestProgressChanged?.Invoke(AddQuestState(quest.QuestId), quest); }
 }

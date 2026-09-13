@@ -17,17 +17,22 @@ MonoBehaviour:
   icon: {fileID: -4597484909011228390, guid: 95e96dbe12eca914aaa667ee7e2a6a36, type: 3}
   slot: 0
   rarity: 0
-  bonusAtk: 50
+  MainOption:
+  - type: 0
+    value: 15
+    isPercent: 0
+  ReinforceOption: []
+  bonusAtk: 15
   bonusMaxHP: 0
   maxEnhancementLevel: 5
-  atkGrowthPerLevel: 0.15
-  hpGrowthPerLevel: 0.15
+  atkGrowthPerLevel: 0.1
+  hpGrowthPerLevel: 0
   enhanceMaterialCount: 2
   enhanceSuccessRates:
   - 1
-  - 0.8
-  - 0.6
-  - 0.4
-  - 0.2
+  - 1
+  - 1
+  - 1
+  - 1
   _jobMask: 1
   _itemId: 8

@@ -1,103 +1,55 @@
-# AGENTS.md — Project-K core rules
+# Project-K 작업 지침
 
-Rulebook for AI agents on this project. Complements `CLAUDE.md`. Follow exactly.
+프로젝트 행동 규칙의 단일 출처다. 지속 적용할 사용자 요구는 즉시 반영한다.
+사용자의 최신 지시가 우선한다. 제안한 모양은 방향으로 이해하고, 근거가 있는 더 나은 UX·품질·최적화를 선택한다.
+소통은 간결하고 정중하게 한다. 판단이 모호한 중요 삭제·정책 변경만 질문한다.
 
-## Art assets — 조달 순서
+## 개발
+- Unity 버전은 `ProjectSettings/ProjectVersion.txt`를 확인한다. 모바일 세로형 방치 RPG, UGUI + TMP.
+- 자체 코드·에셋은 `Assets/_Project/`, UI는 `Assets/UGUI/`. 외부 모듈은 기존 위치를 유지한다.
+- 기존 시스템과 명명 규칙을 사용하고 필요한 범위만 변경한다. 이동 시 `.meta`와 경로 참조를 보존한다.
+- 현재 상태를 읽고 수정한 뒤 Unity에서 import·컴파일·직렬화 참조·실행 상태를 검증한다. C# 수정만으로 프리팹이 갱신됐다고 간주하지 않는다.
+- 연결 상태·노드·API 지원은 실제 환경에서 확인한다. 도구 실패를 숨기거나 다른 모델·워크플로를 실행한 것처럼 기록하지 않는다.
+- 사용자 작업을 보존한다. 파괴적 Git 작업, 무관한 에셋 일괄 삭제, 프로젝트 전역 설정 변경은 별도 승인 없이 하지 않는다.
+- 캐시·모델·인증정보·기기별 설정은 커밋하지 않는다. 버전 관리된 파일이 작업 결과의 기준이다.
 
-1. **기성 키트 먼저.** 프로젝트에 이미 있는 것: `Assets/ExternalAssets/PixelArtGUI2`
-   (도트 GUI: 패널/버튼/프레임/32·48px 아이콘 — 이 프로젝트 톤에 가장 잘 맞는다),
-   `TinyRPG`, `5000FantasyIcons`, `Medieval Tools & Weapons Package`, Layer Lab Minimal Game Dark.
-   **명시 경로로 로드한다** — 같은 파일명이 여러 해상도에 있어 이름 검색은 8px 아이콘을 집어온다.
-2. **기존 아트에서 결정론적으로 파생.** 초상화·버스트는 실제 스프라이트 시트를 잘라
-   정수배 NEAREST 확대 + 알파 이진화. 확산 모델은 14~29색 시트를 재현하지 못한다.
-3. **그래도 없으면 생성.** 신 캐릭터 아트, 마탑 프롭처럼 원본이 아예 없는 것만.
+## UX·성능·검증
+- 읽기 쉬운 정보 계층, 모바일 터치 영역, 일관된 탐색, 반응형 배치를 우선한다. 장식이 글자·조작·전투 시야를 방해하면 줄인다.
+- UI는 `UguiTheme`의 어두운 목재·청동 테마와 기존 Layer Lab 에셋을 따른다.
+- 미세 연출은 기본 적용하되 정보 가독성을 해치지 않는다. 가벼운 unscaled-time `UITween`을 사용하고 재활성화 시 복구한다.
+- UI·아트 변경에는 크기·메모리·렌더링 비용 검토를 포함한다. 변하지 않은 텍스트·레이아웃은 반복 갱신하지 않는다.
+- **기능·디자인의 큰 변경, 누적 변경 묶음, 마일스톤마다 Unity와 연결된 Android 기기에서 면밀히 검증하고 자체 피드백으로 개선한다.** 사소한 편집마다 전체 검증을 반복하지 않는다.
+- 실제 게임 표시 크기와 전투 맥락에서 캡처한다. 좁은 폰·긴 폰·태블릿 비율과 안전 영역, 터치·뒤로가기·팝업·복귀·진행 상태를 확인한다.
+- 수정 전후 캡처와 성능 수치, 발견 문제·수정·재검증 결과를 기록한다. 한 기기의 해상도 변경과 여러 실제 기기 검증을 구별한다. 미검증 범위는 명시한다.
+- 저사양 모드는 장식·데미지 숫자 렌더링 비용을 낮추되 게임 진행, 유용한 정보, 기능, 터치 반응을 보존한다. 타이틀·인게임 설정을 공유하고 기기에서 절약 효과를 확인한다.
 
-생성 파이프라인의 실행 규칙·환경 제약·하드원 함정은 **`AI/comfyui/README.md`** 에 있다.
-생성 작업 전에 그 문서를 먼저 읽는다.
+## 아트 조달·제작
+1. 기존 에셋 우선: `Assets/ExternalAssets/PixelArtGUI2`, TinyRPG, 5000FantasyIcons, Medieval Tools & Weapons Package, Layer Lab Minimal Game Dark. **해상도를 포함한 명시 경로**로 로드한다.
+2. 기존 스프라이트에서 결정론적으로 파생한다. 초상화·버스트는 실제 인게임 시트 상체 크롭 → 정수배 NEAREST → 알파 이진화로 만든다.
+3. 원본이 없는 구체적인 결손만 새로 제작한다. flat UI·패널·칩은 코드로 평면 색과 균일 외곽선을 작성하고 논리 격자에서 정수배 확대한다.
 
-## 생성 시 지출 가시성
+- **ComfyUI를 생성 공정의 기본 중심으로 삼고 가용 자산·자원을 범위 제한 없이 탐색·활용한다.** 모델·체크포인트·LoRA·ControlNet·참조 이미지 조건·템플릿·노드·마스크·부분 수정·배경 제거·합성·업스케일·픽셀 및 팔레트 후처리를 검토한다. 실제 MCP 카탈로그와 노드 스키마로 지원·호환성을 확인한다.
+- 익숙한 GPT Image 단일 호출에 관성적으로 머무르지 않는다. 외부 모델·코드 처리를 조합하거나 단일 도구가 유리하면 품질·일관성·제어·반복 효율·비용 근거를 남긴다. 노드 수·호출 수 자체를 목표로 삼지 않는다.
+- 실행 전 `AI/comfyui/README.md`의 공정·환경 제약을 읽는다. 유료 사용은 허용한다. 새 공정은 저비용 검증 후 발전시키며 실패한 호출도 과금될 수 있다.
+- 실행마다 실제 제출한 **API JSON(override 포함)**과 **편집 가능한 UI 그래프 JSON**을 버전별 보존한다. 지원 시 Cloud 저장 ID·그래프 링크도 기록한다.
+- 결과별 manifest에 모델·노드 버전(확인 가능 범위), 참조·마스크 경로, 전체 프롬프트, 실제 적용 설정, 작업 ID, 출력, 비용을 연결한다. 외부 도구 단계도 요청·설정·원본·응답 출처를 보존한다.
+- `get_usage_report` 등으로 **실제 지출을 보고**하고 추정치와 구별한다. 비용 확인 불가, seed 미지원, 비결정성, 미지원 설정은 사유를 명시한다.
+- 이전 결과를 보존하고 변경한 단계·프롬프트·참조·마스크·파라미터의 전후 값, 목적, 비교, 채택·기각 이유를 기록한다. 대안은 저비용으로 비교한다. 개선 정체 시 원인을 분석해 공정을 바꾸고 검수 목표 달성 시 마무리한다.
+- 최종 평가는 인게임에서 실루엣·캐릭터 일관성·도트 해상도·팔레트·투명도·가독성·최적화로 한다.
 
-- 지출은 허용되지만 **얼마나 썼는지 보고**한다 (`get_usage_report`).
-- 유료 노드가 실패하면 부분 출력도 회수되지 않고 이미 나간 호출은 과금된다.
-  새 프롬프트는 저비용 설정으로 한 번 검증한 뒤 프로덕션으로 올린다.
+## 아트 규격
+- 인게임 시트는 14–29색 수준이다. 옆에 표시하는 아이콘은 48px 논리 캔버스·최대 16색, VFX는 4–6색·어두운 외곽선 없음. 키아트의 고색상 사양을 HUD에 적용하지 않는다.
+- 스킬 아이콘은 시전자 얼굴이 아닌 **스킬 효과**를 표현한다. 애니메이션은 기존 에셋·마스크·스윕·팔레트 펄스·Unity Animation으로 만들며 프레임별 확산 생성은 하지 않는다.
+- 새 도트 생성의 마감은 mode-tile 축소·팔레트 양자화를 검토한다. 기존 도트의 “디테일 감소”는 특정 요소 제거·구도 조정으로 처리하고 필터·과도한 양자화로 뭉개지 않는다.
+- 잘못된 카메라 각도는 원본 참조로 해당 조건만 수정한다. 크롭으로 다른 시점을 위장하지 않는다. 참조 입력 경로는 실제 노드 스키마를 확인한다.
+- 크로마키는 테두리 flood-fill → 엄격한 전역 chroma 제거(닫힌 영역 포함) → 배경에 인접한 잔여색 1–2px 제거로 처리한다. 의상색을 보존한다.
+- 신 8종의 옛 로스터 디자인은 확정본이 아니다. 새 캐릭터는 당시 사용자 지시를 기준으로 한다.
+- 로스터는 **96px 나란한 배치**에서 1초 안에 구분되는지 검수한다. 실루엣·머리색 계열·금속·강조색·후광 등의 프레이밍을 중복하지 않고 대칭 정면 포즈는 최대 1명.
+- 실루엣·포즈·표정·강조색·금속은 캐릭터별 파라미터로 둔다. 공통 프롬프트에 같은 포즈·소품 배치·장식을 강제하지 않는다.
+- 희소성은 실루엣·포즈·강조색으로 표현한다. 3×3px보다 작은 장식은 제거하거나 윤곽으로 표현한다. 디테일 예산은 머리/몸통·소품/허리 아래 약 60/30/10.
+- 새 스프라이트는 `KingdomIdle/Optimize/2) Create In-Build Sprite Atlases`로 아틀라스에 포함한다. 도트: `Atlas_UIPixel`, Point, ASTC 4×4 이하 블록. 스무스 UI: `Atlas_UI`, Bilinear, ASTC 6×6. mipmap/readable OFF, POT, 최대 2048.
 
-## 검증은 인게임에서
-
-에셋을 만든 뒤에는 실제 화면에 올려 캡처해 **맥락 속에서** 판단한다.
-격리된 스프라이트만 보고 판정하지 않는다.
-
-## Recurring product rules (standing requirements)
-> Meta-rule: whenever the user states a requirement that should apply to future work too
-> (not just the current task), record it in this section immediately.
-- **Every lobby/UI/art rework includes size, memory and rendering optimization, plus in-game
-  checks at multiple screen sizes/aspect ratios and safe areas.** Intended composition, readable
-  text and usable controls must survive narrow phones, tall phones and tablets.
-- **Commercial-quality idle-game UX:** prioritize legible information, comfortable mobile touch targets,
-  consistent navigation, responsive layouts, and low-cost updates. Reuse ExternalAssets first;
-  new art is justified by a concrete gap and must be validated in the running game.
-- **UI elements ship with subtle "alive" micro-animation by default** — breathing scale, light
-  flicker/glow pulses, sway — synchronized where it makes sense (e.g. shake with CameraShaker).
-  Use lightweight unscaled-time coroutines (UITween 계열); restart them on re-activation
-  (UGUI coroutines die permanently when the GameObject is deactivated).
-- **Concept consistency:** UI = rustic dark wood + bronze trim (`UguiTheme` Rustic* tokens,
-  Layer Lab Minimal Game Dark assets). 신 캐릭터 아트 = `AI/comfyui/README.md` §7 아트 디렉션 락, VFX = flat 4–6 colors, no dark outline (§6 of the spec).
-- **Anything shown next to the in-game sprites must match THEIR dot resolution** — party-HUD
-  portraits, skill icons, etc. The real job sprites measure **14–29 unique colors**; the card
-  illustration spec (thousands of colors) is for key art only. Follow **§8** of the style spec:
-  48px canvas, ≤16 colors (≤6 for VFX icons), generated as chunky pixel art (not smoothed then
-  downscaled), post-processed with mode-tile downscale + median-cut quantize.
-- **Skill icons depict the SKILL EFFECT, not the caster.** A bust crop of the character
-  illustration is not a skill icon.
-- **ComfyUI is for STATIC images.** Animation comes from asset reuse / procedural authoring
-  (masking, sweeps, palette pulses, Unity Animation) — never per-frame diffusion.
-- **Decoration must never hurt readability or usability.** If ornamentation competes with
-  text legibility, tap targets, or information hierarchy, cut the ornamentation.
-- **Portraits/busts come from the ACTUAL in-game sprite sheets**, not from generation. Crop the
-  upper body, integer-upscale (NEAREST), binarize alpha. Diffusion cannot match a 14-color sheet;
-  the sheet already is the answer. (세션 스크래치패드의 `bust_from_sprite.py` 방식)
-- **Every art task carries an optimization pass.** New sprites must land in a Sprite Atlas
-  (`KingdomIdle/Optimize/2) Create In-Build Sprite Atlases`). 도트 아트 = `Atlas_UIPixel`
-  (Point + ASTC_4x4); 스무스 UI = `Atlas_UI` (Bilinear + ASTC_6x6). **ASTC 6x6 이상은 픽셀 아트를
-  뭉갠다 — 도트는 4x4 가 상한.** mipmap off, readable off, POT/max 2048.
-- **FLAT art is authored in code, not generated.** When the brief says flat / no depth / "UI 처럼"
-  (mage tower, panels, chips), draw it procedurally: flat color fields + one uniform dark outline,
-  separation by **outline, never by shading**, then integer NEAREST upscale from a logical grid.
-  Diffusion always sneaks in gradients and bevels, and flat art has no shading to fake — so code
-  wins on accuracy AND costs nothing to iterate. (세션 스크래치패드의 `flat_tower.py` 방식)
-- **신 8종의 디자인은 확정본이 아니다.** 예전 로스터 설정(예: Ignis = 남성 마왕)은 폐기됐다.
-  새 신을 만들 때는 사용자가 그때 주는 디자인 지시만을 기준으로 삼는다.
-- **Review a character ROSTER as a row, never one at a time.** Eight characters that each look fine
-  alone can be interchangeable the moment they sit in a banner/collection grid — which is how the
-  player actually sees them. Gate on: no two confusable in one second at 96px, no shared silhouette,
-  no shared hair-colour family, no shared trim metal, no repeated accent hue, no shared framing
-  furniture (halo discs, backdrops), at most one symmetric front-on pose.
-- **Per-character uniqueness is enforced by PARAMETERS, not by the shared prompt.** Any clause baked
-  into the shared template ("standing front-facing", "prop held vertically", "gold filigree") becomes
-  a sameness engine that overrides every per-character instruction. Silhouette, pose, expression,
-  accent hue and trim metal must each be a per-character field.
-- **More ornament ≠ more premium at mobile pixel sizes.** Perceived rarity comes from a bolder
-  silhouette, a stronger accent and a better pose. Detail thinner than a 3×3 pixel cluster is
-  deleted, not shrunk — express the idea as a notch in the outline instead. Budget detail
-  60/30/10 top-weighted (head / torso+prop / below the waist); icons crop the bust, so
-  detail below the waist is pure cost.
-- **Wrong camera angle is fixed by REFERENCE-GUIDED REGENERATION, not by cropping or redrawing.**
-  When existing art is drawn from the wrong angle (e.g. a tower drawn from slightly above so you see
-  into its top), cropping cannot fix it — an elliptical element has no horizontal cut line that leaves
-  a clean front view — and redrawing from primitives destroys the art. The working method: upload the
-  existing art (`upload_file`), wire `LoadImage → GeminiNanoBanana2V2(model.images.image_1) → SaveImage`
-  via `submit_workflow`, and prompt "keep EVERYTHING identical — style, palette, detail level, outline
-  weight, pixel block size — change exactly ONE thing: the camera angle", spelling out what must and
-  must not be visible. Run 2–3 seeds and pick. Note `medias[].value` will NOT take a local or
-  Comfy-uploaded file (auth-gated); the LoadImage + submit_workflow path is the one that works.
-- **"Reduce the detail" does NOT mean redraw at lower fidelity.** Mode filters and hard quantization
-  mush the dots and read as damage, not as simplification. If asked to simplify existing pixel art,
-  change composition/framing/angle, or remove specific named elements — never smooth the pixels.
-- **Chroma-key in three passes.** Border flood-fill alone leaves background inside *enclosed*
-  regions (a chain loop, a halo ring). Follow it with a strict global chroma test (kills pure
-  green, spares desaturated costume greens), then peel 1–2 px of loose-green pixels that touch
-  the background to de-fringe thin anti-aliased lines.
-
-- **Low-spec mode preserves gameplay and controls.** Reduce decorative animation, damage-number presentation costs and other rendering work without removing useful information, changing simulation, touch responsiveness or available features. Share the setting between the title screen and in-game settings, and validate savings on a connected device.
-
-## Communication
-- Simple, formal, low-token. Keep vital details; omit filler.
+## 문서
+- 행동 규칙은 이 파일만 유지한다. 도구별 진입 문서는 이 파일로 연결한다.
+- `README.md`는 프로젝트 안내, `Assets/UGUI/README.md`는 UI 구조, `AI/comfyui/README.md`는 실행 참고다. 규칙을 중복 복사하지 않는다.
+- 과거 프롬프트·워크플로·지출·검증 기록은 출처이므로 보존하되 현재 지시와 구별한다. 외부 패키지 문서는 수정하지 않는다.

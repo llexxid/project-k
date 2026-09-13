@@ -642,9 +642,9 @@ namespace KingdomIdle.UGUI
         {
             if (_view == null) return;
 
-            // UITK rotate와 방향 일치 (UGUI z회전은 반시계 양수 → 부호 반전)
+            // Keep the menu label and its touch area stationary; the dropdown already fades/slides.
             if (_view.btnHamburgerRect != null)
-                _view.btnHamburgerRect.localRotation = Quaternion.Euler(0f, 0f, -angleDeg);
+                _view.btnHamburgerRect.localRotation = Quaternion.identity;
 
             ApplyDropdownVisual(_view.popupHamburgerRect, _view.popupHamburgerGroup, _hamburgerBasePos, yOffset, opacity);
         }
@@ -784,6 +784,14 @@ namespace KingdomIdle.UGUI
 
         private void BindMenus()
         {
+            if (_view.btnMenuGuide != null)
+                _view.btnMenuGuide.onClick.AddListener(() =>
+                {
+                    CloseHamburgerMenuImmediate();
+                    if (_currencyOpen) CloseCurrencyPopup();
+                    _host.PushPanel(UIPanelId.Guide, null, clearBefore: false, isTabPanel: false);
+                });
+
             if (_view.btnProfile != null)
             {
                 _view.btnProfile.onClick.AddListener(() =>

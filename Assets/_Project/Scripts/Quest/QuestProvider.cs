@@ -12,6 +12,6 @@ public class QuestProvider : MonoBehaviour, IQuestDefinitionProvider
 {
     [SerializeField] private QuestDatabaseSO questDatabase;
 
-    public IReadOnlyList<QuestDefinition> GetQuestDefinitions() => questDatabase.Quests;
-    public QuestDefinition GetQuestById(long questId) => questDatabase.GetQuestById(questId); 
+    public IReadOnlyList<QuestDefinition> GetQuestDefinitions() => KingdomIdle.Balance.QuestEconomy.Definitions;
+    public QuestDefinition GetQuestById(long questId) => System.Linq.Enumerable.FirstOrDefault(GetQuestDefinitions(), x => x.QuestId == questId);
 }

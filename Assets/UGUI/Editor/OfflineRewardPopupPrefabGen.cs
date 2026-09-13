@@ -137,7 +137,7 @@ namespace KingdomIdle.UGUI.Editor
             TMP_Text description = F.Text(
                 heroText,
                 "Description",
-                "서버가 확정한 사냥 보상을 받았습니다.",
+                "오프라인 사냥 보상을 받았습니다.",
                 21f,
                 UguiTheme.TextSecondary,
                 TextAlignmentOptions.Left,
@@ -269,6 +269,7 @@ namespace KingdomIdle.UGUI.Editor
                 new Color(0.20f, 0.16f, 0.10f, 1f),
                 rounded: true);
             F.Flexible(pill, flexWidth: 1f);
+            F.Preferred(pill, height: 64f);
             TMP_Text label = F.Text(
                 pill.transform,
                 "Label",

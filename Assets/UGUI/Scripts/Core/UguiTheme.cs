@@ -25,7 +25,7 @@ namespace KingdomIdle.UGUI
         public const float PanelPadding = 20f;
         public const float PanelCloseBtnSize = 72f;
         public const float StageAreaTop = 180f;
-        public const float StageControlsBottom = StageAreaTop + 144f;
+        public const float StageControlsBottom = StageAreaTop + 84f;
         public const float DropdownTop = 175f;
         public const float DropdownWidth = 420f;
         public const float HamburgerDropdownWidth = 90f;

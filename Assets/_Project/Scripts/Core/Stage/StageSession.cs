@@ -1,3 +1,4 @@
+using KingdomIdle.Balance;
 using System;
 using System.Collections.Generic;
 using Core.Stage;
@@ -24,6 +25,10 @@ namespace Scripts.Core
         public event Action<StageSession, Exception> OnActionSequenceFailed;
         public event Action<StageSession, Monster> OnMonsterKilled;
         
+        public string RunId { get; } = Guid.NewGuid().ToString("N");
+        public float RemainingTime { get; private set; }
+        public bool TimerRunning { get; set; }
+        public void SetTimeLimit(float seconds) { RemainingTime = seconds; TimerRunning = seconds > 0; }
         public StageDefinition Definition { get; }
         public bool IsRunning { get; private set; }
         public bool IsBattleRunning { get; private set; }
@@ -76,6 +81,7 @@ namespace Scripts.Core
             _killCounts.Clear();
             _totalKillCount = 0;
             
+            SetTimeLimit(Definition.TimeLimitSec);
             _rule.Enter(this);
         }
 
@@ -135,6 +141,7 @@ namespace Scripts.Core
             if (!IsRunning)
                 return;
 
+            BattleEconomy.End(this);
             _actionSequence?.Cancel();
             IsRunning = false;
             IsBattleRunning = false;
@@ -175,6 +182,8 @@ namespace Scripts.Core
             if (!IsRunning || !IsBattleRunning || HasPendingResult)
                 return;
 
+            BattleEconomy.Tick(deltaTime);
+            if (TimerRunning) { RemainingTime -= deltaTime; if (RemainingTime < 0) { AcceptResult(_rule.OnPartyDefeated(this)); return; } }
             AcceptResult(_rule.Tick(this, deltaTime));
         }
 
@@ -192,6 +201,7 @@ namespace Scripts.Core
             _killCounts.TryGetValue(monster.Type, out int killCount);
             _killCounts[monster.Type] = killCount + 1;
             _totalKillCount++;
+            if (Definition.Type == eStageType.RubyDungeon && _monsters.Count == 0) TimerRunning = false;
             // 상태 갱신이 끝난 뒤 Rule 판정
             StageRuleResult result =
                 _rule.OnMonsterKilled(this, monster);

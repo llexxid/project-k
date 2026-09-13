@@ -19,38 +19,21 @@ public class PlayerDetection
 
     LayerMask enemyLayer = GameLayers.EnemyMask;
 
-    // 카메라 경계 내부 판정용 여유(0~0.5). 0.02 = 화면 경계에서 2% 안쪽까지만 유효
-    private const float CameraBoundsInset = 0.02f;
-
-    private static bool IsInCameraBounds(Vector3 worldPos)
-    {
-        var cam = Camera.main;
-        if (cam == null) return true;
-        Vector3 vp = cam.WorldToViewportPoint(worldPos);
-        if (vp.z < 0f) return false;
-        return vp.x >= CameraBoundsInset && vp.x <= 1f - CameraBoundsInset
-            && vp.y >= CameraBoundsInset && vp.y <= 1f - CameraBoundsInset;
-    }
-
     public bool Detect()
     {
 		if (player.currentTarget != null)
 		{
             // 타겟이 이미 Dead 상태면 즉시 해제 → 스폰 위치 복귀 가능
             Monster currentMon = player.currentTarget.gameobj?.GetComponent<Monster>();
-            if (currentMon != null && currentMon.MonAction == eMonsterAction.Dead)
+            if (currentMon == null || !currentMon.isActiveAndEnabled || currentMon.MonAction == eMonsterAction.Dead)
             {
                 player.ResetTarget(player.currentTarget);
                 return false;
             }
 
-            // [개선] 기존 타겟이 카메라 밖으로 나가더라도, 플레이어와 매우 가깝다면(2.0f) 추격을 유지
-            float distToCurrent = Vector2.Distance(player.transform.position, player.currentTarget.targetPos);
-            if (!IsInCameraBounds(player.currentTarget.targetPos) && distToCurrent > 2.0f)
-            {
-                player.ResetTarget(player.currentTarget);
-                return false;
-            }
+            // UI panels change the camera viewport, not combat eligibility.
+            // Keep a live acquired target until death or release so ranged enemies
+            // cannot attack from a camera-excluded strip and stall wave income.
             return true; // 다음 스텝
 		}
 
@@ -70,18 +53,15 @@ public class PlayerDetection
             if (!detectedResults[i].CompareTag("Enemy")) continue;
 
             var mon = detectedResults[i].GetComponentInParent<Monster>();
-            if (mon == null || mon.MonAction == eMonsterAction.Dead) continue;
+            if (mon == null || !mon.isActiveAndEnabled || mon.MonAction == eMonsterAction.Dead) continue;
 
             float dist = Vector2.Distance(player.transform.position, detectedResults[i].transform.position);
 
-			// [핵심 개선] 카메라 안에 있거나, 카메라 밖이라도 플레이어와 매우 가깝다면(2.0f) 탐지 허용
-			if (IsInCameraBounds(detectedResults[i].transform.position) || dist <= 2.0f)
+            // Physics range is the shared combat boundary on every screen ratio.
+            if (dist < closestDist)
             {
-                if (dist < closestDist)
-                {
-                    closestDist = dist;
-                    currentTarget = detectedResults[i].GetComponentInParent<IDamageable>();
-                }
+                closestDist = dist;
+                currentTarget = mon;
             }
         }
 

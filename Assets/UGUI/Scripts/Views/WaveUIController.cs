@@ -66,9 +66,9 @@ namespace KingdomIdle.UGUI
                 _view.btnDeathNo.onClick.AddListener(OnDeathNo);
 
             // 초기 상태
-            SetHidden(_view.bossTimerBar, true);
+            SetHidden(_view.bossTimerBar, !_sm.IsBossWave);
             SetHidden(_view.deathPopup, true);
-            if (_view.btnLoopIcon != null) _view.btnLoopIcon.gameObject.SetActive(false);
+            HandleLoopModeChanged(_sm.IsLoopMode);
 
             UpdateStageLabel(_sm.CurrentStageNumber, _sm.CurrentWaveNumber, _sm.IsBossWave);
         }
@@ -139,6 +139,7 @@ namespace KingdomIdle.UGUI
         {
             if (_view != null && _view.btnLoopIcon != null)
                 _view.btnLoopIcon.gameObject.SetActive(isLoop);
+            if (_sm != null) UpdateStageLabel(_sm.CurrentStageNumber, _sm.CurrentWaveNumber, _sm.IsBossWave);
         }
 
         private static void HandleBossAutoChallengeChanged(bool enabled)
@@ -196,7 +197,7 @@ namespace KingdomIdle.UGUI
             if (_view == null || _view.lblStage == null) return;
             _view.lblStage.text = isBoss
                 ? $"보스 {stageNum}"
-                : $"스테이지 {stageNum}-{wave}";
+                : _sm != null && _sm.IsLoopMode ? $"반복 사냥 {stageNum}-{wave}" : $"스테이지 {stageNum}-{wave}";
         }
 
         private static void SetHidden(GameObject go, bool hidden)

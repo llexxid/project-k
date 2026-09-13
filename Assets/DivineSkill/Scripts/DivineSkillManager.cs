@@ -446,6 +446,7 @@ namespace KingdomIdle.Divine
         /// <summary>지금 시전할 수 있는지. 자동 시전 판정과 버튼 활성 판정에 함께 쓴다.</summary>
         public bool CanCast()
         {
+            if (KingdomIdle.Balance.LocalProgression.IsLocalAuthority) return false;
             if (!_systemUnlocked) return false;
             if (_casting || IsOnCooldown) return false;
 

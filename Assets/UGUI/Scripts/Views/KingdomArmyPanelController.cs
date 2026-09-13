@@ -1,3 +1,5 @@
+using KingdomIdle.Balance;
+using Scripts.Core;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -306,7 +308,7 @@ namespace KingdomIdle.UGUI
         private static void UpdateHpBar(Player player, KACharacterSheetView sheet)
         {
             if (player == null || sheet == null || player.playerStatus == null) return;
-            int maxHp = player.playerStatus.MaxHP;
+            long maxHp = player.playerStatus.MaxHP;
             float ratio = Mathf.Clamp01(player.HPRatio);
             int curHp = Mathf.RoundToInt(ratio * maxHp);
             if (sheet.hpFill != null)
@@ -346,8 +348,8 @@ namespace KingdomIdle.UGUI
             if (b.Equip != 0) { AddOperator(container, "+"); AddTerm(sheet, container, b.Equip.ToString("N0"), $"장비 {kind}"); }
             if (b.Passive != 0) { AddOperator(container, "+"); AddTerm(sheet, container, b.Passive.ToString("N0"), $"패시브 {kind}"); }
             AddOperator(container, ")");
-            if (b.HasBuff) { AddOperator(container, "×"); AddTerm(sheet, container, b.BuffMult.ToString("0.##"), $"버프/오라 배수 ×{b.BuffMult:0.##}"); }
-            if (b.HasEnhance) { AddOperator(container, "×"); AddTerm(sheet, container, (1f + b.EnhanceRate).ToString("0.##"), $"강화 보너스 +{b.EnhanceRate * 100f:0.#}%"); }
+            if (b.HasBuff) { AddOperator(container, "×"); AddTerm(sheet, container, (1m+b.AuraRate+b.AccountRate+b.ReincarnationRate).ToString("0.###"), $"가산 보너스: 오라 {b.AuraRate:P1} + 계정 {b.AccountRate:P1} + 환생 {b.ReincarnationRate:P1}"); }
+            if (b.HasEnhance) { AddOperator(container, "×"); AddTerm(sheet, container, b.GrowthMultiplier.ToString("0.###"), $"골드 강화: 레벨당 1.025배 누적"); }
             AddOperator(container, "=");
             AddTerm(sheet, container, b.Final.ToString("N0"), $"최종 {kind}");
         }
@@ -481,13 +483,19 @@ namespace KingdomIdle.UGUI
             // ── 보유 장비 목록 ──
             ClearChildren(equip.inventoryGrid);
 
-            if (equipmentManager?.Inventory == null || equipmentManager.Inventory.Items.Count == 0)
+            if (equipmentManager?.Inventory == null || (equipmentManager.Inventory.Items.Count == 0 && KingdomIdle.Balance.LocalProgression.State.PendingEquipment.Count == 0))
             {
                 if (equip.emptyLabel != null) equip.emptyLabel.gameObject.SetActive(true);
                 return;
             }
             if (equip.emptyLabel != null) equip.emptyLabel.gameObject.SetActive(false);
 
+            foreach(var pending in KingdomIdle.Balance.LocalProgression.State.PendingEquipment.ToArray())
+            {
+                var pendingData=equipmentManager.GetData(pending.Code); if(pendingData==null) continue;
+                var captured=pending.Id;
+                InstantiateEquipCell(equip.inventoryGrid,pendingData.icon,"보관 보상 · 받기",UguiTheme.AccentGold,"가방 여유 공간 필요",UguiTheme.AccentGold,false,false,"보관 중",()=>{ if(equipmentManager.ClaimPending(captured)) Refresh(); });
+            }
             // 1차: 장착가능(해당 전직) > 장착불가  2차: 등급 내림차순  3차: 강화레벨 내림차순
             var sortedItems = equipmentManager.Inventory.Items
                 .OrderByDescending(i => i.baseData.IsAllowedForJob(jobName) ? 1 : 0)
@@ -597,7 +605,7 @@ namespace KingdomIdle.UGUI
                 var capturedMgr = equipMgr;
                 AddActionButton(detail.actionRow, "장착", UguiTheme.BtnConfirm, true, () =>
                 {
-                    capturedMgr.Equip(capturedItem);
+                    if (!EquipmentManager.Instance.TryEquip(capturedMgr.PlayerIndex,capturedItem)) { ShowToast("다른 병사가 장착 중이거나 직업에 맞지 않습니다."); return; }
                     ShowToast($"{capturedItem.baseData.equipmentName} 장착!");
                     Refresh();
                 });
@@ -622,6 +630,25 @@ namespace KingdomIdle.UGUI
 
             // 강화 정보 표시
             BuildEnhanceInfo(detail, item);
+            AddActionButton(detail.actionRow,item.IsLocked?"잠금 해제":"재료 사용 잠금",UguiTheme.BtnCancel,true,()=> { EquipmentManager.Instance.SetLocked(item,!item.IsLocked); ShowEquipmentActionPopup(item,isEquipped,isAllowed,equipMgr); });
+            int yield = item.baseData.rarity==eEquipmentRarity.Epic?8:item.baseData.rarity==eEquipmentRarity.Rare?3:1;
+            AddActionButton(detail.actionRow,$"분해 → 마법 지식 {yield} (강화 재료 반환 없음)",UguiTheme.BtnSpend,!item.IsLocked&&!item.IsEquipped,()=> { if(EquipmentManager.Instance.Dismantle(item)) Refresh(); });
+            // Keep the prefab's existing layout component; a separate child owns the vertical actions.
+            var buttons = new System.Collections.Generic.List<Transform>();
+            foreach (Transform child in detail.actionRow) if(child.gameObject.activeSelf) buttons.Add(child);
+            var stack = new GameObject("EquipmentActions",typeof(RectTransform),typeof(UnityEngine.UI.VerticalLayoutGroup),typeof(UnityEngine.UI.LayoutElement));
+            stack.transform.SetParent(detail.actionRow,false);
+            var vertical=stack.GetComponent<UnityEngine.UI.VerticalLayoutGroup>();
+            vertical.spacing=8;vertical.childControlWidth=true;vertical.childControlHeight=true;vertical.childForceExpandWidth=true;vertical.childForceExpandHeight=false;
+            foreach(var button in buttons)
+            {
+                button.SetParent(stack.transform,false);
+                var touch=button.GetComponent<LayoutElement>() ?? button.gameObject.AddComponent<LayoutElement>();touch.minHeight=128;touch.preferredHeight=128;
+                var label=button.GetComponentInChildren<TMP_Text>();if(label!=null)label.fontSize=30;
+            }
+            var stackLayout=stack.GetComponent<UnityEngine.UI.LayoutElement>();stackLayout.minHeight=536;stackLayout.preferredHeight=536;stackLayout.flexibleWidth=1;
+            var rowLayout=detail.actionRow.GetComponent<UnityEngine.UI.LayoutElement>() ?? detail.actionRow.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();rowLayout.minHeight=536;rowLayout.preferredHeight=536;
+
         }
 
         /// <summary>강화 시도. 재료 부족 시 부족 수량을 토스트로 안내.</summary>
@@ -639,7 +666,7 @@ namespace KingdomIdle.UGUI
             {
                 foreach (var inv in EquipmentManager.Instance.Inventory.Items)
                 {
-                    if (inv != item && inv.baseData == item.baseData && !inv.IsEquipped)
+                    if (inv != item && inv.baseData == item.baseData && !inv.IsEquipped && !inv.IsLocked && inv.enhancementLevel == 0)
                         available++;
                 }
             }
@@ -688,7 +715,7 @@ namespace KingdomIdle.UGUI
             {
                 foreach (var inv in EquipmentManager.Instance.Inventory.Items)
                 {
-                    if (inv != item && inv.baseData == item.baseData && !inv.IsEquipped)
+                    if (inv != item && inv.baseData == item.baseData && !inv.IsEquipped && !inv.IsLocked && inv.enhancementLevel == 0)
                         available++;
                 }
             }
@@ -789,14 +816,14 @@ namespace KingdomIdle.UGUI
 
             // 통합 전직 파편 보유량 배너 — 어떤 직업이든 파편 40개로 전직 가능.
             int ownedFrags = _mgr.GetFragments();
-            int fragCost = _mgr.GetFragmentCost();
+            int fragCost = 40;
 
             if (jc.bannerValue != null)
             {
                 jc.bannerValue.text = $"{ownedFrags:N0}";
                 jc.bannerValue.color = ownedFrags >= fragCost ? UguiTheme.SuccessGreenBright : UguiTheme.AccentGoldStrong;
             }
-            if (jc.bannerHint != null) jc.bannerHint.text = $"(전직당 {fragCost}개 소모)";
+            if (jc.bannerHint != null) jc.bannerHint.text = "1차 40 · 2차 120 · 해금 후 무료";
 
             var player = GetCurrentPlayer();
             string currentJob = player?.playerStatus?.JobName ?? "";
@@ -843,7 +870,7 @@ namespace KingdomIdle.UGUI
 
             // 통합 전직 파편 — 모든 직업이 동일한 파편 풀을 공유한다.
             int owned = _mgr.GetFragments();
-            int cost = _mgr.GetFragmentCost();
+            int cost = _mgr.GetFragmentCost(job.jobName);
             bool fragReady = owned >= cost;
 
             // 카드 배경 색 (상태 변형)
@@ -932,7 +959,7 @@ namespace KingdomIdle.UGUI
             if (detail.roleLabel != null) detail.roleLabel.text = roleText;
 
             // ── 스탯 비교 (현재 직업 vs 신규 직업) ──
-            BuildStatCompareTable(detail.compareTable, ps, job);
+            BuildStatCompareTable(detail.compareTable, player, job);
 
             // ── 직업 스킬 ──
             var jobSkills = SkillSystem.GetJobSkillInfo(job.jobName);
@@ -951,7 +978,7 @@ namespace KingdomIdle.UGUI
             // ── 전직 비용 / 조건 ──
             // 통합 전직 파편 — 어떤 직업이든 동일한 파편 풀에서 40개 소모.
             int owned = _mgr.GetFragments();
-            int cost = _mgr.GetFragmentCost();
+            int cost = _mgr.GetFragmentCost(job.jobName);
 
             if (isUnlocked)
             {
@@ -1034,36 +1061,45 @@ namespace KingdomIdle.UGUI
         /// 현재 직업의 스탯 vs 신규 직업의 스탯을 비교하는 표를 만든다 (Item_StatCompareRow).
         /// 변화량을 색으로 강조 (▲상승=초록, ▼하락=빨강).
         /// </summary>
-        private static void BuildStatCompareTable(RectTransform table, PlayerStatus current, JobData job)
+        private static void BuildStatCompareTable(RectTransform table, Player player, JobData job)
         {
-            if (table == null) return;
+            if(table==null || player==null) return;
             ClearChildren(table);
+            var current=player.playerStatus;var state=LocalProgression.State;
+            decimal attackAura=0,healthAura=0;
+            foreach(var member in UserManager.Instance.GetPlayers().Take(3))
+            {
+                string name=member==player?job.jobName:state.Jobs.TryGetValue(member.PlayerIndex,out var selected)?selected:member.playerStatus.JobName;
+                if(name=="Knight" || name=="Elite_Knight")healthAura+=.1m;
+                if(name=="Archer" || name=="Elite_Archer")attackAura+=.1m;
+                if(name=="Mage" || name=="Elite_Mage"){attackAura+=.05m;healthAura+=.05m;}
+            }
+            var weapon=player.PlayerEquipmentManager?.GetSlotEquipment(eEquipmentSlot.Weapon);
+            bool retain=weapon!=null && weapon.baseData.IsAllowedForJob(job.jobName);
+            long attack=BalanceMath.Stat(job.atk,retain?weapon.GetFinalAtk():0,0,state.AttackLevel,attackAura,state.AccountLevel,state.ReincarnationLevel);
+            long health=BalanceMath.Stat(job.maxHP,retain?weapon.GetFinalMaxHP():0,0,state.HealthLevel,healthAura,state.AccountLevel,state.ReincarnationLevel);
+            AddCompareRow(table,"스탯","현재","적용 후","변화",UguiTheme.TextSecondary,UguiTheme.TextSecondary,isHead:true);
+            AddStatCompareRow(table,"HP",current.MaxHP,health,true);
+            AddStatCompareRow(table,"공격력",current.Atk,attack,true);
+            AddStatCompareRow(table,"이동속도",current.MovSpeed,job.movSpeed,true);
+    }
 
-            // 헤더
-            AddCompareRow(table, "스탯", "현재", "신규", "변화",
-                UguiTheme.TextSecondary, UguiTheme.TextSecondary, isHead: true);
-
-            AddStatCompareRow(table, "HP", current?.MaxHP ?? 0, job.maxHP, higherIsBetter: true);
-            AddStatCompareRow(table, "공격력", current?.Atk ?? 0, job.atk, higherIsBetter: true);
-            AddStatCompareRow(table, "이동속도", current?.MovSpeed ?? 0f, job.movSpeed, higherIsBetter: true);
-        }
-
-        private static void AddStatCompareRow(RectTransform table, string name, float curVal, float newVal, bool higherIsBetter, string suffix = "")
+        private static void AddStatCompareRow(RectTransform table, string name, decimal curVal, decimal newVal, bool higherIsBetter, string suffix = "")
         {
-            float diff = newVal - curVal;
+            decimal diff = newVal - curVal;
             string diffText;
             Color diffColor;
-            if (Mathf.Abs(diff) < 0.001f)
+            if (System.Math.Abs(diff) < 0.001m)
             {
                 diffText = "-";
                 diffColor = new Color(1f, 1f, 1f, 0.60f);
             }
             else
             {
-                bool isUp = diff > 0f;
+                bool isUp = diff > 0m;
                 bool isGood = isUp == higherIsBetter;
                 string arrow = isUp ? "+" : "-";
-                diffText = $"{arrow}{Mathf.Abs(diff):0.##}{suffix}";
+                diffText = $"{arrow}{System.Math.Abs(diff):0.##}{suffix}";
                 diffColor = isGood ? UguiTheme.SuccessGreenBright : UguiTheme.WarnRed;
             }
 
@@ -1090,7 +1126,7 @@ namespace KingdomIdle.UGUI
             _mgr.TryChangeJob(player, job.jobName,
                 onSuccess: () =>
                 {
-                    ShowToast($"{job.DisplayName}(으)로 전직 완료!");
+                    ShowToast($"다음 일반 웨이브부터 {job.DisplayName} 적용");
                     BuildMemberTabs();
                     ShowJobDetail(job);
                 },

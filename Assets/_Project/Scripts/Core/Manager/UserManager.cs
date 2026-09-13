@@ -1,3 +1,4 @@
+using KingdomIdle.Balance;
 using Cysharp.Threading.Tasks.Triggers;
 using KingdomIdle.KingdomArmy;
 using Scripts.Core;
@@ -55,12 +56,12 @@ namespace Scripts.Core
 			{
 				CustomLogger.LogWarning("[UserManager] StageManager가 초기화되지 않았습니다");
 			}
-			StageManager.Instance.OnStageEnter += HandleStageStarted;
+			if (StageManager.Instance != null) StageManager.Instance.OnStageEnter += HandleStageStarted;
 		}
 
 		private void OnDisable()
 		{
-			StageManager.Instance.OnStageEnter -= HandleStageStarted;
+			if (StageManager.Instance != null) StageManager.Instance.OnStageEnter -= HandleStageStarted;
 		}
 
 		private void HandleStageStarted(StageDefinition definition)
@@ -83,7 +84,7 @@ namespace Scripts.Core
 				startStage,
 				exp: 0,
 				monsterkill: 0,
-				level: 50,
+				level: 1,
 				enchantHp: 0,
 				enchantAtk: 0
 			);
@@ -96,11 +97,11 @@ namespace Scripts.Core
 			});
 
 			SetWallet(new CurrencyQueryDTO(
-				gold: 100000,
-				ancientCoin: 1000,
-				kingdomSupply: 1000,
-				arcaneKnowledge: 1000,
-				classFragment: 1000
+				gold: 0,
+				ancientCoin: 0,
+				kingdomSupply: 0,
+				arcaneKnowledge: 0,
+				classFragment: 0
 			));
 			
 			SetInventoryData(null);
@@ -110,12 +111,8 @@ namespace Scripts.Core
 		
 		public void SetHuntResult(OnHuntResponseDTO res)
 		{
-			_user.SetLevel(res.Level);
-			_user.SetExp(res.Exp);
-			_user.SetKillScore(res.KillScore);
-			_user.SetCoin(eCurrency.Gold, res.Gold);
-			_user.SetCoin(eCurrency.AncientCoin, res.AncientCoin);
-		}
+            Debug.LogWarning("[Progression] Legacy hunt snapshot ignored; local authority owns this balance version.");
+    }
 		public UserData GetUserData()
 		{
 			return _user.GetData();
@@ -239,7 +236,8 @@ namespace Scripts.Core
 			}
 			// ── [Login 우회 폴백 끝] ──
 
-			GameObject obj1 = Instantiate(playerPrefab, new Vector3(0, 1.4f, 0), Quaternion.identity);
+			_user._players.Clear();
+            GameObject obj1 = Instantiate(playerPrefab, new Vector3(0, 1.4f, 0), Quaternion.identity);
 			GameObject obj2 = Instantiate(playerPrefab, new Vector3(-1, 0, 0), Quaternion.identity);
 			GameObject obj3 = Instantiate(playerPrefab, new Vector3(1, 0, 0), Quaternion.identity);
 
@@ -290,47 +288,54 @@ obj1.GetComponent<ChangeJob>().ChangeJobByCode(_characterDataFromServer[0].JobCo
 			if (StatEnhanceManager.Instance != null)
 				StatEnhanceManager.Instance.ApplyToAllPlayers();
 
-			// 서버에서 받은 인벤토리 복원
-			if (_inventoryDataFromServer != null && _inventoryDataFromServer.Count > 0)
-			{
-				var equipDB = KingdomArmyManager.Instance?.EquipDB;
-				if (equipDB != null)
-				{
-					var players = new Player[] { p1, p2, p3 };
-					foreach (Scripts.Server.DTO.ItemCode itemCode in _inventoryDataFromServer)
-					{
-						EquipmentData data = equipDB.GetEquipmentByCode((int)itemCode.GetItemCode());
-						if (data == null) continue;
+			ChangeJob.RefreshPartyAura();
+            foreach (var p in _user._players) p.RefillHP();
+            EquipmentManager.Instance.RestoreEquipment();
 
-						Player target = p1;
-						foreach (var p in players)
-						{
-							if (p?.PlayerEquipmentManager == null) continue;
-							if (data.IsAllowedForJob(p.playerStatus?.JobName ?? ""))
-							{
-								target = p;
-								break;
-							}
-						}
 
-						var instance = new EquipmentInstance(data);
-						EquipmentManager.Instance.GetEquipment(instance,GetEffect.None);
-					}
-				}
-			}
+            bool imported = LocalProgression.Execute("inventory-mage-import-once", state => {
+                if (state.Modules.ContainsKey("inventory-imported") && state.Modules.ContainsKey("mage-imported")) return false;
+                if (!state.Modules.ContainsKey("inventory-imported"))
+                {
+                    state.Modules["legacy-inventory"] = Newtonsoft.Json.JsonConvert.SerializeObject(_inventoryDataFromServer);
+                    if (_inventoryDataFromServer != null) foreach(var item in _inventoryDataFromServer)
+                    {
+                        var data = EquipmentManager.Instance.GetData((int)item.GetItemCode());
+                        if (data == null) { state.Modules["legacy-unresolved-inventory"]="Unknown item codes remain in legacy-inventory for server migration."; continue; }
+                        int amount = (int)item.GetItemAmount();
+                        for(int n = 0; n < amount; n++)
+                        {
+                            var saved = new EquipmentSave { Id = System.Guid.NewGuid().ToString("N"), Code = data.itemCode,
+                                Level = System.Math.Min((int)item.GetItemEnchantCount(),data.maxEnhancementLevel) };
+                            if (!EquipmentManager.Grant(state,saved,true)) throw new System.InvalidOperationException("Inventory migration exceeds capacity; raw server account remains unchanged.");
+                        }
+                    }
+                    state.Modules["inventory-imported"] = "1";
+                }
+                if (!state.Modules.ContainsKey("mage-imported"))
+                {
+                    state.Modules["legacy-mage"] = Newtonsoft.Json.JsonConvert.SerializeObject(_skillTreeDataFromServer);
+                    if (_skillTreeDataFromServer != null) foreach(var skill in _skillTreeDataFromServer)
+                    {
+                        int id = (int)skill.GetSkillId();
+                        if (KingdomIdle.MageTower.MageTowerManager.Instance?.GetSkillById(id) == null) continue;
+                        state.MageSkills[id] = new MageSave { Enhance = System.Math.Min(100,(int)skill.GetEnchantCount()), Awaken = System.Math.Min(10,(int)skill.GetAwakeningCount()), Fragments = (int)skill.GetSkillAmount(), Spent = 0 };
+                    }
+                    long[] mageClears={0x200010005,0x200020003,0x200030003};
+                    for(int id=0;id<3;id++) if(state.MainClears.Contains(mageClears[id]) && !state.MageSkills.ContainsKey(id))
+                    { state.MageSkills[id]=new MageSave();int slot=System.Array.IndexOf(state.MageSlots,-1);if(slot>=0)state.MageSlots[slot]=id; }
+                    state.Modules["mage-imported"] = "1";
+                }
+                return true;
+            });
+            if (!LocalProgression.State.Modules.ContainsKey("inventory-imported") || !LocalProgression.State.Modules.ContainsKey("mage-imported"))
+            {
+                KingdomIdle.UGUI.UIManager.Instance?.ShowToast("기존 장비·마법 데이터를 이관하지 못했습니다. 원본은 보존되어 있습니다. 재접속 후 다시 시도해 주세요.");
+                throw new InvalidOperationException("Progression migration incomplete; battle start withheld.");
+            }
+            EquipmentManager.Instance.RestoreEquipment();
+            KingdomIdle.MageTower.MageTowerManager.Instance?.NotifyCommitted();
 
-			// 서버 스킬트리 데이터 복원
-			if (_skillTreeDataFromServer != null && _skillTreeDataFromServer.Count > 0)
-			{
-				var mtMgr = KingdomIdle.MageTower.MageTowerManager.Instance;
-				if (mtMgr != null)
-				{
-					long[] packed = new long[_skillTreeDataFromServer.Count];
-					for (int s = 0; s < _skillTreeDataFromServer.Count; s++)
-						packed[s] = (long)_skillTreeDataFromServer[s].Code;
-					mtMgr.UnpackAllSkills(packed);
-				}
-			}
 		}
 	}
 

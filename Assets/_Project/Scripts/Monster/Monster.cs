@@ -277,16 +277,9 @@ namespace Scripts.Monster
 				_monAction = eMonsterAction.Dead;
 				_monAI.InterruptBT();
 				_stateManchine.ChangeState(new MonsterDeadState(this));
+                OnDead();
 
-				// 직접 타격(Player)뿐 아니라 스킬 대리 공격자(DamageProxy 등)도 보상을 귀속시킨다.
-				// IRewardable 이면 내부적으로 시전자 Player 에게 전달된다.
-				if (attacker is IRewardable rewardable)
-				{
-					long totalExp = (long)(Exp * Ratio);
-					UserManager.Instance.GainExp(totalExp);
-					GiveRewardToPlayer(rewardable);
-				}
-				
+
 				return false;
 			}
 			return true;
@@ -328,7 +321,7 @@ namespace Scripts.Monster
 		{
 			//Todo : DropItem 스폰
 			//Institate 동전
-			OnDeath?.Invoke(this);
+			var listeners = OnDeath; OnDeath = null; listeners?.Invoke(this);
 			foreach (var col in GetComponentsInChildren<Collider2D>())
 				col.enabled = false;
 		}
@@ -349,7 +342,7 @@ namespace Scripts.Monster
 		{
 			long totalHp = _stat._hp + _stat._extraHp;
 			//죽는경우
-			if (totalHp - (long)damage <= 0)
+			if (damage >= (ulong)System.Math.Max(0L, totalHp))
 			{
 				_stat._hp = 0;
 				_stat._extraHp = 0;
@@ -378,13 +371,26 @@ namespace Scripts.Monster
 			target.GiveReward(totalGold, totalAncientCoin);
 		}
 
+        public bool IsBalanceBoss { get; private set; }
+        public KingdomIdle.Balance.BalanceMath.Enemy BalanceReward { get; private set; }
+        public void ApplyBalance(KingdomIdle.Balance.BalanceMath.Enemy numbers, bool boss, bool ranged, bool mimic)
+        {
+            BalanceReward = numbers; IsBalanceBoss = boss;
+            _stat = new MonsterStat(numbers.HP, 0, checked((ulong)numbers.Attack), mimic ? 1.2 : 1.5, boss || mimic ? 1.5 : 1.0);
+            _initialStat = _stat; Exp = numbers.Experience; Ratio = 1;
+            _attackRadius = boss ? 1.5f : ranged ? 3.5f : 1.2f;
+            _detectRadius = Mathf.Max(4f, _attackRadius);
+            OnHpChanged?.Invoke(GetHpRatio());
+        }
+
 		// ── 넉백 ──
 		private Vector2 _knockbackVelocity;
 
 		/// <summary>지정 방향으로 넉백 적용.</summary>
 		public void ApplyKnockback(Vector2 direction, float force)
 		{
-			_knockbackVelocity = direction.normalized * force;
+			if (IsBalanceBoss) return;
+            _knockbackVelocity = direction.normalized * force;
 		}
 
 		private void ApplyKnockbackMovement()

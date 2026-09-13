@@ -98,20 +98,21 @@ namespace KingdomIdle.KingdomArmy
         public void AddFragments(string jobName, int amount) => AddFragments(amount);
 
         /// <summary>전직 1 회 비용(파편 수). 모든 전직에 동일 적용.</summary>
-        public int GetFragmentCost() => defaultFragmentCost;
+        public int GetFragmentCost() => 40;
 
         /// <summary>[호환성] jobName 무시 — 모든 전직 비용은 동일.</summary>
-        public int GetFragmentCost(string jobName) => defaultFragmentCost;
+        public int GetFragmentCost(string jobName) => jobName != null && jobName.StartsWith("Elite_") ? 120 : jobName == "Spearman" ? 0 : 40;
 
         /// <summary>전직 가능 여부. 2차 전직은 1차 전직 완료 + 파편 충분 조건 모두 필요.</summary>
         /// <remarks>해당 플레이어가 이미 그 직업을 해금한 적이 있으면 파편 없이도 자유롭게 재전직 가능.</remarks>
         public bool CanChangeJob(string jobName, Player player = null)
         {
             // 이미 해금된 직업이면 파편/선행 조건 무관 — 무료 재전직
+            if (!ChangeJob.CanQueueChange) return false;
             if (player != null && HasCompletedPromotion(player, jobName))
                 return true;
 
-            if (GetFragments() < GetFragmentCost())
+            if (!ChangeJob.CanQueueChange || GetFragments() < GetFragmentCost(jobName))
                 return false;
 
             string prereq = GetPrerequisiteJob(jobName);
@@ -133,60 +134,16 @@ namespace KingdomIdle.KingdomArmy
         public void TryChangeJob(Player player, string jobName,
                                  Action onSuccess, Action<string> onError)
         {
-            if (_isChangingJob)
-            {
-                onError?.Invoke("이미 전직 요청이 진행 중입니다.");
-                return;
-            }
-            if (player == null || string.IsNullOrEmpty(jobName))
-            {
-                onError?.Invoke("유효하지 않은 전직 요청입니다.");
-                return;
-            }
-            if (!CanChangeJob(jobName, player))
-            {
-                onError?.Invoke("전직 조건을 만족하지 않습니다.");
-                return;
-            }
-
-            var net = NetworkManager.Instance;
-            if (net == null || string.IsNullOrEmpty(net.GetSessionID()))
-            {
-                onError?.Invoke("네트워크 세션이 준비되지 않았습니다.");
-                return;
-            }
-
-            bool alreadyUnlocked = HasCompletedPromotion(player, jobName);
-            ulong jobCode = (ulong)JobNameToCode(jobName);
-            int characterIdx = GetPlayers().IndexOf(player);
-
+            if (_isChangingJob || player == null || !CanChangeJob(jobName, player)) { onError?.Invoke("전직 조건을 확인해 주세요. 보스·던전 중에는 변경할 수 없습니다."); return; }
+            var change = player.GetComponent<ChangeJob>();
+            int index = jobDatabase.jobs.FindIndex(j => j != null && j.jobName == jobName);
             _isChangingJob = true;
-
-            Action<PlayFab.CloudScriptModels.ExecuteFunctionResult> onServerSuccess = _ =>
-            {
-                if (!alreadyUnlocked)
-                    EconomyBridge.Add(eCurrency.ClassFragment, -GetFragmentCost());
-
-                var changeJob = player.GetComponent<ChangeJob>();
-                if (changeJob != null)
-                    changeJob.ChangeJobByName(jobName);
-
-                _isChangingJob = false;
-                OnStateChanged?.Invoke();
-                onSuccess?.Invoke();
-            };
-
-            Action<PlayFab.PlayFabError> onServerError = err =>
-            {
-                _isChangingJob = false;
-                onError?.Invoke(err != null ? err.ErrorMessage : "서버 오류");
-            };
-
-            if (alreadyUnlocked)
-                net.OnChangeJob(jobCode, characterIdx, onServerSuccess, onServerError);
-            else
-                net.OnGetJob(jobCode, characterIdx, onServerSuccess, onServerError);
-        }
+            bool result;
+            try { result = change != null && index >= 0 && change.TryChangeJob(index); }
+            finally { _isChangingJob = false; }
+            if (result) { OnStateChanged?.Invoke(); onSuccess?.Invoke(); }
+            else onError?.Invoke("전직을 저장하지 못했습니다. 재화는 소비되지 않았습니다.");
+    }
 
         private static eJobCode JobNameToCode(string jobName)
         {
@@ -207,20 +164,7 @@ namespace KingdomIdle.KingdomArmy
 
         public List<Player> GetPlayers()
         {
-            var um = Scripts.Core.UserManager.Instance;
-            if (um == null) return new List<Player>();
-
-            // UserManager._user._players 접근 (리플렉션 대신 public 경로)
-            var flags = System.Reflection.BindingFlags.Instance |
-                        System.Reflection.BindingFlags.Public |
-                        System.Reflection.BindingFlags.NonPublic;
-            var userField = typeof(Scripts.Core.UserManager).GetField("_user", flags);
-            if (userField == null) return new List<Player>();
-
-            var user = userField.GetValue(um) as Scripts.Users.User;
-            if (user == null || user._players == null) return new List<Player>();
-
-            return user._players;
-        }
+            return new List<Player>(UserManager.Instance?.GetPlayers() ?? Array.Empty<Player>());
+    }
     }
 }

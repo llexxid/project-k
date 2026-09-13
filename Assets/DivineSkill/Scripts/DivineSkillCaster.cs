@@ -227,8 +227,8 @@ namespace KingdomIdle.Divine
             for (int i = 0; i < players.Count; i++)
             {
                 var p = players[i];
-                int maxHp = p.playerStatus != null ? p.playerStatus.MaxHP : 0;
-                int heal = Mathf.RoundToInt(maxHp * healRatio);
+                long maxHp = p.playerStatus != null ? p.playerStatus.MaxHP : 0;
+                long heal = KingdomIdle.Balance.BalanceMath.Round(maxHp * (decimal)healRatio);
                 if (heal > 0) p.Heal(heal);
 
                 SpawnImpact(so, p.transform.position);

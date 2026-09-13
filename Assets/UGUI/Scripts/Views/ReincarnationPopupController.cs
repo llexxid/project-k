@@ -118,7 +118,7 @@ namespace KingdomIdle.UGUI
             if (result == ReincarnationExecutionResult.None)
             {
                 Hide();
-                UIManager.Instance?.ShowToast("환생했습니다.");
+                UIManager.Instance?.ShowToast("일반 웨이브가 끝나면 환생합니다.");
                 return;
             }
 
@@ -141,9 +141,13 @@ namespace KingdomIdle.UGUI
                 case eReincarnationFailureReason.NotMainStage:
                     return "메인 스테이지에서만 환생할 수 있습니다.";
                 case eReincarnationFailureReason.StageRequirementNotMet:
-                    return "메인 스테이지 2 이상부터 환생할 수 있습니다.";
+                    return "이번 환생 사이클에서 메인 보스를 1회 이상 처치해야 합니다.";
                 case eReincarnationFailureReason.StateIsNotRunning:
                     return "현재 스테이지가 진행 중일 때만 환생할 수 있습니다.";
+                case eReincarnationFailureReason.MaximumLevel: return "환생 최대 레벨 300입니다.";
+                case eReincarnationFailureReason.Cooldown: return "이전 환생 또는 시작 후 10분이 지나야 합니다.";
+                case eReincarnationFailureReason.DailyLimit: return "오늘 환생 3회를 모두 사용했습니다. KST 자정에 초기화됩니다.";
+                case eReincarnationFailureReason.RequestDuplication: return "일반 웨이브 종료 후 환생이 예약되어 있습니다.";
                 case eReincarnationFailureReason.NumericOverflow:
                     return "환생 수치를 계산할 수 없습니다.";
                 default:

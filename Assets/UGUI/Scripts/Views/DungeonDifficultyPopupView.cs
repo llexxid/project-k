@@ -62,7 +62,7 @@ namespace KingdomIdle.UGUI
             if (dungeonName != null)
                 dungeonName.text = card.DungeonName;
             if (description != null)
-                description.text = card.Description;
+                description.text = card.DungeonType == eStageType.GoldDungeon ? "60초 · 미믹 20체 · 처치한 만큼 골드 지급\n메인 1-11 클리어 후 해금" : "보스 3체 · 각 30초 · 전부 처치 시 루비 지급\n메인 2-5 클리어 후 해금";
             if (mainImage != null)
             {
                 mainImage.sprite = card.PreviewSprite;
@@ -136,7 +136,7 @@ namespace KingdomIdle.UGUI
                 selectedDifficultyLabel.text = "선택 가능한 난이도 없음";
 
             if (enterButton != null)
-                enterButton.interactable = selectedStageId != default;
+                enterButton.interactable = selectedStageId != default && KingdomIdle.Balance.BattleEconomy.Tickets(StageParser.GetStageType(selectedStageId)) > 0;
         }
 
         public void SetInfoItems(
@@ -162,9 +162,16 @@ namespace KingdomIdle.UGUI
                 ? stageId
                 : default;
             if (enterButton != null)
-                enterButton.interactable = selectedStageId != default;
+                enterButton.interactable = selectedStageId != default && KingdomIdle.Balance.BattleEconomy.Tickets(StageParser.GetStageType(selectedStageId)) > 0;
             if (selectedDifficultyLabel != null)
-                selectedDifficultyLabel.text = $"선택 난이도  {selectedDifficulty}단계";
+                selectedDifficultyLabel.text = $"{selectedDifficulty}단계 · 입장권 {KingdomIdle.Balance.BattleEconomy.Tickets(StageParser.GetStageType(selectedStageId))}/2";
+            if(description!=null)
+            {
+                bool gold=StageParser.GetStageType(selectedStageId)==eStageType.GoldDungeon;
+                long reward=gold?20*KingdomIdle.Balance.BalanceMath.Mimic(selectedDifficulty).Gold:KingdomIdle.Balance.BalanceMath.RubyClear(selectedDifficulty);
+                bool first=!KingdomIdle.Balance.LocalProgression.State.Claims.Contains("ruby-first:"+selectedDifficulty);
+                description.text=gold?$"60초 · 20체 · 최대 {reward:N0} 골드\n중단해도 처치 보상 유지 · 매일 00시 충전":$"보스 3체 · 각 30초 · {reward:N0} 루비"+(first?$" + 첫 클리어 {25*selectedDifficulty}":"")+"\n3체 모두 처치 시 지급 · 매일 00시 충전";
+            }
 
             if (difficultyRows == null)
                 return;

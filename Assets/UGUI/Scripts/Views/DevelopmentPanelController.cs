@@ -1,3 +1,4 @@
+using KingdomIdle.Balance;
 using System.Collections.Generic;
 using Scripts.Core;
 using UnityEngine;
@@ -6,20 +7,11 @@ using TMPro;
 
 namespace KingdomIdle.UGUI
 {
-    /// <summary>
-    /// 육성 패널 컨트롤러 (UITKDevelopmentPanelController 이식).
-    /// 모든 캐릭터 공용 강화(공격력 / 체력) 기능을 제공한다.
-    /// 뽑기 패널과 동일한 비주얼 언어(설명/보유 바/ x1·x10 버튼 행)를 사용해
-    /// 전반적인 UI 일관성을 유지한다.
-    ///
-    /// 서버 동기화는 StatEnhanceManager.TryEnhanceEx 내부에서
-    /// 낙관적 로컬 차감 + PlayFab CloudScript(OnEnChantATK / OnEnChantHP) 호출로
-    /// 처리되며, 실패 시 자동 롤백된다. 클라이언트는 UI만 담당한다.
-    /// </summary>
+    // Shared gold growth and ruby income progression; all costs come from the transaction service.
     public static class DevelopmentPanelController
     {
         // 방치형 표준: x1 / x10
-        private static readonly int[] PullCounts = { 1, 10 };
+        private static readonly int[] PullCounts = { 1, 10, -1 };
 
         // 실제로 플레이어 스탯에 반영되는 강화 항목만 노출.
         private static readonly StatEnhanceManager.EnhanceType[] EnhanceTypes =
@@ -128,18 +120,20 @@ namespace KingdomIdle.UGUI
             {
                 foreach (var type in EnhanceTypes)
                     if (StatEnhanceManager.IsStatImplemented(type)) BuildEnhanceCard(body.CardsRoot, mgr, type, gold);
+                if (body.GetComponent<RubyGrowthCards>() == null) body.gameObject.AddComponent<RubyGrowthCards>().Build(body.CardsRoot);
             }
             foreach (var card in Cards)
             {
                 if (card.View == null || mgr == null) continue;
                 card.View.Set(StatEnhanceManager.GetTypeName(card.Type), $"Lv. {mgr.GetLevel(card.Type):N0}",
-                    $"전체 왕국군  {mgr.GetBonusText(card.Type)} → +{mgr.GetBonus(card.Type) + 0.1f:0.#}% (1회)");
+                    $"전체 왕국군 ×{BalanceMath.GoldMultiplier(mgr.GetLevel(card.Type)):0.###}");
                 for (int i = 0; i < card.Buttons.Count; i++)
                 {
-                    int count = PullCounts[i], cost = mgr.GetCost(card.Type, count);
-                    card.Buttons[i].Set(mgr.IsEnhancing ? "강화 처리 중…" : $"{count}회 강화",
-                        cost == int.MaxValue ? "강화 한도" : $"{cost:N0} 골드",
-                        !mgr.IsEnhancing && cost < int.MaxValue && gold >= cost);
+                    int count = PullCounts[i]; long cost = mgr.GetCost(card.Type, count);
+                    int actual = count < 0 ? BalanceMath.AffordableGoldLevels(mgr.GetLevel(card.Type), gold) : System.Math.Min(count,300-mgr.GetLevel(card.Type));
+                    card.Buttons[i].Set(mgr.IsEnhancing ? "강화 처리 중…" : (count < 0 ? $"최대 {actual}회" : $"{actual}회 강화"),
+                        cost < 0 ? "강화 한도" : $"{cost:N0} 골드",
+                        !mgr.IsEnhancing && cost >= 0 && actual > 0 && gold >= cost);
                 }
             }
 
@@ -212,7 +206,7 @@ namespace KingdomIdle.UGUI
             for (int i = 0; i < PullCounts.Length; i++)
             {
                 int count = PullCounts[i];
-                int cost = mgr != null ? mgr.GetCost(type, count) : 0;
+                long cost = mgr != null ? mgr.GetCost(type, count) : 0;
                 bool canAfford = gold >= cost;
                 var capturedType = type;
                 var capturedCount = count;
@@ -289,11 +283,10 @@ namespace KingdomIdle.UGUI
 
         private static void OnEnhanceCompleted(StatEnhanceManager.EnhanceType type, bool success)
         {
-            var mgr = StatEnhanceManager.Instance;
-            ShowToast(success && mgr != null ? $"{StatEnhanceManager.GetTypeName(type)} Lv.{mgr.GetLevel(type):N0} 완료"
-                : "강화 결과를 확인하지 못했습니다. 연결 상태를 확인해 주세요.");
+{
             Refresh();
         }
+    }
 
         private static void ShowToast(string msg)
         {

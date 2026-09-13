@@ -1,3 +1,4 @@
+using KingdomIdle.Balance;
 using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Monster;
@@ -61,8 +62,8 @@ public sealed class BasicAttackRect : ActiveSkill
         int hitCount = Physics2D.OverlapBox(
             center, new Vector2(_halfWidth * 2f, _halfHeight * 2f), 0f, filter, _hitResults);
 
-        int baseAtk = _player.playerStatus?.Atk ?? 0;
-        int damage = Mathf.RoundToInt(baseAtk * _damageMultiplier);
+        long baseAtk = _player.playerStatus?.Atk ?? 0;
+        long damage = BalanceMath.Damage(baseAtk, (decimal)_damageMultiplier);
         _targets.Clear();
 
         for (int i = 0; i < hitCount; i++)
@@ -71,7 +72,7 @@ public sealed class BasicAttackRect : ActiveSkill
             if (mon == null || mon.MonAction == eMonsterAction.Dead) continue;
 
             var d = _hitResults[i].GetComponentInParent<IDamageable>();
-            if (d != null && !_targets.Contains(d))
+            if (d != null && _targets.Count < 3 && !_targets.Contains(d))
                 _targets.Add(d);
         }
 

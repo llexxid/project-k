@@ -1,37 +1,38 @@
 using System;
 using System.Collections.Generic;
-
+using System.Linq;
+using KingdomIdle.Balance;
+using KingdomIdle.KingdomArmy;
+using KingdomIdle.MageTower;
 namespace KingdomIdle.UGUI
 {
-    /// <summary>캐릭터와 파티의 V1 전투력을 계산한다.</summary>
     public static class CombatPowerCalculator
     {
-        private const int PartySize = 3;
-
-        /// <summary>V1 전투력 = 공격력 x 5 + 최대 체력.</summary>
-        public static long CalculateCharacterPowerV1(int attack, int maxHp)
+        // Retain public V1 method names for existing bindings; the metric uses beta single-target DPS.
+        public static long CalculateCharacterPowerV1(long attack, long maxHp) => BalanceMath.Round(5m * attack / .5m + .25m * maxHp);
+        public static decimal CharacterDps(Player player)
         {
-            return (long)attack * 5L + maxHp;
+            if (player?.playerStatus == null) return 0;
+            var status = player.playerStatus;
+            var data = KingdomArmyManager.Instance?.JobDB?.jobs.Find(x => x != null && x.jobName == status.JobName);
+            decimal interval = data != null ? (decimal)data.basicAttack.cooldown : status.JobName == "Spearman" ? .5m : 1m;
+            decimal uptime = status.JobName == "Elite_Archer" ? .92m : status.JobName == "Elite_Mage" ? .93m : 1m;
+            decimal special = status.JobName == "Elite_Archer" ? status.Atk * 3m / 10m : status.JobName == "Elite_Mage" ? BalanceMath.Damage(status.Atk,2m) / 10m : 0m;
+            return status.Atk / Math.Max(.01m,interval) * uptime + special;
         }
-
-        /// <summary>캐릭터가 아직 생성되지 않았으면 0을 반환한다.</summary>
-        public static long CalculateCharacterPowerV1(Player player)
-        {
-            var status = player != null ? player.playerStatus : null;
-            return status == null ? 0L : CalculateCharacterPowerV1(status.Atk, status.MaxHP);
-        }
-
-        /// <summary>연결된 앞의 세 캐릭터 전투력을 합산한다.</summary>
+        public static long CalculateCharacterPowerV1(Player player) => player?.playerStatus == null ? 0 : BalanceMath.Round(5m * CharacterDps(player) + .25m * player.playerStatus.MaxHP);
         public static long CalculatePartyPowerV1(IReadOnlyList<Player> players)
         {
-            if (players == null) return 0L;
-
-            long total = 0L;
-            int count = Math.Min(PartySize, players.Count);
-            for (int i = 0; i < count; i++)
-                total += CalculateCharacterPowerV1(players[i]);
-
-            return total;
+            if (players == null) return 0;
+            decimal dps = 0, health = 0;
+            foreach(var player in players.Take(3)) if(player?.playerStatus != null) { dps += CharacterDps(player); health += player.playerStatus.MaxHP; }
+            var mage = MageTowerManager.Instance;
+            if (mage != null) foreach(int id in LocalProgression.State.MageSlots.Where(x => x >= 0).Distinct())
+            {
+                int hits = BalanceMath.MageHits(id == 0 ? 3 : id == 1 ? 4 : 10,mage.GetAwakeningLevel(id),id == 2);
+                dps += mage.GetEffectiveDamage(id) * (decimal)hits / (decimal)mage.GetEffectiveCooldown(id);
+            }
+            return BalanceMath.Round(5m * dps + .25m * health);
         }
     }
 }

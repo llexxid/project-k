@@ -14,7 +14,7 @@ public class MageProjectile : MonoBehaviour
     private Player _owner;
     private Vector2 _direction;
     private float _speed;
-    private int _damage;
+    private long _damage;
     private float _aoeRadius;
     private float _lifetime;
     private float _expireTime;
@@ -58,7 +58,7 @@ public class MageProjectile : MonoBehaviour
         Player owner,
         IDamageable target,
         float speed,
-        int damage,
+        long damage,
         float aoeRadius,
         float lifetime)
     {
@@ -97,7 +97,7 @@ public class MageProjectile : MonoBehaviour
         // 속도, 피해량, 수명, 애니메이터 초기화...
     }
     /// <summary>투사체 발사.</summary>
-    public void Fire(Player owner, Vector2 direction, float speed, int damage, float aoeRadius, float lifetime)
+    public void Fire(Player owner, Vector2 direction, float speed, long damage, float aoeRadius, float lifetime)
     {
         _owner = owner;
         _direction = direction.normalized;
@@ -187,7 +187,8 @@ public class MageProjectile : MonoBehaviour
         filter.useTriggers = true;
 
         int count = Physics2D.OverlapCircle(transform.position, _collisionRadius, filter, _checkResults);
-        for (int i = 0; i < count; i++)
+        var distinct = new HashSet<Monster>();
+        for (int i = 0; i < count && distinct.Count < 3; i++)
         {
             var mon = _checkResults[i].GetComponentInParent<Monster>();
             if (mon != null && mon.MonAction != eMonsterAction.Dead)
@@ -257,10 +258,11 @@ public class MageProjectile : MonoBehaviour
         filter.useTriggers = true;
 
         int count = Physics2D.OverlapCircle(transform.position, _aoeRadius, filter, _aoeResults);
-        for (int i = 0; i < count; i++)
+        var distinct = new HashSet<Monster>();
+        for (int i = 0; i < count && distinct.Count < 3; i++)
         {
             var m = _aoeResults[i].GetComponentInParent<Monster>();
-            if (m == null || m.MonAction == eMonsterAction.Dead) continue;
+            if (m == null || m.MonAction == eMonsterAction.Dead || !distinct.Add(m)) continue;
 
             var d = _aoeResults[i].GetComponentInParent<IDamageable>();
             d?.TakeDamage(proxy);

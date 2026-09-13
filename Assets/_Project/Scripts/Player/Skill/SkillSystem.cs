@@ -237,39 +237,39 @@ public class SkillSystem
                 return new[]
                 {
                     new SkillInfo { Name = "기본공격", IsPassive = false, Description = "단일 대상 근접 공격" },
-                    new SkillInfo { Name = "수호의 오라", IsPassive = true, Description = "팀 전체 HP +100%" }
+                    new SkillInfo { Name = "수호의 오라", IsPassive = true, Description = "팀 전체 HP +10%" }
                 };
             case "Elite_Knight":
                 return new[]
                 {
                     new SkillInfo { Name = "기본공격", IsPassive = false, Description = "전방 직사각형 범위 공격" },
-                    new SkillInfo { Name = "수호의 오라", IsPassive = true, Description = "팀 전체 HP +100%" },
-                    new SkillInfo { Name = "강철 의지", IsPassive = false, Description = "HP 50% 미만 시 15초간 회복" }
+                    new SkillInfo { Name = "수호의 오라", IsPassive = true, Description = "팀 전체 HP +10%" },
+                    new SkillInfo { Name = "강철 의지", IsPassive = false, Description = "HP 50% 미만 시 5초간 최대 HP의 20% 회복" }
                 };
             case "Archer":
                 return new[]
                 {
                     new SkillInfo { Name = "기본공격", IsPassive = false, Description = "원거리 즉발 공격" },
-                    new SkillInfo { Name = "명중의 오라", IsPassive = true, Description = "팀 전체 ATK +100%" }
+                    new SkillInfo { Name = "명중의 오라", IsPassive = true, Description = "팀 전체 ATK +10%" }
                 };
             case "Elite_Archer":
                 return new[]
                 {
                     new SkillInfo { Name = "기본공격", IsPassive = false, Description = "원거리 즉발 공격" },
-                    new SkillInfo { Name = "명중의 오라", IsPassive = true, Description = "팀 전체 ATK +100%" },
+                    new SkillInfo { Name = "명중의 오라", IsPassive = true, Description = "팀 전체 ATK +10%" },
                     new SkillInfo { Name = "집중 사격", IsPassive = false, Description = "3연속 타격" }
                 };
             case "Mage":
                 return new[]
                 {
                     new SkillInfo { Name = "기본공격", IsPassive = false, Description = "직선 투사체 + 소범위 폭발" },
-                    new SkillInfo { Name = "마력의 오라", IsPassive = true, Description = "팀 ATK +50% · HP +50%" }
+                    new SkillInfo { Name = "마력의 오라", IsPassive = true, Description = "팀 ATK +5% · HP +5%" }
                 };
             case "Elite_Mage":
                 return new[]
                 {
                     new SkillInfo { Name = "기본공격", IsPassive = false, Description = "직선 투사체 + 소범위 폭발" },
-                    new SkillInfo { Name = "마력의 오라", IsPassive = true, Description = "팀 ATK +50% · HP +50%" },
+                    new SkillInfo { Name = "마력의 오라", IsPassive = true, Description = "팀 ATK +5% · HP +5%" },
                     new SkillInfo { Name = "에너지 파동", IsPassive = false, Description = "원형 범위 피해 + 넉백" }
                 };
             default:

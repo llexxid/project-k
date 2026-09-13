@@ -41,7 +41,7 @@ public abstract class ActiveSkill
     /// 애니메이션 길이는 줄이면 안 되므로 쿨타임 구간에만 적용한다.
     /// </summary>
     protected static float ScaledCooldown(float cooldown)
-        => cooldown * KingdomIdle.Divine.DivineBuffState.SkillIntervalMult;
+        => cooldown;
 
     // ── 데미지 전달 프록시 ──
     public class DamageProxy : IAttackable, IRewardable

@@ -200,7 +200,7 @@ namespace KingdomIdle.UGUI
                 presentation = new { lobbyValid, damageValid, lobbyMicrosecondsPerFrame = _lobbyTime.Take(_frames).Skip(5).Average() / 1000.0, damageMicrosecondsPerFrame = _damageTime.Take(_frames).Skip(5).Average() / 1000.0, verticesPerFrame = _vertices.Take(_frames).Skip(5).Average() },
                 draw = new { valid = drawValid, average = _drawCalls.Take(_frames).Skip(5).Average(), max = _drawCalls.Take(_frames).Skip(5).Max() },
                 unityMemory = new { start = _startMemory, end = endMemory, difference = endMemory - _startMemory },
-                motion = _view.presentation.AmbientMotion, powerSave = GamePresentationSettings.PowerSave,
+                motion = _view != null && _view.presentation.AmbientMotion, powerSave = GamePresentationSettings.PowerSave,
                 lowSpec = GamePresentationSettings.LowSpec, damageFixture = _fixture != null, generatedHits = _hitSequence,
                 width = Screen.width, height = Screen.height, targetFps = Application.targetFrameRate,
                 note = "Development ARM64 IL2CPP; main-thread time includes frame pacing waits. Command polling and result serialization are suspended during sampling."

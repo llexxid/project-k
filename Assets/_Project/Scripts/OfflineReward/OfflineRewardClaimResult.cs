@@ -1,10 +1,11 @@
 namespace KingdomIdle.OfflineRewards
 {
-    /// <summary>서버가 확정한 오프라인 사냥 결과와 팝업 표시에 사용할 값들</summary>
+    /// <summary>확정된 오프라인 사냥 결과와 팝업 표시에 사용할 값들</summary>
     public sealed class OfflineRewardClaimResult
     {
         public OfflineRewardPlan Plan { get; }
         public long GoldGained { get; }
+        public long ExperienceGained { get; set; }
         public long AncientCoinGained { get; }
         public int CurrentLevel { get; }
         public long CurrentExp { get; }

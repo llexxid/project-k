@@ -1,3 +1,4 @@
+using KingdomIdle.Balance;
 using System;
 using System.Collections.Generic;
 
@@ -18,6 +19,7 @@ public class EquipmentInstance
     /// <summary> 장비를 장착하고 있는 플레이어(캐릭터)의 인덱스, null이면 미장착</summary>
     public int? equipmentPlayerIndex;
 
+    public bool IsLocked;
     public bool IsEquipped => equipmentPlayerIndex.HasValue;
         /// <summary>
         /// 아이템 코드(32bit) + 강화 수치(8bit) + 개수(16bit)를 64비트 long으로 패킹한 값.
@@ -31,38 +33,17 @@ public class EquipmentInstance
         
     #region 수치 계산
     
-    public EquipmentInstance(EquipmentData data)
+    public EquipmentInstance(EquipmentData data, string id = null)
     {
         baseData         = data;
         enhancementLevel = 0;
-        instanceId       = Guid.NewGuid().ToString();
+        instanceId       = id ?? Guid.NewGuid().ToString("N");
 
         equipmentPlayerIndex = null;
     }
     public void AddStatsTo(EquipmentStatBlock block)
     {
-        if (block == null || baseData == null) return;
-
-        bool hasOptionData =
-            (baseData.MainOption != null && baseData.MainOption.Count > 0) ||
-            (baseData.ReinforceOption != null && baseData.ReinforceOption.Count > 0);
-
-        if (!hasOptionData)
-        {
-            block.Add(EquipmentStatType.AtkFlat, GetFinalAtk());
-            block.Add(EquipmentStatType.HpFlat, GetFinalMaxHP());
-            return;
-        }
-
-        foreach (var option in baseData.MainOption)
-        {
-            block.Add(option);
-        }
-
-        foreach (var option in baseData.ReinforceOption)
-        {
-            block.Add(option.type, option.value * enhancementLevel);
-        }
+        if (block != null && baseData != null) block.Add(EquipmentStatType.AtkFlat, GetFinalAtk());
     }
     
 
@@ -72,13 +53,16 @@ public class EquipmentInstance
     /// <summary>강화 레벨이 반영된 최종 공격력 보너스</summary>
     public int GetFinalAtk()
     {
-        return baseData.bonusAtk + (int)(baseData.bonusAtk * baseData.atkGrowthPerLevel * enhancementLevel);
+        if (baseData == null) return 0;
+        long basis = 0;
+        foreach (var option in baseData.MainOption) if (option.type == EquipmentStatType.AtkFlat && !option.isPercent) basis += BalanceMath.Floor((decimal)option.value);
+        return checked((int)BalanceMath.WeaponAttack(basis, enhancementLevel));
     }
 
     /// <summary>강화 레벨이 반영된 최종 최대 체력 보너스</summary>
     public int GetFinalMaxHP()
     {
-        return baseData.bonusMaxHP + (int)(baseData.bonusMaxHP * baseData.hpGrowthPerLevel * enhancementLevel);
+        return 0;
     }
     
     #endregion
@@ -91,12 +75,12 @@ public class EquipmentInstance
     /// <summary>
     /// 현재 강화 레벨에서의 성공 확률(0~1)을 반환한다.
     /// </summary>
-    public float GetEnhanceSuccessRate() => baseData.GetSuccessRate(enhancementLevel);
+    public float GetEnhanceSuccessRate() => 1f;
 
     /// <summary>
     /// 강화에 필요한 동일 장비 소모 개수.
     /// </summary>
-    public int GetMaterialCount() => baseData.enhanceMaterialCount;
+    public int GetMaterialCount() => 2;
 
     #endregion
 

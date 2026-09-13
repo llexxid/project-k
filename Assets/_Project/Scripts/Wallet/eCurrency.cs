@@ -5,5 +5,6 @@ public enum eCurrency
     KingdomSupply,
     TrainingTome,
     ClassFragment,
-    ArcaneKnowledge
+    ArcaneKnowledge,
+    Ruby = 6
 }

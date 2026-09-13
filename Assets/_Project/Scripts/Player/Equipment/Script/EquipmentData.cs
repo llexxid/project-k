@@ -142,8 +142,17 @@ public class EquipmentData : ScriptableObject
     /// </summary>
     public bool IsAllowedForJob(string jobName)
     {
+        if (jobName == "Spearman" && rarity == eEquipmentRarity.Normal) return true;
         if (_jobMask == eJobFlag.None) return true;
         if (!System.Enum.TryParse<eJobFlag>(jobName, out eJobFlag flag)) return false;
+        // Promotions retain their weapon family; keep item codes/masks stable for saves.
+        flag |= jobName switch
+        {
+            "Elite_Knight" => eJobFlag.Knight,
+            "Elite_Archer" => eJobFlag.Archer,
+            "Elite_Mage" => eJobFlag.Mage,
+            _ => eJobFlag.None
+        };
         return (_jobMask & flag) != 0;
     }
 

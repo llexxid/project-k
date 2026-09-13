@@ -16,13 +16,13 @@ MonoBehaviour:
   jobSprite: {fileID: 441877242, guid: 81dfc8aa6c7abd84592c884a2c6cdf3b, type: 3}
   portraitSprite: {fileID: 21300000, guid: e9a4808a03c7bd045962c768d3b2174b, type: 3}
   animatorController: {fileID: 9100000, guid: de6e541a7248e594c8008ba33ec3c698, type: 2}
-  maxHP: 1200
+  maxHP: 700
   atk: 100
   movSpeed: 3
   basicAttack:
     type: 2
-    range: 5
-    cooldown: 2
+    range: 4
+    cooldown: 1.25
     damageMultiplier: 1
     halfWidth: 1.5
     halfHeight: 1
@@ -30,12 +30,12 @@ MonoBehaviour:
     projectileSpeed: 4
   specialSkills:
   - kind: 3
-    cooldown: 7
-    damageMultiplier: 5
+    cooldown: 10
+    damageMultiplier: 2
     range: 4
     hitCount: 3
-    healPercent: 0.1
-    duration: 15
+    healPercent: 0.04
+    duration: 5
     triggerHPRatio: 0.5
     triggerRange: 1.5
-    knockbackForce: 5
+    knockbackForce: 2

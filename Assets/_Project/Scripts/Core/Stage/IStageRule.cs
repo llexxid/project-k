@@ -86,6 +86,8 @@ namespace Core.Stage
                 return StageRuleResult.None;
             }
             
+            if (session.Definition.StageNumber == 3 && session.Definition.WaveNumber == 11)
+                { StageManager.Instance.SetBossAutoChallenge(false); StageManager.Instance.SetLoopMode(true); return StageRuleResult.MoveTo((eStage)0x20003000A); }
             GetNextWave(session.Definition.Id, out eStage stage);
             
             return StageRuleResult.MoveTo(stage);

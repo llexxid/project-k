@@ -227,7 +227,7 @@ namespace KingdomIdle.UGUI
             }
         }
 
-        private static bool IsSkillTable(GachaTableSO table) => table != null && (table.nameEng == "MageTowerSkill" || table.costCurrency == eCurrency.ArcaneKnowledge);
+        private static bool IsSkillTable(GachaTableSO table) => table != null && table.gachaType == eGachaType.Skill;
         private static void OnWalletChanged(eCurrency currency, long amount)
         { if (_contentTable != null && _contentTable.costCurrency == currency) UpdateWallet(); }
         private static void UpdateWallet()
@@ -235,13 +235,14 @@ namespace KingdomIdle.UGUI
             if (_content == null || _contentTable == null) return;
             EconomyBridge.TryGetAmount(_contentTable.costCurrency,out long current);
             if (_content.costLabel != null) _content.costLabel.text=$"1회 비용: {_contentTable.costAmount:N0} {GetCurrencyLabel(_contentTable.costCurrency)}  |  보유: {current:N0}";
+            if (_content.descLabel != null && _contentTable.gachaType == eGachaType.Equipment) _content.descLabel.text = $"{_contentTable.description}\n에픽 확정까지 {GachaManager.Instance.EpicPityRemaining}회";
             bool pulling=GachaManager.Instance != null && GachaManager.Instance.IsPulling;
             for(int i=0;i<_activePullButtons.Count;i++)
             {
                 var button=_activePullButtons[i];
                 if(button==null)continue;
                 int count=PullCounts[i]; long cost=(long)_contentTable.costAmount*count;
-                button.GetComponent<GachaPullButtonView>()?.Set(count==1?"1회 뽑기":$"{count}연 뽑기",$"{cost:N0} {GetCurrencyLabel(_contentTable.costCurrency)}",!pulling&&_contentTable.isImplemented&&current>=cost);
+                button.GetComponent<GachaPullButtonView>()?.Set(count==1?"1회 뽑기":$"{count}연 뽑기",$"{cost:N0} {GetCurrencyLabel(_contentTable.costCurrency)}",GachaManager.Instance != null && GachaManager.Instance.CanPullMulti(_contentTable,count));
             }
         }
 
