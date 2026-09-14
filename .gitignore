@@ -64,6 +64,10 @@ sysinfo.txt
 *.unitypackage.meta
 *.app
 
+# Keep source packages shipped with external assets
+!/[Aa]ssets/ExternalAssets/**/*.unitypackage
+!/[Aa]ssets/ExternalAssets/**/*.unitypackage.meta
+
 # Crashlytics generated file
 crashlytics-build.properties
 
@@ -77,11 +81,11 @@ crashlytics-build.properties
 #Payed PlugIns
 /[Aa]ssets/Plugins/PayedPlugins
 
-#Payed Asset
-/[Aa]ssets/ExternalAssets/
-
-#SFX
-/[Aa]ssets/ExternalAssets/UniversalAudioSFX
+# SFX (kept local)
+/[Aa]ssets/ExternalAssets/UniversalAudioSFX/
+/[Aa]ssets/ExternalAssets/UniversalAudioSFX.meta
+/[Aa]ssets/ExternalAssets/Casual Game UI Sound/
+/[Aa]ssets/ExternalAssets/Casual Game UI Sound.meta
 
 #Personal Docs
 /[Pp]ersonalDocs
