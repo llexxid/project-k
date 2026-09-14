@@ -264,6 +264,7 @@ namespace KingdomIdle.UGUI.Editor
         private static void Settings(GameObject go)
         {
             var view=go.GetComponent<SettingsModalView>();
+            if (view.numberButtons != null && view.numberButtons.Length == 3) return;
             Stretch((RectTransform)go.transform,0);
             if(view.btnSave!=null)view.btnSave.gameObject.SetActive(false);
             if(view.btnWithdraw!=null)view.btnWithdraw.gameObject.SetActive(false);

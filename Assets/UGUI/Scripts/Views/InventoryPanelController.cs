@@ -223,8 +223,8 @@ namespace KingdomIdle.UGUI
                 string enhStr = item.enhancementLevel > 0 ? $" +{item.enhancementLevel}" : "";
                 int ownerIdx = _players.IndexOf(owner);
                 string sub = ownerIdx >= 0
-                    ? $"ATK +{item.GetFinalAtk()}  (왕국군{ownerIdx + 1})"
-                    : $"ATK +{item.GetFinalAtk()}";
+                    ? $"ATK +{NumberNotation.Format(item.GetFinalAtk())}  (왕국군{ownerIdx + 1})"
+                    : $"ATK +{NumberNotation.Format(item.GetFinalAtk())}";
 
                 // 공용 장비 셀 프리팹 사용 (왕국군과 동일)
                 KingdomArmyPanelController.InstantiateEquipCell(
@@ -290,15 +290,15 @@ namespace KingdomIdle.UGUI
 
                 int nextAtk = item.baseData.bonusAtk + (int)(item.baseData.bonusAtk * item.baseData.atkGrowthPerLevel * (item.enhancementLevel + 1));
                 int nextHP = item.baseData.bonusMaxHP + (int)(item.baseData.bonusMaxHP * item.baseData.hpGrowthPerLevel * (item.enhancementLevel + 1));
-                expectedText = $"강화 시 예상: ATK +{item.GetFinalAtk()} → +{nextAtk}  HP +{item.GetFinalMaxHP()} → +{nextHP}";
+                expectedText = $"강화 시 예상: ATK +{NumberNotation.Format(item.GetFinalAtk())} → +{NumberNotation.Format(nextAtk)}  HP +{NumberNotation.Format(item.GetFinalMaxHP())} → +{NumberNotation.Format(nextHP)}";
             }
 
             detail.Set(
                 item.baseData.icon,
                 $"{item.baseData.equipmentName}{enhStr}",
                 $"등급: {rarityStr}",
-                $"공격력 보너스: +{item.GetFinalAtk()}",
-                $"HP 보너스: +{item.GetFinalMaxHP()}",
+                $"공격력 보너스: +{NumberNotation.Format(item.GetFinalAtk())}",
+                $"HP 보너스: +{NumberNotation.Format(item.GetFinalMaxHP())}",
                 $"강화 레벨: {item.enhancementLevel} / {item.baseData.maxEnhancementLevel}",
                 isEquipped, ownerText,
                 maxLevel, matText, matShortage, rateText, expectedText);

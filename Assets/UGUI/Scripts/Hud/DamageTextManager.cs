@@ -30,12 +30,13 @@ namespace KingdomIdle.UGUI
         private int _spawnCount;
         private bool _lowSpec;
         private float _nextPresentationTick;
-        private readonly char[] _digits = new char[32];
+        private readonly char[] _digits = new char[48];
         private static readonly Unity.Profiling.ProfilerMarker PresentationMarker = new("KingdomIdle.DamagePresentation");
 
         private struct Entry
         {
             public TMP_Text Label;
+            public ulong Amount;
             public Vector2 Start;
             public float StartTime;
             public float DriftX;
@@ -58,10 +59,19 @@ namespace KingdomIdle.UGUI
         private void OnEnable()
         {
             GamePresentationSettings.Changed += ApplyPresentation;
+            NumberNotation.Changed += RefreshNumbers;
+            RefreshFromPrefs();
             ApplyPresentation();
         }
 
-        private void OnDisable() => GamePresentationSettings.Changed -= ApplyPresentation;
+        private void OnDisable()
+        {
+            GamePresentationSettings.Changed -= ApplyPresentation;
+            NumberNotation.Changed -= RefreshNumbers;
+            ClearActive();
+        }
+        private void RefreshNumbers() { foreach (var entry in _active) SetAmount(entry.Label, entry.Amount); }
+        private void ClearActive() { foreach (var entry in _active) Recycle(entry.Label); _active.Clear(); }
 
         private void ApplyPresentation()
         {
@@ -82,6 +92,7 @@ namespace KingdomIdle.UGUI
         internal void RefreshFromPrefs()
         {
             _damageTextEnabled = PlayerPrefs.GetInt(PrefKeyDamageText, 1) == 1;
+            if (!_damageTextEnabled) ClearActive();
         }
 
         private void Update()
@@ -182,6 +193,7 @@ namespace KingdomIdle.UGUI
             _active.Add(new Entry
             {
                 Label = lbl,
+                Amount = amount,
                 Start = local,
                 StartTime = Time.unscaledTime,
                 DriftX = driftX,
@@ -191,16 +203,8 @@ namespace KingdomIdle.UGUI
 
         private void SetAmount(TMP_Text label, ulong amount)
         {
-            // Exact UInt64 digits with grouping, without allocating a string for every combat hit.
-            int index = _digits.Length, group = 0;
-            do
-            {
-                if (group == 3) { _digits[--index] = ','; group = 0; }
-                _digits[--index] = (char)('0' + amount % 10);
-                amount /= 10;
-                group++;
-            } while (amount != 0);
-            label.SetCharArray(_digits, index, _digits.Length - index);
+            int length = NumberNotation.Write(amount, NumberNotation.Style, _digits);
+            label.SetCharArray(_digits, 0, length);
         }
 
         private void EnsureLayer()

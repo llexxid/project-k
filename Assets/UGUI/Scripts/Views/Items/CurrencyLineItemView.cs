@@ -14,6 +14,8 @@ namespace KingdomIdle.UGUI
         /// <summary>한 줄 표시 갱신. 제목이면 아이콘/값을 숨기고 이름만 굵게 표시.</summary>
         public void Set(Sprite iconSprite, string name, string value, bool isTitle)
         {
+            var layout = GetComponent<LayoutElement>();
+            if (layout != null) layout.minHeight = layout.preferredHeight = isTitle ? 52 : 104;
             if (icon != null)
             {
                 bool showIcon = !isTitle && iconSprite != null;

@@ -37,7 +37,7 @@ namespace KingdomIdle.UGUI
             if (currentPlayer != null)
             {
                 if (nameLabel != null) nameLabel.text = currentPlayer.DisplayName;
-                if (powerLabel != null) powerLabel.text = currentPlayer.Power.ToString("N0");
+                if (powerLabel != null) powerLabel.text = KingdomIdle.UGUI.NumberNotation.Format(currentPlayer.Power);
                 if (rankLabel != null) rankLabel.text = currentPlayer.Rank.ToString();
             }
 

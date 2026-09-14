@@ -9,11 +9,25 @@ namespace KingdomIdle.UGUI
     {
         private void OnDisable() => PlayerPrefs.Save();
         private void OnApplicationPause(bool paused) { if (paused) PlayerPrefs.Save(); }
+        private void OnEnable() => FitPanel();
+        private void OnRectTransformDimensionsChange() { if (isActiveAndEnabled) FitPanel(); }
+        private void FitPanel()
+        {
+            if (panel == null || transform.parent is not RectTransform parent) return;
+            var size = new Vector2(Mathf.Min(960, parent.rect.width - 48), Mathf.Min(1640, parent.rect.height - 80));
+            if (size.x > 0 && size.y > 0 && panel.sizeDelta != size) panel.sizeDelta = size;
+        }
         [SerializeField] internal Button outsideCatcher;   // 오버레이 딤 자체 — 바깥 탭 닫기
         [SerializeField] internal RectTransform panel;
         [SerializeField] internal TMP_Text lblServer;
         [SerializeField] internal TMP_Text lblVersion;
         [SerializeField] internal Button btnGoogleChip;
+        [SerializeField] internal Button btnClose;
+        [SerializeField] internal ScrollRect scroll;
+        [SerializeField] internal Button[] numberButtons;
+        [SerializeField] internal TMP_Text numberPreview;
+        [SerializeField] internal TMP_Text numberHint;
+        [SerializeField] internal Toggle tglKeepAwake;
 
         [Header("Toggles")]
         [SerializeField] internal Toggle tglPowerSave;
@@ -26,6 +40,11 @@ namespace KingdomIdle.UGUI
 
         [Header("Volume")]
         [SerializeField] internal Slider sldVolume;
+        [SerializeField] internal Slider sldMusic;
+        [SerializeField] internal Slider sldEffects;
+        [SerializeField] internal TMP_Text lblVolume;
+        [SerializeField] internal TMP_Text lblMusic;
+        [SerializeField] internal TMP_Text lblEffects;
         [SerializeField] internal Button btnMute;
         [SerializeField] internal Image btnMuteBg;
 

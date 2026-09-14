@@ -19,22 +19,22 @@ namespace KingdomIdle.UGUI
             OfflineRewardPlan plan = result.Plan;
             _view.durationLabel.text = FormatDuration(plan);
             _view.killCountLabel.text =
-                $"예상 처치  {plan.estimatedKillCount:N0}마리";
+                $"예상 처치  {NumberNotation.Format(plan.estimatedKillCount)}마리";
 
             _view.goldRow.gameObject.SetActive(true);
-            _view.goldValueLabel.text = $"+{result.GoldGained:N0}";
+            _view.goldValueLabel.text = $"+{NumberNotation.Format(result.GoldGained)}";
 
             bool hasAncientCoin = result.AncientCoinGained > 0L;
             _view.ancientCoinRow.gameObject.SetActive(hasAncientCoin);
             if (hasAncientCoin)
             {
                 _view.ancientCoinValueLabel.text =
-                    $"+{result.AncientCoinGained:N0}";
+                    $"+{NumberNotation.Format(result.AncientCoinGained)}";
             }
 
             _view.progressLabel.text =
-                $"성장 결과  Lv.{result.CurrentLevel:N0} · EXP {result.CurrentExp:N0}\n" +
-                $"획득 EXP +{result.ExperienceGained:N0} · 전투 처치 기록과 별도";
+                $"성장 결과  Lv.{result.CurrentLevel:N0} · EXP {NumberNotation.Format(result.CurrentExp)}\n" +
+                $"획득 EXP +{NumberNotation.Format(result.ExperienceGained)} · 전투 처치 기록과 별도";
             _view.gameObject.SetActive(true);
             _view.transform.SetAsLastSibling();
             if (_view.panel != null)

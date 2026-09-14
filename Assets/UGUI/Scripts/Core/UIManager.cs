@@ -82,6 +82,10 @@ namespace KingdomIdle.UGUI
         private LoadingOverlayView _loading;
         private ToastView _toast;
         private Coroutine _toastCo;
+        private int _fieldLootCount;
+        private string _fieldLootName;
+        private float _nextFieldLootNotice;
+        private bool _fieldLootToast;
         private SettingsModalController _settings;
         private StageManager _boundStageManager;
 
@@ -109,6 +113,8 @@ namespace KingdomIdle.UGUI
             _uiAudioSource = GetComponent<AudioSource>();
             if (_uiAudioSource == null) _uiAudioSource = gameObject.AddComponent<AudioSource>();
             _uiAudioSource.playOnAwake = false;
+            GameAudioSettings.Changed += ApplyEffectsVolume;
+            GamePresentationSettings.Changed += ApplyLootSettings;
 
             if (catalog == null)
                 Debug.LogError("[UIManager] UIViewCatalog가 비었습니다. 생성기(KingdomIdle/UGUI/Generate All)를 실행하세요.");
@@ -124,6 +130,7 @@ namespace KingdomIdle.UGUI
             BuildOverlays();
             ApplyPersistedAudioSettings();
             GamePresentationSettings.Apply();
+            NumberNotation.Load();
         }
 
         /// <summary>UITK 매니저가 같은 씬에 살아있으면 이중 UI 상태 — 에러 로그로 경고.</summary>
@@ -144,10 +151,10 @@ namespace KingdomIdle.UGUI
         /// <summary>PlayerPrefs에 저장된 음량/음소거 상태를 게임 시작 시점에 즉시 적용한다.</summary>
         internal static void ApplyPersistedAudioSettings()
         {
-            float vol = PlayerPrefs.HasKey(PrefKeyVolume) ? PlayerPrefs.GetFloat(PrefKeyVolume) : 1f;
-            bool muted = PlayerPrefs.GetInt(PrefKeyMute, 0) == 1;
-            AudioListener.volume = muted ? 0f : Mathf.Clamp01(vol);
+            GameAudioSettings.Apply();
         }
+
+        private void ApplyEffectsVolume() { if (_uiAudioSource != null) _uiAudioSource.volume = GameAudioSettings.Effects; }
 
         private void Update()
         {
@@ -157,10 +164,18 @@ namespace KingdomIdle.UGUI
                 RequestBack();
 
             FrameTick?.Invoke();
+            if (_fieldLootCount > 0 && !GamePresentationSettings.HideItemNotifications && _toastCo == null &&
+                Time.unscaledTime >= _nextFieldLootNotice && !HasBlockingPanel && !HasActiveTabPanel && (_settings == null || !_settings.IsOpen))
+            {
+                ShowToast(_fieldLootCount == 1 ? $"장비 획득 · {_fieldLootName}" : $"사냥 장비 {_fieldLootCount}개 획득");
+                _fieldLootToast = true; _fieldLootCount = 0; _nextFieldLootNotice = Time.unscaledTime + 6;
+            }
         }
 
         private void OnDestroy()
         {
+            GameAudioSettings.Changed -= ApplyEffectsVolume;
+            GamePresentationSettings.Changed -= ApplyLootSettings;
             BindStageManager(null);
             DungeonClearPopupController.Hide();
             ReincarnationPopupController.Hide();
@@ -623,6 +638,7 @@ namespace KingdomIdle.UGUI
         public void ShowToast(string message)
         {
             if (_toast == null) return;
+            _fieldLootToast = false;
 
             if (_toast.label != null) _toast.label.text = message;
             _toast.gameObject.SetActive(true);
@@ -630,6 +646,22 @@ namespace KingdomIdle.UGUI
 
             if (_toastCo != null) StopCoroutine(_toastCo);
             _toastCo = StartCoroutine(HideToastAfter(1.5f));
+        }
+
+        internal void NotifyFieldEquipment(int code)
+        {
+            if (GamePresentationSettings.HideItemNotifications) return;
+            _fieldLootCount++;
+            _fieldLootName = EquipmentManager.Instance?.GetData(code)?.equipmentName ?? "장비";
+        }
+        private void ApplyLootSettings()
+        {
+            if (!GamePresentationSettings.HideItemNotifications) return;
+            _fieldLootCount = 0;
+            if (!_fieldLootToast) return;
+            if (_toastCo != null) StopCoroutine(_toastCo);
+            if (_toast != null) _toast.gameObject.SetActive(false);
+            _toastCo = null; _fieldLootToast = false;
         }
 
         private IEnumerator HideToastAfter(float seconds)

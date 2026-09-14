@@ -111,25 +111,17 @@ namespace KingdomIdle.UGUI.Editor
         {
             var row = F.Container(null, "Item_CurrencyLine");
             var view = row.gameObject.AddComponent<CurrencyLineItemView>();
-            F.HLayout(row.gameObject, 10f, new RectOffset(2, 2, 2, 2), TextAnchor.MiddleLeft);
-            F.Preferred(row.gameObject.AddComponent<LayoutElement>(), height: 42f);
-
-            // 재화 아이콘 (32×32, 풀컬러 러스틱)
-            var iconImg = F.IconImage(row, "Icon", null, 32f, 32f);
-            var iconLe = iconImg.gameObject.AddComponent<LayoutElement>();
-            iconLe.preferredWidth = 34f; iconLe.preferredHeight = 34f; iconLe.flexibleWidth = 0f;
-            view.icon = iconImg;
-
-            // 이름 (좌측)
-            var name = F.Text(row, "Name", "", 24f, new Color(1f, 1f, 1f, 0.85f), TextAlignmentOptions.Left);
-            F.Flexible(name, flexWidth: 1f);
-            view.label = name;
-
-            // 값 (우측 정렬, 골드)
-            var val = F.Text(row, "Value", "", 24f, UguiTheme.AccentGoldStrong, TextAlignmentOptions.Right, bold: true);
-            F.Flexible(val, flexWidth: 1f);
-            view.valueLabel = val;
-
+            F.VLayout(row.gameObject, 8, new RectOffset(2, 2, 4, 4));
+            F.Preferred(row, height: 104);
+            var header = F.Container(row, "CurrencyName"); F.HLayout(header.gameObject, 10, null, TextAnchor.MiddleLeft);
+            F.Preferred(header, height: 44);
+            var icon = F.IconImage(header, "Icon", null, 32, 32); F.Preferred(icon, width: 34, height: 34); view.icon = icon;
+            view.label = F.Text(header, "Name", "", 26, UguiTheme.Parchment);
+            F.Flexible(view.label, flexWidth: 1);
+            view.valueLabel = F.Text(row, "Value", "", 26, UguiTheme.AccentGoldStrong, TextAlignmentOptions.Right);
+            F.Preferred(view.valueLabel, height: 40);
+            view.valueLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            view.valueLabel.overflowMode = TextOverflowModes.Overflow;
             return PrefabGenUtil.SavePrefab(row.gameObject, $"{PrefabGenUtil.PrefabRoot}/Items/Item_CurrencyLine.prefab");
         }
 

@@ -22,6 +22,7 @@ namespace KingdomIdle.UGUI
             _skillId = skillId;
             if (!EnsureBuilt()) return;
 
+            NumberNotationBinding.Bind(_view, RefreshContent);
             RefreshContent();
             _view.gameObject.SetActive(true);
             _view.transform.SetAsLastSibling();
@@ -98,16 +99,16 @@ namespace KingdomIdle.UGUI
             long effDmg = mgr.GetEffectiveDamage(_skillId);
             float effCd = mgr.GetEffectiveCooldown(_skillId);
 
-            if (_view.lblBaseDmg != null) _view.lblBaseDmg.text = $"기본 데미지: {so.BaseDamage:F0}";
+            if (_view.lblBaseDmg != null) _view.lblBaseDmg.text = $"기본 데미지: {NumberNotation.Format(so.BaseDamage)}";
             if (_view.lblBaseCd != null) _view.lblBaseCd.text = $"기본 쿨타임: {so.baseCooldown:F1}s";
-            if (_view.lblEffDmg != null) _view.lblEffDmg.text = $"최종 데미지: {effDmg:F0}";
+            if (_view.lblEffDmg != null) _view.lblEffDmg.text = $"최종 데미지: {NumberNotation.Format(effDmg)}";
             if (_view.lblEffCd != null) _view.lblEffCd.text = $"최종 쿨타임: {effCd:F1}s";
 
             // enhance
             if (_view.lblEnhLevel != null) _view.lblEnhLevel.text = $"강화 레벨: {eLv} / {so.maxEnhanceLevel}";
             int enhCost = mgr.GetEnhanceCost(_skillId);
             EconomyBridge.TryGetAmount(eCurrency.ArcaneKnowledge, out long ak);
-            if (_view.lblEnhCost != null) _view.lblEnhCost.text = enhCost < 0 ? "MAX · 다음 강화 없음" : $"지식 {enhCost:N0} 필요 · 보유 {ak:N0}";
+            if (_view.lblEnhCost != null) _view.lblEnhCost.text = enhCost < 0 ? "MAX · 다음 강화 없음" : $"지식 {NumberNotation.Format(enhCost)} 필요 · 보유 {NumberNotation.Format(ak)}";
             if (_view.btnEnhance != null) _view.btnEnhance.interactable = mgr.CanEnhance(_skillId);
             if (_view.btnEnhanceLabel != null) _view.btnEnhanceLabel.text = eLv >= so.maxEnhanceLevel ? "최대 레벨" : "강화하기";
 
@@ -122,7 +123,7 @@ namespace KingdomIdle.UGUI
             // reset
             long refund = mgr.GetResetRefund(_skillId);
             if (_view.lblResetRefund != null) _view.lblResetRefund.text = mgr.CanReset(_skillId)
-                ? $"강화 초기화 시 지식 {refund:N0} 반환 (80%)" : "강화한 스킬만 초기화할 수 있습니다.";
+                ? $"강화 초기화 시 지식 {NumberNotation.Format(refund)} 반환 (80%)" : "강화한 스킬만 초기화할 수 있습니다.";
             if (_view.btnReset != null) _view.btnReset.interactable = mgr.CanReset(_skillId);
         }
 

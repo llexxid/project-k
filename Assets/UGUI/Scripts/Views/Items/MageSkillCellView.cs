@@ -31,10 +31,11 @@ namespace KingdomIdle.UGUI
                 if (iconSprite != null) icon.sprite = iconSprite;
             }
             if (nameLabel != null) nameLabel.text = name;
+            NumberNotationBinding.Bind(this, () => { if (dmgLabel != null) dmgLabel.text = owned ? $"{(equipped ? "장착 중 · " : "")}피해 {NumberNotation.Format(dmg)}" : "미보유"; });
             if (dmgLabel != null)
             {
                 dmgLabel.gameObject.SetActive(true);
-                dmgLabel.text = owned ? $"{(equipped ? "장착 중 · " : "")}피해 {dmg:F0}" : "미보유";
+                dmgLabel.text = owned ? $"{(equipped ? "장착 중 · " : "")}피해 {NumberNotation.Format(dmg)}" : "미보유";
             }
             if (button != null)
             {

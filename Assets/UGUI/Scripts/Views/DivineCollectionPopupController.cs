@@ -337,7 +337,7 @@ namespace KingdomIdle.UGUI
                 if (so.IsOffensive)
                 {
                     _view.statValueLabel.gameObject.SetActive(true);
-                    _view.statValueLabel.text = $"예상 피해  {mgr.GetCastValue(so):N0}";
+                    _view.statValueLabel.text = $"예상 피해  {NumberNotation.Format(mgr.GetCastValue(so))}";
                 }
                 else if (so.effectKind == eDivineEffectKind.HealAndGuard)
                 {

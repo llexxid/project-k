@@ -160,45 +160,56 @@ namespace KingdomIdle.MageTower
 
     public class CameraShaker : MonoBehaviour
     {
-        private Vector3 _originalPos;
-        private float _duration;
-        private float _magnitude;
-        private float _elapsed;
+        private float _duration, _magnitude, _elapsed;
         private bool _shaking;
-
-        /// <summary>화면 흔들림 발생 통지 (duration, magnitude). UI(마탑 환경 오브젝트 등)가 동기화용으로 구독한다.</summary>
+        private Vector3 _offset;
+        private Unity.Cinemachine.CinemachineBrain _brain;
         public static event System.Action<float, float> OnShake;
 
         public void Shake(float duration, float magnitude)
         {
+            if (!KingdomIdle.UGUI.GamePresentationSettings.ScreenShake || duration <= 0) return;
+            _duration = duration; _magnitude = Mathf.Max(0, magnitude); _elapsed = 0; _shaking = true;
             OnShake?.Invoke(duration, magnitude);
-
-            if (!_shaking)
-                _originalPos = transform.localPosition;
-
-            _duration = duration;
-            _magnitude = magnitude;
-            _elapsed = 0f;
-            _shaking = true;
         }
-
+        private void OnEnable()
+        {
+            _brain = GetComponent<Unity.Cinemachine.CinemachineBrain>();
+            KingdomIdle.UGUI.GamePresentationSettings.Changed += ApplySettings;
+            Unity.Cinemachine.CinemachineCore.CameraUpdatedEvent.AddListener(AfterCameraUpdate);
+        }
+        private void OnDisable()
+        {
+            KingdomIdle.UGUI.GamePresentationSettings.Changed -= ApplySettings;
+            Unity.Cinemachine.CinemachineCore.CameraUpdatedEvent.RemoveListener(AfterCameraUpdate);
+            StopShake();
+        }
         private void LateUpdate()
         {
             if (!_shaking) return;
-
-            _elapsed += Time.deltaTime;
-            if (_elapsed >= _duration)
+            _elapsed += Time.unscaledDeltaTime;
+            if (_elapsed >= _duration) { StopShake(); return; }
+            if (_brain == null || !_brain.isActiveAndEnabled)
             {
-                transform.localPosition = _originalPos;
-                _shaking = false;
-                return;
+                transform.localPosition -= _offset; _offset = Vector3.zero;
+                ApplyOffset();
             }
-
-            float t = 1f - (_elapsed / _duration);
-            float offsetX = UnityEngine.Random.Range(-1f, 1f) * _magnitude * t;
-            float offsetY = UnityEngine.Random.Range(-1f, 1f) * _magnitude * t;
-
-            transform.localPosition = _originalPos + new Vector3(offsetX, offsetY, 0f);
         }
+        private void AfterCameraUpdate(Unity.Cinemachine.CinemachineBrain brain)
+        {
+            if (brain != _brain) return;
+            // Cinemachine has just written a fresh base pose; apply shake after that write.
+            _offset = Vector3.zero;
+            if (_shaking) ApplyOffset();
+        }
+        private void ApplyOffset()
+        {
+            float amplitude = _magnitude * Mathf.Clamp01(1 - _elapsed / _duration);
+            // Presentation must not consume the random stream used by drops/combat.
+            _offset = new Vector3(Mathf.Sin(_elapsed * 97.1f), Mathf.Sin(_elapsed * 151.3f + 1.7f), 0) * amplitude;
+            transform.localPosition += _offset;
+        }
+        private void ApplySettings() { if (!KingdomIdle.UGUI.GamePresentationSettings.ScreenShake) StopShake(); }
+        private void StopShake() { transform.localPosition -= _offset; _offset = Vector3.zero; _shaking = false; }
     }
 }

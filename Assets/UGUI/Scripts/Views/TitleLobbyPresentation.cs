@@ -175,6 +175,8 @@ namespace KingdomIdle.UGUI
 
         void RefreshLanguage()
         {
+            var settings = GetComponent<TitleScreenView>()?.btnSettings;
+            if (settings != null) settings.GetComponentInChildren<TMP_Text>().text = Localize("설정", "Settings");
             if (logo != null) logo.sprite = _english ? englishLogo : koreanLogo;
             foreach (var label in labels)
                 if (label.target != null) label.target.text = _english ? label.english : label.korean;

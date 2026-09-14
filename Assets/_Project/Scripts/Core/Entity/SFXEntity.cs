@@ -21,6 +21,8 @@ namespace Scripts.Core
 
         private void OnEnable()
         {
+            KingdomIdle.UGUI.GameAudioSettings.Changed += ApplyVolume;
+            ApplyVolume();
             if (_token != null)
             {
                 _token.Dispose();
@@ -29,12 +31,13 @@ namespace Scripts.Core
         }
         private void OnDisable()
         {
-            _token.Cancel();
+            KingdomIdle.UGUI.GameAudioSettings.Changed -= ApplyVolume;
+            _token?.Cancel();
         }
         private void OnDestroy()
         {
-            _token.Cancel();
-            _token.Dispose();
+            _token?.Cancel();
+            _token?.Dispose();
         }
 
         public void SetClip(AudioClip clip)
@@ -87,17 +90,19 @@ namespace Scripts.Core
 
         public void OnAlloc()
         {
-            _source.volume = 1f;
+            ApplyVolume();
             return;
         }
 
         public void OnRelease()
         {
+            _source.Stop();
             _source.loop = false;
             _source.clip = null;
             _source.volume = 0;
             return;
         }
+        private void ApplyVolume() { if (_source != null) _source.volume = KingdomIdle.UGUI.GameAudioSettings.Effects; }
     }
 }
 

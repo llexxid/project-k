@@ -35,6 +35,7 @@ namespace KingdomIdle.UGUI
             _manager = QuestManager.Instance;
             _ui = UIManager.Instance;
             _manager.OnGuideQuestChanged += Refresh;
+            NumberNotation.Changed += ReadCurrent;
             _manager.OnQuestProgressChanged += Refresh;
             _ui.PanelStackChanged += Visibility;
             ReadCurrent();
@@ -43,6 +44,7 @@ namespace KingdomIdle.UGUI
 
         private void OnDisable()
         {
+            NumberNotation.Changed -= ReadCurrent;
             if (_connection != null) StopCoroutine(_connection);
             _connection = null;
             if (actionButton != null) actionButton.onClick.RemoveListener(Act);
@@ -74,7 +76,7 @@ namespace KingdomIdle.UGUI
                 Set(description, definition.Description);
                 Set(stepLabel, $"가이드 {definition.QuestId-10000:N0}");
                 int required = Mathf.Max(1, definition.RequiredCount);
-                Set(progress, $"{Mathf.Clamp(state.CurrentProgress, 0, required):N0}/{required:N0}");
+                Set(progress, $"{NumberNotation.Format(Mathf.Clamp(state.CurrentProgress, 0, required))}/{NumberNotation.Format(required)}");
                 if (progressFill != null) progressFill.fillAmount = Mathf.Clamp01((float)state.CurrentProgress / required);
                 bool claimable = state.IsCompleted && _manager.CanClaimReward(state.QuestId);
                 bool canNavigate = Destination().HasValue;

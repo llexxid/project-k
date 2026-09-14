@@ -452,10 +452,10 @@ namespace KingdomIdle.UGUI.Editor
             return toggle;
         }
 
-        internal static Slider SimpleSlider(Transform parent, string name, Color track, Color fill, bool interactable)
+        internal static Slider SimpleSlider(Transform parent, string name, Color track, Color fill, bool interactable, bool scrollAware = false)
         {
             var rootRt = Container(parent, name);
-            var slider = rootRt.gameObject.AddComponent<Slider>();
+            Slider slider = scrollAware ? rootRt.gameObject.AddComponent<SettingsVolumeSlider>() : rootRt.gameObject.AddComponent<Slider>();
 
             Image bg;
             if (Catalog != null && Catalog.kitBarTrack != null)

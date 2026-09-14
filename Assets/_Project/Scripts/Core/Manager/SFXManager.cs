@@ -32,6 +32,7 @@ namespace Scripts.Core
 		eSFXType _musicId;
 		int _musicRequest;
 		bool _applicationPaused;
+		float _bgmGain, _crossfadeGain;
 		readonly WaitForSecondsRealtime _musicTick = new(.1f);
 		public string CurrentMusic => _activeMusic != null && _activeMusic.clip != null ? _activeMusic.clip.name : "";
 		public AudioSource CurrentMusicSource => _activeMusic;
@@ -60,6 +61,8 @@ namespace Scripts.Core
 		}
 		private void Init()
 		{
+			KingdomIdle.UGUI.GameAudioSettings.Apply();
+			KingdomIdle.UGUI.GameAudioSettings.Changed += ApplyMusicVolume;
 			_sfxParents = gameObject.transform;
 
 			if (_bgmSource == null)
@@ -259,6 +262,23 @@ namespace Scripts.Core
 
 		void OnApplicationPause(bool paused) => _applicationPaused = paused;
 
+		void OnDestroy()
+		{
+			KingdomIdle.UGUI.GameAudioSettings.Changed -= ApplyMusicVolume;
+			if (Instance == this) Instance = null;
+		}
+		void ApplyMusicVolume()
+		{
+			float gain = KingdomIdle.UGUI.GameAudioSettings.Music;
+			if (_bgmSource != null) _bgmSource.volume = _bgmGain * gain;
+			if (_crossfadeSource != null) _crossfadeSource.volume = _crossfadeGain * gain;
+		}
+		void SetMusicGain(AudioSource source, float gain)
+		{
+			if (source == _bgmSource) _bgmGain = gain; else _crossfadeGain = gain;
+			source.volume = gain * KingdomIdle.UGUI.GameAudioSettings.Music;
+		}
+
 		IEnumerator PlayPlaylist(AudioClip[] playlist)
 		{
 			int index = 0;
@@ -272,10 +292,10 @@ namespace Scripts.Core
 				incoming.Stop();
 				incoming.clip = clip;
 				incoming.loop = false;
-				incoming.volume = 0f;
+				SetMusicGain(incoming, 0f);
 				incoming.Play();
 				_activeMusic = incoming;
-				float from = outgoing.volume;
+				float from = outgoing == _bgmSource ? _bgmGain : _crossfadeGain;
 				float elapsed = 0f;
 				while (elapsed < 1.2f)
 				{
@@ -283,14 +303,14 @@ namespace Scripts.Core
 					{
 						elapsed += Time.unscaledDeltaTime;
 						float t = Mathf.Clamp01(elapsed / 1.2f);
-						incoming.volume = _musicVolume * t;
-						outgoing.volume = from * (1f - t);
+						SetMusicGain(incoming, _musicVolume * t);
+						SetMusicGain(outgoing, from * (1f - t));
 					}
 					yield return null;
 				}
 				outgoing.Stop();
 				outgoing.clip = null;
-				incoming.volume = _musicVolume;
+				SetMusicGain(incoming, _musicVolume);
 				while (_applicationPaused || incoming.time < clip.length - 1.3f)
 				{
 					if (!_applicationPaused && !incoming.isPlaying && incoming.time == 0f) break;
@@ -302,7 +322,7 @@ namespace Scripts.Core
 		private void SetAndPlayBGM(AudioClip clip)
 		{
 			_bgmSource.clip = clip;
-			_bgmSource.volume = _musicVolume;
+			SetMusicGain(_bgmSource, _musicVolume);
 			_activeMusic = _bgmSource;
 			_bgmSource.loop = true;
 			_bgmSource.Play();

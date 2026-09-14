@@ -23,7 +23,7 @@ namespace KingdomIdle.UGUI
 
             if (rankLabel != null) rankLabel.text = entry.Rank.ToString();
             if (nameLabel != null) nameLabel.text = entry.DisplayName;
-            if (powerLabel != null) powerLabel.text = entry.Power.ToString("N0");
+            if (powerLabel != null) powerLabel.text = KingdomIdle.UGUI.NumberNotation.Format(entry.Power);
             if (selfMarker != null)
             {
                 selfMarker.text = entry.IsCurrentPlayer ? "나" : string.Empty;

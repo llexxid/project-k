@@ -236,6 +236,7 @@ namespace KingdomIdle.UGUI.Editor
             F.AnchorCenter(version.rectTransform, 400, 32, 0, -143);
             p.versionLabel = version;
             BuildLanguagePopup(root.transform, p);
+            SettingsRevisionBuilder.WireTitleButton(view);
 
             // Preserve the development guest entry and authenticated scene gate.
             view.btnLoginGuest.gameObject.SetActive(true);
@@ -353,7 +354,7 @@ namespace KingdomIdle.UGUI.Editor
             p.koreanSelected = ko; p.englishSelected = en;
             popup.gameObject.SetActive(false);
         }
-        static void StyleButton(Button button, bool framed)
+        internal static void StyleButton(Button button, bool framed)
         {
             var image = button.GetComponent<Image>();
             image.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(KitPath + "Frame/BasicFrame/BasicFrame_Rectangle_01~04_White_Bg.png");

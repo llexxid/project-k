@@ -65,6 +65,7 @@ namespace KingdomIdle.UGUI.Editor
             try
             {
                 var view = go.GetComponent<SettingsModalView>();
+                if (view.numberButtons != null && view.numberButtons.Length == 3) return;
                 if (view.tglLowSpec == null)
                 {
                     var original = view.tglPowerSave.transform.parent;

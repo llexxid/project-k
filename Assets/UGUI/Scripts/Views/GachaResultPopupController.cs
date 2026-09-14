@@ -236,7 +236,7 @@ namespace KingdomIdle.UGUI
         }
 
         private static string RePullLabel(KingdomIdle.Gacha.GachaTableSO table, int count)
-            => table == null ? "다시 뽑기" : $"{count}회 다시 뽑기\n{(long)table.costAmount * count:N0} {MainScreenController.GetCurrencyLabelKor(table.costCurrency)}";
+            => table == null ? "다시 뽑기" : $"{count}회 다시 뽑기\n{NumberNotation.Format((long)table.costAmount * count)} {MainScreenController.GetCurrencyLabelKor(table.costCurrency)}";
 
         private static void HandleRePull(KingdomIdle.Gacha.GachaTableSO table, int count)
         {
@@ -298,7 +298,7 @@ namespace KingdomIdle.UGUI
         private static string FormatGachaCount(int count)
         {
             int safe = Mathf.Max(1, count);
-            return $"x{safe:N0}";
+            return $"x{NumberNotation.Format(safe)}";
         }
 
         private static string MakeMergeKey(KingdomIdle.Gacha.GachaRewardEntry r)

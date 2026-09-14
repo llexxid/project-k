@@ -132,11 +132,12 @@ namespace KingdomIdle.Balance
             });
             return ok;
         }
-        public static string RewardText(int groupId)
+        public static string RewardText(int groupId, Func<long, string> format = null)
         {
+            format ??= value => value.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
             Load(); if (groupId == 2001) return "안전 사냥 2분 골드";
             var group = _rewards[groupId]; var parts = new List<string>();
-            for(int i=1;i<=2;i++) { string c = (string)group["currency"+i]; if (string.IsNullOrEmpty(c)) continue; string name = c == "AncientCoin" ? "주화" : c == "ClassFragment" ? "전직 파편" : c == "ArcaneKnowledge" ? "마법 지식" : c; parts.Add($"{name} {(long)group["amount"+i]:N0}"); }
+            for(int i=1;i<=2;i++) { string c = (string)group["currency"+i]; if (string.IsNullOrEmpty(c)) continue; string name = c == "AncientCoin" ? "주화" : c == "ClassFragment" ? "전직 파편" : c == "ArcaneKnowledge" ? "마법 지식" : c; parts.Add($"{name} {format((long)group["amount"+i])}"); }
             return string.Join(" · ",parts);
         }
     }

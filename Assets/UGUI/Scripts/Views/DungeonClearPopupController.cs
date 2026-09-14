@@ -31,7 +31,7 @@ namespace KingdomIdle.UGUI
             var state=KingdomIdle.Balance.LocalProgression.State;
             long reward=clearedDefinition.Type==eStageType.GoldDungeon?state.LastDungeonGold:state.LastDungeonRuby;
             view.titleLabel.enableAutoSizing=true;view.titleLabel.fontSizeMin=24;view.titleLabel.fontSizeMax=32;
-            view.titleLabel.text=$"{dungeonName} {clearedDefinition.StageNumber}단계 클리어!\n획득 {dungeonName} +{reward:N0}";
+            view.titleLabel.text=$"{dungeonName} {clearedDefinition.StageNumber}단계 클리어!\n획득 {dungeonName} +{NumberNotation.Format(reward)}";
             bool hasTicket=KingdomIdle.Balance.BattleEconomy.Tickets(clearedDefinition.Type)>0;
             view.nextButton.interactable=clearedDefinition.HasNextDifficulty && hasTicket;
             view.retryButton.interactable=hasTicket;

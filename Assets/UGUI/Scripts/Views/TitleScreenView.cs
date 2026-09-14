@@ -9,6 +9,7 @@ namespace KingdomIdle.UGUI
     {
         [SerializeField] internal Button bgClickCatcher;
         [SerializeField] internal Button btnLogin;
+        [SerializeField] internal Button btnSettings;
         [SerializeField] internal TMP_Text pressHint;
         [SerializeField] internal TitleLobbyPresentation presentation;
 

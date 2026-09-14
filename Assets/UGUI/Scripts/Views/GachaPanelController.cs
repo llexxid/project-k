@@ -48,6 +48,7 @@ namespace KingdomIdle.UGUI
             if (view == null) return;
 
             _view = view;
+            NumberNotationBinding.Bind(view, UpdateWallet);
             if (_view.tabBar == null || _view.content == null) return;
 
             view.OnClosed = () =>
@@ -184,7 +185,7 @@ namespace KingdomIdle.UGUI
             {
                 c.costLabel.gameObject.SetActive(true);
                 c.costLabel.text =
-                    $"1회 비용: {table.costAmount:N0} {GetCurrencyLabel(table.costCurrency)}  |  보유: {current:N0}";
+                    $"1회 비용: {NumberNotation.Format(table.costAmount)} {GetCurrencyLabel(table.costCurrency)}  |  보유: {NumberNotation.Format(current)}";
             }
 
             // 확률 요약 (등급별 가중치 집계)
@@ -221,7 +222,7 @@ namespace KingdomIdle.UGUI
                 if (pull == null) continue;
 
                 string title = count == 1 ? "1회 뽑기" : $"{count}연 뽑기";
-                pull.Set(title, $"{totalCost:N0} {curLabel}", !disabled, cat.iconChest);
+                pull.Set(title, $"{NumberNotation.Format(totalCost)} {curLabel}", !disabled, cat.iconChest);
                 pull.Button.onClick.AddListener(() => OnPullClicked(capturedTable, count));
                 _activePullButtons.Add(pull.Button);
             }
@@ -234,7 +235,7 @@ namespace KingdomIdle.UGUI
         {
             if (_content == null || _contentTable == null) return;
             EconomyBridge.TryGetAmount(_contentTable.costCurrency,out long current);
-            if (_content.costLabel != null) _content.costLabel.text=$"1회 비용: {_contentTable.costAmount:N0} {GetCurrencyLabel(_contentTable.costCurrency)}  |  보유: {current:N0}";
+            if (_content.costLabel != null) _content.costLabel.text=$"1회 비용: {NumberNotation.Format(_contentTable.costAmount)} {GetCurrencyLabel(_contentTable.costCurrency)}  |  보유: {NumberNotation.Format(current)}";
             if (_content.descLabel != null && _contentTable.gachaType == eGachaType.Equipment) _content.descLabel.text = $"{_contentTable.description}\n에픽 확정까지 {GachaManager.Instance.EpicPityRemaining}회";
             bool pulling=GachaManager.Instance != null && GachaManager.Instance.IsPulling;
             for(int i=0;i<_activePullButtons.Count;i++)
@@ -242,7 +243,7 @@ namespace KingdomIdle.UGUI
                 var button=_activePullButtons[i];
                 if(button==null)continue;
                 int count=PullCounts[i]; long cost=(long)_contentTable.costAmount*count;
-                button.GetComponent<GachaPullButtonView>()?.Set(count==1?"1회 뽑기":$"{count}연 뽑기",$"{cost:N0} {GetCurrencyLabel(_contentTable.costCurrency)}",GachaManager.Instance != null && GachaManager.Instance.CanPullMulti(_contentTable,count));
+                button.GetComponent<GachaPullButtonView>()?.Set(count==1?"1회 뽑기":$"{count}연 뽑기",$"{NumberNotation.Format(cost)} {GetCurrencyLabel(_contentTable.costCurrency)}",GachaManager.Instance != null && GachaManager.Instance.CanPullMulti(_contentTable,count));
             }
         }
 

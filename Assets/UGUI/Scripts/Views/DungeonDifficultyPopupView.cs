@@ -34,6 +34,7 @@ namespace KingdomIdle.UGUI
 
         private void Awake()
         {
+            NumberNotationBinding.Bind(this, () => { if (selectedDifficulty > 0) SelectDifficulty(selectedDifficulty); });
             ModalBackHandler.Bind(gameObject, Hide);
             if (backdropButton != null)
                 backdropButton.onClick.AddListener(Hide);
@@ -170,7 +171,7 @@ namespace KingdomIdle.UGUI
                 bool gold=StageParser.GetStageType(selectedStageId)==eStageType.GoldDungeon;
                 long reward=gold?20*KingdomIdle.Balance.BalanceMath.Mimic(selectedDifficulty).Gold:KingdomIdle.Balance.BalanceMath.RubyClear(selectedDifficulty);
                 bool first=!KingdomIdle.Balance.LocalProgression.State.Claims.Contains("ruby-first:"+selectedDifficulty);
-                description.text=gold?$"60초 · 20체 · 최대 {reward:N0} 골드\n중단해도 처치 보상 유지 · 매일 00시 충전":$"보스 3체 · 각 30초 · {reward:N0} 루비"+(first?$" + 첫 클리어 {25*selectedDifficulty}":"")+"\n3체 모두 처치 시 지급 · 매일 00시 충전";
+                description.text=gold?$"60초 · 20체 · 최대 {NumberNotation.Format(reward)} 골드\n중단해도 처치 보상 유지 · 매일 00시 충전":$"보스 3체 · 각 30초 · {NumberNotation.Format(reward)} 루비"+(first?$" + 첫 클리어 {25*selectedDifficulty}":"")+"\n3체 모두 처치 시 지급 · 매일 00시 충전";
             }
 
             if (difficultyRows == null)

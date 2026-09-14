@@ -1,207 +1,130 @@
 using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
 
 namespace KingdomIdle.UGUI
 {
-    /// <summary>
-    /// 환경설정 모달 (UITKUIManager 설정 영역 이식).
-    /// PlayerPrefs 키는 기존과 동일 — 세이브 호환 유지.
-    /// </summary>
+    /// <summary>Shared title/in-game device preferences; independent of account/progression authority.</summary>
     public sealed class SettingsModalController
     {
-        private SettingsModalView _view;
-        private UIManager _host;
-        private bool _isMuted;
-
+        SettingsModalView _view;
+        bool _isMuted;
         public bool IsOpen => _view != null && _view.gameObject.activeSelf;
 
         public void Open(UIManager host)
         {
-            _host = host;
-            EnsureView();
-            if (_view == null) return;
-
-            LoadSettingsToUI();
-            _view.gameObject.SetActive(true);
-            _view.transform.SetAsLastSibling();
-            if (_view.panel != null) UITween.PopIn(_view.panel);
-        }
-
-        public void Close()
-        {
-            if (_view == null) return;
-            _view.gameObject.SetActive(false);
-        }
-
-        private void EnsureView()
-        {
-            if (_view != null) return;
-            if (_host == null || _host.Catalog == null || _host.Catalog.overlaySettings == null)
-            {
-                Debug.LogError("[SettingsModal] overlaySettings 프리팹이 카탈로그에 없습니다.");
-                return;
-            }
-
-            var go = Object.Instantiate(_host.Catalog.overlaySettings, _host.LayerOverlays, false);
-            _view = go.GetComponent<SettingsModalView>();
             if (_view == null)
             {
-                Debug.LogError("[SettingsModal] SettingsModalView 컴포넌트가 없습니다.");
-                Object.Destroy(go);
-                return;
+                if (host.Catalog == null || host.Catalog.overlaySettings == null) return;
+                var go = Object.Instantiate(host.Catalog.overlaySettings, host.LayerOverlays, false);
+                var rt = (RectTransform)go.transform;
+                rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one; rt.offsetMin = rt.offsetMax = Vector2.zero;
+                _view = go.GetComponent<SettingsModalView>();
+                if (_view == null) { Object.Destroy(go); Debug.LogError("Settings prefab has no SettingsModalView."); return; }
+                Bind(); ModalBackHandler.Bind(go, Close);
             }
-
-            Bind();
-            ModalBackHandler.Bind(go, Close);
-            go.SetActive(false);
+            Load();
+            _view.gameObject.SetActive(true);
+            _view.transform.SetAsLastSibling();
+            if (_view.scroll != null) { _view.scroll.StopMovement(); _view.scroll.verticalNormalizedPosition = 1; }
+            UITween.PopIn(_view.panel);
         }
+        public void Close() { if (_view != null) { PlayerPrefs.Save(); _view.gameObject.SetActive(false); } }
 
-        private void Bind()
+        void Bind()
         {
-            if (_view.outsideCatcher != null)
-                _view.outsideCatcher.onClick.AddListener(Close);
-
-            if (_view.btnGoogleChip != null)
-                _view.btnGoogleChip.onClick.AddListener(() => _host.ShowToast("현재는 지원하지 않는 기능입니다."));
-
-            if (_view.btnWithdraw != null)
-                _view.btnWithdraw.onClick.AddListener(() => _host.ShowToast("현재는 지원하지 않는 기능입니다."));
-
-            if (_view.btnMute != null)
+            _view.outsideCatcher.onClick.AddListener(Close);
+            _view.btnSaveClose.onClick.AddListener(Close);
+            if (_view.btnClose != null) _view.btnClose.onClick.AddListener(Close);
+            _view.btnMute.onClick.AddListener(() =>
             {
-                _view.btnMute.onClick.AddListener(() =>
-                {
-                    _isMuted = !_isMuted;
-                    ApplyMuteVisual();
-                    ApplyVolumeToSystem();
-                    SaveSettingsFromUI();
-                });
-            }
-
-            if (_view.sldVolume != null)
+                _isMuted = !_isMuted;
+                PlayerPrefs.SetInt(UIManager.PrefKeyMute, _isMuted ? 1 : 0);
+                GameAudioSettings.Apply(); PlayerPrefs.Save(); RefreshAudio();
+            });
+            BindVolume(_view.sldVolume, UIManager.PrefKeyVolume);
+            BindVolume(_view.sldMusic, GameAudioSettings.MusicKey);
+            BindVolume(_view.sldEffects, GameAudioSettings.EffectsKey);
+            BindToggle(_view.tglPowerSave, UIManager.PrefKeyPowerSave);
+            BindToggle(_view.tglLowSpec, GamePresentationSettings.LowSpecKey);
+            BindToggle(_view.tglHideItem, UIManager.PrefKeyHideItem);
+            BindToggle(_view.tglDamageText, UIManager.PrefKeyDamageText);
+            BindToggle(_view.tglScreenShake, UIManager.PrefKeyScreenShake);
+            BindToggle(_view.tglKeepAwake, GamePresentationSettings.KeepAwakeKey);
+            for (int i = 0; _view.numberButtons != null && i < _view.numberButtons.Length; i++)
             {
-                _view.sldVolume.onValueChanged.AddListener(v =>
-                {
-                    if (!_isMuted) AudioListener.volume = v;
-                    PlayerPrefs.SetFloat(UIManager.PrefKeyVolume, v);
-                });
+                var style = (NumberStyle)i;
+                _view.numberButtons[i].onClick.AddListener(() => { NumberNotation.SetStyle(style); RefreshNotation(); });
             }
-
-            if (_view.btnSave != null)
-            {
-                _view.btnSave.onClick.AddListener(() =>
-                {
-                    SaveSettingsFromUI();
-                    _host.ShowToast("저장되었습니다.");
-                });
-            }
-
-            if (_view.btnSaveClose != null)
-            {
-                _view.btnSaveClose.onClick.AddListener(() =>
-                {
-                    SaveSettingsFromUI();
-                    Close();
-                });
-            }
-
-            if (_view.lblVersion != null)
-            {
-                string ver = string.IsNullOrWhiteSpace(Application.version) ? "0.0.1" : Application.version;
-                _view.lblVersion.text = $"Version {ver}";
-            }
-            BindToggle(_view.tglPowerSave);
-            BindToggle(_view.tglLowSpec);
-            BindToggle(_view.tglHideItem);
-            BindToggle(_view.tglDamageText);
-            BindToggle(_view.tglScreenShake);
-            if (_view.tglPush != null) _view.tglPush.gameObject.SetActive(false);
-            if (_view.tglNightPush != null) _view.tglNightPush.gameObject.SetActive(false);
-            if (_view.btnWithdraw != null) _view.btnWithdraw.gameObject.SetActive(false);
-            if (_view.btnSave != null) _view.btnSave.gameObject.SetActive(false);
-            if (_view.btnSaveClose != null)
-                _view.btnSaveClose.GetComponentInChildren<TMPro.TMP_Text>().text = "완료";
+            _view.lblVersion.text = "Version " + Application.version;
+            foreach (var control in new Component[] { _view.tglPush, _view.tglNightPush, _view.btnWithdraw, _view.btnSave })
+                if (control != null) control.gameObject.SetActive(false);
         }
-
-        private void BindToggle(UnityEngine.UI.Toggle toggle)
+        void BindToggle(Toggle toggle, string key)
         {
-            if (toggle != null) toggle.onValueChanged.AddListener(_ => SaveSettingsFromUI());
+            if (toggle == null) return;
+            toggle.onValueChanged.AddListener(on =>
+            {
+                PlayerPrefs.SetInt(key, on ? 1 : 0);
+                if (key == GamePresentationSettings.LowSpecKey) PlayerPrefs.SetInt("title_ambientMotion", on ? 0 : 1);
+                GamePresentationSettings.Apply();
+                if (key == UIManager.PrefKeyDamageText) DamageTextBridge.RefreshSettings();
+                PlayerPrefs.Save();
+            });
         }
-
-        private void ApplyVolumeToSystem()
+        void BindVolume(Slider slider, string key)
         {
-            if (_isMuted) AudioListener.volume = 0f;
-            else if (_view != null && _view.sldVolume != null) AudioListener.volume = _view.sldVolume.value;
+            if (slider == null) return;
+            slider.onValueChanged.AddListener(value =>
+            {
+                PlayerPrefs.SetFloat(key, Mathf.Round(value * 100) / 100f);
+                GameAudioSettings.Apply(); RefreshAudio();
+                // Flush on release, close and background, not every drag frame.
+            });
+            if (slider.GetComponent<SettingsVolumeCommit>() == null) slider.gameObject.AddComponent<SettingsVolumeCommit>();
         }
-
-        private void ApplyMuteVisual()
+        void Load()
         {
-            if (_view == null || _view.btnMuteBg == null) return;
-            // is-on 상태: 빨강 강조 (USS .settings-mute-btn.is-on 대응)
-            _view.btnMuteBg.color = _isMuted
-                ? UguiTheme.Bronze
-                : UguiTheme.RusticSurface;
-        }
-
-        private void LoadSettingsToUI()
-        {
-            if (_view == null) return;
-
-            float vol = PlayerPrefs.HasKey(UIManager.PrefKeyVolume) ? PlayerPrefs.GetFloat(UIManager.PrefKeyVolume) : 1f;
-            bool muted = PlayerPrefs.GetInt(UIManager.PrefKeyMute, 0) == 1;
-            bool powerSave = PlayerPrefs.GetInt(UIManager.PrefKeyPowerSave, 0) == 1;
-            bool hideItem = PlayerPrefs.GetInt(UIManager.PrefKeyHideItem, 0) == 1;
-            bool damageText = PlayerPrefs.GetInt(UIManager.PrefKeyDamageText, 1) == 1;
-            bool screenShake = PlayerPrefs.GetInt(UIManager.PrefKeyScreenShake, 1) == 1;
-            bool push = PlayerPrefs.GetInt(UIManager.PrefKeyPush, 0) == 1;
-            bool nightPush = PlayerPrefs.GetInt(UIManager.PrefKeyNightPush, 0) == 1;
-
-            if (_view.sldVolume != null) _view.sldVolume.SetValueWithoutNotify(vol);
-            _isMuted = muted;
-            ApplyMuteVisual();
-            ApplyVolumeToSystem();
-
-            if (_view.tglPowerSave != null) _view.tglPowerSave.SetIsOnWithoutNotify(powerSave);
-            if (_view.tglLowSpec != null) _view.tglLowSpec.SetIsOnWithoutNotify(GamePresentationSettings.LowSpec);
-            if (_view.tglHideItem != null) _view.tglHideItem.SetIsOnWithoutNotify(hideItem);
-            if (_view.tglDamageText != null) _view.tglDamageText.SetIsOnWithoutNotify(damageText);
-            if (_view.tglScreenShake != null) _view.tglScreenShake.SetIsOnWithoutNotify(screenShake);
-            if (_view.tglPush != null) _view.tglPush.SetIsOnWithoutNotify(push);
-            if (_view.tglNightPush != null) _view.tglNightPush.SetIsOnWithoutNotify(nightPush);
+            GamePresentationSettings.Apply(); GameAudioSettings.Apply(); NumberNotation.Load();
+            _isMuted = GameAudioSettings.Muted;
+            _view.sldVolume.SetValueWithoutNotify(GameAudioSettings.Master);
+            _view.sldMusic?.SetValueWithoutNotify(GameAudioSettings.Music);
+            _view.sldEffects?.SetValueWithoutNotify(GameAudioSettings.Effects);
+            _view.tglPowerSave.SetIsOnWithoutNotify(GamePresentationSettings.PowerSave);
+            _view.tglLowSpec.SetIsOnWithoutNotify(GamePresentationSettings.LowSpec);
+            _view.tglHideItem.SetIsOnWithoutNotify(GamePresentationSettings.HideItemNotifications);
+            _view.tglDamageText.SetIsOnWithoutNotify(PlayerPrefs.GetInt(UIManager.PrefKeyDamageText, 1) == 1);
+            _view.tglScreenShake.SetIsOnWithoutNotify(GamePresentationSettings.ScreenShake);
+            _view.tglKeepAwake?.SetIsOnWithoutNotify(GamePresentationSettings.KeepAwake);
             foreach (var toggle in _view.GetComponentsInChildren<ToggleSwitchView>(true)) toggle.Refresh();
-
-            bool connected = PlayFab.PlayFabClientAPI.IsClientLoggedIn();
-            if (_view.lblServer != null) _view.lblServer.text = "변경 사항은 자동으로 저장됩니다";
-            if (_view.btnGoogleChip != null)
-            {
-                var label = _view.btnGoogleChip.GetComponentInChildren<TMPro.TMP_Text>();
-                if (label != null) label.text = connected ? "온라인 계정 연결" : "오프라인 · 계정 미연결";
-                _view.btnGoogleChip.interactable = false;
-            }
+            _view.lblServer.text = "변경 즉시 적용 · 자동 저장";
+            _view.btnGoogleChip.interactable = false;
+            _view.btnGoogleChip.GetComponentInChildren<TMP_Text>().text = "진행 데이터는 현재 기기에 저장됩니다";
+            RefreshAudio(); RefreshNotation();
         }
-
-        private void SaveSettingsFromUI()
+        void RefreshAudio()
         {
-            if (_view == null) return;
-
-            if (_view.sldVolume != null) PlayerPrefs.SetFloat(UIManager.PrefKeyVolume, _view.sldVolume.value);
-            PlayerPrefs.SetInt(UIManager.PrefKeyMute, _isMuted ? 1 : 0);
-            if (_view.tglPowerSave != null) PlayerPrefs.SetInt(UIManager.PrefKeyPowerSave, _view.tglPowerSave.isOn ? 1 : 0);
-            if (_view.tglLowSpec != null)
+            _view.btnMuteBg.color = _isMuted ? UguiTheme.Bronze : UguiTheme.RusticSurface;
+            _view.btnMute.GetComponentInChildren<TMP_Text>().text = _isMuted ? "음소거 켬" : "음소거 끔";
+            if (_view.lblVolume != null) _view.lblVolume.text = Mathf.RoundToInt(GameAudioSettings.Master * 100) + "%";
+            if (_view.lblMusic != null) _view.lblMusic.text = Mathf.RoundToInt(GameAudioSettings.Music * 100) + "%";
+            if (_view.lblEffects != null) _view.lblEffects.text = Mathf.RoundToInt(GameAudioSettings.Effects * 100) + "%";
+        }
+        void RefreshNotation()
+        {
+            string[] titles = { "K / M / B", "만 / 억 / 조", "지수 e" };
+            for (int i = 0; _view.numberButtons != null && i < _view.numberButtons.Length; i++)
             {
-                PlayerPrefs.SetInt(GamePresentationSettings.LowSpecKey, _view.tglLowSpec.isOn ? 1 : 0);
-                PlayerPrefs.SetInt("title_ambientMotion", _view.tglLowSpec.isOn ? 0 : 1);
+                bool selected = i == (int)NumberNotation.Style;
+                var button = _view.numberButtons[i];
+                button.GetComponent<Image>().color = selected ? UguiTheme.Bronze : UguiTheme.RusticSurface;
+                button.GetComponentInChildren<TMP_Text>().text = titles[i] + (selected ? "\n선택됨" : "\n선택");
             }
-            if (_view.tglHideItem != null) PlayerPrefs.SetInt(UIManager.PrefKeyHideItem, _view.tglHideItem.isOn ? 1 : 0);
-            if (_view.tglDamageText != null)
-            {
-                PlayerPrefs.SetInt(UIManager.PrefKeyDamageText, _view.tglDamageText.isOn ? 1 : 0);
-                DamageTextBridge.RefreshSettings(); // 매니저의 캐시된 토글 즉시 반영
-            }
-            if (_view.tglScreenShake != null) PlayerPrefs.SetInt(UIManager.PrefKeyScreenShake, _view.tglScreenShake.isOn ? 1 : 0);
-            if (_view.tglPush != null) PlayerPrefs.SetInt(UIManager.PrefKeyPush, _view.tglPush.isOn ? 1 : 0);
-            if (_view.tglNightPush != null) PlayerPrefs.SetInt(UIManager.PrefKeyNightPush, _view.tglNightPush.isOn ? 1 : 0);
-            PlayerPrefs.Save();
-            GamePresentationSettings.Apply();
+            if (_view.numberPreview != null)
+                _view.numberPreview.text = "표시 예시   " + NumberNotation.Format(12345) + "  ·  " + NumberNotation.Format(1234567890L) +
+                    "\n재화 · 피해 · 능력치에 적용";
+            if (_view.numberHint != null) _view.numberHint.text = (NumberNotation.Style == NumberStyle.Standard ? "1,000배마다 K → M → B → T → Qa → Qi" :
+                NumberNotation.Style == NumberStyle.Korean ? "10,000배마다 만 → 억 → 조 → 경" : "e는 10의 거듭제곱 · 1e6 = 1,000,000") + "\n정확한 재화는 상단 재화를 눌러 확인";
         }
     }
 }

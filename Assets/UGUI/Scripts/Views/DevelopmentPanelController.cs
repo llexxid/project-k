@@ -37,6 +37,7 @@ namespace KingdomIdle.UGUI
             if (view == null) return;
 
             _view = view;
+            NumberNotationBinding.Bind(view, Refresh);
             if (_view.content == null) return;
 
             // 패널이 닫히면 뷰 참조 해제 (통화 이벤트 구독은 원본과 동일하게 유지하되
@@ -113,7 +114,7 @@ namespace KingdomIdle.UGUI
             // 보유 골드 바 (.ka-dev-gold-bar: 26px gold bold) — 텍스트만 갱신
             EconomyBridge.TryGetAmount(eCurrency.Gold, out long gold);
             if (body.goldLabel != null)
-                body.goldLabel.text = $"보유 골드  {gold:N0} G";
+                body.goldLabel.text = $"보유 골드  {NumberNotation.Format(gold)} G";
 
             var mgr = StatEnhanceManager.Instance;
             if (Cards.Count == 0)
@@ -132,7 +133,7 @@ namespace KingdomIdle.UGUI
                     int count = PullCounts[i]; long cost = mgr.GetCost(card.Type, count);
                     int actual = count < 0 ? BalanceMath.AffordableGoldLevels(mgr.GetLevel(card.Type), gold) : System.Math.Min(count,300-mgr.GetLevel(card.Type));
                     card.Buttons[i].Set(mgr.IsEnhancing ? "강화 처리 중…" : (count < 0 ? $"최대 {actual}회" : $"{actual}회 강화"),
-                        cost < 0 ? "강화 한도" : $"{cost:N0} 골드",
+                        cost < 0 ? "강화 한도" : $"{NumberNotation.Format(cost)} 골드",
                         !mgr.IsEnhancing && cost >= 0 && actual > 0 && gold >= cost);
                 }
             }
@@ -218,7 +219,7 @@ namespace KingdomIdle.UGUI
                     if (pull != null)
                     {
                         binding.Buttons.Add(pull);
-                        pull.Set($"강화 x{count}", $"{cost:N0} G", canAfford, null);
+                        pull.Set($"강화 x{count}", $"{NumberNotation.Format(cost)} G", canAfford, null);
                         pull.Button.onClick.AddListener(() => OnEnhanceClicked(capturedType, capturedCount));
                         continue;
                     }
@@ -231,7 +232,7 @@ namespace KingdomIdle.UGUI
                     var ab = abGo.GetComponent<ActionButtonView>();
                     if (ab != null)
                     {
-                        ab.Set($"강화 x{count} ({cost:N0}G)", UguiTheme.BtnSpend, canAfford);
+                        ab.Set($"강화 x{count} ({NumberNotation.Format(cost)}G)", UguiTheme.BtnSpend, canAfford);
                         ab.OnClick(() => OnEnhanceClicked(capturedType, capturedCount));
                     }
                 }

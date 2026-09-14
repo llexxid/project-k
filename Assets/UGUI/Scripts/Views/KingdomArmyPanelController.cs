@@ -71,6 +71,7 @@ namespace KingdomIdle.UGUI
             if (view == null) return;
 
             _view = view;
+            NumberNotationBinding.Bind(view, Refresh);
             if (_view.memberTabs == null || _view.content == null || _view.navBar == null) return;
 
             view.OnClosed = () =>
@@ -246,7 +247,7 @@ namespace KingdomIdle.UGUI
 
             // 직업명 + 칩 값
             if (sheet.jobLabel != null) sheet.jobLabel.text = JobData.GetDisplayName(ps.JobName);
-            if (sheet.atkValueLabel != null) sheet.atkValueLabel.text = ps.Atk.ToString("N0");
+            if (sheet.atkValueLabel != null) sheet.atkValueLabel.text = NumberNotation.Format(ps.Atk);
             if (sheet.moveValueLabel != null) sheet.moveValueLabel.text = ps.MovSpeed.ToString();
             UpdateHpBar(player, sheet);
 
@@ -280,7 +281,7 @@ namespace KingdomIdle.UGUI
             {
                 if (equipped != null)
                 {
-                    sheet.equippedLabel.text = $"{equipped.baseData.equipmentName} +{equipped.enhancementLevel} (ATK +{equipped.GetFinalAtk()})";
+                    sheet.equippedLabel.text = $"{equipped.baseData.equipmentName} +{equipped.enhancementLevel} (ATK +{NumberNotation.Format(equipped.GetFinalAtk())})";
                     sheet.equippedLabel.color = StatLineColor;
                 }
                 else
@@ -320,7 +321,7 @@ namespace KingdomIdle.UGUI
                 sheet.hpFill.color = Color.Lerp(low, full, Mathf.SmoothStep(0f, 1f, ratio));
             }
             if (sheet.hpValueLabel != null)
-                sheet.hpValueLabel.text = $"{curHp:N0} / {maxHp:N0}";
+                sheet.hpValueLabel.text = $"{NumberNotation.Format(curHp)} / {NumberNotation.Format(maxHp)}";
         }
 
         /// <summary>스탯 블록 롤다운 토글.</summary>
@@ -344,14 +345,14 @@ namespace KingdomIdle.UGUI
             string kind = atk ? "공격력" : "체력";
 
             AddOperator(container, "(");
-            AddTerm(sheet, container, b.Base.ToString("N0"), $"전직 기본 {kind}");
-            if (b.Equip != 0) { AddOperator(container, "+"); AddTerm(sheet, container, b.Equip.ToString("N0"), $"장비 {kind}"); }
-            if (b.Passive != 0) { AddOperator(container, "+"); AddTerm(sheet, container, b.Passive.ToString("N0"), $"패시브 {kind}"); }
+            AddTerm(sheet, container, NumberNotation.Format(b.Base), $"전직 기본 {kind}");
+            if (b.Equip != 0) { AddOperator(container, "+"); AddTerm(sheet, container, NumberNotation.Format(b.Equip), $"장비 {kind}"); }
+            if (b.Passive != 0) { AddOperator(container, "+"); AddTerm(sheet, container, NumberNotation.Format(b.Passive), $"패시브 {kind}"); }
             AddOperator(container, ")");
             if (b.HasBuff) { AddOperator(container, "×"); AddTerm(sheet, container, (1m+b.AuraRate+b.AccountRate+b.ReincarnationRate).ToString("0.###"), $"가산 보너스: 오라 {b.AuraRate:P1} + 계정 {b.AccountRate:P1} + 환생 {b.ReincarnationRate:P1}"); }
             if (b.HasEnhance) { AddOperator(container, "×"); AddTerm(sheet, container, b.GrowthMultiplier.ToString("0.###"), $"골드 강화: 레벨당 1.025배 누적"); }
             AddOperator(container, "=");
-            AddTerm(sheet, container, b.Final.ToString("N0"), $"최종 {kind}");
+            AddTerm(sheet, container, NumberNotation.Format(b.Final), $"최종 {kind}");
         }
 
         private static void AddTerm(KACharacterSheetView sheet, RectTransform container, string text, string explanation)
@@ -452,7 +453,7 @@ namespace KingdomIdle.UGUI
                 if (equip.equippedStatLabel != null)
                 {
                     equip.equippedStatLabel.gameObject.SetActive(true);
-                    equip.equippedStatLabel.text = $"ATK +{equipped.GetFinalAtk()}  HP +{equipped.GetFinalMaxHP()}";
+                    equip.equippedStatLabel.text = $"ATK +{NumberNotation.Format(equipped.GetFinalAtk())}  HP +{NumberNotation.Format(equipped.GetFinalMaxHP())}";
                 }
                 if (equip.unequipButton != null)
                 {
@@ -522,7 +523,7 @@ namespace KingdomIdle.UGUI
 
             string enhStr = item.enhancementLevel > 0 ? $" +{item.enhancementLevel}" : "";
             string name = $"{item.baseData.equipmentName}{enhStr}";
-            string sub = $"ATK +{item.GetFinalAtk()}  HP +{item.GetFinalMaxHP()}";
+            string sub = $"ATK +{NumberNotation.Format(item.GetFinalAtk())}  HP +{NumberNotation.Format(item.GetFinalMaxHP())}";
             var rarityColor = UguiTheme.RarityColor(item.baseData.rarity);
 
             InstantiateEquipCell(grid, item.baseData.icon, name, rarityColor, sub, rarityColor,
@@ -579,8 +580,8 @@ namespace KingdomIdle.UGUI
 
             if (detail.nameLabel != null) detail.nameLabel.text = $"{item.baseData.equipmentName}{enhStr}";
             if (detail.rarityLabel != null) detail.rarityLabel.text = $"등급: {rarityStr}";
-            if (detail.atkLabel != null) detail.atkLabel.text = $"공격력 보너스: +{item.GetFinalAtk()}";
-            if (detail.hpLabel != null) detail.hpLabel.text = $"HP 보너스: +{item.GetFinalMaxHP()}";
+            if (detail.atkLabel != null) detail.atkLabel.text = $"공격력 보너스: +{NumberNotation.Format(item.GetFinalAtk())}";
+            if (detail.hpLabel != null) detail.hpLabel.text = $"HP 보너스: +{NumberNotation.Format(item.GetFinalMaxHP())}";
             if (detail.enhanceLabel != null) detail.enhanceLabel.text = $"강화 레벨: {item.enhancementLevel} / {item.baseData.maxEnhancementLevel}";
             if (detail.equippedNowLabel != null) detail.equippedNowLabel.gameObject.SetActive(isEquipped);
 
@@ -734,7 +735,7 @@ namespace KingdomIdle.UGUI
             int nextAtk = item.baseData.bonusAtk + (int)(item.baseData.bonusAtk * item.baseData.atkGrowthPerLevel * (item.enhancementLevel + 1));
             int nextHP = item.baseData.bonusMaxHP + (int)(item.baseData.bonusMaxHP * item.baseData.hpGrowthPerLevel * (item.enhancementLevel + 1));
             if (detail.expectedLabel != null)
-                detail.expectedLabel.text = $"강화 시 예상: ATK +{item.GetFinalAtk()} → +{nextAtk}  HP +{item.GetFinalMaxHP()} → +{nextHP}";
+                detail.expectedLabel.text = $"강화 시 예상: ATK +{NumberNotation.Format(item.GetFinalAtk())} → +{NumberNotation.Format(nextAtk)}  HP +{NumberNotation.Format(item.GetFinalMaxHP())} → +{NumberNotation.Format(nextHP)}";
         }
 
         // ══════════════════════════════════════
@@ -820,7 +821,7 @@ namespace KingdomIdle.UGUI
 
             if (jc.bannerValue != null)
             {
-                jc.bannerValue.text = $"{ownedFrags:N0}";
+                jc.bannerValue.text = $"{NumberNotation.Format(ownedFrags)}";
                 jc.bannerValue.color = ownedFrags >= fragCost ? UguiTheme.SuccessGreenBright : UguiTheme.AccentGoldStrong;
             }
             if (jc.bannerHint != null) jc.bannerHint.text = "1차 40 · 2차 120 · 해금 후 무료";
@@ -893,10 +894,10 @@ namespace KingdomIdle.UGUI
             else if (fragReady) { badgeText = "전직가능"; badgeColor = UguiTheme.SuccessGreenBright; }
             else { badgeText = isElite ? "2차" : "1차"; badgeColor = new Color(1f, 1f, 1f, 0.55f); }
 
-            string statText = $"HP {job.maxHP} / ATK {job.atk}";
+            string statText = $"HP {NumberNotation.Format(job.maxHP)} / ATK {NumberNotation.Format(job.atk)}";
             string fragText; Color fragColor;
             if (isUnlocked) { fragText = "무료 재전직"; fragColor = UguiTheme.SuccessGreenBright; }
-            else { fragText = $"전직 파편 {owned}/{cost}"; fragColor = fragReady ? UguiTheme.SuccessGreenBright : UguiTheme.AccentGoldStrong; }
+            else { fragText = $"전직 파편 {NumberNotation.Format(owned)}/{NumberNotation.Format(cost)}"; fragColor = fragReady ? UguiTheme.SuccessGreenBright : UguiTheme.AccentGoldStrong; }
             string prereqText = !prereqMet ? $"{JobData.GetDisplayName(prereq)} 전직 필요" : null;
 
             var capturedJob = job;
@@ -993,7 +994,7 @@ namespace KingdomIdle.UGUI
                 if (detail.fragCondRow != null) detail.fragCondRow.gameObject.SetActive(true);
                 if (detail.fragCondValue != null)
                 {
-                    detail.fragCondValue.text = $"{owned} / {cost}";
+                    detail.fragCondValue.text = $"{NumberNotation.Format(owned)} / {NumberNotation.Format(cost)}";
                     detail.fragCondValue.color = owned >= cost ? UguiTheme.SuccessGreenBright : UguiTheme.TextPrimary;
                 }
 
@@ -1039,13 +1040,13 @@ namespace KingdomIdle.UGUI
             }
             else if (canChange)
             {
-                btnText = $"전직하기 (파편 {cost}개)";
+                btnText = $"전직하기 (파편 {NumberNotation.Format(cost)}개)";
                 btnColor = UguiTheme.BtnSpend;
                 btnEnabled = true;
             }
             else
             {
-                btnText = $"전직 파편 부족 ({owned}/{cost})";
+                btnText = $"전직 파편 부족 ({NumberNotation.Format(owned)}/{NumberNotation.Format(cost)})";
                 btnColor = UguiTheme.DisabledGrey;
                 btnEnabled = false;
             }
@@ -1099,11 +1100,11 @@ namespace KingdomIdle.UGUI
                 bool isUp = diff > 0m;
                 bool isGood = isUp == higherIsBetter;
                 string arrow = isUp ? "+" : "-";
-                diffText = $"{arrow}{System.Math.Abs(diff):0.##}{suffix}";
+                diffText = $"{arrow}{NumberNotation.Format(System.Math.Abs(diff))}{suffix}";
                 diffColor = isGood ? UguiTheme.SuccessGreenBright : UguiTheme.WarnRed;
             }
 
-            AddCompareRow(table, name, $"{curVal:0.##}{suffix}", $"{newVal:0.##}{suffix}", diffText,
+            AddCompareRow(table, name, $"{NumberNotation.Format(curVal)}{suffix}", $"{NumberNotation.Format(newVal)}{suffix}", diffText,
                 new Color(1f, 1f, 1f, 0.85f), diffColor, isHead: false);
         }
 

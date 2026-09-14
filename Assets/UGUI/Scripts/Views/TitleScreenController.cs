@@ -20,6 +20,10 @@ namespace KingdomIdle.UGUI
             _host = host;
             _requestedScene = false;
             if (SFXManager.Instance != null) SFXManager.Instance.PlayBGM(eSFXType.TITLE);
+            if (_view.btnSettings != null) _view.btnSettings.onClick.AddListener(() =>
+            {
+                HideLoginPopup(); _view.presentation?.CloseLanguagePopup(); _host.OpenSettings();
+            });
 
             if (_view.btnLogin != null && _view.popupLogin != null)
                 _view.btnLogin.onClick.AddListener(ShowLoginPopup);

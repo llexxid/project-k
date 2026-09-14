@@ -77,7 +77,11 @@ namespace KingdomIdle.Balance
                 return true;
             });
             if (!ok) { UnityEngine.Time.timeScale = 0; KingdomIdle.UGUI.UIManager.Instance?.ShowToast("보상 저장에 실패해 전투를 멈췄습니다. 저장 공간 확인 후 재접속해 주세요."); }
-            if (ok && drop != null) EquipmentManager.Instance?.RestoreEquipment();
+            if (ok && drop != null)
+            {
+                EquipmentManager.Instance?.RestoreEquipment();
+                KingdomIdle.UGUI.UIManager.Instance?.NotifyFieldEquipment(drop.Code);
+            }
             return ok;
         }
         public static bool Clear(StageSession session)

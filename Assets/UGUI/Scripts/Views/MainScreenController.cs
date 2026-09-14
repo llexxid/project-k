@@ -59,6 +59,7 @@ namespace KingdomIdle.UGUI
             catch (Exception ex) { Debug.LogError($"MainScreen.WaveUIController.Init failed: {ex}"); }
 
             _host.FrameTick += OnFrameTick;
+            NumberNotationBinding.Bind(view, RefreshTopCurrencyLabels);
             _host.PanelStackChanged += RefreshTabButtonSelection;
             RefreshTabButtonSelection();
 
@@ -350,6 +351,7 @@ namespace KingdomIdle.UGUI
         }
 
         private long _prevGold = -1, _prevAncient = -1;
+        private int _numberRevision = -1;
 
         private void RefreshTopCurrencyLabels()
         {
@@ -359,47 +361,22 @@ namespace KingdomIdle.UGUI
             long gold = GetCurrencyAmount(eCurrency.Gold);
             long ancient = GetCurrencyAmount(eCurrency.AncientCoin);
 
-            if (_view.lblGold != null)
+            if (_view.lblGold != null && (_prevGold != gold || _numberRevision != NumberNotation.Revision))
             {
                 _view.lblGold.text = FormatChipAmount(gold);
                 if (_prevGold >= 0 && gold != _prevGold && _view.btnCurrency != null)
                     UITween.Punch(_view.btnCurrency.transform as RectTransform);
             }
-            if (_view.lblAncientCoin != null)
+            if (_view.lblAncientCoin != null && (_prevAncient != ancient || _numberRevision != NumberNotation.Revision))
             {
                 _view.lblAncientCoin.text = FormatChipAmount(ancient);
                 if (_prevAncient >= 0 && ancient != _prevAncient && _view.btnAncientCoin != null)
                     UITween.Punch(_view.btnAncientCoin.transform as RectTransform);
             }
-            _prevGold = gold; _prevAncient = ancient;
+            _prevGold = gold; _prevAncient = ancient; _numberRevision = NumberNotation.Revision;
         }
 
-        /// <summary>
-        /// 상단바 칩 전용 축약 표기 — 칩 값 영역이 120px 뿐이라 100만("1,000,000"=약 150px)부터
-        /// 말줄임(…)이 났다. 한국식 단위(만/억/조)로 줄이고, 그 아래는 기존 콤마 표기 유지.
-        /// 재화 드롭다운(420px)은 정확한 값이 중요해 계속 N0 를 쓴다(GetCurrencyText).
-        /// </summary>
-        internal static string FormatChipAmount(long amount)
-        {
-            const long Man = 10_000L;          // 만
-            const long Eok = 100_000_000L;     // 억
-            const long Jo = 1_000_000_000_000L; // 조
-
-            if (amount < Man)
-                return amount.ToString("N0");
-            if (amount < Eok)
-                return TrimUnit(amount / (double)Man, "만");
-            if (amount < Jo)
-                return TrimUnit(amount / (double)Eok, "억");
-            return TrimUnit(amount / (double)Jo, "조");
-        }
-
-        private static string TrimUnit(double value, string unit)
-        {
-            // 세 자리까지는 소수 1자리, 그 이상은 정수 — "128.4만", "1,234만", "1.2억"
-            string body = value < 1000 ? value.ToString("0.#") : value.ToString("N0");
-            return body + unit;
-        }
+        internal static string FormatChipAmount(long amount) => NumberNotation.Format(amount);
 
         private long GetCurrencyAmount(eCurrency c)
         {
@@ -411,7 +388,7 @@ namespace KingdomIdle.UGUI
         {
             if (_wallet == null) return "0";
             if (WalletLocator.TryGetAmount(_wallet, currency, out long amount))
-                return amount.ToString("N0");
+                return NumberNotation.Exact(amount);
             return "0";
         }
 
@@ -454,7 +431,7 @@ namespace KingdomIdle.UGUI
         {
             bool isPremium = c == eCurrency.AncientCoin;
             if (premium) return isPremium;
-            return c == eCurrency.Gold || c == eCurrency.ArcaneKnowledge || c == eCurrency.ClassFragment;
+            return c == eCurrency.Gold || c == eCurrency.ArcaneKnowledge || c == eCurrency.ClassFragment || c == eCurrency.Ruby;
         }
 
         private void AddCurrencyLine(RectTransform parent, Sprite icon, string name, string value, bool isTitle)
@@ -483,6 +460,7 @@ namespace KingdomIdle.UGUI
                 case eCurrency.AncientCoin: return "고대주화";
                 case eCurrency.ArcaneKnowledge: return "비전지식";
                 case eCurrency.ClassFragment: return "전직 파편";
+                case eCurrency.Ruby: return "루비";
                 default: return c.ToString();
             }
         }
@@ -710,7 +688,7 @@ namespace KingdomIdle.UGUI
                     if (!string.IsNullOrWhiteSpace(nick) && _profileView.nameLabel != null) _profileView.nameLabel.text = nick;
                     if (_profileView.levelLabel != null) _profileView.levelLabel.text = level.ToString();
                     if (_profileView.kingdomLevelLabel != null) _profileView.kingdomLevelLabel.text = $"Lv. {level}";
-                    if (_profileView.powerLabel != null) _profileView.powerLabel.text = power.ToString("N0");
+                    if (_profileView.powerLabel != null) _profileView.powerLabel.text = NumberNotation.Format(power);
                 }
             }
             catch (Exception ex) { Debug.LogWarning($"PopulateProfilePopup: {ex.Message}"); }
