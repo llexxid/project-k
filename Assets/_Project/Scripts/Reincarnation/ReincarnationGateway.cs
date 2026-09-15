@@ -82,6 +82,5 @@ namespace Reincarnation
             if (_stageManager == null) return false;
             return _stageManager.TryResetMainProgress();
         }
-
     }
 }

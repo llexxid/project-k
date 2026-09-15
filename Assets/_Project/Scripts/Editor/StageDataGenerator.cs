@@ -15,12 +15,12 @@ using UnityEngine;
 namespace Scripts.Core.Parser
 {
     /// <summary>
-    /// personalDocs/Stage_Revised.xlsx를 StageDatabaseSO와 eStage enum으로 변환한다.
+    /// Assets/_Project/Scripts/Stage_Revised.xlsx를 StageDatabaseSO와 eStage enum으로 변환한다.
     /// 런타임에서는 엑셀을 읽지 않으며, 기획 데이터가 바뀔 때 이 메뉴를 다시 실행하면 된다.
     /// </summary>
     public static class StageDataGenerator
     {
-        private const string ExcelRelativePath = "personalDocs/Stage_Revised.xlsx";
+        private const string ExcelRelativePath = "Assets/_Project/Scripts/Stage_Revised.xlsx";
         private const string DatabaseAssetPath = "Assets/_Project/ScriptableObjects/StageDatabaseSO.asset";
         private const string StageEnumAssetPath = "Assets/_Project/Scripts/Core/AutoGenEnum/StageEnum.cs";
 
