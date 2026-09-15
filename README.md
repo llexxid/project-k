@@ -4,6 +4,8 @@ Unity 모바일 방치 RPG. 엔진 버전은 `ProjectSettings/ProjectVersion.txt
 
 - [작업 지침](AGENTS.md): AI·개발 공통 행동 규칙.
 - [UGUI 구조](Assets/UGUI/README.md): 화면·프리팹·데이터 연결 및 검증 진입점.
+- [게임용 아트](Assets/_Project/Art/README.md): 캐릭터·몬스터·애니메이션·환경 프리팹 위치와 준비 상태.
+- [에셋 준비 카탈로그](Docs/ArtPreparation/README.md): 신규 몬스터, 환경 90개, 출처와 검증 기록.
 - [아트 실행 참고](AI/comfyui/README.md): ComfyUI 공정, 출력·출처 관리, 기존 제작 기록.
 - [신 스킬 모듈](Assets/DivineSkill/README.md): 데이터와 전투·UI 연결.
 
