@@ -14,7 +14,6 @@ public sealed class HpBarManager : MonoBehaviour
 
     [Header("World Position")]
     [SerializeField] private float worldGap = 0.15f;
-    [SerializeField] private Vector3 fallbackOffset = new(0f, 1.2f, 0f);
 
     private readonly Dictionary<Monster, Binding> _bindings = new();
     private readonly List<Monster> _pendingRemoval = new();
@@ -26,7 +25,6 @@ public sealed class HpBarManager : MonoBehaviour
     private sealed class Binding
     {
         public Monster Monster;
-        public SpriteRenderer Renderer;
         public GameObject HpBar;
         public RectTransform RectTransform;
         public Slider Slider;
@@ -118,7 +116,6 @@ public sealed class HpBarManager : MonoBehaviour
         Binding binding = new Binding
         {
             Monster = monster,
-            Renderer = monster.GetComponentInChildren<SpriteRenderer>(),
             HpBar = hpBar,
             RectTransform = rectTransform,
             Slider = slider
@@ -175,16 +172,7 @@ public sealed class HpBarManager : MonoBehaviour
     /// <param name="binding">갱신할 몬스터와 HP바 연결 정보.</param>
     private void UpdateScreenPosition(Binding binding)
     {
-        Vector3 worldPosition;
-        if (binding.Renderer != null)
-        {
-            Bounds bounds = binding.Renderer.bounds;
-            worldPosition = new Vector3(bounds.center.x, bounds.max.y + worldGap, bounds.center.z);
-        }
-        else
-        {
-            worldPosition = binding.Monster.transform.position + fallbackOffset;
-        }
+        Vector3 worldPosition = binding.Monster.HeadPosition + Vector3.up * worldGap;
 
         Vector3 screenPoint = _worldCamera.WorldToScreenPoint(worldPosition);
         bool isVisible = screenPoint.z > 0f &&

@@ -80,6 +80,8 @@ namespace Scripts.Core.Utils
 
 		public MonsterInfo GetMonsterInfo(eMonsterType type)
 		{
+			foreach (var info in StageCatalogRules.Database.CatalogMonsters)
+				if (info.Id == type) return new MonsterInfo(info.DisplayName, 0, 1, 1, info.MoveSpeed, info.AttackIntervalSec, 0);
 			MonsterInfo ret;
 			_monsterInfo.TryGetMonsterInfo(type, out ret);
 			return ret;
@@ -115,7 +117,7 @@ namespace Scripts.Core.Utils
             // 몬스터 태그 강제 설정 (PlayerDetection 인식 보장)
             monster.tag = "Enemy";
 
-			_monsterInfo.TryGetMonsterInfo(id, out MonsterInfo info);
+			MonsterInfo info = GetMonsterInfo(id);
 
 			// 배율을 적용해 몬스터 스탯 초기화
 			Monster.MonsterStat stat = new Monster.MonsterStat(

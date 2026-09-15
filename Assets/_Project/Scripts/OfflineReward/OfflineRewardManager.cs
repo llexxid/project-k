@@ -48,7 +48,7 @@ namespace KingdomIdle.OfflineRewards
                 if (s.LastActiveUtc != from) return false;
                 if (plan.HasReward)
                 {
-                    var reward = BalanceMath.MainEnemy((int)((s.OfflineStage >> 16) & 0xFFF), (int)(s.OfflineStage & 0xFFFF));
+                    var reward = Scripts.Core.StageCatalogRules.MainEnemy((int)((s.OfflineStage >> 16) & 0xFFF), (int)(s.OfflineStage & 0xFFFF));
                     gold = BalanceMath.WithRemainder(checked(reward.Gold * plan.estimatedKillCount), s.OfflineRubyGold, ref s.GoldRemainder);
                     exp = BalanceMath.WithRemainder(checked(reward.Experience * plan.estimatedKillCount), s.OfflineRubyExp, ref s.ExpRemainder);
                     LocalProgression.Credit(s, eCurrency.Gold, gold);

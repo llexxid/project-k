@@ -23,6 +23,7 @@ namespace KingdomIdle.UGUI.Editor
             bool keystore = PlayerSettings.Android.useCustomKeystore;
             bool bundle = EditorUserBuildSettings.buildAppBundle;
             var importMode = EditorSettings.refreshImportMode;
+            int importWorkers = EditorUserSettings.desiredImportWorkerCount;
             var architectures = PlayerSettings.Android.targetArchitectures;
             const string templatePath = "Assets/Plugins/Android/mainTemplate.gradle";
             byte[] templateBefore = File.ReadAllBytes(templatePath);
@@ -43,11 +44,19 @@ namespace KingdomIdle.UGUI.Editor
                     // Keep resolver imports in this process so its cached file handles
                     // can actually be released; import workers can retain their own mappings.
                     EditorSettings.refreshImportMode = AssetDatabase.RefreshImportMode.InProcess;
+                    // An idle worker can retain a mapped Gradle input from a previous build.
+                    // Ask Unity to close its workers before touching that file.
+                    EditorUserSettings.desiredImportWorkerCount = 0;
+                    AssetDatabase.ForceToDesiredWorkerCount();
                     AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
                     AssetDatabase.ReleaseCachedFileHandles();
                     PrepareArm64Exclusion(templatePath);
                     if (!GooglePlayServices.PlayServicesResolver.ResolveSync(true))
                         throw new InvalidOperationException("Android dependencies could not be resolved before the lobby QA build.");
+                    // EDM can emit the old AGP spelling. Unity 6000.3 migrates this same
+                    // token interactively; normalize it here so unattended QA does not stop.
+                    AssetDatabase.ReleaseCachedFileHandles();
+                    ReplaceTemplate(templatePath, System.Text.Encoding.UTF8.GetBytes(File.ReadAllText(templatePath).Replace("packagingOptions {", "packaging {")));
                 }
                 finally
                 {
@@ -82,10 +91,14 @@ namespace KingdomIdle.UGUI.Editor
                 PlayerSettings.Android.useCustomKeystore = keystore;
                 PlayerSettings.Android.targetArchitectures = architectures;
                 EditorUserBuildSettings.buildAppBundle = bundle;
-                EditorSettings.refreshImportMode = importMode;
                 AssetDatabase.SaveAssets();
                 AssetDatabase.ReleaseCachedFileHandles();
-                File.WriteAllBytes(templatePath, templateBefore);
+                try { ReplaceTemplate(templatePath, templateBefore); }
+                finally
+                {
+                    EditorSettings.refreshImportMode = importMode;
+                    EditorUserSettings.desiredImportWorkerCount = importWorkers;
+                }
             }
         }
 
@@ -104,7 +117,15 @@ namespace KingdomIdle.UGUI.Editor
             if (!block.Contains(arm) || block.Contains(armV7)) return;
             string newline = text.Contains("\r\n") ? "\r\n" : "\n";
             block = block.Replace(arm, arm + newline + armV7);
-            File.WriteAllText(path, text.Substring(0, start) + block + text.Substring(end));
+            ReplaceTemplate(path, System.Text.Encoding.UTF8.GetBytes(text.Substring(0, start) + block + text.Substring(end)));
+        }
+
+        static void ReplaceTemplate(string path, byte[] bytes)
+        {
+            if (File.ReadAllBytes(path).SequenceEqual(bytes)) return;
+            string temporary = path + ".qa-restore";
+            File.WriteAllBytes(temporary, bytes);
+            File.Replace(temporary, path, null);
         }
     }
 

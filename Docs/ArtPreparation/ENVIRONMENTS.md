@@ -1,12 +1,12 @@
 # 환경 프리셋 목록
 
-프리팹 자체가 편집 가능한 원본입니다. 각 Grid의 Ground, GroundDetails, Scenery Tilemap을 Unity Tile Palette로 수정할 수 있습니다. 3스테이지 18개 전체와 다른 풀 대표 12개를 3종 화면 비율로 렌더링해 검수했습니다. 현재 병과와 준비 몬스터의 실제 배율을 반영합니다. 자동 선택 코드는 포함하지 않습니다.
+각 프리팹의 Ground·GroundDetails·Scenery 타일맵을 Unity에서 편집합니다. `Stage_Catalog.xlsx`의 EnvironmentPresets 시트와 `StageBackgroundController`가 90개 프리셋을 선택합니다. 연결 방식은 [통합 안내](INTEGRATION.md), 실제 기기 결과는 [검증 기록](STAGE_INTEGRATION_VALIDATION.md)을 확인합니다.
 
-3스테이지는 버드나무·자작나무·고목과 하층 관목을 촘촘히 구성했습니다. 장식 2,033개에서 4,421개로 늘렸고 중앙 비우기 범위와 3 Tilemap 구조는 유지했습니다. 첫 수관 열은 8/24픽셀 단위로 가장자리에 정렬했습니다.
+3스테이지는 어두운 풀길과 촘촘한 버드나무·자작나무·관목으로 2스테이지와 구별합니다. 중앙 장식 제외 영역은 일반/특수 x ±2.1875, 보스 x ±2.625, y ±7입니다. 정확한 배치·시드·타일 수는 [환경 manifest](Manifests/environment-presets.json)에 있습니다.
 
-![2·3스테이지 비교](Previews/stage2-stage3-comparison.png)
+이전 [환경 갤러리](Previews/environment-gallery.png)와 [3스테이지 18종](Previews/stage3-preset-gallery.png)은 통합 전 PreviewScene 기록입니다. 현재 인게임 화면은 아래와 같습니다.
 
-[3스테이지 18종 전체](Previews/stage3-preset-gallery.png) · [전체 환경 대표](Previews/environment-gallery.png)
+![스테이지 실제 기기 비교](Previews/stages-device.png)
 
 | 풀 | 분류 | 이름·구도 | 프리팹 |
 |---|---|---|---|

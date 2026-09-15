@@ -94,13 +94,21 @@ namespace KingdomIdle.UGUI
         private object Snapshot()
         {
             var s=LocalProgression.State;var stage=StageManager.Instance;var players=UserManager.Instance?.GetPlayers();
+            var background=FindFirstObjectByType<StageBackgroundController>();
             return new {s.BalanceVersion,s.Revision,stage=stage==null?0:(long)stage.CurrentStage,runState=stage?.CurrentRunState.ToString(),s.MainStage,s.Kills,s.AccountLevel,s.Experience,s.Wallet,
                 s.AttackLevel,s.HealthLevel,s.RubyGoldLevel,s.RubyExpLevel,s.ReincarnationLevel,s.GoldTickets,s.RubyTickets,s.GoldDungeonClear,s.RubyDungeonClear,
                 s.OfflineKpm,s.OfflineStage,equipment=s.Equipment.Count,pending=s.PendingEquipment.Count,pity=s.EquipmentPity,claims=s.Claims.ToArray(),
                 party=players?.Select(p=>new{p.PlayerIndex,job=p.playerStatus.JobName,atk=p.playerStatus.Atk,hp=p.playerStatus.HP,maxHP=p.playerStatus.MaxHP,ratio=p.HPRatio,position=new[]{p.transform.position.x,p.transform.position.y,p.transform.position.z},action=p.CurrentAction.ToString(),target=p.currentTarget?.gameobj?.name}).ToArray(),
                 cp=CombatPowerCalculator.CalculatePartyPowerV1(players),mage=s.MageSkills,slot=s.MageSlots,
                 monsters=FindObjectsByType<Scripts.Monster.Monster>(FindObjectsSortMode.None).Where(m=>m.isActiveAndEnabled && m.MonAction!=eMonsterAction.Dead).Select(m=>new{type=m.Type.ToString(),m.BalanceReward,m.IsBalanceBoss,position=new[]{m.transform.position.x,m.transform.position.y,m.transform.position.z},hp=m.GetHpRatio(),action=m.MonAction.ToString(),colliders=m.GetComponentsInChildren<Collider2D>().Select(c=>c.enabled).ToArray()}).ToArray(),
+                visualBounds=FindObjectsByType<Scripts.Monster.Monster>(FindObjectsSortMode.None).Where(m=>m.isActiveAndEnabled && m.MonAction!=eMonsterAction.Dead).Select(m=>{
+                    var renderer=m.GetComponentInChildren<SpriteRenderer>();var camera=Camera.main;
+                    var min=renderer!=null && camera!=null?camera.WorldToViewportPoint(renderer.bounds.min):Vector3.zero;
+                    var max=renderer!=null && camera!=null?camera.WorldToViewportPoint(renderer.bounds.max):Vector3.zero;
+                    return new {type=m.Type.ToString(),min=new[]{min.x,min.y},max=new[]{max.x,max.y}};}).ToArray(),
                 memory=UnityEngine.Profiling.Profiler.GetTotalAllocatedMemoryLong(),meanFrameMs=_frames>0?_totalMs/_frames:0,maxFrameMs=_maxMs,frameCount=_frames,
+                environment=background==null?null:new {background.CurrentPoolId,background.CurrentPresetId,renderers=background.GetComponentsInChildren<Renderer>().Length},
+                catalogHash=StageCatalogRules.Database.CatalogHash,
                 lastError=LocalProgression.LastError};
         }
         private void Write(string id,object data)=>File.WriteAllText(Path.Combine(_directory,"balance-"+id+".json"),JsonConvert.SerializeObject(data,Formatting.Indented));

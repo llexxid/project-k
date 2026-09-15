@@ -128,9 +128,9 @@ public class EquipmentManager : MonoBehaviour
         });
         if (ok) { RestoreEquipment(); OnItemDropped?.Invoke(null); Scripts.Core.Manager.StageManager.Instance?.ResumeAfterInventory(); } return ok;
     }
-    public EquipmentSave RollFieldDrop(int stage)
+    public EquipmentSave RollFieldDrop(double probability)
     {
-        if (UnityEngine.Random.value >= .02f + .001f * (stage - 1)) return null;
+        if (UnityEngine.Random.value >= probability) return null;
         float roll = UnityEngine.Random.value;
         var items = GetByRarity(roll < .80f ? eEquipmentRarity.Normal : roll < .98f ? eEquipmentRarity.Rare : eEquipmentRarity.Epic);
         if (items.Count == 0) return null;

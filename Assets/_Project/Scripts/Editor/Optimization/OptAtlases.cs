@@ -29,19 +29,28 @@ namespace KingdomIdle.EditorTools.Optimization
             var log = new System.Text.StringBuilder();
 
             // --- Atlas_Characters : folders of character sprite sheets (pixel-art, Point) ---
-            var charPackables = LoadFolders(new[]
+            var charPackables = new[]
             {
-                "Assets/_Project/Scripts/Player/Job",
-                "Assets/_Project/Prefabs/Royal_Guard_Lancer",
-                "Assets/_Project/Art/Sprites/RoyalGuard/EliteArcher",
-            }, log);
+                "Assets/_Project/Art/Sprites/RoyalGuard/Arbalest/Royal Arbalest Sprite Sheet.png",
+                "Assets/_Project/Art/Sprites/RoyalGuard/Archer/Royal Archer Sprite Sheet.png",
+                "Assets/_Project/Art/Sprites/RoyalGuard/EliteArcher/AnimationSheets/Elite Archer Sprite Sheet.png",
+                "Assets/_Project/Art/Sprites/RoyalGuard/EliteKnight/Attack Sprite Sheet.png",
+                "Assets/_Project/Art/Sprites/RoyalGuard/EliteKnight/Elite Knight Sprite Sheet.png",
+                "Assets/_Project/Art/Sprites/RoyalGuard/EliteMage/Blast Spell Sprite Sheet.png",
+                "Assets/_Project/Art/Sprites/RoyalGuard/EliteMage/Elite Mage Sprite Sheet.png",
+                "Assets/_Project/Art/Sprites/RoyalGuard/Knight/Royal Knight - Alternate 2 Sprite Sheet.png",
+                "Assets/_Project/Art/Sprites/RoyalGuard/Mage/Royal Mage Sprite Sheet.png",
+                "Assets/_Project/Art/Sprites/RoyalGuard/Spearman/Royal Spearman Sprite Sheet.png",
+                "Assets/_Project/Art/Sprites/RoyalGuard/Lancer/Royal Guard Sprite Sheet.png",
+                "Assets/_Project/Art/Sprites/RoyalGuard/EliteArcher/UiSprites/Elite Archer Sprite Sheet.png",
+            }.Select(AssetDatabase.LoadMainAssetAtPath).Where(asset => asset != null).ToList();
             BuildAtlas($"{AtlasDir}/Atlas_Characters.spriteatlasv2", true, FilterMode.Point,
                 TextureImporterFormat.ASTC_4x4, padding: 4, tight: false, charPackables, log);
 
             // --- Atlas_Equipment : equipment rarity icon sheets (pixel-art UI, Point) ---
             var equipPackables = LoadFolders(new[]
             {
-                "Assets/_Project/Scripts/Player/Equipment/Sprite",
+                "Assets/_Project/Art/Sprites/Equipment/SourceSheets",
             }, log);
             BuildAtlas($"{AtlasDir}/Atlas_Equipment.spriteatlasv2", true, FilterMode.Point,
                 TextureImporterFormat.ASTC_4x4, padding: 4, tight: false, equipPackables, log);

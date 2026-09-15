@@ -11,7 +11,7 @@ public class StageSpawnController
 {
     private StageSession _session;
     private MonsterSpawnLocationSO _locations;
-    private readonly Queue<(eMonsterType type, bool ranged)> _queue = new();
+    private readonly Queue<StageMonsterEntry> _queue = new();
     private Monster _boss;
     private float _wait;
     private int _spawned;
@@ -19,12 +19,16 @@ public class StageSpawnController
     {
         if (session == null || locations == null || locations.GetLocationCount() <= 0) return false;
         _session = session; _locations = locations; _queue.Clear(); _spawned = 0; _wait = 0;
-        int entryIndex = 0;
-        foreach (var entry in session.Definition.MonsterEntries)
+        var entries = session.Definition.MonsterEntries;
+        int largestCount = 0;
+        foreach (var entry in entries)
         {
-            for (int i = 0; i < entry.Count; i++) _queue.Enqueue((entry.MonsterType, entryIndex > 0));
-            entryIndex++;
+            if (!entry.Combat.IsValid) throw new InvalidOperationException("Stage combat data is missing. Regenerate Stage_Catalog.");
+            largestCount = Mathf.Max(largestCount, entry.Count);
         }
+        // Mix the authored roles in each live batch without changing their total counts.
+        for (int i = 0; i < largestCount; i++)
+            foreach (var entry in entries) if (i < entry.Count) _queue.Enqueue(entry);
         Fill(); return true;
     }
     public void Tick(float delta)
@@ -34,30 +38,29 @@ public class StageSpawnController
         if (kind != eStageType.Main)
         {
             if (_session.RemainingMonsterCount > 0) return;
-            if (kind == eStageType.RubyDungeon) _session.TimerRunning = false;
+            if (_session.Definition.Encounter.ResetTimerPerEnemy) _session.TimerRunning = false;
             _wait += delta;
-            if (_wait < (kind == eStageType.RubyDungeon ? .8f : .3f)) return;
+            if (_wait < _session.Definition.Encounter.BatchDelaySec) return;
         }
         Fill();
     }
     private void Fill()
     {
         var d = _session.Definition;
-        int cap = d.Type == eStageType.Main ? 6 : d.Type == eStageType.GoldDungeon ? 5 : 1;
+        int cap = d.LoopSpawnAliveThreshold;
         while (_queue.Count > 0 && _session.RemainingMonsterCount < cap)
         {
             var entry = _queue.Peek();
             _locations.TryGetPos(UnityEngine.Random.Range(0, _locations.GetLocationCount()), out Vector2 position);
-            MonsterSpawner.Instance.SpawnMonster(entry.type, 1, position, Quaternion.identity, out var monster);
-            if (monster == null) throw new InvalidOperationException("Stage monster resource unavailable: " + entry.type);
+            position = CombatViewport.Spawn(position, entry.IsBoss);
+            MonsterSpawner.Instance.SpawnMonster(entry.MonsterType, 1, position, Quaternion.identity, out var monster);
+            if (monster == null) throw new InvalidOperationException("Stage monster resource unavailable: " + entry.MonsterType);
             if (_spawned == 0 && !BattleEconomy.Begin(_session)) { MonsterSpawner.Instance.ReleaseMonster(monster.Type,monster); throw new InvalidOperationException("Battle could not be committed."); }
-            bool boss = d.Type == eStageType.RubyDungeon || (d.Type == eStageType.Main && d.WaveNumber == 11);
-            var numbers = d.Type == eStageType.Main ? BalanceMath.MainEnemy(d.StageNumber, d.WaveNumber) :
-                d.Type == eStageType.GoldDungeon ? BalanceMath.Mimic(d.StageNumber) : BalanceMath.RubyBoss(d.StageNumber, _spawned);
-            monster.ApplyBalance(numbers, boss, entry.ranged, d.Type == eStageType.GoldDungeon);
+            bool boss = entry.IsBoss;
+            monster.ApplyBalance(entry.Combat.Numbers, boss, entry.IsRanged, d.Type == eStageType.GoldDungeon, entry.Combat.MoveSpeed, entry.Combat.AttackIntervalSec);
             _session.RegisterMonster(monster); if (boss) _boss = monster;
             _queue.Dequeue(); _spawned++; _wait = 0;
-            if (d.Type == eStageType.RubyDungeon) _session.SetTimeLimit(30);
+            if (d.Encounter.ResetTimerPerEnemy) _session.SetTimeLimit(d.TimeLimitSec);
         }
         if (_queue.Count == 0) _session.CompleteSpawning();
     }

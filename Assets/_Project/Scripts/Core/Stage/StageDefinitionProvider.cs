@@ -73,7 +73,8 @@ public sealed class StageDefinitionProvider : IStageDefinitionProvider
             rewardGroupId: record.RewardGroupId,
             bgmType: record.HasBgm ? record.BgmType : (eSFXType?)null,
             enabled: record.Enabled,
-            nextDifficultyId: nextDifficultyId);
+            nextDifficultyId: nextDifficultyId,
+            encounter: record.Encounter);
 
         _cache.Add(id, definition);
         return true;

@@ -29,7 +29,7 @@ public static class BalanceEditorValidation
                     while(property.NextVisible(true))if(property.propertyType==SerializedPropertyType.ObjectReference){references++;if(property.objectReferenceValue==null && property.objectReferenceInstanceIDValue!=0)errors.Add(path+": "+property.propertyPath);}
                 }
             }
-            var stages=AssetDatabase.LoadAssetAtPath<UnityEngine.Object>("Assets/_Project/ScriptableObjects/StageDatabaseSO.asset");
+            var stages=AssetDatabase.LoadAssetAtPath<UnityEngine.Object>("Assets/_Project/Resources/StageDatabaseSO.asset");
             var rows=new SerializedObject(stages).FindProperty("_stages");if(rows.arraySize!=43)throw new Exception("Expected 43 explicit stages.");
             var weapons=AssetDatabase.LoadAssetAtPath<EquipmentDatabase>("Assets/_Project/Scripts/Player/Equipment/Prefab/Equipment.asset").equipmentList.ToArray();
             if(weapons.Length!=18 || weapons.Count(x=>x.rarity==eEquipmentRarity.Normal)!=9 || weapons.Count(x=>x.rarity==eEquipmentRarity.Rare)!=6)throw new Exception("Equipment catalog mismatch.");

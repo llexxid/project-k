@@ -32,7 +32,8 @@ namespace Scripts.Core
         MainField1,
         MainField2,
         GoldDungeon,
-        RubyDungeon
+        RubyDungeon,
+        MainField3
     }
 
     /// <summary>몬스터가 스테이지 진행 중 어느 시점에 스폰되는지 나타낸다.</summary>
@@ -56,6 +57,9 @@ namespace Scripts.Core
         public eMonsterSpawnPhase SpawnPhase => _spawnPhase;
         public string SpawnPointGroupId => _spawnPointGroupId;
         public float SpawnDelaySec => _spawnDelaySec;
+        public StageEnemyData Combat => _combat;
+        public bool IsRanged => string.Equals(_spawnPointGroupId, "Ranged", StringComparison.Ordinal);
+        public bool IsBoss => string.Equals(_spawnPointGroupId, "Boss", StringComparison.Ordinal);
         
         // eMonsterType은 ulong 기반 enum이다. Unity는 64비트 enum을 직접 직렬화하지 못하므로 원시값을 저장한다.
         [SerializeField] private ulong _monsterTypeValue;
@@ -64,6 +68,7 @@ namespace Scripts.Core
         [SerializeField] private eMonsterSpawnPhase _spawnPhase;
         [SerializeField] private string _spawnPointGroupId;
         [SerializeField] private float _spawnDelaySec;
+        [SerializeField] private StageEnemyData _combat;
 
         public StageMonsterEntry(
             eMonsterType monsterType,
@@ -79,7 +84,9 @@ namespace Scripts.Core
             _spawnPhase = spawnPhase;
             _spawnPointGroupId = spawnPointGroupId;
             _spawnDelaySec = spawnDelaySec;
+            _combat = default;
         }
+        public StageMonsterEntry WithCombat(StageEnemyData combat) { var copy = this; copy._combat = combat; return copy; }
     }
 
     /// <summary>
@@ -108,6 +115,7 @@ namespace Scripts.Core
         public string RewardGroupId { get; } //보상그룹
         public eSFXType? BgmType { get; } //BGM 종류
         public bool Enabled { get; } //활성화 여부
+        public StageEncounterData Encounter { get; }
 
         // 던전 결과 팝업의 "다음 단계" 버튼에서 사용한다. 메인 진행은 MainStageRule이 계산한다.
         public eStage? NextDifficultyId { get; }
@@ -129,7 +137,8 @@ namespace Scripts.Core
             bool enabled = true,
             eStage? nextDifficultyId = null,
             float loopSpawnIntervalSec = 0f,
-            int loopSpawnAliveThreshold = 0)
+            int loopSpawnAliveThreshold = 0,
+            StageEncounterData encounter = default)
         {
             if (monsterEntries == null)
                 throw new ArgumentNullException(nameof(monsterEntries));
@@ -154,6 +163,7 @@ namespace Scripts.Core
             RewardGroupId = rewardGroupId;
             BgmType = bgmType;
             Enabled = enabled;
+            Encounter = encounter;
             NextDifficultyId = nextDifficultyId;
 
             _monsterEntries = new StageMonsterEntry[monsterEntries.Count];

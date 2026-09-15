@@ -350,6 +350,29 @@ namespace Scripts.Core.Manager
 		/// </summary>
         private void StartStage(StageDefinition definition)
         {
+            PrepareStageBackground(definition).Forget(error => HandleStageLoadFailure(error, CameraFade.Instance));
+        }
+
+        private async UniTask PrepareStageBackground(StageDefinition definition)
+        {
+            var background = FindFirstObjectByType<StageBackgroundController>();
+            if (background == null) throw new InvalidOperationException("StageBackgroundController is missing from the combat scene.");
+            if (!await background.ApplyAsync(definition, _stageDatabaseSO)) return;
+            if (this == null || _currentStage != definition.Id) return;
+            if (_inventoryBlockedTarget == definition.Id)
+            {
+                _currentState = eStageRunState.ResultPending;
+                OnWaveChanged?.Invoke(_currentStageNumber, _currentWaveNumber, _isBossWave);
+                KingdomIdle.UGUI.UIManager.Instance?.ShowToast("보관 장비를 수령하거나 분해하면 다음 전투가 시작됩니다.");
+                CameraFade.Instance?.FadeIn(.3f);
+                return;
+            }
+            StartPreparedStage(definition);
+            CameraFade.Instance?.FadeIn(.3f);
+        }
+
+        private void StartPreparedStage(StageDefinition definition)
+        {
 			_bossTimerActive = false;
 			_defeatPopupActive = false;
 			Time.timeScale = 1f;
@@ -359,6 +382,8 @@ namespace Scripts.Core.Manager
             EquipmentManager.Instance?.RestoreEquipment();
             StatEnhanceManager.Instance?.ApplyToAllPlayers();
             ReviveAllPlayers();
+            foreach (var player in UserManager.Instance.GetPlayers())
+                if (player != null) player.transform.position = CombatViewport.Formation(player.PlayerIndex);
             OnWaveChanged?.Invoke(_currentStageNumber, _currentWaveNumber, _isBossWave);
 
 			_currentState = eStageRunState.Entering;
@@ -396,9 +421,6 @@ namespace Scripts.Core.Manager
 		{
 			Debug.Log($"{target}");
 			if (_currentState == eStageRunState.Transitioning) return false;
-            if (StageParser.GetStageType(target) == eStageType.Main && EquipmentManager.Instance != null && !EquipmentManager.Instance.CanReceiveBattleEquipment)
-            { _inventoryBlockedTarget = target; EndSession(); _currentState = eStageRunState.ResultPending;
-              KingdomIdle.UGUI.UIManager.Instance?.ShowToast("보관 장비를 수령하거나 분해하면 다음 전투가 시작됩니다."); return false; }
 			
 			if (!_provider.TryGet(target, out StageDefinition definition))
 			{ 
@@ -406,6 +428,7 @@ namespace Scripts.Core.Manager
 				return false;
 			}
 			_currentState = eStageRunState.Transitioning;
+			_inventoryBlockedTarget = definition.Type == eStageType.Main && EquipmentManager.Instance != null && !EquipmentManager.Instance.CanReceiveBattleEquipment ? target : (eStage?)null;
 			eStage previous = _currentStage;
 			bool requiresLoad =
 				StageParser.GetResourceGroupId(previous) !=
@@ -427,7 +450,6 @@ namespace Scripts.Core.Manager
 							_ =>
 							{
 								StartStage(definition);
-								fade.FadeIn(0.4f);
 							}).Forget(error => HandleStageLoadFailure(error, fade));
 					});
 				}
@@ -443,10 +465,7 @@ namespace Scripts.Core.Manager
 			}
 			if (fade != null)
 			{
-				fade.FadeOutIn(
-					0.3f,
-					0.3f,
-					onDark: () => StartStage(definition));
+				fade.FadeOut(0.3f, () => StartStage(definition));
 			}
 			else
 			{

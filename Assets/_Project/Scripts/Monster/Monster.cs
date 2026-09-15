@@ -79,12 +79,14 @@ namespace Scripts.Monster
 		public int FacingDir => _facingDir;
 		public AnimatorComponent<eMonsterAction> AnimationComponent => _animatorComponent;		
 		public float LastAttackTime => _lastAttackTime;
+		[SerializeField, Min(0)] private float _bodyHeight;
+		[SerializeField] private float _bodyTopY;
+		public Vector3 HeadPosition => transform.TransformPoint(Vector3.up * (_bodyHeight > 0 ? _bodyTopY : 1.2f));
 		public GameObject gameobj => transform.gameObject;		
 		
 		[SerializeField] private MonsterStat _stat;
 		private MonsterStat _initialStat; // 여기 추가함
 		private double _speedMultiplier = 1d;
-		private Renderer _cachedRenderer; // 데미지 텍스트 머리 좌표용 (풀링 시 계층이 안 바뀌므로 1회 캐시)
 		[NonSerialized] eMonsterType _type;
 		long _dropTableNumber;
 
@@ -259,14 +261,8 @@ namespace Scripts.Monster
 			}
 
 			ulong dmg = attacker.damage;
-			// UI 연동: 몬스터 머리 위로 피격 데미지 표시.
-			// ShowOnTransform 은 호출마다 GetComponentInChildren<Renderer> 를 타므로,
-			// 광역 스킬(웨이브 전체 동시 타격)을 위해 캐시한 렌더러로 머리 좌표를 직접 계산한다.
-			if (_cachedRenderer == null) _cachedRenderer = GetComponentInChildren<Renderer>();
-			Vector3 headPos = _cachedRenderer != null
-				? new Vector3(_cachedRenderer.bounds.center.x, _cachedRenderer.bounds.max.y, _cachedRenderer.bounds.center.z)
-				: transform.position + Vector3.up * 1.2f;
-			DamageTextBridge.ShowWorld(headPos, dmg);
+			// Stable body anchor excludes transparent sheet margins and animated weapons.
+			DamageTextBridge.ShowWorld(HeadPosition, dmg);
 
 			bool IsAlive = setHp(dmg);
 			OnHpChanged?.Invoke(GetHpRatio());
@@ -373,10 +369,10 @@ namespace Scripts.Monster
 
         public bool IsBalanceBoss { get; private set; }
         public KingdomIdle.Balance.BalanceMath.Enemy BalanceReward { get; private set; }
-        public void ApplyBalance(KingdomIdle.Balance.BalanceMath.Enemy numbers, bool boss, bool ranged, bool mimic)
+        public void ApplyBalance(KingdomIdle.Balance.BalanceMath.Enemy numbers, bool boss, bool ranged, bool mimic, float moveSpeed = 0, float attackIntervalSec = 0)
         {
             BalanceReward = numbers; IsBalanceBoss = boss;
-            _stat = new MonsterStat(numbers.HP, 0, checked((ulong)numbers.Attack), mimic ? 1.2 : 1.5, boss || mimic ? 1.5 : 1.0);
+            _stat = new MonsterStat(numbers.HP, 0, checked((ulong)numbers.Attack), moveSpeed > 0 ? moveSpeed : mimic ? 1.2 : 1.5, attackIntervalSec > 0 ? attackIntervalSec : boss || mimic ? 1.5 : 1.0);
             _initialStat = _stat; Exp = numbers.Experience; Ratio = 1;
             _attackRadius = boss ? 1.5f : ranged ? 3.5f : 1.2f;
             _detectRadius = Mathf.Max(4f, _attackRadius);
