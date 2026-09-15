@@ -5,7 +5,8 @@
 소통은 간결하고 정중하게 한다. 판단이 모호한 중요 삭제·정책 변경만 질문한다.
 
 ## 개발
-- Unity 버전은 `ProjectSettings/ProjectVersion.txt`를 확인한다. 모바일 세로형 방치 RPG, UGUI + TMP.
+- Unity 버전은 `ProjectSettings/ProjectVersion.txt`에 고정하며 지정된 Editor 버전으로 import·빌드한다. 엔진 업그레이드는 별도 변경으로 패키지·Android 검증 후 적용한다. 모바일 세로형 방치 RPG, UGUI + TMP.
+- 게임 버전의 단일 원본은 PlayerSettings.bundleVersion이다. 출시 준비 버전은 0.9.0부터 시작하고 기능 추가는 minor, 수정은 patch를 올린다. Android versionCode는 배포 빌드마다 증가시킨다. 로비·설정은 같은 버전을 표시한다.
 - 자체 코드·에셋은 `Assets/_Project/`, UI는 `Assets/UGUI/`. 외부 모듈은 기존 위치를 유지한다.
 - `Assets/ExternalAssets/`는 내려받은 원본 보관소다. 원본 파일·임포트 설정을 직접 수정하거나 이동·삭제하지 않는다. 게임용 에셋은 외부 폴더 밖의 적절한 작업 폴더에 복사하고, 이미 존재하는 작업본은 재사용한다. 주요 캐릭터·몬스터·환경은 `MainAssetBundles & Tilesets` 번들을 우선 사용한다.
 - 기존 시스템과 명명 규칙을 사용하고 필요한 범위만 변경한다. 이동 시 `.meta`와 경로 참조를 보존한다.
@@ -55,3 +56,4 @@
 - 행동 규칙은 이 파일만 유지한다. 도구별 진입 문서는 이 파일로 연결한다.
 - `README.md`는 프로젝트 안내, `Assets/UGUI/README.md`는 UI 구조, `AI/comfyui/README.md`는 실행 참고다. 규칙을 중복 복사하지 않는다.
 - 과거 프롬프트·워크플로·지출·검증 기록은 출처이므로 보존하되 현재 지시와 구별한다. 외부 패키지 문서는 수정하지 않는다.
+- 확정된 개정은 기존 운영 문서·카탈로그·파일에 반영한다. 별도 베타 사본이나 베타 표기를 새로 만들지 않는다. 스테이지 카탈로그에서 StageDatabaseSO로 이어지는 생성 경로와 안정적인 ID를 유지한다.

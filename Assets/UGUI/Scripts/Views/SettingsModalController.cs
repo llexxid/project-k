@@ -56,7 +56,7 @@ namespace KingdomIdle.UGUI
                 var style = (NumberStyle)i;
                 _view.numberButtons[i].onClick.AddListener(() => { NumberNotation.SetStyle(style); RefreshNotation(); });
             }
-            _view.lblVersion.text = "Version " + Application.version;
+            _view.lblVersion.text = "v" + Application.version;
             foreach (var control in new Component[] { _view.tglPush, _view.tglNightPush, _view.btnWithdraw, _view.btnSave })
                 if (control != null) control.gameObject.SetActive(false);
         }

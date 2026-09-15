@@ -99,7 +99,7 @@ namespace KingdomIdle.UGUI.Editor
             Section(content, "저장 정보");
             view.btnGoogleChip = F.TextButton(content, "BtnGoogleChip", "진행 데이터는 현재 기기에 저장됩니다", 26, UguiTheme.RusticSurfaceDark, out _);
             view.btnGoogleChip.interactable = false; F.Preferred((RectTransform)view.btnGoogleChip.transform, height: 76);
-            view.lblVersion = Text(content, "LblVersion", "Version " + Application.version, 24, 42);
+            view.lblVersion = Text(content, "LblVersion", "v" + Application.version, 24, 42);
             view.btnSaveClose = F.TextButton(panel.transform, "BtnSaveClose", "완료", 36, UguiTheme.BtnConfirm, out _);
             F.Preferred((RectTransform)view.btnSaveClose.transform, height: 132);
             var result = PrefabGenUtil.SavePrefab(root.gameObject, PrefabGenUtil.PrefabRoot + "/Overlays/Overlay_Settings.prefab");

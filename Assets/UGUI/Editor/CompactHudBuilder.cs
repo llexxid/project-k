@@ -13,7 +13,7 @@ namespace KingdomIdle.UGUI.Editor
     public static class CompactHudBuilder
     {
         const string Root = "Assets/UGUI/Prefabs/";
-        const string Picto = "Assets/ExternalAssets/Layer Lab/GUI Pro-MinimalGame/Shared/Icons/PictoIcon/64/";
+        const string Picto = "Assets/UGUI/Art/LayerLab/GUI Pro-MinimalGame/Shared/Icons/PictoIcon/64/";
         static Sprite Rounded => AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/Sprites/RoundedRect.png");
         static TMP_FontAsset Font => AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/UGUI/Art/Font/Galmuri11 SDF.asset");
         static readonly Color Glass = new Color(.085f, .065f, .045f, .76f);

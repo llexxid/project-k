@@ -8,7 +8,7 @@ namespace KingdomIdle.UGUI.Editor
     /// <summary>Refines the existing prefab hierarchy without regenerating screens or bindings.</summary>
     public static class UguiTypeNavPass
     {
-        private const string Picto = "Assets/ExternalAssets/Layer Lab/GUI Pro-MinimalGame/Shared/Icons/PictoIcon/64/";
+        private const string Picto = "Assets/UGUI/Art/LayerLab/GUI Pro-MinimalGame/Shared/Icons/PictoIcon/64/";
         private static Sprite Rounded => AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/Sprites/RoundedRect.png");
 
         internal static void ApplyTo(GameObject go)

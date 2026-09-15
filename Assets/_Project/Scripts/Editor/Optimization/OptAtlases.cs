@@ -133,7 +133,7 @@ namespace KingdomIdle.EditorTools.Optimization
             var deps = AssetDatabase.GetDependencies(roots.ToArray(), true);
             var ll = deps
                 .Select(d => d.Replace('\\', '/'))
-                .Where(d => d.Contains("/Layer Lab/")
+                .Where(d => d.StartsWith("Assets/UGUI/Art/LayerLab/")
                             && (d.EndsWith(".png") || d.EndsWith(".Png"))
                             && !d.Contains("Background_04"))
                 .Distinct()

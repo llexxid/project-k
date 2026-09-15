@@ -1044,7 +1044,7 @@ namespace KingdomIdle.UGUI.Editor
 
         private static GameObject FindLLPrefab(string exactName)
         {
-            foreach (var g in AssetDatabase.FindAssets($"{exactName} t:Prefab", new[] { "Assets/ExternalAssets/Layer Lab" }))
+            foreach (var g in AssetDatabase.FindAssets($"{exactName} t:Prefab", new[] { "Assets/UGUI/Art/LayerLab" }))
             {
                 var path = AssetDatabase.GUIDToAssetPath(g);
                 if (Path.GetFileNameWithoutExtension(path) == exactName)

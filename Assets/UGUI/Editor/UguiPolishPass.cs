@@ -11,7 +11,7 @@ namespace KingdomIdle.UGUI.Editor
     public static class UguiPolishPass
     {
         private const string Root = "Assets/UGUI/Prefabs/";
-        private const string Kit = "Assets/ExternalAssets/Layer Lab/GUI Pro-MinimalGame/Shared/Sprite_Common/";
+        private const string Kit = "Assets/UGUI/Art/LayerLab/GUI Pro-MinimalGame/Shared/Sprite_Common/";
         private static Sprite _panel, _frame;
         [MenuItem("KingdomIdle/UGUI/Apply mobile usability polish")]
         public static void Apply()
