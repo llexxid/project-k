@@ -1,0 +1,97 @@
+{
+  "items": [
+    {
+      "tool": "submit_workflow",
+      "workflow": {
+        "10": {
+          "class_type": "LoadImage",
+          "inputs": {
+            "image": "52aa887b688d05a541652eb1961ea8f8e81d140d0c4c34822e6850052caa4849.png"
+          }
+        },
+        "20": {
+          "class_type": "ImageScale",
+          "inputs": {
+            "image": [
+              "10",
+              0
+            ],
+            "upscale_method": "nearest-exact",
+            "width": 48,
+            "height": 48,
+            "crop": "disabled"
+          }
+        },
+        "30": {
+          "class_type": "ImageQuantize",
+          "inputs": {
+            "image": [
+              "20",
+              0
+            ],
+            "colors": 16,
+            "dither": "none"
+          }
+        },
+        "40": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "images": [
+              "30",
+              0
+            ],
+            "filename_prefix": "KingdomIdle/Mage/Pilot_builtin-nearest"
+          }
+        }
+      },
+      "description": "builtin-nearest"
+    },
+    {
+      "tool": "submit_workflow",
+      "workflow": {
+        "10": {
+          "class_type": "LoadImage",
+          "inputs": {
+            "image": "814e3a3649d035bbfb1fd737bb0176c24eabf4a47f0f7ab3bbb363da03c59d19.png"
+          }
+        },
+        "20": {
+          "class_type": "ImageScale",
+          "inputs": {
+            "image": [
+              "10",
+              0
+            ],
+            "upscale_method": "nearest-exact",
+            "width": 48,
+            "height": 48,
+            "crop": "disabled"
+          }
+        },
+        "30": {
+          "class_type": "ImageQuantize",
+          "inputs": {
+            "image": [
+              "20",
+              0
+            ],
+            "colors": 16,
+            "dither": "none"
+          }
+        },
+        "40": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "images": [
+              "30",
+              0
+            ],
+            "filename_prefix": "KingdomIdle/Mage/Pilot_nano-nearest"
+          }
+        }
+      },
+      "description": "nano-nearest"
+    }
+  ],
+  "client_os": "windows"
+}

@@ -1,0 +1,68 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "52aa887b688d05a541652eb1961ea8f8e81d140d0c4c34822e6850052caa4849.png"
+    }
+  },
+  "10": {
+    "class_type": "GeminiNanoBanana2V2",
+    "inputs": {
+      "prompt": "Create ONE production spell EFFECT icon for the same medieval pixel-art idle RPG as the reference. The reference is STYLE, pixel density, restrained contrast and scale only: replace its subject completely. Strong recognizable effect silhouette occupying about 75% of a square canvas, 12% empty safe margin. Genuine 48 by 48 logical pixel art enlarged with nearest neighbor, crisp square pixel clusters and stair steps. Maximum 16 colors, no antialiasing, no gradients, no bloom haze. Use desaturated shadows and a few bright ivory highlights for legibility at 48px. Uniform very dark charcoal background #171c24. No frame, text, numbers, caster, face, characters, logo, tiny glitter, microdetails, ornate filigree or UI mockup. Subject: GALE BLADES: three clean curved silver wind blades crossing diagonally, long curved leading crescent and two short trailing crescents. Pale desaturated teal and steel silver, airy open silhouette.",
+      "model": "Nano Banana 2 (Gemini 3.1 Flash Image)",
+      "model.aspect_ratio": "1:1",
+      "model.resolution": "1K",
+      "model.thinking_level": "MINIMAL",
+      "model.images.image_1": [
+        "1",
+        0
+      ],
+      "seed": 7321,
+      "response_modalities": "IMAGE"
+    }
+  },
+  "15": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "10",
+        0
+      ],
+      "filename_prefix": "KingdomIdle/Mage/06-GaleBlades_Master"
+    }
+  },
+  "20": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": [
+        "10",
+        0
+      ],
+      "upscale_method": "nearest-exact",
+      "width": 48,
+      "height": 48,
+      "crop": "disabled"
+    }
+  },
+  "30": {
+    "class_type": "ImageQuantize",
+    "inputs": {
+      "image": [
+        "20",
+        0
+      ],
+      "colors": 16,
+      "dither": "none"
+    }
+  },
+  "40": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "30",
+        0
+      ],
+      "filename_prefix": "KingdomIdle/Mage/06-GaleBlades_48px"
+    }
+  }
+}

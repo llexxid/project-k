@@ -11,7 +11,8 @@ Unity 모바일 방치 RPG. 엔진 버전은 `ProjectSettings/ProjectVersion.txt
 - [게임용 아트](Assets/_Project/Art/README.md): 캐릭터·몬스터·애니메이션·환경 프리팹 위치와 준비 상태.
 - [에셋 준비 카탈로그](Docs/ArtPreparation/README.md): 신규 몬스터, 환경 90개, 출처와 검증 기록.
 - [아트 실행 참고](AI/comfyui/README.md): ComfyUI 공정, 출력·출처 관리, 기존 제작 기록.
-- [신 스킬 모듈](Assets/DivineSkill/README.md): 데이터와 전투·UI 연결.
+- [보관 아트](Assets/_Project/Art/Archive/Divine/README.md): 폐기된 신 스킬의 재활용 이미지·VFX.
+- [마탑 스킬 모듈](Assets/MageTower/README.md): 등급 없는 10종, 중복 파편, 각성 10 개화와 개발용 카탈로그.
 
 자체 코드·에셋은 `Assets/_Project/`, UI는 `Assets/UGUI/`에 있다. Unity Hub에서 이 폴더를 열고 `ProjectSettings/EditorBuildSettings.asset`의 활성 씬 순서로 실행한다.
 

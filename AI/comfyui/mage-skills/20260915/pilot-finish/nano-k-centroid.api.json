@@ -1,0 +1,44 @@
+{
+  "10": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "814e3a3649d035bbfb1fd737bb0176c24eabf4a47f0f7ab3bbb363da03c59d19.png"
+    }
+  },
+  "20": {
+    "class_type": "PixelOEPixelize+",
+    "inputs": {
+      "image": [
+        "10",
+        0
+      ],
+      "downscale_mode": "k-centroid",
+      "target_size": 48,
+      "patch_size": 16,
+      "thickness": 1,
+      "color_matching": true,
+      "upscale": false
+    }
+  },
+  "30": {
+    "class_type": "ImageQuantize",
+    "inputs": {
+      "image": [
+        "20",
+        0
+      ],
+      "colors": 16,
+      "dither": "none"
+    }
+  },
+  "40": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "30",
+        0
+      ],
+      "filename_prefix": "KingdomIdle/Mage/Pilot_nano-k-centroid"
+    }
+  }
+}
