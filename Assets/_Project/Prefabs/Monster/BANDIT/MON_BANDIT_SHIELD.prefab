@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 8365115566110546312}
   - component: {fileID: 1348493846167617795}
   - component: {fileID: 7505640814893523033}
+  - component: {fileID: 9089610227799666643}
   m_Layer: 6
   m_Name: BanditShieldRender
   m_TagString: Untagged
@@ -114,6 +115,18 @@ SpriteRenderer:
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
+--- !u!114 &9089610227799666643
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1138356721073613461}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b20a216f877947b43bd270de7db40b38, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomIdle.Combat.MonsterAttackCue
 --- !u!1 &2617767458400082432
 GameObject:
   m_ObjectHideFlags: 0
@@ -206,9 +219,15 @@ MonoBehaviour:
     _atk: 0
     _moveSpeed: 0
     _atkSpeed: 0
-  _attackRadius: 0
+  _attackRadius: 0.83
   _detectRadius: 0
   _AnimationClipSO: {fileID: 11400000, guid: 49e2317eb803d1b44a6823c4aa67ecc2, type: 2}
+  _impactNormalized: 0.5
+  _projectilePrefab: {fileID: 0}
+  _projectileSpeed: 4.3
+  _projectileArc: 0
+  _projectileAngle: 0
+  _attackSound: 0
 --- !u!114 &183573301643823305
 MonoBehaviour:
   m_ObjectHideFlags: 0

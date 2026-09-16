@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: -3205332639954491212}
   - component: {fileID: -742219502687629194}
   - component: {fileID: 3078988213704033601}
+  - component: {fileID: 3084667765964225845}
   m_Layer: 6
   m_Name: ORC
   m_TagString: Enemy
@@ -107,6 +108,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7edcfd68a078f374cbff730b0167d530, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _bodyHeight: 0
+  _bodyTopY: 0
   _stat:
     _hp: 100
     _extraHp: 0
@@ -114,9 +117,15 @@ MonoBehaviour:
     _atk: 10
     _moveSpeed: 8
     _atkSpeed: 1
-  _attackRadius: 1
+  _attackRadius: 0.83
   _detectRadius: 5
   _AnimationClipSO: {fileID: 11400000, guid: ab1f5798d5eb1cb439a202d2abf35436, type: 2}
+  _impactNormalized: 0.5
+  _projectilePrefab: {fileID: 0}
+  _projectileSpeed: 4.3
+  _projectileArc: 0
+  _projectileAngle: 0
+  _attackSound: 0
 --- !u!70 &-3205332639954491212
 CapsuleCollider2D:
   m_ObjectHideFlags: 0
@@ -191,3 +200,15 @@ MonoBehaviour:
   _targets: []
   _holdDuration: 0.04
   _fadeDuration: 0.06
+--- !u!114 &3084667765964225845
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6319212090526891283}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b20a216f877947b43bd270de7db40b38, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomIdle.Combat.MonsterAttackCue

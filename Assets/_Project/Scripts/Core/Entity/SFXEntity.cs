@@ -13,6 +13,7 @@ namespace Scripts.Core
         private AudioSource _source;
         private CancellationTokenSource _token;
         private float _effectGain = 1f;
+        private KingdomIdle.UGUI.SoundChannel _channel;
         public bool IsActive { get; set; }
 
         private void Awake()
@@ -65,8 +66,9 @@ namespace Scripts.Core
             AutoRelease(clip.length * 1000.0f).Forget();
         }
 
-        public void PlayOneShot(float gain, float pitch = 1f)
+        public void PlayOneShot(float gain, float pitch = 1f, KingdomIdle.UGUI.SoundChannel channel = KingdomIdle.UGUI.SoundChannel.General)
         {
+            _channel = channel;
             _effectGain = Mathf.Clamp01(gain);
             _source.pitch = Mathf.Clamp(pitch, .7f, 1.3f);
             _source.loop = false;
@@ -104,6 +106,7 @@ namespace Scripts.Core
         public void OnAlloc()
         {
             _effectGain = 1f;
+            _channel = KingdomIdle.UGUI.SoundChannel.General;
             _source.pitch = 1f;
             ApplyVolume();
             return;
@@ -117,7 +120,7 @@ namespace Scripts.Core
             _source.volume = 0;
             return;
         }
-        private void ApplyVolume() { if (_source != null) _source.volume = KingdomIdle.UGUI.GameAudioSettings.Effects * _effectGain; }
+        private void ApplyVolume() { if (_source != null) _source.volume = KingdomIdle.UGUI.GameAudioSettings.Gain(_channel) * _effectGain; }
     }
 }
 

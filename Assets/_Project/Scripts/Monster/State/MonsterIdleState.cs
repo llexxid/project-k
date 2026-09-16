@@ -14,10 +14,13 @@ namespace Scripts.Monster.State
 		public override void OnEnter()
 		{
 			base.OnEnter();
+			_owner.AnimationComponent.TrySetBool(eMonsterAction.Idle, true);
+			_owner.SetAction(eMonsterAction.Idle);
 		}
 		public override void OnExit()
 		{
 			base.OnExit();
+			_owner.AnimationComponent.TrySetBool(eMonsterAction.Idle, false);
 		}
 	}
 }

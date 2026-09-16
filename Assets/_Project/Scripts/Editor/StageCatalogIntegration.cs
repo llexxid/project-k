@@ -96,8 +96,8 @@ namespace Scripts.Core.Parser
             {
                 var type = ReadEnum<eMonsterType>(row, "MonsterName", "MonsterCatalog", n);
                 var info = new CatalogMonsterInfo(type, ReadRequiredString(row, "DisplayName", "MonsterCatalog", n),
-                    ReadFloat(row, "MoveSpeed", "MonsterCatalog", n), ReadFloat(row, "AttackIntervalSec", "MonsterCatalog", n));
-                if (info.MoveSpeed <= 0 || info.AttackIntervalSec <= 0) throw RowError("MonsterCatalog", n, "이동 속도·공격 간격은 양수여야 합니다.");
+                    ReadFloat(row, "MoveSpeed", "MonsterCatalog", n), ReadFloat(row, "AttackIntervalSec", "MonsterCatalog", n), ReadFloat(row, "AttackMultiplier", "MonsterCatalog", n));
+                if (info.MoveSpeed <= 0 || info.AttackIntervalSec <= 0 || info.AttackMultiplier <= 0) throw RowError("MonsterCatalog", n, "이동 속도·공격 간격·타격 배율은 양수여야 합니다.");
                 string path = WorkingPrefab(row, "MonsterCatalog", n);
                 var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
                 if (prefab.GetComponent<Scripts.Monster.Monster>() == null || prefab.GetComponentInChildren<Animator>(true)?.runtimeAnimatorController == null)
@@ -158,6 +158,7 @@ namespace Scripts.Core.Parser
                     var stat = stage.StageType == eStageType.Main ? main[(stage.StageNumber, stage.WaveNumber)] :
                         stage.StageType == eStageType.GoldDungeon ? gold[(stage.StageNumber, 0)] : ruby[(stage.StageNumber, enemyIndex)];
                     long hp = Whole(stat.row, "HP", sheet, stat.n), attack = Whole(stat.row, "ATK", sheet, stat.n);
+                    attack = Math.Max(1, checked((long)Math.Floor(attack * (decimal)info.AttackMultiplier)));
                     long money = sheet == "RubyBalance" ? 0 : Whole(stat.row, "GoldEach", sheet, stat.n);
                     long exp = sheet == "RubyBalance" ? 0 : Whole(stat.row, "ExpEach", sheet, stat.n);
                     float interval = sheet == "RubyBalance" ? ReadFloat(stat.row, "AttackIntervalSec", sheet, stat.n) : info.AttackIntervalSec;

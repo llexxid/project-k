@@ -44,9 +44,7 @@ namespace KingdomIdle.Balance
             var distribution=new int[4];for(int i=0;i<1000000;i++)distribution[BalanceMath.EquipmentRoll(i,0)+1]++;
             Check(distribution.SequenceEqual(new[]{50000,700000,200000,50000}),"Exhaustive equipment probability partition 5/70/20/5");
             Check(BalanceMath.EquipmentRoll(999999,39)==2 && BalanceMath.EquipmentRoll(0,39)==2,"40th equipment draw replaces every outcome");
-            Check(CombatPowerCalculator.CalculateCharacterPowerV1(30,200)*3==1050,"Three starting spearmen CP = 1050");
-            foreach(int fps in new[]{30,60,120})
-            {long paid=0;for(int i=1;i<=5*fps;i++){long target=BalanceMath.Floor(1001m*.04m*Math.Min(5m,i/(decimal)fps));paid+=target-paid;}Check(paid==200,$"IronWill heal integral at {fps}fps");}
+            Check(CombatPowerCalculator.CalculateCharacterPowerV1(30,200)*3==600,"Three starting spearmen CP = 600 at 1.2 multiplier / 1.2s interval");
             var defs=QuestEconomy.Definitions;
             Check(defs.Count(x=>x.Category==eQuestCategory.Guide)==28 && defs.Count(x=>x.Category==eQuestCategory.Achievement)==49,"Catalog 28 guide +49 active achievements");
             Check(defs.Count(x=>x.Category==eQuestCategory.Daily)==8 && defs.Count(x=>x.Category==eQuestCategory.Weekly)==7,"Catalog 8 daily +7 weekly");

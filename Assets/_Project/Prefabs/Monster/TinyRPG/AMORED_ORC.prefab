@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 1169015781804688411}
   - component: {fileID: 6959333790668844751}
   - component: {fileID: -3808334700218724512}
+  - component: {fileID: 7289645465334117174}
   m_Layer: 6
   m_Name: AMORED_ORC
   m_TagString: Enemy
@@ -107,6 +108,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7edcfd68a078f374cbff730b0167d530, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _bodyHeight: 0
+  _bodyTopY: 0
   _stat:
     _hp: 100
     _extraHp: 0
@@ -114,9 +117,15 @@ MonoBehaviour:
     _atk: 15
     _moveSpeed: 5
     _atkSpeed: 2
-  _attackRadius: 1
+  _attackRadius: 0.83
   _detectRadius: 5
   _AnimationClipSO: {fileID: 11400000, guid: 161f808c3c408b642bd659525e914377, type: 2}
+  _impactNormalized: 0.5
+  _projectilePrefab: {fileID: 0}
+  _projectileSpeed: 4.3
+  _projectileArc: 0
+  _projectileAngle: 0
+  _attackSound: 0
 --- !u!114 &1169015781804688411
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -191,3 +200,15 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &7289645465334117174
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2930453104557167892}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b20a216f877947b43bd270de7db40b38, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomIdle.Combat.MonsterAttackCue

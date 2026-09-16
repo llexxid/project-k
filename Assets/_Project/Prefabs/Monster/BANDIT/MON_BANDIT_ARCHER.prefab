@@ -92,9 +92,16 @@ MonoBehaviour:
     _atk: 0
     _moveSpeed: 0
     _atkSpeed: 0
-  _attackRadius: 0
+  _attackRadius: 3.1
   _detectRadius: 0
   _AnimationClipSO: {fileID: 11400000, guid: 843019a98a903bc4f8f5c62ec28b53ce, type: 2}
+  _impactNormalized: 0.5
+  _projectilePrefab: {fileID: 3447830918164022008, guid: 3579407e364ac3243a3140974ff78c30,
+    type: 3}
+  _projectileSpeed: 4.3
+  _projectileArc: 0
+  _projectileAngle: 0
+  _attackSound: 3
 --- !u!114 &8678604998313824023
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -121,6 +128,7 @@ GameObject:
   - component: {fileID: 7875195880485607080}
   - component: {fileID: 2244198765644038965}
   - component: {fileID: 2911493675103183904}
+  - component: {fileID: 1226984283437225163}
   m_Layer: 6
   m_Name: BanditArcherRender
   m_TagString: Untagged
@@ -224,3 +232,15 @@ SpriteRenderer:
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
+--- !u!114 &1226984283437225163
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5216010494238048165}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b20a216f877947b43bd270de7db40b38, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomIdle.Combat.MonsterAttackCue

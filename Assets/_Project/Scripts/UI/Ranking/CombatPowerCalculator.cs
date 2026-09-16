@@ -8,17 +8,18 @@ namespace KingdomIdle.UGUI
 {
     public static class CombatPowerCalculator
     {
-        // Retain public V1 method names for existing bindings; the metric uses beta single-target DPS.
-        public static long CalculateCharacterPowerV1(long attack, long maxHp) => BalanceMath.Round(5m * attack / .5m + .25m * maxHp);
+        // Retain public V1 bindings. The two-number overload describes the starting spearman.
+        public static long CalculateCharacterPowerV1(long attack, long maxHp) => BalanceMath.Round(5m * BalanceMath.Damage(attack,1.2m) / 1.2m + .25m * maxHp);
         public static decimal CharacterDps(Player player)
         {
             if (player?.playerStatus == null) return 0;
             var status = player.playerStatus;
             var data = KingdomArmyManager.Instance?.JobDB?.jobs.Find(x => x != null && x.jobName == status.JobName);
-            decimal interval = data != null ? (decimal)data.basicAttack.cooldown : status.JobName == "Spearman" ? .5m : 1m;
+            decimal interval = data != null ? (decimal)data.basicAttack.cooldown : 1.2m;
+            decimal multiplier = data != null ? (decimal)data.basicAttack.damageMultiplier : status.JobName == "Spearman" ? 1.2m : 1m;
             decimal uptime = status.JobName == "Elite_Archer" ? .92m : status.JobName == "Elite_Mage" ? .93m : 1m;
             decimal special = status.JobName == "Elite_Archer" ? status.Atk * 3m / 10m : status.JobName == "Elite_Mage" ? BalanceMath.Damage(status.Atk,2m) / 10m : 0m;
-            return status.Atk / Math.Max(.01m,interval) * uptime + special;
+            return BalanceMath.Damage(status.Atk,multiplier) / Math.Max(.01m,interval) * uptime + special;
         }
         public static long CalculateCharacterPowerV1(Player player) => player?.playerStatus == null ? 0 : BalanceMath.Round(5m * CharacterDps(player) + .25m * player.playerStatus.MaxHP);
         public static long CalculatePartyPowerV1(IReadOnlyList<Player> players)

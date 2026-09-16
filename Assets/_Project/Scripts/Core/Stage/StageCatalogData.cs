@@ -74,11 +74,13 @@ namespace Scripts.Core
         [SerializeField] private ulong _id;
         [SerializeField] private string _displayName;
         [SerializeField] private float _moveSpeed, _attackIntervalSec;
+        [SerializeField] private float _attackMultiplier;
         public eMonsterType Id => (eMonsterType)_id;
         public string DisplayName => _displayName;
         public float MoveSpeed => _moveSpeed;
         public float AttackIntervalSec => _attackIntervalSec;
-        public CatalogMonsterInfo(eMonsterType id, string name, float speed, float interval)
-        { _id = (ulong)id; _displayName = name; _moveSpeed = speed; _attackIntervalSec = interval; }
+        public float AttackMultiplier => _attackMultiplier;
+        public CatalogMonsterInfo(eMonsterType id, string name, float speed, float interval, float multiplier = 1)
+        { _id = (ulong)id; _displayName = name; _moveSpeed = speed; _attackIntervalSec = interval; _attackMultiplier = multiplier; }
     }
 }

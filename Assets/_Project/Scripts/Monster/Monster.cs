@@ -1,3 +1,4 @@
+using KingdomIdle.Combat;
 using KingdomIdle.UGUI; // UI 연동(피격 데미지 텍스트)
 using Scripts.Core;
 using Scripts.Core.inteface;
@@ -40,7 +41,7 @@ namespace Scripts.Monster
 		public readonly long _dropTableNumber;
 	}
 
-	public class Monster : MonoBehaviour, IPoolable, IDamageable, IAttackable
+	public partial class Monster : MonoBehaviour, IPoolable, IDamageable, IAttackable
 	{
 		[Serializable]
 		public struct MonsterStat
@@ -119,8 +120,8 @@ namespace Scripts.Monster
 		//Todo : SkillComponent . 몬스터 스킬
 		void Awake()
 		{
-			_detectRadius = 2.5f;
-			_attackRadius = 0.8f;
+			_detectRadius = 8f;
+			_attackRadius = Mathf.Max(.7f, _attackRadius);
 			_facingDir = 1; // 1 : Right, -1 : Left
 			_am = gameObject.GetComponentInChildren<Animator>();
 
@@ -138,12 +139,13 @@ namespace Scripts.Monster
 		void Update()
 		{
 			ApplyKnockbackMovement();
+            TickCombat();
 
 			if (_monAI != null)
 			{
 				_monAI.ExecuteNode();
 			}
-			_stateManchine.currentState.OnUpdate();
+			_stateManchine.currentState?.OnUpdate();
 		}
 
 		public float GetHpRatio()
@@ -203,24 +205,22 @@ namespace Scripts.Monster
 		public long MaxHp => _stat._maxHp;
 		public void ResetTarget(IDamageable target)
 		{
-			Target = null;
-			//CustomLogger.Log("Target 초기화!");
+            if (Target != target) return;
+            if (Target != null) Target.OnDeath -= ResetTarget;
+            Target = null;
 		}
 		public void SetType(eMonsterType monsterType)
 		{
 			_type = monsterType;
 		}
-		public void SetTarget(IDamageable target)
-		{
-			if (target == null)
-			{
-				CustomLogger.Log("Target IS NULL");
-				return;
-			}
-			
-			Target = target;
-			target.OnDeath += ResetTarget;
-		}
+        public void SetTarget(IDamageable target)
+        {
+            if (HasTaunt && !ReferenceEquals(target, _tauntOwner)) return;
+            if (Target == target) return;
+            if (Target != null) Target.OnDeath -= ResetTarget;
+            Target = target;
+            if (Target != null) Target.OnDeath += ResetTarget;
+        }
 		public void SetAction(eMonsterAction action)
 		{
 			_monAction = action;
@@ -228,6 +228,7 @@ namespace Scripts.Monster
 		public void OnAlloc()
 		{
 			_hitFlash?.ResetFlash();
+            ResetCombat();
 
 			//생성자
 			OnDeath = null;
@@ -247,9 +248,10 @@ namespace Scripts.Monster
 		public void OnRelease()
 		{
 			_hitFlash?.ResetFlash();
+            ResetCombat();
 
 			//만약에 리지드 바디가 있다면, 초기화.
-			Target = null;
+            SetTarget(null);
 			return;
 		}
 		public bool TakeDamage(IAttackable attacker)
@@ -281,18 +283,11 @@ namespace Scripts.Monster
 			return true;
 		}
 
-		public bool Attack(IDamageable target)
-		{
-			bool IsAlive;
-			IsAlive = target.TakeDamage(this);
-			if (!IsAlive)
-			{
-				//CustomLogger.Log("타겟이 죽음");
-				return false;
-			}
-			_lastAttackTime = Time.time;
-			return true;
-		}
+        public bool Attack(IDamageable target)
+        {
+            SetTarget(target);
+            return TryBeginAttack();
+        }
 
 		public void ChangeState(EntityState<Monster> state)
 		{
@@ -302,6 +297,7 @@ namespace Scripts.Monster
 		public void InterruptBehaviourTree()
 		{
 			_monAI.InterruptBT();
+            CancelAttack();
 		}
 		public void RestartBehaviourTree()
 		{
@@ -310,7 +306,7 @@ namespace Scripts.Monster
 
 		public float GetAnimationLength(eMonsterAction action)
 		{
-			return _AnimationClipSO.GetAnimationLength(action);
+			return _AnimationClipSO != null ? _AnimationClipSO.GetAnimationLength(action) : .6f;
 		}
 
 		public void OnDead()
@@ -374,8 +370,8 @@ namespace Scripts.Monster
             BalanceReward = numbers; IsBalanceBoss = boss;
             _stat = new MonsterStat(numbers.HP, 0, checked((ulong)numbers.Attack), moveSpeed > 0 ? moveSpeed : mimic ? 1.2 : 1.5, attackIntervalSec > 0 ? attackIntervalSec : boss || mimic ? 1.5 : 1.0);
             _initialStat = _stat; Exp = numbers.Experience; Ratio = 1;
-            _attackRadius = boss ? 1.5f : ranged ? 3.5f : 1.2f;
-            _detectRadius = Mathf.Max(4f, _attackRadius);
+            // The prefab owns reach/projectile identity; stage data owns cadence and speed.
+            _detectRadius = 8f;
             OnHpChanged?.Invoke(GetHpRatio());
         }
 

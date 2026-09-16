@@ -1,92 +1,28 @@
-using Scripts.Core.inteface;
-using Scripts.Core.Utils;
-using Scripts.Monster;
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+using KingdomIdle.Combat;
 using Scripts.Core;
-
+using Scripts.Monster;
 public class PlayerDetection
 {
-    public float detectionRadius = 3.5f; // 모바일 화면 기준, stopDistance보다 커야 함
-    private List<Collider2D> detectedResults = new List<Collider2D>();
-    public Player player;
-    public IDamageable currentTarget;
-    public PlayerDetection(Player player)
-    {
-        this.player = player;
-    }
-
-    LayerMask enemyLayer = GameLayers.EnemyMask;
-
+    public float detectionRadius = 8f;
+    private readonly Player _player;
+    private Monster _acquired;
+    private int _generation;
+    public PlayerDetection(Player player) { _player = player; }
     public bool Detect()
     {
-		if (player.currentTarget != null)
-		{
-            // 타겟이 이미 Dead 상태면 즉시 해제 → 스폰 위치 복귀 가능
-            Monster currentMon = player.currentTarget.gameobj?.GetComponent<Monster>();
-            if (currentMon == null || !currentMon.isActiveAndEnabled || currentMon.MonAction == eMonsterAction.Dead)
-            {
-                player.ResetTarget(player.currentTarget);
-                return false;
-            }
-
-            // UI panels change the camera viewport, not combat eligibility.
-            // Keep a live acquired target until death or release so ranged enemies
-            // cannot attack from a camera-excluded strip and stall wave income.
-            return true; // 다음 스텝
-		}
-
-        ContactFilter2D filter = new ContactFilter2D();
-        filter.SetLayerMask(enemyLayer);
-		filter.useLayerMask = true;
-		filter.useTriggers = true;
-
-		int count = Physics2D.OverlapCircle(player.transform.position, detectionRadius, filter, detectedResults);
-        if (count == 0) return false;
-
-        currentTarget = null;
-        float closestDist = float.MaxValue;
-
-		for (int i = 0; i < count; i++)
-        {
-            if (!detectedResults[i].CompareTag("Enemy")) continue;
-
-            var mon = detectedResults[i].GetComponentInParent<Monster>();
-            if (mon == null || !mon.isActiveAndEnabled || mon.MonAction == eMonsterAction.Dead) continue;
-
-            float dist = Vector2.Distance(player.transform.position, detectedResults[i].transform.position);
-
-            // Physics range is the shared combat boundary on every screen ratio.
-            if (dist < closestDist)
-            {
-                closestDist = dist;
-                currentTarget = mon;
-            }
-        }
-
-        if (currentTarget != null)
-        {
-            player.SetTarget(currentTarget);
-			return true;
-		}
-        return false;
+        if (ReferenceEquals(_player.currentTarget, _acquired) && _acquired != null && _acquired.isActiveAndEnabled &&
+            _acquired.MonAction != eMonsterAction.Dead && _acquired.AllocGen == _generation) return true;
+        _player.ResetTarget(_player.currentTarget);
+        _acquired = CombatMotion.NearestEnemy(_player.transform.position);
+        if (_acquired == null) return false;
+        _generation = _acquired.AllocGen;
+        _player.SetTarget(_acquired);
+        return true;
     }
-
     public class DetectionNode : Node
     {
-        private PlayerDetection _detection;
+        private readonly PlayerDetection _detection;
         public DetectionNode(PlayerDetection detection) { _detection = detection; }
-
-        public override NodeState Evaluate()
-        {
-            bool IsDetect = _detection.Detect();
-            if (IsDetect)
-            {
-				return NodeState.Success;
-			}   
-            return NodeState.Failure;
-        }
+        public override NodeState Evaluate() => _detection.Detect() ? NodeState.Success : NodeState.Failure;
     }
-
 }

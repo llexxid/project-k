@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 2636644756356150547}
   - component: {fileID: -5308928299384607870}
   - component: {fileID: -5180526065171000746}
+  - component: {fileID: 2698429107499604091}
   m_Layer: 6
   m_Name: BANDIT_KING
   m_TagString: Enemy
@@ -116,9 +117,15 @@ MonoBehaviour:
     _atk: 200
     _moveSpeed: 10
     _atkSpeed: 10
-  _attackRadius: 1
+  _attackRadius: 1.15
   _detectRadius: 10
   _AnimationClipSO: {fileID: 11400000, guid: 2dbf636319c26d44eabdc7c8113afccf, type: 2}
+  _impactNormalized: 0.5
+  _projectilePrefab: {fileID: 0}
+  _projectileSpeed: 4.3
+  _projectileArc: 0
+  _projectileAngle: 0
+  _attackSound: 0
 --- !u!114 &2636644756356150547
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -193,3 +200,15 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &2698429107499604091
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4953171907984491352}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b20a216f877947b43bd270de7db40b38, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomIdle.Combat.MonsterAttackCue

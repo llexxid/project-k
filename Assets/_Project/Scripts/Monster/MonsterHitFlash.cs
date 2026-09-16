@@ -19,6 +19,8 @@ namespace Scripts.Monster
 
         private MaterialPropertyBlock _propertyBlock;
         private Coroutine _flashCoroutine;
+        private float _nextFlash;
+        private const float PeakAmount = .45f;
 
         private void Awake()
         {
@@ -42,12 +44,13 @@ namespace Scripts.Monster
         /// </summary>
         public void Play()
         {
-            if (!isActiveAndEnabled)
+            if (!isActiveAndEnabled || Time.time < _nextFlash)
             {
                 return;
             }
 
-            // 연속으로 피격되면 처음부터 다시 점멸한다.
+            // Rapid field ticks must not keep a monster as a solid white silhouette.
+            _nextFlash=Time.time+.12f;
             if (_flashCoroutine != null)
             {
                 StopCoroutine(_flashCoroutine);
@@ -61,6 +64,7 @@ namespace Scripts.Monster
         /// </summary>
         public void ResetFlash()
         {
+            _nextFlash=0;
             if (_flashCoroutine != null)
             {
                 StopCoroutine(_flashCoroutine);
@@ -75,8 +79,8 @@ namespace Scripts.Monster
 
         private IEnumerator FlashRoutine()
         {
-            // 피격 순간 완전히 흰색
-            SetFlashAmount(1f);
+            // Preserve body colour and details while acknowledging the hit.
+            SetFlashAmount(PeakAmount);
 
             float elapsed = 0f;
 
@@ -105,7 +109,7 @@ namespace Scripts.Monster
                 float ratio = Mathf.Clamp01(
                     elapsed / _fadeDuration);
 
-                SetFlashAmount(1f - ratio);
+                SetFlashAmount(PeakAmount * (1f - ratio));
 
                 yield return null;
             }

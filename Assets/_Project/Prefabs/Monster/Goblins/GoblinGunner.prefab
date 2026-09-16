@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 7533408561909545083}
   - component: {fileID: 3321123909121604584}
   - component: {fileID: 7089308927041074751}
+  - component: {fileID: 40618254026259140}
   m_Layer: 6
   m_Name: Visual
   m_TagString: Untagged
@@ -44,7 +45,7 @@ Animator:
   m_Enabled: 1
   m_Avatar: {fileID: 0}
   m_Controller: {fileID: 9100000, guid: 3d60ca049b8c9de4bb047159328b7264, type: 2}
-  m_CullingMode: 1
+  m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 0
   m_LinearVelocityBlending: 0
@@ -114,6 +115,18 @@ SpriteRenderer:
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 1
+--- !u!114 &40618254026259140
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1024599833232382497}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b20a216f877947b43bd270de7db40b38, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomIdle.Combat.MonsterAttackCue
 --- !u!1 &9149816680150657786
 GameObject:
   m_ObjectHideFlags: 0
@@ -206,9 +219,16 @@ MonoBehaviour:
     _atk: 0
     _moveSpeed: 0
     _atkSpeed: 0
-  _attackRadius: 0
+  _attackRadius: 3.1
   _detectRadius: 0
   _AnimationClipSO: {fileID: 11400000, guid: ce0ac4c8e182db643a69ce6fc04e1bc7, type: 2}
+  _impactNormalized: 0.5
+  _projectilePrefab: {fileID: 8042272524901531618, guid: 7de581cf1001b9a4593961b91b5b3ccb,
+    type: 3}
+  _projectileSpeed: 4.3
+  _projectileArc: 0
+  _projectileAngle: 0
+  _attackSound: 3
 --- !u!114 &3755595198497473517
 MonoBehaviour:
   m_ObjectHideFlags: 0

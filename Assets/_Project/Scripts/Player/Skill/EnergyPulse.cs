@@ -1,4 +1,5 @@
 using KingdomIdle.Balance;
+using KingdomIdle.Combat;
 using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Monster;
@@ -7,7 +8,7 @@ using UnityEngine;
 
 /// <summary>
 /// 에너지 파동 (Elite_Mage).
-/// 기본공격 쿨다운 중에만 발동 가능.
+/// 가까운 적을 밀쳐내는 방어용 파동. 보스에는 피해만 적용한다.
 /// CastEnergyPulse 애니메이션 + VFX 동시 재생.
 /// 재생 중에는 기본공격 차단 (IsActive).
 /// </summary>
@@ -17,10 +18,7 @@ public sealed class EnergyPulse : ActiveSkill
     private readonly float _cooldown;
     private readonly float _knockbackForce;
     private readonly float _damageMultiplier;
-    private readonly ActiveSkill _basicAttackRef;
-
-    private readonly LayerMask _enemyLayer = GameLayers.EnemyMask;
-    private readonly List<Collider2D> _hitResults = new List<Collider2D>();
+    private readonly List<Monster> _targets = new(6);
 
     private EnergyPulseVFX _vfxInstance;
     private bool _isPlaying;
@@ -34,7 +32,6 @@ public sealed class EnergyPulse : ActiveSkill
                        float triggerRange, float cooldown, float knockbackForce, float damageMultiplier = 2f)
         : base(player)
     {
-        _basicAttackRef = basicAttack;
         _triggerRange = triggerRange;
         _cooldown = cooldown;
         _knockbackForce = knockbackForce;
@@ -43,57 +40,39 @@ public sealed class EnergyPulse : ActiveSkill
 
     public override bool CanExecute()
     {
-        // 기본공격이 쿨다운 중이 아니면 발동 불가
-
-
-        ContactFilter2D filter = new ContactFilter2D();
-        filter.SetLayerMask(_enemyLayer);
-        filter.useLayerMask = true;
-        filter.useTriggers = true;
-
-        int count = Physics2D.OverlapCircle(
-            _player.transform.position, _triggerRange, filter, _hitResults);
-
-        for (int i = 0; i < count; i++)
-        {
-            var mon = _hitResults[i].GetComponentInParent<Monster>();
-            if (mon != null && mon.MonAction != eMonsterAction.Dead) return true;
-        }
+        foreach (var mon in CombatMotion.Monsters)
+            if (InRange(mon)) return true;
         return false;
     }
 
+    private bool InRange(Monster mon) => mon != null && mon.isActiveAndEnabled && mon.MonAction != eMonsterAction.Dead &&
+        ((Vector2)(mon.transform.position-_player.transform.position)).sqrMagnitude <= _triggerRange*_triggerRange;
+
     public override float Execute()
     {
-        ContactFilter2D filter = new ContactFilter2D();
-        filter.SetLayerMask(_enemyLayer);
-        filter.useLayerMask = true;
-        filter.useTriggers = true;
-
-        int hitCount = Physics2D.OverlapCircle(
-            _player.transform.position, _triggerRange, filter, _hitResults);
+        // Snapshot the foot-space registry before hits can return monsters to their pool.
+        _targets.Clear();
+        foreach (var mon in CombatMotion.Monsters)
+            if (InRange(mon)) { _targets.Add(mon); if (_targets.Count == 6) break; }
 
         long baseAtk = _player.playerStatus?.Atk ?? 0;
         long skillDamage = BalanceMath.Damage(baseAtk, (decimal)_damageMultiplier);
         var proxy = new DamageProxy((ulong)skillDamage, _player);
 
-        var distinct = new HashSet<Monster>();
-        for (int i = 0; i < hitCount && distinct.Count < 6; i++)
+        foreach (var mon in _targets)
         {
-            var mon = _hitResults[i].GetComponentInParent<Monster>();
-            if (mon == null || mon.MonAction == eMonsterAction.Dead || !distinct.Add(mon)) continue;
-
-            var damageable = _hitResults[i].GetComponentInParent<IDamageable>();
-            damageable?.TakeDamage(proxy);
+            CombatDiagnostics.Record(mon.IsBalanceBoss ? "pulse-boss-immune" : "pulse-control",_player,mon);
+            if (!mon.TakeDamage(proxy)) continue;
 
             Vector2 dir = ((Vector2)mon.transform.position - (Vector2)_player.transform.position).normalized;
             mon.ApplyKnockback(dir, _knockbackForce);
+            if (!mon.IsBalanceBoss) MonsterCCState.Apply(mon, CrowdControlKind.Stun, 1.25f, 0);
         }
 
         // VFX + 캐스팅 애니메이션 동시 재생
         SpawnVFX();
 
         string animName = "CastEnergyPulse";
-        float animLen = _player.GetClipLength(animName, 0.6f);
         // 애니메이션이 마지막 프레임까지 완전히 재생되도록 약간의 버퍼를 둔다.
         // (버퍼가 없으면 _pendingAnimRecovery 가 끝 프레임을 Attack_Anim 로 덮어쓴다)
         float protectLen = 0.7f;

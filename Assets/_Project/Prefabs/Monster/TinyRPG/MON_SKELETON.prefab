@@ -68,6 +68,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7edcfd68a078f374cbff730b0167d530, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _bodyHeight: 0
+  _bodyTopY: 0
   _stat:
     _hp: 0
     _extraHp: 0
@@ -75,9 +77,15 @@ MonoBehaviour:
     _atk: 0
     _moveSpeed: 0
     _atkSpeed: 0
-  _attackRadius: 0
+  _attackRadius: 0.83
   _detectRadius: 0
   _AnimationClipSO: {fileID: 11400000, guid: eb7a29ad88b226a4dbebca77c737ea1a, type: 2}
+  _impactNormalized: 0.5
+  _projectilePrefab: {fileID: 0}
+  _projectileSpeed: 4.3
+  _projectileArc: 0
+  _projectileAngle: 0
+  _attackSound: 0
 --- !u!114 &7022285173605537251
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -104,6 +112,7 @@ GameObject:
   - component: {fileID: 6875088973313369457}
   - component: {fileID: 5756459339534253360}
   - component: {fileID: 2761653369473995597}
+  - component: {fileID: 4231467420868744555}
   m_Layer: 6
   m_Name: SkeletonRender
   m_TagString: Untagged
@@ -207,3 +216,15 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &4231467420868744555
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5965325032111826519}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b20a216f877947b43bd270de7db40b38, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomIdle.Combat.MonsterAttackCue
