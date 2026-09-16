@@ -1,54 +1,47 @@
 using System;
+using KingdomIdle.MageTower;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using UnityEngine.Serialization;
 
 namespace KingdomIdle.UGUI
 {
-    /// <summary>마탑 보유 스킬 그리드 셀. 프리팹 Item_MageSkillCell. 인스펙터 편집 가능.</summary>
     public sealed class MageSkillCellView : MonoBehaviour
     {
         public Button button;
-        public Image frameImage;      // 장착중 초록 테두리 / 평시 투명
-        public Image background;      // 버튼 타겟 그래픽 (안쪽 배경)
+        public Image frameImage;
+        public Image background;
         public Image icon;
         public TMP_Text nameLabel;
-        public TMP_Text dmgLabel;     // 미보유시 숨김
+        public TMP_Text dmgLabel;
+        [FormerlySerializedAs("rarityLabel")] public TMP_Text stateLabel;
         public CanvasGroup canvasGroup;
 
-        private static readonly Color EquippedBorder = new Color(100f / 255f, 210f / 255f, 130f / 255f, 0.6f);
-        private const float LockedAlpha = 0.35f;
-
-        /// <summary>셀 표시 갱신. onClick은 owned일 때만 연결(미보유는 입력 차단).</summary>
-        public void Set(Sprite iconSprite, string name, bool owned, bool equipped, float dmg, Action onClick)
+        public void Set(MageTowerSkillSO skill, bool owned, bool equipped, float power, bool bloom, Action onClick)
         {
-            if (frameImage != null) frameImage.color = equipped ? UguiTheme.BronzeLight : UguiTheme.RusticSurface;
+            if (frameImage != null) frameImage.color = equipped ? UguiTheme.BronzeLight : bloom ? MageSkillPresentation.BloomAccent : MageSkillPresentation.Frame;
             if (background != null) background.color = UguiTheme.RusticSurfaceDark;
-
             if (icon != null)
             {
-                icon.enabled = iconSprite != null;
-                if (iconSprite != null) icon.sprite = iconSprite;
+                icon.enabled = skill.DisplayIcon(bloom) != null;
+                icon.sprite = skill.DisplayIcon(bloom);
+                icon.color = owned ? Color.white : new Color(.62f, .62f, .62f, 1f);
             }
-            if (nameLabel != null) nameLabel.text = name;
-            NumberNotationBinding.Bind(this, () => { if (dmgLabel != null) dmgLabel.text = owned ? $"{(equipped ? "장착 중 · " : "")}피해 {NumberNotation.Format(dmg)}" : "미보유"; });
-            if (dmgLabel != null)
-            {
-                dmgLabel.gameObject.SetActive(true);
-                dmgLabel.text = owned ? $"{(equipped ? "장착 중 · " : "")}피해 {NumberNotation.Format(dmg)}" : "미보유";
-            }
+            if (nameLabel != null) nameLabel.text = skill.nameKor;
+            if (stateLabel != null) { stateLabel.text = equipped ? "◆ 장착 중" : bloom ? "개화" : owned ? "보유" : "미보유"; stateLabel.color = equipped ? UguiTheme.BronzeLight : bloom ? MageSkillPresentation.BloomAccent : UguiTheme.TextSecondary; }
+            Action refresh = () => {
+                if (dmgLabel == null) return;
+                dmgLabel.text = !owned ? "미보유 · 자세히" : $"{(bloom ? "개화 · " : "")}{(skill.IsHealing ? "회복" : "피해")} {NumberNotation.Format(power)}";
+            };
+            NumberNotationBinding.Bind(this, refresh); refresh();
             if (button != null)
             {
                 button.onClick.RemoveAllListeners();
-                button.interactable = owned;
-                if (owned && onClick != null) button.onClick.AddListener(() => onClick());
+                button.interactable = true;
+                if (onClick != null) button.onClick.AddListener(() => onClick());
             }
-            if (canvasGroup != null)
-            {
-                canvasGroup.alpha = 1f;
-                canvasGroup.interactable = owned;
-                canvasGroup.blocksRaycasts = owned;
-            }
+            if (canvasGroup != null) { canvasGroup.alpha = 1f; canvasGroup.interactable = true; canvasGroup.blocksRaycasts = true; }
         }
     }
 }

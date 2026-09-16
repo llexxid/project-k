@@ -122,8 +122,6 @@ namespace KingdomIdle.UGUI
             var t = rt.GetComponent<UITween>();
             if (t != null && t._moveCo != null) { t.StopCoroutine(t._moveCo); t._moveCo = null; }
         }
-
-        // ── 살아있는 UI: 호흡/회전/플래시 (신 스킬 버튼·마탑 환경 연출 공용) ──────
         /// <summary>1 ↔ 1+amplitude 사이를 부드럽게 오가는 호흡 스케일 루프. StopBreathScale로 중단.</summary>
         public static void BreathScale(RectTransform rt, float amplitude = 0.05f, float period = 2.4f)
         {

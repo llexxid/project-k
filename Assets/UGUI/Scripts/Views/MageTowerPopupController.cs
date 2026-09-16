@@ -18,11 +18,13 @@ namespace KingdomIdle.UGUI
         private static MageTowerEquipPopupView _view;
         private static readonly List<MageEquipSlotView> _slotViews = new();
         private static readonly List<CanvasGroup> _equippableItems = new();
+        private static readonly Dictionary<int, MageSkillCellView> _cells = new();
 
         private static int _selectedSlot;
         private static bool _pickingMode;
 
         public static bool IsOpen => _view != null && _view.gameObject.activeSelf;
+        public static void RefreshIfOpen() { if (IsOpen) Refresh(); }
 
         public static void Show(int focusSlot = 0)
         {
@@ -72,6 +74,7 @@ namespace KingdomIdle.UGUI
             if (_view.backdropButton != null) _view.backdropButton.onClick.AddListener(Hide);
             if (_view.closeButton != null) _view.closeButton.onClick.AddListener(Hide);
 
+            _cells.Clear();
             BuildSlots(mgr);
             return true;
         }
@@ -103,7 +106,7 @@ namespace KingdomIdle.UGUI
                 int skillId = mgr.GetEquippedSkillId(i);
                 var so = skillId >= 0 ? mgr.GetSkillById(skillId) : null;
                 bool active = _pickingMode && i == _selectedSlot;
-                _slotViews[i].Set(so != null ? so.icon : null, so != null ? so.nameKor : null, so == null, active);
+                _slotViews[i].Set(so != null ? so.DisplayIcon(mgr.IsBloomEnabled(skillId)) : null, so != null ? so.nameKor : null, so == null, active);
             }
 
             RebuildInventory(mgr);
@@ -118,14 +121,6 @@ namespace KingdomIdle.UGUI
             var catalog = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
             if (catalog == null || catalog.itemMageSkillCell == null) return;
 
-            // 기존 셀 비활성화 후 파괴 (Destroy 지연 → 레이아웃에 끼지 않게)
-            for (int i = _view.invGrid.childCount - 1; i >= 0; i--)
-            {
-                var child = _view.invGrid.GetChild(i).gameObject;
-                child.SetActive(false);
-                Object.Destroy(child);
-            }
-
             var skills = mgr.GetAllSkills();
             for (int i = 0; i < skills.Count; i++)
             {
@@ -137,12 +132,16 @@ namespace KingdomIdle.UGUI
                 bool equipped = owned && mgr.IsEquipped(id);
                 bool equippable = owned && !equipped;
 
-                var cellGo = Object.Instantiate(catalog.itemMageSkillCell, _view.invGrid, false);
-                var cell = cellGo.GetComponent<MageSkillCellView>();
-                if (cell == null) continue;
+                if (!_cells.TryGetValue(id, out var cell) || cell == null)
+                {
+                    var cellGo = Object.Instantiate(catalog.itemMageSkillCell, _view.invGrid, false);
+                    cell = cellGo.GetComponent<MageSkillCellView>();
+                    if (cell == null) continue;
+                    _cells[id] = cell;
+                }
 
                 float dmg = owned ? mgr.GetEffectiveDamage(id) : 0f;
-                cell.Set(skill.icon, skill.nameKor, owned, equipped, dmg, () => OnInvItemTapped(id, equippable));
+                cell.Set(skill, owned, equipped, dmg, mgr.IsBloomEnabled(id), () => OnInvItemTapped(id, equippable));
 
                 if (equippable && cell.canvasGroup != null)
                     _equippableItems.Add(cell.canvasGroup);

@@ -16,6 +16,8 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal Image icon;
         [SerializeField] internal TMP_Text titleLabel;
         [SerializeField] internal TMP_Text costLabel;
+        [SerializeField] internal bool authoredBackground;
+        [SerializeField] internal GachaButtonFlare flare;
 
         public Button Button => button;
 
@@ -32,9 +34,10 @@ namespace KingdomIdle.UGUI
                 icon.gameObject.SetActive(iconSprite != null);
             }
 
-            // 뽑기·강화는 재화를 소모하는 '주 행동' → 크림슨(스펜드). 부족하면 회색 비활성.
             if (background != null)
-                background.color = affordable ? UguiTheme.LoginBtnBg : UguiTheme.RusticSurfaceDark;
+                background.color = authoredBackground
+                    ? (affordable ? Color.white : new Color(.55f, .55f, .55f, 1f))
+                    : (affordable ? UguiTheme.RusticSurface : UguiTheme.RusticSurfaceDark);
 
             if (costLabel != null)
                 costLabel.color = affordable ? UguiTheme.Parchment : UguiTheme.TextSecondary;
@@ -45,6 +48,12 @@ namespace KingdomIdle.UGUI
         public void SetInteractable(bool v)
         {
             if (button != null) button.interactable = v;
+        }
+
+        public void PlayMageFlare(System.Action complete, System.Action cancel)
+        {
+            if (flare != null) flare.Play(complete, cancel);
+            else complete?.Invoke();
         }
     }
 }

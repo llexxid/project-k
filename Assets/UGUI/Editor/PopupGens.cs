@@ -45,7 +45,7 @@ namespace KingdomIdle.UGUI.Editor
         internal static GameObject GenerateMageSkillCell()
         {
             var frame = F.Box(null, "Item_MageSkillCell", Color.clear, rounded: true, raycast: true);
-            F.Preferred(frame, width: 110f, height: 130f);
+            F.Preferred(frame, width: 225f, height: 296f);
             var view = frame.gameObject.AddComponent<MageSkillCellView>();
             view.frameImage = frame;
             view.canvasGroup = frame.gameObject.AddComponent<CanvasGroup>();
@@ -65,17 +65,20 @@ namespace KingdomIdle.UGUI.Editor
             view.button = btn;
 
             var icon = F.IconImage(bg.transform, "Icon", null, 60f, 60f);
-            F.Preferred(icon, width: 60f, height: 60f);
+            F.Preferred(icon, width: 96f, height: 96f);
             view.icon = icon;
 
-            var nameLbl = F.Text(bg.transform, "Name", "", 18f, new Color(1f, 1f, 1f, 0.85f), TextAlignmentOptions.Center);
-            F.Preferred(nameLbl, height: 24f);
+            var nameLbl = F.Text(bg.transform, "Name", "", 28f, new Color(1f, 1f, 1f, 0.85f), TextAlignmentOptions.Center);
+            F.Preferred(nameLbl, height: 40f);
             view.nameLabel = nameLbl;
 
-            var dmg = F.Text(bg.transform, "Dmg", "", 16f, new Color(1f, 1f, 1f, 0.6f), TextAlignmentOptions.Center);
-            F.Preferred(dmg, height: 22f);
+            view.stateLabel = F.Text(bg.transform, "State", "", 24f, UguiTheme.Parchment, TextAlignmentOptions.Center);
+            F.Preferred(view.stateLabel, height: 30f);
+            var dmg = F.Text(bg.transform, "Dmg", "", 25f, new Color(1f, 1f, 1f, 0.6f), TextAlignmentOptions.Center);
+            F.Preferred(dmg, height: 66f);
             view.dmgLabel = dmg;
 
+            F.CornerBrackets(frame.transform, arm: 16f, thick: 2f, inset: 5f, color: MageSkillPresentation.Accent);
             return PrefabGenUtil.SavePrefab(frame.gameObject, $"{PrefabGenUtil.PrefabRoot}/Items/Item_MageSkillCell.prefab");
         }
 
@@ -142,7 +145,7 @@ namespace KingdomIdle.UGUI.Editor
             var invCol = F.Container(body, "InvCol");
             F.VLayout(invCol.gameObject, 10f);
             F.Flexible(invCol, flexWidth: 1f, flexHeight: 1f);
-            F.Text(invCol, "Header", "보유 스킬", 22f, new Color(1f, 1f, 1f, 0.75f));
+            F.Text(invCol, "Header", "스킬 목록 · 탭하여 자세히", 26f, new Color(1f, 1f, 1f, 0.75f));
             var scroll = F.VScroll(invCol, "InvScroll", out var content, spacing: 12f, padding: new RectOffset(4, 4, 4, 4));
             F.Flexible(scroll, flexHeight: 1f);
             view.invScroll = scroll;

@@ -37,7 +37,7 @@ public abstract class ActiveSkill
         => _player.GetClipLength("Attack_Anim", 0.4f);
 
     /// <summary>
-    /// 쿨타임에 파티 가속 버프(신 스킬 '폭풍 가속' 등)를 반영한 값.
+    /// 직업별 액티브 스킬의 공통 쿨타임 진입점.
     /// 애니메이션 길이는 줄이면 안 되므로 쿨타임 구간에만 적용한다.
     /// </summary>
     protected static float ScaledCooldown(float cooldown)

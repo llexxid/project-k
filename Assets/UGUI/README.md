@@ -31,7 +31,7 @@
 - `CompactHudBuilder.Apply`: `Screen_Main`, `Panel_Guide`, `Item_GuideStepRow`를 갱신한다.
 - 상단 중앙: 작은 반투명 스테이지 배지, 보스전에서 타이머 표시.
 - 좌측 상단: `GuideGoalView`가 실제 `QuestManager`의 현재 단계·목표·진척도를 이벤트로 갱신한다. 진행 중 목적지 이동, 완료 시 다음 단계/보상, 전체 내용은 메뉴에서 확인한다.
-- 햄버거: 퀘스트/가이드, 가방, 신 스킬, 설정, 보스 자동 도전, 반복 사냥 종료(반복 중일 때).
+- 햄버거: 퀘스트/가이드, 가방, 설정, 보스 자동 도전, 반복 사냥 종료(반복 중일 때).
 - `Panel_Guide`의 현재 퀘스트는 HUD와 같은 데이터를 쓴다. 등록된 `TutorialManager` 목록은 수동 확인하는 플레이 도움말이며 퀘스트 완료 판정과 구별한다. 도움말 데이터가 없으면 실제 다음 퀘스트 목록을 표시한다.
 - 하단 네 탭은 육성·왕국군·던전·뽑기. 시트가 열리면 HUD 목표 카드는 숨긴다.
 
@@ -49,3 +49,9 @@
 - `BattleHudDeviceProbe`: QA 빌드 전용 HUD 상태·레이아웃·진행 fixture. 일반 배포에는 포함되지 않는다.
 
 Android 검사 도우미·결과는 `AI/qa/hud/`, `Recordings/HudRevision/`에 있다. `Recordings`는 Git 제외다.
+
+## 마탑·뽑기
+
+`MageUiPreparation`은 10종 스킬 셀, 개화 선택이 있는 상세 창, 목재·청동 뽑기 버튼과 결과 창을 준비한다. 스킬 등급은 없으며 청동 테두리와 문구로 장착, 보라색과 아이콘 변형으로 개화를 표시한다. 스킬 셀은 재사용한다. `MageSkillPresentation`은 등록 SO와 저장 상태를 읽는다. `GachaButtonFlare`는 unscaled-time 가장자리 청색 연출을 재사용하며, 저사양에서도 결제 시점·취소 동작은 동일하다. 창을 닫으면 결제 전 연출을 취소하고 연속 터치에는 한 번만 결제한다.
+
+마탑 Android 검증 도우미는 `AI/qa/mage/`, 상세 근거는 [통합 보고서](../../Docs/ArtPreparation/MAGE_INTEGRATION_VALIDATION.md)에 있다.

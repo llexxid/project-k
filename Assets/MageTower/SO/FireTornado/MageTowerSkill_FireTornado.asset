@@ -13,13 +13,38 @@ MonoBehaviour:
   m_Name: MageTowerSkill_FireTornado
   m_EditorClassIdentifier: 
   id: 2
-  nameEng: Fire Tornado
-  nameKor: "\uD654\uC5FC\uB3CC\uD48D"
+  nameEng: FireTornado
+  nameKor: "\uD654\uC5FC \uD68C\uC624\uB9AC"
   icon: {fileID: 21300000, guid: 5df88d9cf0cf8bb439c1ea64c648f319, type: 3}
+  bloomIcon: {fileID: 21300000, guid: 0d70ae9ceba61cc4f93704ede5e41763, type: 3}
   baseCooldown: 15
   maxEnhanceLevel: 100
   maxAwakeningLevel: 10
-  prefab: {fileID: 6282996793818360301, guid: 57a1a79364b5c664daba5050ff4b6cb9, type: 3}
+  prefab: {fileID: 9196456136966072243, guid: 83b2d26478cb4ca44b715b0b72c700cb, type: 3}
+  spellKind: 2
+  description: "\uBD88\uAF43 \uD68C\uC624\uB9AC\uAC00 \uC801\uC744 \uCAD3\uC73C\uBA70
+    \uC8FC\uBCC0\uC5D0 \uC9C0\uC18D \uD53C\uD574\uB97C \uC90D\uB2C8\uB2E4."
+  basePower: 40
+  baseHits: 10
+  radius: 0.8
+  duration: 5
+  tickInterval: 0.5
+  controlDuration: 0
+  slowFraction: 0
+  secondaryPowerRatio: 0
+  maxTargets: 3
+  castingPrefab: {fileID: 0}
+  secondaryPrefab: {fileID: 0}
+  bloomName: "\uBBF8\uC815"
+  bloomDescription: "\uD53C\uD574\uB7C9 +15%. \uC804\uC6A9 \uD6A8\uACFC\uB294 \uC900\uBE44
+    \uC911\uC785\uB2C8\uB2E4."
+  bloomCooldownMultiplier: 1
+  bloomPowerMultiplier: 1.15
+  bloomAreaPowerMultiplier: 0.5
+  bloomControlDuration: 2
+  bloomMaxTargets: 10
+  bloomPrefab: {fileID: 0}
+  bloomCastingPrefab: {fileID: 0}
   sfxName: Fire_Tornado_SFX
   sfxLoopName: Fire_Tornado2_SFX
   effects:

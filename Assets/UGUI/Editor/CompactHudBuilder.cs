@@ -87,7 +87,7 @@ namespace KingdomIdle.UGUI.Editor
             main.btnMenuGuide.transform.Find("MenuLabel").GetComponent<TMP_Text>().text = "퀘스트 / 가이드";
             // This book is already packed in Atlas_UI; reuse it without another texture allocation.
             main.btnMenuGuide.transform.Find("Icon").GetComponent<Image>().sprite = AssetDatabase.LoadAssetAtPath<Sprite>(Picto + "book.png");
-            foreach (var button in new[] { main.btnMenuGuide, main.btnMenuInventory, main.btnMenuDivineCollection, main.btnMenuSettings })
+            foreach (var button in new[] { main.btnMenuGuide, main.btnMenuInventory, main.btnMenuSettings })
             {
                 SizeLayout(button.transform, 144);
                 Surface(button.GetComponent<Image>(), UguiTheme.RusticSurfaceDark);

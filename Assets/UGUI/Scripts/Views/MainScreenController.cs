@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using KingdomIdle.Divine;
 using KingdomIdle.UI;
 using Scripts.Core;
 
@@ -798,27 +797,6 @@ namespace KingdomIdle.UGUI
                     CloseHamburgerMenu();
                     if (_currencyOpen) CloseCurrencyPopup();
                     _host.PushPanel(UIPanelId.Inventory, null, clearBefore: false, isTabPanel: false);
-                });
-            }
-
-            // 신 스킬 도감 — HUD 모서리 버튼에서 이사 옴 (원형 버튼 리워크)
-            if (_view.btnMenuDivineCollection != null)
-            {
-                // 신 스킬 시스템 비활성화 상태(bootstrap 에 매니저 미설치)면 진입점 자체를 숨긴다.
-                // 매니저 존재 여부로 게이트 → 시스템 재활성화 시 이 코드는 손대지 않아도 된다.
-                _view.btnMenuDivineCollection.gameObject.SetActive(DivineSkillManager.Instance != null);
-                _view.btnMenuDivineCollection.onClick.AddListener(() =>
-                {
-                    CloseHamburgerMenu();
-                    if (_currencyOpen) CloseCurrencyPopup();
-
-                    var divine = DivineSkillManager.Instance;
-                    if (divine == null || !divine.IsSystemUnlocked)
-                    {
-                        _host.ShowToast("신 스킬은 스테이지 3-10 클리어 후 해금됩니다.");
-                        return;
-                    }
-                    DivineCollectionPopupController.Show();
                 });
             }
 

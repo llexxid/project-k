@@ -65,5 +65,7 @@ namespace KingdomIdle.Balance
     {
         public int Enhance, Awaken, Fragments;
         public long Spent;
+        // Absent in old snapshots: false. Kept outside the legacy packed skill code.
+        public bool BloomEnabled;
     }
 }

@@ -192,7 +192,7 @@ namespace Scripts.Monster
 			return _stat._moveSpeed * _speedMultiplier;
 		}
 
-		/// <summary>이동속도 배율. 신 스킬의 둔화(Slow) 등 외부 효과가 일시적으로 낮춘다.</summary>
+		/// <summary>이동속도 배율. 마탑의 둔화(Slow) 등 외부 효과가 일시적으로 낮춘다.</summary>
 		public double SpeedMultiplier
 		{
 			get { return _speedMultiplier; }

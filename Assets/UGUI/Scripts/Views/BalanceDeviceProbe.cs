@@ -14,7 +14,7 @@ namespace KingdomIdle.UGUI
 {
     public sealed class BalanceDeviceProbe : MonoBehaviour
     {
-        [Serializable] private class Command { public string id,action; public int value; public long stage; }
+        [Serializable] private class Command { public string id,action; public int value, awaken, enhance, captureMs; public bool bloom; public long stage; }
         private string _directory;
         private const string PlayAccount="device-play-20260914";
         private int _frames; private double _totalMs,_maxMs;private float _nextSample;
@@ -51,6 +51,40 @@ namespace KingdomIdle.UGUI
                         object output=null;
                         switch(c.action)
                         {
+                            case "mage-acceptance":
+                                float magePrevious=Time.timeScale;Time.timeScale=0;
+                                try{output=MageSkillAcceptance.Run();}finally{LocalProgression.OpenTestAccount(PlayAccount);EquipmentManager.Instance?.RestoreEquipment();MageTowerManager.Instance?.NotifyCommitted();StatEnhanceManager.Instance?.ApplyToAllPlayers();Time.timeScale=magePrevious;}
+                                break;
+                            case "mage-fixture":
+                                MageTowerManager.Instance.SetAutoEnabled(false);
+                                LocalProgression.Execute("qa-mage-fixture",s=>{
+                                    s.AttackLevel=0;s.HealthLevel=136;
+                                    s.Wallet[eCurrency.AncientCoin]=10000;s.Wallet[eCurrency.ArcaneKnowledge]=10000;
+                                    for(int id=0;id<10;id++)s.MageSkills[id]=new MageSave{Enhance=c.enhance,Awaken=c.awaken,Fragments=55,BloomEnabled=c.bloom && c.awaken==10};
+                                    for(int slot=0;slot<5;slot++)s.MageSlots[slot]=-1;
+                                    return true;
+                                });
+                                MageTowerManager.Instance.NotifyCommitted();StatEnhanceManager.Instance.ApplyToAllPlayers();
+                                break;
+                            case "mage-list":MageTowerPopupController.Show();break;
+                            case "mage-detail":MageTowerDetailPopupController.Show(c.value);break;
+                            case "mage-configure":
+                                LocalProgression.Execute("qa-mage-configure",s=>{s.MageSkills[c.value]=new MageSave{Enhance=c.enhance,Awaken=c.awaken,Fragments=55,BloomEnabled=c.bloom && c.awaken==10};return true;});
+                                MageTowerManager.Instance.NotifyCommitted();break;
+                            case "mage-cast":
+                                MageSkillDiagnostics.Events.Clear();
+                                MageTowerManager.Instance.SetAutoEnabled(false);
+                                for(int slot=0;slot<5;slot++)MageTowerManager.Instance.Unequip(slot);
+                                MageTowerManager.Instance.Equip(0,c.value);
+                                bool accepted=MageTowerManager.Instance.CastSkill(0);
+                                if(accepted && c.captureMs>0)StartCoroutine(FreezeAfter(c.captureMs/1000f));
+                                output=new{accepted};break;
+                            case "mage-bloom":output=new{accepted=MageTowerManager.Instance.SetBloomEnabled(c.value,c.bloom),cooldown=MageTowerManager.Instance.GetCooldownRatio(0)};break;
+                            case "mage-auto":MageTowerManager.Instance.SetAutoEnabled(c.value==1);break;
+                            case "mage-equip":output=new{accepted=MageTowerManager.Instance.Equip(c.awaken,c.value)};break;
+                            case "mage-slot-cast":output=new{accepted=MageTowerManager.Instance.CastSkill(c.value)};break;
+                            case "timescale":Time.timeScale=Mathf.Clamp(c.value/100f,0f,1f);break;
+                            case "mage-close":MageTowerDetailPopupController.Hide();MageTowerPopupController.Hide();break;
                             case "acceptance":
                                 float previous=Time.timeScale;Time.timeScale=0;
                                 try{output=BalanceAcceptance.Run();}finally{LocalProgression.OpenTestAccount(PlayAccount);EquipmentManager.Instance?.RestoreEquipment();MageTowerManager.Instance?.NotifyCommitted();StatEnhanceManager.Instance?.ApplyToAllPlayers();Time.timeScale=previous;}
@@ -86,6 +120,12 @@ namespace KingdomIdle.UGUI
                 yield return new WaitForSecondsRealtime(.25f);
             }
         }
+        private static IEnumerator FreezeAfter(float seconds)
+        {
+            float end=Time.time+seconds;
+            while(Time.time<end)yield return null;
+            Time.timeScale=0;
+        }
         private void Update()
         {
             double ms=Time.unscaledDeltaTime*1000d;_frames++;_totalMs+=ms;_maxMs=Math.Max(_maxMs,ms);
@@ -100,6 +140,11 @@ namespace KingdomIdle.UGUI
                 s.OfflineKpm,s.OfflineStage,equipment=s.Equipment.Count,pending=s.PendingEquipment.Count,pity=s.EquipmentPity,claims=s.Claims.ToArray(),
                 party=players?.Select(p=>new{p.PlayerIndex,job=p.playerStatus.JobName,atk=p.playerStatus.Atk,hp=p.playerStatus.HP,maxHP=p.playerStatus.MaxHP,ratio=p.HPRatio,position=new[]{p.transform.position.x,p.transform.position.y,p.transform.position.z},action=p.CurrentAction.ToString(),target=p.currentTarget?.gameobj?.name}).ToArray(),
                 cp=CombatPowerCalculator.CalculatePartyPowerV1(players),mage=s.MageSkills,slot=s.MageSlots,
+                mageEvents=MageSkillDiagnostics.Events.ToArray(),
+                mageCooldown=Enumerable.Range(0,5).Select(i=>new{slot=i,casting=MageTowerManager.Instance?.IsCasting(i),ratio=MageTowerManager.Instance?.GetCooldownRatio(i)}).ToArray(),
+                crowdControl=FindObjectsByType<KingdomIdle.Combat.MonsterCCState>(FindObjectsSortMode.None).Where(x=>x.isActiveAndEnabled).Select(x=>new{target=x.name,active=x.enabled,kind=x.DiagnosticKind,remaining=x.DiagnosticRemaining}).ToArray(),
+                mageVisuals=FindObjectsByType<KingdomIdle.Combat.PooledSpellVfx>(FindObjectsSortMode.None).Where(x=>x.isActiveAndEnabled).Select(x=>new{x.name,generation=x.SpawnGen,position=new[]{x.transform.position.x,x.transform.position.y},renderers=x.GetComponentsInChildren<SpriteRenderer>().Select(r=>new{r.name,sprite=r.sprite?.name,alpha=r.color.a,size=new[]{r.bounds.size.x,r.bounds.size.y},order=r.sortingOrder}).ToArray()}).ToArray(),
+                time=Time.time,timeScale=Time.timeScale,
                 monsters=FindObjectsByType<Scripts.Monster.Monster>(FindObjectsSortMode.None).Where(m=>m.isActiveAndEnabled && m.MonAction!=eMonsterAction.Dead).Select(m=>new{type=m.Type.ToString(),m.BalanceReward,m.IsBalanceBoss,position=new[]{m.transform.position.x,m.transform.position.y,m.transform.position.z},hp=m.GetHpRatio(),action=m.MonAction.ToString(),colliders=m.GetComponentsInChildren<Collider2D>().Select(c=>c.enabled).ToArray()}).ToArray(),
                 visualBounds=FindObjectsByType<Scripts.Monster.Monster>(FindObjectsSortMode.None).Where(m=>m.isActiveAndEnabled && m.MonAction!=eMonsterAction.Dead).Select(m=>{
                     var renderer=m.GetComponentInChildren<SpriteRenderer>();var camera=Camera.main;

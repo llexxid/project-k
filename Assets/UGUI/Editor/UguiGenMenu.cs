@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 
@@ -45,14 +45,12 @@ namespace KingdomIdle.UGUI.Editor
             OverlayGens.GenerateToast();
             OverlayGens.GenerateSettings();
             OverlayGens.GenerateGachaResult();
-            OverlayGens.GenerateDivineCutIn();
             ProfilePopupPrefabGens.GenerateProfilePopup();
             RankingPopupPrefabGen.Generate();
             OfflineRewardPopupPrefabGen.Generate();
 
             // HUD
             HudGens.GeneratePartyHud();
-            HudGens.GenerateDivineSkillHud();
             HudGens.GenerateMageTowerEnv();
             HudGens.GenerateDamageTextItem(CatalogGen.GetOrCreateDamageOutlineMaterial());
 
@@ -67,7 +65,6 @@ namespace KingdomIdle.UGUI.Editor
             ItemGens.GenerateJobCard();
             ItemGens.GenerateEnhanceCard();
             ItemGens.GenerateSkillRow();
-            ItemGens.GenerateDivineCard();
 
             // 런타임 코드생성 → 프리팹 전환
             PopupGens.GenerateMageEquipSlot();
@@ -82,7 +79,6 @@ namespace KingdomIdle.UGUI.Editor
             DungeonFeaturePrefabGens.GenerateAll();
             // 던전 패널 시트 — 던전 카드/난이도 팝업 프리팹(위 GenerateAll)이 먼저 있어야 한다
             PanelGens.GenerateDungeon();
-            DivineCollectionPopupPrefabGens.GenerateAll();
 
             // 프리팹 참조 배선 (프리팹 생성 후)
             CatalogGen.AssignPrefabs(catalog);
@@ -190,12 +186,8 @@ namespace KingdomIdle.UGUI.Editor
             errors += CheckPrefabViews(catalog.overlayLoading);
             errors += CheckPrefabViews(catalog.overlayToast);
             errors += CheckPrefabViews(catalog.overlaySettings);
-            errors += CheckPrefabViews(catalog.overlayDivineCutIn);
             errors += CheckPrefabViews(catalog.hudParty);
-            errors += CheckPrefabViews(catalog.hudDivineSkill);
             errors += CheckPrefabViews(catalog.hudMageTowerEnv);
-            errors += CheckPrefabViews(catalog.popupDivineCollection);
-            errors += CheckPrefabViews(catalog.itemDivineCard);
 
             if (errors == 0)
                 Debug.Log("[UguiGen] View 배선 검사: 통과");

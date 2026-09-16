@@ -1,6 +1,6 @@
 /// <summary>
 /// 64비트 마탑 스킬 코드 인코더/디코더.
-/// 서버 전송·DB 저장 시 스킬 한 건의 전체 상태를 단일 long 값으로 표현한다.
+/// 기존 서버 코드 호환용. 개화와 65535개를 넘는 파편은 MageSkillStateSnapshot을 사용한다.
 ///
 /// ── 64비트 레이아웃 ──────────────────────────────────────────────
 ///   [63-52]  예약 공간     (12bit) → reserved        (향후 확장용)
@@ -33,6 +33,9 @@ public static class MageTowerSkillCode
     public static long Pack(int skillId, int awakeningLevel, int enhanceLevel,
                             int quantity, int reserved = 0)
     {
+        if (skillId < 0 || skillId > SKILL_MASK || awakeningLevel < 0 || awakeningLevel > AWAKENING_MASK ||
+            enhanceLevel < 0 || enhanceLevel > ENHANCE_MASK || quantity < 0 || quantity > QUANTITY_MASK || reserved < 0 || reserved > RESERVED_MASK)
+            throw new System.ArgumentOutOfRangeException("Legacy mage code range exceeded; use the versioned snapshot.");
         return ((long)(reserved       & (int)RESERVED_MASK)  << RESERVED_SHIFT)
              | ((long)(skillId        & (int)SKILL_MASK)     << SKILL_SHIFT)
              | ((long)(enhanceLevel   & (int)ENHANCE_MASK)   << ENHANCE_SHIFT)

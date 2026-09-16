@@ -29,8 +29,7 @@ namespace KingdomIdle.UGUI
             var mage = MageTowerManager.Instance;
             if (mage != null) foreach(int id in LocalProgression.State.MageSlots.Where(x => x >= 0).Distinct())
             {
-                int hits = BalanceMath.MageHits(id == 0 ? 3 : id == 1 ? 4 : 10,mage.GetAwakeningLevel(id),id == 2);
-                dps += mage.GetEffectiveDamage(id) * (decimal)hits / (decimal)mage.GetEffectiveCooldown(id);
+                dps += mage.SingleTargetDps(id);
             }
             return BalanceMath.Round(5m * dps + .25m * health);
         }

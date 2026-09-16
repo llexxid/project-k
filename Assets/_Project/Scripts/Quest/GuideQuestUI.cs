@@ -8,9 +8,9 @@ using UnityEngine.UI;
 public class GuideQuestUI : MonoBehaviour
 {
     /// <summary>
-    /// [임시] 하단 중앙에 신 스킬(궁극기) 버튼이 들어오면서 자리가 겹쳐 가이드 퀘스트 창을 잠시 숨긴다.
+    /// 구형 가이드 창은 숨긴다. 현재 가이드는 UGUI HUD에서 표시한다.
     /// 퀘스트 로직(QuestManager)은 그대로 돌아가며(진행/보상 상태 유지), UI만 헤드리스가 된다.
-    /// 되살리려면 false 로 바꾸면 된다. (const 대신 readonly — 도달 불가 코드 경고 방지)
+    /// 호환 씬에서만 사용하며 현재 HUD와 중복 표시하지 않는다.
     /// </summary>
     private static readonly bool GuideQuestTemporarilyHidden = true;
 

@@ -336,7 +336,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
     public bool TakeDamage(IAttackable attacker)
     {
-        // 신 스킬 보호 버프(받는 피해 감소)를 먼저 반영한다. 버프가 없으면 원본 그대로.
         if (_isDead || attacker == null) return false;
         ulong dmg = attacker.damage;
 

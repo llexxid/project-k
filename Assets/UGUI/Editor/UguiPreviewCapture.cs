@@ -170,7 +170,6 @@ namespace KingdomIdle.UGUI.Editor
             Add(catalog.hudMageTowerEnv, stretch: false);   // 화면 프리팹보다 먼저 = 하단바 뒤
             Add(catalog.screenMain, stretch: true);
             Add(catalog.hudParty, stretch: false);
-            Add(catalog.hudDivineSkill, stretch: false);
 
             // 런타임 컨트롤러가 채우는 값(초상화·HP·스킬·장착 카드)을 정적 캡처에서도 채운다 —
             // 그러지 않으면 합성 샷이 빈 메달리온/미장착 버튼만 보여 실제 화면과 딴판이 된다.
@@ -185,147 +184,21 @@ namespace KingdomIdle.UGUI.Editor
 
             // 궁극기 버튼 컨셉 스킨 — 런타임 Refresh 가 하는 스왑을 정적 캡처에서 재현해 육안 검증한다
             // (미장착 상태만 찍으면 링 아트가 한 번도 화면에 안 잡힌다).
-            CaptureDivineConceptRings(scene, cam, spawned);
 
             foreach (var go in spawned) Object.DestroyImmediate(go);
 
-            // 신 스킬 도감 팝업 단독 샷
-            if (catalog.popupDivineCollection != null && layers.TryGetValue("LayerPopups", out var popupLayer))
-            {
-                var popup = (GameObject)PrefabUtility.InstantiatePrefab(catalog.popupDivineCollection, scene);
-                popup.transform.SetParent(popupLayer, false);
-                var prt = (RectTransform)popup.transform;
-                prt.anchorMin = Vector2.zero; prt.anchorMax = Vector2.one;
-                prt.offsetMin = Vector2.zero; prt.offsetMax = Vector2.zero;
-                popup.SetActive(true);
-                PopulateDivineCollection(popup, catalog);
-
-                Canvas.ForceUpdateCanvases();
-                LayoutRebuilder.ForceRebuildLayoutImmediate(prt);
-                Canvas.ForceUpdateCanvases();
-
-                Render(cam, Path.Combine(OutDir, "13_divine_collection.png"));
-                Object.DestroyImmediate(popup);
-            }
 
             // 궁극기 컷인 오버레이 단독 샷 (연출 중간 프레임 상태로 세팅)
-            if (catalog.overlayDivineCutIn != null && layers.TryGetValue("LayerPopups", out var cutInLayer))
-            {
-                var cut = (GameObject)PrefabUtility.InstantiatePrefab(catalog.overlayDivineCutIn, scene);
-                cut.transform.SetParent(cutInLayer, false);
-                var crt = (RectTransform)cut.transform;
-                crt.anchorMin = Vector2.zero; crt.anchorMax = Vector2.one;
-                crt.offsetMin = Vector2.zero; crt.offsetMax = Vector2.zero;
-                cut.SetActive(true);
-                PopulateDivineCutIn(cut);
 
-                Canvas.ForceUpdateCanvases();
-                LayoutRebuilder.ForceRebuildLayoutImmediate(crt);
-                Canvas.ForceUpdateCanvases();
-
-                Render(cam, Path.Combine(OutDir, "15_divine_cutin.png"));
-                Object.DestroyImmediate(cut);
-            }
         }
 
-        private static List<KingdomIdle.Divine.DivineSkillSO> LoadDivineCards()
-        {
-            var cards = new List<KingdomIdle.Divine.DivineSkillSO>();
-            foreach (string guid in AssetDatabase.FindAssets("t:DivineSkillSO", new[] { "Assets/DivineSkill/SO" }))
-            {
-                var so = AssetDatabase.LoadAssetAtPath<KingdomIdle.Divine.DivineSkillSO>(
-                    AssetDatabase.GUIDToAssetPath(guid));
-                if (so != null) cards.Add(so);
-            }
-            cards.Sort((a, b) => string.CompareOrdinal(a.name, b.name));
-            return cards;
-        }
+
 
         /// <summary>도감 팝업을 실제 카드로 채운다 — 빈 껍데기 샷으로는 디자인을 판단할 수 없다.</summary>
-        private static void PopulateDivineCollection(GameObject popup, UIViewCatalog catalog)
-        {
-            var v = popup.GetComponent<DivineCollectionPopupView>();
-            if (v == null || catalog.itemDivineCard == null) return;
 
-            var cards = LoadDivineCards();
-            if (cards.Count == 0) return;
-
-            if (v.cardGrid != null)
-            {
-                for (int i = v.cardGrid.childCount - 1; i >= 0; i--)
-                    Object.DestroyImmediate(v.cardGrid.GetChild(i).gameObject);
-
-                for (int i = 0; i < cards.Count; i++)
-                {
-                    var cellGo = (GameObject)PrefabUtility.InstantiatePrefab(catalog.itemDivineCard, popup.scene);
-                    cellGo.transform.SetParent(v.cardGrid, false);
-                    var cell = cellGo.GetComponent<DivineCardItemView>();
-                    if (cell == null) continue;
-                    // 보유/미보유·레벨·중복·장착을 섞어 실제 도감처럼 보이게 한다
-                    bool owned = i < 5;
-                    cell.Set(cards[i], owned, owned ? 1 + i : 0, i == 1 ? 2 : 0, i == 0, i == 0, null);
-                }
-            }
-
-            var card0 = cards[0];
-            if (v.illustration != null)
-            {
-                var sp = card0.illustration != null ? card0.illustration : card0.icon;
-                v.illustration.sprite = sp;
-                v.illustration.enabled = sp != null;
-                v.illustration.color = Color.white;
-            }
-            var grade = KingdomIdle.Divine.DivineSkillSO.GetGradeColor(card0.grade);
-            if (v.cardNameLabel != null) { v.cardNameLabel.text = card0.DisplayName; v.cardNameLabel.color = grade; }
-            if (v.gradePill != null) v.gradePill.color = grade;
-            if (v.gradePillLabel != null)
-                v.gradePillLabel.text = KingdomIdle.Divine.DivineSkillSO.GetGradeName(card0.grade);
-            if (v.skillNameLabel != null) v.skillNameLabel.text = card0.skillNameKor;
-            if (v.descriptionLabel != null) v.descriptionLabel.text = card0.description;
-            if (v.statCooldownLabel != null) v.statCooldownLabel.text = $"쿨타임  {card0.cooldown:0}초";
-            if (v.statMultiplierLabel != null) v.statMultiplierLabel.text = "레벨 배율  x1.00";
-            if (v.bonusLabel != null) v.bonusLabel.text = "컬렉션 보너스: 공격력 +5%";
-            if (v.equipButtonLabel != null) v.equipButtonLabel.text = "장착됨";
-            if (v.levelUpButtonLabel != null) v.levelUpButtonLabel.text = "레벨업 (2/3)";
-            if (v.lockedHintLabel != null) v.lockedHintLabel.gameObject.SetActive(false);
-        }
 
         /// <summary>컷인 오버레이를 '연출 절정' 프레임 상태로 세팅한다 (일러스트 인 + 플레이트 팝인 완료).</summary>
-        private static void PopulateDivineCutIn(GameObject go)
-        {
-            var v = go.GetComponent<DivineCutInView>();
-            if (v == null) return;
-            var cards = LoadDivineCards();
-            if (cards.Count == 0) return;
-            var card = cards[0];
 
-            if (v.scrim != null)
-            {
-                v.scrim.gameObject.SetActive(true);   // 프리팹 초기 상태가 꺼져 있어 암막이 안 찍혔다
-                v.scrim.enabled = true;
-                v.scrim.color = new Color(0f, 0f, 0f, 0.82f);
-            }
-            if (v.illustGroup != null) v.illustGroup.alpha = 1f;
-            if (v.illustHolder != null) v.illustHolder.anchoredPosition = Vector2.zero;
-            if (v.illust != null)
-            {
-                // 런타임(DivineCutInController)과 같은 대체 순서: 컷씬 → 스탠딩 → 아이콘
-                var sp = card.cutInIllustration != null ? card.cutInIllustration
-                       : card.illustration != null ? card.illustration
-                       : card.icon;
-                v.illust.sprite = sp;
-                v.illust.enabled = sp != null;
-                v.illust.color = Color.white;
-            }
-            if (v.plateGroup != null) v.plateGroup.alpha = 1f;
-            if (v.plate != null) v.plate.localScale = Vector3.one;
-            var grade = KingdomIdle.Divine.DivineSkillSO.GetGradeColor(card.grade);
-            if (v.gradeRibbon != null) v.gradeRibbon.color = grade;
-            if (v.gradeLabel != null) v.gradeLabel.text = KingdomIdle.Divine.DivineSkillSO.GetGradeName(card.grade);
-            if (v.nameLabel != null) { v.nameLabel.text = card.nameKor; v.nameLabel.color = grade; }
-            if (v.skillLabel != null) v.skillLabel.text = card.skillNameKor;
-            if (v.flash != null) v.flash.color = new Color(1f, 1f, 1f, 0f);   // 섬광 전 프레임
-        }
 
         /// <summary>합성 샷용: 파티 HUD 초상화/HP/스킬 + 궁극기 버튼 장착 상태를 실제 에셋으로 채운다.</summary>
         /// <summary>
@@ -405,79 +278,14 @@ namespace KingdomIdle.UGUI.Editor
 
                 // (구 좌측 마탑 스킬 슬롯 열 populate 는 HUD 제거와 함께 삭제됨)
 
-                var hud = go.GetComponent<DivineSkillHudView>();
-                if (hud != null)
-                {
-                    var card = AssetDatabase.LoadAssetAtPath<KingdomIdle.Divine.DivineSkillSO>(
-                        "Assets/DivineSkill/SO/DivineSkill_Astra.asset");
-                    if (card != null)
-                    {
-                        if (hud.conceptRing != null && card.buttonRingSprite != null)
-                        {
-                            hud.conceptRing.sprite = card.buttonRingSprite;
-                            hud.conceptRing.gameObject.SetActive(true);
-                        }
-                        if (hud.icon != null && card.icon != null)
-                        {
-                            hud.icon.sprite = card.icon;
-                            hud.icon.gameObject.SetActive(true);
-                        }
-                        if (hud.emptyLabel != null) hud.emptyLabel.gameObject.SetActive(false);
-                        if (hud.gradeBorder != null)
-                            hud.gradeBorder.color = KingdomIdle.Divine.DivineSkillSO.GetGradeColor(card.grade);
-                        if (hud.readyGlow != null) hud.readyGlow.gameObject.SetActive(true);
-                    }
-                }
+
             }
         }
 
         /// <summary>
         /// 궁극기 버튼에 카드별 컨셉 링을 순서대로 끼워 넣고 한 장씩 찍는다.
-        /// 런타임 DivineSkillHudController.Refresh 와 같은 조작(ConceptRing 스프라이트+활성, 아이콘, 등급색)만 한다.
         /// </summary>
-        private static void CaptureDivineConceptRings(UnityEngine.SceneManagement.Scene scene, Camera cam,
-            List<GameObject> spawned)
-        {
-            DivineSkillHudView hud = null;
-            foreach (var go in spawned)
-            {
-                hud = go.GetComponent<DivineSkillHudView>();
-                if (hud != null) break;
-            }
-            if (hud == null || hud.conceptRing == null) return;
 
-            var cards = new List<KingdomIdle.Divine.DivineSkillSO>();
-            foreach (string guid in AssetDatabase.FindAssets("t:DivineSkillSO", new[] { "Assets/DivineSkill/SO" }))
-            {
-                var so = AssetDatabase.LoadAssetAtPath<KingdomIdle.Divine.DivineSkillSO>(
-                    AssetDatabase.GUIDToAssetPath(guid));
-                if (so != null && so.buttonRingSprite != null) cards.Add(so);
-            }
-            if (cards.Count == 0) return;
-            cards.Sort((a, b) => a.concept.CompareTo(b.concept));
-
-            var shown = new HashSet<KingdomIdle.Divine.eDivineConcept>();
-            foreach (var card in cards)
-            {
-                if (!shown.Add(card.concept)) continue;   // 컨셉당 1장 (루멘·아스트라는 Holy 공유)
-
-                hud.conceptRing.sprite = card.buttonRingSprite;
-                hud.conceptRing.gameObject.SetActive(true);
-                if (hud.icon != null && card.icon != null)
-                {
-                    hud.icon.sprite = card.icon;
-                    hud.icon.gameObject.SetActive(true);
-                }
-                if (hud.emptyLabel != null) hud.emptyLabel.gameObject.SetActive(false);
-                if (hud.gradeBorder != null)
-                    hud.gradeBorder.color = KingdomIdle.Divine.DivineSkillSO.GetGradeColor(card.grade);
-
-                Canvas.ForceUpdateCanvases();
-                Render(cam, Path.Combine(OutDir, $"14_divine_ring_{card.concept}.png"));
-            }
-
-            hud.conceptRing.gameObject.SetActive(false);
-        }
 
         /// <summary>
         /// 탭/네비 버튼은 런타임에 생성되므로 프리팹 캡처엔 안 잡힌다.

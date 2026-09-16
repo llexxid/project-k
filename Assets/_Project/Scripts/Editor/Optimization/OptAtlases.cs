@@ -13,6 +13,7 @@ using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.U2D;
+using UnityEditor.AddressableAssets;
 using UnityEngine;
 using UnityEngine.U2D;
 
@@ -68,12 +69,24 @@ namespace KingdomIdle.EditorTools.Optimization
             BuildAtlas($"{AtlasDir}/Atlas_UIPixel.spriteatlasv2", true, FilterMode.Point,
                 TextureImporterFormat.ASTC_4x4, padding: 4, tight: false, pixelPackables, log);
 
+            var mageSources = AssetDatabase.GetDependencies("Assets/MageTower/SO/MageTowerSkillList.asset", true)
+                .Where(p => p.StartsWith("Assets/_Project/Art/VFX/") && p.EndsWith(".png"))
+                .Append("Assets/_Project/Art/VFX/PixelArtRPGVFX/Textures/Electricity/ElectricTornado.png")
+                .Distinct().Select(AssetDatabase.LoadMainAssetAtPath).Where(a => a != null).ToList();
+            BuildAtlas($"{AtlasDir}/Atlas_MageVFX.spriteatlasv2", true, FilterMode.Point,
+                TextureImporterFormat.ASTC_4x4, padding: 4, tight: false, mageSources, log);
+            ConfigurePreparedAtlases(log);
+
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
             // Pack for the active (Android) target and report sprite counts.
-            SpriteAtlasUtility.PackAllAtlases(EditorUserBuildSettings.activeBuildTarget);
-            foreach (var name in new[] { "Atlas_Characters", "Atlas_Equipment", "Atlas_UI", "Atlas_UIPixel" })
+            var activeAtlases = AssetDatabase.FindAssets("t:SpriteAtlas", new[] { AtlasDir })
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .Where(p => (AssetImporter.GetAtPath(p) as SpriteAtlasImporter)?.includeInBuild == true)
+                .Select(AssetDatabase.LoadAssetAtPath<SpriteAtlas>).Where(a => a != null).ToArray();
+            SpriteAtlasUtility.PackAtlases(activeAtlases, EditorUserBuildSettings.activeBuildTarget);
+            foreach (var name in new[] { "Atlas_Characters", "Atlas_Equipment", "Atlas_UI", "Atlas_UIPixel", "Atlas_MageVFX" })
             {
                 var sa = AssetDatabase.LoadAssetAtPath<SpriteAtlas>($"{AtlasDir}/{name}.spriteatlasv2");
                 log.AppendLine(sa != null
@@ -92,7 +105,7 @@ namespace KingdomIdle.EditorTools.Optimization
             var list = new List<Object>();
 
             // 생성 아트 — 폴더 packable 이라 이후 추가분도 자동으로 아틀라스에 들어간다
-            foreach (var f in new[] { "Assets/Generated/ComfyUI" })
+            foreach (var f in new[] { "Assets/Generated/ComfyUI/UI", "Assets/Generated/ComfyUI/Portraits", "Assets/_Project/Art/Icons/MageTower", "Assets/UGUI/Art/Gacha" })
             {
                 if (!AssetDatabase.IsValidFolder(f)) { log.AppendLine($"  [Atlas_UIPixel] folder MISSING {f}"); continue; }
                 var o = AssetDatabase.LoadMainAssetAtPath(f);
@@ -187,7 +200,6 @@ namespace KingdomIdle.EditorTools.Optimization
             // settings/GUIDs and can race import workers that still hold the meta file.
 
             var asset = new SpriteAtlasAsset();
-            asset.SetIncludeInBuild(includeInBuild);
             asset.SetIsVariant(false);
             asset.Add(packables.ToArray());
             SpriteAtlasAsset.Save(asset, path);
@@ -195,6 +207,7 @@ namespace KingdomIdle.EditorTools.Optimization
 
             var imp = AssetImporter.GetAtPath(path) as SpriteAtlasImporter;
             if (imp == null) { log.AppendLine($"[ERR] importer null for {path}"); return; }
+            imp.includeInBuild = includeInBuild;
 
             imp.packingSettings = new SpriteAtlasPackingSettings
             {
@@ -228,6 +241,26 @@ namespace KingdomIdle.EditorTools.Optimization
                 });
             imp.SaveAndReimport();
             log.AppendLine($"[BUILT] {Path.GetFileName(path)} includeInBuild={includeInBuild} filter={filter} fmt={androidFmt} pad={padding} tight={tight} packables={packables.Count}");
+        }
+
+        // Preparation atlases remain editable. Only assets in the integrated stage groups ship.
+        static void ConfigurePreparedAtlases(System.Text.StringBuilder log)
+        {
+            var settings = AddressableAssetSettingsDefaultObject.Settings;
+            var roots = settings.groups.Where(g => g != null && (g.Name == "Stage Monsters" || g.Name == "Stage Environments"))
+                .SelectMany(g => g.entries).Select(e => e.AssetPath).Where(p => !string.IsNullOrEmpty(p)).ToArray();
+            var dependencies = new HashSet<string>(AssetDatabase.GetDependencies(roots, true));
+            int enabled = 0, excluded = 0;
+            foreach (string path in Directory.GetFiles(AtlasDir + "/Prepared", "*.spriteatlasv2", SearchOption.AllDirectories).Select(p => p.Replace('\\', '/')))
+            {
+                var atlas = AssetDatabase.LoadAssetAtPath<SpriteAtlas>(path);
+                var importer = AssetImporter.GetAtPath(path) as SpriteAtlasImporter;
+                if (atlas == null || importer == null) continue;
+                bool active = !path.Contains("/RoyalGuard/") && atlas.GetPackables().Any(p => dependencies.Contains(AssetDatabase.GetAssetPath(p)));
+                if (importer.includeInBuild != active) { importer.includeInBuild = active; importer.SaveAndReimport(); }
+                if (active) enabled++; else excluded++;
+            }
+            log.AppendLine($"[Prepared atlases] active={enabled}, excluded={excluded}; Royal Guard sheets use Atlas_Characters.");
         }
     }
 }

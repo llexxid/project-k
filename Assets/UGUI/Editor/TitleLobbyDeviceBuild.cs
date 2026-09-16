@@ -27,6 +27,11 @@ namespace KingdomIdle.UGUI.Editor
             var architectures = PlayerSettings.Android.targetArchitectures;
             const string templatePath = "Assets/Plugins/Android/mainTemplate.gradle";
             byte[] templateBefore = File.ReadAllBytes(templatePath);
+            var resolverSettings = new Google.ProjectSettings("GooglePlayServices.");
+            var resolverLocation = resolverSettings.UseProjectSettings ? Google.SettingsLocation.Project : Google.SettingsLocation.System;
+            const string resolveOnBuildKey = "GooglePlayServices.AutoResolveOnBuild";
+            bool resolveOnBuild = resolverSettings.GetBool(resolveOnBuildKey, true, resolverLocation);
+            bool resolverPolicyChanged = false;
             try
             {
                 PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, identifier + ".lobbyqa");
@@ -50,6 +55,7 @@ namespace KingdomIdle.UGUI.Editor
                     AssetDatabase.ForceToDesiredWorkerCount();
                     AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
                     AssetDatabase.ReleaseCachedFileHandles();
+                    RemapResolverSettings();
                     PrepareArm64Exclusion(templatePath);
                     if (!GooglePlayServices.PlayServicesResolver.ResolveSync(true))
                         throw new InvalidOperationException("Android dependencies could not be resolved before the lobby QA build.");
@@ -57,6 +63,11 @@ namespace KingdomIdle.UGUI.Editor
                     // token interactively; normalize it here so unattended QA does not stop.
                     AssetDatabase.ReleaseCachedFileHandles();
                     ReplaceTemplate(templatePath, System.Text.Encoding.UTF8.GetBytes(File.ReadAllText(templatePath).Replace("packagingOptions {", "packaging {")));
+                    // ResolveSync above is mandatory and checked. EDM's second resolve in
+                    // PostProcessScene rewrites its XML after Unity maps it on Windows.
+                    // Suppress only that redundant pass for this QA build, then restore.
+                    resolverPolicyChanged = true;
+                    resolverSettings.SetBool(resolveOnBuildKey, false, resolverLocation);
                 }
                 finally
                 {
@@ -93,11 +104,25 @@ namespace KingdomIdle.UGUI.Editor
                 EditorUserBuildSettings.buildAppBundle = bundle;
                 AssetDatabase.SaveAssets();
                 AssetDatabase.ReleaseCachedFileHandles();
-                try { ReplaceTemplate(templatePath, templateBefore); }
+                try
+                {
+                    ReplaceTemplate(templatePath, templateBefore);
+                }
                 finally
                 {
-                    EditorSettings.refreshImportMode = importMode;
-                    EditorUserSettings.desiredImportWorkerCount = importWorkers;
+                    try
+                    {
+                        if (resolverPolicyChanged)
+                        {
+                            RemapResolverSettings();
+                            resolverSettings.SetBool(resolveOnBuildKey, resolveOnBuild, resolverLocation);
+                        }
+                    }
+                    finally
+                    {
+                        EditorSettings.refreshImportMode = importMode;
+                        EditorUserSettings.desiredImportWorkerCount = importWorkers;
+                    }
                 }
             }
         }
@@ -118,6 +143,17 @@ namespace KingdomIdle.UGUI.Editor
             string newline = text.Contains("\r\n") ? "\r\n" : "\n";
             block = block.Replace(arm, arm + newline + armV7);
             ReplaceTemplate(path, System.Text.Encoding.UTF8.GetBytes(text.Substring(0, start) + block + text.Substring(end)));
+        }
+
+        static void RemapResolverSettings()
+        {
+            const string path = "ProjectSettings/GvhProjectSettings.xml";
+            if (!File.Exists(path)) return;
+            AssetDatabase.ReleaseCachedFileHandles();
+            // Preserve every setting while detaching stale read mappings from this pathname.
+            string temporary = path + ".qa-remap";
+            File.WriteAllBytes(temporary, File.ReadAllBytes(path));
+            File.Replace(temporary, path, null);
         }
 
         static void ReplaceTemplate(string path, byte[] bytes)

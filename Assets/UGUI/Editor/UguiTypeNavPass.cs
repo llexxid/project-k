@@ -15,7 +15,7 @@ namespace KingdomIdle.UGUI.Editor
         {
             // Outlines remain on combat overlays, where text sits directly over moving sprites.
             bool plainType = go.name != "Screen_Title" && go.name != "Item_DamageText" &&
-                             go.name != "Overlay_DivineCutIn" && !go.name.StartsWith("Hud_");
+                             !go.name.StartsWith("Hud_");
             if (plainType)
             {
                 foreach (var t in go.GetComponentsInChildren<TMP_Text>(true))
@@ -61,7 +61,7 @@ namespace KingdomIdle.UGUI.Editor
                 case "Panel_MageTowerDetail":
                     var detail=go.GetComponent<MageTowerDetailPopupView>();
                     foreach(var b in new[]{detail.btnEnhance,detail.btnAwaken})
-                        foreach(var t in b.GetComponentsInChildren<TMP_Text>(true)) t.color=UguiTheme.RusticBarDeep;
+                        foreach(var t in b.GetComponentsInChildren<TMP_Text>(true)) t.color=detail.scroll != null ? UguiTheme.Parchment : UguiTheme.RusticBarDeep;
                     break;
                 case "Item_SkillRow":
                     var skill = go.GetComponent<SkillRowView>();

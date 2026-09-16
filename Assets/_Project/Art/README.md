@@ -57,8 +57,10 @@ RoyalGuard와 Bandit은 기존 본체 프리팹을 재사용하도록 유지했�
 
 EliteArcher의 `AnimationSheets`와 `UiSprites`는 픽셀이 같아도 슬라이싱·피벗·PPU와 참조가 다릅니다. 용도가 다른 두 작업본입니다.
 
-준비 아틀라스는 Point, 회전 없음, 여백 4px, 최대 2048, 모바일 ASTC 4×4, mipmap/readable OFF입니다. Unity 6의 실제 SpriteAtlasImporter 검사에서는 51개 준비 아틀라스의 Include in Build가 켜져 있었습니다. 이전 준비 문서의 OFF 표기는 적용되지 않은 설정이었습니다. 활성/예비 콘텐츠별 포함 정책은 다음 아트 최적화에서 정리합니다. 색상별 드래곤은 별도 아틀라스로 나눴습니다.
+준비 아틀라스는 Point, 회전 없음, 여백 4px, 최대 2048, 모바일 ASTC 4×4, mipmap/readable OFF입니다. `OptAtlases`는 Unity 6의 SpriteAtlasImporter API로 활성 스테이지·환경 의존성만 빌드에 포함합니다. 전체 56개 중 19개 포함, 예비 몬스터·중복 RoyalGuard 등 37개 제외입니다. 색상별 드래곤은 별도 아틀라스로 유지합니다.
 
-캐릭터 아틀라스는 이동한 작업본 GUID를 참조합니다. `OptAtlases`의 캐릭터 12개 시트·장비 작업 경로는 갱신했습니다. `OptTextureImport`의 이전 경로와 아틀라스 포함 정책은 아직 후속 최적화 대상이므로 전체 최적화 메뉴 재실행 전에 검토해야 합니다.
+캐릭터 아틀라스는 이동한 작업본 GUID를 참조합니다. `OptAtlases`와 `OptTextureImport`는 작업본 경로와 마탑 등록 데이터의 의존성을 사용합니다. 활성 마탑 VFX·뽑기 시트는 Android RGBA32 원본을 아틀라스에서 한 번만 압축하여 중복 압축 손상을 방지합니다. `Atlas_MageVFX`는 Point/ASTC 4×4, `Atlas_UIPixel`은 48px 스킬 아이콘, `Atlas_UI`는 스무스 UI용입니다.
+
+마탑 10종 아이콘은 `Icons/MageTower`, 전투 프리팹 19개는 `../Prefabs/VFX/MageTower`, 클립·컨트롤러는 `Animations/VFX/MageTower`에 있습니다. 과거 테스트 에셋은 `../Tests/Fixtures/MageTowerLegacy`로 분류했습니다. [마탑 모듈 안내](../../MageTower/README.md)를 참고하세요.
 
 [상세 카탈로그·검증 기록](../../../Docs/ArtPreparation/README.md)
