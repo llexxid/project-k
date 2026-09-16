@@ -32,7 +32,7 @@ namespace KingdomIdle.UGUI
             if (stateLabel != null) { stateLabel.text = equipped ? "◆ 장착 중" : bloom ? "개화" : owned ? "보유" : "미보유"; stateLabel.color = equipped ? UguiTheme.BronzeLight : bloom ? MageSkillPresentation.BloomAccent : UguiTheme.TextSecondary; }
             Action refresh = () => {
                 if (dmgLabel == null) return;
-                dmgLabel.text = !owned ? "미보유 · 자세히" : $"{(bloom ? "개화 · " : "")}{(skill.IsHealing ? "회복" : "피해")} {NumberNotation.Format(power)}";
+                dmgLabel.text = !owned ? "미보유 · 자세히" : $"기준 {(skill.IsHealing ? "회복" : "피해")} {NumberNotation.Format(power)}";
             };
             NumberNotationBinding.Bind(this, refresh); refresh();
             if (button != null)

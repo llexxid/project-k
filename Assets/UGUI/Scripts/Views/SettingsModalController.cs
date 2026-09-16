@@ -9,6 +9,7 @@ namespace KingdomIdle.UGUI
     {
         SettingsModalView _view;
         bool _isMuted;
+        int _selectedTab;
         public bool IsOpen => _view != null && _view.gameObject.activeSelf;
 
         public void Open(UIManager host)
@@ -25,6 +26,7 @@ namespace KingdomIdle.UGUI
             }
             Load();
             _view.gameObject.SetActive(true);
+            SelectTab(_selectedTab);
             _view.transform.SetAsLastSibling();
             if (_view.scroll != null) { _view.scroll.StopMovement(); _view.scroll.verticalNormalizedPosition = 1; }
             UITween.PopIn(_view.panel);
@@ -45,6 +47,12 @@ namespace KingdomIdle.UGUI
             BindVolume(_view.sldVolume, UIManager.PrefKeyVolume);
             BindVolume(_view.sldMusic, GameAudioSettings.MusicKey);
             BindVolume(_view.sldEffects, GameAudioSettings.EffectsKey);
+            BindVolume(_view.sldGuard, GameAudioSettings.RoyalGuardKey);
+            BindVolume(_view.sldMonsters, GameAudioSettings.MonstersKey);
+            BindVolume(_view.sldSpells, GameAudioSettings.SpellsKey);
+            BindVolume(_view.sldInterface, GameAudioSettings.InterfaceKey);
+            for (int i=0; _view.tabs!=null && i<_view.tabs.Length; i++)
+            { int tab=i; _view.tabs[i].onClick.AddListener(()=>SelectTab(tab)); }
             BindToggle(_view.tglPowerSave, UIManager.PrefKeyPowerSave);
             BindToggle(_view.tglLowSpec, GamePresentationSettings.LowSpecKey);
             BindToggle(_view.tglHideItem, UIManager.PrefKeyHideItem);
@@ -72,6 +80,17 @@ namespace KingdomIdle.UGUI
                 PlayerPrefs.Save();
             });
         }
+        void SelectTab(int index)
+        {
+            _selectedTab=index;
+            for(int i=0; _view.pages!=null && i<_view.pages.Length; i++)
+            {
+                bool selected=i==index;
+                _view.pages[i].SetActive(selected);
+                _view.tabs[i].GetComponent<Image>().color=selected?UguiTheme.Bronze:UguiTheme.RusticSurfaceDark;
+            }
+            if(_view.scroll!=null) { _view.scroll.StopMovement(); Canvas.ForceUpdateCanvases(); _view.scroll.verticalNormalizedPosition=1; }
+        }
         void BindVolume(Slider slider, string key)
         {
             if (slider == null) return;
@@ -90,6 +109,10 @@ namespace KingdomIdle.UGUI
             _view.sldVolume.SetValueWithoutNotify(GameAudioSettings.Master);
             _view.sldMusic?.SetValueWithoutNotify(GameAudioSettings.Music);
             _view.sldEffects?.SetValueWithoutNotify(GameAudioSettings.Effects);
+            _view.sldGuard?.SetValueWithoutNotify(GameAudioSettings.RoyalGuard);
+            _view.sldMonsters?.SetValueWithoutNotify(GameAudioSettings.Monsters);
+            _view.sldSpells?.SetValueWithoutNotify(GameAudioSettings.Spells);
+            _view.sldInterface?.SetValueWithoutNotify(GameAudioSettings.Interface);
             _view.tglPowerSave.SetIsOnWithoutNotify(GamePresentationSettings.PowerSave);
             _view.tglLowSpec.SetIsOnWithoutNotify(GamePresentationSettings.LowSpec);
             _view.tglHideItem.SetIsOnWithoutNotify(GamePresentationSettings.HideItemNotifications);
@@ -109,6 +132,10 @@ namespace KingdomIdle.UGUI
             if (_view.lblVolume != null) _view.lblVolume.text = Mathf.RoundToInt(GameAudioSettings.Master * 100) + "%";
             if (_view.lblMusic != null) _view.lblMusic.text = Mathf.RoundToInt(GameAudioSettings.Music * 100) + "%";
             if (_view.lblEffects != null) _view.lblEffects.text = Mathf.RoundToInt(GameAudioSettings.Effects * 100) + "%";
+            if (_view.lblGuard != null) _view.lblGuard.text = Mathf.RoundToInt(GameAudioSettings.RoyalGuard * 100) + "%";
+            if (_view.lblMonsters != null) _view.lblMonsters.text = Mathf.RoundToInt(GameAudioSettings.Monsters * 100) + "%";
+            if (_view.lblSpells != null) _view.lblSpells.text = Mathf.RoundToInt(GameAudioSettings.Spells * 100) + "%";
+            if (_view.lblInterface != null) _view.lblInterface.text = Mathf.RoundToInt(GameAudioSettings.Interface * 100) + "%";
         }
         void RefreshNotation()
         {

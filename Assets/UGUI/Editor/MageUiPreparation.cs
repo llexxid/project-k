@@ -15,7 +15,7 @@ namespace KingdomIdle.UGUI.Editor
             importer.textureType = TextureImporterType.Sprite;
             importer.spriteImportMode = SpriteImportMode.Single;
             importer.spritePixelsPerUnit = 100;
-            importer.spriteBorder = new Vector4(38, 12, 38, 12);
+            importer.spriteBorder = new Vector4(8, 8, 8, 8);
             importer.filterMode = FilterMode.Point;
             importer.mipmapEnabled = false; importer.isReadable = false;
             importer.alphaIsTransparency = true;
@@ -25,6 +25,8 @@ namespace KingdomIdle.UGUI.Editor
             var prefabs = new[] {
                 MageTowerDetailPopupPrefabGens.GenerateMageTowerDetailPopup(),
                 PopupGens.GenerateMageSkillCell(),
+                PopupGens.GenerateMageEquipSlot(),
+                PopupGens.GenerateMageTowerEquipPopup(),
                 ItemGens.GenerateGachaPullButton(),
                 OverlayGens.GenerateGachaResult(),
                 AssetDatabase.LoadAssetAtPath<GameObject>("Assets/UGUI/Prefabs/Panels/GachaTabContent.prefab")

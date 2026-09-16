@@ -84,7 +84,7 @@ namespace KingdomIdle.UGUI.Editor
             if(missing.Any(c=>c>='가'&&c<='힣')) throw new InvalidOperationException("Missing authored Korean glyphs: "+missing);
             EditorUtility.SetDirty(font);AssetDatabase.SaveAssets();
             Directory.CreateDirectory("Docs/ArtPreparation/Validation/MageIntegration");
-            File.WriteAllText("Docs/ArtPreparation/Validation/MageIntegration/glyph-bake.json",JsonUtility.ToJson(new GlyphReport{requested=needed.Length,characters=font.characterTable.Count,pages=font.atlasTextureCount,missing=missing,success=success},true));
+            MageSkillAssetPreparation.WriteAtomically("Docs/ArtPreparation/Validation/MageIntegration/glyph-bake.json",System.Text.Encoding.UTF8.GetBytes(JsonUtility.ToJson(new GlyphReport{requested=needed.Length,characters=font.characterTable.Count,pages=font.atlasTextureCount,missing=missing,success=success},true)));
         }
         [Serializable] class GlyphReport { public int requested,characters,pages; public string missing; public bool success; }
         public static void Validate()

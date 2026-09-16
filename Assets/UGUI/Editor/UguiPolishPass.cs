@@ -130,7 +130,7 @@ namespace KingdomIdle.UGUI.Editor
                     Height(go.transform,136);var slotWidth=Layout(go.transform);slotWidth.minWidth=144;slotWidth.preferredWidth=144;slotWidth.flexibleWidth=1;break;
                 case "Item_DungeonDifficultyRow":Height(go.transform,144);break;
                 case "Panel_MageTowerEquip":
-                    var mage=go.GetComponent<MageTowerEquipPopupView>();mage.panelBox.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,980);
+                    var mage=go.GetComponent<MageTowerEquipPopupView>();mage.panelBox.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,1400);
                     var slots=mage.panelBox.Find("Body/SlotsCol");var sl=Layout(slots);sl.minWidth=160;sl.preferredWidth=160;sl.flexibleWidth=0;
                     foreach(var image in mage.panelBox.GetComponentsInChildren<Image>(true)) if(image.name=="TitleBar")image.color=UguiTheme.RusticSurface;
                     foreach(var t in mage.panelBox.GetComponentsInChildren<TMP_Text>(true)) if(t.text=="보유 스킬")Text(t,30,60);

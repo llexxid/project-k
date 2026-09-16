@@ -98,7 +98,7 @@ namespace KingdomIdle.UGUI.Editor
 
             var panel = F.PixelPanel(root, "Panel", F.Catalog != null ? F.Catalog.kitWindow : null,
                 F.FrameGold, 24f, raycast: true, baseColor: F.PanelBaseDarker);
-            F.AnchorCenter(panel.rectTransform, 900f, 680f);
+            F.AnchorCenter(panel.rectTransform, 900f, 1400f);
             F.VLayout(panel.gameObject, 14f, new RectOffset(30, 30, 24, 28));
             view.panelBox = panel.rectTransform;
             F.CornerBrackets(panel.transform);
@@ -108,7 +108,7 @@ namespace KingdomIdle.UGUI.Editor
                 new Color(0.20f, 0.22f, 0.30f, 1f), 14f, frameOnly: false);
             F.HLayout(titleBar.gameObject, 8f, new RectOffset(18, 10, 6, 6), TextAnchor.MiddleLeft);
             F.Preferred(titleBar, height: 76f);
-            var title = F.Text(titleBar.transform, "Title", "마탑 스킬 장착", 34f, UguiTheme.TextPrimary,
+            var title = F.Text(titleBar.transform, "Title", "마탑 스킬 편성", 34f, UguiTheme.TextPrimary,
                 TextAlignmentOptions.Left, bold: true);
             F.Flexible(title, flexWidth: 1f);
             view.titleLabel = title;
@@ -145,7 +145,7 @@ namespace KingdomIdle.UGUI.Editor
             var invCol = F.Container(body, "InvCol");
             F.VLayout(invCol.gameObject, 10f);
             F.Flexible(invCol, flexWidth: 1f, flexHeight: 1f);
-            F.Text(invCol, "Header", "스킬 목록 · 탭하여 자세히", 26f, new Color(1f, 1f, 1f, 0.75f));
+            F.Text(invCol, "Header", "슬롯 선택 → 스킬 선택 → 장착", 25f, UguiTheme.TextSecondary);
             var scroll = F.VScroll(invCol, "InvScroll", out var content, spacing: 12f, padding: new RectOffset(4, 4, 4, 4));
             F.Flexible(scroll, flexHeight: 1f);
             view.invScroll = scroll;
@@ -158,6 +158,19 @@ namespace KingdomIdle.UGUI.Editor
             gridLg.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             gridLg.constraintCount = 5;
             view.invGrid = grid;
+
+            view.selectionLabel = F.Text(panel.transform, "Selection", "슬롯과 스킬을 선택하세요.", 26, UguiTheme.Parchment);
+            view.selectionLabel.textWrappingMode = TextWrappingModes.Normal;
+            F.Preferred(view.selectionLabel, height: 84);
+            var actions = F.Container(panel.transform, "Actions");
+            F.HLayout(actions.gameObject, 12, null, TextAnchor.MiddleCenter);
+            F.Preferred(actions, height: 112);
+            view.detailButton = F.TextButton(actions, "Details", "자세히", 30, UguiTheme.RusticSurface, out _);
+            view.unequipButton = F.TextButton(actions, "Unequip", "해제", 30, UguiTheme.RusticSurface, out _);
+            view.equipButton = F.TextButton(actions, "Equip", "장착", 30, UguiTheme.BtnConfirm, out var equipLabel);
+            view.equipLabel = equipLabel;
+            foreach (var button in new[] { view.detailButton, view.unequipButton, view.equipButton })
+            { F.Flexible((RectTransform)button.transform, flexWidth: 1); F.Preferred((RectTransform)button.transform, height: 112); }
 
             return PrefabGenUtil.SavePrefab(root.gameObject, $"{PrefabGenUtil.PrefabRoot}/Popups/Panel_MageTowerEquip.prefab");
         }

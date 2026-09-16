@@ -832,27 +832,13 @@ namespace KingdomIdle.UGUI
             ClearChildren(jc.basicGrid);
             ClearChildren(jc.eliteGrid);
 
-            // 1차 전직 / 2차 전직 그룹 분리
-            var eliteJobs = new List<JobData>();
-            for (int i = 0; i < jobDB.Count; i++)
+            // A column is one branch. Keep the unavailable branch visible without exposing retired jobs.
+            foreach (string name in new[] { "Knight", "Mage", "Archer" })
             {
-                var job = jobDB.GetJob(i);
-                if (job == null) continue;
-
-                // 창병(Spearman)은 전직 목록에서 제외
-                if (job.jobName == "Spearman") continue;
-
-                bool isElite = KingdomArmyManager.GetPrerequisiteJob(job.jobName) != null;
-                if (isElite)
-                {
-                    eliteJobs.Add(job);
-                    continue;
-                }
-                BuildJobCard(jc.basicGrid, job, player, currentJob, isElite: false);
+                var basic = jobDB.GetJob(name); var elite = jobDB.GetJob("Elite_" + name);
+                if (basic != null) BuildJobCard(jc.basicGrid, basic, player, currentJob, false);
+                if (elite != null) BuildJobCard(jc.eliteGrid, elite, player, currentJob, true);
             }
-
-            foreach (var job in eliteJobs)
-                BuildJobCard(jc.eliteGrid, job, player, currentJob, isElite: true);
         }
 
         /// <summary>
@@ -863,6 +849,13 @@ namespace KingdomIdle.UGUI
         /// </summary>
         private static void BuildJobCard(RectTransform grid, JobData job, Player player, string currentJob, bool isElite)
         {
+            if (!JobData.IsAvailable(job.jobName))
+            {
+                if (Cat == null || Cat.itemJobCard == null) return;
+                var placeholder = Object.Instantiate(Cat.itemJobCard, grid, false).GetComponent<JobCardView>();
+                placeholder?.SetComingSoon(_mgr.JobDB.GetJob("Spearman"), isElite);
+                return;
+            }
             // 상태 판정
             bool isCurrent = currentJob == job.jobName;
             bool isUnlocked = player != null && _mgr.IsAlreadyUnlocked(player, job.jobName);
@@ -875,16 +868,13 @@ namespace KingdomIdle.UGUI
             bool fragReady = owned >= cost;
 
             // 카드 배경 색 (상태 변형)
-            Color bg = new Color(1f, 1f, 1f, 0.07f);
-            if (isCurrent) bg = new Color(1f, 230f / 255f, 100f / 255f, 0.12f);
-            else if (isElite) bg = new Color(160f / 255f, 100f / 255f, 200f / 255f, 0.10f);
-            else if (!prereqMet) bg = new Color(0.4f, 0.4f, 0.4f, 0.45f);
+            Color bg = isCurrent ? UguiTheme.RusticSurface : UguiTheme.RusticSurfaceDark;
 
             // 상태 테두리 색
             Color? frameColor = null;
-            if (isCurrent) frameColor = new Color(1f, 230f / 255f, 100f / 255f, 1f);
-            else if (isUnlocked) frameColor = new Color(140f / 255f, 190f / 255f, 1f, 1f);
-            else if (isElite) frameColor = new Color(180f / 255f, 100f / 255f, 220f / 255f, 0.70f);
+            if (isCurrent) frameColor = UguiTheme.BronzeLight;
+            else if (isUnlocked) frameColor = UguiTheme.Bronze;
+            else if (isElite) frameColor = new Color(.42f,.37f,.48f,.7f);
 
             // 배지
             string badgeText; Color badgeColor;
@@ -894,7 +884,7 @@ namespace KingdomIdle.UGUI
             else if (fragReady) { badgeText = "전직가능"; badgeColor = UguiTheme.SuccessGreenBright; }
             else { badgeText = isElite ? "2차" : "1차"; badgeColor = new Color(1f, 1f, 1f, 0.55f); }
 
-            string statText = $"HP {NumberNotation.Format(job.maxHP)} / ATK {NumberNotation.Format(job.atk)}";
+            string statText = job.jobName switch { "Knight" => "묵직한 근접 공격", "Elite_Knight" => "광역 베기 · 보호막", "Mage" => "원거리 마법", "Elite_Mage" => "파동 · 밀쳐내기", _ => "" };
             string fragText; Color fragColor;
             if (isUnlocked) { fragText = "무료 재전직"; fragColor = UguiTheme.SuccessGreenBright; }
             else { fragText = $"전직 파편 {NumberNotation.Format(owned)}/{NumberNotation.Format(cost)}"; fragColor = fragReady ? UguiTheme.SuccessGreenBright : UguiTheme.AccentGoldStrong; }
@@ -918,7 +908,7 @@ namespace KingdomIdle.UGUI
 
         private static void ShowJobDetail(JobData job)
         {
-            if (_view == null) return;
+            if (_view == null || job == null || !JobData.IsAvailable(job.jobName)) return;
             UnsubscribeCharTick();
             _charSheet = null;
             _charPortraitInner = null;

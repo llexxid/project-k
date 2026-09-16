@@ -186,6 +186,7 @@ namespace KingdomIdle.UGUI.Editor
             var hud = F.Box(rootRt, "HudTop", UguiTheme.RusticBar, rounded: false);
             F.AnchorTopStretch(hud.rectTransform, 0f, UguiTheme.HudTopHeight);
             F.HLayout(hud.gameObject, 0f, new RectOffset(22, 22, 0, 0), TextAnchor.MiddleLeft);
+            CombatUiPreparation.AddTopBleed(hud.gameObject);
 
             // 러스틱 드레싱: 우드그레인 + 광 시엔 + 하단(안쪽) 청동 트림
             DressRusticBar(hud, trimAtBottom: true);

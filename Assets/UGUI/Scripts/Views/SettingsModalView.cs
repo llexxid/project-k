@@ -14,7 +14,7 @@ namespace KingdomIdle.UGUI
         private void FitPanel()
         {
             if (panel == null || transform.parent is not RectTransform parent) return;
-            var size = new Vector2(Mathf.Min(960, parent.rect.width - 48), Mathf.Min(1640, parent.rect.height - 80));
+            var size = new Vector2(Mathf.Min(960, parent.rect.width - 48), Mathf.Min(1420, parent.rect.height - 80));
             if (size.x > 0 && size.y > 0 && panel.sizeDelta != size) panel.sizeDelta = size;
         }
         [SerializeField] internal Button outsideCatcher;   // 오버레이 딤 자체 — 바깥 탭 닫기
@@ -24,6 +24,8 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal Button btnGoogleChip;
         [SerializeField] internal Button btnClose;
         [SerializeField] internal ScrollRect scroll;
+        [SerializeField] internal Button[] tabs;
+        [SerializeField] internal GameObject[] pages;
         [SerializeField] internal Button[] numberButtons;
         [SerializeField] internal TMP_Text numberPreview;
         [SerializeField] internal TMP_Text numberHint;
@@ -45,6 +47,8 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal TMP_Text lblVolume;
         [SerializeField] internal TMP_Text lblMusic;
         [SerializeField] internal TMP_Text lblEffects;
+        [SerializeField] internal Slider sldGuard, sldMonsters, sldSpells, sldInterface;
+        [SerializeField] internal TMP_Text lblGuard, lblMonsters, lblSpells, lblInterface;
         [SerializeField] internal Button btnMute;
         [SerializeField] internal Image btnMuteBg;
 

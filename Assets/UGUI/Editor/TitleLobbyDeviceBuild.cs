@@ -94,6 +94,7 @@ namespace KingdomIdle.UGUI.Editor
             {
                 File.WriteAllText(Output + "/build-failure.txt", exception.ToString());
                 Debug.LogException(exception);
+                throw;
             }
             finally
             {
@@ -151,18 +152,41 @@ namespace KingdomIdle.UGUI.Editor
             if (!File.Exists(path)) return;
             AssetDatabase.ReleaseCachedFileHandles();
             // Preserve every setting while detaching stale read mappings from this pathname.
-            string temporary = path + ".qa-remap";
-            File.WriteAllBytes(temporary, File.ReadAllBytes(path));
-            File.Replace(temporary, path, null);
+            ReplaceFile(path, File.ReadAllBytes(path));
         }
 
         static void ReplaceTemplate(string path, byte[] bytes)
         {
             if (File.ReadAllBytes(path).SequenceEqual(bytes)) return;
-            string temporary = path + ".qa-restore";
-            File.WriteAllBytes(temporary, bytes);
-            File.Replace(temporary, path, null);
+            ReplaceFile(path, bytes);
         }
+
+        static void ReplaceFile(string path, byte[] bytes)
+        {
+            string temporary = "Library/LobbyQa-" + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                File.WriteAllBytes(temporary, bytes);
+                try { File.Replace(temporary, path, null); }
+                catch (IOException) when (File.Exists(temporary))
+                {
+                    // Windows ReplaceFile can fail to merge metadata on a mapped XML.
+                    // Replace the directory entry without truncating the existing file.
+#if UNITY_EDITOR_WIN
+                    if (!MoveFileEx(Path.GetFullPath(temporary), Path.GetFullPath(path), 1u | 8u))
+                        throw new System.ComponentModel.Win32Exception(System.Runtime.InteropServices.Marshal.GetLastWin32Error());
+#else
+                    throw;
+#endif
+                }
+            }
+            finally { if (File.Exists(temporary)) File.Delete(temporary); }
+        }
+#if UNITY_EDITOR_WIN
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", EntryPoint="MoveFileExW", CharSet=System.Runtime.InteropServices.CharSet.Unicode, SetLastError=true)]
+        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        static extern bool MoveFileEx(string source, string destination, uint flags);
+#endif
     }
 
 }

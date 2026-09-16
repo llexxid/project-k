@@ -267,7 +267,7 @@ namespace KingdomIdle.UGUI.Editor
         /// <summary>전직 카드 (배지 + 이미지 + 이름 + 스탯 + 파편).</summary>
         internal static GameObject GenerateJobCard()
         {
-            var card = F.Box(null, "Item_JobCard", new Color(1f, 1f, 1f, 0.07f), rounded: true, raycast: true);
+            var card = F.Box(null, "Item_JobCard", UguiTheme.RusticSurfaceDark, rounded: true, raycast: true);
             var view = card.gameObject.AddComponent<JobCardView>();
             view.background = card;
             view.button = F.ButtonOn(card, gloss: false);   // 콘텐츠 셀 — 광택 끔

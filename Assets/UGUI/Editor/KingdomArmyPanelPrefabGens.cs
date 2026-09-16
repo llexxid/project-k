@@ -310,17 +310,28 @@ namespace KingdomIdle.UGUI.Editor
             F.Flexible(bhint, flexWidth: 1f);
             view.bannerHint = bhint;
 
+            var origin=F.Text(group,"Origin","창병 · 왕국군의 시작",30,UguiTheme.Parchment,TextAlignmentOptions.Center,bold:true);
+            F.Preferred(origin,height:64);
+            TreeLines(group,true);
             JobSectionTitle(group, "1차 전직");
             var basic = F.Container(group, "BasicGrid");
             MakeJobGrid(basic.gameObject);
             view.basicGrid = basic;
 
-            JobSectionTitle(group, "2차 전직 (정예)");
+            TreeLines(group,false);
+            JobSectionTitle(group, "2차 전직 · 특화");
             var elite = F.Container(group, "EliteGrid");
             MakeJobGrid(elite.gameObject);
             view.eliteGrid = elite;
 
             return Save(root, "Panels/Panel_KAJobChange.prefab");
+        }
+
+        static void TreeLines(Transform parent,bool fork)
+        {
+            var row=F.Container(parent,fork?"BranchRoots":"BranchLinks");F.Preferred(row,height:48);
+            if(fork) { var line=F.Box(row,"Fork",UguiTheme.Bronze);var r=line.rectTransform;r.anchorMin=new Vector2(1f/6,.75f);r.anchorMax=new Vector2(5f/6,.75f);r.sizeDelta=new Vector2(0,3); }
+            for(int i=0;i<3;i++) { var line=F.Box(row,"Link"+i,i==2?UguiTheme.RusticSurface:UguiTheme.Bronze);var r=line.rectTransform;r.anchorMin=new Vector2((i+.5f)/3,0);r.anchorMax=new Vector2((i+.5f)/3,fork?.75f:1);r.sizeDelta=new Vector2(3,0); }
         }
 
         // ══════════════════════════════════════
@@ -580,11 +591,13 @@ namespace KingdomIdle.UGUI.Editor
         private static void MakeJobGrid(GameObject go)
         {
             var lg = go.AddComponent<GridLayoutGroup>();
-            lg.cellSize = new Vector2(190f, 260f);
+            lg.cellSize = new Vector2(280f, 340f);
             lg.spacing = new Vector2(12f, 12f);
             lg.childAlignment = TextAnchor.UpperCenter;
             lg.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            lg.constraintCount = 5;
+            lg.constraintCount = 3;
+            go.AddComponent<PromotionTreeGrid>();
+            var fit=go.AddComponent<ContentSizeFitter>();fit.verticalFit=ContentSizeFitter.FitMode.PreferredSize;
         }
     }
 }

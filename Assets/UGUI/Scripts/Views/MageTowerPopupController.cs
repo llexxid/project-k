@@ -9,9 +9,7 @@ namespace KingdomIdle.UGUI
     /// 프리팹 Panel_MageTowerEquip(=MageTowerEquipPopupView)을 1회 인스턴스화해 캐시하고,
     /// 슬롯/보유스킬은 Item_MageEquipSlot / Item_MageSkillCell 프리팹으로 채운다.
     /// 코드로 UI 구조를 생성하지 않는다(런타임 코드빌드 제거 완료).
-    ///  - 장착 슬롯 탭 → 장착해제 / 빈 슬롯 탭 → 선택 모드
-    ///  - 선택 모드: 장착 가능 스킬 셀 펄스(UIPulseGroup)
-    ///  - 일반 모드에서 보유 스킬 탭 → 상세 팝업
+    /// 슬롯과 스킬을 선택한 뒤 명시적인 버튼으로 장착/교체/해제한다.
     /// </summary>
     public static class MageTowerPopupController
     {
@@ -22,6 +20,7 @@ namespace KingdomIdle.UGUI
 
         private static int _selectedSlot;
         private static bool _pickingMode;
+        private static int _candidate = -1;
 
         public static bool IsOpen => _view != null && _view.gameObject.activeSelf;
         public static void RefreshIfOpen() { if (IsOpen) Refresh(); }
@@ -29,7 +28,8 @@ namespace KingdomIdle.UGUI
         public static void Show(int focusSlot = 0)
         {
             _selectedSlot = Mathf.Clamp(focusSlot, 0, MageTowerManager.SlotCount - 1);
-            _pickingMode = false;
+            _pickingMode = true;
+            _candidate = -1;
             if (!EnsureBuilt()) return;
 
             _view.gameObject.SetActive(true);
@@ -73,6 +73,12 @@ namespace KingdomIdle.UGUI
 
             if (_view.backdropButton != null) _view.backdropButton.onClick.AddListener(Hide);
             if (_view.closeButton != null) _view.closeButton.onClick.AddListener(Hide);
+            if (_view.equipButton != null) _view.equipButton.onClick.AddListener(ApplySelection);
+            if (_view.unequipButton != null) _view.unequipButton.onClick.AddListener(RemoveSelection);
+            if (_view.detailButton != null) _view.detailButton.onClick.AddListener(() => {
+                int id = _candidate >= 0 ? _candidate : MageTowerManager.Instance.GetEquippedSkillId(_selectedSlot);
+                if (id >= 0) MageTowerDetailPopupController.Show(id);
+            });
 
             _cells.Clear();
             BuildSlots(mgr);
@@ -110,7 +116,7 @@ namespace KingdomIdle.UGUI
             }
 
             RebuildInventory(mgr);
-            UpdatePulseState();
+            RefreshActions(mgr);
         }
 
         private static void RebuildInventory(MageTowerManager mgr)
@@ -142,6 +148,7 @@ namespace KingdomIdle.UGUI
 
                 float dmg = owned ? mgr.GetEffectiveDamage(id) : 0f;
                 cell.Set(skill, owned, equipped, dmg, mgr.IsBloomEnabled(id), () => OnInvItemTapped(id, equippable));
+                if (id == _candidate && cell.frameImage != null) cell.frameImage.color = MageSkillPresentation.Accent;
 
                 if (equippable && cell.canvasGroup != null)
                     _equippableItems.Add(cell.canvasGroup);
@@ -153,17 +160,8 @@ namespace KingdomIdle.UGUI
             var mgr = MageTowerManager.Instance;
             if (mgr == null) return;
 
-            if (_pickingMode)
-            {
-                if (!equippable) return;
-                mgr.Equip(_selectedSlot, skillId);
-                ExitPickingMode();
-                Refresh();
-            }
-            else
-            {
-                MageTowerDetailPopupController.Show(skillId);
-            }
+            _candidate = skillId;
+            Refresh();
         }
 
         private static void OnEquipSlotClicked(int slotIndex)
@@ -171,19 +169,42 @@ namespace KingdomIdle.UGUI
             var mgr = MageTowerManager.Instance;
             if (mgr == null) return;
 
-            int skillId = mgr.GetEquippedSkillId(slotIndex);
-            if (skillId >= 0)
-            {
-                mgr.Unequip(slotIndex);
-                ExitPickingMode();
-                Refresh();
-            }
-            else
-            {
-                _selectedSlot = slotIndex;
-                _pickingMode = true;
-                Refresh();
-            }
+            _selectedSlot = slotIndex;
+            _pickingMode = true;
+            Refresh();
+        }
+
+        private static void RefreshActions(MageTowerManager mgr)
+        {
+            int current = mgr.GetEquippedSkillId(_selectedSlot);
+            var chosen = mgr.GetSkillById(_candidate);
+            string currentName = mgr.GetSkillById(current)?.nameKor ?? "빈 슬롯";
+            bool canEquip = chosen != null && mgr.IsOwned(_candidate) && current != _candidate;
+            if (_view.selectionLabel != null)
+                _view.selectionLabel.text = chosen == null ? $"슬롯 {_selectedSlot + 1} · {currentName}\n목록에서 사용할 스킬을 선택하세요." :
+                    $"슬롯 {_selectedSlot + 1} · {currentName} → {chosen.nameKor}\n{(mgr.IsOwned(_candidate) ? "진행 중인 효과와 재사용 대기시간은 유지됩니다." : "뽑기에서 획득하면 장착할 수 있습니다.")}";
+            if (_view.equipButton != null) _view.equipButton.interactable = canEquip;
+            if (_view.equipLabel != null) _view.equipLabel.text = chosen != null && mgr.IsEquipped(_candidate) && current != _candidate ? "자리 바꾸기" : current >= 0 ? "교체" : "장착";
+            if (_view.unequipButton != null) _view.unequipButton.interactable = current >= 0;
+            if (_view.detailButton != null) _view.detailButton.interactable = chosen != null || current >= 0;
+        }
+
+        private static void ApplySelection()
+        {
+            var mgr = MageTowerManager.Instance;
+            if (mgr == null || _candidate < 0) return;
+            bool applied = mgr.Equip(_selectedSlot, _candidate);
+            if (applied) _candidate = -1;
+            Refresh();
+            if (!applied && _view.selectionLabel != null) _view.selectionLabel.text = "변경 내용을 저장하지 못했습니다. 잠시 후 다시 시도하세요.";
+        }
+        private static void RemoveSelection()
+        {
+            var mgr = MageTowerManager.Instance;
+            if (mgr == null) return;
+            bool removed = mgr.Unequip(_selectedSlot);
+            Refresh();
+            if (!removed && _view.selectionLabel != null) _view.selectionLabel.text = "해제 내용을 저장하지 못했습니다. 잠시 후 다시 시도하세요.";
         }
 
         private static void ExitPickingMode()

@@ -340,7 +340,7 @@ namespace KingdomIdle.UGUI
                     float cd = sys.GetSlotCooldown(s);
                     if (cd > 0f)
                     {
-                        // IronWill/ChargeShot 은 효과 지속 동안 _nextAvailableTime 을 float.MaxValue 로 두는
+                        // ChargeShot 은 효과 지속 동안 _nextAvailableTime 을 float.MaxValue 로 두는
                         // "사용 중" 센티널을 쓴다 — 이 값을 총 쿨로 캡처하면 이후 드레인이 0으로 눌린다.
                         bool busy = cd >= BusyCooldownSentinel;
                         if (!busy && cd > _cdTotals[memberIdx, s]) _cdTotals[memberIdx, s] = cd;
@@ -395,7 +395,7 @@ namespace KingdomIdle.UGUI
             {
                 if (!string.IsNullOrEmpty(skillName))
                 {
-                    if (skillName.Contains("강철")) return cat.iconSkillPotion;   // 강철의지 = 자가 회복
+                    if (skillName.Contains("강철")) return cat.iconSkillShield;   // 강철 의지 = 보호막과 도발
                     if (skillName.Contains("사격")) return cat.iconSkillArrows;   // 집중사격
                     if (skillName.Contains("파동")) return cat.iconSkillStar;     // 에너지 파동
                 }
