@@ -9,7 +9,7 @@ namespace KingdomIdle.MageTower
     {
         public const int SkillCount = 10;
         public const int BloomAwakening = 10;
-        public const string CatalogVersion = "mage-2";
+        public const string CatalogVersion = "mage-3";
         public const int DuplicateFragments = 30;
 
         public static bool ValidateRoster(IReadOnlyList<MageTowerSkillSO> skills)

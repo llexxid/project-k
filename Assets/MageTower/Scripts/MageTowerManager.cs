@@ -28,6 +28,8 @@ namespace KingdomIdle.MageTower
 
         private readonly float[] _cooldowns = new float[SlotCount];
         private readonly float[] _cooldownTimers = new float[SlotCount];
+        private readonly float[] _skillCooldowns = new float[MageSkillRules.SkillCount];
+        private readonly float[] _skillCooldownTimers = new float[MageSkillRules.SkillCount];
         private bool _autoEnabled;
 
         public event Action OnStateChanged;
@@ -49,6 +51,8 @@ namespace KingdomIdle.MageTower
         private void Update()
         {
             bool ticked = false;
+            for (int id = 0; id < _skillCooldownTimers.Length; id++)
+                if (_skillCooldownTimers[id] > 0) { _skillCooldownTimers[id] = Mathf.Max(0, _skillCooldownTimers[id] - Time.deltaTime); ticked = true; }
             for (int i = 0; i < SlotCount; i++)
             {
                 if (_cooldownTimers[i] <= 0f) continue;
@@ -72,7 +76,7 @@ namespace KingdomIdle.MageTower
             for (int i = 0; i < SlotCount; i++)
             {
                 if (_equipped[i] < 0) continue;
-                if (_cooldownTimers[i] > 0f) continue;
+                if (IsOnCooldown(i)) continue;
                 if (_casting[i]) continue;
 
                 if (!prechecked)
@@ -162,18 +166,22 @@ namespace KingdomIdle.MageTower
         // ===== 장착 =====
         public bool Equip(int slotIndex, int skillId)
         {
-            if (slotIndex >= 0 && slotIndex < SlotCount && (_casting[slotIndex] || _cooldownTimers[slotIndex] > 0)) return false;
             if (slotIndex < 0 || slotIndex >= SlotCount || GetSkillById(skillId) == null || !IsOwned(skillId)) return false;
-            if (IsEquipped(skillId)) return false;
-            bool result = LocalProgression.Execute("mage-equip", state => { state.MageSlots[slotIndex] = skillId; return true; });
+            if (_equipped[slotIndex] == skillId) return false;
+            bool result = LocalProgression.Execute("mage-equip", state => {
+                int previous = state.MageSlots[slotIndex];
+                // One atomic swap, never a transient duplicate or an intermediate empty loadout.
+                for (int i = 0; i < SlotCount; i++) if (state.MageSlots[i] == skillId) state.MageSlots[i] = previous;
+                state.MageSlots[slotIndex] = skillId; return true;
+            });
             if (result) NotifyCommitted(); return result;
     }
 
-        public void Unequip(int slotIndex)
+        public bool Unequip(int slotIndex)
         {
-            if (slotIndex >= 0 && slotIndex < SlotCount && (_casting[slotIndex] || _cooldownTimers[slotIndex] > 0)) return;
-            if (slotIndex < 0 || slotIndex >= SlotCount || _casting[slotIndex]) return;
-            if (LocalProgression.Execute("mage-unequip", state => { state.MageSlots[slotIndex] = -1; return true; })) NotifyCommitted();
+            if (slotIndex < 0 || slotIndex >= SlotCount || _equipped[slotIndex] < 0) return false;
+            bool result = LocalProgression.Execute("mage-unequip", state => { state.MageSlots[slotIndex] = -1; return true; });
+            if (result) NotifyCommitted(); return result;
     }
 
         public bool IsEquipped(int skillId)
@@ -244,14 +252,17 @@ namespace KingdomIdle.MageTower
         public bool IsOnCooldown(int slotIndex)
         {
             if (slotIndex < 0 || slotIndex >= SlotCount) return false;
-            return _cooldownTimers[slotIndex] > 0f;
+            int id = _equipped[slotIndex];
+            return _cooldownTimers[slotIndex] > 0f || (id >= 0 && _skillCooldownTimers[id] > 0f);
         }
 
         public float GetCooldownRatio(int slotIndex)
         {
             if (slotIndex < 0 || slotIndex >= SlotCount) return 0f;
-            if (_cooldowns[slotIndex] <= 0f) return 0f;
-            return Mathf.Clamp01(_cooldownTimers[slotIndex] / _cooldowns[slotIndex]);
+            int id = _equipped[slotIndex];
+            float slot = _cooldowns[slotIndex] > 0 ? _cooldownTimers[slotIndex] / _cooldowns[slotIndex] : 0;
+            float skill = id >= 0 && _skillCooldowns[id] > 0 ? _skillCooldownTimers[id] / _skillCooldowns[id] : 0;
+            return Mathf.Clamp01(Mathf.Max(slot,skill));
         }
 
         // ===== 시전 상태 =====
@@ -270,11 +281,12 @@ namespace KingdomIdle.MageTower
             if (slotIndex < 0 || slotIndex >= SlotCount || StageManager.Instance?.CurrentRunState != eStageRunState.Running || IsOnCooldown(slotIndex) || _casting[slotIndex]) return false;
             int skillId = _equipped[slotIndex];
             var skill = GetSkillById(skillId);
-            if (skill == null || skill.prefab == null || !IsOwned(skillId) || !MageTowerSpellCast.TryFindTarget(out var target)) return false;
+            if (skill == null || skill.prefab == null || !IsOwned(skillId) || !MageTowerSpellCast.TryFindTarget(skill, out var target)) return false;
             if (skill.IsHealing && !MageTowerSpellCast.NeedsHealing()) return false;
-            if (!LocalProgression.Execute("mage-cast", state => { QuestEconomy.Count(state, eQuestObjectiveType.SkillCast, skillId, 1); return true; })) return false;
+            LocalProgression.RecordSkillCast(skillId);
             _casting[slotIndex] = true;
             _cooldowns[slotIndex] = _cooldownTimers[slotIndex] = GetEffectiveCooldown(skillId);
+            _skillCooldowns[skillId] = _skillCooldownTimers[skillId] = _cooldownTimers[slotIndex];
             var cast = new MageTowerSpellCast(this, skill, GetEffectiveDamage(skillId), GetAwakeningLevel(skillId), IsBloomEnabled(skillId), target);
             _activeSpells[slotIndex] = cast;
             OnCastingChanged?.Invoke(slotIndex, true);

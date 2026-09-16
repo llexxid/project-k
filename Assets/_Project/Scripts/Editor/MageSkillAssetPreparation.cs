@@ -54,54 +54,54 @@ public static class MageSkillAssetPreparation
         Color fire = new Color(.9f, .8f, .7f), sage = new Color(.7f, .8f, .65f);
         var lightning = Vfx("Lightning", new Layer(Source+"Electricity/ElectricLighting1.png", 2, 2, white, y:.6f));
         var ice = Vfx("IceSpike", new Layer(Source+"Ice/IceSpike.png", 1.8f, 1.8f, frost, y:.3f));
-        var tornado = Vfx("FireTornado", new Layer(Source+"Fire/FireTornado.png", 1.9f, 2.4f, new Color(.9f,.8f,.7f,.78f), y:.55f, loop:true));
+        var tornado = Vfx("FireTornado", new Layer(Source+"Fire/FireTornado.png", 2.1f, 2.6f, new Color(.95f,.85f,.76f,.95f), y:.55f, loop:true));
         var arcane = Vfx("ArcaneVolley", new Layer(Polished+"ArcaneProjectile.png", 1.3f, 1.3f, Color.white, loop:true));
         var arcaneHit = Vfx("ArcaneImpact", new Layer(Polished+"ArcaneImpact.png", 1.3f, 1.3f, Color.white));
         var venom = Vfx("VenomMist",
-            new Layer(Art+"/VFX/PoisonEffect/Animation/Sprites/Poison_Effect_05-1.png",2.7f,1.5f,new Color(.7f,.8f,.65f,.55f),loop:true),
-            new Layer(Art+"/VFX/PoisonEffect/Animation/Sprites/Poison_Effect_05-2.png",2.2f,1.7f,new Color(.7f,.8f,.65f,.42f),y:.2f,loop:true));
+            new Layer(Art+"/VFX/PoisonEffect/Animation/Sprites/Poison_Effect_05-1.png",3.4f,2f,new Color(1,1,1,.96f),loop:true),
+            new Layer(Art+"/VFX/PoisonEffect/Animation/Sprites/Poison_Effect_05-2.png",2.9f,2.2f,new Color(1,1,1,.88f),y:.2f,loop:true));
         var stone = Vfx("StoneSeal",
             new Layer(Source+"Earth/EarthRock.png",1.8f,1.8f,new Color(.84f,.79f,.7f),x:-.42f,y:.34f),
             new Layer(Source+"Earth/EarthRock.png",2.3f,2.3f,new Color(.91f,.86f,.77f),y:.48f),
             new Layer(Source+"Earth/EarthRock.png",1.6f,1.6f,new Color(.84f,.79f,.7f),x:.44f,y:.28f));
         var gale = Vfx("GaleBlades",new Layer(Source+"Wind/WindSlash.png",2.1f,2.1f,new Color(.85f,.96f,.96f),frame:2));
         var sanctuary = Vfx("Sanctuary",
-            new Layer(Source+"Holy/HolyBlessing.png",3.6f,2.2f,new Color(.66f,.85f,.70f,.46f),y:.46f,loop:true),
-            new Layer(Source+"Earth/EarthHeal.png",2.7f,2.1f,new Color(.84f,.92f,.73f,.42f),y:.35f,loop:true));
+            new Layer(Source+"Holy/HolyBlessing.png",4f,2.5f,new Color(.7f,.9f,.75f,.85f),y:.46f,loop:true),
+            new Layer(Source+"Earth/EarthHeal.png",3f,2.3f,new Color(.84f,.92f,.73f,.76f),y:.35f,loop:true));
         var heal = Vfx("SanctuaryHeal",new Layer(Source+"Holy/HolyBlessing.png",1.1f,1.5f,new Color(.92f,.84f,.63f),y:.4f));
-        var meteor = Vfx("Meteor", new Layer(Polished+"MeteorProjectile.png",2,2,Color.white,frame:0));
+        var meteor = Vfx("Meteor", new Layer(Polished+"MeteorProjectile.png",2.5f,2.5f,Color.white,loop:true));
         var crater = Vfx("MeteorCrater",
-            new Layer(Source+"Fire/FirePit.png",2.2f,1.6f,new Color(.9f,.8f,.7f,.7f),x:-.35f,y:.25f,loop:true),
-            new Layer(Source+"Fire/FirePit.png",2.2f,1.6f,new Color(.9f,.8f,.7f,.7f),x:.35f,y:.25f,loop:true),
-            new Layer(Source+"Fire/FireExplosion1.png",3.6f,3.6f,fire,y:.4f));
-        var rift = Vfx("VoidRift",new Layer(Polished+"VoidRiftMuted.png",3.2f,2.5f,new Color(1,1,1,.68f),loop:true));
+            new Layer(Source+"Fire/FirePit.png",2.6f,1.9f,new Color(.95f,.85f,.76f,.95f),x:-.35f,y:.25f,loop:true),
+            new Layer(Source+"Fire/FirePit.png",2.6f,1.9f,new Color(.95f,.85f,.76f,.95f),x:.35f,y:.25f,loop:true),
+            new Layer(Source+"Fire/FireExplosion1.png",4.2f,4.2f,fire,y:.4f));
+        var rift = Vfx("VoidRift",new Layer(Polished+"VoidRiftMuted.png",3.6f,3.6f,Color.white,loop:true));
         var collapse = Vfx("VoidCollapse",new Layer(Polished+"VoidCollapseMuted.png",3.6f,3.6f,new Color(1,1,1,.86f)));
         var telegraph = Vfx("GroundTelegraph",new Layer(Source+"Holy/HolyBlessing.png",3.6f,2.5f,new Color(.6f,.67f,.77f,.45f),y:.56f,frame:0));
         var cloud = Vfx("LightningBloomCloud",
             new Layer(cloudTexture,3.8f,1.45f,Color.white,frame:0),
-            new Layer(Polished+"CloudSparksViolet.png",2.8f,1.3f,new Color(1,1,1,.8f),y:-.12f,loop:true));
+            new Layer(Polished+"CloudSparksViolet.png",3.8f,3.8f,Color.white,loop:true));
         var thunder = Vfx("LightningBloomStrike",
-            new Layer(Polished+"ThunderViolet.png",2.65f,4.2f,new Color(1,1,1,.92f),y:1.1f),
-            new Layer(Polished+"ThunderImpactViolet.png",3.9f,2.7f,new Color(1,1,1,.8f)));
+            new Layer(Polished+"ThunderViolet.png",3.5f,4.6f,Color.white,y:1.65f),
+            new Layer(Polished+"ThunderImpactViolet.png",4.2f,2.7f,Color.white));
         var glacier = Vfx("IceBloomCrystal",new Layer(Source+"Ice/IceSpike.png",3.4f,4.3f,frost,y:.8f));
         var iceCast = Vfx("IceBloomWarning",new Layer(Source+"Ice/IceSlam.png",2.8f,1.8f,new Color(.58f,.73f,.83f)));
 
         string[] keys={"Lightning","IceSpike","FireTornado","ArcaneVolley","VenomMist","StoneSeal","GaleBlades","Sanctuary","Meteor","VoidRift"};
-        string[] names={"라이트닝","얼음 송곳","화염 회오리","비전 탄막","맹독 안개","암석 봉인","질풍 칼날","회복의 성역","운석 낙하","공허 균열"};
+        string[] names={"라이트닝","얼음 송곳","화염 회오리","유성우","맹독 안개","암석 봉인","질풍 칼날","회복의 성역","운석 낙하","공허 균열"};
         string[] descriptions={
             "같은 지점에 번개를 연속으로 내려 주변 적을 공격합니다.",
             "얼음 송곳을 차례로 솟아올려 적을 고르게 공격합니다.",
             "불꽃 회오리가 적을 쫓으며 주변에 지속 피해를 줍니다.",
-            "추적 탄환을 연속 발사합니다. 적을 쓰러뜨리면 다음 적을 노립니다.",
+            "전장 곳곳의 적에게 별빛을 차례로 떨어뜨립니다. 별빛이 닿은 적에게 피해를 줍니다.",
             "독 안개로 지속 피해를 주고 이동 속도를 25% 낮춥니다.",
             "바위를 연속으로 솟아올려 주변 적을 공격하고 1초간 기절시킵니다.",
             "바람 칼날이 일직선으로 날아가 경로상의 적을 관통합니다.",
             "체력 비율이 가장 낮은 왕국군을 반복해서 회복합니다.",
             "운석을 떨어뜨려 주변 적을 공격합니다. 남은 불길이 두 번 더 피해를 줍니다.",
-            "적을 끌어모아 이동 속도를 20% 낮추고 지속 피해를 줍니다. 마지막에 균열이 폭발합니다. 보스는 끌어당기지 못합니다."};
+            "적이 모인 곳의 허공에 원형 균열을 엽니다. 균열 안의 적을 중심으로 끌어당기며 지속 피해를 주고, 닫힐 때 폭발합니다. 보스는 끌어당기지 못합니다."};
         float[] powers={120,100,40,62,36,110,90,45,260,42}, cooldowns={10,12,15,10,14,16,12,18,16,20};
         int[] hits={3,4,10,6,6,2,2,6,1,5}, caps={3,1,3,1,5,4,5,3,6,6};
-        float[] radii={.55f,.35f,.8f,.1f,1.25f,1.05f,.55f,1.7f,1.35f,1.6f}, ticks={.3f,.18f,.5f,.22f,.75f,.45f,.4f,.7f,.8f,.6f};
+        float[] radii={.55f,.35f,.85f,.55f,1.4f,1.05f,.55f,1.9f,1.55f,1.3f}, ticks={.3f,.18f,.5f,.22f,.75f,.45f,.4f,.7f,.8f,.6f};
         GameObject[] visuals={lightning,ice,tornado,arcane,venom,stone,gale,sanctuary,meteor,rift};
         var registry=AssetDatabase.LoadAssetAtPath<MageTowerSkillRegistrySO>("Assets/MageTower/SO/MageTowerSkillList.asset");
         if(registry==null)throw new InvalidOperationException("Existing mage registry is missing.");
@@ -146,6 +146,26 @@ public static class MageSkillAssetPreparation
         AssetDatabase.SaveAssets();Debug.Log("Mage catalog: 10 skills, 2 distinct blooms, 8 provisional blooms; existing IDs and icon GUIDs preserved.");
     }
 
+    static void CopyChanged(string source,string target)
+    {
+        WriteAtomically(target,File.ReadAllBytes(source));
+    }
+    public static void WriteAtomically(string target,byte[] bytes)
+    {
+        if(File.Exists(target) && File.ReadAllBytes(target).SequenceEqual(bytes))return;
+        AssetDatabase.ReleaseCachedFileHandles();
+        // Windows cannot truncate an imported texture while Unity maps the old file.
+        // Replace its directory entry atomically, leaving the meta/GUID untouched.
+        string staging="Library/MageIcon-"+Guid.NewGuid().ToString("N")+".tmp";
+        try
+        {
+            File.WriteAllBytes(staging,bytes);
+            if(File.Exists(target))File.Replace(staging,target,null);
+            else File.Move(staging,target);
+        }
+        finally { if(File.Exists(staging))File.Delete(staging); }
+    }
+
     static Sprite InstallIcon(MageTowerSkillSO skill,string key,int id)
     {
         string target=Art+"/Icons/MageTower/"+key+".png";
@@ -156,7 +176,8 @@ public static class MageSkillAssetPreparation
             {string error=AssetDatabase.MoveAsset(previous,target);if(!string.IsNullOrEmpty(error))throw new IOException(error);}
         }
         string source=id==0?Generated+"/pilot-finish/core-resize/0.png":Generated+"/icons/"+id.ToString("00")+"-"+key+"/icon48.png";
-        File.Copy(source,target,true);AssetDatabase.ImportAsset(target,ImportAssetOptions.ForceSynchronousImport);
+        if(id==3) source="AI/comfyui/mage-skills/20260916-combat/Starfall-v1/icon48.png";
+        CopyChanged(source,target);AssetDatabase.ImportAsset(target,ImportAssetOptions.ForceSynchronousImport);
         var importer=(TextureImporter)AssetImporter.GetAtPath(target);
         importer.textureType=TextureImporterType.Sprite;importer.spriteImportMode=SpriteImportMode.Single;importer.spritePixelsPerUnit=48;
         importer.filterMode=FilterMode.Point;importer.mipmapEnabled=false;importer.isReadable=false;importer.npotScale=TextureImporterNPOTScale.None;importer.textureCompression=TextureImporterCompression.Uncompressed;
@@ -181,7 +202,7 @@ public static class MageSkillAssetPreparation
                 var child=new GameObject("Layer"+i);child.transform.SetParent(root.transform,false);child.transform.localPosition=layer.Offset;
                 var renderer=child.AddComponent<SpriteRenderer>();renderer.sprite=sprites[Math.Max(0,layer.StaticFrame)];renderer.color=layer.Color;renderer.sortingOrder=2+i;
                 // Ground rings stay beneath combatants; airborne spells must not disappear behind them.
-                bool ground=key=="GroundTelegraph" || key=="Sanctuary" || key=="VenomMist" || key=="VoidRift" || key=="IceBloomCrystal" || key=="IceBloomWarning" || key=="StoneSeal";
+                bool ground=key=="GroundTelegraph" || key=="Sanctuary" || key=="VenomMist" || key=="VoidRift" || key=="FireTornado" || key=="IceBloomWarning" || (key=="MeteorCrater" && i<2);
                 renderer.sortingLayerName=ground?"Default":"CombatVFX";
                 renderer.sharedMaterial=AssetDatabase.GetBuiltinExtraResource<Material>("Sprites-Default.mat");
                 var size=renderer.sprite.bounds.size;child.transform.localScale=new Vector3(layer.Size.x/size.x,layer.Size.y/size.y,1);
@@ -210,9 +231,10 @@ public static class MageSkillAssetPreparation
     static Sprite InstallBloomIcon(string key)
     {
         string source="AI/comfyui/mage-skills/20260916/"+key+"/icon48.png";
+        if(key=="ArcaneVolley") source="AI/comfyui/mage-skills/20260916-combat/StarfallBloom-v1/icon48.png";
         string target=Art+"/Icons/MageTower/"+key+"_Bloom.png";
         if(!File.Exists(source))throw new FileNotFoundException("Bloom icon missing",source);
-        File.Copy(source,target,true);AssetDatabase.ImportAsset(target,ImportAssetOptions.ForceSynchronousImport);
+        CopyChanged(source,target);AssetDatabase.ImportAsset(target,ImportAssetOptions.ForceSynchronousImport);
         var importer=(TextureImporter)AssetImporter.GetAtPath(target);
         importer.textureType=TextureImporterType.Sprite;importer.spriteImportMode=SpriteImportMode.Single;importer.spritePixelsPerUnit=48;
         importer.filterMode=FilterMode.Point;importer.mipmapEnabled=false;importer.isReadable=false;importer.npotScale=TextureImporterNPOTScale.None;
@@ -227,7 +249,7 @@ public static class MageSkillAssetPreparation
             string normalized=path.Replace('\\','/');if(normalized.EndsWith("LightningCloud.png"))continue;
             AssetDatabase.ImportAsset(normalized,ImportAssetOptions.ForceSynchronousImport);
             var importer=(TextureImporter)AssetImporter.GetAtPath(normalized);
-            bool single=normalized.EndsWith("MeteorProjectile.png");
+            bool single=false;
             importer.textureType=TextureImporterType.Sprite;importer.spriteImportMode=single?SpriteImportMode.Single:SpriteImportMode.Multiple;
             importer.spritePixelsPerUnit=32;importer.filterMode=FilterMode.Point;importer.mipmapEnabled=false;importer.isReadable=false;
             importer.npotScale=TextureImporterNPOTScale.None;importer.textureCompression=TextureImporterCompression.Uncompressed;importer.alphaIsTransparency=true;

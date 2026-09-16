@@ -44,6 +44,22 @@ namespace KingdomIdle.MageTower
         {
             _owner = owner; _skill = skill; _power = power; _awakening = awakening; _bloom = bloom;
             _battle = LocalProgression.State.ActiveBattleId; _initial = target.transform.position;
+            // Broad effects may centre just inside the arena edge; their visible boundary
+            // and actual hit centre stay together. Small targeted strikes remain exact.
+            if (skill.spellKind == MageSpellKind.Meteor || skill.spellKind == MageSpellKind.VoidRift || skill.spellKind == MageSpellKind.VenomMist ||
+                (skill.spellKind == MageSpellKind.Lightning && bloom))
+            {
+                var camera=MageTowerTargeting.ResolveCamera();
+                if(camera!=null)
+                {
+                    float depth=Mathf.Abs(camera.transform.position.z);
+                    float left=camera.ViewportToWorldPoint(new Vector3(.03f,0,depth)).x+1.8f;
+                    float right=camera.ViewportToWorldPoint(new Vector3(.97f,0,depth)).x-1.8f;
+                    _initial.x=left<=right?Mathf.Clamp(_initial.x,left,right):camera.transform.position.x;
+                    if(skill.spellKind==MageSpellKind.Lightning)
+                        _initial.y=Mathf.Min(_initial.y,camera.ViewportToWorldPoint(new Vector3(.5f,.85f,depth)).y-4.1f);
+                }
+            }
 #if UNITY_EDITOR || LOBBY_DEVICE_QA
             MageSkillDiagnostics.Record(skill.id, "begin", target.name, 0, bloom);
 #endif
@@ -60,20 +76,17 @@ namespace KingdomIdle.MageTower
 
         private static void Collect(Vector3 center, float radius, List<Monster> targets, List<Collider2D> colliders)
         {
-            targets.Clear(); colliders.Clear();
-            var filter = new ContactFilter2D { useTriggers = true };
-            filter.SetLayerMask(GameLayers.EnemyMask);
-            Physics2D.OverlapCircle(center, radius, filter, colliders);
+            targets.Clear();
             var camera = MageTowerTargeting.ResolveCamera();
-            foreach (var collider in colliders)
+            foreach (var monster in CombatMotion.Monsters)
             {
-                if (collider == null) continue;
-                var monster = collider.GetComponentInParent<Monster>();
-                if (IsAlive(monster) && MageTowerTargeting.IsOnScreen(camera, monster.transform.position) && !targets.Contains(monster)) targets.Add(monster);
+                if (IsAlive(monster) && (monster.transform.position-center).sqrMagnitude <= radius*radius &&
+                    MageTowerTargeting.IsOnScreen(camera, monster.transform.position)) targets.Add(monster);
             }
         }
 
-        public static bool TryFindTarget(out Monster target)
+        public static bool TryFindTarget(out Monster target) => TryFindTarget(null, out target);
+        public static bool TryFindTarget(MageTowerSkillSO skill, out Monster target)
         {
             target = null;
             var camera = MageTowerTargeting.ResolveCamera(); if (camera == null) return false;
@@ -81,11 +94,16 @@ namespace KingdomIdle.MageTower
             var center = camera.ViewportToWorldPoint(new Vector3(.5f, .5f, depth)); center.z = 0;
             float radius = Vector3.Distance(center, camera.ViewportToWorldPoint(new Vector3(1, 1, depth))) + 2;
             Collect(center, radius, Candidates, CandidateColliders);
-            float distance = float.MaxValue;
+            float distance = float.MaxValue; int cluster = -1;
+            bool area = skill != null && (skill.spellKind == MageSpellKind.Meteor || skill.spellKind == MageSpellKind.VoidRift ||
+                skill.spellKind == MageSpellKind.VenomMist || skill.spellKind == MageSpellKind.StoneSeal || skill.spellKind == MageSpellKind.Lightning);
             foreach (var candidate in Candidates)
             {
                 float next = (candidate.transform.position - center).sqrMagnitude;
-                if (next < distance) { target = candidate; distance = next; }
+                int neighbours = 0;
+                if (area) foreach(var other in Candidates)
+                    if ((candidate.transform.position-other.transform.position).sqrMagnitude <= skill.radius*skill.radius) neighbours++;
+                if (neighbours > cluster || (neighbours == cluster && next < distance)) { target = candidate; distance = next; cluster = neighbours; }
             }
             return target != null;
         }
@@ -161,7 +179,7 @@ namespace KingdomIdle.MageTower
             if (!Valid || !Enum.TryParse(_skill.sfxName, out eSFXType sound)) return;
             Scripts.Core.SFXManager.Instance?.GetSFX(sound, _initial, Quaternion.identity, sfx =>
             {
-                if (Valid) sfx.PlayOneShot(gain, pitch);
+                if (Valid) sfx.PlayOneShot(gain, pitch, SoundChannel.MageTower);
                 else Scripts.Core.SFXManager.Instance?.DestroySFX(sfx);
             });
         }
@@ -174,7 +192,7 @@ namespace KingdomIdle.MageTower
             if (_bloom)
             {
                 // Telegraph stays on the battlefield; the HUD never receives a full-screen flash.
-                Visual(_skill.bloomCastingPrefab, _initial + Vector3.up * 1.8f, 2.15f);
+                Visual(_skill.bloomCastingPrefab, _initial + Vector3.up * 3.35f, 2.3f);
                 yield return Delay(1.84f); if (!Valid) yield break;
                 Visual(_skill.bloomPrefab, _initial, .75f);
                 yield return Delay(.16f); if (!Valid) yield break;
@@ -244,26 +262,29 @@ namespace KingdomIdle.MageTower
         {
             for (int i = 0; i < Hits && Valid; i++)
             {
-                if (!TryFindTarget(out var monster)) yield break;
+                Collect(Vector3.zero, 20, _targets, _colliders);
+                if (_targets.Count == 0) yield break;
+                var monster = _targets[i % _targets.Count];
                 var target = new Target(monster);
-                Vector3 start = CombatViewport.Formation(2) + Vector3.up * .3f;
+                Vector3 end = monster.transform.position + Vector3.up * .35f;
+                Vector3 start = end + new Vector3(1.05f, 3.2f, 0);
                 var visual = Visual(_skill.prefab, start, .5f); float elapsed = 0;
-                while (Valid && target.Alive && elapsed < .22f)
+                float travelTime=Mathf.Max(.16f,_skill.tickInterval);
+                while (Valid && elapsed < travelTime)
                 {
                     if (visual != null)
                     {
-                        var end=target.Monster.transform.position + Vector3.up * .3f;
-                        visual.transform.position=Vector3.Lerp(start,end,elapsed/.22f);
+                        visual.transform.position=Vector3.Lerp(start,end,elapsed/travelTime);
                         var heading=end-start;
-                        visual.transform.rotation=Quaternion.Euler(0,0,Mathf.Atan2(heading.y,heading.x)*Mathf.Rad2Deg-45f);
+                        visual.transform.rotation=Quaternion.Euler(0,0,Mathf.Atan2(heading.y,heading.x)*Mathf.Rad2Deg+135f);
                     }
                     yield return null; elapsed += Time.deltaTime;
                 }
-                if (Valid && target.Alive)
+                if (Valid)
                 {
-                    var position = target.Monster.transform.position;
-                    Visual(_skill.secondaryPrefab, position + Vector3.up * .3f, .35f);
-                    Hit(target.Monster, NormalMultiplier, position);
+                    Visual(_skill.secondaryPrefab, end, .35f);
+                    if (target.Alive && Vector2.Distance(target.Monster.transform.position + Vector3.up*.35f,end) <= _skill.radius)
+                        Hit(target.Monster, NormalMultiplier, end);
                 }
                 if (visual != null) visual.Release();
             }
@@ -335,7 +356,8 @@ namespace KingdomIdle.MageTower
         private IEnumerator Meteor()
         {
             Visual(_skill.castingPrefab, _initial, 1.4f);
-            var travel = new Vector3(2.5f,3.5f,0);
+            // Approach from the centre side so edge targets still show the full falling rock.
+            var travel = new Vector3(_initial.x > 0 ? -1.25f : 1.25f,2.5f,0);
             var falling = Visual(_skill.prefab, _initial + travel, 1.3f);
             float elapsed = 0;
             while (Valid && elapsed < 1.1f)
@@ -378,18 +400,33 @@ namespace KingdomIdle.MageTower
 
         private IEnumerator Void()
         {
-            Visual(_skill.prefab, _initial, Hits * _skill.tickInterval + .6f);
-            for (int tick = 0; tick < Hits && Valid; tick++)
+            Vector3 center = _initial + Vector3.up*.5f;
+            Visual(_skill.prefab, center, Hits * _skill.tickInterval + .6f);
+            float tickTimer = 0; int ticks = 0;
+            while (Valid && ticks < Hits)
             {
-                Collect(_initial, _skill.radius, _targets, _colliders);
+                int hitCount = 0;
+                Collect(center-Vector3.up*.4f, _skill.radius, _targets, _colliders);
                 foreach (var monster in _targets)
-                    if ((monster.transform.position - _initial).sqrMagnitude > .12f) monster.ApplyKnockback(_initial - monster.transform.position, 1.8f);
-                Area(_initial, _skill.radius, NormalMultiplier, slow: _skill.slowFraction);
-                yield return Delay(_skill.tickInterval);
+                {
+                    if (!IsAlive(monster)) continue;
+                    Vector3 delta = center - (monster.transform.position + Vector3.up*.4f);
+                    // Body-centre circle is strictly inside the visible airborne ring, no remote suction.
+                    if (delta.sqrMagnitude > _skill.radius*_skill.radius) continue;
+                    if (delta.sqrMagnitude > .04f) monster.ApplyKnockback(delta, Mathf.Min(1.6f, delta.magnitude * 3));
+                    if (tickTimer <= 0 && hitCount++ < _skill.maxTargets)
+                    {
+                        Hit(monster, NormalMultiplier, center);
+                        MonsterCCState.Apply(monster, CrowdControlKind.Slow, _skill.controlDuration, _skill.slowFraction);
+                    }
+                }
+                if (tickTimer <= 0) { ticks++; tickTimer += _skill.tickInterval; }
+                yield return null; tickTimer -= Time.deltaTime;
             }
             if (!Valid) yield break;
-            Visual(_skill.secondaryPrefab, _initial, .6f);
-            Area(_initial, _skill.radius, NormalMultiplier * (decimal)_skill.secondaryPowerRatio);
+            yield return Delay(Mathf.Max(0,tickTimer));
+            Visual(_skill.secondaryPrefab, center, .6f);
+            Area(center-Vector3.up*.4f, _skill.radius, NormalMultiplier * (decimal)_skill.secondaryPowerRatio);
             yield return Delay(.6f);
         }
 

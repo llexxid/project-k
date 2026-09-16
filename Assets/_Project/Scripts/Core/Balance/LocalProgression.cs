@@ -14,9 +14,10 @@ namespace KingdomIdle.Balance
     /// Explicit local authority for this client beta. Authentication never authorizes a legacy
     /// unversioned economy response to overwrite it. Server migration must import a reviewed
     /// snapshot with account, authority, balance version, revision and transaction id together.
-    /// Mutators operate on a draft; only a durable replacement publishes state/events.
+    /// Economic mutators publish only after durable replacement. Non-economic skill counters
+    /// are autosaved between casts and flushed before rewards, account changes and suspension.
     /// </summary>
-    public static class LocalProgression
+    public static partial class LocalProgression
     {
         public static bool IsLocalAuthority => true;
         public static event Action Changed;
@@ -48,6 +49,7 @@ namespace KingdomIdle.Balance
         public static void Open(string account)
         {
             if (_busy) throw new InvalidOperationException("Cannot change account during a transaction.");
+            if (_state != null && !FlushSkillCounters()) throw new IOException("Pending skill counters could not be saved before changing account.");
             using var sha = SHA256.Create();
             string key = BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(account))).Replace("-", "").ToLowerInvariant();
             string directory = Path.Combine(Application.persistentDataPath, "progression-local-v1");
@@ -67,28 +69,21 @@ namespace KingdomIdle.Balance
         {
             Ensure();
             if (_busy || mutate == null || string.IsNullOrWhiteSpace(operation)) return false;
+            CompleteCounterSave(true);
             if (claimId != null && _state.Claims.Contains(claimId)) return false;
             _busy = true;
             try
             {
-                var draft = JsonConvert.DeserializeObject<ProgressionState>(JsonConvert.SerializeObject(_state));
+                var draft = _state.DeepClone();
                 QuestEconomy.Before(draft);
                 if (!mutate(draft)) return false;
                 QuestEconomy.After(draft);
                 if (claimId != null) draft.Claims.Add(claimId);
                 draft.Revision = checked(_state.Revision + 1);
                 Validate(draft);
-                string json = JsonConvert.SerializeObject(draft);
-                string temporary = _path + ".tmp";
-                using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None))
-                {
-                    byte[] bytes = Encoding.UTF8.GetBytes(json);
-                    stream.Write(bytes, 0, bytes.Length);
-                    stream.Flush(true);
-                }
-                if (File.Exists(_path)) File.Replace(temporary, _path, _path + ".bak");
-                else File.Move(temporary, _path);
+                WriteSnapshot(_path, draft);
                 _state = draft; LastError = null;
+                _countersDirty = false;
             }
             catch (Exception exception)
             {
@@ -98,9 +93,22 @@ namespace KingdomIdle.Balance
             }
             finally { _busy = false; }
             // Observers cannot roll back a committed transaction or prevent other observers.
+            NotifyObservers();
+            return true;
+        }
+        private static void NotifyObservers()
+        {
             if (Changed != null) foreach (Action observer in Changed.GetInvocationList())
                 try { observer(); } catch (Exception ex) { Debug.LogException(ex); }
-            return true;
+        }
+        private static void WriteSnapshot(string path, ProgressionState snapshot)
+        {
+            byte[] bytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(snapshot));
+            string temporary = path + ".tmp";
+            using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None))
+            { stream.Write(bytes, 0, bytes.Length); stream.Flush(true); }
+            if (File.Exists(path)) File.Replace(temporary, path, path + ".bak");
+            else File.Move(temporary, path);
         }
         public static long Balance(eCurrency currency) => State.Wallet.TryGetValue(currency, out long amount) ? amount : 0;
         public static bool Spend(ProgressionState state, eCurrency currency, long amount)
