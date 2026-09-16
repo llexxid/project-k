@@ -28,6 +28,7 @@ namespace KingdomIdle.Balance
         public Dictionary<int, HashSet<string>> UnlockedJobs = new();
         public List<EquipmentSave> Equipment = new();
         public List<EquipmentSave> PendingEquipment = new();
+        public List<LegacyEquipmentStack> LegacyEquipment = new();
         public Dictionary<int, MageSave> MageSkills = new();
         public int[] MageSlots = { -1, -1, -1, -1, -1 };
         public int EquipmentPity;
@@ -60,6 +61,8 @@ namespace KingdomIdle.Balance
             copy.Equipment = new(Equipment.Count); copy.PendingEquipment = new(PendingEquipment.Count);
             foreach (var item in Equipment) copy.Equipment.Add(item.Copy());
             foreach (var item in PendingEquipment) copy.PendingEquipment.Add(item.Copy());
+            copy.LegacyEquipment = new(LegacyEquipment.Count);
+            foreach (var item in LegacyEquipment) copy.LegacyEquipment.Add(item.Copy());
             copy.MageSkills = new();
             foreach (var pair in MageSkills) copy.MageSkills.Add(pair.Key, pair.Value.Copy());
             copy.MageSlots = (int[])MageSlots.Clone(); copy.Counters = new(Counters);
@@ -80,6 +83,12 @@ namespace KingdomIdle.Balance
         public bool Locked;
         public long ExpiresUtc;
         public EquipmentSave Copy() => (EquipmentSave)MemberwiseClone();
+    }
+    [Serializable]
+    public sealed class LegacyEquipmentStack
+    {
+        public int Code, Level, Count;
+        public LegacyEquipmentStack Copy() => (LegacyEquipmentStack)MemberwiseClone();
     }
     [Serializable]
     public sealed class MageSave

@@ -14,6 +14,23 @@ namespace KingdomIdle.Balance
         {
             var checks=new List<string>();
             void Check(bool result,string label) { if(!result) throw new InvalidOperationException("BALANCE ASSERT: "+label);checks.Add(label); }
+            var legacyInventory = new ProgressionState();
+            EquipmentManager.ImportLegacy(legacyInventory, 123, 7, 65535);
+            Check(legacyInventory.Equipment.Count == EquipmentManager.Capacity && legacyInventory.PendingEquipment.Count == 0 &&
+                legacyInventory.LegacyEquipment.Single().Count == 65535 - EquipmentManager.Capacity, "Legacy 65535 stack preserves overflow without filling battle inbox");
+            LocalProgression.Validate(legacyInventory);
+            Check(!EquipmentManager.TakeLegacy(legacyInventory,123,7), "Full inventory cannot consume legacy reserve");
+            var legacyCopy = legacyInventory.DeepClone(); legacyCopy.LegacyEquipment[0].Count--;
+            Check(legacyCopy.LegacyEquipment[0].Count + 1 == legacyInventory.LegacyEquipment[0].Count, "Legacy reserve is isolated in transaction drafts");
+            var legacyReload = JsonConvert.DeserializeObject<ProgressionState>(JsonConvert.SerializeObject(legacyInventory));
+            legacyReload.Equipment.RemoveAt(0);
+            Check(EquipmentManager.TakeLegacy(legacyReload,123,7) && legacyReload.Equipment.Last().Level == 7 &&
+                legacyReload.Equipment.Count + legacyReload.LegacyEquipment.Sum(x=>x.Count) == 65534, "Legacy withdrawal after reload preserves quantity and enhancement");
+            legacyReload.LegacyEquipment[0].Count = 1; legacyReload.Equipment.RemoveAt(0);
+            Check(EquipmentManager.TakeLegacy(legacyReload,123,7) && legacyReload.LegacyEquipment.Count == 0 &&
+                !EquipmentManager.TakeLegacy(legacyReload,123,7), "Final legacy item is consumed once");
+            LocalProgression.Validate(legacyReload);
+            Check(JsonConvert.DeserializeObject<ProgressionState>("{}").LegacyEquipment.Count == 0, "Old save defaults to empty legacy reserve");
             Check(BalanceMath.GoldTotal(0,10)==696,"Gold levels 0→10 cost 696");
             Check(BalanceMath.GoldTotal(0,100)==619133,"Gold levels 0→100 cost 619133");
             Check(BalanceMath.GoldTotal(0,300)==466665042390L,"Gold levels 0→300 remain 64-bit");

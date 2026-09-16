@@ -484,13 +484,24 @@ namespace KingdomIdle.UGUI
             // ── 보유 장비 목록 ──
             ClearChildren(equip.inventoryGrid);
 
-            if (equipmentManager?.Inventory == null || (equipmentManager.Inventory.Items.Count == 0 && KingdomIdle.Balance.LocalProgression.State.PendingEquipment.Count == 0))
+            if (equipmentManager?.Inventory == null || (equipmentManager.Inventory.Items.Count == 0 && KingdomIdle.Balance.LocalProgression.State.PendingEquipment.Count == 0 && KingdomIdle.Balance.LocalProgression.State.LegacyEquipment.Count == 0))
             {
                 if (equip.emptyLabel != null) equip.emptyLabel.gameObject.SetActive(true);
                 return;
             }
             if (equip.emptyLabel != null) equip.emptyLabel.gameObject.SetActive(false);
 
+            foreach (var stored in KingdomIdle.Balance.LocalProgression.State.LegacyEquipment)
+            {
+                var data = equipmentManager.GetData(stored.Code); if (data == null) continue;
+                int code = stored.Code, level = stored.Level;
+                string enhancement = level > 0 ? $" +{level}" : "";
+                InstantiateEquipCell(equip.inventoryGrid, data.icon, $"{data.equipmentName}{enhancement} ×{stored.Count}", UguiTheme.AccentGold,
+                    "1개 받기", UguiTheme.AccentGold, false, false, "보관 중", () => {
+                        if (equipmentManager.ClaimLegacy(code, level)) Refresh();
+                        else UIManager.Instance?.ShowToast("가방 여유 공간이 필요합니다.");
+                    });
+            }
             foreach(var pending in KingdomIdle.Balance.LocalProgression.State.PendingEquipment.ToArray())
             {
                 var pendingData=equipmentManager.GetData(pending.Code); if(pendingData==null) continue;

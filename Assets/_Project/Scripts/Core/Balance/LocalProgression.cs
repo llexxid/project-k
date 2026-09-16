@@ -141,6 +141,9 @@ namespace KingdomIdle.Balance
                 state.OfflineKpm < 0 || state.OfflineKpm > 30 || state.ReincarnationCount < 0 || state.CycleBossStage < 0 || state.CycleBossStage > 3)
                 throw new InvalidDataException("Invalid economy state.");
             var equipment = state.Equipment.Concat(state.PendingEquipment).ToArray();
+            if (state.LegacyEquipment == null || state.LegacyEquipment.Any(x => x == null || x.Count <= 0 || x.Level < 0 || x.Level > 15) ||
+                state.LegacyEquipment.GroupBy(x => (x.Code, x.Level)).Any(g => g.Count() > 1))
+                throw new InvalidDataException("Invalid legacy inventory reserve.");
             if (state.Equipment.Count > EquipmentManager.Capacity || state.PendingEquipment.Count > EquipmentManager.PendingCapacity ||
                 equipment.Any(x => string.IsNullOrEmpty(x.Id) || x.Level < 0 || x.Level > 15 || (x.Player.HasValue && (x.Player < 0 || x.Player > 2))) ||
                 equipment.Select(x => x.Id).Distinct().Count() != equipment.Length ||

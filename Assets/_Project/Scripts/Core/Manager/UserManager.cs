@@ -303,12 +303,8 @@ obj1.GetComponent<ChangeJob>().ChangeJobByCode(_characterDataFromServer[0].JobCo
                         var data = EquipmentManager.Instance.GetData((int)item.GetItemCode());
                         if (data == null) { state.Modules["legacy-unresolved-inventory"]="Unknown item codes remain in legacy-inventory for server migration."; continue; }
                         int amount = (int)item.GetItemAmount();
-                        for(int n = 0; n < amount; n++)
-                        {
-                            var saved = new EquipmentSave { Id = System.Guid.NewGuid().ToString("N"), Code = data.itemCode,
-                                Level = System.Math.Min((int)item.GetItemEnchantCount(),data.maxEnhancementLevel) };
-                            if (!EquipmentManager.Grant(state,saved,true)) throw new System.InvalidOperationException("Inventory migration exceeds capacity; raw server account remains unchanged.");
-                        }
+                        EquipmentManager.ImportLegacy(state, data.itemCode,
+                            System.Math.Min((int)item.GetItemEnchantCount(),data.maxEnhancementLevel), amount);
                     }
                     state.Modules["inventory-imported"] = "1";
                 }
