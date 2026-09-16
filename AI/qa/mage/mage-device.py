@@ -25,12 +25,16 @@ def command(name,action='state',**args):
 if __name__=='__main__':
  action=sys.argv[1]
  if action=='install':
+  manifest=json.loads((OUT/'build.json').read_text(encoding='utf-8-sig'))
+  if not manifest['diagnostics']:raise RuntimeError('Automated mage checks require a diagnostic build.')
+  if manifest['package']!=PACKAGE:raise RuntimeError('Unexpected device build package.')
+  if not Path(manifest['apk']).is_file():raise FileNotFoundError(manifest['apk'])
   backup=Path('.utmp/catalog-integration/mage-validation/device-original-profile.json')
   if not backup.exists():
    run('shell','am','force-stop',PACKAGE)
    digest=hashlib.sha256(b'balance-qa-device-play-20260914').hexdigest()
    backup.write_bytes(run('exec-out','run-as',PACKAGE,'cat',f'/sdcard/Android/data/{PACKAGE}/files/progression-local-v1/{digest}.json').stdout)
-  print(run('install','-r','-t',str(OUT/'KingdomIdle-LobbyQA.apk')).stdout.decode())
+  print(run('install','-r','-t',manifest['apk']).stdout.decode())
   run('shell','input','keyevent','KEYCODE_WAKEUP');launch('mage-launch')
   print(json.dumps({'main':state('initial-hud')['main'],'roster':len(command('initial-state')['state']['mage'])}))
  elif action=='shot':shot(sys.argv[2])

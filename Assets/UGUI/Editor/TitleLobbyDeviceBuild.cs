@@ -7,19 +7,48 @@ using UnityEngine;
 
 namespace KingdomIdle.UGUI.Editor
 {
-    /// <summary>Installs alongside the game, with device diagnostics absent from normal builds.</summary>
+    /// <summary>Named device builds sharing one test package; manual builds omit diagnostic probes.</summary>
     public static class TitleLobbyDeviceBuild
     {
-        public static string Output => Environment.GetEnvironmentVariable("LOBBY_QA_OUTPUT") ?? "Recordings/LobbyRevision5/Device";
+        public static string Output => Environment.GetEnvironmentVariable("LOBBY_QA_OUTPUT") ?? "Recordings/DeviceBuilds";
         internal static bool ResolvingDependencies { get; private set; }
 
-        public static void Build()
+        public static void Build() => BuildPlayer(true);
+
+        public static void BuildForManualTesting() => BuildPlayer(false);
+
+        [Serializable]
+        sealed class DeviceBuildManifest
+        {
+            public string apk, package, label, version, purpose;
+            public int versionCode;
+            public bool diagnostics;
+        }
+
+        static void BuildPlayer(bool diagnostics)
         {
             Directory.CreateDirectory(Output);
             if (File.Exists(Output + "/build.txt")) File.Delete(Output + "/build.txt");
             if (File.Exists(Output + "/build-failure.txt")) File.Delete(Output + "/build-failure.txt");
+            if (File.Exists(Output + "/build.json")) File.Delete(Output + "/build.json");
             string identifier = PlayerSettings.GetApplicationIdentifier(BuildTargetGroup.Android);
             string product = PlayerSettings.productName;
+            string purpose = Environment.GetEnvironmentVariable("DEVICE_BUILD_PURPOSE");
+            if (string.IsNullOrWhiteSpace(purpose)) purpose = diagnostics ? "통합 진단 테스트" : "통합 플레이 테스트";
+            purpose = purpose.Trim();
+            int versionCode = checked(PlayerSettings.Android.bundleVersionCode + 1);
+            var manifest = new DeviceBuildManifest
+            {
+                package = identifier + ".lobbyqa",
+                label = $"{purpose} {PlayerSettings.bundleVersion} (b{versionCode})",
+                version = PlayerSettings.bundleVersion,
+                versionCode = versionCode,
+                purpose = purpose,
+                diagnostics = diagnostics
+            };
+            string fileStem = $"{purpose}_{manifest.version}_b{versionCode}";
+            foreach (char invalid in Path.GetInvalidFileNameChars()) fileStem = fileStem.Replace(invalid, '_');
+            manifest.apk = Path.GetFullPath(Path.Combine(Output, fileStem + ".apk"));
             bool keystore = PlayerSettings.Android.useCustomKeystore;
             bool bundle = EditorUserBuildSettings.buildAppBundle;
             var importMode = EditorSettings.refreshImportMode;
@@ -34,8 +63,11 @@ namespace KingdomIdle.UGUI.Editor
             bool resolverPolicyChanged = false;
             try
             {
-                PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, identifier + ".lobbyqa");
-                PlayerSettings.productName = product + " Lobby QA";
+                // Reserve one monotonically increasing code for every build attempt.
+                // Keep the code after restoring temporary package/signing settings.
+                PlayerSettings.Android.bundleVersionCode = versionCode;
+                PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, manifest.package);
+                PlayerSettings.productName = manifest.label;
                 PlayerSettings.Android.useCustomKeystore = false;
                 PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
                 EditorUserBuildSettings.buildAppBundle = false;
@@ -77,18 +109,19 @@ namespace KingdomIdle.UGUI.Editor
                 var options = new BuildPlayerOptions
                 {
                     scenes = EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray(),
-                    locationPathName = Output + "/KingdomIdle-LobbyQA.apk",
+                    locationPathName = manifest.apk,
                     target = BuildTarget.Android,
                     options = BuildOptions.Development | BuildOptions.DetailedBuildReport,
-                    extraScriptingDefines = new[] { "LOBBY_DEVICE_QA" }
+                    extraScriptingDefines = diagnostics ? new[] { "LOBBY_DEVICE_QA" } : Array.Empty<string>()
                 };
                 BuildReport report = BuildPipeline.BuildPlayer(options);
-                string summary = $"Result: {report.summary.result}\nBytes: {report.summary.totalSize}\nDuration: {report.summary.totalTime}\nErrors: {report.summary.totalErrors}\nWarnings: {report.summary.totalWarnings}\nPackage: {identifier}.lobbyqa\nBackend: {PlayerSettings.GetScriptingBackend(UnityEditor.Build.NamedBuildTarget.Android)}\n";
+                string summary = $"Result: {report.summary.result}\nBytes: {report.summary.totalSize}\nDuration: {report.summary.totalTime}\nErrors: {report.summary.totalErrors}\nWarnings: {report.summary.totalWarnings}\nPackage: {manifest.package}\nLabel: {manifest.label}\nVersion: {manifest.version}\nVersionCode: {manifest.versionCode}\nDiagnostics: {diagnostics}\nAPK: {manifest.apk}\nBackend: {PlayerSettings.GetScriptingBackend(UnityEditor.Build.NamedBuildTarget.Android)}\n";
                 File.WriteAllText(Output + "/build.txt", summary);
                 File.WriteAllLines(Output + "/build-messages.txt", report.steps.SelectMany(step => step.messages.Select(message => $"{message.type}: {step.name}: {message.content}")));
                 Debug.Log("[Lobby Device Build] " + summary);
                 if (report.summary.result != BuildResult.Succeeded || report.summary.totalErrors > 0)
                     throw new InvalidOperationException("Lobby device build failed. See build report and Editor log.");
+                File.WriteAllText(Output + "/build.json", JsonUtility.ToJson(manifest, true));
             }
             catch (Exception exception)
             {

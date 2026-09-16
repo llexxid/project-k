@@ -26,8 +26,6 @@ namespace KingdomIdle.EditorTools
             KingdomIdle.UGUI.Editor.MagePolishPreparation.Prepare();
             KingdomIdle.UGUI.Editor.CombatUiPreparation.Build();
             KingdomIdle.UGUI.Editor.MagePolishPreparation.BakeAuthoredGlyphs();
-            PlayerSettings.bundleVersion="0.10.0";
-            PlayerSettings.Android.bundleVersionCode=Math.Max(3,PlayerSettings.Android.bundleVersionCode+1);
             KingdomIdle.UGUI.Editor.TitleLobbyDeviceBuild.Build();
             }
             finally { EditorSettings.refreshImportMode=importMode;EditorUserSettings.desiredImportWorkerCount=workers; }

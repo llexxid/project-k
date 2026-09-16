@@ -44,7 +44,8 @@
 - `KingdomIdle/UGUI/Validate/Check view wiring`: 직렬화 참조·missing script.
 - `KingdomIdle/UGUI/Run client regression checks`: 기존 클라이언트 회귀 검사.
 - `KingdomIdle/UGUI/Apply compact battle HUD`: 이번 HUD 프리팹 적용.
-- `TitleLobbyDeviceBuild.Build`: 기존 게임과 분리된 `.lobbyqa` ARM64 Development APK. `LOBBY_QA_OUTPUT`으로 출력 위치 지정.
+- `TitleLobbyDeviceBuild.Build`: `.lobbyqa` ARM64 Development 진단 APK. `BuildForManualTesting`은 같은 패키지를 사용하면서 자동 진단·테스트 계정 주입을 제외한다. `LOBBY_QA_OUTPUT`으로 출력 위치, `DEVICE_BUILD_PURPOSE`로 용도를 지정한다. 앱·APK 이름에는 용도와 버전·빌드 번호를 넣으며 빌드마다 versionCode가 증가한다. 성공한 APK 경로와 메타데이터는 출력 폴더의 `build.json`에서 읽는다. 기기 정리·최종 설치 기준은 [프로젝트 지침](../../AGENTS.md)을 따른다.
+- `BalanceEditorValidation.BuildAndroidForManualTesting`: 밸런스·저장 데이터 이관·직렬화 참조 검사를 실행하고 글리프를 준비한 뒤 직접 플레이용 APK를 만든다.
 - `CompactHudBuilder.ApplyAndBuild`: HUD 적용 후 위 Android 빌드.
 - `BattleHudDeviceProbe`: QA 빌드 전용 HUD 상태·레이아웃·진행 fixture. 일반 배포에는 포함되지 않는다.
 

@@ -9,6 +9,12 @@ using Newtonsoft.Json;
 public static class BalanceEditorValidation
 {
     public static void BuildAndroid() { Run(); KingdomIdle.UGUI.Editor.TitleLobbyDeviceBuild.Build(); }
+    public static void BuildAndroidForManualTesting()
+    {
+        Run();
+        KingdomIdle.UGUI.Editor.MagePolishPreparation.BakeAuthoredGlyphs();
+        KingdomIdle.UGUI.Editor.TitleLobbyDeviceBuild.BuildForManualTesting();
+    }
     public static void Run()
     {
         string output="Recordings/BalanceRevision/Editor";Directory.CreateDirectory(output);

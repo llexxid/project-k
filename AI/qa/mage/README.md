@@ -2,7 +2,7 @@
 
 Unity 6000.3.21f1의 `TitleLobbyDeviceBuild.Build`로 만든 개발 APK 전용입니다. `LOBBY_DEVICE_QA`가 없는 일반 빌드에는 진단 명령이 포함되지 않습니다. 기존 `AI/qa/hud`, `AI/qa/settings`의 실제 Android 터치·캡처·성능 측정을 사용합니다.
 
-저장소 루트에서 실행합니다. `HUD_QA_OUTPUT`은 APK와 기록을 둘 디렉터리, `HUD_QA_SERIAL`은 실제 `adb devices`에서 확인한 기기 ID입니다. 기본 대상은 별도 `.lobbyqa` 패키지입니다.
+저장소 루트에서 실행합니다. `HUD_QA_OUTPUT`은 APK와 기록을 둘 디렉터리, `HUD_QA_SERIAL`은 실제 `adb devices`에서 확인한 기기 ID입니다. 기본 대상은 `.lobbyqa` 패키지입니다. 빌드 시 같은 디렉터리를 `LOBBY_QA_OUTPUT`으로 지정하고 `DEVICE_BUILD_PURPOSE`에 테스트 용도를 넣습니다. `install`은 성공한 빌드의 `build.json`에서 버전·용도가 포함된 APK 경로를 읽으며, 진단 기능이 없는 수동 테스트 빌드는 거절합니다. 빌드 진입점은 [UI 개발 안내](../../../Assets/UGUI/README.md), 기기 정리 기준은 [프로젝트 지침](../../../AGENTS.md)을 참조합니다.
 
 ```powershell
 $env:HUD_QA_OUTPUT = 'Recordings/CatalogIntegration/Mage/PolishFinal/Device'
