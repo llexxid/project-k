@@ -1,0 +1,116 @@
+{
+  "pillow": "12.3.0",
+  "assets": [
+    {
+      "output": "Assets\\_Project\\Art\\VFX\\MageTower\\ThunderViolet.png",
+      "size": [
+        64,
+        384
+      ],
+      "colors": 2,
+      "sha256": "cd537b78d32774502598b9752cc1d499c4d70f9d0c4bade4d7378067feacf29b",
+      "sources": [
+        {
+          "path": "Assets\\_Project\\Art\\VFX\\PixelArtRPGVFX\\Textures\\Electricity\\ElectricLighting1.png",
+          "sha256": "ceff1e68e00b28433bad628854f75d4e2464691338c1ed339475ddb9537da596"
+        }
+      ],
+      "process": "Base Lightning 1, common transparent margin crop (14,5,50,60), nearest resize, ivory/violet 2-tone remap; six original animation frames retained."
+    },
+    {
+      "output": "Assets\\_Project\\Art\\VFX\\MageTower\\LightningCloud.png",
+      "size": [
+        64,
+        24
+      ],
+      "colors": 4,
+      "sha256": "0c4d29449896430f556951a516ba18999163893f579941acb5f7146a497c25a7",
+      "sources": [
+        {
+          "path": "AI\\comfyui\\mage-skills\\20260916-combat\\references\\LightningCloud.before.png",
+          "sha256": "90729b26a7df45fb018c8363ea3234501ce4c150959741ecb5501d298f56fb28"
+        }
+      ],
+      "process": "Preserve silhouette, four neutral storm-gray values, binary alpha; no purple fill."
+    },
+    {
+      "output": "Assets\\_Project\\Art\\VFX\\MageTower\\CloudSparksViolet.png",
+      "size": [
+        64,
+        384
+      ],
+      "colors": 2,
+      "sha256": "aad160cd20b00b1d5f0013864459025d05fbc1b33ae545af6a6438b5a8114318",
+      "sources": [
+        {
+          "path": "Assets\\_Project\\Art\\VFX\\PixelArtRPGVFX\\Textures\\Electricity\\ElectricLighting1.png",
+          "sha256": "ceff1e68e00b28433bad628854f75d4e2464691338c1ed339475ddb9537da596"
+        },
+        {
+          "path": "AI\\comfyui\\mage-skills\\20260916-combat\\references\\LightningCloud.before.png",
+          "sha256": "90729b26a7df45fb018c8363ea3234501ce4c150959741ecb5501d298f56fb28"
+        }
+      ],
+      "process": "Original bolt branches rotated horizontally and clipped to cloud silhouette; 2 quiet frames; no electric shield rings."
+    },
+    {
+      "output": "Assets\\_Project\\Art\\VFX\\MageTower\\VoidRiftMuted.png",
+      "size": [
+        64,
+        384
+      ],
+      "colors": 3,
+      "sha256": "627b769eaf825496d06236325857268e321e80a39aad63b29c65fb5d2f71dd3a",
+      "sources": [
+        {
+          "path": "Assets\\_Project\\Art\\VFX\\PixelArtRPGVFX\\Textures\\Void\\VoidBlackHole.png",
+          "sha256": "bbb03990b74d1bd38107f708af14cf074e6a2768cc4cb4d0b4fd4185f093332f"
+        }
+      ],
+      "process": "Six original circular rupture frames, trim common padding, square silhouette; opaque dark core and two violet rim values."
+    },
+    {
+      "output": "Assets\\_Project\\Art\\VFX\\MageTower\\MeteorProjectile.png",
+      "size": [
+        64,
+        384
+      ],
+      "colors": 6,
+      "sha256": "0cd1fdbc87d2b41594d8dc811134b4f83dd4bde0ac79c3891d1a3f58de70b226",
+      "sources": [
+        {
+          "path": "Assets\\_Project\\Art\\VFX\\PixelArtRPGVFX\\Textures\\Earth\\EarthRock.png",
+          "sha256": "2ac7aad7c1cf06300fe3c1c4a72df4fc511b5ecbc13f6bd8b4ba984277e53acd"
+        },
+        {
+          "path": "Assets\\_Project\\Art\\VFX\\PixelArtRPGVFX\\Textures\\Fire\\FireFlamme.png",
+          "sha256": "79d980638fdce9065c975f1daccc089ba9afd84c8023650cda9ce9f293e3cdd0"
+        }
+      ],
+      "process": "Owned EarthRock fractured surface remapped to three molten stone values; opaque circular mask; rock rotates 15 degrees/frame; six owned flame frames form diagonal tail. 64px nearest composite, no diffusion frames."
+    },
+    {
+      "output": "Assets\\_Project\\Art\\VFX\\MageTower\\ArcaneProjectile.png",
+      "size": [
+        64,
+        384
+      ],
+      "colors": 3,
+      "sha256": "3fb19e7c803983134816843cecc3411d77d4fc4fae09b4dc3146e84761ea0778",
+      "sources": [
+        {
+          "path": "AI\\comfyui\\mage-skills\\20260916-combat\\Starfall-v1\\icon48.png",
+          "sha256": "53100690249c905e28d625fb9f997fe89b80b390b0a8dee85f353b2088e8e730"
+        }
+      ],
+      "process": "Largest connected falling star from approved icon; four-color exact pixel remap. Travel comes from runtime, no character muzzle."
+    },
+    {
+      "output": "Assets\\_Project\\Art\\VFX\\Projectiles\\GoblinBomb.png",
+      "sources": [
+        "Assets\\_Project\\Art\\Sprites\\Goblins\\GoblinBomber\\Goblin Bomber Sprite Sheet.png"
+      ],
+      "process": "Crop airborne bomb and fuse from Attack2_000, pixels (9,102)-(20,113), unchanged source pixels."
+    }
+  ]
+}
