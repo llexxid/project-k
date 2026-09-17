@@ -26,6 +26,14 @@ namespace KingdomIdle.MageTower
         private readonly List<Collider2D> _colliders = new(32);
         private readonly List<Target> _lineTargets = new(16);
         private readonly List<(PooledSpellVfx effect, int generation)> _visuals = new(24);
+        private struct FallingStar
+        {
+            public Target Target;
+            public Vector3 Start, End;
+            public PooledSpellVfx Visual;
+            public float Age;
+        }
+        private readonly List<FallingStar> _stars = new(4);
         private bool _disposed;
         private Vector3 _origin;
         private ulong _damage;
@@ -56,8 +64,6 @@ namespace KingdomIdle.MageTower
                     float left=camera.ViewportToWorldPoint(new Vector3(.03f,0,depth)).x+1.8f;
                     float right=camera.ViewportToWorldPoint(new Vector3(.97f,0,depth)).x-1.8f;
                     _initial.x=left<=right?Mathf.Clamp(_initial.x,left,right):camera.transform.position.x;
-                    if(skill.spellKind==MageSpellKind.Lightning)
-                        _initial.y=Mathf.Min(_initial.y,camera.ViewportToWorldPoint(new Vector3(.5f,.85f,depth)).y-4.1f);
                 }
             }
 #if UNITY_EDITOR || LOBBY_DEVICE_QA
@@ -192,14 +198,31 @@ namespace KingdomIdle.MageTower
             if (_bloom)
             {
                 // Telegraph stays on the battlefield; the HUD never receives a full-screen flash.
-                Visual(_skill.bloomCastingPrefab, _initial + Vector3.up * 3.35f, 2.3f);
+                // Fit the cloud/column into the battle view without moving the damage centre
+                // away from the selected enemies on short displays or near the upper edge.
+                float cloudLift = 3.35f;
+                var camera = MageTowerTargeting.ResolveCamera();
+                if (camera != null)
+                {
+                    float top = camera.ViewportToWorldPoint(new Vector3(.5f, .77f, Mathf.Abs(camera.transform.position.z))).y;
+                    cloudLift = Mathf.Clamp(top - _initial.y - .72f, .8f, 3.35f);
+                }
+                Visual(_skill.bloomCastingPrefab, _initial + Vector3.up * cloudLift, 2.3f);
                 yield return Delay(1.84f); if (!Valid) yield break;
-                Visual(_skill.bloomPrefab, _initial, .75f);
+                var thunder = Visual(_skill.bloomPrefab, _initial, .75f);
+                if (thunder != null && thunder.transform.childCount > 0)
+                {
+                    // Layer0 is the authored bolt; Layer1 is the ground impact and keeps
+                    // its full width. Read prefab values on every cast to avoid pool drift.
+                    var column = thunder.transform.GetChild(0);
+                    var authored = _skill.bloomPrefab.transform.GetChild(0);
+                    float ratio = cloudLift / 3.35f;
+                    var scale = authored.localScale; scale.y *= ratio; column.localScale = scale;
+                    var offset = authored.localPosition; offset.y *= ratio; column.localPosition = offset;
+                }
                 yield return Delay(.16f); if (!Valid) yield break;
                 Sound(.85f,.8f);
-                var camera = MageTowerTargeting.ResolveCamera();
-                float radius = camera == null ? 2.2f : Mathf.Clamp(Vector3.Distance(camera.ViewportToWorldPoint(new Vector3(.25f, .5f, Mathf.Abs(camera.transform.position.z))), camera.ViewportToWorldPoint(new Vector3(.75f, .5f, Mathf.Abs(camera.transform.position.z)))) * .5f, 1.6f, 2.6f);
-                Area(_initial, radius, (decimal)_skill.bloomPowerMultiplier);
+                Area(_initial, _skill.bloomRadius, (decimal)_skill.bloomPowerMultiplier);
                 yield return Delay(.75f);
             }
             else
@@ -207,7 +230,7 @@ namespace KingdomIdle.MageTower
                 {
                     Visual(_skill.prefab, _initial, .5f);
                     yield return Delay(.16f); if (!Valid) yield break;
-                    if(i==0) Sound(.58f);
+                    Sound(i == 0 ? .55f : .32f, 1f + i * .035f);
                     Area(_initial, _skill.radius, 1m);
                     yield return Delay(.14f);
                 }
@@ -260,35 +283,46 @@ namespace KingdomIdle.MageTower
 
         private IEnumerator Volley()
         {
-            for (int i = 0; i < Hits && Valid; i++)
+            const float flight = .48f;
+            int launched = 0;
+            float nextLaunch = 0, clock = 0;
+            while (Valid && (launched < Hits || _stars.Count > 0))
             {
-                Collect(Vector3.zero, 20, _targets, _colliders);
-                if (_targets.Count == 0) yield break;
-                var monster = _targets[i % _targets.Count];
-                var target = new Target(monster);
-                Vector3 end = monster.transform.position + Vector3.up * .35f;
-                Vector3 start = end + new Vector3(1.05f, 3.2f, 0);
-                var visual = Visual(_skill.prefab, start, .5f); float elapsed = 0;
-                float travelTime=Mathf.Max(.16f,_skill.tickInterval);
-                while (Valid && elapsed < travelTime)
+                if (launched < Hits && clock >= nextLaunch)
                 {
-                    if (visual != null)
+                    Collect(_initial, 20, _targets, _colliders);
+                    if (_targets.Count == 0) launched = Hits;
+                    else
                     {
-                        visual.transform.position=Vector3.Lerp(start,end,elapsed/travelTime);
-                        var heading=end-start;
-                        visual.transform.rotation=Quaternion.Euler(0,0,Mathf.Atan2(heading.y,heading.x)*Mathf.Rad2Deg+135f);
+                        var monster = _targets[launched % _targets.Count];
+                        Vector3 end = monster.transform.position + Vector3.up * .35f;
+                        Vector3 start = end + new Vector3(1.05f + (launched % 3 - 1) * .18f, 3.2f, 0);
+                        _stars.Add(new FallingStar { Target = new Target(monster), Start = start, End = end,
+                            Visual = Visual(_skill.prefab, start, flight + .2f) });
+                        launched++; nextLaunch += Mathf.Max(.12f, _skill.tickInterval);
                     }
-                    yield return null; elapsed += Time.deltaTime;
                 }
-                if (Valid)
+                for (int i = _stars.Count - 1; i >= 0; i--)
                 {
-                    Visual(_skill.secondaryPrefab, end, .35f);
-                    if (target.Alive && Vector2.Distance(target.Monster.transform.position + Vector3.up*.35f,end) <= _skill.radius)
-                        Hit(target.Monster, NormalMultiplier, end);
+                    var star = _stars[i]; star.Age += Time.deltaTime;
+                    // Track during the approach, then commit for the final visible contact.
+                    if (star.Age < flight * .7f && star.Target.Alive)
+                        star.End = star.Target.Monster.transform.position + Vector3.up * .35f;
+                    if (star.Visual != null)
+                    {
+                        star.Visual.transform.position = Vector3.Lerp(star.Start, star.End, Mathf.Clamp01(star.Age / flight));
+                        var heading = star.End - star.Start;
+                        star.Visual.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(heading.y, heading.x) * Mathf.Rad2Deg + 135);
+                    }
+                    if (star.Age < flight) { _stars[i] = star; continue; }
+                    Visual(_skill.secondaryPrefab, star.End, .42f);
+                    if (star.Target.Alive && Vector2.Distance(star.Target.Monster.transform.position + Vector3.up * .35f, star.End) <= _skill.radius)
+                        Hit(star.Target.Monster, NormalMultiplier, star.End);
+                    star.Visual?.Release(); _stars.RemoveAt(i);
                 }
-                if (visual != null) visual.Release();
+                yield return null; clock += Time.deltaTime;
             }
-            yield return Delay(.35f);
+            yield return Delay(.42f);
         }
 
         private IEnumerator Persistent()
@@ -296,6 +330,7 @@ namespace KingdomIdle.MageTower
             bool moving = _skill.spellKind == MageSpellKind.FireTornado;
             Vector3 center = _initial;
             var visual = Visual(_skill.prefab, center, Hits * _skill.tickInterval + .2f);
+            yield return Delay(.12f);
             float tick = 0; int emitted = 0;
             while (Valid && emitted < Hits)
             {
@@ -308,6 +343,8 @@ namespace KingdomIdle.MageTower
                 }
                 yield return null; tick -= Time.deltaTime;
             }
+            // Preserve the final pulse interval before the field fades.
+            yield return Delay(Mathf.Max(0, tick));
         }
 
         private IEnumerator Stone()
@@ -330,26 +367,31 @@ namespace KingdomIdle.MageTower
             for (int hit = 0; hit < Hits && Valid; hit++)
             {
                 var visual = Visual(_skill.prefab, from, .55f);
-                Collect(from, 12, _targets, _colliders);
                 _lineTargets.Clear();
-                foreach (var monster in _targets)
+                if (visual != null) visual.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
+                float elapsed = 0, previousDistance = 0;
+                while (Valid)
                 {
-                    var delta = monster.transform.position - from; float along = Vector3.Dot(delta, direction);
-                    if (along >= 0 && along <= 7 && (delta - direction * along).sqrMagnitude <= _skill.radius * _skill.radius && _lineTargets.Count < _skill.maxTargets) _lineTargets.Add(new Target(monster));
-                }
-                float elapsed = 0;
-                while (Valid && elapsed < .4f)
-                {
-                    float distance = 7f * elapsed / .4f;
+                    float distance = 7f * Mathf.Clamp01(elapsed / .4f);
                     if (visual != null) visual.transform.position = from + direction * distance;
-                    for (int i = _lineTargets.Count - 1; i >= 0; i--)
-                        if (!_lineTargets[i].Alive) _lineTargets.RemoveAt(i);
-                        else if (Vector3.Dot(_lineTargets[i].Monster.transform.position - from, direction) <= distance)
-                        { Hit(_lineTargets[i].Monster, NormalMultiplier, from); _lineTargets.RemoveAt(i); }
+                    Collect(from, 8, _targets, _colliders);
+                    foreach (var monster in _targets)
+                    {
+                        if (_lineTargets.Count >= _skill.maxTargets) break;
+                        bool hitAlready = false;
+                        foreach (var previous in _lineTargets) if (previous.Alive && previous.Monster == monster) { hitAlready = true; break; }
+                        if (hitAlready) continue;
+                        var delta = monster.transform.position - from;
+                        float along = Mathf.Clamp(Vector3.Dot(delta, direction), previousDistance, distance);
+                        if ((delta - direction * along).sqrMagnitude > _skill.radius * _skill.radius) continue;
+                        _lineTargets.Add(new Target(monster)); Hit(monster, NormalMultiplier, from + direction * along);
+                    }
+                    if (elapsed >= .4f) break;
+                    previousDistance = distance;
                     yield return null; elapsed += Time.deltaTime;
                 }
-                foreach (var target in _lineTargets) if (target.Alive) Hit(target.Monster, NormalMultiplier, from);
                 if (visual != null) visual.Release();
+                yield return Delay(.08f);
             }
         }
 
@@ -359,6 +401,8 @@ namespace KingdomIdle.MageTower
             // Approach from the centre side so edge targets still show the full falling rock.
             var travel = new Vector3(_initial.x > 0 ? -1.25f : 1.25f,2.5f,0);
             var falling = Visual(_skill.prefab, _initial + travel, 1.3f);
+            if (falling != null && travel.x < 0)
+                falling.transform.localScale = Vector3.Scale(falling.transform.localScale, new Vector3(-1, 1, 1));
             float elapsed = 0;
             while (Valid && elapsed < 1.1f)
             {
@@ -402,6 +446,7 @@ namespace KingdomIdle.MageTower
         {
             Vector3 center = _initial + Vector3.up*.5f;
             Visual(_skill.prefab, center, Hits * _skill.tickInterval + .6f);
+            yield return Delay(.15f);
             float tickTimer = 0; int ticks = 0;
             while (Valid && ticks < Hits)
             {

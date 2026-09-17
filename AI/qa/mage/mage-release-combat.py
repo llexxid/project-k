@@ -14,8 +14,8 @@ def ready(tag):
  raise TimeoutError(tag)
 
 def speed(value,tag):return m.command(tag,'timescale',value=value)['state']
-def cast(skill,tag):
- s=m.command(tag,'mage-cast',value=skill)
+def cast(skill,tag,capture_ms=0):
+ s=m.command(tag,'mage-cast',value=skill,captureMs=capture_ms)
  assert s['result']['accepted'],s['result']
  return s['state']
 def events(s):return [e for e in s['mageEvents'] if e['kind']=='damage']
@@ -53,7 +53,7 @@ try:
  speed(100,'ice-normal');ready('ice')
  m.command('ice-enable','mage-bloom',value=1,bloom=True)
  m.command('ice-boss-stage','stage',stage=0x20003000b);time.sleep(2)
- speed(25,'ice-slow');begin=cast(1,'ice-boss-cast')
+ speed(25,'ice-slow');begin=cast(1,'ice-boss-cast',560)
  for i in range(15):
   s=m.command(f'ice-stun-{i}')['state']
   if s['crowdControl']:break
@@ -61,7 +61,10 @@ try:
  else:raise AssertionError('No ice stun')
  speed(0,'ice-crystal-freeze');active=m.command('ice-crystal-state')['state'];m.shot('ice-boss-crystal')
  cc=active['crowdControl'][0];expiry=active['time']+cc['remaining']
- assert cc['kind']=='Stun' and 1.7<cc['remaining']<=2
+ # USB/JSON round trips can take appreciable time. Assert the actual expiry
+ # relative to the recorded impact, rather than a transport-dependent remainder.
+ assert cc['kind']=='Stun' and 0<cc['remaining']<=2
+ assert abs(expiry-events(active)[0]['time']-2)<.05
  assert len(events(active))==1 and events(active)[0]['amount']==1443
  speed(100,'ice-stun-resume')
  samples=[]
@@ -76,7 +79,7 @@ try:
   ready('crowd-'+str(on));low(on)
   m.command('crowd-skill-'+str(on),'mage-configure',value=1,enhance=0,awaken=10,bloom=True)
   m.command('crowd-stage-'+str(on),'stage',stage=0x20003000a);time.sleep(2)
-  speed(25,'crowd-slow-'+str(on));cast(1,'crowd-cast-'+str(on))
+  speed(25,'crowd-slow-'+str(on));cast(1,'crowd-cast-'+str(on),80)
   speed(0,'crowd-freeze-'+str(on));s=m.command('crowd-state-'+str(on))['state'];m.shot('ice-crowd-'+str(on))
   count=sum('IceSpike' in v['name'] for v in s['mageVisuals'])
   assert count==(4 if on else 8),count

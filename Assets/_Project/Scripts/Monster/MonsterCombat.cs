@@ -130,12 +130,13 @@ namespace Scripts.Monster
                 CombatAudio.Play(_attackSound,KingdomIdle.UGUI.SoundChannel.Monsters,transform.position);
             }
             else if (CombatMotion.InFront(transform.position, _attackTarget.transform.position, FacingDir, AttackRadius + .1f,
-                CombatMotion.MeleeLane + (IsBalanceBoss ? .12f : 0)))
+                CombatMotion.MeleeImpactLane + (IsBalanceBoss ? .12f : 0)))
             {
                 CombatDiagnostics.Record("monster-melee-hit",this,_attackTarget,AttackInterval);
                 CombatAudio.Play(_attackSound,KingdomIdle.UGUI.SoundChannel.Monsters,transform.position);
                 _attackTarget.TakeDamage(this);
             }
+            else CombatDiagnostics.Record("monster-melee-miss",this,_attackTarget,AttackInterval);
         }
 
         private void CancelAttack()

@@ -12,6 +12,9 @@ namespace KingdomIdle.Combat
         public static readonly List<Monster> Monsters = new(24);
         public const float PlayerRadius = .27f;
         public const float MeleeLane = .16f;
+        // Acquire a narrow lane, then tolerate a small body-separation drift during
+        // the committed swing. The hit still requires forward reach and body spacing.
+        public const float MeleeImpactLane = .24f;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void Reset() { Players.Clear(); Monsters.Clear(); }

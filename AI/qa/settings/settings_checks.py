@@ -38,7 +38,13 @@ def find_visible(name,snapshot,kind='toggles'):
 
 def reveal(name,kind='toggles'):
  for i in range(9):
-  s=command('reveal-'+name+'-'+str(i))['state'];x=find_visible(name,s,kind)
+  s=command('reveal-'+name+'-'+str(i))['state']
+  if not any(x['name']==name for x in s[kind]):
+   tab=2 if name in ['PowerSave','LowSpec','KeepAwake'] else 1 if kind=='sliders' else 0
+   ui=state('reveal-tab-'+name+'-'+str(i))
+   if any(x['name']=='Tab'+str(tab) for x in ui['controls']):
+    tap('Tab'+str(tab),ui);time.sleep(.3);continue
+  x=find_visible(name,s,kind)
   if x:return s,x
   v=s['viewport'];b=next(x for x in s[kind] if x['name']==name)['bounds']
   middle=v['y']+v['height']/2

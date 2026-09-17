@@ -19,7 +19,7 @@ namespace KingdomIdle.Combat
             if (Events.Count >= 2048) Events.RemoveRange(0,1024);
             Vector2 delta = target != null ? target.transform.position - actor.transform.position : Vector3.zero;
             Events.Add(new Event { kind=kind,actor=actor.name,target=target?.name,actorId=actor.GetInstanceID(),targetId=target!=null?target.GetInstanceID():0,
-                actorGeneration=Generation(actor),targetGeneration=Generation(target),facing=actor.transform.localScale.x,deltaX=delta.x,
+                actorGeneration=Generation(actor),targetGeneration=Generation(target),facing=actor is Scripts.Monster.Monster monster ? monster.FacingDir : actor.transform.localScale.x,deltaX=delta.x,
                 time=Time.time,distance=delta.magnitude,deltaY=delta.y,interval=interval });
         }
         static int Generation(Component actor) => actor is Player p?p.LifeGeneration:actor is Scripts.Monster.Monster m?m.AllocGen:-1;

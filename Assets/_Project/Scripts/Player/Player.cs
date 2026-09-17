@@ -491,7 +491,11 @@ public partial class Player : MonoBehaviour, IAttackable, IDamageable, IRewardab
 
             var monster = mono.GetComponentInParent<Monster>();
             if (monster != null && (monster.MonAction == eMonsterAction.Dead || monster.AllocGen != _pendingGenerations[target])) continue;
-            if (skillSystem != null && !skillSystem.IsRanged && !IsInMeleeReach(target.targetPos, skillSystem.AttackRange + .1f)) continue;
+            if (skillSystem != null && !skillSystem.IsRanged && !IsInMeleeReach(target.targetPos, skillSystem.AttackRange + .1f, KingdomIdle.Combat.CombatMotion.MeleeImpactLane))
+            {
+                KingdomIdle.Combat.CombatDiagnostics.Record("player-melee-miss",this,mono);
+                continue;
+            }
             KingdomIdle.Combat.CombatDiagnostics.Record("player-melee-hit",this,mono,skillSystem?.GetSlotCooldown(0) ?? 0);
             if (!sounded) { KingdomIdle.Combat.CombatAudio.PlayerImpact(this); sounded = true; }
             bool isAlive = target.TakeDamage(new ActiveSkill.DamageProxy(_pendingSkillDamage, this));

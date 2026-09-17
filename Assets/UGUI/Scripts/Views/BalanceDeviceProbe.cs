@@ -55,6 +55,9 @@ namespace KingdomIdle.UGUI
                         object output=null;
                         switch(c.action)
                         {
+                            case "polish-acceptance":
+                                StartCoroutine(KingdomIdle.Combat.CombatAcceptance.RunLayeredControl(result => Write(c.id, new { result, state = Snapshot() })));
+                                continue;
                             case "combat-acceptance":
                                 float combatPrevious=Time.timeScale;Time.timeScale=0;
                                 try{output=KingdomIdle.Combat.CombatAcceptance.Run();}finally{LocalProgression.OpenTestAccount(PlayAccount);EquipmentManager.Instance?.RestoreEquipment();MageTowerManager.Instance?.NotifyCommitted();StatEnhanceManager.Instance?.ApplyToAllPlayers();Time.timeScale=combatPrevious;}
@@ -138,6 +141,13 @@ namespace KingdomIdle.UGUI
                                     return true;
                                 });
                                 StageManager.Instance.BeginStage((eStage)0x20002000A);break;
+                            case "dungeon-fixture":
+                                LocalProgression.Execute("qa-dungeon-access", s => {
+                                    s.GoldTickets = s.RubyTickets = 2;
+                                    s.GoldDungeonClear = s.RubyDungeonClear = 4;
+                                    return true;
+                                });
+                                break;
                             case "dungeon":output=new {accepted=StageManager.Instance.TryEnterDungeon((eStage)c.stage)};break;
                             case "return":StageManager.Instance.ReturnToMainStage();break;
                             case "ruby":output=new {success=RubyProgression.Enhance(c.value==1)};break;

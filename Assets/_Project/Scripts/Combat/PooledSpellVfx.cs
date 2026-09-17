@@ -28,6 +28,9 @@ namespace KingdomIdle.Combat
 
         [Tooltip("사라지기 직전 알파 페이드 아웃 시간(초).")]
         public float fadeOut = 0.15f;
+        [Min(0), Tooltip("Brief appearance envelope for persistent fields; never changes damage timing.")]
+        public float fadeIn;
+        [Range(.1f, 1f)] public float startScale = 1f;
 
         [Tooltip("메인 카메라 화면 전체를 덮도록 스케일 보정 (전장 전체 연출).")]
         public bool fitToCamera;
@@ -49,6 +52,7 @@ namespace KingdomIdle.Combat
         private Animator[] _animators;
         private GameObject _sourcePrefab;   // 반납할 풀의 키. null 이면 풀 미사용(직접 배치 인스턴스)
         private Vector3 _baseScale = Vector3.one;
+        private Vector3 _spawnScale;
         private float _elapsed;
         private bool _released;
         private int _spawnGen;
@@ -105,12 +109,11 @@ namespace KingdomIdle.Combat
             if (lifetime <= 0f) return;
 
             _elapsed += Time.deltaTime;
-
-            if (fadeOut > 0f && _elapsed > lifetime - fadeOut)
-            {
-                float t = Mathf.InverseLerp(lifetime - fadeOut, lifetime, _elapsed);
-                SetAlpha(1f - t);
-            }
+            float appearance = fadeIn > 0 ? Mathf.Clamp01(_elapsed / fadeIn) : 1;
+            float departure = fadeOut > 0 ? Mathf.Clamp01((lifetime - _elapsed) / fadeOut) : 1;
+            if (fadeIn > 0 || departure < 1) SetAlpha(appearance * departure);
+            if (fadeIn > 0 && startScale < 1)
+                transform.localScale = _spawnScale * Mathf.Lerp(startScale, 1, Mathf.SmoothStep(0, 1, appearance));
 
             if (_elapsed >= lifetime)
                 Release();
@@ -224,6 +227,8 @@ namespace KingdomIdle.Combat
             {
                 inst.lifetime = prefabDefaults.lifetime;
                 inst.fadeOut = prefabDefaults.fadeOut;
+                inst.fadeIn = prefabDefaults.fadeIn;
+                inst.startScale = prefabDefaults.startScale;
                 inst.fitToCamera = prefabDefaults.fitToCamera;
                 inst.fitPadding = prefabDefaults.fitPadding;
             }
@@ -239,6 +244,8 @@ namespace KingdomIdle.Combat
 
             inst.gameObject.SetActive(true);
             inst.ResetPlayback(); // 설정 완료 후 명시 호출 (신규/재사용 공통 경로)
+            inst._spawnScale = inst.transform.localScale;
+            if (inst.fadeIn > 0) { inst.SetAlpha(0); inst.transform.localScale *= inst.startScale; }
 
             return inst;
         }

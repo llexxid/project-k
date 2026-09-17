@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using Scripts.Core;
 using Scripts.Monster;
@@ -6,136 +7,94 @@ namespace KingdomIdle.Combat
 {
     public enum CrowdControlKind { None = 0, Stun = 1, Slow = 2 }
 
-    /// <summary>
-    /// 전투 스킬이 몬스터 1기에 건 군중 제어를 관리하는 런타임 컴포넌트.
-    /// 대상에 자동으로 붙고 만료 시 스스로 원복하며, 상태이상 연출의 수명도 함께 관리한다.
-    ///
-    /// 몬스터는 풀링되므로, 붙은 뒤 재할당(AllocGen 변화)되거나 사망하면 즉시 해제한다.
-    /// (Monster.OnAlloc 이 RecoveryBT / 스탯을 초기화하므로 잔류 효과는 남지 않는다)
-    /// </summary>
+    /// <summary>Independent control clocks; the strongest live slow wins without stacking.</summary>
     [DisallowMultipleComponent]
     public sealed class MonsterCCState : MonoBehaviour
     {
+        private struct Slow { public float Amount, Until; }
+        private readonly List<Slow> _slows = new(4);
         private Monster _monster;
-        private CrowdControlKind _kind;
-        private float _endTime;
         private int _allocGen;
-        private bool _active;
+        private float _stunUntil;
+        private bool _active, _stunned;
         private PooledSpellVfx _statusVfx;
         private int _statusVfxGen;
 #if UNITY_EDITOR || LOBBY_DEVICE_QA
-        public string DiagnosticKind => _active ? _kind.ToString() : "None";
-        public float DiagnosticRemaining => _active ? Mathf.Max(0, _endTime - Time.time) : 0;
+        public string DiagnosticKind => _stunned ? "Stun" : _active ? "Slow" : "None";
+        public float DiagnosticRemaining
+        {
+            get
+            {
+                float end = _stunUntil;
+                foreach (var slow in _slows) end = Mathf.Max(end, slow.Until);
+                return _active ? Mathf.Max(0, end - Time.time) : 0;
+            }
+        }
 #endif
-
-        /// <summary>대상에게 군중 제어를 적용한다. 이미 걸려 있으면 더 늦은 만료 시각으로 갱신.</summary>
-        public static void Apply(Monster monster, CrowdControlKind kind,
-                                 float duration, float slowPercent,
-                                 GameObject statusVfxPrefab = null, Vector3 statusVfxOffset = default)
+        public static void Apply(Monster monster, CrowdControlKind kind, float duration, float slowPercent,
+            GameObject statusVfxPrefab = null, Vector3 statusVfxOffset = default)
         {
-            if (monster == null) return;
-            if (kind == CrowdControlKind.None || duration <= 0f) return;
-            if (monster.MonAction == eMonsterAction.Dead) return;
-
-            var state = monster.GetComponent<MonsterCCState>();
-            if (state == null)
-                state = monster.gameObject.AddComponent<MonsterCCState>();
-
-            // A repeated poison/field slow must not cancel a stronger stun.
-            if (kind == CrowdControlKind.Slow && state._active && state._kind == CrowdControlKind.Stun) return;
-
-            state.Begin(monster, kind, duration, slowPercent, statusVfxPrefab, statusVfxOffset);
-        }
-
-        private void Begin(Monster monster, CrowdControlKind kind,
-                           float duration, float slowPercent,
-                           GameObject statusVfxPrefab, Vector3 statusVfxOffset)
-        {
-            // 다른 종류가 이미 걸려 있으면 먼저 원복하고 새 효과로 교체
-            if (_active && _kind != kind)
-                Release();
-
-            _monster = monster;
-            _kind = kind;
-            _allocGen = monster.AllocGen;
-            _endTime = Mathf.Max(_endTime, Time.time + duration);
-            _active = true;
-            enabled = true; // Release 에서 꺼 둔 Update 를 다시 켠다
-
-            switch (kind)
+            if (monster == null || !monster.isActiveAndEnabled || monster.MonAction == eMonsterAction.Dead ||
+                kind == CrowdControlKind.None || duration <= 0) return;
+            var state = monster.GetComponent<MonsterCCState>() ?? monster.gameObject.AddComponent<MonsterCCState>();
+            if (state._active && state._allocGen != monster.AllocGen) state.Release();
+            state._monster = monster; state._allocGen = monster.AllocGen;
+            state._active = true; state.enabled = true;
+            if (kind == CrowdControlKind.Stun)
+                state._stunUntil = Mathf.Max(state._stunUntil, Time.time + duration);
+            else
             {
-                case CrowdControlKind.Stun:
-                    _monster.InterruptBehaviourTree();
-                    break;
-                case CrowdControlKind.Slow:
-                    _monster.SpeedMultiplier = Mathf.Clamp01(1f - slowPercent);
-                    break;
+                float amount = Mathf.Clamp(slowPercent, 0, .8f);
+                bool found = false;
+                for (int i = 0; i < state._slows.Count; i++)
+                {
+                    var slow = state._slows[i];
+                    if (!Mathf.Approximately(slow.Amount, amount)) continue;
+                    slow.Until = Mathf.Max(slow.Until, Time.time + duration);
+                    state._slows[i] = slow; found = true; break;
+                }
+                if (!found) state._slows.Add(new Slow { Amount = amount, Until = Time.time + duration });
             }
-
-            // 상태이상 연출 — 남은 지속시간만큼 대상 머리 위를 따라다닌다
-            if (statusVfxPrefab != null && _statusVfx == null)
+            state.Refresh();
+            if (statusVfxPrefab != null)
             {
-                float remain = Mathf.Max(0.1f, _endTime - Time.time);
-                _statusVfx = PooledSpellVfx.Spawn(statusVfxPrefab,
-                                                     _monster.transform.position + statusVfxOffset,
-                                                     remain, _monster.transform, statusVfxOffset);
-                // 인스턴스가 수명 만료로 풀에 반납→재사용된 뒤 우리가 뒤늦게 Release 하는
-                // 사고를 막기 위해 세대 토큰을 캡처해 둔다
-                _statusVfxGen = _statusVfx != null ? _statusVfx.SpawnGen : 0;
+                if (state._statusVfx != null) state._statusVfx.Release(state._statusVfxGen);
+                state._statusVfx = PooledSpellVfx.Spawn(statusVfxPrefab, monster.transform.position + statusVfxOffset,
+                    duration, monster.transform, statusVfxOffset);
+                state._statusVfxGen = state._statusVfx != null ? state._statusVfx.SpawnGen : 0;
             }
         }
-
+        private void Refresh()
+        {
+            float strongest = 0;
+            for (int i = _slows.Count - 1; i >= 0; i--)
+                if (_slows[i].Until <= Time.time) _slows.RemoveAt(i);
+                else strongest = Mathf.Max(strongest, _slows[i].Amount);
+            _monster.SpeedMultiplier = 1 - strongest;
+            bool stun = Time.time < _stunUntil;
+            if (stun && !_stunned) _monster.InterruptBehaviourTree();
+            else if (!stun && _stunned) _monster.RestartBehaviourTree();
+            _stunned = stun;
+            if (!stun && _slows.Count == 0) Release();
+        }
         private void Update()
         {
-            if (!_active) return;
-
-            bool expired = Time.time >= _endTime;
-            bool invalid = _monster == null
-                        || _monster.AllocGen != _allocGen
-                        || _monster.MonAction == eMonsterAction.Dead;
-
-            if (expired || invalid)
+            if (_monster == null || _monster.AllocGen != _allocGen || _monster.MonAction == eMonsterAction.Dead)
                 Release();
+            else Refresh();
         }
-
-        private void OnDisable()
-        {
-            // 풀 반환 등으로 비활성화되면 연출이 공중에 남지 않도록 정리
-            if (_active) Release();
-        }
-
+        private void OnDisable() { if (_active) Release(); }
         private void Release()
         {
-            if (!_active) return;
             _active = false;
-            _endTime = 0f;
-
-            // 풀링된 몬스터에 붙은 채 세션 내내 살아남으므로, 유휴 상태에서는
-            // Update 자체가 돌지 않게 꺼 둔다 (다음 Apply 의 Begin 이 다시 켠다)
+            if (_monster != null && _monster.AllocGen == _allocGen && _monster.MonAction != eMonsterAction.Dead)
+            {
+                _monster.SpeedMultiplier = 1;
+                if (_stunned) _monster.RestartBehaviourTree();
+            }
+            _stunned = false; _stunUntil = 0; _slows.Clear();
+            if (_statusVfx != null) { _statusVfx.Release(_statusVfxGen); _statusVfx = null; }
             enabled = false;
-
-            if (_statusVfx != null)
-            {
-                _statusVfx.Release(_statusVfxGen); // 세대 불일치(이미 재사용됨)면 no-op
-                _statusVfx = null;
-            }
-
-            // 재할당된 몬스터라면 OnAlloc 이 이미 초기화했으므로 건드리지 않는다.
-            // 사망 상태면 특히 RestartBehaviourTree 를 호출하면 안 된다 —
-            // Monster.TakeDamage 가 죽으면서 건 InterruptBT 를 풀어 시체가 다시 걸어다닌다.
-            if (_monster == null
-                || _monster.AllocGen != _allocGen
-                || _monster.MonAction == eMonsterAction.Dead) return;
-
-            switch (_kind)
-            {
-                case CrowdControlKind.Stun:
-                    _monster.RestartBehaviourTree();
-                    break;
-                case CrowdControlKind.Slow:
-                    _monster.SpeedMultiplier = 1f;
-                    break;
-            }
         }
     }
 }

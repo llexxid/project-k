@@ -47,7 +47,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KingdomIdle.Combat.PooledSpellVfx
   lifetime: 1
-  fadeOut: 0.15
+  fadeOut: 0.22
+  fadeIn: 0.12
+  startScale: 0.84
   fitToCamera: 0
   fitPadding: 1.1
   followTarget: {fileID: 0}
@@ -62,7 +64,6 @@ GameObject:
   m_Component:
   - component: {fileID: 8111969815575472441}
   - component: {fileID: 5028870979456476784}
-  - component: {fileID: 1384204945562141870}
   m_Layer: 0
   m_Name: Layer0
   m_TagString: Untagged
@@ -80,7 +81,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1.1333333, y: 0.6666667, z: 1}
+  m_LocalScale: {x: 1.3000001, y: 0.8333333, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 4159410934371451438}
@@ -145,28 +146,6 @@ SpriteRenderer:
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
---- !u!95 &1384204945562141870
-Animator:
-  serializedVersion: 7
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5894161423145712624}
-  m_Enabled: 1
-  m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 9100000, guid: 94e64325c0356104f8d1567c9f60f5b2, type: 2}
-  m_CullingMode: 0
-  m_UpdateMode: 0
-  m_ApplyRootMotion: 0
-  m_LinearVelocityBlending: 0
-  m_StabilizeFeet: 0
-  m_AnimatePhysics: 0
-  m_WarningMessage: 
-  m_HasTransformHierarchy: 1
-  m_AllowConstantClipSamplingOptimization: 1
-  m_KeepAnimatorStateOnDisable: 0
-  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &8669689376083259473
 GameObject:
   m_ObjectHideFlags: 0

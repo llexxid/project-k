@@ -298,6 +298,7 @@ namespace Scripts.Monster
 		{
 			_monAI.InterruptBT();
             CancelAttack();
+            SetIdle();
 		}
 		public void RestartBehaviourTree()
 		{

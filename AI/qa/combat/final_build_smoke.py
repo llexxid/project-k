@@ -8,7 +8,7 @@ m=runpy.run_path('AI/qa/combat/device_revision.py');q=runpy.run_path('AI/qa/sett
 c=m['c'];run=m['run'];shot=m['shot'];state=m['state'];OUT=m['OUT'];PACKAGE=m['PACKAGE']
 def core():
  assert state('final-entry')['main']
- r=c('final-combat-acceptance','combat-acceptance');assert r['result']['passed']==13
+ r=c('final-combat-acceptance','combat-acceptance');assert r['result']['passed']==15
  for name,stage in [('normal',0x20003000A),('boss',0x20003000B)]:
   c('final-'+name+'-fixture','combat-fixture',stage=stage,value=1,enhance=0);time.sleep(2)
   r=c('final-'+name+'-control','combat-control');assert r['result']['passed']==9
@@ -16,7 +16,7 @@ def core():
  c('final-goblin-reset','combat-reset');time.sleep(15)
  r=c('final-goblin-15');shot('final-goblin-15')
  assert any(e['actor']=='GoblinBomb_Flight(Clone)' and e['kind']=='projectile-hit' for e in r['state']['combatEvents'])
- assert not r['state']['lastError'];print('Final combat 13 + live control 18 + atlased goblin bomb hits passed',flush=True)
+ assert not r['state']['lastError'];print('Final combat 15 + live control 18 + atlased goblin bomb hits passed',flush=True)
 def fresh():
  digest=hashlib.sha256(b'balance-qa-device-play-20260914').hexdigest()
  folder=f'/sdcard/Android/data/{PACKAGE}/files/progression-local-v1'

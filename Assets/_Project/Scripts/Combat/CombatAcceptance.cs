@@ -1,5 +1,6 @@
 #if UNITY_EDITOR || LOBBY_DEVICE_QA
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using KingdomIdle.Balance;
@@ -10,6 +11,39 @@ namespace KingdomIdle.Combat
 {
     public static class CombatAcceptance
     {
+        public static IEnumerator RunLayeredControl(Action<object> completed)
+        {
+            var checks = new List<string>(); var failed = new List<string>();
+            void Check(bool ok, string name) { checks.Add(name); if (!ok) failed.Add(name); }
+            var monster = CombatMotion.Monsters.Where(m => m != null && m.MonAction != Scripts.Core.eMonsterAction.Dead)
+                .OrderByDescending(m => m.MaxHp).First();
+            monster.gameObject.SetActive(false); monster.gameObject.SetActive(true);
+            MonsterCCState.Apply(monster, CrowdControlKind.Slow, 1.2f, .25f);
+            MonsterCCState.Apply(monster, CrowdControlKind.Stun, .35f, 0);
+            MonsterCCState.Apply(monster, CrowdControlKind.Slow, .7f, .1f);
+            var cc = monster.GetComponent<MonsterCCState>();
+            Check(cc.DiagnosticKind == "Stun" && Mathf.Approximately((float)monster.SpeedMultiplier, .75f), "Stun and strongest slow coexist");
+            Check(monster.MonAction == Scripts.Core.eMonsterAction.Idle, "Stun cancels the visible attack pose");
+            yield return new WaitForSeconds(.45f);
+            Check(cc.DiagnosticKind == "Slow" && Mathf.Approximately((float)monster.SpeedMultiplier, .75f), "Original poison survives stun expiry");
+            yield return new WaitForSeconds(.85f);
+            Check(!cc.enabled && monster.SpeedMultiplier == 1, "Control expires without a permanent movement penalty");
+            MonsterCCState.Apply(monster, CrowdControlKind.Slow, .25f, .4f);
+            MonsterCCState.Apply(monster, CrowdControlKind.Slow, .8f, .2f);
+            Check(Mathf.Approximately((float)monster.SpeedMultiplier, .6f), "Weaker slow cannot overwrite stronger slow");
+            yield return new WaitForSeconds(.35f);
+            Check(Mathf.Approximately((float)monster.SpeedMultiplier, .8f), "Longer weaker slow resumes after stronger expiry");
+            monster.gameObject.SetActive(false); monster.gameObject.SetActive(true);
+            Check(monster.SpeedMultiplier == 1 && !cc.enabled, "Pool release clears every control clock");
+            var prefab = KingdomIdle.MageTower.MageTowerManager.Instance.GetSkillById(0).prefab;
+            var first = PooledSpellVfx.Spawn(prefab, Vector3.zero, .5f); int generation = first.SpawnGen;
+            first.Release(); var second = PooledSpellVfx.Spawn(prefab, Vector3.zero, .5f);
+            first.Release(generation);
+            Check(second.gameObject.activeSelf && second.SpawnGen != generation, "Old cast cannot release a reused visual");
+            second.Release();
+            Check(KingdomIdle.MageTower.MageTowerManager.Instance.GetSkillById(0).bloomRadius == 2.1f, "Thunder radius is a catalog value independent of display width");
+            completed(new { passed = failed.Count == 0, count = checks.Count, checks, failed });
+        }
         // Only called by the isolated QA player. Restart the stage after this destructive fixture.
         public static object RunLiveControl()
         {
@@ -50,6 +84,8 @@ namespace KingdomIdle.Combat
             Check(!CombatMotion.InFront(Vector2.zero,new Vector2(-.5f,0),1,1),"Back-facing melee rejected");
             Check(!CombatMotion.InFront(Vector2.zero,new Vector2(.3f,0),1,1),"Overlapping bodies must reposition before attacking");
             Check(CombatMotion.InFront(Vector2.zero,new Vector2(.8f,.1f),1,1),"Aligned forward melee accepted");
+            Check(CombatMotion.InFront(Vector2.zero,new Vector2(.8f,.19f),1,1,CombatMotion.MeleeImpactLane),"Committed swing tolerates tiny separation drift");
+            Check(!CombatMotion.InFront(Vector2.zero,new Vector2(.8f,.5f),1,1,CombatMotion.MeleeImpactLane),"Impact tolerance still rejects a different combat lane");
             var flank=CombatMotion.Approach(new Vector2(2.4f,2),new Vector2(2.48f,0),1,0);
             Check(flank.x<2.48f && Mathf.Abs(flank.y)<CombatMotion.MeleeLane,"Border target has accessible flank");
 

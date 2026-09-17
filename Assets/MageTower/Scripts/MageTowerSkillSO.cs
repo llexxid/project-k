@@ -43,6 +43,7 @@ namespace KingdomIdle.MageTower
         [Min(0)] public float bloomAreaPowerMultiplier = .5f;
         [Min(0)] public float bloomControlDuration = 2f;
         [Min(1)] public int bloomMaxTargets = 10;
+        [Min(.05f)] public float bloomRadius = 2.1f;
         public GameObject bloomPrefab;
         public GameObject bloomCastingPrefab;
         public bool IsHealing => spellKind == MageSpellKind.Sanctuary;
