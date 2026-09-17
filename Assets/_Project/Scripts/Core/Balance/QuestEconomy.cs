@@ -107,7 +107,7 @@ namespace KingdomIdle.Balance
         {
             int stage = (int)((s.OfflineStage >> 16) & 0xFFF), wave = (int)(s.OfflineStage & 0xFFFF);
             if (stage < 1 || stage > 3 || wave < 1 || wave > 10) return 60; // Explicit 1-1, 3 KPM bootstrap.
-            return 2m * Math.Min(30m,s.OfflineKpm) * BalanceMath.MainEnemy(stage,wave).Gold * BalanceMath.RubyMultiplier(s.RubyGoldLevel);
+            return 2m * Math.Min(30m,s.OfflineKpm) * Scripts.Core.StageCatalogRules.MainEnemy(stage,wave).Gold * BalanceMath.RubyMultiplier(s.RubyGoldLevel);
         }
         public static bool CanClaim(QuestDefinition q, ProgressionState s) => q != null && !s.Claims.Contains(Key(q,s)) && (s.PendingQuests.ContainsKey(Key(q,s)) || Progress(q,s) >= q.RequiredCount);
         public static bool Claim(long id, string pendingKey = null)

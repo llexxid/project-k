@@ -32,7 +32,7 @@ namespace KingdomIdle.Gacha
             var epic = equipment?.GetByRarity(eEquipmentRarity.Epic);
             var skills = mage?.GetAllSkills().Where(x => x != null).ToArray();
             if ((table.gachaType == eGachaType.Equipment && (normal?.Count != 9 || rare?.Count != 6 || epic?.Count != 3)) ||
-                (table.gachaType == eGachaType.Skill && skills?.Length != 3)) { onError?.Invoke("뽑기 데이터 구성을 확인할 수 없습니다."); return; }
+                (table.gachaType == eGachaType.Skill && !MageSkillRules.ValidateRoster(skills))) { onError?.Invoke("뽑기 데이터 구성을 확인할 수 없습니다."); return; }
             IsPulling = true; OnPullStateChanged?.Invoke(true);
             var rewards = new List<GachaRewardEntry>(); bool ok;
             try
@@ -61,9 +61,10 @@ namespace KingdomIdle.Gacha
                         }
                         else if (roll < 500000)
                         {
-                            var skill = skills[UnityEngine.Random.Range(0, skills.Length)];
-                            MageTowerManager.Grant(state, skill.id);
-                            rewards.Add(new GachaRewardEntry { nameKor = skill.nameKor, icon = skill.icon, rewardType = eGachaRewardType.Skill, skillId = skill.id, amount = 1 });
+                            var skill = MageSkillRules.SelectSkill(skills, UnityEngine.Random.Range(0, skills.Length));
+                            bool duplicate = state.MageSkills.ContainsKey(skill.id);
+                            MageTowerManager.Grant(state, skill.id, MageSkillRules.DuplicateFragments);
+                            rewards.Add(new GachaRewardEntry { nameKor = duplicate ? $"{skill.nameKor} 파편" : skill.nameKor, icon = skill.icon, rewardType = eGachaRewardType.Skill, skillId = skill.id, amount = duplicate ? MageSkillRules.DuplicateFragments : 1 });
                         }
                         else
                         {

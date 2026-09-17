@@ -31,7 +31,6 @@ namespace KingdomIdle.UGUI
         public const float HamburgerDropdownWidth = 90f;
         public const float PartyHudBottom = 202f;
         // 파티 HUD 15% 확대(초상화 78→90, 스킬 슬롯 40→46) 반영 명목 높이.
-        // 실측 블록 높이는 90 + 패딩 24 = 114px 이지만, 위 요소(신 스킬 버튼) 배치는
         // 여유를 포함한 이 예약 밴드를 기준으로 계산한다.
         public const float PartyHudHeight = 172f;
         // (구 좌측 마탑 스킬 슬롯 열 상수들은 HUD 제거와 함께 삭제 — 마탑은 AUTO 전용)
@@ -50,30 +49,6 @@ namespace KingdomIdle.UGUI
         // 아랫부분이 총안에 파묻히지 않는다 — 반지름 59 + 여유 27.
         public const float MageTowerCrystalRise = 86f;
 
-        // ── 신성 스킬(궁극기) HUD — 하단 중앙 원형 버튼.
-        //    가이드 퀘스트 창(임시 숨김)이 떠 있던 자리 = 파티 HUD 바로 위를 쓴다 ──
-        public const float DivineHudDiameter = 176f;  // 원형 버튼 지름 (마탑 슬롯 134 대비 대형)
-        public const float DivineHudMargin = 24f;     // 파티 HUD 예약 밴드 위 여백
-        // 버튼 하단 y = 파티 HUD 바닥(202) + 파티 밴드(172) + 여백(24) = 398
-        public const float DivineHudBottom = PartyHudBottom + PartyHudHeight + DivineHudMargin;
-        public const float DivineHudGlowPad = 26f;    // 준비 완료 후광이 버튼 밖으로 번지는 여유
-        // 컨셉 링 아트 캔버스. 링 몸체 안반경 82 = 등급 링(164) 바깥과 정합, 바깥 장식이 ±16px 돌출한다.
-        public const float DivineRingCanvas = 208f;
-        public const float DivineHudAutoRingPad = 12f; // AUTO 회전 링(틱)이 버튼 밖으로 나가는 반지름 여유
-
-        // ── 신성 스킬 컷인 오버레이 ──
-        // 컷씬 아트의 논리 해상도는 288x512 (AI/comfyui README §4). 홀더를 그 **정수배(x2)** 로 잡아야
-        // Point 필터에서 픽셀이 균일한 2x2 블록으로 떨어진다 — 620x860 이던 시절엔 1.68배로 깔려
-        // 픽셀 행이 들쭉날쭉했다. 세로 1024 는 y=180 기준 -332..+692 로, 이름 플레이트 윗변(-350)과
-        // 화면 위끝(+960) 어디에도 닿지 않는다.
-        public const float DivineCutInIllustWidth = 576f;    // 288 x2
-        public const float DivineCutInIllustHeight = 1024f;  // 512 x2
-        public const float DivineCutInIllustY = 180f;    // 화면 중앙 기준 일러스트 y 오프셋
-        public const float DivineCutInSlideX = 420f;     // 일러스트가 옆에서 밀려 들어오는 시작 오프셋
-        public const float DivineCutInPlateWidth = 900f;
-        public const float DivineCutInPlateHeight = 260f;
-        public const float DivineCutInPlateY = -480f;    // 화면 중앙 기준 이름 플레이트 y 오프셋
-
         // ── 폰트 크기 (USS px) ──
         public const float FontTitleBig = 72f;
         public const float FontPressHint = 30f;
@@ -91,11 +66,6 @@ namespace KingdomIdle.UGUI
         public const float FontSmall = 20f;
         public const float FontBadge = 16f;
         public const float FontDamageText = 30f;
-        public const float FontDivineCooldown = 48f;   // 궁극기 버튼 남은 초
-        public const float FontDivineEmpty = 26f;      // 궁극기 버튼 미장착/이름 대체 표기
-        public const float FontCutInGrade = 28f;       // 컷인 등급 리본
-        public const float FontCutInName = 34f;        // 컷인 카드(초월자) 이름
-        public const float FontCutInSkill = 62f;       // 컷인 스킬 이름
 
         // ── 공통 색상 ──
         public static readonly Color PanelSheetBg = Rgba(10, 10, 15, 1f);

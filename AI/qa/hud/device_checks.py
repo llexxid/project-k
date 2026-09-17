@@ -30,7 +30,16 @@ def tap(name,snapshot):
     controls=[c for c in snapshot['controls'] if c['name']==name and c['interactable']]
     if len(controls)!=1: raise ValueError(f'{name}: {len(controls)} matches')
     b=controls[0]['bounds']
-    run('shell','input','tap',str(round(b['x']+b['width']/2)),str(round(b['y']+b['height']/2)))
+    # Android may letterbox the Unity surface or scale its retained render size
+    # after a display override. Map observed Unity coordinates to physical pixels.
+    import struct
+    png=run('exec-out','screencap','-p').stdout
+    width,height=struct.unpack('>II',png[16:24])
+    render_width=snapshot.get('width',width);render_height=snapshot.get('height',height)
+    scale=min(width/render_width,height/render_height)
+    x=(width-render_width*scale)/2+(b['x']+b['width']/2)*scale
+    y=(height-render_height*scale)/2+(b['y']+b['height']/2)*scale
+    run('shell','input','tap',str(round(x)),str(round(y)))
     time.sleep(1)
 
 def shot(name):

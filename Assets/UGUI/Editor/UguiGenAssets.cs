@@ -20,7 +20,7 @@ namespace KingdomIdle.UGUI.Editor
         private const string GuidSfxButtonClick = "1830b8c536e5ead4db1d11e5f9c8d36e";
 
         // Layer Lab 에셋 루트 (스프라이트 이름 검색 범위)
-        private const string LLRoot = "Assets/ExternalAssets/Layer Lab";
+        private const string LLRoot = "Assets/UGUI/Art/LayerLab";
 
         internal static TMP_FontAsset Font => LoadFontByGuid(GuidFontGalmuri);
 
@@ -65,7 +65,7 @@ namespace KingdomIdle.UGUI.Editor
         // 곳은 이 키트를 쓴다. 전부 작은 원본(8~48px) + 9-slice 라 확대해도 픽셀이 살아 있고,
         // 회색/흰색 마스터라 러스틱 팔레트로 틴트하면 그대로 중세 금속·목재가 된다.
         // ⚠ 이름 검색(LL) 금지 — Icons/{8,32,...} 에 동명 파일이 있어 해상도가 임의로 잡힌다. 경로 고정.
-        private const string PixRoot = "Assets/ExternalAssets/PixelArtGUI2/Textures";
+        private const string PixRoot = "Assets/UGUI/Art/PixelArtGUI2/Textures";
         private static Sprite Pix(string rel) =>
             AssetDatabase.LoadAssetAtPath<Sprite>($"{PixRoot}/{rel}");
 
@@ -119,7 +119,7 @@ namespace KingdomIdle.UGUI.Editor
         internal static Sprite IconUser => LL("headgear");
         internal static Sprite IconMenu => LL("menu_1");
         internal static Sprite IconMinus => LL("minus");
-        internal static Sprite IconPlus => LL("plus");
+        internal static Sprite IconPlus => LL("add");
         internal static Sprite IconSetting => LL("UI_System_Setting_01");  // 설정 기어(풀컬러)
         internal static Sprite IconLock => LL("lock");
         internal static Sprite IconWrench => LL("UI_System_Setting_01");   // 설정(메뉴) — 기어 통일

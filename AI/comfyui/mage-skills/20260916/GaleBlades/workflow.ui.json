@@ -1,0 +1,376 @@
+{
+  "last_node_id": 40,
+  "last_link_id": 6,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        300,
+        120
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "f044c78b123afdec8eaf39d2513748b5c90c18d6b4fbda0122999e0a44a37122.png"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "ImageScale",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        300,
+        120
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            2
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageScale"
+      },
+      "widgets_values": [
+        "nearest-exact",
+        768,
+        768,
+        "disabled"
+      ]
+    },
+    {
+      "id": 10,
+      "type": "GeminiNanoBanana2V2",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        300,
+        120
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model.images.image_1",
+          "type": "IMAGE",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            3,
+            4
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 1
+        },
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [],
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "GeminiNanoBanana2V2"
+      },
+      "widgets_values": [
+        "Edit the provided existing 48x48 pixel-art spell icon into its subtly awakened variant. This image is the EDIT TARGET, not general inspiration. Preserve its exact silhouette, object count, placement, angle, scale, pixel cluster density, shadows, and background #171c24. Do not redesign it. The player must instantly recognize the same base skill. Keep at least 85% of the icon visually unchanged. Crisp square 48px logical pixel art enlarged nearest-neighbor, at most 16 colors, restrained highlights, no bloom haze or smoothing. No text, frame, logo, characters, decoration border, new props or neon. Change only these small effect accents: Keep the exact curved blades. Add a few ivory edge pixels and two small pale teal trailing glints.",
+        "Nano Banana 2 (Gemini 3.1 Flash Image)",
+        "1:1",
+        "1K",
+        "MINIMAL",
+        91606,
+        "IMAGE"
+      ]
+    },
+    {
+      "id": 15,
+      "type": "SaveImage",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        300,
+        120
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 3
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "KingdomIdle/MageBloom/GaleBlades_Master"
+      ]
+    },
+    {
+      "id": 20,
+      "type": "ImageScale",
+      "pos": [
+        40,
+        420
+      ],
+      "size": [
+        300,
+        120
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 4
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            5
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageScale"
+      },
+      "widgets_values": [
+        "nearest-exact",
+        48,
+        48,
+        "disabled"
+      ]
+    },
+    {
+      "id": 30,
+      "type": "ImageQuantize",
+      "pos": [
+        40,
+        1120
+      ],
+      "size": [
+        300,
+        120
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 5
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            6
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageQuantize"
+      },
+      "widgets_values": [
+        16,
+        "none"
+      ]
+    },
+    {
+      "id": 40,
+      "type": "SaveImage",
+      "pos": [
+        40,
+        1900
+      ],
+      "size": [
+        300,
+        120
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 6
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "KingdomIdle/MageBloom/GaleBlades_48px"
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      2,
+      0,
+      10,
+      0,
+      "IMAGE"
+    ],
+    [
+      3,
+      10,
+      0,
+      15,
+      0,
+      "IMAGE"
+    ],
+    [
+      4,
+      10,
+      0,
+      20,
+      0,
+      "IMAGE"
+    ],
+    [
+      5,
+      20,
+      0,
+      30,
+      0,
+      "IMAGE"
+    ],
+    [
+      6,
+      30,
+      0,
+      40,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [
+    {
+      "title": "1. ASTRA MASTER REFERENCE",
+      "bounding": [
+        20,
+        0,
+        940,
+        380
+      ],
+      "color": "#3f789e",
+      "font_size": 24
+    },
+    {
+      "title": "2. CODEX (도감) — master 참조 편집 + 픽셀 마감",
+      "bounding": [
+        20,
+        380,
+        1600,
+        700
+      ],
+      "color": "#8A8",
+      "font_size": 24
+    },
+    {
+      "title": "3. ULTIMATE CUTSCENE — master 참조 편집 + 픽셀 마감",
+      "bounding": [
+        20,
+        1080,
+        1600,
+        700
+      ],
+      "color": "#a1309b",
+      "font_size": 24
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.55,
+      "offset": [
+        0,
+        0
+      ]
+    }
+  },
+  "version": 0.4
+}

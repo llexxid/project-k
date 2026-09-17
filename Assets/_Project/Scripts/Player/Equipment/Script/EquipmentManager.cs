@@ -52,6 +52,39 @@ public class EquipmentManager : MonoBehaviour
         QuestEconomy.Count(state,eQuestObjectiveType.EquipmentObtain,0,1);
         return true;
     }
+    // Old accounts stored quantities instead of individual instances. Reserve the excess
+    // by code/level so a large owned stack cannot block login or allocate thousands of objects.
+    // This reserve never expires and does not consume the live battle-reward inbox.
+    public static void ImportLegacy(ProgressionState state, int code, int level, int amount)
+    {
+        if (amount < 0 || level < 0 || level > 15) throw new ArgumentOutOfRangeException();
+        int direct = Math.Min(amount, Math.Max(0, Capacity - state.Equipment.Count));
+        for (int n = 0; n < direct; n++)
+            state.Equipment.Add(new EquipmentSave { Id = Guid.NewGuid().ToString("N"), Code = code, Level = level });
+        int remainder = amount - direct;
+        if (remainder > 0)
+        {
+            var stack = state.LegacyEquipment.Find(x => x.Code == code && x.Level == level);
+            if (stack == null) state.LegacyEquipment.Add(new LegacyEquipmentStack { Code = code, Level = level, Count = remainder });
+            else stack.Count = checked(stack.Count + remainder);
+        }
+        if (amount > 0) QuestEconomy.Count(state, eQuestObjectiveType.EquipmentObtain, 0, amount);
+    }
+    public static bool TakeLegacy(ProgressionState state, int code, int level)
+    {
+        var stack = state.LegacyEquipment.Find(x => x.Code == code && x.Level == level);
+        if (stack == null || stack.Count <= 0 || state.Equipment.Count >= Capacity) return false;
+        state.Equipment.Add(new EquipmentSave { Id = Guid.NewGuid().ToString("N"), Code = code, Level = level });
+        if (--stack.Count == 0) state.LegacyEquipment.Remove(stack);
+        return true;
+    }
+    public bool ClaimLegacy(int code, int level)
+    {
+        if (GetData(code) == null) return false;
+        bool ok = LocalProgression.Execute("equipment-legacy-claim", state => TakeLegacy(state, code, level));
+        if (ok) { RestoreEquipment(); OnItemDropped?.Invoke(null); Scripts.Core.Manager.StageManager.Instance?.ResumeAfterInventory(); }
+        return ok;
+    }
     public void GetEquipment(EquipmentInstance item, GetEffect effect)
     {
         if (item?.baseData == null) return;
@@ -128,9 +161,9 @@ public class EquipmentManager : MonoBehaviour
         });
         if (ok) { RestoreEquipment(); OnItemDropped?.Invoke(null); Scripts.Core.Manager.StageManager.Instance?.ResumeAfterInventory(); } return ok;
     }
-    public EquipmentSave RollFieldDrop(int stage)
+    public EquipmentSave RollFieldDrop(double probability)
     {
-        if (UnityEngine.Random.value >= .02f + .001f * (stage - 1)) return null;
+        if (UnityEngine.Random.value >= probability) return null;
         float roll = UnityEngine.Random.value;
         var items = GetByRarity(roll < .80f ? eEquipmentRarity.Normal : roll < .98f ? eEquipmentRarity.Rare : eEquipmentRarity.Epic);
         if (items.Count == 0) return null;

@@ -75,8 +75,12 @@ def launch(tag='launch',login=True):
  run('shell','am','force-stop',PACKAGE);run('shell','monkey','-p',PACKAGE,'-c','android.intent.category.LAUNCHER','1');time.sleep(7)
  if login:
   s=state(tag+'-screen')
-  if not s['main']:tap('BtnLogin',s);tap('BtnLoginGuest',state(tag+'-login'));time.sleep(7)
+  if not s['main']:
+   if not any(c['name']=='BtnLoginGuest' and c['interactable'] for c in s['controls']):
+    tap('BtnLogin',s);s=state(tag+'-login')
+   tap('BtnLoginGuest',s);time.sleep(7)
   s=state(tag+'-main')
+  assert s['main'], 'QA entry must reach the combat screen before stage commands.'
   if any(c['name']=='BtnConfirm' for c in s['controls']):tap('BtnConfirm',s)
  return command(tag)['state']
 

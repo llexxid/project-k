@@ -195,7 +195,10 @@ namespace KingdomIdle.UGUI
         private static void UpdateStageLabel(int stageNum, int wave, bool isBoss)
         {
             if (_view == null || _view.lblStage == null) return;
-            _view.lblStage.text = isBoss
+            var kind = _sm != null ? StageParser.GetStageType(_sm.CurrentStage) : Scripts.Core.eStageType.Main;
+            _view.lblStage.text = kind == Scripts.Core.eStageType.GoldDungeon ? $"골드 던전 · {stageNum}단계"
+                : kind == Scripts.Core.eStageType.RubyDungeon ? $"루비 던전 · {stageNum}단계"
+                : isBoss
                 ? $"보스 {stageNum}"
                 : _sm != null && _sm.IsLoopMode ? $"반복 사냥 {stageNum}-{wave}" : $"스테이지 {stageNum}-{wave}";
         }

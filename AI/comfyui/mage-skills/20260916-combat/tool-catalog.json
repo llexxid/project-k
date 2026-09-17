@@ -1,0 +1,1694 @@
+{
+  "tools": [
+    {
+      "name": "submit_workflow",
+      "description": "Submit a ComfyUI workflow (API format: node-id keys, each with class_type + inputs) for execution on Comfy Cloud. Editor/graph save format (top-level `nodes` array) is REJECTED — do NOT self-convert; persist it with save_workflow, then run via run_saved_workflow (the server converts). Pre-flight hard-rejects unknown `class_type`, links pointing at a node id not in the graph, and unconnected required connection inputs; COMBO option mismatches ride along as advisory warnings. **Spend-gated when the graph uses paid API nodes**: confirm the user agrees to spend credits, then re-call with `confirm: true`. Free, local-only workflows are never prompted. **2+ independent generations in one request → call `submit_batch` ONCE with all of them, not this tool N times** (decide that yourself; the user need not ask); a chain where one run feeds the next is not batchable — submit those in order.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "workflow": {
+            "description": "ComfyUI workflow in API format (node-id keyed object where each value has class_type and inputs). Must be a JSON object, not a stringified JSON string. Graph/editor save format (top-level `nodes` array) is NOT accepted here and will be rejected — do not self-convert it; save it with save_workflow and then execute via run_saved_workflow, which converts save format server-side.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "extra_data": {
+            "description": "Optional extra data forwarded to the cloud. API key authentication for partner/API nodes is handled automatically.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "confirm": {
+            "description": "Set true ONLY after the user has explicitly agreed to spend credits on the paid API node(s) in this workflow. When the graph contains paid API nodes, running it consumes workspace credits — only confirm after explicit user agreement.",
+            "type": "boolean"
+          },
+          "dry_run": {
+            "description": "Validate the workflow against local pre-flight (node existence, link integrity — every [nodeId, slot] must name a node in the graph, required connection inputs, required-widget defaults, COMBO/value advisories) and return the verdict WITHOUT executing it — no GPU run, no spend, no job created. Use this to check a hand-built graph before a real submit_workflow call. Note: local validation uses a bundled node catalog that can lag the cloud; the cloud remains the authoritative validator, so a dry_run PASS is a strong signal, not a guarantee.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "workflow"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "destructiveHint": true
+      }
+    },
+    {
+      "name": "get_job_status",
+      "description": "Check the execution status of a submitted workflow — a single point-in-time snapshot. To block until completion, prefer wait_for_job (or submitting with wait_for_output: true) over calling this in a loop; each get_job_status call is a full round-trip. Returns status: in_progress, completed, error, or cancelled. Also includes raw_status from the API (e.g. submitted, queued_limited, executing) for more detail. Holding a `batch_id`? get_batch_status reports every job in it in one call.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "prompt_id": {
+            "type": "string",
+            "description": "The prompt_id returned by submit_workflow"
+          }
+        },
+        "required": [
+          "prompt_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "wait_for_job",
+      "description": "Block until a submitted workflow job reaches a terminal state (completed, error, or cancelled). Collapses N polling round-trips into a single call — always prefer this over calling get_job_status in a loop. Returns the same payload shape as get_job_status for terminal states. If still in progress after ~25 s it returns { timed_out: true } — call it again (up to ~10 times before reporting progress to the user). For a `batch_id`, use wait_for_batch instead of one wait per job.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "prompt_id": {
+            "type": "string",
+            "description": "The prompt_id returned by submit_workflow or partner_generate"
+          }
+        },
+        "required": [
+          "prompt_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "get_output",
+      "description": "Retrieve outputs (images, videos, audio) from a completed workflow — call only AFTER get_job_status confirms completion (does not wait). Returns a download link — normally a no-auth `/api/s/<id>` shortlink — plus a ready-to-run shell command (`client_os` picks the flavor). By DEFAULT run that command YOURSELF; hand it to the user only if your own environment blocks egress (`403 Host not in allowlist` / connection / DNS error — environment, not auth). Surface the shortlink VERBATIM (keep any `?raw=1` it carries — that keeps a sandboxed fetch on one host instead of following the storage.googleapis.com redirect) — never resolve it to the underlying signed URL. Multi-file jobs emit ONE batch command — run that, not per-file curls. For PNG outputs the result also reports pixel width/height. `inline_urls: true` adds a browser-renderable inline URL per file; the default link force-downloads. For a `batch_id`, use get_batch_output.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "prompt_id": {
+            "type": "string",
+            "description": "The prompt_id returned by submit_workflow"
+          },
+          "client_os": {
+            "default": "darwin",
+            "description": "The user's OS, used to format the download command. OPTIONAL — omit it and the command defaults to POSIX curl (works on macOS/Linux); pass 'windows' to get the PowerShell/curl.exe flavor instead. Detect via the platform info in your environment (e.g. `uname` on POSIX, $PSVersionTable on Windows). The signed download link itself is emitted regardless of this value.",
+            "type": "string",
+            "enum": [
+              "darwin",
+              "linux",
+              "windows"
+            ]
+          },
+          "description": {
+            "description": "Short description of what was generated (e.g. 'cat astronaut in space'). Used for the output filename.",
+            "type": "string"
+          },
+          "inline_urls": {
+            "description": "When true, also mint a browser-renderable inline-disposition URL for each output (rendered in-tab instead of force-downloaded) alongside the download URL. Off by default — it costs one extra metadata lookup per file, so only request it when you intend to display the image in a browser.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "prompt_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "use_previous_output",
+      "description": "Make a previous workflow's output image available as input for a new workflow. Use this to chain workflows — e.g., generate an image in one workflow and use it as a reference in the next. Returns a filename you can use in LoadImage nodes.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "prompt_id": {
+            "type": "string",
+            "description": "The prompt_id of the completed workflow whose output you want to reuse"
+          },
+          "output_index": {
+            "description": "Which output image to use if the workflow produced multiple (default 0, the first). Must be a nonnegative integer.",
+            "type": "number"
+          }
+        },
+        "required": [
+          "prompt_id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "get_queue",
+      "description": "Check the account-wide queue: jobs running and pending across the whole account. Counts are NOT attributable to a specific submission (other sessions/batches count too) — a nonzero count is NOT evidence YOUR job was accepted; check a submitted job via get_job_status with its prompt_id.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {}
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "upload_file",
+      "description": "Upload a local image/audio file (.jpg/.jpeg/.png/.webp/.gif/.mp3/.wav/.flac/.ogg only) via a credential-free single-use upload URL. Two paths, auto-selected: (1) LOCAL/stdio session — the server runs the whole flow (mint → PUT) and returns the input `name`; nothing to run. (2) REMOTE/hosted session — the server returns a credential-free `PUT` command for the user's OWN shell; on success it prints a JSON body with `name` — no second tool call. The URL is single-use, short-TTL, on the same Comfy Cloud API host as this session: if the command fails, re-invoke this tool for a fresh URL (never re-run a used one). Run it EXACTLY as emitted; never add credentials. Use `name` as `image` in a LoadImage node (audio: `audio` in LoadAudio). An IMAGE `name` is also the partner image-EDIT input: pass it to partner_generate as `medias: [{role:\"image\", name}]` (its /api/view URL is auth-gated, so `medias[].value` still refuses it). Base64/data-inline upload is unsupported.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "description": "Absolute path on the user's machine to the image or audio file to upload."
+          },
+          "client_os": {
+            "type": "string",
+            "enum": [
+              "darwin",
+              "linux",
+              "windows"
+            ],
+            "description": "The user's OS, used to format the shell command. Detect via the platform info in your environment (e.g. `uname` on POSIX, $PSVersionTable on Windows)."
+          }
+        },
+        "required": [
+          "file_path",
+          "client_os"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "cancel_job",
+      "description": "Cancel a pending or running Comfy Cloud job by its `prompt_id`. Use it to stop a workflow execution (from submit_workflow, run_template, run_saved_workflow, or partner_generate) that is no longer needed — e.g. the user changed their mind or the wrong graph was submitted. NOT for a job that has already finished (cancelling a completed job has no effect, and it never deletes outputs already produced). Returns plain text saying which happened: a real cancellation, an already-finished no-op, or an unconfirmed cancel — relay that, do not assume the run stopped. It does NOT return job state, so call get_job_status if you need the terminal status. Next: submit a corrected job, or stop.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "prompt_id": {
+            "type": "string",
+            "description": "The prompt_id of the job to cancel"
+          }
+        },
+        "required": [
+          "prompt_id"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      }
+    },
+    {
+      "name": "partner_generate",
+      "description": "Generate image/video/audio via a partner provider (Grok, Gemini, Flux, OpenAI, Kling, ByteDance, ElevenLabs, …). Returns `{prompt_id, status}` — poll `get_job_status` then `get_output` (saved to library). Most image edits save to the library too; the rest auto-fall-back to instant direct URLs (run each `download_command`). Named provider → call this NOW with a best-guess slug (e.g. `bfl/flux-2-pro`); a wrong one bounces back naming the closest real slugs — skip the lookup. Playbook: `get_prompting_guide(model: \"partner\")`. SVG/3D/music: use `run_template`. **Spend-gated**: call it WITHOUT `confirm` first — if it runs, done; if it returns a prompt, relay it and re-call with `confirm: true` on an explicit yes. **2+ independent generations in one request → call `submit_batch` ONCE with all of them, not this tool N times** (decide that yourself; the user need not ask) — EXCEPT those fall-backs, which are not batchable and stay here, one call each.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "image",
+              "video",
+              "3d",
+              "svg",
+              "audio",
+              "music"
+            ]
+          },
+          "model": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "aspect_ratio": {
+            "type": "string"
+          },
+          "seed": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "medias": {
+            "maxItems": 16,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "type": "string",
+                  "maxLength": 64,
+                  "description": "One of \"character_image\", \"character_mask\", \"image\", \"mask\", \"reference_image\" (per-model subset; a wrong role bounces naming the accepted ones). \"image\" = source to edit; \"reference_image\" = style/content ref, NOT \"reference\"."
+                },
+                "value": {
+                  "description": "Publicly-fetchable https URL. get_output's own-origin /api/s/{id} short links work (dereferenced server-side) but expire in ~5 min — on an expired-link error call get_output again. An /api/view URL is auth-gated and does NOT work; for a local/uploaded file use upload_file and pass its `name` as this item's `name` instead.",
+                  "type": "string",
+                  "format": "uri"
+                },
+                "prompt_id": {
+                  "description": "A completed job's prompt_id whose output to use as this media (from get_output/partner_generate). Preferred over value for editing a Comfy-stored output.",
+                  "type": "string"
+                },
+                "output_index": {
+                  "description": "Which output of that job to use (default 0).",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "name": {
+                  "description": "The `name` upload_file returned — an image already in your Comfy input storage. This is the route for a LOCAL or freshly-uploaded photo: the persist route wires it into the edit node's LoadImage directly. Plain filename only, no path separators.",
+                  "type": "string",
+                  "maxLength": 255
+                },
+                "subfolder": {
+                  "description": "The `subfolder` upload_file returned alongside `name` (usually \"\").",
+                  "type": "string",
+                  "maxLength": 512
+                },
+                "type": {
+                  "description": "The `type` upload_file returned (always \"input\").",
+                  "type": "string",
+                  "const": "input"
+                }
+              },
+              "required": [
+                "role"
+              ]
+            }
+          },
+          "params": {
+            "description": "Provider-specific knobs spread into the request body before L3 validation. Use this for fields the canonical envelope does not surface (e.g. OpenAI `model`/`size`/`quality`, ByteDance `model`, Ideogram `image_request`, BFL `steps`/`guidance`).",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "client_os": {
+            "type": "string",
+            "enum": [
+              "darwin",
+              "linux",
+              "windows"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "confirm": {
+            "description": "Set true ONLY after the user has explicitly agreed to spend credits on this generation. A paid partner model runs and consumes workspace credits.",
+            "type": "boolean"
+          },
+          "wait_for_output": {
+            "description": "One-shot mode: after a successful submit on the async workflow path, hold this call open (up to ~25 s) until the job finishes and return the get_output download payload in this same result — no separate wait_for_job/get_output calls needed. If the job is still running at the window edge, returns { prompt_id, status: \"in_progress\", timed_out: true } — continue with wait_for_job. Does not bypass the spend gate, and has no effect on the instant direct-dispatch fallback.",
+            "type": "boolean"
+          },
+          "idempotency_key": {
+            "description": "Pass back the `recovery.idempotency_key` a previous FAILED partner_generate returned, with that call’s other arguments unchanged, to collect the already-paid generation instead of paying twice.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "pattern": "^[!-~]+$"
+          }
+        },
+        "required": [
+          "type",
+          "model",
+          "client_os"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      }
+    },
+    {
+      "name": "submit_batch",
+      "description": "Submit MANY generation jobs in ONE call; returns one `batch_id` + all job_ids. **Choose this yourself whenever ONE request needs 2+ independent generations** — \"4 variations\", \"one per character\", a prompt across N seeds — instead of N partner_generate/run_template/submit_workflow calls (up to 50 per call; split a larger set across batches); the user never has to ask for batching. Each `items[]` entry is `{tool: \"partner_generate\", ...}`, `{tool: \"run_template\", ...}` or `{tool: \"submit_workflow\", ...}`; a run_template item takes its prompt in `slot_overrides`/`input_overrides` (addresses from get_template_schema), while `description` is a manifest/filename label — resolve overrides BEFORE the first call, which on elicitation clients is already the billable one. Items run the async persist path; those needing the instant direct path (some image-input edits) fail per-item — use partner_generate for those. Poll get_batch_status, collect get_batch_output; failures land in `failed[]`. **Spend-gated once for the whole batch**: call it WITHOUT `confirm` first — if it runs, done; if it returns a prompt, relay it and re-call with `confirm: true` on an explicit yes.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "items": {
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "tool": {
+                      "type": "string",
+                      "const": "partner_generate"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "image",
+                        "video",
+                        "3d",
+                        "svg",
+                        "audio",
+                        "music"
+                      ]
+                    },
+                    "model": {
+                      "type": "string"
+                    },
+                    "prompt": {
+                      "type": "string"
+                    },
+                    "aspect_ratio": {
+                      "type": "string"
+                    },
+                    "seed": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "medias": {
+                      "maxItems": 16,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "role": {
+                            "type": "string",
+                            "maxLength": 64,
+                            "description": "One of \"character_image\", \"character_mask\", \"image\", \"mask\", \"reference_image\" (per-model subset; a wrong role bounces naming the accepted ones). \"image\" = source to edit; \"reference_image\" = style/content ref, NOT \"reference\"."
+                          },
+                          "value": {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          "name": {
+                            "description": "The `name` upload_file returned — a file already in your Comfy input storage.",
+                            "type": "string",
+                            "maxLength": 255
+                          },
+                          "subfolder": {
+                            "type": "string",
+                            "maxLength": 512
+                          },
+                          "type": {
+                            "type": "string",
+                            "const": "input"
+                          }
+                        },
+                        "required": [
+                          "role"
+                        ]
+                      }
+                    },
+                    "params": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    },
+                    "description": {
+                      "description": "Short label for the batch manifest and download filenames — NOT the prompt, which goes in `prompt`.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "tool",
+                    "type",
+                    "model"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "tool": {
+                      "type": "string",
+                      "const": "submit_workflow"
+                    },
+                    "workflow": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    },
+                    "extra_data": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    },
+                    "description": {
+                      "description": "Short label for the batch manifest and download filenames — not an instruction; the prompt lives in the `workflow` graph.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "tool",
+                    "workflow"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "tool": {
+                      "type": "string",
+                      "const": "run_template"
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "pattern": "^[A-Za-z0-9._-]+$"
+                    },
+                    "input_overrides": {
+                      "description": "This item's template inputs, prompts included — addresses come from get_template_schema. An item with NO overrides runs the template's DEFAULT prompt.",
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {}
+                      }
+                    },
+                    "slot_overrides": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    },
+                    "description": {
+                      "description": "Short label for the batch manifest and download filenames — NOT the prompt; prompts go in `slot_overrides`/`input_overrides`.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "tool",
+                    "name"
+                  ]
+                }
+              ]
+            },
+            "description": "Array of job specs (1–50). Each is a partner_generate, run_template or submit_workflow job, discriminated by its `tool` field."
+          },
+          "client_os": {
+            "type": "string",
+            "enum": [
+              "darwin",
+              "linux",
+              "windows"
+            ],
+            "description": "The user's OS, used to format any download commands at collect time."
+          },
+          "confirm": {
+            "description": "Set true ONLY after the user has explicitly agreed to spend credits on the paid generations in this batch. One confirmation authorizes the whole batch.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "client_os"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      }
+    },
+    {
+      "name": "get_batch_status",
+      "description": "Report the state of every job in a batch in ONE call (replaces N get_job_status polls). Pass the `batch_id` from submit_batch. Returns per-job `{id, state, ready, raw_status, error?}` plus a `summary` of counts. `state` is `pending` | `ready` | `failed`; `ready` is true ONLY when the output is actually fetchable (guards the done-but-not-ready race). Failed items never block ready ones. Durable across turns/sessions. When `summary.pending` is 0, call get_batch_output to collect.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "description": "The batch_id returned by submit_batch."
+          }
+        },
+        "required": [
+          "batch_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "get_batch_output",
+      "description": "Collect every currently-ready output across a batch in ONE call (replaces N get_output calls). Pass the `batch_id` from submit_batch. Returns all ready outputs labeled by source job, plus `failed[]` and `pending[]` lists — partial failures never block collection, and collecting early simply returns fewer outputs. Each output carries a download URL + ready-to-run shell command; with 2+ files a single bounded batch-download command is emitted — prefer that one command over per-file curls. Durable across turns/sessions.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "description": "The batch_id returned by submit_batch."
+          },
+          "client_os": {
+            "type": "string",
+            "enum": [
+              "darwin",
+              "linux",
+              "windows"
+            ],
+            "description": "The user's OS, used to format the download commands."
+          },
+          "inline_urls": {
+            "description": "When true, also mint a browser-renderable inline URL per output (same semantics as get_output.inline_urls). Off by default.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "batch_id",
+          "client_os"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "wait_for_batch",
+      "description": "Block until every job in a batch is terminal (ready or failed), then return the same per-job shape as get_batch_status. If not fully terminal after ~25 s it returns `{timed_out: true}` with current states — call it again until all terminal, then get_batch_output. Optional convenience over polling get_batch_status.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "description": "The batch_id returned by submit_batch."
+          }
+        },
+        "required": [
+          "batch_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "get_prompting_guide",
+      "description": "Call this BEFORE building a workflow by hand: prompt style (keywords vs natural language), negative-prompt/weight support, and recommended steps/cfg/sampler/scheduler/resolution + loader per model family (SD1.5, SDXL, SD3, Flux dev/schnell, Qwen-Image, Hunyuan, Wan, LTX, Z-Image, ...). Pass `model` (filename, type, or family name like \"flux schnell\") for that family's guide; omit for a quick-reference table of all families. Settings are sensible defaults — distilled (Lightning/Turbo) and edit variants can differ. Pass `model: \"partner\"` for the partner_generate playbook: every registered partner-API slug, per-provider params, and edit routing (to enumerate them, use search_models source:\"partner\" limit:100). Also serves the topic-keyed usage guides the server instructions reference by name — pass `topic` (one of: seedance-video, openai-images, templates, saved-workflows, seedream-layer-separation, output-downloads) for that operational guide.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "model": {
+            "description": "Model filename, type, or family name (e.g. \"flux1-dev.safetensors\", \"qwen-image\", \"flux schnell\"); or \"partner\" — or a partner provider name such as \"ideogram\", \"kling\", \"openai\" — for the partner_generate model playbook. Omit for the all-families quick-reference table.",
+            "type": "string",
+            "maxLength": 512
+          },
+          "topic": {
+            "description": "Usage-guide topic (one of: seedance-video, openai-images, templates, saved-workflows, seedream-layer-separation, output-downloads) — the fetch-on-demand operational detail the server instructions reference by name. Takes precedence over `model` when both are passed.",
+            "type": "string",
+            "maxLength": 64
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "get_creative_technique",
+      "description": "Multi-step creative technique recipes (e.g. combining people into one image, compositing) that chain several tools/models. Call with no argument to list available techniques; call with a technique name for the full step-by-step recipe. Check this BEFORE concluding a creative goal isn't possible or hand-building a novel pipeline.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "technique": {
+            "description": "Technique name from the index (e.g. \"combine-people\"). Omit to list every available technique with a one-line description.",
+            "type": "string",
+            "maxLength": 128
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "search_models",
+      "description": "Search the model catalog by text query, type, base model, or source. Use this to find the right model for a task before building a workflow. Returns lean fields; `detail:\"full\"` adds source URLs. Also indexes partner/API models used by `partner_generate` (flagged source:\"partner\", type = their modality image/video/audio/…); filter `source: \"partner\"` for the partner list (usually one page at `limit: 100`), or query by name (e.g. \"seedance\", \"flux\", \"kling\"); a tiered partner entry carries `tiers` (pass one as `partner_generate` `params.model`). On Comfy Cloud it also holds the user's own imported models, flagged `owned_by_user`; `owned: true` filters to them. Every page reports `metadata.total` (matches before paging) and `metadata.returned`, plus `metadata.dropped` when the size budget cut it; before calling a list complete, verify `offset + returned >= total` — else re-call with `offset` = `offset + returned`, not `offset + limit`.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "q": {
+            "description": "Text search across model name, display name, tags, trained words, and a partner entry's tier names (e.g. \"seedance 2.5\")",
+            "type": "string",
+            "maxLength": 512
+          },
+          "query": {
+            "description": "Alias for `q` — accepted because agents commonly guess `query`. Prefer `q`; if both are sent, `q` wins.",
+            "type": "string",
+            "maxLength": 512
+          },
+          "type": {
+            "description": "Filter by model type: checkpoint, lora, vae, controlnet, upscaler, clip, text_encoder, diffusion_model, etc.",
+            "type": "string"
+          },
+          "base_model": {
+            "description": "Filter by base model: SD 1.5, SDXL 1.0, Flux.1 D, etc.",
+            "type": "string"
+          },
+          "source": {
+            "description": "Filter by source: huggingface, civitai, or partner (partner_generate API models)",
+            "type": "string"
+          },
+          "owned": {
+            "description": "true = only models imported/uploaded to this Comfy Cloud account (flagged owned_by_user); false = everything else, which is the shared public catalog PLUS partner/API models, not a public-only list. Cloud sessions only.",
+            "type": "boolean"
+          },
+          "limit": {
+            "description": "Max results to return (default 8, max 100)",
+            "type": "number"
+          },
+          "offset": {
+            "description": "Pagination offset",
+            "type": "number"
+          },
+          "detail": {
+            "description": "Field detail: 'lean' (default, compact) or 'full' (every field)",
+            "type": "string",
+            "enum": [
+              "lean",
+              "full"
+            ]
+          },
+          "response_format": {
+            "description": "Alias for `detail`: 'concise' (default) = lean, 'detailed' = full. `detail` wins.",
+            "type": "string",
+            "enum": [
+              "concise",
+              "detailed"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "search_nodes",
+      "description": "Search available ComfyUI nodes by text query, category, or typed input/output filters. For structural questions (\"what produces a 3D file\", \"what accepts an IMAGE\") prefer the typed filters output_type / input_type / category over free-text q — they match the live catalog exactly. Lean results list required inputs (name + type), capped COMBO options and capped descriptions; `detail:\"full\"` for full input specs, get_node for the uncapped options/description. Results also include subgraph blueprints — pre-wired node-groups treated as a single node (`is_subgraph_blueprint: true`; filter with `category: \"subgraph\"`; wire their external inputs/outputs, ignore the internals). A result's `name` is its exact class_type; any `aliases` listed are extra registration keys the same node answers to, each resolvable exactly by get_node.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "q": {
+            "description": "Text search across node name, display name, description, category, and registration-key aliases",
+            "type": "string",
+            "maxLength": 512
+          },
+          "query": {
+            "description": "Alias for `q` — accepted because agents commonly guess `query`. Prefer `q`; if both are sent, `q` wins.",
+            "type": "string",
+            "maxLength": 512
+          },
+          "category": {
+            "description": "Category prefix match, e.g. 'image', 'sampling', 'conditioning', 'loaders'",
+            "type": "string"
+          },
+          "input_type": {
+            "description": "Filter by input type, e.g. IMAGE, LATENT, MODEL, CONDITIONING, MASK",
+            "type": "string"
+          },
+          "output_type": {
+            "description": "Filter by output type, e.g. IMAGE, LATENT, MODEL, CONDITIONING",
+            "type": "string"
+          },
+          "pack": {
+            "description": "Filter by custom node pack name, e.g. 'comfyui-impact-pack', or 'core' for built-in nodes",
+            "type": "string"
+          },
+          "api_nodes_only": {
+            "description": "If true, only return API-backed nodes (Partner Nodes like Google Gemini, Kling, Minimax, etc.)",
+            "type": "boolean"
+          },
+          "limit": {
+            "description": "Max results to return (default 8, max 100)",
+            "type": "number"
+          },
+          "offset": {
+            "description": "Pagination offset",
+            "type": "number"
+          },
+          "detail": {
+            "description": "Field detail: 'lean' (default, required inputs only) or 'full' (every field)",
+            "type": "string",
+            "enum": [
+              "lean",
+              "full"
+            ]
+          },
+          "response_format": {
+            "description": "Alias for `detail`: 'concise' (default) = lean, 'detailed' = full. `detail` wins.",
+            "type": "string",
+            "enum": [
+              "concise",
+              "detailed"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "get_node",
+      "description": "Fetch the complete input spec for one or more nodes by exact class_type — every field with its full COMBO option list (search_nodes caps long lists). Use once you know which nodes you need; far cheaper than a broad search_nodes. Dynamic-combo fields (`dynamic_combo: true`) are expanded: the selector lists its selectable keys plus a `hint`, and conditional sub-fields appear under dotted `<selector>.<field>` names (auto-grow list slots as `<selector>.<list>.<slot_1>`) — send those sub-fields prefixed exactly as named, not flat. Frontend-only virtual nodes (Reroute, SetNode/GetNode, PrimitiveNode, Note) return under `virtual`, not `missing` — not catalog gaps. Lookup is exact, never fuzzy: a name absent from `missing`/`virtual` resolved, and an entry whose `name` differs from the name you sent means yours is a valid registration alias for it (`requested`/`matched_as` say so), not a did-you-mean suggestion. Multi-name calls are budgeted; re-request dropped_names one at a time.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "names": {
+            "minItems": 1,
+            "maxItems": 25,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "description": "Exact node class_type names, e.g. [\"KSampler\", \"VAEDecode\"]"
+          }
+        },
+        "required": [
+          "names"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "search_templates",
+      "description": "Search workflow templates from comfy.org — discover pre-built workflows (text-to-image, image-to-video, style transfer) instead of building from scratch. Returns lean fields; `detail:\"full\"` for all fields. To RUN a result, call run_template with its `name` (pass input_overrides for prompt/seed changes) — never get_template + submit_workflow for an unmodified template. For a single image → Seedance 2.0 video pick `api_seedance2_0_r2v` (set only `model.reference_images.image_1`) — NOT the `*_real_human` variants (ByteDance asset IDs + KYC).",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "q": {
+            "description": "Text search across template name, description, tags, and models",
+            "type": "string",
+            "maxLength": 512
+          },
+          "query": {
+            "description": "Alias for `q` — accepted because agents commonly guess `query`. Prefer `q`; if both are sent, `q` wins.",
+            "type": "string",
+            "maxLength": 512
+          },
+          "tag": {
+            "description": "Filter by tag, e.g. 'Text to Image', 'Image to Video', 'Video', 'ControlNet', 'Inpainting', 'Style Transfer'",
+            "type": "string"
+          },
+          "media_type": {
+            "description": "Filter by media type: 'image' or 'audio'",
+            "type": "string"
+          },
+          "model": {
+            "description": "Filter by model name, e.g. 'Flux', 'SDXL', 'LTX'",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Max results to return (default 8, max 100)",
+            "type": "number"
+          },
+          "offset": {
+            "description": "Pagination offset",
+            "type": "number"
+          },
+          "detail": {
+            "description": "Field detail: 'lean' (default, truncated description) or 'full' (every field)",
+            "type": "string",
+            "enum": [
+              "lean",
+              "full"
+            ]
+          },
+          "response_format": {
+            "description": "Alias for `detail`: 'concise' (default) = lean, 'detailed' = full. `detail` wins.",
+            "type": "string",
+            "enum": [
+              "concise",
+              "detailed"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "get_catalog_overview",
+      "description": "List the valid filter values (with counts) for search_models `type`, search_templates `tag`, and search_nodes `category`, plus the model catalog total. Call before searching when unsure which facet value exists, or to size the catalog.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "facet": {
+            "description": "Return only one catalog's values; omit for all three",
+            "type": "string",
+            "enum": [
+              "models",
+              "templates",
+              "nodes"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "get_template",
+      "description": "Fetch the full workflow JSON for a comfy.org template, for INSPECTION or structural hand-editing only (swap nodes, add LoRA/ControlNet) — then run the modified graph via submit_workflow or persist it with save_workflow. Pass the template `name`. Returns graph/save format. To run a template as-is or with input overrides use run_template instead — fetching this JSON just to resubmit it unchanged wastes context. This is the only way to read a template: the comfy.org page URL is HTML, and templates are not bundled locally.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "template_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[A-Za-z0-9._-]+$",
+            "description": "The template's `name` from search_templates, e.g. \"image_z_image_turbo\""
+          },
+          "summary_only": {
+            "description": "When true, return only the compact node summary (id/type/title) + guidance, omitting the full workflow JSON. Default false — but the full JSON is still auto-omitted when it would exceed the client token cap.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "template_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "cql",
+      "description": "Query the ComfyUI node graph with CQL (find nodes, connections, capabilities). Returns plain text. Predicates (combine with AND/OR/NOT, parens): `produces TYPE`, `accepts TYPE`, `TYPE -> TYPE`, `upstream/downstream NodeID`, `category PATH`, `pack NAME`, `search /regex/`, `cpu`, `gpu`, `output`, `api`, `deprecated`. Pipeline after `|`: `count`, `limit N`, `sort …`. Inspectors: `node NodeID`, `path FROM -> TO`, `types`, `categories`, `packs`. Example: `produces IMAGE | limit 10`. Cloud-filtered catalog. NOT primary discovery — prefer search_nodes' typed filters; get_node for full spec.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "description": "A CQL query string. See the tool description for syntax examples."
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "get_template_schema",
+      "description": "Return a workflow template's overridable parameters. A subgraph template yields `slots` from BOTH sources: an entry whose `route` field is absent is a DECLARED subgraph input, whose `address` run_template takes as `slot_overrides`; an entry with `route: \"input_overrides\"` is a widget the instance PROMOTES without declaring it, addressed through `input_overrides` keyed by its `node_id` (or by its `flat_key`). A template that exposes nothing through a subgraph yields an empty `slots` plus `nodes`: the executed graph's ids and literal inputs, i.e. the keys run_template takes as `input_overrides`. Call it when you need those addresses, not as a prerequisite.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "template_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[A-Za-z0-9._-]+$",
+            "description": "The template name from search_templates (e.g. \"image_z_image_turbo\", \"video_ltx2_3_i2v\")"
+          }
+        },
+        "required": [
+          "template_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "apply_slots",
+      "description": "Apply slot overrides to a workflow's interior widget values and return `{ workflow, warnings }`. Shape errors (e.g. string passed to INT) hard-reject; catalog drift (out-of-bounds, unknown enum value) rides along as warnings — the override is still applied since the cloud is the authoritative validator. Use between get_template_schema (discover slots) and submit_workflow (run the modified workflow).",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "workflow": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {},
+            "description": "The workflow JSON to modify (frontend format, with definitions.subgraphs)"
+          },
+          "overrides": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {},
+            "description": "Slot dict: { \"<instance_id>.<input_name>\": value, ... }. Addresses come from get_template_schema. Example: {\"57.text\": \"a cat astronaut\", \"57.seed\": 42}"
+          }
+        },
+        "required": [
+          "workflow",
+          "overrides"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "estimate_credits",
+      "description": "Estimate a workflow's credit cost BEFORE running it. Read-only: nothing is submitted or spent. Pass exactly one of `workflow` (API or save format) or `template_name` (from search_templates; fetched server-side, so the JSON stays out of your context). Use it to quote a figure to the user ahead of the spend confirmation on submit_workflow / run_template / run_saved_workflow. Prices come from the bundled node-catalog declarations and can lag live prices; GPU/queue time and storage are excluded, and partner_generate can't be priced by model id (price a workflow using the equivalent API node instead). Full caveats ride on the result.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "workflow": {
+            "description": "Workflow JSON: API format (node-id keyed) or editor/save format (`nodes` array). Mutually exclusive with template_name.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "template_name": {
+            "description": "A template `name` from search_templates. Mutually exclusive with workflow.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[A-Za-z0-9._-]+$"
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "list_saved_workflows",
+      "description": "List the user's saved workflows — the tool for \"list/show/find my workflows\" asks (never claim the feature is unavailable). Returns metadata for every workflow in the workspace (cloud UI, comfy-cli, and MCP-saved). Each entry has `filename` (use with get_saved_workflow / run_saved_workflow) and `workflow_id` (`null` for legacy file-only entries); `format` is `null` until content is fetched (get_saved_workflow reports the detected `api`/`graph` format). Paginated (default 20): while `has_more` is true, re-call with `offset: next_offset` (same name/limit) until false whenever you need the complete list — never tell the user the remaining workflows are unreachable.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "name": {
+            "description": "Filter workflows by name or filename (substring match)",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Max results per page (default 20, max 100)",
+            "type": "number"
+          },
+          "offset": {
+            "description": "Pagination offset — pass the `next_offset` from the previous response to get the next page",
+            "type": "number"
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "get_saved_workflow",
+      "description": "Get a saved workflow's content: node summary, full workflow JSON, and a `customizable_inputs` breakdown of user-tunable knobs. Use to inspect before running or to debug conversion. Provide EITHER `workflow_id` (UUID or https://cloud.comfy.org/#<uuid> link) OR `filename` (from list_saved_workflows). `format` reports the detected format: a `graph` workflow runs via run_saved_workflow; an `api` workflow's JSON goes straight to submit_workflow. `api_format`, when present, is debug-only — never re-submit it; follow `run_hint` to run it. Pass `summary_only: true` for a compact response (no full JSON).",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "filename": {
+            "description": "The workflow filename from list_saved_workflows (e.g. \"my-workflow.json\"), for a userdata/file-based workflow. The .json extension is added automatically if omitted. Provide either filename OR workflow_id.",
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "workflow_id": {
+            "description": "The UUID of an existing Comfy Cloud workflow-record, or a direct link containing it (e.g. \"https://cloud.comfy.org/#14af6003-...\"), for a workflow-record workflow (e.g. one saved with save_workflow's workflow_id path, or a list_saved_workflows entry that has an id + name but no filename). Provide either workflow_id OR filename.",
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "summary_only": {
+            "description": "When true, return only node id/type/title, extra.linearData, and customizable_inputs — omitting the full workflow JSON, api_format, and conversion warnings. Default false.",
+            "type": "boolean"
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "run_saved_workflow",
+      "description": "Run a workflow already saved in the workspace: fetches it, converts save→API server-side, and submits. Pass the `filename` or `workflow_id` from list_saved_workflows — never raw JSON (new API JSON → submit_workflow; new save-format JSON → save_workflow first). `input_overrides` ({nodeId: {inputName: value}}) changes inputs (prompt, seed); subgraph save formats use `slot_overrides` keyed by slot address (e.g. \"57.text\"). Inspect knobs first via get_saved_workflow. **Spend-gated when the workflow uses paid API nodes**: confirm the user agrees to spend credits, then re-call with `confirm: true`. Pass `include_workflow: true` to also echo the full converted API workflow JSON (omitted by default).",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "filename": {
+            "description": "The workflow filename from list_saved_workflows (e.g. \"my-workflow.json\"), for a userdata/file-based workflow. The .json extension is added automatically if omitted. Provide either filename OR workflow_id — a native-only workflow (a list_saved_workflows entry with a workflow_id but no userdata file) is not resolvable by filename, so pass its workflow_id.",
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "workflow_id": {
+            "description": "The UUID of an existing Comfy Cloud workflow-record, or a direct link containing it (e.g. \"https://cloud.comfy.org/#14af6003-...\"), for a workflow created natively (cloud FE / comfy-cli) or uploaded via get_workflow_upload_url, which has no userdata file. Provide either workflow_id OR filename.",
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "input_overrides": {
+            "description": "Optional overrides: { nodeId: { inputName: value } }. Applied after conversion. Maximum 50 node entries, 50 input keys per node.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            }
+          },
+          "slot_overrides": {
+            "description": "Slot overrides keyed by slot address, e.g. {\"57.text\": \"a green apple\", \"57.seed\": 42}. Use this (not input_overrides) for a saved workflow whose inputs are exposed through a subgraph — it resolves proxyWidgets and keeps the executed and reopenable graphs consistent. Addresses come from the saved graph's subgraph definitions (or get_template_schema if it came from a template). Applied to the save-format workflow before conversion; if input_overrides is also given, it is applied afterward (post-conversion). Save-format files only — an already-API-format saved file is rejected.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "confirm": {
+            "description": "Set true ONLY after the user has explicitly agreed to spend credits on the paid API node(s) in this workflow. When the graph contains paid API nodes, running it consumes workspace credits — only confirm after explicit user agreement.",
+            "type": "boolean"
+          },
+          "include_workflow": {
+            "description": "When true, echo the full converted API workflow JSON in the success result. Default false — the response summarizes the run (prompt_id, node count, customizable_inputs) to keep the payload small; enable only for structural debugging.",
+            "type": "boolean"
+          }
+        }
+      },
+      "annotations": {
+        "destructiveHint": true
+      }
+    },
+    {
+      "name": "run_template",
+      "description": "Fetch a Comfy Cloud template by name and submit it for execution without loading the workflow JSON into context — THE way to run a template (never get_template + submit_workflow for an unmodified one). Discover names with search_templates. Use `input_overrides` ({nodeId:{inputName:value}}) to change inputs and run it straight away. get_template_schema is OPTIONAL — it applies to subgraph-exposed templates, whose `slot_overrides` addresses it lists (e.g. \"57.text\"). Returns a prompt_id to poll via get_job_status (or one-shot, below). Override remapping/rejection rules and the Seedance-2.0 r2v special-case: `get_prompting_guide(topic: \"templates\")`. **Spend-gated when the template uses paid API nodes**: call it WITHOUT `confirm` first — if it runs, done; if it returns a prompt, relay it and re-call with `confirm: true` on an explicit yes. **One-shot**: `wait_for_output: true` (with `client_os`) waits inline (~25 s) and returns the finished get_output; if still running it returns `{status: \"in_progress\", timed_out: true}` — then wait_for_job. **2+ independent generations in one request → call `submit_batch` ONCE with `{tool: \"run_template\"}` items, not this tool N times** (decide that yourself; the user need not ask).",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[A-Za-z0-9._-]+$",
+            "description": "The template's `name` from search_templates, e.g. \"image_z_image_turbo\". Must match exactly."
+          },
+          "input_overrides": {
+            "description": "Optional overrides: { nodeId: { inputName: value } }. Applied after conversion, same as run_saved_workflow. Maximum 50 node entries, 50 input keys per node.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            }
+          },
+          "slot_overrides": {
+            "description": "Slot overrides keyed by the addresses from get_template_schema, e.g. {\"57.text\": \"a green apple\", \"57.seed\": 42}. Use this (not input_overrides) for templates whose inputs are exposed through a subgraph — it resolves proxyWidgets and keeps the executed and reopenable graphs consistent. Applied to the save-format workflow before conversion; if input_overrides is also given, it is applied afterward (post-conversion).",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "confirm": {
+            "description": "Set true ONLY after the user has explicitly agreed to spend credits on the paid API node(s) in this workflow. When the graph contains paid API nodes, running it consumes workspace credits — only confirm after explicit user agreement.",
+            "type": "boolean"
+          },
+          "wait_for_output": {
+            "description": "One-shot mode: after a successful submit, hold this call open (up to ~25 s) until the job finishes and return the get_output download payload in this same result — no separate wait_for_job/get_output calls needed. Requires client_os. If the job is still running at the window edge, returns { prompt_id, status: \"in_progress\", timed_out: true } — continue with wait_for_job. Does not bypass the spend gate.",
+            "type": "boolean"
+          },
+          "client_os": {
+            "description": "The user's OS — required when wait_for_output is true, so the returned download command uses the right shell flavor (curl vs curl.exe, ~/Downloads vs $env:USERPROFILE\\Downloads).",
+            "type": "string",
+            "enum": [
+              "darwin",
+              "linux",
+              "windows"
+            ]
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      }
+    },
+    {
+      "name": "import_shared_workflow",
+      "description": "Import a workflow from a Comfy Cloud share link — resolves a share URL (https://cloud.comfy.org/?share=<id>) or bare share ID into the workflow JSON, optionally saving it to your workspace (then run_saved_workflow with the returned save_filename, or submit_workflow with the JSON). Use when the user wants their OWN copy, to run or edit. A LINK-only ask is usually not an import: a ?share= URL already opens on the canvas, and a #<uuid> fragment in it is the id get_workflow_canvas_url / get_app_mode_url take (they reject ?share= itself; with no fragment, import). HUB URLs: the trailing hyphen-delimited hex token in comfy.org/workflows/<slug>-<hex> IS the share ID — pass it as `share_id` (`share_url` only accepts ?share=<id> URLs). A saved import omits the workflow body; pass `include_workflow: true` to echo it, led by a `workflow_summary` {node_count, bytes} receipt (save:false returns the JSON inline unless over ~256KB, when the share link is returned instead).",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "share_url": {
+            "description": "Full share URL (e.g. \"https://cloud.comfy.org/?share=13a8f58eddf8\"). Either share_url or share_id must be provided.",
+            "type": "string"
+          },
+          "share_id": {
+            "description": "Bare share ID (e.g. \"13a8f58eddf8\"). Either share_url or share_id must be provided.",
+            "type": "string"
+          },
+          "save": {
+            "description": "Whether to save the imported workflow to the caller's workspace (default true). When saved, it appears in the FE Workflows sidebar and can be re-run via run_saved_workflow. Pass save:false to only RESOLVE the workflow JSON (returned inline for submit_workflow) WITHOUT writing a file — use this when you just want the JSON and don't want to clutter the workspace.",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "Display name for the saved workflow (also determines the saved filename). If omitted, uses the name from the shared workflow metadata or derives one from the share ID. For a share of your OWN workflow, a name different from that workflow's name imports a separate copy instead of updating the original in place. Alias: save_as.",
+            "type": "string"
+          },
+          "save_as": {
+            "description": "Alias for \"name\" — the display/filename to save the imported workflow under. Provided because agents commonly reach for save_as; \"name\" takes precedence if both are set.",
+            "type": "string"
+          },
+          "overwrite": {
+            "description": "Whether to overwrite an existing saved workflow with the same name (default false). When true, re-importing a share over an existing same-named workflow replaces it. When false (default), a name collision returns an explicit error directing you to set overwrite:true or pass a different \"name\" — the existing workflow is never silently returned as the result.",
+            "type": "boolean"
+          },
+          "include_workflow": {
+            "description": "When true, echo the full imported workflow JSON in the result even when it was saved (very large workflows — over ~256KB — are still referenced by save_filename or the share link instead of inlined, to protect the response budget). Default false — a saved import is summarized (share_id, name, format, node_count, save_filename) and run via run_saved_workflow, so the body is omitted to keep the payload small. Ignored when save:false, where the JSON is returned inline for submit_workflow (subject to the same size cap).",
+            "type": "boolean"
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "share_workflow",
+      "description": "Generate a public share link for a saved workflow — publishes a snapshot and returns a https://cloud.comfy.org/?share=<id> URL anyone can open (the complement of import_shared_workflow; use for \"share this workflow\" / \"make it public\" asks). Provide EITHER `workflow_id` (UUID or https://cloud.comfy.org/#<uuid> link; required for workflow-record entries that carry no filename) OR `filename` (from list_saved_workflows). For a canvas link use get_workflow_canvas_url; for an App-Mode link use get_app_mode_url; to BUILD an app use create_app.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "filename": {
+            "description": "The workflow filename from list_saved_workflows (e.g. \"my-workflow.json\"), for a userdata/file-based workflow. The .json extension is added automatically if omitted. Provide either filename OR workflow_id.",
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "workflow_id": {
+            "description": "The UUID of an existing Comfy Cloud workflow-record, or a direct link containing it (e.g. \"https://cloud.comfy.org/#14af6003-...\"), for a workflow-record workflow. The record's name is resolved server-side to route the publish. Provide either workflow_id OR filename.",
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "asset_ids": {
+            "description": "Optional list of asset IDs (preview thumbnails) to attach to the published snapshot. Defaults to [] — the share link resolves without a thumbnail.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "save_workflow",
+      "description": "Save a ComfyUI workflow to the workspace. Pass EITHER inline `workflow_json` OR `workflow_path` + `client_os` — a workflow file on the user's disk, uploaded out-of-band via a credential-free single-use URL: the path for large or agent-generated graphs (no inline size ceiling; save format only). With `workflow_id` (UUID or https://cloud.comfy.org/#<uuid> link) the inline path updates IN PLACE as a new version; otherwise a new JSON file lands in userdata/workflows (filename from `name`). Same-name saves overwrite (identical = no-op); `overwrite: false` fails on collision. Inline `workflow_json` accepts save format (top-level `nodes` array) OR API format — API is converted to save format (`converted: true`), so it is editor-reopenable, drag-loadable, and runnable via run_saved_workflow. Save-format JSON belongs HERE, never submit_workflow. Stores only — it does not execute.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "workflow_json": {
+            "description": "The ComfyUI workflow JSON. Must be a non-empty JSON object. Mutually exclusive with workflow_path. Accepts save format (top-level nodes array) OR API format (node IDs as keys with class_type/inputs). API format is auto-converted to save format on save — node positions, links, and slot arrays are synthesized from object_info — so the saved file is runnable and reopenable just like a save-format file. Note: subgraphs/reroutes are not reconstructed (the executable graph is emitted flat), and a few widget values the forward path masks are lossy; warnings list anything synthesized or dropped.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "workflow_path": {
+            "description": "Absolute path on the user's machine to a workflow JSON file — SAVE format only, PUT verbatim (no API→save conversion; send API JSON inline as workflow_json). Mutually exclusive with workflow_json; requires client_os and name. Returns a credential-free PUT command printing the created workflow {id, name}. Always creates a NEW record: cannot combine with workflow_id, base_version, or overwrite.",
+            "type": "string"
+          },
+          "client_os": {
+            "description": "The user's OS, for the upload command's shell flavor. Required with workflow_path.",
+            "type": "string",
+            "enum": [
+              "darwin",
+              "linux",
+              "windows"
+            ]
+          },
+          "name": {
+            "description": "Display name for the saved workflow. REQUIRED when creating a new file (workflow_id omitted, or provided but not resolving to one of your workflows) — the filename is derived from it. OPTIONAL and ignored on the in-place workflow_id path: versioning is keyed by UUID, so the record keeps its existing name (passing a name there does NOT rename it).",
+            "type": "string"
+          },
+          "workflow_id": {
+            "description": "Optional. The UUID of an existing Comfy Cloud workflow to update in place, or a direct link containing it (e.g. \"https://cloud.comfy.org/#14af6003-...\"). When provided, the workflow is saved as a new version of that record instead of creating a new file — the same link still works and all prior versions remain recoverable. Omit when saving a brand-new workflow.",
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "base_version": {
+            "description": "Optional. The version number you loaded the workflow at (applies to the in-place path only). When provided, the update is rejected with a conflict if the workflow changed since that version — preventing a silent overwrite of a concurrent edit. Strongly recommended when workflow_id is set.",
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "description": {
+            "description": "Optional description embedded in the workflow JSON metadata (new-file path only)",
+            "type": "string"
+          },
+          "overwrite": {
+            "description": "Whether to overwrite if a workflow with the same name already exists (default true). Set to false to get a 409 error on collision. Applies to the inline new-file path only; ignored when workflow_id resolves an existing workflow, and rejected with workflow_path.",
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "get_workflow_upload_url",
+      "description": "Save a workflow that is ALREADY A FILE ON THE USER'S DISK, without pasting its JSON anywhere — the path for large or agent-generated graphs (there is no inline size ceiling to work around). Mints a single-use, credential-free upload URL and returns a `PUT` command for the user's OWN shell; the session credential stays server-side and NEVER appears in the command. The upload IS the save: on success it prints the created workflow `{id, name, ...}`, so no follow-up save_workflow call is needed — open it at https://cloud.comfy.org/#<id> or run it with run_saved_workflow({workflow_id}). Single-use, short TTL: if the command fails, call this again for a fresh URL. For a small graph you already hold in context, save_workflow with inline workflow_json is still fine. Images use upload_file instead.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "workflow_path": {
+            "type": "string",
+            "description": "Absolute path on the user's machine to the workflow JSON file. SAVE/graph format only — it is uploaded verbatim, with no API→save conversion, so an API-format file yields a record run_saved_workflow cannot run; send API JSON to submit_workflow."
+          },
+          "client_os": {
+            "type": "string",
+            "enum": [
+              "darwin",
+              "linux",
+              "windows"
+            ],
+            "description": "The user's OS, used to format the shell command. Detect via the platform info in your environment (e.g. `uname` on POSIX, $PSVersionTable on Windows)."
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name for the created workflow (at most 255 characters after trimming). Required, and captured at MINT time — the PUT body is the raw JSON and nothing else, so it cannot be supplied later."
+          },
+          "description": {
+            "description": "Optional description for the created workflow (at most 2000 characters after trimming), also captured at mint time.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflow_path",
+          "client_os",
+          "name"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "create_app",
+      "description": "Turn a saved Comfy Cloud workflow into an App Mode app (the simplified \"run this workflow\" view that hides the node graph) by picking the input widgets and output nodes to expose. Route \"make/build this into an app\" asks HERE — share_workflow and get_app_mode_url only link or publish a workflow that already exists. Identify by `workflow_id` (UUID or https://cloud.comfy.org/#<uuid> link) or `saved_workflow_filename` (from list_saved_workflows). Call with ONLY the identifier first to get CANDIDATE inputs/outputs; confirm with the user, then call again with `input_selections` ({nodeId, widgetName} pairs) and `output_node_ids` (Save/Preview node IDs the app displays). Then share_workflow gives a shareable URL.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "workflow_id": {
+            "description": "The UUID of an existing Comfy Cloud workflow-record, or a direct link containing it (e.g. \"https://cloud.comfy.org/#14af6003-...\"). Use this for workflows created or versioned with save_workflow (workflow_id path). Provide either workflow_id OR saved_workflow_filename.",
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "saved_workflow_filename": {
+            "description": "The filename from list_saved_workflows (e.g. \"my-workflow.json\") for a userdata/file-based workflow. Provide either saved_workflow_filename OR workflow_id.",
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "input_selections": {
+            "description": "Which widget slots to expose as user inputs. Flat list of {nodeId, widgetName} pairs. Forward-compatible with MCP elicitation multi-select. Omit to get candidate suggestions instead of committing the config.",
+            "maxItems": 1000,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "nodeId": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "LiteGraph node ID (the integer id field on the node)"
+                },
+                "widgetName": {
+                  "type": "string",
+                  "description": "Widget slot name on the node (e.g. \"text\" for CLIPTextEncode, \"image\" for LoadImage, \"seed\" for KSampler, \"value\" for primitive nodes)"
+                },
+                "widgetId": {
+                  "description": "Only for subgraph-interior widgets: pass back the `widgetId` from candidate_inputs verbatim. Required to disambiguate when one subgraph is instantiated by multiple container nodes (same interior nodeId/widgetName, different widgetId). Omit for top-level widgets.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "nodeId",
+                "widgetName"
+              ]
+            }
+          },
+          "output_node_ids": {
+            "description": "Node IDs (integers) of the Save/Preview nodes whose results the app displays. Typically SaveImage, PreviewImage, VHS_VideoCombine, etc. Omit to get candidate suggestions instead of committing the config.",
+            "maxItems": 1000,
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "get_workflow_canvas_url",
+      "description": "Get a Comfy Cloud URL that opens a workflow on the canvas, ready to view, edit, or run. Two modes: `workflow_id` (UUID or https://cloud.comfy.org/#<uuid> link) returns the direct editor URL instantly; `saved_workflow_filename` (from list_saved_workflows) publishes a shareable snapshot and returns a https://cloud.comfy.org/?share=<id> URL anyone can open. To publish a public snapshot use share_workflow; for an App-Mode link use get_app_mode_url. A public ?share= link is not a workflow_id: it already opens on the canvas, so this tool rejects it and offers any #<uuid> fragment in it as the id to pass — whatever the canvas had open, not necessarily the shared workflow.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "workflow_id": {
+            "description": "The UUID of an existing Comfy Cloud workflow, or a direct link containing it (e.g. \"https://cloud.comfy.org/#14af6003-d4ee-4dee-8e3d-cbff2e5519b3\"). Returns the editor URL instantly — no API call. Provide either workflow_id or saved_workflow_filename.",
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "saved_workflow_filename": {
+            "description": "The filename from list_saved_workflows (e.g. \"my-workflow.json\"). Publishes a shareable snapshot and returns a ?share= canvas URL. Provide either workflow_id or saved_workflow_filename.",
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "get_app_mode_url",
+      "description": "Get a Comfy Cloud App Mode link that opens a saved workflow as a runnable app. Prefer `saved_workflow_filename` (from list_saved_workflows): it publishes a fresh snapshot and returns a reliable https://cloud.comfy.org/?share=<id> link. `workflow_id` (UUID or #<uuid> link) instead returns the permanent https://cloud.comfy.org/#<uuid> record link, which can be silently overridden by browser session-restore. To BUILD an app (pick its inputs/outputs) use create_app. To open on the canvas use get_workflow_canvas_url; to publish a snapshot use share_workflow. A public ?share= link is not a workflow_id: this tool rejects it and offers any #<uuid> fragment in it as the id to pass — whatever the canvas had open, not necessarily the shared workflow, and it yields the session-restore-prone #<uuid> link above.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "workflow_id": {
+            "description": "The UUID of an existing Comfy Cloud workflow, or a direct link containing it (e.g. \"https://cloud.comfy.org/#14af6003-d4ee-4dee-8e3d-cbff2e5519b3\"). Confirms the workflow exists/is yours, then returns its permanent https://cloud.comfy.org/#<uuid> record link. For a link that opens reliably, prefer saved_workflow_filename (which returns a ?share= link). Provide either workflow_id or saved_workflow_filename.",
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "saved_workflow_filename": {
+            "description": "The filename from list_saved_workflows (e.g. \"my-workflow.json\"). Publishes a fresh snapshot of the workflow and returns a shareable https://cloud.comfy.org/?share=<id> App Mode link that opens the workflow directly. Provide either workflow_id or saved_workflow_filename.",
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "get_usage_report",
+      "description": "Get an invoice-backed usage and spend report for the user's Comfy Cloud workspace: total spend for the period plus a breakdown by model, endpoint, or product with each group's share. Use this when the user asks about their usage, spend, cost breakdown, or which models cost the most.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "group_by": {
+            "description": "How to group the spend breakdown. Defaults to \"model\".",
+            "type": "string",
+            "enum": [
+              "model",
+              "endpoint",
+              "product"
+            ]
+          },
+          "granularity": {
+            "description": "Size of each time bucket in the series. Defaults to \"month\".",
+            "type": "string",
+            "enum": [
+              "hour",
+              "day",
+              "month"
+            ]
+          },
+          "months": {
+            "description": "How many months of history to cover, 1 to 24. Defaults to 6.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 24
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "get_billing_activity",
+      "description": "Billing + usage activity for this Comfy Cloud workspace, newest first: per-job usage (job_id, gpu_seconds, credits_used) plus account events. Use when the user asks why their balance changed or what a job used. Not a per-job dollar price — get_usage_report for dollars, estimate_credits for a pre-run quote.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "page": {
+            "description": "1-indexed page of the feed. Defaults to 1 (the most recent events).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "limit": {
+            "description": "Events per page, 1 to 100. Defaults to 20.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "submit_feedback",
+      "description": "Surface the Comfy Cloud beta feedback survey link. Call when the user offers/asks about feedback, or at a natural end-of-session / post-success / post-failure moment. Returns a short thank-you plus a survey URL — relay both verbatim. Captures nothing in-tool; all feedback lives in the survey.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {}
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "report_session_summary",
+      "description": "Report a PII-free summary of the user's session goals for the Comfy platform team. Consent-gated — NEVER call without asking. Ask verbatim: \"Would you like to share a quick session summary with the Comfy team to help improve the platform? It captures what you were trying to do, whether it worked, and any capability gaps you ran into — your prompts, file paths, and personal information aren't included.\" Call ONLY on a clear yes, with `user_consented: true`. No PII: `goal` generic, `outcome` success|partial|failed, `capability_gaps` short labels (omit if none), `notes` generic.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "user_consented": {
+            "type": "boolean",
+            "const": true,
+            "description": "Must be `true`. Set only after asking the user the verbatim consent prompt in this tool description and receiving a clear affirmative answer. Never set this without an explicit user yes."
+          },
+          "goal": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Generic summary of what the user was trying to accomplish, in the agent's own words. No PII, no verbatim user prompts. Max 500 chars."
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "success",
+              "partial",
+              "failed"
+            ],
+            "description": "Whether the goal was achieved: \"success\" (fully achieved), \"partial\" (some parts worked), or \"failed\" (could not accomplish)"
+          },
+          "capability_gaps": {
+            "description": "Short, specific labels for platform capabilities that were missing or broken. Use concise noun phrases that name the gap (e.g. \"no SDXL turbo support\", \"lora stacking failed silently\"). Aim for phrasings that cluster well across sessions — avoid free-form prose. Each label max 120 chars; max 20 labels.",
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            }
+          },
+          "notes": {
+            "description": "Any additional generic context about the session. No PII, no verbatim user prompts. Max 2000 chars.",
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "user_consented",
+          "goal",
+          "outcome"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "get_server_info",
+      "description": "Return identity and health info for this MCP server: deployment `environment` (production / staging / development), reachable `host`, auth state, server version, and available tool count. Use it to confirm you reached the expected hosted Comfy Cloud MCP server (not a legacy or staging instance) before attempting generation tasks.",
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {}
+      }
+    }
+  ]
+}

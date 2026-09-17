@@ -26,12 +26,14 @@ namespace KingdomIdle.UGUI
             RefreshContent();
             _view.gameObject.SetActive(true);
             _view.transform.SetAsLastSibling();
+            if (_view.scroll != null) _view.scroll.verticalNormalizedPosition = 1f;
         }
 
         public static void Hide()
         {
             if (_view == null) return;
             _view.gameObject.SetActive(false);
+            MageTowerPopupController.RefreshIfOpen();
             // (좌측 스킬 슬롯 HUD 제거됨 — 강화/각성 결과는 별도 HUD 갱신이 필요 없다)
         }
 
@@ -65,6 +67,7 @@ namespace KingdomIdle.UGUI
             if (_view.btnEnhance != null) _view.btnEnhance.onClick.AddListener(OnEnhanceClicked);
             if (_view.btnAwaken != null) _view.btnAwaken.onClick.AddListener(OnAwakenClicked);
             if (_view.btnReset != null) _view.btnReset.onClick.AddListener(OnResetClicked);
+            if (_view.btnBloom != null) _view.btnBloom.onClick.AddListener(OnBloomClicked);
 
             _view.gameObject.SetActive(false);
             return true;
@@ -79,12 +82,18 @@ namespace KingdomIdle.UGUI
             if (so == null) { Hide(); return; }
 
             if (_view.titleLabel != null) _view.titleLabel.text = so.nameKor;
+            if (_view.stateLabel != null)
+            {
+                _view.stateLabel.text = mgr.IsEquipped(_skillId) ? "장착 중" : mgr.IsOwned(_skillId) ? "보유" : "미보유";
+                _view.stateLabel.color = MageSkillPresentation.Accent;
+            }
+            if (_view.descriptionLabel != null) _view.descriptionLabel.text = so.description;
 
             if (_view.icon != null)
             {
                 if (so.icon != null)
                 {
-                    _view.icon.sprite = so.icon;
+                    _view.icon.sprite = so.DisplayIcon(mgr.IsBloomEnabled(_skillId));
                     _view.icon.enabled = true;
                 }
                 else
@@ -99,9 +108,10 @@ namespace KingdomIdle.UGUI
             long effDmg = mgr.GetEffectiveDamage(_skillId);
             float effCd = mgr.GetEffectiveCooldown(_skillId);
 
-            if (_view.lblBaseDmg != null) _view.lblBaseDmg.text = $"기본 데미지: {NumberNotation.Format(so.BaseDamage)}";
+            string powerLabel = so.IsHealing ? "회복" : "피해";
+            if (_view.lblBaseDmg != null) _view.lblBaseDmg.text = $"기본 1회 {powerLabel}: {NumberNotation.Format(so.BaseDamage)}";
             if (_view.lblBaseCd != null) _view.lblBaseCd.text = $"기본 쿨타임: {so.baseCooldown:F1}s";
-            if (_view.lblEffDmg != null) _view.lblEffDmg.text = $"최종 데미지: {NumberNotation.Format(effDmg)}";
+            if (_view.lblEffDmg != null) _view.lblEffDmg.text = $"강화 1회 {powerLabel}: {NumberNotation.Format(effDmg)}";
             if (_view.lblEffCd != null) _view.lblEffCd.text = $"최종 쿨타임: {effCd:F1}s";
 
             // enhance
@@ -119,6 +129,16 @@ namespace KingdomIdle.UGUI
             if (_view.lblAwkCost != null) _view.lblAwkCost.text = aLv >= 10 ? "MAX · 다음 각성 없음" : $"비용: 파편 {awkCost}개 (보유: {frags})";
             if (_view.btnAwaken != null) _view.btnAwaken.interactable = mgr.CanAwaken(_skillId);
             if (_view.btnAwakenLabel != null) _view.btnAwakenLabel.text = aLv >= so.maxAwakeningLevel ? "최대 각성" : "각성하기";
+
+            bool bloomUnlocked = mgr.IsBloomUnlocked(_skillId);
+            bool bloomEnabled = mgr.IsBloomEnabled(_skillId);
+            if (_view.bloomTitle != null) _view.bloomTitle.text = $"개화: {so.bloomName}";
+            if (_view.bloomDescription != null) _view.bloomDescription.text = so.bloomDescription;
+            if (_view.bloomStatus != null) _view.bloomStatus.text = bloomUnlocked
+                ? "다음 시전부터 적용됩니다."
+                : $"각성 {MageSkillRules.BloomAwakening}레벨에 개방 · 현재 {aLv}레벨";
+            if (_view.btnBloom != null) _view.btnBloom.interactable = bloomUnlocked;
+            if (_view.btnBloomLabel != null) _view.btnBloomLabel.text = !bloomUnlocked ? "각성 10레벨 필요" : bloomEnabled ? "개화 사용 중 · 끄기" : "개화 켜기";
 
             // reset
             long refund = mgr.GetResetRefund(_skillId);
@@ -149,6 +169,15 @@ namespace KingdomIdle.UGUI
             if (mgr == null) return;
             mgr.ResetEnhance(_skillId);
             RefreshContent();
+        }
+
+        private static void OnBloomClicked()
+        {
+            var mgr = MageTowerManager.Instance;
+            if (mgr == null) return;
+            mgr.SetBloomEnabled(_skillId, !mgr.IsBloomEnabled(_skillId));
+            RefreshContent();
+            MageTowerPopupController.RefreshIfOpen();
         }
     }
 }

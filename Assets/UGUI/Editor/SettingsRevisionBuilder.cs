@@ -43,7 +43,7 @@ namespace KingdomIdle.UGUI.Editor
             view.outsideCatcher = dim.gameObject.AddComponent<Button>();
             view.outsideCatcher.targetGraphic = dim; view.outsideCatcher.transition = Selectable.Transition.None;
             var panel = F.PixelPanel(root, "Panel", F.Catalog.kitWindow, F.FrameGold, 24, raycast: true, baseColor: UguiTheme.RusticPanelDeep);
-            F.AnchorCenter(panel.rectTransform, 960, 1640); view.panel = panel.rectTransform;
+            F.AnchorCenter(panel.rectTransform, 960, 1420); view.panel = panel.rectTransform;
             F.VLayout(panel.gameObject, 12, new RectOffset(28, 28, 20, 24));
             F.CornerBrackets(panel.transform);
 
@@ -54,6 +54,10 @@ namespace KingdomIdle.UGUI.Editor
             view.btnClose = F.TextButton(header, "BtnClose", "닫기", 28, UguiTheme.RusticSurface, out _);
             F.Preferred((RectTransform)view.btnClose.transform, width: 140, height: 112);
             view.lblServer = Text(panel.transform, "LblServer", "변경 즉시 적용 · 자동 저장", 26, 42);
+
+            var tabs=F.Container(panel.transform,"Tabs");F.HLayout(tabs.gameObject,10,null,TextAnchor.MiddleCenter,expandWidth:true);F.Preferred(tabs,height:96);
+            view.tabs=new Button[3];string[] tabNames={"표시","소리","기기"};
+            for(int i=0;i<3;i++) { view.tabs[i]=F.TextButton(tabs,"Tab"+i,tabNames[i],32,UguiTheme.RusticSurfaceDark,out _);F.Flexible((RectTransform)view.tabs[i].transform,flexWidth:1);F.Preferred((RectTransform)view.tabs[i].transform,height:96); }
 
             view.scroll = F.VScroll(panel.transform, "SettingsScroll", out var content, 12, new RectOffset(2, 12, 4, 12));
             F.Flexible((RectTransform)view.scroll.transform, flexHeight: 1);
@@ -68,6 +72,10 @@ namespace KingdomIdle.UGUI.Editor
             scrollbar.handleRect = scrollThumb.rectTransform; scrollbar.direction = Scrollbar.Direction.BottomToTop;
             scrollbar.interactable = false; scrollbar.transition = Selectable.Transition.None;
             view.scroll.verticalScrollbar = scrollbar; view.scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+            var pagesRoot=content;
+            var display=Page(pagesRoot,"DisplayPage");var sound=Page(pagesRoot,"SoundPage");var device=Page(pagesRoot,"DevicePage");
+            view.pages=new[]{display.gameObject,sound.gameObject,device.gameObject};
+            content=display;
             Section(content, "숫자 표시");
             var formats = F.Container(content, "NumberFormats"); F.HLayout(formats.gameObject, 10, null, TextAnchor.MiddleCenter, expandWidth: true);
             F.Preferred(formats, height: 132);
@@ -82,16 +90,23 @@ namespace KingdomIdle.UGUI.Editor
             view.numberPreview = Text(content, "NumberPreview", "표시 예시   12.34K  ·  1.23B\n재화 · 피해 · 능력치에 적용", 27, 86);
             view.numberHint = Text(content, "NumberHint", "K → M → B → T → Qa → Qi\n정확한 재화는 상단 재화를 눌러 확인", 25, 84);
 
+            content=sound;
             Section(content, "소리");
             view.btnMute = F.TextButton(content, "BtnMute", "음소거 끔", 30, UguiTheme.RusticSurface, out _);
             view.btnMuteBg = view.btnMute.GetComponent<Image>(); F.Preferred((RectTransform)view.btnMute.transform, height: 116);
             view.sldVolume = Volume(content, "SldVolume", "전체 음량", out view.lblVolume);
             view.sldMusic = Volume(content, "SldMusic", "배경음", out view.lblMusic);
             view.sldEffects = Volume(content, "SldEffects", "효과음", out view.lblEffects);
+            view.sldGuard = Volume(content, "SldGuard", "왕국군", out view.lblGuard);
+            view.sldMonsters = Volume(content, "SldMonsters", "몬스터", out view.lblMonsters);
+            view.sldSpells = Volume(content, "SldSpells", "마탑 스킬", out view.lblSpells);
+            view.sldInterface = Volume(content, "SldInterface", "메뉴 조작", out view.lblInterface);
+            content=display;
             Section(content, "전투 표시");
             view.tglDamageText = Toggle(content, "DamageText", "피해 숫자 표시", "전투 중 발생한 피해량 표시");
             view.tglScreenShake = Toggle(content, "ScreenShake", "화면 흔들림", "강한 스킬의 카메라 흔들림");
             view.tglHideItem = Toggle(content, "HideItem", "사냥 장비 알림 숨기기", "장비는 알림과 관계없이 획득");
+            content=device;
             Section(content, "기기와 성능");
             view.tglPowerSave = Toggle(content, "PowerSave", "절전 모드", "화면을 초당 30프레임으로 표시");
             view.tglLowSpec = Toggle(content, "LowSpec", "저사양 모드", "장식과 피해 숫자의 움직임 간소화");
@@ -99,11 +114,18 @@ namespace KingdomIdle.UGUI.Editor
             Section(content, "저장 정보");
             view.btnGoogleChip = F.TextButton(content, "BtnGoogleChip", "진행 데이터는 현재 기기에 저장됩니다", 26, UguiTheme.RusticSurfaceDark, out _);
             view.btnGoogleChip.interactable = false; F.Preferred((RectTransform)view.btnGoogleChip.transform, height: 76);
-            view.lblVersion = Text(content, "LblVersion", "Version " + Application.version, 24, 42);
+            view.lblVersion = Text(content, "LblVersion", "v" + Application.version, 24, 42);
+            sound.gameObject.SetActive(false);device.gameObject.SetActive(false);
             view.btnSaveClose = F.TextButton(panel.transform, "BtnSaveClose", "완료", 36, UguiTheme.BtnConfirm, out _);
             F.Preferred((RectTransform)view.btnSaveClose.transform, height: 132);
             var result = PrefabGenUtil.SavePrefab(root.gameObject, PrefabGenUtil.PrefabRoot + "/Overlays/Overlay_Settings.prefab");
             return result;
+        }
+        static RectTransform Page(Transform parent,string name)
+        {
+            var page=F.Container(parent,name);F.VLayout(page.gameObject,12,null,TextAnchor.UpperLeft,expandWidth:true);
+            var fit=page.gameObject.AddComponent<ContentSizeFitter>();fit.verticalFit=ContentSizeFitter.FitMode.PreferredSize;
+            return page;
         }
         static TMP_Text Text(Transform parent, string name, string value, float size, float height)
         {

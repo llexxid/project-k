@@ -21,6 +21,14 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal TMP_Text prereqLabel; // 선행 조건 미충족
 
         public Button Button => button;
+        public void SetComingSoon(JobData spearman, bool elite)
+        {
+            Set(spearman, UguiTheme.RusticSurfaceDark, null, elite ? "2차" : "1차", UguiTheme.TextSecondary,
+                "", "", UguiTheme.TextSecondary, null);
+            if (image != null) { image.sprite=spearman?.Portrait; image.color=new Color(.16f,.16f,.18f,1); image.preserveAspect=true; }
+            if (nameLabel != null) nameLabel.text="곧 추가 예정";
+            if (button != null) { button.onClick.RemoveAllListeners(); button.interactable=false; }
+        }
 
         public void Set(JobData job, Color bgColor, Color? frameColor,
             string badgeText, Color badgeColor,
@@ -45,6 +53,7 @@ namespace KingdomIdle.UGUI
             if (image != null)
             {
                 image.sprite = job != null ? job.Portrait : null;
+                image.color = Color.white;
                 image.enabled = image.sprite != null;
                 image.gameObject.SetActive(image.sprite != null);
             }

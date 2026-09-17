@@ -1,0 +1,53 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 11f95f76c71a4e346a934226c4907876, type: 3}
+  m_Name: MageTowerSkill_Meteor
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomIdle.MageTower.MageTowerSkillSO
+  id: 8
+  nameEng: Meteor
+  nameKor: "\uC6B4\uC11D \uB099\uD558"
+  icon: {fileID: 21300000, guid: c3b5ba21e15075d43b83258e739f03c2, type: 3}
+  bloomIcon: {fileID: 21300000, guid: fa23c9d3b71252e438eae9623d0d2b28, type: 3}
+  baseCooldown: 16
+  maxEnhanceLevel: 100
+  maxAwakeningLevel: 10
+  prefab: {fileID: 2268734243505057030, guid: 16d6431c20379774aaa223df4773b0cf, type: 3}
+  spellKind: 8
+  description: "\uC6B4\uC11D\uC744 \uB5A8\uC5B4\uB728\uB824 \uC8FC\uBCC0 \uC801\uC744
+    \uACF5\uACA9\uD569\uB2C8\uB2E4. \uB0A8\uC740 \uBD88\uAE38\uC774 \uB450 \uBC88
+    \uB354 \uD53C\uD574\uB97C \uC90D\uB2C8\uB2E4."
+  basePower: 260
+  baseHits: 1
+  radius: 1.55
+  duration: 0.8
+  tickInterval: 0.8
+  controlDuration: 0
+  slowFraction: 0
+  secondaryPowerRatio: 0.13461539
+  maxTargets: 6
+  castingPrefab: {fileID: 2702880482897508517, guid: afa49c6ac159a724bb5844f193e1ec3c,
+    type: 3}
+  secondaryPrefab: {fileID: 2099301324405595776, guid: c79d685a284eb9848ac9d78e5c81a695,
+    type: 3}
+  bloomName: "\uBBF8\uC815"
+  bloomDescription: "\uD53C\uD574\uB7C9 +15%. \uC804\uC6A9 \uD6A8\uACFC\uB294 \uC900\uBE44
+    \uC911\uC785\uB2C8\uB2E4."
+  bloomCooldownMultiplier: 1
+  bloomPowerMultiplier: 1.15
+  bloomAreaPowerMultiplier: 0.5
+  bloomControlDuration: 2
+  bloomMaxTargets: 10
+  bloomPrefab: {fileID: 0}
+  bloomCastingPrefab: {fileID: 0}
+  sfxName: Fire_Tornado_SFX
+  sfxLoopName: 
+  effects: []

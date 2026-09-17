@@ -14,6 +14,7 @@ public class SkillSystem
 
     /// <summary>기본공격 사거리 (Move 정지 거리 · Detection 반경 결정).</summary>
     public float AttackRange { get; private set; }
+    public bool IsRanged { get; private set; }
 
     // ── UI 표시 슬롯 (최대 3) ──
     public struct DisplaySlot
@@ -45,15 +46,17 @@ public class SkillSystem
         _specials.Clear();
         _busyUntil = 0f;
         AttackRange = 2f;
+        IsRanged = false;
         for (int i = 0; i < 3; i++) _slots[i] = default;
 
-        if (data == null) return;
+        if (data == null || !JobData.IsAvailable(data.jobName)) return;
 
         // ── 기본공격 ──
         if (data.basicAttack != null)
         {
             _basicAttack = CreateBasicAttack(data.basicAttack);
             AttackRange = data.basicAttack.range;
+            IsRanged = data.basicAttack.type == BasicAttackType.Projectile;
             SetSlot(0, "기본공격", false);
         }
 
@@ -244,7 +247,7 @@ public class SkillSystem
                 {
                     new SkillInfo { Name = "기본공격", IsPassive = false, Description = "전방 직사각형 범위 공격" },
                     new SkillInfo { Name = "수호의 오라", IsPassive = true, Description = "팀 전체 HP +10%" },
-                    new SkillInfo { Name = "강철 의지", IsPassive = false, Description = "HP 50% 미만 시 5초간 최대 HP의 20% 회복" }
+                    new SkillInfo { Name = "강철 의지", IsPassive = false, Description = "HP 50% 미만 시 5초간 최대 HP의 20% 보호막. 주변 적을 도발하며, 기사 사망 전까지 유지됩니다. 먼저 걸린 도발은 바뀌지 않습니다." }
                 };
             case "Archer":
                 return new[]
@@ -270,7 +273,7 @@ public class SkillSystem
                 {
                     new SkillInfo { Name = "기본공격", IsPassive = false, Description = "직선 투사체 + 소범위 폭발" },
                     new SkillInfo { Name = "마력의 오라", IsPassive = true, Description = "팀 ATK +5% · HP +5%" },
-                    new SkillInfo { Name = "에너지 파동", IsPassive = false, Description = "원형 범위 피해 + 넉백" }
+                    new SkillInfo { Name = "에너지 파동", IsPassive = false, Description = "주변 적에게 피해를 주고 밀어내며 1.25초 기절시킵니다. 보스는 밀려나거나 기절하지 않습니다." }
                 };
             default:
                 return System.Array.Empty<SkillInfo>();

@@ -14,8 +14,6 @@ namespace KingdomIdle.UGUI.Editor
         public static void RunAll()
         {
             // 1. 카드 SO 재생성 (concept 필드 반영) + 생성 아트 배선
-            Divine.EditorTools.DivineSkillAssetGen.GenerateAll();
-            Divine.EditorTools.DivineArtWire.WireAll();
             JobPortraitWire.WireAll();
             MageTower.EditorTools.MageTowerArtWire.WireAll();
 

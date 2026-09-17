@@ -29,7 +29,7 @@ namespace Scripts.Core
 		AudioSource _crossfadeSource;
 		AudioSource _activeMusic;
 		Coroutine _playlistRoutine;
-		eSFXType _musicId;
+		[System.NonSerialized] eSFXType _musicId;
 		int _musicRequest;
 		bool _applicationPaused;
 		float _bgmGain, _crossfadeGain;

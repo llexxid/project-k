@@ -16,6 +16,10 @@ namespace KingdomIdle.UGUI
     {
         [Serializable] class Command { public string id, action; public int value; }
         string _directory;
+        float _resumeAt;
+        void Update() { if(_resumeAt>0 && Time.unscaledTime>=_resumeAt)Resume(); }
+        void Resume() { if(_resumeAt>0)Time.timeScale=1;_resumeAt=0; }
+        void OnApplicationPause(bool paused) { if(!paused)Resume(); }
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Install() => DontDestroyOnLoad(new GameObject("BattleHudDeviceProbe", typeof(BattleHudDeviceProbe)));
         IEnumerator Start()
@@ -34,10 +38,11 @@ namespace KingdomIdle.UGUI
                     try
                     {
                         command=JsonConvert.DeserializeObject<Command>(File.ReadAllText(path)); File.Delete(path);
-                        if(command.action=="pause") Time.timeScale=command.value==1?0:1;
+                        if(command.action=="pause") { Time.timeScale=command.value==1?0:1;_resumeAt=command.value==1?Time.unscaledTime+15:0; }
                         if(command.action=="quest")
                         {
                             Time.timeScale=0;
+                            _resumeAt=Time.unscaledTime+15;
                             var manager=QuestManager.Instance;
                             var state=manager.GetActiveGuideState();
                             if(state.QuestId==1) { state.IsCompleted=true; manager.ClaimQuestReward(1); }

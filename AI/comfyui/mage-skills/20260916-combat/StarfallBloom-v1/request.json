@@ -1,0 +1,84 @@
+{
+  "workflow": {
+    "1": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": "7e84c66635074d17b16d42cb424741f2d4299c94f93a9964db4957a01c841df2.png"
+      }
+    },
+    "2": {
+      "class_type": "ImageScale",
+      "inputs": {
+        "image": [
+          "1",
+          0
+        ],
+        "upscale_method": "nearest-exact",
+        "width": 768,
+        "height": 768,
+        "crop": "disabled"
+      }
+    },
+    "10": {
+      "class_type": "GeminiNanoBanana2V2",
+      "inputs": {
+        "prompt": "Edit the reference pixel-art falling-star spell icon into its subtly awakened variant. Preserve the same THREE stars in their exact positions and diagonal direction: bright diamond heads at lower left, tails extending upper right. Preserve at least 85 percent of the composition. Add only a slim muted periwinkle highlight on each tail and two tiny silver glints in the negative space. The icon must remain instantly recognizable as the same spell at 48x48. Keep dark charcoal-blue background, steel blue and ivory heads, maximum 12 colors, crisp chunky 48px logical grid, no smooth gradients, no bloom fog, no borders, text, faces, extra stars or purple wash. Overall brightness only slightly above the reference. Square canvas, nearest-neighbor pixel finish.",
+        "model": "Nano Banana 2 (Gemini 3.1 Flash Image)",
+        "model.aspect_ratio": "1:1",
+        "model.resolution": "1K",
+        "model.thinking_level": "MINIMAL",
+        "model.images.image_1": [
+          "2",
+          0
+        ],
+        "seed": 91632,
+        "response_modalities": "IMAGE"
+      }
+    },
+    "15": {
+      "class_type": "SaveImage",
+      "inputs": {
+        "images": [
+          "10",
+          0
+        ],
+        "filename_prefix": "KingdomIdle/CombatRevision/StarfallBloom_Master"
+      }
+    },
+    "20": {
+      "class_type": "ImageScale",
+      "inputs": {
+        "image": [
+          "10",
+          0
+        ],
+        "upscale_method": "nearest-exact",
+        "width": 48,
+        "height": 48,
+        "crop": "disabled"
+      }
+    },
+    "30": {
+      "class_type": "ImageQuantize",
+      "inputs": {
+        "image": [
+          "20",
+          0
+        ],
+        "colors": 12,
+        "dither": "none"
+      }
+    },
+    "40": {
+      "class_type": "SaveImage",
+      "inputs": {
+        "images": [
+          "30",
+          0
+        ],
+        "filename_prefix": "KingdomIdle/CombatRevision/StarfallBloom_48px"
+      }
+    }
+  },
+  "confirm": true
+}

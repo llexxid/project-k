@@ -1,0 +1,52 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "Batch batch_eyJ2IjoxLCJpdGVtcyI6W3siaWQiOiIxNTc5YmU2YS1lNGYxLTRlY2QtOGFjZi0zODgwMWQwMThlYTQiLCJsYWJlbCI6ImJ1aWx0aW4tbmVhcmVzdCJ9LHsiaWQiOiIyMDYwNjVjNC03MjVjLTQyNDItOWQ2MC0yNjljZTAzYjAyZTkiLCJsYWJlbCI6ImJ1aWx0aW4tay1jZW50cm9pZCJ9LHsiaWQiOiJmNDQ1NTU3OS0xOWQyLTQ1MDAtOTljNy1iYjMxNjQ5NWNkNTAiLCJsYWJlbCI6Im5hbm8tbmVhcmVzdCJ9LHsiaWQiOiIzMDI0MzIyZS0yODUyLTQxYjUtYjJhZS0zOTdmNDA0YzZlMzQiLCJsYWJlbCI6Im5hbm8tay1jZW50cm9pZCJ9XX0: 0 ready, 0 pending, 4 failed (of 4). All jobs are terminal \u2014 call get_batch_output to collect ready outputs."
+    }
+  ],
+  "structuredContent": {
+    "batch_id": "batch_eyJ2IjoxLCJpdGVtcyI6W3siaWQiOiIxNTc5YmU2YS1lNGYxLTRlY2QtOGFjZi0zODgwMWQwMThlYTQiLCJsYWJlbCI6ImJ1aWx0aW4tbmVhcmVzdCJ9LHsiaWQiOiIyMDYwNjVjNC03MjVjLTQyNDItOWQ2MC0yNjljZTAzYjAyZTkiLCJsYWJlbCI6ImJ1aWx0aW4tay1jZW50cm9pZCJ9LHsiaWQiOiJmNDQ1NTU3OS0xOWQyLTQ1MDAtOTljNy1iYjMxNjQ5NWNkNTAiLCJsYWJlbCI6Im5hbm8tbmVhcmVzdCJ9LHsiaWQiOiIzMDI0MzIyZS0yODUyLTQxYjUtYjJhZS0zOTdmNDA0YzZlMzQiLCJsYWJlbCI6Im5hbm8tay1jZW50cm9pZCJ9XX0",
+    "summary": {
+      "total": 4,
+      "ready": 0,
+      "pending": 0,
+      "failed": 4,
+      "not_attempted": 0
+    },
+    "jobs": [
+      {
+        "id": "1579be6a-e4f1-4ecd-8acf-38801d018ea4",
+        "label": "builtin-nearest",
+        "state": "failed",
+        "ready": false,
+        "raw_status": "failed",
+        "error": "No module named 'pixeloe.pixelize'\n"
+      },
+      {
+        "id": "206065c4-725c-4242-9d60-269ce03b02e9",
+        "label": "builtin-k-centroid",
+        "state": "failed",
+        "ready": false,
+        "raw_status": "failed",
+        "error": "No module named 'pixeloe.pixelize'\n"
+      },
+      {
+        "id": "f4455579-19d2-4500-99c7-bb316495cd50",
+        "label": "nano-nearest",
+        "state": "failed",
+        "ready": false,
+        "raw_status": "failed",
+        "error": "No module named 'pixeloe.pixelize'\n"
+      },
+      {
+        "id": "3024322e-2852-41b5-b2ae-397f404c6e34",
+        "label": "nano-k-centroid",
+        "state": "failed",
+        "ready": false,
+        "raw_status": "failed",
+        "error": "No module named 'pixeloe.pixelize'\n"
+      }
+    ]
+  }
+}

@@ -12,6 +12,8 @@ namespace Scripts.Core
     {
         private AudioSource _source;
         private CancellationTokenSource _token;
+        private float _effectGain = 1f;
+        private KingdomIdle.UGUI.SoundChannel _channel;
         public bool IsActive { get; set; }
 
         private void Awake()
@@ -64,6 +66,19 @@ namespace Scripts.Core
             AutoRelease(clip.length * 1000.0f).Forget();
         }
 
+        public void PlayOneShot(float gain, float pitch = 1f, KingdomIdle.UGUI.SoundChannel channel = KingdomIdle.UGUI.SoundChannel.General)
+        {
+            _channel = channel;
+            _effectGain = Mathf.Clamp01(gain);
+            _source.pitch = Mathf.Clamp(pitch, .7f, 1.3f);
+            _source.loop = false;
+            ApplyVolume();
+            var clip = _source.clip;
+            if (clip == null) { SFXManager.Instance.DestroySFX(this); return; }
+            _source.Play();
+            AutoRelease(clip.length / _source.pitch * 1000f).Forget();
+        }
+
         // 루프 재생 — 호출자가 StopSFX() + SFXManager.DestroySFX()로 직접 해제해야 함
         public void PlaySFXLoop()
         {
@@ -90,6 +105,9 @@ namespace Scripts.Core
 
         public void OnAlloc()
         {
+            _effectGain = 1f;
+            _channel = KingdomIdle.UGUI.SoundChannel.General;
+            _source.pitch = 1f;
             ApplyVolume();
             return;
         }
@@ -102,7 +120,7 @@ namespace Scripts.Core
             _source.volume = 0;
             return;
         }
-        private void ApplyVolume() { if (_source != null) _source.volume = KingdomIdle.UGUI.GameAudioSettings.Effects; }
+        private void ApplyVolume() { if (_source != null) _source.volume = KingdomIdle.UGUI.GameAudioSettings.Gain(_channel) * _effectGain; }
     }
 }
 

@@ -1,0 +1,458 @@
+[
+  {
+    "tag": "thunder-peak",
+    "peakMs": 1980,
+    "visuals": [
+      {
+        "name": "LightningBloomStrike(Clone)",
+        "generation": 1,
+        "position": [
+          0.0,
+          1.50110912
+        ],
+        "renderers": [
+          {
+            "name": "Layer0",
+            "sprite": "ThunderViolet_1",
+            "alpha": 0.92,
+            "size": [
+              2.65,
+              4.2
+            ],
+            "order": 2
+          },
+          {
+            "name": "Layer1",
+            "sprite": "ThunderImpactViolet_1",
+            "alpha": 0.8,
+            "size": [
+              3.9,
+              2.7
+            ],
+            "order": 3
+          }
+        ]
+      },
+      {
+        "name": "LightningBloomCloud(Clone)",
+        "generation": 2,
+        "position": [
+          0.0,
+          3.301109
+        ],
+        "renderers": [
+          {
+            "name": "Layer0",
+            "sprite": "LightningCloud",
+            "alpha": 1.0,
+            "size": [
+              3.8,
+              1.45
+            ],
+            "order": 2
+          },
+          {
+            "name": "Layer1",
+            "sprite": "CloudSparksViolet_2",
+            "alpha": 0.8,
+            "size": [
+              2.8,
+              1.3
+            ],
+            "order": 3
+          }
+        ]
+      }
+    ],
+    "events": [
+      {
+        "skill": 0,
+        "kind": "begin",
+        "target": "OrcBrute(Clone)",
+        "amount": 0,
+        "bloom": true,
+        "time": 154.708359
+      }
+    ]
+  },
+  {
+    "tag": "stone-readable",
+    "peakMs": 590,
+    "visuals": [
+      {
+        "name": "StoneSeal(Clone)",
+        "generation": 5,
+        "position": [
+          1.0456326,
+          0.06280308
+        ],
+        "renderers": [
+          {
+            "name": "Layer0",
+            "sprite": "EarthRock_2",
+            "alpha": 1.0,
+            "size": [
+              1.8,
+              1.8
+            ],
+            "order": 2
+          },
+          {
+            "name": "Layer1",
+            "sprite": "EarthRock_2",
+            "alpha": 1.0,
+            "size": [
+              2.3,
+              2.3
+            ],
+            "order": 3
+          },
+          {
+            "name": "Layer2",
+            "sprite": "EarthRock_2",
+            "alpha": 1.0,
+            "size": [
+              1.6,
+              1.6
+            ],
+            "order": 4
+          }
+        ]
+      }
+    ],
+    "events": [
+      {
+        "skill": 5,
+        "kind": "begin",
+        "target": "OrcTaskmaster(Clone)",
+        "amount": 0,
+        "bloom": false,
+        "time": 176.286346
+      },
+      {
+        "skill": 5,
+        "kind": "damage",
+        "target": "OrcWarrior(Clone)",
+        "amount": 244,
+        "bloom": false,
+        "time": 176.859
+      },
+      {
+        "skill": 5,
+        "kind": "damage",
+        "target": "OrcTaskmaster(Clone)",
+        "amount": 244,
+        "bloom": false,
+        "time": 176.859
+      },
+      {
+        "skill": 5,
+        "kind": "damage",
+        "target": "OrcTaskmaster(Clone)",
+        "amount": 244,
+        "bloom": false,
+        "time": 176.859
+      }
+    ]
+  },
+  {
+    "tag": "meteor-flight",
+    "peakMs": 660,
+    "visuals": [
+      {
+        "name": "GroundTelegraph(Clone)",
+        "generation": 5,
+        "position": [
+          1.09754968,
+          0.177250952
+        ],
+        "renderers": [
+          {
+            "name": "Layer0",
+            "sprite": "HolyBlessing_0",
+            "alpha": 0.45,
+            "size": [
+              3.6,
+              2.5
+            ],
+            "order": 2
+          }
+        ]
+      },
+      {
+        "name": "Meteor(Clone)",
+        "generation": 2,
+        "position": [
+          2.51438332,
+          2.160818
+        ],
+        "renderers": [
+          {
+            "name": "Layer0",
+            "sprite": "MeteorProjectile",
+            "alpha": 1.0,
+            "size": [
+              2.0,
+              2.0
+            ],
+            "order": 2
+          }
+        ]
+      }
+    ],
+    "events": [
+      {
+        "skill": 8,
+        "kind": "begin",
+        "target": "OrcWarrior(Clone)",
+        "amount": 0,
+        "bloom": false,
+        "time": 194.638367
+      }
+    ]
+  },
+  {
+    "tag": "ice-low-visible",
+    "peakMs": 180,
+    "visuals": [
+      {
+        "name": "IceSpike(Clone)",
+        "generation": 2,
+        "position": [
+          2.16648769,
+          -0.8206175
+        ],
+        "renderers": [
+          {
+            "name": "Layer0",
+            "sprite": "IceSpike_2",
+            "alpha": 1.0,
+            "size": [
+              1.8,
+              1.8
+            ],
+            "order": 2
+          }
+        ]
+      },
+      {
+        "name": "IceSpike(Clone)",
+        "generation": 2,
+        "position": [
+          0.661256731,
+          -0.010805577
+        ],
+        "renderers": [
+          {
+            "name": "Layer0",
+            "sprite": "IceSpike_2",
+            "alpha": 1.0,
+            "size": [
+              1.8,
+              1.8
+            ],
+            "order": 2
+          }
+        ]
+      },
+      {
+        "name": "IceSpike(Clone)",
+        "generation": 2,
+        "position": [
+          0.619083047,
+          -0.0268795043
+        ],
+        "renderers": [
+          {
+            "name": "Layer0",
+            "sprite": "IceSpike_2",
+            "alpha": 1.0,
+            "size": [
+              1.8,
+              1.8
+            ],
+            "order": 2
+          }
+        ]
+      },
+      {
+        "name": "IceSpike(Clone)",
+        "generation": 2,
+        "position": [
+          -0.05428943,
+          -0.631532431
+        ],
+        "renderers": [
+          {
+            "name": "Layer0",
+            "sprite": "IceSpike_2",
+            "alpha": 1.0,
+            "size": [
+              1.8,
+              1.8
+            ],
+            "order": 2
+          }
+        ]
+      }
+    ],
+    "events": [
+      {
+        "skill": 1,
+        "kind": "begin",
+        "target": "OrcTaskmaster(Clone)",
+        "amount": 0,
+        "bloom": true,
+        "time": 212.620468
+      },
+      {
+        "skill": 1,
+        "kind": "damage",
+        "target": "OrcWarrior(Clone)",
+        "amount": 75,
+        "bloom": true,
+        "time": 212.793961
+      },
+      {
+        "skill": 1,
+        "kind": "damage",
+        "target": "OrcTaskmaster(Clone)",
+        "amount": 75,
+        "bloom": true,
+        "time": 212.793961
+      },
+      {
+        "skill": 1,
+        "kind": "damage",
+        "target": "OrcWarrior(Clone)",
+        "amount": 75,
+        "bloom": true,
+        "time": 212.793961
+      },
+      {
+        "skill": 1,
+        "kind": "damage",
+        "target": "OrcTaskmaster(Clone)",
+        "amount": 75,
+        "bloom": true,
+        "time": 212.793961
+      },
+      {
+        "skill": 1,
+        "kind": "damage",
+        "target": "OrcHunter(Clone)",
+        "amount": 75,
+        "bloom": true,
+        "time": 212.793961
+      },
+      {
+        "skill": 1,
+        "kind": "damage",
+        "target": "OrcShaman(Clone)",
+        "amount": 75,
+        "bloom": true,
+        "time": 212.793961
+      },
+      {
+        "skill": 1,
+        "kind": "damage",
+        "target": "OrcWarrior(Clone)",
+        "amount": 75,
+        "bloom": true,
+        "time": 212.793961
+      },
+      {
+        "skill": 1,
+        "kind": "damage",
+        "target": "OrcTaskmaster(Clone)",
+        "amount": 75,
+        "bloom": true,
+        "time": 212.793961
+      }
+    ]
+  },
+  {
+    "tag": "thunder-impact",
+    "peakMs": 2070,
+    "visuals": [
+      {
+        "name": "LightningBloomStrike(Clone)",
+        "generation": 2,
+        "position": [
+          0.5660556,
+          0.215631709
+        ],
+        "renderers": [
+          {
+            "name": "Layer0",
+            "sprite": "ThunderViolet_2",
+            "alpha": 0.92,
+            "size": [
+              2.65,
+              4.2
+            ],
+            "order": 2
+          },
+          {
+            "name": "Layer1",
+            "sprite": "ThunderImpactViolet_2",
+            "alpha": 0.8,
+            "size": [
+              3.9,
+              2.7
+            ],
+            "order": 3
+          }
+        ]
+      },
+      {
+        "name": "LightningBloomCloud(Clone)",
+        "generation": 3,
+        "position": [
+          0.5660556,
+          2.01563168
+        ],
+        "renderers": [
+          {
+            "name": "Layer0",
+            "sprite": "LightningCloud",
+            "alpha": 0.496787727,
+            "size": [
+              3.8,
+              1.45
+            ],
+            "order": 2
+          },
+          {
+            "name": "Layer1",
+            "sprite": "CloudSparksViolet_3",
+            "alpha": 0.397430182,
+            "size": [
+              2.8,
+              1.3
+            ],
+            "order": 3
+          }
+        ]
+      }
+    ],
+    "events": [
+      {
+        "skill": 0,
+        "kind": "begin",
+        "target": "OrcBrute(Clone)",
+        "amount": 0,
+        "bloom": true,
+        "time": 264.577057
+      },
+      {
+        "skill": 0,
+        "kind": "damage",
+        "target": "OrcBrute(Clone)",
+        "amount": 2660,
+        "bloom": true,
+        "time": 266.581482
+      }
+    ]
+  }
+]

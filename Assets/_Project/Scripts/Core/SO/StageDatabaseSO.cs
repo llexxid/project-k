@@ -24,6 +24,9 @@ namespace Scripts.Core.SO
         [SerializeField] private ulong _bgmTypeValue;
         [SerializeField] private bool _enabled;
         [SerializeField] private List<StageMonsterEntry> _monsterEntries;
+        [SerializeField] private StageEncounterData _encounter;
+        public StageEncounterData Encounter => _encounter;
+        public void SetEncounter(StageEncounterData encounter) => _encounter = encounter;
 
         public eStage Id => (eStage)_idValue;
         public eStageFlowType FlowType => _flowType;
@@ -132,7 +135,7 @@ namespace Scripts.Core.SO
     }
 
     /// <summary>
-    /// Stage_Revised.xlsx를 Unity가 런타임에 읽을 수 있는 형태로 변환한 데이터베이스다.
+    /// Stage_Catalog.xlsx를 Unity가 런타임에 읽을 수 있는 형태로 변환한 데이터베이스다.
     /// 엑셀은 빌드에 포함하지 않고, Editor 생성기가 이 SO의 직렬화 목록을 갱신한다.
     /// </summary>
     [CreateAssetMenu(fileName = "StageDatabaseSO", menuName = "SO/Stage Database")]
@@ -141,6 +144,16 @@ namespace Scripts.Core.SO
         [SerializeField] private List<StageDatabaseRecord> _stages = new List<StageDatabaseRecord>();
         [SerializeField] private List<BossFlowRecord> _bossFlows = new List<BossFlowRecord>();
         [SerializeField] private List<KillCountFlowRecord> _killCountFlows = new List<KillCountFlowRecord>();
+        [SerializeField] private string _catalogHash;
+        [SerializeField] private List<StageEnvironmentPreset> _environmentPresets = new();
+        [SerializeField] private List<CatalogMonsterInfo> _catalogMonsters = new();
+        [SerializeField] private int _dailyTickets = 2;
+        public string CatalogHash => _catalogHash;
+        public IReadOnlyList<StageEnvironmentPreset> EnvironmentPresets => _environmentPresets;
+        public IReadOnlyList<CatalogMonsterInfo> CatalogMonsters => _catalogMonsters;
+        public int DailyTickets => _dailyTickets;
+        public void SetCatalog(string hash, List<StageEnvironmentPreset> environments, List<CatalogMonsterInfo> monsters, int tickets)
+        { _catalogHash = hash; _environmentPresets = environments; _catalogMonsters = monsters; _dailyTickets = tickets; }
 
         private Dictionary<eStage, StageDatabaseRecord> _stageById;
         private Dictionary<string, BossFlowRecord> _bossFlowById;

@@ -1,0 +1,8 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"data\":[{\"name\":\"SaveAudioAdvanced\",\"display_name\":\"Save Audio (Advanced)\",\"description\":\"Saves the input audio to your ComfyUI output directory.\",\"category\":\"audio\",\"pack\":\"core\",\"inputs\":[{\"name\":\"audio\",\"type\":\"AUDIO\"},{\"name\":\"filename_prefix\",\"type\":\"STRING\"},{\"name\":\"format\",\"type\":\"COMFY_DYNAMICCOMBO_V3\",\"options\":[\"flac\",\"mp3\",\"opus\"]},{\"name\":\"format.quality\",\"type\":\"COMBO\",\"options\":[\"V0\",\"128k\",\"320k\",\"64k\",\"96k\",\"192k\"]}],\"outputs\":[\"AUDIO\"]}],\"metadata\":{\"total\":1,\"limit\":10,\"offset\":0,\"returned\":1},\"note\":\"3 deprecated match(es) hidden: \\\"SaveAudio\\\", \\\"SaveAudioMP3\\\", \\\"SaveAudioOpus\\\". Deprecated means superseded, so build new workflows with a current node from the results. If an existing workflow references a hidden node, pass its class name to get_node for the full spec. detail:'full' returns more fields; get_node returns one item uncapped.\"}"
+    }
+  ]
+}

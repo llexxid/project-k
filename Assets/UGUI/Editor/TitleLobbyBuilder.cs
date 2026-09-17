@@ -14,7 +14,7 @@ namespace KingdomIdle.UGUI.Editor
     {
         public const string ArtPath = "Assets/UGUI/Art/Lobby";
         public const string PrefabPath = "Assets/UGUI/Prefabs/Screens/Screen_Title.prefab";
-        const string KitPath = "Assets/ExternalAssets/Layer Lab/GUI Pro-MinimalGame/Shared/Sprite_Common/";
+        const string KitPath = "Assets/UGUI/Art/LayerLab/GUI Pro-MinimalGame/Shared/Sprite_Common/";
 
         [Serializable] public class ArtManifest { public Layer[] layers; }
         [Serializable] public class Layer
@@ -232,8 +232,12 @@ namespace KingdomIdle.UGUI.Editor
             langRt.anchorMin = langRt.anchorMax = new Vector2(0, 1);
             langRt.pivot = new Vector2(0, 1); langRt.sizeDelta = new Vector2(144, 144);
             langRt.anchoredPosition = new Vector2(24, -24);
-            var version = F.Text(p.footer, "Version", "", 24, new Color(.85f, .88f, .84f, .65f), TextAlignmentOptions.Center);
-            F.AnchorCenter(version.rectTransform, 400, 32, 0, -143);
+            var version = F.Text(p.transform, "Version", "", 22, new Color(1f, 1f, 1f, .42f), TextAlignmentOptions.BottomLeft);
+            version.rectTransform.anchorMin = version.rectTransform.anchorMax = Vector2.zero;
+            version.rectTransform.pivot = Vector2.zero;
+            version.rectTransform.anchoredPosition = new Vector2(24, 18);
+            version.rectTransform.sizeDelta = new Vector2(240, 32);
+            version.raycastTarget = false;
             p.versionLabel = version;
             BuildLanguagePopup(root.transform, p);
             SettingsRevisionBuilder.WireTitleButton(view);

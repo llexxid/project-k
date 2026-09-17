@@ -13,7 +13,7 @@ namespace KingdomIdle.UGUI.Editor
     public static class CompactHudBuilder
     {
         const string Root = "Assets/UGUI/Prefabs/";
-        const string Picto = "Assets/ExternalAssets/Layer Lab/GUI Pro-MinimalGame/Shared/Icons/PictoIcon/64/";
+        const string Picto = "Assets/UGUI/Art/LayerLab/GUI Pro-MinimalGame/Shared/Icons/PictoIcon/64/";
         static Sprite Rounded => AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/Sprites/RoundedRect.png");
         static TMP_FontAsset Font => AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/UGUI/Art/Font/Galmuri11 SDF.asset");
         static readonly Color Glass = new Color(.085f, .065f, .045f, .76f);
@@ -87,7 +87,7 @@ namespace KingdomIdle.UGUI.Editor
             main.btnMenuGuide.transform.Find("MenuLabel").GetComponent<TMP_Text>().text = "퀘스트 / 가이드";
             // This book is already packed in Atlas_UI; reuse it without another texture allocation.
             main.btnMenuGuide.transform.Find("Icon").GetComponent<Image>().sprite = AssetDatabase.LoadAssetAtPath<Sprite>(Picto + "book.png");
-            foreach (var button in new[] { main.btnMenuGuide, main.btnMenuInventory, main.btnMenuDivineCollection, main.btnMenuSettings })
+            foreach (var button in new[] { main.btnMenuGuide, main.btnMenuInventory, main.btnMenuSettings })
             {
                 SizeLayout(button.transform, 144);
                 Surface(button.GetComponent<Image>(), UguiTheme.RusticSurfaceDark);

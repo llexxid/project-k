@@ -1,0 +1,54 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 11f95f76c71a4e346a934226c4907876, type: 3}
+  m_Name: MageTowerSkill_VoidRift
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomIdle.MageTower.MageTowerSkillSO
+  id: 9
+  nameEng: VoidRift
+  nameKor: "\uACF5\uD5C8 \uADE0\uC5F4"
+  icon: {fileID: 21300000, guid: c5a3d293c8518ce458a89704648c771b, type: 3}
+  bloomIcon: {fileID: 21300000, guid: a743c2d303119784daa1c2bdc6079a76, type: 3}
+  baseCooldown: 20
+  maxEnhanceLevel: 100
+  maxAwakeningLevel: 10
+  prefab: {fileID: 5768236816006599004, guid: 84a065f0fea0f684c9c26bae1ad3ca0b, type: 3}
+  spellKind: 9
+  description: "\uC801\uC774 \uBAA8\uC778 \uACF3\uC758 \uD5C8\uACF5\uC5D0 \uC6D0\uD615
+    \uADE0\uC5F4\uC744 \uC5FD\uB2C8\uB2E4. \uADE0\uC5F4 \uC548\uC758 \uC801\uC744
+    \uC911\uC2EC\uC73C\uB85C \uB04C\uC5B4\uB2F9\uAE30\uBA70 \uC9C0\uC18D \uD53C\uD574\uB97C
+    \uC8FC\uACE0, \uB2EB\uD790 \uB54C \uD3ED\uBC1C\uD569\uB2C8\uB2E4. \uBCF4\uC2A4\uB294
+    \uB04C\uC5B4\uB2F9\uAE30\uC9C0 \uBABB\uD569\uB2C8\uB2E4."
+  basePower: 42
+  baseHits: 5
+  radius: 1.3
+  duration: 3
+  tickInterval: 0.6
+  controlDuration: 0.85
+  slowFraction: 0.2
+  secondaryPowerRatio: 4.285714
+  maxTargets: 6
+  castingPrefab: {fileID: 0}
+  secondaryPrefab: {fileID: 7514035301143279329, guid: 83b8efbf8113c4e40a1a54431c3fbe68,
+    type: 3}
+  bloomName: "\uBBF8\uC815"
+  bloomDescription: "\uD53C\uD574\uB7C9 +15%. \uC804\uC6A9 \uD6A8\uACFC\uB294 \uC900\uBE44
+    \uC911\uC785\uB2C8\uB2E4."
+  bloomCooldownMultiplier: 1
+  bloomPowerMultiplier: 1.15
+  bloomAreaPowerMultiplier: 0.5
+  bloomControlDuration: 2
+  bloomMaxTargets: 10
+  bloomPrefab: {fileID: 0}
+  bloomCastingPrefab: {fileID: 0}
+  sfxName: Charge_Shot_SFX
+  sfxLoopName: 
+  effects: []

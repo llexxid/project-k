@@ -1,6 +1,6 @@
 // Mobile art optimization — deterministic per-class Android texture import overrides.
 // Fidelity-first policy (approved): pixel-art gameplay -> ASTC 4x4 (near-lossless),
-// VFX -> ASTC 6x6, smooth UI -> ASTC 8x8, tiny pixel UI -> uncompressed RGBA32.
+// Pixel VFX -> ASTC 4x4, smooth UI -> ASTC 6x6, tiny pixel UI -> uncompressed RGBA32.
 // Does NOT change filterMode / PPU / mipmaps (already correct) so on-screen look is preserved.
 // Only sets the Android platform override + fixes the maxTextureSize clamp on oversized sheets.
 //
@@ -20,14 +20,11 @@ namespace KingdomIdle.EditorTools.Optimization
         static readonly string[] Roots =
         {
             "Assets/_Project/Art/Sprites",
-            "Assets/_Project/Prefabs/Monster/Sprite",
-            "Assets/_Project/Prefabs/VFX/Sprite",
-            "Assets/_Project/Prefabs/Royal_Guard_Lancer",
-            "Assets/_Project/Scripts/Player/Job",
-            "Assets/_Project/Scripts/Player/Equipment/Sprite",
-            "Assets/MageTower/Prefabs",
+            "Assets/_Project/Art/VFX",
+            "Assets/_Project/Art/Icons",
+            "Assets/_Project/Art/Environment",
             "Assets/UGUI/Sprites",
-            "Assets/UGUI/UsingAssets",
+            "Assets/UGUI/Art/Gacha",
         };
 
         // Files to never touch (app icon etc.)
@@ -40,15 +37,23 @@ namespace KingdomIdle.EditorTools.Optimization
 
         [MenuItem("KingdomIdle/Optimize/1) Apply Texture Import Overrides")]
         public static void ApplyAll()
+            => ApplyRoots(Roots);
+
+        public static void ApplyMageAssets()
+            => ApplyRoots(new[] { "Assets/_Project/Art/VFX", "Assets/_Project/Art/Icons/MageTower", "Assets/UGUI/Art/Gacha" });
+
+        static void ApplyRoots(string[] roots)
         {
             var pngs = new List<string>();
-            foreach (var root in Roots)
+            foreach (var root in roots)
             {
                 if (!Directory.Exists(root)) continue;
                 pngs.AddRange(Directory.GetFiles(root, "*.png", SearchOption.AllDirectories)
                     .Select(p => p.Replace('\\', '/')));
             }
             pngs = pngs.Distinct().OrderBy(p => p).ToList();
+            var mageAtlasSources = new HashSet<string>(AssetDatabase.GetDependencies("Assets/MageTower/SO/MageTowerSkillList.asset", true));
+            mageAtlasSources.Add("Assets/_Project/Art/VFX/PixelArtRPGVFX/Textures/Electricity/ElectricTornado.png");
 
             int changed = 0, skipped = 0;
             var log = new System.Text.StringBuilder();
@@ -68,23 +73,25 @@ namespace KingdomIdle.EditorTools.Optimization
                 bool compressed;
                 switch (cls)
                 {
-                    case Cls.Vfx:      fmt = TextureImporterFormat.ASTC_6x6; compressed = true;  break;
-                    case Cls.SmoothUI: fmt = TextureImporterFormat.ASTC_8x8; compressed = true;  break;
+                    case Cls.Vfx:      fmt = TextureImporterFormat.ASTC_4x4; compressed = true;  break;
+                    case Cls.SmoothUI: fmt = TextureImporterFormat.ASTC_6x6; compressed = true;  break;
                     case Cls.TinyUI:   fmt = TextureImporterFormat.RGBA32;   compressed = false; break;
                     default:           fmt = TextureImporterFormat.ASTC_4x4; compressed = true;  break; // PixelArt
                 }
+                // These sprites ship through compressed atlases. Keep their input pixels
+                // lossless so packing does not compress the same art twice.
+                if (mageAtlasSources.Contains(path) || path.StartsWith("Assets/UGUI/Art/Gacha/", StringComparison.Ordinal))
+                { fmt = TextureImporterFormat.RGBA32; compressed = false; }
 
                 // Fix the 2048 clamp that silently downscales oversized sheets (restores native pixels for clean atlas packing).
-                int maxSize = 2048;
-                if (name.Equals("Elite Knight Sprite Sheet", StringComparison.OrdinalIgnoreCase) ||
-                    name.Equals("Attack Sprite Sheet", StringComparison.OrdinalIgnoreCase))
-                    maxSize = 4096;
+                ti.GetSourceTextureWidthAndHeight(out int sourceWidth, out int sourceHeight);
+                int maxSize = Mathf.Clamp(Mathf.NextPowerOfTwo(Mathf.Max(sourceWidth, sourceHeight)), 32, 8192);
 
                 var ps = ti.GetPlatformTextureSettings("Android");
                 bool needsChange = !ps.overridden
                     || ps.format != fmt
                     || ps.maxTextureSize != maxSize
-                    || (compressed && ps.textureCompression != TextureImporterCompression.Compressed)
+                    || ps.textureCompression != (compressed ? TextureImporterCompression.Compressed : TextureImporterCompression.Uncompressed)
                     || ps.crunchedCompression;
 
                 ps.overridden = true;
@@ -119,16 +126,16 @@ namespace KingdomIdle.EditorTools.Optimization
             string n = name.ToLowerInvariant();
 
             // VFX / effects
-            if (p.Contains("/prefabs/vfx/") || p.Contains("/magetower/prefabs/")
+            if (p.Contains("/art/vfx/") || p.Contains("/prefabs/vfx/") || p.Contains("/magetower/prefabs/")
                 || n.Contains("hit effect") || n.Contains("blast spell") || n.Contains("spell projectile")
                 || n.Contains("mine explosion") || n.Contains("bear trap") || n == "net")
                 return Cls.Vfx;
 
             // smooth (anti-aliased) UI
-            if (n == "circle") return Cls.SmoothUI;
+            if (n == "circle" || n == "circlesoft" || n == "roundedrect") return Cls.SmoothUI;
 
             // tiny pixel UI (<=48px) — compression not worth it, keep crisp
-            if (n == "roundedrect" || n.StartsWith("dungeon_")) return Cls.TinyUI;
+            if (p.Contains("/art/icons/") || n.StartsWith("dungeon_")) return Cls.TinyUI;
 
             // default: pixel-art gameplay (characters/enemies/equipment/backgrounds)
             return Cls.PixelArt;

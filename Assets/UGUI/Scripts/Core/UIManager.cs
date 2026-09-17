@@ -154,7 +154,7 @@ namespace KingdomIdle.UGUI
             GameAudioSettings.Apply();
         }
 
-        private void ApplyEffectsVolume() { if (_uiAudioSource != null) _uiAudioSource.volume = GameAudioSettings.Effects; }
+        private void ApplyEffectsVolume() { if (_uiAudioSource != null) _uiAudioSource.volume = GameAudioSettings.Gain(SoundChannel.Interface); }
 
         private void Update()
         {

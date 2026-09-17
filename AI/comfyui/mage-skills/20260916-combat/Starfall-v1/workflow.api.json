@@ -1,0 +1,81 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "6b049b5770b186422ffb2bd125472da4fa99f1c00c7d0c31d61ff18453c53c27.png"
+    }
+  },
+  "2": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": [
+        "1",
+        0
+      ],
+      "upscale_method": "nearest-exact",
+      "width": 768,
+      "height": 768,
+      "crop": "disabled"
+    }
+  },
+  "10": {
+    "class_type": "GeminiNanoBanana2V2",
+    "inputs": {
+      "prompt": "Create one readable 48x48 logical pixel-art spell icon for a medieval idle RPG: a shower of falling starlight. The provided existing spell icon is a STYLE AND PALETTE REFERENCE, not the required arrow subject. Replace the arrows with THREE falling stars distributed across the square. Each has a compact ivory diamond head at its LOWER LEFT end and a short blue-silver tapered tail extending toward the UPPER RIGHT. The main middle star is slightly larger, with two smaller falling stars left and right. Convey rain from the sky, never arrows fired upward. At 48px each star must read instantly with clear negative space. No meteor rocks, clouds, moon, landscape, border, text, faces, weapons or UI frame. Flat dark blue-charcoal background #171c24, desaturated steel blue, muted periwinkle, pale silver and tiny ivory highlights; maximum 12 colors. Crisp chunky pixel clusters based on a 48px grid, no single-pixel noise, no smooth gradients, no bloom fog. Match the reference's restrained luminosity but make the star heads clearly visible. Square canvas, generous 5px margin, image enlarged nearest neighbor.",
+      "model": "Nano Banana 2 (Gemini 3.1 Flash Image)",
+      "model.aspect_ratio": "1:1",
+      "model.resolution": "1K",
+      "model.thinking_level": "MINIMAL",
+      "model.images.image_1": [
+        "2",
+        0
+      ],
+      "seed": 91631,
+      "response_modalities": "IMAGE"
+    }
+  },
+  "15": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "10",
+        0
+      ],
+      "filename_prefix": "KingdomIdle/CombatRevision/Starfall_Master"
+    }
+  },
+  "20": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": [
+        "10",
+        0
+      ],
+      "upscale_method": "nearest-exact",
+      "width": 48,
+      "height": 48,
+      "crop": "disabled"
+    }
+  },
+  "30": {
+    "class_type": "ImageQuantize",
+    "inputs": {
+      "image": [
+        "20",
+        0
+      ],
+      "colors": 12,
+      "dither": "none"
+    }
+  },
+  "40": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "30",
+        0
+      ],
+      "filename_prefix": "KingdomIdle/CombatRevision/Starfall_48px"
+    }
+  }
+}
