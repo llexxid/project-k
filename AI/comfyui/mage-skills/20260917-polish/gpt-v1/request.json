@@ -1,0 +1,52 @@
+{
+  "workflow": {
+    "1": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": "dab3d70c3f56efa1156e1760b28d05eb2d775bd0ca31ae9311b87df45dc44edf.png"
+      }
+    },
+    "2": {
+      "class_type": "ImageScale",
+      "inputs": {
+        "image": [
+          "1",
+          0
+        ],
+        "upscale_method": "nearest-exact",
+        "width": 768,
+        "height": 768,
+        "crop": "disabled"
+      }
+    },
+    "10": {
+      "class_type": "OpenAIGPTImageNodeV2",
+      "inputs": {
+        "prompt": "One pixel-art GAMEPLAY GROUND DECAL of a freshly struck meteor crater, for a medieval 2D idle RPG. The reference is MATERIAL AND PALETTE ONLY, not composition. A shallow charred impact depression seen from a high overhead three-quarter RPG camera, a wide flattened oval footprint, width to height 1.6:1, centred in a square canvas. Broken dark warm-brown stone plates, a few branching molten copper-orange cracks, only four small pale amber hotspots. Outer rim low and jagged, sparse scattering of 6 chunky stone fragments immediately around the rim. No standing rock, no airborne meteor, no flames, no smoke, no sky, no characters, no UI, no border, no text, no light rays. Interior mostly dark, clearly subdued enough that characters will stand visibly in front. Purpose is a 2 second ember afterglow, not a giant lava lake. Strict 64x64 logical pixel grid enlarged nearest-neighbour, maximum SIX flat material colours, chunky connected pixel clusters, no dithering, no smooth shading, no blur, no bloom, no black outline. Crater occupies about 50x32 logical pixels at the exact centre, generous empty margin. Background absolutely uniform bright chroma green #00FF00, no green in the crater itself. ONE SINGLE FRAME, ONE DECAL ONLY, no spritesheet or alternatives.",
+        "model": "gpt-image-2",
+        "model.size": "1024x1024",
+        "model.custom_width": 1024,
+        "model.custom_height": 1024,
+        "model.background": "opaque",
+        "model.quality": "medium",
+        "model.images.image_1": [
+          "2",
+          0
+        ],
+        "n": 1,
+        "seed": 0
+      }
+    },
+    "15": {
+      "class_type": "SaveImage",
+      "inputs": {
+        "images": [
+          "10",
+          0
+        ],
+        "filename_prefix": "KingdomIdle/CombatPolish/Crater-gpt-v1"
+      }
+    }
+  },
+  "confirm": true
+}

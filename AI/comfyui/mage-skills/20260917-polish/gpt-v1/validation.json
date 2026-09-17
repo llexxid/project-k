@@ -1,0 +1,26 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "Workflow passed local pre-flight validation. NOT submitted (dry_run) — no GPU run, no credits spent, no job created. Re-call without dry_run to actually submit. Local validation uses a bundled node catalog that can lag the cloud, so this is a strong signal, not a guarantee.\nAdvisory (non-blocking) - the following input value(s) are valid but INERT: a sibling preset gates them, so the run will ignore them unless that gate is set to \"Custom\". Set the gate and resubmit, or drop the value:\nNode #10: `model.custom_height`, `model.custom_width` take effect only when `model.size` is \"Custom\" — current value \"1024x1024\" means the run will use the preset size and ignore them. Set `model.size` to \"Custom\" to honour them, or drop them.\nNote - This workflow includes paid partner-API node(s): Node #10: OpenAIGPTImageNodeV2 — running it will incur partner-API charges on the user's account."
+    }
+  ],
+  "structuredContent": {
+    "result": {
+      "status": "validated",
+      "warnings": [
+        {
+          "code": "paid_api_nodes",
+          "detail": "This workflow includes paid partner-API node(s): Node #10: OpenAIGPTImageNodeV2 — running it will incur partner-API charges on the user's account."
+        },
+        {
+          "code": "dynamic_combo_subfield_gated",
+          "detail": "`model.custom_height`, `model.custom_width` take effect only when `model.size` is \"Custom\" — current value \"1024x1024\" means the run will use the preset size and ignore them. Set `model.size` to \"Custom\" to honour them, or drop them.",
+          "node_id": "10",
+          "confidence": "observed"
+        }
+      ],
+      "submitted": false
+    }
+  }
+}
