@@ -21,9 +21,10 @@ public class PlayerStatus
         JobName = data.jobName; HP = Math.Min(HP, MaxHP);
         OnJobChanged?.Invoke(JobName); OnStatsChanged?.Invoke();
     }
-    public void SetEquipmentBonus(int attack, int health) { _equipAtk = attack; _equipMaxHP = health; HP = Math.Min(HP, MaxHP); OnStatsChanged?.Invoke(); }
+    public void SetEquipmentBonus(int attack, int health) { if (_equipAtk == attack && _equipMaxHP == health) return; _equipAtk = attack; _equipMaxHP = health; HP = Math.Min(HP, MaxHP); OnStatsChanged?.Invoke(); }
     public void SetProgression(int attack, int health, int account, int reincarnation)
     {
+        if (_attackLevel == attack && _healthLevel == health && _accountLevel == account && _reincarnationLevel == reincarnation) return;
         _attackLevel = attack; _healthLevel = health; _accountLevel = account; _reincarnationLevel = reincarnation;
         HP = Math.Min(HP, MaxHP); OnStatsChanged?.Invoke();
     }

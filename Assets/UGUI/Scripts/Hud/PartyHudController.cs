@@ -34,6 +34,7 @@ namespace KingdomIdle.UGUI
         [SerializeField] private float fallbackBottomBarPx = 190f;
 
         private PartyHudView _view;
+        internal RectTransform HudRect => _view != null ? _view.rect : null;
         private List<Player> _players;
         private bool _playersResolved;
         private readonly bool[] _autoPortrait = new bool[3];    // 잡 데이터에서 자동 배정된 초상화 (전직 시 재해석 대상)

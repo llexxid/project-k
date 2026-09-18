@@ -79,6 +79,18 @@ public class EquipmentData : ScriptableObject
 {
     [Header("장비 정보")]
     public string equipmentName;
+    // Save/import keys remain unchanged; readable names belong to presentation.
+    public string DisplayName => equipmentName switch
+    {
+        "Wooden_Great_Sword" => "목제 대검", "Basic_Great_Sword" => "기본 대검",
+        "Basic_Wooden_Great_Sword" => "기본 목제 대검", "Golden_Great_Sword" => "황금 대검",
+        "Golden_Steal_Axe" => "황금 강철 도끼", "Excalibur" => "엑스칼리버",
+        "Wooden_Stafff" => "목제 지팡이", "Stone_Staff" => "돌 지팡이", "Steal_Staff" => "강철 지팡이",
+        "Golden_Staff" => "황금 지팡이", "Golden_Steal_Staff" => "황금 강철 지팡이", "Air" => "에어 지팡이",
+        "Wooden_Bow" => "목제 활", "Basic_Bow" => "기본 활", "Basic_Long_Bow" => "기본 장궁",
+        "Golden_Bow" => "황금 활", "Golden_Steal_Bow" => "황금 강철 활", "Evil_Tracer" => "악마 추적자",
+        _ => equipmentName
+    };
     public string description;
     public Sprite icon;
     

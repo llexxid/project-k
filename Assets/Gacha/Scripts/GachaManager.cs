@@ -21,10 +21,17 @@ namespace KingdomIdle.Gacha
         public bool CanPull(GachaTableSO table) => CanPullMulti(table, 1);
         public bool CanPullMulti(GachaTableSO table, int count) => table != null && table.isImplemented && !IsPulling &&
             (table.gachaType == eGachaType.Equipment || table.gachaType == eGachaType.Skill) && table.costCurrency == eCurrency.AncientCoin && (count == 1 || count == 10) && LocalProgression.Balance(eCurrency.AncientCoin) >= 50L * count &&
-            (table.gachaType != eGachaType.Equipment || (EquipmentManager.Instance != null && EquipmentManager.Instance.AvailableSlots >= count));
+            (table.gachaType != eGachaType.Equipment || EquipmentManager.Instance != null);
+        public string PullFailure(GachaTableSO table, int count)
+        {
+            if (IsPulling) return "이미 뽑기가 진행 중입니다.";
+            if (table == null || !table.isImplemented || (count != 1 && count != 10)) return "뽑기 구성을 확인할 수 없습니다.";
+            if (LocalProgression.Balance(eCurrency.AncientCoin) < 50L * count) return $"고대주화가 {50L * count - LocalProgression.Balance(eCurrency.AncientCoin):N0}개 부족합니다.";
+            return "뽑기 데이터를 준비 중입니다. 잠시 후 다시 시도해 주세요.";
+        }
         public void TryPull(GachaTableSO table, int count, Action<List<GachaRewardEntry>> onSuccess, Action<string> onError)
         {
-            if (!CanPullMulti(table, count)) { onError?.Invoke("주화와 가방 여유 공간을 확인해 주세요."); return; }
+            if (!CanPullMulti(table, count)) { onError?.Invoke(PullFailure(table, count)); return; }
             var equipment = EquipmentManager.Instance;
             var mage = MageTowerManager.Instance;
             var normal = equipment?.GetByRarity(eEquipmentRarity.Normal);
@@ -38,7 +45,6 @@ namespace KingdomIdle.Gacha
             try
             {
                 ok = LocalProgression.Execute("gacha-" + table.gachaType, state => {
-                    if (table.gachaType == eGachaType.Equipment && state.Equipment.Count + count > EquipmentManager.Capacity) return false;
                     if (!LocalProgression.Spend(state, eCurrency.AncientCoin, 50L * count)) return false;
                     for (int i = 0; i < count; i++)
                     {
@@ -56,7 +62,7 @@ namespace KingdomIdle.Gacha
                             var pool = tier == 2 ? epic : tier == 1 ? rare : normal;
                             var item = pool[UnityEngine.Random.Range(0, pool.Count)];
                             state.EquipmentPity = item.rarity == eEquipmentRarity.Epic ? 0 : state.EquipmentPity + 1;
-                            if (!EquipmentManager.Grant(state, new EquipmentSave { Id = Guid.NewGuid().ToString("N"), Code = item.itemCode }, false)) return false;
+                            if (!EquipmentManager.Grant(state, new EquipmentSave { Id = Guid.NewGuid().ToString("N"), Code = item.itemCode }, true)) return false;
                             rewards.Add(new GachaRewardEntry { nameKor = item.equipmentName, icon = item.icon, rewardType = eGachaRewardType.Equipment, equipmentData = item, amount = 1 });
                         }
                         else if (roll < 500000)

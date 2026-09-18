@@ -67,7 +67,7 @@ namespace KingdomIdle.UGUI
                 string type=q.Category==eQuestCategory.Guide?"가이드":q.Category==eQuestCategory.Daily?"일일":q.Category==eQuestCategory.Weekly?"주간":"업적";
                 row.View.Set($"{type} · {(can?"보상 수령":$"{NumberNotation.Format(progress)}/{NumberNotation.Format(q.RequiredCount)}")}",q.Description,QuestEconomy.RewardText(q.RewardGroupId, NumberNotation.Format)+(row.Pending!=null?" · 이전 기간 보관분":""),false);
                 row.View.checkButton.interactable=can;row.ClaimArea.interactable=can;
-                if(row.View.checkLabel!=null) row.View.checkLabel.text=can?"받기":"";
+                if(row.View.checkLabel!=null) row.View.checkLabel.text=can?"받기":"진행";
                 if(row.View.checkIcon!=null) row.View.checkIcon.gameObject.SetActive(false);
             }
         }

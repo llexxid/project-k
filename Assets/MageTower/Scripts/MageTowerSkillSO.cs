@@ -15,6 +15,8 @@ namespace KingdomIdle.MageTower
         public Sprite icon;
         public Sprite bloomIcon;
         public Sprite DisplayIcon(bool bloom) => bloom && bloomIcon != null ? bloomIcon : icon;
+        public bool CanAim => spellKind != MageSpellKind.IceSpike && spellKind != MageSpellKind.ArcaneVolley;
+        public float TargetRadius(bool bloom) => bloom && spellKind == MageSpellKind.Lightning ? bloomRadius : radius;
         public float baseCooldown;
         public int maxEnhanceLevel = 100;
         public int maxAwakeningLevel = 10;

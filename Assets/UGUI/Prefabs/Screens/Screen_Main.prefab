@@ -3056,7 +3056,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 24, y: -280}
+  m_AnchoredPosition: {x: 24, y: -174}
   m_SizeDelta: {x: 540, y: 184}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &3928468236069353959
@@ -8033,7 +8033,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontColor: {r: 1, g: 1, b: 1, a: 0.95}
+  m_fontColor: {r: 0.9490196, g: 0.9019608, b: 0.8156863, a: 0.97}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -8050,12 +8050,12 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 30
+  m_fontSize: 32
   m_fontSizeBase: 34
   m_fontWeight: 400
   m_enableAutoSizing: 1
   m_fontSizeMin: 24
-  m_fontSizeMax: 30
+  m_fontSizeMax: 32
   m_fontStyle: 0
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
@@ -8389,6 +8389,8 @@ GameObject:
   m_Component:
   - component: {fileID: 287503557688450597}
   - component: {fileID: 1851930369987591179}
+  - component: {fileID: 413211985628142669}
+  - component: {fileID: 1585279909656302470}
   m_Layer: 5
   m_Name: StageArea
   m_TagString: Untagged
@@ -8412,11 +8414,11 @@ RectTransform:
   - {fileID: 8739995996536516835}
   m_Father: {fileID: 1423837613952138505}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 1}
-  m_AnchorMax: {x: 0.5, y: 1}
-  m_AnchoredPosition: {x: 0, y: -184}
-  m_SizeDelta: {x: 380, y: 80}
-  m_Pivot: {x: 0.5, y: 1}
+  m_AnchorMin: {x: 0.5, y: 0}
+  m_AnchorMax: {x: 0.5, y: 0}
+  m_AnchoredPosition: {x: 0, y: 370}
+  m_SizeDelta: {x: 410, y: 86}
+  m_Pivot: {x: 0.5, y: 0}
 --- !u!114 &1851930369987591179
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8440,6 +8442,30 @@ MonoBehaviour:
   btnDeathYes: {fileID: 1055519020384972258}
   btnDeathNo: {fileID: 4004598623045143853}
   deathTimerFill: {fileID: 6956959842556396072}
+--- !u!114 &413211985628142669
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3929845708868888769}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e433286ea5e02a6468fd0e8549e40630, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomIdle.UGUI.StageBadgeAnchor
+--- !u!225 &1585279909656302470
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3929845708868888769}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &3953486106543903765
 GameObject:
   m_ObjectHideFlags: 0
@@ -16206,6 +16232,7 @@ GameObject:
   - component: {fileID: 852954653219280162}
   - component: {fileID: 6236689307893517734}
   - component: {fileID: 1349754005663766014}
+  - component: {fileID: 6433936223564705656}
   m_Layer: 5
   m_Name: StageRow
   m_TagString: Untagged
@@ -16256,7 +16283,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.085, g: 0.065, b: 0.045, a: 0.76}
+  m_Color: {r: 0.1, g: 0.075, b: 0.04, a: 0.93}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -16273,6 +16300,21 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &6433936223564705656
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8135000087683204873}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Outline
+  m_EffectColor: {r: 0.5882353, g: 0.43137255, b: 0.23529412, a: 1}
+  m_EffectDistance: {x: 2, y: -2}
+  m_UseGraphicAlpha: 1
 --- !u!1 &8183094190725178969
 GameObject:
   m_ObjectHideFlags: 0

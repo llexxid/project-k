@@ -50,6 +50,9 @@ namespace KingdomIdle.UGUI
         private const float CharTickInterval = 0.2f;
         private static KACharacterSheetView _charSheet;   // 종합 시트(실시간 HP 갱신용)
         private static bool _statDetailOpen;
+        private static PlayerStatus _shownStatus;
+        private static bool _statsDirty;
+        private static PlayerStatus.StatBreakdown _shownAttack, _shownHealth;
         private static Image _charPortraitInner;
 
         /// <summary>초기 idle 스프라이트 기준 1px당 표시 크기 (고정 스케일)</summary>
@@ -244,6 +247,9 @@ namespace KingdomIdle.UGUI
             _charSheet = sheet;
 
             var ps = player.playerStatus;
+            _shownStatus = ps;
+            _shownStatus.OnStatsChanged += MarkStatsDirty;
+            _statsDirty = false;
 
             // 직업명 + 칩 값
             if (sheet.jobLabel != null) sheet.jobLabel.text = JobData.GetDisplayName(ps.JobName);
@@ -252,8 +258,9 @@ namespace KingdomIdle.UGUI
             UpdateHpBar(player, sheet);
 
             // 상세 스탯 방정식 (탭 가능한 항 + 설명 팝업)
-            BuildStatEquation(sheet, sheet.atkEqRow, ps.AtkBreakdown(), atk: true);
-            BuildStatEquation(sheet, sheet.hpEqRow, ps.MaxHPBreakdown(), atk: false);
+            _shownAttack = ps.AtkBreakdown(); _shownHealth = ps.MaxHPBreakdown();
+            BuildStatEquation(sheet, sheet.atkEqRow, _shownAttack, atk: true);
+            BuildStatEquation(sheet, sheet.hpEqRow, _shownHealth, atk: false);
 
             // 스탯 블록 = 버튼 → 상세 롤다운 토글
             _statDetailOpen = false;
@@ -281,7 +288,7 @@ namespace KingdomIdle.UGUI
             {
                 if (equipped != null)
                 {
-                    sheet.equippedLabel.text = $"{equipped.baseData.equipmentName} +{equipped.enhancementLevel} (ATK +{NumberNotation.Format(equipped.GetFinalAtk())})";
+                    sheet.equippedLabel.text = $"{equipped.baseData.DisplayName} +{equipped.enhancementLevel} (ATK +{NumberNotation.Format(equipped.GetFinalAtk())})";
                     sheet.equippedLabel.color = StatLineColor;
                 }
                 else
@@ -311,7 +318,7 @@ namespace KingdomIdle.UGUI
             if (player == null || sheet == null || player.playerStatus == null) return;
             long maxHp = player.playerStatus.MaxHP;
             float ratio = Mathf.Clamp01(player.HPRatio);
-            int curHp = Mathf.RoundToInt(ratio * maxHp);
+            long curHp = player.playerStatus.HP;
             if (sheet.hpFill != null)
             {
                 sheet.hpFill.fillAmount = ratio;
@@ -397,6 +404,8 @@ namespace KingdomIdle.UGUI
 
         private static void UnsubscribeCharTick()
         {
+            if (_shownStatus != null) _shownStatus.OnStatsChanged -= MarkStatsDirty;
+            _shownStatus = null;
             if (!_charTickSubscribed) return;
             if (UIManager.Instance != null)
                 UIManager.Instance.FrameTick -= OnCharTick;
@@ -414,10 +423,25 @@ namespace KingdomIdle.UGUI
 
             // HP 바 실시간 갱신 (피격 시 채움/색 반영)
             if (_charSheet != null)
+            {
                 UpdateHpBar(p, _charSheet);
+                if (_statsDirty)
+                {
+                    _statsDirty = false;
+                    var ps = p.playerStatus;
+                    _charSheet.atkValueLabel.text = NumberNotation.Format(ps.Atk);
+                    _charSheet.moveValueLabel.text = ps.MovSpeed.ToString();
+                    _charSheet.jobLabel.text = JobData.GetDisplayName(ps.JobName);
+                    var attack = ps.AtkBreakdown(); var health = ps.MaxHPBreakdown();
+                    if (!_shownAttack.Equals(attack)) { _shownAttack = attack; BuildStatEquation(_charSheet, _charSheet.atkEqRow, attack, true); }
+                    if (!_shownHealth.Equals(health)) { _shownHealth = health; BuildStatEquation(_charSheet, _charSheet.hpEqRow, health, false); }
+                }
+            }
 
             // Job portraits are stable; promotion rebuilds this view through the army event.
         }
+
+        private static void MarkStatsDirty() => _statsDirty = true;
 
         // ══════════════════════════════════════
         //  장비 (인벤토리 내 장비만 표시)
@@ -447,7 +471,7 @@ namespace KingdomIdle.UGUI
                 string enhStr0 = equipped.enhancementLevel > 0 ? $" +{equipped.enhancementLevel}" : "";
                 if (equip.equippedNameLabel != null)
                 {
-                    equip.equippedNameLabel.text = $"{equipped.baseData.equipmentName}{enhStr0}";
+                    equip.equippedNameLabel.text = $"{equipped.baseData.DisplayName}{enhStr0}";
                     equip.equippedNameLabel.color = new Color(1f, 1f, 1f, 0.85f);
                 }
                 if (equip.equippedStatLabel != null)
@@ -464,7 +488,7 @@ namespace KingdomIdle.UGUI
                     equip.unequipButton.onClick.AddListener(() =>
                     {
                         capturedMgr.Unequip(eEquipmentSlot.Weapon);
-                        ShowToast($"{capturedEquipped.baseData.equipmentName} 해제");
+                        ShowToast($"{capturedEquipped.baseData.DisplayName} 해제");
                         Refresh();
                     });
                 }
@@ -491,23 +515,7 @@ namespace KingdomIdle.UGUI
             }
             if (equip.emptyLabel != null) equip.emptyLabel.gameObject.SetActive(false);
 
-            foreach (var stored in KingdomIdle.Balance.LocalProgression.State.LegacyEquipment)
-            {
-                var data = equipmentManager.GetData(stored.Code); if (data == null) continue;
-                int code = stored.Code, level = stored.Level;
-                string enhancement = level > 0 ? $" +{level}" : "";
-                InstantiateEquipCell(equip.inventoryGrid, data.icon, $"{data.equipmentName}{enhancement} ×{stored.Count}", UguiTheme.AccentGold,
-                    "1개 받기", UguiTheme.AccentGold, false, false, "보관 중", () => {
-                        if (equipmentManager.ClaimLegacy(code, level)) Refresh();
-                        else UIManager.Instance?.ShowToast("가방 여유 공간이 필요합니다.");
-                    });
-            }
-            foreach(var pending in KingdomIdle.Balance.LocalProgression.State.PendingEquipment.ToArray())
-            {
-                var pendingData=equipmentManager.GetData(pending.Code); if(pendingData==null) continue;
-                var captured=pending.Id;
-                InstantiateEquipCell(equip.inventoryGrid,pendingData.icon,"보관 보상 · 받기",UguiTheme.AccentGold,"가방 여유 공간 필요",UguiTheme.AccentGold,false,false,"보관 중",()=>{ if(equipmentManager.ClaimPending(captured)) Refresh(); });
-            }
+            BuildStoredEquipmentCells(equip.inventoryGrid, Refresh);
             // 1차: 장착가능(해당 전직) > 장착불가  2차: 등급 내림차순  3차: 강화레벨 내림차순
             var sortedItems = equipmentManager.Inventory.Items
                 .OrderByDescending(i => i.baseData.IsAllowedForJob(jobName) ? 1 : 0)
@@ -517,6 +525,33 @@ namespace KingdomIdle.UGUI
 
             foreach (var item in sortedItems)
                 BuildInventoryEquipCard(equip.inventoryGrid, item, jobName, equipped, equipMgr);
+        }
+
+        internal static void BuildStoredEquipmentCells(RectTransform grid, System.Action refresh)
+        {
+            var equipmentManager = EquipmentManager.Instance;
+            if (equipmentManager == null) return;
+            foreach (var stored in LocalProgression.State.LegacyEquipment)
+            {
+                var data = equipmentManager.GetData(stored.Code); if (data == null) continue;
+                int code = stored.Code, level = stored.Level;
+                string enhancement = level > 0 ? $" +{level}" : "";
+                InstantiateEquipCell(grid, data.icon, $"{data.DisplayName}{enhancement} ×{stored.Count}", UguiTheme.AccentGold,
+                    "1개 받기", UguiTheme.RarityColor(data.rarity), false, false, "추가 보관", () => {
+                        if (equipmentManager.ClaimLegacy(code, level)) refresh();
+                        else UIManager.Instance?.ShowToast("장비를 강화하거나 분해하면 가방 공간이 생깁니다.");
+                    });
+            }
+            foreach (var group in LocalProgression.State.PendingEquipment.GroupBy(x => (x.Code, x.Level)))
+            {
+                var item = group.First(); var data = equipmentManager.GetData(item.Code); if (data == null) continue;
+                string id = item.Id;
+                InstantiateEquipCell(grid, data.icon, $"{data.DisplayName} ×{group.Count()}", UguiTheme.AccentGold,
+                    "1개 받기", UguiTheme.RarityColor(data.rarity), false, false, "추가 보관", () => {
+                        if (equipmentManager.ClaimPending(id)) refresh();
+                        else UIManager.Instance?.ShowToast("장비를 강화하거나 분해하면 가방 공간이 생깁니다.");
+                    });
+            }
         }
 
         private static void BuildInventoryEquipCard(
@@ -533,7 +568,7 @@ namespace KingdomIdle.UGUI
             System.Action onClick = () => ShowEquipmentActionPopup(capturedItem, capturedEquipped, capturedAllowed, capturedMgr);
 
             string enhStr = item.enhancementLevel > 0 ? $" +{item.enhancementLevel}" : "";
-            string name = $"{item.baseData.equipmentName}{enhStr}";
+            string name = $"{item.baseData.DisplayName}{enhStr}";
             string sub = $"ATK +{NumberNotation.Format(item.GetFinalAtk())}  HP +{NumberNotation.Format(item.GetFinalMaxHP())}";
             var rarityColor = UguiTheme.RarityColor(item.baseData.rarity);
 
@@ -549,12 +584,10 @@ namespace KingdomIdle.UGUI
             var cat = Cat;
             if (cat == null || cat.itemEquipCell == null) return;
 
-            var go = Object.Instantiate(cat.itemEquipCell, grid, false);
-            var cell = go.GetComponent<EquipCellView>();
-            if (cell == null) { Object.Destroy(go); return; }
-
-            cell.Set(icon, name, nameColor, sub, rarityColor, equipped, dimmed, state);
-            cell.OnClick(onClick);
+            VirtualEquipmentGrid.Add(grid, cat.itemEquipCell, cell => {
+                cell.Set(icon, name, nameColor, sub, rarityColor, equipped, dimmed, state);
+                cell.OnClick(onClick);
+            });
         }
 
         // ── 장비 액션 팝업 (장착/강화 선택) ──
@@ -589,7 +622,7 @@ namespace KingdomIdle.UGUI
             };
             string enhStr = item.enhancementLevel > 0 ? $" +{item.enhancementLevel}" : "";
 
-            if (detail.nameLabel != null) detail.nameLabel.text = $"{item.baseData.equipmentName}{enhStr}";
+            if (detail.nameLabel != null) detail.nameLabel.text = $"{item.baseData.DisplayName}{enhStr}";
             if (detail.rarityLabel != null) detail.rarityLabel.text = $"등급: {rarityStr}";
             if (detail.atkLabel != null) detail.atkLabel.text = $"공격력 보너스: +{NumberNotation.Format(item.GetFinalAtk())}";
             if (detail.hpLabel != null) detail.hpLabel.text = $"HP 보너스: +{NumberNotation.Format(item.GetFinalMaxHP())}";
@@ -607,7 +640,7 @@ namespace KingdomIdle.UGUI
                 AddActionButton(detail.actionRow, "해제", UguiTheme.BtnCancel, true, () =>
                 {
                     capturedMgr.Unequip(capturedItem.baseData.slot);
-                    ShowToast($"{capturedItem.baseData.equipmentName} 해제");
+                    ShowToast($"{capturedItem.baseData.DisplayName} 해제");
                     Refresh();
                 });
             }
@@ -618,7 +651,7 @@ namespace KingdomIdle.UGUI
                 AddActionButton(detail.actionRow, "장착", UguiTheme.BtnConfirm, true, () =>
                 {
                     if (!EquipmentManager.Instance.TryEquip(capturedMgr.PlayerIndex,capturedItem)) { ShowToast("다른 병사가 장착 중이거나 직업에 맞지 않습니다."); return; }
-                    ShowToast($"{capturedItem.baseData.equipmentName} 장착!");
+                    ShowToast($"{capturedItem.baseData.DisplayName} 장착!");
                     Refresh();
                 });
             }
@@ -694,7 +727,7 @@ namespace KingdomIdle.UGUI
             if (result == EquipmentManager.EnhancementResult.Success)
             {
                 float nextRate = item.GetEnhanceSuccessRate() * 100f;
-                ShowToast($"강화 성공! {item.baseData.equipmentName} +{item.enhancementLevel} (다음 확률: {nextRate:F0}%)");
+                ShowToast($"강화 성공! {item.baseData.DisplayName} +{item.enhancementLevel} (다음 확률: {nextRate:F0}%)");
             }
             else if (result == EquipmentManager.EnhancementResult.ChanceFailed)
             {
@@ -736,15 +769,15 @@ namespace KingdomIdle.UGUI
 
             if (detail.materialLabel != null)
             {
-                detail.materialLabel.text = $"필요 재료: {item.baseData.equipmentName} x{needed} (보유: {available}개)";
+                detail.materialLabel.text = $"필요 재료: {item.baseData.DisplayName} x{needed} (보유: {available}개)";
                 detail.materialLabel.color = available < needed ? FragLockedColor : StatLineColor;
             }
             if (detail.successRateLabel != null)
                 detail.successRateLabel.text = $"성공 확률: {successRate:F0}%";
 
             // 강화 후 예상 스탯
-            int nextAtk = item.baseData.bonusAtk + (int)(item.baseData.bonusAtk * item.baseData.atkGrowthPerLevel * (item.enhancementLevel + 1));
-            int nextHP = item.baseData.bonusMaxHP + (int)(item.baseData.bonusMaxHP * item.baseData.hpGrowthPerLevel * (item.enhancementLevel + 1));
+            int nextAtk = item.GetAttackAtLevel(item.enhancementLevel + 1);
+            int nextHP = item.GetFinalMaxHP();
             if (detail.expectedLabel != null)
                 detail.expectedLabel.text = $"강화 시 예상: ATK +{NumberNotation.Format(item.GetFinalAtk())} → +{NumberNotation.Format(nextAtk)}  HP +{NumberNotation.Format(item.GetFinalMaxHP())} → +{NumberNotation.Format(nextHP)}";
         }

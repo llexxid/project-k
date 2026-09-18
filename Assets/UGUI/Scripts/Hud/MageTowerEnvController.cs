@@ -22,7 +22,8 @@ namespace KingdomIdle.UGUI
     ///  - 기본 ON. 길게 누르기(0.5s)로 토글, PlayerPrefs("magetower.auto")에 영속.
     ///  - OFF 동안 수정이 잿빛으로 소등된다: 광원/섬광 정지 + 스프라이트 교체.
     ///    부유(hovering)는 소등 중에도 유지 — 잿빛이어도 떠 있는 마법 물체로 남긴다.
-    ///  - 수동 개별 시전 경로는 없다 — 스킬은 AUTO로만 나간다 (장착/강화는 마탑 메뉴).
+    ///  - OFF에서는 MageManualCastHud가 탑 위에 장착 슬롯을 펼친다. 탭은 자동 조준,
+    ///    드래그는 지점 지정이며 분산 공격은 드래그 조준을 지원하지 않는다.
     /// </summary>
     [DefaultExecutionOrder(-936)]
     public sealed class MageTowerEnvController : MonoBehaviour
@@ -353,7 +354,7 @@ namespace KingdomIdle.UGUI
             ApplyCrystalAutoVisual(animate: true);
 
             var ui = UIManager.Instance;
-            if (ui != null) ui.ShowToast(_autoOn ? "마탑 자동 시전 ON" : "마탑 자동 시전 OFF");
+            if (ui != null) ui.ShowToast(_autoOn ? "마탑 자동 시전 ON" : "수동 시전 · 눌러서 시전 / 끌어서 위치 지정");
         }
 
         /// <summary>

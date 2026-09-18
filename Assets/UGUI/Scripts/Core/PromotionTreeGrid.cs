@@ -15,7 +15,7 @@ namespace KingdomIdle.UGUI
             float width=((RectTransform)transform).rect.width-_grid.padding.horizontal;
             if(width<1 || Mathf.Abs(width-_width)<.5f)return;
             _width=width;_grid.constraint=GridLayoutGroup.Constraint.FixedColumnCount;_grid.constraintCount=3;
-            _grid.cellSize=new Vector2((width-_grid.spacing.x*2)/3,340);
+            _grid.cellSize=new Vector2((width-_grid.spacing.x*2)/3,208);
         }
     }
 }

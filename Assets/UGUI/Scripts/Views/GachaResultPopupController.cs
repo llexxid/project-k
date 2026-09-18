@@ -150,7 +150,7 @@ namespace KingdomIdle.UGUI
             string displayName;
             if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Equipment && entry.equipmentData != null)
             {
-                displayName = entry.equipmentData.equipmentName;
+                displayName = entry.equipmentData.DisplayName;
             }
             else if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Skill && string.IsNullOrEmpty(entry.nameKor))
             {
@@ -175,9 +175,11 @@ namespace KingdomIdle.UGUI
             // 수량 — "×1,500" 형식 (천단위 콤마 + 정식 곱셈 기호)
             if (card.subLabel != null)
             {
-                var mage = entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Skill
-                    ? KingdomIdle.MageTower.MageTowerManager.Instance?.GetSkillById(entry.skillId) : null;
-                card.subLabel.text = FormatGachaCount(count);
+                bool fragments = entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Skill && entry.amount > 1;
+                card.subLabel.text = fragments
+                    ? $"중복 {count / KingdomIdle.MageTower.MageSkillRules.DuplicateFragments}회\n파편 {NumberNotation.Format(count)}개"
+                    : entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Skill ? "스킬 최초 획득" : FormatGachaCount(count);
+                if (fragments) card.subLabel.fontSize = 22;
                 card.subLabel.color = UguiTheme.AccentGoldStrong;
             }
         }

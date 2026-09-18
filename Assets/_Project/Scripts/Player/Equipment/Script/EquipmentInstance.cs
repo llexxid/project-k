@@ -52,11 +52,14 @@ public class EquipmentInstance
     
     /// <summary>강화 레벨이 반영된 최종 공격력 보너스</summary>
     public int GetFinalAtk()
+        => GetAttackAtLevel(enhancementLevel);
+
+    public int GetAttackAtLevel(int level)
     {
         if (baseData == null) return 0;
         long basis = 0;
         foreach (var option in baseData.MainOption) if (option.type == EquipmentStatType.AtkFlat && !option.isPercent) basis += BalanceMath.Floor((decimal)option.value);
-        return checked((int)BalanceMath.WeaponAttack(basis, enhancementLevel));
+        return checked((int)BalanceMath.WeaponAttack(basis, level));
     }
 
     /// <summary>강화 레벨이 반영된 최종 최대 체력 보너스</summary>

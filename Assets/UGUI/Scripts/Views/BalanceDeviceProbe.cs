@@ -14,7 +14,7 @@ namespace KingdomIdle.UGUI
 {
     public sealed class BalanceDeviceProbe : MonoBehaviour
     {
-        [Serializable] private class Command { public string id,action; public int value, awaken, enhance, captureMs; public bool bloom; public long stage; }
+        [Serializable] private class Command { public string id,action; public int value, awaken, enhance, captureMs; public bool bloom; public long stage; public float x,y; }
         private string _directory;
         private const string PlayAccount="device-play-20260914";
         private int _frames; private double _totalMs,_maxMs;private float _nextSample;
@@ -55,6 +55,23 @@ namespace KingdomIdle.UGUI
                         object output=null;
                         switch(c.action)
                         {
+                            case "crowded-fixture":
+                                LocalProgression.Execute("qa-crowded-inventory",s=>{
+                                    s.Equipment.Clear(); s.PendingEquipment.Clear(); s.LegacyEquipment.Clear();
+                                    var pool=EquipmentManager.Instance.GetByRarity(eEquipmentRarity.Normal);
+                                    for(int i=0;i<Math.Max(376,c.value);i++)
+                                        if(!EquipmentManager.Grant(s,new EquipmentSave{Id="qa-crowded-"+i,Code=pool[i%pool.Count].itemCode},true))return false;
+                                    s.Wallet[eCurrency.AncientCoin]=20000;
+                                    s.MainClears.Add(0x20001000B);s.MainClears.Add(0x200020005);
+                                    s.HealthLevel=136;s.AttackLevel=75;
+                                    return true;
+                                });
+                                EquipmentManager.Instance.RestoreEquipment();StatEnhanceManager.Instance.ApplyToAllPlayers();
+                                StageManager.Instance.BeginStage((eStage)0x20003000A);break;
+                            case "mage-aim":
+                                var before=LocalProgression.State.Revision;
+                                bool aimed=MageTowerManager.Instance.CastSkillAt(c.value,new Vector3(c.x,c.y,0));
+                                output=new{accepted=aimed,revisionBefore=before};break;
                             case "polish-acceptance":
                                 StartCoroutine(KingdomIdle.Combat.CombatAcceptance.RunLayeredControl(result => Write(c.id, new { result, state = Snapshot() })));
                                 continue;
@@ -184,9 +201,14 @@ namespace KingdomIdle.UGUI
         {
             var s=LocalProgression.State;var stage=StageManager.Instance;var players=UserManager.Instance?.GetPlayers();
             var background=FindFirstObjectByType<StageBackgroundController>();
+            var aimGraphic=FindFirstObjectByType<MagicAimGraphic>();
+            var aimSize=aimGraphic==null?Vector2.zero:((RectTransform)aimGraphic.transform).rect.size;
             return new {s.BalanceVersion,s.Revision,stage=stage==null?0:(long)stage.CurrentStage,runState=stage?.CurrentRunState.ToString(),s.MainStage,s.Kills,s.AccountLevel,s.Experience,s.Wallet,
                 s.AttackLevel,s.HealthLevel,s.RubyGoldLevel,s.RubyExpLevel,s.ReincarnationLevel,s.GoldTickets,s.RubyTickets,s.GoldDungeonClear,s.RubyDungeonClear,
-                s.OfflineKpm,s.OfflineStage,equipment=s.Equipment.Count,pending=s.PendingEquipment.Count,pity=s.EquipmentPity,claims=s.Claims.ToArray(),
+                s.OfflineKpm,s.OfflineStage,equipment=s.Equipment.Count,pending=s.PendingEquipment.Count,reserve=s.LegacyEquipment.Sum(x=>(long)x.Count),pity=s.EquipmentPity,claims=s.Claims.ToArray(),
+                manualAuto=MageTowerManager.Instance?.IsAutoEnabled(),
+                equipmentCards=FindObjectsByType<EquipCellView>(FindObjectsSortMode.None).Count(x=>x.isActiveAndEnabled),
+                aim=aimGraphic==null?null:new{valid=aimGraphic.valid,size=new[]{aimSize.x,aimSize.y}},
                 party=players?.Select(p=>new{p.PlayerIndex,job=p.playerStatus.JobName,atk=p.playerStatus.Atk,hp=p.playerStatus.HP,maxHP=p.playerStatus.MaxHP,ratio=p.HPRatio,position=new[]{p.transform.position.x,p.transform.position.y,p.transform.position.z},action=p.CurrentAction.ToString(),target=p.currentTarget?.gameobj?.name}).ToArray(),
                 cp=CombatPowerCalculator.CalculatePartyPowerV1(players),mage=s.MageSkills,slot=s.MageSlots,
                 mageEvents=MageSkillDiagnostics.Events.ToArray(),

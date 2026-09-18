@@ -69,7 +69,8 @@ public static class MageSkillAssetPreparation
         var gale = Vfx("GaleBlades",new Layer(Source+"Wind/WindSlash.png",3.8f,3.8f,new Color(.85f,.96f,.96f),frame:2));
         var sanctuary = Vfx("Sanctuary",
             new Layer(Source+"Holy/HolyBlessing.png",4f,2.5f,new Color(.7f,.9f,.75f,.85f),y:.46f,loop:true),
-            new Layer(Source+"Earth/EarthHeal.png",3f,2.3f,new Color(.84f,.92f,.73f,.76f),y:.35f,loop:true));
+            new Layer(Source+"Earth/EarthHeal.png",3f,2.3f,new Color(.84f,.92f,.73f,.76f),y:.35f,loop:true),
+            new Layer(Source+"Holy/HolyCross.png",2.8f,3.1f,Color.white,y:.7f,loop:true));
         var heal = Vfx("SanctuaryHeal",new Layer(Source+"Holy/HolyBlessing.png",1.1f,1.5f,new Color(.92f,.84f,.63f),y:.4f));
         var meteor = Vfx("Meteor", new Layer(Polished+"MeteorProjectile.png",2.5f,2.5f,Color.white,x:.27f,y:.35f,loop:true));
         var crater = Vfx("MeteorCrater",
@@ -90,16 +91,16 @@ public static class MageSkillAssetPreparation
         var iceCast = Vfx("IceBloomWarning",new Layer(Source+"Ice/IceSlam.png",2.8f,1.8f,new Color(.58f,.73f,.83f)));
 
         string[] keys={"Lightning","IceSpike","FireTornado","ArcaneVolley","VenomMist","StoneSeal","GaleBlades","Sanctuary","Meteor","VoidRift"};
-        string[] names={"라이트닝","얼음 송곳","화염 회오리","유성우","맹독 안개","암석 봉인","질풍 칼날","회복의 성역","운석 낙하","공허 균열"};
+        string[] names={"라이트닝","얼음 송곳","화염 회오리","유성우","맹독 늪","암석 봉인","질풍 칼날","회복의 성역","운석 낙하","공허 균열"};
         string[] descriptions={
             "같은 지점에 번개를 연속으로 내려 주변 적을 공격합니다.",
             "얼음 송곳을 차례로 솟아올려 적을 고르게 공격합니다.",
             "불꽃 회오리가 적을 쫓으며 주변에 지속 피해를 줍니다.",
             "전장 곳곳의 적에게 별빛을 차례로 떨어뜨립니다. 별빛이 닿은 적에게 피해를 줍니다.",
-            "독 안개로 지속 피해를 주고 이동 속도를 25% 낮춥니다.",
+            "맹독 늪을 펼쳐 범위 안의 적에게 지속 피해를 주고 이동 속도를 25% 낮춥니다.",
             "바위를 연속으로 솟아올려 주변 적을 공격하고 1초간 기절시킵니다.",
             "바람 칼날이 일직선으로 날아가 경로상의 적을 관통합니다.",
-            "체력 비율이 가장 낮은 왕국군을 반복해서 회복합니다.",
+            "성역을 펼쳐 범위 안에서 체력 비율이 가장 낮은 왕국군을 반복해서 회복합니다.",
             "운석을 떨어뜨려 주변 적을 공격합니다. 남은 불길이 두 번 더 피해를 줍니다.",
             "적이 모인 곳의 허공에 원형 균열을 엽니다. 균열 안의 적을 중심으로 끌어당기며 지속 피해를 주고, 닫힐 때 폭발합니다. 보스는 끌어당기지 못합니다."};
         float[] powers={120,100,40,62,36,110,90,45,260,42}, cooldowns={10,12,15,10,14,16,12,18,16,20};
@@ -200,12 +201,21 @@ public static class MageSkillAssetPreparation
         }
         string source=id==0?Generated+"/pilot-finish/core-resize/0.png":Generated+"/icons/"+id.ToString("00")+"-"+key+"/icon48.png";
         if(id==3) source="AI/comfyui/mage-skills/20260916-combat/Starfall-v1/icon48.png";
+        if(key=="VenomMist" || key=="StoneSeal" || key=="Sanctuary") source="AI/comfyui/mage-skills/20260918-playability/v2/"+key+(target.Contains("_Bloom")?"_Bloom":"")+".png";
         CopyChanged(source,target);AssetDatabase.ImportAsset(target,ImportAssetOptions.ForceSynchronousImport);
         var importer=(TextureImporter)AssetImporter.GetAtPath(target);
         importer.textureType=TextureImporterType.Sprite;importer.spriteImportMode=SpriteImportMode.Single;importer.spritePixelsPerUnit=48;
         importer.filterMode=FilterMode.Point;importer.mipmapEnabled=false;importer.isReadable=false;importer.npotScale=TextureImporterNPOTScale.None;importer.textureCompression=TextureImporterCompression.Uncompressed;
         importer.maxTextureSize=64;importer.SaveAndReimport();
         return AssetDatabase.LoadAssetAtPath<Sprite>(target);
+    }
+
+    public static void RefreshSanctuary()
+    {
+        Vfx("Sanctuary",
+            new Layer(Source+"Holy/HolyBlessing.png",4f,2.5f,new Color(.7f,.9f,.75f,.85f),y:.46f,loop:true),
+            new Layer(Source+"Earth/EarthHeal.png",3f,2.3f,new Color(.84f,.92f,.73f,.76f),y:.35f,loop:true),
+            new Layer(Source+"Holy/HolyCross.png",2.8f,3.1f,Color.white,y:.7f,loop:true));
     }
 
     static GameObject Vfx(string key,params Layer[] layers)
@@ -228,7 +238,7 @@ public static class MageSkillAssetPreparation
                 var child=new GameObject("Layer"+i);child.transform.SetParent(root.transform,false);child.transform.localPosition=layer.Offset;
                 var renderer=child.AddComponent<SpriteRenderer>();renderer.sprite=sprites[Math.Max(0,layer.StaticFrame)];renderer.color=layer.Color;renderer.sortingOrder=2+i;
                 // Ground rings stay beneath combatants; airborne spells must not disappear behind them.
-                bool ground=key=="GroundTelegraph" || key=="Sanctuary" || key=="VenomMist" || key=="VoidRift" || key=="FireTornado" || key=="IceBloomWarning" || (key=="MeteorCrater" && i<3);
+                bool ground=key=="GroundTelegraph" || (key=="Sanctuary" && i<2) || key=="VenomMist" || key=="VoidRift" || key=="FireTornado" || key=="IceBloomWarning" || (key=="MeteorCrater" && i<3);
                 renderer.sortingLayerName=ground?"Default":"CombatVFX";
                 renderer.sharedMaterial=AssetDatabase.GetBuiltinExtraResource<Material>("Sprites-Default.mat");
                 var size=renderer.sprite.bounds.size;child.transform.localScale=new Vector3(layer.Size.x/size.x,layer.Size.y/size.y,1);
@@ -259,6 +269,7 @@ public static class MageSkillAssetPreparation
         string source="AI/comfyui/mage-skills/20260916/"+key+"/icon48.png";
         if(key=="ArcaneVolley") source="AI/comfyui/mage-skills/20260916-combat/StarfallBloom-v1/icon48.png";
         string target=Art+"/Icons/MageTower/"+key+"_Bloom.png";
+        if(key=="VenomMist" || key=="StoneSeal" || key=="Sanctuary") source="AI/comfyui/mage-skills/20260918-playability/v2/"+key+(target.Contains("_Bloom")?"_Bloom":"")+".png";
         if(!File.Exists(source))throw new FileNotFoundException("Bloom icon missing",source);
         CopyChanged(source,target);AssetDatabase.ImportAsset(target,ImportAssetOptions.ForceSynchronousImport);
         var importer=(TextureImporter)AssetImporter.GetAtPath(target);

@@ -48,14 +48,14 @@ namespace KingdomIdle.MageTower
             public bool Alive => IsAlive(Monster) && Monster.AllocGen == _generation;
         }
 
-        public MageTowerSpellCast(MageTowerManager owner, MageTowerSkillSO skill, long power, int awakening, bool bloom, Monster target)
+        public MageTowerSpellCast(MageTowerManager owner, MageTowerSkillSO skill, long power, int awakening, bool bloom, Monster target, Vector3? position = null)
         {
             _owner = owner; _skill = skill; _power = power; _awakening = awakening; _bloom = bloom;
-            _battle = LocalProgression.State.ActiveBattleId; _initial = target.transform.position;
+            _battle = LocalProgression.State.ActiveBattleId; _initial = position ?? target.transform.position;
             // Broad effects may centre just inside the arena edge; their visible boundary
             // and actual hit centre stay together. Small targeted strikes remain exact.
-            if (skill.spellKind == MageSpellKind.Meteor || skill.spellKind == MageSpellKind.VoidRift || skill.spellKind == MageSpellKind.VenomMist ||
-                (skill.spellKind == MageSpellKind.Lightning && bloom))
+            if (!position.HasValue && (skill.spellKind == MageSpellKind.Meteor || skill.spellKind == MageSpellKind.VoidRift || skill.spellKind == MageSpellKind.VenomMist ||
+                (skill.spellKind == MageSpellKind.Lightning && bloom)))
             {
                 var camera=MageTowerTargeting.ResolveCamera();
                 if(camera!=null)
@@ -67,7 +67,7 @@ namespace KingdomIdle.MageTower
                 }
             }
 #if UNITY_EDITOR || LOBBY_DEVICE_QA
-            MageSkillDiagnostics.Record(skill.id, "begin", target.name, 0, bloom);
+            MageSkillDiagnostics.Record(skill.id, "begin", target != null ? target.name : "ground", 0, bloom);
 #endif
         }
 
@@ -115,11 +115,21 @@ namespace KingdomIdle.MageTower
         }
 
         public static bool NeedsHealing()
+            => TryFindHealingPoint(out _);
+
+        public static bool TryFindHealingPoint(out Vector3 point)
         {
+            point = default;
             var players = UserManager.Instance?.GetPlayers(); if (players == null) return false;
+            Player lowest = null; double ratio = .9;
             foreach (var player in players)
-                if (player != null && player.playerStatus != null && player.playerStatus.HP > 0 && player.playerStatus.HP < player.playerStatus.MaxHP * .9) return true;
-            return false;
+            {
+                if (player == null || player.playerStatus == null || player.playerStatus.HP <= 0) continue;
+                double current = (double)player.playerStatus.HP / player.playerStatus.MaxHP;
+                if (current < ratio) { lowest = player; ratio = current; }
+            }
+            if (lowest == null) return false;
+            point = lowest.transform.position; return true;
         }
 
         private PooledSpellVfx Visual(GameObject prefab, Vector3 position, float lifetime, float scale = 1)
@@ -419,13 +429,14 @@ namespace KingdomIdle.MageTower
 
         private IEnumerator Sanctuary()
         {
-            Visual(_skill.prefab, new Vector3(0, -.6f, 0), Hits * _skill.tickInterval + .3f);
+            Visual(_skill.prefab, _initial, Hits * _skill.tickInterval + .3f);
             for (int i = 0; i < Hits && Valid; i++)
             {
                 Player lowest = null; double ratio = 1;
                 foreach (var player in UserManager.Instance.GetPlayers())
                 {
-                    if (player == null || player.playerStatus == null || player.playerStatus.HP <= 0) continue;
+                    if (player == null || player.playerStatus == null || player.playerStatus.HP <= 0 ||
+                        (player.transform.position - _initial).sqrMagnitude > _skill.radius * _skill.radius) continue;
                     double candidate = (double)player.playerStatus.HP / player.playerStatus.MaxHP;
                     if (candidate < ratio) { lowest = player; ratio = candidate; }
                 }

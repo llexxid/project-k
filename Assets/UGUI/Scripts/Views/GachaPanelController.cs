@@ -440,7 +440,7 @@ namespace KingdomIdle.UGUI
                 // 이름
                 string displayName = entry.nameKor;
                 if (entry.rewardType == eGachaRewardType.Equipment && entry.equipmentData != null)
-                    displayName = string.IsNullOrEmpty(entry.nameKor) ? entry.equipmentData.equipmentName : entry.nameKor;
+                    displayName = string.IsNullOrEmpty(entry.nameKor) ? entry.equipmentData.DisplayName : entry.nameKor;
                 else if (entry.rewardType == eGachaRewardType.Skill && string.IsNullOrEmpty(displayName))
                 {
                     var mtMgr = MageTowerManager.Instance;
@@ -548,7 +548,7 @@ namespace KingdomIdle.UGUI
 
             if (!mgr.CanPullMulti(table, count))
             {
-                if (uiMgr != null) uiMgr.ShowToast("재화가 부족합니다.");
+                if (uiMgr != null) uiMgr.ShowToast(mgr.PullFailure(table, count));
                 return;
             }
 

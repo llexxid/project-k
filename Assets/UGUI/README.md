@@ -29,13 +29,13 @@
 ## 전투 HUD
 
 - `CompactHudBuilder.Apply`: `Screen_Main`, `Panel_Guide`, `Item_GuideStepRow`를 갱신한다.
-- 상단 중앙: 작은 반투명 스테이지 배지, 보스전에서 타이머 표시.
+- 스테이지 배지: `StageBadgeAnchor`가 하단 왕국군 상태 HUD 바로 위에 정렬한다. 보스전에서는 같은 배지에 타이머가 표시된다.
 - 좌측 상단: `GuideGoalView`가 실제 `QuestManager`의 현재 단계·목표·진척도를 이벤트로 갱신한다. 진행 중 목적지 이동, 완료 시 다음 단계/보상, 전체 내용은 메뉴에서 확인한다.
-- 햄버거: 퀘스트/가이드, 가방, 설정, 보스 자동 도전, 반복 사냥 종료(반복 중일 때).
+- 햄버거: 퀘스트/가이드와 가방은 `LayerOverlays`의 중앙 팝업이다. `CenteredPanelSize`가 안전 영역 안에서 크기를 맞춘다. 설정, 보스 자동 도전, 반복 사냥 종료도 이 메뉴에서 연다.
 - `Panel_Guide`의 현재 퀘스트는 HUD와 같은 데이터를 쓴다. 등록된 `TutorialManager` 목록은 수동 확인하는 플레이 도움말이며 퀘스트 완료 판정과 구별한다. 도움말 데이터가 없으면 실제 다음 퀘스트 목록을 표시한다.
 - 하단 네 탭은 육성·왕국군·던전·뽑기. 시트가 열리면 HUD 목표 카드는 숨긴다.
 
-`UguiPolishPass → UguiTypeNavPass`는 기존 스타일 보정 도구다. 전투 HUD의 최종 배치는 `CompactHudBuilder`에서 관리한다.
+`UguiPolishPass → UguiTypeNavPass`는 기존 스타일 보정 도구다. `CompactHudBuilder`의 기본 HUD를 재생성했다면 `PlayabilityRevisionPreparation.Prepare`로 현재 배지·팝업·전직 트리·수동 마탑 슬롯 배치를 적용한다.
 일반 글자는 Galmuri11 기본 굵기·공유 머티리얼, 전투 숫자·컷인만 필요한 외곽선을 사용한다.
 1080px 기준 패널 제목 40, 주요 버튼 30–34, 설명 26–28, 하단 라벨 30. 아이콘은 Layer Lab `PictoIcon/64` 명시 경로를 사용한다.
 
@@ -56,3 +56,9 @@ Android 검사 도우미·결과는 `AI/qa/hud/`, `Recordings/HudRevision/`에 �
 `MageUiPreparation`은 10종 스킬 셀, 개화 선택이 있는 상세 창, 목재·청동 뽑기 버튼과 결과 창을 준비한다. 스킬 등급은 없으며 청동 테두리와 문구로 장착, 보라색과 아이콘 변형으로 개화를 표시한다. 스킬 셀은 재사용한다. `MageSkillPresentation`은 등록 SO와 저장 상태를 읽는다. `GachaButtonFlare`는 unscaled-time 가장자리 청색 연출을 재사용하며, 저사양에서도 결제 시점·취소 동작은 동일하다. 창을 닫으면 결제 전 연출을 취소하고 연속 터치에는 한 번만 결제한다.
 
 마탑 Android 검증 도우미는 `AI/qa/mage/`, 상세 근거는 [통합 보고서](../../Docs/ArtPreparation/MAGE_INTEGRATION_VALIDATION.md)에 있다.
+
+`MageManualCastHud`는 자동 시전을 끄면 장착 슬롯을 탑 위로 순서대로 펼친다. 탭은 자동 조준 시전, 드래그는 전투 지점 지정이다. `MagicAimGraphic`은 실제 반경의 회전하는 원형 범위이며, 빈 슬롯은 표시하지 않는다. UI 위 드롭, 화면 밖, 전투 전환, 포커스 상실은 시전 없이 취소한다. 얼음 송곳과 유성우는 탭으로만 시전한다.
+
+장비와 가방은 `VirtualEquipmentGrid`로 화면에 보이는 카드만 만든다. 보관함 초과 보상은 기존 수량형 저장 구조에 영구 보관하여 전투·던전·뽑기를 막지 않는다. `EquipmentData.DisplayName`은 화면용 이름이며 기존 저장 키와 아이템 코드는 유지한다. 상세 스탯은 실제 `PlayerStatus` 계산을 사용하고 변경된 계산식만 다시 그린다.
+
+현재 검증 진입점은 `PlayabilityRevisionPreparation.Validate`, Unity 실행 검사 `KingdomIdle.UGUI.Editor.PlayabilityLiveValidation.Run`, Android `AI/qa/mage/playability_checks.py`다. 증거는 `Recordings/PlayabilityRevision`과 [플레이 개선 검증 기록](../../Docs/ArtPreparation/PLAYABILITY_20260918.md)에 있다.

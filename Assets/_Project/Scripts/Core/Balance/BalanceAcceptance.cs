@@ -31,12 +31,31 @@ namespace KingdomIdle.Balance
                 !EquipmentManager.TakeLegacy(legacyReload,123,7), "Final legacy item is consumed once");
             LocalProgression.Validate(legacyReload);
             Check(JsonConvert.DeserializeObject<ProgressionState>("{}").LegacyEquipment.Count == 0, "Old save defaults to empty legacy reserve");
+            var crowded = new ProgressionState();
+            bool allGranted = true;
+            for (int i = 0; i < 2400; i++)
+                allGranted &= EquipmentManager.Grant(crowded, new EquipmentSave { Id = "crowded-" + i, Code = 123 + i % 3 }, true);
+            Check(allGranted, "Every reward in a 2400-item session is preserved");
+            Check(crowded.Equipment.Count == 300 && crowded.PendingEquipment.Count == 100 && crowded.LegacyEquipment.Count == 3 &&
+                crowded.Equipment.Count + crowded.PendingEquipment.Count + crowded.LegacyEquipment.Sum(x => x.Count) == 2400,
+                "Long-session drops remain bounded and preserve every reward without blocking battles");
+            LocalProgression.Validate(JsonConvert.DeserializeObject<ProgressionState>(JsonConvert.SerializeObject(crowded)));
             Check(BalanceMath.GoldTotal(0,10)==696,"Gold levels 0→10 cost 696");
             Check(BalanceMath.GoldTotal(0,100)==619133,"Gold levels 0→100 cost 619133");
             Check(BalanceMath.GoldTotal(0,300)==466665042390L,"Gold levels 0→300 remain 64-bit");
             Check(BalanceMath.GoldCost(299)==30529488792L && BalanceMath.GoldCost(300)==null,"Gold cap distinct from zero cost");
             Check(BalanceMath.AffordableGoldLevels(0,695)==9 && BalanceMath.AffordableGoldLevels(0,696)==10,"Max purchase exact boundary");
             Check(BalanceMath.Stat(30,40,0,10,.10m,10,5)==105,"Shared final-stat example = 105");
+            var stats = new PlayerStatus();
+            stats.SetEquipmentBonus(40,2000000); stats.AddPassiveSelfBonus(5,10);
+            stats.SetAura(.10m,.20m); stats.SetProgression(10,300,10,5);
+            Check(stats.Atk == 112 && stats.AtkBreakdown().Final == stats.Atk,
+                "Displayed attack combines equipment, passive, additive rates and gold growth");
+            Check(stats.MaxHP > int.MaxValue && stats.MaxHP == (long)decimal.Round(2000210m * 1.268m * BalanceMath.GoldMultiplier(300), 0, MidpointRounding.AwayFromZero),
+                "Large health and displayed breakdown preserve 64-bit values");
+            int statChanges = 0; stats.OnStatsChanged += () => statChanges++;
+            stats.SetEquipmentBonus(40,2000000); stats.SetProgression(10,300,10,5);
+            Check(statChanges == 0, "Unchanged equipment and progression do not rebuild stat UI");
             Check(BalanceMath.Damage(105,.5m)==53 && BalanceMath.Damage(0,0)==1,"Damage half-up and minimum one");
             bool overflow=false;try{BalanceMath.Damage(long.MaxValue,2m);}catch(OverflowException){overflow=true;}Check(overflow,"Damage overflow rejected");
             Check(BalanceMath.WeaponAttack(15,1)==16 && BalanceMath.WeaponAttack(80,15)==200,"Weapon linear 10% base growth floor");

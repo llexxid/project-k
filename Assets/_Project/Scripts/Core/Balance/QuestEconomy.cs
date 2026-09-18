@@ -130,6 +130,8 @@ namespace KingdomIdle.Balance
                 }
                 s.Claims.Add(key); s.PendingQuests.Remove(key); return true;
             });
+            if (ok && q.Category == eQuestCategory.Guide)
+                KingdomIdle.UGUI.UIManager.Instance?.ShowToast("가이드 완료 · " + RewardText(q.RewardGroupId, KingdomIdle.UGUI.NumberNotation.Format));
             return ok;
         }
         public static string RewardText(int groupId, Func<long, string> format = null)

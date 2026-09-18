@@ -92,7 +92,7 @@ namespace KingdomIdle.MageTower
         private bool AnyMonsterOnScreen() => MageTowerSpellCast.TryFindTarget(out _);
 
         public bool IsAutoEnabled() => _autoEnabled;
-        public void SetAutoEnabled(bool enabled) => _autoEnabled = enabled;
+        public void SetAutoEnabled(bool enabled) { if (_autoEnabled == enabled) return; _autoEnabled = enabled; OnStateChanged?.Invoke(); }
 
         public bool IsOwned(int skillId) => Saved(skillId) != null;
 
@@ -277,17 +277,44 @@ namespace KingdomIdle.MageTower
         /// 화면 내 몬스터를 찾아 스킬을 시전한다.
         /// </summary>
         public bool CastSkill(int slotIndex)
+            => TryCast(slotIndex, null);
+
+        public bool CastSkillAt(int slotIndex, Vector3 position)
+        {
+            if (slotIndex < 0 || slotIndex >= SlotCount || !IsValidAimPoint(position)) return false;
+            var skill = GetSkillById(_equipped[slotIndex]);
+            return skill != null && skill.CanAim && TryCast(slotIndex, position);
+        }
+
+        public static bool IsValidAimPoint(Vector3 point)
+        {
+            var camera = MageTowerTargeting.ResolveCamera();
+            if (camera == null || float.IsNaN(point.x) || float.IsNaN(point.y) || float.IsInfinity(point.x) || float.IsInfinity(point.y)) return false;
+            var viewport = camera.WorldToViewportPoint(point);
+            return Mathf.Abs(point.z) < .01f && viewport.z > 0 && viewport.x >= .03f && viewport.x <= .97f && viewport.y >= .25f && viewport.y <= .84f;
+        }
+
+        private bool TryCast(int slotIndex, Vector3? position)
         {
             if (slotIndex < 0 || slotIndex >= SlotCount || StageManager.Instance?.CurrentRunState != eStageRunState.Running || IsOnCooldown(slotIndex) || _casting[slotIndex]) return false;
             int skillId = _equipped[slotIndex];
             var skill = GetSkillById(skillId);
-            if (skill == null || skill.prefab == null || !IsOwned(skillId) || !MageTowerSpellCast.TryFindTarget(skill, out var target)) return false;
-            if (skill.IsHealing && !MageTowerSpellCast.NeedsHealing()) return false;
+            if (skill == null || skill.prefab == null || !IsOwned(skillId)) return false;
+            Scripts.Monster.Monster target = null;
+            if (skill.IsHealing)
+            {
+                if (!position.HasValue)
+                {
+                    if (!MageTowerSpellCast.TryFindHealingPoint(out var healPoint)) return false;
+                    position = healPoint;
+                }
+            }
+            else if (!position.HasValue && !MageTowerSpellCast.TryFindTarget(skill, out target)) return false;
             LocalProgression.RecordSkillCast(skillId);
             _casting[slotIndex] = true;
             _cooldowns[slotIndex] = _cooldownTimers[slotIndex] = GetEffectiveCooldown(skillId);
             _skillCooldowns[skillId] = _skillCooldownTimers[skillId] = _cooldownTimers[slotIndex];
-            var cast = new MageTowerSpellCast(this, skill, GetEffectiveDamage(skillId), GetAwakeningLevel(skillId), IsBloomEnabled(skillId), target);
+            var cast = new MageTowerSpellCast(this, skill, GetEffectiveDamage(skillId), GetAwakeningLevel(skillId), IsBloomEnabled(skillId), target, position);
             _activeSpells[slotIndex] = cast;
             OnCastingChanged?.Invoke(slotIndex, true);
             StartCoroutine(RunCast(slotIndex, cast));

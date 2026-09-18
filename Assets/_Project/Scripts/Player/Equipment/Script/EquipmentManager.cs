@@ -17,7 +17,6 @@ public class EquipmentManager : MonoBehaviour
     public EquipmentInventory Inventory => _inventory;
     public const int Capacity = 300, PendingCapacity = 100;
     public int AvailableSlots => Math.Max(0, Capacity - LocalProgression.State.Equipment.Count);
-    public bool CanReceiveBattleEquipment => LocalProgression.State.PendingEquipment.Count <= PendingCapacity - 25;
     public enum EnhancementResult { Success, ChanceFailed, NotEnoughMaterials, MaxLevel, InvalidItem, SaveFailed }
     private void Awake() { if (Instance != null && Instance != this) { Destroy(gameObject); return; } Instance = this; }
     private void OnDestroy() { if (Instance == this) Instance = null; }
@@ -48,6 +47,12 @@ public class EquipmentManager : MonoBehaviour
         if (state.Equipment.Count < Capacity) state.Equipment.Add(item);
         else if (allowPending && state.PendingEquipment.Count < PendingCapacity)
         { item.ExpiresUtc = LocalProgression.UtcNow + 7 * 86400; state.PendingEquipment.Add(item); }
+        else if (allowPending && !item.Locked && !item.Player.HasValue)
+        {
+            var stack = state.LegacyEquipment.Find(x => x.Code == item.Code && x.Level == item.Level);
+            if (stack == null) state.LegacyEquipment.Add(new LegacyEquipmentStack { Code = item.Code, Level = item.Level, Count = 1 });
+            else stack.Count = checked(stack.Count + 1);
+        }
         else return false;
         QuestEconomy.Count(state,eQuestObjectiveType.EquipmentObtain,0,1);
         return true;
@@ -82,7 +87,7 @@ public class EquipmentManager : MonoBehaviour
     {
         if (GetData(code) == null) return false;
         bool ok = LocalProgression.Execute("equipment-legacy-claim", state => TakeLegacy(state, code, level));
-        if (ok) { RestoreEquipment(); OnItemDropped?.Invoke(null); Scripts.Core.Manager.StageManager.Instance?.ResumeAfterInventory(); }
+        if (ok) { RestoreEquipment(); OnItemDropped?.Invoke(null); }
         return ok;
     }
     public void GetEquipment(EquipmentInstance item, GetEffect effect)
@@ -149,7 +154,7 @@ public class EquipmentManager : MonoBehaviour
             LocalProgression.Credit(s, eCurrency.ArcaneKnowledge, item.baseData.rarity == eEquipmentRarity.Epic ? 8 : item.baseData.rarity == eEquipmentRarity.Rare ? 3 : 1);
             return true;
         });
-        if (ok) { RestoreEquipment(); OnItemDropped?.Invoke(null); Scripts.Core.Manager.StageManager.Instance?.ResumeAfterInventory(); } return ok;
+        if (ok) { RestoreEquipment(); OnItemDropped?.Invoke(null); } return ok;
     }
     public bool ClaimPending(string id)
     {
@@ -159,7 +164,7 @@ public class EquipmentManager : MonoBehaviour
             // Keep approved rewards even past the displayed expiry until a server expiry policy is supplied.
             s.PendingEquipment.Remove(item); item.ExpiresUtc = 0; s.Equipment.Add(item); return true;
         });
-        if (ok) { RestoreEquipment(); OnItemDropped?.Invoke(null); Scripts.Core.Manager.StageManager.Instance?.ResumeAfterInventory(); } return ok;
+        if (ok) { RestoreEquipment(); OnItemDropped?.Invoke(null); } return ok;
     }
     public EquipmentSave RollFieldDrop(double probability)
     {

@@ -16,6 +16,7 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal RectTransform sheet;
         [SerializeField] internal TMP_Text title;
         [SerializeField] internal Button closeButton;
+        [SerializeField] internal bool centeredModal;
 
         /// <summary>패널이 스택에서 제거될 때 UIManager가 호출 — 컨트롤러 Dispose 훅.</summary>
         internal Action OnClosed;

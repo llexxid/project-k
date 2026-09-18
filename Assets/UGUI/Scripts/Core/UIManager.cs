@@ -281,6 +281,7 @@ namespace KingdomIdle.UGUI
 
         public void PushPanel(UIPanelId id, object payload = null, bool clearBefore = false, bool isTabPanel = false)
         {
+            if (id == UIPanelId.Guide || id == UIPanelId.Inventory) isTabPanel = false;
             if (clearBefore)
                 ClearPanels();
 
@@ -304,7 +305,8 @@ namespace KingdomIdle.UGUI
             {
                 // 시트 전체가 하단 탭바 뒤에서 떠오르는 슬라이드 인 (셸의 SheetClip이 탭바 영역을 가린다)
                 float rise = Mathf.Max(240f, view.sheet.rect.height);
-                UITween.SlideUp(view.sheet, rise, 0.34f);
+                if (view.centeredModal) UITween.PopIn(view.sheet);
+                else UITween.SlideUp(view.sheet, rise, 0.34f);
                 if (view.backdrop != null)
                 {
                     var cg = view.backdrop.GetComponent<CanvasGroup>();
@@ -372,7 +374,8 @@ namespace KingdomIdle.UGUI
             if (next.View.sheet != null)
             {
                 next.View.sheet.anchoredPosition = next.SheetRestingPos;
-                UITween.SlideUp(next.View.sheet, 120f, 0.22f);
+                if (next.View.centeredModal) UITween.PopIn(next.View.sheet);
+                else UITween.SlideUp(next.View.sheet, 120f, 0.22f);
             }
         }
 
@@ -397,13 +400,13 @@ namespace KingdomIdle.UGUI
             if (cg == null) cg = top.Go.AddComponent<CanvasGroup>();
             cg.blocksRaycasts = false;   // 퇴장 중 입력 차단
             cg.interactable = false;
-            RunCoroutine(PanelCloseRoutine(top.Go, top.View.sheet, cg));
+            RunCoroutine(PanelCloseRoutine(top.Go, top.View.sheet, cg, top.View.centeredModal));
         }
 
-        private static IEnumerator PanelCloseRoutine(GameObject go, RectTransform sheet, CanvasGroup rootGroup)
+        private static IEnumerator PanelCloseRoutine(GameObject go, RectTransform sheet, CanvasGroup rootGroup, bool modal)
         {
             Vector2 from = sheet.anchoredPosition;
-            Vector2 to = from + new Vector2(0f, -Mathf.Max(240f, sheet.rect.height));
+            Vector2 to = modal ? from : from + new Vector2(0f, -Mathf.Max(240f, sheet.rect.height));
             const float dur = 0.20f;
             float e = 0f;
             while (e < dur && go != null && sheet != null)
@@ -449,7 +452,7 @@ namespace KingdomIdle.UGUI
                 return null;
             }
 
-            var go = Instantiate(prefab, layerPanels, false);
+            var go = Instantiate(prefab, id == UIPanelId.Guide || id == UIPanelId.Inventory ? layerOverlays : layerPanels, false);
             ForceFullStretch(go);
             view = go.GetComponent<BottomSheetView>();
             PopulatePanel(id, view, payload);
@@ -652,7 +655,7 @@ namespace KingdomIdle.UGUI
         {
             if (GamePresentationSettings.HideItemNotifications) return;
             _fieldLootCount++;
-            _fieldLootName = EquipmentManager.Instance?.GetData(code)?.equipmentName ?? "장비";
+            _fieldLootName = EquipmentManager.Instance?.GetData(code)?.DisplayName ?? "장비";
         }
         private void ApplyLootSettings()
         {
