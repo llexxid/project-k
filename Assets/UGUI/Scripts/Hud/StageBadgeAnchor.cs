@@ -15,6 +15,7 @@ namespace KingdomIdle.UGUI
             var group = GetComponent<CanvasGroup>();
             bool visible = party.gameObject.activeInHierarchy && ui != null && !ui.HasActiveTabPanel && !ui.HasBlockingPanel;
             if (group != null && group.alpha != (visible ? 1 : 0)) group.alpha = visible ? 1 : 0;
+            if (group != null) { group.interactable = visible; group.blocksRaycasts = visible; }
             if (!visible) return;
             party.GetWorldCorners(_corners);
             float top = _rect.parent.InverseTransformPoint(_corners[1]).y;

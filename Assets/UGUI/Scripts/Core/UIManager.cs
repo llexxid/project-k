@@ -281,6 +281,9 @@ namespace KingdomIdle.UGUI
 
         public void PushPanel(UIPanelId id, object payload = null, bool clearBefore = false, bool isTabPanel = false)
         {
+#if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
+            var panelTimer = System.Diagnostics.Stopwatch.StartNew();
+#endif
             if (id == UIPanelId.Guide || id == UIPanelId.Inventory) isTabPanel = false;
             if (clearBefore)
                 ClearPanels();
@@ -289,6 +292,9 @@ namespace KingdomIdle.UGUI
                 _panelStack.Peek().Go.SetActive(false);
 
             var go = CreatePanel(id, payload, out var view);
+#if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
+            Debug.Log($"[PanelTiming] {id} create {panelTimer.Elapsed.TotalMilliseconds:F2} ms");
+#endif
             if (go == null) return;
 
             var entry = new PanelEntry(id, isTabPanel, go, view);
@@ -297,9 +303,15 @@ namespace KingdomIdle.UGUI
                 LayoutRebuilder.ForceRebuildLayoutImmediate(view.sheet);
                 entry.SheetRestingPos = view.sheet.anchoredPosition;
             }
+#if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
+            Debug.Log($"[PanelTiming] {id} layout {panelTimer.Elapsed.TotalMilliseconds:F2} ms");
+#endif
             _panelStack.Push(entry);
             BindPanelCommon(go, view);
             RefreshActiveTabPanelState();
+#if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
+            Debug.Log($"[PanelTiming] {id} state {panelTimer.Elapsed.TotalMilliseconds:F2} ms");
+#endif
 
             if (view != null && view.sheet != null)
             {

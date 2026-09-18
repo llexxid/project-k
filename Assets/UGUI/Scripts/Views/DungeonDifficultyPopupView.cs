@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using Scripts.Core;
 using Scripts.Core.Manager;
@@ -31,6 +32,13 @@ namespace KingdomIdle.UGUI
         private readonly HashSet<int> unlockedNumbers = new();
         private static readonly Dictionary<eStage, int> LastSelection = new();
         [System.NonSerialized] private eStage dungeonKey;
+        private bool entryPending;
+
+        private void OnDisable()
+        {
+            StopAllCoroutines();
+            entryPending = false;
+        }
 
         private void Awake()
         {
@@ -156,6 +164,7 @@ namespace KingdomIdle.UGUI
 
         private void SelectDifficulty(int stage)
         {
+            if (entryPending) return;
             if (!unlockedNumbers.Contains(stage)) return;
             selectedDifficulty = stage;
             LastSelection[dungeonKey] = stage;
@@ -186,15 +195,32 @@ namespace KingdomIdle.UGUI
 
         private void HandleEnterClicked()
         {
-            if (selectedStageId == default)
+            if (selectedStageId == default || entryPending)
                 return;
+            entryPending = true;
+            if (enterButton != null) enterButton.interactable = false;
+            StartCoroutine(EnterWhenReady(selectedStageId));
+        }
 
+        private IEnumerator EnterWhenReady(eStage stage)
+        {
             StageManager stageManager = StageManager.Instance;
+            // A normal wave can finish between the touch and this callback. Keep
+            // that one request through its short transition, but recheck all
+            // entry rules before spending a ticket. Closing the popup cancels it.
+            float deadline = Time.unscaledTime + 5;
+            while (stageManager != null && StageParser.GetStageType(stageManager.CurrentStage) == eStageType.Main &&
+                (stageManager.CurrentRunState == eStageRunState.Entering ||
+                 stageManager.CurrentRunState == eStageRunState.Transitioning ||
+                 stageManager.CurrentRunState == eStageRunState.Resolving) && Time.unscaledTime < deadline)
+                yield return null;
+            entryPending = false;
             if (stageManager == null ||
-                !stageManager.TryEnterDungeon(selectedStageId))
+                !stageManager.TryEnterDungeon(stage))
             {
+                SelectDifficulty(selectedDifficulty);
                 UIManager.Instance?.ShowToast("현재는 입장할 수 없습니다. 해금 조건과 진행 중인 전투를 확인해 주세요.");
-                return;
+                yield break;
             }
 
             GameObject panel = transform.parent != null

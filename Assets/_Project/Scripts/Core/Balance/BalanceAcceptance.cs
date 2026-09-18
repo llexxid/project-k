@@ -14,6 +14,9 @@ namespace KingdomIdle.Balance
         {
             var checks=new List<string>();
             void Check(bool result,string label) { if(!result) throw new InvalidOperationException("BALANCE ASSERT: "+label);checks.Add(label); }
+            var dailyReincarnation = new ProgressionState { ReincarnationDay = LocalProgression.KstDay, ReincarnationsToday = 3, CycleStartedUtc = LocalProgression.UtcNow };
+            Check(Reincarnation.ReincarnationService.Eligibility(dailyReincarnation) == Reincarnation.eReincarnationFailureReason.DailyLimit,
+                "Daily reincarnation cap is explained before another boss or cooldown requirement");
             var legacyInventory = new ProgressionState();
             EquipmentManager.ImportLegacy(legacyInventory, 123, 7, 65535);
             Check(legacyInventory.Equipment.Count == EquipmentManager.Capacity && legacyInventory.PendingEquipment.Count == 0 &&

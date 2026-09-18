@@ -1,5 +1,7 @@
 # 2026-09-18 플레이 진행·마탑·메뉴 개선
 
+후속 30분 × 3회 실플레이와 추가 수정, 최신 설치본은 [플레이 시뮬레이션 보고서](PLAYER_SIMULATION_20260918.md)를 따른다. 아래 b25 설치·검증은 선행 수정 완료 당시의 기록이다.
+
 ## 확인된 원인과 변경
 
 - 실제 기기 저장은 장비 300개, 개별 보관 76개였다. 기존 코드는 보관 75개를 넘으면 다음 전투를 `ResultPending`으로 정지했다. 적은 사라지고 던전의 `Running` 입장 조건도 충족하지 못했다. 보상은 개별 보관 100개 이후 기존 수량형 저장 구조에 합산하며, 보관함 크기가 스테이지 전환을 막던 코드를 제거했다. 저장된 장비·강화·잠금·장착 정보와 안정적인 코드는 유지한다.
@@ -41,7 +43,7 @@ Unity 6000.3.21f1, Android 실제 기기 1대(SM-N986N). 물리 패널은 1440×
 
 원시 기록은 `Original/equipment-open-performance.json`과 `Diagnostic3/menu-performance.json`, 메뉴별 `presentation-raw.json`에 있다. 평균 전투 fps와 메뉴를 여는 순간의 지연을 구별한다. 검증 도우미는 `AI/qa/mage/playability_checks.py`, `AI/qa/combat/polish_checks.py`다.
 
-## 최종 앱과 실제 계정
+## 선행 수정 당시 설치본과 실제 계정
 
 최종 설치본은 **0.11.0 (b25), 직접 플레이**, `com.isolatedyouth.idlekingdomrpg.lobbyqa`다. 고정된 Unity 버전에서 ARM64 IL2CPP 빌드 성공, 오류 0개다. 기존 경고 22개는 빌드 로그에 남겼다. `LOBBY_DEVICE_QA`를 포함하지 않아 계정 강제 지정·진단 명령 처리기가 없다. `FinalResponsive/build.json`, `build.txt`와 APK를 보존했다.
 

@@ -31,11 +31,15 @@ namespace KingdomIdle.UGUI
         private static int _activeMemberIndex;
         private static SubMenu _activeSubMenu;
         private static int _pendingMemberIndex = -1;   // 다음 Populate에서 선택할 멤버 (파티 HUD 초상화 탭 라우팅)
+        private static SubMenu? _pendingSubMenu;
+        public static void SetPendingEquipmentTab() => _pendingSubMenu = SubMenu.Equipment;
+        public static void SetPendingJobChangeTab() => _pendingSubMenu = SubMenu.JobChange;
 
         /// <summary>패널을 열기 전에 호출하면 해당 멤버가 선택된 상태로 열린다 (1회성).</summary>
         public static void SetPendingMemberIndex(int index) => _pendingMemberIndex = index;
 
         private static KingdomArmyPanelView _view;
+        private static System.Type _contentPage;
         private static readonly List<NavTabButtonView> _memberTabButtons = new();
         private static readonly List<NavTabButtonView> _navButtons = new();
         private static readonly List<SubMenu> _navMenus = new();
@@ -70,10 +74,13 @@ namespace KingdomIdle.UGUI
             // 살아남으면 나중에 엉뚱한 열기(탭 버튼 등)에서 뒤늦게 발화한다.
             int pendingMember = _pendingMemberIndex;
             _pendingMemberIndex = -1;
+            var pendingMenu = _pendingSubMenu;
+            _pendingSubMenu = null;
 
             if (view == null) return;
 
             _view = view;
+            _contentPage = null;
             NumberNotationBinding.Bind(view, Refresh);
             if (_view.memberTabs == null || _view.content == null || _view.navBar == null) return;
 
@@ -101,7 +108,7 @@ namespace KingdomIdle.UGUI
             _activeMemberIndex = pendingMember >= 0 && _players != null && _players.Count > 0
                 ? Mathf.Clamp(pendingMember, 0, _players.Count - 1)
                 : 0;
-            _activeSubMenu = SubMenu.Character;
+            _activeSubMenu = pendingMenu ?? SubMenu.Character;
 
             BuildMemberTabs();
             BuildNavBar();
@@ -1038,7 +1045,7 @@ namespace KingdomIdle.UGUI
                     if (detail.prereqCondRow != null) detail.prereqCondRow.gameObject.SetActive(true);
                     if (detail.prereqCondValue != null)
                     {
-                        detail.prereqCondValue.text = prereqMet ? $"{prereq} 전직 완료" : $"{JobData.GetDisplayName(prereq)} 전직 필요";
+                        detail.prereqCondValue.text = prereqMet ? $"{JobData.GetDisplayName(prereq)} 전직 완료" : $"{JobData.GetDisplayName(prereq)} 전직 필요";
                         detail.prereqCondValue.color = prereqMet ? UguiTheme.SuccessGreenBright : FragLockedColor;
                     }
                 }
@@ -1214,6 +1221,13 @@ namespace KingdomIdle.UGUI
             }
 
             var go = Object.Instantiate(prefab, _view.content, false);
+            if (_contentPage != typeof(T))
+            {
+                _view.scroll?.StopMovement();
+                var position = _view.content.anchoredPosition;
+                _view.content.anchoredPosition = new Vector2(position.x, 0);
+                _contentPage = typeof(T);
+            }
             var comp = go.GetComponent<T>();
             if (comp == null)
             {

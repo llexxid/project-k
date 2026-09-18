@@ -11,6 +11,7 @@ using Newtonsoft.Json;
 using Scripts.Core;
 using Scripts.Core.Manager;
 using Scripts.Monster;
+using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -24,7 +25,8 @@ namespace KingdomIdle.UGUI.Editor
     {
         const string Key = "Playability.LiveValidation";
         const string Account = "playability-editor-20260918";
-        const string Output = "Recordings/PlayabilityRevision/Editor/Live";
+        static string Output => Environment.GetEnvironmentVariable("PLAYABILITY_LIVE_OUTPUT") ?? "Recordings/PlayabilityRevision/Editor/Live";
+        const string RoutesKey = "Playability.SessionRoutes";
         readonly List<object> _results = new();
         readonly List<string> _errors = new();
 
@@ -36,6 +38,10 @@ namespace KingdomIdle.UGUI.Editor
         }
 
         public static void Run()
+        { SessionState.SetBool(RoutesKey, false); StartEditor(); }
+        public static void RunSessionRoutes()
+        { SessionState.SetBool(RoutesKey, true); StartEditor(); }
+        static void StartEditor()
         {
             Directory.CreateDirectory(Output);
             SessionState.SetBool(Key, true);
@@ -53,7 +59,7 @@ namespace KingdomIdle.UGUI.Editor
         IEnumerator Start()
         {
             Application.logMessageReceived += Log;
-            var run = Exercise();
+            var run = SessionState.GetBool(RoutesKey, false) ? ExerciseRoutes() : Exercise();
             while (true)
             {
                 bool next;
@@ -135,21 +141,188 @@ namespace KingdomIdle.UGUI.Editor
             _results.Add(new { test = "aim-rules", invalid = !MageTowerManager.IsValidAimPoint(new Vector3(float.NaN,0,0)), randomIds = mage.GetAllSkills().Where(s=>!s.CanAim).Select(s=>s.id).ToArray() });
             Require(!mage.GetSkillById(1).CanAim && !mage.GetSkillById(3).CanAim, "Random spells cannot aim");
         }
+
+        IEnumerator ExerciseRoutes()
+        {
+            float deadline = Time.realtimeSinceStartup + 120;
+            while (Object.FindFirstObjectByType<TitleScreenView>() == null)
+            { Require(Time.realtimeSinceStartup < deadline, "Title load timeout"); yield return null; }
+            var title = Object.FindFirstObjectByType<TitleScreenView>();
+            title.btnLogin.onClick.Invoke(); title.btnLoginGuest.onClick.Invoke();
+            while (UIManager.Instance.ActiveScreenId != UIScreenId.Main || StageManager.Instance == null || UserManager.Instance.GetPlayers().Count == 0)
+            { Require(Time.realtimeSinceStartup < deadline, "Guest login timeout"); yield return null; }
+            yield return new WaitForSecondsRealtime(2);
+            foreach (var button in Object.FindObjectsByType<Button>(FindObjectsSortMode.None))
+                if (button.name == "BtnConfirm") button.onClick.Invoke();
+            LocalProgression.OpenTestAccount("player-session-routes-20260918");
+            LocalProgression.Execute("qa-route-fixture", s => {
+                s.Modules["imported"] = s.Modules["inventory-imported"] = s.Modules["mage-imported"] = "1";
+                s.HealthLevel = 136; s.AttackLevel = 0;
+                for (int i = 0; i < 3; i++) { s.Jobs[i] = "Spearman"; s.UnlockedJobs[i] = new HashSet<string>{"Spearman"}; }
+                s.MageSkills.Clear(); s.MageSkills[0] = new MageSave();
+                for (int i = 0; i < 5; i++) s.MageSlots[i] = -1;
+                foreach (var item in s.Equipment) item.Player = null;
+                return true;
+            });
+            EquipmentManager.Instance.RestoreEquipment(); StatEnhanceManager.Instance.ApplyToAllPlayers();
+            StageManager.Instance.BeginStage((eStage)0x20002000A);
+            yield return new WaitForSecondsRealtime(1);
+            foreach (int guideId in new[]{10007,10014,10016,10017,10018,10028})
+            {
+                LocalProgression.Execute("qa-route-guide", s => {
+                    s.Claims.RemoveWhere(k => k.StartsWith("quest:100", StringComparison.Ordinal));
+                    foreach (var q in QuestEconomy.Definitions.Where(q => q.Category == eQuestCategory.Guide && q.QuestId < guideId))
+                        s.Claims.Add(QuestEconomy.Key(q,s));
+                    return true;
+                });
+                yield return null;
+                var guide = Object.FindObjectsByType<GuideGoalView>(FindObjectsSortMode.None).First(g=>g.compact);
+                Require(guide.actionButton.interactable, "Guide action disabled " + guideId);
+                guide.actionButton.onClick.Invoke();
+                yield return new WaitForSecondsRealtime(.35f);
+                bool passed = guideId == 10007 ? Object.FindFirstObjectByType<KAEquipmentView>() != null
+                    : guideId == 10014 ? Object.FindFirstObjectByType<KAJobChangeView>() != null
+                    : guideId == 10016 ? Object.FindObjectsByType<TMP_Text>(FindObjectsSortMode.None).Any(t=>t.name=="Desc" && t.text.Contains("스킬 10종"))
+                    : Object.FindObjectsByType<TMP_Text>(FindObjectsSortMode.None).Any(t=>t.text=="마탑 스킬 편성");
+                Require(passed, "Wrong guide destination " + guideId);
+                Capture("guide-" + guideId);
+                _results.Add(new {test="guide-route",guideId,passed});
+                MageTowerPopupController.Hide();
+                if (UIManager.Instance.HasActiveTabPanel || UIManager.Instance.HasBlockingPanel) UIManager.Instance.PopPanel();
+                yield return null;
+            }
+            var manager = StageManager.Instance;
+            manager.SetLoopMode(true); manager.SetBossAutoChallenge(false);
+            var wave = Object.FindFirstObjectByType<WaveHudView>();
+            Require(wave.btnStageAction != null && wave.btnStageAction.interactable, "Stage retry action missing");
+            Require(wave.lblStage.text.Contains("터치"), "Retry hint missing");
+            wave.btnStageAction.onClick.Invoke();
+            Require(!manager.IsLoopMode && manager.BossAutoChallenge, "Retry did not release loop and boss gate");
+            _results.Add(new {test="stage-retry",passed=true});
+            Capture("stage-retry");
+            LocalProgression.Execute("qa-reincarnation-ready", s => {
+                s.CycleBossStage = 2; s.CycleStartedUtc = LocalProgression.UtcNow - 1200;
+                s.LastReincarnationUtc = 0; s.PendingReincarnation = false;
+                s.ReincarnationsToday = 0; return true;
+            });
+            ReincarnationPopupController.Show();
+            yield return new WaitForSecondsRealtime(.4f);
+            var reincarnation = Object.FindFirstObjectByType<ReincarnationPopupView>();
+            Require(reincarnation.confirmButton.interactable, "Ready reincarnation disabled");
+            manager.BeginStage((eStage)0x20002000B);
+            yield return new WaitForSecondsRealtime(.5f);
+            Require(!reincarnation.confirmButton.interactable && reincarnation.infoLabel.text.Contains("일반 웨이브"), "Open popup did not follow boss entry");
+            manager.BeginStage((eStage)0x20002000A);
+            deadline = Time.realtimeSinceStartup + 8;
+            while (!reincarnation.confirmButton.interactable)
+            {
+                Require(Time.realtimeSinceStartup < deadline, "Open popup did not recover after boss exit: " + reincarnation.infoLabel.text);
+                yield return null;
+            }
+            _results.Add(new {test="reincarnation-open-during-stage-change",passed=true});
+            Capture("reincarnation-live-state");
+            ReincarnationPopupController.Hide();
+            GachaPanelController.SetPendingSkillTab(false);
+            UIManager.Instance.PushPanel(UIPanelId.Gacha, null, true, true);
+            yield return new WaitForSecondsRealtime(.5f);
+            var description = Object.FindObjectsByType<TMP_Text>(FindObjectsSortMode.None)
+                .FirstOrDefault(t => t.name == "Desc" && t.text.Contains("에픽 확정까지"));
+            Require(description != null && description.gameObject.activeInHierarchy, "Equipment guarantee hidden on first open");
+            Capture("equipment-guarantee");
+            var table = KingdomIdle.Gacha.GachaManager.Instance.GetAllTables().First(t => t.gachaType == KingdomIdle.Gacha.eGachaType.Equipment);
+            var longNames = table.rewards.Where(r => r.equipmentData != null)
+                .OrderByDescending(r => r.equipmentData.DisplayName.Length).Take(9).ToList();
+            GachaResultPopupController.Show(UIManager.Instance, longNames, table, 10);
+            yield return new WaitForSecondsRealtime(.5f);
+            var cards = Object.FindFirstObjectByType<GachaResultPopupView>().grid.GetComponentsInChildren<GachaCardItemView>();
+            Require(cards.Length == 9, "Long-name result cards missing");
+            foreach (var card in cards)
+            {
+                card.nameLabel.ForceMeshUpdate();
+                Require(!card.nameLabel.isTextTruncated, "Reward name clipped: " + card.nameLabel.text);
+            }
+            Capture("long-reward-names");
+            _results.Add(new {test="equipment-guarantee-and-reward-names",passed=true,cards=cards.Length});
+            GachaResultPopupController.Close();
+            UIManager.Instance.PopPanel();
+            LocalProgression.Execute("qa-profile-progress", s => {
+                s.HighestMainClear = 0x20002000B; s.Kills = 1234;
+                s.ReincarnationLevel = 25; s.ReincarnationCount = 4;
+                s.GoldDungeonClear = 2; s.RubyDungeonClear = 3;
+                s.UnlockedJobs[0].Add("Knight"); s.UnlockedJobs[0].Add("Archer");
+                return true;
+            });
+            Object.FindFirstObjectByType<MainScreenView>().btnProfile.onClick.Invoke();
+            yield return new WaitForSecondsRealtime(.4f);
+            var profile = Object.FindFirstObjectByType<ProfilePopupView>();
+            Require(profile.statValues[0].text == "2-11" && profile.statValues[1].text == "25" && profile.statValues[4].text == NumberNotation.Format(LocalProgression.State.Kills), "Profile not linked to progression");
+            Require(profile.totalJobsLabel.text == "2종", "Unavailable jobs counted in profile");
+            Require(!profile.trophyLabel.gameObject.activeInHierarchy && !profile.guildLabel.gameObject.activeInHierarchy && !profile.powerButton.interactable, "Sample social data still exposed");
+            Capture("profile-progress");
+            _results.Add(new {test="profile-progress-and-sample-removal",passed=true});
+            profile.closeButton.onClick.Invoke();
+            LocalProgression.Execute("qa-reincarnation-daily-cap", s => {
+                s.ReincarnationDay = LocalProgression.KstDay; s.ReincarnationsToday = 3;
+                s.CycleBossStage = 0; s.CycleStartedUtc = LocalProgression.UtcNow; return true;
+            });
+            ReincarnationPopupController.Show();
+            Require(!reincarnation.confirmButton.interactable && reincarnation.infoLabel.text.Contains("오늘 환생 3회"), "Daily cap guidance is misleading");
+            Capture("reincarnation-daily-cap");
+            _results.Add(new {test="reincarnation-daily-cap-guidance",passed=true});
+            ReincarnationPopupController.Hide();
+            LocalProgression.Execute("qa-dungeon-transition", s => {
+                s.GoldTickets = 1; s.GoldDungeonClear = 0;
+                s.MainClears.Add(0x20001000B); return true;
+            });
+            UIManager.Instance.PushPanel(UIPanelId.Dungeon, null, true, true);
+            yield return new WaitForSecondsRealtime(.4f);
+            Object.FindObjectsByType<Button>(FindObjectsSortMode.None).First(b => b.name == "DungeonCard_Gold").onClick.Invoke();
+            var dungeon = Object.FindFirstObjectByType<DungeonDifficultyPopupView>();
+            var enter = dungeon.GetComponentsInChildren<Button>().First(b => b.name == "EnterButton");
+            manager.BeginStage((eStage)0x20002000A);
+            Require(manager.CurrentRunState != eStageRunState.Running, "Dungeon boundary was not exercised");
+            enter.onClick.Invoke();
+            enter.onClick.Invoke(); // Duplicate press must not consume another ticket.
+            deadline = Time.realtimeSinceStartup + 10;
+            while (manager.CurrentDefinition?.Type != eStageType.GoldDungeon || manager.CurrentRunState != eStageRunState.Running)
+            { Require(Time.realtimeSinceStartup < deadline, "Dungeon request lost during wave transition"); yield return null; }
+            Require(LocalProgression.State.GoldTickets == 0 && (dungeon == null || !dungeon.gameObject.activeInHierarchy), "Dungeon ticket or popup transition incorrect");
+            _results.Add(new {test="dungeon-enter-during-transition",passed=true,ticketsUsed=1});
+            Capture("dungeon-transition-entry");
+            manager.ReturnToMainStage();
+            yield return new WaitForSecondsRealtime(1);
+            LocalProgression.Execute("qa-dungeon-cancel", s => { s.GoldTickets = 1; return true; });
+            UIManager.Instance.PushPanel(UIPanelId.Dungeon, null, true, true);
+            yield return new WaitForSecondsRealtime(.4f);
+            Object.FindObjectsByType<Button>(FindObjectsSortMode.None).First(b => b.name == "DungeonCard_Gold").onClick.Invoke();
+            dungeon = Object.FindFirstObjectByType<DungeonDifficultyPopupView>();
+            enter = dungeon.GetComponentsInChildren<Button>().First(b => b.name == "EnterButton");
+            manager.BeginStage((eStage)0x20002000A);
+            enter.onClick.Invoke();
+            dungeon.Hide();
+            yield return new WaitForSecondsRealtime(2);
+            Require(LocalProgression.State.GoldTickets == 1 && manager.CurrentDefinition.Type == eStageType.Main, "Closed popup still entered dungeon");
+            _results.Add(new {test="dungeon-pending-entry-cancel",passed=true});
+        }
         static void Capture(string name)
         {
             var camera = Camera.main; if (camera == null) return;
             var canvas = UIManager.Instance.GetComponent<Canvas>();
             var mode = canvas.renderMode; var previousCamera = canvas.worldCamera;
+            int sortingLayer = canvas.sortingLayerID, sortingOrder = canvas.sortingOrder;
             var old = camera.targetTexture; var active = RenderTexture.active;
             var texture = new RenderTexture(1080,2316,24); var image = new Texture2D(1080,2316,TextureFormat.RGB24,false);
             try
             {
                 texture.Create(); camera.targetTexture = texture;
                 canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera; canvas.planeDistance = 10;
+                // Reproduce the normal overlay canvas when rendering to a texture.
+                canvas.sortingLayerID = SortingLayer.layers.OrderBy(layer => layer.value).Last().id;
+                canvas.sortingOrder = short.MaxValue;
                 Canvas.ForceUpdateCanvases(); camera.Render(); RenderTexture.active = texture;
                 image.ReadPixels(new Rect(0,0,1080,2316),0,0); image.Apply(); File.WriteAllBytes(Output + "/" + name + ".png", image.EncodeToPNG());
             }
-            finally { canvas.renderMode = mode; canvas.worldCamera = previousCamera; camera.targetTexture = old; RenderTexture.active = active; texture.Release(); Destroy(texture); Destroy(image); }
+            finally { canvas.renderMode = mode; canvas.worldCamera = previousCamera; canvas.sortingLayerID = sortingLayer; canvas.sortingOrder = sortingOrder; camera.targetTexture = old; RenderTexture.active = active; texture.Release(); Destroy(texture); Destroy(image); }
         }
     }
 }

@@ -51,6 +51,8 @@ namespace KingdomIdle.UGUI
             // 버튼/토글 바인딩
             if (_view.btnLoopIcon != null)
                 _view.btnLoopIcon.onClick.AddListener(OnLoopIconClicked);
+            if (_view.btnStageAction != null)
+                _view.btnStageAction.onClick.AddListener(OnStageActionClicked);
 
             if (_view.tglBossChain != null)
             {
@@ -78,6 +80,7 @@ namespace KingdomIdle.UGUI
             if (_view != null)
             {
                 if (_view.btnLoopIcon != null) _view.btnLoopIcon.onClick.RemoveListener(OnLoopIconClicked);
+                if (_view.btnStageAction != null) _view.btnStageAction.onClick.RemoveListener(OnStageActionClicked);
                 if (_view.tglBossChain != null) _view.tglBossChain.onValueChanged.RemoveListener(OnBossChainToggled);
                 if (_view.btnDeathYes != null) _view.btnDeathYes.onClick.RemoveListener(OnDeathYes);
                 if (_view.btnDeathNo != null) _view.btnDeathNo.onClick.RemoveListener(OnDeathNo);
@@ -117,6 +120,16 @@ namespace KingdomIdle.UGUI
             if (_sm != null) _sm.SetBossAutoChallenge(value);
         }
 
+        private static void OnStageActionClicked()
+        {
+            if (_sm == null || _sm.CurrentDefinition?.Type != eStageType.Main ||
+                _sm.CurrentRunState != eStageRunState.Running ||
+                (!_sm.IsLoopMode && (_sm.CurrentWaveNumber != 10 || _sm.BossAutoChallenge))) return;
+            _sm.SetBossAutoChallenge(true);
+            _sm.StopLoop();
+            UIManager.Instance?.ShowToast("현재 웨이브를 마치면 다음 구간에 도전합니다.");
+        }
+
         private static void OnDeathYes()
         {
             if (_sm != null) _sm.ChooseDefeatAction(true);
@@ -149,6 +162,7 @@ namespace KingdomIdle.UGUI
                 _view.tglBossChain.SetIsOnWithoutNotify(enabled);
                 _view.tglBossChain.GetComponent<ToggleSwitchView>()?.Refresh();
             }
+            if (_sm != null) UpdateStageLabel(_sm.CurrentStageNumber, _sm.CurrentWaveNumber, _sm.IsBossWave);
         }
 
         private static void HandleDefeatPopupShow()
@@ -201,6 +215,17 @@ namespace KingdomIdle.UGUI
                 : isBoss
                 ? $"보스 {stageNum}"
                 : _sm != null && _sm.IsLoopMode ? $"반복 사냥 {stageNum}-{wave}" : $"스테이지 {stageNum}-{wave}";
+            bool canResume = kind == eStageType.Main && !isBoss && _sm != null &&
+                (_sm.IsLoopMode || (wave == 10 && !_sm.BossAutoChallenge));
+            if (canResume)
+            {
+                bool finalClear = stageNum == 3 && wave == 10 &&
+                    KingdomIdle.Balance.LocalProgression.State.MainClears.Contains(0x20003000B);
+                if (finalClear) _view.lblStage.text = "3장 완료 · 반복 사냥 3-10";
+                _view.lblStage.text += finalClear ? "\n<size=22>터치하여 보스 재도전 ›</size>"
+                    : "\n<size=22>터치하여 다음 구간 도전 ›</size>";
+            }
+            if (_view.btnStageAction != null) _view.btnStageAction.interactable = canResume;
         }
 
         private static void SetHidden(GameObject go, bool hidden)

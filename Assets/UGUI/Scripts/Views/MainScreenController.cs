@@ -143,6 +143,7 @@ namespace KingdomIdle.UGUI
                 RefreshTopCurrencyLabels();
                 RefreshNickname();
                 RefreshReincarnationDot();
+                if (_profilePopup != null && _profilePopup.activeSelf) PopulateProfilePopup();
 
                 if (_currencyOpen)
                     RebuildCurrencyPopupContents();
@@ -630,7 +631,7 @@ namespace KingdomIdle.UGUI
         //  메뉴 버튼 (프로필/인벤토리/설정/공지/우편)
         // ═══════════════════════════════════════════
 
-        // ── 프로필 팝업(더미) ──
+        // ── 계정 프로필 ──
         private GameObject _profilePopup;
         private ProfilePopupView _profileView;
 
@@ -658,7 +659,8 @@ namespace KingdomIdle.UGUI
                 {
                     if (_profileView.closeButton != null) _profileView.closeButton.onClick.AddListener(CloseProfilePopup);
                     if (_profileView.backdrop != null) _profileView.backdrop.onClick.AddListener(CloseProfilePopup);
-                    if (_profileView.powerButton != null) _profileView.powerButton.onClick.AddListener(OpenRankingPopup);
+                    // Keep the actual party power visible; the sample ranking provider is not a live leaderboard.
+                    if (_profileView.powerButton != null) _profileView.powerButton.interactable = false;
                 }
             }
             PopulateProfilePopup();
@@ -672,7 +674,7 @@ namespace KingdomIdle.UGUI
             if (_profilePopup != null) _profilePopup.SetActive(false);
         }
 
-        /// <summary>보유 데이터(닉네임/레벨)만 실제로 채우고 나머지는 프리팹 샘플값 유지(더미).</summary>
+        /// <summary>현재 저장 및 실제 왕국군 전투력을 프로필에 반영한다.</summary>
         private void PopulateProfilePopup()
         {
             if (_profileView == null) return;
@@ -681,13 +683,7 @@ namespace KingdomIdle.UGUI
                 var um = UserManager.Instance;
                 if (um != null)
                 {
-                    string nick = um.GetUserName();
-                    int level = um.GetUserLevel();
-                    long power = CombatPowerCalculator.CalculatePartyPowerV1(um.GetPlayers());
-                    if (!string.IsNullOrWhiteSpace(nick) && _profileView.nameLabel != null) _profileView.nameLabel.text = nick;
-                    if (_profileView.levelLabel != null) _profileView.levelLabel.text = level.ToString();
-                    if (_profileView.kingdomLevelLabel != null) _profileView.kingdomLevelLabel.text = $"Lv. {level}";
-                    if (_profileView.powerLabel != null) _profileView.powerLabel.text = NumberNotation.Format(power);
+                    _profileView.Populate(um.GetUserName(), CombatPowerCalculator.CalculatePartyPowerV1(um.GetPlayers()));
                 }
             }
             catch (Exception ex) { Debug.LogWarning($"PopulateProfilePopup: {ex.Message}"); }

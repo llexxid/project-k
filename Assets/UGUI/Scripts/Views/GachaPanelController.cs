@@ -31,6 +31,8 @@ namespace KingdomIdle.UGUI
         private static bool _flaringPull;
 
         private static int _activeTabIndex;
+        private static bool? _pendingSkillTab;
+        public static void SetPendingSkillTab(bool skills) => _pendingSkillTab = skills;
         private static GachaPanelView _view;
         private static GachaTabContentView _content;
         private static GachaTableSO _contentTable;
@@ -45,6 +47,8 @@ namespace KingdomIdle.UGUI
 
         public static void Populate(GachaPanelView view)
         {
+            var pendingSkillTab = _pendingSkillTab;
+            _pendingSkillTab = null;
             if (view == null) return;
 
             _view = view;
@@ -85,6 +89,9 @@ namespace KingdomIdle.UGUI
             EconomyBridge.OnAmountChanged -= OnWalletChanged;
             EconomyBridge.OnAmountChanged += OnWalletChanged;
             _activeTabIndex = Mathf.Clamp(_activeTabIndex,0,_tables.Count-1);
+            if (pendingSkillTab.HasValue)
+                for (int i = 0; i < _tables.Count; i++)
+                    if (IsSkillTable(_tables[i]) == pendingSkillTab.Value) { _activeTabIndex = i; break; }
             BuildTabs();
             RefreshContent();
         }
@@ -157,6 +164,9 @@ namespace KingdomIdle.UGUI
 
         private static void RefreshContent()
         {
+#if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
+            var contentTimer = System.Diagnostics.Stopwatch.StartNew();
+#endif
             if (_view == null || _view.content == null) return;
             if (_tables == null || _activeTabIndex >= _tables.Count) return;
             var table = _tables[_activeTabIndex];
@@ -165,19 +175,16 @@ namespace KingdomIdle.UGUI
             _activePullButtons.Clear();
 
             var c = SpawnContent();
+#if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
+            Debug.Log($"[GachaTiming] shell {contentTimer.Elapsed.TotalMilliseconds:F2} ms");
+#endif
             if (c == null) return;
 
             _contentTable = table;
 
             if (c.messageLabel != null) c.messageLabel.gameObject.SetActive(false);
 
-            // 설명 (.gacha-desc: 26px @70%)
-            if (c.descLabel != null)
-            {
-                bool hasDesc = !string.IsNullOrEmpty(table.description);
-                c.descLabel.gameObject.SetActive(hasDesc);
-                if (hasDesc) c.descLabel.text = table.description;
-            }
+            UpdateDescription();
 
             // 보유/비용 바 (.gacha-cost: 26px gold)
             EconomyBridge.TryGetAmount(table.costCurrency, out long current);
@@ -193,9 +200,15 @@ namespace KingdomIdle.UGUI
 
             // 뽑기 버튼 행 — 크고 명확한 프리팹 버튼 (Item_GachaPullButton)
             BuildPullRow(c, table, current);
+#if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
+            Debug.Log($"[GachaTiming] controls {contentTimer.Elapsed.TotalMilliseconds:F2} ms");
+#endif
 
             // 보상 목록 미리보기
             BuildRewardPreview(c, table);
+#if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
+            Debug.Log($"[GachaTiming] cards {contentTimer.Elapsed.TotalMilliseconds:F2} ms");
+#endif
         }
 
         private static void BuildPullRow(GachaTabContentView c, GachaTableSO table, long current)
@@ -236,7 +249,7 @@ namespace KingdomIdle.UGUI
             if (_content == null || _contentTable == null) return;
             EconomyBridge.TryGetAmount(_contentTable.costCurrency,out long current);
             if (_content.costLabel != null) _content.costLabel.text=$"1회 비용: {NumberNotation.Format(_contentTable.costAmount)} {GetCurrencyLabel(_contentTable.costCurrency)}  |  보유: {NumberNotation.Format(current)}";
-            if (_content.descLabel != null && _contentTable.gachaType == eGachaType.Equipment) _content.descLabel.text = $"{_contentTable.description}\n에픽 확정까지 {GachaManager.Instance.EpicPityRemaining}회";
+            UpdateDescription();
             bool pulling=_flaringPull || (GachaManager.Instance != null && GachaManager.Instance.IsPulling);
             for(int i=0;i<_activePullButtons.Count;i++)
             {
@@ -245,6 +258,17 @@ namespace KingdomIdle.UGUI
                 int count=PullCounts[i]; long cost=(long)_contentTable.costAmount*count;
                 button.GetComponent<GachaPullButtonView>()?.Set(count==1?"1회 뽑기":$"{count}연 뽑기",$"{NumberNotation.Format(cost)} {GetCurrencyLabel(_contentTable.costCurrency)}",!pulling && GachaManager.Instance != null && GachaManager.Instance.CanPullMulti(_contentTable,count));
             }
+        }
+
+        private static void UpdateDescription()
+        {
+            if (_content == null || _content.descLabel == null || _contentTable == null) return;
+            string description = _contentTable.description ?? string.Empty;
+            if (_contentTable.gachaType == eGachaType.Equipment && GachaManager.Instance != null)
+                description = (string.IsNullOrWhiteSpace(description) ? string.Empty : description + "\n")
+                    + $"에픽 확정까지 {GachaManager.Instance.EpicPityRemaining}회";
+            _content.descLabel.gameObject.SetActive(!string.IsNullOrWhiteSpace(description));
+            if (_content.descLabel.text != description) _content.descLabel.text = description;
         }
 
         private static void BuildRateSummaryRow(GachaTabContentView c, GachaTableSO table)
@@ -440,7 +464,7 @@ namespace KingdomIdle.UGUI
                 // 이름
                 string displayName = entry.nameKor;
                 if (entry.rewardType == eGachaRewardType.Equipment && entry.equipmentData != null)
-                    displayName = string.IsNullOrEmpty(entry.nameKor) ? entry.equipmentData.DisplayName : entry.nameKor;
+                    displayName = entry.equipmentData.DisplayName;
                 else if (entry.rewardType == eGachaRewardType.Skill && string.IsNullOrEmpty(displayName))
                 {
                     var mtMgr = MageTowerManager.Instance;

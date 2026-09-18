@@ -97,7 +97,74 @@ namespace KingdomIdle.UGUI.Editor
             Validate();
         }
         public static void BuildDevice() { Prepare(); TitleLobbyDeviceBuild.Build(); }
-        public static void BuildManual() { Validate(); TitleLobbyDeviceBuild.BuildForManualTesting(); }
+        public static void BuildManual() { PrepareSessionPolish(); TitleLobbyDeviceBuild.BuildForManualTesting(); }
+        public static void ValidateSessionRoutes() { PrepareSessionPolish(); PlayabilityLiveValidation.RunSessionRoutes(); }
+        public static void BuildSessionPolish()
+        {
+            PrepareSessionPolish();
+            TitleLobbyDeviceBuild.Build();
+        }
+        public static void PrepareSessionPolish()
+        {
+            Edit("Popups/Popup_Profile.prefab", go => {
+                var profile = go.GetComponent<ProfilePopupView>();
+                profile.powerButton.transition = Selectable.Transition.None;
+                profile.editNameButton.gameObject.SetActive(false);
+                profile.idLabel.gameObject.SetActive(false);
+                foreach (var field in new[]{profile.trophyLabel,profile.guildLabel})
+                    for (var node = field.transform; node != null && node != go.transform; node = node.parent)
+                        if (node.name == "Pill" || node.name == "InfoRow") { node.gameObject.SetActive(false); break; }
+                foreach (var node in go.GetComponentsInChildren<Transform>(true))
+                {
+                    if (node.name == "LeagueCard")
+                    {
+                        node.gameObject.SetActive(false);
+                        var previous = node.GetSiblingIndex() - 1;
+                        if (previous >= 0 && node.parent.GetChild(previous).name == "DecoDivider")
+                            node.parent.GetChild(previous).gameObject.SetActive(false);
+                    }
+                    if (node.name == "SummaryPills" || node.name == "UniqueRow")
+                        node.GetComponent<HorizontalLayoutGroup>().childForceExpandHeight = true;
+                }
+                string[] labels = {"최고 클리어","환생 레벨","환생 횟수","골드 던전","몬스터 처치","루비 던전"};
+                for (int i = 0; i < labels.Length; i++)
+                    foreach (var label in profile.statValues[i].transform.parent.GetComponentsInChildren<TMP_Text>(true))
+                        if (label != profile.statValues[i]) label.text = labels[i];
+            });
+            Edit("Items/Item_GachaCard.prefab", go => {
+                var name = go.GetComponent<GachaCardItemView>().nameLabel;
+                name.enableAutoSizing = true;
+                name.fontSizeMin = 24;
+                name.fontSizeMax = name.fontSize = 30;
+            });
+            Edit("Screens/Screen_Main.prefab", go => {
+                var wave = go.GetComponent<MainScreenView>().waveHud;
+                ((RectTransform)wave.transform).sizeDelta = new Vector2(560,108);
+                var row = wave.lblStage.transform.parent.GetComponent<Image>();
+                row.raycastTarget = true;
+                wave.btnStageAction = row.GetComponent<Button>() ?? row.gameObject.AddComponent<Button>();
+                wave.btnStageAction.targetGraphic = row;
+                wave.btnStageAction.transition = Selectable.Transition.None;
+                wave.lblStage.fontSize = wave.lblStage.fontSizeMax = 30;
+                wave.lblStage.raycastTarget = false;
+            });
+            Edit("Panels/Panel_Dungeon.prefab", go => {
+                foreach (var popup in go.GetComponentsInChildren<DungeonDifficultyPopupView>(true))
+                foreach (var text in popup.GetComponentsInChildren<TMP_Text>(true).Where(t => t.name == "Description"))
+                {
+                    text.fontSize = 22; text.enableAutoSizing = false;
+                    text.textWrappingMode = TextWrappingModes.Normal;
+                    text.overflowMode = TextOverflowModes.Ellipsis;
+                    var size = text.GetComponent<LayoutElement>();
+                    if (size != null) size.minHeight = size.preferredHeight = 64;
+                    var band = (RectTransform)text.transform.parent;
+                    band.sizeDelta = new Vector2(band.sizeDelta.x,136);
+                }
+            });
+            PlayerSettings.bundleVersion = "0.11.1";
+            AssetDatabase.SaveAssets();
+            Validate();
+        }
         public static void Validate()
         {
             BalanceEditorValidation.Run();

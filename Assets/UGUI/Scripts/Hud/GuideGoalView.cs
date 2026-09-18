@@ -79,7 +79,7 @@ namespace KingdomIdle.UGUI
                 Set(progress, $"{NumberNotation.Format(Mathf.Clamp(state.CurrentProgress, 0, required))}/{NumberNotation.Format(required)}");
                 if (progressFill != null) progressFill.fillAmount = Mathf.Clamp01((float)state.CurrentProgress / required);
                 bool claimable = state.IsCompleted && _manager.CanClaimReward(state.QuestId);
-                bool canNavigate = Destination().HasValue;
+                bool canNavigate = IsMageGoal() || definition.ObjectiveType == eQuestObjectiveType.Reincarnate || Destination().HasValue;
                 Set(actionLabel, claimable ? (definition.RewardGroupId == 0 ? "다음 목표  ›" : "보상 받기  ›")
                     : state.IsCompleted ? "보상 대기" : canNavigate ? "이동  ›" : compact ? "자세히  ›" : "전투에서 진행");
                 if (actionButton != null) actionButton.interactable = compact || claimable || (!state.IsCompleted && canNavigate);
@@ -136,11 +136,15 @@ namespace KingdomIdle.UGUI
                 case eQuestObjectiveType.EquipmentObtain: return UIPanelId.Inventory;
                 case eQuestObjectiveType.EquipmentEquip:
                 case eQuestObjectiveType.JobChange:
-                case eQuestObjectiveType.SkillEquip:
                 case eQuestObjectiveType.Enhance: return UIPanelId.KingdomArmy;
                 default: return null;
             }
         }
+
+        private bool IsMageGoal() => _definition != null &&
+            (_definition.ObjectiveType == eQuestObjectiveType.SkillEquip ||
+             _definition.ObjectiveType == eQuestObjectiveType.SkillEnhance ||
+             _definition.ObjectiveType == eQuestObjectiveType.SkillAwaken);
 
         private void Act()
         {
@@ -150,8 +154,20 @@ namespace KingdomIdle.UGUI
                 _manager.ClaimQuestReward(_state.QuestId);
                 ReadCurrent();
             }
+            else if (!_state.IsCompleted && IsMageGoal())
+                MageTowerPopupController.Show();
+            else if (!_state.IsCompleted && _definition?.ObjectiveType == eQuestObjectiveType.Reincarnate)
+                ReincarnationPopupController.Show();
             else if (!_state.IsCompleted && Destination() is UIPanelId panel)
+            {
+                if (_definition.ObjectiveType == eQuestObjectiveType.GachaUse)
+                    GachaPanelController.SetPendingSkillTab(_definition.TargetId == 2);
+                if (_definition.ObjectiveType == eQuestObjectiveType.EquipmentEquip)
+                    KingdomArmyPanelController.SetPendingEquipmentTab();
+                if (_definition.ObjectiveType == eQuestObjectiveType.JobChange)
+                    KingdomArmyPanelController.SetPendingJobChangeTab();
                 UIManager.Instance?.PushPanel(panel, null, true, true);
+            }
             else if (compact)
                 UIManager.Instance?.PushPanel(UIPanelId.Guide, null, false, false);
         }
