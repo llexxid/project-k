@@ -1,0 +1,245 @@
+{
+  "version": "20260920-v2",
+  "purpose": "Quest UI visual concept only",
+  "revision": {
+    "previous": "../20260920-v1/quest-card-preview.png",
+    "changes": [
+      "Centered the title separator vertically.",
+      "Progress fill #3CB450 -> #2C7338; removed the harsh 1px full text outline."
+    ],
+    "reason": "Keep progress digits clean and readable at the original display size."
+  },
+  "method": "Existing currency sprite + deterministic flat UI in Pillow; native pixel font, 3x nearest-neighbor presentation",
+  "tool_versions": {
+    "Pillow": "12.3.0"
+  },
+  "source_assets": [
+    {
+      "path": "Assets/ExternalAssets/Layer Lab/GUI Pro-MinimalGame/Shared/Icons/UniqueIcon/128/Economy_Coin_02_Bronze.png",
+      "resolution": [
+        128,
+        128
+      ],
+      "role": "AncientCoin reward, confirmed via UIViewCatalog.asset"
+    },
+    {
+      "path": "Assets/ExternalAssets/Fonts/Galmuri11.ttf",
+      "role": "Existing Galmuri11 font"
+    },
+    {
+      "path": "Assets/UGUI/Scripts/Core/UguiTheme.cs",
+      "role": "Color tokens"
+    }
+  ],
+  "spec": "spec.json",
+  "editable_source": "render.py",
+  "comfyui": {
+    "mcp_catalog_tools_found": [],
+    "run": false,
+    "reason": "No novel illustration needed. Existing icon reuse and code-drawn flat panels follow AGENTS.md, preserve exact Korean and ratios, and allow deterministic inexpensive revisions.",
+    "api_json": null,
+    "ui_graph_json": null,
+    "job_id": null,
+    "prompt": null,
+    "model": null,
+    "seed": null
+  },
+  "cost": {
+    "external_api_calls": 0,
+    "external_api_spend": 0,
+    "currency": "USD",
+    "basis": "Local rendering only; no paid request submitted, no usage report applicable"
+  },
+  "outputs": [
+    {
+      "path": "in-progress-407.png",
+      "size": [
+        407,
+        72
+      ],
+      "mode": "RGBA",
+      "bytes": 4011,
+      "rgba_memory_bytes": 117216,
+      "sha256": "695fc3ece62fc00581afae89f88f8a543fe844ec1589fa18623b84c367919675"
+    },
+    {
+      "path": "in-progress-3x.png",
+      "size": [
+        1221,
+        216
+      ],
+      "mode": "RGBA",
+      "bytes": 6279,
+      "rgba_memory_bytes": 1054944,
+      "sha256": "2a71197251b64518327d354fc11dfce12a3ce6f5a6821b8ecb2b2b7729fed64b"
+    },
+    {
+      "path": "claim-ready-407.png",
+      "size": [
+        407,
+        72
+      ],
+      "mode": "RGBA",
+      "bytes": 3968,
+      "rgba_memory_bytes": 117216,
+      "sha256": "f301b4d972db04fd7a0ff44553ee179908863f4664839549e73fc93b0ed8bf73"
+    },
+    {
+      "path": "claim-ready-3x.png",
+      "size": [
+        1221,
+        216
+      ],
+      "mode": "RGBA",
+      "bytes": 6211,
+      "rgba_memory_bytes": 1054944,
+      "sha256": "e798a8659cd6afdfb869b3d77acfc09c7cfeefae25f16890957616288681a6f0"
+    },
+    {
+      "path": "quest-card-preview.png",
+      "size": [
+        1437,
+        930
+      ],
+      "mode": "RGB",
+      "bytes": 16385,
+      "rgba_memory_bytes": 5345640,
+      "sha256": "eb914fa9931b61f3212deabed4bf6e95317f9ee996bb1bcab7378f39fcc9d201"
+    },
+    {
+      "path": "readability-1x.png",
+      "size": [
+        479,
+        350
+      ],
+      "mode": "RGB",
+      "bytes": 11739,
+      "rgba_memory_bytes": 670600,
+      "sha256": "ec75d347d0e3216cef437dcfa65be993b11da314450b7e5ab8fbcbd1944b4c61"
+    }
+  ],
+  "layout_checks": [
+    {
+      "state": "in-progress",
+      "canvas": [
+        407,
+        72
+      ],
+      "track": [
+        76,
+        38,
+        236,
+        18
+      ],
+      "fill_pixels": 116,
+      "available_fill_pixels": 232,
+      "progress": 0.5,
+      "button_visual_bounds": [
+        324,
+        32,
+        71,
+        30
+      ]
+    },
+    {
+      "state": "claim-ready",
+      "canvas": [
+        407,
+        72
+      ],
+      "track": [
+        76,
+        38,
+        236,
+        18
+      ],
+      "fill_pixels": 232,
+      "available_fill_pixels": 232,
+      "progress": 1.0,
+      "button_visual_bounds": [
+        324,
+        32,
+        71,
+        30
+      ]
+    },
+    {
+      "state": "in-progress",
+      "canvas": [
+        407,
+        72
+      ],
+      "track": [
+        76,
+        38,
+        236,
+        18
+      ],
+      "fill_pixels": 116,
+      "available_fill_pixels": 232,
+      "progress": 0.5,
+      "button_visual_bounds": [
+        324,
+        32,
+        71,
+        30
+      ]
+    },
+    {
+      "state": "in-progress",
+      "canvas": [
+        360,
+        72
+      ],
+      "track": [
+        76,
+        38,
+        189,
+        18
+      ],
+      "fill_pixels": 92,
+      "available_fill_pixels": 185,
+      "progress": 0.5,
+      "button_visual_bounds": [
+        277,
+        32,
+        71,
+        30
+      ]
+    },
+    {
+      "state": "in-progress",
+      "canvas": [
+        320,
+        72
+      ],
+      "track": [
+        76,
+        38,
+        149,
+        18
+      ],
+      "fill_pixels": 72,
+      "available_fill_pixels": 145,
+      "progress": 0.5,
+      "button_visual_bounds": [
+        237,
+        32,
+        71,
+        30
+      ]
+    }
+  ],
+  "validation": {
+    "rendered_widths": [
+      320,
+      360,
+      407
+    ],
+    "progress": "50% and 100% fills numerically checked",
+    "unity_runtime_tested": false,
+    "android_tested": false,
+    "limitation": "Static concept only; mobile touch hit areas, safe areas and runtime rendering cost require implementation validation."
+  },
+  "runtime_cost_note": "No texture or script imported into Unity. Reuse catalog icon and existing font; render the panel, track and button with flat UI graphics rather than importing the presentation board."
+}

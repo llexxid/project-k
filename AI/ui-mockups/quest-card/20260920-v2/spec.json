@@ -1,0 +1,40 @@
+{
+  "request": "보상 아이콘과 수량, 퀘스트 종류 · 내용, 진행바, 우측하단 이동 버튼을 갖춘 퀘스트 UI 예시. 진행 중과 보상 수령 가능 두 상태를 비교한다.",
+  "card_logical_size": [407, 72],
+  "presentation_scale": 3,
+  "font_size": 11,
+  "reward": {"currency": "AncientCoin", "quantity": 50},
+  "title": "주간 · 몬스터 처치",
+  "states": [
+    {"name": "진행 중", "progress": [1500, 3000], "action": "이동"},
+    {"name": "보상 수령 가능", "progress": [3000, 3000], "action": "받기"}
+  ],
+  "colors": {
+    "board": "#14100D",
+    "card": "#261D15",
+    "deep": "#1C150F",
+    "surface": "#382B1E",
+    "empty": "#16100B",
+    "bronze": "#966E3C",
+    "bronze_light": "#C49A5C",
+    "text": "#F2E6D0",
+    "muted": "#B9AE9A",
+    "green": "#2C7338",
+    "confirm": "#B2843C"
+  },
+  "design_choices": [
+    "보상 문장은 제거하고 실제 고대주화 아이콘에 ×50 배지를 붙인다.",
+    "퀘스트 종류는 보조색, 퀘스트 내용은 본문색으로 구분한다.",
+    "진행 수치는 바 안에 한 번만 표시한다. 목표 수량은 제목에서 중복하지 않는다.",
+    "진행바와 버튼은 하단 동일 행으로 구성한다.",
+    "완료 시 같은 위치의 버튼을 청동색 체크+받기로 변경한다.",
+    "균일한 1px 외곽선과 평면 색, Galmuri11 원래 픽셀 격자를 사용한다.",
+    "진행바는 UguiTheme.SuccessGreen을 어둡게 조정한 #2C7338을 사용하여 밝은 숫자를 외곽선 없이 읽을 수 있게 한다."
+  ],
+  "assumption": "보상 수령 가능 상태는 수동 수령 방식의 예시다.",
+  "reference_images": [
+    "C:/Users/Coding/AppData/Local/Temp/codex-clipboard-1bf22fd8-2cd2-414f-894b-f81f7646a878.png",
+    "C:/Users/Coding/AppData/Local/Temp/codex-clipboard-8575efef-584d-4b6b-a9d9-ed6dc0328b86.png"
+  ],
+  "scope": "UI concept image only; no Unity scene, prefab, C# or game behavior changes."
+}
