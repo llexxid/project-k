@@ -56,6 +56,13 @@ namespace KingdomIdle.UGUI.Editor
 
         // ═══ 공용 스프라이트 (흰색 라운드 사각형 / 원형 — 틴트해서 사용) ═══
 
+        internal static Sprite GetOrCreateSolidRect() => GetOrCreateGeneratedSprite(
+            $"{SpriteRoot}/SolidRect.png", () => {
+                var texture = new Texture2D(4, 4, TextureFormat.RGBA32, false);
+                var pixels = new Color[16]; for (int i = 0; i < pixels.Length; i++) pixels[i] = Color.white;
+                texture.SetPixels(pixels); texture.Apply(); return texture;
+            }, Vector4.zero);
+
         internal static Sprite GetOrCreateRoundedRect()
         {
             // 작은 테두리(8px/32px) — 작은 요소에서도 9-slice 코너가 겹치지 않아

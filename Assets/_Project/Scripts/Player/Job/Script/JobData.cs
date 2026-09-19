@@ -91,7 +91,7 @@ public class SpecialSkillConfig
 {
     public SpecialSkillKind kind = SpecialSkillKind.None;
 
-    [Tooltip("스킬 쿨다운(초). IronWill은 보호막 지속시간을 더해 다음 발동 시점을 계산.")]
+    [Tooltip("시전 시작부터 다음 시전까지의 쿨다운(초).")]
     public float cooldown = 10f;
 
     [Tooltip("공격력에 곱해지는 피해 배율 (ChargeShot · EnergyPulse).")]
@@ -108,7 +108,7 @@ public class SpecialSkillConfig
     public float healPercent = 0.04f;
     [Tooltip("IronWill: 보호막 지속시간(초).")]
     public float duration = 5f;
-    [Tooltip("IronWill: 자동 발동 HP 비율 (0.5 = HP 50% 미만).")]
+    [Tooltip("저장 호환용 필드. 강철의 의지는 체력 조건 없이 발동합니다.")]
     public float triggerHPRatio = 0.5f;
 
     [Header("EnergyPulse")]

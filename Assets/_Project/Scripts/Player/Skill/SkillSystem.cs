@@ -107,7 +107,7 @@ public class SkillSystem
         switch (cfg.kind)
         {
             case SpecialSkillKind.IronWill:
-                return new IronWill(_player, cfg.cooldown, cfg.healPercent, cfg.duration, cfg.triggerHPRatio);
+                return new IronWill(_player, cfg.cooldown, cfg.healPercent, cfg.duration);
             case SpecialSkillKind.ChargeShot:
                 return new ChargeShot(_player, cfg.range, cfg.cooldown, cfg.hitCount, cfg.damageMultiplier);
             case SpecialSkillKind.EnergyPulse:
@@ -247,7 +247,7 @@ public class SkillSystem
                 {
                     new SkillInfo { Name = "기본공격", IsPassive = false, Description = "전방 직사각형 범위 공격" },
                     new SkillInfo { Name = "수호의 오라", IsPassive = true, Description = "팀 전체 HP +10%" },
-                    new SkillInfo { Name = "강철 의지", IsPassive = false, Description = "HP 50% 미만 시 5초간 최대 HP의 20% 보호막. 주변 적을 도발하며, 기사 사망 전까지 유지됩니다. 먼저 걸린 도발은 바뀌지 않습니다." }
+                    new SkillInfo { Name = "강철의 의지", IsPassive = false, Description = "20초마다 5초간 최대 HP의 20% 보호막을 얻습니다. 체력 조건 없이 사용하며 주변 적을 도발합니다. 도발은 기사 사망 전까지 유지되고 먼저 걸린 도발은 바뀌지 않습니다." }
                 };
             case "Archer":
                 return new[]
@@ -273,7 +273,7 @@ public class SkillSystem
                 {
                     new SkillInfo { Name = "기본공격", IsPassive = false, Description = "직선 투사체 + 소범위 폭발" },
                     new SkillInfo { Name = "마력의 오라", IsPassive = true, Description = "팀 ATK +5% · HP +5%" },
-                    new SkillInfo { Name = "에너지 파동", IsPassive = false, Description = "주변 적에게 피해를 주고 밀어내며 1.25초 기절시킵니다. 보스는 밀려나거나 기절하지 않습니다." }
+                    new SkillInfo { Name = "힘의 파동", IsPassive = false, Description = "가까운 적에게 공격력의 35% 피해를 주고 밀어내며 1초 기절시킵니다. 재사용 대기시간 10초. 보스는 밀려나거나 기절하지 않습니다." }
                 };
             default:
                 return System.Array.Empty<SkillInfo>();

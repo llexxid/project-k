@@ -275,7 +275,8 @@ namespace KingdomIdle.UGUI
 
                 // PlayerStatus.HP는 전투 중 갱신되지 않는 스냅샷 — 실제 체력은 Player.HPRatio가 진실
                 bool dead = player.IsDead || !player.gameObject.activeInHierarchy;
-                SetMemberHealth01(i, dead ? 0f : player.HPRatio);
+                ShieldHealthBar.Set(_view.members[i]?.hpFill, dead ? 0f : player.HPRatio,
+                    dead ? 0 : player.ShieldHP, player.playerStatus.MaxHP);
 
                 var img = _view.members[i]?.portraitImage;
                 if (img != null)

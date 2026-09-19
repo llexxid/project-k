@@ -18,14 +18,15 @@ namespace KingdomIdle.UGUI
                 current += $" · 지속 {MageSkillRules.HitCount(skill, awakening) * skill.tickInterval:0.0}초";
             if (bloom && (skill.spellKind == MageSpellKind.Lightning || skill.spellKind == MageSpellKind.IceSpike))
                 current = "\n개화 사용 중: 아래 개화 전용 횟수·효과 적용";
-            return $"각성마다 {unit}량 +5%, 기본 쿨타임 -2% (합산)\n{count}{current}\n10각성: 개화 전환 해금";
+            return $"각성마다 기본 {unit}량 +5%, 공격력 반영 배율 +2.5%, 기본 쿨타임 -2% (합산)\n{count}{current}\n10각성: 개화 전환 해금";
         }
         public static string NextAwakening(MageTowerSkillSO skill, int enhance, int awakening, bool bloom)
         {
             if (awakening >= skill.maxAwakeningLevel) return "최대 각성입니다.";
             int next = awakening + 1;
-            long before = BalanceMath.MageDamage((long)skill.BaseDamage, enhance, awakening);
-            long after = BalanceMath.MageDamage((long)skill.BaseDamage, enhance, next);
+            long partyAttack = MageTowerManager.Instance != null ? MageTowerManager.Instance.PartyAttack : 0;
+            long before = BalanceMath.MageDamage((long)skill.BaseDamage, enhance, awakening, partyAttack);
+            long after = BalanceMath.MageDamage((long)skill.BaseDamage, enhance, next, partyAttack);
             float factor = bloom ? skill.bloomCooldownMultiplier : 1;
             float beforeCd = (float)BalanceMath.MageInterval((decimal)skill.baseCooldown, awakening) * factor;
             float afterCd = (float)BalanceMath.MageInterval((decimal)skill.baseCooldown, next) * factor;

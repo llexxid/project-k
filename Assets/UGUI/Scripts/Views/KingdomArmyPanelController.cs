@@ -328,14 +328,15 @@ namespace KingdomIdle.UGUI
             long curHp = player.playerStatus.HP;
             if (sheet.hpFill != null)
             {
-                sheet.hpFill.fillAmount = ratio;
+                ShieldHealthBar.Set(sheet.hpFill, ratio, player.IsDead ? 0 : player.ShieldHP, maxHp);
                 // 초록(가득) → 노랑 → 빨강(위험)
                 Color full = new Color(0.42f, 0.85f, 0.35f, 1f);
                 Color low = new Color(0.88f, 0.25f, 0.2f, 1f);
                 sheet.hpFill.color = Color.Lerp(low, full, Mathf.SmoothStep(0f, 1f, ratio));
             }
             if (sheet.hpValueLabel != null)
-                sheet.hpValueLabel.text = $"{NumberNotation.Format(curHp)} / {NumberNotation.Format(maxHp)}";
+                sheet.hpValueLabel.text = $"{NumberNotation.Format(curHp)} / {NumberNotation.Format(maxHp)}" +
+                    (player.ShieldHP > 0 ? $"  <color=#F5FAFF>+{NumberNotation.Format(player.ShieldHP)}</color>" : "");
         }
 
         /// <summary>스탯 블록 롤다운 토글.</summary>

@@ -154,7 +154,21 @@ namespace KingdomIdle.MageTower
             if (so == null) return 0;
             int eLv = GetEnhanceLevel(skillId);
             int aLv = GetAwakeningLevel(skillId);
-            return BalanceMath.MageDamage((long)so.BaseDamage, eLv, aLv);
+            return BalanceMath.MageDamage((long)so.BaseDamage, eLv, aLv, PartyAttack);
+        }
+
+        // Include every equipped party member, even while down: a death must not shrink
+        // the tower's progression bonus. Casts snapshot the value once at their start.
+        public long PartyAttack
+        {
+            get
+            {
+                long total = 0;
+                var players = Scripts.Core.UserManager.Instance?.GetPlayers();
+                if (players != null) foreach (var player in players)
+                    if (player != null && player.playerStatus != null) total = checked(total + player.playerStatus.Atk);
+                return total;
+            }
         }
 
         public float GetEffectiveCooldown(int skillId)

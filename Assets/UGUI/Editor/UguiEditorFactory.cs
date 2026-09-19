@@ -391,10 +391,20 @@ namespace KingdomIdle.UGUI.Editor
                 fillImg.rectTransform.offsetMax = new Vector2(-3f, -3f);
             }
             fillImg.type = Image.Type.Filled;
+            if (fillImg.sprite == null) fillImg.sprite = PrefabGenUtil.GetOrCreateSolidRect();
             fillImg.fillMethod = Image.FillMethod.Horizontal;
             fillImg.fillOrigin = (int)Image.OriginHorizontal.Left;
             fillImg.fillAmount = 1f;
             return fillImg;
+        }
+
+        internal static void RectangularBar(Image fill)
+        {
+            fill.sprite = PrefabGenUtil.GetOrCreateSolidRect(); fill.type = Image.Type.Filled;
+            fill.fillMethod = Image.FillMethod.Horizontal; fill.fillOrigin = 0;
+            fill.rectTransform.offsetMin = new Vector2(2, 2); fill.rectTransform.offsetMax = new Vector2(-2, -2);
+            var track = fill.transform.parent.GetComponent<Image>();
+            if (track != null) { track.sprite = null; track.type = Image.Type.Simple; track.color = TrackDark; }
         }
 
         /// <summary>게이지 채움은 LL에선 흰색 라운드(roundedRect)를 색으로 틴트하므로 전용 스프라이트가 없다.</summary>

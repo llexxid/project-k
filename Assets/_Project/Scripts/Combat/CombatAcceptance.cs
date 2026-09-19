@@ -45,7 +45,7 @@ namespace KingdomIdle.Combat
             completed(new { passed = failed.Count == 0, count = checks.Count, checks, failed });
         }
         // Only called by the isolated QA player. Restart the stage after this destructive fixture.
-        public static object RunLiveControl()
+        public static IEnumerator RunLiveControl(Action<object> completed)
         {
             var checks=new List<string>();
             void Check(bool ok,string name) { if(!ok)throw new InvalidOperationException(name);checks.Add(name); }
@@ -69,11 +69,17 @@ namespace KingdomIdle.Combat
             knight.TakeDamage(new ActiveSkill.DamageProxy(40,other));
             Check(knight.ShieldHP==60 && Mathf.Approximately(hp,knight.HPRatio),"Shield absorbs damage before health");
             mage.transform.position=Vector3.zero;monster.transform.position=new Vector3(.6f,0,0);
-            new EnergyPulse(mage,null,1,12,2,0).Execute();
+            var pulse = new EnergyPulse(mage,null,1,12,10,0);
+            pulse.Execute();
+            yield return new WaitForSeconds(.21f);
+            pulse.Tick();
             var cc=monster.GetComponent<MonsterCCState>();
             Check(monster.IsBalanceBoss ? cc==null || cc.DiagnosticKind!="Stun" : cc!=null && cc.DiagnosticKind=="Stun",
                 monster.IsBalanceBoss ? "Boss immune to EnergyPulse stun" : "Ordinary enemy stunned by EnergyPulse");
-            return new{passed=checks.Count,checks,boss=monster.IsBalanceBoss};
+            var start = monster.transform.position;
+            yield return new WaitForSeconds(.3f);
+            Check(monster.IsBalanceBoss || monster.transform.position.x > start.x + .65f,"Pulse visibly displaces ordinary enemies");
+            completed(new{passed=checks.Count,checks,boss=monster.IsBalanceBoss});
         }
 
         public static object Run()

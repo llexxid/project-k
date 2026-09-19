@@ -253,12 +253,11 @@ namespace KingdomIdle.MageTower
                 var target = new Target(_targets[0]);
                 Visual(_skill.bloomCastingPrefab, _initial, .45f);
                 yield return Delay(.35f); if (!Valid || !target.Alive) yield break;
-                var position = target.Monster.transform.position;
+                var position = target.Monster.FootPosition;
                 Visual(_skill.bloomPrefab, position, .9f);
                 yield return Delay(.17f); if(!Valid || !target.Alive) yield break;
                 Sound(.7f,.85f);
                 Hit(target.Monster, (decimal)_skill.bloomPowerMultiplier, position);
-                MonsterCCState.Apply(target.Monster, CrowdControlKind.Stun, _skill.bloomControlDuration, 0);
                 yield return Delay(.9f); yield break;
             }
             int volleys = _bloom ? 2 : 1, count = _bloom ? _skill.baseHits * 2 : Hits;
@@ -268,7 +267,7 @@ namespace KingdomIdle.MageTower
                 for (int i = 0; i < count && Valid; i++)
                 {
                     Collect(_initial, 20, _targets, _colliders); if (_targets.Count == 0) yield break;
-                    var target = _targets[i % _targets.Count]; var position = target.transform.position;
+                    var target = _targets[i % _targets.Count]; var position = target.FootPosition;
                     float spread = _bloom ? ((i / _targets.Count) % 3 - 1) * .14f : 0;
                     if (!GamePresentationSettings.LowSpec || i < 4) Visual(_skill.prefab, position + new Vector3(spread,0,0), .6f);
                     if (_bloom) _lineTargets.Add(new Target(target));
@@ -371,7 +370,6 @@ namespace KingdomIdle.MageTower
 
         private IEnumerator Meteor()
         {
-            Visual(_skill.castingPrefab, _initial, 1.4f);
             // Approach from the centre side so edge targets still show the full falling rock.
             var travel = new Vector3(_initial.x > 0 ? -1.25f : 1.25f,2.5f,0);
             var falling = Visual(_skill.prefab, _initial + travel, 1.3f);

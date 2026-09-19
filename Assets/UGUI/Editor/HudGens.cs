@@ -77,6 +77,7 @@ namespace KingdomIdle.UGUI.Editor
             F.Frame(hpTrack.transform, "Frame", new Color(UguiTheme.Bronze.r, UguiTheme.Bronze.g, UguiTheme.Bronze.b, 0.7f))
                 .gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
             member.hpFill = hpFill;
+            F.RectangularBar(hpFill);
 
             var skillRow = F.Container(infoCol, "SkillRow");
             F.HLayout(skillRow.gameObject, 6f, null, TextAnchor.MiddleLeft);

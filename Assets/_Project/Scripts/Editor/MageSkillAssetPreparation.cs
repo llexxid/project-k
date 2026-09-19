@@ -55,7 +55,7 @@ public static class MageSkillAssetPreparation
         var lightning = Vfx("Lightning",
             new Layer(Source+"Electricity/ElectricLighting1.png",2.2f,2.8f,white,y:1f),
             new Layer(Source+"Electricity/ElectricExplosion.png",1.35f,.9f,new Color(.84f,.89f,1f),y:.1f));
-        var ice = Vfx("IceSpike", new Layer(Source+"Ice/IceSpike.png", 1.8f, 1.8f, frost, y:.3f));
+        var ice = Vfx("IceSpike", new Layer(Source+"Ice/IceSpike.png", 1.8f, 1.8f, frost, y:.6f));
         var tornado = Vfx("FireTornado", new Layer(Source+"Fire/FireTornado.png", 2.1f, 2.6f, new Color(.95f,.85f,.76f,.95f), y:.55f, loop:true));
         var arcane = Vfx("ArcaneVolley", new Layer(Polished+"ArcaneProjectile.png", 2.1f, 2.1f, Color.white, loop:true));
         var arcaneHit = Vfx("ArcaneImpact", new Layer(Polished+"ArcaneImpact.png", 1.6f, 1.6f, Color.white));
@@ -84,7 +84,7 @@ public static class MageSkillAssetPreparation
         var thunder = Vfx("LightningBloomStrike",
             new Layer(Polished+"ThunderViolet.png",3.5f,4.6f,Color.white,y:1.65f),
             new Layer(Polished+"ThunderImpactViolet.png",4.2f,2.7f,Color.white));
-        var glacier = Vfx("IceBloomCrystal",new Layer(Source+"Ice/IceSpike.png",3.4f,4.3f,frost,y:.8f));
+        var glacier = Vfx("IceBloomCrystal",new Layer(Source+"Ice/IceSpike.png",3.4f,4.3f,frost,y:1.4f));
         var iceCast = Vfx("IceBloomWarning",new Layer(Source+"Ice/IceSlam.png",2.8f,1.8f,new Color(.58f,.73f,.83f)));
 
         string[] keys={"Lightning","IceSpike","FireTornado","ArcaneVolley","VenomMist","StoneSeal","Retired","Sanctuary","Meteor","VoidRift"};
@@ -95,14 +95,14 @@ public static class MageSkillAssetPreparation
             "불꽃 회오리가 적을 쫓으며 주변에 지속 피해를 줍니다.",
             "전장 곳곳의 적에게 별빛을 차례로 떨어뜨립니다. 별빛이 닿은 적에게 피해를 줍니다.",
             "맹독 늪을 펼쳐 범위 안의 적에게 지속 피해를 주고 이동 속도를 25% 낮춥니다.",
-            "바위를 연속으로 솟아올려 주변 적을 공격하고 1초간 기절시킵니다.",
+            "바위를 연속으로 솟아올려 주변 적을 공격하고 1.4초간 기절시킵니다.",
             "",
             "성역을 펼쳐 범위 안에서 체력 비율이 가장 낮은 왕국군을 반복해서 회복합니다.",
             "운석을 떨어뜨려 주변 적을 공격합니다. 착탄 지점의 잔열이 두 번 더 피해를 줍니다.",
             "적이 모인 곳의 허공에 원형 균열을 엽니다. 균열보다 50% 넓은 범위의 적을 끌어당깁니다. 균열 안에서 지속 피해를 주고, 닫힐 때 폭발합니다. 보스는 끌어당기지 못합니다."};
-        float[] powers={120,100,40,62,36,110,90,45,260,42}, cooldowns={10,12,15,10,14,16,12,18,16,20};
-        int[] hits={3,4,10,6,6,2,2,6,1,5}, caps={3,1,3,1,5,4,5,3,6,6};
-        float[] radii={.55f,.35f,.85f,.55f,1.4f,1.05f,.55f,1.9f,1.55f,1.3f}, ticks={.3f,.18f,.5f,.22f,.75f,.45f,.4f,.7f,.8f,.6f};
+        float[] powers={120,100,40,28,36,110,90,45,260,42}, cooldowns={10,12,15,10,14,16,12,18,16,20};
+        int[] hits={3,4,10,18,6,2,2,6,1,5}, caps={3,1,3,1,5,4,5,3,6,6};
+        float[] radii={.55f,.35f,.85f,.55f,1.4f,1.05f,.55f,2.6f,1.55f,1.3f}, ticks={.3f,.18f,.5f,.12f,.75f,.45f,.4f,.7f,.8f,.6f};
         GameObject[] visuals={lightning,ice,tornado,arcane,venom,stone,null,sanctuary,meteor,rift};
         var registry=AssetDatabase.LoadAssetAtPath<MageTowerSkillRegistrySO>("Assets/MageTower/SO/MageTowerSkillList.asset");
         if(registry==null)throw new InvalidOperationException("Existing mage registry is missing.");
@@ -118,15 +118,15 @@ public static class MageSkillAssetPreparation
             skill.description=descriptions[id];
             skill.basePower=powers[id];skill.baseCooldown=cooldowns[id];skill.baseHits=hits[id];skill.radius=radii[id];skill.tickInterval=ticks[id];skill.duration=hits[id]*ticks[id];skill.maxTargets=caps[id];
             skill.maxEnhanceLevel=100;skill.maxAwakeningLevel=10;skill.prefab=visuals[id];
-            skill.castingPrefab=id==5||id==8?telegraph:null;
+            skill.castingPrefab=id==5?telegraph:null;
             skill.secondaryPrefab=id==3?arcaneHit:id==7?heal:id==8?crater:id==9?collapse:null;
-            skill.controlDuration=id==4?1.2f:id==5?1f:id==9?.85f:0;
+            skill.controlDuration=id==4?1.2f:id==5?1.4f:id==9?.85f:0;
             skill.slowFraction=id==4?.25f:id==9?.2f:0;
             skill.secondaryPowerRatio=id==8?35f/260f:id==9?180f/42f:0;
             skill.bloomName=id==0?"천벌":id==1?"만년빙정":"미정";
-            skill.bloomDescription=id==0?"뇌운을 모아 큰 범위에 거대한 벼락을 내립니다. 피해 1000% · 준비 2초 · 재사용 대기시간 2배.":id==1?"여러 적: 송곳 8개를 두 번 생성합니다. 각각 피해 50%.\n적 하나: 거대 빙정으로 피해 650%와 기절 2초를 줍니다.":skill.IsHealing?"회복량 +15%. 전용 효과는 준비 중입니다.":"피해량 +15%. 전용 효과는 준비 중입니다.";
+            skill.bloomDescription=id==0?"뇌운을 모아 큰 범위에 거대한 벼락을 내립니다. 피해 1000% · 준비 2초 · 재사용 대기시간 2배.":id==1?"여러 적: 송곳 8개를 두 번 생성합니다. 각각 피해 50%.\n적 하나: 거대 빙정으로 피해 650%를 줍니다.":skill.IsHealing?"회복량 +15%. 전용 효과는 준비 중입니다.":"피해량 +15%. 전용 효과는 준비 중입니다.";
             skill.bloomCooldownMultiplier=id==0?2:1;skill.bloomPowerMultiplier=id==0?10:id==1?6.5f:1.15f;
-            skill.bloomAreaPowerMultiplier=.5f;skill.bloomControlDuration=2;skill.bloomMaxTargets=10;skill.bloomRadius=2.1f;
+            skill.bloomAreaPowerMultiplier=.5f;skill.bloomControlDuration=0;skill.bloomMaxTargets=10;skill.bloomRadius=2.1f;
             skill.bloomPrefab=id==0?thunder:id==1?glacier:null;skill.bloomCastingPrefab=id==0?cloud:id==1?iceCast:null;
             skill.icon=InstallIcon(skill,keys[id],id);
             skill.bloomIcon=InstallBloomIcon(keys[id]);
@@ -213,8 +213,8 @@ public static class MageSkillAssetPreparation
     static GameObject BuildSanctuary()
     {
         var prefab = Vfx("Sanctuary",
-            new Layer(Source+"Holy/HolyBlessing.png",3.2f,3.2f,new Color(.62f,.86f,.70f,.78f),y:.7f,loop:true),
-            new Layer(Source+"Earth/EarthHeal.png",2.3f,2.3f,new Color(.84f,.92f,.73f,.62f),y:.35f,loop:true),
+            new Layer(Source+"Holy/HolyBlessing.png",4.4f,4.4f,new Color(.62f,.86f,.70f,1f),y:1f,loop:true),
+            new Layer(Source+"Earth/EarthHeal.png",2.8f,2.8f,new Color(.84f,.92f,.73f,1f),y:.5f,loop:true),
             new Layer(Source+"Holy/HolyCross.png",2.3f,2.3f,new Color(.8f,.95f,.76f),y:.55f,frame:2));
         string path=AssetDatabase.GetAssetPath(prefab);
         var root=PrefabUtility.LoadPrefabContents(path);

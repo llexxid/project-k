@@ -93,6 +93,7 @@ namespace KingdomIdle.UGUI.Editor
             F.Flexible(xpTrack, flexWidth: 1f); F.Preferred(xpTrack, height: 28f);
             xpFill.fillAmount = 0.45f;
             view.xpFill = xpFill;
+            F.RectangularBar(xpFill);
             view.xpLabel = F.Text(xpTrack.transform, "XpLabel", "45 / 100", 20f, UguiTheme.TextPrimary, TextAlignmentOptions.Center, bold: true);
             F.Stretch(view.xpLabel.rectTransform);
 

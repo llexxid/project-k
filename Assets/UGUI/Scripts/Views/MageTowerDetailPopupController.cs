@@ -1,5 +1,6 @@
 using UnityEngine;
 using KingdomIdle.MageTower;
+using KingdomIdle.Balance;
 using Scripts.Core;
 
 namespace KingdomIdle.UGUI
@@ -111,7 +112,7 @@ namespace KingdomIdle.UGUI
             string powerLabel = so.IsHealing ? "회복" : "피해";
             if (_view.lblBaseDmg != null) _view.lblBaseDmg.text = $"기본 1회 {powerLabel}: {NumberNotation.Format(so.BaseDamage)}";
             if (_view.lblBaseCd != null) _view.lblBaseCd.text = $"기본 쿨타임: {so.baseCooldown:F1}s";
-            if (_view.lblEffDmg != null) _view.lblEffDmg.text = $"강화 1회 {powerLabel}: {NumberNotation.Format(effDmg)}";
+            if (_view.lblEffDmg != null) _view.lblEffDmg.text = $"최종 1회 {powerLabel}: {NumberNotation.Format(effDmg)}\n왕국군 공격력 합계의 {BalanceMath.MageAttackCoefficient((long)so.BaseDamage, eLv, aLv):P1} 반영";
             if (_view.lblEffCd != null) _view.lblEffCd.text = $"최종 쿨타임: {effCd:F1}s";
 
             // enhance

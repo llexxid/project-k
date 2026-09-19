@@ -94,7 +94,9 @@ namespace KingdomIdle.UGUI
                                 foreach(var p in UserManager.Instance.GetPlayers()) if(p.PlayerIndex==c.value)
                                     p.TakeDamage(new ActiveSkill.DamageProxy((ulong)Math.Max(0,BalanceMath.Floor(p.playerStatus.MaxHP*(decimal)(p.HPRatio-.4f))),p));
                                 break;
-                            case "combat-control":output=KingdomIdle.Combat.CombatAcceptance.RunLiveControl();break;
+                            case "combat-control":
+                                StartCoroutine(KingdomIdle.Combat.CombatAcceptance.RunLiveControl(result=>Write(c.id,new{result,state=Snapshot()})));
+                                continue;
                             case "combat-fixture":
                                 MageTowerManager.Instance.SetAutoEnabled(false);
                                 LocalProgression.Execute("qa-combat-fixture",s=>{

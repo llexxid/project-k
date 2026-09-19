@@ -22,14 +22,17 @@ public sealed class EnergyPulse : ActiveSkill
 
     private EnergyPulseVFX _vfxInstance;
     private bool _isPlaying;
-    private float _playEndTime;
+    private float _playEndTime, _impactTime;
+    private int _lifeGeneration;
+    private bool _impactPending;
 
-    public override string DisplayName => "에너지 파동";
+    public override string DisplayName => "힘의 파동";
     public override float Cooldown => _cooldown;
     public override bool IsActive => _isPlaying;
+    public override bool IsSelfTriggered => true;
 
     public EnergyPulse(Player player, ActiveSkill basicAttack,
-                       float triggerRange, float cooldown, float knockbackForce, float damageMultiplier = 2f)
+                       float triggerRange, float cooldown, float knockbackForce, float damageMultiplier = .35f)
         : base(player)
     {
         _triggerRange = triggerRange;
@@ -40,6 +43,7 @@ public sealed class EnergyPulse : ActiveSkill
 
     public override bool CanExecute()
     {
+        if (!_player.isActiveAndEnabled || _player.IsDead || _isPlaying) return false;
         foreach (var mon in CombatMotion.Monsters)
             if (InRange(mon)) return true;
         return false;
@@ -50,10 +54,21 @@ public sealed class EnergyPulse : ActiveSkill
 
     public override float Execute()
     {
-        // Snapshot the foot-space registry before hits can return monsters to their pool.
+        _player.PlaySkillAnimation("CastEnergyPulse", .7f);
+        _lifeGeneration = _player.LifeGeneration;
+        _isPlaying = _impactPending = true;
+        _impactTime = Time.time + .2f;
+        _playEndTime = Time.time + .7f;
+        _nextAvailableTime = Time.time + _cooldown;
+        return .7f;
+    }
+
+    private void Impact()
+    {
+        // Resolve where the wave expands, after the casting pose, using living targets.
         _targets.Clear();
         foreach (var mon in CombatMotion.Monsters)
-            if (InRange(mon)) { _targets.Add(mon); if (_targets.Count == 6) break; }
+            if (InRange(mon)) _targets.Add(mon);
 
         long baseAtk = _player.playerStatus?.Atk ?? 0;
         long skillDamage = BalanceMath.Damage(baseAtk, (decimal)_damageMultiplier);
@@ -65,28 +80,20 @@ public sealed class EnergyPulse : ActiveSkill
             if (!mon.TakeDamage(proxy)) continue;
 
             Vector2 dir = ((Vector2)mon.transform.position - (Vector2)_player.transform.position).normalized;
+            if (dir.sqrMagnitude < .001f) dir = _player.transform.localScale.x < 0 ? Vector2.left : Vector2.right;
             mon.ApplyKnockback(dir, _knockbackForce);
-            if (!mon.IsBalanceBoss) MonsterCCState.Apply(mon, CrowdControlKind.Stun, 1.25f, 0);
+            if (!mon.IsBalanceBoss) MonsterCCState.Apply(mon, CrowdControlKind.Stun, 1f, 0);
         }
 
         // VFX + 캐스팅 애니메이션 동시 재생
         SpawnVFX();
-
-        string animName = "CastEnergyPulse";
-        // 애니메이션이 마지막 프레임까지 완전히 재생되도록 약간의 버퍼를 둔다.
-        // (버퍼가 없으면 _pendingAnimRecovery 가 끝 프레임을 Attack_Anim 로 덮어쓴다)
-        float protectLen = 0.7f;
-        _player.PlaySkillAnimation(animName, protectLen);
-
-        _isPlaying = true;
-        _playEndTime = Time.time + protectLen;
-
-        _nextAvailableTime = Time.time + _cooldown;
-        return protectLen;
     }
 
     public override void Tick()
     {
+        if (_player.IsDead || !_player.isActiveAndEnabled || _player.LifeGeneration != _lifeGeneration)
+        { _isPlaying = _impactPending = false; return; }
+        if (_impactPending && Time.time >= _impactTime) { _impactPending = false; Impact(); }
         if (_isPlaying && Time.time >= _playEndTime)
             _isPlaying = false;
     }

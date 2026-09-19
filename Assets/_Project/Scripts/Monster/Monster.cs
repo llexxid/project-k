@@ -139,6 +139,7 @@ namespace Scripts.Monster
 
 		void Update()
 		{
+			if (_monAction == eMonsterAction.Dead) return;
 			ApplyKnockbackMovement();
             TickCombat();
 
@@ -241,6 +242,7 @@ namespace Scripts.Monster
 			_stateManchine.BeginMachine(new MonsterMoveState(this));
 			foreach (var col in GetComponentsInChildren<Collider2D>())
 				col.enabled = true;
+			foreach (var body in GetComponentsInChildren<Rigidbody2D>()) body.simulated = true;
 			_monAI.RecoveryBT();
 			OnHpChanged?.Invoke(GetHpRatio());
 			return;
@@ -274,6 +276,12 @@ namespace Scripts.Monster
 			if (!IsAlive)
 			{
 				_monAction = eMonsterAction.Dead;
+				_knockbackVelocity = Vector2.zero;
+				CancelAttack();
+				SetTarget(null);
+				foreach (var col in GetComponentsInChildren<Collider2D>()) col.enabled = false;
+				foreach (var body in GetComponentsInChildren<Rigidbody2D>())
+				{ body.linearVelocity = Vector2.zero; body.angularVelocity = 0; body.simulated = false; }
 				_monAI.InterruptBT();
 				_stateManchine.ChangeState(new MonsterDeadState(this));
                 OnDead();
@@ -315,9 +323,10 @@ namespace Scripts.Monster
 		{
 			//Todo : DropItem 스폰
 			//Institate 동전
-			var listeners = OnDeath; OnDeath = null; listeners?.Invoke(this);
 			foreach (var col in GetComponentsInChildren<Collider2D>())
 				col.enabled = false;
+			// Notify only after collision is disabled; observers may advance or recycle a wave.
+			var listeners = OnDeath; OnDeath = null; listeners?.Invoke(this);
 		}
 
 		private void InitializeAnimator()
@@ -383,15 +392,19 @@ namespace Scripts.Monster
 		/// <summary>지정 방향으로 넉백 적용.</summary>
 		public void ApplyKnockback(Vector2 direction, float force)
 		{
-			if (IsBalanceBoss) return;
+			if (IsBalanceBoss || _monAction == eMonsterAction.Dead || !isActiveAndEnabled) return;
             _knockbackVelocity = direction.normalized * force;
 		}
 
 		private void ApplyKnockbackMovement()
 		{
+			if (_monAction == eMonsterAction.Dead) { _knockbackVelocity = Vector2.zero; return; }
 			if (_knockbackVelocity.sqrMagnitude < 0.01f) return;
-			transform.position += (Vector3)(_knockbackVelocity * Time.deltaTime);
-			_knockbackVelocity = Vector2.Lerp(_knockbackVelocity, Vector2.zero, Time.deltaTime * 10f);
+			// Integrate exponential drag exactly so displacement is stable at 30/60 FPS.
+			float decay = Mathf.Exp(-10f * Time.deltaTime);
+			var next = KingdomIdle.Combat.CombatMotion.Clamp((Vector2)transform.position + _knockbackVelocity * ((1f - decay) / 10f));
+			transform.position = new Vector3(next.x, next.y, transform.position.z);
+			_knockbackVelocity *= decay;
 		}
 
 		private void OnDrawGizmos()
