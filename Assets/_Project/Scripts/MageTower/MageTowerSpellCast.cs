@@ -51,7 +51,7 @@ namespace KingdomIdle.MageTower
         public MageTowerSpellCast(MageTowerManager owner, MageTowerSkillSO skill, long power, int awakening, bool bloom, Monster target, Vector3? position = null)
         {
             _owner = owner; _skill = skill; _power = power; _awakening = awakening; _bloom = bloom;
-            _battle = LocalProgression.State.ActiveBattleId; _initial = position ?? target.transform.position;
+            _battle = LocalProgression.State.ActiveBattleId; _initial = position ?? target.FootPosition;
             // Broad effects may centre just inside the arena edge; their visible boundary
             // and actual hit centre stay together. Small targeted strikes remain exact.
             if (!position.HasValue && (skill.spellKind == MageSpellKind.Meteor || skill.spellKind == MageSpellKind.VoidRift || skill.spellKind == MageSpellKind.VenomMist ||
@@ -86,7 +86,7 @@ namespace KingdomIdle.MageTower
             var camera = MageTowerTargeting.ResolveCamera();
             foreach (var monster in CombatMotion.Monsters)
             {
-                if (IsAlive(monster) && (monster.transform.position-center).sqrMagnitude <= radius*radius &&
+                if (IsAlive(monster) && (monster.FootPosition-center).sqrMagnitude <= radius*radius &&
                     MageTowerTargeting.IsOnScreen(camera, monster.transform.position)) targets.Add(monster);
             }
         }
@@ -105,10 +105,10 @@ namespace KingdomIdle.MageTower
                 skill.spellKind == MageSpellKind.VenomMist || skill.spellKind == MageSpellKind.StoneSeal || skill.spellKind == MageSpellKind.Lightning);
             foreach (var candidate in Candidates)
             {
-                float next = (candidate.transform.position - center).sqrMagnitude;
+                float next = (candidate.FootPosition - center).sqrMagnitude;
                 int neighbours = 0;
                 if (area) foreach(var other in Candidates)
-                    if ((candidate.transform.position-other.transform.position).sqrMagnitude <= skill.radius*skill.radius) neighbours++;
+                    if ((candidate.FootPosition-other.FootPosition).sqrMagnitude <= skill.radius*skill.radius) neighbours++;
                 if (neighbours > cluster || (neighbours == cluster && next < distance)) { target = candidate; distance = next; cluster = neighbours; }
             }
             return target != null;
@@ -129,7 +129,7 @@ namespace KingdomIdle.MageTower
                 if (current < ratio) { lowest = player; ratio = current; }
             }
             if (lowest == null) return false;
-            point = lowest.transform.position; return true;
+            point = lowest.VfxFootPosition; return true;
         }
 
         private PooledSpellVfx Visual(GameObject prefab, Vector3 position, float lifetime, float scale = 1, Transform follow = null, Vector3 followOffset = default)
@@ -283,7 +283,7 @@ namespace KingdomIdle.MageTower
                 if (_bloom)
                 {
                     yield return Delay(.17f); Sound(.6f,volley==0?1f:1.08f);
-                    foreach(var pending in _lineTargets) if(pending.Alive) Hit(pending.Monster,(decimal)_skill.bloomAreaPowerMultiplier,pending.Monster.transform.position);
+                    foreach(var pending in _lineTargets) if(pending.Alive) Hit(pending.Monster,(decimal)_skill.bloomAreaPowerMultiplier,pending.Monster.FootPosition);
                 }
                 yield return Delay(_bloom ? .38f : .4f);
             }
@@ -303,7 +303,7 @@ namespace KingdomIdle.MageTower
                     else
                     {
                         var monster = _targets[launched % _targets.Count];
-                        Vector3 end = monster.transform.position + Vector3.up * .35f;
+                        Vector3 end = monster.FootPosition + Vector3.up * .35f;
                         Vector3 start = end + new Vector3(1.05f + (launched % 3 - 1) * .18f, 3.2f, 0);
                         _stars.Add(new FallingStar { Target = new Target(monster), Start = start, End = end,
                             Visual = Visual(_skill.prefab, start, flight + .2f) });
@@ -315,7 +315,7 @@ namespace KingdomIdle.MageTower
                     var star = _stars[i]; star.Age += Time.deltaTime;
                     // Track during the approach, then commit for the final visible contact.
                     if (star.Age < flight * .7f && star.Target.Alive)
-                        star.End = star.Target.Monster.transform.position + Vector3.up * .35f;
+                        star.End = star.Target.Monster.FootPosition + Vector3.up * .35f;
                     if (star.Visual != null)
                     {
                         star.Visual.transform.position = Vector3.Lerp(star.Start, star.End, Mathf.Clamp01(star.Age / flight));
@@ -324,7 +324,7 @@ namespace KingdomIdle.MageTower
                     }
                     if (star.Age < flight) { _stars[i] = star; continue; }
                     Visual(_skill.secondaryPrefab, star.End, .42f);
-                    if (star.Target.Alive && Vector2.Distance(star.Target.Monster.transform.position + Vector3.up * .35f, star.End) <= _skill.radius)
+                    if (star.Target.Alive && Vector2.Distance(star.Target.Monster.FootPosition + Vector3.up * .35f, star.End) <= _skill.radius)
                         Hit(star.Target.Monster, NormalMultiplier, star.End);
                     star.Visual?.Release(); _stars.RemoveAt(i);
                 }
@@ -342,7 +342,7 @@ namespace KingdomIdle.MageTower
             float tick = 0; int emitted = 0;
             while (Valid && emitted < Hits)
             {
-                if (moving && TryFindTarget(out var target)) center = Vector3.MoveTowards(center, target.transform.position, 2.8f * Time.deltaTime);
+                if (moving && TryFindTarget(out var target)) center = Vector3.MoveTowards(center, target.FootPosition, 2.8f * Time.deltaTime);
                 if (visual != null) visual.transform.position = center;
                 if (tick <= 0)
                 {
@@ -371,14 +371,17 @@ namespace KingdomIdle.MageTower
         private IEnumerator Meteor()
         {
             // Approach from the centre side so edge targets still show the full falling rock.
-            var travel = new Vector3(_initial.x > 0 ? -1.25f : 1.25f,2.5f,0);
-            var falling = Visual(_skill.prefab, _initial + travel, 1.3f);
+            const float flight = .8f;
+            var travel = new Vector3(_initial.x > 0 ? -1.6f : 1.6f,3.2f,0);
+            var falling = Visual(_skill.prefab, _initial + travel, flight + .2f);
             if (falling != null && travel.x < 0)
                 falling.transform.localScale = Vector3.Scale(falling.transform.localScale, new Vector3(-1, 1, 1));
+            if (falling != null)
+                falling.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(travel.y, travel.x) * Mathf.Rad2Deg - (travel.x < 0 ? 135 : 45));
             float elapsed = 0;
-            while (Valid && elapsed < 1.1f)
+            while (Valid && elapsed < flight)
             {
-                if (falling != null) falling.transform.position = _initial + travel * (1 - Mathf.Pow(elapsed / 1.1f,1.65f));
+                if (falling != null) falling.transform.position = _initial + travel * (1 - Mathf.Pow(elapsed / flight,1.65f));
                 yield return null; elapsed += Time.deltaTime;
             }
             if (!Valid) yield break;
@@ -399,7 +402,7 @@ namespace KingdomIdle.MageTower
                 foreach (var player in UserManager.Instance.GetPlayers())
                 {
                     if (player == null || player.playerStatus == null || player.playerStatus.HP <= 0 ||
-                        (player.transform.position - _initial).sqrMagnitude > _skill.radius * _skill.radius) continue;
+                        (player.VfxFootPosition - _initial).sqrMagnitude > _skill.radius * _skill.radius) continue;
                     double candidate = (double)player.playerStatus.HP / player.playerStatus.MaxHP;
                     if (candidate < ratio) { lowest = player; ratio = candidate; }
                 }
@@ -420,18 +423,18 @@ namespace KingdomIdle.MageTower
 
         private IEnumerator Void()
         {
-            Vector3 center = _initial + Vector3.up*.5f;
-            Visual(_skill.prefab, center, Hits * _skill.tickInterval + .6f);
+            Vector3 center = _initial;
+            Visual(_skill.prefab, center + Vector3.up*.5f, Hits * _skill.tickInterval + .6f);
             yield return Delay(.15f);
             float tickTimer = 0; int ticks = 0;
             while (Valid && ticks < Hits)
             {
                 int hitCount = 0;
-                Collect(center-Vector3.up*.4f, _skill.PullRadius, _targets, _colliders);
+                Collect(center, _skill.PullRadius, _targets, _colliders);
                 foreach (var monster in _targets)
                 {
                     if (!IsAlive(monster)) continue;
-                    Vector3 delta = center - (monster.transform.position + Vector3.up*.4f);
+                    Vector3 delta = center - monster.FootPosition;
                     // Suction reaches 50% beyond the visible rim; damage retains its authored radius.
                     if (delta.sqrMagnitude > _skill.PullRadius*_skill.PullRadius) continue;
                     if (delta.sqrMagnitude > .04f) monster.ApplyKnockback(delta, Mathf.Min(1.6f, delta.magnitude * 3));
@@ -446,8 +449,8 @@ namespace KingdomIdle.MageTower
             }
             if (!Valid) yield break;
             yield return Delay(Mathf.Max(0,tickTimer));
-            Visual(_skill.secondaryPrefab, center, .6f);
-            Area(center-Vector3.up*.4f, _skill.radius, NormalMultiplier * (decimal)_skill.secondaryPowerRatio);
+            Visual(_skill.secondaryPrefab, center + Vector3.up*.5f, .6f);
+            Area(center, _skill.radius, NormalMultiplier * (decimal)_skill.secondaryPowerRatio);
             yield return Delay(.6f);
         }
 

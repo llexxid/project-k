@@ -76,7 +76,7 @@ def control():
         m.command('control-stage-'+str(boss),'stage',stage=0x20003000b if boss else 0x20003000a)
         time.sleep(2)
         result=m.command('control-rules-'+str(boss),'combat-control')['result']
-        assert result['boss']==boss and result['passed']==9,result
+        assert result['boss']==boss and result['passed']==10,result
         results.append(result)
     save('control-checks',results)
     print('Ordinary/boss taunt, shield, stun and pool checks passed',flush=True)
@@ -99,7 +99,7 @@ def healing():
         state=m.command(tag+'-visible')['state']
         player=next(p for p in state['party'] if p['PlayerIndex']==index)
         visual=next(v for v in state['mageVisuals'] if v['name'].startswith('SanctuaryHeal'))
-        expected=[player['position'][0],player['position'][1]-.5]
+        expected=player['feet']
         assert all(abs(a-b)<.015 for a,b in zip(expected,visual['position'])),(player,visual)
         assert any(e['kind']=='heal' and e['amount']>0 for e in state['mageEvents'])
         m.shot(tag)

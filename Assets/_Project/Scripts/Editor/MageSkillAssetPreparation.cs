@@ -20,6 +20,7 @@ public static class MageSkillAssetPreparation
     const string Source = Art + "/VFX/PixelArtRPGVFX/Textures/";
     const string Generated = "AI/comfyui/mage-skills/20260915";
     const string Polished = Art + "/VFX/MageTower/";
+    const string Refined = RefinedMageSpritePreparation.Folder;
 
     readonly struct Layer
     {
@@ -28,8 +29,9 @@ public static class MageSkillAssetPreparation
         public readonly Color Color;
         public readonly int StaticFrame;
         public readonly bool Loop;
-        public Layer(string texture, float width, float height, Color color, float x = 0, float y = 0, int frame = -1, bool loop = false)
-        { Texture = texture; Size = new Vector2(width, height); Offset = new Vector2(x, y); Color = color; StaticFrame = frame; Loop = loop; }
+        public readonly float Fps;
+        public Layer(string texture, float width, float height, Color color, float x = 0, float y = 0, int frame = -1, bool loop = false, float fps = 12)
+        { Texture = texture; Size = new Vector2(width, height); Offset = new Vector2(x, y); Color = color; StaticFrame = frame; Loop = loop; Fps = fps; }
     }
 
     [MenuItem("KingdomIdle/MageTower/Rebuild Approved Skill Assets")]
@@ -37,6 +39,7 @@ public static class MageSkillAssetPreparation
     {
         EnsureFolder(Prefabs); EnsureFolder(AnimationRoot); EnsureFolder(Art + "/Icons/MageTower");
         PrepareDerivedSheets();
+        RefinedMageSpritePreparation.Prepare();
         const string cloudTexture = Art + "/VFX/MageTower/LightningCloud.png";
         AssetDatabase.ImportAsset(cloudTexture, ImportAssetOptions.ForceSynchronousImport);
         var cloudImporter = (TextureImporter)AssetImporter.GetAtPath(cloudTexture);
@@ -60,31 +63,29 @@ public static class MageSkillAssetPreparation
         var arcane = Vfx("ArcaneVolley", new Layer(Polished+"ArcaneProjectile.png", 2.1f, 2.1f, Color.white, loop:true));
         var arcaneHit = Vfx("ArcaneImpact", new Layer(Polished+"ArcaneImpact.png", 1.6f, 1.6f, Color.white));
         var venom = Vfx("VenomMist",
-            new Layer(Art+"/VFX/PoisonEffect/Animation/Sprites/Poison_Effect_05-1.png",3.9f,2.5f,new Color(1,1,1,.96f),frame:0),
-            new Layer(Art+"/VFX/PoisonEffect/Animation/Sprites/Poison_Effect_05-2.png",2.9f,2.2f,new Color(1,1,1,.88f),y:.2f,loop:true));
+            new Layer(Art+"/VFX/PoisonEffect/Animation/Sprites/Poison_Effect_05-1.png",3.3f,3f,new Color(1,1,1,.96f),frame:0),
+            new Layer(Art+"/VFX/PoisonEffect/Animation/Sprites/Poison_Effect_05-2.png",3f,3f,new Color(1,1,1,.88f),y:.2f,loop:true));
         var stone = Vfx("StoneSeal",
             new Layer(Source+"Earth/EarthRock.png",1.8f,1.8f,new Color(.84f,.79f,.7f),x:-.42f,y:.34f),
             new Layer(Source+"Earth/EarthRock.png",2.3f,2.3f,new Color(.91f,.86f,.77f),y:.48f),
             new Layer(Source+"Earth/EarthRock.png",1.6f,1.6f,new Color(.84f,.79f,.7f),x:.44f,y:.28f));
         var sanctuary = BuildSanctuary();
-        var heal = Vfx("SanctuaryHeal",new Layer(Source+"Holy/HolyBlessing.png",1.45f,1.45f,new Color(.77f,.98f,.65f),y:.5f));
-        var meteor = Vfx("Meteor",
-            new Layer(Source+"Fire/FireFlamme.png",2.2f,2.6f,new Color(1,.83f,.60f),x:.32f,y:.64f,loop:true),
-            new Layer(Polished+"MeteorBody64.png",1.8f,1.8f,Color.white,y:.13f,frame:0));
+        var heal = Vfx("SanctuaryHeal",new Layer(Refined+"HealingFeet.png",1.5f,1f,Color.white));
+        var meteor = Vfx("Meteor",new Layer(Refined+"MeteorFlight.png",4f,4f,Color.white,loop:true,fps:18));
         EditMeteor(meteor);
         var crater = Vfx("MeteorCrater",
-            new Layer(Polished+"MeteorScorch.png",3.2f,2.25f,Color.white,frame:0),
-            new Layer(Source+"Fire/FireExplosion1.png",3.2f,3.2f,fire,y:.4f));
-        var rift = Vfx("VoidRift",new Layer(Source+"Void/VoidBlackHole.png",4.6f,4.6f,new Color(.72f,.65f,.80f),loop:true));
-        var collapse = Vfx("VoidCollapse",new Layer(Polished+"VoidCollapseMuted.png",3.6f,3.6f,new Color(1,1,1,.86f)));
-        var telegraph = Vfx("GroundTelegraph",new Layer(Source+"Holy/HolyBlessing.png",3.2f,3.2f,new Color(.78f,.67f,.5f,.72f),y:.75f,frame:0));
+            new Layer(Polished+"MeteorScorch.png",2.65f,2f,Color.white,frame:0),
+            new Layer(Refined+"MeteorImpact.png",3.5f,2f,Color.white,fps:18));
+        var rift = Vfx("VoidRift",new Layer(Refined+"VoidRing.png",4.6f,4.6f,Color.white,loop:true));
+        var collapse = Vfx("VoidCollapse",new Layer(Polished+"VoidCollapseMuted.png",2.4f,2.4f,new Color(1,1,1,.86f)));
+        var telegraph = Vfx("GroundTelegraph",new Layer(Refined+"StoneGlyph.png",2.5f,1.5f,Color.white,frame:0));
         var cloud = Vfx("LightningBloomCloud",
-            new Layer(cloudTexture,3.8f,1.45f,Color.white,frame:0),
-            new Layer(Polished+"CloudSparksViolet.png",3.8f,3.8f,Color.white,loop:true));
+            new Layer(Refined+"StormCloud.png",3.5f,2f,Color.white,frame:0),
+            new Layer(Polished+"CloudSparksViolet.png",2f,2f,Color.white,loop:true));
         var thunder = Vfx("LightningBloomStrike",
-            new Layer(Polished+"ThunderViolet.png",3.5f,4.6f,Color.white,y:1.65f),
-            new Layer(Polished+"ThunderImpactViolet.png",4.2f,2.7f,Color.white));
-        var glacier = Vfx("IceBloomCrystal",new Layer(Source+"Ice/IceSpike.png",3.4f,4.3f,frost,y:1.4f));
+            new Layer(Refined+"ThunderBolt.png",4f,4.6f,Color.white,y:1.65f),
+            new Layer(Refined+"ThunderImpact.png",4f,4f,Color.white));
+        var glacier = Vfx("IceBloomCrystal",new Layer(Refined+"Glacier.png",3.5f,4f,Color.white,fps:14));
         var iceCast = Vfx("IceBloomWarning",new Layer(Source+"Ice/IceSlam.png",2.8f,1.8f,new Color(.58f,.73f,.83f)));
 
         string[] keys={"Lightning","IceSpike","FireTornado","ArcaneVolley","VenomMist","StoneSeal","Retired","Sanctuary","Meteor","VoidRift"};
@@ -213,15 +214,14 @@ public static class MageSkillAssetPreparation
     static GameObject BuildSanctuary()
     {
         var prefab = Vfx("Sanctuary",
-            new Layer(Source+"Holy/HolyBlessing.png",4.4f,4.4f,new Color(.62f,.86f,.70f,1f),y:1f,loop:true),
-            new Layer(Source+"Earth/EarthHeal.png",2.8f,2.8f,new Color(.84f,.92f,.73f,1f),y:.5f,loop:true),
-            new Layer(Source+"Holy/HolyCross.png",2.3f,2.3f,new Color(.8f,.95f,.76f),y:.55f,frame:2));
+            new Layer(Refined+"SanctuaryGround.png",5.5f,3.5f,Color.white,loop:true,fps:12/.7f),
+            new Layer(Refined+"SanctuaryCrest.png",2f,2f,Color.white,y:.32f,frame:0));
         string path=AssetDatabase.GetAssetPath(prefab);
         var root=PrefabUtility.LoadPrefabContents(path);
         try
         {
             var sustain=root.AddComponent<SanctuarySustainVfx>();
-            sustain.crest=root.transform.GetChild(2);
+            sustain.crest=root.transform.GetChild(1);
             var life=root.GetComponent<PooledSpellVfx>(); life.fadeIn=.32f; life.fadeOut=.32f; life.startScale=1;
             PrefabUtility.SaveAsPrefabAsset(root,path);
         }
@@ -235,7 +235,6 @@ public static class MageSkillAssetPreparation
         var root=PrefabUtility.LoadPrefabContents(path);
         try
         {
-            root.transform.GetChild(0).localRotation=Quaternion.Euler(0,0,-32);
             root.GetComponent<PooledSpellVfx>().fadeOut=0;
             PrefabUtility.SaveAsPrefabAsset(root,path);
         }
@@ -267,9 +266,9 @@ public static class MageSkillAssetPreparation
                 if(layer.StaticFrame>=0)continue;
                 string clipPath=AnimationRoot+"/"+key+"_"+i+".anim";
                 var clip=AssetDatabase.LoadAssetAtPath<AnimationClip>(clipPath);
-                if(clip==null){clip=new AnimationClip();AssetDatabase.CreateAsset(clip,clipPath);}clip.frameRate=12;
+                if(clip==null){clip=new AnimationClip();AssetDatabase.CreateAsset(clip,clipPath);}clip.frameRate=layer.Fps;
                 var settings=AnimationUtility.GetAnimationClipSettings(clip);settings.loopTime=layer.Loop;AnimationUtility.SetAnimationClipSettings(clip,settings);
-                var keys=new ObjectReferenceKeyframe[sprites.Length+1];for(int frame=0;frame<keys.Length;frame++)keys[frame]=new ObjectReferenceKeyframe{time=frame/12f,value=frame<sprites.Length?sprites[frame]:layer.Loop?sprites[0]:null};
+                var keys=new ObjectReferenceKeyframe[sprites.Length+1];for(int frame=0;frame<keys.Length;frame++)keys[frame]=new ObjectReferenceKeyframe{time=frame/layer.Fps,value=frame<sprites.Length?sprites[frame]:layer.Loop?sprites[0]:null};
                 AnimationUtility.SetObjectReferenceCurve(clip,EditorCurveBinding.PPtrCurve("",typeof(SpriteRenderer),"m_Sprite"),keys);AnimationUtility.SetAnimationEvents(clip,Array.Empty<AnimationEvent>());EditorUtility.SetDirty(clip);
                 string controllerPath=AnimationRoot+"/"+key+"_"+i+".controller";
                 var controller=AssetDatabase.LoadAssetAtPath<AnimatorController>(controllerPath);

@@ -1,0 +1,401 @@
+{
+  "config": {},
+  "extra": {
+    "comfy_mcp": {
+      "description": "Compare UltraSharp and Anime6B at 2x final resolution, all authored frames in one sheet. No independent frame diffusion.",
+      "name": "ProjectK VFX coherent sheet upscale v3"
+    }
+  },
+  "groups": [],
+  "id": "452b5a4a-72c4-42fa-b554-71510a949676",
+  "last_link_id": 8,
+  "last_node_id": 9,
+  "links": [
+    [
+      1,
+      2,
+      0,
+      3,
+      0,
+      "UPSCALE_MODEL"
+    ],
+    [
+      2,
+      1,
+      0,
+      3,
+      1,
+      "IMAGE"
+    ],
+    [
+      3,
+      3,
+      0,
+      4,
+      0,
+      "IMAGE"
+    ],
+    [
+      4,
+      4,
+      0,
+      5,
+      0,
+      "IMAGE"
+    ],
+    [
+      5,
+      6,
+      0,
+      7,
+      0,
+      "UPSCALE_MODEL"
+    ],
+    [
+      6,
+      1,
+      0,
+      7,
+      1,
+      "IMAGE"
+    ],
+    [
+      7,
+      7,
+      0,
+      8,
+      0,
+      "IMAGE"
+    ],
+    [
+      8,
+      8,
+      0,
+      9,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "nodes": [
+    {
+      "flags": {},
+      "id": 1,
+      "inputs": [],
+      "mode": 0,
+      "order": 0,
+      "outputs": [
+        {
+          "links": [
+            2,
+            6
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        },
+        {
+          "links": null,
+          "name": "MASK",
+          "slot_index": 1,
+          "type": "MASK"
+        }
+      ],
+      "pos": [
+        0,
+        0
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "LoadImage",
+      "widgets_values": [
+        "8d0cbc36cc574b89840f4b1b084260a1b5c232003b29aabe44c6d8946db2e8a8.png"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 2,
+      "inputs": [],
+      "mode": 0,
+      "order": 1,
+      "outputs": [
+        {
+          "links": [
+            1
+          ],
+          "name": "UPSCALE_MODEL",
+          "slot_index": 0,
+          "type": "UPSCALE_MODEL"
+        }
+      ],
+      "pos": [
+        0,
+        220
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "UpscaleModelLoader",
+      "widgets_values": [
+        "4x-UltraSharp.pth"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 3,
+      "inputs": [
+        {
+          "link": 1,
+          "name": "upscale_model",
+          "type": "UPSCALE_MODEL"
+        },
+        {
+          "link": 2,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 2,
+      "outputs": [
+        {
+          "links": [
+            3
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        400,
+        0
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ImageUpscaleWithModel"
+    },
+    {
+      "flags": {},
+      "id": 4,
+      "inputs": [
+        {
+          "link": 3,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 3,
+      "outputs": [
+        {
+          "links": [
+            4
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        800,
+        0
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ImageScale",
+      "widgets_values": [
+        "area",
+        512,
+        768,
+        "disabled"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 5,
+      "inputs": [
+        {
+          "link": 4,
+          "name": "images",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 4,
+      "outputs": [
+        {
+          "links": null,
+          "name": "images",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        1200,
+        0
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "SaveImage",
+      "widgets_values": [
+        "ProjectK_VFX_v3_UltraSharp"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 6,
+      "inputs": [],
+      "mode": 0,
+      "order": 5,
+      "outputs": [
+        {
+          "links": [
+            5
+          ],
+          "name": "UPSCALE_MODEL",
+          "slot_index": 0,
+          "type": "UPSCALE_MODEL"
+        }
+      ],
+      "pos": [
+        0,
+        440
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "UpscaleModelLoader",
+      "widgets_values": [
+        "RealESRGAN_x4plus_anime_6B.pth"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 7,
+      "inputs": [
+        {
+          "link": 5,
+          "name": "upscale_model",
+          "type": "UPSCALE_MODEL"
+        },
+        {
+          "link": 6,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 6,
+      "outputs": [
+        {
+          "links": [
+            7
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        400,
+        220
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ImageUpscaleWithModel"
+    },
+    {
+      "flags": {},
+      "id": 8,
+      "inputs": [
+        {
+          "link": 7,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 7,
+      "outputs": [
+        {
+          "links": [
+            8
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        800,
+        220
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ImageScale",
+      "widgets_values": [
+        "area",
+        512,
+        768,
+        "disabled"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 9,
+      "inputs": [
+        {
+          "link": 8,
+          "name": "images",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 8,
+      "outputs": [
+        {
+          "links": null,
+          "name": "images",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        1200,
+        220
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "SaveImage",
+      "widgets_values": [
+        "ProjectK_VFX_v3_Anime6B"
+      ]
+    }
+  ],
+  "version": 0.4
+}

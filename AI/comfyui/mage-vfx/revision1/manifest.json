@@ -1,0 +1,37 @@
+{
+  "status": "adopted in b48 Android diagnostic; final cross-aspect QA pending",
+  "prompt_id": "d1823624-0bf1-4c78-b41f-398cbac71d13",
+  "cloud_workflow_id": "061baa7b-15be-4fd5-86f5-5b7f995a36f4",
+  "cloud_link": "https://cloud.comfy.org/#061baa7b-15be-4fd5-86f5-5b7f995a36f4",
+  "model": "z_image_turbo_bf16.safetensors",
+  "lora": "zimage-hard_edge_pixel_art.safetensors",
+  "lora_strength": 0.85,
+  "node_pack": "comfy-core; precise server package version not exposed by get_node",
+  "seed": 2026091901,
+  "seed_note": "KSampler supports seed; cross-hardware bitwise determinism not claimed",
+  "steps": 8,
+  "cfg": 1,
+  "sampler": "euler",
+  "scheduler": "simple",
+  "size": [
+    1024,
+    1024
+  ],
+  "reference_images": [],
+  "mask": null,
+  "prompt": "prompt.txt",
+  "api": "meteor-zimage-api.json",
+  "submitted_request": "submitted-request.json",
+  "ui": "meteor-zimage-ui.json",
+  "original": "meteor-zimage-original.png",
+  "cost": {
+    "estimate_api_usd": 0,
+    "estimate_note": "GPU time excluded by estimator",
+    "observed_workspace_delta_usd": 0.013763,
+    "source": "usage-after.json versus Recordings/FoundationRevision/Research/usage-before.json",
+    "attribution": "Workspace GPU usage increment, not per-job invoice; only one submitted job in this task during interval."
+  },
+  "assessment": "Coherent molten body and tail at 32 source pixels/world unit; stable master transformed with masks, not per-frame diffusion. Flight and impact inspected in actual SM-N986N battle context.",
+  "finishing": "../finish-manifest.json",
+  "qa": "Recordings/FoundationRevision/VfxAfter/spell-report.json; VfxStatus/healing-checks.json"
+}

@@ -1,0 +1,51 @@
+{
+  "status": "adopted in b48 Android diagnostic; final cross-aspect QA pending",
+  "prompt_id": "029293da-06a1-44e3-bdd9-309ca87294ee",
+  "workflow_id": "05f383d0-c5f9-4762-ba9e-ff9dde267cfc",
+  "workflow_url": "https://cloud.comfy.org/#05f383d0-c5f9-4762-ba9e-ff9dde267cfc",
+  "api": "masters-api.json",
+  "ui": "masters-ui.json",
+  "prompts": "prompts.json",
+  "references": "No image conditioning. Art direction from inspected purchased ice/heal/cloud silhouettes; original assets remain unchanged.",
+  "models": {
+    "1": {
+      "unet_name": "z_image_turbo_bf16.safetensors",
+      "weight_dtype": "default"
+    },
+    "2": {
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "lumina2",
+      "device": "default"
+    },
+    "3": {
+      "vae_name": "ae.safetensors"
+    },
+    "4": {
+      "model": [
+        "1",
+        0
+      ],
+      "lora_name": "zimage-hard_edge_pixel_art.safetensors",
+      "strength_model": 0.85
+    },
+    "5": {
+      "model": [
+        "4",
+        0
+      ],
+      "shift": 3
+    }
+  },
+  "seed": [
+    2026092004,
+    2026092005,
+    2026092006
+  ],
+  "node_versions": "Same Cloud schemas validated for revision1; package versions unavailable",
+  "settings": "8 steps, cfg 1, euler/simple, LoRA .85, 1024x1024",
+  "cost": "../cost-report.json: actual aggregate workspace increment; individual job attribution unavailable",
+  "rationale": "Reference edit v2 enlarged coarse blocks. Change to higher-detail independent master generation; retain palette and derive motion deterministically. Reject candidates that fail in-game comparison.",
+  "assessment": "Glacier, opaque Sanctuary crest and cloud masters passed single-cast Android checks. Motion derives from one master per effect. Glacier grows from feet; Sanctuary rises once, holds while ground wave pulses, then lowers. Cloud lower hanging bolts excluded from cloud-only crop.",
+  "finishing": "../finish-manifest.json",
+  "qa": "Recordings/FoundationRevision/VfxAfter/spell-report.json; VfxStatus/healing-checks.json"
+}

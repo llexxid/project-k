@@ -1,0 +1,162 @@
+{
+  "workflow": {
+    "1": {
+      "class_type": "UNETLoader",
+      "inputs": {
+        "unet_name": "qwen_image_edit_fp8_e4m3fn.safetensors",
+        "weight_dtype": "default"
+      }
+    },
+    "2": {
+      "class_type": "CLIPLoader",
+      "inputs": {
+        "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+        "type": "qwen_image",
+        "device": "default"
+      }
+    },
+    "3": {
+      "class_type": "VAELoader",
+      "inputs": {
+        "vae_name": "qwen_image_vae.safetensors"
+      }
+    },
+    "4": {
+      "class_type": "LoraLoaderModelOnly",
+      "inputs": {
+        "model": [
+          "1",
+          0
+        ],
+        "lora_name": "Qwen-Image-Edit-Lightning-4steps-V1.0-bf16.safetensors",
+        "strength_model": 1
+      }
+    },
+    "5": {
+      "class_type": "ModelSamplingAuraFlow",
+      "inputs": {
+        "model": [
+          "4",
+          0
+        ],
+        "shift": 3
+      }
+    },
+    "6": {
+      "class_type": "CFGNorm",
+      "inputs": {
+        "model": [
+          "5",
+          0
+        ],
+        "strength": 1
+      }
+    },
+    "7": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": "9e0806b012a210cc2740031bc0f6cf25a9a11537e6a6e369e914141f887d43fd.png"
+      }
+    },
+    "8": {
+      "class_type": "TextEncodeQwenImageEdit",
+      "inputs": {
+        "clip": [
+          "2",
+          0
+        ],
+        "vae": [
+          "3",
+          0
+        ],
+        "image": [
+          "7",
+          0
+        ],
+        "prompt": "Refine this ice spell crystal into a larger, more detailed pixel-art glacier crystal cluster for a quarter-view fantasy RPG. Keep its icy cyan and pale blue palette, three upward shards and faceted geometry. The central shard is tall and dominant, the two side shards shorter. Add sharply defined internal crystal planes and fine fracture highlights so that this is a detailed 128 by 160 logical pixel sprite, not the same coarse blocks enlarged. Crisp deliberate pixel clusters, six colors, no outlines, no soft glow, no blurry edges, no scene, no lettering. Fully opaque solid crystals. Show the complete cluster including its base and both side shards, with generous empty black margins. Keep a pure black flat background. Elevated three-quarter game view."
+      }
+    },
+    "9": {
+      "class_type": "TextEncodeQwenImageEdit",
+      "inputs": {
+        "clip": [
+          "2",
+          0
+        ],
+        "vae": [
+          "3",
+          0
+        ],
+        "image": [
+          "7",
+          0
+        ],
+        "prompt": ""
+      }
+    },
+    "10": {
+      "class_type": "VAEEncode",
+      "inputs": {
+        "pixels": [
+          "7",
+          0
+        ],
+        "vae": [
+          "3",
+          0
+        ]
+      }
+    },
+    "11": {
+      "class_type": "KSampler",
+      "inputs": {
+        "model": [
+          "6",
+          0
+        ],
+        "positive": [
+          "8",
+          0
+        ],
+        "negative": [
+          "9",
+          0
+        ],
+        "latent_image": [
+          "10",
+          0
+        ],
+        "seed": 2026092002,
+        "steps": 4,
+        "cfg": 1,
+        "sampler_name": "euler",
+        "scheduler": "simple",
+        "denoise": 1
+      }
+    },
+    "12": {
+      "class_type": "VAEDecode",
+      "inputs": {
+        "samples": [
+          "11",
+          0
+        ],
+        "vae": [
+          "3",
+          0
+        ]
+      }
+    },
+    "13": {
+      "class_type": "SaveImage",
+      "inputs": {
+        "images": [
+          "12",
+          0
+        ],
+        "filename_prefix": "ProjectK_Ice_Qwen_v2"
+      }
+    }
+  },
+  "confirm": true
+}

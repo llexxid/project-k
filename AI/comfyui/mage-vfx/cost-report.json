@@ -1,0 +1,14 @@
+{
+  "currency": "USD",
+  "type": "observed workspace usage increments; not per-job invoices",
+  "baseline_total": 38.236498916896664,
+  "after_revision1_total": 38.25026178969166,
+  "latest_total": 38.27501259762666,
+  "revision1_observed_increment": 0.013762872794996,
+  "subsequent_observed_increment": 0.024750807935,
+  "task_observed_increment": 0.038513680729996,
+  "baseline_end_exclusive_utc": "2026-09-19T14:00:00Z",
+  "latest_end_exclusive_utc": "2026-09-19T17:00:00Z",
+  "sources": ["Recordings/FoundationRevision/Research/usage-before.json", "revision1/usage-after.json", "usage-latest.json"],
+  "limits": "The API reports workspace buckets, not charges tied to individual prompt IDs. No expired buckets were present between the compared rolling-window starts. Subsequent increments include successful and rejected work; exact individual job attribution is unavailable. Costs after the latest report cutoff are not asserted. Estimator API-only zero did not include GPU time."
+}

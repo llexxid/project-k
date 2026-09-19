@@ -154,6 +154,8 @@ namespace KingdomIdle.EditorTools
                 if (animator.GetComponent<MonsterAttackCue>() == null) animator.gameObject.AddComponent<MonsterAttackCue>();
                 animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
                 string name = root.name;
+                // Absolute authored scale: repeated preparation must not keep shrinking them.
+                if (path.Contains("/Mimics/")) root.transform.localScale = Vector3.one * .9f;
                 string projectile = name switch
                 {
                     "OrcHunter" => "Orcs/OrcHunter/Projectiles/Spear_AimedFlight",
@@ -229,7 +231,7 @@ namespace KingdomIdle.EditorTools
             try
             {
                 var renderer = root.GetComponent<SpriteRenderer>();
-                renderer.sortingLayerName = "Enemy"; renderer.sortingOrder = 0;
+                renderer.sortingLayerName = "CombatVFX"; renderer.sortingOrder = CombatVfxOrder.Impact;
                 var serialized = new SerializedObject(root.GetComponent<ShamanTotemStrike>());
                 foreach (var pair in new[] { ("emerge", "TotemAppear"), ("idle", "TotemIdle"), ("crumble", "TotemDead") })
                 {

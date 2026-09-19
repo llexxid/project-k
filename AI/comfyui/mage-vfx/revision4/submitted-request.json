@@ -1,0 +1,278 @@
+{
+  "workflow": {
+    "1": {
+      "class_type": "UNETLoader",
+      "inputs": {
+        "unet_name": "z_image_turbo_bf16.safetensors",
+        "weight_dtype": "default"
+      }
+    },
+    "2": {
+      "class_type": "CLIPLoader",
+      "inputs": {
+        "clip_name": "qwen_3_4b.safetensors",
+        "type": "lumina2",
+        "device": "default"
+      }
+    },
+    "3": {
+      "class_type": "VAELoader",
+      "inputs": {
+        "vae_name": "ae.safetensors"
+      }
+    },
+    "4": {
+      "class_type": "LoraLoaderModelOnly",
+      "inputs": {
+        "model": [
+          "1",
+          0
+        ],
+        "lora_name": "zimage-hard_edge_pixel_art.safetensors",
+        "strength_model": 0.85
+      }
+    },
+    "5": {
+      "class_type": "ModelSamplingAuraFlow",
+      "inputs": {
+        "model": [
+          "4",
+          0
+        ],
+        "shift": 3
+      }
+    },
+    "6": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "clip": [
+          "2",
+          0
+        ],
+        "text": "A tall luminous icy crystal formation with a large tapered center shard and two shorter distinct side shards. Sharp irregular ice blades, transparent-looking internal fracture planes rendered as opaque geometric shapes, layered pale cyan facets and white edge highlights, rich deep blue shadow planes. Base rests on a small compact cluster of ice splinters, not a broad floor. Cyan, turquoise, light blue and ivory only. Single isolated complete fantasy RPG spell sprite. Elevated three-quarter view, deliberate hard-edge pixel clusters at 128 by 128 logical pixels with fine one-pixel highlights and intricate internal facets, NOT large blocky 32-pixel art. Limited six-color palette, no black outlines, no text, no symbols resembling letters, no gradient haze, no environment. Solid pure black background, generous empty margins, complete object fully visible. "
+      }
+    },
+    "7": {
+      "class_type": "ConditioningZeroOut",
+      "inputs": {
+        "conditioning": [
+          "6",
+          0
+        ]
+      }
+    },
+    "8": {
+      "class_type": "EmptySD3LatentImage",
+      "inputs": {
+        "width": 1024,
+        "height": 1024,
+        "batch_size": 1
+      }
+    },
+    "9": {
+      "class_type": "KSampler",
+      "inputs": {
+        "model": [
+          "5",
+          0
+        ],
+        "positive": [
+          "6",
+          0
+        ],
+        "negative": [
+          "7",
+          0
+        ],
+        "latent_image": [
+          "8",
+          0
+        ],
+        "seed": 2026092004,
+        "steps": 8,
+        "cfg": 1,
+        "sampler_name": "euler",
+        "scheduler": "simple",
+        "denoise": 1
+      }
+    },
+    "10": {
+      "class_type": "VAEDecode",
+      "inputs": {
+        "samples": [
+          "9",
+          0
+        ],
+        "vae": [
+          "3",
+          0
+        ]
+      }
+    },
+    "11": {
+      "class_type": "SaveImage",
+      "inputs": {
+        "images": [
+          "10",
+          0
+        ],
+        "filename_prefix": "ProjectK_v4_Glacier"
+      }
+    },
+    "12": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "clip": [
+          "2",
+          0
+        ],
+        "text": "An elegant sacred healing emblem, a luminous pale mint-green and ivory cross suspended above a slim horizontal gold-green diamond halo. The cross has beveled symmetrical arms, a tall slender shaft and a radiant star at its center. Small distinct leaf-like luminous fragments beside it, clean strong silhouette, refined angular facets. Entire crest compact with open space around it; no large floor ring, no pedestal, no walls, no building. Restrained emerald, mint, pale yellow and ivory. Single isolated complete fantasy RPG spell sprite. Elevated three-quarter view, deliberate hard-edge pixel clusters at 128 by 128 logical pixels with fine one-pixel highlights and intricate internal facets, NOT large blocky 32-pixel art. Limited six-color palette, no black outlines, no text, no symbols resembling letters, no gradient haze, no environment. Solid pure black background, generous empty margins, complete object fully visible. "
+      }
+    },
+    "13": {
+      "class_type": "ConditioningZeroOut",
+      "inputs": {
+        "conditioning": [
+          "12",
+          0
+        ]
+      }
+    },
+    "14": {
+      "class_type": "EmptySD3LatentImage",
+      "inputs": {
+        "width": 1024,
+        "height": 1024,
+        "batch_size": 1
+      }
+    },
+    "15": {
+      "class_type": "KSampler",
+      "inputs": {
+        "model": [
+          "5",
+          0
+        ],
+        "positive": [
+          "12",
+          0
+        ],
+        "negative": [
+          "13",
+          0
+        ],
+        "latent_image": [
+          "14",
+          0
+        ],
+        "seed": 2026092005,
+        "steps": 8,
+        "cfg": 1,
+        "sampler_name": "euler",
+        "scheduler": "simple",
+        "denoise": 1
+      }
+    },
+    "16": {
+      "class_type": "VAEDecode",
+      "inputs": {
+        "samples": [
+          "15",
+          0
+        ],
+        "vae": [
+          "3",
+          0
+        ]
+      }
+    },
+    "17": {
+      "class_type": "SaveImage",
+      "inputs": {
+        "images": [
+          "16",
+          0
+        ],
+        "filename_prefix": "ProjectK_v4_Sanctuary"
+      }
+    },
+    "18": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "clip": [
+          "2",
+          0
+        ],
+        "text": "A low wide dramatic thundercloud made from three or four overlapping rolling storm masses, dark desaturated plum and slate shadow volumes, soft-edged shapes represented with crisp small pixel clusters, a faint lavender highlight along the lower rim, two small bright violet electric fissures inside the cloud. Cloud silhouette horizontal twice as wide as tall. No falling lightning bolt, no ground, no face, no moon. Single isolated complete fantasy RPG spell sprite. Elevated three-quarter view, deliberate hard-edge pixel clusters at 128 by 128 logical pixels with fine one-pixel highlights and intricate internal facets, NOT large blocky 32-pixel art. Limited six-color palette, no black outlines, no text, no symbols resembling letters, no gradient haze, no environment. Solid pure black background, generous empty margins, complete object fully visible. "
+      }
+    },
+    "19": {
+      "class_type": "ConditioningZeroOut",
+      "inputs": {
+        "conditioning": [
+          "18",
+          0
+        ]
+      }
+    },
+    "20": {
+      "class_type": "EmptySD3LatentImage",
+      "inputs": {
+        "width": 1024,
+        "height": 1024,
+        "batch_size": 1
+      }
+    },
+    "21": {
+      "class_type": "KSampler",
+      "inputs": {
+        "model": [
+          "5",
+          0
+        ],
+        "positive": [
+          "18",
+          0
+        ],
+        "negative": [
+          "19",
+          0
+        ],
+        "latent_image": [
+          "20",
+          0
+        ],
+        "seed": 2026092006,
+        "steps": 8,
+        "cfg": 1,
+        "sampler_name": "euler",
+        "scheduler": "simple",
+        "denoise": 1
+      }
+    },
+    "22": {
+      "class_type": "VAEDecode",
+      "inputs": {
+        "samples": [
+          "21",
+          0
+        ],
+        "vae": [
+          "3",
+          0
+        ]
+      }
+    },
+    "23": {
+      "class_type": "SaveImage",
+      "inputs": {
+        "images": [
+          "22",
+          0
+        ],
+        "filename_prefix": "ProjectK_v4_StormCloud"
+      }
+    }
+  },
+  "confirm": true
+}
