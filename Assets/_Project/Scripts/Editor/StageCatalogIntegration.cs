@@ -61,7 +61,7 @@ namespace Scripts.Core.Parser
             const string pattern = @"namespace Scripts\.Core\s*\{\s*(?://[^\r\n]*\r?\n\s*)?public enum eMonsterType\s*:\s*ulong\s*\{[^}]*\}\s*\}";
             if (!Regex.IsMatch(current, pattern)) throw new InvalidDataException("eMonsterType 생성 영역을 찾을 수 없습니다.");
             string updated = Regex.Replace(current, pattern, _ => expected);
-            if (updated == current) return false;
+            if (updated.Replace("\r\n", "\n") == current.Replace("\r\n", "\n")) return false;
             File.WriteAllText(enumPath, updated, new UTF8Encoding(false));
             string helper = File.ReadAllText(helperPath);
             int start = helper.IndexOf("namespace Scripts.Core {\npublic static class eMonsterTypeHelper", StringComparison.Ordinal);
@@ -81,6 +81,7 @@ namespace Scripts.Core.Parser
         {
             public string Hash;
             public int Tickets;
+            public StageEndlessRules Endless;
             public readonly List<StageEnvironmentPreset> Environments = new();
             public readonly List<CatalogMonsterInfo> Monsters = new();
             public readonly List<(string path, string address, bool environment)> Addresses = new();
@@ -188,6 +189,19 @@ namespace Scripts.Core.Parser
             var tickets = Rows(book, "Inputs").Single(x => ReadRequiredString(x.row, "Key", "Inputs", x.n) == "dailyTickets");
             import.Tickets = ReadInt(tickets.row, "Value", "Inputs", tickets.n);
             if (import.Tickets < 1) throw new InvalidDataException("일일 입장권은 1 이상이어야 합니다.");
+            double Input(string key)
+            {
+                var input = Rows(book, "Inputs").Single(x => ReadRequiredString(x.row, "Key", "Inputs", x.n) == key);
+                double value = ReadDouble(input.row, "Value", "Inputs", input.n);
+                if (double.IsNaN(value) || double.IsInfinity(value) || value < 0) throw RowError("Inputs", input.n, key + " must be finite and nonnegative.");
+                return value;
+            }
+            StageGrowthCurve Curve(string prefix, string boss, string power) =>
+                new StageGrowthCurve(Input(prefix + "0"), Input(prefix + "Growth"), Input(boss), Input(power));
+            import.Endless = new StageEndlessRules(Curve("hp", "bossHP", "endlessHpPower"),
+                Curve("atk", "bossATK", "endlessAtkPower"), Curve("gold", "bossGold", "endlessGoldPower"),
+                Curve("exp", "bossExp", "endlessExpPower"), Input("eqRate"), Input("eqRateStep"), Input("eqRateCap"),
+                checked((long)Input("endlessBossCoins")), checked((long)Input("endlessBossFragments")));
             return import;
         }
 
@@ -240,7 +254,7 @@ namespace Scripts.Core.Parser
                 EditorUtility.SetDirty(group); EditorUtility.SetDirty(schema);
             }
             var database = AssetDatabase.LoadAssetAtPath<StageDatabaseSO>(DatabaseAssetPath);
-            database.SetCatalog(import.Hash, import.Environments, import.Monsters, import.Tickets);
+            database.SetCatalog(import.Hash, import.Environments, import.Monsters, import.Tickets, import.Endless);
             EditorUtility.SetDirty(database); EditorUtility.SetDirty(settings);
         }
     }

@@ -86,8 +86,6 @@ namespace Core.Stage
                 return StageRuleResult.None;
             }
             
-            if (session.Definition.StageNumber == 3 && session.Definition.WaveNumber == 11)
-                { StageManager.Instance.SetBossAutoChallenge(false); StageManager.Instance.SetLoopMode(true); return StageRuleResult.MoveTo((eStage)0x20003000A); }
             GetNextWave(session.Definition.Id, out eStage stage);
             
             return StageRuleResult.MoveTo(stage);
@@ -144,9 +142,7 @@ namespace Core.Stage
             ulong wave = ((ulong)currentStage & StageParser.WaveMask);
             if (wave == StageParser.BossWaveNumber)
             {
-                ulong stageAdder = 0x0000000000010001; // 첫번째 스테이지로 가기위해 +1
-                //기존 스테이지의 베이스 스테이지로 이동 후 다음 1스테이지로 이동
-                result = (eStage)(((ulong)currentStage & StageParser.StageBaseMask) + stageAdder );
+                result = StageParser.MakeStage(eStageType.Main, checked(StageParser.GetStageNumber(currentStage) + 1));
                 return eStageResult.StageChanged;
             }
             result = (eStage)((ulong)++currentStage);

@@ -219,12 +219,9 @@ namespace KingdomIdle.UGUI
                 (_sm.IsLoopMode || (wave == 10 && !_sm.BossAutoChallenge));
             if (canResume)
             {
-                bool finalClear = stageNum == 3 && wave == 10 &&
-                    KingdomIdle.Balance.LocalProgression.State.MainClears.Contains(0x20003000B);
-                if (finalClear) _view.lblStage.text = "3장 완료 · 반복 사냥 3-10";
-                _view.lblStage.text += finalClear ? "\n<size=22>터치하여 보스 재도전 ›</size>"
-                    : "\n<size=22>터치하여 다음 구간 도전 ›</size>";
+                _view.lblStage.text += "\n<size=22>터치하여 다음 구간 도전 ›</size>";
             }
+            if (_view.bossChallengeRoot != null) _view.bossChallengeRoot.SetActive(kind == eStageType.Main);
             if (_view.btnStageAction != null) _view.btnStageAction.interactable = canResume;
         }
 

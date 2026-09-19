@@ -1,4 +1,5 @@
 using System;
+using Scripts.Core;
 using System.Linq;
 using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
@@ -105,8 +106,8 @@ namespace KingdomIdle.Balance
         }
         public static decimal DynamicGold(ProgressionState s)
         {
-            int stage = (int)((s.OfflineStage >> 16) & 0xFFF), wave = (int)(s.OfflineStage & 0xFFFF);
-            if (stage < 1 || stage > 3 || wave < 1 || wave > 10) return 60; // Explicit 1-1, 3 KPM bootstrap.
+            int stage = Scripts.Core.Manager.StageParser.GetStageNumber((eStage)s.OfflineStage), wave = Scripts.Core.Manager.StageParser.GetWaveNumber((eStage)s.OfflineStage);
+            if (stage < 1 || wave < 1 || wave > 10) return 60; // Explicit 1-1, 3 KPM bootstrap.
             return 2m * Math.Min(30m,s.OfflineKpm) * Scripts.Core.StageCatalogRules.MainEnemy(stage,wave).Gold * BalanceMath.RubyMultiplier(s.RubyGoldLevel);
         }
         public static bool CanClaim(QuestDefinition q, ProgressionState s) => q != null && !s.Claims.Contains(Key(q,s)) && (s.PendingQuests.ContainsKey(Key(q,s)) || Progress(q,s) >= q.RequiredCount);

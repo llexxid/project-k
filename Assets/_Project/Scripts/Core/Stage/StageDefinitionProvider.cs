@@ -37,8 +37,6 @@ public sealed class StageDefinitionProvider : IStageDefinitionProvider
             return false;
         }
 
-        bool usesMainTemplate = lookupId != id;
-
         if (!record.Enabled)
         {
             Debug.LogWarning($"[StageDefinitionProvider] 비활성화된 스테이지입니다: {id}");
@@ -57,13 +55,10 @@ public sealed class StageDefinitionProvider : IStageDefinitionProvider
             : (eStage?)null;
 
         definition = new StageDefinition(
-            // 템플릿을 사용하는 가상 메인 스테이지만 StageParser의 성장 배율을 추가로 적용한다.
             stageId: id,
             flowType: record.FlowType,
             environmentId: record.EnvironmentId,
-            monsterStatMultiplier: usesMainTemplate
-                ? record.MonsterStatMultiplier * StageParser.GetRatio(id)
-                : record.MonsterStatMultiplier,
+            monsterStatMultiplier: record.MonsterStatMultiplier,
             monsterEntries: record.MonsterEntries,
             spawnPointSetId: record.SpawnPointSetId,
             timeLimitSec: record.TimeLimitSec,
@@ -76,6 +71,7 @@ public sealed class StageDefinitionProvider : IStageDefinitionProvider
             nextDifficultyId: nextDifficultyId,
             encounter: record.Encounter);
 
+        if (_cache.Count >= 128) _cache.Clear();
         _cache.Add(id, definition);
         return true;
     }

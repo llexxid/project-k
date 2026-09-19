@@ -24,8 +24,7 @@ namespace Scripts.Core
         private static void Reset() => _database = null;
         public static StageDatabaseRecord Get(eStageType type, int stage, int wave = 1)
         {
-            long mask = type == eStageType.Main ? 0 : type == eStageType.GoldDungeon ? 0x10000000L : 0x20000000L;
-            var id = (eStage)(0x200000000L | mask | ((long)stage << 16) | (uint)wave);
+            var id = Scripts.Core.Manager.StageParser.MakeStage(type, stage, wave);
             if (!Database.TryGetStage(id, out var record) || !record.Enabled)
                 throw new InvalidOperationException("Stage catalog entry unavailable: " + id);
             return record;

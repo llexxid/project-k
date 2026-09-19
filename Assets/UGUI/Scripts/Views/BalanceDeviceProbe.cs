@@ -186,6 +186,10 @@ namespace KingdomIdle.UGUI
                                 break;
                             case "dungeon":output=new {accepted=StageManager.Instance.TryEnterDungeon((eStage)c.stage)};break;
                             case "return":StageManager.Instance.ReturnToMainStage();break;
+                            case "stage-acceptance":output=StageProgressionAcceptance.Run();break;
+                            case "stage-clear":output=new{accepted=StageManager.Instance.TestClearStage()};break;
+                            case "stage-defeat":StageManager.Instance.DefeatWave();break;
+                            case "boss-auto":StageManager.Instance.SetBossAutoChallenge(c.value==1);break;
                             case "ruby":output=new {success=RubyProgression.Enhance(c.value==1)};break;
                             case "gacha":
                                 var table=GachaManager.Instance.GetAllTables().First(t=>t.gachaType==(c.value==1?eGachaType.Skill:eGachaType.Equipment));
@@ -223,6 +227,7 @@ namespace KingdomIdle.UGUI
             var aimGraphic=FindFirstObjectByType<MagicAimGraphic>();
             var aimSize=aimGraphic==null?Vector2.zero:((RectTransform)aimGraphic.transform).rect.size;
             return new {s.BalanceVersion,s.Revision,stage=stage==null?0:(long)stage.CurrentStage,runState=stage?.CurrentRunState.ToString(),s.MainStage,s.Kills,s.AccountLevel,s.Experience,s.Wallet,
+                returnRemaining=stage?.ReturnCountdownRemaining,returnDuration=stage?.ReturnCountdownDuration,bossAuto=stage?.BossAutoChallenge,
                 s.AttackLevel,s.HealthLevel,s.RubyGoldLevel,s.RubyExpLevel,s.ReincarnationLevel,s.GoldTickets,s.RubyTickets,s.GoldDungeonClear,s.RubyDungeonClear,
                 s.OfflineKpm,s.OfflineStage,equipment=s.Equipment.Count,pending=s.PendingEquipment.Count,reserve=s.LegacyEquipment.Sum(x=>(long)x.Count),pity=s.EquipmentPity,claims=s.Claims.ToArray(),
                 manualAuto=MageTowerManager.Instance?.IsAutoEnabled(),

@@ -532,6 +532,7 @@ namespace KingdomIdle.UGUI.Editor
                 "다음 스테이지",
                 UguiTheme.BtnConfirm);
 
+            ProgressionFlowPreparation.ApplyResult(root.gameObject);
             root.gameObject.SetActive(false);
             return PrefabGenUtil.SavePrefab(
                 root.gameObject,

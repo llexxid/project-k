@@ -142,7 +142,7 @@ namespace KingdomIdle.Balance
             if (state.Kills < 0 || state.Revision < 0 || state.RubyGoldSpent < 0 || state.RubyExpSpent < 0 ||
                 state.EquipmentPity < 0 || state.EquipmentPity > 39 || state.GoldTickets < 0 || state.GoldTickets > 2 || state.RubyTickets < 0 || state.RubyTickets > 2 ||
                 state.GoldDungeonClear < 0 || state.GoldDungeonClear > 5 || state.RubyDungeonClear < 0 || state.RubyDungeonClear > 5 ||
-                state.OfflineKpm < 0 || state.OfflineKpm > 30 || state.ReincarnationCount < 0 || state.CycleBossStage < 0 || state.CycleBossStage > 3)
+                state.OfflineKpm < 0 || state.OfflineKpm > 30 || state.ReincarnationCount < 0 || state.CycleBossStage < 0)
                 throw new InvalidDataException("Invalid economy state.");
             var equipment = state.Equipment.Concat(state.PendingEquipment).ToArray();
             if (state.LegacyEquipment == null || state.LegacyEquipment.Any(x => x == null || x.Count <= 0 || x.Level < 0 || x.Level > 15) ||

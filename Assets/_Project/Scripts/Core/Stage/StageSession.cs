@@ -57,7 +57,7 @@ namespace Scripts.Core
             _rule = rule ?? throw new ArgumentNullException(nameof(rule));
             _monsterSpawner = monsterSpawner ?? throw new ArgumentNullException(nameof(monsterSpawner));
         }
-        #if UNITY_EDITOR
+        #if UNITY_EDITOR || LOBBY_DEVICE_QA
                 public bool TestPublishResult(StageRuleResult result)
                 {
                     if (!IsRunning)

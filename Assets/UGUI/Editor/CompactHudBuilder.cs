@@ -97,16 +97,6 @@ namespace KingdomIdle.UGUI.Editor
                 Type(label, 32, TextAlignmentOptions.MidlineLeft);
                 label.textWrappingMode = TextWrappingModes.NoWrap;
             }
-            // Infrequent combat settings share the menu; the battlefield shows only status.
-            wave.bossChallengeRoot.transform.SetParent(menu, false);
-            SizeLayout(wave.bossChallengeRoot.transform, 144);
-            var bossLayout = wave.bossChallengeRoot.GetComponent<HorizontalLayoutGroup>();
-            bossLayout.padding = new RectOffset(18, 10, 0, 0);
-            bossLayout.spacing = 8;
-            var bossLabel = wave.bossChallengeRoot.transform.Find("LblBossChain").GetComponent<TMP_Text>();
-            bossLabel.text = "보스 자동 도전";
-            Type(bossLabel, 28, TextAlignmentOptions.MidlineLeft);
-            SizeLayout(bossLabel.transform, 100, 1);
             wave.btnLoopIcon.transform.SetParent(menu, false);
             SizeLayout(wave.btnLoopIcon.transform, 144);
             var repeatIcon = wave.btnLoopIcon.transform.Find("Icon") as RectTransform;
@@ -121,6 +111,8 @@ namespace KingdomIdle.UGUI.Editor
             if (goal == null) goal = Child(go.transform, "GuideGoal");
             Pin(goal, new Vector2(0,1), new Vector2(24,-280), new Vector2(540,184), new Vector2(0,1));
             BuildGoal(goal, true);
+            F.Init();
+            ProgressionFlowPreparation.ApplyMain(go);
         }
 
         static void ApplyGuide(GameObject go)

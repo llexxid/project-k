@@ -192,13 +192,21 @@ namespace KingdomIdle.UGUI
         private void BindStageManager(StageManager stageManager)
         {
             if (_boundStageManager != null)
+            {
                 _boundStageManager.OnStageCleared -= HandleStageCleared;
+                _boundStageManager.OnStageEnter -= HandleStageEntered;
+            }
 
             _boundStageManager = stageManager;
 
             if (_boundStageManager != null)
+            {
                 _boundStageManager.OnStageCleared += HandleStageCleared;
+                _boundStageManager.OnStageEnter += HandleStageEntered;
+            }
         }
+
+        private static void HandleStageEntered(StageDefinition definition) => DungeonClearPopupController.Hide();
 
         private static void HandleStageCleared(
             StageDefinition definition)

@@ -103,6 +103,11 @@ namespace Scripts.Core.Manager
         public eStage MaxClearedStage => (eStage)LocalProgression.State.HighestMainClear;
 
         private const float DefeatPopupDuration = 15f;
+        public const float DungeonReturnDuration = 6f;
+        public float ReturnCountdownDuration => _currentSession?.Definition.Type != eStageType.Main ? DungeonReturnDuration : DefeatPopupDuration;
+        public float ReturnCountdownRemaining => _currentState == eStageRunState.ResultPending ? _resultPopupTimer :
+            _currentState == eStageRunState.DefeatPending ? _defeatPopupTimer : 0;
+        private float _resultPopupTimer;
         private const float TickInterval = 3f;
         
         [NonSerialized]
@@ -162,12 +167,17 @@ namespace Scripts.Core.Manager
             if (_defeatPopupActive)
             {
 				_defeatPopupTimer -= Time.unscaledDeltaTime;
-				OnDeathPopupTick?.Invoke(Mathf.Clamp01(_defeatPopupTimer / DefeatPopupDuration));
+				OnDeathPopupTick?.Invoke(Mathf.Clamp01(_defeatPopupTimer / ReturnCountdownDuration));
 				if (_defeatPopupTimer <= 0f)
 				{
 					_defeatPopupActive = false;
 					ChooseDefeatAction(false);
 				}
+            }
+            if (_currentState == eStageRunState.ResultPending && _currentSession?.Definition.Type != eStageType.Main)
+            {
+                _resultPopupTimer -= Time.unscaledDeltaTime;
+                if (_resultPopupTimer <= 0) ReturnToMainStage();
             }
         }
 		/// <summary>StageManager가 사용하는 데이터 버퍼를 초기화한다</summary>
@@ -200,7 +210,7 @@ namespace Scripts.Core.Manager
 
 		#region 외부 접근 메서드
 
-		#if UNITY_EDITOR
+		#if UNITY_EDITOR || LOBBY_DEVICE_QA
 		public bool TestClearStage()
 		{
 			if (_currentState != eStageRunState.Running ||
@@ -526,7 +536,7 @@ namespace Scripts.Core.Manager
 
 			_defeatPopupActive = true;
 			_defeatPopupHandled = false;
-			_defeatPopupTimer = DefeatPopupDuration;
+			_defeatPopupTimer = ReturnCountdownDuration;
 
 			OnDefeatPopupShow?.Invoke();
 		}
@@ -534,6 +544,7 @@ namespace Scripts.Core.Manager
 		private void EnterResultPending()
 		{
 			_currentState = eStageRunState.ResultPending;
+			_resultPopupTimer = DungeonReturnDuration;
 			Time.timeScale = 0f;
 			
 			OnRewardPopupShow?.Invoke();

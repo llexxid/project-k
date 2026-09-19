@@ -148,22 +148,25 @@ namespace Scripts.Core.SO
         [SerializeField] private List<StageEnvironmentPreset> _environmentPresets = new();
         [SerializeField] private List<CatalogMonsterInfo> _catalogMonsters = new();
         [SerializeField] private int _dailyTickets = 2;
+        [SerializeField] private StageEndlessRules _endless;
         public string CatalogHash => _catalogHash;
         public IReadOnlyList<StageEnvironmentPreset> EnvironmentPresets => _environmentPresets;
         public IReadOnlyList<CatalogMonsterInfo> CatalogMonsters => _catalogMonsters;
         public int DailyTickets => _dailyTickets;
-        public void SetCatalog(string hash, List<StageEnvironmentPreset> environments, List<CatalogMonsterInfo> monsters, int tickets)
-        { _catalogHash = hash; _environmentPresets = environments; _catalogMonsters = monsters; _dailyTickets = tickets; }
+        public void SetCatalog(string hash, List<StageEnvironmentPreset> environments, List<CatalogMonsterInfo> monsters, int tickets, StageEndlessRules endless)
+        { _catalogHash = hash; _environmentPresets = environments; _catalogMonsters = monsters; _dailyTickets = tickets; _endless = endless; }
 
         private Dictionary<eStage, StageDatabaseRecord> _stageById;
         private Dictionary<string, BossFlowRecord> _bossFlowById;
         private Dictionary<string, KillCountFlowRecord> _killCountFlowById;
         private Dictionary<eStage, eStage> _nextDifficultyById;
         private Dictionary<ulong, eMonsterType[]> _monsterTypesByResourceGroup;
+        private readonly Dictionary<eStage, StageDatabaseRecord> _endlessCache = new();
 
         /// <summary>직렬화 목록을 빠른 조회용 Dictionary로 한 번 변환한다.</summary>
         public void Init()
         {
+            _endlessCache.Clear();
             _stageById = new Dictionary<eStage, StageDatabaseRecord>();
             _bossFlowById = new Dictionary<string, BossFlowRecord>(StringComparer.Ordinal);
             _killCountFlowById = new Dictionary<string, KillCountFlowRecord>(StringComparer.Ordinal);
@@ -210,7 +213,28 @@ namespace Scripts.Core.SO
         public bool TryGetStage(eStage id, out StageDatabaseRecord record)
         {
             EnsureInitialized();
-            return _stageById.TryGetValue(id, out record);
+            if (_stageById.TryGetValue(id, out record) || _endlessCache.TryGetValue(id, out record)) return true;
+            int chapter = StageParser.GetStageNumber(id), wave = StageParser.GetWaveNumber(id);
+            if (_endless == null || chapter <= 3 || wave < 1 || wave > 11 || StageParser.GetStageType(id) != eStageType.Main ||
+                id != StageParser.MakeStage(eStageType.Main, chapter, wave) ||
+                !_stageById.TryGetValue(StageParser.GetFixedStageKey(id), out var source)) return false;
+            var entries = new List<StageMonsterEntry>(source.MonsterEntries.Count);
+            foreach (var entry in source.MonsterEntries)
+            {
+                double role = 1;
+                foreach (var monster in _catalogMonsters)
+                    if (monster.Id == entry.MonsterType) { role = monster.AttackMultiplier; break; }
+                entries.Add(entry.WithCombat(_endless.Enemy(chapter, wave, role, entry.Combat)));
+            }
+            record = new StageDatabaseRecord(id, source.FlowType, source.EnvironmentId, source.MonsterStatMultiplier,
+                source.SpawnPointSetId, source.FlowConfigId, "main-" + chapter + "-" + wave, source.TimeLimitSec,
+                source.LoopSpawnIntervalSec, source.LoopSpawnAliveThreshold, source.HasBgm, source.BgmType, source.Enabled, entries);
+            var encounter = source.Encounter;
+            record.SetEncounter(new StageEncounterData(encounter.EnvironmentPoolId, encounter.BatchDelaySec,
+                encounter.ResetTimerPerEnemy, _endless.DropRate(chapter, wave), 0, 0, _endless.FirstClear(wave)));
+            if (_endlessCache.Count >= 128) _endlessCache.Clear();
+            _endlessCache.Add(id, record);
+            return true;
         }
 
         public bool TryGetBossFlow(string configId, out BossFlowRecord record)
@@ -236,7 +260,7 @@ namespace Scripts.Core.SO
             EnsureInitialized();
             ulong normalizedId = StageParser.GetResourceGroupId(resourceGroupId);
 
-            // 실제 Stage3 이후 메인 ID는 엑셀에 없으므로 1·2스테이지 템플릿의 리소스 그룹으로 매핑한다.
+            // Chapters beyond the authored catalog cycle all three resource groups.
             if (!_monsterTypesByResourceGroup.ContainsKey(normalizedId) &&
                 StageParser.GetStageType(resourceGroupId) == eStageType.Main)
             {
