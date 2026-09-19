@@ -122,6 +122,8 @@ namespace KingdomIdle.UGUI
             if (_view.btnEnhance != null) _view.btnEnhance.interactable = mgr.CanEnhance(_skillId);
             if (_view.btnEnhanceLabel != null) _view.btnEnhanceLabel.text = eLv >= so.maxEnhanceLevel ? "최대 레벨" : "강화하기";
 
+            if (_view.awakeningEffects != null) _view.awakeningEffects.text = MageSkillPresentation.AwakeningEffects(so, aLv, mgr.IsBloomEnabled(_skillId));
+            if (_view.nextAwakening != null) _view.nextAwakening.text = MageSkillPresentation.NextAwakening(so, eLv, aLv, mgr.IsBloomEnabled(_skillId));
             // awaken
             if (_view.lblAwkLevel != null) _view.lblAwkLevel.text = $"각성 레벨: {aLv} / {so.maxAwakeningLevel}";
             int awkCost = mgr.GetAwakeningCost(_skillId);

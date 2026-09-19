@@ -118,7 +118,7 @@ namespace KingdomIdle.UGUI.Editor
             if(retired.Length>0)throw new InvalidOperationException("Retired gameplay dependency: "+string.Join(",",retired));
             var external=AssetDatabase.GetDependencies("Assets/MageTower/SO/MageTowerSkillList.asset",true).Where(p=>p.StartsWith("Assets/ExternalAssets/")).ToArray();
             if(external.Length>0)throw new InvalidOperationException("Mage source archive dependency");
-            string report=$"skills={registry.skills.Count} baseIcons=10 bloomIcons=10 prefabs={prefabs.Length} components={components} missingReferences=0 retiredDependencies=0 externalMageDependencies=0 Unity={Application.unityVersion} version={PlayerSettings.bundleVersion}";
+            string report=$"skills={registry.skills.Count} baseIcons={registry.skills.Count} bloomIcons={registry.skills.Count} prefabs={prefabs.Length} components={components} missingReferences=0 retiredDependencies=0 externalMageDependencies=0 Unity={Application.unityVersion} version={PlayerSettings.bundleVersion}";
             MageSkillAssetPreparation.WriteAtomically("Docs/ArtPreparation/Validation/MageIntegration/unity-polish-validation.txt",System.Text.Encoding.UTF8.GetBytes(report));
             Debug.Log(report);
         }

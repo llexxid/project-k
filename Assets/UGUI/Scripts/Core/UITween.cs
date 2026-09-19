@@ -35,7 +35,7 @@ namespace KingdomIdle.UGUI
         {
             GamePresentationSettings.Changed -= RefreshAmbient;
             StopAllCoroutines();
-            _scaleCo = _fadeCo = _moveCo = _breathCo = _rotateCo = _flashCo = null;
+            _scaleCo = _fadeCo = _moveCo = _breathCo = _rotateCo = _flashCo = _valueCo = null;
         }
 
         private void RefreshAmbient()
@@ -56,6 +56,25 @@ namespace KingdomIdle.UGUI
             var t = c.GetComponent<UITween>();
             if (t == null) t = c.gameObject.AddComponent<UITween>();
             return t;
+        }
+
+        private Coroutine _valueCo;
+        public static void ValueTo(Component owner, float from, float to, float duration, Action<float> apply, Action completed = null)
+        {
+            var tween = Get(owner);
+            if (tween._valueCo != null) tween.StopCoroutine(tween._valueCo);
+            tween._valueCo = tween.StartCoroutine(tween.ValueRoutine(from, to, duration, apply, completed));
+        }
+        private IEnumerator ValueRoutine(float from, float to, float duration, Action<float> apply, Action completed)
+        {
+            float elapsed = 0;
+            while (elapsed < duration)
+            {
+                apply(Mathf.Lerp(from, to, elapsed / duration));
+                yield return null;
+                elapsed += Time.unscaledDeltaTime;
+            }
+            _valueCo = null; apply(to); completed?.Invoke();
         }
 
         // ── 스케일 등장(팝) ──────────────────────────────────────────

@@ -2,7 +2,7 @@
 
 Unity 모바일 방치 RPG. 엔진 버전은 `ProjectSettings/ProjectVersion.txt`, 패키지는 `Packages/manifest.json`을 기준으로 한다.
 
-현재 게임 버전은 **0.11.1**, Unity는 **6000.3.21f1**이다. Unity Hub에서 지정 버전으로 연다. 게임 버전은 Player Settings의 Version 한 곳에서 관리하며 로비와 설정이 이를 표시한다. 기능 개정은 minor, 수정은 patch를 증가시키며 첫 정식 출시는 1.0.0으로 올린다. Android Version Code는 배포마다 단조 증가시킨다. 빌드 전 엔진 핀과 버전 형식을 자동 검사한다.
+현재 게임 버전은 **0.12.0**, Unity는 **6000.3.21f1**이다. Unity Hub에서 지정 버전으로 연다. 게임 버전은 Player Settings의 Version 한 곳에서 관리하며 로비와 설정이 이를 표시한다. 기능 개정은 minor, 수정은 patch를 증가시키며 첫 정식 출시는 1.0.0으로 올린다. Android Version Code는 배포마다 단조 증가시킨다. 빌드 전 엔진 핀과 버전 형식을 자동 검사한다.
 
 최근 30분 × 3회 Android 실플레이, 추가 수정과 최종 설치 근거는 [플레이 시뮬레이션 보고서](Docs/ArtPreparation/PLAYER_SIMULATION_20260918.md)에 있다.
 
@@ -14,7 +14,7 @@ Unity 모바일 방치 RPG. 엔진 버전은 `ProjectSettings/ProjectVersion.txt
 - [에셋 준비 카탈로그](Docs/ArtPreparation/README.md): 신규 몬스터, 환경 90개, 출처와 검증 기록.
 - [아트 실행 참고](AI/comfyui/README.md): ComfyUI 공정, 출력·출처 관리, 기존 제작 기록.
 - [보관 아트](Assets/_Project/Art/Archive/Divine/README.md): 폐기된 신 스킬의 재활용 이미지·VFX.
-- [마탑 스킬 모듈](Assets/MageTower/README.md): 등급 없는 10종, 중복 파편, 각성 10 개화와 개발용 카탈로그.
+- [마탑 스킬 모듈](Assets/MageTower/README.md): 등급 없는 9종, 중복 파편, 각성 10 개화와 개발용 카탈로그.
 
 자체 코드·에셋은 `Assets/_Project/`, UI는 `Assets/UGUI/`에 있다. Unity Hub에서 이 폴더를 열고 `ProjectSettings/EditorBuildSettings.asset`의 활성 씬 순서로 실행한다.
 

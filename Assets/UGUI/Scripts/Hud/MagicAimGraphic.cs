@@ -3,56 +3,65 @@ using UnityEngine.UI;
 
 namespace KingdomIdle.UGUI
 {
-    /// <summary>A ground circle; bolt/cloud height never affects the footprint.</summary>
+    /// <summary>Quarter-view ground glyph built on the same 32 px/world-unit grid as combat art.</summary>
     public sealed class MagicAimGraphic : MaskableGraphic
     {
         public bool healing, valid;
-        float _angle;
+        public float worldRadius = 1;
         bool _lastValid, _lastHealing;
         protected override void Awake() { base.Awake(); raycastTarget = false; }
         void Update()
         {
-            _angle += Time.unscaledDeltaTime * 26; rectTransform.localRotation = Quaternion.Euler(0, 0, _angle);
-            if (_lastValid != valid || _lastHealing != healing) { _lastValid = valid; _lastHealing = healing; SetVerticesDirty(); }
+            if (_lastValid != valid || _lastHealing != healing)
+            { _lastValid = valid; _lastHealing = healing; SetVerticesDirty(); }
         }
         protected override void OnPopulateMesh(VertexHelper vh)
         {
             vh.Clear();
             Color tint = !valid ? new Color(1,.35f,.24f) : healing ? new Color(.45f,1,.65f) : new Color(.42f,.76f,1);
-            float radius = rectTransform.rect.width * .5f;
-            const int segments = 64;
-            tint.a = .14f;
-            vh.AddVert(Vector3.zero, tint, Vector2.zero);
-            for (int i = 0; i <= segments; i++)
+            int radius = Mathf.Clamp(Mathf.RoundToInt(worldRadius * 32), 12, 96);
+            float pixel = rectTransform.rect.width / (radius * 2);
+            // Scan-line runs preserve square pixels without a dense per-pixel mesh or textures.
+            int height = Mathf.RoundToInt(radius * .64f);
+            for (int y = -height; y < height; y++)
             {
-                float a = i * Mathf.PI * 2 / segments;
-                vh.AddVert(new Vector3(Mathf.Cos(a), Mathf.Sin(a)) * radius, tint, Vector2.zero);
-                if (i > 0) vh.AddTriangle(0, i, i + 1);
+                int outer = Extent(radius, height, y);
+                int inner = Extent(radius - 1, height - 1, y);
+                Color fill = tint; fill.a = .10f;
+                Quad(vh, -outer, outer, y, pixel, fill);
+                Color rim = tint; rim.a = .90f;
+                Quad(vh, -outer, -inner, y, pixel, rim);
+                Quad(vh, inner, outer, y, pixel, rim);
+                int a = Extent(radius * .77f, height * .77f, y);
+                int b = Extent(radius * .77f - 1, height * .77f - 1, y);
+                rim.a = .55f;
+                Quad(vh, -a, -b, y, pixel, rim); Quad(vh, b, a, y, pixel, rim);
             }
-            tint.a = .85f;
-            Ring(vh, radius, radius * .965f, tint, segments);
-            Ring(vh, radius * .79f, radius * .77f, tint, segments);
+            tint.a = .9f;
             for (int i = 0; i < 8; i++)
             {
-                float a = i * Mathf.PI / 4; Vector3 dir = new Vector3(Mathf.Cos(a),Mathf.Sin(a));
-                Vector3 side = new Vector3(-dir.y,dir.x) * radius * .035f;
-                int n = vh.currentVertCount;
-                vh.AddVert(dir * radius * .91f, tint, Vector2.zero);
-                vh.AddVert(dir * radius * .84f + side, tint, Vector2.zero);
-                vh.AddVert(dir * radius * .84f - side, tint, Vector2.zero);
-                vh.AddTriangle(n,n+1,n+2);
+                float angle = i * Mathf.PI / 4;
+                int x = Mathf.RoundToInt(Mathf.Cos(angle) * radius * .88f);
+                int y = Mathf.RoundToInt(Mathf.Sin(angle) * height * .88f);
+                for (int dy = -1; dy <= 1; dy++)
+                    Quad(vh, x - (dy == 0 ? 2 : 1), x + (dy == 0 ? 2 : 1), y + dy, pixel, tint);
             }
+            Quad(vh, -2, 2, 0, pixel, tint);
         }
-        static void Ring(VertexHelper vh, float outer, float inner, Color tint, int segments)
+        static int Extent(float rx, float ry, float y)
         {
-            int start = vh.currentVertCount;
-            for (int i = 0; i <= segments; i++)
-            {
-                float a = i * Mathf.PI * 2 / segments; var direction = new Vector3(Mathf.Cos(a),Mathf.Sin(a));
-                vh.AddVert(direction * outer,tint,Vector2.zero); vh.AddVert(direction * inner,tint,Vector2.zero);
-                if(i==0)continue; int n=start+(i-1)*2;
-                vh.AddTriangle(n,n+2,n+1);vh.AddTriangle(n+1,n+2,n+3);
-            }
+            float normal = (y + .5f) / Mathf.Max(.5f, ry);
+            return Mathf.Abs(normal) >= 1 ? 0 : Mathf.RoundToInt(rx * Mathf.Sqrt(1 - normal * normal));
+        }
+        static void Quad(VertexHelper vh, int x0, int x1, int y, float pixel, Color color)
+        {
+            if (x1 <= x0) return;
+            int n = vh.currentVertCount;
+            vh.AddVert(new Vector3(x0 * pixel, y * pixel), color, Vector2.zero);
+            vh.AddVert(new Vector3(x0 * pixel, (y+1) * pixel), color, Vector2.zero);
+            vh.AddVert(new Vector3(x1 * pixel, (y+1) * pixel), color, Vector2.zero);
+            vh.AddVert(new Vector3(x1 * pixel, y * pixel), color, Vector2.zero);
+            vh.AddTriangle(n,n+1,n+2); vh.AddTriangle(n,n+2,n+3);
         }
     }
 }

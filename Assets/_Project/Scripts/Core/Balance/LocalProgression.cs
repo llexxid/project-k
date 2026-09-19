@@ -63,6 +63,10 @@ namespace KingdomIdle.Balance
                 Validate(state);
             }
             else state = new ProgressionState { CycleStartedUtc = UtcNow };
+            bool retiredEquipped = false;
+            for (int i = 0; i < state.MageSlots.Length; i++)
+                if (state.MageSlots[i] == 6) { state.MageSlots[i] = -1; retiredEquipped = true; }
+            if (retiredEquipped) { state.Revision = checked(state.Revision + 1); WriteSnapshot(path, state); }
             _path = path; _state = state; AccountKey = account; LastError = null;
         }
         public static bool Execute(string operation, Func<ProgressionState, bool> mutate, string claimId = null)
@@ -148,9 +152,9 @@ namespace KingdomIdle.Balance
                 equipment.Any(x => string.IsNullOrEmpty(x.Id) || x.Level < 0 || x.Level > 15 || (x.Player.HasValue && (x.Player < 0 || x.Player > 2))) ||
                 equipment.Select(x => x.Id).Distinct().Count() != equipment.Length ||
                 state.Equipment.Where(x => x.Player.HasValue).GroupBy(x => x.Player).Any(g => g.Count() > 1)) throw new InvalidDataException("Invalid inventory snapshot.");
-            if (state.MageSlots.Length != 5 || state.MageSlots.Any(x => x < -1 || x >= KingdomIdle.MageTower.MageSkillRules.SkillCount || (x >= 0 && !state.MageSkills.ContainsKey(x))) ||
+            if (state.MageSlots.Length != 5 || state.MageSlots.Any(x => x < -1 || x >= KingdomIdle.MageTower.MageSkillRules.IdCapacity || (x >= 0 && !state.MageSkills.ContainsKey(x))) ||
                 state.MageSlots.Where(x => x >= 0).Distinct().Count() != state.MageSlots.Count(x => x >= 0) ||
-                state.MageSkills.Any(x => x.Key < 0 || x.Key >= KingdomIdle.MageTower.MageSkillRules.SkillCount || x.Value == null || x.Value.Enhance < 0 || x.Value.Enhance > 100 || x.Value.Awaken < 0 || x.Value.Awaken > 10 || x.Value.Fragments < 0 || x.Value.Spent < 0 || (x.Value.BloomEnabled && x.Value.Awaken < 10)))
+                state.MageSkills.Any(x => x.Key < 0 || x.Key >= KingdomIdle.MageTower.MageSkillRules.IdCapacity || x.Value == null || x.Value.Enhance < 0 || x.Value.Enhance > 100 || x.Value.Awaken < 0 || x.Value.Awaken > 10 || x.Value.Fragments < 0 || x.Value.Spent < 0 || (x.Value.BloomEnabled && x.Value.Awaken < 10)))
                 throw new InvalidDataException("Invalid mage snapshot.");
             if (state.AccountLevel == 200 ? state.Experience != 0 : state.Experience >= BalanceMath.NextExp(state.AccountLevel).Value)
                 throw new InvalidDataException("Experience must be normalized.");

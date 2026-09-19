@@ -4,7 +4,7 @@ using UnityEngine.Serialization;
 
 namespace KingdomIdle.MageTower
 {
-    public enum MageSpellKind { Lightning = 0, IceSpike = 1, FireTornado = 2, ArcaneVolley = 3, VenomMist = 4, StoneSeal = 5, GaleBlades = 6, Sanctuary = 7, Meteor = 8, VoidRift = 9 }
+    public enum MageSpellKind { Lightning = 0, IceSpike = 1, FireTornado = 2, ArcaneVolley = 3, VenomMist = 4, StoneSeal = 5, Sanctuary = 7, Meteor = 8, VoidRift = 9 }
     [CreateAssetMenu(menuName = "KingdomIdle/MageTower/Skill", fileName = "MageTowerSkill_New")]
     public class MageTowerSkillSO : ScriptableObject
     {
@@ -16,7 +16,9 @@ namespace KingdomIdle.MageTower
         public Sprite bloomIcon;
         public Sprite DisplayIcon(bool bloom) => bloom && bloomIcon != null ? bloomIcon : icon;
         public bool CanAim => spellKind != MageSpellKind.IceSpike && spellKind != MageSpellKind.ArcaneVolley;
-        public float TargetRadius(bool bloom) => bloom && spellKind == MageSpellKind.Lightning ? bloomRadius : radius;
+        public const float VoidPullRadiusMultiplier = 1.5f;
+        public float PullRadius => radius * VoidPullRadiusMultiplier;
+        public float TargetRadius(bool bloom) => bloom && spellKind == MageSpellKind.Lightning ? bloomRadius : spellKind == MageSpellKind.VoidRift ? PullRadius : radius;
         public float baseCooldown;
         public int maxEnhanceLevel = 100;
         public int maxAwakeningLevel = 10;

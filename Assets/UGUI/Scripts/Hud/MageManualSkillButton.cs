@@ -11,15 +11,18 @@ namespace KingdomIdle.UGUI
     public sealed class MageManualSkillButton : MonoBehaviour, IPointerDownHandler, IBeginDragHandler, IDragHandler, IEndDragHandler
     {
         [SerializeField] internal int slot;
-        [SerializeField] internal Image icon, cooldown;
+        [SerializeField] internal Image icon, cooldown, frame;
+        [SerializeField] internal CanvasGroup visibility;
+        [SerializeField] internal TMP_Text cooldownLabel;
         [SerializeField] internal TMP_Text label;
         [SerializeField] internal Button button;
         MageManualCastHud _hud;
         bool _dragged;
         float _nextRefresh;
+        internal void Bind(MageManualCastHud hud) => _hud = hud;
         void Awake()
         {
-            _hud = GetComponentInParent<MageManualCastHud>();
+            if (_hud == null) _hud = GetComponentInParent<MageManualCastHud>();
             button.onClick.AddListener(() => {
                 if (_dragged) { _dragged = false; return; }
                 var manager = MageTowerManager.Instance;
@@ -39,10 +42,16 @@ namespace KingdomIdle.UGUI
             if (icon.sprite != sprite) icon.sprite = sprite;
             icon.enabled = true;
             float ratio = manager.GetCooldownRatio(slot);
+            // Remaining shade clears from twelve o'clock in the clockwise direction.
             cooldown.fillAmount = ratio;
+            cooldown.enabled = ratio > 0;
+            icon.color = ratio > 0 ? new Color(.82f, .85f, .90f) : Color.white;
             bool ready = ratio <= 0 && !manager.IsCasting(slot);
             button.interactable = true; // Cooldown buttons still explain their state.
-            string text = ready ? skill.nameKor : $"{Mathf.CeilToInt(ratio * manager.GetEffectiveCooldown(skill.id))}초";
+            if (frame != null) frame.color = ready ? new Color(.94f, .73f, .36f) : new Color(.35f, .30f, .24f);
+            string seconds = ratio > 0 ? $"{Mathf.CeilToInt(manager.GetCooldownRemaining(slot))}초" : manager.IsCasting(slot) ? "시전 중" : "";
+            if (cooldownLabel != null && cooldownLabel.text != seconds) cooldownLabel.text = seconds;
+            string text = skill.nameKor;
             if (label.text != text) label.text = text;
         }
         public void OnPointerDown(PointerEventData data) => _dragged = false;

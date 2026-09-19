@@ -191,7 +191,7 @@ namespace KingdomIdle.UGUI.Editor
             }
             if (go.GetComponent<PartyHudSuppressor>() == null) go.AddComponent<PartyHudSuppressor>();
         }
-        static void CreateManualHud()
+        public static void CreateManualHud()
         {
             var aim = new GameObject("MageGroundAim",typeof(RectTransform),typeof(CanvasRenderer),typeof(MagicAimGraphic));
             aim.layer=5;
@@ -206,18 +206,21 @@ namespace KingdomIdle.UGUI.Editor
                 hud.buttons=new MageManualSkillButton[5];
                 for(int i=0;i<5;i++)
                 {
-                    var root=Rect(tray,"ManualSkill"+i);root.anchorMin=root.anchorMax=new Vector2(.5f,0);root.sizeDelta=new Vector2(112,112);
+                    var root=Rect(tray,"ManualSkill"+i);root.anchorMin=root.anchorMax=new Vector2(1,0);root.sizeDelta=new Vector2(132,132);
                     root.anchoredPosition=new Vector2(i%2==0?-12:12,62+i*118);
                     var frame=root.gameObject.AddComponent<Image>();frame.color=UguiTheme.Bronze;
                     var button=root.gameObject.AddComponent<Button>();button.targetGraphic=frame;
-                    var cell=root.gameObject.AddComponent<MageManualSkillButton>();cell.slot=i;cell.button=button;
+                    var cell=root.gameObject.AddComponent<MageManualSkillButton>();cell.slot=i;cell.button=button;cell.frame=frame;cell.visibility=root.gameObject.AddComponent<CanvasGroup>();button.transition=Selectable.Transition.None;
                     var bg=Rect(root,"Wood");Stretch(bg,3);var bgImage=bg.gameObject.AddComponent<Image>();bgImage.color=UguiTheme.RusticPanelDeep;bgImage.raycastTarget=false;
-                    var icon=Rect(bg,"Icon");icon.anchorMin=icon.anchorMax=new Vector2(.5f,.59f);icon.sizeDelta=new Vector2(74,74);
+                    var icon=Rect(bg,"Icon");icon.anchorMin=icon.anchorMax=new Vector2(.5f,.61f);icon.sizeDelta=new Vector2(96,96);
                     cell.icon=icon.gameObject.AddComponent<Image>();cell.icon.preserveAspect=true;cell.icon.raycastTarget=false;
-                    var mask=Rect(bg,"Cooldown");Stretch(mask,0);cell.cooldown=mask.gameObject.AddComponent<Image>();
-                    cell.cooldown.color=new Color(.02f,.03f,.06f,.78f);cell.cooldown.type=Image.Type.Filled;cell.cooldown.fillMethod=Image.FillMethod.Radial360;cell.cooldown.fillAmount=0;cell.cooldown.raycastTarget=false;
+                    var mask=Rect(bg,"Cooldown");mask.anchorMin=mask.anchorMax=new Vector2(.5f,.61f);mask.sizeDelta=new Vector2(96,96);cell.cooldown=mask.gameObject.AddComponent<Image>();
+                    cell.cooldown.sprite=AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");cell.cooldown.color=new Color(.02f,.03f,.06f,.55f);cell.cooldown.fillClockwise=false;cell.cooldown.fillOrigin=(int)Image.Origin360.Top;cell.cooldown.type=Image.Type.Filled;cell.cooldown.fillMethod=Image.FillMethod.Radial360;cell.cooldown.fillAmount=0;cell.cooldown.raycastTarget=false;
                     var text=Rect(bg,"Status");text.anchorMin=new Vector2(0,0);text.anchorMax=new Vector2(1,0);text.pivot=new Vector2(.5f,0);text.sizeDelta=new Vector2(0,26);
-                    cell.label=text.gameObject.AddComponent<TextMeshProUGUI>();cell.label.font=Font;cell.label.fontSize=18;cell.label.alignment=TextAlignmentOptions.Center;cell.label.raycastTarget=false;cell.label.color=UguiTheme.Parchment;
+                    cell.label=text.gameObject.AddComponent<TextMeshProUGUI>();cell.label.font=Font;cell.label.fontSize=21;cell.label.enableAutoSizing=true;cell.label.fontSizeMin=17;cell.label.fontSizeMax=21;cell.label.textWrappingMode=TextWrappingModes.NoWrap;cell.label.alignment=TextAlignmentOptions.Center;cell.label.raycastTarget=false;cell.label.color=UguiTheme.Parchment;
+                    var seconds=Rect(bg,"Seconds");seconds.anchorMin=seconds.anchorMax=new Vector2(.5f,.60f);seconds.sizeDelta=new Vector2(102,46);
+                    cell.cooldownLabel=seconds.gameObject.AddComponent<TextMeshProUGUI>();cell.cooldownLabel.font=Font;cell.cooldownLabel.fontSize=31;cell.cooldownLabel.fontStyle=FontStyles.Bold;cell.cooldownLabel.alignment=TextAlignmentOptions.Center;cell.cooldownLabel.raycastTarget=false;
+                    cell.cooldownLabel.color=UguiTheme.Parchment;
                     hud.buttons[i]=cell;
                 }
                 tray.gameObject.SetActive(false);

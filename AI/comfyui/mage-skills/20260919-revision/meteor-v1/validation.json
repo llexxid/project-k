@@ -1,0 +1,20 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "Workflow passed local pre-flight validation. NOT submitted (dry_run) — no GPU run, no credits spent, no job created. Re-call without dry_run to actually submit. Local validation uses a bundled node catalog that can lag the cloud, so this is a strong signal, not a guarantee.\nNote - This workflow includes paid partner-API node(s): Node #10: GeminiNanoBanana2V2 — running it will incur partner-API charges on the user's account."
+    }
+  ],
+  "structuredContent": {
+    "result": {
+      "status": "validated",
+      "warnings": [
+        {
+          "code": "paid_api_nodes",
+          "detail": "This workflow includes paid partner-API node(s): Node #10: GeminiNanoBanana2V2 — running it will incur partner-API charges on the user's account."
+        }
+      ],
+      "submitted": false
+    }
+  }
+}

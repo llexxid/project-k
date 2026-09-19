@@ -179,7 +179,6 @@ namespace KingdomIdle.MageTower
                 case MageSpellKind.Lightning: yield return Lightning(); break;
                 case MageSpellKind.IceSpike: yield return Ice(); break;
                 case MageSpellKind.ArcaneVolley: yield return Volley(); break;
-                case MageSpellKind.GaleBlades: yield return Gale(); break;
                 case MageSpellKind.StoneSeal: yield return Stone(); break;
                 case MageSpellKind.Meteor: yield return Meteor(); break;
                 case MageSpellKind.Sanctuary: yield return Sanctuary(); break;
@@ -370,41 +369,6 @@ namespace KingdomIdle.MageTower
             }
         }
 
-        private IEnumerator Gale()
-        {
-            Vector3 from = CombatViewport.Formation(2), direction = (_initial - from).normalized;
-            if (direction.sqrMagnitude < .01f) direction = Vector3.up;
-            for (int hit = 0; hit < Hits && Valid; hit++)
-            {
-                var visual = Visual(_skill.prefab, from, .55f);
-                _lineTargets.Clear();
-                if (visual != null) visual.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
-                float elapsed = 0, previousDistance = 0;
-                while (Valid)
-                {
-                    float distance = 7f * Mathf.Clamp01(elapsed / .4f);
-                    if (visual != null) visual.transform.position = from + direction * distance;
-                    Collect(from, 8, _targets, _colliders);
-                    foreach (var monster in _targets)
-                    {
-                        if (_lineTargets.Count >= _skill.maxTargets) break;
-                        bool hitAlready = false;
-                        foreach (var previous in _lineTargets) if (previous.Alive && previous.Monster == monster) { hitAlready = true; break; }
-                        if (hitAlready) continue;
-                        var delta = monster.transform.position - from;
-                        float along = Mathf.Clamp(Vector3.Dot(delta, direction), previousDistance, distance);
-                        if ((delta - direction * along).sqrMagnitude > _skill.radius * _skill.radius) continue;
-                        _lineTargets.Add(new Target(monster)); Hit(monster, NormalMultiplier, from + direction * along);
-                    }
-                    if (elapsed >= .4f) break;
-                    previousDistance = distance;
-                    yield return null; elapsed += Time.deltaTime;
-                }
-                if (visual != null) visual.Release();
-                yield return Delay(.08f);
-            }
-        }
-
         private IEnumerator Meteor()
         {
             Visual(_skill.castingPrefab, _initial, 1.4f);
@@ -429,7 +393,8 @@ namespace KingdomIdle.MageTower
 
         private IEnumerator Sanctuary()
         {
-            Visual(_skill.prefab, _initial, Hits * _skill.tickInterval + .3f);
+            Visual(_skill.prefab, _initial, Hits * _skill.tickInterval + .64f);
+            yield return Delay(.32f);
             for (int i = 0; i < Hits && Valid; i++)
             {
                 Player lowest = null; double ratio = 1;
@@ -451,6 +416,7 @@ namespace KingdomIdle.MageTower
                 }
                 yield return Delay(_skill.tickInterval);
             }
+            yield return Delay(.32f);
         }
 
         private IEnumerator Void()
@@ -462,15 +428,15 @@ namespace KingdomIdle.MageTower
             while (Valid && ticks < Hits)
             {
                 int hitCount = 0;
-                Collect(center-Vector3.up*.4f, _skill.radius, _targets, _colliders);
+                Collect(center-Vector3.up*.4f, _skill.PullRadius, _targets, _colliders);
                 foreach (var monster in _targets)
                 {
                     if (!IsAlive(monster)) continue;
                     Vector3 delta = center - (monster.transform.position + Vector3.up*.4f);
-                    // Body-centre circle is strictly inside the visible airborne ring, no remote suction.
-                    if (delta.sqrMagnitude > _skill.radius*_skill.radius) continue;
+                    // Suction reaches 50% beyond the visible rim; damage retains its authored radius.
+                    if (delta.sqrMagnitude > _skill.PullRadius*_skill.PullRadius) continue;
                     if (delta.sqrMagnitude > .04f) monster.ApplyKnockback(delta, Mathf.Min(1.6f, delta.magnitude * 3));
-                    if (tickTimer <= 0 && hitCount++ < _skill.maxTargets)
+                    if (tickTimer <= 0 && delta.sqrMagnitude <= _skill.radius * _skill.radius && hitCount++ < _skill.maxTargets)
                     {
                         Hit(monster, NormalMultiplier, center);
                         MonsterCCState.Apply(monster, CrowdControlKind.Slow, _skill.controlDuration, _skill.slowFraction);

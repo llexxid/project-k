@@ -14,7 +14,7 @@ namespace KingdomIdle.Balance
         /// <summary>Non-economic progress only. No disk IO or global UI rebuild on the cast frame.</summary>
         public static void RecordSkillCast(int skillId)
         {
-            if (skillId < 0 || skillId >= MageTower.MageSkillRules.SkillCount) return;
+            if (!MageTower.MageSkillRules.IsAvailable(skillId)) return;
             Ensure();
             if (_busy) throw new InvalidOperationException("Cannot record a cast inside a transaction.");
             var draft = _state.DeepClone();

@@ -27,6 +27,7 @@ namespace KingdomIdle.UGUI.Editor
         const string Account = "playability-editor-20260918";
         static string Output => Environment.GetEnvironmentVariable("PLAYABILITY_LIVE_OUTPUT") ?? "Recordings/PlayabilityRevision/Editor/Live";
         const string RoutesKey = "Playability.SessionRoutes";
+        const string UiOnlyKey = "Playability.MageUiOnly";
         readonly List<object> _results = new();
         readonly List<string> _errors = new();
 
@@ -38,7 +39,9 @@ namespace KingdomIdle.UGUI.Editor
         }
 
         public static void Run()
-        { SessionState.SetBool(RoutesKey, false); StartEditor(); }
+        { SessionState.SetBool(UiOnlyKey, false); SessionState.SetBool(RoutesKey, false); StartEditor(); }
+        public static void RunManualChecks()
+        { SessionState.SetBool(UiOnlyKey, true); SessionState.SetBool(RoutesKey, false); StartEditor(); }
         public static void RunSessionRoutes()
         { SessionState.SetBool(RoutesKey, true); StartEditor(); }
         static void StartEditor()
@@ -108,9 +111,10 @@ namespace KingdomIdle.UGUI.Editor
             EquipmentManager.Instance.RestoreEquipment(); StatEnhanceManager.Instance.ApplyToAllPlayers();
             var mage = MageTowerManager.Instance; mage.SetAutoEnabled(false);
             Time.timeScale = 2;
-            for (int mode = 0; mode < 2; mode++)
+            for (int mode = 0; mode < (SessionState.GetBool(UiOnlyKey, false) ? 0 : 2); mode++)
             for (int id = 0; id < 10; id++)
             {
+                if (!MageSkillRules.IsAvailable(id)) continue;
                 int skillId = id; bool bloom = mode == 1;
                 LocalProgression.Execute("qa-live-skill", s => { s.MageSkills[skillId] = new MageSave { Awaken = bloom ? 10 : 0, BloomEnabled = bloom }; return true; });
                 mage.NotifyCommitted();
@@ -140,6 +144,32 @@ namespace KingdomIdle.UGUI.Editor
             }
             _results.Add(new { test = "aim-rules", invalid = !MageTowerManager.IsValidAimPoint(new Vector3(float.NaN,0,0)), randomIds = mage.GetAllSkills().Where(s=>!s.CanAim).Select(s=>s.id).ToArray() });
             Require(!mage.GetSkillById(1).CanAim && !mage.GetSkillById(3).CanAim, "Random spells cannot aim");
+            for (int i = 0; i < 5; i++) mage.Equip(i, new[] {0,1,5,7,8}[i]);
+            mage.SetAutoEnabled(false); Time.timeScale = 0;
+            yield return new WaitForSecondsRealtime(.7f);
+            var hud = Object.FindFirstObjectByType<MageManualCastHud>();
+            Require(hud != null && hud.tray.gameObject.activeInHierarchy && hud.group.blocksRaycasts, "Manual tray did not open");
+            var before = ((RectTransform)hud.buttons[4].transform).anchoredPosition;
+            mage.SetAutoEnabled(true);
+            yield return new WaitForSecondsRealtime(.16f);
+            Require(hud.tray.gameObject.activeSelf && !hud.group.blocksRaycasts, "Exit must animate without accepting input");
+            Require(((RectTransform)hud.buttons[4].transform).anchoredPosition != before, "Exit did not move");
+            mage.SetAutoEnabled(false);
+            yield return new WaitForSecondsRealtime(.7f);
+            Require(hud.tray.gameObject.activeSelf && hud.group.blocksRaycasts, "Interrupted exit failed to reopen");
+            Require(Vector2.Distance(((RectTransform)hud.buttons[4].transform).anchoredPosition, before) < 1, "Reopened tray drifted");
+            Capture("manual-reopened");
+            MageTowerDetailPopupController.Show(0);
+            yield return new WaitForSecondsRealtime(.7f);
+            Require(!hud.tray.gameObject.activeSelf && !hud.group.blocksRaycasts, "Detail popup did not suppress manual tray");
+            MageTowerDetailPopupController.Hide();
+            yield return new WaitForSecondsRealtime(.7f);
+            Require(hud.tray.gameObject.activeInHierarchy && hud.group.blocksRaycasts, "Closing detail did not restore manual tray");
+            mage.SetAutoEnabled(true);
+            yield return new WaitForSecondsRealtime(.7f);
+            Require(!hud.tray.gameObject.activeSelf, "Exit did not deactivate tray");
+            _results.Add(new {test="manual-unscaled-exit-reversal", passed=true});
+            Time.timeScale = 1;
         }
 
         IEnumerator ExerciseRoutes()

@@ -17,86 +17,114 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal GameObject aimPrefab;
         MagicAimGraphic _aim;
         readonly List<RaycastResult> _hits = new();
-        Coroutine _reveal;
         bool _shown;
+        float _visibility;
         int _layoutKey;
-        int _columns = 1;
-        Vector2Int _screenSize;
-        RectTransform _guide;
-        readonly Vector3[] _guideCorners = new Vector3[4];
+        int _rows = 5;
+        float _cell = 132;
+        RectTransform _guide, _stage;
+        MainScreenView _main;
+        readonly Vector3[] _corners = new Vector3[4];
         int _slot = -1, _skillId = -1;
         string _battle;
         Vector3 _point;
         bool _valid;
 
-        void Update()
+        void Awake() { foreach (var cell in buttons) cell.Bind(this); }
+
+        void LateUpdate()
         {
             var manager = MageTowerManager.Instance; var ui = UIManager.Instance;
-            bool show = manager != null && !manager.IsAutoEnabled() && ui != null && ui.ActiveScreenId == UIScreenId.Main &&
-                !ui.HasBlockingPanel && !ui.HasActiveTabPanel && PartyHudController.ModalSuppressCount == 0;
+            bool available = ui != null && ui.ActiveScreenId == UIScreenId.Main &&
+                !ui.HasBlockingPanel && !ui.HasActiveTabPanel && PartyHudController.ModalSuppressCount == 0 &&
+                !MageTowerPopupController.IsOpen && !MageTowerDetailPopupController.IsOpen;
+            bool show = manager != null && !manager.IsAutoEnabled() && available;
             int layoutKey = 17;
             if (manager != null) for (int i = 0; i < buttons.Length; i++) layoutKey = unchecked(layoutKey * 31 + manager.GetEquippedSkillId(i));
-            var screenSize = new Vector2Int(Screen.width, Screen.height);
-            if (show != _shown || (show && (layoutKey != _layoutKey || screenSize != _screenSize)))
+            if (layoutKey != _layoutKey)
             {
-                _shown = show;
-                _layoutKey = layoutKey;
-                _screenSize = screenSize;
-                if (_reveal != null) StopCoroutine(_reveal);
-                if (show) { tray.gameObject.SetActive(true); FitColumns(); _reveal = StartCoroutine(Reveal()); }
-                else { CancelAim(); tray.gameObject.SetActive(false); }
+                CancelAim(); _layoutKey = layoutKey;
+                for (int i = 0; i < buttons.Length; i++)
+                    buttons[i].gameObject.SetActive(manager != null && manager.GetEquippedSkillId(i) >= 0);
             }
+            if (show != _shown)
+            {
+                _shown = show; CancelAim();
+                group.blocksRaycasts = group.interactable = false;
+                if (show) tray.gameObject.SetActive(true);
+                UITween.ValueTo(tray, _visibility, show ? 1 : 0, .46f * Mathf.Abs((show ? 1 : 0) - _visibility),
+                    value => { _visibility = value; ApplyReveal(); }, () => {
+                        if (!_shown) tray.gameObject.SetActive(false);
+                        group.blocksRaycasts = group.interactable = _shown;
+                    });
+            }
+            // A modal consumes input immediately; auto toggles retain the entire exit animation.
+            group.alpha = available ? 1 : 0;
+            if (tray.gameObject.activeSelf) { PositionTray(); ApplyReveal(); }
             if (_slot >= 0 && (manager == null || manager.GetEquippedSkillId(_slot) != _skillId ||
                 LocalProgression.State.ActiveBattleId != _battle || StageManager.Instance?.CurrentRunState != eStageRunState.Running)) CancelAim();
         }
 
-        void FitColumns()
+        void PositionTray()
         {
-            // Keep the full touch targets below the guide on short screens. Extra slots
-            // roll out to the right in additional columns instead of hiding behind it.
-            if (_guide == null)
+            if (_main == null) _main = FindFirstObjectByType<MainScreenView>();
+            var main = _main;
+            if (main == null) return;
+            if (_guide == null) _guide = main.transform.Find("GuideGoal") as RectTransform;
+            if (_stage == null && main.waveHud != null) _stage = (RectTransform)main.waveHud.transform;
+            var screens = UIManager.Instance.LayerScreens;
+            if (tray.parent != screens)
             {
-                var main = FindFirstObjectByType<MainScreenView>();
-                if (main != null) _guide = main.transform.Find("GuideGoal") as RectTransform;
+                tray.SetParent(screens, false);
+                tray.anchorMin = tray.anchorMax = screens.pivot;
             }
-            int rows = buttons.Length;
+            var parent = tray.parent as RectTransform;
+            if (_stage == null || parent == null) return;
+            var canvas = parent.GetComponentInParent<Canvas>();
+            var camera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(parent, Screen.safeArea.max, camera, out var safeTopRight);
+            _stage.GetWorldCorners(_corners);
+            float bottom = parent.InverseTransformPoint(_corners[1]).y + 18;
+            float top = safeTopRight.y - 190;
             if (_guide != null)
             {
-                _guide.GetWorldCorners(_guideCorners);
-                float available = tray.InverseTransformPoint(_guideCorners[0]).y - 6;
-                rows = Mathf.Clamp(Mathf.FloorToInt(available / 118), 1, buttons.Length);
+                _guide.GetWorldCorners(_corners);
+                // The guide occupies the left side. Only reserve its height if it reaches this column.
+                if (parent.InverseTransformPoint(_corners[2]).x > Mathf.Min(safeTopRight.x, parent.rect.xMax) - 154)
+                    top = Mathf.Min(top, parent.InverseTransformPoint(_corners[0]).y - 18);
             }
-            int equipped = 0;
-            for (int i = 0; i < buttons.Length; i++) if (MageTowerManager.Instance.GetEquippedSkillId(i) >= 0) equipped++;
-            _columns = Mathf.Max(1, Mathf.CeilToInt((float)equipped / rows));
+            int count = 0;
+            foreach (var cell in buttons) if (cell.gameObject.activeSelf) count++;
+            float available = Mathf.Max(132, top - bottom);
+            _cell = Mathf.Clamp((available - Mathf.Max(0, count - 1) * 10) / Mathf.Max(1, count), 116, 132);
+            _rows = Mathf.Max(1, Mathf.FloorToInt((available + 10) / (_cell + 10)));
+            int columns = Mathf.Max(1, Mathf.CeilToInt((float)count / _rows));
+            var size = new Vector2(columns * (_cell + 10) - 10, available);
+            var position = new Vector3(Mathf.Min(safeTopRight.x, parent.rect.xMax) - 22, bottom, 0);
+            if (tray.pivot != new Vector2(1, 0)) tray.pivot = new Vector2(1, 0);
+            if (tray.sizeDelta != size) tray.sizeDelta = size;
+            if (tray.localPosition != position) tray.localPosition = position;
         }
 
-        IEnumerator Reveal()
+        void ApplyReveal()
         {
-            group.blocksRaycasts = false;
-            float time = 0;
-            while (time < .55f)
+            int order = 0;
+            foreach (var cell in buttons)
             {
-                time += Time.unscaledDeltaTime;
-                group.alpha = Mathf.Clamp01(time / .12f);
-                int visible = 0;
-                for (int i = 0; i < buttons.Length; i++)
-                {
-                    bool equipped = MageTowerManager.Instance.GetEquippedSkillId(i) >= 0;
-                    if (buttons[i].gameObject.activeSelf != equipped) buttons[i].gameObject.SetActive(equipped);
-                    if (!equipped) continue;
-                    var rt = (RectTransform)buttons[i].transform;
-                    int order = visible++;
-                    float t = Mathf.Clamp01((time - order * .055f) / .28f);
-                    float ease = 1 - Mathf.Pow(1 - t, 3);
-                    float x = _columns == 1 ? (order % 2 == 0 ? -12 : 12) : -12 + order % _columns * 118;
-                    rt.anchoredPosition = new Vector2(Mathf.Lerp(0, x, ease), Mathf.Lerp(-60, 62 + order / _columns * 118, ease));
-                    rt.localScale = Vector3.one * Mathf.Lerp(.45f, 1, ease);
-                    rt.localRotation = Quaternion.Euler(0, 0, Mathf.Lerp(i % 2 == 0 ? -65 : 65, 0, ease));
-                }
-                yield return null;
+                if (!cell.gameObject.activeSelf) continue;
+                int index = order++;
+                float t = Mathf.Clamp01((_visibility * .46f - index * .035f) / .30f);
+                float eased = 1 - Mathf.Pow(1 - t, 3);
+                var rt = (RectTransform)cell.transform;
+                Vector2 target = new Vector2(-_cell * .5f - index / _rows * (_cell + 10), _cell * .5f + index % _rows * (_cell + 10));
+                var size = Vector2.one * _cell;
+                var position = Vector2.Lerp(new Vector2(_cell * .7f, -24), target, eased);
+                var scale = Vector3.one * Mathf.Lerp(.55f, 1, eased);
+                if (rt.sizeDelta != size) rt.sizeDelta = size;
+                if (rt.anchoredPosition != position) rt.anchoredPosition = position;
+                if (rt.localScale != scale) rt.localScale = scale;
+                if (cell.visibility != null && cell.visibility.alpha != t) cell.visibility.alpha = t;
             }
-            group.alpha = 1; group.blocksRaycasts = true; _reveal = null;
         }
 
         public void BeginAim(int slot, PointerEventData data)
@@ -140,6 +168,7 @@ namespace KingdomIdle.UGUI
             rt.anchorMin = rt.anchorMax = parent.pivot;
             rt.anchoredPosition = center;
             rt.sizeDelta = Vector2.one * Mathf.Abs(edge.x - center.x) * 2;
+            _aim.worldRadius = radius;
             _aim.valid = _valid;
         }
 
@@ -154,7 +183,7 @@ namespace KingdomIdle.UGUI
         }
         public void CancelAim() { _slot = _skillId = -1; _valid = false; if (_aim != null) _aim.gameObject.SetActive(false); }
         void OnApplicationFocus(bool focused) { if (!focused) CancelAim(); }
-        void OnDisable() { CancelAim(); _shown = false; if (tray != null) tray.gameObject.SetActive(false); }
-        void OnDestroy() { if (_aim != null) Destroy(_aim.gameObject); }
+        void OnDisable() { CancelAim(); _shown = false; _visibility = 0; if (tray != null) tray.gameObject.SetActive(false); }
+        void OnDestroy() { if (_aim != null) Destroy(_aim.gameObject); if (tray != null && tray.parent != transform) Destroy(tray.gameObject); }
     }
 }

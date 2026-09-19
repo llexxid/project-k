@@ -28,8 +28,8 @@ namespace KingdomIdle.MageTower
 
         private readonly float[] _cooldowns = new float[SlotCount];
         private readonly float[] _cooldownTimers = new float[SlotCount];
-        private readonly float[] _skillCooldowns = new float[MageSkillRules.SkillCount];
-        private readonly float[] _skillCooldownTimers = new float[MageSkillRules.SkillCount];
+        private readonly float[] _skillCooldowns = new float[MageSkillRules.IdCapacity];
+        private readonly float[] _skillCooldownTimers = new float[MageSkillRules.IdCapacity];
         private bool _autoEnabled;
 
         public event Action OnStateChanged;
@@ -112,6 +112,7 @@ namespace KingdomIdle.MageTower
 
         public MageTowerSkillSO GetSkillById(int id)
         {
+            if (!MageSkillRules.IsAvailable(id)) return null;
             var skills = GetAllSkills();
             for (int i = 0; i < skills.Count; i++)
             {
@@ -124,7 +125,7 @@ namespace KingdomIdle.MageTower
         public int GetEquippedSkillId(int slotIndex)
         {
             if (slotIndex < 0 || slotIndex >= SlotCount) return -1;
-            return _equipped[slotIndex];
+            return MageSkillRules.IsAvailable(_equipped[slotIndex]) ? _equipped[slotIndex] : -1;
         }
 
         public int GetEnhanceLevel(int id) => Saved(id)?.Enhance ?? 0;
@@ -133,6 +134,7 @@ namespace KingdomIdle.MageTower
         public long GetTotalAKSpent(int id) => Saved(id)?.Spent ?? 0;
         public static void Grant(ProgressionState state, int skillId, int duplicateFragments = 1)
         {
+            if (!MageSkillRules.IsAvailable(skillId)) return;
             if (state.MageSkills.TryGetValue(skillId, out var skill)) skill.Fragments = checked(skill.Fragments + duplicateFragments);
             else state.MageSkills[skillId] = new MageSave();
         }
@@ -254,6 +256,13 @@ namespace KingdomIdle.MageTower
             if (slotIndex < 0 || slotIndex >= SlotCount) return false;
             int id = _equipped[slotIndex];
             return _cooldownTimers[slotIndex] > 0f || (id >= 0 && _skillCooldownTimers[id] > 0f);
+        }
+
+        public float GetCooldownRemaining(int slot)
+        {
+            if (slot < 0 || slot >= SlotCount) return 0;
+            int id = GetEquippedSkillId(slot);
+            return Mathf.Max(_cooldownTimers[slot], id >= 0 ? _skillCooldownTimers[id] : 0);
         }
 
         public float GetCooldownRatio(int slotIndex)

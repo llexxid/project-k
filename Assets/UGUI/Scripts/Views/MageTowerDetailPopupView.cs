@@ -35,6 +35,7 @@ namespace KingdomIdle.UGUI
         [Header("Awaken section")]
         public TMP_Text lblAwkLevel;
         public TMP_Text lblAwkCost;
+        public TMP_Text awakeningEffects, nextAwakening;
         public Button btnAwaken;
         public TMP_Text btnAwakenLabel;
 

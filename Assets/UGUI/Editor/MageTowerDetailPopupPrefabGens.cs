@@ -105,6 +105,8 @@ namespace KingdomIdle.UGUI.Editor
             // ── 각성 섹션 ──
             var awkContent = Section(content, "각성");
             view.lblAwkLevel = StatLabel(awkContent, SectionStat);
+            view.awakeningEffects = F.Text(awkContent, "AwakeningEffects", "", 28f, UguiTheme.Parchment, wrap: true);
+            view.nextAwakening = F.Text(awkContent, "NextAwakening", "", 28f, UguiTheme.BronzeLight, wrap: true);
             view.lblAwkCost = StatLabel(awkContent, SectionStat);
             view.btnAwaken = ActionButton(awkContent, "BtnAwaken", "각성하기", AwakenColor, out var awkLabel);
             view.btnAwakenLabel = awkLabel;

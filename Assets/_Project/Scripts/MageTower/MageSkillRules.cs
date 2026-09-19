@@ -7,9 +7,12 @@ namespace KingdomIdle.MageTower
     /// <summary>Stable catalog IDs and pure rules shared by gameplay, UI and future server adapters.</summary>
     public static class MageSkillRules
     {
-        public const int SkillCount = 10;
+        public const int SkillCount = 9;
+        // IDs are save keys, not roster indices. Retired ID 6 must never be reused.
+        public const int IdCapacity = 10;
+        public static bool IsAvailable(int id) => id >= 0 && id < IdCapacity && id != 6;
         public const int BloomAwakening = 10;
-        public const string CatalogVersion = "mage-3";
+        public const string CatalogVersion = "mage-4";
         public const int DuplicateFragments = 30;
 
         public static bool ValidateRoster(IReadOnlyList<MageTowerSkillSO> skills)
@@ -18,10 +21,10 @@ namespace KingdomIdle.MageTower
             int seen = 0;
             foreach (var skill in skills)
             {
-                if (skill == null || skill.id < 0 || skill.id >= SkillCount || (seen & (1 << skill.id)) != 0) return false;
+                if (skill == null || !IsAvailable(skill.id) || (seen & (1 << skill.id)) != 0) return false;
                 seen |= 1 << skill.id;
             }
-            return seen == (1 << SkillCount) - 1;
+            return seen == ((1 << IdCapacity) - 1 & ~(1 << 6));
         }
 
         public static MageTowerSkillSO SelectSkill(IReadOnlyList<MageTowerSkillSO> skills, int ticket)

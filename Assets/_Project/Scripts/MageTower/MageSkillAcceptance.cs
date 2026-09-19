@@ -19,10 +19,13 @@ namespace KingdomIdle.MageTower
             var mage = MageTowerManager.Instance;
             Check(mage != null && GachaManager.Instance != null, "Live managers available");
             var skills = mage.GetAllSkills();
-            Check(MageSkillRules.ValidateRoster(skills), "Ten unique stable IDs");
-            var counts = new int[10];
-            for (int ticket=0; ticket<10; ticket++) counts[MageSkillRules.SelectSkill(skills, ticket).id]++;
-            Check(counts.SequenceEqual(new[] {1,1,1,1,1,1,1,1,1,1}), "Exhaustive conditional draw partition and stable IDs");
+            Check(MageSkillRules.ValidateRoster(skills), "Nine stable IDs, retired ID excluded");
+            Check(mage.GetSkillById(6) == null && !mage.Equip(0,6), "Retired skill cannot be found or equipped");
+            var rift = mage.GetSkillById(9);
+            Check(Mathf.Approximately(rift.PullRadius, rift.radius * 1.5f) && Mathf.Approximately(rift.TargetRadius(false), rift.PullRadius), "Void suction and aiming radius extend fifty percent beyond damage rim");
+            var counts = new int[MageSkillRules.IdCapacity];
+            for (int ticket=0; ticket<skills.Count; ticket++) counts[MageSkillRules.SelectSkill(skills, ticket).id]++;
+            Check(counts.SequenceEqual(new[] {1,1,1,1,1,1,0,1,1,1}), "Exhaustive conditional draw partition and stable IDs");
             Check(skills.All(s=>s.icon!=null && s.prefab!=null && s.basePower>0 && s.baseCooldown>0), "Every skill has art and usable base parameters");
             Check(skills[0].bloomCooldownMultiplier==2 && skills[1].bloomControlDuration==2, "Authored lightning cooldown and ice stun contract");
             Check(skills.Skip(2).All(s=>s.bloomName=="미정" && Mathf.Approximately(s.bloomPowerMultiplier,1.15f)), "Unfinished bloom identities remain explicit with modest coefficient");
@@ -50,6 +53,21 @@ namespace KingdomIdle.MageTower
             Check(export.skills.Single(s=>s.id==9).fragments==70000 && export.skills.Single(s=>s.id==9).bloomEnabled, "Versioned export preserves large fragment counts and bloom");
             rejected=false;try { MageTowerSkillCode.Pack(9,10,0,70000); } catch(ArgumentOutOfRangeException) { rejected=true; }
             Check(rejected,"Legacy packed code refuses silent fragment truncation");
+
+            string migrationAccount = "mage-retirement-" + Guid.NewGuid().ToString("N");
+            LocalProgression.OpenTestAccount(migrationAccount);
+            Check(LocalProgression.Execute("qa-retired-save", s => {
+                s.MageSkills[6] = new MageSave { Enhance = 7, Awaken = 4, Fragments = 13, Spent = 70 };
+                s.MageSkills[9] = new MageSave { Enhance = 3 };
+                s.MageSlots[0] = 6; s.MageSlots[1] = 9; return true;
+            }), "Legacy loadout fixture saved");
+            LocalProgression.OpenTestAccount(migrationAccount);
+            Check(LocalProgression.State.MageSlots[0] == -1 && LocalProgression.State.MageSlots[1] == 9 &&
+                LocalProgression.State.MageSkills[6].Spent == 70 && LocalProgression.State.MageSkills[6].Fragments == 13 &&
+                LocalProgression.State.MageSkills[9].Enhance == 3, "Retirement preserves investment and other IDs, clears only retired slot");
+            long migratedRevision = LocalProgression.State.Revision;
+            LocalProgression.OpenTestAccount(migrationAccount);
+            Check(LocalProgression.State.Revision == migratedRevision, "Retirement migration is idempotent");
 
             // The caller restores its QA profile; this run never writes the gameplay profile.
             LocalProgression.OpenTestAccount("mage-acceptance-" + Guid.NewGuid().ToString("N"));
@@ -91,7 +109,7 @@ namespace KingdomIdle.MageTower
                 }
                 Check(LocalProgression.Balance(eCurrency.AncientCoin)==90000,"Two hundred pulls debit exactly ten thousand coins");
                 Check(LocalProgression.Balance(eCurrency.ArcaneKnowledge)==knowledge,"Knowledge result totals reconcile");
-                Check(Enumerable.Range(0,10).All(id=>mage.GetFragments(id)==before[id]+expected[id]),"Every per-skill fragment total reconciles with committed results");
+                Check(skills.All(skill=>mage.GetFragments(skill.id)==before[skill.id]+expected[skill.id]),"Every per-skill fragment total reconciles with committed results");
                 Check(skillRewards>0 && knowledge>0,"Seed exercises both reward categories");
             }
             finally { UnityEngine.Random.state=rng; }

@@ -1,0 +1,47 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "dab3d70c3f56efa1156e1760b28d05eb2d775bd0ca31ae9311b87df45dc44edf.png"
+    }
+  },
+  "2": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": [
+        "1",
+        0
+      ],
+      "upscale_method": "nearest-exact",
+      "width": 768,
+      "height": 768,
+      "crop": "disabled"
+    }
+  },
+  "10": {
+    "class_type": "GeminiNanoBanana2V2",
+    "inputs": {
+      "prompt": "A single pixel-art airborne meteor BOULDER BODY for a medieval quarter-view 2D RPG, one static sprite only. The reference icon is a PALETTE and rounded silhouette reference only. Produce ONLY the roughly spherical irregular charcoal rock, without the flame tail from the reference. An asymmetrical rounded angular silhouette, large connected facets of dark warm slate, 3 readable fractured planes and a few restrained molten copper-orange fissures, a small warm ochre highlight along the upper-right rim. This is a flying round heavy stone, NOT a pillar, slab, cliff, obelisk, crystal, ground mound, crater or flat disk. Visible rock width and height nearly equal. High three-quarter view of the free-floating stone, no floor, no cast shadow. Strict 64x64 logical pixel canvas enlarged nearest-neighbour. Rock occupies central 44x42 pixels, empty margin all around. SIX flat colors total excluding background: charcoal brown, dark slate, warm medium grey, dull copper, orange, pale ochre. Contiguous readable pixel clusters, cracks 1-2 logical pixels wide, no noise, no dithering, no smooth gradients, no black outline, no bloom, no lens flare, no fire, no sparks, no text, no UI, no frame, no multiple options. Completely uniform vivid chroma green #00FF00 background, no green anywhere in the boulder.",
+      "model": "Nano Banana 2 (Gemini 3.1 Flash Image)",
+      "model.aspect_ratio": "1:1",
+      "model.resolution": "1K",
+      "model.thinking_level": "MINIMAL",
+      "model.images.image_1": [
+        "2",
+        0
+      ],
+      "seed": 91951,
+      "response_modalities": "IMAGE"
+    }
+  },
+  "15": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "10",
+        0
+      ],
+      "filename_prefix": "KingdomIdle/MageRevision/MeteorBody-v1"
+    }
+  }
+}
