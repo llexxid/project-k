@@ -67,7 +67,7 @@ public static class MageSkillAssetPreparation
             new Layer(Source+"Earth/EarthRock.png",2.3f,2.3f,new Color(.91f,.86f,.77f),y:.48f),
             new Layer(Source+"Earth/EarthRock.png",1.6f,1.6f,new Color(.84f,.79f,.7f),x:.44f,y:.28f));
         var sanctuary = BuildSanctuary();
-        var heal = Vfx("SanctuaryHeal",new Layer(Source+"Holy/HolyBlessing.png",1.1f,1.5f,new Color(.92f,.84f,.63f),y:.4f));
+        var heal = Vfx("SanctuaryHeal",new Layer(Source+"Holy/HolyBlessing.png",1.45f,1.45f,new Color(.77f,.98f,.65f),y:.5f));
         var meteor = Vfx("Meteor",
             new Layer(Source+"Fire/FireFlamme.png",2.2f,2.6f,new Color(1,.83f,.60f),x:.32f,y:.64f,loop:true),
             new Layer(Polished+"MeteorBody64.png",1.8f,1.8f,Color.white,y:.13f,frame:0));
@@ -260,10 +260,8 @@ public static class MageSkillAssetPreparation
                 var sprites=AssetDatabase.LoadAllAssetsAtPath(layer.Texture).OfType<Sprite>().OrderBy(s=>FrameNumber(s.name)).ToArray();
                 if(sprites.Length==0)throw new InvalidOperationException("No sliced sprites: "+layer.Texture);
                 var child=new GameObject("Layer"+i);child.transform.SetParent(root.transform,false);child.transform.localPosition=layer.Offset;
-                var renderer=child.AddComponent<SpriteRenderer>();renderer.sprite=sprites[Math.Max(0,layer.StaticFrame)];renderer.color=layer.Color;renderer.sortingOrder=2+i;
-                // Ground rings stay beneath combatants; airborne spells must not disappear behind them.
-                bool ground=key=="GroundTelegraph" || (key=="Sanctuary" && i<2) || key=="VenomMist" || key=="VoidRift" || key=="FireTornado" || key=="IceBloomWarning" || (key=="MeteorCrater" && i==0);
-                renderer.sortingLayerName=ground?"Default":"CombatVFX";
+                var renderer=child.AddComponent<SpriteRenderer>();renderer.sprite=sprites[Math.Max(0,layer.StaticFrame)];renderer.color=layer.Color;
+                CombatVfxOrder.Apply(renderer,key,i);
                 renderer.sharedMaterial=AssetDatabase.GetBuiltinExtraResource<Material>("Sprites-Default.mat");
                 var size=renderer.sprite.bounds.size;child.transform.localScale=new Vector3(layer.Size.x/size.x,layer.Size.y/size.y,1);
                 if(layer.StaticFrame>=0)continue;

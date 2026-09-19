@@ -24,6 +24,8 @@ public class JobData : ScriptableObject
     public Sprite jobSprite;                            // 전직 시 교체할 캐릭터 스프라이트
     public Sprite portraitSprite;                       // UI 전용 정사각 초상화 (파티 HUD/멤버 탭/전직 카드)
     public RuntimeAnimatorController animatorController;// 전직 시 교체할 애니메이터 컨트롤러
+    [Tooltip("Idle body anchors, excluding transparent margins and weapons. Generated in local units.")]
+    public float vfxFootY = -.5f, vfxHeadY = .5f;
 
     /// <summary>UI 초상화 — 전용 초상화가 없으면 jobSprite 폴백.</summary>
     public Sprite Portrait => portraitSprite != null ? portraitSprite : jobSprite;

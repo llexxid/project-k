@@ -132,10 +132,10 @@ namespace KingdomIdle.MageTower
             point = lowest.transform.position; return true;
         }
 
-        private PooledSpellVfx Visual(GameObject prefab, Vector3 position, float lifetime, float scale = 1)
+        private PooledSpellVfx Visual(GameObject prefab, Vector3 position, float lifetime, float scale = 1, Transform follow = null, Vector3 followOffset = default)
         {
             if (!Valid || prefab == null) return null;
-            var effect = PooledSpellVfx.Spawn(prefab, position, lifetime, scaleMultiplier: scale);
+            var effect = PooledSpellVfx.Spawn(prefab, position, lifetime, follow, followOffset, scale);
             if (effect != null) _visuals.Add((effect, effect.SpawnGen));
             return effect;
         }
@@ -159,7 +159,7 @@ namespace KingdomIdle.MageTower
             {
                 var monster = _targets[i]; Hit(monster, multiplier, center);
                 if (stun > 0) MonsterCCState.Apply(monster, CrowdControlKind.Stun, stun, 0);
-                else if (slow > 0) MonsterCCState.Apply(monster, CrowdControlKind.Slow, _skill.controlDuration, slow);
+                else if (slow > 0) MonsterCCState.Apply(monster, CrowdControlKind.Slow, _skill.controlDuration, slow, slowStyle: SlowVisualKind.Venom);
             }
         }
 
@@ -412,7 +412,8 @@ namespace KingdomIdle.MageTower
 #if UNITY_EDITOR || LOBBY_DEVICE_QA
                     MageSkillDiagnostics.Record(_skill.id, "heal", lowest.name, lowest.playerStatus.HP - hpBefore, _bloom);
 #endif
-                    Visual(_skill.secondaryPrefab, lowest.transform.position, .5f);
+                    Vector3 foot = lowest.VfxFootPosition;
+                    Visual(_skill.secondaryPrefab, foot, .5f, follow: lowest.transform, followOffset: foot - lowest.transform.position);
                 }
                 yield return Delay(_skill.tickInterval);
             }
@@ -439,7 +440,7 @@ namespace KingdomIdle.MageTower
                     if (tickTimer <= 0 && delta.sqrMagnitude <= _skill.radius * _skill.radius && hitCount++ < _skill.maxTargets)
                     {
                         Hit(monster, NormalMultiplier, center);
-                        MonsterCCState.Apply(monster, CrowdControlKind.Slow, _skill.controlDuration, _skill.slowFraction);
+                        MonsterCCState.Apply(monster, CrowdControlKind.Slow, _skill.controlDuration, _skill.slowFraction, slowStyle: SlowVisualKind.Void);
                     }
                 }
                 if (tickTimer <= 0) { ticks++; tickTimer += _skill.tickInterval; }

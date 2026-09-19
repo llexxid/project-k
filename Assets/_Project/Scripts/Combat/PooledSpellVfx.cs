@@ -20,7 +20,7 @@ namespace KingdomIdle.Combat
     /// 마탑 스킬과 동일하게 Addressables/eVFXType 파이프라인을 타지 않고 프리팹 직접 참조로 쓴다.
     /// (eVFXType 은 xlsx 로 자동 생성되는 열거형이라 손으로 늘리면 다음 생성 때 지워진다)
     /// </summary>
-    [DisallowMultipleComponent]
+    [DefaultExecutionOrder(150), DisallowMultipleComponent]
     public sealed class PooledSpellVfx : MonoBehaviour
     {
         [Tooltip("생성 후 자동 반환까지의 시간(초). 0 이하이면 자동 반환하지 않는다.")]
@@ -56,6 +56,9 @@ namespace KingdomIdle.Combat
         private float _elapsed;
         private bool _released;
         private int _spawnGen;
+        private Player _followPlayer;
+        private Scripts.Monster.Monster _followMonster;
+        private int _followGeneration;
 
         /// <summary>
         /// 이 인스턴스의 현재 스폰 세대. 외부에서 참조를 오래 들고 있다가 Release 할 때
@@ -103,6 +106,10 @@ namespace KingdomIdle.Combat
 
         private void LateUpdate()
         {
+            if (followTarget != null && (!followTarget.gameObject.activeInHierarchy ||
+                (_followPlayer != null && (_followPlayer.IsDead || _followPlayer.LifeGeneration != _followGeneration)) ||
+                (_followMonster != null && (_followMonster.MonAction == Scripts.Core.eMonsterAction.Dead || _followMonster.AllocGen != _followGeneration))))
+            { Release(); return; }
             if (followTarget != null)
                 transform.position = followTarget.position + followOffset;
 
@@ -125,6 +132,7 @@ namespace KingdomIdle.Combat
             if (_released) return;
             _released = true;
             followTarget = null;
+            _followPlayer = null; _followMonster = null;
 
             if (_sourcePrefab == null)
             {
@@ -235,6 +243,9 @@ namespace KingdomIdle.Combat
             if (lifetimeSeconds > 0f) inst.lifetime = lifetimeSeconds;
             inst.followTarget = follow;
             inst.followOffset = followOffset;
+            inst._followPlayer = follow != null ? follow.GetComponent<Player>() : null;
+            inst._followMonster = follow != null ? follow.GetComponent<Scripts.Monster.Monster>() : null;
+            inst._followGeneration = inst._followPlayer != null ? inst._followPlayer.LifeGeneration : inst._followMonster != null ? inst._followMonster.AllocGen : 0;
 
             inst._elapsed = 0f;
             inst._released = false;

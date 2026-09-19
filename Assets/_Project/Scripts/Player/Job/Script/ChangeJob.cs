@@ -96,6 +96,7 @@ public class ChangeJob : MonoBehaviour
         if (!JobData.IsAvailable(data.jobName)) data = jobDatabase.GetJob("Spearman");
         if (data == null) return;
         _player.playerStatus.ApplyJob(data); _player.skillSystem?.Setup(data);
+        _player.SetVfxBodyAnchors(data.vfxFootY, data.vfxHeadY);
         _player.playerOrder?.ApplyRanges(_player.skillSystem); _player.playerOrder?.SyncMoveSpeed(_player.playerStatus);
         if (_spriteRenderer != null && data.jobSprite != null) _spriteRenderer.sprite = data.jobSprite;
         if (_player._am != null && data.animatorController != null) { _player._am.runtimeAnimatorController = data.animatorController; _player.RebuildAnimatorComponent(); }

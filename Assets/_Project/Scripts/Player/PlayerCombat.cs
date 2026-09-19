@@ -9,6 +9,10 @@ public partial class Player
     public long ShieldHP => Time.time < _shieldExpires ? _shieldHP : 0;
     private long _shieldHP;
     private float _shieldExpires, _pendingImpactAt;
+    private float _vfxFootY = -.5f, _vfxHeadY = .5f;
+    public Vector3 VfxFootPosition => transform.TransformPoint(Vector3.up * _vfxFootY);
+    public Vector3 VfxHeadPosition => transform.TransformPoint(Vector3.up * _vfxHeadY);
+    public void SetVfxBodyAnchors(float foot, float head) { _vfxFootY = foot; _vfxHeadY = head; }
     private void OnEnable() { if (!CombatMotion.Players.Contains(this)) CombatMotion.Players.Add(this); }
     private void OnDisable() { CombatMotion.Players.Remove(this); CancelCombat(); }
 
@@ -26,6 +30,7 @@ public partial class Player
     {
         _shieldHP = System.Math.Max(ShieldHP, amount);
         _shieldExpires = Time.time + duration;
+        CombatStatusVisuals.Ensure(this);
     }
 
     public float BasicImpactNormalized(string eventName)

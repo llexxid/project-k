@@ -70,6 +70,7 @@ namespace KingdomIdle.EditorTools.Optimization
                 TextureImporterFormat.ASTC_4x4, padding: 4, tight: false, pixelPackables, log);
 
             var mageSources = AssetDatabase.GetDependencies("Assets/MageTower/SO/MageTowerSkillList.asset", true)
+                .Concat(AssetDatabase.GetDependencies("Assets/_Project/Resources/CombatStatusArt.asset", true))
                 .Where(p => p.StartsWith("Assets/_Project/Art/VFX/") && p.EndsWith(".png"))
                 .Append("Assets/_Project/Art/VFX/PixelArtRPGVFX/Textures/Electricity/ElectricTornado.png")
                 .Distinct().Select(AssetDatabase.LoadMainAssetAtPath).Where(a => a != null).ToList();

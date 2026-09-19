@@ -45,6 +45,7 @@ namespace Scripts.Monster
         {
             if (HasTaunt || knight == null || knight.IsDead || _monAction == eMonsterAction.Dead) return false;
             _tauntOwner = knight; _tauntGeneration = knight.LifeGeneration;
+            CombatStatusVisuals.Ensure(this);
             CancelAttack(); SetTarget(knight);
             CombatDiagnostics.Record("taunt",this,knight);
             return true;

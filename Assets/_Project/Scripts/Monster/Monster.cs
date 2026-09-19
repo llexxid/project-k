@@ -83,6 +83,7 @@ namespace Scripts.Monster
 		[SerializeField, Min(0)] private float _bodyHeight;
 		[SerializeField] private float _bodyTopY;
 		public Vector3 HeadPosition => transform.TransformPoint(Vector3.up * (_bodyHeight > 0 ? _bodyTopY : 1.2f));
+		public Vector3 FootPosition => transform.TransformPoint(Vector3.up * (_bodyHeight > 0 ? _bodyTopY - _bodyHeight : 0));
 		public GameObject gameobj => transform.gameObject;		
 		
 		[SerializeField] private MonsterStat _stat;

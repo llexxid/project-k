@@ -32,3 +32,5 @@ ID 4의 표시 이름은 **맹독 늪**입니다. 맹독 늪·암석 봉인·회
 [통합 검증·밸런스·비용 기록](../../Docs/ArtPreparation/MAGE_INTEGRATION_VALIDATION.md)
 
 각성 상세는 매 각성의 효과량 +5%·기본 쿨타임 -2%, 4·8각성 추가 횟수와 다음 단계의 실제 수치를 표시합니다. 운석의 1회 충돌·잔열 2회는 고정입니다. 성역은 한 번 등장해 회복 파동을 유지한 뒤 퇴장하며, 공허 균열의 흡입 반경은 1.95(피해 반경 1.3) 월드 단위입니다.
+
+전투 표시 순서는 `CombatVfxOrder`에서 관리합니다. 지속 장판은 Default -40~-28, 회복·상태 발밑 파동은 -10~-9, 단발 타격은 CombatVFX 20 이상입니다. `CombatStatusVisuals`는 실제 기절·최강 감속·도발·보호막 상태를 읽어 표시하며, 캐릭터 풀 반환과 사망 시 표시를 해제합니다. 왕국군 발·머리 기준점은 JobData의 대기 몸체에서 측정하며 회복 파동은 발 위치를 추적합니다. 에셋 재생성과 레이어 검사는 `CombatPresentationPreparation.Prepare/Validate`, 실행 검사는 `PlayabilityLiveValidation.RunCombatPresentation`입니다.

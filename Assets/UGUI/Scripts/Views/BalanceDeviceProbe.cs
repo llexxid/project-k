@@ -75,6 +75,17 @@ namespace KingdomIdle.UGUI
                             case "polish-acceptance":
                                 StartCoroutine(KingdomIdle.Combat.CombatAcceptance.RunLayeredControl(result => Write(c.id, new { result, state = Snapshot() })));
                                 continue;
+                            case "presentation-acceptance":
+                                StartCoroutine(KingdomIdle.Combat.CombatPresentationAcceptance.Run(result=>Write(c.id,new{result,state=Snapshot()})));
+                                continue;
+                            case "status-fixture":
+                                var statusTarget=KingdomIdle.Combat.CombatMotion.Monsters.First(m=>m!=null&&m.MonAction!=eMonsterAction.Dead);
+                                if(c.value==0)KingdomIdle.Combat.MonsterCCState.Apply(statusTarget,KingdomIdle.Combat.CrowdControlKind.Stun,4,0);
+                                if(c.value==1)KingdomIdle.Combat.MonsterCCState.Apply(statusTarget,KingdomIdle.Combat.CrowdControlKind.Slow,4,.25f,slowStyle:KingdomIdle.Combat.SlowVisualKind.Venom);
+                                if(c.value==2)KingdomIdle.Combat.MonsterCCState.Apply(statusTarget,KingdomIdle.Combat.CrowdControlKind.Slow,4,.20f,slowStyle:KingdomIdle.Combat.SlowVisualKind.Void);
+                                if(c.value==3){statusTarget.TryTaunt(UserManager.Instance.GetPlayers()[0]);UserManager.Instance.GetPlayers()[0].GrantShield(1000000,4);}
+                                if(c.captureMs>0)StartCoroutine(FreezeAfter(c.captureMs/1000f));
+                                break;
                             case "combat-acceptance":
                                 float combatPrevious=Time.timeScale;Time.timeScale=0;
                                 try{output=KingdomIdle.Combat.CombatAcceptance.Run();}finally{LocalProgression.OpenTestAccount(PlayAccount);EquipmentManager.Instance?.RestoreEquipment();MageTowerManager.Instance?.NotifyCommitted();StatEnhanceManager.Instance?.ApplyToAllPlayers();Time.timeScale=combatPrevious;}
@@ -216,7 +227,8 @@ namespace KingdomIdle.UGUI
                 combatParty=players?.Select(p=>new{p.PlayerIndex,p.ShieldHP,p.BasicAttackSerial,p.LifeGeneration,facing=p.transform.localScale.x,sprite=p.GetComponent<SpriteRenderer>()?.sprite?.name,retreat=p.playerOrder?._move?.IsRetreating}).ToArray(),
                 mageCooldown=Enumerable.Range(0,5).Select(i=>new{slot=i,casting=MageTowerManager.Instance?.IsCasting(i),ratio=MageTowerManager.Instance?.GetCooldownRatio(i)}).ToArray(),
                 crowdControl=FindObjectsByType<KingdomIdle.Combat.MonsterCCState>(FindObjectsSortMode.None).Where(x=>x.isActiveAndEnabled).Select(x=>new{target=x.name,active=x.enabled,kind=x.DiagnosticKind,remaining=x.DiagnosticRemaining}).ToArray(),
-                mageVisuals=FindObjectsByType<KingdomIdle.Combat.PooledSpellVfx>(FindObjectsSortMode.None).Where(x=>x.isActiveAndEnabled).Select(x=>new{x.name,generation=x.SpawnGen,position=new[]{x.transform.position.x,x.transform.position.y},renderers=x.GetComponentsInChildren<SpriteRenderer>().Select(r=>new{r.name,sprite=r.sprite?.name,alpha=r.color.a,size=new[]{r.bounds.size.x,r.bounds.size.y},localPosition=new[]{r.transform.localPosition.x,r.transform.localPosition.y},order=r.sortingOrder}).ToArray()}).ToArray(),
+                mageVisuals=FindObjectsByType<KingdomIdle.Combat.PooledSpellVfx>(FindObjectsSortMode.None).Where(x=>x.isActiveAndEnabled).Select(x=>new{x.name,generation=x.SpawnGen,position=new[]{x.transform.position.x,x.transform.position.y},renderers=x.GetComponentsInChildren<SpriteRenderer>().Select(r=>new{r.name,sprite=r.sprite?.name,alpha=r.color.a,size=new[]{r.bounds.size.x,r.bounds.size.y},localPosition=new[]{r.transform.localPosition.x,r.transform.localPosition.y},layer=r.sortingLayerName,order=r.sortingOrder}).ToArray()}).ToArray(),
+                statusVisuals=FindObjectsByType<SpriteRenderer>(FindObjectsSortMode.None).Where(r=>r.enabled&&r.name.StartsWith("Status_")).Select(r=>new{r.name,sprite=r.sprite?.name,position=new[]{r.transform.position.x,r.transform.position.y},layer=r.sortingLayerName,order=r.sortingOrder}).ToArray(),
                 time=Time.time,timeScale=Time.timeScale,
                 monsters=FindObjectsByType<Scripts.Monster.Monster>(FindObjectsSortMode.None).Where(m=>m.isActiveAndEnabled && m.MonAction!=eMonsterAction.Dead).Select(m=>new{type=m.Type.ToString(),m.BalanceReward,m.IsBalanceBoss,m.FacingDir,tauntOwner=m.TauntOwner?.PlayerIndex,position=new[]{m.transform.position.x,m.transform.position.y,m.transform.position.z},hp=m.GetHpRatio(),action=m.MonAction.ToString(),colliders=m.GetComponentsInChildren<Collider2D>().Select(c=>c.enabled).ToArray()}).ToArray(),
                 visualBounds=FindObjectsByType<Scripts.Monster.Monster>(FindObjectsSortMode.None).Where(m=>m.isActiveAndEnabled && m.MonAction!=eMonsterAction.Dead).Select(m=>{

@@ -2,7 +2,7 @@
 
 Unity 모바일 방치 RPG. 엔진 버전은 `ProjectSettings/ProjectVersion.txt`, 패키지는 `Packages/manifest.json`을 기준으로 한다.
 
-현재 게임 버전은 **0.12.0**, Unity는 **6000.3.21f1**이다. Unity Hub에서 지정 버전으로 연다. 게임 버전은 Player Settings의 Version 한 곳에서 관리하며 로비와 설정이 이를 표시한다. 기능 개정은 minor, 수정은 patch를 증가시키며 첫 정식 출시는 1.0.0으로 올린다. Android Version Code는 배포마다 단조 증가시킨다. 빌드 전 엔진 핀과 버전 형식을 자동 검사한다.
+현재 게임 버전은 **0.12.1**, Unity는 **6000.3.21f1**이다. Unity Hub에서 지정 버전으로 연다. 게임 버전은 Player Settings의 Version 한 곳에서 관리하며 로비와 설정이 이를 표시한다. 기능 개정은 minor, 수정은 patch를 증가시키며 첫 정식 출시는 1.0.0으로 올린다. Android Version Code는 배포마다 단조 증가시킨다. 빌드 전 엔진 핀과 버전 형식을 자동 검사한다.
 
 최근 30분 × 3회 Android 실플레이, 추가 수정과 최종 설치 근거는 [플레이 시뮬레이션 보고서](Docs/ArtPreparation/PLAYER_SIMULATION_20260918.md)에 있다.
 

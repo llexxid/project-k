@@ -6,12 +6,13 @@ using Scripts.Monster;
 namespace KingdomIdle.Combat
 {
     public enum CrowdControlKind { None = 0, Stun = 1, Slow = 2 }
+    public enum SlowVisualKind { Generic, Venom, Void }
 
     /// <summary>Independent control clocks; the strongest live slow wins without stacking.</summary>
     [DisallowMultipleComponent]
     public sealed class MonsterCCState : MonoBehaviour
     {
-        private struct Slow { public float Amount, Until; }
+        private struct Slow { public float Amount, Until; public SlowVisualKind Style; }
         private readonly List<Slow> _slows = new(4);
         private Monster _monster;
         private int _allocGen;
@@ -19,6 +20,9 @@ namespace KingdomIdle.Combat
         private bool _active, _stunned;
         private PooledSpellVfx _statusVfx;
         private int _statusVfxGen;
+        public bool IsStunned => _active && _stunned;
+        public float SlowFraction { get; private set; }
+        public SlowVisualKind SlowStyle { get; private set; }
 #if UNITY_EDITOR || LOBBY_DEVICE_QA
         public string DiagnosticKind => _stunned ? "Stun" : _active ? "Slow" : "None";
         public float DiagnosticRemaining
@@ -32,7 +36,7 @@ namespace KingdomIdle.Combat
         }
 #endif
         public static void Apply(Monster monster, CrowdControlKind kind, float duration, float slowPercent,
-            GameObject statusVfxPrefab = null, Vector3 statusVfxOffset = default)
+            GameObject statusVfxPrefab = null, Vector3 statusVfxOffset = default, SlowVisualKind slowStyle = SlowVisualKind.Generic)
         {
             if (monster == null || !monster.isActiveAndEnabled || monster.MonAction == eMonsterAction.Dead ||
                 kind == CrowdControlKind.None || duration <= 0) return;
@@ -49,13 +53,14 @@ namespace KingdomIdle.Combat
                 for (int i = 0; i < state._slows.Count; i++)
                 {
                     var slow = state._slows[i];
-                    if (!Mathf.Approximately(slow.Amount, amount)) continue;
+                    if (!Mathf.Approximately(slow.Amount, amount) || slow.Style != slowStyle) continue;
                     slow.Until = Mathf.Max(slow.Until, Time.time + duration);
                     state._slows[i] = slow; found = true; break;
                 }
-                if (!found) state._slows.Add(new Slow { Amount = amount, Until = Time.time + duration });
+                if (!found && amount > 0) state._slows.Add(new Slow { Amount = amount, Until = Time.time + duration, Style = slowStyle });
             }
             state.Refresh();
+            CombatStatusVisuals.Ensure(monster);
             if (statusVfxPrefab != null)
             {
                 if (state._statusVfx != null) state._statusVfx.Release(state._statusVfxGen);
@@ -67,9 +72,11 @@ namespace KingdomIdle.Combat
         private void Refresh()
         {
             float strongest = 0;
+            SlowStyle = SlowVisualKind.Generic;
             for (int i = _slows.Count - 1; i >= 0; i--)
                 if (_slows[i].Until <= Time.time) _slows.RemoveAt(i);
-                else strongest = Mathf.Max(strongest, _slows[i].Amount);
+                else if (_slows[i].Amount > strongest) { strongest = _slows[i].Amount; SlowStyle = _slows[i].Style; }
+            SlowFraction = strongest;
             _monster.SpeedMultiplier = 1 - strongest;
             bool stun = Time.time < _stunUntil;
             if (stun && !_stunned) _monster.InterruptBehaviourTree();
@@ -93,6 +100,7 @@ namespace KingdomIdle.Combat
                 if (_stunned) _monster.RestartBehaviourTree();
             }
             _stunned = false; _stunUntil = 0; _slows.Clear();
+            SlowFraction = 0; SlowStyle = SlowVisualKind.Generic;
             if (_statusVfx != null) { _statusVfx.Release(_statusVfxGen); _statusVfx = null; }
             enabled = false;
         }

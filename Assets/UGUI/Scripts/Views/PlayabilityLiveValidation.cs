@@ -28,6 +28,7 @@ namespace KingdomIdle.UGUI.Editor
         static string Output => Environment.GetEnvironmentVariable("PLAYABILITY_LIVE_OUTPUT") ?? "Recordings/PlayabilityRevision/Editor/Live";
         const string RoutesKey = "Playability.SessionRoutes";
         const string UiOnlyKey = "Playability.MageUiOnly";
+        const string PresentationKey = "Playability.CombatPresentation";
         readonly List<object> _results = new();
         readonly List<string> _errors = new();
 
@@ -42,6 +43,8 @@ namespace KingdomIdle.UGUI.Editor
         { SessionState.SetBool(UiOnlyKey, false); SessionState.SetBool(RoutesKey, false); StartEditor(); }
         public static void RunManualChecks()
         { SessionState.SetBool(UiOnlyKey, true); SessionState.SetBool(RoutesKey, false); StartEditor(); }
+        public static void RunCombatPresentation()
+        { SessionState.SetBool(PresentationKey,true); Run(); }
         public static void RunSessionRoutes()
         { SessionState.SetBool(RoutesKey, true); StartEditor(); }
         static void StartEditor()
@@ -110,6 +113,16 @@ namespace KingdomIdle.UGUI.Editor
             });
             EquipmentManager.Instance.RestoreEquipment(); StatEnhanceManager.Instance.ApplyToAllPlayers();
             var mage = MageTowerManager.Instance; mage.SetAutoEnabled(false);
+            if(SessionState.GetBool(PresentationKey,false))
+            {
+                SessionState.SetBool(PresentationKey,false);
+                StageManager.Instance.BeginStage((eStage)0x20003000A);
+                yield return new WaitForSeconds(2);
+                KingdomIdle.Combat.CombatPresentationAcceptance.Report report=null;
+                yield return KingdomIdle.Combat.CombatPresentationAcceptance.Run(r=>report=r,Capture);
+                _results.Add(new{test="combat-presentation",result=report});
+                Require(report!=null&&report.passed,"Combat presentation: "+string.Join(",",report?.failed??new List<string>()));
+            }
             Time.timeScale = 2;
             for (int mode = 0; mode < (SessionState.GetBool(UiOnlyKey, false) ? 0 : 2); mode++)
             for (int id = 0; id < 10; id++)
