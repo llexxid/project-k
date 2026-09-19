@@ -36,4 +36,51 @@
 
 ## 검증
 
-Unity 프리팹 레이어·상태 아트 참조 및 병과 기준점 검사가 통과했다. [Unity 실행 결과](Validation/CombatPresentation/editor-live.json)는 기본/개화 18회 피해·회복·종료, 상태 표시 21개 검사와 기존 마탑 회귀 검사를 모두 통과했고 오류는 없었다. Android 설치 기록은 실제 기기 검증 후 갱신한다.
+Unity 프리팹 28개 렌더러의 레이어·상태 아트 참조 및 병과 기준점 검사가 통과했다. [Unity 실행 결과](Validation/CombatPresentation/editor-live.json)는 기본/개화 18회 피해·회복·종료, 상태 표시 21개 검사와 기존 마탑 회귀 검사를 모두 통과했고 오류는 없었다.
+
+SM-N986N, Android IL2CPP 빌드에서 다음을 확인했다.
+
+- b41: 스킬 9종을 각각 시전해 지면/전면 레이어, 양의 피해 또는 회복, 종료를 확인했다. 운석은 낙하와 착탄 후 크레이터를 따로 촬영했다. [스킬별 레이어](Validation/CombatPresentation/b41-spell-layer-checks.json).
+- b41: 기사·창병·마법사·정예 기사·정예 마법사를 각각 다치게 한 뒤 실제 성역을 시전했다. 회복 파동이 선택된 대상의 발 기준점과 일치하고 몸보다 뒤에 출력되는 것을 확인했다. [5종 회복 위치](Validation/CombatPresentation/b41-healing-checks.json).
+- b41 최초 상태 검사에서 21개 중 이동량 검사 하나가 실패했다. 검사에서 수동으로 더한 0.2만큼 정확히 이동한다고 가정했으나, 전투에는 겹침 해소·경계 제한 이동도 적용된다. 현재 머리 기준점과 표시 위치를 비교하고 실제 이동량을 함께 기록하도록 검사를 수정했다. 최초 실패 기록도 [보존](Validation/CombatPresentation/b41-initial-status-checks.json)했다.
+- b42: 21개 상태 검사 전체 통과. 실제 대상과 표시의 x 이동량은 각각 0.200000048, 기준점 오차는 약 0.00000003 월드 단위였다. 기절/감속 동시 적용, 강한 감속 종료 후 약한 감속 복귀, 재적용 연장, 만료, 도발·기절 동시 배치, 보호막 흡수, 사망·부활·풀 재사용 정리를 확인했다. [상태 검사](Validation/CombatPresentation/b42-status-checks.json).
+- b42: 일반 적과 보스에서 각각 9개 검사 통과. 첫 도발 유지, 소유자 사망 후 재도발, 보호막 실제 피해 흡수, 왕국군 에너지 파동의 일반 적 기절/보스 기절 면역을 확인했다. [전투 규칙](Validation/CombatPresentation/b42-control-checks.json).
+- b42: 720×1280, 1080×2400, 1200×1600에서 기절·도발 동시 표시, 감속·보호막 발밑 표시와 전투 HUD 배치를 촬영·검토했다. 같은 SM-N986N의 화면 크기 override를 바꾼 검사이며, 실제 기기 3대를 사용한 검사가 아니다. 종료 후 1080×2316으로 복구했다. [화면 비율 기록](Validation/CombatPresentation/b42-status-aspect-checks.json).
+
+## 실제 전투 화면
+
+기준 화면은 이번 수정 전 설치되어 있던 b40의 이전 세션 전투 캡처다. 동일 프레임의 비교는 아니다. [수정 전 b40](Validation/CombatPresentation/before-b40-previous-session.png).
+
+| 단발/착탄 순간은 앞 | 지속 지면은 뒤 |
+|---|---|
+| ![얼음 송곳](Validation/CombatPresentation/b41-layers-skill-1.png) | ![맹독 늪](Validation/CombatPresentation/b41-layers-skill-4.png) |
+| ![운석 낙하](Validation/CombatPresentation/b41-layers-skill-8.png) | ![운석 크레이터](Validation/CombatPresentation/b41-layers-skill-8-crater.png) |
+
+| 발밑 회복 | 도발·보호막 |
+|---|---|
+| ![창병 회복](Validation/CombatPresentation/b41-healing-0-1.png) | ![도발 머리 위와 보호막 발밑](Validation/CombatPresentation/b42-status-3.png) |
+
+## 성능·비용
+
+같은 SM-N986N의 1080×2316 화면에서 라이트닝·맹독 늪·암석 봉인·회복의 성역·공허 균열을 자동 시전하는 전투를 25초씩 측정했다. 저사양 모드에서도 보호막·도발·감속 표시가 남는 것을 별도 캡처로 확인했다. [측정 원문](Validation/CombatPresentation/b42-performance-checks.json).
+
+| b42 모드 | 평균 FPS | p95 프레임 ms | 프로세스 CPU, 1코어 기준 | 평균 draw calls | 종료 Unity 메모리 |
+|---|---:|---:|---:|---:|---:|
+| 일반 | 59.93 | 16.672 | 86.90% | 30.73 | 166.14 MB |
+| 저사양 | 59.85 | 16.675 | 85.54% | 31.22 | 167.14 MB |
+
+60 FPS 제한과 프레임 대기가 포함된 Development ARM64 IL2CPP 표본이다. 적의 배치와 타격량은 완전히 고정하지 않았다. 앞선 마탑 개선의 b39는 다른 스킬 구성에서 일반 59.98 FPS / 33.43 draw calls / 165.22 MB였으며, 이 차이만으로 이번 상태 표시의 성능 개선·퇴화를 단정하지 않는다. 저사양 CPU 차이도 이번 짧은 표본에서는 약 1.6%에 그쳤다. 테스트 후 사용자의 원래 설정을 복구했다.
+
+추가 표시용 스프라이트는 아틀라스로 묶고 캐릭터별로 재사용한다. 비활성 상태에는 갱신을 중단한다. 이번 레이어·상태 표시 후속 작업의 생성 API 지출은 0이며, 이전 운석 제작 비용은 [마탑 개선 기록](MAGE_REVISION_20260919.md)에 별도로 남아 있다.
+
+## 최종 설치·보존
+
+최종 **0.12.1 b43**, 표시 이름 `전투 표시 개선 0.12.1 (b43)`을 SM-N986N에 설치했다. Unity 6000.3.21f1 빌드 성공, 오류 0 / 경고 89(기존 에셋·아틀라스 및 빌드 경고 포함), APK 80,855,986 bytes다. 테스트 명령 처리 코드와 강제 QA 계정 문자열이 APK 메타데이터에 없는 것을 확인했다. [빌드](Validation/CombatPresentation/b43-build.json), [진단 코드 제외·해시](Validation/CombatPresentation/b43-diagnostic-exclusion.json).
+
+실제 타이틀 → 게스트 로그인 → 기존 200레벨 계정 → 전투 → 메뉴/뒤로가기 → 마탑 9종 편성 → 얼음 송곳 각성 상세 → 전투 복귀 → 수동 성역 시전까지 실제 터치와 캡처로 확인했다. 최종 앱에서도 작은 회복 파동이 대상 발밑에서 나오는 것을 확인했고, 이 실행의 Unity/AndroidRuntime 오류는 0이었다. 앱은 전투 상태로 두었다. [최종 실행 검사](Validation/CombatPresentation/b43-final-smoke.json).
+
+진단 전후 QA 외 저장 파일 46개는 바이트가 같았다. 원래 QA 저장 파일과 사용자 preferences를 복원하고 새 진단 파일 228개를 정리했다. 백업은 PC의 무시된 `Recordings/CombatPresentation/Original` 및 `AfterDiagnostic`에 보관한다. 사용자 0의 프로젝트 앱은 하나이며 화면 크기 1080×2316, density 450으로 복구했다. [저장 복원 기록](Validation/CombatPresentation/save-restoration.json).
+
+작업 전 `2cce97133`, 구현·Unity 검증 중간 `a9e9309b5`를 커밋했고, 기기 검증·최종 배포 기록도 완료 커밋으로 남긴다. 다른 실제 기기, iOS, 스토어용 비개발 빌드와 장시간 발열은 이번 검증 범위에 포함하지 않았다.
+
+![최종 앱에서 수동 성역 시전](Validation/CombatPresentation/b43-healing.png)

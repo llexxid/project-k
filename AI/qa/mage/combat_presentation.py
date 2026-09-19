@@ -69,6 +69,87 @@ def spells():
 def files(path):
     with tarfile.open(path) as a:return {i.name:a.extractfile(i).read() for i in a.getmembers() if i.isfile()}
 
+def control():
+    results=[]
+    for boss in (False,True):
+        fixture()
+        m.command('control-stage-'+str(boss),'stage',stage=0x20003000b if boss else 0x20003000a)
+        time.sleep(2)
+        result=m.command('control-rules-'+str(boss),'combat-control')['result']
+        assert result['boss']==boss and result['passed']==9,result
+        results.append(result)
+    save('control-checks',results)
+    print('Ordinary/boss taunt, shield, stun and pool checks passed',flush=True)
+
+def healing():
+    results=[]
+    for elite,index in [(0,0),(0,1),(0,2),(1,0),(1,2)]:
+        fixture()
+        tag='healing-'+str(elite)+'-'+str(index)
+        m.command(tag+'-jobs','combat-fixture',value=elite,stage=0x20003000a)
+        m.command(tag+'-equip','mage-equip',value=7,awaken=0)
+        for retry in range(100):
+            state=m.command(tag+'-ready-'+str(retry))['state']
+            if state['mageCooldown'][0]['ratio']==0 and not state['mageCooldown'][0]['casting']:break
+            time.sleep(.25)
+        m.command(tag+'-injure','combat-hp',value=index)
+        cast=m.command(tag+'-cast','mage-cast',value=7,captureMs=450)
+        assert cast['result']['accepted']
+        time.sleep(.7)
+        state=m.command(tag+'-visible')['state']
+        player=next(p for p in state['party'] if p['PlayerIndex']==index)
+        visual=next(v for v in state['mageVisuals'] if v['name'].startswith('SanctuaryHeal'))
+        expected=[player['position'][0],player['position'][1]-.5]
+        assert all(abs(a-b)<.015 for a,b in zip(expected,visual['position'])),(player,visual)
+        assert any(e['kind']=='heal' and e['amount']>0 for e in state['mageEvents'])
+        m.shot(tag)
+        results.append(dict(index=index,job=player['job'],player=player['position'],heal=visual['position'],renderers=visual['renderers']))
+        save('healing-checks',results)
+        m.command(tag+'-resume','pause',value=0)
+        time.sleep(5)
+    print('Five active jobs: actual healing pulses track feet',flush=True)
+
+def performance():
+    import settings_checks as s
+    results=[]
+    for low in (False,True):
+        fixture()
+        for slot,skill in enumerate((0,4,5,7,9)):m.command('performance-equip-'+str(slot),'mage-equip',value=skill,awaken=slot)
+        s.settings_open('presentation-perf-open-'+str(low));s.toggle('LowSpec',low)
+        m.back();time.sleep(.7)
+        m.command('presentation-perf-auto-'+str(low),'mage-auto',value=1)
+        time.sleep(3)
+        results.append(s.measure('presentation-perf-'+('low' if low else 'normal'),25))
+        save('performance-checks',results)
+        m.command('perf-indicator-'+str(low),'status-fixture',value=3,captureMs=100)
+        time.sleep(.3)
+        state=m.command('perf-indicator-state-'+str(low))['state']
+        assert any(v['name']=='Status_Shield' for v in state['statusVisuals'])
+        m.shot('performance-indicators-'+str(low))
+        m.command('perf-indicator-resume-'+str(low),'pause',value=0)
+        print('Measured lowSpec='+str(low),flush=True)
+    s.settings_open('presentation-perf-restore');s.toggle('LowSpec',False);m.back()
+
+def aspects():
+    original=m.run('shell','wm','size').stdout.decode()
+    results=[]
+    try:
+        for name,size in [('narrow','720x1280'),('tall','1080x2400'),('tablet','1200x1600')]:
+            m.run('shell','wm','size',size);m.launch('status-aspect-'+name)
+            fixture()
+            m.command(name+'-stun','status-fixture',value=0)
+            m.command(name+'-slow','status-fixture',value=1)
+            m.command(name+'-taunt','status-fixture',value=3,captureMs=100)
+            time.sleep(.4)
+            state=m.command(name+'-status-state')['state']
+            m.shot('status-aspect-'+name)
+            assert len(state['statusVisuals'])>=4,state['statusVisuals']
+            results.append(dict(name=name,size=size,indicators=state['statusVisuals']))
+            save('status-aspect-checks',results)
+    finally:
+        override=next((line.split(': ')[1].strip() for line in original.splitlines() if line.startswith('Override size:')),None)
+        m.run('shell','wm','size',override or 'reset');m.launch('status-aspect-restored')
+
 def restore():
     original=files(ROOT/'Original/external.tar');prefs=files(ROOT/'Original/internal.tar')
     qa=hashlib.sha256(b'balance-qa-device-play-20260914').hexdigest()
@@ -103,10 +184,14 @@ if __name__=='__main__':
     if action=='checks':checks()
     elif action=='spells':spells()
     elif action=='restore':restore()
+    elif action=='aspects':aspects()
+    elif action=='control':control()
+    elif action=='healing':healing()
+    elif action=='performance':performance()
     elif action=='fixture':fixture()
     elif action=='install':
         assert (ROOT/'Original/external.tar').exists()
-        build=json.loads((ROOT/'Diagnostic/build.json').read_text(encoding='utf-8-sig'))
+        build=json.loads(Path(sys.argv[2] if len(sys.argv)>2 else ROOT/'Diagnostic/build.json').read_text(encoding='utf-8-sig'))
         assert build['diagnostics'] and build['package']==m.PACKAGE
         print(m.run('install','-r','-t',build['apk']).stdout.decode(),flush=True)
         m.launch('presentation-login')

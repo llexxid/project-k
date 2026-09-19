@@ -1,0 +1,31 @@
+{
+  "passed": true,
+  "count": 21,
+  "actorMovementX": 0.200000048,
+  "indicatorMovementX": 0.200000048,
+  "movementAnchorError": 2.98023224e-08,
+  "checks": [
+    "Stun and venom movement penalty apply together",
+    "Independent stun and slow visuals coexist",
+    "Stun indicator clears head and HP bar",
+    "Slow ring uses stable body foot anchor",
+    "Sustained indicator follows movement",
+    "Stun visual expires while longer slow remains",
+    "Stronger void slow wins without multiplying slows",
+    "Original venom slow and color resume after stronger slow expires",
+    "Reapplication extends active visual without restarting it",
+    "Final slow expiry restores speed and removes ring",
+    "Taunt acquires first living owner",
+    "Taunt and protective shield states have live indicators",
+    "Coexisting overhead indicators do not overlap",
+    "Shield absorbs actual incoming damage",
+    "Shield timeout removes its visual",
+    "Healing pulse follows the recipient's feet while moving",
+    "Healing pulse stays below the recipient body",
+    "Taunt owner death clears its indicator",
+    "Healing visual releases on recipient death",
+    "Revival cannot restore stale taunt ownership",
+    "Pool disable/reuse clears every persistent status visual"
+  ],
+  "failed": []
+}

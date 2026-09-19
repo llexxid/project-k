@@ -11,7 +11,13 @@ namespace KingdomIdle.Combat
 {
     public static class CombatPresentationAcceptance
     {
-        public sealed class Report { public bool passed; public int count; public List<string> checks=new(), failed=new(); }
+        public sealed class Report
+        {
+            public bool passed;
+            public int count;
+            public float actorMovementX, indicatorMovementX, movementAnchorError;
+            public List<string> checks=new(), failed=new();
+        }
         public static IEnumerator Run(Action<Report> completed, Action<string> capture = null)
         {
             var report=new Report();
@@ -32,9 +38,18 @@ namespace KingdomIdle.Combat
             Check(Visible(monster,"Stun")&&Visible(monster,"Slow"),"Independent stun and slow visuals coexist");
             Check(Icon(monster,"Stun").transform.position.y>monster.HeadPosition.y+.25f,"Stun indicator clears head and HP bar");
             Check(Vector3.Distance(Icon(monster,"Slow").transform.position,monster.FootPosition+Vector3.up*.38f)<.01f,"Slow ring uses stable body foot anchor");
-            var initial=Icon(monster,"Stun").transform.position;monster.transform.position+=Vector3.right*.2f;
+            var initial=Icon(monster,"Stun").transform.position;
+            var initialHead=monster.HeadPosition;
+            monster.transform.position+=Vector3.right*.2f;
             yield return null;yield return null;
-            Check(Mathf.Abs(Icon(monster,"Stun").transform.position.x-initial.x-.2f)<.01f,"Sustained indicator follows movement");
+            // Separation still moves stunned actors in LateUpdate. Compare the indicator
+            // to its current actor anchor, not just the manually injected displacement.
+            var movedIcon=Icon(monster,"Stun").transform.position;
+            report.actorMovementX=monster.HeadPosition.x-initialHead.x;
+            report.indicatorMovementX=movedIcon.x-initial.x;
+            report.movementAnchorError=Vector3.Distance(movedIcon,monster.HeadPosition+Vector3.up*.40f);
+            Check(Mathf.Abs(report.actorMovementX)>.05f && report.movementAnchorError<.01f &&
+                Mathf.Abs(report.indicatorMovementX-report.actorMovementX)<.01f,"Sustained indicator follows movement");
             capture?.Invoke("status-stun-venom");
             yield return new WaitForSeconds(.7f);
             Check(!cc.IsStunned && !Visible(monster,"Stun") && Visible(monster,"Slow"),"Stun visual expires while longer slow remains");
