@@ -47,6 +47,7 @@ namespace KingdomIdle.UGUI.Editor
             gl.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             gl.constraintCount = 6;
             view.grid = grid;
+            EquipmentFeaturePreparation.AttachToolbar(grid);
 
             var placeholder = F.Text(root, "Placeholder", "비어있음", 24f, Dim40, TextAlignmentOptions.Center);
             F.Preferred(placeholder, height: 60f);

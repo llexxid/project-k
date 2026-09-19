@@ -27,7 +27,7 @@ namespace KingdomIdle.UGUI
         public const float StageAreaTop = 180f;
         public const float StageControlsBottom = StageAreaTop + 84f;
         public const float DropdownTop = 175f;
-        public const float DropdownWidth = 420f;
+        public const float DropdownWidth = 720f;
         public const float HamburgerDropdownWidth = 90f;
         public const float PartyHudBottom = 202f;
         // 파티 HUD 15% 확대(초상화 78→90, 스킬 슬롯 40→46) 반영 명목 높이.

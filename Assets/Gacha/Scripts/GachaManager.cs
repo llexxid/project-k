@@ -62,8 +62,12 @@ namespace KingdomIdle.Gacha
                             var pool = tier == 2 ? epic : tier == 1 ? rare : normal;
                             var item = pool[UnityEngine.Random.Range(0, pool.Count)];
                             state.EquipmentPity = item.rarity == eEquipmentRarity.Epic ? 0 : state.EquipmentPity + 1;
-                            if (!EquipmentManager.Grant(state, new EquipmentSave { Id = Guid.NewGuid().ToString("N"), Code = item.itemCode }, true)) return false;
-                            rewards.Add(new GachaRewardEntry { nameKor = item.equipmentName, icon = item.icon, rewardType = eGachaRewardType.Equipment, equipmentData = item, amount = 1 });
+                            var acquired = new EquipmentSave { Id = Guid.NewGuid().ToString("N"), Code = item.itemCode };
+                            bool autoDismantled = EquipmentEconomy.ShouldAutoDismantle(state, acquired);
+                            if (!EquipmentManager.Grant(state, acquired, true)) return false;
+                            rewards.Add(autoDismantled
+                                ? new GachaRewardEntry { nameKor = "자동 분해 · 강화석", icon = item.icon, rewardType = eGachaRewardType.Currency, currency = eCurrency.EquipmentStone, amount = checked((int)EquipmentEconomy.Yield(acquired)) }
+                                : new GachaRewardEntry { nameKor = item.equipmentName, icon = item.icon, rewardType = eGachaRewardType.Equipment, equipmentData = item, amount = 1 });
                         }
                         else if (roll < 500000)
                         {

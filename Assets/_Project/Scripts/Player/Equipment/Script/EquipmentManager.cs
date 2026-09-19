@@ -44,9 +44,10 @@ public class EquipmentManager : MonoBehaviour
     public static bool Grant(ProgressionState state, EquipmentSave item, bool allowPending)
     {
         if (state.Equipment.Any(x => x.Id == item.Id) || state.PendingEquipment.Any(x => x.Id == item.Id)) return false;
-        if (state.Equipment.Count < Capacity) state.Equipment.Add(item);
+        if (EquipmentEconomy.ShouldAutoDismantle(state, item)) LocalProgression.Credit(state, eCurrency.EquipmentStone, EquipmentEconomy.Yield(item));
+        else if (state.Equipment.Count < Capacity) state.Equipment.Add(item);
         else if (allowPending && state.PendingEquipment.Count < PendingCapacity)
-        { item.ExpiresUtc = LocalProgression.UtcNow + 7 * 86400; state.PendingEquipment.Add(item); }
+        { item.ExpiresUtc = 0; state.PendingEquipment.Add(item); }
         else if (allowPending && !item.Locked && !item.Player.HasValue)
         {
             var stack = state.LegacyEquipment.Find(x => x.Code == item.Code && x.Level == item.Level);
@@ -97,9 +98,7 @@ public class EquipmentManager : MonoBehaviour
             Level = item.enhancementLevel, Locked = item.IsLocked }, true))) return;
         RestoreEquipment(); if (effect != GetEffect.None) OnItemDropped?.Invoke(_inventory.Items.FirstOrDefault(x => x.instanceId == item.instanceId));
     }
-    private static bool Material(EquipmentInstance target, EquipmentInstance item) => item != null && item != target && item.baseData == target.baseData && !item.IsEquipped && !item.IsLocked && item.enhancementLevel == 0;
-    public int GetEnhanceMaterialCount(EquipmentInstance item) => item?.baseData == null ? 0 : _inventory.Items.Count(x => Material(item, x));
-    public bool CanEnhance(EquipmentInstance item) => item?.baseData != null && !item.IsMaxLevel() && _inventory.Items.Contains(item) && GetEnhanceMaterialCount(item) >= 2;
+    public bool CanEnhance(EquipmentInstance item) => item?.baseData != null && !item.IsMaxLevel() && _inventory.Items.Contains(item) && LocalProgression.Balance(eCurrency.EquipmentStone) >= EquipmentEconomy.EnhanceCost(item);
     public bool TryEnhance(EquipmentInstance item) => TryEnhanceDetailed(item) == EnhancementResult.Success;
     public EnhancementResult TryEnhanceDetailed(EquipmentInstance item)
     {
@@ -109,9 +108,9 @@ public class EquipmentManager : MonoBehaviour
         bool result = LocalProgression.Execute("equipment-enhance", s => {
             var target = s.Equipment.Find(x => x.Id == item.instanceId);
             if (target == null || target.Level >= item.baseData.maxEnhancementLevel) return false;
-            var materials = s.Equipment.Where(x => x.Id != target.Id && x.Code == target.Code && !x.Player.HasValue && !x.Locked && x.Level == 0).Take(2).ToArray();
-            if (materials.Length != 2) return false;
-            foreach (var material in materials) s.Equipment.Remove(material);
+            long cost = EquipmentEconomy.EnhanceCost(item);
+            if (cost <= 0 || target.Level != item.enhancementLevel || !LocalProgression.Spend(s, eCurrency.EquipmentStone, cost)) return false;
+            target.EnhancementStonesSpent = checked(target.EnhancementStonesSpent + cost);
             target.Level++; return true;
         });
         if (!result) return EnhancementResult.SaveFailed;
@@ -147,15 +146,10 @@ public class EquipmentManager : MonoBehaviour
     public bool Dismantle(EquipmentInstance item)
     {
         if (item?.baseData == null) return false;
-        bool ok = LocalProgression.Execute("equipment-dismantle", s => {
-            var target = s.Equipment.Find(x => x.Id == item.instanceId);
-            if (target == null || target.Player.HasValue || target.Locked) return false;
-            s.Equipment.Remove(target);
-            LocalProgression.Credit(s, eCurrency.ArcaneKnowledge, item.baseData.rarity == eEquipmentRarity.Epic ? 8 : item.baseData.rarity == eEquipmentRarity.Rare ? 3 : 1);
-            return true;
-        });
-        if (ok) { RestoreEquipment(); OnItemDropped?.Invoke(null); } return ok;
+        return Dismantle(EquipmentEconomy.Preview(_ => true, item.instanceId));
     }
+    public bool Dismantle(EquipmentEconomy.DismantlePlan plan)
+    { bool ok = EquipmentEconomy.Execute(plan); if (ok) { RestoreEquipment(); OnItemDropped?.Invoke(null); } return ok; }
     public bool ClaimPending(string id)
     {
         bool ok = LocalProgression.Execute("equipment-pending", s => {

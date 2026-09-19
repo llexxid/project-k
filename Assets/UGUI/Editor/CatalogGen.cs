@@ -65,6 +65,7 @@ namespace KingdomIdle.UGUI.Editor
             catalog.iconSkillArrows = UguiGenAssets.PixIconArrows;
             catalog.iconSkillStar = UguiGenAssets.PixIconStar;
             catalog.iconGem = UguiGenAssets.IconGem;
+            catalog.iconEquipmentStone = UguiGenAssets.IconEquipmentStone;
             catalog.iconCoin = UguiGenAssets.IconCoin;
             catalog.iconAncientCoin = UguiGenAssets.IconAncientCoin;
             catalog.iconArcane = UguiGenAssets.IconArcane;
@@ -125,6 +126,7 @@ namespace KingdomIdle.UGUI.Editor
             catalog.itemGuideStepRow = Load($"{p}/Items/Item_GuideStepRow.prefab");
             catalog.itemGuideEmptyHint = Load($"{p}/Items/Item_GuideEmptyHint.prefab");
             catalog.itemInventoryListPage = Load($"{p}/Items/Item_InventoryListPage.prefab");
+            catalog.popupEquipmentAction = Load($"{p}/Popups/Popup_EquipmentAction.prefab");
             catalog.itemInventoryEquipDetail = Load($"{p}/Items/Item_InventoryEquipDetail.prefab");
 
             catalog.panelKACharacterSheet = Load($"{p}/Panels/Panel_KACharacterSheet.prefab");

@@ -29,6 +29,10 @@ namespace KingdomIdle.Balance
         public List<EquipmentSave> Equipment = new();
         public List<EquipmentSave> PendingEquipment = new();
         public List<LegacyEquipmentStack> LegacyEquipment = new();
+        public int AutoDismantleMask;
+        public int EquipmentRarityFilter = -1;
+        public bool EquipmentUsableOnly;
+        public int EquipmentSort;
         public Dictionary<int, MageSave> MageSkills = new();
         public int[] MageSlots = { -1, -1, -1, -1, -1 };
         public int EquipmentPity;
@@ -82,6 +86,7 @@ namespace KingdomIdle.Balance
         public int? Player;
         public bool Locked;
         public long ExpiresUtc;
+        public long EnhancementStonesSpent;
         public EquipmentSave Copy() => (EquipmentSave)MemberwiseClone();
     }
     [Serializable]

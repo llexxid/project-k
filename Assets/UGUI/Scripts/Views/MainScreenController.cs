@@ -318,7 +318,10 @@ namespace KingdomIdle.UGUI
             dropdown.anchorMin = dropdown.anchorMax = new Vector2(1f, 1f);
             dropdown.pivot = new Vector2(1f, 1f);
             Rect pr = parent.rect;   // 앵커(1,1) 기준점 = 부모 우상단
-            dropdown.anchoredPosition = new Vector2(brLocal.x - pr.xMax, brLocal.y - pr.yMax - gap);
+            float width = Mathf.Min(dropdown.rect.width, Mathf.Max(1, pr.width - 32));
+            dropdown.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
+            float right = Mathf.Clamp(brLocal.x, pr.xMin + 16 + width, pr.xMax - 16);
+            dropdown.anchoredPosition = new Vector2(right - pr.xMax, brLocal.y - pr.yMax - gap);
         }
 
         /// <summary>재화 변경 이벤트 구독 — 강화/가챠/전투 보상 시 즉시 HUD 갱신 (폴링 지연 보완).</summary>
@@ -400,7 +403,7 @@ namespace KingdomIdle.UGUI
             for (int i = content.childCount - 1; i >= 0; i--)
                 UnityEngine.Object.Destroy(content.GetChild(i).gameObject);
 
-            AddCurrencyLine(content, null, _currencyPremiumGroup ? "유료 재화" : "보유 재화", null, isTitle: true);
+            AddCurrencyLine(content, null, _currencyPremiumGroup ? "고대주화" : "보유 재화", null, isTitle: true);
 
             // 탭한 칩의 재화 그룹만 표시 (골드칩=무료/소프트, 고대주화칩=유료/프리미엄)
             var values = (eCurrency[])Enum.GetValues(typeof(eCurrency));
@@ -422,6 +425,7 @@ namespace KingdomIdle.UGUI
                 case eCurrency.AncientCoin: return cat.iconAncientCoin;
                 case eCurrency.ArcaneKnowledge: return cat.iconArcane;
                 case eCurrency.ClassFragment: return cat.iconFragment;
+                case eCurrency.EquipmentStone: return cat.iconEquipmentStone;
                 default: return cat.iconGem;
             }
         }
@@ -431,7 +435,7 @@ namespace KingdomIdle.UGUI
         {
             bool isPremium = c == eCurrency.AncientCoin;
             if (premium) return isPremium;
-            return c == eCurrency.Gold || c == eCurrency.ArcaneKnowledge || c == eCurrency.ClassFragment || c == eCurrency.Ruby;
+            return c == eCurrency.Gold || c == eCurrency.ArcaneKnowledge || c == eCurrency.ClassFragment || c == eCurrency.Ruby || c == eCurrency.EquipmentStone;
         }
 
         private void AddCurrencyLine(RectTransform parent, Sprite icon, string name, string value, bool isTitle)
@@ -461,6 +465,7 @@ namespace KingdomIdle.UGUI
                 case eCurrency.ArcaneKnowledge: return "비전지식";
                 case eCurrency.ClassFragment: return "전직 파편";
                 case eCurrency.Ruby: return "루비";
+                case eCurrency.EquipmentStone: return "강화석";
                 default: return c.ToString();
             }
         }

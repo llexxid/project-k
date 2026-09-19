@@ -26,10 +26,11 @@ namespace KingdomIdle.UGUI.Editor
             var root = F.Container(null, "Body_Development");
             F.VLayout(root.gameObject, 10f, null, TextAnchor.UpperLeft, expandWidth: true);
             var view = root.gameObject.AddComponent<DevelopmentBodyView>();
+            AddGrowthTabs(view);
 
             // 설명 (.ka-dev-desc: 22px @70%)
             var desc = F.Text(root, "Desc",
-                "골드를 소비해 모든 캐릭터의 공격력과 체력을 영구 강화합니다.",
+                "골드로 모든 왕국군의 공격력과 체력을 강화합니다.",
                 22f, new Color(1f, 1f, 1f, 0.70f), TextAlignmentOptions.Left, wrap: true);
             F.Preferred(desc, height: 60f);
             view.descLabel = desc;
@@ -44,6 +45,8 @@ namespace KingdomIdle.UGUI.Editor
             var cards = F.Container(root, "Cards");
             F.VLayout(cards.gameObject, 10f, null, TextAnchor.UpperLeft, expandWidth: true);
             view.cardsRoot = cards;
+            var rubyCards=F.Container(root,"RubyCards");F.VLayout(rubyCards.gameObject,10,expandWidth:true);
+            view.rubyCardsRoot=rubyCards;
 
             // 빈 상태 라벨 (강화 항목이 없을 때만 표시)
             var empty = F.Text(root, "Empty", "강화 가능한 항목이 없습니다.",
@@ -53,6 +56,12 @@ namespace KingdomIdle.UGUI.Editor
             empty.gameObject.SetActive(false);
 
             return PrefabGenUtil.SavePrefab(root.gameObject, $"{PrefabGenUtil.PrefabRoot}/Panels/Body_Development.prefab");
+        }
+
+        internal static void AddGrowthTabs(DevelopmentBodyView view)
+        {
+            var nav=F.Container(view.transform,"GrowthTabs");F.HLayout(nav.gameObject,12,expandWidth:true);
+            F.Preferred(nav,height:128);view.navBar=nav;nav.SetAsFirstSibling();
         }
     }
 }

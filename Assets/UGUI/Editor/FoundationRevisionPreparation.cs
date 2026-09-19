@@ -13,6 +13,7 @@ namespace KingdomIdle.UGUI.Editor
             KingdomIdle.EditorTools.CombatPreparation.Prepare();
             MageSkillAssetPreparation.Build();
             PrepareFlow();
+            EquipmentFeaturePreparation.Prepare();
             Edit("Popups/Popup_Profile.prefab", root => F.RectangularBar(root.GetComponent<ProfilePopupView>().xpFill));
             Edit("Huds/Hud_Party.prefab", root => {
                 foreach (var member in root.GetComponent<PartyHudView>().members) F.RectangularBar(member.hpFill);
@@ -34,6 +35,17 @@ namespace KingdomIdle.UGUI.Editor
             Directory.CreateDirectory("Recordings/FoundationRevision/Editor");
             File.WriteAllText("Recordings/FoundationRevision/Editor/stage-acceptance.json", Newtonsoft.Json.JsonConvert.SerializeObject(stageReport, Newtonsoft.Json.Formatting.Indented));
             Debug.Log("FOUNDATION STAGE PREPARATION PASSED");
+        }
+
+        public static void PrepareVisuals()
+        {
+            KingdomIdle.EditorTools.CombatPreparation.Prepare();
+            MageSkillAssetPreparation.Build();
+            ProgressionFlowPreparation.Prepare();
+            KingdomIdle.EditorTools.Optimization.OptAtlases.CreateInBuildAtlases();
+            AssetDatabase.SaveAssets();
+            CombatPresentationPreparation.Validate();
+            Debug.Log("FOUNDATION VISUAL PREPARATION PASSED");
         }
 
         private static void Edit(string relative, Action<GameObject> action)

@@ -80,11 +80,6 @@ public class EquipmentInstance
     /// </summary>
     public float GetEnhanceSuccessRate() => 1f;
 
-    /// <summary>
-    /// 강화에 필요한 동일 장비 소모 개수.
-    /// </summary>
-    public int GetMaterialCount() => 2;
-
     #endregion
 
 }

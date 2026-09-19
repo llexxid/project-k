@@ -67,6 +67,7 @@ namespace KingdomIdle.UGUI
         public Sprite iconSkillArrows;  // 집중사격
         public Sprite iconSkillStar;    // 에너지 파동
         public Sprite iconGem;          // 재료·기타
+        public Sprite iconEquipmentStone; // 장비 분해·강화 전용 광석
         public Sprite iconCoin;         // 골드
         public Sprite iconAncientCoin;  // 고대주화(청동)
         public Sprite iconArcane;       // 비전 지식(보라 젬)
@@ -98,6 +99,7 @@ namespace KingdomIdle.UGUI
         public GameObject popupDungeonClear;
         public GameObject popupReincarnation;
         public GameObject popupOfflineReward;
+        public GameObject popupEquipmentAction;
 
         [Header("Overlays")]
         public GameObject overlayLoading;

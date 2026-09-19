@@ -58,10 +58,12 @@ namespace KingdomIdle.UGUI
                             case "crowded-fixture":
                                 LocalProgression.Execute("qa-crowded-inventory",s=>{
                                     s.Equipment.Clear(); s.PendingEquipment.Clear(); s.LegacyEquipment.Clear();
-                                    var pool=EquipmentManager.Instance.GetByRarity(eEquipmentRarity.Normal);
+                                    s.AutoDismantleMask=0;s.EquipmentRarityFilter=-1;s.EquipmentUsableOnly=false;s.EquipmentSort=0;
+                                    var pool=EquipmentManager.Instance.GetByRarity(eEquipmentRarity.Normal).Concat(EquipmentManager.Instance.GetByRarity(eEquipmentRarity.Rare)).Concat(EquipmentManager.Instance.GetByRarity(eEquipmentRarity.Epic)).ToList();
                                     for(int i=0;i<Math.Max(376,c.value);i++)
                                         if(!EquipmentManager.Grant(s,new EquipmentSave{Id="qa-crowded-"+i,Code=pool[i%pool.Count].itemCode},true))return false;
                                     s.Wallet[eCurrency.AncientCoin]=20000;
+                                    s.Wallet[eCurrency.EquipmentStone]=100;
                                     s.MainClears.Add(0x20001000B);s.MainClears.Add(0x200020005);
                                     s.HealthLevel=136;s.AttackLevel=75;
                                     return true;
@@ -158,6 +160,10 @@ namespace KingdomIdle.UGUI
                                 output=new{accepted=slotAccepted};break;
                             case "timescale":Time.timeScale=Mathf.Clamp(c.value/100f,0f,1f);_capturePaused=Time.timeScale<1;_captureResumeAt=Time.unscaledTime+15;break;
                             case "mage-close":MageTowerDetailPopupController.Hide();MageTowerPopupController.Hide();break;
+                            case "equipment-acceptance":
+                                float equipmentPrevious=Time.timeScale;Time.timeScale=0;
+                                try{output=EquipmentEconomyAcceptance.Run();}finally{LocalProgression.OpenTestAccount(PlayAccount);EquipmentManager.Instance?.RestoreEquipment();StatEnhanceManager.Instance?.ApplyToAllPlayers();Time.timeScale=equipmentPrevious;}
+                                break;
                             case "acceptance":
                                 float previous=Time.timeScale;Time.timeScale=0;
                                 try{output=BalanceAcceptance.Run();}finally{LocalProgression.OpenTestAccount(PlayAccount);EquipmentManager.Instance?.RestoreEquipment();MageTowerManager.Instance?.NotifyCommitted();StatEnhanceManager.Instance?.ApplyToAllPlayers();Time.timeScale=previous;}

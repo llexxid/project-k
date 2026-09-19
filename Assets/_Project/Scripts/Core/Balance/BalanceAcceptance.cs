@@ -125,13 +125,13 @@ namespace KingdomIdle.Balance
                     return true;
                 });
                 manager.RestoreEquipment();var target=manager.Inventory.Items.First(x=>x.instanceId=="target");
-                Check(!manager.TryEnhance(target) && LocalProgression.State.Equipment.Count==4,"Locked and enhanced items cannot be enhancement materials");
-                var locked=manager.Inventory.Items.First(x=>x.instanceId=="locked");manager.SetLocked(locked,false);
+                Check(!manager.TryEnhance(target) && LocalProgression.State.Equipment.Count==4,"Enhancement with no stones preserves all owned items");
+                LocalProgression.Execute("qa-stones",s=>{s.Wallet[eCurrency.EquipmentStone]=2;return true;});
                 long beforeGold=LocalProgression.Balance(eCurrency.Gold);
-                Check(manager.TryEnhance(target) && LocalProgression.State.Equipment.Count==2 && target.enhancementLevel==1 && LocalProgression.Balance(eCurrency.Gold)==beforeGold,"Equipment enhancement consumes exactly two level-zero items without gold");
+                Check(manager.TryEnhance(target) && LocalProgression.State.Equipment.Count==4 && target.enhancementLevel==1 && LocalProgression.Balance(eCurrency.EquipmentStone)==0 && LocalProgression.Balance(eCurrency.Gold)==beforeGold,"Equipment enhancement consumes two stones, preserves weapons and gold");
                 manager.SetLocked(target,true);Check(!manager.Dismantle(target),"Locked equipment cannot be dismantled");
                 manager.SetLocked(target,false);long beforeKnowledge=LocalProgression.Balance(eCurrency.ArcaneKnowledge);
-                Check(manager.Dismantle(target) && LocalProgression.Balance(eCurrency.ArcaneKnowledge)==beforeKnowledge+1,"Normal dismantle pays exactly one knowledge");
+                Check(manager.Dismantle(target) && LocalProgression.Balance(eCurrency.EquipmentStone)==2 && LocalProgression.Balance(eCurrency.ArcaneKnowledge)==beforeKnowledge,"Dismantle pays base stone plus floor 80 percent of exact enhancement spend");
             }
             var mage=KingdomIdle.MageTower.MageTowerManager.Instance;
             if(mage!=null)

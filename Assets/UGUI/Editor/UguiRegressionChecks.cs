@@ -52,13 +52,11 @@ namespace KingdomIdle.UGUI.Editor
                 var equipment=Model<EquipmentManager>();var inventory=new EquipmentInventory();Field(equipment,"_inventory",inventory);
                 var data=ScriptableObject.CreateInstance<EquipmentData>();Owned.Add(data);data.enhanceMaterialCount=1;data.maxEnhancementLevel=10;
                 var target=new EquipmentInstance(data);var equipped=new EquipmentInstance(data){equipmentPlayerIndex=0};inventory.Add(target);inventory.Add(equipped);
-                Check(equipment.GetEnhanceMaterialCount(target)==0&&!equipment.CanEnhance(target),"Equipped copies excluded from material count");
-                Check(equipment.TryEnhanceDetailed(target)==EquipmentManager.EnhancementResult.NotEnoughMaterials&&inventory.Items.Count==2&&target.enhancementLevel==0,"Rejected enhancement preserves items and level");
+                Check(EquipmentEconomy.EnhanceCost(target)==2,"Normal weapon enhancement costs two stones");
                 Check(equipment.TryEnhanceDetailed(new EquipmentInstance(data))==EquipmentManager.EnhancementResult.InvalidItem,"Foreign target rejected");
                 var material=new EquipmentInstance(data);inventory.Add(material);
-                Check(equipment.GetEnhanceMaterialCount(target)==1&&equipment.CanEnhance(target),"Available copies agree with enhancement eligibility");
-                var result=equipment.TryEnhanceDetailed(target);
-                Check((result==EquipmentManager.EnhancementResult.Success||result==EquipmentManager.EnhancementResult.ChanceFailed)&&inventory.Items.Contains(target)&&inventory.Items.Contains(equipped)&&!inventory.Items.Contains(material),"Attempt consumes only eligible material");
+                Check(EquipmentEconomy.EnhanceCost(target)==2&&inventory.Items.Contains(equipped)&&inventory.Items.Contains(material),"Copies do not change the stone cost or become enhancement materials");
+                // Atomic wallet, dismantle and overflow behavior is covered by EquipmentEconomyAcceptance.
 
                 var quest=Model<QuestManager>();var provider=new Definitions();Field(quest,"definitionProvider",provider);
                 var q=quest.AddQuestState(1);q.IsCompleted=true;quest.ClaimQuestReward(1);

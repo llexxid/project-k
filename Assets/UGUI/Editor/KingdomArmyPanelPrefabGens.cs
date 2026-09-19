@@ -208,6 +208,7 @@ namespace KingdomIdle.UGUI.Editor
             var grid = F.Container(root, "InventoryGrid");
             MakeEquipGrid(grid.gameObject);
             view.inventoryGrid = grid;
+            EquipmentFeaturePreparation.AttachToolbar(grid);
 
             view.emptyLabel = Placeholder(root, "보유한 장비가 없습니다.");
 

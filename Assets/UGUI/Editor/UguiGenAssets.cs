@@ -132,6 +132,7 @@ namespace KingdomIdle.UGUI.Editor
         internal static Sprite IconWand => LL("wand_star");      // 마법탑 스킬
         internal static Sprite IconChest => LL("chest");         // 장비 뽑기/보상
         internal static Sprite IconGem => LL("Economy_Gem_02_Red");   // 재료·기타·고대주화(풀컬러 러스틱)
+        internal static Sprite IconEquipmentStone => AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/Art/LayerLab/GUI Pro-MinimalGame/Shared/Icons/UniqueIcon/128/Material_Ore_02_01.png");
         internal static Sprite IconCoin => LL("Economy_Coin_02_Gold"); // 골드(풀컬러 러스틱)
         internal static Sprite IconAncientCoin => LL("Economy_Coin_02_Bronze"); // 고대주화(청동)
         internal static Sprite IconArcane => LL("Economy_Gem_01_Purple");        // 비전지식

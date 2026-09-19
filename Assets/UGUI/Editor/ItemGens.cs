@@ -113,17 +113,16 @@ namespace KingdomIdle.UGUI.Editor
         {
             var row = F.Container(null, "Item_CurrencyLine");
             var view = row.gameObject.AddComponent<CurrencyLineItemView>();
-            F.VLayout(row.gameObject, 8, new RectOffset(2, 2, 4, 4));
-            F.Preferred(row, height: 104);
-            var header = F.Container(row, "CurrencyName"); F.HLayout(header.gameObject, 10, null, TextAnchor.MiddleLeft);
-            F.Preferred(header, height: 44);
-            var icon = F.IconImage(header, "Icon", null, 32, 32); F.Preferred(icon, width: 34, height: 34); view.icon = icon;
-            view.label = F.Text(header, "Name", "", 26, UguiTheme.Parchment);
-            F.Flexible(view.label, flexWidth: 1);
-            view.valueLabel = F.Text(row, "Value", "", 26, UguiTheme.AccentGoldStrong, TextAlignmentOptions.Right);
-            F.Preferred(view.valueLabel, height: 40);
+            F.HLayout(row.gameObject, 16, new RectOffset(8, 8, 8, 8), TextAnchor.MiddleLeft);
+            F.Preferred(row, height: 82);
+            var icon = F.IconImage(row, "Icon", null, 40, 40); F.Preferred(icon, width: 44, height: 44); view.icon = icon;
+            view.label = F.Text(row, "Name", "", 30, UguiTheme.Parchment);
+            F.Preferred(view.label, width: 170, height: 50);
+            view.valueLabel = F.Text(row, "Value", "", 32, UguiTheme.AccentGoldStrong, TextAlignmentOptions.Right);
+            F.Preferred(view.valueLabel, width: 280, height: 50); F.Flexible(view.valueLabel, flexWidth: 1);
             view.valueLabel.textWrappingMode = TextWrappingModes.NoWrap;
-            view.valueLabel.overflowMode = TextOverflowModes.Overflow;
+            view.valueLabel.enableAutoSizing = true; view.valueLabel.fontSizeMin = 23; view.valueLabel.fontSizeMax = 32;
+            view.valueLabel.overflowMode = TextOverflowModes.Ellipsis;
             return PrefabGenUtil.SavePrefab(row.gameObject, $"{PrefabGenUtil.PrefabRoot}/Items/Item_CurrencyLine.prefab");
         }
 

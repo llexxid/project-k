@@ -464,6 +464,8 @@ namespace KingdomIdle.UGUI
             string jobName = player?.playerStatus?.JobName ?? "";
             var equipMgr = player?.PlayerEquipmentManager;
             EquipmentManager equipmentManager = EquipmentManager.Instance;
+            var toolbar = equip.GetComponentInChildren<EquipmentToolbarView>(true);
+            toolbar?.Bind(data => data.IsAllowedForJob(jobName), Refresh);
 
             var equipped = equipMgr?.GetSlotEquipment(eEquipmentSlot.Weapon);
 
@@ -521,43 +523,45 @@ namespace KingdomIdle.UGUI
                 if (equip.emptyLabel != null) equip.emptyLabel.gameObject.SetActive(true);
                 return;
             }
-            if (equip.emptyLabel != null) equip.emptyLabel.gameObject.SetActive(false);
+            if (equip.emptyLabel != null)
+            {
+                equip.emptyLabel.text = "필터에 맞는 장비가 없습니다.";
+                equip.emptyLabel.gameObject.SetActive(toolbar != null && !toolbar.HasMatches);
+            }
 
-            BuildStoredEquipmentCells(equip.inventoryGrid, Refresh);
+            BuildStoredEquipmentCells(equip.inventoryGrid, Refresh, toolbar != null ? toolbar.Accepts : null);
             // 1차: 장착가능(해당 전직) > 장착불가  2차: 등급 내림차순  3차: 강화레벨 내림차순
-            var sortedItems = equipmentManager.Inventory.Items
-                .OrderByDescending(i => i.baseData.IsAllowedForJob(jobName) ? 1 : 0)
-                .ThenByDescending(i => i.baseData.rarity)
-                .ThenByDescending(i => i.enhancementLevel)
-                .ToList();
+            var sortedItems = toolbar != null ? toolbar.Sort(equipmentManager.Inventory.Items) : equipmentManager.Inventory.Items;
 
             foreach (var item in sortedItems)
                 BuildInventoryEquipCard(equip.inventoryGrid, item, jobName, equipped, equipMgr);
         }
 
-        internal static void BuildStoredEquipmentCells(RectTransform grid, System.Action refresh)
+        internal static void BuildStoredEquipmentCells(RectTransform grid, System.Action refresh, System.Func<int, bool> accepts = null)
         {
             var equipmentManager = EquipmentManager.Instance;
             if (equipmentManager == null) return;
             foreach (var stored in LocalProgression.State.LegacyEquipment)
             {
+                if (accepts != null && !accepts(stored.Code)) continue;
                 var data = equipmentManager.GetData(stored.Code); if (data == null) continue;
                 int code = stored.Code, level = stored.Level;
                 string enhancement = level > 0 ? $" +{level}" : "";
                 InstantiateEquipCell(grid, data.icon, $"{data.DisplayName}{enhancement} ×{stored.Count}", UguiTheme.AccentGold,
                     "1개 받기", UguiTheme.RarityColor(data.rarity), false, false, "추가 보관", () => {
                         if (equipmentManager.ClaimLegacy(code, level)) refresh();
-                        else UIManager.Instance?.ShowToast("장비를 강화하거나 분해하면 가방 공간이 생깁니다.");
+                        else UIManager.Instance?.ShowToast("가방이 가득 찼습니다. 위의 일괄 분해로 추가 보관 장비도 정리할 수 있습니다.");
                     });
             }
             foreach (var group in LocalProgression.State.PendingEquipment.GroupBy(x => (x.Code, x.Level)))
             {
                 var item = group.First(); var data = equipmentManager.GetData(item.Code); if (data == null) continue;
+                if (accepts != null && !accepts(item.Code)) continue;
                 string id = item.Id;
                 InstantiateEquipCell(grid, data.icon, $"{data.DisplayName} ×{group.Count()}", UguiTheme.AccentGold,
                     "1개 받기", UguiTheme.RarityColor(data.rarity), false, false, "추가 보관", () => {
                         if (equipmentManager.ClaimPending(id)) refresh();
-                        else UIManager.Instance?.ShowToast("장비를 강화하거나 분해하면 가방 공간이 생깁니다.");
+                        else UIManager.Instance?.ShowToast("가방이 가득 찼습니다. 위의 일괄 분해로 추가 보관 장비도 정리할 수 있습니다.");
                     });
             }
         }
@@ -581,7 +585,7 @@ namespace KingdomIdle.UGUI
             var rarityColor = UguiTheme.RarityColor(item.baseData.rarity);
 
             InstantiateEquipCell(grid, item.baseData.icon, name, rarityColor, sub, rarityColor,
-                isEquipped, !isAllowed, isEquipped ? "장착 중" : null, onClick);
+                isEquipped, !isAllowed, isEquipped ? "장착 중" : item.IsLocked ? "잠금" : null, onClick);
         }
 
         /// <summary>공용 장비 셀 생성 (왕국군/인벤토리). Item_EquipCell 프리팹 인스턴스화.</summary>
@@ -683,9 +687,9 @@ namespace KingdomIdle.UGUI
 
             // 강화 정보 표시
             BuildEnhanceInfo(detail, item);
-            AddActionButton(detail.actionRow,item.IsLocked?"잠금 해제":"재료 사용 잠금",UguiTheme.BtnCancel,true,()=> { EquipmentManager.Instance.SetLocked(item,!item.IsLocked); ShowEquipmentActionPopup(item,isEquipped,isAllowed,equipMgr); });
-            int yield = item.baseData.rarity==eEquipmentRarity.Epic?8:item.baseData.rarity==eEquipmentRarity.Rare?3:1;
-            AddActionButton(detail.actionRow,$"분해 → 마법 지식 {yield} (강화 재료 반환 없음)",UguiTheme.BtnSpend,!item.IsLocked&&!item.IsEquipped,()=> { if(EquipmentManager.Instance.Dismantle(item)) Refresh(); });
+            AddActionButton(detail.actionRow,item.IsLocked?"잠금 해제":"분해 방지 잠금",UguiTheme.BtnCancel,true,()=> { EquipmentManager.Instance.SetLocked(item,!item.IsLocked); ShowEquipmentActionPopup(item,isEquipped,isAllowed,equipMgr); });
+            AddActionButton(detail.actionRow,"분해 · 강화석 획득",UguiTheme.BtnSpend,!item.IsLocked&&!item.IsEquipped,
+                () => EquipmentActionDialog.Dismantle(EquipmentEconomy.Preview(_ => true, item.instanceId), Refresh));
             // Keep the prefab's existing layout component; a separate child owns the vertical actions.
             var buttons = new System.Collections.Generic.List<Transform>();
             foreach (Transform child in detail.actionRow) if(child.gameObject.activeSelf) buttons.Add(child);
@@ -713,35 +717,26 @@ namespace KingdomIdle.UGUI
                 return;
             }
 
-            int needed = item.GetMaterialCount();
-            int available = 0;
-            if (EquipmentManager.Instance.Inventory != null)
-            {
-                foreach (var inv in EquipmentManager.Instance.Inventory.Items)
-                {
-                    if (inv != item && inv.baseData == item.baseData && !inv.IsEquipped && !inv.IsLocked && inv.enhancementLevel == 0)
-                        available++;
-                }
-            }
+            long needed = EquipmentEconomy.EnhanceCost(item);
+            long available = KingdomIdle.Balance.LocalProgression.Balance(eCurrency.EquipmentStone);
 
             if (available < needed)
             {
-                int shortage = needed - available;
-                ShowToast($"동일 장비 부족! (보유: {available}/{needed}개, {shortage}개 부족)");
+                long shortage = needed - available;
+                ShowToast($"강화석 부족 (보유 {available} / 필요 {needed}, {shortage}개 부족)");
                 return;
             }
 
             var result = EquipmentManager.Instance.TryEnhanceDetailed(item);
             if (result == EquipmentManager.EnhancementResult.Success)
             {
-                float nextRate = item.GetEnhanceSuccessRate() * 100f;
-                ShowToast($"강화 성공! {item.baseData.DisplayName} +{item.enhancementLevel} (다음 확률: {nextRate:F0}%)");
+                ShowToast($"강화 성공! {item.baseData.DisplayName} +{item.enhancementLevel}");
             }
             else if (result == EquipmentManager.EnhancementResult.ChanceFailed)
             {
-                ShowToast($"강화 실패... 재료 {needed}개가 소모되었습니다.");
+                ShowToast($"강화 실패. 다시 확인해 주세요.");
             }
-            else ShowToast("강화 조건이 변경되었습니다. 장착하지 않은 동일 장비를 확인해 주세요.");
+            else ShowToast("강화하지 못했습니다. 강화석과 저장 상태를 확인해 주세요.");
 
             // 현재 화면이 액션 팝업이면 다시 표시
             ShowEquipmentActionPopup(item,
@@ -762,22 +757,14 @@ namespace KingdomIdle.UGUI
             }
             detail.enhanceInfoGroup.gameObject.SetActive(true);
 
-            int needed = item.GetMaterialCount();
-            int available = 0;
-            if (EquipmentManager.Instance?.Inventory != null)
-            {
-                foreach (var inv in EquipmentManager.Instance.Inventory.Items)
-                {
-                    if (inv != item && inv.baseData == item.baseData && !inv.IsEquipped && !inv.IsLocked && inv.enhancementLevel == 0)
-                        available++;
-                }
-            }
+            long needed = EquipmentEconomy.EnhanceCost(item);
+            long available = KingdomIdle.Balance.LocalProgression.Balance(eCurrency.EquipmentStone);
 
             float successRate = item.GetEnhanceSuccessRate() * 100f;
 
             if (detail.materialLabel != null)
             {
-                detail.materialLabel.text = $"필요 재료: {item.baseData.DisplayName} x{needed} (보유: {available}개)";
+                detail.materialLabel.text = $"필요 강화석: {needed}개 (보유: {NumberNotation.Format(available)}개)";
                 detail.materialLabel.color = available < needed ? FragLockedColor : StatLineColor;
             }
             if (detail.successRateLabel != null)

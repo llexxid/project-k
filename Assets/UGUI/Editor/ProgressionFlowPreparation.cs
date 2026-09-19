@@ -39,7 +39,9 @@ namespace KingdomIdle.UGUI.Editor
 
             if (wave.bossChallengeRoot != null) Object.DestroyImmediate(wave.bossChallengeRoot);
             var touch = F.Box(area, "BossChallenge", new Color(0, 0, 0, .001f), false, true);
-            Pin(touch.rectTransform, new Vector2(1, .5f), Vector2.zero, new Vector2(176, 86), new Vector2(1, .5f));
+            Pin(touch.rectTransform, new Vector2(1, .5f), Vector2.zero, new Vector2(176, 128), new Vector2(1, .5f));
+            var background = F.Box(touch.transform, "ReadabilityBackground", UguiTheme.RusticPanelDeep, false);
+            Pin(background.rectTransform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(172, 78), new Vector2(.5f, .5f));
             var toggle = touch.gameObject.AddComponent<Toggle>();
             toggle.targetGraphic = touch;
             toggle.transition = Selectable.Transition.None;
