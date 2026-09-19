@@ -174,6 +174,8 @@ namespace Scripts.Core
                 return;
 
             IsBattleRunning = true;
+            // 첫 스폰과 보스 입장 연출이 끝난 실제 전투 Task부터 온라인 퀘스트 시간을 센다.
+            BattleEconomy.StartQuestTime(this);
             OnBattleStarted?.Invoke(this);
         }
 
@@ -215,6 +217,8 @@ namespace Scripts.Core
             if (result.Action == eStageFlowAction.None) return;
             if (HasPendingResult) return;
 
+            // 결과 상태로 바꾸기 전에 마지막 실제 전투 구간을 수집한다. 이후 결과 연출 시간은 제외된다.
+            BattleEconomy.StopQuestTime(this);
             HasPendingResult = true;
             IsBattleRunning = false;
             PendingResult = result;

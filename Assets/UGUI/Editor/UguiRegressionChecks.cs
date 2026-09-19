@@ -5,6 +5,7 @@ using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
+using KingdomIdle.Balance;
 using Object=UnityEngine.Object;
 
 namespace KingdomIdle.UGUI.Editor
@@ -60,11 +61,22 @@ namespace KingdomIdle.UGUI.Editor
                 var result=equipment.TryEnhanceDetailed(target);
                 Check((result==EquipmentManager.EnhancementResult.Success||result==EquipmentManager.EnhancementResult.ChanceFailed)&&inventory.Items.Contains(target)&&inventory.Items.Contains(equipped)&&!inventory.Items.Contains(material),"Attempt consumes only eligible material");
 
-                var quest=Model<QuestManager>();var provider=new Definitions();Field(quest,"definitionProvider",provider);
-                var q=quest.AddQuestState(1);q.IsCompleted=true;quest.ClaimQuestReward(1);
-                Check(!q.IsRewardClaimed&&quest.GetActiveGuideState()==q,"Unconfigured reward is never consumed");
-                provider.Quest.RewardGroupId=0;quest.ClaimQuestReward(1);
-                Check(q.IsRewardClaimed&&quest.GetActiveGuideState()==null,"Rewardless guide completes without phantom reward");
+                // UI contracts can be checked without opening or mutating a player's save.
+                var token = new QuestClaimToken(1, 20001, "2026-09-17");
+                Check(token != new QuestClaimToken(2, 20001, "2026-09-17") && token != new QuestClaimToken(1, 20001, "2026-09-18"),
+                    "Quest buttons distinguish account and period");
+                var rewards = new List<QuestRewardSnapshot> { new(eCurrency.Gold, 50) };
+                var questRow = new QuestRowSnapshot(token, eQuestCategory.Daily, "Daily", "Kill", eQuestObjectiveType.MonsterKill,
+                    0, 10, 10, QuestRowState.Claimable, false, 0, rewards);
+                rewards.Clear();
+                var rows = new List<QuestRowSnapshot> { questRow };
+                var board = new QuestBoardSnapshot(1, 1, eQuestCategory.Daily, token.Period, 0, rows);
+                rows.Clear();
+                Check(board.Rows.Count == 1 && questRow.Rewards.Count == 1 && questRow.CanClaim,
+                    "Quest UI snapshot collections cannot be changed through source lists");
+                Check(!QuestBoardSnapshot.NotReady(eQuestCategory.Daily).IsReady &&
+                    !new QuestClaimResult(QuestClaimStatus.SaveFailed, token).Succeeded,
+                    "Quest UI distinguishes loading and failed reward saves");
 
                 var root=new GameObject("Modal order fixture",typeof(RectTransform));Owned.Add(root);
                 var lower=new GameObject("Lower");lower.transform.SetParent(root.transform);
@@ -75,12 +87,6 @@ namespace KingdomIdle.UGUI.Editor
                 Debug.Log("[UI regressions] "+Passed.Count+" passed\n"+string.Join("\n",Passed));
             }
             finally{for(int i=Owned.Count-1;i>=0;i--)if(Owned[i]!=null)Object.DestroyImmediate(Owned[i]);Owned.Clear();}
-        }
-        private sealed class Definitions:IQuestDefinitionProvider
-        {
-            internal readonly QuestDefinition Quest=new(){QuestId=1,Category=eQuestCategory.Guide,RewardGroupId=7,ProgressMode=eQuestProgressMode.EventCount,RequiredCount=1};
-            public IReadOnlyList<QuestDefinition> GetQuestDefinitions()=>new[]{Quest};
-            public QuestDefinition GetQuestById(long id)=>id==1?Quest:null;
         }
     }
 }

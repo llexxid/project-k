@@ -307,7 +307,8 @@ obj1.GetComponent<ChangeJob>().ChangeJobByCode(_characterDataFromServer[0].JobCo
                         {
                             var saved = new EquipmentSave { Id = System.Guid.NewGuid().ToString("N"), Code = data.itemCode,
                                 Level = System.Math.Min((int)item.GetItemEnchantCount(),data.maxEnhancementLevel) };
-                            if (!EquipmentManager.Grant(state,saved,true)) throw new System.InvalidOperationException("Inventory migration exceeds capacity; raw server account remains unchanged.");
+                            // 저장 복원은 오늘의 신규 획득이 아니다. 과거 승인 카운터는 별도로 보존한다.
+                            if (!EquipmentManager.Grant(state,saved,true,false)) throw new System.InvalidOperationException("Inventory migration exceeds capacity; raw server account remains unchanged.");
                         }
                     }
                     state.Modules["inventory-imported"] = "1";

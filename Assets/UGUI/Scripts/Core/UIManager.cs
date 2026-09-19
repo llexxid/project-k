@@ -72,6 +72,10 @@ namespace KingdomIdle.UGUI
         public bool HasBlockingPanel =>
             _panelStack.Count > 0 && !_panelStack.Peek().IsTab;
 
+        /// <summary>온라인 전투 시간에서 제외할 메뉴·설정·로딩 상태를 한 곳에서 제공한다.</summary>
+        public bool BlocksQuestBattleTime => HasBlockingPanel || HasActiveTabPanel || ModalBackHandler.HasOpenModal ||
+            (_settings != null && _settings.IsOpen) || (_loading != null && _loading.gameObject.activeInHierarchy);
+
         /// <summary>패널 스택이 변할 때마다 발생 — 탭 선택 시각화, 파티 HUD 위치 갱신용.</summary>
         public event Action PanelStackChanged;
 

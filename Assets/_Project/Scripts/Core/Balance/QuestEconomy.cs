@@ -1,144 +1,295 @@
 using System;
-using System.Linq;
 using System.Collections.Generic;
-using Newtonsoft.Json.Linq;
-using UnityEngine;
+using System.IO;
+using System.Linq;
+
 namespace KingdomIdle.Balance
 {
+    /// <summary>기존 게임플레이 진입점을 유지하며 퀘스트 변경을 경제 거래 안에서 조율한다.</summary>
     public static class QuestEconomy
     {
-        private static List<QuestDefinition> _definitions;
-        private static Dictionary<int, JObject> _rewards;
-        public static IReadOnlyList<QuestDefinition> Definitions { get { Load(); return _definitions; } }
-        private static void Load()
-        {
-            if (_definitions != null) return;
-            var source = Resources.Load<TextAsset>("Balance/catalog");
-            if (source == null) throw new InvalidOperationException("Balance quest catalog missing.");
-            var json = JObject.Parse(source.text); var definitions = new List<QuestDefinition>();
-            foreach (string section in new[] { "guide", "quests", "achievements" })
-                foreach (JObject row in json[section])
-                {
-                    if ((string)row["status"] != "활성") continue;
-                    var q = new QuestDefinition { QuestId = (long)row["id"], Title = (string)row["title"] ?? (string)row["code"], Description = (string)row["target"],
-                        ObjectiveType = Enum.Parse<eQuestObjectiveType>((string)row["type"]), ProgressMode = Enum.Parse<eQuestProgressMode>((string)row["mode"]),
-                        TargetId = (long)row["targetid"], RequiredCount = (int)row["required"], RewardGroupId = (int)row["reward"], NextQuestId = (int?)row["next"] ?? 0,
-                        Category = section == "guide" ? eQuestCategory.Guide : section == "achievements" ? eQuestCategory.Achievement : (string)row["category"] == "일일" ? eQuestCategory.Daily : eQuestCategory.Weekly };
-                    q.IsRepeatable = q.Category == eQuestCategory.Daily || q.Category == eQuestCategory.Weekly;
-                    if (q.RequiredCount <= 0 || (q.ObjectiveType == eQuestObjectiveType.StageClear && q.TargetId == 0)) throw new InvalidOperationException("Invalid quest " + q.QuestId);
-                    definitions.Add(q);
-                }
-            _rewards = json["rewards"].Cast<JObject>().ToDictionary(x => (int)x["id"]);
-            if (definitions.Select(x => x.QuestId).Distinct().Count() != definitions.Count) throw new InvalidOperationException("Duplicate quest id.");
-            _definitions = definitions;
-        }
-        public static string Week
-        {
-            get { var date = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(9)).Date; return date.AddDays(-((int)date.DayOfWeek + 6) % 7).ToString("yyyy-MM-dd"); }
-        }
-        public static string Key(QuestDefinition q, ProgressionState s) => $"quest:{q.QuestId}:" + (q.Category == eQuestCategory.Daily ? s.QuestDay : q.Category == eQuestCategory.Weekly ? s.QuestWeek : "permanent");
-        private static string CounterKey(string period, eQuestObjectiveType type, long target) => $"{period}|{(int)type}|{target}";
-        public static void Count(ProgressionState s, eQuestObjectiveType type, long target, long amount)
+        /// <summary>퀘스트 하위 저장 버전. 전체 경제 스키마와 독립적으로 이관한다.</summary>
+        public const int SchemaVersion = 1;
+        /// <summary>런타임에서 사용하는 단일 카탈로그의 활성 정의다.</summary>
+        public static IReadOnlyList<QuestDefinition> Definitions => QuestCatalog.Instance.Definitions;
+        /// <summary>기존 호출 호환용 주간 키. 거래 내부에서는 확보한 시각을 인자로 전달한다.</summary>
+        public static string Week => QuestPeriod.At(LocalProgression.UtcNow).Week;
+
+        /// <summary>기존 지급 원장의 식별자 형식을 보존한다.</summary>
+        public static string Key(QuestDefinition quest, ProgressionState state) => Key(quest.QuestId, Period(quest, state));
+        public static string Key(long id, string period) => $"quest:{id}:{period}";
+        public static string Period(QuestDefinition quest, ProgressionState state) => quest.Category == eQuestCategory.Daily
+            ? state.QuestDay : quest.Category == eQuestCategory.Weekly ? state.QuestWeek : "permanent";
+
+        /// <summary>승인된 거래 복제본의 영구/일일/주간 집계를 함께 변경한다.</summary>
+        public static void Count(ProgressionState state, eQuestObjectiveType type, long target, long amount)
         {
             if (amount <= 0) return;
-            foreach (string period in new[] { "L", "D" + s.QuestDay, "W" + s.QuestWeek })
+            foreach (string period in new[] { "L", "D" + state.QuestDay, "W" + state.QuestWeek })
             {
-                string key = CounterKey(period, type, 0); s.Counters[key] = checked(Read(s, key) + amount);
-                if (target != 0) { key = CounterKey(period, type, target); s.Counters[key] = checked(Read(s, key) + amount); }
+                AddCounter(state, period, type, 0, amount);
+                if (target != 0) AddCounter(state, period, type, target, amount);
             }
         }
-        private static long Read(ProgressionState s, string key) => s.Counters.TryGetValue(key, out long value) ? value : 0;
-        public static void Before(ProgressionState s)
+
+        /// <summary>최대값에서 조용히 순환하지 않도록 checked로 누적한다.</summary>
+        private static void AddCounter(ProgressionState state, string period, eQuestObjectiveType type, long target, long amount)
         {
-            string day = LocalProgression.KstDay, week = Week;
-            if (s.QuestDay == day && s.QuestWeek == week) return;
-            // Eligibility is captured during each approved transaction, before its period closes.
-            s.QuestDay = day; s.QuestWeek = week;
-            foreach (var key in s.Counters.Keys.Where(k => !k.StartsWith("L|") && !k.StartsWith("D" + day + "|") && !k.StartsWith("W" + week + "|")).ToArray()) s.Counters.Remove(key);
-            foreach (var key in s.PendingQuests.Where(p => p.Value.ExpiresUtc < LocalProgression.UtcNow).Select(p => p.Key).ToArray()) s.PendingQuests.Remove(key);
+            string key = QuestProgressEvaluator.CounterKey(period, type, target);
+            state.Counters[key] = checked(QuestProgressEvaluator.Read(state, period, type, target) + amount);
         }
-        public static void After(ProgressionState s)
+
+        /// <summary>기존 저장에 없는 완료/보상 정보를 확인 가능한 자료로만 채운다.</summary>
+        public static bool Migrate(ProgressionState state)
         {
-            s.BestStatTotal = Math.Max(s.BestStatTotal, s.AttackLevel + s.HealthLevel);
-            s.BestMageTotal = Math.Max(s.BestMageTotal, s.MageSkills.Values.Sum(x => x.Enhance));
-            s.BestEquipmentTotal = Math.Max(s.BestEquipmentTotal, s.Equipment.Sum(x => x.Level));
-            if (!s.MainClears.Contains(0x20001000B)) return;
-            foreach (var q in Definitions.Where(x => x.IsRepeatable))
+            if (state.QuestSchemaVersion < 0 || state.QuestSchemaVersion > SchemaVersion)
+                throw new InvalidDataException("Unsupported quest schema.");
+            if (state.QuestSchemaVersion == SchemaVersion) return false;
+            // 최신 버전의 명시적 null은 손상으로 검증에서 거절한다. legacy에 없는 필드만 보완한다.
+            state.CompletedQuests ??= new HashSet<long>();
+            // 이전 버전에는 watermark가 없으므로 저장된 기간의 시작보다 과거로 되돌리지 않는다.
+            if (!string.IsNullOrEmpty(state.QuestDay)) state.QuestLastObservedUtc = Math.Max(state.QuestLastObservedUtc,
+                QuestPeriod.EndUtc(eQuestCategory.Daily, state.QuestDay) - 86400);
+            if (!string.IsNullOrEmpty(state.QuestWeek)) state.QuestLastObservedUtc = Math.Max(state.QuestLastObservedUtc,
+                QuestPeriod.EndUtc(eQuestCategory.Weekly, state.QuestWeek) - 7 * 86400L);
+            foreach (var quest in Definitions.Where(x => !x.IsRepeatable))
+                if (state.Claims.Contains(Key(quest, state))) state.CompletedQuests.Add(quest.QuestId);
+            foreach (var pair in state.PendingQuests)
             {
-                string key = Key(q, s);
-                if (s.Claims.Contains(key) || s.PendingQuests.ContainsKey(key) || Progress(q, s) < q.RequiredCount) continue;
-                string date = q.Category == eQuestCategory.Daily ? s.QuestDay : s.QuestWeek;
-                long end = new DateTimeOffset(DateTime.ParseExact(date, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), TimeSpan.FromHours(9)).AddDays(q.Category == eQuestCategory.Daily ? 1 : 7).ToUnixTimeSeconds();
-                s.PendingQuests[key] = new QuestPending { Id = q.QuestId, ExpiresUtc = end + 7 * 86400, Gold = q.RewardGroupId == 2001 ? DynamicGold(s) : 0 };
+                QuestDefinition quest = QuestCatalog.Instance.Get(pair.Value.Id);
+                if (quest == null) throw new InvalidDataException("Unresolved legacy pending quest: " + pair.Key);
+                // 기존 Gold 필드는 달성 당시 확정액이다. 새 동적 계산으로 덮어쓰지 않는다.
+                FillPending(pair.Value, quest);
+                pair.Value.HasFixedGold = quest.RewardGroupId == 2001;
+            }
+            state.QuestSchemaVersion = SchemaVersion;
+            return true;
+        }
+
+        /// <summary>옛 호출은 유지하며 새 거래 경로에서는 단일 now를 명시한다.</summary>
+        public static void Before(ProgressionState state) => Before(state, LocalProgression.UtcNow);
+        public static void Before(ProgressionState state, long nowUtc) => AdvancePeriod(state, nowUtc);
+
+        /// <summary>옛 기간을 먼저 봉인한 후 카운터를 교체한다. 역행한 시각은 마지막 승인 시각으로 제한한다.</summary>
+        public static void AdvancePeriod(ProgressionState state, long nowUtc)
+        {
+            nowUtc = Math.Max(nowUtc, state.QuestLastObservedUtc);
+            QuestPeriod period = QuestPeriod.At(nowUtc);
+            if (state.QuestDay != period.Day || state.QuestWeek != period.Week)
+            {
+                // 복원 및 자정 직전 시간 반영으로 마지막 목표를 달성한 경우도 보존한다.
+                if (!string.IsNullOrEmpty(state.QuestDay) && !string.IsNullOrEmpty(state.QuestWeek)) After(state, nowUtc);
+                state.QuestDay = period.Day;
+                state.QuestWeek = period.Week;
+                foreach (string key in state.Counters.Keys.Where(k => !k.StartsWith("L|", StringComparison.Ordinal) &&
+                    !k.StartsWith("D" + period.Day + "|", StringComparison.Ordinal) &&
+                    !k.StartsWith("W" + period.Week + "|", StringComparison.Ordinal)).ToArray()) state.Counters.Remove(key);
+            }
+            // 만료 시각은 exclusive이며, 화면이 닫혀 있어도 정리된다.
+            foreach (string key in state.PendingQuests.Where(x => x.Value.ExpiresUtc <= nowUtc).Select(x => x.Key).ToArray())
+                state.PendingQuests.Remove(key);
+            state.QuestLastObservedUtc = nowUtc;
+        }
+
+        /// <summary>게임플레이 변경 이후 최고 기록과 완료 권리를 거래 복제본에 확정한다.</summary>
+        public static void After(ProgressionState state) => After(state, LocalProgression.UtcNow);
+        public static void After(ProgressionState state, long nowUtc)
+        {
+            state.BestStatTotal = Math.Max(state.BestStatTotal, state.AttackLevel + state.HealthLevel);
+            state.BestMageTotal = Math.Max(state.BestMageTotal, state.MageSkills.Values.Sum(x => x.Enhance));
+            state.BestEquipmentTotal = Math.Max(state.BestEquipmentTotal, state.Equipment.Sum(x => x.Level));
+            QuestDefinition guide = ActiveGuide(state);
+            foreach (QuestDefinition quest in Definitions)
+            {
+                // 미래 가이드의 현재 조건을 미리 latch하지 않는다. 업적은 모든 단계가 수집 대상이다.
+                if (quest.Category == eQuestCategory.Guide && quest != guide) continue;
+                if (state.Claims.Contains(Key(quest, state))) continue;
+                if (quest.IsRepeatable)
+                {
+                    if (string.IsNullOrEmpty(state.QuestDay) || string.IsNullOrEmpty(state.QuestWeek)) continue;
+                    string key = Key(quest, state);
+                    if (state.PendingQuests.ContainsKey(key) || Progress(quest, state) < quest.RequiredCount) continue;
+                    var pending = new QuestPending { Id = quest.QuestId,
+                        ExpiresUtc = QuestPeriod.EndUtc(quest.Category, Period(quest, state)) + 7 * 86400L };
+                    FillPending(pending, quest);
+                    state.PendingQuests.Add(key, pending);
+                }
+                else if (!state.CompletedQuests.Contains(quest.QuestId) && Progress(quest, state) >= quest.RequiredCount)
+                    state.CompletedQuests.Add(quest.QuestId);
             }
         }
-        private static bool Rarity(EquipmentSave e, long rarity) => rarity == 0 || (int)(EquipmentManager.Instance?.GetData(e.Code)?.rarity ?? eEquipmentRarity.Normal) + 1 == rarity;
-        public static long Progress(QuestDefinition q, ProgressionState s)
+
+        /// <summary>달성 당시의 표시/보상 규칙을 저장 객체로 복사한다.</summary>
+        private static void FillPending(QuestPending pending, QuestDefinition quest)
         {
-            if (q.IsRepeatable && !s.MainClears.Contains(0x20001000B)) return 0;
-            if (q.ProgressMode == eQuestProgressMode.EventCount || q.ProgressMode == eQuestProgressMode.LifetimeTotal)
-            {
-                if (q.ProgressMode == eQuestProgressMode.LifetimeTotal && q.ObjectiveType == eQuestObjectiveType.MonsterKill) return s.Kills;
-                if (q.ProgressMode == eQuestProgressMode.LifetimeTotal && q.ObjectiveType == eQuestObjectiveType.Reincarnate) return s.ReincarnationCount;
-                string period = q.ProgressMode == eQuestProgressMode.LifetimeTotal ? "L" : q.Category == eQuestCategory.Daily ? "D" + s.QuestDay : "W" + s.QuestWeek;
-                return Read(s, CounterKey(period, q.ObjectiveType, q.TargetId));
-            }
-            bool best = q.Category == eQuestCategory.Achievement;
-            switch(q.ObjectiveType)
-            {
-                case eQuestObjectiveType.StageClear: return s.MainClears.Contains(q.TargetId) ? 1 : 0;
-                case eQuestObjectiveType.LevelUp: case eQuestObjectiveType.PlayerLevel: return s.AccountLevel;
-                case eQuestObjectiveType.StatEnhance: return q.TargetId == 1 ? s.AttackLevel : q.TargetId == 2 ? s.HealthLevel : best ? s.BestStatTotal : s.AttackLevel + s.HealthLevel;
-                case eQuestObjectiveType.EquipmentObtain: return s.Equipment.Count(x => Rarity(x, q.TargetId));
-                case eQuestObjectiveType.EquipmentEquip: return s.Equipment.Count(x => x.Player.HasValue && Rarity(x, q.TargetId));
-                case eQuestObjectiveType.EquipmentEnhance: return best ? s.BestEquipmentTotal : s.Equipment.Sum(x => x.Level);
-                case eQuestObjectiveType.JobChange: return s.Jobs.Values.Count(x => q.TargetId == 2 ? x.StartsWith("Elite_") : x != "Spearman");
-                case eQuestObjectiveType.SkillObtain: return s.MageSkills.Count;
-                case eQuestObjectiveType.SkillEquip: return s.MageSlots.Where(x => x >= 0).Distinct().Count();
-                case eQuestObjectiveType.SkillEnhance: return best ? s.BestMageTotal : s.MageSkills.Values.Sum(x => x.Enhance);
-                case eQuestObjectiveType.SkillAwaken: return s.MageSkills.Count == 0 ? 0 : s.MageSkills.Values.Max(x => x.Awaken);
-                case eQuestObjectiveType.ReincarnationLevel: return s.ReincarnationLevel;
-                case eQuestObjectiveType.DungeonClear: return (((q.TargetId & 0x30000000) == 0x10000000 ? s.GoldDungeonClear : s.RubyDungeonClear) >= ((q.TargetId >> 16) & 0xFFF)) ? 1 : 0;
-                case eQuestObjectiveType.QuestAllClear: return Definitions.Count(x => x.Category == q.Category && x.ObjectiveType != eQuestObjectiveType.QuestAllClear && (s.Claims.Contains(Key(x,s)) || s.PendingQuests.ContainsKey(Key(x,s)) || Progress(x,s) >= x.RequiredCount));
-                default: return 0;
-            }
+            pending.DefinitionVersion = QuestCatalog.Instance.Version;
+            pending.Title = quest.Title;
+            pending.Description = quest.Description;
+            pending.Category = quest.Category;
+            pending.ObjectiveType = quest.ObjectiveType;
+            pending.PresentationType = quest.PresentationType;
+            pending.TargetId = quest.TargetId;
+            pending.RequiredCount = quest.RequiredCount;
+            pending.Rewards = QuestCatalog.Instance.GetRewards(quest.RewardGroupId)
+                .Select(x => new QuestRewardSave { Currency = x.Currency, Amount = x.Amount, IsDynamicGold = x.IsDynamicGold }).ToList();
         }
-        public static decimal DynamicGold(ProgressionState s)
+
+        /// <summary>장비 코드의 메타데이터 조회는 조율 계층에서 주입하고 순수 판정기에서 Unity를 참조하지 않는다.</summary>
+        private static int EquipmentRarity(int code)
         {
-            int stage = (int)((s.OfflineStage >> 16) & 0xFFF), wave = (int)(s.OfflineStage & 0xFFFF);
-            if (stage < 1 || stage > 3 || wave < 1 || wave > 10) return 60; // Explicit 1-1, 3 KPM bootstrap.
-            return 2m * Math.Min(30m,s.OfflineKpm) * BalanceMath.MainEnemy(stage,wave).Gold * BalanceMath.RubyMultiplier(s.RubyGoldLevel);
+            var data = EquipmentManager.Instance?.GetData(code);
+            return data == null ? 0 : (int)data.rarity + 1;
         }
-        public static bool CanClaim(QuestDefinition q, ProgressionState s) => q != null && !s.Claims.Contains(Key(q,s)) && (s.PendingQuests.ContainsKey(Key(q,s)) || Progress(q,s) >= q.RequiredCount);
+
+        /// <summary>완료를 보존한 목표는 조건이 내려가도 필요값까지 표시한다.</summary>
+        public static long Progress(QuestDefinition quest, ProgressionState state)
+        {
+            if (quest == null) return 0;
+            if (!quest.IsRepeatable && state.CompletedQuests.Contains(quest.QuestId)) return quest.RequiredCount;
+            if (quest.IsRepeatable && state.PendingQuests.ContainsKey(Key(quest, state))) return quest.RequiredCount;
+            return QuestProgressEvaluator.Evaluate(quest, state, QuestCatalog.Instance, EquipmentRarity);
+        }
+
+        /// <summary>순서에 의존하지 않고 명시 체인의 첫 미수령 가이드를 반환한다.</summary>
+        public static QuestDefinition ActiveGuide(ProgressionState state) => Definitions.FirstOrDefault(q =>
+            q.Category == eQuestCategory.Guide && !state.Claims.Contains(Key(q, state)) && PredecessorClaimed(q, state));
+
+        private static bool PredecessorClaimed(QuestDefinition quest, ProgressionState state)
+        {
+            long previous = QuestCatalog.Instance.GetPredecessor(quest.QuestId);
+            // 이관된 원장에 중간 수령만 있어도 계열의 앞 단계를 건너뛰지 않는다.
+            while (previous != 0)
+            {
+                if (!state.Claims.Contains(Key(previous, "permanent"))) return false;
+                previous = QuestCatalog.Instance.GetPredecessor(previous);
+            }
+            return true;
+        }
+
+        /// <summary>해금과 체인 정책을 공통 적용한다. 수령 검사는 거래 안에서 다시 수행한다.</summary>
+        public static bool CanClaim(QuestDefinition quest, ProgressionState state) => quest != null &&
+            (!quest.IsRepeatable || state.MainClears.Contains(0x20001000B)) && PredecessorClaimed(quest, state) &&
+            !state.Claims.Contains(Key(quest, state)) && Progress(quest, state) >= quest.RequiredCount;
+
+        /// <summary>기존 호출 호환. 새 UI는 기간과 계정 세대가 고정된 token을 전달한다.</summary>
         public static bool Claim(long id, string pendingKey = null)
         {
-            var q = Definitions.FirstOrDefault(x => x.QuestId == id); if (q == null) return false;
-            bool ok = LocalProgression.Execute("quest-claim", s => {
-                string key = pendingKey ?? Key(q,s);
-                bool pending = s.PendingQuests.TryGetValue(key, out var reward);
-                if (s.Claims.Contains(key) || (pendingKey != null && (!pending || reward.Id != id || reward.ExpiresUtc < LocalProgression.UtcNow))) return false;
-                if (pendingKey == null && !CanClaim(q,s)) return false;
-                if (q.Category == eQuestCategory.Guide && Definitions.FirstOrDefault(x => x.Category == eQuestCategory.Guide && !s.Claims.Contains(Key(x,s)))?.QuestId != id) return false;
-                JObject group = _rewards[q.RewardGroupId];
-                for (int i = 1; i <= 2; i++)
-                {
-                    string name = (string)group["currency" + i]; if (string.IsNullOrEmpty(name)) continue;
-                    long amount = (long)group["amount" + i];
-                    if (q.RewardGroupId == 2001 && name == "Gold")
-                    { decimal value = (pending ? reward.Gold : DynamicGold(s)) + s.GoldRemainder/1000000m; amount = BalanceMath.Floor(value); s.GoldRemainder = (long)((value-amount)*1000000m); }
-                    LocalProgression.Credit(s, Enum.Parse<eCurrency>(name), amount);
-                }
-                s.Claims.Add(key); s.PendingQuests.Remove(key); return true;
-            });
-            return ok;
+            if (!LocalProgression.TryGetCommittedState(out var state)) return false;
+            QuestDefinition quest = QuestCatalog.Instance.Get(id);
+            string prefix = $"quest:{id}:";
+            if (pendingKey != null && !pendingKey.StartsWith(prefix, StringComparison.Ordinal)) return false;
+            string period = pendingKey != null ? pendingKey.Substring(prefix.Length) : quest == null ? null : Period(quest, state);
+            return period != null && TryClaim(new QuestClaimToken(LocalProgression.AccountGeneration, id, period)).Status == QuestClaimStatus.Success;
         }
+
+        /// <summary>지급과 영수증을 하나의 내구 거래로 확정한다. 오래된 token을 현재 기간으로 바꾸지 않는다.</summary>
+        public static QuestClaimResult TryClaim(QuestClaimToken token)
+        {
+            if (!LocalProgression.IsReady) return new QuestClaimResult(QuestClaimStatus.NotReady, token);
+            if (token.AccountGeneration != LocalProgression.AccountGeneration) return new QuestClaimResult(QuestClaimStatus.StaleAccount, token);
+            QuestClaimStatus status = QuestClaimStatus.SaveFailed;
+            bool committed = LocalProgression.Execute("quest-claim", state =>
+            {
+                if (token.AccountGeneration != LocalProgression.AccountGeneration) { status = QuestClaimStatus.StaleAccount; return false; }
+                string key = Key(token.QuestId, token.Period);
+                if (state.Claims.Contains(key)) { status = QuestClaimStatus.AlreadyClaimed; return false; }
+                QuestDefinition quest = QuestCatalog.Instance.Get(token.QuestId);
+                state.PendingQuests.TryGetValue(key, out QuestPending pending);
+                if (pending != null && pending.Id != token.QuestId) throw new InvalidDataException("Pending quest identity mismatch.");
+                if (pending != null && !state.MainClears.Contains(0x20001000B))
+                { status = QuestClaimStatus.Locked; return false; }
+                if (pending == null)
+                {
+                    if (quest == null) { status = QuestClaimStatus.UnknownQuest; return false; }
+                    if (token.Period != Period(quest, state)) { status = QuestClaimStatus.Expired; return false; }
+                    if ((quest.IsRepeatable && !state.MainClears.Contains(0x20001000B)) || !PredecessorClaimed(quest, state))
+                    { status = QuestClaimStatus.Locked; return false; }
+                    if (Progress(quest, state) < quest.RequiredCount) { status = QuestClaimStatus.Incomplete; return false; }
+                }
+                else if (pending.ExpiresUtc <= state.QuestLastObservedUtc) { status = QuestClaimStatus.Expired; return false; }
+
+                IEnumerable<QuestRewardSave> rewards = pending?.Rewards ?? QuestCatalog.Instance.GetRewards(quest.RewardGroupId)
+                    .Select(x => new QuestRewardSave { Currency = x.Currency, Amount = x.Amount, IsDynamicGold = x.IsDynamicGold });
+                foreach (QuestRewardSave reward in rewards)
+                {
+                    long amount = reward.Amount;
+                    if (reward.IsDynamicGold)
+                    {
+                        // 새 규칙은 수령 시점 수입을 사용하고 legacy fixed Gold는 그대로 보존한다.
+                        decimal value = (pending?.HasFixedGold == true ? pending.Gold : DynamicGold(state)) + state.GoldRemainder / 1000000m;
+                        amount = BalanceMath.Floor(value);
+                        state.GoldRemainder = (long)((value - amount) * 1000000m);
+                    }
+                    LocalProgression.Credit(state, reward.Currency, amount);
+                }
+                state.Claims.Add(key);
+                state.PendingQuests.Remove(key);
+                if (token.Period == "permanent") state.CompletedQuests.Add(token.QuestId);
+                status = QuestClaimStatus.Success;
+                return true;
+            });
+            return new QuestClaimResult(committed ? QuestClaimStatus.Success : status == QuestClaimStatus.Success ? QuestClaimStatus.SaveFailed : status, token);
+        }
+
+        /// <summary>확정된 상태만 읽는다. 로드, 기간 전환, 파일 저장은 수행하지 않는다.</summary>
+        public static QuestBoardSnapshot GetSnapshot(eQuestCategory category)
+        {
+            long generation = LocalProgression.AccountGeneration;
+            if (!LocalProgression.TryGetCommittedState(out var state)) return QuestBoardSnapshot.NotReady(category, generation);
+            var rows = new List<QuestRowSnapshot>();
+            foreach (QuestDefinition quest in Definitions.Where(x => x.Category == category))
+            {
+                if ((category == eQuestCategory.Guide || category == eQuestCategory.Achievement) &&
+                    (state.Claims.Contains(Key(quest, state)) || !PredecessorClaimed(quest, state))) continue;
+                string key = Key(quest, state);
+                state.PendingQuests.TryGetValue(key, out var pending);
+                bool claimed = state.Claims.Contains(key);
+                bool locked = quest.IsRepeatable && !state.MainClears.Contains(0x20001000B);
+                long progress = Math.Min(quest.RequiredCount, Progress(quest, state));
+                QuestRowState rowState = locked ? QuestRowState.Locked : claimed ? QuestRowState.Claimed :
+                    progress >= quest.RequiredCount ? QuestRowState.Claimable : QuestRowState.InProgress;
+                var rewards = pending == null ? QuestCatalog.Instance.GetRewards(quest.RewardGroupId)
+                    .Select(x => new QuestRewardSnapshot(x.Currency, x.Amount, x.IsDynamicGold)) : RewardSnapshot(pending);
+                rows.Add(new QuestRowSnapshot(new QuestClaimToken(generation, quest.QuestId, Period(quest, state)), category,
+                    pending?.Title ?? quest.Title, pending?.Description ?? quest.Description, pending?.ObjectiveType ?? quest.ObjectiveType, pending?.TargetId ?? quest.TargetId,
+                    pending?.RequiredCount ?? quest.RequiredCount, pending?.RequiredCount ?? progress, rowState, false, pending?.ExpiresUtc ?? 0, rewards, pending?.PresentationType ?? quest.PresentationType));
+            }
+            // 카탈로그에서 비활성화된 항목도 저장된 지급 명세만으로 복원한다.
+            foreach (var entry in state.PendingQuests.OrderBy(x => x.Value.ExpiresUtc).ThenBy(x => x.Value.Id))
+            {
+                QuestPending pending = entry.Value;
+                if (pending.Category != category || pending.ExpiresUtc <= state.QuestLastObservedUtc || rows.Any(x => Key(x.Token.QuestId, x.Token.Period) == entry.Key)) continue;
+                string prefix = $"quest:{pending.Id}:";
+                if (!entry.Key.StartsWith(prefix, StringComparison.Ordinal)) continue;
+                rows.Add(new QuestRowSnapshot(new QuestClaimToken(generation, pending.Id, entry.Key.Substring(prefix.Length)), category,
+                    pending.Title, pending.Description, pending.ObjectiveType, pending.TargetId, pending.RequiredCount,
+                    pending.RequiredCount, state.MainClears.Contains(0x20001000B) ? QuestRowState.Claimable : QuestRowState.Locked,
+                    true, pending.ExpiresUtc, RewardSnapshot(pending), pending.PresentationType));
+            }
+            string period = category == eQuestCategory.Daily ? state.QuestDay : category == eQuestCategory.Weekly ? state.QuestWeek : "permanent";
+            long reset = period == "permanent" ? 0 : QuestPeriod.EndUtc(category, period);
+            return new QuestBoardSnapshot(generation, state.Revision, category, period, reset, rows);
+        }
+
+        private static IEnumerable<QuestRewardSnapshot> RewardSnapshot(QuestPending pending) => pending.Rewards.Select(x =>
+            new QuestRewardSnapshot(x.Currency, x.IsDynamicGold && pending.HasFixedGold ? pending.Gold : x.Amount, x.IsDynamicGold && !pending.HasFixedGold));
+
+        /// <summary>동적 골드의 기존 수입 계산과 소수 정밀도를 유지한다.</summary>
+        public static decimal DynamicGold(ProgressionState state)
+        {
+            int stage = (int)((state.OfflineStage >> 16) & 0xFFF), wave = (int)(state.OfflineStage & 0xFFFF);
+            // 안전 웨이브만 복원되고 검증 KPM 표본이 없으면 기존 1-1/3KPM bootstrap을 사용한다.
+            if (stage < 1 || stage > 3 || wave < 1 || wave > 10 || state.OfflineKpm <= 0) return 60;
+            return 2m * Math.Min(30m, state.OfflineKpm) * BalanceMath.MainEnemy(stage, wave).Gold * BalanceMath.RubyMultiplier(state.RubyGoldLevel);
+        }
+
+        /// <summary>기존 UI 문자열 요청을 typed 보상 정의에 연결한다.</summary>
         public static string RewardText(int groupId, Func<long, string> format = null)
         {
             format ??= value => value.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
-            Load(); if (groupId == 2001) return "안전 사냥 2분 골드";
-            var group = _rewards[groupId]; var parts = new List<string>();
-            for(int i=1;i<=2;i++) { string c = (string)group["currency"+i]; if (string.IsNullOrEmpty(c)) continue; string name = c == "AncientCoin" ? "주화" : c == "ClassFragment" ? "전직 파편" : c == "ArcaneKnowledge" ? "마법 지식" : c; parts.Add($"{name} {format((long)group["amount"+i])}"); }
-            return string.Join(" · ",parts);
+            return string.Join(" · ", QuestCatalog.Instance.GetRewards(groupId).Select(x => x.IsDynamicGold ? "안전 사냥 2분 골드" :
+                (x.Currency == eCurrency.AncientCoin ? "주화" : x.Currency == eCurrency.ClassFragment ? "전직 파편" :
+                 x.Currency == eCurrency.ArcaneKnowledge ? "마법 지식" : x.Currency.ToString()) + " " + format(x.Amount)));
         }
     }
 }

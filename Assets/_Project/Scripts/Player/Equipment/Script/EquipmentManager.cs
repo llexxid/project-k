@@ -42,14 +42,15 @@ public class EquipmentManager : MonoBehaviour
         foreach (var pair in _players)
             pair.Value?.PlayerEquipmentManager?.RestoreSelection(_inventory.Items.FirstOrDefault(x => x.equipmentPlayerIndex == pair.Key));
     }
-    public static bool Grant(ProgressionState state, EquipmentSave item, bool allowPending)
+    /// <summary>실제 지급만 획득 이벤트로 센다. 저장 이관은 recordQuestProgress=false로 보유 상태만 복구한다.</summary>
+    public static bool Grant(ProgressionState state, EquipmentSave item, bool allowPending, bool recordQuestProgress = true)
     {
         if (state.Equipment.Any(x => x.Id == item.Id) || state.PendingEquipment.Any(x => x.Id == item.Id)) return false;
         if (state.Equipment.Count < Capacity) state.Equipment.Add(item);
         else if (allowPending && state.PendingEquipment.Count < PendingCapacity)
         { item.ExpiresUtc = LocalProgression.UtcNow + 7 * 86400; state.PendingEquipment.Add(item); }
         else return false;
-        QuestEconomy.Count(state,eQuestObjectiveType.EquipmentObtain,0,1);
+        if (recordQuestProgress) QuestEconomy.Count(state,eQuestObjectiveType.EquipmentObtain,0,1);
         return true;
     }
     public void GetEquipment(EquipmentInstance item, GetEffect effect)

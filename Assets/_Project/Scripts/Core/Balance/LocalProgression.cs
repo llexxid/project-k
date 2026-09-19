@@ -20,24 +20,69 @@ namespace KingdomIdle.Balance
     {
         public static bool IsLocalAuthority => true;
         public static event Action Changed;
+        /// <summary>계정의 복원·이관·기간 정리가 내구 저장까지 끝났을 때 발생한다.</summary>
+        public static event Action AccountChanged;
         public static string AccountKey { get; private set; }
+        /// <summary>이전 계정 화면의 수령 요청을 거절하는 실행 세대다.</summary>
+        public static long AccountGeneration { get; private set; }
+        public static bool IsReady => _state != null;
         public static ProgressionState State { get { Ensure(); return _state; } }
         private static ProgressionState _state;
         private static string _path;
         private static bool _busy;
+        // 계정 전환 중 이전 계정 flush가 Ensure를 다시 호출하는 재진입을 막는다.
+        private static bool _opening;
         public static string LastError { get; private set; }
-        public static long UtcNow => DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        public static string KstDay => DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(9)).ToString("yyyy-MM-dd");
+        public static long UtcNow =>
+#if UNITY_EDITOR || LOBBY_DEVICE_QA
+            TestUtcNow ??
+#endif
+            DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        public static string KstDay => QuestPeriod.At(UtcNow).Day;
 
         #if UNITY_EDITOR || LOBBY_DEVICE_QA
         private static string _testAccount;
-        public static void OpenTestAccount(string id) { _testAccount = "balance-qa-" + id; Open(_testAccount); }
+        /// <summary>기간 경계 인수 검사에서만 사용하는 고정 UTC 시각이다.</summary>
+        public static long? TestUtcNow;
+        public static void OpenTestAccount(string id)
+        {
+            string previous = _testAccount;
+            _testAccount = "balance-qa-" + id;
+            try { Open(_testAccount); }
+            catch { _testAccount = previous; throw; }
+        }
         public static string SnapshotPath => _path;
         public static bool TestFailedWrite(Func<ProgressionState,bool> action)
         { string previous = _path; _path += "/cannot-write/snapshot.json"; try { return Execute("expected-storage-failure",action); } finally { _path = previous; } }
+        /// <summary>수령 API 자체의 저장 실패와 재시도를 검증한다.</summary>
+        public static bool TestFailedCommit(Func<bool> action)
+        { string previous = _path; _path += "/cannot-write/snapshot.json"; try { return action(); } finally { _path = previous; } }
+        /// <summary>인수 검사의 계정/시각 변경을 실행 전 컨텍스트로 되돌리는 범위다.</summary>
+        public static IDisposable BeginTestSession() => new TestSession();
+        private sealed class TestSession : IDisposable
+        {
+            private readonly string _previousTest = _testAccount, _previousAccount = AccountKey;
+            private readonly long? _previousTime = TestUtcNow;
+            public TestSession() { BattleEconomy.Suspend(); }
+            public void Dispose()
+            {
+                TestUtcNow = _previousTime;
+                _testAccount = _previousTest;
+                if (_previousAccount != null) Open(_previousAccount);
+                else
+                {
+                    _state = null; _path = null; AccountKey = null; LastError = null;
+                    AccountGeneration = checked(AccountGeneration + 1);
+                    BattleEconomy.OnAccountOpened(AccountGeneration);
+                    Notify(AccountChanged); Notify(Changed);
+                }
+                BattleEconomy.Resume();
+            }
+        }
 #endif
         public static void Ensure()
         {
+            if (_opening || _busy) return;
             string account = NetworkManager.Instance?.GetSessionID();
 #if UNITY_EDITOR || LOBBY_DEVICE_QA
             if (_testAccount != null) account = _testAccount;
@@ -48,47 +93,84 @@ namespace KingdomIdle.Balance
         public static void Open(string account)
         {
             if (_busy) throw new InvalidOperationException("Cannot change account during a transaction.");
-            using var sha = SHA256.Create();
-            string key = BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(account))).Replace("-", "").ToLowerInvariant();
-            string directory = Path.Combine(Application.persistentDataPath, "progression-local-v1");
-            Directory.CreateDirectory(directory);
-            string path = Path.Combine(directory, key + ".json");
-            ProgressionState state;
-            if (File.Exists(path))
+            if (_opening) throw new InvalidOperationException("Account open is already in progress.");
+            _opening = true;
+            try
             {
-                // A corrupt primary is not silently replaced by a fresh account or stale backup.
-                state = JsonConvert.DeserializeObject<ProgressionState>(File.ReadAllText(path));
+                // 이전 계정의 승인 전 시간을 새 계정에 넘기지 않는다. 실패하면 원래 계정을 유지한다.
+                if (_state != null && !BattleEconomy.TryFlushQuestTime())
+                    throw new IOException("Previous account battle time could not be saved.");
+                using var sha = SHA256.Create();
+                string key = BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(account))).Replace("-", "").ToLowerInvariant();
+                string directory = Path.Combine(Application.persistentDataPath, "progression-local-v1");
+                Directory.CreateDirectory(directory);
+                string path = Path.Combine(directory, key + ".json");
+                ProgressionState state;
+                if (File.Exists(path))
+                {
+                    // 손상된 원본을 신규 계정이나 오래된 백업으로 조용히 대체하지 않는다.
+                    state = JsonConvert.DeserializeObject<ProgressionState>(File.ReadAllText(path));
+                }
+                else state = new ProgressionState { CycleStartedUtc = UtcNow };
+                // 기존 원본은 교체 시 .bak에 남고, 실패한 이관은 메모리에도 공개하지 않는다.
+                string before = JsonConvert.SerializeObject(state);
+                QuestEconomy.Migrate(state);
                 Validate(state);
+                long now = UtcNow;
+                QuestEconomy.Before(state, now);
+                QuestEconomy.After(state, now);
+                Validate(state);
+                if (!File.Exists(path) || before != JsonConvert.SerializeObject(state))
+                {
+                    state.Revision = checked(state.Revision + 1);
+                    WriteSnapshot(path, state);
+                }
+                _path = path; _state = state; AccountKey = account; LastError = null;
+                AccountGeneration = checked(AccountGeneration + 1);
+                BattleEconomy.OnAccountOpened(AccountGeneration);
             }
-            else state = new ProgressionState { CycleStartedUtc = UtcNow };
-            _path = path; _state = state; AccountKey = account; LastError = null;
+            finally { _opening = false; }
+            Notify(AccountChanged);
+            Notify(Changed);
         }
-        public static bool Execute(string operation, Func<ProgressionState, bool> mutate, string claimId = null)
+        /// <summary>UI 조회 전용. Ensure/Open 또는 파일 접근을 절대로 수행하지 않는다.</summary>
+        public static bool TryGetCommittedState(out ProgressionState state)
+        {
+            state = _state;
+            return state != null;
+        }
+
+        /// <summary>패널 표시와 독립적인 기간 동기화 명령이다.</summary>
+        public static bool SynchronizeQuests()
         {
             Ensure();
+            if (!QuestPeriod.NeedsSynchronization(_state, UtcNow)) return true;
+            return Execute("quest-period", state => true);
+        }
+
+        /// <summary>원본과 분리된 복제본만 변경하고 파일 교체 이후 상태와 이벤트를 공개한다.</summary>
+        public static bool Execute(string operation, Func<ProgressionState, bool> mutate, string claimId = null)
+        {
+            try { Ensure(); }
+            catch (Exception error) { LastError = operation + ": " + error.Message; return false; }
             if (_busy || mutate == null || string.IsNullOrWhiteSpace(operation)) return false;
             if (claimId != null && _state.Claims.Contains(claimId)) return false;
             _busy = true;
             try
             {
                 var draft = JsonConvert.DeserializeObject<ProgressionState>(JsonConvert.SerializeObject(_state));
-                QuestEconomy.Before(draft);
+                // 모든 기간 계산은 같은 UTC를 사용한다. 샘플의 제거는 저장 성공 뒤에만 한다.
+                long now = Math.Max(UtcNow, draft.QuestLastObservedUtc);
+                long timeBatch = BattleEconomy.PrepareQuestTime(draft, now);
+                QuestEconomy.Before(draft, now);
                 if (!mutate(draft)) return false;
-                QuestEconomy.After(draft);
+                QuestEconomy.After(draft, now);
                 if (claimId != null) draft.Claims.Add(claimId);
                 draft.Revision = checked(_state.Revision + 1);
                 Validate(draft);
-                string json = JsonConvert.SerializeObject(draft);
-                string temporary = _path + ".tmp";
-                using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None))
-                {
-                    byte[] bytes = Encoding.UTF8.GetBytes(json);
-                    stream.Write(bytes, 0, bytes.Length);
-                    stream.Flush(true);
-                }
-                if (File.Exists(_path)) File.Replace(temporary, _path, _path + ".bak");
-                else File.Move(temporary, _path);
+                WriteSnapshot(_path, draft);
                 _state = draft; LastError = null;
+                BattleEconomy.AcknowledgeQuestTime(timeBatch);
             }
             catch (Exception exception)
             {
@@ -97,10 +179,31 @@ namespace KingdomIdle.Balance
                 return false;
             }
             finally { _busy = false; }
-            // Observers cannot roll back a committed transaction or prevent other observers.
-            if (Changed != null) foreach (Action observer in Changed.GetInvocationList())
-                try { observer(); } catch (Exception ex) { Debug.LogException(ex); }
+            Notify(Changed);
             return true;
+        }
+
+        /// <summary>전체 경제 상태를 같은 원자적 파일 교체로 저장한다.</summary>
+        private static void WriteSnapshot(string path, ProgressionState state)
+        {
+            string json = JsonConvert.SerializeObject(state);
+            string temporary = path + ".tmp";
+            using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                byte[] bytes = Encoding.UTF8.GetBytes(json);
+                stream.Write(bytes, 0, bytes.Length);
+                stream.Flush(true);
+            }
+            if (File.Exists(path)) File.Replace(temporary, path, path + ".bak");
+            else File.Move(temporary, path);
+        }
+
+        /// <summary>한 관찰자의 실패가 저장된 결과나 다른 관찰자를 방해하지 않게 한다.</summary>
+        private static void Notify(Action observers)
+        {
+            // Observers cannot roll back a committed transaction or prevent other observers.
+            if (observers != null) foreach (Action observer in observers.GetInvocationList())
+                try { observer(); } catch (Exception ex) { Debug.LogException(ex); }
         }
         public static long Balance(eCurrency currency) => State.Wallet.TryGetValue(currency, out long amount) ? amount : 0;
         public static bool Spend(ProgressionState state, eCurrency currency, long amount)
@@ -120,6 +223,18 @@ namespace KingdomIdle.Balance
         {
             if (state == null || state.Schema != 1 || state.BalanceVersion != BalanceMath.Version || state.Authority != "local-client")
                 throw new InvalidDataException("Unsupported progression snapshot; migration required.");
+            if (state.QuestSchemaVersion != QuestEconomy.SchemaVersion || state.CompletedQuests == null || state.QuestLastObservedUtc < 0 ||
+                state.Counters == null || state.Claims == null || state.PendingQuests == null || state.Counters.Any(x => x.Value < 0))
+                throw new InvalidDataException("Invalid quest snapshot.");
+            foreach (var pair in state.PendingQuests)
+            {
+                QuestPending pending = pair.Value;
+                if (pending == null || !pair.Key.StartsWith($"quest:{pending.Id}:", StringComparison.Ordinal) || pending.RequiredCount <= 0 ||
+                    pending.ExpiresUtc <= 0 || string.IsNullOrEmpty(pending.DefinitionVersion) || pending.Rewards == null || pending.Rewards.Count == 0 ||
+                    pending.Gold < 0 || (pending.Category != eQuestCategory.Daily && pending.Category != eQuestCategory.Weekly) ||
+                    pending.Rewards.Any(x => x.Amount < 0 || !Enum.IsDefined(typeof(eCurrency), x.Currency) || (x.IsDynamicGold && x.Currency != eCurrency.Gold)))
+                    throw new InvalidDataException("Unresolved pending quest: " + pair.Key);
+            }
             foreach (var entry in state.Wallet) if (entry.Value < 0 || !Enum.IsDefined(typeof(eCurrency),entry.Key)) throw new InvalidDataException("Negative wallet.");
             if (state.AccountLevel < 1 || state.AccountLevel > 200 || state.Experience < 0 ||
                 state.AttackLevel < 0 || state.AttackLevel > 300 || state.HealthLevel < 0 || state.HealthLevel > 300 ||

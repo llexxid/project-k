@@ -9,6 +9,22 @@ namespace KingdomIdle.UGUI
     {
         private static readonly List<ModalBackHandler> Open = new();
         private Action _close;
+
+        /// <summary>패널 스택 밖에 열린 모달도 전투 시간에서 제외할 수 있도록 활성 여부만 조회한다.</summary>
+        public static bool HasOpenModal
+        {
+            get
+            {
+                // 읽기 중 등록 목록을 정리하거나 닫기 콜백을 실행하지 않는다. 생명주기가 목록을 관리한다.
+                for (int i = 0; i < Open.Count; i++)
+                {
+                    ModalBackHandler candidate = Open[i];
+                    if (candidate != null && candidate.isActiveAndEnabled && candidate._close != null) return true;
+                }
+                return false;
+            }
+        }
+
         public static void Bind(GameObject owner, Action close)
         {
             var handler = owner.GetComponent<ModalBackHandler>() ?? owner.AddComponent<ModalBackHandler>();

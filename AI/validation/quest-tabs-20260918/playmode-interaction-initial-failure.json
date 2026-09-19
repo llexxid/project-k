@@ -1,0 +1,14 @@
+{
+  "status": "failed",
+  "passed": 5,
+  "checks": [
+    "Pending daily and weekly reward fixture commits",
+    "Monday rollover retains old pending rewards",
+    "Real UIManager Awake initializes the copied UI root and input raycaster",
+    "PushPanel creates the Guide default through real Populate/Bind",
+    "Real UIManager panel has four live tab buttons"
+  ],
+  "error": "System.InvalidOperationException: No GraphicRaycaster result at (39.34, 177.73)\r\n  at QuestTabInteraction.TopHit (UnityEngine.EventSystems.EventSystem events, UnityEngine.EventSystems.PointerEventData pointer) [0x00023] in C:\\GitHub\\project-k\\Library\\QuestTabs\\QuestTabInteraction.cs:174 \r\n  at QuestTabInteraction.Click (UnityEngine.UI.Button button, UnityEngine.EventSystems.EventSystem events) [0x00049] in C:\\GitHub\\project-k\\Library\\QuestTabs\\QuestTabInteraction.cs:161 \r\n  at QuestTabInteraction+<Run>d__7.MoveNext () [0x0018a] in C:\\GitHub\\project-k\\Library\\QuestTabs\\QuestTabInteraction.cs:70 \r\n  at QuestTabInteraction+<Drive>d__6.MoveNext () [0x00043] in C:\\GitHub\\project-k\\Library\\QuestTabs\\QuestTabInteraction.cs:43 ",
+  "captures": [],
+  "scope": "Real UIManager/prefabs in isolated non-combat PlayMode fixture; synthetic pointer events through real raycast handlers"
+}

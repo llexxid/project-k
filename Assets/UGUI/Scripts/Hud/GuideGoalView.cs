@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using KingdomIdle.UI;
+using KingdomIdle.Balance;
 
 namespace KingdomIdle.UGUI
 {
@@ -19,6 +20,9 @@ namespace KingdomIdle.UGUI
         private UIManager _ui;
         private QuestRuntimeState _state;
         private QuestDefinition _definition;
+        // 표시한 계정·기간의 권리를 보관한다. 클릭할 때 현재 계정으로 토큰을 다시 만들지 않는다.
+        private QuestClaimToken _claimToken;
+        private bool _hasClaimToken, _claimable;
         private Coroutine _connection;
         private bool _breathing;
 
@@ -57,6 +61,8 @@ namespace KingdomIdle.UGUI
             StopBreathing();
             _manager = null;
             _ui = null;
+            _hasClaimToken = false;
+            _claimable = false;
         }
 
         private void ReadCurrent()
@@ -70,15 +76,27 @@ namespace KingdomIdle.UGUI
             if (definition != null && definition.Category != eQuestCategory.Guide) return;
             _state = state;
             _definition = definition;
+            _hasClaimToken = false;
+            _claimable = false;
             bool valid = state != null && definition != null;
             if (valid)
             {
+                // 구형 가이드 표시 API는 유지하되, 수령 입력은 같은 화면 바인딩 시점의 불변 token을 사용한다.
+                if (_manager != null)
+                    foreach (var row in _manager.GetSnapshot(eQuestCategory.Guide).Rows)
+                        if (row.Token.QuestId == state.QuestId && !row.IsPending)
+                        {
+                            _claimToken = row.Token;
+                            _hasClaimToken = true;
+                            _claimable = row.CanClaim;
+                            break;
+                        }
                 Set(description, definition.Description);
                 Set(stepLabel, $"가이드 {definition.QuestId-10000:N0}");
                 int required = Mathf.Max(1, definition.RequiredCount);
                 Set(progress, $"{NumberNotation.Format(Mathf.Clamp(state.CurrentProgress, 0, required))}/{NumberNotation.Format(required)}");
                 if (progressFill != null) progressFill.fillAmount = Mathf.Clamp01((float)state.CurrentProgress / required);
-                bool claimable = state.IsCompleted && _manager.CanClaimReward(state.QuestId);
+                bool claimable = state.IsCompleted && _claimable;
                 bool canNavigate = Destination().HasValue;
                 Set(actionLabel, claimable ? (definition.RewardGroupId == 0 ? "다음 목표  ›" : "보상 받기  ›")
                     : state.IsCompleted ? "보상 대기" : canNavigate ? "이동  ›" : compact ? "자세히  ›" : "전투에서 진행");
@@ -107,7 +125,7 @@ namespace KingdomIdle.UGUI
                 (_ui == null || (!_ui.HasActiveTabPanel && !_ui.HasBlockingPanel)));
             if (body != null && body.activeSelf != show) body.SetActive(show);
             bool breathe = body != null && body.activeInHierarchy && _state != null && _state.IsCompleted &&
-                _manager != null && _manager.CanClaimReward(_state.QuestId);
+                _manager != null && _claimable;
             if (breathe == _breathing) return;
             StopBreathing();
             if (breathe && actionLabel != null)
@@ -145,9 +163,9 @@ namespace KingdomIdle.UGUI
         private void Act()
         {
             if (_state == null || _manager == null) return;
-            if (_state.IsCompleted && _manager.CanClaimReward(_state.QuestId))
+            if (_state.IsCompleted && _hasClaimToken && _claimable)
             {
-                _manager.ClaimQuestReward(_state.QuestId);
+                _manager.TryClaim(_claimToken);
                 ReadCurrent();
             }
             else if (!_state.IsCompleted && Destination() is UIPanelId panel)
