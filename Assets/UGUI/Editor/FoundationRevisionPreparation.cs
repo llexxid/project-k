@@ -10,6 +10,7 @@ namespace KingdomIdle.UGUI.Editor
     {
         public static void Prepare()
         {
+            KingdomIdle.EditorTools.CombatPreparation.Prepare();
             MageSkillAssetPreparation.Build();
             Edit("Popups/Popup_Profile.prefab", root => F.RectangularBar(root.GetComponent<ProfilePopupView>().xpFill));
             Edit("Huds/Hud_Party.prefab", root => {

@@ -19,12 +19,13 @@ public partial class Player
     private void LateUpdate()
     {
         if (_isDead || IsInAttackAnimation || playerOrder.IsAbort) return;
-        Vector2 position = CombatMotion.Clamp((Vector2)transform.position + CombatMotion.Separate(transform, CombatMotion.PlayerRadius, 1.2f));
-        transform.position = new Vector3(position.x, position.y, transform.position.z);
+        Vector2 feet = VfxFootPosition;
+        Vector2 delta = CombatMotion.Clamp(feet + CombatMotion.Separate(transform, CombatMotion.PlayerRadius, 1.2f)) - feet;
+        transform.position += new Vector3(delta.x, delta.y, 0);
     }
 
     public bool IsInMeleeReach(Vector3 target, float range, float lane = CombatMotion.MeleeLane) =>
-        CombatMotion.InFront(transform.position, target, Mathf.Sign(transform.localScale.x), range, lane);
+        CombatMotion.InFront(VfxFootPosition, target, Mathf.Sign(transform.localScale.x), range, lane);
 
     public void GrantShield(long amount, float duration)
     {

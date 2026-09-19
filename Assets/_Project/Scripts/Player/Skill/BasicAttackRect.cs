@@ -55,12 +55,12 @@ public sealed class BasicAttackRect : ActiveSkill
         // Combat uses feet, while tall monsters' colliders sit above their feet.
         // Prioritize the selected victim, then up to two neighbours in the same lane.
         if (_player.currentTarget is Monster primary && primary.MonAction != eMonsterAction.Dead &&
-            _player.IsInMeleeReach(primary.transform.position, _range)) _targets.Add(primary);
+            _player.IsInMeleeReach(primary.FootPosition, _range)) _targets.Add(primary);
         foreach (var mon in CombatMotion.Monsters)
         {
             if (_targets.Count >= 3) break;
             if (mon == null || mon.MonAction == eMonsterAction.Dead || _targets.Contains(mon)) continue;
-            if (_player.IsInMeleeReach(mon.transform.position, _range, CombatMotion.MeleeLane)) _targets.Add(mon);
+            if (_player.IsInMeleeReach(mon.FootPosition, _range, CombatMotion.MeleeLane)) _targets.Add(mon);
         }
 
         if (_targets.Count > 0)

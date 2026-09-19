@@ -94,6 +94,12 @@ namespace KingdomIdle.UGUI
                                 foreach(var p in UserManager.Instance.GetPlayers()) if(p.PlayerIndex==c.value)
                                     p.TakeDamage(new ActiveSkill.DamageProxy((ulong)Math.Max(0,BalanceMath.Floor(p.playerStatus.MaxHP*(decimal)(p.HPRatio-.4f))),p));
                                 break;
+                            case "health-audit":
+                                output=KingdomIdle.Combat.CombatAcceptance.RunHealth();break;
+                            case "boss-solo":
+                                foreach(var p in UserManager.Instance.GetPlayers())
+                                    if(p.PlayerIndex!=c.value)p.gameObject.SetActive(false);
+                                KingdomIdle.Combat.CombatDiagnostics.Events.Clear();break;
                             case "combat-control":
                                 StartCoroutine(KingdomIdle.Combat.CombatAcceptance.RunLiveControl(result=>Write(c.id,new{result,state=Snapshot()})));
                                 continue;
@@ -222,7 +228,7 @@ namespace KingdomIdle.UGUI
                 manualAuto=MageTowerManager.Instance?.IsAutoEnabled(),
                 equipmentCards=FindObjectsByType<EquipCellView>(FindObjectsSortMode.None).Count(x=>x.isActiveAndEnabled),
                 aim=aimGraphic==null?null:new{valid=aimGraphic.valid,size=new[]{aimSize.x,aimSize.y}},
-                party=players?.Select(p=>new{p.PlayerIndex,job=p.playerStatus.JobName,atk=p.playerStatus.Atk,hp=p.playerStatus.HP,maxHP=p.playerStatus.MaxHP,ratio=p.HPRatio,position=new[]{p.transform.position.x,p.transform.position.y,p.transform.position.z},action=p.CurrentAction.ToString(),target=p.currentTarget?.gameobj?.name}).ToArray(),
+                party=players?.Select(p=>new{p.PlayerIndex,id=p.GetInstanceID(),active=p.isActiveAndEnabled,dead=p.IsDead,job=p.playerStatus.JobName,atk=p.playerStatus.Atk,hp=p.playerStatus.HP,maxHP=p.playerStatus.MaxHP,ratio=p.HPRatio,position=new[]{p.transform.position.x,p.transform.position.y,p.transform.position.z},feet=new[]{p.VfxFootPosition.x,p.VfxFootPosition.y},action=p.CurrentAction.ToString(),target=p.currentTarget?.gameobj?.name}).ToArray(),
                 cp=CombatPowerCalculator.CalculatePartyPowerV1(players),mage=s.MageSkills,slot=s.MageSlots,
                 mageEvents=MageSkillDiagnostics.Events.ToArray(),
                 combatEvents=KingdomIdle.Combat.CombatDiagnostics.Events.ToArray(),

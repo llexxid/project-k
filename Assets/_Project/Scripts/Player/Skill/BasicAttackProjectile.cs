@@ -54,7 +54,7 @@ public sealed class BasicAttackProjectile : ActiveSkill
         var mon = mono.GetComponentInParent<Monster>();
         if (mon != null && mon.MonAction == eMonsterAction.Dead) return false;
 
-        float dist = Vector2.Distance(_player.transform.position, target.targetPos);
+        float dist = Vector2.Distance(_player.VfxFootPosition, target.targetPos);
         return dist <= _range;
     }
 

@@ -40,6 +40,8 @@ namespace KingdomIdle.EditorTools
             Job("Elite_Mage", 3.3f, 1.65f, 1.2f);
             PrepareBomb();
             PrepareAimedSpear();
+            PrepareShamanTotem("Goblins", "GoblinShaman", "Goblin Shaman Sprite Sheet");
+            PrepareShamanTotem("Orcs", "OrcShaman", "Orc Shaman Sprite Sheet");
             PrepareAttackClips();
             PrepareAudio();
             foreach (string path in Directory.GetFiles("Assets/_Project/Prefabs/Monster", "*.prefab", SearchOption.AllDirectories))
@@ -48,7 +50,7 @@ namespace KingdomIdle.EditorTools
             try
             {
                 var circle = lancer.GetComponent<CircleCollider2D>();
-                if (circle != null) { circle.radius = .26f; circle.offset = new Vector2(0, .28f); }
+                if (circle != null) { circle.radius = .26f; circle.offset = new Vector2(0, -.36f); circle.isTrigger = true; }
                 PrefabUtility.SaveAsPrefabAsset(lancer,"Assets/_Project/Prefabs/RoyalGuard/Lancer.prefab");
             }
             finally { PrefabUtility.UnloadPrefabContents(lancer); }
@@ -160,11 +162,12 @@ namespace KingdomIdle.EditorTools
                     "GoblinKing" => "Goblins/GoblinKing/Projectiles/CoinBagSpriteSheet_Flight",
                     "GoblinBomber" => "Goblins/GoblinBomber/Projectiles/GoblinBomb_Flight",
                     "OrcKid" => "Orcs/OrcKid/Projectiles/Meat_Idle",
-                    "OrcShaman" or "GoblinShaman" or "OrcWarlock" => "Bandit/BanditMage/Projectiles/BanditMageSpriteSheet_ProjectileFlight",
+                    "OrcWarlock" => "Bandit/BanditMage/Projectiles/BanditMageSpriteSheet_ProjectileFlight",
                     _ => null
                 };
                 float reach = name.Contains("Taskmaster") ? 1.35f : name.Contains("Brute") ? 1.18f : name.Contains("King") || name == "BANDIT_KING" ? 1.15f : .83f;
-                if (projectile != null) reach = 3.1f;
+                bool shaman = name == "GoblinShaman" || name == "OrcShaman";
+                if (projectile != null || shaman) reach = 3.1f;
                 var serialized = new SerializedObject(mon);
                 serialized.FindProperty("_attackRadius").floatValue = reach;
                 serialized.FindProperty("_attackSound").enumValueIndex=(int)(name.Contains("Taskmaster")?CombatSoundCue.Whip:
@@ -172,7 +175,9 @@ namespace KingdomIdle.EditorTools
                     name.Contains("Brute") || name.Contains("King")?CombatSoundCue.Heavy:name.Contains("Spear")?CombatSoundCue.Thrust:CombatSoundCue.Steel);
                 serialized.FindProperty("_projectilePrefab").objectReferenceValue = projectile != null ?
                     AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Project/Prefabs/VFX/Prepared/" + projectile + ".prefab") : null;
-                float impact = name == "OrcHunter" ? 4f / 7f : name == "GoblinBomber" ? .4f : .5f;
+                serialized.FindProperty("_totemPrefab").objectReferenceValue = shaman ?
+                    AssetDatabase.LoadAssetAtPath<ShamanTotemStrike>($"Assets/_Project/Prefabs/VFX/Prepared/{(name == "GoblinShaman" ? "Goblins" : "Orcs")}/{name}/Totems/TotemStrike.prefab") : null;
+                float impact = name == "OrcHunter" ? 4f / 7f : name == "GoblinBomber" ? .4f : name == "GoblinShaman" ? 3f / 6f : name == "OrcShaman" ? 2f / 5f : .5f;
                 serialized.FindProperty("_impactNormalized").floatValue = impact;
                 serialized.FindProperty("_projectileSpeed").floatValue = name == "OrcHunter" ? 5f : 4.3f;
                 serialized.FindProperty("_projectileArc").floatValue = name == "GoblinKing" || name == "GoblinBomber" || name == "OrcKid" ? .4f : name == "OrcHunter" ? .08f : 0;
@@ -215,6 +220,29 @@ namespace KingdomIdle.EditorTools
                 PrefabUtility.SaveAsPrefabAsset(root,path);
             }
             finally { PrefabUtility.UnloadPrefabContents(root); }
+        }
+
+        private static void PrepareShamanTotem(string race, string name, string sheet)
+        {
+            var sprites = AssetDatabase.LoadAllAssetsAtPath($"Assets/_Project/Art/Sprites/{race}/{name}/{sheet}.png").OfType<Sprite>().ToArray();
+            var root = new GameObject("TotemStrike", typeof(SpriteRenderer), typeof(ShamanTotemStrike));
+            try
+            {
+                var renderer = root.GetComponent<SpriteRenderer>();
+                renderer.sortingLayerName = "Enemy"; renderer.sortingOrder = 0;
+                var serialized = new SerializedObject(root.GetComponent<ShamanTotemStrike>());
+                foreach (var pair in new[] { ("emerge", "TotemAppear"), ("idle", "TotemIdle"), ("crumble", "TotemDead") })
+                {
+                    var frames = sprites.Where(s => s.name.StartsWith(pair.Item2 + "_", StringComparison.Ordinal)).OrderBy(s => s.name).ToArray();
+                    if (frames.Length == 0) throw new InvalidOperationException("Missing authored totem frames: " + name + " / " + pair.Item2);
+                    var property = serialized.FindProperty(pair.Item1); property.arraySize = frames.Length;
+                    for (int i = 0; i < frames.Length; i++) property.GetArrayElementAtIndex(i).objectReferenceValue = frames[i];
+                    if (pair.Item1 == "emerge") renderer.sprite = frames[0];
+                }
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                PrefabUtility.SaveAsPrefabAsset(root, $"Assets/_Project/Prefabs/VFX/Prepared/{race}/{name}/Totems/TotemStrike.prefab");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
         }
     }
 }

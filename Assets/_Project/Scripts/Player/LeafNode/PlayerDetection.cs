@@ -13,7 +13,7 @@ public class PlayerDetection
         if (ReferenceEquals(_player.currentTarget, _acquired) && _acquired != null && _acquired.isActiveAndEnabled &&
             _acquired.MonAction != eMonsterAction.Dead && _acquired.AllocGen == _generation) return true;
         _player.ResetTarget(_player.currentTarget);
-        _acquired = CombatMotion.NearestEnemy(_player.transform.position);
+        _acquired = CombatMotion.NearestEnemy(_player.VfxFootPosition);
         if (_acquired == null) return false;
         _generation = _acquired.AllocGen;
         _player.SetTarget(_acquired);

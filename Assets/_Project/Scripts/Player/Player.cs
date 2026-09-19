@@ -19,8 +19,8 @@ public partial class Player : MonoBehaviour, IAttackable, IDamageable, IRewardab
     public bool IsDead => _isDead;
     public ePlayerAction CurrentAction => _currentAction; 
     public ulong damage => (ulong)(playerStatus?.Atk ?? 0);
-    public Vector3 targetPos => transform.position;
-    public Vector3 attackerPos => transform.position;
+    public Vector3 targetPos => VfxFootPosition;
+    public Vector3 attackerPos => VfxFootPosition;
     public GameObject gameobj => transform.gameObject;
     public int PlayerIndex => _data._index;    
     /// <summary>현재 공격 애니메이션의 재생 여부를 반환</summary>
@@ -42,7 +42,7 @@ public partial class Player : MonoBehaviour, IAttackable, IDamageable, IRewardab
         get
         {
             long maxHP = playerStatus?.MaxHP ?? 1;
-            return maxHP > 0 ? (float)_data._Hp / maxHP : 1f;
+            return maxHP > 0 ? Mathf.Clamp01((float)(playerStatus?.HP ?? 0) / maxHP) : 0f;
         }
     }
     
@@ -106,10 +106,6 @@ public partial class Player : MonoBehaviour, IAttackable, IDamageable, IRewardab
         playerOrder = new PlayerOrder();
         playerOrder.Init(this);
 
-        #if UNITY_EDITOR
-            _data._Hp = 50;
-            _data._atk = 10;
-        #endif
     }
     
     void Update()
@@ -361,25 +357,19 @@ public partial class Player : MonoBehaviour, IAttackable, IDamageable, IRewardab
             _shieldHP -= (long)absorbed; damage -= absorbed;
             if (damage == 0) return true;
         }
-        long totalHp = _data._Hp + _data._extraHp;
-        if (damage >= (ulong)System.Math.Max(0L, totalHp))
+        // PlayerStatus owns live health. Legacy PlayerData can retain an old job's
+        // HP after equipment/progression changes; it must not create hidden health.
+        long currentHp = System.Math.Clamp(playerStatus.HP, 0, playerStatus.MaxHP);
+        if (damage >= (ulong)currentHp)
         {
             _data._Hp = 0; _data._extraHp = 0; playerStatus.HP = 0;
             OnDead();
             return false;
         }
 
-        if ((long)damage > _data._extraHp)
-        {
-            long remainDamage = (long)damage - _data._extraHp;
-            _data._extraHp = 0;
-            _data._Hp -= remainDamage;
-            playerStatus.HP = _data._Hp;
-        }
-        else
-        {
-            _data._extraHp -= (int)damage;
-        }
+        playerStatus.HP = currentHp - (long)damage;
+        _data._Hp = playerStatus.HP;
+        _data._extraHp = 0;
 
         return true;
     }
@@ -419,7 +409,7 @@ public partial class Player : MonoBehaviour, IAttackable, IDamageable, IRewardab
     {
         if (_isDead || amount <= 0) return;
         long maxHP = playerStatus?.MaxHP ?? _data._MaxHp;
-        _data._Hp = System.Math.Min(checked(_data._Hp + amount), maxHP);
+        _data._Hp = playerStatus.HP + System.Math.Min(amount, System.Math.Max(0, maxHP - playerStatus.HP));
         playerStatus.HP = _data._Hp;
     }
 

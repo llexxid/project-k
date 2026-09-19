@@ -10,6 +10,7 @@ namespace Scripts.Monster
         [Header("Combat motion")]
         [SerializeField, Range(.05f, .95f)] private float _impactNormalized = .5f;
         [SerializeField] private GameObject _projectilePrefab;
+        [SerializeField] private ShamanTotemStrike _totemPrefab;
         [SerializeField, Min(1)] private float _projectileSpeed = 4.5f;
         [SerializeField, Min(0)] private float _projectileArc = .12f;
         [SerializeField] private float _projectileAngle;
@@ -21,7 +22,7 @@ namespace Scripts.Monster
         private MonsterMoveState _moveState;
         private MonsterAttackState _attackState;
         private MonsterIdleState _idleState;
-        public bool IsRangedAttack => _projectilePrefab != null;
+        public bool IsRangedAttack => _projectilePrefab != null || _totemPrefab != null;
         public float BodyRadius => Mathf.Clamp(_bodyHeight * .34f, .19f, .5f);
         public float AttackInterval => Mathf.Max(.7f, (float)_stat._atkSpeed);
         public bool IsAttackLocked => Time.time < _attackEnds;
@@ -61,7 +62,7 @@ namespace Scripts.Monster
             foreach (var candidate in CombatMotion.Players)
             {
                 if (candidate == null || candidate.IsDead) continue;
-                float distance = (candidate.transform.position - transform.position).sqrMagnitude;
+                float distance = (candidate.VfxFootPosition - FootPosition).sqrMagnitude;
                 if (distance < nearest) { nearest = distance; best = candidate; }
             }
             SetTarget(best);
@@ -71,9 +72,9 @@ namespace Scripts.Monster
         {
             AcquireTarget();
             if (Target is not Player player || player.IsDead) return false;
-            Vector2 delta = player.transform.position - transform.position;
+            Vector2 delta = player.VfxFootPosition - FootPosition;
             if (IsRangedAttack) return delta.sqrMagnitude <= AttackRadius * AttackRadius;
-            return CombatMotion.InFront(transform.position, player.transform.position, delta.x < 0 ? -1 : 1,
+            return CombatMotion.InFront(FootPosition, player.VfxFootPosition, delta.x < 0 ? -1 : 1,
                 AttackRadius, CombatMotion.MeleeLane + (IsBalanceBoss ? .12f : 0));
         }
 
@@ -81,13 +82,12 @@ namespace Scripts.Monster
         {
             if (IsAttackLocked) return;
             if (Target is not Player player || player.IsDead) { SetIdle(); return; }
-            Vector2 current = transform.position, target = player.transform.position;
+            Vector2 current = FootPosition, target = player.VfxFootPosition;
             Vector2 destination = IsRangedAttack ? target : CombatMotion.Approach(current, target, AttackRadius, Mathf.Abs(GetInstanceID()));
             if (_monAction != eMonsterAction.Walk) ChangeState(_moveState ??= new MonsterMoveState(this));
             _am.speed = 1;
             SetFlip(target.x - current.x);
-            Vector2 next = Vector2.MoveTowards(current, destination, (float)GetSpeed() * Time.deltaTime);
-            transform.position = new Vector3(next.x, next.y, transform.position.z);
+            CombatMotion.MoveTowards(this, destination, (float)GetSpeed() * Time.deltaTime, BodyRadius);
         }
 
         public bool TryBeginAttack()
@@ -123,14 +123,20 @@ namespace Scripts.Monster
             if (!_pendingImpact || _monAction == eMonsterAction.Dead || _monAI.IsAbort) return;
             _pendingImpact = false;
             if (_attackTarget == null || !_attackTarget.isActiveAndEnabled || _attackTarget.IsDead || _attackTarget.LifeGeneration != _attackTargetGeneration) return;
-            if (IsRangedAttack)
+            if (_totemPrefab != null)
+            {
+                ShamanTotemStrike.Launch(_totemPrefab, this, _attackTarget);
+                CombatDiagnostics.Record("monster-summon", this, _attackTarget, AttackInterval);
+                CombatAudio.Play(_attackSound, KingdomIdle.UGUI.SoundChannel.Monsters, transform.position);
+            }
+            else if (IsRangedAttack)
             {
                 Vector3 muzzle = transform.position + new Vector3(FacingDir * .25f, Mathf.Max(.3f, _bodyHeight * .6f), 0);
                 MonsterProjectile.Launch(_projectilePrefab, this, _attackTarget, muzzle, _projectileSpeed, _projectileArc, _projectileAngle);
                 CombatDiagnostics.Record("monster-release",this,_attackTarget,AttackInterval);
                 CombatAudio.Play(_attackSound,KingdomIdle.UGUI.SoundChannel.Monsters,transform.position);
             }
-            else if (CombatMotion.InFront(transform.position, _attackTarget.transform.position, FacingDir, AttackRadius + .1f,
+            else if (CombatMotion.InFront(FootPosition, _attackTarget.VfxFootPosition, FacingDir, AttackRadius + .1f,
                 CombatMotion.MeleeImpactLane + (IsBalanceBoss ? .12f : 0)))
             {
                 CombatDiagnostics.Record("monster-melee-hit",this,_attackTarget,AttackInterval);
@@ -156,9 +162,9 @@ namespace Scripts.Monster
         private void LateUpdate()
         {
             if (_monAction == eMonsterAction.Dead || IsAttackLocked) return;
-            Vector2 position = (Vector2)transform.position + CombatMotion.Separate(transform, BodyRadius, .8f);
-            position = CombatMotion.Clamp(position);
-            transform.position = new Vector3(position.x, position.y, transform.position.z);
+            Vector2 feet = FootPosition;
+            Vector2 delta = CombatMotion.Clamp(feet + CombatMotion.Separate(transform, BodyRadius, .8f)) - feet;
+            transform.position += new Vector3(delta.x, delta.y, 0);
         }
     }
 }

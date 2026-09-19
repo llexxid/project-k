@@ -82,6 +82,27 @@ namespace KingdomIdle.Combat
             completed(new{passed=checks.Count,checks,boss=monster.IsBalanceBoss});
         }
 
+        public static object RunHealth()
+        {
+            var rows = new List<object>();
+            foreach (var player in CombatMotion.Players.ToArray())
+            {
+                player.Revive();
+                long maximum = player.playerStatus.MaxHP;
+                // Reproduce a stat/job clamp without touching the legacy PlayerData HP.
+                player.playerStatus.HP = maximum / 2;
+                player.TakeDamage(new ActiveSkill.DamageProxy(1, null));
+                if (player.playerStatus.HP != maximum / 2 - 1 ||
+                    Mathf.Abs(player.HPRatio - (float)player.playerStatus.HP / maximum) > .0001f)
+                    throw new InvalidOperationException("Live HP and displayed HP diverged for " + player.playerStatus.JobName);
+                player.Heal(long.MaxValue);
+                if (player.playerStatus.HP != maximum) throw new InvalidOperationException("Healing exceeded maximum HP");
+                rows.Add(new { job = player.playerStatus.JobName, maximum, passed = true });
+                player.Revive();
+            }
+            return new { passed = true, rows };
+        }
+
         public static object Run()
         {
             var checks = new List<string>();

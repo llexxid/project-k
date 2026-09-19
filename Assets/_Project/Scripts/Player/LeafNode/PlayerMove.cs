@@ -14,7 +14,7 @@ public class PlayerMove
     {
         if (player.currentTarget == null) { EndRetreat(); return NodeState.Failure; }
         if (player.IsInAttackAnimation) return NodeState.Running;
-        Vector2 current = player.transform.position, target = player.currentTarget.targetPos;
+        Vector2 current = player.VfxFootPosition, target = player.currentTarget.targetPos;
         Vector2 delta = target - current;
         bool ranged = player.skillSystem.IsRanged;
         if (ranged)
@@ -30,7 +30,7 @@ public class PlayerMove
             }
             if (IsRetreating && threat != null)
             {
-                Vector2 away = current - (Vector2)threat.transform.position;
+                Vector2 away = current - (Vector2)threat.FootPosition;
                 if (away.sqrMagnitude < .001f) away = player.PlayerIndex == 1 ? Vector2.left : Vector2.right;
                 Vector2 destination = CombatMotion.Clamp(current + away.normalized * .85f);
                 if ((destination - current).sqrMagnitude > .005f)
@@ -64,8 +64,7 @@ public class PlayerMove
     private void Walk(Vector2 destination, float facing)
     {
         Face(facing); player.SetAnimation(ePlayerAction.Walk);
-        Vector2 next = Vector2.MoveTowards(player.transform.position, destination, moveSpeed * Time.deltaTime);
-        player.transform.position = new Vector3(next.x, next.y, player.transform.position.z);
+        CombatMotion.MoveTowards(player, destination, moveSpeed * Time.deltaTime, CombatMotion.PlayerRadius);
     }
     public class MoveNode : Node
     {

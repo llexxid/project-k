@@ -73,8 +73,8 @@ namespace Scripts.Monster
 		public long Exp { get; set; }
 		public double Ratio { get; set; }	    
 		public IDamageable Target { get; private set; }
-		public Vector3 attackerPos => transform.position;
-		public Vector3 targetPos => transform.position;
+		public Vector3 attackerPos => FootPosition;
+		public Vector3 targetPos => FootPosition;
 		public float AttackRadius => _attackRadius;
 		public float DectectRadius => _detectRadius;
 		public int FacingDir => _facingDir;

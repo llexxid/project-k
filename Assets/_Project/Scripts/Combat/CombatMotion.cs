@@ -37,21 +37,61 @@ namespace KingdomIdle.Combat
 
         public static Vector2 Clamp(Vector2 point) => new(Mathf.Clamp(point.x, -2.48f, 2.48f), Mathf.Clamp(point.y, -2.45f, 2.45f));
 
+        public static Vector2 Ground(Component actor) => actor is Player player ? player.VfxFootPosition :
+            actor is Monster monster ? monster.FootPosition : actor.transform.position;
+
+        // The mover yields at an opponent's footprint. Walking is not a knockback.
+        // Projection adjusts only the moving actor, never the actor being approached.
+        public static void MoveTowards(Component actor, Vector2 destination, float distance, float radius)
+        {
+            Vector2 current = Ground(actor), next = Vector2.MoveTowards(current, destination, distance);
+            if (actor is Player)
+            {
+                foreach (var monster in Monsters)
+                    if (monster != null && monster.MonAction != eMonsterAction.Dead)
+                        Avoid(monster.FootPosition, monster.BodyRadius);
+            }
+            else
+            {
+                foreach (var player in Players)
+                    if (player != null && !player.IsDead) Avoid(player.VfxFootPosition, PlayerRadius);
+            }
+            Vector2 delta = Vector2.ClampMagnitude(Clamp(next) - current, distance);
+            actor.transform.position += new Vector3(delta.x, delta.y, 0);
+
+            void Avoid(Vector2 other, float otherRadius)
+            {
+                Vector2 offset = next - other; offset.y *= 1.35f;
+                float spacing = radius + otherRadius;
+                if (offset.sqrMagnitude >= spacing * spacing) return;
+                if (offset.sqrMagnitude < .00001f) offset = current.x <= other.x ? Vector2.left : Vector2.right;
+                offset = offset.normalized * spacing; offset.y /= 1.35f;
+                next = other + offset;
+            }
+        }
+
         public static Vector2 Separate(Transform actor, float radius, float speed)
         {
-            Vector2 origin = actor.position, push = Vector2.zero;
-            foreach (var player in Players)
-                if (player != null && !player.IsDead && player.transform != actor) Add(player.transform, PlayerRadius);
-            foreach (var monster in Monsters)
-                if (monster != null && monster.MonAction != eMonsterAction.Dead && monster.transform != actor) Add(monster.transform, monster.BodyRadius);
+            var owner = actor.GetComponent<Player>();
+            Vector2 origin = owner != null ? owner.VfxFootPosition : actor.GetComponent<Monster>().FootPosition, push = Vector2.zero;
+            if (owner != null)
+            {
+                foreach (var player in Players)
+                    if (player != null && !player.IsDead && player.transform != actor) Add(player.VfxFootPosition, PlayerRadius, player.transform.GetInstanceID());
+            }
+            else
+            {
+                foreach (var monster in Monsters)
+                    if (monster != null && monster.MonAction != eMonsterAction.Dead && monster.transform != actor) Add(monster.FootPosition, monster.BodyRadius, monster.transform.GetInstanceID());
+            }
             return Vector2.ClampMagnitude(push, speed * Time.deltaTime);
 
-            void Add(Transform other, float otherRadius)
+            void Add(Vector2 other, float otherRadius, int otherId)
             {
-                Vector2 delta = origin - (Vector2)other.position; delta.y *= 1.35f;
+                Vector2 delta = origin - other; delta.y *= 1.35f;
                 float distance = delta.magnitude, spacing = radius + otherRadius;
                 if (distance >= spacing) return;
-                if (distance < .001f) delta = actor.GetInstanceID() < other.GetInstanceID() ? Vector2.left : Vector2.right;
+                if (distance < .001f) delta = actor.GetInstanceID() < otherId ? Vector2.left : Vector2.right;
                 else delta /= distance;
                 delta.y /= 1.35f;
                 push += delta * (spacing - distance) * .5f;
@@ -64,7 +104,7 @@ namespace KingdomIdle.Combat
             foreach (var monster in Monsters)
             {
                 if (monster == null || monster.MonAction == eMonsterAction.Dead) continue;
-                float d = ((Vector2)monster.transform.position - point).sqrMagnitude;
+                float d = ((Vector2)monster.FootPosition - point).sqrMagnitude;
                 if (d < distance) { best = monster; distance = d; }
             }
             return best;

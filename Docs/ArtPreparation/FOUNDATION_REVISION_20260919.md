@@ -32,7 +32,7 @@
 
 - [Kongregate / The Math of Idle Games, Part I](https://www.kongregate.com/en/pages/the-math-of-idle-games-part-i): 생산·비용·영구 보상의 곡선을 함께 비교해야 한다. 이 게임에서는 처치 시간과 수입을 분리하고 환생 직후 재진행 시간을 계산한다.
 - [Pichlmair & Johansen / Designing Game Feel. A Survey](https://arxiv.org/html/2011.09201v1): 본문 IV-A~C의 물리 동작·피드백·입력 지원 구분을 검토했다. 타격과 소리·입자의 시간 일치, 읽을 수 있는 밀침·트윈에 적용한다.
-- [Daeun Hwang / Player Engagement with Idle Games](https://escholarship.org/uc/item/0b07v51w): 2025년 석사 논문. 전문 조사 진행 중이며 단일 연구를 보편적 밸런스 정답으로 사용하지 않는다.
+- [Daeun Hwang / Player Engagement with Idle Games](https://escholarship.org/uc/item/0b07v51w): 2025년 석사 논문. 6장 설계 시사점과 7장 한계까지 검토했다. 부재 중 진행, 눈에 보이는 기능 해금·성장, 그래픽 피드백을 참고하되 소규모 집단 인터뷰(5명)와 제한된 게임·관찰기간의 결과를 보편적 정답으로 보지 않는다.
 - Riot VFX 가이드의 예전 공식 PDF URL은 현재 홈페이지로 리다이렉트된다. 문서를 읽은 것으로 기록하지 않고 대체 공식 출처를 찾는 중이다.
 - [AFK Journey 공식 게임 소개](https://www.youtube.com/watch?v=-gvaOFRoPFk): 실제 재생 화면 5:08 전투, 5:17 회복과 자막 확인. 발밑의 작은 지면 링, 몸을 가리지 않는 회복 표시, 화면 가장자리의 숲·바위 배치를 참고한다. 전체 영상 시청을 뜻하지 않는다.
 - [Riot VFX Art Education](https://www.riotgames.com/en/artedu/visual-effects), [VALORANT Shaders and Gameplay Clarity](https://www.riotgames.com/en/news/valorant-shaders-and-gameplay-clarity): 읽기 쉬운 효과와 성능 예산을 우선한다. 장판과 순간 타격의 명도·지속시간을 분리하고 저사양에서도 판정 정보를 보존한다.
@@ -43,3 +43,17 @@
 - 구매 에셋 후보 인벤토리: 9개 번들의 VFX 관련 PNG 563개. 실제 애니메이션 프레임 메타데이터를 이용한 연락판 검토 중. 원본은 변경하지 않는다.
 - Comfy 실제 MCP 연결·모델/LoRA/업스케일러/ControlNet/템플릿 조회 완료. Z-Image Turbo + hard-edge pixel LoRA로 운석 마스터 1차 시안 생성. `AI/comfyui/mage-vfx/revision1/`에 API·UI 그래프·출력을 보존했다. 아직 게임 채택 전이며 비용은 별도 사용량 보고로 확인한다.
 - 비용 기준점: 사용량 보고 총 $38.236499(2026-08-19 14:00 UTC~2026-09-19 14:00 UTC). 이는 기존 누적 사용량이며 이번 작업 비용이 아니다.
+
+
+## 추가 전투 감사 (사용자 2026-09-20 지적)
+
+- 중간 커밋 `99852dfe5`: b44에서 보호막·제어 효과·직사각형 EXP 확인.
+- 보스 1·2·3장 b44 원인 기록: `Recordings/FoundationRevision/BossAudit`. 동일 성장·장비 없는 상태에서 정예 기사 최대 HP 41,267, 창병 8,253, 정예 마법사 28,887. 보스가 도발 소유자에게 공격해 창병 무피격인 상황을 재현했다. 이 관측만으로 사용자 사례 전체가 정상이라고 단정하지 않는다.
+- `PlayerData._Hp`와 `PlayerStatus.HP`가 이원화되어 스탯 변경으로 표시 HP가 제한돼도 실제 피격은 과거 HP를 읽을 수 있었다. 실시간 HP를 PlayerStatus로 통일하고 비율·피격·회복을 같은 값으로 연결했다. 최대치 변경 후 피해와 long.MaxValue 회복도 정상화한다.
+- CombatMotion이 발 기준이라고 설명하면서 실제로는 서로 다른 pivot의 transform 위치를 비교했다. 발 위치로 접근/근접 판정을 맞추고, 이동하는 쪽이 상대 발 공간 앞에서 멈추도록 수정했다. 상대 진영의 접근 이동으로 왕국군을 미는 separation은 제거한다.
+- [Elthen 고블린 주술사](https://elthen.itch.io/2d-pixel-art-goblin-shaman-sprites), [오크 주술사](https://elthen.itch.io/2d-pixel-art-orc-shaman-sprites): 공식 애니메이션 목록과 구매 원본 전체 32px 시트를 대조했다. 양쪽 모두 토템 등장·대기·파괴를 제공한다. 현재 연결된 산적 마법사의 화염구는 해당 시트의 구성품이 아니다. 토템 한 번 공격은 이 게임에 맞춘 구현 해석이며 작가가 명시한 게임 규칙이라는 뜻은 아니다.
+- b45 Unity 컴파일·프리팹 생성·직렬화 참조 검증 및 Android 빌드 통과. SM-N986N 단독 피격 9조건(3보스 × 정예 기사/창병/정예 마법사)에서 모두 보스 공격으로 HP 감소. 창병 최종 HP는 1장 7,980 / 2장 7,756 / 3장 7,239 (최대 8,253), 정예 기사는 41,072 / 40,912 / 40,591 (최대 41,267). 각 조건 약 14개 샘플이며 장기 생존 밸런스 인증을 뜻하지 않는다.
+- 기본·정예 5개 전직의 HP 원본 불일치/비율/회복 검증 통과(창병은 두 구성에서 중복 검사). 보스의 도발 소유자를 전투에서 비활성화한 뒤 창병에게 새 근접 타격이 들어오는 것을 확인. 일반 적·보스 각각 기존 제어 10개 검사도 재통과.
+- 고블린/오크 주술사의 원본 소환 모션에서 monster-summon → totem-hit 단일 피해 확인. 시트의 등장→대기→파괴를 12fps로 재생한다. 다수 전투원이 겹칠 때 토템이 가려지는 장면을 발견했으므로 다음 VFX 묶음에서 표시 레이어를 개선한다.
+- 재현 스크립트: AI/qa/mage/boss_revision.py. 기기 원본 캡처·상태: Recordings/FoundationRevision/BossAfter. 다음 종합 검증 때 일반 계정·긴 플레이·다른 화면 비율을 다시 확인한다.
+- b45 앱 PID 로그에 Unity/C# 예외는 없었다. 시작 시 기기 Adreno/Gralloc의 4×4 버퍼 포맷 탐색 오류가 기록되어 완전한 오류 0으로 보고하지 않는다. 전투 화면은 정상 렌더링됐으며 종합 성능 점검에서 계속 확인한다.
