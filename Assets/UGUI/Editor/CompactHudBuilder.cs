@@ -17,6 +17,9 @@ namespace KingdomIdle.UGUI.Editor
         static Sprite Rounded => AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/Sprites/RoundedRect.png");
         static TMP_FontAsset Font => AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/UGUI/Art/Font/Galmuri11 SDF.asset");
         static readonly Color Glass = new Color(.085f, .065f, .045f, .76f);
+        // 런타임이 공용 탭 버튼 네 개를 생성할 컨테이너 이름과 기존 터치 높이다.
+        const string QuestTabBarName = "QuestTabBar";
+        const float QuestTabHeight = 144f;
 
         [MenuItem("KingdomIdle/UGUI/Apply compact battle HUD")]
         public static void Apply()
@@ -33,6 +36,30 @@ namespace KingdomIdle.UGUI.Editor
             Apply();
             UguiRegressionChecks.Run();
             TitleLobbyDeviceBuild.Build();
+        }
+
+        /// <summary>
+        /// 퀘스트 탭만 적용하는 메뉴/CLI 진입점이다. 열린 씬이나 다른 HUD 프리팹을 저장하지 않는다.
+        /// 기존 패널을 별도 편집 공간에서 읽고 수정한 뒤 해당 프리팹 하나만 저장한다.
+        /// </summary>
+        [MenuItem("KingdomIdle/UGUI/Apply quest category tabs")]
+        public static void ApplyQuestTabs()
+        {
+            // 전체 HUD 재생성 대신 현재 수동 편집을 포함한 퀘스트 패널만 대상으로 삼는다.
+            string path = Root + "Panels/Panel_Guide.prefab";
+            GameObject contents = PrefabUtility.LoadPrefabContents(path);
+            try
+            {
+                ApplyGuideTabs(contents);
+                PrefabUtility.SaveAsPrefabAsset(contents, path, out bool saved);
+                if (!saved) throw new InvalidOperationException("퀘스트 탭 프리팹을 저장하지 못했습니다: " + path);
+            }
+            finally
+            {
+                // 실패해도 임시 편집 공간은 닫아 원본 씬의 편집 상태를 보존한다.
+                PrefabUtility.UnloadPrefabContents(contents);
+            }
+            Debug.Log("[Quest tabs] Panel_Guide의 탭 컨테이너와 참조를 갱신했습니다.");
         }
 
         static void Edit(string relative, Action<GameObject> edit)
@@ -115,6 +142,8 @@ namespace KingdomIdle.UGUI.Editor
             ProgressionFlowPreparation.ApplyMain(go);
         }
 
+        /// <summary>기존 간결한 가이드 카드 스타일을 적용한 뒤 같은 탭 배선 규칙을 연결한다.</summary>
+        /// <param name="go">전체 HUD 적용 경로에서 불러온 퀘스트 패널 루트다.</param>
         static void ApplyGuide(GameObject go)
         {
             var view = go.GetComponent<GuidePanelView>();
@@ -135,6 +164,60 @@ namespace KingdomIdle.UGUI.Editor
             }
             foreach (var t in go.GetComponentsInChildren<TMP_Text>(true))
                 if (t.text == "가이드 진행도") t.text = "플레이 도움말";
+            ApplyGuideTabs(go);
+        }
+
+        /// <summary>
+        /// 생성기와 좁은 프리팹 갱신이 공유하는 탭 배선이다. 기존 카드와 스크롤 내용은 재생성하지 않는다.
+        /// 탭 버튼 자체는 런타임이 공용 프리팹으로 만들므로 여기서는 빈 가로 컨테이너만 준비한다.
+        /// </summary>
+        /// <param name="go">GuidePanelView가 붙은 퀘스트 패널 루트다.</param>
+        internal static void ApplyGuideTabs(GameObject go)
+        {
+            // 실제 스크롤의 부모를 본문으로 사용해 패널 바깥의 동명 오브젝트를 건드리지 않는다.
+            var view = go.GetComponent<GuidePanelView>();
+            if (view == null || view.scroll == null || view.scroll.transform.parent == null)
+                throw new InvalidOperationException("퀘스트 패널의 GuidePanelView/Scroll 참조가 필요합니다.");
+            Transform body = view.scroll.transform.parent;
+
+            // 저장된 참조를 먼저 재사용하고, 첫 적용에서만 이름으로 기존 컨테이너를 찾거나 만든다.
+            RectTransform tabs = view.tabBar != null ? view.tabBar : body.Find(QuestTabBarName) as RectTransform;
+            if (tabs == null) tabs = Child(body, QuestTabBarName);
+            if (tabs.parent != body) tabs.SetParent(body, false);
+            tabs.gameObject.SetActive(true);
+            SizeLayout(tabs, QuestTabHeight);
+
+            // 공용 버튼 높이는 유지하며, 런타임의 동일한 LayoutElement 폭 설정으로 네 칸을 균등 배치한다.
+            var layout = tabs.GetComponent<UnityEngine.UI.HorizontalLayoutGroup>() ??
+                tabs.gameObject.AddComponent<UnityEngine.UI.HorizontalLayoutGroup>();
+            layout.padding = new RectOffset();
+            layout.spacing = 8f;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = layout.childControlHeight = true;
+            layout.childForceExpandWidth = layout.childForceExpandHeight = true;
+            layout.childScaleWidth = layout.childScaleHeight = false;
+            layout.reverseArrangement = false;
+
+            // 기존 분류 라벨 바로 앞에 배치한다. 이미 앞에 있는 탭 자신의 인덱스를 빼 재실행 위치를 고정한다.
+            Transform position = view.progressLabel != null && view.progressLabel.transform.parent == body
+                ? view.progressLabel.transform : view.scroll.transform;
+            int sibling = position.GetSiblingIndex();
+            if (tabs.GetSiblingIndex() < sibling) sibling--;
+            tabs.SetSiblingIndex(sibling);
+            view.tabBar = tabs;
+
+            // 현재 퀘스트 카드는 위치·크기·하위 편집을 그대로 두고 런타임 표시 제어용 참조만 연결한다.
+            if (view.currentQuestRoot == null)
+                view.currentQuestRoot = body.Find("CurrentQuest")?.gameObject;
+
+            // 이전 진행 표시를 삭제하지 않아 기존 직렬화 참조를 유지하면서 중복 정보만 숨긴다.
+            if (view.progressLabel != null) view.progressLabel.gameObject.SetActive(false);
+            if (view.progressFill != null)
+            {
+                Transform track = view.progressFill.transform.parent;
+                if (track != null && track.parent == body) track.gameObject.SetActive(false);
+                else view.progressFill.gameObject.SetActive(false);
+            }
         }
 
         static void BuildGoal(RectTransform root, bool compact)

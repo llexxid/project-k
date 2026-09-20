@@ -17,7 +17,7 @@ namespace KingdomIdle.Balance
             var dailyReincarnation = new ProgressionState { ReincarnationDay = LocalProgression.KstDay, ReincarnationsToday = 3, CycleStartedUtc = LocalProgression.UtcNow };
             Check(Reincarnation.ReincarnationService.Eligibility(dailyReincarnation) == Reincarnation.eReincarnationFailureReason.DailyLimit,
                 "Daily reincarnation cap is explained before another boss or cooldown requirement");
-            var legacyInventory = new ProgressionState();
+            var legacyInventory = new ProgressionState { QuestSchemaVersion = QuestEconomy.SchemaVersion };
             EquipmentManager.ImportLegacy(legacyInventory, 123, 7, 65535);
             Check(legacyInventory.Equipment.Count == EquipmentManager.Capacity && legacyInventory.PendingEquipment.Count == 0 &&
                 legacyInventory.LegacyEquipment.Single().Count == 65535 - EquipmentManager.Capacity, "Legacy 65535 stack preserves overflow without filling battle inbox");
@@ -34,7 +34,7 @@ namespace KingdomIdle.Balance
                 !EquipmentManager.TakeLegacy(legacyReload,123,7), "Final legacy item is consumed once");
             LocalProgression.Validate(legacyReload);
             Check(JsonConvert.DeserializeObject<ProgressionState>("{}").LegacyEquipment.Count == 0, "Old save defaults to empty legacy reserve");
-            var crowded = new ProgressionState();
+            var crowded = new ProgressionState { QuestSchemaVersion = QuestEconomy.SchemaVersion };
             bool allGranted = true;
             for (int i = 0; i < 2400; i++)
                 allGranted &= EquipmentManager.Grant(crowded, new EquipmentSave { Id = "crowded-" + i, Code = 123 + i % 3 }, true);

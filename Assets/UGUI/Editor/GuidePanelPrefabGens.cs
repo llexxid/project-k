@@ -103,6 +103,8 @@ namespace KingdomIdle.UGUI.Editor
             hintLabel.gameObject.SetActive(false);   // 미완료 단계에서만 런타임에 표시
             view.hintLabel = hintLabel;
 
+            // 재생성 시에도 보상 카드와 런타임 View 참조를 함께 굽는다.
+            QuestCardPrefabBuilder.Upgrade(row.gameObject);
             return PrefabGenUtil.SavePrefab(row.gameObject, $"{PrefabGenUtil.PrefabRoot}/Items/Item_GuideStepRow.prefab");
         }
 

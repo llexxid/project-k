@@ -303,6 +303,7 @@ obj1.GetComponent<ChangeJob>().ChangeJobByCode(_characterDataFromServer[0].JobCo
                         var data = EquipmentManager.Instance.GetData((int)item.GetItemCode());
                         if (data == null) { state.Modules["legacy-unresolved-inventory"]="Unknown item codes remain in legacy-inventory for server migration."; continue; }
                         int amount = (int)item.GetItemAmount();
+                        // 저장 복원은 획득 이벤트 없이 보유 장비와 초과 수량만 복구한다.
                         EquipmentManager.ImportLegacy(state, data.itemCode,
                             System.Math.Min((int)item.GetItemEnchantCount(),data.maxEnhancementLevel), amount);
                     }

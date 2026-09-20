@@ -338,7 +338,8 @@ namespace KingdomIdle.MageTower
                 position = MageTowerTargeting.BattleCenter();
             }
             else if (!position.HasValue && !MageTowerSpellCast.TryFindTarget(skill, out target, IsBloomEnabled(skillId))) return false;
-            LocalProgression.RecordSkillCast(skillId);
+            // 기간 경계 저장이 거절되면 미집계 시전이나 쿨다운 소비 없이 다시 시도할 수 있다.
+            if (!LocalProgression.RecordSkillCast(skillId)) return false;
             _casting[slotIndex] = true;
             _cooldowns[slotIndex] = _cooldownTimers[slotIndex] = GetEffectiveCooldown(skillId);
             _skillCooldowns[skillId] = _skillCooldownTimers[skillId] = _cooldownTimers[slotIndex];

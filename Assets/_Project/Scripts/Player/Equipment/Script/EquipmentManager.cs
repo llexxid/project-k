@@ -41,7 +41,8 @@ public class EquipmentManager : MonoBehaviour
         foreach (var pair in _players)
             pair.Value?.PlayerEquipmentManager?.RestoreSelection(_inventory.Items.FirstOrDefault(x => x.equipmentPlayerIndex == pair.Key));
     }
-    public static bool Grant(ProgressionState state, EquipmentSave item, bool allowPending)
+    /// <summary>실제 지급만 획득 이벤트로 센다. 저장 이관은 recordQuestProgress=false로 보유 상태만 복구한다.</summary>
+    public static bool Grant(ProgressionState state, EquipmentSave item, bool allowPending, bool recordQuestProgress = true)
     {
         if (state.Equipment.Any(x => x.Id == item.Id) || state.PendingEquipment.Any(x => x.Id == item.Id)) return false;
         if (EquipmentEconomy.ShouldAutoDismantle(state, item)) LocalProgression.Credit(state, eCurrency.EquipmentStone, EquipmentEconomy.Yield(item));
@@ -55,12 +56,13 @@ public class EquipmentManager : MonoBehaviour
             else stack.Count = checked(stack.Count + 1);
         }
         else return false;
-        QuestEconomy.Count(state,eQuestObjectiveType.EquipmentObtain,0,1);
+        if (recordQuestProgress) QuestEconomy.Count(state,eQuestObjectiveType.EquipmentObtain,0,1);
         return true;
     }
     // Old accounts stored quantities instead of individual instances. Reserve the excess
     // by code/level so a large owned stack cannot block login or allocate thousands of objects.
     // This reserve never expires and does not consume the live battle-reward inbox.
+    // Restoring already-owned items is not a new quest acquisition; only Grant records that event.
     public static void ImportLegacy(ProgressionState state, int code, int level, int amount)
     {
         if (amount < 0 || level < 0 || level > 15) throw new ArgumentOutOfRangeException();
@@ -74,7 +76,6 @@ public class EquipmentManager : MonoBehaviour
             if (stack == null) state.LegacyEquipment.Add(new LegacyEquipmentStack { Code = code, Level = level, Count = remainder });
             else stack.Count = checked(stack.Count + remainder);
         }
-        if (amount > 0) QuestEconomy.Count(state, eQuestObjectiveType.EquipmentObtain, 0, amount);
     }
     public static bool TakeLegacy(ProgressionState state, int code, int level)
     {

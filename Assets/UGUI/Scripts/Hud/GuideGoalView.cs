@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using KingdomIdle.UI;
+using KingdomIdle.Balance;
 
 namespace KingdomIdle.UGUI
 {
@@ -19,6 +20,9 @@ namespace KingdomIdle.UGUI
         private UIManager _ui;
         private QuestRuntimeState _state;
         private QuestDefinition _definition;
+        // 표시한 계정·기간의 권리를 보관한다. 클릭할 때 현재 계정으로 토큰을 다시 만들지 않는다.
+        private QuestClaimToken _claimToken;
+        private bool _hasClaimToken, _claimable;
         private Coroutine _connection;
         private bool _breathing;
 
@@ -57,6 +61,8 @@ namespace KingdomIdle.UGUI
             StopBreathing();
             _manager = null;
             _ui = null;
+            _hasClaimToken = false;
+            _claimable = false;
         }
 
         private void ReadCurrent()
@@ -70,16 +76,28 @@ namespace KingdomIdle.UGUI
             if (definition != null && definition.Category != eQuestCategory.Guide) return;
             _state = state;
             _definition = definition;
+            _hasClaimToken = false;
+            _claimable = false;
             bool valid = state != null && definition != null;
             if (valid)
             {
+                // 구형 가이드 표시 API는 유지하되, 수령 입력은 같은 화면 바인딩 시점의 불변 token을 사용한다.
+                if (_manager != null)
+                    foreach (var row in _manager.GetSnapshot(eQuestCategory.Guide).Rows)
+                        if (row.Token.QuestId == state.QuestId && !row.IsPending)
+                        {
+                            _claimToken = row.Token;
+                            _hasClaimToken = true;
+                            _claimable = row.CanClaim;
+                            break;
+                        }
                 Set(description, definition.Description);
                 Set(stepLabel, $"가이드 {definition.QuestId-10000:N0}");
                 int required = Mathf.Max(1, definition.RequiredCount);
                 Set(progress, $"{NumberNotation.Format(Mathf.Clamp(state.CurrentProgress, 0, required))}/{NumberNotation.Format(required)}");
                 if (progressFill != null) progressFill.fillAmount = Mathf.Clamp01((float)state.CurrentProgress / required);
-                bool claimable = state.IsCompleted && _manager.CanClaimReward(state.QuestId);
-                bool canNavigate = IsMageGoal() || definition.ObjectiveType == eQuestObjectiveType.Reincarnate || Destination().HasValue;
+                bool claimable = state.IsCompleted && _claimable;
+                bool canNavigate = QuestNavigation.CanNavigate(definition.ObjectiveType);
                 Set(actionLabel, claimable ? (definition.RewardGroupId == 0 ? "다음 목표  ›" : "보상 받기  ›")
                     : state.IsCompleted ? "보상 대기" : canNavigate ? "이동  ›" : compact ? "자세히  ›" : "전투에서 진행");
                 if (actionButton != null) actionButton.interactable = compact || claimable || (!state.IsCompleted && canNavigate);
@@ -107,7 +125,7 @@ namespace KingdomIdle.UGUI
                 (_ui == null || (!_ui.HasActiveTabPanel && !_ui.HasBlockingPanel)));
             if (body != null && body.activeSelf != show) body.SetActive(show);
             bool breathe = body != null && body.activeInHierarchy && _state != null && _state.IsCompleted &&
-                _manager != null && _manager.CanClaimReward(_state.QuestId);
+                _manager != null && _claimable;
             if (breathe == _breathing) return;
             StopBreathing();
             if (breathe && actionLabel != null)
@@ -123,51 +141,19 @@ namespace KingdomIdle.UGUI
             _breathing = false;
         }
 
-        private UIPanelId? Destination()
-        {
-            if (_definition == null) return null;
-            switch (_definition.ObjectiveType)
-            {
-                case eQuestObjectiveType.GachaUse: return UIPanelId.Gacha;
-                case eQuestObjectiveType.DungeonEnter:
-                case eQuestObjectiveType.DungeonClear: return UIPanelId.Dungeon;
-                case eQuestObjectiveType.LevelUp:
-                case eQuestObjectiveType.StatEnhance: return UIPanelId.Development;
-                case eQuestObjectiveType.EquipmentObtain: return UIPanelId.Inventory;
-                case eQuestObjectiveType.EquipmentEquip:
-                case eQuestObjectiveType.JobChange:
-                case eQuestObjectiveType.Enhance: return UIPanelId.KingdomArmy;
-                default: return null;
-            }
-        }
-
-        private bool IsMageGoal() => _definition != null &&
-            (_definition.ObjectiveType == eQuestObjectiveType.SkillEquip ||
-             _definition.ObjectiveType == eQuestObjectiveType.SkillEnhance ||
-             _definition.ObjectiveType == eQuestObjectiveType.SkillAwaken);
-
         private void Act()
         {
             if (_state == null || _manager == null) return;
-            if (_state.IsCompleted && _manager.CanClaimReward(_state.QuestId))
+            if (_state.IsCompleted && _hasClaimToken && _claimable)
             {
-                _manager.ClaimQuestReward(_state.QuestId);
+                var result = _manager.TryClaim(_claimToken);
+                if (result.Succeeded) UIManager.Instance?.ShowToast("가이드 완료");
+                else if (result.Status == QuestClaimStatus.SaveFailed)
+                    UIManager.Instance?.ShowToast("보상 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
                 ReadCurrent();
             }
-            else if (!_state.IsCompleted && IsMageGoal())
-                MageTowerPopupController.Show();
-            else if (!_state.IsCompleted && _definition?.ObjectiveType == eQuestObjectiveType.Reincarnate)
-                ReincarnationPopupController.Show();
-            else if (!_state.IsCompleted && Destination() is UIPanelId panel)
-            {
-                if (_definition.ObjectiveType == eQuestObjectiveType.GachaUse)
-                    GachaPanelController.SetPendingSkillTab(_definition.TargetId == 2);
-                if (_definition.ObjectiveType == eQuestObjectiveType.EquipmentEquip)
-                    KingdomArmyPanelController.SetPendingEquipmentTab();
-                if (_definition.ObjectiveType == eQuestObjectiveType.JobChange)
-                    KingdomArmyPanelController.SetPendingJobChangeTab();
-                UIManager.Instance?.PushPanel(panel, null, true, true);
-            }
+            else if (!_state.IsCompleted && _definition != null && QuestNavigation.CanNavigate(_definition.ObjectiveType))
+                QuestNavigation.Navigate(_definition.ObjectiveType, _definition.TargetId);
             else if (compact)
                 UIManager.Instance?.PushPanel(UIPanelId.Guide, null, false, false);
         }

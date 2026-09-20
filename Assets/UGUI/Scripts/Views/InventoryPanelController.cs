@@ -28,6 +28,12 @@ namespace KingdomIdle.UGUI
 
         // ── 진입점 ──
 
+        /// <summary>퀘스트 목적지로 중첩된 인벤토리에서 돌아오면 원래 패널을 다시 연결한다.</summary>
+        internal static void Restore(InventoryPanelView view)
+        {
+            if (_view != view) Populate(view);
+        }
+
         public static void Populate(InventoryPanelView view)
         {
             if (view == null) return;

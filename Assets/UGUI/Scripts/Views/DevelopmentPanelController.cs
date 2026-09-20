@@ -34,6 +34,12 @@ namespace KingdomIdle.UGUI
         }
         private static readonly List<CardBinding> Cards = new();
 
+        /// <summary>중첩 육성 화면이 닫힌 뒤 원래 패널의 정적 바인딩과 변경 구독을 복구한다.</summary>
+        internal static void Restore(DevelopmentPanelView view)
+        {
+            if (_view != view) Populate(view);
+        }
+
         public static void Populate(DevelopmentPanelView view)
         {
             if (view == null) return;

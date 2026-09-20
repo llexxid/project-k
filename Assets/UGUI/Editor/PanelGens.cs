@@ -251,6 +251,8 @@ namespace KingdomIdle.UGUI.Editor
             return PrefabGenUtil.SavePrefab(shell.Root.gameObject, $"{PrefabGenUtil.PrefabRoot}/Panels/Panel_Dungeon.prefab");
         }
 
+        /// <summary>가이드 패널을 새로 생성할 때도 기존 프리팹 갱신과 동일한 탭 컨테이너 규칙을 적용한다.</summary>
+        /// <returns>저장된 퀘스트 패널 프리팹이다. 탭 버튼 네 개는 런타임에서 생성한다.</returns>
         internal static GameObject GenerateGuide()
         {
             var shell = BuildShell("Panel_Guide", "가이드", UguiTheme.GuideSheetHeightPct);
@@ -272,6 +274,9 @@ namespace KingdomIdle.UGUI.Editor
 
             view.scroll = AddScroll(shell.Body, out var content);
             view.listContent = content;
+
+            // 진행 라벨/바 참조는 호환성을 위해 보존하고 같은 위치에 탭을 배선한다.
+            CompactHudBuilder.ApplyGuideTabs(shell.Root.gameObject);
 
             return PrefabGenUtil.SavePrefab(shell.Root.gameObject, $"{PrefabGenUtil.PrefabRoot}/Panels/Panel_Guide.prefab");
         }

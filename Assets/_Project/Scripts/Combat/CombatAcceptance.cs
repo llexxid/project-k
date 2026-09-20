@@ -105,6 +105,7 @@ namespace KingdomIdle.Combat
 
         public static object Run()
         {
+            using var session = LocalProgression.BeginTestSession();
             var checks = new List<string>();
             void Check(bool ok,string name) { if(!ok)throw new InvalidOperationException(name);checks.Add(name); }
             Check(!CombatMotion.InFront(Vector2.zero,new Vector2(.2f,1.2f),1,1),"Vertical enemy is outside melee lane");
@@ -118,16 +119,24 @@ namespace KingdomIdle.Combat
 
             string account="combat-acceptance-"+Guid.NewGuid().ToString("N");
             LocalProgression.OpenTestAccount(account);
+            var daily = QuestCatalog.Instance.Get(20003);
             Check(LocalProgression.Execute("seed",s=>{
                 s.Wallet[eCurrency.Gold]=100;s.Equipment.Add(new EquipmentSave{Id="copy-test"});
+                s.MainClears.Add(0x20001000B);
                 s.MageSkills[0]=new MageSave();s.UnlockedJobs[0]=new HashSet<string>{"Spearman"};
-                s.PendingQuests["copy-test"]=new QuestPending{ExpiresUtc=LocalProgression.UtcNow+86400,Gold=1};return true;
+                s.CompletedQuests.Add(QuestCatalog.Instance.Definitions.First().QuestId);
+                QuestEconomy.Count(s,eQuestObjectiveType.BattleTime,0,daily.RequiredCount);return true;
             }),"Durable isolated fixture");
             var state=LocalProgression.State;var copy=state.DeepClone();
+            string pendingKey=QuestEconomy.Key(daily,state);
             Check(JsonConvert.SerializeObject(state)==JsonConvert.SerializeObject(copy),"Deep clone preserves every serialized field");
             Check(typeof(ProgressionState).GetFields().Where(f=>!f.FieldType.IsValueType && f.FieldType!=typeof(string)).All(f=>!ReferenceEquals(f.GetValue(state),f.GetValue(copy))),"All mutable top-level collections copied");
-            copy.Equipment[0].Level=10;copy.MageSkills[0].Enhance=10;copy.UnlockedJobs[0].Add("Knight");copy.PendingQuests["copy-test"].Gold=5;
-            Check(state.Equipment[0].Level==0 && state.MageSkills[0].Enhance==0 && !state.UnlockedJobs[0].Contains("Knight") && state.PendingQuests["copy-test"].Gold==1,"Nested draft mutations cannot leak");
+            long rewardAmount=state.PendingQuests[pendingKey].Rewards[0].Amount;
+            copy.Equipment[0].Level=10;copy.MageSkills[0].Enhance=10;copy.UnlockedJobs[0].Add("Knight");copy.PendingQuests[pendingKey].Gold=5;
+            copy.CompletedQuests.Clear();copy.PendingQuests[pendingKey].Rewards[0].Amount++;copy.PendingQuests[pendingKey].Rewards.Clear();
+            Check(state.Equipment[0].Level==0 && state.MageSkills[0].Enhance==0 && !state.UnlockedJobs[0].Contains("Knight") && state.PendingQuests[pendingKey].Gold==0,"Nested draft mutations cannot leak");
+            Check(state.CompletedQuests.Count>0 && state.PendingQuests[pendingKey].Rewards[0].Amount==rewardAmount,
+                "Completed quests, pending reward lists and reward items are independent copies");
             LocalProgression.RecordSkillCast(0);LocalProgression.RecordSkillCast(1);LocalProgression.RecordSkillCast(1);
             LocalProgression.TickSkillCounters(); // Write an immutable snapshot on a worker.
             LocalProgression.RecordSkillCast(2); // A newer event arrives during that write.
@@ -137,6 +146,23 @@ namespace KingdomIdle.Combat
             LocalProgression.FlushSkillCounters();LocalProgression.OpenTestAccount(account);
             Check(LocalProgression.State.Counters[total]==4 && LocalProgression.Balance(eCurrency.Gold)==107,"Counters and economic transaction survive reopen");
             Check(!LocalProgression.TestFailedWrite(s=>{LocalProgression.Credit(s,eCurrency.Gold,50);return true;}) && LocalProgression.Balance(eCurrency.Gold)==107,"Failed write never credits an economic draft");
+            int notifications=0;
+            Action onChanged=()=>notifications++;
+            LocalProgression.Changed+=onChanged;
+            try
+            {
+                LocalProgression.RecordSkillCast(0);
+                Check(notifications==0,"Skill collection does not publish before saving");
+                // 저장 간격을 기다리는 대신 실제 worker 저장을 시작해 거절 거래와의 순서를 재현한다.
+                typeof(LocalProgression).GetField("_nextCounterSave",System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic).SetValue(null,0f);
+                LocalProgression.TickSkillCounters();
+                Check(!LocalProgression.Execute("rejected-after-autosave",_=>false) && notifications==1,
+                    "Successful autosave still notifies when the following transaction is rejected");
+                LocalProgression.RecordSkillCast(0);
+                Check(LocalProgression.FlushSkillCounters() && notifications==2,
+                    "Explicit counter flush publishes its saved revision exactly once");
+            }
+            finally { LocalProgression.Changed-=onChanged; }
             return new {passed=checks.Count,checks};
         }
     }

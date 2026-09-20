@@ -68,6 +68,12 @@ namespace KingdomIdle.UGUI
 
         // ── 진입점 ──
 
+        /// <summary>겹쳐 열린 왕국군 화면을 닫은 뒤 원래 인스턴스의 정적 바인딩을 복구한다.</summary>
+        internal static void Restore(KingdomArmyPanelView view)
+        {
+            if (_view != view) Populate(view);
+        }
+
         public static void Populate(KingdomArmyPanelView view)
         {
             // 예약 인덱스는 어떤 경로로 빠져나가든 여기서 소비한다 — 아래 early return 에 걸려

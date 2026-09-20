@@ -45,12 +45,20 @@ namespace KingdomIdle.UGUI
         // GachaManager 이벤트 구독 상태 (중복 구독 방지)
         private static bool _subscribedToManager;
 
+        /// <summary>다른 뽑기 인스턴스가 정적 바인딩을 차지한 뒤 복귀한 경우에만 다시 연결한다.</summary>
+        internal static void Restore(GachaPanelView view)
+        {
+            if (_view != view) Populate(view);
+        }
+
         public static void Populate(GachaPanelView view)
         {
             var pendingSkillTab = _pendingSkillTab;
             _pendingSkillTab = null;
             if (view == null) return;
 
+            // 같은 테이블이어도 다른 패널의 콘텐츠를 재사용하면 새 화면이 비어 있게 된다.
+            if (_view != view) { _content = null; _contentTable = null; }
             _view = view;
             NumberNotationBinding.Bind(view, UpdateWallet);
             if (_view.tabBar == null || _view.content == null) return;

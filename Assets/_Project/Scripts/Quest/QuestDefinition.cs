@@ -4,49 +4,61 @@ using System.Collections.Generic;
 using UnityEngine;
 public enum eQuestPresentationType
 {
-    None,
-    HighlightButton,
-    OpenPopup,
-    FocusContent,
-    TutorialMessage
+    None = 0,
+    HighlightButton = 1,
+    OpenPopup = 2,
+    FocusContent = 3,
+    TutorialMessage = 4
 }
 
 public enum eQuestProgressMode
 {
-    EventCount,
-    CurrentState,
-    LifetimeTotal
+    EventCount = 0,
+    CurrentState = 1,
+    LifetimeTotal = 2
 }
 
 //퀘스트 클리어 조건
 public enum eQuestObjectiveType
 {
-    StageClear, //스테이지 클리어
-    MonsterKill, //몬스터 처치
+    StageClear = 0, //스테이지 클리어
+    MonsterKill = 1, //몬스터 처치
 
-    LevelUp, //레벨업
-    Enhance, //장비 강화
-    EquipmentObtain, //장비 획득
-    EquipmentEquip, //장비 장착
-    ItemUse, //아이템 사용
+    LevelUp = 2, //레벨업
+    Enhance = 3, //장비 강화
+    EquipmentObtain = 4, //장비 획득
+    EquipmentEquip = 5, //장비 장착
+    ItemUse = 6, //아이템 사용
 
-    GachaUse, //뽑기권 사용
+    GachaUse = 7, //뽑기권 사용
 
-    DungeonEnter, //던전 입장
-    DungeonClear, //던전 클리어
+    DungeonEnter = 8, //던전 입장
+    DungeonClear = 9, //던전 클리어
 
-    JobChange, //직업 변경
-    SkillEquip, //스킬 장착
-    PlayerLevel, BossKill, StatEnhance, SkillObtain, SkillEnhance, SkillAwaken,
-    Reincarnate, ReincarnationLevel, OfflineClaim, QuestAllClear, EquipmentEnhance, BattleTime, MainWaveClear, SkillCast
+    JobChange = 10, //직업 변경
+    SkillEquip = 11, //스킬 장착
+    PlayerLevel = 12,
+    BossKill = 13,
+    StatEnhance = 14,
+    SkillObtain = 15,
+    SkillEnhance = 16,
+    SkillAwaken = 17,
+    Reincarnate = 18,
+    ReincarnationLevel = 19,
+    OfflineClaim = 20,
+    QuestAllClear = 21,
+    EquipmentEnhance = 22,
+    BattleTime = 23,
+    MainWaveClear = 24,
+    SkillCast = 25
 }
 //퀘스트 종류(가이드, 일일, 주간, 도전과제)
 public enum eQuestCategory
 {
-    Guide, 
-    Daily,
-    Weekly,
-    Achievement
+    Guide = 0,
+    Daily = 1,
+    Weekly = 2,
+    Achievement = 3
 }
 
 [Serializable]

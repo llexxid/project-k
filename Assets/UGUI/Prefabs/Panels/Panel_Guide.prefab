@@ -489,6 +489,89 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!1 &1949697541401565777
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4099703602514653688}
+  - component: {fileID: 9086802223879254074}
+  - component: {fileID: 1940386703978514553}
+  m_Layer: 0
+  m_Name: QuestTabBar
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &4099703602514653688
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1949697541401565777}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 5691319494738559794}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &9086802223879254074
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1949697541401565777}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: 0
+  m_MinHeight: 144
+  m_PreferredWidth: -1
+  m_PreferredHeight: 144
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: 0
+  m_LayoutPriority: 1
+--- !u!114 &1940386703978514553
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1949697541401565777}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 30649d3a9faa99c48a7b1166b86bf2a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.HorizontalLayoutGroup
+  m_Padding:
+    m_Left: 0
+    m_Right: 0
+    m_Top: 0
+    m_Bottom: 0
+  m_ChildAlignment: 4
+  m_Spacing: 8
+  m_ChildForceExpandWidth: 1
+  m_ChildForceExpandHeight: 1
+  m_ChildControlWidth: 1
+  m_ChildControlHeight: 1
+  m_ChildScaleWidth: 0
+  m_ChildScaleHeight: 0
+  m_ReverseArrangement: 0
 --- !u!1 &2363271521293135886
 GameObject:
   m_ObjectHideFlags: 0
@@ -499,7 +582,6 @@ GameObject:
   m_Component:
   - component: {fileID: 7685886084433530082}
   - component: {fileID: 3537965877567651024}
-  - component: {fileID: 6932047845270834259}
   m_Layer: 5
   m_Name: Panel_Guide
   m_TagString: Untagged
@@ -521,7 +603,6 @@ RectTransform:
   m_Children:
   - {fileID: 5419362614488920931}
   - {fileID: 1724402706280132682}
-  - {fileID: 4205692717105317839}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
@@ -545,23 +626,12 @@ MonoBehaviour:
   sheet: {fileID: 4205692717105317839}
   title: {fileID: 8222856565768148122}
   closeButton: {fileID: 93443730462316398}
-  centeredModal: 1
   progressFill: {fileID: 2277650655102106168}
   progressLabel: {fileID: 7717476508763512496}
   scroll: {fileID: 6385502682621902645}
   listContent: {fileID: 2630421787775476496}
---- !u!114 &6932047845270834259
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2363271521293135886}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8181737255282644ea728a5da02b73d1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::KingdomIdle.UGUI.PartyHudSuppressor
+  tabBar: {fileID: 4099703602514653688}
+  currentQuestRoot: {fileID: 985920125136334302}
 --- !u!1 &3144313879833775602
 GameObject:
   m_ObjectHideFlags: 0
@@ -824,7 +894,8 @@ RectTransform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 4205692717105317839}
   m_Father: {fileID: 7685886084433530082}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -960,7 +1031,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &5029266595184026744
 RectTransform:
   m_ObjectHideFlags: 0
@@ -2054,8 +2125,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 95}
+  m_SizeDelta: {x: 0, y: -190}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &3407578940193235275
 CanvasRenderer:
@@ -2078,7 +2149,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0, g: 0, b: 0, a: 0.55}
+  m_Color: {r: 0, g: 0, b: 0, a: 0.35}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -2151,7 +2222,7 @@ GameObject:
   - component: {fileID: 5489264258795822821}
   - component: {fileID: 6428611720122096730}
   - component: {fileID: 4180462340922162954}
-  - component: {fileID: 7791247823904892354}
+  - component: {fileID: 2732359507756199892}
   m_Layer: 5
   m_Name: Sheet
   m_TagString: Untagged
@@ -2183,13 +2254,13 @@ RectTransform:
   - {fileID: 1567874680636846186}
   - {fileID: 5019092195934721128}
   - {fileID: 5691319494738559794}
-  m_Father: {fileID: 7685886084433530082}
+  m_Father: {fileID: 1724402706280132682}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 980, y: 1440}
-  m_Pivot: {x: 0.5, y: 0.5}
+  m_SizeDelta: {x: 0, y: 960}
+  m_Pivot: {x: 0.5, y: 0}
 --- !u!222 &5489264258795822821
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -2254,7 +2325,7 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
---- !u!114 &7791247823904892354
+--- !u!114 &2732359507756199892
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -2263,10 +2334,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 6424389052263011334}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 04c77b32716df074a97cd607ba53f106, type: 3}
+  m_Script: {fileID: 11500000, guid: c874b37724b51d9418d0ca254341caa7, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::KingdomIdle.UGUI.CenteredPanelSize
-  maxHeight: 1440
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomIdle.UGUI.SheetSizeFitter
+  preferredHeight: 960
 --- !u!1 &6624344639644132736
 GameObject:
   m_ObjectHideFlags: 0
@@ -3062,7 +3133,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &2409593430888856665
 RectTransform:
   m_ObjectHideFlags: 0
@@ -3235,6 +3306,7 @@ RectTransform:
   m_Children:
   - {fileID: 6341641227918614103}
   - {fileID: 5029266595184026744}
+  - {fileID: 4099703602514653688}
   - {fileID: 2409593430888856665}
   - {fileID: 7678778350988792206}
   m_Father: {fileID: 4205692717105317839}

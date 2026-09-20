@@ -72,6 +72,10 @@ namespace KingdomIdle.UGUI
         public bool HasBlockingPanel =>
             _panelStack.Count > 0 && !_panelStack.Peek().IsTab;
 
+        /// <summary>온라인 전투 시간에서 제외할 메뉴·설정·로딩 상태를 한 곳에서 제공한다.</summary>
+        public bool BlocksQuestBattleTime => HasBlockingPanel || HasActiveTabPanel || ModalBackHandler.HasOpenModal ||
+            (_settings != null && _settings.IsOpen) || (_loading != null && _loading.gameObject.activeInHierarchy);
+
         /// <summary>패널 스택이 변할 때마다 발생 — 탭 선택 시각화, 파티 HUD 위치 갱신용.</summary>
         public event Action PanelStackChanged;
 
@@ -383,6 +387,13 @@ namespace KingdomIdle.UGUI
             if (next.Go == null) return;
             next.Go.SetActive(true);
             if (next.View == null) return;
+
+            // 퀘스트 이동으로 같은 목적지가 중첩되면 정적 컨트롤러가 새 인스턴스를 가리킨다.
+            // 기존 바인딩이 그대로인 일반 복귀는 컨트롤러 내부에서 건너뛴다.
+            if (next.View is GachaPanelView gacha) GachaPanelController.Restore(gacha);
+            else if (next.View is KingdomArmyPanelView army) KingdomArmyPanelController.Restore(army);
+            else if (next.View is DevelopmentPanelView development) DevelopmentPanelController.Restore(development);
+            else if (next.View is InventoryPanelView inventory) InventoryPanelController.Restore(inventory);
 
             // 위에 패널이 쌓이며 SetActive(false) 로 죽은 딤 페이드가 중간 알파로 얼어붙어 있을 수 있다
             if (next.View.backdrop != null)
