@@ -105,6 +105,22 @@ def restore():
     p.ROOT=ROOT
     p.restore()
 
+def performance():
+    import settings_checks as settings
+    rows=[]
+    for low in (False,True):
+        ready('perf-'+str(low),8,4)
+        for slot,skill in enumerate((0,2,8,4,9)):
+            m.command('perf-slot-'+str(slot),'mage-equip',value=skill,awaken=slot)
+        settings.settings_open('animation-performance-'+str(low))
+        settings.toggle('LowSpec',low);m.back()
+        m.command('perf-auto','mage-auto',value=1)
+        time.sleep(3)
+        rows.append(settings.measure('animation-performance-'+str(low),30))
+        save('performance',rows)
+    settings.settings_open('animation-performance-restore')
+    settings.toggle('LowSpec',False);m.back()
+
 def install():
     assert (ROOT/'Original/external.tar').exists() and (ROOT/'Original/internal.tar').exists()
     build=json.loads((ROOT/'DiagnosticBuild/build.json').read_text(encoding='utf-8-sig'))
@@ -113,4 +129,4 @@ def install():
     m.run('shell','input','keyevent','KEYCODE_WAKEUP');m.launch('animation-login')
 
 if __name__=='__main__':
-    {'checks':checks,'aspects':aspects,'restore':restore,'install':install}[sys.argv[1]]()
+    {'checks':checks,'aspects':aspects,'performance':performance,'restore':restore,'install':install}[sys.argv[1]]()

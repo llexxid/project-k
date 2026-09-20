@@ -26,4 +26,6 @@ The logical sheet has 1,916,928 texels (7.31 MiB raw RGBA; approximately 1.83 Mi
 
 `billing-job.json` confirms **2.786269 GPU seconds** on RTX Pro 6000 for this run. `surface-estimate.json` reports zero API-node credits, which excludes GPU execution and must not be reported as a free run. `usage-before.json` and `usage-after.json` are invoice-backed reports; the first after-query still ended at 08:00 UTC, before this 08:17 UTC job. A later report must be checked before stating the actual dollar increase. Comfy does not expose per-job invoiced dollars.
 
+`usage-final.json`, queried after 09:00 UTC, includes the 08:00–09:00 bucket: **$0.003608218355** for GPU Hours Product. The workspace total increased from $38.275012597626656 to $38.278620815981654, with other product totals unchanged. `cost-summary.json` records this actual invoice-backed aggregate increase (about **$0.00361**), rather than presenting the preflight estimate or a fabricated per-job dollar quote.
+
 Editor and physical-device results are recorded under `Docs/ArtPreparation/SPELL_ANIMATION_20260920.md`. Full local captures, temporary signed output URL and original device save backups stay under ignored `Recordings/SpellAnimationRevision/`.
