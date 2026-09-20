@@ -378,7 +378,7 @@ namespace KingdomIdle.MageTower
         private IEnumerator Meteor()
         {
             // Approach from the centre side so edge targets still show the full falling rock.
-            const float flight = 2.4f;
+            const float flight = 1.5f;
             var travel = new Vector3(_initial.x > 0 ? -1.6f : 1.6f,3.2f,0);
             var falling = Visual(_skill.prefab, _initial + travel, flight + .2f);
             if (falling != null && travel.x < 0)

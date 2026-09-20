@@ -21,7 +21,8 @@ namespace KingdomIdle.UGUI.Editor
     public static class SpellAnimationValidation
     {
         const string Active = "SpellAnimationValidation.Active";
-        const string Output = "Recordings/SpellAnimationRevision/EditorPlay";
+        static string Output => Environment.GetEnvironmentVariable("SPELL_ANIMATION_OUTPUT") ?? "Recordings/SpellAnimationRevision/EditorPlay";
+        static bool MeteorOnly => Environment.GetEnvironmentVariable("SPELL_ANIMATION_SKILL") == "8";
         static readonly List<object> checks = new();
         static readonly List<string> errors = new();
         static IEnumerator routine;
@@ -39,7 +40,7 @@ namespace KingdomIdle.UGUI.Editor
         public static void BuildDevice() => TitleLobbyDeviceBuild.Build();
         public static void Run()
         {
-            Prepare();
+            if (!MeteorOnly) Prepare();
             Directory.CreateDirectory(Output);
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             SessionState.SetBool(Active, true);
@@ -109,6 +110,7 @@ namespace KingdomIdle.UGUI.Editor
             mage.SetAutoEnabled(false); StatEnhanceManager.Instance.ApplyToAllPlayers();
             foreach (var variant in new[] { (0, 0, false), (0, 4, false), (0, 8, false), (0, 10, false), (0, 10, true), (2, 0, false), (8, 0, false), (8, 0, false) })
             {
+                if (MeteorOnly && variant.Item1 != 8) continue;
                 int id = variant.Item1, awaken = variant.Item2; bool bloom = variant.Item3;
                 for (int i = 0; i < 5; i++) mage.Unequip(i);
                 LocalProgression.Execute("spell-case", s => { s.MageSkills[id] = new MageSave { Enhance = 0, Awaken = awaken, BloomEnabled = bloom }; return true; });
@@ -142,7 +144,7 @@ namespace KingdomIdle.UGUI.Editor
                     if (frames.Any(f=>!f.StartsWith("LightningOriginal_"))) throw new Exception("Unexpected non-bloom lightning art");
                 }
                 if (id==0 && bloom && bolts.Length!=0) throw new Exception("Normal chain leaked into bloom");
-                if (id==8 && (firstDamage<2.4f || firstDamage>2.8f || frames.Count<20)) throw new Exception("Meteor impact timing/animation failed");
+                if (id==8 && (firstDamage<1.5f || firstDamage>1.85f || frames.Count<20)) throw new Exception("Meteor impact timing/animation failed");
                 if (firstDamage<0) throw new Exception("No actual spell damage " + variant);
             }
         }

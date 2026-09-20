@@ -71,7 +71,7 @@ public static class MageSkillAssetPreparation
             new Layer(Source+"Earth/EarthRock.png",1.6f,1.6f,new Color(.84f,.79f,.7f),x:.44f,y:.28f));
         var sanctuary = BuildSanctuary();
         var heal = Vfx("SanctuaryHeal",new Layer(Refined+"HealingFeet.png",1.5f,1f,Color.white));
-        var meteor = Vfx("Meteor",new Layer(Refined+"MeteorFlight.png",6f,6.5f,Color.white,fps:20));
+        var meteor = Vfx("Meteor",new Layer(Refined+"MeteorFlight.png",6f,6.5f,Color.white,fps:32));
         EditMeteor(meteor);
         var crater = Vfx("MeteorCrater",
             new Layer(Polished+"MeteorScorch.png",2.65f,2f,Color.white,frame:0),

@@ -65,7 +65,7 @@ def cast(tag, skill, phase=0, awaken=0, bloom=False, record=False):
         assert len(bolts)==3+awaken//4,(tag,bolts)
         assert all(abs(d-2/12)<.085 for d in intervals),(tag,intervals)
     if skill==0 and bloom: assert not bolts and all(e['bloom'] for e in damage),events
-    if skill==8: assert 2.4<=result['firstDamage']<=2.8,result['firstDamage']
+    if skill==8: assert 1.5<=result['firstDamage']<=1.85,result['firstDamage']
     if recorder:
         out,err = recorder.communicate(timeout=20)
         assert recorder.returncode==0,err
