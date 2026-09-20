@@ -1,0 +1,512 @@
+[{
+    "id": 0,
+    "nameEng": "Lightning",
+    "nameKor": "라이트닝",
+    "icon": {
+        "instanceID": 65204
+    },
+    "bloomIcon": {
+        "instanceID": 65220
+    },
+    "baseCooldown": 10.0,
+    "maxEnhanceLevel": 100,
+    "maxAwakeningLevel": 10,
+    "prefab": {
+        "instanceID": 77514
+    },
+    "spellKind": 0,
+    "description": "같은 지점에 번개를 연속으로 내려 주변 적을 공격합니다.",
+    "basePower": 120.0,
+    "baseHits": 3,
+    "radius": 0.550000011920929,
+    "duration": 0.9000000357627869,
+    "tickInterval": 0.30000001192092898,
+    "controlDuration": 0.0,
+    "slowFraction": 0.0,
+    "secondaryPowerRatio": 0.0,
+    "maxTargets": 3,
+    "castingPrefab": {
+        "instanceID": 0
+    },
+    "secondaryPrefab": {
+        "instanceID": 0
+    },
+    "bloomName": "천벌",
+    "bloomDescription": "뇌운을 모아 큰 범위에 거대한 벼락을 내립니다. 피해 1000% · 준비 2초 · 재사용 대기시간 2배.",
+    "bloomCooldownMultiplier": 2.0,
+    "bloomPowerMultiplier": 10.0,
+    "bloomAreaPowerMultiplier": 0.5,
+    "bloomControlDuration": 2.0,
+    "bloomMaxTargets": 10,
+    "bloomPrefab": {
+        "instanceID": 78132
+    },
+    "bloomCastingPrefab": {
+        "instanceID": 78080
+    },
+    "sfxName": "Lightning_SFX",
+    "sfxLoopName": "",
+    "effects": [
+        {
+            "instanceID": 76076
+        },
+        {
+            "instanceID": 75574
+        }
+    ]
+},{
+    "id": 1,
+    "nameEng": "IceSpike",
+    "nameKor": "얼음 송곳",
+    "icon": {
+        "instanceID": 65244
+    },
+    "bloomIcon": {
+        "instanceID": 65206
+    },
+    "baseCooldown": 12.0,
+    "maxEnhanceLevel": 100,
+    "maxAwakeningLevel": 10,
+    "prefab": {
+        "instanceID": 77550
+    },
+    "spellKind": 1,
+    "description": "얼음 송곳을 차례로 솟아올려 적을 고르게 공격합니다.",
+    "basePower": 100.0,
+    "baseHits": 4,
+    "radius": 0.3499999940395355,
+    "duration": 0.7200000286102295,
+    "tickInterval": 0.18000000715255738,
+    "controlDuration": 0.0,
+    "slowFraction": 0.0,
+    "secondaryPowerRatio": 0.0,
+    "maxTargets": 1,
+    "castingPrefab": {
+        "instanceID": 0
+    },
+    "secondaryPrefab": {
+        "instanceID": 0
+    },
+    "bloomName": "만년빙정",
+    "bloomDescription": "여러 적: 송곳 8개를 두 번 생성합니다. 각각 피해 50%.\n적 하나: 거대 빙정으로 피해 650%와 기절 2초를 줍니다.",
+    "bloomCooldownMultiplier": 1.0,
+    "bloomPowerMultiplier": 6.5,
+    "bloomAreaPowerMultiplier": 0.5,
+    "bloomControlDuration": 2.0,
+    "bloomMaxTargets": 10,
+    "bloomPrefab": {
+        "instanceID": 78184
+    },
+    "bloomCastingPrefab": {
+        "instanceID": 78206
+    },
+    "sfxName": "Ice_Spike_SFX",
+    "sfxLoopName": "",
+    "effects": [
+        {
+            "instanceID": 71188
+        },
+        {
+            "instanceID": 76460
+        }
+    ]
+},{
+    "id": 2,
+    "nameEng": "FireTornado",
+    "nameKor": "화염 회오리",
+    "icon": {
+        "instanceID": 65250
+    },
+    "bloomIcon": {
+        "instanceID": 65252
+    },
+    "baseCooldown": 15.0,
+    "maxEnhanceLevel": 100,
+    "maxAwakeningLevel": 10,
+    "prefab": {
+        "instanceID": 77586
+    },
+    "spellKind": 2,
+    "description": "불꽃 회오리가 적을 쫓으며 주변에 지속 피해를 줍니다.",
+    "basePower": 40.0,
+    "baseHits": 10,
+    "radius": 0.800000011920929,
+    "duration": 5.0,
+    "tickInterval": 0.5,
+    "controlDuration": 0.0,
+    "slowFraction": 0.0,
+    "secondaryPowerRatio": 0.0,
+    "maxTargets": 3,
+    "castingPrefab": {
+        "instanceID": 0
+    },
+    "secondaryPrefab": {
+        "instanceID": 0
+    },
+    "bloomName": "미정",
+    "bloomDescription": "피해량 +15%. 전용 효과는 준비 중입니다.",
+    "bloomCooldownMultiplier": 1.0,
+    "bloomPowerMultiplier": 1.149999976158142,
+    "bloomAreaPowerMultiplier": 0.5,
+    "bloomControlDuration": 2.0,
+    "bloomMaxTargets": 10,
+    "bloomPrefab": {
+        "instanceID": 0
+    },
+    "bloomCastingPrefab": {
+        "instanceID": 0
+    },
+    "sfxName": "Fire_Tornado_SFX",
+    "sfxLoopName": "Fire_Tornado2_SFX",
+    "effects": [
+        {
+            "instanceID": 75062
+        },
+        {
+            "instanceID": 77152
+        }
+    ]
+},{
+    "id": 3,
+    "nameEng": "ArcaneVolley",
+    "nameKor": "비전 탄막",
+    "icon": {
+        "instanceID": 65232
+    },
+    "bloomIcon": {
+        "instanceID": 65200
+    },
+    "baseCooldown": 10.0,
+    "maxEnhanceLevel": 100,
+    "maxAwakeningLevel": 10,
+    "prefab": {
+        "instanceID": 77622
+    },
+    "spellKind": 3,
+    "description": "추적 탄환을 연속 발사합니다. 적을 쓰러뜨리면 다음 적을 노립니다.",
+    "basePower": 62.0,
+    "baseHits": 6,
+    "radius": 0.10000000149011612,
+    "duration": 1.3199999332427979,
+    "tickInterval": 0.2199999988079071,
+    "controlDuration": 0.0,
+    "slowFraction": 0.0,
+    "secondaryPowerRatio": 0.0,
+    "maxTargets": 1,
+    "castingPrefab": {
+        "instanceID": 0
+    },
+    "secondaryPrefab": {
+        "instanceID": 77658
+    },
+    "bloomName": "미정",
+    "bloomDescription": "피해량 +15%. 전용 효과는 준비 중입니다.",
+    "bloomCooldownMultiplier": 1.0,
+    "bloomPowerMultiplier": 1.149999976158142,
+    "bloomAreaPowerMultiplier": 0.5,
+    "bloomControlDuration": 2.0,
+    "bloomMaxTargets": 10,
+    "bloomPrefab": {
+        "instanceID": 0
+    },
+    "bloomCastingPrefab": {
+        "instanceID": 0
+    },
+    "sfxName": "Charge_Shot_SFX",
+    "sfxLoopName": "",
+    "effects": []
+},{
+    "id": 4,
+    "nameEng": "VenomMist",
+    "nameKor": "맹독 안개",
+    "icon": {
+        "instanceID": 65208
+    },
+    "bloomIcon": {
+        "instanceID": 65236
+    },
+    "baseCooldown": 14.0,
+    "maxEnhanceLevel": 100,
+    "maxAwakeningLevel": 10,
+    "prefab": {
+        "instanceID": 77698
+    },
+    "spellKind": 4,
+    "description": "독 안개로 지속 피해를 주고 이동 속도를 25% 낮춥니다.",
+    "basePower": 36.0,
+    "baseHits": 6,
+    "radius": 1.25,
+    "duration": 4.5,
+    "tickInterval": 0.75,
+    "controlDuration": 1.2000000476837159,
+    "slowFraction": 0.25,
+    "secondaryPowerRatio": 0.0,
+    "maxTargets": 5,
+    "castingPrefab": {
+        "instanceID": 0
+    },
+    "secondaryPrefab": {
+        "instanceID": 0
+    },
+    "bloomName": "미정",
+    "bloomDescription": "피해량 +15%. 전용 효과는 준비 중입니다.",
+    "bloomCooldownMultiplier": 1.0,
+    "bloomPowerMultiplier": 1.149999976158142,
+    "bloomAreaPowerMultiplier": 0.5,
+    "bloomControlDuration": 2.0,
+    "bloomMaxTargets": 10,
+    "bloomPrefab": {
+        "instanceID": 0
+    },
+    "bloomCastingPrefab": {
+        "instanceID": 0
+    },
+    "sfxName": "Water_Splash_SFX",
+    "sfxLoopName": "",
+    "effects": []
+},{
+    "id": 5,
+    "nameEng": "StoneSeal",
+    "nameKor": "암석 봉인",
+    "icon": {
+        "instanceID": 65192
+    },
+    "bloomIcon": {
+        "instanceID": 65234
+    },
+    "baseCooldown": 16.0,
+    "maxEnhanceLevel": 100,
+    "maxAwakeningLevel": 10,
+    "prefab": {
+        "instanceID": 77736
+    },
+    "spellKind": 5,
+    "description": "바위를 연속으로 솟아올려 주변 적을 공격하고 1초간 기절시킵니다.",
+    "basePower": 110.0,
+    "baseHits": 2,
+    "radius": 1.0499999523162842,
+    "duration": 0.8999999761581421,
+    "tickInterval": 0.44999998807907107,
+    "controlDuration": 1.0,
+    "slowFraction": 0.0,
+    "secondaryPowerRatio": 0.0,
+    "maxTargets": 4,
+    "castingPrefab": {
+        "instanceID": 78060
+    },
+    "secondaryPrefab": {
+        "instanceID": 0
+    },
+    "bloomName": "미정",
+    "bloomDescription": "피해량 +15%. 전용 효과는 준비 중입니다.",
+    "bloomCooldownMultiplier": 1.0,
+    "bloomPowerMultiplier": 1.149999976158142,
+    "bloomAreaPowerMultiplier": 0.5,
+    "bloomControlDuration": 2.0,
+    "bloomMaxTargets": 10,
+    "bloomPrefab": {
+        "instanceID": 0
+    },
+    "bloomCastingPrefab": {
+        "instanceID": 0
+    },
+    "sfxName": "Ice_Block_SFX",
+    "sfxLoopName": "",
+    "effects": []
+},{
+    "id": 6,
+    "nameEng": "GaleBlades",
+    "nameKor": "질풍 칼날",
+    "icon": {
+        "instanceID": 65248
+    },
+    "bloomIcon": {
+        "instanceID": 65190
+    },
+    "baseCooldown": 12.0,
+    "maxEnhanceLevel": 100,
+    "maxAwakeningLevel": 10,
+    "prefab": {
+        "instanceID": 77800
+    },
+    "spellKind": 6,
+    "description": "바람 칼날이 일직선으로 날아가 경로상의 적을 관통합니다.",
+    "basePower": 90.0,
+    "baseHits": 2,
+    "radius": 0.550000011920929,
+    "duration": 0.800000011920929,
+    "tickInterval": 0.4000000059604645,
+    "controlDuration": 0.0,
+    "slowFraction": 0.0,
+    "secondaryPowerRatio": 0.0,
+    "maxTargets": 5,
+    "castingPrefab": {
+        "instanceID": 0
+    },
+    "secondaryPrefab": {
+        "instanceID": 0
+    },
+    "bloomName": "미정",
+    "bloomDescription": "피해량 +15%. 전용 효과는 준비 중입니다.",
+    "bloomCooldownMultiplier": 1.0,
+    "bloomPowerMultiplier": 1.149999976158142,
+    "bloomAreaPowerMultiplier": 0.5,
+    "bloomControlDuration": 2.0,
+    "bloomMaxTargets": 10,
+    "bloomPrefab": {
+        "instanceID": 0
+    },
+    "bloomCastingPrefab": {
+        "instanceID": 0
+    },
+    "sfxName": "Slash_Attack_SFX",
+    "sfxLoopName": "",
+    "effects": []
+},{
+    "id": 7,
+    "nameEng": "Sanctuary",
+    "nameKor": "회복의 성역",
+    "icon": {
+        "instanceID": 65262
+    },
+    "bloomIcon": {
+        "instanceID": 65264
+    },
+    "baseCooldown": 18.0,
+    "maxEnhanceLevel": 100,
+    "maxAwakeningLevel": 10,
+    "prefab": {
+        "instanceID": 77836
+    },
+    "spellKind": 7,
+    "description": "체력 비율이 가장 낮은 왕국군을 반복해서 회복합니다.",
+    "basePower": 45.0,
+    "baseHits": 6,
+    "radius": 1.7000000476837159,
+    "duration": 4.199999809265137,
+    "tickInterval": 0.699999988079071,
+    "controlDuration": 0.0,
+    "slowFraction": 0.0,
+    "secondaryPowerRatio": 0.0,
+    "maxTargets": 3,
+    "castingPrefab": {
+        "instanceID": 0
+    },
+    "secondaryPrefab": {
+        "instanceID": 77866
+    },
+    "bloomName": "미정",
+    "bloomDescription": "회복량 +15%. 전용 효과는 준비 중입니다.",
+    "bloomCooldownMultiplier": 1.0,
+    "bloomPowerMultiplier": 1.149999976158142,
+    "bloomAreaPowerMultiplier": 0.5,
+    "bloomControlDuration": 2.0,
+    "bloomMaxTargets": 10,
+    "bloomPrefab": {
+        "instanceID": 0
+    },
+    "bloomCastingPrefab": {
+        "instanceID": 0
+    },
+    "sfxName": "Parrying_SFX",
+    "sfxLoopName": "",
+    "effects": []
+},{
+    "id": 8,
+    "nameEng": "Meteor",
+    "nameKor": "운석 낙하",
+    "icon": {
+        "instanceID": 65196
+    },
+    "bloomIcon": {
+        "instanceID": 65214
+    },
+    "baseCooldown": 16.0,
+    "maxEnhanceLevel": 100,
+    "maxAwakeningLevel": 10,
+    "prefab": {
+        "instanceID": 77898
+    },
+    "spellKind": 8,
+    "description": "운석을 떨어뜨려 주변 적을 공격합니다. 남은 불길이 두 번 더 피해를 줍니다.",
+    "basePower": 260.0,
+    "baseHits": 1,
+    "radius": 1.350000023841858,
+    "duration": 0.800000011920929,
+    "tickInterval": 0.800000011920929,
+    "controlDuration": 0.0,
+    "slowFraction": 0.0,
+    "secondaryPowerRatio": 0.13461539149284364,
+    "maxTargets": 6,
+    "castingPrefab": {
+        "instanceID": 78060
+    },
+    "secondaryPrefab": {
+        "instanceID": 77938
+    },
+    "bloomName": "미정",
+    "bloomDescription": "피해량 +15%. 전용 효과는 준비 중입니다.",
+    "bloomCooldownMultiplier": 1.0,
+    "bloomPowerMultiplier": 1.149999976158142,
+    "bloomAreaPowerMultiplier": 0.5,
+    "bloomControlDuration": 2.0,
+    "bloomMaxTargets": 10,
+    "bloomPrefab": {
+        "instanceID": 0
+    },
+    "bloomCastingPrefab": {
+        "instanceID": 0
+    },
+    "sfxName": "Fire_Tornado_SFX",
+    "sfxLoopName": "",
+    "effects": []
+},{
+    "id": 9,
+    "nameEng": "VoidRift",
+    "nameKor": "공허 균열",
+    "icon": {
+        "instanceID": 65210
+    },
+    "bloomIcon": {
+        "instanceID": 65212
+    },
+    "baseCooldown": 20.0,
+    "maxEnhanceLevel": 100,
+    "maxAwakeningLevel": 10,
+    "prefab": {
+        "instanceID": 78006
+    },
+    "spellKind": 9,
+    "description": "적을 끌어모아 이동 속도를 20% 낮추고 지속 피해를 줍니다. 마지막에 균열이 폭발합니다. 보스는 끌어당기지 못합니다.",
+    "basePower": 42.0,
+    "baseHits": 5,
+    "radius": 1.600000023841858,
+    "duration": 3.0,
+    "tickInterval": 0.6000000238418579,
+    "controlDuration": 0.8500000238418579,
+    "slowFraction": 0.20000000298023225,
+    "secondaryPowerRatio": 4.285714149475098,
+    "maxTargets": 6,
+    "castingPrefab": {
+        "instanceID": 0
+    },
+    "secondaryPrefab": {
+        "instanceID": 78028
+    },
+    "bloomName": "미정",
+    "bloomDescription": "피해량 +15%. 전용 효과는 준비 중입니다.",
+    "bloomCooldownMultiplier": 1.0,
+    "bloomPowerMultiplier": 1.149999976158142,
+    "bloomAreaPowerMultiplier": 0.5,
+    "bloomControlDuration": 2.0,
+    "bloomMaxTargets": 10,
+    "bloomPrefab": {
+        "instanceID": 0
+    },
+    "bloomCastingPrefab": {
+        "instanceID": 0
+    },
+    "sfxName": "Charge_Shot_SFX",
+    "sfxLoopName": "",
+    "effects": []
+}]

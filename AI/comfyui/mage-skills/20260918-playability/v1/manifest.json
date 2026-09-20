@@ -1,0 +1,113 @@
+{
+  "pipeline": "deterministic actual-VFX crop / NEAREST / binary alpha / <=16 RGBA colors",
+  "version": "v1",
+  "model": null,
+  "seed": "not applicable; deterministic",
+  "prompt": null,
+  "jobId": null,
+  "apiJson": null,
+  "uiGraph": null,
+  "comfyCatalog": "../mcp-catalog.json",
+  "comfyNodes": "../available-transform-nodes.json",
+  "reason": "Existing VFX exactly define the silhouettes. Pixel-level local composition preserves their identity, masks and 48px palette with no diffusion variance, paid calls or GPU overhead. Comfy Cloud node schemas inspected; no workflow submitted.",
+  "cost": {
+    "actualGenerationSpendUSD": 0,
+    "paidCalls": 0,
+    "usageReport": "../usage-before.json",
+    "usageAfter": "../usage-after-matching.json",
+    "sameWindowTotalBeforeUSD": 38.154966,
+    "sameWindowTotalAfterUSD": 38.154966
+  },
+  "Pillow": "12.3.0",
+  "sources": {
+    "stone": {
+      "path": "Assets/_Project/Art/VFX/PixelArtRPGVFX/Textures/Earth/EarthRock.png",
+      "sha256": "2ac7aad7c1cf06300fe3c1c4a72df4fc511b5ecbc13f6bd8b4ba984277e53acd"
+    },
+    "cross": {
+      "path": "Assets/_Project/Art/VFX/PixelArtRPGVFX/Textures/Holy/HolyCross.png",
+      "sha256": "f9bdb171bc44f62c29ff2c148aded5e4f13ebc54ef09fed02196f7cb34d9145c"
+    },
+    "ring": {
+      "path": "Assets/_Project/Art/VFX/PixelArtRPGVFX/Textures/Holy/HolyBlessing.png",
+      "sha256": "34500bbb1ee97e54b9e50c72936aace598bf5d8bad85e413feffa3bba400b47b"
+    },
+    "poison": {
+      "path": "Assets/_Project/Art/VFX/PoisonEffect/Animation/Sprites/Poison_Effect_05-1.png",
+      "sha256": "1cef64fd9c1845aa2da82e1cf851a41d7f798ebe23eaa17be6774a08dd4f88f7"
+    },
+    "bubbles": {
+      "path": "Assets/_Project/Art/VFX/PoisonEffect/Animation/Sprites/Poison_Effect_05-2.png",
+      "sha256": "9552b0982ffb689029d88ced58b3c71f86eb5709d3cf2f96eb73ca7d383d799d"
+    }
+  },
+  "settings": {
+    "stoneFrame": 3,
+    "crossFrame": 3,
+    "ringFrame": 0,
+    "palette": 15,
+    "alphaThreshold": 128,
+    "resize": "NEAREST"
+  },
+  "changes": {
+    "VenomMist": "Remove elevated cloud; show the actual poison puddle and bubbles.",
+    "StoneSeal": "Replace spiky rock art with the three blunt authored pillars.",
+    "Sanctuary": "Replace light column with the authored golden cross over the ground rune."
+  },
+  "outputs": [
+    {
+      "file": "AI/comfyui/mage-skills/20260918-playability/v1/VenomMist.png",
+      "colors": 8,
+      "logicalSize": [
+        48,
+        48
+      ],
+      "sha256": "2927818d8020c6e55ba96bea4b9cb206579067537325b261ff172e1c9034066d"
+    },
+    {
+      "file": "AI/comfyui/mage-skills/20260918-playability/v1/VenomMist_Bloom.png",
+      "colors": 8,
+      "logicalSize": [
+        48,
+        48
+      ],
+      "sha256": "117ba8a8e2fdf728a73dd5caad856b2c4832d800e681715f400063821f7aa434"
+    },
+    {
+      "file": "AI/comfyui/mage-skills/20260918-playability/v1/StoneSeal.png",
+      "colors": 3,
+      "logicalSize": [
+        48,
+        48
+      ],
+      "sha256": "3dcd71a4afc04c24cd3393c84742119d0fd999a832092b0f895141002493424c"
+    },
+    {
+      "file": "AI/comfyui/mage-skills/20260918-playability/v1/StoneSeal_Bloom.png",
+      "colors": 3,
+      "logicalSize": [
+        48,
+        48
+      ],
+      "sha256": "dc6975e9fa8261804d17a9a24f68afe4f44e4f0177046df573acccf58872fdee"
+    },
+    {
+      "file": "AI/comfyui/mage-skills/20260918-playability/v1/Sanctuary.png",
+      "colors": 4,
+      "logicalSize": [
+        48,
+        48
+      ],
+      "sha256": "c0d80d0b032e11d85743e7b2bb0144297d7e6d7cace900a0264e20fe181abadb"
+    },
+    {
+      "file": "AI/comfyui/mage-skills/20260918-playability/v1/Sanctuary_Bloom.png",
+      "colors": 4,
+      "logicalSize": [
+        48,
+        48
+      ],
+      "sha256": "df3639e6c937fb11a083e9cdb5b4f3e24aca007dbc9071b4413b855f73f233a9"
+    }
+  ]
+}

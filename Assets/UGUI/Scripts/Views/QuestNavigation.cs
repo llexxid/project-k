@@ -30,7 +30,7 @@ namespace KingdomIdle.UGUI
                 eQuestObjectiveType.Reincarnate or eQuestObjectiveType.ReincarnationLevel;
 
         /// <summary>메뉴를 스택에 쌓아 뒤로가기로 퀘스트에 복귀한다. 전투 목표는 패널을 닫는다.</summary>
-        public static void Navigate(eQuestObjectiveType objective)
+        public static void Navigate(eQuestObjectiveType objective, long targetId = 0)
         {
             var ui = UIManager.Instance;
             if (ui == null) return;
@@ -39,7 +39,18 @@ namespace KingdomIdle.UGUI
                 MageTowerPopupController.Show();
             else if (objective is eQuestObjectiveType.Reincarnate or eQuestObjectiveType.ReincarnationLevel)
                 ReincarnationPopupController.Show();
-            else if (Destination(objective) is UIPanelId panel) ui.PushPanel(panel);
+            else if (Destination(objective) is UIPanelId panel)
+            {
+                // 도착 화면의 최초 탭만 지정한다. 뒤로가기는 기존 UI 스택이 처리한다.
+                if (panel == UIPanelId.Gacha)
+                    GachaPanelController.SetPendingSkillTab(objective == eQuestObjectiveType.SkillObtain ||
+                        (objective == eQuestObjectiveType.GachaUse && targetId == 2));
+                if (objective is eQuestObjectiveType.EquipmentEquip or eQuestObjectiveType.EquipmentEnhance or eQuestObjectiveType.Enhance)
+                    KingdomArmyPanelController.SetPendingEquipmentTab();
+                else if (objective == eQuestObjectiveType.JobChange)
+                    KingdomArmyPanelController.SetPendingJobChangeTab();
+                ui.PushPanel(panel);
+            }
             else if (IsBattle(objective)) ui.ClearPanels();
         }
     }

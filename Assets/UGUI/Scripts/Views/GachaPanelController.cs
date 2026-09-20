@@ -4,7 +4,6 @@ using UnityEngine.UI;
 using TMPro;
 using KingdomIdle.Gacha;
 using KingdomIdle.MageTower;
-using KingdomIdle.Divine;
 using Scripts.Core;
 
 namespace KingdomIdle.UGUI
@@ -28,9 +27,12 @@ namespace KingdomIdle.UGUI
         // 방치형 가챠 표준: x1 / x10
         private static readonly int[] PullCounts = { 1, 10 };
 
-        private static readonly Color TabActive = new Color(80f / 255f, 60f / 255f, 180f / 255f, 0.60f);
+        private static readonly Color TabActive = UguiTheme.RusticSurface;
+        private static bool _flaringPull;
 
         private static int _activeTabIndex;
+        private static bool? _pendingSkillTab;
+        public static void SetPendingSkillTab(bool skills) => _pendingSkillTab = skills;
         private static GachaPanelView _view;
         private static GachaTabContentView _content;
         private static GachaTableSO _contentTable;
@@ -43,10 +45,20 @@ namespace KingdomIdle.UGUI
         // GachaManager 이벤트 구독 상태 (중복 구독 방지)
         private static bool _subscribedToManager;
 
+        /// <summary>다른 뽑기 인스턴스가 정적 바인딩을 차지한 뒤 복귀한 경우에만 다시 연결한다.</summary>
+        internal static void Restore(GachaPanelView view)
+        {
+            if (_view != view) Populate(view);
+        }
+
         public static void Populate(GachaPanelView view)
         {
+            var pendingSkillTab = _pendingSkillTab;
+            _pendingSkillTab = null;
             if (view == null) return;
 
+            // 같은 테이블이어도 다른 패널의 콘텐츠를 재사용하면 새 화면이 비어 있게 된다.
+            if (_view != view) { _content = null; _contentTable = null; }
             _view = view;
             NumberNotationBinding.Bind(view, UpdateWallet);
             if (_view.tabBar == null || _view.content == null) return;
@@ -85,6 +97,9 @@ namespace KingdomIdle.UGUI
             EconomyBridge.OnAmountChanged -= OnWalletChanged;
             EconomyBridge.OnAmountChanged += OnWalletChanged;
             _activeTabIndex = Mathf.Clamp(_activeTabIndex,0,_tables.Count-1);
+            if (pendingSkillTab.HasValue)
+                for (int i = 0; i < _tables.Count; i++)
+                    if (IsSkillTable(_tables[i]) == pendingSkillTab.Value) { _activeTabIndex = i; break; }
             BuildTabs();
             RefreshContent();
         }
@@ -157,6 +172,9 @@ namespace KingdomIdle.UGUI
 
         private static void RefreshContent()
         {
+#if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
+            var contentTimer = System.Diagnostics.Stopwatch.StartNew();
+#endif
             if (_view == null || _view.content == null) return;
             if (_tables == null || _activeTabIndex >= _tables.Count) return;
             var table = _tables[_activeTabIndex];
@@ -165,19 +183,16 @@ namespace KingdomIdle.UGUI
             _activePullButtons.Clear();
 
             var c = SpawnContent();
+#if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
+            Debug.Log($"[GachaTiming] shell {contentTimer.Elapsed.TotalMilliseconds:F2} ms");
+#endif
             if (c == null) return;
 
             _contentTable = table;
 
             if (c.messageLabel != null) c.messageLabel.gameObject.SetActive(false);
 
-            // 설명 (.gacha-desc: 26px @70%)
-            if (c.descLabel != null)
-            {
-                bool hasDesc = !string.IsNullOrEmpty(table.description);
-                c.descLabel.gameObject.SetActive(hasDesc);
-                if (hasDesc) c.descLabel.text = table.description;
-            }
+            UpdateDescription();
 
             // 보유/비용 바 (.gacha-cost: 26px gold)
             EconomyBridge.TryGetAmount(table.costCurrency, out long current);
@@ -193,9 +208,15 @@ namespace KingdomIdle.UGUI
 
             // 뽑기 버튼 행 — 크고 명확한 프리팹 버튼 (Item_GachaPullButton)
             BuildPullRow(c, table, current);
+#if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
+            Debug.Log($"[GachaTiming] controls {contentTimer.Elapsed.TotalMilliseconds:F2} ms");
+#endif
 
             // 보상 목록 미리보기
             BuildRewardPreview(c, table);
+#if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
+            Debug.Log($"[GachaTiming] cards {contentTimer.Elapsed.TotalMilliseconds:F2} ms");
+#endif
         }
 
         private static void BuildPullRow(GachaTabContentView c, GachaTableSO table, long current)
@@ -213,7 +234,7 @@ namespace KingdomIdle.UGUI
             {
                 int count = PullCounts[i];
                 long totalCost = (long)table.costAmount * count;
-                bool disabled = !table.isImplemented || current < totalCost || pulling;
+                bool disabled = !table.isImplemented || current < totalCost || pulling || _flaringPull;
 
                 var capturedTable = table;
 
@@ -223,7 +244,7 @@ namespace KingdomIdle.UGUI
 
                 string title = count == 1 ? "1회 뽑기" : $"{count}연 뽑기";
                 pull.Set(title, $"{NumberNotation.Format(totalCost)} {curLabel}", !disabled, cat.iconChest);
-                pull.Button.onClick.AddListener(() => OnPullClicked(capturedTable, count));
+                pull.Button.onClick.AddListener(() => OnPullClicked(capturedTable, count, pull));
                 _activePullButtons.Add(pull.Button);
             }
         }
@@ -236,15 +257,26 @@ namespace KingdomIdle.UGUI
             if (_content == null || _contentTable == null) return;
             EconomyBridge.TryGetAmount(_contentTable.costCurrency,out long current);
             if (_content.costLabel != null) _content.costLabel.text=$"1회 비용: {NumberNotation.Format(_contentTable.costAmount)} {GetCurrencyLabel(_contentTable.costCurrency)}  |  보유: {NumberNotation.Format(current)}";
-            if (_content.descLabel != null && _contentTable.gachaType == eGachaType.Equipment) _content.descLabel.text = $"{_contentTable.description}\n에픽 확정까지 {GachaManager.Instance.EpicPityRemaining}회";
-            bool pulling=GachaManager.Instance != null && GachaManager.Instance.IsPulling;
+            UpdateDescription();
+            bool pulling=_flaringPull || (GachaManager.Instance != null && GachaManager.Instance.IsPulling);
             for(int i=0;i<_activePullButtons.Count;i++)
             {
                 var button=_activePullButtons[i];
                 if(button==null)continue;
                 int count=PullCounts[i]; long cost=(long)_contentTable.costAmount*count;
-                button.GetComponent<GachaPullButtonView>()?.Set(count==1?"1회 뽑기":$"{count}연 뽑기",$"{NumberNotation.Format(cost)} {GetCurrencyLabel(_contentTable.costCurrency)}",GachaManager.Instance != null && GachaManager.Instance.CanPullMulti(_contentTable,count));
+                button.GetComponent<GachaPullButtonView>()?.Set(count==1?"1회 뽑기":$"{count}연 뽑기",$"{NumberNotation.Format(cost)} {GetCurrencyLabel(_contentTable.costCurrency)}",!pulling && GachaManager.Instance != null && GachaManager.Instance.CanPullMulti(_contentTable,count));
             }
+        }
+
+        private static void UpdateDescription()
+        {
+            if (_content == null || _content.descLabel == null || _contentTable == null) return;
+            string description = _contentTable.description ?? string.Empty;
+            if (_contentTable.gachaType == eGachaType.Equipment && GachaManager.Instance != null)
+                description = (string.IsNullOrWhiteSpace(description) ? string.Empty : description + "\n")
+                    + $"에픽 확정까지 {GachaManager.Instance.EpicPityRemaining}회";
+            _content.descLabel.gameObject.SetActive(!string.IsNullOrWhiteSpace(description));
+            if (_content.descLabel.text != description) _content.descLabel.text = description;
         }
 
         private static void BuildRateSummaryRow(GachaTabContentView c, GachaTableSO table)
@@ -274,10 +306,8 @@ namespace KingdomIdle.UGUI
             float wClassFragment = 0f;
             float wArcaneKnowledge = 0f;
             float wSkill = 0f;
-            float wDivineHero = 0f, wDivineLegend = 0f, wDivineMyth = 0f;
             bool hasAnyEquipment = false;
             bool hasAnySkill = false;
-            bool hasAnyDivine = false;
             for (int i = 0; i < table.rewards.Count; i++)
             {
                 var r = table.rewards[i];
@@ -303,21 +333,7 @@ namespace KingdomIdle.UGUI
                     continue;
                 }
 
-                if (r.rewardType == eGachaRewardType.DivineCard)
-                {
-                    // 등급은 카드 SO 에서 조회. 매니저 부재 시 기본 등급(영웅)으로 집계.
-                    hasAnyDivine = true;
-                    var divineCard = DivineSkillManager.Instance != null
-                        ? DivineSkillManager.Instance.GetCardById(r.divineCardId)
-                        : null;
-                    switch (divineCard != null ? divineCard.grade : eDivineGrade.Hero)
-                    {
-                        case eDivineGrade.Myth: wDivineMyth += r.weight; break;
-                        case eDivineGrade.Legend: wDivineLegend += r.weight; break;
-                        default: wDivineHero += r.weight; break;
-                    }
-                    continue;
-                }
+
 
                 if (r.rewardType != eGachaRewardType.Equipment || r.equipmentData == null) continue;
                 hasAnyEquipment = true;
@@ -329,7 +345,7 @@ namespace KingdomIdle.UGUI
                 }
             }
 
-            if (!hasAnyEquipment && !hasAnySkill && !hasAnyDivine
+            if (!hasAnyEquipment && !hasAnySkill
                 && wClassFragment <= 0f && wArcaneKnowledge <= 0f)
             {
                 HideRow();
@@ -345,16 +361,7 @@ namespace KingdomIdle.UGUI
                 MakeRatePill(row, "레어", wRare / total * 100f, UguiTheme.RarityRare);
                 MakeRatePill(row, "에픽", wEpic / total * 100f, UguiTheme.RarityEpic);
             }
-            if (hasAnySkill)
-            {
-                MakeRatePill(row, "마탑 스킬", wSkill / total * 100f, UguiTheme.RaritySkill);
-            }
-            if (hasAnyDivine)
-            {
-                MakeRatePill(row, "영웅", wDivineHero / total * 100f, DivineSkillSO.GetGradeColor(eDivineGrade.Hero));
-                MakeRatePill(row, "전설", wDivineLegend / total * 100f, DivineSkillSO.GetGradeColor(eDivineGrade.Legend));
-                MakeRatePill(row, "신화", wDivineMyth / total * 100f, DivineSkillSO.GetGradeColor(eDivineGrade.Myth));
-            }
+            if (hasAnySkill) MakeRatePill(row, "스킬", wSkill / total * 100f, MageSkillPresentation.Accent);
             if (wArcaneKnowledge > 0f)
             {
                 MakeRatePill(row, "비전지식", wArcaneKnowledge / total * 100f, UguiTheme.RarityArcane);
@@ -433,13 +440,6 @@ namespace KingdomIdle.UGUI
                 var card = cardGo.GetComponent<GachaCardItemView>();
                 if (card == null) continue;
 
-                // 신 스킬 카드 — 등급/아이콘은 카드 SO 에서 조회 (매니저 부재 시 null 허용)
-                DivineSkillSO divineCard = null;
-                if (entry.rewardType == eGachaRewardType.DivineCard)
-                    divineCard = DivineSkillManager.Instance != null
-                        ? DivineSkillManager.Instance.GetCardById(entry.divineCardId)
-                        : null;
-
                 // 등급 테두리
                 Color frameColor = new Color(1f, 1f, 1f, 0.20f);
                 if (entry.rewardType == eGachaRewardType.Equipment && entry.equipmentData != null)
@@ -449,9 +449,7 @@ namespace KingdomIdle.UGUI
                 else if (entry.rewardType == eGachaRewardType.Currency && entry.currency == eCurrency.ArcaneKnowledge)
                     frameColor = UguiTheme.RarityArcane;
                 else if (entry.rewardType == eGachaRewardType.Skill)
-                    frameColor = UguiTheme.RaritySkill;
-                else if (entry.rewardType == eGachaRewardType.DivineCard && divineCard != null)
-                    frameColor = DivineSkillSO.GetGradeColor(divineCard.grade);
+                    frameColor = MageSkillPresentation.Accent;
                 card.SetRarityFrame(frameColor);
 
                 // 아이콘
@@ -464,38 +462,23 @@ namespace KingdomIdle.UGUI
                     var so = mtMgr != null ? mtMgr.GetSkillById(entry.skillId) : null;
                     if (so != null && so.icon != null) displayIcon = so.icon;
                 }
-                else if (entry.rewardType == eGachaRewardType.DivineCard && displayIcon == null
-                         && divineCard != null && divineCard.icon != null)
-                {
-                    displayIcon = divineCard.icon;
-                }
 
-                // 신 스킬 카드는 아이콘 미배정(아트 대기)이 흔하므로 등급명 텍스트로 대체 표시
+
                 string iconFallback = null;
                 Color iconFallbackColor = Color.white;
-                if (entry.rewardType == eGachaRewardType.DivineCard && displayIcon == null)
-                {
-                    iconFallback = divineCard != null
-                        ? DivineSkillSO.GetGradeName(divineCard.grade)
-                        : "신 스킬";
-                    iconFallbackColor = divineCard != null
-                        ? DivineSkillSO.GetGradeColor(divineCard.grade)
-                        : Color.white;
-                }
+
                 card.SetIcon(displayIcon, iconFallback, iconFallbackColor);
 
                 // 이름
                 string displayName = entry.nameKor;
                 if (entry.rewardType == eGachaRewardType.Equipment && entry.equipmentData != null)
-                    displayName = string.IsNullOrEmpty(entry.nameKor) ? entry.equipmentData.equipmentName : entry.nameKor;
+                    displayName = entry.equipmentData.DisplayName;
                 else if (entry.rewardType == eGachaRewardType.Skill && string.IsNullOrEmpty(displayName))
                 {
                     var mtMgr = MageTowerManager.Instance;
                     var so = mtMgr != null ? mtMgr.GetSkillById(entry.skillId) : null;
                     if (so != null) displayName = !string.IsNullOrEmpty(so.nameKor) ? so.nameKor : so.nameEng;
                 }
-                else if (entry.rewardType == eGachaRewardType.DivineCard && string.IsNullOrEmpty(displayName) && divineCard != null)
-                    displayName = divineCard.DisplayName;
                 if (card.nameLabel != null) card.nameLabel.text = displayName;
 
                 // 하단: 등급/태그 + 확률 — subLabel에 두 줄로 표기
@@ -516,18 +499,20 @@ namespace KingdomIdle.UGUI
                     tag = "비전지식";
                     tagColor = UguiTheme.RarityArcane;
                 }
-                else if (entry.rewardType == eGachaRewardType.DivineCard)
+                else if (entry.rewardType == eGachaRewardType.Skill)
                 {
-                    tag = divineCard != null ? DivineSkillSO.GetGradeName(divineCard.grade) : "신 스킬";
-                    if (divineCard != null) tagColor = DivineSkillSO.GetGradeColor(divineCard.grade);
+                    var skill = MageTowerManager.Instance?.GetSkillById(entry.skillId);
+                    tag = "스킬";
+                    tagColor = frameColor;
                 }
+
 
                 float pct = totalWeight > 0f ? (entry.weight / totalWeight) * 100f : 0f;
                 if (card.subLabel != null)
                 {
                     card.subLabel.text = string.IsNullOrEmpty(tag) ? $"{pct:F2}%" : $"{tag}\n{pct:F2}%";
                     card.subLabel.color = tagColor;
-                    card.subLabel.enableWordWrapping = true;
+                    card.subLabel.textWrappingMode = TMPro.TextWrappingModes.Normal;
                 }
             }
         }
@@ -536,7 +521,7 @@ namespace KingdomIdle.UGUI
         {
             int ra = GetSortRank(a);
             int rb = GetSortRank(b);
-            return ra != rb ? ra - rb : 0;
+            return ra != rb ? ra - rb : (a?.skillId ?? -1).CompareTo(b?.skillId ?? -1);
         }
 
         private static int GetSortRank(GachaRewardEntry e)
@@ -551,19 +536,7 @@ namespace KingdomIdle.UGUI
                     case eEquipmentRarity.Normal: return 2;
                 }
             }
-            if (e.rewardType == eGachaRewardType.DivineCard)
-            {
-                // 신 스킬 카드는 등급 내림차순 (신화 → 전설 → 영웅). 매니저 부재 시 영웅 취급.
-                var divineCard = DivineSkillManager.Instance != null
-                    ? DivineSkillManager.Instance.GetCardById(e.divineCardId)
-                    : null;
-                switch (divineCard != null ? divineCard.grade : eDivineGrade.Hero)
-                {
-                    case eDivineGrade.Myth: return 0;
-                    case eDivineGrade.Legend: return 1;
-                    default: return 2;
-                }
-            }
+
             if (e.rewardType == eGachaRewardType.Skill) return 3;
             if (e.rewardType == eGachaRewardType.Currency) return 4;
             return 5;
@@ -571,9 +544,15 @@ namespace KingdomIdle.UGUI
 
         // ── 뽑기 실행 ──────────────────────────────────────────────────
 
-        private static void OnPullClicked(GachaTableSO table, int count)
+        private static void OnPullClicked(GachaTableSO table, int count, GachaPullButtonView pull)
         {
-            PullAndShowResult(table, count);
+            if (_flaringPull) return;
+            if (!IsSkillTable(table)) { PullAndShowResult(table, count); return; }
+            _flaringPull = true;
+            UpdateWallet();
+            pull.PlayMageFlare(
+                () => { _flaringPull = false; PullAndShowResult(table, count); },
+                () => { _flaringPull = false; UpdateWallet(); });
         }
 
         /// <summary>
@@ -601,7 +580,7 @@ namespace KingdomIdle.UGUI
 
             if (!mgr.CanPullMulti(table, count))
             {
-                if (uiMgr != null) uiMgr.ShowToast("재화가 부족합니다.");
+                if (uiMgr != null) uiMgr.ShowToast(mgr.PullFailure(table, count));
                 return;
             }
 

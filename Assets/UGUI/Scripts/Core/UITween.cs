@@ -35,7 +35,7 @@ namespace KingdomIdle.UGUI
         {
             GamePresentationSettings.Changed -= RefreshAmbient;
             StopAllCoroutines();
-            _scaleCo = _fadeCo = _moveCo = _breathCo = _rotateCo = _flashCo = null;
+            _scaleCo = _fadeCo = _moveCo = _breathCo = _rotateCo = _flashCo = _valueCo = null;
         }
 
         private void RefreshAmbient()
@@ -56,6 +56,25 @@ namespace KingdomIdle.UGUI
             var t = c.GetComponent<UITween>();
             if (t == null) t = c.gameObject.AddComponent<UITween>();
             return t;
+        }
+
+        private Coroutine _valueCo;
+        public static void ValueTo(Component owner, float from, float to, float duration, Action<float> apply, Action completed = null)
+        {
+            var tween = Get(owner);
+            if (tween._valueCo != null) tween.StopCoroutine(tween._valueCo);
+            tween._valueCo = tween.StartCoroutine(tween.ValueRoutine(from, to, duration, apply, completed));
+        }
+        private IEnumerator ValueRoutine(float from, float to, float duration, Action<float> apply, Action completed)
+        {
+            float elapsed = 0;
+            while (elapsed < duration)
+            {
+                apply(Mathf.Lerp(from, to, elapsed / duration));
+                yield return null;
+                elapsed += Time.unscaledDeltaTime;
+            }
+            _valueCo = null; apply(to); completed?.Invoke();
         }
 
         // ── 스케일 등장(팝) ──────────────────────────────────────────
@@ -122,8 +141,6 @@ namespace KingdomIdle.UGUI
             var t = rt.GetComponent<UITween>();
             if (t != null && t._moveCo != null) { t.StopCoroutine(t._moveCo); t._moveCo = null; }
         }
-
-        // ── 살아있는 UI: 호흡/회전/플래시 (신 스킬 버튼·마탑 환경 연출 공용) ──────
         /// <summary>1 ↔ 1+amplitude 사이를 부드럽게 오가는 호흡 스케일 루프. StopBreathScale로 중단.</summary>
         public static void BreathScale(RectTransform rt, float amplitude = 0.05f, float period = 2.4f)
         {

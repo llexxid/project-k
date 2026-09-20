@@ -186,6 +186,7 @@ namespace KingdomIdle.UGUI.Editor
             var hud = F.Box(rootRt, "HudTop", UguiTheme.RusticBar, rounded: false);
             F.AnchorTopStretch(hud.rectTransform, 0f, UguiTheme.HudTopHeight);
             F.HLayout(hud.gameObject, 0f, new RectOffset(22, 22, 0, 0), TextAnchor.MiddleLeft);
+            CombatUiPreparation.AddTopBleed(hud.gameObject);
 
             // 러스틱 드레싱: 우드그레인 + 광 시엔 + 하단(안쪽) 청동 트림
             DressRusticBar(hud, trimAtBottom: true);
@@ -757,9 +758,6 @@ namespace KingdomIdle.UGUI.Editor
 
             view.btnMenuInventory = MakeHamburgerItem(hamburger.transform, "BtnMenuInventory", null,
                 F.Catalog != null ? F.Catalog.iconBag : null);
-            // 신 스킬 도감 — HUD 모서리 버튼에서 이사 옴 (원형 버튼 리워크로 자리 없음)
-            view.btnMenuDivineCollection = MakeHamburgerItem(hamburger.transform, "BtnMenuDivineCollection", null,
-                F.Catalog != null ? F.Catalog.iconBook : null);
             view.btnMenuSettings = MakeHamburgerItem(hamburger.transform, "BtnMenuSettings", null, UguiGenAssets.IconWrench);
             view.btnMenuNotice = MakeHamburgerItem(hamburger.transform, "BtnMenuNotice", null, UguiGenAssets.IconWarning);
             view.btnMenuMail = MakeHamburgerItem(hamburger.transform, "BtnMenuMail", null,

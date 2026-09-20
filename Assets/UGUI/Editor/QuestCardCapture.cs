@@ -21,7 +21,7 @@ public static class QuestCardCapture
     private static readonly string[] Labels = { "가이드", "일일", "주간", "업적" };
 
     /// <summary>원본 씬·프리팹·계정을 변경하지 않고 지정 비율의 정적 PNG를 저장한다.</summary>
-    public static object Capture(string phase, int width, int height, string category)
+    public static object Capture(string phase, int width, int height, string category, string outputDirectory = "AI/validation/quest-cards-20260920")
     {
         if (EditorApplication.isPlaying) throw new InvalidOperationException("정적 캡처는 EditMode에서 실행하세요.");
         if (phase != "before" && phase != "after") throw new ArgumentException("phase는 before/after여야 합니다.");
@@ -134,7 +134,7 @@ public static class QuestCardCapture
             temporary.Add(pixels);
             pixels.ReadPixels(new Rect(0, 0, width, height), 0, 0);
             pixels.Apply();
-            string path = Path.GetFullPath($"AI/validation/quest-cards-20260920/{phase}-{outputCategory}-{width}x{height}.png");
+            string path = Path.GetFullPath(Path.Combine(outputDirectory, $"{phase}-{outputCategory}-{width}x{height}.png"));
             Directory.CreateDirectory(Path.GetDirectoryName(path));
             File.WriteAllBytes(path, pixels.EncodeToPNG());
             return new { path, phase, category = outputCategory, width, height, logicalWidth = logicalSize.x,

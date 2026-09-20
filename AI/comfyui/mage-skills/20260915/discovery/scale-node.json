@@ -1,0 +1,8 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"data\":[{\"name\":\"ImageScale\",\"display_name\":\"Upscale Image\",\"description\":\"\",\"category\":\"image/upscaling\",\"pack\":\"core\",\"inputs\":{\"required\":[\"IMAGE\",\"COMBO\",\"INT\",\"INT\",\"COMBO\"]},\"input_details\":[{\"name\":\"image\",\"type\":\"IMAGE\",\"required\":true},{\"name\":\"upscale_method\",\"type\":\"COMBO\",\"required\":true,\"options\":[\"nearest-exact\",\"bilinear\",\"area\",\"bicubic\",\"lanczos\"]},{\"name\":\"width\",\"type\":\"INT\",\"required\":true,\"default\":512,\"min\":0,\"max\":16384},{\"name\":\"height\",\"type\":\"INT\",\"required\":true,\"default\":512,\"min\":0,\"max\":16384},{\"name\":\"crop\",\"type\":\"COMBO\",\"required\":true,\"options\":[\"disabled\",\"center\"]}],\"outputs\":[\"IMAGE\"],\"api_node\":false,\"output_node\":false,\"deprecated\":false}]}"
+    }
+  ]
+}

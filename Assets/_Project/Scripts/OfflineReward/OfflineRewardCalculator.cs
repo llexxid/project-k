@@ -8,8 +8,10 @@ namespace KingdomIdle.OfflineRewards
         public static OfflineRewardPlan CreatePlan(TimeSpan duration, long clearedStage, decimal kpm)
         {
             long seconds = Math.Max(0, (long)duration.TotalSeconds);
-            int wave = (int)(clearedStage & 0xFFFF), stage = (int)((clearedStage >> 16) & 0xFFF);
-            bool safe = (clearedStage & 0xF0000000L) == 0 && stage >= 1 && stage <= 3 && wave >= 1 && wave <= 10;
+            int wave = Scripts.Core.Manager.StageParser.GetWaveNumber((eStage)clearedStage),
+                stage = Scripts.Core.Manager.StageParser.GetStageNumber((eStage)clearedStage);
+            bool safe = stage >= 1 && wave >= 1 && wave <= 10 &&
+                (long)Scripts.Core.Manager.StageParser.MakeStage(eStageType.Main, stage, wave) == clearedStage;
             return new OfflineRewardPlan { actualOfflineSeconds = seconds, appliedOfflineSeconds = Math.Min(seconds, MaxOfflineSeconds),
                 estimatedKillCount = safe ? (int)decimal.Floor(Math.Min(seconds, MaxOfflineSeconds) / 60m * Math.Max(0m, Math.Min(30m, kpm)) * .60m) : 0 };
         }

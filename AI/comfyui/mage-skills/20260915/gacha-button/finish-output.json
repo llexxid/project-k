@@ -1,0 +1,23 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "Image ready.\nDownload URL (no auth needed, expires in ~5 min; re-run get_output for a fresh link): https://cloud.comfy.org/api/s/tAOnOq65k0G85decGia67Q?raw=1\nSuggested save path: $env:USERPROFILE\\Downloads\\ComfyUI\\comfy_output.png\nSource: node 11, SaveImage, filename_prefix=\"KingdomIdle/UI/GachaBronzeButton_512x100\"\nRun this command yourself now (via your own shell/tool) to save the file (keep the URL exactly as given \u2014 do not strip the ?raw=1 query parameter, or the download reverts to a redirect a sandbox may block), then tell the user the saved path \u2014 do NOT just print the command and ask the user to run it. Only hand the command to the user if you cannot execute it yourself (no shell, or a sandbox egress block returning 403 Host not in allowlist):\nif (-not (Get-Command curl.exe -ErrorAction SilentlyContinue)) { throw \"curl.exe not found\" }; curl.exe -L --fail-with-body --retry 3 --retry-all-errors --retry-delay 1 --connect-timeout 20 --speed-limit 1024 --speed-time 30 --create-dirs -o \"$env:USERPROFILE\\Downloads\\ComfyUI\\comfy_output.png.part\" -- \"https://cloud.comfy.org/api/s/tAOnOq65k0G85decGia67Q?raw=1\"; if ($LASTEXITCODE -ne 0) { Remove-Item -Force -ErrorAction SilentlyContinue -LiteralPath \"$env:USERPROFILE\\Downloads\\ComfyUI\\comfy_output.png.part\"; throw \"download failed (curl exit $LASTEXITCODE)\" }; Move-Item -Force -ErrorAction Stop -LiteralPath \"$env:USERPROFILE\\Downloads\\ComfyUI\\comfy_output.png.part\" -Destination \"$env:USERPROFILE\\Downloads\\ComfyUI\\comfy_output.png\"\nImage size: 512x100 px (750a80fae048f7f4da58b719c0c1840eabebe3b51dbd1577e40eb79612dff5e3.png)"
+    }
+  ],
+  "structuredContent": {
+    "results": [
+      {
+        "source_node_id": "11",
+        "filename_prefix": "KingdomIdle/UI/GachaBronzeButton_512x100",
+        "class_type": "SaveImage",
+        "filename": "750a80fae048f7f4da58b719c0c1840eabebe3b51dbd1577e40eb79612dff5e3.png",
+        "url": "https://cloud.comfy.org/api/s/tAOnOq65k0G85decGia67Q?raw=1",
+        "suggested_save_path": "$env:USERPROFILE\\Downloads\\ComfyUI\\comfy_output.png",
+        "download_command": "if (-not (Get-Command curl.exe -ErrorAction SilentlyContinue)) { throw \"curl.exe not found\" }; curl.exe -L --fail-with-body --retry 3 --retry-all-errors --retry-delay 1 --connect-timeout 20 --speed-limit 1024 --speed-time 30 --create-dirs -o \"$env:USERPROFILE\\Downloads\\ComfyUI\\comfy_output.png.part\" -- \"https://cloud.comfy.org/api/s/tAOnOq65k0G85decGia67Q?raw=1\"; if ($LASTEXITCODE -ne 0) { Remove-Item -Force -ErrorAction SilentlyContinue -LiteralPath \"$env:USERPROFILE\\Downloads\\ComfyUI\\comfy_output.png.part\"; throw \"download failed (curl exit $LASTEXITCODE)\" }; Move-Item -Force -ErrorAction Stop -LiteralPath \"$env:USERPROFILE\\Downloads\\ComfyUI\\comfy_output.png.part\" -Destination \"$env:USERPROFILE\\Downloads\\ComfyUI\\comfy_output.png\"",
+        "width": 512,
+        "height": 100
+      }
+    ]
+  }
+}

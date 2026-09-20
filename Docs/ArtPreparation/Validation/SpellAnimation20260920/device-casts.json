@@ -1,0 +1,314 @@
+[
+  {
+    "tag": "lightning-a0",
+    "skill": 0,
+    "awaken": 0,
+    "bloom": false,
+    "strikes": 3,
+    "intervals": [
+      0.18312480000000164,
+      0.18310160000000053
+    ],
+    "firstDamage": 0.18312480000000164,
+    "damageEvents": 3,
+    "ended": true,
+    "activeVisuals": []
+  },
+  {
+    "tag": "lightning-a4",
+    "skill": 0,
+    "awaken": 4,
+    "bloom": false,
+    "strikes": 4,
+    "intervals": [
+      0.1831894000000034,
+      0.18311680000000052,
+      0.18301999999999907
+    ],
+    "firstDamage": 0.1831894000000034,
+    "damageEvents": 1,
+    "ended": true,
+    "activeVisuals": []
+  },
+  {
+    "tag": "lightning-a8",
+    "skill": 0,
+    "awaken": 8,
+    "bloom": false,
+    "strikes": 5,
+    "intervals": [
+      0.17472000000000776,
+      0.18303449999999089,
+      0.1830215000000095,
+      0.1831539999999876
+    ],
+    "firstDamage": 0.17472000000000776,
+    "damageEvents": 6,
+    "ended": true,
+    "activeVisuals": []
+  },
+  {
+    "tag": "lightning-a10",
+    "skill": 0,
+    "awaken": 10,
+    "bloom": false,
+    "strikes": 5,
+    "intervals": [
+      0.17477480000000867,
+      0.17472519999999747,
+      0.18301999999999907,
+      0.18310999999999922
+    ],
+    "firstDamage": 0.17477480000000867,
+    "damageEvents": 4,
+    "ended": true,
+    "activeVisuals": []
+  },
+  {
+    "tag": "lightning-original",
+    "skill": 0,
+    "awaken": 0,
+    "bloom": false,
+    "strikes": 3,
+    "intervals": [
+      0.1830410000000029,
+      0.18305499999999597
+    ],
+    "firstDamage": 0.1830410000000029,
+    "damageEvents": 2,
+    "ended": true,
+    "activeVisuals": [
+      {
+        "name": "Lightning(Clone)",
+        "generation": 8,
+        "position": [
+          -1.91312575,
+          -0.7663788
+        ],
+        "renderers": [
+          {
+            "name": "Layer0",
+            "sprite": "LightningOriginal_2",
+            "alpha": 1.0,
+            "size": [
+              1.640625,
+              3.4921875
+            ],
+            "localPosition": [
+              0.0,
+              0.0
+            ],
+            "layer": "CombatVFX",
+            "order": 20
+          }
+        ]
+      },
+      {
+        "name": "Lightning(Clone)",
+        "generation": 7,
+        "position": [
+          -2.10708141,
+          -0.160654545
+        ],
+        "renderers": [
+          {
+            "name": "Layer0",
+            "sprite": "LightningOriginal_0",
+            "alpha": 1.0,
+            "size": [
+              1.640625,
+              3.4921875
+            ],
+            "localPosition": [
+              0.0,
+              0.0
+            ],
+            "layer": "CombatVFX",
+            "order": 20
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "tag": "lightning-bloom",
+    "skill": 0,
+    "awaken": 10,
+    "bloom": true,
+    "strikes": 0,
+    "intervals": [],
+    "firstDamage": 2.0138319999999936,
+    "damageEvents": 5,
+    "ended": true,
+    "activeVisuals": [
+      {
+        "name": "LightningBloomStrike(Clone)",
+        "generation": 1,
+        "position": [
+          -0.701651931,
+          1.38826311
+        ],
+        "renderers": [
+          {
+            "name": "Layer0",
+            "sprite": "ThunderBolt_2",
+            "alpha": 1.0,
+            "size": [
+              4.0,
+              2.670377
+            ],
+            "localPosition": [
+              0.0,
+              0.957852662
+            ],
+            "layer": "CombatVFX",
+            "order": 20
+          },
+          {
+            "name": "Layer1",
+            "sprite": "ThunderImpact_2",
+            "alpha": 1.0,
+            "size": [
+              4.0,
+              4.0
+            ],
+            "localPosition": [
+              0.0,
+              0.0
+            ],
+            "layer": "CombatVFX",
+            "order": 21
+          }
+        ]
+      },
+      {
+        "name": "LightningBloomCloud(Clone)",
+        "generation": 1,
+        "position": [
+          -0.701651931,
+          3.332994
+        ],
+        "renderers": [
+          {
+            "name": "Layer0",
+            "sprite": "StormCloud_0",
+            "alpha": 1.0,
+            "size": [
+              3.5,
+              2.0
+            ],
+            "localPosition": [
+              0.0,
+              0.0
+            ],
+            "layer": "CombatVFX",
+            "order": 20
+          },
+          {
+            "name": "Layer1",
+            "sprite": "CloudSparksViolet_3",
+            "alpha": 1.0,
+            "size": [
+              2.0,
+              2.0
+            ],
+            "localPosition": [
+              0.0,
+              0.0
+            ],
+            "layer": "CombatVFX",
+            "order": 21
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "tag": "fire-crown",
+    "skill": 2,
+    "awaken": 0,
+    "bloom": false,
+    "strikes": 0,
+    "intervals": [],
+    "firstDamage": 0.13313099999999167,
+    "damageEvents": 17,
+    "ended": true,
+    "activeVisuals": [
+      {
+        "name": "FireTornado(Clone)",
+        "generation": 1,
+        "position": [
+          0.0133977709,
+          1.63443935
+        ],
+        "renderers": [
+          {
+            "name": "Layer0",
+            "sprite": "FireVortexCrown_10",
+            "alpha": 1.0,
+            "size": [
+              2.1,
+              3.25
+            ],
+            "localPosition": [
+              0.0,
+              0.0
+            ],
+            "layer": "Default",
+            "order": -30
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "tag": "meteor-flight",
+    "skill": 8,
+    "awaken": 0,
+    "bloom": false,
+    "strikes": 0,
+    "intervals": [],
+    "firstDamage": 2.50508099999999,
+    "damageEvents": 9,
+    "ended": true,
+    "activeVisuals": [
+      {
+        "name": "Meteor(Clone)",
+        "generation": 1,
+        "position": [
+          -0.827389061,
+          3.67042637
+        ],
+        "renderers": [
+          {
+            "name": "Layer0",
+            "sprite": "MeteorFlight_24",
+            "alpha": 1.0,
+            "size": [
+              7.74758053,
+              8.063808
+            ],
+            "localPosition": [
+              0.0,
+              0.0
+            ],
+            "layer": "CombatVFX",
+            "order": 20
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "tag": "meteor-repeat",
+    "skill": 8,
+    "awaken": 0,
+    "bloom": false,
+    "strikes": 0,
+    "intervals": [],
+    "firstDamage": 2.513137999999998,
+    "damageEvents": 7,
+    "ended": true,
+    "activeVisuals": []
+  }
+]

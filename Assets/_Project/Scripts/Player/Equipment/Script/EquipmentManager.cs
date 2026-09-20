@@ -17,7 +17,6 @@ public class EquipmentManager : MonoBehaviour
     public EquipmentInventory Inventory => _inventory;
     public const int Capacity = 300, PendingCapacity = 100;
     public int AvailableSlots => Math.Max(0, Capacity - LocalProgression.State.Equipment.Count);
-    public bool CanReceiveBattleEquipment => LocalProgression.State.PendingEquipment.Count <= PendingCapacity - 25;
     public enum EnhancementResult { Success, ChanceFailed, NotEnoughMaterials, MaxLevel, InvalidItem, SaveFailed }
     private void Awake() { if (Instance != null && Instance != this) { Destroy(gameObject); return; } Instance = this; }
     private void OnDestroy() { if (Instance == this) Instance = null; }
@@ -46,12 +45,52 @@ public class EquipmentManager : MonoBehaviour
     public static bool Grant(ProgressionState state, EquipmentSave item, bool allowPending, bool recordQuestProgress = true)
     {
         if (state.Equipment.Any(x => x.Id == item.Id) || state.PendingEquipment.Any(x => x.Id == item.Id)) return false;
-        if (state.Equipment.Count < Capacity) state.Equipment.Add(item);
+        if (EquipmentEconomy.ShouldAutoDismantle(state, item)) LocalProgression.Credit(state, eCurrency.EquipmentStone, EquipmentEconomy.Yield(item));
+        else if (state.Equipment.Count < Capacity) state.Equipment.Add(item);
         else if (allowPending && state.PendingEquipment.Count < PendingCapacity)
-        { item.ExpiresUtc = LocalProgression.UtcNow + 7 * 86400; state.PendingEquipment.Add(item); }
+        { item.ExpiresUtc = 0; state.PendingEquipment.Add(item); }
+        else if (allowPending && !item.Locked && !item.Player.HasValue)
+        {
+            var stack = state.LegacyEquipment.Find(x => x.Code == item.Code && x.Level == item.Level);
+            if (stack == null) state.LegacyEquipment.Add(new LegacyEquipmentStack { Code = item.Code, Level = item.Level, Count = 1 });
+            else stack.Count = checked(stack.Count + 1);
+        }
         else return false;
         if (recordQuestProgress) QuestEconomy.Count(state,eQuestObjectiveType.EquipmentObtain,0,1);
         return true;
+    }
+    // Old accounts stored quantities instead of individual instances. Reserve the excess
+    // by code/level so a large owned stack cannot block login or allocate thousands of objects.
+    // This reserve never expires and does not consume the live battle-reward inbox.
+    // Restoring already-owned items is not a new quest acquisition; only Grant records that event.
+    public static void ImportLegacy(ProgressionState state, int code, int level, int amount)
+    {
+        if (amount < 0 || level < 0 || level > 15) throw new ArgumentOutOfRangeException();
+        int direct = Math.Min(amount, Math.Max(0, Capacity - state.Equipment.Count));
+        for (int n = 0; n < direct; n++)
+            state.Equipment.Add(new EquipmentSave { Id = Guid.NewGuid().ToString("N"), Code = code, Level = level });
+        int remainder = amount - direct;
+        if (remainder > 0)
+        {
+            var stack = state.LegacyEquipment.Find(x => x.Code == code && x.Level == level);
+            if (stack == null) state.LegacyEquipment.Add(new LegacyEquipmentStack { Code = code, Level = level, Count = remainder });
+            else stack.Count = checked(stack.Count + remainder);
+        }
+    }
+    public static bool TakeLegacy(ProgressionState state, int code, int level)
+    {
+        var stack = state.LegacyEquipment.Find(x => x.Code == code && x.Level == level);
+        if (stack == null || stack.Count <= 0 || state.Equipment.Count >= Capacity) return false;
+        state.Equipment.Add(new EquipmentSave { Id = Guid.NewGuid().ToString("N"), Code = code, Level = level });
+        if (--stack.Count == 0) state.LegacyEquipment.Remove(stack);
+        return true;
+    }
+    public bool ClaimLegacy(int code, int level)
+    {
+        if (GetData(code) == null) return false;
+        bool ok = LocalProgression.Execute("equipment-legacy-claim", state => TakeLegacy(state, code, level));
+        if (ok) { RestoreEquipment(); OnItemDropped?.Invoke(null); }
+        return ok;
     }
     public void GetEquipment(EquipmentInstance item, GetEffect effect)
     {
@@ -60,9 +99,7 @@ public class EquipmentManager : MonoBehaviour
             Level = item.enhancementLevel, Locked = item.IsLocked }, true))) return;
         RestoreEquipment(); if (effect != GetEffect.None) OnItemDropped?.Invoke(_inventory.Items.FirstOrDefault(x => x.instanceId == item.instanceId));
     }
-    private static bool Material(EquipmentInstance target, EquipmentInstance item) => item != null && item != target && item.baseData == target.baseData && !item.IsEquipped && !item.IsLocked && item.enhancementLevel == 0;
-    public int GetEnhanceMaterialCount(EquipmentInstance item) => item?.baseData == null ? 0 : _inventory.Items.Count(x => Material(item, x));
-    public bool CanEnhance(EquipmentInstance item) => item?.baseData != null && !item.IsMaxLevel() && _inventory.Items.Contains(item) && GetEnhanceMaterialCount(item) >= 2;
+    public bool CanEnhance(EquipmentInstance item) => item?.baseData != null && !item.IsMaxLevel() && _inventory.Items.Contains(item) && LocalProgression.Balance(eCurrency.EquipmentStone) >= EquipmentEconomy.EnhanceCost(item);
     public bool TryEnhance(EquipmentInstance item) => TryEnhanceDetailed(item) == EnhancementResult.Success;
     public EnhancementResult TryEnhanceDetailed(EquipmentInstance item)
     {
@@ -72,9 +109,9 @@ public class EquipmentManager : MonoBehaviour
         bool result = LocalProgression.Execute("equipment-enhance", s => {
             var target = s.Equipment.Find(x => x.Id == item.instanceId);
             if (target == null || target.Level >= item.baseData.maxEnhancementLevel) return false;
-            var materials = s.Equipment.Where(x => x.Id != target.Id && x.Code == target.Code && !x.Player.HasValue && !x.Locked && x.Level == 0).Take(2).ToArray();
-            if (materials.Length != 2) return false;
-            foreach (var material in materials) s.Equipment.Remove(material);
+            long cost = EquipmentEconomy.EnhanceCost(item);
+            if (cost <= 0 || target.Level != item.enhancementLevel || !LocalProgression.Spend(s, eCurrency.EquipmentStone, cost)) return false;
+            target.EnhancementStonesSpent = checked(target.EnhancementStonesSpent + cost);
             target.Level++; return true;
         });
         if (!result) return EnhancementResult.SaveFailed;
@@ -110,15 +147,10 @@ public class EquipmentManager : MonoBehaviour
     public bool Dismantle(EquipmentInstance item)
     {
         if (item?.baseData == null) return false;
-        bool ok = LocalProgression.Execute("equipment-dismantle", s => {
-            var target = s.Equipment.Find(x => x.Id == item.instanceId);
-            if (target == null || target.Player.HasValue || target.Locked) return false;
-            s.Equipment.Remove(target);
-            LocalProgression.Credit(s, eCurrency.ArcaneKnowledge, item.baseData.rarity == eEquipmentRarity.Epic ? 8 : item.baseData.rarity == eEquipmentRarity.Rare ? 3 : 1);
-            return true;
-        });
-        if (ok) { RestoreEquipment(); OnItemDropped?.Invoke(null); Scripts.Core.Manager.StageManager.Instance?.ResumeAfterInventory(); } return ok;
+        return Dismantle(EquipmentEconomy.Preview(_ => true, item.instanceId));
     }
+    public bool Dismantle(EquipmentEconomy.DismantlePlan plan)
+    { bool ok = EquipmentEconomy.Execute(plan); if (ok) { RestoreEquipment(); OnItemDropped?.Invoke(null); } return ok; }
     public bool ClaimPending(string id)
     {
         bool ok = LocalProgression.Execute("equipment-pending", s => {
@@ -127,11 +159,11 @@ public class EquipmentManager : MonoBehaviour
             // Keep approved rewards even past the displayed expiry until a server expiry policy is supplied.
             s.PendingEquipment.Remove(item); item.ExpiresUtc = 0; s.Equipment.Add(item); return true;
         });
-        if (ok) { RestoreEquipment(); OnItemDropped?.Invoke(null); Scripts.Core.Manager.StageManager.Instance?.ResumeAfterInventory(); } return ok;
+        if (ok) { RestoreEquipment(); OnItemDropped?.Invoke(null); } return ok;
     }
-    public EquipmentSave RollFieldDrop(int stage)
+    public EquipmentSave RollFieldDrop(double probability)
     {
-        if (UnityEngine.Random.value >= .02f + .001f * (stage - 1)) return null;
+        if (UnityEngine.Random.value >= probability) return null;
         float roll = UnityEngine.Random.value;
         var items = GetByRarity(roll < .80f ? eEquipmentRarity.Normal : roll < .98f ? eEquipmentRarity.Rare : eEquipmentRarity.Epic);
         if (items.Count == 0) return null;

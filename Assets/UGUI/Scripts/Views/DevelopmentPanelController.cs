@@ -22,6 +22,8 @@ namespace KingdomIdle.UGUI
 
         private static DevelopmentPanelView _view;
         private static DevelopmentBodyView _body;
+        private static bool _rubyTab;
+        private static readonly List<NavTabButtonView> GrowthTabs = new();
         private static bool _subscribedCurrency;
         private static StatEnhanceManager _subscribedEnhanceMgr;
         private sealed class CardBinding
@@ -31,6 +33,12 @@ namespace KingdomIdle.UGUI
             internal readonly List<GachaPullButtonView> Buttons = new();
         }
         private static readonly List<CardBinding> Cards = new();
+
+        /// <summary>중첩 육성 화면이 닫힌 뒤 원래 패널의 정적 바인딩과 변경 구독을 복구한다.</summary>
+        internal static void Restore(DevelopmentPanelView view)
+        {
+            if (_view != view) Populate(view);
+        }
 
         public static void Populate(DevelopmentPanelView view)
         {
@@ -46,7 +54,7 @@ namespace KingdomIdle.UGUI
             {
                 if (_view == view)
                 {
-                    _view = null; _body = null; Cards.Clear();
+                    _view = null; _body = null; Cards.Clear(); GrowthTabs.Clear();
                     EconomyBridge.OnAmountChanged -= OnCurrencyChanged;
                     _subscribedCurrency = false;
                     if (_subscribedEnhanceMgr != null)
@@ -91,7 +99,7 @@ namespace KingdomIdle.UGUI
 
         private static void OnCurrencyChanged(eCurrency currency, long amount)
         {
-            if (currency != eCurrency.Gold) return;
+            if (currency != eCurrency.Gold && currency != eCurrency.Ruby) return;
             if (_view == null || _view.content == null) return;
             Refresh();
         }
@@ -113,16 +121,22 @@ namespace KingdomIdle.UGUI
 
             // 보유 골드 바 (.ka-dev-gold-bar: 26px gold bold) — 텍스트만 갱신
             EconomyBridge.TryGetAmount(eCurrency.Gold, out long gold);
-            if (body.goldLabel != null)
-                body.goldLabel.text = $"보유 골드  {NumberNotation.Format(gold)} G";
+            string balance = _rubyTab ? $"보유 루비  {NumberNotation.Format(LocalProgression.Balance(eCurrency.Ruby))}" : $"보유 골드  {NumberNotation.Format(gold)} G";
+            if (body.goldLabel != null && body.goldLabel.text != balance) body.goldLabel.text = balance;
+            string description = _rubyTab ? "환생에도 유지되는 영구 성장 · 메인 사냥과 방치 보상을 강화합니다." : "골드로 모든 왕국군의 공격력과 체력을 강화합니다.";
+            if (body.descLabel != null && body.descLabel.text != description) body.descLabel.text = description;
 
             var mgr = StatEnhanceManager.Instance;
             if (Cards.Count == 0)
             {
                 foreach (var type in EnhanceTypes)
                     if (StatEnhanceManager.IsStatImplemented(type)) BuildEnhanceCard(body.CardsRoot, mgr, type, gold);
-                if (body.GetComponent<RubyGrowthCards>() == null) body.gameObject.AddComponent<RubyGrowthCards>().Build(body.CardsRoot);
+                if (body.rubyCardsRoot != null && body.rubyCardsRoot.GetComponent<RubyGrowthCards>() == null)
+                    body.rubyCardsRoot.gameObject.AddComponent<RubyGrowthCards>().Build(body.rubyCardsRoot);
             }
+            body.CardsRoot.gameObject.SetActive(!_rubyTab);
+            if (body.rubyCardsRoot != null) body.rubyCardsRoot.gameObject.SetActive(_rubyTab);
+            for (int i=0;i<GrowthTabs.Count;i++) GrowthTabs[i].SetSelected((i==1)==_rubyTab, _rubyTab ? UguiTheme.RarityArcane : UguiTheme.AccentGold);
             foreach (var card in Cards)
             {
                 if (card.View == null || mgr == null) continue;
@@ -140,7 +154,7 @@ namespace KingdomIdle.UGUI
 
             // 빈 상태 라벨 토글 (강화 항목이 하나도 없을 때만 표시)
             if (body.emptyLabel != null)
-                body.emptyLabel.gameObject.SetActive(Cards.Count == 0);
+                body.emptyLabel.gameObject.SetActive(!_rubyTab && Cards.Count == 0);
         }
 
         /// <summary>본문 셸(Body_Development)을 스크롤 콘텐츠에 1회 인스턴스화하고 캐시한다.</summary>
@@ -162,6 +176,22 @@ namespace KingdomIdle.UGUI
 
             var go = Object.Instantiate(cat.bodyDevelopment, content, false);
             _body = go.GetComponent<DevelopmentBodyView>();
+            GrowthTabs.Clear();
+            if (_body != null && _body.navBar != null)
+            {
+                for (int i=0;i<2;i++)
+                {
+                    bool ruby=i==1;
+                    var tab=Object.Instantiate(cat.itemNavTabButton,_body.navBar,false).GetComponent<NavTabButtonView>();
+                    tab.name=ruby?"RubyGrowthTab":"GoldGrowthTab";
+                    tab.SetLabel(ruby?"루비 영구 성장":"골드 강화");tab.SetIcon(ruby?cat.iconGem:cat.iconCoin);
+                    tab.Button.onClick.AddListener(()=> {
+                        _rubyTab=ruby;Refresh();
+                        var scroll=_view?.GetComponentInChildren<ScrollRect>();if(scroll!=null)scroll.verticalNormalizedPosition=1;
+                    });
+                    GrowthTabs.Add(tab);
+                }
+            }
             if (_body == null)
             {
                 Debug.LogError("[DevelopmentPanel] DevelopmentBodyView 컴포넌트가 없습니다.");

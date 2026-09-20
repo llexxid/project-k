@@ -1,0 +1,33 @@
+{
+  "passed": true,
+  "method": "Actual two-second touch hold; a diagnostic wave transition begins during the hold. Snapshot time includes command round trip, not exact physical release time. Exact pending/cancel behavior is independently asserted by editor-routes.json.",
+  "cases": [
+    {
+      "attempt": 0,
+      "observedAfterTouchStartSeconds": 2.0780000000013388,
+      "holdMilliseconds": 2000,
+      "enteredGold": true,
+      "ticketsUsed": 1,
+      "runtimeError": null,
+      "commandSnapshotState": "Transitioning"
+    },
+    {
+      "attempt": 1,
+      "observedAfterTouchStartSeconds": 2.077999999997701,
+      "holdMilliseconds": 2000,
+      "enteredGold": true,
+      "ticketsUsed": 1,
+      "runtimeError": null,
+      "commandSnapshotState": "Transitioning"
+    },
+    {
+      "attempt": 2,
+      "observedAfterTouchStartSeconds": 2.2820000000028813,
+      "holdMilliseconds": 2000,
+      "enteredGold": true,
+      "ticketsUsed": 1,
+      "runtimeError": null,
+      "commandSnapshotState": "Transitioning"
+    }
+  ]
+}

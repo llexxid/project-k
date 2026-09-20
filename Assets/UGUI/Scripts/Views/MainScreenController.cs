@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using KingdomIdle.Divine;
 using KingdomIdle.UI;
 using Scripts.Core;
 
@@ -144,6 +143,7 @@ namespace KingdomIdle.UGUI
                 RefreshTopCurrencyLabels();
                 RefreshNickname();
                 RefreshReincarnationDot();
+                if (_profilePopup != null && _profilePopup.activeSelf) PopulateProfilePopup();
 
                 if (_currencyOpen)
                     RebuildCurrencyPopupContents();
@@ -318,7 +318,10 @@ namespace KingdomIdle.UGUI
             dropdown.anchorMin = dropdown.anchorMax = new Vector2(1f, 1f);
             dropdown.pivot = new Vector2(1f, 1f);
             Rect pr = parent.rect;   // 앵커(1,1) 기준점 = 부모 우상단
-            dropdown.anchoredPosition = new Vector2(brLocal.x - pr.xMax, brLocal.y - pr.yMax - gap);
+            float width = Mathf.Min(dropdown.rect.width, Mathf.Max(1, pr.width - 32));
+            dropdown.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
+            float right = Mathf.Clamp(brLocal.x, pr.xMin + 16 + width, pr.xMax - 16);
+            dropdown.anchoredPosition = new Vector2(right - pr.xMax, brLocal.y - pr.yMax - gap);
         }
 
         /// <summary>재화 변경 이벤트 구독 — 강화/가챠/전투 보상 시 즉시 HUD 갱신 (폴링 지연 보완).</summary>
@@ -400,7 +403,7 @@ namespace KingdomIdle.UGUI
             for (int i = content.childCount - 1; i >= 0; i--)
                 UnityEngine.Object.Destroy(content.GetChild(i).gameObject);
 
-            AddCurrencyLine(content, null, _currencyPremiumGroup ? "유료 재화" : "보유 재화", null, isTitle: true);
+            AddCurrencyLine(content, null, _currencyPremiumGroup ? "고대주화" : "보유 재화", null, isTitle: true);
 
             // 탭한 칩의 재화 그룹만 표시 (골드칩=무료/소프트, 고대주화칩=유료/프리미엄)
             var values = (eCurrency[])Enum.GetValues(typeof(eCurrency));
@@ -422,6 +425,7 @@ namespace KingdomIdle.UGUI
                 case eCurrency.AncientCoin: return cat.iconAncientCoin;
                 case eCurrency.ArcaneKnowledge: return cat.iconArcane;
                 case eCurrency.ClassFragment: return cat.iconFragment;
+                case eCurrency.EquipmentStone: return cat.iconEquipmentStone;
                 default: return cat.iconGem;
             }
         }
@@ -431,7 +435,7 @@ namespace KingdomIdle.UGUI
         {
             bool isPremium = c == eCurrency.AncientCoin;
             if (premium) return isPremium;
-            return c == eCurrency.Gold || c == eCurrency.ArcaneKnowledge || c == eCurrency.ClassFragment || c == eCurrency.Ruby;
+            return c == eCurrency.Gold || c == eCurrency.ArcaneKnowledge || c == eCurrency.ClassFragment || c == eCurrency.Ruby || c == eCurrency.EquipmentStone;
         }
 
         private void AddCurrencyLine(RectTransform parent, Sprite icon, string name, string value, bool isTitle)
@@ -461,6 +465,7 @@ namespace KingdomIdle.UGUI
                 case eCurrency.ArcaneKnowledge: return "비전지식";
                 case eCurrency.ClassFragment: return "전직 파편";
                 case eCurrency.Ruby: return "루비";
+                case eCurrency.EquipmentStone: return "강화석";
                 default: return c.ToString();
             }
         }
@@ -631,7 +636,7 @@ namespace KingdomIdle.UGUI
         //  메뉴 버튼 (프로필/인벤토리/설정/공지/우편)
         // ═══════════════════════════════════════════
 
-        // ── 프로필 팝업(더미) ──
+        // ── 계정 프로필 ──
         private GameObject _profilePopup;
         private ProfilePopupView _profileView;
 
@@ -659,7 +664,8 @@ namespace KingdomIdle.UGUI
                 {
                     if (_profileView.closeButton != null) _profileView.closeButton.onClick.AddListener(CloseProfilePopup);
                     if (_profileView.backdrop != null) _profileView.backdrop.onClick.AddListener(CloseProfilePopup);
-                    if (_profileView.powerButton != null) _profileView.powerButton.onClick.AddListener(OpenRankingPopup);
+                    // Keep the actual party power visible; the sample ranking provider is not a live leaderboard.
+                    if (_profileView.powerButton != null) _profileView.powerButton.interactable = false;
                 }
             }
             PopulateProfilePopup();
@@ -673,7 +679,7 @@ namespace KingdomIdle.UGUI
             if (_profilePopup != null) _profilePopup.SetActive(false);
         }
 
-        /// <summary>보유 데이터(닉네임/레벨)만 실제로 채우고 나머지는 프리팹 샘플값 유지(더미).</summary>
+        /// <summary>현재 저장 및 실제 왕국군 전투력을 프로필에 반영한다.</summary>
         private void PopulateProfilePopup()
         {
             if (_profileView == null) return;
@@ -682,13 +688,7 @@ namespace KingdomIdle.UGUI
                 var um = UserManager.Instance;
                 if (um != null)
                 {
-                    string nick = um.GetUserName();
-                    int level = um.GetUserLevel();
-                    long power = CombatPowerCalculator.CalculatePartyPowerV1(um.GetPlayers());
-                    if (!string.IsNullOrWhiteSpace(nick) && _profileView.nameLabel != null) _profileView.nameLabel.text = nick;
-                    if (_profileView.levelLabel != null) _profileView.levelLabel.text = level.ToString();
-                    if (_profileView.kingdomLevelLabel != null) _profileView.kingdomLevelLabel.text = $"Lv. {level}";
-                    if (_profileView.powerLabel != null) _profileView.powerLabel.text = NumberNotation.Format(power);
+                    _profileView.Populate(um.GetUserName(), CombatPowerCalculator.CalculatePartyPowerV1(um.GetPlayers()));
                 }
             }
             catch (Exception ex) { Debug.LogWarning($"PopulateProfilePopup: {ex.Message}"); }
@@ -798,27 +798,6 @@ namespace KingdomIdle.UGUI
                     CloseHamburgerMenu();
                     if (_currencyOpen) CloseCurrencyPopup();
                     _host.PushPanel(UIPanelId.Inventory, null, clearBefore: false, isTabPanel: false);
-                });
-            }
-
-            // 신 스킬 도감 — HUD 모서리 버튼에서 이사 옴 (원형 버튼 리워크)
-            if (_view.btnMenuDivineCollection != null)
-            {
-                // 신 스킬 시스템 비활성화 상태(bootstrap 에 매니저 미설치)면 진입점 자체를 숨긴다.
-                // 매니저 존재 여부로 게이트 → 시스템 재활성화 시 이 코드는 손대지 않아도 된다.
-                _view.btnMenuDivineCollection.gameObject.SetActive(DivineSkillManager.Instance != null);
-                _view.btnMenuDivineCollection.onClick.AddListener(() =>
-                {
-                    CloseHamburgerMenu();
-                    if (_currencyOpen) CloseCurrencyPopup();
-
-                    var divine = DivineSkillManager.Instance;
-                    if (divine == null || !divine.IsSystemUnlocked)
-                    {
-                        _host.ShowToast("신 스킬은 스테이지 3-10 클리어 후 해금됩니다.");
-                        return;
-                    }
-                    DivineCollectionPopupController.Show();
                 });
             }
 

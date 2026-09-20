@@ -1,0 +1,8 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "0 credits - no paid API nodes found in this workflow.\n\nEstimate only \u2014 nothing was submitted and no credits were spent. Figures come from the pricing declarations bundled with this server, which can lag both the live node catalog and live provider prices (a paid node too new to be in the bundled catalog is not recognised as paid at all). GPU and queue time are not included, and neither is storage. A node priced PER UNIT (per second, per image, per 1K tokens) is listed with its rate but kept OUT of the total, because how much it costs depends on how much you generate. This quotes the graph EXACTLY as given: any input_overrides / slot_overrides you later pass to submit_workflow, run_template or run_saved_workflow are not reflected here, so re-estimate the overridden workflow if an override changes a price-driving field (duration, resolution, frame count). partner_generate cannot be priced by model id (the partner catalog carries no pricing data) \u2014 but most partner models run behind an ordinary API node, so passing a workflow or template that uses that node (e.g. FluxProUltraImageNode, KlingVideoNode) does give you a figure. Actual billing is determined by the provider usage records on your Comfy Cloud account."
+    }
+  ]
+}

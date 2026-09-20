@@ -13,6 +13,7 @@ namespace KingdomIdle.UGUI
         [Header("Stage row")]
         [SerializeField] internal TMP_Text lblStage;
         [SerializeField] internal Button btnLoopIcon;
+        [SerializeField] internal Button btnStageAction;
         [SerializeField] internal GameObject bossChallengeRoot;
         [SerializeField] internal Toggle tglBossChain;
 

@@ -1,0 +1,53 @@
+{
+  "pillow": "12.3.0",
+  "numpy": "2.3.5",
+  "command": "python AI/comfyui/mage-vfx/revision5/finalize.py",
+  "sheets": [
+    {
+      "name": "LightningOriginal",
+      "width": 70,
+      "height": 149,
+      "count": 5,
+      "columns": 5,
+      "pivot": [
+        0.5,
+        0
+      ],
+      "fps": 12,
+      "loop": false,
+      "ppu": 32,
+      "source": "Original ThunderEffects.png: exact pixels and five authored frames; 884652ec9 chain timing"
+    },
+    {
+      "name": "FireVortexCrown",
+      "width": 64,
+      "height": 80,
+      "count": 12,
+      "columns": 8,
+      "pivot": [
+        0.5,
+        0.175
+      ],
+      "fps": 24,
+      "loop": true,
+      "ppu": 32,
+      "source": "Purchased FireTornado six frames; unchanged lower ribbons, local crown edit and 16px headroom"
+    },
+    {
+      "name": "MeteorFlight",
+      "width": 192,
+      "height": 208,
+      "count": 48,
+      "columns": 8,
+      "pivot": [
+        0.3125,
+        0.2692307692307692
+      ],
+      "fps": 20,
+      "loop": false,
+      "ppu": 32,
+      "source": "Comfy v5 basalt master; baked two-axis spherical rotation, six-color shading, advected plume, bow shock, sparks and rock chips"
+    }
+  ],
+  "notes": "32 logical pixels/unit except exact original lightning displayed at its original 1.5/64 scale. No per-frame diffusion."
+}

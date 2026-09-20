@@ -103,6 +103,11 @@ namespace Scripts.Core.Manager
         public eStage MaxClearedStage => (eStage)LocalProgression.State.HighestMainClear;
 
         private const float DefeatPopupDuration = 15f;
+        public const float DungeonReturnDuration = 6f;
+        public float ReturnCountdownDuration => _currentSession?.Definition.Type != eStageType.Main ? DungeonReturnDuration : DefeatPopupDuration;
+        public float ReturnCountdownRemaining => _currentState == eStageRunState.ResultPending ? _resultPopupTimer :
+            _currentState == eStageRunState.DefeatPending ? _defeatPopupTimer : 0;
+        private float _resultPopupTimer;
         private const float TickInterval = 3f;
         
         [NonSerialized]
@@ -162,12 +167,17 @@ namespace Scripts.Core.Manager
             if (_defeatPopupActive)
             {
 				_defeatPopupTimer -= Time.unscaledDeltaTime;
-				OnDeathPopupTick?.Invoke(Mathf.Clamp01(_defeatPopupTimer / DefeatPopupDuration));
+				OnDeathPopupTick?.Invoke(Mathf.Clamp01(_defeatPopupTimer / ReturnCountdownDuration));
 				if (_defeatPopupTimer <= 0f)
 				{
 					_defeatPopupActive = false;
 					ChooseDefeatAction(false);
 				}
+            }
+            if (_currentState == eStageRunState.ResultPending && _currentSession?.Definition.Type != eStageType.Main)
+            {
+                _resultPopupTimer -= Time.unscaledDeltaTime;
+                if (_resultPopupTimer <= 0) ReturnToMainStage();
             }
         }
 		/// <summary>StageManager가 사용하는 데이터 버퍼를 초기화한다</summary>
@@ -200,7 +210,7 @@ namespace Scripts.Core.Manager
 
 		#region 외부 접근 메서드
 
-		#if UNITY_EDITOR
+		#if UNITY_EDITOR || LOBBY_DEVICE_QA
 		public bool TestClearStage()
 		{
 			if (_currentState != eStageRunState.Running ||
@@ -350,6 +360,21 @@ namespace Scripts.Core.Manager
 		/// </summary>
         private void StartStage(StageDefinition definition)
         {
+            PrepareStageBackground(definition).Forget(error => HandleStageLoadFailure(error, CameraFade.Instance));
+        }
+
+        private async UniTask PrepareStageBackground(StageDefinition definition)
+        {
+            var background = FindFirstObjectByType<StageBackgroundController>();
+            if (background == null) throw new InvalidOperationException("StageBackgroundController is missing from the combat scene.");
+            if (!await background.ApplyAsync(definition, _stageDatabaseSO)) return;
+            if (this == null || _currentStage != definition.Id) return;
+            StartPreparedStage(definition);
+            CameraFade.Instance?.FadeIn(.3f);
+        }
+
+        private void StartPreparedStage(StageDefinition definition)
+        {
 			_bossTimerActive = false;
 			_defeatPopupActive = false;
 			Time.timeScale = 1f;
@@ -359,6 +384,8 @@ namespace Scripts.Core.Manager
             EquipmentManager.Instance?.RestoreEquipment();
             StatEnhanceManager.Instance?.ApplyToAllPlayers();
             ReviveAllPlayers();
+            foreach (var player in UserManager.Instance.GetPlayers())
+                if (player != null) player.transform.position = CombatViewport.Formation(player.PlayerIndex);
             OnWaveChanged?.Invoke(_currentStageNumber, _currentWaveNumber, _isBossWave);
 
 			_currentState = eStageRunState.Entering;
@@ -379,12 +406,6 @@ namespace Scripts.Core.Manager
             UpdateMaxClearedStage(definition);
 			OnStageCleared?.Invoke(definition);
 		}
-		private eStage? _inventoryBlockedTarget;
-        public void ResumeAfterInventory()
-        {
-            if (!_inventoryBlockedTarget.HasValue || !EquipmentManager.Instance.CanReceiveBattleEquipment) return;
-            var target = _inventoryBlockedTarget.Value; _inventoryBlockedTarget = null; TransitionStage(target);
-        }
         private void HandleStageLoadFailure(Exception error, CameraFade fade)
         {
             _currentState=eStageRunState.None;_bossTimerActive=false;
@@ -396,9 +417,6 @@ namespace Scripts.Core.Manager
 		{
 			Debug.Log($"{target}");
 			if (_currentState == eStageRunState.Transitioning) return false;
-            if (StageParser.GetStageType(target) == eStageType.Main && EquipmentManager.Instance != null && !EquipmentManager.Instance.CanReceiveBattleEquipment)
-            { _inventoryBlockedTarget = target; EndSession(); _currentState = eStageRunState.ResultPending;
-              KingdomIdle.UGUI.UIManager.Instance?.ShowToast("보관 장비를 수령하거나 분해하면 다음 전투가 시작됩니다."); return false; }
 			
 			if (!_provider.TryGet(target, out StageDefinition definition))
 			{ 
@@ -427,7 +445,6 @@ namespace Scripts.Core.Manager
 							_ =>
 							{
 								StartStage(definition);
-								fade.FadeIn(0.4f);
 							}).Forget(error => HandleStageLoadFailure(error, fade));
 					});
 				}
@@ -443,10 +460,7 @@ namespace Scripts.Core.Manager
 			}
 			if (fade != null)
 			{
-				fade.FadeOutIn(
-					0.3f,
-					0.3f,
-					onDark: () => StartStage(definition));
+				fade.FadeOut(0.3f, () => StartStage(definition));
 			}
 			else
 			{
@@ -522,7 +536,7 @@ namespace Scripts.Core.Manager
 
 			_defeatPopupActive = true;
 			_defeatPopupHandled = false;
-			_defeatPopupTimer = DefeatPopupDuration;
+			_defeatPopupTimer = ReturnCountdownDuration;
 
 			OnDefeatPopupShow?.Invoke();
 		}
@@ -530,6 +544,7 @@ namespace Scripts.Core.Manager
 		private void EnterResultPending()
 		{
 			_currentState = eStageRunState.ResultPending;
+			_resultPopupTimer = DungeonReturnDuration;
 			Time.timeScale = 0f;
 			
 			OnRewardPopupShow?.Invoke();

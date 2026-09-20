@@ -46,7 +46,7 @@ public class ChangeJob : MonoBehaviour
     public bool TryChangeJob(int index)
     {
         var data = jobDatabase.GetJob(index);
-        if (data == null || !CanQueueChange) return false;
+        if (data == null || !JobData.IsAvailable(data.jobName) || !CanQueueChange) return false;
         int slot = _player.PlayerIndex;
         bool wasUnlocked = IsJobUnlocked(index);
         bool ok = LocalProgression.Execute("job-select", s => {
@@ -71,6 +71,21 @@ public class ChangeJob : MonoBehaviour
     public void ApplySavedJob()
     {
         if (!LocalProgression.State.Jobs.TryGetValue(_player.PlayerIndex, out var name)) name = "Spearman";
+        if (!JobData.IsAvailable(name))
+        {
+            int slot = _player.PlayerIndex;
+            string previous = name;
+            LocalProgression.Execute("retire-unavailable-job", s => {
+                s.Modules["retired-job:" + slot] = previous;
+                s.Jobs[slot] = "Spearman";
+                foreach (var item in s.Equipment)
+                    if (item.Player == slot && EquipmentManager.Instance?.GetData(item.Code) is EquipmentData weapon && !weapon.IsAllowedForJob("Spearman"))
+                    { s.Modules["retired-job-weapon:" + slot] = item.Id; item.Player = null; }
+                return true;
+            });
+            name = "Spearman";
+            EquipmentManager.Instance?.RestoreEquipment();
+        }
         int index = jobDatabase.jobs.FindIndex(j => j != null && j.jobName == name);
         if (index >= 0 && _player.playerStatus.JobName != name) ApplyJobByIndex(index);
         else if (index >= 0 && _player.skillSystem.SlotCount == 0) ApplyJobByIndex(index);
@@ -78,7 +93,10 @@ public class ChangeJob : MonoBehaviour
     public void ApplyJobByIndex(int index)
     {
         JobData data = jobDatabase.GetJob(index); if (data == null) return;
+        if (!JobData.IsAvailable(data.jobName)) data = jobDatabase.GetJob("Spearman");
+        if (data == null) return;
         _player.playerStatus.ApplyJob(data); _player.skillSystem?.Setup(data);
+        _player.SetVfxBodyAnchors(data.vfxFootY, data.vfxHeadY);
         _player.playerOrder?.ApplyRanges(_player.skillSystem); _player.playerOrder?.SyncMoveSpeed(_player.playerStatus);
         if (_spriteRenderer != null && data.jobSprite != null) _spriteRenderer.sprite = data.jobSprite;
         if (_player._am != null && data.animatorController != null) { _player._am.runtimeAnimatorController = data.animatorController; _player.RebuildAnimatorComponent(); }

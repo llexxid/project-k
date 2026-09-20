@@ -12,10 +12,11 @@ public class JobData : ScriptableObject
     [Header("직업 정보")]
     public string jobName;                              // 직업 이름 (예: "Knight", "Mage")
     public string DisplayName => GetDisplayName(jobName);
+    public static bool IsAvailable(string id) => id is "Spearman" or "Knight" or "Elite_Knight" or "Mage" or "Elite_Mage";
     public static string GetDisplayName(string id) => id switch
     {
-        "Spearman" => "창병", "Knight" => "기사", "Archer" => "궁수", "Mage" => "마법사",
-        "Elite_Knight" => "정예 기사", "Elite_Archer" => "정예 궁수", "Elite_Mage" => "정예 마법사",
+        "Spearman" => "창병", "Knight" => "기사", "Archer" => "곧 추가 예정", "Mage" => "마법사",
+        "Elite_Knight" => "정예 기사", "Elite_Archer" => "곧 추가 예정", "Elite_Mage" => "정예 마법사",
         _ => id ?? ""
     };
 
@@ -23,6 +24,8 @@ public class JobData : ScriptableObject
     public Sprite jobSprite;                            // 전직 시 교체할 캐릭터 스프라이트
     public Sprite portraitSprite;                       // UI 전용 정사각 초상화 (파티 HUD/멤버 탭/전직 카드)
     public RuntimeAnimatorController animatorController;// 전직 시 교체할 애니메이터 컨트롤러
+    [Tooltip("Idle body anchors, excluding transparent margins and weapons. Generated in local units.")]
+    public float vfxFootY = -.5f, vfxHeadY = .5f;
 
     /// <summary>UI 초상화 — 전용 초상화가 없으면 jobSprite 폴백.</summary>
     public Sprite Portrait => portraitSprite != null ? portraitSprite : jobSprite;
@@ -64,7 +67,7 @@ public class BasicAttackConfig
     [Tooltip("공격 사거리 (이동 정지 거리 · 탐지 반경 결정).")]
     public float range = 2f;
 
-    [Tooltip("공격 애니메이션 종료 후 쿨다운(초).")]
+    [Tooltip("공격 시작 사이의 간격(초). 모션 종료 후 중복 가산하지 않습니다.")]
     public float cooldown = 1f;
 
     [Tooltip("공격력에 곱해지는 피해 배율. 1.0 = 100%.")]
@@ -88,7 +91,7 @@ public class SpecialSkillConfig
 {
     public SpecialSkillKind kind = SpecialSkillKind.None;
 
-    [Tooltip("스킬 쿨다운(초). IronWill/ChargeShot 은 효과 종료 후 시작.")]
+    [Tooltip("시전 시작부터 다음 시전까지의 쿨다운(초).")]
     public float cooldown = 10f;
 
     [Tooltip("공격력에 곱해지는 피해 배율 (ChargeShot · EnergyPulse).")]
@@ -101,11 +104,11 @@ public class SpecialSkillConfig
     public int hitCount = 3;
 
     [Header("IronWill")]
-    [Tooltip("IronWill: 초당 회복 비율 (0.1 = MaxHP의 10%/초).")]
-    public float healPercent = 0.1f;
-    [Tooltip("IronWill: 회복 지속시간(초).")]
-    public float duration = 15f;
-    [Tooltip("IronWill: 자동 발동 HP 비율 (0.5 = HP 50% 미만).")]
+    [Tooltip("IronWill: 저장 호환용 필드. 이 값 × duration이 최대 HP 대비 보호막 비율 (0.04 × 5 = 20%).")]
+    public float healPercent = 0.04f;
+    [Tooltip("IronWill: 보호막 지속시간(초).")]
+    public float duration = 5f;
+    [Tooltip("저장 호환용 필드. 강철의 의지는 체력 조건 없이 발동합니다.")]
     public float triggerHPRatio = 0.5f;
 
     [Header("EnergyPulse")]

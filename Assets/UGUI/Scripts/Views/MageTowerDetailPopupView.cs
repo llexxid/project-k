@@ -15,6 +15,9 @@ namespace KingdomIdle.UGUI
         public Button backdropButton;   // 딤 배경 클릭 → 닫기
         public Button closeButton;      // 헤더 X → 닫기
         public TMP_Text titleLabel;
+        public ScrollRect scroll;
+        [UnityEngine.Serialization.FormerlySerializedAs("rarityLabel")] public TMP_Text stateLabel;
+        public TMP_Text descriptionLabel;
 
         [Header("Icon + stats")]
         public Image icon;              // 스킬 아이콘 (스프라이트 없으면 비활성)
@@ -32,8 +35,16 @@ namespace KingdomIdle.UGUI
         [Header("Awaken section")]
         public TMP_Text lblAwkLevel;
         public TMP_Text lblAwkCost;
+        public TMP_Text awakeningEffects, nextAwakening;
         public Button btnAwaken;
         public TMP_Text btnAwakenLabel;
+
+        [Header("Bloom section")]
+        public TMP_Text bloomTitle;
+        public TMP_Text bloomDescription;
+        public TMP_Text bloomStatus;
+        public Button btnBloom;
+        public TMP_Text btnBloomLabel;
 
         [Header("Reset section")]
         public TMP_Text lblResetRefund;

@@ -26,7 +26,9 @@ public class PlayerIdle
         return NodeState.Success;
     }
 
-    float dist = Vector2.Distance(_player.transform.position, _spawnPos);
+    Vector2 home = Scripts.Core.Manager.StageManager.Instance?.CurrentDefinition != null
+        ? (Vector2)CombatViewport.Formation(_player.PlayerIndex) : _spawnPos;
+    float dist = Vector2.Distance(_player.transform.position, home);
 
     if (dist > returnThreshold)
     {
@@ -37,16 +39,16 @@ public class PlayerIdle
         Vector3 scale = _player.transform.localScale;
 
         // 현재 플레이어의 x좌표와 스폰 위치의 x좌표 차이 계산
-        float dirX = _spawnPos.x - _player.transform.position.x;
+        float dirX = home.x - _player.transform.position.x;
 
         // x축 방향에 따라 scale.x를 조정하여 좌우 반전
-        scale.x = Mathf.Abs(scale.x) * Mathf.Sign(dirX);
+        if (Mathf.Abs(dirX) > .001f) scale.x = Mathf.Abs(scale.x) * Mathf.Sign(dirX);
 
         // scale.x에 계산된 값을 적용하여 플레이어의 방향을 스폰 위치로 향하게 함
         _player.transform.localScale = scale;
 
         // 플레이어를 스폰 위치로 이동
-        _player.transform.position = Vector2.MoveTowards(_player.transform.position, _spawnPos, returnSpeed * Time.deltaTime);
+        _player.transform.position = Vector2.MoveTowards(_player.transform.position, home, returnSpeed * Time.deltaTime);
     }
     else
     {

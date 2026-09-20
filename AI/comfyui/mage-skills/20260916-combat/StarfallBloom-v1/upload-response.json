@@ -1,0 +1,8 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "Run this command via PowerShell to upload the file. It is credential-free — the single-use URL is the authorization — so run it exactly as emitted; do NOT add any Authorization header or credential.\n\ncurl.exe -sS --fail-with-body -X PUT -H \"Content-Type: image/png\" --upload-file \"C:\\Users\\me\\Desktop\\KingdomIdle\\project-k\\AI\\comfyui\\mage-skills\\20260916-combat\\Starfall-v1\\icon48.png\" -- \"https://cloud.comfy.org/api/uploads/[used-token-redacted]\"\n\nOn success it prints a JSON body like {\"name\":\"...\",\"subfolder\":\"\",\"type\":\"input\"} — use that \"name\" as the \"image\" value in your workflow's LoadImage node; no further upload_file call is needed. The URL is single-use with a short TTL: if the command fails (404 = used/expired), re-invoke upload_file for a fresh URL instead of re-running this one. The PUT targets the same Comfy Cloud API host this session already talks to. Files must be at most 50 MiB — a larger file returns 413 and consumes the URL, so shrink it first rather than retrying (downscale or re-encode an image; trim or re-encode audio to a lower bitrate — a long lossless WAV easily exceeds the cap)."
+    }
+  ]
+}

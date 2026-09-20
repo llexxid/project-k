@@ -1,0 +1,155 @@
+{
+  "pipeline": "deterministic actual-VFX crop / NEAREST / binary alpha / <=16 RGBA colors",
+  "version": "v2",
+  "model": null,
+  "seed": "not applicable; deterministic",
+  "prompt": null,
+  "jobId": null,
+  "apiJson": null,
+  "uiGraph": null,
+  "comfyCatalog": "../mcp-catalog.json",
+  "comfyNodes": "../available-transform-nodes.json",
+  "reason": "Existing VFX exactly define the silhouettes. Pixel-level local composition preserves their identity, masks and 48px palette with no diffusion variance, paid calls or GPU overhead. Comfy Cloud node schemas inspected; no workflow submitted.",
+  "cost": {
+    "actualGenerationSpendUSD": 0,
+    "paidCalls": 0,
+    "usageReport": "../usage-before.json",
+    "usageAfter": "../usage-after-matching.json",
+    "sameWindowTotalBeforeUSD": 38.154966,
+    "sameWindowTotalAfterUSD": 38.154966
+  },
+  "Pillow": "12.3.0",
+  "sources": {
+    "stone": {
+      "path": "Assets/_Project/Art/VFX/PixelArtRPGVFX/Textures/Earth/EarthRock.png",
+      "sha256": "2ac7aad7c1cf06300fe3c1c4a72df4fc511b5ecbc13f6bd8b4ba984277e53acd"
+    },
+    "cross": {
+      "path": "Assets/_Project/Art/VFX/PixelArtRPGVFX/Textures/Holy/HolyCross.png",
+      "sha256": "f9bdb171bc44f62c29ff2c148aded5e4f13ebc54ef09fed02196f7cb34d9145c"
+    },
+    "ring": {
+      "path": "Assets/_Project/Art/VFX/PixelArtRPGVFX/Textures/Holy/HolyBlessing.png",
+      "sha256": "34500bbb1ee97e54b9e50c72936aace598bf5d8bad85e413feffa3bba400b47b"
+    },
+    "poison": {
+      "path": "Assets/_Project/Art/VFX/PoisonEffect/Animation/Sprites/Poison_Effect_05-1.png",
+      "sha256": "1cef64fd9c1845aa2da82e1cf851a41d7f798ebe23eaa17be6774a08dd4f88f7"
+    },
+    "bubbles": {
+      "path": "Assets/_Project/Art/VFX/PoisonEffect/Animation/Sprites/Poison_Effect_05-2.png",
+      "sha256": "9552b0982ffb689029d88ced58b3c71f86eb5709d3cf2f96eb73ca7d383d799d"
+    }
+  },
+  "settings": {
+    "stoneFrame": 3,
+    "stoneLayers": [
+      {
+        "box": [
+          8,
+          16,
+          22,
+          29
+        ],
+        "tint": [
+          0.84,
+          0.79,
+          0.7
+        ]
+      },
+      {
+        "box": [
+          12,
+          8,
+          28,
+          37
+        ],
+        "tint": [
+          0.91,
+          0.86,
+          0.77
+        ]
+      },
+      {
+        "box": [
+          23,
+          20,
+          20,
+          26
+        ],
+        "tint": [
+          0.84,
+          0.79,
+          0.7
+        ]
+      }
+    ],
+    "crossFrame": 3,
+    "ringFrame": 0,
+    "palette": 15,
+    "alphaThreshold": 128,
+    "resize": "NEAREST"
+  },
+  "changes": {
+    "VenomMist": "Unchanged from v1: actual poison puddle and bubbles.",
+    "StoneSeal": "Android peak-frame inspection rejected v1 separated tall columns. v2 overlaps three proportionate rocks with the exact prefab tints; silhouette matches the actual compact rock seal.",
+    "Sanctuary": "Unchanged from v1: authored golden cross over the ground rune."
+  },
+  "previousVersion": "../v1/manifest.json",
+  "outputs": [
+    {
+      "file": "AI/comfyui/mage-skills/20260918-playability/v2/VenomMist.png",
+      "colors": 8,
+      "logicalSize": [
+        48,
+        48
+      ],
+      "sha256": "2927818d8020c6e55ba96bea4b9cb206579067537325b261ff172e1c9034066d"
+    },
+    {
+      "file": "AI/comfyui/mage-skills/20260918-playability/v2/VenomMist_Bloom.png",
+      "colors": 8,
+      "logicalSize": [
+        48,
+        48
+      ],
+      "sha256": "117ba8a8e2fdf728a73dd5caad856b2c4832d800e681715f400063821f7aa434"
+    },
+    {
+      "file": "AI/comfyui/mage-skills/20260918-playability/v2/StoneSeal.png",
+      "colors": 5,
+      "logicalSize": [
+        48,
+        48
+      ],
+      "sha256": "ba93ddbc595d4d15a78a15e47ad6eb8cab49b56aea242ca9eca8d57dced18414"
+    },
+    {
+      "file": "AI/comfyui/mage-skills/20260918-playability/v2/StoneSeal_Bloom.png",
+      "colors": 5,
+      "logicalSize": [
+        48,
+        48
+      ],
+      "sha256": "0db0816c2f78b2404965dc3c96e2c0119f844f3e68379484ebb33e979c0a3c9b"
+    },
+    {
+      "file": "AI/comfyui/mage-skills/20260918-playability/v2/Sanctuary.png",
+      "colors": 4,
+      "logicalSize": [
+        48,
+        48
+      ],
+      "sha256": "c0d80d0b032e11d85743e7b2bb0144297d7e6d7cace900a0264e20fe181abadb"
+    },
+    {
+      "file": "AI/comfyui/mage-skills/20260918-playability/v2/Sanctuary_Bloom.png",
+      "colors": 4,
+      "logicalSize": [
+        48,
+        48
+      ],
+      "sha256": "df3639e6c937fb11a083e9cdb5b4f3e24aca007dbc9071b4413b855f73f233a9"
+    }
+  ]
+}

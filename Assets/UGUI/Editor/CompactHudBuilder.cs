@@ -13,7 +13,7 @@ namespace KingdomIdle.UGUI.Editor
     public static class CompactHudBuilder
     {
         const string Root = "Assets/UGUI/Prefabs/";
-        const string Picto = "Assets/ExternalAssets/Layer Lab/GUI Pro-MinimalGame/Shared/Icons/PictoIcon/64/";
+        const string Picto = "Assets/UGUI/Art/LayerLab/GUI Pro-MinimalGame/Shared/Icons/PictoIcon/64/";
         static Sprite Rounded => AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/Sprites/RoundedRect.png");
         static TMP_FontAsset Font => AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/UGUI/Art/Font/Galmuri11 SDF.asset");
         static readonly Color Glass = new Color(.085f, .065f, .045f, .76f);
@@ -114,7 +114,7 @@ namespace KingdomIdle.UGUI.Editor
             main.btnMenuGuide.transform.Find("MenuLabel").GetComponent<TMP_Text>().text = "퀘스트 / 가이드";
             // This book is already packed in Atlas_UI; reuse it without another texture allocation.
             main.btnMenuGuide.transform.Find("Icon").GetComponent<Image>().sprite = AssetDatabase.LoadAssetAtPath<Sprite>(Picto + "book.png");
-            foreach (var button in new[] { main.btnMenuGuide, main.btnMenuInventory, main.btnMenuDivineCollection, main.btnMenuSettings })
+            foreach (var button in new[] { main.btnMenuGuide, main.btnMenuInventory, main.btnMenuSettings })
             {
                 SizeLayout(button.transform, 144);
                 Surface(button.GetComponent<Image>(), UguiTheme.RusticSurfaceDark);
@@ -124,16 +124,6 @@ namespace KingdomIdle.UGUI.Editor
                 Type(label, 32, TextAlignmentOptions.MidlineLeft);
                 label.textWrappingMode = TextWrappingModes.NoWrap;
             }
-            // Infrequent combat settings share the menu; the battlefield shows only status.
-            wave.bossChallengeRoot.transform.SetParent(menu, false);
-            SizeLayout(wave.bossChallengeRoot.transform, 144);
-            var bossLayout = wave.bossChallengeRoot.GetComponent<HorizontalLayoutGroup>();
-            bossLayout.padding = new RectOffset(18, 10, 0, 0);
-            bossLayout.spacing = 8;
-            var bossLabel = wave.bossChallengeRoot.transform.Find("LblBossChain").GetComponent<TMP_Text>();
-            bossLabel.text = "보스 자동 도전";
-            Type(bossLabel, 28, TextAlignmentOptions.MidlineLeft);
-            SizeLayout(bossLabel.transform, 100, 1);
             wave.btnLoopIcon.transform.SetParent(menu, false);
             SizeLayout(wave.btnLoopIcon.transform, 144);
             var repeatIcon = wave.btnLoopIcon.transform.Find("Icon") as RectTransform;
@@ -148,6 +138,8 @@ namespace KingdomIdle.UGUI.Editor
             if (goal == null) goal = Child(go.transform, "GuideGoal");
             Pin(goal, new Vector2(0,1), new Vector2(24,-280), new Vector2(540,184), new Vector2(0,1));
             BuildGoal(goal, true);
+            F.Init();
+            ProgressionFlowPreparation.ApplyMain(go);
         }
 
         /// <summary>기존 간결한 가이드 카드 스타일을 적용한 뒤 같은 탭 배선 규칙을 연결한다.</summary>

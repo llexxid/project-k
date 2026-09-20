@@ -52,11 +52,14 @@ public class EquipmentInstance
     
     /// <summary>강화 레벨이 반영된 최종 공격력 보너스</summary>
     public int GetFinalAtk()
+        => GetAttackAtLevel(enhancementLevel);
+
+    public int GetAttackAtLevel(int level)
     {
         if (baseData == null) return 0;
         long basis = 0;
         foreach (var option in baseData.MainOption) if (option.type == EquipmentStatType.AtkFlat && !option.isPercent) basis += BalanceMath.Floor((decimal)option.value);
-        return checked((int)BalanceMath.WeaponAttack(basis, enhancementLevel));
+        return checked((int)BalanceMath.WeaponAttack(basis, level));
     }
 
     /// <summary>강화 레벨이 반영된 최종 최대 체력 보너스</summary>
@@ -76,11 +79,6 @@ public class EquipmentInstance
     /// 현재 강화 레벨에서의 성공 확률(0~1)을 반환한다.
     /// </summary>
     public float GetEnhanceSuccessRate() => 1f;
-
-    /// <summary>
-    /// 강화에 필요한 동일 장비 소모 개수.
-    /// </summary>
-    public int GetMaterialCount() => 2;
 
     #endregion
 

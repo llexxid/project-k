@@ -158,7 +158,7 @@ namespace KingdomIdle.UGUI
             GameAudioSettings.Apply();
         }
 
-        private void ApplyEffectsVolume() { if (_uiAudioSource != null) _uiAudioSource.volume = GameAudioSettings.Effects; }
+        private void ApplyEffectsVolume() { if (_uiAudioSource != null) _uiAudioSource.volume = GameAudioSettings.Gain(SoundChannel.Interface); }
 
         private void Update()
         {
@@ -196,13 +196,21 @@ namespace KingdomIdle.UGUI
         private void BindStageManager(StageManager stageManager)
         {
             if (_boundStageManager != null)
+            {
                 _boundStageManager.OnStageCleared -= HandleStageCleared;
+                _boundStageManager.OnStageEnter -= HandleStageEntered;
+            }
 
             _boundStageManager = stageManager;
 
             if (_boundStageManager != null)
+            {
                 _boundStageManager.OnStageCleared += HandleStageCleared;
+                _boundStageManager.OnStageEnter += HandleStageEntered;
+            }
         }
+
+        private static void HandleStageEntered(StageDefinition definition) => DungeonClearPopupController.Hide();
 
         private static void HandleStageCleared(
             StageDefinition definition)
@@ -285,6 +293,10 @@ namespace KingdomIdle.UGUI
 
         public void PushPanel(UIPanelId id, object payload = null, bool clearBefore = false, bool isTabPanel = false)
         {
+#if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
+            var panelTimer = System.Diagnostics.Stopwatch.StartNew();
+#endif
+            if (id == UIPanelId.Guide || id == UIPanelId.Inventory) isTabPanel = false;
             if (clearBefore)
                 ClearPanels();
 
@@ -292,6 +304,9 @@ namespace KingdomIdle.UGUI
                 _panelStack.Peek().Go.SetActive(false);
 
             var go = CreatePanel(id, payload, out var view);
+#if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
+            Debug.Log($"[PanelTiming] {id} create {panelTimer.Elapsed.TotalMilliseconds:F2} ms");
+#endif
             if (go == null) return;
 
             var entry = new PanelEntry(id, isTabPanel, go, view);
@@ -300,15 +315,22 @@ namespace KingdomIdle.UGUI
                 LayoutRebuilder.ForceRebuildLayoutImmediate(view.sheet);
                 entry.SheetRestingPos = view.sheet.anchoredPosition;
             }
+#if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
+            Debug.Log($"[PanelTiming] {id} layout {panelTimer.Elapsed.TotalMilliseconds:F2} ms");
+#endif
             _panelStack.Push(entry);
             BindPanelCommon(go, view);
             RefreshActiveTabPanelState();
+#if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
+            Debug.Log($"[PanelTiming] {id} state {panelTimer.Elapsed.TotalMilliseconds:F2} ms");
+#endif
 
             if (view != null && view.sheet != null)
             {
                 // 시트 전체가 하단 탭바 뒤에서 떠오르는 슬라이드 인 (셸의 SheetClip이 탭바 영역을 가린다)
                 float rise = Mathf.Max(240f, view.sheet.rect.height);
-                UITween.SlideUp(view.sheet, rise, 0.34f);
+                if (view.centeredModal) UITween.PopIn(view.sheet);
+                else UITween.SlideUp(view.sheet, rise, 0.34f);
                 if (view.backdrop != null)
                 {
                     var cg = view.backdrop.GetComponent<CanvasGroup>();
@@ -366,6 +388,13 @@ namespace KingdomIdle.UGUI
             next.Go.SetActive(true);
             if (next.View == null) return;
 
+            // 퀘스트 이동으로 같은 목적지가 중첩되면 정적 컨트롤러가 새 인스턴스를 가리킨다.
+            // 기존 바인딩이 그대로인 일반 복귀는 컨트롤러 내부에서 건너뛴다.
+            if (next.View is GachaPanelView gacha) GachaPanelController.Restore(gacha);
+            else if (next.View is KingdomArmyPanelView army) KingdomArmyPanelController.Restore(army);
+            else if (next.View is DevelopmentPanelView development) DevelopmentPanelController.Restore(development);
+            else if (next.View is InventoryPanelView inventory) InventoryPanelController.Restore(inventory);
+
             // 위에 패널이 쌓이며 SetActive(false) 로 죽은 딤 페이드가 중간 알파로 얼어붙어 있을 수 있다
             if (next.View.backdrop != null)
             {
@@ -376,7 +405,8 @@ namespace KingdomIdle.UGUI
             if (next.View.sheet != null)
             {
                 next.View.sheet.anchoredPosition = next.SheetRestingPos;
-                UITween.SlideUp(next.View.sheet, 120f, 0.22f);
+                if (next.View.centeredModal) UITween.PopIn(next.View.sheet);
+                else UITween.SlideUp(next.View.sheet, 120f, 0.22f);
             }
         }
 
@@ -401,13 +431,13 @@ namespace KingdomIdle.UGUI
             if (cg == null) cg = top.Go.AddComponent<CanvasGroup>();
             cg.blocksRaycasts = false;   // 퇴장 중 입력 차단
             cg.interactable = false;
-            RunCoroutine(PanelCloseRoutine(top.Go, top.View.sheet, cg));
+            RunCoroutine(PanelCloseRoutine(top.Go, top.View.sheet, cg, top.View.centeredModal));
         }
 
-        private static IEnumerator PanelCloseRoutine(GameObject go, RectTransform sheet, CanvasGroup rootGroup)
+        private static IEnumerator PanelCloseRoutine(GameObject go, RectTransform sheet, CanvasGroup rootGroup, bool modal)
         {
             Vector2 from = sheet.anchoredPosition;
-            Vector2 to = from + new Vector2(0f, -Mathf.Max(240f, sheet.rect.height));
+            Vector2 to = modal ? from : from + new Vector2(0f, -Mathf.Max(240f, sheet.rect.height));
             const float dur = 0.20f;
             float e = 0f;
             while (e < dur && go != null && sheet != null)
@@ -453,7 +483,7 @@ namespace KingdomIdle.UGUI
                 return null;
             }
 
-            var go = Instantiate(prefab, layerPanels, false);
+            var go = Instantiate(prefab, id == UIPanelId.Guide || id == UIPanelId.Inventory ? layerOverlays : layerPanels, false);
             ForceFullStretch(go);
             view = go.GetComponent<BottomSheetView>();
             PopulatePanel(id, view, payload);
@@ -656,7 +686,7 @@ namespace KingdomIdle.UGUI
         {
             if (GamePresentationSettings.HideItemNotifications) return;
             _fieldLootCount++;
-            _fieldLootName = EquipmentManager.Instance?.GetData(code)?.equipmentName ?? "장비";
+            _fieldLootName = EquipmentManager.Instance?.GetData(code)?.DisplayName ?? "장비";
         }
         private void ApplyLootSettings()
         {

@@ -34,6 +34,7 @@ namespace KingdomIdle.UGUI
         [SerializeField] private float fallbackBottomBarPx = 190f;
 
         private PartyHudView _view;
+        internal RectTransform HudRect => _view != null ? _view.rect : null;
         private List<Player> _players;
         private bool _playersResolved;
         private readonly bool[] _autoPortrait = new bool[3];    // 잡 데이터에서 자동 배정된 초상화 (전직 시 재해석 대상)
@@ -274,7 +275,8 @@ namespace KingdomIdle.UGUI
 
                 // PlayerStatus.HP는 전투 중 갱신되지 않는 스냅샷 — 실제 체력은 Player.HPRatio가 진실
                 bool dead = player.IsDead || !player.gameObject.activeInHierarchy;
-                SetMemberHealth01(i, dead ? 0f : player.HPRatio);
+                ShieldHealthBar.Set(_view.members[i]?.hpFill, dead ? 0f : player.HPRatio,
+                    dead ? 0 : player.ShieldHP, player.playerStatus.MaxHP);
 
                 var img = _view.members[i]?.portraitImage;
                 if (img != null)
@@ -340,7 +342,7 @@ namespace KingdomIdle.UGUI
                     float cd = sys.GetSlotCooldown(s);
                     if (cd > 0f)
                     {
-                        // IronWill/ChargeShot 은 효과 지속 동안 _nextAvailableTime 을 float.MaxValue 로 두는
+                        // ChargeShot 은 효과 지속 동안 _nextAvailableTime 을 float.MaxValue 로 두는
                         // "사용 중" 센티널을 쓴다 — 이 값을 총 쿨로 캡처하면 이후 드레인이 0으로 눌린다.
                         bool busy = cd >= BusyCooldownSentinel;
                         if (!busy && cd > _cdTotals[memberIdx, s]) _cdTotals[memberIdx, s] = cd;
@@ -395,7 +397,7 @@ namespace KingdomIdle.UGUI
             {
                 if (!string.IsNullOrEmpty(skillName))
                 {
-                    if (skillName.Contains("강철")) return cat.iconSkillPotion;   // 강철의지 = 자가 회복
+                    if (skillName.Contains("강철")) return cat.iconSkillShield;   // 강철 의지 = 보호막과 도발
                     if (skillName.Contains("사격")) return cat.iconSkillArrows;   // 집중사격
                     if (skillName.Contains("파동")) return cat.iconSkillStar;     // 에너지 파동
                 }

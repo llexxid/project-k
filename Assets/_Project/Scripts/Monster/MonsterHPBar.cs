@@ -38,11 +38,10 @@ public class MonsterHPBar : MonoBehaviour
         if (monsterRenderer == null || monsterRenderer.sprite == null)
             return;
 
-        Bounds bounds = monsterRenderer.bounds;
-
+        Vector3 head = monster.HeadPosition;
         transform.position = new Vector3(
-            bounds.center.x,
-            bounds.max.y + gap,
+            head.x,
+            head.y + gap,
             transform.position.z
         );
         

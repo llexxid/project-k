@@ -1,0 +1,153 @@
+{
+  "persistedAfterUpgrade": false,
+  "lightning": {
+    "beginTime": 207.310638,
+    "strikeObservedTime": 209.354324,
+    "damage": [
+      {
+        "skill": 0,
+        "kind": "damage",
+        "target": "OrcBrute(Clone)",
+        "amount": 2660,
+        "bloom": true,
+        "time": 209.316711
+      }
+    ],
+    "cloud": [
+      {
+        "name": "LightningBloomCloud(Clone)",
+        "generation": 1,
+        "position": [
+          0.565660834,
+          2.01563287
+        ],
+        "renderers": [
+          {
+            "name": "Layer0",
+            "sprite": "LightningCloud",
+            "alpha": 1.0,
+            "size": [
+              3.8,
+              1.45
+            ],
+            "order": 2
+          },
+          {
+            "name": "Layer1",
+            "sprite": "CloudSparksViolet_4",
+            "alpha": 0.8,
+            "size": [
+              2.8,
+              1.3
+            ],
+            "order": 3
+          }
+        ]
+      }
+    ],
+    "strike": [
+      {
+        "name": "LightningBloomStrike(Clone)",
+        "generation": 1,
+        "position": [
+          0.565660834,
+          0.215632811
+        ],
+        "renderers": [
+          {
+            "name": "Layer0",
+            "sprite": "ThunderViolet_4",
+            "alpha": 0.92,
+            "size": [
+              2.65,
+              4.2
+            ],
+            "order": 2
+          },
+          {
+            "name": "Layer1",
+            "sprite": "ThunderImpactViolet_4",
+            "alpha": 0.8,
+            "size": [
+              3.9,
+              2.7
+            ],
+            "order": 3
+          }
+        ]
+      }
+    ],
+    "cooldown": {
+      "slot": 0,
+      "casting": true,
+      "ratio": 0.864172757
+    }
+  },
+  "iceBoss": {
+    "damage": [
+      {
+        "skill": 1,
+        "kind": "damage",
+        "target": "OrcBrute(Clone)",
+        "amount": 1443,
+        "bloom": true,
+        "time": 228.6742
+      }
+    ],
+    "remainingAtCapture": 1.8495636,
+    "expiryTime": 230.67419460000002,
+    "samples": [
+      {
+        "time": 229.3595,
+        "cc": [
+          {
+            "target": "OrcBrute(Clone)",
+            "active": true,
+            "kind": "Stun",
+            "remaining": 1.31469727
+          }
+        ]
+      },
+      {
+        "time": 229.877686,
+        "cc": [
+          {
+            "target": "OrcBrute(Clone)",
+            "active": true,
+            "kind": "Stun",
+            "remaining": 0.7965088
+          }
+        ]
+      },
+      {
+        "time": 230.663376,
+        "cc": [
+          {
+            "target": "OrcBrute(Clone)",
+            "active": true,
+            "kind": "Stun",
+            "remaining": 0.0108184814
+          }
+        ]
+      },
+      {
+        "time": 231.1815,
+        "cc": []
+      }
+    ]
+  },
+  "iceCrowd": [
+    {
+      "lowSpec": false,
+      "firstVolleyVisuals": 8,
+      "hits": 16,
+      "damage": 1200
+    },
+    {
+      "lowSpec": true,
+      "firstVolleyVisuals": 4,
+      "hits": 16,
+      "damage": 1200
+    }
+  ]
+}

@@ -1,0 +1,175 @@
+{
+  "version": 6,
+  "sourceCommit": "c2a6a4b0d",
+  "pipeline": [
+    "prepare.py",
+    "icons-submitted-request.json",
+    "icons-ui.json",
+    "finish_cloud.py alpha",
+    "MageSkillAssetPreparation.Build"
+  ],
+  "model": null,
+  "prompt": null,
+  "seed": null,
+  "reason": "Existing pixel art is recomposed deterministically. Comfy color matrix and 16-color quantization preserve its silhouette and logical pixel grid without diffusion drift.",
+  "nodes": [
+    "LoadImage",
+    "ImageCrop",
+    "RadianceGPUColorMatrix",
+    "ImageQuantize",
+    "SaveImage"
+  ],
+  "nodeVersions": "Cloud node schema captured in nodes.json and related catalogs; service did not expose pinned package versions.",
+  "job": "ff2ac409-59f5-422c-ac2f-b53c8961f16b",
+  "savedWorkflow": {
+    "filename": "projectk-mage-bloom-icon-finish-v6.json",
+    "slug": "projectk-mage-bloom-icon-finish-v6",
+    "name": "ProjectK Mage bloom icon finish v6",
+    "converted": true,
+    "workflow_id": "c3342933-e660-4ed9-95fa-da9656b6e278",
+    "version": 1
+  },
+  "inputs": "references/ and *-draft.png",
+  "mask": "Each *-draft.png alpha channel",
+  "outputs": [
+    {
+      "file": "C:/Users/me/Desktop/KingdomIdle/project-k/AI/comfyui/mage-vfx/revision6/icons/ArcaneVolley.png",
+      "size": [
+        48,
+        48
+      ],
+      "opaqueColors": 8,
+      "binaryAlpha": true,
+      "sha256": "e3113b5ddf864779f7f71e6edbea5a68775e1c01500e22197eee407fc19f0e0c"
+    },
+    {
+      "file": "C:/Users/me/Desktop/KingdomIdle/project-k/AI/comfyui/mage-vfx/revision6/icons/ArcaneVolley_Bloom.png",
+      "size": [
+        48,
+        48
+      ],
+      "opaqueColors": 11,
+      "binaryAlpha": true,
+      "sha256": "3be7abfb99b03708366d813e00977a30308de427459114d92d7c77136d1bde59"
+    },
+    {
+      "file": "C:/Users/me/Desktop/KingdomIdle/project-k/AI/comfyui/mage-vfx/revision6/icons/FireTornado_Bloom.png",
+      "size": [
+        48,
+        48
+      ],
+      "opaqueColors": 10,
+      "binaryAlpha": true,
+      "sha256": "718a8a778e370127c1201a243230529a40515e025c3d609bf08857975db9c072"
+    },
+    {
+      "file": "C:/Users/me/Desktop/KingdomIdle/project-k/AI/comfyui/mage-vfx/revision6/icons/IceSpike_Bloom.png",
+      "size": [
+        48,
+        48
+      ],
+      "opaqueColors": 5,
+      "binaryAlpha": true,
+      "sha256": "1f9de557c536645a2da9549e686a30fb25ab74e99df87724c68699f0b9a1d72f"
+    },
+    {
+      "file": "C:/Users/me/Desktop/KingdomIdle/project-k/AI/comfyui/mage-vfx/revision6/icons/Lightning.png",
+      "size": [
+        48,
+        48
+      ],
+      "opaqueColors": 4,
+      "binaryAlpha": true,
+      "sha256": "90b61ef0e11be8a1f5c33776fb812017f4fa755c022df466d56ce2286b4b8d42"
+    },
+    {
+      "file": "C:/Users/me/Desktop/KingdomIdle/project-k/AI/comfyui/mage-vfx/revision6/icons/Lightning_Bloom.png",
+      "size": [
+        48,
+        48
+      ],
+      "opaqueColors": 6,
+      "binaryAlpha": true,
+      "sha256": "1b613cb776b94580fd8e09dcee012b5e07ba5b260ab7572c039b84256dc5fd15"
+    },
+    {
+      "file": "C:/Users/me/Desktop/KingdomIdle/project-k/AI/comfyui/mage-vfx/revision6/icons/Sanctuary_Bloom.png",
+      "size": [
+        48,
+        48
+      ],
+      "opaqueColors": 5,
+      "binaryAlpha": true,
+      "sha256": "197fa2dc203854887cb930214dcc217dea0e7d3b7d2df63d18e242d750e225bc"
+    },
+    {
+      "file": "C:/Users/me/Desktop/KingdomIdle/project-k/AI/comfyui/mage-vfx/revision6/icons/StoneSeal_Bloom.png",
+      "size": [
+        48,
+        48
+      ],
+      "opaqueColors": 6,
+      "binaryAlpha": true,
+      "sha256": "80511b673b254ca7c098a3bae2bf099ffc982469a44d547ec771d9abff8ed220"
+    },
+    {
+      "file": "C:/Users/me/Desktop/KingdomIdle/project-k/AI/comfyui/mage-vfx/revision6/icons/VenomMist_Bloom.png",
+      "size": [
+        48,
+        48
+      ],
+      "opaqueColors": 8,
+      "binaryAlpha": true,
+      "sha256": "e394c05fd8e04c80183792b35d05adb8ca19c807dc4403a0d9a1fb2d43a13526"
+    },
+    {
+      "file": "C:/Users/me/Desktop/KingdomIdle/project-k/AI/comfyui/mage-vfx/revision6/icons/VoidRift_Bloom.png",
+      "size": [
+        48,
+        48
+      ],
+      "opaqueColors": 11,
+      "binaryAlpha": true,
+      "sha256": "6ca66e48df24019059d4b0d94aff44af8278d094bf19db8b35ecc6b89524c5f1"
+    }
+  ],
+  "billing": {
+    "gpuSeconds": 5.06304,
+    "gpuType": "rtx_pro_6000",
+    "actualJobDollars": 0.0065566368,
+    "currency": "USD",
+    "reason": "Invoice-backed 12:00–13:00 UTC GPU spend. The billing activity contains exactly one workflow in that hour, this job. This is attribution from the hourly invoice and activity, not an estimate or a per-job dollar field."
+  },
+  "decisions": [
+    {
+      "change": "Default lightning",
+      "before": "Cloud and one bolt",
+      "after": "Three existing bolts",
+      "reason": "User requested three visible bolts"
+    },
+    {
+      "change": "Thunderbloom",
+      "before": "Separate older bloom icon",
+      "after": "Original cloud/bolt tinted purple by Comfy color matrix",
+      "reason": "Retain the requested composition"
+    },
+    {
+      "change": "Comfy alpha",
+      "before": "RGB quantizer output black rectangle",
+      "after": "Original authored binary mask restored",
+      "reason": "Reject opaque background without redrawing the art"
+    },
+    {
+      "change": "Starfall",
+      "before": "Cool homing projectile",
+      "after": "Same six frames, three warm colors, random landing and small eight-frame ground pulse",
+      "reason": "Preserve existing effect while making local AOE readable"
+    },
+    {
+      "change": "Meteor crater",
+      "before": "Static brown 52x28 occupied pixels",
+      "after": "108x68 nearest source on 112x76 canvas with 16-frame red crack loop",
+      "reason": "About 17% wider in world space, with thin glowing cracks and no flame sprites"
+    }
+  ]
+}

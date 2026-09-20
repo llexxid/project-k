@@ -27,6 +27,7 @@ public sealed class BasicAttackProjectile : ActiveSkill
     private Phase _phase = Phase.Idle;
     private float _fireTime;
     private long _pendingDamage;
+    private int _ownerGeneration;
 
     public override string DisplayName => "기본공격";
     public override float Cooldown => _cooldown;
@@ -53,13 +54,14 @@ public sealed class BasicAttackProjectile : ActiveSkill
         var mon = mono.GetComponentInParent<Monster>();
         if (mon != null && mon.MonAction == eMonsterAction.Dead) return false;
 
-        float dist = Vector2.Distance(_player.transform.position, target.targetPos);
+        float dist = Vector2.Distance(_player.VfxFootPosition, target.targetPos);
         return dist <= _range;
     }
 
     public override float Execute()
     {
         _pendingTarget = _player.currentTarget;
+        _ownerGeneration = _player.LifeGeneration;
         _pendingGeneration = (_pendingTarget as MonoBehaviour)?.GetComponentInParent<Monster>()?.AllocGen ?? -1;
         
         long baseAtk = _player.playerStatus?.Atk ?? 0;
@@ -69,6 +71,7 @@ public sealed class BasicAttackProjectile : ActiveSkill
 
          Player.AttackAnimationTiming timing =
              _player.PlayBasicSkillAnimation(ScaledCooldown(_cooldown));
+         _fireTime = Time.time + timing.AnimationDuration * _player.BasicImpactNormalized("OnProjectileRelease") + .04f;
 
          _nextAvailableTime =
              Time.time + timing.EffectiveInterval;
@@ -82,6 +85,7 @@ public sealed class BasicAttackProjectile : ActiveSkill
             return;
 
         _phase = Phase.Idle;
+        if (_player.IsDead || _player.LifeGeneration != _ownerGeneration) { _pendingTarget = null; return; }
         var targetMonster = (_pendingTarget as MonoBehaviour)?.GetComponentInParent<Monster>();
         if (targetMonster == null || targetMonster.MonAction == eMonsterAction.Dead || targetMonster.AllocGen != _pendingGeneration) { _pendingTarget = null; return; }
 
@@ -91,7 +95,7 @@ public sealed class BasicAttackProjectile : ActiveSkill
             return;
 
         projectile.transform.position =
-            _player.transform.position;
+            _player.transform.position + new Vector3(Mathf.Sign(_player.transform.localScale.x) * .24f, .35f, 0);
         
         projectile.FireToTarget(
             _player,
@@ -100,6 +104,8 @@ public sealed class BasicAttackProjectile : ActiveSkill
             _pendingDamage,
             _aoeRadius,
             PROJECTILE_LIFETIME);
+
+        KingdomIdle.Combat.CombatAudio.PlayerImpact(_player, true);
 
         _pendingTarget = null;     
         
@@ -140,7 +146,10 @@ public sealed class BasicAttackProjectile : ActiveSkill
             PROJECTILE_LIFETIME);
             */
     }
-    public override void Tick(){}
+    public override void Tick()
+    {
+        if (_phase == Phase.WaitingForReleaseEvent && Time.time >= _fireTime) OnProjectileRelease();
+    }
 
     private MageProjectile GetProjectile()
     {

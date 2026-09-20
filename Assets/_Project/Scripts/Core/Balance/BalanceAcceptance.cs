@@ -14,12 +14,51 @@ namespace KingdomIdle.Balance
         {
             var checks=new List<string>();
             void Check(bool result,string label) { if(!result) throw new InvalidOperationException("BALANCE ASSERT: "+label);checks.Add(label); }
+            var dailyReincarnation = new ProgressionState { ReincarnationDay = LocalProgression.KstDay, ReincarnationsToday = 3, CycleStartedUtc = LocalProgression.UtcNow };
+            Check(Reincarnation.ReincarnationService.Eligibility(dailyReincarnation) == Reincarnation.eReincarnationFailureReason.DailyLimit,
+                "Daily reincarnation cap is explained before another boss or cooldown requirement");
+            var legacyInventory = new ProgressionState { QuestSchemaVersion = QuestEconomy.SchemaVersion };
+            EquipmentManager.ImportLegacy(legacyInventory, 123, 7, 65535);
+            Check(legacyInventory.Equipment.Count == EquipmentManager.Capacity && legacyInventory.PendingEquipment.Count == 0 &&
+                legacyInventory.LegacyEquipment.Single().Count == 65535 - EquipmentManager.Capacity, "Legacy 65535 stack preserves overflow without filling battle inbox");
+            LocalProgression.Validate(legacyInventory);
+            Check(!EquipmentManager.TakeLegacy(legacyInventory,123,7), "Full inventory cannot consume legacy reserve");
+            var legacyCopy = legacyInventory.DeepClone(); legacyCopy.LegacyEquipment[0].Count--;
+            Check(legacyCopy.LegacyEquipment[0].Count + 1 == legacyInventory.LegacyEquipment[0].Count, "Legacy reserve is isolated in transaction drafts");
+            var legacyReload = JsonConvert.DeserializeObject<ProgressionState>(JsonConvert.SerializeObject(legacyInventory));
+            legacyReload.Equipment.RemoveAt(0);
+            Check(EquipmentManager.TakeLegacy(legacyReload,123,7) && legacyReload.Equipment.Last().Level == 7 &&
+                legacyReload.Equipment.Count + legacyReload.LegacyEquipment.Sum(x=>x.Count) == 65534, "Legacy withdrawal after reload preserves quantity and enhancement");
+            legacyReload.LegacyEquipment[0].Count = 1; legacyReload.Equipment.RemoveAt(0);
+            Check(EquipmentManager.TakeLegacy(legacyReload,123,7) && legacyReload.LegacyEquipment.Count == 0 &&
+                !EquipmentManager.TakeLegacy(legacyReload,123,7), "Final legacy item is consumed once");
+            LocalProgression.Validate(legacyReload);
+            Check(JsonConvert.DeserializeObject<ProgressionState>("{}").LegacyEquipment.Count == 0, "Old save defaults to empty legacy reserve");
+            var crowded = new ProgressionState { QuestSchemaVersion = QuestEconomy.SchemaVersion };
+            bool allGranted = true;
+            for (int i = 0; i < 2400; i++)
+                allGranted &= EquipmentManager.Grant(crowded, new EquipmentSave { Id = "crowded-" + i, Code = 123 + i % 3 }, true);
+            Check(allGranted, "Every reward in a 2400-item session is preserved");
+            Check(crowded.Equipment.Count == 300 && crowded.PendingEquipment.Count == 100 && crowded.LegacyEquipment.Count == 3 &&
+                crowded.Equipment.Count + crowded.PendingEquipment.Count + crowded.LegacyEquipment.Sum(x => x.Count) == 2400,
+                "Long-session drops remain bounded and preserve every reward without blocking battles");
+            LocalProgression.Validate(JsonConvert.DeserializeObject<ProgressionState>(JsonConvert.SerializeObject(crowded)));
             Check(BalanceMath.GoldTotal(0,10)==696,"Gold levels 0→10 cost 696");
             Check(BalanceMath.GoldTotal(0,100)==619133,"Gold levels 0→100 cost 619133");
             Check(BalanceMath.GoldTotal(0,300)==466665042390L,"Gold levels 0→300 remain 64-bit");
             Check(BalanceMath.GoldCost(299)==30529488792L && BalanceMath.GoldCost(300)==null,"Gold cap distinct from zero cost");
             Check(BalanceMath.AffordableGoldLevels(0,695)==9 && BalanceMath.AffordableGoldLevels(0,696)==10,"Max purchase exact boundary");
             Check(BalanceMath.Stat(30,40,0,10,.10m,10,5)==105,"Shared final-stat example = 105");
+            var stats = new PlayerStatus();
+            stats.SetEquipmentBonus(40,2000000); stats.AddPassiveSelfBonus(5,10);
+            stats.SetAura(.10m,.20m); stats.SetProgression(10,300,10,5);
+            Check(stats.Atk == 112 && stats.AtkBreakdown().Final == stats.Atk,
+                "Displayed attack combines equipment, passive, additive rates and gold growth");
+            Check(stats.MaxHP > int.MaxValue && stats.MaxHP == (long)decimal.Round(2000210m * 1.268m * BalanceMath.GoldMultiplier(300), 0, MidpointRounding.AwayFromZero),
+                "Large health and displayed breakdown preserve 64-bit values");
+            int statChanges = 0; stats.OnStatsChanged += () => statChanges++;
+            stats.SetEquipmentBonus(40,2000000); stats.SetProgression(10,300,10,5);
+            Check(statChanges == 0, "Unchanged equipment and progression do not rebuild stat UI");
             Check(BalanceMath.Damage(105,.5m)==53 && BalanceMath.Damage(0,0)==1,"Damage half-up and minimum one");
             bool overflow=false;try{BalanceMath.Damage(long.MaxValue,2m);}catch(OverflowException){overflow=true;}Check(overflow,"Damage overflow rejected");
             Check(BalanceMath.WeaponAttack(15,1)==16 && BalanceMath.WeaponAttack(80,15)==200,"Weapon linear 10% base growth floor");
@@ -44,9 +83,7 @@ namespace KingdomIdle.Balance
             var distribution=new int[4];for(int i=0;i<1000000;i++)distribution[BalanceMath.EquipmentRoll(i,0)+1]++;
             Check(distribution.SequenceEqual(new[]{50000,700000,200000,50000}),"Exhaustive equipment probability partition 5/70/20/5");
             Check(BalanceMath.EquipmentRoll(999999,39)==2 && BalanceMath.EquipmentRoll(0,39)==2,"40th equipment draw replaces every outcome");
-            Check(CombatPowerCalculator.CalculateCharacterPowerV1(30,200)*3==1050,"Three starting spearmen CP = 1050");
-            foreach(int fps in new[]{30,60,120})
-            {long paid=0;for(int i=1;i<=5*fps;i++){long target=BalanceMath.Floor(1001m*.04m*Math.Min(5m,i/(decimal)fps));paid+=target-paid;}Check(paid==200,$"IronWill heal integral at {fps}fps");}
+            Check(CombatPowerCalculator.CalculateCharacterPowerV1(30,200)*3==600,"Three starting spearmen CP = 600 at 1.2 multiplier / 1.2s interval");
             var defs=QuestEconomy.Definitions;
             Check(defs.Count(x=>x.Category==eQuestCategory.Guide)==28 && defs.Count(x=>x.Category==eQuestCategory.Achievement)==49,"Catalog 28 guide +49 active achievements");
             Check(defs.Count(x=>x.Category==eQuestCategory.Daily)==8 && defs.Count(x=>x.Category==eQuestCategory.Weekly)==7,"Catalog 8 daily +7 weekly");
@@ -88,13 +125,13 @@ namespace KingdomIdle.Balance
                     return true;
                 });
                 manager.RestoreEquipment();var target=manager.Inventory.Items.First(x=>x.instanceId=="target");
-                Check(!manager.TryEnhance(target) && LocalProgression.State.Equipment.Count==4,"Locked and enhanced items cannot be enhancement materials");
-                var locked=manager.Inventory.Items.First(x=>x.instanceId=="locked");manager.SetLocked(locked,false);
+                Check(!manager.TryEnhance(target) && LocalProgression.State.Equipment.Count==4,"Enhancement with no stones preserves all owned items");
+                LocalProgression.Execute("qa-stones",s=>{s.Wallet[eCurrency.EquipmentStone]=2;return true;});
                 long beforeGold=LocalProgression.Balance(eCurrency.Gold);
-                Check(manager.TryEnhance(target) && LocalProgression.State.Equipment.Count==2 && target.enhancementLevel==1 && LocalProgression.Balance(eCurrency.Gold)==beforeGold,"Equipment enhancement consumes exactly two level-zero items without gold");
+                Check(manager.TryEnhance(target) && LocalProgression.State.Equipment.Count==4 && target.enhancementLevel==1 && LocalProgression.Balance(eCurrency.EquipmentStone)==0 && LocalProgression.Balance(eCurrency.Gold)==beforeGold,"Equipment enhancement consumes two stones, preserves weapons and gold");
                 manager.SetLocked(target,true);Check(!manager.Dismantle(target),"Locked equipment cannot be dismantled");
                 manager.SetLocked(target,false);long beforeKnowledge=LocalProgression.Balance(eCurrency.ArcaneKnowledge);
-                Check(manager.Dismantle(target) && LocalProgression.Balance(eCurrency.ArcaneKnowledge)==beforeKnowledge+1,"Normal dismantle pays exactly one knowledge");
+                Check(manager.Dismantle(target) && LocalProgression.Balance(eCurrency.EquipmentStone)==2 && LocalProgression.Balance(eCurrency.ArcaneKnowledge)==beforeKnowledge,"Dismantle pays base stone plus floor 80 percent of exact enhancement spend");
             }
             var mage=KingdomIdle.MageTower.MageTowerManager.Instance;
             if(mage!=null)

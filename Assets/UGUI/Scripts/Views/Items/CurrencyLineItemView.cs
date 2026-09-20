@@ -15,7 +15,7 @@ namespace KingdomIdle.UGUI
         public void Set(Sprite iconSprite, string name, string value, bool isTitle)
         {
             var layout = GetComponent<LayoutElement>();
-            if (layout != null) layout.minHeight = layout.preferredHeight = isTitle ? 52 : 104;
+            if (layout != null) layout.minHeight = layout.preferredHeight = isTitle ? 58 : 82;
             if (icon != null)
             {
                 bool showIcon = !isTitle && iconSprite != null;
@@ -27,7 +27,9 @@ namespace KingdomIdle.UGUI
             if (label != null)
             {
                 label.text = name;
-                label.fontSize = isTitle ? 28f : 24f;
+                label.fontSize = isTitle ? 32f : 30f;
+                var labelLayout = label.GetComponent<LayoutElement>();
+                if (labelLayout != null) labelLayout.flexibleWidth = isTitle ? 1 : 0;
                 label.fontStyle = isTitle ? FontStyles.Bold : FontStyles.Normal;
                 label.color = isTitle ? UguiTheme.AccentGold : new Color(1f, 1f, 1f, 0.85f);
             }

@@ -6,6 +6,8 @@ namespace KingdomIdle.UGUI
     {
         private readonly EnhanceCardView[] _cards = new EnhanceCardView[2];
         private readonly GachaPullButtonView[] _buy = new GachaPullButtonView[2], _reset = new GachaPullButtonView[2];
+        private readonly (int level, long spent, long ruby, bool unlocked, bool capped, bool reset, int notation)[] _shown = new (int,long,long,bool,bool,bool,int)[2];
+        private readonly bool[] _hasShown = new bool[2];
         private void OnEnable() { LocalProgression.Changed += Refresh; NumberNotation.Changed += Refresh; Refresh(); }
         private void OnDisable() { LocalProgression.Changed -= Refresh; NumberNotation.Changed -= Refresh; }
         public void Build(Transform parent)
@@ -32,9 +34,15 @@ namespace KingdomIdle.UGUI
                 long spent=i==1?state.RubyExpSpent:state.RubyGoldSpent;
                 long? cost=BalanceMath.RubyCost(level);
                 bool unlocked=RubyProgression.Unlocked;
+                long ruby=LocalProgression.Balance(eCurrency.Ruby);
+                bool capped=i==1 && state.AccountLevel>=200;
+                bool reset=level>0 && state.PendingRubyReset==0 && state.RubyResetDay!=LocalProgression.KstDay && ChangeJob.CanQueueChange;
+                var signature=(level,spent,ruby,unlocked,capped,reset,NumberNotation.Revision);
+                if(_hasShown[i] && _shown[i].Equals(signature))continue;
+                _shown[i]=signature;_hasShown[i]=true;
                 _cards[i].Set(i==1?"EXP 획득 강화":"골드 획득 강화",$"Lv. {level}/50",unlocked?$"메인·방치 ×{BalanceMath.RubyMultiplier(level):0.00} · 루비 {NumberNotation.Format(LocalProgression.Balance(eCurrency.Ruby))}":"메인 2-5 클리어 후 해금");
                 _buy[i].Set("1회 강화",cost.HasValue?$"{NumberNotation.Format(cost.Value)} 루비":"MAX",unlocked && cost.HasValue && LocalProgression.Balance(eCurrency.Ruby)>=cost && (i==0||state.AccountLevel<200));
-                _reset[i].Set("초기화 80% 반환",$"{NumberNotation.Format(BalanceMath.Floor(spent*.8m))} 루비",level>0 && state.PendingRubyReset==0 && state.RubyResetDay!=LocalProgression.KstDay && ChangeJob.CanQueueChange);
+                _reset[i].Set("초기화 80% 반환",$"{NumberNotation.Format(BalanceMath.Floor(spent*.8m))} 루비",reset);
             }
         }
     }

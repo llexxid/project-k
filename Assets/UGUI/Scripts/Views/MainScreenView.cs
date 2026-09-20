@@ -32,7 +32,6 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal CanvasGroup popupHamburgerGroup;
         [SerializeField] internal Button btnMenuInventory;
         [SerializeField] internal Button btnMenuGuide;
-        [SerializeField] internal Button btnMenuDivineCollection;   // 신 스킬 도감 (HUD 모서리 버튼에서 이사)
         [SerializeField] internal Button btnMenuSettings;
         [SerializeField] internal Button btnMenuNotice;
         [SerializeField] internal Button btnMenuMail;

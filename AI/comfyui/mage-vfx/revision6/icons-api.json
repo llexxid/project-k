@@ -1,0 +1,363 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "d3d34738797a0bf65e4667954bf79162a3a2c2696a8c956415b10c79a82354e7.png"
+    }
+  },
+  "10": {
+    "class_type": "ImageCrop",
+    "inputs": {
+      "image": [
+        "1",
+        0
+      ],
+      "width": 48,
+      "height": 48,
+      "x": 0,
+      "y": 0
+    }
+  },
+  "12": {
+    "class_type": "ImageQuantize",
+    "inputs": {
+      "image": [
+        "10",
+        0
+      ],
+      "colors": 16,
+      "dither": "none"
+    }
+  },
+  "13": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "12",
+        0
+      ],
+      "filename_prefix": "projectk-v6-Lightning"
+    }
+  },
+  "20": {
+    "class_type": "ImageCrop",
+    "inputs": {
+      "image": [
+        "1",
+        0
+      ],
+      "width": 48,
+      "height": 48,
+      "x": 48,
+      "y": 0
+    }
+  },
+  "21": {
+    "class_type": "RadianceGPUColorMatrix",
+    "inputs": {
+      "image": [
+        "20",
+        0
+      ],
+      "preset": "Custom",
+      "matrix_type": "RGB (3x3)",
+      "r_vector": "0.85, 0.0, 0.20",
+      "g_vector": "0.0, 0.78, 0.0",
+      "b_vector": "0.0, 0.0, 1.05",
+      "clamp_output": true
+    }
+  },
+  "22": {
+    "class_type": "ImageQuantize",
+    "inputs": {
+      "image": [
+        "21",
+        0
+      ],
+      "colors": 16,
+      "dither": "none"
+    }
+  },
+  "23": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "22",
+        0
+      ],
+      "filename_prefix": "projectk-v6-Lightning_Bloom"
+    }
+  },
+  "30": {
+    "class_type": "ImageCrop",
+    "inputs": {
+      "image": [
+        "1",
+        0
+      ],
+      "width": 48,
+      "height": 48,
+      "x": 96,
+      "y": 0
+    }
+  },
+  "32": {
+    "class_type": "ImageQuantize",
+    "inputs": {
+      "image": [
+        "30",
+        0
+      ],
+      "colors": 16,
+      "dither": "none"
+    }
+  },
+  "33": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "32",
+        0
+      ],
+      "filename_prefix": "projectk-v6-IceSpike_Bloom"
+    }
+  },
+  "40": {
+    "class_type": "ImageCrop",
+    "inputs": {
+      "image": [
+        "1",
+        0
+      ],
+      "width": 48,
+      "height": 48,
+      "x": 144,
+      "y": 0
+    }
+  },
+  "42": {
+    "class_type": "ImageQuantize",
+    "inputs": {
+      "image": [
+        "40",
+        0
+      ],
+      "colors": 16,
+      "dither": "none"
+    }
+  },
+  "43": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "42",
+        0
+      ],
+      "filename_prefix": "projectk-v6-ArcaneVolley"
+    }
+  },
+  "50": {
+    "class_type": "ImageCrop",
+    "inputs": {
+      "image": [
+        "1",
+        0
+      ],
+      "width": 48,
+      "height": 48,
+      "x": 192,
+      "y": 0
+    }
+  },
+  "52": {
+    "class_type": "ImageQuantize",
+    "inputs": {
+      "image": [
+        "50",
+        0
+      ],
+      "colors": 16,
+      "dither": "none"
+    }
+  },
+  "53": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "52",
+        0
+      ],
+      "filename_prefix": "projectk-v6-ArcaneVolley_Bloom"
+    }
+  },
+  "60": {
+    "class_type": "ImageCrop",
+    "inputs": {
+      "image": [
+        "1",
+        0
+      ],
+      "width": 48,
+      "height": 48,
+      "x": 240,
+      "y": 0
+    }
+  },
+  "62": {
+    "class_type": "ImageQuantize",
+    "inputs": {
+      "image": [
+        "60",
+        0
+      ],
+      "colors": 16,
+      "dither": "none"
+    }
+  },
+  "63": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "62",
+        0
+      ],
+      "filename_prefix": "projectk-v6-FireTornado_Bloom"
+    }
+  },
+  "70": {
+    "class_type": "ImageCrop",
+    "inputs": {
+      "image": [
+        "1",
+        0
+      ],
+      "width": 48,
+      "height": 48,
+      "x": 288,
+      "y": 0
+    }
+  },
+  "72": {
+    "class_type": "ImageQuantize",
+    "inputs": {
+      "image": [
+        "70",
+        0
+      ],
+      "colors": 16,
+      "dither": "none"
+    }
+  },
+  "73": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "72",
+        0
+      ],
+      "filename_prefix": "projectk-v6-VenomMist_Bloom"
+    }
+  },
+  "80": {
+    "class_type": "ImageCrop",
+    "inputs": {
+      "image": [
+        "1",
+        0
+      ],
+      "width": 48,
+      "height": 48,
+      "x": 336,
+      "y": 0
+    }
+  },
+  "82": {
+    "class_type": "ImageQuantize",
+    "inputs": {
+      "image": [
+        "80",
+        0
+      ],
+      "colors": 16,
+      "dither": "none"
+    }
+  },
+  "83": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "82",
+        0
+      ],
+      "filename_prefix": "projectk-v6-StoneSeal_Bloom"
+    }
+  },
+  "90": {
+    "class_type": "ImageCrop",
+    "inputs": {
+      "image": [
+        "1",
+        0
+      ],
+      "width": 48,
+      "height": 48,
+      "x": 384,
+      "y": 0
+    }
+  },
+  "92": {
+    "class_type": "ImageQuantize",
+    "inputs": {
+      "image": [
+        "90",
+        0
+      ],
+      "colors": 16,
+      "dither": "none"
+    }
+  },
+  "93": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "92",
+        0
+      ],
+      "filename_prefix": "projectk-v6-Sanctuary_Bloom"
+    }
+  },
+  "100": {
+    "class_type": "ImageCrop",
+    "inputs": {
+      "image": [
+        "1",
+        0
+      ],
+      "width": 48,
+      "height": 48,
+      "x": 432,
+      "y": 0
+    }
+  },
+  "102": {
+    "class_type": "ImageQuantize",
+    "inputs": {
+      "image": [
+        "100",
+        0
+      ],
+      "colors": 16,
+      "dither": "none"
+    }
+  },
+  "103": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "102",
+        0
+      ],
+      "filename_prefix": "projectk-v6-VoidRift_Bloom"
+    }
+  }
+}

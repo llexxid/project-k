@@ -54,9 +54,7 @@ namespace Scripts.Core
             ulong wave = ((ulong)currentStage & WaveMask);
             if (wave == BossWaveNumber)
             {
-                ulong stageAdder = 0x0000000000010001; // 첫번째 스테이지로 가기위해 +1
-                //기존 스테이지의 베이스 스테이지로 이동 후 다음 1스테이지로 이동
-                result = (eStage)(((ulong)currentStage & StageBaseMask) + stageAdder );
+                result = StageParser.MakeStage(eStageType.Main, checked(StageParser.GetStageNumber(currentStage) + 1));
                 return eStageResult.StageChanged;
             }
             result = (eStage)((ulong)++currentStage);

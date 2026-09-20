@@ -14,6 +14,8 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal TMP_Text goldLabel;     // 보유 골드 바 (라이브 갱신)
         [SerializeField] internal RectTransform cardsRoot; // 강화 카드(EnhanceCardView) 부모
         [SerializeField] internal TMP_Text emptyLabel;    // 강화 항목 없음 안내 (토글)
+        [SerializeField] internal RectTransform navBar;
+        [SerializeField] internal RectTransform rubyCardsRoot;
 
         public RectTransform CardsRoot => cardsRoot;
     }

@@ -1,8 +1,9 @@
 using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Monster;
-using System.Collections.Generic;
 using UnityEngine;
+using KingdomIdle.Combat;
+using KingdomIdle.Balance;
 
 /// <summary>
 /// Mage 기본공격 투사체 (MagicMissile 프리팹에 부착).
@@ -19,6 +20,9 @@ public class MageProjectile : MonoBehaviour
     private float _lifetime;
     private float _expireTime;
     private bool _alive;
+    private bool _homing;
+    private string _battle;
+    private float _dissipateLength;
 
     private float _collisionRadius = 0.2f;
     private float _returnTime = -1f;
@@ -28,9 +32,8 @@ public class MageProjectile : MonoBehaviour
 
     private System.Action<MageProjectile> _onReturn;
 
-    private readonly LayerMask _enemyLayer = GameLayers.EnemyMask;
-    private readonly List<Collider2D> _aoeResults = new List<Collider2D>();
-    private readonly List<Collider2D> _checkResults = new List<Collider2D>();
+    private readonly Monster[] _impactTargets = new Monster[3];
+    private readonly int[] _impactGenerations = new int[3];
 
     private IDamageable _target;
     private MonoBehaviour _targetBehaviour;
@@ -45,6 +48,7 @@ public class MageProjectile : MonoBehaviour
     {
         _onReturn = onReturn;
         _animator = GetComponent<Animator>();
+        _dissipateLength = GetDissipateClipLength();
 
         var col = GetComponent<CircleCollider2D>();
         if (col != null)
@@ -72,6 +76,8 @@ public class MageProjectile : MonoBehaviour
         _lifetime = lifetime;
 
         _owner = owner;
+        _homing = true;
+        _battle = LocalProgression.State.ActiveBattleId;
         _target = target;
         _targetBehaviour = target as MonoBehaviour;
         _targetMonster =
@@ -81,8 +87,8 @@ public class MageProjectile : MonoBehaviour
         if (_targetMonster != null)
             _targetAllocGeneration = _targetMonster.AllocGen; 
 
-        _lastKnownTargetPosition =
-            target?.targetPos ?? transform.position;
+        _lastKnownTargetPosition = Aim(target);
+        _direction = (_lastKnownTargetPosition - (Vector2)transform.position).normalized;
 
         // 애니메이터 리셋 → 비행 상태로
         if (_animator != null)
@@ -99,6 +105,9 @@ public class MageProjectile : MonoBehaviour
     /// <summary>투사체 발사.</summary>
     public void Fire(Player owner, Vector2 direction, float speed, long damage, float aoeRadius, float lifetime)
     {
+        ClearTargetReference();
+        _homing = false;
+        _battle = LocalProgression.State.ActiveBattleId;
         _owner = owner;
         _direction = direction.normalized;
         _speed = speed;
@@ -134,11 +143,22 @@ public class MageProjectile : MonoBehaviour
             return;
         }
         if (!_alive) return;
+        if (LocalProgression.State.ActiveBattleId != _battle) { DoReturnToPool(); return; }
+        if (!_homing)
+        {
+            transform.position += (Vector3)(_direction * (_speed * Time.deltaTime));
+            foreach (var monster in CombatMotion.Monsters)
+                if (monster != null && monster.MonAction != eMonsterAction.Dead &&
+                    Vector2.Distance(transform.position, Aim(monster)) <= _collisionRadius)
+                { Explode(); return; }
+            if (Time.time >= _expireTime) DoReturnToPool();
+            return;
+        }
         
         if (CanTrackCurrentTarget())
         {
             _lastKnownTargetPosition =
-                _target.targetPos;
+                Aim(_target);
         }
         else
         {
@@ -158,10 +178,6 @@ public class MageProjectile : MonoBehaviour
         Vector2 movement = nextPosition - currentPosition;
         UpdateRotation(movement);
         
-        //목표탐색
-        float arrivalRadius =
-            Mathf.Max(_collisionRadius, 0.05f);
-
         Vector2 remaining =
             _lastKnownTargetPosition - nextPosition;
 
@@ -179,25 +195,6 @@ public class MageProjectile : MonoBehaviour
         if (Time.time >= _expireTime)
             DoReturnToPool();
         
-        /* 매 프레임 OverlapCircle은 무거울것 같아서 변경
-        // 충돌 판정 (매 프레임 OverlapCircle)
-        ContactFilter2D filter = new ContactFilter2D();
-        filter.SetLayerMask(_enemyLayer);
-        filter.useLayerMask = true;
-        filter.useTriggers = true;
-
-        int count = Physics2D.OverlapCircle(transform.position, _collisionRadius, filter, _checkResults);
-        var distinct = new HashSet<Monster>();
-        for (int i = 0; i < count && distinct.Count < 3; i++)
-        {
-            var mon = _checkResults[i].GetComponentInParent<Monster>();
-            if (mon != null && mon.MonAction != eMonsterAction.Dead)
-            {
-                Explode();
-                return;
-            }
-        }*/
-
     }
     
     private bool CanTrackCurrentTarget()
@@ -252,28 +249,36 @@ public class MageProjectile : MonoBehaviour
         // AoE 피해
         var proxy = new ActiveSkill.DamageProxy((ulong)_damage, _owner);
 
-        ContactFilter2D filter = new ContactFilter2D();
-        filter.SetLayerMask(_enemyLayer);
-        filter.useLayerMask = true;
-        filter.useTriggers = true;
-
-        int count = Physics2D.OverlapCircle(transform.position, _aoeRadius, filter, _aoeResults);
-        var distinct = new HashSet<Monster>();
-        for (int i = 0; i < count && distinct.Count < 3; i++)
+        // Use the same body anchor as flight. Tall sprite colliders can miss a feet-level
+        // overlap query even when the projectile visibly reaches its selected victim.
+        int hits = 0;
+        Monster primary = CanTrackCurrentTarget() ? _targetMonster : null;
+        if (primary != null && Vector2.Distance(transform.position, Aim(primary)) <= _aoeRadius)
+        { _impactTargets[hits] = primary; _impactGenerations[hits++] = primary.AllocGen; }
+        foreach (var monster in CombatMotion.Monsters)
         {
-            var m = _aoeResults[i].GetComponentInParent<Monster>();
-            if (m == null || m.MonAction == eMonsterAction.Dead || !distinct.Add(m)) continue;
-
-            var d = _aoeResults[i].GetComponentInParent<IDamageable>();
-            d?.TakeDamage(proxy);
+            if (hits >= 3) break;
+            if (monster == null || monster == primary || monster.MonAction == eMonsterAction.Dead ||
+                Vector2.Distance(transform.position, Aim(monster)) > _aoeRadius) continue;
+            _impactTargets[hits] = monster; _impactGenerations[hits++] = monster.AllocGen;
+        }
+        // Damage can retire a monster or end a wave. Never mutate the live registry
+        // while enumerating it, or hit a pooled instance reused by the next wave.
+        for (int i = 0; i < hits; i++)
+        {
+            var monster = _impactTargets[i]; _impactTargets[i] = null;
+            if (LocalProgression.State.ActiveBattleId != _battle || monster == null ||
+                !monster.isActiveAndEnabled || monster.MonAction == eMonsterAction.Dead ||
+                monster.AllocGen != _impactGenerations[i]) continue;
+            CombatDiagnostics.Record("player-projectile-hit", this, monster);
+            monster.TakeDamage(proxy);
         }
 
         // 소멸 애니메이션 재생 → 끝나면 풀 반환
         if (_animator != null)
         {
             _animator.SetTrigger(_isHitHash);
-            float dissipateLen = GetDissipateClipLength();
-            _returnTime = Time.time + dissipateLen;
+            _returnTime = Time.time + _dissipateLength;
         }
         else
         {
@@ -298,6 +303,8 @@ public class MageProjectile : MonoBehaviour
     {
         _alive = false;
         _returnTime = -1f;
+        ClearTargetReference();
         _onReturn?.Invoke(this);
     }
+    private static Vector2 Aim(IDamageable target) => target == null ? Vector2.zero : (Vector2)target.targetPos + Vector2.up * .35f;
 }

@@ -1,0 +1,8 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "# z-image — prompting & settings guide\n\n- **Prompting style:** natural_language\n- **Negative prompt:** ignored — do not pass one\n- **Prompt weights** (e.g. `(word:1.2)`): not honored\n- **Loader:** UNETLoader + CLIPLoader\n\n## Recommended settings\n\n| steps | cfg | sampler | scheduler | resolution |\n| --- | --- | --- | --- | --- |\n| 8 | 1 | euler | simple | 1024x1024 |\n\n## Tips\n\n- Z-Image Turbo is a distilled few-step model — ~8 steps at cfg 1.0 is the intended operating point.\n- Describe the scene in natural language; it follows full sentences well.\n- Great speed/quality tradeoff for quick iterations — keep settings light.\n\n## Common mistakes\n\n- Don't raise cfg above 1 or add a negative prompt — the turbo distillation expects guidance-free sampling.\n- Don't run 20-30 steps; this is an 8-step model and extra steps waste time without quality gains.\n\n## Example prompt\n\n> A minimalist still life of three ripe persimmons on a pale linen cloth, soft diffused window light, muted autumn palette, clean and serene.\n"
+    }
+  ]
+}

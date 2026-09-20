@@ -22,6 +22,15 @@ namespace KingdomIdle.MageTower
         /// </summary>
         public static Camera ResolveCamera() => Camera.main;
 
+        public static Vector3 BattleCenter()
+        {
+            var camera = ResolveCamera();
+            if (camera == null) return Vector3.zero;
+            var point = camera.ViewportToWorldPoint(new Vector3(.5f, .545f, Mathf.Abs(camera.transform.position.z)));
+            point.z = 0;
+            return point;
+        }
+
         /// <summary>
         /// 월드 좌표가 카메라 뷰포트 안(약간의 인셋 포함)인지.
         /// 카메라가 없으면 false — 마탑 스킬은 '보이는 대상에만 발동'이 계약이므로

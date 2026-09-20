@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using UnityEditor;
+using System.Linq;
 
 namespace KingdomIdle.UGUI.Editor
 {
@@ -111,17 +113,16 @@ namespace KingdomIdle.UGUI.Editor
         {
             var row = F.Container(null, "Item_CurrencyLine");
             var view = row.gameObject.AddComponent<CurrencyLineItemView>();
-            F.VLayout(row.gameObject, 8, new RectOffset(2, 2, 4, 4));
-            F.Preferred(row, height: 104);
-            var header = F.Container(row, "CurrencyName"); F.HLayout(header.gameObject, 10, null, TextAnchor.MiddleLeft);
-            F.Preferred(header, height: 44);
-            var icon = F.IconImage(header, "Icon", null, 32, 32); F.Preferred(icon, width: 34, height: 34); view.icon = icon;
-            view.label = F.Text(header, "Name", "", 26, UguiTheme.Parchment);
-            F.Flexible(view.label, flexWidth: 1);
-            view.valueLabel = F.Text(row, "Value", "", 26, UguiTheme.AccentGoldStrong, TextAlignmentOptions.Right);
-            F.Preferred(view.valueLabel, height: 40);
+            F.HLayout(row.gameObject, 16, new RectOffset(8, 8, 8, 8), TextAnchor.MiddleLeft);
+            F.Preferred(row, height: 82);
+            var icon = F.IconImage(row, "Icon", null, 40, 40); F.Preferred(icon, width: 44, height: 44); view.icon = icon;
+            view.label = F.Text(row, "Name", "", 30, UguiTheme.Parchment);
+            F.Preferred(view.label, width: 170, height: 50);
+            view.valueLabel = F.Text(row, "Value", "", 32, UguiTheme.AccentGoldStrong, TextAlignmentOptions.Right);
+            F.Preferred(view.valueLabel, width: 280, height: 50); F.Flexible(view.valueLabel, flexWidth: 1);
             view.valueLabel.textWrappingMode = TextWrappingModes.NoWrap;
-            view.valueLabel.overflowMode = TextOverflowModes.Overflow;
+            view.valueLabel.enableAutoSizing = true; view.valueLabel.fontSizeMin = 23; view.valueLabel.fontSizeMax = 32;
+            view.valueLabel.overflowMode = TextOverflowModes.Ellipsis;
             return PrefabGenUtil.SavePrefab(row.gameObject, $"{PrefabGenUtil.PrefabRoot}/Items/Item_CurrencyLine.prefab");
         }
 
@@ -135,6 +136,15 @@ namespace KingdomIdle.UGUI.Editor
             var view = bg.gameObject.AddComponent<GachaPullButtonView>();
             view.background = bg;
             view.button = F.ButtonOn(bg);
+
+            var art = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/Art/Gacha/GachaBronzeButton.png");
+            if (art != null)
+            {
+                bg.sprite = art; bg.type = Image.Type.Sliced; bg.color = Color.white;
+                bg.pixelsPerUnitMultiplier = 1f;
+                view.authoredBackground = true;
+                foreach (Transform child in bg.transform) child.gameObject.SetActive(false);
+            }
 
             var le = bg.gameObject.AddComponent<LayoutElement>();
             le.flexibleWidth = 1f;
@@ -158,7 +168,28 @@ namespace KingdomIdle.UGUI.Editor
             F.Preferred(cost, height: 32f);
             view.costLabel = cost;
 
+            view.flare = AddGachaFlare(bg.transform);
+
             return PrefabGenUtil.SavePrefab(bg.gameObject, $"{PrefabGenUtil.PrefabRoot}/Items/Item_GachaPullButton.prefab");
+        }
+
+        internal static GachaButtonFlare AddGachaFlare(Transform parent)
+        {
+            var flare = parent.gameObject.AddComponent<GachaButtonFlare>();
+            flare.frames = AssetDatabase.LoadAllAssetsAtPath("Assets/_Project/Art/VFX/PixelArtRPGVFX/Textures/Electricity/ElectricTornado.png")
+                .OfType<Sprite>().OrderBy(s => {var match=System.Text.RegularExpressions.Regex.Match(s.name,@"(\d+)$");return match.Success && int.TryParse(match.Value,out int frame) ? frame : 0;}).ToArray();
+            flare.wisps = new Image[2];
+            for (int i = 0; i < flare.wisps.Length; i++)
+            {
+                var wisp = F.Box(parent, "BlueWisp" + i, Color.clear, rounded: false);
+                wisp.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+                wisp.gameObject.AddComponent<UITween>();
+                wisp.rectTransform.anchorMin = wisp.rectTransform.anchorMax = new Vector2(i == 0 ? .08f : .92f, .55f);
+                wisp.rectTransform.sizeDelta = new Vector2(74, 110);
+                wisp.preserveAspect = true; wisp.enabled = false;
+                flare.wisps[i] = wisp;
+            }
+            return flare;
         }
 
         /// <summary>확률 요약 알약 (등급별 %). 내용 폭에 맞춰 크기 조절(ContentSizeFitter).</summary>
@@ -235,7 +266,7 @@ namespace KingdomIdle.UGUI.Editor
         /// <summary>전직 카드 (배지 + 이미지 + 이름 + 스탯 + 파편).</summary>
         internal static GameObject GenerateJobCard()
         {
-            var card = F.Box(null, "Item_JobCard", new Color(1f, 1f, 1f, 0.07f), rounded: true, raycast: true);
+            var card = F.Box(null, "Item_JobCard", UguiTheme.RusticSurfaceDark, rounded: true, raycast: true);
             var view = card.gameObject.AddComponent<JobCardView>();
             view.background = card;
             view.button = F.ButtonOn(card, gloss: false);   // 콘텐츠 셀 — 광택 끔
@@ -349,96 +380,9 @@ namespace KingdomIdle.UGUI.Editor
         }
 
         /// <summary>
-        /// 신 스킬 컬렉션 카드 셀 (등급 테두리 + 아이콘 + 이름 + 레벨/중복/장착 배지 + 미보유 오버레이).
-        /// 팝업이 8칸을 1회 생성 후 제자리 갱신한다 — 상태 표현은 DivineCardItemView.Set이 담당.
         /// 미보유 셀도 탭해 상세를 볼 수 있으므로 버튼 입력은 항상 살려 둔다.
         /// </summary>
-        internal static GameObject GenerateDivineCard()
-        {
-            var frame = F.Box(null, "Item_DivineCard", Color.clear, rounded: true, raycast: true);
-            F.Preferred(frame, width: 200f, height: 240f);
-            var view = frame.gameObject.AddComponent<DivineCardItemView>();
 
-            var btn = frame.gameObject.AddComponent<Button>();
-            btn.targetGraphic = frame;
-            btn.transition = Selectable.Transition.ColorTint;
-            btn.colors = UguiTheme.MakeColorBlock();
-            frame.gameObject.AddComponent<PlayClickSfxOnClick>();
-            view.button = btn;
-
-            // 안쪽 배경 (Set이 등급색 다크 틴트)
-            var bg = F.Box(frame.transform, "Bg", UguiTheme.SurfaceLight, rounded: true);
-            F.Stretch(bg.rectTransform);
-            bg.rectTransform.offsetMin = new Vector2(2f, 2f);
-            bg.rectTransform.offsetMax = new Vector2(-2f, -2f);
-            F.VLayout(bg.gameObject, 4f, new RectOffset(6, 6, 10, 8), TextAnchor.UpperCenter);
-            view.background = bg;
-
-            // 등급 테두리 (Set이 등급색/미보유 회색 틴트)
-            var gframe = F.Frame(frame.transform, "GradeFrame", UguiTheme.RarityNormal);
-            view.gradeFrame = gframe;
-
-            // 아이콘 (116x116 중앙) + 아이콘 없음 "?" 폴백
-            var iconWrap = F.Container(bg.transform, "IconWrap");
-            F.Preferred(iconWrap.gameObject.AddComponent<LayoutElement>(), height: 128f);
-            var icon = F.IconImage(iconWrap, "Icon", null, 116f, 116f);
-            F.AnchorCenter(icon.rectTransform, 116f, 116f);
-            view.icon = icon;
-
-            var fallback = F.Text(iconWrap, "IconFallback", "?", 56f, UguiTheme.TextTertiary,
-                TextAlignmentOptions.Center, bold: true);
-            F.Stretch(fallback.rectTransform);
-            fallback.gameObject.SetActive(false);
-            view.iconFallback = fallback;
-
-            // 이름 (미보유 = "???")
-            var name = F.Text(bg.transform, "Name", "", 20f, UguiTheme.TextPrimary, TextAlignmentOptions.Center);
-            F.Preferred(name, height: 30f);
-            view.nameLabel = name;
-
-            // 레벨 배지
-            var lv = F.Text(bg.transform, "Level", "", 18f, UguiTheme.AccentGoldStrong,
-                TextAlignmentOptions.Center, bold: true);
-            F.Preferred(lv, height: 26f);
-            lv.gameObject.SetActive(false);
-            view.levelLabel = lv;
-
-            // 미보유 오버레이 (배지들보다 뒤, 본문 위)
-            var lockOv = F.Box(frame.transform, "LockOverlay", new Color(0f, 0f, 0f, 0.55f), rounded: true);
-            F.Stretch(lockOv.rectTransform);
-            lockOv.gameObject.SetActive(false);
-            view.lockOverlay = lockOv;
-
-            // "장착" 알약 (좌상단)
-            var pill = F.Box(frame.transform, "EquippedPill", UguiTheme.SuccessGreen, rounded: true);
-            var pillRt = pill.rectTransform;
-            pillRt.anchorMin = new Vector2(0f, 1f); pillRt.anchorMax = new Vector2(0f, 1f); pillRt.pivot = new Vector2(0f, 1f);
-            pillRt.anchoredPosition = new Vector2(4f, -4f); pillRt.sizeDelta = new Vector2(56f, 28f);
-            var pillLbl = F.Text(pill.transform, "Label", "장착", 15f, UguiTheme.TextPrimary,
-                TextAlignmentOptions.Center, bold: true);
-            F.Stretch(pillLbl.rectTransform);
-            pill.gameObject.SetActive(false);
-            view.equippedPill = pill;
-
-            // "+N" 중복 배지 (우상단)
-            var dup = F.Box(frame.transform, "DupBadge", new Color(0.16f, 0.12f, 0.09f, 0.95f), rounded: true);
-            var dupRt = dup.rectTransform;
-            dupRt.anchorMin = new Vector2(1f, 1f); dupRt.anchorMax = new Vector2(1f, 1f); dupRt.pivot = new Vector2(1f, 1f);
-            dupRt.anchoredPosition = new Vector2(-4f, -4f); dupRt.sizeDelta = new Vector2(56f, 28f);
-            var dupLbl = F.Text(dup.transform, "Label", "+0", 16f, UguiTheme.AccentGoldStrong,
-                TextAlignmentOptions.Center, bold: true);
-            F.Stretch(dupLbl.rectTransform);
-            dup.gameObject.SetActive(false);
-            view.dupBadge = dup;
-            view.dupLabel = dupLbl;
-
-            // 선택 강조 테두리 (맨 위)
-            var sel = F.Frame(frame.transform, "SelectedFrame", new Color(1f, 0.92f, 0.60f, 0.95f));
-            sel.gameObject.SetActive(false);
-            view.selectedFrame = sel;
-
-            return PrefabGenUtil.SavePrefab(frame.gameObject, $"{PrefabGenUtil.PrefabRoot}/Items/Item_DivineCard.prefab");
-        }
 
         /// <summary>셀/카드용 중앙 정렬 라벨 헬퍼.</summary>
         private static TextMeshProUGUI MakeCellLabel(Transform parent, string text, float size, Color color)

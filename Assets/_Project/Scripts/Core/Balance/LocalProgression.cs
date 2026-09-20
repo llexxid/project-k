@@ -14,9 +14,10 @@ namespace KingdomIdle.Balance
     /// Explicit local authority for this client beta. Authentication never authorizes a legacy
     /// unversioned economy response to overwrite it. Server migration must import a reviewed
     /// snapshot with account, authority, balance version, revision and transaction id together.
-    /// Mutators operate on a draft; only a durable replacement publishes state/events.
+    /// Economic mutators publish only after durable replacement. Non-economic skill counters
+    /// are autosaved between casts and flushed before rewards, account changes and suspension.
     /// </summary>
-    public static class LocalProgression
+    public static partial class LocalProgression
     {
         public static bool IsLocalAuthority => true;
         public static event Action Changed;
@@ -71,6 +72,8 @@ namespace KingdomIdle.Balance
                 if (_previousAccount != null) Open(_previousAccount);
                 else
                 {
+                    // 테스트가 시작한 비동기 저장도 끝낸 뒤 정적 계정 참조를 비운다.
+                    if (!FlushSkillCounters()) throw new IOException("Test skill counters could not be saved.");
                     _state = null; _path = null; AccountKey = null; LastError = null;
                     AccountGeneration = checked(AccountGeneration + 1);
                     BattleEconomy.OnAccountOpened(AccountGeneration);
@@ -97,9 +100,12 @@ namespace KingdomIdle.Balance
             _opening = true;
             try
             {
-                // 이전 계정의 승인 전 시간을 새 계정에 넘기지 않는다. 실패하면 원래 계정을 유지한다.
+                // 전투 시간 거래는 미저장 스킬 횟수도 함께 저장한다. 시간이 없으면 별도로 flush한다.
+                // 두 저장 모두 이전 _path를 사용하며 실패하면 계정과 세대를 바꾸지 않는다.
                 if (_state != null && !BattleEconomy.TryFlushQuestTime())
                     throw new IOException("Previous account battle time could not be saved.");
+                if (_state != null && !FlushSkillCounters())
+                    throw new IOException("Pending skill counters could not be saved before changing account.");
                 using var sha = SHA256.Create();
                 string key = BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(account))).Replace("-", "").ToLowerInvariant();
                 string directory = Path.Combine(Application.persistentDataPath, "progression-local-v1");
@@ -115,6 +121,10 @@ namespace KingdomIdle.Balance
                 // 기존 원본은 교체 시 .bak에 남고, 실패한 이관은 메모리에도 공개하지 않는다.
                 string before = JsonConvert.SerializeObject(state);
                 QuestEconomy.Migrate(state);
+                // 퀘스트와 마법 이관 결과는 하나의 저장으로 공개한다. 제거한 스킬 ID는 복원하지 않는다.
+                for (int i = 0; i < state.MageSlots.Length; i++)
+                    if (state.MageSlots[i] == 6) state.MageSlots[i] = -1;
+                KingdomIdle.MageTower.MageCatalogMigration.Apply(state);
                 Validate(state);
                 long now = UtcNow;
                 QuestEconomy.Before(state, now);
@@ -154,11 +164,14 @@ namespace KingdomIdle.Balance
             try { Ensure(); }
             catch (Exception error) { LastError = operation + ": " + error.Message; return false; }
             if (_busy || mutate == null || string.IsNullOrWhiteSpace(operation)) return false;
-            if (claimId != null && _state.Claims.Contains(claimId)) return false;
+            // 먼저 시작한 자동 저장이 같은 파일을 뒤늦게 덮어쓰지 않도록 완료를 기다린다.
+            // 이후 거래가 거절되어도 이미 성공한 저장의 알림은 finally에서 발행한다.
+            bool published = CompleteCounterSave(true);
             _busy = true;
             try
             {
-                var draft = JsonConvert.DeserializeObject<ProgressionState>(JsonConvert.SerializeObject(_state));
+                if (claimId != null && _state.Claims.Contains(claimId)) return false;
+                var draft = _state.DeepClone();
                 // 모든 기간 계산은 같은 UTC를 사용한다. 샘플의 제거는 저장 성공 뒤에만 한다.
                 long now = Math.Max(UtcNow, draft.QuestLastObservedUtc);
                 long timeBatch = BattleEconomy.PrepareQuestTime(draft, now);
@@ -171,6 +184,9 @@ namespace KingdomIdle.Balance
                 WriteSnapshot(_path, draft);
                 _state = draft; LastError = null;
                 BattleEconomy.AcknowledgeQuestTime(timeBatch);
+                _countersDirty = false;
+                published = true;
+                return true;
             }
             catch (Exception exception)
             {
@@ -178,9 +194,11 @@ namespace KingdomIdle.Balance
                 Debug.LogWarning("[Progression] Transaction rejected: " + LastError);
                 return false;
             }
-            finally { _busy = false; }
-            Notify(Changed);
-            return true;
+            finally
+            {
+                _busy = false;
+                if (published) Notify(Changed);
+            }
         }
 
         /// <summary>전체 경제 상태를 같은 원자적 파일 교체로 저장한다.</summary>
@@ -245,16 +263,19 @@ namespace KingdomIdle.Balance
             if (state.Kills < 0 || state.Revision < 0 || state.RubyGoldSpent < 0 || state.RubyExpSpent < 0 ||
                 state.EquipmentPity < 0 || state.EquipmentPity > 39 || state.GoldTickets < 0 || state.GoldTickets > 2 || state.RubyTickets < 0 || state.RubyTickets > 2 ||
                 state.GoldDungeonClear < 0 || state.GoldDungeonClear > 5 || state.RubyDungeonClear < 0 || state.RubyDungeonClear > 5 ||
-                state.OfflineKpm < 0 || state.OfflineKpm > 30 || state.ReincarnationCount < 0 || state.CycleBossStage < 0 || state.CycleBossStage > 3)
+                state.OfflineKpm < 0 || state.OfflineKpm > 30 || state.ReincarnationCount < 0 || state.CycleBossStage < 0)
                 throw new InvalidDataException("Invalid economy state.");
             var equipment = state.Equipment.Concat(state.PendingEquipment).ToArray();
-            if (state.Equipment.Count > EquipmentManager.Capacity || state.PendingEquipment.Count > EquipmentManager.PendingCapacity ||
-                equipment.Any(x => string.IsNullOrEmpty(x.Id) || x.Level < 0 || x.Level > 15 || (x.Player.HasValue && (x.Player < 0 || x.Player > 2))) ||
+            if (state.LegacyEquipment == null || state.LegacyEquipment.Any(x => x == null || x.Count <= 0 || x.Level < 0 || x.Level > 15) ||
+                state.LegacyEquipment.GroupBy(x => (x.Code, x.Level)).Any(g => g.Count() > 1))
+                throw new InvalidDataException("Invalid legacy inventory reserve.");
+            if (state.AutoDismantleMask < 0 || state.AutoDismantleMask > 7 || state.EquipmentRarityFilter < -1 || state.EquipmentRarityFilter > 2 || state.EquipmentSort < 0 || state.EquipmentSort > 3 || state.Equipment.Count > EquipmentManager.Capacity || state.PendingEquipment.Count > EquipmentManager.PendingCapacity ||
+                equipment.Any(x => string.IsNullOrEmpty(x.Id) || x.Level < 0 || x.Level > 15 || x.EnhancementStonesSpent < 0 || (x.Player.HasValue && (x.Player < 0 || x.Player > 2))) ||
                 equipment.Select(x => x.Id).Distinct().Count() != equipment.Length ||
                 state.Equipment.Where(x => x.Player.HasValue).GroupBy(x => x.Player).Any(g => g.Count() > 1)) throw new InvalidDataException("Invalid inventory snapshot.");
-            if (state.MageSlots.Length != 5 || state.MageSlots.Any(x => x < -1 || x > 2 || (x >= 0 && !state.MageSkills.ContainsKey(x))) ||
+            if (state.MageSlots.Length != 5 || state.MageSlots.Any(x => x < -1 || x >= KingdomIdle.MageTower.MageSkillRules.IdCapacity || (x >= 0 && !state.MageSkills.ContainsKey(x))) ||
                 state.MageSlots.Where(x => x >= 0).Distinct().Count() != state.MageSlots.Count(x => x >= 0) ||
-                state.MageSkills.Any(x => x.Key < 0 || x.Key > 2 || x.Value.Enhance < 0 || x.Value.Enhance > 100 || x.Value.Awaken < 0 || x.Value.Awaken > 10 || x.Value.Fragments < 0 || x.Value.Spent < 0))
+                state.MageSkills.Any(x => x.Key < 0 || x.Key >= KingdomIdle.MageTower.MageSkillRules.IdCapacity || x.Value == null || x.Value.Enhance < 0 || x.Value.Enhance > 100 || x.Value.Awaken < 0 || x.Value.Awaken > 10 || x.Value.Fragments < 0 || x.Value.Spent < 0 || (x.Value.BloomEnabled && x.Value.Awaken < 10)))
                 throw new InvalidDataException("Invalid mage snapshot.");
             if (state.AccountLevel == 200 ? state.Experience != 0 : state.Experience >= BalanceMath.NextExp(state.AccountLevel).Value)
                 throw new InvalidDataException("Experience must be normalized.");

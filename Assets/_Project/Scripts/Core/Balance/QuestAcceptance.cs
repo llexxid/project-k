@@ -8,6 +8,7 @@ using KingdomIdle.Gacha;
 using KingdomIdle.MageTower;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Scripts.Core;
 using Scripts.Core.Manager;
 using UnityEngine;
 
@@ -182,6 +183,21 @@ namespace KingdomIdle.Balance
             Check(QuestEconomy.Claim(20001, legacyKey) && LocalProgression.Balance(eCurrency.Gold) == 123 &&
                 LocalProgression.State.GoldRemainder == 750000,
                 "구버전 보관 Gold는 현재 동적 수입으로 덮어쓰지 않는다");
+
+            // 합쳐진 전투 카탈로그와 퀘스트 보상은 4장 및 확장 ID에서도 같은 수입을 사용한다.
+            foreach (int chapter in new[] { 4, 4096 })
+            {
+                var income = new ProgressionState
+                {
+                    OfflineStage = (long)StageParser.MakeStage(eStageType.Main, chapter, 1), OfflineKpm = 3
+                };
+                decimal expected = 6m * Scripts.Core.StageCatalogRules.MainEnemy(chapter, 1).Gold;
+                Check(expected > 60 && QuestEconomy.DynamicGold(income) == expected,
+                    chapter + "장 동적 퀘스트 골드는 bootstrap 대신 실제 카탈로그 수입을 사용한다");
+                income.OfflineKpm = 0;
+                Check(QuestEconomy.DynamicGold(income) == 60,
+                    chapter + "장 복원 직후 KPM 표본이 없으면 기존 bootstrap 골드를 유지한다");
+            }
 
             GameplayApiChecks(runId, sunday, Check);
 
@@ -423,6 +439,21 @@ namespace KingdomIdle.Balance
             string initial = JsonConvert.SerializeObject(state);
             QuestProgressEvaluator.Evaluate(catalog.Get(10011), state, catalog, _ => 1);
             check(JsonConvert.SerializeObject(state) == initial, "순수 목표 조회는 전달한 상태를 변경하지 않는다");
+
+            // 기존 보유 장비 이관은 수량을 모두 보존하되 새 획득·일일·주간 이벤트로 세지 않는다.
+            var restored = new ProgressionState { QuestDay = "2026-09-20", QuestWeek = "2026-09-14" };
+            QuestEconomy.Count(restored, eQuestObjectiveType.EquipmentObtain, 0, 7);
+            string previousCounters = JsonConvert.SerializeObject(restored.Counters);
+            EquipmentManager.ImportLegacy(restored, 1, 2, 65535);
+            check(restored.Equipment.Count == EquipmentManager.Capacity && restored.PendingEquipment.Count == 0 &&
+                restored.LegacyEquipment.Single().Count + restored.Equipment.Count == 65535 &&
+                JsonConvert.SerializeObject(restored.Counters) == previousCounters,
+                "장비 65535개 복원은 소유 수량과 기존 집계를 보존하고 오늘의 획득을 늘리지 않는다");
+            check(EquipmentManager.Grant(restored, new EquipmentSave { Id = "post-import-drop", Code = 1 }, true) &&
+                QuestProgressEvaluator.Read(restored, "L", eQuestObjectiveType.EquipmentObtain, 0) == 8 &&
+                QuestProgressEvaluator.Read(restored, "D" + restored.QuestDay, eQuestObjectiveType.EquipmentObtain, 0) == 8 &&
+                QuestProgressEvaluator.Read(restored, "W" + restored.QuestWeek, eQuestObjectiveType.EquipmentObtain, 0) == 8,
+                "복원 뒤 실제 Grant 지급은 보류 보관함을 사용해도 획득을 정확히 한번 집계한다");
 
             var corrupt = new ProgressionState { QuestSchemaVersion = QuestEconomy.SchemaVersion, CompletedQuests = null };
             bool migratedCorrupt = QuestEconomy.Migrate(corrupt);

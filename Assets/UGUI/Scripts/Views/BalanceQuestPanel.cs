@@ -249,7 +249,7 @@ namespace KingdomIdle.UGUI
             if (row.Snapshot.Token.AccountGeneration != LocalProgression.AccountGeneration) { Rebind(false); return; }
             if (row.Snapshot.CanClaim) Claim(row);
             else if (row.Snapshot.State == QuestRowState.InProgress)
-                QuestNavigation.Navigate(row.Snapshot.ObjectiveType);
+                QuestNavigation.Navigate(row.Snapshot.ObjectiveType, row.Snapshot.TargetId);
         }
 
         /// <summary>화면에 표시했던 기간 토큰 그대로 요청한다. 저장 실패 시 UI가 보상이나 진행도를 추측해 바꾸지 않는다.</summary>
@@ -259,6 +259,8 @@ namespace KingdomIdle.UGUI
             var result = _manager.TryClaim(row.Snapshot.Token);
             if (result.Status == QuestClaimStatus.SaveFailed)
                 UIManager.Instance?.ShowToast("보상 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+            else if (result.Succeeded && row.Snapshot.Category == eQuestCategory.Guide)
+                UIManager.Instance?.ShowToast("가이드 완료");
             Rebind(false);
         }
 

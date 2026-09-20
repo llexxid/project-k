@@ -1,0 +1,12 @@
+{
+  "status": "failed",
+  "passed": 3,
+  "checks": [
+    "Pending daily and weekly reward fixture commits",
+    "Monday rollover retains old pending rewards",
+    "Real UIManager Awake initializes the copied UI root and input raycaster"
+  ],
+  "error": "System.InvalidOperationException: Sequence contains no elements\r\n  at System.Linq.Enumerable.Single[TSource] (System.Collections.Generic.IEnumerable`1[T] source) [0x0002d] in <80564d689e48448fa2a7101993ee7201>:0 \r\n  at QuestCardInteraction.ActiveGuide (KingdomIdle.UGUI.UIManager ui) [0x00000] in C:\\GitHub\\project-k\\Assets\\UGUI\\Editor\\QuestCardInteraction.cs:221 \r\n  at QuestCardInteraction+<Run>d__8.MoveNext () [0x0014e] in C:\\GitHub\\project-k\\Assets\\UGUI\\Editor\\QuestCardInteraction.cs:68 \r\n  at QuestCardInteraction+<Drive>d__7.MoveNext () [0x00026] in C:\\GitHub\\project-k\\Assets\\UGUI\\Editor\\QuestCardInteraction.cs:45 ",
+  "captures": [],
+  "scope": "Real UIManager/prefabs in isolated non-combat PlayMode fixture; synthetic pointer events through real raycast handlers"
+}

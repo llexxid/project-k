@@ -18,5 +18,7 @@ namespace KingdomIdle.UGUI
         public ScrollRect invScroll;
         public RectTransform invGrid;         // 보유 스킬 셀(MageSkillCellView) 그리드 부모
         public UIPulseGroup pulse;            // 선택모드 펄스 구동자 (루트에 부착)
+        public TMP_Text selectionLabel, equipLabel;
+        public Button equipButton, unequipButton, detailButton;
     }
 }

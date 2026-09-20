@@ -24,6 +24,9 @@ namespace Scripts.Core.SO
         [SerializeField] private ulong _bgmTypeValue;
         [SerializeField] private bool _enabled;
         [SerializeField] private List<StageMonsterEntry> _monsterEntries;
+        [SerializeField] private StageEncounterData _encounter;
+        public StageEncounterData Encounter => _encounter;
+        public void SetEncounter(StageEncounterData encounter) => _encounter = encounter;
 
         public eStage Id => (eStage)_idValue;
         public eStageFlowType FlowType => _flowType;
@@ -132,7 +135,7 @@ namespace Scripts.Core.SO
     }
 
     /// <summary>
-    /// Stage_Revised.xlsx를 Unity가 런타임에 읽을 수 있는 형태로 변환한 데이터베이스다.
+    /// Stage_Catalog.xlsx를 Unity가 런타임에 읽을 수 있는 형태로 변환한 데이터베이스다.
     /// 엑셀은 빌드에 포함하지 않고, Editor 생성기가 이 SO의 직렬화 목록을 갱신한다.
     /// </summary>
     [CreateAssetMenu(fileName = "StageDatabaseSO", menuName = "SO/Stage Database")]
@@ -141,16 +144,29 @@ namespace Scripts.Core.SO
         [SerializeField] private List<StageDatabaseRecord> _stages = new List<StageDatabaseRecord>();
         [SerializeField] private List<BossFlowRecord> _bossFlows = new List<BossFlowRecord>();
         [SerializeField] private List<KillCountFlowRecord> _killCountFlows = new List<KillCountFlowRecord>();
+        [SerializeField] private string _catalogHash;
+        [SerializeField] private List<StageEnvironmentPreset> _environmentPresets = new();
+        [SerializeField] private List<CatalogMonsterInfo> _catalogMonsters = new();
+        [SerializeField] private int _dailyTickets = 2;
+        [SerializeField] private StageEndlessRules _endless;
+        public string CatalogHash => _catalogHash;
+        public IReadOnlyList<StageEnvironmentPreset> EnvironmentPresets => _environmentPresets;
+        public IReadOnlyList<CatalogMonsterInfo> CatalogMonsters => _catalogMonsters;
+        public int DailyTickets => _dailyTickets;
+        public void SetCatalog(string hash, List<StageEnvironmentPreset> environments, List<CatalogMonsterInfo> monsters, int tickets, StageEndlessRules endless)
+        { _catalogHash = hash; _environmentPresets = environments; _catalogMonsters = monsters; _dailyTickets = tickets; _endless = endless; }
 
         private Dictionary<eStage, StageDatabaseRecord> _stageById;
         private Dictionary<string, BossFlowRecord> _bossFlowById;
         private Dictionary<string, KillCountFlowRecord> _killCountFlowById;
         private Dictionary<eStage, eStage> _nextDifficultyById;
         private Dictionary<ulong, eMonsterType[]> _monsterTypesByResourceGroup;
+        private readonly Dictionary<eStage, StageDatabaseRecord> _endlessCache = new();
 
         /// <summary>직렬화 목록을 빠른 조회용 Dictionary로 한 번 변환한다.</summary>
         public void Init()
         {
+            _endlessCache.Clear();
             _stageById = new Dictionary<eStage, StageDatabaseRecord>();
             _bossFlowById = new Dictionary<string, BossFlowRecord>(StringComparer.Ordinal);
             _killCountFlowById = new Dictionary<string, KillCountFlowRecord>(StringComparer.Ordinal);
@@ -197,7 +213,28 @@ namespace Scripts.Core.SO
         public bool TryGetStage(eStage id, out StageDatabaseRecord record)
         {
             EnsureInitialized();
-            return _stageById.TryGetValue(id, out record);
+            if (_stageById.TryGetValue(id, out record) || _endlessCache.TryGetValue(id, out record)) return true;
+            int chapter = StageParser.GetStageNumber(id), wave = StageParser.GetWaveNumber(id);
+            if (_endless == null || chapter <= 3 || wave < 1 || wave > 11 || StageParser.GetStageType(id) != eStageType.Main ||
+                id != StageParser.MakeStage(eStageType.Main, chapter, wave) ||
+                !_stageById.TryGetValue(StageParser.GetFixedStageKey(id), out var source)) return false;
+            var entries = new List<StageMonsterEntry>(source.MonsterEntries.Count);
+            foreach (var entry in source.MonsterEntries)
+            {
+                double role = 1;
+                foreach (var monster in _catalogMonsters)
+                    if (monster.Id == entry.MonsterType) { role = monster.AttackMultiplier; break; }
+                entries.Add(entry.WithCombat(_endless.Enemy(chapter, wave, role, entry.Combat)));
+            }
+            record = new StageDatabaseRecord(id, source.FlowType, source.EnvironmentId, source.MonsterStatMultiplier,
+                source.SpawnPointSetId, source.FlowConfigId, "main-" + chapter + "-" + wave, source.TimeLimitSec,
+                source.LoopSpawnIntervalSec, source.LoopSpawnAliveThreshold, source.HasBgm, source.BgmType, source.Enabled, entries);
+            var encounter = source.Encounter;
+            record.SetEncounter(new StageEncounterData(encounter.EnvironmentPoolId, encounter.BatchDelaySec,
+                encounter.ResetTimerPerEnemy, _endless.DropRate(chapter, wave), 0, 0, _endless.FirstClear(wave)));
+            if (_endlessCache.Count >= 128) _endlessCache.Clear();
+            _endlessCache.Add(id, record);
+            return true;
         }
 
         public bool TryGetBossFlow(string configId, out BossFlowRecord record)
@@ -223,7 +260,7 @@ namespace Scripts.Core.SO
             EnsureInitialized();
             ulong normalizedId = StageParser.GetResourceGroupId(resourceGroupId);
 
-            // 실제 Stage3 이후 메인 ID는 엑셀에 없으므로 1·2스테이지 템플릿의 리소스 그룹으로 매핑한다.
+            // Chapters beyond the authored catalog cycle all three resource groups.
             if (!_monsterTypesByResourceGroup.ContainsKey(normalizedId) &&
                 StageParser.GetStageType(resourceGroupId) == eStageType.Main)
             {

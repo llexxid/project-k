@@ -38,8 +38,7 @@ public sealed class BasicAttackSingle : ActiveSkill
         var mon = mono.GetComponentInParent<Monster>();
         if (mon != null && mon.MonAction == eMonsterAction.Dead) return false;
 
-        float dist = Vector2.Distance(_player.transform.position, target.targetPos);
-        return dist <= _range;
+        return _player.IsInMeleeReach(target.targetPos, _range);
     }
 
     public override float Execute()

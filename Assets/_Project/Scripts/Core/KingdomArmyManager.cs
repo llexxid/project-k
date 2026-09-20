@@ -107,6 +107,7 @@ namespace KingdomIdle.KingdomArmy
         /// <remarks>해당 플레이어가 이미 그 직업을 해금한 적이 있으면 파편 없이도 자유롭게 재전직 가능.</remarks>
         public bool CanChangeJob(string jobName, Player player = null)
         {
+            if (!JobData.IsAvailable(jobName)) return false;
             // 이미 해금된 직업이면 파편/선행 조건 무관 — 무료 재전직
             if (!ChangeJob.CanQueueChange) return false;
             if (player != null && HasCompletedPromotion(player, jobName))

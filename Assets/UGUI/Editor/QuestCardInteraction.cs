@@ -5,6 +5,8 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using KingdomIdle.Balance;
+using KingdomIdle.Gacha;
+using KingdomIdle.KingdomArmy;
 using KingdomIdle.UI;
 using KingdomIdle.UGUI;
 using UnityEditor;
@@ -18,10 +20,12 @@ public static class QuestCardInteraction
 {
     private static readonly List<string> Checks = new List<string>();
     private static string _status = "idle", _error;
+    private static string _outputDirectory;
     private static readonly List<string> Captures = new List<string>();
 
-    public static object Start()
+    public static object Start(string outputDirectory = "AI/validation/quest-cards-20260920")
     {
+        _outputDirectory = outputDirectory;
         if (_status == "running") throw new InvalidOperationException("Interaction check already running.");
         if (!Application.isPlaying || LocalProgression.IsReady)
             throw new InvalidOperationException("Enter the empty PlayMode scene without opening an account first.");
@@ -59,7 +63,9 @@ public static class QuestCardInteraction
             UIManager ui = fixture.Ui;
             ui.PushPanel(UIPanelId.Guide);
             yield return new WaitForSecondsRealtime(.55f);
-            yield return new WaitForEndOfFrame();
+            // BatchMode에는 GameView의 EndOfFrame이 없으므로 입력 검사만 진행한다.
+            if (Application.isBatchMode) yield return null;
+            else yield return new WaitForEndOfFrame();
             yield return null;
             GuidePanelView guide = ActiveGuide(ui);
             BalanceQuestPanel panel = guide.GetComponent<BalanceQuestPanel>();
@@ -101,7 +107,9 @@ public static class QuestCardInteraction
             ExecuteEvents.Execute(dragHandler, drag, ExecuteEvents.endDragHandler);
             Check(Mathf.Abs(scroll.content.anchoredPosition.y - before.y) > 10, "Real ScrollRect pointer drag moves the content");
             scroll.StopMovement();
-            yield return new WaitForEndOfFrame();
+            // BatchMode에는 GameView의 EndOfFrame이 없으므로 입력 검사만 진행한다.
+            if (Application.isBatchMode) yield return null;
+            else yield return new WaitForEndOfFrame();
             Capture("live-achievement.png");
             yield return null;
 
@@ -153,18 +161,105 @@ public static class QuestCardInteraction
                 "Pending-row retry claims exactly its displayed old-period token");
             // 실패 알림의 일시적 토스트가 다음 탭 레이캐스트에 영향을 주지 않도록 정상 종료를 기다린다.
             yield return new WaitForSecondsRealtime(1.6f);
-            yield return new WaitForEndOfFrame();
+            // BatchMode에는 GameView의 EndOfFrame이 없으므로 입력 검사만 진행한다.
+            if (Application.isBatchMode) yield return null;
+            else yield return new WaitForEndOfFrame();
             Capture("live-daily.png");
             yield return null;
             Click(tabs[2], fixture.Events);
             Check(Visible(panel).All(x => x.Category == eQuestCategory.Weekly) && Visible(panel).Any(x => x.IsPending) && Visible(panel).Any(x => !x.IsPending),
                 "Weekly independently includes its old pending and current-period rows");
-            yield return new WaitForEndOfFrame();
+            // BatchMode에는 GameView의 EndOfFrame이 없으므로 입력 검사만 진행한다.
+            if (Application.isBatchMode) yield return null;
+            else yield return new WaitForEndOfFrame();
             Capture("live-weekly.png");
             yield return new WaitForSecondsRealtime(.3f);
             ui.RequestBack();
             yield return new WaitForSecondsRealtime(.4f);
             Check(guide == null && !ui.HasBlockingPanel, "RequestBack closes the selected quest tab through the real panel stack");
+
+            // 정적 컨트롤러를 쓰는 목적지가 퀘스트 아래에도 있을 때 두 번 뒤로가도 원래 화면이 동작해야 한다.
+            foreach (var objective in new[] { eQuestObjectiveType.GachaUse, eQuestObjectiveType.EquipmentEquip,
+                eQuestObjectiveType.JobChange, eQuestObjectiveType.StatEnhance, eQuestObjectiveType.ItemUse })
+            {
+                bool summon = objective == eQuestObjectiveType.GachaUse;
+                UIPanelId destination = QuestNavigation.Destination(objective).Value;
+                Type controller = destination switch
+                {
+                    UIPanelId.Gacha => typeof(GachaPanelController),
+                    UIPanelId.KingdomArmy => typeof(KingdomArmyPanelController),
+                    UIPanelId.Development => typeof(DevelopmentPanelController),
+                    _ => typeof(InventoryPanelController)
+                };
+                // 같은 소환 탭을 두 번 열어 이전 콘텐츠를 잘못 재사용하는 경로도 검사한다.
+                if (summon) GachaPanelController.SetPendingSkillTab(true);
+                ui.PushPanel(destination);
+                yield return new WaitForSecondsRealtime(.4f);
+                BottomSheetView original = StaticField<BottomSheetView>(controller, "_view");
+                ui.PushPanel(UIPanelId.Guide);
+                yield return new WaitForSecondsRealtime(.4f);
+                GuidePanelView returnGuide = ActiveGuide(ui);
+                QuestNavigation.Navigate(objective, summon ? 2 : 0);
+                yield return new WaitForSecondsRealtime(.4f);
+                BottomSheetView routed = StaticField<BottomSheetView>(controller, "_view");
+                Check(routed != original && routed.gameObject.activeInHierarchy && !original.gameObject.activeSelf,
+                    objective + " opens a distinct destination above Guide and the original destination");
+                if (summon)
+                {
+                    Check(StaticField<GachaTableSO>(controller, "_contentTable").gachaType == eGachaType.Skill &&
+                        StaticField<GachaTabContentView>(controller, "_content").transform.IsChildOf(routed.transform),
+                        "Target 2 selects skill summons and creates content inside the new panel, even on the same table");
+                }
+                else if (destination == UIPanelId.KingdomArmy)
+                    Check(StaticField<object>(controller, "_activeSubMenu").ToString() ==
+                        (objective == eQuestObjectiveType.EquipmentEquip ? "Equipment" : "JobChange"),
+                        objective + " selects its requested KingdomArmy subtab");
+                else if (destination == UIPanelId.Development)
+                    Check(StaticField<DevelopmentBodyView>(controller, "_body").transform.IsChildOf(routed.transform),
+                        "StatEnhance creates growth content inside the routed development panel");
+                else
+                    Check(routed.GetComponentInChildren<InventoryListPageView>(false) != null,
+                        "ItemUse creates the inventory list inside its routed panel");
+                ui.RequestBack();
+                yield return new WaitForSecondsRealtime(.3f);
+                Check(returnGuide != null && returnGuide.gameObject.activeInHierarchy,
+                    objective + " first back restores the same Guide instance");
+                ui.RequestBack();
+                yield return new WaitForSecondsRealtime(.3f);
+                Check(original.gameObject.activeInHierarchy && StaticField<BottomSheetView>(controller, "_view") == original,
+                    objective + " second back rebinds the original static controller");
+                if (summon)
+                {
+                    StaticField<List<NavTabButtonView>>(controller, "_tabButtons")[0].Button.onClick.Invoke();
+                    Check(StaticField<GachaTableSO>(controller, "_contentTable").gachaType == eGachaType.Equipment &&
+                        StaticField<GachaTabContentView>(controller, "_content").transform.IsChildOf(original.transform),
+                        "Restored summon tabs update content on the original panel");
+                }
+                else if (destination == UIPanelId.KingdomArmy)
+                {
+                    StaticField<List<NavTabButtonView>>(controller, "_navButtons")[2].Button.onClick.Invoke();
+                    Check(StaticField<object>(controller, "_activeSubMenu").ToString() == "JobChange" &&
+                        original.GetComponentInChildren<KAJobChangeView>(false) != null,
+                        "Restored KingdomArmy navigation updates the original panel");
+                }
+                else if (destination == UIPanelId.Development)
+                {
+                    StaticField<List<NavTabButtonView>>(controller, "GrowthTabs")[1].Button.onClick.Invoke();
+                    var body = StaticField<DevelopmentBodyView>(controller, "_body");
+                    Check(StaticField<bool>(controller, "_rubyTab") && body.transform.IsChildOf(original.transform) &&
+                        Field<RectTransform>(body, "rubyCardsRoot").gameObject.activeInHierarchy,
+                        "Restored development tabs update permanent growth on the original panel");
+                }
+                else
+                {
+                    StaticField<List<NavTabButtonView>>(controller, "_navButtons")[1].Button.onClick.Invoke();
+                    Check(StaticField<object>(controller, "_activeTab").ToString() == "Equipment" &&
+                        original.GetComponentInChildren<InventoryListPageView>(false) != null,
+                        "Restored inventory tabs update the original panel");
+                }
+                ui.RequestBack();
+                yield return new WaitForSecondsRealtime(.3f);
+            }
         }
         finally { fixture.Dispose(); }
         Check(!LocalProgression.IsReady, "Fixture cleanup restores the unopened account context");
@@ -172,7 +267,8 @@ public static class QuestCardInteraction
 
     private static void Capture(string name)
     {
-        string directory = Path.GetFullPath("AI/validation/quest-cards-20260920");
+        if (Application.isBatchMode) return; // 화면 이미지는 별도 PreviewScene 캡처로 검증한다.
+        string directory = Path.GetFullPath(_outputDirectory);
         Directory.CreateDirectory(directory);
         string path = Path.Combine(directory, name);
         ScreenCapture.CaptureScreenshot(path);
@@ -207,7 +303,7 @@ public static class QuestCardInteraction
         return hits[0];
     }
     private static Vector2 ScreenCenter(RectTransform rect) => RectTransformUtility.WorldToScreenPoint(null, rect.TransformPoint(rect.rect.center));
-    private static GuidePanelView ActiveGuide(UIManager ui) => ui.LayerPanels.GetComponentsInChildren<GuidePanelView>(false).Single();
+    private static GuidePanelView ActiveGuide(UIManager ui) => ui.LayerOverlays.GetComponentsInChildren<GuidePanelView>(false).Single();
     private static List<QuestRowSnapshot> Visible(BalanceQuestPanel panel) => Field<List<QuestRowSnapshot>>(panel, "_visible");
     private static Button ClaimButton(BalanceQuestPanel panel, QuestClaimToken token)
     {
@@ -228,15 +324,20 @@ public static class QuestCardInteraction
     private static void Set(object target, string name, object value) => target.GetType()
         .GetField(name, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public).SetValue(target, value);
     private static void SetUi(UIManager value) => typeof(UIManager).GetProperty("Instance").GetSetMethod(true).Invoke(null, new object[] { value });
+    private static T StaticField<T>(Type type, string name) => (T)type.GetField(name, BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
+    private static void SetSingleton(Type type, object value) => type.GetProperty("Instance").GetSetMethod(true).Invoke(null, new[] { value });
 
     private sealed class Fixture : IDisposable
     {
         public UIManager Ui;
         public EventSystem Events;
-        private GameObject _root, _questRoot, _eventsRoot;
+        private GameObject _root, _questRoot, _eventsRoot, _routeRoot;
+        private readonly List<GachaTableSO> _routeTables = new List<GachaTableSO>();
         private IDisposable _scope;
         private readonly QuestManager _previousQuest = QuestManager.Instance;
         private readonly UIManager _previousUi = UIManager.Instance;
+        private readonly GachaManager _previousGacha = GachaManager.Instance;
+        private readonly KingdomArmyManager _previousArmy = KingdomArmyManager.Instance;
         private readonly EventSystem _previousEvents = EventSystem.current;
         private readonly float _volume = AudioListener.volume;
         private readonly int _frameRate = Application.targetFrameRate, _sleep = Screen.sleepTimeout;
@@ -256,6 +357,21 @@ public static class QuestCardInteraction
             LocalProgression.TestUtcNow += 2;
             Check(LocalProgression.SynchronizeQuests(), "Monday rollover retains old pending rewards");
 
+            // 실제 컨트롤러의 탭 선택만 검사한다. 전투·뽑기 실행 없이 비활성 매니저와 임시 테이블을 연결한다.
+            _routeRoot = new GameObject("QuestCardInteraction_Routes"); _routeRoot.SetActive(false);
+            var gacha = _routeRoot.AddComponent<GachaManager>();
+            var army = _routeRoot.AddComponent<KingdomArmyManager>();
+            foreach (var type in new[] { eGachaType.Equipment, eGachaType.Skill })
+            {
+                var table = ScriptableObject.CreateInstance<GachaTableSO>();
+                table.nameKor = type.ToString(); table.gachaType = type;
+                table.costCurrency = eCurrency.AncientCoin; table.costAmount = 50; table.isImplemented = true;
+                _routeTables.Add(table);
+            }
+            Set(gacha, "gachaTables", _routeTables);
+            SetSingleton(typeof(GachaManager), gacha);
+            SetSingleton(typeof(KingdomArmyManager), army);
+
             _questRoot = new GameObject("QuestCardInteraction_Quest"); _questRoot.SetActive(false);
             var quest = _questRoot.AddComponent<QuestManager>(); QuestManager.Instance = quest; _questRoot.SetActive(true);
             _root = new GameObject("QuestCardInteraction_Ui"); _root.SetActive(false);
@@ -274,12 +390,17 @@ public static class QuestCardInteraction
 
         public void Dispose()
         {
+            if (Ui != null) Ui.ClearPanels();
             if (_root != null) _root.SetActive(false);
             if (_questRoot != null) _questRoot.SetActive(false);
             QuestManager.Instance = _previousQuest; SetUi(_previousUi); EventSystem.current = _previousEvents;
+            SetSingleton(typeof(GachaManager), _previousGacha);
+            SetSingleton(typeof(KingdomArmyManager), _previousArmy);
             if (_root != null) Object.DestroyImmediate(_root);
             if (_questRoot != null) Object.DestroyImmediate(_questRoot);
             if (_eventsRoot != null) Object.DestroyImmediate(_eventsRoot);
+            if (_routeRoot != null) Object.DestroyImmediate(_routeRoot);
+            foreach (var table in _routeTables) Object.DestroyImmediate(table);
             _scope?.Dispose();
             // Awake가 읽어 적용한 전역 UI 설정과 신규 호환 키를 원상복구한다. 원본 에셋은 저장하지 않는다.
             foreach (var pair in _settings) pair.Key.SetValue(null, pair.Value);

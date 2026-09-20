@@ -1,0 +1,126 @@
+{
+  "workflow": {
+    "1": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": "235c0a6e26b801296ff24fab605e5ee6e1e3107bc47d7af3c767ea3c2da8a12d.png"
+      }
+    },
+    "2": {
+      "class_type": "ImageCrop",
+      "inputs": {
+        "image": [
+          "1",
+          0
+        ],
+        "width": 1696,
+        "height": 624,
+        "x": 40,
+        "y": 140
+      }
+    },
+    "3": {
+      "class_type": "ImageScale",
+      "inputs": {
+        "image": [
+          "2",
+          0
+        ],
+        "upscale_method": "nearest-exact",
+        "width": 64,
+        "height": 24,
+        "crop": "disabled"
+      }
+    },
+    "4": {
+      "class_type": "ImageQuantize",
+      "inputs": {
+        "image": [
+          "3",
+          0
+        ],
+        "colors": 6,
+        "dither": "none"
+      }
+    },
+    "5": {
+      "class_type": "ThresholdMask",
+      "inputs": {
+        "mask": [
+          "1",
+          1
+        ],
+        "value": 0.5
+      }
+    },
+    "6": {
+      "class_type": "MaskToImage",
+      "inputs": {
+        "mask": [
+          "5",
+          0
+        ]
+      }
+    },
+    "7": {
+      "class_type": "ImageCrop",
+      "inputs": {
+        "image": [
+          "6",
+          0
+        ],
+        "width": 1696,
+        "height": 624,
+        "x": 40,
+        "y": 140
+      }
+    },
+    "8": {
+      "class_type": "ImageScale",
+      "inputs": {
+        "image": [
+          "7",
+          0
+        ],
+        "upscale_method": "nearest-exact",
+        "width": 64,
+        "height": 24,
+        "crop": "disabled"
+      }
+    },
+    "9": {
+      "class_type": "ImageToMask",
+      "inputs": {
+        "image": [
+          "8",
+          0
+        ],
+        "channel": "red"
+      }
+    },
+    "10": {
+      "class_type": "JoinImageWithAlpha",
+      "inputs": {
+        "image": [
+          "4",
+          0
+        ],
+        "alpha": [
+          "9",
+          0
+        ]
+      }
+    },
+    "11": {
+      "class_type": "SaveImage",
+      "inputs": {
+        "images": [
+          "10",
+          0
+        ],
+        "filename_prefix": "KingdomIdle/VFX/LightningBloomCloud_64x24"
+      }
+    }
+  },
+  "confirm": true
+}

@@ -1,4 +1,5 @@
 using KingdomIdle.Balance;
+using KingdomIdle.Combat;
 using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Monster;
@@ -16,9 +17,7 @@ public sealed class BasicAttackRect : ActiveSkill
     private readonly float _cooldown;
     private readonly float _damageMultiplier;
 
-    private readonly List<Collider2D> _hitResults = new List<Collider2D>();
     private readonly List<IDamageable> _targets = new List<IDamageable>();
-    private readonly LayerMask _enemyLayer = GameLayers.EnemyMask;
 
     public override string DisplayName => "기본공격";
     public override float Cooldown => _cooldown;
@@ -45,35 +44,23 @@ public sealed class BasicAttackRect : ActiveSkill
         var mon = mono.GetComponentInParent<Monster>();
         if (mon != null && mon.MonAction == eMonsterAction.Dead) return false;
 
-        float dist = Vector2.Distance(_player.transform.position, target.targetPos);
-        return dist <= _range;
+        return _player.IsInMeleeReach(target.targetPos, _range);
     }
 
     public override float Execute()
     {
-        float facing = _player.transform.localScale.x >= 0f ? 1f : -1f;
-        Vector2 center = (Vector2)_player.transform.position + new Vector2(facing * _halfWidth, 0f);
-
-        ContactFilter2D filter = new ContactFilter2D();
-        filter.SetLayerMask(_enemyLayer);
-        filter.useLayerMask = true;
-        filter.useTriggers = true;
-
-        int hitCount = Physics2D.OverlapBox(
-            center, new Vector2(_halfWidth * 2f, _halfHeight * 2f), 0f, filter, _hitResults);
-
         long baseAtk = _player.playerStatus?.Atk ?? 0;
         long damage = BalanceMath.Damage(baseAtk, (decimal)_damageMultiplier);
         _targets.Clear();
-
-        for (int i = 0; i < hitCount; i++)
+        // Combat uses feet, while tall monsters' colliders sit above their feet.
+        // Prioritize the selected victim, then up to two neighbours in the same lane.
+        if (_player.currentTarget is Monster primary && primary.MonAction != eMonsterAction.Dead &&
+            _player.IsInMeleeReach(primary.FootPosition, _range)) _targets.Add(primary);
+        foreach (var mon in CombatMotion.Monsters)
         {
-            var mon = _hitResults[i].GetComponentInParent<Monster>();
-            if (mon == null || mon.MonAction == eMonsterAction.Dead) continue;
-
-            var d = _hitResults[i].GetComponentInParent<IDamageable>();
-            if (d != null && _targets.Count < 3 && !_targets.Contains(d))
-                _targets.Add(d);
+            if (_targets.Count >= 3) break;
+            if (mon == null || mon.MonAction == eMonsterAction.Dead || _targets.Contains(mon)) continue;
+            if (_player.IsInMeleeReach(mon.FootPosition, _range, CombatMotion.MeleeLane)) _targets.Add(mon);
         }
 
         if (_targets.Count > 0)

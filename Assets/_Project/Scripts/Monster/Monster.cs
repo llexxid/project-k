@@ -1,3 +1,4 @@
+using KingdomIdle.Combat;
 using KingdomIdle.UGUI; // UI 연동(피격 데미지 텍스트)
 using Scripts.Core;
 using Scripts.Core.inteface;
@@ -40,7 +41,7 @@ namespace Scripts.Monster
 		public readonly long _dropTableNumber;
 	}
 
-	public class Monster : MonoBehaviour, IPoolable, IDamageable, IAttackable
+	public partial class Monster : MonoBehaviour, IPoolable, IDamageable, IAttackable
 	{
 		[Serializable]
 		public struct MonsterStat
@@ -72,19 +73,22 @@ namespace Scripts.Monster
 		public long Exp { get; set; }
 		public double Ratio { get; set; }	    
 		public IDamageable Target { get; private set; }
-		public Vector3 attackerPos => transform.position;
-		public Vector3 targetPos => transform.position;
+		public Vector3 attackerPos => FootPosition;
+		public Vector3 targetPos => FootPosition;
 		public float AttackRadius => _attackRadius;
 		public float DectectRadius => _detectRadius;
 		public int FacingDir => _facingDir;
 		public AnimatorComponent<eMonsterAction> AnimationComponent => _animatorComponent;		
 		public float LastAttackTime => _lastAttackTime;
+		[SerializeField, Min(0)] private float _bodyHeight;
+		[SerializeField] private float _bodyTopY;
+		public Vector3 HeadPosition => transform.TransformPoint(Vector3.up * (_bodyHeight > 0 ? _bodyTopY : 1.2f));
+		public Vector3 FootPosition => transform.TransformPoint(Vector3.up * (_bodyHeight > 0 ? _bodyTopY - _bodyHeight : 0));
 		public GameObject gameobj => transform.gameObject;		
 		
 		[SerializeField] private MonsterStat _stat;
 		private MonsterStat _initialStat; // 여기 추가함
 		private double _speedMultiplier = 1d;
-		private Renderer _cachedRenderer; // 데미지 텍스트 머리 좌표용 (풀링 시 계층이 안 바뀌므로 1회 캐시)
 		[NonSerialized] eMonsterType _type;
 		long _dropTableNumber;
 
@@ -117,8 +121,8 @@ namespace Scripts.Monster
 		//Todo : SkillComponent . 몬스터 스킬
 		void Awake()
 		{
-			_detectRadius = 2.5f;
-			_attackRadius = 0.8f;
+			_detectRadius = 8f;
+			_attackRadius = Mathf.Max(.7f, _attackRadius);
 			_facingDir = 1; // 1 : Right, -1 : Left
 			_am = gameObject.GetComponentInChildren<Animator>();
 
@@ -135,13 +139,15 @@ namespace Scripts.Monster
 
 		void Update()
 		{
+			if (_monAction == eMonsterAction.Dead) return;
 			ApplyKnockbackMovement();
+            TickCombat();
 
 			if (_monAI != null)
 			{
 				_monAI.ExecuteNode();
 			}
-			_stateManchine.currentState.OnUpdate();
+			_stateManchine.currentState?.OnUpdate();
 		}
 
 		public float GetHpRatio()
@@ -190,7 +196,7 @@ namespace Scripts.Monster
 			return _stat._moveSpeed * _speedMultiplier;
 		}
 
-		/// <summary>이동속도 배율. 신 스킬의 둔화(Slow) 등 외부 효과가 일시적으로 낮춘다.</summary>
+		/// <summary>이동속도 배율. 마탑의 둔화(Slow) 등 외부 효과가 일시적으로 낮춘다.</summary>
 		public double SpeedMultiplier
 		{
 			get { return _speedMultiplier; }
@@ -201,24 +207,22 @@ namespace Scripts.Monster
 		public long MaxHp => _stat._maxHp;
 		public void ResetTarget(IDamageable target)
 		{
-			Target = null;
-			//CustomLogger.Log("Target 초기화!");
+            if (Target != target) return;
+            if (Target != null) Target.OnDeath -= ResetTarget;
+            Target = null;
 		}
 		public void SetType(eMonsterType monsterType)
 		{
 			_type = monsterType;
 		}
-		public void SetTarget(IDamageable target)
-		{
-			if (target == null)
-			{
-				CustomLogger.Log("Target IS NULL");
-				return;
-			}
-			
-			Target = target;
-			target.OnDeath += ResetTarget;
-		}
+        public void SetTarget(IDamageable target)
+        {
+            if (HasTaunt && !ReferenceEquals(target, _tauntOwner)) return;
+            if (Target == target) return;
+            if (Target != null) Target.OnDeath -= ResetTarget;
+            Target = target;
+            if (Target != null) Target.OnDeath += ResetTarget;
+        }
 		public void SetAction(eMonsterAction action)
 		{
 			_monAction = action;
@@ -226,6 +230,7 @@ namespace Scripts.Monster
 		public void OnAlloc()
 		{
 			_hitFlash?.ResetFlash();
+            ResetCombat();
 
 			//생성자
 			OnDeath = null;
@@ -237,6 +242,7 @@ namespace Scripts.Monster
 			_stateManchine.BeginMachine(new MonsterMoveState(this));
 			foreach (var col in GetComponentsInChildren<Collider2D>())
 				col.enabled = true;
+			foreach (var body in GetComponentsInChildren<Rigidbody2D>()) body.simulated = true;
 			_monAI.RecoveryBT();
 			OnHpChanged?.Invoke(GetHpRatio());
 			return;
@@ -245,9 +251,10 @@ namespace Scripts.Monster
 		public void OnRelease()
 		{
 			_hitFlash?.ResetFlash();
+            ResetCombat();
 
 			//만약에 리지드 바디가 있다면, 초기화.
-			Target = null;
+            SetTarget(null);
 			return;
 		}
 		public bool TakeDamage(IAttackable attacker)
@@ -259,14 +266,8 @@ namespace Scripts.Monster
 			}
 
 			ulong dmg = attacker.damage;
-			// UI 연동: 몬스터 머리 위로 피격 데미지 표시.
-			// ShowOnTransform 은 호출마다 GetComponentInChildren<Renderer> 를 타므로,
-			// 광역 스킬(웨이브 전체 동시 타격)을 위해 캐시한 렌더러로 머리 좌표를 직접 계산한다.
-			if (_cachedRenderer == null) _cachedRenderer = GetComponentInChildren<Renderer>();
-			Vector3 headPos = _cachedRenderer != null
-				? new Vector3(_cachedRenderer.bounds.center.x, _cachedRenderer.bounds.max.y, _cachedRenderer.bounds.center.z)
-				: transform.position + Vector3.up * 1.2f;
-			DamageTextBridge.ShowWorld(headPos, dmg);
+			// Stable body anchor excludes transparent sheet margins and animated weapons.
+			DamageTextBridge.ShowWorld(HeadPosition, dmg);
 
 			bool IsAlive = setHp(dmg);
 			OnHpChanged?.Invoke(GetHpRatio());
@@ -275,6 +276,12 @@ namespace Scripts.Monster
 			if (!IsAlive)
 			{
 				_monAction = eMonsterAction.Dead;
+				_knockbackVelocity = Vector2.zero;
+				CancelAttack();
+				SetTarget(null);
+				foreach (var col in GetComponentsInChildren<Collider2D>()) col.enabled = false;
+				foreach (var body in GetComponentsInChildren<Rigidbody2D>())
+				{ body.linearVelocity = Vector2.zero; body.angularVelocity = 0; body.simulated = false; }
 				_monAI.InterruptBT();
 				_stateManchine.ChangeState(new MonsterDeadState(this));
                 OnDead();
@@ -285,18 +292,11 @@ namespace Scripts.Monster
 			return true;
 		}
 
-		public bool Attack(IDamageable target)
-		{
-			bool IsAlive;
-			IsAlive = target.TakeDamage(this);
-			if (!IsAlive)
-			{
-				//CustomLogger.Log("타겟이 죽음");
-				return false;
-			}
-			_lastAttackTime = Time.time;
-			return true;
-		}
+        public bool Attack(IDamageable target)
+        {
+            SetTarget(target);
+            return TryBeginAttack();
+        }
 
 		public void ChangeState(EntityState<Monster> state)
 		{
@@ -306,6 +306,8 @@ namespace Scripts.Monster
 		public void InterruptBehaviourTree()
 		{
 			_monAI.InterruptBT();
+            CancelAttack();
+            SetIdle();
 		}
 		public void RestartBehaviourTree()
 		{
@@ -314,16 +316,17 @@ namespace Scripts.Monster
 
 		public float GetAnimationLength(eMonsterAction action)
 		{
-			return _AnimationClipSO.GetAnimationLength(action);
+			return _AnimationClipSO != null ? _AnimationClipSO.GetAnimationLength(action) : .6f;
 		}
 
 		public void OnDead()
 		{
 			//Todo : DropItem 스폰
 			//Institate 동전
-			var listeners = OnDeath; OnDeath = null; listeners?.Invoke(this);
 			foreach (var col in GetComponentsInChildren<Collider2D>())
 				col.enabled = false;
+			// Notify only after collision is disabled; observers may advance or recycle a wave.
+			var listeners = OnDeath; OnDeath = null; listeners?.Invoke(this);
 		}
 
 		private void InitializeAnimator()
@@ -373,13 +376,13 @@ namespace Scripts.Monster
 
         public bool IsBalanceBoss { get; private set; }
         public KingdomIdle.Balance.BalanceMath.Enemy BalanceReward { get; private set; }
-        public void ApplyBalance(KingdomIdle.Balance.BalanceMath.Enemy numbers, bool boss, bool ranged, bool mimic)
+        public void ApplyBalance(KingdomIdle.Balance.BalanceMath.Enemy numbers, bool boss, bool ranged, bool mimic, float moveSpeed = 0, float attackIntervalSec = 0)
         {
             BalanceReward = numbers; IsBalanceBoss = boss;
-            _stat = new MonsterStat(numbers.HP, 0, checked((ulong)numbers.Attack), mimic ? 1.2 : 1.5, boss || mimic ? 1.5 : 1.0);
+            _stat = new MonsterStat(numbers.HP, 0, checked((ulong)numbers.Attack), moveSpeed > 0 ? moveSpeed : mimic ? 1.2 : 1.5, attackIntervalSec > 0 ? attackIntervalSec : boss || mimic ? 1.5 : 1.0);
             _initialStat = _stat; Exp = numbers.Experience; Ratio = 1;
-            _attackRadius = boss ? 1.5f : ranged ? 3.5f : 1.2f;
-            _detectRadius = Mathf.Max(4f, _attackRadius);
+            // The prefab owns reach/projectile identity; stage data owns cadence and speed.
+            _detectRadius = 8f;
             OnHpChanged?.Invoke(GetHpRatio());
         }
 
@@ -389,15 +392,19 @@ namespace Scripts.Monster
 		/// <summary>지정 방향으로 넉백 적용.</summary>
 		public void ApplyKnockback(Vector2 direction, float force)
 		{
-			if (IsBalanceBoss) return;
+			if (IsBalanceBoss || _monAction == eMonsterAction.Dead || !isActiveAndEnabled) return;
             _knockbackVelocity = direction.normalized * force;
 		}
 
 		private void ApplyKnockbackMovement()
 		{
+			if (_monAction == eMonsterAction.Dead) { _knockbackVelocity = Vector2.zero; return; }
 			if (_knockbackVelocity.sqrMagnitude < 0.01f) return;
-			transform.position += (Vector3)(_knockbackVelocity * Time.deltaTime);
-			_knockbackVelocity = Vector2.Lerp(_knockbackVelocity, Vector2.zero, Time.deltaTime * 10f);
+			// Integrate exponential drag exactly so displacement is stable at 30/60 FPS.
+			float decay = Mathf.Exp(-10f * Time.deltaTime);
+			var next = KingdomIdle.Combat.CombatMotion.Clamp((Vector2)transform.position + _knockbackVelocity * ((1f - decay) / 10f));
+			transform.position = new Vector3(next.x, next.y, transform.position.z);
+			_knockbackVelocity *= decay;
 		}
 
 		private void OnDrawGizmos()

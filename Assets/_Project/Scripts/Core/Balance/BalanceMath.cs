@@ -65,6 +65,10 @@ namespace KingdomIdle.Balance
         public static long WeaponAttack(long basis, int level) => checked(basis + Floor(basis * .10m * level));
         public static long MageDamage(long basis, int enhance, int awaken)
             => Round(basis * MageMultipliers[Clamp(enhance, 0, MageCap)] * (1m + .05m * Clamp(awaken, 0, 10)));
+        public static decimal MageAttackCoefficient(long basis, int enhance, int awaken)
+            => basis / 400m * (1m + .005m * Clamp(enhance, 0, MageCap) + .025m * Clamp(awaken, 0, 10));
+        public static long MageDamage(long basis, int enhance, int awaken, long partyAttack)
+            => checked(MageDamage(basis, enhance, awaken) + Round(Math.Max(0, partyAttack) * MageAttackCoefficient(basis, enhance, awaken)));
         public static decimal MageInterval(decimal basis, int awaken) => Math.Max(1m, basis * (1m - .02m * Clamp(awaken, 0, 10)));
         public static int MageHits(int basis, int awaken, bool persistent) => basis + (Clamp(awaken, 0, 10) / 4) * (persistent ? 2 : 1);
         public static void GainExperience(ref int level, ref long exp, long amount)

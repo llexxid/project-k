@@ -1,0 +1,16 @@
+{
+  "source": "get_billing_activity page=1 limit=30",
+  "events": [
+    {
+      "event_type": "cloud_workflow_executed",
+      "event_id": "cloud_workflow_da94555b-34c9-4e3a-8cf6-bf8133678d87",
+      "created_at": "2026-09-20T08:17:43.222203Z",
+      "params": {
+        "job_id": "da94555b-34c9-4e3a-8cf6-bf8133678d87",
+        "gpu_seconds": 2.786269,
+        "gpu_type": "rtx_pro_6000"
+      }
+    }
+  ],
+  "message": "Per-job DOLLAR cost is not something Comfy Cloud reports today \u2014 pricing is rated at invoice level. What you can get: this feed for what each job used (gpu_seconds on cloud GPU runs; on API-node runs a credits_used figure, which is Comfy Cloud\u2019s own display estimate in credits, not an invoiced amount), get_usage_report for actual spend broken down by model/endpoint/product, and estimate_credits for an approximate credit cost of a workflow before running it."
+}

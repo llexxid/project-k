@@ -367,6 +367,12 @@ namespace Scripts.Core.Parser
 
             for (int i = 0; i < _ReadFromXlsx.Count; i++)
             {
+                if (_ReadFromXlsx[i]._fileName == "eMonsterType")
+                {
+                    sb.Append(StageDataGenerator.MonsterEnumSource());
+                    HelperFuncSb.Append(StageDataGenerator.MonsterHelperSource);
+                    continue;
+                }
                 AssetData[][] data = _ReadFromXlsx[i]._AssetDatas;
                 sb.Append($"namespace Scripts.Core {{\n");
                 sb.Append($"public enum {_ReadFromXlsx[i]._fileName} : ulong\n{{");

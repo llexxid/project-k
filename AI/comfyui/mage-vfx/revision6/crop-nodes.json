@@ -1,0 +1,8 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"data\":[{\"name\":\"ImageCrop\",\"display_name\":\"Crop Image (DEPRECATED)\",\"description\":\"\",\"category\":\"image/transform\",\"pack\":\"core\",\"inputs\":{\"required\":[\"IMAGE\",\"INT\",\"INT\",\"INT\",\"INT\"]},\"input_details\":[{\"name\":\"image\",\"type\":\"IMAGE\",\"required\":true},{\"name\":\"width\",\"type\":\"INT\",\"required\":true,\"default\":512,\"min\":1,\"max\":16384},{\"name\":\"height\",\"type\":\"INT\",\"required\":true,\"default\":512,\"min\":1,\"max\":16384},{\"name\":\"x\",\"type\":\"INT\",\"required\":true,\"default\":0,\"min\":0,\"max\":16384},{\"name\":\"y\",\"type\":\"INT\",\"required\":true,\"default\":0,\"min\":0,\"max\":16384}],\"outputs\":[\"IMAGE\"],\"api_node\":false,\"output_node\":false,\"deprecated\":true},{\"name\":\"InvertMask\",\"display_name\":\"Invert Mask\",\"description\":\"\",\"category\":\"image/mask\",\"pack\":\"core\",\"inputs\":{\"required\":[\"MASK\"]},\"input_details\":[{\"name\":\"mask\",\"type\":\"MASK\",\"required\":true}],\"outputs\":[\"MASK\"],\"api_node\":false,\"output_node\":false,\"deprecated\":false}]}"
+    }
+  ]
+}

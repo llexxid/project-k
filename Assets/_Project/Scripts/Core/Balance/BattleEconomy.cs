@@ -248,12 +248,12 @@ namespace KingdomIdle.Balance
         public static void RefreshTickets(ProgressionState state)
         {
             if (state.TicketDay == LocalProgression.KstDay) return;
-            state.TicketDay = LocalProgression.KstDay; state.GoldTickets = state.RubyTickets = 2;
+            state.TicketDay = LocalProgression.KstDay; state.GoldTickets = state.RubyTickets = StageCatalogRules.Database.DailyTickets;
         }
         public static int Tickets(eStageType type)
         {
             var s = LocalProgression.State;
-            if (s.TicketDay != LocalProgression.KstDay) return 2;
+            if (s.TicketDay != LocalProgression.KstDay) return StageCatalogRules.Database.DailyTickets;
             return type == eStageType.GoldDungeon ? s.GoldTickets : s.RubyTickets;
         }
         public static bool Begin(StageSession session)
@@ -274,7 +274,7 @@ namespace KingdomIdle.Balance
         public static bool Kill(StageSession session, Monster monster)
         {
             var definition = session.Definition;
-            var drop = definition.Type == eStageType.Main && definition.WaveNumber <= 10 ? EquipmentManager.Instance?.RollFieldDrop(definition.StageNumber) : null;
+            var drop = definition.Type == eStageType.Main && definition.WaveNumber <= 10 ? EquipmentManager.Instance?.RollFieldDrop(definition.Encounter.EquipmentDropRate) : null;
             bool ok = LocalProgression.Execute("battle-kill", s => {
                 if (s.ActiveBattleId != session.RunId || session.TotalKillCount <= s.LastKillSequence) return false;
                 var reward = monster.BalanceReward;
@@ -326,16 +326,16 @@ namespace KingdomIdle.Balance
                     s.HighestMainClear = Math.Max(s.HighestMainClear, id);
                     if (d.WaveNumber == 11) s.CycleBossStage = Math.Max(s.CycleBossStage, d.StageNumber);
                     bool first = s.MainClears.Add(id);
-                    if (first) FirstClear(s, d.StageNumber, d.WaveNumber);
+                    if (first) FirstClear(s, d.Encounter.FirstClear);
                     if (d.WaveNumber <= 10 && id >= s.OfflineStage)
                     { s.OfflineStage = id; s.OfflineKpm = kpm; s.OfflineRubyGold = s.RubyGoldLevel; s.OfflineRubyExp = s.RubyExpLevel; }
                 }
                 else if (d.Type == eStageType.GoldDungeon)
-                { s.GoldDungeonClear = Math.Max(s.GoldDungeonClear, d.StageNumber);s.LastDungeonGold=checked(session.TotalKillCount*BalanceMath.Mimic(d.StageNumber).Gold);s.LastDungeonRuby=0; }
+                { s.GoldDungeonClear = Math.Max(s.GoldDungeonClear, d.StageNumber);s.LastDungeonGold=StageCatalogRules.DungeonReward(true,d.StageNumber);s.LastDungeonRuby=0; }
                 else
                 {
-                    long ruby = BalanceMath.RubyClear(d.StageNumber);
-                    if (s.Claims.Add("ruby-first:" + d.StageNumber)) ruby += 25L * d.StageNumber;
+                    long ruby = d.Encounter.ClearRuby;
+                    if (s.Claims.Add("ruby-first:" + d.StageNumber)) ruby = checked(ruby + d.Encounter.FirstClearRuby);
                     LocalProgression.Credit(s, eCurrency.Ruby, ruby);
                     s.LastDungeonGold=0;s.LastDungeonRuby=ruby;
                     s.RubyDungeonClear = Math.Max(s.RubyDungeonClear, d.StageNumber);
@@ -348,27 +348,25 @@ namespace KingdomIdle.Balance
             if (result) { EquipmentManager.Instance?.RestoreEquipment(); MageTowerManager.Instance?.NotifyCommitted(); }
             return result;
         }
-        private static void FirstClear(ProgressionState s, int stage, int wave)
+        private static void FirstClear(ProgressionState s, StageFirstClearReward reward)
         {
-            int node = stage * 100 + wave;
-            if (node == 101 || node == 103 || node == 107)
+            if (!reward.Defined) return;
+            if (!string.IsNullOrEmpty(reward.WeaponJob))
             {
-                string job = node == 101 ? "Knight" : node == 103 ? "Archer" : "Mage";
-                int attack = node == 107 ? 15 : 10;
-                var data = EquipmentManager.Instance?.GetByRarity(eEquipmentRarity.Normal).Find(x => x.IsAllowedForJob(job) && x.bonusAtk == attack);
+                var data = EquipmentManager.Instance?.GetByRarity(eEquipmentRarity.Normal).Find(x => x.IsAllowedForJob(reward.WeaponJob) && x.bonusAtk == reward.WeaponAttack);
                 if (data == null || !EquipmentManager.Grant(s, new EquipmentSave { Id = Guid.NewGuid().ToString("N"), Code = data.itemCode }, true))
                     throw new InvalidOperationException("First-clear weapon unavailable.");
             }
-            int skill = node == 105 ? 0 : node == 203 ? 1 : node == 303 ? 2 : -1;
+            int skill = reward.UnlockSkillId;
             if (skill >= 0)
             {
                 MageTowerManager.Grant(s, skill);
                 if (!s.MageSlots.Contains(skill)) { int slot = Array.IndexOf(s.MageSlots, -1); if (slot >= 0) s.MageSlots[slot] = skill; }
             }
-            long coins = node == 111 || node == 205 ? 100 : node == 211 ? 200 : node == 311 ? 300 : 0;
-            if (coins > 0) LocalProgression.Credit(s, eCurrency.AncientCoin, coins);
-            if (node == 111 || node == 311) LocalProgression.Credit(s, eCurrency.ClassFragment, 40);
-            if (node == 211) MageTowerManager.Grant(s, 0);
+            if (reward.AncientCoins > 0) LocalProgression.Credit(s, eCurrency.AncientCoin, reward.AncientCoins);
+            if (reward.ClassFragments > 0) LocalProgression.Credit(s, eCurrency.ClassFragment, reward.ClassFragments);
+            if (reward.FragmentSkillId >= 0)
+                for (int i = 0; i < reward.SkillFragments; i++) MageTowerManager.Grant(s, reward.FragmentSkillId);
         }
     }
 }

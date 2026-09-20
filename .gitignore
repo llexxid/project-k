@@ -3,6 +3,8 @@
 # Get latest from https://github.com/github/gitignore/blob/main/Unity.gitignore
 #
 .utmp/
+__pycache__/
+*.py[cod]
 /[Ll]ibrary/
 /[Tt]emp/
 /[Oo]bj/
@@ -64,9 +66,9 @@ sysinfo.txt
 *.unitypackage.meta
 *.app
 
-# Keep source packages shipped with external assets
-!/[Aa]ssets/ExternalAssets/**/*.unitypackage
-!/[Aa]ssets/ExternalAssets/**/*.unitypackage.meta
+# Downloaded source archive. Keep game-ready copies outside this folder.
+/[Aa]ssets/ExternalAssets/
+/[Aa]ssets/ExternalAssets.meta
 
 # Crashlytics generated file
 crashlytics-build.properties

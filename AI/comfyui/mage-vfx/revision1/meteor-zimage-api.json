@@ -1,0 +1,121 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "z_image_turbo_bf16.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "lumina2",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "lora_name": "zimage-hard_edge_pixel_art.safetensors",
+      "strength_model": 0.85
+    }
+  },
+  "5": {
+    "class_type": "ModelSamplingAuraFlow",
+    "inputs": {
+      "model": [
+        "4",
+        0
+      ],
+      "shift": 3
+    }
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "text": "Pixel art game VFX sprite of a single massive descending molten meteor, viewed from an elevated three-quarter angle for a 2D quarter-view fantasy RPG. Irregular angular dark burnt-orange rock core near lower left, bright yellow-white fissures, a streamlined blazing orange fire tail trailing diagonally up to the right. The meteor is flying from upper right toward lower left. Cohesive fluid tapering flame silhouette with three long tongues, small glowing embers close to the tail. Clear planar rock facets and deliberate pixel clusters. Restrained six-color palette: deep brick red, burnt orange, vivid orange, gold, pale yellow, ivory. Crisp pixel art without any black outline, no gradients, no bloom haze, no text, no ground, no circle, no UI, no scene. Isolated centered on completely solid pure black background with generous empty margins. Full object and tail visible. Polished 96 by 96 logical pixel sprite enlarged with nearest-neighbor sampling, consistent one-pixel details."
+    }
+  },
+  "7": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {
+      "conditioning": [
+        "6",
+        0
+      ]
+    }
+  },
+  "8": {
+    "class_type": "EmptySD3LatentImage",
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    }
+  },
+  "9": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "5",
+        0
+      ],
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "latent_image": [
+        "8",
+        0
+      ],
+      "seed": 2026091901,
+      "steps": 8,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1
+    }
+  },
+  "10": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "9",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "11": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "10",
+        0
+      ],
+      "filename_prefix": "ProjectK_Meteor_ZImage_v1"
+    }
+  }
+}

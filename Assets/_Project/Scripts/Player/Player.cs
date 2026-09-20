@@ -9,7 +9,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
+public partial class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 {
     //Events
     public event Action<IDamageable> OnDeath;
@@ -19,8 +19,8 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     public bool IsDead => _isDead;
     public ePlayerAction CurrentAction => _currentAction; 
     public ulong damage => (ulong)(playerStatus?.Atk ?? 0);
-    public Vector3 targetPos => transform.position;
-    public Vector3 attackerPos => transform.position;
+    public Vector3 targetPos => VfxFootPosition;
+    public Vector3 attackerPos => VfxFootPosition;
     public GameObject gameobj => transform.gameObject;
     public int PlayerIndex => _data._index;    
     /// <summary>현재 공격 애니메이션의 재생 여부를 반환</summary>
@@ -42,7 +42,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         get
         {
             long maxHP = playerStatus?.MaxHP ?? 1;
-            return maxHP > 0 ? (float)_data._Hp / maxHP : 1f;
+            return maxHP > 0 ? Mathf.Clamp01((float)(playerStatus?.HP ?? 0) / maxHP) : 0f;
         }
     }
     
@@ -106,10 +106,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
         playerOrder = new PlayerOrder();
         playerOrder.Init(this);
 
-        #if UNITY_EDITOR
-            _data._Hp = 50;
-            _data._atk = 10;
-        #endif
     }
     
     void Update()
@@ -126,8 +122,10 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
                 _am.Play(Animator.StringToHash("Attack_Anim"), 0, 1f);
         }
 
+        if (playerOrder.IsAbort) return;
+        if (_hasPendingSkillDamage && Time.time >= _pendingImpactAt) OnSkillHit();
         skillSystem?.Tick();
-        playerOrder._rootNode?.Evaluate();
+        playerOrder.ExecuteNode();
     }
     #endregion
 
@@ -159,10 +157,11 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
             MIN_SKILL_INTERVAL);
 
         // 간격보다 클립이 길 때만 애니메이션을 빠르게 한다.
-        float requiredSpeed = clipLength / safeInterval;
+        float requestedMotion = Mathf.Clamp(safeInterval * .62f, .48f, 1.05f);
+        float requiredSpeed = clipLength / requestedMotion;
         float playbackSpeed = Mathf.Clamp(
             requiredSpeed,
-            1f,
+            .35f,
             MAX_ATTACK_ANIMATION_SPEED);
 
         float animationDuration = clipLength / playbackSpeed;
@@ -174,6 +173,9 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
         _pendingAnimRecovery = false;
         _attackAnimEndTime = Time.time + animationDuration;
+        _pendingImpactAt = Time.time + animationDuration * BasicImpactNormalized("OnSkillHit") + .04f;
+        BasicAttackSerial++;
+        KingdomIdle.Combat.CombatDiagnostics.Record("player-windup",this,_currentTarget as MonoBehaviour,effectiveInterval);
 
         if (_currentAction == ePlayerAction.Idle ||
             _currentAction == ePlayerAction.Walk)
@@ -336,7 +338,6 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
     public bool TakeDamage(IAttackable attacker)
     {
-        // 신 스킬 보호 버프(받는 피해 감소)를 먼저 반영한다. 버프가 없으면 원본 그대로.
         if (_isDead || attacker == null) return false;
         ulong dmg = attacker.damage;
 
@@ -349,25 +350,26 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     
     private bool setHp(ulong damage)
     {
-        long totalHp = _data._Hp + _data._extraHp;
-        if (damage >= (ulong)System.Math.Max(0L, totalHp))
+        long shield = ShieldHP;
+        if (shield > 0)
+        {
+            ulong absorbed = System.Math.Min(damage, (ulong)shield);
+            _shieldHP -= (long)absorbed; damage -= absorbed;
+            if (damage == 0) return true;
+        }
+        // PlayerStatus owns live health. Legacy PlayerData can retain an old job's
+        // HP after equipment/progression changes; it must not create hidden health.
+        long currentHp = System.Math.Clamp(playerStatus.HP, 0, playerStatus.MaxHP);
+        if (damage >= (ulong)currentHp)
         {
             _data._Hp = 0; _data._extraHp = 0; playerStatus.HP = 0;
             OnDead();
             return false;
         }
 
-        if ((long)damage > _data._extraHp)
-        {
-            long remainDamage = (long)damage - _data._extraHp;
-            _data._extraHp = 0;
-            _data._Hp -= remainDamage;
-            playerStatus.HP = _data._Hp;
-        }
-        else
-        {
-            _data._extraHp -= (int)damage;
-        }
+        playerStatus.HP = currentHp - (long)damage;
+        _data._Hp = playerStatus.HP;
+        _data._extraHp = 0;
 
         return true;
     }
@@ -402,12 +404,12 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
 
 
-    /// <summary>HP 회복 (IronWill 등).</summary>
+    /// <summary>성역 등 회복 효과.</summary>
     public void Heal(long amount)
     {
         if (_isDead || amount <= 0) return;
         long maxHP = playerStatus?.MaxHP ?? _data._MaxHp;
-        _data._Hp = System.Math.Min(checked(_data._Hp + amount), maxHP);
+        _data._Hp = playerStatus.HP + System.Math.Min(amount, System.Math.Max(0, maxHP - playerStatus.HP));
         playerStatus.HP = _data._Hp;
     }
 
@@ -423,6 +425,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
     public void Revive()
     {
+        CancelCombat();
         _isDead = false;
         _data._Hp = playerStatus.MaxHP;
         playerStatus.HP = _data._Hp;
@@ -465,8 +468,9 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     // 스킬 데미지 적용 (Animation Event)
     public void OnSkillHit()
     {
-        if (!_hasPendingSkillDamage) return;
+        if (!_hasPendingSkillDamage || _isDead || playerOrder.IsAbort) return;
         _hasPendingSkillDamage = false;
+        bool sounded = false;
 
         for (int i = 0; i < _pendingSkillTargets.Count; i++)
         {
@@ -477,6 +481,13 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
 
             var monster = mono.GetComponentInParent<Monster>();
             if (monster != null && (monster.MonAction == eMonsterAction.Dead || monster.AllocGen != _pendingGenerations[target])) continue;
+            if (skillSystem != null && !skillSystem.IsRanged && !IsInMeleeReach(target.targetPos, skillSystem.AttackRange + .1f, KingdomIdle.Combat.CombatMotion.MeleeImpactLane))
+            {
+                KingdomIdle.Combat.CombatDiagnostics.Record("player-melee-miss",this,mono);
+                continue;
+            }
+            KingdomIdle.Combat.CombatDiagnostics.Record("player-melee-hit",this,mono,skillSystem?.GetSlotCooldown(0) ?? 0);
+            if (!sounded) { KingdomIdle.Combat.CombatAudio.PlayerImpact(this); sounded = true; }
             bool isAlive = target.TakeDamage(new ActiveSkill.DamageProxy(_pendingSkillDamage, this));
             if (!isAlive)
             {
@@ -515,6 +526,7 @@ public class Player : MonoBehaviour, IAttackable, IDamageable, IRewardable
     {
         if (_isDead) return;
         _isDead = true;
+        CancelCombat();
         CustomLogger.Log("Player Is Dead!!");
         SetAnimation(ePlayerAction.Dead);
 

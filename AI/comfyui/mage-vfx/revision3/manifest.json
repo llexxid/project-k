@@ -1,0 +1,20 @@
+{
+  "status": "Anime6B adopted in b48; UltraSharp rejected",
+  "prompt_id": "f9871bb0-4a01-41e8-bd35-8aeb0347ad8b",
+  "workflow_id": "dd28d26e-eb18-4a1b-9613-96f7b6179e7c",
+  "workflow_url": "https://cloud.comfy.org/#dd28d26e-eb18-4a1b-9613-96f7b6179e7c",
+  "api": "sheet-upscale-api.json",
+  "ui": "sheet-upscale-ui.json",
+  "references": "references.json",
+  "prompts": "None; non-diffusion upscalers, no seed parameter",
+  "models": [
+    "4x-UltraSharp.pth",
+    "RealESRGAN_x4plus_anime_6B.pth"
+  ],
+  "node_versions": "Cloud package versions unavailable; actual schemas in get_node-correct.json",
+  "rationale": "Qwen edit copied coarse pixels. Compare spatial reconstruction while preserving existing animated silhouettes, then shared palette and binary alpha. Does not claim new authored facets.",
+  "cost": "../cost-report.json: actual aggregate workspace increment; individual job attribution unavailable",
+  "assessment": "Anime6B preserves authored silhouette with less speckled contour than UltraSharp. Shared six-color palette and binary alpha restore consistent logical pixel density. Applied to void and bloom thunder only; holy reference branch not used.",
+  "finishing": "../finish-manifest.json",
+  "qa": "Recordings/FoundationRevision/VfxAfter/spell-report.json; VfxStatus/healing-checks.json"
+}

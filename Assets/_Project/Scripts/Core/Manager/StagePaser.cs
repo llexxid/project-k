@@ -7,7 +7,7 @@ namespace Scripts.Core.Manager
 	{
 		const double stageRatioMultiplier = 0.4;
 		const double waveRatioMultiplier = 0.04;
-		const int templateStageCount = 2;
+		const int templateStageCount = 3;
 
 		public const long WaveMask = 0x000000000000FFFF; //웨이브 검출용 마스크
 		public const long StageNumberMask = 0x000000000FFF0000; //스테이지 번호 검출용 마스크
@@ -15,6 +15,16 @@ namespace Scripts.Core.Manager
 		public const ulong StageBaseMask = 0xFFFFFFFFFFFF0000; //스테이지 베이스 검출용 마스크
 		public const int WaveBitSize = 16; //웨이브 할당 비트
 		public const long BossWaveNumber = 11;
+		// Preserve every issued ID. Chapters beyond the original 12 bits live above
+		// the resource-kind nibble, rather than overflowing into dungeon type bits.
+		private const int ExtendedStageShift = 36;
+		public static eStage MakeStage(eStageType type, int chapter, int wave = 1)
+		{
+			if (chapter < 1 || wave < 0 || wave > 11 || type < eStageType.Main || type >= eStageType.MaxCount)
+				throw new ArgumentOutOfRangeException();
+			return (eStage)(0x200000000L | ((long)type << 28) | ((long)(chapter & 4095) << 16) |
+				((long)(chapter >> 12) << ExtendedStageShift) | (uint)wave);
+		}
 
 		/// <summary>
 		/// eStage 값에서 스테이지 번호만 추출한다.
@@ -35,7 +45,7 @@ namespace Scripts.Core.Manager
 		/// </remarks>
 		public static int GetStageNumber(eStage stage)
 		{
-			return (int)((long)stage & StageNumberMask) >> WaveBitSize;
+			return (int)((((long)stage >> ExtendedStageShift) << 12) | (((long)stage & StageNumberMask) >> WaveBitSize));
 		}
 
 		/// <summary>
@@ -94,7 +104,6 @@ namespace Scripts.Core.Manager
 		{
 
 			long value = (long)stage;
-			long stageMask = 0x00000000FFFF0000;
 			
 			// ContentType 0은 메인 스테이지다.
 			// 던전은 각자의 데이터를 직접 조회한다.
@@ -102,15 +111,11 @@ namespace Scripts.Core.Manager
 				return stage;
 			
 			int stageNumber = GetStageNumber(stage);
-			//현재 스테이지 리소스가 2개이므로 1,3,5 등 홀수 스테이지는 1스테이지 리소스, 2,4,6 등 짝수 스테이지는 2스테이지 리소스 사용
+			// Bandits, goblins, then orcs repeat while the displayed chapter keeps growing.
 			int templateStageNumber =
 				((stageNumber - 1) % templateStageCount) + 1;
 			
-			// 콘텐츠 타입과 웨이브는 유지하고 스테이지 번호만 교체한다.
-			value &= ~StageNumberMask;
-			value |= (long)templateStageNumber << WaveBitSize;
-
-			return (eStage)value;
+			return MakeStage(eStageType.Main, templateStageNumber, GetWaveNumber(stage));
 		}
 
 		public static double GetRatio(eStage stage)

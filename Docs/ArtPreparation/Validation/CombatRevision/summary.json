@@ -1,0 +1,150 @@
+{
+  "unity": "6000.3.21f1",
+  "device": "Samsung SM-N986N / Android 13 / Adreno 650",
+  "physicalDeviceCount": 1,
+  "gameVersion": "0.10.0",
+  "sampleBuildVersionCode": 7,
+  "acceptance": {
+    "combat": 13,
+    "mage": 186,
+    "balance": 99,
+    "ordinaryControl": 9,
+    "bossControl": 9
+  },
+  "melee": {
+    "hits": 64,
+    "minimumFootDistance": 0.620916963,
+    "maximumAbsoluteLaneOffset": 0.159276009,
+    "byActor": {
+      "OrcTaskmaster(Clone)": 9,
+      "OrcWarrior(Clone)": 16,
+      "Lancer(Clone)": 39
+    },
+    "retreatDurations": [
+      0.485019684,
+      0.301006317
+    ]
+  },
+  "melee30Seconds": {
+    "meanFrameMs": 16.72907585198238,
+    "maxFrameMs": 25.080129504203796,
+    "frameCount": 1818,
+    "memory": 163271292,
+    "timeScale": 1.0,
+    "lastError": null
+  },
+  "automaticFiveSpells": [
+    {
+      "seconds": 30,
+      "meanFrameMs": 16.746897424492882,
+      "maxFrameMs": 41.81261360645294,
+      "frameCount": 1819,
+      "memory": 166033882,
+      "timeScale": 1.0,
+      "lastError": null
+    },
+    {
+      "seconds": 60,
+      "meanFrameMs": 16.748540362079993,
+      "maxFrameMs": 41.81261360645294,
+      "frameCount": 3680,
+      "memory": 166227065,
+      "timeScale": 1.0,
+      "lastError": null
+    },
+    {
+      "seconds": 90,
+      "meanFrameMs": 16.750337164771672,
+      "maxFrameMs": 41.81261360645294,
+      "frameCount": 5537,
+      "memory": 166308648,
+      "timeScale": 1.0,
+      "lastError": null
+    }
+  ],
+  "backgroundResumeTimeScale": 1.0,
+  "projectileHitsInMeleeSample": {
+    "Spear_AimedFlight(Clone)": 29,
+    "BanditMageSpriteSheet_ProjectileFlight(Clone)": 28
+  },
+  "aspectSimulation": [
+    {
+      "name": "long",
+      "override": "1080x2316",
+      "width": 1080,
+      "height": 2316,
+      "safeArea": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1080.0,
+        "height": 2249.0
+      },
+      "mainTruncated": [],
+      "promotionTruncated": [],
+      "mageTruncated": [],
+      "settingsTruncated": []
+    },
+    {
+      "name": "narrow",
+      "override": "720x1600",
+      "width": 720,
+      "height": 1600,
+      "safeArea": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 720.0,
+        "height": 1555.0
+      },
+      "mainTruncated": [],
+      "promotionTruncated": [],
+      "mageTruncated": [],
+      "settingsTruncated": []
+    },
+    {
+      "name": "tablet",
+      "override": "1200x1600",
+      "width": 1200,
+      "height": 1600,
+      "safeArea": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1200.0,
+        "height": 1526.0
+      },
+      "mainTruncated": [],
+      "promotionTruncated": [],
+      "mageTruncated": [],
+      "settingsTruncated": []
+    }
+  ],
+  "limits": [
+    "One actual device. Aspect overrides are not separate tablet/low-end devices.",
+    "Short development-build samples, not a long thermal soak or release GPU profile.",
+    "Low-spec mode preserves progress; these samples do not establish a memory or frame-time reduction.",
+    "Audio signal/voice/gain checks completed; acoustic listening on speakers/headphones was not performed."
+  ],
+  "finalBuild": {
+    "versionCode": 9,
+    "errors": 0,
+    "warnings": 22,
+    "apkBytes": 81217636,
+    "combatChecks": 13,
+    "liveControlChecks": 18,
+    "atlasedGoblinBombHit": true
+  },
+  "freshAccount60Seconds": {
+    "stage": 8590000133,
+    "Kills": 33,
+    "AccountLevel": 1,
+    "AttackLevel": 0,
+    "HealthLevel": 0,
+    "lastError": null
+  },
+  "restoration": {
+    "profilesAndPreferencesByteVerified": true,
+    "size": "1080x2316",
+    "density": 450,
+    "stayAwake": 7,
+    "qaAppStopped": true
+  }
+}

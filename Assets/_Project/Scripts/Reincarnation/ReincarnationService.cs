@@ -14,9 +14,9 @@ namespace Reincarnation
         {
             if (s.PendingReincarnation) return eReincarnationFailureReason.RequestDuplication;
             if (s.ReincarnationLevel >= 300) return eReincarnationFailureReason.MaximumLevel;
+            if (s.ReincarnationDay == LocalProgression.KstDay && s.ReincarnationsToday >= 3) return eReincarnationFailureReason.DailyLimit;
             if (s.CycleBossStage < 1) return eReincarnationFailureReason.StageRequirementNotMet;
             if (LocalProgression.UtcNow - Math.Max(s.LastReincarnationUtc, s.CycleStartedUtc) < 600) return eReincarnationFailureReason.Cooldown;
-            if (s.ReincarnationDay == LocalProgression.KstDay && s.ReincarnationsToday >= 3) return eReincarnationFailureReason.DailyLimit;
             return eReincarnationFailureReason.None;
         }
         public ReincarnationPreview GetPreview()

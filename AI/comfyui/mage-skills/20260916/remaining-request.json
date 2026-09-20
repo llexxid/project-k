@@ -1,0 +1,771 @@
+{
+  "items": [
+    {
+      "tool": "submit_workflow",
+      "workflow": {
+        "1": {
+          "class_type": "LoadImage",
+          "inputs": {
+            "image": "82be0da5d7c9286cc3220dd5ce35b66431b5476105ef6f3a18621a06bc01f716.png"
+          }
+        },
+        "2": {
+          "class_type": "ImageScale",
+          "inputs": {
+            "image": [
+              "1",
+              0
+            ],
+            "upscale_method": "nearest-exact",
+            "width": 768,
+            "height": 768,
+            "crop": "disabled"
+          }
+        },
+        "10": {
+          "class_type": "GeminiNanoBanana2V2",
+          "inputs": {
+            "prompt": "Edit the provided existing 48x48 pixel-art spell icon into its subtly awakened variant. This image is the EDIT TARGET, not general inspiration. Preserve its exact silhouette, object count, placement, angle, scale, pixel cluster density, shadows, and background #171c24. Do not redesign it. The player must instantly recognize the same base skill. Keep at least 85% of the icon visually unchanged. Crisp square 48px logical pixel art enlarged nearest-neighbor, at most 16 colors, restrained highlights, no bloom haze or smoothing. No text, frame, logo, characters, decoration border, new props or neon. Change only these small effect accents: Keep the exact three ice crystals. Give the center facet an ivory-cyan highlight and add two tiny diamond frost glints beside the base.",
+            "model": "Nano Banana 2 (Gemini 3.1 Flash Image)",
+            "model.aspect_ratio": "1:1",
+            "model.resolution": "1K",
+            "model.thinking_level": "MINIMAL",
+            "model.images.image_1": [
+              "2",
+              0
+            ],
+            "seed": 91601,
+            "response_modalities": "IMAGE"
+          }
+        },
+        "15": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "images": [
+              "10",
+              0
+            ],
+            "filename_prefix": "KingdomIdle/MageBloom/IceSpike_Master"
+          }
+        },
+        "20": {
+          "class_type": "ImageScale",
+          "inputs": {
+            "image": [
+              "10",
+              0
+            ],
+            "upscale_method": "nearest-exact",
+            "width": 48,
+            "height": 48,
+            "crop": "disabled"
+          }
+        },
+        "30": {
+          "class_type": "ImageQuantize",
+          "inputs": {
+            "image": [
+              "20",
+              0
+            ],
+            "colors": 16,
+            "dither": "none"
+          }
+        },
+        "40": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "images": [
+              "30",
+              0
+            ],
+            "filename_prefix": "KingdomIdle/MageBloom/IceSpike_48px"
+          }
+        }
+      },
+      "description": "IceSpike subtle bloom variant"
+    },
+    {
+      "tool": "submit_workflow",
+      "workflow": {
+        "1": {
+          "class_type": "LoadImage",
+          "inputs": {
+            "image": "cb1886db5f67e746249930d491bc389225d67cd23ccbc17d8cb876f6f5b6e008.png"
+          }
+        },
+        "2": {
+          "class_type": "ImageScale",
+          "inputs": {
+            "image": [
+              "1",
+              0
+            ],
+            "upscale_method": "nearest-exact",
+            "width": 768,
+            "height": 768,
+            "crop": "disabled"
+          }
+        },
+        "10": {
+          "class_type": "GeminiNanoBanana2V2",
+          "inputs": {
+            "prompt": "Edit the provided existing 48x48 pixel-art spell icon into its subtly awakened variant. This image is the EDIT TARGET, not general inspiration. Preserve its exact silhouette, object count, placement, angle, scale, pixel cluster density, shadows, and background #171c24. Do not redesign it. The player must instantly recognize the same base skill. Keep at least 85% of the icon visually unchanged. Crisp square 48px logical pixel art enlarged nearest-neighbor, at most 16 colors, restrained highlights, no bloom haze or smoothing. No text, frame, logo, characters, decoration border, new props or neon. Change only these small effect accents: Keep the exact flame spiral. Give its inner edge a restrained pale-gold accent and add two small ember diamonds.",
+            "model": "Nano Banana 2 (Gemini 3.1 Flash Image)",
+            "model.aspect_ratio": "1:1",
+            "model.resolution": "1K",
+            "model.thinking_level": "MINIMAL",
+            "model.images.image_1": [
+              "2",
+              0
+            ],
+            "seed": 91602,
+            "response_modalities": "IMAGE"
+          }
+        },
+        "15": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "images": [
+              "10",
+              0
+            ],
+            "filename_prefix": "KingdomIdle/MageBloom/FireTornado_Master"
+          }
+        },
+        "20": {
+          "class_type": "ImageScale",
+          "inputs": {
+            "image": [
+              "10",
+              0
+            ],
+            "upscale_method": "nearest-exact",
+            "width": 48,
+            "height": 48,
+            "crop": "disabled"
+          }
+        },
+        "30": {
+          "class_type": "ImageQuantize",
+          "inputs": {
+            "image": [
+              "20",
+              0
+            ],
+            "colors": 16,
+            "dither": "none"
+          }
+        },
+        "40": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "images": [
+              "30",
+              0
+            ],
+            "filename_prefix": "KingdomIdle/MageBloom/FireTornado_48px"
+          }
+        }
+      },
+      "description": "FireTornado subtle bloom variant"
+    },
+    {
+      "tool": "submit_workflow",
+      "workflow": {
+        "1": {
+          "class_type": "LoadImage",
+          "inputs": {
+            "image": "6b049b5770b186422ffb2bd125472da4fa99f1c00c7d0c31d61ff18453c53c27.png"
+          }
+        },
+        "2": {
+          "class_type": "ImageScale",
+          "inputs": {
+            "image": [
+              "1",
+              0
+            ],
+            "upscale_method": "nearest-exact",
+            "width": 768,
+            "height": 768,
+            "crop": "disabled"
+          }
+        },
+        "10": {
+          "class_type": "GeminiNanoBanana2V2",
+          "inputs": {
+            "prompt": "Edit the provided existing 48x48 pixel-art spell icon into its subtly awakened variant. This image is the EDIT TARGET, not general inspiration. Preserve its exact silhouette, object count, placement, angle, scale, pixel cluster density, shadows, and background #171c24. Do not redesign it. The player must instantly recognize the same base skill. Keep at least 85% of the icon visually unchanged. Crisp square 48px logical pixel art enlarged nearest-neighbor, at most 16 colors, restrained highlights, no bloom haze or smoothing. No text, frame, logo, characters, decoration border, new props or neon. Change only these small effect accents: Keep the same three bolts in the same positions. Add narrow ivory cores and two short lavender trailing sparks.",
+            "model": "Nano Banana 2 (Gemini 3.1 Flash Image)",
+            "model.aspect_ratio": "1:1",
+            "model.resolution": "1K",
+            "model.thinking_level": "MINIMAL",
+            "model.images.image_1": [
+              "2",
+              0
+            ],
+            "seed": 91603,
+            "response_modalities": "IMAGE"
+          }
+        },
+        "15": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "images": [
+              "10",
+              0
+            ],
+            "filename_prefix": "KingdomIdle/MageBloom/ArcaneVolley_Master"
+          }
+        },
+        "20": {
+          "class_type": "ImageScale",
+          "inputs": {
+            "image": [
+              "10",
+              0
+            ],
+            "upscale_method": "nearest-exact",
+            "width": 48,
+            "height": 48,
+            "crop": "disabled"
+          }
+        },
+        "30": {
+          "class_type": "ImageQuantize",
+          "inputs": {
+            "image": [
+              "20",
+              0
+            ],
+            "colors": 16,
+            "dither": "none"
+          }
+        },
+        "40": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "images": [
+              "30",
+              0
+            ],
+            "filename_prefix": "KingdomIdle/MageBloom/ArcaneVolley_48px"
+          }
+        }
+      },
+      "description": "ArcaneVolley subtle bloom variant"
+    },
+    {
+      "tool": "submit_workflow",
+      "workflow": {
+        "1": {
+          "class_type": "LoadImage",
+          "inputs": {
+            "image": "0806958e7fed70540232949a0a22ace6ed8768a086a4708a7440116e07541e3b.png"
+          }
+        },
+        "2": {
+          "class_type": "ImageScale",
+          "inputs": {
+            "image": [
+              "1",
+              0
+            ],
+            "upscale_method": "nearest-exact",
+            "width": 768,
+            "height": 768,
+            "crop": "disabled"
+          }
+        },
+        "10": {
+          "class_type": "GeminiNanoBanana2V2",
+          "inputs": {
+            "prompt": "Edit the provided existing 48x48 pixel-art spell icon into its subtly awakened variant. This image is the EDIT TARGET, not general inspiration. Preserve its exact silhouette, object count, placement, angle, scale, pixel cluster density, shadows, and background #171c24. Do not redesign it. The player must instantly recognize the same base skill. Keep at least 85% of the icon visually unchanged. Crisp square 48px logical pixel art enlarged nearest-neighbor, at most 16 colors, restrained highlights, no bloom haze or smoothing. No text, frame, logo, characters, decoration border, new props or neon. Change only these small effect accents: Keep the same cloud, bubbles and pool. Add pale sage highlights on the top edges and two small dull-gold mote pixels.",
+            "model": "Nano Banana 2 (Gemini 3.1 Flash Image)",
+            "model.aspect_ratio": "1:1",
+            "model.resolution": "1K",
+            "model.thinking_level": "MINIMAL",
+            "model.images.image_1": [
+              "2",
+              0
+            ],
+            "seed": 91604,
+            "response_modalities": "IMAGE"
+          }
+        },
+        "15": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "images": [
+              "10",
+              0
+            ],
+            "filename_prefix": "KingdomIdle/MageBloom/VenomMist_Master"
+          }
+        },
+        "20": {
+          "class_type": "ImageScale",
+          "inputs": {
+            "image": [
+              "10",
+              0
+            ],
+            "upscale_method": "nearest-exact",
+            "width": 48,
+            "height": 48,
+            "crop": "disabled"
+          }
+        },
+        "30": {
+          "class_type": "ImageQuantize",
+          "inputs": {
+            "image": [
+              "20",
+              0
+            ],
+            "colors": 16,
+            "dither": "none"
+          }
+        },
+        "40": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "images": [
+              "30",
+              0
+            ],
+            "filename_prefix": "KingdomIdle/MageBloom/VenomMist_48px"
+          }
+        }
+      },
+      "description": "VenomMist subtle bloom variant"
+    },
+    {
+      "tool": "submit_workflow",
+      "workflow": {
+        "1": {
+          "class_type": "LoadImage",
+          "inputs": {
+            "image": "d2d91d9ba5d4d2635044ac934e4c20ea5eb579c75904599652364807f2d24cce.png"
+          }
+        },
+        "2": {
+          "class_type": "ImageScale",
+          "inputs": {
+            "image": [
+              "1",
+              0
+            ],
+            "upscale_method": "nearest-exact",
+            "width": 768,
+            "height": 768,
+            "crop": "disabled"
+          }
+        },
+        "10": {
+          "class_type": "GeminiNanoBanana2V2",
+          "inputs": {
+            "prompt": "Edit the provided existing 48x48 pixel-art spell icon into its subtly awakened variant. This image is the EDIT TARGET, not general inspiration. Preserve its exact silhouette, object count, placement, angle, scale, pixel cluster density, shadows, and background #171c24. Do not redesign it. The player must instantly recognize the same base skill. Keep at least 85% of the icon visually unchanged. Crisp square 48px logical pixel art enlarged nearest-neighbor, at most 16 colors, restrained highlights, no bloom haze or smoothing. No text, frame, logo, characters, decoration border, new props or neon. Change only these small effect accents: Keep the exact three stone spires. Light only the existing cracks with subdued pale amber and add two small amber fragments.",
+            "model": "Nano Banana 2 (Gemini 3.1 Flash Image)",
+            "model.aspect_ratio": "1:1",
+            "model.resolution": "1K",
+            "model.thinking_level": "MINIMAL",
+            "model.images.image_1": [
+              "2",
+              0
+            ],
+            "seed": 91605,
+            "response_modalities": "IMAGE"
+          }
+        },
+        "15": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "images": [
+              "10",
+              0
+            ],
+            "filename_prefix": "KingdomIdle/MageBloom/StoneSeal_Master"
+          }
+        },
+        "20": {
+          "class_type": "ImageScale",
+          "inputs": {
+            "image": [
+              "10",
+              0
+            ],
+            "upscale_method": "nearest-exact",
+            "width": 48,
+            "height": 48,
+            "crop": "disabled"
+          }
+        },
+        "30": {
+          "class_type": "ImageQuantize",
+          "inputs": {
+            "image": [
+              "20",
+              0
+            ],
+            "colors": 16,
+            "dither": "none"
+          }
+        },
+        "40": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "images": [
+              "30",
+              0
+            ],
+            "filename_prefix": "KingdomIdle/MageBloom/StoneSeal_48px"
+          }
+        }
+      },
+      "description": "StoneSeal subtle bloom variant"
+    },
+    {
+      "tool": "submit_workflow",
+      "workflow": {
+        "1": {
+          "class_type": "LoadImage",
+          "inputs": {
+            "image": "f044c78b123afdec8eaf39d2513748b5c90c18d6b4fbda0122999e0a44a37122.png"
+          }
+        },
+        "2": {
+          "class_type": "ImageScale",
+          "inputs": {
+            "image": [
+              "1",
+              0
+            ],
+            "upscale_method": "nearest-exact",
+            "width": 768,
+            "height": 768,
+            "crop": "disabled"
+          }
+        },
+        "10": {
+          "class_type": "GeminiNanoBanana2V2",
+          "inputs": {
+            "prompt": "Edit the provided existing 48x48 pixel-art spell icon into its subtly awakened variant. This image is the EDIT TARGET, not general inspiration. Preserve its exact silhouette, object count, placement, angle, scale, pixel cluster density, shadows, and background #171c24. Do not redesign it. The player must instantly recognize the same base skill. Keep at least 85% of the icon visually unchanged. Crisp square 48px logical pixel art enlarged nearest-neighbor, at most 16 colors, restrained highlights, no bloom haze or smoothing. No text, frame, logo, characters, decoration border, new props or neon. Change only these small effect accents: Keep the exact curved blades. Add a few ivory edge pixels and two small pale teal trailing glints.",
+            "model": "Nano Banana 2 (Gemini 3.1 Flash Image)",
+            "model.aspect_ratio": "1:1",
+            "model.resolution": "1K",
+            "model.thinking_level": "MINIMAL",
+            "model.images.image_1": [
+              "2",
+              0
+            ],
+            "seed": 91606,
+            "response_modalities": "IMAGE"
+          }
+        },
+        "15": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "images": [
+              "10",
+              0
+            ],
+            "filename_prefix": "KingdomIdle/MageBloom/GaleBlades_Master"
+          }
+        },
+        "20": {
+          "class_type": "ImageScale",
+          "inputs": {
+            "image": [
+              "10",
+              0
+            ],
+            "upscale_method": "nearest-exact",
+            "width": 48,
+            "height": 48,
+            "crop": "disabled"
+          }
+        },
+        "30": {
+          "class_type": "ImageQuantize",
+          "inputs": {
+            "image": [
+              "20",
+              0
+            ],
+            "colors": 16,
+            "dither": "none"
+          }
+        },
+        "40": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "images": [
+              "30",
+              0
+            ],
+            "filename_prefix": "KingdomIdle/MageBloom/GaleBlades_48px"
+          }
+        }
+      },
+      "description": "GaleBlades subtle bloom variant"
+    },
+    {
+      "tool": "submit_workflow",
+      "workflow": {
+        "1": {
+          "class_type": "LoadImage",
+          "inputs": {
+            "image": "1885da326b10aa6f075012e2faed506789c16173f66a381f264f57c18f325296.png"
+          }
+        },
+        "2": {
+          "class_type": "ImageScale",
+          "inputs": {
+            "image": [
+              "1",
+              0
+            ],
+            "upscale_method": "nearest-exact",
+            "width": 768,
+            "height": 768,
+            "crop": "disabled"
+          }
+        },
+        "10": {
+          "class_type": "GeminiNanoBanana2V2",
+          "inputs": {
+            "prompt": "Edit the provided existing 48x48 pixel-art spell icon into its subtly awakened variant. This image is the EDIT TARGET, not general inspiration. Preserve its exact silhouette, object count, placement, angle, scale, pixel cluster density, shadows, and background #171c24. Do not redesign it. The player must instantly recognize the same base skill. Keep at least 85% of the icon visually unchanged. Crisp square 48px logical pixel art enlarged nearest-neighbor, at most 16 colors, restrained highlights, no bloom haze or smoothing. No text, frame, logo, characters, decoration border, new props or neon. Change only these small effect accents: Keep the exact healing pillar and pool. Add two small warm-gold star glints and a pale ivory center highlight.",
+            "model": "Nano Banana 2 (Gemini 3.1 Flash Image)",
+            "model.aspect_ratio": "1:1",
+            "model.resolution": "1K",
+            "model.thinking_level": "MINIMAL",
+            "model.images.image_1": [
+              "2",
+              0
+            ],
+            "seed": 91607,
+            "response_modalities": "IMAGE"
+          }
+        },
+        "15": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "images": [
+              "10",
+              0
+            ],
+            "filename_prefix": "KingdomIdle/MageBloom/Sanctuary_Master"
+          }
+        },
+        "20": {
+          "class_type": "ImageScale",
+          "inputs": {
+            "image": [
+              "10",
+              0
+            ],
+            "upscale_method": "nearest-exact",
+            "width": 48,
+            "height": 48,
+            "crop": "disabled"
+          }
+        },
+        "30": {
+          "class_type": "ImageQuantize",
+          "inputs": {
+            "image": [
+              "20",
+              0
+            ],
+            "colors": 16,
+            "dither": "none"
+          }
+        },
+        "40": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "images": [
+              "30",
+              0
+            ],
+            "filename_prefix": "KingdomIdle/MageBloom/Sanctuary_48px"
+          }
+        }
+      },
+      "description": "Sanctuary subtle bloom variant"
+    },
+    {
+      "tool": "submit_workflow",
+      "workflow": {
+        "1": {
+          "class_type": "LoadImage",
+          "inputs": {
+            "image": "dab3d70c3f56efa1156e1760b28d05eb2d775bd0ca31ae9311b87df45dc44edf.png"
+          }
+        },
+        "2": {
+          "class_type": "ImageScale",
+          "inputs": {
+            "image": [
+              "1",
+              0
+            ],
+            "upscale_method": "nearest-exact",
+            "width": 768,
+            "height": 768,
+            "crop": "disabled"
+          }
+        },
+        "10": {
+          "class_type": "GeminiNanoBanana2V2",
+          "inputs": {
+            "prompt": "Edit the provided existing 48x48 pixel-art spell icon into its subtly awakened variant. This image is the EDIT TARGET, not general inspiration. Preserve its exact silhouette, object count, placement, angle, scale, pixel cluster density, shadows, and background #171c24. Do not redesign it. The player must instantly recognize the same base skill. Keep at least 85% of the icon visually unchanged. Crisp square 48px logical pixel art enlarged nearest-neighbor, at most 16 colors, restrained highlights, no bloom haze or smoothing. No text, frame, logo, characters, decoration border, new props or neon. Change only these small effect accents: Keep the exact meteor, tail and fragments. Give the rock a few narrow dull-amber fissures and add two restrained gold sparks.",
+            "model": "Nano Banana 2 (Gemini 3.1 Flash Image)",
+            "model.aspect_ratio": "1:1",
+            "model.resolution": "1K",
+            "model.thinking_level": "MINIMAL",
+            "model.images.image_1": [
+              "2",
+              0
+            ],
+            "seed": 91608,
+            "response_modalities": "IMAGE"
+          }
+        },
+        "15": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "images": [
+              "10",
+              0
+            ],
+            "filename_prefix": "KingdomIdle/MageBloom/Meteor_Master"
+          }
+        },
+        "20": {
+          "class_type": "ImageScale",
+          "inputs": {
+            "image": [
+              "10",
+              0
+            ],
+            "upscale_method": "nearest-exact",
+            "width": 48,
+            "height": 48,
+            "crop": "disabled"
+          }
+        },
+        "30": {
+          "class_type": "ImageQuantize",
+          "inputs": {
+            "image": [
+              "20",
+              0
+            ],
+            "colors": 16,
+            "dither": "none"
+          }
+        },
+        "40": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "images": [
+              "30",
+              0
+            ],
+            "filename_prefix": "KingdomIdle/MageBloom/Meteor_48px"
+          }
+        }
+      },
+      "description": "Meteor subtle bloom variant"
+    },
+    {
+      "tool": "submit_workflow",
+      "workflow": {
+        "1": {
+          "class_type": "LoadImage",
+          "inputs": {
+            "image": "a6509241c5ba29e3e12db86d2199510614eb8a8759ceb69ef4111b7c85687958.png"
+          }
+        },
+        "2": {
+          "class_type": "ImageScale",
+          "inputs": {
+            "image": [
+              "1",
+              0
+            ],
+            "upscale_method": "nearest-exact",
+            "width": 768,
+            "height": 768,
+            "crop": "disabled"
+          }
+        },
+        "10": {
+          "class_type": "GeminiNanoBanana2V2",
+          "inputs": {
+            "prompt": "Edit the provided existing 48x48 pixel-art spell icon into its subtly awakened variant. This image is the EDIT TARGET, not general inspiration. Preserve its exact silhouette, object count, placement, angle, scale, pixel cluster density, shadows, and background #171c24. Do not redesign it. The player must instantly recognize the same base skill. Keep at least 85% of the icon visually unchanged. Crisp square 48px logical pixel art enlarged nearest-neighbor, at most 16 colors, restrained highlights, no bloom haze or smoothing. No text, frame, logo, characters, decoration border, new props or neon. Change only these small effect accents: Keep the exact dark oval and two crescent rims. Brighten only their inner edge to muted lavender and add two small pale violet glints.",
+            "model": "Nano Banana 2 (Gemini 3.1 Flash Image)",
+            "model.aspect_ratio": "1:1",
+            "model.resolution": "1K",
+            "model.thinking_level": "MINIMAL",
+            "model.images.image_1": [
+              "2",
+              0
+            ],
+            "seed": 91609,
+            "response_modalities": "IMAGE"
+          }
+        },
+        "15": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "images": [
+              "10",
+              0
+            ],
+            "filename_prefix": "KingdomIdle/MageBloom/VoidRift_Master"
+          }
+        },
+        "20": {
+          "class_type": "ImageScale",
+          "inputs": {
+            "image": [
+              "10",
+              0
+            ],
+            "upscale_method": "nearest-exact",
+            "width": 48,
+            "height": 48,
+            "crop": "disabled"
+          }
+        },
+        "30": {
+          "class_type": "ImageQuantize",
+          "inputs": {
+            "image": [
+              "20",
+              0
+            ],
+            "colors": 16,
+            "dither": "none"
+          }
+        },
+        "40": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "images": [
+              "30",
+              0
+            ],
+            "filename_prefix": "KingdomIdle/MageBloom/VoidRift_48px"
+          }
+        }
+      },
+      "description": "VoidRift subtle bloom variant"
+    }
+  ],
+  "client_os": "windows",
+  "confirm": true
+}

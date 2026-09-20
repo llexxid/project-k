@@ -1,13 +1,15 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using KingdomIdle.Balance;
+using Scripts.Core;
+using Scripts.Core.Manager;
+using System.Collections.Generic;
 
 namespace KingdomIdle.UGUI
 {
     /// <summary>
-    /// 프로필 팝업(더미/플레이스홀더). 좌상단 프로필 버튼으로 열린다.
-    /// 서버 미연동 — MainScreenController가 보유 데이터(닉네임/레벨)만 채우고 나머진 샘플값.
-    /// 프리팹: Popup_Profile.prefab. 상용 아이들 게임 공통 구성 + 게임 고유 요소.
+    /// 실제 저장된 계정 성장과 전투 진행을 표시하는 프로필.
     /// </summary>
     public sealed class ProfilePopupView : MonoBehaviour
     {
@@ -42,5 +44,29 @@ namespace KingdomIdle.UGUI
         [Header("Game-unique")]
         [SerializeField] internal TMP_Text kingdomLevelLabel;   // 왕국 레벨(게임 고유)
         [SerializeField] internal TMP_Text totalJobsLabel;      // 보유 전직 수(게임 고유)
+
+        internal void Populate(string playerName, long power)
+        {
+            var state = LocalProgression.State;
+            Set(nameLabel, string.IsNullOrWhiteSpace(playerName) ? "모험가" : playerName);
+            Set(levelLabel, state.AccountLevel.ToString());
+            Set(kingdomLevelLabel, $"Lv. {state.AccountLevel}");
+            Set(powerLabel, NumberNotation.Format(power));
+            var next = BalanceMath.NextExp(state.AccountLevel);
+            Set(xpLabel, next.HasValue ? $"{NumberNotation.Format(state.Experience)} / {NumberNotation.Format(next.Value)}" : "최대 레벨");
+            if (xpFill != null) xpFill.fillAmount = next.HasValue ? Mathf.Clamp01((float)((double)state.Experience / next.Value)) : 1;
+            var jobs = new HashSet<string>();
+            foreach (var unlocked in state.UnlockedJobs.Values)
+                foreach (var job in unlocked) if (JobData.IsAvailable(job)) jobs.Add(job);
+            Set(totalJobsLabel, $"{jobs.Count}종");
+            string stage = state.HighestMainClear > 0
+                ? $"{StageParser.GetStageNumber((eStage)state.HighestMainClear)}-{StageParser.GetWaveNumber((eStage)state.HighestMainClear)}" : "미완료";
+            string[] values = { stage, NumberNotation.Format(state.ReincarnationLevel), NumberNotation.Format(state.ReincarnationCount),
+                $"{state.GoldDungeonClear}단계", NumberNotation.Format(state.Kills), $"{state.RubyDungeonClear}단계" };
+            for (int i = 0; i < values.Length && i < statValues.Length; i++) Set(statValues[i], values[i]);
+        }
+
+        static void Set(TMP_Text label, string value)
+        { if (label != null && label.text != value) label.text = value; }
     }
 }

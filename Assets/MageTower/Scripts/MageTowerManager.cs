@@ -20,7 +20,7 @@ namespace KingdomIdle.MageTower
         private MageTowerSkillRegistrySO skillRegistry;
 
         public const int SlotCount = 5;
-        private const string PrefKey = "mt_save";
+        private readonly MageTowerSpellCast[] _activeSpells = new MageTowerSpellCast[SlotCount];
 
         private int[] _equipped => LocalProgression.State.MageSlots;
         private MageSave Saved(int id) => LocalProgression.State.MageSkills.TryGetValue(id, out var value) ? value : null;
@@ -28,6 +28,8 @@ namespace KingdomIdle.MageTower
 
         private readonly float[] _cooldowns = new float[SlotCount];
         private readonly float[] _cooldownTimers = new float[SlotCount];
+        private readonly float[] _skillCooldowns = new float[MageSkillRules.IdCapacity];
+        private readonly float[] _skillCooldownTimers = new float[MageSkillRules.IdCapacity];
         private bool _autoEnabled;
 
         public event Action OnStateChanged;
@@ -49,6 +51,8 @@ namespace KingdomIdle.MageTower
         private void Update()
         {
             bool ticked = false;
+            for (int id = 0; id < _skillCooldownTimers.Length; id++)
+                if (_skillCooldownTimers[id] > 0) { _skillCooldownTimers[id] = Mathf.Max(0, _skillCooldownTimers[id] - Time.deltaTime); ticked = true; }
             for (int i = 0; i < SlotCount; i++)
             {
                 if (_cooldownTimers[i] <= 0f) continue;
@@ -72,7 +76,7 @@ namespace KingdomIdle.MageTower
             for (int i = 0; i < SlotCount; i++)
             {
                 if (_equipped[i] < 0) continue;
-                if (_cooldownTimers[i] > 0f) continue;
+                if (IsOnCooldown(i)) continue;
                 if (_casting[i]) continue;
 
                 if (!prechecked)
@@ -85,30 +89,12 @@ namespace KingdomIdle.MageTower
         }
 
         /// <summary>화면(뷰포트) 안에 살아있는 몬스터가 하나라도 있는지 — AutoCastAll 프레임 프리체크.</summary>
-        private bool AnyMonsterOnScreen()
-        {
-            int count = SearchMonstersOnScreen(out _);
-            if (count == 0) return false;
-
-            var cam = MageTowerTargeting.ResolveCamera();
-            for (int i = 0; i < count; i++)
-            {
-                var col = _searchResults[i];
-                if (col == null) continue;
-
-                var monster = col.GetComponent<Monster>();
-                if (monster != null && monster.MonAction == eMonsterAction.Dead) continue;
-
-                if (!MageTowerTargeting.IsOnScreen(cam, col.transform.position)) continue;
-                return true;
-            }
-            return false;
-        }
+        private bool AnyMonsterOnScreen() => MageTowerSpellCast.TryFindTarget(out _);
 
         public bool IsAutoEnabled() => _autoEnabled;
-        public void SetAutoEnabled(bool enabled) => _autoEnabled = enabled;
+        public void SetAutoEnabled(bool enabled) { if (_autoEnabled == enabled) return; _autoEnabled = enabled; OnStateChanged?.Invoke(); }
 
-        public bool IsOwned(int skillId) => Saved(skillId) != null;
+        public bool IsOwned(int skillId) => MageSkillRules.IsAvailable(skillId) && Saved(skillId) != null;
 
         public void Unlock(int skillId)
         {
@@ -126,6 +112,7 @@ namespace KingdomIdle.MageTower
 
         public MageTowerSkillSO GetSkillById(int id)
         {
+            if (!MageSkillRules.IsAvailable(id)) return null;
             var skills = GetAllSkills();
             for (int i = 0; i < skills.Count; i++)
             {
@@ -138,16 +125,17 @@ namespace KingdomIdle.MageTower
         public int GetEquippedSkillId(int slotIndex)
         {
             if (slotIndex < 0 || slotIndex >= SlotCount) return -1;
-            return _equipped[slotIndex];
+            return MageSkillRules.IsAvailable(_equipped[slotIndex]) ? _equipped[slotIndex] : -1;
         }
 
         public int GetEnhanceLevel(int id) => Saved(id)?.Enhance ?? 0;
         public int GetAwakeningLevel(int id) => Saved(id)?.Awaken ?? 0;
         public int GetFragments(int id) => Saved(id)?.Fragments ?? 0;
         public long GetTotalAKSpent(int id) => Saved(id)?.Spent ?? 0;
-        public static void Grant(ProgressionState state, int skillId)
+        public static void Grant(ProgressionState state, int skillId, int duplicateFragments = 1)
         {
-            if (state.MageSkills.TryGetValue(skillId, out var skill)) skill.Fragments = checked(skill.Fragments + 1);
+            if (!MageSkillRules.IsAvailable(skillId)) return;
+            if (state.MageSkills.TryGetValue(skillId, out var skill)) skill.Fragments = checked(skill.Fragments + duplicateFragments);
             else state.MageSkills[skillId] = new MageSave();
         }
         public void AddFragments(int skillId, int amount)
@@ -166,7 +154,21 @@ namespace KingdomIdle.MageTower
             if (so == null) return 0;
             int eLv = GetEnhanceLevel(skillId);
             int aLv = GetAwakeningLevel(skillId);
-            return BalanceMath.MageDamage((long)so.BaseDamage, eLv, aLv);
+            return BalanceMath.MageDamage((long)so.BaseDamage, eLv, aLv, PartyAttack);
+        }
+
+        // Include every equipped party member, even while down: a death must not shrink
+        // the tower's progression bonus. Casts snapshot the value once at their start.
+        public long PartyAttack
+        {
+            get
+            {
+                long total = 0;
+                var players = Scripts.Core.UserManager.Instance?.GetPlayers();
+                if (players != null) foreach (var player in players)
+                    if (player != null && player.playerStatus != null) total = checked(total + player.playerStatus.Atk);
+                return total;
+            }
         }
 
         public float GetEffectiveCooldown(int skillId)
@@ -174,24 +176,28 @@ namespace KingdomIdle.MageTower
             var so = GetSkillById(skillId);
             if (so == null) return 0;
             int aLv = GetAwakeningLevel(skillId);
-            return (float)BalanceMath.MageInterval((decimal)so.baseCooldown, aLv);
+            return (float)BalanceMath.MageInterval((decimal)so.baseCooldown, aLv) * (IsBloomEnabled(skillId) ? so.bloomCooldownMultiplier : 1f);
         }
 
         // ===== 장착 =====
         public bool Equip(int slotIndex, int skillId)
         {
-            if (slotIndex >= 0 && slotIndex < SlotCount && (_casting[slotIndex] || _cooldownTimers[slotIndex] > 0)) return false;
             if (slotIndex < 0 || slotIndex >= SlotCount || GetSkillById(skillId) == null || !IsOwned(skillId)) return false;
-            if (IsEquipped(skillId)) return false;
-            bool result = LocalProgression.Execute("mage-equip", state => { state.MageSlots[slotIndex] = skillId; return true; });
+            if (_equipped[slotIndex] == skillId) return false;
+            bool result = LocalProgression.Execute("mage-equip", state => {
+                int previous = state.MageSlots[slotIndex];
+                // One atomic swap, never a transient duplicate or an intermediate empty loadout.
+                for (int i = 0; i < SlotCount; i++) if (state.MageSlots[i] == skillId) state.MageSlots[i] = previous;
+                state.MageSlots[slotIndex] = skillId; return true;
+            });
             if (result) NotifyCommitted(); return result;
     }
 
-        public void Unequip(int slotIndex)
+        public bool Unequip(int slotIndex)
         {
-            if (slotIndex >= 0 && slotIndex < SlotCount && (_casting[slotIndex] || _cooldownTimers[slotIndex] > 0)) return;
-            if (slotIndex < 0 || slotIndex >= SlotCount || _casting[slotIndex]) return;
-            if (LocalProgression.Execute("mage-unequip", state => { state.MageSlots[slotIndex] = -1; return true; })) NotifyCommitted();
+            if (slotIndex < 0 || slotIndex >= SlotCount || _equipped[slotIndex] < 0) return false;
+            bool result = LocalProgression.Execute("mage-unequip", state => { state.MageSlots[slotIndex] = -1; return true; });
+            if (result) NotifyCommitted(); return result;
     }
 
         public bool IsEquipped(int skillId)
@@ -262,14 +268,24 @@ namespace KingdomIdle.MageTower
         public bool IsOnCooldown(int slotIndex)
         {
             if (slotIndex < 0 || slotIndex >= SlotCount) return false;
-            return _cooldownTimers[slotIndex] > 0f;
+            int id = _equipped[slotIndex];
+            return _cooldownTimers[slotIndex] > 0f || (id >= 0 && _skillCooldownTimers[id] > 0f);
+        }
+
+        public float GetCooldownRemaining(int slot)
+        {
+            if (slot < 0 || slot >= SlotCount) return 0;
+            int id = GetEquippedSkillId(slot);
+            return Mathf.Max(_cooldownTimers[slot], id >= 0 ? _skillCooldownTimers[id] : 0);
         }
 
         public float GetCooldownRatio(int slotIndex)
         {
             if (slotIndex < 0 || slotIndex >= SlotCount) return 0f;
-            if (_cooldowns[slotIndex] <= 0f) return 0f;
-            return Mathf.Clamp01(_cooldownTimers[slotIndex] / _cooldowns[slotIndex]);
+            int id = _equipped[slotIndex];
+            float slot = _cooldowns[slotIndex] > 0 ? _cooldownTimers[slotIndex] / _cooldowns[slotIndex] : 0;
+            float skill = id >= 0 && _skillCooldowns[id] > 0 ? _skillCooldownTimers[id] / _skillCooldowns[id] : 0;
+            return Mathf.Clamp01(Mathf.Max(slot,skill));
         }
 
         // ===== 시전 상태 =====
@@ -284,297 +300,100 @@ namespace KingdomIdle.MageTower
         /// 화면 내 몬스터를 찾아 스킬을 시전한다.
         /// </summary>
         public bool CastSkill(int slotIndex)
+            => TryCast(slotIndex, null);
+
+        public bool CastSkillAt(int slotIndex, Vector3 position)
         {
-            if (slotIndex < 0 || slotIndex >= SlotCount) return false;
-            if (StageManager.Instance?.CurrentRunState != eStageRunState.Running) return false;
-            if (IsOnCooldown(slotIndex)) return false;
-            if (_casting[slotIndex]) return false;
+            if (slotIndex < 0 || slotIndex >= SlotCount || !IsValidAimPoint(position)) return false;
+            var skill = GetSkillById(_equipped[slotIndex]);
+            return skill != null && skill.CanAimWithBloom(IsBloomEnabled(skill.id)) && TryCast(slotIndex, position);
+        }
 
+        public static bool IsValidAimPoint(Vector3 point)
+        {
+            var camera = MageTowerTargeting.ResolveCamera();
+            if (camera == null || float.IsNaN(point.x) || float.IsNaN(point.y) || float.IsInfinity(point.x) || float.IsInfinity(point.y)) return false;
+            var viewport = camera.WorldToViewportPoint(point);
+            return Mathf.Abs(point.z) < .01f && viewport.z > 0 && viewport.x >= .03f && viewport.x <= .97f && viewport.y >= .25f && viewport.y <= .84f;
+        }
+
+        private bool TryCast(int slotIndex, Vector3? position)
+        {
+            if (slotIndex < 0 || slotIndex >= SlotCount || StageManager.Instance?.CurrentRunState != eStageRunState.Running || IsOnCooldown(slotIndex) || _casting[slotIndex]) return false;
             int skillId = _equipped[slotIndex];
-            if (skillId < 0) return false;
-
-            var so = GetSkillById(skillId);
-            if (so == null || so.prefab == null) return false;
-
-            // 화면에 몬스터가 없으면 시전 불가
-            Vector3 targetPos = FindNearestMonsterPosition(out int nearestId);
-            if (targetPos == Vector3.zero) return false;
-
-            if (!LocalProgression.Execute("mage-cast", state => { QuestEconomy.Count(state,eQuestObjectiveType.SkillCast,skillId,1); return true; })) return false;
+            var skill = GetSkillById(skillId);
+            if (skill == null || skill.prefab == null || !IsOwned(skillId)) return false;
+            Scripts.Monster.Monster target = null;
+            if (skill.IsHealing)
+            {
+                if (!position.HasValue)
+                {
+                    if (!MageTowerSpellCast.TryFindHealingPoint(out var healPoint)) return false;
+                    position = healPoint;
+                }
+            }
+            else if (skill.spellKind == MageSpellKind.ArcaneVolley && !IsBloomEnabled(skillId))
+            {
+                if (!MageTowerSpellCast.TryFindTarget(out _)) return false;
+                position = MageTowerTargeting.BattleCenter();
+            }
+            else if (!position.HasValue && !MageTowerSpellCast.TryFindTarget(skill, out target, IsBloomEnabled(skillId))) return false;
+            // 기간 경계 저장이 거절되면 미집계 시전이나 쿨다운 소비 없이 다시 시도할 수 있다.
+            if (!LocalProgression.RecordSkillCast(skillId)) return false;
             _casting[slotIndex] = true;
             _cooldowns[slotIndex] = _cooldownTimers[slotIndex] = GetEffectiveCooldown(skillId);
+            _skillCooldowns[skillId] = _skillCooldownTimers[skillId] = _cooldownTimers[slotIndex];
+            var cast = new MageTowerSpellCast(this, skill, GetEffectiveDamage(skillId), GetAwakeningLevel(skillId), IsBloomEnabled(skillId), target, position);
+            _activeSpells[slotIndex] = cast;
             OnCastingChanged?.Invoke(slotIndex, true);
-
-            if (so.GetEffect<SkillEffect_FireTornado>() != null)
-            {
-                SpawnPersistent(slotIndex, so);
-            }
-            else
-            {
-                var excludedIds = new HashSet<int>();
-                if (nearestId != 0) excludedIds.Add(nearestId);
-                StartCoroutine(CastSeries(slotIndex, so, targetPos, excludedIds));
-            }
-
+            StartCoroutine(RunCast(slotIndex, cast));
             return true;
         }
 
-        private readonly ulong[] _castDamage = new ulong[SlotCount];
-        private IEnumerator CastSeries(int slot, MageTowerSkillSO skill, Vector3 initial, HashSet<int> excluded)
+        private IEnumerator RunCast(int slot, MageTowerSpellCast cast)
         {
-            string battle = LocalProgression.State.ActiveBattleId;
-            int hits = BalanceMath.MageHits(skill.id == 0 ? 3 : 4, GetAwakeningLevel(skill.id), false);
-            _castDamage[slot] = checked((ulong)GetEffectiveDamage(skill.id));
-            double elapsed = 0, duration = skill.id == 0 ? .6 : .9;
-            int emitted = 0;
-            while (emitted < hits && LocalProgression.State.ActiveBattleId == battle)
+            try { yield return cast.Run(); }
+            finally
             {
-                while (emitted < hits && elapsed + .000001 >= duration * emitted / (hits - 1))
-                {
-                    Vector3 position = emitted == 0 || skill.id == 0 ? initial : GetNextCastPosition(skill,initial,excluded);
-                    if (position != Vector3.zero) SpawnChain(slot,skill,position,emitted+1,initial,excluded);
-                    emitted++;
-                }
-                yield return null; elapsed += Time.deltaTime;
+                cast.Dispose();
+                if (_activeSpells[slot] == cast) { _activeSpells[slot] = null; EndCasting(slot); }
             }
-            FinishCasting(slot,skill.id);
         }
 
-        private void SpawnChain(int slotIndex, MageTowerSkillSO so, Vector3 castPos,
-                                int castIndex, Vector3 initialTarget,
-                                HashSet<int> excludedIds)
+        // Retained for old visual components and existing UI bindings.
+        public void EndCasting(int slot)
         {
-{
-            // Each scheduled strike owns its visual; damage is emitted explicitly once.
-            Vector3 spawnPos = castPos;
-            Transform center = so.prefab.transform.Find("Center"); if (center != null) spawnPos -= center.localPosition;
-            var go = Instantiate(so.prefab, spawnPos, Quaternion.identity);
-            var projectile = go.GetComponent<MageTowerSkillProjectile>() ?? go.AddComponent<MageTowerSkillProjectile>();
-            projectile.Initialize(_castDamage[slotIndex],spawnPos,null, so.id == 0 ? .5f : .35f,false,.15f,.08f,so.sfxName);
-            projectile.OnHit();
+            if (slot < 0 || slot >= SlotCount) return;
+            _casting[slot] = false; OnCastingChanged?.Invoke(slot, false);
         }
-    }
 
-        private void SpawnPersistent(int slotIndex, MageTowerSkillSO so)
+        private void OnDisable()
         {
-            // 화면 내 랜덤 몬스터를 타겟으로 선택
-            Transform target = FindRandomMonsterTransform();
-            if (target == null)
-            {
-                FinishCasting(slotIndex, so.id);
-                return;
-            }
-
-            var go = Instantiate(so.prefab, target.position, Quaternion.identity);
-            var persistent = go.GetComponent<MageTowerSkillPersistent>();
-            if (persistent == null)
-                persistent = go.AddComponent<MageTowerSkillPersistent>();
-
-            if (!string.IsNullOrEmpty(so.sfxName) &&
-                System.Enum.TryParse(so.sfxName, out eSFXType fireSfxType))
-            {
-                SFXManager.Instance.GetSFX(
-                    fireSfxType, target.position, Quaternion.identity, sfx => sfx.PlaySFX());
-            }
-
-            ulong dmg = checked((ulong)GetEffectiveDamage(so.id));
-            var fire = so.GetEffect<SkillEffect_FireTornado>();
-            float duration = 5f + GetAwakeningLevel(so.id) / 4;
-            float tickInterval = fire != null ? fire.tickInterval : 0f;
-            float moveSpeed = fire != null ? fire.moveSpeed : 8f;
-            float arrivalThreshold = fire != null ? fire.arrivalThreshold : 0.05f;
-            persistent.Initialize(dmg, duration, tickInterval, moveSpeed,
-                                  arrivalThreshold, slotIndex, so.id, target, so.sfxLoopName);
+            StopAllCoroutines();
+            for (int i = 0; i < SlotCount; i++) { _activeSpells[i]?.Dispose(); _activeSpells[i] = null; _casting[i] = false; }
         }
+        private void OnDestroy() { OnDisable(); if (Instance == this) Instance = null; }
 
-        /// <summary>
-        /// 외부(MageTowerSkillPersistent 등)에서 시전 종료를 알릴 때 사용.
-        /// </summary>
-        public void EndCasting(int slotIndex)
+        public bool IsBloomUnlocked(int id) => IsOwned(id) && GetAwakeningLevel(id) >= MageSkillRules.BloomAwakening;
+        public bool IsBloomEnabled(int id) => IsBloomUnlocked(id) && Saved(id).BloomEnabled;
+        // A cast snapshots its mode and cooldown. Switching affects the next cast only.
+        public bool CanSetBloom(int id) => IsBloomUnlocked(id);
+        public bool SetBloomEnabled(int id, bool enabled)
         {
-            if (slotIndex < 0 || slotIndex >= SlotCount) return;
-            int skillId = _equipped[slotIndex];
-            if (skillId < 0) return;
-            FinishCasting(slotIndex, skillId);
+            if (!CanSetBloom(id)) return false;
+            bool result = LocalProgression.Execute("mage-bloom", state => {
+                if (!state.MageSkills.TryGetValue(id, out var skill) || skill.Awaken < MageSkillRules.BloomAwakening) return false;
+                skill.BloomEnabled = enabled; return true;
+            });
+            if (result) NotifyCommitted(); return result;
         }
-
-        private void FinishCasting(int slotIndex, int skillId)
+        public decimal SingleTargetDps(int id)
         {
-            _casting[slotIndex] = false;
-            OnCastingChanged?.Invoke(slotIndex, false);
-
-
+            var skill = GetSkillById(id); if (skill == null) return 0;
+            return GetEffectiveDamage(id) * MageSkillRules.SingleTargetPowerUnits(skill, GetAwakeningLevel(id), IsBloomEnabled(id)) / (decimal)GetEffectiveCooldown(id);
         }
 
-        private Vector3 GetNextCastPosition(MageTowerSkillSO so, Vector3 initialTarget,
-                                            HashSet<int> excludedIds)
-        {
-            // 라이트닝: 첫 시전 성공 시 몬스터 유무 관계없이 전부 시전
-            var lightningEff = so.GetEffect<SkillEffect_Lightning>();
-            if (lightningEff != null)
-            {
-                return initialTarget;
-            }
-
-            // 얼음송곳: 체인할 몬스터가 없으면 중단하고 쿨다운
-            var iceSpikeEff = so.GetEffect<SkillEffect_IceSpike>();
-            if (iceSpikeEff != null)
-            {
-                Vector3 pos = FindRandomMonsterPosition(excludedIds, out int newId);
-                if (newId == 0) pos = FindNearestMonsterPosition(out newId);
-                if (pos != Vector3.zero && newId != 0)
-                    excludedIds.Add(newId);
-                return pos;
-            }
-
-            return FindNearestMonsterPosition();
-        }
-
-        private static readonly List<Collider2D> _searchResults = new(32);
-
-        /// <summary>
-        /// 카메라 화면 전체를 커버하는 검색을 수행하고 결과 개수를 반환한다.
-        /// worldCenter에 화면 중앙 월드 좌표가 출력된다.
-        /// </summary>
-        private int SearchMonstersOnScreen(out Vector3 worldCenter)
-        {
-            worldCenter = Vector3.zero;
-
-            var cam = Camera.main;
-            if (cam == null) return 0;
-
-            // Perspective 카메라: z 파라미터는 카메라에서의 거리
-            float camDist = Mathf.Abs(cam.transform.position.z);
-
-            Vector3 center = cam.ScreenToWorldPoint(
-                new Vector3(Screen.width * 0.5f, Screen.height * 0.5f, camDist));
-            center.z = 0f;
-            worldCenter = center;
-
-            Vector3 screenEdge = cam.ScreenToWorldPoint(
-                new Vector3(Screen.width, Screen.height, camDist));
-            float searchRadius = Vector2.Distance(center, (Vector2)screenEdge) + 2f;
-
-            ContactFilter2D filter = new ContactFilter2D();
-            filter.SetLayerMask(GameLayers.EnemyMask);
-            filter.useLayerMask = true;
-            filter.useTriggers = true;
-
-            _searchResults.Clear();
-            return Physics2D.OverlapCircle(worldCenter, searchRadius, filter, _searchResults);
-        }
-
-        /// <summary>
-        /// 화면 중앙에서 가장 가까운 살아있는 몬스터의 위치를 반환한다.
-        /// </summary>
-        private Vector3 FindNearestMonsterPosition()
-        {
-            return FindNearestMonsterPosition(out _);
-        }
-
-        private Vector3 FindNearestMonsterPosition(out int instanceId)
-        {
-            instanceId = 0;
-            int count = SearchMonstersOnScreen(out Vector3 worldCenter);
-            if (count == 0) return Vector3.zero;
-
-            var cam = MageTowerTargeting.ResolveCamera();
-            float bestDist = float.MaxValue;
-            Vector3 bestPos = Vector3.zero;
-            bool found = false;
-
-            for (int i = 0; i < count; i++)
-            {
-                var col = _searchResults[i];
-                if (col == null) continue;
-
-                var monster = col.GetComponent<Monster>();
-                if (monster != null && monster.MonAction == eMonsterAction.Dead) continue;
-
-                // 뷰포트 밖 몬스터 제외 — 외접원 광역 쿼리가 화면 밖 띠까지 잡는다
-                if (!MageTowerTargeting.IsOnScreen(cam, col.transform.position)) continue;
-
-                float dist = Vector2.Distance(worldCenter, col.transform.position);
-                if (dist < bestDist)
-                {
-                    bestDist = dist;
-                    bestPos = col.transform.position;
-                    instanceId = col.gameObject.GetInstanceID();
-                    found = true;
-                }
-            }
-
-            return found ? bestPos : Vector3.zero;
-        }
-
-        /// <summary>
-        /// excludeIds에 포함된 인스턴스ID의 몬스터를 제외한 랜덤 살아있는 몬스터의 위치를 반환한다.
-        /// </summary>
-        // 시전 중 재사용 스크래치 (AutoCastAll 경로에서 매 시전마다 리스트를 새로 만들지 않게)
-        private static readonly List<(Vector3 pos, int id)> _randomPosCandidates = new(32);
-
-        private Vector3 FindRandomMonsterPosition(HashSet<int> excludeIds, out int selectedId)
-        {
-            selectedId = 0;
-            int count = SearchMonstersOnScreen(out _);
-            if (count == 0) return Vector3.zero;
-
-            var cam = MageTowerTargeting.ResolveCamera();
-            _randomPosCandidates.Clear();
-            for (int i = 0; i < count; i++)
-            {
-                var col = _searchResults[i];
-                if (col == null) continue;
-
-                var monster = col.GetComponent<Monster>();
-                if (monster != null && monster.MonAction == eMonsterAction.Dead) continue;
-
-                // 뷰포트 밖 몬스터 제외 — 얼음송곳 체인이 화면 밖에 생성되지 않게
-                if (!MageTowerTargeting.IsOnScreen(cam, col.transform.position)) continue;
-
-                int id = col.gameObject.GetInstanceID();
-                if (excludeIds != null && excludeIds.Contains(id)) continue;
-
-                _randomPosCandidates.Add((col.transform.position, id));
-            }
-
-            if (_randomPosCandidates.Count == 0) return Vector3.zero;
-            var chosen = _randomPosCandidates[UnityEngine.Random.Range(0, _randomPosCandidates.Count)];
-            selectedId = chosen.id;
-            return chosen.pos;
-        }
-
-        /// <summary>
-        /// 화면 내 랜덤 살아있는 몬스터의 Transform을 반환한다.
-        /// </summary>
-        private static readonly List<Transform> _randomTransformCandidates = new(32);
-
-        private Transform FindRandomMonsterTransform()
-        {
-            int count = SearchMonstersOnScreen(out _);
-            if (count == 0) return null;
-
-            var cam = MageTowerTargeting.ResolveCamera();
-            _randomTransformCandidates.Clear();
-            for (int i = 0; i < count; i++)
-            {
-                var col = _searchResults[i];
-                if (col == null) continue;
-
-                var monster = col.GetComponent<Monster>();
-                if (monster != null && monster.MonAction == eMonsterAction.Dead) continue;
-
-                // 뷰포트 밖 몬스터 제외 — 화염폭풍 최초 대상도 화면 안에서만 고른다
-                if (!MageTowerTargeting.IsOnScreen(cam, col.transform.position)) continue;
-
-                _randomTransformCandidates.Add(col.transform);
-            }
-
-            if (_randomTransformCandidates.Count == 0) return null;
-            return _randomTransformCandidates[UnityEngine.Random.Range(0, _randomTransformCandidates.Count)];
-        }
-
-        public bool CanReset(int id) => GetEnhanceLevel(id) > 0;
+        public bool CanReset(int id) => IsOwned(id) && GetEnhanceLevel(id) > 0;
         public long GetResetRefund(int id) => BalanceMath.Floor(GetTotalAKSpent(id) * .8m);
         public bool ResetEnhance(int id)
         {
@@ -598,11 +417,12 @@ namespace KingdomIdle.MageTower
                 foreach (long code in packed)
                 {
                     int id = MageTowerSkillCode.UnpackSkillId(code);
-                    if (GetSkillById(id) == null) continue;
+                    if (id == 8 ? s.Modules.ContainsKey(MageCatalogMigration.MeteorArchive) : GetSkillById(id) == null) continue;
                     s.MageSkills[id] = new MageSave { Enhance = BalanceMath.Clamp(MageTowerSkillCode.UnpackEnhanceLevel(code), 0, 100),
                         Awaken = BalanceMath.Clamp(MageTowerSkillCode.UnpackAwakeningLevel(code), 0, 10), Fragments = MageTowerSkillCode.UnpackQuantity(code) };
                     // No inferred historical spend: imported levels cannot manufacture reset refunds.
                 }
+                MageCatalogMigration.Apply(s);
                 s.Modules["mage-imported"] = "1"; return true;
             })) NotifyCommitted();
         }

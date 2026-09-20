@@ -1,0 +1,293 @@
+{
+  "last_node_id": 40,
+  "last_link_id": 5,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [
+        0,
+        40
+      ],
+      "size": [
+        300,
+        120
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "52aa887b688d05a541652eb1961ea8f8e81d140d0c4c34822e6850052caa4849.png"
+      ]
+    },
+    {
+      "id": 10,
+      "type": "GeminiNanoBanana2V2",
+      "pos": [
+        340,
+        40
+      ],
+      "size": [
+        300,
+        120
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model.images.image_1",
+          "type": "IMAGE",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            2,
+            3
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 1
+        },
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [],
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "GeminiNanoBanana2V2"
+      },
+      "widgets_values": [
+        "Create ONE production spell EFFECT icon for the same medieval pixel-art idle RPG as the reference. The reference is STYLE, pixel density, restrained contrast and scale only: replace its subject completely. Strong recognizable effect silhouette occupying about 75% of a square canvas, 12% empty safe margin. Genuine 48 by 48 logical pixel art enlarged with nearest neighbor, crisp square pixel clusters and stair steps. Maximum 16 colors, no antialiasing, no gradients, no bloom haze. Use desaturated shadows and a few bright ivory highlights for legibility at 48px. Uniform very dark charcoal background #171c24. No frame, text, numbers, caster, face, characters, logo, tiny glitter, microdetails, ornate filigree or UI mockup. Subject: METEOR: a chunky dark angular meteor rock falling diagonally down-left, wrapped in a bold burnt-orange flame tail, a few large amber fragments. Charcoal rock, ember orange, limited warm ivory.",
+        "Nano Banana 2 (Gemini 3.1 Flash Image)",
+        "1:1",
+        "1K",
+        "MINIMAL",
+        7323,
+        "IMAGE"
+      ]
+    },
+    {
+      "id": 15,
+      "type": "SaveImage",
+      "pos": [
+        680,
+        40
+      ],
+      "size": [
+        300,
+        120
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 2
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "KingdomIdle/Mage/08-Meteor_Master"
+      ]
+    },
+    {
+      "id": 20,
+      "type": "ImageScale",
+      "pos": [
+        1020,
+        40
+      ],
+      "size": [
+        300,
+        120
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            4
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageScale"
+      },
+      "widgets_values": [
+        "nearest-exact",
+        48,
+        48,
+        "disabled"
+      ]
+    },
+    {
+      "id": 30,
+      "type": "ImageQuantize",
+      "pos": [
+        1360,
+        40
+      ],
+      "size": [
+        300,
+        120
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 4
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            5
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageQuantize"
+      },
+      "widgets_values": [
+        16,
+        "none"
+      ]
+    },
+    {
+      "id": 40,
+      "type": "SaveImage",
+      "pos": [
+        1700,
+        40
+      ],
+      "size": [
+        300,
+        120
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 5
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "KingdomIdle/Mage/08-Meteor_48px"
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      10,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      10,
+      0,
+      15,
+      0,
+      "IMAGE"
+    ],
+    [
+      3,
+      10,
+      0,
+      20,
+      0,
+      "IMAGE"
+    ],
+    [
+      4,
+      20,
+      0,
+      30,
+      0,
+      "IMAGE"
+    ],
+    [
+      5,
+      30,
+      0,
+      40,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.55,
+      "offset": [
+        0,
+        0
+      ]
+    }
+  },
+  "version": 0.4
+}

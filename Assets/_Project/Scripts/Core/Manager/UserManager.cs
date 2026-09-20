@@ -303,13 +303,9 @@ obj1.GetComponent<ChangeJob>().ChangeJobByCode(_characterDataFromServer[0].JobCo
                         var data = EquipmentManager.Instance.GetData((int)item.GetItemCode());
                         if (data == null) { state.Modules["legacy-unresolved-inventory"]="Unknown item codes remain in legacy-inventory for server migration."; continue; }
                         int amount = (int)item.GetItemAmount();
-                        for(int n = 0; n < amount; n++)
-                        {
-                            var saved = new EquipmentSave { Id = System.Guid.NewGuid().ToString("N"), Code = data.itemCode,
-                                Level = System.Math.Min((int)item.GetItemEnchantCount(),data.maxEnhancementLevel) };
-                            // 저장 복원은 오늘의 신규 획득이 아니다. 과거 승인 카운터는 별도로 보존한다.
-                            if (!EquipmentManager.Grant(state,saved,true,false)) throw new System.InvalidOperationException("Inventory migration exceeds capacity; raw server account remains unchanged.");
-                        }
+                        // 저장 복원은 획득 이벤트 없이 보유 장비와 초과 수량만 복구한다.
+                        EquipmentManager.ImportLegacy(state, data.itemCode,
+                            System.Math.Min((int)item.GetItemEnchantCount(),data.maxEnhancementLevel), amount);
                     }
                     state.Modules["inventory-imported"] = "1";
                 }

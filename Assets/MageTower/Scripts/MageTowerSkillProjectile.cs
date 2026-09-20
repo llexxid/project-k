@@ -165,6 +165,9 @@ namespace KingdomIdle.MageTower
         private Vector3 _offset;
         private Unity.Cinemachine.CinemachineBrain _brain;
         public static event System.Action<float, float> OnShake;
+#if UNITY_EDITOR || LOBBY_DEVICE_QA
+        public Vector3 DiagnosticOffset => _offset;
+#endif
 
         public void Shake(float duration, float magnitude)
         {

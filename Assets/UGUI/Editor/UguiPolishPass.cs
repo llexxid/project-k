@@ -11,8 +11,15 @@ namespace KingdomIdle.UGUI.Editor
     public static class UguiPolishPass
     {
         private const string Root = "Assets/UGUI/Prefabs/";
-        private const string Kit = "Assets/ExternalAssets/Layer Lab/GUI Pro-MinimalGame/Shared/Sprite_Common/";
+        private const string Kit = "Assets/UGUI/Art/LayerLab/GUI Pro-MinimalGame/Shared/Sprite_Common/";
         private static Sprite _panel, _frame;
+        internal static void ApplyTo(GameObject go)
+        {
+            _panel = AssetDatabase.LoadAssetAtPath<Sprite>(Kit + "Frame/BasicFrame/BasicFrame_Rectangle_01~04_White_Bg.png");
+            _frame = AssetDatabase.LoadAssetAtPath<Sprite>(Kit + "Frame/BasicFrame/BasicFrame_Rectangle_01~04_White_Border1.png");
+            Polish(go);
+            UguiTypeNavPass.ApplyTo(go);
+        }
         [MenuItem("KingdomIdle/UGUI/Apply mobile usability polish")]
         public static void Apply()
         {
@@ -111,14 +118,19 @@ namespace KingdomIdle.UGUI.Editor
                 case "Item_JobCard":
                     var job=go.GetComponent<JobCardView>(); Text(job.nameLabel,32,66); Text(job.statLabel,26,48); Text(job.fragLabel,26,48); break;
                 case "GachaTabContent":
-                    foreach(var t in go.GetComponentsInChildren<TMP_Text>(true)) Text(t,28,52); break;
+                    foreach(var t in go.GetComponentsInChildren<TMP_Text>(true))
+                    {
+                        Text(t,28,t.name == "Desc" ? 90 : 52);
+                        if(t.name == "Desc") {t.textWrappingMode=TextWrappingModes.Normal;t.overflowMode=TextOverflowModes.Overflow;}
+                    }
+                    break;
                 case "Item_MageSkillCell":
-                    var cell=go.GetComponent<MageSkillCellView>(); Text(cell.nameLabel,30,60);Text(cell.dmgLabel,26,80);Height(cell.icon.transform,88);break;
+                    var cell=go.GetComponent<MageSkillCellView>(); Text(cell.nameLabel,28,42);Text(cell.dmgLabel,25,66);Height(cell.icon.transform,96);break;
                 case "Item_MageEquipSlot":
                     Height(go.transform,136);var slotWidth=Layout(go.transform);slotWidth.minWidth=144;slotWidth.preferredWidth=144;slotWidth.flexibleWidth=1;break;
                 case "Item_DungeonDifficultyRow":Height(go.transform,144);break;
                 case "Panel_MageTowerEquip":
-                    var mage=go.GetComponent<MageTowerEquipPopupView>();mage.panelBox.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,980);
+                    var mage=go.GetComponent<MageTowerEquipPopupView>();mage.panelBox.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,1400);
                     var slots=mage.panelBox.Find("Body/SlotsCol");var sl=Layout(slots);sl.minWidth=160;sl.preferredWidth=160;sl.flexibleWidth=0;
                     foreach(var image in mage.panelBox.GetComponentsInChildren<Image>(true)) if(image.name=="TitleBar")image.color=UguiTheme.RusticSurface;
                     foreach(var t in mage.panelBox.GetComponentsInChildren<TMP_Text>(true)) if(t.text=="보유 스킬")Text(t,30,60);
@@ -251,6 +263,7 @@ namespace KingdomIdle.UGUI.Editor
         private static void MageDetail(GameObject go)
         {
             var view=go.GetComponent<MageTowerDetailPopupView>();
+            if (view.scroll != null) return; // Current responsive generator already authors this layout.
             var panel=go.transform.Find("Panel");
             Text(view.titleLabel,38,72);
             Height(panel.Find("IconRow"),188);
@@ -332,7 +345,7 @@ namespace KingdomIdle.UGUI.Editor
             {
                 if(button.name=="BtnLoopIcon")continue;
                 if(button.name=="BtnMenuNotice"||button.name=="BtnMenuMail"){button.gameObject.SetActive(false);continue;}
-                string caption=button.name=="BtnMenuGuide"?"퀘스트 / 가이드":button.name=="BtnMenuInventory"?"가방":button.name=="BtnMenuSettings"?"설정":"신 스킬";
+                string caption=button.name=="BtnMenuGuide"?"퀘스트 / 가이드":button.name=="BtnMenuInventory"?"가방":button.name=="BtnMenuSettings"?"설정":"";
                 Height(button.transform,144);
                 var buttonLayout=Layout(button.transform);buttonLayout.minWidth=0;buttonLayout.preferredWidth=-1;buttonLayout.flexibleWidth=1;
                 var icon=button.transform.Find("Icon") as RectTransform;

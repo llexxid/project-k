@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Scripts.Core;
 
 namespace KingdomIdle.Balance
 {
@@ -280,10 +281,12 @@ namespace KingdomIdle.Balance
         /// <summary>동적 골드의 기존 수입 계산과 소수 정밀도를 유지한다.</summary>
         public static decimal DynamicGold(ProgressionState state)
         {
-            int stage = (int)((state.OfflineStage >> 16) & 0xFFF), wave = (int)(state.OfflineStage & 0xFFFF);
+            int stage = Scripts.Core.Manager.StageParser.GetStageNumber((eStage)state.OfflineStage);
+            int wave = Scripts.Core.Manager.StageParser.GetWaveNumber((eStage)state.OfflineStage);
             // 안전 웨이브만 복원되고 검증 KPM 표본이 없으면 기존 1-1/3KPM bootstrap을 사용한다.
-            if (stage < 1 || stage > 3 || wave < 1 || wave > 10 || state.OfflineKpm <= 0) return 60;
-            return 2m * Math.Min(30m, state.OfflineKpm) * BalanceMath.MainEnemy(stage, wave).Gold * BalanceMath.RubyMultiplier(state.RubyGoldLevel);
+            if (stage < 1 || wave < 1 || wave > 10 || state.OfflineKpm <= 0) return 60;
+            // 전투와 동일한 카탈로그를 사용해 4장 이후 및 확장 ID의 수입도 반영한다.
+            return 2m * Math.Min(30m, state.OfflineKpm) * Scripts.Core.StageCatalogRules.MainEnemy(stage, wave).Gold * BalanceMath.RubyMultiplier(state.RubyGoldLevel);
         }
 
         /// <summary>기존 UI 문자열 요청을 typed 보상 정의에 연결한다.</summary>

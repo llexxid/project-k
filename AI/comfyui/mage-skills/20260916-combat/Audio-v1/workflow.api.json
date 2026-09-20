@@ -1,0 +1,46 @@
+{
+  "1": {
+    "class_type": "ElevenLabsTextToSoundEffects",
+    "inputs": {
+      "text": "One isolated restrained medieval sword attack for a cozy pixel RPG. A short dry steel blade whoosh, then one small muted metallic contact. Weighty but soft, no piercing treble, no long ringing. Starts immediately, ends with a fast natural decay. No music, voice, ambience, reverb, cinematic boom or multiple attacks. Total less than 0.7 seconds.",
+      "model": "eleven_sfx_v2",
+      "model.duration": 0.7,
+      "model.loop": false,
+      "model.prompt_influence": 0.6,
+      "output_format": "mp3_44100_192"
+    }
+  },
+  "2": {
+    "class_type": "SaveAudioAdvanced",
+    "inputs": {
+      "audio": [
+        "1",
+        0
+      ],
+      "filename_prefix": "KingdomIdle/CombatRevision/Sword",
+      "format": "flac"
+    }
+  },
+  "11": {
+    "class_type": "ElevenLabsTextToSoundEffects",
+    "inputs": {
+      "text": "One isolated heavy wooden club impact for a cozy pixel RPG. A short low woody thud with a subtle leather swish before contact. Rounded compact impact, no sub-bass boom, no crackling, no crushing bones or gore. Dry close recording, starts immediately and decays quickly. No music, voice, ambience, reverb or multiple attacks. Total less than 0.7 seconds.",
+      "model": "eleven_sfx_v2",
+      "model.duration": 0.7,
+      "model.loop": false,
+      "model.prompt_influence": 0.6,
+      "output_format": "mp3_44100_192"
+    }
+  },
+  "12": {
+    "class_type": "SaveAudioAdvanced",
+    "inputs": {
+      "audio": [
+        "11",
+        0
+      ],
+      "filename_prefix": "KingdomIdle/CombatRevision/Heavy",
+      "format": "flac"
+    }
+  }
+}

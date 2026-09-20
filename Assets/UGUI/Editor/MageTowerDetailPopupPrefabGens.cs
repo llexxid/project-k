@@ -13,9 +13,9 @@ namespace KingdomIdle.UGUI.Editor
     internal static class MageTowerDetailPopupPrefabGens
     {
         // 원본 액션버튼 색상 (UguiPixelSkin.ApplyButton으로 픽셀 버튼 스킨 매핑)
-        private static readonly Color EnhanceColor = new Color(80f / 255f, 140f / 255f, 220f / 255f, 0.70f);
-        private static readonly Color AwakenColor = new Color(160f / 255f, 80f / 255f, 220f / 255f, 0.70f);
-        private static readonly Color ResetColor = new Color(200f / 255f, 70f / 255f, 70f / 255f, 0.60f);
+        private static readonly Color EnhanceColor = new Color(.23f, .34f, .40f, 1f);
+        private static readonly Color AwakenColor = new Color(.39f, .30f, .43f, 1f);
+        private static readonly Color ResetColor = UguiTheme.RusticSurface;
 
         private static readonly Color StatDim = new Color(1f, 1f, 1f, 0.70f);
         private static readonly Color SectionStat = new Color(1f, 1f, 1f, 0.85f);
@@ -34,27 +34,28 @@ namespace KingdomIdle.UGUI.Editor
             dimBtn.transition = Selectable.Transition.None;
             view.backdropButton = dimBtn;
 
-            // ── 패널 (max-width 600, 어두운 배경 + 금색 픽셀 프레임, ContentSizeFitter 세로) ──
+            // Screen-relative shell with scrolling content; header remains reachable on short screens.
             var panel = F.PixelPanel(root, "Panel", F.Catalog != null ? F.Catalog.kitWindow : null,
                 F.FrameGold, 24f, raycast: true, baseColor: F.PanelBaseDarker);
-            F.AnchorCenter(panel.rectTransform, 600f, 0f);
+            panel.rectTransform.anchorMin = new Vector2(.5f, .07f);
+            panel.rectTransform.anchorMax = new Vector2(.5f, .93f);
+            panel.rectTransform.sizeDelta = new Vector2(980f, 0f);
+            panel.gameObject.AddComponent<ModalSizeFitter>();
             F.VLayout(panel.gameObject, 14f, new RectOffset(22, 22, 22, 22));
-            var fitter = panel.gameObject.AddComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             F.CornerBrackets(panel.transform);
 
             // ── 헤더 (타이틀 + 닫기) ──
             var header = F.Container(panel.transform, "Header");
             F.HLayout(header.gameObject, 8f, null, TextAnchor.MiddleLeft);
-            F.Preferred(header, height: 60f);
+            F.Preferred(header, height: 96f);
 
-            var title = F.Text(header.transform, "Title", "스킬", 32f, UguiTheme.TextPrimary,
+            var title = F.Text(header.transform, "Title", "스킬", 38f, UguiTheme.TextPrimary,
                 TextAlignmentOptions.Left, bold: true);
             F.Flexible(title, flexWidth: 1f);
             view.titleLabel = title;
 
             var closeBg = F.Box(header.transform, "BtnClose", UguiTheme.SurfaceMid, rounded: true, raycast: true);
-            F.Preferred(closeBg, width: 60f, height: 60f);
+            F.Preferred(closeBg, width: 96f, height: 96f);
             var closeBtn = closeBg.gameObject.AddComponent<Button>();
             closeBtn.targetGraphic = closeBg;
             closeBtn.colors = UguiTheme.MakeColorBlock();
@@ -63,14 +64,20 @@ namespace KingdomIdle.UGUI.Editor
             var closeLbl = F.Text(closeBg.transform, "X", "X", 28f, UguiTheme.TextPrimary, TextAlignmentOptions.Center, bold: true);
             F.Stretch(closeLbl.rectTransform);
 
+            var scroll = F.VScroll(panel.transform, "Details", out var content, 18f, new RectOffset(4, 4, 4, 24));
+            F.Flexible(scroll, flexHeight: 1f);
+            view.scroll = scroll;
+            view.stateLabel = StatLabel(content, UguiTheme.Parchment);
+            view.descriptionLabel = F.Text(content, "Description", "", 30f, UguiTheme.Parchment, wrap: true);
+
             // ── 아이콘 + 스탯 ──
-            var iconRow = F.Container(panel.transform, "IconRow");
+            var iconRow = F.Container(content, "IconRow");
             F.HLayout(iconRow.gameObject, 16f, null, TextAnchor.UpperLeft);
-            F.Preferred(iconRow, height: 130f);
+            F.Preferred(iconRow, height: -1f).minHeight = 196f;
 
             var iconBg = F.Box(iconRow.transform, "IconBg", UguiTheme.SurfaceLight, rounded: true);
-            var iconLe = F.Preferred(iconBg, width: 90f, height: 90f);
-            iconLe.minWidth = 90f;
+            var iconLe = F.Preferred(iconBg, width: 168f, height: 168f);
+            iconLe.minWidth = 168f;
             var icon = F.Box(iconBg.transform, "Icon", Color.white, rounded: false);
             icon.enabled = false;              // 스프라이트 붙기 전엔 비활성 (흰 박스 방지)
             icon.preserveAspect = true;
@@ -84,26 +91,36 @@ namespace KingdomIdle.UGUI.Editor
             F.Flexible(statsCol, flexWidth: 1f);
 
             view.lblBaseDmg = StatLabel(statsCol, StatDim);
-            view.lblEffDmg = StatLabel(statsCol, UguiTheme.TextPrimary);
+            view.lblEffDmg = F.Text(statsCol, "EffectivePower", "", 28f, UguiTheme.TextPrimary, TextAlignmentOptions.Left, wrap: true);
             view.lblBaseCd = StatLabel(statsCol, StatDim);
             view.lblEffCd = StatLabel(statsCol, UguiTheme.TextPrimary);
 
             // ── 강화 섹션 ──
-            var enhContent = Section(panel.transform, "강화");
+            var enhContent = Section(content, "강화");
             view.lblEnhLevel = StatLabel(enhContent, SectionStat);
             view.lblEnhCost = StatLabel(enhContent, SectionStat);
             view.btnEnhance = ActionButton(enhContent, "BtnEnhance", "강화하기", EnhanceColor, out var enhLabel);
             view.btnEnhanceLabel = enhLabel;
 
             // ── 각성 섹션 ──
-            var awkContent = Section(panel.transform, "각성");
+            var awkContent = Section(content, "각성");
             view.lblAwkLevel = StatLabel(awkContent, SectionStat);
+            view.awakeningEffects = F.Text(awkContent, "AwakeningEffects", "", 28f, UguiTheme.Parchment, wrap: true);
+            view.nextAwakening = F.Text(awkContent, "NextAwakening", "", 28f, UguiTheme.BronzeLight, wrap: true);
             view.lblAwkCost = StatLabel(awkContent, SectionStat);
             view.btnAwaken = ActionButton(awkContent, "BtnAwaken", "각성하기", AwakenColor, out var awkLabel);
             view.btnAwakenLabel = awkLabel;
 
+            var bloom = Section(content, null);
+            view.bloomTitle = F.Text(bloom, "BloomTitle", "개화", 32f, UguiTheme.BronzeLight, bold: true);
+            F.Preferred(view.bloomTitle, height: 52f);
+            view.bloomDescription = F.Text(bloom, "BloomDescription", "", 30f, UguiTheme.Parchment, wrap: true);
+            view.bloomStatus = F.Text(bloom, "BloomStatus", "", 26f, UguiTheme.TextSecondary, wrap: true);
+            view.btnBloom = ActionButton(bloom, "BtnBloom", "개화 켜기", AwakenColor, out var bloomLabel);
+            view.btnBloomLabel = bloomLabel;
+
             // ── 초기화 섹션 (타이틀 없음) ──
-            var resetContent = Section(panel.transform, null);
+            var resetContent = Section(content, null);
             view.lblResetRefund = StatLabel(resetContent, SectionStat);
             view.btnReset = ActionButton(resetContent, "BtnReset", "초기화", ResetColor, out _);
 
@@ -112,8 +129,8 @@ namespace KingdomIdle.UGUI.Editor
 
         private static TMP_Text StatLabel(RectTransform parent, Color color)
         {
-            var lbl = F.Text(parent.transform, "Stat", "", 24f, color, TextAlignmentOptions.Left);
-            F.Preferred(lbl, height: 32f);
+            var lbl = F.Text(parent.transform, "Stat", "", 28f, color, TextAlignmentOptions.Left);
+            F.Preferred(lbl, height: 46f);
             return lbl;
         }
 
@@ -124,16 +141,16 @@ namespace KingdomIdle.UGUI.Editor
             F.VLayout(section.gameObject, 6f, new RectOffset(12, 12, 12, 12));
             if (!string.IsNullOrEmpty(title))
             {
-                var titleLbl = F.Text(section.transform, "Title", title, 26f, UguiTheme.AccentGold, TextAlignmentOptions.Left, bold: true);
-                F.Preferred(titleLbl, height: 34f);
+                var titleLbl = F.Text(section.transform, "Title", title, 30f, UguiTheme.AccentGold, TextAlignmentOptions.Left, bold: true);
+                F.Preferred(titleLbl, height: 48f);
             }
             return section.rectTransform;
         }
 
         private static Button ActionButton(RectTransform parent, string name, string label, Color bg, out TMP_Text labelText)
         {
-            var btn = F.TextButton(parent.transform, name, label, 24f, bg, out var tmp);
-            F.Preferred((RectTransform)btn.transform, height: 62f);
+            var btn = F.TextButton(parent.transform, name, label, 32f, bg, out var tmp);
+            F.Preferred((RectTransform)btn.transform, height: 124f);
             labelText = tmp;
             return btn;
         }

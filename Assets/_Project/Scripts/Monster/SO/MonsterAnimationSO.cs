@@ -25,13 +25,13 @@ namespace Scripts.Monster.SO
 
 			foreach (var data in _datas)
 			{
-				_animationClipDic.Add(data.actionType, data.clip.length);
+				if (data.clip != null) _animationClipDic[data.actionType] = data.clip.length;
 			}
 		}
 
 		public float GetAnimationLength(eMonsterAction action)
 		{
-			return _animationClipDic[action];
+			return _animationClipDic != null && _animationClipDic.TryGetValue(action, out float length) ? length : .6f;
 		}
 	}
 }

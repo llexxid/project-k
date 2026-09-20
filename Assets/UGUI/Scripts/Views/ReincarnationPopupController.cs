@@ -9,6 +9,7 @@ namespace KingdomIdle.UGUI
     {
         private const string GainColor = "#5DE66C";
         private static ReincarnationPopupView view;
+        private static float nextPreviewRefresh;
 
         public static bool IsOpen =>
             view != null && view.gameObject.activeSelf;
@@ -21,14 +22,26 @@ namespace KingdomIdle.UGUI
             RefreshPreview();
             view.gameObject.SetActive(true);
             view.transform.SetAsLastSibling();
+            UIManager.Instance.FrameTick -= RefreshWhileOpen;
+            UIManager.Instance.FrameTick += RefreshWhileOpen;
+            nextPreviewRefresh = Time.unscaledTime + .25f;
             if (view.panel != null)
                 UITween.PopIn(view.panel);
         }
 
         public static void Hide()
         {
+            if (UIManager.Instance != null) UIManager.Instance.FrameTick -= RefreshWhileOpen;
             if (view != null)
                 view.gameObject.SetActive(false);
+        }
+
+        private static void RefreshWhileOpen()
+        {
+            if (!IsOpen) { if (UIManager.Instance != null) UIManager.Instance.FrameTick -= RefreshWhileOpen; return; }
+            if (Time.unscaledTime < nextPreviewRefresh) return;
+            nextPreviewRefresh = Time.unscaledTime + .25f;
+            RefreshPreview();
         }
 
         private static bool EnsureBuilt()
@@ -91,16 +104,16 @@ namespace KingdomIdle.UGUI
 
             ReincarnationState current = service.CurrentState;
             long countGain = preview.NextState.Count - current.Count;
-            view.statusLabel.text = "환생 가능";
+            SetText(view.statusLabel, "환생 가능");
             view.statusLabel.color = UguiTheme.SuccessGreen;
-            view.infoLabel.text =
+            SetText(view.infoLabel,
                 $"환생 레벨: {current.Level:N0} → " +
                 $"<color={GainColor}>{preview.NextState.Level:N0} " +
                 $"(+{preview.LevelGain:N0})</color>\n" +
                 $"환생 횟수: {current.Count:N0} → " +
                 $"<color={GainColor}>{preview.NextState.Count:N0} " +
                 $"(+{countGain:N0})</color>\n\n" +
-                "초기화: 메인 스테이지 1-1\n보유 장비와 강화는 유지됩니다.";
+                "초기화: 메인 스테이지 1-1\n보유 장비와 강화는 유지됩니다.");
             view.confirmButton.interactable = true;
         }
 
@@ -122,16 +135,21 @@ namespace KingdomIdle.UGUI
                 return;
             }
 
-            SetUnavailable("환생을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+            RefreshPreview();
+            if (service.GetPreview().CanReincarnate)
+                UIManager.Instance?.ShowToast("환생 요청을 저장하지 못했습니다. 다시 시도해 주세요.");
         }
 
         private static void SetUnavailable(string reason)
         {
-            view.statusLabel.text = "환생 불가";
+            SetText(view.statusLabel, "환생 불가");
             view.statusLabel.color = UguiTheme.Parchment;
-            view.infoLabel.text = reason;
+            SetText(view.infoLabel, reason);
             view.confirmButton.interactable = false;
         }
+
+        private static void SetText(TMPro.TMP_Text label, string text)
+        { if (label != null && label.text != text) label.text = text; }
 
         private static string GetFailureMessage(
             eReincarnationFailureReason reason)
@@ -139,13 +157,16 @@ namespace KingdomIdle.UGUI
             switch (reason)
             {
                 case eReincarnationFailureReason.NotMainStage:
-                    return "메인 스테이지에서만 환생할 수 있습니다.";
+                    return "메인 일반 웨이브에서 환생할 수 있습니다.\n보스전·던전 종료 후 다시 확인하세요.";
                 case eReincarnationFailureReason.StageRequirementNotMet:
                     return "이번 환생 사이클에서 메인 보스를 1회 이상 처치해야 합니다.";
                 case eReincarnationFailureReason.StateIsNotRunning:
                     return "현재 스테이지가 진행 중일 때만 환생할 수 있습니다.";
                 case eReincarnationFailureReason.MaximumLevel: return "환생 최대 레벨 300입니다.";
-                case eReincarnationFailureReason.Cooldown: return "이전 환생 또는 시작 후 10분이 지나야 합니다.";
+                case eReincarnationFailureReason.Cooldown:
+                    var s = KingdomIdle.Balance.LocalProgression.State;
+                    long remaining = System.Math.Max(0,600 - (KingdomIdle.Balance.LocalProgression.UtcNow - System.Math.Max(s.LastReincarnationUtc,s.CycleStartedUtc)));
+                    return $"다음 환생까지 {remaining / 60}분 {remaining % 60:00}초";
                 case eReincarnationFailureReason.DailyLimit: return "오늘 환생 3회를 모두 사용했습니다. KST 자정에 초기화됩니다.";
                 case eReincarnationFailureReason.RequestDuplication: return "일반 웨이브 종료 후 환생이 예약되어 있습니다.";
                 case eReincarnationFailureReason.NumericOverflow:

@@ -38,7 +38,13 @@ def find_visible(name,snapshot,kind='toggles'):
 
 def reveal(name,kind='toggles'):
  for i in range(9):
-  s=command('reveal-'+name+'-'+str(i))['state'];x=find_visible(name,s,kind)
+  s=command('reveal-'+name+'-'+str(i))['state']
+  if not any(x['name']==name for x in s[kind]):
+   tab=2 if name in ['PowerSave','LowSpec','KeepAwake'] else 1 if kind=='sliders' else 0
+   ui=state('reveal-tab-'+name+'-'+str(i))
+   if any(x['name']=='Tab'+str(tab) for x in ui['controls']):
+    tap('Tab'+str(tab),ui);time.sleep(.3);continue
+  x=find_visible(name,s,kind)
   if x:return s,x
   v=s['viewport'];b=next(x for x in s[kind] if x['name']==name)['bounds']
   middle=v['y']+v['height']/2
@@ -75,8 +81,12 @@ def launch(tag='launch',login=True):
  run('shell','am','force-stop',PACKAGE);run('shell','monkey','-p',PACKAGE,'-c','android.intent.category.LAUNCHER','1');time.sleep(7)
  if login:
   s=state(tag+'-screen')
-  if not s['main']:tap('BtnLogin',s);tap('BtnLoginGuest',state(tag+'-login'));time.sleep(7)
+  if not s['main']:
+   if not any(c['name']=='BtnLoginGuest' and c['interactable'] for c in s['controls']):
+    tap('BtnLogin',s);s=state(tag+'-login')
+   tap('BtnLoginGuest',s);time.sleep(7)
   s=state(tag+'-main')
+  assert s['main'], 'QA entry must reach the combat screen before stage commands.'
   if any(c['name']=='BtnConfirm' for c in s['controls']):tap('BtnConfirm',s)
  return command(tag)['state']
 

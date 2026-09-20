@@ -28,6 +28,11 @@ namespace KingdomIdle.Balance
         public Dictionary<int, HashSet<string>> UnlockedJobs = new();
         public List<EquipmentSave> Equipment = new();
         public List<EquipmentSave> PendingEquipment = new();
+        public List<LegacyEquipmentStack> LegacyEquipment = new();
+        public int AutoDismantleMask;
+        public int EquipmentRarityFilter = -1;
+        public bool EquipmentUsableOnly;
+        public int EquipmentSort;
         public Dictionary<int, MageSave> MageSkills = new();
         public int[] MageSlots = { -1, -1, -1, -1, -1 };
         public int EquipmentPity;
@@ -54,6 +59,29 @@ namespace KingdomIdle.Balance
         public decimal OfflineKpm;
         public int OfflineRubyGold, OfflineRubyExp;
         public Dictionary<string, string> Modules = new();
+
+        // Copy scalars with MemberwiseClone, and every mutable collection/item explicitly.
+        // Transactions no longer serialize and parse the complete account just to make a draft.
+        public ProgressionState DeepClone()
+        {
+            var copy = (ProgressionState)MemberwiseClone();
+            copy.Wallet = new(Wallet); copy.MainClears = new(MainClears); copy.Claims = new(Claims);
+            copy.CompletedQuests = new(CompletedQuests);
+            copy.Jobs = new(Jobs); copy.UnlockedJobs = new();
+            foreach (var pair in UnlockedJobs) copy.UnlockedJobs.Add(pair.Key, new(pair.Value));
+            copy.Equipment = new(Equipment.Count); copy.PendingEquipment = new(PendingEquipment.Count);
+            foreach (var item in Equipment) copy.Equipment.Add(item.Copy());
+            foreach (var item in PendingEquipment) copy.PendingEquipment.Add(item.Copy());
+            copy.LegacyEquipment = new(LegacyEquipment.Count);
+            foreach (var item in LegacyEquipment) copy.LegacyEquipment.Add(item.Copy());
+            copy.MageSkills = new();
+            foreach (var pair in MageSkills) copy.MageSkills.Add(pair.Key, pair.Value.Copy());
+            copy.MageSlots = (int[])MageSlots.Clone(); copy.Counters = new(Counters);
+            copy.PendingQuests = new();
+            foreach (var pair in PendingQuests) copy.PendingQuests.Add(pair.Key, pair.Value.Copy());
+            copy.Modules = new(Modules);
+            return copy;
+        }
     }
     [Serializable]
     public sealed class QuestPending
@@ -72,6 +100,15 @@ namespace KingdomIdle.Balance
         public int RequiredCount;
         /// <summary>고정 재화 또는 수령 시 계산할 골드 규칙의 복사본이다.</summary>
         public List<QuestRewardSave> Rewards = new();
+
+        /// <summary>지급 명세도 복사하여 실패한 거래가 원본 보류 보상을 변경하지 않게 한다.</summary>
+        public QuestPending Copy()
+        {
+            var copy = (QuestPending)MemberwiseClone();
+            copy.Rewards = new(Rewards.Count);
+            foreach (var reward in Rewards) copy.Rewards.Add(reward.Copy());
+            return copy;
+        }
     }
     /// <summary>카탈로그 수정과 독립적으로 보존하는 미수령 지급 명세다.</summary>
     [Serializable]
@@ -80,6 +117,7 @@ namespace KingdomIdle.Balance
         public eCurrency Currency;
         public long Amount;
         public bool IsDynamicGold;
+        public QuestRewardSave Copy() => (QuestRewardSave)MemberwiseClone();
     }
     [Serializable]
     public sealed class EquipmentSave
@@ -89,11 +127,22 @@ namespace KingdomIdle.Balance
         public int? Player;
         public bool Locked;
         public long ExpiresUtc;
+        public long EnhancementStonesSpent;
+        public EquipmentSave Copy() => (EquipmentSave)MemberwiseClone();
+    }
+    [Serializable]
+    public sealed class LegacyEquipmentStack
+    {
+        public int Code, Level, Count;
+        public LegacyEquipmentStack Copy() => (LegacyEquipmentStack)MemberwiseClone();
     }
     [Serializable]
     public sealed class MageSave
     {
         public int Enhance, Awaken, Fragments;
         public long Spent;
+        // Absent in old snapshots: false. Kept outside the legacy packed skill code.
+        public bool BloomEnabled;
+        public MageSave Copy() => (MageSave)MemberwiseClone();
     }
 }

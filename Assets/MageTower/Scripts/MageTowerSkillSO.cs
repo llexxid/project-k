@@ -4,6 +4,7 @@ using UnityEngine.Serialization;
 
 namespace KingdomIdle.MageTower
 {
+    public enum MageSpellKind { Lightning = 0, IceSpike = 1, FireTornado = 2, ArcaneVolley = 3, VenomMist = 4, StoneSeal = 5, Sanctuary = 7, Meteor = 8, VoidRift = 9 }
     [CreateAssetMenu(menuName = "KingdomIdle/MageTower/Skill", fileName = "MageTowerSkill_New")]
     public class MageTowerSkillSO : ScriptableObject
     {
@@ -12,10 +13,55 @@ namespace KingdomIdle.MageTower
         [FormerlySerializedAs("skillName")]
         public string nameKor;
         public Sprite icon;
+        public Sprite bloomIcon;
+        public Sprite DisplayIcon(bool bloom) => bloom && bloomIcon != null ? bloomIcon : icon;
+        public string DisplayName(bool bloom) => bloom && bloomName != "미정" ? bloomName : nameKor;
+        public bool CanAim => spellKind != MageSpellKind.IceSpike && spellKind != MageSpellKind.ArcaneVolley;
+        public bool CanAimWithBloom(bool bloom) => CanAim || (spellKind == MageSpellKind.ArcaneVolley && bloom);
+        public const float VoidPullRadiusMultiplier = 1.5f;
+        public float PullRadius => radius * VoidPullRadiusMultiplier;
+        public float TargetRadius(bool bloom) => spellKind == MageSpellKind.Lightning
+            ? bloom ? bloomRadius : radius + MageSkillRules.LightningScatterRadius
+            : spellKind == MageSpellKind.ArcaneVolley && bloom ? bloomRadius
+            : spellKind == MageSpellKind.VoidRift ? PullRadius : radius;
         public float baseCooldown;
         public int maxEnhanceLevel = 100;
         public int maxAwakeningLevel = 10;
         public GameObject prefab;
+
+        [Header("Catalog")]
+        public MageSpellKind spellKind;
+        [TextArea(2, 5)] public string description;
+        [Min(0)] public float basePower;
+        [Min(1)] public int baseHits = 3;
+        [Min(.05f)] public float radius = .5f;
+        [Min(.05f)] public float duration = 1f;
+        [Min(.05f)] public float tickInterval = .5f;
+        [Min(0)] public float controlDuration;
+        [Range(0, .8f)] public float slowFraction;
+        [Min(0)] public float secondaryPowerRatio;
+        [Min(1)] public int maxTargets = 6;
+        public GameObject castingPrefab;
+        public GameObject secondaryPrefab;
+
+        [Header("Bloom · Awakening 10")]
+        public string bloomName = "미정";
+        [TextArea(2, 5)] public string bloomDescription;
+        [Min(1)] public float bloomCooldownMultiplier = 1f;
+        [Min(1)] public float bloomPowerMultiplier = 1.15f;
+        [Min(0)] public float bloomAreaPowerMultiplier = .5f;
+        [Min(0)] public float bloomControlDuration = 2f;
+        [Min(1)] public int bloomMaxTargets = 10;
+        [Min(.05f)] public float bloomRadius = 2.1f;
+        [Min(.05f)] public float scatterRadius = 3f;
+        [Min(.05f)] public float bloomDuration = 3.5f;
+        [Min(.05f)] public float bloomGroundRadius = 1.25f;
+        [Min(.05f)] public float bloomTickInterval = .5f;
+        [Range(0, .8f)] public float bloomSlowFraction = .6f;
+        public GameObject bloomPrefab;
+        public GameObject bloomCastingPrefab;
+        public GameObject bloomSecondaryPrefab;
+        public bool IsHealing => spellKind == MageSpellKind.Sanctuary;
 
         [Header("SFX")]
         [Tooltip("스킬 발동 시 1회 재생되는 SFX 이름 (eSFXType 항목과 정확히 일치해야 함)")]
@@ -47,6 +93,7 @@ namespace KingdomIdle.MageTower
         {
             get
             {
+                if (basePower > 0) return basePower;
                 var dmg = GetEffect<DamageEffect>();
                 return dmg != null ? dmg.baseDamage : 0f;
             }

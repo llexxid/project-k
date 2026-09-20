@@ -107,6 +107,7 @@ namespace KingdomIdle.Balance
             string nextAccount = run + "-next";
             BattleEconomy.TestRecordQuestTime(monday + 16, monday + 19, 3);
             LocalProgression.TestUtcNow = monday + 19;
+            LocalProgression.RecordSkillCast(0);
             bool switched = LocalProgression.TestFailedCommit(() =>
             {
                 try { LocalProgression.OpenTestAccount(nextAccount); return true; }
@@ -114,12 +115,45 @@ namespace KingdomIdle.Balance
             });
             Check(!switched && LocalProgression.AccountKey == oldAccountKey && LocalProgression.AccountGeneration == oldGeneration &&
                   BattleEconomy.TestPendingQuestSeconds == 3, "Failed old-account flush blocks account switching without losing time");
+            Check(QuestProgressEvaluator.Read(LocalProgression.State, "L", eQuestObjectiveType.SkillCast, 0) == 1,
+                "Failed account switch retains the old account's unsaved skill cast");
             LocalProgression.OpenTestAccount(nextAccount);
             Check(LocalProgression.AccountGeneration > oldGeneration && ReadLifetimeSeconds(LocalProgression.State) == 0 &&
                   BattleEconomy.TestPendingQuestSeconds == 0, "New account starts without the previous account's pending time");
+            Check(QuestProgressEvaluator.Read(LocalProgression.State, "L", eQuestObjectiveType.SkillCast, 0) == 0,
+                "New account does not inherit the previous account's skill cast");
             LocalProgression.OpenTestAccount(weeklyAccount);
             Check(ReadLifetimeSeconds(LocalProgression.State) == afterCurrentBatch + 3,
                 "Reopened old account contains its own final three seconds exactly once");
+            Check(QuestProgressEvaluator.Read(LocalProgression.State, "L", eQuestObjectiveType.SkillCast, 0) == 1,
+                "Account switch saves the old account's final skill cast exactly once");
+
+            // 날짜 경계 첫 이벤트가 자동 저장 대상인 스킬이어도 이전 전투 시간부터 봉인한다.
+            LocalProgression.TestUtcNow = midnight - 5;
+            LocalProgression.OpenTestAccount(run + "-cast-midnight");
+            Check(LocalProgression.Execute("qa-cast-midnight-setup", state =>
+            {
+                state.MainClears.Add(0x20001000B);
+                QuestEconomy.Count(state, eQuestObjectiveType.BattleTime, 0, daily.RequiredCount - 5);
+                return true;
+            }), "Skill-first midnight fixture commits");
+            string castDailyKey = QuestEconomy.Key(daily, LocalProgression.State);
+            BattleEconomy.TestRecordQuestTime(midnight - 5, midnight + 5, 10);
+            LocalProgression.TestUtcNow = midnight + 5;
+            string beforeCastFailure = JsonConvert.SerializeObject(LocalProgression.State);
+            Check(!LocalProgression.TestFailedCommit(() => LocalProgression.RecordSkillCast(0)),
+                "Failed midnight save rejects the cast before its effect and cooldown start");
+            Check(JsonConvert.SerializeObject(LocalProgression.State) == beforeCastFailure &&
+                  BattleEconomy.TestPendingQuestSeconds == 10,
+                "Failed midnight cast preserves account progression and all pending battle seconds");
+            Check(LocalProgression.RecordSkillCast(0), "Midnight cast can retry after storage recovers");
+            Check(LocalProgression.State.PendingQuests.ContainsKey(castDailyKey) &&
+                  QuestEconomy.Progress(daily, LocalProgression.State) == 5 && BattleEconomy.TestPendingQuestSeconds == 0,
+                "First skill after midnight preserves old daily completion before resetting its period");
+            Check(QuestProgressEvaluator.Read(LocalProgression.State, "D" + QuestPeriod.At(midnight).Day,
+                      eQuestObjectiveType.SkillCast, 0) == 1 &&
+                  QuestProgressEvaluator.Read(LocalProgression.State, "L", eQuestObjectiveType.SkillCast, 0) == 1,
+                "Recovered midnight cast is recorded once in the new day and lifetime totals");
 
             // 저장은 13시인데 기기 시각을 12시로 되돌린 상황이다. raw Tick과 승인시각 prepare가
             // 번갈아 호출되어도 같은 샘플러가 실제 5초를 잃지 않고 승인된 날짜에 저장해야 한다.
