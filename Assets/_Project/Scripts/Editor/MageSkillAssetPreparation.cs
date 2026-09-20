@@ -55,11 +55,11 @@ public static class MageSkillAssetPreparation
         cloudImporter.SaveAndReimport();
         Color white = new Color(.9f, .9f, .9f), violet = new Color(.85f, .5f, .95f), frost = new Color(.8f, .92f, .94f);
         Color fire = new Color(.9f, .8f, .7f), sage = new Color(.7f, .8f, .65f);
+        // Preserve the user's first ThunderEffects art, proportions and 12fps poses.
         var lightning = Vfx("Lightning",
-            new Layer(Source+"Electricity/ElectricLighting1.png",2.2f,2.8f,white,y:1f),
-            new Layer(Source+"Electricity/ElectricExplosion.png",1.35f,.9f,new Color(.84f,.89f,1f),y:.1f));
+            new Layer(Refined+"LightningOriginal.png",70f/64f*1.5f,149f/64f*1.5f,Color.white));
         var ice = Vfx("IceSpike", new Layer(Source+"Ice/IceSpike.png", 1.8f, 1.8f, frost, y:.6f));
-        var tornado = Vfx("FireTornado", new Layer(Source+"Fire/FireTornado.png", 2.1f, 2.6f, new Color(.95f,.85f,.76f,.95f), y:.55f, loop:true));
+        var tornado = Vfx("FireTornado", new Layer(Refined+"FireVortexCrown.png", 2.1f, 3.25f, Color.white, loop:true, fps:24));
         var arcane = Vfx("ArcaneVolley", new Layer(Polished+"ArcaneProjectile.png", 2.1f, 2.1f, Color.white, loop:true));
         var arcaneHit = Vfx("ArcaneImpact", new Layer(Polished+"ArcaneImpact.png", 1.6f, 1.6f, Color.white));
         var venom = Vfx("VenomMist",
@@ -71,7 +71,7 @@ public static class MageSkillAssetPreparation
             new Layer(Source+"Earth/EarthRock.png",1.6f,1.6f,new Color(.84f,.79f,.7f),x:.44f,y:.28f));
         var sanctuary = BuildSanctuary();
         var heal = Vfx("SanctuaryHeal",new Layer(Refined+"HealingFeet.png",1.5f,1f,Color.white));
-        var meteor = Vfx("Meteor",new Layer(Refined+"MeteorFlight.png",4f,4f,Color.white,loop:true,fps:18));
+        var meteor = Vfx("Meteor",new Layer(Refined+"MeteorFlight.png",6f,6.5f,Color.white,fps:20));
         EditMeteor(meteor);
         var crater = Vfx("MeteorCrater",
             new Layer(Polished+"MeteorScorch.png",2.65f,2f,Color.white,frame:0),
@@ -91,7 +91,7 @@ public static class MageSkillAssetPreparation
         string[] keys={"Lightning","IceSpike","FireTornado","ArcaneVolley","VenomMist","StoneSeal","Retired","Sanctuary","Meteor","VoidRift"};
         string[] names={"라이트닝","얼음 송곳","화염 회오리","유성우","맹독 늪","암석 봉인","","회복의 성역","운석 낙하","공허 균열"};
         string[] descriptions={
-            "같은 지점에 번개를 연속으로 내려 주변 적을 공격합니다.",
+            "지정 지점 주변에 낙뢰를 빠르게 3번 내립니다. 각성 4·8에서 같은 패턴의 낙뢰가 1번씩 늘어납니다.",
             "얼음 송곳을 차례로 솟아올려 적을 고르게 공격합니다.",
             "불꽃 회오리가 적을 쫓으며 주변에 지속 피해를 줍니다.",
             "전장 곳곳의 적에게 별빛을 차례로 떨어뜨립니다. 별빛이 닿은 적에게 피해를 줍니다.",
@@ -103,7 +103,7 @@ public static class MageSkillAssetPreparation
             "적이 모인 곳의 허공에 원형 균열을 엽니다. 균열보다 50% 넓은 범위의 적을 끌어당깁니다. 균열 안에서 지속 피해를 주고, 닫힐 때 폭발합니다. 보스는 끌어당기지 못합니다."};
         float[] powers={120,100,40,28,36,110,90,45,260,42}, cooldowns={10,12,15,10,14,16,12,18,16,20};
         int[] hits={3,4,10,18,6,2,2,6,1,5}, caps={3,1,3,1,5,4,5,3,6,6};
-        float[] radii={.55f,.35f,.85f,.55f,1.4f,1.05f,.55f,2.6f,1.55f,1.3f}, ticks={.3f,.18f,.5f,.12f,.75f,.45f,.4f,.7f,.8f,.6f};
+        float[] radii={.55f,.35f,.85f,.55f,1.4f,1.05f,.55f,2.6f,1.55f,1.3f}, ticks={2f/12f,.18f,.5f,.12f,.75f,.45f,.4f,.7f,.8f,.6f};
         GameObject[] visuals={lightning,ice,tornado,arcane,venom,stone,null,sanctuary,meteor,rift};
         var registry=AssetDatabase.LoadAssetAtPath<MageTowerSkillRegistrySO>("Assets/MageTower/SO/MageTowerSkillList.asset");
         if(registry==null)throw new InvalidOperationException("Existing mage registry is missing.");

@@ -1,0 +1,502 @@
+{
+  "config": {},
+  "extra": {
+    "comfy_mcp": {
+      "name": "ProjectK Meteor tumbling surface v5"
+    }
+  },
+  "groups": [],
+  "id": "bede11b6-4dae-4083-8dc4-dea32672fca2",
+  "last_link_id": 11,
+  "last_node_id": 11,
+  "links": [
+    [
+      1,
+      1,
+      0,
+      4,
+      0,
+      "MODEL"
+    ],
+    [
+      2,
+      4,
+      0,
+      5,
+      0,
+      "MODEL"
+    ],
+    [
+      3,
+      2,
+      0,
+      6,
+      0,
+      "CLIP"
+    ],
+    [
+      4,
+      6,
+      0,
+      7,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      5,
+      5,
+      0,
+      9,
+      0,
+      "MODEL"
+    ],
+    [
+      6,
+      6,
+      0,
+      9,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      7,
+      7,
+      0,
+      9,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      8,
+      8,
+      0,
+      9,
+      3,
+      "LATENT"
+    ],
+    [
+      9,
+      9,
+      0,
+      10,
+      0,
+      "LATENT"
+    ],
+    [
+      10,
+      3,
+      0,
+      10,
+      1,
+      "VAE"
+    ],
+    [
+      11,
+      10,
+      0,
+      11,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "nodes": [
+    {
+      "flags": {},
+      "id": 1,
+      "inputs": [],
+      "mode": 0,
+      "order": 0,
+      "outputs": [
+        {
+          "links": [
+            1
+          ],
+          "name": "MODEL",
+          "slot_index": 0,
+          "type": "MODEL"
+        }
+      ],
+      "pos": [
+        0,
+        0
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "UNETLoader",
+      "widgets_values": [
+        "z_image_turbo_bf16.safetensors",
+        "default"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 2,
+      "inputs": [],
+      "mode": 0,
+      "order": 1,
+      "outputs": [
+        {
+          "links": [
+            3
+          ],
+          "name": "CLIP",
+          "slot_index": 0,
+          "type": "CLIP"
+        }
+      ],
+      "pos": [
+        0,
+        220
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "CLIPLoader",
+      "widgets_values": [
+        "qwen_3_4b.safetensors",
+        "lumina2",
+        "default"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 3,
+      "inputs": [],
+      "mode": 0,
+      "order": 2,
+      "outputs": [
+        {
+          "links": [
+            10
+          ],
+          "name": "VAE",
+          "slot_index": 0,
+          "type": "VAE"
+        }
+      ],
+      "pos": [
+        0,
+        440
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "VAELoader",
+      "widgets_values": [
+        "ae.safetensors"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 4,
+      "inputs": [
+        {
+          "link": 1,
+          "name": "model",
+          "type": "MODEL"
+        }
+      ],
+      "mode": 0,
+      "order": 3,
+      "outputs": [
+        {
+          "links": [
+            2
+          ],
+          "name": "MODEL",
+          "slot_index": 0,
+          "type": "MODEL"
+        }
+      ],
+      "pos": [
+        400,
+        0
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "LoraLoaderModelOnly",
+      "widgets_values": [
+        "zimage-hard_edge_pixel_art.safetensors",
+        0.7
+      ]
+    },
+    {
+      "flags": {},
+      "id": 5,
+      "inputs": [
+        {
+          "link": 2,
+          "name": "model",
+          "type": "MODEL"
+        }
+      ],
+      "mode": 0,
+      "order": 4,
+      "outputs": [
+        {
+          "links": [
+            5
+          ],
+          "name": "MODEL",
+          "slot_index": 0,
+          "type": "MODEL"
+        }
+      ],
+      "pos": [
+        800,
+        0
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ModelSamplingAuraFlow",
+      "widgets_values": [
+        3
+      ]
+    },
+    {
+      "flags": {},
+      "id": 6,
+      "inputs": [
+        {
+          "link": 3,
+          "name": "clip",
+          "type": "CLIP"
+        }
+      ],
+      "mode": 0,
+      "order": 5,
+      "outputs": [
+        {
+          "links": [
+            4,
+            6
+          ],
+          "name": "CONDITIONING",
+          "slot_index": 0,
+          "type": "CONDITIONING"
+        }
+      ],
+      "pos": [
+        400,
+        220
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "CLIPTextEncode",
+      "widgets_values": [
+        "An evenly lit seamless volcanic basalt material texture for a gigantic molten meteor, flat orthographic surface filling the entire square edge to edge. Large irregular angular dark maroon rock plates with medium faceted rust-red planes, connected winding deep orange molten cracks, occasional bright amber yellow glowing fissure edges. Fine chipped rock surfaces and small pits, clear readable broad geological structure. Pixel art with intentional small hard-edged clusters at a 128 pixel logical resolution, rich structured microdetail, six colors dark reddish brown, deep brick red, orange, amber, warm yellow and pale cream. No black outlines, no directional shadow, no perspective, no spherical object, no sphere, no fire plume, no stars, no background, no text. Uniform material coverage throughout the square."
+      ]
+    },
+    {
+      "flags": {},
+      "id": 7,
+      "inputs": [
+        {
+          "link": 4,
+          "name": "conditioning",
+          "type": "CONDITIONING"
+        }
+      ],
+      "mode": 0,
+      "order": 6,
+      "outputs": [
+        {
+          "links": [
+            7
+          ],
+          "name": "CONDITIONING",
+          "slot_index": 0,
+          "type": "CONDITIONING"
+        }
+      ],
+      "pos": [
+        800,
+        220
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ConditioningZeroOut"
+    },
+    {
+      "flags": {},
+      "id": 8,
+      "inputs": [],
+      "mode": 0,
+      "order": 7,
+      "outputs": [
+        {
+          "links": [
+            8
+          ],
+          "name": "LATENT",
+          "slot_index": 0,
+          "type": "LATENT"
+        }
+      ],
+      "pos": [
+        0,
+        660
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "EmptySD3LatentImage",
+      "widgets_values": [
+        1024,
+        1024,
+        1
+      ]
+    },
+    {
+      "flags": {},
+      "id": 9,
+      "inputs": [
+        {
+          "link": 5,
+          "name": "model",
+          "type": "MODEL"
+        },
+        {
+          "link": 6,
+          "name": "positive",
+          "type": "CONDITIONING"
+        },
+        {
+          "link": 7,
+          "name": "negative",
+          "type": "CONDITIONING"
+        },
+        {
+          "link": 8,
+          "name": "latent_image",
+          "type": "LATENT"
+        }
+      ],
+      "mode": 0,
+      "order": 8,
+      "outputs": [
+        {
+          "links": [
+            9
+          ],
+          "name": "LATENT",
+          "slot_index": 0,
+          "type": "LATENT"
+        }
+      ],
+      "pos": [
+        1200,
+        0
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "KSampler",
+      "widgets_values": [
+        2026092053,
+        "fixed",
+        8,
+        1,
+        "euler",
+        "simple",
+        1
+      ]
+    },
+    {
+      "flags": {},
+      "id": 10,
+      "inputs": [
+        {
+          "link": 9,
+          "name": "samples",
+          "type": "LATENT"
+        },
+        {
+          "link": 10,
+          "name": "vae",
+          "type": "VAE"
+        }
+      ],
+      "mode": 0,
+      "order": 9,
+      "outputs": [
+        {
+          "links": [
+            11
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        1600,
+        0
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "VAEDecode"
+    },
+    {
+      "flags": {},
+      "id": 11,
+      "inputs": [
+        {
+          "link": 11,
+          "name": "images",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 10,
+      "outputs": [
+        {
+          "links": null,
+          "name": "images",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        2000,
+        0
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "SaveImage",
+      "widgets_values": [
+        "ProjectK_MeteorSurface_v5"
+      ]
+    }
+  ],
+  "version": 0.4
+}

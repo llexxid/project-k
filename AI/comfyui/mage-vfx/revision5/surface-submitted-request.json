@@ -1,0 +1,124 @@
+{
+  "workflow": {
+    "1": {
+      "class_type": "UNETLoader",
+      "inputs": {
+        "unet_name": "z_image_turbo_bf16.safetensors",
+        "weight_dtype": "default"
+      }
+    },
+    "2": {
+      "class_type": "CLIPLoader",
+      "inputs": {
+        "clip_name": "qwen_3_4b.safetensors",
+        "type": "lumina2",
+        "device": "default"
+      }
+    },
+    "3": {
+      "class_type": "VAELoader",
+      "inputs": {
+        "vae_name": "ae.safetensors"
+      }
+    },
+    "4": {
+      "class_type": "LoraLoaderModelOnly",
+      "inputs": {
+        "model": [
+          "1",
+          0
+        ],
+        "lora_name": "zimage-hard_edge_pixel_art.safetensors",
+        "strength_model": 0.7
+      }
+    },
+    "5": {
+      "class_type": "ModelSamplingAuraFlow",
+      "inputs": {
+        "model": [
+          "4",
+          0
+        ],
+        "shift": 3
+      }
+    },
+    "6": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "clip": [
+          "2",
+          0
+        ],
+        "text": "An evenly lit seamless volcanic basalt material texture for a gigantic molten meteor, flat orthographic surface filling the entire square edge to edge. Large irregular angular dark maroon rock plates with medium faceted rust-red planes, connected winding deep orange molten cracks, occasional bright amber yellow glowing fissure edges. Fine chipped rock surfaces and small pits, clear readable broad geological structure. Pixel art with intentional small hard-edged clusters at a 128 pixel logical resolution, rich structured microdetail, six colors dark reddish brown, deep brick red, orange, amber, warm yellow and pale cream. No black outlines, no directional shadow, no perspective, no spherical object, no sphere, no fire plume, no stars, no background, no text. Uniform material coverage throughout the square."
+      }
+    },
+    "7": {
+      "class_type": "ConditioningZeroOut",
+      "inputs": {
+        "conditioning": [
+          "6",
+          0
+        ]
+      }
+    },
+    "8": {
+      "class_type": "EmptySD3LatentImage",
+      "inputs": {
+        "width": 1024,
+        "height": 1024,
+        "batch_size": 1
+      }
+    },
+    "9": {
+      "class_type": "KSampler",
+      "inputs": {
+        "model": [
+          "5",
+          0
+        ],
+        "positive": [
+          "6",
+          0
+        ],
+        "negative": [
+          "7",
+          0
+        ],
+        "latent_image": [
+          "8",
+          0
+        ],
+        "seed": 2026092053,
+        "steps": 8,
+        "cfg": 1,
+        "sampler_name": "euler",
+        "scheduler": "simple",
+        "denoise": 1
+      }
+    },
+    "10": {
+      "class_type": "VAEDecode",
+      "inputs": {
+        "samples": [
+          "9",
+          0
+        ],
+        "vae": [
+          "3",
+          0
+        ]
+      }
+    },
+    "11": {
+      "class_type": "SaveImage",
+      "inputs": {
+        "images": [
+          "10",
+          0
+        ],
+        "filename_prefix": "ProjectK_MeteorSurface_v5"
+      }
+    }
+  },
+  "confirm": true
+}

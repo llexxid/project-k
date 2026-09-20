@@ -18,7 +18,9 @@ namespace KingdomIdle.MageTower
         public bool CanAim => spellKind != MageSpellKind.IceSpike && spellKind != MageSpellKind.ArcaneVolley;
         public const float VoidPullRadiusMultiplier = 1.5f;
         public float PullRadius => radius * VoidPullRadiusMultiplier;
-        public float TargetRadius(bool bloom) => bloom && spellKind == MageSpellKind.Lightning ? bloomRadius : spellKind == MageSpellKind.VoidRift ? PullRadius : radius;
+        public float TargetRadius(bool bloom) => spellKind == MageSpellKind.Lightning
+            ? bloom ? bloomRadius : radius + MageSkillRules.LightningScatterRadius
+            : spellKind == MageSpellKind.VoidRift ? PullRadius : radius;
         public float baseCooldown;
         public int maxEnhanceLevel = 100;
         public int maxAwakeningLevel = 10;

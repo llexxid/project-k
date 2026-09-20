@@ -14,6 +14,7 @@ namespace KingdomIdle.MageTower
         public const int BloomAwakening = 10;
         public const string CatalogVersion = "mage-4";
         public const int DuplicateFragments = 30;
+        public const float LightningScatterRadius = .8f;
 
         public static bool ValidateRoster(IReadOnlyList<MageTowerSkillSO> skills)
         {

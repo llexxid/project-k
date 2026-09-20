@@ -237,11 +237,18 @@ namespace KingdomIdle.MageTower
             else
                 for (int i = 0; i < Hits && Valid; i++)
                 {
-                    Visual(_skill.prefab, _initial, .5f);
-                    yield return Delay(.16f); if (!Valid) yield break;
-                    Sound(i == 0 ? .55f : .32f, 1f + i * .035f);
-                    Area(_initial, _skill.radius, 1m);
-                    yield return Delay(.14f);
+                    // Original ThunderEffects clip: OnHit at frame 2 / 12 fps starts
+                    // the next bolt immediately, scattered around the first contact.
+                    // Awakening extends this same chain; bloom keeps its own choreography.
+                    Vector2 offset = i == 0 ? Vector2.zero : UnityEngine.Random.insideUnitCircle * MageSkillRules.LightningScatterRadius;
+                    Vector3 contact = _initial + (Vector3)offset;
+                    Visual(_skill.prefab, contact, 5f / 12f);
+#if UNITY_EDITOR || LOBBY_DEVICE_QA
+                    MageSkillDiagnostics.Record(_skill.id, "bolt", i.ToString(), i + 1, false);
+#endif
+                    yield return Delay(2f / 12f); if (!Valid) yield break;
+                    Sound(i == 0 ? .55f : .38f);
+                    Area(contact, _skill.radius, 1m);
                 }
         }
 
@@ -371,7 +378,7 @@ namespace KingdomIdle.MageTower
         private IEnumerator Meteor()
         {
             // Approach from the centre side so edge targets still show the full falling rock.
-            const float flight = .8f;
+            const float flight = 2.4f;
             var travel = new Vector3(_initial.x > 0 ? -1.6f : 1.6f,3.2f,0);
             var falling = Visual(_skill.prefab, _initial + travel, flight + .2f);
             if (falling != null && travel.x < 0)
@@ -381,7 +388,10 @@ namespace KingdomIdle.MageTower
             float elapsed = 0;
             while (Valid && elapsed < flight)
             {
-                if (falling != null) falling.transform.position = _initial + travel * (1 - Mathf.Pow(elapsed / flight,1.65f));
+                // Enter with momentum and gain weight toward contact, without hovering
+                // through the first half or rushing the entire flight in under a second.
+                float t = Mathf.Clamp01(elapsed / flight);
+                if (falling != null) falling.transform.position = _initial + travel * (1 - (.38f * t + .62f * t * t));
                 yield return null; elapsed += Time.deltaTime;
             }
             if (!Valid) yield break;
