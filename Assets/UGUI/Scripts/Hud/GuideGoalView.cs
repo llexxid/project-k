@@ -97,7 +97,7 @@ namespace KingdomIdle.UGUI
                 Set(progress, $"{NumberNotation.Format(Mathf.Clamp(state.CurrentProgress, 0, required))}/{NumberNotation.Format(required)}");
                 if (progressFill != null) progressFill.fillAmount = Mathf.Clamp01((float)state.CurrentProgress / required);
                 bool claimable = state.IsCompleted && _claimable;
-                bool canNavigate = Destination().HasValue;
+                bool canNavigate = QuestNavigation.CanNavigate(definition.ObjectiveType);
                 Set(actionLabel, claimable ? (definition.RewardGroupId == 0 ? "다음 목표  ›" : "보상 받기  ›")
                     : state.IsCompleted ? "보상 대기" : canNavigate ? "이동  ›" : compact ? "자세히  ›" : "전투에서 진행");
                 if (actionButton != null) actionButton.interactable = compact || claimable || (!state.IsCompleted && canNavigate);
@@ -141,25 +141,6 @@ namespace KingdomIdle.UGUI
             _breathing = false;
         }
 
-        private UIPanelId? Destination()
-        {
-            if (_definition == null) return null;
-            switch (_definition.ObjectiveType)
-            {
-                case eQuestObjectiveType.GachaUse: return UIPanelId.Gacha;
-                case eQuestObjectiveType.DungeonEnter:
-                case eQuestObjectiveType.DungeonClear: return UIPanelId.Dungeon;
-                case eQuestObjectiveType.LevelUp:
-                case eQuestObjectiveType.StatEnhance: return UIPanelId.Development;
-                case eQuestObjectiveType.EquipmentObtain: return UIPanelId.Inventory;
-                case eQuestObjectiveType.EquipmentEquip:
-                case eQuestObjectiveType.JobChange:
-                case eQuestObjectiveType.SkillEquip:
-                case eQuestObjectiveType.Enhance: return UIPanelId.KingdomArmy;
-                default: return null;
-            }
-        }
-
         private void Act()
         {
             if (_state == null || _manager == null) return;
@@ -168,8 +149,8 @@ namespace KingdomIdle.UGUI
                 _manager.TryClaim(_claimToken);
                 ReadCurrent();
             }
-            else if (!_state.IsCompleted && Destination() is UIPanelId panel)
-                UIManager.Instance?.PushPanel(panel, null, true, true);
+            else if (!_state.IsCompleted && _definition != null && QuestNavigation.CanNavigate(_definition.ObjectiveType))
+                QuestNavigation.Navigate(_definition.ObjectiveType);
             else if (compact)
                 UIManager.Instance?.PushPanel(UIPanelId.Guide, null, false, false);
         }

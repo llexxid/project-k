@@ -1,0 +1,29 @@
+{
+  "status": "failed",
+  "passed": 18,
+  "checks": [
+    "Pending daily and weekly reward fixture commits",
+    "Monday rollover retains old pending rewards",
+    "Real UIManager Awake initializes the copied UI root and input raycaster",
+    "PushPanel creates the Guide default through real Populate/Bind",
+    "Real UIManager panel has four live tab buttons",
+    "Raycast and pointer click reach tab 0 without an overlay blocker",
+    "Raycast and pointer click reach tab 1 without an overlay blocker",
+    "Raycast and pointer click reach tab 2 without an overlay blocker",
+    "Raycast and pointer click reach tab 3 without an overlay blocker",
+    "PushPanel cover deactivates the existing quest panel",
+    "PopPanel returns to the same instance and preserves Achievement selection",
+    "Achievement content exceeds the viewport and permits vertical scrolling",
+    "Viewport raycast resolves to the real ScrollRect drag handler",
+    "Real ScrollRect pointer drag moves the content",
+    "Raycast close button invokes PopPanel and destroys the closed instance",
+    "Reopening after close creates a new instance on Guide",
+    "Current-period reward becomes claimable",
+    "Raycast claim retains the current-period card and disables its action"
+  ],
+  "error": "System.InvalidOperationException: Expected an active button.\r\n  at QuestCardInteraction.Click (UnityEngine.UI.Button button, UnityEngine.EventSystems.EventSystem events) [0x000a3] in C:\\GitHub\\project-k\\Assets\\UGUI\\Editor\\QuestCardInteraction.cs:191 \r\n  at QuestCardInteraction+<Run>d__7.MoveNext () [0x006aa] in C:\\GitHub\\project-k\\Assets\\UGUI\\Editor\\QuestCardInteraction.cs:129 \r\n  at QuestCardInteraction+<Drive>d__6.MoveNext () [0x00026] in C:\\GitHub\\project-k\\Assets\\UGUI\\Editor\\QuestCardInteraction.cs:43 ",
+  "captures": [
+    "C:\\GitHub\\project-k\\AI\\validation\\quest-tabs-20260918\\live-achievement.png"
+  ],
+  "scope": "Real UIManager/prefabs in isolated non-combat PlayMode fixture; synthetic pointer events through real raycast handlers"
+}

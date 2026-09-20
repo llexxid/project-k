@@ -171,9 +171,10 @@ namespace KingdomIdle.UGUI
             // 조회는 선택한 범주 하나로 제한한다. 준비 중에는 완료와 다른 빈 안내를 사용한다.
             var board = _manager != null ? _manager.GetSnapshot(_selectedCategory) : null;
             if (board != null)
-                foreach (var row in board.Rows) if (row.State != QuestRowState.Claimed) _visible.Add(row);
+                foreach (var row in board.Rows) _visible.Add(row);
 
-            // 받은 보상은 숨기되 이전 기간의 미수령 행은 같은 탭에 남긴다. 토큰에는 기간도 포함된다.
+            // 현재 기간의 수령 완료 행과 이전 기간의 미수령 행을 함께 유지한다.
+            // 목록 순서를 바꾸지 않아 완료 직후 카드와 스크롤 위치가 튀지 않는다.
             bool rebuild = !_built || _visible.Count != _rows.Count;
             for (int i = 0; !rebuild && i < _visible.Count; i++)
                 rebuild = _visible[i].Token != _rows[i].Snapshot.Token;
@@ -185,7 +186,7 @@ namespace KingdomIdle.UGUI
                 force = true;
             }
 
-            // 행이 없을 때에도 준비 중인지 모두 수령했는지를 분명하게 보여준다.
+            // 완료 행도 남으므로 빈 목록은 준비 중 또는 등록된 항목이 없는 경우다.
             if (_visible.Count == 0) ShowEmpty(board != null && board.IsReady);
             for (int i = 0; i < _rows.Count; i++)
             {
@@ -220,10 +221,10 @@ namespace KingdomIdle.UGUI
             }
             string text = !isReady ? "퀘스트 정보를 준비하고 있습니다." : _selectedCategory switch
             {
-                eQuestCategory.Guide => "모든 가이드 퀘스트를 완료했습니다.",
-                eQuestCategory.Daily => "오늘의 퀘스트 보상을 모두 수령했습니다.",
-                eQuestCategory.Weekly => "이번 주 퀘스트 보상을 모두 수령했습니다.",
-                _ => "모든 업적 보상을 수령했습니다."
+                eQuestCategory.Guide => "등록된 가이드 퀘스트가 없습니다.",
+                eQuestCategory.Daily => "등록된 일일 퀘스트가 없습니다.",
+                eQuestCategory.Weekly => "등록된 주간 퀘스트가 없습니다.",
+                _ => "등록된 업적이 없습니다."
             };
             if (_emptyText == text) return;
             _emptyText = text;
@@ -236,17 +237,19 @@ namespace KingdomIdle.UGUI
             var view = Instantiate(catalog.itemGuideStepRow, _view.listContent, false).GetComponent<GuideStepRowView>();
             var row = new Row { Snapshot = snapshot, View = view };
             _rows.Add(row);
-            view.checkButton.gameObject.SetActive(true);
-            var touch = view.checkButton.GetComponent<UnityEngine.UI.LayoutElement>() ?? view.checkButton.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
-            touch.minWidth = 84; touch.preferredWidth = 84; touch.minHeight = 84; touch.preferredHeight = 84;
-            if (view.checkLabel != null) view.checkLabel.fontSize = 23;
-            view.checkButton.onClick.AddListener(() => Claim(row));
-            var area = view.GetComponent<UnityEngine.UI.Button>() ?? view.gameObject.AddComponent<UnityEngine.UI.Button>();
-            area.targetGraphic = view.GetComponent<UnityEngine.UI.Image>();
-            area.transition = UnityEngine.UI.Selectable.Transition.None;
-            area.onClick.AddListener(() => Claim(row));
-            row.ClaimArea = area;
-            if (view.hintLabel != null) view.hintLabel.fontSize = 23;
+            // 보상 아이콘과 카드 전체는 표시 전용이다. 동작은 우측 버튼 한 곳에서만 시작한다.
+            view.actionButton.onClick.AddListener(() => Act(row));
+        }
+
+        /// <summary>화면에 바인딩한 상태에 맞춰 이동 또는 수령한다. 완료·잠금 행은 입력을 무시한다.</summary>
+        private void Act(Row row)
+        {
+            if (_manager == null) return;
+            // 숨겨진/이전 계정의 행에서 남은 입력은 이동과 수령 모두 실행하지 않는다.
+            if (row.Snapshot.Token.AccountGeneration != LocalProgression.AccountGeneration) { Rebind(false); return; }
+            if (row.Snapshot.CanClaim) Claim(row);
+            else if (row.Snapshot.State == QuestRowState.InProgress)
+                QuestNavigation.Navigate(row.Snapshot.ObjectiveType);
         }
 
         /// <summary>화면에 표시했던 기간 토큰 그대로 요청한다. 저장 실패 시 UI가 보상이나 진행도를 추측해 바꾸지 않는다.</summary>
@@ -261,37 +264,13 @@ namespace KingdomIdle.UGUI
 
         private static void Render(Row row)
         {
-            var snapshot = row.Snapshot;
-            bool can = snapshot.CanClaim;
-            string type = snapshot.Category == eQuestCategory.Guide ? "가이드" : snapshot.Category == eQuestCategory.Daily ? "일일" : snapshot.Category == eQuestCategory.Weekly ? "주간" : "업적";
-            string progress = snapshot.State == QuestRowState.Locked ? "해금 대기" : can ? "보상 수령" :
-                $"{NumberNotation.Format(snapshot.Progress)}/{NumberNotation.Format(snapshot.RequiredCount)}";
-            row.View.Set($"{type} · {progress}", snapshot.Description,
-                RewardText(snapshot) + (snapshot.IsPending ? " · 이전 기간 보관분" : ""), false);
-            row.View.checkButton.interactable = can;
-            row.ClaimArea.interactable = can;
-            if (row.View.checkLabel != null) row.View.checkLabel.text = can ? "받기" : "";
-            if (row.View.checkIcon != null) row.View.checkIcon.gameObject.SetActive(false);
-        }
-
-        private static string RewardText(QuestRowSnapshot snapshot)
-        {
-            var parts = new List<string>();
-            foreach (var reward in snapshot.Rewards)
-            {
-                if (reward.IsDynamic) { parts.Add("안전 사냥 2분 골드"); continue; }
-                string name = reward.Currency == eCurrency.AncientCoin ? "주화" : reward.Currency == eCurrency.ClassFragment ? "전직 파편" :
-                    reward.Currency == eCurrency.ArcaneKnowledge ? "마법 지식" : reward.Currency.ToString();
-                parts.Add($"{name} {NumberNotation.Format(reward.Amount)}");
-            }
-            return string.Join(" · ", parts);
+            row.View.SetQuest(row.Snapshot, UIManager.Instance.Catalog);
         }
 
         private sealed class Row
         {
             public QuestRowSnapshot Snapshot;
             public GuideStepRowView View;
-            public UnityEngine.UI.Button ClaimArea;
         }
     }
 }

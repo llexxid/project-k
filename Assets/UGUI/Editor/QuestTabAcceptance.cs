@@ -100,7 +100,7 @@ namespace KingdomIdle.UGUI.Editor
                     {
                         tabButtons[i].onClick.Invoke();
                         var category = Categories[i];
-                        var expected = manager.GetSnapshot(category).Rows.Where(x => x.State != QuestRowState.Claimed).Select(x => x.Token).ToArray();
+                        var expected = manager.GetSnapshot(category).Rows.Select(x => x.Token).ToArray();
                         Check(panel.SelectedCategory == category && Visible(panel).Select(x => x.Token).SequenceEqual(expected),
                             category + " tab renders only its committed category rows");
                         Check(current.activeSelf == (category == eQuestCategory.Guide),
@@ -149,9 +149,17 @@ namespace KingdomIdle.UGUI.Editor
                     revision = LocalProgression.State.Revision;
                     claim.onClick.Invoke();
                     Check(LocalProgression.State.Revision == revision + 1 && LocalProgression.State.Claims.Contains(QuestEconomy.Key(40401, "permanent")) &&
-                        panel.SelectedCategory == eQuestCategory.Achievement && !Visible(panel).Any(x => x.Token.QuestId == 40401) &&
+                        panel.SelectedCategory == eQuestCategory.Achievement && Visible(panel).Any(x => x.Token.QuestId == 40401 && x.State == QuestRowState.Claimed) &&
                         Visible(panel).Any(x => x.Token.QuestId == 40402 && x.CanClaim),
-                        "Claiming a real achievement row reveals the next tier without changing tabs");
+                        "Claiming retains the completed achievement and reveals its next tier without changing tabs");
+                    var completedAchievement = RowView(panel, 40401);
+                    Check(completedAchievement.gameObject.activeInHierarchy && !completedAchievement.actionButton.interactable &&
+                        completedAchievement.actionLabel.text == "완료" && completedAchievement.progressFill.fillAmount == 1 &&
+                        completedAchievement.canvasGroup.alpha < 1,
+                        "Claimed achievement remains visible, full, muted, and has a disabled Completed action");
+                    revision = LocalProgression.State.Revision;
+                    completedAchievement.actionButton.onClick.Invoke();
+                    Check(LocalProgression.State.Revision == revision, "Even a directly invoked completed action cannot pay twice");
 
                     // 계정 B도 같은 목표를 완료한 상태에서 A 계정의 이미 표시된 버튼을 누른다.
                     Check(PrepareDailyBoss(), "First account has a claimable daily boss row");
@@ -165,11 +173,23 @@ namespace KingdomIdle.UGUI.Editor
                     stale.onClick.Invoke();
                     Check(LocalProgression.State.Revision == revision && !LocalProgression.State.Claims.Contains(bossKey),
                         "A stale visible row cannot claim the new account's matching reward");
+                    beforeRows = ActiveRowIds(content);
+                    scroll.verticalNormalizedPosition = .37f;
                     ClaimButton(panel, 20002).onClick.Invoke();
                     Check(LocalProgression.State.Revision == revision + 1 && LocalProgression.State.Claims.Contains(bossKey),
                         "The rebound row can claim the current account once");
+                    Check(beforeRows.SequenceEqual(ActiveRowIds(content)) && Mathf.Abs(scroll.verticalNormalizedPosition - .37f) < .001f,
+                        "Daily claim updates the same row objects and preserves scroll position");
+                    Check(RowView(panel, 20002).progressFill.fillAmount == 1 && !RowView(panel, 20002).actionButton.interactable,
+                        "Daily claim keeps a full, disabled completed card");
 
-                    // 받은 목표를 전부 숨긴 탭에서도 다른 종류를 섞어 채우지 않고 빈 상태를 표시한다.
+                    // 저장 상태를 다시 읽어도 UI 전용 bool 없이 완료 카드가 복원되어야 한다.
+                    LocalProgression.OpenTestAccount(account + "-other");
+                    Publish(manager);
+                    Check(Visible(panel).Any(x => x.Token.QuestId == 20002 && x.State == QuestRowState.Claimed),
+                        "Reload restores the claimed card from durable claim receipts");
+
+                    // 모든 보상을 받아도 빈 목록으로 바꾸지 않고 같은 기간의 완료 카드를 보존한다.
                     Check(LocalProgression.Execute("qa-tabs-empty", state =>
                     {
                         foreach (QuestDefinition definition in QuestEconomy.Definitions.Where(x => x.Category == eQuestCategory.Daily))
@@ -181,10 +201,25 @@ namespace KingdomIdle.UGUI.Editor
                         return true;
                     }), "Empty-state fixture marks only this account's daily rewards as claimed");
                     Publish(manager);
-                    Check(panel.SelectedCategory == eQuestCategory.Daily && Visible(panel).Count == 0 && ActiveRowIds(content).Length == 0 && !current.activeSelf,
-                        "An empty Daily tab has no reward rows or guide card from another category");
-                    Check(content.GetComponentsInChildren<TMP_Text>(false).Any(x => !string.IsNullOrWhiteSpace(x.text)),
-                        "An empty selected tab provides a visible status message");
+                    Check(panel.SelectedCategory == eQuestCategory.Daily && Visible(panel).Count > 0 &&
+                        Visible(panel).All(x => x.State == QuestRowState.Claimed) && !current.activeSelf,
+                        "All-claimed Daily tab keeps its completed rows instead of becoming empty");
+                    Check(content.GetComponentsInChildren<GuideStepRowView>(false).All(x =>
+                        x.progressFill.fillAmount == 1 && x.actionLabel.text == "완료" && !x.actionButton.interactable),
+                        "All claimed cards retain full gauges and disabled Completed actions");
+                    // 다음 날에는 새 기간의 토큰으로 교체되어 다시 진행할 수 있다.
+                    LocalProgression.TestUtcNow += 86400;
+                    Check(LocalProgression.SynchronizeQuests(), "Next-day quest period advances");
+                    Publish(manager);
+                    Check(Visible(panel).All(x => x.State != QuestRowState.Claimed),
+                        "Current-period completed rows reset on the next day");
+
+                    var multi = RowView(panel, 20010);
+                    Check(multi.secondaryRewardIcon.transform.parent.gameObject.activeSelf &&
+                        multi.secondaryRewardIcon.sprite == catalog.iconArcane,
+                        "Multiple quest rewards remain visible as two typed icons");
+                    Check(RowView(panel, 20001).rewardAmountLabel.text == "2분 골드",
+                        "Dynamic gold uses its duration rule instead of displaying a false fixed amount");
                 }
                 finally
                 {
@@ -216,6 +251,15 @@ namespace KingdomIdle.UGUI.Editor
             .Select(x => x.GetInstanceID()).ToArray();
         private static Button[] ActiveTabs(Transform tabs) => tabs.GetComponentsInChildren<Button>(false);
         private static IReadOnlyList<QuestRowSnapshot> Visible(BalanceQuestPanel panel) => Field<List<QuestRowSnapshot>>(panel, "_visible");
+
+        /// <summary>실제 생성된 카드 View를 조회해 snapshot뿐 아니라 표시와 입력 상태를 검증한다.</summary>
+        private static GuideStepRowView RowView(BalanceQuestPanel panel, long id)
+        {
+            foreach (object row in Field<IEnumerable>(panel, "_rows"))
+                if (Field<QuestRowSnapshot>(row, "Snapshot").Token.QuestId == id)
+                    return Field<GuideStepRowView>(row, "View");
+            throw new InvalidOperationException("Quest card missing: " + id);
+        }
 
         /// <summary>동일 소스 어셈블리의 private Row는 Editor에서 복사 구현하지 않고 reflection으로 실제 버튼만 찾는다.</summary>
         private static Button ClaimButton(BalanceQuestPanel panel, long id)

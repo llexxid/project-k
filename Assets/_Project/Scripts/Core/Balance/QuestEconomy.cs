@@ -239,14 +239,17 @@ namespace KingdomIdle.Balance
             var rows = new List<QuestRowSnapshot>();
             foreach (QuestDefinition quest in Definitions.Where(x => x.Category == category))
             {
+                // 수령 기록도 목록에 남긴다. 아직 해금되지 않은 체인만 제외하고,
+                // 실제 진행 중 가이드 선택은 QuestManager의 미수령 필터가 담당한다.
                 if ((category == eQuestCategory.Guide || category == eQuestCategory.Achievement) &&
-                    (state.Claims.Contains(Key(quest, state)) || !PredecessorClaimed(quest, state))) continue;
+                    !state.Claims.Contains(Key(quest, state)) && !PredecessorClaimed(quest, state)) continue;
                 string key = Key(quest, state);
                 state.PendingQuests.TryGetValue(key, out var pending);
                 bool claimed = state.Claims.Contains(key);
                 bool locked = quest.IsRepeatable && !state.MainClears.Contains(0x20001000B);
-                long progress = Math.Min(quest.RequiredCount, Progress(quest, state));
-                QuestRowState rowState = locked ? QuestRowState.Locked : claimed ? QuestRowState.Claimed :
+                // 현재 조건이 내려가거나 수령 시 pending이 제거되어도 완료 게이지는 되돌리지 않는다.
+                long progress = claimed ? quest.RequiredCount : Math.Min(quest.RequiredCount, Progress(quest, state));
+                QuestRowState rowState = claimed ? QuestRowState.Claimed : locked ? QuestRowState.Locked :
                     progress >= quest.RequiredCount ? QuestRowState.Claimable : QuestRowState.InProgress;
                 var rewards = pending == null ? QuestCatalog.Instance.GetRewards(quest.RewardGroupId)
                     .Select(x => new QuestRewardSnapshot(x.Currency, x.Amount, x.IsDynamicGold)) : RewardSnapshot(pending);

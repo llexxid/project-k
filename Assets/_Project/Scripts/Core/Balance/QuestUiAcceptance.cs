@@ -132,6 +132,9 @@ namespace KingdomIdle.Balance
                     }), "Daily completion fixture", checks);
                     token = manager.GetSnapshot(eQuestCategory.Daily).Rows.First(x => x.Token.QuestId == daily.QuestId).Token;
                     Check(manager.TryClaim(token).Succeeded, "Snapshot token claims its exact daily reward", checks);
+                    var claimedRow = manager.GetSnapshot(eQuestCategory.Daily).Rows.First(x => x.Token == token);
+                    Check(claimedRow.State == QuestRowState.Claimed && claimedRow.Progress == claimedRow.RequiredCount && !claimedRow.CanClaim,
+                        "Claim receipt keeps a full completed snapshot after pending reward removal", checks);
                     Publish(manager);
                     changes.Clear();
 
