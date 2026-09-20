@@ -38,17 +38,24 @@ MonoBehaviour:
   bloomName: "\uB9CC\uB144\uBE59\uC815"
   bloomDescription: "\uC5EC\uB7EC \uC801: \uC1A1\uACF3 8\uAC1C\uB97C \uB450 \uBC88
     \uC0DD\uC131\uD569\uB2C8\uB2E4. \uAC01\uAC01 \uD53C\uD574 50%.\n\uC801 \uD558\uB098:
-    \uAC70\uB300 \uBE59\uC815\uC73C\uB85C \uD53C\uD574 650%\uB97C \uC90D\uB2C8\uB2E4."
+    \uAC70\uB300 \uBE59\uC815\uC73C\uB85C \uD53C\uD574 650%\uB97C \uC90D\uB2C8\uB2E4.
+    \uAE30\uC808\uC740 \uBD80\uC5EC\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4."
   bloomCooldownMultiplier: 1
   bloomPowerMultiplier: 6.5
   bloomAreaPowerMultiplier: 0.5
   bloomControlDuration: 0
   bloomMaxTargets: 10
   bloomRadius: 2.1
+  scatterRadius: 3
+  bloomDuration: 3.5
+  bloomGroundRadius: 1.25
+  bloomTickInterval: 0.5
+  bloomSlowFraction: 0.6
   bloomPrefab: {fileID: 4271944319948402501, guid: 019f3cbedd4f1b441a148c7ebec293f6,
     type: 3}
   bloomCastingPrefab: {fileID: 3555321152034976014, guid: f4af6ec45767ab94d93cf1ba733f8e3f,
     type: 3}
+  bloomSecondaryPrefab: {fileID: 0}
   sfxName: Ice_Spike_SFX
   sfxLoopName: 
   effects:

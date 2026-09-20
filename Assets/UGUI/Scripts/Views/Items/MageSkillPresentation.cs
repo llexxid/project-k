@@ -16,7 +16,7 @@ namespace KingdomIdle.UGUI
             string current = skill.spellKind == MageSpellKind.Meteor ? "" : $"\n현재 기본 시전: {MageSkillRules.HitCount(skill, awakening)}회";
             if (skill.spellKind == MageSpellKind.FireTornado || skill.spellKind == MageSpellKind.VenomMist || skill.spellKind == MageSpellKind.Sanctuary || skill.spellKind == MageSpellKind.VoidRift)
                 current += $" · 지속 {MageSkillRules.HitCount(skill, awakening) * skill.tickInterval:0.0}초";
-            if (bloom && (skill.spellKind == MageSpellKind.Lightning || skill.spellKind == MageSpellKind.IceSpike))
+            if (bloom && (skill.spellKind == MageSpellKind.Lightning || skill.spellKind == MageSpellKind.IceSpike || skill.spellKind == MageSpellKind.ArcaneVolley))
                 current = "\n개화 사용 중: 아래 개화 전용 횟수·효과 적용";
             return $"각성마다 기본 {unit}량 +5%, 공격력 반영 배율 +2.5%, 기본 쿨타임 -2% (합산)\n{count}{current}\n10각성: 개화 전환 해금";
         }

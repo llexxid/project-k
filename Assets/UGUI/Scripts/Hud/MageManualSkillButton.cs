@@ -51,7 +51,7 @@ namespace KingdomIdle.UGUI
             if (frame != null) frame.color = ready ? new Color(.94f, .73f, .36f) : new Color(.35f, .30f, .24f);
             string seconds = ratio > 0 ? $"{Mathf.CeilToInt(manager.GetCooldownRemaining(slot))}초" : manager.IsCasting(slot) ? "시전 중" : "";
             if (cooldownLabel != null && cooldownLabel.text != seconds) cooldownLabel.text = seconds;
-            string text = skill.nameKor;
+            string text = skill.DisplayName(manager.IsBloomEnabled(skill.id));
             if (label.text != text) label.text = text;
         }
         public void OnPointerDown(PointerEventData data) => _dragged = false;

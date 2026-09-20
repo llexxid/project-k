@@ -12,7 +12,8 @@ namespace KingdomIdle.Combat
         {
             "GroundTelegraph" or "IceBloomWarning" or "SanctuaryHeal" or "Sanctuary" or
             "VenomMist" or "VoidRift" or "FireTornado" => true,
-            "MeteorCrater" => layer == 0,
+            "MeteorCrater" => layer != 1,
+            "StarfallPulse" => true,
             _ => false
         };
 
@@ -21,7 +22,7 @@ namespace KingdomIdle.Combat
             bool ground = IsGround(prefab, layer);
             renderer.sortingLayerName = ground ? "Default" : "CombatVFX";
             renderer.sortingOrder = (ground ? prefab == "SanctuaryHeal" ? FootStatus :
-                prefab == "MeteorCrater" || prefab == "GroundTelegraph" || prefab == "IceBloomWarning" ? Ground : Field : Impact) + layer;
+                prefab == "MeteorCrater" || prefab == "StarfallPulse" || prefab == "GroundTelegraph" || prefab == "IceBloomWarning" ? Ground : Field : Impact) + layer;
         }
     }
 }

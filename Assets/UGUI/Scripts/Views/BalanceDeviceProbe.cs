@@ -21,6 +21,7 @@ namespace KingdomIdle.UGUI
         private int _captureLease;
         private bool _capturePaused;
         private float _captureResumeAt;
+        private float _peakShakeOffset;
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Install()
         {
@@ -132,7 +133,8 @@ namespace KingdomIdle.UGUI
                                 LocalProgression.Execute("qa-mage-fixture",s=>{
                                     s.AttackLevel=0;s.HealthLevel=136;
                                     s.Wallet[eCurrency.AncientCoin]=10000;s.Wallet[eCurrency.ArcaneKnowledge]=10000;
-                                    for(int id=0;id<10;id++)s.MageSkills[id]=new MageSave{Enhance=c.enhance,Awaken=c.awaken,Fragments=55,BloomEnabled=c.bloom && c.awaken==10};
+                                    s.MageSkills.Clear();
+                                    for(int id=0;id<MageSkillRules.IdCapacity;id++)if(MageSkillRules.IsAvailable(id))s.MageSkills[id]=new MageSave{Enhance=c.enhance,Awaken=c.awaken,Fragments=55,BloomEnabled=c.bloom && c.awaken==10};
                                     for(int slot=0;slot<5;slot++)s.MageSlots[slot]=-1;
                                     return true;
                                 });
@@ -145,6 +147,7 @@ namespace KingdomIdle.UGUI
                                 MageTowerManager.Instance.NotifyCommitted();break;
                             case "mage-cast":
                                 MageSkillDiagnostics.Events.Clear();
+                                _peakShakeOffset=0;
                                 MageTowerManager.Instance.SetAutoEnabled(false);
                                 for(int slot=0;slot<5;slot++)MageTowerManager.Instance.Unequip(slot);
                                 MageTowerManager.Instance.Equip(0,c.value);
@@ -224,6 +227,8 @@ namespace KingdomIdle.UGUI
         {
             if(_capturePaused && Time.unscaledTime>=_captureResumeAt)ResumeCapture();
             double ms=Time.unscaledDeltaTime*1000d;_frames++;_totalMs+=ms;_maxMs=Math.Max(_maxMs,ms);
+            var shaker=Camera.main?.GetComponent<CameraShaker>();
+            if(shaker!=null)_peakShakeOffset=Mathf.Max(_peakShakeOffset,shaker.DiagnosticOffset.magnitude);
             if(_directory!=null && Time.unscaledTime>=_nextSample){_nextSample=Time.unscaledTime+10;Write("live",Snapshot());}
         }
         private object Snapshot()
@@ -242,6 +247,7 @@ namespace KingdomIdle.UGUI
                 party=players?.Select(p=>new{p.PlayerIndex,id=p.GetInstanceID(),active=p.isActiveAndEnabled,dead=p.IsDead,job=p.playerStatus.JobName,atk=p.playerStatus.Atk,hp=p.playerStatus.HP,maxHP=p.playerStatus.MaxHP,ratio=p.HPRatio,position=new[]{p.transform.position.x,p.transform.position.y,p.transform.position.z},feet=new[]{p.VfxFootPosition.x,p.VfxFootPosition.y},action=p.CurrentAction.ToString(),target=p.currentTarget?.gameobj?.name}).ToArray(),
                 cp=CombatPowerCalculator.CalculatePartyPowerV1(players),mage=s.MageSkills,slot=s.MageSlots,
                 mageEvents=MageSkillDiagnostics.Events.ToArray(),
+                peakShakeOffset=_peakShakeOffset,screenShake=GamePresentationSettings.ScreenShake,
                 combatEvents=KingdomIdle.Combat.CombatDiagnostics.Events.ToArray(),
                 combatParty=players?.Select(p=>new{p.PlayerIndex,p.ShieldHP,p.BasicAttackSerial,p.LifeGeneration,facing=p.transform.localScale.x,sprite=p.GetComponent<SpriteRenderer>()?.sprite?.name,retreat=p.playerOrder?._move?.IsRetreating}).ToArray(),
                 mageCooldown=Enumerable.Range(0,5).Select(i=>new{slot=i,casting=MageTowerManager.Instance?.IsCasting(i),ratio=MageTowerManager.Instance?.GetCooldownRatio(i)}).ToArray(),

@@ -132,7 +132,7 @@ namespace KingdomIdle.UGUI
             CancelAim();
             var manager = MageTowerManager.Instance;
             var skill = manager?.GetSkillById(manager.GetEquippedSkillId(slot));
-            if (!_shown || skill == null || !skill.CanAim || manager.IsOnCooldown(slot) || manager.IsCasting(slot) ||
+            if (!_shown || skill == null || !skill.CanAimWithBloom(manager.IsBloomEnabled(skill.id)) || manager.IsOnCooldown(slot) || manager.IsCasting(slot) ||
                 StageManager.Instance?.CurrentRunState != eStageRunState.Running) return;
             _slot = slot; _skillId = skill.id; _battle = LocalProgression.State.ActiveBattleId;
             if (_aim == null) _aim = Instantiate(aimPrefab, UIManager.Instance.LayerScreens, false).GetComponent<MagicAimGraphic>();

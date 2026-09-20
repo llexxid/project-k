@@ -1,0 +1,1453 @@
+{
+  "config": {},
+  "extra": {
+    "comfy_mcp": {
+      "name": "ProjectK Mage bloom icon finish v6"
+    }
+  },
+  "groups": [],
+  "id": "44a2a3c2-eaaf-4fb5-a370-515eafeca7cb",
+  "last_link_id": 31,
+  "last_node_id": 103,
+  "links": [
+    [
+      1,
+      1,
+      0,
+      10,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      10,
+      0,
+      12,
+      0,
+      "IMAGE"
+    ],
+    [
+      3,
+      12,
+      0,
+      13,
+      0,
+      "IMAGE"
+    ],
+    [
+      4,
+      1,
+      0,
+      20,
+      0,
+      "IMAGE"
+    ],
+    [
+      5,
+      20,
+      0,
+      21,
+      0,
+      "IMAGE"
+    ],
+    [
+      6,
+      21,
+      0,
+      22,
+      0,
+      "IMAGE"
+    ],
+    [
+      7,
+      22,
+      0,
+      23,
+      0,
+      "IMAGE"
+    ],
+    [
+      8,
+      1,
+      0,
+      30,
+      0,
+      "IMAGE"
+    ],
+    [
+      9,
+      30,
+      0,
+      32,
+      0,
+      "IMAGE"
+    ],
+    [
+      10,
+      32,
+      0,
+      33,
+      0,
+      "IMAGE"
+    ],
+    [
+      11,
+      1,
+      0,
+      40,
+      0,
+      "IMAGE"
+    ],
+    [
+      12,
+      40,
+      0,
+      42,
+      0,
+      "IMAGE"
+    ],
+    [
+      13,
+      42,
+      0,
+      43,
+      0,
+      "IMAGE"
+    ],
+    [
+      14,
+      1,
+      0,
+      50,
+      0,
+      "IMAGE"
+    ],
+    [
+      15,
+      50,
+      0,
+      52,
+      0,
+      "IMAGE"
+    ],
+    [
+      16,
+      52,
+      0,
+      53,
+      0,
+      "IMAGE"
+    ],
+    [
+      17,
+      1,
+      0,
+      60,
+      0,
+      "IMAGE"
+    ],
+    [
+      18,
+      60,
+      0,
+      62,
+      0,
+      "IMAGE"
+    ],
+    [
+      19,
+      62,
+      0,
+      63,
+      0,
+      "IMAGE"
+    ],
+    [
+      20,
+      1,
+      0,
+      70,
+      0,
+      "IMAGE"
+    ],
+    [
+      21,
+      70,
+      0,
+      72,
+      0,
+      "IMAGE"
+    ],
+    [
+      22,
+      72,
+      0,
+      73,
+      0,
+      "IMAGE"
+    ],
+    [
+      23,
+      1,
+      0,
+      80,
+      0,
+      "IMAGE"
+    ],
+    [
+      24,
+      80,
+      0,
+      82,
+      0,
+      "IMAGE"
+    ],
+    [
+      25,
+      82,
+      0,
+      83,
+      0,
+      "IMAGE"
+    ],
+    [
+      26,
+      1,
+      0,
+      90,
+      0,
+      "IMAGE"
+    ],
+    [
+      27,
+      90,
+      0,
+      92,
+      0,
+      "IMAGE"
+    ],
+    [
+      28,
+      92,
+      0,
+      93,
+      0,
+      "IMAGE"
+    ],
+    [
+      29,
+      1,
+      0,
+      100,
+      0,
+      "IMAGE"
+    ],
+    [
+      30,
+      100,
+      0,
+      102,
+      0,
+      "IMAGE"
+    ],
+    [
+      31,
+      102,
+      0,
+      103,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "nodes": [
+    {
+      "flags": {},
+      "id": 1,
+      "inputs": [],
+      "mode": 0,
+      "order": 0,
+      "outputs": [
+        {
+          "links": [
+            1,
+            4,
+            8,
+            11,
+            14,
+            17,
+            20,
+            23,
+            26,
+            29
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        },
+        {
+          "links": null,
+          "name": "MASK",
+          "slot_index": 1,
+          "type": "MASK"
+        }
+      ],
+      "pos": [
+        0,
+        0
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "LoadImage",
+      "widgets_values": [
+        "d3d34738797a0bf65e4667954bf79162a3a2c2696a8c956415b10c79a82354e7.png"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 10,
+      "inputs": [
+        {
+          "link": 1,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 1,
+      "outputs": [
+        {
+          "links": [
+            2
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        400,
+        0
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ImageCrop",
+      "widgets_values": [
+        48,
+        48,
+        0,
+        0
+      ]
+    },
+    {
+      "flags": {},
+      "id": 12,
+      "inputs": [
+        {
+          "link": 2,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 2,
+      "outputs": [
+        {
+          "links": [
+            3
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        800,
+        0
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ImageQuantize",
+      "widgets_values": [
+        16,
+        "none"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 13,
+      "inputs": [
+        {
+          "link": 3,
+          "name": "images",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 3,
+      "outputs": [
+        {
+          "links": null,
+          "name": "images",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        1200,
+        0
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "SaveImage",
+      "widgets_values": [
+        "projectk-v6-Lightning"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 20,
+      "inputs": [
+        {
+          "link": 4,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 4,
+      "outputs": [
+        {
+          "links": [
+            5
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        400,
+        220
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ImageCrop",
+      "widgets_values": [
+        48,
+        48,
+        48,
+        0
+      ]
+    },
+    {
+      "flags": {},
+      "id": 21,
+      "inputs": [
+        {
+          "link": 5,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 5,
+      "outputs": [
+        {
+          "links": [
+            6
+          ],
+          "name": "image",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        800,
+        220
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "RadianceGPUColorMatrix",
+      "widgets_values": [
+        "Custom",
+        "RGB (3x3)",
+        "0.85, 0.0, 0.20",
+        "0.0, 0.78, 0.0",
+        "0.0, 0.0, 1.05",
+        "0.0, 0.0, 0.0, 1.0",
+        "0.0, 0.0, 0.0",
+        true
+      ]
+    },
+    {
+      "flags": {},
+      "id": 22,
+      "inputs": [
+        {
+          "link": 6,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 6,
+      "outputs": [
+        {
+          "links": [
+            7
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        1200,
+        220
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ImageQuantize",
+      "widgets_values": [
+        16,
+        "none"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 23,
+      "inputs": [
+        {
+          "link": 7,
+          "name": "images",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 7,
+      "outputs": [
+        {
+          "links": null,
+          "name": "images",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        1600,
+        0
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "SaveImage",
+      "widgets_values": [
+        "projectk-v6-Lightning_Bloom"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 30,
+      "inputs": [
+        {
+          "link": 8,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 8,
+      "outputs": [
+        {
+          "links": [
+            9
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        400,
+        440
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ImageCrop",
+      "widgets_values": [
+        48,
+        48,
+        96,
+        0
+      ]
+    },
+    {
+      "flags": {},
+      "id": 32,
+      "inputs": [
+        {
+          "link": 9,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 9,
+      "outputs": [
+        {
+          "links": [
+            10
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        800,
+        440
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ImageQuantize",
+      "widgets_values": [
+        16,
+        "none"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 33,
+      "inputs": [
+        {
+          "link": 10,
+          "name": "images",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 10,
+      "outputs": [
+        {
+          "links": null,
+          "name": "images",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        1200,
+        440
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "SaveImage",
+      "widgets_values": [
+        "projectk-v6-IceSpike_Bloom"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 40,
+      "inputs": [
+        {
+          "link": 11,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 11,
+      "outputs": [
+        {
+          "links": [
+            12
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        400,
+        660
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ImageCrop",
+      "widgets_values": [
+        48,
+        48,
+        144,
+        0
+      ]
+    },
+    {
+      "flags": {},
+      "id": 42,
+      "inputs": [
+        {
+          "link": 12,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 12,
+      "outputs": [
+        {
+          "links": [
+            13
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        800,
+        660
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ImageQuantize",
+      "widgets_values": [
+        16,
+        "none"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 43,
+      "inputs": [
+        {
+          "link": 13,
+          "name": "images",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 13,
+      "outputs": [
+        {
+          "links": null,
+          "name": "images",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        1200,
+        660
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "SaveImage",
+      "widgets_values": [
+        "projectk-v6-ArcaneVolley"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 50,
+      "inputs": [
+        {
+          "link": 14,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 14,
+      "outputs": [
+        {
+          "links": [
+            15
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        400,
+        880
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ImageCrop",
+      "widgets_values": [
+        48,
+        48,
+        192,
+        0
+      ]
+    },
+    {
+      "flags": {},
+      "id": 52,
+      "inputs": [
+        {
+          "link": 15,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 15,
+      "outputs": [
+        {
+          "links": [
+            16
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        800,
+        880
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ImageQuantize",
+      "widgets_values": [
+        16,
+        "none"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 53,
+      "inputs": [
+        {
+          "link": 16,
+          "name": "images",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 16,
+      "outputs": [
+        {
+          "links": null,
+          "name": "images",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        1200,
+        880
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "SaveImage",
+      "widgets_values": [
+        "projectk-v6-ArcaneVolley_Bloom"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 60,
+      "inputs": [
+        {
+          "link": 17,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 17,
+      "outputs": [
+        {
+          "links": [
+            18
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        400,
+        1100
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ImageCrop",
+      "widgets_values": [
+        48,
+        48,
+        240,
+        0
+      ]
+    },
+    {
+      "flags": {},
+      "id": 62,
+      "inputs": [
+        {
+          "link": 18,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 18,
+      "outputs": [
+        {
+          "links": [
+            19
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        800,
+        1100
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ImageQuantize",
+      "widgets_values": [
+        16,
+        "none"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 63,
+      "inputs": [
+        {
+          "link": 19,
+          "name": "images",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 19,
+      "outputs": [
+        {
+          "links": null,
+          "name": "images",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        1200,
+        1100
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "SaveImage",
+      "widgets_values": [
+        "projectk-v6-FireTornado_Bloom"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 70,
+      "inputs": [
+        {
+          "link": 20,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 20,
+      "outputs": [
+        {
+          "links": [
+            21
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        400,
+        1320
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ImageCrop",
+      "widgets_values": [
+        48,
+        48,
+        288,
+        0
+      ]
+    },
+    {
+      "flags": {},
+      "id": 72,
+      "inputs": [
+        {
+          "link": 21,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 21,
+      "outputs": [
+        {
+          "links": [
+            22
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        800,
+        1320
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ImageQuantize",
+      "widgets_values": [
+        16,
+        "none"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 73,
+      "inputs": [
+        {
+          "link": 22,
+          "name": "images",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 22,
+      "outputs": [
+        {
+          "links": null,
+          "name": "images",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        1200,
+        1320
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "SaveImage",
+      "widgets_values": [
+        "projectk-v6-VenomMist_Bloom"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 80,
+      "inputs": [
+        {
+          "link": 23,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 23,
+      "outputs": [
+        {
+          "links": [
+            24
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        400,
+        1540
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ImageCrop",
+      "widgets_values": [
+        48,
+        48,
+        336,
+        0
+      ]
+    },
+    {
+      "flags": {},
+      "id": 82,
+      "inputs": [
+        {
+          "link": 24,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 24,
+      "outputs": [
+        {
+          "links": [
+            25
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        800,
+        1540
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ImageQuantize",
+      "widgets_values": [
+        16,
+        "none"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 83,
+      "inputs": [
+        {
+          "link": 25,
+          "name": "images",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 25,
+      "outputs": [
+        {
+          "links": null,
+          "name": "images",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        1200,
+        1540
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "SaveImage",
+      "widgets_values": [
+        "projectk-v6-StoneSeal_Bloom"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 90,
+      "inputs": [
+        {
+          "link": 26,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 26,
+      "outputs": [
+        {
+          "links": [
+            27
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        400,
+        1760
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ImageCrop",
+      "widgets_values": [
+        48,
+        48,
+        384,
+        0
+      ]
+    },
+    {
+      "flags": {},
+      "id": 92,
+      "inputs": [
+        {
+          "link": 27,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 27,
+      "outputs": [
+        {
+          "links": [
+            28
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        800,
+        1760
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ImageQuantize",
+      "widgets_values": [
+        16,
+        "none"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 93,
+      "inputs": [
+        {
+          "link": 28,
+          "name": "images",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 28,
+      "outputs": [
+        {
+          "links": null,
+          "name": "images",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        1200,
+        1760
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "SaveImage",
+      "widgets_values": [
+        "projectk-v6-Sanctuary_Bloom"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 100,
+      "inputs": [
+        {
+          "link": 29,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 29,
+      "outputs": [
+        {
+          "links": [
+            30
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        400,
+        1980
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ImageCrop",
+      "widgets_values": [
+        48,
+        48,
+        432,
+        0
+      ]
+    },
+    {
+      "flags": {},
+      "id": 102,
+      "inputs": [
+        {
+          "link": 30,
+          "name": "image",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 30,
+      "outputs": [
+        {
+          "links": [
+            31
+          ],
+          "name": "IMAGE",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        800,
+        1980
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "ImageQuantize",
+      "widgets_values": [
+        16,
+        "none"
+      ]
+    },
+    {
+      "flags": {},
+      "id": 103,
+      "inputs": [
+        {
+          "link": 31,
+          "name": "images",
+          "type": "IMAGE"
+        }
+      ],
+      "mode": 0,
+      "order": 31,
+      "outputs": [
+        {
+          "links": null,
+          "name": "images",
+          "slot_index": 0,
+          "type": "IMAGE"
+        }
+      ],
+      "pos": [
+        1200,
+        1980
+      ],
+      "properties": {},
+      "size": [
+        270,
+        120
+      ],
+      "type": "SaveImage",
+      "widgets_values": [
+        "projectk-v6-VoidRift_Bloom"
+      ]
+    }
+  ],
+  "version": 0.4
+}

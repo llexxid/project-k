@@ -112,7 +112,7 @@ namespace KingdomIdle.UGUI
                 int skillId = mgr.GetEquippedSkillId(i);
                 var so = skillId >= 0 ? mgr.GetSkillById(skillId) : null;
                 bool active = _pickingMode && i == _selectedSlot;
-                _slotViews[i].Set(so != null ? so.DisplayIcon(mgr.IsBloomEnabled(skillId)) : null, so != null ? so.nameKor : null, so == null, active);
+                _slotViews[i].Set(so != null ? so.DisplayIcon(mgr.IsBloomEnabled(skillId)) : null, so != null ? so.DisplayName(mgr.IsBloomEnabled(skillId)) : null, so == null, active);
             }
 
             RebuildInventory(mgr);
@@ -178,11 +178,11 @@ namespace KingdomIdle.UGUI
         {
             int current = mgr.GetEquippedSkillId(_selectedSlot);
             var chosen = mgr.GetSkillById(_candidate);
-            string currentName = mgr.GetSkillById(current)?.nameKor ?? "빈 슬롯";
+            string currentName = mgr.GetSkillById(current)?.DisplayName(mgr.IsBloomEnabled(current)) ?? "빈 슬롯";
             bool canEquip = chosen != null && mgr.IsOwned(_candidate) && current != _candidate;
             if (_view.selectionLabel != null)
                 _view.selectionLabel.text = chosen == null ? $"슬롯 {_selectedSlot + 1} · {currentName}\n목록에서 사용할 스킬을 선택하세요." :
-                    $"슬롯 {_selectedSlot + 1} · {currentName} → {chosen.nameKor}\n{(mgr.IsOwned(_candidate) ? "진행 중인 효과와 재사용 대기시간은 유지됩니다." : "뽑기에서 획득하면 장착할 수 있습니다.")}";
+                    $"슬롯 {_selectedSlot + 1} · {currentName} → {chosen.DisplayName(mgr.IsBloomEnabled(_candidate))}\n{(mgr.IsOwned(_candidate) ? "진행 중인 효과와 재사용 대기시간은 유지됩니다." : "뽑기에서 획득하면 장착할 수 있습니다.")}";
             if (_view.equipButton != null) _view.equipButton.interactable = canEquip;
             if (_view.equipLabel != null) _view.equipLabel.text = chosen != null && mgr.IsEquipped(_candidate) && current != _candidate ? "자리 바꾸기" : current >= 0 ? "교체" : "장착";
             if (_view.unequipButton != null) _view.unequipButton.interactable = current >= 0;

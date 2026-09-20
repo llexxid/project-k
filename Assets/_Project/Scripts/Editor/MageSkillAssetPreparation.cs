@@ -60,8 +60,8 @@ public static class MageSkillAssetPreparation
             new Layer(Refined+"LightningOriginal.png",70f/64f*1.5f,149f/64f*1.5f,Color.white));
         var ice = Vfx("IceSpike", new Layer(Source+"Ice/IceSpike.png", 1.8f, 1.8f, frost, y:.6f));
         var tornado = Vfx("FireTornado", new Layer(Refined+"FireVortexCrown.png", 2.1f, 3.25f, Color.white, loop:true, fps:24));
-        var arcane = Vfx("ArcaneVolley", new Layer(Polished+"ArcaneProjectile.png", 2.1f, 2.1f, Color.white, loop:true));
-        var arcaneHit = Vfx("ArcaneImpact", new Layer(Polished+"ArcaneImpact.png", 1.6f, 1.6f, Color.white));
+        var arcane = Vfx("ArcaneVolley", new Layer(Refined+"StarfallWarm.png", 2.1f, 2.1f, Color.white, loop:true));
+        var arcaneHit = Vfx("StarfallPulse", new Layer(Refined+"StarfallPulse.png", 1.1f, .715f, Color.white, fps:20));
         var venom = Vfx("VenomMist",
             new Layer(Art+"/VFX/PoisonEffect/Animation/Sprites/Poison_Effect_05-1.png",3.3f,3f,new Color(1,1,1,.96f),frame:0),
             new Layer(Art+"/VFX/PoisonEffect/Animation/Sprites/Poison_Effect_05-2.png",3f,3f,new Color(1,1,1,.88f),y:.2f,loop:true));
@@ -74,8 +74,9 @@ public static class MageSkillAssetPreparation
         var meteor = Vfx("Meteor",new Layer(Refined+"MeteorFlight.png",6f,6.5f,Color.white,fps:32));
         EditMeteor(meteor);
         var crater = Vfx("MeteorCrater",
-            new Layer(Polished+"MeteorScorch.png",2.65f,2f,Color.white,frame:0),
-            new Layer(Refined+"MeteorImpact.png",3.5f,2f,Color.white,fps:18));
+            new Layer(Refined+"MeteorGround.png",2.6f,1.18f,Color.white,frame:0),
+            new Layer(Refined+"MeteorImpact.png",3.5f,2f,Color.white,fps:18),
+            new Layer(Refined+"MeteorEmbers.png",2.6f,1.18f,Color.white,loop:true,fps:16));
         var rift = Vfx("VoidRift",new Layer(Refined+"VoidRing.png",4.6f,4.6f,Color.white,loop:true));
         var collapse = Vfx("VoidCollapse",new Layer(Polished+"VoidCollapseMuted.png",2.4f,2.4f,new Color(1,1,1,.86f)));
         var telegraph = Vfx("GroundTelegraph",new Layer(Refined+"StoneGlyph.png",2.5f,1.5f,Color.white,frame:0));
@@ -94,7 +95,7 @@ public static class MageSkillAssetPreparation
             "지정 지점 주변에 낙뢰를 빠르게 3번 내립니다. 각성 4·8에서 같은 패턴의 낙뢰가 1번씩 늘어납니다.",
             "얼음 송곳을 차례로 솟아올려 적을 고르게 공격합니다.",
             "불꽃 회오리가 적을 쫓으며 주변에 지속 피해를 줍니다.",
-            "전장 곳곳의 적에게 별빛을 차례로 떨어뜨립니다. 별빛이 닿은 적에게 피해를 줍니다.",
+            "성역보다 조금 넓은 범위의 무작위 지점에 붉은 별빛을 떨어뜨립니다. 적을 추적하지 않으며, 착탄할 때 작은 파동 안의 적들에게 피해를 줍니다.",
             "맹독 늪을 펼쳐 범위 안의 적에게 지속 피해를 주고 이동 속도를 25% 낮춥니다.",
             "바위를 연속으로 솟아올려 주변 적을 공격하고 1.4초간 기절시킵니다.",
             "",
@@ -102,7 +103,7 @@ public static class MageSkillAssetPreparation
             "운석을 떨어뜨려 주변 적을 공격합니다. 착탄 지점의 잔열이 두 번 더 피해를 줍니다.",
             "적이 모인 곳의 허공에 원형 균열을 엽니다. 균열보다 50% 넓은 범위의 적을 끌어당깁니다. 균열 안에서 지속 피해를 주고, 닫힐 때 폭발합니다. 보스는 끌어당기지 못합니다."};
         float[] powers={120,100,40,28,36,110,90,45,260,42}, cooldowns={10,12,15,10,14,16,12,18,16,20};
-        int[] hits={3,4,10,18,6,2,2,6,1,5}, caps={3,1,3,1,5,4,5,3,6,6};
+        int[] hits={3,4,10,18,6,2,2,6,1,5}, caps={3,1,3,6,5,4,5,3,6,6};
         float[] radii={.55f,.35f,.85f,.55f,1.4f,1.05f,.55f,2.6f,1.55f,1.3f}, ticks={2f/12f,.18f,.5f,.12f,.75f,.45f,.4f,.7f,.8f,.6f};
         GameObject[] visuals={lightning,ice,tornado,arcane,venom,stone,null,sanctuary,meteor,rift};
         var registry=AssetDatabase.LoadAssetAtPath<MageTowerSkillRegistrySO>("Assets/MageTower/SO/MageTowerSkillList.asset");
@@ -124,11 +125,13 @@ public static class MageSkillAssetPreparation
             skill.controlDuration=id==4?1.2f:id==5?1.4f:id==9?.85f:0;
             skill.slowFraction=id==4?.25f:id==9?.2f:0;
             skill.secondaryPowerRatio=id==8?35f/260f:id==9?180f/42f:0;
-            skill.bloomName=id==0?"천벌":id==1?"만년빙정":"미정";
-            skill.bloomDescription=id==0?"뇌운을 모아 큰 범위에 거대한 벼락을 내립니다. 피해 1000% · 준비 2초 · 재사용 대기시간 2배.":id==1?"여러 적: 송곳 8개를 두 번 생성합니다. 각각 피해 50%.\n적 하나: 거대 빙정으로 피해 650%를 줍니다.":skill.IsHealing?"회복량 +15%. 전용 효과는 준비 중입니다.":"피해량 +15%. 전용 효과는 준비 중입니다.";
-            skill.bloomCooldownMultiplier=id==0?2:1;skill.bloomPowerMultiplier=id==0?10:id==1?6.5f:1.15f;
-            skill.bloomAreaPowerMultiplier=.5f;skill.bloomControlDuration=0;skill.bloomMaxTargets=10;skill.bloomRadius=2.1f;
-            skill.bloomPrefab=id==0?thunder:id==1?glacier:null;skill.bloomCastingPrefab=id==0?cloud:id==1?iceCast:null;
+            skill.bloomName=id==0?"천벌":id==1?"만년빙정":id==3?"메테오":"미정";
+            skill.bloomDescription=id==0?"뇌운을 모아 큰 범위에 거대한 벼락을 내립니다. 피해 1000% · 준비 2초 · 재사용 대기시간 2배.":id==1?"여러 적: 송곳 8개를 두 번 생성합니다. 각각 피해 50%.\n적 하나: 거대 빙정으로 피해 650%를 줍니다. 기절은 부여하지 않습니다.":id==3?"거대한 운석이 1.5초 동안 낙하해 피해 2000%를 줍니다.\n붉은 균열 장판이 3.5초 동안 0.5초마다 피해 200%를 주고, 장판 안의 적을 60% 감속합니다.\n재사용 대기시간 1.6배 · 드래그로 착탄 지점 지정 가능.":skill.IsHealing?"회복량 +15%. 전용 효과는 준비 중입니다.":"피해량 +15%. 전용 효과는 준비 중입니다.";
+            skill.bloomCooldownMultiplier=id==0?2:id==3?1.6f:1;skill.bloomPowerMultiplier=id==0?10:id==1?6.5f:id==3?20:1.15f;
+            skill.bloomAreaPowerMultiplier=id==3?2:.5f;skill.bloomControlDuration=0;skill.bloomMaxTargets=10;skill.bloomRadius=id==3?1.75f:2.1f;
+            skill.scatterRadius=3;skill.bloomDuration=3.5f;skill.bloomGroundRadius=1.25f;skill.bloomTickInterval=.5f;skill.bloomSlowFraction=.6f;
+            skill.bloomPrefab=id==0?thunder:id==1?glacier:id==3?meteor:null;skill.bloomCastingPrefab=id==0?cloud:id==1?iceCast:null;
+            skill.bloomSecondaryPrefab=id==3?crater:null;
             skill.icon=InstallIcon(skill,keys[id],id);
             skill.bloomIcon=InstallBloomIcon(keys[id]);
             string[] sounds={"Lightning_SFX","Ice_Spike_SFX","Fire_Tornado_SFX","Charge_Shot_SFX","Water_Splash_SFX","Ice_Block_SFX","Slash_Attack_SFX","Parrying_SFX","Fire_Tornado_SFX","Charge_Shot_SFX"};
@@ -141,12 +144,12 @@ public static class MageSkillAssetPreparation
         {
             var table=AssetDatabase.LoadAssetAtPath<GachaTableSO>(AssetDatabase.GUIDToAssetPath(guid));if(table.gachaType!=eGachaType.Skill)continue;
             table.costCurrency=eCurrency.AncientCoin;table.costAmount=50;table.isImplemented=true;
-            table.description="스킬 9종 · 총 50%, 각 동일 확률 · 중복은 각성 파편 30개\n각성 10에서 스킬 개화를 켜고 끌 수 있습니다.";
+            table.description="스킬 8종 · 총 50%, 각 동일 확률 · 중복은 각성 파편 30개\n각성 10에서 스킬 개화를 켜고 끌 수 있습니다.";
             table.rewards=skills.Select(skill=>new GachaRewardEntry{nameKor=skill.nameKor,icon=skill.icon,rewardType=eGachaRewardType.Skill,skillId=skill.id,amount=1,weight=50f/MageSkillRules.SkillCount}).ToList();
             foreach(var pair in new[]{(10,30f),(20,15f),(50,5f)})table.rewards.Add(new GachaRewardEntry{nameKor="비전 지식 "+pair.Item1+"개",rewardType=eGachaRewardType.Currency,currency=eCurrency.ArcaneKnowledge,amount=pair.Item1,weight=pair.Item2});
             EditorUtility.SetDirty(table);
         }
-        AssetDatabase.SaveAssets();Debug.Log("Mage catalog: 9 skills, 2 distinct blooms, 7 provisional blooms; existing IDs and icon GUIDs preserved.");
+        AssetDatabase.SaveAssets();Debug.Log("Mage catalog: 8 skills, 3 distinct blooms, 5 provisional blooms; existing IDs and icon GUIDs preserved.");
     }
 
     static void CopyChanged(string source,string target)
@@ -201,6 +204,7 @@ public static class MageSkillAssetPreparation
         string source=id==0?Generated+"/pilot-finish/core-resize/0.png":Generated+"/icons/"+id.ToString("00")+"-"+key+"/icon48.png";
         if(id==3) source="AI/comfyui/mage-skills/20260916-combat/Starfall-v1/icon48.png";
         if(key=="VenomMist" || key=="StoneSeal" || key=="Sanctuary") source="AI/comfyui/mage-skills/20260918-playability/v2/"+key+(target.Contains("_Bloom")?"_Bloom":"")+".png";
+        if(id==0 || id==3) source="AI/comfyui/mage-vfx/revision6/icons/"+key+".png";
         CopyChanged(source,target);AssetDatabase.ImportAsset(target,ImportAssetOptions.ForceSynchronousImport);
         var importer=(TextureImporter)AssetImporter.GetAtPath(target);
         importer.textureType=TextureImporterType.Sprite;importer.spriteImportMode=SpriteImportMode.Single;importer.spritePixelsPerUnit=48;
@@ -291,6 +295,7 @@ public static class MageSkillAssetPreparation
         if(key=="ArcaneVolley") source="AI/comfyui/mage-skills/20260916-combat/StarfallBloom-v1/icon48.png";
         string target=Art+"/Icons/MageTower/"+key+"_Bloom.png";
         if(key=="VenomMist" || key=="StoneSeal" || key=="Sanctuary") source="AI/comfyui/mage-skills/20260918-playability/v2/"+key+(target.Contains("_Bloom")?"_Bloom":"")+".png";
+        source="AI/comfyui/mage-vfx/revision6/icons/"+key+"_Bloom.png";
         if(!File.Exists(source))throw new FileNotFoundException("Bloom icon missing",source);
         CopyChanged(source,target);AssetDatabase.ImportAsset(target,ImportAssetOptions.ForceSynchronousImport);
         var importer=(TextureImporter)AssetImporter.GetAtPath(target);

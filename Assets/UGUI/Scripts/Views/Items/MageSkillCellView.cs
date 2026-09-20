@@ -28,7 +28,7 @@ namespace KingdomIdle.UGUI
                 icon.sprite = skill.DisplayIcon(bloom);
                 icon.color = owned ? Color.white : new Color(.62f, .62f, .62f, 1f);
             }
-            if (nameLabel != null) nameLabel.text = skill.nameKor;
+            if (nameLabel != null) nameLabel.text = skill.DisplayName(bloom);
             if (stateLabel != null) { stateLabel.text = equipped ? "◆ 장착 중" : bloom ? "개화" : owned ? "보유" : "미보유"; stateLabel.color = equipped ? UguiTheme.BronzeLight : bloom ? MageSkillPresentation.BloomAccent : UguiTheme.TextSecondary; }
             Action refresh = () => {
                 if (dmgLabel == null) return;

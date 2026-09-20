@@ -82,7 +82,7 @@ namespace KingdomIdle.UGUI
             var so = mgr.GetSkillById(_skillId);
             if (so == null) { Hide(); return; }
 
-            if (_view.titleLabel != null) _view.titleLabel.text = so.nameKor;
+            if (_view.titleLabel != null) _view.titleLabel.text = so.DisplayName(mgr.IsBloomEnabled(_skillId));
             if (_view.stateLabel != null)
             {
                 _view.stateLabel.text = mgr.IsEquipped(_skillId) ? "장착 중" : mgr.IsOwned(_skillId) ? "보유" : "미보유";

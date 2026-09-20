@@ -6,7 +6,7 @@ using Scripts.Monster;
 namespace KingdomIdle.Combat
 {
     public enum CrowdControlKind { None = 0, Stun = 1, Slow = 2 }
-    public enum SlowVisualKind { Generic, Venom, Void }
+    public enum SlowVisualKind { Generic, Venom, Void, Molten }
 
     /// <summary>Independent control clocks; the strongest live slow wins without stacking.</summary>
     [DisallowMultipleComponent]

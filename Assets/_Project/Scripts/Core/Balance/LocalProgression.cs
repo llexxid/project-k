@@ -66,7 +66,8 @@ namespace KingdomIdle.Balance
             bool retiredEquipped = false;
             for (int i = 0; i < state.MageSlots.Length; i++)
                 if (state.MageSlots[i] == 6) { state.MageSlots[i] = -1; retiredEquipped = true; }
-            if (retiredEquipped) { state.Revision = checked(state.Revision + 1); WriteSnapshot(path, state); }
+            bool mergedMeteor = KingdomIdle.MageTower.MageCatalogMigration.Apply(state);
+            if (retiredEquipped || mergedMeteor) { Validate(state); state.Revision = checked(state.Revision + 1); WriteSnapshot(path, state); }
             _path = path; _state = state; AccountKey = account; LastError = null;
         }
         public static bool Execute(string operation, Func<ProgressionState, bool> mutate, string claimId = null)

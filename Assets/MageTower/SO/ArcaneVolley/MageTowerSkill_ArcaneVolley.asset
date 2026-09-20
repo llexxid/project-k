@@ -22,9 +22,11 @@ MonoBehaviour:
   maxAwakeningLevel: 10
   prefab: {fileID: 5343176750941398234, guid: 09785b71e2920824db9c23e1174502f5, type: 3}
   spellKind: 3
-  description: "\uC804\uC7A5 \uACF3\uACF3\uC758 \uC801\uC5D0\uAC8C \uBCC4\uBE5B\uC744
-    \uCC28\uB840\uB85C \uB5A8\uC5B4\uB728\uB9BD\uB2C8\uB2E4. \uBCC4\uBE5B\uC774 \uB2FF\uC740
-    \uC801\uC5D0\uAC8C \uD53C\uD574\uB97C \uC90D\uB2C8\uB2E4."
+  description: "\uC131\uC5ED\uBCF4\uB2E4 \uC870\uAE08 \uB113\uC740 \uBC94\uC704\uC758
+    \uBB34\uC791\uC704 \uC9C0\uC810\uC5D0 \uBD89\uC740 \uBCC4\uBE5B\uC744 \uB5A8\uC5B4\uB728\uB9BD\uB2C8\uB2E4.
+    \uC801\uC744 \uCD94\uC801\uD558\uC9C0 \uC54A\uC73C\uBA70, \uCC29\uD0C4\uD560
+    \uB54C \uC791\uC740 \uD30C\uB3D9 \uC548\uC758 \uC801\uB4E4\uC5D0\uAC8C \uD53C\uD574\uB97C
+    \uC90D\uB2C8\uB2E4."
   basePower: 28
   baseHits: 18
   radius: 0.55
@@ -33,21 +35,34 @@ MonoBehaviour:
   controlDuration: 0
   slowFraction: 0
   secondaryPowerRatio: 0
-  maxTargets: 1
+  maxTargets: 6
   castingPrefab: {fileID: 0}
-  secondaryPrefab: {fileID: 4027142286648823715, guid: d6ecab30ed2aaef479e1d67a219da3e5,
+  secondaryPrefab: {fileID: 7098385533617748080, guid: e729df0b3ae5fde4caf6cdda34599d33,
     type: 3}
-  bloomName: "\uBBF8\uC815"
-  bloomDescription: "\uD53C\uD574\uB7C9 +15%. \uC804\uC6A9 \uD6A8\uACFC\uB294 \uC900\uBE44
-    \uC911\uC785\uB2C8\uB2E4."
-  bloomCooldownMultiplier: 1
-  bloomPowerMultiplier: 1.15
-  bloomAreaPowerMultiplier: 0.5
+  bloomName: "\uBA54\uD14C\uC624"
+  bloomDescription: "\uAC70\uB300\uD55C \uC6B4\uC11D\uC774 1.5\uCD08 \uB3D9\uC548
+    \uB099\uD558\uD574 \uD53C\uD574 2000%\uB97C \uC90D\uB2C8\uB2E4.\n\uBD89\uC740
+    \uADE0\uC5F4 \uC7A5\uD310\uC774 3.5\uCD08 \uB3D9\uC548 0.5\uCD08\uB9C8\uB2E4
+    \uD53C\uD574 200%\uB97C \uC8FC\uACE0, \uC7A5\uD310 \uC548\uC758 \uC801\uC744
+    60% \uAC10\uC18D\uD569\uB2C8\uB2E4.\n\uC7AC\uC0AC\uC6A9 \uB300\uAE30\uC2DC\uAC04
+    1.6\uBC30 \xB7 \uB4DC\uB798\uADF8\uB85C \uCC29\uD0C4 \uC9C0\uC810 \uC9C0\uC815
+    \uAC00\uB2A5."
+  bloomCooldownMultiplier: 1.6
+  bloomPowerMultiplier: 20
+  bloomAreaPowerMultiplier: 2
   bloomControlDuration: 0
   bloomMaxTargets: 10
-  bloomRadius: 2.1
-  bloomPrefab: {fileID: 0}
+  bloomRadius: 1.75
+  scatterRadius: 3
+  bloomDuration: 3.5
+  bloomGroundRadius: 1.25
+  bloomTickInterval: 0.5
+  bloomSlowFraction: 0.6
+  bloomPrefab: {fileID: 2268734243505057030, guid: 16d6431c20379774aaa223df4773b0cf,
+    type: 3}
   bloomCastingPrefab: {fileID: 0}
+  bloomSecondaryPrefab: {fileID: 2099301324405595776, guid: c79d685a284eb9848ac9d78e5c81a695,
+    type: 3}
   sfxName: Charge_Shot_SFX
   sfxLoopName: 
   effects: []

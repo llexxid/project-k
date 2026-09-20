@@ -15,11 +15,14 @@ namespace KingdomIdle.MageTower
         public Sprite icon;
         public Sprite bloomIcon;
         public Sprite DisplayIcon(bool bloom) => bloom && bloomIcon != null ? bloomIcon : icon;
+        public string DisplayName(bool bloom) => bloom && bloomName != "미정" ? bloomName : nameKor;
         public bool CanAim => spellKind != MageSpellKind.IceSpike && spellKind != MageSpellKind.ArcaneVolley;
+        public bool CanAimWithBloom(bool bloom) => CanAim || (spellKind == MageSpellKind.ArcaneVolley && bloom);
         public const float VoidPullRadiusMultiplier = 1.5f;
         public float PullRadius => radius * VoidPullRadiusMultiplier;
         public float TargetRadius(bool bloom) => spellKind == MageSpellKind.Lightning
             ? bloom ? bloomRadius : radius + MageSkillRules.LightningScatterRadius
+            : spellKind == MageSpellKind.ArcaneVolley && bloom ? bloomRadius
             : spellKind == MageSpellKind.VoidRift ? PullRadius : radius;
         public float baseCooldown;
         public int maxEnhanceLevel = 100;
@@ -50,8 +53,14 @@ namespace KingdomIdle.MageTower
         [Min(0)] public float bloomControlDuration = 2f;
         [Min(1)] public int bloomMaxTargets = 10;
         [Min(.05f)] public float bloomRadius = 2.1f;
+        [Min(.05f)] public float scatterRadius = 3f;
+        [Min(.05f)] public float bloomDuration = 3.5f;
+        [Min(.05f)] public float bloomGroundRadius = 1.25f;
+        [Min(.05f)] public float bloomTickInterval = .5f;
+        [Range(0, .8f)] public float bloomSlowFraction = .6f;
         public GameObject bloomPrefab;
         public GameObject bloomCastingPrefab;
+        public GameObject bloomSecondaryPrefab;
         public bool IsHealing => spellKind == MageSpellKind.Sanctuary;
 
         [Header("SFX")]

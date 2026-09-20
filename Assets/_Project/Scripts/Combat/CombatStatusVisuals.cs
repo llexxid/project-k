@@ -35,7 +35,8 @@ namespace KingdomIdle.Combat
             // HP bars sit at head + .15. Status symbols have their own row above that bar.
             Draw(0, stun, Frame(art.stun, 8), head + new Vector3(taunt ? -.22f : 0, .40f, 0), Color.white, .9f, false);
             Color slowColor = _control != null && _control.SlowStyle == SlowVisualKind.Void ? new Color(.73f,.48f,.94f,.85f) :
-                _control != null && _control.SlowStyle == SlowVisualKind.Venom ? new Color(.53f,.90f,.32f,.9f) : new Color(.50f,.80f,1,.85f);
+                _control != null && _control.SlowStyle == SlowVisualKind.Venom ? new Color(.53f,.90f,.32f,.9f) :
+                _control != null && _control.SlowStyle == SlowVisualKind.Molten ? new Color(1,.36f,.19f,.9f) : new Color(.50f,.80f,1,.85f);
             Draw(1, slow, Frame(art.footRing, 12), foot + Vector3.up * .38f, slowColor, 1.1f, true);
             Draw(2, taunt, art.taunt, head + new Vector3(stun ? .32f : 0, .40f, 0), Color.white, .36f, false);
             Draw(3, shield, Frame(art.footRing, 12), foot + Vector3.up * .47f, new Color(.52f,.79f,1,.9f), 1.35f, true);

@@ -94,7 +94,7 @@ namespace KingdomIdle.MageTower
         public bool IsAutoEnabled() => _autoEnabled;
         public void SetAutoEnabled(bool enabled) { if (_autoEnabled == enabled) return; _autoEnabled = enabled; OnStateChanged?.Invoke(); }
 
-        public bool IsOwned(int skillId) => Saved(skillId) != null;
+        public bool IsOwned(int skillId) => MageSkillRules.IsAvailable(skillId) && Saved(skillId) != null;
 
         public void Unlock(int skillId)
         {
@@ -306,7 +306,7 @@ namespace KingdomIdle.MageTower
         {
             if (slotIndex < 0 || slotIndex >= SlotCount || !IsValidAimPoint(position)) return false;
             var skill = GetSkillById(_equipped[slotIndex]);
-            return skill != null && skill.CanAim && TryCast(slotIndex, position);
+            return skill != null && skill.CanAimWithBloom(IsBloomEnabled(skill.id)) && TryCast(slotIndex, position);
         }
 
         public static bool IsValidAimPoint(Vector3 point)
@@ -332,7 +332,12 @@ namespace KingdomIdle.MageTower
                     position = healPoint;
                 }
             }
-            else if (!position.HasValue && !MageTowerSpellCast.TryFindTarget(skill, out target)) return false;
+            else if (skill.spellKind == MageSpellKind.ArcaneVolley && !IsBloomEnabled(skillId))
+            {
+                if (!MageTowerSpellCast.TryFindTarget(out _)) return false;
+                position = MageTowerTargeting.BattleCenter();
+            }
+            else if (!position.HasValue && !MageTowerSpellCast.TryFindTarget(skill, out target, IsBloomEnabled(skillId))) return false;
             LocalProgression.RecordSkillCast(skillId);
             _casting[slotIndex] = true;
             _cooldowns[slotIndex] = _cooldownTimers[slotIndex] = GetEffectiveCooldown(skillId);
@@ -387,7 +392,7 @@ namespace KingdomIdle.MageTower
             return GetEffectiveDamage(id) * MageSkillRules.SingleTargetPowerUnits(skill, GetAwakeningLevel(id), IsBloomEnabled(id)) / (decimal)GetEffectiveCooldown(id);
         }
 
-        public bool CanReset(int id) => GetEnhanceLevel(id) > 0;
+        public bool CanReset(int id) => IsOwned(id) && GetEnhanceLevel(id) > 0;
         public long GetResetRefund(int id) => BalanceMath.Floor(GetTotalAKSpent(id) * .8m);
         public bool ResetEnhance(int id)
         {
@@ -411,11 +416,12 @@ namespace KingdomIdle.MageTower
                 foreach (long code in packed)
                 {
                     int id = MageTowerSkillCode.UnpackSkillId(code);
-                    if (GetSkillById(id) == null) continue;
+                    if (id == 8 ? s.Modules.ContainsKey(MageCatalogMigration.MeteorArchive) : GetSkillById(id) == null) continue;
                     s.MageSkills[id] = new MageSave { Enhance = BalanceMath.Clamp(MageTowerSkillCode.UnpackEnhanceLevel(code), 0, 100),
                         Awaken = BalanceMath.Clamp(MageTowerSkillCode.UnpackAwakeningLevel(code), 0, 10), Fragments = MageTowerSkillCode.UnpackQuantity(code) };
                     // No inferred historical spend: imported levels cannot manufacture reset refunds.
                 }
+                MageCatalogMigration.Apply(s);
                 s.Modules["mage-imported"] = "1"; return true;
             })) NotifyCommitted();
         }
