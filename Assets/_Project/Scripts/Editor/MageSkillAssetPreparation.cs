@@ -291,11 +291,8 @@ public static class MageSkillAssetPreparation
     }
     static Sprite InstallBloomIcon(string key)
     {
-        string source="AI/comfyui/mage-skills/20260916/"+key+"/icon48.png";
-        if(key=="ArcaneVolley") source="AI/comfyui/mage-skills/20260916-combat/StarfallBloom-v1/icon48.png";
         string target=Art+"/Icons/MageTower/"+key+"_Bloom.png";
-        if(key=="VenomMist" || key=="StoneSeal" || key=="Sanctuary") source="AI/comfyui/mage-skills/20260918-playability/v2/"+key+(target.Contains("_Bloom")?"_Bloom":"")+".png";
-        source="AI/comfyui/mage-vfx/revision6/icons/"+key+"_Bloom.png";
+        string source="AI/comfyui/mage-vfx/revision6/icons/"+key+"_Bloom.png";
         if(!File.Exists(source))throw new FileNotFoundException("Bloom icon missing",source);
         CopyChanged(source,target);AssetDatabase.ImportAsset(target,ImportAssetOptions.ForceSynchronousImport);
         var importer=(TextureImporter)AssetImporter.GetAtPath(target);

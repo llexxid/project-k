@@ -88,7 +88,7 @@ namespace KingdomIdle.UGUI
                 _view.stateLabel.text = mgr.IsEquipped(_skillId) ? "장착 중" : mgr.IsOwned(_skillId) ? "보유" : "미보유";
                 _view.stateLabel.color = MageSkillPresentation.Accent;
             }
-            if (_view.descriptionLabel != null) _view.descriptionLabel.text = so.description;
+            if (_view.descriptionLabel != null) _view.descriptionLabel.text = MageSkillPresentation.Description(so, mgr.IsBloomEnabled(_skillId));
 
             if (_view.icon != null)
             {
@@ -112,7 +112,8 @@ namespace KingdomIdle.UGUI
             string powerLabel = so.IsHealing ? "회복" : "피해";
             if (_view.lblBaseDmg != null) _view.lblBaseDmg.text = $"기본 1회 {powerLabel}: {NumberNotation.Format(so.BaseDamage)}";
             if (_view.lblBaseCd != null) _view.lblBaseCd.text = $"기본 쿨타임: {so.baseCooldown:F1}s";
-            if (_view.lblEffDmg != null) _view.lblEffDmg.text = $"최종 1회 {powerLabel}: {NumberNotation.Format(effDmg)}\n왕국군 공격력 합계의 {BalanceMath.MageAttackCoefficient((long)so.BaseDamage, eLv, aLv):P1} 반영";
+            if (_view.lblEffDmg != null) _view.lblEffDmg.text = MageSkillPresentation.EffectivePower(so, effDmg, mgr.IsBloomEnabled(_skillId)) +
+                $"\n왕국군 공격력 {BalanceMath.MageAttackCoefficient((long)so.BaseDamage, eLv, aLv):P1} 반영";
             if (_view.lblEffCd != null) _view.lblEffCd.text = $"최종 쿨타임: {effCd:F1}s";
 
             // enhance

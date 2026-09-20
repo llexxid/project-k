@@ -10,6 +10,6 @@
 
 유성우는 기존 64px 6프레임의 형태·재생 속도를 보존하고 따뜻한 세 색으로 변경했다. 착탄 파동은 40×28px 8프레임, 20fps다. 메테오 낙하체는 revision5의 48프레임·32fps를 그대로 사용한다. 장판의 갈색 원본은 NEAREST로 확대해 보존하고, 112×76px 캔버스에 16프레임·16fps의 붉은 균열을 분리했다. 스프라이트별 설정은 `effect-settings.json`에 기록했다. 지속 장판과 균열은 전투원 뒤에 표시한다.
 
-실제 과금 조회에서 이 작업의 GPU 사용량은 **5.06304초, RTX PRO 6000**으로 확인했다. 최초 달러 보고서의 종료 시각은 12:00 UTC이고 작업은 12:01 UTC에 실행되어 이 작업의 달러 비용은 아직 확인되지 않았다. 확인되지 않은 금액을 0원으로 기록하지 않는다. `usage-before.json`, `usage-after.json`, `billing-job.json`이 조회 근거다. 후속 청구 확인은 검증 기록에 반영한다.
+실제 과금 조회에서 이 작업의 GPU 사용량은 **5.06304초, RTX PRO 6000**으로 확인했다. 최초 달러 보고서는 작업 시각 전까지의 보고서라 비용을 미확인으로 기록했다. 후속 `usage-final.json`의 12:00–13:00 UTC GPU 청구는 **$0.0065566368(약 $0.006557)**이며, `billing-final-hour.json`에서 이 시간대 작업이 해당 작업 하나임을 대조했다. 이는 시간 단위 실제 청구와 단독 작업 기록을 연결한 금액이며, 사전 추정치나 API가 직접 반환한 작업별 달러 필드가 아니다. 최초 조회 근거 `usage-before.json`, `usage-after.json`, `billing-job.json`도 보존한다.
 
 실행 순서: `prepare.py` → `finish_cloud.py` 제출 → 완료 후 `finish_cloud.py collect` → `audit.py` → Unity `MageSkillAssetPreparation.Build`. 이미 성공한 Cloud 작업을 재제출할 필요 없이 보존한 최종 산출물을 사용할 수 있다. API 실패·미지원 노드를 다른 공정으로 실행한 것처럼 기록하지 않았다.

@@ -157,7 +157,7 @@ namespace KingdomIdle.UGUI.Editor
             }
             _results.Add(new { test = "aim-rules", invalid = !MageTowerManager.IsValidAimPoint(new Vector3(float.NaN,0,0)), randomIds = mage.GetAllSkills().Where(s=>!s.CanAim).Select(s=>s.id).ToArray() });
             Require(!mage.GetSkillById(1).CanAim && !mage.GetSkillById(3).CanAim, "Random spells cannot aim");
-            for (int i = 0; i < 5; i++) mage.Equip(i, new[] {0,1,5,7,8}[i]);
+            for (int i = 0; i < 5; i++) mage.Equip(i, new[] {0,1,5,7,3}[i]);
             mage.SetAutoEnabled(false); Time.timeScale = 0;
             yield return new WaitForSecondsRealtime(.7f);
             var hud = Object.FindFirstObjectByType<MageManualCastHud>();

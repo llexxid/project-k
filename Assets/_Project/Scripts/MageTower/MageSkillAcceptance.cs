@@ -75,15 +75,23 @@ namespace KingdomIdle.MageTower
             Check(LocalProgression.Execute("qa-retired-save", s => {
                 s.MageSkills[6] = new MageSave { Enhance = 7, Awaken = 4, Fragments = 13, Spent = 70 };
                 s.MageSkills[9] = new MageSave { Enhance = 3 };
-                s.MageSlots[0] = 6; s.MageSlots[1] = 9; return true;
+                s.MageSkills[3] = new MageSave { Enhance = 4, Awaken = 3, Fragments = 10, Spent = 43 };
+                s.MageSkills[8] = new MageSave { Enhance = 7, Awaken = 10, Fragments = 13, Spent = 78 };
+                s.Wallet[eCurrency.ArcaneKnowledge] = 0;
+                s.MageSlots[0] = 6; s.MageSlots[1] = 9; s.MageSlots[2] = 8; return true;
             }), "Legacy loadout fixture saved");
             LocalProgression.OpenTestAccount(migrationAccount);
             Check(LocalProgression.State.MageSlots[0] == -1 && LocalProgression.State.MageSlots[1] == 9 &&
                 LocalProgression.State.MageSkills[6].Spent == 70 && LocalProgression.State.MageSkills[6].Fragments == 13 &&
                 LocalProgression.State.MageSkills[9].Enhance == 3, "Retirement preserves investment and other IDs, clears only retired slot");
+            var diskMerge=JsonConvert.DeserializeObject<ProgressionState>(File.ReadAllText(LocalProgression.SnapshotPath));
+            Check(diskMerge.MageSkills[3].Enhance==7 && diskMerge.MageSkills[3].Awaken==10 && diskMerge.MageSkills[3].BloomEnabled &&
+                diskMerge.MageSkills[3].Fragments==59 && diskMerge.Wallet[eCurrency.ArcaneKnowledge]==43 && diskMerge.MageSlots[2]==3 &&
+                !diskMerge.MageSkills.ContainsKey(8) && diskMerge.Modules.ContainsKey(MageCatalogMigration.MeteorArchive), "Opening an old save durably commits the meteor merge and audit archive");
             long migratedRevision = LocalProgression.State.Revision;
             LocalProgression.OpenTestAccount(migrationAccount);
             Check(LocalProgression.State.Revision == migratedRevision, "Retirement migration is idempotent");
+            Check(LocalProgression.State.Wallet[eCurrency.ArcaneKnowledge]==43 && LocalProgression.State.MageSkills[3].Fragments==59, "Reopening never duplicates the meteor refund");
 
             // The caller restores its QA profile; this run never writes the gameplay profile.
             LocalProgression.OpenTestAccount("mage-acceptance-" + Guid.NewGuid().ToString("N"));

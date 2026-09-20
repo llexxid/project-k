@@ -73,7 +73,7 @@ namespace KingdomIdle.UGUI.Editor
             // ── 아이콘 + 스탯 ──
             var iconRow = F.Container(content, "IconRow");
             F.HLayout(iconRow.gameObject, 16f, null, TextAnchor.UpperLeft);
-            F.Preferred(iconRow, height: 196f);
+            F.Preferred(iconRow, height: -1f).minHeight = 196f;
 
             var iconBg = F.Box(iconRow.transform, "IconBg", UguiTheme.SurfaceLight, rounded: true);
             var iconLe = F.Preferred(iconBg, width: 168f, height: 168f);
@@ -91,7 +91,7 @@ namespace KingdomIdle.UGUI.Editor
             F.Flexible(statsCol, flexWidth: 1f);
 
             view.lblBaseDmg = StatLabel(statsCol, StatDim);
-            view.lblEffDmg = StatLabel(statsCol, UguiTheme.TextPrimary);
+            view.lblEffDmg = F.Text(statsCol, "EffectivePower", "", 28f, UguiTheme.TextPrimary, TextAlignmentOptions.Left, wrap: true);
             view.lblBaseCd = StatLabel(statsCol, StatDim);
             view.lblEffCd = StatLabel(statsCol, UguiTheme.TextPrimary);
 

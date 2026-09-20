@@ -176,7 +176,8 @@ namespace KingdomIdle.MageTower
         {
             if (!Valid) yield break;
             if (_skill.spellKind != MageSpellKind.Lightning && _skill.spellKind != MageSpellKind.IceSpike &&
-                _skill.spellKind != MageSpellKind.StoneSeal && _skill.spellKind != MageSpellKind.Meteor) Sound(.42f);
+                _skill.spellKind != MageSpellKind.StoneSeal && _skill.spellKind != MageSpellKind.Meteor &&
+                !(_skill.spellKind == MageSpellKind.ArcaneVolley && _bloom)) Sound(.42f);
             switch (_skill.spellKind)
             {
                 case MageSpellKind.Lightning: yield return Lightning(); break;
@@ -191,9 +192,9 @@ namespace KingdomIdle.MageTower
             yield return Delay(.25f);
         }
 
-        private void Sound(float gain, float pitch = 1f)
+        private void Sound(float gain, float pitch = 1f, string overrideName = null)
         {
-            if (!Valid || !Enum.TryParse(_skill.sfxName, out eSFXType sound)) return;
+            if (!Valid || !Enum.TryParse(overrideName ?? _skill.sfxName, out eSFXType sound)) return;
             Scripts.Core.SFXManager.Instance?.GetSFX(sound, _initial, Quaternion.identity, sfx =>
             {
                 if (Valid) sfx.PlayOneShot(gain, pitch, SoundChannel.MageTower);
@@ -446,7 +447,8 @@ namespace KingdomIdle.MageTower
             MageSkillDiagnostics.Record(_skill.id, "meteor-contact", "ground", 0, true, _initial);
 #endif
             yield return Delay(.09f); if (!Valid) yield break;
-            Sound(.75f,.78f); ImpactShake(9, .28f);
+            // Preserve the former meteor's heavy impact sound after its catalog merge.
+            Sound(.75f,.78f,"Fire_Tornado_SFX"); ImpactShake(9, .28f);
             Area(_initial, _skill.bloomRadius, (decimal)_skill.bloomPowerMultiplier, ground: true);
             float nextTick = Time.time;
             while (Valid && Time.time < groundEnd)

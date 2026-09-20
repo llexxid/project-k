@@ -8,6 +8,7 @@ const w=await SpreadsheetFile.importXlsx(await FileBlob.load('Assets/_Project/Sc
 const edit=process.argv[2]==='edit';
 if(edit){
  const set=(s,c,v)=>w.worksheets.getItem(s).getRange(c).values=[[v]];
+ const extendTable=(sheet,range)=>{const t=sheet.tables.items[0],name=t.name,style=t.style;t.delete();sheet.tables.add(range,true,name).style=style;};
  set('Skills','I2','번개를 3회 연속으로 내립니다. 4·8각성마다 같은 패턴의 낙뢰가 1회 추가됩니다. 낙뢰 위치는 서로 간격을 두고 분산됩니다.');
  set('Parameters','D2',.5);set('Parameters','E2',2/12);
  set('Targeting','C2','일반: 첫 중심 이후 1.15 이내 분산, 기존 낙뢰와 0.45 이상 간격을 우선 확보. 낙뢰마다 반경 0.55, 조준 반경 1.7.\n약 0.167초 간격으로 A0 3회, A4 4회, A8 5회. 매 타격 약한 흔들림, 천벌 타격 때 강한 흔들림.');
@@ -25,6 +26,7 @@ if(edit){
  for(let row=2;row<=10;row++)set('Assets','K'+row,'');
  set('Assets','K1','BloomSecondaryPrefabPath');set('Assets','K5','Assets/_Project/Prefabs/VFX/MageTower/MeteorCrater.prefab');
  assets.getRange('K1:K10').format.columnWidth=assets.getRange('J1:J10').format.columnWidth;
+ extendTable(assets,'A1:K10');
  set('Skills','C9','독립 운석 삭제');set('Skills','D9','ID 3 개화로 통합');set('Skills','I9','ID 8은 비활성 보존 ID입니다. 로스터·장착·뽑기에 나오지 않으며 유성우의 개화 메테오로 통합했습니다.');
  for(const c of ['E9','F9','G9','H9'])set('Skills',c,0);
  set('Bloom','C9','통합됨');set('Bloom','D9','ID 3 메테오 개화 항목을 사용합니다.');
@@ -33,7 +35,7 @@ if(edit){
  const p=.5/8;
  let p90=3;while(1-Math.pow(1-p,p90)-p90*p*Math.pow(1-p,p90-1)-p90*(p90-1)/2*p*p*Math.pow(1-p,p90-2)<.9)p90++;
  for(const row of [2,3,4,5,6,7,8,10]){set('Acquisition','D'+row,p);set('Acquisition','J'+row,p90);}
- for(const [sheet,last] of [['Skills','I'],['Parameters','O'],['Bloom','N'],['Acquisition','J'],['Assets','J'],['Targeting','D']]){
+ for(const [sheet,last] of [['Skills','I'],['Parameters','O'],['Bloom','N'],['Acquisition','J'],['Assets','K'],['Targeting','D']]){
   const r=w.worksheets.getItem(sheet).getRange('A9:'+last+'9');r.format.fill='#E5E7EB';r.format.font.color='#6B7280';
  }
  w.worksheets.getItem('Targeting').getRange('A5:D5').format.rowHeight=145;
@@ -57,6 +59,7 @@ if(edit){
   if(guideEdits[rows[i][0]])set('Guide',`B${i+1}`,guideEdits[rows[i][0]]);
  }
  guide.getRange('A29:B29').copyFrom(guide.getRange('A28:B28'),'all');set('Guide','A29','운석 통합');set('Guide','B29',guideEdits['운석 통합']);guide.getRange('A29:B29').format.rowHeight=110;
+ extendTable(guide,'A1:B29');
  w.recalculate();
  const checks=await w.inspect({kind:'table',range:'Acquisition!A1:J10',include:'values,formulas',tableMaxRows:10,tableMaxCols:10});
  await fs.writeFile(out+'/acquisition-check.ndjson',checks.ndjson);

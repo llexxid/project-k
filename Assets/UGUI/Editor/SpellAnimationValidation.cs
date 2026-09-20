@@ -39,6 +39,13 @@ namespace KingdomIdle.UGUI.Editor
             AssetDatabase.SaveAssets();
         }
         public static void BuildDevice() => TitleLobbyDeviceBuild.Build();
+        public static void BuildManualDevice()
+        {
+            MageUiPreparation.BuildDetail();
+            MagePolishPreparation.BakeAuthoredGlyphs();
+            MagePolishPreparation.Validate();
+            TitleLobbyDeviceBuild.BuildForManualTesting();
+        }
         public static void Run()
         {
             if (!MeteorOnly) Prepare();

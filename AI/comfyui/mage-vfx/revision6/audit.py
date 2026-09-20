@@ -7,8 +7,7 @@ HERE=Path(__file__).parent
 def read(name):return json.loads((HERE/(name+'.json')).read_text(encoding='utf8'))
 def write(name,value):(HERE/(name+'.json')).write_text(json.dumps(value,ensure_ascii=False,indent=2)+'\n',encoding='utf8')
 job=unpack(read('icons-submission'))['result']['prompt_id']
-billing=unpack(read('billing-after'))
-event=next(e for e in billing['events'] if e.get('params',{}).get('job_id')==job)
+event=read('billing-job') if not (HERE/'billing-after.json').exists() else next(e for e in unpack(read('billing-after'))['events'] if e.get('params',{}).get('job_id')==job)
 # Preserve only this job's public usage evidence; account identifiers and unrelated
 # workspace events are unnecessary for the asset provenance.
 event['params'].pop('user_id',None)
@@ -18,6 +17,14 @@ if raw.exists():
     private=Path('Recordings/BloomRevision/comfy-billing-response.json')
     private.write_bytes(raw.read_bytes());raw.unlink()
 usage=unpack(read('usage-after'))
+actualDollars=None
+costReason='First invoice report ended before this job; job dollars were unavailable at that check.'
+if (HERE/'usage-final.json').exists() and (HERE/'billing-final-hour.json').exists():
+    final=unpack(read('usage-final'));hour=read('billing-final-hour')['hourEvents']
+    buckets=[b for b in final['buckets'] if b['period_start']=='2026-09-20T12:00:00Z' and b['group_key']=='GPU Hours Product']
+    if len(hour)==1 and hour[0]['params']['job_id']==job and len(buckets)==1:
+        actualDollars=buckets[0]['cost_micros']/1e6
+        costReason='Invoice-backed 12:00–13:00 UTC GPU spend. The billing activity contains exactly one workflow in that hour, this job. This is attribution from the hourly invoice and activity, not an estimate or a per-job dollar field.'
 records=[]
 for file in sorted((HERE/'icons').glob('*.png')):
     im=Image.open(file).convert('RGBA');colors={p[:3] for p in im.getdata() if p[3]}
@@ -27,7 +34,7 @@ write('manifest',dict(version=6,sourceCommit='c2a6a4b0d',pipeline=['prepare.py',
     model=None,prompt=None,seed=None,reason='Existing pixel art is recomposed deterministically. Comfy color matrix and 16-color quantization preserve its silhouette and logical pixel grid without diffusion drift.',
     nodes=['LoadImage','ImageCrop','RadianceGPUColorMatrix','ImageQuantize','SaveImage'],nodeVersions='Cloud node schema captured in nodes.json and related catalogs; service did not expose pinned package versions.',
     job=job,savedWorkflow=unpack(read('icons-cloud-save')),inputs='references/ and *-draft.png',mask='Each *-draft.png alpha channel',outputs=records,
-    billing=dict(gpuSeconds=event['params']['gpu_seconds'],gpuType=event['params']['gpu_type'],actualJobDollars=None,reason='Invoice report ending 2026-09-20T12:00Z precedes this job at 12:01Z. No dollar amount or credits were returned for this job; no estimate is reported as actual spend.'),
+    billing=dict(gpuSeconds=event['params']['gpu_seconds'],gpuType=event['params']['gpu_type'],actualJobDollars=actualDollars,currency='USD',reason=costReason),
     decisions=[dict(change='Default lightning',before='Cloud and one bolt',after='Three existing bolts',reason='User requested three visible bolts'),
         dict(change='Thunderbloom',before='Separate older bloom icon',after='Original cloud/bolt tinted purple by Comfy color matrix',reason='Retain the requested composition'),
         dict(change='Comfy alpha',before='RGB quantizer output black rectangle',after='Original authored binary mask restored',reason='Reject opaque background without redrawing the art'),

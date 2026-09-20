@@ -7,6 +7,30 @@ namespace KingdomIdle.UGUI
 {
     public static class MageSkillPresentation
     {
+        public static string Description(MageTowerSkillSO skill, bool bloom)
+        {
+            if (!bloom) return skill.description;
+            return skill.spellKind switch
+            {
+                MageSpellKind.Lightning => "뇌운을 모아 넓은 범위에 거대한 벼락을 내립니다.",
+                MageSpellKind.IceSpike => "적이 하나면 거대한 빙정으로 타격하고, 여러 적이면 얼음 송곳을 두 차례 생성합니다.",
+                MageSpellKind.ArcaneVolley => "거대한 운석으로 타격한 뒤 붉은 균열 장판으로 지속 피해를 주고 적을 감속합니다.",
+                _ => skill.description
+            };
+        }
+
+        public static string EffectivePower(MageTowerSkillSO skill, long power, bool bloom)
+        {
+            string unit=skill.IsHealing ? "회복" : "피해";
+            if (!bloom) return $"최종 1회 {unit}: {NumberNotation.Format(power)}";
+            string primary=NumberNotation.Format(BalanceMath.Damage(power,(decimal)skill.bloomPowerMultiplier));
+            if (skill.spellKind==MageSpellKind.ArcaneVolley)
+                return $"충돌 피해: {primary}\n장판 1틱: {NumberNotation.Format(BalanceMath.Damage(power,(decimal)skill.bloomAreaPowerMultiplier))}";
+            if (skill.spellKind==MageSpellKind.IceSpike)
+                return $"단일 적 피해: {primary}\n다수 적 1회: {NumberNotation.Format(BalanceMath.Damage(power,(decimal)skill.bloomAreaPowerMultiplier))}";
+            return $"최종 1회 {unit}: {primary}";
+        }
+
         public static string AwakeningEffects(MageTowerSkillSO skill, int awakening, bool bloom)
         {
             string unit = skill.IsHealing ? "회복" : "공격";

@@ -6,6 +6,18 @@ namespace KingdomIdle.UGUI.Editor
 {
     public static class MageUiPreparation
     {
+        public static void BuildDetail()
+        {
+            if (EditorApplication.isPlaying) throw new InvalidOperationException("Exit Play Mode first.");
+            F.Init(); F.Catalog = PrefabGenUtil.GetOrCreateCatalog();
+            var prefab=MageTowerDetailPopupPrefabGens.GenerateMageTowerDetailPopup();
+            string path=AssetDatabase.GetAssetPath(prefab);
+            var root=PrefabUtility.LoadPrefabContents(path);
+            try { UguiPolishPass.ApplyTo(root); PrefabUtility.SaveAsPrefabAsset(root,path); }
+            finally { PrefabUtility.UnloadPrefabContents(root); }
+            AssetDatabase.SaveAssets();
+        }
+
         [MenuItem("KingdomIdle/Mage Tower/Prepare UI prefabs")]
         public static void Build()
         {
