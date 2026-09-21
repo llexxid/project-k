@@ -32,6 +32,13 @@ namespace KingdomIdle.UGUI
 
         private static int _activeTabIndex;
         private static bool? _pendingSkillTab;
+        /// <summary>안내 재개 때 필요한 뽑기 탭만 복원한다. 실제 뽑기는 사용자 버튼으로만 실행한다.</summary>
+        internal static void PrepareGuide(bool skill)
+        {
+            if (_tables == null) return;
+            for (int i = 0; i < _tables.Count; i++) if (IsSkillTable(_tables[i]) == skill) { OnTabClicked(i); return; }
+        }
+        internal static bool GuideReady(bool skill) => _view != null && _view.gameObject.activeInHierarchy && _content != null && IsSkillTable(_contentTable) == skill;
         public static void SetPendingSkillTab(bool skills) => _pendingSkillTab = skills;
         private static GachaPanelView _view;
         private static GachaTabContentView _content;
@@ -113,6 +120,7 @@ namespace KingdomIdle.UGUI
 
         // ── 탭바 ──────────────────────────────────────────────────────
 
+        /// <summary>뽑기 패널 구성 시 테이블별 원본 버튼과 안내 ID를 연결한다. 탭 전환은 기존 콜백을 사용하고 버튼 파괴 시 등록을 반환한다.</summary>
         private static void BuildTabs()
         {
             DestroyChildren(_view.tabBar);
@@ -147,6 +155,7 @@ namespace KingdomIdle.UGUI
                 tab.SetIcon(tabIcon);
 
                 tab.Button.onClick.AddListener(() => OnTabClicked(idx));
+                FeatureGuideAnchor.Bind(tab.Button, IsSkillTable(table) ? Direction.GameDirectTarget.SkillGachaTab : Direction.GameDirectTarget.EquipmentGachaTab);
                 _tabButtons.Add(tab);
             }
 
@@ -245,6 +254,7 @@ namespace KingdomIdle.UGUI
                 string title = count == 1 ? "1회 뽑기" : $"{count}연 뽑기";
                 pull.Set(title, $"{NumberNotation.Format(totalCost)} {curLabel}", !disabled, cat.iconChest);
                 pull.Button.onClick.AddListener(() => OnPullClicked(capturedTable, count, pull));
+                if (count == 1) FeatureGuideAnchor.Bind(pull.Button, IsSkillTable(table) ? Direction.GameDirectTarget.SkillPullOnce : Direction.GameDirectTarget.EquipmentPullOnce);
                 _activePullButtons.Add(pull.Button);
             }
         }
@@ -544,14 +554,22 @@ namespace KingdomIdle.UGUI
 
         // ── 뽑기 실행 ──────────────────────────────────────────────────
 
+        /// <summary>실제 버튼에서 받은 테이블·횟수로 뽑기를 요청한다. 마탑 연출 완료 전 취소·계정 전환·가림이 발생하면 세대를 검사해 소비를 취소한다.</summary>
         private static void OnPullClicked(GachaTableSO table, int count, GachaPullButtonView pull)
         {
             if (_flaringPull) return;
             if (!IsSkillTable(table)) { PullAndShowResult(table, count); return; }
+            long guideEpoch = Direction.GameDirectInteraction.Epoch;
+            bool guided = Direction.GameDirectInteraction.Step != null;
             _flaringPull = true;
             UpdateWallet();
             pull.PlayMageFlare(
-                () => { _flaringPull = false; PullAndShowResult(table, count); },
+                () => {
+                    _flaringPull = false;
+                    // 연출 중 취소·계정 전환·로딩이 발생했으면 지연 콜백에서 새 계정 재화를 소비하지 않는다.
+                    if (!guided || (guideEpoch == Direction.GameDirectInteraction.Epoch && Direction.GameDirectInteraction.Armed)) PullAndShowResult(table, count);
+                    else UpdateWallet();
+                },
                 () => { _flaringPull = false; UpdateWallet(); });
         }
 

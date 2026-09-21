@@ -46,6 +46,7 @@ namespace KingdomIdle.UGUI
             // (좌측 스킬 슬롯 HUD 제거됨 — 장착 변경은 AUTO 시전이 다음 틱에 그대로 반영한다)
         }
 
+        /// <summary>최초 열기에서 실제 프리팹과 안내 대상을 연결하고 성공 여부를 반환한다. 대상 해제는 Anchor의 비활성화·파괴가 맡는다.</summary>
         private static bool EnsureBuilt()
         {
             if (_view != null) return true;
@@ -81,6 +82,10 @@ namespace KingdomIdle.UGUI
             });
 
             _cells.Clear();
+            FeatureGuideAnchor.Bind(_view.invScroll.viewport, Direction.GameDirectTarget.MageSkillList);
+            FeatureGuideAnchor.Bind(_view.slotsContainer, Direction.GameDirectTarget.MageEquippedSlots);
+            FeatureGuideAnchor.Bind(_view.equipButton, Direction.GameDirectTarget.MageEquipAction);
+            FeatureGuideAnchor.Bind(_view.unequipButton, Direction.GameDirectTarget.MageUnequipAction);
             BuildSlots(mgr);
             return true;
         }

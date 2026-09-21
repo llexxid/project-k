@@ -686,6 +686,7 @@ GameObject:
   - component: {fileID: 2134808535}
   - component: {fileID: 2134808537}
   - component: {fileID: 2134808536}
+  - component: {fileID: 2134808538}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -838,6 +839,26 @@ MonoBehaviour:
   titleSceneName: title
   mainSceneName: main
   dungeonSceneName: dungeon
+--- !u!114 &2134808538
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2134808522}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 45ac13b32c2cca2408da0022ca6be9a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Direction.GameDirectManager
+  sequences:
+  - {fileID: 11400000, guid: 4329c5b837f81514f808ea7927a04635, type: 2}
+  - {fileID: 11400000, guid: 9f84c69fd5fd1b1448452543b1bdac1f, type: 2}
+  - {fileID: 11400000, guid: 4d157f5001620924cbab72192ed1c240, type: 2}
+  - {fileID: 11400000, guid: 08fee6e9bf4c82d449f78066bbbde6f0, type: 2}
+  - {fileID: 11400000, guid: 32cbe45c8f0220145851ed441c867a2e, type: 2}
+  - {fileID: 11400000, guid: eddc13a488d3e484cb8cf2bc2773e257, type: 2}
+  - {fileID: 11400000, guid: 444f64092f13f6d489c2b76fe22ae36f, type: 2}
 --- !u!1 &2144411086
 GameObject:
   m_ObjectHideFlags: 0
@@ -894,10 +915,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 636d6d0c3876216449b38da2008fd38c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  definitionBehaviour: {fileID: 2144411087}
-  progressSnapshotBehaviour: {fileID: 2144411088}
-  firstGuideQuestId: 1
-  rewardGranterBehaviour: {fileID: 0}
 --- !u!4 &2144411090
 Transform:
   m_ObjectHideFlags: 0

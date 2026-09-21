@@ -1,0 +1,100 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9609948f74241784d85e2984bc09debf, type: 3}
+  m_Name: guide_dungeon
+  m_EditorClassIdentifier: Assembly-CSharp::Direction.GameDirectSequenceSO
+  sequenceId: guide_dungeon
+  steps:
+  - id: open
+    target: 2
+    title: "\uB358\uC804"
+    description: "\uB358\uC804 \uBC84\uD2BC\uC744 \uB20C\uB7EC \uACE8\uB4DC \uB358\uC804\uACFC
+      \uB8E8\uBE44 \uB358\uC804\uC744 \uD655\uC778\uD574 \uBCF4\uC138\uC694."
+    placement: 0
+    completion: 1
+    context: 0
+    destination: 6
+    action: 0
+    allowedTargets: 02000000
+    allowScroll: 0
+    grantPracticeCoins: 0
+  - id: gold_open
+    target: 16
+    title: "\uACE8\uB4DC \uB358\uC804"
+    description: "\uACE8\uB4DC \uB358\uC804\uC744 \uB20C\uB7EC \uC0C1\uC138 \uC815\uBCF4\uB97C
+      \uC5F4\uC5B4 \uBCF4\uC138\uC694. \uC548\uB0B4 \uC911\uC5D0\uB294 \uC785\uC7A5\uD558\uC9C0
+      \uC54A\uC2B5\uB2C8\uB2E4."
+    placement: 0
+    completion: 1
+    context: 6
+    destination: 7
+    action: 0
+    allowedTargets: 10000000
+    allowScroll: 0
+    grantPracticeCoins: 0
+  - id: gold_info
+    target: 18
+    title: "\uCC98\uCE58 \uC218\uC5D0 \uB530\uB978 \uACE8\uB4DC"
+    description: "\uACE8\uB4DC \uB358\uC804\uC740 \uC81C\uD55C \uC2DC\uAC04 \uB3D9\uC548
+      \uBAAC\uC2A4\uD130\uB97C \uCC98\uCE58\uD55C \uC218\uC5D0 \uB530\uB77C \uACE8\uB4DC\uB97C
+      \uC5BB\uC2B5\uB2C8\uB2E4. \uB09C\uC774\uB3C4\uC640 \uBCF4\uC0C1 \uC815\uBCF4\uB97C
+      \uD655\uC778\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4."
+    placement: 0
+    completion: 0
+    context: 7
+    destination: 0
+    action: 0
+    allowedTargets: 
+    allowScroll: 0
+    grantPracticeCoins: 0
+  - id: ruby_open
+    target: 17
+    title: "\uB8E8\uBE44 \uB358\uC804"
+    description: "\uB8E8\uBE44 \uB358\uC804\uC744 \uB20C\uB7EC \uACE8\uB4DC \uB358\uC804\uACFC
+      \uB2E4\uB978 \uBCF4\uC0C1 \uC870\uAC74\uC744 \uD655\uC778\uD574 \uBCF4\uC138\uC694."
+    placement: 0
+    completion: 1
+    context: 6
+    destination: 8
+    action: 0
+    allowedTargets: 11000000
+    allowScroll: 0
+    grantPracticeCoins: 0
+  - id: ruby_info
+    target: 18
+    title: "\uBCF4\uC2A4 \uCC98\uCE58\uB85C \uB8E8\uBE44 \uD68D\uB4DD"
+    description: "\uB8E8\uBE44 \uB358\uC804\uC740 \uAC01 \uC81C\uD55C \uC2DC\uAC04
+      \uC548\uC5D0 \uBCF4\uC2A4 3\uCCB4\uB97C \uBAA8\uB450 \uCC98\uCE58\uD558\uBA74
+      \uB8E8\uBE44\uB97C \uC5BB\uC2B5\uB2C8\uB2E4. \uC785\uC7A5 \uC804 \uD574\uAE08
+      \uC870\uAC74\uACFC \uB09C\uC774\uB3C4\uB97C \uD655\uC778\uD558\uC138\uC694."
+    placement: 0
+    completion: 0
+    context: 8
+    destination: 0
+    action: 0
+    allowedTargets: 
+    allowScroll: 0
+    grantPracticeCoins: 0
+  - id: tickets
+    target: 16
+    title: "\uC77C\uC77C \uC785\uC7A5 \uD69F\uC218"
+    description: "\uAC01 \uB358\uC804\uC758 \uC785\uC7A5\uAD8C\uC740 \uD558\uB8E8
+      {dailyTickets}\uD68C\uBD84\uC785\uB2C8\uB2E4. \uD074\uB9AC\uC5B4\uAC00 \uC544\uB2CC
+      \uC785\uC7A5 \uC2DC \uCC28\uAC10\uB418\uBA70, \uB9E4\uC77C 00\uC2DC\uC5D0 \uCDA9\uC804\uB429\uB2C8\uB2E4."
+    placement: 0
+    completion: 0
+    context: 6
+    destination: 0
+    action: 0
+    allowedTargets: 
+    allowScroll: 0
+    grantPracticeCoins: 0

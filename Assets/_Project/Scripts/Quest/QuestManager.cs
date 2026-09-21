@@ -45,8 +45,8 @@ public interface IQuestRewardGranter { bool TryGrant(long questId, int rewardGro
 
 
 /// <summary>
-/// bootstrap 씬이 소유하는 퀘스트 UI 창구다. 저장 완료 알림을 불변 snapshot으로 투영하고,
-/// 실제 달라진 행만 발행한다. 게임플레이 집계·보상 지급은 QuestEconomy와 같은 거래 경계에 남긴다.
+/// bootstrap 씬이 소유하는 퀘스트 UI 창구다. 저장 완료 알림을 불변 snapshot으로 투영하고, 실제 달라진 행만 발행한다.
+/// 게임플레이 집계·보상 지급은 QuestEconomy와 같은 거래 경계에 남긴다.
 /// </summary>
 public class QuestManager : MonoBehaviour
 {

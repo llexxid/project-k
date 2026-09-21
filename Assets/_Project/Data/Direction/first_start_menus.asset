@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9609948f74241784d85e2984bc09debf, type: 3}
+  m_Name: first_start_menus
+  m_EditorClassIdentifier: Assembly-CSharp::Direction.GameDirectSequenceSO
+  sequenceId: first_start_menus
+  steps:
+  - id: development
+    target: 0
+    title: "\uC721\uC131"
+    description: "\uACE8\uB4DC \uAC15\uD654\uC640 \uB8E8\uBE44 \uC601\uAD6C \uC131\uC7A5\uC73C\uB85C
+      \uC655\uAD6D\uAD70\uC744 \uAC15\uD654\uD569\uB2C8\uB2E4."
+    placement: 1
+  - id: kingdom_army
+    target: 1
+    title: "\uC655\uAD6D\uAD70"
+    description: "\uBCD1\uC0AC\uC758 \uC804\uC9C1\uACFC \uC7A5\uBE44\uB97C \uAD00\uB9AC\uD569\uB2C8\uB2E4."
+    placement: 1
+  - id: dungeon
+    target: 2
+    title: "\uB358\uC804"
+    description: "\uB358\uC804\uC5D0 \uB3C4\uC804\uD574 \uC131\uC7A5\uC5D0 \uD544\uC694\uD55C
+      \uC7AC\uD654\uB97C \uD68D\uB4DD\uD569\uB2C8\uB2E4."
+    placement: 1
+  - id: gacha
+    target: 3
+    title: "\uBF51\uAE30"
+    description: "\uC7A5\uBE44\uC640 \uB9C8\uD0D1 \uC2A4\uD0AC\uC744 \uD68D\uB4DD\uD569\uB2C8\uB2E4."
+    placement: 1

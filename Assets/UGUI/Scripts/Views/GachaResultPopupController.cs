@@ -15,6 +15,7 @@ namespace KingdomIdle.UGUI
 
         public static bool IsOpen => _instanceGo != null;
 
+        /// <summary>저장된 뽑기 결과를 기존 팝업에 표시하고 실제 확인 버튼을 안내 대상으로 연결한다. 이전 결과 창은 먼저 정리한다.</summary>
         public static void Show(
             UIManager host,
             List<KingdomIdle.Gacha.GachaRewardEntry> results,
@@ -63,16 +64,19 @@ namespace KingdomIdle.UGUI
                 AddResultCard(host, view, m.entry, m.count, bestRarity);
 
             BindButtons(view, table, lastPullCount);
+            FeatureGuideAnchor.Bind(view.btnDone, Direction.GameDirectTarget.GachaResultClose);
 
             _instanceGo.transform.SetAsLastSibling();
             if (view.box != null) UITween.PopIn(view.box);
         }
 
+        /// <summary>확인 또는 화면 정리 시 결과 창을 즉시 비활성화한 뒤 파괴한다. 지연 Destroy 중에도 이전 입력·Anchor가 남지 않는다.</summary>
         public static void Close()
         {
             _flaring = false;
             if (_instanceGo != null)
             {
+                _instanceGo.SetActive(false);
                 Object.Destroy(_instanceGo);
                 _instanceGo = null;
             }

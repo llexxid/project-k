@@ -80,6 +80,124 @@ namespace KingdomIdle.UGUI
         /// <summary>패널 스택이 변할 때마다 발생 — 탭 선택 시각화, 파티 HUD 위치 갱신용.</summary>
         public event Action PanelStackChanged;
 
+        public FeatureGuideTargetRegistry GuideTargets { get; } = new();
+        internal FeatureGuideView ActiveFeatureGuide { get; set; }
+        private float _guidePanelReadyAt;
+
+        /// <summary>단계가 허용한 메뉴·상세 창만 통과시킨다. 로딩·설정·무관한 모달이 있으면 입력을 풀고 대기한다.</summary>
+        internal bool CanRunFeatureGuide(Direction.GameDirectStep step)
+        {
+            if (!step.Interactive) return CanShowFeatureGuide;
+            // 시트가 화면 밖에서 올라오는 동안 실제 버튼이 마스크 밖에 있을 수 있다. 전투 시간은 유지하고 표시만 기다린다.
+            if (Time.unscaledTime < _guidePanelReadyAt) return false;
+            if (_activeScreenId != UIScreenId.Main || _activeScreenGo == null || HasBlockingPanel ||
+                (_loading != null && _loading.gameObject.activeInHierarchy) || (_settings != null && _settings.IsOpen) ||
+                (_mainController != null && _mainController.HasOpenDropdown)) return false;
+            var context = Direction.GameDirectInteraction.Clicked ? step.Destination : step.Context;
+            var panel = GuidePanel(context);
+            if (HasActiveTabPanel && (context == Direction.GuideContext.Main || context == Direction.GuideContext.MageTower || ActiveTabPanelId != panel)) return false;
+            bool Expected(GameObject go) =>
+                (go.GetComponent<MageTowerEquipPopupView>() != null && context == Direction.GuideContext.MageTower) ||
+                (go.GetComponent<DungeonDifficultyPopupView>() != null && panel == UIPanelId.Dungeon && context != Direction.GuideContext.Main) ||
+                (go.GetComponent<GachaResultPopupView>() != null && step.Completion == Direction.GuideCompletion.Action &&
+                    (step.Action == Direction.GuideAction.EquipmentPullOnce || step.Action == Direction.GuideAction.SkillPullOnce));
+            if (ModalBackHandler.HasUnexpectedModal(Expected)) return false;
+            if (layerPopups != null)
+                for (int i = 0; i < layerPopups.childCount; i++)
+                {
+                    var child = layerPopups.GetChild(i);
+                    if (child.gameObject.activeInHierarchy && !child.TryGetComponent<PartyHudView>(out _) && !Expected(child.gameObject)) return false;
+                }
+            return true;
+        }
+
+        /// <summary>안내 문맥을 기존 패널 ID로 변환한다. Main은 패널이 없으므로 반환값을 열기에 사용하지 않는다.</summary>
+        private static UIPanelId GuidePanel(Direction.GuideContext context) => context switch
+        {
+            Direction.GuideContext.Development => UIPanelId.Development,
+            Direction.GuideContext.ArmyCharacter or Direction.GuideContext.ArmyEquipment or Direction.GuideContext.ArmyJobs or Direction.GuideContext.ArmyJobDetail => UIPanelId.KingdomArmy,
+            Direction.GuideContext.Dungeon or Direction.GuideContext.GoldDungeonDetail or Direction.GuideContext.RubyDungeonDetail => UIPanelId.Dungeon,
+            _ => UIPanelId.Gacha
+        };
+
+        /// <summary>미확인 단계의 필요 화면을 재개한다. 외부 창이 있을 때는 열거나 닫지 않고 사용자의 처리를 기다린다.</summary>
+        internal void PrepareFeatureGuide(Direction.GameDirectStep step)
+        {
+            if (!step.Interactive || !CanRunFeatureGuide(step)) return;
+            var context = Direction.GameDirectInteraction.Clicked ? step.Destination : step.Context;
+            if (context == Direction.GuideContext.Main) return;
+            // 마탑은 하단 패널이 아닌 기존 오버레이 팝업이다. 미확인 설명을 재개할 때만 다시 연다.
+            if (context == Direction.GuideContext.MageTower)
+            {
+                if (!MageTowerPopupController.IsOpen) MageTowerPopupController.Show();
+                return;
+            }
+            if (!HasActiveTabPanel) PushPanel(GuidePanel(context), isTabPanel: true);
+            switch (context)
+            {
+                case Direction.GuideContext.Development: DevelopmentPanelController.PrepareGuide(); break;
+                case Direction.GuideContext.ArmyCharacter:
+                case Direction.GuideContext.ArmyEquipment:
+                case Direction.GuideContext.ArmyJobs:
+                case Direction.GuideContext.ArmyJobDetail: KingdomArmyPanelController.PrepareGuide(context); break;
+                case Direction.GuideContext.EquipmentGacha: GachaPanelController.PrepareGuide(false); break;
+                case Direction.GuideContext.SkillGacha: GachaPanelController.PrepareGuide(true); break;
+                default:
+                    if (_panelStack.Count > 0) _panelStack.Peek().Go.GetComponent<DungeonPanelController>()?.PrepareGuide(context);
+                    break;
+            }
+        }
+
+        /// <summary>실제 목적 화면이 열린 것을 확인한다. 탐색 버튼 클릭만으로 실패한 화면 이동을 완료 처리하지 않는다.</summary>
+        internal bool IsGuideContextReady(Direction.GuideContext context)
+        {
+            if (context == Direction.GuideContext.Main) return !HasActiveTabPanel;
+            if (context == Direction.GuideContext.MageTower) return MageTowerPopupController.IsOpen && !HasActiveTabPanel;
+            if (!HasActiveTabPanel || ActiveTabPanelId != GuidePanel(context)) return false;
+            switch (context)
+            {
+                case Direction.GuideContext.Development: return DevelopmentPanelController.GuideReady;
+                case Direction.GuideContext.ArmyCharacter:
+                case Direction.GuideContext.ArmyEquipment:
+                case Direction.GuideContext.ArmyJobs:
+                case Direction.GuideContext.ArmyJobDetail: return KingdomArmyPanelController.GuideReady(context);
+                case Direction.GuideContext.EquipmentGacha: return GachaPanelController.GuideReady(false);
+                case Direction.GuideContext.SkillGacha: return GachaPanelController.GuideReady(true);
+                default:
+                    var detail = _panelStack.Peek().Go.GetComponentInChildren<DungeonDifficultyPopupView>();
+                    return context == Direction.GuideContext.Dungeon ? detail == null : detail != null &&
+                        detail.GuideType == (context == Direction.GuideContext.GoldDungeonDetail ? eStageType.GoldDungeon : eStageType.RubyDungeon);
+            }
+        }
+
+        /// <summary>정상 완료·건너뛰기 시 안내의 메뉴를 정리한다. 무관한 모달이 덮인 상태에서는 호출하지 않는다.</summary>
+        internal void FinishFeatureGuide()
+        {
+            GachaResultPopupController.Close();
+            MageTowerPopupController.Hide();
+            if (HasActiveTabPanel && !HasBlockingPanel) ClearPanels();
+        }
+
+        /// <summary>안내를 덮을 메뉴·로딩·실제 팝업을 검사한다. 안내 View 자체는 팝업 계층 밖에 있어 자기 차단이 없다.</summary>
+        public bool CanShowFeatureGuide
+        {
+            get
+            {
+                if (_activeScreenId != UIScreenId.Main || _activeScreenGo == null ||
+                    HasBlockingPanel || HasActiveTabPanel || ModalBackHandler.HasOpenModal ||
+                    (_loading != null && _loading.gameObject.activeInHierarchy) ||
+                    (_settings != null && _settings.IsOpen) || (_mainController != null && _mainController.HasOpenDropdown)) return false;
+                if (layerPopups != null)
+                    for (int i = 0; i < layerPopups.childCount; i++)
+                    {
+                        var child = layerPopups.GetChild(i);
+                        // 파티 HUD는 렌더 순서 때문에 팝업 레이어에 있지만, 안내를 중단시키는 모달은 아니다.
+                        if (child.gameObject.activeInHierarchy && !child.TryGetComponent<PartyHudView>(out _)) return false;
+                    }
+                return true;
+            }
+        }
+
         /// <summary>매 프레임 발생 — 화면 컨트롤러(재화 폴링 등)가 구독.</summary>
         internal event Action FrameTick;
 
@@ -227,8 +345,10 @@ namespace KingdomIdle.UGUI
         //  화면 (Screens)
         // ═══════════════════════════════════════════
 
+        /// <summary>기존 화면의 안내 입력을 즉시 해제하고 화면을 교체한다. 새 화면은 컨트롤러 Bind에서 안내 대상을 다시 등록한다.</summary>
         public void ReplaceScreen(UIScreenId id, object payload = null, bool clearStacks = true)
         {
+            ActiveFeatureGuide?.Hide();
             if (clearStacks)
                 ClearPanels();
 
@@ -292,6 +412,7 @@ namespace KingdomIdle.UGUI
         //  패널 (bottom sheets)
         // ═══════════════════════════════════════════
 
+        /// <summary>지정 패널을 스택에 열고 기존 바인딩·슬라이드를 실행한다. 안내는 등장 완료까지 기다리고 닫힘 정리는 기존 스택이 소유한다.</summary>
         public void PushPanel(UIPanelId id, object payload = null, bool clearBefore = false, bool isTabPanel = false)
         {
 #if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
@@ -332,6 +453,7 @@ namespace KingdomIdle.UGUI
                 float rise = Mathf.Max(240f, view.sheet.rect.height);
                 if (view.centeredModal) UITween.PopIn(view.sheet);
                 else UITween.SlideUp(view.sheet, rise, 0.34f);
+                _guidePanelReadyAt = Time.unscaledTime + 0.36f;
                 if (view.backdrop != null)
                 {
                     var cg = view.backdrop.GetComponent<CanvasGroup>();
@@ -418,6 +540,8 @@ namespace KingdomIdle.UGUI
         private void AnimatePanelCloseAndDestroy(PanelEntry top)
         {
             if (top.Go == null) return;
+            // 스택에서 빠져도 0.2초간 퇴장 패널이 전장을 덮는다. 다음 안내의 실제 대상이 드러난 뒤 입력을 연다.
+            _guidePanelReadyAt = Mathf.Max(_guidePanelReadyAt, Time.unscaledTime + .22f);
             if (top.View == null || top.View.sheet == null || !top.Go.activeInHierarchy)
             {
                 Destroy(top.Go);
@@ -575,8 +699,11 @@ namespace KingdomIdle.UGUI
         //  뒤로가기 (우선순위: 가챠 결과 → 설정 → 재화/햄버거 → 패널)
         // ═══════════════════════════════════════════
 
+        /// <summary>Android 뒤로가기와 공통 뒤로가기 요청을 처리한다. 보이는 안내는 건너뛰고, 가려진 안내 대신 현재 모달을 먼저 닫는다.</summary>
         public void RequestBack()
         {
+            // 현재 보이는 안내만 건너뛴다. 로딩/팝업이 가린 안내는 기존 모달의 뒤로가기를 가로채지 않는다.
+            if (ActiveFeatureGuide != null && ActiveFeatureGuide.HandleBack()) return;
             if (ModalBackHandler.TryCloseTop()) return;
             if (OfflineRewardPopupController.IsOpen)
             {
@@ -647,12 +774,14 @@ namespace KingdomIdle.UGUI
             }
         }
 
+        /// <summary>로딩 표시 중에는 안내 입력을 즉시 해제한다. 로딩 종료 후 같은 단계 재개는 Player의 준비 검사에 맡긴다.</summary>
         public void SetLoading(bool visible, string message = "Loading...")
         {
             if (_loading == null) return;
 
             if (visible)
             {
+                ActiveFeatureGuide?.Hide();
                 if (_loading.lblLoading != null) _loading.lblLoading.text = message;
                 _loading.SetProgress01(0f);
                 _loading.gameObject.SetActive(true);

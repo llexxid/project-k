@@ -1,0 +1,102 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9609948f74241784d85e2984bc09debf, type: 3}
+  m_Name: guide_gacha
+  m_EditorClassIdentifier: Assembly-CSharp::Direction.GameDirectSequenceSO
+  sequenceId: guide_gacha
+  steps:
+  - id: open
+    target: 3
+    title: "\uBF51\uAE30"
+    description: "\uBF51\uAE30 \uBC84\uD2BC\uC744 \uB20C\uB7EC \uC7A5\uBE44\uC640
+      \uB9C8\uD0D1 \uC2A4\uD0AC \uBF51\uAE30\uB97C \uCCB4\uD5D8\uD574 \uBCF4\uC138\uC694."
+    placement: 0
+    completion: 1
+    context: 0
+    destination: 9
+    action: 0
+    allowedTargets: 03000000
+    allowScroll: 0
+    grantPracticeCoins: 0
+  - id: equipment_once
+    target: 22
+    title: "\uC7A5\uBE44 1\uD68C \uBF51\uAE30"
+    description: "\uCCB4\uD5D8\uC6A9 \uACE0\uB300\uC8FC\uD654 50\uAC1C\uB97C \uD55C
+      \uBC88 \uC9C0\uAE09\uD569\uB2C8\uB2E4. \uC7A5\uBE44 1\uD68C \uBF51\uAE30\uB97C
+      \uB20C\uB7EC \uBCF4\uC138\uC694. \uAE30\uC874 \uD655\uB960\uC5D0 \uB530\uB77C
+      \uC7A5\uBE44 \uB610\uB294 \uC804\uC9C1 \uD30C\uD3B8\uC744 \uC5BB\uC2B5\uB2C8\uB2E4."
+    placement: 0
+    completion: 2
+    context: 9
+    destination: 0
+    action: 2
+    allowedTargets: 16000000
+    allowScroll: 0
+    grantPracticeCoins: 1
+  - id: equipment_done
+    target: 22
+    title: "\uC7A5\uBE44 \uBF51\uAE30 \uD655\uC778"
+    description: "\uD68D\uB4DD\uD55C \uC7A5\uBE44\uB294 \uC655\uAD6D\uAD70\uC758
+      \uC7A5\uBE44 \uD0ED\uC5D0\uC11C \uD655\uC778\uD558\uACE0 \uCC29\uC6A9\uD560
+      \uC218 \uC788\uC2B5\uB2C8\uB2E4. \uC804\uC9C1 \uD30C\uD3B8\uC740 \uC9C1\uC5C5
+      \uD574\uAE08\uC5D0 \uC0AC\uC6A9\uB429\uB2C8\uB2E4."
+    placement: 0
+    completion: 0
+    context: 9
+    destination: 0
+    action: 0
+    allowedTargets: 
+    allowScroll: 0
+    grantPracticeCoins: 0
+  - id: skill_tab
+    target: 21
+    title: "\uB9C8\uD0D1 \uC2A4\uD0AC"
+    description: "\uB9C8\uD0D1 \uC2A4\uD0AC \uD0ED\uC744 \uB20C\uB7EC \uB2E4\uC74C
+      \uBF51\uAE30\uB97C \uCCB4\uD5D8\uD574 \uBCF4\uC138\uC694."
+    placement: 0
+    completion: 1
+    context: 9
+    destination: 10
+    action: 0
+    allowedTargets: 15000000
+    allowScroll: 0
+    grantPracticeCoins: 0
+  - id: skill_once
+    target: 23
+    title: "\uB9C8\uD0D1 \uC2A4\uD0AC 1\uD68C \uBF51\uAE30"
+    description: "\uC774\uBC88 \uCCB4\uD5D8\uC6A9 \uACE0\uB300\uC8FC\uD654 50\uAC1C\uB97C
+      \uD55C \uBC88 \uC9C0\uAE09\uD569\uB2C8\uB2E4. 1\uD68C \uBF51\uAE30\uB97C \uB20C\uB7EC
+      \uBCF4\uC138\uC694. \uAE30\uC874 \uD655\uB960\uC5D0 \uB530\uB77C \uC2A4\uD0AC\xB7\uC2A4\uD0AC
+      \uD30C\uD3B8 \uB610\uB294 \uBE44\uC804 \uC9C0\uC2DD\uC744 \uC5BB\uC2B5\uB2C8\uB2E4."
+    placement: 0
+    completion: 2
+    context: 10
+    destination: 0
+    action: 3
+    allowedTargets: 17000000
+    allowScroll: 0
+    grantPracticeCoins: 1
+  - id: skill_done
+    target: 23
+    title: "\uBF51\uAE30 \uCCB4\uD5D8 \uC644\uB8CC"
+    description: "\uC7A5\uBE44\uC640 \uB9C8\uD0D1 \uC2A4\uD0AC \uBF51\uAE30\uB97C
+      \uBAA8\uB450 \uCCB4\uD5D8\uD588\uC2B5\uB2C8\uB2E4. \uC774\uD6C4\uC5D0\uB294
+      \uBCF4\uC720\uD55C \uACE0\uB300\uC8FC\uD654\uB85C \uC6D0\uD558\uB294 \uBF51\uAE30\uB97C
+      \uC774\uC6A9\uD558\uC138\uC694."
+    placement: 0
+    completion: 0
+    context: 10
+    destination: 0
+    action: 0
+    allowedTargets: 
+    allowScroll: 0
+    grantPracticeCoins: 0

@@ -35,7 +35,9 @@ namespace KingdomIdle.UGUI
 
         // 탭
         private readonly List<(MainTabButtonView view, UIPanelId id)> _tabs = new();
+        public bool HasOpenDropdown => _currencyOpen || _hamburgerOpen;
 
+        /// <summary>현재 메인 화면과 게임 UI를 연결하고 실제 안내 대상 참조를 등록한다. 화면 해제 시 Dispose가 등록을 반환한다.</summary>
         public void Bind(MainScreenView view, UIManager host)
         {
             _view = view;
@@ -44,6 +46,7 @@ namespace KingdomIdle.UGUI
             // 각 섹션을 try/catch로 격리 — 한 섹션 예외가 나머지 바인딩을 막지 않도록 (기존 동작 유지)
             try { BindTabs(); }
             catch (Exception ex) { Debug.LogError($"MainScreen.Tabs failed: {ex}"); }
+            _host.GuideTargets.Register(view);
 
             try { BindCurrency(); }
             catch (Exception ex) { Debug.LogError($"MainScreen.Currency failed: {ex}"); }
@@ -73,10 +76,12 @@ namespace KingdomIdle.UGUI
             }
         }
 
+        /// <summary>화면 교체 전 이벤트와 코루틴, 이 화면이 등록한 안내 대상만 정리한다. 이후 화면의 등록은 건드리지 않는다.</summary>
         public void Dispose()
         {
             if (_host != null)
             {
+                _host.GuideTargets.Unregister(_view);
                 _host.FrameTick -= OnFrameTick;
                 _host.PanelStackChanged -= RefreshTabButtonSelection;
                 _host.StopRunningCoroutine(_currencyCo);

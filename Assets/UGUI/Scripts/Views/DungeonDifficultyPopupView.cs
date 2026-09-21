@@ -25,6 +25,7 @@ namespace KingdomIdle.UGUI
         [SerializeField] private Sprite[] placeholderClearRewards;
         [SerializeField] private Sprite[] placeholderMonsters;
 
+        internal eStageType GuideType { get; private set; }
         private int selectedDifficulty = 1;
         [System.NonSerialized] private eStage selectedStageId;
         private bool hasDifficultyData;
@@ -60,6 +61,7 @@ namespace KingdomIdle.UGUI
                 enterButton.onClick.RemoveListener(HandleEnterClicked);
         }
 
+        /// <summary>원본 카드의 던전 종류·해금 상태로 상세를 표시하고 설명 영역을 안내에 등록한다. 입장은 실행하지 않으며 숨김 시 Anchor가 등록을 해제한다.</summary>
         public void Show(DungeonCardView card)
         {
             if (card == null)
@@ -79,7 +81,10 @@ namespace KingdomIdle.UGUI
                 mainImage.preserveAspect = card.PreviewSprite != null;
             }
 
+            GuideType = card.DungeonType;
             gameObject.SetActive(true);
+            FeatureGuideAnchor.Bind(description, Direction.GameDirectTarget.DungeonDetail);
+            FeatureGuideAnchor.Bind(backdropButton, Direction.GameDirectTarget.DungeonDetailClose);
             transform.SetAsLastSibling();
             Canvas.ForceUpdateCanvases();
             if (difficultyScroll != null)

@@ -42,8 +42,10 @@ public class StatEnhanceManager : MonoBehaviour
         return !IsStatImplemented(type) || actual == 0 ? -1 : BalanceMath.GoldTotal(GetLevel(type), actual);
     }
     public bool TryEnhance(EnhanceType type, int count = 1) => TryEnhanceEx(type, count) == EnhanceResult.Success;
+    /// <summary>실제 강화 요청을 검증하고 소비·레벨·실습 영수증을 함께 저장한다. 실패는 초안을 폐기하며 입력/UI 정리는 안내 Player가 맡는다.</summary>
     public EnhanceResult TryEnhanceEx(EnhanceType type, int count = 1)
     {
+        if (!Direction.GameDirectInteraction.CanPerform(type == EnhanceType.Attack ? Direction.GuideAction.AttackOnce : Direction.GuideAction.None, count)) return EnhanceResult.Busy;
         if (!IsStatImplemented(type) || count == 0 || count < -1 || count > BalanceMath.GoldCap) return EnhanceResult.InvalidRequest;
         if (IsEnhancing) return EnhanceResult.Busy;
         if (GetLevel(type) >= BalanceMath.GoldCap) return EnhanceResult.MaxLevel;
@@ -60,10 +62,12 @@ public class StatEnhanceManager : MonoBehaviour
             {
                 if ((type == EnhanceType.Attack ? s.AttackLevel : s.HealthLevel) != before || !LocalProgression.Spend(s, eCurrency.Gold, cost)) return false;
                 if (type == EnhanceType.Attack) s.AttackLevel += actual; else s.HealthLevel += actual;
+                if (type == EnhanceType.Attack) Direction.GameDirectInteraction.RecordSuccess(s, Direction.GuideAction.AttackOnce);
                 return true;
             });
         }
         finally { IsEnhancing = false; }
+        if (!success) Direction.GameDirectInteraction.ReportSaveFailure();
         if (success) { ApplyToAllPlayers(); OnEnhanced?.Invoke(); }
         OnEnhanceCompleted?.Invoke(type, success);
         return success ? EnhanceResult.Success : EnhanceResult.SaveFailed;

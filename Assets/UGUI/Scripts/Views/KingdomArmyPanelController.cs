@@ -123,6 +123,38 @@ namespace KingdomIdle.UGUI
 
         // ── 상단 멤버 탭 (왕국군1 / 왕국군2 / 왕국군3) ──
 
+        /// <summary>안내가 요구하는 탭을 중단 후 복원한다. 이미 같은 화면이면 재생성하지 않으며 전직을 실행하지 않는다.</summary>
+        internal static void PrepareGuide(Direction.GuideContext context)
+        {
+            if (_view == null) return;
+            if (_players == null || _players.All(x => x == null))
+            {
+                _players = _mgr?.GetPlayers();
+                if (_players == null || _players.All(x => x == null)) return;
+                BuildMemberTabs();
+            }
+            if (_activeMemberIndex >= _players.Count || _players[_activeMemberIndex] == null)
+                _activeMemberIndex = _players.FindIndex(x => x != null);
+            var menu = context == Direction.GuideContext.ArmyEquipment ? SubMenu.Equipment :
+                context == Direction.GuideContext.ArmyJobs || context == Direction.GuideContext.ArmyJobDetail ? SubMenu.JobChange : SubMenu.Character;
+            if (_activeSubMenu != menu || (context != Direction.GuideContext.ArmyJobDetail && !GuideReady(context)))
+            { _activeSubMenu = menu; Refresh(); UpdateNavStyles(); }
+            if (context == Direction.GuideContext.ArmyJobDetail && !GuideReady(context)) ShowJobDetail(_mgr?.JobDB?.GetJob("Knight"));
+        }
+
+        /// <summary>대상이 속한 실제 본문이 활성 상태인지 읽는다. 기존 탭 선택 값만으로 상세 화면을 오인하지 않는다.</summary>
+        internal static bool GuideReady(Direction.GuideContext context)
+        {
+            if (_view == null || !_view.gameObject.activeInHierarchy) return false;
+            return context switch {
+                Direction.GuideContext.ArmyCharacter => _contentPage == typeof(KACharacterSheetView),
+                Direction.GuideContext.ArmyEquipment => _contentPage == typeof(KAEquipmentView),
+                Direction.GuideContext.ArmyJobs => _contentPage == typeof(KAJobChangeView),
+                Direction.GuideContext.ArmyJobDetail => _contentPage == typeof(KAJobDetailView),
+                _ => false };
+        }
+
+        /// <summary>실제 편성 캐릭터 버튼을 만들고 첫 유효 캐릭터를 안내 대상으로 등록한다. 버튼 파괴 시 Anchor가 해제한다.</summary>
         private static void BuildMemberTabs()
         {
             if (_view == null) return;
@@ -163,6 +195,8 @@ namespace KingdomIdle.UGUI
                     Refresh();
                     UpdateMemberTabStyles();
                 });
+                if (i < _players.Count && _players[i] != null && _players.FindIndex(x => x != null) == i)
+                    FeatureGuideAnchor.Bind(tab.Button, Direction.GameDirectTarget.ArmyMember);
                 _memberTabButtons.Add(tab);
             }
             UpdateMemberTabStyles();
@@ -176,6 +210,7 @@ namespace KingdomIdle.UGUI
 
         // ── 하단 네비게이션 (종합 / 장비 / 스킬 / 전직) ──
 
+        /// <summary>탭 구성 시 기존 탐색 버튼과 안내 ID를 연결한다. 입력은 원본 콜백이 처리하고 Anchor가 파괴 시 등록을 해제한다.</summary>
         private static void BuildNavBar()
         {
             if (_view == null) return;
@@ -210,6 +245,8 @@ namespace KingdomIdle.UGUI
                     Refresh();
                     UpdateNavStyles();
                 });
+                if (m == SubMenu.Equipment) FeatureGuideAnchor.Bind(tab.Button, Direction.GameDirectTarget.ArmyEquipmentTab);
+                if (m == SubMenu.JobChange) FeatureGuideAnchor.Bind(tab.Button, Direction.GameDirectTarget.ArmyJobsTab);
                 _navButtons.Add(tab);
                 _navMenus.Add(m);
             }
@@ -246,6 +283,7 @@ namespace KingdomIdle.UGUI
         //  캐릭터 정보 (왕국군 캐릭터창) + 200ms 실시간 갱신
         // ══════════════════════════════════════
 
+        /// <summary>종합 진입 시 실제 캐릭터의 능력치·스킬 본문을 구성하고 안내 대상을 등록한다. 이전 본문·실시간 구독은 기존 교체 경로에서 정리한다.</summary>
         private static void BuildCharacterView()
         {
             var player = GetCurrentPlayer();
@@ -258,6 +296,8 @@ namespace KingdomIdle.UGUI
             var sheet = InstantiateContent<KACharacterSheetView>(Cat != null ? Cat.panelKACharacterSheet : null);
             if (sheet == null) return;
             _charSheet = sheet;
+            FeatureGuideAnchor.Bind(sheet.statsButton, Direction.GameDirectTarget.ArmyStats);
+            FeatureGuideAnchor.Bind(sheet.skillsRoot, Direction.GameDirectTarget.ArmySkills);
 
             var ps = player.playerStatus;
             _shownStatus = ps;
@@ -461,10 +501,13 @@ namespace KingdomIdle.UGUI
         //  장비 (인벤토리 내 장비만 표시)
         // ══════════════════════════════════════
 
+        /// <summary>장비 탭 진입 시 보유 상태를 표시하고 안내 대상을 등록한다. 빈 보관함도 열람 가능하며 안내는 장착을 실행하지 않는다.</summary>
         private static void BuildEquipmentView()
         {
             var equip = InstantiateContent<KAEquipmentView>(Cat != null ? Cat.panelKAEquipment : null);
             if (equip == null) return;
+            // 목록은 장비 수만큼 길어진다. 실제 보이는 창만 강조하고 사용자의 스크롤 위치를 보존한다.
+            FeatureGuideAnchor.Bind(_view.scroll.viewport, Direction.GameDirectTarget.ArmyEquipment);
 
             var player = GetCurrentPlayer();
             string jobName = player?.playerStatus?.JobName ?? "";
@@ -945,12 +988,14 @@ namespace KingdomIdle.UGUI
 
             view.Set(job, bg, frameColor, badgeText, badgeColor, statText, fragText, fragColor, prereqText);
             view.OnClick(() => ShowJobDetail(capturedJob));
+            if (job.jobName == "Knight") FeatureGuideAnchor.Bind(view.Button, Direction.GameDirectTarget.ArmyJobCard);
         }
 
         // ══════════════════════════════════════
         //  전직 상세 팝업 (왕국군전직상세메뉴)
         // ══════════════════════════════════════
 
+        /// <summary>직업 카드 클릭 또는 안내 재개 시 전달된 직업의 비교 능력치·스킬을 표시한다. 전직 실행 없이 본문만 교체하고 이전 Anchor는 자동 해제한다.</summary>
         private static void ShowJobDetail(JobData job)
         {
             if (_view == null || job == null || !JobData.IsAvailable(job.jobName)) return;
@@ -961,6 +1006,8 @@ namespace KingdomIdle.UGUI
             var detail = InstantiateContent<KAJobDetailView>(Cat != null ? Cat.panelKAJobDetail : null);
             if (detail == null) return;
 
+            FeatureGuideAnchor.Bind(detail.compareTable, Direction.GameDirectTarget.ArmyJobStats);
+            FeatureGuideAnchor.Bind(detail.skillList, Direction.GameDirectTarget.ArmyJobSkills);
             var player = GetCurrentPlayer();
             var ps = player?.playerStatus;
             bool isCurrent = ps != null && ps.JobName == job.jobName;

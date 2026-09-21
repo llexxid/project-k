@@ -31,6 +31,14 @@ namespace KingdomIdle.UGUI
             handler._close = close;
             if (handler.isActiveAndEnabled && !Open.Contains(handler)) Open.Add(handler);
         }
+
+        /// <summary>안내가 소유한 상세/결과 창을 제외하고 외부 모달 존재를 조회한다. 창을 닫거나 등록 목록을 변경하지 않는다.</summary>
+        internal static bool HasUnexpectedModal(Func<GameObject, bool> expected)
+        {
+            foreach (var modal in Open)
+                if (modal != null && modal.isActiveAndEnabled && modal._close != null && !expected(modal.gameObject)) return true;
+            return false;
+        }
         private void OnEnable() { if (!Open.Contains(this)) Open.Add(this); }
         private void OnDisable() => Open.Remove(this);
         private void OnDestroy() => Open.Remove(this);

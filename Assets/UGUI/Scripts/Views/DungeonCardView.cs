@@ -23,10 +23,13 @@ namespace KingdomIdle.UGUI
         public Sprite DungeonIcon => dungeonIcon != null ? dungeonIcon.sprite : null;
         public eStageType DungeonType => dungeonType;
 
+        /// <summary>카드 생성 때 클릭을 연결하고 골드·루비 카드만 안내에 등록한다. 미구현 카드가 같은 ID를 덮지 않으며 Anchor가 참조를 정리한다.</summary>
         private void Awake()
         {
             if (button != null)
                 button.onClick.AddListener(HandleClick);
+            if (dungeonType == eStageType.GoldDungeon || dungeonType == eStageType.RubyDungeon)
+                FeatureGuideAnchor.Bind(button, dungeonType == eStageType.GoldDungeon ? Direction.GameDirectTarget.GoldDungeonCard : Direction.GameDirectTarget.RubyDungeonCard);
         }
 
         private void OnDestroy()
