@@ -105,6 +105,7 @@ namespace KingdomIdle.UGUI
         public GameObject overlayLoading;
         public GameObject overlayToast;
         public GameObject overlaySettings;
+        public GameObject overlayFeatureGuide; // GameDirectManager가 소유하는 공통 기능 안내 View
 
         [Header("HUDs")]
         public GameObject hudParty;

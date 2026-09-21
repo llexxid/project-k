@@ -97,11 +97,22 @@ namespace KingdomIdle.UGUI
             }
         }
 
+        /// <summary>명시적으로 전달된 로컬 QA 명령만 실행한다. 안내 미리보기는 계정 진행이나 재화를 수정하지 않는다.</summary>
         void Execute(Command command)
         {
             switch (command.action)
             {
                 case "state": Snapshot(command.id); break;
+                case "guide-preview":
+                    var guide = Direction.GameDirectManager.Instance;
+                    if (guide == null) throw new InvalidOperationException("GameDirectManager is not ready.");
+                    bool accepted = guide.RequestPlay(command.value, true);
+                    Write(command.id, new { accepted, guide.ActiveSequenceId, guide.PendingCount, guide.LastError });
+                    break;
+                case "guide-cancel":
+                    Direction.GameDirectManager.Instance?.CancelCurrent();
+                    Write(command.id, new { cancelled = true });
+                    break;
                 case "language": _view.presentation.SetLanguage(command.value == "en", true); Snapshot(command.id); break;
                 case "motion": _view.presentation.SetAmbientMotion(command.value == "on", true); Snapshot(command.id); break;
                 case "settings": UIManager.Instance.OpenSettings(); Snapshot(command.id); break;

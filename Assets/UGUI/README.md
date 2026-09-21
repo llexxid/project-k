@@ -26,6 +26,31 @@
 새 위젯은 View 참조 → Items 프리팹 → UIViewCatalog 참조 → 컨트롤러 데이터 바인딩 순서로 추가한다.
 목록 생성은 패널을 열 때 수행한다. 큰 목록은 가상화·풀링을 검토한다.
 
+## 공통 연출과 기능 안내
+
+`bootstrap/GameManager → Direction.GameDirectManager → FeatureGuidePlayer → UguiFeatureGuideSurface → FeatureGuideView`로 실행한다. Manager는 MonoBehaviour이며 큐·저장·계정 수명을 소유한다. Player와 UGUI 연결부는 일반 C# 클래스이고, 실제 프리팹 참조·레이아웃·입력은 MonoBehaviour View가 담당한다.
+
+- `GameDirectSequenceSO` 두 개는 `Assets/_Project/Data/Direction/`에 있다. `first_start_menus`는 육성·왕국군·던전·뽑기 네 단계, `first_reincarnation_guide`는 상단 환생 설명 한 단계다. Inspector에서 문구·대상·카드 방향을 편집하며, 실행 시 복사하므로 원본 에셋에 진행 상태를 쓰지 않는다.
+- `GameDirectManager.RequestPlay(id)`는 실제 계정의 진행을 저장하는 명시적 요청이다. 자동 트리거는 아직 없다. 동일 ID가 재생 중이거나 대기 중이면 거절하고, 서로 다른 ID는 FIFO로 한 번에 하나씩 실행한다. 완료·건너뛴 ID도 거절하며 `LastError`로 원인을 확인한다.
+- `RequestPlay(id, preview: true)`는 읽기·쓰기 없는 미리보기다. 완료한 안내도 다시 볼 수 있다. `CancelCurrent()`는 완료나 건너뛰기를 기록하지 않고 현재 실행만 취소한다. 씬/팝업 때문에 가려진 안내는 입력을 풀고 같은 단계에서 대기한다.
+- 진행 저장은 기존 계정 스냅샷의 `Modules["game-direct:" + id]`를 사용한다. 확인 단계는 배열 위치 대신 안정적인 단계 ID로 저장한다. 저장 성공 후에만 다음 단계로 진행하며, 실패하면 안내를 닫고 다음 요청에서 미확인 단계부터 다시 시작한다. 환생으로 초기화하지 않는다.
+- `MainScreenController.Bind/Dispose`가 `FeatureGuideTargetRegistry`에 현재 다섯 버튼을 등록·해제한다. 원본 버튼을 복제하거나 이동하지 않는다. 카드·테두리는 SafeArea와 실제 RectTransform을 따라가고, 투명 입력 막은 밝은 구멍의 실제 버튼 클릭도 차단한다.
+- 자동 전투는 계속된다. 다음/확인만 단계를 완료하고, 건너뛰기와 Android 뒤로가기는 별도의 건너뜀 상태를 저장한다. 로딩·팝업·화면 교체는 시스템 중단이며 사용자 건너뛰기와 다르다. 계정 변경은 실행과 큐를 취소하고 이전 계정의 늦은 응답을 거절한다.
+- 오버레이는 `Prefabs/Overlays/Overlay_FeatureGuide.prefab`과 `UIViewCatalog.overlayFeatureGuide`로 연결한다. 공용 폰트와 버튼 스프라이트를 재사용하고 새 텍스처·폰트·머티리얼 에셋은 생성하지 않는다. 저사양 모드에서는 UITween의 반복 장식을 줄이며 본문과 터치는 유지한다.
+
+### 직접 실행하고 데이터 추가하기
+
+1. bootstrap부터 Play한 뒤 로그인하여 메인 화면으로 이동한다. 패널·로딩·팝업이 닫혀 있어야 안내가 보인다.
+2. `KingdomIdle/Direction/Preview/First start menus` 또는 `Reincarnation`을 실행한다. `Cancel current`로 현재 미리보기를 중단할 수 있다.
+3. 새 안내는 `Create → KingdomIdle → Direction → Sequence`로 만들고, 고유 sequence ID와 겹치지 않는 단계 ID를 설정한다. bootstrap의 GameDirectManager `sequences` 목록에 등록한 뒤 `RequestPlay`로 요청한다.
+4. `KingdomIdle/Direction/Prepare guide foundation`은 최초 프리팹·데이터와 누락된 연결을 만든다. 이미 있는 프리팹·문구를 덮어쓰지 않으므로 외형 수정은 실제 프리팹에서 수행한다. 전체 UI Generate All은 필요하지 않다.
+
+Android의 기존 `LOBBY_DEVICE_QA` 진단 빌드에서는 로컬 `lobby-command.json` 명령의 `action="guide-preview"`, `value="first_start_menus"` 또는 `"first_reincarnation_guide"`로 미리본다. `guide-cancel`은 중단이다. 일반 테스트 빌드에는 이 명령 수신기나 진단 계정 강제 지정이 들어가지 않는다.
+
+`KingdomIdle/Direction/Validate isolated guide acceptance`는 저장된 단일 씬의 편집 모드에서 실행한다. 별도 빈 PlayMode 씬·격리 계정과 실제 UI 프리팹으로 입력·FIFO·저장·취소·재개·세 비율 배치를 검사하고 원래 편집 씬으로 복귀한다. 결과는 `AI/validation/game-direct-20260921/acceptance.json`에 기록한다. 격리 프리팹 캡처는 실제 전투나 Android 기기 검증을 대체하지 않는다.
+
+후속 4단계에서는 신규 계정 판정과 메인 화면 준비 시점에서 최초 안내를 요청한다. 기존 계정에 저장 키가 없다고 신규 계정으로 판정하지 않는다. 5단계에서는 환생 소개 스테이지 조건을 확정하고 진입/로그인 복구 시 요청한다. 현재 환생은 스테이지 외 대기시간·보스 처치·전투 상태 조건이 있으므로 `ReincarnationService` 판정을 공유하고 기능 소개와 즉시 실행 가능 문구를 구분한다.
+
 ## 전투 HUD
 
 - `CompactHudBuilder.Apply`: `Screen_Main`, `Panel_Guide`, `Item_GuideStepRow`를 갱신한다.

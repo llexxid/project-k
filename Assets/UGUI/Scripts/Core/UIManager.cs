@@ -80,6 +80,29 @@ namespace KingdomIdle.UGUI
         /// <summary>패널 스택이 변할 때마다 발생 — 탭 선택 시각화, 파티 HUD 위치 갱신용.</summary>
         public event Action PanelStackChanged;
 
+        public FeatureGuideTargetRegistry GuideTargets { get; } = new();
+        internal FeatureGuideView ActiveFeatureGuide { get; set; }
+
+        /// <summary>안내를 덮을 메뉴·로딩·실제 팝업을 검사한다. 안내 View 자체는 팝업 계층 밖에 있어 자기 차단이 없다.</summary>
+        public bool CanShowFeatureGuide
+        {
+            get
+            {
+                if (_activeScreenId != UIScreenId.Main || _activeScreenGo == null ||
+                    HasBlockingPanel || HasActiveTabPanel || ModalBackHandler.HasOpenModal ||
+                    (_loading != null && _loading.gameObject.activeInHierarchy) ||
+                    (_settings != null && _settings.IsOpen) || (_mainController != null && _mainController.HasOpenDropdown)) return false;
+                if (layerPopups != null)
+                    for (int i = 0; i < layerPopups.childCount; i++)
+                    {
+                        var child = layerPopups.GetChild(i);
+                        // 파티 HUD는 렌더 순서 때문에 팝업 레이어에 있지만, 안내를 중단시키는 모달은 아니다.
+                        if (child.gameObject.activeInHierarchy && !child.TryGetComponent<PartyHudView>(out _)) return false;
+                    }
+                return true;
+            }
+        }
+
         /// <summary>매 프레임 발생 — 화면 컨트롤러(재화 폴링 등)가 구독.</summary>
         internal event Action FrameTick;
 
@@ -227,8 +250,10 @@ namespace KingdomIdle.UGUI
         //  화면 (Screens)
         // ═══════════════════════════════════════════
 
+        /// <summary>기존 화면의 안내 입력을 즉시 해제하고 화면을 교체한다. 새 화면은 컨트롤러 Bind에서 안내 대상을 다시 등록한다.</summary>
         public void ReplaceScreen(UIScreenId id, object payload = null, bool clearStacks = true)
         {
+            ActiveFeatureGuide?.Hide();
             if (clearStacks)
                 ClearPanels();
 
@@ -577,6 +602,8 @@ namespace KingdomIdle.UGUI
 
         public void RequestBack()
         {
+            // 현재 보이는 안내만 건너뛴다. 로딩/팝업이 가린 안내는 기존 모달의 뒤로가기를 가로채지 않는다.
+            if (ActiveFeatureGuide != null && ActiveFeatureGuide.HandleBack()) return;
             if (ModalBackHandler.TryCloseTop()) return;
             if (OfflineRewardPopupController.IsOpen)
             {
@@ -647,12 +674,14 @@ namespace KingdomIdle.UGUI
             }
         }
 
+        /// <summary>로딩 표시 중에는 안내 입력을 즉시 해제한다. 로딩 종료 후 같은 단계 재개는 Player의 준비 검사에 맡긴다.</summary>
         public void SetLoading(bool visible, string message = "Loading...")
         {
             if (_loading == null) return;
 
             if (visible)
             {
+                ActiveFeatureGuide?.Hide();
                 if (_loading.lblLoading != null) _loading.lblLoading.text = message;
                 _loading.SetProgress01(0f);
                 _loading.gameObject.SetActive(true);

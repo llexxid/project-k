@@ -2,7 +2,7 @@
 
 Unity 모바일 방치 RPG. 엔진 버전은 `ProjectSettings/ProjectVersion.txt`, 패키지는 `Packages/manifest.json`을 기준으로 한다.
 
-현재 게임 버전은 **0.12.1**, Unity는 **6000.3.21f1**이다. Unity Hub에서 지정 버전으로 연다. 게임 버전은 Player Settings의 Version 한 곳에서 관리하며 로비와 설정이 이를 표시한다. 기능 개정은 minor, 수정은 patch를 증가시키며 첫 정식 출시는 1.0.0으로 올린다. Android Version Code는 배포마다 단조 증가시킨다. 빌드 전 엔진 핀과 버전 형식을 자동 검사한다.
+현재 게임 버전은 **0.15.0**, Unity는 **6000.3.21f1**이다. Unity Hub에서 지정 버전으로 연다. 게임 버전은 Player Settings의 Version 한 곳에서 관리하며 로비와 설정이 이를 표시한다. 기능 개정은 minor, 수정은 patch를 증가시키며 첫 정식 출시는 1.0.0으로 올린다. Android Version Code는 배포마다 단조 증가시킨다. 빌드 전 엔진 핀과 버전 형식을 자동 검사한다.
 
 최근 30분 × 3회 Android 실플레이, 추가 수정과 최종 설치 근거는 [플레이 시뮬레이션 보고서](Docs/ArtPreparation/PLAYER_SIMULATION_20260918.md)에 있다.
 
@@ -17,6 +17,8 @@ Unity 모바일 방치 RPG. 엔진 버전은 `ProjectSettings/ProjectVersion.txt
 - [마탑 스킬 모듈](Assets/MageTower/README.md): 등급 없는 8종, 중복 파편, 각성 10 개화와 개발용 카탈로그.
 
 자체 코드·에셋은 `Assets/_Project/`, UI는 `Assets/UGUI/`에 있다. Unity Hub에서 이 폴더를 열고 `ProjectSettings/EditorBuildSettings.asset`의 활성 씬 순서로 실행한다.
+
+`Direction.GameDirectManager`는 조건부 연출의 공통 실행 뼈대다. 현재는 메인 화면에서 `KingdomIdle/Direction/Preview`의 `First start menus`와 `Reincarnation`을 수동 실행할 수 있다. 자동 발생 조건·스토리 컷씬·엑셀 연동은 아직 연결하지 않았다. 미리보기는 계정 완료 기록을 바꾸지 않는다. 구조, 데이터 편집, 실제 저장 요청과 검증 방법은 [기능 안내 구조](Assets/UGUI/README.md#공통-연출과-기능-안내)를 참고한다.
 
 팀: 이의찬(PM·기획·개발), 박준기(개발 리드), 유형진(개발·QA).
 과거 작업 내역은 Git 기록을 참조한다.
