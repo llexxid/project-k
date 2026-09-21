@@ -27,7 +27,8 @@ namespace KingdomIdle.UGUI
                 if (_dragged) { _dragged = false; return; }
                 var manager = MageTowerManager.Instance;
                 if (manager != null && !manager.CastSkill(slot))
-                    UIManager.Instance?.ShowToast(manager.IsOnCooldown(slot) ? "스킬을 준비 중입니다." : "시전할 대상이 없습니다.");
+                    UIManager.Instance?.ShowToast(manager.IsCasting(slot) ? "스킬을 시전 중입니다." :
+                        manager.IsOnCooldown(slot) ? "스킬을 준비 중입니다." : "시전할 대상이 없습니다.");
             });
         }
         void OnEnable() { _nextRefresh = 0; _dragged = false; }
