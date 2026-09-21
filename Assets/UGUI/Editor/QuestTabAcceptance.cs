@@ -90,8 +90,8 @@ namespace KingdomIdle.UGUI.Editor
                     var tabViews = tabs.GetComponentsInChildren<NavTabButtonView>(false);
                     Check(tabViews.Select(x => Field<TMP_Text>(x, "label").text).SequenceEqual(new[] { "가이드", "일일", "주간", "업적" }),
                         "Tab labels follow the approved Guide, Daily, Weekly, Achievement order");
-                    Check(panel.SelectedCategory == eQuestCategory.Guide && current.activeSelf,
-                        "A new panel selects Guide and shows the current-guide card");
+                    Check(panel.SelectedCategory == eQuestCategory.Guide && !current.activeSelf,
+                        "A new panel selects Guide without the redundant popup card");
                     Check(Visible(panel).Count > 0 && Visible(panel).All(x => x.Category == eQuestCategory.Guide),
                         "Initial rows contain only guide quests");
 
@@ -100,11 +100,11 @@ namespace KingdomIdle.UGUI.Editor
                     {
                         tabButtons[i].onClick.Invoke();
                         var category = Categories[i];
-                        var expected = manager.GetSnapshot(category).Rows.Select(x => x.Token).ToArray();
+                        var expected = manager.GetSnapshot(category).Rows.OrderBy(x => x.State == QuestRowState.Claimable ? 0 :
+                            x.State == QuestRowState.InProgress ? 1 : x.State == QuestRowState.Locked ? 2 : 3).Select(x => x.Token).ToArray();
                         Check(panel.SelectedCategory == category && Visible(panel).Select(x => x.Token).SequenceEqual(expected),
                             category + " tab renders only its committed category rows");
-                        Check(current.activeSelf == (category == eQuestCategory.Guide),
-                            category + " tab applies the current-guide card visibility rule");
+                        Check(!current.activeSelf, category + " tab hides only the redundant popup guide card");
                         Check(tabViews.Select(x => Field<Image>(x, "selectedFrame").color.a > 0).SequenceEqual(Categories.Select(x => x == category)),
                             category + " tab has exactly one matching visual selection");
                         Check(ActiveRowIds(content).Length == expected.Length && (i == 0 || Mathf.Abs(scroll.verticalNormalizedPosition - 1f) < .001f),
@@ -145,6 +145,7 @@ namespace KingdomIdle.UGUI.Editor
                     tabButtons[3].onClick.Invoke();
                     Check(Visible(panel).Any(x => x.Token.QuestId == 40401 && x.CanClaim) && !Visible(panel).Any(x => x.Token.QuestId == 40402),
                         "Achievement tab exposes the first unclaimed tier of a family");
+                    Check(Visible(panel)[0].CanClaim, "Claimable achievements precede unfinished rows");
                     Button claim = ClaimButton(panel, 40401);
                     revision = LocalProgression.State.Revision;
                     claim.onClick.Invoke();
@@ -165,6 +166,7 @@ namespace KingdomIdle.UGUI.Editor
                     Check(PrepareDailyBoss(), "First account has a claimable daily boss row");
                     Publish(manager);
                     tabButtons[1].onClick.Invoke();
+                    Check(Visible(panel)[0].Token.QuestId == 20002, "Claimable daily boss moves ahead of unfinished monster goal");
                     Button stale = ClaimButton(panel, 20002);
                     LocalProgression.OpenTestAccount(account + "-other");
                     Check(PrepareDailyBoss(), "Second account independently completes the same daily boss goal");
@@ -175,11 +177,17 @@ namespace KingdomIdle.UGUI.Editor
                         "A stale visible row cannot claim the new account's matching reward");
                     beforeRows = ActiveRowIds(content);
                     scroll.verticalNormalizedPosition = .37f;
+                    Canvas.ForceUpdateCanvases();
+                    var retainedRow = RowView(panel, 20001);
+                    float retainedY = scroll.viewport.InverseTransformPoint(retainedRow.transform.position).y;
                     ClaimButton(panel, 20002).onClick.Invoke();
                     Check(LocalProgression.State.Revision == revision + 1 && LocalProgression.State.Claims.Contains(bossKey),
                         "The rebound row can claim the current account once");
-                    Check(beforeRows.SequenceEqual(ActiveRowIds(content)) && Mathf.Abs(scroll.verticalNormalizedPosition - .37f) < .001f,
-                        "Daily claim updates the same row objects and preserves scroll position");
+                    Check(beforeRows.OrderBy(x => x).SequenceEqual(ActiveRowIds(content).OrderBy(x => x)) &&
+                        Visible(panel).Last().Token.QuestId == 20002,
+                        "Daily claim reuses the same row objects and moves the claimed card to the bottom");
+                    Check(Mathf.Abs(scroll.viewport.InverseTransformPoint(retainedRow.transform.position).y - retainedY) < .5f,
+                        "A neighbouring unfinished row keeps its screen position when the claimed first row moves down");
                     Check(RowView(panel, 20002).progressFill.fillAmount == 1 && !RowView(panel, 20002).actionButton.interactable,
                         "Daily claim keeps a full, disabled completed card");
 
@@ -213,6 +221,20 @@ namespace KingdomIdle.UGUI.Editor
                     Publish(manager);
                     Check(Visible(panel).All(x => x.State != QuestRowState.Claimed),
                         "Current-period completed rows reset on the next day");
+
+                    // 실제 ScrollRect의 드래그 전달 컴포넌트로 재배치만 지연시키는지 확인한다.
+                    var drag = scroll.GetComponent<QuestScrollDragRelay>();
+                    var pointer = new UnityEngine.EventSystems.PointerEventData(null)
+                        { button = UnityEngine.EventSystems.PointerEventData.InputButton.Left };
+                    beforeRows = ActiveRowIds(content);
+                    drag.OnBeginDrag(pointer);
+                    Check(PrepareDailyBoss(), "A goal can complete during a scroll drag");
+                    Publish(manager);
+                    Check(beforeRows.SequenceEqual(ActiveRowIds(content)) && ClaimButton(panel, 20002).interactable,
+                        "Dragging keeps physical row order while updating claim availability");
+                    drag.OnEndDrag(pointer);
+                    Check(Visible(panel)[0].Token.QuestId == 20002 && beforeRows.OrderBy(x => x).SequenceEqual(ActiveRowIds(content).OrderBy(x => x)),
+                        "Releasing the drag sorts the completed goal without recreating rows");
 
                     var multi = RowView(panel, 20010);
                     Check(multi.secondaryRewardIcon.transform.parent.gameObject.activeSelf &&

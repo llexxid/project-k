@@ -45,6 +45,7 @@ namespace KingdomIdle.UGUI
 
         public UIScreenId ActiveScreenId => _activeScreenId;
         internal MainScreenController ActiveMain => _mainController;
+        internal RectTransform HudTop => _activeScreenGo != null ? _activeScreenGo.transform.Find("HudTop") as RectTransform : null;
 
         // ── 패널 스택 ──
         private struct PanelEntry

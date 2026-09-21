@@ -55,7 +55,11 @@ public static class QuestCardCapture
             rootRect.localScale = Vector3.one;
             rootRect.pivot = new Vector2(.5f, .5f);
             rootRect.sizeDelta = logicalSize;
-            Transform panelLayer = ui.GetComponentsInChildren<Transform>(true).First(x => x.name == "LayerPanels");
+            Transform screenLayer = ui.GetComponentsInChildren<Transform>(true).First(x => x.name == "LayerScreens");
+            GameObject main = InstantiatePrefab(Prefabs + "Screens/Screen_Main.prefab", preview, screenLayer);
+            DisableGameScripts(main);
+            Stretch((RectTransform)main.transform);
+            Transform panelLayer = ui.GetComponentsInChildren<Transform>(true).First(x => x.name == "LayerOverlays");
             GameObject panel = InstantiatePrefab(Prefabs + "Panels/Panel_Guide.prefab", preview, panelLayer);
             DisableGameScripts(panel);
             Stretch((RectTransform)panel.transform);
@@ -73,7 +77,8 @@ public static class QuestCardCapture
             if (label != null) { label.gameObject.SetActive(!after); label.text = "가이드 · 일일 · 주간 · 업적"; }
             if (goal != null)
             {
-                goal.gameObject.SetActive(!after || selected == eQuestCategory.Guide);
+                // 실제 프리팹에 저장된 비활성 카드를 캡처 도구가 다시 켜지 않는다.
+                goal.gameObject.SetActive(goal.gameObject.activeSelf && selected == eQuestCategory.Guide);
                 var card = goal.GetComponent<GuideGoalView>();
                 card.body.SetActive(true);
                 card.description.text = "왕국군 3인 1차 전직";
@@ -87,7 +92,7 @@ public static class QuestCardCapture
             // 현재 카탈로그의 실제 설명/보상을 쓰되, 진행도는 독립된 예시 값으로 고정한다.
             QuestCatalog catalog = QuestCatalog.Parse(File.ReadAllText("Assets/_Project/Resources/Balance/catalog.json"));
             List<QuestDefinition> rows = catalog.Definitions.Where(q =>
-                (q.Category == eQuestCategory.Guide ? q.QuestId == 10015 :
+                (q.Category == eQuestCategory.Guide ? q.QuestId <= 10015 :
                  q.Category == eQuestCategory.Achievement ? catalog.GetPredecessor(q.QuestId) == 0 : true) &&
                 (!after || q.Category == selected)).ToList();
             foreach (QuestDefinition definition in rows) AddRow(definition, catalog, preview, content);
@@ -98,8 +103,7 @@ public static class QuestCardCapture
             var fitter = view.Sheet.GetComponent<SheetSizeFitter>();
             if (fitter != null)
             {
-                float sheetHeight = Mathf.Clamp(((RectTransform)view.Sheet.parent).rect.height - UguiTheme.StageControlsBottom - 24, 380, fitter.preferredHeight);
-                view.Sheet.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, sheetHeight);
+                fitter.SetTopBoundary(main.transform.Find("HudTop") as RectTransform);
             }
             for (int pass = 0; pass < 3; pass++)
             {
@@ -138,7 +142,7 @@ public static class QuestCardCapture
             Directory.CreateDirectory(Path.GetDirectoryName(path));
             File.WriteAllBytes(path, pixels.EncodeToPNG());
             return new { path, phase, category = outputCategory, width, height, logicalWidth = logicalSize.x,
-                logicalHeight = logicalSize.y, rowCount = rows.Count, guideVisible = goal != null && goal.gameObject.activeSelf,
+                logicalHeight = logicalSize.y, sheetHeight = view.Sheet.rect.height, rowCount = rows.Count, guideVisible = goal != null && goal.gameObject.activeSelf,
                 mode = "Static PreviewScene sample using actual prefabs; no account, gameplay, input or device validation.",
                 fontAssetsSaved = false, source = Prefabs + "Panels/Panel_Guide.prefab" };
         }

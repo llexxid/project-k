@@ -70,6 +70,11 @@ public static class QuestCardInteraction
             GuidePanelView guide = ActiveGuide(ui);
             BalanceQuestPanel panel = guide.GetComponent<BalanceQuestPanel>();
             Check(panel != null && panel.SelectedCategory == eQuestCategory.Guide, "PushPanel creates the Guide default through real Populate/Bind");
+            var hud = Field<GameObject>(ui, "_activeScreenGo").transform.Find("HudTop") as RectTransform;
+            float hudBottom = guide.Sheet.parent.InverseTransformPoint(hud.TransformPoint(new Vector3(0, hud.rect.yMin, 0))).y;
+            float sheetTop = guide.Sheet.parent.InverseTransformPoint(guide.Sheet.TransformPoint(new Vector3(0, guide.Sheet.rect.yMax, 0))).y;
+            Check(Mathf.Abs(hudBottom - sheetTop - 24) < 1, "Live popup opens exactly below the real main HUD with the intended gap");
+            Check(!Field<GameObject>(guide, "currentQuestRoot").activeSelf, "Live popup hides the duplicate guide summary");
 
             Button[] tabs = Field<RectTransform>(guide, "tabBar").GetComponentsInChildren<Button>(false);
             Check(tabs.Length == 4, "Real UIManager panel has four live tab buttons");
@@ -121,6 +126,7 @@ public static class QuestCardInteraction
             ui.PushPanel(UIPanelId.Guide);
             yield return new WaitForSecondsRealtime(.45f);
             guide = ActiveGuide(ui); panel = guide.GetComponent<BalanceQuestPanel>();
+            scroll = Field<ScrollRect>(guide, "scroll");
             Check(panel.SelectedCategory == eQuestCategory.Guide, "Reopening after close creates a new instance on Guide");
 
             tabs = Field<RectTransform>(guide, "tabBar").GetComponentsInChildren<Button>(false);
@@ -134,6 +140,9 @@ public static class QuestCardInteraction
             Check(Visible(panel).Any(x => x.Token == currentBoss.Token && x.State == QuestRowState.Claimed) && !currentButton.interactable,
                 "Raycast claim retains the current-period card and disables its action");
             long completedRevision = LocalProgression.State.Revision;
+            // 수령한 행은 이제 맨 아래에 있으므로 실제 스크롤로 노출한 뒤 비활성 버튼을 검사한다.
+            scroll.verticalNormalizedPosition = 0;
+            Canvas.ForceUpdateCanvases();
             Click(currentButton, fixture.Events, allowDisabled: true);
             Check(LocalProgression.State.Revision == completedRevision, "Pointer click on a disabled completed card cannot grant rewards");
             // 메뉴 이동은 패널 스택 위에 쌓고 뒤로가기로 기존 퀘스트 인스턴스에 복귀한다.
@@ -382,6 +391,12 @@ public static class QuestCardInteraction
                 if (component != null && component.GetType().Assembly == typeof(UIManager).Assembly && !(component is UIManager) && !(component is SafeAreaFitter))
                     Object.DestroyImmediate(component);
             Ui = copy.GetComponent<UIManager>(); Set(Ui, "dontDestroyOnLoad", false); SetUi(Ui);
+            // 실제 메인 HUD의 기하를 사용하되 전투/게임플레이 갱신은 격리 fixture에서 실행하지 않는다.
+            var mainPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/UGUI/Prefabs/Screens/Screen_Main.prefab");
+            GameObject main = Object.Instantiate(mainPrefab, Field<RectTransform>(Ui, "layerScreens"), false);
+            foreach (MonoBehaviour component in main.GetComponentsInChildren<MonoBehaviour>(true))
+                if (component != null && component.GetType().Assembly == typeof(UIManager).Assembly) component.enabled = false;
+            Set(Ui, "_activeScreenGo", main);
             _eventsRoot = new GameObject("QuestCardInteraction_Events");
             Events = _eventsRoot.AddComponent<EventSystem>(); EventSystem.current = Events;
             _root.SetActive(true);

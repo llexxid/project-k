@@ -142,21 +142,11 @@ namespace KingdomIdle.UGUI.Editor
             ProgressionFlowPreparation.ApplyMain(go);
         }
 
-        /// <summary>기존 간결한 가이드 카드 스타일을 적용한 뒤 같은 탭 배선 규칙을 연결한다.</summary>
+        /// <summary>전체 HUD 생성 경로에서도 퀘스트 전용 확장·탭 배선을 사용한다.</summary>
         /// <param name="go">전체 HUD 적용 경로에서 불러온 퀘스트 패널 루트다.</param>
         static void ApplyGuide(GameObject go)
         {
             var view = go.GetComponent<GuidePanelView>();
-            view.SetTitle("퀘스트 / 가이드");
-            var fitter = view.sheet.GetComponent<SheetSizeFitter>();
-            if (fitter != null) fitter.preferredHeight = 960;
-            view.sheet.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 960);
-            var body = view.scroll.transform.parent;
-            var goal = body.Find("CurrentQuest") as RectTransform;
-            if (goal == null) goal = Child(body, "CurrentQuest");
-            SizeLayout(goal, 212);
-            goal.SetAsFirstSibling();
-            BuildGoal(goal, false);
             if (view.progressLabel != null)
             {
                 Type(view.progressLabel, 28, TextAlignmentOptions.MidlineLeft);
@@ -179,6 +169,9 @@ namespace KingdomIdle.UGUI.Editor
             if (view == null || view.scroll == null || view.scroll.transform.parent == null)
                 throw new InvalidOperationException("퀘스트 패널의 GuidePanelView/Scroll 참조가 필요합니다.");
             Transform body = view.scroll.transform.parent;
+            view.SetTitle("퀘스트");
+            var fitter = view.sheet.GetComponent<SheetSizeFitter>() ?? view.sheet.gameObject.AddComponent<SheetSizeFitter>();
+            fitter.heightMode = SheetSizeFitter.HeightMode.AvailableSpace;
 
             // 저장된 참조를 먼저 재사용하고, 첫 적용에서만 이름으로 기존 컨테이너를 찾거나 만든다.
             RectTransform tabs = view.tabBar != null ? view.tabBar : body.Find(QuestTabBarName) as RectTransform;
@@ -206,9 +199,10 @@ namespace KingdomIdle.UGUI.Editor
             tabs.SetSiblingIndex(sibling);
             view.tabBar = tabs;
 
-            // 현재 퀘스트 카드는 위치·크기·하위 편집을 그대로 두고 런타임 표시 제어용 참조만 연결한다.
+            // 팝업의 중복 카드만 숨긴다. 인게임 HUD의 GuideGoalView는 별도 프리팹에 그대로 둔다.
             if (view.currentQuestRoot == null)
                 view.currentQuestRoot = body.Find("CurrentQuest")?.gameObject;
+            if (view.currentQuestRoot != null) view.currentQuestRoot.SetActive(false);
 
             // 이전 진행 표시를 삭제하지 않아 기존 직렬화 참조를 유지하면서 중복 정보만 숨긴다.
             if (view.progressLabel != null) view.progressLabel.gameObject.SetActive(false);

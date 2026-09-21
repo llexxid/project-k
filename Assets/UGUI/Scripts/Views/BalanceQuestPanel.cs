@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using KingdomIdle.Balance;
 using UnityEngine;
 
@@ -30,6 +31,10 @@ namespace KingdomIdle.UGUI
         private readonly List<QuestRowSnapshot> _visible = new();
         private GuideEmptyHintView _emptyHint;
         private string _emptyText;
+        private QuestScrollDragRelay _dragRelay;
+        private bool _dragging, _deferredRebind;
+        private SheetSizeFitter _sizeFitter;
+        private RectTransform _hudTop;
 
         /// <summary>화면 입력과 검증에서 읽는 현재 선택 범주다. 변경은 SelectCategory로만 한다.</summary>
         public eQuestCategory SelectedCategory => _selectedCategory;
@@ -41,6 +46,7 @@ namespace KingdomIdle.UGUI
         private void Update()
         {
             if (_view == null) return;
+            if (_hudTop == null) BindHeightBoundary();
             if (_tabs.Count == 0)
             {
                 BuildTabs();
@@ -55,6 +61,7 @@ namespace KingdomIdle.UGUI
         {
             if (_manager != null) _manager.QuestsChanged -= OnQuestsChanged;
             _manager = null;
+            _dragging = _deferredRebind = false;
         }
 
         /// <summary>셸을 연결한다. 같은 View로 반복 호출해도 탭 버튼과 클릭 콜백을 추가하지 않는다.</summary>
@@ -66,6 +73,7 @@ namespace KingdomIdle.UGUI
             // 다른 셸로 옮겨 바인딩할 때만 이전 인스턴스가 만든 표시 객체를 정리한다.
             if (_view != view)
             {
+                if (_dragRelay != null) _dragRelay.DragChanged = null;
                 foreach (var tab in _tabs)
                     if (tab != null) { tab.gameObject.SetActive(false); Destroy(tab.gameObject); }
                 _tabs.Clear();
@@ -73,6 +81,14 @@ namespace KingdomIdle.UGUI
                 _built = false;
             }
             _view = view;
+            view.SetTitle("퀘스트");
+            _sizeFitter = view.Sheet != null ? view.Sheet.GetComponent<SheetSizeFitter>() : null;
+            BindHeightBoundary();
+            if (view.scroll != null)
+            {
+                _dragRelay = view.scroll.GetComponent<QuestScrollDragRelay>() ?? view.scroll.gameObject.AddComponent<QuestScrollDragRelay>();
+                _dragRelay.DragChanged = OnDragChanged;
+            }
 
             // 이전 문구 영역은 탭 행으로 대체한다. 기존 필드는 직렬화 호환성을 위해 유지한다.
             if (view.progressFill != null) view.progressFill.transform.parent.gameObject.SetActive(false);
@@ -90,6 +106,7 @@ namespace KingdomIdle.UGUI
         {
             if ((uint)category >= (uint)Categories.Length || category == _selectedCategory) return;
             _selectedCategory = category;
+            _dragging = _deferredRebind = false;
 
             // 카드의 활성 여부와 목록이 먼저 바뀌어야 실제 스크롤 높이를 계산할 수 있다.
             UpdateSelection();
@@ -128,14 +145,29 @@ namespace KingdomIdle.UGUI
             UpdateSelection();
         }
 
-        /// <summary>선택된 버튼만 강조하고, 가이드가 아닐 때 상단 카드 자체를 꺼서 레이아웃 공간도 접는다.</summary>
+        /// <summary>선택 탭만 강조한다. 중복 요약 카드는 팝업에서만 숨기고 인게임 HUD는 건드리지 않는다.</summary>
         private void UpdateSelection()
         {
             for (int i = 0; i < _tabs.Count; i++)
                 _tabs[i].SetSelected(Categories[i] == _selectedCategory, UguiTheme.AccentGold);
             if (_view == null || _view.currentQuestRoot == null) return;
-            bool showGuide = _selectedCategory == eQuestCategory.Guide;
-            if (_view.currentQuestRoot.activeSelf != showGuide) _view.currentQuestRoot.SetActive(showGuide);
+            if (_view.currentQuestRoot.activeSelf) _view.currentQuestRoot.SetActive(false);
+        }
+
+        private void BindHeightBoundary()
+        {
+            _hudTop = UIManager.Instance != null ? UIManager.Instance.HudTop : null;
+            if (_sizeFitter != null) _sizeFitter.SetTopBoundary(_hudTop);
+        }
+
+        private void OnDragChanged(bool dragging)
+        {
+            _dragging = dragging;
+            if (!dragging && _deferredRebind && isActiveAndEnabled)
+            {
+                _deferredRebind = false;
+                Rebind(false);
+            }
         }
 
         /// <summary>패널이 먼저 켜졌어도 매니저가 생기는 시점에 한 번 구독하고 초기 화면을 읽는다.</summary>
@@ -151,7 +183,7 @@ namespace KingdomIdle.UGUI
         /// <param name="changes">매니저가 발행한 변경 범주와 계정 전환 정보다.</param>
         private void OnQuestsChanged(QuestChangeSet changes)
         {
-            if (changes.AccountChanged) { Rebind(false); return; }
+            if (changes.AccountChanged) { _dragging = _deferredRebind = false; Rebind(false); return; }
             foreach (var category in changes.ChangedCategories)
                 if (category == _selectedCategory) { Rebind(false); return; }
         }
@@ -159,7 +191,7 @@ namespace KingdomIdle.UGUI
         /// <summary>숫자 표기 설정이 바뀌면 현재 탭의 같은 데이터를 새 표기로 그린다.</summary>
         private void Refresh() { Rebind(true); }
 
-        /// <summary>행의 순서/토큰이 바뀔 때만 생성한다. 숫자 변경은 기존 행에 반영한다.</summary>
+        /// <summary>표시용 목록만 안정 정렬한다. 토큰이 같은 카드는 재사용하고 진행 숫자는 제자리에서 갱신한다.</summary>
         private void Rebind(bool force)
         {
             if (_view == null || _view.listContent == null) return;
@@ -171,20 +203,29 @@ namespace KingdomIdle.UGUI
             // 조회는 선택한 범주 하나로 제한한다. 준비 중에는 완료와 다른 빈 안내를 사용한다.
             var board = _manager != null ? _manager.GetSnapshot(_selectedCategory) : null;
             if (board != null)
-                foreach (var row in board.Rows) _visible.Add(row);
+                foreach (var row in board.Rows.OrderBy(x => StateOrder(x.State))) _visible.Add(row);
 
-            // 현재 기간의 수령 완료 행과 이전 기간의 미수령 행을 함께 유지한다.
-            // 목록 순서를 바꾸지 않아 완료 직후 카드와 스크롤 위치가 튀지 않는다.
-            bool rebuild = !_built || _visible.Count != _rows.Count;
-            for (int i = 0; !rebuild && i < _visible.Count; i++)
-                rebuild = _visible[i].Token != _rows[i].Snapshot.Token;
-            if (rebuild)
+            if (_dragging)
             {
-                ClearRows();
-                foreach (var snapshot in _visible) Add(snapshot);
-                _built = true;
-                force = true;
+                // 손가락 아래의 카드 위치는 유지하지만 수령 상태는 즉시 확정값으로 갱신한다.
+                _deferredRebind = true;
+                foreach (var row in _rows)
+                {
+                    var snapshot = _visible.Find(x => x.Token == row.Snapshot.Token);
+                    if (snapshot == null) { row.View.actionButton.interactable = false; continue; }
+                    bool changed = !row.Snapshot.ContentEquals(snapshot);
+                    row.SkipScrollAnchor |= snapshot.State == QuestRowState.Claimed && row.Snapshot.State != QuestRowState.Claimed;
+                    row.Snapshot = snapshot;
+                    if (force || changed) Render(row);
+                }
+                return;
             }
+
+            bool reorder = !_built || _visible.Count != _rows.Count;
+            for (int i = 0; !reorder && i < _visible.Count; i++)
+                reorder = _visible[i].Token != _rows[i].Snapshot.Token;
+            if (reorder) ReconcileRows();
+            _built = true;
 
             // 완료 행도 남으므로 빈 목록은 준비 중 또는 등록된 항목이 없는 경우다.
             if (_visible.Count == 0) ShowEmpty(board != null && board.IsReady);
@@ -194,6 +235,68 @@ namespace KingdomIdle.UGUI
                 bool changed = !row.Snapshot.ContentEquals(_visible[i]);
                 row.Snapshot = _visible[i];
                 if (force || changed) Render(row);
+                row.SkipScrollAnchor = false;
+            }
+        }
+
+        private static int StateOrder(QuestRowState state) => state switch
+        {
+            QuestRowState.Claimable => 0,
+            QuestRowState.InProgress => 1,
+            QuestRowState.Locked => 2,
+            _ => 3
+        };
+
+        private float RowTop(Row row) => _view.scroll.viewport.InverseTransformPoint(
+            row.View.transform.TransformPoint(new Vector3(0, ((RectTransform)row.View.transform).rect.yMax, 0))).y;
+
+        /// <summary>재정렬 전 보이던 카드를 기준점으로 보존한다. 방금 수령한 카드를 따라 맨 아래로 내려가지 않는다.</summary>
+        private void ReconcileRows()
+        {
+            var scroll = _view.scroll;
+            bool atTop = !_built || scroll == null || scroll.verticalNormalizedPosition >= .999f;
+            Row anchor = null;
+            float anchorTop = 0;
+            if (!atTop)
+            {
+                Canvas.ForceUpdateCanvases();
+                foreach (var row in _rows)
+                {
+                    var next = _visible.Find(x => x.Token == row.Snapshot.Token);
+                    float top = RowTop(row);
+                    float bottom = top - ((RectTransform)row.View.transform).rect.height;
+                    if (next == null || row.SkipScrollAnchor || (next.State == QuestRowState.Claimed && row.Snapshot.State != QuestRowState.Claimed) ||
+                        bottom >= scroll.viewport.rect.yMax || top <= scroll.viewport.rect.yMin) continue;
+                    anchor = row; anchorTop = top; break;
+                }
+            }
+            var existing = _rows.ToDictionary(x => x.Snapshot.Token);
+            _rows.Clear();
+            if (_emptyHint != null) { _emptyHint.gameObject.SetActive(false); Destroy(_emptyHint.gameObject); _emptyHint = null; _emptyText = null; }
+            foreach (var snapshot in _visible)
+            {
+                if (existing.TryGetValue(snapshot.Token, out var row))
+                {
+                    existing.Remove(snapshot.Token);
+                    _rows.Add(row);
+                }
+                else Add(snapshot);
+                _rows[_rows.Count - 1].View.transform.SetSiblingIndex(_rows.Count - 1);
+            }
+            foreach (var row in existing.Values) { row.View.gameObject.SetActive(false); Destroy(row.View.gameObject); }
+            if (scroll == null) return;
+            scroll.StopMovement();
+            Canvas.ForceUpdateCanvases();
+            if (atTop) scroll.verticalNormalizedPosition = 1;
+            else
+            {
+                if (anchor != null && _rows.Contains(anchor))
+                {
+                    var offset = _view.listContent.anchoredPosition;
+                    offset.y += anchorTop - RowTop(anchor);
+                    _view.listContent.anchoredPosition = offset;
+                }
+                scroll.verticalNormalizedPosition = Mathf.Clamp01(scroll.verticalNormalizedPosition);
             }
         }
 
@@ -239,6 +342,7 @@ namespace KingdomIdle.UGUI
             _rows.Add(row);
             // 보상 아이콘과 카드 전체는 표시 전용이다. 동작은 우측 버튼 한 곳에서만 시작한다.
             view.actionButton.onClick.AddListener(() => Act(row));
+            Render(row);
         }
 
         /// <summary>화면에 바인딩한 상태에 맞춰 이동 또는 수령한다. 완료·잠금 행은 입력을 무시한다.</summary>
@@ -273,6 +377,7 @@ namespace KingdomIdle.UGUI
         {
             public QuestRowSnapshot Snapshot;
             public GuideStepRowView View;
+            public bool SkipScrollAnchor;
         }
     }
 }
