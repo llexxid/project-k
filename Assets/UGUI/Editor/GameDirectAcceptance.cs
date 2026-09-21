@@ -213,6 +213,9 @@ namespace KingdomIdle.UGUI.Editor
                 Check(!view.IsVisible && !view.inputGroup.blocksRaycasts, "Hidden target cannot leave a blocker");
                 development.gameObject.SetActive(true);
                 await Until(() => view.IsVisible, "Target restoration did not resume");
+                Object.Destroy(development.gameObject);
+                await Settle();
+                Check(!view.IsVisible && !view.inputGroup.blocksRaycasts, "Destroyed target releases input");
                 ui.ReplaceScreen(UIScreenId.Main);
                 await Settle();
                 await Until(() => view.IsVisible, "New main screen target did not rebind");
@@ -246,6 +249,9 @@ namespace KingdomIdle.UGUI.Editor
                 manager.CancelCurrent();
                 await Until(() => manager.ActiveSequenceId == null, "Retry cancellation did not finish");
 
+                await ExerciseLowSpecAsync(manager, ui, menu);
+                // 저장 실패 토스트의 수명이 끝난 뒤 캡처하여 안내 외 경고 문구가 배치 비교를 가리지 않게 한다.
+                await UniTask.Delay(TimeSpan.FromSeconds(3), ignoreTimeScale: true);
                 await CaptureLayoutsAsync(root, ui, manager, menu, rebirth);
                 await ValidateReferencesAsync(ui.Catalog.overlayFeatureGuide);
                 Check(menu.steps[0].title == "육성" && menu.steps.Length == 4, "Runtime did not mutate authored sequence");
@@ -264,6 +270,36 @@ namespace KingdomIdle.UGUI.Editor
                     scope = "Isolated PlayMode; production UGUI prefabs and synthetic raycast input. No real combat or Android device." }, Formatting.Indented));
                 Debug.Log("[GameDirectAcceptance] " + (failure == null ? "PASSED " : "FAILED ") + Checks.Count);
                 EditorApplication.isPlaying = false;
+            }
+        }
+
+        /// <summary>저사양에서 장식만 멈추고 안내·터치가 유지되는지 확인한다. 임시 설정은 원래 키 존재 여부까지 복원한다.</summary>
+        private static async UniTask ExerciseLowSpecAsync(GameDirectManager manager, UIManager ui, GameDirectSequenceSO menu)
+        {
+            string[] keys = { GamePresentationSettings.LowSpecKey, "title_ambientMotion" };
+            bool[] existed = keys.Select(PlayerPrefs.HasKey).ToArray();
+            int[] values = keys.Select(key => PlayerPrefs.GetInt(key)).ToArray();
+            try
+            {
+                GamePresentationSettings.SetLowSpec(true, false);
+                Check(manager.RequestPlay(menu, true), "Low-spec preview accepted");
+                await Until(() => ui.ActiveFeatureGuide.IsVisible, "Low-spec preview did not show");
+                var view = ui.ActiveFeatureGuide;
+                await Settle();
+                Check(view.highlight.localScale == Vector3.one && view.inputGroup.blocksRaycasts, "Low-spec stops highlight pulse and retains input");
+                Click(view.nextButton.transform as RectTransform);
+                await Until(() => view.progressLabel.text == "2 / 4", "Low-spec button did not advance");
+                Check(view.IsVisible, "Low-spec description and next step remain visible");
+                manager.enabled = false;
+                await Until(() => manager.ActiveSequenceId == null, "Disabled manager did not cancel");
+                Check(!view.IsVisible && !view.inputGroup.blocksRaycasts, "Manager disable restores input");
+                manager.enabled = true;
+            }
+            finally
+            {
+                for (int i = 0; i < keys.Length; i++)
+                    if (existed[i]) PlayerPrefs.SetInt(keys[i], values[i]); else PlayerPrefs.DeleteKey(keys[i]);
+                GamePresentationSettings.Apply();
             }
         }
 

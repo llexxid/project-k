@@ -49,6 +49,8 @@ Android의 기존 `LOBBY_DEVICE_QA` 진단 빌드에서는 로컬 `lobby-command
 
 `KingdomIdle/Direction/Validate isolated guide acceptance`는 저장된 단일 씬의 편집 모드에서 실행한다. 별도 빈 PlayMode 씬·격리 계정과 실제 UI 프리팹으로 입력·FIFO·저장·취소·재개·세 비율 배치를 검사하고 원래 편집 씬으로 복귀한다. 결과는 `AI/validation/game-direct-20260921/acceptance.json`에 기록한다. 격리 프리팹 캡처는 실제 전투나 Android 기기 검증을 대체하지 않는다.
 
+0.15.0의 181개 검사 항목, 세 비율 캡처, Editor 실제 전투 확인과 Android 검증 범위는 [기능 안내 검증 기록](../../AI/validation/game-direct-20260921/README.md)에 정리했다.
+
 후속 4단계에서는 신규 계정 판정과 메인 화면 준비 시점에서 최초 안내를 요청한다. 기존 계정에 저장 키가 없다고 신규 계정으로 판정하지 않는다. 5단계에서는 환생 소개 스테이지 조건을 확정하고 진입/로그인 복구 시 요청한다. 현재 환생은 스테이지 외 대기시간·보스 처치·전투 상태 조건이 있으므로 `ReincarnationService` 판정을 공유하고 기능 소개와 즉시 실행 가능 문구를 구분한다.
 
 ## 전투 HUD

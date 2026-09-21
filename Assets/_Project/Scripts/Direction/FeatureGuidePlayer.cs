@@ -7,6 +7,7 @@ namespace Direction
     /// <summary>연출 종류별 실행 계약이다. 순서와 저장은 소유자인 Manager가 처리한다.</summary>
     public interface IGameDirectPlayer : IDisposable
     {
+        /// <summary>입력 단계 하나를 표시하고 사용자 응답을 반환한다. 취소는 예외로 구별하고 표시·입력 정리까지 마친다.</summary>
         UniTask<GameDirectResult> PlayAsync(GameDirectStep step, CancellationToken cancellationToken);
     }
 
@@ -15,8 +16,11 @@ namespace Direction
     {
         event Action<GameDirectResult> Responded;
         bool IsVisible { get; }
+        /// <summary>입력 대상이 현재 화면에서 표시 가능한지 확인한다. 저장이나 화면 상태를 변경하지 않는다.</summary>
         bool IsReady(GameDirectTarget target);
+        /// <summary>준비된 단계의 화면과 입력을 활성화한다. 응답 이후 단계 결정은 호출자의 책임이다.</summary>
         void Show(GameDirectStep step);
+        /// <summary>단계 종료·시스템 중단 시 화면과 입력 차단을 해제한다. 완료 기록을 남기지 않는다.</summary>
         void Hide();
     }
 
