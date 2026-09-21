@@ -42,11 +42,11 @@ namespace KingdomIdle.Balance
         public Dictionary<string, QuestPending> PendingQuests = new();
         public int BestStatTotal, BestMageTotal, BestEquipmentTotal;
         public string QuestDay, QuestWeek;
-        /// <summary>퀘스트 하위 스키마. 0은 기존 저장이며 로드 중 1로 이관한다.</summary>
+        //퀘스트 하위 스키마. 0은 기존 저장이며 로드 중 1로 이관
         public int QuestSchemaVersion;
-        /// <summary>조건이 내려가도 유지하는 활성 가이드 및 전체 업적의 달성 ID다.</summary>
+        //조건이 내려가도 유지하는 활성 가이드 및 전체 업적의 달성 ID
         public HashSet<long> CompletedQuests = new();
-        /// <summary>기기 시각 역행으로 기간이 되돌아가지 않게 하는 마지막 승인 시각이다.</summary>
+        //기기 시각 역행으로 기간이 되돌아가지 않게 하는 마지막 승인 시각
         public long QuestLastObservedUtc;
         public int GoldDungeonClear, RubyDungeonClear, GoldTickets = 2, RubyTickets = 2;
         public string TicketDay;

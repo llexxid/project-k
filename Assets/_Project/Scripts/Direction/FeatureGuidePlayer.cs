@@ -24,6 +24,15 @@ namespace Direction
         void Hide();
     }
 
+    /// <summary>실제 화면만 제공하는 선택 계약이다. 기존 설명형 테스트 연결부와 Player 계약을 유지한다.</summary>
+    public interface IInteractiveGuideSurface
+    {
+        /// <summary>미확인 단계의 화면을 복원한다. 관련 없는 모달이 있으면 아무 것도 변경하지 않는다.</summary>
+        void Prepare(GameDirectStep step);
+        /// <summary>직접 클릭 후 목적 화면 도착 또는 저장된 실습 성공을 확인한다.</summary>
+        bool IsComplete(GameDirectStep step);
+    }
+
     /// <summary>일반 C# 안내 재생기. 화면이 가려지면 숨기고 같은 단계를 기다리며 게임 시간을 변경하지 않는다.</summary>
     public sealed class FeatureGuidePlayer : IGameDirectPlayer
     {
@@ -58,10 +67,15 @@ namespace Direction
                 while (true)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
+                    if (GameDirectInteraction.SaveFailed) throw new InvalidOperationException("실습 결과를 저장하지 못했습니다. 다음 요청에서 이어갑니다.");
+                    var interactive = _surface as IInteractiveGuideSurface;
+                    // 클릭으로 원래 대상이 사라지기 전에 저장된 성공/화면 전환부터 확인한다.
+                    if (interactive != null && interactive.IsComplete(step)) return GameDirectResult.Confirmed;
+                    interactive?.Prepare(step);
                     bool ready = _surface.IsReady(step.Target);
                     if (response.HasValue && ready) return response.Value;
                     if (!ready) response = null;
-                    if (ready && (!visible || !_surface.IsVisible)) { _surface.Show(step); visible = true; }
+                    if (ready && (!visible || !_surface.IsVisible)) { GameDirectInteraction.Arm(); _surface.Show(step); visible = true; }
                     else if (!ready && visible) { _surface.Hide(); visible = false; }
                     // NextFrame은 timeScale 0에서도 진행된다. UI 때문에 전투를 정지하거나 다시 시작하지 않는다.
                     await UniTask.NextFrame(cancellationToken: cancellationToken);

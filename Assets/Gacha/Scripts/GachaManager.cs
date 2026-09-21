@@ -29,8 +29,11 @@ namespace KingdomIdle.Gacha
             if (LocalProgression.Balance(eCurrency.AncientCoin) < 50L * count) return $"고대주화가 {50L * count - LocalProgression.Balance(eCurrency.AncientCoin):N0}개 부족합니다.";
             return "뽑기 데이터를 준비 중입니다. 잠시 후 다시 시도해 주세요.";
         }
+        /// <summary>기존 확률로 뽑고 소비·보상·실습 영수증을 한 번에 저장한다. 실패 시 오류 콜백만 반환하고 성공 콜백은 확정 저장 후 호출한다.</summary>
         public void TryPull(GachaTableSO table, int count, Action<List<GachaRewardEntry>> onSuccess, Action<string> onError)
         {
+            var guideAction = table != null && table.gachaType == eGachaType.Equipment ? Direction.GuideAction.EquipmentPullOnce : Direction.GuideAction.SkillPullOnce;
+            if (!Direction.GameDirectInteraction.CanPerform(guideAction, count)) { onError?.Invoke("현재 안내의 지정된 실습만 진행할 수 있습니다."); return; }
             if (!CanPullMulti(table, count)) { onError?.Invoke(PullFailure(table, count)); return; }
             var equipment = EquipmentManager.Instance;
             var mage = MageTowerManager.Instance;
@@ -84,11 +87,12 @@ namespace KingdomIdle.Gacha
                         }
                     }
                     QuestEconomy.Count(state,eQuestObjectiveType.GachaUse,table.gachaType == eGachaType.Equipment ? 1 : 2,count);
+                    Direction.GameDirectInteraction.RecordSuccess(state, guideAction);
                     return true;
                 });
             }
             finally { IsPulling = false; OnPullStateChanged?.Invoke(false); }
-            if (!ok) { onError?.Invoke("결과를 저장하지 못했습니다. 주화는 소비되지 않았습니다."); return; }
+            if (!ok) { Direction.GameDirectInteraction.ReportSaveFailure(); onError?.Invoke("결과를 저장하지 못했습니다. 주화는 소비되지 않았습니다."); return; }
             equipment?.RestoreEquipment(); mage?.NotifyCommitted(); onSuccess?.Invoke(rewards);
         }
     }

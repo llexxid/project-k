@@ -25,7 +25,7 @@ namespace KingdomIdle.UGUI.Editor
     {
         private const string RunKey = "GameDirectAcceptance.Run";
         private const string SceneKey = "GameDirectAcceptance.Scene";
-        private const string Output = "AI/validation/game-direct-20260921";
+        private const string Output = "AI/validation/game-direct-reset-20260921";
         private static readonly List<string> Checks = new();
         private static readonly List<object> Captures = new();
 
@@ -134,9 +134,15 @@ namespace KingdomIdle.UGUI.Editor
                     popups = ui.LayerPopups.Cast<Transform>().Where(x => x.gameObject.activeInHierarchy).Select(x => x.name).ToArray(),
                     overlays = ui.LayerOverlays.Cast<Transform>().Where(x => x.gameObject.activeInHierarchy).Select(x => x.name).ToArray(),
                     modals = Object.FindObjectsByType<ModalBackHandler>(FindObjectsSortMode.None).Select(x => x.name).ToArray() }));
-                foreach (GameDirectTarget target in Enum.GetValues(typeof(GameDirectTarget)))
+                foreach (GameDirectTarget target in new[] { GameDirectTarget.Development, GameDirectTarget.KingdomArmy, GameDirectTarget.Dungeon, GameDirectTarget.Gacha, GameDirectTarget.Reincarnation })
                     Check(ui.GuideTargets.TryGet(target, out _), "Registered live target: " + target);
 
+                if (SessionState.GetBool("GameDirectAcceptance.InteractiveOnly", false))
+                {
+                    SessionState.SetBool("GameDirectAcceptance.InteractiveOnly", false);
+                    await InteractiveGuideAcceptance.RunAsync(root, ui, manager, Check);
+                    return;
+                }
                 await ExercisePlayerAsync(menu);
                 long revision = LocalProgression.State.Revision;
                 float scale = Time.timeScale;
@@ -255,6 +261,7 @@ namespace KingdomIdle.UGUI.Editor
                 await CaptureLayoutsAsync(root, ui, manager, menu, rebirth);
                 await ValidateReferencesAsync(ui.Catalog.overlayFeatureGuide);
                 Check(menu.steps[0].title == "육성" && menu.steps.Length == 4, "Runtime did not mutate authored sequence");
+                await InteractiveGuideAcceptance.RunAsync(root, ui, manager, Check);
             }
             catch (Exception error) { failure = error.ToString(); Debug.LogException(error); }
             finally

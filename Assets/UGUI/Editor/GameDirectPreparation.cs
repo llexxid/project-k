@@ -17,6 +17,90 @@ namespace KingdomIdle.UGUI.Editor
         public const string DataRoot = "Assets/_Project/Data/Direction";
         public const string OverlayPath = "Assets/UGUI/Prefabs/Overlays/Overlay_FeatureGuide.prefab";
 
+        /// <summary>실습 SO 다섯 개와 입력 필터를 연결한다. 기존 SO 문구·ID와 bootstrap의 사용자 변경은 보존한다.</summary>
+        [MenuItem("KingdomIdle/Direction/Prepare interactive guides")]
+        public static void PrepareInteractiveGuides()
+        {
+            if (EditorApplication.isPlaying) throw new InvalidOperationException("편집 모드에서 실행하세요.");
+            Prepare();
+            var development = GetOrCreate("guide_development", new[] {
+                InteractiveStep("open", GameDirectTarget.Development, "육성", "육성 버튼을 눌러 왕국군의 성장 화면을 열어 보세요.", GuideContext.Main, GuideCompletion.Click, GuideContext.Development),
+                InteractiveStep("gold", GameDirectTarget.GoldGrowthTab, "골드 강화", "골드 강화는 모든 왕국군의 공격력과 체력을 높입니다. 루비 영구 성장은 별도 탭에서 관리합니다.", GuideContext.Development),
+                InteractiveStep("attack_once", GameDirectTarget.AttackOnce, "공격력 1회 강화", "공격력의 1회 강화 버튼을 눌러 보세요. 골드가 부족하면 전투로 모으거나 ‘나중에 계속’을 선택할 수 있습니다.", GuideContext.Development, GuideCompletion.Action, action: GuideAction.AttackOnce)
+            });
+            var army = GetOrCreate("guide_kingdom_army", new[] {
+                InteractiveStep("open", GameDirectTarget.KingdomArmy, "왕국군", "왕국군 버튼을 눌러 편성된 캐릭터를 살펴보세요.", GuideContext.Main, GuideCompletion.Click, GuideContext.ArmyCharacter),
+                InteractiveStep("member", GameDirectTarget.ArmyMember, "캐릭터 선택", "각 왕국군 버튼으로 살펴볼 캐릭터를 선택할 수 있습니다. 표시된 캐릭터를 눌러 보세요.", GuideContext.ArmyCharacter, GuideCompletion.Click, GuideContext.ArmyCharacter),
+                InteractiveStep("stats", GameDirectTarget.ArmyStats, "종합 · 능력치", "종합에서는 선택한 캐릭터의 직업과 현재 능력치를 확인할 수 있습니다.", GuideContext.ArmyCharacter, scroll: true),
+                InteractiveStep("skills", GameDirectTarget.ArmySkills, "종합 · 스킬", "종합 아래에는 현재 캐릭터의 스킬과 효과가 표시됩니다. 화면을 스크롤해서 읽어 보세요.", GuideContext.ArmyCharacter, scroll: true),
+                InteractiveStep("equipment_tab", GameDirectTarget.ArmyEquipmentTab, "장비", "장비 탭을 눌러 보유 장비를 확인해 보세요.", GuideContext.ArmyCharacter, GuideCompletion.Click, GuideContext.ArmyEquipment),
+                InteractiveStep("equipment", GameDirectTarget.ArmyEquipment, "장비 착용 조건", "보유한 장비를 확인하고 장착할 수 있습니다. 캐릭터의 직업에 맞는 장비만 착용할 수 있으며, 장비가 없어도 안내를 계속할 수 있습니다.", GuideContext.ArmyEquipment, scroll: true),
+                InteractiveStep("jobs_tab", GameDirectTarget.ArmyJobsTab, "전직", "전직 탭에서 캐릭터가 선택할 수 있는 직업을 살펴보세요.", GuideContext.ArmyEquipment, GuideCompletion.Click, GuideContext.ArmyJobs),
+                InteractiveStep("job_detail", GameDirectTarget.ArmyJobCard, "전직 정보 열기", "표시된 직업을 눌러 상세 정보를 열어 보세요. 정보를 확인하는 것만으로 전직되지는 않습니다.", GuideContext.ArmyJobs, GuideCompletion.Click, GuideContext.ArmyJobDetail, scroll: true),
+                InteractiveStep("job_stats", GameDirectTarget.ArmyJobStats, "전직 후 능력치", "전직 상세에서 현재 능력치와 해당 직업으로 바뀐 뒤의 능력치를 비교할 수 있습니다.", GuideContext.ArmyJobDetail, scroll: true),
+                InteractiveStep("job_skills", GameDirectTarget.ArmyJobSkills, "전직 후 스킬", "해당 직업에서 사용할 스킬을 확인할 수 있습니다. 실제 전직은 조건과 변화를 확인한 뒤 선택하세요.", GuideContext.ArmyJobDetail, scroll: true)
+            });
+            var dungeon = GetOrCreate("guide_dungeon", new[] {
+                InteractiveStep("open", GameDirectTarget.Dungeon, "던전", "던전 버튼을 눌러 골드 던전과 루비 던전을 확인해 보세요.", GuideContext.Main, GuideCompletion.Click, GuideContext.Dungeon),
+                InteractiveStep("gold_open", GameDirectTarget.GoldDungeonCard, "골드 던전", "골드 던전을 눌러 상세 정보를 열어 보세요. 안내 중에는 입장하지 않습니다.", GuideContext.Dungeon, GuideCompletion.Click, GuideContext.GoldDungeonDetail),
+                InteractiveStep("gold_info", GameDirectTarget.DungeonDetail, "처치 수에 따른 골드", "골드 던전은 제한 시간 동안 몬스터를 처치한 수에 따라 골드를 얻습니다. 난이도와 보상 정보를 확인할 수 있습니다.", GuideContext.GoldDungeonDetail),
+                InteractiveStep("ruby_open", GameDirectTarget.RubyDungeonCard, "루비 던전", "루비 던전을 눌러 골드 던전과 다른 보상 조건을 확인해 보세요.", GuideContext.Dungeon, GuideCompletion.Click, GuideContext.RubyDungeonDetail),
+                InteractiveStep("ruby_info", GameDirectTarget.DungeonDetail, "보스 처치로 루비 획득", "루비 던전은 각 제한 시간 안에 보스 3체를 모두 처치하면 루비를 얻습니다. 입장 전 해금 조건과 난이도를 확인하세요.", GuideContext.RubyDungeonDetail),
+                InteractiveStep("tickets", GameDirectTarget.GoldDungeonCard, "일일 입장 횟수", "각 던전의 입장권은 하루 {dailyTickets}회분입니다. 클리어가 아닌 입장 시 차감되며, 매일 00시에 충전됩니다.", GuideContext.Dungeon)
+            });
+            var gacha = GetOrCreate("guide_gacha", new[] {
+                InteractiveStep("open", GameDirectTarget.Gacha, "뽑기", "뽑기 버튼을 눌러 장비와 마탑 스킬 뽑기를 체험해 보세요.", GuideContext.Main, GuideCompletion.Click, GuideContext.EquipmentGacha),
+                InteractiveStep("equipment_once", GameDirectTarget.EquipmentPullOnce, "장비 1회 뽑기", "체험용 고대주화 50개를 한 번 지급합니다. 장비 1회 뽑기를 눌러 보세요. 기존 확률에 따라 장비 또는 전직 파편을 얻습니다.", GuideContext.EquipmentGacha, GuideCompletion.Action, action: GuideAction.EquipmentPullOnce, grant: true),
+                InteractiveStep("equipment_done", GameDirectTarget.EquipmentPullOnce, "장비 뽑기 확인", "획득한 장비는 왕국군의 장비 탭에서 확인하고 착용할 수 있습니다. 전직 파편은 직업 해금에 사용됩니다.", GuideContext.EquipmentGacha),
+                InteractiveStep("skill_tab", GameDirectTarget.SkillGachaTab, "마탑 스킬", "마탑 스킬 탭을 눌러 다음 뽑기를 체험해 보세요.", GuideContext.EquipmentGacha, GuideCompletion.Click, GuideContext.SkillGacha),
+                InteractiveStep("skill_once", GameDirectTarget.SkillPullOnce, "마탑 스킬 1회 뽑기", "이번 체험용 고대주화 50개를 한 번 지급합니다. 1회 뽑기를 눌러 보세요. 기존 확률에 따라 스킬·스킬 파편 또는 비전 지식을 얻습니다.", GuideContext.SkillGacha, GuideCompletion.Action, action: GuideAction.SkillPullOnce, grant: true),
+                InteractiveStep("skill_done", GameDirectTarget.SkillPullOnce, "뽑기 체험 완료", "장비와 마탑 스킬 뽑기를 모두 체험했습니다. 이후에는 보유한 고대주화로 원하는 뽑기를 이용하세요.", GuideContext.SkillGacha)
+            });
+            ConnectBootstrap(development, army, dungeon, gacha);
+            PrepareMageTowerGuide();
+            var root = PrefabUtility.LoadPrefabContents(OverlayPath);
+            try
+            {
+                var view = root.GetComponent<FeatureGuideView>();
+                var blocker = root.transform.Find("InputBlocker").gameObject;
+                view.inputGate = blocker.GetComponent<FeatureGuideInputGate>() ?? blocker.AddComponent<FeatureGuideInputGate>();
+                // 카드 빈 곳의 터치가 뒤의 게임 UI로 흘러가지 않게 한다.
+                view.card.GetComponent<UnityEngine.UI.Image>().raycastTarget = true;
+                PrefabUtility.SaveAsPrefabAsset(root, OverlayPath);
+            }
+            finally { PrefabUtility.UnloadPrefabContents(root); }
+            PlayerSettings.bundleVersion = "0.17.1";
+            AssetDatabase.SaveAssets();
+            Debug.Log("[GameDirect] 안내 SO 5개·bootstrap·입력 필터 연결 완료 (빌드 없음).");
+        }
+
+        /// <summary>편집 모드에서 마탑 설명 SO만 추가하고 카탈로그에 연결한다. 기존 데이터는 유지하며 실제 장착·재화 변경은 요구하지 않는다.</summary>
+        [MenuItem("KingdomIdle/Direction/Prepare mage tower guide")]
+        public static void PrepareMageTowerGuide()
+        {
+            if (EditorApplication.isPlaying) throw new InvalidOperationException("편집 모드에서 실행하세요.");
+            var mage = GetOrCreate("guide_mage_tower", new[] {
+                InteractiveStep("open", GameDirectTarget.MageTower, "마탑 스킬", "전장의 마탑을 눌러 스킬 관리 창을 열어 보세요.", GuideContext.Main, GuideCompletion.Click, GuideContext.MageTower),
+                InteractiveStep("skills", GameDirectTarget.MageSkillList, "스킬 목록", "마탑 스킬 창에서 보유한 스킬을 확인할 수 있습니다. 아직 얻지 못한 스킬은 뽑기로 획득한 뒤 장착할 수 있습니다.", GuideContext.MageTower, scroll: true),
+                InteractiveStep("equip", GameDirectTarget.MageEquipAction, "스킬 장착", "왼쪽 장착 슬롯을 고르고 목록에서 보유 스킬을 선택한 뒤 ‘장착’을 누르면 사용할 수 있습니다. 이미 스킬이 있는 슬롯은 교체할 수 있습니다.", GuideContext.MageTower),
+                InteractiveStep("unequip", GameDirectTarget.MageUnequipAction, "스킬 해제", "장착된 슬롯을 선택하고 ‘해제’를 누르면 슬롯에서 스킬을 뺄 수 있습니다. 보유 스킬은 사라지지 않으며 다시 장착할 수 있습니다.", GuideContext.MageTower)
+            });
+            ConnectBootstrap(mage);
+            PlayerSettings.bundleVersion = "0.17.1";
+            AssetDatabase.SaveAssets();
+        }
+
+        /// <summary>명시적 문맥·조건·허용 대상을 가진 최초 SO 데이터를 만든다. 경제 동작은 Action ID로만 연결한다.</summary>
+        private static GameDirectStepData InteractiveStep(string id, GameDirectTarget target, string title, string description,
+            GuideContext context, GuideCompletion completion = GuideCompletion.Confirm, GuideContext destination = GuideContext.Main,
+            GuideAction action = GuideAction.None, bool scroll = false, bool grant = false) => new()
+        {
+            id = id, target = target, title = title, description = description, context = context,
+            completion = completion, destination = destination, action = action, allowScroll = scroll,
+            grantPracticeCoins = grant, placement = GuideCardPlacement.Auto,
+            allowedTargets = completion == GuideCompletion.Confirm ? Array.Empty<GameDirectTarget>() : new[] { target }
+        };
+
         /// <summary>편집 모드에서 최초 구성 또는 누락 연결만 복구한다. 기존 데이터·프리팹의 수동 편집을 보존한다.</summary>
         [MenuItem("KingdomIdle/Direction/Prepare guide foundation")]
         public static void Prepare()

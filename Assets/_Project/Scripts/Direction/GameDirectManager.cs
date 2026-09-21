@@ -10,7 +10,7 @@ namespace Direction
 {
     /// <summary>
     /// 조건부 연출의 공통 실행 창구다. 이번 단계는 명시적인 요청만 받으며 자동 발생 조건은 연결하지 않는다.
-    /// bootstrap의 영속 GameManager 오브젝트에 붙고, 일반 C# Player의 생성·취소·폐기를 소유한다.
+    /// GameManager 오브젝트에 붙고 각 연출 Player의 생성·취소·폐기를 소유한다.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class GameDirectManager : MonoBehaviour
@@ -29,12 +29,16 @@ namespace Direction
         public string ActiveSequenceId => _activeId;
         public int PendingCount => _queue.Count;
         public string LastError { get; private set; }
+#if UNITY_EDITOR
+        private bool _resettingForTest;
+#endif
 
         private sealed class Request
         {
             public string Id;
             public GameDirectStep[] Steps;
             public bool Preview;
+            public bool Interactive;
             public long AccountGeneration;
             public long ExecutionGeneration;
         }
@@ -82,9 +86,13 @@ namespace Direction
         public bool RequestPlay(GameDirectSequenceSO sequence, bool preview = false)
         {
             LastError = null;
+#if UNITY_EDITOR
+            if (_resettingForTest) { LastError = "테스트 안내 기록을 초기화 중입니다."; return false; }
+#endif
             if (_destroyed || !isActiveAndEnabled || _player == null) { LastError = "연출 관리자가 준비되지 않았습니다."; return false; }
             if (sequence == null) { LastError = "연출 데이터가 없습니다."; return false; }
             if (!sequence.TryValidate(out string error)) { LastError = error; return false; }
+            if (preview && sequence.IsInteractive) { LastError = "실습형 안내는 현재 계정에 저장하는 일반 실행으로 요청하세요."; return false; }
             if (_requestedIds.Contains(sequence.sequenceId)) { LastError = "이미 요청된 연출입니다."; return false; }
             long generation = LocalProgression.AccountGeneration;
             if (!preview)
@@ -96,14 +104,43 @@ namespace Direction
             var steps = new GameDirectStep[sequence.steps.Length];
             for (int i = 0; i < steps.Length; i++) steps[i] = new GameDirectStep(sequence.steps[i], i + 1, steps.Length);
             _requestedIds.Add(sequence.sequenceId);
-            _queue.Enqueue(new Request { Id = sequence.sequenceId, Steps = steps, Preview = preview,
+            _queue.Enqueue(new Request { Id = sequence.sequenceId, Steps = steps, Preview = preview, Interactive = sequence.IsInteractive,
                 AccountGeneration = generation, ExecutionGeneration = _executionGeneration });
             if (!_pumping) PumpAsync().Forget();
             return true;
         }
 
         /// <summary>현재 연출만 중단한다. 확인한 단계는 유지하고 나머지 대기 요청은 순서대로 진행한다.</summary>
-        public void CancelCurrent() => _currentCancellation?.Cancel();
+        public void CancelCurrent() { GameDirectInteraction.End(); _currentCancellation?.Cancel(); }
+
+#if UNITY_EDITOR
+        /// <summary>
+        /// GameTest가 지정한 안내 기록을 초기화하기 전에 호출한다. 실행·대기열을 취소하고 Player 정리까지 기다린 후 저장 작업을 실행한다.
+        /// 초기화 중 새 요청을 거절하고 계정·실행 세대가 바뀌면 저장하지 않는다. 성공 여부를 반환하며 실패도 입력 차단은 정리한다.
+        /// </summary>
+        public async UniTask<bool> ResetForTestingAsync(Func<long, bool> reset)
+        {
+            LastError = null;
+            if (!Application.isPlaying || _destroyed || !isActiveAndEnabled || _resettingForTest || reset == null || !LocalProgression.IsReady)
+            { LastError = "PlayMode와 계정 준비 상태를 확인하세요. 초기화 중에는 다시 요청할 수 없습니다."; return false; }
+            _resettingForTest = true;
+            long account = LocalProgression.AccountGeneration;
+            bool hadGuide = _activeId != null;
+            try
+            {
+                // 현재 요청만 취소하면 다음 대기 안내가 먼저 진행되므로 실행 세대와 큐를 함께 폐기한다.
+                ClearRequests();
+                long execution = _executionGeneration;
+                while (_pumping) await UniTask.NextFrame();
+                if (_destroyed || !isActiveAndEnabled || account != LocalProgression.AccountGeneration || execution != _executionGeneration)
+                { LastError = "초기화 대기 중 계정 또는 관리자 상태가 바뀌었습니다."; return false; }
+                if (hadGuide) UIManager.Instance?.FinishFeatureGuide();
+                if (!reset(account)) { LastError = "테스트 안내 기록을 저장하지 못했습니다. 기존 기록은 유지됩니다."; return false; }
+                return true;
+            }
+            finally { _resettingForTest = false; }
+        }
+#endif
 
         /// <summary>계정 전환 시 이전 계정의 실행과 대기열을 함께 폐기한다. 새 계정으로 결과가 넘어갈 수 없다.</summary>
         private void HandleAccountChanged() => ClearRequests();
@@ -112,6 +149,7 @@ namespace Direction
         private void ClearRequests()
         {
             _executionGeneration++;
+            GameDirectInteraction.End();
             _queue.Clear();
             _requestedIds.Clear();
             _currentCancellation?.Cancel();
@@ -139,6 +177,7 @@ namespace Direction
                     }
                     finally
                     {
+                        GameDirectInteraction.End();
                         _currentCancellation = null;
                         _activeId = null;
                         // 계정 전환 후 새로 등록된 같은 ID를 이전 실행의 finally가 지우면 안 된다.
@@ -160,10 +199,16 @@ namespace Direction
             {
                 token.ThrowIfCancellationRequested();
                 if (progress.ConfirmedSteps.Contains(step.Id)) continue;
-                var result = await _player.PlayAsync(step, token);
+                GameDirectInteraction.Begin(request.Id, step, request.AccountGeneration,
+                    () => request.Preview || GameDirectInteraction.GrantCoins(request.Id, step, request.AccountGeneration));
+                GameDirectResult result;
+                try { result = await _player.PlayAsync(step, token); }
+                finally { GameDirectInteraction.End(); }
                 token.ThrowIfCancellationRequested();
                 if (request.ExecutionGeneration != _executionGeneration ||
                     request.AccountGeneration != LocalProgression.AccountGeneration) throw new OperationCanceledException();
+                // 나중에 계속은 사용자 건너뛰기와 다르다. 현재 단계를 미확인으로 남겨 외부 재요청 시 재개한다.
+                if (result == GameDirectResult.Deferred) return;
                 var candidate = progress.Copy();
                 if (result == GameDirectResult.Skipped) candidate.Skipped = true;
                 else candidate.ConfirmedSteps.Add(step.Id);
@@ -176,7 +221,11 @@ namespace Direction
                 }
                 // 디스크 교체가 성공한 후보만 현재 상태로 인정한다. 미리보기는 이 지역 변수에서만 진행한다.
                 progress = candidate;
-                if (progress.Completed || progress.Skipped) return;
+                if (progress.Completed || progress.Skipped)
+                {
+                    if (request.Interactive) UIManager.Instance?.FinishFeatureGuide();
+                    return;
+                }
             }
         }
     }

@@ -126,6 +126,7 @@ namespace KingdomIdle.UGUI
             _crystalFlashCo = StartCoroutine(CrystalFlash());
         }
 
+        /// <summary>HUD가 준비된 프레임에 마탑을 한 번 생성하고 실제 버튼을 안내 대상으로 등록한다. 파괴·비활성화 시 Anchor가 등록을 해제한다.</summary>
         private void EnsureBuilt()
         {
             if (_view != null) return;
@@ -170,6 +171,8 @@ namespace KingdomIdle.UGUI
                 _view.button.onClick.AddListener(OnTowerTapped);
             }
 
+            // 탑 하단은 파티 HUD·하단 메뉴 뒤에 있다. 실제 버튼은 유지하고 가려지지 않은 상단 성벽을 가리킨다.
+            FeatureGuideAnchor.Bind(_view.button, Direction.GameDirectTarget.MageTower, new Rect(0, .65f, 1, .35f));
             // 탑의 유휴 연출은 창문 밝기뿐이다 — 트랜스폼은 절대 건드리지 않는다
             StartLitIdle();
 
@@ -322,6 +325,7 @@ namespace KingdomIdle.UGUI
         }
 
         // ===== 탭: 점등 + 팝업 =====
+        /// <summary>실제 탑의 짧은 탭에서 스킬 창을 연다. 창이 열린 경우만 클릭을 통지하며 완료·저장은 Manager가 맡는다.</summary>
         private void OnTowerTapped()
         {
             if (_view != null)
@@ -340,11 +344,14 @@ namespace KingdomIdle.UGUI
             }
 
             MageTowerPopupController.Show();
+            if (MageTowerPopupController.IsOpen) Direction.GameDirectInteraction.NotifyClick(Direction.GameDirectTarget.MageTower);
         }
 
         // ===== 길게 누르기: AUTO 시전 토글 =====
+        /// <summary>일반 플레이의 장압으로 자동 시전을 바꾸고 저장한다. 탑 열기를 배우는 안내에서는 설정 변경을 막는다.</summary>
         private void OnLongPressToggleAuto()
         {
+            if (Direction.GameDirectInteraction.Step != null) return;
             _autoOn = !_autoOn;
             PlayerPrefs.SetInt(PrefKeyAuto, _autoOn ? 1 : 0);
 

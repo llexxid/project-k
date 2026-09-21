@@ -86,6 +86,7 @@ GameObject:
   - component: {fileID: 5163823348647159224}
   - component: {fileID: 2345543054514234194}
   - component: {fileID: 1313357571424164506}
+  - component: {fileID: 3971189612464998020}
   m_Layer: 5
   m_Name: InputBlocker
   m_TagString: Untagged
@@ -150,6 +151,18 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &3971189612464998020
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 885762995956221205}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9c9fa7468d78e5f4ca501f6811e42101, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomIdle.UGUI.FeatureGuideInputGate
 --- !u!1 &1287825121776439091
 GameObject:
   m_ObjectHideFlags: 0
@@ -783,6 +796,7 @@ MonoBehaviour:
   nextLabel: {fileID: 1596921882549434807}
   nextButton: {fileID: 3438445931847387885}
   skipButton: {fileID: 5740327336447001999}
+  inputGate: {fileID: 3971189612464998020}
 --- !u!225 &6448284306532343603
 CanvasGroup:
   m_ObjectHideFlags: 0
@@ -1678,7 +1692,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
   m_Color: {r: 0.14901961, g: 0.11372549, b: 0.08235294, a: 0.98}
-  m_RaycastTarget: 0
+  m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:

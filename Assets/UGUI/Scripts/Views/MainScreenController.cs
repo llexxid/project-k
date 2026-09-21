@@ -42,11 +42,11 @@ namespace KingdomIdle.UGUI
         {
             _view = view;
             _host = host;
-            _host.GuideTargets.Register(view);
 
             // 각 섹션을 try/catch로 격리 — 한 섹션 예외가 나머지 바인딩을 막지 않도록 (기존 동작 유지)
             try { BindTabs(); }
             catch (Exception ex) { Debug.LogError($"MainScreen.Tabs failed: {ex}"); }
+            _host.GuideTargets.Register(view);
 
             try { BindCurrency(); }
             catch (Exception ex) { Debug.LogError($"MainScreen.Currency failed: {ex}"); }

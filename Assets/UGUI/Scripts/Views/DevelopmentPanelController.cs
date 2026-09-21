@@ -40,6 +40,11 @@ namespace KingdomIdle.UGUI
             if (_view != view) Populate(view);
         }
 
+        /// <summary>안내 재개 때 골드 탭을 복원한다. 기존 UI 갱신을 재사용하고 강화는 실행하지 않는다.</summary>
+        internal static void PrepareGuide() { if (_rubyTab) { _rubyTab = false; Refresh(); } }
+        internal static bool GuideReady => _view != null && _view.gameObject.activeInHierarchy && !_rubyTab;
+
+        /// <summary>패널 생성 때 본문과 경제 구독을 연결한다. view를 보관하고 닫힘 콜백에서 참조·구독을 정리한다.</summary>
         public static void Populate(DevelopmentPanelView view)
         {
             if (view == null) return;
@@ -189,6 +194,7 @@ namespace KingdomIdle.UGUI
                         _rubyTab=ruby;Refresh();
                         var scroll=_view?.GetComponentInChildren<ScrollRect>();if(scroll!=null)scroll.verticalNormalizedPosition=1;
                     });
+                    if (!ruby) FeatureGuideAnchor.Bind(tab.Button, Direction.GameDirectTarget.GoldGrowthTab);
                     GrowthTabs.Add(tab);
                 }
             }
@@ -251,6 +257,8 @@ namespace KingdomIdle.UGUI
                         binding.Buttons.Add(pull);
                         pull.Set($"강화 x{count}", $"{NumberNotation.Format(cost)} G", canAfford, null);
                         pull.Button.onClick.AddListener(() => OnEnhanceClicked(capturedType, capturedCount));
+                        if (type == StatEnhanceManager.EnhanceType.Attack && count == 1)
+                            FeatureGuideAnchor.Bind(pull.Button, Direction.GameDirectTarget.AttackOnce);
                         continue;
                     }
                 }

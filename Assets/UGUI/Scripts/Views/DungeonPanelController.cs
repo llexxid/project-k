@@ -28,6 +28,15 @@ namespace KingdomIdle.UGUI
         [SerializeField] private DungeonCardView[] cards;
         [SerializeField] private DungeonDifficultyPopupView difficultyPopup;
 
+        /// <summary>안내가 중단된 상세 화면을 복원한다. 입장 로직은 호출하지 않고 기존 카드의 정보만 표시한다.</summary>
+        internal void PrepareGuide(Direction.GuideContext context)
+        {
+            if (context == Direction.GuideContext.Dungeon) { if (difficultyPopup != null && difficultyPopup.gameObject.activeSelf) difficultyPopup.Hide(); return; }
+            var type = context == Direction.GuideContext.GoldDungeonDetail ? eStageType.GoldDungeon : eStageType.RubyDungeon;
+            if (difficultyPopup != null && difficultyPopup.gameObject.activeInHierarchy && difficultyPopup.GuideType == type) return;
+            foreach (var card in cards) if (card != null && card.DungeonType == type) { OpenDifficultyPopup(card); return; }
+        }
+
         private void OnEnable()
         {
             if (cards == null)

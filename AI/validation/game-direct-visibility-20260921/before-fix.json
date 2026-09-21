@@ -1,0 +1,22 @@
+{
+  "passed": false,
+  "unity": "6000.3.21f1",
+  "checks": [
+    "Four-step authored menu definition",
+    "Single-step reincarnation definition",
+    "Main screen ready without overlay: {\"ActiveScreenId\":1,\"HasBlockingPanel\":false,\"HasActiveTabPanel\":false,\"modal\":false,\"popups\":[\"Hud_Party(Clone)\"],\"overlays\":[],\"modals\":[]}",
+    "Registered live target: Development",
+    "Registered live target: KingdomArmy",
+    "Registered live target: Dungeon",
+    "Registered live target: Gacha",
+    "Registered live target: Reincarnation",
+    "실습 SO 검증: guide_development",
+    "실습 SO 검증: guide_kingdom_army",
+    "실습 SO 검증: guide_dungeon",
+    "실습 SO 검증: guide_gacha",
+    "실습 SO 검증: guide_mage_tower"
+  ],
+  "captures": [],
+  "failure": "System.NullReferenceException: Object reference not set to an instance of an object\r\n  at KingdomIdle.UGUI.FeatureGuideView.Show (Direction.GameDirectStep step, UnityEngine.RectTransform target, System.Func`1[TResult] canDisplay) [0x001f0] in C:\\GitHub\\project-k\\Assets\\UGUI\\Scripts\\Views\\FeatureGuideView.cs:73 \r\n  at KingdomIdle.UGUI.Editor.InteractiveGuideAcceptance.ExerciseHiddenGeometry (KingdomIdle.UGUI.UIManager ui, System.Action`2[T1,T2] check) [0x00230] in C:\\GitHub\\project-k\\Assets\\UGUI\\Editor\\InteractiveGuideAcceptance.cs:172 \r\n  at KingdomIdle.UGUI.Editor.InteractiveGuideAcceptance.ExerciseHiddenGeometry (KingdomIdle.UGUI.UIManager ui, System.Action`2[T1,T2] check) [0x00534] in C:\\GitHub\\project-k\\Assets\\UGUI\\Editor\\InteractiveGuideAcceptance.cs:181 \r\n  at Cysharp.Threading.Tasks.CompilerServices.AsyncUniTask`1[TStateMachine].GetResult (System.Int16 token) [0x00000] in .\\Library\\PackageCache\\com.cysharp.unitask@a85b92a8e443\\Runtime\\CompilerServices\\StateMachineRunner.cs:218 \r\n  at KingdomIdle.UGUI.Editor.InteractiveGuideAcceptance.RunAsync (UnityEngine.GameObject root, KingdomIdle.UGUI.UIManager ui, Direction.GameDirectManager manager, System.Action`2[T1,T2] check) [0x003c6] in C:\\GitHub\\project-k\\Assets\\UGUI\\Editor\\InteractiveGuideAcceptance.cs:63 \r\n  at KingdomIdle.UGUI.Editor.InteractiveGuideAcceptance.RunAsync (UnityEngine.GameObject root, KingdomIdle.UGUI.UIManager ui, Direction.GameDirectManager manager, System.Action`2[T1,T2] check) [0x01a79] in C:\\GitHub\\project-k\\Assets\\UGUI\\Editor\\InteractiveGuideAcceptance.cs:152 \r\n  at Cysharp.Threading.Tasks.CompilerServices.AsyncUniTask`1[TStateMachine].GetResult (System.Int16 token) [0x00000] in .\\Library\\PackageCache\\com.cysharp.unitask@a85b92a8e443\\Runtime\\CompilerServices\\StateMachineRunner.cs:218 \r\n  at KingdomIdle.UGUI.Editor.GameDirectAcceptance.RunAsync () [0x00528] in C:\\GitHub\\project-k\\Assets\\UGUI\\Editor\\GameDirectAcceptance.cs:143 ",
+  "scope": "Isolated PlayMode; production UGUI prefabs and synthetic raycast input. No real combat or Android device."
+}
