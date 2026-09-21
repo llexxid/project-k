@@ -69,6 +69,8 @@ namespace KingdomIdle.MageTower
 
         private void AutoCastAll()
         {
+            // TryCast already rejects these states; avoid scanning targets every idle frame.
+            if (StageManager.Instance?.CurrentRunState != eStageRunState.Running) return;
             // 화면 안 몬스터 프리체크는 '시전 가능한 슬롯이 실제로 있을 때' 1회만 —
             // 전 슬롯이 쿨다운 중인 평상시 프레임에는 물리 쿼리를 아예 하지 않고,
             // 몬스터가 전부 화면 밖인 프레임에는 슬롯별(최대 5회) 재탐색 대신 1회로 끝낸다.
