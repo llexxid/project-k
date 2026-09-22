@@ -1,14 +1,15 @@
 """Read-only wall/game-clock evidence for an Android progression journey."""
 import datetime as dt
 import json
+import os
 from pathlib import Path
 import subprocess
 import time
 
 ADB = 'C:/Program Files/Unity/Hub/Editor/6000.3.21f1/Editor/Data/PlaybackEngines/AndroidPlayer/SDK/platform-tools/adb.exe'
-SERIAL = 'R3CN815LZ9L'
+SERIAL = os.environ['HUD_QA_SERIAL']
 PACKAGE = 'com.isolatedyouth.idlekingdomrpg.lobbyqa'
-OUT = Path('Recordings/NewPlayer20260922/Run/Timing')
+OUT = Path(os.environ.get('HUD_QA_OUTPUT', 'Recordings/NewPlayer20260922/Run')) / 'Timing'
 
 
 def read(*args):
