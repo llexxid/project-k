@@ -24,6 +24,7 @@ public class EquipmentManager : MonoBehaviour
     public void ClearPlayer() => _players.Clear();
     public IEnumerable<string> GetCurrentJobNames() => _players.Values.Where(p => p != null).Select(p => p.playerStatus.JobName);
     public List<EquipmentData> GetByRarity(eEquipmentRarity rarity) => _database != null ? _database.GetEquipmentsByRarity(rarity) : new List<EquipmentData>();
+    public List<EquipmentData> GetRewardPool(eEquipmentRarity rarity) => GetByRarity(rarity).FindAll(item => item.CanBeRewarded);
     public EquipmentData GetData(int code) => _database?.GetEquipmentByCode(code);
     public void RestoreEquipment()
     {
@@ -165,7 +166,7 @@ public class EquipmentManager : MonoBehaviour
     {
         if (UnityEngine.Random.value >= probability) return null;
         float roll = UnityEngine.Random.value;
-        var items = GetByRarity(roll < .80f ? eEquipmentRarity.Normal : roll < .98f ? eEquipmentRarity.Rare : eEquipmentRarity.Epic);
+        var items = GetRewardPool(roll < .80f ? eEquipmentRarity.Normal : roll < .98f ? eEquipmentRarity.Rare : eEquipmentRarity.Epic);
         if (items.Count == 0) return null;
         return new EquipmentSave { Id = Guid.NewGuid().ToString("N"), Code = items[UnityEngine.Random.Range(0, items.Count)].itemCode };
     }

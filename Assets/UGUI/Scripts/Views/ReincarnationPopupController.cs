@@ -113,7 +113,8 @@ namespace KingdomIdle.UGUI
                 $"환생 횟수: {current.Count:N0} → " +
                 $"<color={GainColor}>{preview.NextState.Count:N0} " +
                 $"(+{countGain:N0})</color>\n\n" +
-                "초기화: 메인 스테이지 1-1\n보유 장비와 강화는 유지됩니다.");
+                "초기화: 1-1 · 골드 · 공격력/체력 골드 강화\n" +
+                "유지: 계정·전직·장비·마탑·루비 성장\n장비 강화와 골드 외 재화도 유지됩니다.");
             view.confirmButton.interactable = true;
         }
 

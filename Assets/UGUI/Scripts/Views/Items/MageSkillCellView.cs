@@ -18,7 +18,7 @@ namespace KingdomIdle.UGUI
         [FormerlySerializedAs("rarityLabel")] public TMP_Text stateLabel;
         public CanvasGroup canvasGroup;
 
-        public void Set(MageTowerSkillSO skill, bool owned, bool equipped, float power, bool bloom, Action onClick)
+        public void Set(MageTowerSkillSO skill, bool owned, bool equipped, long power, bool bloom, Action onClick)
         {
             if (frameImage != null) frameImage.color = equipped ? UguiTheme.BronzeLight : bloom ? MageSkillPresentation.BloomAccent : MageSkillPresentation.Frame;
             if (background != null) background.color = UguiTheme.RusticSurfaceDark;
@@ -32,7 +32,7 @@ namespace KingdomIdle.UGUI
             if (stateLabel != null) { stateLabel.text = equipped ? "◆ 장착 중" : bloom ? "개화" : owned ? "보유" : "미보유"; stateLabel.color = equipped ? UguiTheme.BronzeLight : bloom ? MageSkillPresentation.BloomAccent : UguiTheme.TextSecondary; }
             Action refresh = () => {
                 if (dmgLabel == null) return;
-                dmgLabel.text = !owned ? "미보유 · 자세히" : $"기준 {(skill.IsHealing ? "회복" : "피해")} {NumberNotation.Format(power)}";
+                dmgLabel.text = !owned ? "미보유 · 자세히" : MageSkillPresentation.PowerSummary(skill, power, bloom);
             };
             NumberNotationBinding.Bind(this, refresh); refresh();
             if (button != null)

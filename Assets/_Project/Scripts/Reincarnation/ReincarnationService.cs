@@ -41,6 +41,9 @@ namespace Reincarnation
             s.ReincarnationLevel += Math.Min(300 - s.ReincarnationLevel, 5 * s.CycleBossStage);
             s.ReincarnationCount++; s.ReincarnationsToday++;
             s.CycleBossStage = 0; s.MainStage = 0x200010001;
+            s.AttackLevel = s.HealthLevel = 0;
+            s.Wallet[eCurrency.Gold] = 0;
+            s.GoldRemainder = 0;
             s.CycleStartedUtc = s.LastReincarnationUtc = LocalProgression.UtcNow;
             s.ReincarnatedBattle = battleId;
             QuestEconomy.Count(s,eQuestObjectiveType.Reincarnate,0,1);

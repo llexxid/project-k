@@ -37,11 +37,11 @@ namespace KingdomIdle.Gacha
             if (!CanPullMulti(table, count)) { onError?.Invoke(PullFailure(table, count)); return; }
             var equipment = EquipmentManager.Instance;
             var mage = MageTowerManager.Instance;
-            var normal = equipment?.GetByRarity(eEquipmentRarity.Normal);
-            var rare = equipment?.GetByRarity(eEquipmentRarity.Rare);
-            var epic = equipment?.GetByRarity(eEquipmentRarity.Epic);
+            var normal = equipment?.GetRewardPool(eEquipmentRarity.Normal);
+            var rare = equipment?.GetRewardPool(eEquipmentRarity.Rare);
+            var epic = equipment?.GetRewardPool(eEquipmentRarity.Epic);
             var skills = mage?.GetAllSkills().Where(x => x != null).ToArray();
-            if ((table.gachaType == eGachaType.Equipment && (normal?.Count != 9 || rare?.Count != 6 || epic?.Count != 3)) ||
+            if ((table.gachaType == eGachaType.Equipment && (normal == null || normal.Count == 0 || rare == null || rare.Count == 0 || epic == null || epic.Count == 0)) ||
                 (table.gachaType == eGachaType.Skill && !MageSkillRules.ValidateRoster(skills))) { onError?.Invoke("뽑기 데이터 구성을 확인할 수 없습니다."); return; }
             IsPulling = true; OnPullStateChanged?.Invoke(true);
             var rewards = new List<GachaRewardEntry>(); bool ok;

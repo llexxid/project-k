@@ -151,7 +151,7 @@ namespace KingdomIdle.UGUI
                     _cells[id] = cell;
                 }
 
-                float dmg = owned ? mgr.GetEffectiveDamage(id) : 0f;
+                long dmg = owned ? mgr.GetEffectiveDamage(id) : 0;
                 cell.Set(skill, owned, equipped, dmg, mgr.IsBloomEnabled(id), () => OnInvItemTapped(id, equippable));
                 if (id == _candidate && cell.frameImage != null) cell.frameImage.color = MageSkillPresentation.Accent;
 

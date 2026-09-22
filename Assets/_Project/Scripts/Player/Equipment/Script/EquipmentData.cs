@@ -145,6 +145,11 @@ public class EquipmentData : ScriptableObject
     /// </summary>
     public int itemCode => ItemCode.Encode(rarity, slot, _jobMask, _itemId);
 
+    // Archer-family weapons remain in the catalog for existing saves, but are not new rewards.
+    // Do not use IsAllowedForJob here: normal bows can also be equipped by a spearman.
+    public bool CanBeRewarded => slot != eEquipmentSlot.Weapon || _jobMask == eJobFlag.None ||
+        (_jobMask & ~(eJobFlag.Archer | eJobFlag.Elite_Archer)) != 0;
+
     // ── 헬퍼 ─────────────────────────────────────────────────────────
 
     /// <summary>

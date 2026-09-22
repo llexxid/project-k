@@ -7,6 +7,14 @@ namespace KingdomIdle.UGUI
 {
     public static class MageSkillPresentation
     {
+        public static string PowerSummary(MageTowerSkillSO skill, long power, bool bloom)
+        {
+            long effective = bloom ? BalanceMath.Damage(power, (decimal)skill.bloomPowerMultiplier) : power;
+            string label = bloom && skill.spellKind == MageSpellKind.ArcaneVolley ? "충돌" :
+                bloom && skill.spellKind == MageSpellKind.IceSpike ? "단일" : skill.IsHealing ? "1회 회복" : "1회 피해";
+            return $"{label} {NumberNotation.Format(effective)}";
+        }
+
         public static string Description(MageTowerSkillSO skill, bool bloom)
         {
             if (!bloom) return skill.description;

@@ -47,6 +47,10 @@ namespace KingdomIdle.UGUI
         // 캐시된 플레이어 목록
         private static List<Player> _players;
         private static KingdomArmyManager _mgr;
+        private static Scripts.Core.Manager.StageManager _stageEvents;
+        private static string[] _displayedJobs;
+        private static string _detailEquipmentId;
+        private static JobData _detailJob;
 
         // 종합 탭 실시간 갱신용 캐시 (FrameTick 타이머)
         private static bool _charTickSubscribed;
@@ -85,6 +89,7 @@ namespace KingdomIdle.UGUI
 
             if (view == null) return;
 
+            UnsubscribeStageEvents();
             _view = view;
             _contentPage = null;
             NumberNotationBinding.Bind(view, Refresh);
@@ -92,9 +97,10 @@ namespace KingdomIdle.UGUI
 
             view.OnClosed = () =>
             {
-                UnsubscribeCharTick();
                 if (_view == view)
                 {
+                    UnsubscribeCharTick();
+                    UnsubscribeStageEvents();
                     _view = null;
                     _memberTabButtons.Clear();
                     _navButtons.Clear();
@@ -111,6 +117,9 @@ namespace KingdomIdle.UGUI
             }
 
             _players = _mgr.GetPlayers();
+            _displayedJobs = _players.Select(p => p != null ? p.playerStatus?.JobName : null).ToArray();
+            _stageEvents = Scripts.Core.Manager.StageManager.Instance;
+            if (_stageEvents != null) _stageEvents.OnStageEnter += OnPartyApplied;
             _activeMemberIndex = pendingMember >= 0 && _players != null && _players.Count > 0
                 ? Mathf.Clamp(pendingMember, 0, _players.Count - 1)
                 : 0;
@@ -119,6 +128,37 @@ namespace KingdomIdle.UGUI
             BuildMemberTabs();
             BuildNavBar();
             Refresh();
+        }
+
+        private static void UnsubscribeStageEvents()
+        {
+            if (_stageEvents != null) _stageEvents.OnStageEnter -= OnPartyApplied;
+            _stageEvents = null;
+        }
+
+        // Queued jobs and replacement character instances become authoritative at the next wave.
+        // Refresh only when the party changes, preserving the selected tab and detail page.
+        private static void OnPartyApplied(StageDefinition definition)
+        {
+            if (_view == null || _mgr == null) return;
+            var current = _mgr.GetPlayers();
+            var jobs = current.Select(p => p != null ? p.playerStatus?.JobName : null).ToArray();
+            if (_players != null && _players.SequenceEqual(current) && _displayedJobs != null && _displayedJobs.SequenceEqual(jobs)) return;
+            _players = current;
+            _displayedJobs = jobs;
+            _activeMemberIndex = Mathf.Clamp(_activeMemberIndex, 0, Mathf.Max(0, current.Count - 1));
+            BuildMemberTabs();
+            if (_contentPage == typeof(KAJobDetailView) && _detailJob != null) ShowJobDetail(_detailJob);
+            else if (_contentPage == typeof(KAEquipDetailView))
+            {
+                var item = EquipmentManager.Instance?.Inventory.Items.FirstOrDefault(x => x.instanceId == _detailEquipmentId);
+                var player = GetCurrentPlayer();
+                if (item != null && player != null)
+                    ShowEquipmentActionPopup(item, item.equipmentPlayerIndex == player.PlayerIndex,
+                        item.baseData.IsAllowedForJob(player.playerStatus.JobName), player.PlayerEquipmentManager);
+                else Refresh();
+            }
+            else Refresh();
         }
 
         // ── 상단 멤버 탭 (왕국군1 / 왕국군2 / 왕국군3) ──
@@ -663,6 +703,7 @@ namespace KingdomIdle.UGUI
 
             var detail = InstantiateContent<KAEquipDetailView>(Cat != null ? Cat.panelKAEquipDetail : null);
             if (detail == null) return;
+            _detailEquipmentId = item.instanceId;
 
             // 뒤로가기
             if (detail.backButton != null)
@@ -1005,6 +1046,7 @@ namespace KingdomIdle.UGUI
 
             var detail = InstantiateContent<KAJobDetailView>(Cat != null ? Cat.panelKAJobDetail : null);
             if (detail == null) return;
+            _detailJob = job;
 
             FeatureGuideAnchor.Bind(detail.compareTable, Direction.GameDirectTarget.ArmyJobStats);
             FeatureGuideAnchor.Bind(detail.skillList, Direction.GameDirectTarget.ArmyJobSkills);

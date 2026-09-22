@@ -489,7 +489,7 @@ namespace Scripts.Core.Manager
 					// StageRuleResult의 생성 규칙상 MoveToStage는 항상 TargetStage를 가진다.
 					eStage target = result.TargetStage.Value;
 					NotifyStageCleared(session);
-                    if (LocalProgression.State.ReincarnatedBattle == session.RunId) { SetLoopMode(false); SetBossAutoChallenge(false); TransitionStage((eStage)0x200010001); break; }
+                    if (LocalProgression.State.ReincarnatedBattle == session.RunId) { SetLoopMode(false); TransitionStage((eStage)0x200010001); break; }
 					if (session.Definition.Type == eStageType.Main && ShouldRestart(target))
 					{
 						RestartStage();
