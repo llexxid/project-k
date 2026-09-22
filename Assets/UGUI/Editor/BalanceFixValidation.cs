@@ -26,6 +26,11 @@ namespace KingdomIdle.UGUI.Editor
                 var gacha = root.AddComponent<GachaManager>();
                 var table = AssetDatabase.LoadAssetAtPath<GachaTableSO>("Assets/Gacha/SO/GachaTable_Equipment.asset");
                 var report = BalanceFixAcceptance.Run(equipment, gacha, table);
+                var firstClear = Scripts.Core.StageCatalogRules.Get(Scripts.Core.eStageType.Main, 1, 3).Encounter.FirstClear;
+                var reward = equipment.GetByRarity(eEquipmentRarity.Normal).Find(x => x.IsAllowedForJob(firstClear.WeaponJob) && x.bonusAtk == firstClear.WeaponAttack);
+                if (firstClear.WeaponJob != "Mage" || firstClear.WeaponAttack != 10 || reward == null || !reward.CanBeRewarded)
+                    throw new InvalidOperationException("Stage 1-3 must grant the same-power staff instead of a bow.");
+                report["firstClearWeapon"] = reward.equipmentName;
                 File.WriteAllText(output + "/acceptance.json", JsonConvert.SerializeObject(report, Formatting.Indented));
                 using (LocalProgression.BeginTestSession()) BalanceEditorValidation.Run();
                 Debug.Log("BALANCE FIX ACCEPTANCE PASSED " + report["passed"]);
@@ -42,6 +47,12 @@ namespace KingdomIdle.UGUI.Editor
         {
             Run();
             TitleLobbyDeviceBuild.BuildForManualTesting();
+        }
+
+        public static void RegenerateAndBuildManual()
+        {
+            Scripts.Core.Parser.StageDataGenerator.Generate();
+            BuildManual();
         }
     }
 }

@@ -164,7 +164,8 @@ namespace KingdomIdle.UGUI
             }
             else if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency)
             {
-                displayName = entry.currency == eCurrency.ArcaneKnowledge ? "비전 지식" : !string.IsNullOrEmpty(entry.nameKor)
+                displayName = entry.currency == eCurrency.ArcaneKnowledge ? "비전 지식" :
+                    entry.currency == eCurrency.ClassFragment ? "전직 파편" : !string.IsNullOrEmpty(entry.nameKor)
                     ? entry.nameKor
                     : MainScreenController.GetCurrencyLabelKor(entry.currency);
             }

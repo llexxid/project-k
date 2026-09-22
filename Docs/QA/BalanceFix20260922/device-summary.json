@@ -1,0 +1,55 @@
+{
+  "build": 61,
+  "mode": "Explicit regression fixture on manual build; real Android touches",
+  "reincarnation": {
+    "before": {
+      "MainStage": 8590065670,
+      "AttackLevel": 30,
+      "HealthLevel": 40,
+      "ReincarnationLevel": 0
+    },
+    "after": {
+      "MainStage": 8590000130,
+      "AttackLevel": 0,
+      "HealthLevel": 0,
+      "ReincarnationLevel": 15
+    },
+    "goldBefore": 110861,
+    "goldObservedAfter": 60,
+    "goldAfterNote": "New combat gold after the atomic reset; editor assertions verify exact zero at commit",
+    "preserved": {
+      "AccountLevel": true,
+      "Experience": true,
+      "Jobs": true,
+      "UnlockedJobs": true,
+      "RubyGoldLevel": true,
+      "RubyExpLevel": true,
+      "RubyGoldSpent": true,
+      "RubyExpSpent": true,
+      "MageSkills": true,
+      "MageSlots": true,
+      "MainClears": true,
+      "GoldDungeonClear": true,
+      "RubyDungeonClear": true
+    },
+    "ownedEquipmentPreserved": 145
+  },
+  "gacha": {
+    "draws": 10,
+    "coinCost": 500,
+    "weapons": 9,
+    "bowCount": 0,
+    "classFragments": 2
+  },
+  "job": {
+    "before": "Spearman",
+    "after": "Knight",
+    "panelReopened": false,
+    "equipmentAfter": "Golden_Great_Sword"
+  },
+  "mage": {
+    "skill": "Thunder bloom",
+    "listPower": "3.75K",
+    "detailPower": "3.75K"
+  }
+}
