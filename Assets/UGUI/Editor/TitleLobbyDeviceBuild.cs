@@ -15,6 +15,9 @@ namespace KingdomIdle.UGUI.Editor
 
         public static void Build() => BuildPlayer(true);
 
+        // Observe a real new-player login without selecting or seeding a diagnostic account.
+        public static void BuildForPlayerJourney() => BuildPlayer(true, true);
+
         public static void BuildForManualTesting() => BuildPlayer(false);
 
         [Serializable]
@@ -22,10 +25,10 @@ namespace KingdomIdle.UGUI.Editor
         {
             public string apk, package, label, version, purpose;
             public int versionCode;
-            public bool diagnostics;
+            public bool diagnostics, naturalProfile;
         }
 
-        static void BuildPlayer(bool diagnostics)
+        static void BuildPlayer(bool diagnostics, bool naturalProfile = false)
         {
             Directory.CreateDirectory(Output);
             if (File.Exists(Output + "/build.txt")) File.Delete(Output + "/build.txt");
@@ -44,7 +47,8 @@ namespace KingdomIdle.UGUI.Editor
                 version = PlayerSettings.bundleVersion,
                 versionCode = versionCode,
                 purpose = purpose,
-                diagnostics = diagnostics
+                diagnostics = diagnostics,
+                naturalProfile = naturalProfile
             };
             string fileStem = $"{purpose}_{manifest.version}_b{versionCode}";
             foreach (char invalid in Path.GetInvalidFileNameChars()) fileStem = fileStem.Replace(invalid, '_');
@@ -112,7 +116,8 @@ namespace KingdomIdle.UGUI.Editor
                     locationPathName = manifest.apk,
                     target = BuildTarget.Android,
                     options = BuildOptions.Development | BuildOptions.DetailedBuildReport,
-                    extraScriptingDefines = diagnostics ? new[] { "LOBBY_DEVICE_QA" } : Array.Empty<string>()
+                    extraScriptingDefines = naturalProfile ? new[] { "LOBBY_DEVICE_QA", "NATURAL_PLAYER_QA" } :
+                        diagnostics ? new[] { "LOBBY_DEVICE_QA" } : Array.Empty<string>()
                 };
                 BuildReport report = BuildPipeline.BuildPlayer(options);
                 string summary = $"Result: {report.summary.result}\nBytes: {report.summary.totalSize}\nDuration: {report.summary.totalTime}\nErrors: {report.summary.totalErrors}\nWarnings: {report.summary.totalWarnings}\nPackage: {manifest.package}\nLabel: {manifest.label}\nVersion: {manifest.version}\nVersionCode: {manifest.versionCode}\nDiagnostics: {diagnostics}\nAPK: {manifest.apk}\nBackend: {PlayerSettings.GetScriptingBackend(UnityEditor.Build.NamedBuildTarget.Android)}\n";

@@ -25,8 +25,10 @@ namespace KingdomIdle.UGUI
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Install()
         {
+#if !NATURAL_PLAYER_QA
             LocalProgression.OpenTestAccount(PlayAccount);
             SeedNew();
+#endif
             DontDestroyOnLoad(new GameObject("BalanceDeviceProbe",typeof(BalanceDeviceProbe)));
         }
         private static void SeedNew()
@@ -52,6 +54,11 @@ namespace KingdomIdle.UGUI
                     try
                     {
                         c=JsonConvert.DeserializeObject<Command>(File.ReadAllText(path));File.Delete(path);
+#if NATURAL_PLAYER_QA
+                        // Natural progression must never consume the fixture/cheat commands below.
+                        if (c.action != "state" && c.action != "timescale")
+                            throw new InvalidOperationException("Natural player QA allows observation and explicit time scaling only.");
+#endif
                         if (c.action != "state") ResumeCapture();
                         object output=null;
                         switch(c.action)
