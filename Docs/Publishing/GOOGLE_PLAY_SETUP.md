@@ -2,6 +2,8 @@
 
 작성일: 2026-09-24. 범위: 첨부된 `Finish setting up your game`의 11개 항목.
 
+2026-09-25 추가: [국내 출시 법무 검토](LEGAL_REVIEW_KO.md), [이용약관 초안](TERMS_OF_SERVICE_KO.md), [확률 공개 작성표](PROBABILITY_DISCLOSURE.md), [사이트·비용·URL 구성](WEBSITE_PLAN.md), [로컬 사이트 시안](site-preview/dist/index.html). 문서 준비가 콘솔 완료 상태를 바꾸지는 않는다. 아래 콘솔 상태는 2026-09-24 조회 기록이다.
+
 현재 확정 사항: 대한민국 우선 출시, 루도스(Ludos), 최초 출시본에 광고·Google Play 인앱결제 포함. 광고 업체는 미정.
 기준 소스: 현재 `develop` 작업 폴더, 운영 기획서, 2026-09-24 콘솔 읽기 전용 조회.
 
