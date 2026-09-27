@@ -76,10 +76,10 @@ namespace KingdomIdle.Balance
             Check(Enumerable.Range(1,5).Select(BalanceMath.RubyClear).SequenceEqual(new long[]{50,67,91,123,166}),"Ruby dungeon reward curve");
             Check(BalanceMath.Mimic(3).Gold*13==14976 && BalanceMath.Mimic(3).Gold*20==23040,"Gold dungeon partial and full rewards");
             var offline=OfflineRewardCalculator.CreatePlan(TimeSpan.FromHours(10),0x20003000A,30);
-            Check(offline.estimatedKillCount==8640 && offline.appliedOfflineSeconds==28800,"Offline 8 hours, 60%, 8640 maximum");
+            Check(offline.estimatedKillCount==6480 && offline.appliedOfflineSeconds==21600,"Offline 6 hours, 60%, 6480 maximum");
             Check(OfflineRewardCalculator.CreatePlan(TimeSpan.FromHours(8),0x20003000B,30).estimatedKillCount==0,"Offline excludes boss");
             Check(OfflineRewardCalculator.CreatePlan(TimeSpan.FromHours(8),0x210010001,30).estimatedKillCount==0,"Offline excludes dungeon");
-            Check(OfflineRewardCalculator.CreatePlan(TimeSpan.FromHours(8),0x200010001,15).estimatedKillCount==4320,"Early sample KPM cap");
+            Check(OfflineRewardCalculator.CreatePlan(TimeSpan.FromHours(8),0x200010001,15).estimatedKillCount==3240,"Early sample KPM cap");
             var distribution=new int[4];for(int i=0;i<1000000;i++)distribution[BalanceMath.EquipmentRoll(i,0)+1]++;
             Check(distribution.SequenceEqual(new[]{50000,700000,200000,50000}),"Exhaustive equipment probability partition 5/70/20/5");
             Check(BalanceMath.EquipmentRoll(999999,39)==2 && BalanceMath.EquipmentRoll(0,39)==2,"40th equipment draw replaces every outcome");

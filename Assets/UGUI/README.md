@@ -78,7 +78,7 @@ bootstrap부터 Play하고 메인 화면에 진입한다. `GameTest` 컴포넌�
 - `CompactHudBuilder.Apply`: `Screen_Main`, `Panel_Guide`, `Item_GuideStepRow`를 갱신한다.
 - 스테이지 배지: `StageBadgeAnchor`가 하단 왕국군 상태 HUD 바로 위에 정렬한다. 보스전에서는 같은 배지에 타이머가 표시된다.
 - 좌측 상단: `GuideGoalView`가 실제 `QuestManager`의 현재 단계·목표·진척도를 이벤트로 갱신한다. 진행 중 목적지 이동, 완료 시 다음 단계/보상, 전체 내용은 메뉴에서 확인한다.
-- 햄버거: 퀘스트/가이드, 가방, 설정, 반복 사냥 종료. 보스 자동 도전은 스테이지 인디케이터 옆에서 조작한다.
+- 햄버거: 퀘스트/가이드, 가방, 상점, 설정, 반복 사냥 종료. 보스 자동 도전은 스테이지 인디케이터 옆에서 조작한다.
 - `Panel_Guide`는 가이드·일일·주간·업적 네 탭을 제공한다. 상단 현재 퀘스트 카드는 가이드 탭에서만 표시하며 HUD와 같은 `QuestManager` 데이터를 쓴다.
 - 하단 네 탭은 육성·왕국군·던전·뽑기. 시트가 열리면 HUD 목표 카드는 숨긴다.
 
@@ -115,7 +115,7 @@ Android 검사 도우미·결과는 `AI/qa/hud/`, `Recordings/HudRevision/`에 �
 
 ## 마탑·뽑기
 
-`MageUiPreparation`은 10종 스킬 셀, 개화 선택이 있는 상세 창, 목재·청동 뽑기 버튼과 결과 창을 준비한다. 스킬 등급은 없으며 청동 테두리와 문구로 장착, 보라색과 아이콘 변형으로 개화를 표시한다. 스킬 셀은 재사용한다. `MageSkillPresentation`은 등록 SO와 저장 상태를 읽는다. `GachaButtonFlare`는 unscaled-time 가장자리 청색 연출을 재사용하며, 저사양에서도 결제 시점·취소 동작은 동일하다. 창을 닫으면 결제 전 연출을 취소하고 연속 터치에는 한 번만 결제한다.
+`MageUiPreparation`은 스킬 셀, 개화 선택이 있는 상세 창, 목재·청동 뽑기 버튼과 결과 창을 준비한다. 현재 로스터는 ID 6·8을 제외한 8종이며 제거된 ID를 재사용하지 않는다. 스킬 등급은 없으며 청동 테두리와 문구로 장착, 보라색과 아이콘 변형으로 개화를 표시한다. 스킬 셀은 재사용한다. `MageSkillPresentation`은 등록 SO와 저장 상태를 읽는다. `GachaButtonFlare`는 unscaled-time 가장자리 청색 연출을 재사용하며, 저사양에서도 재화 차감 시점·취소 동작은 동일하다. 창을 닫으면 차감 전 연출을 취소하고 연속 터치에는 한 번만 차감한다.
 
 마탑 Android 검증 도우미는 `AI/qa/mage/`, 상세 근거는 [통합 보고서](../../Docs/ArtPreparation/MAGE_INTEGRATION_VALIDATION.md)에 있다.
 
@@ -128,3 +128,13 @@ Android 검사 도우미·결과는 `AI/qa/hud/`, `Recordings/HudRevision/`에 �
 0.11.1 후속 검증은 `PlayabilityRevisionPreparation.ValidateSessionRoutes`와 `AI/qa/mage/player_*.py`를 사용한다. 가이드 이동은 대상 탭을 한 번 지정하고, 스테이지 배지는 반복 사냥에서 다음 구간 도전을 제공한다. 프로필은 실제 진행 수치를 읽으며 던전 팝업은 짧은 웨이브 전환 동안 입장 요청을 유지하고 닫기 시 취소한다. [30분 × 3회 실플레이 기록](../../Docs/ArtPreparation/PLAYER_SIMULATION_20260918.md)에 수정과 성능 측정이 있다.
 
 퀘스트 병합(2026-09-21): UI는 `QuestManager`의 snapshot/event를 읽고 수령은 `TryClaim`으로 요청한다. `LocalProgression`의 0.75초 스킬 자동 저장 성공 뒤 기존 변경 알림으로 갱신하며 별도 표시 타이머는 두지 않는다. 이동은 목표 ID까지 전달해 소환·장비·전직 탭을 선택한다. 프리팹 배치는 퀘스트 카드 작업본을 유지하고 외부 에셋 참조는 프로젝트 내 작업본으로 연결한다.
+
+## 상점과 재접속 보상
+
+`ShopPopupPrefabGen.Rebuild`는 기존 HUD에 상점 진입 버튼을 연결하고 `Popup_Shop`, `Popup_OfflineReward`, 카탈로그 참조를 갱신한다. 상점은 추천·주화/골드·매일 광고 세 탭과 재사용 상품 행으로 구성하며, 좁은 화면에서는 안전 영역에 맞춰 팝업 크기를 조정하고 목록만 스크롤한다. 전체 HUD 생성 경로도 상점 진입을 보존한다.
+
+`ShopCatalog`는 안정 상품 ID, 예정 가격, 제공 수량, 결제 방식을 정의한다. `ShopPopupController`는 현재 지갑·기준 골드 수입 표시와 준비 중 토스트만 담당하며 구매·교환·광고 클릭으로 진행 데이터나 일일 횟수를 변경하지 않는다. 실제 IAP 가격·영수증 검증·보상 지급은 향후 권한 있는 결제 모듈에서 연결한다. 골드 표시는 동적 퀘스트와 동일한 안전 일반 웨이브/KPM/루비 기준을 사용하고 변경된 텍스트만 갱신한다.
+
+오프라인 누적 상한은 `OfflineRewardCalculator.MaxOfflineSeconds`의 21,600초(6시간)다. 기본 보상은 기존 원자 정산으로 지급되고, 추가한 광고 2배 버튼은 지금은 토스트만 표시한다. `ShopAcceptance.Run`은 전체 미리보기 클릭의 저장 무변경, 골드 환산, 6시간 경계, 음수 시각, 같은 구간 재수령, 저장 실패 후 재시도를 검증한다. `ShopPopupPrefabGen.Validate`는 이 검사와 세 관련 프리팹의 직렬화 참조를 확인한다. 실행 증거는 `Recordings/ShopRevision`에 저장한다.
+
+`ShopPopupPrefabGen.ValidatePlayMode`는 실제 팝업의 세 탭, 상품 버튼, 재사용, 닫기·밖 터치·뒤로가기와 오프라인 기본 확인/2배 버튼을 격리된 로컬 계정으로 검사한다. 미저장 씬이 있으면 실행하지 않는다. `FoundationPlayValidation.RunShopReview`는 실제 전투 위 UI를 세 비율로 렌더하고 목록 하단 골드 상품에 스크롤로 닿는지 확인한다. 이 렌더는 Editor 화면이며 Android 실기기 검증과 구별한다. 최종 범위와 제한은 [상점 검증 기록](../../Docs/QA/ShopRevision20260927/README.md)에 남긴다.

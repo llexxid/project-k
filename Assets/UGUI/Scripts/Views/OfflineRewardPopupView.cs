@@ -17,5 +17,6 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal TMP_Text ancientCoinValueLabel;
         [SerializeField] internal TMP_Text progressLabel;
         [SerializeField] internal Button confirmButton;
+        [SerializeField] internal Button doubleRewardButton;
     }
 }

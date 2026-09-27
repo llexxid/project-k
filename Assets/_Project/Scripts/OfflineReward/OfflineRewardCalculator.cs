@@ -4,7 +4,7 @@ namespace KingdomIdle.OfflineRewards
 {
     public static class OfflineRewardCalculator
     {
-        public const int MaxOfflineSeconds = 28800;
+        public const int MaxOfflineSeconds = 21600;
         public static OfflineRewardPlan CreatePlan(TimeSpan duration, long clearedStage, decimal kpm)
         {
             long seconds = Math.Max(0, (long)duration.TotalSeconds);

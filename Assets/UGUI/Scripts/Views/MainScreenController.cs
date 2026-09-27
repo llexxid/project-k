@@ -767,6 +767,14 @@ namespace KingdomIdle.UGUI
 
         private void BindMenus()
         {
+            if (_view.btnMenuShop != null)
+                _view.btnMenuShop.onClick.AddListener(() =>
+                {
+                    CloseHamburgerMenuImmediate();
+                    if (_currencyOpen) CloseCurrencyPopup();
+                    ShopPopupController.Show();
+                });
+
             if (_view.btnMenuGuide != null)
                 _view.btnMenuGuide.onClick.AddListener(() =>
                 {

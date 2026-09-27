@@ -33,7 +33,7 @@ namespace KingdomIdle.UGUI.Editor
                 PrefabGenUtil.CatalogPath);
             if (prefab != null && catalog != null &&
                 catalog.popupOfflineReward == prefab &&
-                HasRequiredRewardIcons(prefab))
+                HasRequiredRewardIcons(prefab) && prefab.GetComponent<OfflineRewardPopupView>().doubleRewardButton != null)
             {
                 return;
             }
@@ -81,7 +81,8 @@ namespace KingdomIdle.UGUI.Editor
                 24f,
                 raycast: true,
                 baseColor: F.PanelBaseDarker);
-            F.AnchorCenter(panel.rectTransform, 820f, 850f);
+            F.AnchorCenter(panel.rectTransform, 920f, 1060f);
+            panel.gameObject.AddComponent<ModalSizeFitter>();
             F.VLayout(
                 panel.gameObject,
                 16f,
@@ -137,7 +138,7 @@ namespace KingdomIdle.UGUI.Editor
             TMP_Text description = F.Text(
                 heroText,
                 "Description",
-                "오프라인 사냥 보상을 받았습니다.",
+                "기본 보상을 받았습니다. 최대 6시간까지 누적됩니다.",
                 21f,
                 UguiTheme.TextSecondary,
                 TextAlignmentOptions.Left,
@@ -218,13 +219,18 @@ namespace KingdomIdle.UGUI.Editor
             view.confirmButton = F.TextButton(
                 panel.transform,
                 "BtnConfirm",
-                "확인",
+                "기본 보상 확인",
                 28f,
                 UguiTheme.BtnConfirm,
                 out _);
             F.Preferred(
                 view.confirmButton.gameObject.AddComponent<LayoutElement>(),
                 height: 82f);
+
+            view.doubleRewardButton = F.TextButton(panel.transform, "BtnDoubleReward", "광고 보고 보상 2배", 28f, UguiTheme.RusticSurface, out _);
+            F.Preferred(view.doubleRewardButton.transform as RectTransform, height: 92f);
+            var preview = F.Text(panel.transform, "AdPreviewNotice", "광고 보상 준비 중 · 지금은 기본 보상만 지급됩니다", 22f, UguiTheme.TextSecondary, TextAlignmentOptions.Center, wrap: true);
+            F.Preferred(preview, height: 56f);
 
             root.gameObject.SetActive(false);
             return PrefabGenUtil.SavePrefab(root.gameObject, PrefabPath);

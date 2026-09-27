@@ -303,6 +303,7 @@ namespace KingdomIdle.UGUI
             DungeonClearPopupController.Hide();
             ReincarnationPopupController.Hide();
             OfflineRewardPopupController.Hide();
+            ShopPopupController.Hide();
             if (Instance == this) Instance = null;
         }
 
@@ -356,6 +357,7 @@ namespace KingdomIdle.UGUI
             DungeonClearPopupController.Hide();
             ReincarnationPopupController.Hide();
             OfflineRewardPopupController.Hide();
+            ShopPopupController.Hide();
             _settings?.Close();
 
             _titleController?.Dispose();

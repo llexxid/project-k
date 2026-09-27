@@ -79,6 +79,8 @@ namespace KingdomIdle.UGUI
             }
 
             _view.confirmButton.onClick.AddListener(Hide);
+            _view.doubleRewardButton.onClick.AddListener(() =>
+                ShopPopupController.Preview(KingdomIdle.Balance.ShopCatalog.OfflineDoublePlacement));
             ModalBackHandler.Bind(instance, Hide);
             _view.backdropButton.onClick.AddListener(Hide);
             _view.gameObject.SetActive(false);
@@ -91,7 +93,7 @@ namespace KingdomIdle.UGUI
             if (plan.actualOfflineSeconds <= plan.appliedOfflineSeconds)
                 return $"방치 시간  {applied}";
 
-            return $"방치 시간  {applied} 적용 · 최대 8시간";
+            return $"방치 시간  {applied} 적용 · 최대 6시간";
         }
 
         private static string FormatSeconds(long seconds)

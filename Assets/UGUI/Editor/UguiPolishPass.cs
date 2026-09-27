@@ -345,7 +345,7 @@ namespace KingdomIdle.UGUI.Editor
             {
                 if(button.name=="BtnLoopIcon")continue;
                 if(button.name=="BtnMenuNotice"||button.name=="BtnMenuMail"){button.gameObject.SetActive(false);continue;}
-                string caption=button.name=="BtnMenuGuide"?"퀘스트 / 가이드":button.name=="BtnMenuInventory"?"가방":button.name=="BtnMenuSettings"?"설정":"";
+                string caption=button.name=="BtnMenuGuide"?"퀘스트 / 가이드":button.name=="BtnMenuInventory"?"가방":button.name=="BtnMenuSettings"?"설정":button.name=="BtnMenuShop"?"상점":"";
                 Height(button.transform,144);
                 var buttonLayout=Layout(button.transform);buttonLayout.minWidth=0;buttonLayout.preferredWidth=-1;buttonLayout.flexibleWidth=1;
                 var icon=button.transform.Find("Icon") as RectTransform;

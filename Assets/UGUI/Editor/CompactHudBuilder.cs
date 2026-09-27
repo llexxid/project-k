@@ -139,6 +139,7 @@ namespace KingdomIdle.UGUI.Editor
             Pin(goal, new Vector2(0,1), new Vector2(24,-280), new Vector2(540,184), new Vector2(0,1));
             BuildGoal(goal, true);
             F.Init();
+            ShopPopupPrefabGen.WireMain(main);
             ProgressionFlowPreparation.ApplyMain(go);
         }
 

@@ -72,7 +72,7 @@ namespace KingdomIdle.UGUI.Editor
             if(font==null) throw new InvalidOperationException("UI font missing.");
             var chars=new HashSet<char>("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz %+-.,:;/()[]◆×·→›");
             // Bake authored Hangul before shipping. Dynamic population remains available for player names.
-            foreach(var directory in new[]{"Assets/UGUI/Scripts","Assets/UGUI/Editor","Assets/MageTower","Assets/_Project/Scripts/MageTower","Assets/_Project/Scripts/Editor"})
+            foreach(var directory in new[]{"Assets/UGUI/Scripts","Assets/UGUI/Editor","Assets/MageTower","Assets/_Project/Scripts/MageTower","Assets/_Project/Scripts/Editor","Assets/_Project/Scripts/Core/Balance"})
                 foreach(var file in Directory.EnumerateFiles(directory,"*.cs",SearchOption.AllDirectories))
                     foreach(char ch in File.ReadAllText(file)) if(ch>='가'&&ch<='힣') chars.Add(ch);
             foreach(var skill in AssetDatabase.LoadAssetAtPath<MageTowerSkillRegistrySO>("Assets/MageTower/SO/MageTowerSkillList.asset").skills)
