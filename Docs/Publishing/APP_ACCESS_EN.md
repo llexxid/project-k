@@ -1,6 +1,6 @@
 # Play review access — 왕국군 키우기
 
-Prepared: 2026-09-24.
+Prepared: 2026-09-24. Updated: 2026-09-27. Brand: Ludos Interactive. Scope: gameplay demo with monetization interface previews only.
 
 **Internal draft. Do not submit until the review route and every placeholder below have been verified with the release build.**
 The current project requires an authenticated session. The current Guest button connects to a shared development account; it is not a verified production review route.
@@ -35,10 +35,14 @@ Menu labels:
 - 뽑기: Draws
 - 마탑: Mage Tower
 - 설정: Settings
+- 상점: Shop
+- 광고 보고 2배 받기: Watch an ad for double rewards (not connected in this demo)
 
 Access to progression-gated features: [TO CONFIRM: the review account's verified progression and exact steps to reach each restricted feature].
 
-Access to paid features: [TO CONFIRM: how reviewers can examine restricted features without making a personal payment; describe only the verified release behavior].
+Monetization interface in this demo: the Shop is available from the in-game hamburger menu and opens as a popup. Product cards show planned prices and contents, but do not initiate billing, display ads, deduct currency, or deliver the previewed products. Tapping these actions shows a Korean message explaining that the feature is not yet implemented. This behavior is the same for reviewers and ordinary players.
+
+The offline-reward popup includes a preview button for double rewards through an ad. The Shop also previews separate daily ad rewards for equipment and Mage Tower tickets. These ad actions do not play a video or grant the advertised extra reward in this demo. Normal gameplay and the ordinary offline reward remain available without a purchase or ad. Confirm these statements against the exact submitted build before copying them into Console.
 
 Network or location requirements: [TO CONFIRM: review access works from the review team's location and does not require contacting the developer for one-time codes].
 
@@ -49,9 +53,13 @@ Network or location requirements: [TO CONFIRM: review access works from the revi
 - [ ] Sign-in is reusable; no expiring password or developer-mediated OTP is required.
 - [ ] No location restriction prevents review access.
 - [ ] All named menu labels match the release UI.
-- [ ] Gated and paid functionality can be inspected using the documented route.
+- [ ] Gated gameplay can be inspected; no purchase or ad is required for this demo. Preview controls behave exactly as described.
 - [ ] A fresh installation successfully reaches gameplay using these instructions.
 - [ ] Instructions do not conceal any functionality or describe a different app behavior for review.
 - [ ] All `[TO CONFIRM: ...]` text removed after actual verification.
 
 [Google's sign-in information requirements](https://support.google.com/googleplay/android-developer/answer/15748846)
+
+## Release blockers recorded on 2026-09-27
+
+The device sign-in screen currently says that login implies agreement to the terms and privacy policy. Working policy links, a verified consent flow, and the under-14 guardian process have not been demonstrated. Do not describe those as complete in reviewer instructions. The exact sign-in route, dedicated reusable review access, guardian flow, and account deletion still require release-build verification. The website cannot substitute for these app capabilities.
