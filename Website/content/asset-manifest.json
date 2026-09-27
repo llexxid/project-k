@@ -12,7 +12,20 @@
     "comfy_tool_count": 41
   },
   "artwork_provenance": "AI/comfyui/lobby/revision5/README.md; currently shipped title background and logo",
-  "screenshot_note": "Actual Android development build captures, 2026-09-22. Development Build mark remains intact. Not screenshots of this task's upcoming shop UI.",
+  "screenshot_note": "Actual game views rendered in Unity Editor PlayMode on 2026-09-27, version 0.15.0. Isolated local QA fixture; no sign-in or server transaction. These are not Android device captures. No generated or composited game UI.",
+  "screenshot_capture": {
+    "unity_version": "6000.3.21f1",
+    "game_version": "0.15.0",
+    "environment": "Unity Editor PlayMode",
+    "physical_android_device": false,
+    "fixture": "FoundationPlayValidation.RunShopReview",
+    "capture_output": "Recordings/ShopRevision/EditorScenes",
+    "source_archive": "Docs/QA/ShopRevision20260927",
+    "viewport": [
+      1080,
+      1920
+    ]
+  },
   "assets": [
     {
       "output": "kingdom-hero-1536.webp",
@@ -106,80 +119,61 @@
       "sha256": "b07b10b47afb02df0840fec13135638edfdd440b146e0c1330540c36791da7ad"
     },
     {
-      "output": "kingdom-icon.webp",
-      "source": "Assets/_Project/Art/Sprites/play_store_512.png",
-      "source_sha256": "af21cd049d28f68e4a26fb1654e1025d3fedfa402866fe2fd4827d440f64f513",
-      "source_size": [
-        512,
-        512
-      ],
-      "crop_box": null,
-      "size": [
-        512,
-        512
-      ],
-      "transparent": false,
-      "webp_lossless": true,
-      "webp_quality": 100,
-      "bytes": 107768,
-      "sha256": "52393a0d4e3da356ff6ef92241c4a27c9fa6df2efb27b12834e892a9c58909cf"
-    },
-    {
       "output": "gameplay-battle.webp",
-      "source": "Docs/QA/NewPlayer20260922/fresh-start.png",
-      "source_sha256": "1ca01f62f1ffa94a2b84d6ca1b0456fa71d98f2f359abf7278373720c2ea4569",
+      "source": "Docs/QA/ShopRevision20260927/battle-current.png",
+      "source_sha256": "7d1a9a6e01e8afdb9bf46a9d56b97a4b7bf9ee191b1b3479103fa2b52f1e6aa5",
       "source_size": [
         1080,
-        2316
+        1920
       ],
       "crop_box": null,
       "size": [
         1080,
-        2316
+        1920
       ],
       "transparent": false,
       "webp_lossless": true,
       "webp_quality": 100,
-      "bytes": 101238,
-      "sha256": "bab9dfed6558295032fc03f93c8ce12bda5aeb14dbd6524a5aab218bad007c61"
+      "bytes": 124396,
+      "sha256": "0b07b0c80bec8872cdd86d7df3a365579329b3eb5af0d7e9233553d06e1635ed"
     },
     {
       "output": "gameplay-mage.webp",
-      "source": "Docs/QA/BalanceFix20260922/mage-list.png",
-      "source_sha256": "6d2cc44c50491546416b1ab89738b392ab8a85f4d6a14a2577a85cf21d71961a",
+      "source": "Docs/QA/ShopRevision20260927/mage-current.png",
+      "source_sha256": "0809f773bb79c89628a7e2d2fff68e97e1616aed0bdda9c95b5d8c6594d1498a",
       "source_size": [
         1080,
-        2316
+        1920
       ],
       "crop_box": null,
       "size": [
         1080,
-        2316
+        1920
       ],
       "transparent": false,
       "webp_lossless": true,
       "webp_quality": 100,
-      "bytes": 93408,
-      "sha256": "aafe47d419f4fdd63c9e7d60a2b0176c3d469572bbc06e94dfe32fd658b5616e"
+      "bytes": 65238,
+      "sha256": "831ec71945496458b0ff8d0659dcb2ffde4eb127fec154bbe66936767d3f3024"
     },
     {
       "output": "gameplay-equipment.webp",
-      "source": "Docs/QA/BalanceFix20260922/equipment-gacha-preview.png",
-      "source_sha256": "602e38c6978ad20196a7073d863b0d26dd0fcfada337e690ef4497320082061f",
+      "source": "Docs/QA/ShopRevision20260927/equipment-gacha-current.png",
+      "source_sha256": "c6458f8da57349b8b27ae60614dd31c88177c8469f4709b79f4546f9f2b9b91c",
       "source_size": [
         1080,
-        2316
+        1920
       ],
       "crop_box": null,
       "size": [
         1080,
-        2316
+        1920
       ],
       "transparent": false,
       "webp_lossless": true,
       "webp_quality": 100,
-      "bytes": 76784,
-      "sha256": "670d78ff807053a522cbfe9db4d836a69b14f439a9d9d4150ad931f9f03a8979"
+      "bytes": 54156,
+      "sha256": "3c40fe337256afbfe25e1b3c7cf00b4c3e8e8fe247839d97f5cb0076521431af"
     }
   ]
 }

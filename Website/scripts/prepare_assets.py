@@ -23,18 +23,31 @@ def main() -> None:
         (artwork, "kingdom-hero-1024.webp", (0, 240, 1536, 1104), (1024, 576), False),
         (artwork, "kingdom-hero-mobile.webp", (192, 0, 1344, 1536), (768, 1024), False),
         ("Assets/UGUI/Art/Lobby/Lobby_Logo_KO.png", "kingdom-logo.webp", None, (768, 539), False),
-        ("Assets/_Project/Art/Sprites/play_store_512.png", "kingdom-icon.webp", None, None, True),
-        ("Docs/QA/NewPlayer20260922/fresh-start.png", "gameplay-battle.webp", None, None, True),
-        ("Docs/QA/BalanceFix20260922/mage-list.png", "gameplay-mage.webp", None, None, True),
-        ("Docs/QA/BalanceFix20260922/equipment-gacha-preview.png", "gameplay-equipment.webp", None, None, True),
+        ("Docs/QA/ShopRevision20260927/battle-current.png", "gameplay-battle.webp", None, None, True),
+        ("Docs/QA/ShopRevision20260927/mage-current.png", "gameplay-mage.webp", None, None, True),
+        ("Docs/QA/ShopRevision20260927/equipment-gacha-current.png", "gameplay-equipment.webp", None, None, True),
     ]
+    missing = [source for source, *_ in operations if not (ROOT / source).is_file()]
+    if missing:
+        raise FileNotFoundError("Missing archived source assets: " + ", ".join(missing))
+    OUT.mkdir(parents=True, exist_ok=True)
     manifest = {
         "date": "2026-09-27",
         "purpose": "Ludos Interactive local website source asset selection and web optimization",
         "tool": {"name": "Pillow", "version": pillow_version},
         "generation": {"new_images": 0, "paid_jobs": 0, "comfy_catalog_connected": True, "comfy_tool_count": 41},
         "artwork_provenance": "AI/comfyui/lobby/revision5/README.md; currently shipped title background and logo",
-        "screenshot_note": "Actual Android development build captures, 2026-09-22. Development Build mark remains intact. Not screenshots of this task's upcoming shop UI.",
+        "screenshot_note": "Actual game views rendered in Unity Editor PlayMode on 2026-09-27, version 0.15.0. Isolated local QA fixture; no sign-in or server transaction. These are not Android device captures. No generated or composited game UI.",
+        "screenshot_capture": {
+            "unity_version": "6000.3.21f1",
+            "game_version": "0.15.0",
+            "environment": "Unity Editor PlayMode",
+            "physical_android_device": False,
+            "fixture": "FoundationPlayValidation.RunShopReview",
+            "capture_output": "Recordings/ShopRevision/EditorScenes",
+            "source_archive": "Docs/QA/ShopRevision20260927",
+            "viewport": [1080, 1920],
+        },
         "assets": [],
     }
     for source_name, output_name, crop, size, lossless in operations:
@@ -43,6 +56,8 @@ def main() -> None:
         with Image.open(source) as original:
             image = original.copy()
             original_size = original.size
+            if output_name.startswith("gameplay-"):
+                assert original_size == (1080, 1920), "Update gallery dimensions when changing the capture viewport"
             alpha = image.mode == "RGBA" and image.getextrema()[3][0] < 255
             if crop:
                 image = image.crop(crop)
