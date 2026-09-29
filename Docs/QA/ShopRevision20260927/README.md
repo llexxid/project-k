@@ -17,7 +17,7 @@
 - `FoundationPlayValidation.RunShopReview`: 실제 bootstrap/main Play Mode에서 격리된 임시 로컬 상태를 사용했다. 인증 공급자·실제 계정·서버 거래는 호출하지 않았다.
 - **1080×1920, 720×1600, 1200×1600**의 Editor 렌더로 팝업과 글자·버튼 배치를 검수했다. 이는 세 대의 실제 기기 검증을 의미하지 않는다. 상점은 고정 머리말·안내와 스크롤 목록을 구분하며 긴 목록 하단 상품은 스크롤해서 확인한다.
 
-원본 실행 로그는 Git 제외 경로 `Recordings/ShopRevision/validation.txt`, `playmode.txt`, `EditorScenes/report.json`, `unity-*.log`에 있다. 공개 가능한 최신 게임 화면 세 장만 이 폴더에서 관리하고 웹용 이미지는 그 원본에서 파생한다.
+원본 실행 로그는 Git 제외 경로 `Recordings/ShopRevision/validation.txt`, `playmode.txt`, `EditorScenes/report.json`, `unity-*.log`에 있다. 최신 게임 화면 세 장은 이 폴더에 게임 검증 증거로 보존한다.
 
 기존 기획 DOCX 3종에도 게임 내부 변경만 통합했다. 상세 기획서 46쪽, 개정 기획서 6쪽, 사업소개서 4쪽의 **총 56쪽**을 Word PDF로 렌더한 뒤 PNG로 전 페이지 검수했다. 증거는 `Recordings/PublishingShop20260927/Planning/final-verification.json`에 있다. 일회성 문서 갱신 스크립트는 같은 기록 폴더로 이동했고 운영 스크립트로 남기지 않았다.
 
