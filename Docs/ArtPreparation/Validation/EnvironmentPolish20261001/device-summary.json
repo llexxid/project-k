@@ -1,0 +1,68 @@
+{
+  "reviewDate": "2026-10-01",
+  "status": "awaiting-user-google-account-selection",
+  "build": {
+    "unityVersion": "6000.3.21f1",
+    "applicationVersion": "0.15.1",
+    "androidVersionCode": 66,
+    "result": "Succeeded",
+    "errors": 0,
+    "warnings": 90,
+    "backend": "IL2CPP",
+    "naturalProfile": true,
+    "diagnosticSnapshotsAvailable": true,
+    "forcedDiagnosticAccount": false,
+    "apkSha256": "7c7b62bdba80695591c3c42601baa9ed56df96794e79ec33dc23a97c0c628ca1"
+  },
+  "device": {
+    "model": "Samsung SM-N986N",
+    "physicalDeviceCount": 1,
+    "capturedResolution": [1080, 2316],
+    "displayOverridesChanged": false
+  },
+  "preservation": {
+    "originalInstalledApkBackedUp": true,
+    "originalInternalAndExternalDataBackedUp": true,
+    "backupReadTwiceAndFileHashesVerified": true,
+    "existingProgressionProfilesBackedUp": 29,
+    "progressionAndPreferenceFilesByteIdenticalBeforeAndAfterInstall": 59,
+    "installedAsUpdateWithoutUninstall": true,
+    "storageClearedOrRestored": false,
+    "stageSkillLoadoutCurrencyOrAccountFixturesUsed": false,
+    "personalAccountInformationIncludedInDeliverables": false
+  },
+  "completedChecks": [
+    "Unity build succeeded and its process exited with code 0 before installation.",
+    "Natural-profile version 0.15.1 build 66 installed successfully over the existing app.",
+    "All 59 existing progression and preference files were byte-identical immediately before and after installation.",
+    "The installed app launched to its real title screen and displayed v0.15.1.",
+    "The real login popup and Google sign-in button opened the Android account chooser."
+  ],
+  "login": {
+    "provider": "Google",
+    "userSelectionRequired": true,
+    "accountSelectedByAgent": false,
+    "credentialEntryPerformed": false,
+    "guestOrSharedTestAccountFallbackUsed": false,
+    "currentScreen": "Android Google account chooser, left for the user"
+  },
+  "runtime": {
+    "battleEntryVerified": false,
+    "currentEnvironmentVerified": false,
+    "environmentRendererCount": null,
+    "normalLightningIconObservedOnDevice": false,
+    "menusInAuthenticatedSessionVerified": false,
+    "performanceSample": null
+  },
+  "limitations": [
+    "Authenticated battle, current background, menus, and normal Lightning icon verification are pending the user's selection of the existing game account on the phone.",
+    "No account was chosen automatically and no login fallback, stage fixture, skill configuration, bloom toggle, loadout change, or currency change was used.",
+    "No device performance comparison or FPS improvement claim is made.",
+    "The 90 background presets and base Lightning artwork are separately verified by Unity rendering; those renders do not substitute for the pending authenticated device check."
+  ],
+  "safeCaptures": {
+    "title": "device-title.png",
+    "battle": null,
+    "normalLightning": null
+  }
+}
