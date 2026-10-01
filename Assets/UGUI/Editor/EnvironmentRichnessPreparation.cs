@@ -18,6 +18,7 @@ namespace KingdomIdle.UGUI.Editor
         static Tilemap ground, details, scenery;
         static float clear;
         static readonly List<Rect> reservations = new();
+        static readonly List<Rect> occupied = new();
         static readonly List<object> props = new();
 
         public static void Prepare()
@@ -28,8 +29,9 @@ namespace KingdomIdle.UGUI.Editor
                 string path = (string)item["path"], pool = (string)item["pool"];
                 family = (string)item["family"];
                 int variant = int.Parse(Path.GetFileNameWithoutExtension(path).Split('_').Last()) - 1;
-                if (pool == "Stage02_ForestGrass") variant = (variant + 3) % 10;
-                else if (pool == "Stage03_DeepForest") variant = (variant + 6) % 10;
+                // Modes have their own arrangements, not copies with a different random seed.
+                if ((string)item["mode"] == "Boss") variant += 10;
+                else if ((string)item["mode"] == "Special") variant += 13;
                 int seed = (int)item["seed"];
                 var random = new System.Random(seed);
                 bool boss = (string)item["mode"] == "Boss";
@@ -42,7 +44,7 @@ namespace KingdomIdle.UGUI.Editor
                     scenery = root.transform.Find("Scenery").GetComponent<Tilemap>();
                     ground.ClearAllTiles(); details.ClearAllTiles(); scenery.ClearAllTiles();
                     ground.color = details.color = scenery.color = Color.white;
-                    reservations.Clear(); props.Clear();
+                    reservations.Clear(); occupied.Clear(); props.Clear();
                     if (family == "Forest") Forest(pool, variant, random);
                     else if (family == "Dungeon") Dungeon(variant, random);
                     else Wasteland(variant, random);
@@ -52,9 +54,11 @@ namespace KingdomIdle.UGUI.Editor
                         if (map.GetComponent<Collider2D>() != null) throw new InvalidOperationException("Decorative collision: " + path);
                     }
                     PrefabUtility.SaveAsPrefabAsset(root, path);
-                    item["compositionRevision"] = "2026-09-20";
-                    item["composition"] = family == "Forest" ? (pool == "Stage01_ForestDirt" && (variant % 5 == 0 || variant % 5 == 3) ? "TimberAndRuins" : ForestThemes[variant % ForestThemes.Length]) :
+                    item["compositionRevision"] = "2026-10-01";
+                    item["composition"] = family == "Forest" ? ForestThemes[variant % ForestThemes.Length] :
                         family == "Dungeon" ? DungeonThemes[variant % DungeonThemes.Length] : WasteThemes[variant % WasteThemes.Length];
+                    item["centralClearBounds"] = JArray.FromObject(new[] { -clear, -7f, clear, 7f });
+                    item["layoutVariant"] = variant;
                     item["tileCounts"] = JObject.FromObject(new { ground = Count(ground), details = Count(details), scenery = Count(scenery) });
                     item["scenery"] = JArray.FromObject(props);
                     item["landmarks"] = JArray.FromObject(reservations.Select(r => new[] { r.xMin, r.yMin, r.xMax, r.yMax }));
@@ -74,9 +78,9 @@ namespace KingdomIdle.UGUI.Editor
             TitleLobbyDeviceBuild.Build();
         }
 
-        static readonly string[] ForestThemes = { "WatersideBend", "MeadowAndTimber", "MossyRuins", "BirchPond", "StoneGarden", "FlowerGrove", "BrokenWall", "OldOakClearing", "MushroomBank", "WoodlandRemains" };
-        static readonly string[] DungeonThemes = { "PillaredVault", "BrokenGallery", "SupplyAlcove", "QuietCrypt", "VineHall" };
-        static readonly string[] WasteThemes = { "DryRiverbank", "BoneField", "AncientStumps", "RockPass", "RuinedOutpost" };
+        static readonly string[] ForestThemes = { "QuietGrove", "TimberVerge", "MossyStones", "BirchClearing", "LowStoneGarden", "MushroomMargin", "OldWall", "TreeShade", "MushroomGrove", "QuietBank" };
+        static readonly string[] DungeonThemes = { "PillarCourt", "BrokenGallery", "SupplyNiche", "QuietCrypt", "VineHall", "TwinPillars", "ForgottenBench", "StoreRoom", "CandleRecess", "FallenColumn" };
+        static readonly string[] WasteThemes = { "DryRiverbank", "BoneField", "AncientStumps", "RockPass", "RuinedOutpost", "BleachedGrove", "FallenTimber", "SmallOasis", "ScatteredBones", "StoneShelter" };
 
         static Tile T(int x, int y) => Load($"Prep_T_{x:00}_{y:00}");
         static Tile Load(string name)
@@ -100,121 +104,197 @@ namespace KingdomIdle.UGUI.Editor
         }
         static void Fill(Tile tile) { for (int y = -24; y < 24; y++) for (int x = -16; x < 16; x++) Put(ground, x, y, tile); }
 
+        // Each view has one primary group, a lower secondary group on the opposite side,
+        // and quiet corner framing. Everything uses the purchased tiles at native scale.
         static void Forest(string pool, int v, System.Random random)
         {
             bool dirt = pool == "Stage01_ForestDirt", deep = pool == "Stage03_DeepForest";
-            Fill(T(3, dirt ? 1 : 4));
-            if (deep) ground.color = details.color = new Color(.83f,.93f,.79f,1);
-            // A broad readable lane with modest asymmetric bays, never a narrow combat bottleneck.
-            bool Lane(int x, int y) => x >= -3 - ((y + 60 + v * 2) / 12 % 3 == 0 ? 1 : 0) && x <= 2 + ((y + 60 + v) / 14 % 3 == 1 ? 1 : 0);
-            for (int y = -24; y < 24; y++)
+            int theme = v % 10, side = v % 2 == 0 ? -1 : 1;
+            float lift = (v / 10) * .625f + (v % 3 - 1) * .75f;
+            Fill(T(3, 1)); // Uniform meadow; never repeat a hedge tile across the entire field.
+            if (dirt) DirtLane(v);
+            else if (deep)
             {
-                for (int x = -5; x <= 4; x++)
-                {
-                    if (!Lane(x,y)) continue;
-                    int cx = !Lane(x-1,y)?5:!Lane(x+1,y)?7:6;
-                    int cy = !Lane(x,y+1)?0:!Lane(x,y-1)?2:1;
-                    if (cx==6 && cy==1)
-                    {
-                        if(!Lane(x-1,y+1)){cx=4;cy=2;} else if(!Lane(x+1,y+1)){cx=2;cy=2;}
-                        else if(!Lane(x-1,y-1)){cx=4;cy=0;} else if(!Lane(x+1,y-1)){cx=2;cy=0;}
-                    }
-                    Put(ground,x,y,T(cx,cy+(dirt?0:3)));
-                }
+                ground.color = details.color = new Color(.84f, .91f, .84f, 1);
+                scenery.color = new Color(.91f, .96f, .91f, 1);
             }
-            int side = v % 2 == 0 ? -1 : 1;
-            float bank = Mathf.Ceil((clear+.04f)*4)/4;
-            float anchorX = side < 0 ? -bank-3 : bank;
-            int anchorY = v % 3 == 0 ? 1 : -2;
-            if (dirt && (v % 5 == 0 || v % 5 == 3))
-                Ruin(anchorX, anchorY, false); // Water's authored grass backing does not belong on bare dirt.
-            else if (v % 5 == 0 || v % 5 == 3)
-                Patch(anchorX, anchorY, 3, 4, 5, 6); // Authored water corners, banks, center.
-            else if (v % 5 == 2 || v % 5 == 1 && deep)
-                Ruin(anchorX, anchorY, false);
-            else if (v % 5 == 1 || v % 5 == 4)
-                Flowers(anchorX, anchorY);
+            else ground.color = details.color = new Color(.97f, 1f, .94f, 1);
 
-            if (v == 6 || v == 9) Ruin(side > 0 ? -bank-3 : bank, 4, false);
-            else if (v == 7) Prop("AncientOak", side * (clear + 3.05f), 1.6f, true);
-            string[] trees = deep ? new[] { "Willow", "GreenBirch", "Bush", "AncientOak" } : !dirt ? new[] { "GreenBirch", "AutumnBirch", "RoundTree", "Bush" } :
-                v % 3 == 1 ? new[] { "GreenBirch", "AutumnBirch", "RoundTree" } : new[] { "PineLarge", "PineSmall", "RoundTree" };
-            for (int s = -1; s <= 1; s += 2)
+            string canopy = deep ? "Willow" : dirt ? "PineLarge" : "GreenBirch";
+            if (theme == 3) canopy = "GreenBirch";
+            if (theme == 7) canopy = "RoundTree"; // The 6-unit oak reads as a cropped fragment here.
+            if (theme == 9) canopy = deep ? "Willow" : "RoundTree";
+            float primaryY = 1.0f + lift;
+            switch (theme)
             {
-                float y = -23 + (float)random.NextDouble() * 3;
-                while (y < 24)
+                case 0:
+                    EdgeProp(dirt ? "PineSmall" : "GreenBirch", side, primaryY, .18f);
+                    EdgeProp(canopy, side, primaryY + 2.7f, .65f);
+                    break;
+                case 1: EdgeProp("Log", side, primaryY, .18f); EdgeProp("Bush", side, primaryY + 1.4f, .48f); break;
+                case 2: EdgeProp("StoneCluster", side, primaryY, .12f); EdgeProp("Bush", side, primaryY + 1.35f, .5f); break;
+                case 3: EdgeProp("GreenBirch", side, primaryY, .2f); EdgeProp("Grass", side, primaryY - 1.25f, .35f); break;
+                case 4: EdgeProp("Stone", side, primaryY, .10f); EdgeProp("StoneCluster", side, primaryY + 1.4f, .6f); break;
+                case 5: MushroomMargin(side, primaryY); EdgeProp("Bush", side, primaryY + 2f, .65f); break;
+                case 6: SmallWall(side, Mathf.RoundToInt(primaryY)); break;
+                case 7: EdgeProp(canopy, side, primaryY + 1f, .30f); EdgeProp("Log", side, primaryY - .5f, .1f); break;
+                case 8: EdgeProp("RedMushrooms", side, primaryY, .1f); EdgeProp("Log", side, primaryY + 1.3f, .35f); break;
+                case 9:
+                    if (!dirt) Pond(side, Mathf.RoundToInt(primaryY) - 1, deep);
+                    else { EdgeProp("Log", side, primaryY, .12f); EdgeProp("Stone", side, primaryY + 1.4f, .5f); }
+                    break;
+            }
+            // Opposite group is lower and smaller, leaving the eye a clear route through battle.
+            EdgeProp(theme == 8 ? "RedMushrooms" : theme == 4 ? "Stone" : "Bush", -side, -2.6f - lift, .16f);
+            EdgeProp(theme % 3 == 0 ? "Stone" : "Grass", -side, -1.25f - lift, .65f);
+            EdgeProp(canopy, -side, 3.8f - lift, .50f);
+            EdgeProp(deep ? "GreenBirch" : canopy, side, -5.5f + lift, .60f);
+            EdgeProp("Grass", -side, -5.2f, .25f);
+
+            // Outside the standard view, repeat the visual language with much wider spacing.
+            for (int y = -22; y < 24; y += 7)
+            {
+                if (y > -8 && y < 8) continue;
+                EdgeProp(canopy, (y / 7 + v) % 2 == 0 ? side : -side, y + lift, .6f);
+                EdgeProp("Bush", (y / 7 + v) % 2 == 0 ? -side : side, y + 2.3f, .35f);
+            }
+            // Sparse, transparent pebbles only at the edges, never the old random flower mosaic.
+            for (int i = 0; i < 18; i++)
+            {
+                int y = -23 + i * 47 / 18;
+                int x = i % 2 == 0 ? -4 : 3;
+                if (!Reserved(new Rect(x, y, 1, 1))) Put(details, x, y, T(6 + random.Next(2), 20));
+            }
+        }
+
+        static void DirtLane(int v)
+        {
+            // One broad shallow bend per view; proper convex/concave tiles keep every seam connected.
+            bool Lane(int x, int y)
+            {
+                int bend = ((y + 48 + v * 3) / 13) % 3;
+                int left = -3 - (bend == 0 ? 1 : 0), right = 2 + (bend == 2 ? 1 : 0);
+                return x >= left && x <= right;
+            }
+            for (int y = -24; y < 24; y++) for (int x = -5; x <= 4; x++)
+            {
+                if (!Lane(x, y)) continue;
+                int cx = !Lane(x - 1, y) ? 5 : !Lane(x + 1, y) ? 7 : 6;
+                int cy = !Lane(x, y + 1) ? 0 : !Lane(x, y - 1) ? 2 : 1;
+                if (cx == 6 && cy == 1)
                 {
-                    string name = trees[random.Next(trees.Length)];
-                    float w = Load("Prep_Prop_" + name).sprite.bounds.size.x;
-                    Prop(name, s * (clear + w * .5f + .05f + (float)random.NextDouble() * .25f), y);
-                    y += 3.2f + (float)random.NextDouble() * 2.3f;
+                    if (!Lane(x - 1, y + 1)) { cx = 4; cy = 2; }
+                    else if (!Lane(x + 1, y + 1)) { cx = 2; cy = 2; }
+                    else if (!Lane(x - 1, y - 1)) { cx = 4; cy = 0; }
+                    else if (!Lane(x + 1, y - 1)) { cx = 2; cy = 0; }
                 }
+                Put(ground, x, y, T(cx, cy));
             }
-            for (int i = 0; i < 105; i++)
-            {
-                int x = random.Next(-9, 9), y = random.Next(-24, 24);
-                if (Math.Abs(x + .5f) <= clear + .35f || Reserved(new Rect(x, y, 1, 1))) continue;
-                var tile = i % 5 == 0 ? T(6 + random.Next(3), 16) : i % 3 == 0 ? T(7 + random.Next(4), 19) : T(6 + random.Next(4), 20);
-                Put(details, x, y, tile);
-            }
-            for (int i = 0; i < 13; i++)
-                Prop(i % 3 == 0 ? "Log" : i % 3 == 1 ? "StoneCluster" : "Bush", (i % 2 == 0 ? -1 : 1) * (clear + .55f + (float)random.NextDouble() * .35f), -20 + i * 3.4f);
-            // Small transparent ground marks break up flat lanes without obscuring combat silhouettes.
-            for (int y = -24; y < 24; y++) for (int x = -2; x <= 1; x++)
-                if (random.Next(18) == 0 && !details.HasTile(new Vector3Int(x,y)))
-                    Put(details, x, y, dirt ? T(20,random.Next(4)) : T(19,6));
+        }
+
+        static void EdgeProp(string name, int side, float y, float inset)
+        {
+            float width = Load("Prep_Prop_" + name).sprite.bounds.size.x;
+            if (clear > 2.5f) inset = Mathf.Min(inset, .125f);
+            Prop(name, side * (clear + width * .5f + inset), y);
+        }
+        static void MushroomMargin(int side, float y)
+        {
+            // Complete small mushrooms, not fragments of the authored 3x3 flower-bed stamp.
+            float x = side < 0 ? -clear - 1.125f : clear + .125f;
+            Reserve(new Rect(x, y, 1, 1.8f));
+            Feature(x, Mathf.RoundToInt(y), T(8, 19));
+            Feature(x + side * .25f, Mathf.RoundToInt(y) + 1, T(7, 19));
+        }
+        static void SmallWall(int side, int y)
+        {
+            // Source columns 3 + 4 already form a closed broken wall. Column 5 starts another wall.
+            float x = side < 0 ? -clear - 2.125f : clear + .125f;
+            Reserve(new Rect(x, y, 2, 1));
+            Feature(x, y, T(3, 24)); Feature(x + 1, y, T(4, 24));
+            EdgeProp("Stone", side, y - 1.25f, .2f);
+        }
+        static void Pond(int side, int y, bool deep)
+        {
+            // Water bank belongs on grass. Its continuous border extends beyond the screen edge.
+            float x = side < 0 ? -clear - 3.125f : clear + .125f;
+            Patch(x, y, 3, 3, 5, 6);
+            EdgeProp(deep ? "Grass" : "Stone", -side, y + 1.6f, .20f);
         }
 
         static void Dungeon(int v, System.Random random)
         {
+            int theme = v % 10, side = v % 2 == 0 ? -1 : 1;
+            float lift = (v / 10) * .625f + (v % 3 - 1) * .625f;
+            // Quiet intact slabs in the centre; cracked slabs belong only beside ruined structures.
             for (int y = -24; y < 24; y++) for (int x = -16; x < 16; x++)
-                Put(ground, x, y, random.Next(15) == 0 ? T(12, 5) : T(8 + random.Next(4), 5)); // Column 7 is a transparent wall edge, not a floor.
-            // Broken wall bays and darker side floors give each hall a silhouette, while all walls stay outside combat.
+                Put(ground, x, y, T((x + y + 80) % 4 == 0 ? 9 : 8, 5));
+            ground.color = new Color(.93f, .94f, .96f, 1);
+            details.color = scenery.color = new Color(.96f, .97f, 1f, 1);
+            // A complete wall section with end caps, instead of disconnected vertical wall fragments.
             for (int s = -1; s <= 1; s += 2)
             {
-                int edge = s < 0 ? -5 : 4;
+                int wallX = s < 0 ? -5 : 4;
                 for (int y = -24; y < 24; y++)
                 {
-                    if ((y + 30 + v * 2) % 9 < 5) Put(details, edge, y, T(s < 0 ? 0 : 2, 1));
-                    for (int x = 0; x < 4; x++) Put(ground, edge + s * (x + 1), y, T(11 + v % 3, 10));
+                    int band = (y + 48 + v * 2) % 12;
+                    if (band < 6) Put(details, wallX, y, T(s < 0 ? 0 : 2, band == 0 ? 2 : band == 5 ? 0 : 1));
+                    // Opaque stone outside the corridor, never random brown dirt squares.
+                    for (int x = 1; x < 10; x++) Put(ground, wallX + s * x, y, T(8, 5));
                 }
             }
-            string[][] sets = { new[] { "Pillar", "BrokenPillar", "StoneRubble" }, new[] { "BrokenPillar", "Bench", "StoneRubble" },
-                new[] { "Crates", "Bench", "StoneRubble" }, new[] { "Tomb", "Candles", "BrokenPillar" }, new[] { "Vines", "Pillar", "StoneRubble" } };
-            var chosen = sets[v % sets.Length];
-            for (int i = 0; i < 24; i++)
+            string[] primary = { "Pillar", "BrokenPillar", "Crates", "Tomb", "Vines", "Pillar", "Bench", "Crates", "Candles", "BrokenPillar" };
+            string[] secondary = { "StoneRubble", "StoneRubble", "Bench", "Candles", "BrokenPillar", "Pillar", "Candles", "Crates", "Tomb", "Bench" };
+            EdgeProp(primary[theme], side, .6f + lift, .22f);
+            EdgeProp(secondary[theme], side, 2.9f + lift, .55f);
+            EdgeProp(theme == 2 || theme == 7 ? "Crates" : "Candles", -side, -2.7f - lift, .15f);
+            EdgeProp(theme == 4 ? "Vines" : "Pillar", -side, 4f - lift, .4f);
+            EdgeProp(secondary[theme], side, -5f + lift, .55f);
+            for (int y = -22; y < 24; y += 8)
             {
-                string name = chosen[(i + v) % chosen.Length]; float w = Load("Prep_Prop_" + name).sprite.bounds.size.x;
-                Prop(name, (i % 2 == 0 ? -1 : 1) * (clear + w * .5f + .3f), -22 + (i / 2) * 4 + (i % 2) * 1.8f);
+                if (y > -8 && y < 8) continue;
+                EdgeProp(primary[theme], side, y + lift, .4f);
+                EdgeProp(secondary[theme], -side, y + 3, .3f);
             }
-            for (int i = 0; i < 55; i++)
+            // Two cohesive rubble deposits support the feature; no independent floor-wide scatter.
+            for (int i = 0; i < 2; i++)
             {
-                int x = random.Next(-7, 7), y = random.Next(-24, 24);
-                if (Math.Abs(x + .5f) > clear + .3f) Put(details, x, y, T(4 + random.Next(3), 4));
+                int x = side < 0 ? -4 : 3, y = (i == 0 ? -1 : 5) + Mathf.RoundToInt(lift);
+                if (!Reserved(new Rect(x, y, 1, 1))) Put(details, x, y, T(4 + (theme + i) % 3, 4));
             }
         }
 
         static void Wasteland(int v, System.Random random)
         {
-            for (int y = -24; y < 24; y++) for (int x = -16; x < 16; x++)
-                Put(ground, x, y, T(random.Next(4), 4 + random.Next(3)));
-            int side = v % 2 == 0 ? -1 : 1;
-            float bank = Mathf.Ceil((clear+.04f)*4)/4;
-            float x0 = side < 0 ? -bank-3 : bank;
-            if (v % 5 == 0) Patch(x0, 1, 3, 4, 0, 7); // Authored toxic pool is a distant landmark, never a combat hazard.
-            else if (v % 5 == 4) Ruin(x0, 1, true);
-            else Prop(v % 5 == 1 ? "Ribcage" : v % 5 == 2 ? "GiantStump" : "LargeBoulder", side * (clear + 1.6f), 1, true);
-            string[] set = v % 5 == 1 ? new[] { "Ribcage", "Skull", "Rock" } : v % 5 == 3 ? new[] { "LargeBoulder", "Boulder", "Rock" } :
-                new[] { "DryTree", "CrookedTree", "BleachedTree", "GiantStump", "DryGrass" };
-            for (int i = 0; i < 24; i++)
+            int theme = v % 10, side = v % 2 == 0 ? -1 : 1;
+            float lift = (v / 10) * .625f + (v % 3 - 1) * .75f;
+            Fill(T(4, 1)); // Intact sand in the battle lane; random cracked tiles caused visible seams.
+            ground.color = details.color = new Color(.95f, .91f, .88f, 1);
+            scenery.color = new Color(.97f, .95f, .91f, 1);
+            for (int y = -24; y < 24; y++)
             {
-                string name = set[random.Next(set.Length)]; float w = Load("Prep_Prop_" + name).sprite.bounds.size.x;
-                Prop(name, (i % 2 == 0 ? -1 : 1) * (clear + w * .5f + .15f + (float)random.NextDouble()), -23 + (i / 2) * 4 + (i % 2));
+                // Authored fading crack edges meet a calm central strip.
+                Put(ground, -4, y, T(3, 5)); Put(ground, 3, y, T(5, 5));
+                for (int x = 4; x < 16; x++) { Put(ground, x, y, T(1, 4)); Put(ground, -x - 1, y, T(1, 4)); }
             }
-            for (int i = 0; i < 75; i++)
+            string[] main = { "Rock", "Ribcage", "GiantStump", "LargeBoulder", "FallenLog", "BleachedTree", "FallenLog", "DryGrass", "Skull", "Boulder" };
+            string[] companion = { "DryGrass", "Skull", "DryGrass", "Rock", "Rock", "DryGrass", "GiantStump", "Rock", "Ribcage", "DryGrass" };
+            EdgeProp(main[theme], side, .7f + lift, .15f);
+            EdgeProp(companion[theme], side, 2.7f + lift, .6f);
+            if (theme == 4)
             {
-                int x = random.Next(-9, 9), y = random.Next(-24, 24);
-                if (Math.Abs(x + .5f) > clear + .3f && !Reserved(new Rect(x, y, 1, 1))) Put(details, x, y, T(3 + random.Next(6), 12));
+                float x = side < 0 ? -clear - 2.125f : clear + .125f;
+                Reserve(new Rect(x, -1 + lift, 2, 1));
+                Feature(x, Mathf.RoundToInt(-1 + lift), T(9, 14)); Feature(x + 1, Mathf.RoundToInt(-1 + lift), T(10, 14));
+            }
+            EdgeProp(theme == 1 || theme == 8 ? "Skull" : "DryGrass", -side, -2.7f - lift, .15f);
+            EdgeProp(theme == 3 || theme == 9 ? "Boulder" : "CrookedTree", -side, 4f - lift, .5f);
+            EdgeProp(theme == 5 ? "BleachedTree" : "DryTree", side, -5.4f + lift, .6f);
+            for (int y = -22; y < 24; y += 8)
+            {
+                if (y > -8 && y < 8) continue;
+                EdgeProp(main[theme], side, y + lift, .4f);
+                EdgeProp("DryGrass", -side, y + 3, .3f);
             }
         }
 
@@ -224,27 +304,7 @@ namespace KingdomIdle.UGUI.Editor
             for (int yy = 0; yy < height; yy++) for (int xx = 0; xx < width; xx++)
                 Feature(x + xx, y + yy, T(col + (xx == 0 ? 0 : xx == width - 1 ? 2 : 1), row + (yy == 0 ? 2 : yy == height - 1 ? 0 : 1)));
         }
-        static void Flowers(float x, int y)
-        {
-            Reserve(new Rect(x, y, 3, 3));
-            for (int yy = 0; yy < 3; yy++) for (int xx = 0; xx < 3; xx++) Feature(x + xx, y + yy, T(6 + xx, 18 - yy));
-        }
-        static void Ruin(float x, int y, bool waste)
-        {
-            Reserve(new Rect(x, y, 3, 3));
-            if (waste)
-            {
-                Feature(x,y+2,T(9,14)); Feature(x+1,y+2,T(10,14)); Feature(x+2,y+2,T(12,14));
-                Feature(x,y+1,T(9,15)); Feature(x+2,y+1,T(12,15)); Feature(x+1,y,T(11,16));
-            }
-            else
-            {
-                Feature(x,y+2,T(3,24)); Feature(x+1,y+2,T(4,24)); Feature(x+2,y+2,T(5,24));
-                Feature(x,y+1,T(3,25)); Feature(x+2,y+1,T(6,25)); Feature(x,y,T(3,26));
-                Feature(x+1,y,T(4,26)); Feature(x+2,y,T(6,26));
-            }
-        }
-        static bool Reserved(Rect rect) => reservations.Any(r => r.Overlaps(rect));
+        static bool Reserved(Rect rect) => reservations.Any(r => r.Overlaps(rect)) || occupied.Any(r => r.Overlaps(rect));
         static void Reserve(Rect rect)
         {
             if (rect.xMin < clear && rect.xMax > -clear) throw new InvalidOperationException("Landmark enters combat lane");
@@ -253,7 +313,10 @@ namespace KingdomIdle.UGUI.Editor
         static void Prop(string name, float x, float y, bool landmark = false)
         {
             var tile = Load("Prep_Prop_" + name); var bounds = tile.sprite.bounds;
-            x = Mathf.Round(x * 32) / 32; y = Mathf.Round(y * 32) / 32;
+            // Alpha-trimmed sprites may have an odd pixel width; align their visible edge,
+            // not the half-pixel centre, to the same 32 PPU grid as the ground.
+            x = Mathf.Round((x + bounds.min.x) * 32) / 32 - bounds.min.x;
+            y = Mathf.Round((y + bounds.min.y) * 32) / 32 - bounds.min.y;
             var rect = new Rect(x + bounds.min.x, y + bounds.min.y, bounds.size.x, bounds.size.y);
             if (rect.xMin < clear && rect.xMax > -clear || Reserved(rect)) return;
             int cx = Mathf.FloorToInt(x), cy = Mathf.FloorToInt(y);
@@ -261,6 +324,9 @@ namespace KingdomIdle.UGUI.Editor
             scenery.SetTile(cell, tile); scenery.SetTileFlags(cell, TileFlags.None);
             scenery.SetTransformMatrix(cell, Matrix4x4.Translate(new Vector3(x - cx - .5f, y - cy - .5f)));
             props.Add(new { prop = name, cell = new[] { cx, cy }, bounds = new[] { rect.xMin, rect.xMax, rect.yMin, rect.yMax }, offsetX = x - cx - .5f });
+            // Every prop reserves its footprint, including ordinary trees and small accents.
+            // A native four-pixel gap prevents accidental tangencies at the field edge.
+            occupied.Add(new Rect(rect.xMin - .125f, rect.yMin - .125f, rect.width + .25f, rect.height + .25f));
             if (landmark) reservations.Add(rect);
         }
     }

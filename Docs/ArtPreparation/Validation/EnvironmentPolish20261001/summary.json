@@ -1,0 +1,86 @@
+{
+  "date": "2026-10-01",
+  "presets": 90,
+  "numberedPreviews": "01-90",
+  "lightningPreview": 91,
+  "renderChecks": 135,
+  "checksPassed": true,
+  "sceneryOverlapPairs": 0,
+  "missingReferencePresets": 0,
+  "centralIntrusions": 0,
+  "uniqueRenderedImages": 90,
+  "allPresetsRetain3TilemapRenderers": true,
+  "metrics": [
+    {
+      "pool": "Stage01_ForestDirt",
+      "beforeMeanTiles": {
+        "Ground": 1536,
+        "GroundDetails": 84.7,
+        "Scenery": 31.8
+      },
+      "afterMeanTiles": {
+        "Ground": 1536,
+        "GroundDetails": 13.6,
+        "Scenery": 15.9
+      }
+    },
+    {
+      "pool": "Stage02_ForestGrass",
+      "beforeMeanTiles": {
+        "Ground": 1536,
+        "GroundDetails": 86,
+        "Scenery": 31.4
+      },
+      "afterMeanTiles": {
+        "Ground": 1536,
+        "GroundDetails": 13.9,
+        "Scenery": 15.7
+      }
+    },
+    {
+      "pool": "Stage03_DeepForest",
+      "beforeMeanTiles": {
+        "Ground": 1536,
+        "GroundDetails": 87.7,
+        "Scenery": 31
+      },
+      "afterMeanTiles": {
+        "Ground": 1536,
+        "GroundDetails": 13.2,
+        "Scenery": 15.2
+      }
+    },
+    {
+      "pool": "GoldDungeon",
+      "beforeMeanTiles": {
+        "Ground": 1536,
+        "GroundDetails": 84,
+        "Scenery": 24
+      },
+      "afterMeanTiles": {
+        "Ground": 1536,
+        "GroundDetails": 50,
+        "Scenery": 13
+      }
+    },
+    {
+      "pool": "RubyWasteland",
+      "beforeMeanTiles": {
+        "Ground": 1536,
+        "GroundDetails": 58,
+        "Scenery": 23.6
+      },
+      "afterMeanTiles": {
+        "Ground": 1536,
+        "GroundDetails": 0.2,
+        "Scenery": 12.8
+      }
+    }
+  ],
+  "visualReview": "All90 inspected via numbered regional contact sheets; enlarged checks of forest seams, water grass backing, dungeon slabs, narrow boss framing and corrected wasteland props.",
+  "limits": [
+    "Static PreviewScene renders exclude HUD and combat actors.",
+    "Narrow/tall boss layouts reserve wider battle space; large edge canopies are intentionally cropped.",
+    "Android actual-game validation is recorded separately."
+  ]
+}
