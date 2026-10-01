@@ -25,7 +25,7 @@ namespace KingdomIdle.UGUI.Editor
     {
         const string Manifest = "Docs/ArtPreparation/Manifests/environment-presets.json";
         const string MainScene = "Assets/_Project/Scenes/buildScenes/main.unity";
-        const string Output = "Docs/ArtPreparation/Validation/EnvironmentPolish20261001";
+        static string Output => Environment.GetEnvironmentVariable("ENVIRONMENT_POLISH_OUTPUT") ?? "Docs/ArtPreparation/Validation/EnvironmentPolish20261001/revision2";
         static readonly string[] Pools = { "Stage01_ForestDirt", "Stage02_ForestGrass", "Stage03_DeepForest", "GoldDungeon", "RubyWasteland" };
         static readonly string[] Modes = { "Main", "Boss", "Special" };
         static readonly (string name, int width, int height)[] ExtraCases =
@@ -120,6 +120,7 @@ namespace KingdomIdle.UGUI.Editor
             var duplicateImageGroups = DuplicateGroups(results, x => (string)x["capture"]["pixelSha256"]);
             bool valid = results.All(x => !(bool)x["hasMissingReferences"] && (int)x["colliderCount"] == 0 &&
                 (int)x["centralSceneryIntrusions"] == 0 && (int)x["sceneryOverlapPairs"] == 0 && (int)x["tilemapCount"] == 3 &&
+                (int)x["waterTileCount"] == 0 && (int)x["prohibitedDoorOrHangingVineCount"] == 0 && (bool)x["pillarArrangementValid"] &&
                 (int)x["capture"]["groundHolesInViewport"] == 0 && (bool)x["capture"]["nonBlank"] &&
                 x["aspectChecks"].All(a => (int)a["groundHolesInViewport"] == 0 && (bool)a["nonBlank"])) &&
                 duplicateLayoutGroups.Count == 0 && duplicateImageGroups.Count == 0;
@@ -151,8 +152,15 @@ namespace KingdomIdle.UGUI.Editor
             var counts = new JObject();
             var intrusions = new JArray();
             var boundsReport = new JArray();
+            var waterTiles = new JArray();
+            var prohibitedTiles = new JArray();
+            int visibleTallPillars = 0;
+            var pillars = new List<Rect>();
             float clear = (string)entry["mode"] == "Boss" ? 2.625f : 2.1875f;
+            Rect protectedArea = Rect.MinMaxRect(-clear, -7, clear, 7);
             if (entry["centralClearBounds"] is JArray clearBounds && clearBounds.Count == 4) clear = (float)clearBounds[2];
+            if (entry["centralClearBounds"] is JArray area && area.Count == 4)
+                protectedArea = Rect.MinMaxRect((float)area[0], (float)area[1], (float)area[2], (float)area[3]);
             foreach (Transform transform in root.GetComponentsInChildren<Transform>(true))
             {
                 foreach (Component component in transform.GetComponents<Component>())
@@ -168,6 +176,16 @@ namespace KingdomIdle.UGUI.Editor
                     TileBase tile = map.GetTile(cell);
                     if (tile == null) continue;
                     count++;
+                    Match coordinates = Regex.Match(tile.name, @"^Prep_T_(\d+)_(\d+)$");
+                    if (coordinates.Success)
+                    {
+                        int column = int.Parse(coordinates.Groups[1].Value), row = int.Parse(coordinates.Groups[2].Value);
+                        bool water = (string)entry["family"] == "Forest" && column >= 5 && column <= 7 && row >= 6 && row <= 8 ||
+                            (string)entry["family"] == "Wasteland" && column >= 0 && column <= 2 && row >= 7 && row <= 9;
+                        if (water) waterTiles.Add(map.name + "/" + cell + "/" + tile.name);
+                    }
+                    if ((string)entry["family"] == "Dungeon" && (tile.name == "Prep_Prop_Crates" || tile.name == "Prep_Prop_Vines" || tile.name == "Prep_Prop_StoneRubble"))
+                        prohibitedTiles.Add(map.name + "/" + cell + "/" + tile.name);
                     Sprite sprite = map.GetSprite(cell);
                     if (sprite == null) missing.Add(map.name + "/" + cell + ": missing sprite");
                     if (references.Add(tile)) CheckReferences(tile, missing);
@@ -180,8 +198,11 @@ namespace KingdomIdle.UGUI.Editor
                         var record = new JObject { ["cell"] = new JArray(cell.x, cell.y), ["tile"] = tile.name,
                             ["bounds"] = new JArray(bounds.xMin, bounds.yMin, bounds.xMax, bounds.yMax) };
                         boundsReport.Add(record);
-                        // The entire vertical combat stripe must remain free of upright scenery.
-                        if (bounds.xMin < clear - .001f && bounds.xMax > -clear + .001f) intrusions.Add(record.DeepClone());
+                        if ((string)entry["family"] == "Dungeon" && (tile.name == "Prep_Prop_Pillar" || tile.name == "Prep_Prop_BrokenPillar"))
+                        { pillars.Add(bounds); if (bounds.yMin < 8 && bounds.yMax > -8) visibleTallPillars++; }
+                        // The protected battle rectangle includes body/HP-bar margins; framing outside it is allowed.
+                        var insetArea = new Rect(protectedArea.xMin + .001f, protectedArea.yMin + .001f, protectedArea.width - .002f, protectedArea.height - .002f);
+                        if (bounds.Overlaps(insetArea)) intrusions.Add(record.DeepClone());
                     }
                 }
                 counts[map.name] = count;
@@ -203,11 +224,20 @@ namespace KingdomIdle.UGUI.Editor
             {
                 ["number"] = number, ["name"] = entry["name"], ["path"] = entry["path"], ["pool"] = entry["pool"], ["mode"] = entry["mode"],
                 ["composition"] = entry["composition"], ["compositionRevision"] = entry["compositionRevision"],
+                ["groundLayout"] = entry["groundLayout"],
                 ["tilemapCount"] = maps.Length, ["tileCounts"] = counts,
                 ["rendererCount"] = renderers.Length,
                 ["colliderCount"] = root.GetComponentsInChildren<Collider2D>(true).Length + root.GetComponentsInChildren<Collider>(true).Length,
                 ["hasMissingReferences"] = missing.Count != 0, ["missingReferences"] = JArray.FromObject(missing.Distinct()),
                 ["centralClearHalfWidth"] = clear, ["centralSceneryIntrusions"] = intrusions.Count,
+                ["waterTileCount"] = waterTiles.Count, ["waterTiles"] = waterTiles,
+                ["prohibitedDoorOrHangingVineCount"] = prohibitedTiles.Count, ["prohibitedTiles"] = prohibitedTiles,
+                ["prohibitedStandalonePropCount"] = prohibitedTiles.Count,
+                ["visibleTallPillars"] = visibleTallPillars,
+                ["tallPillarCount"] = pillars.Count,
+                ["pillarArrangementValid"] = pillars.Count <= 2 && (pillars.Count != 2 ||
+                    pillars[0].center.x * pillars[1].center.x < 0 && Mathf.Abs(pillars[0].yMin - pillars[1].yMin) <= .0625f),
+                ["protectedBattleRectangle"] = new JArray(protectedArea.xMin, protectedArea.yMin, protectedArea.xMax, protectedArea.yMax),
                 ["sceneryOverlapPairs"] = overlaps,
                 ["intrusions"] = intrusions, ["scenerySpriteBounds"] = boundsReport,
                 ["layoutSha256"] = Hash(Encoding.UTF8.GetBytes(layout.ToString()))

@@ -17,6 +17,10 @@ namespace KingdomIdle.UGUI.Editor
         static string family;
         static Tilemap ground, details, scenery;
         static float clear;
+        static bool forestDirt;
+        static int forestVariant;
+        const float CombatBottom = -3.125f, CombatTop = 4.5f;
+        static Rect CombatBounds => new Rect(-clear, CombatBottom, clear * 2f, CombatTop - CombatBottom);
         static readonly List<Rect> reservations = new();
         static readonly List<Rect> occupied = new();
         static readonly List<object> props = new();
@@ -35,7 +39,8 @@ namespace KingdomIdle.UGUI.Editor
                 int seed = (int)item["seed"];
                 var random = new System.Random(seed);
                 bool boss = (string)item["mode"] == "Boss";
-                clear = boss ? 2.625f : 2.1875f;
+                // Spawn extent ±2.5 + widest active body half-width + four native pixels.
+                clear = boss ? 3.25f : 3.1875f;
                 var root = PrefabUtility.LoadPrefabContents(path);
                 try
                 {
@@ -54,11 +59,12 @@ namespace KingdomIdle.UGUI.Editor
                         if (map.GetComponent<Collider2D>() != null) throw new InvalidOperationException("Decorative collision: " + path);
                     }
                     PrefabUtility.SaveAsPrefabAsset(root, path);
-                    item["compositionRevision"] = "2026-10-01";
+                    item["compositionRevision"] = "2026-10-01-r2";
                     item["composition"] = family == "Forest" ? ForestThemes[variant % ForestThemes.Length] :
                         family == "Dungeon" ? DungeonThemes[variant % DungeonThemes.Length] : WasteThemes[variant % WasteThemes.Length];
-                    item["centralClearBounds"] = JArray.FromObject(new[] { -clear, -7f, clear, 7f });
+                    item["centralClearBounds"] = JArray.FromObject(new[] { -clear, CombatBottom, clear, CombatTop });
                     item["layoutVariant"] = variant;
+                    item["groundLayout"] = family == "Forest" ? (forestDirt ? "Dirt" : "Grass") + (HasClearing(variant, forestDirt) ? "ConnectedClearing" : "WindingRoad") : "OpenFloor";
                     item["tileCounts"] = JObject.FromObject(new { ground = Count(ground), details = Count(details), scenery = Count(scenery) });
                     item["scenery"] = JArray.FromObject(props);
                     item["landmarks"] = JArray.FromObject(reservations.Select(r => new[] { r.xMin, r.yMin, r.xMax, r.yMax }));
@@ -79,7 +85,7 @@ namespace KingdomIdle.UGUI.Editor
         }
 
         static readonly string[] ForestThemes = { "QuietGrove", "TimberVerge", "MossyStones", "BirchClearing", "LowStoneGarden", "MushroomMargin", "OldWall", "TreeShade", "MushroomGrove", "QuietBank" };
-        static readonly string[] DungeonThemes = { "PillarCourt", "BrokenGallery", "SupplyNiche", "QuietCrypt", "VineHall", "TwinPillars", "ForgottenBench", "StoreRoom", "CandleRecess", "FallenColumn" };
+        static readonly string[] DungeonThemes = { "PillarCourt", "BrokenGallery", "StoneAlcove", "QuietCrypt", "StoneRecess", "TwinPillars", "StoneGrate", "QuietGallery", "CandleRecess", "FallenColumn" };
         static readonly string[] WasteThemes = { "DryRiverbank", "BoneField", "AncientStumps", "RockPass", "RuinedOutpost", "BleachedGrove", "FallenTimber", "SmallOasis", "ScatteredBones", "StoneShelter" };
 
         static Tile T(int x, int y) => Load($"Prep_T_{x:00}_{y:00}");
@@ -111,19 +117,25 @@ namespace KingdomIdle.UGUI.Editor
             bool dirt = pool == "Stage01_ForestDirt", deep = pool == "Stage03_DeepForest";
             int theme = v % 10, side = v % 2 == 0 ? -1 : 1;
             float lift = (v / 10) * .625f + (v % 3 - 1) * .75f;
-            Fill(T(3, 1)); // Uniform meadow; never repeat a hedge tile across the entire field.
-            if (dirt) DirtLane(v);
-            else if (deep)
+            forestDirt = dirt; forestVariant = v;
+            // Authored light-green path/clearing transitions, with textured forest outside.
+            // Dirt and grass share the same connected footprint, not a full-width flat fill.
+            Fill(dirt ? T(3, 1) : T(3, 4));
+            ForestSurface(v, dirt);
+            if (deep)
             {
-                ground.color = details.color = new Color(.84f, .91f, .84f, 1);
-                scenery.color = new Color(.91f, .96f, .91f, 1);
+                ground.color = details.color = new Color(.91f, .96f, .91f, 1);
+                scenery.color = new Color(.95f, .98f, .95f, 1);
             }
-            else ground.color = details.color = new Color(.97f, 1f, .94f, 1);
+            else if (!dirt) ground.color = details.color = new Color(.99f, 1f, .97f, 1);
 
             string canopy = deep ? "Willow" : dirt ? "PineLarge" : "GreenBirch";
             if (theme == 3) canopy = "GreenBirch";
             if (theme == 7) canopy = "RoundTree"; // The 6-unit oak reads as a cropped fragment here.
             if (theme == 9) canopy = deep ? "Willow" : "RoundTree";
+            // Reserve the structural tree frame first. Trunks stay outside the opening;
+            // diverse canopies frame its shoulders without entering the combat envelope.
+            ForestFrame(v, dirt, deep, canopy);
             float primaryY = 1.0f + lift;
             switch (theme)
             {
@@ -139,10 +151,7 @@ namespace KingdomIdle.UGUI.Editor
                 case 6: SmallWall(side, Mathf.RoundToInt(primaryY)); break;
                 case 7: EdgeProp(canopy, side, primaryY + 1f, .30f); EdgeProp("Log", side, primaryY - .5f, .1f); break;
                 case 8: EdgeProp("RedMushrooms", side, primaryY, .1f); EdgeProp("Log", side, primaryY + 1.3f, .35f); break;
-                case 9:
-                    if (!dirt) Pond(side, Mathf.RoundToInt(primaryY) - 1, deep);
-                    else { EdgeProp("Log", side, primaryY, .12f); EdgeProp("Stone", side, primaryY + 1.4f, .5f); }
-                    break;
+                case 9: EdgeProp("Log", side, primaryY, .12f); EdgeProp("Stone", side, primaryY + 1.4f, .5f); break;
             }
             // Opposite group is lower and smaller, leaving the eye a clear route through battle.
             EdgeProp(theme == 8 ? "RedMushrooms" : theme == 4 ? "Stone" : "Bush", -side, -2.6f - lift, .16f);
@@ -167,16 +176,38 @@ namespace KingdomIdle.UGUI.Editor
             }
         }
 
-        static void DirtLane(int v)
+        static bool HasClearing(int v, bool dirt) => !dirt || v >= 10 || v % 10 == 1 || v % 10 == 3 || v % 10 == 4 || v % 10 == 7 || v % 10 == 9;
+
+        static void ForestRow(int v, bool dirt, int y, out int left, out int right)
         {
-            // One broad shallow bend per view; proper convex/concave tiles keep every seam connected.
-            bool Lane(int x, int y)
+            // Four/five-tile approaches visibly open into a seven/eight-tile clearing.
+            // A small stepped shoulder retains the original 32px tile grid and connected edges.
+            int bend = ((y + 72 + v * 2) / 14) % 3;
+            left = bend == 0 ? -3 : -2;
+            right = bend == 2 ? 2 : 1;
+            if (!HasClearing(v, dirt))
             {
-                int bend = ((y + 48 + v * 3) / 13) % 3;
-                int left = -3 - (bend == 0 ? 1 : 0), right = 2 + (bend == 2 ? 1 : 0);
-                return x >= left && x <= right;
+                right++; return;
             }
-            for (int y = -24; y < 24; y++) for (int x = -5; x <= 4; x++)
+            int centre = v % 3 - 1;
+            int distance = Mathf.Abs(y - centre);
+            int radius = 3 + v % 2;
+            if (distance <= radius - 2) { left = -4; right = 3; }
+            else if (distance <= radius - 1) { left = v % 2 == 0 ? -4 : -3; right = v % 2 == 0 ? 2 : 3; }
+            else if (distance <= radius) { left = -3; right = 2; }
+        }
+
+        static bool ForestCell(int v, bool dirt, int x, int y)
+        {
+            ForestRow(v, dirt, y, out int left, out int right);
+            return x >= left && x <= right;
+        }
+
+        static void ForestSurface(int v, bool dirt)
+        {
+            bool Lane(int x, int y) => ForestCell(v, dirt, x, y);
+            int rowOffset = dirt ? 0 : 3;
+            for (int y = -24; y < 24; y++) for (int x = -6; x <= 5; x++)
             {
                 if (!Lane(x, y)) continue;
                 int cx = !Lane(x - 1, y) ? 5 : !Lane(x + 1, y) ? 7 : 6;
@@ -188,15 +219,42 @@ namespace KingdomIdle.UGUI.Editor
                     else if (!Lane(x - 1, y - 1)) { cx = 4; cy = 0; }
                     else if (!Lane(x + 1, y - 1)) { cx = 2; cy = 0; }
                 }
-                Put(ground, x, y, T(cx, cy));
+                Put(ground, x, y, T(cx, cy + rowOffset));
             }
+        }
+
+        static void ForestFrame(int v, bool dirt, bool deep, string canopy)
+        {
+            string[] trees = dirt ? new[] { "PineLarge", "GreenBirch", "RoundTree", "PineSmall" } :
+                deep ? new[] { "Willow", "RoundTree", "GreenBirch", "PineLarge" } :
+                new[] { "GreenBirch", "RoundTree", "PineSmall", "AutumnBirch" };
+            int count = HasClearing(v, dirt) ? 4 : 3;
+            for (int side = -1; side <= 1; side += 2)
+                for (int i = 0; i < count; i++)
+                {
+                    float y = -7.25f + i * (count == 4 ? 3.8f : 5f) + (side > 0 ? .65f : 0) + (v % 3 - 1) * .25f;
+                    string tree = trees[(i + v + (side > 0 ? 1 : 0)) % trees.Length];
+                    EdgeProp(tree, side, y, i % 2 == 0 ? .05f : .25f);
+                }
         }
 
         static void EdgeProp(string name, int side, float y, float inset)
         {
-            float width = Load("Prep_Prop_" + name).sprite.bounds.size.x;
+            Bounds bounds = Load("Prep_Prop_" + name).sprite.bounds;
+            float width = bounds.size.x;
             if (clear > 2.5f) inset = Mathf.Min(inset, .125f);
-            Prop(name, side * (clear + width * .5f + inset), y);
+            float edge = y + bounds.max.y <= CombatBottom || y + bounds.min.y >= CombatTop ? 2.1875f : clear;
+            if (family == "Forest")
+            {
+                // A trunk must not stand in the broad clearing; allow only its outer crown
+                // to overhang the native transition, always outside the protected battle area.
+                for (int row = Mathf.FloorToInt(y); row <= Mathf.CeilToInt(y + bounds.size.y * .35f); row++)
+                {
+                    ForestRow(forestVariant, forestDirt, row, out int left, out int right);
+                    edge = Mathf.Max(edge, (side < 0 ? -left : right + 1) - width * .5f + .125f);
+                }
+            }
+            Prop(name, side * (edge + width * .5f + inset), y);
         }
         static void MushroomMargin(int side, float y)
         {
@@ -214,18 +272,18 @@ namespace KingdomIdle.UGUI.Editor
             Feature(x, y, T(3, 24)); Feature(x + 1, y, T(4, 24));
             EdgeProp("Stone", side, y - 1.25f, .2f);
         }
-        static void Pond(int side, int y, bool deep)
-        {
-            // Water bank belongs on grass. Its continuous border extends beyond the screen edge.
-            float x = side < 0 ? -clear - 3.125f : clear + .125f;
-            Patch(x, y, 3, 3, 5, 6);
-            EdgeProp(deep ? "Grass" : "Stone", -side, y + 1.6f, .20f);
-        }
-
         static void Dungeon(int v, System.Random random)
         {
             int theme = v % 10, side = v % 2 == 0 ? -1 : 1;
             float lift = (v / 10) * .625f + (v % 3 - 1) * .625f;
+            var pillars = new List<Rect>();
+            void Place(string name, int edge, float y, float inset = .20f) => DungeonEdgeProp(name, edge, y, inset, pillars);
+            void Pair(float y)
+            {
+                // A single transverse pair establishes architecture without lining the whole field.
+                Place("Pillar", -1, y, .28f);
+                Place("Pillar", 1, y, .28f);
+            }
             // Quiet intact slabs in the centre; cracked slabs belong only beside ruined structures.
             for (int y = -24; y < 24; y++) for (int x = -16; x < 16; x++)
                 Put(ground, x, y, T((x + y + 80) % 4 == 0 ? 9 : 8, 5));
@@ -243,25 +301,100 @@ namespace KingdomIdle.UGUI.Editor
                     for (int x = 1; x < 10; x++) Put(ground, wallX + s * x, y, T(8, 5));
                 }
             }
-            string[] primary = { "Pillar", "BrokenPillar", "Crates", "Tomb", "Vines", "Pillar", "Bench", "Crates", "Candles", "BrokenPillar" };
-            string[] secondary = { "StoneRubble", "StoneRubble", "Bench", "Candles", "BrokenPillar", "Pillar", "Candles", "Crates", "Tomb", "Bench" };
-            EdgeProp(primary[theme], side, .6f + lift, .22f);
-            EdgeProp(secondary[theme], side, 2.9f + lift, .55f);
-            EdgeProp(theme == 2 || theme == 7 ? "Crates" : "Candles", -side, -2.7f - lift, .15f);
-            EdgeProp(theme == 4 ? "Vines" : "Pillar", -side, 4f - lift, .4f);
-            EdgeProp(secondary[theme], side, -5f + lift, .55f);
-            for (int y = -22; y < 24; y += 8)
+            // Source audit: the old "Crates" slice is a closed double wooden door,
+            // and "Vines" is hanging fabric. Neither belongs loose on a stone floor.
+            // Use complete floor-standing props, with 0-2 tall piers in the whole preset.
+            switch (theme)
             {
-                if (y > -8 && y < 8) continue;
-                EdgeProp(primary[theme], side, y + lift, .4f);
-                EdgeProp(secondary[theme], -side, y + 3, .3f);
+                case 0:
+                    Pair(CombatTop - Load("Prep_Prop_Pillar").sprite.bounds.min.y + .25f + (v % 3) * .1875f);
+                    Place("Candles", -side, -4.5f + lift);
+                    break;
+                case 1:
+                    Place("BrokenPillar", side, 2f + lift);
+                    Place("Bench", -side, -3.3f - lift);
+                    break;
+                case 2:
+                    Place("Bench", side, 1.8f + lift);
+                    Place("Candles", side, .4f + lift, .35f);
+                    Place("Tomb", -side, -3.5f - lift);
+                    break;
+                case 3:
+                    Place("Tomb", side, 2.8f + lift);
+                    Place("Candles", side, 1f + lift, .35f);
+                    Place("Tomb", -side, -3.8f - lift);
+                    Place("Candles", -side, -2.4f - lift, .35f);
+                    break;
+                case 4:
+                    Place("BrokenPillar", side, 3f + lift);
+                    Place("Tomb", -side, -2.8f - lift);
+                    break;
+                case 5:
+                    Pair(CombatBottom - Load("Prep_Prop_Pillar").sprite.bounds.max.y - .375f - (v % 3) * .1875f);
+                    Place("Bench", side, CombatTop + .25f + (v % 3) * .1875f);
+                    Place("Candles", -side, 3.5f - lift);
+                    break;
+                case 6:
+                    Place("Bench", side, 2.3f + lift);
+                    Place("Candles", side, .8f + lift, .35f);
+                    break;
+                case 7:
+                    Place("Bench", side, 2.4f + lift);
+                    Place("Bench", -side, -3.6f - lift);
+                    Place("Candles", side, .8f + lift, .35f);
+                    break;
+                case 8:
+                    Place("Pillar", -side, 4f - lift);
+                    Place("Tomb", side, 1f + lift);
+                    Place("Candles", side, 2.3f + lift, .35f);
+                    Place("Candles", -side, -3.8f - lift);
+                    break;
+                case 9:
+                    Place("BrokenPillar", side, 2.8f + lift);
+                    Place("Bench", -side, -3.7f - lift);
+                    break;
             }
-            // Two cohesive rubble deposits support the feature; no independent floor-wide scatter.
-            for (int i = 0; i < 2; i++)
+            // Wider or shifted framing continues the same restrained language without
+            // adding ranks of pillars beyond the normal viewport.
+            foreach (int y in new[] { -19, -11, 11, 19 })
             {
-                int x = side < 0 ? -4 : 3, y = (i == 0 ? -1 : 5) + Mathf.RoundToInt(lift);
-                if (!Reserved(new Rect(x, y, 1, 1))) Put(details, x, y, T(4 + (theme + i) % 3, 4));
+                int edge = y < 0 ? -side : side;
+                if (theme == 3 || theme == 8) Place("Tomb", edge, y + lift, .3f);
+                Place(theme == 2 || theme == 6 || theme == 7 ? "Bench" : "Candles", -edge, y + 2f, .3f);
             }
+            if (pillars.Count > 2) throw new InvalidOperationException("Dungeon pillar budget exceeded: " + v);
+            if (pillars.Count == 2 && (Mathf.Sign(pillars[0].center.x) == Mathf.Sign(pillars[1].center.x) ||
+                Mathf.Abs(pillars[0].yMin - pillars[1].yMin) > .0625f ||
+                Mathf.Abs(pillars[0].center.x - pillars[1].center.x) < 5f))
+                throw new InvalidOperationException("Dungeon pillars must form one widely spaced opposing pair: " + v);
+        }
+
+        static void DungeonEdgeProp(string name, int side, float y, float inset, List<Rect> pillars)
+        {
+            Tile tile = Load("Prep_Prop_" + name);
+            Rect source = tile.sprite.rect;
+            // Check actual source rectangles as well as the misleading legacy names.
+            // This prevents a future theme from accidentally reinstating unattached doors/banners.
+            if (name == "Crates" || source == new Rect(10, 16, 48, 29))
+                throw new InvalidOperationException("Dungeon double door requires supporting architecture; not a floor prop");
+            if (name == "Vines" || source == new Rect(3, 64, 60, 38))
+                throw new InvalidOperationException("Dungeon hanging fabric requires a backing wall; not a floor prop");
+            if (name == "StoneRubble" || source == new Rect(71, 139, 19, 10))
+                throw new InvalidOperationException("Legacy Dungeon StoneRubble is linked metal debris, not verified masonry");
+            Bounds bounds = tile.sprite.bounds;
+            if (name == "Bench" && y + bounds.max.y > CombatBottom && y + bounds.min.y < CombatTop)
+            {
+                // The wide slatted grate (legacy asset name "Bench") belongs in a quiet corner instead of being
+                // cropped by the now wider combat lane. Keep a small authored variant offset.
+                float stagger = Mathf.Repeat(Mathf.Abs(y), .625f);
+                y = y < 0 ? CombatBottom - bounds.max.y - .5f - stagger :
+                    CombatTop - bounds.min.y + .25f + stagger;
+            }
+            int before = props.Count;
+            EdgeProp(name, side, y, inset);
+            if (props.Count != before + 1)
+                throw new InvalidOperationException($"Dungeon planned prop could not be placed: {name}, edge {side}, y {y}");
+            if (name == "Pillar" || name == "BrokenPillar") pillars.Add(occupied[occupied.Count - 1]);
         }
 
         static void Wasteland(int v, System.Random random)
@@ -298,16 +431,10 @@ namespace KingdomIdle.UGUI.Editor
             }
         }
 
-        static void Patch(float x, int y, int width, int height, int col, int row)
-        {
-            var rect = new Rect(x, y, width, height); Reserve(rect);
-            for (int yy = 0; yy < height; yy++) for (int xx = 0; xx < width; xx++)
-                Feature(x + xx, y + yy, T(col + (xx == 0 ? 0 : xx == width - 1 ? 2 : 1), row + (yy == 0 ? 2 : yy == height - 1 ? 0 : 1)));
-        }
         static bool Reserved(Rect rect) => reservations.Any(r => r.Overlaps(rect)) || occupied.Any(r => r.Overlaps(rect));
         static void Reserve(Rect rect)
         {
-            if (rect.xMin < clear && rect.xMax > -clear) throw new InvalidOperationException("Landmark enters combat lane");
+            if (rect.Overlaps(CombatBounds)) throw new InvalidOperationException("Landmark enters combat area");
             reservations.Add(rect);
         }
         static void Prop(string name, float x, float y, bool landmark = false)
@@ -318,7 +445,7 @@ namespace KingdomIdle.UGUI.Editor
             x = Mathf.Round((x + bounds.min.x) * 32) / 32 - bounds.min.x;
             y = Mathf.Round((y + bounds.min.y) * 32) / 32 - bounds.min.y;
             var rect = new Rect(x + bounds.min.x, y + bounds.min.y, bounds.size.x, bounds.size.y);
-            if (rect.xMin < clear && rect.xMax > -clear || Reserved(rect)) return;
+            if (rect.Overlaps(CombatBounds) || Reserved(rect)) return;
             int cx = Mathf.FloorToInt(x), cy = Mathf.FloorToInt(y);
             var cell = new Vector3Int(cx, cy); if (scenery.HasTile(cell)) return;
             scenery.SetTile(cell, tile); scenery.SetTileFlags(cell, TileFlags.None);
