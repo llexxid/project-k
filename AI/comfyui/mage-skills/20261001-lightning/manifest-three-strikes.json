@@ -9,7 +9,9 @@
     "animation": "Assets/_Project/Art/Animations/VFX/MageTower/Lightning_0.anim",
     "spriteGuid": "f1fd6d3372c18374da5fdf904e2b144b",
     "frameInternalIds": [
-      -855562806
+      -855562806,
+      -1838817195,
+      -166954139
     ]
   },
   "source": {
@@ -64,6 +66,34 @@
     ],
     "layersBackToFront": [
       {
+        "frame": 1,
+        "x": 3,
+        "y": 5,
+        "height": 35,
+        "sourceOpaqueBoundsInCell": [
+          8,
+          3,
+          49,
+          144
+        ],
+        "targetWidth": 10,
+        "sampleMethod": "highest-alpha-then-brightness source coverage"
+      },
+      {
+        "frame": 2,
+        "x": 33,
+        "y": 8,
+        "height": 36,
+        "sourceOpaqueBoundsInCell": [
+          15,
+          15,
+          58,
+          143
+        ],
+        "targetWidth": 12,
+        "sampleMethod": "highest-alpha-then-brightness source coverage"
+      },
+      {
         "frame": 0,
         "x": 16,
         "y": 3,
@@ -83,13 +113,13 @@
   },
   "output": {
     "path": "Assets/_Project/Art/Icons/MageTower/Lightning.png",
-    "sha256": "0c3348f630b7cab580929b4a59bcddce1a8cfe413b63890e522db5acff7a493d",
-    "bytes": 471,
+    "sha256": "1b35808a6b142d53f5d1b2228a0cecceaf73ec984eef9dbfea2ad8ca6d9b20cb",
+    "bytes": 878,
     "rgbaColorsIncludingTransparent": 7,
     "opaqueBounds": [
-      16,
       3,
-      31,
+      3,
+      45,
       45
     ],
     "uncompressedTextureBytes": 9216,
@@ -102,18 +132,18 @@
     "bloomSha256": "1b613cb776b94580fd8e09dcee012b5e07ba5b260ab7572c039b84256dc5fd15"
   },
   "before": {
-    "path": "AI/comfyui/mage-skills/20261001-lightning/before-center-only.png",
-    "sha256": "1b35808a6b142d53f5d1b2228a0cecceaf73ec984eef9dbfea2ad8ca6d9b20cb"
+    "path": "AI/comfyui/mage-skills/20261001-lightning/before-Lightning.png",
+    "sha256": "90b61ef0e11be8a1f5c33776fb812017f4fa755c022df466d56ce2286b4b8d42"
   },
   "iteration": {
-    "previousManifest": "AI/comfyui/mage-skills/20261001-lightning/manifest-three-strikes.json",
-    "changedSetting": "layersBackToFront: frames [1, 2, 0] -> [0]",
-    "reason": "User requested only the existing central main sprite and removal of both flanking bolts.",
-    "retainedSettings": "Central frame, pixels, aspect ratio, position, palette, sampling and alpha threshold"
+    "rejected": "AI/comfyui/mage-skills/20261001-lightning/rejected-nearest.png",
+    "changedSetting": "sampleMethod: NEAREST -> highest-alpha source coverage",
+    "reason": "Visual inspection at 48px showed nearest subsampling removed thin source cores, leaving intermittent specks. Source coverage retains those paths using only source pixels.",
+    "retainedSettings": "Same original frames, aspect ratios, positions, palette and alpha threshold"
   },
   "preview": "AI/comfyui/mage-skills/20261001-lightning/91-lightning-preview.png",
   "execution": {
-    "python": "3.12.14",
+    "python": "3.13.2",
     "Pillow": "12.3.0",
     "model": null,
     "prompt": null,
@@ -132,8 +162,6 @@
     "binaryAlpha": true,
     "paletteLimit16": true,
     "marginAtLeast3px": true,
-    "centralPixelsUnchanged": true,
-    "bothFlankingLayersRemoved": true,
-    "unityImportAndAndroid": "See validation-center-only.json for verification of this revision"
+    "unityImportAndAndroid": "Pending main-agent verification"
   }
 }

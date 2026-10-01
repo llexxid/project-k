@@ -25,10 +25,8 @@ ICON_GUID = "75501532964f34f4884b1f721d69e3ae"
 PALETTE = [(15, 172, 241), (19, 166, 255), (25, 255, 255),
            (132, 251, 247), (151, 255, 255), (255, 255, 255)]
 # Each crop is derived from its actual SpriteSheet cell and opaque bounds.
-# The center is the first impact frame; the flanking frames give a quick rhythm.
+# Keep the existing central impact exactly; the user removed the flanking bolts.
 LAYERS = [
-    {"frame": 1, "x": 3, "y": 5, "height": 35},
-    {"frame": 2, "x": 33, "y": 8, "height": 36},
     {"frame": 0, "x": 16, "y": 3, "height": 42},
 ]
 
@@ -95,11 +93,11 @@ def preview(icon, before, target):
     draw = ImageDraw.Draw(sheet)
     draw.rounded_rectangle((30, 28, 105, 87), 12, fill="#1b687d")
     draw.text((45, 33), "91", font=font(34, True), fill="#efffff")
-    draw.text((127, 27), "일반 라이트닝 · 세 번의 낙뢰", font=font(30, True), fill="#f2f5f6")
+    draw.text((127, 27), "일반 라이트닝 · 중앙 낙뢰", font=font(30, True), fill="#f2f5f6")
     draw.text((128, 70), "실제 청록색 스킬 스프라이트로 구성", font=font(18), fill="#a9bccd")
     for box in [(30, 118, 360, 530), (384, 118, 744, 530), (768, 118, 1090, 530)]:
         draw.rounded_rectangle(box, 14, fill="#202a36", outline="#334453", width=1)
-    draw.text((52, 139), "기존 아이콘", font=font(20, True), fill="#9eafbf")
+    draw.text((52, 139), "이전 · 세 가닥", font=font(20, True), fill="#9eafbf")
     draw.text((407, 139), "개선 아이콘", font=font(20, True), fill="#dbfcff")
     draw.text((790, 139), "실제 표시 크기", font=font(20, True), fill="#dbfcff")
     old = Image.open(before).convert("RGBA").resize((240, 240), Image.Resampling.NEAREST)
@@ -114,10 +112,10 @@ def preview(icon, before, target):
         sheet.paste(result, (x, y), result)
         draw.text((x, y + size + 23), label, font=font(16), fill="#a9bccd")
     draw.text((791, 380), "청록 / 흰색 원본 팔레트", font=font(17), fill="#a9bccd")
-    draw.text((791, 415), "세 낙뢰의 간격과 높이 차", font=font(17), fill="#a9bccd")
+    draw.text((791, 415), "중앙 스프라이트만 유지", font=font(17), fill="#a9bccd")
     draw.text((791, 450), "48 × 48 · 투명 배경", font=font(17), fill="#a9bccd")
-    draw.text((33, 557), "원본: LightningOriginal · 기본 스킬의 0 / 1 / 2 프레임", font=font(19), fill="#c1d2df")
-    draw.text((33, 593), "중앙 타격을 강조하고 양옆의 낙뢰를 엇갈려 배치했습니다.", font=font(18), fill="#8fa7bc")
+    draw.text((33, 557), "원본: LightningOriginal · 기본 스킬의 첫 착탄 프레임", font=font(19), fill="#c1d2df")
+    draw.text((33, 593), "양옆 낙뢰를 제거하고 가운데의 크기·위치·색상은 그대로 유지했습니다.", font=font(18), fill="#8fa7bc")
     sheet.save(target)
 
 
@@ -125,17 +123,18 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--preview-dir", type=Path)
     args = parser.parse_args()
-    before = HERE / "before-Lightning.png"
-    if not before.exists():
-        shutil.copy2(DEST, before)
+    before = HERE / "before-center-only.png"
+    assert before.exists(), "Preserve the three-strike revision before changing its composition"
     meta_path = Path(str(DEST) + ".meta")
     meta_before, bloom_before, source_before = digest(meta_path), digest(BLOOM), digest(SOURCE)
     assert SOURCE_GUID in PREFAB.read_text(encoding="utf-8")
     assert SOURCE_GUID in ANIMATION.read_text(encoding="utf-8")
     assert ICON_GUID in meta_path.read_text(encoding="utf-8")
     icon, layers = compose()
-    rejected, _ = compose(coverage=False)
-    rejected.save(HERE / "rejected-nearest.png")
+    previous = Image.open(before).convert("RGBA")
+    assert icon.crop((16, 0, 31, 48)).tobytes() == previous.crop((16, 0, 31, 48)).tobytes()
+    assert icon.crop((0, 0, 16, 48)).getbbox() is None
+    assert icon.crop((31, 0, 48, 48)).getbbox() is None
     out = HERE / "Lightning.png"
     icon.save(out)
     shutil.copy2(out, DEST)
@@ -157,7 +156,7 @@ def main():
         "priorPipeline": "AI/comfyui/mage-skills/20260918-playability/derive_icons.py",
         "toolChoice": "The user requested the actual normal skill sprite. A parameterized extension of the existing sprite-composition generator preserves its exact authored geometry without model redrawing. This is a code-native composition artifact, not generated replacement artwork.",
         "runtimeProof": {"prefab": relative(PREFAB), "animation": relative(ANIMATION),
-                         "spriteGuid": SOURCE_GUID, "frameInternalIds": [-855562806, -1838817195, -166954139]},
+                         "spriteGuid": SOURCE_GUID, "frameInternalIds": [-855562806]},
         "source": {"path": relative(SOURCE), "size": [350, 149], "cellSize": [70, 149], "sha256": source_before},
         "settings": {"logicalSize": [48, 48], "alphaThreshold": 128,
                      "paletteFromSource": PALETTE, "layersBackToFront": layers,
@@ -168,10 +167,10 @@ def main():
         "preservation": {"iconGuid": ICON_GUID, "iconMetaSha256": meta_before,
                          "bloomPath": relative(BLOOM), "bloomSha256": bloom_before},
         "before": {"path": relative(before), "sha256": digest(before)},
-        "iteration": {"rejected": relative(HERE / "rejected-nearest.png"),
-                      "changedSetting": "sampleMethod: NEAREST -> highest-alpha source coverage",
-                      "reason": "Visual inspection at 48px showed nearest subsampling removed thin source cores, leaving intermittent specks. Source coverage retains those paths using only source pixels.",
-                      "retainedSettings": "Same original frames, aspect ratios, positions, palette and alpha threshold"},
+        "iteration": {"previousManifest": relative(HERE / "manifest-three-strikes.json"),
+                      "changedSetting": "layersBackToFront: frames [1, 2, 0] -> [0]",
+                      "reason": "User requested only the existing central main sprite and removal of both flanking bolts.",
+                      "retainedSettings": "Central frame, pixels, aspect ratio, position, palette, sampling and alpha threshold"},
         "preview": relative(preview_path),
         "execution": {"python": __import__("sys").version.split()[0], "Pillow": PILLOW_VERSION,
                       "model": None, "prompt": None, "seed": "deterministic",
@@ -181,7 +180,8 @@ def main():
                       "command": "python AI/comfyui/mage-skills/20261001-lightning/compose_icon.py --preview-dir <outputs>"},
         "checks": {"sourceAndBloomUnmodified": True, "metaGuidUnmodified": True,
                    "binaryAlpha": True, "paletteLimit16": True, "marginAtLeast3px": True,
-                   "unityImportAndAndroid": "Pending main-agent verification"},
+                   "centralPixelsUnchanged": True, "bothFlankingLayersRemoved": True,
+                   "unityImportAndAndroid": "See validation-center-only.json for verification of this revision"},
     }
     (HERE / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(manifest["output"]))
