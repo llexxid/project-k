@@ -1,0 +1,744 @@
+{
+  "valid": true,
+  "checks": [
+    {
+      "skill": 0,
+      "bloom": false,
+      "pixels": {
+        "valid": true,
+        "sorting": true,
+        "renderWidth": 540,
+        "renderHeight": 1158,
+        "deviceWidth": 1080,
+        "deviceHeight": 2316,
+        "sampledFrame": 44360,
+        "sameFrame": true,
+        "opaqueForegroundPixels": 28927,
+        "backgroundChangedOpaquePixels": 0,
+        "bodyAndEffectRenderers": 11,
+        "backgroundRenderers": 3,
+        "CurrentPresetId": "Stage03_DeepForest_Main_05",
+        "actorFeet": [
+          {
+            "kind": "player",
+            "x": -1.11216521,
+            "y": -0.5503002,
+            "radius": 0.27
+          },
+          {
+            "kind": "player",
+            "x": -1.38875246,
+            "y": -0.7395211,
+            "radius": 0.27
+          },
+          {
+            "kind": "player",
+            "x": 0.702293754,
+            "y": -1.58539808,
+            "radius": 0.27
+          },
+          {
+            "kind": "enemy",
+            "x": 1.5276953,
+            "y": -1.61639464,
+            "radius": 0.255
+          },
+          {
+            "kind": "enemy",
+            "x": -1.45674992,
+            "y": -0.17417407,
+            "radius": 0.343652338
+          },
+          {
+            "kind": "enemy",
+            "x": 2.48,
+            "y": -0.5037359,
+            "radius": 0.255664051
+          },
+          {
+            "kind": "enemy",
+            "x": 2.48,
+            "y": 0.153545231,
+            "radius": 0.255
+          },
+          {
+            "kind": "enemy",
+            "x": -2.14318776,
+            "y": -0.5779015,
+            "radius": 0.255
+          },
+          {
+            "kind": "enemy",
+            "x": 0.259262532,
+            "y": 0.373459131,
+            "radius": 0.343652338
+          }
+        ],
+        "method": "Actual phone GPU, same frozen live frame. Foreground opaque mask from RGB-invariant black/white matte renders; compare full backdrop at RGB tolerance 3. Render resolution capped to 540-wide at the actual phone aspect; no display override."
+      },
+      "events": [
+        {
+          "skill": 0,
+          "kind": "begin",
+          "target": "OrcHunter(Clone)",
+          "amount": 0,
+          "bloom": false,
+          "time": 535.15094,
+          "x": 2.48,
+          "y": -0.5037359
+        },
+        {
+          "skill": 0,
+          "kind": "bolt",
+          "target": "0",
+          "amount": 1,
+          "bloom": false,
+          "time": 535.15094,
+          "x": 2.48,
+          "y": -0.5037359
+        },
+        {
+          "skill": 0,
+          "kind": "shake",
+          "target": "",
+          "amount": 0,
+          "bloom": false,
+          "time": 535.334,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 0,
+          "kind": "damage",
+          "target": "OrcHunter(Clone)",
+          "amount": 197,
+          "bloom": false,
+          "time": 535.334,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 0,
+          "kind": "bolt",
+          "target": "1",
+          "amount": 2,
+          "bloom": false,
+          "time": 535.334,
+          "x": 1.88019681,
+          "y": -0.863637149
+        },
+        {
+          "skill": 0,
+          "kind": "shake",
+          "target": "",
+          "amount": 0,
+          "bloom": false,
+          "time": 535.5088,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 0,
+          "kind": "bolt",
+          "target": "2",
+          "amount": 3,
+          "bloom": false,
+          "time": 535.5088,
+          "x": 2.863501,
+          "y": -0.07457435
+        },
+        {
+          "skill": 0,
+          "kind": "shake",
+          "target": "",
+          "amount": 0,
+          "bloom": false,
+          "time": 535.691833,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 0,
+          "kind": "damage",
+          "target": "OrcShaman(Clone)",
+          "amount": 197,
+          "bloom": false,
+          "time": 535.691833,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 0,
+          "kind": "end",
+          "target": "",
+          "amount": 0,
+          "bloom": false,
+          "time": 535.958,
+          "x": 0.0,
+          "y": 0.0
+        }
+      ],
+      "activeEnvironment": {
+        "CurrentPoolId": "Stage03_DeepForest/Main",
+        "CurrentPresetId": "Stage03_DeepForest_Main_05",
+        "orderingEvidenceScope": "Effective SortingGroup/order, material queues and exposed ZWrite only; actual opaque-pixel coverage is verified separately on the GPU.",
+        "renderers": 3,
+        "activeColliders": 0,
+        "activeAnimators": 0,
+        "liveBodyRenderers": 9,
+        "groundEffectRenderers": 0,
+        "backgroundBehindBodies": true,
+        "backgroundBehindGroundEffects": null,
+        "maximumAbsoluteFootX": 2.48,
+        "maximumBodyRadius": 0.343652338,
+        "rendererEvidence": [
+          {
+            "name": "Ground",
+            "type": "TilemapRenderer",
+            "sortingLayer": "Default",
+            "shader": "Sprites/Default",
+            "outerSortingGroup": null,
+            "layerValue": 0,
+            "order": -300,
+            "materialRenderQueue": 3000,
+            "distinctTileAssets": 12,
+            "depthWritePropertyAvailable": false,
+            "materialDepthWrite": null
+          },
+          {
+            "name": "GroundDetails",
+            "type": "TilemapRenderer",
+            "sortingLayer": "Default",
+            "shader": "Sprites/Default",
+            "outerSortingGroup": null,
+            "layerValue": 0,
+            "order": -290,
+            "materialRenderQueue": 3000,
+            "distinctTileAssets": 2,
+            "depthWritePropertyAvailable": false,
+            "materialDepthWrite": null
+          },
+          {
+            "name": "Scenery",
+            "type": "TilemapRenderer",
+            "sortingLayer": "Default",
+            "shader": "Sprites/Default",
+            "outerSortingGroup": null,
+            "layerValue": 0,
+            "order": -280,
+            "materialRenderQueue": 3000,
+            "distinctTileAssets": 6,
+            "depthWritePropertyAvailable": false,
+            "materialDepthWrite": null
+          }
+        ]
+      },
+      "activeVisuals": [
+        {
+          "name": "Lightning(Clone)",
+          "generation": 1,
+          "position": [
+            2.48,
+            -0.5037359
+          ],
+          "renderers": [
+            {
+              "name": "Layer0",
+              "sprite": "LightningOriginal_2",
+              "alpha": 1.0,
+              "size": [
+                1.640625,
+                3.4921875
+              ],
+              "localPosition": [
+                0.0,
+                0.0
+              ],
+              "layer": "CombatVFX",
+              "order": 20
+            }
+          ]
+        },
+        {
+          "name": "Lightning(Clone)",
+          "generation": 1,
+          "position": [
+            1.88019681,
+            -0.863637149
+          ],
+          "renderers": [
+            {
+              "name": "Layer0",
+              "sprite": "LightningOriginal_0",
+              "alpha": 1.0,
+              "size": [
+                1.640625,
+                3.4921875
+              ],
+              "localPosition": [
+                0.0,
+                0.0
+              ],
+              "layer": "CombatVFX",
+              "order": 20
+            }
+          ]
+        }
+      ],
+      "screenshot": "device-skill-0.png"
+    },
+    {
+      "skill": 9,
+      "bloom": false,
+      "pixels": {
+        "valid": true,
+        "sorting": true,
+        "renderWidth": 540,
+        "renderHeight": 1158,
+        "deviceWidth": 1080,
+        "deviceHeight": 2316,
+        "sampledFrame": 45242,
+        "sameFrame": true,
+        "opaqueForegroundPixels": 30808,
+        "backgroundChangedOpaquePixels": 0,
+        "bodyAndEffectRenderers": 13,
+        "backgroundRenderers": 3,
+        "CurrentPresetId": "Stage03_DeepForest_Main_05",
+        "actorFeet": [
+          {
+            "kind": "player",
+            "x": -1.06816924,
+            "y": -0.597395837,
+            "radius": 0.27
+          },
+          {
+            "kind": "player",
+            "x": -1.45045042,
+            "y": -0.5549288,
+            "radius": 0.27
+          },
+          {
+            "kind": "player",
+            "x": -1.84904683,
+            "y": -1.69791,
+            "radius": 0.27
+          },
+          {
+            "kind": "enemy",
+            "x": -0.47184056,
+            "y": -1.53813672,
+            "radius": 0.255
+          },
+          {
+            "kind": "enemy",
+            "x": -0.204688266,
+            "y": -0.52539897,
+            "radius": 0.343652338
+          },
+          {
+            "kind": "enemy",
+            "x": 1.170823,
+            "y": -0.7740383,
+            "radius": 0.255664051
+          },
+          {
+            "kind": "enemy",
+            "x": 0.7985059,
+            "y": -0.5190166,
+            "radius": 0.255
+          },
+          {
+            "kind": "enemy",
+            "x": 0.19508104,
+            "y": -0.44771418,
+            "radius": 0.343652338
+          },
+          {
+            "kind": "enemy",
+            "x": -2.48,
+            "y": 0.440734744,
+            "radius": 0.255664051
+          }
+        ],
+        "method": "Actual phone GPU, same frozen live frame. Foreground opaque mask from RGB-invariant black/white matte renders; compare full backdrop at RGB tolerance 3. Render resolution capped to 540-wide at the actual phone aspect; no display override."
+      },
+      "events": [
+        {
+          "skill": 9,
+          "kind": "begin",
+          "target": "OrcTaskmaster(Clone)",
+          "amount": 0,
+          "bloom": false,
+          "time": 546.412964,
+          "x": 0.170973226,
+          "y": -0.452398926
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcTaskmaster(Clone)",
+          "amount": 69,
+          "bloom": false,
+          "time": 546.5794,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcShaman(Clone)",
+          "amount": 69,
+          "bloom": false,
+          "time": 546.5794,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcTaskmaster(Clone)",
+          "amount": 69,
+          "bloom": false,
+          "time": 546.5794,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcWarrior(Clone)",
+          "amount": 69,
+          "bloom": false,
+          "time": 547.186951,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcTaskmaster(Clone)",
+          "amount": 69,
+          "bloom": false,
+          "time": 547.186951,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcHunter(Clone)",
+          "amount": 69,
+          "bloom": false,
+          "time": 547.186951,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcShaman(Clone)",
+          "amount": 69,
+          "bloom": false,
+          "time": 547.186951,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcTaskmaster(Clone)",
+          "amount": 69,
+          "bloom": false,
+          "time": 547.186951,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcWarrior(Clone)",
+          "amount": 69,
+          "bloom": false,
+          "time": 547.79425,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcTaskmaster(Clone)",
+          "amount": 69,
+          "bloom": false,
+          "time": 547.79425,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcHunter(Clone)",
+          "amount": 69,
+          "bloom": false,
+          "time": 547.79425,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcShaman(Clone)",
+          "amount": 69,
+          "bloom": false,
+          "time": 547.79425,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcTaskmaster(Clone)",
+          "amount": 69,
+          "bloom": false,
+          "time": 547.79425,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcWarrior(Clone)",
+          "amount": 69,
+          "bloom": false,
+          "time": 548.3934,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcTaskmaster(Clone)",
+          "amount": 69,
+          "bloom": false,
+          "time": 548.3934,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcHunter(Clone)",
+          "amount": 69,
+          "bloom": false,
+          "time": 548.3934,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcShaman(Clone)",
+          "amount": 69,
+          "bloom": false,
+          "time": 548.3934,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcTaskmaster(Clone)",
+          "amount": 69,
+          "bloom": false,
+          "time": 548.3934,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcWarrior(Clone)",
+          "amount": 69,
+          "bloom": false,
+          "time": 548.992432,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcTaskmaster(Clone)",
+          "amount": 69,
+          "bloom": false,
+          "time": 548.992432,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcHunter(Clone)",
+          "amount": 69,
+          "bloom": false,
+          "time": 548.992432,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcShaman(Clone)",
+          "amount": 69,
+          "bloom": false,
+          "time": 548.992432,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcTaskmaster(Clone)",
+          "amount": 69,
+          "bloom": false,
+          "time": 548.992432,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcTaskmaster(Clone)",
+          "amount": 296,
+          "bloom": false,
+          "time": 549.5915,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcHunter(Clone)",
+          "amount": 296,
+          "bloom": false,
+          "time": 549.5915,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcShaman(Clone)",
+          "amount": 296,
+          "bloom": false,
+          "time": 549.5915,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "damage",
+          "target": "OrcTaskmaster(Clone)",
+          "amount": 296,
+          "bloom": false,
+          "time": 549.5915,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "skill": 9,
+          "kind": "end",
+          "target": "",
+          "amount": 0,
+          "bloom": false,
+          "time": 550.4736,
+          "x": 0.0,
+          "y": 0.0
+        }
+      ],
+      "activeEnvironment": {
+        "CurrentPoolId": "Stage03_DeepForest/Main",
+        "CurrentPresetId": "Stage03_DeepForest_Main_05",
+        "orderingEvidenceScope": "Effective SortingGroup/order, material queues and exposed ZWrite only; actual opaque-pixel coverage is verified separately on the GPU.",
+        "renderers": 3,
+        "activeColliders": 0,
+        "activeAnimators": 0,
+        "liveBodyRenderers": 9,
+        "groundEffectRenderers": 1,
+        "backgroundBehindBodies": true,
+        "backgroundBehindGroundEffects": true,
+        "maximumAbsoluteFootX": 2.48,
+        "maximumBodyRadius": 0.343652338,
+        "rendererEvidence": [
+          {
+            "name": "Ground",
+            "type": "TilemapRenderer",
+            "sortingLayer": "Default",
+            "shader": "Sprites/Default",
+            "outerSortingGroup": null,
+            "layerValue": 0,
+            "order": -300,
+            "materialRenderQueue": 3000,
+            "distinctTileAssets": 12,
+            "depthWritePropertyAvailable": false,
+            "materialDepthWrite": null
+          },
+          {
+            "name": "GroundDetails",
+            "type": "TilemapRenderer",
+            "sortingLayer": "Default",
+            "shader": "Sprites/Default",
+            "outerSortingGroup": null,
+            "layerValue": 0,
+            "order": -290,
+            "materialRenderQueue": 3000,
+            "distinctTileAssets": 2,
+            "depthWritePropertyAvailable": false,
+            "materialDepthWrite": null
+          },
+          {
+            "name": "Scenery",
+            "type": "TilemapRenderer",
+            "sortingLayer": "Default",
+            "shader": "Sprites/Default",
+            "outerSortingGroup": null,
+            "layerValue": 0,
+            "order": -280,
+            "materialRenderQueue": 3000,
+            "distinctTileAssets": 6,
+            "depthWritePropertyAvailable": false,
+            "materialDepthWrite": null
+          }
+        ]
+      },
+      "activeVisuals": [
+        {
+          "name": "VoidRift(Clone)",
+          "generation": 1,
+          "position": [
+            0.170973226,
+            0.047601074
+          ],
+          "renderers": [
+            {
+              "name": "Layer0",
+              "sprite": "VoidRing_4",
+              "alpha": 1.0,
+              "size": [
+                4.6,
+                4.6
+              ],
+              "localPosition": [
+                0.0,
+                0.0
+              ],
+              "layer": "Default",
+              "order": -30
+            }
+          ]
+        }
+      ],
+      "screenshot": "device-skill-9.png"
+    }
+  ],
+  "iconScreenshot": "device-lightning.png",
+  "normalLightning": true
+}

@@ -1,0 +1,486 @@
+{
+  "valid": true,
+  "checks": [
+    {
+      "valid": true,
+      "phase": "baseline",
+      "target": "MON_BANDIT_LEADER",
+      "hpBefore": 189,
+      "hpNow": 189,
+      "flashAmounts": [
+        0.0
+      ],
+      "sameActualMaterials": true,
+      "actualShaders": [
+        "Shader Graphs/MonsterHitEffect"
+      ],
+      "pixels": {
+        "valid": true,
+        "sorting": true,
+        "renderWidth": 540,
+        "renderHeight": 1158,
+        "deviceWidth": 1080,
+        "deviceHeight": 2316,
+        "sampledFrame": 43692,
+        "sameFrame": true,
+        "opaqueForegroundPixels": 21441,
+        "backgroundChangedOpaquePixels": 0,
+        "bodyAndEffectRenderers": 9,
+        "backgroundRenderers": 3,
+        "CurrentPresetId": "Stage01_ForestDirt_Main_05",
+        "actorFeet": [
+          {
+            "kind": "player",
+            "x": -0.350065947,
+            "y": 1.3715992,
+            "radius": 0.27
+          },
+          {
+            "kind": "player",
+            "x": -1.29863608,
+            "y": -0.6095173,
+            "radius": 0.27
+          },
+          {
+            "kind": "player",
+            "x": 1.1,
+            "y": -1.55,
+            "radius": 0.27
+          },
+          {
+            "kind": "enemy",
+            "x": 1.92715263,
+            "y": -1.49992955,
+            "radius": 0.34
+          },
+          {
+            "kind": "enemy",
+            "x": 0.5963118,
+            "y": 1.29308343,
+            "radius": 0.252343744
+          },
+          {
+            "kind": "enemy",
+            "x": -0.706456,
+            "y": 1.90502691,
+            "radius": 0.252343744
+          },
+          {
+            "kind": "enemy",
+            "x": -0.9032924,
+            "y": 1.09692156,
+            "radius": 0.34
+          },
+          {
+            "kind": "enemy",
+            "x": -2.11790681,
+            "y": -0.502303243,
+            "radius": 0.252343744
+          },
+          {
+            "kind": "enemy",
+            "x": 0.4422863,
+            "y": 1.843317,
+            "radius": 0.252343744
+          }
+        ],
+        "method": "Actual phone GPU, same frozen live frame. Foreground opaque mask from RGB-invariant black/white matte renders; compare full backdrop at RGB tolerance 3. Render resolution capped to 540-wide at the actual phone aspect; no display override."
+      },
+      "targetPixels": {
+        "valid": true,
+        "sorting": true,
+        "renderWidth": 540,
+        "renderHeight": 1158,
+        "deviceWidth": 1080,
+        "deviceHeight": 2316,
+        "sampledFrame": 43692,
+        "sameFrame": true,
+        "opaqueForegroundPixels": 3121,
+        "backgroundChangedOpaquePixels": 0,
+        "bodyAndEffectRenderers": 1,
+        "backgroundRenderers": 3,
+        "CurrentPresetId": "Stage01_ForestDirt_Main_05",
+        "actorFeet": [
+          {
+            "kind": "player",
+            "x": -0.350065947,
+            "y": 1.3715992,
+            "radius": 0.27
+          },
+          {
+            "kind": "player",
+            "x": -1.29863608,
+            "y": -0.6095173,
+            "radius": 0.27
+          },
+          {
+            "kind": "player",
+            "x": 1.1,
+            "y": -1.55,
+            "radius": 0.27
+          },
+          {
+            "kind": "enemy",
+            "x": 1.92715263,
+            "y": -1.49992955,
+            "radius": 0.34
+          },
+          {
+            "kind": "enemy",
+            "x": 0.5963118,
+            "y": 1.29308343,
+            "radius": 0.252343744
+          },
+          {
+            "kind": "enemy",
+            "x": -0.706456,
+            "y": 1.90502691,
+            "radius": 0.252343744
+          },
+          {
+            "kind": "enemy",
+            "x": -0.9032924,
+            "y": 1.09692156,
+            "radius": 0.34
+          },
+          {
+            "kind": "enemy",
+            "x": -2.11790681,
+            "y": -0.502303243,
+            "radius": 0.252343744
+          },
+          {
+            "kind": "enemy",
+            "x": 0.4422863,
+            "y": 1.843317,
+            "radius": 0.252343744
+          }
+        ],
+        "method": "Actual phone GPU, same frozen live frame. Foreground opaque mask from RGB-invariant black/white matte renders; compare full backdrop at RGB tolerance 3. Render resolution capped to 540-wide at the actual phone aspect; no display override."
+      },
+      "method": "Real spawned enemy TakeDamage(1, live player); no material replacement. Initial baseline reset only; restored phase follows the real coroutine in normal time.",
+      "screenshot": "device-hit-flash-baseline.png"
+    },
+    {
+      "valid": true,
+      "phase": "active",
+      "target": "MON_BANDIT_LEADER",
+      "hpBefore": 189,
+      "hpNow": 188,
+      "flashAmounts": [
+        0.45
+      ],
+      "sameActualMaterials": true,
+      "actualShaders": [
+        "Shader Graphs/MonsterHitEffect"
+      ],
+      "pixels": {
+        "valid": true,
+        "sorting": true,
+        "renderWidth": 540,
+        "renderHeight": 1158,
+        "deviceWidth": 1080,
+        "deviceHeight": 2316,
+        "sampledFrame": 43755,
+        "sameFrame": true,
+        "opaqueForegroundPixels": 21796,
+        "backgroundChangedOpaquePixels": 0,
+        "bodyAndEffectRenderers": 9,
+        "backgroundRenderers": 3,
+        "CurrentPresetId": "Stage01_ForestDirt_Main_05",
+        "actorFeet": [
+          {
+            "kind": "player",
+            "x": -0.350065947,
+            "y": 1.3715992,
+            "radius": 0.27
+          },
+          {
+            "kind": "player",
+            "x": -1.29863608,
+            "y": -0.6095173,
+            "radius": 0.27
+          },
+          {
+            "kind": "player",
+            "x": 1.1,
+            "y": -1.55,
+            "radius": 0.27
+          },
+          {
+            "kind": "enemy",
+            "x": 1.92715263,
+            "y": -1.49992955,
+            "radius": 0.34
+          },
+          {
+            "kind": "enemy",
+            "x": 0.5963118,
+            "y": 1.29308343,
+            "radius": 0.252343744
+          },
+          {
+            "kind": "enemy",
+            "x": -0.706456,
+            "y": 1.90502691,
+            "radius": 0.252343744
+          },
+          {
+            "kind": "enemy",
+            "x": -0.9032924,
+            "y": 1.09692156,
+            "radius": 0.34
+          },
+          {
+            "kind": "enemy",
+            "x": -2.11790681,
+            "y": -0.502303243,
+            "radius": 0.252343744
+          },
+          {
+            "kind": "enemy",
+            "x": 0.4422863,
+            "y": 1.843317,
+            "radius": 0.252343744
+          }
+        ],
+        "method": "Actual phone GPU, same frozen live frame. Foreground opaque mask from RGB-invariant black/white matte renders; compare full backdrop at RGB tolerance 3. Render resolution capped to 540-wide at the actual phone aspect; no display override."
+      },
+      "targetPixels": {
+        "valid": true,
+        "sorting": true,
+        "renderWidth": 540,
+        "renderHeight": 1158,
+        "deviceWidth": 1080,
+        "deviceHeight": 2316,
+        "sampledFrame": 43755,
+        "sameFrame": true,
+        "opaqueForegroundPixels": 3416,
+        "backgroundChangedOpaquePixels": 0,
+        "bodyAndEffectRenderers": 1,
+        "backgroundRenderers": 3,
+        "CurrentPresetId": "Stage01_ForestDirt_Main_05",
+        "actorFeet": [
+          {
+            "kind": "player",
+            "x": -0.350065947,
+            "y": 1.3715992,
+            "radius": 0.27
+          },
+          {
+            "kind": "player",
+            "x": -1.29863608,
+            "y": -0.6095173,
+            "radius": 0.27
+          },
+          {
+            "kind": "player",
+            "x": 1.1,
+            "y": -1.55,
+            "radius": 0.27
+          },
+          {
+            "kind": "enemy",
+            "x": 1.92715263,
+            "y": -1.49992955,
+            "radius": 0.34
+          },
+          {
+            "kind": "enemy",
+            "x": 0.5963118,
+            "y": 1.29308343,
+            "radius": 0.252343744
+          },
+          {
+            "kind": "enemy",
+            "x": -0.706456,
+            "y": 1.90502691,
+            "radius": 0.252343744
+          },
+          {
+            "kind": "enemy",
+            "x": -0.9032924,
+            "y": 1.09692156,
+            "radius": 0.34
+          },
+          {
+            "kind": "enemy",
+            "x": -2.11790681,
+            "y": -0.502303243,
+            "radius": 0.252343744
+          },
+          {
+            "kind": "enemy",
+            "x": 0.4422863,
+            "y": 1.843317,
+            "radius": 0.252343744
+          }
+        ],
+        "method": "Actual phone GPU, same frozen live frame. Foreground opaque mask from RGB-invariant black/white matte renders; compare full backdrop at RGB tolerance 3. Render resolution capped to 540-wide at the actual phone aspect; no display override."
+      },
+      "method": "Real spawned enemy TakeDamage(1, live player); no material replacement. Initial baseline reset only; restored phase follows the real coroutine in normal time.",
+      "screenshot": "device-hit-flash-active.png"
+    },
+    {
+      "valid": true,
+      "phase": "restored",
+      "target": "MON_BANDIT_LEADER",
+      "hpBefore": 189,
+      "hpNow": 188,
+      "flashAmounts": [
+        0.0
+      ],
+      "sameActualMaterials": true,
+      "actualShaders": [
+        "Shader Graphs/MonsterHitEffect"
+      ],
+      "pixels": {
+        "valid": true,
+        "sorting": true,
+        "renderWidth": 540,
+        "renderHeight": 1158,
+        "deviceWidth": 1080,
+        "deviceHeight": 2316,
+        "sampledFrame": 43851,
+        "sameFrame": true,
+        "opaqueForegroundPixels": 20420,
+        "backgroundChangedOpaquePixels": 0,
+        "bodyAndEffectRenderers": 9,
+        "backgroundRenderers": 3,
+        "CurrentPresetId": "Stage01_ForestDirt_Main_05",
+        "actorFeet": [
+          {
+            "kind": "player",
+            "x": -0.239878267,
+            "y": 1.73107386,
+            "radius": 0.27
+          },
+          {
+            "kind": "player",
+            "x": -1.29863608,
+            "y": -0.6095173,
+            "radius": 0.27
+          },
+          {
+            "kind": "player",
+            "x": 1.1,
+            "y": -1.55,
+            "radius": 0.27
+          },
+          {
+            "kind": "enemy",
+            "x": 1.92715263,
+            "y": -1.49992955,
+            "radius": 0.34
+          },
+          {
+            "kind": "enemy",
+            "x": 0.4472571,
+            "y": 1.56331849,
+            "radius": 0.252343744
+          },
+          {
+            "kind": "enemy",
+            "x": -0.706456,
+            "y": 1.90502691,
+            "radius": 0.252343744
+          },
+          {
+            "kind": "enemy",
+            "x": -0.9097241,
+            "y": 1.16984725,
+            "radius": 0.34
+          },
+          {
+            "kind": "enemy",
+            "x": -2.11790681,
+            "y": -0.502303243,
+            "radius": 0.252343744
+          },
+          {
+            "kind": "enemy",
+            "x": 0.443929344,
+            "y": 1.91853952,
+            "radius": 0.252343744
+          }
+        ],
+        "method": "Actual phone GPU, same frozen live frame. Foreground opaque mask from RGB-invariant black/white matte renders; compare full backdrop at RGB tolerance 3. Render resolution capped to 540-wide at the actual phone aspect; no display override."
+      },
+      "targetPixels": {
+        "valid": true,
+        "sorting": true,
+        "renderWidth": 540,
+        "renderHeight": 1158,
+        "deviceWidth": 1080,
+        "deviceHeight": 2316,
+        "sampledFrame": 43851,
+        "sameFrame": true,
+        "opaqueForegroundPixels": 2971,
+        "backgroundChangedOpaquePixels": 0,
+        "bodyAndEffectRenderers": 1,
+        "backgroundRenderers": 3,
+        "CurrentPresetId": "Stage01_ForestDirt_Main_05",
+        "actorFeet": [
+          {
+            "kind": "player",
+            "x": -0.239878267,
+            "y": 1.73107386,
+            "radius": 0.27
+          },
+          {
+            "kind": "player",
+            "x": -1.29863608,
+            "y": -0.6095173,
+            "radius": 0.27
+          },
+          {
+            "kind": "player",
+            "x": 1.1,
+            "y": -1.55,
+            "radius": 0.27
+          },
+          {
+            "kind": "enemy",
+            "x": 1.92715263,
+            "y": -1.49992955,
+            "radius": 0.34
+          },
+          {
+            "kind": "enemy",
+            "x": 0.4472571,
+            "y": 1.56331849,
+            "radius": 0.252343744
+          },
+          {
+            "kind": "enemy",
+            "x": -0.706456,
+            "y": 1.90502691,
+            "radius": 0.252343744
+          },
+          {
+            "kind": "enemy",
+            "x": -0.9097241,
+            "y": 1.16984725,
+            "radius": 0.34
+          },
+          {
+            "kind": "enemy",
+            "x": -2.11790681,
+            "y": -0.502303243,
+            "radius": 0.252343744
+          },
+          {
+            "kind": "enemy",
+            "x": 0.443929344,
+            "y": 1.91853952,
+            "radius": 0.252343744
+          }
+        ],
+        "method": "Actual phone GPU, same frozen live frame. Foreground opaque mask from RGB-invariant black/white matte renders; compare full backdrop at RGB tolerance 3. Render resolution capped to 540-wide at the actual phone aspect; no display override."
+      },
+      "method": "Real spawned enemy TakeDamage(1, live player); no material replacement. Initial baseline reset only; restored phase follows the real coroutine in normal time.",
+      "screenshot": "device-hit-flash-restored.png"
+    }
+  ],
+  "scope": "Controlled 1 HP hit on an actually spawned enemy in the isolated local profile; real shader/property block/coroutine, same live materials"
+}

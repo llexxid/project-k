@@ -1,0 +1,35 @@
+{
+  "graph": "Assets/_Project/Shader/Monster/MonsterHitEffect.shadergraph",
+  "graphObjectCount": 49,
+  "changedFields": [
+    {
+      "object": "UnityEditor.Rendering.Universal.ShaderGraph.UniversalTarget",
+      "key": "m_Sort3DAs2DCompatible",
+      "before": true,
+      "after": false
+    },
+    {
+      "object": "UnityEditor.Rendering.Universal.ShaderGraph.UniversalTarget",
+      "key": "m_SurfaceType",
+      "before": 0,
+      "after": 1
+    },
+    {
+      "object": "UnityEditor.Rendering.Universal.ShaderGraph.UniversalTarget",
+      "key": "m_ZWriteControl",
+      "before": 0,
+      "after": 2
+    }
+  ],
+  "nodesEdgesAlphaConnectionsUnchanged": true,
+  "materialQueuesPinned": 3000,
+  "flashCodeChanged": false,
+  "reason": "Use regular URP SpriteUnlit transparent pass with depth writes disabled; remove 3D-mesh stencil/depth path. Explicit material queue keeps the material in the sprite transparent ordering domain even across default queue import changes.",
+  "installedPackageEvidence": [
+    "Editor/2D/ShaderGraph/Targets/UniversalSpriteUnlitSubTarget.cs:134",
+    "Editor/2D/ShaderGraph/Targets/Universal2DSubTargetDescriptors.cs:22",
+    "Editor/2D/ShaderGraph/Targets/SpriteSubTargetUtility.cs:13"
+  ],
+  "package": "com.unity.render-pipelines.universal@8aa8d736cba6",
+  "qa": "Unity final Play Mode PASS: actual TakeDamage baseline/active/restored MPB 0/0.45/0, original material identity, effective sorting, all-actor and selected-target opaque pixel comparisons. See final/gameplay/report.json."
+}

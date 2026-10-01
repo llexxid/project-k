@@ -1,0 +1,172 @@
+{
+  "reviewDate": "2026-10-01",
+  "revision": "2026-10-01-r2",
+  "status": "isolated-physical-device-checks-passed-natural-login-awaits-account-choice",
+  "device": {
+    "model": "Samsung SM-N986N",
+    "physicalDeviceCount": 1,
+    "capturedResolution": [
+      1080,
+      2316
+    ],
+    "displayOverridesChanged": false
+  },
+  "isolatedSimulation": {
+    "version": "0.15.2",
+    "versionCode": 67,
+    "separateAndroidPackage": true,
+    "distinctAndroidUid": true,
+    "uniqueLocalTestAccount": true,
+    "cloudSessionPresent": false,
+    "fixtureCommandsUsedOnlyInSimulation": true,
+    "controlledBackdropSubstitution": true,
+    "allWavesNaturallyProgressed": false,
+    "backgroundCount": 90,
+    "backgroundPixelAndOrderChecksPassed": 90,
+    "backgroundChangedOpaquePixels": 0,
+    "maximumBackgroundColliderCount": 0,
+    "actualSkillCastsPassed": 2,
+    "normalLightningStrikeCount": 3,
+    "normalLightningIconObserved": true,
+    "realTakeDamageFlashPhasesPassed": 3,
+    "realTouchAndHardwareBackRoutesPassed": 5,
+    "nativeHudAndHealthBarsVisuallyReviewed": true,
+    "performance": {
+      "scope": "New isolated QA build on one physical phone; no b66 before baseline and no improvement comparison",
+      "wallElapsedSeconds": 20.648435500001142,
+      "deltaFrames": 1226,
+      "sampledFrameTimeMs": 20567.011550068855,
+      "meanFrameMs": 16.77570273251946,
+      "framesPerSecond": 59.61002146643398,
+      "memoryBefore": 199044673,
+      "memoryAfter": 199050086,
+      "environment": {
+        "CurrentPoolId": "Stage03_DeepForest/Main",
+        "CurrentPresetId": "Stage03_DeepForest_Main_06",
+        "orderingEvidenceScope": "Effective SortingGroup/order, material queues and exposed ZWrite only; actual opaque-pixel coverage is verified separately on the GPU.",
+        "renderers": 3,
+        "activeColliders": 0,
+        "activeAnimators": 0,
+        "liveBodyRenderers": 9,
+        "groundEffectRenderers": 0,
+        "backgroundBehindBodies": true,
+        "backgroundBehindGroundEffects": null,
+        "maximumAbsoluteFootX": 2.48,
+        "maximumBodyRadius": 0.343652338,
+        "rendererEvidence": [
+          {
+            "name": "Ground",
+            "type": "TilemapRenderer",
+            "sortingLayer": "Default",
+            "shader": "Sprites/Default",
+            "outerSortingGroup": null,
+            "layerValue": 0,
+            "order": -300,
+            "materialRenderQueue": 3000,
+            "distinctTileAssets": 12,
+            "depthWritePropertyAvailable": false,
+            "materialDepthWrite": null
+          },
+          {
+            "name": "GroundDetails",
+            "type": "TilemapRenderer",
+            "sortingLayer": "Default",
+            "shader": "Sprites/Default",
+            "outerSortingGroup": null,
+            "layerValue": 0,
+            "order": -290,
+            "materialRenderQueue": 3000,
+            "distinctTileAssets": 4,
+            "depthWritePropertyAvailable": false,
+            "materialDepthWrite": null
+          },
+          {
+            "name": "Scenery",
+            "type": "TilemapRenderer",
+            "sortingLayer": "Default",
+            "shader": "Sprites/Default",
+            "outerSortingGroup": null,
+            "layerValue": 0,
+            "order": -280,
+            "materialRenderQueue": 3000,
+            "distinctTileAssets": 6,
+            "depthWritePropertyAvailable": false,
+            "materialDepthWrite": null
+          }
+        ]
+      },
+      "pixelReadbacksDuringInterval": 0,
+      "explicitQaCommandsBetweenSnapshots": 0,
+      "backgroundAutosnapshotNote": "Existing BalanceDeviceProbe still writes its normal diagnostic live snapshot every 10 seconds."
+    }
+  },
+  "naturalFinal": {
+    "installed": {
+      "package": "com.isolatedyouth.idlekingdomrpg.lobbyqa",
+      "version": "0.15.2",
+      "versionCode": 68,
+      "naturalProfile": true,
+      "isolatedSimulation": false,
+      "installedAsUpdate": true,
+      "previousVersion": "0.15.1",
+      "previousVersionCode": 66,
+      "currentProfilesBackedUp": 29,
+      "progressionAndPreferenceFilesUnchanged": 59,
+      "storageCleared": false,
+      "storageRestored": false,
+      "apkSha256": "76f05fea24bc4f5702cb411233788d115d991c0e9da7ae18b93016833b36da3f"
+    },
+    "cleanup": {
+      "temporarySimulationPackageRemoved": true,
+      "temporaryBackupVerified": true,
+      "latestNaturalPackageRetained": true,
+      "naturalVersion": "0.15.2",
+      "naturalVersionCode": 68,
+      "naturalProgressionAndPreferenceFilesUnchangedBeforeLaunch": 59,
+      "dataRestored": false,
+      "remainingGamePackages": [
+        "package:com.isolatedyouth.idlekingdomrpg.lobbyqa"
+      ]
+    },
+    "login": {
+      "naturalVersion": "0.15.2",
+      "naturalVersionCode": 68,
+      "titleVersionVisible": true,
+      "provider": "Google",
+      "accountPickerVisible": true,
+      "existingAccountChoiceCount": 2,
+      "accountSelectedByAgent": false,
+      "authenticatedBattleValidated": false,
+      "status": "awaiting-user-account-selection"
+    },
+    "fixtureCommandsUsed": false
+  },
+  "preservation": {
+    "existingProgressionProfilesBackedUp": 29,
+    "existingProgressionAndPreferenceFilesUnchangedAfterSimulation": 59,
+    "existingProgressionAndPreferenceFilesUnchangedAcrossNaturalUpdate": 59,
+    "freshInstallBaselineUsed": true,
+    "backupsRestored": false,
+    "normalStorageCleared": false,
+    "temporarySimulationBackedUpAndRemoved": true
+  },
+  "findingsAndCorrections": [
+    "Fresh isolated profile needed main-clear unlock history before actual dungeon entry; the existing midgame fixture was applied only in the simulation package, followed by controlled combat stats. Initial rejected entry is preserved in private run evidence.",
+    "Native capture 85 initially coincided with the normal dungeon-clear modal. That original is retained privately; only 85 was re-entered/retested/recaptured. Runner now requires Running around the sample and screenshot, with no blocking panel. Other 89 original after-shot states were Running.",
+    "Samsung window-focus parsing and the settings-overlay visibility assertion were corrected in the Python driver. Five real touch/Back routes then passed on the Main screen.",
+    "No detached health bars were observed on native captures; the earlier Editor HUD image had an offscreen projection issue. Native top scenery is intentionally partly behind the HUD, outside combat space."
+  ],
+  "limitations": [
+    "One physical phone. Other display aspects were tested in Unity, not on additional physical devices.",
+    "Preset backgrounds were deliberately substituted into actual region/dungeon battles. This is not a natural playthrough of every wave.",
+    "The approximately 20-second performance sample is from b67 and has no matching b66 baseline; no performance improvement is claimed.",
+    "b68 launches normally and shows v0.15.2. Google account selection requires the user; authenticated battle/menu checks in the real user account remain unverified."
+  ],
+  "evidenceDirectory": "device",
+  "safeCaptures": {
+    "beforeTitle": "device/b66-before-title.png",
+    "afterTitle": "device/b68-natural-title.png",
+    "numberedCombat": "device/device-001.png … device/device-090.png",
+    "normalLightning": "device/device-lightning.png"
+  }
+}

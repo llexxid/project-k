@@ -20,15 +20,18 @@ namespace KingdomIdle.UGUI.Editor
 
         public static void BuildForManualTesting() => BuildPlayer(false);
 
+        // Temporary separate Android UID; local simulation never selects a cloud or user account.
+        public static void BuildForEnvironmentSimulation() => BuildPlayer(true, false, true);
+
         [Serializable]
         sealed class DeviceBuildManifest
         {
             public string apk, package, label, version, purpose;
             public int versionCode;
-            public bool diagnostics, naturalProfile;
+            public bool diagnostics, naturalProfile, isolatedSimulation;
         }
 
-        static void BuildPlayer(bool diagnostics, bool naturalProfile = false)
+        static void BuildPlayer(bool diagnostics, bool naturalProfile = false, bool isolatedSimulation = false)
         {
             Directory.CreateDirectory(Output);
             if (File.Exists(Output + "/build.txt")) File.Delete(Output + "/build.txt");
@@ -42,13 +45,14 @@ namespace KingdomIdle.UGUI.Editor
             int versionCode = checked(PlayerSettings.Android.bundleVersionCode + 1);
             var manifest = new DeviceBuildManifest
             {
-                package = identifier + ".lobbyqa",
+                package = identifier + (isolatedSimulation ? ".environmentqa" : ".lobbyqa"),
                 label = $"{purpose} {PlayerSettings.bundleVersion} (b{versionCode})",
                 version = PlayerSettings.bundleVersion,
                 versionCode = versionCode,
                 purpose = purpose,
                 diagnostics = diagnostics,
-                naturalProfile = naturalProfile
+                naturalProfile = naturalProfile,
+                isolatedSimulation = isolatedSimulation
             };
             string fileStem = $"{purpose}_{manifest.version}_b{versionCode}";
             foreach (char invalid in Path.GetInvalidFileNameChars()) fileStem = fileStem.Replace(invalid, '_');
@@ -116,7 +120,8 @@ namespace KingdomIdle.UGUI.Editor
                     locationPathName = manifest.apk,
                     target = BuildTarget.Android,
                     options = BuildOptions.Development | BuildOptions.DetailedBuildReport,
-                    extraScriptingDefines = naturalProfile ? new[] { "LOBBY_DEVICE_QA", "NATURAL_PLAYER_QA" } :
+                    extraScriptingDefines = isolatedSimulation ? new[] { "LOBBY_DEVICE_QA", "ENVIRONMENT_SIMULATION_QA" } :
+                        naturalProfile ? new[] { "LOBBY_DEVICE_QA", "NATURAL_PLAYER_QA" } :
                         diagnostics ? new[] { "LOBBY_DEVICE_QA" } : Array.Empty<string>()
                 };
                 BuildReport report = BuildPipeline.BuildPlayer(options);

@@ -1,0 +1,68 @@
+{
+  "scope": "New isolated QA build on one physical phone; no b66 before baseline and no improvement comparison",
+  "wallElapsedSeconds": 20.648435500001142,
+  "deltaFrames": 1226,
+  "sampledFrameTimeMs": 20567.011550068855,
+  "meanFrameMs": 16.77570273251946,
+  "framesPerSecond": 59.61002146643398,
+  "memoryBefore": 199044673,
+  "memoryAfter": 199050086,
+  "environment": {
+    "CurrentPoolId": "Stage03_DeepForest/Main",
+    "CurrentPresetId": "Stage03_DeepForest_Main_06",
+    "orderingEvidenceScope": "Effective SortingGroup/order, material queues and exposed ZWrite only; actual opaque-pixel coverage is verified separately on the GPU.",
+    "renderers": 3,
+    "activeColliders": 0,
+    "activeAnimators": 0,
+    "liveBodyRenderers": 9,
+    "groundEffectRenderers": 0,
+    "backgroundBehindBodies": true,
+    "backgroundBehindGroundEffects": null,
+    "maximumAbsoluteFootX": 2.48,
+    "maximumBodyRadius": 0.343652338,
+    "rendererEvidence": [
+      {
+        "name": "Ground",
+        "type": "TilemapRenderer",
+        "sortingLayer": "Default",
+        "shader": "Sprites/Default",
+        "outerSortingGroup": null,
+        "layerValue": 0,
+        "order": -300,
+        "materialRenderQueue": 3000,
+        "distinctTileAssets": 12,
+        "depthWritePropertyAvailable": false,
+        "materialDepthWrite": null
+      },
+      {
+        "name": "GroundDetails",
+        "type": "TilemapRenderer",
+        "sortingLayer": "Default",
+        "shader": "Sprites/Default",
+        "outerSortingGroup": null,
+        "layerValue": 0,
+        "order": -290,
+        "materialRenderQueue": 3000,
+        "distinctTileAssets": 4,
+        "depthWritePropertyAvailable": false,
+        "materialDepthWrite": null
+      },
+      {
+        "name": "Scenery",
+        "type": "TilemapRenderer",
+        "sortingLayer": "Default",
+        "shader": "Sprites/Default",
+        "outerSortingGroup": null,
+        "layerValue": 0,
+        "order": -280,
+        "materialRenderQueue": 3000,
+        "distinctTileAssets": 6,
+        "depthWritePropertyAvailable": false,
+        "materialDepthWrite": null
+      }
+    ]
+  },
+  "pixelReadbacksDuringInterval": 0,
+  "explicitQaCommandsBetweenSnapshots": 0,
+  "backgroundAutosnapshotNote": "Existing BalanceDeviceProbe still writes its normal diagnostic live snapshot every 10 seconds."
+}

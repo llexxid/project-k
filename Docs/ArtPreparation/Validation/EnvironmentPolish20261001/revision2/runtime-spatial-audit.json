@@ -1,0 +1,188 @@
+{
+  "evidenceKind": "Source and existing sprite measurement audit; live simulation and pixel occlusion results are separate evidence.",
+  "activeMonsterTypes": 15,
+  "measuredActiveTypes": 15,
+  "movementFootBounds": [
+    -2.48,
+    -2.45,
+    2.48,
+    2.45
+  ],
+  "spawnFootLimits": [
+    -2.5,
+    -2.5,
+    2.5,
+    2.5
+  ],
+  "recommendedMainClearHalfWidth": 3.1875,
+  "recommendedBossClearHalfWidth": 3.25,
+  "recommendedCriticalDecorExclusionY": [
+    -3,
+    4.25
+  ],
+  "portraitTallHalfWidthAtGround": 3.2166657854850578,
+  "ordering": {
+    "backgroundDefault": [
+      -300,
+      -290,
+      -280
+    ],
+    "groundEffectsDefault": [
+      -40,
+      -30,
+      -10
+    ],
+    "playersDefault": 2,
+    "enemyLayerAboveDefault": true,
+    "impactVfxLayerAboveEnemy": true
+  },
+  "runtimeRenderingFeatureChanges": false,
+  "actors": [
+    {
+      "type": "BANDIT_KING",
+      "category": "Boss",
+      "bodyWidthWU": 0.984375,
+      "bodyHeightWU": 1.125,
+      "sideClearWithEighthUnitGap": 3.125
+    },
+    {
+      "type": "MON_BANDIT_ARCHER",
+      "category": "Medium",
+      "bodyWidthWU": 0.630859375,
+      "bodyHeightWU": 0.7421875,
+      "sideClearWithEighthUnitGap": 2.96875
+    },
+    {
+      "type": "MON_BANDIT_LEADER",
+      "category": "Large",
+      "bodyWidthWU": 0.6666666666666666,
+      "bodyHeightWU": 1.0,
+      "sideClearWithEighthUnitGap": 2.96875
+    },
+    {
+      "type": "MON_BANDIT_SHIELD",
+      "category": "Medium",
+      "bodyWidthWU": 0.705078125,
+      "bodyHeightWU": 0.7421875,
+      "sideClearWithEighthUnitGap": 3.0
+    },
+    {
+      "type": "GOBLIN",
+      "category": "Small",
+      "bodyWidthWU": 0.375,
+      "bodyHeightWU": 0.5,
+      "sideClearWithEighthUnitGap": 2.8125
+    },
+    {
+      "type": "GOBLIN_ASSASSIN",
+      "category": "Small",
+      "bodyWidthWU": 0.431640625,
+      "bodyHeightWU": 0.498046875,
+      "sideClearWithEighthUnitGap": 2.84375
+    },
+    {
+      "type": "GOBLIN_BOMBER",
+      "category": "Small",
+      "bodyWidthWU": 0.40625,
+      "bodyHeightWU": 0.5,
+      "sideClearWithEighthUnitGap": 2.84375
+    },
+    {
+      "type": "GOBLIN_KING",
+      "category": "Boss",
+      "bodyWidthWU": 0.90625,
+      "bodyHeightWU": 1.09375,
+      "sideClearWithEighthUnitGap": 3.09375
+    },
+    {
+      "type": "GOBLIN_SHAMAN",
+      "category": "Small",
+      "bodyWidthWU": 0.40625,
+      "bodyHeightWU": 0.5,
+      "sideClearWithEighthUnitGap": 2.84375
+    },
+    {
+      "type": "HERESY_MIMIC",
+      "category": "Large",
+      "bodyWidthWU": 1.076171875,
+      "bodyHeightWU": 1.001953125,
+      "sideClearWithEighthUnitGap": 3.1875
+    },
+    {
+      "type": "ORC_BRUTE",
+      "category": "Boss",
+      "bodyWidthWU": 1.15625,
+      "bodyHeightWU": 1.228515625,
+      "sideClearWithEighthUnitGap": 3.21875
+    },
+    {
+      "type": "ORC_HUNTER",
+      "category": "Medium",
+      "bodyWidthWU": 0.4443359375,
+      "bodyHeightWU": 0.751953125,
+      "sideClearWithEighthUnitGap": 2.875
+    },
+    {
+      "type": "ORC_SHAMAN",
+      "category": "Medium",
+      "bodyWidthWU": 0.59375,
+      "bodyHeightWU": 0.75,
+      "sideClearWithEighthUnitGap": 2.9375
+    },
+    {
+      "type": "ORC_TASKMASTER",
+      "category": "Large",
+      "bodyWidthWU": 0.791015625,
+      "bodyHeightWU": 1.0107421875,
+      "sideClearWithEighthUnitGap": 3.03125
+    },
+    {
+      "type": "ORC_WARRIOR",
+      "category": "Medium",
+      "bodyWidthWU": 0.71875,
+      "bodyHeightWU": 0.75,
+      "sideClearWithEighthUnitGap": 3.0
+    }
+  ],
+  "sources": [
+    "Assets/_Project/Scripts/Core/Stage/CombatViewport.cs",
+    "Assets/_Project/Scripts/Combat/CombatMotion.cs",
+    "Assets/_Project/Scripts/Combat/CombatVfxOrder.cs",
+    "Docs/ArtPreparation/Manifests/monster-sizes.json"
+  ],
+  "adoptedProtectedBounds": {
+    "mainAndSpecial": [
+      -3.1875,
+      -3.125,
+      3.1875,
+      4.5
+    ],
+    "boss": [
+      -3.25,
+      -3.125,
+      3.25,
+      4.5
+    ]
+  },
+  "measurementLimitations": [
+    "Body widths come from the explicitly named idle bodyMeasurementSprite/bodyMeasurementClip and manual bodyBox in the existing monster-sizes manifest for the 15 currently referenced types; they are not maximum weapon/whole-silhouette bounds across all animation frames.",
+    "Sorting layer and order establish the intended source ordering; actual material behavior and live occlusion require the separate gameplay harness.",
+    "No authenticated device combat session or device performance result is asserted by this source audit."
+  ],
+  "diagnostics": {
+    "readOnly": true,
+    "availableIn": [
+      "Unity Editor",
+      "LOBBY_DEVICE_QA build"
+    ],
+    "reportedProperties": [
+      "active background renderer/collider/animator count",
+      "live actor and ground-effect renderer counts",
+      "background sorting precedence against sampled live bodies and ground effects",
+      "sorting layer/order, material queue, optional ZWrite property",
+      "maximum sampled foot X and body radius"
+    ],
+    "noLiveSampleResult": null,
+    "runtimeGameplayOrSaveMutations": false
+  }
+}
