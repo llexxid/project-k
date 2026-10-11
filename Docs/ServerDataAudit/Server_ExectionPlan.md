@@ -55,8 +55,8 @@ ProtocolVersion 불일치는 업데이트 불일치 또는 변조 의심 클라�
 
 ### 함수 등록과 오류 반환
 
-- 기존 OnSignUpInitUser/OnExistUserInit 및 OnHuntReward/OnStageClear/강화/가챠/직업 함수의 실제 등록명과 요청 DTO를 확인한다.
-- OnEnChantHP/OnEnChantATK/OnEnChantSkill의 대소문자를 포함해 실제 FunctionName을 제공한다. OnLogin으로 이름을 바꿀 경우 명시적으로 계약을 맞춘다.
+- 로그인 서버 함수명은 사용자 확인에 따라 OnLogIn으로 확정되었다. OnLogIn의 요청은 AuthRequestDTO, 응답은 UserInitResponseDTO로 맞춘다.
+- 기존 OnSignUpInitUser 및 OnHuntReward/OnStageClear/강화/가챠/직업 함수의 실제 등록명과 요청 DTO를 확인한다. OnEnChantHP/OnEnChantATK/OnEnChantSkill의 대소문자를 포함해 실제 FunctionName을 제공한다.
 - 기존 OnSetJobTree의 실제 생성/조회 의미도 확인한다. 클라이언트는 해당 SessionRequestDTO를 보내고 JobTrees를 받는 것으로 연결한다.
 - 업무 오류는 FunctionResult에서 ErrorResponseDTO로 식별 가능하게 반환하는 계약을 제안한다.
 - 현 DTO 주석의 HTTP 400 방식을 유지할지, 정상 함수 반환에 업무 오류 객체를 담을지 실제 PlayFab 경로에서 확정한다. HTTP 400 본문이 FunctionResult에 그대로 들어온다고 가정하지 않는다.
@@ -74,7 +74,7 @@ ProtocolVersion 불일치는 업데이트 불일치 또는 변조 의심 클라�
 | API | 요청 | 서버 처리/응답 |
 |---|---|---|
 | OnSignUpInitUser | InitUserRequestDTO: ProtocolVersion | 사용자 초기 데이터 생성·세션 발급, UserInitResponseDTO |
-| OnExistUserInit | AuthRequestDTO: ProtocolVersion | 기존 상태 조회·세션 발급, 동일 UserInitResponseDTO |
+| OnLogIn | AuthRequestDTO: ProtocolVersion | 기존 상태 조회·세션 발급, 동일 UserInitResponseDTO |
 | 신규 OnGetUserState | SessionRequestDTO의 공통 필드 | 같은 사용자 데이터 집합 재조회. 새 세션을 발급하지 않음 |
 | 신규 OnGetContentDefinitions | SessionRequestDTO의 공통 필드 | 클라이언트 표시/계산에 필요한 현재 콘텐츠 정의 전체 |
 

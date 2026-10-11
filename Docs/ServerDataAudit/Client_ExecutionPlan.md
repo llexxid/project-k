@@ -73,14 +73,14 @@ DTO·RPC·변환 계층은 합의된 예제 응답으로 먼저 준비할 수 �
 | 메서드 | 클라이언트 수정 |
 |---|---|
 | OnSignUpInitUser | InitUserRequestDTO를 FunctionParameter로 전달 |
-| OnExistUserInit | 세션 문자열 대신 AuthRequestDTO 전달 |
+| OnLogIn | 기존 로그인 메서드·호출부를 OnLogIn으로 정리하고 FunctionName="OnLogIn"에 AuthRequestDTO 전달 |
 | OnHuntReward | Stage·Loots·기존 RewardSequence, 던전 BattleId 연결 |
 | OnStageClear | ClearedStage와 FunctionParameter 전달 |
 | OnGetJob / OnChangeJob | Index 전달, 변경 API에 올바른 요청 DTO 사용 |
 | OnSetJobTree | OnSetJobTreeRequestDTO와 SessionID 사용 |
 | 전체 RPC | ProtocolVersion 설정 및 공통 응답/오류 처리 |
 
-OnEnChantHP/OnEnChantATK/OnEnChantSkill 등 기존 등록 문자열은 대소문자를 임의 변경하지 않는다. 사용자가 예로 든 OnLogin은 등록 확인 전 OnExistUserInit의 대체 이름으로 단정하지 않는다.
+OnEnChantHP/OnEnChantATK/OnEnChantSkill 등 기존 등록 문자열은 대소문자를 임의 변경하지 않는다. 로그인 서버 함수명은 사용자 확인에 따라 OnLogIn으로 확정되었으며, 클라이언트 메서드·호출부와 FunctionName을 이 이름에 맞춘다.
 
 완료 기준: 호출부에 반복 JSON 해석이 남지 않고, PlayFab 실패와 응답 오류가 구별되어 전달된다.
 
@@ -88,7 +88,7 @@ OnEnChantHP/OnEnChantATK/OnEnChantSkill 등 기존 등록 문자열은 대소문
 
 주요 대상: [Authentication.cs](../../Assets/_Project/Scripts/Server/Auth/Authentication.cs), [TitleScreenController.cs](../../Assets/UGUI/Scripts/Views/TitleScreenController.cs), [UserManager.cs](../../Assets/_Project/Scripts/Core/Manager/UserManager.cs).
 
-- 인증 성공 → 가입 또는 로그인 RPC 완료 → 필수 데이터/정의 로딩 → 상태 적용 → 준비 완료 → 메인 진입 순서로 연결한다.
+- 인증 성공 → 가입(OnSignUpInitUser) 또는 로그인(OnLogIn) RPC 완료 → 필수 데이터/정의 로딩 → 상태 적용 → 준비 완료 → 메인 진입 순서로 연결한다.
 - 현재 RPC 완료 전에 별도의 UserReadOnlyData로 사용자를 만들거나 메인으로 넘어갈 수 있는 흐름을 교체한다.
 - PlayFabId 존재만으로 게임 데이터 준비 완료를 판단하지 않는다.
 - 삭제된 초기화 응답 타입 참조를 UserInitResponseDTO로 정리한다.

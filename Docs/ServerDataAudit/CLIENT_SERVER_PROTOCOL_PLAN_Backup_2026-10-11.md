@@ -1,6 +1,7 @@
 # 행위별 API 호출을 기준으로 한 클라이언트 서버 연동 계획
 
 - 개정일: 2026-10-11 (KST)
+- 백업 후 정정: 사용자 확인에 따라 로그인 서버 함수명을 OnLogIn으로 반영했다. 정정 전 통합 계획은 Git 이력에 보존한다.
 - 상태: 사용자 검토용 실행계획. 이번 작업은 이 문서만 수정하며, 게임 코드와 DTO 소스 수정은 실행 승인 후 시작한다.
 - 기준: 현재 작업 트리의 Server/DTO 및 콘텐츠 코드, 사용자의 최신 지시.
 - 서버 구현 소스와 PlayFab 등록 목록은 확인하지 못했다. 이 문서의 ‘기존 API’는 DTO/호출 코드가 있다는 뜻이며 서버 배포·구현 완료 판정이 아니다.
@@ -36,7 +37,7 @@ RequestId, StateRevision, DefinitionVersion은 추가하지 않는다. 이를 �
 | 발생 행위 | NetworkManager에서 호출할 API | 요청 핵심 | 서버가 처리하고 응답할 데이터 |
 |---|---|---|---|
 | 인증 성공 후 가입 | 기존 OnSignUpInitUser | InitUserRequestDTO | 사용자 생성·세션 발급, UserInitResponseDTO |
-| 인증 성공 후 로그인 | 기존 OnExistUserInit | AuthRequestDTO | 세션 발급, 동일한 UserInitResponseDTO |
+| 인증 성공 후 로그인 | OnLogIn | AuthRequestDTO | 세션 발급, 동일한 UserInitResponseDTO |
 | 누적 사냥 결과 전송 | 기존 OnHuntReward | Stage, Loots, 기존 RewardSequence, 던전이면 BattleId | 확정 Level/Exp/KillScore, 재화 잔액, 실제 드롭/장비 상태, 퀘스트 상태, NextRewardSequence |
 | 메인 스테이지 클리어 | 기존 OnStageClear | ClearedStage | 다음 스테이지·최고/최초 클리어 기록, 실제 최초 보상, 재화·장비·스킬·퀘스트 |
 | 공격력/체력 골드 강화 | 기존 OnEnChantATK / OnEnChantHP | Count | 실제 강화 횟수, 최종 강화 레벨, 재화 잔액, 퀘스트 상태 |
@@ -91,7 +92,7 @@ API 응답의 재화·레벨·인벤토리 상태는 최종값이다. GrantedRew
 
 ~~~text
 PlayFab 인증 성공
-  → 신규 계정: OnSignUpInitUser / 기존 계정: OnExistUserInit
+  → 신규 계정: OnSignUpInitUser / 기존 계정: OnLogIn
   → UserInitResponseDTO 수신 및 검사
   → 필요한 서버 콘텐츠 정의 로딩
   → 사용자·캐릭터 3명·재화·장비·스킬·직업·퀘스트·던전 상태 적용
@@ -99,7 +100,7 @@ PlayFab 인증 성공
   → 메인 진입
 ~~~
 
-현재 함수명은 OnExistUserInit이다. 사용자가 예로 든 OnLogin을 실제 등록 함수로 가정해 이름부터 변경하지 않는다. 서버에서 OnLogin으로 정해져 있다면 연결 단계에서 해당 등록명으로 맞춘다.
+로그인 서버 함수명은 사용자 확인에 따라 OnLogIn으로 확정되었다. 클라이언트의 기존 로그인 메서드·호출부와 FunctionName을 OnLogIn으로 맞추고, AuthRequestDTO를 보내 UserInitResponseDTO를 받는다.
 
 현재 Authentication은 RPC 완료를 기다리지 않고 별도의 PlayFab UserReadOnlyData를 해석해 메인으로 이어질 수 있다. TitleScreenController도 PlayFabId 존재만으로 준비 여부를 판단한다. 가입/로그인 응답 적용과 필수 데이터 로딩이 끝난 뒤에만 준비 완료를 알리는 구조로 바꾼다.
 
@@ -505,4 +506,4 @@ QuestStateDTO
 
 - 반영 후 두 에이전트가 각자 지적한 항목을 다시 확인했으며 해당 범위에 남은 지적은 없다.
 - 코드 근거 링크 39개의 파일 존재와 문서 차이의 공백 오류를 확인했다. 게임 코드/DTO/에셋은 이 작업에서 수정하지 않았다.
-- 실제 서버 등록명·배포 상태·HTTP 오류 전달 방식·공유 상수 값·기기 실행은 코드/문서 검토로 확인한 사실이 아니다.
+- 로그인 함수명 OnLogIn은 사용자 확인을 반영했다. 그 외 서버 등록명·실제 배포 상태·HTTP 오류 전달 방식·공유 상수 값·기기 실행은 코드/문서 검토로 확인한 사실이 아니다.
