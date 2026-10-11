@@ -116,6 +116,10 @@ public class QuestManager : MonoBehaviour
     /// <summary>Initialization and period writes belong to lifecycle, never to GetSnapshot.</summary>
     private void Synchronize(bool force = false)
     {
+        // Bootstrap must not load/create local-guest progression while server login is pending.
+        // Full server quest projection replaces this local lifecycle in C04/C09.
+        var network = Scripts.Core.Manager.NetworkManager.Instance;
+        if (network != null && !network.IsGameDataReady) return;
         try
         {
             LocalProgression.Ensure();

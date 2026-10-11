@@ -1,8 +1,10 @@
 using IdleKingdomFunction.Common.enums;
 using IdleKingdomFunction.Common.enums.Scripts.Core;
 using Newtonsoft.Json;
+using System.Collections.Generic;
 
-namespace IdleKingdomFunction.Common.Dto;
+namespace IdleKingdomFunction.Common.Dto
+{
 
 public abstract class RequestDTO
 {
@@ -68,3 +70,4 @@ public sealed class OnChangeJobRequestDTO : OnJobRequestBaseDTO { }
 public sealed class OnSetJobTreeRequestDTO : SessionRequestDTO { }
 // 탈퇴는 가입·로그인에서 발급받은 SessionID를 전달한다. 그 외 입력은 없다.
 public sealed class OnDeleteAccountRequestDTO : SessionRequestDTO { }
+}

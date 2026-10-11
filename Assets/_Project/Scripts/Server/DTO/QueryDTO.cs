@@ -43,7 +43,7 @@ namespace IdleKingdomFunction.Common.Dto
 		}
 
 		//기존 Equals override
-		public override bool Equals(object? obj)
+		public override bool Equals(object obj)
 		{
 			if (obj is SkillCode other)
 			{
@@ -160,7 +160,7 @@ namespace IdleKingdomFunction.Common.Dto
 		}
 
 		//기존 Equals override
-		public override bool Equals(object? obj)
+		public override bool Equals(object obj)
 		{
 			if (obj is ItemCode other)
 			{
@@ -319,10 +319,15 @@ namespace IdleKingdomFunction.Common.Dto
 			Atk = atk;
 			Index = index;
 		}
+		[JsonProperty(Required = Required.Always)]
 		public int Index { get; set; }
+		[JsonProperty(Required = Required.Always)]
 		public string NickName { get; set; }
+		[JsonProperty(Required = Required.Always)]
 		public ulong JobCode { get; set; }
+		[JsonProperty(Required = Required.Always)]
 		public long Hp { get; set; }
+		[JsonProperty(Required = Required.Always)]
 		public long Atk { get; set; }
 		public string PasreToJson()
 		{
@@ -332,6 +337,7 @@ namespace IdleKingdomFunction.Common.Dto
 	public class JobTreeQuery
 	{
 		//캐릭터 인덱스
+		[JsonProperty(Required = Required.Always)]
 		public int Index { get; set; }
 		[JsonProperty(Required = Required.Always)]
 		public List<ulong> JobList { get; set; } = null!;
@@ -344,7 +350,9 @@ namespace IdleKingdomFunction.Common.Dto
 			CharacterNum = characternum;
 			ItemCode = itemcode;
 		}
+		[JsonProperty(Required = Required.Always)]
 		public int CharacterNum { get; set; }
+		[JsonProperty(Required = Required.Always)]
 		public ulong ItemCode { get; set; }
 		public string PasreToJson()
 		{
@@ -354,18 +362,28 @@ namespace IdleKingdomFunction.Common.Dto
 
 	public class CurrencyQueryDTO
 	{
-		public CurrencyQueryDTO (long gold, long ancientCoin, long arcaneKnowledge, long classFragment, long ruby)
+		public CurrencyQueryDTO (long gold, long ancientCoin, long arcaneKnowledge, long classFragment, long ruby = 0, long kingdomSupply = 0)
 		{
 			Gold = gold;
 			AncientCoin = ancientCoin;
 			ArcaneKnowledge = arcaneKnowledge;
 			ClassFragment = classFragment;
 			Ruby = ruby;
+			KingdomSupply = kingdomSupply;
 		}
+		// S02 additions. The bootstrap remains closed until the complete contract is implemented.
+		public long KingdomSupply { get; set; }
+		public long TrainingTome { get; set; }
+		public long EquipmentStone { get; set; }
+		[JsonProperty(Required = Required.Always)]
 		public long Ruby { get; set; } //특별 무료재화
+		[JsonProperty(Required = Required.Always)]
 		public long Gold {get;set;} //기본적인 강화
+		[JsonProperty(Required = Required.Always)]
 		public long AncientCoin { get;set;} //유료재화
+		[JsonProperty(Required = Required.Always)]
 		public long ArcaneKnowledge { get;set;} //마탑스킬강화
+		[JsonProperty(Required = Required.Always)]
 		public long ClassFragment { get;set;} // 전직재화
 
 		public string PasreToJson()

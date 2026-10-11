@@ -5,7 +5,7 @@ using Scripts.Core.Manager;
 using Scripts.Core.SO;
 using Scripts.Core.Utils;
 using Scripts.Monster.SO;
-using Scripts.Server.DTO;
+using IdleKingdomFunction.Common.Dto;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -937,8 +937,8 @@ var definition = _currentSession?.Definition;
 		/// <summary>사냥 결과 버퍼를 DTO로 변환해 서버에 전송한다</summary>
 		private void SendHuntResult()
 		{
-            if (NetworkManager.Instance == null || string.IsNullOrEmpty(NetworkManager.Instance.GetSessionID())
-                || !PlayFab.PlayFabClientAPI.IsClientLoggedIn()) return;
+            if (NetworkManager.Instance == null || !NetworkManager.Instance.IsGameDataReady
+                || !NetworkManager.Instance.HasSessionGuid) return;
 			if (_huntResultList.Count <= 0)
 			{
 				Debug.Log($"[StageManager Send] Buffer Is Empty.");
@@ -953,34 +953,30 @@ var definition = _currentSession?.Definition;
 
 				code = new HuntResult
 				{
-					MonsterType = type,
+					MonsterType = (IdleKingdomFunction.Common.enums.Scripts.Core.eMonsterType)(ulong)type,
 					Count = (short)count
 				};
 				Debug.Log($"[StageManager Send] Type : {type} | count : {count}");
 				_sendmsg.Add(code);
 			}
 
-			if (!LocalProgression.IsLocalAuthority) NetworkManager.Instance.OnHuntReward(_sendmsg, OnHuntRewardSuccess, OnError);
+			if (!LocalProgression.IsLocalAuthority) NetworkManager.Instance.OnHuntReward(_currentStage, _sendmsg, OnHuntRewardSuccess, OnError);
 			_huntResultList.Clear();
 			_sendmsg.Clear();
 		}
 		/// <summary>서버 사냥 보상 응답을 유저 데이터에 반영한다</summary>
-		private void OnHuntRewardSuccess(ExecuteFunctionResult result)
+		private void OnHuntRewardSuccess(OnHuntResponseDTO result)
 		{
-			string response = JsonConvert.SerializeObject(result.FunctionResult);
-			OnHuntResponseDTO huntResult = JsonConvert.DeserializeObject<OnHuntResponseDTO>(response);
-			UserManager.Instance.SetHuntResult(huntResult);
+			UserManager.Instance.SetHuntResult(result);
 		}
 		/// <summary>스테이지 클리어 서버 응답을 처리한다</summary>
-		private void OnStageClearSuccess(ExecuteFunctionResult result)
+		private void OnStageClearSuccess(OnStageClearResponseDTO result)
 		{
-			//For Debugging
-			string response = JsonConvert.SerializeObject(result.FunctionResult);
 		}
 		/// <summary>서버 요청 실패 메시지를 로그로 출력한다</summary>
-		private void OnError(PlayFab.PlayFabError error)
+		private void OnError(Scripts.Server.GameRpcFailure error)
 		{
-			Debug.Log(error.ErrorMessage);
+			Debug.LogWarning(error.Message);
 		}
 
 		#endregion

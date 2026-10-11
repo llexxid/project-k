@@ -44,6 +44,11 @@ namespace KingdomIdle.UGUI
 
         private void OnSceneLoadFinished(eSceneType type)
         {
+            if ((type == eSceneType.main || type == eSceneType.dungeon) && !GameDataReady)
+            {
+                UIManager.Instance.ReplaceScreen(UIScreenId.Title, clearStacks: true);
+                return;
+            }
             if (ignoreBootstrap && type == eSceneType.bootstrap)
                 return;
 
@@ -66,6 +71,11 @@ namespace KingdomIdle.UGUI
             if (UIManager.Instance == null) return;
 
             string active = SceneManager.GetActiveScene().name;
+            if ((active == mainSceneName || active == dungeonSceneName) && !GameDataReady)
+            {
+                UIManager.Instance.ReplaceScreen(UIScreenId.Title, clearStacks: true);
+                return;
+            }
 
             if (ignoreBootstrap && active == bootstrapSceneName)
                 return;
@@ -77,5 +87,8 @@ namespace KingdomIdle.UGUI
             else if (active == dungeonSceneName)
                 UIManager.Instance.ReplaceScreen(UIScreenId.Dungeon, clearStacks: clearStacksOnSceneChanged);
         }
+
+        private static bool GameDataReady => Scripts.Core.Manager.NetworkManager.Instance != null &&
+            Scripts.Core.Manager.NetworkManager.Instance.IsGameDataReady;
     }
 }

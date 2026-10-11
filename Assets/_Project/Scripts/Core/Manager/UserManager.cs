@@ -2,7 +2,7 @@ using KingdomIdle.Balance;
 using Cysharp.Threading.Tasks.Triggers;
 using KingdomIdle.KingdomArmy;
 using Scripts.Core;
-using Scripts.Server.DTO;
+using IdleKingdomFunction.Common.Dto;
 using Scripts.Users;
 using System;
 using System.Collections;
@@ -23,9 +23,9 @@ namespace Scripts.Core
 		[SerializeField]
 		GameObject playerPrefab;
 		List<CharacterDataQuery> _characterDataFromServer;
-		List<Scripts.Server.DTO.ItemCode> _inventoryDataFromServer;
+		List<IdleKingdomFunction.Common.Dto.ItemCode> _inventoryDataFromServer;
 		List<JobTreeQuery> _jobTreeDataFromServer;
-		List<Scripts.Server.DTO.SkillCode> _skillTreeDataFromServer;
+		List<IdleKingdomFunction.Common.Dto.SkillCode> _skillTreeDataFromServer;
 		private void Awake()
 		{
 			if (Instance == null)
@@ -201,7 +201,7 @@ namespace Scripts.Core
 		{
 			_characterDataFromServer = query;
 		}
-		public void SetInventoryData(List<Scripts.Server.DTO.ItemCode> inventory)
+		public void SetInventoryData(List<IdleKingdomFunction.Common.Dto.ItemCode> inventory)
 		{
 			_inventoryDataFromServer = inventory;
 		}
@@ -209,7 +209,7 @@ namespace Scripts.Core
 		{
 			_jobTreeDataFromServer = jobTrees;
 		}
-		public void SetSkillTreeData(List<Scripts.Server.DTO.SkillCode> skillCodes)
+		public void SetSkillTreeData(List<IdleKingdomFunction.Common.Dto.SkillCode> skillCodes)
 		{
 			_skillTreeDataFromServer = skillCodes;
 		}

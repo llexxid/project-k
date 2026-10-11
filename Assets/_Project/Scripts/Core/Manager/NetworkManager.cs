@@ -1,349 +1,161 @@
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+using System;
+using System.Collections.Generic;
+using IdleKingdomFunction.Common.Dto;
 using PlayFab;
 using PlayFab.ClientModels;
-using PlayFab.CloudScriptModels;
-using PlayFab.Internal;
+using Scripts.Server;
 using Scripts.Server.Auth;
-using Scripts.Server.DTO;
-using Scripts.Users;
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using Scripts.Core.Utils;
-using Unity.Jobs;
 using UnityEngine;
+using ServerStage = IdleKingdomFunction.Common.enums.eStage;
 
 namespace Scripts.Core.Manager
 {
-	//.
-	using ItemCode = Scripts.Server.DTO.ItemCode;
-	public class NetworkManager : MonoBehaviour
-	{
-		public static NetworkManager Instance;
-		private string _playFabId;
-		private string _sessionTicket;
-		private string _sessionGUID;
+    using ItemCode = IdleKingdomFunction.Common.Dto.ItemCode;
+    public enum GameLoginState { SignedOut, Authenticating, Loading, Ready, Failed }
 
-		private Authentication _AuthComponent;
-		
-		private void Awake()
-		{
-			if (Instance == null)
-			{
-				Instance = this;
-				Init();
-				DontDestroyOnLoad(gameObject);
-				return;
-			}
+    public class NetworkManager : MonoBehaviour
+    {
+        public static NetworkManager Instance;
+        private string _playFabId;
+        private string _sessionTicket;
+        private PlayFabAuthenticationContext _context;
+        private Authentication _authentication;
+        private GameRpcClient _rpc;
+        private readonly HuntRewardSequence _hunt = new HuntRewardSequence();
+        public GameLoginState LoginState { get; private set; }
+        public GameRpcFailure LastFailure { get; private set; }
+        public bool IsGameDataReady => LoginState == GameLoginState.Ready;
+        public bool IsAuthenticating => LoginState == GameLoginState.Authenticating || LoginState == GameLoginState.Loading;
+        public bool HasSessionGuid => !string.IsNullOrEmpty(_rpc?.SessionID);
+        public bool IsRequestPending => _rpc?.IsBusy == true;
+        public bool NeedsStateRefresh => _rpc?.NeedsStateRefresh == true;
+        public long AccountGeneration => _rpc?.Generation ?? 0;
+        public long NextHuntRewardSequence => _hunt.Next;
+        public event Action LoginStateChanged;
 
-			Destroy(gameObject);
-		}
+        private void Awake()
+        {
+            if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+            Instance = this;
+            GameFunctionSerializer.Install();
+            _rpc = new GameRpcClient(new PlayFabGameRpcTransport(() => _context), () => Time.realtimeSinceStartupAsDouble);
+            _rpc.CallbackException += Debug.LogException;
+            _authentication = new Authentication(this);
+            DontDestroyOnLoad(gameObject);
+        }
+        private void Update() => _rpc?.Tick();
+        private void OnDestroy()
+        {
+            if (Instance != this) return;
+            _rpc?.ResetAccount();
+            Instance = null;
+        }
 
-		private void Init()
-		{
-			_AuthComponent = new Authentication();
-		}
+        // Existing account-scoped stores use the PlayFab ID, not the game SessionID.
+        public string GetSessionID() => IsGameDataReady ? _playFabId : null;
+        public string PlayFabId => _playFabId;
+        public string GetSessionTicket() => _sessionTicket;
+        public string GameSessionID => _rpc?.SessionID;
 
-		public void SetSessionGUID(string guid)
-		{
-			_sessionGUID = guid;
-		}
+        internal long BeginAuthentication()
+        {
+            _rpc.ResetAccount(); _hunt.Reset();
+            _playFabId = null; _sessionTicket = null; _context = null; LastFailure = null;
+            SetLoginState(GameLoginState.Authenticating);
+            return AccountGeneration;
+        }
+        internal void SetAuthenticatedAccount(string playerId, string ticket, PlayFabAuthenticationContext context)
+        {
+            if (string.IsNullOrWhiteSpace(playerId) || string.IsNullOrWhiteSpace(ticket))
+                throw new ArgumentException("Incomplete PlayFab authentication result.");
+            _playFabId = playerId; _sessionTicket = ticket; _context = context;
+            SetLoginState(GameLoginState.Loading);
+        }
+        internal void SetGameSession(string session)
+        {
+            _rpc.SetSession(session);
+            _hunt.SetSession(session, () => UnityEngine.Random.Range(1000, 50001));
+        }
+        internal void FailLogin(GameRpcFailure failure)
+        { LastFailure = failure; SetLoginState(GameLoginState.Failed); }
+        private void SetLoginState(GameLoginState state)
+        { LoginState = state; LoginStateChanged?.Invoke(); }
 
-		public void SetSessionID(string id)
-		{
-			_playFabId = id;
-		}
-		public void SetSessionTicket(string ticket)
-		{
-			_sessionTicket = ticket;
-		}
-		public string GetSessionID()
-		{
-			return _playFabId;
-		}
-		public string GetSessionTicket()
-		{
-			return _sessionTicket;
-		}
+        public void AuthenticateTest() => Authenticate(eAuthType.CustomLogin);
+        public void DummyLogin() => Authenticate(eAuthType.DummyLogin);
+        public void Authenticate(eAuthType type)
+        { if (!IsAuthenticating) _authentication.Authenticate(type); }
 
-		/// <summary>CloudScript 사냥 보상 요청에 필요한 게임 세션 GUID가 준비되었는지 반환한다.</summary>
-		public bool HasSessionGuid => !string.IsNullOrWhiteSpace(_sessionGUID);
-		//NetWork Message�� ���⼭ �Լ� Call�� �ҷ��ٰ���.
+        public void CheckDuplicatedNickName(string nickname, Action<UpdateUserTitleDisplayNameResult> success, Action<PlayFabError> failure)
+        {
+            long generation = AccountGeneration;
+            new PlayFabClientInstanceAPI(_context).UpdateUserTitleDisplayName(new UpdateUserTitleDisplayNameRequest { DisplayName = nickname },
+                result => { if (generation == AccountGeneration) success?.Invoke(result); },
+                error => { if (generation == AccountGeneration) failure?.Invoke(error); });
+        }
 
-		//�г��� �ߺ�üũ
-		public void CheckDuplicatedNickName(string nickname, Action<UpdateUserTitleDisplayNameResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
-		{
-			UpdateUserTitleDisplayNameRequest req = new UpdateUserTitleDisplayNameRequest
-			{
-				DisplayName = nickname,
-			};
+        public bool Call<TRequest, TResponse>(string function, TRequest request, Action<TResponse> success, Action<GameRpcFailure> failure,
+            GameRpcKind kind = GameRpcKind.Mutation) where TRequest : RequestDTO where TResponse : ApiResponseDTO =>
+            CallWhenReady(function, request, success, failure, kind);
 
-			PlayFabClientAPI.UpdateUserTitleDisplayName(req, successCallback, errorCallback);
-			return;
-		}
-		public void AuthenticateTest()
-		{
-			_AuthComponent.Authenticate(eAuthType.CustomLogin);
-		}
+        private bool CallWhenReady<TRequest, TResponse>(string function, TRequest request, Action<TResponse> success,
+            Action<GameRpcFailure> failure, GameRpcKind kind) where TRequest : RequestDTO where TResponse : ApiResponseDTO
+        {
+            if (kind != GameRpcKind.Authentication && !IsGameDataReady)
+            {
+                failure?.Invoke(new GameRpcFailure(GameRpcFailureKind.IntegrationPending, "전체 게임 데이터 로딩이 필요합니다."));
+                return false;
+            }
+            return _rpc.Call(function, request, success, failure, kind);
+        }
 
-		//For Testing
-		public void DummyLogin()
-		{
-			_AuthComponent.Authenticate(eAuthType.DummyLogin);
-		}
+        public bool OnSignUpInitUser(Action<UserInitResponseDTO> success, Action<GameRpcFailure> failure) =>
+            Call("OnSignUpInitUser", new InitUserRequestDTO(), success, failure, GameRpcKind.Authentication);
+        // The agreed name is OnLogIn. The server must still rename its old registration.
+        public bool OnLogIn(Action<UserInitResponseDTO> success, Action<GameRpcFailure> failure) =>
+            Call("OnLogIn", new AuthRequestDTO(), success, failure, GameRpcKind.Authentication);
 
-		public void Authenticate(eAuthType authType)
-		{
-			_AuthComponent.Authenticate(authType);
-		}
-
-		private void OnError(PlayFab.PlayFabError error)
-		{
-			Debug.Log(error.ErrorMessage);
-			Debug.Log(error.Error);
-		}
-
-
-		//ĳ���� ó�� �����ϴ� �Լ�
-		public void OnSignUpInitUser(Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
-		{
-			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
-			{
-				FunctionName = "OnSignUpInitUser",
-				GeneratePlayStreamEvent = true,
-			};
-
-			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
-		}
-
-		public void OnExistUserInit(Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
-		{
-			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
-			{
-				FunctionName = "OnExistUserInit",
-				FunctionParameter = _sessionGUID,
-				GeneratePlayStreamEvent = true,
-			};
-
-			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
-		}
-
-		public void OnHuntReward(List<HuntResult> sendMsg, Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
-		{
-			OnRewardRequestDTO request = new OnRewardRequestDTO
-			{
-				SessionID = _sessionGUID,
-				Loots = sendMsg,
-			};
-
-			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
-			{
-				FunctionName = "OnHuntReward",
-				FunctionParameter = request,
-				GeneratePlayStreamEvent = true,
-			};
-
-			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
-		}
-
-		public void OnStageClear(Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
-		{
-			OnStageClearRequestDTO request = new OnStageClearRequestDTO
-			{
-				SessionID = _sessionGUID,
-			};
-
-			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
-			{
-				FunctionName = "OnStageClear",
-				GeneratePlayStreamEvent = true,
-			};
-
-			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
-		}
-
-		public void OnGachaEquipmentClick(int count, Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
-		{
-			OnGachaRequestDTO request = new OnGachaRequestDTO
-			{
-				SessionID = _sessionGUID,
-				Count = count,
-			};
-
-			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
-			{
-				FunctionName = "OnGachaEquipmentClassFragment",
-				FunctionParameter = request,
-				GeneratePlayStreamEvent = true,
-			};
-
-			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
-		}
-		
-		//Test�ؾ���.
-		public void OnGachaSkillClick(int count, Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
-		{
-			OnGachaRequestDTO request = new OnGachaRequestDTO
-			{
-				SessionID = _sessionGUID,
-				Count = count,
-			};
-
-			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
-			{
-				FunctionName = "OnGachaSkillArcaneKnowledge",
-				FunctionParameter = request,
-				GeneratePlayStreamEvent = true,
-			};
-
-			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
-		}
-		public void OnEnchantHp(int count, Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
-		{
-			OnEnchantRequestDTO request = new OnEnchantRequestDTO
-			{
-				SessionID = _sessionGUID,
-				Count = count,
-			};
-
-			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
-			{
-				FunctionName = "OnEnChantHP",
-				FunctionParameter = request,
-				GeneratePlayStreamEvent = true,
-			};
-
-			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
-		}
-		public void OnEnchantATK(int count, Action<ExecuteFunctionResult> successCallback, Action<PlayFab.PlayFabError> errorCallback)
-		{
-			OnEnchantRequestDTO request = new OnEnchantRequestDTO
-			{
-				SessionID = _sessionGUID,
-				Count = count,
-			};
-
-			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
-			{
-				FunctionName = "OnEnChantATK",
-				FunctionParameter = request,
-				GeneratePlayStreamEvent = true,
-			};
-
-			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
-		}
-		
-		public void OnEnchantEquipment(ItemCode code, Action<ExecuteFunctionResult> successCallback, Action<PlayFabError> errorCallback)
-		{
-			OnEnchantEquipmentRequestDTO request = new OnEnchantEquipmentRequestDTO
-			{
-				SessionID = _sessionGUID,
-				ItemCode = code,
-			};
-
-			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
-			{
-				FunctionName = "OnEnchantEquipment",
-				FunctionParameter = request,
-				GeneratePlayStreamEvent = true,
-			};
-
-			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
-		}
-		public void OnEnchantSkill(SkillCode code, Action<ExecuteFunctionResult> successCallback, Action<PlayFabError> errorCallback)
-		{
-			OnEnchantSkillRequestDTO request = new OnEnchantSkillRequestDTO
-			{
-				SessionID = _sessionGUID,
-				SkillCode = code,
-			};
-
-			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
-			{
-				FunctionName = "OnEnChantSkill",
-				FunctionParameter = request,
-				GeneratePlayStreamEvent = true,
-			};
-
-			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
-		}
-		public void OnAwakenSkill(SkillCode code, Action<ExecuteFunctionResult> successCallback, Action<PlayFabError> errorCallback)
-		{
-			OnAwakeningSkillRequestDTO request = new OnAwakeningSkillRequestDTO
-			{
-				SessionID = _sessionGUID,
-				SkillCode = code,
-			};
-
-			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
-			{
-				FunctionName = "OnAwakeningSkill",
-				FunctionParameter = request,
-				GeneratePlayStreamEvent = true,
-			};
-			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
-		}
-
-		public void OnGetJob(ulong job, int characterIdx, Action<ExecuteFunctionResult> successCallback, Action<PlayFabError> errorCallback)
-		{
-			OnGetJobRequestDTO request = new OnGetJobRequestDTO
-			{
-				SessionID = _sessionGUID,
-				JobCode = job,
-			};
-
-			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
-			{
-				FunctionName = "OnGetJob",
-				FunctionParameter = request,
-				GeneratePlayStreamEvent = true,
-			};
-			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
-		}
-		public void OnChangeJob(ulong job, int characterIdx, Action<ExecuteFunctionResult> successCallback, Action<PlayFabError> errorCallback)
-		{
-			OnGetJobRequestDTO request = new OnGetJobRequestDTO
-			{
-				SessionID = _sessionGUID,
-				JobCode = job,
-			};
-
-			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
-			{
-				FunctionName = "OnChangeJob",
-				FunctionParameter = request,
-				GeneratePlayStreamEvent = true,
-			};
-			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
-		}
-
-		//Test
-		public void OnSetJobTree(Action<ExecuteFunctionResult> successCallback, Action<PlayFabError> errorCallback)
-		{
-			InitUserRequestDTO request = new InitUserRequestDTO
-			{
-			};
-
-			ExecuteFunctionRequest cloudFunction = new ExecuteFunctionRequest()
-			{
-				FunctionName = "OnSetJobTree",
-				FunctionParameter = request,
-				GeneratePlayStreamEvent = true,
-			};
-			PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, successCallback, errorCallback);
-		}
-
-		private void OnDuplicatedNickNameCallback(PlayFab.PlayFabError error)
-		{
-			Debug.Log("�г����� �ߺ��˴ϴ�.");
-		}
-		private void OnEnableNicknameCallback(UpdateUserTitleDisplayNameResult result)
-		{
-			Debug.Log("�ߺ��� �г����� �����ϴ�.");
-		}
-
-
-	}
+        public bool OnHuntReward(eStage stage, List<HuntResult> loots, Action<OnHuntResponseDTO> success, Action<GameRpcFailure> failure)
+        {
+            if (_hunt.IsPending || _hunt.NeedsRecovery || !HasSessionGuid)
+            {
+                failure?.Invoke(new GameRpcFailure(_hunt.IsPending ? GameRpcFailureKind.Busy : GameRpcFailureKind.RecoveryRequired,
+                    "사냥 보상 동기화가 준비되지 않았습니다."));
+                return false;
+            }
+            long sent = _hunt.Begin();
+            return Call("OnHuntReward", new OnRewardRequestDTO { Stage = (ServerStage)(long)stage, Loots = loots, RewardSequence = sent },
+                (OnHuntResponseDTO response) =>
+                {
+                    _hunt.ValidateNext(response.NextRewardSequence);
+                    success?.Invoke(response);
+                    _hunt.Acknowledge(response.NextRewardSequence);
+                }, error => { _hunt.Fail(); failure?.Invoke(error); });
+        }
+        public bool OnStageClear(eStage stage, Action<OnStageClearResponseDTO> success, Action<GameRpcFailure> failure) =>
+            Call("OnStageClear", new OnStageClearRequestDTO { ClearedStage = (ServerStage)(long)stage }, success, failure);
+        public bool OnGachaEquipmentClick(int count, Action<OnGachaEquipmentClassFragmentResponseDTO> success, Action<GameRpcFailure> failure) =>
+            Call("OnGacha_EquipmentClassFragment", new OnGachaRequestDTO { Count = count }, success, failure);
+        public bool OnGachaSkillClick(int count, Action<OnGachaSkillArcaneKnowledgeResponseDTO> success, Action<GameRpcFailure> failure) =>
+            Call("OnGacha_SkillArcaneKnowledge", new OnGachaRequestDTO { Count = count }, success, failure);
+        public bool OnEnchantHp(int count, Action<OnEnchantResponseDTO> success, Action<GameRpcFailure> failure) =>
+            Call("OnEnChantHP", new OnEnchantRequestDTO { Count = count }, success, failure);
+        public bool OnEnchantATK(int count, Action<OnEnchantResponseDTO> success, Action<GameRpcFailure> failure) =>
+            Call("OnEnChantATK", new OnEnchantRequestDTO { Count = count }, success, failure);
+        public bool OnEnchantEquipment(ItemCode code, Action<OnEnchantEquipmentResponseDTO> success, Action<GameRpcFailure> failure) =>
+            Call("OnEnchantEquipment", new OnEnchantEquipmentRequestDTO { ItemCode = code }, success, failure);
+        public bool OnEnchantSkill(SkillCode code, Action<OnEnchantSkillResponseDTO> success, Action<GameRpcFailure> failure) =>
+            Call("OnEnChantSkill", new OnEnchantSkillRequestDTO { SkillCode = code }, success, failure);
+        public bool OnAwakenSkill(SkillCode code, Action<OnAwakeningSkillResponseDTO> success, Action<GameRpcFailure> failure) =>
+            Call("OnAwakeningSkill", new OnAwakeningSkillRequestDTO { SkillCode = code }, success, failure);
+        public bool OnGetJob(ulong job, int index, Action<OnGetJobResponseDTO> success, Action<GameRpcFailure> failure) =>
+            Call("OnGetJob", new OnGetJobRequestDTO { JobCode = job, Index = index }, success, failure);
+        public bool OnChangeJob(ulong job, int index, Action<OnChangeJobResponseDTO> success, Action<GameRpcFailure> failure) =>
+            Call("OnChangeJob", new OnChangeJobRequestDTO { JobCode = job, Index = index }, success, failure);
+        public bool OnSetJobTree(Action<OnSetJobTreeResponseDTO> success, Action<GameRpcFailure> failure) =>
+            Call("OnSetJobTree", new OnSetJobTreeRequestDTO {  }, success, failure);
+        public bool OnDeleteAccount(Action<OnDeleteAccountResponseDTO> success, Action<GameRpcFailure> failure) =>
+            Call("OnDeleteAccount", new OnDeleteAccountRequestDTO {  }, success, failure);
+    }
 }
 
