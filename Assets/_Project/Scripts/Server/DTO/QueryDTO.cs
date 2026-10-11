@@ -1,37 +1,31 @@
+using IdleKingdomFunction.Common.enums;
 using Newtonsoft.Json;
-using Scripts.Core;
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
-using UnityEngine;
-namespace Scripts.Server.DTO
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace IdleKingdomFunction.Common.Dto
 {
-	//.
 	public struct JobStat
 	{
 		public int HP { get; set; }
 		public int ATK { get; set; }
 	}
 
-	public class JobTreeQuery
-	{
-		//ĳ���� �ε���
-		public int Index { get; set; }
-		public List<ulong> JobList { get; set; }
-	}
-
-	/* ��ųƮ�� LayOut 
- * ��ųƮ�� �ڵ�
-	[63 - 52] ���� ���� (12bit)
-	[51 - 36] ��ų �ڵ� (16bit)
-
-	[35 - 28] ��ȭ��ġ (8bit)
-	[27 - 16] ������ġ (12bit)
-	[15 - 0] ���� (16bit)
+	/* 스킬트리 LayOut 
+ * 스킬트리 코드
+	[63 - 52] 예약 공간 (12bit)
+	[51 - 36] 스킬 코드 (16bit)
+	[35 - 28] 강화수치 (8bit)
+	[27 - 16] 각성수치 (12bit)
+	[15 - 0] 갯수 (16bit)
 */
 	public struct SkillCode : IEquatable<SkillCode>
 	{
+		// 빈 객체를 스킬 ID 0으로 오인하여 강화하지 않도록 코드 값 자체를 필수로 한다.
+		[JsonProperty(Required = Required.Always)]
 		public ulong Code { get; set; }
 
 		public static SkillCode GenerateSkillCode(eSkillCode skillID)
@@ -48,8 +42,8 @@ namespace Scripts.Server.DTO
 			return GetSkillId().GetHashCode();
 		}
 
-		//���� Equals override
-		public override bool Equals(object obj)
+		//기존 Equals override
+		public override bool Equals(object? obj)
 		{
 			if (obj is SkillCode other)
 			{
@@ -57,7 +51,7 @@ namespace Scripts.Server.DTO
 			}
 			return false;
 		}
-		//IEquatable Equals ����
+		//IEquatable Equals 구현
 		public bool Equals(SkillCode other)
 		{
 			return GetSkillId() == other.GetSkillId();
@@ -73,46 +67,53 @@ namespace Scripts.Server.DTO
 			return !(lhs.Equals(rhs));
 		}
 
-		public ulong IncreaseCount(int gap = 1)
+		// 필드 범위를 넘거나 gap이 음수면 false를 반환하고 code는 기존 값이다. 예외를 던지지 않는다.
+		public bool TryIncreaseCount(int gap, out ulong code)
 		{
-			ulong count = GetSkillAmount();
-			if (count + (ulong)gap >= 0x0000000000010000)
+			code = Code;
+			if (gap < 0 || GetSkillAmount() + (ulong)gap >= 0x0000000000010000)
 			{
-				return 0;
+				return false;
 			}
-			return Code + (ulong)gap;
+			code = Code + (ulong)gap;
+			return true;
+		}
+		public bool TryIncreaseEnchant(int gap, out ulong code)
+		{
+			code = Code;
+			if (gap < 0 || GetEnchantCount() + (ulong)gap >= 0x0000000000000100)
+			{
+				return false;
+			}
+			code = Code + ((ulong)gap << 28);
+			return true;
+		}
+		public bool TryIncreaseAwakening(int gap, out ulong code)
+		{
+			code = Code;
+			if (gap < 0 || GetAwakeningCount() + (ulong)gap >= 0x0000000000001000)
+			{
+				return false;
+			}
+			code = Code + ((ulong)gap << 16);
+			return true;
+		}
+		public bool TryDecreaseCount(int gap, out ulong code)
+		{
+			code = Code;
+			if (gap < 0 || (ulong)gap > GetSkillAmount())
+			{
+				return false;
+			}
+			code = Code - (ulong)gap;
+			return true;
 		}
 
-		public ulong IncreaseEnchant(int gap = 1)
-		{
-			ulong enchantCnt = GetEnchantCount();
-			if (enchantCnt + (ulong)gap >= 0x0000000000000100)
-			{
-				return 0;
-			}
-			ulong enchantAdder = (ulong)gap << 28;
-			return Code + enchantAdder;
-		}
-		public ulong IncreaseAwakening(int gap = 1)
-		{
-			ulong awaken = GetAwakeningCount();
-			if (awaken + (ulong)gap >= 0x0000000000001000)
-			{
-				return 0;
-			}
-			ulong AwakenAdder = (ulong)gap << 28;
-			return Code + AwakenAdder;
-		}
-		public ulong DecreaseCount(int gap = 1)
-		{
-			ulong count = GetSkillAmount();
-			if ((long)count - (long)gap < 0)
-			{
-				return 0;
-			}
-			ulong retAmount = Code - (ulong)gap;
-			return retAmount;
-		}
+		// 실패하면 기존 값을 그대로 반환한다. 성공 여부가 필요하면 Try 메서드를 쓴다.
+		public ulong IncreaseCount(int gap = 1) => TryIncreaseCount(gap, out ulong code) ? code : Code;
+		public ulong IncreaseEnchant(int gap = 1) => TryIncreaseEnchant(gap, out ulong code) ? code : Code;
+		public ulong IncreaseAwakening(int gap = 1) => TryIncreaseAwakening(gap, out ulong code) ? code : Code;
+		public ulong DecreaseCount(int gap = 1) => TryDecreaseCount(gap, out ulong code) ? code : Code;
 
 		public ulong GetSkillId()
 		{
@@ -136,28 +137,30 @@ namespace Scripts.Server.DTO
 		}
 	}
 	/*
-	 ������ �ڵ�
-[63 - 56]  �������   (8bit)
-[55 - 40]  ������ ID (16bit)
-[39 - 36]  ���    (4bit) �� eEquipmentRarity
-[35 - 32]   ����      (4bit) �� eEquipmentSlot
-[31 - 24] ���� ����ũ(8bit) �� eJobFlag  (0 = ��� ���� ����) 
-[23 - 16]  ��ȭ ��ġ    (8bit)
-[15 - 0]  ���� (16bit)
+	 아이템 코드
+[63 - 56]  예약공간   (8bit)
+[55 - 40]  아이템 ID (16bit)
+[39 - 36]  레어도    (4bit) → eEquipmentRarity
+[35 - 32]   슬롯      (4bit) → eEquipmentSlot
+[31 - 24] 직업 마스크(8bit) → eJobFlag  (0 = 모든 직업 공용) 
+[23 - 16]  강화 수치    (8bit)
+[15 - 0]  갯수 (16bit)
 	 */
 	public struct ItemCode : IEquatable<ItemCode>
 	{
+		// 수량·강화는 서버 상태를 사용하지만 식별에 필요한 코드 값은 생략할 수 없다.
+		[JsonProperty(Required = Required.Always)]
 		public ulong Code { get; set; }
-		public ulong ExpireTimesc { get; set; } // 0�ΰ�� ������
+		public ulong ExpireTimesc { get; set; } // 0인경우 무제한
 
 		public override int GetHashCode()
 		{
-			// ulong ���ο� ������ GetHashCode�� �״�� ����մϴ�.
+			// ulong 내부에 구현된 GetHashCode를 그대로 사용합니다.
 			return GetItemCode().GetHashCode();
 		}
 
-		//���� Equals override
-		public override bool Equals(object obj)
+		//기존 Equals override
+		public override bool Equals(object? obj)
 		{
 			if (obj is ItemCode other)
 			{
@@ -165,7 +168,7 @@ namespace Scripts.Server.DTO
 			}
 			return false;
 		}
-		//IEquatable Equals ����
+		//IEquatable Equals 구현
 		public bool Equals(ItemCode other)
 		{
 			ulong itemCode = GetItemCode();
@@ -191,40 +194,42 @@ namespace Scripts.Server.DTO
 			return ret;
 		}
 
-		public ulong IncreaseCount(int gap = 1)
+		// 필드 범위를 넘거나 gap이 음수면 false를 반환하고 code는 기존 값이다. 예외를 던지지 않는다.
+		public bool TryIncreaseCount(int gap, out ulong code)
 		{
-			ulong count = GetItemAmount();
-			if (count + (ulong)gap >= 0x0000000000010000)
+			code = Code;
+			if (gap < 0 || GetItemAmount() + (ulong)gap >= 0x0000000000010000)
 			{
-				return Code;
+				return false;
 			}
-			return Code + (ulong)gap;
+			code = Code + (ulong)gap;
+			return true;
+		}
+		public bool TryIncreaseEnchant(int gap, out ulong code)
+		{
+			code = Code;
+			if (gap < 0 || GetItemEnchantCount() + (ulong)gap >= 0x0000000000000100)
+			{
+				return false;
+			}
+			code = Code + ((ulong)gap << 16);
+			return true;
+		}
+		public bool TryDecreaseCount(int gap, out ulong code)
+		{
+			code = Code;
+			if (gap < 0 || (ulong)gap > GetItemAmount())
+			{
+				return false;
+			}
+			code = Code - (ulong)gap;
+			return true;
 		}
 
-		public ulong IncreaseEnchant(int gap = 1)
-		{
-			ulong enchantCnt = GetItemEnchantCount();
-
-			//��ȭ Ƚ�� �ʰ�
-			if (enchantCnt + (ulong)gap >= 0x0000000000000100)
-			{
-				return Code;
-			}
-
-			ulong enchantAdder = (ulong)gap << 16;
-			return Code + enchantAdder;
-		}
-
-		public ulong DecreaseCount(int gap = 1)
-		{
-			ulong count = GetItemAmount();
-			//������ ���
-			if ((long)count - (long)gap < 0)
-			{
-				return Code;
-			}
-			return Code - (ulong)gap;
-		}
+		// 실패하면 기존 값을 그대로 반환한다. 성공 여부가 필요하면 Try 메서드를 쓴다.
+		public ulong IncreaseCount(int gap = 1) => TryIncreaseCount(gap, out ulong code) ? code : Code;
+		public ulong IncreaseEnchant(int gap = 1) => TryIncreaseEnchant(gap, out ulong code) ? code : Code;
+		public ulong DecreaseCount(int gap = 1) => TryDecreaseCount(gap, out ulong code) ? code : Code;
 
 		public ulong GetItemCode()
 		{
@@ -271,9 +276,8 @@ namespace Scripts.Server.DTO
 			Exp = exp;
 			MonsterKilled = monsterkilled;
 
-			dtLastLoginTime = DateTime.UtcNow;
-			LastLogInTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-			LastRewardTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+			// 과거 저장소 시간 필드의 호환성만 유지하며 현재 시각을 읽지 않는다.
+			dtLastLoginTime = DateTime.UnixEpoch;
 		}
 
 		public int Level { get; set; }
@@ -325,7 +329,14 @@ namespace Scripts.Server.DTO
 			return JsonConvert.SerializeObject(this);
 		}
 	}
-	//ĳ���Ͱ� ������ ��� ����
+	public class JobTreeQuery
+	{
+		//캐릭터 인덱스
+		public int Index { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public List<ulong> JobList { get; set; } = null!;
+	}
+	//캐릭터가 장착한 장비 정보
 	public class CharacterEquipmentQuery
 	{
 		public CharacterEquipmentQuery(int characternum, ulong itemcode)
@@ -343,20 +354,19 @@ namespace Scripts.Server.DTO
 
 	public class CurrencyQueryDTO
 	{
-		public CurrencyQueryDTO(long gold, long ancientCoin, long kingdomSupply, long arcaneKnowledge, long classFragment)
+		public CurrencyQueryDTO (long gold, long ancientCoin, long arcaneKnowledge, long classFragment, long ruby)
 		{
 			Gold = gold;
 			AncientCoin = ancientCoin;
-			KingdomSupply = kingdomSupply;
 			ArcaneKnowledge = arcaneKnowledge;
 			ClassFragment = classFragment;
+			Ruby = ruby;
 		}
-
-		public long Gold { get; set; } //�⺻���� ��ȭ
-		public long AncientCoin { get; set; } //������ȭ
-		public long KingdomSupply { get; set; } //���̱�
-		public long ArcaneKnowledge { get; set; } //��ž��ų��ȭ
-		public long ClassFragment { get; set; } // ������ȭ
+		public long Ruby { get; set; } //특별 무료재화
+		public long Gold {get;set;} //기본적인 강화
+		public long AncientCoin { get;set;} //유료재화
+		public long ArcaneKnowledge { get;set;} //마탑스킬강화
+		public long ClassFragment { get;set;} // 전직재화
 
 		public string PasreToJson()
 		{
@@ -366,7 +376,8 @@ namespace Scripts.Server.DTO
 
 	public class InventoryQueryDTO
 	{
-		public List<ItemCode> Items { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public List<ItemCode> Items { get; set; } = null!;
 		public string PasreToJson()
 		{
 			return JsonConvert.SerializeObject(this);
@@ -374,10 +385,11 @@ namespace Scripts.Server.DTO
 	}
 
 	public class SkillTreeDTO
-	{
-		public List<SkillCode> SkillTrees { get; set; }
+	{ 
+		[JsonProperty(Required = Required.Always)]
+		public List<SkillCode> SkillTrees { get; set; } = null!;
 		public string PasreToJson()
-		{
+		{ 
 			return JsonConvert.SerializeObject(this);
 		}
 	}
