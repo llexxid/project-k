@@ -1,508 +1,479 @@
-# 클라이언트 기능 보존을 위한 서버 프로토콜 설계와 실행계획
+# 행위별 API 호출을 기준으로 한 클라이언트 서버 연동 계획
 
-- 작성일: 2026-10-11 (KST)
-- 상태: 사용자 검토용 설계안. 게임 코드와 DTO 소스는 변경하지 않았다.
-- 기준: 현재 작업 트리의 새 Server/DTO, 실제 콘텐츠 구현, 사용자의 2026-10-11 추가 지시.
-- 서버 구현 소스와 PlayFab 등록 목록은 이 저장소에서 확인하지 못했다. 아래의 ‘기존’은 DTO/클라이언트 호출이 존재한다는 뜻이며 배포 확인을 뜻하지 않는다.
-- 목적: 장비·마탑 스킬·직업·뽑기·퀘스트/업적의 현행 기능과 데이터를 보존하는 요청/응답 계약 및 서버 구현 책임을 정한다. 나머지 콘텐츠는 의존성 조사와 후속 계약 제안만 한다.
+- 개정일: 2026-10-11 (KST)
+- 상태: 사용자 검토용 실행계획. 이번 작업은 이 문서만 수정하며, 게임 코드와 DTO 소스 수정은 실행 승인 후 시작한다.
+- 기준: 현재 작업 트리의 Server/DTO 및 콘텐츠 코드, 사용자의 최신 지시.
+- 서버 구현 소스와 PlayFab 등록 목록은 확인하지 못했다. 이 문서의 ‘기존 API’는 DTO/호출 코드가 있다는 뜻이며 서버 배포·구현 완료 판정이 아니다.
+- 이전 설계는 Git 이력에 보존한다. 이 문서의 현재 개정이 실행 기준이다.
 
-## 1. 이번 수정 계획에 적용하는 기준
+## 1. 확정할 방향
 
-1. ProtocolVersion은 서버와 클라이언트가 공유하는 상수이며 정확히 일치해야 한다. 범위 협상·자동 낮춤·응답 값으로 클라이언트 상수 덮어쓰기를 하지 않는다.
-2. RPC 실패의 공개 분기는 PlayFab 호출 실패와 PlayFab 성공 콜백 안의 응답 실패 두 가지다.
-3. 진입 단계는 인증 → 가입 또는 로그인 → 서버 데이터 로딩/적용 → 메인 진입이다.
-4. 이번 단계에서는 Markdown 문서만 작성한다. RequestDTO/ResponseDTO를 포함한 C#·프리팹·설정·저장 데이터는 변경하지 않는다.
-5. ‘클라이언트 변경 없이 설계’는 현재 모델·규칙·UI가 요구하는 정보를 서버 계약에 담는다는 뜻이다. 현 소스를 전혀 수정하지 않고 서버 권위로 동작시키는 것은 불가능하다. 실제 구현 승인 후에는 로컬 변경 호출의 RPC 연결, 응답 적용, 비동기 완료 연결이 필요하다.
-6. 콘텐츠 기능·확률·비용·수령 정책을 서버의 현재 부족한 DTO에 맞춰 축소하지 않는다. 서버가 현행 기능을 구현할 수 있도록 계약을 보완한다.
+RequestId, StateRevision, DefinitionVersion은 추가하지 않는다. 이를 대신하는 공통 요청 식별자·상태 순번·정의 버전도 만들지 않는다. 이전 계획의 공통 변경 영수증, 변경 이력 조회 API, 버전 비교를 통한 상태 적용 절차를 제거한다.
 
-## 2. 확인된 현재 구조와 정정
-
-| 근거 | 확인 내용 | 설계 영향 |
-|---|---|---|
-| ResponseDTO.cs의 UserInitResponseDTO | Inventory: List<ItemCode>, CharacterDatas, CharacterEquipmentDatas, Currency, SkillTreeDatas, JobTrees가 이미 있다. | 인벤토리가 아예 없는 것이 아니다. 손실 없는 상세 상태와 독립 재조회 계약이 부족하다. |
-| QueryDTO.cs의 InventoryQueryDTO | Items: List<ItemCode>가 존재한다. | 코드/수량 요약으로 개별 잠금·장착·투자 이력까지 표현할 수 없다. |
-| LocalProgression.cs | IsLocalAuthority는 항상 true. 계정별 JSON을 열고 Execute가 상태 변경과 저장을 확정한다. | DTO 추가만으로 데이터 권한은 바뀌지 않는다. |
-| UserManager.cs / User.cs | 서버 데이터를 최초 한 번만 로컬 상태에 이관한다. | 매 로그인마다 서버 스냅샷을 검증·적용하는 별도 경로가 필요하다. |
-| GachaManager.cs | 클라이언트가 난수, 비용, 지급, 천장, 퀘스트 집계를 한 번에 처리한다. | 서버에도 같은 원자적 처리와 재시도 중복 방지가 필요하다. |
-| QuestManager / QuestEconomy / QuestCatalog | 가이드·일일·주간·업적이 공통 모델을 쓰며 로컬 정의와 상태를 읽는다. | 업적 전용 중복 시스템을 만들지 않고 공통 프로토콜을 사용한다. |
-| EquipmentManager.TrySynthesize | null을 반환하는 비활성 메서드다. | 구현된 합성 콘텐츠나 필수 서버 API로 분류하지 않는다. |
-
-현재 DTO에는 서버용 namespace, Unity C# 9 설정과 맞지 않는 파일 범위 namespace, 일부 List using 누락, 정의가 없는 ApiVersions 참조가 있다. 기존 Authentication은 없어진 UserOnSignUpInitResponseDTO/OnAuthInitResponseDTO를 사용한다. 이들은 추후 프로토콜 호환 작업의 대상이며, 현재 Unity 컴파일을 실행해 검증한 것은 아니다.
-
-## 3. 공통 프로토콜
-
-### 3.1 버전과 식별자
-
-| 필드 | 타입 | 의미와 규칙 |
-|---|---|---|
-| ProtocolVersion | int | 공유 상수 K. 실제 값은 서버/클라이언트 공통 소스에서 확정한다. 이번 문서에서 숫자를 임의 지정하지 않는다. |
-| ServerVersion | long | 서버 릴리스 버전. 계정 상태 변경 순번이나 충돌 검출에 사용하지 않는다. |
-| SessionID | string | 가입/로그인 서버가 발급한 세션. PlayFabId, PlayFab SessionTicket과 구분한다. |
-| RequestId | string | 상태 변경 요청마다 생성한 불투명 ID. 동일 요청 재시도 시 유지한다. 조회에는 필수가 아니다. |
-| StateRevision | long | 서버 계정 상태의 커밋 순번. ProtocolVersion/ServerVersion과 별개인 추가 제안이다. |
-| ServerTimeUtc | long | 서버 UTC Unix 초. 퀘스트 기간·만료 판단의 기준이다. |
-| DefinitionVersion | string | 운영 정의의 버전/해시. 프로토콜 버전과 구분한다. |
-
-- 서버는 모든 요청에서 K를 먼저 검증하고 불일치 시 저장/재화 처리를 시작하지 않는다. 기존 UnsupportedProtocolVersion 오류를 사용한다.
-- 클라이언트도 모든 성공/업무 오류 응답의 ProtocolVersion을 검사한다. 불일치 시 데이터 적용과 메인 진입을 중단하고 업데이트/지원하지 않는 클라이언트 안내로 연결한다.
-- 버전 불일치는 업데이트 불일치 또는 변조 의심 분류의 근거로 사용할 수 있다. 이 상수 하나만으로 변조 사실이 입증되는 것은 아니며 자동 제재를 이 계약에 추가하지 않는다.
-- 서버는 인증된 PlayFab 호출 컨텍스트에서 계정을 얻는다. 클라이언트가 임의의 AccountId를 보내 다른 계정의 장비를 조작할 수 없게 한다.
-- long/ulong 코드는 기존 숫자 표현을 보존한다. JSON 처리 중 double/float로 변환하지 않는다. 실제 SDK serializer의 64비트 왕복을 테스트하며, 문자열로 바꾸려면 공유 계약을 함께 개정한다.
-- 없는 필드와 명시적 0/null/빈 배열을 구별한다. 장착 캐릭터 0, 스킬 ID 0, 미소유 빈 목록은 유효한 값이다.
-
-### 3.2 RPC 성공과 실패의 두 갈래
-
-공통 호출의 형태는 Call<TRequest,TResponse>(functionName, request, onSuccess, onFailure)로 제안한다. 콘텐츠에서 JSON 해석을 반복하지 않는다.
-
-| 분기 | 판별 지점 | 처리 |
-|---|---|---|
-| PlayFabFailure | PlayFab SDK error callback의 PlayFabError | 통신/인증/호출 실패 정보를 보존하고 안내한다. 응답 유실 시 서버 처리 여부는 미확정이다. |
-| ResponseFailure | SDK success callback | 먼저 ExecuteFunctionResult.Error를 검사한다. 이어 FunctionResult의 ErrorResponseDTO, 버전, 필수 필드와 형식을 검사한다. |
-| Success | SDK success callback의 모든 검사 통과 | 해당 성공 DTO로 역직렬화하고 상태 적용 및 콘텐츠 성공 콜백을 실행한다. |
-
-ResponseFailure 안에서는 FunctionExecution, Business, UnsupportedProtocol, InvalidPayload를 내부 원인으로 구별한다. 사용자에게 새로운 네트워크 분기 네 가지를 노출하는 구조는 아니다. 클라이언트의 잘못된 입력 등 전송 전 검증 실패는 RPC 응답으로 위장하지 않는다.
-
-실패 분류와 서버 처리 여부는 별개다. 타임아웃뿐 아니라 FunctionExecution/InvalidPayload도 서버 커밋 이후 응답 작성·전달 중 발생할 수 있다. 변경 요청의 ErrorResponseDTO에는 RequestId와 Outcome(Rejected/Unknown)을 추가하는 안을 사용한다. 서버가 미실행 또는 완전 롤백을 보장할 때만 Rejected를 반환하고, 결과를 확정하지 못하면 Unknown이다. 이 정보가 없거나 응답 자체가 유효하지 않으면 Unknown으로 취급한다. Unknown은 기존 RequestId 결과 조회/안전한 동일 ID 재시도로 복구하며 새 RequestId로 같은 작업을 다시 실행하지 않는다. 두 공개 실패 분기는 그대로 유지한다.
-
-**서버가 보장할 업무 오류 전달 계약:** 정상적으로 처리한 업무 거절은 Azure Function의 HTTP 200 본문에 기존 ErrorResponseDTO(ProtocolVersion, ServerVersion, ErrorCode, Message)를 반환하여 FunctionResult에 담기게 하는 방식을 권장한다. ErrorCode 필드가 존재하면 성공 DTO로 해석하지 않는다. 성공 DTO에는 ErrorCode가 없다. ErrorCode는 숫자이며 기존 값은 재사용/재번호하지 않는다.
-
-현재 ErrorResponseDTO 주석은 HTTP 400이다. HTTP 400이 언제나 FunctionResult에 원문으로 보존된다고 가정하면 안 된다. 서버는 위 전달 방식으로 맞추거나, 실제 ExecuteFunctionResult.Error/PlayFabError에 도달하는 예시를 제공해 매핑을 확정해야 한다. SDK result.Error와 업무 오류는 모두 두 번째 공개 분기의 하위 원인이다. 제어되지 않은 예외는 업무 성공으로 변환하지 않는다.
-
-기본 성공/오류 DTO의 평평한 JSON 구조는 유지한다. 불필요하게 모든 API를 { Success, Data, Error } 형태로 한 번에 감싸지 않는다. 오류 메시지는 로그 보조 정보이며, 사용자 안내와 분기는 ErrorCode로 결정한다. 비밀 키·세션·서버 스택은 UI에 노출하지 않는다.
-
-### 3.3 상태 변경 응답과 원자성
-
-신규 변경 요청은 SessionRequestDTO에 RequestId를 추가한 MutationRequestDTO를 공통으로 사용한다. 기존 변경 요청도 합의한 프로토콜 버전에서 같은 정보를 받도록 확장한다.
+핵심 흐름은 다음과 같다.
 
 ~~~text
-MutationReceiptDTO
-  RequestId: string
-  BaseStateRevision: long
-  StateRevision: long
-  ServerTimeUtc: long
-  Changes: StateChangesDTO
-
-StateChangesDTO
-  User: UserProgressDTO?              // 변경된 경우 전체 해당 블록
-  Currency: CurrencyStateDTO?         // 변경된 경우 전체 잔액 블록
-  Equipment: EquipmentInventoryDTO?   // 변경된 경우 전체 장비 블록
-  MageTower: MageTowerStateDTO?
-  Jobs: CharacterJobStateDTO[]?
-  Quests: QuestStateDTO?
-  Gacha: GachaStateDTO?
-  GuidePractice: GuidePracticeStateDTO? // 실습 지급/성공 연결이 별도 승인된 경우
-  // 추후 승인된 콘텐츠 블록을 명시적으로 추가한다. 임의 Modules 전체 쓰기는 제공하지 않는다.
+콘텐츠 행위 발생
+  → NetworkManager의 해당 API 호출
+  → PlayFab CloudScript
+  → 서버가 조건 확인·비용 계산·결과 저장
+  → 해당 ResponseDTO 반환
+  → 클라이언트가 서버 확정값을 기존 모델에 반영
+  → 기존 UI·이벤트·연출 갱신
 ~~~
 
-- 서버는 검증, 비용 차감, 보상 지급, 장착 변경, 퀘스트 집계, RequestId 처리 기록, revision 증가를 하나의 논리적 커밋으로 처리한다.
-- 저장소가 여러 개면 단순한 순차 저장을 원자적이라고 부르지 않는다. 확정 원장과 복구 가능한 작업 기록 등으로 중간 실패 후에도 지급과 차감이 일치하도록 구현한다.
-- 멱등 키는 계정+RequestId이고 함수 이름과 정규화된 업무 인자의 해시를 묶는다. 같은 키/같은 인자에는 원래 확정 결과, 같은 키/다른 인자에는 충돌 오류를 반환한다. 세션 갱신은 같은 업무 요청의 인자를 바꾼 것으로 간주하지 않는다.
-- 타임아웃 후 새 RequestId로 같은 구매를 재전송하지 않는다. 재로그인 후에도 유지되는 요청 기록과 서버 조회로 완료 여부를 확인한다. 멱등 기록 보존 기간과 클라이언트 재시도 유효 기간을 함께 정하고, 만료된 ID를 신규 요청으로 조용히 실행하지 않는다.
-- 복구 조회는 OnGetMutationStatusRequestDTO(SessionID, RequestId) → OnGetMutationStatusResponseDTO(Status: Processing/Committed/Rejected/Unknown/Expired, OriginalFunction, 확정 시 OriginalResult)로 제안한다. 계정 소유 요청만 조회할 수 있고 RequestId로 새 작업을 시작하지 않는다. Unknown/Expired는 미실행의 증거가 아니므로 동일 구매를 새 ID로 자동 재실행하지 않는다.
-- 응답에는 실제 소비/지급 내역과 최종 잔액을 구분한다. 클라이언트가 보상 숫자를 잔액에 다시 더하지 않는다.
-- 초기 구현은 변경된 콘텐츠 블록 전체를 반환한다. 신규 블록 추가가 기존 블록 삭제를 의미하지 않으며, 생략된 블록은 ‘변경 없음’이다.
-- BaseStateRevision은 요청의 포괄적인 실행 조건이 아니다. 특히 사냥 수입 때문에 분해 요청을 계속 거절하지 않는다. 서버가 이번 커밋 직전에 본 revision을 응답에 넣는다.
-- 클라이언트의 확정 revision이 BaseStateRevision과 일치할 때만 Changes 전체를 원자 적용하고 StateRevision으로 전진한다. 불일치하면 일부만 덮지 않고 OnGetUserState로 전체 서버 스냅샷을 재조회한다. 서버에서 이미 성공한 작업을 다시 구매하지 않는다.
-- 독립 인벤토리/퀘스트 조회 응답은 계정·세션 세대와 StateRevision을 먼저 검증한다. 현재 확정 revision보다 오래되면 폐기하고, 같을 때만 동일 버전의 해당 화면 자료로 사용한다. 더 최신이면 부분 적용하지 않고 OnGetUserState를 조회한다. 인벤토리만 받고 지갑은 옛 상태인 조합을 공개하거나 계정 revision을 올리지 않는다.
-- OnGetUserState 응답도 같은 계정·세션 세대인지 확인하고 이미 적용한 revision보다 오래되면 폐기한다. 요청 당시보다 새 mutation을 먼저 적용했다면 뒤늦게 온 전체 스냅샷이 그 결과를 되돌릴 수 없다. 전체 스냅샷을 검증 완료한 뒤 한 번에 적용한다. 이미 처리한 RequestId의 영수증으로 상태/성공 연출을 중복 적용하지 않는다.
-- 첫 배포 전에 장비 400개·예비 스택·퀘스트 최대 상태의 직렬화 크기와 지연을 측정한다. 실제 제한을 넘으면 동일 snapshot revision에 고정된 페이지 조회로 바꾸고, 페이지 수집 완료 전에 부분 상태를 공개하지 않는다.
+1. ProtocolVersion은 서버/클라이언트가 공유하는 상수다. 정확히 일치해야 하며, 서버 응답값으로 클라이언트 상수를 덮어쓰지 않는다.
+2. NetworkManager는 공통 호출·요청 헤더·응답 해석·오류 분리를 담당한다. 콘텐츠의 비용·확률·보상 확정은 서버가 담당한다.
+3. 로그인 때 필요한 사용자 데이터를 로딩하고, 이후에는 행위별 응답으로 해당 콘텐츠와 함께 바뀐 재화·퀘스트 상태를 갱신한다.
+4. 클라이언트에서 결과를 먼저 저장한 뒤 서버에 통보하는 방식으로 만들지 않는다. 전투 시뮬레이션·애니메이션은 유지하되 영구 재화·소유·강화·보상은 서버 응답으로 확정한다.
+5. 기존 UI와 콘텐츠 규칙을 보존하는 DTO를 설계한다. 서버 연동을 위해서는 승인 후 호출부·응답 반영부·비동기 완료 처리를 수정해야 한다. C#을 전혀 수정하지 않은 채 로컬 저장 구조를 서버 구조로 바꾸는 것은 목표로 삼지 않는다.
+6. 사냥 DTO에 이미 있는 RewardSequence/NextRewardSequence는 기존 사냥 배치 계약으로 유지한다. 다른 API의 공통 필드로 확대하지 않는다. 장비 InstanceId·퀘스트 PeriodKey·던전 BattleId는 각각 소유 장비·퀘스트 기간·실제 입장 회차를 구별하는 콘텐츠 데이터다.
+
+## 2. 행위 → API → 서버 응답
+
+요청은 가입/로그인 외에는 ProtocolVersion + SessionID를 공통 포함한다. 성공 응답은 기존 ApiResponseDTO를 상속하고 기능별 결과를 직접 담는다. 아래 신규 이름은 제안이며 실제 서버 등록명은 구현 단계에서 맞춘다.
+
+| 발생 행위 | NetworkManager에서 호출할 API | 요청 핵심 | 서버가 처리하고 응답할 데이터 |
+|---|---|---|---|
+| 인증 성공 후 가입 | 기존 OnSignUpInitUser | InitUserRequestDTO | 사용자 생성·세션 발급, UserInitResponseDTO |
+| 인증 성공 후 로그인 | 기존 OnExistUserInit | AuthRequestDTO | 세션 발급, 동일한 UserInitResponseDTO |
+| 누적 사냥 결과 전송 | 기존 OnHuntReward | Stage, Loots, 기존 RewardSequence, 던전이면 BattleId | 확정 Level/Exp/KillScore, 재화 잔액, 실제 드롭/장비 상태, 퀘스트 상태, NextRewardSequence |
+| 메인 스테이지 클리어 | 기존 OnStageClear | ClearedStage | 다음 스테이지·최고/최초 클리어 기록, 실제 최초 보상, 재화·장비·스킬·퀘스트 |
+| 공격력/체력 골드 강화 | 기존 OnEnChantATK / OnEnChantHP | Count | 실제 강화 횟수, 최종 강화 레벨, 재화 잔액, 퀘스트 상태 |
+| 장비 강화 | 기존 OnEnchantEquipment 확장 | InstanceId | 해당 장비 최종 강화 상태, 강화석 잔액·실제 지출, 퀘스트 상태 |
+| 장비 뽑기 | 기존 OnGachaEquipmentClassFragment 확장 | Count: 1 또는 10 | 순서대로 뽑힌 보상, 보관/자동분해 결과, 천장, 장비·재화·퀘스트 |
+| 스킬 뽑기 | 기존 OnGachaSkillArcaneKnowledge 확장 | Count: 1 또는 10 | 순서대로 뽑힌 보상, 중복 조각, 지식, 스킬·재화·퀘스트 |
+| 스킬 강화/각성 | 기존 OnEnChantSkill / OnAwakeningSkill 확장 | 기존 SkillCode의 대상 ID | 변경 스킬, 재화 잔액, 퀘스트 상태 |
+| 퀘스트 조건 달성 | 신규 OnClearQuest | QuestId, PeriodKey | 서버가 조건 확인 후 Claimable 상태 반환 |
+| 업적 조건 달성 | 신규 OnClearAchievement | QuestId, PeriodKey | 같은 퀘스트 처리기로 조건 확인 후 Claimable 상태 반환 |
+| 퀘스트/업적 보상 받기 | 신규 OnClaimQuestReward | QuestId, PeriodKey | 실제 지급 보상, 재화·장비·스킬·퀘스트 상태 |
+| 던전 입장 | 신규 OnEnterDungeon | DungeonId | 입장 검증·티켓 차감, BattleId, 던전/티켓 상태 |
+| 던전 클리어 | 신규 OnCompleteDungeon | BattleId, DungeonId | 완료 검증·최초 기록·실제 추가 보상, 결과창용 총보상, 던전·재화·퀘스트 상태 |
+| 장비/스킬 장착·잠금·분해·전직 | 5~6절의 개별 API | 선택한 콘텐츠와 행위 인자 | 서버가 해당 행위를 처리한 뒤 변경된 콘텐츠와 재화를 반환 |
+
+API 응답의 재화·레벨·인벤토리 상태는 최종값이다. GrantedRewards 같은 표시용 보상 목록을 받은 뒤 잔액에 다시 더하지 않는다. 한 행위가 여러 콘텐츠를 바꾸면 그 응답에 해당 데이터를 함께 담고 모두 검증한 뒤 한 번에 반영한다. 모든 응답에 전체 계정 데이터를 넣거나 매 행위 후 전체 재조회하지 않는다.
+
+## 3. NetworkManager와 공통 RPC
+
+### 3.1 공통 처리
+
+호출 형태는 Call<TRequest, TResponse>(functionName, request, onSuccess, onFailure)로 통일한다. 기존 콘텐츠별 공개 메서드는 유지하거나 목적에 맞게 추가하고 공통 호출을 사용한다.
+
+- ProtocolVersion: 공유 상수를 모든 요청에 넣고, 정상/오류 응답에서도 일치 여부를 검사한다. 불일치 시 게임 데이터 적용·메인 진입·후속 변경 호출을 중단하고 업데이트/지원되지 않는 클라이언트 안내로 연결한다. 서버에서도 업무 처리 전에 검사하고, 업데이트 불일치 또는 변조 의심 클라이언트를 판별하는 기준으로 사용한다.
+- ServerVersion: 현재 ApiResponseDTO의 서버 릴리스 정보로 유지한다. 플레이어 상태 순번으로 사용하지 않는다.
+- SessionID: 가입/로그인 응답에서 받은 서버 세션을 이후 요청에 사용한다. PlayFabId 및 PlayFab SessionTicket과 구분한다.
+- 계정은 PlayFab 호출 컨텍스트에서 식별하고 SessionID를 검증한다. 클라이언트가 임의 계정 ID를 지정하지 않는다.
+- 빈 목록과 필드 누락을 구별한다. 캐릭터 Index 0, 스킬 ID 0은 유효하므로 필수 필드 누락을 기본값 0으로 성공 처리하지 않는다.
+- long/ulong 식별자와 재화는 64비트 정밀도를 보존한다. 특히 ItemCode/SkillCode를 중간에 double로 바꾸지 않으며 실제 SDK 경로로 왕복 검증한다.
+
+### 3.2 두 종류의 실패
+
+| 구분 | 발생 위치 | NetworkManager 처리 |
+|---|---|---|
+| PlayFab 통신/호출 실패 | SDK error callback의 PlayFabError | 통신·인증·호출 오류를 전달하고 성공 상태를 적용하지 않음 |
+| PlayFab 호출 성공 후 응답 실패 | SDK success callback | ExecuteFunctionResult.Error, FunctionResult의 ErrorResponseDTO, 프로토콜 불일치·필수 데이터 오류를 검사하고 실패 사유 전달 |
+| 성공 | SDK success callback에서 모든 검사 통과 | 기능별 TResponse로 해석해 콘텐츠 완료 콜백에 전달 |
+
+두 번째 분기 안에서는 함수 실행 오류, 업무 오류 코드, 버전 불일치, 잘못된 응답을 구별해 알맞게 안내한다. ErrorCode가 있는 응답을 성공 DTO로 역직렬화해 기본값 상태를 적용하지 않는다.
+
+업무 오류의 제안 계약은 FunctionResult에 기존 ErrorResponseDTO(ProtocolVersion, ServerVersion, ErrorCode, Message)를 반환하는 것이다. 현재 ErrorResponseDTO 주석은 HTTP 400을 가리키므로 실제 서버 반환 방식과 SDK에서 관측되는 위치를 확인해야 한다. HTTP 400 본문이 FunctionResult에 항상 들어온다고 가정하지 않는다. 이 확인 전에도 SDK error callback과 success callback 내부 오류의 분리는 구현할 수 있다.
+
+### 3.3 대기·적용·재접속
+
+- 재화/진행 상태를 바꾸는 API와 관련 상태 조회는 클라이언트에서 순서대로 호출·반영한다. 요청 대기 중 같은 버튼을 다시 누르면 추가 요청을 만들지 않는다. 이는 클라이언트의 대기 처리이며 새 전송 필드를 요구하지 않는다.
+- 서버는 같은 플레이어의 한 행위에 해당하는 비용·보상·진행 기록을 함께 저장한다. 입력 조건 실패 시 해당 행위의 일부만 적용하지 않는다.
+- 전투는 서버 응답을 기다리는 동안 다음 사냥 결과를 별도로 누적한다. 무제한 요청 중첩을 허용하지 않으며 장비 보관함 포화로 전투를 막지 않는다.
+- 로그아웃/다른 계정 로그인 후 도착한 콜백은 호출 당시의 로컬 계정·세션과 비교해 폐기한다. 관련 조회를 변경 호출 사이에 병렬 실행해 오래된 값이 새 결과를 덮지 않게 한다.
+- 가챠·강화 등 소비 요청은 응답을 잃었다고 자동으로 다시 보내지 않는다. 서버 현재 데이터를 다시 불러온 뒤 이용을 재개한다. 현재 상태 재조회는 실패한 호출의 과거 결과를 증명하거나 뽑기 연출을 정확히 복원하는 수단은 아니다.
+- 임의의 소비 요청에 대한 정확히 한 번 실행/결과 재생을 이 계획이 보장한다고 설명하지 않는다. 퀘스트 수령 여부·던전 완료 기록·기존 사냥 순번은 각 콘텐츠의 저장 규칙으로 처리한다.
 
 ## 4. 인증 → 가입/로그인 → 데이터 로딩 → 메인
 
-권장 기본 흐름은 기존 UserInitResponseDTO를 가입과 로그인에서 공통으로 받는 것이다. ‘데이터 로딩’을 별도의 화면 단계와 초기화 단계로 명확히 두되, 이미 받은 전체 데이터를 다시 요청하는 RPC를 의무적으로 추가하지 않는다.
+~~~text
+PlayFab 인증 성공
+  → 신규 계정: OnSignUpInitUser / 기존 계정: OnExistUserInit
+  → UserInitResponseDTO 수신 및 검사
+  → 필요한 서버 콘텐츠 정의 로딩
+  → 사용자·캐릭터 3명·재화·장비·스킬·직업·퀘스트·던전 상태 적용
+  → 데이터 준비 완료
+  → 메인 진입
+~~~
 
-1. PlayFab 인증: PlayFabId·SDK 인증 컨텍스트 확보. 아직 메인 진입 불가.
-2. 가입 또는 로그인 RPC: InitUserRequestDTO 또는 AuthRequestDTO에 K를 전달. 세션을 아직 발급받기 전이므로 SessionID는 보내지 않는다.
-3. 서버: 신규 계정은 한 번만 초기화하고, 기존 계정은 조회한다. 세션을 발급하고 일관된 UserInitResponseDTO를 반환한다.
-4. 데이터 로딩: 응답 검증 → 계정/세션 연결 → 캐릭터 3명 인덱스 정렬 → 재화·인벤토리·스킬·직업·퀘스트 준비 → 기존 에셋 ID 연결 → 한 번에 공개.
-5. 모든 필수 데이터가 준비된 후에만 메인 진입. 초기화 실패 시 데이터 로딩 상태에서 오류/재시도를 제공한다. 실제 빈 인벤토리와 필수 필드 누락을 구별한다.
+현재 함수명은 OnExistUserInit이다. 사용자가 예로 든 OnLogin을 실제 등록 함수로 가정해 이름부터 변경하지 않는다. 서버에서 OnLogin으로 정해져 있다면 연결 단계에서 해당 등록명으로 맞춘다.
 
-캐릭터는 정확히 3명이며 Index가 각각 0, 1, 2여야 한다. 배열 순서를 캐릭터 번호로 가정하지 않는다. Index 중복/누락, 알 수 없는 아이템 정의, 중복 장비 ID, 유효하지 않은 장착 조합은 빈 계정으로 덮어쓰지 않는다. 준비 중 다른 계정으로 바뀌면 이전 응답을 폐기한다.
+현재 Authentication은 RPC 완료를 기다리지 않고 별도의 PlayFab UserReadOnlyData를 해석해 메인으로 이어질 수 있다. TitleScreenController도 PlayFabId 존재만으로 준비 여부를 판단한다. 가입/로그인 응답 적용과 필수 데이터 로딩이 끝난 뒤에만 준비 완료를 알리는 구조로 바꾼다.
 
-현재 클라이언트의 등록 함수 문자열은 OnSignUpInitUser와 OnExistUserInit이다. OnLogin은 사용자가 설명한 로그인 단계 이름으로 사용하며, 실제 서버 등록명이 확인되기 전 FunctionName을 임의 변경하지 않는다.
+UserInitResponseDTO에 Inventory: List<ItemCode>는 이미 있다. 다만 현행 장비 기능을 보존하기에는 부족하므로 다음 상세 데이터를 포함하도록 확장한다.
 
-### 4.1 초기화 DTO의 확장
-
-기존 UserInitResponseDTO의 계정/캐릭터/재화 필드는 유지하면서 다음 블록을 추가하는 안이다. OnGetUserStateRequestDTO(SessionID, ProtocolVersion) / OnGetUserStateResponseDTO는 같은 사용자 상태를 재조회하되 새 세션을 발급하지 않는다.
-
-| 필드/블록 | 클라이언트가 받을 정보 |
+| 초기 응답 데이터 | 필요한 내용 |
 |---|---|
-| SessionID | 가입/로그인 응답에만 필요한 서버 세션 |
-| StateRevision, ServerTimeUtc | 일관된 계정 스냅샷의 순번과 서버 시간 |
-| UserProgress | Level, Exp, KillScore, CurrentStage, EnchantHPCount, EnchantATKCount 및 퀘스트에 필요한 승인된 진행 상태 |
-| CharacterDatas | Index, NickName, JobCode, Hp, Atk를 가진 캐릭터 3명. Hp/Atk가 기존 Player 초기화에서 기대하는 기초값인지 서버 최종값인지 명시하고 강화·장비 보너스를 두 번 적용하지 않는다. |
-| Currency | Gold, AncientCoin, ArcaneKnowledge, ClassFragment, Ruby, EquipmentStone의 long 절대 잔액. 기존 KingdomSupply/TrainingTome 소유값도 보존·명시 매핑하며 다른 재화로 재해석하지 않는다. |
-| EquipmentInventory | 5절의 개별 보유·추가 보관·예비 스택·자동 분해 설정 |
-| MageTower | 6절의 명시적 스킬 상태와 5개 슬롯 |
-| CharacterJobs / JobTrees | 캐릭터별 선택 직업, 해금 목록 |
-| Gacha | 장비 천장 카운트와 정의 버전 |
-| Quests | 진행·완료·수령·이월 보상·기간·정의 버전 |
-| NextRewardSequence | 기존 사냥 요청을 실제 연결할 때 필요한 다음 서버 승인 순번. 로그인에서 복구할 출처가 현재 DTO에 없어 확장 필요. |
+| 기존 사용자 정보 | SessionID, Level, Exp, KillScore, CurrentStage, EnchantHPCount, EnchantATKCount |
+| 캐릭터 | Index 0/1/2가 각각 한 번씩 존재하는 CharacterDatas, 이름·직업·스탯 |
+| 재화 | CurrencyQueryDTO 확장: 기존 재화와 EquipmentStone 등 클라이언트가 사용하는 잔액. 누락을 임의 0으로 처리하지 않음 |
+| 장비 | EquipmentInventoryDTO: 주 보관함·추가 보관·초과 수량·장착·잠금·강화 비용 이력 |
+| 마탑 | MageTowerStateDTO: 보유 스킬·강화·각성·조각·실제 지출·개화·5슬롯 |
+| 직업 | 캐릭터별 선택 직업과 해금 트리. 장비의 CharacterIndex와 일치해야 함 |
+| 뽑기 | GachaStateDTO: 장비 천장 진행값 |
+| 퀘스트/업적 | QuestStateDTO: 전체 카테고리와 미수령 완료 항목·기간·초기화 시각 |
+| 스테이지/던전 | 최고·최초 클리어 기록, DungeonStateDTO의 티켓·진행 기록·현재 입장 정보 |
+| 기존 사냥 계약 | NextRewardSequence: 최초 사냥 배치에 사용할 값 |
+| 시간 | ServerTimeUtc: 기간제 콘텐츠 표시/초기화의 기준 |
 
-UserStateSnapshotDTO는 위에서 SessionID를 뺀 재조회용 구조다. 기존 UserInitResponseDTO의 평평한 필드와 새 블록 사이의 최종 필드 배치는 DTO 구현 전 합의하며, 같은 상태를 두 군데서 수정하는 구조는 만들지 않는다.
+OnGetUserStateRequestDTO(공통 헤더만) / OnGetUserStateResponseDTO를 추가해 재접속·결과 미확인 상황에서 같은 데이터 집합을 조회한다. 이 조회는 세션을 새로 발급하지 않는다. 실제 로그인과 달리 재조회가 세션 필드를 덮거나 캐릭터를 중복 생성하지 않게 한다.
 
-기존 Inventory, CharacterEquipmentDatas, SkillTreeDatas는 압축 요약이다. 새 K의 계약에서는 이 legacy 필드를 optional/deprecated로 두고 상세 블록을 필수로 사용한다. 수량이 65,535를 넘는 등 압축 형식으로 완전하게 표현할 수 없으면 해당 legacy 목록 전체를 생략한다. 일부 항목을 빼거나 수량을 자르거나 Pack 실패 때문에 새 클라이언트 로그인을 막지 않는다. 상세 블록 소비자는 legacy 목록 생략을 오류로 취급하지 않는다.
+현재 UserManager/User/장비/마탑은 서버 자료를 로컬 JSON에 한 번 가져오는 경로가 있다. 로그인마다 서버 데이터로 갱신하고, 로컬 JSON이 소유·재화 상태를 다시 덮지 않게 한다. 기존 로컬 데이터의 서버 이관은 별도 정책이며 임의 업로드·병합하지 않는다. 같은 재화를 바꾸는 미전환 경로가 남아 있는 상태에서는 해당 재화의 서버 모드를 출시하지 않는다.
 
-이전 호출부 호환을 위해 표현 가능한 legacy 목록을 남기더라도 상세 상태에서 생성하는 읽기 전용 투영일 뿐이다. 둘을 독립 갱신하거나 병합하지 않는다. 모순되는 요약은 계약 오류이며, 신규 연동은 상세 블록만 상태 복원에 사용하고 매번 임의 장비 ID를 재생성하지 않는다. 기존 K 소비자가 이런 확장 상태를 처리할 수 없다면 프로토콜 불일치 정책에 따라 업데이트가 필요하다.
+## 5. 장비: 현행 모델을 담는 계약
 
-기존 로컬 계정 저장은 삭제/자동 업로드하지 않는다. 서버 초기 상태와 로컬 성장 기록을 합치는 정책은 별도의 계정 이관 작업이다. 강화를 레벨만 보고 과거 지출로 역산하여 환급액을 만들어서는 안 된다.
+### 5.1 인벤토리 DTO
 
-## 5. 장비 인벤토리 프로토콜
-
-### 5.1 클라이언트 구조와 손실 없는 응답
+압축 ItemCode는 장비 종류/강화/수량을 표현하지만 동일 종류의 개별 소유 장비를 구별하지 못한다. Equality도 종류 기준이다. 클라이언트가 이미 사용하는 EquipmentSave의 개별 ID와 상태를 그대로 전송할 수 있어야 한다.
 
 ~~~text
-EquipmentInventoryDTO
-  Items: EquipmentInstanceDTO[]             // 현재 Equipment, 최대 300
-  PendingItems: EquipmentInstanceDTO[]      // 현재 PendingEquipment, 최대 100
-  ReserveStacks: EquipmentReserveStackDTO[] // 현재 LegacyEquipment
-  AutoDismantleMask: int                    // 0..7
-
 EquipmentInstanceDTO
   InstanceId: string
-  DefinitionCode: int                      // 현재 EquipmentSave.Code / EquipmentData.itemCode
-  EnhancementLevel: int                    // 현재 Level
-  EquippedCharacterIndex: int?             // 현재 Player: null 또는 0..2
-  IsLocked: bool                           // 현재 Locked
-  ExpiresUtc: long                         // 현재 ExpiresUtc, 무기한 0
-  EnhancementStonesSpent: long             // 실제 누적 지출
+  DefinitionId: int
+  EnhancementLevel: int
+  CharacterIndex: int?             // 0~2 또는 미장착
+  IsLocked: bool
+  ExpiresUtc: long
+  EnhancementStonesSpent: long
 
 EquipmentReserveStackDTO
-  DefinitionCode: int
+  DefinitionId: int
   EnhancementLevel: int
-  Count: int                               // 16비트 압축 수량으로 보내지 않는다
+  Count: int
+
+EquipmentInventoryDTO
+  Items: EquipmentInstanceDTO[]
+  PendingItems: EquipmentInstanceDTO[]
+  ReserveStacks: EquipmentReserveStackDTO[]
+  Capacity: int
+  PendingCapacity: int
+  AutoDismantleRarityMask: int
 ~~~
 
-현재 EquipmentSave/EquipmentInstance로 직접 투영할 수 있는 정보다. 전송상의 이름만 다르고 게임 모델의 의미는 그대로다. 응답 Items는 획득순으로 안정적으로 정렬한다. 현재 ‘최근 획득’ 정렬은 배열 위치에 의존하므로 서버가 매번 다른 순서로 반환하면 안 된다. 서버 내부 획득 순번을 유지하고 조회에 사용한다.
+EquipmentSave의 Id/Code/Level/Player/Locked/ExpiresUtc/EnhancementStonesSpent에 손실 없이 매핑한다. 배열 순서는 기존 ‘최근 획득’ 정렬을 보존한다. 장착 정보의 기준은 InstanceId + CharacterIndex이며 기존 CharacterEquipmentDatas와 함께 제공한다면 반드시 일치시킨다.
 
-ItemCode.Code는 종류·강화·수량의 압축 표현이지 개별 소유 장비 ID가 아니다. Equals도 정의 코드를 비교한다. 강화·장착·잠금·개별 분해 요청은 InstanceId로 대상을 지정해야 한다. 기존 OnEnchantEquipment.ItemCode를 받는 과도기에도 복수 개체 중 임의의 하나를 고르지 않는다.
+새 공통 ProtocolVersion에 해당하는 클라이언트는 상세 인벤토리를 사용한다. 기존 압축 Inventory를 유지하더라도 상세 장비와 합쳐 중복 생성하지 않는다. 기존 저장분의 개별 ID와 강화 지출을 서버가 보관하지 않았다면 복구 가능한 근거와 이관 규칙을 먼저 정하며, 과거 지출을 현재 비용으로 임의 복원하지 않는다.
 
-### 5.2 요청/응답 DTO 목록
+### 5.2 행위별 RequestDTO / ResponseDTO
 
-아래 변경 요청은 모두 MutationRequestDTO의 K, SessionID, RequestId를 포함한다. 모든 성공 응답은 ApiResponseDTO와 MutationReceiptDTO를 포함하며 변경된 장비/재화/직업/퀘스트 블록을 함께 반환한다. ‘추가 응답’은 연출이나 결과 안내에 필요한 작업별 자료다.
+아래 각 함수 이름에 RequestDTO/ResponseDTO를 붙여 계약을 정의한다. 성공 응답에는 표의 결과와 영향을 받은 재화·퀘스트를 담는다.
 
-| 요청 DTO / 함수명 제안 | 작업 인자 | 추가 성공 응답 |
+| API | 요청 | 응답과 서버 처리 |
 |---|---|---|
-| OnGetEquipmentInventoryRequestDTO / OnGetEquipmentInventory | 세션 조회, 변경 없음 | OnGetEquipmentInventoryResponseDTO: StateRevision, EquipmentInventory, Currency, ServerTimeUtc |
-| OnEnchantEquipmentRequestDTO / 기존 OnEnchantEquipment 확장 | InstanceId, ExpectedLevel | OnEnchantEquipmentResponseDTO: UpdatedItem, ConsumedEquipmentStone |
-| OnEquipEquipmentRequestDTO / OnEquipEquipment | CharacterIndex, InstanceId, ExpectedPreviousInstanceId(null 허용) | OnEquipEquipmentResponseDTO: EquippedInstanceId, UnequippedInstanceId |
-| OnUnequipEquipmentRequestDTO / OnUnequipEquipment | CharacterIndex, ExpectedInstanceId | OnUnequipEquipmentResponseDTO: UnequippedInstanceId |
-| OnSetEquipmentLockedRequestDTO / OnSetEquipmentLocked | InstanceId, Locked | OnSetEquipmentLockedResponseDTO: UpdatedItem |
-| OnDismantleEquipmentRequestDTO / OnDismantleEquipment | Mode(Single/Bulk), 아래 확정 대상 목록 | OnDismantleEquipmentResponseDTO: RemovedInstanceIds, ConsumedStacks, GrantedEquipmentStone |
-| OnSetAutoDismantleRequestDTO / OnSetAutoDismantle | RarityMask: 0..7 | OnSetAutoDismantleResponseDTO: 적용된 mask |
-| OnClaimPendingEquipmentRequestDTO / OnClaimPendingEquipment | InstanceId | OnClaimPendingEquipmentResponseDTO: 이동된 UpdatedItem |
-| OnClaimReserveEquipmentRequestDTO / OnClaimReserveEquipment | DefinitionCode, EnhancementLevel | OnClaimReserveEquipmentResponseDTO: 신규 InstanceId를 가진 1개 장비, 해당 스택 최종 수량 |
+| OnGetEquipmentInventory | 공통 헤더 | EquipmentInventoryDTO. 메뉴 최초 표시/명시적 새로고침에 사용 |
+| OnEnchantEquipment | InstanceId | 주 보관함의 소유 개체 확인 → 강화석 비용·장비 정의별 상한 확인 → 강화. 장비 목록 최종 상태, Currency, 실제 소비량 |
+| OnEquipEquipment | InstanceId, CharacterIndex | 주 보관함의 미장착 개체·직업 적합성 확인 → 해당 캐릭터의 기존 장비 해제와 새 장착을 한 번에 저장. 장비 최종 상태. 다른 캐릭터에게 장착 중인 장비를 강제로 이전하지 않음 |
+| OnUnequipEquipment | CharacterIndex, InstanceId | 현재 장착 대상 확인 후 해제. 장비 최종 상태 |
+| OnSetEquipmentLock | InstanceId, IsLocked | 대상 잠금 변경. 장비 최종 상태 |
+| OnDismantleEquipment | Mode, Items[], ReserveStacks[] | 확정 목록 검증 → 모두 분해 → 강화석 지급. 장비·Currency·지급 강화석 |
+| OnSetAutoDismantle | RarityMask | 이후 획득에 적용할 설정 저장. 기존 소유 장비를 즉시 분해하지 않음 |
+| OnClaimPendingEquipment | InstanceId | 주 보관함으로 이동. 장비 최종 상태 |
+| OnClaimReserveEquipment | DefinitionId, EnhancementLevel | 해당 스택에서 1개를 주 보관함 개체로 변환. 장비 최종 상태 |
 
-서버 소유권 확인, 캐릭터 인덱스, 현재 직업의 사용 가능 무기, 동일 개체 중복 장착, 기존 무기 교체를 검증한다. 잠금은 분해 보호이며 현재 클라이언트가 허용하는 강화·장착까지 금지하는 새 규칙으로 확대하지 않는다. 최근 응답에 담긴 다른 캐릭터가 장착 중인 장비를 강제로 빼앗아 장착하지 않는다.
+분해 요청의 Items[]는 확인창을 열 때 선택한 InstanceId, DefinitionId, EnhancementLevel, EnhancementStonesSpent, 보관 위치를 담는다. ReserveStacks[]는 DefinitionId, EnhancementLevel, Count를 담는다. 서버는 표시 당시 선택한 대상만 분해하고, 이후 추가로 획득한 장비를 포함하지 않는다.
 
-### 5.3 분해 확인창의 의미 보존
+같은 대상의 잠금/장착/강화/보관 위치가 달라졌거나 삭제되었다면 전체 요청을 거절하고 새 목록을 보여준다. 초과 스택이 늘었다면 확인한 Count만 소비한다. 양수 수량·중복 ID/스택 키·상한·산술 overflow를 검사한다. 이는 삭제 대상 확인에 필요한 값이며 모든 요청에 공통 비교 필드를 추가하는 설계가 아니다.
 
-~~~text
-OnDismantleEquipmentRequestDTO
-  Mode: Single | Bulk
-  Items: DismantleItemTargetDTO[]
-    InstanceId: string
-    ExpectedDefinitionCode: int
-    ExpectedLevel: int
-    ExpectedStonesSpent: long
-    ExpectedStorage: Inventory | Pending
-  Stacks: DismantleStackTargetDTO[]
-    DefinitionCode: int
-    EnhancementLevel: int
-    ConfirmedCount: int
-~~~
+### 5.3 서버가 보존할 장비 규칙
 
-서버 구현 순서:
+- 주 보관 300, 추가 보관 100 및 초과 수량 보존. 포화 때문에 사냥·던전·재화가 충분한 뽑기를 실패시키지 않는다. 현재 추가 보관은 무기한이며 ExpiresUtc=0을 사용하고 서버가 임의 만료·삭제하지 않는다.
+- 강화는 강화석을 소비하며 확정 성공이다. 장비 정의의 maxEnhancementLevel을 적용하고, 현재 정의는 일반 +5/희귀 +10/영웅 +15다. 기본 분해량은 일반 1/희귀 4/영웅 12, 강화 비용은 2 × 기본 분해량 × (1 + floor(현재 강화/3)).
+- 분해 보상은 기본 분해량 + floor(실제 사용 강화석 × 0.8). 단일 분해는 강화품도 가능하고 일괄 분해는 +0만 대상으로 하며 잠금/장착품은 보호한다.
+- 자동 분해는 설정에 해당하는 신규 +0·미잠금·미장착 장비에 적용한다. 소유 내역과 실제 보관/전환 결과를 응답한다.
+- 스택은 개별 잠금·장착·지출을 담을 수 없다. 일반 신규 보상을 넘어 기존 특수 상태의 개체까지 수량으로 뭉개지 않는다.
+- 활은 신규 드롭/뽑기에서 제외하며 기존 소유분은 보존한다.
+- TrySynthesize는 현재 비활성 경로이므로 합성 API를 추가하지 않는다.
 
-1. 중복 RequestId를 먼저 조회한다. 이미 확정한 동일 요청이면 결과를 재반환한다.
-2. 목록은 합쳐서 최소 1개 대상이 있어야 하며 크기 상한, InstanceId 형식, enum/레벨/지출 범위, 중복 개체 ID와 중복 스택 키를 검증한다. 모든 대상의 소유·미잠금·미장착·위치·코드·레벨·실제 지출을 서버 상태와 비교한다. Single은 단일 개체이며 스택을 받지 않고, Bulk는 현재 정책대로 +0만 허용한다.
-3. ConfirmedCount는 반드시 1 이상 int 범위이며 서버 수량 이하여야 한다. 0·음수·범위 초과를 거절한다. 수량 합계·차감·지급액 계산은 checked 범위 검증을 하고 하나라도 실패하면 전부 취소한다. 확인창을 연 뒤 수량이 늘어도 확정했던 수량만 소모한다.
-4. 서버가 분해 지급량을 계산한다. 요청에는 승인할 지급량을 받지 않는다.
-5. 대상 제거/스택 차감/강화석 지급/완료 기록을 함께 확정한다. 하나라도 검증 실패하면 전부 취소한다.
+## 6. 캐릭터 강화·마탑·직업·가챠
 
-새로 획득한 장비를 서버에서 필터 재실행하여 기존 분해에 포함하면 안 된다. 관계없는 사냥 수입이나 신규 장비 때문에 계정 revision이 바뀌어도 확정 대상이 유효하면 분해를 허용한다. 강화·장착·잠금·이동·삭제로 대상이 바뀌면 재확인을 요구한다. 요청의 기대값은 지급 근거가 아니라 충돌 검출용이며, 서버 데이터가 항상 기준이다.
+### 6.1 캐릭터 강화
 
-### 5.4 서버가 구현할 현행 장비 규칙
+StatEnhanceManager의 AttackLevel/HealthLevel은 계정 공통이며 캐릭터 3명에게 함께 적용된다. 현재 함수별 OnEnChantATK/OnEnChantHP를 유지하고 개별 캐릭터 Index를 추가하지 않는다.
 
-- 보유 300개 → 추가 보관 100개 → 코드/강화별 예비 스택. 보상 획득 자체는 공간 부족으로 거절하지 않는다.
-- 추가 보관은 무기한이다. 지급 성공과 ‘보유 칸으로 꺼내기 실패’를 구분한다. 꺼내기만 공간 부족으로 거절될 수 있다.
-- 예비 스택은 현재 Code/Level/Count만 담는다. 신규 일반 +0 보상처럼 별도 속성이 없는 개체만 합친다. 잠금·장착·실제 지출 이력이 있는 개체를 이 형태로 압축하지 않는다.
-- 현 모델이 표현하지 못하는 특수 초과 개체/Count가 int 범위를 넘는 데이터는 서버 원본에 보존하고 명시적인 이관/스키마 조정 대상으로 둔다. 수량을 자르거나 중복 스택으로 위장하지 않는다. 기본 보상 공급에서는 이 상태를 만들지 않도록 생성 규칙을 맞춘다.
-- 강화는 확정 성공이며 일반/희귀/영웅의 기본 분해량은 1/4/12이다. 강화 비용은 2 × 기본 분해량 × (1 + floor(현재 레벨/3)). 실제 성공한 소비량을 EnhancementStonesSpent에 누적한다. 최대 레벨은 기존 정의를 따르며 현재 저장 검증 상한은 15다.
-- 분해 지급은 기본 분해량 + floor(실제 강화석 누적 지출 × 0.8). 옛 지출이 불명확하면 추정 환급하지 않는다.
-- 자동 분해는 이후 획득한 알려진 +0·미잠금·미장착 장비에만 적용한다. 설정 변경으로 기존 소유 장비를 일괄 삭제하지 않는다.
-- 활은 신규 보상 풀에서 제외하되 기존 소유와 원본 코드는 보존한다. 등급 확률·천장은 유지한다.
-- 필터·정렬·사용 가능 장비만 보기 같은 화면 선호는 로컬에 둘 수 있다. 자동 분해 설정은 실제 지급에 영향을 주므로 서버에 둔다.
+OnEnchantRequestDTO.Count는 현 UI의 1/10/MAX를 보존한다. MAX는 기존 클라이언트 의미인 -1로 계약을 명시하고 서버가 현재 잔액으로 가능한 횟수를 계산한다. 양수 요청은 상한까지 남은 횟수로 제한하되 그 비용이 부족하면 실패한다. 현재 상한 300과 BalanceMath의 비용식을 서버로 옮긴다.
 
-장비 지급은 서버 내부 공용 서비스로 묶어 뽑기·필드·최초 클리어가 같은 보관/분해 규칙을 사용하게 한다. 클라이언트가 임의 장비와 수량을 보내 지급받는 일반 Grant API는 만들지 않는다.
+OnEnchantResponseDTO의 CurrentLevel/CurrentGold는 절대값으로 적용하며 AppliedCount와 영향을 받은 재화/퀘스트 상태를 보완한다. 서버 성공 시 기존 OnEnhanceCompleted/OnEnhanced로 UI를 갱신하고 3명의 스탯을 적용한다. 응답 전 bool 성공을 반환해 완료 연출·가이드 성공을 확정하지 않는다.
 
-## 6. 마탑 스킬·직업·뽑기의 부족한 계약
-
-### 6.1 마탑 스킬
-
-기존 OnEnchantSkill/OnAwakeningSkill 응답은 SkillCode만 반환한다. 현행 MageSkillStateSnapshot은 이미 손실 없는 서버 어댑터를 위한 구조를 제공한다.
+### 6.2 마탑 스킬
 
 ~~~text
+MageSkillDTO
+  SkillId: int
+  EnhancementLevel: int
+  AwakeningLevel: int
+  Fragments: int
+  KnowledgeSpent: long
+  BloomEnabled: bool
+
 MageTowerStateDTO
-  CatalogVersion: string
-  Skills: MageSkillStateDTO[]
-    SkillId: int
-    EnhancementLevel: int
-    AwakeningLevel: int
-    Fragments: int
-    KnowledgeSpent: long
-    BloomEnabled: bool
-  EquippedSkillIds: int[5]   // -1은 빈 슬롯, 중복 장착 금지
+  Skills: MageSkillDTO[]
+  EquippedSkillIds: int[5]          // 빈 슬롯 -1
 ~~~
 
-SkillCode의 16비트 조각 수량만 사용하면 int로 저장하는 현재 Fragments가 잘릴 수 있다. 상세 DTO를 기준으로 하고 압축 코드는 호환 요약으로만 취급한다.
+기존 SkillCode만으로는 실제 지식 지출·개화 설정·슬롯을 보존할 수 없고 16비트 수량은 큰 조각 수량을 담지 못한다. 상세 DTO를 기존 MageSave/슬롯에 매핑한다. 구 압축 목록으로 재변환하며 조각을 잘라내지 않는다.
 
-| 요청 DTO / 함수명 | 인자 | 응답 DTO의 작업별 자료 / 서버 책임 |
+| API | 요청 | 응답/서버 처리 |
 |---|---|---|
-| 기존 OnEnchantSkillRequestDTO | SkillCode, RequestId. 향후 상세 SkillId와의 매핑을 명시 | OnEnchantSkillResponseDTO + Receipt, 변경 스킬, 소비 지식. 서버가 현재 레벨과 비용 계산 |
-| 기존 OnAwakeningSkillRequestDTO | SkillCode, RequestId | OnAwakeningSkillResponseDTO + Receipt, 변경 스킬, 소비 조각 |
-| OnSetSkillLoadoutRequestDTO | EquippedSkillIds[5], ExpectedEquippedSkillIds[5] | OnSetSkillLoadoutResponseDTO + Receipt. 전체 슬롯을 한 번에 검증·교체하여 기존 슬롯 교환 동작 보존 |
-| OnSetSkillBloomRequestDTO | SkillId, Enabled | OnSetSkillBloomResponseDTO + Receipt. 각성 10 이상 검증 |
-| OnResetSkillEnhancementRequestDTO | SkillId, ExpectedEnhancementLevel, ExpectedKnowledgeSpent | OnResetSkillEnhancementResponseDTO + Receipt, RefundedKnowledge |
+| 기존 OnEnChantSkill | 기존 SkillCode로 대상 식별 | 현재 서버 레벨에서 강화 비용 계산, MageTowerStateDTO·Currency·퀘스트 |
+| 기존 OnAwakeningSkill | 기존 SkillCode로 대상 식별 | 서버 보유 조각 차감·각성, MageTowerStateDTO·Currency·퀘스트 |
+| 신규 OnSetSkillLoadout | EquippedSkillIds[5] | 보유/중복/비활성 ID 검사 후 5슬롯을 함께 변경, MageTowerStateDTO |
+| 신규 OnSetSkillBloom | SkillId, Enabled | 각성 조건 검사 후 개화 설정, MageTowerStateDTO |
+| 신규 OnResetSkillEnhancement | SkillId | 실제 지출의 80% 지식 환급, 강화/지출 초기화, MageTowerStateDTO·Currency·환급량 |
 
-서버 규칙: 실제 8종 ID는 0..9 중 6/8을 제외한다. 현재 서버 공유 enum의 0..2만으로 제한하지 않는다. 강화 상한 100, 각성 상한 10, 중복 획득 조각 30, 초기 획득은 보유 등록, 강화 초기화 환급은 실제 지출의 floor(80%)이다. 개화 전환으로 진행 중인 시전이나 쿨다운을 초기화하지 않는다. 자동 시전 선택은 현재의 로컬 설정으로 유지할 수 있다.
+강화 상한 100, 각성 상한 10, 중복 획득 조각 30, 각성 비용은 다음 각성 단계의 수량, 각성 10에서 개화를 허용하는 현행 규칙을 보존한다. 초기화는 각성·조각·장착·개화를 지우지 않는다. 이미 진행 중인 시전/쿨다운은 서버 응답 적용으로 초기화하지 않는다.
 
-독립 운석 ID 8의 기존 투자와 원본 내역은 서버 이관에서 보존하고 ID 3 유성우에 통합하는 기존 MageCatalogMigration을 기준으로 이전한다. ID 6/8을 신규 뽑기·장착·시전에 되살리지 않는다. 실시간 VFX/조준/타격마다 RPC를 새로 요구하는 설계는 하지 않는다.
+활성 로스터는 현재 클라이언트를 따른다. ID 6/8은 재사용/신규 지급하지 않고, ID 8→3 이관 시 높은 투자 상태·환급·원본 내역을 보존한다. 폐기된 신 스킬 시스템은 대상이 아니다.
 
-### 6.2 직업
+### 6.3 직업
 
-현재 클라이언트의 직업 선택 한 번은 미해금이면 해금 비용 차감·해금·선택·비호환 장비 해제를 한 번에 처리한다. 이를 보존하려면 신규 OnSelectJob을 단일 원자 작업으로 추가하는 안이 적절하다. 기존 OnGetJob과 OnChangeJob 계약을 남기더라도 UI 클릭을 이 둘의 순차 호출로 바꿔 중간 실패 상태를 새로 만들지 않는다.
+기존 OnGetJob/OnChangeJob 요청의 Index 누락 및 잘못된 요청 DTO 사용을 고친다. 현 ChangeJob.TryChangeJob은 미해금 직업의 해금·재화 차감·선택·비호환 장비 해제를 한 번에 수행한다.
 
-~~~text
-CharacterJobStateDTO
-  Index: int                   // 0..2
-  SelectedJobCode: ulong
-  UnlockedJobCodes: ulong[]
-~~~
+이 버튼에는 신규 OnSelectJobRequestDTO(Index, JobCode) / OnSelectJobResponseDTO를 제안한다. 서버가 선행 직업·비용·사용 가능 여부를 확인해 필요한 해금과 선택을 함께 저장하고 CharacterJobs, JobTrees, Equipment, Currency, Quests를 반환한다. 기존 두 API는 서버 등록 현황에 맞춰 유지할 수 있지만 한 번의 전직을 두 번의 독립 소비 RPC로 나누지 않는다.
 
-- OnSelectJobRequestDTO(Index, JobCode, RequestId) → OnSelectJobResponseDTO(Index, JobCode, WasNewlyUnlocked, ConsumedClassFragment, Receipt). 미해금이면 선행 조건과 비용을 검사한 뒤 해금·선택·비호환 장비 해제를 함께 확정한다. 이미 해금됐으면 소비는 0이다. 실패하면 해금/소비를 포함해 전부 취소한다.
-- 기존 OnGetJobRequestDTO/ResponseDTO는 해금 전용, OnChangeJobRequestDTO/ResponseDTO는 기존 서버 의미를 확인해 호환용으로 유지한다. 기존 요청에서도 Index를 반드시 채운다. OnSetJobTree는 빈 요청이므로 이름만 보고 클라이언트가 임의 해금 목록을 쓰는 API로 확대하지 않는다.
-- 선택 직업은 현재 ProgressionState.Jobs로 투영한다. 실제 전투 외형/행동은 현재와 같이 적용 가능한 웨이브 경계에서 반영한다. 서버가 선택 상태와 실제 전투 적용 시점을 혼동하지 않도록 향후 전투 세션과 연결한다.
-- 창병은 기본, 일반 전직은 40, 정예 전직은 120 조각이며 정예에는 선행 직업 해금이 필요하다. 궁수/정예 궁수는 선택 불가, 기존 투자·해금 기록은 보존한다.
-- 변경 가능 시점은 현재 메인 일반 웨이브 조건을 유지한다. 서버에 전투 상태 검증이 없으면 클라이언트의 ‘변경 가능’ 주장만으로 서버 검증이 완료됐다고 하지 않는다.
+기본/상위 전직 비용 40/120, 기존 웨이브 경계에서 실제 전직을 적용하는 시점, 궁수/정예 궁수 비활성 정책을 보존한다.
 
-### 6.3 뽑기
+### 6.4 장비/스킬 뽑기
 
-기존 OnGachaEquipmentClassFragment / OnGachaSkillArcaneKnowledge를 유지한다. 요청은 Count(1 또는 10)+RequestId다. 뽑기 결과 목록과 실제 반영된 상태는 분리한다.
+서버가 비용 차감·난수 추첨·장비 천장·중복 변환·보관/자동 분해·퀘스트 증가를 함께 처리한다. 클라이언트는 뽑을 보상을 결정해서 보내지 않는다.
 
 ~~~text
-GachaStateDTO
-  EquipmentPity: int           // 0..39, 영웅 획득 시 0
-  DefinitionVersion: string
-
 GachaRewardDTO
-  RollIndex: int
-  RewardType: Equipment | Skill | Currency
-  DefinitionCode: int?        // 장비 정의
-  InstanceId: string?         // 실제 개별 보관된 장비만, 스택화 시 필수 아님
-  SkillId: int?
-  Currency: CurrencyId?
-  Amount: long                // 이번에 지급된 수량, 최종 잔액이 아님
+  Order: int
+  Kind: Equipment / Skill / Currency
+  DefinitionId: int?               // 장비/스킬 ID
+  CurrencyType: eCurrency?
+  Amount: long
   IsDuplicate: bool
-  Disposition: Inventory | Pending | Reserve | AutoDismantled | SkillOwned | SkillFragments | Wallet
+  GrantedFragments: int
+  InstanceId: string?              // 실제 개별 장비가 만들어진 경우
+  Disposition: Inventory / Pending / Reserve / AutoDismantled / None
+  GrantedEquipmentStone: long
 
-기존 두 뽑기 ResponseDTO 확장
-  Rewards: GachaRewardDTO[]    // 뽑기 순서 보존
-  Receipt: MutationReceiptDTO // 재화·천장·장비/스킬·퀘스트 최종 상태
+GachaStateDTO
+  EquipmentPity: int
 ~~~
 
-클라이언트 GachaRewardEntry의 Sprite/name/EquipmentData는 정의 ID로 기존 에셋에 연결한다. 자동 분해 결과는 강화석 보상으로 표시하면서 원래 장비 정의를 보조 정보로 남긴다. 10연 뽑기 중 중복/최초 획득 여부를 순서대로 계산한다. 기존 GachaList와 ClassFragmentCnt/ArcaneKnowledgeCnt만으로는 혼합 보상 순서·최종 잔액·천장·보관 결과를 복원할 수 없다. 기존 Cnt의 의미는 서버 확인 전 지급량/최종 잔액 어느 쪽으로도 추측하지 않는다.
+기존 각 가챠 ResponseDTO에 Rewards[], Currency, GachaState, 해당 Equipment/MageTowerState, Quests를 보완한다. Rewards는 연출용 결과이며 최종 상태의 재화/소유를 다시 가산하지 않는다. 기존 GachaList/Cnt만으로 결과 순서·중복·최종 잔액을 추정하지 않는다.
 
-현행 규칙을 서버에 이식한다: 회당 고대주화 50, 장비 뽑기는 일반 70%/희귀 20%/영웅 5%/전직 조각 2개 5%, 40번째 천장. 스킬 뽑기는 스킬 50%(활성 8종 동일 확률), 비전 지식 10개 30%/20개 15%/50개 5%. 비용·순서별 난수·천장·보상·퀘스트·영수증이 한 번에 확정되어야 한다. 클라이언트가 서버 결과를 다시 랜덤으로 뽑거나 중복 조각을 다시 더하지 않는다.
+현행 규칙은 1/10회, 회당 고대주화 50이다. 장비는 일반 70%/희귀 20%/영웅 5%/직업조각 2개 5%, 장비 천장 40번째 영웅 보장과 영웅 획득 시 초기화를 보존한다. 스킬은 총 50%를 활성 8종에 균등 분배하며 나머지는 지식 10/20/50개가 각각 30%/15%/5%다. 스킬에 희귀도를 새로 추가하지 않는다.
 
-## 7. 퀘스트와 업적의 신규 계약
+## 7. 사냥·메인 클리어·던전
 
-### 7.1 공통 모델
+### 7.1 사냥
 
-현재 eQuestCategory의 Guide=0, Daily=1, Weekly=2, Achievement=3과 eQuestObjectiveType 0..25, ProgressMode를 유지한다. 새로운 enum의 숫자를 임의 재배열하지 않는다. 서버에는 Unity 오브젝트가 없는 공통 정의/상태를 둔다.
+StageManager에는 3초 주기 SendHuntResultLoop가 정의되어 있지만 시작 호출이 검색되지 않는다. 또한 현재 LocalProgression.IsLocalAuthority는 항상 true이고 서버 요청 직후 집계 버퍼를 지우며, UserManager.SetHuntResult는 응답을 적용하지 않는다.
+
+승인 후 다음 흐름을 연결한다.
+
+1. 로그인 데이터 적용 후 집계를 시작하고 로그아웃/종료 때 정리한다.
+2. Stage별 결과를 분리하고 전송할 배치를 복사해 보관한다. 다음 처치는 별도 버퍼에 쌓는다.
+3. 기존 OnRewardRequestDTO의 Stage/Loots/RewardSequence를 모두 채운다. 던전 배치에는 입장 응답의 BattleId도 전달하고 회차별로 집계한다. short Count 범위와 서버의 배치 총량 제한에 맞게 누적을 분할하며 잘라내거나 overflow시키지 않는다.
+4. 서버가 스테이지·처치 정보·기존 사냥 순번 및 던전 회차를 검사하고 경험치·골드·드롭·퀘스트를 계산한다. 클라이언트가 계산한 보상량을 신뢰하지 않는다.
+5. 정상 응답의 확정값과 NextRewardSequence를 반영한 뒤 그 배치만 제거한다. 기존 서버 중복 배치 처리가 어떤 응답을 반환하는지 공유 계약 단계에서 확인한다.
+6. 클리어 직전 해당 스테이지의 남은 사냥 배치를 먼저 처리해 클리어 보상과 순서가 뒤섞이지 않게 한다. 던전 실패·중도 종료·다음 입장 전에도 이전 회차의 남은 배치를 먼저 처리한다.
+
+현재 서버 CommonDatas의 주석은 배치 총처치 150 이상 거절과 수락 간격 2초 이하 거절을 나타낸다. 실제 서버 적용 여부를 확인해 총량·간격 규칙을 맞춘다. 마지막 배치도 직전 전송 직후 즉시 보내지 않고 허용 간격 이후 처리한 다음 클리어/종료 요청을 보낸다. 제한 때문에 유효한 처치·보상을 버리지 않는다. 정상 전투 속도를 감당하지 못하는 제한이면 서버 검증 기준을 먼저 조정하고 통합한다.
+
+OnHuntResponseDTO는 기존 Level/Exp/KillScore/Gold/AncientCoin/NextRewardSequence를 유지하면서 실제 필드 드롭 목록, 영향을 받은 장비 상태, 퀘스트 상태를 보완한다. Currency 전체를 함께 사용한다면 기존 Gold/AncientCoin과 반드시 일치시키고 한 경로로만 적용한다.
+
+전투 시간/스킬 시전 횟수 목표에는 같은 사냥 배치에 Activity(전투 시간, 스킬별 시전 수)를 추가하는 안을 사용한다. 기존 사냥 순번이 이 배치 전체에 적용되며 별도의 활동 ID/순번 시스템을 만들지 않는다. 처치 없이 활동만 있는 배치를 허용하고, 서버는 경과시간·장착·쿨다운과 유효 기간으로 검증한다. 기간 경계를 넘는 자료는 기간별로 분리하고 클라이언트의 임의 진행도·완료 bool을 그대로 승인하지 않는다. 정확한 시간 구간 필드와 검증 허용 오차는 서버 계약 단계에서 확정한다.
+
+### 7.2 메인 클리어
+
+OnStageClear는 ClearedStage와 FunctionParameter를 빠짐없이 전송하도록 수정한다. 현재 응답의 Stage만으로는 최초 보상/해금/최고 기록을 보존할 수 없으므로 실제 지급 보상, 갱신된 진행 기록, 관련 재화·장비·마탑·퀘스트 상태를 보완한다.
+
+서버는 최초 지급 여부를 저장한다. 다음 스테이지는 현행 3장 이후 반복 지역과 증가하는 번호/난도를 보존하고 기존 안정적인 Stage ID를 사용한다. 서버 DTO에 열거된 1~2장 값만을 전체 지원 범위로 가정하지 않는다.
+
+### 7.3 던전 입장·클리어·종료
+
+던전 클리어만 서버에 알리면 현재 입장 티켓 차감/최초 기록과 연결되지 않는다. 입장과 종료 API를 함께 설계한다.
 
 ~~~text
-QuestDefinitionDTO
-  QuestId: long, Category: int, Title: string, Description: string
-  ObjectiveType: int, ProgressMode: int, TargetId: long, RequiredCount: int
-  NextQuestId: long, RewardGroupId: int, IsRepeatable: bool, PresentationType: int
+DungeonStateDTO
+  GoldTickets: int
+  RubyTickets: int
+  TicketResetUtc: long
+  GoldDungeonClear: int
+  RubyDungeonClear: int
+  ActiveBattleId: string?          // 실제 던전 입장 회차
+  ActiveDungeonId: long?
 
+OnEnterDungeonRequestDTO: DungeonId
+OnEnterDungeonResponseDTO: BattleId, DungeonState, Quests
+
+OnCompleteDungeonRequestDTO: BattleId, DungeonId
+OnCompleteDungeonResponseDTO:
+  DungeonState, IsFirstClear, GrantedRewards, TotalRunRewards,
+  Currency, Quests, 필요시 Equipment/MageTowerState
+
+OnExitDungeonRequestDTO: BattleId, Reason(Failed/Abandoned)
+OnExitDungeonResponseDTO: DungeonState, Quests
+~~~
+
+요청/응답의 공통 부모 필드는 3절과 같다. 난도는 현행 StageDefinition의 DungeonId로 식별한다. BattleId는 현재 클라이언트의 StageSession.RunId에 대응하는 실제 입장 회차이며 서버가 발급해 저장한다.
+
+서버는 입장 가능 난도·티켓·진행 중 회차를 확인하고 입장 시 티켓을 차감한다. 같은 회차 완료/종료 기록으로 중복 지급을 막으며 클리어·실패·중도 종료 전에 해당 BattleId의 마지막 사냥 배치를 확인한다. 미정산 상태에서 다음 입장 회차로 넘기지 않는다. 실패/중도 종료에도 종료 전 정상 획득한 처치 보상은 보존하고, 클리어 보상은 지급하지 않는다. 티켓은 현 입장 차감 정책을 유지한다.
+
+골드 던전은 현재 처치 때 골드를 지급하고 클리어에서는 LastDungeonGold를 결과창에 표시한다. OnCompleteDungeon에서 같은 골드를 다시 지급하지 않는다. 루비 던전의 종료 루비·최초 추가 보상은 서버가 클리어 때 지급한다. 응답은 이번 호출이 새로 지급한 GrantedRewards와 이미 받은 금액을 포함하는 결과창용 TotalRunRewards를 구별한다.
+
+## 8. 퀘스트·업적: 완료와 수령을 구별
+
+현재 Guide/Daily/Weekly/Achievement는 같은 QuestEconomy/QuestContracts 구조를 사용한다. 목표 달성은 Claimable로 바뀌는 것이고, 실제 보상은 보상 받기를 눌렀을 때 지급한다. 사용자 표현의 ‘클리어 API’를 추가하면서 이 동작을 자동 수령으로 변경하지 않는다.
+
+| API 및 DTO | 요청 | 응답/처리 |
+|---|---|---|
+| OnGetQuestStateRequestDTO / ResponseDTO | 공통 헤더 | 모든 카테고리의 QuestStateDTO |
+| OnClearQuestRequestDTO / ResponseDTO | QuestId, PeriodKey | 서버 누적값·현재 상태로 조건 확인, 전체 QuestStateDTO |
+| OnClearAchievementRequestDTO / ResponseDTO | QuestId, PeriodKey | 같은 검증 처리기에서 Achievement 카테고리 확인, 전체 QuestStateDTO |
+| OnClaimQuestRewardRequestDTO / ResponseDTO | QuestId, PeriodKey | 조건·미수령·기한 확인, GrantedRewards + 최종 Currency/Quests와 필요한 Equipment/MageTowerState |
+
+강화·뽑기·사냥·던전 API 자체가 해당 퀘스트의 진행값도 갱신한다. 클리어 API는 이를 다시 증가시키지 않고 완료 상태를 확인·확정한다. 이미 완료된 퀘스트의 클리어 재호출은 보상을 추가 지급하지 않는다. 업적 수령도 같은 OnClaimQuestReward를 사용한다.
+
+~~~text
 QuestRewardDTO
-  Currency: CurrencyId, Amount: long, IsDynamicGold: bool
+  Kind, CurrencyType/DefinitionId
+  Amount: decimal
+  IsDynamicGold: bool              // 기존 '2분 골드' 등의 표시와 고정 금액 구별
 
 QuestRowDTO
-  QuestId: long, PeriodKey: string, DefinitionVersion: string
-  Category: int, Title: string, Description: string
-  ObjectiveType: int, TargetId: long, RequiredCount: int, PresentationType: int
-  Progress: long, State: Locked | InProgress | Claimable | Claimed
-  IsPending: bool, ExpiresUtc: long
+  QuestId: long
+  PeriodKey: string
+  Category: Guide / Daily / Weekly / Achievement
+  Title, Description
+  PresentationType
+  ObjectiveType, TargetId, RequiredCount, Progress
+  State: Locked / InProgress / Claimable / Claimed
+  IsPending: bool
+  ExpiresUtc: long
   Rewards: QuestRewardDTO[]
-  HasFixedGold: bool, FixedGold: decimal?  // 과거 확정 보상의 보존용
 
 QuestStateDTO
-  DefinitionVersion: string, ServerTimeUtc: long
-  DayKey: string, WeekKey: string, DailyResetUtc: long, WeeklyResetUtc: long
-  Rows: QuestRowDTO[]                     // 이월 보상은 같은 QuestId의 다른 PeriodKey로 공존
-  CompletedQuestIds: long[], ClaimedKeys: QuestPeriodKeyDTO[]
-  ActiveGuideQuestId: long?
+  ServerTimeUtc: long
+  DailyPeriodKey, DailyResetUtc
+  WeeklyPeriodKey, WeeklyResetUtc
+  Rows: QuestRowDTO[]               // 미수령 보관 항목을 포함한 전체 카테고리
 ~~~
 
-서버 내부에는 기간별/평생 카운터, PendingQuests의 달성 당시 정의/보상, BestStatTotal/BestMageTotal/BestEquipmentTotal, 계정 진행 근거도 보존한다. 클라이언트 UI는 서버가 만든 행 스냅샷을 사용하고, 로컬 검증기에 동일 저장 모델을 투영하는 구현을 택하면 이 내부 데이터까지 추가 DTO로 받아야 한다. 이 두 경로를 섞어 서버 표시와 로컬 재계산이 충돌하게 하지 않는다. 권장 경로는 서버 행 스냅샷을 기존 QuestBoardSnapshot/QuestRowSnapshot으로 변환하는 것이다.
+기존 QuestRowSnapshot/QuestBoardSnapshot에 변환해 UI를 유지한다. 고정 골드로 이관된 미수령 항목은 IsDynamicGold=false와 소수 정밀도를 보존한 Amount로 표시하고, 서버가 보관하는 원래 고정 금액·소수 잔여 처리도 유지한다. 실제 지급한 GrantedRewards는 동적 표시가 아닌 확정 수량이다. 로컬 AccountGeneration은 이전 계정 콜백 차단용으로만 사용한다. 일부 카테고리 응답을 전체 목록으로 덮어쓰는 문제가 없도록 첫 계약은 전체 목록 반환으로 통일한다.
 
-QuestClaimToken.AccountGeneration은 클라이언트의 이전 계정 콜백 차단용이다. 서버의 계정 ID로 전송하지 않는다. 서버 수령 키는 인증 계정+QuestId+PeriodKey이며 RequestId가 달라도 이 키로 이중 지급을 방지한다.
+서버 구현에는 다음 현행 규칙을 옮긴다.
 
-### 7.2 요청/응답
+- KST 일일 자정/월요일 주간 초기화, 메인 1-11 이후 일일·주간 해금.
+- 가이드 순서·현재값 목표·누적 목표·완료 상태 고정·업적 최고 기록.
+- 완료 미수령 항목은 해당 기간 종료 후 7일까지 유지하며 당시 제목·설명·보상 정의를 직접 보존한다.
+- 일반 동적 골드 보상은 수령 시점의 서버 상태로 계산한다. 기존 고정 골드로 저장된 항목만 고정값을 유지한다.
+- 인증 계정 + QuestId + PeriodKey의 수령 여부를 저장해 같은 퀘스트 보상을 두 번 지급하지 않는다.
+- 서버가 직접 관찰하는 행동은 해당 API에서 진행도를 계산하고, 전투 시간/시전 횟수는 7.1의 검증된 활동 자료로 누적한다.
+- 수령 결과로 다음 가이드/업적/전체 완료 목표가 달라지면 같은 응답에 최종 상태를 반환한다.
 
-| 요청 DTO / 함수명 | 인자 | 응답 DTO / 필요한 데이터 |
+## 9. 서버에서 받아야 할 정의와 미지원 콘텐츠
+
+### 9.1 정의 데이터와 사용자 데이터
+
+사용자 소유·진행 상태는 로그인과 행위별 응답으로 받는다. 장비 능력치·강화 비용·직업 조건·스킬 정의·퀘스트 설명/보상표·가챠 표시 확률 같은 정의 데이터도 서버가 제공한 현재 자료를 사용한다.
+
+신규 OnGetContentDefinitionsRequestDTO는 공통 헤더만 갖고, OnGetContentDefinitionsResponseDTO는 장비/마탑/직업/퀘스트/가챠의 정의를 담는다. 기존 JSON 로더가 요구하는 필드·안정적인 ID를 유지해 기존 표시 모델로 변환한다. 첫 구현에서는 필요한 전체 정의를 로그인 로딩 단계에서 내려받는다. 버전·해시·NotModified·차등 갱신 필드를 추가하지 않는다.
+
+이미지/프리팹 등 에셋은 기존 로컬/CDN 로딩 경로를 재사용한다. 서버 정의에는 기존 클라이언트 에셋을 찾는 안정적인 키를 둔다. CDN/자동화 시스템 개편까지 이번 범위에 자동 포함하지 않는다. 정의 로딩 실패 시 로컬 기본 데이터로 임의 보상 지급을 시작하지 않는다.
+
+### 9.2 현재 DTO와 부족한 기능
+
+| 기능 | 현재 확인 상태 | 계획 |
 |---|---|---|
-| OnGetQuestCatalogRequestDTO / OnGetQuestCatalog | 세션, KnownDefinitionVersion(선택) | OnGetQuestCatalogResponseDTO: DefinitionVersion, NotModified, CatalogJson. 현재 guide/quests/achievements/rewards JSON 형태를 그대로 제공해 기존 QuestCatalog.Parse와 연결 가능 |
-| OnGetQuestStateRequestDTO / OnGetQuestState | 세션, 전체 카테고리 조회 | OnGetQuestStateResponseDTO: StateRevision, 완전한 QuestState. 카테고리 필터는 UI에서 수행하고 부분 Rows를 전체 상태로 교체하지 않음 |
-| OnClaimQuestRewardRequestDTO / OnClaimQuestReward | QuestId, PeriodKey, RequestId | OnClaimQuestRewardResponseDTO: QuestId, PeriodKey, GrantedRewards, Receipt. 다음 가이드·업적·전체 완료 목표도 같은 변경에 포함 |
-| OnReportQuestActivityRequestDTO / OnReportQuestActivity | BatchId, 서버 발급 ActivitySessionId, Sequence, 활동 목록 | OnReportQuestActivityResponseDTO: AcknowledgedSequence, NextSequence, 서버 승인 진행 상태/Receipt |
+| 로그인·사냥·메인 클리어·골드 강화 | 기본 DTO 있음, 호출/응답 반영 누락 | 2~4·6.1·7절 연결 |
+| 장비 인벤토리 | 압축 목록 있음 | 개별 소유·장착·잠금·보관·비용 이력 확장 |
+| 장비 강화 | API 있음, 개별 대상/강화석 부족 | 기존 API 확장 |
+| 장비 장착·해제·잠금·분해·자동분해·보관 회수 | 대응 DTO 없음 | 5절 신규 API |
+| 스킬 강화·각성 | 기본 API 있음 | 상세 상태·재화·현행 로스터 지원 |
+| 스킬 장착·개화·강화 초기화 | 대응 DTO 없음 | 6.2절 신규 API |
+| 직업 | 해금/변경 기본 API 있음 | Index 보완, 한 번의 전직 처리에 맞춘 계약 |
+| 장비/스킬 가챠 | 기본 API 있음 | 서버 추첨·비용·천장·순서·중복·최종 상태 확장 |
+| 가이드/일일/주간/업적 | 대응 DTO 없음 | 8절 신규 API |
+| 던전 입장·종료·클리어 | 대응 DTO 없음 | 7.3절 신규 API |
+| 필드 드롭·최초 장비/스킬 지급 | 사냥/클리어 DTO에 부족 | 기존 보상 API에 실제 결과 포함 |
+| 루비 영구 성장/초기화·환생·오프라인 보상 | 전용 DTO 없음 | 아래 후속 계약 제안, 코드 수정 범위에는 자동 포함하지 않음 |
+| 튜토리얼 실습 재화/완료 처리 | 대응 DTO 없음 | 서버 가챠·강화 연결의 선행 의존성으로 따로 명시 |
 
-CatalogJson은 현재 정적 정의를 서버에서 공급하려는 경우의 계약이다. 이 요청이 장비/직업/스킬의 모든 아트·전투 SO를 CDN으로 옮기는 작업까지 의미하지 않는다. NextQuestId의 현 클라이언트 필드는 int이므로 long 제안값도 실제 투영 가능한 범위로 검증한다. 현재 ID를 바꾸지 않는다.
+추가 콘텐츠의 계약 방향도 기록하되 해당 콘텐츠 코드는 별도 범위 승인 전 수정하지 않는다.
 
-활동 보고는 SkillCast(SkillId, 횟수)·BattleTime(서버가 검증 가능한 활동 구간) 등 서버가 직접 알 수 없는 사건에 한정한다. 유저가 퀘스트 Progress나 RewardAmount를 지정하는 API를 만들지 않는다. 뽑기·강화·전직·장착·획득은 해당 서버 트랜잭션에서 집계하여 이 보고로 중복 증가시키지 않는다. 같은 배치 재전송은 재집계하지 않는다. 배치 크기·허용 시간·순번·계정·세션을 검증하고, 다음 로그인에서 승인 순번을 복구한다.
-
-서버 전투 세션과 유효 시간 검증이 없는 상태에서 ActivitySessionId만 추가했다고 서버 검증이 완성됐다고 보지 않는다. 해당 세션/검증 계약은 8절의 전투 의존성이며 실제 연결 전 필요하다.
-
-### 7.3 서버가 그대로 보존할 규칙
-
-- 일일 기준은 KST 자정, 주간 기준은 KST 월요일 자정. 서버 시각으로 기간을 판정한다.
-- 일일/주간은 현재 메인 1-11 클리어 조건을 유지한다. 가이드는 선행 수령 조건을 따르고 업적은 기존 체인/최고 기록 정책을 따른다.
-- 일일/주간 달성 시 해당 기간 종료 시각+7일을 만료 시각으로 하는 미수령 기록을 보존한다. 정의가 이후 비활성화되어도 달성 당시 표시/보상으로 수령할 수 있다.
-- 일반 동적 골드는 수령 시점의 서버 상태로 계산한다. 과거 HasFixedGold=true인 이관 기록만 기존 확정액을 보존한다. 모든 동적 보상을 달성 시 고정하는 정책으로 바꾸지 않는다.
-- 보상 계산·지급·수령 표시·다음 목표 갱신은 원자적이다. 수령 실패와 이미 수령/만료/잠금/미완료를 구분한다.
-- 스테이지·몬스터·던전·환생·오프라인 수령 목표는 각각의 서버 성공 근거가 필요하다. 퀘스트 API만 작성했다고 이 근거가 생기는 것은 아니다.
-- 서버는 정적 퀘스트 카탈로그와 클라이언트 코드에 존재하는 조건을 함께 참고한다. 아직 구현되지 않았거나 폐기된 신 스킬 관련 목표는 복원하지 않는다.
-
-## 8. 클라이언트에는 있으나 서버 계약이 없거나 부족한 기능 목록
-
-‘계약 없음’은 현재 RequestDTO/ResponseDTO에 대응 API가 없다는 뜻이다. 서버 저장소를 확인한 구현 부재 판정은 아니다. 요청 콘텐츠 외 항목은 읽기/문서 설계만 수행하며 이번 코드 수정 승인 대상으로 자동 편입하지 않는다.
-
-| 기능 | 현재 계약 상태 | 필요한 서버 처리와 받을 데이터 |
+| 후속 DTO/API 제안 | 요청 | 응답과 필요한 서버 로직 |
 |---|---|---|
-| 개별 장비 장착/해제·잠금·분해·자동 분해·추가 보관 회수 | 없음 | 5절의 개별 ID 계약, 원자적 변경, 재화와 보관 결과 |
-| 장비 강화 | 있으나 불충분 | 개체 식별, 강화석 비용·잔액·실제 지출 이력 |
-| 스킬 장착·개화·강화 초기화 | 없음 | 5슬롯/개화/실제 지출과 환급 |
-| 스킬 강화·각성 | 있으나 불충분 | 전체 활성 로스터, 손실 없는 조각, 소비 재화/각성 상태 |
-| 직업 해금·선택 | 있으나 불충분 | 캐릭터 Index 전달, 해금/선택 구분, 재화·장비 자동 해제 |
-| 뽑기 | 있으나 불충분 | 서버 난수·천장·순서별 결과·중복 보상·재화·보관·실습 영수증 |
-| 가이드/일일/주간/업적 | 없음 | 7절 전체 |
-| 골드 공격력/체력 강화 | 있음, 현 규칙 대응은 확인 필요 | 실제 구매 횟수(1/10/MAX), 상한 300, 서버 비용/잔액, 퀘스트·실습 성공 |
-| 루비 영구 성장/초기화 | 없음 | 강화 종류·레벨·실지출, 일일 초기화 제한, 웨이브 경계 예약/환급 |
-| 환생 | 없음 | 조건·예상 보상·예약·웨이브 경계 확정·초기화/보존 항목 |
-| 던전 입장/종료/최초 보상 | 별도 계약 없음 | 서버 전투 ID, 티켓·리셋 시간, 난도 기록, 최초 보상 중복 방지, 종료 지급 |
-| 오프라인 보상 | 전용 계약 없음 | 서버 활동 시각, 확정 보상 구간·사냥 속도 근거·골드/경험치, 중복 수령 방지 |
-| 필드 장비 드롭·최초 클리어 장비/스킬 지급 | OnHunt/OnStageClear만으로 불충분 | 승인 전투/처치 순번, 서버 보상 결정, 인벤토리·스킬·재화 변경 |
-| 튜토리얼 실습 재화와 성공 영수증 | 없음 | 단계별 고대주화 50의 일회 지급과 실제 뽑기/강화 성공의 연결 |
+| OnEnhanceRubyGrowth | 성장 종류, 횟수 | 서버 비용·상한 계산, 최종 성장/재화 |
+| OnResetRubyGrowth | 성장 종류 | 현행 웨이브 경계 예약·실제 지출 기반 환급·일일 제한 상태 |
+| OnRequestReincarnation | 현재 진행 단계에 대한 실행 요청 | 조건 확인·경계 적용 대기 상태. 확정 후 골드/골드 강화/메인 진행 초기화와 보존 상태 |
+| OnGetOfflineReward / OnClaimOfflineReward | 공통 헤더 | 서버 미수령 시간 구간·속도 근거로 계산한 골드/경험치. 수령 시 기준 시각 갱신 |
+| OnClaimGuidePracticeCoins | 현 가이드 단계·행동 | 현재 단계와 일회 지급 여부를 검사해 실습 재화와 최종 진행 상태 반환 |
 
-다음은 범위 밖 기능의 후속 DTO 설계 개요다. 모든 변경은 공통 MutationRequestDTO/Receipt를 사용한다.
+각 후속 API의 RequestDTO/ResponseDTO는 위 내용을 기능별로 담는 형태다. 범용 변경 봉투나 복구 API를 덧붙이지 않는다. 튜토리얼에서 제공하는 실습 고대주화 50과 실제 가챠/강화 성공 처리를 서버와 연결하지 않으면 신규 가입 진행이 막히므로 통합 전에 범위를 확정해야 한다.
 
-| 요청/응답 DTO 제안 | 요청 핵심 | 성공 응답 핵심 |
-|---|---|---|
-| OnGetRubyGrowthState / OnGetRubyGrowthStateResponseDTO | 세션 조회 | GoldLevel/ExpLevel, 각 Spent/BestLevel, ResetDay, PendingReset |
-| OnEnhanceRubyGrowth / OnEnhanceRubyGrowthResponseDTO | Kind(Gold/Exp), ExpectedLevel | 확정 레벨·실제 비용·Currency·Receipt |
-| OnRequestRubyGrowthReset / OnRequestRubyGrowthResetResponseDTO | Kind, 예상 레벨/실지출 | 예약 상태. 실제 환급은 현재 정책의 경계에서 확정하고 별도 완료 상태로 통지 |
-| OnGetReincarnationPreview / OnGetReincarnationPreviewResponseDTO | 세션 조회 | 가능 여부/거절 이유, 예상 상승치, 횟수·쿨다운·일일 잔여 |
-| OnRequestReincarnation / OnRequestReincarnationResponseDTO | 서버 BattleId | 예약 ID/상태. 웨이브 종료 처리에서 확정한 Receipt는 골드·골드 강화 초기화와 MainStage=1-1 및 보존 성장 상태 포함 |
-| OnEnterDungeon / OnEnterDungeonResponseDTO | DungeonId, Difficulty | 서버 BattleId, 티켓 최종 잔액, 기간, 적용 난도 |
-| OnCompleteDungeon / OnCompleteDungeonResponseDTO | BattleId, 최종 승인 이벤트 순번 | 검증된 결과, 실제 보상, 최초 클리어 여부, 기록·티켓·Receipt |
-| OnGetOfflineRewardPreview / OnGetOfflineRewardPreviewResponseDTO | 세션 조회 | 서버 발급 ClaimId, FromUtc/ToUtc, 적용 시간·골드·경험치 |
-| OnClaimOfflineReward / OnClaimOfflineRewardResponseDTO | ClaimId | 실제 지급량, 계정 레벨/경험치·재화·새 활동 기준 시각·Receipt |
-| OnActivityCheckpoint / OnActivityCheckpointResponseDTO | 서버 활동 세션/순번 | 승인 시각·다음 순번. 클라이언트 시계나 임의 사냥 속도를 그대로 승인하지 않음 |
-| OnClaimGuidePracticeCoins / OnClaimGuidePracticeCoinsResponseDTO | SequenceId, StepId/Action | 서버 단계 검증 후 기존 claim key 의미에 따른 일회 지급/기지급 상태·Receipt |
+공유 재화를 사용하는 경로는 하나의 확정 주체를 가져야 한다. 예를 들어 오프라인 보상·환생이 로컬 골드를 바꾸는 상태에서 서버 골드 스냅샷으로 덮는 혼합 운영을 출시 완료로 간주하지 않는다. 범위 밖 기능을 몰래 수정하거나 비활성화하지 않고, 필요한 연결을 승인받아 전환한 뒤 통합을 완료한다.
 
-위 API별 RequestDTO는 표의 이름에 RequestDTO를 붙인 클래스이며 실배포 이름은 미정이다. 루비 초기화/환생은 요청 수락과 실제 확정을 구별한다. 던전 실패/중도 종료는 종료 사유를 포함하는 종료 계약을 추가하여 입장 티켓·중복 종료·보상을 일관되게 처리해야 한다.
+## 10. 승인 후 실행 순서와 검증
 
-실습 연결이 승인되면 GuidePracticeStateDTO에 서버가 확정한 지급 키(SequenceId+Action), 행동 성공 키(SequenceId+StepId)를 명시적인 목록으로 담는다. 클라이언트는 이를 기존 Claims 및 game-direct-action 관련 Modules 키에 제한적으로 투영한다. 뽑기/강화 요청에는 필요한 GuideContext(SequenceId, StepId)를 선택적으로 포함하고, 서버가 현재 단계·행동·1회 조건을 검증한 뒤 같은 소비 트랜잭션에 성공 영수증을 기록한다. 클라이언트가 임의 성공 키를 제출해 저장하는 API는 제공하지 않는다.
+### 단계 1 — 공유 DTO와 실제 함수 계약 확정
 
-참고할 현행 정책: 루비 강화 2-5 해금/상한 50/초기화 실지출 80% 환급과 하루 한 번, 환생은 일반 메인 전투·주기 보스 조건·600초·하루 3회·레벨 상한 300을 따른다. 오프라인은 최대 8시간, 안전한 일반 메인 스테이지, 최대 분당 30처치의 60% 반영이다. 수치는 현재 코드에 근거하며 서버 정책 변경을 제안하는 문서가 아니다.
+- 현재 변경된 RequestDTO/ResponseDTO/QueryDTO를 기준으로 작업하며 사용자 변경을 보존한다.
+- ProtocolVersion 상수의 실제 값·공유 위치, 서버 등록 FunctionName, 정상/오류 JSON 샘플을 확인한다.
+- 기존 ApiVersions 미정의, namespace 차이, List using, Unity C# 9에 맞지 않는 파일 범위 namespace 등 컴파일 연결 문제를 대상 서버 코드 안에서 정리한다.
+- 재화 enum의 Ruby/EquipmentStone, 스킬 로스터, 확장 스테이지 ID를 현행 클라이언트와 맞춘다. 서버 DTO 상한 9를 근거로 클라이언트의 장비 정의별 +5/+10/+15 및 스킬 +100 규칙을 변경하지 않는다.
+- 상세 장비/마탑/퀘스트/던전/가챠 DTO와 필요한 정의 로딩 DTO를 추가한다. 구 압축 데이터와 새 상세 데이터의 적용 기준을 하나로 정한다.
 
-골드 강화의 기존 OnEnchantRequestDTO.Count에 MAX=-1을 그대로 보내지 않는다. 서버가 MAX 구매 모드를 지원할지, 명시 횟수 요청으로 한정할지 공유 계약으로 정한다. ‘최대 구매’ 버튼의 현재 의미를 유지하려면 서버가 자신의 잔액/상한으로 실제 횟수를 계산하는 PurchaseMode 확장이 적절하다.
+완료 기준: 행위별 요청/응답 샘플과 실제 등록명이 정해지고, 필수 데이터가 기존 클라이언트 모델에 손실 없이 대응한다.
 
-## 9. 공통 데이터·카탈로그와 수정 범위
+### 단계 2 — NetworkManager 공통화와 로그인 진입
 
-- 공통 enum은 숫자와 의미를 명시적으로 매핑한다. 현재 서버 eCurrency에 Ruby/EquipmentStone이 없고, CurrencyQueryDTO에는 Ruby가 있으나 EquipmentStone이 없다. 현재 클라이언트 Ruby=6, EquipmentStone=7을 포함해 양쪽 정의를 합의한다.
-- 서버 공유 스킬 enum은 0..2뿐이고 실제 클라이언트는 8종이다. 폐기 ID를 재사용하지 않고 지원 범위를 맞춘다. 현재 서버 상수의 장비/스킬 상한 9와 클라이언트의 15/100도 그대로 일치한다고 가정하지 않는다.
-- 장비·직업·스킬의 정적 정의와 Sprite/Prefab 참조는 기존 자산 ID를 유지한다. 서버가 비용·확률·보상 계산에 쓰는 정의는 클라이언트와 버전을 맞춘다. 모든 SO와 전투 수치를 서버 카탈로그 다운로드로 교체하는 작업은 이번 요구에서 자동 확대하지 않는다.
-- 퀘스트 정의 JSON의 서버 공급은 7절 계약으로 표현한다. 뽑기 확률/가격을 서버에서 표시하도록 확장한다면 GachaCatalogDTO에 비용, 허용 횟수, 등급/보상 확률, 활성 풀 ID, 천장 기준을 담되 실제 서버 추첨 규칙과 같은 정의에서 생성한다.
-- 사냥·최초 클리어·던전·환생·오프라인·튜토리얼은 같은 재화/장비/스킬을 변경한다. 따라서 대상 매니저만 바꾸고 LocalProgression 전체를 서버 모드로 전환해서는 안 된다.
-- 위 보상 출처의 서버 연결 또는 명확히 승인된 이행 정책이 완료되기 전에는 계정 전체가 서버 권위로 전환되었다고 표시하거나 배포하지 않는다. 범위 밖 파일 수정은 사용자 별도 승인 전 수행하지 않는다.
-- 서버 미지원 기능을 로컬에서 몰래 성공시키는 fallback은 사용하지 않는다. 테스트용 응답은 명시적 테스트 환경에만 사용하고 운영 연결 완료와 구분한다.
+- 요청마다 헤더 설정, 실제 FunctionParameter 전달, 두 종류의 오류 분리, 기능별 성공 콜백을 구현한다.
+- 가입/로그인 → 데이터/정의 로딩 → 모델 적용 → 준비 완료 → 메인 진입을 연결한다.
+- 상태 적용 경로와 순차 호출/중복 클릭 대기 처리를 마련하고 재접속 조회를 연결한다.
 
-## 10. 단계별 실행계획과 완료 조건
+완료 기준: 인증만 성공한 상태에서는 메인에 진입하지 않으며, 재로그인하면 캐릭터 3명과 서버 사용자 상태가 정확히 복원된다.
 
-### 단계 A — 이번 턴: 설계 문서와 독립 검토
+### 단계 3 — 기존 API에 해당하는 행위 연결
 
-현재 코드 읽기 → 계약의 존재/부족/부재 구분 → 본 문서 작성 → 별도 에이전트 검토 → 근거 있는 지적 반영 → 사용자에게 범위·서버 필요 작업 제시. 코드 변경 없음.
+- 사냥 집계와 메인 클리어, 공격력/체력 강화.
+- 장비 강화, 스킬 강화/각성, 장비/스킬 가챠, 직업 선택.
+- 각 기능의 로컬 확정 지점을 서버 성공 응답 반영으로 전환하고 기존 UI·비용 표시·완료 이벤트를 연결한다.
+- 현행 동기 bool 반환을 즉시 성공으로 오해하는 호출부를 필요한 범위에서 비동기 완료에 연결한다.
 
-### 단계 B — 승인 후: 공유 계약 확정 및 호환성 정리
+완료 기준: 한 번의 행위가 해당 API를 호출하고, 서버 오류에서는 비용/보상을 클라이언트가 임의 확정하지 않으며, 성공 후 재로그인해도 상태가 같다.
 
-- 공유 K와 버전 상수 위치, 실제 함수명, 업무 오류 전달 방식을 확정한다.
-- 장비 개체 ID, 상세 초기화 블록, 재화/스킬 enum, RequestId·상태 커밋 계약을 확정한다.
-- DTO/서버 enum과 Unity 호환 namespace/문법/using을 정리한다. 범위 밖 소비자에 파급되면 호환 어댑터 또는 추가 허용 범위를 먼저 확정한다.
-- 서버용 수치·정적 정의와 클라이언트 현재 규칙 차이를 표로 검증한다. 서버값에 맞추려고 클라이언트 기능을 축소하지 않는다.
-- 기존 미커밋 변경은 사용자 작업으로 보존한다. 완료된 변경만 분리해 보존 커밋하고, 불완전한 새 DTO나 무관한 설정을 임의로 완료 작업으로 묶지 않는다.
+### 단계 4 — 신규 API 기능 연결
 
-완료 조건: DTO 직렬화 예시와 서버/클라이언트 계약 테스트가 같은 필드·숫자·오류를 사용한다. 실제 값이 미확정인 부분을 하드코딩으로 숨기지 않는다.
+- 상세 인벤토리 조회/장착/잠금/분해/초과 회수.
+- 마탑 슬롯/개화/강화 초기화.
+- 퀘스트·업적 완료/수령, 던전 입장/클리어/종료.
+- 서버 구현은 이 문서의 콘텐츠별 규칙을 이관하고, 같은 행위의 비용·소유·진행 변경을 함께 저장한다.
+- 서버 저장소가 이 작업 공간에 없으므로 이 문서 전달과 서버 실제 구현 완료를 구별한다. 필요한 서버 API가 준비되기 전에는 임의 성공 처리로 연결 완료를 표시하지 않는다.
 
-### 단계 C — 승인 후: RPC 공통화와 초기 진입
+완료 기준: 기존 클라이언트에서 제공하던 대상 기능과 보상 규칙이 서버 데이터를 사용해 동작한다.
 
-- NetworkManager에 공통 호출·두 실패 분기·세션/계정 세대 검사를 적용한다.
-- Authentication의 가입/로그인 응답을 UserInitResponseDTO로 통일하고 데이터 로딩 완료까지 진입을 막는다.
-- UserManager 및 타이틀 진입 조건에 검증된 서버 상태를 연결한다.
-- 서버 데이터를 한번 가져와 로컬 권위로 고정하는 경로와 분리한다. 기존 로컬 저장을 삭제하거나 서버로 자동 이관하지 않는다.
+### 단계 5 — 공용 재화 의존성 확인 및 통합 검증
 
-완료 조건: 신규/기존 계정 각각 캐릭터 3명·재화·장비·스킬·직업·퀘스트를 서버 응답으로 복원하며 중간 실패/다른 계정의 늦은 응답에 메인으로 들어가지 않는다.
+- 9.2절의 범위 밖 의존성을 실제 사용 경로별로 확인해 필요한 추가 수정 범위를 제시한다.
+- 서버 응답 예제로 DTO 검증 후 지정 Unity Editor에서 import·컴파일·참조·실행을 검증한다.
+- 큰 변경 묶음 완료 시 연결 Android 기기에서 실제 로그인부터 전투·메뉴·재접속까지 확인한다. 현재 문서 작업에서는 Unity/Android 실행 검증을 수행하지 않는다.
 
-### 단계 D — 서버 구현과 대상 콘텐츠 연결
+주요 검증 시나리오:
 
-서버는 장비 지급/재화 원장/멱등 처리부터 준비한다. 그 위에 장비·스킬·직업·뽑기·퀘스트 작업을 붙인다. 클라이언트는 현재 매니저의 게임 규칙·화면 구조를 보존하고 요청 전송과 서버 결과 적용 경계를 교체한다.
+1. ProtocolVersion 불일치, PlayFab 실패, FunctionResult 업무 오류, ExecuteFunctionResult.Error, 필수 필드 누락이 서로 올바르게 분기되는지.
+2. 가입/로그인 중복 진입 방지, 캐릭터 0/1/2 검증, 데이터 로딩 실패, 로그아웃 후 늦은 응답 폐기.
+3. 같은 종류 장비 여러 개·잠금/장착·강화 지출·장비별 상한·주 보관함만 강화/장착 가능·추가 보관 무기한 유지·보관 포화/초과 수량 보존.
+4. 사냥 전송 중 추가 처치, 스테이지 이동, short 및 서버 총량 범위 분할, 최소 전송 간격과 마지막 배치, 기존 사냥 순번 재전송 처리, 드롭/퀘스트·재화 이중 가산 방지.
+5. 캐릭터 강화 1/10/MAX, 상한 근처, 잔액 부족, 3명 반영, 중복 클릭.
+6. 가챠 1/10회·천장·스킬 균등·중복 조각·자동 분해, 소비 요청 응답 유실 후 자동 재소비 없이 재조회.
+7. 분해 확인 후 잠금/강화/소유 변화, 음수/중복 수량 거절, 확인 이후 신규 획득분 보존.
+8. 스킬 ID 0, 65,535를 넘는 조각, 슬롯 교환, 개화/초기화, 비활성 로스터 이관, 전직 후 장비 해제.
+9. 퀘스트/업적 완료와 수령 구분, 중복 수령, KST 기간 경계, 7일 미수령 보관, 수령 시 동적 골드.
+10. 던전 티켓·입장 회차별 사냥·실패/중도 종료 전 정산·최초 보상·동일 회차 완료 중복, 골드 던전 보상 이중 지급 방지.
+11. 서버 확정 이후 로컬 JSON이 상태를 되돌리지 않는지와 공용 재화의 미전환 지급 경로.
+12. 실제 PlayFab 경로에서 64비트 정밀도, 인벤토리/정의의 최대 응답 크기, 사냥 주기와 순차 호출의 지연. 한도가 부족하면 해당 데이터 조회만 분리하며 새로운 버전 필드를 추가하지 않는다.
 
-동기 bool 성공을 ‘요청 전송 성공’으로 바꿔 UI를 먼저 성공시키지 않는다. 비동기 대기/중복 클릭 방지/최종 성공 콜백을 연결한다. 서버가 없는 API는 계약 테스트로 검증하되 실제 연동 완료로 보고하지 않는다.
+승인 대상 코드 범위는 Server/DTO 및 관련 서버 enum/상수, NetworkManager, 인증·초기 진입 연결부, 사용자 상태 매핑, 사용자가 언급한 장비·마탑·직업·가챠·퀘스트/업적·사냥·골드 강화·던전의 API 호출/반영부다. 공용 파일은 해당 경로만 수정하며 전투 연출·무관한 콘텐츠·외부 에셋·CDN·자동화·프로젝트 전역 설정은 수정 범위에 포함하지 않는다. 실제로 필요한 최소 UI 호출부 변경은 서버 완료 대기/오류 안내/기존 갱신 이벤트 연결에 한정한다.
 
-완료 조건: 같은 계정 재로그인/다른 기기에서 같은 상태 복원, 요청 응답 유실 후 중복 차감 없음, 콘텐츠 성공 시 최종 잔액·장비·스킬·퀘스트가 하나의 서버 커밋과 일치.
-
-### 단계 E — 별도 범위 승인 후: 공용 보상 출처 연결
-
-필드·최초 클리어·던전·환생·오프라인·실습 재화의 서버 권한과 지급 연결을 완성한다. 정책 자체를 변경하는 단계가 아니다. 이 단계가 승인되지 않으면 코드 수정하지 않고 전체 경제 서버 전환 완료의 차단 요인으로 남긴다.
-
-### 단계 F — 통합 검증과 전달
-
-- Unity 6000.3.21f1 import/컴파일, 프리팹 직렬화 참조, 실제 로그인→메인→대상 메뉴/전투 확인.
-- 기존 클라이언트 인수 검증의 정책 기대값을 재사용하되 로컬 저장 성공만 검사하는 테스트를 서버 성공으로 간주하지 않는다.
-- 주요 변경 묶음마다 연결된 Android 기기에서 신규/기존 계정·앱 재시작·통신 실패·백그라운드 복귀 검증. 실제 사용한 기기와 미검증 범위를 기록한다.
-- 코드 변경은 승인 범위 안에서 단계별 커밋한다. 설정/에셋/SDK/CDN/자동화 등 무관한 변경을 섞지 않는다.
-
-## 11. 구체적인 검증 시나리오
-
-1. K 일치/불일치, 필수 필드 누락, 스킬 ID 0, 캐릭터 0, long/ulong 최댓값 근처를 통한 정확한 왕복.
-2. SDK error callback, success callback의 result.Error, FunctionResult의 ErrorResponseDTO, 정상 DTO 각각을 구분. 서버 HTTP 400의 실제 SDK 전달 형태도 확인.
-3. 기존 세션 취소/계정 전환 중 응답 도착, 세션 만료 뒤 같은 업무 요청 복구, 초기화 중 메인 탭 입력.
-4. 동일 정의 장비 2개의 ID·잠금·강화·장착이 독립적으로 유지됨. 배열 순서/최근 획득 정렬 유지.
-5. 보유 300+추가 보관 100 초과 시 뽑기·전투 보상이 보존됨. 장비 수량 65,535 초과와 알 수 없는 정의를 잘라내지 않음.
-6. 분해 미리보기 후 신규 획득은 남기고, 동일 스택의 증가분도 남김. 대상 하나의 강화/잠금/장착 변경 시 전체 분해와 지급 취소.
-7. 동일 RequestId 재요청, 다른 인자에 같은 ID, 서버 저장 중단, 응답 유실 후 재로그인으로 이중 차감/지급 방지.
-8. 스킬 조각 65,535 초과, 강화 초기화 실지출 80%, 개화 전환 시 기존 시전·쿨다운 유지, 폐기 ID 6/8 복원 금지.
-9. 장비 천장 39에서 다음 뽑기, 10연 중 첫 획득→중복 획득, 자동 분해된 뽑기 보상의 표시·지급 일치.
-10. 캐릭터별 전직 해금+선택+장비 해제의 원자성, 중간 실패 전체 롤백, 동일 요청 재시도 시 이중 차감 없음, 궁수 사용 차단과 기존 기록 보존.
-11. 퀘스트 KST 일/주 경계, 7일 이월 만료, 과거 기간 버튼, 동일 퀘스트 중복 수령, 정의 비활성화 후 이월 수령, 동적/과거 고정 골드 구분.
-12. 상태 revision 누락/역전 시 전체 재조회, 작업 성공 뒤 늦은 이전 응답이 재화를 되돌리지 않음. 변경 블록 누락을 빈 목록으로 처리하지 않음.
-13. 튜토리얼 지급으로 시작하는 1회 뽑기/강화의 재화와 성공 영수증이 일치함. 범위 밖 연결 미완료 시 이 시험은 미완료로 기록.
-14. 최대 보유 데이터의 요청/응답 크기·메모리·지연 측정, 프레임별 RPC나 변하지 않은 전체 UI 반복 갱신 없음.
-
-## 12. 구현 전 확정할 서버 정보
-
-- 공유 ProtocolVersion 상수 K와 공유 소스/생성 경로.
-- 가입/로그인 실제 FunctionName과 두 응답의 실제 샘플.
-- 업무 오류를 HTTP 200의 ErrorResponseDTO로 반환할지, 기존 HTTP 400을 유지할지 및 SDK에서 관측한 결과.
-- 장비 개체 ID와 실제 지출 이력의 서버 저장 현황, 현재 압축 Inventory의 저장 단위, 기존 데이터 이관 정책.
-- 서버의 실제 기능별 상한/비용/확률과 클라이언트 현행 규칙 차이.
-- 변경 요청 멱등 기록 보존/복구 방식, 상태 커밋 경계, 실제 최대 응답 크기.
-- 범위 밖 공용 보상 지급 연결을 이번 구현에 허용할지. 별도 승인 없이는 수정하지 않는다.
-
-## 13. 코드 근거
+## 11. 코드 근거
 
 아래 링크는 현재 동작의 출처다. 기존 문서의 과거 설명보다 실제 구현을 우선했다.
 
@@ -515,21 +486,23 @@ CatalogJson은 현재 정적 정의를 서버에서 공급하려는 경우의 �
 - [QuestCatalog](../../Assets/_Project/Scripts/Quest/QuestCatalog.cs), [QuestContracts](../../Assets/_Project/Scripts/Quest/QuestContracts.cs), [QuestEconomy](../../Assets/_Project/Scripts/Core/Balance/QuestEconomy.cs), [QuestPeriod](../../Assets/_Project/Scripts/Core/Balance/QuestPeriod.cs), [QuestProgressEvaluator](../../Assets/_Project/Scripts/Quest/QuestProgressEvaluator.cs)
 - [BattleEconomy](../../Assets/_Project/Scripts/Core/Balance/BattleEconomy.cs), [RubyProgression](../../Assets/_Project/Scripts/Core/Balance/RubyProgression.cs), [ReincarnationService](../../Assets/_Project/Scripts/Reincarnation/ReincarnationService.cs), [OfflineRewardManager](../../Assets/_Project/Scripts/OfflineReward/OfflineRewardManager.cs), [OfflineRewardCalculator](../../Assets/_Project/Scripts/OfflineReward/OfflineRewardCalculator.cs), [GameDirectInteraction](../../Assets/_Project/Scripts/Direction/GameDirectInteraction.cs)
 
-## 14. 독립 검토 기록
+- [StageManager](../../Assets/_Project/Scripts/Core/Manager/StageManager.cs), [StatEnhanceManager](../../Assets/_Project/Scripts/Player/PlayerStatus/StatEnhanceManager.cs), [StageDefinition](../../Assets/_Project/Scripts/Core/Stage/StageDefinition.cs)
 
-초안 작성 전 별도 에이전트 2명이 장비 계약과 콘텐츠 누락을 읽기 전용으로 조사했다. 그 결과 기존 인벤토리 DTO의 존재, 개별 ID 필요성, 분해 확인 목록의 의미, 배열 순서, 16비트 수량 제한, 동적 골드 수령 시점, 비활성 합성, 튜토리얼 실습 재화 의존성을 본문에 반영했다.
+## 12. 독립 검토 기록
 
-문서 초안 자체도 같은 두 에이전트가 독립 검토했다. 다음 지적을 반영했으며, 이는 실제 서버 실행 검증이 아닌 설계 검토다.
+이전 개정은 장비 계약과 콘텐츠 누락을 별도 에이전트 2명이 검토했다. 이전 개정의 공통 ID/버전/영수증 관련 제안은 최신 사용자 지시로 철회했다.
 
-| 지적 | 반영 |
+이번 개정도 장비/스킬/직업/가챠 담당과 콘텐츠 연동 담당의 두 에이전트가 읽기 전용으로 독립 검토했다. 행위별 호출이 중심이고 제외한 공통 필드를 다른 이름으로 재도입하지 않았음을 확인했으며 다음 6건을 보완했다.
+
+| 검토 지적 | 반영 내용 |
 |---|---|
-| 부분 인벤토리 조회를 먼저 적용하면 늦은 변경 응답이 장비를 되돌릴 수 있음 | 독립 조회는 같은 revision만 사용하고 최신 revision은 전체 재조회. 오래된 전체 스냅샷과 다른 계정/세션 응답도 폐기 |
-| 분해 ConfirmedCount의 양수·중복·overflow 검사 누락 | 양수/상한/중복/모드/원자적 산술 검증을 서버 절차에 추가 |
-| 응답 오류도 커밋 이후 발생할 수 있어 타임아웃만 결과 미확정으로 보면 안 됨 | 실패 분기와 별개로 Rejected/Unknown을 정의하고 RequestId 복구 조회 추가 |
-| 카테고리 일부 퀘스트 응답을 전체 상태로 교체할 수 있음 | 첫 계약은 전체 카테고리 조회, UI에서 필터 |
-| 큰 스킬 조각 수량을 legacy 압축 필드에 항상 투영할 수 없음 | 새 K에서 상세 DTO 필수, 표현 불가 legacy 전체 목록 생략, 절삭/로그인 실패 금지 |
-| 직업 해금과 선택을 순차 RPC로 분리하면 현 원자성이 깨짐 | 신규 OnSelectJob에 해금·선택·장비 해제를 한 번에 정의 |
+| 장비 상한의 단일 +15 표기가 실제 정의와 다름 | 정의별 상한, 현재 일반/희귀/영웅 +5/+10/+15 명시 |
+| 강화·장착 대상의 위치/기존 장착 검사가 부족 | 주 보관함만 사용, 새 장착 대상은 미장착 상태 검사 |
+| 추가 보관 만료 정책 누락 | 무기한 보관, ExpiresUtc=0, 임의 만료·삭제 금지 |
+| 퀘스트 표시 정보가 상세 응답에 빠짐 | IsDynamicGold, decimal Amount, PresentationType 및 고정 골드 보존 |
+| 사냥 마지막 배치가 서버 간격/총량에 걸릴 수 있음 | 실제 제한 확인, 허용 총량·간격에 맞춰 전송 후 클리어/종료 |
+| 던전 사냥과 입장 회차/중도 종료 연결이 부족 | BattleId로 배치를 구별하고 완료·실패·중도 종료·다음 입장 전 정산 |
 
-검토 범위: 사용자 1~5 요구, 현재 코드와의 데이터 대응, 요청/응답 완결성, 오류·멱등성·적용 순서, 콘텐츠 누락과 수정 범위. 실제 서버 함수명·배포 상태·HTTP 400 전달 형태·공유 K·Android 실행은 여전히 미검증이다.
-
-반영 후 두 에이전트가 각자 지적한 항목을 재검토했고 모두 해결되었음을 확인했다. 해당 재검토 범위에서 남은 지적은 없었다. 본문 코드 근거 36개 링크도 로컬 파일 존재를 확인했다.
+- 반영 후 두 에이전트가 각자 지적한 항목을 다시 확인했으며 해당 범위에 남은 지적은 없다.
+- 코드 근거 링크 39개의 파일 존재와 문서 차이의 공백 오류를 확인했다. 게임 코드/DTO/에셋은 이 작업에서 수정하지 않았다.
+- 실제 서버 등록명·배포 상태·HTTP 오류 전달 방식·공유 상수 값·기기 실행은 코드/문서 검토로 확인한 사실이 아니다.
