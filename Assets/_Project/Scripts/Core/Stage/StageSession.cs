@@ -50,6 +50,7 @@ namespace Scripts.Core
         public IReadOnlyCollection<Monster> Monsters => _monsters;
         public IReadOnlyDictionary<eMonsterType, int> KillCounts => _killCounts;
         public int TotalKillCount => _totalKillCount;
+        public long EarnedGold { get; internal set; }
 
         public StageSession(StageDefinition definition, IStageRule rule, MonsterSpawner monsterSpawner)
         {
@@ -80,6 +81,7 @@ namespace Scripts.Core
             _actionFailureNotified = false;
             _killCounts.Clear();
             _totalKillCount = 0;
+            EarnedGold = 0;
             
             SetTimeLimit(Definition.TimeLimitSec);
             _rule.Enter(this);

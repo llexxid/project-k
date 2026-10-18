@@ -18,6 +18,7 @@ namespace KingdomIdle.UGUI.Editor
 
         internal static void ApplyMain(GameObject root)
         {
+            if (root.GetComponent<MainScreenView>().waveHud.mainHud != null) return;
             var wave = root.GetComponent<MainScreenView>().waveHud;
             var area = (RectTransform)wave.transform;
             RemoveLayout(area);
