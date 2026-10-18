@@ -120,6 +120,9 @@ namespace KingdomIdle.Balance
                 else state = new ProgressionState { CycleStartedUtc = UtcNow };
                 // 기존 원본은 교체 시 .bak에 남고, 실패한 이관은 메모리에도 공개하지 않는다.
                 string before = JsonConvert.SerializeObject(state);
+                if (state.CycleFrontierStage == 0)
+                    state.CycleFrontierStage = Math.Max(state.MainStage,
+                        (long)StageParser.MakeStage(eStageType.Main, Math.Max(1, state.CycleBossStage + 1)));
                 QuestEconomy.Migrate(state);
                 // 퀘스트와 마법 이관 결과는 하나의 저장으로 공개한다. 제거한 스킬 ID는 복원하지 않는다.
                 for (int i = 0; i < state.MageSlots.Length; i++)

@@ -1,12 +1,15 @@
 using UnityEngine;
 using Scripts.Core;
 using Scripts.Core.Manager;
+using TMPro;
+using Scripts.Monster;
+using KingdomIdle.Balance;
 
 namespace KingdomIdle.UGUI
 {
     /// <summary>
     /// 메인 화면 웨이브/스테이지 HUD 컨트롤러 (UGUI).
-    /// StageManager 이벤트 7종을 구독한다 — 기존 UIToolkit WaveUIController와 동일 계약.
+    /// 기존 스테이지 이벤트와 읽기 전용 실행 스냅샷으로 메인·던전 표시를 갱신한다.
     /// </summary>
     public static class WaveUIController
     {
@@ -14,6 +17,10 @@ namespace KingdomIdle.UGUI
         private static StageManager _sm;
         private static Transform _deathHome;
         private static GameObject _deathPopup;
+        private static Transform _returnHome;
+        private static string _returnRun;
+        private static Monster _boss;
+        private static int _displayedSecond = int.MinValue;
 
         public static void Init(WaveHudView view)
         {
@@ -47,6 +54,20 @@ namespace KingdomIdle.UGUI
             _sm.OnDefeatPopupHide += HandleDefeatPopupHide;
             _sm.OnDeathPopupTick += HandleDeathPopupTick;
             _sm.OnBossTimerTick += HandleBossTimerTick;
+            _sm.OnStageEnter += HandleStageEnter;
+            _sm.OnMonsterKilled += HandleMonsterKilled;
+            _sm.OnStageCleared += HandleStageCleared;
+            LocalProgression.AccountChanged += HandleAccountChanged;
+            if (_view.btnStageSelect != null) _view.btnStageSelect.onClick.AddListener(OpenStageSelect);
+            if (_view.btnDungeonReturn != null) _view.btnDungeonReturn.onClick.AddListener(OpenReturn);
+            if (_view.returnPopup != null)
+            {
+                _returnHome = _view.returnPopup.transform.parent;
+                _view.returnConfirm.onClick.AddListener(ConfirmReturn);
+                _view.returnCancel.onClick.AddListener(CloseReturn);
+                _view.returnBackdrop.onClick.AddListener(CloseReturn);
+                ModalBackHandler.Bind(_view.returnPopup, CloseReturn);
+            }
 
             // 버튼/토글 바인딩
             if (_view.btnLoopIcon != null)
@@ -77,6 +98,24 @@ namespace KingdomIdle.UGUI
 
         public static void Dispose()
         {
+            BindBoss(null);
+            StageSelectPopupController.Dispose();
+            LocalProgression.AccountChanged -= HandleAccountChanged;
+            if (_view != null)
+            {
+                if (_view.btnStageSelect != null) _view.btnStageSelect.onClick.RemoveListener(OpenStageSelect);
+                if (_view.btnDungeonReturn != null) _view.btnDungeonReturn.onClick.RemoveListener(OpenReturn);
+                if (_view.returnPopup != null)
+                {
+                    CloseReturn();
+                    _view.returnConfirm.onClick.RemoveListener(ConfirmReturn);
+                    _view.returnCancel.onClick.RemoveListener(CloseReturn);
+                    _view.returnBackdrop.onClick.RemoveListener(CloseReturn);
+                    if (_returnHome != null) _view.returnPopup.transform.SetParent(_returnHome, false);
+                    else Object.Destroy(_view.returnPopup);
+                }
+            }
+            _returnHome = null;
             if (_view != null)
             {
                 if (_view.btnLoopIcon != null) _view.btnLoopIcon.onClick.RemoveListener(OnLoopIconClicked);
@@ -102,10 +141,14 @@ namespace KingdomIdle.UGUI
                 _sm.OnDefeatPopupHide -= HandleDefeatPopupHide;
                 _sm.OnDeathPopupTick -= HandleDeathPopupTick;
                 _sm.OnBossTimerTick -= HandleBossTimerTick;
+                _sm.OnStageEnter -= HandleStageEnter;
+                _sm.OnMonsterKilled -= HandleMonsterKilled;
+                _sm.OnStageCleared -= HandleStageCleared;
                 _sm = null;
             }
 
             _view = null;
+            _displayedSecond = int.MinValue;
         }
 
         // ── 버튼 핸들러 ──
@@ -122,12 +165,32 @@ namespace KingdomIdle.UGUI
 
         private static void OnStageActionClicked()
         {
-            if (_sm == null || _sm.CurrentDefinition?.Type != eStageType.Main ||
-                _sm.CurrentRunState != eStageRunState.Running ||
-                (!_sm.IsLoopMode && (_sm.CurrentWaveNumber != 10 || _sm.BossAutoChallenge))) return;
-            _sm.SetBossAutoChallenge(true);
-            _sm.StopLoop();
-            UIManager.Instance?.ShowToast("현재 웨이브를 마치면 다음 구간에 도전합니다.");
+            if (_sm == null || !_sm.TryMoveToMainStage(_sm.CycleFrontierStage))
+                UIManager.Instance?.ShowToast("전투 전환이 끝난 후 다시 시도해 주세요.");
+        }
+
+        private static void OpenStageSelect() => StageSelectPopupController.Show();
+        private static void HandleStageEnter(StageDefinition definition) { CloseReturn(); RefreshHud(); StageSelectPopupController.Refresh(); }
+        private static void HandleStageCleared(StageDefinition definition) { RefreshHud(); StageSelectPopupController.Refresh(); }
+        private static void HandleMonsterKilled(StageDefinition definition, Monster monster) => RefreshHud();
+        private static void HandleAccountChanged() { CloseReturn(); StageSelectPopupController.Hide(); RefreshHud(); }
+        private static void OpenReturn()
+        {
+            if (_view?.returnPopup == null || _sm == null || !_sm.TryGetHudSnapshot(out var state) ||
+                state.Definition.Type == eStageType.Main || _sm.CurrentRunState != eStageRunState.Running) return;
+            _returnRun = state.RunId;
+            _view.returnPopup.transform.SetParent(UIManager.Instance.LayerPopups, false);
+            _view.returnPopup.transform.SetAsLastSibling();
+            _view.returnPopup.SetActive(true);
+            UITween.PopIn(_view.returnPanel);
+        }
+        private static void CloseReturn() { if (_view?.returnPopup != null) _view.returnPopup.SetActive(false); _returnRun = null; }
+        private static void ConfirmReturn()
+        {
+            bool valid = _sm != null && _sm.TryGetHudSnapshot(out var state) && state.RunId == _returnRun &&
+                state.Definition.Type != eStageType.Main && _sm.CurrentRunState == eStageRunState.Running;
+            CloseReturn();
+            if (valid) _sm.ReturnToMainStage();
         }
 
         private static void OnDeathYes()
@@ -145,7 +208,6 @@ namespace KingdomIdle.UGUI
         private static void HandleWaveChanged(int stageNum, int wave, bool isBoss)
         {
             UpdateStageLabel(stageNum, wave, isBoss);
-            if (_view != null) SetHidden(_view.bossTimerBar, !isBoss);
         }
 
         private static void HandleLoopModeChanged(bool isLoop)
@@ -168,6 +230,7 @@ namespace KingdomIdle.UGUI
         private static void HandleDefeatPopupShow()
         {
             if (_view == null) return;
+            CloseReturn(); StageSelectPopupController.Hide();
             bool bossReturn = _sm != null && _sm.IsBossWave && _sm.CurrentDefinition != null &&
                 _sm.CurrentDefinition.Type == eStageType.Main;
             if (_view.btnDeathYes != null) _view.btnDeathYes.gameObject.SetActive(!bossReturn);
@@ -200,35 +263,82 @@ namespace KingdomIdle.UGUI
 
         private static void HandleBossTimerTick(float ratio)
         {
-            if (_view != null && _view.bossTimerFill != null)
-                _view.bossTimerFill.fillAmount = Mathf.Clamp01(ratio);
+            if (_sm?.CurrentDefinition == null) return;
+            bool needsBoss = _sm.IsBossWave || _sm.CurrentDefinition.Type == eStageType.RubyDungeon;
+            if (_displayedSecond == Mathf.CeilToInt(ratio * _sm.CurrentDefinition.TimeLimitSec) && (!needsBoss || _boss != null)) return;
+            RefreshHud();
         }
 
         // ── 유틸 ──
 
         private static void UpdateStageLabel(int stageNum, int wave, bool isBoss)
         {
-            if (_view == null || _view.lblStage == null) return;
-            var kind = _sm != null ? StageParser.GetStageType(_sm.CurrentStage) : Scripts.Core.eStageType.Main;
-            _view.lblStage.text = kind == Scripts.Core.eStageType.GoldDungeon ? $"골드 던전 · {stageNum}단계"
-                : kind == Scripts.Core.eStageType.RubyDungeon ? $"루비 던전 · {stageNum}단계"
-                : isBoss
-                ? $"보스 {stageNum}"
-                : _sm != null && _sm.IsLoopMode ? $"반복 사냥 {stageNum}-{wave}" : $"스테이지 {stageNum}-{wave}";
-            bool canResume = kind == eStageType.Main && !isBoss && _sm != null &&
-                (_sm.IsLoopMode || (wave == 10 && !_sm.BossAutoChallenge));
-            if (canResume)
-            {
-                _view.lblStage.text += "\n<size=22>터치하여 다음 구간 도전 ›</size>";
-            }
-            if (_view.bossChallengeRoot != null) _view.bossChallengeRoot.SetActive(kind == eStageType.Main);
-            if (_view.btnStageAction != null) _view.btnStageAction.interactable = canResume;
+            RefreshHud();
         }
+
+        private static void RefreshHud()
+        {
+            if (_view == null || _sm == null || !_sm.TryGetHudSnapshot(out var state)) return;
+            var definition = state.Definition;
+            _displayedSecond = Mathf.CeilToInt(state.RemainingTime);
+            bool dungeon = definition.Type != eStageType.Main;
+            bool cleared = !dungeon && _sm.IsCycleStageCleared(definition.Id);
+            bool boss = !dungeon && StageParser.IsBossWave(definition.Id);
+            SetHidden(_view.mainHud, dungeon);
+            SetHidden(_view.mainProgress, dungeon || cleared);
+            SetHidden(_view.chapterProgress, dungeon || cleared);
+            SetHidden(_view.bossChallengeRoot, dungeon || cleared);
+            SetHidden(_view.bossTimerBar, true);
+            SetHidden(_view.dungeonObjective, !dungeon);
+            SetHidden(_view.dungeonReturn, !dungeon);
+            SetHidden(_view.btnStageAction?.gameObject, dungeon || !cleared);
+            if (_view.guide != null) _view.guide.SetStageVisible(!dungeon);
+            if (_view.btnStageSelect != null) _view.btnStageSelect.interactable = !dungeon;
+            if (_view.btnStageAction != null) _view.btnStageAction.interactable = _sm.CurrentRunState == eStageRunState.Running;
+            Set(_view.lblStage, $"스테이지 {definition.StageNumber}-{definition.WaveNumber}  ›");
+            Set(_view.stageActionLabel, "최고 스테이지 이동");
+            if (!dungeon)
+            {
+                Set(_view.progressLabel, boss ? "보스 HP" : $"처치 {state.Kills} / {state.Target}");
+                Set(_view.remainingLabel, boss ? $"{Mathf.CeilToInt(state.RemainingTime)}초" : $"다음 스테이지까지 {Mathf.Max(0, state.Target-state.Kills)}마리");
+                Fill(_view.progressFill, boss ? state.Boss != null ? state.Boss.GetHpRatio() : 0 : (float)state.Kills/state.Target);
+                if (_view.chapterSteps != null)
+                    for (int i=0;i<_view.chapterSteps.Length;i++)
+                    {
+                        Color color = i < definition.WaveNumber-1 ? UguiTheme.BronzeLight : i == definition.WaveNumber-1 ? UguiTheme.Parchment : UguiTheme.RusticSurface;
+                        if (_view.chapterSteps[i].color != color) _view.chapterSteps[i].color = color;
+                    }
+            }
+            else
+            {
+                bool gold = definition.Type == eStageType.GoldDungeon;
+                Set(_view.dungeonName, $"{(gold?"골드":"루비")} 던전 · {definition.StageNumber}단계");
+                Set(_view.dungeonTitle, gold ? $"미믹 처치 {state.Kills} / {state.Target}" : $"보스 {Mathf.Min(state.Kills+1,state.Target)} / {state.Target}");
+                Set(_view.dungeonTime, $"{Mathf.Max(0,Mathf.CeilToInt(state.RemainingTime))}초");
+                Set(_view.dungeonProgress, gold ? "" : $"현재 보스 HP  {Mathf.RoundToInt((state.Boss != null ? state.Boss.GetHpRatio() : 0)*100)}%");
+                SetHidden(_view.dungeonProgress?.gameObject, gold);
+                Set(_view.dungeonReward, gold ? $"획득 골드 +{NumberNotation.Format(state.EarnedGold)}" : $"처치 완료 {state.Kills} / {state.Target}");
+                Fill(_view.dungeonFill, gold ? (float)state.Kills/state.Target : state.Boss != null ? state.Boss.GetHpRatio() : 0);
+                if (_view.btnDungeonReturn != null) _view.btnDungeonReturn.interactable = _sm.CurrentRunState == eStageRunState.Running;
+            }
+            BindBoss(state.Boss);
+            if (_returnRun != null && (_returnRun != state.RunId || _sm.CurrentRunState != eStageRunState.Running)) CloseReturn();
+        }
+        private static void BindBoss(Monster boss)
+        {
+            if (_boss == boss) return;
+            if (_boss != null) _boss.OnHpChanged -= HandleBossHp;
+            _boss = boss;
+            if (_boss != null) _boss.OnHpChanged += HandleBossHp;
+        }
+        private static void HandleBossHp(float ratio) => RefreshHud();
+        private static void Set(TMP_Text label, string value) { if (label != null && label.text != value) label.text = value; }
+        private static void Fill(UnityEngine.UI.Image image, float value) { if (image != null && image.fillAmount != Mathf.Clamp01(value)) image.fillAmount = Mathf.Clamp01(value); }
 
         private static void SetHidden(GameObject go, bool hidden)
         {
             if (go == null) return;
-            go.SetActive(!hidden);
+            if (go.activeSelf == hidden) go.SetActive(!hidden);
         }
     }
 }

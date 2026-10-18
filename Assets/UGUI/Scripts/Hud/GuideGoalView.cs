@@ -25,6 +25,11 @@ namespace KingdomIdle.UGUI
         private bool _hasClaimToken, _claimable;
         private Coroutine _connection;
         private bool _breathing;
+        /// <summary>전투 HUD 인스턴스만 던전에서 접는다. 재활성화 시 기존 구독으로 최신 목표를 복원한다.</summary>
+        internal void SetStageVisible(bool visible)
+        {
+            if (gameObject.activeSelf != visible) gameObject.SetActive(visible);
+        }
 
         private void OnEnable()
         {

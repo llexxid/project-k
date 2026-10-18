@@ -247,13 +247,14 @@ namespace KingdomIdle.Balance
 
         public static void RefreshTickets(ProgressionState state)
         {
-            if (state.TicketDay == LocalProgression.KstDay) return;
-            state.TicketDay = LocalProgression.KstDay; state.GoldTickets = state.RubyTickets = StageCatalogRules.Database.DailyTickets;
+            string day = LocalProgression.KstDay;
+            if (!QuestPeriod.IsLaterDay(day, state.TicketDay)) return;
+            state.TicketDay = day; state.GoldTickets = state.RubyTickets = StageCatalogRules.Database.DailyTickets;
         }
         public static int Tickets(eStageType type)
         {
             var s = LocalProgression.State;
-            if (s.TicketDay != LocalProgression.KstDay) return StageCatalogRules.Database.DailyTickets;
+            if (QuestPeriod.IsLaterDay(LocalProgression.KstDay, s.TicketDay)) return StageCatalogRules.Database.DailyTickets;
             return type == eStageType.GoldDungeon ? s.GoldTickets : s.RubyTickets;
         }
         public static bool Begin(StageSession session)
@@ -262,6 +263,7 @@ namespace KingdomIdle.Balance
             return LocalProgression.Execute("battle-start", s => {
                 RefreshTickets(s);
                 var type = session.Definition.Type;
+                if (type == eStageType.Main) s.CycleFrontierStage = Math.Max(s.CycleFrontierStage, (long)session.Definition.Id);
                 if (type == eStageType.GoldDungeon) { if (s.GoldTickets <= 0) return false; s.GoldTickets--; }
                 if (type == eStageType.RubyDungeon) { if (s.RubyTickets <= 0) return false; s.RubyTickets--; }
                 if (type != eStageType.Main) QuestEconomy.Count(s,eQuestObjectiveType.DungeonEnter,(long)session.Definition.Id,1);
@@ -274,6 +276,7 @@ namespace KingdomIdle.Balance
         public static bool Kill(StageSession session, Monster monster)
         {
             var definition = session.Definition;
+            long committedGold = 0;
             var drop = definition.Type == eStageType.Main && definition.WaveNumber <= 10 ? EquipmentManager.Instance?.RollFieldDrop(definition.Encounter.EquipmentDropRate) : null;
             bool ok = LocalProgression.Execute("battle-kill", s => {
                 if (s.ActiveBattleId != session.RunId || session.TotalKillCount <= s.LastKillSequence) return false;
@@ -285,6 +288,7 @@ namespace KingdomIdle.Balance
                     exp = BalanceMath.WithRemainder(exp, s.RubyExpLevel, ref s.ExpRemainder);
                 }
                 LocalProgression.Credit(s, eCurrency.Gold, gold);
+                committedGold = gold;
                 BalanceMath.GainExperience(ref s.AccountLevel, ref s.Experience, exp);
                 QuestEconomy.Count(s,eQuestObjectiveType.MonsterKill,0,1);
                 if (monster.IsBalanceBoss) QuestEconomy.Count(s,eQuestObjectiveType.BossKill,0,1);
@@ -295,6 +299,7 @@ namespace KingdomIdle.Balance
                 return true;
             });
             if (!ok) { UnityEngine.Time.timeScale = 0; KingdomIdle.UGUI.UIManager.Instance?.ShowToast("보상 저장에 실패해 전투를 멈췄습니다. 저장 공간 확인 후 재접속해 주세요."); }
+            if (ok) session.EarnedGold = checked(session.EarnedGold + committedGold);
             if (ok && drop != null)
             {
                 EquipmentManager.Instance?.RestoreEquipment();
@@ -324,6 +329,8 @@ namespace KingdomIdle.Balance
                 if (d.Type == eStageType.Main)
                 {
                     s.HighestMainClear = Math.Max(s.HighestMainClear, id);
+                    Core.Stage.MainStageRule.GetNextWave(d.Id, out eStage next);
+                    s.CycleFrontierStage = Math.Max(s.CycleFrontierStage, (long)next);
                     if (d.WaveNumber == 11) s.CycleBossStage = Math.Max(s.CycleBossStage, d.StageNumber);
                     bool first = s.MainClears.Add(id);
                     if (first) FirstClear(s, d.Encounter.FirstClear);

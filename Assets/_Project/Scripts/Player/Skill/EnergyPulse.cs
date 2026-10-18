@@ -112,4 +112,12 @@ public sealed class EnergyPulse : ActiveSkill
 
         _vfxInstance.Play(_player.transform.position);
     }
+
+    public override void ReleaseResources()
+    {
+        _isPlaying = _impactPending = false;
+        _targets.Clear();
+        if (_vfxInstance != null) _vfxInstance.ReleaseWhenFinished();
+        _vfxInstance = null;
+    }
 }

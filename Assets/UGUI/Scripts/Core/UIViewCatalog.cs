@@ -97,6 +97,7 @@ namespace KingdomIdle.UGUI
         public GameObject popupProfile;          // 프로필 팝업(더미/플레이스홀더)
         public GameObject popupMageTowerEquip;   // 마탑 스킬 장착 팝업 (프리팹화됨)
         public GameObject popupDungeonClear;
+        public GameObject popupStageSelect;
         public GameObject popupReincarnation;
         public GameObject popupOfflineReward;
         public GameObject popupEquipmentAction;

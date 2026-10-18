@@ -63,7 +63,7 @@ namespace KingdomIdle.UGUI
 
             GameObject instance = Object.Instantiate(
                 prefab,
-                host.LayerPopups,
+                host.LayerOverlays,
                 false);
             Stretch(instance.transform as RectTransform);
             view = instance.GetComponent<ReincarnationPopupView>();

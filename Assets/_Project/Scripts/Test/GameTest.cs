@@ -24,6 +24,34 @@ namespace Scripts.Test
                 Debug.LogWarning("[GameTest] 현재 스테이지를 클리어할 수 없습니다.");
         }
 
+        /// <summary>Play 중 현재 계정의 골드·루비 던전 티켓을 일일 기본 수량으로 복원하고 오늘 기준으로 저장한다.</summary>
+        [ContextMenu("Dungeon Test/입장 티켓 충전")]
+        public void RefillDungeonTickets()
+        {
+            if (!Application.isPlaying || !LocalProgression.IsReady)
+            {
+                Debug.LogWarning("[GameTest] bootstrap부터 Play 후 계정이 준비되면 티켓을 충전하세요.", this);
+                return;
+            }
+
+            int dailyTickets = 0;
+            bool saved = LocalProgression.Execute("test-refill-dungeon-tickets", state =>
+            {
+                dailyTickets = StageCatalogRules.Database.DailyTickets;
+                state.GoldTickets = state.RubyTickets = dailyTickets;
+                state.TicketDay = LocalProgression.KstDay;
+                return true;
+            });
+            if (!saved)
+            {
+                Debug.LogWarning("[GameTest] 던전 티켓 충전 실패: " +
+                    (LocalProgression.LastError ?? "저장을 처리할 수 없습니다. 잠시 후 다시 시도하세요."), this);
+                return;
+            }
+
+            Debug.Log($"[GameTest] 골드·루비 던전 티켓을 각각 {dailyTickets}장으로 충전하고 현재 계정에 저장했습니다.", this);
+        }
+
         /// <summary>현재 계정에서 육성 실습을 요청한다. 실제 골드를 소비하고 강화·완료를 저장하며 정리는 Manager에 맡긴다.</summary>
         [ContextMenu("Guide Test/실제 계정 저장/1 육성")]
         public void TestDevelopmentGuide() => RequestGuide("guide_development", false);

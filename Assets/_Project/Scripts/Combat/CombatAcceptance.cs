@@ -11,6 +11,94 @@ namespace KingdomIdle.Combat
 {
     public static class CombatAcceptance
     {
+        // Synchronous selection regression on isolated QA actors; no attack or damage is executed.
+        public static object RunTargetSelection(Player player, Scripts.Monster.Monster target,
+            Scripts.Monster.Monster blocker, IReadOnlyList<JobData> jobs)
+        {
+            if (!Application.isPlaying || !(LocalProgression.AccountKey?.StartsWith("balance-qa-", StringComparison.Ordinal) ?? false))
+                throw new InvalidOperationException("Target selection acceptance requires an isolated QA account in PlayMode.");
+            var checks = new List<string>(); var failed = new List<string>();
+            void Check(bool ok, string name) { checks.Add(name); if (!ok) failed.Add(name); }
+            var monsters = CombatMotion.Monsters.ToArray();
+            var actors = new Component[] { player, target, blocker };
+            var positions = actors.Select(x => x.transform.position).ToArray();
+            var scale = player.transform.localScale;
+            var system = player.skillSystem;
+            var oldTarget = player.currentTarget;
+            var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            var attackLock = typeof(Player).GetField("_attackAnimEndTime", flags);
+            var generation = typeof(Scripts.Monster.Monster).GetField("_allocGen", flags);
+            float oldLock = (float)attackLock.GetValue(player);
+            int oldGeneration = target.AllocGen;
+            bool blockerEnabled = blocker.enabled;
+            void Place(Component actor, Vector2 feet)
+            { Vector2 delta = feet - CombatMotion.Ground(actor); actor.transform.position += new Vector3(delta.x, delta.y, 0); }
+            PlayerDetection Arrange(float facing, Vector2 far, Vector2 near)
+            {
+                player.ResetTarget(player.currentTarget);
+                attackLock.SetValue(player, 0f);
+                var s = scale; s.x = Mathf.Abs(s.x) * facing; player.transform.localScale = s;
+                Place(player, Vector2.zero); Place(target, far); Place(blocker, near);
+                CombatMotion.Monsters.Clear(); CombatMotion.Monsters.Add(target);
+                var detection = new PlayerDetection(player); detection.Detect();
+                CombatMotion.Monsters.Add(blocker);
+                return detection;
+            }
+            try
+            {
+                player.skillSystem = new SkillSystem(player);
+                foreach (var job in jobs)
+                {
+                    player.skillSystem.Setup(job);
+                    bool melee = !player.skillSystem.IsRanged;
+                    foreach (float facing in new[] { -1f, 1f })
+                    {
+                        var detection = Arrange(facing, new Vector2(4 * facing, 0), new Vector2(.7f * facing, 0));
+                        detection.Detect();
+                        Check(ReferenceEquals(player.currentTarget, melee ? blocker : target), job.jobName + " forward blocker " + facing);
+                        detection.Detect();
+                        Check(ReferenceEquals(player.currentTarget, melee ? blocker : target), job.jobName + " target remains stable " + facing);
+                        detection = Arrange(facing, new Vector2(4 * facing, 0), new Vector2(.3f * facing, 0));
+                        detection.Detect();
+                        Check(ReferenceEquals(player.currentTarget, melee ? blocker : target), job.jobName + " close blocker can be approached " + facing);
+                        detection = Arrange(facing, new Vector2(.8f * facing, 0), new Vector2(.6f * facing, 0));
+                        detection.Detect();
+                        Check(ReferenceEquals(player.currentTarget, target), job.jobName + " attackable target retained " + facing);
+                        foreach (var near in new[] { new Vector2(-.7f * facing, 0), new Vector2(.7f * facing, .3f), new Vector2(4.5f * facing, 0) })
+                        {
+                            detection = Arrange(facing, new Vector2(4 * facing, 0), near); detection.Detect();
+                            Check(ReferenceEquals(player.currentTarget, target), job.jobName + " reject rear, other lane or distant enemy " + near);
+                        }
+                        detection = Arrange(facing, new Vector2(4 * facing, 0), new Vector2(.7f * facing, 0));
+                        attackLock.SetValue(player, Time.time + 1); detection.Detect();
+                        Check(ReferenceEquals(player.currentTarget, target), job.jobName + " committed attack retains target " + facing);
+                    }
+                }
+                player.skillSystem.Setup(jobs.First(x => x.basicAttack.type != BasicAttackType.Projectile));
+                var cached = Arrange(1, new Vector2(4, 0), new Vector2(.7f, 0));
+                blocker.enabled = false; CombatMotion.Monsters.Add(blocker); cached.Detect();
+                Check(ReferenceEquals(player.currentTarget, target), "Disabled candidate is rejected");
+                blocker.enabled = blockerEnabled;
+                cached = Arrange(1, new Vector2(.8f, 0), new Vector2(.6f, 0));
+                generation.SetValue(target, oldGeneration + 1); cached.Detect();
+                Check(ReferenceEquals(player.currentTarget, blocker), "Reallocated target invalidates the cached acquisition");
+                generation.SetValue(target, oldGeneration);
+                cached = Arrange(1, new Vector2(4, 0), new Vector2(.7f, 0)); cached.Detect();
+                player.ResetTarget(blocker); CombatMotion.Monsters.Remove(blocker); cached.Detect();
+                Check(ReferenceEquals(player.currentTarget, target), "Removed selected enemy permits reacquisition");
+            }
+            finally
+            {
+                generation.SetValue(target, oldGeneration); blocker.enabled = blockerEnabled;
+                player.ResetTarget(player.currentTarget); if (oldTarget != null) player.SetTarget(oldTarget);
+                player.skillSystem = system; attackLock.SetValue(player, oldLock);
+                for (int i = 0; i < actors.Length; i++) actors[i].transform.position = positions[i];
+                player.transform.localScale = scale;
+                CombatMotion.Monsters.Clear(); CombatMotion.Monsters.AddRange(monsters);
+            }
+            return new { passed = failed.Count == 0, count = checks.Count, checks, failed };
+        }
+
         public static IEnumerator RunLayeredControl(Action<object> completed)
         {
             var checks = new List<string>(); var failed = new List<string>();

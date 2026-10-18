@@ -32,6 +32,9 @@ public abstract class ActiveSkill
     /// <summary>매 프레임 호출 — 지속 효과 처리.</summary>
     public virtual void Tick() { }
 
+    /// <summary>스킬 교체·소유자 파괴 시 전용 자원을 정리한다. 진행 중인 연출은 구현별로 마친다.</summary>
+    public virtual void ReleaseResources() { }
+
     /// <summary>공격 애니메이션 길이(초).</summary>
     protected float GetAttackAnimLength()
         => _player.GetClipLength("Attack_Anim", 0.4f);
