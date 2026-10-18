@@ -247,13 +247,14 @@ namespace KingdomIdle.Balance
 
         public static void RefreshTickets(ProgressionState state)
         {
-            if (state.TicketDay == LocalProgression.KstDay) return;
-            state.TicketDay = LocalProgression.KstDay; state.GoldTickets = state.RubyTickets = StageCatalogRules.Database.DailyTickets;
+            string day = LocalProgression.KstDay;
+            if (!QuestPeriod.IsLaterDay(day, state.TicketDay)) return;
+            state.TicketDay = day; state.GoldTickets = state.RubyTickets = StageCatalogRules.Database.DailyTickets;
         }
         public static int Tickets(eStageType type)
         {
             var s = LocalProgression.State;
-            if (s.TicketDay != LocalProgression.KstDay) return StageCatalogRules.Database.DailyTickets;
+            if (QuestPeriod.IsLaterDay(LocalProgression.KstDay, s.TicketDay)) return StageCatalogRules.Database.DailyTickets;
             return type == eStageType.GoldDungeon ? s.GoldTickets : s.RubyTickets;
         }
         public static bool Begin(StageSession session)
