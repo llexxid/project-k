@@ -198,8 +198,12 @@ public partial class Player : MonoBehaviour, IAttackable, IDamageable, IRewardab
     
     private IEnumerator PauseAfterDeadAnimation()
     {
+        int generation = LifeGeneration;
         float deadAnimLength = GetClipLength("Dead_Anim");
         yield return new WaitForSeconds(deadAnimLength);
+
+        // A wave transition may already have revived this actor (and it may have died again).
+        if (!_isDead || LifeGeneration != generation) yield break;
 
         OnDeath?.Invoke(this);
         OnDeath = null;
