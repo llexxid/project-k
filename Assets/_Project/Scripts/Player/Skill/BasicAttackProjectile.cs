@@ -19,6 +19,7 @@ public sealed class BasicAttackProjectile : ActiveSkill
     private IDamageable _pendingTarget;
     private int _pendingGeneration;
     private readonly Queue<MageProjectile> _pool = new Queue<MageProjectile>();
+    private bool _released;
 
     private const float PROJECTILE_LIFETIME = 10f;
 
@@ -153,6 +154,7 @@ public sealed class BasicAttackProjectile : ActiveSkill
 
     private MageProjectile GetProjectile()
     {
+        if (_released) return null;
         while (_pool.Count > 0)
         {
             var p = _pool.Dequeue();
@@ -180,6 +182,20 @@ public sealed class BasicAttackProjectile : ActiveSkill
     {
         if (p == null) return;
         p.gameObject.SetActive(false);
+        // Projectiles already in flight keep their hit, but a retired skill never keeps a pool.
+        if (_released) { Object.Destroy(p.gameObject); return; }
         _pool.Enqueue(p);
+    }
+
+    public override void ReleaseResources()
+    {
+        _released = true;
+        _phase = Phase.Idle;
+        _pendingTarget = null;
+        while (_pool.Count > 0)
+        {
+            var projectile = _pool.Dequeue();
+            if (projectile != null) Object.Destroy(projectile.gameObject);
+        }
     }
 }

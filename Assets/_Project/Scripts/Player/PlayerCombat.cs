@@ -15,6 +15,7 @@ public partial class Player
     public void SetVfxBodyAnchors(float foot, float head) { _vfxFootY = foot; _vfxHeadY = head; }
     private void OnEnable() { if (!CombatMotion.Players.Contains(this)) CombatMotion.Players.Add(this); }
     private void OnDisable() { CombatMotion.Players.Remove(this); CancelCombat(); }
+    private void OnDestroy() { skillSystem?.ReleaseResources(); }
 
     private void LateUpdate()
     {
