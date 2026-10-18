@@ -35,6 +35,7 @@ namespace KingdomIdle.MageTower
             Check(!starfall.CanAimWithBloom(false) && starfall.CanAimWithBloom(true), "Only meteor bloom supports ground dragging");
             foreach (var skill in skills) Check(skill.bloomIcon!=null && skill.DisplayIcon(true)!=skill.DisplayIcon(false), "Distinct bloom icon: "+skill.id);
             var merge = new ProgressionState();
+            QuestEconomy.Migrate(merge);
             merge.MageSkills[3]=new MageSave{Enhance=4,Awaken=3,Fragments=10,Spent=43};
             merge.MageSkills[8]=new MageSave{Enhance=7,Awaken=10,Fragments=13,Spent=78};
             merge.MageSlots[0]=8;
@@ -43,11 +44,13 @@ namespace KingdomIdle.MageTower
             Check(merge.MageSkills[3].Enhance==7 && merge.MageSkills[3].Awaken==10 && merge.MageSkills[3].Spent==78 && merge.MageSkills[3].Fragments==59 && merge.Wallet[eCurrency.ArcaneKnowledge]==43 && merge.MageSlots[0]==3 && merge.MageSkills[3].BloomEnabled && !merge.MageSkills.ContainsKey(8), "Higher growth retained, duplicate spend/fragments refunded, slot and bloom preserved");
             Check(!MageCatalogMigration.Apply(merge) && merge.Wallet[eCurrency.ArcaneKnowledge]==43, "Meteor migration is idempotent");
             var duplicateSlots=new ProgressionState();duplicateSlots.MageSkills[3]=new MageSave();duplicateSlots.MageSkills[8]=new MageSave();duplicateSlots.MageSlots[0]=3;duplicateSlots.MageSlots[1]=8;
+            QuestEconomy.Migrate(duplicateSlots);
             MageCatalogMigration.Apply(duplicateSlots);LocalProgression.Validate(duplicateSlots);
             Check(duplicateSlots.MageSlots[0]==3 && duplicateSlots.MageSlots[1]==-1 && duplicateSlots.MageSkills[3].Fragments==30, "Two equipped sources never produce duplicate slots");
             var old = JsonConvert.DeserializeObject<MageSave>("{\"Enhance\":7,\"Awaken\":4,\"Fragments\":13,\"Spent\":70}");
             Check(old.Enhance==7 && old.Awaken==4 && old.Fragments==13 && old.Spent==70 && !old.BloomEnabled, "Legacy snapshot retains progress and defaults bloom off");
             var draft = new ProgressionState();
+            QuestEconomy.Migrate(draft);
             foreach (var skill in skills)
             {
                 MageTowerManager.Grant(draft, skill.id, MageSkillRules.DuplicateFragments);
