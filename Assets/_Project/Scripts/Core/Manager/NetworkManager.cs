@@ -104,6 +104,11 @@ namespace Scripts.Core.Manager
             if (string.IsNullOrWhiteSpace(session)) throw new ArgumentException("Empty game session.", nameof(session));
             _sessionGUID = session;
         }
+        internal void CompleteLogin()
+        {
+            if (!HasSessionGuid) throw new InvalidOperationException("Game session must be set before the login completes.");
+            SetLoginState(GameLoginState.Ready);
+        }
         internal void FailLogin(PlayFabError error)
         { LastFailure = error; SetLoginState(GameLoginState.Failed); }
         private void SetLoginState(GameLoginState state)

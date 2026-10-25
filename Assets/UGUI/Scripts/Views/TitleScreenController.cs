@@ -141,7 +141,7 @@ namespace KingdomIdle.UGUI
             if (_view.btnLoginGuest != null) _view.btnLoginGuest.interactable = !net.IsAuthenticating;
             if (_view.btnLoginGoogle != null) _view.btnLoginGoogle.interactable = !net.IsAuthenticating;
             if (net.LoginState == GameLoginState.Failed)
-                _host.ShowToast(net.LastFailure?.Message ?? Localize("로그인에 실패했습니다.", "Sign-in failed."));
+                _host.ShowToast(net.LastFailure?.ErrorMessage ?? Localize("로그인에 실패했습니다.", "Sign-in failed."));
             else if (net.LoginState == GameLoginState.Loading)
                 _host.ShowToast(Localize("서버 데이터를 확인하는 중입니다.", "Checking server data."));
         }
