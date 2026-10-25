@@ -123,6 +123,7 @@ namespace KingdomIdle.Balance
                 // 기존 계정에는 새 필드가 없다. 다른 진행 데이터는 그대로 보존한다.
                 if (state != null)
                 {
+                    state.CheckIn ??= new KingdomIdle.CheckIn.CheckInState();
                     state.Mail ??= new System.Collections.Generic.List<KingdomIdle.Mailbox.MailMessage>();
                 }
                 if (state.CycleFrontierStage == 0)
@@ -249,9 +250,14 @@ namespace KingdomIdle.Balance
         {
             if (state == null || state.Schema != 1 || state.BalanceVersion != BalanceMath.Version || state.Authority != "local-client")
                 throw new InvalidDataException("Unsupported progression snapshot; migration required.");
-            if (state.Mail == null || state.Mail.Any(m => !KingdomIdle.Mailbox.MailboxService.IsValid(m)) ||
+            var visit = state.CheckIn;
+            if (visit == null || visit.OpenedRewards == null || visit.ClaimedSlots == null || visit.OpenedRewards.Count > 28 ||
+                visit.OpenedRewards.Any(r => !KingdomIdle.Rewards.RewardGrants.IsValid(r)) ||
+                visit.ClaimedSlots.Any(i => i < 0 || i >= visit.OpenedRewards.Count) ||
+                (visit.OpenedRewards.Count > 0 && (string.IsNullOrEmpty(visit.Month) || string.IsNullOrEmpty(visit.LastDay))) ||
+                state.Mail == null || state.Mail.Any(m => !KingdomIdle.Mailbox.MailboxService.IsValid(m)) ||
                 state.Mail.Select(m => m.Id).Distinct().Count() != state.Mail.Count || state.RewardsRevision < 0)
-                throw new InvalidDataException("Invalid mail snapshot.");
+                throw new InvalidDataException("Invalid CheckIn/mail snapshot.");
             if (state.QuestSchemaVersion != QuestEconomy.SchemaVersion || state.CompletedQuests == null || state.QuestLastObservedUtc < 0 ||
                 state.Counters == null || state.Claims == null || state.PendingQuests == null || state.Counters.Any(x => x.Value < 0))
                 throw new InvalidDataException("Invalid quest snapshot.");

@@ -22,6 +22,7 @@ namespace Scripts.Core
         
         public ReincarnationService Reincarnation { get; private set; }
         public OfflineRewardManager OfflineReward { get; private set; }
+        public KingdomIdle.CheckIn.CheckInService CheckIn { get; private set; }
         public KingdomIdle.Mailbox.MailboxService Mailbox { get; private set; }
         private float _nextRewardSync;
         private bool _rewardsPaused, _rewardsUnfocused;
@@ -73,7 +74,9 @@ namespace Scripts.Core
             if (network == null || string.IsNullOrEmpty(network.GetSessionID()) ||
                 !KingdomIdle.Balance.LocalProgression.IsReady ||
                 KingdomIdle.Balance.LocalProgression.AccountKey != network.GetSessionID() || ui == null || ui.Catalog == null) return;
+            CheckIn ??= new KingdomIdle.CheckIn.CheckInService(ui.Catalog.checkInRewards);
             Mailbox ??= new KingdomIdle.Mailbox.MailboxService();
+            CheckIn.RecordVisit();
             Mailbox.Refresh();
         }
 

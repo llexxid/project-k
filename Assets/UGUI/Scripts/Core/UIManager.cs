@@ -598,6 +598,7 @@ namespace KingdomIdle.UGUI
                 case UIPanelId.Development: prefab = catalog.panelDevelopment; break;
                 case UIPanelId.Inventory: prefab = catalog.panelInventory; break;
                 case UIPanelId.Dungeon: prefab = catalog.panelDungeon; break;
+                case UIPanelId.CheckIn: prefab = catalog.panelCheckIn; break;
                 case UIPanelId.Mailbox: prefab = catalog.panelMailbox; break;
                 default: prefab = catalog.panelPlaceholder; break;
             }
@@ -609,8 +610,8 @@ namespace KingdomIdle.UGUI
                 return null;
             }
 
-            var go = Instantiate(prefab, id == UIPanelId.Guide || id == UIPanelId.Inventory || id == UIPanelId.Mailbox ? layerOverlays : layerPanels, false);
-            if (id != UIPanelId.Mailbox) ForceFullStretch(go);
+            var go = Instantiate(prefab, id == UIPanelId.Guide || id == UIPanelId.Inventory || id == UIPanelId.CheckIn || id == UIPanelId.Mailbox ? layerOverlays : layerPanels, false);
+            if (id != UIPanelId.CheckIn && id != UIPanelId.Mailbox) ForceFullStretch(go);
             view = go.GetComponent<BottomSheetView>();
             PopulatePanel(id, view, payload);
             return go;
@@ -624,6 +625,7 @@ namespace KingdomIdle.UGUI
             {
                 switch (id)
                 {
+                    case UIPanelId.CheckIn:
                     case UIPanelId.Mailbox:
                         // 전용 컨트롤러가 OnEnable에서 현재 계정의 상태를 읽는다.
                         return;

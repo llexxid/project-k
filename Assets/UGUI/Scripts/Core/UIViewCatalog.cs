@@ -90,7 +90,9 @@ namespace KingdomIdle.UGUI
         public GameObject panelDevelopment;
         public GameObject panelInventory;
         public GameObject panelDungeon;
+        public GameObject panelCheckIn;
         public GameObject panelMailbox;
+        public KingdomIdle.CheckIn.CheckInRewardTableSO checkInRewards;
         public GameObject itemRewardSlot;
         public GameObject itemMailRow;
         public GameObject popupRewardInfo;

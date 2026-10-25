@@ -762,6 +762,8 @@ namespace KingdomIdle.UGUI.Editor
             view.btnMenuNotice = MakeHamburgerItem(hamburger.transform, "BtnMenuNotice", null, UguiGenAssets.IconWarning);
             view.btnMenuMail = MakeHamburgerItem(hamburger.transform, "BtnMenuMail", null,
                 F.Catalog != null ? F.Catalog.iconEnvelope : null);
+            view.btnMenuCheckIn = MakeHamburgerItem(hamburger.transform, "BtnMenuCheckIn", null,
+                F.Catalog != null ? F.Catalog.iconCheck : null);
 
             hamburger.gameObject.SetActive(false);
         }

@@ -794,6 +794,8 @@ namespace KingdomIdle.UGUI
                 _view.btnMenuMail.gameObject.SetActive(true);
                 _view.btnMenuMail.onClick.AddListener(() => OpenRewardPanel(UIPanelId.Mailbox));
             }
+            if (_view.btnMenuCheckIn != null)
+                _view.btnMenuCheckIn.onClick.AddListener(() => OpenRewardPanel(UIPanelId.CheckIn));
         }
 
         private void OpenRewardPanel(UIPanelId id)
