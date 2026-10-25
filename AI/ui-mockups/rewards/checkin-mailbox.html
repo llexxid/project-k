@@ -28,27 +28,23 @@
 #pk-checkin-mail .small{font-size:12px;color:var(--muted)}
 #pk-checkin-mail .month{color:var(--gold);font-size:15px;font-weight:600}
 #pk-checkin-mail .count{font-size:12px;padding:4px 7px;background:#493720;color:var(--gold);border:1px solid var(--bronze);white-space:nowrap}
-#pk-checkin-mail .intro{margin-top:5px;font-size:12px;color:var(--muted)}
 #pk-checkin-mail .grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px 4px;margin:12px 0 9px}
-#pk-checkin-mail .day{display:flex;flex-direction:column;align-items:center;gap:2px;position:relative;border:1px solid var(--line);padding:3px 1px;background:var(--deep);min-width:0;min-height:76px;font-size:11px;line-height:1.15}
+#pk-checkin-mail .day{display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;border:1px solid var(--line);padding:4px 1px;background:var(--deep);min-width:0;min-height:72px;font-size:11px;line-height:1.15}
 #pk-checkin-mail .day-label{white-space:nowrap}
 #pk-checkin-mail .slot-picture{display:block;position:relative;width:54px;height:58px;background:#17110c;border:1px solid var(--bronze);box-shadow:inset 0 0 0 2px #302319}
 #pk-checkin-mail .slot-picture img{position:absolute;width:35px;height:35px;left:50%;top:4px;transform:translateX(-50%)}
 #pk-checkin-mail .qty{position:absolute;bottom:1px;right:2px;left:1px;text-align:right;font-size:12px;line-height:1.25;font-weight:700;color:var(--ink);text-shadow:1px 1px #000;background:#17110cd9;padding:0 2px}
-#pk-checkin-mail .day .slot-picture{width:calc(100% - 2px);height:38px}
-#pk-checkin-mail .day .slot-picture img{width:26px;height:26px;top:2px}
+#pk-checkin-mail .day .slot-picture{width:calc(100% - 2px);height:44px}
+#pk-checkin-mail .day .slot-picture img{width:28px;height:28px;top:3px}
 #pk-checkin-mail .day .qty{font-size:11px;padding:0}
 #pk-checkin-mail .day.available{border-color:var(--edge);background:#5a4023;box-shadow:inset 0 0 0 1px #d4ad6f}
-#pk-checkin-mail .day.available .status{color:var(--gold);font-weight:700}
-#pk-checkin-mail .day.claimed{background:#25271e;color:#c2b7a2}
+#pk-checkin-mail .day.claimed{color:var(--muted)}
 #pk-checkin-mail .day.claimed img{opacity:.5}
-#pk-checkin-mail .day.claimed .status{color:var(--green)}
+#pk-checkin-mail .day .check-mark{position:absolute;top:0;left:1px;color:var(--green);font-size:17px;line-height:1;font-weight:700;text-shadow:1px 1px #000}
 #pk-checkin-mail .day.locked{color:var(--muted)}
 #pk-checkin-mail .day.locked img{opacity:.6}
-#pk-checkin-mail .legend{display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:11px;color:var(--muted)}
-#pk-checkin-mail .legend .ready{color:var(--gold)}
 #pk-checkin-mail .footer{flex-shrink:0;border-top:1px solid var(--line);background:var(--deep);padding:11px 12px}
-#pk-checkin-mail .checkin-footer{text-align:center;font-size:12px;color:var(--muted);min-height:42px}
+#pk-checkin-mail .checkin-footer{text-align:center;font-size:13px;color:var(--gold);min-height:42px;font-variant-numeric:tabular-nums}
 #pk-checkin-mail .mail-panel{height:100%}
 #pk-checkin-mail .mail-panel>.body{flex:1}
 #pk-checkin-mail .mail-summary{display:flex;gap:12px;padding:0 0 9px;color:var(--muted);font-size:12px}
@@ -87,7 +83,7 @@
 #pk-checkin-mail .menu button{padding:13px;text-align:left;min-height:48px;background:transparent;border:0;border-bottom:1px solid var(--line)}
 #pk-checkin-mail .menu span{float:right;color:var(--gold)}
 #pk-checkin-mail .toast{position:absolute;bottom:18px;left:14px;right:14px;padding:10px;background:#221b13;border:1px solid var(--edge);font-size:13px;text-align:center;z-index:9}
-@media(max-width:360px){#pk-checkin-mail .stage{padding:10px 3px;height:580px}#pk-checkin-mail .checkin-body{padding:9px 4px}#pk-checkin-mail .grid{gap:6px 2px}#pk-checkin-mail .day{min-height:76px}#pk-checkin-mail .body:not(.checkin-body){padding:8px}#pk-checkin-mail .mail-row{padding:7px}#pk-checkin-mail .footer{padding:9px 7px}#pk-checkin-mail .footer-actions{gap:6px}}
+@media(max-width:360px){#pk-checkin-mail .stage{padding:10px 3px;height:580px}#pk-checkin-mail .checkin-body{padding:9px 4px}#pk-checkin-mail .grid{gap:6px 2px}#pk-checkin-mail .body:not(.checkin-body){padding:8px}#pk-checkin-mail .mail-row{padding:7px}#pk-checkin-mail .footer{padding:9px 7px}#pk-checkin-mail .footer-actions{gap:6px}}
 </style>
 <div id="pk-checkin-mail">
  <div class="preview viz-dotted-background">
@@ -110,7 +106,7 @@
  [6,13,20,27].forEach((i,j)=>rewards[i]=reward('coin',[300,500,700,1000][j]));
  const format=n=>n>=1000&&n%1000===0?`${n/1000}K`:n.toLocaleString('en-US');
  const image=(key,alt='')=>`<img src="${assets[key]}" alt="${alt}">`;
- const picture=r=>`<span class="slot-picture">${image(r.key)}<span class="qty">${format(r.amount)}</span></span>`;
+ const picture=(r,claimed=false)=>`<span class="slot-picture">${image(r.key)}<span class="qty">${format(r.amount)}</span>${claimed?'<span class="check-mark" aria-hidden="true">✓</span>':''}</span>`;
  const slot=r=>`<button type="button" class="reward-slot" data-item="${r.key}" aria-label="${catalog[r.key].name} ${r.amount.toLocaleString('en-US')}개 정보">${picture(r)}</button>`;
  const slots=items=>`<div class="reward-slots">${items.map(slot).join('')}</div>`;
  const sum=items=>Object.entries(items.reduce((a,r)=>(a[r.key]=(a[r.key]||0)+r.amount,a),{})).map(([key,amount])=>({key,amount}));
@@ -125,7 +121,7 @@
   if(scenario==='rollover')mails.unshift({id:'carry-2026-10',title:'10월 출석 미수령 보상',sender:'출석 보상',expiry:'11.08 00:00까지',body:'10월에 출석하고 받지 않은 보상입니다.\n출석 9~12일차 보상을 우편으로 보내드립니다.',items:sum(rewards.slice(8,12)),claimed:false});
   return {version:1,scenario,screen:'checkin',month,visits:scenario==='rollover'?1:scenario==='full-month'?28:scenario==='next-day'?13:12,claimed:scenario==='rollover'?[]:Array.from({length:scenario==='full-month'?24:8},(_,i)=>i+1),mails,wallet:{gold:128000,coin:1200,scroll:40,arcane:20}};
  }
- let state=fixture(),toastTimer;
+ let state=fixture(),toastTimer,clockScenario,clockDeadline;
  const design={scenario:'accumulated'};
  function restore(saved){
   const s=saved?.privateContent?.ui;
@@ -150,10 +146,19 @@
  const header=title=>`<header class="panel-head"><h2>${title}</h2><button type="button" class="icon-button" data-act="close" aria-label="닫기">✕</button></header>`;
  const action=(label,act,secondary=false,disabled=false)=>`<button type="button" class="action ${secondary?'secondary':''}" data-act="${act}" ${disabled?'disabled':''}>${label}</button>`;
  const panel=(title,body,foot='',cls='')=>`<section class="panel ${cls}">${header(title)}<div class="body ${cls==='checkin-panel'?'checkin-body':''}">${body}</div>${foot?`<footer class="footer ${cls==='checkin-panel'?'checkin-footer':''}">${foot}</footer>`:''}</section>`;
+ function countdownText(){
+  if(clockScenario!==state.scenario){
+   const examples={accumulated:['2026-10-25T15:35:50+09:00','2026-10-26T00:00:00+09:00'],'next-day':['2026-10-26T15:35:50+09:00','2026-10-27T00:00:00+09:00'],'full-month':['2026-10-29T15:35:50+09:00','2026-11-01T00:00:00+09:00'],rollover:['2026-11-01T15:35:50+09:00','2026-11-02T00:00:00+09:00']};
+   const [now,next]=examples[state.scenario];clockScenario=state.scenario;clockDeadline=performance.now()+Date.parse(next)-Date.parse(now);
+  }
+  const seconds=Math.max(0,Math.ceil((clockDeadline-performance.now())/1000));
+  const values=[Math.floor(seconds/3600),Math.floor(seconds%3600/60),seconds%60].map(n=>String(n).padStart(2,'0'));
+  return `다음 보상까지 ${values.join(' : ')}`;
+ }
+ function updateCountdown(){const label=root.querySelector('[data-checkin-countdown]');if(label){const text=countdownText();if(label.textContent!==text)label.textContent=text;}}
  function checkin(){
-  const next=state.scenario==='rollover'?'2026.11.02':state.visits===28?'2026.11.01':state.scenario==='next-day'?'2026.10.27':'2026.10.26';
-  const grid=rewards.map((r,i)=>{const d=i+1,done=state.claimed.includes(d),ready=d<=state.visits&&!done;const status=done?'완료':ready?'받기':'예정';return `<button type="button" class="day ${done?'claimed':ready?'available':'locked'}" data-day="${d}" aria-label="${d}일차 ${catalog[r.key].name} ${format(r.amount)}, ${ready?'활성 미수령 보상 모두 받기':done?'수령 완료, 아이템 정보':'미출석, 아이템 정보'}"><span class="day-label">${d}일차</span>${picture(r)}<span class="status">${status}</span></button>`;}).join('');
-  return panel('월간 출석',`<div class="spread"><span class="month">${state.month}월 출석부</span><span class="count">누적 ${state.visits} / 28일</span></div><p class="intro">받기 칸을 누르면 미수령 보상을 모두 받습니다.</p><div class="grid" aria-label="28일 출석 보상, 7열 4행">${grid}</div><div class="legend"><span class="ready">받기 · 수령 가능</span><span>완료 · 수령 완료</span></div>`,`다음 갱신 ${next} 00:00`,'checkin-panel');
+  const grid=rewards.map((r,i)=>{const d=i+1,done=state.claimed.includes(d),ready=d<=state.visits&&!done;return `<button type="button" class="day ${done?'claimed':ready?'available':'locked'}" data-day="${d}" aria-label="${d}일차 ${catalog[r.key].name} ${format(r.amount)}, ${ready?'활성 미수령 보상 모두 받기':done?'수령 완료, 아이템 정보':'미출석, 아이템 정보'}"><span class="day-label">${d}일차</span>${picture(r,done)}</button>`;}).join('');
+  return panel('월간 출석',`<div class="spread"><span class="month">${state.month}월 출석부</span><span class="count">누적 ${state.visits} / 28일</span></div><div class="grid" aria-label="28일 출석 보상, 7열 4행">${grid}</div>`,`<span role="timer" aria-live="off" data-checkin-countdown>${countdownText()}</span>`,'checkin-panel');
  }
  function mailRow(m){return `<article class="mail-row ${m.claimed?'claimed':''}" data-mail-row="${m.id}"><button type="button" class="mail-title" data-mail="${m.id}"><span>${m.title}<span class="mail-state">${m.claimed?'수령 완료':'미수령'}</span></span><span aria-hidden="true">›</span></button><div class="mail-actions">${slots(m.items)}<button type="button" class="receive" data-claim="${m.id}" ${m.claimed?'disabled':''}>${m.claimed?'수령 완료':'받기'}</button></div><div class="mail-meta"><span>${m.sender}</span><span>${m.expiry}</span></div></article>`;}
  function mailbox(){
@@ -201,6 +206,7 @@
  });
  window.addEventListener('openai:set_globals',e=>{if(restore(e.detail?.globals?.widgetState))render();});
  render();
+ const countdownTimer=setInterval(()=>{if(!root.isConnected){clearInterval(countdownTimer);return;}updateCountdown();},1000);
  if(globalThis.Tweak){const tweak=new Tweak({container:root.querySelector('.device'),onChange:()=>{state=fixture(design.scenario);render();persist();}});tweak.addSelect(design,'scenario',{label:'출석·우편 상태 예시',options:[{label:'10월 · 미수령 4일 누적',value:'accumulated'},{label:'다음날 · 미수령 5일 누적',value:'next-day'},{label:'28일 출석 · 미수령 4일',value:'full-month'},{label:'11월 1일 · 지난달 보상 우편 이월',value:'rollover'}]});}
 })();
 </script>
