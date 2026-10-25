@@ -141,8 +141,8 @@ namespace KingdomIdle.UGUI.Editor
                 check(LocalProgression.Balance(eCurrency.AncientCoin) == 0 && LocalProgression.State.Claims.Count(x => x.StartsWith("game-direct-grant:")) == 2, "100개 일회 지급과 두 번의 실제 소비");
                 check(!ui.HasActiveTabPanel && !MageTowerPopupController.IsOpen && !ui.ActiveFeatureGuide.IsVisible && Time.timeScale == timeScale, "완료 후 메인 복귀·입력 해제·시간 배율 유지");
                 check(LocalProgression.State.MageSkills.Count == 0, "미보유 스킬로 마탑 설명 완료 가능");
-                await ExerciseGameTestResume(ui, manager, owned, check);
-                await ExerciseTestReset(ui, manager, owned, definitions, check);
+                await ExerciseGameTestResume(ui, manager, check);
+                await ExerciseTestReset(ui, manager, definitions, check);
                 await ExerciseMageEquipped(ui, manager, mage, definitions[4], check);
                 await ExerciseRecovery(ui, manager, definitions, enhancement, gacha, tables, check);
             }
@@ -158,7 +158,7 @@ namespace KingdomIdle.UGUI.Editor
         }
 
         /// <summary>격리 계정에서 실제 초기화 메뉴·실패 롤백·재지급을 검사한다. 보유 경제 상태와 무관한 안내 기록이 유지되는지도 확인한다.</summary>
-        private static async UniTask ExerciseTestReset(UIManager ui, GameDirectManager manager, List<GameObject> owned,
+        private static async UniTask ExerciseTestReset(UIManager ui, GameDirectManager manager,
             GameDirectSequenceSO[] definitions, Action<bool, string> check)
         {
             var ids = definitions.Select(x => x.sequenceId).ToArray();
@@ -176,8 +176,7 @@ namespace KingdomIdle.UGUI.Editor
             await Until(() => ui.ActiveFeatureGuide.IsVisible, "초기화 전 안내 표시");
             var passive = AssetDatabase.LoadAssetAtPath<GameDirectSequenceSO>(GameDirectPreparation.DataRoot + "/first_start_menus.asset");
             check(manager.RequestPlay(passive, true) && manager.PendingCount == 1, "초기화 전 대기열 준비");
-            var test = Create<Scripts.Test.GameTest>(owned);
-            test.ResetGuideTestRecords();
+            Scripts.Test.GameTest.ResetGuideTestRecords();
             await Until(() => manager.ActiveSequenceId == null && ids.All(id => !LocalProgression.State.Modules.ContainsKey("game-direct:" + id)), "실제 GameTest 초기화 메뉴 완료");
             await Settle();
             var after = LocalProgression.State;
@@ -197,7 +196,7 @@ namespace KingdomIdle.UGUI.Editor
         }
 
         /// <summary>격리 계정에 육성만 미완료로 준비하고 실제 GameTest 순차 메뉴를 호출한다. 이전 완료 이력은 유지하며 새 소비 없이 취소한다.</summary>
-        private static async UniTask ExerciseGameTestResume(UIManager ui, GameDirectManager manager, List<GameObject> owned, Action<bool, string> check)
+        private static async UniTask ExerciseGameTestResume(UIManager ui, GameDirectManager manager, Action<bool, string> check)
         {
             LocalProgression.Execute("guide-resume-menu-fixture", s => {
                 s.Modules.Remove("game-direct:guide_development");
@@ -206,8 +205,7 @@ namespace KingdomIdle.UGUI.Editor
             });
             check(new GameDirectProgressStore().TrySave("guide_development", LocalProgression.AccountGeneration,
                 new GameDirectProgress { ConfirmedSteps = new List<string> { "open", "gold" } }), "육성만 미확인 실습 상태 준비");
-            var test = Create<Scripts.Test.GameTest>(owned);
-            test.TestFirstStartGuide();
+            Scripts.Test.GameTest.TestFirstStartGuide();
             await Until(() => GameDirectInteraction.Step?.Id == "attack_once" && ui.ActiveFeatureGuide.IsVisible, "GameTest 순차 메뉴로 육성 재개");
             check(manager.ActiveSequenceId == "guide_development" && manager.PendingCount == 0 && string.IsNullOrEmpty(manager.LastError), "GameTest는 완료 4개를 정상 생략하고 육성만 재개");
             manager.CancelCurrent(); await Until(() => manager.ActiveSequenceId == null, "GameTest 재개 검증 취소");

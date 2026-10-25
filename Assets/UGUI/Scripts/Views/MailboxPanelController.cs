@@ -44,7 +44,9 @@ namespace KingdomIdle.UGUI
                 _view.claimAll.interactable = _view.deleteClaimed.interactable = false;
                 return;
             }
-            bool expired = RewardGrants.Now >= _expiry;
+            long now = RewardGrants.Now;
+            foreach (var row in _rows.Values) row.RefreshExpiry(now);
+            bool expired = now >= _expiry;
             if (!expired && _revision == state.RewardsRevision && _account == LocalProgression.AccountGeneration) return;
             bool saved = service.Refresh();
             _snapshot = service.GetSnapshot();

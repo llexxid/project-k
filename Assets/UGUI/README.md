@@ -146,7 +146,9 @@ Android 검사 도우미·결과는 `AI/qa/hud/`, `Recordings/HudRevision/`에 �
 
 보상표 오류는 신규 출석 개방을 막고 화면에 안내하지만 현재 월에 이미 확정된 보상의 수령은 허용한다. 우편 시각은 UTC 초로 전달하며 한국시간으로 표시할 수 있는 범위를 검사한다. 재발급 방지용 `mail-issued:`는 유지하고, 새 `mail-claimed:` 기록은 만들지 않는다. 기존 저장 기록은 보존한다.
 
-0.16.3 배치는 전용 프리팹의 `RectTransform`·기본 Layout 컴포넌트에서 편집한다. 출석 `Sheet`는 Vertical Layout Group과 Content Size Fitter로 헤더·본문·하단 높이를 합산하며 `Body/Rewards`는 **7열 / Cell Size 128×160 / Spacing 8×8**이다. 우편은 내부 목록 프레임과 하단 버튼을 분리하고 첨부는 120×160·4열, 팝업 첨부는 기존 128×160·4열을 유지한다. 런타임 크기 계산은 없으며 슬롯 내부는 `Item_RewardSlot`에서 편집한다. 출석 정책은 28일을 유지하며 31칸은 레이아웃 미리보기만 지원한다.
+현재 배치는 전용 프리팹의 `RectTransform`·기본 Layout 컴포넌트에서 편집한다. 출석 `Sheet`는 Vertical Layout Group과 Content Size Fitter로 헤더·본문·하단 높이를 합산하며 `Body/Rewards`는 **7열 / Cell Size 128×160 / Spacing 8×8**이다. 우편 첨부는 120×160, 팝업 첨부는 128×160 셀을 **가로 한 줄**로 배치하고 넘치면 가로 스크롤한다. 팝업은 폭 720이며 본문이 없으면 높이 318, 있으면 본문 스크롤 영역을 포함해 458로 기본 Layout이 조절한다. 런타임 크기 계산은 없으며 슬롯 내부는 `Item_RewardSlot`에서 편집한다. 출석 정책은 28일을 유지하며 31칸은 레이아웃 미리보기만 지원한다.
+
+수령한 우편은 회색 배경과 어두워진 첨부로 구분하며 아이템 설명 클릭은 유지한다. 기한은 남은 일·시간·분으로 표시하고, 0.5초 확인 중 표시 분이 바뀔 때만 텍스트를 갱신한다. `1분 미만 남음`과 `만료`도 구분한다. 우편 첨부에서 시작한 세로 드래그는 바깥 우편 목록으로 전달한다.
 
 에디터 도구:
 
@@ -156,4 +158,4 @@ Android 검사 도우미·결과는 `AI/qa/hud/`, `Recordings/HudRevision/`에 �
 
 수동 테스트는 Editor Play에서 로그인·서비스 준비 후 실행하며 편집 모드에서는 메뉴가 비활성화된다. 씬에서 `GameTest` 컴포넌트를 선택할 필요는 없다. `Assets/_Project/Scripts/Test/GameTest.cs`의 `UNITY_EDITOR` 영역에만 포함되며 **현재 계정에 저장**된다. 출석 초기화 후 다시 받은 보상은 누적될 수 있다. 기기 시계는 변경하지 않는다.
 
-[0.16.3 와이어프레임 반영 검증과 캡처](../../AI/validation/checkin-mailbox-wireframe-20261026/README.md)는 이전 UI 검증 기록이다. [0.16.2 레이아웃 변경 검증](../../AI/validation/checkin-mailbox-layout-20261026/README.md), [0.16.1 코드 정리 검증](../../AI/validation/checkin-mailbox-20261026/README.md)은 과거 결과로 보존한다. APK·실기기 검증은 최종 요청으로 제외했다. 스크립트별 책임·메서드 호출·거래 경계·다이어그램과 Inspector 편집 위치는 [PersonalDocs 상세 설명](../../PersonalDocs/CheckIn_우편함_구현구조와_호출흐름.md)에 있다. `PersonalDocs`는 Git 제외 대상인 로컬 개인 문서 폴더다.
+테스트 검증 기록과 캡처는 Git 제외 경로 `PersonalDocs/Validation/checkin-mailbox-*`에 로컬 보관한다. APK·실기기 검증은 최종 요청으로 제외했다. 스크립트별 책임·메서드 호출·거래 경계·다이어그램과 Inspector 편집 위치는 [PersonalDocs 상세 설명](../../PersonalDocs/CheckIn_우편함_구현구조와_호출흐름.md)에 있다. `PersonalDocs`는 Git 제외 대상인 로컬 개인 문서 폴더다.

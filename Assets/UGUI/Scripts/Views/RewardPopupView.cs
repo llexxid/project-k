@@ -12,6 +12,8 @@ namespace KingdomIdle.UGUI
     {
         public TMP_Text title, description;
         public RectTransform panel, slots;
+        public GameObject descriptionArea;
+        public UnityEngine.UI.ScrollRect rewardScroll;
         public UnityEngine.UI.Button closeButton, backdrop;
         public string SourceMailId { get; private set; }
         private long _account;
@@ -20,21 +22,21 @@ namespace KingdomIdle.UGUI
         {
             var view = Open(owner, RewardPresentation.Name(reward.Currency), mailId);
             if (view == null) return;
-            view.description.text = RewardPresentation.Description(reward.Currency);
+            view.SetDescription(RewardPresentation.Description(reward.Currency));
             view.AddSlots(new[] { new RewardGrant(reward.Currency, reward.Amount) }, false);
         }
         public static void ShowRewards(Transform owner, IReadOnlyList<RewardGrant> rewards)
         {
             var view = Open(owner, "보상 획득", null);
             if (view == null) return;
-            view.description.text = "";
+            view.SetDescription("");
             view.AddSlots(rewards, true);
         }
         public static void ShowMail(Transform owner, MailMessage mail)
         {
             var view = Open(owner, mail.Title, mail.Id);
             if (view == null) return;
-            view.description.text = mail.Body;
+            view.SetDescription(mail.Body);
             view.AddSlots(mail.Rewards, true);
         }
         private static RewardPopupView Open(Transform owner, string heading, string mailId)
@@ -51,6 +53,11 @@ namespace KingdomIdle.UGUI
             UITween.PopIn(view.panel);
             return view;
         }
+        private void SetDescription(string text)
+        {
+            description.text = text;
+            descriptionArea.SetActive(!string.IsNullOrWhiteSpace(text));
+        }
         private void AddSlots(IEnumerable<RewardGrant> rewards, bool showInfo)
         {
             foreach (var reward in rewards)
@@ -58,6 +65,8 @@ namespace KingdomIdle.UGUI
                 var slot = Instantiate(UIManager.Instance.Catalog.itemRewardSlot, slots, false).GetComponent<RewardSlotView>();
                 slot.Bind(reward, showInfo ? () => ShowItem(transform, reward, SourceMailId) : null);
             }
+            UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(panel);
+            rewardScroll.horizontalNormalizedPosition = 0;
         }
         private void Update() { if (_account != LocalProgression.AccountGeneration) Close(); }
         private void OnDisable() { if (Application.isPlaying) Destroy(gameObject); }
