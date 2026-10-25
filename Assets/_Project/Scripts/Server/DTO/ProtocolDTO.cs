@@ -1,6 +1,6 @@
 using Newtonsoft.Json;
 
-namespace IdleKingdomFunction.Common.Dto
+namespace Protocol.Message.Dto
 {
 
 // 각 API 응답이 상속하는 공통 헤더. 게임 결과는 개별 응답 DTO의 필드로 함께 반환한다.

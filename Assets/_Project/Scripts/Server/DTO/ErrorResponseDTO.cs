@@ -1,7 +1,7 @@
-using IdleKingdomFunction.Common.enums;
+using Protocol.Message.Data;
 using Newtonsoft.Json;
 
-namespace IdleKingdomFunction.Common.Dto
+namespace Protocol.Message.Dto
 {
 
 // Controller에서 HTTP 400을 반환할 때 사용하는 응답.

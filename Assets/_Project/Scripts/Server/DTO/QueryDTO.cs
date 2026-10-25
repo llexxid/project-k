@@ -1,4 +1,4 @@
-using IdleKingdomFunction.Common.enums;
+using Protocol.Message.Data;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace IdleKingdomFunction.Common.Dto
+namespace Protocol.Message.Dto
 {
 	public struct JobStat
 	{
@@ -354,6 +354,9 @@ namespace IdleKingdomFunction.Common.Dto
 		public int CharacterNum { get; set; }
 		[JsonProperty(Required = Required.Always)]
 		public ulong ItemCode { get; set; }
+		// 0이면 무제한. 서버가 항상 보낸다.
+		[JsonProperty(Required = Required.Always)]
+		public ulong ExpireTimesc { get; set; }
 		public string PasreToJson()
 		{
 			return JsonConvert.SerializeObject(this);
@@ -410,5 +413,251 @@ namespace IdleKingdomFunction.Common.Dto
 		{ 
 			return JsonConvert.SerializeObject(this);
 		}
+	}
+
+	// ---- 아래는 서버 QueryDTO.cs 상세 상태 DTO의 사본(2026-10-25). 응답 전용이며 저장 문서(MailBoxDTO 등)는 제외한다. ----
+	// 모든 필드는 Required.Always이고, 서버가 nullable(T?)로 선언한 필드만 Required.AllowNull이다.
+	// eCurrency는 전역 enum(Wallet)이 먼저 바인딩되므로 서버 사본 Protocol.Message.Data.eCurrency로 완전 수식한다.
+
+	// 장비 묶음. 종류·강화·만료가 같은 장비를 ItemCode의 수량 비트로 묶는다.
+	public sealed class EquipmentStackDTO
+	{
+		[JsonProperty(Required = Required.Always)]
+		public ItemCode ItemCode { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public bool IsLocked { get; set; }
+		// 이 묶음의 장비 1개당 실제 강화석 지출.
+		[JsonProperty(Required = Required.Always)]
+		public long EnhancementStonesSpent { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public List<int> EquippedCharacterIndexes { get; set; } = null!;
+		[JsonIgnore]
+		public int DefinitionId => (int)ItemCode.GetItemCode();
+		[JsonIgnore]
+		public int EnhancementLevel => (int)ItemCode.GetItemEnchantCount();
+		[JsonIgnore]
+		public int Count => (int)ItemCode.GetItemAmount();
+	}
+	// 예비 보관 묶음. 종류·강화·만료를 식별하는 코드이며 예비 수량의 기준은 Count다.
+	public sealed class EquipmentReserveStackDTO
+	{
+		[JsonProperty(Required = Required.Always)]
+		public ItemCode ItemCode { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public int Count { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public bool IsLocked { get; set; }
+	}
+	public sealed class EquipmentInventoryDTO
+	{
+		[JsonProperty(Required = Required.Always)]
+		public List<EquipmentStackDTO> Items { get; set; } = null!;
+		[JsonProperty(Required = Required.Always)]
+		public List<EquipmentStackDTO> PendingItems { get; set; } = null!;
+		[JsonProperty(Required = Required.Always)]
+		public List<EquipmentReserveStackDTO> ReserveStacks { get; set; } = null!;
+		[JsonProperty(Required = Required.Always)]
+		public int Capacity { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public int PendingCapacity { get; set; }
+		// bit0 Normal, bit1 Rare, bit2 Epic.
+		[JsonProperty(Required = Required.Always)]
+		public int AutoDismantleRarityMask { get; set; }
+	}
+	public sealed class MageSkillDTO
+	{
+		[JsonProperty(Required = Required.Always)]
+		public int SkillId { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public int EnhancementLevel { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public int AwakeningLevel { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public int Fragments { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public long KnowledgeSpent { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public bool BloomEnabled { get; set; }
+	}
+	public sealed class MageTowerStateDTO
+	{
+		[JsonProperty(Required = Required.Always)]
+		public List<MageSkillDTO> Skills { get; set; } = null!;
+		// 슬롯 5칸. 빈 슬롯은 -1이다.
+		[JsonProperty(Required = Required.Always)]
+		public int[] EquippedSkillIds { get; set; } = null!;
+	}
+	public enum RewardKind { Equipment, Skill, Currency }
+	public enum EquipmentDisposition { Inventory, Pending, Reserve, AutoDismantled, None }
+	// 가챠·사냥 드롭·우편 수령 보상 1건. Kind에 따라 DefinitionId/ItemCode(장비·스킬) 또는 CurrencyType(재화)가 채워진다.
+	public sealed class GachaRewardDTO
+	{
+		[JsonProperty(Required = Required.Always)]
+		public int Order { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public RewardKind Kind { get; set; }
+		[JsonProperty(Required = Required.AllowNull)]
+		public int? DefinitionId { get; set; }
+		[JsonProperty(Required = Required.AllowNull)]
+		public Protocol.Message.Data.eCurrency? CurrencyType { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public long Amount { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public bool IsDuplicate { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public int GrantedFragments { get; set; }
+		[JsonProperty(Required = Required.AllowNull)]
+		public ItemCode? ItemCode { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public EquipmentDisposition Disposition { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public long GrantedEquipmentStone { get; set; }
+	}
+	public sealed class GachaStateDTO
+	{
+		// 장비 가챠 천장 카운터(0~39). 40번째는 Epic 확정.
+		[JsonProperty(Required = Required.Always)]
+		public int EquipmentPity { get; set; }
+	}
+	public sealed class DungeonStateDTO
+	{
+		[JsonProperty(Required = Required.Always)]
+		public int GoldTickets { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public int RubyTickets { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public long TicketResetUtc { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public int GoldDungeonClear { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public int RubyDungeonClear { get; set; }
+		// 진행 중인 던전 전투. 없으면 둘 다 null이다.
+		[JsonProperty(Required = Required.AllowNull)]
+		public string ActiveBattleId { get; set; }
+		[JsonProperty(Required = Required.AllowNull)]
+		public long? ActiveDungeonId { get; set; }
+	}
+	public sealed class StageProgressDTO
+	{
+		[JsonProperty(Required = Required.Always)]
+		public long HighestMainClear { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public List<long> MainClears { get; set; } = null!;
+	}
+	public enum QuestCategory { Guide, Daily, Weekly, Achievement }
+	public enum QuestRowState { Locked, InProgress, Claimable, Claimed }
+	public sealed class QuestRewardDTO
+	{
+		[JsonProperty(Required = Required.Always)]
+		public RewardKind Kind { get; set; }
+		[JsonProperty(Required = Required.AllowNull)]
+		public Protocol.Message.Data.eCurrency? CurrencyType { get; set; }
+		[JsonProperty(Required = Required.AllowNull)]
+		public int? DefinitionId { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public decimal Amount { get; set; }
+		// 사냥 효율에 따라 서버가 지급 시점에 계산하는 골드 보상.
+		[JsonProperty(Required = Required.Always)]
+		public bool IsDynamicGold { get; set; }
+	}
+	public sealed class QuestRowDTO
+	{
+		[JsonProperty(Required = Required.Always)]
+		public long QuestId { get; set; }
+		// "permanent" 또는 KST 기준 yyyy-MM-dd. 수령 요청에 그대로 넣는다.
+		[JsonProperty(Required = Required.Always)]
+		public string PeriodKey { get; set; } = null!;
+		[JsonProperty(Required = Required.Always)]
+		public QuestCategory Category { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public string Title { get; set; } = null!;
+		[JsonProperty(Required = Required.Always)]
+		public string Description { get; set; } = null!;
+		[JsonProperty(Required = Required.Always)]
+		public string PresentationType { get; set; } = null!;
+		[JsonProperty(Required = Required.Always)]
+		public string ObjectiveType { get; set; } = null!;
+		[JsonProperty(Required = Required.Always)]
+		public long TargetId { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public long RequiredCount { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public long Progress { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public QuestRowState State { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public bool IsPending { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public long ExpiresUtc { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public List<QuestRewardDTO> Rewards { get; set; } = null!;
+	}
+	public sealed class QuestStateDTO
+	{
+		[JsonProperty(Required = Required.Always)]
+		public long ServerTimeUtc { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public string DailyPeriodKey { get; set; } = null!;
+		[JsonProperty(Required = Required.Always)]
+		public long DailyResetUtc { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public string WeeklyPeriodKey { get; set; } = null!;
+		[JsonProperty(Required = Required.Always)]
+		public long WeeklyResetUtc { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public List<QuestRowDTO> Rows { get; set; } = null!;
+	}
+	public sealed class ReincarnationStateDTO
+	{
+		[JsonProperty(Required = Required.Always)]
+		public int Level { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public long Count { get; set; }
+		// Day(KST yyyy-MM-dd)에 수행한 환생 횟수. 날짜가 바뀌면 0부터 다시 센다.
+		[JsonProperty(Required = Required.Always)]
+		public int TodayCount { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public string Day { get; set; } = null!;
+		[JsonProperty(Required = Required.Always)]
+		public long LastUtc { get; set; }
+	}
+	public sealed class AttendanceStateDTO
+	{
+		// 누적 출석 일수. 보상 일차는 (TotalDays - 1) % 28 + 1이다.
+		[JsonProperty(Required = Required.Always)]
+		public long TotalDays { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public string LastDay { get; set; } = null!;
+	}
+	public enum MailCategory { System, Attendance }
+	// 우편 첨부. 재화는 CurrencyType, 장비는 DefinitionId로 대상을 정한다.
+	public sealed class MailRewardDTO
+	{
+		[JsonProperty(Required = Required.Always)]
+		public RewardKind Kind { get; set; }
+		[JsonProperty(Required = Required.AllowNull)]
+		public Protocol.Message.Data.eCurrency? CurrencyType { get; set; }
+		[JsonProperty(Required = Required.AllowNull)]
+		public int? DefinitionId { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public long Amount { get; set; }
+	}
+	public sealed class MailDTO
+	{
+		[JsonProperty(Required = Required.Always)]
+		public long MailId { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public MailCategory Category { get; set; }
+		// 본문 대신 클라이언트 현지화 키만 온다.
+		[JsonProperty(Required = Required.Always)]
+		public string TitleKey { get; set; } = null!;
+		[JsonProperty(Required = Required.Always)]
+		public string BodyKey { get; set; } = null!;
+		[JsonProperty(Required = Required.Always)]
+		public long SentUtc { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public long ExpiresUtc { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public List<MailRewardDTO> Rewards { get; set; } = null!;
 	}
 }

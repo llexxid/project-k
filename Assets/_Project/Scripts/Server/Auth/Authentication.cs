@@ -1,7 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using Google;
-using IdleKingdomFunction.Common.Dto;
+using Protocol.Message.Dto;
 using PlayFab;
 using PlayFab.ClientModels;
 using Scripts.Core.Manager;
@@ -15,6 +15,7 @@ namespace Scripts.Server.Auth
     {
         private readonly NetworkManager _network;
         private const string GuestKey = "authentication.guest-id";
+        private const double AuthenticationTimeoutSeconds = 30;
         private const string WebClientId = "222024339558-o157jmef5jhip2s9vtfo3kto1ojfpejf.apps.googleusercontent.com";
         public Authentication(NetworkManager network) => _network = network;
 
@@ -61,17 +62,17 @@ namespace Scripts.Server.Auth
                 // A missing display name does not prove that the player's data needs initialization.
                 if (login.NewlyCreated)
                 {
-                    _network.OnSignUpInitUser(OnInitialized, _network.FailLogin);
+                    _network.Call<InitUserRequestDTO, UserInitResponseDTO>(new InitUserRequestDTO(), OnInitialized, _network.FailLogin);
                 }
-                else _network.OnLogIn(OnInitialized, _network.FailLogin);
+                else _network.Call<AuthRequestDTO, UserInitResponseDTO>(new AuthRequestDTO(), OnInitialized, OnLoginFailed);
             }
             catch (Exception ex)
             {
                 if (!IsCurrent(generation)) return;
                 if (ex is AuthenticationException auth)
-                    _network.FailLogin(new GameRpcFailure(GameRpcFailureKind.Transport, "로그인하지 못했습니다. 다시 시도해 주세요.", transport: auth.Error));
+                    _network.FailLogin(auth.Error);
                 else
-                    _network.FailLogin(new GameRpcFailure(ex is TimeoutException ? GameRpcFailureKind.Timeout : GameRpcFailureKind.Transport,
+                    _network.FailLogin(NetworkManager.CreateError(ex is TimeoutException ? "Timeout" : "Transport",
                         ex is TimeoutException ? "로그인 대기 시간이 초과되었습니다. 다시 시도해 주세요." : "로그인이 취소되었거나 완료되지 않았습니다."));
             }
         }
@@ -81,16 +82,28 @@ namespace Scripts.Server.Auth
         private void OnInitialized(UserInitResponseDTO response)
         {
             _network.SetGameSession(response.SessionID);
-            // S02 is not implemented in the checked server repository. Its compressed v2 response
-            // cannot restore equipment instances, loadout/bloom, quests, dungeons or content definitions.
-            // Do not call the old import-once path, load local progression, or publish Ready here.
-            _network.FailLogin(new GameRpcFailure(GameRpcFailureKind.IntegrationPending,
-                "서버의 전체 게임 데이터 연동이 준비되지 않았습니다. 기존 진행 데이터는 변경하지 않았습니다."));
+            // The full snapshot reaches game code through NetworkManager.LatestUserState / UserStateReceived and can be
+            // re-read with RefreshUserState (OnGetUserState). Here only the session is stored and Ready is published.
+            _network.CompleteLogin();
+        }
+
+        // Login rejection. When the server has no player data (1012 PlayerNotInitialized) sign up once instead.
+        // While non-200 rejections arrive wrapped in FunctionExecutionError the ErrorCode is not delivered and this
+        // branch cannot trigger; the delivery contract is decided after observing a live title (docs/client-contract-review.md).
+        private void OnLoginFailed(PlayFabError error)
+        {
+            if (error?.CustomData is ErrorResponseDTO business &&
+                business.ErrorCode == Protocol.Message.Data.eErrorCode.PlayerNotInitialized)
+            {
+                _network.Call<InitUserRequestDTO, UserInitResponseDTO>(new InitUserRequestDTO(), OnInitialized, _network.FailLogin);
+                return;
+            }
+            _network.FailLogin(error);
         }
 
         private static async Task<T> WithTimeout<T>(Task<T> task)
         {
-            if (await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(GameRpcClient.TimeoutSeconds))) != task)
+            if (await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(AuthenticationTimeoutSeconds))) != task)
             {
                 // Observe a late fault without running any Unity or account work on its worker.
                 _ = task.ContinueWith(t => { var ignored = t.Exception; }, TaskContinuationOptions.OnlyOnFaulted);

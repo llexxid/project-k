@@ -1,4 +1,4 @@
-﻿using IdleKingdomFunction.Common.Dto;
+﻿using Protocol.Message.Dto;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace IdleKingdomFunction.Common.enums
+namespace Protocol.Message.Data
 {
 	public struct DropResult
 	{
@@ -78,6 +78,37 @@ namespace IdleKingdomFunction.Common.enums
         InvalidStoredData = 1015,
         // 호출 문맥에서 PlayFab 타이틀 ID를 얻지 못한 경우.
         InvalidTitleId = 1016,
+        // 1017~1042: 서버 CommonDatas.cs와 동기화(2026-10-25). 모두 HTTP 404(Validation)다.
+        // 계정별 작업 잠금 선점 실패(같은 계정의 다른 요청이 처리 중).
+        PlayerBusy = 1017,
+        InvalidEquipment = 1018,
+        EquipmentProtected = 1019,
+        EquipmentCapacity = 1020,
+        InsufficientEquipmentStone = 1021,
+        InvalidSkillLoadout = 1022,
+        InvalidDungeon = 1023,
+        NoDungeonTicket = 1024,
+        BattleNotActive = 1025,
+        BattleIncomplete = 1026,
+        InvalidQuest = 1027,
+        QuestNotClaimable = 1028,
+        RewardAlreadyClaimed = 1029,
+        // 구버전 저장 데이터라 로그인/전체 상태 조회로 먼저 이관해야 하는 경우.
+        MigrationRequired = 1030,
+        NumericLimit = 1031,
+        ReincarnationMaxLevel = 1032,
+        ReincarnationDailyLimit = 1033,
+        ReincarnationBossRequired = 1034,
+        ReincarnationCooldown = 1035,
+        // 던전 진행 중이거나 보스 웨이브에서는 환생할 수 없다.
+        ReincarnationNotAllowed = 1036,
+        InvalidKillRate = 1037,
+        AttendanceAlreadyChecked = 1038,
+        MailNotFound = 1039,
+        MailExpired = 1040,
+        MailboxFull = 1041,
+        // 우편 요청 값 범위 오류 또는 다른 계정의 PlayFabId.
+        InvalidMailRequest = 1042,
 	}
 
 	public enum eConst
@@ -99,21 +130,18 @@ namespace IdleKingdomFunction.Common.enums
 		GET_JOB_FRAGMENT = 40,
 	}
 
-	namespace Scripts.Core
+	public enum eMonsterType : ulong
 	{
-		public enum eMonsterType : ulong
-		{
-			MON_SKELETON = 4294967297,
-			MON_GOBLIN = 4294967298,
-			MON_ORC = 4294967299,
-			MON_BANDIT_ARCHER = 4294967300,
-			MON_BANDIT_LEADER = 4294967301,
-			MON_BANDIT_SHIELD = 4294967302,
-			BANDIT_KING = 4294967303,
-			AMORED_ORC = 4294967304,
-			ORC = 4294967305,
-			ORC_KING = 4294967306,
-		}
+		MON_SKELETON = 4294967297,
+		MON_GOBLIN = 4294967298,
+		MON_ORC = 4294967299,
+		MON_BANDIT_ARCHER = 4294967300,
+		MON_BANDIT_LEADER = 4294967301,
+		MON_BANDIT_SHIELD = 4294967302,
+		BANDIT_KING = 4294967303,
+		AMORED_ORC = 4294967304,
+		ORC = 4294967305,
+		ORC_KING = 4294967306,
 	}
 
 	public enum eStage : long
@@ -226,6 +254,9 @@ namespace IdleKingdomFunction.Common.enums
 		KingdomSupply,
 		TrainingTome,
 		ClassFragment,
-		ArcaneKnowledge
+		ArcaneKnowledge,
+		// 서버 사본과 동기화(2026-10-25). 전역 eCurrency(Wallet)와 같은 값이다.
+		Ruby = 6,
+		EquipmentStone = 7
 	}
 }

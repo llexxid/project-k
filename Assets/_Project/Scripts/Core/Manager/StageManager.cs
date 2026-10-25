@@ -5,7 +5,7 @@ using Scripts.Core.Manager;
 using Scripts.Core.SO;
 using Scripts.Core.Utils;
 using Scripts.Monster.SO;
-using IdleKingdomFunction.Common.Dto;
+using Protocol.Message.Dto;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -937,8 +937,6 @@ var definition = _currentSession?.Definition;
 		/// <summary>사냥 결과 버퍼를 DTO로 변환해 서버에 전송한다</summary>
 		private void SendHuntResult()
 		{
-            if (NetworkManager.Instance == null || !NetworkManager.Instance.IsGameDataReady
-                || !NetworkManager.Instance.HasSessionGuid) return;
 			if (_huntResultList.Count <= 0)
 			{
 				Debug.Log($"[StageManager Send] Buffer Is Empty.");
@@ -953,14 +951,19 @@ var definition = _currentSession?.Definition;
 
 				code = new HuntResult
 				{
-					MonsterType = (IdleKingdomFunction.Common.enums.Scripts.Core.eMonsterType)(ulong)type,
+					MonsterType = (Protocol.Message.Data.eMonsterType)(ulong)type,
 					Count = (short)count
 				};
 				Debug.Log($"[StageManager Send] Type : {type} | count : {count}");
 				_sendmsg.Add(code);
 			}
 
-			if (!LocalProgression.IsLocalAuthority) NetworkManager.Instance.OnHuntReward(_currentStage, _sendmsg, OnHuntRewardSuccess, OnError);
+            NetworkManager.Instance.Call<OnRewardRequestDTO, OnHuntResponseDTO>(
+                new OnRewardRequestDTO
+                {
+                    Stage = (Protocol.Message.Data.eStage)(long)_currentStage,
+                    Loots = _sendmsg
+                }, OnHuntRewardSuccess, OnHuntRewardError);
 			_huntResultList.Clear();
 			_sendmsg.Clear();
 		}
@@ -974,9 +977,9 @@ var definition = _currentSession?.Definition;
 		{
 		}
 		/// <summary>서버 요청 실패 메시지를 로그로 출력한다</summary>
-		private void OnError(Scripts.Server.GameRpcFailure error)
+		private void OnHuntRewardError(PlayFab.PlayFabError error)
 		{
-			Debug.LogWarning(error.Message);
+			Debug.LogWarning(error.ErrorMessage);
 		}
 
 		#endregion

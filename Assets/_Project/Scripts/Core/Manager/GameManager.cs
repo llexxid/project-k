@@ -114,12 +114,6 @@ namespace Scripts.Core
 
         private void HandleMainSceneReady()
         {
-            if (NetworkManager.Instance == null || !NetworkManager.Instance.IsGameDataReady)
-            {
-                Debug.LogWarning("[GameManager] Main entry requires complete server state and definitions.");
-                LoadManager.Instance.LoadAsyncScene(eSceneType.title);
-                return;
-            }
             Debug.Log("메인 씬 진입");
 
             MonsterSpawner.Instance.OnEnterScene();
