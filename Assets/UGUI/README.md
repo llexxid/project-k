@@ -55,7 +55,7 @@ Direction.GameDirectManager.Instance.RequestPlay("guide_development");
 
 장비 안내의 `ArmyEquipment`는 길이가 가변적인 콘텐츠가 아니라 실제 `ScrollRect.viewport`를 등록한다. View는 활성 조상 `RectMask2D`와 강조 영역을 교차해 화면 밖 콘텐츠가 전장까지 강조되지 않게 하며, 뷰포트 안내에서는 스크롤 위치를 자동으로 이동하거나 테두리를 확대하지 않는다.
 
-`guide_mage_tower`는 **실제 마탑 탭 → 스킬 목록 → 장착 버튼 설명 → 해제 버튼 설명**의 네 단계다. `RequestPlay("guide_mage_tower")`로 요청하거나 `GameTest → Guide Test/실제 계정 저장/5 마탑 스킬`에서 실행한다. 장착·해제 실습은 요구하지 않으며 보유 스킬이 없어도 설명 확인으로 완료한다. `MageTower` 문맥은 기존 스킬 팝업을 정상 진행 화면으로 인정하고 미확인 단계 재개 시 복원한다. 마지막 확인 또는 건너뛰기 후에는 팝업을 닫는다. 진행 기록만 저장하며 스킬 소유·장착·재화는 변경하지 않는다. 에셋 누락 복구는 `KingdomIdle/Direction/Prepare mage tower guide`로 가능하다.
+`guide_mage_tower`는 **실제 마탑 탭 → 스킬 목록 → 장착 버튼 설명 → 해제 버튼 설명**의 네 단계다. `RequestPlay("guide_mage_tower")`로 요청하거나 Unity 상단 `GameTest → Guide Test/실제 계정 저장/5 마탑 스킬` 메뉴에서 실행한다. 장착·해제 실습은 요구하지 않으며 보유 스킬이 없어도 설명 확인으로 완료한다. `MageTower` 문맥은 기존 스킬 팝업을 정상 진행 화면으로 인정하고 미확인 단계 재개 시 복원한다. 마지막 확인 또는 건너뛰기 후에는 팝업을 닫는다. 진행 기록만 저장하며 스킬 소유·장착·재화는 변경하지 않는다. 에셋 누락 복구는 `KingdomIdle/Direction/Prepare mage tower guide`로 가능하다.
 
 안내 진행은 `Modules["game-direct:" + sequenceId]`, 실습 성공은 `Modules["game-direct-action:" + sequenceId + ":" + stepId]`에 분리 저장한다. 강화·뽑기의 `Execute` 거래 초안에 성공 영수증을 함께 넣으므로 소비 직후 종료되어도 재소비하지 않는다. 안내 JSON 저장은 성공 영수증을 덮지 않는다. 주화 지급은 `Claims`의 안내 ID·Action별 키와 50개 지급을 같은 거래에 저장한다. 이미 지급한 주화는 중단 시 회수하지 않으며 추가 지급도 없다. 저장 실패는 초안을 확정하지 않고 안내 입력을 해제한다. 계정 전환은 이전 요청·대기열·지연 콜백을 무효화한다. 환생으로 초기화하지 않는다.
 
@@ -63,7 +63,7 @@ Direction.GameDirectManager.Instance.RequestPlay("guide_development");
 
 ### 직접 실행과 검증
 
-bootstrap부터 Play하고 메인 화면에 진입한다. `GameTest` 컴포넌트의 `Guide Test/실제 계정 저장`에서 다섯 개를 각각 또는 순차 요청한다. 실제 계정 결과가 저장되므로 완료 후 다시 실행되지 않는 것이 정상이다. 환생 설명은 별도 미리보기 메뉴로 확인한다. 에셋 연결 복구는 편집 모드 `KingdomIdle/Direction/Prepare interactive guides`를 사용하며 기존 SO의 수동 편집은 덮어쓰지 않는다.
+bootstrap부터 Play하고 메인 화면에 진입한다. Unity 상단 `GameTest → Guide Test/실제 계정 저장` 메뉴에서 다섯 개를 각각 또는 순차 요청한다. 편집 모드에서는 메뉴가 비활성화된다. 실제 계정 결과가 저장되므로 완료 후 다시 실행되지 않는 것이 정상이다. 환생 설명은 별도 미리보기 메뉴로 확인한다. 에셋 연결 복구는 편집 모드 `KingdomIdle/Direction/Prepare interactive guides`를 사용하며 기존 SO의 수동 편집은 덮어쓰지 않는다.
 
 `KingdomIdle/Direction/Validate isolated guide acceptance`는 빈 PlayMode 씬·격리 계정·실제 프리팹·EventSystem 입력으로 검사하고 원래 편집 씬으로 돌아간다. 기존 안내 회귀, 다섯 안내 FIFO, 실제 강화·확률 뽑기, 중복 소비 방지, 지급·저장 실패와 재개를 검사한다. 장비 48개의 스크롤·강조 범위와 마탑 열기·재개도 검사하며 기록은 `AI/validation/game-direct-mage-20260921/`에 남긴다. 이전 네 실습 검증은 `AI/validation/game-direct-interactive-20260921/`에 보존한다. 화면 비율 캡처는 Editor 시뮬레이션이며 Android 실기기 결과가 아니다. 과거 0.15.0 검증 기록은 `AI/validation/game-direct-20260921/`에 보존한다.
 
@@ -71,7 +71,7 @@ bootstrap부터 Play하고 메인 화면에 진입한다. `GameTest` 컴포넌�
 
 `GameTest` 순차 실행은 현재 계정에서 미완료인 안내만 요청한다. 완료·건너뛰기 항목은 ID와 함께 `안내 생략` 일반 로그를 남기며 기록을 초기화하지 않는다. 패널 복원 직후 대상이 화면·마스크 밖에 있으면 `FeatureGuideView.TryRefreshLayout`은 false를 반환하고 호출자가 입력·참조를 정리한다. Player가 같은 미확인 단계를 다시 표시하므로 일시적인 레이아웃 미준비를 완료나 오류로 취급하지 않는다. 이 경계와 실제 `GameTest` 재개 경로의 회귀 결과는 `AI/validation/game-direct-visibility-20260921/`에 기록한다.
 
-반복 실습은 PlayMode에서 `GameTest → Guide Test/실제 계정 저장/다섯 안내 테스트 기록 초기화 (재지급 허용)`를 실행한 뒤 개별 또는 순차 실행 메뉴를 사용한다. 초기화 메뉴는 실행 중인 안내와 대기열을 정리하고, 육성·왕국군·던전·뽑기·마탑의 **진행·실습 성공·체험 주화 지급 기록**을 한 번의 저장 거래로 지운다. 다음 실행에서는 강화·뽑기를 다시 수행하며 뽑기 주화 50개씩도 다시 지급한다. 현재 보유 재화·강화·장비·스킬은 유지되므로 반복 테스트 보상은 누적될 수 있다. 환생 안내와 다른 안내·퀘스트 기록은 유지한다. 이 초기화 경로는 `UNITY_EDITOR`에만 포함되며 계정 변경이나 저장 실패 시 초기화를 확정하지 않는다. 검증 기록은 `AI/validation/game-direct-reset-20260921/`에 남긴다.
+반복 실습은 PlayMode에서 Unity 상단 `GameTest → Guide Test/실제 계정 저장/다섯 안내 테스트 기록 초기화 (재지급 허용)` 메뉴를 실행한 뒤 개별 또는 순차 실행 메뉴를 사용한다. 초기화 메뉴는 실행 중인 안내와 대기열을 정리하고, 육성·왕국군·던전·뽑기·마탑의 **진행·실습 성공·체험 주화 지급 기록**을 한 번의 저장 거래로 지운다. 다음 실행에서는 강화·뽑기를 다시 수행하며 뽑기 주화 50개씩도 다시 지급한다. 현재 보유 재화·강화·장비·스킬은 유지되므로 반복 테스트 보상은 누적될 수 있다. 환생 안내와 다른 안내·퀘스트 기록은 유지한다. 이 초기화 경로는 `UNITY_EDITOR`에만 포함되며 계정 변경이나 저장 실패 시 초기화를 확정하지 않는다. 검증 기록은 `AI/validation/game-direct-reset-20260921/`에 남긴다.
 
 ## 전투 HUD
 
@@ -151,8 +151,9 @@ Android 검사 도우미·결과는 `AI/qa/hud/`, `Recordings/HudRevision/`에 �
 에디터 도구:
 
 - `KingdomIdle/UGUI/Connect CheckIn and Mailbox`: 기존 전용 프리팹 5개와 보상표를 확인해 카탈로그에 연결한다. 프리팹·보상표를 재생성하지 않는다.
-- `KingdomIdle/Validation/CheckIn and Mailbox`: 저장 거래·직렬화 참조 검사.
-- `KingdomIdle/Validation/Capture CheckIn and Mailbox`: 화면 비율 모의 캡처.
-- 실제 로그인 후 `CheckInMailboxValidation.RunPlayChecks()`: 격리 계정으로 메뉴·수령·팝업·만료 플레이 검사.
+- Unity 상단 `GameTest/CheckIn Test/1일 진행`: 다음 출석 슬롯 하나를 미수령 상태로 연다. `GameTest/CheckIn Test/출석 보상판 초기화`: 이번 달 진행·수령 기록을 0일로 되돌리고 보유 재화·기존 우편은 유지한다.
+- Unity 상단 `GameTest/Mailbox Test`의 `골드 우편 보내기`, `보석(비전지식) 우편 보내기`, `고대주화 우편 보내기`, `전직 파편 우편 보내기`, `4종 전부 우편 보내기`: 골드 10,000·비전지식 100·고대주화 100·전직 파편 10 중 해당 재화 또는 4종을 한 통에 첨부한다. 발급부터 30일간 유지하며 실제 재화는 우편함에서 수령한다.
 
-[0.16.3 와이어프레임 반영 검증과 캡처](../../AI/validation/checkin-mailbox-wireframe-20261026/README.md)에 이번 결과를 기록한다. [0.16.2 레이아웃 변경 검증](../../AI/validation/checkin-mailbox-layout-20261026/README.md), [0.16.1 코드 정리 검증](../../AI/validation/checkin-mailbox-20261026/README.md)은 과거 결과로 보존한다. APK·실기기 검증은 최종 요청으로 제외했다. 스크립트별 책임·메서드 호출·거래 경계·다이어그램과 Inspector 편집 위치는 [PersonalDocs 상세 설명](../../PersonalDocs/CheckIn_우편함_구현구조와_호출흐름.md)에 있다. `PersonalDocs`는 Git 제외 대상인 로컬 개인 문서 폴더다.
+수동 테스트는 Editor Play에서 로그인·서비스 준비 후 실행하며 편집 모드에서는 메뉴가 비활성화된다. 씬에서 `GameTest` 컴포넌트를 선택할 필요는 없다. `Assets/_Project/Scripts/Test/GameTest.cs`의 `UNITY_EDITOR` 영역에만 포함되며 **현재 계정에 저장**된다. 출석 초기화 후 다시 받은 보상은 누적될 수 있다. 기기 시계는 변경하지 않는다.
+
+[0.16.3 와이어프레임 반영 검증과 캡처](../../AI/validation/checkin-mailbox-wireframe-20261026/README.md)는 이전 UI 검증 기록이다. [0.16.2 레이아웃 변경 검증](../../AI/validation/checkin-mailbox-layout-20261026/README.md), [0.16.1 코드 정리 검증](../../AI/validation/checkin-mailbox-20261026/README.md)은 과거 결과로 보존한다. APK·실기기 검증은 최종 요청으로 제외했다. 스크립트별 책임·메서드 호출·거래 경계·다이어그램과 Inspector 편집 위치는 [PersonalDocs 상세 설명](../../PersonalDocs/CheckIn_우편함_구현구조와_호출흐름.md)에 있다. `PersonalDocs`는 Git 제외 대상인 로컬 개인 문서 폴더다.

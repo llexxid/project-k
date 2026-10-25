@@ -19,9 +19,9 @@ Unity 모바일 방치 RPG. 엔진 버전은 `ProjectSettings/ProjectVersion.txt
 
 자체 코드·에셋은 `Assets/_Project/`, UI는 `Assets/UGUI/`에 있다. Unity Hub에서 이 폴더를 열고 `ProjectSettings/EditorBuildSettings.asset`의 활성 씬 순서로 실행한다.
 
-`Direction.GameDirectManager`는 조건부 연출의 공통 실행 뼈대다. 육성·왕국군·던전·뽑기·마탑 스킬은 독립 SO 다섯 개로 제공하며, 외부에서 `RequestPlay(SO)` 또는 등록 ID로 실습을 요청한다. `GameTest → Guide Test/실제 계정 저장`에서 개별·순차 실행할 수 있다. 이 실행은 현재 계정에 재화 지급·소비·획득·완료를 실제 저장한다. 기존 설명형 메뉴·환생 미리보기는 `KingdomIdle/Direction/Preview`에서 제공한다. 자동 발생 조건·스토리 컷씬·엑셀 연동은 아직 연결하지 않았다. 미리보기는 계정 완료 기록을 바꾸지 않는다. 구조, 데이터 편집, 실제 저장 요청과 검증 방법은 [기능 안내 구조](Assets/UGUI/README.md#공통-연출과-기능-안내)를 참고한다.
+`Direction.GameDirectManager`는 조건부 연출의 공통 실행 뼈대다. 육성·왕국군·던전·뽑기·마탑 스킬은 독립 SO 다섯 개로 제공하며, 외부에서 `RequestPlay(SO)` 또는 등록 ID로 실습을 요청한다. Unity 상단 `GameTest → Guide Test/실제 계정 저장` 메뉴에서 개별·순차 실행할 수 있다. 이 실행은 현재 계정에 재화 지급·소비·획득·완료를 실제 저장한다. 기존 설명형 메뉴·환생 미리보기는 `KingdomIdle/Direction/Preview`에서 제공한다. 자동 발생 조건·스토리 컷씬·엑셀 연동은 아직 연결하지 않았다. 미리보기는 계정 완료 기록을 바꾸지 않는다. 구조, 데이터 편집, 실제 저장 요청과 검증 방법은 [기능 안내 구조](Assets/UGUI/README.md#공통-연출과-기능-안내)를 참고한다.
 
-반복 테스트는 PlayMode의 `GameTest → Guide Test/실제 계정 저장/다섯 안내 테스트 기록 초기화 (재지급 허용)` 후 개별·순차 실행한다. 현재 보유 내역은 유지하고 안내 진행·실습 성공·체험 주화 지급 기록을 지워 실습과 지급을 다시 허용한다. 초기화는 Editor 전용이다.
+반복 테스트는 PlayMode에서 Unity 상단 `GameTest → Guide Test/실제 계정 저장/다섯 안내 테스트 기록 초기화 (재지급 허용)` 메뉴를 실행한 뒤 개별·순차 실행한다. 현재 보유 내역은 유지하고 안내 진행·실습 성공·체험 주화 지급 기록을 지워 실습과 지급을 다시 허용한다. 초기화는 Editor 전용이다.
 
 팀: 이의찬(PM·기획·개발), 박준기(개발 리드), 유형진(개발·QA).
 과거 작업 내역은 Git 기록을 참조한다.
