@@ -209,7 +209,7 @@ namespace KingdomIdle.UGUI
             {
                 c.costLabel.gameObject.SetActive(true);
                 c.costLabel.text =
-                    $"1회 비용: {NumberNotation.Format(table.costAmount)} {GetCurrencyLabel(table.costCurrency)}  |  보유: {NumberNotation.Format(current)}";
+                    $"1회 비용: {NumberNotation.Format(table.costAmount)} {RewardPresentation.Name(table.costCurrency)}  |  보유: {NumberNotation.Format(current)}";
             }
 
             // 확률 요약 (등급별 가중치 집계)
@@ -235,7 +235,7 @@ namespace KingdomIdle.UGUI
 
             bool pulling = GachaManager.Instance != null && GachaManager.Instance.IsPulling;
             var cat = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
-            string curLabel = GetCurrencyLabel(table.costCurrency);
+            string curLabel = RewardPresentation.Name(table.costCurrency);
 
             if (cat == null || cat.itemGachaPullButton == null) return;
 
@@ -266,7 +266,7 @@ namespace KingdomIdle.UGUI
         {
             if (_content == null || _contentTable == null) return;
             EconomyBridge.TryGetAmount(_contentTable.costCurrency,out long current);
-            if (_content.costLabel != null) _content.costLabel.text=$"1회 비용: {NumberNotation.Format(_contentTable.costAmount)} {GetCurrencyLabel(_contentTable.costCurrency)}  |  보유: {NumberNotation.Format(current)}";
+            if (_content.costLabel != null) _content.costLabel.text=$"1회 비용: {NumberNotation.Format(_contentTable.costAmount)} {RewardPresentation.Name(_contentTable.costCurrency)}  |  보유: {NumberNotation.Format(current)}";
             UpdateDescription();
             bool pulling=_flaringPull || (GachaManager.Instance != null && GachaManager.Instance.IsPulling);
             for(int i=0;i<_activePullButtons.Count;i++)
@@ -274,7 +274,7 @@ namespace KingdomIdle.UGUI
                 var button=_activePullButtons[i];
                 if(button==null)continue;
                 int count=PullCounts[i]; long cost=(long)_contentTable.costAmount*count;
-                button.GetComponent<GachaPullButtonView>()?.Set(count==1?"1회 뽑기":$"{count}연 뽑기",$"{NumberNotation.Format(cost)} {GetCurrencyLabel(_contentTable.costCurrency)}",!pulling && GachaManager.Instance != null && GachaManager.Instance.CanPullMulti(_contentTable,count));
+                button.GetComponent<GachaPullButtonView>()?.Set(count==1?"1회 뽑기":$"{count}연 뽑기",$"{NumberNotation.Format(cost)} {RewardPresentation.Name(_contentTable.costCurrency)}",!pulling && GachaManager.Instance != null && GachaManager.Instance.CanPullMulti(_contentTable,count));
             }
         }
 
@@ -690,20 +690,6 @@ namespace KingdomIdle.UGUI
             if (parent == null) return;
             for (int i = parent.childCount - 1; i >= 0; i--)
                 Object.Destroy(parent.GetChild(i).gameObject);
-        }
-
-        private static string GetCurrencyLabel(eCurrency c)
-        {
-            switch (c)
-            {
-                case eCurrency.Gold: return "골드";
-                case eCurrency.AncientCoin: return "고대주화";
-                case eCurrency.ArcaneKnowledge: return "비전지식";
-                case eCurrency.ClassFragment: return "직업의 파편";
-                case eCurrency.KingdomSupply: return "왕국 보급품";
-                case eCurrency.TrainingTome: return "훈련서";
-                default: return c.ToString();
-            }
         }
 
         private static string GetRarityText(eEquipmentRarity rarity)

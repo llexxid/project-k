@@ -120,6 +120,11 @@ namespace KingdomIdle.Balance
                 else state = new ProgressionState { CycleStartedUtc = UtcNow };
                 // 기존 원본은 교체 시 .bak에 남고, 실패한 이관은 메모리에도 공개하지 않는다.
                 string before = JsonConvert.SerializeObject(state);
+                // 기존 계정에는 새 필드가 없다. 다른 진행 데이터는 그대로 보존한다.
+                if (state != null)
+                {
+                    state.Mail ??= new System.Collections.Generic.List<KingdomIdle.Mailbox.MailMessage>();
+                }
                 if (state.CycleFrontierStage == 0)
                     state.CycleFrontierStage = Math.Max(state.MainStage,
                         (long)StageParser.MakeStage(eStageType.Main, Math.Max(1, state.CycleBossStage + 1)));
@@ -244,6 +249,9 @@ namespace KingdomIdle.Balance
         {
             if (state == null || state.Schema != 1 || state.BalanceVersion != BalanceMath.Version || state.Authority != "local-client")
                 throw new InvalidDataException("Unsupported progression snapshot; migration required.");
+            if (state.Mail == null || state.Mail.Any(m => !KingdomIdle.Mailbox.MailboxService.IsValid(m)) ||
+                state.Mail.Select(m => m.Id).Distinct().Count() != state.Mail.Count || state.RewardsRevision < 0)
+                throw new InvalidDataException("Invalid mail snapshot.");
             if (state.QuestSchemaVersion != QuestEconomy.SchemaVersion || state.CompletedQuests == null || state.QuestLastObservedUtc < 0 ||
                 state.Counters == null || state.Claims == null || state.PendingQuests == null || state.Counters.Any(x => x.Value < 0))
                 throw new InvalidDataException("Invalid quest snapshot.");
