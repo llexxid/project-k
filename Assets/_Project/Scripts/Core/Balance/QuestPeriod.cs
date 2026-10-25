@@ -44,6 +44,10 @@ namespace KingdomIdle.Balance
             return new QuestPeriod(utc, day, day.AddDays(-daysSinceMonday));
         }
 
+        /// <summary>기존 KST yyyy-MM-dd 키가 앞으로 진행할 때만 일일 제한을 갱신한다.</summary>
+        public static bool IsLaterDay(string currentDay, string previousDay) =>
+            string.IsNullOrEmpty(previousDay) || string.CompareOrdinal(currentDay, previousDay) > 0;
+
         /// <summary>읽기 전용으로 기간 변경·보관 보상 만료만 검사한다. 실제 정리는 거래의 AdvancePeriod가 수행한다.</summary>
         public static bool NeedsSynchronization(ProgressionState state, long nowUtc)
         {

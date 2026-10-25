@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="왕국군 키우기 게임 안내와 정책을 위한 루도스 안내센터의 로컬 검토 시안입니다.">
+  <title>왕국군 키우기 안내센터 · 검토 시안</title>
+  <link rel="icon" type="image/png" href="assets/game-icon.png">
+  <style>
+    :root{color-scheme:light;--ink:#242a32;--muted:#596270;--paper:#fff;--bg:#f3f5f7;--line:#dce1e7;--bronze:#8b571e;--wood:#2b231e;--focus:#1769c2}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.75 "Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;word-break:keep-all;overflow-wrap:anywhere}
+    a{color:var(--bronze);text-underline-offset:4px}button,a{-webkit-tap-highlight-color:transparent}a:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid var(--focus);outline-offset:4px}
+    .skip{position:absolute;left:16px;top:-100px;background:white;padding:12px;z-index:10}.skip:focus{top:16px}
+    .draft{background:#fff2cd;color:#65440d;text-align:center;padding:9px 20px;font-size:14px;border-bottom:1px solid #e4ca8b}.draft strong{margin-right:10px}
+    header{background:var(--wood);color:#fff;border-bottom:4px solid #bc904e}.header-inner{max-width:1140px;margin:auto;padding:23px 32px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+    .brand{display:flex;align-items:center;gap:16px;color:#fff;text-decoration:none}.brand img{width:58px;height:58px;border-radius:12px;image-rendering:pixelated}.brand-name{display:block;font-size:21px;font-weight:800;line-height:1.4}.brand-caption{color:#d3c5b6;font-size:14px}.company{font-size:14px;letter-spacing:2px;color:#e3c99e}
+    .layout{max-width:1140px;margin:0 auto;padding:36px 32px 48px;display:grid;grid-template-columns:214px minmax(0,1fr);gap:32px;align-items:start}
+    nav{position:sticky;top:24px}nav p{font-size:14px;color:var(--muted);margin:0 14px 10px}nav a{display:block;padding:12px 14px;margin:3px 0;border-radius:6px;text-decoration:none;color:var(--ink);font-size:16px}nav a:hover{background:#e7ebef}nav a[aria-current="page"]{background:#fff;border-left:3px solid var(--bronze);padding-left:11px;color:#744613;font-weight:700;box-shadow:0 1px 3px #1723320d}
+    main{min-width:0;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:36px 40px;box-shadow:0 4px 18px #202d4004}
+    h1{font-size:30px;line-height:1.45;letter-spacing:-.8px;margin:0 0 12px}h2{font-size:21px;line-height:1.5;margin:32px 0 12px;letter-spacing:-.3px}h3{font-size:17px;margin:0 0 5px}p{margin:10px 0 18px}.eyebrow{font-size:14px;color:var(--bronze);font-weight:700;margin:0 0 8px}.lead{color:var(--muted);margin-bottom:26px}.meta{font-size:14px;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:24px}
+    .directory{border-top:1px solid var(--line);margin-top:24px}.directory a{display:flex;justify-content:space-between;align-items:center;gap:18px;text-decoration:none;color:var(--ink);padding:18px 0;border-bottom:1px solid var(--line)}.directory a:hover h2{color:var(--bronze)}.directory h2{font-size:18px;margin:0 0 2px}.directory p{font-size:15px;color:var(--muted);margin:0}.arrow{font-size:22px;color:var(--bronze)}
+    .contact-strip{margin-top:27px;border-left:3px solid #be985d;padding:0 0 0 17px}.contact-strip p{margin:0;color:var(--muted);font-size:15px}.contact-strip a{display:inline-block;margin-top:5px;font-weight:700}
+    .notice{background:#f6f8fa;border-left:3px solid #97a5b6;padding:16px 18px;margin:22px 0;color:#465262}.notice p{margin:0}.notice strong{color:var(--ink)}
+    .facts{margin:20px 0}.facts div{display:grid;grid-template-columns:120px minmax(0,1fr);gap:16px;padding:12px 0;border-bottom:1px solid var(--line)}dt{color:var(--muted)}dd{margin:0;font-weight:600}
+    details{border-bottom:1px solid var(--line);padding:16px 0}summary{cursor:pointer;font-weight:700;line-height:1.7;padding-right:10px}details p{color:var(--muted);margin:12px 0 2px}ul,ol{padding-left:24px}li{margin:8px 0}.steps{list-style:none;counter-reset:step;padding:0}.steps li{counter-increment:step;position:relative;padding:2px 0 18px 45px}.steps li:before{content:counter(step);position:absolute;left:0;top:0;border:1px solid #d2b27c;color:#795021;border-radius:50%;width:29px;height:29px;text-align:center;font-size:14px;line-height:28px}.steps p{color:var(--muted);margin:4px 0}
+    .empty{padding:25px;border:1px dashed #aeb9c5;border-radius:6px;text-align:center;margin:24px 0;background:#fafbfc}.empty p{color:var(--muted);margin:5px 0}.spec{display:grid;grid-template-columns:1fr 1fr;gap:0 24px}.spec div{padding:15px 0;border-bottom:1px solid var(--line)}.spec p{color:var(--muted);font-size:15px;margin:3px 0}
+    .footnote{font-size:14px;color:var(--muted);border-top:1px solid var(--line);margin-top:32px;padding-top:18px}.footnote p{margin:5px 0}footer{max-width:1140px;margin:0 auto;padding:0 32px 28px;color:var(--muted);font-size:14px;display:flex;justify-content:space-between;gap:20px}.panel[hidden]{display:none}main:focus{outline:none}
+    @media(max-width:760px){.header-inner{padding:18px 20px}.company{display:none}.layout{padding:20px 16px 32px;display:block}.brand-name{font-size:20px}.brand img{width:50px;height:50px}nav{position:static;margin-bottom:20px}nav p{display:none}.nav-links{display:grid;grid-template-columns:1fr 1fr;gap:5px}nav a{padding:10px 12px;margin:0;font-size:14px;background:#e9edf1}nav a[aria-current="page"]{padding-left:9px}main{padding:26px 22px}h1{font-size:26px}.draft{font-size:14px;line-height:1.6}.draft strong{display:block;margin:0}.facts div{grid-template-columns:90px minmax(0,1fr);gap:12px}footer{padding:0 20px 24px;display:block}footer span{display:block;margin-top:6px}.spec{grid-template-columns:1fr}}
+    @media(max-width:440px){.facts div{display:block}.facts dt{font-size:14px;margin-bottom:3px}}
+    @media print{.draft,nav,header,footer{display:none}.layout{display:block;padding:0}main{border:0;padding:0;box-shadow:none}.panel[hidden]{display:block}.panel{break-before:page}a{color:inherit}.panel:first-child{break-before:auto}}
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">본문 바로가기</a>
+  <div class="draft"><strong>검토용 시안</strong>아직 공개된 운영 정책이 아닙니다. 문서 내용과 운영 절차를 확인 중입니다.</div>
+  <header><div class="header-inner">
+    <a class="brand" href="#home"><img src="assets/game-icon.png" width="58" height="58" alt=""><span><span class="brand-name">왕국군 키우기</span><span class="brand-caption">게임 안내센터</span></span></a>
+    <span class="company">LUDOS</span>
+  </div></header>
+  <div class="layout">
+    <nav aria-label="안내센터 메뉴"><p>게임 이용 안내</p><div class="nav-links">
+      <a href="#home" aria-current="page">안내센터</a><a href="#privacy">개인정보처리방침</a><a href="#terms">서비스 이용약관</a><a href="#deletion">계정 삭제 안내</a><a href="#probabilities">확률 정보</a><a href="#support">문의 및 운영사</a>
+    </div></nav>
+    <main id="main" tabindex="-1">
+      <section class="panel" id="home" aria-labelledby="home-title">
+        <p class="eyebrow">왕국군 키우기 · 루도스</p><h1 id="home-title">게임 이용에 필요한 안내</h1>
+        <p class="lead">개인정보 처리, 게임 이용 조건과 문의 방법을 한곳에서 확인하세요.</p>
+        <div class="directory">
+          <a href="#privacy"><div><h2>개인정보처리방침</h2><p>어떤 정보를 처리하고 어떻게 보호하는지 안내합니다.</p></div><span class="arrow" aria-hidden="true">›</span></a>
+          <a href="#terms"><div><h2>서비스 이용약관</h2><p>계정, 유료 상품, 환불과 이용자의 권리를 안내합니다.</p></div><span class="arrow" aria-hidden="true">›</span></a>
+          <a href="#deletion"><div><h2>계정 삭제 안내</h2><p>삭제 요청 방법과 데이터 처리 범위를 안내합니다.</p></div><span class="arrow" aria-hidden="true">›</span></a>
+          <a href="#probabilities"><div><h2>확률 정보</h2><p>무작위 보상의 확률과 적용 조건을 안내합니다.</p></div><span class="arrow" aria-hidden="true">›</span></a>
+        </div>
+        <div class="contact-strip"><p>게임 이용에 도움이 필요하신가요?</p><a href="#support">문의 방법 확인하기</a></div>
+      </section>
+      <section class="panel" id="privacy" aria-labelledby="privacy-title">
+        <p class="eyebrow">개인정보 보호</p><h1 id="privacy-title">개인정보처리방침</h1><p class="meta">내부 검토 초안 · 시행일 확정 전</p>
+        <p>루도스(Ludos)는 「왕국군 키우기」에서 처리하는 개인정보의 목적, 항목, 보유기간과 이용자의 권리 행사 방법을 안내합니다.</p>
+        <dl class="facts"><div><dt>운영자</dt><dd>루도스(Ludos)</dd></div><div><dt>대상 서비스</dt><dd>왕국군 키우기</dd></div><div><dt>문의 창구</dt><dd><a href="mailto:kingdomidle@ludosinteractive.com">kingdomidle@ludosinteractive.com</a></dd></div></dl>
+        <div class="notice"><p><strong>공개 전 확인 중인 문서입니다.</strong><br>아래는 방침의 구성 요약입니다. 실제 처리 항목·업체·보유기간·보호자 확인 절차를 확정한 뒤 전문을 게시합니다.</p></div>
+        <details open><summary>처리하는 정보와 목적</summary><p>계정·로그인, 게임 저장, 구매 확인, 고객지원, 광고와 오류 대응에서 실제 처리하는 정보와 법적 근거를 구분해 공개할 예정입니다.</p></details>
+        <details><summary>보유기간과 파기</summary><p>일반 서비스 정보와 법정 거래기록을 구별합니다. 삭제 후 보존할 정보가 있다면 해당 항목·근거·기간과 백업 처리 방법을 설명합니다.</p></details>
+        <details><summary>처리업체와 국외 이전</summary><p>인증·결제·광고·호스팅 업체의 역할, 실제 처리 국가와 이전 근거를 확인하고 있습니다. 광고 제공 업체는 아직 정해지지 않았습니다.</p></details>
+        <details><summary>만 14세 미만 이용자</summary><p>법정대리인 동의가 필요한 처리와 실제 확인 방법, 아동·연령 미확인 이용자의 광고 처리 방법을 확정하고 있습니다.</p></details>
+        <details><summary>이용자의 권리와 계정 삭제</summary><p>열람·정정·삭제·처리정지·동의 철회의 요청 방법과 본인 확인 절차를 안내할 예정입니다. 비밀번호나 일회용 인증 코드를 회사에 보내지 마세요.</p></details>
+        <details><summary>안전성 확보·자동 수집·변경 안내</summary><p>실제로 시행하는 보호 조치, 자동 수집 정보의 설정 방법, 보호책임자와 권리 구제 기관, 변경 시행일과 이전 방침을 함께 안내할 예정입니다.</p></details>
+        <div class="footnote"><p>현행 문서: 최초 제정 준비 중</p><p>이전 방침: 아직 공개된 이전 버전이 없습니다.</p></div>
+      </section>
+      <section class="panel" id="terms" aria-labelledby="terms-title">
+        <p class="eyebrow">게임 이용 조건</p><h1 id="terms-title">서비스 이용약관</h1><p class="meta">내부 검토 초안 · 시행일 확정 전</p>
+        <p>왕국군 키우기 이용에 관한 회사와 이용자의 권리·의무를 안내하는 문서입니다.</p>
+        <div class="notice"><p>상품 구성, 가입·동의 절차와 실제 운영 기준을 확인 중입니다. 이 화면은 약관 전문을 대신하지 않습니다.</p></div>
+        <h2>계정과 게임 이용</h2><p>이용계약, 미성년자의 동의, 로그인·저장·복구, 서비스 변경과 종료에 관한 조건을 안내합니다.</p>
+        <h2>유료 상품과 환불</h2><p>Google Play 결제로 판매할 상품의 구성과 지급 조건, 청약철회·환불·미지급 문의 절차를 안내합니다. 구매 사실만으로 보호자의 동의가 있다고 판단하지 않습니다.</p>
+        <h2>무작위 보상</h2><p>유료 구매와 연결된 무작위 보상이 있다면 구매 전에 확률과 조건을 확인할 수 있게 제공합니다.</p>
+        <h2>이용 제한과 탈퇴</h2><p>이용 제한의 사유와 이의 신청, 계정 삭제와 남은 유료 상품의 처리 기준을 안내합니다.</p>
+        <h2>책임과 분쟁 해결</h2><p>관련 법령이 보장하는 이용자의 권리, 문의와 분쟁 해결 방법을 안내합니다.</p>
+        <div class="footnote"><p>현행 문서: 최초 제정 준비 중</p><p>이전 약관: 아직 공개된 이전 버전이 없습니다.</p></div>
+      </section>
+      <section class="panel" id="deletion" aria-labelledby="deletion-title">
+        <p class="eyebrow">계정과 데이터</p><h1 id="deletion-title">계정 삭제 안내</h1><p class="meta">요청 절차 검토 중</p>
+        <p>왕국군 키우기 계정과 관련 데이터의 삭제를 안내하는 페이지입니다. Google 계정 자체를 삭제하는 절차와는 다릅니다.</p>
+        <div class="notice"><p><strong>삭제 접수가 시작된 페이지가 아닙니다.</strong><br>아래는 준비 중인 절차입니다. 실제 삭제 기능과 처리 기간을 검증한 뒤 안내를 확정합니다.</p></div>
+        <h2>앱 밖에서도 요청할 수 있도록</h2><ol class="steps"><li><h3>지원 창구로 요청</h3><p>앱을 이용할 수 없는 경우에도 지원 이메일로 요청할 수 있는 방법을 준비합니다.</p></li><li><h3>계정 소유 여부 확인</h3><p>다른 사람의 계정을 삭제하지 않도록 필요한 최소 정보로 확인합니다.</p></li><li><h3>데이터 처리와 결과 안내</h3><p>실제 삭제 범위·보존 예외·완료 시점을 안내할 수 있도록 준비합니다.</p></li></ol>
+        <h2>함께 안내할 사항</h2><ul><li>삭제되는 계정 정보와 게임 진행 내역</li><li>법령에 따라 따로 보관하는 정보와 기간</li><li>남아 있는 유료 상품과 환불의 관계</li><li>백업과 다른 기기에 남은 정보의 처리</li></ul>
+        <p class="footnote">비밀번호·인증 코드·전체 카드번호·신분증 전체 사본을 이메일에 보내지 마세요.</p>
+      </section>
+      <section class="panel" id="probabilities" aria-labelledby="probabilities-title">
+        <p class="eyebrow">무작위 보상 안내</p><h1 id="probabilities-title">확률 정보</h1><p class="meta">출시 상품과 적용 확률 검증 전</p>
+        <p>장비·마탑 뽑기의 실제 출시 구성과 확률을 확인할 수 있도록 준비하는 페이지입니다.</p>
+        <div class="empty"><h2 style="margin:0 0 8px">아직 공개할 확정 확률표가 없습니다</h2><p>출시 상품과 게임에 적용되는 값을 대조한 뒤 게시합니다.</p><p>검증되지 않은 예시 수치는 표시하지 않습니다.</p></div>
+        <h2>확률표에 포함할 정보</h2><div class="spec"><div><h3>상품과 비용</h3><p>뽑기 이름, 사용하는 재화와 횟수</p></div><div><h3>개별 획득 결과</h3><p>아이템·스킬, 수량과 각각의 확률</p></div><div><h3>조건에 따른 변화</h3><p>천장, 확정 보상과 적용 순서</p></div><div><h3>적용 시점</h3><p>게임 버전, 시작·종료 시각과 변경 내역</p></div></div>
+        <div class="notice"><p>홈페이지 공개와 함께 게임 안에서도 구매 전에 확률과 조건을 확인할 수 있도록 준비합니다.</p></div>
+      </section>
+      <section class="panel" id="support" aria-labelledby="support-title">
+        <p class="eyebrow">루도스 · Ludos</p><h1 id="support-title">문의 및 운영사</h1><p class="lead">왕국군 키우기에 관한 문의는 아래 이메일을 이용해 주세요.</p>
+        <dl class="facts"><div><dt>개발·운영</dt><dd>루도스(Ludos)</dd></div><div><dt>고객지원</dt><dd><a href="mailto:kingdomidle@ludosinteractive.com">kingdomidle@ludosinteractive.com</a></dd></div></dl>
+        <h2>문제 상황을 함께 알려 주세요</h2><ul><li>사용하는 기기와 게임 버전</li><li>문제가 발생한 시점과 상황</li><li>계정 또는 주문 확인에 필요한 최소한의 정보</li></ul>
+        <p>비밀번호·일회용 인증 코드·전체 카드번호는 보내지 마세요. 화면을 첨부할 때도 문의에 필요 없는 개인정보는 가려 주세요.</p>
+        <h2>개인정보 관련 문의</h2><p>개인정보에 관한 문의도 같은 이메일로 안내받을 수 있도록 준비하고 있습니다. 담당자와 실제 처리 절차는 공개 방침에서 확정합니다.</p>
+        <div class="notice"><p>사업자 표시사항과 공개 업무 연락처는 확인 후 추가합니다. 이 시안에는 개인 휴대전화 번호를 표시하지 않았습니다.</p></div>
+      </section>
+    </main>
+  </div>
+  <footer><span>루도스(Ludos) · 왕국군 키우기</span><span>로컬 검토 시안 · 2026.09.25</span></footer>
+  <script>
+    (() => {
+      const panels = Array.from(document.querySelectorAll('.panel'));
+      const links = Array.from(document.querySelectorAll('nav a'));
+      const main = document.getElementById('main');
+      function render(focus) {
+        const requested = location.hash.slice(1);
+        if (requested === 'main') { main.focus({preventScroll:true}); return; }
+        const active = panels.find(panel => panel.id === requested) || panels[0];
+        panels.forEach(panel => { panel.hidden = panel !== active; });
+        links.forEach(link => {
+          if (link.hash === '#' + active.id) link.setAttribute('aria-current', 'page');
+          else link.removeAttribute('aria-current');
+        });
+        const title = active.querySelector('h1').textContent;
+        document.title = title + ' · 왕국군 키우기 검토 시안';
+        if (focus) { main.focus({preventScroll:true}); main.scrollIntoView({block:'start'}); }
+      }
+      window.addEventListener('hashchange', () => render(true));
+      render(false);
+    })();
+  </script>
+</body>
+</html>

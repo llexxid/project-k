@@ -198,8 +198,12 @@ public partial class Player : MonoBehaviour, IAttackable, IDamageable, IRewardab
     
     private IEnumerator PauseAfterDeadAnimation()
     {
-        float deadAnimLength = GetClipLength("Dead_Anim");
+        int generation = LifeGeneration;
+        float deadAnimLength = GetDeathClipLength();
         yield return new WaitForSeconds(deadAnimLength);
+
+        // A wave transition may already have revived this actor (and it may have died again).
+        if (!_isDead || LifeGeneration != generation) yield break;
 
         OnDeath?.Invoke(this);
         OnDeath = null;
@@ -207,6 +211,22 @@ public partial class Player : MonoBehaviour, IAttackable, IDamageable, IRewardab
         playerOrder?.InterruptBT();
 
         GameManager.Instance?.ReportPlayerDead();
+    }
+
+    private float GetDeathClipLength()
+    {
+        if (_am == null || _am.runtimeAnimatorController == null)
+            return 0.4f;
+
+        // Current jobs use <job>_Dead; keep the legacy Dead_Anim controller compatible.
+        foreach (var clip in _am.runtimeAnimatorController.animationClips)
+        {
+            if (clip.name.EndsWith("_Dead", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(clip.name, "Dead_Anim", StringComparison.OrdinalIgnoreCase))
+                return clip.length;
+        }
+
+        return 0.4f;
     }
 
         private void InitializeAnimator()

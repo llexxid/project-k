@@ -42,8 +42,7 @@ public class SkillSystem
     // ────────────────────────────────────────────
     public void Setup(JobData data)
     {
-        _basicAttack = null;
-        _specials.Clear();
+        ReleaseResources();
         _busyUntil = 0f;
         AttackRange = 2f;
         IsRanged = false;
@@ -87,6 +86,13 @@ public class SkillSystem
         {
             projectileSkill.OnProjectileRelease();
         }
+    }
+    public void ReleaseResources()
+    {
+        _basicAttack?.ReleaseResources();
+        foreach (var skill in _specials) skill.ReleaseResources();
+        _basicAttack = null;
+        _specials.Clear();
     }
     private ActiveSkill CreateBasicAttack(BasicAttackConfig cfg)
     {

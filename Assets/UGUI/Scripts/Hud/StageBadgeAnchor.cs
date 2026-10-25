@@ -4,6 +4,7 @@ namespace KingdomIdle.UGUI
 {
     public sealed class StageBadgeAnchor : MonoBehaviour
     {
+        [SerializeField] internal bool topLayout;
         RectTransform _rect;
         readonly Vector3[] _corners = new Vector3[4];
         void Awake() => _rect = (RectTransform)transform;
@@ -17,6 +18,7 @@ namespace KingdomIdle.UGUI
             if (group != null && group.alpha != (visible ? 1 : 0)) group.alpha = visible ? 1 : 0;
             if (group != null) { group.interactable = visible; group.blocksRaycasts = visible; }
             if (!visible) return;
+            if (topLayout) return;
             party.GetWorldCorners(_corners);
             float top = _rect.parent.InverseTransformPoint(_corners[1]).y;
             var position = _rect.localPosition;

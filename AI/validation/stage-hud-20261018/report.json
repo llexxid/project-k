@@ -1,0 +1,713 @@
+{
+  "date": "2026-10-18",
+  "version": "0.15.0",
+  "editor": "6000.3.21f1",
+  "baseline": "97103e4f9",
+  "implementation": "a3297e66d",
+  "scope": "Editor only; explicit isolated QA accounts; no Android build/install",
+  "design": [
+    "Main HUD: top stage block plus compact guide row",
+    "Cleared stage: selector and highest-stage jump only",
+    "Stage selection sheet and dungeon objective follow prior wireframes",
+    "Existing UguiTheme, Layer Lab sprites and Galmuri font reused; no new textures"
+  ],
+  "compatibility": [
+    "MainScreen top currency, menu and bottom tab serialized objects preserved",
+    "No original prefab object removed; 26 existing serialized blocks adjusted only in stage/guide hierarchy and root child list",
+    "Combat rules, reward formulas, existing result popup and auto-return unchanged",
+    "New saved CycleFrontierStage tracks current reincarnation only",
+    "Legacy migration uses confirmed current position and current-cycle boss clears, as approved by user"
+  ],
+  "ui": {
+    "passed": true,
+    "results": [
+      {
+        "test": "QA fixture committed",
+        "passed": true
+      },
+      {
+        "capture": "main-1080x1920",
+        "width": 1080,
+        "height": 1920,
+        "batches": 33,
+        "graphics": 125,
+        "monoBytes": 1284325376
+      },
+      {
+        "test": "frontier HUD / guide visible",
+        "passed": true
+      },
+      {
+        "test": "locked stage refused",
+        "passed": true
+      },
+      {
+        "test": "cleared stage move accepted",
+        "passed": true
+      },
+      {
+        "test": "cleared HUD has two buttons only",
+        "passed": true
+      },
+      {
+        "test": "move preserves boss auto and clear ledger",
+        "passed": true
+      },
+      {
+        "capture": "cleared-1080x1920",
+        "width": 1080,
+        "height": 1920,
+        "batches": 32,
+        "graphics": 107,
+        "monoBytes": 1295970304
+      },
+      {
+        "test": "stage button opens selection",
+        "passed": true
+      },
+      {
+        "capture": "selection-1080x1920",
+        "width": 1080,
+        "height": 1920,
+        "batches": 35,
+        "graphics": 174,
+        "monoBytes": 1297125376
+      },
+      {
+        "test": "selection back closes",
+        "passed": true
+      },
+      {
+        "test": "highest button jumps directly without enabling auto",
+        "passed": true
+      },
+      {
+        "test": "move with auto enabled",
+        "passed": true
+      },
+      {
+        "test": "cleared travel preserves enabled auto",
+        "passed": true
+      },
+      {
+        "test": "gold dungeon entry",
+        "passed": true
+      },
+      {
+        "test": "dungeon replaces main and guide",
+        "passed": true
+      },
+      {
+        "capture": "gold-1080x1920",
+        "width": 1080,
+        "height": 1920,
+        "batches": 31,
+        "graphics": 106,
+        "monoBytes": 1333858304
+      },
+      {
+        "test": "return opens confirmation",
+        "passed": true
+      },
+      {
+        "capture": "return-confirm-1080x1920",
+        "width": 1080,
+        "height": 1920,
+        "batches": 34,
+        "graphics": 116,
+        "monoBytes": 1338114048
+      },
+      {
+        "test": "cancel keeps dungeon",
+        "passed": true
+      },
+      {
+        "test": "return dialog back cancels",
+        "passed": true
+      },
+      {
+        "test": "confirm restores main stage, loop, auto and guide",
+        "passed": true
+      },
+      {
+        "test": "ruby dungeon entry",
+        "passed": true
+      },
+      {
+        "test": "ruby time contains seconds only",
+        "passed": true
+      },
+      {
+        "capture": "ruby-1080x1920",
+        "width": 1080,
+        "height": 1920,
+        "batches": 27,
+        "graphics": 99,
+        "monoBytes": 1247555584
+      },
+      {
+        "capture": "ruby-1080x2400",
+        "width": 1080,
+        "height": 2400,
+        "batches": 27,
+        "graphics": 99,
+        "monoBytes": 1247985664
+      },
+      {
+        "capture": "cleared-1080x2400",
+        "width": 1080,
+        "height": 2400,
+        "batches": 30,
+        "graphics": 105,
+        "monoBytes": 1249910784
+      },
+      {
+        "capture": "main-1080x2400",
+        "width": 1080,
+        "height": 2400,
+        "batches": 30,
+        "graphics": 123,
+        "monoBytes": 1252827136
+      },
+      {
+        "capture": "selection-1080x2400",
+        "width": 1080,
+        "height": 2400,
+        "batches": 33,
+        "graphics": 190,
+        "monoBytes": 1253818368
+      },
+      {
+        "capture": "selection-1536x2048",
+        "width": 1536,
+        "height": 2048,
+        "batches": 33,
+        "graphics": 190,
+        "monoBytes": 1254879232
+      },
+      {
+        "capture": "main-1536x2048",
+        "width": 1536,
+        "height": 2048,
+        "batches": 30,
+        "graphics": 123,
+        "monoBytes": 1256448000
+      },
+      {
+        "capture": "main-720x1280",
+        "width": 720,
+        "height": 1280,
+        "batches": 30,
+        "graphics": 123,
+        "monoBytes": 1259495424
+      },
+      {
+        "capture": "selection-720x1280",
+        "width": 720,
+        "height": 1280,
+        "batches": 33,
+        "graphics": 190,
+        "monoBytes": 1261051904
+      },
+      {
+        "test": "reincarnation resets frontier and preserves permanent clears",
+        "passed": true
+      }
+    ],
+    "errors": []
+  },
+  "pointerAndGameplay": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "raycast StageRow",
+        "passed": true
+      },
+      {
+        "name": "raycast Stage6",
+        "passed": true
+      },
+      {
+        "name": "raycast Travel",
+        "passed": true
+      },
+      {
+        "name": "selected stage travel via pointer",
+        "passed": true
+      },
+      {
+        "name": "gold re-entry",
+        "passed": true
+      },
+      {
+        "name": "manual skills above dungeon return row",
+        "passed": true
+      },
+      {
+        "name": "gold kill counter and earned amount match committed wallet",
+        "passed": true
+      },
+      {
+        "name": "gold kill label updates immediately",
+        "passed": true
+      },
+      {
+        "name": "dungeon seconds tick in combat",
+        "passed": true
+      },
+      {
+        "name": "raycast ReturnButton",
+        "passed": true
+      },
+      {
+        "name": "return modal blocks background input",
+        "passed": true
+      },
+      {
+        "name": "raycast Cancel",
+        "passed": true
+      },
+      {
+        "name": "pointer cancel stays in dungeon",
+        "passed": true
+      },
+      {
+        "name": "raycast ReturnButton",
+        "passed": true
+      },
+      {
+        "name": "raycast Confirm",
+        "passed": true
+      },
+      {
+        "name": "ruby re-entry",
+        "passed": true
+      },
+      {
+        "name": "ruby HP fill follows damage event",
+        "passed": true
+      },
+      {
+        "name": "next ruby boss binding",
+        "passed": true
+      },
+      {
+        "name": "ruby boss index updates",
+        "passed": true
+      },
+      {
+        "name": "raycast ReturnButton",
+        "passed": true
+      },
+      {
+        "name": "raycast Confirm",
+        "passed": true
+      },
+      {
+        "name": "stage HUD stays within simulated safe area",
+        "passed": true
+      }
+    ],
+    "failures": []
+  },
+  "saveAndReferences": {
+    "passed": true,
+    "checks": [
+      "legacy fixture saved",
+      "legacy frontier uses confirmed current location, not permanent high",
+      "legacy boss fixture saved",
+      "confirmed boss clear restores next chapter",
+      "frontier fixture saved",
+      "frontier persists after reload from cleared stage",
+      "rebinding does not duplicate stage subscriptions",
+      "all stage HUD serialized references resolve"
+    ]
+  },
+  "stageBoundaries": {
+    "passed": true,
+    "checks": [
+      "main clear accepted through existing result path",
+      "auto off stays on stage 9-10 while boss becomes highest",
+      "manual highest jump enters unlocked boss",
+      "manual boss entry keeps auto off",
+      "boss clear accepted",
+      "boss clear advances cycle frontier to next chapter",
+      "compact guide retains reward and next-quest action"
+    ],
+    "failures": []
+  },
+  "existingProgressionRegression": {
+    "passed": true,
+    "count": 174,
+    "checks": [
+      "preserve ID Main/1",
+      "preserve ID Main/2",
+      "preserve ID Main/3",
+      "preserve ID GoldDungeon/1",
+      "preserve ID GoldDungeon/2",
+      "preserve ID GoldDungeon/3",
+      "preserve ID RubyDungeon/1",
+      "preserve ID RubyDungeon/2",
+      "preserve ID RubyDungeon/3",
+      "3 boss enters 4-1",
+      "chapter boundary 4",
+      "theme rotation 4",
+      "valid late-game stats 4",
+      "offline progression 4",
+      "chapter boundary 5",
+      "theme rotation 5",
+      "valid late-game stats 5",
+      "offline progression 5",
+      "chapter boundary 6",
+      "theme rotation 6",
+      "valid late-game stats 6",
+      "offline progression 6",
+      "chapter boundary 99",
+      "theme rotation 99",
+      "valid late-game stats 99",
+      "offline progression 99",
+      "chapter boundary 4095",
+      "theme rotation 4095",
+      "valid late-game stats 4095",
+      "offline progression 4095",
+      "chapter boundary 4096",
+      "theme rotation 4096",
+      "valid late-game stats 4096",
+      "offline progression 4096",
+      "chapter boundary 10000",
+      "theme rotation 10000",
+      "valid late-game stats 10000",
+      "offline progression 10000",
+      "chapter boundary 1000000",
+      "theme rotation 1000000",
+      "valid late-game stats 1000000",
+      "offline progression 1000000",
+      "opening HP preserved 1-1",
+      "opening HP preserved 1-2",
+      "opening HP preserved 1-3",
+      "opening HP preserved 1-4",
+      "opening HP preserved 1-5",
+      "opening HP preserved 1-6",
+      "opening HP preserved 1-7",
+      "opening HP preserved 1-8",
+      "opening HP preserved 1-9",
+      "opening HP preserved 1-10",
+      "opening HP preserved 1-11",
+      "opening HP preserved 2-1",
+      "opening HP preserved 2-2",
+      "opening HP preserved 2-3",
+      "opening HP preserved 2-4",
+      "opening HP preserved 2-5",
+      "opening HP preserved 2-6",
+      "opening HP preserved 2-7",
+      "opening HP preserved 2-8",
+      "opening HP preserved 2-9",
+      "opening HP preserved 2-10",
+      "opening HP preserved 2-11",
+      "opening HP preserved 3-1",
+      "opening HP preserved 3-2",
+      "opening HP preserved 3-3",
+      "opening HP preserved 3-4",
+      "opening HP preserved 3-5",
+      "opening HP preserved 3-6",
+      "opening HP preserved 3-7",
+      "opening HP preserved 3-8",
+      "opening HP preserved 3-9",
+      "opening HP preserved 3-10",
+      "opening HP preserved 3-11",
+      "continuous growth 4",
+      "continuous growth 5",
+      "continuous growth 6",
+      "continuous growth 7",
+      "continuous growth 8",
+      "continuous growth 9",
+      "continuous growth 10",
+      "continuous growth 11",
+      "continuous growth 12",
+      "continuous growth 13",
+      "continuous growth 14",
+      "continuous growth 15",
+      "continuous growth 16",
+      "continuous growth 17",
+      "continuous growth 18",
+      "continuous growth 19",
+      "continuous growth 20",
+      "continuous growth 21",
+      "continuous growth 22",
+      "continuous growth 23",
+      "continuous growth 24",
+      "continuous growth 25",
+      "continuous growth 26",
+      "continuous growth 27",
+      "continuous growth 28",
+      "continuous growth 29",
+      "continuous growth 30",
+      "continuous growth 31",
+      "continuous growth 32",
+      "continuous growth 33",
+      "continuous growth 34",
+      "continuous growth 35",
+      "continuous growth 36",
+      "continuous growth 37",
+      "continuous growth 38",
+      "continuous growth 39",
+      "continuous growth 40",
+      "continuous growth 41",
+      "continuous growth 42",
+      "continuous growth 43",
+      "continuous growth 44",
+      "continuous growth 45",
+      "continuous growth 46",
+      "continuous growth 47",
+      "continuous growth 48",
+      "continuous growth 49",
+      "continuous growth 50",
+      "continuous growth 51",
+      "continuous growth 52",
+      "continuous growth 53",
+      "continuous growth 54",
+      "continuous growth 55",
+      "continuous growth 56",
+      "continuous growth 57",
+      "continuous growth 58",
+      "continuous growth 59",
+      "continuous growth 60",
+      "continuous growth 61",
+      "continuous growth 62",
+      "continuous growth 63",
+      "continuous growth 64",
+      "continuous growth 65",
+      "continuous growth 66",
+      "continuous growth 67",
+      "continuous growth 68",
+      "continuous growth 69",
+      "continuous growth 70",
+      "continuous growth 71",
+      "continuous growth 72",
+      "continuous growth 73",
+      "continuous growth 74",
+      "continuous growth 75",
+      "continuous growth 76",
+      "continuous growth 77",
+      "continuous growth 78",
+      "continuous growth 79",
+      "continuous growth 80",
+      "continuous growth 81",
+      "continuous growth 82",
+      "continuous growth 83",
+      "continuous growth 84",
+      "continuous growth 85",
+      "continuous growth 86",
+      "continuous growth 87",
+      "continuous growth 88",
+      "continuous growth 89",
+      "continuous growth 90",
+      "continuous growth 91",
+      "continuous growth 92",
+      "continuous growth 93",
+      "continuous growth 94",
+      "continuous growth 95",
+      "continuous growth 96",
+      "continuous growth 97",
+      "continuous growth 98",
+      "continuous growth 99",
+      "continuous growth 100",
+      "timed defeat result GoldClear",
+      "timed defeat result RubyClear"
+    ]
+  },
+  "prefabs": [
+    {
+      "path": "Assets/UGUI/Prefabs/Screens/Screen_Main.prefab",
+      "missing": 0,
+      "components": 901
+    },
+    {
+      "path": "Assets/UGUI/Prefabs/Popups/Popup_StageSelect.prefab",
+      "missing": 0,
+      "components": 323
+    },
+    {
+      "path": "Assets/UGUI/Prefabs/Popups/Popup_DungeonReturnConfirm.prefab",
+      "missing": 0,
+      "components": 50
+    }
+  ],
+  "prefabAudit": {
+    "before": 870,
+    "after": 1072,
+    "changed": [
+      {
+        "owner": "ActionLabel",
+        "removed": false,
+        "type": "MonoBehaviour:"
+      },
+      {
+        "owner": "StageRow",
+        "removed": false,
+        "type": "RectTransform:"
+      },
+      {
+        "owner": "Description",
+        "removed": false,
+        "type": "MonoBehaviour:"
+      },
+      {
+        "owner": "Description",
+        "removed": false,
+        "type": "RectTransform:"
+      },
+      {
+        "owner": "GuideGoal",
+        "removed": false,
+        "type": "GameObject:"
+      },
+      {
+        "owner": "LblStage",
+        "removed": false,
+        "type": "MonoBehaviour:"
+      },
+      {
+        "owner": "ReadabilityBackground",
+        "removed": false,
+        "type": "RectTransform:"
+      },
+      {
+        "owner": "StageArea",
+        "removed": false,
+        "type": "RectTransform:"
+      },
+      {
+        "owner": "StageRow",
+        "removed": false,
+        "type": "GameObject:"
+      },
+      {
+        "owner": "Progress",
+        "removed": false,
+        "type": "GameObject:"
+      },
+      {
+        "owner": "BossChallenge",
+        "removed": false,
+        "type": "GameObject:"
+      },
+      {
+        "owner": "ProgressTrack",
+        "removed": false,
+        "type": "GameObject:"
+      },
+      {
+        "owner": "Step",
+        "removed": false,
+        "type": "MonoBehaviour:"
+      },
+      {
+        "owner": "LblBossChain",
+        "removed": false,
+        "type": "RectTransform:"
+      },
+      {
+        "owner": "StageArea",
+        "removed": false,
+        "type": "GameObject:"
+      },
+      {
+        "owner": "LblStage",
+        "removed": false,
+        "type": "RectTransform:"
+      },
+      {
+        "owner": "BossChallenge",
+        "removed": false,
+        "type": "RectTransform:"
+      },
+      {
+        "owner": "Screen_Main",
+        "removed": false,
+        "type": "RectTransform:"
+      },
+      {
+        "owner": "BossTimerBar",
+        "removed": false,
+        "type": "RectTransform:"
+      },
+      {
+        "owner": "LblBossChain",
+        "removed": false,
+        "type": "MonoBehaviour:"
+      },
+      {
+        "owner": "CheckFrame",
+        "removed": false,
+        "type": "RectTransform:"
+      },
+      {
+        "owner": "StageArea",
+        "removed": false,
+        "type": "MonoBehaviour:"
+      },
+      {
+        "owner": "ActionLabel",
+        "removed": false,
+        "type": "RectTransform:"
+      },
+      {
+        "owner": "GuideGoal",
+        "removed": false,
+        "type": "RectTransform:"
+      },
+      {
+        "owner": "StageArea",
+        "removed": false,
+        "type": "MonoBehaviour:"
+      },
+      {
+        "owner": "Step",
+        "removed": false,
+        "type": "RectTransform:"
+      }
+    ]
+  },
+  "performance": {
+    "scope": "Editor QA, active main combat, not Android or before/after benchmark",
+    "frames": 240,
+    "seconds": 3.98965454,
+    "fps": 60.1555824,
+    "batchesMin": 27,
+    "batchesMax": 31,
+    "batchesAverage": 29.258333333333333
+  },
+  "costNotes": [
+    "Two popup prefabs; selection instantiated lazily and reused",
+    "Unchanged labels and fill amounts are not reassigned; timer text updates on displayed-second changes",
+    "Editor managed heap includes tooling, import and screenshot allocations; it is not device game memory",
+    "Baseline exploration measured about 59.91 Editor FPS with different capture overhead; no before/after performance improvement claim"
+  ],
+  "captures": {
+    "safeArea": "Runtime simulated 3% bottom / 4% top inset; not a physical device notch test",
+    "afterDirectory": "Recordings/StageHud20261018",
+    "screenSizes": [
+      "720x1280",
+      "1080x1920",
+      "1080x2400",
+      "1536x2048"
+    ],
+    "before": "Recordings/UIUXReview20261018/151012.png"
+  },
+  "issuesAndFixes": [
+    "Bright battlefield reduced count contrast: reused dark card backdrop",
+    "Bottom dungeon return row overlapped manual skills: manual tray anchors above visible return row",
+    "QA setup initially used invalid 5-ticket fixture; corrected to existing 2-ticket bound",
+    "QA assumed loop flag for auto-OFF stage 10; existing restart rule does not set that flag, so assertion was corrected without changing gameplay",
+    "Transient Google resolver settings write-lock occurred during device-specific settings cleanup; current Console error count is zero"
+  ],
+  "notVerified": [
+    "Android physical touch/back key, actual safe areas, thermal and memory behavior",
+    "Android APK/build/install"
+  ],
+  "finalConsole": {
+    "consoleErrors": 0,
+    "compilationFailed": false
+  }
+}

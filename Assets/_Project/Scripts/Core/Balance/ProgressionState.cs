@@ -22,6 +22,7 @@ namespace KingdomIdle.Balance
         public long LastReincarnationUtc, CycleStartedUtc;
         public string ReincarnationDay;
         public long MainStage = 0x200010001, HighestMainClear;
+        public long CycleFrontierStage;
         public HashSet<long> MainClears = new();
         public HashSet<string> Claims = new();
         public Dictionary<int, string> Jobs = new();

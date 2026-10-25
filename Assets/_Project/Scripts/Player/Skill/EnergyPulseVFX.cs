@@ -8,6 +8,7 @@ public class EnergyPulseVFX : MonoBehaviour
 {
     private Animator _animator;
     private float _deactivateTime = -1f;
+    private bool _releaseWhenFinished;
 
     public void Init()
     {
@@ -38,12 +39,19 @@ public class EnergyPulseVFX : MonoBehaviour
         _deactivateTime = Time.time + length;
     }
 
+    public void ReleaseWhenFinished()
+    {
+        _releaseWhenFinished = true;
+        if (!gameObject.activeInHierarchy || _deactivateTime < 0f) Destroy(gameObject);
+    }
+
     private void Update()
     {
         if (_deactivateTime > 0f && Time.time >= _deactivateTime)
         {
             _deactivateTime = -1f;
             gameObject.SetActive(false);
+            if (_releaseWhenFinished) Destroy(gameObject);
         }
     }
 }

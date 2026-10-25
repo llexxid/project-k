@@ -53,6 +53,26 @@ namespace Scripts.Core.Manager
 		public bool LoopMode;
 		public bool BossAutoChallenge;
 	}
+    /// <summary>HUD만 읽는 현재 실행 값. 표시 코드가 세션이나 보상을 변경하지 않는다.</summary>
+    public readonly struct StageHudSnapshot
+    {
+        public readonly string RunId;
+        public readonly StageDefinition Definition;
+        public readonly int Kills, Target;
+        public readonly float RemainingTime;
+        public readonly long EarnedGold;
+        public readonly Monster Boss;
+        public StageHudSnapshot(StageSession session)
+        {
+            RunId = session.RunId; Definition = session.Definition;
+            Kills = session.TotalKillCount; RemainingTime = session.RemainingTime; EarnedGold = session.EarnedGold;
+            int target = 0;
+            foreach (var entry in Definition.MonsterEntries) target += entry.Count;
+            Target = Math.Max(1, target); Boss = null;
+            foreach (var monster in session.Monsters)
+                if (monster != null && monster.IsBalanceBoss && monster.GetHpRatio() > 0) { Boss = monster; break; }
+        }
+    }
 	/// <summary>
 	/// 스테이지 진입, 웨이브 진행, 클리어/패배 분기와 전환 흐름을 관리한다
 	/// 
@@ -101,6 +121,29 @@ namespace Scripts.Core.Manager
         public bool IsLoopMode => _isLoopMode;
         public bool BossAutoChallenge => _bossAutoChallenge;
         public eStage MaxClearedStage => (eStage)LocalProgression.State.HighestMainClear;
+        public eStage CycleFrontierStage => (eStage)Math.Max(LocalProgression.State.MainStage, LocalProgression.State.CycleFrontierStage);
+
+        public bool IsCycleStageCleared(eStage stage) => StageParser.GetStageType(stage) == eStageType.Main && (long)stage < (long)CycleFrontierStage;
+
+        public bool TryGetHudSnapshot(out StageHudSnapshot snapshot)
+        {
+            snapshot = _currentSession == null ? default : new StageHudSnapshot(_currentSession);
+            return _currentSession != null;
+        }
+
+        /// <summary>선택 UI의 명시적 이동만 처리한다. 자동 도전 설정·클리어·보상에는 관여하지 않는다.</summary>
+        public bool TryMoveToMainStage(eStage target)
+        {
+            if (_currentState != eStageRunState.Running || CurrentDefinition?.Type != eStageType.Main ||
+                LocalProgression.State.PendingReincarnation || StageParser.GetStageType(target) != eStageType.Main ||
+                (long)target > (long)CycleFrontierStage || !TryGetStageDefinition(target, out var definition) || !definition.Enabled) return false;
+            if (target == CurrentStage) return true;
+            bool previousLoop = _isLoopMode;
+            _isLoopMode = IsCycleStageCleared(target) && !StageParser.IsBossWave(target);
+            if (!TransitionStage(target)) { _isLoopMode = previousLoop; return false; }
+            OnLoopModeChanged?.Invoke(_isLoopMode);
+            return true;
+        }
 
         private const float DefeatPopupDuration = 15f;
         public const float DungeonReturnDuration = 6f;
