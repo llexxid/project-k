@@ -29,3 +29,10 @@
 ## Android
 
 연결 기기 조회 결과 0대이므로 실기기 광고 노출·네트워크 장애·앱 전환 복귀는 미검증이다. APK 빌드 결과는 아래에 기록한다.
+
+- IL2CPP / ARM64, 0.16.3 b64, `.adtest` 패키지 빌드 성공. 오류 0, 경고 89(기존 API 폐기 경고와 빌드 도구 경고 등).
+- 실제 APK 파일은 96,197,494 bytes이다. `android-build.txt`의 Bytes는 Unity BuildReport 전체 크기이며 APK 파일 크기와 다르다.
+- 결과: `Recordings/AdMobTest/Android/AdMob 광고 테스트_0.16.3_b64.apk`.
+- 첫 빌드는 약 20분 41초였으며 `packagingOptions` → `packaging` 자동 수정 확인 창 대기와 최초 IL2CPP 컴파일을 포함한다. AdMob 전처리기의 추가 Resolve가 구문을 재생성한 것이며 Unity의 Yes로 진행해 성공했다. 재빌드 때 같은 창이 뜨면 Yes로 진행한다.
+- 빌드 후 게임의 패키지·표시 이름·ARMv7/ARM64·서명·EDM 자동 Resolve 설정은 복구됐다. 빌드가 생성한 URP 파생값, 성능 테스트 파일, SDK AndroidManifest, 테스트 패키지 의존성 기록도 원복했다. 버전 코드 64와 기존 Google EDM 선택을 반영한 UNITY_EDM_DISABLED만 유지한다.
+- 테스트 씬이 직렬화된 에셋으로 완성된 뒤 일회성 UI 생성 코드를 제거했다. Editor 코드는 씬 열기·APK 빌드 메뉴와 저장하지 않은 씬 보호만 남긴다.

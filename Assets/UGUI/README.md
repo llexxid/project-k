@@ -24,6 +24,8 @@
 
 `KingdomIdle → Ads → Build Android Test APK`는 이 씬만 `.adtest` 패키지로 빌드한다. 결과는 `Recordings/AdMobTest/Android`, 버전과 빌드 번호는 APK 이름에 포함된다. 기존 게임 앱과 별도로 설치할 수 있으며 Build Settings의 게임 씬 목록은 바꾸지 않는다.
 
+빌드 중 `mainTemplate.gradle needs to be updated` 창이 나오면 `Yes`로 진행한다. Unity 6의 `packaging` 문법으로 갱신하는 안내이며 외부 의존성 관리자가 이전 문법을 다시 쓸 때 나타날 수 있다.
+
 공통 호출은 `KingdomIdle.Ads.RewardedAdService.Show(adUnitId, (result, error) => ...)`다. `Completed`만 보상 자격으로 인정하고, 보상 저장 성공은 호출자가 확인한다. `Skipped`, `Failed`, `Busy`를 구별하며 요청당 한 번만 완료를 반환한다. 광고 준비는 60초 후 실패로 해제되고, `IsBusy`/`IsShowing`으로 진행 상태를 확인한다. 현재 Google 광고만 검증 대상으로 삼으며 미디에이션 추가 시 보상·닫힘 콜백 순서를 재검증한다.
 
 실제 게임 연결 시 오프라인 기본 보상은 이미 지급된 상태이므로 `Claim()`을 다시 호출하지 않는다. 원래 정산 ID·확정 금액을 캡처해 광고 완료 후 추가분만 지급하고, 광고 Activity 복귀를 새 오프라인 정산으로 처리하지 않도록 연결한다. 일일 광고 보상은 날짜·수령 차수에 고정된 claim ID를 사용한다. 두 경로 모두 광고 전후 계정 세대를 확인하고 기존 `LocalProgression.Execute` 거래 안에서 지급과 claim 기록을 함께 저장한다. 보상 종류·수량·일일 한도 및 이 게임 연결은 아직 구현하지 않았다.
