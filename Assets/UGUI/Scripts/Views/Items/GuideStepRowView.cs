@@ -91,12 +91,7 @@ namespace KingdomIdle.UGUI
             {
                 if (index >= snapshot.Rewards.Count) return;
                 var reward = snapshot.Rewards[index];
-                icon.sprite = reward.Currency switch
-                {
-                    eCurrency.Gold => catalog.iconCoin, eCurrency.AncientCoin => catalog.iconAncientCoin,
-                    eCurrency.ClassFragment => catalog.iconFragment, eCurrency.ArcaneKnowledge => catalog.iconArcane,
-                    _ => catalog.iconGem
-                };
+                icon.sprite = RewardPresentation.Icon(reward.Currency, catalog);
                 amount.text = reward.IsDynamic ? "2분 골드" : $"×{NumberNotation.Format(reward.Amount)}";
                 amount.color = UguiTheme.Parchment;
             }

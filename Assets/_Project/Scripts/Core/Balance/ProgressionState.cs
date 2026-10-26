@@ -25,6 +25,9 @@ namespace KingdomIdle.Balance
         public long CycleFrontierStage;
         public HashSet<long> MainClears = new();
         public HashSet<string> Claims = new();
+        public KingdomIdle.CheckIn.CheckInState CheckIn = new();
+        public List<KingdomIdle.Mailbox.MailMessage> Mail = new();
+        public long RewardsRevision;
         public Dictionary<int, string> Jobs = new();
         public Dictionary<int, HashSet<string>> UnlockedJobs = new();
         public List<EquipmentSave> Equipment = new();
@@ -67,6 +70,9 @@ namespace KingdomIdle.Balance
         {
             var copy = (ProgressionState)MemberwiseClone();
             copy.Wallet = new(Wallet); copy.MainClears = new(MainClears); copy.Claims = new(Claims);
+            copy.CheckIn = CheckIn.Copy();
+            copy.Mail = new(Mail.Count);
+            foreach (var mail in Mail) copy.Mail.Add(mail.Copy());
             copy.CompletedQuests = new(CompletedQuests);
             copy.Jobs = new(Jobs); copy.UnlockedJobs = new();
             foreach (var pair in UnlockedJobs) copy.UnlockedJobs.Add(pair.Key, new(pair.Value));
