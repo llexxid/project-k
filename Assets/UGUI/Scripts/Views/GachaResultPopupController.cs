@@ -167,7 +167,7 @@ namespace KingdomIdle.UGUI
                 displayName = entry.currency == eCurrency.ArcaneKnowledge ? "비전 지식" :
                     entry.currency == eCurrency.ClassFragment ? "전직 파편" : !string.IsNullOrEmpty(entry.nameKor)
                     ? entry.nameKor
-                    : MainScreenController.GetCurrencyLabelKor(entry.currency);
+                    : RewardPresentation.Name(entry.currency);
             }
 
             else
@@ -221,7 +221,7 @@ namespace KingdomIdle.UGUI
         }
 
         private static string RePullLabel(KingdomIdle.Gacha.GachaTableSO table, int count)
-            => table == null ? "다시 뽑기" : $"{count}회 다시 뽑기\n{NumberNotation.Format((long)table.costAmount * count)} {MainScreenController.GetCurrencyLabelKor(table.costCurrency)}";
+            => table == null ? "다시 뽑기" : $"{count}회 다시 뽑기\n{NumberNotation.Format((long)table.costAmount * count)} {RewardPresentation.Name(table.costCurrency)}";
 
         private static void HandleRePull(GachaResultPopupView view, UnityEngine.UI.Button button, KingdomIdle.Gacha.GachaTableSO table, int count)
         {

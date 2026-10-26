@@ -415,23 +415,7 @@ namespace KingdomIdle.UGUI
             foreach (var c in values)
             {
                 if (!IsGroupCurrency(c, _currencyPremiumGroup)) continue;
-                AddCurrencyLine(content, GetCurrencyIcon(c), GetCurrencyLabelKor(c), GetCurrencyText(c), isTitle: false);
-            }
-        }
-
-        /// <summary>재화별 러스틱 아이콘 (드롭다운 행용).</summary>
-        private Sprite GetCurrencyIcon(eCurrency c)
-        {
-            var cat = _host != null ? _host.Catalog : null;
-            if (cat == null) return null;
-            switch (c)
-            {
-                case eCurrency.Gold: return cat.iconCoin;
-                case eCurrency.AncientCoin: return cat.iconAncientCoin;
-                case eCurrency.ArcaneKnowledge: return cat.iconArcane;
-                case eCurrency.ClassFragment: return cat.iconFragment;
-                case eCurrency.EquipmentStone: return cat.iconEquipmentStone;
-                default: return cat.iconGem;
+                AddCurrencyLine(content, RewardPresentation.Icon(c), RewardPresentation.Name(c), GetCurrencyText(c), isTitle: false);
             }
         }
 
@@ -459,20 +443,6 @@ namespace KingdomIdle.UGUI
             return c == eCurrency.Gold
                 || c == eCurrency.AncientCoin
                 || c == eCurrency.ArcaneKnowledge;
-        }
-
-        internal static string GetCurrencyLabelKor(eCurrency c)
-        {
-            switch (c)
-            {
-                case eCurrency.Gold: return "골드";
-                case eCurrency.AncientCoin: return "고대주화";
-                case eCurrency.ArcaneKnowledge: return "비전지식";
-                case eCurrency.ClassFragment: return "전직 파편";
-                case eCurrency.Ruby: return "루비";
-                case eCurrency.EquipmentStone: return "강화석";
-                default: return c.ToString();
-            }
         }
 
         private void ToggleCurrencyPopup()
@@ -820,7 +790,19 @@ namespace KingdomIdle.UGUI
                 _view.btnMenuNotice.gameObject.SetActive(false);
 
             if (_view.btnMenuMail != null)
-                _view.btnMenuMail.gameObject.SetActive(false);
+            {
+                _view.btnMenuMail.gameObject.SetActive(true);
+                _view.btnMenuMail.onClick.AddListener(() => OpenRewardPanel(UIPanelId.Mailbox));
+            }
+            if (_view.btnMenuCheckIn != null)
+                _view.btnMenuCheckIn.onClick.AddListener(() => OpenRewardPanel(UIPanelId.CheckIn));
+        }
+
+        private void OpenRewardPanel(UIPanelId id)
+        {
+            CloseHamburgerMenuImmediate();
+            if (_currencyOpen) CloseCurrencyPopup();
+            _host.PushPanel(id, null, clearBefore: false, isTabPanel: false);
         }
 
         // ═══════════════════════════════════════════
