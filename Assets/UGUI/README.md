@@ -18,6 +18,16 @@
 
 ## 실행·수정
 
+### 광고 단독 테스트
+
+`KingdomIdle → Ads → Open Test Scene`으로 `Scenes/AdMobTest.unity`를 열고 Play한 뒤 `광고 보기`를 누른다. 초기화·로드·재생을 자동 처리하며 SDK 보상 콜백을 받은 후 광고를 닫으면 완료 팝업을 표시한다. 중도 종료는 완료 처리하지 않고 실패 시 같은 팝업으로 재시도를 안내한다. Editor는 SDK 모의 광고이고, Android는 Google의 고정 테스트 광고 단위를 사용한다. 로그인·실제 재화 지급은 없다.
+
+`KingdomIdle → Ads → Build Android Test APK`는 이 씬만 `.adtest` 패키지로 빌드한다. 결과는 `Recordings/AdMobTest/Android`, 버전과 빌드 번호는 APK 이름에 포함된다. 기존 게임 앱과 별도로 설치할 수 있으며 Build Settings의 게임 씬 목록은 바꾸지 않는다.
+
+공통 호출은 `KingdomIdle.Ads.RewardedAdService.Show(adUnitId, (result, error) => ...)`다. `Completed`만 보상 자격으로 인정하고, 보상 저장 성공은 호출자가 확인한다. `Skipped`, `Failed`, `Busy`를 구별하며 요청당 한 번만 완료를 반환한다. 광고 준비는 60초 후 실패로 해제되고, `IsBusy`/`IsShowing`으로 진행 상태를 확인한다. 현재 Google 광고만 검증 대상으로 삼으며 미디에이션 추가 시 보상·닫힘 콜백 순서를 재검증한다.
+
+실제 게임 연결 시 오프라인 기본 보상은 이미 지급된 상태이므로 `Claim()`을 다시 호출하지 않는다. 원래 정산 ID·확정 금액을 캡처해 광고 완료 후 추가분만 지급하고, 광고 Activity 복귀를 새 오프라인 정산으로 처리하지 않도록 연결한다. 일일 광고 보상은 날짜·수령 차수에 고정된 claim ID를 사용한다. 두 경로 모두 광고 전후 계정 세대를 확인하고 기존 `LocalProgression.Execute` 거래 안에서 지급과 claim 기록을 함께 저장한다. 보상 종류·수량·일일 한도 및 이 게임 연결은 아직 구현하지 않았다.
+
 `bootstrap → UGUI_UIRoot(DontDestroyOnLoad) → SafeArea → 화면/패널/팝업/오버레이`.
 `LoadManager → SceneRoutingBridge → UIManager.ReplaceScreen`, 탐색은 `PushPanel`을 사용한다.
 화면 치수는 1080px 기준이며 실제 CanvasScaler·SafeArea는 루트 프리팹에서 확인한다.
