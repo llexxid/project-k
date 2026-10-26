@@ -29,8 +29,6 @@ namespace Protocol.Message.Dto
 	}
 	public sealed class OnRewardRequestDTO : SessionRequestDTO
 	{
-		// NetworkManager가 채운다. 세션의 첫 배치는 난수, 이후는 직전 성공 응답의 NextRewardSequence다.
-		public long RewardSequence { get; set; }
 		public eStage Stage { get; set; }
 		public List<HuntResult> Loots { get; set; } = null!;
 		// 던전 사냥은 OnEnterDungeon 응답의 BattleId를 넣는다. 메인 스테이지는 null로 둔다(값이 있으면 1025).

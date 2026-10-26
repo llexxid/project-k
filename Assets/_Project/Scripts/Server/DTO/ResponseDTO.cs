@@ -85,9 +85,6 @@ public sealed class OnHuntResponseDTO : ApiResponseDTO
     public long Gold { get; set; }
     [JsonProperty(Required = Required.Always)]
     public long AncientCoin { get; set; }
-    // 다음 사냥 배치의 순번. 지급된 배치는 같은 순번으로 다시 지급하지 않는다.
-    [JsonProperty(Required = Required.Always)]
-    public long NextRewardSequence { get; set; }
 }
 public sealed class OnStageClearResponseDTO : ApiResponseDTO
 {
@@ -213,6 +210,7 @@ public sealed class OnResetSkillEnhancementResponseDTO : MageActionResponseDTO
 }
 
 // 직업 변경 응답의 공통 베이스.
+// 캐릭터 스탯과 장비 상태는 클라이언트가 자기 데이터로 갱신한다. 새 직업이 못 쓰는 장비는 먼저 해제해야 한다.
 public abstract class JobActionResponseDTO : ApiResponseDTO
 {
     [JsonProperty(Required = Required.Always)]
@@ -220,11 +218,7 @@ public abstract class JobActionResponseDTO : ApiResponseDTO
     [JsonProperty(Required = Required.Always)]
     public ulong JobCode { get; set; }
     [JsonProperty(Required = Required.Always)]
-    public List<CharacterDataQuery> CharacterJobs { get; set; } = null!;
-    [JsonProperty(Required = Required.Always)]
     public List<JobTreeQuery> JobTrees { get; set; } = null!;
-    [JsonProperty(Required = Required.Always)]
-    public EquipmentInventoryDTO Equipment { get; set; } = null!;
 }
 public sealed class OnGetJobResponseDTO : JobActionResponseDTO
 {
