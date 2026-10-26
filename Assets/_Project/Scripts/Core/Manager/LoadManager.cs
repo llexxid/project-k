@@ -90,6 +90,7 @@ namespace Scripts.Core
         // 동기 로드
         public void LoadScene(eSceneType type)
         {
+            type = RequireReadyScene(type);
             Time.timeScale = 1f;
 
             SceneLoadStarted?.Invoke(type);
@@ -108,6 +109,7 @@ namespace Scripts.Core
         /// <param name="type">변경하려는 씬</param>
         public void LoadAsyncScene(eSceneType type)
         {
+            type = RequireReadyScene(type);
             if (_isSceneLoading)
             {
                 Debug.LogWarning($"[LoadManager] Scene load already in progress: {type}");
@@ -126,7 +128,21 @@ namespace Scripts.Core
             Time.timeScale = 1f;
 
             var current = SceneManager.GetActiveScene().name;
+            if ((current == GetSceneName(eSceneType.main) || current == GetSceneName(eSceneType.dungeon)) &&
+                RequireReadyScene(eSceneType.main) == eSceneType.title)
+            {
+                LoadScene(eSceneType.title);
+                return;
+            }
             SceneManager.LoadScene(current);
+        }
+
+        private static eSceneType RequireReadyScene(eSceneType type)
+        {
+            if ((type == eSceneType.main || type == eSceneType.dungeon) &&
+                (Scripts.Core.Manager.NetworkManager.Instance == null || !Scripts.Core.Manager.NetworkManager.Instance.IsGameDataReady))
+                return eSceneType.title;
+            return type;
         }
         /// <summary>
         /// 스테이지 전환 시 다음 스테이지 그룹에 필요한 리소스를 준비한 뒤 콜백을 호출한다.

@@ -19,6 +19,8 @@ namespace KingdomIdle.UGUI
             _view = view;
             _host = host;
             _requestedScene = false;
+            if (NetworkManager.Instance != null)
+                NetworkManager.Instance.LoginStateChanged += HandleLoginStateChanged;
             if (SFXManager.Instance != null) SFXManager.Instance.PlayBGM(eSFXType.TITLE);
             if (_view.btnSettings != null) _view.btnSettings.onClick.AddListener(() =>
             {
@@ -30,7 +32,7 @@ namespace KingdomIdle.UGUI
 
             if (_view.btnLoginGuest != null)
             {
-                // Development guest entry uses the existing shared test account.
+                // Guest accounts use a persistent, device-local ID instead of a shared diagnostic account.
                 _view.btnLoginGuest.gameObject.SetActive(true);
                 _view.btnLoginGuest.onClick.AddListener(() =>
                 {
@@ -71,6 +73,11 @@ namespace KingdomIdle.UGUI
 
                     // 미인증 상태로 메인 진입 시 익명 계정 로그인 문제가 있어
                     // 세션이 없으면 진입을 차단하고 로그인 팝업을 띄운다.
+                    if (NetworkManager.Instance != null && NetworkManager.Instance.IsAuthenticating)
+                    {
+                        _host.ShowToast(Localize("서버 데이터를 불러오는 중입니다.", "Loading server data."));
+                        return;
+                    }
                     if (!IsAuthenticatedSession())
                     {
                         ShowLoginPopup();
@@ -86,6 +93,8 @@ namespace KingdomIdle.UGUI
 
         public void Dispose()
         {
+            if (NetworkManager.Instance != null)
+                NetworkManager.Instance.LoginStateChanged -= HandleLoginStateChanged;
             _view = null;
             _host = null;
         }
@@ -118,20 +127,31 @@ namespace KingdomIdle.UGUI
 
         private void LoadMainOnce()
         {
-            if (_requestedScene) return;
+            if (_requestedScene || !IsAuthenticatedSession()) return;
 
             _requestedScene = true;
             if (LoadManager.Instance != null)
                 LoadManager.Instance.LoadAsyncScene(eSceneType.main);
         }
 
-        /// <summary>PlayFab 인증(세션 발급) 완료 여부.</summary>
+        private void HandleLoginStateChanged()
+        {
+            if (_view == null || _host == null || NetworkManager.Instance == null) return;
+            var net = NetworkManager.Instance;
+            if (_view.btnLoginGuest != null) _view.btnLoginGuest.interactable = !net.IsAuthenticating;
+            if (_view.btnLoginGoogle != null) _view.btnLoginGoogle.interactable = !net.IsAuthenticating;
+            if (net.LoginState == GameLoginState.Failed)
+                _host.ShowToast(net.LastFailure?.ErrorMessage ?? Localize("로그인에 실패했습니다.", "Sign-in failed."));
+            else if (net.LoginState == GameLoginState.Loading)
+                _host.ShowToast(Localize("서버 데이터를 확인하는 중입니다.", "Checking server data."));
+        }
+
+        /// <summary>인증 및 전체 서버 상태·정의 적용 완료 여부.</summary>
         private static bool IsAuthenticatedSession()
         {
             var net = NetworkManager.Instance;
             if (net == null) return false;
-            string sid = net.GetSessionID();
-            return !string.IsNullOrEmpty(sid);
+            return net.IsGameDataReady;
         }
 
         private string Localize(string korean, string english) =>
