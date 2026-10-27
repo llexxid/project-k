@@ -28,6 +28,13 @@ GameView 자체를 360×800, 540×1200, 768×1024로 변경했다. 같은 Editor
 
 ## Android 및 남은 범위
 
-Android 실제 게임 테스트 APK 빌드 결과는 완료 후 이 기록에 반영한다. 현재 `adb devices`에 연결 기기가 없다. Editor 모의 광고 성공은 실제 Android 광고 영상·Activity 복귀·저장 검증을 대신하지 않는다.
+전체 게임 씬으로 Android ARM64/IL2CPP Development APK 빌드에 성공했다. `TitleLobbyDeviceBuild.BuildForManualTesting()`을 사용했으며 추가 진단 define/강제 QA 계정은 넣지 않았다. 버전 `0.17.0`, versionCode `65`, 패키지 `com.isolatedyouth.idlekingdomrpg.lobbyqa`, 앱 이름 `오프라인 광고 테스트 0.17.0 (b65)`다. SDK의 Gradle 이전 문법 안내는 Unity의 자동 갱신으로 처리했고, 빌드 후 임시 설정·백업·캐시는 정리했다.
+
+- APK: `C:/GitHub/project-k/Recordings/OfflineAds/Android/오프라인 광고 테스트_0.17.0_b65.apk` (107,024,784 bytes, 약 102 MiB).
+- [빌드 결과](build.txt): 4분 17초, 오류 0, 경고 22. 기존 코드의 async/unused 경고, Pipeline Player 비활성 안내, 테스트 메타데이터 생성 및 압축 아이콘 경고다. 이번 추가 코드에서 발생한 경고는 없다. 원문은 [build-messages.txt](build-messages.txt)에 보존했다. 보고서의 Bytes는 APK 파일 크기와 다르므로 실제 파일 크기를 별도로 기록했다.
+- [APK 패키지 검사](apk-badging.txt): 버전/앱 이름/ARM64/minSdk 25/targetSdk 36 확인. 병합 Manifest의 Google `AdActivity`와 설정된 광고 App ID도 확인했다.
+- [SHA256](apk-sha256.json): `EEA32C4DC6E607546679588623745A44C159160DEBB980E28EA581DACF2F3A4C`.
+
+빌드 전후 모두 `adb devices`에 연결 기기가 없어 설치·실제 로그인·광고 영상·앱 복귀·저장을 Android에서 검증하지 못했다. Editor 모의 광고 성공과 분리해 보고한다. 연결 후 APK를 설치해 실제 로그인을 진행하고, 오프라인 정산 발생 후 일반 수령/광고 완료/중도 종료/복귀/재시작 저장을 확인해야 한다. 다른 프로젝트 앱을 정리해야 한다면 저장 데이터 백업을 먼저 수행한다.
 
 강제 종료 후 미지급 광고 보너스 복구는 합의대로 제외했다. 저장된 기본/추가 보상은 유지된다. 운영 광고 ID·미디에이션·서버 보상 검증·일일 광고 재화는 포함하지 않았다.
