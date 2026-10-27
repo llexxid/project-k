@@ -52,6 +52,7 @@ namespace KingdomIdle.UGUI
             if (view == null) return null;
             view._onClosed = onClosed;
             view.closeButton.gameObject.SetActive(false);
+            view.confirmButton.transform.parent.gameObject.SetActive(true);
             view.confirmButton.gameObject.SetActive(true);
             view.confirmButton.onClick.AddListener(view.Close);
             view.SetDescription(doubled ? "보상 2배 획득" : "");

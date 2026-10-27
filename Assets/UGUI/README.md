@@ -38,6 +38,8 @@
 
 `OfflineRewardPopupPrefabGen.UpgradeAdRewardPrefabs()`는 기존 테마·폰트를 유지하며 실제 프리팹의 버튼과 참조를 갱신한다. 핵심 검사는 `OfflineRewardAdAcceptance.Run()`, UI 검사와 캡처는 [2026-10-28 검증 기록](../../AI/validation/offline-ad-20261028/README.md)에 있다. 강제 종료 후 미지급 광고 보너스 복구, 운영 광고·미디에이션·서버 보상 검증·일일 광고 보상은 포함하지 않는다.
 
+결과 확인 버튼은 `Popup_RewardInfo/Panel/OfflineActions/BtnOfflineConfirm`에서 편집한다. 기본 크기는 Canvas 기준 120×100이며 LayoutElement의 Min/Preferred Width·Height를 함께 바꾸고 Flexible Width·Height는 0으로 둔다. `OfflineActions`는 가운데 정렬, Control Child Size 켜기, Child Force Expand 끄기를 사용한다. 공용 Panel의 너비 확장을 끄면 별도 폭을 선언하지 않은 Header가 0으로 줄어 제목이 사라지므로 유지한다. 오프라인 결과에서만 버튼 행을 표시한다.
+
 `bootstrap → UGUI_UIRoot(DontDestroyOnLoad) → SafeArea → 화면/패널/팝업/오버레이`.
 `LoadManager → SceneRoutingBridge → UIManager.ReplaceScreen`, 탐색은 `PushPanel`을 사용한다.
 화면 치수는 1080px 기준이며 실제 CanvasScaler·SafeArea는 루트 프리팹에서 확인한다.

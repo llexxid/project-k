@@ -255,9 +255,25 @@ namespace KingdomIdle.UGUI.Editor
                     view.confirmButton.onClick = new UnityEngine.UI.Button.ButtonClickedEvent();
                 }
                 SetButton(view.confirmButton, "확인", UguiTheme.BtnConfirm);
+                var footer = view.panel.Find("OfflineActions") as RectTransform;
+                if (footer == null)
+                {
+                    footer = new GameObject("OfflineActions", typeof(RectTransform), typeof(UnityEngine.UI.HorizontalLayoutGroup)).GetComponent<RectTransform>();
+                    footer.gameObject.layer = view.panel.gameObject.layer;
+                    footer.SetParent(view.panel, false);
+                    footer.SetSiblingIndex(view.confirmButton.transform.GetSiblingIndex());
+                }
+                var row = footer.GetComponent<UnityEngine.UI.HorizontalLayoutGroup>();
+                row.childAlignment = TextAnchor.MiddleCenter;
+                row.childControlWidth = row.childControlHeight = true;
+                row.childForceExpandWidth = row.childForceExpandHeight = false;
+                view.confirmButton.transform.SetParent(footer, false);
                 var layout = view.confirmButton.GetComponent<UnityEngine.UI.LayoutElement>();
-                layout.minHeight = layout.preferredHeight = 144f;
+                layout.minWidth = layout.preferredWidth = 120f;
+                layout.minHeight = layout.preferredHeight = 100f;
+                layout.flexibleWidth = layout.flexibleHeight = 0f;
                 view.confirmButton.gameObject.SetActive(false);
+                footer.gameObject.SetActive(false);
                 PrefabUtility.SaveAsPrefabAsset(root, resultPath);
             }
             finally { PrefabUtility.UnloadPrefabContents(root); }
