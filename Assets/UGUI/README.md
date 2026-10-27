@@ -28,7 +28,15 @@
 
 공통 호출은 `KingdomIdle.Ads.RewardedAdService.Show(adUnitId, (result, error) => ...)`다. `Completed`만 보상 자격으로 인정하고, 보상 저장 성공은 호출자가 확인한다. `Skipped`, `Failed`, `Busy`를 구별하며 요청당 한 번만 완료를 반환한다. 광고 준비는 60초 후 실패로 해제되고, `IsBusy`/`IsShowing`으로 진행 상태를 확인한다. 현재 Google 광고만 검증 대상으로 삼으며 미디에이션 추가 시 보상·닫힘 콜백 순서를 재검증한다.
 
-실제 게임 연결 시 오프라인 기본 보상은 이미 지급된 상태이므로 `Claim()`을 다시 호출하지 않는다. 원래 정산 ID·확정 금액을 캡처해 광고 완료 후 추가분만 지급하고, 광고 Activity 복귀를 새 오프라인 정산으로 처리하지 않도록 연결한다. 일일 광고 보상은 날짜·수령 차수에 고정된 claim ID를 사용한다. 두 경로 모두 광고 전후 계정 세대를 확인하고 기존 `LocalProgression.Execute` 거래 안에서 지급과 claim 기록을 함께 저장한다. 보상 종류·수량·일일 한도 및 이 게임 연결은 아직 구현하지 않았다.
+### 게임 내 오프라인 광고 보상
+
+접속 시 `OfflineRewardManager.Claim()`이 기본 골드·경험치를 먼저 저장한다. 선택창의 `보상 수령`은 추가 지급 없이 결과를 표시하고, `광고보고 보상 2배`는 `RewardedAdService.Show()`의 `Completed` 후 `TryGrantAdBonus(snapshot)`으로 최초 정산 금액을 한 번 더 저장한다. 현재 Google Android 보상형 테스트 ID `ca-app-pub-3940256099942544/5224354917`만 사용한다.
+
+정산 ID·확정 금액·계정 세대는 읽기 전용 스냅샷으로 전달한다. 광고 전후와 저장 안에서 계정을 확인하고, `LocalProgression.Execute` 거래에서 추가 보상과 중복 방지 기록을 함께 저장한다. 경험치는 기존 레벨 상승 처리를 사용하며 처치·퀘스트 횟수는 추가하지 않는다. 광고로 일시정지된 사실을 유지하므로 SDK가 먼저 종료되어도 복귀를 새 오프라인 정산으로 처리하지 않는다.
+
+선택창은 배경·뒤로가기로 닫히지 않는다. 광고 준비·시청·저장 중에는 두 버튼을 잠근다. 완료 후 저장 실패는 실행 중 기억하며 `보상 수령`으로 지급만 재시도한다. 다른 정산이 도착해도 기존 선택을 보존한다. 강제 화면 정리는 결과 팝업도 닫는다. `RewardPopupView.ShowOfflineRewards()`는 `LayerPopups`에 골드·경험치 합계를 표시하고, 광고일 때만 `보상 2배 획득`을 보여준다. 기존 우편·출석 결과 표시는 유지한다.
+
+`OfflineRewardPopupPrefabGen.UpgradeAdRewardPrefabs()`는 기존 테마·폰트를 유지하며 실제 프리팹의 버튼과 참조를 갱신한다. 핵심 검사는 `OfflineRewardAdAcceptance.Run()`, UI 검사와 캡처는 [2026-10-28 검증 기록](../../AI/validation/offline-ad-20261028/README.md)에 있다. 강제 종료 후 미지급 광고 보너스 복구, 운영 광고·미디에이션·서버 보상 검증·일일 광고 보상은 포함하지 않는다.
 
 `bootstrap → UGUI_UIRoot(DontDestroyOnLoad) → SafeArea → 화면/패널/팝업/오버레이`.
 `LoadManager → SceneRoutingBridge → UIManager.ReplaceScreen`, 탐색은 `PushPanel`을 사용한다.
