@@ -7,3 +7,4 @@
 - [일반 결과](normal-result.png), [2배 표시 미리보기](doubled-preview.png): 1080×1920, 버튼과 Label 모두 120×100, 글자 overflow 없음. [변경 전 화면](../offline-ad-20261028/doubled-result.png)은 540×960 캡처이므로 화면 픽셀 크기 직접 비교와 구별한다.
 - 일반 팝업의 기본 버튼 활성 상태가 이전 생성 코드로 저장된 것을 검사에서 발견했다. 최신 생성 코드를 다시 적용하여 버튼과 행을 모두 기본 비활성화한 뒤 [11개 표시·닫기 검사](checks.json)를 통과했다. [검사 스크립트](check-layout.cs)는 재화 지급 없이 실행한다.
 - 새 텍스처·Graphic은 없으며 레이아웃 행 객체 1개만 추가했다. 이번 작은 UI 수정은 Editor 검증만 했고 Android 재빌드·기기 검증은 하지 않았다. 기존 b65 APK에는 이 수정이 없다. 120×100은 Canvas 논리 크기이며 실제 픽셀 크기는 CanvasScaler에 따라 달라진다.
+- 컴파일 실패는 없다. 콘솔에서는 CLI의 명령 호환성 탐색 오류(`script recompile`, `editor status`)와 EDM의 `GvhProjectSettings.xml` 파일 잠금(Windows 1224) 오류를 확인했다. UI 검사 실패와 구분했으며, 별도 의존성 관리자 설정은 이번 UI 수정에서 변경하지 않았다.
