@@ -34,19 +34,18 @@ namespace Scripts.Core.Manager
         public event Action LoginStateChanged;
 
         private Dictionary<Type, (string Function, Type Response)> _functions;
-        private System.Random _rewardSequenceRandom;
 
         // Managed initialization runs once on the surviving singleton.
         private void Init()
         {
-            _functions = new Dictionary<Type, (string, Type)>(15)
+            _functions = new Dictionary<Type, (string, Type)>(40)
             {
                 [typeof(InitUserRequestDTO)] = ("OnSignUpInitUser", typeof(UserInitResponseDTO)),
                 [typeof(AuthRequestDTO)] = ("OnLogIn", typeof(UserInitResponseDTO)),
                 [typeof(OnRewardRequestDTO)] = ("OnHuntReward", typeof(OnHuntResponseDTO)),
                 [typeof(OnStageClearRequestDTO)] = ("OnStageClear", typeof(OnStageClearResponseDTO)),
-                [typeof(OnGachaEquipmentClassFragmentRequestDTO)] = ("OnGacha_EquipmentClassFragment", typeof(OnGachaEquipmentClassFragmentResponseDTO)),
-                [typeof(OnGachaSkillArcaneKnowledgeRequestDTO)] = ("OnGacha_SkillArcaneKnowledge", typeof(OnGachaSkillArcaneKnowledgeResponseDTO)),
+                [typeof(OnGachaEquipmentClassFragmentRequestDTO)] = ("OnGachaEquipmentClassFragment", typeof(OnGachaEquipmentClassFragmentResponseDTO)),
+                [typeof(OnGachaSkillArcaneKnowledgeRequestDTO)] = ("OnGachaSkillArcaneKnowledge", typeof(OnGachaSkillArcaneKnowledgeResponseDTO)),
                 [typeof(OnEnchantHPRequestDTO)] = ("OnEnChantHP", typeof(OnEnchantResponseDTO)),
                 [typeof(OnEnchantATKRequestDTO)] = ("OnEnChantATK", typeof(OnEnchantResponseDTO)),
                 [typeof(OnEnchantEquipmentRequestDTO)] = ("OnEnchantEquipment", typeof(OnEnchantEquipmentResponseDTO)),
@@ -55,9 +54,33 @@ namespace Scripts.Core.Manager
                 [typeof(OnGetJobRequestDTO)] = ("OnGetJob", typeof(OnGetJobResponseDTO)),
                 [typeof(OnChangeJobRequestDTO)] = ("OnChangeJob", typeof(OnChangeJobResponseDTO)),
                 [typeof(OnSetJobTreeRequestDTO)] = ("OnSetJobTree", typeof(OnSetJobTreeResponseDTO)),
-                [typeof(OnDeleteAccountRequestDTO)] = ("OnDeleteAccount", typeof(OnDeleteAccountResponseDTO))
+                [typeof(OnDeleteAccountRequestDTO)] = ("OnDeleteAccount", typeof(OnDeleteAccountResponseDTO)),
+                [typeof(OnGetUserStateRequestDTO)] = ("OnGetUserState", typeof(OnGetUserStateResponseDTO)),
+                [typeof(OnGetEquipmentInventoryRequestDTO)] = ("OnGetEquipmentInventory", typeof(OnGetEquipmentInventoryResponseDTO)),
+                [typeof(OnEquipEquipmentRequestDTO)] = ("OnEquipEquipment", typeof(OnEquipEquipmentResponseDTO)),
+                [typeof(OnUnequipEquipmentRequestDTO)] = ("OnUnequipEquipment", typeof(OnUnequipEquipmentResponseDTO)),
+                [typeof(OnSetEquipmentLockRequestDTO)] = ("OnSetEquipmentLock", typeof(OnSetEquipmentLockResponseDTO)),
+                [typeof(OnDismantleEquipmentRequestDTO)] = ("OnDismantleEquipment", typeof(OnDismantleEquipmentResponseDTO)),
+                [typeof(OnSetAutoDismantleRequestDTO)] = ("OnSetAutoDismantle", typeof(OnSetAutoDismantleResponseDTO)),
+                [typeof(OnClaimPendingEquipmentRequestDTO)] = ("OnClaimPendingEquipment", typeof(OnClaimPendingEquipmentResponseDTO)),
+                [typeof(OnClaimReserveEquipmentRequestDTO)] = ("OnClaimReserveEquipment", typeof(OnClaimReserveEquipmentResponseDTO)),
+                [typeof(OnSetSkillLoadoutRequestDTO)] = ("OnSetSkillLoadout", typeof(OnSetSkillLoadoutResponseDTO)),
+                [typeof(OnSetSkillBloomRequestDTO)] = ("OnSetSkillBloom", typeof(OnSetSkillBloomResponseDTO)),
+                [typeof(OnResetSkillEnhancementRequestDTO)] = ("OnResetSkillEnhancement", typeof(OnResetSkillEnhancementResponseDTO)),
+                [typeof(OnEnterDungeonRequestDTO)] = ("OnEnterDungeon", typeof(OnEnterDungeonResponseDTO)),
+                [typeof(OnCompleteDungeonRequestDTO)] = ("OnCompleteDungeon", typeof(OnCompleteDungeonResponseDTO)),
+                [typeof(OnExitDungeonRequestDTO)] = ("OnExitDungeon", typeof(OnExitDungeonResponseDTO)),
+                [typeof(OnGetQuestStateRequestDTO)] = ("OnGetQuestState", typeof(OnGetQuestStateResponseDTO)),
+                [typeof(OnClearQuestRequestDTO)] = ("OnClearQuest", typeof(OnClearQuestResponseDTO)),
+                [typeof(OnClearAchievementRequestDTO)] = ("OnClearAchievement", typeof(OnClearAchievementResponseDTO)),
+                [typeof(OnClaimQuestRewardRequestDTO)] = ("OnClaimQuestReward", typeof(OnClaimQuestRewardResponseDTO)),
+                [typeof(OnReincarnationRequestDTO)] = ("OnReincarnation", typeof(OnReincarnationResponseDTO)),
+                [typeof(OnClaimOfflineRewardRequestDTO)] = ("OnClaimOfflineReward", typeof(OnClaimOfflineRewardResponseDTO)),
+                [typeof(OnAddRubyRequestDTO)] = ("OnAddRuby", typeof(OnAddRubyResponseDTO)),
+                [typeof(OnGetMailListRequestDTO)] = ("OnGetMailList", typeof(OnGetMailListResponseDTO)),
+                [typeof(OnClaimMailRewardRequestDTO)] = ("OnClaimMailReward", typeof(OnClaimMailRewardResponseDTO)),
+                [typeof(OnCheckAttendanceRequestDTO)] = ("OnCheckAttendance", typeof(OnCheckAttendanceResponseDTO))
             };
-            _rewardSequenceRandom = new System.Random();
             _authentication = new Authentication(this);
         }
 
@@ -215,8 +238,8 @@ namespace Scripts.Core.Manager
             var payload = JsonConvert.DeserializeObject<TRequest>(JsonConvert.SerializeObject(request));
             payload.ProtocolVersion = ApiVersions.ProtocolVersion;
             if (payload is SessionRequestDTO session) session.SessionID = sessionGuid;
-            // Per-call random value, inclusive at both ends. It is not a counter or a unique ID.
-            if (payload is OnRewardRequestDTO hunt) hunt.RewardSequence = _rewardSequenceRandom.Next(1000, 50001);
+            // The server rejects a mailbox request whose PlayFabId is not the caller's, so always send the signed-in account.
+            if (payload is MailboxRequestDTO mailbox) mailbox.PlayFabId = _playFabId;
             return new ExecuteFunctionRequest
             {
                 FunctionName = route.Function,
@@ -297,7 +320,7 @@ namespace Scripts.Core.Manager
                     throw new JsonSerializationException("Invalid wallet.");
             }
             if (response is OnHuntResponseDTO hunt && (hunt.Level < 1 || hunt.Exp < 0 || hunt.KillScore < 0 ||
-                hunt.Gold < 0 || hunt.AncientCoin < 0 || hunt.NextRewardSequence < 1))
+                hunt.Gold < 0 || hunt.AncientCoin < 0))
                 throw new JsonSerializationException("Invalid hunt result.");
             if (response is OnEnchantResponseDTO enchant && (enchant.CurrentLevel < 0 || enchant.CurrentGold < 0))
                 throw new JsonSerializationException("Invalid enhancement result.");

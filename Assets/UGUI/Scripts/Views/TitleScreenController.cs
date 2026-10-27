@@ -144,6 +144,9 @@ namespace KingdomIdle.UGUI
                 _host.ShowToast(net.LastFailure?.ErrorMessage ?? Localize("로그인에 실패했습니다.", "Sign-in failed."));
             else if (net.LoginState == GameLoginState.Loading)
                 _host.ShowToast(Localize("서버 데이터를 확인하는 중입니다.", "Checking server data."));
+            // Authentication이 서버 데이터를 UserManager에 적용한 뒤 Ready를 알리므로 바로 메인에 진입한다.
+            else if (net.LoginState == GameLoginState.Ready)
+                LoadMainOnce();
         }
 
         /// <summary>인증 및 전체 서버 상태·정의 적용 완료 여부.</summary>
