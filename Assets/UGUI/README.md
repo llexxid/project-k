@@ -132,6 +132,14 @@ Android 검사 도우미·결과는 `AI/qa/hud/`, `Recordings/HudRevision/`에 �
 
 퀘스트 병합(2026-09-21): UI는 `QuestManager`의 snapshot/event를 읽고 수령은 `TryClaim`으로 요청한다. `LocalProgression`의 0.75초 스킬 자동 저장 성공 뒤 기존 변경 알림으로 갱신하며 별도 표시 타이머는 두지 않는다. 이동은 목표 ID까지 전달해 소환·장비·전직 탭을 선택한다. 프리팹 배치는 퀘스트 카드 작업본을 유지하고 외부 에셋 참조는 프로젝트 내 작업본으로 연결한다.
 
+## 상점
+
+햄버거 메뉴의 `상점`에서 목재·청동 테마 팝업을 연다. 추천·주화 / 골드·매일 광고 세 탭과 11개 상품을 표시한다. `ShopCatalog`가 안정 상품 ID·예정 가격·수량을 관리하며 `ShopPopupController`는 현재 고대주화 잔액과 기존 `QuestEconomy` 기준의 골드 환산을 읽는다. 구매·교환·상점의 일일 광고 버튼은 준비 중 토스트만 표시하고 재화·소유·광고 횟수·서버 상태를 변경하지 않는다.
+
+`ShopPopupPrefabGen.Rebuild`는 상점 프리팹과 기존 메인의 상점 버튼·카탈로그 참조만 갱신한다. 출석·우편·스테이지 HUD와 오프라인 보상 프리팹·계산·광고 SDK는 기존 구현을 유지한다. 오프라인 보상 상한은 현재 계산기의 8시간이며, 별도 광고 브랜치의 실제 광고 재생·추가 보상 처리는 그 구현을 따른다.
+
+`ShopPopupPrefabGen.Validate`는 상품·프리팹 참조를 검사하고 `ValidatePlayMode`는 격리 계정에서 실제 메뉴 진입·탭·버튼·닫기·뒤로가기·재사용과 계정 무변경을 확인한다. 통합 검증 기록은 [상점 develop 통합](../../Docs/QA/SHOP_DEVELOP_MERGE_20261028.md)에 있다. 과거 원본 패치의 6시간 보상·오프라인 광고 미리보기는 이번 상점 통합에 포함하지 않는다.
+
 ## CheckIn·우편함 구현
 
 메인 메뉴의 **출석 / 우편함**에서 진입한다. `GameManager`가 분리된 `CheckInService`·`MailboxService`를 소유하며, 두 기능 모두 기존 `LocalProgression.Execute`로 재화와 수령 기록을 함께 저장한다.
