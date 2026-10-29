@@ -1,0 +1,69 @@
+{
+  "reviewDate": "2026-10-01",
+  "revision": "2026-10-01-r2",
+  "status": "awaiting-user-google-account-selection-and-revised-build",
+  "beforeDeviceBuild": {
+    "applicationVersion": "0.15.1",
+    "androidVersionCode": 66,
+    "naturalProfile": true,
+    "forcedDiagnosticAccount": false,
+    "titleVersionVerified": true
+  },
+  "afterDeviceBuild": null,
+  "device": {
+    "model": "Samsung SM-N986N",
+    "physicalDeviceCount": 1,
+    "capturedResolution": [
+      1080,
+      2316
+    ],
+    "displayOverridesChanged": false
+  },
+  "preservation": {
+    "freshBackupCreatedUtc": "2026-10-01T10:49:04.197340+00:00",
+    "currentInstalledApkBackedUp": true,
+    "currentInternalAndExternalDataBackedUp": true,
+    "backupReadTwiceAndFileHashesVerified": true,
+    "existingProgressionProfilesBackedUp": 29,
+    "privateFilesBackedUp": 13,
+    "externalFilesBackedUp": 66,
+    "olderBackupSupersededAsInstallBaseline": true,
+    "restoredAnyBackup": false,
+    "storageCleared": false,
+    "stageSkillLoadoutCurrencyOrAccountFixturesUsed": false,
+    "personalAccountInformationIncludedInDeliverables": false
+  },
+  "completedChecks": [
+    "Refreshed the installed b66 APK and app-data baseline before the forthcoming revision update; verified a coherent double-read backup.",
+    "The naturally launched b66 app displayed its real title screen and v0.15.1.",
+    "The real Google login button opened the Android account chooser, which requires the user to select the existing game account."
+  ],
+  "login": {
+    "provider": "Google",
+    "userSelectionRequired": true,
+    "accountSelectedByAgent": false,
+    "credentialEntryPerformed": false,
+    "guestOrSharedTestAccountFallbackUsed": false,
+    "currentScreen": "Android Google account chooser, left for the user"
+  },
+  "runtime": {
+    "beforeBattleEntryVerified": false,
+    "afterBattleEntryVerified": false,
+    "currentEnvironmentVerified": false,
+    "normalLightningIconObservedOnDevice": false,
+    "menusInAuthenticatedSessionVerified": false,
+    "performanceSample": null
+  },
+  "limitations": [
+    "The current device account selection is pending; authenticated before/after gameplay, scene ordering, menu and normal Lightning icon checks have not been completed.",
+    "The prior b66 report remains unchanged; this revision uses a fresh data baseline and will not restore the stale previous backup.",
+    "Editor scene renders and isolated-account gameplay simulation are separate evidence and do not replace an authenticated connected-device check.",
+    "No device frame-rate or performance-improvement claim is made."
+  ],
+  "safeCaptures": {
+    "beforeTitle": "b66-before-title.png",
+    "afterTitle": null,
+    "battle": null,
+    "normalLightning": null
+  }
+}

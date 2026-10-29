@@ -14,9 +14,13 @@ namespace KingdomIdle.UGUI
 {
     public sealed class BalanceDeviceProbe : MonoBehaviour
     {
-        [Serializable] private class Command { public string id,action; public int value, awaken, enhance, captureMs; public bool bloom; public long stage; public float x,y; }
+        [Serializable] private class Command { public string id,action,preset; public int value, awaken, enhance, captureMs; public bool bloom; public long stage; public float x,y; }
         private string _directory;
+        #if ENVIRONMENT_SIMULATION_QA
+        private static string PlayAccount => EnvironmentSimulationBootstrap.AccountId;
+#else
         private const string PlayAccount="device-play-20260914";
+#endif
         private int _frames; private double _totalMs,_maxMs;private float _nextSample;
         private int _captureLease;
         private bool _capturePaused;
@@ -26,7 +30,11 @@ namespace KingdomIdle.UGUI
         private static void Install()
         {
 #if !NATURAL_PLAYER_QA
+#if ENVIRONMENT_SIMULATION_QA
+            EnvironmentSimulationBootstrap.EnsureIsolatedAccount();
+#else
             LocalProgression.OpenTestAccount(PlayAccount);
+#endif
             SeedNew();
 #endif
             DontDestroyOnLoad(new GameObject("BalanceDeviceProbe",typeof(BalanceDeviceProbe)));
@@ -59,10 +67,26 @@ namespace KingdomIdle.UGUI
                         if (c.action != "state" && c.action != "timescale")
                             throw new InvalidOperationException("Natural player QA allows observation and explicit time scaling only.");
 #endif
+#if ENVIRONMENT_SIMULATION_QA
+                        EnvironmentSimulationBootstrap.RequireIsolation();
+                        if (c.action != "state" && EnvironmentSimulationBootstrap.RequestInFlight)
+                            throw new InvalidOperationException("Wait for the pending simulation preset request before another mutation.");
+#endif
                         if (c.action != "state") ResumeCapture();
                         object output=null;
                         switch(c.action)
                         {
+#if ENVIRONMENT_SIMULATION_QA
+                            case "environment-preset":
+                                EnvironmentSimulationBootstrap.SelectPreset(c.preset,
+                                    result => Write(c.id, new { result, state = Snapshot() }),
+                                    error => Write(c.id, new { error = error.ToString() }));
+                                continue;
+                            case "environment-pixels":output=EnvironmentSimulationBootstrap.InspectPixels();break;
+                            case "environment-hit-flash":
+                                output=EnvironmentSimulationBootstrap.HitFlash(c.preset);
+                                _capturePaused=true;_captureResumeAt=Time.unscaledTime+15;break;
+#endif
                             case "crowded-fixture":
                                 LocalProgression.Execute("qa-crowded-inventory",s=>{
                                     s.Equipment.Clear(); s.PendingEquipment.Clear(); s.LegacyEquipment.Clear();
@@ -269,7 +293,10 @@ namespace KingdomIdle.UGUI
                     var max=renderer!=null && camera!=null?camera.WorldToViewportPoint(renderer.bounds.max):Vector3.zero;
                     return new {type=m.Type.ToString(),min=new[]{min.x,min.y},max=new[]{max.x,max.y}};}).ToArray(),
                 memory=UnityEngine.Profiling.Profiler.GetTotalAllocatedMemoryLong(),meanFrameMs=_frames>0?_totalMs/_frames:0,maxFrameMs=_maxMs,frameCount=_frames,
-                environment=background==null?null:new {background.CurrentPoolId,background.CurrentPresetId,renderers=background.GetComponentsInChildren<Renderer>().Length},
+                environment=StageEnvironmentDiagnostics.Capture(background),
+#if ENVIRONMENT_SIMULATION_QA
+                simulation=EnvironmentSimulationBootstrap.Evidence(),
+#endif
                 catalogHash=StageCatalogRules.Database.CatalogHash,
                 lastError=LocalProgression.LastError};
         }

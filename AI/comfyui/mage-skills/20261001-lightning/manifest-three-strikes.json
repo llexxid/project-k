@@ -1,0 +1,167 @@
+{
+  "date": "2026-10-01",
+  "previewNumber": 91,
+  "pipeline": "Existing actual-VFX code composition: sprite crop / aspect-preserving source coverage sampling / source palette / binary alpha",
+  "priorPipeline": "AI/comfyui/mage-skills/20260918-playability/derive_icons.py",
+  "toolChoice": "The user requested the actual normal skill sprite. A parameterized extension of the existing sprite-composition generator preserves its exact authored geometry without model redrawing. This is a code-native composition artifact, not generated replacement artwork.",
+  "runtimeProof": {
+    "prefab": "Assets/_Project/Prefabs/VFX/MageTower/Lightning.prefab",
+    "animation": "Assets/_Project/Art/Animations/VFX/MageTower/Lightning_0.anim",
+    "spriteGuid": "f1fd6d3372c18374da5fdf904e2b144b",
+    "frameInternalIds": [
+      -855562806,
+      -1838817195,
+      -166954139
+    ]
+  },
+  "source": {
+    "path": "Assets/_Project/Art/VFX/MageTower/Refined/LightningOriginal.png",
+    "size": [
+      350,
+      149
+    ],
+    "cellSize": [
+      70,
+      149
+    ],
+    "sha256": "c7eb40ed8af60aed6953160f594c5f2ea3036a190b1e57138c8633fb6a561e30"
+  },
+  "settings": {
+    "logicalSize": [
+      48,
+      48
+    ],
+    "alphaThreshold": 128,
+    "paletteFromSource": [
+      [
+        15,
+        172,
+        241
+      ],
+      [
+        19,
+        166,
+        255
+      ],
+      [
+        25,
+        255,
+        255
+      ],
+      [
+        132,
+        251,
+        247
+      ],
+      [
+        151,
+        255,
+        255
+      ],
+      [
+        255,
+        255,
+        255
+      ]
+    ],
+    "layersBackToFront": [
+      {
+        "frame": 1,
+        "x": 3,
+        "y": 5,
+        "height": 35,
+        "sourceOpaqueBoundsInCell": [
+          8,
+          3,
+          49,
+          144
+        ],
+        "targetWidth": 10,
+        "sampleMethod": "highest-alpha-then-brightness source coverage"
+      },
+      {
+        "frame": 2,
+        "x": 33,
+        "y": 8,
+        "height": 36,
+        "sourceOpaqueBoundsInCell": [
+          15,
+          15,
+          58,
+          143
+        ],
+        "targetWidth": 12,
+        "sampleMethod": "highest-alpha-then-brightness source coverage"
+      },
+      {
+        "frame": 0,
+        "x": 16,
+        "y": 3,
+        "height": 42,
+        "sourceOpaqueBoundsInCell": [
+          9,
+          5,
+          60,
+          146
+        ],
+        "targetWidth": 15,
+        "sampleMethod": "highest-alpha-then-brightness source coverage"
+      }
+    ],
+    "outline": false,
+    "redrawnEffectPixels": false
+  },
+  "output": {
+    "path": "Assets/_Project/Art/Icons/MageTower/Lightning.png",
+    "sha256": "1b35808a6b142d53f5d1b2228a0cecceaf73ec984eef9dbfea2ad8ca6d9b20cb",
+    "bytes": 878,
+    "rgbaColorsIncludingTransparent": 7,
+    "opaqueBounds": [
+      3,
+      3,
+      45,
+      45
+    ],
+    "uncompressedTextureBytes": 9216,
+    "newDrawCalls": 0
+  },
+  "preservation": {
+    "iconGuid": "75501532964f34f4884b1f721d69e3ae",
+    "iconMetaSha256": "975c3c3b3c5061ec72c511b0f62983e7452dedbbaa97f4b4fb8411e8d5f3db5e",
+    "bloomPath": "Assets/_Project/Art/Icons/MageTower/Lightning_Bloom.png",
+    "bloomSha256": "1b613cb776b94580fd8e09dcee012b5e07ba5b260ab7572c039b84256dc5fd15"
+  },
+  "before": {
+    "path": "AI/comfyui/mage-skills/20261001-lightning/before-Lightning.png",
+    "sha256": "90b61ef0e11be8a1f5c33776fb812017f4fa755c022df466d56ce2286b4b8d42"
+  },
+  "iteration": {
+    "rejected": "AI/comfyui/mage-skills/20261001-lightning/rejected-nearest.png",
+    "changedSetting": "sampleMethod: NEAREST -> highest-alpha source coverage",
+    "reason": "Visual inspection at 48px showed nearest subsampling removed thin source cores, leaving intermittent specks. Source coverage retains those paths using only source pixels.",
+    "retainedSettings": "Same original frames, aspect ratios, positions, palette and alpha threshold"
+  },
+  "preview": "AI/comfyui/mage-skills/20261001-lightning/91-lightning-preview.png",
+  "execution": {
+    "python": "3.13.2",
+    "Pillow": "12.3.0",
+    "model": null,
+    "prompt": null,
+    "seed": "deterministic",
+    "cloudJob": null,
+    "submittedApiJson": null,
+    "uiGraph": null,
+    "paidCalls": 0,
+    "actualExternalGenerationSpendUSD": 0,
+    "comfyAvailability": "No callable ComfyUI tools exposed in this task's live tool catalog; no Cloud workflow submitted.",
+    "command": "python AI/comfyui/mage-skills/20261001-lightning/compose_icon.py --preview-dir <outputs>"
+  },
+  "checks": {
+    "sourceAndBloomUnmodified": true,
+    "metaGuidUnmodified": true,
+    "binaryAlpha": true,
+    "paletteLimit16": true,
+    "marginAtLeast3px": true,
+    "unityImportAndAndroid": "Pending main-agent verification"
+  }
+}
