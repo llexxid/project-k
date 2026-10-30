@@ -710,14 +710,10 @@ namespace KingdomIdle.UGUI
         /// <summary>Android 뒤로가기와 공통 뒤로가기 요청을 처리한다. 보이는 안내는 건너뛰고, 가려진 안내 대신 현재 모달을 먼저 닫는다.</summary>
         public void RequestBack()
         {
+            if (OfflineRewardPopupController.IsOpen) return;
             // 현재 보이는 안내만 건너뛴다. 로딩/팝업이 가린 안내는 기존 모달의 뒤로가기를 가로채지 않는다.
             if (ActiveFeatureGuide != null && ActiveFeatureGuide.HandleBack()) return;
             if (ModalBackHandler.TryCloseTop()) return;
-            if (OfflineRewardPopupController.IsOpen)
-            {
-                OfflineRewardPopupController.Hide();
-                return;
-            }
 
             if (GachaResultPopupController.IsOpen)
             {
