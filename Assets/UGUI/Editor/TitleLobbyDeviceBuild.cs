@@ -34,7 +34,7 @@ namespace KingdomIdle.UGUI.Editor
             public bool diagnostics, naturalProfile, isolatedSimulation;
         }
 
-        static void BuildPlayer(bool diagnostics, bool naturalProfile = false, bool isolatedSimulation = false)
+        static void BuildPlayer(bool diagnostics, bool naturalProfile = false, bool isolatedSimulation = false, bool adTest = false)
         {
             if (adTest && !File.Exists(AdMobTestSceneBuilder.ScenePath))
                 throw new InvalidOperationException("광고 테스트 씬을 먼저 생성해 주세요.");

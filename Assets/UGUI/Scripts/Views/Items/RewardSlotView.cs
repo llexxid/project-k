@@ -51,6 +51,7 @@ namespace KingdomIdle.UGUI
             eCurrency.ClassFragment => "전직 파편", eCurrency.ArcaneKnowledge => "비전지식",
             eCurrency.Ruby => "루비", eCurrency.EquipmentStone => "강화석",
             eCurrency.KingdomSupply => "왕국 보급품", eCurrency.TrainingTome => "훈련서",
+            eCurrency.EquipmentTicket => "장비 뽑기권", eCurrency.MageTicket => "마탑 뽑기권",
             _ => currency.ToString()
         };
         internal static Sprite Icon(eCurrency currency, UIViewCatalog catalog = null)
@@ -61,7 +62,9 @@ namespace KingdomIdle.UGUI
             {
                 eCurrency.Gold => cat.iconCoin, eCurrency.AncientCoin => cat.iconAncientCoin,
                 eCurrency.ClassFragment => cat.iconFragment, eCurrency.ArcaneKnowledge => cat.iconArcane,
-                eCurrency.EquipmentStone => cat.iconEquipmentStone, _ => cat.iconGem
+                eCurrency.EquipmentStone => cat.iconEquipmentStone,
+                eCurrency.EquipmentTicket => cat.iconChest, eCurrency.MageTicket => cat.iconSkillWand,
+                _ => cat.iconGem
             };
         }
         internal static string Description(eCurrency currency) => currency switch
@@ -73,6 +76,8 @@ namespace KingdomIdle.UGUI
             eCurrency.Ruby => "환생 후에도 유지되는 영구 성장에 사용합니다.",
             eCurrency.EquipmentStone => "장비 강화에 사용합니다.",
             eCurrency.KingdomSupply => "왕국 보급 재화입니다.",
+            eCurrency.EquipmentTicket => "장비 뽑기권입니다. 사용 기능은 준비 중이며 보유 수량은 저장됩니다.",
+            eCurrency.MageTicket => "마탑 뽑기권입니다. 사용 기능은 준비 중이며 보유 수량은 저장됩니다.",
             _ => "훈련 재화입니다."
         };
         internal static void Report(RewardResult result)

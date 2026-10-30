@@ -6,7 +6,7 @@ namespace KingdomIdle.Balance
     public enum ShopCategory { Recommended, Currency, Rewarded }
     public enum ShopPayment { Store, AncientCoin, RewardedAd }
 
-    /// <summary>Display-only offers. IDs survive SDK/server integration; prices are KRW design previews.</summary>
+    /// <summary>Stable offer IDs and daily ad rewards; store prices remain KRW design previews.</summary>
     public sealed class ShopOffer
     {
         public readonly string Id, Title, Detail;
@@ -29,7 +29,7 @@ namespace KingdomIdle.Balance
     public static class ShopCatalog
     {
         public const string OfflineDoublePlacement = "rewarded.offline_double";
-        // This is deliberately not a purchase service. Never mint rewards from preview metadata.
+        // Only the two daily ad offers are granted by ShopAdRewardService; paid offers remain previews.
         public static IReadOnlyList<ShopOffer> Offers { get; } = Array.AsReadOnly(new[] {
             new ShopOffer("ki.remove_ads.permanent", "광고 제거", "무기한 · 모든 광고 제거\n광고 보상도 영상 없이 수령 · 일일 횟수는 유지", ShopCategory.Recommended, ShopPayment.Store, 3900, permanentAdRemoval: true),
             new ShopOffer("ki.package.supply_small", "작은 보급 패키지", "고대주화 1,500개 + 장비 뽑기권 10장 + 마탑 뽑기권 10장", ShopCategory.Recommended, ShopPayment.Store, 1500, 1500, 10, 10),

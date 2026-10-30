@@ -27,7 +27,7 @@ namespace KingdomIdle.Rewards
     /// <summary>재화 명세 검증과 초안 지급만 담당한다. 저장과 출석/우편 정책은 서비스가 소유한다.</summary>
     public static class RewardGrants
     {
-        private const int CurrencyCount = (int)eCurrency.EquipmentStone + 1;
+        private const int CurrencyCount = (int)eCurrency.MageTicket + 1;
         public static long Now => LocalProgression.TryGetCommittedState(out var state)
             ? Math.Max(LocalProgression.UtcNow, state.QuestLastObservedUtc) : LocalProgression.UtcNow;
 
