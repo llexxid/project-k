@@ -106,6 +106,7 @@ namespace KingdomIdle.UGUI
         public GameObject popupStageSelect;
         public GameObject popupReincarnation;
         public GameObject popupOfflineReward;
+        public GameObject popupShop;
         public GameObject popupEquipmentAction;
 
         [Header("Overlays")]
