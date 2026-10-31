@@ -347,6 +347,29 @@ namespace Scripts.Core
 			s.Modules["mage-imported"] = "server";
 		}
 
+		/// <summary>로그·하네스용 마탑 요약 "보유 수/강화 합/각성 합/슬롯0.슬롯1.…". 공백·'|'를 넣지 않는다. 서버 응답과 상태를 같은 키로 적어 대조한다.</summary>
+		public static string DescribeMage(MageTowerStateDTO state)
+		{
+			if (state == null) return "-";
+			int count = 0, enhance = 0, awaken = 0;
+			if (state.Skills != null)
+			{
+				foreach (var skill in state.Skills)
+				{
+					if (skill == null) continue;
+					count++; enhance += skill.EnhancementLevel; awaken += skill.AwakeningLevel;
+				}
+			}
+			return count + "/" + enhance + "/" + awaken + "/" + (state.EquippedSkillIds == null ? "-" : string.Join(".", state.EquippedSkillIds));
+		}
+
+		public static string DescribeMage(ProgressionState s)
+		{
+			int enhance = 0, awaken = 0;
+			foreach (var pair in s.MageSkills) { enhance += pair.Value.Enhance; awaken += pair.Value.Awaken; }
+			return s.MageSkills.Count + "/" + enhance + "/" + awaken + "/" + string.Join(".", s.MageSlots);
+		}
+
 		/// <summary>서버 가챠 천장(0..39)을 그대로 쓴다.</summary>
 		public static void ApplyGachaState(ProgressionState s, GachaStateDTO state)
 		{
@@ -539,8 +562,8 @@ namespace Scripts.Core
 			var state = LocalProgression.State;
 			// 퀘스트 상태는 플레이어 상태 파일이 아니라 QuestManager가 보관한다(응답마다 전체 행이 와서 통째로 교체한다).
 			if (ok) QuestManager.Receive(response.Quests, response is OnGetUserStateResponseDTO ? "state" : "login");
-			Debug.Log($"[PlayerData] server Level={response.Level} Exp={response.Exp} Kills={response.KillScore} Gold={response.Currency?.Gold} AncientCoin={response.Currency?.AncientCoin} ClassFragment={response.Currency?.ClassFragment} ArcaneKnowledge={response.Currency?.ArcaneKnowledge} ATK={response.EnchantATKCount} HP={response.EnchantHPCount} Stage=0x{stage:X} Frontier=0x{frontier:X} Highest=0x{highest:X} Inventory={DescribeInventory(response.Equipment)} Skills={response.MageTowerState?.Skills?.Count ?? -1} Pity={response.GachaState?.EquipmentPity ?? -1} Quests={response.Quests?.Rows?.Count ?? -1} Reinc={response.Reincarnation?.Level ?? -1} Jobs={DescribeJobs(response.CharacterDatas)} Unlocked={CountUnlocked(response.JobTrees)}" +
-				$" | state Level={state.AccountLevel} Exp={state.Experience} Kills={state.Kills} Gold={LocalProgression.Balance(eCurrency.Gold)} AncientCoin={LocalProgression.Balance(eCurrency.AncientCoin)} ClassFragment={LocalProgression.Balance(eCurrency.ClassFragment)} ArcaneKnowledge={LocalProgression.Balance(eCurrency.ArcaneKnowledge)} ATK={state.AttackLevel} HP={state.HealthLevel} Stage=0x{state.MainStage:X} Frontier=0x{state.CycleFrontierStage:X} Highest=0x{state.HighestMainClear:X} Inventory={DescribeInventory(state)} Skills={state.MageSkills.Count} Pity={state.EquipmentPity} Quests={QuestManager.ReceivedRowCount} Reinc={state.ReincarnationLevel} Jobs={DescribeJobs(state)} Unlocked={CountUnlocked(state)}" +
+			Debug.Log($"[PlayerData] server Level={response.Level} Exp={response.Exp} Kills={response.KillScore} Gold={response.Currency?.Gold} AncientCoin={response.Currency?.AncientCoin} ClassFragment={response.Currency?.ClassFragment} ArcaneKnowledge={response.Currency?.ArcaneKnowledge} ATK={response.EnchantATKCount} HP={response.EnchantHPCount} Stage=0x{stage:X} Frontier=0x{frontier:X} Highest=0x{highest:X} Inventory={DescribeInventory(response.Equipment)} Skills={response.MageTowerState?.Skills?.Count ?? -1} Mage={DescribeMage(response.MageTowerState)} Pity={response.GachaState?.EquipmentPity ?? -1} Quests={response.Quests?.Rows?.Count ?? -1} Reinc={response.Reincarnation?.Level ?? -1} Jobs={DescribeJobs(response.CharacterDatas)} Unlocked={CountUnlocked(response.JobTrees)}" +
+				$" | state Level={state.AccountLevel} Exp={state.Experience} Kills={state.Kills} Gold={LocalProgression.Balance(eCurrency.Gold)} AncientCoin={LocalProgression.Balance(eCurrency.AncientCoin)} ClassFragment={LocalProgression.Balance(eCurrency.ClassFragment)} ArcaneKnowledge={LocalProgression.Balance(eCurrency.ArcaneKnowledge)} ATK={state.AttackLevel} HP={state.HealthLevel} Stage=0x{state.MainStage:X} Frontier=0x{state.CycleFrontierStage:X} Highest=0x{state.HighestMainClear:X} Inventory={DescribeInventory(state)} Skills={state.MageSkills.Count} Mage={DescribeMage(state)} Pity={state.EquipmentPity} Quests={QuestManager.ReceivedRowCount} Reinc={state.ReincarnationLevel} Jobs={DescribeJobs(state)} Unlocked={CountUnlocked(state)}" +
 				$" | applied={ok} revision={state.Revision} account={LocalProgression.AccountKey}");
 			if (!ok) Debug.LogError("[PlayerData] 서버 플레이어 데이터 적용 실패: " + LocalProgression.LastError);
 			return ok;

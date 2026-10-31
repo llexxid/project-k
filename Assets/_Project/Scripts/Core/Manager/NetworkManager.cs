@@ -409,6 +409,14 @@ namespace Scripts.Core.Manager
                 throw new JsonSerializationException("Invalid equipment enhancement result.");
             if (response is OnDismantleEquipmentResponseDTO dismantle && (dismantle.CurrentEquipmentStone < 0 || dismantle.GrantedEquipmentStone < 0))
                 throw new JsonSerializationException("Invalid dismantle result.");
+            // 마탑 응답: 스킬 목록·슬롯 5칸·음수 없음. 어긋나면 플레이어 상태에 쓰지 않는다.
+            if (response is MageActionResponseDTO mage) ValidateMageTower(mage.MageTowerState);
+            if (response is OnEnchantSkillResponseDTO enchantSkill && (enchantSkill.SpentArcaneKnowledge < 0 || enchantSkill.CurrentArcaneKnowledge < 0))
+                throw new JsonSerializationException("Invalid skill enhancement result.");
+            if (response is OnAwakeningSkillResponseDTO awakenSkill && awakenSkill.SpentFragments < 0)
+                throw new JsonSerializationException("Invalid skill awakening result.");
+            if (response is OnResetSkillEnhancementResponseDTO resetSkill && (resetSkill.RefundedArcaneKnowledge < 0 || resetSkill.CurrentArcaneKnowledge < 0))
+                throw new JsonSerializationException("Invalid skill reset result.");
             if (response is OnGachaEquipmentClassFragmentResponseDTO gacha) ValidateEquipment(gacha.Equipment);
             if (response is QuestActionResponseDTO quests) ValidateQuests(quests.Quests);
             if (response is OnClaimQuestRewardResponseDTO claim) ValidateEquipment(claim.Equipment);
@@ -434,6 +442,18 @@ namespace Scripts.Core.Manager
                 throw new JsonSerializationException("Invalid offline reward result.");
             if (response is OnClaimGuideRewardResponseDTO guide && (string.IsNullOrEmpty(guide.GuideId) || guide.GrantedAncientCoin < 0 || guide.Currency == null))
                 throw new JsonSerializationException("Invalid guide reward result.");
+        }
+
+        // 마탑 상태: 스킬 목록·슬롯 5칸이 있고 값이 음수가 아니어야 한다. 보유·중복 검사는 적용 함수(UserManager.ApplyMageTower)가 한다.
+        private static void ValidateMageTower(MageTowerStateDTO state)
+        {
+            if (state == null || state.Skills == null || state.EquippedSkillIds == null || state.EquippedSkillIds.Length != 5)
+                throw new JsonSerializationException("Missing mage tower state.");
+            foreach (var skill in state.Skills)
+            {
+                if (skill == null || skill.SkillId < 0 || skill.EnhancementLevel < 0 || skill.AwakeningLevel < 0 || skill.Fragments < 0 || skill.KnowledgeSpent < 0)
+                    throw new JsonSerializationException("Invalid mage skill.");
+            }
         }
 
         // 서버 EquipmentRules.Valid와 같은 규칙. 어긋나면 InvalidResponse로 거절해 손상된 인벤토리를 플레이어 상태에 쓰지 않는다.
@@ -555,12 +575,17 @@ namespace Scripts.Core.Manager
                     case 8: return "고대주화가 부족합니다.";
                     case 9: return "골드가 부족합니다.";
                     case 11: return "장착할 여분의 장비가 없습니다.";
+                    case 12: return "지식이 부족합니다.";
+                    case 13: return "서버에 없는 스킬이거나 조건을 만족하지 않습니다.";
+                    case 14: return "스킬 파편이 부족합니다.";
+                    case 15: return "스킬 강화 상한에 도달했습니다.";
                     case 16: return "장비 강화 상한에 도달했습니다.";
                     case 17: return "선택할 수 없는 직업입니다.";
                     case 18: return "캐릭터 정보가 올바르지 않습니다.";
                     case 19: return "직업 조각이 부족합니다.";
                     case 21: return "해금되지 않은 직업입니다. 선행 직업을 먼저 해금해 주세요.";
                     case 1004: return "강화 상한에 도달했습니다.";
+                    case 1010: return "각성 상한에 도달했습니다.";
                     case 1012: return "계정 초기화가 필요합니다. 다시 로그인해 주세요.";
                     case 1014:
                     case 1015: return "서버 저장소 오류입니다. 잠시 후 다시 시도해 주세요.";
@@ -569,6 +594,7 @@ namespace Scripts.Core.Manager
                     case 1019: return "잠금되었거나 장착 중인 장비는 처리할 수 없습니다.";
                     case 1020: return "가방이 가득 찼습니다. 장비를 정리한 뒤 다시 시도해 주세요.";
                     case 1021: return "강화석이 부족합니다.";
+                    case 1022: return "스킬 편성이 올바르지 않습니다.";
                     case 1025: return "던전 진행 중에는 바꿀 수 없습니다. 던전을 끝낸 뒤 다시 시도해 주세요.";
                     case 1028: return "아직 받을 수 없는 퀘스트입니다.";
                     case 1029: return "이미 받은 보상입니다.";
