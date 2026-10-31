@@ -81,6 +81,9 @@ namespace Scripts.Test
         [MenuItem("GameTest/Mailbox Test/서버 응답 시나리오 검증")]
         public static void TestServerMailbox() => Debug.Log(Newtonsoft.Json.JsonConvert.SerializeObject(KingdomIdle.Mailbox.Testing.MailboxAcceptance.Run()));
 
+        [MenuItem("GameTest/Mailbox Test/서버 응답 실제 저장 검증")]
+        public static void TestServerMailboxApply() => Debug.Log(Newtonsoft.Json.JsonConvert.SerializeObject(KingdomIdle.Mailbox.Testing.MailboxAcceptance.RunServerApply()));
+
         /// <summary>현재 계정에서 육성 실습을 요청한다. 실제 골드를 소비하고 강화·완료를 저장하며 정리는 Manager에 맡긴다.</summary>
         [MenuItem("GameTest/Guide Test/실제 계정 저장/1 육성")]
         public static void TestDevelopmentGuide() => RequestGuide("guide_development", false);

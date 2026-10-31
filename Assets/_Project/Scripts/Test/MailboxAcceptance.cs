@@ -1,12 +1,14 @@
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using KingdomIdle.Balance;
 using KingdomIdle.Rewards;
 using Newtonsoft.Json;
 using PlayFab;
 using Protocol.Message.Dto;
+using Scripts.Core;
 using Scripts.Core.Manager;
 
 namespace KingdomIdle.Mailbox.Testing
@@ -175,6 +177,132 @@ namespace KingdomIdle.Mailbox.Testing
                 var f = new Fixture(1); f.Service.Open(); f.Mails.Clear(); f.Service.ClaimAll();
                 Check(f.Applied == 0 && f.Recovered == 0 && f.Service.Messages.Count == 0 && f.Result.Message != null, "already claimed business failure refreshes without local reward");
             }
+            return new Dictionary<string, object> { ["passed"] = checks.Count, ["checks"] = checks };
+        }
+
+        public static Dictionary<string, object> RunServerApply()
+        {
+            if (UnityEngine.Application.isPlaying) throw new InvalidOperationException("격리 저장 검증은 Play를 종료한 뒤 실행해 주세요.");
+            string beforeAccount = LocalProgression.AccountKey;
+            string before = LocalProgression.TryGetCommittedState(out var previous) ? JsonConvert.SerializeObject(previous) : null;
+            var checks = new List<string>();
+            void Check(bool ok, string label) { if (!ok) throw new InvalidOperationException("SERVER MAIL ASSERT: " + label); checks.Add(label); }
+            var preview = KingdomIdle.UGUI.RewardDisplayItem.From(new MailRewardDTO { Kind = RewardKind.Equipment, DefinitionId = 65540, Amount = 2 });
+            Check(preview.Disposition == EquipmentDisposition.None && !preview.Description.Contains("보관했습니다"), "unclaimed preview has no storage result");
+
+            using (LocalProgression.BeginTestSession())
+            {
+                LocalProgression.TestUtcNow = 1793400000;
+                string account = "server-mail-" + Guid.NewGuid().ToString("N");
+                LocalProgression.OpenTestAccount(account);
+                EquipmentStackDTO Stack(int code, int count, int level = 0) => new()
+                {
+                    ItemCode = new Protocol.Message.Dto.ItemCode { Code = (ulong)global::ItemCode.PackInstance(code, level, count) },
+                    EquippedCharacterIndexes = new()
+                };
+                foreach (var disposition in new[] { EquipmentDisposition.Inventory, EquipmentDisposition.Pending, EquipmentDisposition.Reserve, EquipmentDisposition.AutoDismantled })
+                foreach (string mode in new[] { "success", "save failure", "lost response" })
+                {
+                    string label = disposition + " / " + mode + ": ";
+                    var inventory = Fixture.Inventory();
+                    var protectedItem = Stack(65540, 1, 3);
+                    protectedItem.IsLocked = true; protectedItem.EnhancementStonesSpent = 37;
+                    protectedItem.EquippedCharacterIndexes.Add(0);
+                    inventory.Items.Add(protectedItem);
+                    if (disposition == EquipmentDisposition.Pending || disposition == EquipmentDisposition.Reserve)
+                        inventory.Items.Add(Stack(131076, inventory.Capacity - 1));
+                    if (disposition == EquipmentDisposition.Reserve)
+                        inventory.PendingItems.Add(Stack(131076, inventory.PendingCapacity));
+                    inventory.AutoDismantleRarityMask = disposition == EquipmentDisposition.AutoDismantled ? 1 : 0;
+                    Check(LocalProgression.Execute("server-mail-fixture", s =>
+                    {
+                        UserManager.ApplyCurrency(s, new CurrencyQueryDTO(100, 2, 3, 4, 5, 6) { TrainingTome = 7, EquipmentStone = 40 });
+                        UserManager.ApplyEquipment(s, inventory); return true;
+                    }), label + "seed durable inventory");
+                    string protectedId = LocalProgression.State.Equipment.Single(e => e.Player == 0).Id;
+                    string seed = JsonConvert.SerializeObject(LocalProgression.State), disk = File.ReadAllText(LocalProgression.SnapshotPath);
+
+                    var grantedItem = Stack(65540, 2);
+                    if (disposition == EquipmentDisposition.Inventory) inventory.Items.Add(grantedItem);
+                    if (disposition == EquipmentDisposition.Pending) inventory.PendingItems.Add(grantedItem);
+                    if (disposition == EquipmentDisposition.Reserve)
+                        inventory.ReserveStacks.Add(new EquipmentReserveStackDTO { ItemCode = grantedItem.ItemCode, Count = 2 });
+                    var mail = Fixture.Mail(9000000000001L, LocalProgression.UtcNow);
+                    mail.Rewards.Add(new MailRewardDTO { Kind = RewardKind.Equipment, DefinitionId = 65540, Amount = 2 });
+                    var response = new OnClaimMailRewardResponseDTO
+                    {
+                        MailboxId = "box", ClaimedMailIds = new() { mail.MailId }, RemainingCount = 0, Equipment = inventory,
+                        Currency = new CurrencyQueryDTO(110, 2, 3, 4, 5, 6) { TrainingTome = 7, EquipmentStone = disposition == EquipmentDisposition.AutoDismantled ? 60 : 40 },
+                        Rewards = new()
+                        {
+                            new GachaRewardDTO { Order = 0, Kind = RewardKind.Currency, CurrencyType = Protocol.Message.Data.eCurrency.Gold, Amount = 10, Disposition = EquipmentDisposition.None },
+                            new GachaRewardDTO { Order = 1, Kind = RewardKind.Equipment, DefinitionId = 65540, Amount = 2, ItemCode = grantedItem.ItemCode,
+                                Disposition = disposition, GrantedEquipmentStone = disposition == EquipmentDisposition.AutoDismantled ? 20 : 0 }
+                        }
+                    };
+                    response = JsonConvert.DeserializeObject<OnClaimMailRewardResponseDTO>(JsonConvert.SerializeObject(response));
+                    bool claimed = false;
+                    int claimCalls = 0, recoveryCalls = 0;
+                    Action<bool> recoveryDone = null;
+                    MailboxClaimResult result = null;
+                    var service = new MailboxService((r, ok, fail) => ok(new OnGetMailListResponseDTO
+                    {
+                        MailboxId = "box", StartIndex = r.StartIndex, TotalCount = claimed ? 0 : 1,
+                        Mails = claimed ? new() : new() { mail }, ServerTimeUtc = LocalProgression.UtcNow
+                    }), (r, ok, fail) =>
+                    {
+                        claimCalls++; claimed = true;
+                        if (mode == "lost response") fail(Fixture.Failure("Timeout")); else ok(response);
+                    }, MailboxService.Apply, done => { recoveryCalls++; recoveryDone = done; },
+                        () => (1L, LocalProgression.AccountGeneration), () => LocalProgression.IsReady, () => 0);
+                    service.ClaimCompleted += r => result = r;
+                    service.Open();
+                    if (mode == "save failure") LocalProgression.TestFailedCommit(() => { service.ClaimAll(); return true; });
+                    else service.ClaimAll();
+                    if (mode != "success")
+                    {
+                        Check(JsonConvert.SerializeObject(LocalProgression.State) == seed && File.ReadAllText(LocalProgression.SnapshotPath) == disk,
+                            label + "failure leaves memory and file unchanged");
+                        service.ClaimAll();
+                        Check(!service.CanClaim && claimCalls == 1 && recoveryCalls == 1 && result.Rewards.Count == 0,
+                            label + "recovery blocks claims and suppresses success reward");
+                        recoveryDone(false);
+                        Check(!service.CanClaim && service.Error != null, label + "failed recovery stays blocked");
+                        service.Refresh();
+                        // The transport/recovery callback is controlled; snapshot application and disk writes are real.
+                        recoveryDone(MailboxService.Apply(response));
+                        Check(recoveryCalls == 2 && claimCalls == 1 && service.CanClaim, label + "recovery retry never resends claim");
+                    }
+                    else Check(result.Rewards.Count == 2 && result.Message == null && recoveryCalls == 0, label + "success publishes server rewards");
+                    var state = LocalProgression.State;
+                    Check(state.Wallet[eCurrency.Gold] == 110 && state.Wallet[eCurrency.EquipmentStone] == response.Currency.EquipmentStone &&
+                        state.Wallet[eCurrency.AncientCoin] == 2 && state.Wallet[eCurrency.ArcaneKnowledge] == 3 && state.Wallet[eCurrency.ClassFragment] == 4 &&
+                        state.Wallet[eCurrency.Ruby] == 5 && state.Wallet[eCurrency.KingdomSupply] == 6 && state.Wallet[eCurrency.TrainingTome] == 7,
+                        label + "all eight currencies match absolute snapshot");
+                    string counts = disposition switch { EquipmentDisposition.Inventory => "3/0/0", EquipmentDisposition.Pending => "200/2/0", EquipmentDisposition.Reserve => "200/100/2", _ => "1/0/0" };
+                    Check(UserManager.DescribeInventory(state) == counts && state.AutoDismantleMask == inventory.AutoDismantleRarityMask,
+                        label + "equipment storage counts " + counts);
+                    Check(state.Equipment.Count(e => e.Code == 65540 && e.Level == 0) == (disposition == EquipmentDisposition.Inventory ? 2 : 0) &&
+                        state.PendingEquipment.Count(e => e.Code == 65540 && e.Level == 0) == (disposition == EquipmentDisposition.Pending ? 2 : 0) &&
+                        state.LegacyEquipment.Where(e => e.Code == 65540 && e.Level == 0).Sum(e => e.Count) == (disposition == EquipmentDisposition.Reserve ? 2 : 0),
+                        label + "received definition reaches only its server-assigned storage");
+                    var retained = state.Equipment.Single(e => e.Player == 0);
+                    Check(retained.Id == protectedId && retained.Code == 65540 && retained.Level == 3 && retained.Locked && retained.EnhancementStonesSpent == 37,
+                        label + "existing ID, lock, equip and enhancement cost retained");
+                    string equipment = JsonConvert.SerializeObject(new { state.Equipment, state.PendingEquipment, state.LegacyEquipment, state.Wallet });
+                    Check(MailboxService.Apply(response) && equipment == JsonConvert.SerializeObject(new
+                        { LocalProgression.State.Equipment, LocalProgression.State.PendingEquipment, LocalProgression.State.LegacyEquipment, LocalProgression.State.Wallet }),
+                        label + "repeated snapshot neither duplicates rewards nor changes IDs");
+                    service.ClaimAll();
+                    Check(claimCalls == 1 && service.Messages.Count == 0, label + "claimed mail cannot be requested again");
+                    service.Close();
+                    string saved = JsonConvert.SerializeObject(LocalProgression.State);
+                    LocalProgression.OpenTestAccount(account);
+                    Check(saved == JsonConvert.SerializeObject(LocalProgression.State), label + "reload reads the same durable state");
+                }
+            }
+            Check(LocalProgression.AccountKey == beforeAccount && (before == null ? !LocalProgression.TryGetCommittedState(out _) : JsonConvert.SerializeObject(LocalProgression.State) == before),
+                "original account and state restored");
             return new Dictionary<string, object> { ["passed"] = checks.Count, ["checks"] = checks };
         }
 

@@ -220,7 +220,7 @@ namespace KingdomIdle.Mailbox
             });
         }
 
-        private static bool Apply(OnClaimMailRewardResponseDTO response)
+        internal static bool Apply(OnClaimMailRewardResponseDTO response)
         {
             bool saved = LocalProgression.Execute("server-mail-claim", s =>
             {

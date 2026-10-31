@@ -49,3 +49,14 @@
 - Unity import·컴파일 성공, Panel_Mailbox의 Missing Script 0개와 필수 참조를 확인했다. Play 프레임은 141에서 1892로 진행했다. 검사 오브젝트를 정리하고 원래의 bootstrap 편집 상태로 복귀했다.
 - 표시·레이아웃·텍스처·행 풀 변경은 없어 캡처 및 성능 측정을 반복하지 않았다. Android 빌드·설치·실기기와 실제 서버 수령은 검증하지 않았다. bundleVersion은 0.19.1, 배포하지 않았으므로 Android versionCode는 66을 유지한다.
 - 기존 GvhProjectSettings.xml 파일 잠금 오류(1224)와 CLI status의 구버전 Pipeline 명령 호환 오류(`editor status`)는 별도 환경 문제로 남아 있다. 우편함 컴파일·회귀 검사는 정상 완료했으며 해당 설정 파일은 수정·커밋하지 않았다.
+
+## 0.19.2 — 미수령 장비 표시와 실제 저장 경로 검증 (2026-11-01)
+
+- `RewardDisplayItem.From(MailRewardDTO)`에서 `Disposition.None`을 명시한다. 미수령 아이콘·우편 상세의 장비 설명에 `장비 보관함에 보관했습니다.`가 붙던 문제를 한 곳에서 수정했다. 수령 결과는 기존 `Granted` 경로의 서버 disposition을 유지한다.
+- `MailboxAcceptance.RunServerApply()`를 추가했다. 테스트에서 같은 제품 함수를 호출할 수 있도록 `MailboxService.Apply`의 접근성만 internal로 바꾸었다. 별도의 보상 적용 구현은 추가하지 않았다.
+- Unity 6000.3.21f1 Edit에서 134개 검사 통과. 일반·대기·예비 보관·자동 분해 각각에 성공/실제 파일 쓰기 실패/응답 유실을 적용한 12개 조합이다. 수령 DTO를 JSON 왕복 후 `MailboxService.ClaimAll → ValidateClaim → Apply → UserManager.ApplyCurrency/ApplyEquipment → LocalProgression.Execute`로 적용하고 계정 파일을 다시 열어 저장값이 같은지 비교했다.
+- 8종 재화 절대값, 장비 종류·보관 위치·수량, 기존 ID·잠금·장착·강화석 지출, 자동 분해 강화석, 동일 스냅샷 재적용 시 중복 없음, 원래 계정·상태 복원을 확인했다. 저장 실패/응답 유실 시 메모리·파일 불변, 성공 보상 미표시, 복구 중 수령 차단, 복구 실패 후 재시도와 수령 요청 1회 유지도 확인했다.
+- 복구 콜백은 보류/실패/성공을 주입하며, 복구 성공 시 테스트 응답을 제품의 `MailboxService.Apply`로 저장한다. 실제 HTTP·PlayFab, `UserManager.RefreshFromServer`의 전체 OnGetUserState 적용, Edit에서 존재하지 않는 런타임 매니저의 장비/퀘스트 갱신은 이 검사의 범위가 아니다. 서버 부분 저장의 거래 보장을 입증하는 검사도 아니다.
+- 미수령 표시 검사는 수정 전 `unclaimed preview has no storage result`로 실패했고 수정 후 통과했다. bootstrap Play의 실제 프리팹에서 장비 아이콘을 눌러 `미수령`, 수령 요청 0회, 설명 `나무로 만든 훈련용 대검이다.`만 표시되는 것을 확인했다. 1080×1920 Game View 원본 캡처는 `PersonalDocs/Validation/mailbox-preview-20261101/details.png`(이전)와 `details-fixed.png`(수정 후)에 보존했다. 타이틀 위 격리 우편 미리보기이며 실제 서버 계정·Android 캡처와 구별한다.
+- 기존 `MailboxAcceptance.Run()` 35개, `RunLocal()` 8개, Play의 `VerifyCloseReopen()` 3개도 통과했다. 레이아웃·에셋·풀은 변경하지 않았고 새 테스트는 Editor 전용이다. 렌더링 비용 측정·다른 화면 비율·Android 빌드 및 실기기 검증은 반복하지 않았다. 버전 0.19.2, 배포하지 않아 Android versionCode 66 유지.
+- 최종 Unity import·컴파일 성공, Panel_Mailbox 누락 스크립트 0개·content/closeButton/claimAll 참조 정상. 원래 bootstrap 편집 상태로 복귀했고 씬 미저장 변경은 없다. 기존 GvhProjectSettings.xml 변경은 보존하고 커밋에서 제외했다.

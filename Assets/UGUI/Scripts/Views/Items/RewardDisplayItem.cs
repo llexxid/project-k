@@ -34,7 +34,7 @@ namespace KingdomIdle.UGUI
         };
 
         public static RewardDisplayItem From(MailRewardDTO r) => new()
-        { Kind = r.Kind, Currency = (eCurrency)(int)(r.CurrencyType ?? 0), DefinitionId = r.DefinitionId ?? 0, Amount = r.Amount };
+        { Kind = r.Kind, Currency = (eCurrency)(int)(r.CurrencyType ?? 0), DefinitionId = r.DefinitionId ?? 0, Amount = r.Amount, Disposition = EquipmentDisposition.None };
 
         public static List<RewardDisplayItem> Granted(IReadOnlyList<GachaRewardDTO> rewards)
         {

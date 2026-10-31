@@ -194,6 +194,7 @@ Editor에서 bootstrap부터 Play·로그인한 뒤 `GameTest → Shop Ad Test �
 
 - `GameTest/Mailbox Test/격리 로컬 지급 검증`: Play 종료 후 기존 BeginTestSession/OpenTestAccount로 저장 실패·지급·중복·삭제를 검사하고 원래 계정·상태를 복원한다.
 - `GameTest/Mailbox Test/서버 응답 시나리오 검증`: 실제 계정·통신 없이 페이지/부분 실패/닫기/계정 변경/응답 유실을 검사한다.
+- `GameTest/Mailbox Test/서버 응답 실제 저장 검증`: Play 종료 후 `MailboxAcceptance.RunServerApply()`로 일반·대기·예비 보관/자동 분해 × 성공/저장 실패/응답 유실을 검사한다. 응답·복구 콜백은 격리하고 제품의 우편 적용·파일 저장·재열기 경로를 실행하며 원래 계정·상태를 복원한다.
 - `MailboxUiAcceptance.Open(100)` / `VerifyRecycling()`: bootstrap Play에서 실제 프리팹을 사용하는 격리 미리보기. 서버 통합 검증과 구분한다.
 - `MailboxUiAcceptance.VerifyCloseReopen()`: bootstrap Play에서 이전 패널의 지연 종료·재진입, 비활성화 후 복귀, 재진입 후 수령을 검사한다. 검사 후 `Close()`로 미리보기를 정리한다.
 - [0.19.0 검증 기록](../../AI/validation/mailbox-server-20261031/README.md)
