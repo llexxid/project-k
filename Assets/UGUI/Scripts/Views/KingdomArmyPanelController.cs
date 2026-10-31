@@ -101,6 +101,8 @@ namespace KingdomIdle.UGUI
                 {
                     UnsubscribeCharTick();
                     UnsubscribeStageEvents();
+                    if (EquipmentManager.Instance != null) EquipmentManager.Instance.OnActionCompleted -= OnEquipmentActionCompleted;
+                    if (_mgr != null) _mgr.OnJobChangeCompleted -= OnJobChangeCompleted;
                     _view = null;
                     _memberTabButtons.Clear();
                     _navButtons.Clear();
@@ -120,6 +122,9 @@ namespace KingdomIdle.UGUI
             _displayedJobs = _players.Select(p => p != null ? p.playerStatus?.JobName : null).ToArray();
             _stageEvents = Scripts.Core.Manager.StageManager.Instance;
             if (_stageEvents != null) _stageEvents.OnStageEnter += OnPartyApplied;
+            var equipment = EquipmentManager.Instance;
+            if (equipment != null) { equipment.OnActionCompleted -= OnEquipmentActionCompleted; equipment.OnActionCompleted += OnEquipmentActionCompleted; }
+            _mgr.OnJobChangeCompleted -= OnJobChangeCompleted; _mgr.OnJobChangeCompleted += OnJobChangeCompleted;
             _activeMemberIndex = pendingMember >= 0 && _players != null && _players.Count > 0
                 ? Mathf.Clamp(pendingMember, 0, _players.Count - 1)
                 : 0;
@@ -127,6 +132,42 @@ namespace KingdomIdle.UGUI
 
             BuildMemberTabs();
             BuildNavBar();
+            Refresh();
+        }
+
+        /// <summary>전직 서버 요청(OnGetJob·OnChangeJob)의 완료. 성공이면 서버가 확정한 직업으로 멤버 탭·상세를 다시 그리고, 실패면 서버 문구를 띄운다.</summary>
+        private static void OnJobChangeCompleted(KingdomArmyManager.JobChangeInfo info)
+        {
+            if (_view == null || info == null) return;
+            if (!info.Ok) { ShowToast(string.IsNullOrEmpty(info.Failure) ? "전직에 실패했습니다." : info.Failure); return; }
+            string name = JobData.GetDisplayName(info.JobName);
+            ShowToast(info.IsNewUnlock ? $"{name} 전직 완료 (파편 {NumberNotation.Format(info.SpentClassFragment)}개 사용)" : $"{name} 전직 완료");
+            _players = _mgr.GetPlayers();
+            _displayedJobs = _players.Select(p => p != null ? p.playerStatus?.JobName : null).ToArray();
+            BuildMemberTabs();
+            if (_contentPage == typeof(KAJobDetailView) && _detailJob != null) ShowJobDetail(_detailJob);
+            else Refresh();
+        }
+
+        /// <summary>장비 서버 요청(잠금·장착·해제·강화·분해·수령)의 완료. 실패는 서버 문구, 성공은 결과 문구를 띄우고 현재 화면을 다시 그린다.</summary>
+        private static void OnEquipmentActionCompleted(EquipmentManager.ActionInfo info)
+        {
+            if (_view == null || info == null) return;
+            ShowToast(EquipmentManager.Describe(info));
+            if (_contentPage == typeof(KAEquipDetailView))
+            {
+                string id = info.Ok && !string.IsNullOrEmpty(info.ItemId) ? info.ItemId : _detailEquipmentId;
+                var item = EquipmentManager.Instance?.Inventory.Items.FirstOrDefault(x => x.instanceId == id);
+                var player = GetCurrentPlayer();
+                if (item != null && player != null)
+                {
+                    ShowEquipmentActionPopup(item, item.equipmentPlayerIndex == player.PlayerIndex,
+                        item.baseData.IsAllowedForJob(player.playerStatus.JobName), player.PlayerEquipmentManager);
+                    return;
+                }
+            }
+            // 전직 상세를 보는 중에 자동 해제(새 직업이 못 쓰는 무기)가 끝나면 목록으로 돌아가지 않고 상세를 유지한 채 다시 그린다.
+            if (_contentPage == typeof(KAJobDetailView) && _detailJob != null) { ShowJobDetail(_detailJob); return; }
             Refresh();
         }
 
@@ -586,9 +627,8 @@ namespace KingdomIdle.UGUI
                     equip.unequipButton.onClick.RemoveAllListeners();
                     equip.unequipButton.onClick.AddListener(() =>
                     {
-                        capturedMgr.Unequip(eEquipmentSlot.Weapon);
-                        ShowToast($"{capturedEquipped.baseData.DisplayName} 해제");
-                        Refresh();
+                        var result = capturedMgr.Unequip(eEquipmentSlot.Weapon);
+                        ShowToast(result == EquipmentManager.EnhancementResult.Pending ? $"{capturedEquipped.baseData.DisplayName} 해제 요청 중" : EquipmentManager.Describe(result));
                     });
                 }
             }
@@ -638,8 +678,8 @@ namespace KingdomIdle.UGUI
                 string enhancement = level > 0 ? $" +{level}" : "";
                 InstantiateEquipCell(grid, data.icon, $"{data.DisplayName}{enhancement} ×{stored.Count}", UguiTheme.AccentGold,
                     "1개 받기", UguiTheme.RarityColor(data.rarity), false, false, "추가 보관", () => {
-                        if (equipmentManager.ClaimLegacy(code, level)) refresh();
-                        else UIManager.Instance?.ShowToast("가방이 가득 찼습니다. 위의 일괄 분해로 추가 보관 장비도 정리할 수 있습니다.");
+                        var result = equipmentManager.ClaimLegacyEx(code, level);
+                        UIManager.Instance?.ShowToast(result == EquipmentManager.EnhancementResult.Pending ? "추가 보관 장비 수령 요청 중" : EquipmentManager.Describe(result));
                     });
             }
             foreach (var group in LocalProgression.State.PendingEquipment.GroupBy(x => (x.Code, x.Level)))
@@ -649,8 +689,8 @@ namespace KingdomIdle.UGUI
                 string id = item.Id;
                 InstantiateEquipCell(grid, data.icon, $"{data.DisplayName} ×{group.Count()}", UguiTheme.AccentGold,
                     "1개 받기", UguiTheme.RarityColor(data.rarity), false, false, "추가 보관", () => {
-                        if (equipmentManager.ClaimPending(id)) refresh();
-                        else UIManager.Instance?.ShowToast("가방이 가득 찼습니다. 위의 일괄 분해로 추가 보관 장비도 정리할 수 있습니다.");
+                        var result = equipmentManager.ClaimPendingEx(id);
+                        UIManager.Instance?.ShowToast(result == EquipmentManager.EnhancementResult.Pending ? "대기함 장비 수령 요청 중" : EquipmentManager.Describe(result));
                     });
             }
         }
@@ -741,9 +781,8 @@ namespace KingdomIdle.UGUI
                 var capturedMgr = equipMgr;
                 AddActionButton(detail.actionRow, "해제", UguiTheme.BtnCancel, true, () =>
                 {
-                    capturedMgr.Unequip(capturedItem.baseData.slot);
-                    ShowToast($"{capturedItem.baseData.DisplayName} 해제");
-                    Refresh();
+                    var result = capturedMgr.Unequip(capturedItem.baseData.slot);
+                    ShowToast(result == EquipmentManager.EnhancementResult.Pending ? $"{capturedItem.baseData.DisplayName} 해제 요청 중" : EquipmentManager.Describe(result));
                 });
             }
             else if (isAllowed)
@@ -752,9 +791,8 @@ namespace KingdomIdle.UGUI
                 var capturedMgr = equipMgr;
                 AddActionButton(detail.actionRow, "장착", UguiTheme.BtnConfirm, true, () =>
                 {
-                    if (!EquipmentManager.Instance.TryEquip(capturedMgr.PlayerIndex,capturedItem)) { ShowToast("다른 병사가 장착 중이거나 직업에 맞지 않습니다."); return; }
-                    ShowToast($"{capturedItem.baseData.DisplayName} 장착!");
-                    Refresh();
+                    var result = EquipmentManager.Instance.TryEquipEx(capturedMgr.PlayerIndex, capturedItem);
+                    ShowToast(result == EquipmentManager.EnhancementResult.Pending ? $"{capturedItem.baseData.DisplayName} 장착 요청 중" : EquipmentManager.Describe(result));
                 });
             }
             else
@@ -777,7 +815,10 @@ namespace KingdomIdle.UGUI
 
             // 강화 정보 표시
             BuildEnhanceInfo(detail, item);
-            AddActionButton(detail.actionRow,item.IsLocked?"잠금 해제":"분해 방지 잠금",UguiTheme.BtnCancel,true,()=> { EquipmentManager.Instance.SetLocked(item,!item.IsLocked); ShowEquipmentActionPopup(item,isEquipped,isAllowed,equipMgr); });
+            AddActionButton(detail.actionRow,item.IsLocked?"잠금 해제":"분해 방지 잠금",UguiTheme.BtnCancel,true,()=> {
+                var result = EquipmentManager.Instance.SetLockedEx(item,!item.IsLocked);
+                if (result != EquipmentManager.EnhancementResult.Pending) ShowToast(EquipmentManager.Describe(result));
+            });
             AddActionButton(detail.actionRow,"분해 · 강화석 획득",UguiTheme.BtnSpend,!item.IsLocked&&!item.IsEquipped,
                 () => EquipmentActionDialog.Dismantle(EquipmentEconomy.Preview(_ => true, item.instanceId), Refresh));
             // Keep the prefab's existing layout component; a separate child owns the vertical actions.
@@ -817,16 +858,14 @@ namespace KingdomIdle.UGUI
                 return;
             }
 
+            // 서버(OnEnchantEquipment)가 비용·상한·결과를 확정한다. 요청이 나가면 완료 이벤트에서 팝업을 다시 그린다.
             var result = EquipmentManager.Instance.TryEnhanceDetailed(item);
-            if (result == EquipmentManager.EnhancementResult.Success)
+            if (result == EquipmentManager.EnhancementResult.Pending)
             {
-                ShowToast($"강화 성공! {item.baseData.DisplayName} +{item.enhancementLevel}");
+                ShowToast($"{item.baseData.DisplayName} 강화 요청 중");
+                return;
             }
-            else if (result == EquipmentManager.EnhancementResult.ChanceFailed)
-            {
-                ShowToast($"강화 실패. 다시 확인해 주세요.");
-            }
-            else ShowToast("강화하지 못했습니다. 강화석과 저장 상태를 확인해 주세요.");
+            ShowToast(EquipmentManager.Describe(result));
 
             // 현재 화면이 액션 팝업이면 다시 표시
             ShowEquipmentActionPopup(item,
@@ -1144,7 +1183,13 @@ namespace KingdomIdle.UGUI
             string btnText;
             Color btnColor;
             bool btnEnabled;
-            if (isCurrent)
+            if (_mgr.IsChangingJob)
+            {
+                btnText = "전직 요청 중";
+                btnColor = UguiTheme.DisabledGrey;
+                btnEnabled = false;
+            }
+            else if (isCurrent)
             {
                 btnText = "현재 직업";
                 btnColor = UguiTheme.DisabledGrey;
@@ -1248,11 +1293,11 @@ namespace KingdomIdle.UGUI
         {
             if (player == null || _mgr == null) return;
 
+            // 전직은 서버가 확정한다. 접수 토스트만 띄우고 결과는 OnJobChangeCompleted에서 그린다.
             _mgr.TryChangeJob(player, job.jobName,
                 onSuccess: () =>
                 {
-                    ShowToast($"다음 일반 웨이브부터 {job.DisplayName} 적용");
-                    BuildMemberTabs();
+                    ShowToast($"{job.DisplayName} 전직을 서버에 요청했습니다.");
                     ShowJobDetail(job);
                 },
                 onError: msg => ShowToast(string.IsNullOrEmpty(msg) ? "전직에 실패했습니다." : msg));

@@ -64,7 +64,7 @@ namespace KingdomIdle.Balance
         {
             private readonly string _previousTest = _testAccount, _previousAccount = AccountKey;
             private readonly long? _previousTime = TestUtcNow;
-            public TestSession() { BattleEconomy.Suspend(); }
+            public TestSession() { }
             public void Dispose()
             {
                 TestUtcNow = _previousTime;
@@ -79,7 +79,6 @@ namespace KingdomIdle.Balance
                     BattleEconomy.OnAccountOpened(AccountGeneration);
                     Notify(AccountChanged); Notify(Changed);
                 }
-                BattleEconomy.Resume();
             }
         }
 #endif
@@ -100,10 +99,7 @@ namespace KingdomIdle.Balance
             _opening = true;
             try
             {
-                // 전투 시간 거래는 미저장 스킬 횟수도 함께 저장한다. 시간이 없으면 별도로 flush한다.
-                // 두 저장 모두 이전 _path를 사용하며 실패하면 계정과 세대를 바꾸지 않는다.
-                if (_state != null && !BattleEconomy.TryFlushQuestTime())
-                    throw new IOException("Previous account battle time could not be saved.");
+                // 미저장 스킬 횟수는 이전 _path에 먼저 저장하며 실패하면 계정과 세대를 바꾸지 않는다.
                 if (_state != null && !FlushSkillCounters())
                     throw new IOException("Pending skill counters could not be saved before changing account.");
                 using var sha = SHA256.Create();
@@ -123,15 +119,10 @@ namespace KingdomIdle.Balance
                 if (state.CycleFrontierStage == 0)
                     state.CycleFrontierStage = Math.Max(state.MainStage,
                         (long)StageParser.MakeStage(eStageType.Main, Math.Max(1, state.CycleBossStage + 1)));
-                QuestEconomy.Migrate(state);
-                // 퀘스트와 마법 이관 결과는 하나의 저장으로 공개한다. 제거한 스킬 ID는 복원하지 않는다.
+                // 퀘스트는 서버가 집계·판정한다(QuestManager). 마법 이관 결과는 하나의 저장으로 공개하고 제거한 스킬 ID는 복원하지 않는다.
                 for (int i = 0; i < state.MageSlots.Length; i++)
                     if (state.MageSlots[i] == 6) state.MageSlots[i] = -1;
                 KingdomIdle.MageTower.MageCatalogMigration.Apply(state);
-                Validate(state);
-                long now = UtcNow;
-                QuestEconomy.Before(state, now);
-                QuestEconomy.After(state, now);
                 Validate(state);
                 if (!File.Exists(path) || before != JsonConvert.SerializeObject(state))
                 {
@@ -153,12 +144,11 @@ namespace KingdomIdle.Balance
             return state != null;
         }
 
-        /// <summary>패널 표시와 독립적인 기간 동기화 명령이다.</summary>
+        /// <summary>옛 기간 동기화 명령. 퀘스트 기간·보류 보상은 서버가 관리하므로 계정 열기만 보장한다(에디터 QA 호환).</summary>
         public static bool SynchronizeQuests()
         {
             Ensure();
-            if (!QuestPeriod.NeedsSynchronization(_state, UtcNow)) return true;
-            return Execute("quest-period", state => true);
+            return true;
         }
 
         /// <summary>원본과 분리된 복제본만 변경하고 파일 교체 이후 상태와 이벤트를 공개한다.</summary>
@@ -175,18 +165,13 @@ namespace KingdomIdle.Balance
             {
                 if (claimId != null && _state.Claims.Contains(claimId)) return false;
                 var draft = _state.DeepClone();
-                // 모든 기간 계산은 같은 UTC를 사용한다. 샘플의 제거는 저장 성공 뒤에만 한다.
-                long now = Math.Max(UtcNow, draft.QuestLastObservedUtc);
-                long timeBatch = BattleEconomy.PrepareQuestTime(draft, now);
-                QuestEconomy.Before(draft, now);
+                // 퀘스트 집계·기간 전환은 서버가 한다. 거래는 변이·검증·저장만 수행한다.
                 if (!mutate(draft)) return false;
-                QuestEconomy.After(draft, now);
                 if (claimId != null) draft.Claims.Add(claimId);
                 draft.Revision = checked(_state.Revision + 1);
                 Validate(draft);
                 WriteSnapshot(_path, draft);
                 _state = draft; LastError = null;
-                BattleEconomy.AcknowledgeQuestTime(timeBatch);
                 _countersDirty = false;
                 published = true;
                 return true;
@@ -244,18 +229,9 @@ namespace KingdomIdle.Balance
         {
             if (state == null || state.Schema != 1 || state.BalanceVersion != BalanceMath.Version || state.Authority != "local-client")
                 throw new InvalidDataException("Unsupported progression snapshot; migration required.");
-            if (state.QuestSchemaVersion != QuestEconomy.SchemaVersion || state.CompletedQuests == null || state.QuestLastObservedUtc < 0 ||
-                state.Counters == null || state.Claims == null || state.PendingQuests == null || state.Counters.Any(x => x.Value < 0))
+            // 퀘스트 진행·보류 보상은 서버가 판정한다. 옛 로컬 퀘스트 필드는 저장 호환을 위해 남기고 컬렉션 존재만 검사한다.
+            if (state.CompletedQuests == null || state.QuestLastObservedUtc < 0 || state.Counters == null || state.Claims == null || state.PendingQuests == null)
                 throw new InvalidDataException("Invalid quest snapshot.");
-            foreach (var pair in state.PendingQuests)
-            {
-                QuestPending pending = pair.Value;
-                if (pending == null || !pair.Key.StartsWith($"quest:{pending.Id}:", StringComparison.Ordinal) || pending.RequiredCount <= 0 ||
-                    pending.ExpiresUtc <= 0 || string.IsNullOrEmpty(pending.DefinitionVersion) || pending.Rewards == null || pending.Rewards.Count == 0 ||
-                    pending.Gold < 0 || (pending.Category != eQuestCategory.Daily && pending.Category != eQuestCategory.Weekly) ||
-                    pending.Rewards.Any(x => x.Amount < 0 || !Enum.IsDefined(typeof(eCurrency), x.Currency) || (x.IsDynamicGold && x.Currency != eCurrency.Gold)))
-                    throw new InvalidDataException("Unresolved pending quest: " + pair.Key);
-            }
             foreach (var entry in state.Wallet) if (entry.Value < 0 || !Enum.IsDefined(typeof(eCurrency),entry.Key)) throw new InvalidDataException("Negative wallet.");
             if (state.AccountLevel < 1 || state.AccountLevel > 200 || state.Experience < 0 ||
                 state.AttackLevel < 0 || state.AttackLevel > 300 || state.HealthLevel < 0 || state.HealthLevel > 300 ||

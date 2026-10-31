@@ -33,15 +33,16 @@ namespace KingdomIdle.UGUI
         public static void Dismantle(EquipmentEconomy.DismantlePlan plan, Action refresh)
         {
             if (plan.Count == 0) { UIManager.Instance?.ShowToast("분해할 장비가 없습니다. 잠금·장착·강화 장비는 일괄 분해에서 제외됩니다."); return; }
-            var view = Create("장비 분해", $"장비 {NumberNotation.Exact(plan.Count)}개\n강화석 +{NumberNotation.Exact(plan.Stones)}\n\n분해한 장비는 되돌릴 수 없습니다.\n강화에 사용한 강화석은 80% 반환됩니다.", "분해하기");
+            var view = Create("장비 분해", $"장비 {NumberNotation.Exact(plan.Count)}개\n강화석 +{NumberNotation.Exact(plan.Stones)} (예상)\n\n분해한 장비는 되돌릴 수 없습니다.\n강화에 사용한 강화석은 80% 반환됩니다.", "분해하기");
             if (view == null) return;
             foreach (var toggle in view.rarityToggles) toggle.gameObject.SetActive(false);
             view.panel.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 620);
             view.confirm.onClick.AddListener(() => {
-                bool success = EquipmentManager.Instance != null && EquipmentManager.Instance.Dismantle(plan);
+                // 서버(OnDismantleEquipment)가 보호·수량을 검사하고 환급액을 확정한다. 완료 토스트·목록 갱신은 패널의 완료 이벤트가 한다.
+                var result = EquipmentManager.Instance != null ? EquipmentManager.Instance.DismantleEx(plan) : EquipmentManager.EnhancementResult.NetworkNotReady;
                 view.Close();
-                UIManager.Instance?.ShowToast(success ? $"강화석 {NumberNotation.Format(plan.Stones)}개 획득" : "장비 상태가 바뀌었습니다. 목록을 확인해 주세요.");
-                refresh?.Invoke();
+                if (result == EquipmentManager.EnhancementResult.Pending) UIManager.Instance?.ShowToast($"장비 {NumberNotation.Exact(plan.Count)}개 분해 요청 중");
+                else { UIManager.Instance?.ShowToast(EquipmentManager.Describe(result)); refresh?.Invoke(); }
             });
         }
 
@@ -54,9 +55,10 @@ namespace KingdomIdle.UGUI
             view.confirm.onClick.AddListener(() => {
                 int next = 0;
                 for (int i = 0; i < view.rarityToggles.Length; i++) if (view.rarityToggles[i].isOn) next |= 1 << i;
-                bool saved = LocalProgression.Execute("equipment-auto-dismantle", s => { s.AutoDismantleMask = next; return true; });
-                if (!saved) { UIManager.Instance?.ShowToast("설정을 저장하지 못했습니다."); return; }
-                view.Close(); refresh?.Invoke();
+                // 서버(OnSetAutoDismantle)에 저장한다. 이후 서버가 지급하는 장비에만 적용된다. 목록 갱신은 패널의 완료 이벤트가 한다.
+                var result = EquipmentManager.Instance != null ? EquipmentManager.Instance.SetAutoDismantleEx(next) : EquipmentManager.EnhancementResult.NetworkNotReady;
+                if (result != EquipmentManager.EnhancementResult.Pending) { UIManager.Instance?.ShowToast(EquipmentManager.Describe(result)); return; }
+                view.Close();
             });
         }
 

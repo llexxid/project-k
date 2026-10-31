@@ -280,8 +280,8 @@ namespace KingdomIdle.UGUI
         }
 
         // ── 액션 ──────────────────────────────────────────────────────
-        // 서버 동기화는 StatEnhanceManager 내부에서 수행된다.
-        // 실패 시 TryEnhanceEx 가 구체적 사유를 반환하고 로컬 상태는 자동 롤백된다.
+        // 서버 호출은 StatEnhanceManager 내부에서 수행된다. 정상 경로는 Pending을 돌려주고
+        // 결과(성공/서버 거절)는 OnEnhanceCompleted로 온다. 로컬에서 바로 거절되는 사유만 여기서 안내한다.
 
         private static void OnEnhanceClicked(StatEnhanceManager.EnhanceType type, int count)
         {
@@ -314,18 +314,28 @@ namespace KingdomIdle.UGUI
                 case StatEnhanceManager.EnhanceResult.NetworkNotReady:
                     ShowToast("네트워크 세션이 준비되지 않았습니다.");
                     break;
+                case StatEnhanceManager.EnhanceResult.MaxLevel:
+                    ShowToast("최대 강화 단계입니다.");
+                    break;
                 default:
                     ShowToast("강화에 실패했습니다.");
                     break;
             }
         }
 
+        // 서버 응답 뒤 호출된다. 성공은 적용된 단계로, 실패는 서버 ErrorCode로 안내한다.
         private static void OnEnhanceCompleted(StatEnhanceManager.EnhanceType type, bool success)
         {
-{
+            var mgr = StatEnhanceManager.Instance;
+            if (success && mgr != null)
+                ShowToast($"{StatEnhanceManager.GetTypeName(type)} Lv.{mgr.GetLevel(type)} ({mgr.GetBonusText(type)})");
+            else if (!success)
+                ShowToast(DescribeFailure(mgr?.LastFailure));
             Refresh();
         }
-    }
+
+        // 서버 ErrorCode → 문구 표는 NetworkManager.DescribeFailure가 공통으로 가진다.
+        private static string DescribeFailure(PlayFab.PlayFabError error) => Scripts.Core.Manager.NetworkManager.DescribeFailure(error, "강화");
 
         private static void ShowToast(string msg)
         {

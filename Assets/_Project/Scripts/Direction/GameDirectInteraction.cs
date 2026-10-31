@@ -1,5 +1,12 @@
 using System;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using KingdomIdle.Balance;
+using KingdomIdle.UGUI;
+using Protocol.Message.Dto;
+using Scripts.Core;
+using Scripts.Core.Manager;
+using UnityEngine;
 
 namespace Direction
 {
@@ -67,19 +74,53 @@ namespace Direction
         /// <summary>진행 JSON과 분리한 단계별 키를 만든다. 이전 진행 복사본을 저장해도 경제 성공 증거를 덮지 않는다.</summary>
         private static string ReceiptKey(string sequence, string step) => "game-direct-action:" + sequence + ":" + step;
 
-        /// <summary>Manager의 단계 진입 콜백이다. 50개와 지급 청구 키를 동일 거래로 확정하고 이미 지급했으면 성공으로 반환한다.</summary>
-        public static bool GrantCoins(string sequence, GameDirectStep step, long account)
+        /// <summary>Manager가 실습 단계를 표시하기 전에 호출한다. 지급은 서버(OnClaimGuideReward)가 단계별로 한 번만 하고, 이미 지급된 단계는
+        /// AlreadyClaimed로 알려 주므로 중단된 안내를 그대로 재개한다. 실패하면 false를 돌려주고 단계는 미확인으로 남는다.</summary>
+        public static UniTask<bool> ClaimPracticeCoinsAsync(string sequence, GameDirectStep step, long account, CancellationToken token)
         {
-            if (account != LocalProgression.AccountGeneration || !LocalProgression.TryGetCommittedState(out var state)) return false;
-            if (!step.GrantPracticeCoins) return true;
-            string claim = "game-direct-grant:" + sequence + ":" + step.Action;
-            if (state.Claims.Contains(claim)) return true;
-            return LocalProgression.Execute("guide-practice-coins", draft =>
+            if (!step.GrantPracticeCoins) return UniTask.FromResult(true);
+            return ClaimGuideRewardAsync(sequence + ":" + step.Id, account, token);
+        }
+
+        /// <summary>서버 연결로 무효화된 로컬 지급. 에디터 QA 스크립트(InteractiveGuideAcceptance) 컴파일 호환용으로 시그니처만 남긴다.
+        /// 지급하지 않으며 운영 경로는 ClaimPracticeCoinsAsync다.</summary>
+        public static bool GrantCoins(string sequence, GameDirectStep step, long account) => account == LocalProgression.AccountGeneration;
+
+        /// <summary>서버에 실습 보상을 요청하고 응답의 재화 절대값을 플레이어 상태에 쓴다. 로컬에서 지급하거나 청구 키를 남기지 않는다.</summary>
+        public static async UniTask<bool> ClaimGuideRewardAsync(string guideId, long account, CancellationToken token)
+        {
+            if (account != LocalProgression.AccountGeneration) return false;
+            var network = NetworkManager.Instance;
+            if (network == null || !network.IsGameDataReady)
             {
-                if (account != LocalProgression.AccountGeneration) return false;
-                LocalProgression.Credit(draft, eCurrency.AncientCoin, 50);
-                return true;
-            }, claim);
+                Debug.LogWarning("[Guide] claim skipped: server login is not ready");
+                return false;
+            }
+            var completion = new UniTaskCompletionSource<bool>();
+            network.Call<OnClaimGuideRewardRequestDTO, OnClaimGuideRewardResponseDTO>(new OnClaimGuideRewardRequestDTO { GuideId = guideId },
+                response =>
+                {
+                    if (account != LocalProgression.AccountGeneration) { completion.TrySetResult(false); return; }
+                    bool saved = LocalProgression.Execute("server-guide-reward", draft => { UserManager.ApplyCurrency(draft, response.Currency); return true; });
+                    Debug.Log($"[Guide] claim id={guideId} already={response.AlreadyClaimed} granted={response.GrantedAncientCoin} | server AncientCoin={response.Currency?.AncientCoin} | state AncientCoin={LocalProgression.Balance(eCurrency.AncientCoin)} | saved={saved}");
+                    if (!saved) ReportSaveFailure();
+                    completion.TrySetResult(saved);
+                },
+                error =>
+                {
+                    string kind = NetworkManager.GetFailureKind(error);
+                    int code = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0;
+                    Debug.LogWarning($"[Guide] claim id={guideId} rejected code={code} kind={kind} message={error?.ErrorMessage}");
+                    if (kind == "Timeout" || kind == "Transport")
+                    {
+                        // 응답 유실: 서버가 지급했을 수 있다. 재전송 대신 상태를 다시 받고 이번 요청은 중단한다. 다음 요청은 AlreadyClaimed로 이어진다.
+                        UserManager.Instance?.RefreshFromServer(_ => completion.TrySetResult(false));
+                        return;
+                    }
+                    UIManager.Instance?.ShowToast(NetworkManager.DescribeFailure(error, "실습 보상"));
+                    completion.TrySetResult(false);
+                });
+            return await completion.Task.AttachExternalCancellation(token);
         }
     }
 }

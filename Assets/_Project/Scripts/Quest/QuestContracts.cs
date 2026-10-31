@@ -26,7 +26,9 @@ namespace KingdomIdle.Balance
 
     public enum QuestClaimStatus
     {
-        Success, NotReady, StaleAccount, Locked, Incomplete, AlreadyClaimed, Expired, SaveFailed, UnknownQuest
+        Success, NotReady, StaleAccount, Locked, Incomplete, AlreadyClaimed, Expired, SaveFailed, UnknownQuest,
+        // 서버 수령 요청이 나갔거나(Pending) 아직 다른 요청을 처리 중이거나(Busy) 로그인 전(NetworkNotReady)이다.
+        Pending, Busy, NetworkNotReady
     }
 
     public readonly struct QuestClaimResult
@@ -34,6 +36,7 @@ namespace KingdomIdle.Balance
         public QuestClaimStatus Status { get; }
         public QuestClaimToken Token { get; }
         public bool Succeeded => Status == QuestClaimStatus.Success;
+        public bool IsPending => Status == QuestClaimStatus.Pending;
         public QuestClaimResult(QuestClaimStatus status, QuestClaimToken token) { Status = status; Token = token; }
     }
 

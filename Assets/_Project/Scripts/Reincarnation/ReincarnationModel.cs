@@ -12,7 +12,9 @@ namespace Reincarnation
         StorageUnavailable,
         UnsupportedSaveVersion,
         StageResetRejected,
-        RollbackFailed
+        RollbackFailed,
+        // 서버에 요청을 보냈다. 결과는 OnReincarnationCompleted로 온다.
+        Pending
     }
     
     //환생조건 제약으로 인한 실패원인

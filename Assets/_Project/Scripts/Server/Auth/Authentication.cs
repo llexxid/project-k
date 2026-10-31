@@ -23,11 +23,14 @@ namespace Scripts.Server.Auth
 #endif
 		private const double AuthenticationTimeoutSeconds = 30;
 		private const string WebClientId = "222024339558-o157jmef5jhip2s9vtfo3kto1ojfpejf.apps.googleusercontent.com";
+		// OnLogIn이 PlayFab의 10초 한도에 걸린 뒤(함수 앱 콜드 스타트) 한 번만 다시 부른다.
+		private bool _retriedLogin;
 		public Authentication(NetworkManager network) => _network = network;
 
 		public async void Authenticate(eAuthType type)
 		{
 			long generation = _network.BeginAuthentication();
+			_retriedLogin = false;
 			try
 			{
 				// Isolate SDK tokens too: a timed-out login must not replace another account's context.
@@ -107,10 +110,15 @@ namespace Scripts.Server.Auth
 			}
 			// The DTO and game stage enums share long stage IDs. ValidateResponse already rejected negative
 			// enhancement counts, so the ulong casts are safe.
-			users.CreateUser(string.IsNullOrWhiteSpace(_displayName) ? "Guest" : _displayName, (eStage)(long)response.CurrentStage,
+			users.CreateUser(string.IsNullOrWhiteSpace(_displayName) ? "Guest" : _displayName, (eStage)(long)response.StageState.CurrentStage,
 				response.Exp, response.KillScore, response.Level, (ulong)response.EnchantHPCount, (ulong)response.EnchantATKCount);
 			users.SetCharacterData(response.CharacterDatas);
-			users.SetWallet(response.Currency);
+			// GetSessionID() already returns the PlayFabId here, so the server player data lands in this account's progression file.
+			if (!users.ApplyServerPlayerData(response))
+			{
+				_network.FailLogin(NetworkManager.CreateError("ApplyFailed", "서버 계정 상태를 저장하지 못했습니다. 다시 시도해 주세요."));
+				return;
+			}
 			users.SetInventoryData(response.Inventory);
 			users.SetSkillTreeData(response.SkillTreeDatas);
 			users.SetJobTreeData(response.JobTrees);
@@ -125,6 +133,14 @@ namespace Scripts.Server.Auth
 				business.ErrorCode == Protocol.Message.Data.eErrorCode.PlayerNotInitialized)
 			{
 				_network.Call<InitUserRequestDTO, UserInitResponseDTO>(new InitUserRequestDTO(), OnInitialized, _network.FailLogin);
+				return;
+			}
+			// Consumption 플랜 콜드 스타트는 PlayFab의 10초 실행 한도를 넘길 수 있다. 그때쯤 함수 앱은 떠 있으므로 한 번 더 부르면 보통 1~2초에 끝난다.
+			if (error != null && error.Error == PlayFabErrorCode.CloudScriptAzureFunctionsExecutionTimeLimitExceeded && !_retriedLogin)
+			{
+				_retriedLogin = true;
+				Debug.LogWarning("[Login] OnLogIn이 실행 시간 한도를 넘겨 한 번 더 시도합니다: " + error.ErrorMessage);
+				_network.Call<AuthRequestDTO, UserInitResponseDTO>(new AuthRequestDTO(), OnInitialized, OnLoginFailed);
 				return;
 			}
 			_network.FailLogin(error);
