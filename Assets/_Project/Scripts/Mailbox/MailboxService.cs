@@ -193,7 +193,10 @@ namespace KingdomIdle.Mailbox
                 {
                     if (!Current()) return;
                     string kind = NetworkManager.GetFailureKind(error);
-                    bool uncertain = kind != "Business" && kind != "NotAuthenticated" && kind != "IntegrationPending";
+                    // Storage errors also arrive as Business; they do not prove that nothing was saved.
+                    bool storageFailure = NetworkManager.TryGetBusinessError(error, out var business) &&
+                        (business.ErrorCode == Protocol.Message.Data.eErrorCode.StorageFailure || business.ErrorCode == Protocol.Message.Data.eErrorCode.InvalidStoredData);
+                    bool uncertain = storageFailure || (kind != "Business" && kind != "NotAuthenticated" && kind != "IntegrationPending");
                     Finish(NetworkManager.DescribeFailure(error, "우편 수령"), uncertain);
                 });
             }
@@ -225,7 +228,11 @@ namespace KingdomIdle.Mailbox
                 UserManager.ApplyEquipment(s, response.Equipment);
                 return true;
             });
-            if (saved) EquipmentManager.Instance?.RestoreEquipment();
+            if (saved)
+            {
+                EquipmentManager.Instance?.RestoreEquipment();
+                QuestManager.Instance?.RequestRefresh("mail");
+            }
             return saved;
         }
 

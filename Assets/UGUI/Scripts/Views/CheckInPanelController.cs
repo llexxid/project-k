@@ -1,9 +1,4 @@
 using System;
-using System.Linq;
-using KingdomIdle.Balance;
-using KingdomIdle.CheckIn;
-using KingdomIdle.Rewards;
-using Scripts.Core;
 using UnityEngine;
 
 namespace KingdomIdle.UGUI

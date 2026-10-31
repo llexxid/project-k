@@ -18,7 +18,7 @@ namespace KingdomIdle.Mailbox.Testing
             internal readonly List<MailDTO> Mails = new();
             internal readonly Queue<Action> Lists = new(), Claims = new();
             internal int ListCalls, ClaimCalls, Applied, Recovered, FailListAt, FailClaimAt;
-            internal bool HoldLists, HoldClaims, DuplicateOnce, DuplicateAlways, FailApply, RecoveryOk = true, CommitThenTimeout;
+            internal bool HoldLists, HoldClaims, DuplicateOnce, DuplicateAlways, FailApply, RecoveryOk = true, CommitThenTimeout, CommitThenStorageFailure;
             internal long Generation = 1, Gold, AppliedGold, Time = 1793400000;
             internal double Clock;
             internal MailboxService Service;
@@ -64,6 +64,11 @@ namespace KingdomIdle.Mailbox.Testing
                     Gold += rewards.Where(x => x.Kind == RewardKind.Currency && x.CurrencyType == Protocol.Message.Data.eCurrency.Gold).Sum(x => x.Amount);
                     Mails.RemoveAll(m => r.MailIds.Contains(m.MailId));
                     if (CommitThenTimeout) { fail(Failure("Timeout")); return; }
+                    if (CommitThenStorageFailure)
+                    {
+                        fail(NetworkManager.CreateError("Business", "Expected storage failure", details: new ErrorResponseDTO
+                        { ErrorCode = Protocol.Message.Data.eErrorCode.StorageFailure, Message = "Storage write failed" })); return;
+                    }
                     ok(new OnClaimMailRewardResponseDTO { MailboxId = "box", ClaimedMailIds = r.MailIds.ToList(),
                         RemainingCount = Mails.Count, Rewards = rewards, Currency = new CurrencyQueryDTO(Gold, 0, 0, 0),
                         Equipment = Inventory() });
@@ -112,6 +117,21 @@ namespace KingdomIdle.Mailbox.Testing
                 f.Lists.Dequeue()(); Check(f.Service.Messages.Count == 1, "new open result accepted");
             }
             {
+                var f = new Fixture(51) { HoldLists = true }; f.Service.Open(); f.Lists.Dequeue()();
+                f.Mails.RemoveAt(50); f.Lists.Dequeue()(); f.Lists.Dequeue()();
+                Check(f.ListCalls == 3 && f.Service.Messages.Count == 50 && f.Service.HasSnapshot, "count change between pages restarts from zero");
+                var g = new Fixture(1) { HoldLists = true }; g.Service.Open(); g.Generation++; g.Service.CheckAccount();
+                g.Lists.Dequeue()(); Check(!g.Service.HasSnapshot, "old account list ignored");
+                g.Lists.Dequeue()(); Check(g.Service.HasSnapshot, "new account list accepted");
+            }
+            {
+                var f = new Fixture(51) { HoldClaims = true }; f.Service.Open(); f.Service.ClaimAll();
+                f.Mails.Add(Fixture.Mail(9000000009999L, f.Time));
+                f.Claims.Dequeue()(); f.Claims.Dequeue()();
+                Check(f.ClaimCalls == 2 && f.AppliedGold == 510 && f.Service.Messages.Single().MailId == 9000000009999L,
+                    "claim all fixes IDs at click time and leaves newly arrived mail");
+            }
+            {
                 var f = new Fixture(1) { HoldClaims = true }; f.Service.Open(); long id = f.Service.Messages[0].MailId;
                 f.Service.Claim(id); f.Service.Claim(id); Check(f.ClaimCalls == 1, "duplicate click blocked with long ID");
                 f.Service.Close(); f.Claims.Dequeue()();
@@ -129,6 +149,11 @@ namespace KingdomIdle.Mailbox.Testing
             {
                 var f = new Fixture(1) { CommitThenTimeout = true }; f.Service.Open(); f.Service.ClaimAll();
                 Check(f.ClaimCalls == 1 && f.Recovered == 1 && f.AppliedGold == 10 && f.Result.Rewards.Count == 0 && f.Service.Messages.Count == 0, "lost success reconciles without regrant/success popup");
+            }
+            {
+                var f = new Fixture(1) { CommitThenStorageFailure = true }; f.Service.Open(); f.Service.ClaimAll();
+                Check(f.ClaimCalls == 1 && f.Recovered == 1 && f.AppliedGold == 10 && f.Result.Rewards.Count == 0,
+                    "server storage error reconciles even when wrapped as Business");
             }
             {
                 var f = new Fixture(1) { CommitThenTimeout = true, RecoveryOk = false }; f.Service.Open(); f.Service.ClaimAll();
@@ -160,6 +185,9 @@ namespace KingdomIdle.Mailbox.Testing
             string before = LocalProgression.TryGetCommittedState(out var previous) ? JsonConvert.SerializeObject(previous) : null;
             var checks = new List<string>();
             void Check(bool ok, string label) { if (!ok) throw new InvalidOperationException("LOCAL MAIL ASSERT: " + label); checks.Add(label); }
+            bool rejected = false;
+            try { new LocalMailboxService().GetSnapshot(); } catch (InvalidOperationException) { rejected = true; }
+            Check(rejected, "local mail service rejects the real account");
             using (LocalProgression.BeginTestSession())
             {
                 LocalProgression.TestUtcNow = 1793400000;
