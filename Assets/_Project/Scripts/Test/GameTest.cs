@@ -4,6 +4,7 @@ using KingdomIdle.Balance;
 using KingdomIdle.CheckIn;
 using KingdomIdle.Mailbox;
 using KingdomIdle.Rewards;
+using KingdomIdle.UGUI;
 using UnityEditor;
 #endif
 using Scripts.Core;
@@ -105,6 +106,20 @@ namespace Scripts.Test
             if (!saved)
             { Debug.LogWarning("[GameTest] 출석 초기화 실패: " + LocalProgression.LastError); return; }
             Debug.Log("[GameTest] 이번 달 출석·수령 기록을 0일로 초기화했습니다. 보유 재화와 기존 우편은 유지되며, 출석을 진행하면 다시 수령할 수 있습니다.");
+        }
+
+        [MenuItem("GameTest/Shop Ad Test/오늘 광고 수령 초기화 (재지급 허용)")]
+        public static void ResetShopAds()
+        {
+            if (!Application.isPlaying || !LocalProgression.IsReady)
+            { Debug.LogWarning("[GameTest] bootstrap부터 Play 후 로그인하여 상점 광고를 초기화하세요."); return; }
+            if (ShopPopupController.HasPendingAdForTesting)
+            { Debug.LogWarning("[GameTest] 광고 진행 또는 완료 보상 저장이 대기 중입니다. 먼저 광고·보상 수령을 마치세요."); return; }
+
+            var status = ShopAdRewardService.ResetTodayForTesting();
+            if (status != RewardStatus.Success)
+            { Debug.LogWarning($"[GameTest] 상점 광고 초기화 실패: {status} {LocalProgression.LastError}"); return; }
+            Debug.Log("[GameTest] 오늘의 장비·마탑 광고 수령 기록을 초기화하고 저장했습니다. 보유 뽑기권은 유지되며, 광고를 다시 완료하면 뽑기권이 추가 지급됩니다.");
         }
 
         [MenuItem("GameTest/Mailbox Test/골드 우편 보내기")]
@@ -244,6 +259,7 @@ namespace Scripts.Test
         [MenuItem("GameTest/Dungeon Test/입장 티켓 충전", true)]
         [MenuItem("GameTest/CheckIn Test/1일 진행", true)]
         [MenuItem("GameTest/CheckIn Test/출석 보상판 초기화", true)]
+        [MenuItem("GameTest/Shop Ad Test/오늘 광고 수령 초기화 (재지급 허용)", true)]
         [MenuItem("GameTest/Mailbox Test/골드 우편 보내기", true)]
         [MenuItem("GameTest/Mailbox Test/보석(비전지식) 우편 보내기", true)]
         [MenuItem("GameTest/Mailbox Test/고대주화 우편 보내기", true)]
