@@ -11,12 +11,12 @@ namespace KingdomIdle.Mailbox
         private const long MaxUtc = 253402268399L;
         private static void Require(bool condition) { if (!condition) throw new JsonSerializationException("Invalid mailbox response."); }
 
-        internal static void ValidateList(OnGetMailListResponseDTO r)
+        internal static void ValidateList(OnGetMailListResponseDTO dto)
         {
-            Require(r != null && r.StartIndex >= 0 && r.TotalCount >= 0 && r.TotalCount <= 100 &&
-                r.ServerTimeUtc > 0 && r.ServerTimeUtc <= MaxUtc && r.Mails != null && r.Mails.Count <= 50);
-            Require(r.TotalCount == 0 || !string.IsNullOrWhiteSpace(r.MailboxId));
-            foreach (var m in r.Mails)
+            Require(dto != null && dto.StartIndex >= 0 && dto.TotalCount >= 0 && dto.TotalCount <= 100 &&
+                dto.ServerTimeUtc > 0 && dto.ServerTimeUtc <= MaxUtc && dto.Mails != null && dto.Mails.Count <= 50);
+            Require(dto.TotalCount == 0 || !string.IsNullOrWhiteSpace(dto.MailboxId));
+            foreach (var m in dto.Mails)
             {
                 Require(m != null && m.MailId > 0 && Enum.IsDefined(typeof(MailCategory), m.Category) &&
                     m.TitleKey != null && m.BodyKey != null && m.SentUtc > 0 && m.ExpiresUtc > m.SentUtc &&
@@ -30,17 +30,17 @@ namespace KingdomIdle.Mailbox
             }
         }
 
-        internal static void ValidateClaim(OnClaimMailRewardResponseDTO r)
+        internal static void ValidateClaim(OnClaimMailRewardResponseDTO dto)
         {
-            Require(r != null && !string.IsNullOrWhiteSpace(r.MailboxId) && r.ClaimedMailIds != null &&
-                r.ClaimedMailIds.Count >= 1 && r.ClaimedMailIds.Count <= 50 && r.ClaimedMailIds.All(id => id > 0) &&
-                r.ClaimedMailIds.Distinct().Count() == r.ClaimedMailIds.Count && r.RemainingCount >= 0 && r.RemainingCount <= 100 &&
-                r.Rewards != null && r.Rewards.Count > 0 && r.Currency != null);
-            var c = r.Currency;
+            Require(dto != null && !string.IsNullOrWhiteSpace(dto.MailboxId) && dto.ClaimedMailIds != null &&
+                dto.ClaimedMailIds.Count >= 1 && dto.ClaimedMailIds.Count <= 50 && dto.ClaimedMailIds.All(id => id > 0) &&
+                dto.ClaimedMailIds.Distinct().Count() == dto.ClaimedMailIds.Count && dto.RemainingCount >= 0 && dto.RemainingCount <= 100 &&
+                dto.Rewards != null && dto.Rewards.Count > 0 && dto.Currency != null);
+            var c = dto.Currency;
             Require(c.Gold >= 0 && c.AncientCoin >= 0 && c.ArcaneKnowledge >= 0 && c.ClassFragment >= 0 &&
                 c.Ruby >= 0 && c.EquipmentStone >= 0 && c.KingdomSupply >= 0 && c.TrainingTome >= 0);
-            NetworkManager.ValidateEquipment(r.Equipment);
-            foreach (var reward in r.Rewards)
+            NetworkManager.ValidateEquipment(dto.Equipment);
+            foreach (var reward in dto.Rewards)
             {
                 Require(reward != null && reward.Amount > 0 && reward.Order >= 0 && reward.GrantedEquipmentStone >= 0);
                 ValidateKind(reward.Kind, reward.CurrencyType, reward.DefinitionId);
