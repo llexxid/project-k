@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using KingdomIdle.Balance;
 using KingdomIdle.Mailbox;
+using KingdomIdle.OfflineRewards;
 using KingdomIdle.Rewards;
 using TMPro;
 using UnityEngine;
@@ -14,9 +15,10 @@ namespace KingdomIdle.UGUI
         public RectTransform panel, slots;
         public GameObject descriptionArea;
         public UnityEngine.UI.ScrollRect rewardScroll;
-        public UnityEngine.UI.Button closeButton, backdrop;
+        public UnityEngine.UI.Button closeButton, backdrop, confirmButton;
         public string SourceMailId { get; private set; }
         private long _account;
+        private System.Action _onClosed;
 
         public static void ShowItem(Transform owner, RewardGrant reward, string mailId = null)
         {
@@ -31,6 +33,44 @@ namespace KingdomIdle.UGUI
             if (view == null) return;
             view.SetDescription("");
             view.AddSlots(rewards, true);
+        }
+        public static RewardPopupView ShowOfflineRewards(Transform owner, OfflineRewardClaimResult result, bool doubled, System.Action onClosed = null)
+        {
+            if (result == null || result.GoldGained < 0 || result.ExperienceGained < 0) return null;
+            long gold, experience;
+            try
+            {
+                gold = checked(result.GoldGained * (doubled ? 2 : 1));
+                experience = checked(result.ExperienceGained * (doubled ? 2 : 1));
+            }
+            catch (System.OverflowException) { return null; }
+            var catalog = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
+            var template = catalog != null && catalog.popupRewardInfo != null
+                ? catalog.popupRewardInfo.GetComponent<RewardPopupView>() : null;
+            if (template == null || catalog.itemRewardSlot == null || template.confirmButton == null) return null;
+            var view = Open(owner, "보상 획득", null);
+            if (view == null) return null;
+            view._onClosed = onClosed;
+            view.closeButton.gameObject.SetActive(false);
+            view.confirmButton.gameObject.SetActive(true);
+            view.confirmButton.onClick.AddListener(view.Close);
+            view.SetDescription(doubled ? "보상 2배 획득" : "");
+            view.description.color = UguiTheme.AccentGoldStrong;
+            view.slots.GetComponent<UnityEngine.UI.GridLayoutGroup>().cellSize = new Vector2(220, 220);
+            view.slots.sizeDelta = new Vector2(view.slots.sizeDelta.x, 220);
+            var layout = view.rewardScroll.GetComponent<UnityEngine.UI.LayoutElement>();
+            layout.minHeight = layout.preferredHeight = 238;
+            view.AddSummary("골드", catalog.iconCoin, gold);
+            view.AddSummary("경험치", catalog.iconStar, experience);
+            UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(view.panel);
+            view.rewardScroll.horizontalNormalizedPosition = 0;
+            return view;
+        }
+
+        private void AddSummary(string label, Sprite icon, long amount)
+        {
+            var slot = Instantiate(UIManager.Instance.Catalog.itemRewardSlot, slots, false).GetComponent<RewardSlotView>();
+            slot.BindSummary(label, icon, amount);
         }
         public static void ShowMail(Transform owner, MailMessage mail)
         {
@@ -70,6 +110,13 @@ namespace KingdomIdle.UGUI
         }
         private void Update() { if (_account != LocalProgression.AccountGeneration) Close(); }
         private void OnDisable() { if (Application.isPlaying) Destroy(gameObject); }
-        public void Close() { gameObject.SetActive(false); Destroy(gameObject); }
+        public void Close()
+        {
+            var closed = _onClosed;
+            _onClosed = null;
+            gameObject.SetActive(false);
+            Destroy(gameObject);
+            closed?.Invoke();
+        }
     }
 }

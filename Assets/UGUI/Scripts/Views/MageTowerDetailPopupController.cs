@@ -15,6 +15,7 @@ namespace KingdomIdle.UGUI
     {
         private static MageTowerDetailPopupView _view;
         private static int _skillId;
+        private static bool _subscribed;
 
         public static bool IsOpen => _view != null && _view.gameObject.activeSelf;
 
@@ -22,6 +23,7 @@ namespace KingdomIdle.UGUI
         {
             _skillId = skillId;
             if (!EnsureBuilt()) return;
+            Subscribe();
 
             NumberNotationBinding.Bind(_view, RefreshContent);
             RefreshContent();
@@ -33,6 +35,7 @@ namespace KingdomIdle.UGUI
         public static void Hide()
         {
             if (_view == null) return;
+            Unsubscribe();
             _view.gameObject.SetActive(false);
             MageTowerPopupController.RefreshIfOpen();
             // (좌측 스킬 슬롯 HUD 제거됨 — 강화/각성 결과는 별도 HUD 갱신이 필요 없다)
@@ -149,39 +152,77 @@ namespace KingdomIdle.UGUI
             if (_view.lblResetRefund != null) _view.lblResetRefund.text = mgr.CanReset(_skillId)
                 ? $"강화 초기화 시 지식 {NumberNotation.Format(refund)} 반환 (80%)" : "강화한 스킬만 초기화할 수 있습니다.";
             if (_view.btnReset != null) _view.btnReset.interactable = mgr.CanReset(_skillId);
+            if (mgr.IsBusy) SetPending();
         }
 
-        private static void OnEnhanceClicked()
+        // 네 버튼은 서버 요청(OnEnChantSkill·OnAwakeningSkill·OnResetSkillEnhancement·OnSetSkillBloom)을 보낸다. 결과는 완료 이벤트가 그린다.
+        private static void OnEnhanceClicked() => Request(mgr => mgr.TryEnhanceEx(_skillId));
+        private static void OnAwakenClicked() => Request(mgr => mgr.TryAwakenEx(_skillId));
+        private static void OnResetClicked() => Request(mgr => mgr.TryResetEx(_skillId));
+        private static void OnBloomClicked() => Request(mgr => mgr.TrySetBloomEx(_skillId, !mgr.IsBloomEnabled(_skillId)));
+
+        /// <summary>Pending이면 응답까지 버튼을 잠그고, Busy는 조용히, 그 외 안내용 가드 결과는 토스트만 띄운다(최종 판정은 서버).</summary>
+        private static void Request(System.Func<MageTowerManager, MageTowerManager.MageActionResult> start)
         {
             var mgr = MageTowerManager.Instance;
             if (mgr == null) return;
-            mgr.Enhance(_skillId);
+            var result = start(mgr);
+            if (result == MageTowerManager.MageActionResult.Pending) { SetPending(); return; }
+            if (result == MageTowerManager.MageActionResult.Busy) return;
+            UIManager.Instance?.ShowToast(DescribeGate(result));
             RefreshContent();
         }
 
-        private static void OnAwakenClicked()
+        /// <summary>서버 응답을 기다리는 동안 네 버튼을 잠근다. 완료 이벤트가 RefreshContent로 다시 그린다.</summary>
+        private static void SetPending()
         {
-            var mgr = MageTowerManager.Instance;
-            if (mgr == null) return;
-            mgr.Awaken(_skillId);
-            RefreshContent();
+            if (_view == null) return;
+            if (_view.btnEnhance != null) _view.btnEnhance.interactable = false;
+            if (_view.btnAwaken != null) _view.btnAwaken.interactable = false;
+            if (_view.btnReset != null) _view.btnReset.interactable = false;
+            if (_view.btnBloom != null) _view.btnBloom.interactable = false;
+            if (_view.btnEnhanceLabel != null) _view.btnEnhanceLabel.text = "요청 중";
+            if (_view.btnAwakenLabel != null) _view.btnAwakenLabel.text = "요청 중";
+            if (_view.btnBloomLabel != null) _view.btnBloomLabel.text = "요청 중";
         }
 
-        private static void OnResetClicked()
+        /// <summary>요청 전 안내용 가드의 문구. 서버 거절 문구는 NetworkManager.DescribeFailure가 맡는다.</summary>
+        internal static string DescribeGate(MageTowerManager.MageActionResult result)
         {
-            var mgr = MageTowerManager.Instance;
-            if (mgr == null) return;
-            mgr.ResetEnhance(_skillId);
-            RefreshContent();
+            switch (result)
+            {
+                case MageTowerManager.MageActionResult.NetworkNotReady: return "서버 로그인이 필요합니다.";
+                case MageTowerManager.MageActionResult.NotOwned: return "보유하지 않은 스킬입니다.";
+                case MageTowerManager.MageActionResult.MaxLevel: return "최대 레벨입니다.";
+                case MageTowerManager.MageActionResult.NotEnough: return "지식 또는 파편이 부족합니다.";
+                case MageTowerManager.MageActionResult.NotUnlocked: return "각성 10레벨에 개방됩니다.";
+                case MageTowerManager.MageActionResult.NoChange: return "변경할 내용이 없습니다.";
+                default: return "요청할 수 없는 스킬입니다.";
+            }
         }
 
-        private static void OnBloomClicked()
+        private static void Subscribe()
         {
             var mgr = MageTowerManager.Instance;
-            if (mgr == null) return;
-            mgr.SetBloomEnabled(_skillId, !mgr.IsBloomEnabled(_skillId));
+            if (mgr == null || _subscribed) return;
+            mgr.OnActionCompleted += OnActionCompleted;
+            _subscribed = true;
+        }
+
+        private static void Unsubscribe()
+        {
+            var mgr = MageTowerManager.Instance;
+            if (mgr != null && _subscribed) mgr.OnActionCompleted -= OnActionCompleted;
+            _subscribed = false;
+        }
+
+        /// <summary>서버 응답 적용 뒤 다시 그린다. 편성 결과는 장착 팝업이 알리므로 여기서는 토스트를 띄우지 않는다.</summary>
+        private static void OnActionCompleted(MageTowerManager.MageActionInfo info)
+        {
+            if (_view == null || !_view.gameObject.activeSelf) return;
             RefreshContent();
             MageTowerPopupController.RefreshIfOpen();
+            if (info != null && info.Kind != MageTowerManager.MageActionKind.Loadout) UIManager.Instance?.ShowToast(MageTowerManager.Describe(info));
         }
     }
 }

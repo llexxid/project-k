@@ -208,12 +208,11 @@ namespace KingdomIdle.UGUI.Editor
                     "Tab " + tab + " has exactly one active page");
                 foreach (var row in view.offers.Where(x => x.gameObject.activeInHierarchy))
                 {
-                    if (ShopCatalog.Find(row.offerId).Payment == ShopPayment.RewardedAd) continue;
                     row.action.onClick.Invoke(); clicked.Add(row.offerId);
                 }
             }
-            CheckPlay(clicked.Count == 9 && before == Newtonsoft.Json.JsonConvert.SerializeObject(LocalProgression.State),
-                "Purchase and exchange buttons remain previews; daily ads are checked separately");
+            CheckPlay(clicked.Count == 11 && before == Newtonsoft.Json.JsonConvert.SerializeObject(LocalProgression.State),
+                "Every real offer button is exercised without changing any account state");
             view.close.onClick.Invoke(); CheckPlay(!ShopPopupController.IsOpen, "Close input dismisses the shop");
             OpenFromMenu(main);
             CheckPlay(Object.FindObjectsByType<ShopPopupView>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length == 1,
@@ -409,7 +408,7 @@ namespace KingdomIdle.UGUI.Editor
             var title = F.Text(header, "Title", "왕국 보급 상점", 40, UguiTheme.Parchment, bold: true); F.Flexible(title, flexWidth: 1);
             view.close = F.TextButton(header, "BtnClose", "닫기", 28, UguiTheme.RusticSurface, out _);
             F.Preferred(view.close.transform as RectTransform, width: 140, height: 96);
-            Label(panel.transform, "PreviewNotice", "구매 / 교환 준비 중 · 테스트 광고 보상 제공", 25, 42, UguiTheme.AccentGold);
+            Label(panel.transform, "PreviewNotice", "출시 준비 중 · 실제 결제 / 광고 없음", 25, 42, UguiTheme.AccentGold);
             view.wallet = Label(panel.transform, "Wallet", "보유 고대주화  0", 28, 46, UguiTheme.Parchment);
 
             var tabs = F.Container(panel.transform, "Tabs"); F.HLayout(tabs.gameObject, 10, null, TextAnchor.MiddleCenter, expandWidth: true); F.Preferred(tabs, height: 98);
@@ -434,12 +433,12 @@ namespace KingdomIdle.UGUI.Editor
                     Label(page, "GoldHint", "골드는 안전 클리어 웨이브의 수입에 따라 달라집니다.", 23, 64, UguiTheme.TextSecondary);
                 }
                 if (i == (int)ShopCategory.Rewarded)
-                    Label(page, "DailyHint", "각 항목 하루 1회 · 한국 시간 자정 초기화\n뽑기권은 저장되며 사용 기능은 준비 중입니다.", 24, 94, UguiTheme.TextSecondary);
+                    Label(page, "DailyHint", "각 항목 하루 1회 · 오전 0시(한국 시간) 초기화\n광고 제거 보유 시 영상 없이 수령 · 횟수는 동일", 24, 94, UguiTheme.TextSecondary);
                 foreach (var offer in ShopCatalog.Offers.Where(x => (int)x.Category == i)) cards.Add(Card(page, offer));
                 page.gameObject.SetActive(i == 0);
             }
             view.offers = cards.ToArray();
-            Label(panel.transform, "PriceNotice", "표시 가격은 개발 예정가입니다. 구매 / 교환은 준비 중입니다.\n매일 광고 완료 시 해당 뽑기권 2장이 지급됩니다.", 23, 96, UguiTheme.TextSecondary);
+            Label(panel.transform, "PriceNotice", "표시 가격은 개발 예정가입니다. 판매 시 스토어 가격을 확인해 주세요.\n현재 구매 · 교환 · 광고 시청으로 재화가 변하지 않습니다.", 23, 96, UguiTheme.TextSecondary);
             root.gameObject.SetActive(false);
             return PrefabGenUtil.SavePrefab(root.gameObject, PrefabPath);
         }

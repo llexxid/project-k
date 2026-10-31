@@ -168,9 +168,28 @@ namespace Scripts.Core.Manager
         [NonSerialized]
         private eStage maxStage; // 현재 최대 진행된 스테이지 확인(서버붙이기 전까지 사용)
         
-        // 서버 전송용 사냥 결과 버퍼.
-        private Dictionary<eMonsterType, int> _huntResultList;
-        private List<HuntResult> _sendmsg;
+        // 서버 전송용 사냥 결과 버퍼. 메인 스테이지 처치만 스테이지 ID별로 모은다(던전 처치는 보내지 않는다).
+        private Dictionary<long, Dictionary<eMonsterType, int>> _huntBuffer;
+        // 전송 대기열. 사냥 배치와 스테이지 클리어를 발생 순서대로 한 번에 하나씩 보낸다.
+        private readonly Queue<HuntOutboxItem> _huntOutbox = new Queue<HuntOutboxItem>();
+        private bool _huntInFlight;
+        // 오프라인 정산 중에는 사냥 배치를 보류한다(서버는 정산 전 마지막 사냥 수락 시각을 기준으로 쓴다).
+        private bool _huntsHeld;
+        private float _lastHuntAcceptedAt = float.NegativeInfinity;
+        // 서버 규칙: 같은 세션의 직전 수락 사냥으로부터 2초 초과(eConst.HUNT_MIN_INTERVAL_MS). 여유를 둔다.
+        private const float HuntMinIntervalSec = 2.2f;
+        private const int HuntMaxKillsPerBatch = 149, HuntMaxTypesPerBatch = 10, HuntMaxAttempts = 10;
+        // 서버가 이미 다 정산한(1007) 스테이지별 몬스터 종류. 재접속 뒤 같은 웨이브를 처음부터 다시 싸우면 이전 세션에 정산된 처치만큼 넘치므로,
+        // 1007이 오면 배치를 반으로 나눠 다시 보내고 1마리까지 거절되면 그 종류는 이 스테이지에서 더 보내지 않는다.
+        private readonly Dictionary<long, HashSet<ulong>> _saturatedTypes = new Dictionary<long, HashSet<ulong>>();
+
+        private sealed class HuntOutboxItem
+        {
+            public bool IsClear;
+            public long StageId;
+            public List<HuntResult> Loots;
+            public int Attempts;
+        }
 
         private float _bossTimer;
         private bool _bossTimerActive;
@@ -237,8 +256,7 @@ namespace Scripts.Core.Manager
 				Debug.LogError("[StageManager] StageDatabaseSO가 연결되지 않았습니다.");
 			}
 
-			_huntResultList = new Dictionary<eMonsterType, int>();
-			_sendmsg = new List<HuntResult>();
+			_huntBuffer = new Dictionary<long, Dictionary<eMonsterType, int>>();
 			_currentState = eStageRunState.None;
 		}
 		/// <summary>사냥 결과 자동 전송 루프를 중단하고 토큰을 정리한다</summary>
@@ -296,8 +314,9 @@ namespace Scripts.Core.Manager
             var s = LocalProgression.State;
             int number = StageParser.GetStageNumber(stage); var type = StageParser.GetStageType(stage);
             if (number < 1 || number > 5) return false;
-            return type == eStageType.GoldDungeon ? s.MainClears.Contains(0x20001000B) && number <= s.GoldDungeonClear + 1 :
-                type == eStageType.RubyDungeon && s.MainClears.Contains(0x200020005) && number <= s.RubyDungeonClear + 1;
+            // 메인 클리어는 서버 MainClear(HighestMainClear) 이하를 모두 클리어로 본다.
+            return type == eStageType.GoldDungeon ? s.HighestMainClear >= 0x20001000B && number <= s.GoldDungeonClear + 1 :
+                type == eStageType.RubyDungeon && s.HighestMainClear >= 0x200020005 && number <= s.RubyDungeonClear + 1;
     }
 
 		public void EnterGoldDungeon()
@@ -392,7 +411,13 @@ namespace Scripts.Core.Manager
 	        _token?.Cancel();
 	        _token?.Dispose();
 			_token = new CancellationTokenSource();
-			// Local balance authority never submits legacy hunt deltas.
+			// 새 입장: 이전 세션의 전송 상태를 버리고, 메인 스테이지 처치를 3초마다 서버(OnHuntReward)에 보고한다.
+			// 웨이브 클리어는 같은 대기열에서 OnStageClear로 저장한다.
+			_huntInFlight = false;
+			_huntOutbox.Clear();
+			_huntBuffer.Clear();
+			_saturatedTypes.Clear();
+			SendHuntResultLoop(_token.Token).Forget();
 			ResetStage((long)_currentStage == 0 ? stage : _currentStage);
             ReviveAllPlayers();
             TransitionStage(stage);
@@ -447,6 +472,7 @@ namespace Scripts.Core.Manager
 
 			if (!BattleEconomy.Clear(session)) throw new InvalidOperationException("Stage reward could not be committed.");
             UpdateMaxClearedStage(definition);
+            EnqueueStageClear(definition);
 			OnStageCleared?.Invoke(definition);
 		}
         private void HandleStageLoadFailure(Exception error, CameraFade fade)
@@ -532,7 +558,6 @@ namespace Scripts.Core.Manager
 					// StageRuleResult의 생성 규칙상 MoveToStage는 항상 TargetStage를 가진다.
 					eStage target = result.TargetStage.Value;
 					NotifyStageCleared(session);
-                    if (LocalProgression.State.ReincarnatedBattle == session.RunId) { SetLoopMode(false); TransitionStage((eStage)0x200010001); break; }
 					if (session.Definition.Type == eStageType.Main && ShouldRestart(target))
 					{
 						RestartStage();
@@ -772,7 +797,8 @@ var definition = _currentSession?.Definition;
 
 		public bool IsStageCleared(eStage stage)
 		{
-            return LocalProgression.State.MainClears.Contains((long)stage);
+            // 메인 스테이지만 대상이고, 서버 MainClear(HighestMainClear) 이하는 모두 클리어다.
+            return StageParser.GetStageType(stage) == eStageType.Main && (long)stage > 0 && (long)stage <= LocalProgression.State.HighestMainClear;
     }
 
 		private void UpdateMaxClearedStage(StageDefinition definition)
@@ -808,7 +834,7 @@ var definition = _currentSession?.Definition;
 		private void HandleMonsterKilled(StageSession session, Monster monster)
 		{
 			if (!BattleEconomy.Kill(session, monster)) throw new InvalidOperationException("Kill reward could not be committed.");
-            CountKill(monster);
+            CountKill(session.Definition, monster);
 			OnMonsterKilled?.Invoke(session.Definition, monster);
 		}
 
@@ -901,11 +927,18 @@ var definition = _currentSession?.Definition;
 			}
 			session.CompleteSpawning();
 		}
-		/// <summary>몬스터 처치 수를 서버 전송용 버퍼에 누적한다</summary>
-		private void CountKill(Monster monster)
+		/// <summary>메인 스테이지의 몬스터 처치 수를 스테이지별 서버 전송 버퍼에 누적한다. 던전 처치는 서버에 보내지 않는다.</summary>
+		private void CountKill(StageDefinition definition, Monster monster)
 		{
-			_huntResultList.TryGetValue(monster.Type, out int count);
-			_huntResultList[monster.Type] = count + 1;
+			if (definition == null || definition.Type != eStageType.Main) return;
+			long stageId = (long)definition.Id;
+			if (!_huntBuffer.TryGetValue(stageId, out var kills))
+			{
+				kills = new Dictionary<eMonsterType, int>();
+				_huntBuffer[stageId] = kills;
+			}
+			kills.TryGetValue(monster.Type, out int count);
+			kills[monster.Type] = count + 1;
 		}
 		
 		#endregion
@@ -968,61 +1001,267 @@ var definition = _currentSession?.Definition;
 
 		#region 서버 동기화
 
-        /// <summary>일정 주기로 누적된 사냥 결과를 서버에 전송한다</summary>
+        /// <summary>3초마다 현재 스테이지의 처치 버퍼를 배치로 옮기고 대기열의 머리 항목을 보낸다. 응답이 오기 전에는 겹쳐 보내지 않는다.</summary>
         private async UniTaskVoid SendHuntResultLoop(CancellationToken token)
         {
-			while(true)
+			while (!token.IsCancellationRequested)
 			{
-				await UniTask.WaitForSeconds(TickInterval, cancellationToken:token);
-				SendHuntResult();
+				await UniTask.WaitForSeconds(TickInterval, cancellationToken: token);
+				if (_huntOutbox.Count == 0 && StageParser.GetStageType(_currentStage) == eStageType.Main) FlushHuntBuffer((long)_currentStage);
+				TrySendNextHunt();
 			}
         }
-		/// <summary>사냥 결과 버퍼를 DTO로 변환해 서버에 전송한다</summary>
-		private void SendHuntResult()
+
+		/// <summary>웨이브 클리어: 그 스테이지에 남은 처치를 먼저 배치로 보내고, 그 뒤에 OnStageClear를 줄 세운다(서버는 정산 전 클리어를 1026으로 거절).</summary>
+		private void EnqueueStageClear(StageDefinition definition)
 		{
-			if (_huntResultList.Count <= 0)
+			if (definition == null || definition.Type != eStageType.Main) return;
+			long stageId = (long)definition.Id;
+			FlushHuntBuffer(stageId);
+			_huntOutbox.Enqueue(new HuntOutboxItem { IsClear = true, StageId = stageId });
+			TrySendNextHunt();
+		}
+
+		/// <summary>스테이지 버퍼를 서버 상한(149마리·10종류)에 맞춘 배치로 나눠 대기열에 넣는다.</summary>
+		private void FlushHuntBuffer(long stageId)
+		{
+			if (!_huntBuffer.TryGetValue(stageId, out var kills)) return;
+			_huntBuffer.Remove(stageId);
+			var loots = new List<HuntResult>();
+			int total = 0;
+			void Enqueue()
 			{
-				Debug.Log($"[StageManager Send] Buffer Is Empty.");
+				if (loots.Count > 0) _huntOutbox.Enqueue(new HuntOutboxItem { StageId = stageId, Loots = loots });
+				loots = new List<HuntResult>();
+				total = 0;
+			}
+			_saturatedTypes.TryGetValue(stageId, out var saturated);
+			foreach (var pair in kills)
+			{
+				if (saturated != null && saturated.Contains((ulong)pair.Key)) continue;
+				int remaining = pair.Value;
+				while (remaining > 0)
+				{
+					if (loots.Count >= HuntMaxTypesPerBatch || total >= HuntMaxKillsPerBatch) Enqueue();
+					int take = Math.Min(remaining, HuntMaxKillsPerBatch - total);
+					loots.Add(new HuntResult { MonsterType = (Protocol.Message.Data.eMonsterType)(ulong)pair.Key, Count = (short)take });
+					total += take;
+					remaining -= take;
+				}
+			}
+			Enqueue();
+		}
+
+		/// <summary>오프라인 보상 정산 동안 사냥 배치 전송을 보류한다. 처치는 버퍼에 계속 쌓이고 해제 뒤 보낸다.</summary>
+		public void HoldHunts() { _huntsHeld = true; }
+		public void ReleaseHunts() { if (!_huntsHeld) return; _huntsHeld = false; TrySendNextHunt(); }
+
+		/// <summary>환생 요청 전에 아직 보내지 않은 처치·클리어를 버린다. 서버가 1-1로 되돌리면 이전 스테이지 배치는 1025로 거절되기 때문이다. 전송 중인 배치의 응답은 그대로 처리된다.</summary>
+		public void DiscardPendingHunts()
+		{
+			_huntBuffer?.Clear();
+			HuntOutboxItem inFlight = _huntInFlight && _huntOutbox.Count > 0 ? _huntOutbox.Peek() : null;
+			_huntOutbox.Clear();
+			if (inFlight != null) _huntOutbox.Enqueue(inFlight);
+			_saturatedTypes.Clear();
+		}
+
+		/// <summary>대기열 머리 항목을 보낸다. 사냥 배치는 직전 수락으로부터 HuntMinIntervalSec 뒤에만 보낸다.</summary>
+		private void TrySendNextHunt()
+		{
+			if (_huntInFlight || _huntsHeld) return;
+			// 서버가 이미 정산한 종류는 빼고, 남는 처치가 없는 배치는 보내지 않는다.
+			while (_huntOutbox.Count > 0 && !_huntOutbox.Peek().IsClear && PruneSaturated(_huntOutbox.Peek())) _huntOutbox.Dequeue();
+			if (_huntOutbox.Count == 0) return;
+			var network = NetworkManager.Instance;
+			if (network == null || !network.IsGameDataReady) return;
+			var item = _huntOutbox.Peek();
+			if (!item.IsClear && Time.realtimeSinceStartup - _lastHuntAcceptedAt < HuntMinIntervalSec) return;
+			_huntInFlight = true;
+			item.Attempts++;
+			if (item.IsClear)
+			{
+				network.Call<OnStageClearRequestDTO, OnStageClearResponseDTO>(
+					new OnStageClearRequestDTO { ClearedStage = (Protocol.Message.Data.eStage)item.StageId },
+					result => OnStageClearSuccess(item, result), error => OnHuntRewardError(item, error));
+			}
+			else
+			{
+				// 메인 스테이지는 BattleId를 비운다(값이 있으면 1025).
+				network.Call<OnRewardRequestDTO, OnHuntResponseDTO>(
+					new OnRewardRequestDTO { Stage = (Protocol.Message.Data.eStage)item.StageId, Loots = item.Loots, BattleId = null },
+					result => OnHuntRewardSuccess(item, result), error => OnHuntRewardError(item, error));
+			}
+		}
+
+		private void Dequeue(HuntOutboxItem item)
+		{
+			if (_huntOutbox.Count > 0 && ReferenceEquals(_huntOutbox.Peek(), item)) _huntOutbox.Dequeue();
+		}
+
+		/// <summary>서버 사냥 보상 응답의 플레이어 데이터(레벨·경험치·처치·재화·장비 인벤토리)를 그대로 저장한다. 로컬 처치 보상·드롭은 더하지 않는다.</summary>
+		private void OnHuntRewardSuccess(HuntOutboxItem item, OnHuntResponseDTO result)
+		{
+			_huntInFlight = false;
+			_lastHuntAcceptedAt = Time.realtimeSinceStartup;
+			Dequeue(item);
+			bool saved = LocalProgression.Execute("server-hunt", s =>
+			{
+				s.AccountLevel = BalanceMath.Clamp(result.Level, 1, BalanceMath.AccountCap);
+				s.Experience = Math.Max(0, result.Exp);
+				BalanceMath.GainExperience(ref s.AccountLevel, ref s.Experience, 0);
+				s.Kills = Math.Max(0, result.KillScore);
+				UserManager.ApplyCurrency(s, result.Currency);
+				s.Wallet[eCurrency.Gold] = Math.Max(0, result.Gold);
+				s.Wallet[eCurrency.AncientCoin] = Math.Max(0, result.AncientCoin);
+				UserManager.ApplyEquipment(s, result.Equipment);
+				return true;
+			});
+			Debug.Log($"[Hunt] stage=0x{item.StageId:X} loots={DescribeLoots(item.Loots)} -> level={result.Level} exp={result.Exp} kills={result.KillScore} gold={result.Gold} drops={result.Drops?.Count ?? 0} inventory={UserManager.DescribeInventory(result.Equipment)} saved={saved}");
+			if (!saved) Debug.LogError("[Hunt] 서버 결과 저장 실패: " + LocalProgression.LastError);
+			if (saved && result.Equipment != null) EquipmentManager.Instance?.RestoreEquipment();
+			if (saved && result.Drops != null)
+			{
+				// 서버가 굴린 전장 드롭을 HUD에 알린다(예전 로컬 드롭 연출과 같은 경로).
+				foreach (var drop in result.Drops)
+				{
+					if (drop != null && drop.Kind == RewardKind.Equipment && drop.ItemCode.HasValue)
+						KingdomIdle.UGUI.UIManager.Instance?.NotifyFieldEquipment((int)drop.ItemCode.Value.GetItemCode());
+				}
+			}
+			TrySendNextHunt();
+		}
+
+		/// <summary>스테이지 클리어 응답의 플레이어 데이터(재화·클리어 기록·장비 인벤토리·마탑 상태)를 그대로 저장한다. 최초 클리어 보상도 서버가 지급한 결과다.</summary>
+		private void OnStageClearSuccess(HuntOutboxItem item, OnStageClearResponseDTO result)
+		{
+			_huntInFlight = false;
+			Dequeue(item);
+			_saturatedTypes.Remove(item.StageId);
+			bool saved = LocalProgression.Execute("server-stage-clear", s =>
+			{
+				UserManager.ApplyCurrency(s, result.Currency);
+				UserManager.ApplyEquipment(s, result.Equipment);
+				UserManager.ApplyMageTower(s, result.MageTowerState);
+				if (result.StageState != null)
+				{
+					// 영구 최고 클리어는 서버 MainClear다. 이번 주기 최고 도달도 서버 값보다 뒤로 가지 않게 맞춘다.
+					s.HighestMainClear = Math.Max(0, (long)result.StageState.MainClear);
+					s.CycleFrontierStage = Math.Max(s.CycleFrontierStage, (long)result.StageState.HighestStage);
+				}
+				return true;
+			});
+			long next = result.StageState != null ? (long)result.StageState.CurrentStage : 0;
+			Debug.Log($"[StageClear] stage=0x{item.StageId:X} first={result.IsFirstClear} rewards={result.GrantedRewards?.Count ?? 0} next=0x{next:X} client=0x{(long)_currentStage:X} inventory={UserManager.DescribeInventory(result.Equipment)} skills={result.MageTowerState?.Skills?.Count ?? -1} saved={saved}");
+			if (!saved) Debug.LogError("[StageClear] 서버 결과 저장 실패: " + LocalProgression.LastError);
+			if (saved) QuestManager.Instance?.RequestRefresh("clear");
+			if (saved)
+			{
+				if (result.Equipment != null) EquipmentManager.Instance?.RestoreEquipment();
+				if (result.MageTowerState != null) KingdomIdle.MageTower.MageTowerManager.Instance?.NotifyCommitted();
+			}
+			// 웨이브가 빨리 끝나면 클라이언트가 서버보다 앞서 있는 것이 정상이다(뒤따르는 클리어가 대기열에 있다). 뒤에 있을 때만 경고한다.
+			if (StageParser.GetStageType(_currentStage) == eStageType.Main && (long)_currentStage < next)
+				Debug.LogWarning($"[StageClear] 서버 다음 스테이지 0x{next:X}보다 클라이언트 현재 스테이지 0x{(long)_currentStage:X}가 뒤에 있습니다. 같은 웨이브 반복은 아직 서버가 지원하지 않아 이후 배치가 1025로 거절될 수 있습니다.");
+			TrySendNextHunt();
+		}
+
+		/// <summary>간격 위반(20)·처리 중(1017)·전송 장애는 다음 틱에 같은 항목을 다시 보내고, 그 외 거절은 항목을 폐기한다.</summary>
+		private void OnHuntRewardError(HuntOutboxItem item, PlayFab.PlayFabError error)
+		{
+			_huntInFlight = false;
+			int code = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0;
+			string kind = error?.ErrorDetails != null && error.ErrorDetails.TryGetValue("Kind", out var kinds) && kinds.Count > 0 ? kinds[0] : "";
+			// Kind가 없는 오류는 PlayFab SDK 원시 오류(실행 시간 한도·네트워크 등)라 재시도한다. 요청 자체가 틀린 종류만 폐기한다.
+			bool definite = kind == "InvalidRequest" || kind == "NotAuthenticated" || kind == "Protocol" || kind == "InvalidResponse" || kind == "ApplyFailed";
+			bool retry = (code == 20 || code == 1017 || (code == 0 && !definite)) && item.Attempts < HuntMaxAttempts;
+			string what = item.IsClear ? "StageClear" : "Hunt";
+			if (retry)
+			{
+				Debug.LogWarning($"[{what}] 재시도 대기 stage=0x{item.StageId:X} kind={kind} code={code} attempt={item.Attempts}: {error?.ErrorMessage}");
 				return;
 			}
-
-			HuntResult code;
-			foreach (var mon in _huntResultList)
+			if (code == 1007 && !item.IsClear)
 			{
-				eMonsterType type = mon.Key;
-				int count = mon.Value;
-
-				code = new HuntResult
+				// 웨이브 상한 초과: 재접속 전 세션에서 이미 정산된 처치만큼 넘친 것이다. 반으로 나눠 다시 보내 서버가 받는 만큼만 정산하고,
+				// 1마리짜리 배치도 거절되면 그 종류는 포화로 표시해 이 스테이지에서는 더 보내지 않는다. 그 뒤의 클리어가 1026 없이 통과한다.
+				Dequeue(item);
+				var halves = SplitHuntItem(item);
+				if (halves == null)
 				{
-					MonsterType = (Protocol.Message.Data.eMonsterType)(ulong)type,
-					Count = (short)count
-				};
-				Debug.Log($"[StageManager Send] Type : {type} | count : {count}");
-				_sendmsg.Add(code);
+					MarkSaturated(item.StageId, item.Loots);
+					Debug.LogWarning($"[Hunt] 포화 stage=0x{item.StageId:X} {DescribeLoots(item.Loots)}: 서버가 이미 정산한 처치라 버린다.");
+				}
+				else
+				{
+					PushFront(halves);
+					Debug.LogWarning($"[Hunt] 분할 재전송 stage=0x{item.StageId:X} {DescribeLoots(item.Loots)} -> {DescribeLoots(halves[0].Loots)} + {DescribeLoots(halves[1].Loots)} (1007)");
+				}
+				TrySendNextHunt();
+				return;
 			}
+			Dequeue(item);
+			Debug.LogError($"[{what}] 폐기 stage=0x{item.StageId:X} kind={kind} code={code}: {error?.ErrorMessage}");
+			TrySendNextHunt();
+		}
 
-            NetworkManager.Instance.Call<OnRewardRequestDTO, OnHuntResponseDTO>(
-                new OnRewardRequestDTO
-                {
-                    Stage = (Protocol.Message.Data.eStage)(long)_currentStage,
-                    Loots = _sendmsg
-                }, OnHuntRewardSuccess, OnHuntRewardError);
-			_huntResultList.Clear();
-			_sendmsg.Clear();
-		}
-		/// <summary>서버 사냥 보상 응답을 유저 데이터에 반영한다</summary>
-		private void OnHuntRewardSuccess(OnHuntResponseDTO result)
+		/// <summary>배치를 둘로 나눈다. 종류가 여럿이면 종류로, 한 종류면 수량으로 나누고, 1마리면 null.</summary>
+		private static List<HuntOutboxItem> SplitHuntItem(HuntOutboxItem item)
 		{
-			UserManager.Instance.SetHuntResult(result);
+			if (item.Loots == null || item.Loots.Count == 0) return null;
+			var first = new List<HuntResult>();
+			var second = new List<HuntResult>();
+			if (item.Loots.Count > 1)
+			{
+				int half = item.Loots.Count / 2;
+				for (int i = 0; i < item.Loots.Count; i++) (i < half ? first : second).Add(item.Loots[i]);
+			}
+			else
+			{
+				var loot = item.Loots[0];
+				if (loot.Count <= 1) return null;
+				int half = loot.Count / 2;
+				first.Add(new HuntResult { MonsterType = loot.MonsterType, Count = (short)half });
+				second.Add(new HuntResult { MonsterType = loot.MonsterType, Count = (short)(loot.Count - half) });
+			}
+			return new List<HuntOutboxItem>
+			{
+				new HuntOutboxItem { StageId = item.StageId, Loots = first },
+				new HuntOutboxItem { StageId = item.StageId, Loots = second }
+			};
 		}
-		/// <summary>스테이지 클리어 서버 응답을 처리한다</summary>
-		private void OnStageClearSuccess(OnStageClearResponseDTO result)
+
+		private void MarkSaturated(long stageId, List<HuntResult> loots)
 		{
+			if (loots == null) return;
+			if (!_saturatedTypes.TryGetValue(stageId, out var set)) _saturatedTypes[stageId] = set = new HashSet<ulong>();
+			foreach (var loot in loots) set.Add((ulong)loot.MonsterType);
 		}
-		/// <summary>서버 요청 실패 메시지를 로그로 출력한다</summary>
-		private void OnHuntRewardError(PlayFab.PlayFabError error)
+
+		/// <summary>포화 종류를 배치에서 뺀다. 남는 처치가 없으면 true.</summary>
+		private bool PruneSaturated(HuntOutboxItem item)
 		{
-			Debug.LogWarning(error.ErrorMessage);
+			if (item.Loots == null) return true;
+			if (_saturatedTypes.TryGetValue(item.StageId, out var set) && set.Count > 0)
+				item.Loots.RemoveAll(loot => set.Contains((ulong)loot.MonsterType));
+			return item.Loots.Count == 0;
+		}
+
+		/// <summary>대기열 앞에 항목들을 넣는다(Queue라 다시 쌓는다).</summary>
+		private void PushFront(List<HuntOutboxItem> items)
+		{
+			var rest = new List<HuntOutboxItem>(_huntOutbox);
+			_huntOutbox.Clear();
+			foreach (var entry in items) _huntOutbox.Enqueue(entry);
+			foreach (var entry in rest) _huntOutbox.Enqueue(entry);
+		}
+
+		private static string DescribeLoots(List<HuntResult> loots)
+		{
+			if (loots == null) return "";
+			var parts = new List<string>(loots.Count);
+			foreach (var loot in loots) parts.Add($"{(ulong)loot.MonsterType}x{loot.Count}");
+			return string.Join(",", parts);
 		}
 
 		#endregion

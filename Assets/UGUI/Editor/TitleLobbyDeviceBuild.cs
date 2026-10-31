@@ -22,7 +22,7 @@ namespace KingdomIdle.UGUI.Editor
 
         public static void BuildForManualTesting() => BuildPlayer(false);
 
-        public static void BuildAdMobTest() => BuildPlayer(false, adTest: true);
+        public static void BuildAdMobTest() => BuildPlayer(false, false, true);
         // Temporary separate Android UID; local simulation never selects a cloud or user account.
         public static void BuildForEnvironmentSimulation() => BuildPlayer(true, false, true);
 
@@ -51,7 +51,7 @@ namespace KingdomIdle.UGUI.Editor
             int versionCode = checked(PlayerSettings.Android.bundleVersionCode + 1);
             var manifest = new DeviceBuildManifest
             {
-                package = identifier + (adTest ? ".adtest" : isolatedSimulation ? ".environmentqa" : ".lobbyqa"),
+                package = identifier + (isolatedSimulation ? ".environmentqa" : ".lobbyqa"),
                 label = $"{purpose} {PlayerSettings.bundleVersion} (b{versionCode})",
                 version = PlayerSettings.bundleVersion,
                 versionCode = versionCode,

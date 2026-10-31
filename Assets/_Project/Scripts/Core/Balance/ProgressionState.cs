@@ -141,6 +141,8 @@ namespace KingdomIdle.Balance
     public sealed class LegacyEquipmentStack
     {
         public int Code, Level, Count;
+        /// <summary>서버 예비 묶음이 잠겨 있으면 일괄 분해 대상에서 제외한다.</summary>
+        public bool Locked;
         public LegacyEquipmentStack Copy() => (LegacyEquipmentStack)MemberwiseClone();
     }
     [Serializable]

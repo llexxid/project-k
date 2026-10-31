@@ -17,10 +17,6 @@ namespace KingdomIdle.UGUI
         static bool _busy, _adBusy;
         static string _day;
         public static bool IsOpen => _view != null && _view.gameObject.activeSelf;
-#if UNITY_EDITOR
-        internal static bool HasPendingAdForTesting => _busy || RewardedAdService.IsBusy ||
-            (_claim != null && _claim.Earned && ShopAdRewardService.IsCurrentAccount(_claim));
-#endif
 
         public static void Show()
         {

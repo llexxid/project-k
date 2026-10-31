@@ -5,7 +5,7 @@ using Newtonsoft.Json;
 namespace Protocol.Message.Dto
 {
 
-// 서버 AuthenticationFunction/Common/Dto/ResponseDTO.cs의 사본(2026-10-25).
+// 서버 AuthenticationFunction/Common/Dto/ResponseDTO.cs의 사본(2026-10-31: CurrentStage·StageProgress·Stage → StageState).
 // 모든 필드는 Required.Always이고, 서버가 nullable(T?)로 선언한 필드만 Required.AllowNull이다
 // (키는 있어야 하고 값은 null일 수 있다. 서버 System.Text.Json은 null도 출력한다).
 
@@ -20,8 +20,6 @@ public class UserInitResponseDTO : ApiResponseDTO
     public long Exp { get; set; }
     [JsonProperty(Required = Required.Always)]
     public long KillScore { get; set; }
-    [JsonProperty(Required = Required.Always)]
-    public eStage CurrentStage { get; set; }
     [JsonProperty(Required = Required.Always)]
     public long EnchantHPCount { get; set; }
     [JsonProperty(Required = Required.Always)]
@@ -49,8 +47,9 @@ public class UserInitResponseDTO : ApiResponseDTO
     public GachaStateDTO GachaState { get; set; } = null!;
     [JsonProperty(Required = Required.Always)]
     public QuestStateDTO Quests { get; set; } = null!;
+    // 현재·주기 최고 도달·영구 최고 클리어 스테이지. 서버 UserCurrentStage 키 값과 같다.
     [JsonProperty(Required = Required.Always)]
-    public StageProgressDTO StageProgress { get; set; } = null!;
+    public UserStageQuery StageState { get; set; } = null!;
     [JsonProperty(Required = Required.Always)]
     public DungeonStateDTO DungeonState { get; set; } = null!;
     [JsonProperty(Required = Required.Always)]
@@ -85,9 +84,6 @@ public sealed class OnHuntResponseDTO : ApiResponseDTO
     public long Gold { get; set; }
     [JsonProperty(Required = Required.Always)]
     public long AncientCoin { get; set; }
-    // 다음 사냥 배치의 순번. 지급된 배치는 같은 순번으로 다시 지급하지 않는다.
-    [JsonProperty(Required = Required.Always)]
-    public long NextRewardSequence { get; set; }
 }
 public sealed class OnStageClearResponseDTO : ApiResponseDTO
 {
@@ -95,17 +91,15 @@ public sealed class OnStageClearResponseDTO : ApiResponseDTO
     public bool IsFirstClear { get; set; }
     [JsonProperty(Required = Required.Always)]
     public List<QuestRewardDTO> GrantedRewards { get; set; } = null!;
+    // 클리어 반영 뒤의 스테이지 상태. CurrentStage가 다음 스테이지다.
     [JsonProperty(Required = Required.Always)]
-    public StageProgressDTO StageProgress { get; set; } = null!;
+    public UserStageQuery StageState { get; set; } = null!;
     [JsonProperty(Required = Required.Always)]
     public EquipmentInventoryDTO Equipment { get; set; } = null!;
     [JsonProperty(Required = Required.Always)]
     public MageTowerStateDTO MageTowerState { get; set; } = null!;
     [JsonProperty(Required = Required.Always)]
     public CurrencyQueryDTO Currency { get; set; } = null!;
-    // 다음 스테이지.
-    [JsonProperty(Required = Required.Always)]
-    public eStage Stage { get; set; }
 }
 public sealed class OnGachaEquipmentClassFragmentResponseDTO : ApiResponseDTO
 {
@@ -213,6 +207,7 @@ public sealed class OnResetSkillEnhancementResponseDTO : MageActionResponseDTO
 }
 
 // 직업 변경 응답의 공통 베이스.
+// 캐릭터 스탯과 장비 상태는 클라이언트가 자기 데이터로 갱신한다. 새 직업이 못 쓰는 장비는 먼저 해제해야 한다.
 public abstract class JobActionResponseDTO : ApiResponseDTO
 {
     [JsonProperty(Required = Required.Always)]
@@ -220,11 +215,7 @@ public abstract class JobActionResponseDTO : ApiResponseDTO
     [JsonProperty(Required = Required.Always)]
     public ulong JobCode { get; set; }
     [JsonProperty(Required = Required.Always)]
-    public List<CharacterDataQuery> CharacterJobs { get; set; } = null!;
-    [JsonProperty(Required = Required.Always)]
     public List<JobTreeQuery> JobTrees { get; set; } = null!;
-    [JsonProperty(Required = Required.Always)]
-    public EquipmentInventoryDTO Equipment { get; set; } = null!;
 }
 public sealed class OnGetJobResponseDTO : JobActionResponseDTO
 {
@@ -308,8 +299,9 @@ public sealed class OnReincarnationResponseDTO : ApiResponseDTO
     public int GainedLevel { get; set; }
     [JsonProperty(Required = Required.Always)]
     public ReincarnationStateDTO Reincarnation { get; set; } = null!;
+    // 환생 뒤 스테이지 상태. CurrentStage·HighestStage는 1-1이고 MainClear는 유지된다.
     [JsonProperty(Required = Required.Always)]
-    public eStage CurrentStage { get; set; }
+    public UserStageQuery StageState { get; set; } = null!;
     [JsonProperty(Required = Required.Always)]
     public long EnchantHPCount { get; set; }
     [JsonProperty(Required = Required.Always)]
@@ -334,6 +326,21 @@ public sealed class OnClaimOfflineRewardResponseDTO : ApiResponseDTO
     public int Level { get; set; }
     [JsonProperty(Required = Required.Always)]
     public long Exp { get; set; }
+    // 정산 뒤 재화 전체. 클라이언트는 GainedGold를 더하지 않고 이 값을 덮어쓴다.
+    [JsonProperty(Required = Required.Always)]
+    public CurrencyQueryDTO Currency { get; set; } = null!;
+}
+public sealed class OnClaimGuideRewardResponseDTO : ApiResponseDTO
+{
+    [JsonProperty(Required = Required.Always)]
+    public string GuideId { get; set; } = null!;
+    // 이미 지급한 단계면 true이고 GrantedAncientCoin은 0이다.
+    [JsonProperty(Required = Required.Always)]
+    public bool AlreadyClaimed { get; set; }
+    [JsonProperty(Required = Required.Always)]
+    public long GrantedAncientCoin { get; set; }
+    [JsonProperty(Required = Required.Always)]
+    public CurrencyQueryDTO Currency { get; set; } = null!;
 }
 public sealed class OnAddRubyResponseDTO : ApiResponseDTO
 {

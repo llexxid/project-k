@@ -225,9 +225,107 @@ namespace KingdomIdle.UGUI.Editor
             F.Preferred(
                 view.confirmButton.gameObject.AddComponent<LayoutElement>(),
                 height: 82f);
+            ConfigureButtons(view);
 
             root.gameObject.SetActive(false);
             return PrefabGenUtil.SavePrefab(root.gameObject, PrefabPath);
+        }
+
+        [MenuItem("KingdomIdle/Ads/Update Offline Reward Popups")]
+        public static void UpgradeAdRewardPrefabs()
+        {
+            var root = PrefabUtility.LoadPrefabContents(PrefabPath);
+            try
+            {
+                ConfigureButtons(root.GetComponent<OfflineRewardPopupView>());
+                PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
+            }
+            finally { PrefabUtility.UnloadPrefabContents(root); }
+
+            const string resultPath = "Assets/UGUI/Prefabs/Popups/Popup_RewardInfo.prefab";
+            root = PrefabUtility.LoadPrefabContents(resultPath);
+            try
+            {
+                var view = root.GetComponent<RewardPopupView>();
+                if (view.confirmButton == null)
+                {
+                    var source = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath).GetComponent<OfflineRewardPopupView>();
+                    view.confirmButton = Object.Instantiate(source.confirmButton.gameObject, view.panel, false).GetComponent<UnityEngine.UI.Button>();
+                    view.confirmButton.name = "BtnOfflineConfirm";
+                    view.confirmButton.onClick = new UnityEngine.UI.Button.ButtonClickedEvent();
+                }
+                SetButton(view.confirmButton, "확인", UguiTheme.BtnConfirm);
+                view.confirmButton.transform.SetParent(view.panel, false);
+                view.confirmButton.transform.SetAsLastSibling();
+                var column = view.panel.GetComponent<UnityEngine.UI.VerticalLayoutGroup>();
+                column.childControlWidth = true;
+                column.childForceExpandWidth = false;
+                column.childAlignment = TextAnchor.UpperCenter;
+                view.panel.Find("Header").GetComponent<UnityEngine.UI.LayoutElement>().flexibleWidth = 1;
+                view.descriptionArea.GetComponent<UnityEngine.UI.LayoutElement>().flexibleWidth = 1;
+                var layout = view.confirmButton.GetComponent<UnityEngine.UI.LayoutElement>();
+                layout.minWidth = layout.preferredWidth = 120f;
+                layout.minHeight = layout.preferredHeight = 100f;
+                layout.flexibleWidth = layout.flexibleHeight = 0f;
+                view.confirmButton.gameObject.SetActive(false);
+                PrefabUtility.SaveAsPrefabAsset(root, resultPath);
+            }
+            finally { PrefabUtility.UnloadPrefabContents(root); }
+            AssetDatabase.SaveAssets();
+        }
+
+        private static void ConfigureButtons(OfflineRewardPopupView view)
+        {
+            var actions = view.panel.Find("Actions") as RectTransform;
+            float oldHeight = actions != null
+                ? actions.GetComponent<UnityEngine.UI.LayoutElement>().preferredHeight
+                : view.confirmButton.GetComponent<UnityEngine.UI.LayoutElement>().preferredHeight;
+            if (actions == null)
+            {
+                int index = view.confirmButton.transform.GetSiblingIndex();
+                actions = new GameObject("Actions", typeof(RectTransform), typeof(UnityEngine.UI.HorizontalLayoutGroup), typeof(UnityEngine.UI.LayoutElement)).GetComponent<RectTransform>();
+                actions.gameObject.layer = view.panel.gameObject.layer;
+                actions.SetParent(view.panel, false);
+                actions.SetSiblingIndex(index);
+            }
+            view.panel.sizeDelta += new Vector2(0, Mathf.Max(0, 144f - oldHeight));
+            var row = actions.GetComponent<UnityEngine.UI.HorizontalLayoutGroup>();
+            row.spacing = 16;
+            row.childAlignment = TextAnchor.MiddleCenter;
+            row.childControlWidth = row.childControlHeight = true;
+            row.childForceExpandWidth = true;
+            row.childForceExpandHeight = false;
+            var rowLayout = actions.GetComponent<UnityEngine.UI.LayoutElement>();
+            rowLayout.minHeight = rowLayout.preferredHeight = 144;
+            view.confirmButton.transform.SetParent(actions, false);
+            if (view.adButton == null)
+            {
+                view.adButton = Object.Instantiate(view.confirmButton.gameObject, actions, false).GetComponent<UnityEngine.UI.Button>();
+                view.adButton.name = "BtnAd";
+                view.adButton.onClick = new UnityEngine.UI.Button.ButtonClickedEvent();
+            }
+            view.adButton.transform.SetAsFirstSibling();
+            view.confirmButton.transform.SetAsLastSibling();
+            SetButton(view.adButton, "광고보고 보상 2배", UguiTheme.BtnConfirm);
+            SetButton(view.confirmButton, "보상 수령", UguiTheme.BtnCancel);
+            view.adButtonLabel = view.adButton.GetComponentInChildren<TMP_Text>(true);
+        }
+
+        private static void SetButton(UnityEngine.UI.Button button, string text, Color color)
+        {
+            var label = button.GetComponentInChildren<TMP_Text>(true);
+            label.text = text;
+            label.enableAutoSizing = true;
+            label.fontSizeMin = 24;
+            label.fontSizeMax = 28;
+            label.textWrappingMode = TextWrappingModes.NoWrap;
+            button.GetComponent<UnityEngine.UI.Image>().color = color;
+            var layout = button.GetComponent<UnityEngine.UI.LayoutElement>() ?? button.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
+            layout.minWidth = 0;
+            layout.preferredWidth = -1;
+            layout.flexibleWidth = 1;
+            layout.minHeight = layout.preferredHeight = 144;
+            layout.flexibleHeight = 0;
         }
 
         private static bool HasRequiredRewardIcons(GameObject prefab)
