@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using KingdomIdle.Rewards;
 
 namespace KingdomIdle.Mailbox
@@ -17,9 +18,14 @@ namespace KingdomIdle.Mailbox
             CreatedUtc = CreatedUtc, ExpiresUtc = ExpiresUtc, ClaimedAtUtc = ClaimedAtUtc,
             Rewards = RewardGrants.Copy(Rewards)
         };
+        // Legacy files still contain local mail while the live mailbox comes from the server.
+        internal static bool IsValid(MailMessage mail) => mail != null && !string.IsNullOrWhiteSpace(mail.Id) &&
+            !string.IsNullOrWhiteSpace(mail.Title) && mail.CreatedUtc > 0 && mail.ExpiresUtc > mail.CreatedUtc &&
+            mail.ExpiresUtc <= 253402268399L && mail.ClaimedAtUtc >= 0 && mail.ClaimedAtUtc <= 253402268399L &&
+            mail.Rewards != null && mail.Rewards.Count > 0 && mail.Rewards.All(RewardGrants.IsValid);
     }
 
-    public sealed class MailboxSnapshot
+    public sealed class LocalMailboxSnapshot
     {
         public long AccountGeneration { get; internal set; }
         public IReadOnlyList<MailMessage> Messages { get; internal set; }

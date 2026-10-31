@@ -5,6 +5,8 @@ using KingdomIdle.OfflineRewards;
 using KingdomIdle.Rewards;
 using TMPro;
 using UnityEngine;
+using Protocol.Message.Dto;
+using System.Linq;
 
 namespace KingdomIdle.UGUI
 {
@@ -33,6 +35,37 @@ namespace KingdomIdle.UGUI
             if (view == null) return;
             view.SetDescription("");
             view.AddSlots(rewards, true);
+        }
+        public static void ShowServerRewards(Transform owner, IReadOnlyList<GachaRewardDTO> rewards)
+        {
+            var view = Open(owner, "보상 획득", null);
+            if (view == null) return;
+            view.SetDescription("");
+            view.AddServerSlots(RewardDisplayItem.Granted(rewards), true);
+        }
+        public static void ShowItem(Transform owner, RewardDisplayItem reward, string mailId = null)
+        {
+            var view = Open(owner, reward.Name, mailId);
+            if (view == null) return;
+            view.SetDescription(reward.Description);
+            view.AddServerSlots(new[] { reward }, false);
+        }
+        public static void ShowMail(Transform owner, MailDTO mail)
+        {
+            var view = Open(owner, MailText.Title(mail), mail.MailId.ToString());
+            if (view == null) return;
+            view.SetDescription(MailText.Body(mail));
+            view.AddServerSlots(mail.Rewards.Select(RewardDisplayItem.From), true);
+        }
+        private void AddServerSlots(IEnumerable<RewardDisplayItem> rewards, bool showInfo)
+        {
+            foreach (var reward in rewards)
+            {
+                var slot = Instantiate(UIManager.Instance.Catalog.itemRewardSlot, slots, false).GetComponent<RewardSlotView>();
+                slot.Bind(reward, showInfo ? () => ShowItem(transform, reward, SourceMailId) : null);
+            }
+            UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(panel);
+            rewardScroll.horizontalNormalizedPosition = 0;
         }
         public static RewardPopupView ShowOfflineRewards(Transform owner, OfflineRewardClaimResult result, bool doubled, System.Action onClosed = null)
         {

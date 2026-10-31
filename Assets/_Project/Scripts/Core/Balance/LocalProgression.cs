@@ -43,6 +43,7 @@ namespace KingdomIdle.Balance
 
         #if UNITY_EDITOR || LOBBY_DEVICE_QA
         private static string _testAccount;
+        internal static bool IsTestAccount => _testAccount != null && AccountKey == _testAccount;
         /// <summary>기간 경계 인수 검사에서만 사용하는 고정 UTC 시각이다.</summary>
         public static long? TestUtcNow;
         public static void OpenTestAccount(string id)
@@ -240,7 +241,7 @@ namespace KingdomIdle.Balance
                 visit.OpenedRewards.Any(r => !KingdomIdle.Rewards.RewardGrants.IsValid(r)) ||
                 visit.ClaimedSlots.Any(i => i < 0 || i >= visit.OpenedRewards.Count) ||
                 (visit.OpenedRewards.Count > 0 && (string.IsNullOrEmpty(visit.Month) || string.IsNullOrEmpty(visit.LastDay))) ||
-                state.Mail == null || state.Mail.Any(m => !KingdomIdle.Mailbox.MailboxService.IsValid(m)) ||
+                state.Mail == null || state.Mail.Any(m => !KingdomIdle.Mailbox.MailMessage.IsValid(m)) ||
                 state.Mail.Select(m => m.Id).Distinct().Count() != state.Mail.Count || state.RewardsRevision < 0)
                 throw new InvalidDataException("Invalid CheckIn/mail snapshot.");
             // 퀘스트 진행·보류 보상은 서버가 판정한다. 옛 로컬 퀘스트 필드는 저장 호환을 위해 남기고 컬렉션 존재만 검사한다.

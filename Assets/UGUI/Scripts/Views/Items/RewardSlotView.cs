@@ -41,6 +41,21 @@ namespace KingdomIdle.UGUI
             button.transition = UnityEngine.UI.Selectable.Transition.None;
             button.interactable = false;
         }
+
+        public void Bind(RewardDisplayItem reward, Action clicked)
+        {
+            icon.sprite = reward.Icon;
+            icon.enabled = icon.sprite != null;
+            icon.color = Color.white;
+            quantity.text = NumberNotation.Format(reward.Amount);
+            quantity.color = UguiTheme.Parchment;
+            frame.color = reward.Frame;
+            check.gameObject.SetActive(false);
+            day.text = reward.ResultLabel;
+            button.onClick.RemoveAllListeners();
+            button.interactable = clicked != null;
+            if (clicked != null) button.onClick.AddListener(() => clicked());
+        }
     }
 
     internal static class RewardPresentation

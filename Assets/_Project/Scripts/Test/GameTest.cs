@@ -4,6 +4,7 @@ using KingdomIdle.Balance;
 using KingdomIdle.CheckIn;
 using KingdomIdle.Mailbox;
 using KingdomIdle.Rewards;
+using KingdomIdle.UGUI;
 using UnityEditor;
 #endif
 using Scripts.Core;
@@ -60,7 +61,7 @@ namespace Scripts.Test
         [MenuItem("GameTest/CheckIn Test/1일 진행")]
         public static void AdvanceCheckIn()
         {
-            if (!CanTestRewards()) return;
+            if (!Application.isPlaying || !LocalProgression.IsReady || GameManager.Instance?.CheckIn == null) return;
             var checkIn = GameManager.Instance.CheckIn;
             if (!checkIn.IsRewardTableValid)
             { Debug.LogWarning("[GameTest] 출석 보상표를 확인하세요."); return; }
@@ -93,7 +94,7 @@ namespace Scripts.Test
         [MenuItem("GameTest/CheckIn Test/출석 보상판 초기화")]
         public static void ResetCheckIn()
         {
-            if (!CanTestRewards()) return;
+            if (!Application.isPlaying || !LocalProgression.IsReady || GameManager.Instance?.CheckIn == null) return;
             var period = QuestPeriod.At(RewardGrants.Now);
             bool saved = LocalProgression.Execute("test-checkin-reset", draft =>
             {
@@ -107,46 +108,28 @@ namespace Scripts.Test
             Debug.Log("[GameTest] 이번 달 출석·수령 기록을 0일로 초기화했습니다. 보유 재화와 기존 우편은 유지되며, 출석을 진행하면 다시 수령할 수 있습니다.");
         }
 
-        [MenuItem("GameTest/Mailbox Test/골드 우편 보내기")]
-        public static void SendGoldMail() => SendTestMail("골드", new RewardGrant(eCurrency.Gold, 10000));
-
-        [MenuItem("GameTest/Mailbox Test/보석(비전지식) 우편 보내기")]
-        public static void SendArcaneMail() => SendTestMail("보석(비전지식)", new RewardGrant(eCurrency.ArcaneKnowledge, 100));
-
-        [MenuItem("GameTest/Mailbox Test/고대주화 우편 보내기")]
-        public static void SendAncientCoinMail() => SendTestMail("고대주화", new RewardGrant(eCurrency.AncientCoin, 100));
-
-        [MenuItem("GameTest/Mailbox Test/전직 파편 우편 보내기")]
-        public static void SendClassFragmentMail() => SendTestMail("전직 파편", new RewardGrant(eCurrency.ClassFragment, 10));
-
-        [MenuItem("GameTest/Mailbox Test/4종 전부 우편 보내기")]
-        public static void SendAllRewardsMail() => SendTestMail("재화 4종", new RewardGrant(eCurrency.Gold, 10000),
-            new RewardGrant(eCurrency.ArcaneKnowledge, 100), new RewardGrant(eCurrency.AncientCoin, 100),
-            new RewardGrant(eCurrency.ClassFragment, 10));
-
-        private static void SendTestMail(string title, params RewardGrant[] rewards)
+        [MenuItem("GameTest/Shop Ad Test/오늘 광고 수령 초기화 (재지급 허용)")]
+        public static void ResetShopAds()
         {
-            if (!CanTestRewards()) return;
-            long now = RewardGrants.Now;
-            var result = GameManager.Instance.Mailbox.TryAddMail(new MailMessage
-            {
-                Id = "game-test:" + System.Guid.NewGuid().ToString("N"),
-                Title = "[테스트] " + title, Sender = "GameTest", Body = "재화 수령 테스트용 우편입니다.",
-                CreatedUtc = now, ExpiresUtc = now + 30L * 86400, Rewards = RewardGrants.Copy(rewards)
-            });
-            if (!result.Succeeded)
-            { Debug.LogWarning($"[GameTest] 테스트 우편 발송 실패: {result.Status} {LocalProgression.LastError}"); return; }
-            Debug.Log($"[GameTest] {title} 우편을 현재 계정에 저장했습니다. 만료는 30일 후이며 우편함에서 수령하세요.");
+            if (!Application.isPlaying || !LocalProgression.IsReady)
+            { Debug.LogWarning("[GameTest] bootstrap부터 Play 후 로그인하여 상점 광고를 초기화하세요."); return; }
+            if (ShopPopupController.HasPendingAdForTesting)
+            { Debug.LogWarning("[GameTest] 광고 진행 또는 완료 보상 저장이 대기 중입니다. 먼저 광고·보상 수령을 마치세요."); return; }
+
+            var status = ShopAdRewardService.ResetTodayForTesting();
+            if (status != RewardStatus.Success)
+            { Debug.LogWarning($"[GameTest] 상점 광고 초기화 실패: {status} {LocalProgression.LastError}"); return; }
+            Debug.Log("[GameTest] 오늘의 장비·마탑 광고 수령 기록을 초기화하고 저장했습니다. 보유 뽑기권은 유지되며, 광고를 다시 완료하면 뽑기권이 추가 지급됩니다.");
         }
 
-        private static bool CanTestRewards()
-        {
-            var game = GameManager.Instance;
-            if (Application.isPlaying && LocalProgression.IsReady && game != null && game.CheckIn != null && game.Mailbox != null)
-                return true;
-            Debug.LogWarning("[GameTest] bootstrap부터 Play 후 로그인하여 출석·우편함이 준비되면 실행하세요.");
-            return false;
-        }
+        [MenuItem("GameTest/Mailbox Test/격리 로컬 지급 검증")]
+        public static void TestLocalMailbox() => Debug.Log(Newtonsoft.Json.JsonConvert.SerializeObject(KingdomIdle.Mailbox.Testing.MailboxAcceptance.RunLocal()));
+
+        [MenuItem("GameTest/Mailbox Test/서버 응답 시나리오 검증")]
+        public static void TestServerMailbox() => Debug.Log(Newtonsoft.Json.JsonConvert.SerializeObject(KingdomIdle.Mailbox.Testing.MailboxAcceptance.Run()));
+
+        [MenuItem("GameTest/Mailbox Test/서버 응답 실제 저장 검증")]
+        public static void TestServerMailboxApply() => Debug.Log(Newtonsoft.Json.JsonConvert.SerializeObject(KingdomIdle.Mailbox.Testing.MailboxAcceptance.RunServerApply()));
 
         /// <summary>현재 계정에서 육성 실습을 요청한다. 실제 골드를 소비하고 강화·완료를 저장하며 정리는 Manager에 맡긴다.</summary>
         [MenuItem("GameTest/Guide Test/실제 계정 저장/1 육성")]
@@ -244,6 +227,7 @@ namespace Scripts.Test
         [MenuItem("GameTest/Dungeon Test/입장 티켓 충전", true)]
         [MenuItem("GameTest/CheckIn Test/1일 진행", true)]
         [MenuItem("GameTest/CheckIn Test/출석 보상판 초기화", true)]
+        [MenuItem("GameTest/Shop Ad Test/오늘 광고 수령 초기화 (재지급 허용)", true)]
         [MenuItem("GameTest/Mailbox Test/골드 우편 보내기", true)]
         [MenuItem("GameTest/Mailbox Test/보석(비전지식) 우편 보내기", true)]
         [MenuItem("GameTest/Mailbox Test/고대주화 우편 보내기", true)]

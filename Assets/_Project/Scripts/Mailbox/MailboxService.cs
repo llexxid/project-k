@@ -2,106 +2,300 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using KingdomIdle.Balance;
-using KingdomIdle.Rewards;
+using PlayFab;
+using Protocol.Message.Dto;
+using Scripts.Core;
+using Scripts.Core.Manager;
+using UnityEngine;
 
 namespace KingdomIdle.Mailbox
 {
-    /// <summary>우편 보관·만료·수령을 기존 로컬 거래로 처리한다.</summary>
+    public sealed class MailboxClaimResult
+    {
+        public IReadOnlyList<GachaRewardDTO> Rewards { get; internal set; }
+        public string Message { get; internal set; }
+    }
+
+    /// <summary>Only server responses grant rewards. The list lives for one panel session.</summary>
     public sealed class MailboxService
     {
-        // 우편 행이 한국시간으로 표시할 수 있는 날짜까지만 저장한다.
-        private static readonly long MaxMailUtc = new DateTimeOffset(9999, 12, 31, 23, 59, 59, TimeSpan.FromHours(9)).ToUnixTimeSeconds();
-        public MailboxSnapshot GetSnapshot()
+        internal delegate void ListCall(OnGetMailListRequestDTO request, Action<OnGetMailListResponseDTO> ok, Action<PlayFabError> fail);
+        internal delegate void ClaimCall(OnClaimMailRewardRequestDTO request, Action<OnClaimMailRewardResponseDTO> ok, Action<PlayFabError> fail);
+        private readonly ListCall _list;
+        private readonly ClaimCall _claim;
+        private readonly Func<OnClaimMailRewardResponseDTO, bool> _apply;
+        private readonly Action<Action<bool>> _recover;
+        private readonly Func<(long, long)> _identity;
+        private readonly Func<bool> _ready;
+        private readonly Func<double> _clock;
+        private (long, long) _account;
+        private int _loadVersion, _operationVersion, _viewVersion;
+        private bool _open, _claiming, _recovering, _needsRecovery;
+        private long _serverUtc;
+        private double _observedAt;
+        private IReadOnlyList<MailDTO> _messages = Array.Empty<MailDTO>();
+
+        public event Action Changed;
+        public event Action<MailboxClaimResult> ClaimCompleted;
+        /// <summary> 메모리에 캐싱된 서버 우편 목록</summary>
+        public IReadOnlyList<MailDTO> Messages => _messages;
+        public string MailboxId { get; private set; }
+        public string Error { get; private set; }
+        public bool IsLoading { get; private set; }
+        /// <summary> 우편 목록이 전부 캐싱되었는지 </summary>
+        public bool HasSnapshot { get; private set; }
+        /// <summary> 조회 / 수령 / 복구상태 확인 </summary>
+        public bool IsBusy => IsLoading || _claiming || _recovering;
+        public bool CanClaim => _open && HasSnapshot && !IsBusy && !_needsRecovery && _ready();
+        public long ServerNow => _serverUtc + (long)Math.Max(0, _clock() - _observedAt);
+
+        public MailboxService() : this(
+            (requestDto, responseDto, fail) => NetworkManager.Instance.Call(requestDto, responseDto, fail),
+            (requestDto, responseDto, fail) => NetworkManager.Instance.Call(requestDto, responseDto, fail),
+            Apply, Recover,
+            () => (NetworkManager.Instance != null ? NetworkManager.Instance.AccountGeneration : -1, LocalProgression.AccountGeneration),
+            () => NetworkManager.Instance != null && NetworkManager.Instance.IsGameDataReady && LocalProgression.IsReady &&
+                  LocalProgression.AccountKey == NetworkManager.Instance.GetSessionID(),
+            () => Time.realtimeSinceStartupAsDouble) { }
+
+        // Injection keeps response-loss tests away from the live account.
+        internal MailboxService(ListCall list, ClaimCall claim, Func<OnClaimMailRewardResponseDTO, bool> apply,
+            Action<Action<bool>> recover, Func<(long, long)> identity, Func<bool> ready, Func<double> clock)
         {
-            if (!LocalProgression.TryGetCommittedState(out var state)) return null;
-            long now = RewardGrants.Now;
-            return new MailboxSnapshot { AccountGeneration = LocalProgression.AccountGeneration,
-                Messages = state.Mail.Where(m => m.ExpiresUtc > now).Select(m => m.Copy()).ToArray() };
+            _list = list; 
+            _claim = claim; 
+            _apply = apply; 
+            _recover = recover;
+            _identity = identity; 
+            _ready = ready; 
+            _clock = clock; 
+            _account = identity();
         }
 
-        public bool Refresh()
+        public void Open()
         {
-            if (!LocalProgression.TryGetCommittedState(out var state)) return false;
-            long now = RewardGrants.Now;
-            if (!state.Mail.Any(m => m.ExpiresUtc <= now)) return true;
-            return LocalProgression.Execute("mail-expire", draft => { draft.Mail.RemoveAll(m => m.ExpiresUtc <= now); draft.RewardsRevision++; return true; });
+            CheckAccount(); _open = true; 
+            _viewVersion++;
+            ClearList(); 
+            Refresh();
         }
 
-        /// <summary>호출자가 고유 ID와 유효기간을 지정한다. 삭제된 우편도 같은 ID로 재발급하지 않는다.</summary>
-        public RewardResult TryAddMail(MailMessage mail)
+        public void Close()
         {
-            if (!LocalProgression.TryGetCommittedState(out var state)) return new(RewardStatus.NotReady);
-            if (!IsValid(mail) || mail.Claimed || mail.ExpiresUtc <= RewardGrants.Now) return new(RewardStatus.InvalidReward);
-            string key = "mail-issued:" + mail.Id;
-            if (state.Claims.Contains(key)) return new(RewardStatus.Stale);
-            long account = LocalProgression.AccountGeneration;
-            bool saved = LocalProgression.Execute("mail-add", draft =>
+            _open = false; 
+            _viewVersion++;
+            ClearList(); 
+            Changed?.Invoke();
+        }
+
+        private void ClearList()
+        {
+            _loadVersion++;
+            _messages = Array.Empty<MailDTO>();
+            MailboxId = null; HasSnapshot = false; IsLoading = false; Error = null;
+        }
+
+        public void CheckAccount()
+        {
+            if (_account == _identity()) return;
+            _account = _identity(); 
+            _operationVersion++; 
+            _viewVersion++;
+            _claiming = _recovering = _needsRecovery = false;
+            ClearList(); Changed?.Invoke();
+            if (_open) Refresh();
+        }
+
+        public void Refresh()
+        {
+            if (!_open || _claiming || _recovering || IsLoading) { Changed?.Invoke(); return; }
+            if (!_ready()) { Error = "서버 로그인이 필요합니다."; Changed?.Invoke(); return; }
+            if (_needsRecovery) { RecoverState(); return; }
+            Load(0);
+        }
+
+        private void Load(int retry)
+        {
+            int version = ++_loadVersion;
+            var account = _account;
+            IsLoading = true; 
+            Error = null; 
+            Changed?.Invoke();
+            var collected = new List<MailDTO>();
+            var ids = new HashSet<long>();
+            int total = -1;
+            string mailbox = null;
+            bool Current() => _open && version == _loadVersion && account == _identity();
+            void Fail(string message)
             {
-                if (account != LocalProgression.AccountGeneration) return false;
-                draft.Mail.Add(mail.Copy()); draft.RewardsRevision++; return true;
-            }, key);
-            return new(saved ? RewardStatus.Success : RewardStatus.SaveFailed);
-        }
-
-        public RewardResult TryClaim(MailboxSnapshot snapshot, string id) => Claim(snapshot, new[] { id });
-        public RewardResult TryClaimAll(MailboxSnapshot snapshot) => Claim(snapshot,
-            snapshot?.Messages.Where(m => !m.Claimed).Select(m => m.Id).ToArray());
-
-        private RewardResult Claim(MailboxSnapshot snapshot, string[] ids)
-        {
-            if (!LocalProgression.IsReady) return new(RewardStatus.NotReady);
-            if (snapshot == null || snapshot.AccountGeneration != LocalProgression.AccountGeneration) return new(RewardStatus.Stale);
-            if (ids == null || ids.Length == 0) return new(RewardStatus.NothingAvailable);
-            // 만료 삭제는 지급 취소에 의해 되돌아가지 않는 독립 거래다.
-            if (!Refresh()) return new(RewardStatus.SaveFailed);
-            long now = RewardGrants.Now;
-            var failure = RewardStatus.SaveFailed;
-            List<RewardGrant> granted = null;
-            bool saved = LocalProgression.Execute("mail-claim", draft =>
+                if (!Current()) return;
+                IsLoading = false; 
+                HasSnapshot = false; 
+                Error = message; 
+                Changed?.Invoke();
+            }
+            void Inconsistent()
             {
-                if (snapshot.AccountGeneration != LocalProgression.AccountGeneration || ids.Distinct().Count() != ids.Length)
-                { failure = RewardStatus.Stale; return false; }
-                var targets = new List<MailMessage>();
-                foreach (string id in ids)
+                if (retry == 0) Load(1);
+                else Fail("우편 목록이 변경되었습니다. 다시 불러와 주세요.");
+            }
+            void Page(int start)
+            {
+                _list(new OnGetMailListRequestDTO { StartIndex = start, Count = 50 }, response =>
                 {
-                    if (!snapshot.Messages.Any(m => m.Id == id && !m.Claimed))
-                    { failure = RewardStatus.Stale; return false; }
-                    var mail = draft.Mail.Find(m => m.Id == id);
-                    if (mail == null || mail.Claimed || mail.ExpiresUtc <= now)
-                    { failure = RewardStatus.Stale; return false; }
-                    targets.Add(mail);
-                }
-                if (!RewardGrants.TryApply(draft, targets.SelectMany(m => m.Rewards), out granted))
-                { failure = RewardStatus.InvalidReward; return false; }
-                foreach (var mail in targets) mail.ClaimedAtUtc = now;
-                draft.RewardsRevision++;
-                return true;
-            });
-            return new(saved ? RewardStatus.Success : failure, saved ? granted : null);
+                    if (!Current()) return;
+                    try
+                    {
+                        MailboxProtocol.ValidateList(response);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogWarning("[Mailbox] " + e.Message); Fail("우편 응답을 확인하지 못했습니다. 다시 불러와 주세요."); return;
+                    }
+                    if (response.StartIndex != start)
+                    {
+                        Fail("우편 조회 범위가 일치하지 않습니다."); return;
+                    }
+
+                    if (total < 0)
+                    {
+                        total = response.TotalCount; 
+                        mailbox = response.MailboxId;
+                    }
+
+                    if (total != response.TotalCount || mailbox != response.MailboxId ||
+                        response.Mails.Count != Math.Min(50, Math.Max(0, total - start)) ||
+                        response.Mails.Any(m => !ids.Add(m.MailId)))
+                    {
+                        Inconsistent(); return;
+                    }
+                    collected.AddRange(response.Mails);
+                    _serverUtc = response.ServerTimeUtc; 
+                    _observedAt = _clock();
+                    if (collected.Count < total)
+                    {
+                        Page(start + 50); return;
+                    }
+                    _messages = collected.ToArray(); 
+                    MailboxId = mailbox;
+                    IsLoading = false; 
+                    HasSnapshot = true; 
+                    Changed?.Invoke();
+                }, error => Fail(NetworkManager.DescribeFailure(error, "우편 조회")));
+            }
+            Page(0);
         }
 
-        public RewardResult DeleteClaimed(MailboxSnapshot snapshot)
+        public void Claim(long mailId) => StartClaim(new[] { mailId });
+        public void ClaimAll() => StartClaim(_messages.Where(mailDto => mailDto.ExpiresUtc > ServerNow).Select(mailDto => mailDto.MailId).ToArray());
+
+        private void StartClaim(long[] ids)
         {
-            if (!LocalProgression.IsReady) return new(RewardStatus.NotReady);
-            if (snapshot == null || snapshot.AccountGeneration != LocalProgression.AccountGeneration) return new(RewardStatus.Stale);
-            var ids = snapshot.Messages.Where(m => m.Claimed).Select(m => m.Id).ToHashSet();
-            if (ids.Count == 0) return new(RewardStatus.NothingAvailable);
-            var failure = RewardStatus.SaveFailed;
-            bool saved = LocalProgression.Execute("mail-delete-claimed", draft =>
+            CheckAccount();
+            if (!CanClaim || ids.Length == 0 || ids.Distinct().Count() != ids.Length ||
+                ids.Any(id => !_messages.Any(mailDto => mailDto.MailId == id && mailDto.ExpiresUtc > ServerNow))) return;
+            var account = _account;
+            int operation = ++_operationVersion, view = _viewVersion;
+            string mailbox = MailboxId;
+            _claiming = true; 
+            Error = null; 
+            Changed?.Invoke();
+            var granted = new List<GachaRewardDTO>();
+            bool Current() => operation == _operationVersion && account == _identity();
+            void Finish(string message, bool recover)
             {
-                if (snapshot.AccountGeneration != LocalProgression.AccountGeneration ||
-                    ids.Any(id => !draft.Mail.Any(m => m.Id == id && m.Claimed)))
-                { failure = RewardStatus.Stale; return false; }
-                draft.Mail.RemoveAll(m => ids.Contains(m.Id));
-                draft.RewardsRevision++;
-                return true;
-            });
-            return new(saved ? RewardStatus.Success : failure);
+                if (!Current()) return;
+                _claiming = false; 
+                _needsRecovery |= recover; 
+                Error = message;
+                // Reopening must not display a popup owned by an earlier panel session.
+                if (_open && view == _viewVersion)
+                    ClaimCompleted?.Invoke(new MailboxClaimResult { Rewards = granted.ToArray(), Message = message });
+                
+                if (_needsRecovery) RecoverState();
+                else if (_open) Load(0);
+                else Changed?.Invoke();
+            }
+            void Batch(int offset)
+            {
+                var batch = ids.Skip(offset).Take(50).ToList();
+                _claim(new OnClaimMailRewardRequestDTO { MailIds = batch }, response =>
+                {
+                    if (!Current()) return;
+                    try
+                    {
+                        MailboxProtocol.ValidateClaim(response);
+                        if (response.MailboxId != mailbox || !batch.ToHashSet().SetEquals(response.ClaimedMailIds))
+                            throw new InvalidOperationException("Claim identifiers do not match.");
+                        if (!_apply(response)) throw new InvalidOperationException("Could not save the server reward snapshot.");
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogWarning("[Mailbox] " + e.Message);
+                        Finish("수령 결과를 확인하기 위해 서버 상태를 다시 불러옵니다.", true); return;
+                    }
+                    granted.AddRange(response.Rewards);
+                    var removed = response.ClaimedMailIds.ToHashSet();
+                    _messages = _messages.Where(m => !removed.Contains(m.MailId)).ToArray(); Changed?.Invoke();
+                    if (offset + batch.Count < ids.Length) Batch(offset + batch.Count);
+                    else Finish(null, false);
+                }, error =>
+                {
+                    if (!Current()) return;
+                    string kind = NetworkManager.GetFailureKind(error);
+                    // Storage errors also arrive as Business; they do not prove that nothing was saved.
+                    bool storageFailure = NetworkManager.TryGetBusinessError(error, out var business) &&
+                        (business.ErrorCode == Protocol.Message.Data.eErrorCode.StorageFailure || business.ErrorCode == Protocol.Message.Data.eErrorCode.InvalidStoredData);
+                    bool uncertain = storageFailure || (kind != "Business" && kind != "NotAuthenticated" && kind != "IntegrationPending");
+                    Finish(NetworkManager.DescribeFailure(error, "우편 수령"), uncertain);
+                });
+            }
+            Batch(0);
         }
 
-        internal static bool IsValid(MailMessage mail) => mail != null && !string.IsNullOrWhiteSpace(mail.Id) &&
-            !string.IsNullOrWhiteSpace(mail.Title) && mail.CreatedUtc > 0 && mail.ExpiresUtc > mail.CreatedUtc &&
-            mail.ExpiresUtc <= MaxMailUtc && mail.ClaimedAtUtc >= 0 && mail.ClaimedAtUtc <= MaxMailUtc &&
-            mail.Rewards != null && mail.Rewards.Count > 0 && mail.Rewards.All(RewardGrants.IsValid);
+        private void RecoverState()
+        {
+            if (_recovering) return;
+            _needsRecovery = _recovering = true;
+            var account = _account;
+            int operation = _operationVersion;
+            Changed?.Invoke();
+            _recover(ok =>
+            {
+                if (operation != _operationVersion || account != _identity()) return;
+                _recovering = false; 
+                _needsRecovery = !ok;
+                if (!ok)
+                {
+                    Error = "서버 상태를 확인하지 못했습니다. 다시 불러와 주세요."; 
+                    HasSnapshot = false; 
+                    Changed?.Invoke();
+                }
+                else if (_open) Load(0);
+                else Changed?.Invoke();
+            });
+        }
+
+        internal static bool Apply(OnClaimMailRewardResponseDTO response)
+        {
+            bool saved = LocalProgression.Execute("server-mail-claim", progressionState =>
+            {
+                UserManager.ApplyCurrency(progressionState, response.Currency);
+                UserManager.ApplyEquipment(progressionState, response.Equipment);
+                return true;
+            });
+            if (saved)
+            {
+                EquipmentManager.Instance?.RestoreEquipment();
+                QuestManager.Instance?.RequestRefresh("mail");
+            }
+            return saved;
+        }
+
+        private static void Recover(Action<bool> done)
+        {
+            if (UserManager.Instance == null) done(false);
+            else UserManager.Instance.RefreshFromServer(done);
+        }
     }
 }

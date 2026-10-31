@@ -457,7 +457,7 @@ namespace Scripts.Core.Manager
         }
 
         // 서버 EquipmentRules.Valid와 같은 규칙. 어긋나면 InvalidResponse로 거절해 손상된 인벤토리를 플레이어 상태에 쓰지 않는다.
-        private static void ValidateEquipment(EquipmentInventoryDTO inventory)
+        internal static void ValidateEquipment(EquipmentInventoryDTO inventory)
         {
             if (inventory == null || inventory.Items == null || inventory.PendingItems == null || inventory.ReserveStacks == null)
                 throw new JsonSerializationException("Missing equipment inventory.");
@@ -606,6 +606,10 @@ namespace Scripts.Core.Manager
                     case 1035: return "환생 쿨다운 중입니다. 잠시 후 다시 시도해 주세요.";
                     case 1036: return "메인 일반 웨이브에서만 환생할 수 있습니다. 보스전·던전 종료 후 다시 확인하세요.";
                     case 1037: return "오프라인 보상 요청값이 올바르지 않습니다.";
+                    case 1039: return "이미 받았거나 삭제된 우편입니다. 목록을 다시 확인해 주세요.";
+                    case 1040: return "수령 기간이 지난 우편입니다.";
+                    case 1041: return "우편함이 가득 찼습니다.";
+                    case 1042: return "우편 요청 정보를 확인하지 못했습니다.";
                     case 1043: return "실습 보상을 받을 수 없는 단계입니다.";
                     default: return $"{action}에 실패했습니다. (오류 {(int)business.ErrorCode})";
                 }

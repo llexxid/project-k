@@ -1,4 +1,4 @@
-﻿using Cysharp.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using KingdomIdle.OfflineRewards;
 using Scripts.Core.Manager;
 using Scripts.Core.SO;
@@ -41,6 +41,7 @@ namespace Scripts.Core
 
         private void Init()
         {
+            Mailbox = new KingdomIdle.Mailbox.MailboxService();
             var policy = new ReincarnationPolicy();
             var store = new ReincarnationStore();
             var gateway = new ReincarnationGateway();
@@ -61,7 +62,7 @@ namespace Scripts.Core
             SceneManager.sceneLoaded -= OnSceneLoaded;
             KingdomIdle.Balance.LocalProgression.AccountChanged -= ScheduleRewardSync;
         }
-        private void ScheduleRewardSync() => _nextRewardSync = 0;
+        private void ScheduleRewardSync() { _nextRewardSync = 0; Mailbox?.CheckAccount(); }
         private void OnApplicationPause(bool paused) { _rewardsPaused = paused; ScheduleRewardSync(); }
         private void OnApplicationFocus(bool focused) { _rewardsUnfocused = !focused; ScheduleRewardSync(); }
         private void Update()
@@ -75,12 +76,9 @@ namespace Scripts.Core
                 !KingdomIdle.Balance.LocalProgression.IsReady ||
                 KingdomIdle.Balance.LocalProgression.AccountKey != network.GetSessionID() || ui == null || ui.Catalog == null) return;
             CheckIn ??= new KingdomIdle.CheckIn.CheckInService(ui.Catalog.checkInRewards);
-            Mailbox ??= new KingdomIdle.Mailbox.MailboxService();
             CheckIn.RecordVisit();
-            Mailbox.Refresh();
         }
 
-        
         #region 플레이어 생존 관리
         // ── 플레이어 생존 관리 ──────────────────────────────────────
         // "사망 애니메이션 완료" 횟수를 셈. IsDead는 데미지 즉시 true가 되므로 사용 불가.
