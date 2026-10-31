@@ -41,3 +41,11 @@
 서버는 우편함·재화·장비 등 여러 문서를 원자적으로 저장한다고 보장하지 않는다. 클라이언트의 재조회는 저장된 서버 상태를 다시 맞추는 동작이며 서버의 부분 저장에 따른 누락·중복을 복구하는 거래 보장은 아니다. 수령 ID와 결과를 영속적으로 확정하는 서버 처리가 필요한 한계다. 페이지에 snapshot revision도 없으므로 중복 ID·개수 변경은 탐지하지만 개수가 같은 동시 변경을 모두 탐지할 수는 없다.
 
 월별 출석 DTO, 미수령 이월, 출석 +N 표시, 우편함 100통 포화 시 이월 정책은 이번 범위에 포함하지 않았다. 출석 준비 상태를 해제할 때 새 서버 계약에 맞춰 구현한다.
+
+## 0.19.1 — 닫기 직후 재진입 회귀 수정 (2026-11-01)
+
+- `MailboxPanelController.Awake`에서 기존 `BottomSheetView.OnClosed`에 컨트롤러 비활성화를 연결했다. 스택에서 빠지는 즉시 기존 OnDisable이 구독·서비스 연결을 정리하고, 퇴장 중 Update의 재연결도 중단한다. 애니메이션·프리팹·서버 계약은 변경하지 않았다.
+- Unity 6000.3.21f1 bootstrap Play에서 실제 우편함 프리팹과 격리 응답으로 `MailboxUiAcceptance.VerifyCloseReopen()`을 실행했다. 수정 전에는 `closing panel invalidated the reopened mailbox`로 실패했고, 수정 후에는 이전 패널 지연 종료/재진입·가림 후 복귀·재진입 수령 3개 검사가 통과했다(적용 1회, 목록 요청 4회). 기존 `MailboxAcceptance.Run()` 35개 검사도 통과했다.
+- Unity import·컴파일 성공, Panel_Mailbox의 Missing Script 0개와 필수 참조를 확인했다. Play 프레임은 141에서 1892로 진행했다. 검사 오브젝트를 정리하고 원래의 bootstrap 편집 상태로 복귀했다.
+- 표시·레이아웃·텍스처·행 풀 변경은 없어 캡처 및 성능 측정을 반복하지 않았다. Android 빌드·설치·실기기와 실제 서버 수령은 검증하지 않았다. bundleVersion은 0.19.1, 배포하지 않았으므로 Android versionCode는 66을 유지한다.
+- 기존 GvhProjectSettings.xml 파일 잠금 오류(1224)와 CLI status의 구버전 Pipeline 명령 호환 오류(`editor status`)는 별도 환경 문제로 남아 있다. 우편함 컴파일·회귀 검사는 정상 완료했으며 해당 설정 파일은 수정·커밋하지 않았다.

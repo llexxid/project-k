@@ -117,6 +117,42 @@ namespace KingdomIdle.Mailbox.Testing
             return new { passed = checks.Count, checks, pool, state = Inspect() };
         }
 
+        public static object VerifyCloseReopen()
+        {
+            Open(1);
+            var closing = _view;
+            closing.OnClosed?.Invoke();
+            bool stopped = !closing.GetComponent<MailboxPanelController>().enabled;
+            _fixture.HoldLists = true;
+
+            var host = new GameObject("MailboxReopened", typeof(RectTransform));
+            host.SetActive(false);
+            var rect = (RectTransform)host.transform;
+            rect.SetParent(_root.transform, false);
+            rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero;
+            var panel = UnityEngine.Object.Instantiate(UIManager.Instance.Catalog.panelMailbox, rect, false);
+            panel.GetComponent<MailboxPanelController>().UseTestService(_fixture.Service);
+            _view = panel.GetComponent<MailboxPanelView>();
+            host.SetActive(true);
+
+            // The closing panel is disabled/destroyed only after its replacement has started loading.
+            closing.gameObject.SetActive(false);
+            UnityEngine.Object.Destroy(closing.gameObject);
+            _fixture.Lists.Dequeue()();
+            if (!stopped || !_fixture.Service.CanClaim || !_view.claimAll.interactable)
+                throw new InvalidOperationException("MAIL UI ASSERT: closing panel invalidated the reopened mailbox");
+
+            _view.gameObject.SetActive(false);
+            _view.gameObject.SetActive(true);
+            _fixture.Lists.Dequeue()();
+            if (!_fixture.Service.CanClaim) throw new InvalidOperationException("MAIL UI ASSERT: covered panel did not reconnect");
+            _view.claimAll.onClick.Invoke();
+            _fixture.Lists.Dequeue()();
+            if (_fixture.Applied != 1 || _fixture.Service.Messages.Count != 0)
+                throw new InvalidOperationException("MAIL UI ASSERT: reopened mailbox could not claim");
+            return new { passed = 3, stopped, _fixture.Applied, _fixture.ListCalls };
+        }
+
         public static void Close()
         {
             if (_root != null) { _root.SetActive(false); UnityEngine.Object.Destroy(_root); _root = null; }

@@ -175,6 +175,7 @@ Editor에서 bootstrap부터 Play·로그인한 뒤 `GameTest → Shop Ad Test �
 0.19.0부터 메인 메뉴의 우편함은 `OnGetMailList`·`OnClaimMailReward`를 사용한다. `GameManager.Mailbox`가 서버 요청과 메모리 목록을 소유하고 `MailboxPanelController`는 화면 상태와 버튼을 연결한다. 서버 저장소·DTO 계약은 변경하지 않는다.
 
 - 열 때 50통씩 최대 두 페이지(총 100통)를 받고, 전체 조회 완료 후 수령을 허용한다. 닫으면 목록을 비운다. 페이지 간 중복·개수 불일치 시 0부터 한 번만 재조회한다.
+- 스택 종료 훅에서 컨트롤러를 즉시 비활성화해 구독과 연결을 정리한다. 퇴장 애니메이션 뒤의 파괴가 새 우편함을 닫지 않으며, 다른 패널에 가렸다 복귀할 때는 기존 OnEnable/OnDisable로 재연결한다.
 - 개별 수령은 long MailId를 사용한다. 모두 받기는 클릭 시점의 ID를 최대 50개씩 순차 처리한다. 중간 실패 시 성공분은 유지하며 결과를 표시하고 목록을 다시 조회한다.
 - 재화·장비는 응답의 절대값을 기존 UserManager 경로로 반영한다. 응답 유실·저장 실패는 수령을 재전송하지 않고 플레이어 상태를 재조회한다. 화면 종료 후에도 같은 계정의 수령 결과는 반영하며 다른 계정의 응답은 무시한다.
 - 수령 성공한 우편은 즉시 제거한다. 기존 삭제 버튼은 비활성 상태로 보존하고 `수령 시 자동 삭제`를 안내한다. 조회 오류에서는 하단 버튼이 `다시 불러오기`가 된다.
@@ -194,4 +195,5 @@ Editor에서 bootstrap부터 Play·로그인한 뒤 `GameTest → Shop Ad Test �
 - `GameTest/Mailbox Test/격리 로컬 지급 검증`: Play 종료 후 기존 BeginTestSession/OpenTestAccount로 저장 실패·지급·중복·삭제를 검사하고 원래 계정·상태를 복원한다.
 - `GameTest/Mailbox Test/서버 응답 시나리오 검증`: 실제 계정·통신 없이 페이지/부분 실패/닫기/계정 변경/응답 유실을 검사한다.
 - `MailboxUiAcceptance.Open(100)` / `VerifyRecycling()`: bootstrap Play에서 실제 프리팹을 사용하는 격리 미리보기. 서버 통합 검증과 구분한다.
+- `MailboxUiAcceptance.VerifyCloseReopen()`: bootstrap Play에서 이전 패널의 지연 종료·재진입, 비활성화 후 복귀, 재진입 후 수령을 검사한다. 검사 후 `Close()`로 미리보기를 정리한다.
 - [0.19.0 검증 기록](../../AI/validation/mailbox-server-20261031/README.md)

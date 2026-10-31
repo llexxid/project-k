@@ -19,6 +19,8 @@ namespace KingdomIdle.UGUI
         private void Awake()
         {
             _view = GetComponent<MailboxPanelView>();
+            // Disconnect before the closing animation, and prevent Update from reconnecting.
+            _view.OnClosed = () => enabled = false;
             _list = GetComponent<VirtualizedMailList>() ?? gameObject.AddComponent<VirtualizedMailList>();
             _list.Initialize(_view.content, UIManager.Instance.Catalog.itemMailRow, transform, id => _service?.Claim(id));
             _view.claimAll.onClick.AddListener(ReceiveOrRetry);
