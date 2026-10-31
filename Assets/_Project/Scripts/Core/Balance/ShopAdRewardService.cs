@@ -91,5 +91,25 @@ namespace KingdomIdle.Balance
             return new RewardResult(saved ? RewardStatus.Success : status, saved ? new[] { reward } : null);
         }
 
+#if UNITY_EDITOR
+        internal static RewardStatus ResetTodayForTesting()
+        {
+            if (!LocalProgression.IsReady) return RewardStatus.NotReady;
+            try { LocalProgression.Ensure(); }
+            catch { return RewardStatus.NotReady; }
+            var account = new Claim(ShopCatalog.Find("rewarded.daily_equipment"), eCurrency.EquipmentTicket);
+            if (!IsCurrentAccount(account)) return RewardStatus.NotReady;
+            var failure = RewardStatus.SaveFailed;
+            bool saved = LocalProgression.Execute("test-shop-ad-reset", state =>
+            {
+                if (!IsCurrentAccount(account)) { failure = RewardStatus.Stale; return false; }
+                state.Claims.Remove(Key("rewarded.daily_equipment", account.Day));
+                state.Claims.Remove(Key("rewarded.daily_mage", account.Day));
+                return true;
+            });
+            return saved ? RewardStatus.Success : failure;
+        }
+#endif
+
     }
 }
