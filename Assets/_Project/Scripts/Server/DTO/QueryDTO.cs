@@ -263,9 +263,16 @@ namespace Protocol.Message.Dto
 			return (Code & ItemEnchantCountMask);
 		}
 	}
-	public class UserCurrentStageQuery
+	// 서버 UserStageQuery 사본(2026-10-31). CurrentStage는 현재 메인 스테이지, HighestStage는 이번 환생 주기 최고 도달(환생 시 1-1),
+	// MainClear는 환생에도 유지되는 영구 최고 클리어(0은 없음)다. 클리어 판정은 "스테이지 ID <= MainClear"다.
+	public sealed class UserStageQuery
 	{
+		[JsonProperty(Required = Required.Always)]
 		public eStage CurrentStage { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public eStage HighestStage { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public eStage MainClear { get; set; }
 	}
 
 	public class UserDataQuery
@@ -536,13 +543,6 @@ namespace Protocol.Message.Dto
 		public string ActiveBattleId { get; set; }
 		[JsonProperty(Required = Required.AllowNull)]
 		public long? ActiveDungeonId { get; set; }
-	}
-	public sealed class StageProgressDTO
-	{
-		[JsonProperty(Required = Required.Always)]
-		public long HighestMainClear { get; set; }
-		[JsonProperty(Required = Required.Always)]
-		public List<long> MainClears { get; set; } = null!;
 	}
 	public enum QuestCategory { Guide, Daily, Weekly, Achievement }
 	public enum QuestRowState { Locked, InProgress, Claimable, Claimed }

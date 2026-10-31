@@ -32,7 +32,7 @@ namespace KingdomIdle.UGUI
         private GuideEmptyHintView _emptyHint;
         private string _emptyText;
         private QuestScrollDragRelay _dragRelay;
-        private bool _dragging, _deferredRebind;
+        private bool _dragging, _deferredRebind, _claimRequested;
         private SheetSizeFitter _sizeFitter;
         private RectTransform _hudTop;
 
@@ -59,7 +59,12 @@ namespace KingdomIdle.UGUI
         /// <summary>닫기 또는 스택 가림 시 구독만 해제한다. 같은 패널의 버튼과 선택 상태는 보존한다.</summary>
         private void OnDisable()
         {
-            if (_manager != null) _manager.QuestsChanged -= OnQuestsChanged;
+            if (_manager != null)
+            {
+                _manager.QuestsChanged -= OnQuestsChanged;
+                _manager.OnClaimCompleted -= OnClaimCompleted;
+                _manager.RemoveWatcher(true);
+            }
             _manager = null;
             _dragging = _deferredRebind = false;
         }
@@ -176,6 +181,8 @@ namespace KingdomIdle.UGUI
             if (_manager != null || QuestManager.Instance == null || !isActiveAndEnabled) return;
             _manager = QuestManager.Instance;
             _manager.QuestsChanged += OnQuestsChanged;
+            _manager.OnClaimCompleted += OnClaimCompleted;
+            _manager.AddWatcher(true);
             Rebind(true);
         }
 
@@ -356,16 +363,31 @@ namespace KingdomIdle.UGUI
                 QuestNavigation.Navigate(row.Snapshot.ObjectiveType, row.Snapshot.TargetId);
         }
 
-        /// <summary>화면에 표시했던 기간 토큰 그대로 요청한다. 저장 실패 시 UI가 보상이나 진행도를 추측해 바꾸지 않는다.</summary>
+        /// <summary>화면에 표시했던 기간 토큰 그대로 서버(OnClaimQuestReward)에 요청한다. 요청 중에는 버튼을 잠그고 결과는 OnClaimCompleted에서 알린다.</summary>
         private void Claim(Row row)
         {
             if (_manager == null) return;
             var result = _manager.TryClaim(row.Snapshot.Token);
-            if (result.Status == QuestClaimStatus.SaveFailed)
-                UIManager.Instance?.ShowToast("보상 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
-            else if (result.Succeeded && row.Snapshot.Category == eQuestCategory.Guide)
-                UIManager.Instance?.ShowToast("가이드 완료");
+            if (result.Status == QuestClaimStatus.Pending)
+            {
+                _claimRequested = true;
+                if (row.View != null && row.View.actionButton != null) row.View.actionButton.interactable = false;
+                return;
+            }
+            if (result.Status == QuestClaimStatus.Busy) UIManager.Instance?.ShowToast("이전 보상을 처리 중입니다. 잠시 후 다시 시도해 주세요.");
+            else if (result.Status == QuestClaimStatus.NetworkNotReady) UIManager.Instance?.ShowToast("서버 로그인이 필요합니다.");
             Rebind(false);
+        }
+
+        /// <summary>서버 수령 결과. 이 패널이 요청한 수령만 안내하고, 응답의 Quests로 바뀐 행은 QuestsChanged가 다시 그린다.</summary>
+        private void OnClaimCompleted(QuestClaimToken token, bool ok, string message)
+        {
+            if (!_claimRequested) return;
+            _claimRequested = false;
+            if (!ok) UIManager.Instance?.ShowToast(string.IsNullOrEmpty(message) ? "보상을 받지 못했습니다. 잠시 후 다시 시도해 주세요." : message);
+            else if (_rows.Find(r => r.Snapshot.Token == token)?.Snapshot.Category == eQuestCategory.Guide) UIManager.Instance?.ShowToast("가이드 완료");
+            else UIManager.Instance?.ShowToast("보상을 받았습니다.");
+            if (isActiveAndEnabled) Rebind(false);
         }
 
         private static void Render(Row row)

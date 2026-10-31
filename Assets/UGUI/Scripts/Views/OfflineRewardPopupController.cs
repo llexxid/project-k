@@ -77,6 +77,8 @@ namespace KingdomIdle.UGUI
 
         private static void WatchAd()
         {
+            // 광고 보너스는 서버 API 연결 전까지 보류한다(OfflineRewardManager.AdBonusAvailable).
+            if (!OfflineRewardManager.AdBonusAvailable) return;
             var choice = _choice;
             if (!IsOpen || choice == null || choice.Busy || choice.Earned) return;
             if (!CheckAccount(choice)) return;
@@ -171,6 +173,7 @@ namespace KingdomIdle.UGUI
         private static void RefreshButtons()
         {
             if (_view == null || _choice == null) return;
+            _view.adButton.gameObject.SetActive(OfflineRewardManager.AdBonusAvailable);
             _view.adButton.interactable = !_choice.Busy && !_choice.Earned;
             _view.confirmButton.interactable = !_choice.Busy;
             _view.adButtonLabel.text = _choice.Busy && !_choice.Earned ? "광고 불러오는 중…" : "광고보고 보상 2배";

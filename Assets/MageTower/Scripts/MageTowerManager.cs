@@ -8,6 +8,8 @@ using UnityEngine.Serialization;
 using Scripts.Core;
 using Scripts.Monster;
 using Scripts.Wallets;
+using PlayFab;
+using Protocol.Message.Dto;
 
 namespace KingdomIdle.MageTower
 {
@@ -34,6 +36,28 @@ namespace KingdomIdle.MageTower
 
         public event Action OnStateChanged;
         public event Action OnCooldownTick;
+
+        /// <summary>서버 마탑 조작의 결과. Pending을 돌려준 뒤 OnActionCompleted로 결과를 알린다. 나머지는 안내용 가드다(최종 판정은 서버).</summary>
+        public enum MageActionResult { Pending, Busy, NetworkNotReady, InvalidRequest, NotOwned, MaxLevel, NotEnough, NotUnlocked, NoChange }
+        public enum MageActionKind { Enhance, Awaken, Loadout, Bloom, Reset }
+        /// <summary>완료 이벤트 인자. 지출·환급은 서버 응답 값이고 표시 전용이다.</summary>
+        public sealed class MageActionInfo
+        {
+            public MageActionKind Kind;
+            public int SkillId = -1;
+            public bool Ok;
+            public long SpentArcaneKnowledge, RefundedArcaneKnowledge;
+            public int SpentFragments;
+            public int ErrorCode;
+            public string Failure;
+            public string LogLine;
+        }
+        /// <summary>서버 응답을 기다리는 중. 같은 버튼 연타는 매니저가 막는다(NetworkManager 큐는 1017만 막는다).</summary>
+        public bool IsBusy { get; private set; }
+        /// <summary>마지막 서버 거절 또는 적용 실패. Business 오류면 CustomData에 서버 ErrorResponseDTO가 들어 있다.</summary>
+        public PlayFabError LastFailure { get; private set; }
+        public event Action<bool> OnBusyChanged;
+        public event Action<MageActionInfo> OnActionCompleted;
 
         private void Awake()
         {
@@ -182,25 +206,45 @@ namespace KingdomIdle.MageTower
         }
 
         // ===== 장착 =====
-        public bool Equip(int slotIndex, int skillId)
+        /// <summary>슬롯 편성은 서버(OnSetSkillLoadout)가 확정한다. 5칸 배열을 통째로 보내고 응답의 MageTowerState를 저장한다. bool 반환은 QA 호환(Pending이면 true)이다.</summary>
+        public bool Equip(int slotIndex, int skillId) => TryEquipEx(slotIndex, skillId) == MageActionResult.Pending;
+        public MageActionResult TryEquipEx(int slotIndex, int skillId)
         {
-            if (slotIndex < 0 || slotIndex >= SlotCount || GetSkillById(skillId) == null || !IsOwned(skillId)) return false;
-            if (_equipped[slotIndex] == skillId) return false;
-            bool result = LocalProgression.Execute("mage-equip", state => {
-                int previous = state.MageSlots[slotIndex];
-                // One atomic swap, never a transient duplicate or an intermediate empty loadout.
-                for (int i = 0; i < SlotCount; i++) if (state.MageSlots[i] == skillId) state.MageSlots[i] = previous;
-                state.MageSlots[slotIndex] = skillId; return true;
-            });
-            if (result) NotifyCommitted(); return result;
-    }
+            if (slotIndex < 0 || slotIndex >= SlotCount || GetSkillById(skillId) == null) return MageActionResult.InvalidRequest;
+            if (!IsOwned(skillId)) return MageActionResult.NotOwned;
+            if (_equipped[slotIndex] == skillId) return MageActionResult.NoChange;
+            if (IsBusy) return MageActionResult.Busy;
+            int[] loadout = (int[])_equipped.Clone();
+            int previous = loadout[slotIndex];
+            // One atomic swap, never a transient duplicate or an intermediate empty loadout.
+            for (int i = 0; i < SlotCount; i++) if (loadout[i] == skillId) loadout[i] = previous;
+            loadout[slotIndex] = skillId;
+            return RequestLoadout(loadout, skillId);
+        }
 
-        public bool Unequip(int slotIndex)
+        public bool Unequip(int slotIndex) => TryUnequipEx(slotIndex) == MageActionResult.Pending;
+        public MageActionResult TryUnequipEx(int slotIndex)
         {
-            if (slotIndex < 0 || slotIndex >= SlotCount || _equipped[slotIndex] < 0) return false;
-            bool result = LocalProgression.Execute("mage-unequip", state => { state.MageSlots[slotIndex] = -1; return true; });
-            if (result) NotifyCommitted(); return result;
-    }
+            if (slotIndex < 0 || slotIndex >= SlotCount) return MageActionResult.InvalidRequest;
+            if (_equipped[slotIndex] < 0) return MageActionResult.NoChange;
+            if (IsBusy) return MageActionResult.Busy;
+            int[] loadout = (int[])_equipped.Clone();
+            int skillId = loadout[slotIndex];
+            loadout[slotIndex] = -1;
+            return RequestLoadout(loadout, skillId);
+        }
+
+        private MageActionResult RequestLoadout(int[] loadout, int skillId)
+        {
+            var network = Begin(out MageActionResult gate);
+            if (network == null) return gate;
+            var info = new MageActionInfo { Kind = MageActionKind.Loadout, SkillId = skillId };
+            string detail = "slots=" + string.Join(".", loadout);
+            network.Call<OnSetSkillLoadoutRequestDTO, OnSetSkillLoadoutResponseDTO>(new OnSetSkillLoadoutRequestDTO { EquippedSkillIds = loadout },
+                r => ApplyServerResult(info, "loadout", detail, r.MageTowerState, null),
+                e => RejectServerResult(info, "loadout", e));
+            return MageActionResult.Pending;
+        }
 
         public bool IsEquipped(int skillId)
         {
@@ -227,17 +271,23 @@ namespace KingdomIdle.MageTower
             return ak >= GetEnhanceCost(skillId);
         }
 
-        public bool Enhance(int skillId)
+        /// <summary>강화 비용 차감·단계 상승은 서버(OnEnChantSkill)가 확정하고 응답의 MageTowerState·CurrentArcaneKnowledge를 저장한다. CanEnhance는 안내용이다.</summary>
+        public bool Enhance(int skillId) => TryEnhanceEx(skillId) == MageActionResult.Pending;
+        public MageActionResult TryEnhanceEx(int skillId)
         {
-            if (!CanEnhance(skillId)) return false;
-            bool result = LocalProgression.Execute("mage-enhance", state => {
-                if (!state.MageSkills.TryGetValue(skillId, out var skill)) return false;
-                long? cost = BalanceMath.MageCost(skill.Enhance);
-                if (!cost.HasValue || !LocalProgression.Spend(state, eCurrency.ArcaneKnowledge, cost.Value)) return false;
-                skill.Enhance++; skill.Spent = checked(skill.Spent + cost.Value); return true;
-            });
-            if (result) NotifyCommitted(); return result;
-    }
+            if (GetSkillById(skillId) == null) return MageActionResult.InvalidRequest;
+            if (!IsOwned(skillId)) return MageActionResult.NotOwned;
+            if (GetEnhanceLevel(skillId) >= BalanceMath.MageCap) return MageActionResult.MaxLevel;
+            if (IsBusy) return MageActionResult.Busy;
+            if (!CanEnhance(skillId)) return MageActionResult.NotEnough;
+            var network = Begin(out MageActionResult gate);
+            if (network == null) return gate;
+            var info = new MageActionInfo { Kind = MageActionKind.Enhance, SkillId = skillId };
+            network.Call<OnEnchantSkillRequestDTO, OnEnchantSkillResponseDTO>(new OnEnchantSkillRequestDTO { SkillCode = Code(skillId) },
+                r => { info.SpentArcaneKnowledge = r.SpentArcaneKnowledge; ApplyServerResult(info, "enhance", "spent=" + r.SpentArcaneKnowledge, r.MageTowerState, r.CurrentArcaneKnowledge); },
+                e => RejectServerResult(info, "enhance", e));
+            return MageActionResult.Pending;
+        }
 
         // ===== 각성 =====
         public int GetAwakeningCost(int skillId)
@@ -254,17 +304,23 @@ namespace KingdomIdle.MageTower
             return GetFragments(skillId) >= GetAwakeningCost(skillId);
         }
 
-        public bool Awaken(int skillId)
+        /// <summary>각성 비용(파편 Awaken+1)과 단계는 서버(OnAwakeningSkill)가 확정한다. 응답에 재화가 없으므로 MageTowerState만 저장한다.</summary>
+        public bool Awaken(int skillId) => TryAwakenEx(skillId) == MageActionResult.Pending;
+        public MageActionResult TryAwakenEx(int skillId)
         {
-            if (!CanAwaken(skillId)) return false;
-            bool result = LocalProgression.Execute("mage-awaken", state => {
-                var skill = state.MageSkills[skillId];
-                int cost = skill.Awaken + 1;
-                if (skill.Awaken >= 10 || skill.Fragments < cost) return false;
-                skill.Fragments -= cost; skill.Awaken++; return true;
-            });
-            if (result) NotifyCommitted(); return result;
-    }
+            if (GetSkillById(skillId) == null) return MageActionResult.InvalidRequest;
+            if (!IsOwned(skillId)) return MageActionResult.NotOwned;
+            if (GetAwakeningLevel(skillId) >= 10) return MageActionResult.MaxLevel;
+            if (IsBusy) return MageActionResult.Busy;
+            if (GetFragments(skillId) < GetAwakeningCost(skillId)) return MageActionResult.NotEnough;
+            var network = Begin(out MageActionResult gate);
+            if (network == null) return gate;
+            var info = new MageActionInfo { Kind = MageActionKind.Awaken, SkillId = skillId };
+            network.Call<OnAwakeningSkillRequestDTO, OnAwakeningSkillResponseDTO>(new OnAwakeningSkillRequestDTO { SkillCode = Code(skillId) },
+                r => { info.SpentFragments = r.SpentFragments; ApplyServerResult(info, "awaken", "frag=" + r.SpentFragments, r.MageTowerState, null); },
+                e => RejectServerResult(info, "awaken", e));
+            return MageActionResult.Pending;
+        }
 
         // ===== 쿨타임 =====
         public bool IsOnCooldown(int slotIndex)
@@ -380,14 +436,22 @@ namespace KingdomIdle.MageTower
         public bool IsBloomEnabled(int id) => IsBloomUnlocked(id) && Saved(id).BloomEnabled;
         // A cast snapshots its mode and cooldown. Switching affects the next cast only.
         public bool CanSetBloom(int id) => IsBloomUnlocked(id);
-        public bool SetBloomEnabled(int id, bool enabled)
+        /// <summary>개화 켜기/끄기는 서버(OnSetSkillBloom)가 확정한다(켤 때 각성 10 필요). 응답의 MageTowerState를 저장한다.</summary>
+        public bool SetBloomEnabled(int id, bool enabled) => TrySetBloomEx(id, enabled) == MageActionResult.Pending;
+        public MageActionResult TrySetBloomEx(int id, bool enabled)
         {
-            if (!CanSetBloom(id)) return false;
-            bool result = LocalProgression.Execute("mage-bloom", state => {
-                if (!state.MageSkills.TryGetValue(id, out var skill) || skill.Awaken < MageSkillRules.BloomAwakening) return false;
-                skill.BloomEnabled = enabled; return true;
-            });
-            if (result) NotifyCommitted(); return result;
+            if (GetSkillById(id) == null) return MageActionResult.InvalidRequest;
+            if (!IsOwned(id)) return MageActionResult.NotOwned;
+            if (!CanSetBloom(id)) return MageActionResult.NotUnlocked;
+            if (IsBloomEnabled(id) == enabled) return MageActionResult.NoChange;
+            if (IsBusy) return MageActionResult.Busy;
+            var network = Begin(out MageActionResult gate);
+            if (network == null) return gate;
+            var info = new MageActionInfo { Kind = MageActionKind.Bloom, SkillId = id };
+            network.Call<OnSetSkillBloomRequestDTO, OnSetSkillBloomResponseDTO>(new OnSetSkillBloomRequestDTO { SkillId = id, Enabled = enabled },
+                r => ApplyServerResult(info, "bloom", "enabled=" + enabled, r.MageTowerState, null),
+                e => RejectServerResult(info, "bloom", e));
+            return MageActionResult.Pending;
         }
         public decimal SingleTargetDps(int id)
         {
@@ -397,15 +461,123 @@ namespace KingdomIdle.MageTower
 
         public bool CanReset(int id) => IsOwned(id) && GetEnhanceLevel(id) > 0;
         public long GetResetRefund(int id) => BalanceMath.Floor(GetTotalAKSpent(id) * .8m);
-        public bool ResetEnhance(int id)
+        /// <summary>강화 초기화·환급(실제 지출의 80%)은 서버(OnResetSkillEnhancement)가 확정하고 응답의 MageTowerState·CurrentArcaneKnowledge를 저장한다. GetResetRefund는 표시용이다.</summary>
+        public bool ResetEnhance(int id) => TryResetEx(id) == MageActionResult.Pending;
+        public MageActionResult TryResetEx(int id)
         {
-            if (!CanReset(id)) return false;
-            bool result = LocalProgression.Execute("mage-reset", s => {
-                var skill = s.MageSkills[id];
-                LocalProgression.Credit(s, eCurrency.ArcaneKnowledge, BalanceMath.Floor(skill.Spent * .8m));
-                skill.Enhance = 0; skill.Spent = 0; return true;
-            });
-            if (result) NotifyCommitted(); return result;
+            if (GetSkillById(id) == null) return MageActionResult.InvalidRequest;
+            if (!IsOwned(id)) return MageActionResult.NotOwned;
+            if (!CanReset(id)) return MageActionResult.NoChange;
+            if (IsBusy) return MageActionResult.Busy;
+            var network = Begin(out MageActionResult gate);
+            if (network == null) return gate;
+            var info = new MageActionInfo { Kind = MageActionKind.Reset, SkillId = id };
+            network.Call<OnResetSkillEnhancementRequestDTO, OnResetSkillEnhancementResponseDTO>(new OnResetSkillEnhancementRequestDTO { SkillId = id },
+                r => { info.RefundedArcaneKnowledge = r.RefundedArcaneKnowledge; ApplyServerResult(info, "reset", "refund=" + r.RefundedArcaneKnowledge, r.MageTowerState, r.CurrentArcaneKnowledge); },
+                e => RejectServerResult(info, "reset", e));
+            return MageActionResult.Pending;
+        }
+
+        // ===== 서버 연동 =====
+        // 서버 SkillCode는 스킬 ID를 36비트 왼쪽으로 민 값이다(SkillCode.GenerateSkillCode와 같은 규칙, eSkillCode 밖의 ID도 보낸다).
+        private static SkillCode Code(int skillId) => new SkillCode { Code = (ulong)skillId << 36 };
+
+        /// <summary>IsBusy·로그인 준비를 검사하고 통과하면 요청 중 상태로 바꾼다. 실패 사유는 gate로 돌려준다.</summary>
+        private NetworkManager Begin(out MageActionResult gate)
+        {
+            gate = MageActionResult.Pending;
+            if (IsBusy) { gate = MageActionResult.Busy; return null; }
+            var network = NetworkManager.Instance;
+            if (network == null || !network.IsGameDataReady) { gate = MageActionResult.NetworkNotReady; return null; }
+            IsBusy = true; LastFailure = null; OnBusyChanged?.Invoke(true);
+            return network;
+        }
+
+        /// <summary>응답의 MageTowerState(와 AK 잔액)를 플레이어 상태에 쓴다. 응답에 없는 구역은 건드리지 않는다. 저장 실패는 ApplyFailed로 알린다.</summary>
+        private void ApplyServerResult(MageActionInfo info, string op, string detail, MageTowerStateDTO state, long? arcaneKnowledge)
+        {
+            bool saved;
+            try
+            {
+                saved = LocalProgression.Execute("server-mage-" + op, s =>
+                {
+                    Scripts.Core.UserManager.ApplyMageTower(s, state);
+                    if (arcaneKnowledge.HasValue) s.Wallet[eCurrency.ArcaneKnowledge] = Math.Max(0, arcaneKnowledge.Value);
+                    return true;
+                });
+            }
+            catch (Exception exception) { Debug.LogException(exception); saved = false; }
+            var current = LocalProgression.State;
+            info.LogLine = $"[Mage] {op} skill={info.SkillId} {detail} | server Mage={Scripts.Core.UserManager.DescribeMage(state)} AK={(arcaneKnowledge.HasValue ? arcaneKnowledge.Value.ToString() : "-")}" +
+                $" | state Mage={Scripts.Core.UserManager.DescribeMage(current)} AK={LocalProgression.Balance(eCurrency.ArcaneKnowledge)} | saved={saved}";
+            Debug.Log(info.LogLine);
+            if (!saved)
+            {
+                Direction.GameDirectInteraction.ReportSaveFailure();
+                LastFailure = NetworkManager.CreateError("ApplyFailed", "서버 마탑 결과를 저장하지 못했습니다: " + LocalProgression.LastError);
+                info.Ok = false;
+                info.Failure = "서버 결과를 저장하지 못했습니다. 다시 로그인하면 서버 값으로 맞춰집니다.";
+                Complete(info);
+                return;
+            }
+            info.Ok = true;
+            Complete(info);
+        }
+
+        /// <summary>서버 거절·전송 실패. 거절(Business)은 상태를 건드리지 않고 문구만 돌려준다. 응답 유실(Timeout/Transport)은 재전송하지 않고 서버 상태를 다시 받는다.</summary>
+        private void RejectServerResult(MageActionInfo info, string op, PlayFabError error)
+        {
+            LastFailure = error;
+            int code = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0;
+            string kind = NetworkManager.GetFailureKind(error);
+            info.LogLine = $"[Mage] {op} skill={info.SkillId} rejected code={code} kind={kind} message={error?.ErrorMessage}";
+            Debug.LogWarning(info.LogLine);
+            info.Ok = false; info.ErrorCode = code;
+            if (code == 0 && (kind == "Timeout" || kind == "Transport") && Scripts.Core.UserManager.Instance != null)
+            {
+                Scripts.Core.UserManager.Instance.RefreshFromServer(ok =>
+                {
+                    info.Failure = ok ? "서버 응답이 늦어 마탑 상태를 서버에서 다시 불러왔습니다." : NetworkManager.DescribeFailure(error, ActionName(info.Kind));
+                    Complete(info);
+                });
+                return;
+            }
+            info.Failure = NetworkManager.DescribeFailure(error, ActionName(info.Kind));
+            Complete(info);
+        }
+
+        private void Complete(MageActionInfo info)
+        {
+            IsBusy = false; OnBusyChanged?.Invoke(false);
+            if (info.Ok) NotifyCommitted();
+            OnActionCompleted?.Invoke(info);
+        }
+
+        public static string ActionName(MageActionKind kind)
+        {
+            switch (kind)
+            {
+                case MageActionKind.Enhance: return "스킬 강화";
+                case MageActionKind.Awaken: return "스킬 각성";
+                case MageActionKind.Loadout: return "스킬 편성";
+                case MageActionKind.Bloom: return "개화 설정";
+                default: return "강화 초기화";
+            }
+        }
+
+        /// <summary>완료 이벤트의 토스트 문구. 수치는 서버 응답 값이다.</summary>
+        public static string Describe(MageActionInfo info)
+        {
+            if (info == null) return "";
+            if (!info.Ok) return info.Failure ?? (ActionName(info.Kind) + "에 실패했습니다.");
+            switch (info.Kind)
+            {
+                case MageActionKind.Enhance: return "강화 완료 · 지식 " + info.SpentArcaneKnowledge + " 사용";
+                case MageActionKind.Awaken: return "각성 완료 · 파편 " + info.SpentFragments + "개 사용";
+                case MageActionKind.Loadout: return "스킬 편성을 저장했습니다.";
+                case MageActionKind.Bloom: return "개화 설정을 저장했습니다.";
+                default: return "강화를 초기화하고 지식 " + info.RefundedArcaneKnowledge + "을(를) 돌려받았습니다.";
+            }
         }
         public long PackSkill(int id) => MageTowerSkillCode.Pack(id, GetAwakeningLevel(id), GetEnhanceLevel(id), GetFragments(id), IsOwned(id) ? 1 : 0);
         public long[] PackAllSkills()

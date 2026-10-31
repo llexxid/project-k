@@ -213,6 +213,12 @@ namespace Protocol.Message.Dto
 		[JsonProperty(Required = Required.Always)]
 		public int Difficulty { get; set; }
 	}
+	public sealed class OnClaimGuideRewardRequestDTO : SessionRequestDTO
+	{
+		// 튜토리얼 실습 단계 id "<시퀀스>:<단계>"(예: guide_gacha:equipment_once). 서버 정의에 없으면 1043으로 거절된다.
+		[JsonProperty(Required = Required.Always)]
+		public string GuideId { get; set; } = null!;
+	}
 
 	// 우편·출석
 	// 우편 요청의 공통 필드. 호출자가 PlayFabId를 채우지 않아도 NetworkManager가 로그인한 계정의 값으로 덮어쓴다.

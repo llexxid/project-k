@@ -109,6 +109,8 @@ namespace Protocol.Message.Data
         MailboxFull = 1041,
         // 우편 요청 값 범위 오류 또는 다른 계정의 PlayFabId.
         InvalidMailRequest = 1042,
+        // 튜토리얼 실습 보상 단계 id가 정의에 없다.
+        InvalidGuideReward = 1043,
 	}
 
 	public enum eConst

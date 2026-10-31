@@ -11,31 +11,13 @@ namespace KingdomIdle.Balance
         private static long _counterSequence, _savingSequence, _savingRevision;
         private static float _nextCounterSave;
 
-        /// <summary>스킬 횟수는 메모리에 모으고 저장 후 알린다. 기간 경계만 기존 거래로 먼저 확정한다.</summary>
-        /// <returns>집계가 승인되면 true. 경계 저장 실패 시 호출자는 시전과 쿨다운을 시작하지 않는다.</returns>
+        /// <summary>스킬 시전 승인. 시전 횟수 퀘스트(SkillCast)는 서버가 집계하지 않아 더 이상 로컬에 기록하지 않는다.</summary>
+        /// <returns>집계가 승인되면 true. 호출자는 false면 시전과 쿨다운을 시작하지 않는다.</returns>
         public static bool RecordSkillCast(int skillId)
         {
             if (!MageTower.MageSkillRules.IsAvailable(skillId)) return false;
             Ensure();
             if (_busy) throw new InvalidOperationException("Cannot record a cast inside a transaction.");
-            long now = Math.Max(UtcNow, _state.QuestLastObservedUtc);
-            if (QuestPeriod.NeedsSynchronization(_state, now))
-            {
-                // 자정 직후 시전이 이전 날짜의 전투 시간보다 먼저 기간을 넘기지 않도록 한다.
-                // 경계의 시전도 같은 거래에 넣어 기간 동기화 저장을 한 번만 수행한다.
-                return Execute("skill-cast-period", state =>
-                {
-                    QuestEconomy.Count(state, eQuestObjectiveType.SkillCast, skillId, 1);
-                    return true;
-                });
-            }
-            var draft = _state.DeepClone();
-            // Capture day/week eligibility at the event, not at the later disk flush.
-            QuestEconomy.Before(draft, now);
-            QuestEconomy.Count(draft, eQuestObjectiveType.SkillCast, skillId, 1);
-            QuestEconomy.After(draft, now);
-            _state = draft; _counterSequence++; _countersDirty = true;
-            ProgressionAutosave.EnsureRunning();
             return true;
         }
 

@@ -3,7 +3,7 @@ namespace KingdomIdle.Balance
 {
     public static class RubyProgression
     {
-        public static bool Unlocked => LocalProgression.State.MainClears.Contains(0x200020005);
+        public static bool Unlocked => LocalProgression.State.HighestMainClear >= 0x200020005;
         public static bool Enhance(bool experience)
         {
             if (!Unlocked) return false;
