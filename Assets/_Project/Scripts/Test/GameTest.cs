@@ -58,8 +58,55 @@ namespace Scripts.Test
             Debug.Log($"[GameTest] 골드·루비 던전 티켓을 각각 {dailyTickets}장으로 충전하고 현재 계정에 저장했습니다.");
         }
 
-        [MenuItem("GameTest/CheckIn Test/서버 연동 준비 중")]
-        public static void CheckInPending() => Debug.Log("서버 출석 개편 전까지 로컬 출석 지급을 중지합니다.");
+        [MenuItem("GameTest/CheckIn Test/1일 진행")]
+        public static void AdvanceCheckIn()
+        {
+            if (!Application.isPlaying || !LocalProgression.IsReady || GameManager.Instance?.CheckIn == null) return;
+            var checkIn = GameManager.Instance.CheckIn;
+            if (!checkIn.IsRewardTableValid)
+            { Debug.LogWarning("[GameTest] 출석 보상표를 확인하세요."); return; }
+
+            var snapshot = checkIn.GetSnapshot();
+            if (snapshot != null && snapshot.Count >= 28)
+            { Debug.Log("[GameTest] 이미 28일차까지 열려 있습니다."); return; }
+
+            bool saved;
+            if (snapshot == null)
+                saved = checkIn.RecordVisit(); // 월 전환이 첫 슬롯을 열므로 추가 진행하지 않는다.
+            else
+            {
+                var period = QuestPeriod.At(RewardGrants.Now);
+                saved = LocalProgression.Execute("test-checkin-advance", draft =>
+                {
+                    if (snapshot.AccountGeneration != LocalProgression.AccountGeneration ||
+                        draft.CheckIn.Month != snapshot.Month || draft.CheckIn.OpenedRewards.Count != snapshot.Count) return false;
+                    draft.CheckIn.OpenedRewards.Add(snapshot.Rewards[snapshot.Count].Copy());
+                    draft.CheckIn.LastDay = period.Day;
+                    draft.RewardsRevision++;
+                    return true;
+                });
+            }
+            if (!saved)
+            { Debug.LogWarning("[GameTest] 출석 진행 실패: " + LocalProgression.LastError); return; }
+            Debug.Log($"[GameTest] 출석 {checkIn.GetSnapshot().Count}일차까지 열고 현재 계정에 저장했습니다. 보상은 출석판에서 수령하세요.");
+        }
+
+        [MenuItem("GameTest/CheckIn Test/출석 보상판 초기화")]
+        public static void ResetCheckIn()
+        {
+            if (!Application.isPlaying || !LocalProgression.IsReady || GameManager.Instance?.CheckIn == null) return;
+            var period = QuestPeriod.At(RewardGrants.Now);
+            bool saved = LocalProgression.Execute("test-checkin-reset", draft =>
+            {
+                // 오늘 접속을 기록해 자동 접속 처리로 1일차가 다시 열리지 않게 한다.
+                draft.CheckIn = new CheckInState { Month = period.Month, LastDay = period.Day };
+                draft.RewardsRevision++;
+                return true;
+            });
+            if (!saved)
+            { Debug.LogWarning("[GameTest] 출석 초기화 실패: " + LocalProgression.LastError); return; }
+            Debug.Log("[GameTest] 이번 달 출석·수령 기록을 0일로 초기화했습니다. 보유 재화와 기존 우편은 유지되며, 출석을 진행하면 다시 수령할 수 있습니다.");
+        }
 
         [MenuItem("GameTest/Shop Ad Test/오늘 광고 수령 초기화 (재지급 허용)")]
         public static void ResetShopAds()

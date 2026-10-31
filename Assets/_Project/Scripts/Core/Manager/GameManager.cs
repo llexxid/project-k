@@ -24,6 +24,8 @@ namespace Scripts.Core
         public OfflineRewardManager OfflineReward { get; private set; }
         public KingdomIdle.CheckIn.CheckInService CheckIn { get; private set; }
         public KingdomIdle.Mailbox.MailboxService Mailbox { get; private set; }
+        private float _nextRewardSync;
+        private bool _rewardsPaused, _rewardsUnfocused;
         private void Awake()
         {
             if (Instance == null)
@@ -60,7 +62,22 @@ namespace Scripts.Core
             SceneManager.sceneLoaded -= OnSceneLoaded;
             KingdomIdle.Balance.LocalProgression.AccountChanged -= ScheduleRewardSync;
         }
-        private void ScheduleRewardSync() => Mailbox?.CheckAccount();
+        private void ScheduleRewardSync() { _nextRewardSync = 0; Mailbox?.CheckAccount(); }
+        private void OnApplicationPause(bool paused) { _rewardsPaused = paused; ScheduleRewardSync(); }
+        private void OnApplicationFocus(bool focused) { _rewardsUnfocused = !focused; ScheduleRewardSync(); }
+        private void Update()
+        {
+            if (_rewardsPaused || _rewardsUnfocused || Time.unscaledTime < _nextRewardSync) return;
+            _nextRewardSync = Time.unscaledTime + 1f;
+            var ui = KingdomIdle.UGUI.UIManager.Instance;
+            var network = NetworkManager.Instance;
+            // 초기 Guest 상태에 출석을 만들지 않는다. 실제 로그인 계정의 저장이 준비된 뒤 시작한다.
+            if (network == null || string.IsNullOrEmpty(network.GetSessionID()) ||
+                !KingdomIdle.Balance.LocalProgression.IsReady ||
+                KingdomIdle.Balance.LocalProgression.AccountKey != network.GetSessionID() || ui == null || ui.Catalog == null) return;
+            CheckIn ??= new KingdomIdle.CheckIn.CheckInService(ui.Catalog.checkInRewards);
+            CheckIn.RecordVisit();
+        }
 
         #region 플레이어 생존 관리
         // ── 플레이어 생존 관리 ──────────────────────────────────────

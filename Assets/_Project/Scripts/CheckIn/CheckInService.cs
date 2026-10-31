@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using KingdomIdle.Balance;
-using KingdomIdle.Mailbox;
 using KingdomIdle.Rewards;
 
 namespace KingdomIdle.CheckIn
@@ -34,7 +33,7 @@ namespace KingdomIdle.CheckIn
             };
         }
 
-        /// <summary>접속 기록은 UI 조회와 분리한다. 구월 보상 권리 이전과 신월 기록을 한 번에 저장한다.</summary>
+        /// <summary>접속 기록은 UI 조회와 분리한다. 월 전환 시 미수령 보상은 이월하지 않는다.</summary>
         public bool RecordVisit()
         {
             if (!LocalProgression.TryGetCommittedState(out var state)) return false;
@@ -51,15 +50,6 @@ namespace KingdomIdle.CheckIn
                 if (!QuestPeriod.IsLaterDay(period.Day, visit.LastDay)) return false;
                 if (visit.Month != period.Month)
                 {
-                    if (!string.IsNullOrEmpty(visit.Month))
-                    {
-                        var rewards = visit.OpenedRewards.Where((r, i) => !visit.ClaimedSlots.Contains(i)).ToList();
-                        string id = "checkin-carryover:" + visit.Month;
-                        if (rewards.Count > 0 && draft.Claims.Add("mail-issued:" + id))
-                            draft.Mail.Add(new MailMessage { Id = id, Title = visit.Month + " 출석 미수령 보상", Sender = "출석 보상",
-                                Body = "지난달 출석하고 받지 않은 보상입니다.", CreatedUtc = now, ExpiresUtc = now + 30L * 86400,
-                                Rewards = RewardGrants.Copy(rewards) });
-                    }
                     visit = draft.CheckIn = new CheckInState { Month = period.Month };
                 }
                 if (visit.OpenedRewards.Count < 28) visit.OpenedRewards.Add(_table.days[visit.OpenedRewards.Count].Copy());
