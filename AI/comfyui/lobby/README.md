@@ -52,11 +52,7 @@
 720×1280, 1080×1920, 1080×2400, 1536×2048, 1600×2560, 1920×1080과 가상 노치/하단 안전 영역을 검사한다.
 계정에 로그인하지 않고 미인증 진입 게이트, 팝업, 입력 우선순위, 언어 전환, 연출 복구와 관리 메모리 할당을 검사한다.
 
-캡처·실행 로그: `Recordings/LobbyValidation/`. 캡처는 실제 기기 성능 측정을 대신하지 않는다.
-
-최종 결과·측정 범위·비용: [validation.md](validation.md). 한영 비교 이미지는 `Recordings/LobbyValidation/Lobby_Comparison.jpg`, 8초 동작 미리보기는 `Lobby_Motion.mp4`에 있다.
-
-이후 진행한 Android 실기기 검증과 수정 결과는 [device-validation.md](device-validation.md)에 정리한다.
+캡처·실행 로그·기기 검증 기록과 미리보기 영상은 저장소 밖 QA 보관 폴더에서 관리한다. Editor 캡처는 실제 기기 성능 측정을 대신하지 않는다.
 기기 검증용 APK는 `TitleLobbyDeviceBuild.Build`로 만든다. 원래 시작 씬들을 사용하며 앱 ID에 `.lobbyqa`를 붙여 기존 게임과 데이터를 분리한다. 임시 빌드 설정은 작업 후 복구한다.
 `TitleLobbyDeviceProbe`는 `LOBBY_DEVICE_QA && DEVELOPMENT_BUILD`일 때만 포함된다. 일반 빌드에서는 계측과 명령 처리가 모두 제외된다.
 ADB 재검증: `device_checks.py --serial <연결기기> interactions <실행이름>` 및 `resolutions <실행이름>`. 해상도 검사는 `device-before.json`에 기록된 크기·밀도로 복구한다.
