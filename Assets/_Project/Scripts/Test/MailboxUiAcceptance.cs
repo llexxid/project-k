@@ -153,6 +153,50 @@ namespace KingdomIdle.Mailbox.Testing
             return new { passed = 3, stopped, _fixture.Applied, _fixture.ListCalls };
         }
 
+        public static object VerifyAnchorAndCompatibility()
+        {
+            Open(100);
+            var checks = new List<string>();
+            void Check(bool ok, string label) { if (!ok) throw new InvalidOperationException("MAIL UI ASSERT: " + label); checks.Add(label); }
+            Scroll(.5f);
+            var rows = _root.GetComponentsInChildren<MailRowView>().OrderBy(r => r.MailId).ToArray();
+            var anchor = rows[0]; long anchorId = anchor.MailId, nextId = rows[1].MailId;
+            float beforeY = _view.content.anchoredPosition.y;
+            rows[^1].claim.onClick.Invoke();
+            Check(_root.GetComponentsInChildren<MailRowView>().Any(r => r.MailId == anchorId) && Mathf.Abs(_view.content.anchoredPosition.y - beforeY) < .1f,
+                "claim below viewport anchor preserves its offset");
+            anchor.claim.onClick.Invoke();
+            Check(_root.GetComponentsInChildren<MailRowView>().First().MailId == nextId && Mathf.Abs(_view.content.anchoredPosition.y - beforeY) < .1f,
+                "deleted anchor continues at adjacent mail");
+            foreach (var popup in _root.GetComponentsInChildren<RewardPopupView>()) popup.Close();
+            _fixture.FailListAt = _fixture.ListCalls + 1; _fixture.Service.RequestRefresh();
+            Check(!_view.content.gameObject.activeSelf && _view.emptyLabel.text.Length > 0 && _view.claimAllLabel.text == "다시 불러오기" && _view.claimAll.interactable,
+                "read failure shows retry instead of empty mailbox");
+            _view.claimAll.onClick.Invoke();
+            Check(_fixture.Service.CanClaim && _view.content.gameObject.activeSelf, "retry button refreshes immediately");
+            _view.claimAll.onClick.Invoke();
+            Check(_fixture.Service.Messages.Count == 0 && _view.content.anchoredPosition.y == 0 && !_view.claimAll.interactable,
+                "claim all clamps empty content and disables receipt");
+            foreach (var popup in _root.GetComponentsInChildren<RewardPopupView>()) popup.Close();
+            var currency = new KingdomIdle.Rewards.RewardGrant(eCurrency.Gold, 10);
+            var gear = KingdomIdle.Rewards.RewardGrant.Equipment(65540, 1);
+            RewardPopupView.ShowRewards(_root.transform, new[] { currency, gear }, "출석 보상 획득");
+            var common = _root.GetComponentsInChildren<RewardPopupView>().Single();
+            var slots = common.slots.GetComponentsInChildren<RewardSlotView>();
+            Check(common.title.text == "출석 보상 획득" && slots.Length == 2 && slots.All(slot => slot.icon.enabled), "shared attendance reward popup supports currency and equipment");
+            slots[0].Bind(currency, () => { }, 1, true, false);
+            Check(slots[0].day.text == "1일차" && slots[0].button.interactable && !slots[0].check.gameObject.activeSelf,
+                "attendance day label and claim state remain compatible");
+            common.Close();
+            bool closed = false;
+            var offline = RewardPopupView.ShowOfflineRewards(_root.transform,
+                new KingdomIdle.OfflineRewards.OfflineRewardClaimResult("mail-ui-qa", null, 10, 20, 0, 1, 0, 0), false, () => closed = true);
+            Check(offline != null && offline.slots.GetComponentsInChildren<RewardSlotView>().Length == 2 && offline.confirmButton.gameObject.activeSelf,
+                "offline reward popup retains gold experience and confirm");
+            offline.confirmButton.onClick.Invoke(); Check(closed, "offline popup completion callback retained");
+            return new { passed = checks.Count, checks };
+        }
+
         public static void Close()
         {
             if (_root != null) { _root.SetActive(false); UnityEngine.Object.Destroy(_root); _root = null; }

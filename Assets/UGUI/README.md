@@ -170,9 +170,9 @@ Android 검사 도우미·결과는 `AI/qa/hud/`, `Recordings/HudRevision/`에 �
 
 Editor에서 bootstrap부터 Play·로그인한 뒤 `GameTest → Shop Ad Test → 오늘 광고 수령 초기화 (재지급 허용)`를 실행하면 현재 계정의 오늘 장비·마탑 광고 수령 기록만 삭제·저장한다. 상점이 열려 있으면 버튼도 즉시 갱신한다. 보유 뽑기권·과거 날짜·오프라인 보상 기록은 유지되며, 재시청하면 뽑기권이 누적되므로 테스트 계정에서 사용한다. 광고 준비·시청 중이거나 완료 보상의 저장이 대기 중이면 초기화를 거절한다. APK에는 이 메뉴가 포함되지 않는다. 초기화 저장 검사는 `ShopAdRewardAcceptance.RunReset()`이다.
 
-## 출석 준비 상태·서버 우편함
+## 서버 우편함·공통 보상 표시
 
-0.19.0부터 메인 메뉴의 우편함은 `OnGetMailList`·`OnClaimMailReward`를 사용한다. `GameManager.Mailbox`가 서버 요청과 메모리 목록을 소유하고 `MailboxPanelController`는 화면 상태와 버튼을 연결한다. 서버 저장소·DTO 계약은 변경하지 않는다.
+0.19.4에서는 머지 중 교체됐던 우편함의 가상 스크롤·연속 수령·검증·복구를 기존 공통 표시 경로 위에 복원했다. 메인 메뉴의 우편함은 `OnGetMailList`·`OnClaimMailReward`를 사용한다. `GameManager.Mailbox`가 서버 요청과 메모리 목록을 소유하고 `MailboxPanelController`는 화면 상태와 버튼을 연결한다. 서버 저장소·DTO 계약은 변경하지 않는다.
 
 - 열 때 50통씩 최대 두 페이지(총 100통)를 받고, 전체 조회 완료 후 수령을 허용한다. 닫으면 목록을 비운다. 페이지 간 중복·개수 불일치 시 0부터 한 번만 재조회한다.
 - 스택 종료 훅에서 컨트롤러를 즉시 비활성화해 구독과 연결을 정리한다. 퇴장 애니메이션 뒤의 파괴가 새 우편함을 닫지 않으며, 다른 패널에 가렸다 복귀할 때는 기존 OnEnable/OnDisable로 재연결한다.
@@ -180,13 +180,15 @@ Editor에서 bootstrap부터 Play·로그인한 뒤 `GameTest → Shop Ad Test �
 - 재화·장비는 응답의 절대값을 기존 UserManager 경로로 반영한다. 응답 유실·저장 실패는 수령을 재전송하지 않고 플레이어 상태를 재조회한다. 화면 종료 후에도 같은 계정의 수령 결과는 반영하며 다른 계정의 응답은 무시한다.
 - 수령 성공한 우편은 즉시 제거한다. 기존 삭제 버튼은 비활성 상태로 보존하고 `수령 시 자동 삭제`를 안내한다. 조회 오류에서는 하단 버튼이 `다시 불러오기`가 된다.
 
+운영 목록은 `MailboxService.Messages`의 `MailDTO`만 사용하고 ID는 long을 유지한다. Open/Close/RequestRefresh/TryClaim/TryClaimAll을 통해 조작하며 Changed와 ClaimCompleted로 UI를 갱신한다. GameManager의 우편 주기 조회는 없고, 열린 Controller가 남은 시간과 서비스 Tick(만료·실패 재시도)을 확인한다. Empty/Loading/Ready/Claiming/Recovering/RecoveryRequired 상태를 구별한다. 조회 실패는 창이 열린 동안 30초 후 자동 재시도하며 수동 재시도는 즉시 실행한다. 복구 실패에는 자동 수령 재전송이 없고, 플레이어와 우편 목록을 모두 확인하기 전에는 수령을 차단한다.
+
 `VirtualizedMailList`는 기존 ScrollRect·Item_MailRow를 유지하면서 보이는 행 + 2행을 재사용한다. Content의 자동 Layout/Fitter는 실행 중 해제하고, 전체 높이와 행 위치만 직접 관리한다. 행 내부의 기존 배치는 유지한다. 우편당 보상 슬롯은 서버 한도인 10개까지 미리 준비하여 스크롤 중 생성·삭제하지 않는다. 행 재연결 시 보상·클릭 대상·만료 표시·가로 스크롤 위치를 갱신한다.
 
-우편 첨부는 기존 가로 목록이며 재화와 장비를 모두 표시한다. `RewardDisplayItem`은 표시 전용이고 지급하지 않는다. 장비 아이콘·이름은 기존 EquipmentDatabase에서 찾으며 희귀도는 장비에만 적용한다. 획득 결과는 서버의 자동 분해·대기·예비 보관 결과를 표시하고 동일한 종류·처리 결과를 묶어 수량을 합산한다. 공통 팝업의 기존 재접속 보상 경로는 유지한다.
+우편 첨부는 기존 가로 목록이며 재화와 장비를 모두 표시한다. `RewardGrants.FromServer → RewardSlotView → RewardPopupView`를 출석과 함께 사용한다. RewardGrant의 ServerReward·EquipmentCode·Disposition은 저장하지 않는 표시 전용 정보이며 로컬 지급에 사용할 수 없다. 장비 아이콘·이름은 기존 EquipmentDatabase에서 찾으며 희귀도는 장비에만 적용한다. 획득 결과는 서버의 자동 분해·대기·예비 보관 결과를 표시하고 종류·강화·만료·보관 위치가 같은 장비만 합산한다. 자동 분해는 실제 받은 강화석 수량과 자동 분해 문구로 표시한다. 공통 팝업의 기존 재접속 보상 경로는 유지한다.
 
 `MailText`의 작은 문구표에서 TitleKey/BodyKey를 변환한다. 미등록 키는 `시스템 우편` / `첨부 보상을 확인해 주세요.`로 표시하고 키를 진단 기록에 남긴다. 서버 발송 경로가 추가되면 실제 키와 문구를 이 표에 등록한다.
 
-출석은 서버 개편 전까지 `서버 출석 기능을 준비 중입니다.`로 표시한다. 자동 접속 기록·로컬 지급을 중지하며 기존 프리팹, 28칸, CheckInRewardTableSO와 저장 기록은 보존한다. 월별 출석부·수령 분리·미수령 우편 이월·대표 아이콘 +N 표시는 후속 범위다. 우편함 포화 시 이월 정책은 미정이다.
+이번 개정은 우편함으로 한정한다. 현재 머지된 출석·광고·재접속 보상 정책은 변경하지 않으며 출석 이월 알림은 우편함 인스턴스의 갱신 요청에만 연결한다.
 
 과거 로컬 MailMessage·Claims 데이터는 저장 호환성을 위해 유지하지만 운영 우편함은 읽거나 지급하지 않는다. LocalProgression 전체와 공통 RewardGrant는 다른 기능에서도 사용하므로 유지한다. 기존 로컬 우편 생성·지급·삭제는 Editor 전용 LocalMailboxService로 분리하고 격리 테스트 계정만 허용한다.
 
@@ -197,4 +199,6 @@ Editor에서 bootstrap부터 Play·로그인한 뒤 `GameTest → Shop Ad Test �
 - `GameTest/Mailbox Test/서버 응답 실제 저장 검증`: Play 종료 후 `MailboxAcceptance.RunServerApply()`로 일반·대기·예비 보관/자동 분해 × 성공/저장 실패/응답 유실을 검사한다. 응답·복구 콜백은 격리하고 제품의 우편 적용·파일 저장·재열기 경로를 실행하며 원래 계정·상태를 복원한다.
 - `MailboxUiAcceptance.Open(100)` / `VerifyRecycling()`: bootstrap Play에서 실제 프리팹을 사용하는 격리 미리보기. 서버 통합 검증과 구분한다.
 - `MailboxUiAcceptance.VerifyCloseReopen()`: bootstrap Play에서 이전 패널의 지연 종료·재진입, 비활성화 후 복귀, 재진입 후 수령을 검사한다. 검사 후 `Close()`로 미리보기를 정리한다.
-- [0.19.0 검증 기록](../../AI/validation/mailbox-server-20261031/README.md)
+- `MailboxUiAcceptance.VerifyAnchorAndCompatibility()`: 수령 후 스크롤 기준 유지·오류/재시도·출석 슬롯과 재접속 팝업 호환성을 확인한다.
+- [0.19.4 검증 기록](../../AI/validation/mailbox-refactor-20261101/README.md)
+- [0.19.0 당시 검증 기록](../../AI/validation/mailbox-server-20261031/README.md)

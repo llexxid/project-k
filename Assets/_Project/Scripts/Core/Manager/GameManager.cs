@@ -1,4 +1,4 @@
-using Cysharp.Threading.Tasks;
+﻿using Cysharp.Threading.Tasks;
 using KingdomIdle.OfflineRewards;
 using Scripts.Core.Manager;
 using Scripts.Core.SO;
@@ -64,7 +64,7 @@ namespace Scripts.Core
         }
         private void ScheduleRewardSync() { _nextRewardSync = 0; Mailbox?.CheckAccount(); }
         private void OnApplicationPause(bool paused) { _rewardsPaused = paused; ScheduleRewardSync(); }
-        // 출석·우편은 서버 요청이라 포커스와 무관하다(배치 모드·창 전환 중에도 로그인 직후 출석을 보낸다). 일시정지 중에만 쉰다.
+        // 출석은 포커스와 무관하게 확인하고 일시정지 중에만 쉰다. 우편 목록은 열린 패널에서만 갱신한다.
         private void OnApplicationFocus(bool focused) { ScheduleRewardSync(); }
         private void Update()
         {

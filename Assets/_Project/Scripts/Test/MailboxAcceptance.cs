@@ -271,7 +271,7 @@ namespace KingdomIdle.Mailbox.Testing
                     inventory.AutoDismantleRarityMask = disposition == EquipmentDisposition.AutoDismantled ? 1 : 0;
                     Check(LocalProgression.Execute("server-mail-fixture", s =>
                     {
-                        UserManager.ApplyCurrency(s, new CurrencyQueryDTO(100, 2, 3, 4, 5, 6) { TrainingTome = 7, EquipmentStone = 40 });
+                        UserManager.ApplyCurrency(s, new CurrencyQueryDTO(100, 2, 3, 4, 5, 6) { TrainingTome = 7, EquipmentTicket = 8, MageTicket = 9, EquipmentStone = 40 });
                         UserManager.ApplyEquipment(s, inventory); return true;
                     }), label + "seed durable inventory");
                     string protectedId = LocalProgression.State.Equipment.Single(e => e.Player == 0).Id;
@@ -287,7 +287,7 @@ namespace KingdomIdle.Mailbox.Testing
                     var response = new OnClaimMailRewardResponseDTO
                     {
                         MailboxId = "box", ClaimedMailIds = new() { mail.MailId }, RemainingCount = 0, Equipment = inventory,
-                        Currency = new CurrencyQueryDTO(110, 2, 3, 4, 5, 6) { TrainingTome = 7, EquipmentStone = disposition == EquipmentDisposition.AutoDismantled ? 60 : 40 },
+                        Currency = new CurrencyQueryDTO(110, 2, 3, 4, 5, 6) { TrainingTome = 7, EquipmentTicket = 8, MageTicket = 9, EquipmentStone = disposition == EquipmentDisposition.AutoDismantled ? 60 : 40 },
                         Rewards = new()
                         {
                             new GachaRewardDTO { Order = 0, Kind = RewardKind.Currency, CurrencyType = Protocol.Message.Data.eCurrency.Gold, Amount = 10, Disposition = EquipmentDisposition.None },
@@ -332,8 +332,8 @@ namespace KingdomIdle.Mailbox.Testing
                     var state = LocalProgression.State;
                     Check(state.Wallet[eCurrency.Gold] == 110 && state.Wallet[eCurrency.EquipmentStone] == response.Currency.EquipmentStone &&
                         state.Wallet[eCurrency.AncientCoin] == 2 && state.Wallet[eCurrency.ArcaneKnowledge] == 3 && state.Wallet[eCurrency.ClassFragment] == 4 &&
-                        state.Wallet[eCurrency.Ruby] == 5 && state.Wallet[eCurrency.KingdomSupply] == 6 && state.Wallet[eCurrency.TrainingTome] == 7,
-                        label + "all eight currencies match absolute snapshot");
+                        state.Wallet[eCurrency.Ruby] == 5 && state.Wallet[eCurrency.KingdomSupply] == 6 && state.Wallet[eCurrency.TrainingTome] == 7 && state.Wallet[eCurrency.EquipmentTicket] == 8 && state.Wallet[eCurrency.MageTicket] == 9,
+                        label + "all ten currencies match absolute snapshot");
                     string counts = disposition switch { EquipmentDisposition.Inventory => "3/0/0", EquipmentDisposition.Pending => "200/2/0", EquipmentDisposition.Reserve => "200/100/2", _ => "1/0/0" };
                     Check(UserManager.DescribeInventory(state) == counts && state.AutoDismantleMask == inventory.AutoDismantleRarityMask,
                         label + "equipment storage counts " + counts);

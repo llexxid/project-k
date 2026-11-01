@@ -508,7 +508,6 @@ namespace Scripts.Core.Manager
             }
         }
 
-        // 서버 EquipmentRules.Valid와 같은 규칙. 어긋나면 InvalidResponse로 거절해 손상된 인벤토리를 플레이어 상태에 쓰지 않는다.
         internal static void ValidateMailboxResponse(ApiResponseDTO response)
         {
             if (response is OnGetMailListResponseDTO list) KingdomIdle.Mailbox.MailboxProtocol.ValidateList(list);
@@ -516,6 +515,7 @@ namespace Scripts.Core.Manager
             else if (response == null) throw new JsonSerializationException("Empty mailbox response.");
         }
 
+        // 서버 EquipmentRules.Valid와 같은 규칙. 어긋나면 InvalidResponse로 거절해 손상된 인벤토리를 플레이어 상태에 쓰지 않는다.
         internal static void ValidateEquipment(EquipmentInventoryDTO inventory)
         {
             if (inventory == null || inventory.Items == null || inventory.PendingItems == null || inventory.ReserveStacks == null)
