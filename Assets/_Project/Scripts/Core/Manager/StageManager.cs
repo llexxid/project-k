@@ -160,7 +160,7 @@ namespace Scripts.Core.Manager
         private bool _isBossWave;
         private bool _isLoopMode;
         private int _totalCharacterCnt;
-        private bool _bossAutoChallenge;
+        private bool _bossAutoChallenge = true;
         private StageSession _currentSession;
         private CancellationTokenSource _token;
         private MainStageSnapshot _mainStageSnapshot;
@@ -359,7 +359,7 @@ namespace Scripts.Core.Manager
 			}
 
 			_isLoopMode = _mainStageSnapshot.LoopMode;
-			_bossAutoChallenge = _mainStageSnapshot.BossAutoChallenge;
+			SetBossAutoChallenge(_mainStageSnapshot.BossAutoChallenge);
 			TransitionStage(_mainStageSnapshot.StageId);
 		}
 
@@ -387,7 +387,6 @@ namespace Scripts.Core.Manager
 
 			_mainStageSnapshot = null;
 			StopLoop();
-			SetBossAutoChallenge(false);
 
 			return true;
 		}
@@ -700,7 +699,7 @@ var definition = _currentSession?.Definition;
 			_isBossWave = StageRule.IsBossWave(stage);
 
 			_isLoopMode = false;
-			_bossAutoChallenge = true;
+			SetBossAutoChallenge(_bossAutoChallenge);
 		}
 
 		/// <summary>내부 스테이지 값을 다음 웨이브로 이동한다. 보스 클리어 후에는 다음 스테이지의 1웨이브가 될 수 있다</summary>

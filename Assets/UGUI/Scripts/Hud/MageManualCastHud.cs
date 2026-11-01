@@ -149,7 +149,11 @@ namespace KingdomIdle.UGUI
             var manager = MageTowerManager.Instance;
             var skill = manager?.GetSkillById(_skillId);
             if (camera == null || skill == null) { CancelAim(); return; }
-            _point = camera.ScreenToWorldPoint(new Vector3(data.position.x, data.position.y, -camera.transform.position.z));
+            var ray = camera.ScreenPointToRay(data.position);
+            if (!new Plane(Vector3.forward, Vector3.zero).Raycast(ray, out float distance)) { CancelAim(); return; }
+            _point = ray.GetPoint(distance);
+            _point.x = Mathf.Round(_point.x * 32) / 32;
+            _point.y = Mathf.Round(_point.y * 32) / 32;
             _point.z = 0;
             _valid = MageTowerManager.IsValidAimPoint(_point);
             _hits.Clear(); EventSystem.current.RaycastAll(data, _hits);
@@ -159,17 +163,23 @@ namespace KingdomIdle.UGUI
                 // A visible UI control consumes the drop; scenery and the preview do not raycast.
                 _valid = false; break;
             }
-            float radius = skill.TargetRadius(manager.IsBloomEnabled(skill.id));
+            bool bloom = manager.IsBloomEnabled(skill.id);
+            float radius = skill.TargetRadius(bloom);
+            // Only the meteor impact uses an elliptical predicate; other aimable spells test world-plane circles.
+            float aspect = skill.spellKind == MageSpellKind.ArcaneVolley && bloom ? .65f : 1f;
             var parent = (RectTransform)_aim.transform.parent;
             var canvas = parent.GetComponentInParent<Canvas>();
             var uiCamera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
             RectTransformUtility.ScreenPointToLocalPointInRectangle(parent, camera.WorldToScreenPoint(_point), uiCamera, out var center);
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(parent, camera.WorldToScreenPoint(_point + Vector3.right * radius), uiCamera, out var edge);
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(parent, camera.WorldToScreenPoint(_point + Vector3.right * radius), uiCamera, out var edgeX);
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(parent, camera.WorldToScreenPoint(_point + Vector3.up * radius), uiCamera, out var edgeY);
+            Vector2 horizontalRadius = edgeX - center, verticalRadius = edgeY - center;
             var rt = (RectTransform)_aim.transform;
             rt.anchorMin = rt.anchorMax = parent.pivot;
             rt.anchoredPosition = center;
-            rt.sizeDelta = Vector2.one * Mathf.Abs(edge.x - center.x) * 2;
-            _aim.worldRadius = radius;
+            rt.sizeDelta = new Vector2(Mathf.Abs(horizontalRadius.x) + Mathf.Abs(verticalRadius.x) * aspect,
+                Mathf.Abs(horizontalRadius.y) + Mathf.Abs(verticalRadius.y) * aspect) * 2;
+            _aim.SetGeometry(radius, aspect, horizontalRadius, verticalRadius);
             _aim.valid = _valid;
         }
 

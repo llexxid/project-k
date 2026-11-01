@@ -17,7 +17,7 @@ namespace KingdomIdle.UGUI.Editor
     {
         public const string PrefabPath = "Assets/UGUI/Prefabs/Popups/Popup_Shop.prefab";
         const string MainPath = "Assets/UGUI/Prefabs/Screens/Screen_Main.prefab";
-        const string Output = "Recordings/ShopDevelopMerge20261028";
+        static readonly string Output = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "QA", "ShopValidation"));
         const string PlayCheck = "ShopPopup.DevelopMergeValidation";
         static readonly List<string> PlayChecks = new(), PlayErrors = new(), PlayWarnings = new();
         static IEnumerator playRoutine;
@@ -433,7 +433,7 @@ namespace KingdomIdle.UGUI.Editor
                     Label(page, "GoldHint", "골드는 안전 클리어 웨이브의 수입에 따라 달라집니다.", 23, 64, UguiTheme.TextSecondary);
                 }
                 if (i == (int)ShopCategory.Rewarded)
-                    Label(page, "DailyHint", "각 항목 하루 1회 · 오전 0시(한국 시간) 초기화\n광고 제거 보유 시 영상 없이 수령 · 횟수는 동일", 24, 94, UguiTheme.TextSecondary);
+                    Label(page, "DailyHint", "광고 보상 준비 중 · 현재는 지급되지 않습니다.\n기존 보유 티켓과 수령 기록은 유지됩니다.", 24, 94, UguiTheme.TextSecondary);
                 foreach (var offer in ShopCatalog.Offers.Where(x => (int)x.Category == i)) cards.Add(Card(page, offer));
                 page.gameObject.SetActive(i == 0);
             }
@@ -457,7 +457,7 @@ namespace KingdomIdle.UGUI.Editor
             var bottom = F.Container(card.transform, "Bottom"); F.HLayout(bottom.gameObject, 12, null, TextAnchor.MiddleLeft); F.Preferred(bottom, height: 96);
             string amount = offer.GoldMinutes > 0 ? "골드 수입 계산 중" : offer.DailyLimit > 0 ? "매일 1회 · 준비 중" : offer.PermanentAdRemoval ? "영구 이용" : "상품 미리보기";
             view.amount = F.Text(bottom, "Amount", amount, 25, UguiTheme.AccentGold, TextAlignmentOptions.Left, wrap: true); F.Flexible(view.amount, flexWidth: 1);
-            string price = offer.Payment == ShopPayment.Store ? $"{offer.PreviewWon:N0}원" : offer.Payment == ShopPayment.AncientCoin ? $"주화 {offer.AncientCoinCost:N0}개" : "광고 보고 받기";
+            string price = offer.Payment == ShopPayment.Store ? $"{offer.PreviewWon:N0}원" : offer.Payment == ShopPayment.AncientCoin ? $"주화 {offer.AncientCoinCost:N0}개" : "준비 중";
             view.action = F.TextButton(bottom, "BtnAction", price, 28, UguiTheme.RusticSurface, out var priceLabel);
             view.price = priceLabel;
             F.Preferred(view.action.transform as RectTransform, width: 280, height: 96);

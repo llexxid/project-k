@@ -77,8 +77,7 @@ namespace KingdomIdle.UGUI
 
             if (_view.tglBossChain != null)
             {
-                _view.tglBossChain.SetIsOnWithoutNotify(_sm.BossAutoChallenge);
-                _view.tglBossChain.GetComponent<ToggleSwitchView>()?.Refresh();
+                SyncBossAutoChallenge(_sm.BossAutoChallenge);
                 _view.tglBossChain.onValueChanged.AddListener(OnBossChainToggled);
             }
 
@@ -219,12 +218,16 @@ namespace KingdomIdle.UGUI
 
         private static void HandleBossAutoChallengeChanged(bool enabled)
         {
-            if (_view != null && _view.tglBossChain != null)
-            {
-                _view.tglBossChain.SetIsOnWithoutNotify(enabled);
-                _view.tglBossChain.GetComponent<ToggleSwitchView>()?.Refresh();
-            }
+            SyncBossAutoChallenge(enabled);
             if (_sm != null) UpdateStageLabel(_sm.CurrentStageNumber, _sm.CurrentWaveNumber, _sm.IsBossWave);
+        }
+
+        private static void SyncBossAutoChallenge(bool enabled)
+        {
+            if (_view == null || _view.tglBossChain == null) return;
+            if (_view.tglBossChain.isOn != enabled)
+                _view.tglBossChain.SetIsOnWithoutNotify(enabled);
+            _view.tglBossChain.GetComponent<ToggleSwitchView>()?.Refresh();
         }
 
         private static void HandleDefeatPopupShow()
