@@ -15,15 +15,15 @@ namespace KingdomIdle.UGUI
         public void Bind(RewardGrant reward, Action clicked, int dayNumber = 0, bool available = false, bool claimed = false)
         {
             icon.sprite = reward == null ? null : RewardPresentation.Icon(reward);
-            icon.enabled = reward != null;
+            icon.enabled = icon.sprite != null;
             icon.color = dayNumber == 0 || available ? Color.white : new Color(.55f, .55f, .55f);
             quantity.text = reward == null ? "" : NumberNotation.Format(reward.Amount);
             quantity.color = dayNumber == 0 || available ? UguiTheme.Parchment : UguiTheme.TextTertiary;
-            frame.color = available ? UguiTheme.AccentGoldStrong : UguiTheme.Bronze;
+            frame.color = available ? UguiTheme.AccentGoldStrong : RewardPresentation.Frame(reward);
             check.gameObject.SetActive(claimed);
-            day.text = dayNumber > 0 ? dayNumber + "일차" : "";
+            day.text = dayNumber > 0 ? dayNumber + "일차" : RewardPresentation.ResultLabel(reward);
             button.onClick.RemoveAllListeners();
-            button.interactable = reward != null;
+            button.interactable = reward != null && clicked != null;
             button.onClick.AddListener(() => clicked?.Invoke());
         }
 
@@ -45,6 +45,18 @@ namespace KingdomIdle.UGUI
 
     internal static class RewardPresentation
     {
+        internal static Color Frame(RewardGrant reward)
+        {
+            var data = reward != null && reward.IsEquipment && EquipmentManager.Instance != null ? EquipmentManager.Instance.GetData(reward.EquipmentId) : null;
+            return data != null ? UguiTheme.RarityColor(data.rarity) : UguiTheme.Bronze;
+        }
+        internal static string ResultLabel(RewardGrant reward) => reward?.Disposition switch
+        {
+            Protocol.Message.Dto.EquipmentDisposition.Pending => "대기 보관",
+            Protocol.Message.Dto.EquipmentDisposition.Reserve => "예비 보관",
+            Protocol.Message.Dto.EquipmentDisposition.AutoDismantled => "자동 분해",
+            _ => ""
+        };
         // 서버 보상(출석판·우편)의 장비는 클라이언트 장비 카탈로그로 이름·아이콘을 찾는다. 없으면 기본 표기.
         internal static string Name(RewardGrant reward)
         {
@@ -56,7 +68,15 @@ namespace KingdomIdle.UGUI
         internal static string Description(RewardGrant reward)
         {
             if (reward == null) return "";
-            return reward.IsEquipment ? "장비 보관함에 들어갑니다. 보관함이 가득 차면 대기함이나 예비 보관으로 갑니다." : Description(reward.Currency);
+            string description = reward.IsEquipment ? "장비 보관함에 들어갑니다. 보관함이 가득 차면 대기함이나 예비 보관으로 갑니다." : Description(reward.Currency);
+            return reward.Disposition switch
+            {
+                Protocol.Message.Dto.EquipmentDisposition.Inventory => "장비 보관함에 보관했습니다.",
+                Protocol.Message.Dto.EquipmentDisposition.Pending => "대기 보관함에 보관했습니다.",
+                Protocol.Message.Dto.EquipmentDisposition.Reserve => "예비 보관함에 보관했습니다.",
+                Protocol.Message.Dto.EquipmentDisposition.AutoDismantled => $"장비 자동 분해로 강화석 {NumberNotation.Format(reward.Amount)}개를 획득했습니다.",
+                _ => description
+            };
         }
         internal static Sprite Icon(RewardGrant reward, UIViewCatalog catalog = null)
         {

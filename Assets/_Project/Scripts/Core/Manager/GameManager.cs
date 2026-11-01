@@ -1,4 +1,4 @@
-﻿using Cysharp.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using KingdomIdle.OfflineRewards;
 using Scripts.Core.Manager;
 using Scripts.Core.SO;
@@ -46,6 +46,7 @@ namespace Scripts.Core
             var gateway = new ReincarnationGateway();
 
             Reincarnation = new ReincarnationService(policy, store, gateway);
+            Mailbox = new KingdomIdle.Mailbox.MailboxService();
 
             OfflineReward = GetComponent<OfflineRewardManager>();
             if (OfflineReward == null)
@@ -61,7 +62,7 @@ namespace Scripts.Core
             SceneManager.sceneLoaded -= OnSceneLoaded;
             KingdomIdle.Balance.LocalProgression.AccountChanged -= ScheduleRewardSync;
         }
-        private void ScheduleRewardSync() => _nextRewardSync = 0;
+        private void ScheduleRewardSync() { _nextRewardSync = 0; Mailbox?.CheckAccount(); }
         private void OnApplicationPause(bool paused) { _rewardsPaused = paused; ScheduleRewardSync(); }
         // 출석·우편은 서버 요청이라 포커스와 무관하다(배치 모드·창 전환 중에도 로그인 직후 출석을 보낸다). 일시정지 중에만 쉰다.
         private void OnApplicationFocus(bool focused) { ScheduleRewardSync(); }
@@ -76,9 +77,7 @@ namespace Scripts.Core
                 !KingdomIdle.Balance.LocalProgression.IsReady ||
                 KingdomIdle.Balance.LocalProgression.AccountKey != network.GetSessionID() || ui == null || ui.Catalog == null) return;
             CheckIn ??= new KingdomIdle.CheckIn.CheckInService(ui.Catalog.checkInRewards);
-            Mailbox ??= new KingdomIdle.Mailbox.MailboxService();
             CheckIn.RecordVisit();
-            Mailbox.Refresh();
         }
 
         

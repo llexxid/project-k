@@ -103,7 +103,7 @@ namespace KingdomIdle.CheckIn
             _nextCheckUtc = r.Attendance.OpenedDays >= ServerAttendanceTable.Days ? _boardResetUtc : (r.NextResetUtc > 0 ? r.NextResetUtc : period.DayEndUtc);
             Revision++;
             int carryover = r.CarryoverMailIds?.Count ?? 0;
-            if (carryover > 0) MailboxService.RequestRefresh("carryover");
+            if (carryover > 0) Scripts.Core.GameManager.Instance?.Mailbox?.RequestRefresh("carryover");
             Debug.Log($"[Attendance] check day={r.CycleDay} carryover={carryover} next={_nextCheckUtc} | server board={Describe(r.Attendance)} | state board={Describe()} | saved=True");
         }
 

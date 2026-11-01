@@ -3,6 +3,8 @@ using KingdomIdle.Mailbox;
 using KingdomIdle.Rewards;
 using TMPro;
 using UnityEngine;
+using System.Collections.Generic;
+using Protocol.Message.Dto;
 
 namespace KingdomIdle.UGUI
 {
@@ -16,32 +18,52 @@ namespace KingdomIdle.UGUI
         public Color claimedBackground = new Color32(43, 43, 42, 255);
         private Color _backgroundColor;
         private long _expiresUtc, _lastExpiryMinute = long.MinValue;
-        private bool _built;
+        private readonly List<RewardSlotView> _slots = new();
+        private UnityEngine.UI.ScrollRect _rewardScroll;
+        public long MailId { get; private set; }
         private void Awake()
         {
             _backgroundColor = background.color;
+            _rewardScroll = slots.GetComponentInParent<UnityEngine.UI.ScrollRect>();
         }
-        public void Bind(MailMessage mail, Transform popupOwner, Action receive)
+        public void Bind(MailDTO mail, Transform popupOwner, Action receive, long now, bool canClaim)
         {
-            heading.text = mail.Title;
-            statusLabel.text = mail.Claimed ? "수령 완료" : "미수령";
-            statusLabel.color = mail.Claimed ? UguiTheme.SuccessGreenBright : UguiTheme.AccentGold;
-            sender.text = mail.Sender;
+            bool changedMail = MailId != mail.MailId;
+            MailId = mail.MailId;
+            heading.text = MailText.Title(mail);
+            statusLabel.text = "미수령";
+            statusLabel.color = UguiTheme.AccentGold;
+            sender.text = MailText.Sender(mail);
             _expiresUtc = mail.ExpiresUtc;
-            RefreshExpiry(RewardGrants.Now);
-            background.color = mail.Claimed ? claimedBackground : _backgroundColor;
-            attachments.alpha = mail.Claimed ? .55f : 1f;
-            claimLabel.text = mail.Claimed ? "수령 완료" : "받기";
-            claim.interactable = !mail.Claimed;
+            _lastExpiryMinute = long.MinValue;
+            RefreshExpiry(now);
+            background.color = _backgroundColor;
+            attachments.alpha = 1f;
+            claimLabel.text = "받기";
+            claim.interactable = canClaim && _expiresUtc > now;
             claim.onClick.RemoveAllListeners(); claim.onClick.AddListener(() => receive());
             details.onClick.RemoveAllListeners(); details.onClick.AddListener(() => RewardPopupView.ShowMail(popupOwner, mail));
-            if (_built) return;
-            _built = true;
-            foreach (var reward in mail.Rewards)
+            // Reserve the server attachment limit once; scrolling never instantiates slots.
+            while (_slots.Count < 10)
             {
                 var slot = Instantiate(UIManager.Instance.Catalog.itemRewardSlot, slots, false).GetComponent<RewardSlotView>();
-                slot.Bind(reward, () => RewardPopupView.ShowItem(popupOwner, reward, mail.Id));
+                _slots.Add(slot);
             }
+            for (int i = 0; i < _slots.Count; i++)
+            {
+                bool active = i < mail.Rewards.Count;
+                _slots[i].gameObject.SetActive(active);
+                if (!active) { _slots[i].button.onClick.RemoveAllListeners(); continue; }
+                var reward = RewardGrants.FromServer(mail.Rewards[i]);
+                _slots[i].Bind(reward, () => RewardPopupView.ShowItem(popupOwner, reward, mail.MailId));
+            }
+            if (changedMail && _rewardScroll != null) { _rewardScroll.StopMovement(); _rewardScroll.horizontalNormalizedPosition = 0; }
+        }
+        public void SetCanClaim(bool canClaim, long now) => claim.interactable = canClaim && _expiresUtc > now;
+        public void Unbind()
+        {
+            MailId = 0; claim.onClick.RemoveAllListeners(); details.onClick.RemoveAllListeners();
+            foreach (var slot in _slots) slot.button.onClick.RemoveAllListeners();
         }
         public void RefreshExpiry(long now)
         {
