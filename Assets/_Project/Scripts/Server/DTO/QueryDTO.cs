@@ -385,6 +385,9 @@ namespace Protocol.Message.Dto
 		public long KingdomSupply { get; set; }
 		public long TrainingTome { get; set; }
 		public long EquipmentStone { get; set; }
+		// 장비·마탑 뽑기권(2026-11-01, 상점 일일 광고 보상). 광고 보상 이전 서버에는 없으므로 필수로 두지 않는다.
+		public long EquipmentTicket { get; set; }
+		public long MageTicket { get; set; }
 		[JsonProperty(Required = Required.Always)]
 		public long Ruby { get; set; } //특별 무료재화
 		[JsonProperty(Required = Required.Always)]
@@ -621,13 +624,48 @@ namespace Protocol.Message.Dto
 		[JsonProperty(Required = Required.Always)]
 		public long LastUtc { get; set; }
 	}
+	// 월별 출석판(2026-10-31). KST 하루에 한 칸이 열리고 한 달에 최대 28칸이다. 출석은 칸만 열고 보상은 OnClaimAttendanceReward로 받는다.
+	// 출석판 필드(Month·OpenedDays·ClaimedDays)는 출석판 이전 서버와도 로그인이 되도록 필수로 두지 않는다.
 	public sealed class AttendanceStateDTO
 	{
-		// 누적 출석 일수. 보상 일차는 (TotalDays - 1) % 28 + 1이다.
+		// 서로 다른 KST 출석일의 누적 수.
 		[JsonProperty(Required = Required.Always)]
 		public long TotalDays { get; set; }
 		[JsonProperty(Required = Required.Always)]
 		public string LastDay { get; set; } = null!;
+		// 출석판의 KST 달(yyyy-MM). 아직 판을 시작하지 않았으면 빈 문자열이다.
+		public string Month { get; set; } = "";
+		// 이번 달에 열린 칸 수(0~28). 1일차부터 OpenedDays일차까지 열려 있다.
+		public int OpenedDays { get; set; }
+		// 보상을 받은 칸 번호(1부터, 오름차순).
+		public List<int> ClaimedDays { get; set; } = new List<int>();
+	}
+	// 상점 일일 광고 보상의 오늘(KST) 수령 기록(2026-11-01). 광고 보상 이전 서버와도 로그인이 되도록 필수로 두지 않는다.
+	public sealed class AdRewardStateDTO
+	{
+		// 수령 기록의 KST 날짜(yyyy-MM-dd). 받은 적이 없으면 빈 문자열이다.
+		public string Day { get; set; } = "";
+		// Day에 받은 상점 광고 상품 id(rewarded.daily_equipment, rewarded.daily_mage).
+		public List<string> ClaimedOfferIds { get; set; } = new List<string>();
+	}
+	// 재화 종류와 수량(서버 CurrencyAmountDTO 사본). 광고 보상 응답의 GrantedCurrencies에 쓴다.
+	public sealed class CurrencyAmountDTO
+	{
+		// 전역 eCurrency(Wallet)가 먼저 바인딩되므로 서버 사본으로 완전 수식한다.
+		[JsonProperty(Required = Required.Always)]
+		public Protocol.Message.Data.eCurrency CurrencyType { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public long Amount { get; set; }
+	}
+	// 이번 요청으로 바뀐 장비 묶음의 처리 후 상태(2026-10-31, 출석 보상 수령). 보관 위치별로 같은 묶음(장비 종류·강화·만료)을 덮어쓰거나 추가한다.
+	public sealed class EquipmentChangesDTO
+	{
+		[JsonProperty(Required = Required.Always)]
+		public List<EquipmentStackDTO> Items { get; set; } = null!;
+		[JsonProperty(Required = Required.Always)]
+		public List<EquipmentStackDTO> PendingItems { get; set; } = null!;
+		[JsonProperty(Required = Required.Always)]
+		public List<EquipmentReserveStackDTO> ReserveStacks { get; set; } = null!;
 	}
 	public enum MailCategory { System, Attendance }
 	// 우편 첨부. 재화는 CurrencyType, 장비는 DefinitionId로 대상을 정한다.

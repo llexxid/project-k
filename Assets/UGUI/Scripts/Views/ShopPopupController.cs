@@ -16,7 +16,11 @@ namespace KingdomIdle.UGUI
         static ShopAdRewardService.Claim _claim;
         static bool _busy, _adBusy;
         static string _day;
+        static int _adRevision = -1;
         public static bool IsOpen => _view != null && _view.gameObject.activeSelf;
+
+        // 광고 보상은 서버가 지급한다(2026-11-01). 결과는 ShopAdRewardService.ClaimCompleted로 온다.
+        static ShopPopupController() => ShopAdRewardService.ClaimCompleted += OnClaimCompleted;
 
         public static void Show()
         {
@@ -90,17 +94,32 @@ namespace KingdomIdle.UGUI
             });
         }
 
-        static void HandleReward(ShopAdRewardService.Claim claim, RewardResult result)
+        // 진행 중인 클레임의 서버 결과만 반영한다.
+        static void OnClaimCompleted(ShopAdRewardService.Claim claim, RewardResult result, string message)
         {
+            if (!ReferenceEquals(_claim, claim)) return;
+            HandleReward(claim, result, message);
+        }
+
+        static void HandleReward(ShopAdRewardService.Claim claim, RewardResult result, string message = null)
+        {
+            // 서버에 요청을 보냈다. "처리 중…"을 유지하고 ClaimCompleted를 기다린다.
+            if (result.Status == RewardStatus.Pending) { Invalidate(); return; }
             _busy = false;
             // shortcut: unsaved earned rewards survive popup closure, not process termination.
-            if (result.Succeeded || result.Status == RewardStatus.Stale || result.Status == RewardStatus.NothingAvailable)
+            // 서버가 거절(InvalidReward)했으면 다시 보내도 같으므로 클레임을 버린다. 저장·전송 실패만 "보상 다시 받기"로 남긴다.
+            if (result.Succeeded || result.Status == RewardStatus.Stale || result.Status == RewardStatus.NothingAvailable ||
+                result.Status == RewardStatus.InvalidReward)
                 _claim = null;
             Invalidate();
-            if (!IsOpen || !ShopAdRewardService.IsCurrentAccount(claim)) return;
-            if (result.Succeeded) RewardPopupView.ShowRewards(UIManager.Instance.LayerPopups, result.Rewards);
-            else if (_claim != null && _claim.Earned)
-                UIManager.Instance.ShowToast("보상을 저장하지 못했습니다. 보상 다시 받기를 눌러 주세요.");
+            var host = UIManager.Instance;
+            if (host == null || !ShopAdRewardService.IsCurrentAccount(claim)) return;
+            // 지급 결과는 상점을 닫았어도 보여 준다(요청 중 닫을 수 있다).
+            if (result.Succeeded) { RewardPopupView.ShowRewards(host.LayerPopups, result.Rewards); return; }
+            if (!IsOpen) return;
+            bool retry = _claim != null && _claim.Earned;
+            if (message != null) host.ShowToast(retry ? message + " 보상 다시 받기를 눌러 주세요." : message);
+            else if (retry) host.ShowToast("보상을 저장하지 못했습니다. 보상 다시 받기를 눌러 주세요.");
             else RewardPresentation.Report(result);
         }
 
@@ -126,10 +145,10 @@ namespace KingdomIdle.UGUI
             string day = ShopAdRewardService.Today;
             bool adBusy = RewardedAdService.IsBusy;
             if (_account == LocalProgression.AccountGeneration && _revision == state.Revision &&
-                _numberStyle == NumberNotation.Style && _day == day && _adBusy == adBusy) return;
+                _numberStyle == NumberNotation.Style && _day == day && _adBusy == adBusy && _adRevision == ShopAdRewardService.Revision) return;
             _revision = state.Revision; _numberStyle = NumberNotation.Style;
             _account = LocalProgression.AccountGeneration;
-            _day = day; _adBusy = adBusy;
+            _day = day; _adBusy = adBusy; _adRevision = ShopAdRewardService.Revision;
             Set(_view.wallet, "보유 고대주화  " + NumberNotation.Format(LocalProgression.Balance(eCurrency.AncientCoin)));
             Set(_view.income, "골드 기준 수입  " + NumberNotation.Format((long)decimal.Floor(ShopCatalog.GoldPerMinute(state))) + " / 분 · 루비 효과 포함");
             foreach (var row in _view.offers)

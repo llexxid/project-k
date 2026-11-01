@@ -207,6 +207,22 @@ namespace Scripts.Core
 			s.Wallet[eCurrency.ArcaneKnowledge] = Math.Max(0, currency.ArcaneKnowledge);
 			s.Wallet[eCurrency.Ruby] = Math.Max(0, currency.Ruby);
 			s.Wallet[eCurrency.EquipmentStone] = Math.Max(0, currency.EquipmentStone);
+			// 뽑기권도 서버 값이 진실이다(2026-11-01). 로컬에서만 받았던 뽑기권은 이 값으로 덮인다.
+			s.Wallet[eCurrency.EquipmentTicket] = Math.Max(0, currency.EquipmentTicket);
+			s.Wallet[eCurrency.MageTicket] = Math.Max(0, currency.MageTicket);
+		}
+
+		/// <summary>
+		/// 광고 보상 응답(OnClaimAdReward, 상점 일일 광고·오프라인 2배 공통)의 레벨·경험치·재화 절대값을 쓴다.
+		/// 처치 수는 바꾸지 않는다(서버도 세지 않는다). 레벨은 로그인과 같이 계정 상한으로 자른다.
+		/// </summary>
+		public static void ApplyAdReward(ProgressionState s, OnClaimAdRewardResponseDTO r)
+		{
+			if (r == null) return;
+			s.AccountLevel = BalanceMath.Clamp(r.Level, 1, BalanceMath.AccountCap);
+			s.Experience = Math.Max(0, r.Exp);
+			BalanceMath.GainExperience(ref s.AccountLevel, ref s.Experience, 0);
+			ApplyCurrency(s, r.Currency);
 		}
 
 		/// <summary>
@@ -246,6 +262,56 @@ namespace Scripts.Core
 			s.AutoDismantleMask = Math.Max(0, Math.Min(7, inventory.AutoDismantleRarityMask));
 			// CreateCharacter의 옛 형식(Inventory 목록) 1회 import는 건너뛴다. 서버 값이 이미 들어왔다.
 			s.Modules["inventory-imported"] = "server";
+		}
+
+		/// <summary>
+		/// 서버가 돌려준 "바뀐 장비 묶음"만 플레이어 상태에 쓴다(출석 보상 수령). 묶음 수량은 지급 후 절대값이므로 같은 (Code, Level, 만료) 항목을
+		/// 그 수량만큼 다시 펼치고 기존 Id를 이어받는다. 예비 보관은 (Code, Level) 묶음 수량을 서버 값으로 바꾼다. 응답에 없는 묶음은 건드리지 않는다.
+		/// </summary>
+		public static void ApplyEquipmentChanges(ProgressionState s, EquipmentChangesDTO changes)
+		{
+			if (changes == null) return;
+			ReplaceStacks(s.Equipment, changes.Items, EquipmentManager.Capacity, true, "Items");
+			ReplaceStacks(s.PendingEquipment, changes.PendingItems, EquipmentManager.PendingCapacity, false, "PendingItems");
+			if (changes.ReserveStacks != null)
+			{
+				foreach (var stack in changes.ReserveStacks)
+				{
+					if (stack == null) continue;
+					int code = (int)stack.ItemCode.GetItemCode();
+					int level = ClampLevel(stack.ItemCode.GetItemEnchantCount());
+					LegacyEquipmentStack existing = null;
+					foreach (var entry in s.LegacyEquipment) if (entry.Code == code && entry.Level == level) { existing = entry; break; }
+					if (existing == null) s.LegacyEquipment.Add(new LegacyEquipmentStack { Code = code, Level = level, Count = Math.Max(0, stack.Count), Locked = stack.IsLocked });
+					else { existing.Count = Math.Max(0, stack.Count); existing.Locked = stack.IsLocked; }
+				}
+				s.LegacyEquipment.RemoveAll(entry => entry == null || entry.Count <= 0);
+			}
+			s.Modules["inventory-imported"] = "server";
+		}
+
+		// list에서 묶음과 같은 (Code, Level, 만료) 항목을 빼고 서버 수량만큼 다시 펼친다. 장착 인덱스는 남은 항목과 겹치지 않게 한다.
+		private static void ReplaceStacks(List<EquipmentSave> list, List<EquipmentStackDTO> stacks, int capacity, bool allowEquip, string label)
+		{
+			if (list == null || stacks == null) return;
+			foreach (var stack in stacks)
+			{
+				if (stack == null) continue;
+				int code = (int)stack.ItemCode.GetItemCode();
+				int level = ClampLevel(stack.ItemCode.GetItemEnchantCount());
+				long expires = stack.ItemCode.ExpireTimesc > long.MaxValue ? long.MaxValue : (long)stack.ItemCode.ExpireTimesc;
+				var previous = new List<EquipmentSave>();
+				for (int i = list.Count - 1; i >= 0; i--)
+				{
+					var item = list[i];
+					if (item != null && item.Code == code && item.Level == level && item.ExpiresUtc == expires) { previous.Insert(0, item); list.RemoveAt(i); }
+				}
+				var equipped = new HashSet<int>();
+				foreach (var item in list) if (item?.Player is int index) equipped.Add(index);
+				var expanded = new List<EquipmentSave>();
+				ExpandStacks(new List<EquipmentStackDTO> { stack }, expanded, previous, new HashSet<string>(), equipped, Math.Max(0, capacity - list.Count), allowEquip, label);
+				list.AddRange(expanded);
+			}
 		}
 
 		private static void ExpandStacks(List<EquipmentStackDTO> stacks, List<EquipmentSave> target, List<EquipmentSave> previous,
@@ -562,8 +628,13 @@ namespace Scripts.Core
 			var state = LocalProgression.State;
 			// 퀘스트 상태는 플레이어 상태 파일이 아니라 QuestManager가 보관한다(응답마다 전체 행이 와서 통째로 교체한다).
 			if (ok) QuestManager.Receive(response.Quests, response is OnGetUserStateResponseDTO ? "state" : "login");
-			Debug.Log($"[PlayerData] server Level={response.Level} Exp={response.Exp} Kills={response.KillScore} Gold={response.Currency?.Gold} AncientCoin={response.Currency?.AncientCoin} ClassFragment={response.Currency?.ClassFragment} ArcaneKnowledge={response.Currency?.ArcaneKnowledge} ATK={response.EnchantATKCount} HP={response.EnchantHPCount} Stage=0x{stage:X} Frontier=0x{frontier:X} Highest=0x{highest:X} Inventory={DescribeInventory(response.Equipment)} Skills={response.MageTowerState?.Skills?.Count ?? -1} Mage={DescribeMage(response.MageTowerState)} Pity={response.GachaState?.EquipmentPity ?? -1} Quests={response.Quests?.Rows?.Count ?? -1} Reinc={response.Reincarnation?.Level ?? -1} Jobs={DescribeJobs(response.CharacterDatas)} Unlocked={CountUnlocked(response.JobTrees)}" +
-				$" | state Level={state.AccountLevel} Exp={state.Experience} Kills={state.Kills} Gold={LocalProgression.Balance(eCurrency.Gold)} AncientCoin={LocalProgression.Balance(eCurrency.AncientCoin)} ClassFragment={LocalProgression.Balance(eCurrency.ClassFragment)} ArcaneKnowledge={LocalProgression.Balance(eCurrency.ArcaneKnowledge)} ATK={state.AttackLevel} HP={state.HealthLevel} Stage=0x{state.MainStage:X} Frontier=0x{state.CycleFrontierStage:X} Highest=0x{state.HighestMainClear:X} Inventory={DescribeInventory(state)} Skills={state.MageSkills.Count} Mage={DescribeMage(state)} Pity={state.EquipmentPity} Quests={QuestManager.ReceivedRowCount} Reinc={state.ReincarnationLevel} Jobs={DescribeJobs(state)} Unlocked={CountUnlocked(state)}" +
+			// 출석판도 플레이어 상태 파일이 아니라 CheckInService가 보관한다. 우편함은 로그인할 때마다 다시 조회한다.
+			if (ok) KingdomIdle.CheckIn.CheckInService.Receive(response.Attendance, response.ServerTimeUtc, response is OnGetUserStateResponseDTO ? "state" : "login");
+			if (ok && !(response is OnGetUserStateResponseDTO)) KingdomIdle.Mailbox.MailboxService.RequestRefresh("login");
+			// 상점 광고 수령 기록도 출석판처럼 메모리에 둔다. 상점의 오늘 0/1·1/1 표시가 이 값을 쓴다.
+			if (ok) ShopAdRewardService.Receive(response.AdRewards, response.ServerTimeUtc, response is OnGetUserStateResponseDTO ? "state" : "login");
+			Debug.Log($"[PlayerData] server Level={response.Level} Exp={response.Exp} Kills={response.KillScore} Gold={response.Currency?.Gold} AncientCoin={response.Currency?.AncientCoin} ClassFragment={response.Currency?.ClassFragment} ArcaneKnowledge={response.Currency?.ArcaneKnowledge} ATK={response.EnchantATKCount} HP={response.EnchantHPCount} Stage=0x{stage:X} Frontier=0x{frontier:X} Highest=0x{highest:X} Inventory={DescribeInventory(response.Equipment)} Skills={response.MageTowerState?.Skills?.Count ?? -1} Mage={DescribeMage(response.MageTowerState)} Pity={response.GachaState?.EquipmentPity ?? -1} Quests={response.Quests?.Rows?.Count ?? -1} Reinc={response.Reincarnation?.Level ?? -1} Jobs={DescribeJobs(response.CharacterDatas)} Unlocked={CountUnlocked(response.JobTrees)} Board={KingdomIdle.CheckIn.CheckInService.Describe(response.Attendance)} Tickets={response.Currency?.EquipmentTicket}/{response.Currency?.MageTicket} Ads={ShopAdRewardService.Describe(response.AdRewards)}" +
+				$" | state Level={state.AccountLevel} Exp={state.Experience} Kills={state.Kills} Gold={LocalProgression.Balance(eCurrency.Gold)} AncientCoin={LocalProgression.Balance(eCurrency.AncientCoin)} ClassFragment={LocalProgression.Balance(eCurrency.ClassFragment)} ArcaneKnowledge={LocalProgression.Balance(eCurrency.ArcaneKnowledge)} ATK={state.AttackLevel} HP={state.HealthLevel} Stage=0x{state.MainStage:X} Frontier=0x{state.CycleFrontierStage:X} Highest=0x{state.HighestMainClear:X} Inventory={DescribeInventory(state)} Skills={state.MageSkills.Count} Mage={DescribeMage(state)} Pity={state.EquipmentPity} Quests={QuestManager.ReceivedRowCount} Reinc={state.ReincarnationLevel} Jobs={DescribeJobs(state)} Unlocked={CountUnlocked(state)} Board={KingdomIdle.CheckIn.CheckInService.Describe()} Tickets={LocalProgression.Balance(eCurrency.EquipmentTicket)}/{LocalProgression.Balance(eCurrency.MageTicket)} Ads={ShopAdRewardService.Describe()}" +
 				$" | applied={ok} revision={state.Revision} account={LocalProgression.AccountKey}");
 			if (!ok) Debug.LogError("[PlayerData] 서버 플레이어 데이터 적용 실패: " + LocalProgression.LastError);
 			return ok;

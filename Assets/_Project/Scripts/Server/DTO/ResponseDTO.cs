@@ -5,7 +5,7 @@ using Newtonsoft.Json;
 namespace Protocol.Message.Dto
 {
 
-// 서버 AuthenticationFunction/Common/Dto/ResponseDTO.cs의 사본(2026-10-31: CurrentStage·StageProgress·Stage → StageState).
+// 서버 AuthenticationFunction/Common/Dto/ResponseDTO.cs의 사본(2026-10-31: CurrentStage·StageProgress·Stage → StageState, 2026-11-01: 광고 보상·AdRewards).
 // 모든 필드는 Required.Always이고, 서버가 nullable(T?)로 선언한 필드만 Required.AllowNull이다
 // (키는 있어야 하고 값은 null일 수 있다. 서버 System.Text.Json은 null도 출력한다).
 
@@ -56,6 +56,8 @@ public class UserInitResponseDTO : ApiResponseDTO
     public ReincarnationStateDTO Reincarnation { get; set; } = null!;
     [JsonProperty(Required = Required.Always)]
     public AttendanceStateDTO Attendance { get; set; } = null!;
+    // 오늘(KST) 받은 상점 광고 상품(2026-11-01). 광고 보상 이전 서버에는 없으므로 필수로 두지 않는다.
+    public AdRewardStateDTO AdRewards { get; set; } = new AdRewardStateDTO();
     // 마지막 오프라인 보상 정산 시각(UTC 초). 0이면 아직 기준 시각이 없다.
     [JsonProperty(Required = Required.Always)]
     public long OfflineLastClaimUtc { get; set; }
@@ -342,6 +344,37 @@ public sealed class OnClaimGuideRewardResponseDTO : ApiResponseDTO
     [JsonProperty(Required = Required.Always)]
     public CurrencyQueryDTO Currency { get; set; } = null!;
 }
+// 광고 보상(2026-11-01, 상점 일일 광고·오프라인 2배를 AdType으로 분기). 두 종류가 같은 모양이다.
+// 이미 받았으면 AlreadyClaimed이고 GrantedCurrencies는 비어 있으며 GrantedExp는 0이다.
+public sealed class OnClaimAdRewardResponseDTO : ApiResponseDTO
+{
+    [JsonProperty(Required = Required.Always)]
+    public eAdType AdType { get; set; }
+    // 요청한 상점 상품 id. OfflineBonus면 null이다.
+    [JsonProperty(Required = Required.AllowNull)]
+    public string OfferId { get; set; }
+    [JsonProperty(Required = Required.Always)]
+    public bool AlreadyClaimed { get; set; }
+    // 이번 지급 재화(상점: 뽑기권, 오프라인: 골드). 결과 표시에만 쓰고 잔액은 Currency로 덮어쓴다.
+    [JsonProperty(Required = Required.Always)]
+    public List<CurrencyAmountDTO> GrantedCurrencies { get; set; } = null!;
+    // 이번 지급 경험치(오프라인 2배만).
+    [JsonProperty(Required = Required.Always)]
+    public long GrantedExp { get; set; }
+    // 지급 후 레벨·경험치·재화 전체. 클라이언트는 더하지 않고 이 값을 덮어쓴다.
+    [JsonProperty(Required = Required.Always)]
+    public int Level { get; set; }
+    [JsonProperty(Required = Required.Always)]
+    public long Exp { get; set; }
+    [JsonProperty(Required = Required.Always)]
+    public CurrencyQueryDTO Currency { get; set; } = null!;
+    // 오늘(KST) 받은 상점 광고 상품. 오프라인 2배 응답에도 온다.
+    [JsonProperty(Required = Required.Always)]
+    public AdRewardStateDTO AdRewards { get; set; } = null!;
+    // 상점 광고를 다시 받을 수 있는 시각(다음 KST 0시, UTC 초).
+    [JsonProperty(Required = Required.Always)]
+    public long NextResetUtc { get; set; }
+}
 public sealed class OnAddRubyResponseDTO : ApiResponseDTO
 {
     [JsonProperty(Required = Required.Always)]
@@ -387,14 +420,36 @@ public sealed class OnCheckAttendanceResponseDTO : ApiResponseDTO
 {
     [JsonProperty(Required = Required.Always)]
     public AttendanceStateDTO Attendance { get; set; } = null!;
-    // 이번 출석으로 지급한 보상의 일차(1~28).
+    // 이번 출석으로 연 칸 번호(1~28).
     [JsonProperty(Required = Required.Always)]
     public int CycleDay { get; set; }
+    // 다음 출석이 가능한 시각(다음 KST 0시).
     [JsonProperty(Required = Required.Always)]
     public long NextResetUtc { get; set; }
-    // 보상표의 해당 일차 보상을 우편 없이 바로 지급한 결과. 장비는 Disposition으로 보관 위치를 알린다.
+    // 출석은 보상을 지급하지 않으므로 항상 빈 목록이다(출석판 이전 서버 호환용 필드).
     [JsonProperty(Required = Required.Always)]
     public List<GachaRewardDTO> Rewards { get; set; } = null!;
+    // 출석판이 초기화되는 시각(다음 달 1일 0시 KST). 출석판 이전 서버에는 없다.
+    public long BoardResetUtc { get; set; }
+    // 이번 출석에서 지난 달 미수령 칸 보상을 보낸 우편 ID. 출석판 이전 서버에는 없다.
+    public List<long> CarryoverMailIds { get; set; } = new List<long>();
+}
+public sealed class OnClaimAttendanceRewardResponseDTO : ApiResponseDTO
+{
+    [JsonProperty(Required = Required.Always)]
+    public AttendanceStateDTO Attendance { get; set; } = null!;
+    // 이번에 받은 칸 번호(오름차순).
+    [JsonProperty(Required = Required.Always)]
+    public List<int> Days { get; set; } = null!;
+    // 지급 결과(획득 연출용). 장비는 Disposition으로 보관 위치를 알린다.
+    [JsonProperty(Required = Required.Always)]
+    public List<GachaRewardDTO> Rewards { get; set; } = null!;
+    // 지급 후 재화 잔액 전체.
+    [JsonProperty(Required = Required.Always)]
+    public CurrencyQueryDTO Currency { get; set; } = null!;
+    // 이번 지급으로 바뀐 장비 묶음의 지급 후 상태. 재화만 받았으면 세 목록이 비어 있다.
+    [JsonProperty(Required = Required.Always)]
+    public EquipmentChangesDTO EquipmentChanges { get; set; } = null!;
 }
 
 }

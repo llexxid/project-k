@@ -131,7 +131,9 @@ namespace Scripts.Core.Manager
                 [typeof(OnGetMailListRequestDTO)] = ("OnGetMailList", typeof(OnGetMailListResponseDTO)),
                 [typeof(OnClaimMailRewardRequestDTO)] = ("OnClaimMailReward", typeof(OnClaimMailRewardResponseDTO)),
                 [typeof(OnCheckAttendanceRequestDTO)] = ("OnCheckAttendance", typeof(OnCheckAttendanceResponseDTO)),
-                [typeof(OnClaimGuideRewardRequestDTO)] = ("OnClaimGuideReward", typeof(OnClaimGuideRewardResponseDTO))
+                [typeof(OnClaimAttendanceRewardRequestDTO)] = ("OnClaimAttendanceReward", typeof(OnClaimAttendanceRewardResponseDTO)),
+                [typeof(OnClaimGuideRewardRequestDTO)] = ("OnClaimGuideReward", typeof(OnClaimGuideRewardResponseDTO)),
+                [typeof(OnClaimAdRewardRequestDTO)] = ("OnClaimAdReward", typeof(OnClaimAdRewardResponseDTO))
             };
             _authentication = new Authentication(this);
         }
@@ -386,8 +388,11 @@ namespace Scripts.Core.Manager
                     user.JobTrees.Select(x => x.Index).Distinct().Count() != user.JobTrees.Count)
                     throw new JsonSerializationException("Invalid initial player state.");
                 if (user.Currency.Gold < 0 || user.Currency.AncientCoin < 0 || user.Currency.ArcaneKnowledge < 0 ||
-                    user.Currency.ClassFragment < 0 || user.Currency.Ruby < 0 || user.Currency.EquipmentStone < 0)
+                    user.Currency.ClassFragment < 0 || user.Currency.Ruby < 0 || user.Currency.EquipmentStone < 0 ||
+                    user.Currency.EquipmentTicket < 0 || user.Currency.MageTicket < 0)
                     throw new JsonSerializationException("Invalid wallet.");
+                if (user.AdRewards == null || user.AdRewards.Day == null || user.AdRewards.ClaimedOfferIds == null)
+                    throw new JsonSerializationException("Invalid ad reward state.");
                 ValidateEquipment(user.Equipment);
                 ValidateQuests(user.Quests);
             }
@@ -442,6 +447,60 @@ namespace Scripts.Core.Manager
                 throw new JsonSerializationException("Invalid offline reward result.");
             if (response is OnClaimGuideRewardResponseDTO guide && (string.IsNullOrEmpty(guide.GuideId) || guide.GrantedAncientCoin < 0 || guide.Currency == null))
                 throw new JsonSerializationException("Invalid guide reward result.");
+            if (response is OnClaimAdRewardResponseDTO adReward)
+            {
+                // 상점 일일 광고는 상품 id가 있고, 오프라인 2배는 없다. 이미 받았으면 지급이 비어 있어야 한다.
+                bool shop = adReward.AdType == Protocol.Message.Data.eAdType.ShopDaily;
+                if ((!shop && adReward.AdType != Protocol.Message.Data.eAdType.OfflineBonus) || shop == string.IsNullOrEmpty(adReward.OfferId) ||
+                    adReward.GrantedCurrencies == null || adReward.GrantedExp < 0 || adReward.Level < 1 || adReward.Exp < 0 ||
+                    adReward.Currency == null || adReward.Currency.EquipmentTicket < 0 || adReward.Currency.MageTicket < 0 ||
+                    adReward.AdRewards == null || adReward.AdRewards.Day == null || adReward.AdRewards.ClaimedOfferIds == null ||
+                    (adReward.AlreadyClaimed && (adReward.GrantedCurrencies.Count != 0 || adReward.GrantedExp != 0)))
+                    throw new JsonSerializationException("Invalid ad reward result.");
+                foreach (var granted in adReward.GrantedCurrencies)
+                {
+                    if (granted == null || granted.Amount <= 0)
+                        throw new JsonSerializationException("Invalid ad reward grant.");
+                }
+            }
+            if (response is OnCheckAttendanceResponseDTO checkIn)
+            {
+                ValidateAttendance(checkIn.Attendance);
+                if (checkIn.CycleDay < 1 || checkIn.CycleDay > 28 || checkIn.Rewards == null || checkIn.CarryoverMailIds == null)
+                    throw new JsonSerializationException("Invalid attendance check-in result.");
+            }
+            if (response is OnClaimAttendanceRewardResponseDTO attendanceClaim)
+            {
+                ValidateAttendance(attendanceClaim.Attendance);
+                var changes = attendanceClaim.EquipmentChanges;
+                if (attendanceClaim.Days == null || attendanceClaim.Days.Count == 0 || attendanceClaim.Rewards == null || attendanceClaim.Currency == null ||
+                    changes == null || changes.Items == null || changes.PendingItems == null || changes.ReserveStacks == null)
+                    throw new JsonSerializationException("Invalid attendance claim result.");
+                ValidateStacks(changes.Items, new HashSet<int>(), true);
+                ValidateStacks(changes.PendingItems, new HashSet<int>(), false);
+                foreach (var stack in changes.ReserveStacks)
+                {
+                    if (stack == null || stack.Count <= 0 || (stack.ItemCode.Code >> 56) != 0)
+                        throw new JsonSerializationException("Invalid reserve stack.");
+                }
+            }
+            if (response is OnGetMailListResponseDTO mailList && (mailList.Mails == null || mailList.TotalCount < 0 || mailList.Mails.Any(m => m == null || m.Rewards == null)))
+                throw new JsonSerializationException("Invalid mail list.");
+            if (response is OnClaimMailRewardResponseDTO mailClaim)
+            {
+                if (mailClaim.ClaimedMailIds == null || mailClaim.Rewards == null || mailClaim.Currency == null)
+                    throw new JsonSerializationException("Invalid mail claim result.");
+                ValidateEquipment(mailClaim.Equipment);
+            }
+        }
+
+        // 출석판: 칸 수 0~28, 받은 칸은 1~OpenedDays. 출석판 이전 서버(Month 없음)는 빈 판으로 본다.
+        private static void ValidateAttendance(AttendanceStateDTO attendance)
+        {
+            if (attendance == null || attendance.LastDay == null || attendance.TotalDays < 0 || attendance.OpenedDays < 0 || attendance.OpenedDays > 28)
+                throw new JsonSerializationException("Invalid attendance state.");
+            if (attendance.ClaimedDays != null && attendance.ClaimedDays.Any(d => d < 1 || d > attendance.OpenedDays))
+                throw new JsonSerializationException("Invalid attendance claimed days.");
         }
 
         // 마탑 상태: 스킬 목록·슬롯 5칸이 있고 값이 음수가 아니어야 한다. 보유·중복 검사는 적용 함수(UserManager.ApplyMageTower)가 한다.
@@ -606,7 +665,20 @@ namespace Scripts.Core.Manager
                     case 1035: return "환생 쿨다운 중입니다. 잠시 후 다시 시도해 주세요.";
                     case 1036: return "메인 일반 웨이브에서만 환생할 수 있습니다. 보스전·던전 종료 후 다시 확인하세요.";
                     case 1037: return "오프라인 보상 요청값이 올바르지 않습니다.";
+                    case 1038: return "오늘은 이미 출석했습니다.";
+                    case 1039: return "이미 받았거나 없는 우편입니다. 우편함을 다시 확인해 주세요.";
+                    case 1040: return "보관 기간이 지난 우편입니다.";
+                    case 1041: return "우편함이 가득 찼습니다. 우편을 받은 뒤 다시 시도해 주세요.";
+                    case 1042: return "우편 요청이 올바르지 않습니다.";
                     case 1043: return "실습 보상을 받을 수 없는 단계입니다.";
+                    case 1044: return "출석 보상 요청이 올바르지 않습니다.";
+                    case 1045: return "출석부가 새 달로 바뀌었습니다. 잠시 후 다시 확인해 주세요.";
+                    case 1046: return "아직 열리지 않은 출석 보상입니다.";
+                    case 1047: return "이번 달 출석부를 모두 채웠습니다. 다음 달 1일에 새 출석부가 열립니다.";
+                    case 1048: return "개발 계정 전용 기능입니다.";
+                    case 1049: return "테스트 요청 값이 올바르지 않습니다.";
+                    case 1050: return "광고 보상 요청이 올바르지 않습니다.";
+                    case 1051: return "받을 수 있는 오프라인 2배 보상이 없습니다.";
                     default: return $"{action}에 실패했습니다. (오류 {(int)business.ErrorCode})";
                 }
             }

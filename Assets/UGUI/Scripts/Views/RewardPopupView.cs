@@ -22,14 +22,15 @@ namespace KingdomIdle.UGUI
 
         public static void ShowItem(Transform owner, RewardGrant reward, string mailId = null)
         {
-            var view = Open(owner, RewardPresentation.Name(reward.Currency), mailId);
+            var view = Open(owner, RewardPresentation.Name(reward), mailId);
             if (view == null) return;
-            view.SetDescription(RewardPresentation.Description(reward.Currency));
-            view.AddSlots(new[] { new RewardGrant(reward.Currency, reward.Amount) }, false);
+            view.SetDescription(RewardPresentation.Description(reward));
+            view.AddSlots(new[] { reward.Copy() }, false);
         }
-        public static void ShowRewards(Transform owner, IReadOnlyList<RewardGrant> rewards)
+        public static void ShowRewards(Transform owner, IReadOnlyList<RewardGrant> rewards) => ShowRewards(owner, rewards, "보상 획득");
+        public static void ShowRewards(Transform owner, IReadOnlyList<RewardGrant> rewards, string heading)
         {
-            var view = Open(owner, "보상 획득", null);
+            var view = Open(owner, heading, null);
             if (view == null) return;
             view.SetDescription("");
             view.AddSlots(rewards, true);

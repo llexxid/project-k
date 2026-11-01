@@ -219,6 +219,16 @@ namespace Protocol.Message.Dto
 		[JsonProperty(Required = Required.Always)]
 		public string GuideId { get; set; } = null!;
 	}
+	// 광고 보상(2026-11-01). 광고 시청 여부는 서버가 클라이언트 보고를 믿는다. 서버는 AdType으로 분기한다:
+	// ShopDaily는 상점 일일 광고(상품별 KST 하루 1회 뽑기권), OfflineBonus는 마지막 오프라인 정산의 골드·경험치를 한 번 더(정산 1회).
+	public sealed class OnClaimAdRewardRequestDTO : SessionRequestDTO
+	{
+		[JsonProperty(Required = Required.Always)]
+		public eAdType AdType { get; set; }
+		// ShopDaily일 때만 보내는 상점 상품 id(rewarded.daily_equipment, rewarded.daily_mage). OfflineBonus는 null로 둔다.
+		// 정의에 없는 상품이나 오프라인 2배에 붙인 상품 id는 1050으로 거절된다.
+		public string OfferId { get; set; }
+	}
 
 	// 우편·출석
 	// 우편 요청의 공통 필드. 호출자가 PlayFabId를 채우지 않아도 NetworkManager가 로그인한 계정의 값으로 덮어쓴다.
@@ -242,6 +252,16 @@ namespace Protocol.Message.Dto
 		[JsonProperty(Required = Required.Always)]
 		public List<long> MailIds { get; set; } = null!;
 	}
-	// 출석 일차와 보상은 서버 저장값과 KST 날짜로 정한다. 그 외 입력은 없다.
+	// 오늘(KST) 출석판 칸을 연다. 보상은 지급하지 않는다. 그 외 입력은 없다.
 	public sealed class OnCheckAttendanceRequestDTO : SessionRequestDTO { }
+	// 출석판에서 열렸고 받지 않은 칸의 보상을 받는다. 하나라도 받을 수 없으면 서버가 모두 거절한다.
+	public sealed class OnClaimAttendanceRewardRequestDTO : SessionRequestDTO
+	{
+		// 화면에 보인 출석판의 KST 달(yyyy-MM). 서버 출석판의 달과 다르면 1045다.
+		[JsonProperty(Required = Required.Always)]
+		public string Month { get; set; } = null!;
+		// 받을 칸 번호(1~28, 중복 없음).
+		[JsonProperty(Required = Required.Always)]
+		public List<int> Days { get; set; } = null!;
+	}
 }

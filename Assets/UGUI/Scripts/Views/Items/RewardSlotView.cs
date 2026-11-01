@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace KingdomIdle.UGUI
 {
-    /// <summary>재화 슬롯의 표시와 클릭 전달만 담당한다. 수령 정책은 소유 화면에서 결정한다.</summary>
+    /// <summary>재화·장비 보상 슬롯의 표시와 클릭 전달만 담당한다. 수령 정책은 소유 화면에서 결정한다.</summary>
     public sealed class RewardSlotView : MonoBehaviour
     {
         public UnityEngine.UI.Button button;
@@ -14,7 +14,7 @@ namespace KingdomIdle.UGUI
 
         public void Bind(RewardGrant reward, Action clicked, int dayNumber = 0, bool available = false, bool claimed = false)
         {
-            icon.sprite = reward == null ? null : RewardPresentation.Icon(reward.Currency);
+            icon.sprite = reward == null ? null : RewardPresentation.Icon(reward);
             icon.enabled = reward != null;
             icon.color = dayNumber == 0 || available ? Color.white : new Color(.55f, .55f, .55f);
             quantity.text = reward == null ? "" : NumberNotation.Format(reward.Amount);
@@ -45,6 +45,28 @@ namespace KingdomIdle.UGUI
 
     internal static class RewardPresentation
     {
+        // 서버 보상(출석판·우편)의 장비는 클라이언트 장비 카탈로그로 이름·아이콘을 찾는다. 없으면 기본 표기.
+        internal static string Name(RewardGrant reward)
+        {
+            if (reward == null) return "";
+            if (!reward.IsEquipment) return Name(reward.Currency);
+            var data = EquipmentManager.Instance != null ? EquipmentManager.Instance.GetData(reward.EquipmentId) : null;
+            return data != null ? data.DisplayName : $"장비 {reward.EquipmentId}";
+        }
+        internal static string Description(RewardGrant reward)
+        {
+            if (reward == null) return "";
+            return reward.IsEquipment ? "장비 보관함에 들어갑니다. 보관함이 가득 차면 대기함이나 예비 보관으로 갑니다." : Description(reward.Currency);
+        }
+        internal static Sprite Icon(RewardGrant reward, UIViewCatalog catalog = null)
+        {
+            if (reward == null) return null;
+            if (!reward.IsEquipment) return Icon(reward.Currency, catalog);
+            var data = EquipmentManager.Instance != null ? EquipmentManager.Instance.GetData(reward.EquipmentId) : null;
+            if (data != null && data.icon != null) return data.icon;
+            var cat = catalog != null ? catalog : UIManager.Instance != null ? UIManager.Instance.Catalog : null;
+            return cat != null ? cat.iconChest : null;
+        }
         internal static string Name(eCurrency currency) => currency switch
         {
             eCurrency.Gold => "골드", eCurrency.AncientCoin => "고대주화",
@@ -82,7 +104,8 @@ namespace KingdomIdle.UGUI
         };
         internal static void Report(RewardResult result)
         {
-            if (result.Succeeded) return;
+            // Pending은 서버 요청을 보냈다는 뜻이다. 결과는 완료 이벤트에서 알린다.
+            if (result.Succeeded || result.Status == RewardStatus.Pending) return;
             UIManager.Instance?.ShowToast(result.Status switch
             {
                 RewardStatus.NotReady => "계정 정보를 준비하고 있습니다.",

@@ -82,8 +82,9 @@ namespace KingdomIdle.OfflineRewards
                     appliedOfflineSeconds = r.AppliedSeconds,
                     estimatedKillCount = r.KillCount > int.MaxValue ? int.MaxValue : (int)r.KillCount
                 };
-                OfflineRewardPopupController.Show(new OfflineRewardClaimResult("server-offline:" + LocalProgression.UtcNow, plan, r.GainedGold, r.GainedExp, 0,
-                    state.AccountLevel, state.Experience, state.Kills));
+                LastClaimResult = new OfflineRewardClaimResult("server-offline:" + LocalProgression.UtcNow, plan, r.GainedGold, r.GainedExp, 0,
+                    state.AccountLevel, state.Experience, state.Kills);
+                OfflineRewardPopupController.Show(LastClaimResult);
             }
             onCompleted?.Invoke();
         }
@@ -125,15 +126,66 @@ namespace KingdomIdle.OfflineRewards
         }
 
         /// <summary>
-        /// 오프라인 광고 보너스는 서버 API가 생길 때까지 보류한다. 로컬 지갑에 더해도 다음 서버 응답이 덮어쓰므로 지급하지 않는다.
-        /// 팝업은 이 값이 false면 광고 버튼을 숨긴다.
+        /// 오프라인 광고 2배(2026-11-01 서버 연결). 광고를 다 보면 OnClaimAdReward(AdType=OfflineBonus)가 마지막 정산의 골드·경험치를 한 번 더 지급한다.
+        /// 광고 시청 여부는 서버가 클라이언트 보고를 믿고, 정산 1회당 한 번만 지급한다. 팝업은 이 값이 false면 광고 버튼을 숨긴다.
         /// </summary>
-        public static bool AdBonusAvailable => false;
+        public static bool AdBonusAvailable => true;
 
+        /// <summary>팝업에 넘긴 가장 최근 정산(E2E 하네스가 광고 2배 요청에 쓴다).</summary>
+        public static OfflineRewardClaimResult LastClaimResult { get; private set; }
+        public static bool AdBonusBusy { get; private set; }
+        /// <summary>광고 2배 요청 결과. Success는 지급(또는 이미 지급됨), NothingAvailable은 받을 정산 없음, SaveFailed는 다시 시도 가능. 메시지가 있으면 그 문구를 보여 준다.</summary>
+        public static event Action<OfflineRewardClaimResult, RewardStatus, string> AdBonusCompleted;
+
+        /// <summary>서버에 광고 2배를 요청한다. 결과는 AdBonusCompleted로 온다(Pending). 서버가 정산 1회만 지급하므로 실패 뒤 다시 불러도 두 번 받지 않는다.</summary>
         public static RewardStatus TryGrantAdBonus(OfflineRewardClaimResult result)
         {
             if (!IsCurrentAccount(result)) return RewardStatus.Stale;
-            return RewardStatus.NothingAvailable;
+            var network = NetworkManager.Instance;
+            if (AdBonusBusy || network == null || !network.IsGameDataReady) return RewardStatus.NotReady;
+            AdBonusBusy = true;
+            network.Call<OnClaimAdRewardRequestDTO, OnClaimAdRewardResponseDTO>(new OnClaimAdRewardRequestDTO { AdType = Protocol.Message.Data.eAdType.OfflineBonus },
+                response => ApplyAdBonus(result, response), error => RejectAdBonus(result, error));
+            return RewardStatus.Pending;
+        }
+
+        /// <summary>응답의 레벨·경험치·재화 절대값을 한 트랜잭션으로 쓴다. 처치 수는 바꾸지 않는다(서버도 세지 않는다).</summary>
+        private static void ApplyAdBonus(OfflineRewardClaimResult result, OnClaimAdRewardResponseDTO r)
+        {
+            AdBonusBusy = false;
+            if (!IsCurrentAccount(result)) { AdBonusCompleted?.Invoke(result, RewardStatus.Stale, null); return; }
+            bool saved = LocalProgression.Execute("server-offline-ad-bonus", s => { UserManager.ApplyAdReward(s, r); return true; });
+            // 광고 응답은 종류와 관계없이 오늘의 상점 광고 기록을 담아 온다.
+            ShopAdRewardService.ReceiveClaimRecord(r.AdRewards);
+            var state = LocalProgression.State;
+            Debug.Log($"[Offline] adbonus already={r.AlreadyClaimed} gold={ShopAdRewardService.Granted(r, eCurrency.Gold)} exp={r.GrantedExp}" +
+                $" | server Level={r.Level} Exp={r.Exp} Gold={r.Currency?.Gold} | state Level={state.AccountLevel} Exp={state.Experience} Gold={LocalProgression.Balance(eCurrency.Gold)} | saved={saved}");
+            if (!saved)
+            {
+                Direction.GameDirectInteraction.ReportSaveFailure();
+                AdBonusCompleted?.Invoke(result, RewardStatus.SaveFailed, null);
+                return;
+            }
+            AdBonusCompleted?.Invoke(result, RewardStatus.Success, null);
+        }
+
+        private static void RejectAdBonus(OfflineRewardClaimResult result, PlayFabError error)
+        {
+            string kind = NetworkManager.GetFailureKind(error);
+            int code = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0;
+            Debug.LogWarning($"[Offline] adbonus rejected code={code} kind={kind} message={error?.ErrorMessage}");
+            string message = NetworkManager.DescribeFailure(error, "오프라인 2배 보상");
+            if (kind == "Timeout" || kind == "Transport")
+            {
+                // 응답 유실: 서버가 지급했을 수 있다. 재전송 대신 상태를 다시 받는다. 다시 누르면 서버가 AlreadyClaimed로 이어 준다.
+                var users = UserManager.Instance;
+                if (users == null) { AdBonusBusy = false; AdBonusCompleted?.Invoke(result, RewardStatus.SaveFailed, message); return; }
+                users.RefreshFromServer(_ => { AdBonusBusy = false; AdBonusCompleted?.Invoke(result, RewardStatus.SaveFailed, message); });
+                return;
+            }
+            // 거절(1051 받을 정산 없음 등): 서버는 저장하지 않았다. 다시 보내도 같다.
+            AdBonusBusy = false;
+            AdBonusCompleted?.Invoke(result, RewardStatus.NothingAvailable, message);
         }
 
         /// <summary>에디터 QA(OfflineRewardAdAcceptance)가 컴파일되도록 남긴 스텁이다. 정산은 서버(OnClaimOfflineReward)가 하므로 로컬 정산 QA는 더 이상 유효하지 않다.</summary>

@@ -9,11 +9,16 @@ namespace KingdomIdle.Rewards
     {
         public eCurrency Currency;
         public long Amount;
+        // 서버 보상(출석판·우편)의 장비 정의 ID. 0이면 재화다. 표시 전용이라 저장 상태에 쓰지 않고, 로컬 지급(TryApply)은 장비를 거절한다.
+        [NonSerialized] public int EquipmentId;
         public RewardGrant(eCurrency currency, long amount) { Currency = currency; Amount = amount; }
-        public RewardGrant Copy() => new(Currency, Amount);
+        public static RewardGrant Equipment(int definitionId, long amount) => new(eCurrency.Gold, amount) { EquipmentId = definitionId };
+        public bool IsEquipment => EquipmentId != 0;
+        public RewardGrant Copy() => new(Currency, Amount) { EquipmentId = EquipmentId };
     }
 
-    public enum RewardStatus { Success, NotReady, NothingAvailable, Stale, InvalidReward, SaveFailed }
+    // Pending: 서버 요청을 보냈고 결과는 완료 이벤트로 온다(출석판·우편).
+    public enum RewardStatus { Success, NotReady, NothingAvailable, Stale, InvalidReward, SaveFailed, Pending }
 
     public sealed class RewardResult
     {
@@ -48,7 +53,7 @@ namespace KingdomIdle.Rewards
             var totals = new long[CurrencyCount];
             foreach (var reward in rewards)
             {
-                if (!IsValid(reward)) return false;
+                if (!IsValid(reward) || reward.IsEquipment) return false;
                 int index = (int)reward.Currency;
                 if (reward.Amount > long.MaxValue - totals[index]) return false;
                 totals[index] += reward.Amount;
@@ -65,6 +70,46 @@ namespace KingdomIdle.Rewards
                 granted.Add(new RewardGrant((eCurrency)i, totals[i]));
             }
             return granted.Count > 0;
+        }
+
+        /// <summary>서버 우편 첨부를 표시용 보상으로 바꾼다. 알 수 없는 첨부는 null.</summary>
+        public static RewardGrant FromServer(Protocol.Message.Dto.MailRewardDTO reward)
+        {
+            if (reward == null || reward.Amount <= 0) return null;
+            if (reward.Kind == Protocol.Message.Dto.RewardKind.Equipment && reward.DefinitionId is int id && id > 0) return RewardGrant.Equipment(id, reward.Amount);
+            if (reward.Kind == Protocol.Message.Dto.RewardKind.Currency && reward.CurrencyType.HasValue) return new RewardGrant((eCurrency)(int)reward.CurrencyType.Value, reward.Amount);
+            return null;
+        }
+
+        /// <summary>
+        /// 서버 지급 결과(GachaRewardDTO)를 결과 팝업용 보상으로 바꾸고 같은 재화·같은 장비끼리 합친다.
+        /// 자동 분해된 장비는 받은 강화석으로 보인다.
+        /// </summary>
+        public static List<RewardGrant> FromServer(IEnumerable<Protocol.Message.Dto.GachaRewardDTO> rewards)
+        {
+            var merged = new List<RewardGrant>();
+            if (rewards == null) return merged;
+            foreach (var reward in rewards)
+            {
+                if (reward == null) continue;
+                RewardGrant grant = null;
+                if (reward.Kind == Protocol.Message.Dto.RewardKind.Currency && reward.CurrencyType.HasValue && reward.Amount > 0)
+                    grant = new RewardGrant((eCurrency)(int)reward.CurrencyType.Value, reward.Amount);
+                else if (reward.Kind == Protocol.Message.Dto.RewardKind.Equipment && reward.Disposition == Protocol.Message.Dto.EquipmentDisposition.AutoDismantled)
+                    grant = reward.GrantedEquipmentStone > 0 ? new RewardGrant(eCurrency.EquipmentStone, reward.GrantedEquipmentStone) : null;
+                else if (reward.Kind == Protocol.Message.Dto.RewardKind.Equipment)
+                {
+                    int id = reward.ItemCode.HasValue ? (int)reward.ItemCode.Value.GetItemCode() : reward.DefinitionId ?? 0;
+                    grant = id > 0 ? RewardGrant.Equipment(id, Math.Max(1, reward.Amount)) : null;
+                }
+                if (grant == null) continue;
+                RewardGrant same = null;
+                foreach (var entry in merged)
+                    if (entry.EquipmentId == grant.EquipmentId && (grant.IsEquipment || entry.Currency == grant.Currency)) { same = entry; break; }
+                if (same == null) merged.Add(grant);
+                else if (same.Amount <= long.MaxValue - grant.Amount) same.Amount += grant.Amount;
+            }
+            return merged;
         }
     }
 }

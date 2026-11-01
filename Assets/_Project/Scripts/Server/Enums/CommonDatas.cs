@@ -111,6 +111,18 @@ namespace Protocol.Message.Data
         InvalidMailRequest = 1042,
         // 튜토리얼 실습 보상 단계 id가 정의에 없다.
         InvalidGuideReward = 1043,
+        // 1044~1047: 월별 출석판(2026-10-31). 모두 HTTP 404다.
+        InvalidAttendanceRequest = 1044,
+        AttendanceMonthChanged = 1045,
+        AttendanceDayNotOpened = 1046,
+        AttendanceBoardFull = 1047,
+        // 1048~1049: dev 계정 전용 테스트 API(2026-11-01). 1048은 HTTP 403, 1049는 404다. 클라이언트는 아직 호출하지 않는다.
+        DevAccountOnly = 1048,
+        InvalidDevRequest = 1049,
+        // 1050~1051: 광고 보상(2026-11-01). 모두 HTTP 404다.
+        // 광고 종류(AdType)가 없거나, 상점 광고 상품 id가 정의에 없거나, 오프라인 2배에 상품 id를 보냈다.
+        InvalidAdRequest = 1050,
+        OfflineAdBonusNotAvailable = 1051,
 	}
 
 	public enum eConst
@@ -259,6 +271,17 @@ namespace Protocol.Message.Data
 		ArcaneKnowledge,
 		// 서버 사본과 동기화(2026-10-25). 전역 eCurrency(Wallet)와 같은 값이다.
 		Ruby = 6,
-		EquipmentStone = 7
+		EquipmentStone = 7,
+		// 장비·마탑 뽑기권(2026-11-01, 상점 일일 광고 보상).
+		EquipmentTicket = 8,
+		MageTicket = 9
+	}
+	// 광고 보상 종류(2026-11-01, 서버 eAdType 사본). OnClaimAdReward 하나가 이 값으로 분기한다. JSON에는 숫자로 오간다.
+	public enum eAdType
+	{
+		// 상점 일일 광고: 상품(OfferId)마다 KST 하루 1회 뽑기권.
+		ShopDaily = 1,
+		// 오프라인 보상 광고 2배: 마지막 오프라인 정산의 골드·경험치를 한 번 더.
+		OfflineBonus = 2
 	}
 }

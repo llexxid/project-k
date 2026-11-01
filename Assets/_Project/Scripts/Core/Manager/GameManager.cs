@@ -25,7 +25,7 @@ namespace Scripts.Core
         public KingdomIdle.CheckIn.CheckInService CheckIn { get; private set; }
         public KingdomIdle.Mailbox.MailboxService Mailbox { get; private set; }
         private float _nextRewardSync;
-        private bool _rewardsPaused, _rewardsUnfocused;
+        private bool _rewardsPaused;
         private void Awake()
         {
             if (Instance == null)
@@ -63,10 +63,11 @@ namespace Scripts.Core
         }
         private void ScheduleRewardSync() => _nextRewardSync = 0;
         private void OnApplicationPause(bool paused) { _rewardsPaused = paused; ScheduleRewardSync(); }
-        private void OnApplicationFocus(bool focused) { _rewardsUnfocused = !focused; ScheduleRewardSync(); }
+        // 출석·우편은 서버 요청이라 포커스와 무관하다(배치 모드·창 전환 중에도 로그인 직후 출석을 보낸다). 일시정지 중에만 쉰다.
+        private void OnApplicationFocus(bool focused) { ScheduleRewardSync(); }
         private void Update()
         {
-            if (_rewardsPaused || _rewardsUnfocused || Time.unscaledTime < _nextRewardSync) return;
+            if (_rewardsPaused || Time.unscaledTime < _nextRewardSync) return;
             _nextRewardSync = Time.unscaledTime + 1f;
             var ui = KingdomIdle.UGUI.UIManager.Instance;
             var network = NetworkManager.Instance;

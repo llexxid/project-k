@@ -24,6 +24,9 @@ namespace KingdomIdle.UGUI
         public static bool IsOpen =>
             _view != null && _view.gameObject.activeSelf;
 
+        // 광고 2배는 서버가 지급한다(2026-11-01). 결과는 OfflineRewardManager.AdBonusCompleted로 온다.
+        static OfflineRewardPopupController() => OfflineRewardManager.AdBonusCompleted += OnAdBonusCompleted;
+
         public static void Show(OfflineRewardClaimResult result)
         {
             if (result == null || result.Plan == null || !EnsureBuilt())
@@ -77,7 +80,7 @@ namespace KingdomIdle.UGUI
 
         private static void WatchAd()
         {
-            // 광고 보너스는 서버 API 연결 전까지 보류한다(OfflineRewardManager.AdBonusAvailable).
+            // 광고를 다 보면 서버(OnClaimAdReward, AdType=OfflineBonus)가 2배분을 지급한다(OfflineRewardManager.AdBonusAvailable).
             if (!OfflineRewardManager.AdBonusAvailable) return;
             var choice = _choice;
             if (!IsOpen || choice == null || choice.Busy || choice.Earned) return;
@@ -113,9 +116,30 @@ namespace KingdomIdle.UGUI
             if (!CheckAccount(choice)) return;
             choice.Busy = true;
             if (ReferenceEquals(_choice, choice)) RefreshButtons();
-            RewardStatus status = choice.Earned
-                ? OfflineRewardManager.TryGrantAdBonus(choice.Result) : RewardStatus.Success;
+            if (!choice.Earned) { CompleteChoice(choice, RewardStatus.Success, null); return; }
+            RewardStatus status = OfflineRewardManager.TryGrantAdBonus(choice.Result);
+            // 서버에 요청을 보냈다. 버튼을 잠근 채 AdBonusCompleted를 기다린다.
+            if (status == RewardStatus.Pending) return;
+            CompleteChoice(choice, status, null);
+        }
+
+        private static void OnAdBonusCompleted(OfflineRewardClaimResult result, RewardStatus status, string message)
+        {
+            var choice = _choice;
+            if (choice == null || !ReferenceEquals(choice.Result, result) || !choice.Busy) return;
+            CompleteChoice(choice, status, message);
+        }
+
+        private static void CompleteChoice(RewardChoice choice, RewardStatus status, string message)
+        {
             choice.Busy = false;
+            // 받을 정산이 없다(1051 등 거절). 다시 눌러도 같으므로 2배 없이 기본 보상만 보여 준다.
+            if (status == RewardStatus.NothingAvailable && choice.Earned)
+            {
+                choice.Earned = false;
+                if (message != null) UIManager.Instance?.ShowToast(message);
+                status = RewardStatus.Success;
+            }
             if (status == RewardStatus.Success && choice.Earned) choice.Granted = true;
             if (!ReferenceEquals(_choice, choice) || !IsOpen) return;
             if (status == RewardStatus.Stale || status == RewardStatus.NotReady)
@@ -127,8 +151,9 @@ namespace KingdomIdle.UGUI
             if (status != RewardStatus.Success)
             {
                 // shortcut: retain earned bonus in this session only; add durable recovery if required.
+                // 서버는 정산 1회만 지급하므로 다시 눌러도 두 번 받지 않는다.
                 RefreshButtons();
-                UIManager.Instance?.ShowToast("보상 저장에 실패했습니다. 보상 수령을 눌러 다시 시도해 주세요.");
+                UIManager.Instance?.ShowToast((message != null ? message + " " : "") + "보상 수령을 눌러 다시 시도해 주세요.");
                 return;
             }
             var host = UIManager.Instance;
