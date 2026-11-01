@@ -97,22 +97,31 @@ namespace KingdomIdle.UGUI.Editor
             var safe = Object.FindFirstObjectByType<SafeAreaFitter>();
             var safeRect = (RectTransform)safe.transform;
             Vector2 safeMin = safeRect.anchorMin, safeMax = safeRect.anchorMax;
+            var mage = KingdomIdle.MageTower.MageTowerManager.Instance;
+            bool wasAuto = mage.IsAutoEnabled();
             try
             {
-                while (ModalBackHandler.TryCloseTop()) { }
+                // 접속 보상은 뒤로가기를 거절하므로 정상 확인 버튼으로 먼저 닫는다.
+                foreach (var button in Object.FindObjectsByType<Button>(FindObjectsSortMode.None))
+                    if (button.name == "BtnConfirm") button.onClick.Invoke();
+                yield return null;
+                for (int i = 0; i < 3 && ModalBackHandler.TryCloseTop(); i++) yield return null;
                 Host.ClearPanels(); yield return new WaitForSecondsRealtime(.3f);
+                mage.SetAutoEnabled(false); yield return new WaitForSecondsRealtime(.5f);
                 Check(PartyHudController.ModalSuppressCount == 0, "initial suppression balanced");
                 StageHudValidation.Resolution(1080, 1920); yield return null;
                 var old = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/UGUI/Prefabs/Panels/Panel_Gacha_Old.prefab");
                 Check(AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(old)) == "aafa5a61c0637984c8fc08ba01709101", "Old GUID preserved");
                 Check(old != current, "catalog enters new prefab");
                 Check(current.GetComponentsInChildren<Component>(true).All(x => x != null), "new prefab has no missing scripts");
+                GachaPanelController.SetPendingSkillTab(false);
                 catalog.panelGacha = old;
                 Host.PushPanel(UIPanelId.Gacha, isTabPanel: true);
                 catalog.panelGacha = current;
                 yield return new WaitForSecondsRealtime(.5f); Shot("before-old-1080x1920");
                 yield return Measure("old");
                 Host.ClearPanels(); yield return new WaitForSecondsRealtime(.3f);
+                GachaPanelController.SetPendingSkillTab(false);
                 Host.PushPanel(UIPanelId.Gacha, isTabPanel: true);
                 var position = View.sheet.anchoredPosition;
                 for (int i = 0; i < 24; i++) { yield return null; Check(View.sheet.anchoredPosition == position, "open fade has no motion " + i); }
@@ -135,6 +144,7 @@ namespace KingdomIdle.UGUI.Editor
                 View.authoredContent.rewardsButton.onClick.Invoke(); yield return new WaitForSecondsRealtime(.3f);
                 var popup = Object.FindFirstObjectByType<GachaRewardsPopupView>();
                 Check(popup != null && popup.rewards.rewardGrid.childCount == 13, "equipment popup has 12 equipment + fragments");
+                Check(popup.GetComponentsInChildren<GachaCardItemView>().All(x => x.icon.sprite != null), "equipment reward icons present");
                 var scroll = popup.GetComponentInChildren<ScrollRect>();
                 Check(scroll.content.rect.height > scroll.viewport.rect.height, "equipment popup can scroll");
                 scroll.verticalNormalizedPosition = 0; yield return null; Shot("equipment-rewards-bottom"); yield return null;
@@ -147,6 +157,7 @@ namespace KingdomIdle.UGUI.Editor
                 LayoutCheck("mage"); Shot("after-mage-1080x1920"); yield return null;
                 View.authoredContent.rewardsButton.onClick.Invoke(); yield return new WaitForSecondsRealtime(.2f);
                 Check(Object.FindFirstObjectByType<GachaRewardsPopupView>().rewards.rewardGrid.childCount == 11, "mage popup has 8 skills + 3 knowledge rewards");
+                Check(Object.FindFirstObjectByType<GachaRewardsPopupView>().GetComponentsInChildren<GachaCardItemView>().All(x => x.icon.sprite != null), "mage reward icons present");
                 Shot("mage-rewards"); yield return null; Host.RequestBack(); yield return null;
                 Check(View.authoredContent.heroTitle.text == "마탑 뽑기", "popup close preserves selected tab");
                 Host.PushPanel(UIPanelId.Development); yield return new WaitForSecondsRealtime(.4f);
@@ -160,6 +171,9 @@ namespace KingdomIdle.UGUI.Editor
                 yield return new WaitForSecondsRealtime(.3f);
                 Check(Object.FindFirstObjectByType<GachaRewardsPopupView>() == null, "owner close removes rewards popup");
                 Check(PartyHudController.ModalSuppressCount == 0 && PartyHudController.Instance.HudRect.gameObject.activeInHierarchy, "close restores army HUD");
+                yield return new WaitForSecondsRealtime(.5f);
+                var manual = Object.FindFirstObjectByType<MageManualCastHud>();
+                Check(manual.tray.gameObject.activeInHierarchy && manual.group.blocksRaycasts, "close restores manual HUD");
                 for (int i = 0; i < 3; i++)
                 { Host.PushPanel(UIPanelId.Gacha, isTabPanel: true); yield return null; Host.RequestBack(); yield return new WaitForSecondsRealtime(.2f); }
                 Check(PartyHudController.ModalSuppressCount == 0, "rapid reopen/close does not accumulate suppression");
@@ -168,6 +182,7 @@ namespace KingdomIdle.UGUI.Editor
             finally
             {
                 catalog.panelGacha = current;
+                mage.SetAutoEnabled(wasAuto);
                 safeRect.anchorMin = safeMin; safeRect.anchorMax = safeMax; safe.enabled = true;
             }
         }

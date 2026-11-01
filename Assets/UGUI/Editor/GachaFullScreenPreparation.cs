@@ -72,7 +72,7 @@ namespace KingdomIdle.UGUI.Editor
             { F.Preferred(button, height: 124); F.Flexible(button, flexWidth: 1); }
 
             c.pityRoot = F.Container(sheet.transform, "Pity");
-            Fixed(c.pityRoot, 196);
+            Fixed(c.pityRoot, 204);
             F.VLayout(c.pityRoot.gameObject, 8);
             var pityRow = Row(c.pityRoot, "Progress", 46);
             var pityTitle = F.Text(pityRow, "Label", "에픽 확정", 32, UguiTheme.Parchment, TextAlignmentOptions.MidlineLeft);
@@ -90,7 +90,7 @@ namespace KingdomIdle.UGUI.Editor
             c.pityRemaining = F.Text(c.pityRoot, "Remaining", "에픽 확정까지 40회", 30, UguiTheme.Parchment, TextAlignmentOptions.MidlineLeft);
             Fixed(c.pityRemaining, 42);
             var rule = F.Text(c.pityRoot, "Rule", "에픽 미획득 39회 후 다음 뽑기에서 에픽 확정\n에픽 획득 시 누적 횟수 초기화", 26, UguiTheme.TextSecondary, TextAlignmentOptions.MidlineLeft, wrap: true);
-            Fixed(rule, 64);
+            Fixed(rule, 72);
 
             c.costLabel = F.Text(sheet.transform, "Wallet", "보유 고대주화", 34, UguiTheme.Parchment, TextAlignmentOptions.MidlineRight);
             Fixed(c.costLabel, 56);
@@ -122,7 +122,9 @@ namespace KingdomIdle.UGUI.Editor
             var grid = F.Container(content, "RewardGrid");
             var layout = grid.gameObject.AddComponent<UnityEngine.UI.GridLayoutGroup>();
             layout.spacing = new Vector2(16, 16); layout.constraint = UnityEngine.UI.GridLayoutGroup.Constraint.FixedColumnCount; layout.constraintCount = 3;
-            grid.gameObject.AddComponent<ResponsiveGrid>();
+            var responsive = new SerializedObject(grid.gameObject.AddComponent<ResponsiveGrid>());
+            responsive.FindProperty("minimumCellWidth").floatValue = 280;
+            responsive.ApplyModifiedPropertiesWithoutUndo();
             view.rewards.rewardGrid = grid;
             return PrefabGenUtil.SavePrefab(root.gameObject, "Assets/UGUI/Prefabs/Popups/Popup_GachaRewards.prefab");
         }

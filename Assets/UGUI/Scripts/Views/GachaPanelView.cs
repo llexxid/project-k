@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace KingdomIdle.UGUI
 {
-    /// <summary>Panel_Gacha 셸: 탭 바 + 스크롤 콘텐츠.</summary>
+    /// <summary>전체 화면 본문과 보존된 시트형 콘텐츠의 프리팹 참조.</summary>
     public sealed class GachaPanelView : BottomSheetView
     {
         [SerializeField] internal RectTransform tabBar;

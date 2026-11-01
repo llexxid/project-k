@@ -50,6 +50,16 @@
 
 ## 공통 연출과 기능 안내
 
+### 전체 화면 뽑기 (0.20.0)
+
+`UIViewCatalog.panelGacha → Panel_Gacha`는 기존 `SafeArea/LayerPanels` 안에서 하단 메뉴까지 채운다. 루트와 `Sheet`는 Stretch·Offset 0이고 `SheetSizeFitter`와 `SheetClip`은 없다. `BottomSheetView.fullScreen`일 때 UIManager의 강제 크기·위치 변경을 건너뛰며 unscaled 0.15초 페이드만 사용한다. `PartyHudSuppressor`는 퇴장이 끝날 때까지 왕국군·수동 시전 HUD를 가리고 입력 통과를 막는다.
+
+제목·탭·상세 버튼·천장·재화·뽑기 버튼은 고정 높이, 중앙 아트만 남는 높이를 사용한다. `GachaPanelView.authoredContent`가 프리팹에 저장된 본문을 연결한다. `Popup_GachaRewards`는 열 때만 기존 보상 카드를 구성하며 `ModalBackHandler`로 닫힌다. 팝업은 패널의 자식이므로 가림·종료 수명을 함께 따른다. 장비 천장은 서버 최종 누적값을 `N / 40회`와 게이지로 표시하며 마탑에서는 숨긴다.
+
+`UIViewCatalog.gachaRatesUrl`은 공개 확률표 주소다. 현재 탭에 따라 `#equipment` 또는 `#mage-tower`를 외부 브라우저로 연다. 사이트 소스는 게임 저장소 밖 `바탕화면/Ludos-Interactive/gacha-rates`에서 관리한다. 해당 폴더의 `generate_rates.py`는 서버 소스와 클라이언트 카탈로그를 대조하고 페이지와 검증 기록을 만든다.
+
+기존 프리팹은 `Panel_Gacha_Old`에 원 GUID와 구조를 유지한다. `GachaFullScreenPreparation.Prepare()`는 최초 한 번만 Old로 이동하고 이후 새 패널·보상 팝업만 재생성한다. 전체 생성기와 polish는 Old를 덮어쓰지 않는다. 정상 로그인 후 `GachaFullScreenValidation.Run()`으로 비율·안전 영역 모의·페이드·팝업·천장 표시·HUD 복원을 검사한다. 캡처와 Editor 성능 표본은 `Recordings/Gacha20261101`, 결과 요약은 `AI/validation/gacha-fullscreen-20261101`에 보관한다.
+
 `bootstrap/GameManager → Direction.GameDirectManager → FeatureGuidePlayer → UguiFeatureGuideSurface → FeatureGuideView`로 실행한다. Manager는 큐·저장·계정 수명을 소유하는 MonoBehaviour이고 Player와 화면 연결부는 일반 C# 클래스다. 실제 프리팹 참조·레이아웃·입력 필터는 MonoBehaviour View가 담당한다.
 
 `Assets/_Project/Data/Direction/`의 `guide_development`, `guide_kingdom_army`, `guide_dungeon`, `guide_gacha`, `guide_mage_tower`는 독립 실습 SO다. 육성은 공격력 1회 강화, 왕국군은 대표 캐릭터의 종합·장비·전직 정보 열람, 던전은 입장 없는 정보 열람, 뽑기는 장비·마탑 스킬 각각 1회 실습이다. 기존 `first_start_menus`와 `first_reincarnation_guide`도 설명형으로 유지한다. 이전 설명형 완료를 새 실습 완료로 이관하지 않는다.

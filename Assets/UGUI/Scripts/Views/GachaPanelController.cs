@@ -489,6 +489,8 @@ namespace KingdomIdle.UGUI
 
                 // 아이콘
                 Sprite displayIcon = entry.icon;
+                if (displayIcon == null && entry.rewardType == eGachaRewardType.Currency)
+                    displayIcon = RewardPresentation.Icon(entry.currency);
                 if (entry.rewardType == eGachaRewardType.Equipment && entry.equipmentData != null && entry.equipmentData.icon != null)
                     displayIcon = entry.equipmentData.icon;
                 else if (entry.rewardType == eGachaRewardType.Skill && displayIcon == null)
