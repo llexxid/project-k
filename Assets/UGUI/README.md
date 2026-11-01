@@ -58,6 +58,8 @@
 
 `UIViewCatalog.gachaRatesUrl`은 공개 확률표 주소다. 현재 탭에 따라 `#equipment` 또는 `#mage-tower`를 외부 브라우저로 연다. 사이트 소스는 게임 저장소 밖 `바탕화면/Ludos-Interactive/gacha-rates`에서 관리한다. 해당 폴더의 `generate_rates.py`는 서버 소스와 클라이언트 카탈로그를 대조하고 페이지와 검증 기록을 만든다.
 
+미리보기와 결과창은 아이콘이 없는 재화 보상에 `RewardPresentation.Icon`의 공통 이미지를 사용한다. `GachaFullScreenValidation.CheckResultCurrencyIcons()`는 Play Mode에서 서버 DTO 변환·전직 파편/비전 지식 아이콘·합산 수량을 표시용 데이터로 검사한다([0.20.1 검증 기록](../../AI/validation/gacha-result-icons-20261102/README.md)).
+
 기존 프리팹은 `Panel_Gacha_Old`에 원 GUID와 구조를 유지한다. `GachaFullScreenPreparation.Prepare()`는 최초 한 번만 Old로 이동하고 이후 새 패널·보상 팝업만 재생성한다. 전체 생성기와 polish는 Old를 덮어쓰지 않는다. 정상 로그인 후 `GachaFullScreenValidation.Run()`으로 비율·안전 영역 모의·페이드·팝업·천장 표시·HUD 복원을 검사한다. 캡처와 Editor 성능 표본은 `Recordings/Gacha20261101`, 결과 요약은 `AI/validation/gacha-fullscreen-20261101`에 보관한다.
 
 `bootstrap/GameManager → Direction.GameDirectManager → FeatureGuidePlayer → UguiFeatureGuideSurface → FeatureGuideView`로 실행한다. Manager는 큐·저장·계정 수명을 소유하는 MonoBehaviour이고 Player와 화면 연결부는 일반 C# 클래스다. 실제 프리팹 참조·레이아웃·입력 필터는 MonoBehaviour View가 담당한다.

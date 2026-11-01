@@ -8,6 +8,7 @@ using KingdomIdle.Balance;
 using KingdomIdle.Gacha;
 using KingdomIdle.UI;
 using Newtonsoft.Json;
+using Protocol.Message.Dto;
 using Scripts.Core;
 using Scripts.Core.Manager;
 using Unity.Profiling;
@@ -33,6 +34,36 @@ namespace KingdomIdle.UGUI.Editor
                 throw new InvalidOperationException("Log in normally before running UI validation.");
             Results.Clear(); Directory.CreateDirectory(Output);
             Host.StartCoroutine(Guard(Exercise()));
+        }
+
+        public static string CheckResultCurrencyIcons()
+        {
+            if (!EditorApplication.isPlaying || Host == null)
+                throw new InvalidOperationException("Open the game UI in Play Mode first.");
+            var rewards = new[] { (eCurrency.ClassFragment, 2), (eCurrency.ClassFragment, 2),
+                (eCurrency.ArcaneKnowledge, 10), (eCurrency.ArcaneKnowledge, 20), (eCurrency.ArcaneKnowledge, 50) }
+                .Select(x => new GachaRewardDTO { Kind = RewardKind.Currency,
+                    CurrencyType = (Protocol.Message.Data.eCurrency)(int)x.Item1, Amount = x.Item2 }).ToList();
+            var convert = typeof(GachaManager).GetMethod("BuildEntries", BindingFlags.Static | BindingFlags.NonPublic);
+            var entries = (List<GachaRewardEntry>)convert.Invoke(null, new object[] { rewards });
+            Check(entries.All(x => x.icon == null), "server currency entries have no embedded icon");
+            GachaResultPopupController.Show(Host, entries, null, 10);
+            var popup = Object.FindFirstObjectByType<GachaResultPopupView>();
+            var cards = popup.grid.GetComponentsInChildren<GachaCardItemView>();
+            Check(cards.Length == 2, "currency rewards merge into two cards");
+            foreach (var sample in new[] { (eCurrency.ClassFragment, "전직 파편", "x4"),
+                (eCurrency.ArcaneKnowledge, "비전 지식", "x80") })
+            {
+                var card = cards.Single(x => x.nameLabel.text == sample.Item2);
+                var expected = RewardPresentation.Icon(sample.Item1, Host.Catalog);
+                Check(expected != null && card.icon.sprite == expected && card.icon.gameObject.activeSelf,
+                    sample.Item2 + ": result uses preview currency icon");
+                Check(!card.iconFallback.gameObject.activeSelf && card.subLabel.text == sample.Item3,
+                    sample.Item2 + ": fallback hidden and merged amount preserved");
+            }
+            return JsonConvert.SerializeObject(new { passed = true, source = "server DTO display fixture; no draw or grant",
+                cards = cards.Select(x => new { name = x.nameLabel.text, amount = x.subLabel.text,
+                    icon = AssetDatabase.GetAssetPath(x.icon.sprite), fallbackVisible = x.iconFallback.gameObject.activeSelf }) }, Formatting.Indented);
         }
 
         static IEnumerator Guard(IEnumerator task)
