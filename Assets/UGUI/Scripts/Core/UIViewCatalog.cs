@@ -99,6 +99,8 @@ namespace KingdomIdle.UGUI
 
         [Header("Popups")]
         public GameObject popupGachaResult;
+        public GameObject popupGachaRewards;
+        public string gachaRatesUrl;
         public GameObject popupRanking;          // 전투력 랭킹 팝업
         public GameObject popupProfile;          // 프로필 팝업(더미/플레이스홀더)
         public GameObject popupMageTowerEquip;   // 마탑 스킬 장착 팝업 (프리팹화됨)

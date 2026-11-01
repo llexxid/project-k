@@ -50,6 +50,18 @@
 
 ## 공통 연출과 기능 안내
 
+### 전체 화면 뽑기 (0.20.0)
+
+`UIViewCatalog.panelGacha → Panel_Gacha`는 기존 `SafeArea/LayerPanels` 안에서 하단 메뉴까지 채운다. 루트와 `Sheet`는 Stretch·Offset 0이고 `SheetSizeFitter`와 `SheetClip`은 없다. `BottomSheetView.fullScreen`일 때 UIManager의 강제 크기·위치 변경을 건너뛰며 unscaled 0.15초 페이드만 사용한다. `PartyHudSuppressor`는 퇴장이 끝날 때까지 왕국군·수동 시전 HUD를 가리고 입력 통과를 막는다.
+
+제목·탭·상세 버튼·천장·재화·뽑기 버튼은 고정 높이, 중앙 아트만 남는 높이를 사용한다. `GachaPanelView.authoredContent`가 프리팹에 저장된 본문을 연결한다. `Popup_GachaRewards`는 열 때만 기존 보상 카드를 구성하며 `ModalBackHandler`로 닫힌다. 팝업은 패널의 자식이므로 가림·종료 수명을 함께 따른다. 장비 천장은 서버 최종 누적값을 `N / 40회`와 게이지로 표시하며 마탑에서는 숨긴다.
+
+`UIViewCatalog.gachaRatesUrl`은 공개 확률표 주소다. 현재 탭에 따라 `#equipment` 또는 `#mage-tower`를 외부 브라우저로 연다. 사이트 소스는 게임 저장소 밖 `바탕화면/Ludos-Interactive/gacha-rates`에서 관리한다. 해당 폴더의 `generate_rates.py`는 서버 소스와 클라이언트 카탈로그를 대조하고 페이지와 검증 기록을 만든다.
+
+미리보기와 결과창은 아이콘이 없는 재화 보상에 `RewardPresentation.Icon`의 공통 이미지를 사용한다. `GachaFullScreenValidation.CheckResultCurrencyIcons()`는 Play Mode에서 서버 DTO 변환·전직 파편/비전 지식 아이콘·합산 수량을 표시용 데이터로 검사한다([0.20.1 검증 기록](../../AI/validation/gacha-result-icons-20261102/README.md)).
+
+기존 프리팹은 `Panel_Gacha_Old`에 원 GUID와 구조를 유지한다. `GachaFullScreenPreparation.Prepare()`는 최초 한 번만 Old로 이동하고 이후 새 패널·보상 팝업만 재생성한다. 전체 생성기와 polish는 Old를 덮어쓰지 않는다. 정상 로그인 후 `GachaFullScreenValidation.Run()`으로 비율·안전 영역 모의·페이드·팝업·천장 표시·HUD 복원을 검사한다. 캡처와 Editor 성능 표본은 `Recordings/Gacha20261101`, 결과 요약은 `AI/validation/gacha-fullscreen-20261101`에 보관한다.
+
 `bootstrap/GameManager → Direction.GameDirectManager → FeatureGuidePlayer → UguiFeatureGuideSurface → FeatureGuideView`로 실행한다. Manager는 큐·저장·계정 수명을 소유하는 MonoBehaviour이고 Player와 화면 연결부는 일반 C# 클래스다. 실제 프리팹 참조·레이아웃·입력 필터는 MonoBehaviour View가 담당한다.
 
 `Assets/_Project/Data/Direction/`의 `guide_development`, `guide_kingdom_army`, `guide_dungeon`, `guide_gacha`, `guide_mage_tower`는 독립 실습 SO다. 육성은 공격력 1회 강화, 왕국군은 대표 캐릭터의 종합·장비·전직 정보 열람, 던전은 입장 없는 정보 열람, 뽑기는 장비·마탑 스킬 각각 1회 실습이다. 기존 `first_start_menus`와 `first_reincarnation_guide`도 설명형으로 유지한다. 이전 설명형 완료를 새 실습 완료로 이관하지 않는다.
@@ -147,7 +159,9 @@ Android 검사 도우미와 실행 결과는 저장소 밖 QA 보관 폴더에�
 
 장비와 가방은 `VirtualEquipmentGrid`로 화면에 보이는 카드만 만든다. 보관함 초과 보상은 기존 수량형 저장 구조에 영구 보관하여 전투·던전·뽑기를 막지 않는다. `EquipmentData.DisplayName`은 화면용 이름이며 기존 저장 키와 아이템 코드는 유지한다. 상세 스탯은 실제 `PlayerStatus` 계산을 사용하고 변경된 계산식만 다시 그린다.
 
-현재 검증 진입점은 `PlayabilityRevisionPreparation.Validate`와 Unity 실행 검사 `KingdomIdle.UGUI.Editor.PlayabilityLiveValidation.Run`이다. Android 검증 도구와 실행 기록은 저장소 밖 QA 보관 폴더에서 관리한다.
+`InventoryPanelController`의 재료·기타 탭은 기존 `EquipCellView`에 `RewardPresentation`의 아이콘·이름과 지갑 보유 수량을 연결한다. 강화석은 재료, 장비·마탑 뽑기권은 기타에 표시하며 수량이 0이면 슬롯을 숨기고 모두 없으면 빈 상태 안내를 표시한다. 재화 카드는 공통 청동색을 사용하고 장착·스탯·희귀도 동작은 제공하지 않는다. 클릭 설명은 `RewardPopupView.ShowItem()`을 재사용하며 잔액 변경 시 표시를 갱신한다. 전체·장비 탭의 구성과 장비 필터는 유지하고, 인벤토리 전용 수량 저장이나 뽑기권 사용 경로는 추가하지 않는다.
+
+현재 검증 진입점은 `PlayabilityRevisionPreparation.Validate`, Unity 실행 검사 `KingdomIdle.UGUI.Editor.PlayabilityLiveValidation.Run`, Android `AI/qa/mage/playability_checks.py`다. 증거는 `Recordings/PlayabilityRevision`과 [플레이 개선 검증 기록](../../Docs/ArtPreparation/PLAYABILITY_20260918.md)에 있다.
 
 세션 이동 경로는 `PlayabilityRevisionPreparation.ValidateSessionRoutes`로 검사한다. 가이드 이동은 대상 탭을 한 번 지정하고, 스테이지 배지는 반복 사냥에서 다음 구간 도전을 제공한다. 프로필은 실제 진행 수치를 읽으며 던전 팝업은 짧은 웨이브 전환 동안 입장 요청을 유지하고 닫기 시 취소한다.
 
@@ -169,9 +183,9 @@ Android 검사 도우미와 실행 결과는 저장소 밖 QA 보관 폴더에�
 
 Editor에서 bootstrap부터 Play·로그인한 뒤 `GameTest → Shop Ad Test → 오늘 광고 수령 초기화 (재지급 허용)`를 실행하면 현재 계정의 오늘 장비·마탑 광고 수령 기록만 삭제·저장한다. 상점이 열려 있으면 버튼도 즉시 갱신한다. 보유 뽑기권·과거 날짜·오프라인 보상 기록은 유지되며, 재시청하면 뽑기권이 누적되므로 테스트 계정에서 사용한다. 광고 준비·시청 중이거나 완료 보상의 저장이 대기 중이면 초기화를 거절한다. APK에는 이 메뉴가 포함되지 않는다. 초기화 저장 검사는 `ShopAdRewardAcceptance.RunReset()`이다.
 
-## 출석 준비 상태·서버 우편함
+## 서버 우편함·공통 보상 표시
 
-0.19.0부터 메인 메뉴의 우편함은 `OnGetMailList`·`OnClaimMailReward`를 사용한다. `GameManager.Mailbox`가 서버 요청과 메모리 목록을 소유하고 `MailboxPanelController`는 화면 상태와 버튼을 연결한다. 서버 저장소·DTO 계약은 변경하지 않는다.
+0.19.4에서는 머지 중 교체됐던 우편함의 가상 스크롤·연속 수령·검증·복구를 기존 공통 표시 경로 위에 복원했다. 메인 메뉴의 우편함은 `OnGetMailList`·`OnClaimMailReward`를 사용한다. `GameManager.Mailbox`가 서버 요청과 메모리 목록을 소유하고 `MailboxPanelController`는 화면 상태와 버튼을 연결한다. 서버 저장소·DTO 계약은 변경하지 않는다.
 
 - 열 때 50통씩 최대 두 페이지(총 100통)를 받고, 전체 조회 완료 후 수령을 허용한다. 닫으면 목록을 비운다. 페이지 간 중복·개수 불일치 시 0부터 한 번만 재조회한다.
 - 스택 종료 훅에서 컨트롤러를 즉시 비활성화해 구독과 연결을 정리한다. 퇴장 애니메이션 뒤의 파괴가 새 우편함을 닫지 않으며, 다른 패널에 가렸다 복귀할 때는 기존 OnEnable/OnDisable로 재연결한다.
@@ -179,13 +193,15 @@ Editor에서 bootstrap부터 Play·로그인한 뒤 `GameTest → Shop Ad Test �
 - 재화·장비는 응답의 절대값을 기존 UserManager 경로로 반영한다. 응답 유실·저장 실패는 수령을 재전송하지 않고 플레이어 상태를 재조회한다. 화면 종료 후에도 같은 계정의 수령 결과는 반영하며 다른 계정의 응답은 무시한다.
 - 수령 성공한 우편은 즉시 제거한다. 기존 삭제 버튼은 비활성 상태로 보존하고 `수령 시 자동 삭제`를 안내한다. 조회 오류에서는 하단 버튼이 `다시 불러오기`가 된다.
 
+운영 목록은 `MailboxService.Messages`의 `MailDTO`만 사용하고 ID는 long을 유지한다. Open/Close/RequestRefresh/TryClaim/TryClaimAll을 통해 조작하며 Changed와 ClaimCompleted로 UI를 갱신한다. GameManager의 우편 주기 조회는 없고, 열린 Controller가 남은 시간과 서비스 Tick(만료·실패 재시도)을 확인한다. Empty/Loading/Ready/Claiming/Recovering/RecoveryRequired 상태를 구별한다. 조회 실패는 창이 열린 동안 30초 후 자동 재시도하며 수동 재시도는 즉시 실행한다. 복구 실패에는 자동 수령 재전송이 없고, 플레이어와 우편 목록을 모두 확인하기 전에는 수령을 차단한다.
+
 `VirtualizedMailList`는 기존 ScrollRect·Item_MailRow를 유지하면서 보이는 행 + 2행을 재사용한다. Content의 자동 Layout/Fitter는 실행 중 해제하고, 전체 높이와 행 위치만 직접 관리한다. 행 내부의 기존 배치는 유지한다. 우편당 보상 슬롯은 서버 한도인 10개까지 미리 준비하여 스크롤 중 생성·삭제하지 않는다. 행 재연결 시 보상·클릭 대상·만료 표시·가로 스크롤 위치를 갱신한다.
 
-우편 첨부는 기존 가로 목록이며 재화와 장비를 모두 표시한다. `RewardDisplayItem`은 표시 전용이고 지급하지 않는다. 장비 아이콘·이름은 기존 EquipmentDatabase에서 찾으며 희귀도는 장비에만 적용한다. 획득 결과는 서버의 자동 분해·대기·예비 보관 결과를 표시하고 동일한 종류·처리 결과를 묶어 수량을 합산한다. 공통 팝업의 기존 재접속 보상 경로는 유지한다.
+우편 첨부는 기존 가로 목록이며 재화와 장비를 모두 표시한다. `RewardGrants.FromServer → RewardSlotView → RewardPopupView`를 출석과 함께 사용한다. RewardGrant의 ServerReward·EquipmentCode·Disposition은 저장하지 않는 표시 전용 정보이며 로컬 지급에 사용할 수 없다. 장비 아이콘·이름은 기존 EquipmentDatabase에서 찾으며 희귀도는 장비에만 적용한다. 획득 결과는 서버의 자동 분해·대기·예비 보관 결과를 표시하고 종류·강화·만료·보관 위치가 같은 장비만 합산한다. 자동 분해는 실제 받은 강화석 수량과 자동 분해 문구로 표시한다. 공통 팝업의 기존 재접속 보상 경로는 유지한다.
 
 `MailText`의 작은 문구표에서 TitleKey/BodyKey를 변환한다. 미등록 키는 `시스템 우편` / `첨부 보상을 확인해 주세요.`로 표시하고 키를 진단 기록에 남긴다. 서버 발송 경로가 추가되면 실제 키와 문구를 이 표에 등록한다.
 
-출석은 서버 개편 전까지 `서버 출석 기능을 준비 중입니다.`로 표시한다. 자동 접속 기록·로컬 지급을 중지하며 기존 프리팹, 28칸, CheckInRewardTableSO와 저장 기록은 보존한다. 월별 출석부·수령 분리·미수령 우편 이월·대표 아이콘 +N 표시는 후속 범위다. 우편함 포화 시 이월 정책은 미정이다.
+이번 개정은 우편함으로 한정한다. 현재 머지된 출석·광고·재접속 보상 정책은 변경하지 않으며 출석 이월 알림은 우편함 인스턴스의 갱신 요청에만 연결한다.
 
 과거 로컬 MailMessage·Claims 데이터는 저장 호환성을 위해 유지하지만 운영 우편함은 읽거나 지급하지 않는다. LocalProgression 전체와 공통 RewardGrant는 다른 기능에서도 사용하므로 유지한다. 기존 로컬 우편 생성·지급·삭제는 Editor 전용 LocalMailboxService로 분리하고 격리 테스트 계정만 허용한다.
 
@@ -196,3 +212,6 @@ Editor에서 bootstrap부터 Play·로그인한 뒤 `GameTest → Shop Ad Test �
 - `GameTest/Mailbox Test/서버 응답 실제 저장 검증`: Play 종료 후 `MailboxAcceptance.RunServerApply()`로 일반·대기·예비 보관/자동 분해 × 성공/저장 실패/응답 유실을 검사한다. 응답·복구 콜백은 격리하고 제품의 우편 적용·파일 저장·재열기 경로를 실행하며 원래 계정·상태를 복원한다.
 - `MailboxUiAcceptance.Open(100)` / `VerifyRecycling()`: bootstrap Play에서 실제 프리팹을 사용하는 격리 미리보기. 서버 통합 검증과 구분한다.
 - `MailboxUiAcceptance.VerifyCloseReopen()`: bootstrap Play에서 이전 패널의 지연 종료·재진입, 비활성화 후 복귀, 재진입 후 수령을 검사한다. 검사 후 `Close()`로 미리보기를 정리한다.
+- `MailboxUiAcceptance.VerifyAnchorAndCompatibility()`: 수령 후 스크롤 기준 유지·오류/재시도·출석 슬롯과 재접속 팝업 호환성을 확인한다.
+- [0.19.4 검증 기록](../../AI/validation/mailbox-refactor-20261101/README.md)
+- [0.19.0 당시 검증 기록](../../AI/validation/mailbox-server-20261031/README.md)

@@ -2,13 +2,16 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using KingdomIdle.KingdomArmy;
+using KingdomIdle.Balance;
+using KingdomIdle.Rewards;
+using Scripts.Core;
 
 namespace KingdomIdle.UGUI
 {
     /// <summary>
     /// 인벤토리 패널 컨트롤러 (UITKInventoryPanelController 이식 → 프리팹 기반 전환 완료).
     /// 종류별 탭(전체/장비/재료/기타)으로 분류된 아이템을 표시한다.
-    /// 현재는 장비(EquipmentInventory)만 실제 데이터가 있다.
+    /// 재료/기타는 기존 지갑 수량을 표시하며 전체 탭은 장비 목록을 유지한다.
     /// 고정 구조(목록 페이지/상세 페이지)는 프리팹 + View로, 반복 셀은 itemEquipCell 프리팹으로 채운다.
     /// (런타임 코드 UI 생성 제거 완료 — 프리팹/View만 사용)
     /// </summary>
@@ -19,6 +22,7 @@ namespace KingdomIdle.UGUI
         private static InventoryPanelView _view;
         private static InvTab _activeTab;
         private static readonly List<NavTabButtonView> _navButtons = new();
+        private static readonly Dictionary<eCurrency, EquipCellView> _currencySlots = new();
 
         // 플레이어 목록 (왕국군 전원의 인벤토리를 합산 표시)
         private static List<Player> _players;
@@ -48,6 +52,8 @@ namespace KingdomIdle.UGUI
                 if (_view == view)
                 {
                     if (EquipmentManager.Instance != null) EquipmentManager.Instance.OnActionCompleted -= OnEquipmentActionCompleted;
+                    EconomyBridge.OnAmountChanged -= OnCurrencyChanged;
+                    _currencySlots.Clear();
                     _view = null;
                     _detailItemId = null;
                     _navButtons.Clear();
@@ -58,6 +64,8 @@ namespace KingdomIdle.UGUI
             _players = mgr != null ? mgr.GetPlayers() : new List<Player>();
             var equipment = EquipmentManager.Instance;
             if (equipment != null) { equipment.OnActionCompleted -= OnEquipmentActionCompleted; equipment.OnActionCompleted += OnEquipmentActionCompleted; }
+            EconomyBridge.OnAmountChanged -= OnCurrencyChanged;
+            EconomyBridge.OnAmountChanged += OnCurrencyChanged;
 
             _activeTab = InvTab.All;
             BuildNavBar();
@@ -127,6 +135,7 @@ namespace KingdomIdle.UGUI
         {
             if (_view == null || _view.content == null) return;
             _detailItemId = null;
+            _currencySlots.Clear();
             ClearChildren(_view.content);
 
             switch (_activeTab)
@@ -138,10 +147,10 @@ namespace KingdomIdle.UGUI
                     BuildEquipmentView();
                     break;
                 case InvTab.Material:
-                    BuildPlaceholderPage($"강화석 {NumberNotation.Format(KingdomIdle.Balance.LocalProgression.Balance(eCurrency.EquipmentStone))}개\n장비를 분해해서 얻으며 장비 강화에 사용합니다.");
+                    BuildCurrencyView("재료", "보유한 재료가 없습니다.", eCurrency.EquipmentStone);
                     break;
                 case InvTab.Etc:
-                    BuildPlaceholderPage("기타 아이템이 없습니다.");
+                    BuildCurrencyView("기타", "기타 아이템이 없습니다.", eCurrency.EquipmentTicket, eCurrency.MageTicket);
                     break;
             }
         }
@@ -194,17 +203,46 @@ namespace KingdomIdle.UGUI
             page.SetPlaceholder(page.GetComponentInChildren<EquipmentToolbarView>(true)?.HasMatches==false ? "필터에 맞는 장비가 없습니다." : null);
         }
 
-        // ── 재료/기타 (플레이스홀더 전용) ──
+        // ── 재료/기타 (지갑 수량을 공용 카드로 표시) ──
 
-        private static void BuildPlaceholderPage(string msg)
+        private static void BuildCurrencyView(string title, string emptyMessage, params eCurrency[] currencies)
         {
             var page = SpawnListPage();
             if (page == null) return;
 
-            page.SetSection(null);
+            page.SetSection(title);
             page.SetSubsection(null);
-            page.SetGridActive(false);
-            page.SetPlaceholder(msg);
+            foreach (var currency in currencies)
+            {
+                long amount = LocalProgression.Balance(currency);
+                if (amount <= 0) continue;
+                var go = Object.Instantiate(Catalog.itemEquipCell, page.grid, false);
+                var cell = go.GetComponent<EquipCellView>();
+                cell.Set(RewardPresentation.Icon(currency), RewardPresentation.Name(currency), UguiTheme.Parchment,
+                    CurrencyQuantity(currency, amount), UguiTheme.Bronze, false, false);
+                if (cell.rarityBar != null) cell.rarityBar.gameObject.SetActive(false);
+                cell.OnClick(() => RewardPopupView.ShowItem(_view.transform,
+                    new RewardGrant(currency, LocalProgression.Balance(currency))));
+                _currencySlots.Add(currency, cell);
+            }
+            page.SetGridActive(_currencySlots.Count > 0);
+            page.SetPlaceholder(_currencySlots.Count > 0 ? null : emptyMessage);
+        }
+
+        private static string CurrencyQuantity(eCurrency currency, long amount) =>
+            $"보유 {NumberNotation.Format(amount)}{(currency == eCurrency.EquipmentStone ? "개" : "장")}";
+
+        private static void OnCurrencyChanged(eCurrency currency, long amount)
+        {
+            if (_view == null) return;
+            bool shown = _activeTab == InvTab.Material && currency == eCurrency.EquipmentStone ||
+                _activeTab == InvTab.Etc && (currency == eCurrency.EquipmentTicket || currency == eCurrency.MageTicket);
+            if (!shown) return;
+            bool exists = _currencySlots.TryGetValue(currency, out var cell);
+            if (exists != (amount > 0)) { Refresh(); return; }
+            if (!exists || cell == null || cell.subLabel == null) return;
+            string text = CurrencyQuantity(currency, amount);
+            if (cell.subLabel.text != text) cell.subLabel.text = text;
         }
 
         private static InventoryListPageView SpawnListPage()
@@ -427,7 +465,11 @@ namespace KingdomIdle.UGUI
         {
             if (parent == null) return;
             for (int i = parent.childCount - 1; i >= 0; i--)
-                Object.Destroy(parent.GetChild(i).gameObject);
+            {
+                var child = parent.GetChild(i).gameObject;
+                child.SetActive(false);
+                Object.Destroy(child);
+            }
         }
 
         private static void ShowToast(string msg)

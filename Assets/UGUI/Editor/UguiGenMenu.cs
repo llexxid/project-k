@@ -45,6 +45,7 @@ namespace KingdomIdle.UGUI.Editor
             OverlayGens.GenerateToast();
             OverlayGens.GenerateSettings();
             OverlayGens.GenerateGachaResult();
+            GachaFullScreenPreparation.GenerateRewards();
             ProfilePopupPrefabGens.GenerateProfilePopup();
             RankingPopupPrefabGen.Generate();
             OfflineRewardPopupPrefabGen.Generate();
@@ -181,6 +182,7 @@ namespace KingdomIdle.UGUI.Editor
             errors += CheckPrefabViews(catalog.panelInventory);
             errors += CheckPrefabViews(catalog.panelDungeon);
             errors += CheckPrefabViews(catalog.popupGachaResult);
+            errors += CheckPrefabViews(catalog.popupGachaRewards);
             errors += CheckPrefabViews(catalog.popupDungeonClear);
             errors += CheckPrefabViews(catalog.popupReincarnation);
             errors += CheckPrefabViews(catalog.popupOfflineReward);
@@ -219,6 +221,15 @@ namespace KingdomIdle.UGUI.Editor
                 {
                     if (field.GetCustomAttribute<SerializeField>() == null && !field.IsPublic) continue;
                     if (!typeof(Object).IsAssignableFrom(field.FieldType)) continue;
+
+                    if (mb is BottomSheetView sheet && sheet.fullScreen && field.Name == nameof(BottomSheetView.backdrop)) continue;
+                    if (mb is GachaPanelView panel && field.Name == (panel.fullScreen ? nameof(GachaPanelView.scroll) : nameof(GachaPanelView.authoredContent))) continue;
+                    if (mb is GachaTabContentView content)
+                    {
+                        if (content.GetComponent<GachaRewardsPopupView>() != null && field.Name != nameof(GachaTabContentView.rewardGrid)) continue;
+                        if (content.GetComponentInParent<GachaPanelView>(true)?.fullScreen == true &&
+                            field.Name is "descLabel" or "rateRow" or "rewardSectionTitle" or "rewardGrid") continue;
+                    }
 
                     // Legacy generator skin slots are optional: the current main tabs use
                     // a shared background and color transitions, without swapping sprites.

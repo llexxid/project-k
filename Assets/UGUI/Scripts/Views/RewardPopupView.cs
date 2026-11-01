@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Linq;
+using Protocol.Message.Dto;
 using KingdomIdle.Balance;
 using KingdomIdle.Mailbox;
 using KingdomIdle.OfflineRewards;
@@ -16,11 +18,11 @@ namespace KingdomIdle.UGUI
         public GameObject descriptionArea;
         public UnityEngine.UI.ScrollRect rewardScroll;
         public UnityEngine.UI.Button closeButton, backdrop, confirmButton;
-        public string SourceMailId { get; private set; }
+        public long? SourceMailId { get; private set; }
         private long _account;
         private System.Action _onClosed;
 
-        public static void ShowItem(Transform owner, RewardGrant reward, string mailId = null)
+        public static void ShowItem(Transform owner, RewardGrant reward, long? mailId = null)
         {
             var view = Open(owner, RewardPresentation.Name(reward), mailId);
             if (view == null) return;
@@ -73,14 +75,14 @@ namespace KingdomIdle.UGUI
             var slot = Instantiate(UIManager.Instance.Catalog.itemRewardSlot, slots, false).GetComponent<RewardSlotView>();
             slot.BindSummary(label, icon, amount);
         }
-        public static void ShowMail(Transform owner, MailMessage mail)
+        public static void ShowMail(Transform owner, MailDTO mail)
         {
-            var view = Open(owner, mail.Title, mail.Id);
+            var view = Open(owner, MailText.Title(mail), mail.MailId);
             if (view == null) return;
-            view.SetDescription(mail.Body);
-            view.AddSlots(mail.Rewards, true);
+            view.SetDescription(MailText.Body(mail));
+            view.AddSlots(mail.Rewards.Select(RewardGrants.FromServer), true);
         }
-        private static RewardPopupView Open(Transform owner, string heading, string mailId)
+        private static RewardPopupView Open(Transform owner, string heading, long? mailId)
         {
             var host = UIManager.Instance;
             if (host == null || host.Catalog.popupRewardInfo == null || owner == null || !owner.gameObject.activeInHierarchy) return null;

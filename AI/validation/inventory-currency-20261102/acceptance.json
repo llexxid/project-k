@@ -1,0 +1,28 @@
+{
+  "passed": 23,
+  "checks": [
+    "Catalog references the real inventory, card, and information prefabs",
+    "The existing four inventory tabs remain",
+    "Opening subscribes once to wallet amount changes",
+    "Zero enhancement stones produce no material slot",
+    "Zero tickets produce no miscellaneous slots",
+    "Seed three balances only in the isolated account",
+    "Miscellaneous slots contain both tickets in the agreed order",
+    "Tickets use the shared icons and hide equipment rarity decoration",
+    "Each ticket slot displays its own balance",
+    "Increase the visible equipment ticket balance",
+    "A positive balance update changes the existing slot without rebuilding the page",
+    "An unrelated wallet change leaves the current page intact",
+    "Item information is the inventory's top sibling so an external lower popup layer cannot hide it",
+    "Clicking shows the shared item explanation and the current balance",
+    "A ticket reaching zero removes only its slot",
+    "Removing the final ticket restores the empty miscellaneous page",
+    "Materials display enhancement stones as one icon card",
+    "The material slot updates in place while ticket balances change independently",
+    "Currency ownership does not add slots or text to the existing All tab",
+    "Zero stones hide the material slot after an update",
+    "Closing removes the wallet change subscription",
+    "Reopening does not accumulate wallet listeners",
+    "Cleanup restores wallet subscriptions, account state, and manager references"
+  ]
+}

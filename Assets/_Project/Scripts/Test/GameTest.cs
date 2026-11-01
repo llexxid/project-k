@@ -107,37 +107,14 @@ namespace Scripts.Test
             Debug.Log("[GameTest] 이번 달 출석·수령 기록을 0일로 초기화했습니다. 보유 재화와 기존 우편은 유지되며, 출석을 진행하면 다시 수령할 수 있습니다.");
         }
 
-        [MenuItem("GameTest/Mailbox Test/골드 우편 보내기")]
-        public static void SendGoldMail() => SendTestMail("골드", new RewardGrant(eCurrency.Gold, 10000));
+        [MenuItem("GameTest/Mailbox Test/격리 로컬 지급 검증")]
+        public static void TestLocalMailbox() => Debug.Log(Newtonsoft.Json.JsonConvert.SerializeObject(KingdomIdle.Mailbox.Testing.MailboxAcceptance.RunLocal()));
 
-        [MenuItem("GameTest/Mailbox Test/보석(비전지식) 우편 보내기")]
-        public static void SendArcaneMail() => SendTestMail("보석(비전지식)", new RewardGrant(eCurrency.ArcaneKnowledge, 100));
+        [MenuItem("GameTest/Mailbox Test/서버 응답 시나리오 검증")]
+        public static void TestServerMailbox() => Debug.Log(Newtonsoft.Json.JsonConvert.SerializeObject(KingdomIdle.Mailbox.Testing.MailboxAcceptance.Run()));
 
-        [MenuItem("GameTest/Mailbox Test/고대주화 우편 보내기")]
-        public static void SendAncientCoinMail() => SendTestMail("고대주화", new RewardGrant(eCurrency.AncientCoin, 100));
-
-        [MenuItem("GameTest/Mailbox Test/전직 파편 우편 보내기")]
-        public static void SendClassFragmentMail() => SendTestMail("전직 파편", new RewardGrant(eCurrency.ClassFragment, 10));
-
-        [MenuItem("GameTest/Mailbox Test/4종 전부 우편 보내기")]
-        public static void SendAllRewardsMail() => SendTestMail("재화 4종", new RewardGrant(eCurrency.Gold, 10000),
-            new RewardGrant(eCurrency.ArcaneKnowledge, 100), new RewardGrant(eCurrency.AncientCoin, 100),
-            new RewardGrant(eCurrency.ClassFragment, 10));
-
-        private static void SendTestMail(string title, params RewardGrant[] rewards)
-        {
-            if (!CanTestRewards()) return;
-            long now = RewardGrants.Now;
-            var result = GameManager.Instance.Mailbox.TryAddMail(new MailMessage
-            {
-                Id = "game-test:" + System.Guid.NewGuid().ToString("N"),
-                Title = "[테스트] " + title, Sender = "GameTest", Body = "재화 수령 테스트용 우편입니다.",
-                CreatedUtc = now, ExpiresUtc = now + 30L * 86400, Rewards = RewardGrants.Copy(rewards)
-            });
-            if (!result.Succeeded)
-            { Debug.LogWarning($"[GameTest] 테스트 우편 발송 실패: {result.Status} {LocalProgression.LastError}"); return; }
-            Debug.Log($"[GameTest] {title} 우편을 현재 계정에 저장했습니다. 만료는 30일 후이며 우편함에서 수령하세요.");
-        }
+        [MenuItem("GameTest/Mailbox Test/서버 응답 실제 저장 검증")]
+        public static void TestServerMailboxStorage() => Debug.Log(Newtonsoft.Json.JsonConvert.SerializeObject(KingdomIdle.Mailbox.Testing.MailboxAcceptance.RunServerApply()));
 
         private static bool CanTestRewards()
         {
@@ -244,11 +221,6 @@ namespace Scripts.Test
         [MenuItem("GameTest/Dungeon Test/입장 티켓 충전", true)]
         [MenuItem("GameTest/CheckIn Test/1일 진행", true)]
         [MenuItem("GameTest/CheckIn Test/출석 보상판 초기화", true)]
-        [MenuItem("GameTest/Mailbox Test/골드 우편 보내기", true)]
-        [MenuItem("GameTest/Mailbox Test/보석(비전지식) 우편 보내기", true)]
-        [MenuItem("GameTest/Mailbox Test/고대주화 우편 보내기", true)]
-        [MenuItem("GameTest/Mailbox Test/전직 파편 우편 보내기", true)]
-        [MenuItem("GameTest/Mailbox Test/4종 전부 우편 보내기", true)]
         [MenuItem("GameTest/Guide Test/실제 계정 저장/1 육성", true)]
         [MenuItem("GameTest/Guide Test/실제 계정 저장/2 왕국군", true)]
         [MenuItem("GameTest/Guide Test/실제 계정 저장/3 던전", true)]

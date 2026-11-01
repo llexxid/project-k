@@ -121,7 +121,8 @@ namespace KingdomIdle.EditorTools.Optimization
 
             var pix = AssetDatabase.GetDependencies(roots.ToArray(), true)
                 .Select(d => d.Replace('\\', '/'))
-                .Where(d => d.Contains("/PixelArtGUI2/") && (d.EndsWith(".png") || d.EndsWith(".Png")))
+                .Where(d => (d.Contains("/PixelArtGUI2/") || d == "Assets/UGUI/UsingAssets/Dungeon_Chest01.png")
+                            && (d.EndsWith(".png") || d.EndsWith(".Png")))
                 .Distinct().OrderBy(d => d).ToList();
             foreach (var p in pix)
             {

@@ -453,9 +453,10 @@ namespace KingdomIdle.UGUI
             {
                 // 시트 전체가 하단 탭바 뒤에서 떠오르는 슬라이드 인 (셸의 SheetClip이 탭바 영역을 가린다)
                 float rise = Mathf.Max(240f, view.sheet.rect.height);
-                if (view.centeredModal) UITween.PopIn(view.sheet);
+                if (view.fullScreen) FadeFullScreen(go);
+                else if (view.centeredModal) UITween.PopIn(view.sheet);
                 else UITween.SlideUp(view.sheet, rise, 0.34f);
-                _guidePanelReadyAt = Time.unscaledTime + 0.36f;
+                _guidePanelReadyAt = Time.unscaledTime + (view.fullScreen ? .15f : .36f);
                 if (view.backdrop != null)
                 {
                     var cg = view.backdrop.GetComponent<CanvasGroup>();
@@ -529,10 +530,20 @@ namespace KingdomIdle.UGUI
 
             if (next.View.sheet != null)
             {
+                if (next.View.fullScreen) { FadeFullScreen(next.Go); return; }
                 next.View.sheet.anchoredPosition = next.SheetRestingPos;
                 if (next.View.centeredModal) UITween.PopIn(next.View.sheet);
                 else UITween.SlideUp(next.View.sheet, 120f, 0.22f);
             }
+        }
+
+        private static void FadeFullScreen(GameObject go)
+        {
+            var group = go.GetComponent<CanvasGroup>();
+            group.interactable = true;
+            group.blocksRaycasts = true;
+            group.alpha = 0f;
+            UITween.FadeIn(group, .15f);
         }
 
         /// <summary>
@@ -552,28 +563,31 @@ namespace KingdomIdle.UGUI
 
             // 등장 슬라이드가 아직 돌고 있으면 먼저 끈다 — 두 코루틴이 같은 anchoredPosition 을
             // 매 프레임 덮어쓰면 시트가 내려가지 않고 위로 끌려 올라가다 사라진다(빠른 탭 전환).
-            UITween.StopMove(top.View.sheet);
+            if (!top.View.fullScreen) UITween.StopMove(top.View.sheet);
 
             var cg = top.Go.GetComponent<CanvasGroup>();
             if (cg == null) cg = top.Go.AddComponent<CanvasGroup>();
-            cg.blocksRaycasts = false;   // 퇴장 중 입력 차단
+            cg.blocksRaycasts = top.View.fullScreen; // 전체 화면은 퇴장이 끝날 때까지 뒤의 입력도 가린다.
             cg.interactable = false;
-            RunCoroutine(PanelCloseRoutine(top.Go, top.View.sheet, cg, top.View.centeredModal));
+            RunCoroutine(PanelCloseRoutine(top.Go, top.View.sheet, cg, top.View.centeredModal, top.View.fullScreen));
         }
 
-        private static IEnumerator PanelCloseRoutine(GameObject go, RectTransform sheet, CanvasGroup rootGroup, bool modal)
+        private static IEnumerator PanelCloseRoutine(GameObject go, RectTransform sheet, CanvasGroup rootGroup, bool modal, bool fullScreen)
         {
             Vector2 from = sheet.anchoredPosition;
             Vector2 to = modal ? from : from + new Vector2(0f, -Mathf.Max(240f, sheet.rect.height));
-            const float dur = 0.20f;
+            float dur = fullScreen ? .15f : .20f;
+            float alpha = rootGroup.alpha;
+            // 중단된 등장 페이드가 퇴장 페이드와 동시에 알파를 쓰지 않게 한다.
+            if (fullScreen) UITween.StopFade(rootGroup);
             float e = 0f;
             while (e < dur && go != null && sheet != null)
             {
                 e += Time.unscaledDeltaTime;
                 float k = Mathf.Clamp01(e / dur);
                 k = k * k * k;   // EaseInCubic — 가속 퇴장
-                sheet.anchoredPosition = Vector2.LerpUnclamped(from, to, k);
-                if (rootGroup != null) rootGroup.alpha = 1f - k;
+                if (!fullScreen) sheet.anchoredPosition = Vector2.LerpUnclamped(from, to, k);
+                if (rootGroup != null) rootGroup.alpha = alpha * (1f - k);
                 yield return null;
             }
             if (go != null) Destroy(go);
@@ -613,8 +627,8 @@ namespace KingdomIdle.UGUI
             }
 
             var go = Instantiate(prefab, id == UIPanelId.Guide || id == UIPanelId.Inventory || id == UIPanelId.CheckIn || id == UIPanelId.Mailbox ? layerOverlays : layerPanels, false);
-            if (id != UIPanelId.CheckIn && id != UIPanelId.Mailbox) ForceFullStretch(go);
             view = go.GetComponent<BottomSheetView>();
+            if (id != UIPanelId.CheckIn && id != UIPanelId.Mailbox && (view == null || !view.fullScreen)) ForceFullStretch(go);
             PopulatePanel(id, view, payload);
             return go;
         }

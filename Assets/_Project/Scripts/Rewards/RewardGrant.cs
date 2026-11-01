@@ -11,10 +11,13 @@ namespace KingdomIdle.Rewards
         public long Amount;
         // 서버 보상(출석판·우편)의 장비 정의 ID. 0이면 재화다. 표시 전용이라 저장 상태에 쓰지 않고, 로컬 지급(TryApply)은 장비를 거절한다.
         [NonSerialized] public int EquipmentId;
+        [NonSerialized] public Protocol.Message.Dto.ItemCode? EquipmentCode;
+        [NonSerialized] public Protocol.Message.Dto.EquipmentDisposition Disposition = Protocol.Message.Dto.EquipmentDisposition.None;
+        [NonSerialized] public bool ServerReward;
         public RewardGrant(eCurrency currency, long amount) { Currency = currency; Amount = amount; }
         public static RewardGrant Equipment(int definitionId, long amount) => new(eCurrency.Gold, amount) { EquipmentId = definitionId };
         public bool IsEquipment => EquipmentId != 0;
-        public RewardGrant Copy() => new(Currency, Amount) { EquipmentId = EquipmentId };
+        public RewardGrant Copy() => new(Currency, Amount) { EquipmentId = EquipmentId, EquipmentCode = EquipmentCode, Disposition = Disposition, ServerReward = ServerReward };
     }
 
     // Pending: 서버 요청을 보냈고 결과는 완료 이벤트로 온다(출석판·우편).
@@ -53,7 +56,7 @@ namespace KingdomIdle.Rewards
             var totals = new long[CurrencyCount];
             foreach (var reward in rewards)
             {
-                if (!IsValid(reward) || reward.IsEquipment) return false;
+                if (!IsValid(reward) || reward.IsEquipment || reward.ServerReward) return false;
                 int index = (int)reward.Currency;
                 if (reward.Amount > long.MaxValue - totals[index]) return false;
                 totals[index] += reward.Amount;
@@ -76,8 +79,8 @@ namespace KingdomIdle.Rewards
         public static RewardGrant FromServer(Protocol.Message.Dto.MailRewardDTO reward)
         {
             if (reward == null || reward.Amount <= 0) return null;
-            if (reward.Kind == Protocol.Message.Dto.RewardKind.Equipment && reward.DefinitionId is int id && id > 0) return RewardGrant.Equipment(id, reward.Amount);
-            if (reward.Kind == Protocol.Message.Dto.RewardKind.Currency && reward.CurrencyType.HasValue) return new RewardGrant((eCurrency)(int)reward.CurrencyType.Value, reward.Amount);
+            if (reward.Kind == Protocol.Message.Dto.RewardKind.Equipment && reward.DefinitionId is int id && id > 0) return new RewardGrant(eCurrency.Gold, reward.Amount) { EquipmentId = id, ServerReward = true };
+            if (reward.Kind == Protocol.Message.Dto.RewardKind.Currency && reward.CurrencyType.HasValue) return new RewardGrant((eCurrency)(int)reward.CurrencyType.Value, reward.Amount) { ServerReward = true };
             return null;
         }
 
@@ -103,11 +106,18 @@ namespace KingdomIdle.Rewards
                     grant = id > 0 ? RewardGrant.Equipment(id, Math.Max(1, reward.Amount)) : null;
                 }
                 if (grant == null) continue;
+                grant.ServerReward = true;
+                grant.Disposition = reward.Disposition;
+                grant.EquipmentCode = grant.IsEquipment ? reward.ItemCode : null;
                 RewardGrant same = null;
                 foreach (var entry in merged)
-                    if (entry.EquipmentId == grant.EquipmentId && (grant.IsEquipment || entry.Currency == grant.Currency)) { same = entry; break; }
+                    if (entry.EquipmentId == grant.EquipmentId && entry.Disposition == grant.Disposition &&
+                        (entry.EquipmentCode?.Code & ~0xFFFFUL) == (grant.EquipmentCode?.Code & ~0xFFFFUL) &&
+                        entry.EquipmentCode?.ExpireTimesc == grant.EquipmentCode?.ExpireTimesc &&
+                        (grant.IsEquipment || entry.Currency == grant.Currency)) { same = entry; break; }
                 if (same == null) merged.Add(grant);
                 else if (same.Amount <= long.MaxValue - grant.Amount) same.Amount += grant.Amount;
+                else merged.Add(grant);
             }
             return merged;
         }

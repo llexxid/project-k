@@ -9,18 +9,8 @@ using Scripts.Core;
 namespace KingdomIdle.UGUI
 {
     /// <summary>
-    /// 뽑기 패널 컨트롤러 (프리팹 기반).
-    /// 탭 전환 때마다 _view.content 아래에 탭 콘텐츠 프리팹(GachaTabContentView)을 1개 인스턴스화하고,
-    /// 반복 위젯(탭 버튼/확률 알약/뽑기 버튼/보상 카드)은 카탈로그 item 프리팹으로 채운다.
-    /// 코드로 UI 구조를 생성하지 않는다 (런타임 코드빌드 제거 완료 — 런타임 팩토리 미참조).
-    /// 모바일 방치형 가챠 표준 레이아웃:
-    ///   ┌─ 탭바 (장비/스킬)
-    ///   ├─ 설명
-    ///   ├─ 보유/비용 바
-    ///   ├─ 확률 요약 (Epic/Rare/Normal 집계)
-    ///   ├─ 뽑기 버튼 (x1 / x10)  ← 뽑는 중에는 비활성
-    ///   └─ 보상 목록 미리보기 (카드 그리드)
-    /// 뽑기 중에는 버튼이 자동 비활성화되며, 완료되면 결과 팝업 후 원상복구된다.
+    /// 전체 화면의 고정 콘텐츠와 보상 팝업을 기존 뽑기 거래에 연결한다.
+    /// 보존된 시트 프리팹은 기존 콘텐츠 경로를 유지한다.
     /// </summary>
     public static class GachaPanelController
     {
@@ -43,6 +33,7 @@ namespace KingdomIdle.UGUI
         private static GachaPanelView _view;
         private static GachaTabContentView _content;
         private static GachaTableSO _contentTable;
+        private static GameObject _rewardsPopup;
         private static IReadOnlyList<GachaTableSO> _tables;
         private static readonly List<NavTabButtonView> _tabButtons = new();
 
@@ -74,6 +65,7 @@ namespace KingdomIdle.UGUI
             {
                 if (_view == view)
                 {
+                    CloseRewards();
                     _view = null;
                     _content = null;
                     _contentTable = null;
@@ -199,6 +191,16 @@ namespace KingdomIdle.UGUI
 
             _contentTable = table;
 
+            if (c.heroTitle != null) c.heroTitle.text = IsSkillTable(table) ? "마탑 뽑기" : "장비 뽑기";
+            if (c.heroIcon != null) c.heroIcon.sprite = IsSkillTable(table) ? c.mageArt : c.equipmentArt;
+            if (c.ratesButton != null)
+            {
+                c.ratesButton.onClick.RemoveListener(OpenRates);
+                c.ratesButton.onClick.AddListener(OpenRates);
+                c.rewardsButton.onClick.RemoveListener(OpenRewards);
+                c.rewardsButton.onClick.AddListener(OpenRewards);
+            }
+
             if (c.messageLabel != null) c.messageLabel.gameObject.SetActive(false);
 
             UpdateDescription();
@@ -208,12 +210,11 @@ namespace KingdomIdle.UGUI
             if (c.costLabel != null)
             {
                 c.costLabel.gameObject.SetActive(true);
-                c.costLabel.text =
-                    $"1회 비용: {NumberNotation.Format(table.costAmount)} {RewardPresentation.Name(table.costCurrency)}  |  보유: {NumberNotation.Format(current)}";
+                UpdateCostLabel(current);
             }
 
             // 확률 요약 (등급별 가중치 집계)
-            BuildRateSummaryRow(c, table);
+            if (!_view.fullScreen) BuildRateSummaryRow(c, table);
 
             // 뽑기 버튼 행 — 크고 명확한 프리팹 버튼 (Item_GachaPullButton)
             BuildPullRow(c, table, current);
@@ -222,7 +223,7 @@ namespace KingdomIdle.UGUI
 #endif
 
             // 보상 목록 미리보기
-            BuildRewardPreview(c, table);
+            if (!_view.fullScreen) BuildRewardPreview(c, table);
 #if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
             Debug.Log($"[GachaTiming] cards {contentTimer.Elapsed.TotalMilliseconds:F2} ms");
 #endif
@@ -266,7 +267,7 @@ namespace KingdomIdle.UGUI
         {
             if (_content == null || _contentTable == null) return;
             EconomyBridge.TryGetAmount(_contentTable.costCurrency,out long current);
-            if (_content.costLabel != null) _content.costLabel.text=$"1회 비용: {NumberNotation.Format(_contentTable.costAmount)} {RewardPresentation.Name(_contentTable.costCurrency)}  |  보유: {NumberNotation.Format(current)}";
+            UpdateCostLabel(current);
             UpdateDescription();
             bool pulling=_flaringPull || (GachaManager.Instance != null && GachaManager.Instance.IsPulling);
             for(int i=0;i<_activePullButtons.Count;i++)
@@ -278,9 +279,33 @@ namespace KingdomIdle.UGUI
             }
         }
 
+        private static void UpdateCostLabel(long current)
+        {
+            if (_content.costLabel == null) return;
+            string currency = RewardPresentation.Name(_contentTable.costCurrency);
+            string label = _view.fullScreen ? $"보유 {currency}  {NumberNotation.Format(current)}"
+                : $"1회 비용: {NumberNotation.Format(_contentTable.costAmount)} {currency}  |  보유: {NumberNotation.Format(current)}";
+            if (_content.costLabel.text != label) _content.costLabel.text = label;
+        }
+
         private static void UpdateDescription()
         {
-            if (_content == null || _content.descLabel == null || _contentTable == null) return;
+            if (_content == null || _contentTable == null) return;
+            if (_content.pityRoot != null)
+            {
+                bool equipment = !IsSkillTable(_contentTable);
+                _content.pityRoot.gameObject.SetActive(equipment);
+                if (equipment && GachaManager.Instance != null)
+                {
+                    int count = GachaManager.Instance.EpicPityCount;
+                    string progress = $"{count} / {GachaManager.EpicPityLimit}회";
+                    string remaining = $"에픽 확정까지 {GachaManager.Instance.EpicPityRemaining}회";
+                    if (_content.pityLabel.text != progress) _content.pityLabel.text = progress;
+                    if (_content.pityRemaining.text != remaining) _content.pityRemaining.text = remaining;
+                    _content.pityFill.fillAmount = Mathf.Clamp01((float)count / GachaManager.EpicPityLimit);
+                }
+            }
+            if (_content.descLabel == null) return;
             string description = _contentTable.description ?? string.Empty;
             if (_contentTable.gachaType == eGachaType.Equipment && GachaManager.Instance != null)
                 description = (string.IsNullOrWhiteSpace(description) ? string.Empty : description + "\n")
@@ -464,6 +489,8 @@ namespace KingdomIdle.UGUI
 
                 // 아이콘
                 Sprite displayIcon = entry.icon;
+                if (displayIcon == null && entry.rewardType == eGachaRewardType.Currency)
+                    displayIcon = RewardPresentation.Icon(entry.currency);
                 if (entry.rewardType == eGachaRewardType.Equipment && entry.equipmentData != null && entry.equipmentData.icon != null)
                     displayIcon = entry.equipmentData.icon;
                 else if (entry.rewardType == eGachaRewardType.Skill && displayIcon == null)
@@ -647,6 +674,14 @@ namespace KingdomIdle.UGUI
             _content = null;
             if (_view == null || _view.content == null) return null;
 
+            if (_view.authoredContent != null)
+            {
+                CloseRewards();
+                _content = _view.authoredContent;
+                DestroyChildren(_content.pullRow);
+                return _content;
+            }
+
             DestroyChildren(_view.content);
 
             var cat = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
@@ -689,7 +724,43 @@ namespace KingdomIdle.UGUI
         {
             if (parent == null) return;
             for (int i = parent.childCount - 1; i >= 0; i--)
+            {
+                parent.GetChild(i).gameObject.SetActive(false);
                 Object.Destroy(parent.GetChild(i).gameObject);
+            }
+        }
+
+        private static void OpenRates()
+        {
+            var host = UIManager.Instance;
+            string url = host.Catalog.gachaRatesUrl;
+            if (!System.Uri.TryCreate(url, System.UriKind.Absolute, out var uri) || uri.Scheme != "https")
+            { host.ShowToast("확률표 주소를 확인할 수 없습니다."); return; }
+            Application.OpenURL(url.TrimEnd('#') + (IsSkillTable(_contentTable) ? "#mage-tower" : "#equipment"));
+        }
+
+        private static void OpenRewards()
+        {
+            if (_view == null || _contentTable == null) return;
+            CloseRewards();
+            var prefab = UIManager.Instance.Catalog.popupGachaRewards;
+            if (prefab == null) { UIManager.Instance.ShowToast("보상 목록을 준비하지 못했습니다."); return; }
+            // 패널이 가려지거나 제거될 때 상세 창도 함께 숨겨진다.
+            _rewardsPopup = Object.Instantiate(prefab, _view.transform, false);
+            var popup = _rewardsPopup.GetComponent<GachaRewardsPopupView>();
+            popup.title.text = (IsSkillTable(_contentTable) ? "마탑" : "장비") + " 획득 가능 보상";
+            popup.close.onClick.AddListener(CloseRewards);
+            ModalBackHandler.Bind(_rewardsPopup, CloseRewards);
+            BuildRewardPreview(popup.rewards, _contentTable);
+            UITween.PopIn(popup.box);
+        }
+
+        private static void CloseRewards()
+        {
+            if (_rewardsPopup == null) return;
+            _rewardsPopup.SetActive(false);
+            Object.Destroy(_rewardsPopup);
+            _rewardsPopup = null;
         }
 
         private static string GetRarityText(eEquipmentRarity rarity)

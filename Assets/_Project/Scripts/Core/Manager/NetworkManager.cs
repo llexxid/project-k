@@ -484,14 +484,7 @@ namespace Scripts.Core.Manager
                         throw new JsonSerializationException("Invalid reserve stack.");
                 }
             }
-            if (response is OnGetMailListResponseDTO mailList && (mailList.Mails == null || mailList.TotalCount < 0 || mailList.Mails.Any(m => m == null || m.Rewards == null)))
-                throw new JsonSerializationException("Invalid mail list.");
-            if (response is OnClaimMailRewardResponseDTO mailClaim)
-            {
-                if (mailClaim.ClaimedMailIds == null || mailClaim.Rewards == null || mailClaim.Currency == null)
-                    throw new JsonSerializationException("Invalid mail claim result.");
-                ValidateEquipment(mailClaim.Equipment);
-            }
+            ValidateMailboxResponse(response);
         }
 
         // 출석판: 칸 수 0~28, 받은 칸은 1~OpenedDays. 출석판 이전 서버(Month 없음)는 빈 판으로 본다.
@@ -515,8 +508,15 @@ namespace Scripts.Core.Manager
             }
         }
 
+        internal static void ValidateMailboxResponse(ApiResponseDTO response)
+        {
+            if (response is OnGetMailListResponseDTO list) KingdomIdle.Mailbox.MailboxProtocol.ValidateList(list);
+            else if (response is OnClaimMailRewardResponseDTO claim) KingdomIdle.Mailbox.MailboxProtocol.ValidateClaim(claim);
+            else if (response == null) throw new JsonSerializationException("Empty mailbox response.");
+        }
+
         // 서버 EquipmentRules.Valid와 같은 규칙. 어긋나면 InvalidResponse로 거절해 손상된 인벤토리를 플레이어 상태에 쓰지 않는다.
-        private static void ValidateEquipment(EquipmentInventoryDTO inventory)
+        internal static void ValidateEquipment(EquipmentInventoryDTO inventory)
         {
             if (inventory == null || inventory.Items == null || inventory.PendingItems == null || inventory.ReserveStacks == null)
                 throw new JsonSerializationException("Missing equipment inventory.");

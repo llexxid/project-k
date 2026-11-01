@@ -92,6 +92,7 @@ namespace KingdomIdle.UGUI.Editor
             catalog.panelDungeon = Load($"{p}/Panels/Panel_Dungeon.prefab");
 
             catalog.popupGachaResult = Load($"{p}/Popups/Popup_GachaResult.prefab");
+            catalog.popupGachaRewards = Load($"{p}/Popups/Popup_GachaRewards.prefab");
             catalog.popupProfile = Load($"{p}/Popups/Popup_Profile.prefab");
             catalog.popupRanking = Load("Assets/_Project/Prefabs/UI/Popup_Ranking.prefab");
             catalog.popupMageTowerEquip = Load($"{p}/Popups/Panel_MageTowerEquip.prefab");
