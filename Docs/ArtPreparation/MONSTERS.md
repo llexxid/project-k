@@ -2,7 +2,7 @@
 
 이름은 프리팹 파일명입니다. 색상 변형 9종을 포함해 37개가 준비되어 있습니다. 실제 등록은 후속 작업입니다.
 
-[몬스터 크기 기준·41종 정밀 검수](MONSTER_SIZES.md) · [실제 배율 비교](Previews/monster-size-comparison.png). 신규 37종과 기존 Bandit 4종의 몸체·배율을 검사했습니다. 아래 원본 동작 도감은 개별 그림을 확대하므로 크기 비교에는 사용하지 않습니다.
+[몬스터 크기 기준·41종 정밀 검수](MONSTER_SIZES.md). 신규 37종과 기존 Bandit 4종의 몸체·배율을 검사했습니다.
 
 | 분류 | 프리팹 | 준비한 기본 동작 | 제약 |
 |---|---|---|---|
@@ -62,6 +62,4 @@ Bugbear·BoarRider는 숲의 변주/정예 후보, Gunner·MechRider·Kamikaze�
 - GoblinGunner: Attack + Recover를 기존 반복 공격 인터페이스에 맞는 AttackCycle로 연결했습니다.
 - 일반 병과·Bandit 본체 프리팹은 기존 것을 재사용합니다. Bandit 4종의 표시 배율은 후속 크기 검수에서 보정했습니다. 추가 시트는 해당 병과의 Prepared 클립을 통해 선택 적용합니다.
 
-아래 이미지는 원본 시트의 Idle·Attack·Dead 후보 프레임을 비교한 도감입니다. 상기 대체 클립의 최종 모습은 `Manifests/monsters.json`의 실제 컨트롤러 연결을 기준으로 확인하세요.
-
-![원본 동작 비교](Previews/monster-source-gallery.png)
+상기 대체 클립의 최종 모습은 `Manifests/monsters.json`의 실제 컨트롤러 연결을 기준으로 확인하세요.

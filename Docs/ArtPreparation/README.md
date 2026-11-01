@@ -1,12 +1,12 @@
 # 아트 정리·스테이지 통합
 
-[프로젝트 아트 폴더 안내](../../Assets/_Project/Art/README.md) · [몬스터 카탈로그](MONSTERS.md) · [환경 90개 목록](ENVIRONMENTS.md) · [카탈로그·인게임 연결](INTEGRATION.md) · [검증 기록](VALIDATION.md)
+[프로젝트 아트 폴더 안내](../../Assets/_Project/Art/README.md) · [몬스터 카탈로그](MONSTERS.md) · [환경 90개 목록](ENVIRONMENTS.md) · [카탈로그·인게임 연결](INTEGRATION.md)
 
-후속 요청 반영: [몬스터 41종 크기 검수](MONSTER_SIZES.md) · [실제 크기 비교](Previews/monster-size-comparison.png) · [2·3스테이지 숲 비교](Previews/stage2-stage3-comparison.png)
+후속 요청 반영: [몬스터 41종 크기 검수](MONSTER_SIZES.md)
 
 ## 준비 결과
 
-아래 수량은 최초 준비 작업의 기록입니다. 현재는 [스테이지 통합](INTEGRATION.md)을 통해 활성 몬스터 15종과 환경 90개가 연결되어 있습니다. [최신 기기 검증](STAGE_INTEGRATION_VALIDATION.md)을 함께 확인합니다.
+아래 수량은 최초 준비 작업의 기록입니다. 현재는 [스테이지 통합](INTEGRATION.md)을 통해 활성 몬스터 15종과 환경 90개가 연결되어 있습니다.
 
 | 항목 | 결과 |
 |---|---:|
@@ -37,8 +37,6 @@
 아래 이미지는 Unity의 임시 PreviewScene에서 렌더링했습니다. 현재 병과의 Spearman·Knight·Mage와 각 환경의 검수용 몬스터를 실제 프리팹 배율로 배치했습니다. 새로운 스테이지가 실제 게임에 적용된 화면은 아닙니다. 3스테이지 18종 전체와 다른 풀의 대표 12종을 360×800, 540×960, 720×960으로 총 90회 캡처했습니다.
 
 초기 이미지의 큰 Lancer는 현재 병과와 PPU가 달라 크기 기준이 잘못되어 있었습니다. 기존 공개 미리보기는 올바른 병과·배율로 교체했습니다. 3스테이지는 수관·관목을 늘려 울창하게 정리했고, 몬스터 41종(기존 Bandit 4종 포함)의 표시 크기를 프리팹에 저장했습니다. 이 갤러리는 통합 전 기록입니다. 최신 실제 화면은 [환경 목록](ENVIRONMENTS.md)에 있습니다.
-
-![대표 환경 프리셋](Previews/environment-gallery.png)
 
 ## 출처·검증 데이터
 

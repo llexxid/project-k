@@ -12,7 +12,8 @@ namespace KingdomIdle.UGUI.Editor
     /// <summary>Named device builds sharing one test package; manual builds omit diagnostic probes.</summary>
     public static class TitleLobbyDeviceBuild
     {
-        public static string Output => Environment.GetEnvironmentVariable("LOBBY_QA_OUTPUT") ?? "Recordings/DeviceBuilds";
+        public static string Output => Environment.GetEnvironmentVariable("LOBBY_QA_OUTPUT") ??
+            Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "QA", "DeviceBuilds"));
         internal static bool ResolvingDependencies { get; private set; }
 
         public static void Build() => BuildPlayer(true);
@@ -38,7 +39,7 @@ namespace KingdomIdle.UGUI.Editor
         {
             if (adTest && !File.Exists(AdMobTestSceneBuilder.ScenePath))
                 throw new InvalidOperationException("광고 테스트 씬을 먼저 생성해 주세요.");
-            string output = adTest ? "Recordings/AdMobTest/Android" : Output;
+            string output = adTest ? Path.Combine(Path.GetDirectoryName(Output), "AdMobTest", "Android") : Output;
             Directory.CreateDirectory(output);
             if (File.Exists(output + "/build.txt")) File.Delete(output + "/build.txt");
             if (File.Exists(output + "/build-failure.txt")) File.Delete(output + "/build-failure.txt");

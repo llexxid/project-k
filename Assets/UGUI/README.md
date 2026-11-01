@@ -22,7 +22,7 @@
 
 `KingdomIdle → Ads → Open Test Scene`으로 `Scenes/AdMobTest.unity`를 열고 Play한 뒤 `광고 보기`를 누른다. 초기화·로드·재생을 자동 처리하며 SDK 보상 콜백을 받은 후 광고를 닫으면 완료 팝업을 표시한다. 중도 종료는 완료 처리하지 않고 실패 시 같은 팝업으로 재시도를 안내한다. Editor는 SDK 모의 광고이고, Android는 Google의 고정 테스트 광고 단위를 사용한다. 로그인·실제 재화 지급은 없다.
 
-`KingdomIdle → Ads → Build Android Test APK`는 이 씬만 `.adtest` 패키지로 빌드한다. 결과는 `Recordings/AdMobTest/Android`, 버전과 빌드 번호는 APK 이름에 포함된다. 기존 게임 앱과 별도로 설치할 수 있으며 Build Settings의 게임 씬 목록은 바꾸지 않는다.
+`KingdomIdle → Ads → Build Android Test APK`는 이 씬만 `.adtest` 패키지로 빌드한다. 기본 결과 경로는 저장소 밖 `../QA/AdMobTest/Android`이며, 출력 기준은 `LOBBY_QA_OUTPUT`으로 변경한다. 버전과 빌드 번호는 APK 이름에 포함된다. 기존 게임 앱과 별도로 설치할 수 있으며 Build Settings의 게임 씬 목록은 바꾸지 않는다.
 
 빌드 중 `mainTemplate.gradle needs to be updated` 창이 나오면 `Yes`로 진행한다. Unity 6의 `packaging` 문법으로 갱신하는 안내이며 외부 의존성 관리자가 이전 문법을 다시 쓸 때 나타날 수 있다.
 
@@ -36,7 +36,7 @@
 
 선택창은 배경·뒤로가기로 닫히지 않는다. 광고 준비·시청·저장 중에는 두 버튼을 잠근다. 완료 후 저장 실패는 실행 중 기억하며 `보상 수령`으로 지급만 재시도한다. 다른 정산이 도착해도 기존 선택을 보존한다. 강제 화면 정리는 결과 팝업도 닫는다. `RewardPopupView.ShowOfflineRewards()`는 `LayerPopups`에 골드·경험치 합계를 표시하고, 광고일 때만 `보상 2배 획득`을 보여준다. 기존 우편·출석 결과 표시는 유지한다.
 
-`OfflineRewardPopupPrefabGen.UpgradeAdRewardPrefabs()`는 기존 테마·폰트를 유지하며 실제 프리팹의 버튼과 참조를 갱신한다. 핵심 검사는 `OfflineRewardAdAcceptance.Run()`, UI 검사와 캡처는 [2026-10-28 검증 기록](../../AI/validation/offline-ad-20261028/README.md)에 있다. 강제 종료 후 미지급 광고 보너스 복구, 운영 광고·미디에이션·서버 보상 검증·일일 광고 보상은 포함하지 않는다.
+`OfflineRewardPopupPrefabGen.UpgradeAdRewardPrefabs()`는 기존 테마·폰트를 유지하며 실제 프리팹의 버튼과 참조를 갱신한다. 핵심 검사는 `OfflineRewardAdAcceptance.Run()`이다. 강제 종료 후 미지급 광고 보너스 복구, 운영 광고·미디에이션·서버 보상 검증·일일 광고 보상은 포함하지 않는다.
 
 결과 확인 버튼은 기존 계층의 `Popup_RewardInfo/Panel/BtnOfflineConfirm`에서 편집한다. 기본 크기는 Canvas 기준 120×100이며 LayoutElement의 Min/Preferred Width·Height를 함께 바꾸고 Flexible Width·Height는 0으로 둔다. Panel은 Control Child Size Width 켜기, Child Force Expand Width 끄기, Upper Center 정렬을 사용한다. Header·ContentScroll·RewardScroll은 Flexible Width=1로 전체 폭을 유지한다. 확인 버튼만 오프라인 결과에서 활성화하며 별도 버튼 행은 사용하지 않는다.
 
@@ -87,13 +87,13 @@ Direction.GameDirectManager.Instance.RequestPlay("guide_development");
 
 bootstrap부터 Play하고 메인 화면에 진입한다. Unity 상단 `GameTest → Guide Test/실제 계정 저장` 메뉴에서 다섯 개를 각각 또는 순차 요청한다. 편집 모드에서는 메뉴가 비활성화된다. 실제 계정 결과가 저장되므로 완료 후 다시 실행되지 않는 것이 정상이다. 환생 설명은 별도 미리보기 메뉴로 확인한다. 에셋 연결 복구는 편집 모드 `KingdomIdle/Direction/Prepare interactive guides`를 사용하며 기존 SO의 수동 편집은 덮어쓰지 않는다.
 
-`KingdomIdle/Direction/Validate isolated guide acceptance`는 빈 PlayMode 씬·격리 계정·실제 프리팹·EventSystem 입력으로 검사하고 원래 편집 씬으로 돌아간다. 기존 안내 회귀, 다섯 안내 FIFO, 실제 강화·확률 뽑기, 중복 소비 방지, 지급·저장 실패와 재개를 검사한다. 장비 48개의 스크롤·강조 범위와 마탑 열기·재개도 검사하며 기록은 `AI/validation/game-direct-mage-20260921/`에 남긴다. 이전 네 실습 검증은 `AI/validation/game-direct-interactive-20260921/`에 보존한다. 화면 비율 캡처는 Editor 시뮬레이션이며 Android 실기기 결과가 아니다. 과거 0.15.0 검증 기록은 `AI/validation/game-direct-20260921/`에 보존한다.
+`KingdomIdle/Direction/Validate isolated guide acceptance`는 빈 PlayMode 씬·격리 계정·실제 프리팹·EventSystem 입력으로 검사하고 원래 편집 씬으로 돌아간다. 기존 안내 회귀, 다섯 안내 FIFO, 실제 강화·확률 뽑기, 중복 소비 방지, 지급·저장 실패와 재개를 검사한다. 장비 48개의 스크롤·강조 범위와 마탑 열기·재개도 검사한다. 화면 비율 캡처는 Editor 시뮬레이션이며 Android 실기기 결과가 아니다.
 
 자동 발생은 아직 연결하지 않는다. 다음 단계에서 신규 계정·스테이지 클리어 등의 외부 트리거가 해당 SO를 `RequestPlay`하도록 연결한다. 트리거는 게임 조건을 판단하고, 중복·완료 억제와 재개는 Manager에 맡긴다. 기존 계정에 안내 키가 없다는 이유만으로 신규 계정으로 판단하지 않는다.
 
-`GameTest` 순차 실행은 현재 계정에서 미완료인 안내만 요청한다. 완료·건너뛰기 항목은 ID와 함께 `안내 생략` 일반 로그를 남기며 기록을 초기화하지 않는다. 패널 복원 직후 대상이 화면·마스크 밖에 있으면 `FeatureGuideView.TryRefreshLayout`은 false를 반환하고 호출자가 입력·참조를 정리한다. Player가 같은 미확인 단계를 다시 표시하므로 일시적인 레이아웃 미준비를 완료나 오류로 취급하지 않는다. 이 경계와 실제 `GameTest` 재개 경로의 회귀 결과는 `AI/validation/game-direct-visibility-20260921/`에 기록한다.
+`GameTest` 순차 실행은 현재 계정에서 미완료인 안내만 요청한다. 완료·건너뛰기 항목은 ID와 함께 `안내 생략` 일반 로그를 남기며 기록을 초기화하지 않는다. 패널 복원 직후 대상이 화면·마스크 밖에 있으면 `FeatureGuideView.TryRefreshLayout`은 false를 반환하고 호출자가 입력·참조를 정리한다. Player가 같은 미확인 단계를 다시 표시하므로 일시적인 레이아웃 미준비를 완료나 오류로 취급하지 않는다.
 
-반복 실습은 PlayMode에서 Unity 상단 `GameTest → Guide Test/실제 계정 저장/다섯 안내 테스트 기록 초기화 (재지급 허용)` 메뉴를 실행한 뒤 개별 또는 순차 실행 메뉴를 사용한다. 초기화 메뉴는 실행 중인 안내와 대기열을 정리하고, 육성·왕국군·던전·뽑기·마탑의 **진행·실습 성공·체험 주화 지급 기록**을 한 번의 저장 거래로 지운다. 다음 실행에서는 강화·뽑기를 다시 수행하며 뽑기 주화 50개씩도 다시 지급한다. 현재 보유 재화·강화·장비·스킬은 유지되므로 반복 테스트 보상은 누적될 수 있다. 환생 안내와 다른 안내·퀘스트 기록은 유지한다. 이 초기화 경로는 `UNITY_EDITOR`에만 포함되며 계정 변경이나 저장 실패 시 초기화를 확정하지 않는다. 검증 기록은 `AI/validation/game-direct-reset-20260921/`에 남긴다.
+반복 실습은 PlayMode에서 Unity 상단 `GameTest → Guide Test/실제 계정 저장/다섯 안내 테스트 기록 초기화 (재지급 허용)` 메뉴를 실행한 뒤 개별 또는 순차 실행 메뉴를 사용한다. 초기화 메뉴는 실행 중인 안내와 대기열을 정리하고, 육성·왕국군·던전·뽑기·마탑의 **진행·실습 성공·체험 주화 지급 기록**을 한 번의 저장 거래로 지운다. 다음 실행에서는 강화·뽑기를 다시 수행하며 뽑기 주화 50개씩도 다시 지급한다. 현재 보유 재화·강화·장비·스킬은 유지되므로 반복 테스트 보상은 누적될 수 있다. 환생 안내와 다른 안내·퀘스트 기록은 유지한다. 이 초기화 경로는 `UNITY_EDITOR`에만 포함되며 계정 변경이나 저장 실패 시 초기화를 확정하지 않는다.
 
 ## 전투 HUD
 
@@ -124,7 +124,7 @@ bootstrap부터 Play하고 메인 화면에 진입한다. Unity 상단 `GameTest
 ## 검증 진입점
 
 - `KingdomIdle/UGUI/Validate/Check view wiring`: 직렬화 참조·missing script.
-- `StageHudValidation.Run()`: 명시적으로 연 `balance-qa-stage-hud-*` 계정의 Editor Play에서 스테이지 선택·최고 이동·던전 복귀·환생 기록과 네 화면 크기를 검사한다. 일반 계정에서는 실행을 거절한다. 결과와 캡처는 `Recordings/StageHud20261018/`, 이번 적용 검증 기록은 `AI/validation/stage-hud-20261018/report.json`에 보관한다.
+- `StageHudValidation.Run()`: 명시적으로 연 `balance-qa-stage-hud-*` 계정의 Editor Play에서 스테이지 선택·최고 이동·던전 복귀·환생 기록과 네 화면 크기를 검사한다. 일반 계정에서는 실행을 거절한다.
 - `KingdomIdle/UGUI/Run client regression checks`: 기존 클라이언트 회귀 검사.
 - `KingdomIdle/UGUI/Apply compact battle HUD`: 이번 HUD 프리팹 적용.
 - `KingdomIdle/UGUI/Apply quest category tabs` / `CompactHudBuilder.ApplyQuestTabs`: 퀘스트 패널의 탭 컨테이너·직렬화 참조만 적용.
@@ -135,22 +135,21 @@ bootstrap부터 Play하고 메인 화면에 진입한다. Unity 상단 `GameTest
 - `CompactHudBuilder.ApplyAndBuild`: HUD 적용 후 위 Android 빌드.
 - `BattleHudDeviceProbe`: QA 빌드 전용 HUD 상태·레이아웃·진행 fixture. 일반 배포에는 포함되지 않는다.
 
-Android 검사 도우미·결과는 `AI/qa/hud/`, `Recordings/HudRevision/`에 있다. `Recordings`는 Git 제외다.
-퀘스트 탭 결과는 `AI/validation/quest-tabs-20260918/`에 있다. 그 안의 PNG는 실제 프리팹을 PreviewScene에서 고정 예시 데이터로 렌더한 비교 자료이며, 게임플레이 또는 Android 기기 캡처와 구별한다.
+Android 검사 도우미와 실행 결과는 저장소 밖 QA 보관 폴더에서 관리한다.
 
 ## 마탑·뽑기
 
 `MageUiPreparation`은 스킬 셀, 개화 선택이 있는 상세 창, 목재·청동 뽑기 버튼과 결과 창을 준비한다. 현재 로스터는 ID 6·8을 제외한 8종이며 제거된 ID를 재사용하지 않는다. 스킬 등급은 없으며 청동 테두리와 문구로 장착, 보라색과 아이콘 변형으로 개화를 표시한다. 스킬 셀은 재사용한다. `MageSkillPresentation`은 등록 SO와 저장 상태를 읽는다. `GachaButtonFlare`는 unscaled-time 가장자리 청색 연출을 재사용하며, 저사양에서도 재화 차감 시점·취소 동작은 동일하다. 창을 닫으면 차감 전 연출을 취소하고 연속 터치에는 한 번만 차감한다.
 
-마탑 Android 검증 도우미는 `AI/qa/mage/`, 상세 근거는 [통합 보고서](../../Docs/ArtPreparation/MAGE_INTEGRATION_VALIDATION.md)에 있다.
+마탑 Android 검증 도우미와 상세 기록은 저장소 밖 QA 보관 폴더에서 관리한다.
 
 `MageManualCastHud`는 자동 시전을 끄면 장착 슬롯을 우측 스테이지 표시 위로 순서대로 펼치고 다시 켜면 대응하는 퇴장 애니메이션으로 접는다. 준비 상태는 점등하고 쿨다운은 시계 방향 음영과 남은 초로 표시한다. 탭은 자동 조준 시전, 드래그는 전투 지점 지정이다. `MagicAimGraphic`은 실제 원형 판정 반경을 쿼터뷰 타원으로 투영하고 전장 도트 크기에 맞춰 표시한다. 빈 슬롯은 숨기며 UI 위 드롭, 화면 밖, 전투 전환, 포커스 상실은 시전 없이 취소한다. 얼음 송곳과 유성우는 탭으로만 시전한다.
 
 장비와 가방은 `VirtualEquipmentGrid`로 화면에 보이는 카드만 만든다. 보관함 초과 보상은 기존 수량형 저장 구조에 영구 보관하여 전투·던전·뽑기를 막지 않는다. `EquipmentData.DisplayName`은 화면용 이름이며 기존 저장 키와 아이템 코드는 유지한다. 상세 스탯은 실제 `PlayerStatus` 계산을 사용하고 변경된 계산식만 다시 그린다.
 
-현재 검증 진입점은 `PlayabilityRevisionPreparation.Validate`, Unity 실행 검사 `KingdomIdle.UGUI.Editor.PlayabilityLiveValidation.Run`, Android `AI/qa/mage/playability_checks.py`다. 증거는 `Recordings/PlayabilityRevision`과 [플레이 개선 검증 기록](../../Docs/ArtPreparation/PLAYABILITY_20260918.md)에 있다.
+현재 검증 진입점은 `PlayabilityRevisionPreparation.Validate`와 Unity 실행 검사 `KingdomIdle.UGUI.Editor.PlayabilityLiveValidation.Run`이다. Android 검증 도구와 실행 기록은 저장소 밖 QA 보관 폴더에서 관리한다.
 
-0.11.1 후속 검증은 `PlayabilityRevisionPreparation.ValidateSessionRoutes`와 `AI/qa/mage/player_*.py`를 사용한다. 가이드 이동은 대상 탭을 한 번 지정하고, 스테이지 배지는 반복 사냥에서 다음 구간 도전을 제공한다. 프로필은 실제 진행 수치를 읽으며 던전 팝업은 짧은 웨이브 전환 동안 입장 요청을 유지하고 닫기 시 취소한다. [30분 × 3회 실플레이 기록](../../Docs/ArtPreparation/PLAYER_SIMULATION_20260918.md)에 수정과 성능 측정이 있다.
+세션 이동 경로는 `PlayabilityRevisionPreparation.ValidateSessionRoutes`로 검사한다. 가이드 이동은 대상 탭을 한 번 지정하고, 스테이지 배지는 반복 사냥에서 다음 구간 도전을 제공한다. 프로필은 실제 진행 수치를 읽으며 던전 팝업은 짧은 웨이브 전환 동안 입장 요청을 유지하고 닫기 시 취소한다.
 
 퀘스트 병합(2026-09-21): UI는 `QuestManager`의 snapshot/event를 읽고 수령은 `TryClaim`으로 요청한다. `LocalProgression`의 0.75초 스킬 자동 저장 성공 뒤 기존 변경 알림으로 갱신하며 별도 표시 타이머는 두지 않는다. 이동은 목표 ID까지 전달해 소환·장비·전직 탭을 선택한다. 프리팹 배치는 퀘스트 카드 작업본을 유지하고 외부 에셋 참조는 프로젝트 내 작업본으로 연결한다.
 
@@ -166,7 +165,7 @@ Android 검사 도우미·결과는 `AI/qa/hud/`, `Recordings/HudRevision/`에 �
 
 `ShopPopupPrefabGen.Rebuild`는 상점 프리팹과 기존 메인의 상점 버튼·카탈로그 참조를 갱신한다. 상점 안내 문구는 실제 프리팹과 생성 코드에 함께 반영한다. 오프라인 보상 상한은 8시간이며 상점의 일일 광고 수령 기록과 오프라인 광고 정산은 독립적이다.
 
-`ShopPopupPrefabGen.Validate`는 상품·프리팹 참조를 검사하고 `ValidatePlayMode`는 격리 계정에서 메뉴·탭·구매/교환 미리보기·닫기·재사용을 확인한다. 광고 지급은 `ShopAdRewardAcceptance.Run()`과 [상점 광고 검증](../../AI/validation/shop-ad-20261030/README.md)을 사용한다. 과거 미리보기만 제공하던 통합 기록은 [상점 develop 통합](../../Docs/QA/SHOP_DEVELOP_MERGE_20261028.md)에 보존한다.
+`ShopPopupPrefabGen.Validate`는 상품·프리팹 참조를 검사하고 `ValidatePlayMode`는 격리 계정에서 메뉴·탭·구매/교환 미리보기·닫기·재사용을 확인한다. 광고 지급 검사는 `ShopAdRewardAcceptance.Run()`을 사용한다.
 
 Editor에서 bootstrap부터 Play·로그인한 뒤 `GameTest → Shop Ad Test → 오늘 광고 수령 초기화 (재지급 허용)`를 실행하면 현재 계정의 오늘 장비·마탑 광고 수령 기록만 삭제·저장한다. 상점이 열려 있으면 버튼도 즉시 갱신한다. 보유 뽑기권·과거 날짜·오프라인 보상 기록은 유지되며, 재시청하면 뽑기권이 누적되므로 테스트 계정에서 사용한다. 광고 준비·시청 중이거나 완료 보상의 저장이 대기 중이면 초기화를 거절한다. APK에는 이 메뉴가 포함되지 않는다. 초기화 저장 검사는 `ShopAdRewardAcceptance.RunReset()`이다.
 
@@ -197,4 +196,3 @@ Editor에서 bootstrap부터 Play·로그인한 뒤 `GameTest → Shop Ad Test �
 - `GameTest/Mailbox Test/서버 응답 실제 저장 검증`: Play 종료 후 `MailboxAcceptance.RunServerApply()`로 일반·대기·예비 보관/자동 분해 × 성공/저장 실패/응답 유실을 검사한다. 응답·복구 콜백은 격리하고 제품의 우편 적용·파일 저장·재열기 경로를 실행하며 원래 계정·상태를 복원한다.
 - `MailboxUiAcceptance.Open(100)` / `VerifyRecycling()`: bootstrap Play에서 실제 프리팹을 사용하는 격리 미리보기. 서버 통합 검증과 구분한다.
 - `MailboxUiAcceptance.VerifyCloseReopen()`: bootstrap Play에서 이전 패널의 지연 종료·재진입, 비활성화 후 복귀, 재진입 후 수령을 검사한다. 검사 후 `Close()`로 미리보기를 정리한다.
-- [0.19.0 검증 기록](../../AI/validation/mailbox-server-20261031/README.md)
