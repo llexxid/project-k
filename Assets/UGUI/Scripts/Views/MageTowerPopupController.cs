@@ -21,6 +21,7 @@ namespace KingdomIdle.UGUI
         private static int _selectedSlot;
         private static bool _pickingMode;
         private static int _candidate = -1;
+        private static bool _subscribed;
 
         public static bool IsOpen => _view != null && _view.gameObject.activeSelf;
         public static void RefreshIfOpen() { if (IsOpen) Refresh(); }
@@ -31,6 +32,7 @@ namespace KingdomIdle.UGUI
             _pickingMode = true;
             _candidate = -1;
             if (!EnsureBuilt()) return;
+            Subscribe();
 
             _view.gameObject.SetActive(true);
             _view.transform.SetAsLastSibling();   // BringToFront
@@ -41,6 +43,7 @@ namespace KingdomIdle.UGUI
         public static void Hide()
         {
             if (_view == null) return;
+            Unsubscribe();
             ExitPickingMode();
             _view.gameObject.SetActive(false);
             // (좌측 스킬 슬롯 HUD 제거됨 — 장착 변경은 AUTO 시전이 다음 틱에 그대로 반영한다)
@@ -192,24 +195,66 @@ namespace KingdomIdle.UGUI
             if (_view.equipLabel != null) _view.equipLabel.text = chosen != null && mgr.IsEquipped(_candidate) && current != _candidate ? "자리 바꾸기" : current >= 0 ? "교체" : "장착";
             if (_view.unequipButton != null) _view.unequipButton.interactable = current >= 0;
             if (_view.detailButton != null) _view.detailButton.interactable = chosen != null || current >= 0;
+            if (mgr.IsBusy)
+            {
+                if (_view.equipButton != null) _view.equipButton.interactable = false;
+                if (_view.unequipButton != null) _view.unequipButton.interactable = false;
+            }
         }
 
+        // 장착·해제는 서버(OnSetSkillLoadout)가 확정한다. Pending이면 응답까지 버튼을 잠그고 완료 이벤트가 다시 그린다.
         private static void ApplySelection()
         {
             var mgr = MageTowerManager.Instance;
             if (mgr == null || _candidate < 0) return;
-            bool applied = mgr.Equip(_selectedSlot, _candidate);
-            if (applied) _candidate = -1;
+            var result = mgr.TryEquipEx(_selectedSlot, _candidate);
+            if (result == MageTowerManager.MageActionResult.Pending) { SetPending("장착 요청 중…"); return; }
+            if (result == MageTowerManager.MageActionResult.Busy) return;
             Refresh();
-            if (!applied && _view.selectionLabel != null) _view.selectionLabel.text = "변경 내용을 저장하지 못했습니다. 잠시 후 다시 시도하세요.";
+            if (_view.selectionLabel != null) _view.selectionLabel.text = MageTowerDetailPopupController.DescribeGate(result);
         }
         private static void RemoveSelection()
         {
             var mgr = MageTowerManager.Instance;
             if (mgr == null) return;
-            bool removed = mgr.Unequip(_selectedSlot);
+            var result = mgr.TryUnequipEx(_selectedSlot);
+            if (result == MageTowerManager.MageActionResult.Pending) { SetPending("해제 요청 중…"); return; }
+            if (result == MageTowerManager.MageActionResult.Busy) return;
             Refresh();
-            if (!removed && _view.selectionLabel != null) _view.selectionLabel.text = "해제 내용을 저장하지 못했습니다. 잠시 후 다시 시도하세요.";
+            if (_view.selectionLabel != null) _view.selectionLabel.text = MageTowerDetailPopupController.DescribeGate(result);
+        }
+
+        private static void SetPending(string text)
+        {
+            if (_view == null) return;
+            if (_view.equipButton != null) _view.equipButton.interactable = false;
+            if (_view.unequipButton != null) _view.unequipButton.interactable = false;
+            if (_view.selectionLabel != null) _view.selectionLabel.text = text;
+        }
+
+        private static void Subscribe()
+        {
+            var mgr = MageTowerManager.Instance;
+            if (mgr == null || _subscribed) return;
+            mgr.OnActionCompleted += OnActionCompleted;
+            _subscribed = true;
+        }
+
+        private static void Unsubscribe()
+        {
+            var mgr = MageTowerManager.Instance;
+            if (mgr != null && _subscribed) mgr.OnActionCompleted -= OnActionCompleted;
+            _subscribed = false;
+        }
+
+        /// <summary>서버 응답 적용 뒤 슬롯·목록을 다시 그린다. 편성 거절은 선택 안내 줄에 문구를 남긴다.</summary>
+        private static void OnActionCompleted(MageTowerManager.MageActionInfo info)
+        {
+            if (_view == null || !_view.gameObject.activeSelf) return;
+            bool loadout = info != null && info.Kind == MageTowerManager.MageActionKind.Loadout;
+            if (loadout && info.Ok) _candidate = -1;
+            Refresh();
+            if (loadout && !info.Ok && _view.selectionLabel != null) _view.selectionLabel.text = info.Failure;
         }
 
         private static void ExitPickingMode()

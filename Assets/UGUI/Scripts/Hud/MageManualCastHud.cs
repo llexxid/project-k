@@ -70,8 +70,9 @@ namespace KingdomIdle.UGUI
             if (_main == null) _main = FindFirstObjectByType<MainScreenView>();
             var main = _main;
             if (main == null) return;
-            if (_guide == null) _guide = main.transform.Find("GuideGoal") as RectTransform;
-            if (_stage == null && main.waveHud != null) _stage = (RectTransform)main.waveHud.transform;
+            if (_guide == null && main.waveHud != null) _guide = main.waveHud.topArea;
+            _stage = main.waveHud != null && main.waveHud.dungeonReturn != null && main.waveHud.dungeonReturn.activeInHierarchy
+                ? (RectTransform)main.waveHud.dungeonReturn.transform : PartyHudController.Instance?.HudRect;
             var screens = UIManager.Instance.LayerScreens;
             if (tray.parent != screens)
             {

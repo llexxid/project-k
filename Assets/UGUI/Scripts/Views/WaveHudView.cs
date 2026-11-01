@@ -16,6 +16,23 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal Button btnStageAction;
         [SerializeField] internal GameObject bossChallengeRoot;
         [SerializeField] internal Toggle tglBossChain;
+        [Header("Progression HUD")]
+        [SerializeField] internal RectTransform topArea;
+        [SerializeField] internal GameObject mainHud, mainProgress, chapterProgress;
+        [SerializeField] internal TMP_Text progressLabel, remainingLabel, stageActionLabel;
+        [SerializeField] internal Image progressFill;
+        [SerializeField] internal Image[] chapterSteps;
+        [SerializeField] internal Button btnStageSelect;
+        [SerializeField] internal GuideGoalView guide;
+        [Header("Dungeon objective")]
+        [SerializeField] internal GameObject dungeonObjective, dungeonReturn;
+        [SerializeField] internal TMP_Text dungeonTitle, dungeonTime, dungeonProgress, dungeonReward, dungeonName;
+        [SerializeField] internal Image dungeonFill;
+        [SerializeField] internal Button btnDungeonReturn;
+        [Header("Dungeon return confirmation")]
+        [SerializeField] internal GameObject returnPopup;
+        [SerializeField] internal RectTransform returnPanel;
+        [SerializeField] internal Button returnConfirm, returnCancel, returnBackdrop;
 
         [Header("Boss timer")]
         [SerializeField] internal GameObject bossTimerBar;

@@ -7,5 +7,7 @@ public enum eCurrency
     ClassFragment,
     ArcaneKnowledge,
     Ruby = 6,
-    EquipmentStone = 7
+    EquipmentStone = 7,
+    EquipmentTicket = 8,
+    MageTicket = 9
 }

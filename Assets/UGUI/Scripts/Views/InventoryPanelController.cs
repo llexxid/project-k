@@ -22,6 +22,8 @@ namespace KingdomIdle.UGUI
 
         // 플레이어 목록 (왕국군 전원의 인벤토리를 합산 표시)
         private static List<Player> _players;
+        // 열려 있는 상세 페이지의 장비. 서버 요청 완료 뒤 같은 장비(강화 뒤에는 한 단계 오른 사본)를 다시 보여 준다.
+        private static string _detailItemId;
 
         private static UIViewCatalog Catalog =>
             UIManager.Instance != null ? UIManager.Instance.Catalog : null;
@@ -45,13 +47,17 @@ namespace KingdomIdle.UGUI
             {
                 if (_view == view)
                 {
+                    if (EquipmentManager.Instance != null) EquipmentManager.Instance.OnActionCompleted -= OnEquipmentActionCompleted;
                     _view = null;
+                    _detailItemId = null;
                     _navButtons.Clear();
                 }
             };
 
             var mgr = KingdomArmyManager.Instance;
             _players = mgr != null ? mgr.GetPlayers() : new List<Player>();
+            var equipment = EquipmentManager.Instance;
+            if (equipment != null) { equipment.OnActionCompleted -= OnEquipmentActionCompleted; equipment.OnActionCompleted += OnEquipmentActionCompleted; }
 
             _activeTab = InvTab.All;
             BuildNavBar();
@@ -120,6 +126,7 @@ namespace KingdomIdle.UGUI
         private static void Refresh()
         {
             if (_view == null || _view.content == null) return;
+            _detailItemId = null;
             ClearChildren(_view.content);
 
             switch (_activeTab)
@@ -272,6 +279,7 @@ namespace KingdomIdle.UGUI
             var go = Object.Instantiate(prefab, _view.content, false);
             var detail = go.GetComponent<InventoryEquipDetailView>();
             if (detail == null) return;
+            _detailItemId = item.instanceId;
 
             string rarityStr = item.baseData.rarity switch
             {
@@ -358,19 +366,37 @@ namespace KingdomIdle.UGUI
                 return;
             }
 
+            // 서버(OnEnchantEquipment)가 비용·상한·결과를 확정한다. 요청이 나가면 완료 이벤트에서 팝업을 다시 그린다.
             var result = equipmentManager.TryEnhanceDetailed(item);
-            if (result == EquipmentManager.EnhancementResult.Success)
+            if (result == EquipmentManager.EnhancementResult.Pending)
             {
-                ShowToast($"강화 성공! {item.baseData.DisplayName} +{item.enhancementLevel}");
+                ShowToast($"{item.baseData.DisplayName} 강화 요청 중");
+                return;
             }
-            else if (result == EquipmentManager.EnhancementResult.ChanceFailed)
-            {
-                ShowToast($"강화 실패. 다시 확인해 주세요.");
-            }
-            else ShowToast("강화하지 못했습니다. 강화석과 저장 상태를 확인해 주세요.");
+            ShowToast(EquipmentManager.Describe(result));
 
             // 팝업 다시 표시
             ShowInventoryEquipPopup(item, owner);
+        }
+
+        /// <summary>장비 서버 요청 완료. 상세 페이지가 열려 있으면 같은 장비(강화 뒤에는 한 단계 오른 사본)를 다시 보여 주고, 아니면 목록을 다시 그린다.</summary>
+        private static void OnEquipmentActionCompleted(EquipmentManager.ActionInfo info)
+        {
+            if (_view == null || info == null) return;
+            ShowToast(EquipmentManager.Describe(info));
+            if (_detailItemId != null && EquipmentManager.Instance != null)
+            {
+                string id = info.Ok && !string.IsNullOrEmpty(info.ItemId) ? info.ItemId : _detailItemId;
+                EquipmentInstance item = null;
+                foreach (var candidate in EquipmentManager.Instance.Inventory.Items) if (candidate.instanceId == id) { item = candidate; break; }
+                if (item != null)
+                {
+                    Player owner = _players?.Find(p => p != null && item.equipmentPlayerIndex.HasValue && p.PlayerIndex == item.equipmentPlayerIndex.Value);
+                    ShowInventoryEquipPopup(item, owner);
+                    return;
+                }
+            }
+            Refresh();
         }
 
         // ── 데이터 수집 ──

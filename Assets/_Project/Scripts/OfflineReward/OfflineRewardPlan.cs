@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Scripts.Core;
-using Scripts.Server.DTO;
+using Protocol.Message.Dto;
 
 namespace KingdomIdle.OfflineRewards
 {
@@ -37,7 +37,7 @@ namespace KingdomIdle.OfflineRewards
                     short batch = (short)Math.Min(short.MaxValue, remaining);
                     results.Add(new HuntResult
                     {
-                        MonsterType = (eMonsterType)hunt.monsterTypeValue,
+                        MonsterType = (Protocol.Message.Data.eMonsterType)hunt.monsterTypeValue,
                         Count = batch
                     });
                     remaining -= batch;

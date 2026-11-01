@@ -24,6 +24,7 @@ namespace KingdomIdle.UI
         Settings = 25,
 
         Inventory = 26,
+        CheckIn = 27,
 
         MageTower = 30,
     }

@@ -63,7 +63,7 @@ namespace KingdomIdle.UGUI
 
             GameObject instance = Object.Instantiate(
                 prefab,
-                host.LayerPopups,
+                host.LayerOverlays,
                 false);
             Stretch(instance.transform as RectTransform);
             view = instance.GetComponent<ReincarnationPopupView>();
@@ -98,7 +98,8 @@ namespace KingdomIdle.UGUI
             ReincarnationPreview preview = service.GetPreview();
             if (!preview.CanReincarnate)
             {
-                SetUnavailable(GetFailureMessage(preview.FailureReason));
+                SetUnavailable(GetFailureMessage(preview.FailureReason),
+                    preview.FailureReason == eReincarnationFailureReason.RequestDuplication ? "환생 요청 중" : "환생 불가");
                 return;
             }
 
@@ -129,21 +130,41 @@ namespace KingdomIdle.UGUI
 
             ReincarnationExecutionResult result =
                 service.TryReincarnate();
-            if (result == ReincarnationExecutionResult.None)
+            if (result == ReincarnationExecutionResult.Pending)
             {
-                Hide();
-                UIManager.Instance?.ShowToast("일반 웨이브가 끝나면 환생합니다.");
+                // 서버 응답까지 버튼을 잠근다. 결과는 OnReincarnationCompleted로 온다.
+                service.OnReincarnationCompleted -= OnCompleted;
+                service.OnReincarnationCompleted += OnCompleted;
+                SetUnavailable("서버에 환생을 요청했습니다. 잠시만 기다려 주세요.", "환생 요청 중");
                 return;
             }
 
             RefreshPreview();
-            if (service.GetPreview().CanReincarnate)
-                UIManager.Instance?.ShowToast("환생 요청을 저장하지 못했습니다. 다시 시도해 주세요.");
+            if (result == ReincarnationExecutionResult.StorageUnavailable)
+                UIManager.Instance?.ShowToast("서버 로그인이 필요합니다.");
+            else if (result == ReincarnationExecutionResult.AlreadyProcessing)
+                UIManager.Instance?.ShowToast("환생 요청을 처리 중입니다.");
         }
 
-        private static void SetUnavailable(string reason)
+        /// <summary>서버 응답 처리 결과. 성공이면 팝업을 닫고, 거절·실패면 미리보기를 다시 그린다. 문구는 서비스가 만든다.</summary>
+        private static void OnCompleted(bool ok, string message)
         {
-            SetText(view.statusLabel, "환생 불가");
+            ReincarnationService service =
+                GameManager.Instance != null
+                    ? GameManager.Instance.Reincarnation
+                    : null;
+            if (service != null)
+                service.OnReincarnationCompleted -= OnCompleted;
+            if (ok)
+                Hide();
+            else if (IsOpen)
+                RefreshPreview();
+            UIManager.Instance?.ShowToast(message);
+        }
+
+        private static void SetUnavailable(string reason, string status = "환생 불가")
+        {
+            SetText(view.statusLabel, status);
             view.statusLabel.color = UguiTheme.Parchment;
             SetText(view.infoLabel, reason);
             view.confirmButton.interactable = false;
@@ -166,10 +187,10 @@ namespace KingdomIdle.UGUI
                 case eReincarnationFailureReason.MaximumLevel: return "환생 최대 레벨 300입니다.";
                 case eReincarnationFailureReason.Cooldown:
                     var s = KingdomIdle.Balance.LocalProgression.State;
-                    long remaining = System.Math.Max(0,600 - (KingdomIdle.Balance.LocalProgression.UtcNow - System.Math.Max(s.LastReincarnationUtc,s.CycleStartedUtc)));
+                    long remaining = System.Math.Max(0,600 - (KingdomIdle.Balance.LocalProgression.UtcNow - s.LastReincarnationUtc));
                     return $"다음 환생까지 {remaining / 60}분 {remaining % 60:00}초";
                 case eReincarnationFailureReason.DailyLimit: return "오늘 환생 3회를 모두 사용했습니다. KST 자정에 초기화됩니다.";
-                case eReincarnationFailureReason.RequestDuplication: return "일반 웨이브 종료 후 환생이 예약되어 있습니다.";
+                case eReincarnationFailureReason.RequestDuplication: return "서버에 환생을 요청했습니다. 잠시만 기다려 주세요.";
                 case eReincarnationFailureReason.NumericOverflow:
                     return "환생 수치를 계산할 수 없습니다.";
                 default:

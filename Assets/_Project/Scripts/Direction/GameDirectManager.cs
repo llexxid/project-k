@@ -199,8 +199,11 @@ namespace Direction
             {
                 token.ThrowIfCancellationRequested();
                 if (progress.ConfirmedSteps.Contains(step.Id)) continue;
-                GameDirectInteraction.Begin(request.Id, step, request.AccountGeneration,
-                    () => request.Preview || GameDirectInteraction.GrantCoins(request.Id, step, request.AccountGeneration));
+                // 실습 지급은 서버가 한다. 단계를 표시하기 전에 응답을 기다리고, 실패하면 이 요청을 끝내 다음 요청에서 같은 단계부터 재개한다.
+                if (!request.Preview && step.GrantPracticeCoins &&
+                    !await GameDirectInteraction.ClaimPracticeCoinsAsync(request.Id, step, request.AccountGeneration, token))
+                    throw new InvalidOperationException("실습 보상을 받지 못했습니다. 다음 요청에서 이어갈 수 있습니다.");
+                GameDirectInteraction.Begin(request.Id, step, request.AccountGeneration, () => true);
                 GameDirectResult result;
                 try { result = await _player.PlayAsync(step, token); }
                 finally { GameDirectInteraction.End(); }

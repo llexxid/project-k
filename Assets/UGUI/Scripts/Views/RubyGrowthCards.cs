@@ -36,7 +36,7 @@ namespace KingdomIdle.UGUI
                 bool unlocked=RubyProgression.Unlocked;
                 long ruby=LocalProgression.Balance(eCurrency.Ruby);
                 bool capped=i==1 && state.AccountLevel>=200;
-                bool reset=level>0 && state.PendingRubyReset==0 && state.RubyResetDay!=LocalProgression.KstDay && ChangeJob.CanQueueChange;
+                bool reset=level>0 && state.PendingRubyReset==0 && QuestPeriod.IsLaterDay(LocalProgression.KstDay,state.RubyResetDay) && ChangeJob.CanQueueChange;
                 var signature=(level,spent,ruby,unlocked,capped,reset,NumberNotation.Revision);
                 if(_hasShown[i] && _shown[i].Equals(signature))continue;
                 _shown[i]=signature;_hasShown[i]=true;

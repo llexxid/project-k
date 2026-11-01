@@ -1,17 +1,26 @@
 using KingdomIdle.Balance;
+using KingdomIdle.Ads;
+using KingdomIdle.Rewards;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace KingdomIdle.UGUI
 {
-    /// <summary>Preview-only presentation. An authoritative commerce adapter will own future checkout and grants.</summary>
+    /// <summary>상점 표시와 일일 광고 입력. 구매·교환은 아직 미리보기다.</summary>
     public static class ShopPopupController
     {
         static ShopPopupView _view;
         static int _tab;
-        static long _revision = -1;
+        static long _revision = -1, _account = -1;
         static NumberStyle _numberStyle;
+        static ShopAdRewardService.Claim _claim;
+        static bool _busy, _adBusy;
+        static string _day;
         public static bool IsOpen => _view != null && _view.gameObject.activeSelf;
+#if UNITY_EDITOR
+        internal static bool HasPendingAdForTesting => _busy || RewardedAdService.IsBusy ||
+            (_claim != null && _claim.Earned && ShopAdRewardService.IsCurrentAccount(_claim));
+#endif
 
         public static void Show()
         {
@@ -29,7 +38,7 @@ namespace KingdomIdle.UGUI
                 foreach (var row in _view.offers)
                 {
                     string id = row.offerId;
-                    row.action.onClick.AddListener(() => Preview(id));
+                    row.action.onClick.AddListener(() => Activate(id));
                 }
             }
             _view.gameObject.SetActive(true); _view.transform.SetAsLastSibling();
@@ -49,6 +58,58 @@ namespace KingdomIdle.UGUI
 
         public static void Preview(string id) => UIManager.Instance?.ShowToast(ShopCatalog.PreviewMessage(id));
 
+        internal static void Activate(string id)
+        {
+            if (ShopCatalog.Find(id)?.Payment != ShopPayment.RewardedAd) { Preview(id); return; }
+            if (!IsOpen || _busy || RewardedAdService.IsBusy) return;
+            if (_claim != null && !ShopAdRewardService.IsCurrentAccount(_claim)) _claim = null;
+            if (_claim != null && _claim.Earned)
+            {
+                if (_claim.OfferId == id)
+                {
+                    _busy = true; Invalidate();
+                    HandleReward(_claim, ShopAdRewardService.TryGrant(_claim));
+                }
+                return;
+            }
+            var status = ShopAdRewardService.Begin(id, out var claim);
+            if (status != RewardStatus.Success)
+            {
+                RewardPresentation.Report(new RewardResult(status));
+                Invalidate(); return;
+            }
+            _claim = claim; _busy = true; Invalidate();
+            // shortcut: keep Google's test unit until production ads and consent are configured.
+            RewardedAdService.Show("ca-app-pub-3940256099942544/5224354917", (result, error) =>
+            {
+                if (!ReferenceEquals(_claim, claim) || !_busy) return;
+                if (result == RewardedAdResult.Completed)
+                    HandleReward(claim, ShopAdRewardService.FinishAd(claim, result));
+                else
+                {
+                    _busy = false; _claim = null; Invalidate();
+                    if (IsOpen && result != RewardedAdResult.Skipped)
+                        UIManager.Instance?.ShowToast("광고를 표시하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+                }
+            });
+        }
+
+        static void HandleReward(ShopAdRewardService.Claim claim, RewardResult result)
+        {
+            _busy = false;
+            // shortcut: unsaved earned rewards survive popup closure, not process termination.
+            if (result.Succeeded || result.Status == RewardStatus.Stale || result.Status == RewardStatus.NothingAvailable)
+                _claim = null;
+            Invalidate();
+            if (!IsOpen || !ShopAdRewardService.IsCurrentAccount(claim)) return;
+            if (result.Succeeded) RewardPopupView.ShowRewards(UIManager.Instance.LayerPopups, result.Rewards);
+            else if (_claim != null && _claim.Earned)
+                UIManager.Instance.ShowToast("보상을 저장하지 못했습니다. 보상 다시 받기를 눌러 주세요.");
+            else RewardPresentation.Report(result);
+        }
+
+        static void Invalidate() { _revision = -1; Refresh(); }
+
         static void SelectTab(int index)
         {
             _tab = Mathf.Clamp(index, 0, _view.pages.Length - 1);
@@ -63,16 +124,31 @@ namespace KingdomIdle.UGUI
         static void Refresh()
         {
             if (!IsOpen || !LocalProgression.IsReady) return;
+            if (!_busy && _claim != null && !ShopAdRewardService.IsCurrentAccount(_claim))
+            { _claim = null; _revision = -1; }
             var state = LocalProgression.State;
-            if (_revision == state.Revision && _numberStyle == NumberNotation.Style) return;
+            string day = ShopAdRewardService.Today;
+            bool adBusy = RewardedAdService.IsBusy;
+            if (_account == LocalProgression.AccountGeneration && _revision == state.Revision &&
+                _numberStyle == NumberNotation.Style && _day == day && _adBusy == adBusy) return;
             _revision = state.Revision; _numberStyle = NumberNotation.Style;
+            _account = LocalProgression.AccountGeneration;
+            _day = day; _adBusy = adBusy;
             Set(_view.wallet, "보유 고대주화  " + NumberNotation.Format(LocalProgression.Balance(eCurrency.AncientCoin)));
             Set(_view.income, "골드 기준 수입  " + NumberNotation.Format((long)decimal.Floor(ShopCatalog.GoldPerMinute(state))) + " / 분 · 루비 효과 포함");
             foreach (var row in _view.offers)
             {
                 var offer = ShopCatalog.Find(row.offerId);
-                if (offer == null || offer.GoldMinutes <= 0) continue;
-                Set(row.amount, "골드 " + NumberNotation.Format(ShopCatalog.PreviewGold(offer, state)) + "개");
+                if (offer == null) continue;
+                if (offer.GoldMinutes > 0)
+                    Set(row.amount, "골드 " + NumberNotation.Format(ShopCatalog.PreviewGold(offer, state)) + "개");
+                if (!ShopAdRewardService.TryGetCurrency(offer.Id, out var currency)) continue;
+                bool retry = _claim != null && _claim.Earned && _claim.OfferId == offer.Id;
+                bool claimed = ShopAdRewardService.IsClaimed(offer.Id, day);
+                bool blocked = _busy || adBusy || (_claim != null && _claim.Earned && !retry);
+                row.action.interactable = !blocked && (retry || !claimed);
+                Set(row.price, _busy && _claim?.OfferId == offer.Id ? "처리 중…" : retry ? "보상 다시 받기" : claimed ? "오늘 수령 완료" : "광고 보고 받기");
+                Set(row.amount, "보유 " + NumberNotation.Format(LocalProgression.Balance(currency)) + "장 · 오늘 " + (claimed ? "1/1" : "0/1"));
             }
         }
 

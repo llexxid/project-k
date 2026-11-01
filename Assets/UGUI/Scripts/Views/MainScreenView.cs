@@ -36,6 +36,7 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal Button btnMenuSettings;
         [SerializeField] internal Button btnMenuNotice;
         [SerializeField] internal Button btnMenuMail;
+        [SerializeField] internal Button btnMenuCheckIn;
         [SerializeField] internal Button outsideCatcher;   // 드롭다운 열림 시 바깥 탭 감지용 풀스크린 투명 버튼
 
         [Header("Wave HUD")]

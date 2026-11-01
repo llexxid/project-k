@@ -2,6 +2,8 @@ using System;
 using System.IO;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.AddressableAssets;
+using UnityEditor.AddressableAssets.Settings;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
 
@@ -20,6 +22,7 @@ namespace KingdomIdle.UGUI.Editor
 
         public static void BuildForManualTesting() => BuildPlayer(false);
 
+        public static void BuildAdMobTest() => BuildPlayer(false, false, true);
         // Temporary separate Android UID; local simulation never selects a cloud or user account.
         public static void BuildForEnvironmentSimulation() => BuildPlayer(true, false, true);
 
@@ -31,15 +34,18 @@ namespace KingdomIdle.UGUI.Editor
             public bool diagnostics, naturalProfile, isolatedSimulation;
         }
 
-        static void BuildPlayer(bool diagnostics, bool naturalProfile = false, bool isolatedSimulation = false)
+        static void BuildPlayer(bool diagnostics, bool naturalProfile = false, bool isolatedSimulation = false, bool adTest = false)
         {
-            Directory.CreateDirectory(Output);
-            if (File.Exists(Output + "/build.txt")) File.Delete(Output + "/build.txt");
-            if (File.Exists(Output + "/build-failure.txt")) File.Delete(Output + "/build-failure.txt");
-            if (File.Exists(Output + "/build.json")) File.Delete(Output + "/build.json");
+            if (adTest && !File.Exists(AdMobTestSceneBuilder.ScenePath))
+                throw new InvalidOperationException("광고 테스트 씬을 먼저 생성해 주세요.");
+            string output = adTest ? "Recordings/AdMobTest/Android" : Output;
+            Directory.CreateDirectory(output);
+            if (File.Exists(output + "/build.txt")) File.Delete(output + "/build.txt");
+            if (File.Exists(output + "/build-failure.txt")) File.Delete(output + "/build-failure.txt");
+            if (File.Exists(output + "/build.json")) File.Delete(output + "/build.json");
             string identifier = PlayerSettings.GetApplicationIdentifier(BuildTargetGroup.Android);
             string product = PlayerSettings.productName;
-            string purpose = Environment.GetEnvironmentVariable("DEVICE_BUILD_PURPOSE");
+            string purpose = adTest ? "AdMob 광고 테스트" : Environment.GetEnvironmentVariable("DEVICE_BUILD_PURPOSE");
             if (string.IsNullOrWhiteSpace(purpose)) purpose = diagnostics ? "통합 진단 테스트" : "통합 플레이 테스트";
             purpose = purpose.Trim();
             int versionCode = checked(PlayerSettings.Android.bundleVersionCode + 1);
@@ -56,7 +62,7 @@ namespace KingdomIdle.UGUI.Editor
             };
             string fileStem = $"{purpose}_{manifest.version}_b{versionCode}";
             foreach (char invalid in Path.GetInvalidFileNameChars()) fileStem = fileStem.Replace(invalid, '_');
-            manifest.apk = Path.GetFullPath(Path.Combine(Output, fileStem + ".apk"));
+            manifest.apk = Path.GetFullPath(Path.Combine(output, fileStem + ".apk"));
             bool keystore = PlayerSettings.Android.useCustomKeystore;
             bool bundle = EditorUserBuildSettings.buildAppBundle;
             var importMode = EditorSettings.refreshImportMode;
@@ -69,8 +75,13 @@ namespace KingdomIdle.UGUI.Editor
             const string resolveOnBuildKey = "GooglePlayServices.AutoResolveOnBuild";
             bool resolveOnBuild = resolverSettings.GetBool(resolveOnBuildKey, true, resolverLocation);
             bool resolverPolicyChanged = false;
+            var addressables = adTest ? AddressableAssetSettingsDefaultObject.Settings : null;
+            var addressablesBuild = addressables?.BuildAddressablesWithPlayerBuild;
             try
             {
+                // The standalone test scene uses direct references, so it needs no content rebuild.
+                if (addressables != null)
+                    addressables.BuildAddressablesWithPlayerBuild = AddressableAssetSettings.PlayerBuildOption.DoNotBuildWithPlayer;
                 // Reserve one monotonically increasing code for every build attempt.
                 // Keep the code after restoring temporary package/signing settings.
                 PlayerSettings.Android.bundleVersionCode = versionCode;
@@ -116,7 +127,8 @@ namespace KingdomIdle.UGUI.Editor
                 }
                 var options = new BuildPlayerOptions
                 {
-                    scenes = EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray(),
+                    scenes = adTest ? new[] { AdMobTestSceneBuilder.ScenePath } :
+                        EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray(),
                     locationPathName = manifest.apk,
                     target = BuildTarget.Android,
                     options = BuildOptions.Development | BuildOptions.DetailedBuildReport,
@@ -126,21 +138,23 @@ namespace KingdomIdle.UGUI.Editor
                 };
                 BuildReport report = BuildPipeline.BuildPlayer(options);
                 string summary = $"Result: {report.summary.result}\nBytes: {report.summary.totalSize}\nDuration: {report.summary.totalTime}\nErrors: {report.summary.totalErrors}\nWarnings: {report.summary.totalWarnings}\nPackage: {manifest.package}\nLabel: {manifest.label}\nVersion: {manifest.version}\nVersionCode: {manifest.versionCode}\nDiagnostics: {diagnostics}\nAPK: {manifest.apk}\nBackend: {PlayerSettings.GetScriptingBackend(UnityEditor.Build.NamedBuildTarget.Android)}\n";
-                File.WriteAllText(Output + "/build.txt", summary);
-                File.WriteAllLines(Output + "/build-messages.txt", report.steps.SelectMany(step => step.messages.Select(message => $"{message.type}: {step.name}: {message.content}")));
-                Debug.Log("[Lobby Device Build] " + summary);
+                File.WriteAllText(output + "/build.txt", summary);
+                File.WriteAllLines(output + "/build-messages.txt", report.steps.SelectMany(step => step.messages.Select(message => $"{message.type}: {step.name}: {message.content}")));
+                Debug.Log((adTest ? "[AdMob Test Build] " : "[Lobby Device Build] ") + summary);
                 if (report.summary.result != BuildResult.Succeeded || report.summary.totalErrors > 0)
-                    throw new InvalidOperationException("Lobby device build failed. See build report and Editor log.");
-                File.WriteAllText(Output + "/build.json", JsonUtility.ToJson(manifest, true));
+                    throw new InvalidOperationException("Android test build failed. See build report and Editor log.");
+                File.WriteAllText(output + "/build.json", JsonUtility.ToJson(manifest, true));
             }
             catch (Exception exception)
             {
-                File.WriteAllText(Output + "/build-failure.txt", exception.ToString());
+                File.WriteAllText(output + "/build-failure.txt", exception.ToString());
                 Debug.LogException(exception);
                 throw;
             }
             finally
             {
+                if (addressables != null)
+                    addressables.BuildAddressablesWithPlayerBuild = addressablesBuild.Value;
                 PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, identifier);
                 PlayerSettings.productName = product;
                 PlayerSettings.Android.useCustomKeystore = keystore;

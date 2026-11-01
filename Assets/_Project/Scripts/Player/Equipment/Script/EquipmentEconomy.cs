@@ -2,8 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using KingdomIdle.Balance;
+using Dto = Protocol.Message.Dto;
 
-/// <summary>One source for enhancement costs, previewed dismantling and future-drop policy.</summary>
+/// <summary>
+/// 장비 비용·환급 표시 공식과 분해 요청 구성. 수치는 서버와 같은 공식(기본 환급 1/4/12, 비용 2×기본×(1+단계/3), 환급 80%)이지만
+/// 표시용이다. 실제 차감·지급은 서버 응답(SpentEquipmentStone·GrantedEquipmentStone·CurrentEquipmentStone)이 확정한다.
+/// </summary>
 public static class EquipmentEconomy
 {
     public static long BaseYield(eEquipmentRarity rarity) => rarity switch
@@ -16,61 +20,52 @@ public static class EquipmentEconomy
         item.Level == 0 && !IsProtected(item) && EquipmentManager.Instance?.GetData(item.Code) != null &&
         (state.AutoDismantleMask & (1 << (int)ItemCode.DecodeRarity(item.Code))) != 0;
 
+    /// <summary>분해 요청 명세. Items/ReserveStacks는 서버 OnDismantleEquipment 요청에 그대로 들어가고, Count/Stones는 확인 창 표시용이다.</summary>
     public sealed class DismantlePlan
     {
-        internal readonly List<(string Id, int Code, int Level, long Spent, bool Pending)> Items = new();
-        internal readonly List<(int Code, int Level, int Count)> Stacks = new();
+        public Dto.DismantleMode Mode { get; internal set; }
+        public List<Dto.DismantleItemDTO> Items { get; } = new();
+        public List<Dto.DismantleReserveDTO> ReserveStacks { get; } = new();
         public long Count { get; internal set; }
         public long Stones { get; internal set; }
     }
 
+    /// <summary>
+    /// singleId가 있으면 그 장비 1개(Single), 없으면 잠금·장착되지 않은 +0 장비 전부와 예비 보관(Bulk)을 분해 대상으로 묶는다.
+    /// 서버 규칙: Single은 1개·수량 1, Bulk는 강화 0만, 잠금·장착분은 1019로 거절된다. 예비는 잠긴 묶음을 제외한다.
+    /// </summary>
     public static DismantlePlan Preview(Func<int, bool> acceptsCode, string singleId = null)
     {
-        var plan = new DismantlePlan(); var state = LocalProgression.State;
-        void Add(IEnumerable<EquipmentSave> items, bool pending)
+        var plan = new DismantlePlan { Mode = singleId != null ? Dto.DismantleMode.Single : Dto.DismantleMode.Bulk };
+        var state = LocalProgression.State;
+        var groups = new Dictionary<(int Code, int Level, long Expires, Dto.EquipmentLocation Location), (int Count, long Stones)>();
+        void Add(IEnumerable<EquipmentSave> items, Dto.EquipmentLocation location)
         {
             foreach (var item in items)
             {
                 if (IsProtected(item) || EquipmentManager.Instance?.GetData(item.Code) == null || !acceptsCode(item.Code) ||
                     (singleId != null ? item.Id != singleId : item.Level != 0)) continue;
-                plan.Items.Add((item.Id, item.Code, item.Level, item.EnhancementStonesSpent, pending));
-                plan.Count++; plan.Stones = checked(plan.Stones + Yield(item));
+                var key = (item.Code, item.Level, item.ExpiresUtc, location);
+                groups.TryGetValue(key, out var group);
+                groups[key] = (group.Count + 1, checked(group.Stones + Yield(item)));
+                plan.Count++;
             }
         }
-        Add(state.Equipment, false); Add(state.PendingEquipment, true);
+        Add(state.Equipment, Dto.EquipmentLocation.Inventory); Add(state.PendingEquipment, Dto.EquipmentLocation.Pending);
+        foreach (var pair in groups)
+        {
+            int quantity = Math.Min(0xFFFF, pair.Value.Count);
+            plan.Items.Add(new Dto.DismantleItemDTO { ItemCode = EquipmentInstance.MakeItemCode(pair.Key.Code, pair.Key.Level, pair.Key.Expires, quantity), Location = pair.Key.Location });
+            plan.Stones = checked(plan.Stones + pair.Value.Stones);
+        }
         if (singleId == null)
             foreach (var stack in state.LegacyEquipment)
-                if (stack.Level == 0 && acceptsCode(stack.Code) && EquipmentManager.Instance?.GetData(stack.Code) != null)
+                if (stack.Level == 0 && !stack.Locked && stack.Count > 0 && acceptsCode(stack.Code) && EquipmentManager.Instance?.GetData(stack.Code) != null)
                 {
-                    plan.Stacks.Add((stack.Code, stack.Level, stack.Count)); plan.Count += stack.Count;
+                    plan.ReserveStacks.Add(new Dto.DismantleReserveDTO { ItemCode = EquipmentInstance.MakeItemCode(stack.Code, 0, 0, 0), Count = stack.Count });
+                    plan.Count += stack.Count;
                     plan.Stones = checked(plan.Stones + BaseYield(ItemCode.DecodeRarity(stack.Code)) * stack.Count);
                 }
         return plan;
-    }
-
-    public static bool Execute(DismantlePlan plan)
-    {
-        if (plan == null || plan.Count == 0) return false;
-        // Validate the previewed items, not the account revision: battle income can keep
-        // advancing while the dialog is open. New drops never join an existing preview.
-        return LocalProgression.Execute("equipment-dismantle", state =>
-        {
-            foreach (var entry in plan.Items)
-            {
-                var list = entry.Pending ? state.PendingEquipment : state.Equipment;
-                var item = list.Find(x => x.Id == entry.Id);
-                if (item == null || IsProtected(item) || item.Code != entry.Code || item.Level != entry.Level || item.EnhancementStonesSpent != entry.Spent) return false;
-                list.Remove(item);
-            }
-            foreach (var entry in plan.Stacks)
-            {
-                var stack = state.LegacyEquipment.Find(x => x.Code == entry.Code && x.Level == entry.Level);
-                if (stack == null || stack.Count < entry.Count) return false;
-                stack.Count -= entry.Count;
-                if (stack.Count == 0) state.LegacyEquipment.Remove(stack);
-            }
-            LocalProgression.Credit(state, eCurrency.EquipmentStone, plan.Stones);
-            return true;
-        });
     }
 }

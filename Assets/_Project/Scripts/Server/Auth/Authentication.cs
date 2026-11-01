@@ -1,256 +1,166 @@
+using System;
+using System.Threading.Tasks;
 using Google;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+using Protocol.Message.Dto;
 using PlayFab;
 using PlayFab.ClientModels;
-using PlayFab.CloudScriptModels;
 using Scripts.Core;
 using Scripts.Core.Manager;
-using Scripts.Server.DTO;
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Net;
-using System.Threading.Tasks;
 using UnityEngine;
 
-using ItemID = Scripts.Server.DTO.ItemCode;
 namespace Scripts.Server.Auth
 {
-	public enum eAuthType
-	{
-		GooglePlayGame,
-		GoogleWebLogin,
+	public enum eAuthType { GooglePlayGame, GoogleWebLogin, CustomLogin, DummyLogin }
 
-		//For Test
-		CustomLogin,
-		DummyLogin,
-	}
-
-	public class Authentication
+	public sealed class Authentication
 	{
-		private string _authToken;
+		private readonly NetworkManager _network;
+		// PlayFab display name of the account being signed in. The server snapshot has no nickname.
 		private string _displayName;
-		private eAuthType _type;
-		private GetPlayerCombinedInfoRequestParams _infoRequestParams;
-		//�ϵ��ڵ� �ص� �ǳ�?
-		private readonly string _webClientId = "222024339558-o157jmef5jhip2s9vtfo3kto1ojfpejf.apps.googleusercontent.com";
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		// Development-only shared master account. Release builds never compile this ID.
+		private const string MasterCustomId = "516A4AAD45F1CC09";
+#endif
+		private const double AuthenticationTimeoutSeconds = 30;
+		private const string WebClientId = "222024339558-o157jmef5jhip2s9vtfo3kto1ojfpejf.apps.googleusercontent.com";
+		// OnLogIn이 PlayFab의 10초 한도에 걸린 뒤(함수 앱 콜드 스타트) 한 번만 다시 부른다.
+		private bool _retriedLogin;
+		public Authentication(NetworkManager network) => _network = network;
 
-		private readonly string key_userStage = "UserCurrentStage";
-		private readonly string key_userData = "UserData";
-		private readonly string key_userEnhancement = "UserEnhanceMent";
-		private readonly string key_characterData = "CharacterData";
-		private readonly string key_skillTreeData = "SkillTreeData";
-		private readonly string key_inventoryData = "Inventory";
-		private readonly string key_currency = "Currency";
-		private readonly string key_jobTree = "JobTree";
-
-
-		private readonly string DummyUser1 = "516A4AAD45F1CC09";
-
-		public Authentication()
+		public async void Authenticate(eAuthType type)
 		{
-			GoogleSignInConfiguration conf = new GoogleSignInConfiguration
+			long generation = _network.BeginAuthentication();
+			_retriedLogin = false;
+			try
 			{
-				WebClientId = _webClientId,
-				RequestIdToken = true,
-				RequestAuthCode = true,
-				RequestEmail = true,
-				RequestProfile = true
-			};
-
-			GoogleSignIn.Configuration = conf;
-			GoogleSignIn.Configuration.UseGameSignIn = false;
-			GoogleSignIn.Configuration.RequestIdToken = true;
-
-			_infoRequestParams = new GetPlayerCombinedInfoRequestParams
-			{
-				GetUserReadOnlyData = true,
-				UserReadOnlyDataKeys = new List<string>
+				// Isolate SDK tokens too: a timed-out login must not replace another account's context.
+				var client = new PlayFabClientInstanceAPI();
+				var completion = new TaskCompletionSource<LoginResult>();
+				var info = new GetPlayerCombinedInfoRequestParams { GetPlayerProfile = true };
+				Action<PlayFabError> fail = error => completion.TrySetException(new AuthenticationException(error));
+				if (type == eAuthType.CustomLogin)
 				{
-					key_userStage,
-					key_userData,
-					key_userEnhancement,
-					key_characterData,
-					key_skillTreeData,
-					key_inventoryData,
-					key_currency,
-					key_jobTree,
-					//MailSlot
-					//
-				},
-				GetPlayerProfile = true,
-			};
-		}
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+					// The title disables player creation for custom IDs, so only sign in to the existing master account.
+					client.LoginWithCustomID(new LoginWithCustomIDRequest
+					{ CustomId = MasterCustomId, CreateAccount = false, InfoRequestParameters = info }, result => completion.TrySetResult(result), fail);
+#else
+                    throw new InvalidOperationException("게스트 로그인은 개발 빌드에서만 지원합니다.");
+#endif
+				}
+				else if (type == eAuthType.GoogleWebLogin)
+				{
+					GoogleSignIn.Configuration = new GoogleSignInConfiguration
+					{
+						WebClientId = WebClientId,
+						UseGameSignIn = false,
+						RequestIdToken = true,
+						RequestAuthCode = true,
+						RequestEmail = true,
+						RequestProfile = true
+					};
+					var google = await WithTimeout(GoogleSignIn.DefaultInstance.SignIn());
+					if (!IsCurrent(generation)) return;
+					client.LoginWithGoogleAccount(new LoginWithGoogleAccountRequest
+					{ ServerAuthCode = google.AuthCode, CreateAccount = true, InfoRequestParameters = info },
+						result => completion.TrySetResult(result), fail);
+				}
+				else
+				{
+					throw new InvalidOperationException("지원하지 않는 로그인 방식입니다.");
+				}
 
-		public void Authenticate(eAuthType type)
-		{
-			//���� �α��� �� Ÿ�� �����س��� (���� ������)
-			_type = type;
-			switch (type)
+
+				var login = await WithTimeout(completion.Task);
+				if (!IsCurrent(generation)) return;
+				_network.SetAuthenticatedAccount(login.PlayFabId, login.SessionTicket, client.authenticationContext);
+				_displayName = login.InfoResultPayload?.PlayerProfile?.DisplayName;
+				// A missing display name does not prove that the player's data needs initialization.
+				if (login.NewlyCreated)
+				{
+					_network.Call<InitUserRequestDTO, UserInitResponseDTO>(new InitUserRequestDTO(), OnInitialized, _network.FailLogin);
+				}
+				else
+				{
+					_network.Call<AuthRequestDTO, UserInitResponseDTO>(new AuthRequestDTO(), OnInitialized, OnLoginFailed);
+				}
+			}
+			catch (Exception ex)
 			{
-				case eAuthType.GooglePlayGame:
-					break;
-				case eAuthType.GoogleWebLogin:
-					GoogleWebAuth();
-					break;
-				case eAuthType.CustomLogin:
-					LoginTest();
-					break;
-				default:
-					break;
+				if (!IsCurrent(generation)) return;
+				if (ex is AuthenticationException auth)
+					_network.FailLogin(auth.Error);
+				else
+					_network.FailLogin(NetworkManager.CreateError(ex is TimeoutException ? "Timeout" : "Transport",
+						ex is TimeoutException ? "로그인 대기 시간이 초과되었습니다. 다시 시도해 주세요." : "로그인이 취소되었거나 완료되지 않았습니다."));
 			}
 		}
 
-		private void LoginTest()
-		{
-			LoginWithCustomIDRequest req = new LoginWithCustomIDRequest
-			{
-				CustomId = "516A4AAD45F1CC09",
-				InfoRequestParameters = _infoRequestParams,
-			};
-			PlayFabClientAPI.LoginWithCustomID(req, pfAuthSuccessTest, pfAuthErrorCallback);
+		private bool IsCurrent(long generation) => _network != null && _network.AccountGeneration == generation;
 
-		}
-		private void GoogleWebAuth()
+		// Order: apply the server snapshot to UserManager, then publish Ready. Ready synchronously starts the main
+		// scene load (TitleScreenController), which reads the current stage and characters from UserManager.
+		private void OnInitialized(UserInitResponseDTO response)
 		{
-			GoogleSignIn.DefaultInstance.SignIn().ContinueWith(PlayFabAuth);
-		}
-
-		private void PlayFabAuth(Task<GoogleSignInUser> task)
-		{
-			if (task.IsFaulted)
+			var users = UserManager.Instance;
+			if (users == null)
 			{
+				_network.FailLogin(NetworkManager.CreateError("ApplyFailed", "사용자 데이터를 적용하지 못했습니다. 다시 시도해 주세요."));
 				return;
 			}
-			else if (task.IsCanceled)
+			// The DTO and game stage enums share long stage IDs. ValidateResponse already rejected negative
+			// enhancement counts, so the ulong casts are safe.
+			users.CreateUser(string.IsNullOrWhiteSpace(_displayName) ? "Guest" : _displayName, (eStage)(long)response.StageState.CurrentStage,
+				response.Exp, response.KillScore, response.Level, (ulong)response.EnchantHPCount, (ulong)response.EnchantATKCount);
+			users.SetCharacterData(response.CharacterDatas);
+			// GetSessionID() already returns the PlayFabId here, so the server player data lands in this account's progression file.
+			if (!users.ApplyServerPlayerData(response))
 			{
+				_network.FailLogin(NetworkManager.CreateError("ApplyFailed", "서버 계정 상태를 저장하지 못했습니다. 다시 시도해 주세요."));
 				return;
 			}
-			Debug.Log("[GoogleAuth] Google Auth Success");
-			_authToken = task.Result.AuthCode;
-			LoginWithGoogleAccountRequest pfLoginRequest = new LoginWithGoogleAccountRequest
-			{
-				TitleId = PlayFabSettings.TitleId,
-				ServerAuthCode = _authToken,
-				InfoRequestParameters = _infoRequestParams,
-				CreateAccount = true
-			};
+			users.SetInventoryData(response.Inventory);
+			users.SetSkillTreeData(response.SkillTreeDatas);
+			users.SetJobTreeData(response.JobTrees);
 
-			PlayFabClientAPI.LoginWithGoogleAccount(
-				request: pfLoginRequest,
-				pfAuthSuccessCallback,
-				pfAuthErrorCallback
-				);
+			_network.SetGameSession(response.SessionID);
+			_network.CompleteLogin();
 		}
 
-		//Test��
-		private void pfAuthSuccessTest(LoginResult result)
+		private void OnLoginFailed(PlayFabError error)
 		{
-			NetworkManager.Instance.SetSessionID(result.PlayFabId);
-			NetworkManager.Instance.SetSessionTicket(result.SessionTicket);
-
-			LoginLogic(result);
-		}
-
-		private void pfAuthSuccessCallback(LoginResult authresult)
-		{
-			NetworkManager.Instance.SetSessionID(authresult.PlayFabId);
-			NetworkManager.Instance.SetSessionTicket(authresult.SessionTicket);
-			Debug.Log("[Google Login Success Callback]");
-			if (authresult.NewlyCreated == true)
+			if (error?.CustomData is ErrorResponseDTO business &&
+				business.ErrorCode == Protocol.Message.Data.eErrorCode.PlayerNotInitialized)
 			{
-				Debug.Log("[First Time Sign Up Account]");
-				string uuid = Guid.NewGuid().ToString().Substring(0, 18);
-				NetworkManager.Instance.CheckDuplicatedNickName(uuid, duplicatedNameSuccessCallback, pfAuthErrorCallback);
+				_network.Call<InitUserRequestDTO, UserInitResponseDTO>(new InitUserRequestDTO(), OnInitialized, _network.FailLogin);
 				return;
 			}
-
-			string nickname = authresult.InfoResultPayload.PlayerProfile.DisplayName;
-			if (nickname.Length == 0)
+			// Consumption 플랜 콜드 스타트는 PlayFab의 10초 실행 한도를 넘길 수 있다. 그때쯤 함수 앱은 떠 있으므로 한 번 더 부르면 보통 1~2초에 끝난다.
+			if (error != null && error.Error == PlayFabErrorCode.CloudScriptAzureFunctionsExecutionTimeLimitExceeded && !_retriedLogin)
 			{
-				NetworkManager.Instance.OnSignUpInitUser(OnSignUpUserSucccess, pfAuthErrorCallback);
+				_retriedLogin = true;
+				Debug.LogWarning("[Login] OnLogIn이 실행 시간 한도를 넘겨 한 번 더 시도합니다: " + error.ErrorMessage);
+				_network.Call<AuthRequestDTO, UserInitResponseDTO>(new AuthRequestDTO(), OnInitialized, OnLoginFailed);
 				return;
 			}
-
-			LoginLogic(authresult);
+			_network.FailLogin(error);
 		}
 
-		void pfAuthErrorCallback(PlayFab.PlayFabError error)
+		private static async Task<T> WithTimeout<T>(Task<T> task)
 		{
-			Debug.Log(error.Error);
-		}
-
-		private void OnSignUpUserSucccess(ExecuteFunctionResult result)
-		{
-			string json = JsonConvert.SerializeObject(result.FunctionResult);
-			UserOnSignUpInitResponseDTO userSignUpDTO = JsonConvert.DeserializeObject<UserOnSignUpInitResponseDTO>(json);
-
-			NetworkManager.Instance.SetSessionGUID(userSignUpDTO.SessionGUID);
-			UserManager.Instance.CreateUser(
-				_displayName,
-				(eStage)userSignUpDTO.CurrentStage,
-				userSignUpDTO.Exp,
-				userSignUpDTO.KillScore,
-				userSignUpDTO.Level,
-				(ulong)userSignUpDTO.EnchantHPCount,
-				(ulong)userSignUpDTO.EnchantATKCount);
-			UserManager.Instance.SetCharacterData(userSignUpDTO.CharacterDatas);
-			UserManager.Instance.SetWallet(userSignUpDTO.Currency);
-
-			LoadManager.Instance.LoadAsyncScene(eSceneType.main);
-		}
-
-		private void OnExistUserSuccess(ExecuteFunctionResult result)
-		{
-			//For Debugging
-			string SessionId = JsonConvert.SerializeObject(result.FunctionResult);
-			OnAuthInitResponseDTO responsedto = JsonConvert.DeserializeObject<OnAuthInitResponseDTO>(SessionId);
-			NetworkManager.Instance.SetSessionGUID(responsedto.SessionID);
-			//Session ID ���� 
-		}
-		private void duplicatedNameSuccessCallback(UpdateUserTitleDisplayNameResult result)
-		{
-			_displayName = result.DisplayName;
-			NetworkManager.Instance.OnSignUpInitUser(OnSignUpUserSucccess, pfAuthErrorCallback);
-		}
-		private void LoginLogic(LoginResult result)
-		{
-			NetworkManager.Instance.OnExistUserInit(OnExistUserSuccess, pfAuthErrorCallback);
-
-			Dictionary<string, UserDataRecord> datas = result.InfoResultPayload.UserReadOnlyData;
-			//NetworkManager.Instance.OnSignUpInitUser(callbacks, pfAuthErrorCallback);
-
-			string nickName = result.InfoResultPayload.PlayerProfile.DisplayName;
-			long currentStage = Convert.ToInt64(datas[key_userStage].Value);
-			CurrencyQueryDTO currency = JsonConvert.DeserializeObject<CurrencyQueryDTO>(datas[key_currency].Value);
-			UserDataQuery userdata = JsonConvert.DeserializeObject<UserDataQuery>(datas[key_userData].Value);
-			UserEnhanceMentQuery enhancement = JsonConvert.DeserializeObject<UserEnhanceMentQuery>(datas[key_userEnhancement].Value);
-			List<CharacterDataQuery> characterData = JsonConvert.DeserializeObject<List<CharacterDataQuery>>(datas[key_characterData].Value);
-
-			if (datas.ContainsKey(key_skillTreeData))
+			if (await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(AuthenticationTimeoutSeconds))) != task)
 			{
-				SkillTreeDTO skillCodes = JsonConvert.DeserializeObject<SkillTreeDTO>(datas[key_skillTreeData].Value);
-				if (skillCodes?.SkillTrees != null)
-					UserManager.Instance.SetSkillTreeData(skillCodes.SkillTrees);
+				// Observe a late fault without running any Unity or account work on its worker.
+				_ = task.ContinueWith(t => { var ignored = t.Exception; }, TaskContinuationOptions.OnlyOnFaulted);
+				throw new TimeoutException();
 			}
-			if (datas.ContainsKey(key_inventoryData))
-			{
-				InventoryQueryDTO inventory = JsonConvert.DeserializeObject<InventoryQueryDTO>(datas[key_inventoryData].Value);
-				//Todo : 여기에서 Inventory와 SkillTree가 적용되어야함.
-				UserManager.Instance.SetInventoryData(inventory.Items);
-			}
-			if (datas.ContainsKey(key_jobTree))
-			{
-				List<JobTreeQuery> jobTrees = JsonConvert.DeserializeObject<List<JobTreeQuery>>(datas[key_jobTree].Value);
-				UserManager.Instance.SetJobTreeData(jobTrees);
-			}
+			return await task;
+		}
 
-			UserManager.Instance.CreateUser(nickName, (eStage)currentStage, userdata, enhancement);
-			UserManager.Instance.SetCharacterData(characterData);
-			UserManager.Instance.SetWallet(currency);
-
-			LoadManager.Instance.LoadAsyncScene(eSceneType.main);
+		private sealed class AuthenticationException : Exception
+		{
+			public PlayFabError Error { get; }
+			public AuthenticationException(PlayFabError error) : base("PlayFab authentication failed.") => Error = error;
 		}
 	}
 }

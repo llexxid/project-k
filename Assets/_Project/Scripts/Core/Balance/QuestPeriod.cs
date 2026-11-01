@@ -17,6 +17,8 @@ namespace KingdomIdle.Balance
         public string Day { get; }
         /// <summary>해당 주의 월요일 KST 날짜로 표현한 주간 저장 키.</summary>
         public string Week { get; }
+        public string Month { get; }
+        public long MonthEndUtc { get; }
         /// <summary>이 값 묶음을 계산할 때 사용한 동일 UTC 초.</summary>
         public long NowUtc { get; }
         /// <summary>일일 기간이 끝나는 다음 KST 자정. 이 시각부터 새 기간이다.</summary>
@@ -30,6 +32,8 @@ namespace KingdomIdle.Balance
             NowUtc = utc;
             Day = day.ToString(DateFormat, CultureInfo.InvariantCulture);
             Week = week.ToString(DateFormat, CultureInfo.InvariantCulture);
+            Month = day.ToString("yyyy-MM", CultureInfo.InvariantCulture);
+            MonthEndUtc = new DateTimeOffset(day.Year, day.Month, 1, 0, 0, 0, KstOffset).AddMonths(1).ToUnixTimeSeconds();
             DayEndUtc = day.AddDays(1).ToUnixTimeSeconds();
             WeekEndUtc = week.AddDays(7).ToUnixTimeSeconds();
         }
@@ -43,6 +47,10 @@ namespace KingdomIdle.Balance
             int daysSinceMonday = ((int)date.DayOfWeek + 6) % 7;
             return new QuestPeriod(utc, day, day.AddDays(-daysSinceMonday));
         }
+
+        /// <summary>기존 KST yyyy-MM-dd 키가 앞으로 진행할 때만 일일 제한을 갱신한다.</summary>
+        public static bool IsLaterDay(string currentDay, string previousDay) =>
+            string.IsNullOrEmpty(previousDay) || string.CompareOrdinal(currentDay, previousDay) > 0;
 
         /// <summary>읽기 전용으로 기간 변경·보관 보상 만료만 검사한다. 실제 정리는 거래의 AdvancePeriod가 수행한다.</summary>
         public static bool NeedsSynchronization(ProgressionState state, long nowUtc)

@@ -22,9 +22,14 @@ namespace KingdomIdle.UGUI
         private QuestDefinition _definition;
         // 표시한 계정·기간의 권리를 보관한다. 클릭할 때 현재 계정으로 토큰을 다시 만들지 않는다.
         private QuestClaimToken _claimToken;
-        private bool _hasClaimToken, _claimable;
+        private bool _hasClaimToken, _claimable, _claimRequested;
         private Coroutine _connection;
         private bool _breathing;
+        /// <summary>전투 HUD 인스턴스만 던전에서 접는다. 재활성화 시 기존 구독으로 최신 목표를 복원한다.</summary>
+        internal void SetStageVisible(bool visible)
+        {
+            if (gameObject.activeSelf != visible) gameObject.SetActive(visible);
+        }
 
         private void OnEnable()
         {
@@ -41,6 +46,8 @@ namespace KingdomIdle.UGUI
             _manager.OnGuideQuestChanged += Refresh;
             NumberNotation.Changed += ReadCurrent;
             _manager.OnQuestProgressChanged += Refresh;
+            _manager.OnClaimCompleted += OnClaimCompleted;
+            _manager.AddWatcher(false);
             _ui.PanelStackChanged += Visibility;
             ReadCurrent();
             _connection = null;
@@ -57,7 +64,10 @@ namespace KingdomIdle.UGUI
             {
                 _manager.OnGuideQuestChanged -= Refresh;
                 _manager.OnQuestProgressChanged -= Refresh;
+                _manager.OnClaimCompleted -= OnClaimCompleted;
+                _manager.RemoveWatcher(false);
             }
+            _claimRequested = false;
             StopBreathing();
             _manager = null;
             _ui = null;
@@ -114,6 +124,16 @@ namespace KingdomIdle.UGUI
             Visibility();
         }
 
+        /// <summary>서버 수령 결과. 이 HUD가 요청한 수령만 안내한다(패널에서 요청한 수령은 패널이 안내한다).</summary>
+        private void OnClaimCompleted(QuestClaimToken token, bool ok, string message)
+        {
+            if (!_claimRequested) return;
+            _claimRequested = false;
+            if (ok) UIManager.Instance?.ShowToast("가이드 완료");
+            else UIManager.Instance?.ShowToast(string.IsNullOrEmpty(message) ? "보상을 받지 못했습니다. 잠시 후 다시 시도해 주세요." : message);
+            if (_manager != null) ReadCurrent();
+        }
+
         private static void Set(TMP_Text label, string text)
         {
             if (label != null && label.text != text) label.text = text;
@@ -146,10 +166,16 @@ namespace KingdomIdle.UGUI
             if (_state == null || _manager == null) return;
             if (_state.IsCompleted && _hasClaimToken && _claimable)
             {
+                // 서버(OnClaimQuestReward)에 요청한다. 결과는 OnClaimCompleted에서 알리고, 응답의 Quests로 다음 가이드가 바뀐다.
                 var result = _manager.TryClaim(_claimToken);
-                if (result.Succeeded) UIManager.Instance?.ShowToast("가이드 완료");
-                else if (result.Status == QuestClaimStatus.SaveFailed)
-                    UIManager.Instance?.ShowToast("보상 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+                if (result.Status == QuestClaimStatus.Pending)
+                {
+                    _claimRequested = true;
+                    if (actionButton != null) actionButton.interactable = false;
+                    return;
+                }
+                if (result.Status == QuestClaimStatus.Busy) UIManager.Instance?.ShowToast("이전 보상을 처리 중입니다. 잠시 후 다시 시도해 주세요.");
+                else if (result.Status == QuestClaimStatus.NetworkNotReady) UIManager.Instance?.ShowToast("서버 로그인이 필요합니다.");
                 ReadCurrent();
             }
             else if (!_state.IsCompleted && _definition != null && QuestNavigation.CanNavigate(_definition.ObjectiveType))

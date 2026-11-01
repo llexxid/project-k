@@ -21,43 +21,7 @@ namespace Scripts.Users
 			_players = new List<Player>();
 		}
 
-		public void SetWallet(User owner, long golds, long ancientCoins, long kingdomSupplys, long arcaneKnowledges, long classfragments)
-		{
-        LocalProgression.Execute("import-account-once", s => {
-            if (s.Modules.ContainsKey("imported")) return false;
-            s.Modules["imported"] = "legacy-server-snapshot";
-            s.Modules["legacy-user"] = Newtonsoft.Json.JsonConvert.SerializeObject(_userData);
-            s.Kills = System.Math.Max(0,_userData._killScore);
-            long legacyStage = (long)_userData._currentStage;
-            int legacyS = (int)((legacyStage >> 16) & 0xFFF), legacyW = (int)(legacyStage & 0xFFFF);
-            if (legacyStage == (0x200000000L | ((long)legacyS << 16) | (uint)legacyW) && legacyS >= 1 && legacyS <= 3 && legacyW >= 1 && legacyW <= 11)
-            {
-                s.MainStage = legacyStage;
-                // Reaching a main wave proves strictly earlier linear clears, not the current boss.
-                for(int stage=1;stage<=legacyS;stage++) for(int wave=1;wave<=11;wave++)
-                {
-                    long id=0x200000000L | ((long)stage<<16) | (uint)wave;
-                    if(id>=legacyStage) continue;
-                    s.MainClears.Add(id);s.HighestMainClear=System.Math.Max(s.HighestMainClear,id);
-                    if(wave==11) s.CycleBossStage=System.Math.Max(s.CycleBossStage,stage);
-                }
-                s.Modules["legacy-clear-basis"]="Strictly earlier waves inferred from reached position; no retroactive currency rewards.";
-            }
-            if(UnityEngine.PlayerPrefs.HasKey("reincarnation.progress.v1"))
-                s.Modules["legacy-unassigned-reincarnation"]=UnityEngine.PlayerPrefs.GetString("reincarnation.progress.v1");
-            s.Wallet[eCurrency.Gold] = System.Math.Max(0, golds);
-            s.Wallet[eCurrency.AncientCoin] = System.Math.Max(0, ancientCoins);
-            s.Wallet[eCurrency.KingdomSupply] = System.Math.Max(0, kingdomSupplys);
-            s.Wallet[eCurrency.ArcaneKnowledge] = System.Math.Max(0, arcaneKnowledges);
-            s.Wallet[eCurrency.ClassFragment] = System.Math.Max(0, classfragments);
-            s.AccountLevel = BalanceMath.Clamp(_userData._level, 1, 200);
-            s.Experience = System.Math.Max(0, _userData._exp);
-            BalanceMath.GainExperience(ref s.AccountLevel, ref s.Experience, 0);
-            s.AttackLevel = (int)System.Math.Min(300UL, _userData._enchantATKCount);
-            s.HealthLevel = (int)System.Math.Min(300UL, _userData._enchantHPCount);
-            return true;
-        });
-    }
+		// 서버에서 받은 플레이어 데이터는 UserManager.ApplyServerPlayerData가 매 로그인마다 플레이어 상태에 쓴다(예전 일회성 import 제거).
 		public void SetUserData(UserData data)
 		{
 			_userData = data;

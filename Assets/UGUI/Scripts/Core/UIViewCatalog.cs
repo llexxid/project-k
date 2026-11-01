@@ -90,6 +90,12 @@ namespace KingdomIdle.UGUI
         public GameObject panelDevelopment;
         public GameObject panelInventory;
         public GameObject panelDungeon;
+        public GameObject panelCheckIn;
+        public GameObject panelMailbox;
+        public KingdomIdle.CheckIn.CheckInRewardTableSO checkInRewards;
+        public GameObject itemRewardSlot;
+        public GameObject itemMailRow;
+        public GameObject popupRewardInfo;
 
         [Header("Popups")]
         public GameObject popupGachaResult;
@@ -97,6 +103,7 @@ namespace KingdomIdle.UGUI
         public GameObject popupProfile;          // 프로필 팝업(더미/플레이스홀더)
         public GameObject popupMageTowerEquip;   // 마탑 스킬 장착 팝업 (프리팹화됨)
         public GameObject popupDungeonClear;
+        public GameObject popupStageSelect;
         public GameObject popupReincarnation;
         public GameObject popupOfflineReward;
         public GameObject popupShop;
