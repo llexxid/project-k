@@ -204,5 +204,10 @@ namespace KingdomIdle.Balance
             IsBusy = false;
             ClaimCompleted?.Invoke(claim, new RewardResult(RewardStatus.InvalidReward), NetworkManager.DescribeFailure(error, "광고 보상"));
         }
+
+#if UNITY_EDITOR
+        // 에디터 QA ShopAdRewardAcceptance가 컴파일되도록 남긴 스텁. 수령 기록은 서버가 가지므로 로컬에서 초기화하지 않는다(그 QA는 무효).
+        internal static RewardStatus ResetTodayForTesting() => RewardStatus.NotReady;
+#endif
     }
 }
