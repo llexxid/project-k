@@ -29,6 +29,7 @@ namespace KingdomIdle.UGUI.Editor
             foreach (var guid in AssetDatabase.FindAssets("t:Prefab", new[] { Root.TrimEnd('/') }))
             {
                 string path = AssetDatabase.GUIDToAssetPath(guid);
+                if (path.EndsWith("/Panel_Gacha_Old.prefab", StringComparison.Ordinal)) continue;
                 var go = PrefabUtility.LoadPrefabContents(path);
                 try
                 {
@@ -81,7 +82,7 @@ namespace KingdomIdle.UGUI.Editor
                 }
             }
             var sheet = go.GetComponent<BottomSheetView>();
-            if (sheet != null && sheet.Sheet != null)
+            if (sheet != null && sheet.Sheet != null && !sheet.fullScreen)
             {
                 if(sheet.Sheet.GetComponent<SheetSizeFitter>()==null)
                 {var fitter=sheet.Sheet.gameObject.AddComponent<SheetSizeFitter>();fitter.preferredHeight=sheet.Sheet.sizeDelta.y;}

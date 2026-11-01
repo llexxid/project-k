@@ -117,6 +117,14 @@ namespace KingdomIdle.UGUI
             t._fadeCo = t.StartCoroutine(t.FadeRoutine(cg, cg.alpha, 1f, duration));
         }
 
+        public static void StopFade(CanvasGroup group)
+        {
+            var tween = group.GetComponent<UITween>();
+            if (tween == null || tween._fadeCo == null) return;
+            tween.StopCoroutine(tween._fadeCo);
+            tween._fadeCo = null;
+        }
+
         // ── 이동(슬라이드) ───────────────────────────────────────────
         /// <summary>아래에서 위로 슬라이드 인(바텀시트 진입). from은 시작 y 오프셋(px).</summary>
         public static void SlideUp(RectTransform rt, float fromOffsetY = 140f, float duration = 0.26f)

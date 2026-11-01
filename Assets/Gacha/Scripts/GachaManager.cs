@@ -19,7 +19,9 @@ namespace KingdomIdle.Gacha
         public event Action<bool> OnPullStateChanged;
         /// <summary>마지막 서버 거절·적용 실패. 성공하면 null.</summary>
         public PlayFabError LastFailure { get; private set; }
-        public int EpicPityRemaining => 40 - LocalProgression.State.EquipmentPity;
+        public const int EpicPityLimit = 40;
+        public int EpicPityCount => LocalProgression.State.EquipmentPity;
+        public int EpicPityRemaining => EpicPityLimit - EpicPityCount;
         public IReadOnlyList<GachaTableSO> GetAllTables() => gachaTables.Where(t => t != null && t.isImplemented && (t.gachaType == eGachaType.Equipment || t.gachaType == eGachaType.Skill) && t.costCurrency == eCurrency.AncientCoin).ToList();
         private void Awake() { if (Instance != null && Instance != this) { Destroy(gameObject); return; } Instance = this; DontDestroyOnLoad(gameObject); }
         private void OnDestroy() { if (Instance == this) Instance = null; }

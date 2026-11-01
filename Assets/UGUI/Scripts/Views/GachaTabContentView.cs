@@ -25,5 +25,15 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal RectTransform pullRow;
         [SerializeField] internal TMP_Text rewardSectionTitle;
         [SerializeField] internal RectTransform rewardGrid;
+        [SerializeField] internal UnityEngine.UI.Button ratesButton;
+        [SerializeField] internal UnityEngine.UI.Button rewardsButton;
+        [SerializeField] internal RectTransform pityRoot;
+        [SerializeField] internal TMP_Text pityLabel;
+        [SerializeField] internal TMP_Text pityRemaining;
+        [SerializeField] internal UnityEngine.UI.Image pityFill;
+        [SerializeField] internal TMP_Text heroTitle;
+        [SerializeField] internal UnityEngine.UI.Image heroIcon;
+        [SerializeField] internal Sprite equipmentArt;
+        [SerializeField] internal Sprite mageArt;
     }
 }

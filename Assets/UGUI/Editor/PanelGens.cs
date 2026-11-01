@@ -283,15 +283,7 @@ namespace KingdomIdle.UGUI.Editor
 
         internal static GameObject GenerateGacha()
         {
-            var shell = BuildShell("Panel_Gacha", "뽑기", UguiTheme.PanelSheetHeightPct);
-            var view = shell.Root.gameObject.AddComponent<GachaPanelView>();
-            WireBase(view, shell);
-
-            view.tabBar = AddBar(shell.Body, "GachaTabBar", 104f);
-            view.scroll = AddScroll(shell.Body, out var content);
-            view.content = content;
-
-            return PrefabGenUtil.SavePrefab(shell.Root.gameObject, $"{PrefabGenUtil.PrefabRoot}/Panels/Panel_Gacha.prefab");
+            return GachaFullScreenPreparation.GeneratePanel();
         }
 
         internal static GameObject GenerateKingdomArmy()

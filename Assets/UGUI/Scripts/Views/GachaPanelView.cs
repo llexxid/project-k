@@ -9,5 +9,6 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal RectTransform tabBar;
         [SerializeField] internal ScrollRect scroll;
         [SerializeField] internal RectTransform content;
+        [SerializeField] internal GachaTabContentView authoredContent;
     }
 }
