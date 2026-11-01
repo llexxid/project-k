@@ -2,8 +2,6 @@
 
 2026-10-01 두 번째 개정. 물을 모두 제거하고, 흙길·풀길에서 넓어지는 공터와 다양한 외곽 나무로 90개 배경을 조성한다. 던전의 독립된 문·매달린 천은 제거하고 기둥을 절제된 짝 또는 단독 배치로 구성한다. 기존 프리팹 ID, Addressables 연결, 풀 선택 방식, Ground / GroundDetails / Scenery 3개 타일맵을 유지한다.
 
-[번호별 실제 Unity 미리보기](Validation/EnvironmentPolish20261001/revision2/after/index.html) · [이번 수정 전 미리보기](Validation/EnvironmentPolish20261001/after/index.html) · [이번 검증 기록](Validation/EnvironmentPolish20261001/revision2/README.md) · [첫 번째 개정 기록](Validation/EnvironmentPolish20261001/README.md)
-
 번호는 피드백용 고정 식별자다. 실제 전투에서는 해당 지역 풀에서 직전 배경을 제외하고 선택한다. 일반·보스·특수는 프리셋의 배치 유형이며 특정 웨이브 번호에 고정 대응하지 않는다.
 
 - 01–18 숲길, 19–36 초원 숲, 37–54 깊은 숲, 55–72 골드 던전, 73–90 루비 황무지. 각 그룹은 Main 10 / Boss 3 / Special 5 순이다.
@@ -15,8 +13,6 @@
 - 추가 런타임 장식 오브젝트·충돌체·텍스처는 없다. 세 타일맵으로 배치하며 새 아이콘도 기존 아틀라스 경로를 쓴다.
 
 재생성: `EnvironmentRichnessPreparation.Prepare`. 검증과 135장 렌더를 함께 실행하려면 `EnvironmentPolishValidation.PrepareAndCaptureAfter`를 사용한다. 실제 플레이 모드 검사 진입점은 `EnvironmentGameplayValidation.Run`이다. 기준 배치·타일 수·시드는 [manifest](Manifests/environment-presets.json)에 기록한다.
-
-이전 2026-09-20 구성과 기기 b52 캡처는 [기존 갤러리](Previews/foundation-environments-b52.png) 및 과거 검증 기록에 보존한다.
 
 | 번호 | 풀 | 유형 | 구도 | 프리팹 |
 |---|---|---|---|---|
