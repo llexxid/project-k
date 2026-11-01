@@ -18,7 +18,13 @@ namespace KingdomIdle.UGUI
             decimal interval = data != null ? (decimal)data.basicAttack.cooldown : 1.2m;
             decimal multiplier = data != null ? (decimal)data.basicAttack.damageMultiplier : status.JobName == "Spearman" ? 1.2m : 1m;
             decimal uptime = status.JobName == "Elite_Archer" ? .92m : status.JobName == "Elite_Mage" ? .93m : 1m;
-            decimal special = status.JobName == "Elite_Archer" ? status.Atk * 3m / 10m : status.JobName == "Elite_Mage" ? BalanceMath.Damage(status.Atk,2m) / 10m : 0m;
+            decimal special = status.JobName == "Elite_Archer" ? status.Atk * 3m / 10m : 0m;
+            if (status.JobName == "Elite_Mage")
+            {
+                var pulse = data?.specialSkills?.Find(skill => skill != null && skill.kind == SpecialSkillKind.EnergyPulse);
+                if (pulse != null)
+                    special = BalanceMath.Damage(status.Atk, (decimal)pulse.damageMultiplier) / Math.Max(.01m, (decimal)pulse.cooldown);
+            }
             return BalanceMath.Damage(status.Atk,multiplier) / Math.Max(.01m,interval) * uptime + special;
         }
         public static long CalculateCharacterPowerV1(Player player) => player?.playerStatus == null ? 0 : BalanceMath.Round(5m * CharacterDps(player) + .25m * player.playerStatus.MaxHP);

@@ -34,11 +34,9 @@
 3. Play Mode 검증: `TitleLobbyValidation.Run()`.
 4. 실기기 검증 APK: `TitleLobbyDeviceBuild.Build()`.
 
-검증 산출물은 `Recordings/LobbyRevision2/Editor`, `Recordings/LobbyRevision2/Device`에 저장한다.
+검증 산출물은 저장소 밖 QA 보관 폴더에서 관리한다.
 실기기 계측은 일반 빌드에 없는 `LOBBY_DEVICE_QA && DEVELOPMENT_BUILD` 전용 코드다.
 데미지 부하 검사는 실제 Main 화면/데미지 프리팹을 사용하되 계정·보상·전투 시뮬레이션 서비스를 시작하지 않는 재현 가능한 표시 부하이다.
-
-최종 측정치·검사 범위·수정 사항: [실기기 검증 보고서](device-validation.md).
 
 ## 생성 이력과 비용
 

@@ -3,12 +3,21 @@ using UnityEngine.UI;
 
 namespace KingdomIdle.UGUI
 {
-    /// <summary>Quarter-view ground glyph built on the same 32 px/world-unit grid as combat art.</summary>
+    /// <summary>Pixel ground glyph projected from the spell's actual world-plane range.</summary>
     public sealed class MagicAimGraphic : MaskableGraphic
     {
         public bool healing, valid;
         public float worldRadius = 1;
         bool _lastValid, _lastHealing;
+        float _worldAspect = 1;
+        Vector2 _horizontalRadius, _verticalRadius;
+        internal void SetGeometry(float radius, float aspect, Vector2 horizontalRadius, Vector2 verticalRadius)
+        {
+            if (worldRadius == radius && _worldAspect == aspect && _horizontalRadius == horizontalRadius && _verticalRadius == verticalRadius) return;
+            worldRadius = radius; _worldAspect = aspect;
+            _horizontalRadius = horizontalRadius; _verticalRadius = verticalRadius;
+            SetVerticesDirty();
+        }
         protected override void Awake() { base.Awake(); raycastTarget = false; }
         void Update()
         {
@@ -20,9 +29,9 @@ namespace KingdomIdle.UGUI
             vh.Clear();
             Color tint = !valid ? new Color(1,.35f,.24f) : healing ? new Color(.45f,1,.65f) : new Color(.42f,.76f,1);
             int radius = Mathf.Clamp(Mathf.RoundToInt(worldRadius * 32), 12, 96);
-            float pixel = rectTransform.rect.width / (radius * 2);
+            float pixel = 1f / radius;
             // Scan-line runs preserve square pixels without a dense per-pixel mesh or textures.
-            int height = Mathf.RoundToInt(radius * .64f);
+            int height = Mathf.Max(1, Mathf.RoundToInt(radius * _worldAspect));
             for (int y = -height; y < height; y++)
             {
                 int outer = Extent(radius, height, y);
@@ -53,14 +62,14 @@ namespace KingdomIdle.UGUI
             float normal = (y + .5f) / Mathf.Max(.5f, ry);
             return Mathf.Abs(normal) >= 1 ? 0 : Mathf.RoundToInt(rx * Mathf.Sqrt(1 - normal * normal));
         }
-        static void Quad(VertexHelper vh, int x0, int x1, int y, float pixel, Color color)
+        void Quad(VertexHelper vh, int x0, int x1, int y, float pixel, Color color)
         {
             if (x1 <= x0) return;
             int n = vh.currentVertCount;
-            vh.AddVert(new Vector3(x0 * pixel, y * pixel), color, Vector2.zero);
-            vh.AddVert(new Vector3(x0 * pixel, (y+1) * pixel), color, Vector2.zero);
-            vh.AddVert(new Vector3(x1 * pixel, (y+1) * pixel), color, Vector2.zero);
-            vh.AddVert(new Vector3(x1 * pixel, y * pixel), color, Vector2.zero);
+            vh.AddVert(_horizontalRadius * (x0 * pixel) + _verticalRadius * (y * pixel), color, Vector2.zero);
+            vh.AddVert(_horizontalRadius * (x0 * pixel) + _verticalRadius * ((y+1) * pixel), color, Vector2.zero);
+            vh.AddVert(_horizontalRadius * (x1 * pixel) + _verticalRadius * ((y+1) * pixel), color, Vector2.zero);
+            vh.AddVert(_horizontalRadius * (x1 * pixel) + _verticalRadius * (y * pixel), color, Vector2.zero);
             vh.AddTriangle(n,n+1,n+2); vh.AddTriangle(n,n+2,n+3);
         }
     }
