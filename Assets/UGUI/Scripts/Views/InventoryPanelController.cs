@@ -28,6 +28,8 @@ namespace KingdomIdle.UGUI
         private static List<Player> _players;
         // 열려 있는 상세 페이지의 장비. 서버 요청 완료 뒤 같은 장비(강화 뒤에는 한 단계 오른 사본)를 다시 보여 준다.
         private static string _detailItemId;
+        private static EquipmentManager _equipment;
+        private static bool _equipmentDirty;
 
         private static UIViewCatalog Catalog =>
             UIManager.Instance != null ? UIManager.Instance.Catalog : null;
@@ -44,6 +46,13 @@ namespace KingdomIdle.UGUI
         {
             if (view == null) return;
 
+            if (_equipment != null)
+            {
+                _equipment.OnEquipmentStateChanged -= OnEquipmentStateChanged;
+                _equipment.OnActionCompleted -= OnEquipmentActionCompleted;
+            }
+            _equipment = null;
+            _equipmentDirty = false;
             _view = view;
             if (_view.content == null || _view.navBar == null) return;
 
@@ -51,7 +60,13 @@ namespace KingdomIdle.UGUI
             {
                 if (_view == view)
                 {
-                    if (EquipmentManager.Instance != null) EquipmentManager.Instance.OnActionCompleted -= OnEquipmentActionCompleted;
+                    if (_equipment != null)
+                    {
+                        _equipment.OnEquipmentStateChanged -= OnEquipmentStateChanged;
+                        _equipment.OnActionCompleted -= OnEquipmentActionCompleted;
+                    }
+                    _equipment = null;
+                    _equipmentDirty = false;
                     EconomyBridge.OnAmountChanged -= OnCurrencyChanged;
                     _currencySlots.Clear();
                     _view = null;
@@ -62,11 +77,11 @@ namespace KingdomIdle.UGUI
 
             var mgr = KingdomArmyManager.Instance;
             _players = mgr != null ? mgr.GetPlayers() : new List<Player>();
-            var equipment = EquipmentManager.Instance;
-            if (equipment != null)
+            _equipment = EquipmentManager.Instance;
+            if (_equipment != null)
             {
-                equipment.OnActionCompleted -= OnEquipmentActionCompleted; 
-                equipment.OnActionCompleted += OnEquipmentActionCompleted;
+                _equipment.OnEquipmentStateChanged += OnEquipmentStateChanged;
+                _equipment.OnActionCompleted += OnEquipmentActionCompleted;
             }
             EconomyBridge.OnAmountChanged -= OnCurrencyChanged;
             EconomyBridge.OnAmountChanged += OnCurrencyChanged;
@@ -138,6 +153,7 @@ namespace KingdomIdle.UGUI
         private static void Refresh()
         {
             if (_view == null || _view.content == null) return;
+            _equipmentDirty = false;
             _detailItemId = null;
             _currencySlots.Clear();
             ClearChildren(_view.content);
@@ -312,14 +328,18 @@ namespace KingdomIdle.UGUI
         private static void ShowInventoryEquipPopup(EquipmentInstance item, Player owner)
         {
             if (_view == null || _view.content == null) return;
-            ClearChildren(_view.content);
 
             var cat = Catalog;
             var prefab = cat != null ? cat.itemInventoryEquipDetail : null;
             if (prefab == null) return;
 
-            var go = Object.Instantiate(prefab, _view.content, false);
-            var detail = go.GetComponent<InventoryEquipDetailView>();
+            var detail = _view.content.GetComponentInChildren<InventoryEquipDetailView>(false);
+            if (detail == null)
+            {
+                ClearChildren(_view.content);
+                var go = Object.Instantiate(prefab, _view.content, false);
+                detail = go.GetComponent<InventoryEquipDetailView>();
+            }
             if (detail == null) return;
             _detailItemId = item.instanceId;
 
@@ -370,14 +390,19 @@ namespace KingdomIdle.UGUI
                 maxLevel, matText, matShortage, rateText, expectedText);
 
             if (detail.backButton != null)
+            {
+                detail.backButton.onClick.RemoveAllListeners();
                 detail.backButton.onClick.AddListener(() => Refresh());
+            }
             if (detail.detailButton != null)
             {
+                detail.detailButton.onClick.RemoveAllListeners();
                 detail.detailButton.gameObject.SetActive(true);
                 detail.detailButton.GetComponentInChildren<TMPro.TMP_Text>().text = "분해";
                 detail.detailButton.interactable = !item.IsLocked && !item.IsEquipped;
                 detail.detailButton.onClick.AddListener(() => EquipmentActionDialog.Dismantle(EquipmentEconomy.Preview(_ => true, item.instanceId), Refresh));
             }
+            if (detail.enhanceButton != null) detail.enhanceButton.onClick.RemoveAllListeners();
             if (!maxLevel && detail.enhanceButton != null)
             {
                 var capturedItem = item;
@@ -421,16 +446,30 @@ namespace KingdomIdle.UGUI
             ShowInventoryEquipPopup(item, owner);
         }
 
-        /// <summary>장비 서버 요청 완료. 상세 페이지가 열려 있으면 같은 장비(강화 뒤에는 한 단계 오른 사본)를 다시 보여 주고, 아니면 목록을 다시 그린다.</summary>
+        /// <summary>완료 안내와 강화 후 상세 대상만 갱신한다. 상태 이벤트의 화면 갱신은 LateUpdate에서 한 번 처리한다.</summary>
         private static void OnEquipmentActionCompleted(EquipmentManager.ActionInfo info)
         {
             if (_view == null || info == null) return;
             ShowToast(EquipmentManager.Describe(info));
-            if (_detailItemId != null && EquipmentManager.Instance != null)
+            if (_detailItemId != null && info.Ok && !string.IsNullOrEmpty(info.ItemId) && _detailItemId != info.ItemId)
             {
-                string id = info.Ok && !string.IsNullOrEmpty(info.ItemId) ? info.ItemId : _detailItemId;
+                _detailItemId = info.ItemId;
+                _equipmentDirty = true;
+            }
+        }
+
+        private static void OnEquipmentStateChanged() => _equipmentDirty = true;
+
+        internal static void FlushEquipmentChanges(InventoryPanelView view)
+        {
+            if (_view != view || !_equipmentDirty) return;
+            _equipmentDirty = false;
+            if (_activeTab != InvTab.All && _activeTab != InvTab.Equipment) return;
+            var position = _view.content.anchoredPosition;
+            if (_detailItemId != null && _equipment != null)
+            {
                 EquipmentInstance item = null;
-                foreach (var candidate in EquipmentManager.Instance.Inventory.Items) if (candidate.instanceId == id) { item = candidate; break; }
+                foreach (var candidate in _equipment.Inventory.Items) if (candidate.instanceId == _detailItemId) { item = candidate; break; }
                 if (item != null)
                 {
                     Player owner = _players?.Find(p => p != null && item.equipmentPlayerIndex.HasValue && p.PlayerIndex == item.equipmentPlayerIndex.Value);
@@ -439,6 +478,11 @@ namespace KingdomIdle.UGUI
                 }
             }
             Refresh();
+            // 가상 목록 높이를 먼저 확정해야 다음 ScrollRect 갱신이 위치를 맨 위로 제한하지 않는다.
+            LayoutRebuilder.ForceRebuildLayoutImmediate(_view.content);
+            _view.content.GetComponentInChildren<VirtualEquipmentGrid>(false)?.Refresh();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(_view.content);
+            _view.content.anchoredPosition = position;
         }
 
         // ── 데이터 수집 ──

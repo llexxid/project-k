@@ -159,6 +159,8 @@ Android 검사 도우미와 실행 결과는 저장소 밖 QA 보관 폴더에�
 
 장비와 가방은 `VirtualEquipmentGrid`로 화면에 보이는 카드만 만든다. 보관함 초과 보상은 기존 수량형 저장 구조에 영구 보관하여 전투·던전·뽑기를 막지 않는다. `EquipmentData.DisplayName`은 화면용 이름이며 기존 저장 키와 아이템 코드는 유지한다. 상세 스탯은 실제 `PlayerStatus` 계산을 사용하고 변경된 계산식만 다시 그린다.
 
+`EquipmentManager.OnEquipmentStateChanged`는 저장된 장비·보류함·예비보관함·자동 분해 설정이 바뀌고 캐릭터 장착·능력치 복원까지 끝났을 때 발행한다. 인벤토리는 이 알림을 프레임당 한 번 처리하며 필터·스크롤과 열려 있는 장비 상세를 유지한다. `OnActionCompleted`는 결과 안내와 강화 후 상세 대상 ID 보정을 맡고, 실제 화면 갱신은 `InventoryPanelView.LateUpdate`에서 처리한다.
+
 `InventoryPanelController`의 재료·기타 탭은 기존 `EquipCellView`에 `RewardPresentation`의 아이콘·이름과 지갑 보유 수량을 연결한다. 강화석은 재료, 장비·마탑 뽑기권은 기타에 표시하며 수량이 0이면 슬롯을 숨기고 모두 없으면 빈 상태 안내를 표시한다. 재화 카드는 공통 청동색을 사용하고 장착·스탯·희귀도 동작은 제공하지 않는다. 클릭 설명은 `RewardPopupView.ShowItem()`을 재사용하며 잔액 변경 시 표시를 갱신한다. 전체·장비 탭의 구성과 장비 필터는 유지하고, 인벤토리 전용 수량 저장이나 뽑기권 사용 경로는 추가하지 않는다.
 
 현재 검증 진입점은 `PlayabilityRevisionPreparation.Validate`, Unity 실행 검사 `KingdomIdle.UGUI.Editor.PlayabilityLiveValidation.Run`, Android `AI/qa/mage/playability_checks.py`다. 증거는 `Recordings/PlayabilityRevision`과 [플레이 개선 검증 기록](../../Docs/ArtPreparation/PLAYABILITY_20260918.md)에 있다.

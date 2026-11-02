@@ -9,5 +9,7 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal RectTransform navBar;
         [SerializeField] internal ScrollRect scroll;
         [SerializeField] internal RectTransform content;
+
+        private void LateUpdate() => InventoryPanelController.FlushEquipmentChanges(this);
     }
 }

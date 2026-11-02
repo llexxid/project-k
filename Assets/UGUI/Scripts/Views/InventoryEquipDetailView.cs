@@ -69,15 +69,13 @@ namespace KingdomIdle.UGUI
 
             if (enhanceSection != null) enhanceSection.SetActive(!maxLevel);
 
-            if (maxLevel)
-            {
-                if (enhanceButtonLabel != null) enhanceButtonLabel.text = "강화 MAX";
-                if (enhanceButton != null) enhanceButton.interactable = false;
-                var catalog = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
-                if (enhanceButtonBg != null && enhanceButton != null)
-                    UguiPixelSkin.ApplyButton(enhanceButtonBg, enhanceButton, UguiTheme.DisabledGrey, catalog);
-            }
-            else
+            if (enhanceButtonLabel != null) enhanceButtonLabel.text = maxLevel ? "강화 MAX" : "강화";
+            if (enhanceButton != null) enhanceButton.interactable = !maxLevel;
+            var catalog = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
+            if (enhanceButtonBg != null && enhanceButton != null)
+                UguiPixelSkin.ApplyButton(enhanceButtonBg, enhanceButton, maxLevel ? UguiTheme.DisabledGrey : UguiTheme.EnhanceOrange, catalog);
+
+            if (!maxLevel)
             {
                 if (matLabel != null)
                 {
