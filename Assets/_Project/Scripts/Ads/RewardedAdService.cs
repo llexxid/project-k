@@ -11,6 +11,11 @@ namespace KingdomIdle.Ads
     /// <summary>One rewarded-ad request at a time; callers own eligibility and durable reward claims.</summary>
     public sealed class RewardedAdService : MonoBehaviour
     {
+        public const string TestAdUnitId = "ca-app-pub-3940256099942544/5224354917";
+        public const string OfflineRewardAdUnitId = "ca-app-pub-6227816848702401/8237589720";
+        public const string ShopEquipmentAdUnitId = "ca-app-pub-6227816848702401/1019068541";
+        public const string ShopMageAdUnitId = "ca-app-pub-6227816848702401/7392905206";
+
         private static RewardedAdService _instance;
         private RewardedAd _ad;
         private Action<RewardedAdResult, string> _completion;
@@ -42,6 +47,9 @@ namespace KingdomIdle.Ads
                 _instance = new GameObject(nameof(RewardedAdService)).AddComponent<RewardedAdService>();
                 DontDestroyOnLoad(_instance.gameObject);
             }
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            adUnitId = TestAdUnitId;
+#endif
             _instance.Begin(adUnitId, onFinished);
         }
 

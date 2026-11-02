@@ -23,7 +23,7 @@ namespace KingdomIdle.UGUI
             showButton.interactable = false;
             buttonLabel.text = "광고 불러오는 중…";
             // Fixed Google sample ID: this scene never requests production ads.
-            RewardedAdService.Show("ca-app-pub-3940256099942544/5224354917", (result, error) =>
+            RewardedAdService.Show(RewardedAdService.TestAdUnitId, (result, error) =>
             {
                 if (this == null) return;
                 showButton.interactable = true;

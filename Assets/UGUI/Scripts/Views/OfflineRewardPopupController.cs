@@ -87,8 +87,7 @@ namespace KingdomIdle.UGUI
             if (!CheckAccount(choice)) return;
             choice.Busy = true;
             RefreshButtons();
-            // shortcut: use Google's sample unit until production ads and consent are configured.
-            RewardedAdService.Show("ca-app-pub-3940256099942544/5224354917", (result, error) =>
+            RewardedAdService.Show(RewardedAdService.OfflineRewardAdUnitId, (result, error) =>
             {
                 choice.Busy = false;
                 if (!CheckAccount(choice)) return;
