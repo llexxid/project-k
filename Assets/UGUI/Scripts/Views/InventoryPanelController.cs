@@ -389,25 +389,14 @@ namespace KingdomIdle.UGUI
                 isEquipped, ownerText,
                 maxLevel, matText, matShortage, rateText, expectedText);
 
-            if (detail.backButton != null)
-            {
-                detail.backButton.onClick.RemoveAllListeners();
-                detail.backButton.onClick.AddListener(() => Refresh());
-            }
+            detail.OnBack = Refresh;
+            detail.OnDismantle = () => EquipmentActionDialog.Dismantle(EquipmentEconomy.Preview(_ => true, item.instanceId), Refresh);
+            detail.OnEnhance = maxLevel ? null : () => TryEnhanceFromInventory(item, owner);
             if (detail.detailButton != null)
             {
-                detail.detailButton.onClick.RemoveAllListeners();
                 detail.detailButton.gameObject.SetActive(true);
                 detail.detailButton.GetComponentInChildren<TMPro.TMP_Text>().text = "분해";
                 detail.detailButton.interactable = !item.IsLocked && !item.IsEquipped;
-                detail.detailButton.onClick.AddListener(() => EquipmentActionDialog.Dismantle(EquipmentEconomy.Preview(_ => true, item.instanceId), Refresh));
-            }
-            if (detail.enhanceButton != null) detail.enhanceButton.onClick.RemoveAllListeners();
-            if (!maxLevel && detail.enhanceButton != null)
-            {
-                var capturedItem = item;
-                var capturedOwner = owner;
-                detail.enhanceButton.onClick.AddListener(() => TryEnhanceFromInventory(capturedItem, capturedOwner));
             }
         }
 
