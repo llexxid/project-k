@@ -82,6 +82,7 @@ public class EquipmentManager : MonoBehaviour
         _inventory = next;
         foreach (var pair in _players)
             pair.Value?.PlayerEquipmentManager?.RestoreSelection(_inventory.Items.FirstOrDefault(x => x.equipmentPlayerIndex == pair.Key));
+        
     }
 
     // ── 서버 조작 ─────────────────────────────────────────────────────

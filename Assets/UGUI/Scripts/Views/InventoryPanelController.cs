@@ -63,7 +63,11 @@ namespace KingdomIdle.UGUI
             var mgr = KingdomArmyManager.Instance;
             _players = mgr != null ? mgr.GetPlayers() : new List<Player>();
             var equipment = EquipmentManager.Instance;
-            if (equipment != null) { equipment.OnActionCompleted -= OnEquipmentActionCompleted; equipment.OnActionCompleted += OnEquipmentActionCompleted; }
+            if (equipment != null)
+            {
+                equipment.OnActionCompleted -= OnEquipmentActionCompleted; 
+                equipment.OnActionCompleted += OnEquipmentActionCompleted;
+            }
             EconomyBridge.OnAmountChanged -= OnCurrencyChanged;
             EconomyBridge.OnAmountChanged += OnCurrencyChanged;
 
