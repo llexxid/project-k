@@ -30,13 +30,13 @@
 
 ### 게임 내 오프라인 광고 보상
 
-접속 시 `OfflineRewardManager.Claim()`이 기본 골드·경험치를 먼저 저장한다. 선택창의 `보상 수령`은 추가 지급 없이 결과를 표시하고, `광고보고 보상 2배`는 `RewardedAdService.Show()`의 `Completed` 후 `TryGrantAdBonus(snapshot)`으로 최초 정산 금액을 한 번 더 저장한다. 현재 Google Android 보상형 테스트 ID `ca-app-pub-3940256099942544/5224354917`만 사용한다.
+접속 시 `OfflineRewardManager.Claim()`이 기본 골드·경험치를 먼저 저장한다. 선택창의 `보상 수령`은 추가 지급 없이 결과를 표시하고, `광고보고 보상 2배`는 `RewardedAdService.Show()`의 `Completed` 후 `TryGrantAdBonus(snapshot)`으로 최초 정산 금액을 한 번 더 저장한다. 광고 ID는 `RewardedAdService`의 `OfflineRewardAdUnitId`를 사용한다. Editor·Development Build에서는 공통 서비스가 `TestAdUnitId`로 대체하고 일반 Android 빌드에서는 운영 ID를 사용한다.
 
 정산 ID·확정 금액·계정 세대는 읽기 전용 스냅샷으로 전달한다. 광고 전후와 저장 안에서 계정을 확인하고, `LocalProgression.Execute` 거래에서 추가 보상과 중복 방지 기록을 함께 저장한다. 경험치는 기존 레벨 상승 처리를 사용하며 처치·퀘스트 횟수는 추가하지 않는다. 광고로 일시정지된 사실을 유지하므로 SDK가 먼저 종료되어도 복귀를 새 오프라인 정산으로 처리하지 않는다.
 
 선택창은 배경·뒤로가기로 닫히지 않는다. 광고 준비·시청·저장 중에는 두 버튼을 잠근다. 완료 후 저장 실패는 실행 중 기억하며 `보상 수령`으로 지급만 재시도한다. 다른 정산이 도착해도 기존 선택을 보존한다. 강제 화면 정리는 결과 팝업도 닫는다. `RewardPopupView.ShowOfflineRewards()`는 `LayerPopups`에 골드·경험치 합계를 표시하고, 광고일 때만 `보상 2배 획득`을 보여준다. 기존 우편·출석 결과 표시는 유지한다.
 
-`OfflineRewardPopupPrefabGen.UpgradeAdRewardPrefabs()`는 기존 테마·폰트를 유지하며 실제 프리팹의 버튼과 참조를 갱신한다. 핵심 검사는 `OfflineRewardAdAcceptance.Run()`이다. 강제 종료 후 미지급 광고 보너스 복구, 운영 광고·미디에이션·서버 보상 검증·일일 광고 보상은 포함하지 않는다.
+`OfflineRewardPopupPrefabGen.UpgradeAdRewardPrefabs()`는 기존 테마·폰트를 유지하며 실제 프리팹의 버튼과 참조를 갱신한다. 핵심 검사는 `OfflineRewardAdAcceptance.Run()`이다. 강제 종료 후 미지급 광고 보너스 복구, 미디에이션·서버 보상 검증·일일 광고 보상은 포함하지 않는다.
 
 결과 확인 버튼은 기존 계층의 `Popup_RewardInfo/Panel/BtnOfflineConfirm`에서 편집한다. 기본 크기는 Canvas 기준 120×100이며 LayoutElement의 Min/Preferred Width·Height를 함께 바꾸고 Flexible Width·Height는 0으로 둔다. Panel은 Control Child Size Width 켜기, Child Force Expand Width 끄기, Upper Center 정렬을 사용한다. Header·ContentScroll·RewardScroll은 Flexible Width=1로 전체 폭을 유지한다. 확인 버튼만 오프라인 결과에서 활성화하며 별도 버튼 행은 사용하지 않는다.
 
@@ -169,7 +169,7 @@ Android 검사 도우미와 실행 결과는 저장소 밖 QA 보관 폴더에�
 
 ## 상점
 
-햄버거 메뉴의 `상점`에서 목재·청동 테마 팝업을 연다. 추천·주화 / 골드·매일 광고 세 탭과 11개 상품을 표시한다. `ShopCatalog`가 안정 상품 ID·예정 가격·수량을 관리하며 `ShopPopupController`는 현재 고대주화 잔액과 기존 `QuestEconomy` 기준의 골드 환산을 읽는다. 구매·교환·광고 제거 구매는 준비 중 토스트만 표시한다. 매일 광고 두 상품은 기존 `RewardedAdService`의 Google 테스트 광고를 재생한다.
+햄버거 메뉴의 `상점`에서 목재·청동 테마 팝업을 연다. 추천·주화 / 골드·매일 광고 세 탭과 11개 상품을 표시한다. `ShopCatalog`가 안정 상품 ID·예정 가격·수량을 관리하며 `ShopPopupController`는 현재 고대주화 잔액과 기존 `QuestEconomy` 기준의 골드 환산을 읽는다. 구매·교환·광고 제거 구매는 준비 중 토스트만 표시한다. 매일 광고 두 상품은 기존 `RewardedAdService`를 재사용하며 장비는 `ShopEquipmentAdUnitId`, 마탑은 `ShopMageAdUnitId`로 광고 단위를 구분한다. Editor·Development Build는 테스트 광고를 사용한다.
 
 `ShopAdRewardService.Begin()`은 계정 세대·광고 시작일·지급 수량을 고정한다. `Completed`만 지급 자격으로 인정하며 `LocalProgression.Execute()` 안에서 `RewardGrants.TryApply()`와 `shop-ad:{상품 ID}:{한국 날짜}` 수령 기록을 함께 저장한다. 장비·마탑 뽑기권을 각각 2장씩 하루 한 번 지급한다. 자정 이후 완료·저장 재시도도 시작일 보상이며 새날 수령 기회와 구별한다. 기존 기간의 마지막 승인 시각을 사용해 시계 역행으로 기간이 재개되지 않게 한다. 서버 시각·서버 보상 검증은 아직 연결하지 않았다.
 

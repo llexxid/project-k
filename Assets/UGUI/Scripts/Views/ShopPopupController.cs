@@ -79,8 +79,9 @@ namespace KingdomIdle.UGUI
                 Invalidate(); return;
             }
             _claim = claim; _busy = true; Invalidate();
-            // shortcut: keep Google's test unit until production ads and consent are configured.
-            RewardedAdService.Show("ca-app-pub-3940256099942544/5224354917", (result, error) =>
+            string adUnitId = claim.OfferId == "rewarded.daily_equipment"
+                ? RewardedAdService.ShopEquipmentAdUnitId : RewardedAdService.ShopMageAdUnitId;
+            RewardedAdService.Show(adUnitId, (result, error) =>
             {
                 if (!ReferenceEquals(_claim, claim) || !_busy) return;
                 if (result == RewardedAdResult.Completed)
