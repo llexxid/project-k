@@ -112,8 +112,40 @@ namespace KingdomIdle.UGUI.Editor
             view.closeButton = shell.CloseButton;
         }
 
+        /// <summary>기존 본문·참조를 유지하며 팝업을 공통 하단 시트 컨테이너에 넣는다.</summary>
+        internal static void ConfigureSheet(BottomSheetView view)
+        {
+            var root = (RectTransform)view.transform;
+            F.Stretch(root);
+            view.centeredModal = false;
+            if (root.GetComponent<CanvasGroup>() == null) root.gameObject.AddComponent<CanvasGroup>();
+            if (view.backdrop == null)
+            {
+                var image = F.Box(root, "Backdrop", UguiTheme.DimLight, rounded: false, raycast: true);
+                view.backdrop = image.gameObject.AddComponent<Button>();
+                view.backdrop.targetGraphic = image;
+                view.backdrop.transition = Selectable.Transition.None;
+                image.transform.SetAsFirstSibling();
+            }
+            var backdrop = (RectTransform)view.backdrop.transform;
+            F.Stretch(backdrop);
+            backdrop.offsetMin = new Vector2(0, UguiTheme.BottomBarHeight);
+
+            var clip = root.Find("SheetClip") as RectTransform;
+            if (clip == null) clip = F.Container(root, "SheetClip");
+            F.Stretch(clip);
+            clip.offsetMin = new Vector2(0, UguiTheme.BottomBarHeight);
+            if (clip.GetComponent<RectMask2D>() == null) clip.gameObject.AddComponent<RectMask2D>();
+            float height = view.sheet.sizeDelta.y > 0 ? view.sheet.sizeDelta.y : UguiTheme.RefHeight * UguiTheme.PanelSheetHeightPct;
+            view.sheet.SetParent(clip, false);
+            F.AnchorBottomStretch(view.sheet, 0, height);
+            var fitter = view.sheet.GetComponent<SheetSizeFitter>();
+            if (fitter == null) fitter = view.sheet.gameObject.AddComponent<SheetSizeFitter>();
+            fitter.preferredHeight = height;
+        }
+
         /// <summary>본문에 세로 ScrollRect 추가 (flex-grow).</summary>
-        private static ScrollRect AddScroll(RectTransform body, out RectTransform content)
+        internal static ScrollRect AddScroll(RectTransform body, out RectTransform content)
         {
             var scroll = F.VScroll(body, "Scroll", out content, spacing: 10f, padding: new RectOffset(0, 0, 0, 10));
             F.Flexible(scroll.gameObject.AddComponent<LayoutElement>(), flexHeight: 1f);
@@ -283,7 +315,7 @@ namespace KingdomIdle.UGUI.Editor
 
         internal static GameObject GenerateGacha()
         {
-            return GachaFullScreenPreparation.GeneratePanel();
+            return GachaPanelPrefabGens.GeneratePanel();
         }
 
         internal static GameObject GenerateKingdomArmy()

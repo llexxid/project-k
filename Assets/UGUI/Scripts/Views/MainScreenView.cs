@@ -48,5 +48,6 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal MainTabButtonView tabKingdomArmy;
         [SerializeField] internal MainTabButtonView tabDungeon;
         [SerializeField] internal MainTabButtonView tabGacha;
+        [SerializeField] internal MainTabButtonView tabStore;
     }
 }

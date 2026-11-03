@@ -28,6 +28,8 @@ namespace KingdomIdle.UGUI
 
         [Header("Behaviour")]
         [SerializeField] private bool dontDestroyOnLoad = true;
+        [Tooltip("끄면 육성·왕국군·던전은 프리팹에 저장된 기존 크기를 사용합니다. 뽑기·상점은 확장 크기를 유지합니다.")]
+        [SerializeField] private bool expandLegacyTabPanels = true;
 
         public UIViewCatalog Catalog => catalog;
         public RectTransform LayerScreens => layerScreens;
@@ -72,6 +74,10 @@ namespace KingdomIdle.UGUI
         public UIPanelId ActiveTabPanelId { get; private set; }
         public bool HasBlockingPanel =>
             _panelStack.Count > 0 && !_panelStack.Peek().IsTab;
+        internal bool HasExpandedPanel => _panelStack.Count > 0 && IsExpandedPanel(_panelStack.Peek().Id);
+        internal bool IsTopPanel(BottomSheetView view) => _panelStack.Count > 0 && _panelStack.Peek().View == view;
+        internal bool IsExpandedPanel(UIPanelId id) => id == UIPanelId.Gacha || id == UIPanelId.Store ||
+            (expandLegacyTabPanels && (id == UIPanelId.Development || id == UIPanelId.KingdomArmy || id == UIPanelId.Dungeon));
 
         /// <summary>온라인 전투 시간에서 제외할 메뉴·설정·로딩 상태를 한 곳에서 제공한다.</summary>
         public bool BlocksQuestBattleTime => HasBlockingPanel || HasActiveTabPanel || ModalBackHandler.HasOpenModal ||
@@ -453,10 +459,9 @@ namespace KingdomIdle.UGUI
             {
                 // 시트 전체가 하단 탭바 뒤에서 떠오르는 슬라이드 인 (셸의 SheetClip이 탭바 영역을 가린다)
                 float rise = Mathf.Max(240f, view.sheet.rect.height);
-                if (view.fullScreen) FadeFullScreen(go);
-                else if (view.centeredModal) UITween.PopIn(view.sheet);
+                if (view.centeredModal) UITween.PopIn(view.sheet);
                 else UITween.SlideUp(view.sheet, rise, 0.34f);
-                _guidePanelReadyAt = Time.unscaledTime + (view.fullScreen ? .15f : .36f);
+                _guidePanelReadyAt = Time.unscaledTime + .36f;
                 if (view.backdrop != null)
                 {
                     var cg = view.backdrop.GetComponent<CanvasGroup>();
@@ -520,6 +525,7 @@ namespace KingdomIdle.UGUI
             else if (next.View is KingdomArmyPanelView army) KingdomArmyPanelController.Restore(army);
             else if (next.View is DevelopmentPanelView development) DevelopmentPanelController.Restore(development);
             else if (next.View is InventoryPanelView inventory) InventoryPanelController.Restore(inventory);
+            else if (next.View is ShopPopupView shop) ShopPopupController.Restore(shop);
 
             // 위에 패널이 쌓이며 SetActive(false) 로 죽은 딤 페이드가 중간 알파로 얼어붙어 있을 수 있다
             if (next.View.backdrop != null)
@@ -530,20 +536,10 @@ namespace KingdomIdle.UGUI
 
             if (next.View.sheet != null)
             {
-                if (next.View.fullScreen) { FadeFullScreen(next.Go); return; }
                 next.View.sheet.anchoredPosition = next.SheetRestingPos;
                 if (next.View.centeredModal) UITween.PopIn(next.View.sheet);
                 else UITween.SlideUp(next.View.sheet, 120f, 0.22f);
             }
-        }
-
-        private static void FadeFullScreen(GameObject go)
-        {
-            var group = go.GetComponent<CanvasGroup>();
-            group.interactable = true;
-            group.blocksRaycasts = true;
-            group.alpha = 0f;
-            UITween.FadeIn(group, .15f);
         }
 
         /// <summary>
@@ -563,30 +559,28 @@ namespace KingdomIdle.UGUI
 
             // 등장 슬라이드가 아직 돌고 있으면 먼저 끈다 — 두 코루틴이 같은 anchoredPosition 을
             // 매 프레임 덮어쓰면 시트가 내려가지 않고 위로 끌려 올라가다 사라진다(빠른 탭 전환).
-            if (!top.View.fullScreen) UITween.StopMove(top.View.sheet);
+            UITween.StopMove(top.View.sheet);
 
             var cg = top.Go.GetComponent<CanvasGroup>();
             if (cg == null) cg = top.Go.AddComponent<CanvasGroup>();
-            cg.blocksRaycasts = top.View.fullScreen; // 전체 화면은 퇴장이 끝날 때까지 뒤의 입력도 가린다.
+            cg.blocksRaycasts = false;
             cg.interactable = false;
-            RunCoroutine(PanelCloseRoutine(top.Go, top.View.sheet, cg, top.View.centeredModal, top.View.fullScreen));
+            RunCoroutine(PanelCloseRoutine(top.Go, top.View.sheet, cg, top.View.centeredModal));
         }
 
-        private static IEnumerator PanelCloseRoutine(GameObject go, RectTransform sheet, CanvasGroup rootGroup, bool modal, bool fullScreen)
+        private static IEnumerator PanelCloseRoutine(GameObject go, RectTransform sheet, CanvasGroup rootGroup, bool modal)
         {
             Vector2 from = sheet.anchoredPosition;
             Vector2 to = modal ? from : from + new Vector2(0f, -Mathf.Max(240f, sheet.rect.height));
-            float dur = fullScreen ? .15f : .20f;
+            const float dur = .20f;
             float alpha = rootGroup.alpha;
-            // 중단된 등장 페이드가 퇴장 페이드와 동시에 알파를 쓰지 않게 한다.
-            if (fullScreen) UITween.StopFade(rootGroup);
             float e = 0f;
             while (e < dur && go != null && sheet != null)
             {
                 e += Time.unscaledDeltaTime;
                 float k = Mathf.Clamp01(e / dur);
                 k = k * k * k;   // EaseInCubic — 가속 퇴장
-                if (!fullScreen) sheet.anchoredPosition = Vector2.LerpUnclamped(from, to, k);
+                sheet.anchoredPosition = Vector2.LerpUnclamped(from, to, k);
                 if (rootGroup != null) rootGroup.alpha = alpha * (1f - k);
                 yield return null;
             }
@@ -610,6 +604,7 @@ namespace KingdomIdle.UGUI
             {
                 case UIPanelId.Guide: prefab = catalog.panelGuide; break;
                 case UIPanelId.Gacha: prefab = catalog.panelGacha; break;
+                case UIPanelId.Store: prefab = catalog.popupShop; break;
                 case UIPanelId.KingdomArmy: prefab = catalog.panelKingdomArmy; break;
                 case UIPanelId.Development: prefab = catalog.panelDevelopment; break;
                 case UIPanelId.Inventory: prefab = catalog.panelInventory; break;
@@ -628,7 +623,14 @@ namespace KingdomIdle.UGUI
 
             var go = Instantiate(prefab, id == UIPanelId.Guide || id == UIPanelId.Inventory || id == UIPanelId.CheckIn || id == UIPanelId.Mailbox ? layerOverlays : layerPanels, false);
             view = go.GetComponent<BottomSheetView>();
-            if (id != UIPanelId.CheckIn && id != UIPanelId.Mailbox && (view == null || !view.fullScreen)) ForceFullStretch(go);
+            if (id != UIPanelId.CheckIn && id != UIPanelId.Mailbox) ForceFullStretch(go);
+            if (IsExpandedPanel(id) && view != null && view.sheet != null)
+            {
+                var fitter = view.sheet.GetComponent<SheetSizeFitter>();
+                if (fitter == null) fitter = view.sheet.gameObject.AddComponent<SheetSizeFitter>();
+                fitter.heightMode = SheetSizeFitter.HeightMode.BelowPartyHud;
+                fitter.SetTopBoundary(HudTop);
+            }
             PopulatePanel(id, view, payload);
             return go;
         }
@@ -650,6 +652,9 @@ namespace KingdomIdle.UGUI
                         return;
                     case UIPanelId.Gacha when view is GachaPanelView gacha:
                         GachaPanelController.Populate(gacha);
+                        return;
+                    case UIPanelId.Store when view is ShopPopupView shop:
+                        ShopPopupController.Populate(shop);
                         return;
                     case UIPanelId.KingdomArmy when view is KingdomArmyPanelView army:
                         KingdomArmyPanelController.Populate(army);

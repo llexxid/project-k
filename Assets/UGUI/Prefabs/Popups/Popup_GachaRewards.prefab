@@ -1188,6 +1188,7 @@ GameObject:
   - component: {fileID: 8368065135047483434}
   - component: {fileID: 4908765015903207054}
   - component: {fileID: 5489466143381859968}
+  - component: {fileID: 204161661866975095}
   m_Layer: 5
   m_Name: Popup_GachaRewards
   m_TagString: Untagged
@@ -1245,11 +1246,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KingdomIdle.UGUI.GachaTabContentView
   messageLabel: {fileID: 0}
-  descLabel: {fileID: 0}
   costLabel: {fileID: 0}
-  rateRow: {fileID: 0}
   pullRow: {fileID: 0}
-  rewardSectionTitle: {fileID: 0}
   rewardGrid: {fileID: 2640925270757437252}
   ratesButton: {fileID: 0}
   rewardsButton: {fileID: 0}
@@ -1261,6 +1259,18 @@ MonoBehaviour:
   heroIcon: {fileID: 0}
   equipmentArt: {fileID: 0}
   mageArt: {fileID: 0}
+--- !u!114 &204161661866975095
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7342219530801270509}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8181737255282644ea728a5da02b73d1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomIdle.UGUI.PartyHudSuppressor
 --- !u!1 &8933747851822633928
 GameObject:
   m_ObjectHideFlags: 0

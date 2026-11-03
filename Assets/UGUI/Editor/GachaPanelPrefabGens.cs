@@ -1,84 +1,200 @@
+using System;
+using UnityEditor;
 using UnityEngine;
-using UnityEngine.UI;
 using TMPro;
 
 namespace KingdomIdle.UGUI.Editor
 {
-    /// <summary>
-    /// 런타임 코드생성 UI → 프리팹 전환용 생성기 (뽑기 패널).
-    /// GachaPanelController 가 탭 전환 때마다 _view.content 아래에 1개 인스턴스화하는
-    /// 탭 콘텐츠 셸(GachaTabContent = GachaTabContentView) 을 만든다.
-    /// 반복 위젯(확률 알약·뽑기 버튼·보상 카드)은 기존 item 프리팹을 그대로 재사용하므로
-    /// 여기서는 그 부모 컨테이너(rateRow/pullRow/rewardGrid)와 고정 라벨만 배선한다.
-    /// </summary>
-    internal static class GachaPanelPrefabGens
+    public static class GachaPanelPrefabGens
     {
-        // 원본 컨트롤러가 쓰던 색상 (UguiRuntimeFactory 코드 생성 시절과 동일 값)
-        private static readonly Color DescColor = new Color(1f, 1f, 1f, 0.70f);
-        private static readonly Color CostColor = new Color(1f, 204f / 255f, 0f, 0.95f);
-        private static readonly Color SectionColor = new Color(1f, 1f, 1f, 0.80f);
-
-        internal static void GenerateAll()
+        private const string PanelPath = "Assets/UGUI/Prefabs/Panels/Panel_Gacha.prefab";
+        [MenuItem("KingdomIdle/UGUI/Prepare gacha tab panel")]
+        public static void Prepare()
         {
-            GenerateGachaTabContent();
+            if (EditorApplication.isPlaying) throw new InvalidOperationException("Exit Play Mode first.");
+            F.Init();
+            F.Catalog = PrefabGenUtil.GetOrCreateCatalog();
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(PanelPath) == null) F.Catalog.panelGacha = GeneratePanel();
+            else
+            {
+                var root = PrefabUtility.LoadPrefabContents(PanelPath);
+                try
+                {
+                    ApplyLayout(root.GetComponent<GachaPanelView>());
+                    PrefabUtility.SaveAsPrefabAsset(root, PanelPath);
+                }
+                finally { PrefabUtility.UnloadPrefabContents(root); }
+                F.Catalog.panelGacha = AssetDatabase.LoadAssetAtPath<GameObject>(PanelPath);
+            }
+            if (F.Catalog.popupGachaRewards != null)
+            {
+                string path = AssetDatabase.GetAssetPath(F.Catalog.popupGachaRewards);
+                var popup = PrefabUtility.LoadPrefabContents(path);
+                try
+                {
+                    if (popup.GetComponent<PartyHudSuppressor>() == null) popup.AddComponent<PartyHudSuppressor>();
+                    PrefabUtility.SaveAsPrefabAsset(popup, path);
+                }
+                finally { PrefabUtility.UnloadPrefabContents(popup); }
+            }
+            EditorUtility.SetDirty(F.Catalog);
+            AssetDatabase.SaveAssets();
         }
 
-        // ── 탭 콘텐츠 셸 ──
-        internal static GameObject GenerateGachaTabContent()
+        internal static GameObject GeneratePanel()
         {
-            var root = F.Container(null, "GachaTabContent");
-            var view = root.gameObject.AddComponent<GachaTabContentView>();
-            // content(_view.content) 의 VerticalLayout(spacing 10) 아래 단일 자식으로 들어가며,
-            // 자체 VerticalLayout(spacing 10) 으로 내부 고정 구조를 세로로 쌓는다.
-            F.VLayout(root.gameObject, 10f, null, TextAnchor.UpperLeft);
+            var root = F.Root("Panel_Gacha"); F.Stretch(root);
+            root.gameObject.AddComponent<CanvasGroup>();
+            var view = root.gameObject.AddComponent<GachaPanelView>();
+            var sheet = F.PixelPanel(root, "Sheet", F.Catalog.kitWindow, F.FrameGold, 24f, raycast: true, baseColor: F.PanelBaseDarker);
+            Opaque(sheet);
+            F.Stretch(sheet.rectTransform);
+            F.VLayout(sheet.gameObject, 20, new RectOffset(44, 44, 32, 40));
+            view.sheet = sheet.rectTransform;
+            view.content = sheet.rectTransform;
+            var c = sheet.gameObject.AddComponent<GachaTabContentView>();
+            view.authoredContent = c;
 
-            // 전체 안내 메시지 (매니저/테이블 없음 등) — 일반 콘텐츠일 땐 컨트롤러가 숨긴다.
-            var message = F.Text(root, "Message", "", 24f, UguiTheme.TextSecondary,
-                TextAlignmentOptions.Center, wrap: true);
-            F.Preferred(message, height: 60f);
-            view.messageLabel = message;
-            message.gameObject.SetActive(false);
+            var header = Row(sheet.transform, "Header", 120);
+            view.title = F.Text(header, "Title", "뽑기", 48, UguiTheme.Parchment, TextAlignmentOptions.MidlineLeft, bold: true);
+            F.Flexible(view.title, flexWidth: 1);
+            view.closeButton = F.TextButton(header, "BtnClose", "닫기", 32, UguiTheme.RusticSurface, out _);
+            F.Preferred(view.closeButton, width: 150, height: 120);
+            view.tabBar = Row(sheet.transform, "GachaTabBar", 128);
 
-            // 설명 (.gacha-desc: 26px @70%)
-            var desc = F.Text(root, "Desc", "", 26f, DescColor, TextAlignmentOptions.Left, wrap: true);
-            F.Preferred(desc, height: 70f);
-            view.descLabel = desc;
+            c.messageLabel = F.Text(sheet.transform, "Message", "", 34, UguiTheme.TextSecondary, TextAlignmentOptions.Center, wrap: true);
+            c.messageLabel.gameObject.SetActive(false);
+            var hero = F.Container(sheet.transform, "FeaturedArea");
+            F.Flexible(hero, flexHeight: 1).minHeight = 200;
+            c.heroIcon = F.IconImage(hero, "Art", F.Catalog.iconChest, 220, 220);
+            var art = c.heroIcon.rectTransform;
+            art.anchorMin = new Vector2(.30f, .34f); art.anchorMax = new Vector2(.70f, .94f);
+            art.offsetMin = art.offsetMax = Vector2.zero;
+            c.heroIcon.preserveAspect = true;
+            c.equipmentArt = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/UsingAssets/Dungeon_Chest01.png");
+            c.mageArt = UguiGenAssets.PixIconWand;
+            c.heroIcon.sprite = c.equipmentArt;
+            c.heroTitle = F.Text(hero, "Name", "장비 뽑기", 44, UguiTheme.Parchment, TextAlignmentOptions.Center, bold: true);
+            F.AnchorBottomStretch(c.heroTitle.rectTransform, 20, 84);
 
-            // 보유/비용 바 (.gacha-cost: 26px gold)
-            var cost = F.Text(root, "Cost", "", 26f, CostColor, TextAlignmentOptions.Left, bold: true);
-            F.Preferred(cost, height: 40f);
-            view.costLabel = cost;
+            var details = Row(sheet.transform, "Details", 124);
+            c.ratesButton = F.TextButton(details, "BtnRates", "확률표", 34, UguiTheme.RusticSurface, out _);
+            c.rewardsButton = F.TextButton(details, "BtnRewards", "획득 가능 보상", 34, UguiTheme.RusticSurface, out _);
+            foreach (var button in new[] { c.ratesButton, c.rewardsButton })
+            { F.Preferred(button, height: 124); F.Flexible(button, flexWidth: 1); }
 
-            // 확률 요약 알약 행 (Item_RatePill 부모).
-            // 알약이 자체 ContentSizeFitter 폭을 쓰도록 childControlWidth=false.
-            var rateRow = F.Container(root, "RateRow");
-            F.HLayout(rateRow.gameObject, 8f, null, TextAnchor.MiddleLeft, childControlWidth: false);
-            F.Preferred(rateRow, height: 50f);
-            view.rateRow = rateRow;
+            c.pityRoot = F.Container(sheet.transform, "Pity");
+            Fixed(c.pityRoot, 204);
+            F.VLayout(c.pityRoot.gameObject, 8);
+            var pityRow = Row(c.pityRoot, "Progress", 46);
+            var pityTitle = F.Text(pityRow, "Label", "에픽 확정", 32, UguiTheme.Parchment, TextAlignmentOptions.MidlineLeft);
+            F.Flexible(pityTitle, flexWidth: 1);
+            c.pityLabel = F.Text(pityRow, "Count", "0 / 40회", 36, UguiTheme.AccentGoldStrong, TextAlignmentOptions.MidlineRight);
+            F.Preferred(c.pityLabel, width: 260);
+            var track = F.Box(c.pityRoot, "Track", UguiTheme.RusticSurfaceDark, rounded: false);
+            Fixed(track, 14);
+            c.pityFill = F.Box(track.transform, "Fill", UguiTheme.AccentGoldStrong, rounded: false);
+            c.pityFill.sprite = PrefabGenUtil.GetOrCreateSolidRect();
+            c.pityFill.type = UnityEngine.UI.Image.Type.Filled;
+            c.pityFill.fillMethod = UnityEngine.UI.Image.FillMethod.Horizontal;
+            c.pityFill.fillAmount = 0;
+            F.Stretch(c.pityFill.rectTransform);
+            c.pityRemaining = F.Text(c.pityRoot, "Remaining", "에픽 확정까지 40회", 30, UguiTheme.Parchment, TextAlignmentOptions.MidlineLeft);
+            Fixed(c.pityRemaining, 42);
+            var rule = F.Text(c.pityRoot, "Rule", "에픽 미획득 39회 후 다음 뽑기에서 에픽 확정\n에픽 획득 시 누적 횟수 초기화", 26, UguiTheme.TextSecondary, TextAlignmentOptions.MidlineLeft, wrap: true);
+            Fixed(rule, 72);
 
-            // 뽑기 버튼 행 (Item_GachaPullButton 부모). 버튼을 균등하게 채운다.
-            var pullRow = F.Container(root, "PullRow");
-            F.HLayout(pullRow.gameObject, 14f, null, TextAnchor.MiddleCenter, expandWidth: true);
-            F.Preferred(pullRow, height: 140f);
-            view.pullRow = pullRow;
+            c.costLabel = F.Text(sheet.transform, "Wallet", "보유 고대주화", 34, UguiTheme.Parchment, TextAlignmentOptions.MidlineRight);
+            Fixed(c.costLabel, 56);
+            c.pullRow = Row(sheet.transform, "PullRow", 164);
+            ApplyLayout(view);
+            return PrefabGenUtil.SavePrefab(root.gameObject, PanelPath);
+        }
 
-            // 보상 섹션 타이틀
-            var section = F.Text(root, "RewardSectionTitle", "획득 가능 보상", 26f, SectionColor,
-                TextAlignmentOptions.Left, bold: true);
-            F.Preferred(section, height: 38f);
-            view.rewardSectionTitle = section;
+        /// <summary>기존 참조·아트를 보존하고 본문만 스크롤한다. 뽑기 버튼은 항상 하단에 둔다.</summary>
+        internal static void ApplyLayout(GachaPanelView view)
+        {
+            if (view == null || view.sheet == null || view.authoredContent == null)
+                throw new InvalidOperationException("Gacha panel references are incomplete.");
+            var suppressor = view.GetComponent<PartyHudSuppressor>();
+            if (suppressor != null) UnityEngine.Object.DestroyImmediate(suppressor);
+            PanelGens.ConfigureSheet(view);
+            var layout = view.sheet.GetComponent<UnityEngine.UI.VerticalLayoutGroup>();
+            layout.padding = new RectOffset(30, 30, 20, 24);
+            layout.spacing = 12;
+            var c = view.authoredContent;
+            if (view.scroll == null)
+            {
+                view.scroll = PanelGens.AddScroll(view.sheet, out var content);
+                view.content = content;
+            }
+            view.scroll.transform.SetSiblingIndex(2);
+            var scrollSize = F.Flexible(view.scroll, flexHeight: 1);
+            scrollSize.minHeight = 80;
+            scrollSize.preferredHeight = 0;
+            foreach (var row in new[] { c.messageLabel.transform, c.heroIcon.transform.parent, c.ratesButton.transform.parent, c.pityRoot })
+                row.SetParent(view.content, false);
+            c.costLabel.transform.SetAsLastSibling();
+            c.pullRow.SetAsLastSibling();
+            Fixed(view.sheet.Find("Header"), 132);
+            view.title.fontSize = 40;
+            Fixed(view.tabBar, 132);
+            var hero = F.Preferred(c.heroIcon.transform.parent, height: 300);
+            hero.minHeight = 220; hero.flexibleHeight = 0;
+            Fixed(c.ratesButton.transform.parent, 132);
+            Fixed(c.ratesButton, 132); Fixed(c.rewardsButton, 132);
+            Fixed(c.costLabel, 48);
+            Fixed(c.pullRow, 164);
+            var close = F.Preferred(view.closeButton, height: 132);
+            close.minHeight = 132;
+        }
 
-            // 보상 카드 그리드 (Item_GachaCard 부모)
-            var grid = F.Container(root, "RewardGrid");
-            var gridLayout = grid.gameObject.AddComponent<GridLayoutGroup>();
-            gridLayout.cellSize = new Vector2(160f, 200f);
-            gridLayout.spacing = new Vector2(10f, 10f);
-            gridLayout.childAlignment = TextAnchor.UpperCenter;
-            gridLayout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            gridLayout.constraintCount = 6;
-            view.rewardGrid = grid;
+        internal static GameObject GenerateRewards()
+        {
+            var root = F.Root("Popup_GachaRewards"); F.Stretch(root);
+            root.gameObject.AddComponent<PartyHudSuppressor>();
+            var view = root.gameObject.AddComponent<GachaRewardsPopupView>();
+            var dim = F.Box(root, "Dim", UguiTheme.DimHeavy, rounded: false, raycast: true);
+            F.Stretch(dim.rectTransform);
+            var box = F.PixelPanel(root, "Panel", F.Catalog.kitWindow, F.FrameGold, 24, raycast: true, baseColor: F.PanelBaseDarker);
+            Opaque(box);
+            F.Stretch(box.rectTransform);
+            box.rectTransform.anchorMin = new Vector2(0, .10f); box.rectTransform.anchorMax = new Vector2(1, .90f);
+            box.rectTransform.offsetMin = new Vector2(32, 0); box.rectTransform.offsetMax = new Vector2(-32, 0);
+            F.VLayout(box.gameObject, 20, new RectOffset(32, 32, 24, 24));
+            view.box = box.rectTransform;
+            var header = Row(box.transform, "Header", 120);
+            view.title = F.Text(header, "Title", "획득 가능 보상", 36, UguiTheme.Parchment, TextAlignmentOptions.MidlineLeft, bold: true);
+            F.Flexible(view.title, flexWidth: 1);
+            view.close = F.TextButton(header, "BtnClose", "닫기", 32, UguiTheme.RusticSurface, out _);
+            F.Preferred(view.close, width: 140, height: 120);
+            var scroll = F.VScroll(box.transform, "Scroll", out var content, spacing: 12);
+            F.Flexible(scroll, flexHeight: 1);
+            view.rewards = root.gameObject.AddComponent<GachaTabContentView>();
+            var grid = F.Container(content, "RewardGrid");
+            var layout = grid.gameObject.AddComponent<UnityEngine.UI.GridLayoutGroup>();
+            layout.spacing = new Vector2(16, 16); layout.constraint = UnityEngine.UI.GridLayoutGroup.Constraint.FixedColumnCount; layout.constraintCount = 3;
+            var responsive = new SerializedObject(grid.gameObject.AddComponent<ResponsiveGrid>());
+            responsive.FindProperty("minimumCellWidth").floatValue = 280;
+            responsive.ApplyModifiedPropertiesWithoutUndo();
+            view.rewards.rewardGrid = grid;
+            return PrefabGenUtil.SavePrefab(root.gameObject, "Assets/UGUI/Prefabs/Popups/Popup_GachaRewards.prefab");
+        }
 
-            return PrefabGenUtil.SavePrefab(root.gameObject, $"{PrefabGenUtil.PrefabRoot}/Panels/GachaTabContent.prefab");
+        private static RectTransform Row(Transform parent, string name, float height)
+        {
+            var row = F.Container(parent, name);
+            F.HLayout(row.gameObject, 16, null, TextAnchor.MiddleCenter, expandWidth: false);
+            Fixed(row, height);
+            return row;
+        }
+        private static void Fixed(Component component, float height)
+        { F.Preferred(component, height: height).minHeight = height; }
+
+        private static void Opaque(UnityEngine.UI.Image image)
+        {
+            image.sprite = PrefabGenUtil.GetOrCreateSolidRect();
+            var color = image.color; color.a = 1; image.color = color;
         }
     }
 }
