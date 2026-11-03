@@ -58,7 +58,7 @@
 
 `UIViewCatalog.panelGacha → Panel_Gacha`는 기존 장비·마탑 탭과 아트, 천장, 확률표·획득 가능 보상, 뽑기 버튼을 `GachaPanelView`의 직렬화 참조로 재사용한다. 상단의 제목·탭과 하단의 비용 재화 보유량·뽑기 버튼은 고정한다. 가운데 스크롤 본문은 `FeaturedArea → Tickets → Pity → Details` 순서다. 넓은 미리보기가 남는 높이를 채우고 그 아래 뽑기권 보유량, 장비 천장, 작은 확률표·보상 목록 링크를 배치한다. 장비 천장은 서버 최종 누적값을 `N / 40회`와 게이지로 표시하며 마탑에서는 숨긴다.
 
-뽑기 스크롤은 `F.VScroll`의 마스크·입력을 유지하며, Viewport의 `VerticalLayoutGroup`이 Content를 뷰포트 이상으로 채운다. Content의 `ContentSizeFitter`는 제거하고 기존 세로 레이아웃과 `flexibleHeight=1`을 사용한다. `FeaturedArea`만 가변 높이를 가지며 나머지 행은 최소 높이를 보존한다. 화면이 짧아 최소 콘텐츠 높이를 담지 못하면 가운데 본문만 스크롤한다. `Tickets`는 현재 탭의 장비·마탑 뽑기권 보유량을 0장도 포함해 읽기 전용으로 표시하며, 기존 지갑 변경 알림으로 갱신한다.
+뽑기 스크롤은 `F.VScroll`의 마스크·입력·ContentSizeFitter를 유지한다. `GachaPanelView`는 뷰포트 높이가 바뀔 때만 Content의 최소 높이를 맞추고, 기존 세로 레이아웃에서 `FeaturedArea`만 남는 높이를 채운다. 부모 레이아웃으로 Content의 위치를 강제하지 않아 재화 표시 갱신에도 스크롤 위치를 보존한다. 화면이 짧아 최소 콘텐츠 높이를 담지 못하면 가운데 본문만 스크롤한다. `Tickets`는 현재 탭의 장비·마탑 뽑기권 보유량을 0장도 포함해 읽기 전용으로 표시하며, 기존 지갑 변경 알림으로 갱신한다.
 
 `Popup_GachaRewards`는 열 때만 기존 보상 카드를 구성하며 `ModalBackHandler`로 닫힌다. 팝업은 패널의 자식이므로 가림·종료 수명을 함께 따른다.
 

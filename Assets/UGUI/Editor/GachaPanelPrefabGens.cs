@@ -131,13 +131,18 @@ namespace KingdomIdle.UGUI.Editor
             var scrollSize = F.Flexible(view.scroll, flexHeight: 1);
             scrollSize.minHeight = 80;
             scrollSize.preferredHeight = 0;
-            // Viewport가 Content의 최소 높이와 가용 높이 중 큰 값을 배분한다.
+            // ContentSizeFitter가 본문과 View의 최소 높이 중 큰 값을 사용한다.
             var contentFitter = view.content.GetComponent<UnityEngine.UI.ContentSizeFitter>();
-            if (contentFitter != null) UnityEngine.Object.DestroyImmediate(contentFitter);
+            if (contentFitter == null) contentFitter = view.content.gameObject.AddComponent<UnityEngine.UI.ContentSizeFitter>();
+            contentFitter.verticalFit = UnityEngine.UI.ContentSizeFitter.FitMode.PreferredSize;
             var viewportLayout = view.scroll.viewport.GetComponent<UnityEngine.UI.VerticalLayoutGroup>();
-            if (viewportLayout == null) viewportLayout = F.VLayout(view.scroll.viewport.gameObject);
-            viewportLayout.childForceExpandHeight = true;
-            F.Flexible(view.content, flexHeight: 1);
+            if (viewportLayout != null) UnityEngine.Object.DestroyImmediate(viewportLayout);
+            view.content.anchorMin = new Vector2(0, 1);
+            view.content.anchorMax = Vector2.one;
+            view.content.pivot = new Vector2(.5f, 1);
+            view.content.sizeDelta = new Vector2(0, view.content.sizeDelta.y);
+            view.content.anchoredPosition = Vector2.zero;
+            F.Flexible(view.content, flexHeight: 1).minHeight = 0;
             var bodyLayout = view.content.GetComponent<UnityEngine.UI.VerticalLayoutGroup>();
             bodyLayout.spacing = 18;
             bodyLayout.padding = new RectOffset(0, 0, 12, 0);

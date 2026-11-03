@@ -102,13 +102,13 @@ namespace KingdomIdle.UGUI.Editor
             var content = view.authoredContent;
             var viewport = view.scroll.viewport;
             var viewportLayout = viewport.GetComponent<VerticalLayoutGroup>();
-            Check(view.content.GetComponent<ContentSizeFitter>() == null && viewportLayout != null &&
-                viewportLayout.childControlHeight && viewportLayout.childForceExpandHeight,
-                name + ": viewport owns content height without a competing fitter");
+            var fitter = view.content.GetComponent<ContentSizeFitter>();
+            Check(fitter != null && fitter.verticalFit == ContentSizeFitter.FitMode.PreferredSize && viewportLayout == null,
+                name + ": content height fitter has no competing parent layout");
             Check(view.content.rect.height >= viewport.rect.height - 1, name + ": content fills the viewport");
             var hero = (RectTransform)content.heroIcon.transform.parent;
             float heroMinimum = LayoutUtility.GetMinHeight(hero);
-            float spareHeight = Mathf.Max(0, viewport.rect.height - LayoutUtility.GetPreferredHeight(view.content));
+            float spareHeight = Mathf.Max(0, viewport.rect.height - view.content.GetComponent<VerticalLayoutGroup>().preferredHeight);
             Check(heroMinimum >= 360 && hero.rect.height >= heroMinimum - 1 && LayoutUtility.GetFlexibleHeight(hero) > 0,
                 name + ": preview keeps its minimum height and can grow");
             Check(hero.rect.height >= heroMinimum + spareHeight - 1, name + ": preview uses the remaining viewport height");
@@ -130,6 +130,11 @@ namespace KingdomIdle.UGUI.Editor
             {
                 view.scroll.StopMovement(); view.scroll.verticalNormalizedPosition = 0;
                 Canvas.ForceUpdateCanvases();
+                float position = view.content.anchoredPosition.y;
+                LayoutRebuilder.ForceRebuildLayoutImmediate(view.sheet);
+                Canvas.ForceUpdateCanvases();
+                Check(Mathf.Abs(view.content.anchoredPosition.y - position) < 1,
+                    name + ": rebuilding the sheet preserves scroll position");
                 CheckContained(viewport, details, name + ": bottom links are reachable without clipping");
             }
             finally { view.scroll.verticalNormalizedPosition = scrollPosition; Canvas.ForceUpdateCanvases(); }

@@ -10,5 +10,16 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal ScrollRect scroll;
         [SerializeField] internal RectTransform content;
         [SerializeField] internal GachaTabContentView authoredContent;
+        private LayoutElement _contentSize;
+
+        private void LateUpdate()
+        {
+            if (scroll == null || scroll.viewport == null || content == null) return;
+            if (_contentSize == null) _contentSize = content.GetComponent<LayoutElement>();
+            float height = scroll.viewport.rect.height;
+            // 높이만 보정해 레이아웃 갱신 때 ScrollRect의 스크롤 위치를 보존한다.
+            if (_contentSize != null && Mathf.Abs(_contentSize.minHeight - height) > .5f)
+                _contentSize.minHeight = height;
+        }
     }
 }
