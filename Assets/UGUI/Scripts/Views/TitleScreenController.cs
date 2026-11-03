@@ -96,15 +96,7 @@ namespace KingdomIdle.UGUI
                 return;
             }
             HideLoginPopup();
-            NetworkManager.Instance.Authenticate(type, RequestEligibility, RequestTerms);
-        }
-
-        private Task<bool> RequestEligibility()
-        {
-            if (_view == null || !_view.isActiveAndEnabled) return Task.FromResult(false);
-            var answer = new TaskCompletionSource<bool>();
-            AlphaAgeGate.Show(_view.transform, () => answer.TrySetResult(true), () => answer.TrySetResult(false));
-            return answer.Task;
+            NetworkManager.Instance.Authenticate(type, RequestTerms);
         }
 
         private Task<bool> RequestTerms()
@@ -159,9 +151,11 @@ namespace KingdomIdle.UGUI
             {
                 var failure = net.LastFailure;
                 string kind = failure?.ErrorDetails != null && failure.ErrorDetails.TryGetValue("Kind", out var values) && values.Count > 0 ? values[0] : null;
-                if (kind == "EligibilityCanceled") return;
-                if (kind == "ConsentDeclined")
-                    _host.ShowToast(Localize("게임을 시작하려면 이용약관 동의가 필요합니다.", "Accept the terms to start the game."));
+                if (kind == "AgeRestricted")
+                    _host.ShowToast(Localize("이전 연령 확인 24시간 후 다시 시도해 주세요.",
+                        "Try again 24 hours after your last age check."));
+                else if (kind == "ConsentDeclined")
+                    ShowLoginPopup();
                 else if (kind == "ConsentSaveFailed")
                     _host.ShowToast(Localize("약관 동의 기록을 저장하지 못했습니다. 연결을 확인하고 다시 로그인해 주세요.",
                         "Could not save your agreement. Check your connection and sign in again."));

@@ -19,6 +19,12 @@ namespace Scripts.Server.Auth
         const string LastGoogleKey = "legal.lastVerifiedGoogle";
         const string AgeProviderKey = "legal.lastEligibleProvider";
         const string AgePolicyVersion = "alpha14-v1/";
+        // Earlier alpha builds stored this 24-hour restriction when a player confirmed an ineligible age.
+        const string PreviousAgeRetryKey = "age.alpha14.v1.retryAfterUtc";
+
+        internal static bool HasActiveAgeRestriction =>
+            long.TryParse(PlayerPrefs.GetString(PreviousAgeRetryKey), NumberStyles.None, CultureInfo.InvariantCulture,
+                out var retryAt) && retryAt > DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
         internal static bool VerifiedOnDevice => PlayerPrefs.GetString(VerifiedVersionKey) == TermsVersion;
 
@@ -57,14 +63,7 @@ namespace Scripts.Server.Auth
 
         internal static bool HasEligibleProvider(eAuthType provider) =>
             PlayerPrefs.GetString(AgeProviderKey) == AgePolicyVersion + provider &&
-            (provider != eAuthType.GoogleWebLogin || PlayerPrefs.HasKey(LastGoogleKey));
-
-        internal static void ClearAgeHint()
-        {
-            if (!PlayerPrefs.HasKey(AgeProviderKey)) return;
-            PlayerPrefs.DeleteKey(AgeProviderKey);
-            PlayerPrefs.Save();
-        }
+            (provider != eAuthType.GoogleWebLogin || !string.IsNullOrEmpty(PlayerPrefs.GetString(LastGoogleKey)));
 
         internal static void MarkVerifiedOnDevice(eAuthType provider, string googleHint)
         {

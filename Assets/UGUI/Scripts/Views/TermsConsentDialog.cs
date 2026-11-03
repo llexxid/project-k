@@ -30,10 +30,10 @@ namespace KingdomIdle.UGUI
             var panel = (RectTransform)transform.Find(title.popupLoginBox.name);
             panel.gameObject.AddComponent<ModalSizeFitter>();
             var heading = panel.Find("Title").GetComponent<TMP_Text>();
-            heading.text = L("게임 이용 안내", "Before you play");
+            heading.text = L("이용약관 동의", "Terms and consent");
             var notice = panel.Find("Subtitle").GetComponent<TMP_Text>();
-            notice.text = L("이번 알파 테스트는 만 14세 이상 참여할 수 있습니다. 정식 출시 시 데모 진행도가 초기화됩니다.\n휴대폰 알림은 선택 사항이며 설정 → 기기에서 관리할 수 있습니다.",
-                            "This alpha test is for ages 14 and up. Demo progress resets at the official launch.\nPhone notifications are optional. Manage them in Settings → Device.");
+            notice.text = L("정식 출시 시 데모 진행도가 초기화됩니다.\n휴대폰 알림은 설정에서 별도로 선택할 수 있습니다.",
+                            "Demo progress resets at launch.\nYou can turn on phone notifications in Settings.");
             notice.textWrappingMode = TextWrappingModes.Normal;
             notice.overflowMode = TextOverflowModes.Overflow;
             notice.GetComponent<LayoutElement>().preferredHeight = -1;
@@ -47,39 +47,52 @@ namespace KingdomIdle.UGUI
             dim.onClick.AddListener(Cancel);
             ModalBackHandler.Bind(gameObject, Cancel);
 
-            var documents = Row(panel, "Documents");
-            AddButton(template, documents, "ReadTerms", L("이용약관 전문", "Terms of Service"), () => LegalDocuments.ShowTerms(transform));
-            AddButton(template, documents, "ReadPrivacy", L("개인정보 처리 안내", "Privacy notice"), () => LegalDocuments.ShowPrivacy(transform));
-            var accepted = AgreementToggle(panel, heading.font, L("[필수] 서비스 이용약관에 동의합니다.", "[Required] I agree to the Terms of Service."));
+            var all = AgreementToggle(panel, heading.font, "AcceptAll", L("전체 동의", "Agree to all"), true);
+            var age = AgreementToggle(panel, heading.font, "AcceptAge", L("[필수] 만 14세 이상입니다", "[Required] I am 14 or older"));
+            var termsRow = Row(panel, "TermsRow");
+            var terms = AgreementToggle(termsRow, heading.font, "AcceptTerms", L("[필수] 서비스 이용약관에 동의합니다", "[Required] I agree to the Terms"));
+            var read = LinkButton(termsRow, heading.font, "ReadTerms", L("보기", "View"), () => LegalDocuments.ShowTerms(transform));
+            read.GetComponent<LayoutElement>().preferredWidth = 144;
+            LinkButton(panel, heading.font, "ReadPrivacy", L("개인정보 처리 안내 보기", "View privacy notice"), () => LegalDocuments.ShowPrivacy(transform));
             var actions = Row(panel, "Actions");
             AddButton(template, actions, "Cancel", L("돌아가기", "Go back"), Cancel);
-            var confirm = AddButton(template, actions, "Confirm", L("동의하고 계속", "Accept and continue"), () =>
+            var confirm = AddButton(template, actions, "Confirm", L("동의하고 계속", "Agree and continue"), () =>
             {
-                if (accepted.isOn) Finish(true);
+                if (age.isOn && terms.isOn) Finish(true);
             });
             var appearance = confirm.gameObject.AddComponent<CanvasGroup>();
             var confirmFace = confirm.GetComponent<Image>();
             var confirmLabel = confirm.GetComponentInChildren<TMP_Text>(true);
-            void EnableContinue(bool value)
+            void Refresh()
             {
-                confirm.interactable = value;
-                confirmFace.color = value ? UguiTheme.Bronze : UguiTheme.RusticSurfaceDark;
-                confirmLabel.color = value ? Color.white : UguiTheme.TextTertiary;
-                appearance.alpha = value ? 1f : .55f;
+                bool ready = age.isOn && terms.isOn;
+                all.SetIsOnWithoutNotify(ready);
+                confirm.interactable = ready;
+                confirmFace.color = ready ? UguiTheme.Bronze : UguiTheme.RusticSurfaceDark;
+                confirmLabel.color = ready ? Color.white : UguiTheme.Parchment;
+                appearance.alpha = ready ? 1f : .55f;
             }
-            EnableContinue(false);
-            accepted.onValueChanged.AddListener(EnableContinue);
+            all.onValueChanged.AddListener(value =>
+            {
+                age.SetIsOnWithoutNotify(value);
+                terms.SetIsOnWithoutNotify(value);
+                Refresh();
+            });
+            age.onValueChanged.AddListener(_ => Refresh());
+            terms.onValueChanged.AddListener(_ => Refresh());
+            Refresh();
         }
 
         static Transform Row(Transform parent, string name)
         {
             var row = new GameObject(name, typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
             row.transform.SetParent(parent, false);
-            row.GetComponent<LayoutElement>().preferredHeight = 96;
+            row.GetComponent<LayoutElement>().preferredHeight = 128;
             var layout = row.GetComponent<HorizontalLayoutGroup>();
             layout.spacing = 14;
             layout.childControlWidth = layout.childControlHeight = true;
-            layout.childForceExpandWidth = layout.childForceExpandHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = true;
             return row.transform;
         }
 
@@ -92,7 +105,7 @@ namespace KingdomIdle.UGUI
             button.onClick.AddListener(() => action());
             var size = button.GetComponent<LayoutElement>();
             size.preferredWidth = 0;
-            size.preferredHeight = 96;
+            size.preferredHeight = 128;
             size.flexibleWidth = 1;
             var label = button.GetComponentInChildren<TMP_Text>(true);
             label.text = caption;
@@ -104,12 +117,32 @@ namespace KingdomIdle.UGUI
             return button;
         }
 
-        static Toggle AgreementToggle(Transform parent, TMP_FontAsset font, string caption)
+        static Button LinkButton(Transform parent, TMP_FontAsset font, string name, string caption, Action open)
         {
-            var row = new GameObject("AcceptTerms", typeof(RectTransform), typeof(Image), typeof(Toggle), typeof(LayoutElement));
+            var link = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+            link.transform.SetParent(parent, false);
+            link.GetComponent<LayoutElement>().preferredHeight = 116;
+            var face = link.GetComponent<Image>();
+            face.color = UguiTheme.RusticPanel;
+            var button = link.GetComponent<Button>();
+            button.targetGraphic = face;
+            button.colors = UguiTheme.MakeColorBlock();
+            button.onClick.AddListener(() => open());
+            var label = Label(link.transform, font, caption);
+            label.alignment = TextAlignmentOptions.Center;
+            label.fontStyle = FontStyles.Underline;
+            label.color = UguiTheme.BronzeLight;
+            return button;
+        }
+
+        static Toggle AgreementToggle(Transform parent, TMP_FontAsset font, string name, string caption, bool master = false)
+        {
+            var row = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Toggle), typeof(LayoutElement));
             row.transform.SetParent(parent, false);
-            row.GetComponent<LayoutElement>().preferredHeight = 98;
-            row.GetComponent<Image>().color = UguiTheme.RusticSurface;
+            var size = row.GetComponent<LayoutElement>();
+            size.preferredHeight = 128;
+            size.flexibleWidth = 1;
+            row.GetComponent<Image>().color = master ? UguiTheme.RusticSurface : UguiTheme.RusticPanel;
             var background = new GameObject("Checkbox", typeof(RectTransform), typeof(Image)).GetComponent<Image>();
             background.transform.SetParent(row.transform, false);
             var rt = background.rectTransform;
@@ -129,24 +162,37 @@ namespace KingdomIdle.UGUI
             mark.color = UguiTheme.Parchment;
             mark.preserveAspect = true;
             mark.raycastTarget = false;
-            var label = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI)).GetComponent<TextMeshProUGUI>();
-            label.transform.SetParent(row.transform, false);
-            label.rectTransform.anchorMin = Vector2.zero;
-            label.rectTransform.anchorMax = Vector2.one;
+            var label = Label(row.transform, font, caption);
             label.rectTransform.offsetMin = new Vector2(88, 5);
-            label.rectTransform.offsetMax = new Vector2(-14, -5);
-            label.font = font;
-            label.fontSize = 29;
-            label.text = caption;
-            label.alignment = TextAlignmentOptions.MidlineLeft;
-            label.color = UguiTheme.Parchment;
-            label.raycastTarget = false;
+            if (master)
+            {
+                label.fontSize = 34;
+                label.fontStyle = FontStyles.Bold;
+            }
             var toggle = row.GetComponent<Toggle>();
             toggle.targetGraphic = background;
             toggle.graphic = mark;
             toggle.toggleTransition = Toggle.ToggleTransition.None;
             toggle.SetIsOnWithoutNotify(false);
             return toggle;
+        }
+
+        static TextMeshProUGUI Label(Transform parent, TMP_FontAsset font, string caption)
+        {
+            var label = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI)).GetComponent<TextMeshProUGUI>();
+            label.transform.SetParent(parent, false);
+            label.rectTransform.anchorMin = Vector2.zero;
+            label.rectTransform.anchorMax = Vector2.one;
+            label.rectTransform.offsetMin = new Vector2(12, 5);
+            label.rectTransform.offsetMax = new Vector2(-12, -5);
+            label.font = font;
+            label.fontSize = 30;
+            label.text = caption;
+            label.alignment = TextAlignmentOptions.MidlineLeft;
+            label.textWrappingMode = TextWrappingModes.Normal;
+            label.color = UguiTheme.Parchment;
+            label.raycastTarget = false;
+            return label;
         }
 
         internal void Cancel() => Finish(false);

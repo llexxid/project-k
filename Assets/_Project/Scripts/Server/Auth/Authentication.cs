@@ -28,21 +28,20 @@ namespace Scripts.Server.Auth
 		private bool _retriedLogin;
 		public Authentication(NetworkManager network) => _network = network;
 
-		public async void Authenticate(eAuthType type, Func<Task<bool>> checkEligibility, Func<Task<bool>> requestTerms)
+		public async void Authenticate(eAuthType type, Func<Task<bool>> requestTerms)
 		{
 			long generation = _network.BeginAuthentication();
 			_retriedLogin = false;
 			try
 			{
-				bool checkedAge = false;
-				if (!GameTermsConsent.HasEligibleProvider(type) || KingdomIdle.UGUI.AlphaAgeGate.IsBlocked)
+				if (GameTermsConsent.HasActiveAgeRestriction)
 				{
-					if (!await CheckAgeAsync(generation, checkEligibility)) return;
-					checkedAge = true;
+					_network.FailLogin(NetworkManager.CreateError("AgeRestricted", "이전 연령 확인에 따라 알파 테스트 참여가 제한되어 있습니다."));
+					return;
 				}
 				string acceptedAt = null;
 				string googleAccountHint = null;
-				if (!GameTermsConsent.VerifiedOnDevice)
+				if (!GameTermsConsent.VerifiedOnDevice || !GameTermsConsent.HasEligibleProvider(type))
 				{
 					acceptedAt = await GameTermsConsent.RequestAsync(requestTerms);
 					if (!IsCurrent(generation)) return;
@@ -80,11 +79,10 @@ namespace Scripts.Server.Auth
 					var google = await WithTimeout(GoogleSignIn.DefaultInstance.SignIn());
 					if (!IsCurrent(generation)) return;
 					googleAccountHint = GameTermsConsent.GoogleHint(google.UserId);
-					if (!GameTermsConsent.RecognizesGoogleAccount(googleAccountHint))
+					if (acceptedAt == null && !GameTermsConsent.RecognizesGoogleAccount(googleAccountHint))
 					{
-						// Check the newly selected person before allowing PlayFab to create their account.
-						if (!checkedAge && !await CheckAgeAsync(generation, checkEligibility)) return;
-						acceptedAt ??= await GameTermsConsent.RequestAsync(requestTerms);
+						// The last player's agreement cannot authorize creation of this player's account.
+						acceptedAt = await GameTermsConsent.RequestAsync(requestTerms);
 						if (!IsCurrent(generation)) return;
 					}
 					client.LoginWithGoogleAccount(new LoginWithGoogleAccountRequest
@@ -137,7 +135,7 @@ namespace Scripts.Server.Auth
 			{
 				if (!IsCurrent(generation)) return;
 				if (ex is GameTermsConsent.TermsDeclinedException)
-					_network.FailLogin(NetworkManager.CreateError("ConsentDeclined", "게임을 시작하려면 서비스 이용약관에 동의해 주세요."));
+					_network.FailLogin(NetworkManager.CreateError("ConsentDeclined", "게임을 시작하려면 필수 항목에 동의해 주세요."));
 				else if (ex is AuthenticationException auth)
 					_network.FailLogin(auth.Error);
 				else
@@ -169,15 +167,6 @@ namespace Scripts.Server.Auth
 			});
 		}
 #endif
-
-		private async Task<bool> CheckAgeAsync(long generation, Func<Task<bool>> checkEligibility)
-		{
-			GameTermsConsent.ClearAgeHint();
-			bool eligible = checkEligibility != null && await checkEligibility();
-			if (!IsCurrent(generation)) return false;
-			if (!eligible) _network.FailLogin(NetworkManager.CreateError("EligibilityCanceled", "로그인을 진행하지 않았습니다."));
-			return eligible;
-		}
 
 		// Order: apply the server snapshot to UserManager, then publish Ready. Ready synchronously starts the main
 		// scene load (TitleScreenController), which reads the current stage and characters from UserManager.
