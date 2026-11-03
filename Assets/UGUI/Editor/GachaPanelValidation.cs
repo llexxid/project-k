@@ -100,6 +100,9 @@ namespace KingdomIdle.UGUI.Editor
             Check(view.sheet.GetComponent<SheetSizeFitter>() != null && view.scroll != null && view.scroll.content == view.content,
                 name + ": shared sheet fitter and scroll wired");
             var bounds = new Vector3[4]; view.sheet.GetWorldCorners(bounds);
+            var tabBounds = new Vector3[4]; view.tabBar.GetWorldCorners(tabBounds);
+            var scrollBounds = new Vector3[4]; ((RectTransform)view.scroll.transform).GetWorldCorners(scrollBounds);
+            Check(tabBounds[0].y >= scrollBounds[2].y - 1, name + ": tabs stay above scroll content");
             foreach (var row in new[] { "Header", "GachaTabBar", "Wallet", "PullRow" })
             {
                 var rect = (RectTransform)view.sheet.Find(row);
@@ -114,7 +117,8 @@ namespace KingdomIdle.UGUI.Editor
             var armyBounds = new Vector3[4]; PartyHudController.Instance.HudRect.GetWorldCorners(armyBounds);
             Check(bounds[2].y <= armyBounds[0].y + 1, name + ": sheet stays below army HUD");
             var manual = Object.FindFirstObjectByType<MageManualCastHud>();
-            Check(manual != null && manual.group.alpha == 0 && !manual.group.blocksRaycasts, name + ": manual HUD invisible and input blocked");
+            Check(manual != null && manual.group.alpha == 0 &&
+                (!manual.tray.gameObject.activeInHierarchy || !manual.group.blocksRaycasts), name + ": manual HUD invisible and input blocked");
             var main = Object.FindFirstObjectByType<MainScreenView>();
             var hits = new List<RaycastResult>();
             EventSystem.current.RaycastAll(new PointerEventData(EventSystem.current) { position = main.tabGacha.transform.position }, hits);

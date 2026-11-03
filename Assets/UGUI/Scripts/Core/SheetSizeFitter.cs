@@ -9,9 +9,11 @@ namespace KingdomIdle.UGUI
         public HeightMode heightMode;
         private RectTransform _topBoundary;
         private RectTransform _rect;
+        private BottomSheetView _view;
         private bool _applying;
         private void OnEnable(){_rect=(RectTransform)transform;Apply();}
         private void OnRectTransformDimensionsChange(){if(_rect!=null&&isActiveAndEnabled)Apply();}
+        private void LateUpdate(){if(heightMode==HeightMode.BelowPartyHud)Apply();}
 
         /// <summary>팝업을 여는 쪽에서 실제 HUD를 연결한다. 다른 시트는 기본 계산을 그대로 사용한다.</summary>
         public void SetTopBoundary(RectTransform boundary)
@@ -28,9 +30,9 @@ namespace KingdomIdle.UGUI
             if (heightMode == HeightMode.BelowPartyHud)
             {
                 if (_topBoundary == null) return;
-                var view = GetComponentInParent<BottomSheetView>(true);
-                if (view == null || parent.parent != view.transform) return;
-                var root = (RectTransform)view.transform;
+                if (_view == null) _view = GetComponentInParent<BottomSheetView>(true);
+                if (_view == null || parent.parent != _view.transform) return;
+                var root = (RectTransform)_view.transform;
                 var party = PartyHudController.Instance != null ? PartyHudController.Instance.HudRect : null;
                 float partyHeight = party != null ? party.rect.height : UguiTheme.PartyHudHeight;
                 float top = root.InverseTransformPoint(_topBoundary.TransformPoint(
@@ -39,13 +41,16 @@ namespace KingdomIdle.UGUI
                 try
                 {
                     // 마스크와 입력 영역도 본문에 한정해 상단 정보·왕국군·하단바를 가리지 않는다.
-                    parent.offsetMax = new Vector2(parent.offsetMax.x, top - root.rect.yMax);
-                    _rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.Max(0, parent.rect.height));
-                    if (view.backdrop != null)
+                    var offset = new Vector2(parent.offsetMax.x, top - root.rect.yMax);
+                    if (parent.offsetMax != offset) parent.offsetMax = offset;
+                    float available = Mathf.Max(0, parent.rect.height);
+                    if (Mathf.Abs(_rect.rect.height - available) > .5f)
+                        _rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, available);
+                    if (_view.backdrop != null)
                     {
-                        var backdrop = (RectTransform)view.backdrop.transform;
-                        backdrop.offsetMin = parent.offsetMin;
-                        backdrop.offsetMax = parent.offsetMax;
+                        var backdrop = (RectTransform)_view.backdrop.transform;
+                        if (backdrop.offsetMin != parent.offsetMin) backdrop.offsetMin = parent.offsetMin;
+                        if (backdrop.offsetMax != parent.offsetMax) backdrop.offsetMax = parent.offsetMax;
                     }
                 }
                 finally { _applying = false; }

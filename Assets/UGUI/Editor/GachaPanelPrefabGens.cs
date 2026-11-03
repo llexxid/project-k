@@ -128,15 +128,15 @@ namespace KingdomIdle.UGUI.Editor
                 view.scroll = PanelGens.AddScroll(view.sheet, out var content);
                 view.content = content;
             }
-            view.scroll.transform.SetSiblingIndex(2);
             var scrollSize = F.Flexible(view.scroll, flexHeight: 1);
             scrollSize.minHeight = 80;
             scrollSize.preferredHeight = 0;
             foreach (var row in new[] { c.messageLabel.transform, c.heroIcon.transform.parent, c.ratesButton.transform.parent, c.pityRoot })
                 row.SetParent(view.content, false);
-            c.costLabel.transform.SetAsLastSibling();
-            c.pullRow.SetAsLastSibling();
-            Fixed(view.sheet.Find("Header"), 132);
+            var header = view.sheet.Find("Header");
+            foreach (var row in new[] { header, view.tabBar, view.scroll.transform, c.costLabel.transform, c.pullRow })
+                row.SetAsLastSibling();
+            Fixed(header, 132);
             view.title.fontSize = 40;
             Fixed(view.tabBar, 132);
             var hero = F.Preferred(c.heroIcon.transform.parent, height: 300);
