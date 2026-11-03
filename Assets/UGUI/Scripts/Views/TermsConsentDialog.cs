@@ -32,8 +32,8 @@ namespace KingdomIdle.UGUI
             var heading = panel.Find("Title").GetComponent<TMP_Text>();
             heading.text = L("이용약관 동의", "Terms and consent");
             var notice = panel.Find("Subtitle").GetComponent<TMP_Text>();
-            notice.text = L("정식 출시 시 데모 진행도가 초기화됩니다.\n휴대폰 알림은 설정에서 별도로 선택할 수 있습니다.",
-                            "Demo progress resets at launch.\nYou can turn on phone notifications in Settings.");
+            notice.text = L("정식 출시 시 데모 진행도가 초기화됩니다.\n휴대폰 알림은 선택 사항이며 기기 설정에서 변경할 수 있습니다.",
+                            "Demo progress resets at launch.\nNotifications are optional. You can change them in your device settings.");
             notice.textWrappingMode = TextWrappingModes.Normal;
             notice.overflowMode = TextOverflowModes.Overflow;
             notice.GetComponent<LayoutElement>().preferredHeight = -1;

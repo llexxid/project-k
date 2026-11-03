@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 #if UNITY_ANDROID && !UNITY_EDITOR
 using UnityEngine.Android;
@@ -7,12 +6,12 @@ using UnityEngine.Android;
 namespace KingdomIdle.UGUI
 {
     // This control manages the OS display permission. Campaign subscriptions are separate.
-    internal sealed class DeviceNotificationPermission
+    internal static class DeviceNotificationPermission
     {
 #if UNITY_ANDROID && !UNITY_EDITOR
         const string PermissionName = "android.permission.POST_NOTIFICATIONS";
-        const string DecisionKey = "device.notificationPermissionDecided";
-        PermissionCallbacks _request;
+        // Keep the existing key so an earlier permission decision also suppresses the first-launch prompt.
+        const string PromptHandledKey = "device.notificationPermissionDecided";
 
         static int SdkVersion
         {
@@ -23,22 +22,33 @@ namespace KingdomIdle.UGUI
             }
         }
 
-        static bool CanAsk()
+        internal static void RequestOnFirstLaunch()
         {
-            return SdkVersion >= 33 && !Permission.HasUserAuthorizedPermission(PermissionName) &&
-                (!PlayerPrefs.HasKey(DecisionKey) || Permission.ShouldShowRequestPermissionRationale(PermissionName));
+            if (PlayerPrefs.HasKey(PromptHandledKey)) return;
+            try
+            {
+                if (SdkVersion < 33) return;
+                bool alreadyAllowed = Permission.HasUserAuthorizedPermission(PermissionName);
+                bool shouldPrompt = !alreadyAllowed && !Permission.ShouldShowRequestPermissionRationale(PermissionName);
+                // Android can pause or kill the activity while the dialog is open.
+                // Store the attempt before handing off, including when the user dismisses it.
+                PlayerPrefs.SetInt(PromptHandledKey, 1);
+                PlayerPrefs.Save();
+                if (shouldPrompt) Permission.RequestUserPermission(PermissionName);
+            }
+            catch (AndroidJavaException e)
+            {
+                Debug.LogWarning("Unable to request notification permission: " + e.Message);
+            }
         }
 #endif
 
-        internal string ButtonText(bool english, out bool available)
+        internal static string ButtonText(bool english, out bool available)
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
-            available = _request == null;
-            if (!available) return english ? "Checking notification permission" : "휴대폰 알림 권한 확인 중";
+            available = true;
             try
             {
-                if (CanAsk()) return english ? "Show game notifications on this phone (optional)\nRequest permission"
-                    : "휴대폰에 게임 알림 표시 (선택)\n알림 권한 요청";
                 using var manager = AndroidApplication.currentActivity.Call<AndroidJavaObject>("getSystemService", "notification");
                 bool enabled = manager.Call<bool>("areNotificationsEnabled");
                 if (english) return enabled ? "Notifications allowed · Open device settings" : "Notifications off · Open device settings";
@@ -54,43 +64,20 @@ namespace KingdomIdle.UGUI
 #endif
         }
 
-        internal void Manage(bool english, Action refresh)
+        internal static void Manage(bool english)
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
-            if (_request != null) return;
             try
             {
-                if (CanAsk())
-                {
-                    _request = new PermissionCallbacks();
-                    _request.PermissionGranted += _ => Finish(true);
-                    _request.PermissionDenied += _ => Finish(true);
-                    _request.PermissionRequestDismissed += _ => Finish(false);
-                    refresh();
-                    Permission.RequestUserPermission(PermissionName, _request);
-                    return;
-                }
                 OpenSystemSettings();
             }
             catch (AndroidJavaException e)
             {
-                _request = null;
-                refresh();
                 Debug.LogWarning("Unable to open notification settings: " + e.Message);
                 UIManager.Instance?.ShowToast(english ? "Manage notifications in your phone's app settings."
                     : "휴대폰 설정의 앱 알림에서 변경할 수 있습니다.");
             }
 
-            void Finish(bool decided)
-            {
-                if (decided)
-                {
-                    PlayerPrefs.SetInt(DecisionKey, 1);
-                    PlayerPrefs.Save();
-                }
-                _request = null;
-                refresh();
-            }
 #endif
         }
 

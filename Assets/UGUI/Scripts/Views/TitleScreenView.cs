@@ -20,5 +20,14 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal Button btnLoginGuest;
         [SerializeField] internal Button btnLoginGoogle;
         [SerializeField] internal Button btnLoginApple;
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+        private System.Collections.IEnumerator Start()
+        {
+            yield return null;
+            while (!Application.isFocused) yield return null;
+            DeviceNotificationPermission.RequestOnFirstLaunch();
+        }
+#endif
     }
 }

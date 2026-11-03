@@ -8,7 +8,6 @@ namespace KingdomIdle.UGUI
     public sealed class SettingsModalController
     {
         SettingsModalView _view;
-        readonly DeviceNotificationPermission _notificationPermission = new();
         TMP_Text _notificationLabel;
         bool _isMuted;
         int _selectedTab;
@@ -70,7 +69,7 @@ namespace KingdomIdle.UGUI
             _view.btnTerms.onClick.AddListener(() => LegalDocuments.ShowTerms(_view.transform));
             _view.btnPrivacy.onClick.AddListener(() => LegalDocuments.ShowPrivacy(_view.transform));
             _notificationLabel = _view.btnNotificationPermission.GetComponentInChildren<TMP_Text>(true);
-            _view.btnNotificationPermission.onClick.AddListener(() => _notificationPermission.Manage(TitleLobbyPresentation.SavedEnglish, RefreshNotificationPermission));
+            _view.btnNotificationPermission.onClick.AddListener(() => DeviceNotificationPermission.Manage(TitleLobbyPresentation.SavedEnglish));
             _view.FocusReturned += RefreshNotificationPermission;
             foreach (var control in new Component[] { _view.tglPush, _view.tglNightPush, _view.btnWithdraw, _view.btnSave })
                 if (control != null) control.gameObject.SetActive(false);
@@ -139,7 +138,7 @@ namespace KingdomIdle.UGUI
         void RefreshNotificationPermission()
         {
             if (_view == null) return;
-            _notificationLabel.text = _notificationPermission.ButtonText(TitleLobbyPresentation.SavedEnglish, out bool available);
+            _notificationLabel.text = DeviceNotificationPermission.ButtonText(TitleLobbyPresentation.SavedEnglish, out bool available);
             _view.btnNotificationPermission.interactable = available;
         }
         void RefreshAudio()
