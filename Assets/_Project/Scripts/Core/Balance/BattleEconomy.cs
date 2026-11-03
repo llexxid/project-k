@@ -101,7 +101,6 @@ namespace KingdomIdle.Balance
                     { s.OfflineStage = id; s.OfflineKpm = kpm; s.OfflineRubyGold = s.RubyGoldLevel; s.OfflineRubyExp = s.RubyExpLevel; }
                 }
                 // 환생은 서버(OnReincarnation)가 요청 즉시 적용한다. 웨이브 경계의 로컬 환생 처리는 없다.
-                if (d.Type == eStageType.Main && d.WaveNumber <= 10) RubyProgression.CommitReset(s);
                 return true;
             });
             if (!result) { UnityEngine.Time.timeScale = 0; KingdomIdle.UGUI.UIManager.Instance?.ShowToast("클리어 보상을 저장할 수 없습니다. 저장 공간 확인 후 재접속해 주세요."); }

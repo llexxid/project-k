@@ -25,29 +25,29 @@ namespace Reincarnation
         public ReincarnationService(ReincarnationPolicy policy, IReincarnationProgressStore store, IReincarnationStageGateway gateway)
         { LocalProgression.Changed += () => ReincarnationStateChanged?.Invoke(CurrentState); }
 
-        /// <summary>서버 규칙과 같은 안내용 사전 검사. 보스 클리어 수는 현재 장 − 1, 쿨다운은 서버가 준 LastUtc 기준이다.</summary>
+        /// <summary>서버 규칙과 같은 안내용 사전 검사. 이번 주기 최고 해금 위치와 서버가 준 LastUtc를 사용한다.</summary>
         public static eReincarnationFailureReason Eligibility(ProgressionState s)
         {
             if (s.ReincarnationLevel >= 300) return eReincarnationFailureReason.MaximumLevel;
             if (s.ReincarnationDay == LocalProgression.KstDay && s.ReincarnationsToday >= 3) return eReincarnationFailureReason.DailyLimit;
-            if (UserManager.CycleBossClears(s.MainStage) < 1) return eReincarnationFailureReason.StageRequirementNotMet;
+            if (UserManager.CycleBossClears(Math.Max(s.MainStage, s.CycleFrontierStage)) < 1) return eReincarnationFailureReason.StageRequirementNotMet;
             if (LocalProgression.UtcNow - s.LastReincarnationUtc < 600) return eReincarnationFailureReason.Cooldown;
             return eReincarnationFailureReason.None;
         }
         public ReincarnationPreview GetPreview()
         {
-            if (IsBusy) return new(false, eReincarnationFailureReason.RequestDuplication);
+            if (IsBusy || RubyProgression.IsBusy) return new(false, eReincarnationFailureReason.RequestDuplication);
             var manager = StageManager.Instance;
             if (manager?.CurrentDefinition?.Type != eStageType.Main || manager.IsBossWave) return new(false, eReincarnationFailureReason.NotMainStage);
             if (manager.CurrentRunState != eStageRunState.Running) return new(false, eReincarnationFailureReason.StateIsNotRunning);
             var s = LocalProgression.State; var error = Eligibility(s);
-            return error != eReincarnationFailureReason.None ? new(false, error) : new ReincarnationPolicy().Evaluate(CurrentState, true, UserManager.CycleBossClears(s.MainStage));
+            return error != eReincarnationFailureReason.None ? new(false, error) : new ReincarnationPolicy().Evaluate(CurrentState, true, UserManager.CycleBossClears(Math.Max(s.MainStage, s.CycleFrontierStage)));
         }
 
         /// <summary>서버에 환생을 요청한다. Pending이면 OnReincarnationCompleted로 결과가 온다.</summary>
         public ReincarnationExecutionResult TryReincarnate()
         {
-            if (IsBusy) return ReincarnationExecutionResult.AlreadyProcessing;
+            if (IsBusy || RubyProgression.IsBusy) return ReincarnationExecutionResult.AlreadyProcessing;
             if (!GetPreview().CanReincarnate) return ReincarnationExecutionResult.StageResetRejected;
             LastFailure = null;
             var network = NetworkManager.Instance;
@@ -100,7 +100,7 @@ namespace Reincarnation
                 {
                     s.MainStage = stage;
                     s.CycleFrontierStage = Math.Max(stage, (long)r.StageState.HighestStage);
-                    s.CycleBossStage = UserManager.CycleBossClears(stage);
+                    s.CycleBossStage = UserManager.CycleBossClears(s.CycleFrontierStage);
                 }
                 s.HighestMainClear = Math.Max(0, (long)r.StageState.MainClear);
                 s.GoldRemainder = 0;

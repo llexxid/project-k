@@ -333,7 +333,7 @@ namespace Scripts.Core.Manager
 
 		public bool TryEnterDungeon(eStage stage)
 		{
-			if (_currentState != eStageRunState.Running ||
+			if (RubyProgression.IsBusy || _currentState != eStageRunState.Running ||
 			    _currentSession?.Definition.Type != eStageType.Main)
 			{
 				return false;
@@ -352,7 +352,7 @@ namespace Scripts.Core.Manager
 		}
 		public void ReturnToMainStage()
 		{
-			if (_dungeonRequestPending || StageParser.GetStageType(_currentStage) == eStageType.Main || _currentState == eStageRunState.Transitioning) return;
+			if (RubyProgression.IsBusy || _dungeonRequestPending || StageParser.GetStageType(_currentStage) == eStageType.Main || _currentState == eStageRunState.Transitioning) return;
             if (!string.IsNullOrEmpty(LocalProgression.State.ActiveDungeon))
             {
                 ExitServerDungeon(ReturnToMainStage);
@@ -489,6 +489,7 @@ namespace Scripts.Core.Manager
 			if (!BattleEconomy.Clear(session)) throw new InvalidOperationException("Stage reward could not be committed.");
             UpdateMaxClearedStage(definition);
             EnqueueStageClear(definition);
+            RubyProgression.OnWaveCleared(definition);
 			OnStageCleared?.Invoke(definition);
 		}
         private void HandleStageLoadFailure(Exception error, CameraFade fade)
@@ -501,7 +502,7 @@ namespace Scripts.Core.Manager
         private bool TransitionStage(eStage target)
 		{
 			Debug.Log($"{target}");
-			if (_huntSyncFailed || _onHuntsSettled != null || _dungeonRequestPending || _currentState == eStageRunState.Transitioning) return false;
+			if (RubyProgression.IsBusy || _huntSyncFailed || _onHuntsSettled != null || _dungeonRequestPending || _currentState == eStageRunState.Transitioning) return false;
 			
 			if (!_provider.TryGet(target, out StageDefinition definition))
 			{ 

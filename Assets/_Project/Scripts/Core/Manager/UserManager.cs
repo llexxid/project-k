@@ -502,11 +502,11 @@ namespace Scripts.Core
 			s.PendingReincarnation = false;
 		}
 
-		/// <summary>서버 규칙과 같은 이번 주기 보스 클리어 수(현재 장 − 1). 환생 미리보기에만 쓴다.</summary>
-		public static int CycleBossClears(long mainStage)
+		/// <summary>서버의 이번 주기 최고 해금 위치에서 보스 클리어 수를 구한다. 영구 클리어 기록은 쓰지 않는다.</summary>
+		public static int CycleBossClears(long highestStage)
 		{
-			if (StageParser.GetStageType((eStage)mainStage) != eStageType.Main) return 0;
-			return Math.Max(0, StageParser.GetStageNumber((eStage)mainStage) - 1);
+			if (StageParser.GetStageType((eStage)highestStage) != eStageType.Main) return 0;
+			return Math.Max(0, StageParser.GetStageNumber((eStage)highestStage) - 1);
 		}
 
 		/// <summary>서버 직업 코드(eJobCode) → 클라이언트 직업 이름(JobData.jobName). 모르는 코드는 Spearman.</summary>
@@ -637,6 +637,7 @@ namespace Scripts.Core
 					if (PlayerPrefs.HasKey("reincarnation.progress.v1"))
 						s.Modules["legacy-unassigned-reincarnation"] = PlayerPrefs.GetString("reincarnation.progress.v1");
 				}
+				if (!RubyProgression.ApplyServerState(s, response.RubyGrowthState)) return false;
 				ApplyCurrency(s, response.Currency);
 				ApplyGachaState(s, response.GachaState);
 				ApplyEquipment(s, response.Equipment);
@@ -652,8 +653,8 @@ namespace Scripts.Core
 				if (StageParser.GetStageType((eStage)stage) == eStageType.Main)
 				{
 					s.MainStage = stage;
-					// 환생 주기 파생값은 서버 규칙(현재 장 − 1)으로 맞춘다. 로컬 보스 클리어 카운트는 쓰지 않는다.
-					s.CycleBossStage = CycleBossClears(stage);
+					// 이전 위치로 돌아가도 이번 주기에 해금한 최고 위치의 환생 보너스를 유지한다.
+					s.CycleBossStage = CycleBossClears(frontier);
 					s.CycleFrontierStage = frontier;
 				}
 				// 클리어 판정은 HighestMainClear 기준이다. MainClears 집합은 서버 적용에서 더 채우지 않는다.
@@ -662,6 +663,7 @@ namespace Scripts.Core
 			});
 			var state = LocalProgression.State;
 			// 퀘스트 상태는 플레이어 상태 파일이 아니라 QuestManager가 보관한다(응답마다 전체 행이 와서 통째로 교체한다).
+			if (ok) RubyProgression.ReceiveServerState(response.RubyGrowthState != null);
 			if (ok) QuestManager.Receive(response.Quests, response is OnGetUserStateResponseDTO ? "state" : "login");
 			// 출석판도 플레이어 상태 파일이 아니라 CheckInService가 보관한다. 우편함은 로그인할 때마다 다시 조회한다.
 			if (ok) KingdomIdle.CheckIn.CheckInService.Receive(response.Attendance, response.ServerTimeUtc, response is OnGetUserStateResponseDTO ? "state" : "login");
