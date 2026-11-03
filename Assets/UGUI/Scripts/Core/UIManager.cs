@@ -29,7 +29,7 @@ namespace KingdomIdle.UGUI
         [Header("Behaviour")]
         [SerializeField] private bool dontDestroyOnLoad = true;
         [Tooltip("끄면 육성·왕국군·던전은 프리팹에 저장된 기존 크기를 사용합니다. 뽑기·상점은 확장 크기를 유지합니다.")]
-        [SerializeField] private bool expandLegacyTabPanels = true;
+        [SerializeField] private bool expandLegacyTabPanels = false;
 
         public UIViewCatalog Catalog => catalog;
         public RectTransform LayerScreens => layerScreens;
