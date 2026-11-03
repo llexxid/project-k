@@ -17,6 +17,7 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal Button enhanceButton;
         [SerializeField] internal Image enhanceButtonBg;
         [SerializeField] internal TMP_Text enhanceButtonLabel;
+        internal System.Action OnBack, OnDismantle, OnEnhance;
 
         [Header("Info")]
         [SerializeField] internal Image iconImage;
@@ -35,6 +36,13 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal TMP_Text expectedLabel;
 
         private static readonly Color Dim70 = new Color(1f, 1f, 1f, 0.70f);
+
+        private void Awake()
+        {
+            if (backButton != null) backButton.onClick.AddListener(() => OnBack?.Invoke());
+            if (detailButton != null) detailButton.onClick.AddListener(() => OnDismantle?.Invoke());
+            if (enhanceButton != null) enhanceButton.onClick.AddListener(() => OnEnhance?.Invoke());
+        }
 
         /// <summary>
         /// 상세 페이지 값 채우기. 텍스트는 컨트롤러가 원본과 동일하게 포맷해 넘긴다.
@@ -69,15 +77,12 @@ namespace KingdomIdle.UGUI
 
             if (enhanceSection != null) enhanceSection.SetActive(!maxLevel);
 
-            if (maxLevel)
-            {
-                if (enhanceButtonLabel != null) enhanceButtonLabel.text = "강화 MAX";
-                if (enhanceButton != null) enhanceButton.interactable = false;
-                var catalog = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
-                if (enhanceButtonBg != null && enhanceButton != null)
-                    UguiPixelSkin.ApplyButton(enhanceButtonBg, enhanceButton, UguiTheme.DisabledGrey, catalog);
-            }
-            else
+            if (enhanceButtonLabel != null) enhanceButtonLabel.text = maxLevel ? "강화 MAX" : "강화";
+            if (enhanceButton != null) enhanceButton.interactable = !maxLevel;
+            if (enhanceButtonBg != null)
+                enhanceButtonBg.color = UguiPixelSkin.Opaque(maxLevel ? UguiTheme.DisabledGrey : UguiTheme.EnhanceOrange);
+
+            if (!maxLevel)
             {
                 if (matLabel != null)
                 {

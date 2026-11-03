@@ -42,7 +42,9 @@ namespace KingdomIdle.UGUI
             _rect.pivot = new Vector2(.5f, 1);
         }
 
-        void LateUpdate()
+        void LateUpdate() => Refresh();
+
+        internal void Refresh()
         {
             if (_prefab == null || _rect.rect.width < 1) return;
             int columns = _grid.constraint == GridLayoutGroup.Constraint.FixedColumnCount ? Mathf.Max(1, _grid.constraintCount)
