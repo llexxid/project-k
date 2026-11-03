@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using KingdomIdle.Balance;
 using Newtonsoft.Json;
+using Scripts.Core.Manager;
 
 namespace Direction
 {
@@ -25,6 +26,23 @@ namespace Direction
     public sealed class GameDirectProgressStore
     {
         private const string Prefix = "game-direct:";
+        private const string NewPlayerKey = Prefix + "new-player";
+
+        // 가입 API보다 먼저 저장해야 가입 성공 직후 종료해도 다음 로그인에서 대상을 복원한다.
+        public bool TryEnrollNewPlayer(string account)
+        {
+            if (string.IsNullOrWhiteSpace(account) || account != NetworkManager.Instance?.PlayFabId) return false;
+            return LocalProgression.Execute("game-direct-enroll", state =>
+            {
+                if (LocalProgression.AccountKey != account) return false;
+                state.Modules[NewPlayerKey] = "1";
+                return true;
+            });
+        }
+
+        public bool IsNewPlayerEnrolled(long generation) =>
+            LocalProgression.AccountGeneration == generation && LocalProgression.TryGetCommittedState(out var state) &&
+            state.Modules.TryGetValue(NewPlayerKey, out string value) && value == "1";
 
 #if UNITY_EDITOR
         /// <summary>

@@ -91,7 +91,7 @@ Direction.GameDirectManager.Instance.RequestPlay("guide_development");
 
 `guide_mage_tower`는 **실제 마탑 탭 → 스킬 목록 → 장착 버튼 설명 → 해제 버튼 설명**의 네 단계다. `RequestPlay("guide_mage_tower")`로 요청하거나 Unity 상단 `GameTest → Guide Test/실제 계정 저장/5 마탑 스킬` 메뉴에서 실행한다. 장착·해제 실습은 요구하지 않으며 보유 스킬이 없어도 설명 확인으로 완료한다. `MageTower` 문맥은 기존 스킬 팝업을 정상 진행 화면으로 인정하고 미확인 단계 재개 시 복원한다. 마지막 확인 또는 건너뛰기 후에는 팝업을 닫는다. 진행 기록만 저장하며 스킬 소유·장착·재화는 변경하지 않는다. 에셋 누락 복구는 `KingdomIdle/Direction/Prepare mage tower guide`로 가능하다.
 
-안내 진행은 `Modules["game-direct:" + sequenceId]`, 실습 성공은 `Modules["game-direct-action:" + sequenceId + ":" + stepId]`에 분리 저장한다. 강화·뽑기의 `Execute` 거래 초안에 성공 영수증을 함께 넣으므로 소비 직후 종료되어도 재소비하지 않는다. 안내 JSON 저장은 성공 영수증을 덮지 않는다. 주화 지급은 `Claims`의 안내 ID·Action별 키와 50개 지급을 같은 거래에 저장한다. 이미 지급한 주화는 중단 시 회수하지 않으며 추가 지급도 없다. 저장 실패는 초안을 확정하지 않고 안내 입력을 해제한다. 계정 전환은 이전 요청·대기열·지연 콜백을 무효화한다. 환생으로 초기화하지 않는다.
+안내 진행은 `Modules["game-direct:" + sequenceId]`, 실습 성공은 `Modules["game-direct-action:" + sequenceId + ":" + stepId]`에 분리 저장한다. 강화·뽑기의 서버 성공 응답을 적용하는 `Execute` 거래 초안에 성공 영수증을 함께 넣으므로 로컬 저장까지 끝난 실습은 재개 시 재소비하지 않는다. 안내 JSON 저장은 성공 영수증을 덮지 않는다. 주화 지급은 서버 `OnClaimGuideReward`가 안내·단계 ID별 일회 지급을 처리하며, 이미 수령한 응답도 안내를 이어간다. 이미 지급한 주화는 중단 시 회수하지 않는다. 저장 실패는 초안을 확정하지 않고 안내 입력을 해제한다. 계정 전환은 이전 요청·대기열·지연 콜백을 무효화한다. 환생으로 초기화하지 않는다.
 
 `FeatureGuideInputGate`는 실제 최상단 레이캐스트 대상이 허용 버튼인지 검사한다. 밝은 구멍 안이라고 모든 터치를 통과시키지 않는다. 설명 카드와 지정된 읽기 스크롤 외 조작은 막고, 버튼 복제·부모 이동·경제 처리 대체는 하지 않는다. 필요한 패널·결과 팝업은 안내 흐름에 포함하며 무관한 모달·로딩에서는 숨기고 입력 차단을 해제한다. 돌아오면 미확인 단계의 화면을 복원한다. 자동 전투 시간 배율은 변경하지 않는다. 뒤로가기는 건너뛰기이며 정상 완료 후 메인 화면으로 돌아간다.
 
@@ -101,7 +101,9 @@ bootstrap부터 Play하고 메인 화면에 진입한다. Unity 상단 `GameTest
 
 `KingdomIdle/Direction/Validate isolated guide acceptance`는 빈 PlayMode 씬·격리 계정·실제 프리팹·EventSystem 입력으로 검사하고 원래 편집 씬으로 돌아간다. 기존 안내 회귀, 다섯 안내 FIFO, 실제 강화·확률 뽑기, 중복 소비 방지, 지급·저장 실패와 재개를 검사한다. 장비 48개의 스크롤·강조 범위와 마탑 열기·재개도 검사한다. 화면 비율 캡처는 Editor 시뮬레이션이며 Android 실기기 결과가 아니다.
 
-자동 발생은 아직 연결하지 않는다. 다음 단계에서 신규 계정·스테이지 클리어 등의 외부 트리거가 해당 SO를 `RequestPlay`하도록 연결한다. 트리거는 게임 조건을 판단하고, 중복·완료 억제와 재개는 Manager에 맡긴다. 기존 계정에 안내 키가 없다는 이유만으로 신규 계정으로 판단하지 않는다.
+신규 Google 계정은 가입 초기화 API를 보내기 전에 `Modules["game-direct:new-player"]`를 계정별 로컬 파일에 저장한다. 가입 중 종료되어 `PlayerNotInitialized`로 복구하는 Google 로그인도 같은 등록 경로를 사용한다. 등록 저장 실패 시 가입 요청을 중단한다. 로그인·서버 상태 적용 후 메인 스테이지가 시작될 때 `RequestNewPlayerGuides()`가 육성·왕국군·던전·뽑기·마탑 안내를 순서대로 요청하고, 실제 표시 시점은 기존 Player가 UI 준비를 기다린다. 로그인 세대마다 한 번만 요청하므로 던전 복귀로 반복 실행하지 않는다. 완료·건너뛰기한 안내는 제외하고 중단된 안내는 다음 접속에 미확인 단계부터 이어간다. 등록이 없는 기존 계정에는 소급 적용하지 않는다. 저장 범위는 같은 기기의 같은 설치본이며 재설치·앱 데이터 삭제·다른 기기 복원은 지원하지 않는다. 다른 자동 트리거는 연결하지 않았다.
+
+`KingdomIdle/Direction/Validate new player startup`은 격리 로컬 계정과 모의 인증 상태로 등록·재접속·완료 억제·계정 전환·저장 실패를 검사한다. 실제 Google 인증과 Android 실기기 검증은 별도다. 결과는 `TUTORIAL_QA_OUTPUT` 또는 레포지토리 밖 `C:/GitHub/QA/TutorialStartup-20261103`에 저장한다.
 
 `GameTest` 순차 실행은 현재 계정에서 미완료인 안내만 요청한다. 완료·건너뛰기 항목은 ID와 함께 `안내 생략` 일반 로그를 남기며 기록을 초기화하지 않는다. 패널 복원 직후 대상이 화면·마스크 밖에 있으면 `FeatureGuideView.TryRefreshLayout`은 false를 반환하고 호출자가 입력·참조를 정리한다. Player가 같은 미확인 단계를 다시 표시하므로 일시적인 레이아웃 미준비를 완료나 오류로 취급하지 않는다.
 

@@ -25,12 +25,14 @@ namespace Scripts.Server.Auth
 		private const string WebClientId = "222024339558-o157jmef5jhip2s9vtfo3kto1ojfpejf.apps.googleusercontent.com";
 		// OnLogIn이 PlayFab의 10초 한도에 걸린 뒤(함수 앱 콜드 스타트) 한 번만 다시 부른다.
 		private bool _retriedLogin;
+		private bool _googleLogin;
 		public Authentication(NetworkManager network) => _network = network;
 
 		public async void Authenticate(eAuthType type)
 		{
 			long generation = _network.BeginAuthentication();
 			_retriedLogin = false;
+			_googleLogin = type == eAuthType.GoogleWebLogin;
 			try
 			{
 				// Isolate SDK tokens too: a timed-out login must not replace another account's context.
@@ -78,7 +80,7 @@ namespace Scripts.Server.Auth
 				// A missing display name does not prove that the player's data needs initialization.
 				if (login.NewlyCreated)
 				{
-					_network.Call<InitUserRequestDTO, UserInitResponseDTO>(new InitUserRequestDTO(), OnInitialized, _network.FailLogin);
+					InitializeNewAccount();
 				}
 				else
 				{
@@ -97,6 +99,16 @@ namespace Scripts.Server.Auth
 		}
 
 		private bool IsCurrent(long generation) => _network != null && _network.AccountGeneration == generation;
+
+		private void InitializeNewAccount()
+		{
+			if (_googleLogin && !new Direction.GameDirectProgressStore().TryEnrollNewPlayer(_network.PlayFabId))
+			{
+				_network.FailLogin(NetworkManager.CreateError("ApplyFailed", "신규 계정 안내 정보를 저장하지 못했습니다. 다시 로그인해 주세요."));
+				return;
+			}
+			_network.Call<InitUserRequestDTO, UserInitResponseDTO>(new InitUserRequestDTO(), OnInitialized, _network.FailLogin);
+		}
 
 		// Order: apply the server snapshot to UserManager, then publish Ready. Ready synchronously starts the main
 		// scene load (TitleScreenController), which reads the current stage and characters from UserManager.
@@ -132,7 +144,7 @@ namespace Scripts.Server.Auth
 			if (error?.CustomData is ErrorResponseDTO business &&
 				business.ErrorCode == Protocol.Message.Data.eErrorCode.PlayerNotInitialized)
 			{
-				_network.Call<InitUserRequestDTO, UserInitResponseDTO>(new InitUserRequestDTO(), OnInitialized, _network.FailLogin);
+				InitializeNewAccount();
 				return;
 			}
 			// Consumption 플랜 콜드 스타트는 PlayFab의 10초 실행 한도를 넘길 수 있다. 그때쯤 함수 앱은 떠 있으므로 한 번 더 부르면 보통 1~2초에 끝난다.

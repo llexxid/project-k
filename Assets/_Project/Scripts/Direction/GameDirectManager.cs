@@ -4,12 +4,13 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using KingdomIdle.Balance;
 using KingdomIdle.UGUI;
+using Scripts.Core.Manager;
 using UnityEngine;
 
 namespace Direction
 {
     /// <summary>
-    /// 조건부 연출의 공통 실행 창구다. 이번 단계는 명시적인 요청만 받으며 자동 발생 조건은 연결하지 않는다.
+    /// 조건부 연출의 공통 실행 창구다. 신규 Google 계정의 안내는 메인 진입 시 저장된 진행부터 요청한다.
     /// GameManager 오브젝트에 붙고 각 연출 Player의 생성·취소·폐기를 소유한다.
     /// </summary>
     [DisallowMultipleComponent]
@@ -26,6 +27,10 @@ namespace Direction
         private bool _destroyed;
         private long _executionGeneration;
         private string _activeId;
+        private long _newPlayerLoginGeneration = -1;
+        private static readonly string[] NewPlayerGuideIds = {
+            "guide_development", "guide_kingdom_army", "guide_dungeon", "guide_gacha", "guide_mage_tower"
+        };
         public string ActiveSequenceId => _activeId;
         public int PendingCount => _queue.Count;
         public string LastError { get; private set; }
@@ -68,6 +73,32 @@ namespace Direction
             ClearRequests();
             _player?.Dispose();
             if (Instance == this) Instance = null;
+        }
+
+        public void RequestNewPlayerGuides()
+        {
+            var network = NetworkManager.Instance;
+            if (!isActiveAndEnabled || network == null || !network.IsGameDataReady ||
+                LocalProgression.AccountKey != network.PlayFabId ||
+                !_store.IsNewPlayerEnrolled(LocalProgression.AccountGeneration) ||
+                _newPlayerLoginGeneration == network.AccountGeneration) return;
+            // 던전 복귀 등 같은 로그인 내 씬 재진입으로 중단한 안내를 다시 띄우지 않는다.
+            _newPlayerLoginGeneration = network.AccountGeneration;
+            foreach (string id in NewPlayerGuideIds)
+            {
+                if (!_store.TryLoad(id, LocalProgression.AccountGeneration, out var progress))
+                {
+                    LastError = "안내 진행 정보를 읽을 수 없습니다: " + id;
+                    Debug.LogError("[GameDirect] " + LastError);
+                    return;
+                }
+                if (progress.Completed || progress.Skipped) continue;
+                if (!RequestPlay(id))
+                {
+                    Debug.LogError("[GameDirect] " + LastError);
+                    return;
+                }
+            }
         }
 
         /// <summary>등록된 ID로 재생을 요청한다. preview는 세이브를 읽거나 쓰지 않는 수동 미리보기다.</summary>
