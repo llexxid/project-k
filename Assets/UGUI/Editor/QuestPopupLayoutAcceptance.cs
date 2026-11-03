@@ -39,6 +39,17 @@ namespace KingdomIdle.UGUI.Editor
             try
             {
                 var rootRect = (RectTransform)root.transform;
+                var manager = root.AddComponent<UIManager>();
+                var settings = new SerializedObject(manager);
+                foreach (bool expanded in new[] { true, false })
+                {
+                    settings.FindProperty("expandLegacyTabPanels").boolValue = expanded;
+                    settings.ApplyModifiedPropertiesWithoutUndo();
+                    foreach (var id in new[] { KingdomIdle.UI.UIPanelId.Development, KingdomIdle.UI.UIPanelId.KingdomArmy, KingdomIdle.UI.UIPanelId.Dungeon })
+                        Check(manager.IsExpandedPanel(id) == expanded, id + " retains opt-out to its original layout");
+                    Check(manager.IsExpandedPanel(KingdomIdle.UI.UIPanelId.Gacha) && manager.IsExpandedPanel(KingdomIdle.UI.UIPanelId.Store),
+                        "Gacha and store keep their expanded layout with legacy expansion " + expanded);
+                }
                 RectTransform Child(string name, Transform parent)
                 {
                     var rect = (RectTransform)new GameObject(name, typeof(RectTransform)).transform;
@@ -73,6 +84,27 @@ namespace KingdomIdle.UGUI.Editor
                     Check(Mathf.Abs(sheet.rect.height - Mathf.Clamp(clip.rect.height - UguiTheme.StageControlsBottom - 24, 380, 960)) < .01f,
                         height + " default mode keeps the original calculation even when a HUD is supplied");
                     fitter.heightMode = SheetSizeFitter.HeightMode.AvailableSpace;
+                }
+                var panel = root.AddComponent<BottomSheetView>();
+                panel.sheet = sheet;
+                var backdrop = Child("Backdrop", rootRect);
+                backdrop.anchorMin = Vector2.zero; backdrop.anchorMax = Vector2.one;
+                panel.backdrop = backdrop.gameObject.AddComponent<UnityEngine.UI.Button>();
+                fitter.heightMode = SheetSizeFitter.HeightMode.BelowPartyHud;
+                foreach (float height in new[] { 1440f, 1920f, 2340f })
+                {
+                    rootRect.sizeDelta = new Vector2(1080, height);
+                    sheet.anchoredPosition = Vector2.zero;
+                    fitter.SetTopBoundary(hud);
+                    float partyHeight = PartyHudController.Instance != null && PartyHudController.Instance.HudRect != null
+                        ? PartyHudController.Instance.HudRect.rect.height : UguiTheme.PartyHudHeight;
+                    float expected = height - UguiTheme.HudTopHeight - UguiTheme.BottomBarHeight - partyHeight;
+                    Check(Mathf.Abs(sheet.rect.height - expected) < .01f, height + " expanded panel reserves both HUDs and navigation");
+                    Check(backdrop.offsetMin == clip.offsetMin && backdrop.offsetMax == clip.offsetMax,
+                        height + " expanded panel input stays inside its content region");
+                    sheet.anchoredPosition = new Vector2(0, -400);
+                    fitter.SetTopBoundary(hud);
+                    Check(Mathf.Abs(sheet.rect.height - expected) < .01f, height + " expanded panel slide keeps stable geometry");
                 }
             }
             finally { Object.DestroyImmediate(root); }

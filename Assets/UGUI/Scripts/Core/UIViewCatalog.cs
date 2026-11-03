@@ -139,7 +139,6 @@ namespace KingdomIdle.UGUI
         [Header("프리팹 전환 (런타임 코드빌드 → 프리팹)")]
         public GameObject popupMageTowerDetail;      // 마탑 스킬 상세 팝업
         public GameObject bodyDevelopment;           // 육성 패널 본문
-        public GameObject gachaTabContent;           // 뽑기 탭 콘텐츠
         public GameObject itemGuideStepRow;          // 가이드 단계 행
         public GameObject itemGuideEmptyHint;        // 가이드 빈 힌트
         public GameObject itemInventoryListPage;     // 인벤토리 리스트 페이지

@@ -21,9 +21,9 @@ using Object = UnityEngine.Object;
 namespace KingdomIdle.UGUI.Editor
 {
     /// <summary>정상 로그인 후 실행하는 UI 검사. 뽑기 요청이나 재화 지급은 하지 않는다.</summary>
-    public static class GachaFullScreenValidation
+    public static class GachaPanelValidation
     {
-        const string Output = "Recordings/Gacha20261101";
+        static readonly string Output = Environment.GetEnvironmentVariable("UI_QA_OUTPUT") ?? "C:/GitHub/QA/Navigation20261103";
         static readonly List<object> Results = new();
         static UIManager Host => UIManager.Instance;
         static GachaPanelView View => Object.FindFirstObjectByType<GachaPanelView>();
@@ -81,7 +81,7 @@ namespace KingdomIdle.UGUI.Editor
             File.WriteAllText(Output + "/ui-validation.json", JsonConvert.SerializeObject(
                 new { passed = failure == null, results = Results, failure = failure?.ToString() }, Formatting.Indented));
             if (failure != null) Debug.LogException(failure);
-            else Debug.Log("GACHA FULL SCREEN UI VALIDATION PASSED");
+            else Debug.Log("GACHA PANEL UI VALIDATION PASSED");
         }
 
         static void Check(bool ok, string test)
@@ -96,11 +96,53 @@ namespace KingdomIdle.UGUI.Editor
         static void LayoutCheck(string name)
         {
             var view = View;
-            Check(Stretch((RectTransform)view.transform) && Stretch(view.sheet), name + ": root/body Stretch zero offsets");
-            Check(view.GetComponentsInChildren<SheetSizeFitter>(true).Length == 0 &&
-                view.GetComponentsInChildren<ScrollRect>(true).Length == 0, name + ": no sheet fitter or main scroll");
+            Check(Stretch((RectTransform)view.transform), name + ": root stretches to safe area");
+            Check(view.sheet.GetComponent<SheetSizeFitter>() != null && view.scroll != null && view.scroll.content == view.content,
+                name + ": shared sheet fitter and scroll wired");
+            var content = view.authoredContent;
+            var viewport = view.scroll.viewport;
+            var viewportLayout = viewport.GetComponent<VerticalLayoutGroup>();
+            var fitter = view.content.GetComponent<ContentSizeFitter>();
+            Check(fitter != null && fitter.verticalFit == ContentSizeFitter.FitMode.PreferredSize && viewportLayout == null,
+                name + ": content height fitter has no competing parent layout");
+            Check(view.content.rect.height >= viewport.rect.height - 1, name + ": content fills the viewport");
+            var hero = (RectTransform)content.heroIcon.transform.parent;
+            float heroMinimum = LayoutUtility.GetMinHeight(hero);
+            float spareHeight = Mathf.Max(0, viewport.rect.height - view.content.GetComponent<VerticalLayoutGroup>().preferredHeight);
+            Check(heroMinimum >= 360 && hero.rect.height >= heroMinimum - 1 && LayoutUtility.GetFlexibleHeight(hero) > 0,
+                name + ": preview keeps its minimum height and can grow");
+            Check(hero.rect.height >= heroMinimum + spareHeight - 1, name + ": preview uses the remaining viewport height");
+            var tickets = view.content.Find("Tickets") as RectTransform;
+            var details = (RectTransform)content.ratesButton.transform.parent;
+            Check(tickets != null && hero.GetSiblingIndex() < tickets.GetSiblingIndex() &&
+                tickets.GetSiblingIndex() < content.pityRoot.GetSiblingIndex() && content.pityRoot.GetSiblingIndex() < details.GetSiblingIndex(),
+                name + ": preview, tickets, pity and links retain their reading order");
+            CheckContained(tickets, content.ticketName.rectTransform, name + ": ticket name fits");
+            CheckContained(tickets, content.ticketCount.rectTransform, name + ": ticket count fits");
+            foreach (var button in new[] { content.ratesButton, content.rewardsButton })
+            {
+                CheckContained(details, (RectTransform)button.transform, name + ": link button fits");
+                CheckContained((RectTransform)button.transform, button.GetComponentInChildren<TMPro.TMP_Text>().rectTransform,
+                    name + ": link label fits");
+            }
+            float scrollPosition = view.scroll.verticalNormalizedPosition;
+            try
+            {
+                view.scroll.StopMovement(); view.scroll.verticalNormalizedPosition = 0;
+                Canvas.ForceUpdateCanvases();
+                float position = view.content.anchoredPosition.y;
+                LayoutRebuilder.ForceRebuildLayoutImmediate(view.sheet);
+                Canvas.ForceUpdateCanvases();
+                Check(Mathf.Abs(view.content.anchoredPosition.y - position) < 1,
+                    name + ": rebuilding the sheet preserves scroll position");
+                CheckContained(viewport, details, name + ": bottom links are reachable without clipping");
+            }
+            finally { view.scroll.verticalNormalizedPosition = scrollPosition; Canvas.ForceUpdateCanvases(); }
             var bounds = new Vector3[4]; view.sheet.GetWorldCorners(bounds);
-            foreach (var row in new[] { "Header", "GachaTabBar", "FeaturedArea", "Details", "Pity", "Wallet", "PullRow" })
+            var tabBounds = new Vector3[4]; view.tabBar.GetWorldCorners(tabBounds);
+            var scrollBounds = new Vector3[4]; ((RectTransform)view.scroll.transform).GetWorldCorners(scrollBounds);
+            Check(tabBounds[0].y >= scrollBounds[2].y - 1, name + ": tabs stay above scroll content");
+            foreach (var row in new[] { "Header", "GachaTabBar", "Wallet", "PullRow" })
             {
                 var rect = (RectTransform)view.sheet.Find(row);
                 if (!rect.gameObject.activeInHierarchy) continue;
@@ -109,13 +151,25 @@ namespace KingdomIdle.UGUI.Editor
                     name + ": " + row + " fits");
             }
             Check(view.GetComponentsInChildren<TMPro.TMP_Text>().All(x => !x.isTextOverflowing), name + ": text fits");
-            Check(PartyHudController.ModalSuppressCount == 1 && !PartyHudController.Instance.HudRect.gameObject.activeInHierarchy,
-                name + ": army HUD suppressed once");
+            Check(PartyHudController.ModalSuppressCount == 0 && PartyHudController.Instance.HudRect.gameObject.activeInHierarchy,
+                name + ": army HUD stays visible");
+            var armyBounds = new Vector3[4]; PartyHudController.Instance.HudRect.GetWorldCorners(armyBounds);
+            Check(bounds[2].y <= armyBounds[0].y + 1, name + ": sheet stays below army HUD");
             var manual = Object.FindFirstObjectByType<MageManualCastHud>();
-            Check(manual != null && manual.group.alpha == 0 && !manual.group.blocksRaycasts, name + ": manual HUD invisible and input blocked");
+            Check(manual != null && manual.group.alpha == 0 &&
+                (!manual.tray.gameObject.activeInHierarchy || !manual.group.blocksRaycasts), name + ": manual HUD invisible and input blocked");
+            var main = Object.FindFirstObjectByType<MainScreenView>();
             var hits = new List<RaycastResult>();
-            EventSystem.current.RaycastAll(new PointerEventData(EventSystem.current) { position = new Vector2(Screen.width / 2, bounds[0].y + 30) }, hits);
-            Check(hits.Count > 0 && hits[0].gameObject.transform.IsChildOf(view.transform), name + ": bottom menu input covered");
+            EventSystem.current.RaycastAll(new PointerEventData(EventSystem.current) { position = main.tabGacha.transform.position }, hits);
+            Check(hits.Count > 0 && hits[0].gameObject.transform.IsChildOf(main.tabGacha.transform), name + ": bottom menu remains touchable");
+        }
+
+        static void CheckContained(RectTransform container, RectTransform item, string test)
+        {
+            var outer = new Vector3[4]; container.GetWorldCorners(outer);
+            var inner = new Vector3[4]; item.GetWorldCorners(inner);
+            Check(inner[0].x >= outer[0].x - 1 && inner[2].x <= outer[2].x + 1 &&
+                inner[0].y >= outer[0].y - 1 && inner[2].y <= outer[2].y + 1, test);
         }
 
         static void Shot(string name)
@@ -146,16 +200,8 @@ namespace KingdomIdle.UGUI.Editor
                 Check(old != current, "catalog enters new prefab");
                 Check(current.GetComponentsInChildren<Component>(true).All(x => x != null), "new prefab has no missing scripts");
                 GachaPanelController.SetPendingSkillTab(false);
-                catalog.panelGacha = old;
                 Host.PushPanel(UIPanelId.Gacha, isTabPanel: true);
-                catalog.panelGacha = current;
-                yield return new WaitForSecondsRealtime(.5f); Shot("before-old-1080x1920");
-                yield return Measure("old");
-                Host.ClearPanels(); yield return new WaitForSecondsRealtime(.3f);
-                GachaPanelController.SetPendingSkillTab(false);
-                Host.PushPanel(UIPanelId.Gacha, isTabPanel: true);
-                var position = View.sheet.anchoredPosition;
-                for (int i = 0; i < 24; i++) { yield return null; Check(View.sheet.anchoredPosition == position, "open fade has no motion " + i); }
+                yield return new WaitForSecondsRealtime(.4f);
                 Check(View.GetComponentsInChildren<GachaCardItemView>(true).Length == 0, "reward cards are lazy");
                 foreach (var size in new[] { new Vector2Int(720, 1280), new Vector2Int(1080, 2400), new Vector2Int(1536, 2048) })
                 {
@@ -171,7 +217,8 @@ namespace KingdomIdle.UGUI.Editor
                 safeRect.anchorMin = safeMin; safeRect.anchorMax = safeMax; safe.enabled = true;
                 yield return new WaitForSecondsRealtime(.3f);
                 CheckPityDisplay();
-                yield return Measure("full-screen"); Shot("after-equipment-1080x1920"); yield return null;
+                CheckTicketDisplay(false);
+                yield return Measure("shared-sheet"); Shot("after-equipment-1080x1920"); yield return null;
                 View.authoredContent.rewardsButton.onClick.Invoke(); yield return new WaitForSecondsRealtime(.3f);
                 var popup = Object.FindFirstObjectByType<GachaRewardsPopupView>();
                 Check(popup != null && popup.rewards.rewardGrid.childCount == 13, "equipment popup has 12 equipment + fragments");
@@ -185,6 +232,20 @@ namespace KingdomIdle.UGUI.Editor
                 yield return new WaitForSecondsRealtime(.2f);
                 Check(!View.authoredContent.pityRoot.gameObject.activeSelf, "mage has no pity");
                 Check(View.authoredContent.heroIcon.sprite == View.authoredContent.mageArt, "mage has own art");
+                CheckTicketDisplay(true);
+                foreach (var size in new[] { new Vector2Int(720, 1280), new Vector2Int(1080, 2400), new Vector2Int(1536, 2048) })
+                {
+                    StageHudValidation.Resolution(size.x, size.y);
+                    yield return new WaitForSecondsRealtime(.4f);
+                    LayoutCheck("mage " + size); Shot("mage-" + size.x + "x" + size.y);
+                    yield return null;
+                }
+                StageHudValidation.Resolution(1080, 1920); yield return new WaitForSecondsRealtime(.3f);
+                safe.enabled = false; safeRect.anchorMin = new Vector2(0, .035f); safeRect.anchorMax = new Vector2(1, .95f);
+                yield return new WaitForSecondsRealtime(.3f);
+                LayoutCheck("mage simulated top/bottom safe area"); Shot("mage-safe-area"); yield return null;
+                safeRect.anchorMin = safeMin; safeRect.anchorMax = safeMax; safe.enabled = true;
+                yield return new WaitForSecondsRealtime(.3f);
                 LayoutCheck("mage"); Shot("after-mage-1080x1920"); yield return null;
                 View.authoredContent.rewardsButton.onClick.Invoke(); yield return new WaitForSecondsRealtime(.2f);
                 Check(Object.FindFirstObjectByType<GachaRewardsPopupView>().rewards.rewardGrid.childCount == 11, "mage popup has 8 skills + 3 knowledge rewards");
@@ -193,12 +254,13 @@ namespace KingdomIdle.UGUI.Editor
                 Check(View.authoredContent.heroTitle.text == "마탑 뽑기", "popup close preserves selected tab");
                 Host.PushPanel(UIPanelId.Development); yield return new WaitForSecondsRealtime(.4f);
                 Host.PopPanel(); yield return new WaitForSecondsRealtime(.4f);
-                Check(View.GetComponent<CanvasGroup>().alpha == 1 && View.GetComponent<CanvasGroup>().interactable && Stretch(View.sheet), "stack return restores fade/input/position");
+                Check(View.GetComponent<CanvasGroup>().alpha == 1 && View.GetComponent<CanvasGroup>().interactable &&
+                    View.sheet.anchoredPosition == Vector2.zero, "stack return restores fade/input/position");
                 View.authoredContent.rewardsButton.onClick.Invoke(); yield return null;
                 Host.PopPanel();
                 var closing = View;
-                Check(closing.GetComponent<CanvasGroup>().blocksRaycasts && !closing.GetComponent<CanvasGroup>().interactable, "exit blocks input through panel");
-                Check(PartyHudController.ModalSuppressCount == 1, "exit keeps HUD suppression");
+                Check(!closing.GetComponent<CanvasGroup>().blocksRaycasts && !closing.GetComponent<CanvasGroup>().interactable, "closing panel releases menu input");
+                Check(PartyHudController.ModalSuppressCount == 0, "exit does not suppress army HUD");
                 yield return new WaitForSecondsRealtime(.3f);
                 Check(Object.FindFirstObjectByType<GachaRewardsPopupView>() == null, "owner close removes rewards popup");
                 Check(PartyHudController.ModalSuppressCount == 0 && PartyHudController.Instance.HudRect.gameObject.activeInHierarchy, "close restores army HUD");
@@ -237,6 +299,52 @@ namespace KingdomIdle.UGUI.Editor
                 }
             }
             finally { state.EquipmentPity = saved; update.Invoke(null, null); }
+        }
+
+        static void CheckTicketDisplay(bool skill)
+        {
+            Check(!GachaManager.Instance.IsPulling, "ticket display fixture has no draw in flight");
+            var state = LocalProgression.State;
+            var wallet = new Dictionary<eCurrency, long>(state.Wallet);
+            int pity = state.EquipmentPity;
+            long revision = state.Revision;
+            var currency = skill ? eCurrency.MageTicket : eCurrency.EquipmentTicket;
+            var content = View.authoredContent;
+            var update = typeof(GachaPanelController).GetMethod("UpdateWallet", BindingFlags.Static | BindingFlags.NonPublic);
+            var changed = typeof(GachaPanelController).GetMethod("OnWalletChanged", BindingFlags.Static | BindingFlags.NonPublic);
+            update.Invoke(null, null);
+            string cost = content.costLabel.text;
+            var pulls = content.pullRow.GetComponentsInChildren<GachaPullButtonView>();
+            var pullCosts = pulls.Select(x => x.costLabel.text).ToArray();
+            try
+            {
+                // 같은 프레임에서 사전 값만 바꾼다. 저장·지급·이벤트·네트워크 경로는 호출하지 않는다.
+                foreach (long value in new[] { 0L, 17L })
+                {
+                    state.Wallet[currency] = value;
+                    if (value == 0) update.Invoke(null, null);
+                    else changed.Invoke(null, new object[] { currency, value });
+                    Check(EconomyBridge.TryGetAmount(currency, out long amount) && amount == value,
+                        currency + ": wallet bridge reads the display fixture " + value);
+                    Check(content.ticketName.text == RewardPresentation.Name(currency) &&
+                        content.ticketCount.text == "보유 " + NumberNotation.Format(value) + "장" && content.ticketCount.gameObject.activeInHierarchy,
+                        currency + ": zero and nonzero balances remain visible " + value);
+                    Check(state.Wallet[currency] == value && wallet.All(x => x.Key == currency ||
+                        state.Wallet.TryGetValue(x.Key, out long balance) && balance == x.Value) &&
+                        state.EquipmentPity == pity && state.Revision == revision && !GachaManager.Instance.IsPulling,
+                        currency + ": display refresh does not consume currency or change pity");
+                    Check(content.costLabel.text == cost && pulls.Select(x => x.costLabel.text).SequenceEqual(pullCosts) &&
+                        content.pityRoot.gameObject.activeSelf == !skill,
+                        currency + ": existing costs and equipment-only pity are unchanged");
+                }
+            }
+            finally
+            {
+                state.Wallet.Clear();
+                foreach (var entry in wallet) state.Wallet.Add(entry.Key, entry.Value);
+                state.EquipmentPity = pity; state.Revision = revision;
+                update.Invoke(null, null);
+            }
         }
 
         static IEnumerator Measure(string label)

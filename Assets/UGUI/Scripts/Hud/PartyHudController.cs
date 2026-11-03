@@ -422,11 +422,18 @@ namespace KingdomIdle.UGUI
 
             var mgr = UIManager.Instance;
             bool onMain = mgr != null && mgr.ActiveScreenId == UIScreenId.Main;
-            bool shouldShow = onMain && !mgr.HasBlockingPanel && ModalSuppressCount <= 0;
+            bool expanded = mgr != null && mgr.HasExpandedPanel;
+            bool shouldShow = onMain && (!mgr.HasBlockingPanel || expanded) && ModalSuppressCount <= 0;
             float sheetH = mgr != null ? mgr.GetTopSheetHeight() : 0f;
             float bottom = fallbackBottomBarPx + baseGapPx + (sheetH > 1f ? sheetH + sheetGapPx : 0f);
             var parentRect = _view.rect.parent as RectTransform;
-            if (sheetH > 1f && parentRect != null && bottom + _view.rect.rect.height > parentRect.rect.height - 350f)
+            if (expanded && parentRect != null && mgr.HudTop != null)
+            {
+                float hudBottom = parentRect.InverseTransformPoint(mgr.HudTop.TransformPoint(
+                    new Vector3(mgr.HudTop.rect.center.x, mgr.HudTop.rect.yMin, 0))).y;
+                bottom = hudBottom - parentRect.rect.yMin - _view.rect.rect.height;
+            }
+            else if (sheetH > 1f && parentRect != null && bottom + _view.rect.rect.height > parentRect.rect.height - 350f)
                 shouldShow = false;
 
             if (_view.gameObject.activeSelf != shouldShow)
@@ -435,6 +442,12 @@ namespace KingdomIdle.UGUI
 
             // 프리팹은 bottom-center 앵커/피벗 — 시트 슬라이드에 맞춰 y를 부드럽게 추종
             var pos = _view.rect.anchoredPosition;
+            if (expanded)
+            {
+                _posVelY = 0;
+                if (!Mathf.Approximately(pos.y, bottom)) _view.rect.anchoredPosition = new Vector2(pos.x, bottom);
+                return;
+            }
             if (!Mathf.Approximately(pos.y, bottom))
             {
                 float newY = Mathf.SmoothDamp(pos.y, bottom, ref _posVelY, 0.14f, Mathf.Infinity, Time.unscaledDeltaTime);

@@ -1,6 +1,7 @@
 using KingdomIdle.Balance;
 using KingdomIdle.Ads;
 using KingdomIdle.Rewards;
+using KingdomIdle.UI;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -10,6 +11,7 @@ namespace KingdomIdle.UGUI
     public static class ShopPopupController
     {
         static ShopPopupView _view;
+        static UIManager _host;
         static int _tab;
         static long _revision = -1, _account = -1;
         static NumberStyle _numberStyle;
@@ -17,7 +19,7 @@ namespace KingdomIdle.UGUI
         static bool _busy, _adBusy;
         static string _day;
         static int _adRevision = -1;
-        public static bool IsOpen => _view != null && _view.gameObject.activeSelf;
+        public static bool IsOpen => _view != null && _view.isActiveAndEnabled;
 
         // 광고 보상은 서버가 지급한다(2026-11-01). 결과는 ShopAdRewardService.ClaimCompleted로 온다.
         static ShopPopupController() => ShopAdRewardService.ClaimCompleted += OnClaimCompleted;
@@ -26,34 +28,57 @@ namespace KingdomIdle.UGUI
         {
             var host = UIManager.Instance;
             if (host == null || host.Catalog == null || host.Catalog.popupShop == null) return;
-            if (_view == null)
+            if (IsOpen && host.IsTopPanel(_view)) return;
+            host.PushPanel(UIPanelId.Store, clearBefore: true, isTabPanel: true);
+        }
+
+        public static void Populate(ShopPopupView view)
+        {
+            if (view == null) return;
+            Detach(_view);
+            _view = view;
+            _host = UIManager.Instance;
+            view.OnClosed = () => Detach(view);
+            if (!view.Bound)
             {
-                var instance = Object.Instantiate(host.Catalog.popupShop, host.LayerPopups, false);
-                var rect = (RectTransform)instance.transform;
-                rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero;
-                _view = instance.GetComponent<ShopPopupView>();
-                _view.backdrop.onClick.AddListener(Hide); _view.close.onClick.AddListener(Hide);
-                ModalBackHandler.Bind(instance, Hide);
-                for (int i = 0; i < _view.tabs.Length; i++) { int index = i; _view.tabs[i].onClick.AddListener(() => SelectTab(index)); }
-                foreach (var row in _view.offers)
+                for (int i = 0; i < view.tabs.Length; i++)
+                {
+                    int index = i;
+                    view.tabs[i].onClick.AddListener(() => { if (_view == view) SelectTab(index); });
+                }
+                foreach (var row in view.offers)
                 {
                     string id = row.offerId;
-                    row.action.onClick.AddListener(() => Activate(id));
+                    row.action.onClick.AddListener(() => { if (_view == view) Activate(id); });
                 }
+                view.Bound = true;
+                SelectTab(_tab);
             }
-            _view.gameObject.SetActive(true); _view.transform.SetAsLastSibling();
+            else _tab = view.SelectedTab;
             _revision = -1;
-            SelectTab(_tab); Refresh();
-            LocalProgression.Changed -= Refresh; LocalProgression.Changed += Refresh;
-            host.FrameTick -= Refresh; host.FrameTick += Refresh;
-            UITween.PopIn(_view.panel);
+            Refresh();
+            LocalProgression.Changed += Refresh;
+            if (_host != null) _host.FrameTick += Refresh;
+        }
+
+        internal static void Restore(ShopPopupView view)
+        {
+            if (_view != view) Populate(view);
         }
 
         public static void Hide()
         {
+            var host = UIManager.Instance;
+            if (_view != null && host != null && host.IsTopPanel(_view)) host.PopPanel();
+        }
+
+        internal static void Detach(ShopPopupView view)
+        {
+            if (_view != view) return;
             LocalProgression.Changed -= Refresh;
-            if (UIManager.Instance != null) UIManager.Instance.FrameTick -= Refresh;
-            if (_view != null) _view.gameObject.SetActive(false);
+            if (_host != null) _host.FrameTick -= Refresh;
+            _view = null;
+            _host = null;
         }
 
         public static void Preview(string id) => UIManager.Instance?.ShowToast(ShopCatalog.PreviewMessage(id));
@@ -107,7 +132,7 @@ namespace KingdomIdle.UGUI
             // 서버에 요청을 보냈다. "처리 중…"을 유지하고 ClaimCompleted를 기다린다.
             if (result.Status == RewardStatus.Pending) { Invalidate(); return; }
             _busy = false;
-            // shortcut: unsaved earned rewards survive popup closure, not process termination.
+            // shortcut: unsaved earned rewards survive panel closure, not process termination.
             // 서버가 거절(InvalidReward)했으면 다시 보내도 같으므로 클레임을 버린다. 저장·전송 실패만 "보상 다시 받기"로 남긴다.
             if (result.Succeeded || result.Status == RewardStatus.Stale || result.Status == RewardStatus.NothingAvailable ||
                 result.Status == RewardStatus.InvalidReward)
@@ -129,6 +154,7 @@ namespace KingdomIdle.UGUI
         static void SelectTab(int index)
         {
             _tab = Mathf.Clamp(index, 0, _view.pages.Length - 1);
+            _view.SelectedTab = _tab;
             for (int i = 0; i < _view.pages.Length; i++)
             {
                 bool active = i == _tab; _view.pages[i].SetActive(active);

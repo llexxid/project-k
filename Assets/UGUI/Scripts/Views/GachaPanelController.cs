@@ -9,8 +9,7 @@ using Scripts.Core;
 namespace KingdomIdle.UGUI
 {
     /// <summary>
-    /// 전체 화면의 고정 콘텐츠와 보상 팝업을 기존 뽑기 거래에 연결한다.
-    /// 보존된 시트 프리팹은 기존 콘텐츠 경로를 유지한다.
+    /// 공통 시트의 본문·고정 버튼과 보상 팝업을 기존 뽑기 거래에 연결한다.
     /// </summary>
     public static class GachaPanelController
     {
@@ -203,30 +202,17 @@ namespace KingdomIdle.UGUI
 
             if (c.messageLabel != null) c.messageLabel.gameObject.SetActive(false);
 
-            UpdateDescription();
-
             // 보유/비용 바 (.gacha-cost: 26px gold)
             EconomyBridge.TryGetAmount(table.costCurrency, out long current);
-            if (c.costLabel != null)
-            {
-                c.costLabel.gameObject.SetActive(true);
-                UpdateCostLabel(current);
-            }
-
-            // 확률 요약 (등급별 가중치 집계)
-            if (!_view.fullScreen) BuildRateSummaryRow(c, table);
+            if (c.costLabel != null) c.costLabel.gameObject.SetActive(true);
 
             // 뽑기 버튼 행 — 크고 명확한 프리팹 버튼 (Item_GachaPullButton)
             BuildPullRow(c, table, current);
+            UpdateWallet();
 #if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
             Debug.Log($"[GachaTiming] controls {contentTimer.Elapsed.TotalMilliseconds:F2} ms");
 #endif
 
-            // 보상 목록 미리보기
-            if (!_view.fullScreen) BuildRewardPreview(c, table);
-#if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
-            Debug.Log($"[GachaTiming] cards {contentTimer.Elapsed.TotalMilliseconds:F2} ms");
-#endif
         }
 
         private static void BuildPullRow(GachaTabContentView c, GachaTableSO table, long current)
@@ -261,13 +247,20 @@ namespace KingdomIdle.UGUI
         }
 
         private static bool IsSkillTable(GachaTableSO table) => table != null && table.gachaType == eGachaType.Skill;
+        private static eCurrency TicketCurrency => IsSkillTable(_contentTable) ? eCurrency.MageTicket : eCurrency.EquipmentTicket;
         private static void OnWalletChanged(eCurrency currency, long amount)
-        { if (_contentTable != null && _contentTable.costCurrency == currency) UpdateWallet(); }
+        { if (_contentTable != null && (_contentTable.costCurrency == currency || TicketCurrency == currency)) UpdateWallet(); }
         private static void UpdateWallet()
         {
             if (_content == null || _contentTable == null) return;
             EconomyBridge.TryGetAmount(_contentTable.costCurrency,out long current);
             UpdateCostLabel(current);
+            var ticketCurrency = TicketCurrency;
+            EconomyBridge.TryGetAmount(ticketCurrency, out long tickets);
+            string ticketName = RewardPresentation.Name(ticketCurrency);
+            string ticketCount = $"보유 {NumberNotation.Format(tickets)}장";
+            if (_content.ticketName != null && _content.ticketName.text != ticketName) _content.ticketName.text = ticketName;
+            if (_content.ticketCount != null && _content.ticketCount.text != ticketCount) _content.ticketCount.text = ticketCount;
             UpdateDescription();
             bool pulling=_flaringPull || (GachaManager.Instance != null && GachaManager.Instance.IsPulling);
             for(int i=0;i<_activePullButtons.Count;i++)
@@ -283,8 +276,7 @@ namespace KingdomIdle.UGUI
         {
             if (_content.costLabel == null) return;
             string currency = RewardPresentation.Name(_contentTable.costCurrency);
-            string label = _view.fullScreen ? $"보유 {currency}  {NumberNotation.Format(current)}"
-                : $"1회 비용: {NumberNotation.Format(_contentTable.costAmount)} {currency}  |  보유: {NumberNotation.Format(current)}";
+            string label = $"보유 {currency}  {NumberNotation.Format(current)}";
             if (_content.costLabel.text != label) _content.costLabel.text = label;
         }
 
@@ -305,106 +297,6 @@ namespace KingdomIdle.UGUI
                     _content.pityFill.fillAmount = Mathf.Clamp01((float)count / GachaManager.EpicPityLimit);
                 }
             }
-            if (_content.descLabel == null) return;
-            string description = _contentTable.description ?? string.Empty;
-            if (_contentTable.gachaType == eGachaType.Equipment && GachaManager.Instance != null)
-                description = (string.IsNullOrWhiteSpace(description) ? string.Empty : description + "\n")
-                    + $"에픽 확정까지 {GachaManager.Instance.EpicPityRemaining}회";
-            _content.descLabel.gameObject.SetActive(!string.IsNullOrWhiteSpace(description));
-            if (_content.descLabel.text != description) _content.descLabel.text = description;
-        }
-
-        private static void BuildRateSummaryRow(GachaTabContentView c, GachaTableSO table)
-        {
-            var row = c.rateRow;
-            if (row == null) return;
-
-            void HideRow() => row.gameObject.SetActive(false);
-
-            if (table?.rewards == null || table.rewards.Count == 0) { HideRow(); return; }
-
-            bool isSkillGacha = IsSkillTable(table);
-            bool isEquipGacha = !isSkillGacha && table.costCurrency == eCurrency.AncientCoin;
-
-            // 비용 통화 기준으로 유효한 보상만 집계
-            float total = 0f;
-            for (int i = 0; i < table.rewards.Count; i++)
-            {
-                var r = table.rewards[i];
-                if (r == null) continue;
-                if (!IsRewardValidForGacha(r, isSkillGacha, isEquipGacha)) continue;
-                total += Mathf.Max(0f, r.weight);
-            }
-            if (total <= 0f) { HideRow(); return; }
-
-            float wNormal = 0f, wRare = 0f, wEpic = 0f;
-            float wClassFragment = 0f;
-            float wArcaneKnowledge = 0f;
-            float wSkill = 0f;
-            bool hasAnyEquipment = false;
-            bool hasAnySkill = false;
-            for (int i = 0; i < table.rewards.Count; i++)
-            {
-                var r = table.rewards[i];
-                if (r == null) continue;
-                if (!IsRewardValidForGacha(r, isSkillGacha, isEquipGacha)) continue;
-
-                if (r.rewardType == eGachaRewardType.Currency && r.currency == eCurrency.ClassFragment)
-                {
-                    wClassFragment += r.weight;
-                    continue;
-                }
-
-                if (r.rewardType == eGachaRewardType.Currency && r.currency == eCurrency.ArcaneKnowledge)
-                {
-                    wArcaneKnowledge += r.weight;
-                    continue;
-                }
-
-                if (r.rewardType == eGachaRewardType.Skill)
-                {
-                    wSkill += r.weight;
-                    hasAnySkill = true;
-                    continue;
-                }
-
-
-
-                if (r.rewardType != eGachaRewardType.Equipment || r.equipmentData == null) continue;
-                hasAnyEquipment = true;
-                switch (r.equipmentData.rarity)
-                {
-                    case eEquipmentRarity.Normal: wNormal += r.weight; break;
-                    case eEquipmentRarity.Rare: wRare += r.weight; break;
-                    case eEquipmentRarity.Epic: wEpic += r.weight; break;
-                }
-            }
-
-            if (!hasAnyEquipment && !hasAnySkill
-                && wClassFragment <= 0f && wArcaneKnowledge <= 0f)
-            {
-                HideRow();
-                return;
-            }
-
-            row.gameObject.SetActive(true);
-            DestroyChildren(row);
-
-            if (hasAnyEquipment)
-            {
-                MakeRatePill(row, "일반", wNormal / total * 100f, UguiTheme.RarityNormal);
-                MakeRatePill(row, "레어", wRare / total * 100f, UguiTheme.RarityRare);
-                MakeRatePill(row, "에픽", wEpic / total * 100f, UguiTheme.RarityEpic);
-            }
-            if (hasAnySkill) MakeRatePill(row, "스킬", wSkill / total * 100f, MageSkillPresentation.Accent);
-            if (wArcaneKnowledge > 0f)
-            {
-                MakeRatePill(row, "비전지식", wArcaneKnowledge / total * 100f, UguiTheme.RarityArcane);
-            }
-            if (wClassFragment > 0f)
-            {
-                MakeRatePill(row, "전직 파편", wClassFragment / total * 100f, UguiTheme.RarityClassFragment);
-            }
         }
 
         // 비용 통화 기준으로 해당 보상 항목이 유효한지 판정.
@@ -423,21 +315,9 @@ namespace KingdomIdle.UGUI
             return true;
         }
 
-        /// <summary>확률 알약 — 프리팹(Item_RatePill) 인스턴스화.</summary>
-        private static void MakeRatePill(RectTransform parent, string label, float pct, Color color)
-        {
-            var cat = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
-            if (cat == null || cat.itemRatePill == null) return;
-
-            var go = Object.Instantiate(cat.itemRatePill, parent, false);
-            var pill = go.GetComponent<RatePillView>();
-            if (pill != null) pill.Set($"{label}  {pct:F1}%", color);
-        }
-
         private static void BuildRewardPreview(GachaTabContentView c, GachaTableSO table)
         {
             bool hasRewards = table.rewards != null && table.rewards.Count > 0;
-            if (c.rewardSectionTitle != null) c.rewardSectionTitle.gameObject.SetActive(hasRewards);
             if (c.rewardGrid != null)
             {
                 c.rewardGrid.gameObject.SetActive(hasRewards);
@@ -668,36 +548,15 @@ namespace KingdomIdle.UGUI
 
         // ── 헬퍼 ───────────────────────────────────────────────────────
 
-        /// <summary>content 아래에 탭 콘텐츠 프리팹을 새로 인스턴스화한다 (기존 자식 파괴).</summary>
+        /// <summary>직렬화된 본문을 재사용하고 탭별 뽑기 버튼만 다시 연결한다.</summary>
         private static GachaTabContentView SpawnContent()
         {
             _content = null;
-            if (_view == null || _view.content == null) return null;
-
-            if (_view.authoredContent != null)
-            {
-                CloseRewards();
-                _content = _view.authoredContent;
-                DestroyChildren(_content.pullRow);
-                return _content;
-            }
-
-            DestroyChildren(_view.content);
-
-            var cat = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
-            if (cat == null || cat.gachaTabContent == null)
-            {
-                Debug.LogWarning("[GachaPanel] 카탈로그의 gachaTabContent 프리팹이 없습니다.");
-                return null;
-            }
-
-            var go = Object.Instantiate(cat.gachaTabContent, _view.content, false);
-            _content = go.GetComponent<GachaTabContentView>();
-            if (_content == null)
-            {
-                Debug.LogError("[GachaPanel] GachaTabContentView 컴포넌트가 없습니다.");
-                Object.Destroy(go);
-            }
+            if (_view == null) return null;
+            _content = _view.authoredContent;
+            if (_content == null) { Debug.LogError("[GachaPanel] 본문 참조가 없습니다."); return null; }
+            CloseRewards();
+            DestroyChildren(_content.pullRow);
             return _content;
         }
 
@@ -712,12 +571,9 @@ namespace KingdomIdle.UGUI
                 c.messageLabel.gameObject.SetActive(true);
                 c.messageLabel.text = text;
             }
-            if (c.descLabel != null) c.descLabel.gameObject.SetActive(false);
             if (c.costLabel != null) c.costLabel.gameObject.SetActive(false);
-            if (c.rateRow != null) c.rateRow.gameObject.SetActive(false);
             if (c.pullRow != null) c.pullRow.gameObject.SetActive(false);
-            if (c.rewardSectionTitle != null) c.rewardSectionTitle.gameObject.SetActive(false);
-            if (c.rewardGrid != null) c.rewardGrid.gameObject.SetActive(false);
+            if (c.pityRoot != null) c.pityRoot.gameObject.SetActive(false);
         }
 
         private static void DestroyChildren(Transform parent)

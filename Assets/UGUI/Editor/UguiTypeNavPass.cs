@@ -11,6 +11,46 @@ namespace KingdomIdle.UGUI.Editor
         private const string Picto = "Assets/UGUI/Art/LayerLab/GUI Pro-MinimalGame/Shared/Icons/PictoIcon/64/";
         private static Sprite Rounded => AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/Sprites/RoundedRect.png");
 
+        [MenuItem("KingdomIdle/UGUI/Apply five bottom tabs")]
+        public static void ApplyMainNavigation()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+                throw new System.InvalidOperationException("Exit Play Mode before updating the main prefab.");
+            const string path = "Assets/UGUI/Prefabs/Screens/Screen_Main.prefab";
+            var root = PrefabUtility.LoadPrefabContents(path);
+            try
+            {
+                AddStoreTab(root.GetComponent<MainScreenView>());
+                PrefabUtility.SaveAsPrefabAsset(root, path);
+            }
+            finally { PrefabUtility.UnloadPrefabContents(root); }
+        }
+
+        private static void AddStoreTab(MainScreenView view)
+        {
+            if (view == null || view.bottomBar == null || view.tabGacha == null)
+                throw new System.InvalidOperationException("Main screen navigation references are missing.");
+            if (view.tabStore == null)
+            {
+                var existing = view.bottomBar.Find("BtnStore");
+                view.tabStore = existing != null ? existing.GetComponent<MainTabButtonView>() :
+                    Object.Instantiate(view.tabGacha, view.bottomBar, false);
+                if (view.tabStore == null)
+                    throw new System.InvalidOperationException("BtnStore is missing MainTabButtonView.");
+                view.tabStore.name = "BtnStore";
+            }
+            view.tabStore.transform.SetSiblingIndex(view.tabGacha.transform.GetSiblingIndex() + 1);
+            view.tabStore.gameObject.SetActive(true);
+            view.tabStore.label.text = "상점";
+            var catalog = AssetDatabase.LoadAssetAtPath<UIViewCatalog>(PrefabGenUtil.CatalogPath);
+            if (catalog == null || catalog.iconAncientCoin == null)
+                throw new System.InvalidOperationException("The existing shop icon is missing from UIViewCatalog.");
+            MainTab(view.tabStore, null, 72);
+            view.tabStore.icon.sprite = catalog.iconAncientCoin;
+            if (view.bottomBar.GetComponentsInChildren<MainTabButtonView>(true).Length != 5)
+                throw new System.InvalidOperationException("The main navigation must contain exactly five tabs.");
+        }
+
         internal static void ApplyTo(GameObject go)
         {
             // Outlines remain on combat overlays, where text sits directly over moving sprites.
@@ -100,6 +140,7 @@ namespace KingdomIdle.UGUI.Editor
 
         private static void Main(MainScreenView v)
         {
+            AddStoreTab(v);
             var bar = v.bottomBar;
             Flat(bar.GetComponent<Image>(), UguiPixelSkin.Opaque(UguiTheme.RusticBarDeep), false);
             var row = bar.GetComponent<HorizontalLayoutGroup>();
@@ -196,7 +237,7 @@ namespace KingdomIdle.UGUI.Editor
             var wrap = (RectTransform)inner.Find("IconWrap");
             Fill(wrap, 0);
             wrap.Find("Socket").gameObject.SetActive(false);
-            tab.icon.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(Picto + iconFile);
+            if (iconFile != null) tab.icon.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(Picto + iconFile);
             tab.icon.preserveAspect = true;
             tab.icon.raycastTarget = false;
             tab.icon.color = UguiTheme.NavMuted;

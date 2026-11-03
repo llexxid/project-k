@@ -217,6 +217,7 @@ namespace KingdomIdle.UGUI
             RegisterTab(_view.tabKingdomArmy, UIPanelId.KingdomArmy, "kingdomArmyPanel");
             RegisterTab(_view.tabDungeon, UIPanelId.Dungeon, "dungeonPanel");
             RegisterTab(_view.tabGacha, UIPanelId.Gacha, "gachaPanel");
+            RegisterTab(_view.tabStore, UIPanelId.Store, "storePanel");
         }
 
         private void RegisterTab(MainTabButtonView tab, UIPanelId panelId, string panelName)

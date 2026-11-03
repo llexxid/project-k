@@ -45,7 +45,7 @@ namespace KingdomIdle.UGUI.Editor
             OverlayGens.GenerateToast();
             OverlayGens.GenerateSettings();
             OverlayGens.GenerateGachaResult();
-            GachaFullScreenPreparation.GenerateRewards();
+            GachaPanelPrefabGens.GenerateRewards();
             ProfilePopupPrefabGens.GenerateProfilePopup();
             RankingPopupPrefabGen.Generate();
             OfflineRewardPopupPrefabGen.Generate();
@@ -75,7 +75,6 @@ namespace KingdomIdle.UGUI.Editor
             MageTowerDetailPopupPrefabGens.GenerateMageTowerDetailPopup();
             GuidePanelPrefabGens.GenerateAll();
             DevelopmentPanelPrefabGens.GenerateAll();
-            GachaPanelPrefabGens.GenerateAll();
             InventoryPanelPrefabGens.GenerateAll();
             KingdomArmyPanelPrefabGens.GenerateAll();
             DungeonFeaturePrefabGens.GenerateAll();
@@ -222,13 +221,11 @@ namespace KingdomIdle.UGUI.Editor
                     if (field.GetCustomAttribute<SerializeField>() == null && !field.IsPublic) continue;
                     if (!typeof(Object).IsAssignableFrom(field.FieldType)) continue;
 
-                    if (mb is BottomSheetView sheet && sheet.fullScreen && field.Name == nameof(BottomSheetView.backdrop)) continue;
-                    if (mb is GachaPanelView panel && field.Name == (panel.fullScreen ? nameof(GachaPanelView.scroll) : nameof(GachaPanelView.authoredContent))) continue;
                     if (mb is GachaTabContentView content)
                     {
                         if (content.GetComponent<GachaRewardsPopupView>() != null && field.Name != nameof(GachaTabContentView.rewardGrid)) continue;
-                        if (content.GetComponentInParent<GachaPanelView>(true)?.fullScreen == true &&
-                            field.Name is "descLabel" or "rateRow" or "rewardSectionTitle" or "rewardGrid") continue;
+                        if (content.GetComponentInParent<GachaPanelView>(true) != null &&
+                            field.Name == nameof(GachaTabContentView.rewardGrid)) continue;
                     }
 
                     // Legacy generator skin slots are optional: the current main tabs use
