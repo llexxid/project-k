@@ -203,11 +203,10 @@ namespace KingdomIdle.UGUI
             if (c.messageLabel != null) c.messageLabel.gameObject.SetActive(false);
 
             // 보유/비용 바 (.gacha-cost: 26px gold)
-            EconomyBridge.TryGetAmount(table.costCurrency, out long current);
             if (c.costLabel != null) c.costLabel.gameObject.SetActive(true);
 
             // 뽑기 버튼 행 — 크고 명확한 프리팹 버튼 (Item_GachaPullButton)
-            BuildPullRow(c, table, current);
+            BuildPullRow(c, table);
             UpdateWallet();
 #if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
             Debug.Log($"[GachaTiming] controls {contentTimer.Elapsed.TotalMilliseconds:F2} ms");
@@ -215,22 +214,20 @@ namespace KingdomIdle.UGUI
 
         }
 
-        private static void BuildPullRow(GachaTabContentView c, GachaTableSO table, long current)
+        private static void BuildPullRow(GachaTabContentView c, GachaTableSO table)
         {
             if (c.pullRow == null) return;
             c.pullRow.gameObject.SetActive(true);
 
-            bool pulling = GachaManager.Instance != null && GachaManager.Instance.IsPulling;
+            var manager = GachaManager.Instance;
             var cat = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
-            string curLabel = RewardPresentation.Name(table.costCurrency);
 
             if (cat == null || cat.itemGachaPullButton == null) return;
 
             for (int i = 0; i < PullCounts.Length; i++)
             {
                 int count = PullCounts[i];
-                long totalCost = (long)table.costAmount * count;
-                bool disabled = !table.isImplemented || current < totalCost || pulling || _flaringPull;
+                bool available = !_flaringPull && manager != null && manager.CanPullMulti(table, count);
 
                 var capturedTable = table;
 
@@ -239,7 +236,7 @@ namespace KingdomIdle.UGUI
                 if (pull == null) continue;
 
                 string title = count == 1 ? "1회 뽑기" : $"{count}연 뽑기";
-                pull.Set(title, $"{NumberNotation.Format(totalCost)} {curLabel}", !disabled, cat.iconChest);
+                pull.Set(title, RewardPresentation.GachaCost(manager, table, count), available, cat.iconChest);
                 pull.Button.onClick.AddListener(() => OnPullClicked(capturedTable, count, pull));
                 if (count == 1) FeatureGuideAnchor.Bind(pull.Button, IsSkillTable(table) ? Direction.GameDirectTarget.SkillPullOnce : Direction.GameDirectTarget.EquipmentPullOnce);
                 _activePullButtons.Add(pull.Button);
@@ -267,8 +264,8 @@ namespace KingdomIdle.UGUI
             {
                 var button=_activePullButtons[i];
                 if(button==null)continue;
-                int count=PullCounts[i]; long cost=(long)_contentTable.costAmount*count;
-                button.GetComponent<GachaPullButtonView>()?.Set(count==1?"1회 뽑기":$"{count}연 뽑기",$"{NumberNotation.Format(cost)} {RewardPresentation.Name(_contentTable.costCurrency)}",!pulling && GachaManager.Instance != null && GachaManager.Instance.CanPullMulti(_contentTable,count));
+                int count=PullCounts[i];
+                button.GetComponent<GachaPullButtonView>()?.Set(count==1?"1회 뽑기":$"{count}연 뽑기",RewardPresentation.GachaCost(GachaManager.Instance,_contentTable,count),!pulling && GachaManager.Instance != null && GachaManager.Instance.CanPullMulti(_contentTable,count));
             }
         }
 

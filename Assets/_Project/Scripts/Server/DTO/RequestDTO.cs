@@ -37,6 +37,14 @@ namespace Protocol.Message.Dto
 	public sealed class OnStageClearRequestDTO : SessionRequestDTO
 	{
 		public eStage ClearedStage { get; set; }
+		public eStageClearAction NextAction { get; set; } = eStageClearAction.Advance;
+	}
+	public sealed class OnChangeMainStageRequestDTO : SessionRequestDTO
+	{
+		[JsonProperty(Required = Required.Always)]
+		public eStage FromStage { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public eStage TargetStage { get; set; }
 	}
 	public class OnGachaRequestDTO : SessionRequestDTO
 	{
@@ -161,6 +169,18 @@ namespace Protocol.Message.Dto
 		public bool Enabled { get; set; }
 	}
 	public sealed class OnResetSkillEnhancementRequestDTO : SkillIdRequestDTO { }
+	public enum RubyGrowthType { Gold = 0, Exp = 1 }
+	public class RubyGrowthRequestDTO : SessionRequestDTO
+	{
+		[JsonProperty(Required = Required.Always)]
+		public string RequestId { get; set; } = null!;
+		[JsonProperty(Required = Required.Always)]
+		public int ExpectedLevel { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public RubyGrowthType Type { get; set; }
+	}
+	public sealed class OnEnchantRubyRequestDTO : RubyGrowthRequestDTO { }
+	public sealed class OnResetRubyEnhancementRequestDTO : RubyGrowthRequestDTO { }
 
 	// 던전
 	public sealed class OnEnterDungeonRequestDTO : SessionRequestDTO
@@ -218,6 +238,11 @@ namespace Protocol.Message.Dto
 		// 튜토리얼 실습 단계 id "<시퀀스>:<단계>"(예: guide_gacha:equipment_once). 서버 정의에 없으면 1043으로 거절된다.
 		[JsonProperty(Required = Required.Always)]
 		public string GuideId { get; set; } = null!;
+	}
+	public sealed class OnSaveTutorialProgressRequestDTO : SessionRequestDTO
+	{
+		[JsonProperty(Required = Required.Always)]
+		public TutorialProgressDTO Progress { get; set; } = null!;
 	}
 	// 광고 보상(2026-11-01). 광고 시청 여부는 서버가 클라이언트 보고를 믿는다. 서버는 AdType으로 분기한다:
 	// ShopDaily는 상점 일일 광고(상품별 KST 하루 1회 뽑기권), OfflineBonus는 마지막 오프라인 정산의 골드·경험치를 한 번 더(정산 1회).

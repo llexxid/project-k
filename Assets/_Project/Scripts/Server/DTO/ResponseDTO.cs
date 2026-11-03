@@ -6,7 +6,7 @@ namespace Protocol.Message.Dto
 {
 
 // 서버 AuthenticationFunction/Common/Dto/ResponseDTO.cs의 사본(2026-10-31: CurrentStage·StageProgress·Stage → StageState, 2026-11-01: 광고 보상·AdRewards).
-// 모든 필드는 Required.Always이고, 서버가 nullable(T?)로 선언한 필드만 Required.AllowNull이다
+// 기존 서버 호환을 명시한 필드 외에는 Required.Always이고, 서버가 nullable(T?)로 선언한 필드만 Required.AllowNull이다
 // (키는 있어야 하고 값은 null일 수 있다. 서버 System.Text.Json은 null도 출력한다).
 
 // 정상 가입·로그인 완료 시 게임 진입에 필요한 데이터. OnGetUserState도 같은 스냅샷을 돌려준다.
@@ -41,6 +41,9 @@ public class UserInitResponseDTO : ApiResponseDTO
     public EquipmentInventoryDTO Equipment { get; set; } = null!;
     [JsonProperty(Required = Required.Always)]
     public MageTowerStateDTO MageTowerState { get; set; } = null!;
+    // 새 API 배포 전에는 누락된다. null을 0레벨/미진행 상태로 바꾸지 않는다.
+    public RubyGrowthStateDTO RubyGrowthState { get; set; }
+    public List<TutorialProgressDTO> Tutorials { get; set; }
     [JsonProperty(Required = Required.Always)]
     public List<CharacterDataQuery> CharacterJobs { get; set; } = null!;
     [JsonProperty(Required = Required.Always)]
@@ -93,7 +96,7 @@ public sealed class OnStageClearResponseDTO : ApiResponseDTO
     public bool IsFirstClear { get; set; }
     [JsonProperty(Required = Required.Always)]
     public List<QuestRewardDTO> GrantedRewards { get; set; } = null!;
-    // 클리어 반영 뒤의 스테이지 상태. CurrentStage가 다음 스테이지다.
+    // 클리어 반영 뒤 전투 위치. Repeat이면 CurrentStage는 클리어한 스테이지다.
     [JsonProperty(Required = Required.Always)]
     public UserStageQuery StageState { get; set; } = null!;
     [JsonProperty(Required = Required.Always)]
@@ -102,6 +105,39 @@ public sealed class OnStageClearResponseDTO : ApiResponseDTO
     public MageTowerStateDTO MageTowerState { get; set; } = null!;
     [JsonProperty(Required = Required.Always)]
     public CurrencyQueryDTO Currency { get; set; } = null!;
+}
+public sealed class OnChangeMainStageResponseDTO : ApiResponseDTO
+{
+    [JsonProperty(Required = Required.Always)]
+    public UserStageQuery StageState { get; set; } = null!;
+}
+public sealed class OnSaveTutorialProgressResponseDTO : ApiResponseDTO
+{
+    [JsonProperty(Required = Required.Always)]
+    public TutorialProgressDTO Progress { get; set; } = null!;
+}
+public abstract class RubyActionResponseDTO : ApiResponseDTO
+{
+    [JsonProperty(Required = Required.Always)]
+    public string RequestId { get; set; } = null!;
+    [JsonProperty(Required = Required.Always)]
+    public bool AlreadyApplied { get; set; }
+    [JsonProperty(Required = Required.Always)]
+    public RubyGrowthStateDTO RubyGrowthState { get; set; } = null!;
+}
+public sealed class OnEnchantRubyResponseDTO : RubyActionResponseDTO
+{
+    [JsonProperty(Required = Required.Always)]
+    public long SpentRuby { get; set; }
+    [JsonProperty(Required = Required.Always)]
+    public long CurrentRuby { get; set; }
+}
+public sealed class OnResetRubyEnhancementResponseDTO : RubyActionResponseDTO
+{
+    [JsonProperty(Required = Required.Always)]
+    public long RefundedRuby { get; set; }
+    [JsonProperty(Required = Required.Always)]
+    public long CurrentRuby { get; set; }
 }
 public sealed class OnGachaEquipmentClassFragmentResponseDTO : ApiResponseDTO
 {

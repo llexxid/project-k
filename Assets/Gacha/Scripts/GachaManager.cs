@@ -25,16 +25,19 @@ namespace KingdomIdle.Gacha
         public IReadOnlyList<GachaTableSO> GetAllTables() => gachaTables.Where(t => t != null && t.isImplemented && (t.gachaType == eGachaType.Equipment || t.gachaType == eGachaType.Skill) && t.costCurrency == eCurrency.AncientCoin).ToList();
         private void Awake() { if (Instance != null && Instance != this) { Destroy(gameObject); return; } Instance = this; DontDestroyOnLoad(gameObject); }
         private void OnDestroy() { if (Instance == this) Instance = null; }
-        public int GetTotalCost(GachaTableSO table, int count) => table != null && (count == 1 || count == 10) ? 50 * count : -1;
+        public int GetTicketCost(GachaTableSO table, int count) => table != null && (count == 1 || count == 10)
+            ? (int)Math.Min(count, LocalProgression.Balance(table.gachaType == eGachaType.Skill ? eCurrency.MageTicket : eCurrency.EquipmentTicket)) : 0;
+        public int GetTotalCost(GachaTableSO table, int count) => table != null && (count == 1 || count == 10) ? 50 * (count - GetTicketCost(table, count)) : -1;
         public bool CanPull(GachaTableSO table) => CanPullMulti(table, 1);
         public bool CanPullMulti(GachaTableSO table, int count) => table != null && table.isImplemented && !IsPulling &&
-            (table.gachaType == eGachaType.Equipment || table.gachaType == eGachaType.Skill) && table.costCurrency == eCurrency.AncientCoin && (count == 1 || count == 10) && LocalProgression.Balance(eCurrency.AncientCoin) >= 50L * count &&
+            (table.gachaType == eGachaType.Equipment || table.gachaType == eGachaType.Skill) && table.costCurrency == eCurrency.AncientCoin && (count == 1 || count == 10) && LocalProgression.Balance(eCurrency.AncientCoin) >= GetTotalCost(table, count) &&
             (table.gachaType != eGachaType.Equipment || EquipmentManager.Instance != null);
         public string PullFailure(GachaTableSO table, int count)
         {
             if (IsPulling) return "이미 뽑기가 진행 중입니다.";
             if (table == null || !table.isImplemented || (count != 1 && count != 10)) return "뽑기 구성을 확인할 수 없습니다.";
-            if (LocalProgression.Balance(eCurrency.AncientCoin) < 50L * count) return $"고대주화가 {50L * count - LocalProgression.Balance(eCurrency.AncientCoin):N0}개 부족합니다.";
+            int cost = GetTotalCost(table, count);
+            if (LocalProgression.Balance(eCurrency.AncientCoin) < cost) return $"고대주화가 {cost - LocalProgression.Balance(eCurrency.AncientCoin):N0}개 부족합니다.";
             return "뽑기 데이터를 준비 중입니다. 잠시 후 다시 시도해 주세요.";
         }
 
