@@ -2,7 +2,7 @@
 
 Unity 모바일 방치 RPG. 엔진 버전은 `ProjectSettings/ProjectVersion.txt`, 패키지는 `Packages/manifest.json`을 기준으로 한다.
 
-현재 게임 버전은 **0.19.8**, Unity는 **6000.3.21f1**이다. Unity Hub에서 지정 버전으로 연다. 게임 버전은 Player Settings의 Version 한 곳에서 관리하며 로비와 설정이 이를 표시한다. 기능 개정은 minor, 수정은 patch를 증가시키며 첫 정식 출시는 1.0.0으로 올린다. Android Version Code는 배포마다 단조 증가시킨다. 빌드 전 엔진 핀과 버전 형식을 자동 검사한다.
+현재 게임 버전은 **0.19.9**, Unity는 **6000.3.21f1**이다. Unity Hub에서 지정 버전으로 연다. 게임 버전은 Player Settings의 Version 한 곳에서 관리하며 로비와 설정이 이를 표시한다. 기능 개정은 minor, 수정은 patch를 증가시키며 첫 정식 출시는 1.0.0으로 올린다. Android Version Code는 배포마다 단조 증가시킨다. 빌드 전 엔진 핀과 버전 형식을 자동 검사한다.
 
 진단·검증 보고서와 캡처·로그·영상·APK는 레포지토리 밖의 별도 QA 보관 폴더에서 관리한다.
 
@@ -18,7 +18,7 @@ Unity 모바일 방치 RPG. 엔진 버전은 `ProjectSettings/ProjectVersion.txt
 
 자체 코드·에셋은 `Assets/_Project/`, UI는 `Assets/UGUI/`에 있다. Unity Hub에서 이 폴더를 열고 `ProjectSettings/EditorBuildSettings.asset`의 활성 씬 순서로 실행한다.
 
-`Direction.GameDirectManager`는 조건부 연출의 공통 실행 뼈대다. 육성·왕국군·던전·뽑기·마탑 스킬은 독립 SO 다섯 개로 제공하며, 신규 Google 가입 계정은 메인 진입 후 순서대로 자동 실행한다. 같은 설치본에서 재접속하면 계정별 로컬 진행을 읽어 미확인 단계부터 이어가며 완료·건너뛰기한 안내는 제외한다. 기존 계정에는 자동으로 소급 적용하지 않는다. 외부에서 `RequestPlay(SO)` 또는 등록 ID로 실습을 요청하거나 Unity 상단 `GameTest → Guide Test/실제 계정 저장` 메뉴에서 개별·순차 실행할 수도 있다. 이 실행은 현재 계정에 재화 지급·소비·획득·완료를 실제 저장한다. 기존 설명형 메뉴·환생 미리보기는 `KingdomIdle/Direction/Preview`에서 제공한다. 다른 자동 발생 조건·스토리 컷씬·엑셀 연동은 아직 연결하지 않았다. 미리보기는 계정 완료 기록을 바꾸지 않는다. 구조, 데이터 편집, 실제 저장 요청과 검증 방법은 [기능 안내 구조](Assets/UGUI/README.md#공통-연출과-기능-안내)를 참고한다.
+`Direction.GameDirectManager`는 조건부 연출의 공통 실행 뼈대다. 육성·왕국군·던전·뽑기·마탑 스킬은 독립 SO 다섯 개로 제공하며, Google·게스트 등 로그인 수단이나 신규 가입 여부와 관계없이 메인 진입 후 미완료 안내를 순서대로 자동 실행한다. 계정별 로컬 진행 기록이 없으면 처음부터 시작하고, 같은 설치본에서 재접속하면 미확인 단계부터 이어가며 완료·건너뛰기한 안내는 제외한다. 외부에서 `RequestPlay(SO)` 또는 등록 ID로 실습을 요청하거나 Unity 상단 `GameTest → Guide Test/실제 계정 저장` 메뉴에서 개별·순차 실행할 수도 있다. 이 실행은 현재 계정에 재화 지급·소비·획득·완료를 실제 저장한다. 기존 설명형 메뉴·환생 미리보기는 `KingdomIdle/Direction/Preview`에서 제공한다. 다른 자동 발생 조건·스토리 컷씬·엑셀 연동은 아직 연결하지 않았다. 미리보기는 계정 완료 기록을 바꾸지 않는다. 구조, 데이터 편집, 실제 저장 요청과 검증 방법은 [기능 안내 구조](Assets/UGUI/README.md#공통-연출과-기능-안내)를 참고한다.
 
 반복 테스트는 PlayMode에서 Unity 상단 `GameTest → Guide Test/실제 계정 저장/다섯 안내 테스트 기록 초기화 (재지급 허용)` 메뉴를 실행한 뒤 개별·순차 실행한다. 현재 보유 내역은 유지하고 안내 진행·실습 성공·체험 주화 지급 기록을 지워 실습과 지급을 다시 허용한다. 초기화는 Editor 전용이다.
 

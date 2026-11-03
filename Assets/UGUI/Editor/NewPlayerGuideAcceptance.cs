@@ -9,10 +9,7 @@ using Direction;
 using KingdomIdle.Balance;
 using KingdomIdle.UI;
 using Newtonsoft.Json;
-using PlayFab;
-using Protocol.Message.Dto;
 using Scripts.Core.Manager;
-using Scripts.Server.Auth;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -48,7 +45,7 @@ namespace KingdomIdle.UGUI.Editor
             };
         }
 
-        [MenuItem("KingdomIdle/Direction/Validate new player startup")]
+        [MenuItem("KingdomIdle/Direction/Validate tutorial startup")]
         public static void Begin() => Start(false);
         public static void BeginBatch() => Start(true);
 
@@ -83,13 +80,10 @@ namespace KingdomIdle.UGUI.Editor
 
         static void Set(object target, string field, object value) =>
             target.GetType().GetField(field, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(target, value);
-        static void Call(object target, string method, params object[] args) =>
-            target.GetType().GetMethod(method, BindingFlags.Instance | BindingFlags.NonPublic).Invoke(target, args);
-
         static void Login(NetworkManager network, string account, bool ready)
         {
             network.BeginAuthentication();
-            // A null SDK context rejects every cloud call locally, including signup probes below.
+            // A null SDK context rejects every cloud call locally.
             network.SetAuthenticatedAccount("balance-qa-" + account, "isolated-acceptance", null);
             LocalProgression.OpenTestAccount(account);
             Snapshots.Add(LocalProgression.SnapshotPath);
@@ -152,49 +146,48 @@ namespace KingdomIdle.UGUI.Editor
                 var player = new TestPlayer();
                 manager = Manager(definitions, player);
 
-                Login(network, run + "-existing", true);
-                manager.RequestNewPlayerGuides();
-                Check(player.Shown.Count == 0 && manager.PendingCount == 0, "Existing account without enrollment does not start");
-                Check(!store.TryEnrollNewPlayer("") && !store.TryEnrollNewPlayer("another-account"), "Enrollment rejects missing and mismatched identity");
-                var auth = new Authentication(network);
-                Call(auth, "InitializeNewAccount");
-                Check(!store.IsNewPlayerEnrolled(LocalProgression.AccountGeneration), "Non-Google signup does not enroll");
-
-                Login(network, run + "-new", false);
-                Set(auth, "_googleLogin", true);
-                Call(auth, "InitializeNewAccount");
-                Check(store.IsNewPlayerEnrolled(LocalProgression.AccountGeneration), "Google signup durably enrolls before cloud initialization");
-                Check(NetworkManager.GetFailureKind(network.LastFailure) == "NotAuthenticated", "Null SDK context prevents signup network request");
-                manager.RequestNewPlayerGuides();
-                Check(player.Shown.Count == 0, "Enrollment alone cannot start before login Ready");
-                Login(network, run + "-new", true);
-                Check(store.IsNewPlayerEnrolled(LocalProgression.AccountGeneration), "Enrollment survives exit before first display");
-                manager.RequestNewPlayerGuides();
+                manager.RequestIncompleteGuides();
+                Check(player.Shown.Count == 0 && !LocalProgression.IsReady, "Unauthenticated startup does not create local guest progress");
+                Login(network, run + "-existing", false);
+                manager.RequestIncompleteGuides();
+                Check(player.Shown.Count == 0, "Guides wait for login Ready");
+                Ready(network);
+                LocalProgression.OpenTestAccount(run + "-mismatched");
+                Snapshots.Add(LocalProgression.SnapshotPath);
+                manager.RequestIncompleteGuides();
+                Check(player.Shown.Count == 0, "Mismatched account cannot start guides");
+                LocalProgression.OpenTestAccount(run + "-existing");
+                long revision = LocalProgression.State.Revision;
+                manager.RequestIncompleteGuides();
                 await Until(() => player.Current != null, "First guide did not start");
-                Check(manager.ActiveSequenceId == Ids[0] && player.Current.Id == definitions[0].steps[0].id && manager.PendingCount == 4, "New login requests the five guides in order");
-                manager.RequestNewPlayerGuides();
+                Check(manager.ActiveSequenceId == Ids[0] && player.Current.Id == definitions[0].steps[0].id && manager.PendingCount == 4, "Account without tutorial records starts all five guides without signup or provider flags");
+                Check(LocalProgression.State.Revision == revision, "Starting guides does not reset or rewrite existing game progress");
+                manager.RequestIncompleteGuides();
                 Check(player.Shown.Count == 1 && manager.PendingCount == 4, "Duplicate main entry within one login is ignored");
                 player.Confirm();
                 await Until(() => player.Current?.Id == definitions[0].steps[1].id, "First confirmation did not advance");
                 Check(Read(store, Ids[0]).ConfirmedSteps.SequenceEqual(new[] { definitions[0].steps[0].id }), "Only the confirmed step is saved");
                 await Stop(manager); manager = null;
-                Login(network, run + "-new", true);
+                Login(network, run + "-existing", true);
                 player = new TestPlayer(); manager = Manager(definitions, player);
-                manager.RequestNewPlayerGuides();
+                manager.RequestIncompleteGuides();
                 await Until(() => player.Current != null, "Reconnected guide did not start");
                 Check(player.Current.Id == definitions[0].steps[1].id && !Read(store, Ids[0]).Skipped, "Recreated manager resumes first unconfirmed step after disk reload");
                 long stale = LocalProgression.AccountGeneration;
                 Login(network, run + "-other", true);
                 await Until(() => manager.ActiveSequenceId == null, "Account switch did not cancel");
-                manager.RequestNewPlayerGuides();
-                Check(manager.PendingCount == 0 && player.Current == null && !store.IsNewPlayerEnrolled(stale), "Account switch clears pending guides and rejects stale enrollment generation");
+                Check(manager.PendingCount == 0 && player.Current == null && !store.TryLoad(Ids[0], stale, out _), "Account switch clears old guides and rejects stale progress reads");
+                manager.RequestIncompleteGuides();
+                await Until(() => player.Current != null, "Other account did not start");
+                Check(player.Current.Id == definitions[0].steps[0].id && Read(store, Ids[0]).ConfirmedSteps.Count == 0, "Other account starts at the beginning independently");
 
-                Login(network, run + "-new", true);
+                Login(network, run + "-existing", true);
+                await Until(() => manager.ActiveSequenceId == null, "Account switch back did not cancel");
                 // Economy is outside this test: pre-confirm only the two server reward steps.
                 Check(store.TrySave(Ids[3], LocalProgression.AccountGeneration, new GameDirectProgress {
                     ConfirmedSteps = definitions[3].steps.Where(x => x.grantPracticeCoins).Select(x => x.id).ToList()
                 }), "Server reward steps isolated from local startup test");
-                manager.RequestNewPlayerGuides();
+                manager.RequestIncompleteGuides();
                 int limit = definitions.Sum(x => x.steps.Length) + 1;
                 while (manager.ActiveSequenceId != null && limit-- > 0)
                 {
@@ -204,34 +197,40 @@ namespace KingdomIdle.UGUI.Editor
                 }
                 Check(Ids.All(id => Read(store, id).Completed), "All five guide completion states persist");
                 await Stop(manager); manager = null;
-                Login(network, run + "-new", true);
+                Login(network, run + "-existing", true);
                 player = new TestPlayer(); manager = Manager(definitions, player);
-                manager.RequestNewPlayerGuides();
+                manager.RequestIncompleteGuides();
                 Check(player.Shown.Count == 0 && manager.PendingCount == 0, "Completed account remains silent after new login and manager recreation");
 
-                Login(network, run + "-failure", false);
-                bool enrolled = LocalProgression.TestFailedCommit(() => { Call(auth, "InitializeNewAccount"); return store.IsNewPlayerEnrolled(LocalProgression.AccountGeneration); });
-                Check(!enrolled && NetworkManager.GetFailureKind(network.LastFailure) == "ApplyFailed", "Enrollment write failure stops signup before cloud call");
+                Login(network, run + "-partial", true);
+                Check(store.TrySave(Ids[0], LocalProgression.AccountGeneration, new GameDirectProgress { Completed = true }) &&
+                    store.TrySave(Ids[1], LocalProgression.AccountGeneration, new GameDirectProgress { Skipped = true }) &&
+                    store.TrySave(Ids[2], LocalProgression.AccountGeneration, new GameDirectProgress { ConfirmedSteps = new List<string> { definitions[2].steps[0].id } }),
+                    "Mixed completed, skipped and partial guide records saved");
+                Login(network, run + "-partial", true);
+                manager.RequestIncompleteGuides();
+                await Until(() => player.Current != null, "Partial account did not resume");
+                Check(manager.ActiveSequenceId == Ids[2] && player.Current.Id == definitions[2].steps[1].id && manager.PendingCount == 2,
+                    "Completed and explicitly skipped guides stay hidden while partial guide resumes");
+
+                Login(network, run + "-failure", true);
+                await Until(() => manager.ActiveSequenceId == null, "Previous guides did not stop");
+                bool saved = LocalProgression.TestFailedCommit(() => store.TrySave(Ids[0], LocalProgression.AccountGeneration, new GameDirectProgress { Completed = true }));
+                Check(!saved && !Read(store, Ids[0]).Completed && network.IsGameDataReady, "Failed progress write neither completes guide nor fails login");
                 LocalProgression.OpenTestAccount(run + "-failure");
-                Check(!store.IsNewPlayerEnrolled(LocalProgression.AccountGeneration), "Failed enrollment does not appear after disk reload");
-                var uninitialized = new PlayFabError { CustomData = new ErrorResponseDTO { ErrorCode = Protocol.Message.Data.eErrorCode.PlayerNotInitialized } };
-                Call(auth, "OnLoginFailed", uninitialized);
-                Check(store.IsNewPlayerEnrolled(LocalProgression.AccountGeneration), "Google PlayerNotInitialized recovery enrolls before retrying signup");
-                Login(network, run + "-custom-recovery", false);
-                Set(auth, "_googleLogin", false);
-                Call(auth, "OnLoginFailed", uninitialized);
-                Check(!store.IsNewPlayerEnrolled(LocalProgression.AccountGeneration), "Non-Google recovery does not enroll");
+                manager.RequestIncompleteGuides();
+                await Until(() => player.Current != null, "Unsaved guide did not restart");
+                Check(player.Current.Id == definitions[0].steps[0].id && !Read(store, Ids[0]).Completed, "Unsaved guide starts from durable progress after disk reload");
 
                 await Stop(manager); manager = null;
                 Login(network, run + "-ui", true);
-                Check(store.TryEnrollNewPlayer(network.PlayFabId), "UI smoke account enrolled");
                 uiRoot = Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>("Assets/UGUI/Prefabs/UGUI_UIRoot.prefab"));
                 events = new GameObject("StartupAcceptance_EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
                 enhancement = new GameObject("StartupAcceptance_Enhancement", typeof(StatEnhanceManager));
                 var ui = uiRoot.GetComponent<UIManager>();
                 ui.ReplaceScreen(UIScreenId.Main);
                 manager = Manager(definitions);
-                manager.RequestNewPlayerGuides();
+                manager.RequestIncompleteGuides();
                 await Until(() => ui.ActiveFeatureGuide != null && ui.ActiveFeatureGuide.IsVisible, "Production guide overlay did not appear");
                 await UniTask.NextFrame(); Canvas.ForceUpdateCanvases();
                 Check(ui.ActiveFeatureGuide.titleLabel.text == definitions[0].steps[0].title, "Production UGUI overlay automatically displays first guide");
@@ -243,7 +242,7 @@ namespace KingdomIdle.UGUI.Editor
                 ui.FinishFeatureGuide();
                 Login(network, run + "-ui", true);
                 manager = Manager(definitions);
-                manager.RequestNewPlayerGuides();
+                manager.RequestIncompleteGuides();
                 await Until(() => ui.ActiveFeatureGuide != null && ui.ActiveFeatureGuide.IsVisible && GameDirectInteraction.Step?.Id == definitions[0].steps[1].id, "Production UI resume did not restore gold explanation");
                 Check(ui.ActiveFeatureGuide.titleLabel.text == definitions[0].steps[1].title, "Production UI restores the unconfirmed step and its panel after reconnect");
             }

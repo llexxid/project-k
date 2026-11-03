@@ -10,7 +10,7 @@ using UnityEngine;
 namespace Direction
 {
     /// <summary>
-    /// 조건부 연출의 공통 실행 창구다. 신규 Google 계정의 안내는 메인 진입 시 저장된 진행부터 요청한다.
+    /// 조건부 연출의 공통 실행 창구다. 로그인 수단과 관계없이 메인 진입 시 미완료 안내를 요청한다.
     /// GameManager 오브젝트에 붙고 각 연출 Player의 생성·취소·폐기를 소유한다.
     /// </summary>
     [DisallowMultipleComponent]
@@ -27,8 +27,8 @@ namespace Direction
         private bool _destroyed;
         private long _executionGeneration;
         private string _activeId;
-        private long _newPlayerLoginGeneration = -1;
-        private static readonly string[] NewPlayerGuideIds = {
+        private long _guideLoginGeneration = -1;
+        private static readonly string[] GuideIds = {
             "guide_development", "guide_kingdom_army", "guide_dungeon", "guide_gacha", "guide_mage_tower"
         };
         public string ActiveSequenceId => _activeId;
@@ -75,16 +75,16 @@ namespace Direction
             if (Instance == this) Instance = null;
         }
 
-        public void RequestNewPlayerGuides()
+        public void RequestIncompleteGuides()
         {
             var network = NetworkManager.Instance;
             if (!isActiveAndEnabled || network == null || !network.IsGameDataReady ||
                 LocalProgression.AccountKey != network.PlayFabId ||
-                !_store.IsNewPlayerEnrolled(LocalProgression.AccountGeneration) ||
-                _newPlayerLoginGeneration == network.AccountGeneration) return;
+                !LocalProgression.IsReady ||
+                _guideLoginGeneration == network.AccountGeneration) return;
             // 던전 복귀 등 같은 로그인 내 씬 재진입으로 중단한 안내를 다시 띄우지 않는다.
-            _newPlayerLoginGeneration = network.AccountGeneration;
-            foreach (string id in NewPlayerGuideIds)
+            _guideLoginGeneration = network.AccountGeneration;
+            foreach (string id in GuideIds)
             {
                 if (!_store.TryLoad(id, LocalProgression.AccountGeneration, out var progress))
                 {
