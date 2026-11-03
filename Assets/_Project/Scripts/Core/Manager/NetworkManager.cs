@@ -195,8 +195,9 @@ namespace Scripts.Core.Manager
 
         public void AuthenticateTest() => Authenticate(eAuthType.CustomLogin);
         public void DummyLogin() => Authenticate(eAuthType.DummyLogin);
-        public void Authenticate(eAuthType type)
-        { if (!IsAuthenticating) _authentication.Authenticate(type); }
+        public void Authenticate(eAuthType type, Func<System.Threading.Tasks.Task<bool>> checkEligibility = null,
+            Func<System.Threading.Tasks.Task<bool>> requestTerms = null)
+        { if (!IsAuthenticating) _authentication.Authenticate(type, checkEligibility, requestTerms); }
 
         public void CheckDuplicatedNickName(string nickname, Action<UpdateUserTitleDisplayNameResult> success, Action<PlayFabError> failure)
         {

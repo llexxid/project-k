@@ -111,9 +111,13 @@ namespace KingdomIdle.UGUI.Editor
             view.tglPowerSave = Toggle(content, "PowerSave", "절전 모드", "화면을 초당 30프레임으로 표시");
             view.tglLowSpec = Toggle(content, "LowSpec", "저사양 모드", "장식과 피해 숫자의 움직임 간소화");
             view.tglKeepAwake = Toggle(content, "KeepAwake", "화면 켜짐 유지", "플레이 중 화면 자동 꺼짐 방지");
-            Section(content, "저장 정보");
-            view.btnGoogleChip = F.TextButton(content, "BtnGoogleChip", "진행 데이터는 현재 기기에 저장됩니다", 26, UguiTheme.RusticSurfaceDark, out _);
-            view.btnGoogleChip.interactable = false; F.Preferred((RectTransform)view.btnGoogleChip.transform, height: 76);
+            view.legalSection = Section(content, "알림 및 이용 안내");
+            view.btnNotificationPermission = F.TextButton(content, "NotificationPermission", "휴대폰 알림 설정", 26, UguiTheme.RusticSurfaceDark, out _);
+            F.Preferred((RectTransform)view.btnNotificationPermission.transform, height: 120);
+            view.btnTerms = F.TextButton(content, "Terms", "이용약관", 26, UguiTheme.RusticSurfaceDark, out _);
+            F.Preferred((RectTransform)view.btnTerms.transform, height: 100);
+            view.btnPrivacy = F.TextButton(content, "Privacy", "개인정보 처리 안내", 26, UguiTheme.RusticSurfaceDark, out _);
+            F.Preferred((RectTransform)view.btnPrivacy.transform, height: 100);
             view.lblVersion = Text(content, "LblVersion", "v" + Application.version, 24, 42);
             sound.gameObject.SetActive(false);device.gameObject.SetActive(false);
             view.btnSaveClose = F.TextButton(panel.transform, "BtnSaveClose", "완료", 36, UguiTheme.BtnConfirm, out _);
@@ -133,10 +137,11 @@ namespace KingdomIdle.UGUI.Editor
             text.textWrappingMode = TextWrappingModes.Normal; text.overflowMode = TextOverflowModes.Overflow;
             F.Preferred(text, height: height); return text;
         }
-        static void Section(Transform parent, string title)
+        static TMP_Text Section(Transform parent, string title)
         {
             var text = Text(parent, "Section_" + title, title, 30, 66); text.color = UguiTheme.AccentGold;
             text.fontStyle = FontStyles.Bold;
+            return text;
         }
         static Slider Volume(Transform parent, string name, string title, out TMP_Text percent)
         {

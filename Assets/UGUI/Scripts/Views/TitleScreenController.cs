@@ -1,6 +1,8 @@
 using UnityEngine;
+using System.Threading.Tasks;
 using Scripts.Core;
 using Scripts.Core.Manager;
+using Scripts.Server.Auth;
 
 namespace KingdomIdle.UGUI
 {
@@ -13,6 +15,7 @@ namespace KingdomIdle.UGUI
         private TitleScreenView _view;
         private UIManager _host;
         private bool _requestedScene;
+        private TermsConsentDialog _termsDialog;
 
         public void Bind(TitleScreenView view, UIManager host)
         {
@@ -32,28 +35,13 @@ namespace KingdomIdle.UGUI
 
             if (_view.btnLoginGuest != null)
             {
-                // Guest accounts use a persistent, device-local ID instead of a shared diagnostic account.
                 _view.btnLoginGuest.gameObject.SetActive(true);
-                _view.btnLoginGuest.onClick.AddListener(() =>
-                {
-                    if (NetworkManager.Instance != null)
-                        NetworkManager.Instance.AuthenticateTest();
-                    else
-                        _host.ShowToast(Localize("네트워크가 초기화되지 않았습니다.", "The network is not ready yet."));
-                    HideLoginPopup();
-                });
+                _view.btnLoginGuest.onClick.AddListener(() => SignIn(eAuthType.CustomLogin));
             }
 
             if (_view.btnLoginGoogle != null)
             {
-                _view.btnLoginGoogle.onClick.AddListener(() =>
-                {
-                    if (NetworkManager.Instance != null)
-                        NetworkManager.Instance.Authenticate(Scripts.Server.Auth.eAuthType.GoogleWebLogin);
-                    else
-                        _host.ShowToast(Localize("네트워크가 초기화되지 않았습니다.", "The network is not ready yet."));
-                    HideLoginPopup();
-                });
+                _view.btnLoginGoogle.onClick.AddListener(() => SignIn(eAuthType.GoogleWebLogin));
             }
 
             if (_view.btnLoginApple != null)
@@ -95,8 +83,35 @@ namespace KingdomIdle.UGUI
         {
             if (NetworkManager.Instance != null)
                 NetworkManager.Instance.LoginStateChanged -= HandleLoginStateChanged;
+            if (_termsDialog != null) _termsDialog.Cancel();
             _view = null;
             _host = null;
+        }
+
+        private void SignIn(eAuthType type)
+        {
+            if (NetworkManager.Instance == null)
+            {
+                _host.ShowToast(Localize("네트워크가 초기화되지 않았습니다.", "The network is not ready yet."));
+                return;
+            }
+            HideLoginPopup();
+            NetworkManager.Instance.Authenticate(type, RequestEligibility, RequestTerms);
+        }
+
+        private Task<bool> RequestEligibility()
+        {
+            if (_view == null || !_view.isActiveAndEnabled) return Task.FromResult(false);
+            var answer = new TaskCompletionSource<bool>();
+            AlphaAgeGate.Show(_view.transform, () => answer.TrySetResult(true), () => answer.TrySetResult(false));
+            return answer.Task;
+        }
+
+        private Task<bool> RequestTerms()
+        {
+            if (_view == null || !_view.isActiveAndEnabled) return Task.FromResult(false);
+            _termsDialog = TermsConsentDialog.Open(_view);
+            return _termsDialog.Result;
         }
 
         public bool HandleBack()
@@ -141,7 +156,17 @@ namespace KingdomIdle.UGUI
             if (_view.btnLoginGuest != null) _view.btnLoginGuest.interactable = !net.IsAuthenticating;
             if (_view.btnLoginGoogle != null) _view.btnLoginGoogle.interactable = !net.IsAuthenticating;
             if (net.LoginState == GameLoginState.Failed)
-                _host.ShowToast(net.LastFailure?.ErrorMessage ?? Localize("로그인에 실패했습니다.", "Sign-in failed."));
+            {
+                var failure = net.LastFailure;
+                string kind = failure?.ErrorDetails != null && failure.ErrorDetails.TryGetValue("Kind", out var values) && values.Count > 0 ? values[0] : null;
+                if (kind == "EligibilityCanceled") return;
+                if (kind == "ConsentDeclined")
+                    _host.ShowToast(Localize("게임을 시작하려면 이용약관 동의가 필요합니다.", "Accept the terms to start the game."));
+                else if (kind == "ConsentSaveFailed")
+                    _host.ShowToast(Localize("약관 동의 기록을 저장하지 못했습니다. 연결을 확인하고 다시 로그인해 주세요.",
+                        "Could not save your agreement. Check your connection and sign in again."));
+                else _host.ShowToast(failure?.ErrorMessage ?? Localize("로그인에 실패했습니다.", "Sign-in failed."));
+            }
             else if (net.LoginState == GameLoginState.Loading)
                 _host.ShowToast(Localize("서버 데이터를 확인하는 중입니다.", "Checking server data."));
             // Authentication이 서버 데이터를 UserManager에 적용한 뒤 Ready를 알리므로 바로 메인에 진입한다.

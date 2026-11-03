@@ -80,6 +80,8 @@ namespace KingdomIdle.UGUI
         float _clock;
 
         public bool English => _english;
+        internal static bool SavedEnglish => PlayerPrefs.GetString(LanguageKey,
+            Application.systemLanguage == SystemLanguage.Korean ? "ko" : "en") == "en";
         public bool AmbientMotion => _motion;
         public string Localize(string korean, string english) => _english ? english : korean;
 
@@ -87,8 +89,7 @@ namespace KingdomIdle.UGUI
         {
             _root = (RectTransform)transform;
             _canvas = GetComponentInParent<Canvas>()?.rootCanvas;
-            _english = PlayerPrefs.GetString(LanguageKey,
-                Application.systemLanguage == SystemLanguage.Korean ? "ko" : "en") == "en";
+            _english = SavedEnglish;
             GamePresentationSettings.Apply();
             _motion = !GamePresentationSettings.LowSpec;
             languageButton.onClick.AddListener(OpenLanguagePopup);

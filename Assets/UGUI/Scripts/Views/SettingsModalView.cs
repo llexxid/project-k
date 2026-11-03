@@ -9,6 +9,8 @@ namespace KingdomIdle.UGUI
     {
         private void OnDisable() => PlayerPrefs.Save();
         private void OnApplicationPause(bool paused) { if (paused) PlayerPrefs.Save(); }
+        private void OnApplicationFocus(bool focused) { if (focused && isActiveAndEnabled) FocusReturned?.Invoke(); }
+        internal event System.Action FocusReturned;
         private void OnEnable() => FitPanel();
         private void OnRectTransformDimensionsChange() { if (isActiveAndEnabled) FitPanel(); }
         private void FitPanel()
@@ -21,7 +23,9 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal RectTransform panel;
         [SerializeField] internal TMP_Text lblServer;
         [SerializeField] internal TMP_Text lblVersion;
-        [SerializeField] internal Button btnGoogleChip;
+        [SerializeField] internal Button btnNotificationPermission;
+        [SerializeField] internal TMP_Text legalSection;
+        [SerializeField] internal Button btnTerms, btnPrivacy;
         [SerializeField] internal Button btnClose;
         [SerializeField] internal ScrollRect scroll;
         [SerializeField] internal Button[] tabs;

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Google;
 using Protocol.Message.Dto;
@@ -27,16 +28,33 @@ namespace Scripts.Server.Auth
 		private bool _retriedLogin;
 		public Authentication(NetworkManager network) => _network = network;
 
-		public async void Authenticate(eAuthType type)
+		public async void Authenticate(eAuthType type, Func<Task<bool>> checkEligibility, Func<Task<bool>> requestTerms)
 		{
 			long generation = _network.BeginAuthentication();
 			_retriedLogin = false;
 			try
 			{
+				bool checkedAge = false;
+				if (!GameTermsConsent.HasEligibleProvider(type) || KingdomIdle.UGUI.AlphaAgeGate.IsBlocked)
+				{
+					if (!await CheckAgeAsync(generation, checkEligibility)) return;
+					checkedAge = true;
+				}
+				string acceptedAt = null;
+				string googleAccountHint = null;
+				if (!GameTermsConsent.VerifiedOnDevice)
+				{
+					acceptedAt = await GameTermsConsent.RequestAsync(requestTerms);
+					if (!IsCurrent(generation)) return;
+				}
 				// Isolate SDK tokens too: a timed-out login must not replace another account's context.
 				var client = new PlayFabClientInstanceAPI();
 				var completion = new TaskCompletionSource<LoginResult>();
-				var info = new GetPlayerCombinedInfoRequestParams { GetPlayerProfile = true };
+				var info = new GetPlayerCombinedInfoRequestParams
+				{
+					GetPlayerProfile = true, GetUserData = true,
+					UserDataKeys = new List<string> { GameTermsConsent.ReceiptKey }
+				};
 				Action<PlayFabError> fail = error => completion.TrySetException(new AuthenticationException(error));
 				if (type == eAuthType.CustomLogin)
 				{
@@ -61,6 +79,14 @@ namespace Scripts.Server.Auth
 					};
 					var google = await WithTimeout(GoogleSignIn.DefaultInstance.SignIn());
 					if (!IsCurrent(generation)) return;
+					googleAccountHint = GameTermsConsent.GoogleHint(google.UserId);
+					if (!GameTermsConsent.RecognizesGoogleAccount(googleAccountHint))
+					{
+						// Check the newly selected person before allowing PlayFab to create their account.
+						if (!checkedAge && !await CheckAgeAsync(generation, checkEligibility)) return;
+						acceptedAt ??= await GameTermsConsent.RequestAsync(requestTerms);
+						if (!IsCurrent(generation)) return;
+					}
 					client.LoginWithGoogleAccount(new LoginWithGoogleAccountRequest
 					{ ServerAuthCode = google.AuthCode, CreateAccount = true, InfoRequestParameters = info },
 						result => completion.TrySetResult(result), fail);
@@ -73,6 +99,28 @@ namespace Scripts.Server.Auth
 
 				var login = await WithTimeout(completion.Task);
 				if (!IsCurrent(generation)) return;
+				if (!GameTermsConsent.HasReceipt(login.InfoResultPayload?.UserData))
+				{
+					// A device hint for a previous player never counts as this player's agreement.
+					acceptedAt ??= await GameTermsConsent.RequestAsync(requestTerms);
+					if (!IsCurrent(generation)) return;
+					try
+					{
+						await WithTimeout(GameTermsConsent.StoreAsync(client, acceptedAt));
+					}
+					catch (Exception)
+					{
+						if (IsCurrent(generation))
+							_network.FailLogin(NetworkManager.CreateError("ConsentSaveFailed",
+								"약관 동의 기록을 저장하지 못했습니다. 연결을 확인하고 다시 로그인해 주세요."));
+						return;
+					}
+					if (!IsCurrent(generation)) return;
+				}
+				GameTermsConsent.MarkVerifiedOnDevice(type, googleAccountHint);
+#if UNITY_ANDROID && !UNITY_EDITOR
+				InitializePlayGamesAfterAgreement();
+#endif
 				_network.SetAuthenticatedAccount(login.PlayFabId, login.SessionTicket, client.authenticationContext);
 				_displayName = login.InfoResultPayload?.PlayerProfile?.DisplayName;
 				// A missing display name does not prove that the player's data needs initialization.
@@ -88,7 +136,9 @@ namespace Scripts.Server.Auth
 			catch (Exception ex)
 			{
 				if (!IsCurrent(generation)) return;
-				if (ex is AuthenticationException auth)
+				if (ex is OperationCanceledException)
+					_network.FailLogin(NetworkManager.CreateError("ConsentDeclined", "게임을 시작하려면 서비스 이용약관에 동의해 주세요."));
+				else if (ex is AuthenticationException auth)
 					_network.FailLogin(auth.Error);
 				else
 					_network.FailLogin(NetworkManager.CreateError(ex is TimeoutException ? "Timeout" : "Transport",
@@ -97,6 +147,37 @@ namespace Scripts.Server.Auth
 		}
 
 		private bool IsCurrent(long generation) => _network != null && _network.AccountGeneration == generation;
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+		private static bool _playGamesStarted;
+
+		private static void InitializePlayGamesAfterAgreement()
+		{
+			if (_playGamesStarted) return;
+			_playGamesStarted = true;
+			UnityEngine.Android.AndroidApplication.InvokeOnUIThread(() =>
+			{
+				try
+				{
+					using var sdk = new AndroidJavaClass("com.google.android.gms.games.PlayGamesSdk");
+					sdk.CallStatic("initialize", UnityEngine.Android.AndroidApplication.currentContext);
+				}
+				catch (AndroidJavaException)
+				{
+					Debug.LogWarning("[Login] Play Games 플랫폼 연결을 시작하지 못했습니다.");
+				}
+			});
+		}
+#endif
+
+		private async Task<bool> CheckAgeAsync(long generation, Func<Task<bool>> checkEligibility)
+		{
+			GameTermsConsent.ClearAgeHint();
+			bool eligible = checkEligibility != null && await checkEligibility();
+			if (!IsCurrent(generation)) return false;
+			if (!eligible) _network.FailLogin(NetworkManager.CreateError("EligibilityCanceled", "로그인을 진행하지 않았습니다."));
+			return eligible;
+		}
 
 		// Order: apply the server snapshot to UserManager, then publish Ready. Ready synchronously starts the main
 		// scene load (TitleScreenController), which reads the current stage and characters from UserManager.
