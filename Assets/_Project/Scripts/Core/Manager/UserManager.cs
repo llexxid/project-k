@@ -664,6 +664,7 @@ namespace Scripts.Core
 			var state = LocalProgression.State;
 			// 퀘스트 상태는 플레이어 상태 파일이 아니라 QuestManager가 보관한다(응답마다 전체 행이 와서 통째로 교체한다).
 			if (ok) RubyProgression.ReceiveServerState(response.RubyGrowthState != null);
+			if (ok) Direction.GameDirectProgressStore.ReceiveServerState(response.Tutorials);
 			if (ok) QuestManager.Receive(response.Quests, response is OnGetUserStateResponseDTO ? "state" : "login");
 			// 출석판도 플레이어 상태 파일이 아니라 CheckInService가 보관한다. 우편함은 로그인할 때마다 다시 조회한다.
 			if (ok) KingdomIdle.CheckIn.CheckInService.Receive(response.Attendance, response.ServerTimeUtc, response is OnGetUserStateResponseDTO ? "state" : "login");

@@ -15,10 +15,6 @@ namespace Scripts.Test
     public class GameTest : MonoBehaviour
     {
     #if UNITY_EDITOR
-        private static readonly string[] GuideTestIds = {
-            "guide_development", "guide_kingdom_army", "guide_dungeon", "guide_gacha", "guide_mage_tower"
-        };
-
         [MenuItem("GameTest/Stage Test/Clear Stage")]
         public static void TestClearStage()
         {
@@ -150,20 +146,9 @@ namespace Scripts.Test
         public static void TestFirstStartGuide()
         { TestDevelopmentGuide(); TestArmyGuide(); TestDungeonGuide(); TestGachaGuide(); TestMageTowerGuide(); }
 
-        /// <summary>
-        /// 상단 GameTest 메뉴에서 다섯 안내의 테스트 기록만 초기화한다. 실행·대기열 정리는 Manager가 맡고 성공한 저장 뒤에만 완료 로그를 남긴다.
-        /// 현재 보유 내역은 유지하지만 실습·지급 이력도 지우므로 이후 다시 강화·뽑기를 수행하고 체험 주화를 받을 수 있다.
-        /// </summary>
-        [MenuItem("GameTest/Guide Test/실제 계정 저장/다섯 안내 테스트 기록 초기화 (재지급 허용)")]
-        public static async void ResetGuideTestRecords()
-        {
-            var direct = GameDirectManager.Instance;
-            if (!Application.isPlaying || direct == null)
-            { Debug.LogWarning("[GameTest] bootstrap부터 Play 후 계정이 준비되면 초기화하세요."); return; }
-            bool reset = await direct.ResetForTestingAsync(generation => new GameDirectProgressStore().ResetForTesting(GuideTestIds, generation));
-            if (!reset) { Debug.LogWarning("[GameTest] 안내 초기화 실패: " + direct.LastError); return; }
-            Debug.Log("[GameTest] 다섯 안내의 진행·실습 성공·주화 지급 기록을 초기화했습니다. 보유 내역은 유지됩니다. 개별 또는 순차 실행으로 다시 테스트하세요.");
-        }
+        /// <summary>서버 초기화 API가 없으므로 실제 계정과 실습 보상 원장을 변경하지 않는다.</summary>
+        [MenuItem("GameTest/Guide Test/실제 계정 저장/서버 튜토리얼 초기화 (지원하지 않음)")]
+        public static void ResetGuideTestRecords() => Debug.LogWarning("[GameTest] 서버 튜토리얼 초기화는 지원하지 않습니다. 진행·실습 지급 기록은 보존됩니다. 설명 미리보기 또는 ServerTutorialAcceptance.Run()을 사용하세요.");
 
         /// <summary>현재 안내를 미완료로 중단한다. 확인한 단계와 이미 지급·소비한 재화는 보존한다.</summary>
         [MenuItem("GameTest/Guide Test/현재 안내 나중에 계속")]

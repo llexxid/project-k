@@ -14,10 +14,11 @@
 - 루비는 로그인/상태 조회의 성장 상태를 적용하고 강화·초기화를 서버에 요청한다. 요청 ID와 예상 레벨을 보내기 전에 저장하며, 불명확한 실패는 같은 ID 재시도 또는 상태 조회로 확인한다. 아래 과거 계획의 공통 RequestId 금지는 루비 API가 명시적으로 요구하는 이 필드에는 적용하지 않는다.
 - 기존 로컬 루비 원본은 `Modules["legacy-ruby-growth"]`에 보존한다. 서버에 자동 업로드하지 않으며 새 상태가 없는 구 서버에서는 추가 루비 거래를 허용하지 않는다.
 - 환생 조건과 미리보기는 현재 위치가 아닌 이번 주기 최고 해금 위치를 사용한다. 영구 최초 클리어 기록과 구별한다.
-- 튜토리얼 기존 로컬 기록의 이관·병합과 스테이지 Repeat의 응답 유실 복구는 정책 확인 후 행동 경로에 연결한다. 이번에는 계약만 준비한다.
+- 튜토리얼은 확정된 서버 원장 정책에 따라 로그인 스냅샷과 저장 API에 연결한다. 기존 로컬 진행·실습 성공 기록은 이관하지 않으며 게임 저장과 보상 지급 기록은 보존한다. 새 필드가 없는 서버에서는 안내를 준비 중으로 보류한다.
+- 스테이지 이동과 Repeat의 행동 경로는 응답 유실 복구 정책 확인 후 연결한다. 이번에는 계약만 준비한다.
 - 서버 배포·함수 등록과 실제 호출 검증은 별도 단계다. 서버 main의 기존 광고 API 포함 여부도 배포 전 확인해야 한다.
 
-비통신 검증 진입점: `ServerApiContractAcceptance.Run()`, `GachaTicketAcceptance.Run()`, `RubyServerAcceptance.Run()`, `ServerReincarnationAcceptance.Run()`. 실행 결과·로그는 저장소 밖 QA 폴더에 보관한다.
+비통신 검증 진입점: `ServerApiContractAcceptance.Run()`, `GachaTicketAcceptance.Run()`, `RubyServerAcceptance.Run()`, `ServerReincarnationAcceptance.Run()`, `ServerTutorialAcceptance.Run()`. 실행 결과·로그는 저장소 밖 QA 폴더에 보관한다.
 
 ## 1. 클라이언트의 역할과 수정 범위
 
