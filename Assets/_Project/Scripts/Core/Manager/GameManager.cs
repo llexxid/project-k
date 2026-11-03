@@ -160,6 +160,7 @@ namespace Scripts.Core
             {
                 if (StageManager.Instance != null)
                     StageManager.Instance.BeginStage(curUserStage);
+                Direction.GameDirectManager.Instance?.RequestIncompleteGuides();
             }
 
             // 오프라인 보상이 정산된 후 메인스테이지를 시작하게 해서 오프라인 보상 요청과 스테이지 사냥 보상 요청의 순서가 섞이지 않게 조정

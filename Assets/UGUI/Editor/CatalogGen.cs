@@ -124,7 +124,6 @@ namespace KingdomIdle.UGUI.Editor
 
             catalog.popupMageTowerDetail = Load($"{p}/Popups/Panel_MageTowerDetail.prefab");
             catalog.bodyDevelopment = Load($"{p}/Panels/Body_Development.prefab");
-            catalog.gachaTabContent = Load($"{p}/Panels/GachaTabContent.prefab");
             catalog.itemGuideStepRow = Load($"{p}/Items/Item_GuideStepRow.prefab");
             catalog.itemGuideEmptyHint = Load($"{p}/Items/Item_GuideEmptyHint.prefab");
             catalog.itemInventoryListPage = Load($"{p}/Items/Item_InventoryListPage.prefab");

@@ -55,6 +55,11 @@ public class EquipmentManager : MonoBehaviour
     public PlayFabError LastFailure { get; private set; }
     public event Action<bool> OnBusyChanged;
     public event Action<ActionInfo> OnActionCompleted;
+    public event Action OnEquipmentStateChanged;
+    private EquipmentSave[] _restoredItems = Array.Empty<EquipmentSave>(), _restoredPending = Array.Empty<EquipmentSave>();
+    private LegacyEquipmentStack[] _restoredReserve = Array.Empty<LegacyEquipmentStack>();
+    private int _restoredAutoMask = -1;
+    private string _restoredAccount;
 
     private void Awake() { if (Instance != null && Instance != this) { Destroy(gameObject); return; } Instance = this; }
     private void OnDestroy() { if (Instance == this) Instance = null; }
@@ -68,9 +73,13 @@ public class EquipmentManager : MonoBehaviour
     /// <summary>플레이어 상태(서버에서 받은 장비 인벤토리)를 런타임 인스턴스로 복원한다. 같은 Id의 인스턴스는 재사용해 열린 UI가 깨지지 않게 한다.</summary>
     public void RestoreEquipment()
     {
+        var state = LocalProgression.State;
+        bool changed = _restoredAccount != LocalProgression.AccountKey || _restoredAutoMask != state.AutoDismantleMask ||
+            !SameEquipment(_restoredItems, state.Equipment) || !SameEquipment(_restoredPending, state.PendingEquipment) ||
+            !SameReserve(_restoredReserve, state.LegacyEquipment);
         var previous = _inventory.Items.ToDictionary(x => x.instanceId);
         var next = new EquipmentInventory();
-        foreach (var saved in LocalProgression.State.Equipment)
+        foreach (var saved in state.Equipment)
         {
             var data = GetData(saved.Code);
             if (data == null) { Debug.LogError("[Equipment] Preserved unknown item code: " + saved.Code); continue; }
@@ -82,6 +91,41 @@ public class EquipmentManager : MonoBehaviour
         _inventory = next;
         foreach (var pair in _players)
             pair.Value?.PlayerEquipmentManager?.RestoreSelection(_inventory.Items.FirstOrDefault(x => x.equipmentPlayerIndex == pair.Key));
+
+        if (!changed) return;
+        // 복원 중 기존 인스턴스가 바뀌므로 비교용 값은 별도로 보관한다.
+        _restoredItems = state.Equipment.Select(x => x.Copy()).ToArray();
+        _restoredPending = state.PendingEquipment.Select(x => x.Copy()).ToArray();
+        _restoredReserve = state.LegacyEquipment.Select(x => x.Copy()).ToArray();
+        _restoredAutoMask = state.AutoDismantleMask;
+        _restoredAccount = LocalProgression.AccountKey;
+        var handlers = OnEquipmentStateChanged;
+        if (handlers != null)
+            foreach (Action handler in handlers.GetInvocationList())
+                try { handler(); } catch (Exception exception) { Debug.LogException(exception); }
+    }
+
+    private static bool SameEquipment(EquipmentSave[] previous, List<EquipmentSave> current)
+    {
+        if (previous.Length != current.Count) return false;
+        for (int i = 0; i < previous.Length; i++)
+        {
+            var a = previous[i]; var b = current[i];
+            if (a.Id != b.Id || a.Code != b.Code || a.Level != b.Level || a.Player != b.Player || a.Locked != b.Locked ||
+                a.ExpiresUtc != b.ExpiresUtc || a.EnhancementStonesSpent != b.EnhancementStonesSpent) return false;
+        }
+        return true;
+    }
+
+    private static bool SameReserve(LegacyEquipmentStack[] previous, List<LegacyEquipmentStack> current)
+    {
+        if (previous.Length != current.Count) return false;
+        for (int i = 0; i < previous.Length; i++)
+        {
+            var a = previous[i]; var b = current[i];
+            if (a.Code != b.Code || a.Level != b.Level || a.Count != b.Count || a.Locked != b.Locked) return false;
+        }
+        return true;
     }
 
     // ── 서버 조작 ─────────────────────────────────────────────────────

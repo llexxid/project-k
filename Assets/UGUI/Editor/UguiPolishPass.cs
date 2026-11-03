@@ -82,7 +82,7 @@ namespace KingdomIdle.UGUI.Editor
                 }
             }
             var sheet = go.GetComponent<BottomSheetView>();
-            if (sheet != null && sheet.Sheet != null && !sheet.fullScreen)
+            if (sheet != null && sheet.Sheet != null)
             {
                 if(sheet.Sheet.GetComponent<SheetSizeFitter>()==null)
                 {var fitter=sheet.Sheet.gameObject.AddComponent<SheetSizeFitter>();fitter.preferredHeight=sheet.Sheet.sizeDelta.y;}

@@ -591,7 +591,7 @@ namespace KingdomIdle.UGUI.Editor
         private static void BuildBottomBar(RectTransform rootRt, MainScreenView view)
         {
             // [마탑 환경 연출 예약] 바 왼쪽 ~220px 는 별도 작업에서 마법사 탑 환경 스프라이트가
-            // 절대 배치(ignoreLayout 또는 형제 오버레이)로 겹칠 자리다. 탭 4개는 HLayout의
+            // 절대 배치(ignoreLayout 또는 형제 오버레이)로 겹칠 자리다. 탭 5개는 HLayout의
             // flexible 자식이라 형제 오버레이와 간섭하지 않는다 — 왼쪽에 고정 폭 레이아웃 요소를
             // 추가하지 말 것(오버레이가 탭을 밀어내는 대신 '위에 겹치는' 구조를 유지한다).
             // 러스틱 하단 탭 바 (더 어두운 다크 우드)
@@ -611,6 +611,8 @@ namespace KingdomIdle.UGUI.Editor
                 UguiGenAssets.IconDungeon, "던전");
             view.tabGacha = MakeTabButton(bar.transform, "BtnGacha",
                 F.Catalog != null ? F.Catalog.iconChest : null, "뽑기");
+            view.tabStore = MakeTabButton(bar.transform, "BtnStore",
+                F.Catalog != null ? F.Catalog.iconAncientCoin : null, "상점");
         }
 
         private static MainTabButtonView MakeTabButton(Transform parent, string name, Sprite icon, string label)

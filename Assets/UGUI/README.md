@@ -50,17 +50,23 @@
 
 ## 공통 연출과 기능 안내
 
-### 전체 화면 뽑기 (0.20.0)
+### 뽑기·상점과 하단 탐색
 
-`UIViewCatalog.panelGacha → Panel_Gacha`는 기존 `SafeArea/LayerPanels` 안에서 하단 메뉴까지 채운다. 루트와 `Sheet`는 Stretch·Offset 0이고 `SheetSizeFitter`와 `SheetClip`은 없다. `BottomSheetView.fullScreen`일 때 UIManager의 강제 크기·위치 변경을 건너뛰며 unscaled 0.15초 페이드만 사용한다. `PartyHudSuppressor`는 퇴장이 끝날 때까지 왕국군·수동 시전 HUD를 가리고 입력 통과를 막는다.
+하단바는 **육성 → 왕국군 → 던전 → 뽑기 → 상점**의 다섯 메뉴다. 육성·왕국군·던전은 기존 크기를 사용하고, 뽑기·상점은 상단 정보·현재 왕국군 정보·하단바를 남긴 중앙 영역을 채우며 긴 본문만 스크롤한다. `UIManager`의 공통 패널 스택이 열기·닫기·뒤로가기·선택 상태를 처리한다. 햄버거의 상점도 같은 `UIPanelId.Store` 패널로 연결한다.
 
-제목·탭·상세 버튼·천장·재화·뽑기 버튼은 고정 높이, 중앙 아트만 남는 높이를 사용한다. `GachaPanelView.authoredContent`가 프리팹에 저장된 본문을 연결한다. `Popup_GachaRewards`는 열 때만 기존 보상 카드를 구성하며 `ModalBackHandler`로 닫힌다. 팝업은 패널의 자식이므로 가림·종료 수명을 함께 따른다. 장비 천장은 서버 최종 누적값을 `N / 40회`와 게이지로 표시하며 마탑에서는 숨긴다.
+육성·왕국군·던전은 기존 프리팹의 크기와 계산 코드를 보존한다. 루트 프리팹의 `UIManager.expandLegacyTabPanels`는 기본 false로, 기존 세 패널의 크기·왕국군 HUD 위치를 사용한다. true로 바꾸면 세 패널도 런타임에서 확장하며 뽑기·상점은 두 설정 모두 확대를 유지한다. 세 패널의 원래 프리팹을 다시 생성하거나 역변환할 필요는 없다.
+
+`UIViewCatalog.panelGacha → Panel_Gacha`는 기존 장비·마탑 탭과 아트, 천장, 확률표·획득 가능 보상, 뽑기 버튼을 `GachaPanelView`의 직렬화 참조로 재사용한다. 상단의 제목·탭과 하단의 비용 재화 보유량·뽑기 버튼은 고정한다. 가운데 스크롤 본문은 `FeaturedArea → Tickets → Pity → Details` 순서다. 넓은 미리보기가 남는 높이를 채우고 그 아래 뽑기권 보유량, 장비 천장, 작은 확률표·보상 목록 링크를 배치한다. 장비 천장은 서버 최종 누적값을 `N / 40회`와 게이지로 표시하며 마탑에서는 숨긴다.
+
+뽑기 스크롤은 `F.VScroll`의 마스크·입력·ContentSizeFitter를 유지한다. `GachaPanelView`는 뷰포트 높이가 바뀔 때만 Content의 최소 높이를 맞추고, 기존 세로 레이아웃에서 `FeaturedArea`만 남는 높이를 채운다. 부모 레이아웃으로 Content의 위치를 강제하지 않아 재화 표시 갱신에도 스크롤 위치를 보존한다. 화면이 짧아 최소 콘텐츠 높이를 담지 못하면 가운데 본문만 스크롤한다. `Tickets`는 현재 탭의 장비·마탑 뽑기권 보유량을 0장도 포함해 읽기 전용으로 표시하며, 기존 지갑 변경 알림으로 갱신한다.
+
+`Popup_GachaRewards`는 열 때만 기존 보상 카드를 구성하며 `ModalBackHandler`로 닫힌다. 팝업은 패널의 자식이므로 가림·종료 수명을 함께 따른다.
 
 `UIViewCatalog.gachaRatesUrl`은 공개 확률표 주소다. 현재 탭에 따라 `#equipment` 또는 `#mage-tower`를 외부 브라우저로 연다. 사이트 소스는 게임 저장소 밖 `바탕화면/Ludos-Interactive/gacha-rates`에서 관리한다. 해당 폴더의 `generate_rates.py`는 서버 소스와 클라이언트 카탈로그를 대조하고 페이지와 검증 기록을 만든다.
 
-미리보기와 결과창은 아이콘이 없는 재화 보상에 `RewardPresentation.Icon`의 공통 이미지를 사용한다. `GachaFullScreenValidation.CheckResultCurrencyIcons()`는 Play Mode에서 서버 DTO 변환·전직 파편/비전 지식 아이콘·합산 수량을 표시용 데이터로 검사한다([0.20.1 검증 기록](../../AI/validation/gacha-result-icons-20261102/README.md)).
+미리보기와 결과창은 아이콘이 없는 재화 보상에 `RewardPresentation.Icon`의 공통 이미지를 사용한다. `GachaPanelValidation.CheckResultCurrencyIcons()`는 Play Mode에서 서버 DTO 변환·전직 파편/비전 지식 아이콘·합산 수량을 표시용 데이터로 검사한다([0.20.1 검증 기록](../../AI/validation/gacha-result-icons-20261102/README.md)).
 
-기존 프리팹은 `Panel_Gacha_Old`에 원 GUID와 구조를 유지한다. `GachaFullScreenPreparation.Prepare()`는 최초 한 번만 Old로 이동하고 이후 새 패널·보상 팝업만 재생성한다. 전체 생성기와 polish는 Old를 덮어쓰지 않는다. 정상 로그인 후 `GachaFullScreenValidation.Run()`으로 비율·안전 영역 모의·페이드·팝업·천장 표시·HUD 복원을 검사한다. 캡처와 Editor 성능 표본은 `Recordings/Gacha20261101`, 결과 요약은 `AI/validation/gacha-fullscreen-20261101`에 보관한다.
+`UguiTypeNavPass.ApplyMainNavigation()`은 기존 `Screen_Main`에 상점 탭만 추가·연결한다. `GachaPanelPrefabGens.Prepare()`는 현재 뽑기 프리팹의 콘텐츠를 새 패널 크기에 맞춰 재배치한다. 정상 로그인 후 `GachaPanelValidation.Run()`으로 비율·안전 영역 모의·HUD와 하단바 유지·팝업·천장 표시를 검사한다. 0.20.0의 전체 화면 구성과 `Panel_Gacha_Old`, 당시 `Recordings/Gacha20261101`·`AI/validation/gacha-fullscreen-20261101` 기록은 과거 구현 출처이며 현재 레이아웃의 규격으로 사용하지 않는다. 새 캡처·성능 수치·QA 기록은 저장소 밖에 보관한다.
 
 `bootstrap/GameManager → Direction.GameDirectManager → FeatureGuidePlayer → UguiFeatureGuideSurface → FeatureGuideView`로 실행한다. Manager는 큐·저장·계정 수명을 소유하는 MonoBehaviour이고 Player와 화면 연결부는 일반 C# 클래스다. 실제 프리팹 참조·레이아웃·입력 필터는 MonoBehaviour View가 담당한다.
 
@@ -91,7 +97,7 @@ Direction.GameDirectManager.Instance.RequestPlay("guide_development");
 
 `guide_mage_tower`는 **실제 마탑 탭 → 스킬 목록 → 장착 버튼 설명 → 해제 버튼 설명**의 네 단계다. `RequestPlay("guide_mage_tower")`로 요청하거나 Unity 상단 `GameTest → Guide Test/실제 계정 저장/5 마탑 스킬` 메뉴에서 실행한다. 장착·해제 실습은 요구하지 않으며 보유 스킬이 없어도 설명 확인으로 완료한다. `MageTower` 문맥은 기존 스킬 팝업을 정상 진행 화면으로 인정하고 미확인 단계 재개 시 복원한다. 마지막 확인 또는 건너뛰기 후에는 팝업을 닫는다. 진행 기록만 저장하며 스킬 소유·장착·재화는 변경하지 않는다. 에셋 누락 복구는 `KingdomIdle/Direction/Prepare mage tower guide`로 가능하다.
 
-안내 진행은 `Modules["game-direct:" + sequenceId]`, 실습 성공은 `Modules["game-direct-action:" + sequenceId + ":" + stepId]`에 분리 저장한다. 강화·뽑기의 `Execute` 거래 초안에 성공 영수증을 함께 넣으므로 소비 직후 종료되어도 재소비하지 않는다. 안내 JSON 저장은 성공 영수증을 덮지 않는다. 주화 지급은 `Claims`의 안내 ID·Action별 키와 50개 지급을 같은 거래에 저장한다. 이미 지급한 주화는 중단 시 회수하지 않으며 추가 지급도 없다. 저장 실패는 초안을 확정하지 않고 안내 입력을 해제한다. 계정 전환은 이전 요청·대기열·지연 콜백을 무효화한다. 환생으로 초기화하지 않는다.
+안내 진행은 `Modules["game-direct:" + sequenceId]`, 실습 성공은 `Modules["game-direct-action:" + sequenceId + ":" + stepId]`에 분리 저장한다. 강화·뽑기의 서버 성공 응답을 적용하는 `Execute` 거래 초안에 성공 영수증을 함께 넣으므로 로컬 저장까지 끝난 실습은 재개 시 재소비하지 않는다. 안내 JSON 저장은 성공 영수증을 덮지 않는다. 주화 지급은 서버 `OnClaimGuideReward`가 안내·단계 ID별 일회 지급을 처리하며, 이미 수령한 응답도 안내를 이어간다. 이미 지급한 주화는 중단 시 회수하지 않는다. 저장 실패는 초안을 확정하지 않고 안내 입력을 해제한다. 계정 전환은 이전 요청·대기열·지연 콜백을 무효화한다. 환생으로 초기화하지 않는다.
 
 `FeatureGuideInputGate`는 실제 최상단 레이캐스트 대상이 허용 버튼인지 검사한다. 밝은 구멍 안이라고 모든 터치를 통과시키지 않는다. 설명 카드와 지정된 읽기 스크롤 외 조작은 막고, 버튼 복제·부모 이동·경제 처리 대체는 하지 않는다. 필요한 패널·결과 팝업은 안내 흐름에 포함하며 무관한 모달·로딩에서는 숨기고 입력 차단을 해제한다. 돌아오면 미확인 단계의 화면을 복원한다. 자동 전투 시간 배율은 변경하지 않는다. 뒤로가기는 건너뛰기이며 정상 완료 후 메인 화면으로 돌아간다.
 
@@ -101,7 +107,9 @@ bootstrap부터 Play하고 메인 화면에 진입한다. Unity 상단 `GameTest
 
 `KingdomIdle/Direction/Validate isolated guide acceptance`는 빈 PlayMode 씬·격리 계정·실제 프리팹·EventSystem 입력으로 검사하고 원래 편집 씬으로 돌아간다. 기존 안내 회귀, 다섯 안내 FIFO, 실제 강화·확률 뽑기, 중복 소비 방지, 지급·저장 실패와 재개를 검사한다. 장비 48개의 스크롤·강조 범위와 마탑 열기·재개도 검사한다. 화면 비율 캡처는 Editor 시뮬레이션이며 Android 실기기 결과가 아니다.
 
-자동 발생은 아직 연결하지 않는다. 다음 단계에서 신규 계정·스테이지 클리어 등의 외부 트리거가 해당 SO를 `RequestPlay`하도록 연결한다. 트리거는 게임 조건을 판단하고, 중복·완료 억제와 재개는 Manager에 맡긴다. 기존 계정에 안내 키가 없다는 이유만으로 신규 계정으로 판단하지 않는다.
+로그인·서버 상태 적용 후 메인 스테이지가 시작될 때 `RequestIncompleteGuides()`가 육성·왕국군·던전·뽑기·마탑 안내의 계정별 기록을 확인한다. Google·게스트 등 로그인 수단과 신규 가입 여부를 구별하지 않으며, 기록이 없으면 처음부터 순서대로 요청한다. 인증 스크립트와 별도 가입 표시는 사용하지 않고 실제 표시 시점은 기존 Player가 UI 준비를 기다린다. 로그인 세대마다 한 번만 요청하므로 던전 복귀로 반복 실행하지 않는다. 완료·명시적으로 건너뛰기한 안내는 제외하고 중단된 안내는 다음 접속에 미확인 단계부터 이어간다. 기존 게임 저장은 초기화하지 않는다. 저장 범위는 같은 기기의 같은 설치본이며 재설치·앱 데이터 삭제·다른 기기 복원은 지원하지 않는다. 다른 자동 트리거는 연결하지 않았다.
+
+`KingdomIdle/Direction/Validate new player startup`은 격리 로컬 계정과 모의 인증 상태로 등록·재접속·완료 억제·계정 전환·저장 실패를 검사한다. 실제 Google 인증과 Android 실기기 검증은 별도다. 결과는 `TUTORIAL_QA_OUTPUT` 또는 레포지토리 밖 `C:/GitHub/QA/TutorialStartup-20261103`에 저장한다.
 
 `GameTest` 순차 실행은 현재 계정에서 미완료인 안내만 요청한다. 완료·건너뛰기 항목은 ID와 함께 `안내 생략` 일반 로그를 남기며 기록을 초기화하지 않는다. 패널 복원 직후 대상이 화면·마스크 밖에 있으면 `FeatureGuideView.TryRefreshLayout`은 false를 반환하고 호출자가 입력·참조를 정리한다. Player가 같은 미확인 단계를 다시 표시하므로 일시적인 레이아웃 미준비를 완료나 오류로 취급하지 않는다.
 
@@ -116,7 +124,7 @@ bootstrap부터 Play하고 메인 화면에 진입한다. Unity 상단 `GameTest
 - 마탑 수동 스킬은 상단 스테이지 위치와 분리하여 우하단 왕국군 HUD 위에 유지한다. `StageBadgeAnchor`의 상단 모드는 위치를 움직이지 않고 기존 메뉴 숨김만 처리하며, 하단 던전 복귀 행은 왕국군 HUD 위에 정렬한다.
 - 햄버거: 퀘스트/가이드, 가방, 설정, 반복 사냥 종료. 보스 자동 도전은 스테이지 인디케이터 옆에서 조작한다.
 - `Panel_Guide`는 가이드·일일·주간·업적 네 탭을 제공한다. 상단 현재 퀘스트 카드는 가이드 탭에서만 표시하며 HUD와 같은 `QuestManager` 데이터를 쓴다.
-- 하단 네 탭은 육성·왕국군·던전·뽑기. 시트가 열리면 HUD 목표 카드는 숨긴다.
+- 하단 다섯 탭은 육성·왕국군·던전·뽑기·상점이다. 기본값 `expandLegacyTabPanels=false`에서 육성·왕국군·던전은 기존 시트 크기를 사용하고 뽑기·상점만 상단 정보와 왕국군 HUD 아래를 채운다. 시트가 열리면 HUD 목표 카드는 숨긴다.
 
 `UguiPolishPass → UguiTypeNavPass`는 기존 스타일 보정 도구다. 스테이지 HUD의 부분 적용은 `StageHudPreparation.Apply`를 사용한다. `Screen_Main`과 두 신규 팝업, 카탈로그 참조만 저장하며 공용 스킨이나 다른 패널은 재생성하지 않는다.
 일반 글자는 Galmuri11 기본 굵기·공유 머티리얼, 전투 숫자·컷인만 필요한 외곽선을 사용한다.
@@ -159,6 +167,8 @@ Android 검사 도우미와 실행 결과는 저장소 밖 QA 보관 폴더에�
 
 장비와 가방은 `VirtualEquipmentGrid`로 화면에 보이는 카드만 만든다. 보관함 초과 보상은 기존 수량형 저장 구조에 영구 보관하여 전투·던전·뽑기를 막지 않는다. `EquipmentData.DisplayName`은 화면용 이름이며 기존 저장 키와 아이템 코드는 유지한다. 상세 스탯은 실제 `PlayerStatus` 계산을 사용하고 변경된 계산식만 다시 그린다.
 
+`EquipmentManager.OnEquipmentStateChanged`는 저장된 장비·보류함·예비보관함·자동 분해 설정이 바뀌고 캐릭터 장착·능력치 복원까지 끝났을 때 발행한다. 인벤토리는 이 알림을 프레임당 한 번 처리하며 필터·스크롤과 열려 있는 장비 상세를 유지한다. `OnActionCompleted`는 결과 안내와 강화 후 상세 대상 ID 보정을 맡고, 실제 화면 갱신은 `InventoryPanelView.LateUpdate`에서 처리한다.
+
 `InventoryPanelController`의 재료·기타 탭은 기존 `EquipCellView`에 `RewardPresentation`의 아이콘·이름과 지갑 보유 수량을 연결한다. 강화석은 재료, 장비·마탑 뽑기권은 기타에 표시하며 수량이 0이면 슬롯을 숨기고 모두 없으면 빈 상태 안내를 표시한다. 재화 카드는 공통 청동색을 사용하고 장착·스탯·희귀도 동작은 제공하지 않는다. 클릭 설명은 `RewardPopupView.ShowItem()`을 재사용하며 잔액 변경 시 표시를 갱신한다. 전체·장비 탭의 구성과 장비 필터는 유지하고, 인벤토리 전용 수량 저장이나 뽑기권 사용 경로는 추가하지 않는다.
 
 현재 검증 진입점은 `PlayabilityRevisionPreparation.Validate`, Unity 실행 검사 `KingdomIdle.UGUI.Editor.PlayabilityLiveValidation.Run`, Android `AI/qa/mage/playability_checks.py`다. 증거는 `Recordings/PlayabilityRevision`과 [플레이 개선 검증 기록](../../Docs/ArtPreparation/PLAYABILITY_20260918.md)에 있다.
@@ -169,13 +179,13 @@ Android 검사 도우미와 실행 결과는 저장소 밖 QA 보관 폴더에�
 
 ## 상점
 
-햄버거 메뉴의 `상점`에서 목재·청동 테마 팝업을 연다. 추천·주화 / 골드·매일 광고 세 탭과 11개 상품을 표시한다. `ShopCatalog`가 안정 상품 ID·예정 가격·수량을 관리하며 `ShopPopupController`는 현재 고대주화 잔액과 기존 `QuestEconomy` 기준의 골드 환산을 읽는다. 구매·교환·광고 제거 구매는 준비 중 토스트만 표시한다. 매일 광고 두 상품은 기존 `RewardedAdService`를 재사용하며 장비는 `ShopEquipmentAdUnitId`, 마탑은 `ShopMageAdUnitId`로 광고 단위를 구분한다. Editor·Development Build는 테스트 광고를 사용한다.
+하단바 맨 오른쪽 `상점`과 햄버거 메뉴의 `상점`은 같은 목재·청동 테마 패널을 연다. 상단 정보·현재 왕국군 정보·하단바를 유지하고 그 사이를 채우며 상품 목록만 스크롤한다. 추천·주화 / 골드·매일 광고 세 탭과 11개 상품은 유지한다. `ShopCatalog`가 안정 상품 ID·예정 가격·수량을 관리하며 `ShopPopupController`는 현재 고대주화 잔액과 기존 `QuestEconomy` 기준의 골드 환산을 읽는다. 구매·교환·광고 제거 구매는 준비 중 토스트만 표시한다. 매일 광고 두 상품은 기존 `RewardedAdService`를 재사용하며 장비는 `ShopEquipmentAdUnitId`, 마탑은 `ShopMageAdUnitId`로 광고 단위를 구분한다. Editor·Development Build는 테스트 광고를 사용한다.
 
-`ShopAdRewardService.Begin()`은 계정 세대·광고 시작일·지급 수량을 고정한다. `Completed`만 지급 자격으로 인정하며 `LocalProgression.Execute()` 안에서 `RewardGrants.TryApply()`와 `shop-ad:{상품 ID}:{한국 날짜}` 수령 기록을 함께 저장한다. 장비·마탑 뽑기권을 각각 2장씩 하루 한 번 지급한다. 자정 이후 완료·저장 재시도도 시작일 보상이며 새날 수령 기회와 구별한다. 기존 기간의 마지막 승인 시각을 사용해 시계 역행으로 기간이 재개되지 않게 한다. 서버 시각·서버 보상 검증은 아직 연결하지 않았다.
+일일 광고는 이미 연결된 `ShopAdRewardService`의 서버 지급 경로를 유지한다. `Completed` 후 `OnClaimAdReward(ShopDaily)`를 요청하고, 서버가 반환한 재화 절대값과 수령 기록을 적용한다. 상품별 한국 날짜의 수령 가능 여부와 지급량은 서버가 판정하며 UI는 받은 기록을 표시한다. 이번 패널 개편은 광고 시작일·중복 지급·저장 재시도 등 보상 정책이나 서버 요청을 바꾸지 않는다.
 
-시청 중에는 두 광고 버튼이 잠긴다. 중단·실패는 횟수를 소비하지 않는다. 완료 후 저장 실패는 같은 실행 중 기억하고 `보상 다시 받기`로 광고 없이 재시도한다. 팝업을 닫아도 이 권리는 유지되지만 앱 강제 종료 후 미지급 보너스 복구는 지원하지 않는다. 계정 전환은 이전 요청을 거절한다. 성공 결과는 기존 `RewardPopupView.ShowRewards()`로 표시한다.
+시청 중에는 두 광고 버튼이 잠긴다. 중단·실패는 횟수를 소비하지 않는다. 완료 후 저장 실패는 같은 실행 중 기억하고 `보상 다시 받기`로 광고 없이 재시도한다. 상점 패널을 닫아도 이 권리는 유지되지만 앱 강제 종료 후 미지급 보너스 복구는 지원하지 않는다. 계정 전환은 이전 요청을 거절한다. 성공 결과는 기존 `RewardPopupView.ShowRewards()`로 표시한다.
 
-뽑기권은 로컬 지갑의 `EquipmentTicket=8`, `MageTicket=9`에 보존하며 기존 재화 ID는 바꾸지 않는다. 두 항목의 보유 수량과 오늘 수령 여부는 상점에 표시한다. **뽑기권 사용·자동 소비·고대주화 대체는 미구현**이며 기존 장비·마탑 뽑기는 그대로다. 결과 아이콘은 기존 상자·지팡이를 재사용한다.
+뽑기권은 로컬 지갑의 `EquipmentTicket=8`, `MageTicket=9`에 보존하며 기존 재화 ID는 바꾸지 않는다. 두 항목의 보유 수량과 오늘 수령 여부는 상점에 표시하고, 각 뽑기 탭에서도 해당 뽑기권 보유량을 읽기 전용으로 보여 준다. **뽑기권 사용·자동 소비·비용 재화 대체는 미구현**이며 기존 장비·마탑 뽑기는 그대로다. 결과 아이콘은 기존 상자·지팡이를 재사용한다.
 
 `ShopPopupPrefabGen.Rebuild`는 상점 프리팹과 기존 메인의 상점 버튼·카탈로그 참조를 갱신한다. 상점 안내 문구는 실제 프리팹과 생성 코드에 함께 반영한다. 오프라인 보상 상한은 8시간이며 상점의 일일 광고 수령 기록과 오프라인 광고 정산은 독립적이다.
 

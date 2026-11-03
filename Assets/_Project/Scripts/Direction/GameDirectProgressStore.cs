@@ -25,7 +25,6 @@ namespace Direction
     public sealed class GameDirectProgressStore
     {
         private const string Prefix = "game-direct:";
-
 #if UNITY_EDITOR
         /// <summary>
         /// 지정한 안내 ID의 진행·실습 성공·주화 지급 기록만 하나의 거래에서 지운다. Manager가 기존 실행 정리를 끝낸 뒤 호출한다.
