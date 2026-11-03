@@ -202,18 +202,13 @@ namespace KingdomIdle.UGUI
 
             if (c.messageLabel != null) c.messageLabel.gameObject.SetActive(false);
 
-            UpdateDescription();
-
             // 보유/비용 바 (.gacha-cost: 26px gold)
             EconomyBridge.TryGetAmount(table.costCurrency, out long current);
-            if (c.costLabel != null)
-            {
-                c.costLabel.gameObject.SetActive(true);
-                UpdateCostLabel(current);
-            }
+            if (c.costLabel != null) c.costLabel.gameObject.SetActive(true);
 
             // 뽑기 버튼 행 — 크고 명확한 프리팹 버튼 (Item_GachaPullButton)
             BuildPullRow(c, table, current);
+            UpdateWallet();
 #if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
             Debug.Log($"[GachaTiming] controls {contentTimer.Elapsed.TotalMilliseconds:F2} ms");
 #endif
@@ -252,13 +247,20 @@ namespace KingdomIdle.UGUI
         }
 
         private static bool IsSkillTable(GachaTableSO table) => table != null && table.gachaType == eGachaType.Skill;
+        private static eCurrency TicketCurrency => IsSkillTable(_contentTable) ? eCurrency.MageTicket : eCurrency.EquipmentTicket;
         private static void OnWalletChanged(eCurrency currency, long amount)
-        { if (_contentTable != null && _contentTable.costCurrency == currency) UpdateWallet(); }
+        { if (_contentTable != null && (_contentTable.costCurrency == currency || TicketCurrency == currency)) UpdateWallet(); }
         private static void UpdateWallet()
         {
             if (_content == null || _contentTable == null) return;
             EconomyBridge.TryGetAmount(_contentTable.costCurrency,out long current);
             UpdateCostLabel(current);
+            var ticketCurrency = TicketCurrency;
+            EconomyBridge.TryGetAmount(ticketCurrency, out long tickets);
+            string ticketName = RewardPresentation.Name(ticketCurrency);
+            string ticketCount = $"보유 {NumberNotation.Format(tickets)}장";
+            if (_content.ticketName != null && _content.ticketName.text != ticketName) _content.ticketName.text = ticketName;
+            if (_content.ticketCount != null && _content.ticketCount.text != ticketCount) _content.ticketCount.text = ticketCount;
             UpdateDescription();
             bool pulling=_flaringPull || (GachaManager.Instance != null && GachaManager.Instance.IsPulling);
             for(int i=0;i<_activePullButtons.Count;i++)

@@ -8,6 +8,8 @@ namespace KingdomIdle.UGUI
     {
         [SerializeField] internal TMP_Text messageLabel;
         [SerializeField] internal TMP_Text costLabel;
+        [SerializeField] internal TMP_Text ticketName;
+        [SerializeField] internal TMP_Text ticketCount;
         [SerializeField] internal RectTransform pullRow;
         [SerializeField] internal RectTransform rewardGrid;
         [SerializeField] internal UnityEngine.UI.Button ratesButton;

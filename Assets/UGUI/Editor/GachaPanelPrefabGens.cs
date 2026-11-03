@@ -111,7 +111,7 @@ namespace KingdomIdle.UGUI.Editor
             return PrefabGenUtil.SavePrefab(root.gameObject, PanelPath);
         }
 
-        /// <summary>기존 참조·아트를 보존하고 본문만 스크롤한다. 뽑기 버튼은 항상 하단에 둔다.</summary>
+        /// <summary>미리보기가 본문의 남는 높이를 채우고 짧은 화면에서만 스크롤한다.</summary>
         internal static void ApplyLayout(GachaPanelView view)
         {
             if (view == null || view.sheet == null || view.authoredContent == null)
@@ -131,22 +131,87 @@ namespace KingdomIdle.UGUI.Editor
             var scrollSize = F.Flexible(view.scroll, flexHeight: 1);
             scrollSize.minHeight = 80;
             scrollSize.preferredHeight = 0;
-            foreach (var row in new[] { c.messageLabel.transform, c.heroIcon.transform.parent, c.ratesButton.transform.parent, c.pityRoot })
+            // Viewport가 Content의 최소 높이와 가용 높이 중 큰 값을 배분한다.
+            var contentFitter = view.content.GetComponent<UnityEngine.UI.ContentSizeFitter>();
+            if (contentFitter != null) UnityEngine.Object.DestroyImmediate(contentFitter);
+            var viewportLayout = view.scroll.viewport.GetComponent<UnityEngine.UI.VerticalLayoutGroup>();
+            if (viewportLayout == null) viewportLayout = F.VLayout(view.scroll.viewport.gameObject);
+            viewportLayout.childForceExpandHeight = true;
+            F.Flexible(view.content, flexHeight: 1);
+            var bodyLayout = view.content.GetComponent<UnityEngine.UI.VerticalLayoutGroup>();
+            bodyLayout.spacing = 18;
+            bodyLayout.padding = new RectOffset(0, 0, 12, 0);
+
+            var heroRect = (RectTransform)c.heroIcon.transform.parent;
+            var tickets = view.content.Find("Tickets") as RectTransform;
+            if (tickets == null)
+            {
+                tickets = F.Container(view.content, "Tickets");
+                F.VLayout(tickets.gameObject, 0);
+                var ticketRow = Row(tickets, "Balance", 52);
+                c.ticketName = F.Text(ticketRow, "Name", "장비 뽑기권", 30, UguiTheme.Parchment, TextAlignmentOptions.MidlineLeft);
+                F.Flexible(c.ticketName, flexWidth: 1);
+                c.ticketCount = F.Text(ticketRow, "Count", "보유 0장", 32, UguiTheme.Parchment, TextAlignmentOptions.MidlineRight);
+                F.Preferred(c.ticketCount, width: 420);
+                var hint = F.Text(tickets, "Hint", "뽑기권 사용 준비 중", 24, UguiTheme.TextSecondary, TextAlignmentOptions.MidlineLeft);
+                Fixed(hint, 32);
+            }
+            Fixed(tickets, 84);
+            foreach (var row in new[] { c.messageLabel.transform, heroRect, tickets, c.pityRoot, c.ratesButton.transform.parent })
+            {
                 row.SetParent(view.content, false);
+                row.SetAsLastSibling();
+            }
             var header = view.sheet.Find("Header");
             foreach (var row in new[] { header, view.tabBar, view.scroll.transform, c.costLabel.transform, c.pullRow })
                 row.SetAsLastSibling();
             Fixed(header, 132);
             view.title.fontSize = 40;
             Fixed(view.tabBar, 132);
-            var hero = F.Preferred(c.heroIcon.transform.parent, height: 300);
-            hero.minHeight = 220; hero.flexibleHeight = 0;
+            var hero = F.Preferred(heroRect, height: 360);
+            hero.minHeight = 360; hero.flexibleHeight = 1;
+            var heroBackground = heroRect.GetComponent<UnityEngine.UI.Image>();
+            if (heroBackground == null) heroBackground = heroRect.gameObject.AddComponent<UnityEngine.UI.Image>();
+            heroBackground.color = UguiTheme.RusticSurfaceDark;
+            heroBackground.raycastTarget = false;
+            if (heroRect.Find("Frame") == null) F.Frame(heroRect, "Frame", UguiTheme.Bronze);
+            var art = c.heroIcon.rectTransform;
+            F.AnchorCenter(art, 260, 260);
+            art.anchoredPosition = new Vector2(0, 50);
+            var name = c.heroTitle.rectTransform;
+            F.AnchorCenter(name, 800, 64);
+            name.anchoredPosition = new Vector2(0, -126);
+            c.heroTitle.fontSize = 40;
+
+            Fixed(c.pityRoot, 164);
+            c.pityRoot.GetComponent<UnityEngine.UI.VerticalLayoutGroup>().spacing = 4;
+            Fixed(c.pityRoot.Find("Progress"), 44);
+            Fixed(c.pityFill.transform.parent, 10);
+            Fixed(c.pityRemaining, 38);
+            var rule = c.pityRoot.Find("Rule").GetComponent<TMP_Text>();
+            rule.fontSize = 24;
+            Fixed(rule, 60);
             Fixed(c.ratesButton.transform.parent, 132);
-            Fixed(c.ratesButton, 132); Fixed(c.rewardsButton, 132);
-            Fixed(c.costLabel, 48);
-            Fixed(c.pullRow, 164);
+            Link(c.ratesButton, "확률 정보", TextAlignmentOptions.MidlineLeft);
+            Link(c.rewardsButton, "획득 가능 목록", TextAlignmentOptions.MidlineRight);
+            c.costLabel.fontSize = 28;
+            Fixed(c.costLabel, 40);
+            Fixed(c.pullRow, 190);
             var close = F.Preferred(view.closeButton, height: 132);
             close.minHeight = 132;
+        }
+
+        private static void Link(UnityEngine.UI.Button button, string text, TextAlignmentOptions alignment)
+        {
+            Fixed(button, 132);
+            foreach (var image in button.GetComponentsInChildren<UnityEngine.UI.Image>(true))
+                image.color = Color.clear;
+            var label = button.GetComponentInChildren<TMP_Text>(true);
+            label.text = text;
+            label.fontSize = 32;
+            label.fontStyle = FontStyles.Underline;
+            label.color = UguiTheme.TextSecondary;
+            label.alignment = alignment;
         }
 
         internal static GameObject GenerateRewards()
