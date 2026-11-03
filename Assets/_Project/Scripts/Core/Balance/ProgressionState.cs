@@ -55,6 +55,7 @@ namespace KingdomIdle.Balance
         public int GoldDungeonClear, RubyDungeonClear, GoldTickets = 2, RubyTickets = 2;
         public string TicketDay;
         public string ActiveDungeon;
+        public long ServerDungeonId, DungeonTicketResetUtc;
         public string ActiveBattleId;
         public int LastKillSequence;
         public string LastClearedBattle;

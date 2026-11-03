@@ -84,7 +84,7 @@ namespace Scripts.Core.Manager
 	/// <br/>정적 정보는 StageDefinition, 진행 중인 몬스터 상태는 StageSession,
 	/// 스테이지/웨이브 계산은 StageRule이 담당한다
 	/// </summary>
-	public class StageManager : MonoBehaviour
+	public partial class StageManager : MonoBehaviour
 	{
 		#region 싱글톤 / 이벤트
 		public static StageManager Instance;
@@ -168,7 +168,7 @@ namespace Scripts.Core.Manager
         [NonSerialized]
         private eStage maxStage; // 현재 최대 진행된 스테이지 확인(서버붙이기 전까지 사용)
         
-        // 서버 전송용 사냥 결과 버퍼. 메인 스테이지 처치만 스테이지 ID별로 모은다(던전 처치는 보내지 않는다).
+        // 던전 배치는 입장 때 받은 BattleId를 유지한다.
         private Dictionary<long, Dictionary<eMonsterType, int>> _huntBuffer;
         // 전송 대기열. 사냥 배치와 스테이지 클리어를 발생 순서대로 한 번에 하나씩 보낸다.
         private readonly Queue<HuntOutboxItem> _huntOutbox = new Queue<HuntOutboxItem>();
@@ -187,6 +187,7 @@ namespace Scripts.Core.Manager
         {
             public bool IsClear;
             public long StageId;
+            public string BattleId;
             public List<HuntResult> Loots;
             public int Attempts;
         }
@@ -219,6 +220,7 @@ namespace Scripts.Core.Manager
 		/// <summary>보스 제한 시간과 패배 팝업 선택 제한 시간을 갱신한다.</summary>
 		private void Update()
         {
+            RetryDungeonRequest();
             if (_bossTimerActive)
             {
 				_bossTimer = _currentSession?.RemainingTime ?? 0;
@@ -340,17 +342,22 @@ namespace Scripts.Core.Manager
 			eStageType type = StageParser.GetStageType(stage);
 			if ((type != eStageType.GoldDungeon &&
 			     type != eStageType.RubyDungeon) ||
-			    (!IsDungeonStageUnlocked(stage) || BattleEconomy.Tickets(type) <= 0))
+			    !IsDungeonStageUnlocked(stage))
 			{
 				return false;
 			}
 
 			CaptureMainStageSnapshot();
-			return TransitionStage(stage);
+			return BeginServerDungeon(stage);
 		}
 		public void ReturnToMainStage()
 		{
-			if (StageParser.GetStageType(_currentStage) == eStageType.Main || _currentState == eStageRunState.Transitioning) return;
+			if (_dungeonRequestPending || StageParser.GetStageType(_currentStage) == eStageType.Main || _currentState == eStageRunState.Transitioning) return;
+            if (!string.IsNullOrEmpty(LocalProgression.State.ActiveDungeon))
+            {
+                ExitServerDungeon(ReturnToMainStage);
+                return;
+            }
 			Time.timeScale = 1f;
 			if (_mainStageSnapshot == null)
 			{
@@ -413,13 +420,23 @@ namespace Scripts.Core.Manager
 			// 새 입장: 이전 세션의 전송 상태를 버리고, 메인 스테이지 처치를 3초마다 서버(OnHuntReward)에 보고한다.
 			// 웨이브 클리어는 같은 대기열에서 OnStageClear로 저장한다.
 			_huntInFlight = false;
+			_huntSyncFailed = false;
+            _onHuntsSettled = null;
+            _dungeonRequestPending = false;
+            _retryDungeon = null;
 			_huntOutbox.Clear();
 			_huntBuffer.Clear();
 			_saturatedTypes.Clear();
 			SendHuntResultLoop(_token.Token).Forget();
 			ResetStage((long)_currentStage == 0 ? stage : _currentStage);
             ReviveAllPlayers();
-            TransitionStage(stage);
+            if (!string.IsNullOrEmpty(LocalProgression.State.ActiveDungeon))
+            {
+                _mainStageSnapshot = new MainStageSnapshot { StageId = stage, LoopMode = _isLoopMode, BossAutoChallenge = _bossAutoChallenge };
+                _currentState = eStageRunState.Entering;
+                ExitServerDungeon(() => TransitionStage(stage));
+            }
+            else TransitionStage(stage);
         }		
 		
 		/// <summary>
@@ -479,12 +496,12 @@ namespace Scripts.Core.Manager
             _currentState=eStageRunState.None;_bossTimerActive=false;
             Debug.LogError("Stage resource load failed: " + error.Message);
             fade?.FadeIn(.2f);
-            KingdomIdle.UGUI.UIManager.Instance?.ShowToast("전투 리소스를 불러오지 못했습니다. 입장권은 사용되지 않았습니다. 재접속해 주세요.");
+            KingdomIdle.UGUI.UIManager.Instance?.ShowToast("전투 리소스를 불러오지 못했습니다. 던전 입장권 상태는 서버에 저장되어 있습니다. 재접속해 주세요.");
         }
         private bool TransitionStage(eStage target)
 		{
 			Debug.Log($"{target}");
-			if (_currentState == eStageRunState.Transitioning) return false;
+			if (_huntSyncFailed || _onHuntsSettled != null || _dungeonRequestPending || _currentState == eStageRunState.Transitioning) return false;
 			
 			if (!_provider.TryGet(target, out StageDefinition definition))
 			{ 
@@ -572,8 +589,12 @@ namespace Scripts.Core.Manager
 					break;
 				case eStageFlowAction.ShowResult:
 					Debug.Log("스테이지 클리어 후 결과를 보고 있습니다");
-					NotifyStageCleared(session);
-					EnterResultPending();
+                    if (session.Definition.Type == eStageType.Main)
+                    {
+                        NotifyStageCleared(session);
+                        EnterResultPending();
+                    }
+                    else CompleteServerDungeon(session);
 					break;
 				case eStageFlowAction.AwaitDefeatChoice:
 					Debug.Log("스테이지 패배 후 작업을 선택중입니다");
@@ -665,7 +686,13 @@ namespace Scripts.Core.Manager
         {
 var definition = _currentSession?.Definition;
             if (definition == null) return;
-            if (definition.Type != eStageType.Main && BattleEconomy.Tickets(definition.Type) <= 0) { ReturnToMainStage(); return; }
+            if (definition.Type != eStageType.Main)
+            {
+                if (_dungeonRequestPending) return;
+                if (!string.IsNullOrEmpty(LocalProgression.State.ActiveDungeon)) ExitServerDungeon(() => BeginServerDungeon(definition.Id));
+                else BeginServerDungeon(definition.Id);
+                return;
+            }
             TransitionStage(definition.Id);
     }
 
@@ -683,9 +710,7 @@ var definition = _currentSession?.Definition;
 			if (definition == null || definition.Type == eStageType.Main || !definition.NextDifficultyId.HasValue)
 				return;
 
-			if (BattleEconomy.Tickets(definition.Type) <= 0) return;
-            Time.timeScale = 1f;
-			TransitionStage(definition.NextDifficultyId.Value);
+            BeginServerDungeon(definition.NextDifficultyId.Value);
 		}
 		#endregion
 		#region 스테이지 상태 변경
@@ -926,10 +951,10 @@ var definition = _currentSession?.Definition;
 			}
 			session.CompleteSpawning();
 		}
-		/// <summary>메인 스테이지의 몬스터 처치 수를 스테이지별 서버 전송 버퍼에 누적한다. 던전 처치는 서버에 보내지 않는다.</summary>
+		/// <summary>현재 전투의 처치 수를 서버 전송 버퍼에 누적한다.</summary>
 		private void CountKill(StageDefinition definition, Monster monster)
 		{
-			if (definition == null || definition.Type != eStageType.Main) return;
+			if (definition == null) return;
 			long stageId = (long)definition.Id;
 			if (!_huntBuffer.TryGetValue(stageId, out var kills))
 			{
@@ -1005,8 +1030,8 @@ var definition = _currentSession?.Definition;
         {
 			while (!token.IsCancellationRequested)
 			{
-				await UniTask.WaitForSeconds(TickInterval, cancellationToken: token);
-				if (_huntOutbox.Count == 0 && StageParser.GetStageType(_currentStage) == eStageType.Main) FlushHuntBuffer((long)_currentStage);
+				await UniTask.WaitForSeconds(TickInterval, ignoreTimeScale: true, cancellationToken: token);
+				if (_huntOutbox.Count == 0) FlushHuntBuffer((long)_currentStage);
 				TrySendNextHunt();
 			}
         }
@@ -1030,7 +1055,8 @@ var definition = _currentSession?.Definition;
 			int total = 0;
 			void Enqueue()
 			{
-				if (loots.Count > 0) _huntOutbox.Enqueue(new HuntOutboxItem { StageId = stageId, Loots = loots });
+				if (loots.Count > 0) _huntOutbox.Enqueue(new HuntOutboxItem { StageId = stageId, Loots = loots,
+                    BattleId = StageParser.GetStageType((eStage)stageId) == eStageType.Main ? null : LocalProgression.State.ActiveDungeon });
 				loots = new List<HuntResult>();
 				total = 0;
 			}
@@ -1055,23 +1081,13 @@ var definition = _currentSession?.Definition;
 		public void HoldHunts() { _huntsHeld = true; }
 		public void ReleaseHunts() { if (!_huntsHeld) return; _huntsHeld = false; TrySendNextHunt(); }
 
-		/// <summary>환생 요청 전에 아직 보내지 않은 처치·클리어를 버린다. 서버가 1-1로 되돌리면 이전 스테이지 배치는 1025로 거절되기 때문이다. 전송 중인 배치의 응답은 그대로 처리된다.</summary>
-		public void DiscardPendingHunts()
-		{
-			_huntBuffer?.Clear();
-			HuntOutboxItem inFlight = _huntInFlight && _huntOutbox.Count > 0 ? _huntOutbox.Peek() : null;
-			_huntOutbox.Clear();
-			if (inFlight != null) _huntOutbox.Enqueue(inFlight);
-			_saturatedTypes.Clear();
-		}
-
 		/// <summary>대기열 머리 항목을 보낸다. 사냥 배치는 직전 수락으로부터 HuntMinIntervalSec 뒤에만 보낸다.</summary>
 		private void TrySendNextHunt()
 		{
-			if (_huntInFlight || _huntsHeld) return;
+			if (_huntInFlight || _huntsHeld || _huntSyncFailed) return;
 			// 서버가 이미 정산한 종류는 빼고, 남는 처치가 없는 배치는 보내지 않는다.
 			while (_huntOutbox.Count > 0 && !_huntOutbox.Peek().IsClear && PruneSaturated(_huntOutbox.Peek())) _huntOutbox.Dequeue();
-			if (_huntOutbox.Count == 0) return;
+			if (_huntOutbox.Count == 0) { FinishHuntSettlement(true); return; }
 			var network = NetworkManager.Instance;
 			if (network == null || !network.IsGameDataReady) return;
 			var item = _huntOutbox.Peek();
@@ -1086,9 +1102,9 @@ var definition = _currentSession?.Definition;
 			}
 			else
 			{
-				// 메인 스테이지는 BattleId를 비운다(값이 있으면 1025).
+				// 메인은 null, 던전은 입장 때 받은 서버 BattleId를 보낸다.
 				network.Call<OnRewardRequestDTO, OnHuntResponseDTO>(
-					new OnRewardRequestDTO { Stage = (Protocol.Message.Data.eStage)item.StageId, Loots = item.Loots, BattleId = null },
+					new OnRewardRequestDTO { Stage = (Protocol.Message.Data.eStage)item.StageId, Loots = item.Loots, BattleId = item.BattleId },
 					result => OnHuntRewardSuccess(item, result), error => OnHuntRewardError(item, error));
 			}
 		}
@@ -1117,7 +1133,13 @@ var definition = _currentSession?.Definition;
 				return true;
 			});
 			Debug.Log($"[Hunt] stage=0x{item.StageId:X} loots={DescribeLoots(item.Loots)} -> level={result.Level} exp={result.Exp} kills={result.KillScore} gold={result.Gold} drops={result.Drops?.Count ?? 0} inventory={UserManager.DescribeInventory(result.Equipment)} saved={saved}");
-			if (!saved) Debug.LogError("[Hunt] 서버 결과 저장 실패: " + LocalProgression.LastError);
+            if (!saved)
+            {
+                _huntSyncFailed = true;
+                FinishHuntSettlement(false);
+                Time.timeScale = 0;
+                Debug.LogError("[Hunt] 서버 결과 저장 실패: " + LocalProgression.LastError);
+            }
 			if (saved && result.Equipment != null) EquipmentManager.Instance?.RestoreEquipment();
 			if (saved && result.Drops != null)
 			{
@@ -1152,7 +1174,13 @@ var definition = _currentSession?.Definition;
 			});
 			long next = result.StageState != null ? (long)result.StageState.CurrentStage : 0;
 			Debug.Log($"[StageClear] stage=0x{item.StageId:X} first={result.IsFirstClear} rewards={result.GrantedRewards?.Count ?? 0} next=0x{next:X} client=0x{(long)_currentStage:X} inventory={UserManager.DescribeInventory(result.Equipment)} skills={result.MageTowerState?.Skills?.Count ?? -1} saved={saved}");
-			if (!saved) Debug.LogError("[StageClear] 서버 결과 저장 실패: " + LocalProgression.LastError);
+            if (!saved)
+            {
+                _huntSyncFailed = true;
+                FinishHuntSettlement(false);
+                Time.timeScale = 0;
+                Debug.LogError("[StageClear] 서버 결과 저장 실패: " + LocalProgression.LastError);
+            }
 			if (saved) QuestManager.Instance?.RequestRefresh("clear");
 			if (saved)
 			{
@@ -1165,7 +1193,7 @@ var definition = _currentSession?.Definition;
 			TrySendNextHunt();
 		}
 
-		/// <summary>간격 위반(20)·처리 중(1017)·전송 장애는 다음 틱에 같은 항목을 다시 보내고, 그 외 거절은 항목을 폐기한다.</summary>
+		/// <summary>일시적 오류는 다음 틱에 재시도한다. 확정할 수 없는 배치는 보류하고 후속 입장·환생을 막는다.</summary>
 		private void OnHuntRewardError(HuntOutboxItem item, PlayFab.PlayFabError error)
 		{
 			_huntInFlight = false;
@@ -1199,9 +1227,11 @@ var definition = _currentSession?.Definition;
 				TrySendNextHunt();
 				return;
 			}
-			Dequeue(item);
-			Debug.LogError($"[{what}] 폐기 stage=0x{item.StageId:X} kind={kind} code={code}: {error?.ErrorMessage}");
-			TrySendNextHunt();
+            _huntSyncFailed = true;
+            FinishHuntSettlement(false);
+            Time.timeScale = 0;
+            KingdomIdle.UGUI.UIManager.Instance?.ShowToast("전투 보상 정산을 확인하지 못했습니다. 재접속해 주세요.");
+			Debug.LogError($"[{what}] 보류 stage=0x{item.StageId:X} kind={kind} code={code}: {error?.ErrorMessage}");
 		}
 
 		/// <summary>배치를 둘로 나눈다. 종류가 여럿이면 종류로, 한 종류면 수량으로 나누고, 1마리면 null.</summary>
@@ -1225,8 +1255,8 @@ var definition = _currentSession?.Definition;
 			}
 			return new List<HuntOutboxItem>
 			{
-				new HuntOutboxItem { StageId = item.StageId, Loots = first },
-				new HuntOutboxItem { StageId = item.StageId, Loots = second }
+				new HuntOutboxItem { StageId = item.StageId, BattleId = item.BattleId, Loots = first },
+				new HuntOutboxItem { StageId = item.StageId, BattleId = item.BattleId, Loots = second }
 			};
 		}
 

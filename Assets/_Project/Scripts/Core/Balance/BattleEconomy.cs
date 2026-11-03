@@ -8,9 +8,8 @@ using Scripts.Monster;
 namespace KingdomIdle.Balance
 {
     /// <summary>
-    /// 전투 세션의 로컬 상태(활성 전투·처치 순번·던전 티켓·오프라인 KPM 표본)만 다룬다.
-    /// 메인 스테이지의 골드·경험치·드롭·최초 클리어 보상은 서버(OnHuntReward·OnStageClear)가 확정해 응답의 플레이어 데이터로 돌아오고,
-    /// 퀘스트 집계도 서버가 한다(클라이언트는 OnGetQuestState로 받아 표시만 한다). 던전 보상은 아직 로컬이다.
+    /// 전투 세션의 로컬 실행 상태와 오프라인 KPM 표본을 다룬다.
+    /// 전투 보상과 던전 입장권·클리어는 서버 응답을 적용하며 여기서 지급하지 않는다.
     /// </summary>
     public static class BattleEconomy
     {
@@ -40,54 +39,31 @@ namespace KingdomIdle.Balance
         public static void AcknowledgeQuestTime(long token) { }
 #endif
 
-        public static void RefreshTickets(ProgressionState state)
-        {
-            string day = LocalProgression.KstDay;
-            if (!QuestPeriod.IsLaterDay(day, state.TicketDay)) return;
-            state.TicketDay = day; state.GoldTickets = state.RubyTickets = StageCatalogRules.Database.DailyTickets;
-        }
         public static int Tickets(eStageType type)
         {
+            DungeonTicketRefresh.RequestIfDue();
             var s = LocalProgression.State;
-            if (QuestPeriod.IsLaterDay(LocalProgression.KstDay, s.TicketDay)) return StageCatalogRules.Database.DailyTickets;
             return type == eStageType.GoldDungeon ? s.GoldTickets : s.RubyTickets;
         }
         public static bool Begin(StageSession session)
         {
             _seconds = 0;
             return LocalProgression.Execute("battle-start", s => {
-                RefreshTickets(s);
                 var type = session.Definition.Type;
                 if (type == eStageType.Main) s.CycleFrontierStage = Math.Max(s.CycleFrontierStage, (long)session.Definition.Id);
-                if (type == eStageType.GoldDungeon) { if (s.GoldTickets <= 0) return false; s.GoldTickets--; }
-                if (type == eStageType.RubyDungeon) { if (s.RubyTickets <= 0) return false; s.RubyTickets--; }
+                if (type != eStageType.Main && (s.ServerDungeonId != (long)session.Definition.Id || string.IsNullOrEmpty(s.ActiveDungeon))) return false;
                 s.ActiveBattleId = session.RunId; s.LastKillSequence = 0;
-                s.ActiveDungeon = type == eStageType.Main ? null : session.RunId;
                 s.LastActiveUtc = LocalProgression.UtcNow;
                 return true;
             });
         }
         public static bool Kill(StageSession session, Monster monster)
         {
-            var definition = session.Definition;
             long committedGold = 0;
-            // 메인 스테이지의 전장 드롭은 서버(OnHuntReward)가 굴려 응답의 Drops·Equipment로 돌려준다. 로컬은 굴리지도 지급하지도 않는다.
+            // 정의 보상은 전투 HUD에만 표시한다. 지갑·경험치·드롭은 OnHuntReward 응답으로 확정한다.
             bool ok = LocalProgression.Execute("battle-kill", s => {
                 if (s.ActiveBattleId != session.RunId || session.TotalKillCount <= s.LastKillSequence) return false;
-                var reward = monster.BalanceReward;
-                long gold = reward.Gold, exp = reward.Experience;
-                if (definition.Type == eStageType.Main)
-                {
-                    // 메인 스테이지의 골드·경험치는 서버(OnHuntReward)가 확정해 절대값으로 저장된다. 로컬은 처치 수만 기록하고,
-                    // 정의 보상은 웨이브 HUD의 EarnedGold 표시에만 더한다. 처치·보스 퀘스트도 서버가 집계한다.
-                    committedGold = gold;
-                }
-                else
-                {
-                    LocalProgression.Credit(s, eCurrency.Gold, gold);
-                    committedGold = gold;
-                    BalanceMath.GainExperience(ref s.AccountLevel, ref s.Experience, exp);
-                }
+                committedGold = monster.BalanceReward.Gold;
                 s.Kills = checked(s.Kills + 1); s.LastKillSequence = session.TotalKillCount;
                 s.LastActiveUtc = LocalProgression.UtcNow;
                 return true;
@@ -99,6 +75,7 @@ namespace KingdomIdle.Balance
         public static bool Clear(StageSession session)
         {
             var d = session.Definition;
+            if (d.Type != eStageType.Main) return false;
             long id = (long)d.Id;
             decimal kpm = 0;
             if (d.Type == eStageType.Main && d.WaveNumber <= 10)
@@ -123,19 +100,8 @@ namespace KingdomIdle.Balance
                     if (d.WaveNumber <= 10 && id >= s.OfflineStage)
                     { s.OfflineStage = id; s.OfflineKpm = kpm; s.OfflineRubyGold = s.RubyGoldLevel; s.OfflineRubyExp = s.RubyExpLevel; }
                 }
-                else if (d.Type == eStageType.GoldDungeon)
-                { s.GoldDungeonClear = Math.Max(s.GoldDungeonClear, d.StageNumber);s.LastDungeonGold=StageCatalogRules.DungeonReward(true,d.StageNumber);s.LastDungeonRuby=0; }
-                else
-                {
-                    long ruby = d.Encounter.ClearRuby;
-                    if (s.Claims.Add("ruby-first:" + d.StageNumber)) ruby = checked(ruby + d.Encounter.FirstClearRuby);
-                    LocalProgression.Credit(s, eCurrency.Ruby, ruby);
-                    s.LastDungeonGold=0;s.LastDungeonRuby=ruby;
-                    s.RubyDungeonClear = Math.Max(s.RubyDungeonClear, d.StageNumber);
-                }
                 // 환생은 서버(OnReincarnation)가 요청 즉시 적용한다. 웨이브 경계의 로컬 환생 처리는 없다.
                 if (d.Type == eStageType.Main && d.WaveNumber <= 10) RubyProgression.CommitReset(s);
-                s.ActiveDungeon = null;
                 return true;
             });
             if (!result) { UnityEngine.Time.timeScale = 0; KingdomIdle.UGUI.UIManager.Instance?.ShowToast("클리어 보상을 저장할 수 없습니다. 저장 공간 확인 후 재접속해 주세요."); }

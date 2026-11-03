@@ -212,6 +212,40 @@ namespace Scripts.Core
 			s.Wallet[eCurrency.MageTicket] = Math.Max(0, currency.MageTicket);
 		}
 
+		/// <summary>서버 던전 상태를 검증한 뒤 티켓·진행도·전투 ID를 함께 교체한다. 로컬 전투 RunId는 유지한다.</summary>
+		public static bool ApplyDungeonState(ProgressionState s, DungeonStateDTO dungeon)
+		{
+			if (s == null || dungeon == null || dungeon.GoldTickets < 0 || dungeon.GoldTickets > 2 || dungeon.RubyTickets < 0 || dungeon.RubyTickets > 2 ||
+				dungeon.GoldDungeonClear < 0 || dungeon.GoldDungeonClear > 5 || dungeon.RubyDungeonClear < 0 || dungeon.RubyDungeonClear > 5 ||
+				dungeon.TicketResetUtc <= 0 || (dungeon.ActiveBattleId != null) != dungeon.ActiveDungeonId.HasValue) return false;
+			if (dungeon.ActiveBattleId != null)
+			{
+				var stage = (eStage)dungeon.ActiveDungeonId.Value;
+				try
+				{
+					var type = StageParser.GetStageType(stage);
+					int difficulty = StageParser.GetStageNumber(stage);
+					if (string.IsNullOrWhiteSpace(dungeon.ActiveBattleId) ||
+						(type != eStageType.GoldDungeon && type != eStageType.RubyDungeon) || difficulty < 1 || difficulty > 5 ||
+						stage != StageParser.MakeStage(type, difficulty)) return false;
+				}
+				catch (ArgumentException) { return false; }
+			}
+			string ticketDay;
+			try { ticketDay = QuestPeriod.At(dungeon.TicketResetUtc - 1).Day; }
+			catch (ArgumentOutOfRangeException) { return false; }
+			LegacyDungeonProgression.Preserve(s);
+			s.GoldTickets = dungeon.GoldTickets;
+			s.RubyTickets = dungeon.RubyTickets;
+			s.GoldDungeonClear = dungeon.GoldDungeonClear;
+			s.RubyDungeonClear = dungeon.RubyDungeonClear;
+			s.DungeonTicketResetUtc = dungeon.TicketResetUtc;
+			s.TicketDay = ticketDay;
+			s.ActiveDungeon = dungeon.ActiveBattleId;
+			s.ServerDungeonId = dungeon.ActiveDungeonId ?? 0;
+			return true;
+		}
+
 		/// <summary>
 		/// 광고 보상 응답(OnClaimAdReward, 상점 일일 광고·오프라인 2배 공통)의 레벨·경험치·재화 절대값을 쓴다.
 		/// 처치 수는 바꾸지 않는다(서버도 세지 않는다). 레벨은 로그인과 같이 계정 상한으로 자른다.
@@ -591,6 +625,7 @@ namespace Scripts.Core
 			long highest = (long)response.StageState.MainClear;
 			bool ok = LocalProgression.Execute("server-player-data", s =>
 			{
+				if (!ApplyDungeonState(s, response.DungeonState)) return false;
 				if (!s.Modules.ContainsKey("imported"))
 				{
 					// 첫 적용: 서버 값으로 덮기 전의 로컬 상태를 보존하고 기존 게이트(imported)를 유지한다.

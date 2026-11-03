@@ -16,7 +16,10 @@ namespace Reincarnation
         public event Action<ReincarnationState> ReincarnationStateChanged;
         /// <summary>서버 응답 처리 결과. ok=true면 message는 성공 안내, false면 거절·실패 문구다.</summary>
         public event Action<bool, string> OnReincarnationCompleted;
-        public bool IsBusy { get; private set; }
+        private bool _isBusy, _battlePaused;
+        private long _requestGeneration = -1;
+        private float _resumeTimeScale;
+        public bool IsBusy => _isBusy && _requestGeneration == LocalProgression.AccountGeneration;
         public PlayFabError LastFailure { get; private set; }
         public ReincarnationState CurrentState => new(LocalProgression.State.ReincarnationLevel, LocalProgression.State.ReincarnationCount);
         public ReincarnationService(ReincarnationPolicy policy, IReincarnationProgressStore store, IReincarnationStageGateway gateway)
@@ -46,13 +49,40 @@ namespace Reincarnation
         {
             if (IsBusy) return ReincarnationExecutionResult.AlreadyProcessing;
             if (!GetPreview().CanReincarnate) return ReincarnationExecutionResult.StageResetRejected;
+            LastFailure = null;
             var network = NetworkManager.Instance;
             if (network == null || !network.IsGameDataReady) return ReincarnationExecutionResult.StorageUnavailable;
-            IsBusy = true;
-            LastFailure = null;
-            // 서버가 1-1로 되돌리면 이전 스테이지의 배치는 거절되므로 아직 보내지 않은 처치는 버린다.
-            StageManager.Instance?.DiscardPendingHunts();
-            network.Call<OnReincarnationRequestDTO, OnReincarnationResponseDTO>(new OnReincarnationRequestDTO(), ApplyServerResult, RejectServerResult);
+            _requestGeneration = LocalProgression.AccountGeneration;
+            _isBusy = true;
+            _battlePaused = false;
+            long generation = _requestGeneration;
+            bool flushFailed = false;
+            var manager = StageManager.Instance;
+            if (manager == null || !manager.FlushPendingHunts(ok =>
+            {
+                if (generation != LocalProgression.AccountGeneration) return;
+                if (!ok)
+                {
+                    flushFailed = true;
+                    LastFailure = NetworkManager.CreateError("HuntSettlement", "전투 보상을 정산하지 못해 환생을 요청하지 않았습니다. 연결 상태를 확인한 뒤 다시 시도해 주세요.");
+                    FinishRequest();
+                    OnReincarnationCompleted?.Invoke(false, LastFailure.ErrorMessage);
+                    return;
+                }
+                // 정산 후에도 새 처치가 생기지 않게 환생 결과를 받을 때까지 전투를 멈춘다.
+                _resumeTimeScale = Time.timeScale;
+                _battlePaused = true;
+                Time.timeScale = 0f;
+                network.Call<OnReincarnationRequestDTO, OnReincarnationResponseDTO>(new OnReincarnationRequestDTO(),
+                    response => { if (generation == LocalProgression.AccountGeneration) ApplyServerResult(response); },
+                    error => { if (generation == LocalProgression.AccountGeneration) RejectServerResult(error); });
+            }))
+            {
+                LastFailure = NetworkManager.CreateError("HuntSettlement", "전투 보상을 정산 중이므로 환생을 요청하지 않았습니다. 잠시 후 다시 시도해 주세요.");
+                FinishRequest();
+                return ReincarnationExecutionResult.StorageUnavailable;
+            }
+            if (flushFailed) return ReincarnationExecutionResult.StorageUnavailable;
             return ReincarnationExecutionResult.Pending;
         }
 
@@ -77,7 +107,6 @@ namespace Reincarnation
                 s.ReincarnatedBattle = null;
                 return true;
             });
-            IsBusy = false;
             var state = LocalProgression.State;
             Debug.Log($"[Reincarnation] gained={r.GainedLevel} | server Level={r.Reincarnation?.Level} Count={r.Reincarnation?.Count} Today={r.Reincarnation?.TodayCount} Stage=0x{stage:X} ATK={r.EnchantATKCount} HP={r.EnchantHPCount} Gold={r.Currency?.Gold}" +
                 $" | state Level={state.ReincarnationLevel} Count={state.ReincarnationCount} Today={state.ReincarnationsToday} Stage=0x{state.MainStage:X} ATK={state.AttackLevel} HP={state.HealthLevel} Gold={LocalProgression.Balance(eCurrency.Gold)} | saved={saved}");
@@ -85,17 +114,17 @@ namespace Reincarnation
             {
                 Direction.GameDirectInteraction.ReportSaveFailure();
                 LastFailure = NetworkManager.CreateError("ApplyFailed", "서버 환생 결과를 저장하지 못했습니다: " + LocalProgression.LastError);
-                OnReincarnationCompleted?.Invoke(false, "서버 결과를 저장하지 못했습니다. 다시 로그인하면 서버 값으로 맞춰집니다.");
+                RefreshServerResult(LastFailure);
                 return;
             }
             StatEnhanceManager.Instance?.ApplyToAllPlayers();
+            FinishRequest();
             MoveToServerStage();
             OnReincarnationCompleted?.Invoke(true, $"환생 완료! 환생 레벨 +{r.GainedLevel}");
         }
 
         private void RejectServerResult(PlayFabError error)
         {
-            IsBusy = false;
             LastFailure = error;
             string kind = NetworkManager.GetFailureKind(error);
             int code = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0;
@@ -103,14 +132,33 @@ namespace Reincarnation
             if (kind == "Timeout" || kind == "Transport")
             {
                 // 응답 유실: 서버가 이미 환생했을 수 있다. 재전송 대신 상태를 다시 받아 적용하고 서버 스테이지로 맞춘다.
-                UserManager.Instance?.RefreshFromServer(ok =>
-                {
-                    if (ok) MoveToServerStage();
-                    OnReincarnationCompleted?.Invoke(false, ok ? "결과를 서버에서 다시 불러왔습니다." : NetworkManager.DescribeFailure(error, "환생"));
-                });
+                RefreshServerResult(error);
                 return;
             }
+            FinishRequest();
             OnReincarnationCompleted?.Invoke(false, NetworkManager.DescribeFailure(error, "환생"));
+        }
+
+        private void RefreshServerResult(PlayFabError error)
+        {
+            long generation = _requestGeneration;
+            void Complete(bool ok)
+            {
+                if (generation != LocalProgression.AccountGeneration) return;
+                FinishRequest();
+                if (ok) MoveToServerStage();
+                OnReincarnationCompleted?.Invoke(false, ok ? "결과를 서버에서 다시 불러왔습니다." : NetworkManager.DescribeFailure(error, "환생"));
+            }
+            var user = UserManager.Instance;
+            if (user != null) user.RefreshFromServer(Complete);
+            else Complete(false);
+        }
+
+        private void FinishRequest()
+        {
+            _isBusy = false;
+            if (_battlePaused && _requestGeneration == LocalProgression.AccountGeneration) Time.timeScale = _resumeTimeScale;
+            _battlePaused = false;
         }
 
         /// <summary>플레이어 상태의 메인 스테이지가 현재 전투와 다르면 그 스테이지로 전환한다(환생 뒤 1-1).</summary>

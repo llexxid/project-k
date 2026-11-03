@@ -21,8 +21,10 @@ public class StatEnhanceManager : MonoBehaviour
         if (Instance != null && Instance != this) { Destroy(this); return; }
         Instance = this;
         LocalProgression.Changed += HandleProgressionChanged;
+        LocalProgression.AccountChanged += HandleAccountChanged;
     }
-    private void OnDestroy() { LocalProgression.Changed -= HandleProgressionChanged; if (Instance == this) Instance = null; }
+    private void OnDestroy() { LocalProgression.Changed -= HandleProgressionChanged; LocalProgression.AccountChanged -= HandleAccountChanged; if (Instance == this) Instance = null; }
+    private void HandleAccountChanged() { IsEnhancing = false; LastFailure = null; }
     private void HandleProgressionChanged()
     {
         var s = LocalProgression.State;
@@ -63,49 +65,65 @@ public class StatEnhanceManager : MonoBehaviour
         if (GetPurchaseCount(type, count) <= 0) return EnhanceResult.NotEnoughGold;
         IsEnhancing = true;
         LastFailure = null;
+        long generation = LocalProgression.AccountGeneration;
+        bool IsCurrent() => this != null && generation == LocalProgression.AccountGeneration;
         if (type == EnhanceType.Attack)
         {
             network.Call<OnEnchantATKRequestDTO, OnEnchantResponseDTO>(new OnEnchantATKRequestDTO { Count = count },
-                response => ApplyServerResult(type, count, response), error => RejectServerResult(type, count, error));
+                response => { if (IsCurrent()) ApplyServerResult(type, count, response); }, error => { if (IsCurrent()) RejectServerResult(type, count, error); });
         }
         else
         {
             network.Call<OnEnchantHPRequestDTO, OnEnchantResponseDTO>(new OnEnchantHPRequestDTO { Count = count },
-                response => ApplyServerResult(type, count, response), error => RejectServerResult(type, count, error));
+                response => { if (IsCurrent()) ApplyServerResult(type, count, response); }, error => { if (IsCurrent()) RejectServerResult(type, count, error); });
         }
         return EnhanceResult.Pending;
     }
     /// <summary>서버가 확정한 단계·잔액을 저장한다. 저장이 Changed를 발행하므로 스탯·UI는 HandleProgressionChanged가 갱신한다.</summary>
     private void ApplyServerResult(EnhanceType type, int count, OnEnchantResponseDTO response)
     {
-        bool saved;
-        try
+        bool saved = LocalProgression.Execute("server-enhance", s =>
         {
-            saved = LocalProgression.Execute("server-enhance", s =>
-            {
-                int level = (int)Math.Min(BalanceMath.GoldCap, Math.Max(0, response.CurrentLevel));
-                if (type == EnhanceType.Attack) s.AttackLevel = level; else s.HealthLevel = level;
-                s.Wallet[eCurrency.Gold] = Math.Max(0, response.CurrentGold);
-                if (type == EnhanceType.Attack && response.AppliedCount > 0) Direction.GameDirectInteraction.RecordSuccess(s, Direction.GuideAction.AttackOnce);
-                return true;
-            });
-        }
-        finally { IsEnhancing = false; }
+            int level = (int)Math.Min(BalanceMath.GoldCap, Math.Max(0, response.CurrentLevel));
+            if (type == EnhanceType.Attack) s.AttackLevel = level; else s.HealthLevel = level;
+            s.Wallet[eCurrency.Gold] = Math.Max(0, response.CurrentGold);
+            if (type == EnhanceType.Attack && response.AppliedCount > 0) Direction.GameDirectInteraction.RecordSuccess(s, Direction.GuideAction.AttackOnce);
+            return true;
+        });
         Debug.Log($"[Enhance] {type} count={count} applied={response.AppliedCount} spent={response.SpentGold} level={response.CurrentLevel} gold={response.CurrentGold} saved={saved}");
         if (!saved)
         {
             Direction.GameDirectInteraction.ReportSaveFailure();
-            LastFailure = NetworkManager.CreateError("ApplyFailed", "서버 강화 결과를 저장하지 못했습니다: " + LocalProgression.LastError);
+            RejectServerResult(type, count, NetworkManager.CreateError("ApplyFailed", "서버 강화 결과를 저장하지 못했습니다: " + LocalProgression.LastError));
+            return;
         }
-        else { ApplyToAllPlayers(); OnEnhanced?.Invoke(); }
-        OnEnhanceCompleted?.Invoke(type, saved);
+        IsEnhancing = false;
+        ApplyToAllPlayers(); OnEnhanced?.Invoke();
+        OnEnhanceCompleted?.Invoke(type, true);
     }
     private void RejectServerResult(EnhanceType type, int count, PlayFabError error)
     {
-        IsEnhancing = false;
         LastFailure = error;
         int code = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0;
-        Debug.LogWarning($"[Enhance] {type} count={count} rejected code={code} message={error?.ErrorMessage}");
+        string kind = NetworkManager.GetFailureKind(error);
+        Debug.LogWarning($"[Enhance] {type} count={count} rejected code={code} kind={kind} message={error?.ErrorMessage}");
+        bool uncertain = code == 1014 || code == 1015 || (code == 0 && kind != "InvalidRequest" && kind != "NotAuthenticated" && kind != "IntegrationPending");
+        var users = UserManager.Instance;
+        if (uncertain && users != null)
+        {
+            // 서버가 이미 강화했을 수 있으므로 재전송하지 않고 조회가 끝날 때까지 추가 강화를 막는다.
+            IsEnhancing = true;
+            long generation = LocalProgression.AccountGeneration;
+            users.RefreshFromServer(ok =>
+            {
+                if (this == null || generation != LocalProgression.AccountGeneration) return;
+                IsEnhancing = false;
+                if (ok) { ApplyToAllPlayers(); OnEnhanced?.Invoke(); }
+                OnEnhanceCompleted?.Invoke(type, false);
+            });
+            return;
+        }
+        IsEnhancing = false;
         OnEnhanceCompleted?.Invoke(type, false);
     }
     public void ApplyToAllPlayers()
