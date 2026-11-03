@@ -10,24 +10,26 @@ namespace KingdomIdle.UGUI
     {
         const string PublishedTerms = "https://ludos-interactive.pages.dev/terms/";
         const string DeletionGuide = "https://kingdomidlegits.github.io/kingdomidle-account-delete/";
+        static GameObject currentDocument;
 
         public static void ShowTerms(Transform parent) => Open(parent, true);
         public static void ShowPrivacy(Transform parent) => Open(parent, false);
 
         static void Open(Transform parent, bool terms)
         {
-            if (parent == null) return;
+            if (parent == null || (currentDocument != null && currentDocument.activeInHierarchy)) return;
             var host = UIManager.Instance;
             var layer = host != null && host.LayerOverlays != null ? host.LayerOverlays : parent;
-            if (layer.Find("LegalDocument") != null) return;
             bool english = TitleLobbyPresentation.SavedEnglish;
             string L(string ko, string en) => english ? en : ko;
             var font = host != null && host.Catalog != null ? host.Catalog.defaultFont : TMP_Settings.defaultFontAsset;
             var overlay = Rect("LegalDocument", layer);
+            currentDocument = overlay.gameObject;
             Stretch(overlay, 0, 0, 0, 0);
             overlay.gameObject.AddComponent<Image>().color = new Color(0, 0, 0, .82f);
             void Close()
             {
+                currentDocument = null;
                 overlay.gameObject.SetActive(false);
                 Object.Destroy(overlay.gameObject);
             }

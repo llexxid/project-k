@@ -136,7 +136,7 @@ namespace Scripts.Server.Auth
 			catch (Exception ex)
 			{
 				if (!IsCurrent(generation)) return;
-				if (ex is OperationCanceledException)
+				if (ex is GameTermsConsent.TermsDeclinedException)
 					_network.FailLogin(NetworkManager.CreateError("ConsentDeclined", "게임을 시작하려면 서비스 이용약관에 동의해 주세요."));
 				else if (ex is AuthenticationException auth)
 					_network.FailLogin(auth.Error);

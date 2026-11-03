@@ -20,6 +20,7 @@ namespace KingdomIdle.UGUI
             dialog.Build(title);
             overlay.SetActive(true);
             overlay.transform.SetAsLastSibling();
+            UITween.PopIn((RectTransform)overlay.transform.Find(title.popupLoginBox.name), .18f, .96f);
             return dialog;
         }
 
@@ -56,8 +57,18 @@ namespace KingdomIdle.UGUI
             {
                 if (accepted.isOn) Finish(true);
             });
-            confirm.interactable = false;
-            accepted.onValueChanged.AddListener(value => confirm.interactable = value);
+            var appearance = confirm.gameObject.AddComponent<CanvasGroup>();
+            var confirmFace = confirm.GetComponent<Image>();
+            var confirmLabel = confirm.GetComponentInChildren<TMP_Text>(true);
+            void EnableContinue(bool value)
+            {
+                confirm.interactable = value;
+                confirmFace.color = value ? UguiTheme.Bronze : UguiTheme.RusticSurfaceDark;
+                confirmLabel.color = value ? Color.white : UguiTheme.TextTertiary;
+                appearance.alpha = value ? 1f : .55f;
+            }
+            EnableContinue(false);
+            accepted.onValueChanged.AddListener(EnableContinue);
         }
 
         static Transform Row(Transform parent, string name)
@@ -106,11 +117,16 @@ namespace KingdomIdle.UGUI
             rt.anchoredPosition = new Vector2(48, 0);
             rt.sizeDelta = new Vector2(48, 48);
             background.color = UguiTheme.BronzeLight;
+            var inset = new GameObject("Interior", typeof(RectTransform), typeof(Image)).GetComponent<Image>();
+            inset.transform.SetParent(background.transform, false);
+            inset.rectTransform.sizeDelta = new Vector2(40, 40);
+            inset.color = UguiTheme.RusticPanelDeep;
+            inset.raycastTarget = false;
             var mark = new GameObject("Checkmark", typeof(RectTransform), typeof(Image)).GetComponent<Image>();
             mark.transform.SetParent(background.transform, false);
             mark.rectTransform.sizeDelta = new Vector2(34, 34);
             mark.sprite = UIManager.Instance.Catalog.iconCheck;
-            mark.color = UguiTheme.RusticPanelDeep;
+            mark.color = UguiTheme.Parchment;
             mark.preserveAspect = true;
             mark.raycastTarget = false;
             var label = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI)).GetComponent<TextMeshProUGUI>();

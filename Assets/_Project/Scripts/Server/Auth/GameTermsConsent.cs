@@ -24,7 +24,7 @@ namespace Scripts.Server.Auth
 
         internal static async Task<string> RequestAsync(Func<Task<bool>> prompt)
         {
-            if (prompt == null || !await prompt()) throw new OperationCanceledException();
+            if (prompt == null || !await prompt()) throw new TermsDeclinedException();
             return DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
         }
 
@@ -75,5 +75,7 @@ namespace Scripts.Server.Auth
             else PlayerPrefs.SetString(LastGoogleKey, googleHint);
             PlayerPrefs.Save();
         }
+
+        internal sealed class TermsDeclinedException : OperationCanceledException { }
     }
 }

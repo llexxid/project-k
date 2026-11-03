@@ -7,8 +7,7 @@ using UnityEditor.Build;
 
 namespace KingdomIdle.EditorTools
 {
-    // The installed Play Games v2 SDK normally starts before Unity, ahead of the title's age and agreement screens.
-    internal sealed class DeferPlayGamesStartup : IPostGenerateGradleAndroidProject
+    internal sealed class AlphaAndroidManifest : IPostGenerateGradleAndroidProject
     {
         public int callbackOrder => 1000;
 
@@ -17,12 +16,19 @@ namespace KingdomIdle.EditorTools
             var manifest = Path.Combine(unityLibrary, "..", "launcher", "src", "main", "AndroidManifest.xml");
             var xml = XDocument.Load(manifest);
             var application = xml.Root?.Element("application") ??
-                              throw new BuildFailedException("Cannot apply the Play Games startup policy: Android launcher has no application.");
+                              throw new BuildFailedException("Cannot configure alpha permissions: Android launcher has no application.");
             XNamespace android = "http://schemas.android.com/apk/res/android";
             XNamespace tools = "http://schemas.android.com/tools";
+            // Declare this on the app itself; an unversioned library manifest can imply legacy storage/phone permissions.
+            const string notifications = "android.permission.POST_NOTIFICATIONS";
+            bool addPermission = !xml.Root.Elements("uses-permission").Any(p => (string)p.Attribute(android + "name") == notifications);
+            if (addPermission)
+                application.AddBeforeSelf(new XElement("uses-permission", new XAttribute(android + "name", notifications)));
+
+            // The Play Games SDK normally starts before Unity. Authentication explicitly starts it after agreement.
             const string providerName = "com.google.android.gms.games.provider.PlayGamesInitProvider";
             var node = application.Elements("provider").FirstOrDefault(p => (string)p.Attribute(android + "name") == providerName);
-            if ((string)node?.Attribute(tools + "node") == "remove") return;
+            if (!addPermission && (string)node?.Attribute(tools + "node") == "remove") return;
             if (node == null)
             {
                 node = new XElement("provider", new XAttribute(android + "name", providerName));
