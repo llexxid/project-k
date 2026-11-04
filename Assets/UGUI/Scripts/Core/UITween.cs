@@ -65,6 +65,17 @@ namespace KingdomIdle.UGUI
             if (tween._valueCo != null) tween.StopCoroutine(tween._valueCo);
             tween._valueCo = tween.StartCoroutine(tween.ValueRoutine(from, to, duration, apply, completed));
         }
+
+        /// <summary>Stop only this object's value tween, without invoking its completion callback.</summary>
+        public static void StopValue(Component owner)
+        {
+            if (owner == null) return;
+            var tween = owner.GetComponent<UITween>();
+            if (tween == null || tween._valueCo == null) return;
+            tween.StopCoroutine(tween._valueCo);
+            tween._valueCo = null;
+        }
+
         private IEnumerator ValueRoutine(float from, float to, float duration, Action<float> apply, Action completed)
         {
             float elapsed = 0;

@@ -66,6 +66,8 @@
 
 미리보기와 결과창은 아이콘이 없는 재화 보상에 `RewardPresentation.Icon`의 공통 이미지를 사용한다. `GachaPanelValidation.CheckResultCurrencyIcons()`는 Play Mode에서 서버 DTO 변환·전직 파편/비전 지식 아이콘·합산 수량을 표시용 데이터로 검사한다([0.20.1 검증 기록](../../AI/validation/gacha-result-icons-20261102/README.md)).
 
+`GachaResultPopupController`는 확정된 결과를 합산·정렬한 뒤 장비 카드에만 `GachaCardReveal`을 런타임으로 연결한다. `GachaRevealBorder`가 카드 테두리의 경로와 발광을 그리며, 기존 `Item_GachaCard`의 아이콘·문구 참조를 사용한다. 공용 미리보기 카드에는 연출을 붙이지 않는다. 시간과 공개 순서는 [프로젝트 행동 규칙](../../AGENTS.md)의 장비 뽑기 결과 규격을 따르며 결과 데이터·서버 거래는 변경하지 않는다.
+
 `UguiTypeNavPass.ApplyMainNavigation()`은 기존 `Screen_Main`에 상점 탭만 추가·연결한다. `GachaPanelPrefabGens.Prepare()`는 현재 뽑기 프리팹의 콘텐츠를 새 패널 크기에 맞춰 재배치한다. 정상 로그인 후 `GachaPanelValidation.Run()`으로 비율·안전 영역 모의·HUD와 하단바 유지·팝업·천장 표시를 검사한다. 0.20.0의 전체 화면 구성과 `Panel_Gacha_Old`, 당시 `Recordings/Gacha20261101`·`AI/validation/gacha-fullscreen-20261101` 기록은 과거 구현 출처이며 현재 레이아웃의 규격으로 사용하지 않는다. 새 캡처·성능 수치·QA 기록은 저장소 밖에 보관한다.
 
 `bootstrap/GameManager → Direction.GameDirectManager → FeatureGuidePlayer → UguiFeatureGuideSurface → FeatureGuideView`로 실행한다. Manager는 큐·저장·계정 수명을 소유하는 MonoBehaviour이고 Player와 화면 연결부는 일반 C# 클래스다. 실제 프리팹 참조·레이아웃·입력 필터는 MonoBehaviour View가 담당한다.
