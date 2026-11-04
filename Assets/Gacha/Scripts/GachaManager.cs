@@ -53,24 +53,25 @@ namespace KingdomIdle.Gacha
             if (!CanPullMulti(table, count)) { onError?.Invoke(PullFailure(table, count)); return; }
             var network = NetworkManager.Instance;
             if (network == null || !network.IsGameDataReady) { onError?.Invoke("서버 로그인이 필요합니다."); return; }
+            string guideReceipt = Direction.GameDirectInteraction.CaptureReceipt(guideAction, count);
             long coinsBefore = LocalProgression.Balance(eCurrency.AncientCoin);
             IsPulling = true; LastFailure = null; OnPullStateChanged?.Invoke(true);
             if (table.gachaType == eGachaType.Equipment)
             {
                 network.Call<OnGachaEquipmentClassFragmentRequestDTO, OnGachaEquipmentClassFragmentResponseDTO>(new OnGachaEquipmentClassFragmentRequestDTO { Count = count },
-                    response => ApplyServerResult(table, count, guideAction, coinsBefore, response.Rewards, response.Currency, response.GachaState, response.Equipment, null, onSuccess, onError),
+                    response => ApplyServerResult(table, count, guideAction, guideReceipt, coinsBefore, response.Rewards, response.Currency, response.GachaState, response.Equipment, null, onSuccess, onError),
                     error => RejectServerResult(table, count, error, onError));
             }
             else
             {
                 network.Call<OnGachaSkillArcaneKnowledgeRequestDTO, OnGachaSkillArcaneKnowledgeResponseDTO>(new OnGachaSkillArcaneKnowledgeRequestDTO { Count = count },
-                    response => ApplyServerResult(table, count, guideAction, coinsBefore, response.Rewards, response.Currency, null, null, response.MageTowerState, onSuccess, onError),
+                    response => ApplyServerResult(table, count, guideAction, guideReceipt, coinsBefore, response.Rewards, response.Currency, null, null, response.MageTowerState, onSuccess, onError),
                     error => RejectServerResult(table, count, error, onError));
             }
         }
 
         /// <summary>응답의 플레이어 데이터를 한 트랜잭션으로 쓴다. 안내 영수증은 로컬 기능이라 같은 트랜잭션에 남긴다. 퀘스트(GachaUse)는 서버가 집계한다.</summary>
-        private void ApplyServerResult(GachaTableSO table, int count, Direction.GuideAction guideAction, long coinsBefore, List<GachaRewardDTO> rewards,
+        private void ApplyServerResult(GachaTableSO table, int count, Direction.GuideAction guideAction, string guideReceipt, long coinsBefore, List<GachaRewardDTO> rewards,
             CurrencyQueryDTO currency, GachaStateDTO gacha, EquipmentInventoryDTO inventory, MageTowerStateDTO mage,
             Action<List<GachaRewardEntry>> onSuccess, Action<string> onError)
         {
@@ -87,7 +88,7 @@ namespace KingdomIdle.Gacha
                         UserManager.ApplyEquipment(s, inventory);
                     }
                     else UserManager.ApplyMageTower(s, mage);
-                    Direction.GameDirectInteraction.RecordSuccess(s, guideAction);
+                    Direction.GameDirectInteraction.RecordSuccess(s, guideAction, guideReceipt);
                     return true;
                 });
             }

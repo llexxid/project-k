@@ -98,18 +98,82 @@ namespace KingdomIdle.Balance
                 var step = new GameDirectStep(new GameDirectStepData
                 { id = "attack_once", completion = GuideCompletion.Action, action = GuideAction.AttackOnce }, 1, 1);
                 GameDirectInteraction.Begin("guide_development", step, generation, () => true);
+                Check(!GameDirectInteraction.OwnsInput && GameDirectInteraction.CanPerform(GuideAction.AttackOnce, 1) &&
+                    GameDirectInteraction.CanPerform(GuideAction.AttackOnce, 10) && GameDirectInteraction.CanPerform(GuideAction.None, 1) &&
+                    GameDirectInteraction.CanPerform(GuideAction.EquipmentPullOnce, 1) && GameDirectInteraction.CanPerform(GuideAction.SkillPullOnce, 1),
+                    "an undisplayed guide leaves ordinary economic input available");
+                string pendingReceipt = GameDirectInteraction.CaptureReceipt(GuideAction.AttackOnce, 1);
+                string pendingTenReceipt = GameDirectInteraction.CaptureReceipt(GuideAction.AttackOnce, 10);
+                Check(pendingReceipt == null && pendingTenReceipt == null, "pending requests have no practical receipt");
+                long pendingEpoch = GameDirectInteraction.Epoch;
+                GameDirectInteraction.Suspend();
+                Check(!GameDirectInteraction.OwnsInput && GameDirectInteraction.Epoch == pendingEpoch && GameDirectInteraction.CanPerform(GuideAction.AttackOnce, 1),
+                    "suspending a never-displayed guide leaves ordinary input available");
+                generationProperty.SetValue(null, generation + 1);
+                Check(!GameDirectInteraction.CanPerform(GuideAction.AttackOnce, 1), "pending input rejects another local account generation");
+                generationProperty.SetValue(null, generation);
+                var networkGenerationProperty = typeof(NetworkManager).GetProperty("AccountGeneration");
+                long networkGeneration = network.AccountGeneration;
+                networkGenerationProperty.SetValue(network, networkGeneration + 1);
+                Check(!GameDirectInteraction.CanPerform(GuideAction.SkillPullOnce, 1), "pending input rejects another authentication generation");
+                networkGenerationProperty.SetValue(network, networkGeneration);
+                GameDirectInteraction.ReportSaveFailure();
+                Check(GameDirectInteraction.SaveFailed && !GameDirectInteraction.CanPerform(GuideAction.AttackOnce, 1),
+                    "save failure blocks consumption before guide display");
+                GameDirectInteraction.End();
+                int entered = 0;
+                GameDirectInteraction.Begin("guide_development", step, generation, () => { entered++; return true; });
+                pendingReceipt = GameDirectInteraction.CaptureReceipt(GuideAction.AttackOnce, 1);
+                pendingTenReceipt = GameDirectInteraction.CaptureReceipt(GuideAction.AttackOnce, 10);
                 GameDirectInteraction.Arm();
+                Check(GameDirectInteraction.OwnsInput && GameDirectInteraction.CanPerform(GuideAction.AttackOnce, 1) &&
+                    !GameDirectInteraction.CanPerform(GuideAction.AttackOnce, 10) && !GameDirectInteraction.CanPerform(GuideAction.None, 1),
+                    "a shown practice owns input and permits only its assigned one action");
+                var pendingDraft = state.DeepClone();
+                GameDirectInteraction.RecordSuccess(pendingDraft, GuideAction.AttackOnce, pendingReceipt);
+                GameDirectInteraction.RecordSuccess(pendingDraft, GuideAction.AttackOnce, pendingTenReceipt);
+                Check(pendingDraft.Modules["game-direct-action:guide_development:attack_once"] == "1",
+                    "normal one or ten requests cannot become practical receipts after Arm");
+                string receipt = GameDirectInteraction.CaptureReceipt(GuideAction.AttackOnce, 1);
+                Check(receipt != null && GameDirectInteraction.CaptureReceipt(GuideAction.AttackOnce, 10) == null,
+                    "only a shown single action captures the execution receipt");
+                long shownEpoch = GameDirectInteraction.Epoch;
+                GameDirectInteraction.Suspend();
+                Check(GameDirectInteraction.OwnsInput && !GameDirectInteraction.Armed && GameDirectInteraction.Epoch != shownEpoch &&
+                    !GameDirectInteraction.CanPerform(GuideAction.AttackOnce, 1), "a covered practice keeps ownership and cancels delayed UI callbacks");
+                GameDirectInteraction.Arm();
+                Check(entered == 1 && GameDirectInteraction.CaptureReceipt(GuideAction.AttackOnce, 1) == receipt,
+                    "the same practice resumes with the same receipt and no second enter");
                 Check(!GameDirectInteraction.Succeeded, "legacy action receipt cannot skip the practical exercise");
                 var draft = state.DeepClone();
-                GameDirectInteraction.RecordSuccess(draft, GuideAction.AttackOnce);
+                GameDirectInteraction.RecordSuccess(draft, GuideAction.AttackOnce, receipt);
                 Check(!GameDirectInteraction.Succeeded, "an uncommitted action draft is not a success");
                 stateField.SetValue(null, draft);
                 Check(GameDirectInteraction.Succeeded && draft.Claims.Contains("game-direct-grant:guide_gacha:equipment_once"),
                     "only the committed current execution receipt counts and reward claims remain intact");
+                Check(!GameDirectInteraction.CanPerform(GuideAction.AttackOnce, 1), "a committed practical action rejects another press");
                 GameDirectInteraction.End();
+                Check(!GameDirectInteraction.OwnsInput && GameDirectInteraction.CanPerform(GuideAction.AttackOnce, 10), "End releases input ownership");
                 GameDirectInteraction.Begin("guide_development", step, generation, () => true);
                 Check(!GameDirectInteraction.Succeeded, "a new execution does not reuse a prior local action receipt");
+                GameDirectInteraction.Arm();
+                var staleDraft = state.DeepClone();
+                GameDirectInteraction.RecordSuccess(staleDraft, GuideAction.AttackOnce, receipt);
+                Check(staleDraft.Modules["game-direct-action:guide_development:attack_once"] == "1",
+                    "an old request cannot record success in a newly armed execution");
                 GameDirectInteraction.End();
+                foreach (var action in new[] { GuideAction.EquipmentPullOnce, GuideAction.SkillPullOnce })
+                {
+                    var gachaStep = new GameDirectStep(new GameDirectStepData
+                    { id = "fixture_once", completion = GuideCompletion.Action, action = action }, 1, 1);
+                    GameDirectInteraction.Begin("guide_gacha", gachaStep, generation, () => true);
+                    Check(GameDirectInteraction.CaptureReceipt(action, 1) == null && GameDirectInteraction.CaptureReceipt(action, 10) == null,
+                        "pending gacha requests have no practical receipt: " + action);
+                    GameDirectInteraction.Arm();
+                    Check(GameDirectInteraction.CaptureReceipt(action, 1) != null && GameDirectInteraction.CaptureReceipt(action, 10) == null,
+                        "shown gacha practice captures only one pull: " + action);
+                    GameDirectInteraction.End();
+                }
 
                 long oldNetwork = network.AccountGeneration;
                 network.BeginAuthentication();

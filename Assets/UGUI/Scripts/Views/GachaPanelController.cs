@@ -464,14 +464,20 @@ namespace KingdomIdle.UGUI
             if (_flaringPull) return;
             if (!IsSkillTable(table)) { PullAndShowResult(table, count); return; }
             long guideEpoch = Direction.GameDirectInteraction.Epoch;
-            bool guided = Direction.GameDirectInteraction.Step != null;
+            bool guided = Direction.GameDirectInteraction.OwnsInput;
+            long accountGeneration = KingdomIdle.Balance.LocalProgression.AccountGeneration;
+            var network = Scripts.Core.Manager.NetworkManager.Instance;
+            long networkGeneration = network != null ? network.AccountGeneration : -1;
             _flaringPull = true;
             UpdateWallet();
             pull.PlayMageFlare(
                 () => {
                     _flaringPull = false;
                     // 연출 중 취소·계정 전환·로딩이 발생했으면 지연 콜백에서 새 계정 재화를 소비하지 않는다.
-                    if (!guided || (guideEpoch == Direction.GameDirectInteraction.Epoch && Direction.GameDirectInteraction.Armed)) PullAndShowResult(table, count);
+                    if (accountGeneration == KingdomIdle.Balance.LocalProgression.AccountGeneration &&
+                        network == Scripts.Core.Manager.NetworkManager.Instance && (network == null || networkGeneration == network.AccountGeneration) &&
+                        guideEpoch == Direction.GameDirectInteraction.Epoch &&
+                        (!guided || (Direction.GameDirectInteraction.CurrentAccount && Direction.GameDirectInteraction.Armed))) PullAndShowResult(table, count);
                     else UpdateWallet();
                 },
                 () => { _flaringPull = false; UpdateWallet(); });

@@ -122,7 +122,7 @@ namespace KingdomIdle.UGUI
             foreach (var toggle in _view.GetComponentsInChildren<ToggleSwitchView>(true)) toggle.Refresh();
             _view.lblServer.text = "변경 즉시 적용 · 자동 저장";
             _view.btnGoogleChip.interactable = false;
-            _view.btnGoogleChip.GetComponentInChildren<TMP_Text>().text = "진행 데이터는 현재 기기에 저장됩니다";
+            _view.btnGoogleChip.GetComponentInChildren<TMP_Text>().text = "게임 진행: 계정 서버 저장\n소리·표시 설정: 이 기기 저장";
             RefreshAudio(); RefreshNotation();
         }
         void RefreshAudio()

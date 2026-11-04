@@ -55,7 +55,8 @@ public class StatEnhanceManager : MonoBehaviour
     /// </summary>
     public EnhanceResult TryEnhanceEx(EnhanceType type, int count = 1)
     {
-        if (!Direction.GameDirectInteraction.CanPerform(type == EnhanceType.Attack ? Direction.GuideAction.AttackOnce : Direction.GuideAction.None, count)) return EnhanceResult.Busy;
+        var guideAction = type == EnhanceType.Attack ? Direction.GuideAction.AttackOnce : Direction.GuideAction.None;
+        if (!Direction.GameDirectInteraction.CanPerform(guideAction, count)) return EnhanceResult.Busy;
         // 서버는 Count 1/10/-1(MAX)만 받는다(1004 InvalidEnchantCount).
         if (!IsStatImplemented(type) || (count != 1 && count != 10 && count != -1)) return EnhanceResult.InvalidRequest;
         if (IsEnhancing) return EnhanceResult.Busy;
@@ -63,6 +64,7 @@ public class StatEnhanceManager : MonoBehaviour
         var network = NetworkManager.Instance;
         if (network == null || !network.IsGameDataReady) return EnhanceResult.NetworkNotReady;
         if (GetPurchaseCount(type, count) <= 0) return EnhanceResult.NotEnoughGold;
+        string guideReceipt = Direction.GameDirectInteraction.CaptureReceipt(guideAction, count);
         IsEnhancing = true;
         LastFailure = null;
         long generation = LocalProgression.AccountGeneration;
@@ -70,24 +72,24 @@ public class StatEnhanceManager : MonoBehaviour
         if (type == EnhanceType.Attack)
         {
             network.Call<OnEnchantATKRequestDTO, OnEnchantResponseDTO>(new OnEnchantATKRequestDTO { Count = count },
-                response => { if (IsCurrent()) ApplyServerResult(type, count, response); }, error => { if (IsCurrent()) RejectServerResult(type, count, error); });
+                response => { if (IsCurrent()) ApplyServerResult(type, count, guideReceipt, response); }, error => { if (IsCurrent()) RejectServerResult(type, count, error); });
         }
         else
         {
             network.Call<OnEnchantHPRequestDTO, OnEnchantResponseDTO>(new OnEnchantHPRequestDTO { Count = count },
-                response => { if (IsCurrent()) ApplyServerResult(type, count, response); }, error => { if (IsCurrent()) RejectServerResult(type, count, error); });
+                response => { if (IsCurrent()) ApplyServerResult(type, count, guideReceipt, response); }, error => { if (IsCurrent()) RejectServerResult(type, count, error); });
         }
         return EnhanceResult.Pending;
     }
     /// <summary>서버가 확정한 단계·잔액을 저장한다. 저장이 Changed를 발행하므로 스탯·UI는 HandleProgressionChanged가 갱신한다.</summary>
-    private void ApplyServerResult(EnhanceType type, int count, OnEnchantResponseDTO response)
+    private void ApplyServerResult(EnhanceType type, int count, string guideReceipt, OnEnchantResponseDTO response)
     {
         bool saved = LocalProgression.Execute("server-enhance", s =>
         {
             int level = (int)Math.Min(BalanceMath.GoldCap, Math.Max(0, response.CurrentLevel));
             if (type == EnhanceType.Attack) s.AttackLevel = level; else s.HealthLevel = level;
             s.Wallet[eCurrency.Gold] = Math.Max(0, response.CurrentGold);
-            if (type == EnhanceType.Attack && response.AppliedCount > 0) Direction.GameDirectInteraction.RecordSuccess(s, Direction.GuideAction.AttackOnce);
+            if (type == EnhanceType.Attack && response.AppliedCount > 0) Direction.GameDirectInteraction.RecordSuccess(s, Direction.GuideAction.AttackOnce, guideReceipt);
             return true;
         });
         Debug.Log($"[Enhance] {type} count={count} applied={response.AppliedCount} spent={response.SpentGold} level={response.CurrentLevel} gold={response.CurrentGold} saved={saved}");

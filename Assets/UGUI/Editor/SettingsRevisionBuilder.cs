@@ -112,7 +112,7 @@ namespace KingdomIdle.UGUI.Editor
             view.tglLowSpec = Toggle(content, "LowSpec", "저사양 모드", "장식과 피해 숫자의 움직임 간소화");
             view.tglKeepAwake = Toggle(content, "KeepAwake", "화면 켜짐 유지", "플레이 중 화면 자동 꺼짐 방지");
             Section(content, "저장 정보");
-            view.btnGoogleChip = F.TextButton(content, "BtnGoogleChip", "진행 데이터는 현재 기기에 저장됩니다", 26, UguiTheme.RusticSurfaceDark, out _);
+            view.btnGoogleChip = F.TextButton(content, "BtnGoogleChip", "게임 진행: 계정 서버 저장\n소리·표시 설정: 이 기기 저장", 26, UguiTheme.RusticSurfaceDark, out _);
             view.btnGoogleChip.interactable = false; F.Preferred((RectTransform)view.btnGoogleChip.transform, height: 76);
             view.lblVersion = Text(content, "LblVersion", "v" + Application.version, 24, 42);
             sound.gameObject.SetActive(false);device.gameObject.SetActive(false);
