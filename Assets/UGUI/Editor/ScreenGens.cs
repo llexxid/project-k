@@ -128,7 +128,7 @@ namespace KingdomIdle.UGUI.Editor
                 new Color(0.25f, 0.25f, 0.25f, 1f));
 
             var terms = F.Text(box.transform, "Terms",
-                "로그인 시 이용약관 및 개인정보 처리방침에 동의한 것으로 간주됩니다.", 20f,
+                "이용약관과 개인정보 처리 안내는 설정에서 확인할 수 있습니다.", 20f,
                 new Color(180f / 255f, 190f / 255f, 210f / 255f, 0.85f), TextAlignmentOptions.Center, wrap: true);
             F.Preferred(terms, height: 56f);
 

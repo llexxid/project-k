@@ -266,8 +266,8 @@ namespace KingdomIdle.UGUI.Editor
             Add(p.loginBox.Find("Title").GetComponent<TMP_Text>(), "왕국으로 출정", "YOUR KINGDOM AWAITS");
             Add(p.loginBox.Find("Subtitle").GetComponent<TMP_Text>(), "계정을 연결하고 모험을 이어가세요.", "Sign in to continue your adventure.");
             Add(p.loginBox.Find("Terms").GetComponent<TMP_Text>(),
-                "로그인 시 이용약관 및 개인정보 처리방침에 동의한 것으로 간주됩니다.",
-                "By signing in, you agree to the Terms of Service and Privacy Policy.");
+                "이용약관과 개인정보 처리 안내는 설정에서 확인할 수 있습니다.",
+                "You can review the terms and privacy notice in Settings.");
             p.labels = localization.ToArray();
             foreach (var text in p.loginBox.GetComponentsInChildren<TMP_Text>(true))
             { text.raycastTarget = false; text.color = UguiTheme.Parchment; text.fontSharedMaterial = text.font.material; }

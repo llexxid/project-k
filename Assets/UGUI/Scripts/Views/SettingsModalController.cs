@@ -8,6 +8,7 @@ namespace KingdomIdle.UGUI
     public sealed class SettingsModalController
     {
         SettingsModalView _view;
+        TMP_Text _notificationLabel;
         bool _isMuted;
         int _selectedTab;
         public bool IsOpen => _view != null && _view.gameObject.activeSelf;
@@ -65,6 +66,11 @@ namespace KingdomIdle.UGUI
                 _view.numberButtons[i].onClick.AddListener(() => { NumberNotation.SetStyle(style); RefreshNotation(); });
             }
             _view.lblVersion.text = "v" + Application.version;
+            _view.btnTerms.onClick.AddListener(() => LegalDocuments.ShowTerms(_view.transform));
+            _view.btnPrivacy.onClick.AddListener(() => LegalDocuments.ShowPrivacy(_view.transform));
+            _notificationLabel = _view.btnNotificationPermission.GetComponentInChildren<TMP_Text>(true);
+            _view.btnNotificationPermission.onClick.AddListener(() => DeviceNotificationPermission.Manage(TitleLobbyPresentation.SavedEnglish));
+            _view.FocusReturned += RefreshNotificationPermission;
             foreach (var control in new Component[] { _view.tglPush, _view.tglNightPush, _view.btnWithdraw, _view.btnSave })
                 if (control != null) control.gameObject.SetActive(false);
         }
@@ -121,14 +127,24 @@ namespace KingdomIdle.UGUI
             _view.tglKeepAwake?.SetIsOnWithoutNotify(GamePresentationSettings.KeepAwake);
             foreach (var toggle in _view.GetComponentsInChildren<ToggleSwitchView>(true)) toggle.Refresh();
             _view.lblServer.text = "변경 즉시 적용 · 자동 저장";
-            _view.btnGoogleChip.interactable = false;
-            _view.btnGoogleChip.GetComponentInChildren<TMP_Text>().text = "게임 진행: 계정 서버 저장\n소리·표시 설정: 이 기기 저장";
+            bool english = TitleLobbyPresentation.SavedEnglish;
+            _view.tabs[2].GetComponentInChildren<TMP_Text>(true).text = english ? "Device" : "기기";
+            _view.legalSection.text = english ? "Notifications and legal" : "알림 및 이용 안내";
+            _view.btnTerms.GetComponentInChildren<TMP_Text>(true).text = english ? "Terms of Service" : "이용약관";
+            _view.btnPrivacy.GetComponentInChildren<TMP_Text>(true).text = english ? "Privacy notice" : "개인정보 처리 안내";
+            RefreshNotificationPermission();
             RefreshAudio(); RefreshNotation();
+        }
+        void RefreshNotificationPermission()
+        {
+            if (_view == null) return;
+            _notificationLabel.text = DeviceNotificationPermission.ButtonText(TitleLobbyPresentation.SavedEnglish, out bool available);
+            _view.btnNotificationPermission.interactable = available;
         }
         void RefreshAudio()
         {
             _view.btnMuteBg.color = _isMuted ? UguiTheme.Bronze : UguiTheme.RusticSurface;
-            _view.btnMute.GetComponentInChildren<TMP_Text>().text = _isMuted ? "음소거 켬" : "음소거 끔";
+            _view.btnMute.GetComponentInChildren<TMP_Text>(true).text = _isMuted ? "음소거 켬" : "음소거 끔";
             if (_view.lblVolume != null) _view.lblVolume.text = Mathf.RoundToInt(GameAudioSettings.Master * 100) + "%";
             if (_view.lblMusic != null) _view.lblMusic.text = Mathf.RoundToInt(GameAudioSettings.Music * 100) + "%";
             if (_view.lblEffects != null) _view.lblEffects.text = Mathf.RoundToInt(GameAudioSettings.Effects * 100) + "%";
@@ -145,7 +161,7 @@ namespace KingdomIdle.UGUI
                 bool selected = i == (int)NumberNotation.Style;
                 var button = _view.numberButtons[i];
                 button.GetComponent<Image>().color = selected ? UguiTheme.Bronze : UguiTheme.RusticSurface;
-                button.GetComponentInChildren<TMP_Text>().text = titles[i] + (selected ? "\n선택됨" : "\n선택");
+                button.GetComponentInChildren<TMP_Text>(true).text = titles[i] + (selected ? "\n선택됨" : "\n선택");
             }
             if (_view.numberPreview != null)
                 _view.numberPreview.text = "표시 예시   " + NumberNotation.Format(12345) + "  ·  " + NumberNotation.Format(1234567890L) +
