@@ -19,17 +19,28 @@ namespace Direction
         public static bool Clicked { get; private set; }
         public static bool SaveFailed { get; private set; }
         private static string _sequence;
+        private static string _receiptNonce;
+        private static NetworkManager _network;
+        private static long _networkGeneration;
         private static long _account;
         private static Func<bool> _enter;
         private static bool _entered;
-        public static bool CurrentAccount => Step != null && _account == LocalProgression.AccountGeneration;
+        public static bool CurrentAccount => Step != null && _account == LocalProgression.AccountGeneration &&
+            _network == NetworkManager.Instance && (_network == null || _networkGeneration == _network.AccountGeneration);
+        /// <summary>최초 표시된 안내만 경제 입력을 소유하며, 모달로 가려져도 소유권은 유지한다.</summary>
+        public static bool OwnsInput => Step != null && _entered;
         public static bool AtAttackCap => CurrentAccount && Step.Action == GuideAction.AttackOnce &&
             LocalProgression.TryGetCommittedState(out var s) && s.AttackLevel >= BalanceMath.GoldCap;
         public static bool Succeeded => CurrentAccount && HasReceipt(_sequence, Step.Id);
 
-        /// <summary>Manager가 미확인 단계 시작 때 호출한다. 입력은 아직 닫고 최초 표시 직전에 실행할 저장 콜백을 보관한다.</summary>
+        /// <summary>Manager가 미확인 단계 시작 때 호출한다. 입력 제한은 최초 표시부터 적용하고 그 직전의 저장 콜백을 보관한다.</summary>
         public static void Begin(string sequence, GameDirectStep step, long account, Func<bool> enter)
-        { End(); _sequence = sequence; Step = step; _account = account; _enter = enter; }
+        {
+            End(); _sequence = sequence; Step = step; _account = account; _enter = enter;
+            _receiptNonce = Guid.NewGuid().ToString("N");
+            _network = NetworkManager.Instance;
+            _networkGeneration = _network != null ? _network.AccountGeneration : -1;
+        }
 
         /// <summary>화면 준비 이후 호출하며 지급 저장이 성공한 뒤에만 입력을 허용한다. 실패하면 Player의 finally가 표시를 정리한다.</summary>
         public static void Arm()
@@ -48,7 +59,7 @@ namespace Direction
 
         /// <summary>단계 종료·취소·계정 전환 시 모든 참조를 해제하고 지연 콜백 세대를 무효화한다.</summary>
         public static void End()
-        { Epoch++; Armed = false; Clicked = false; SaveFailed = false; Step = null; _sequence = null; _enter = null; _entered = false; }
+        { Epoch++; Armed = false; Clicked = false; SaveFailed = false; Step = null; _sequence = null; _receiptNonce = null; _network = null; _enter = null; _entered = false; }
 
         /// <summary>실제 경제 거래의 저장 실패를 Player에 알린다. 다음 프레임 정리 전에 추가 소비부터 금지한다.</summary>
         public static void ReportSaveFailure() { if (CurrentAccount) { SaveFailed = true; Suspend(); } }
@@ -59,17 +70,22 @@ namespace Direction
 
         /// <summary>기존 경제 진입점에서 사용한다. 실습 중에는 지정된 1회 행동만 허용하고 이미 저장된 행동의 연타를 거절한다.</summary>
         public static bool CanPerform(GuideAction action, int count)
-        { return Step == null || (CurrentAccount && Armed && Step.Completion == GuideCompletion.Action && Step.Action == action && count == 1 && !Succeeded); }
+        { return Step == null || (CurrentAccount && !SaveFailed && (!OwnsInput ||
+            (Armed && Step.Completion == GuideCompletion.Action && Step.Action == action && count == 1 && !Succeeded))); }
 
-        /// <summary>강화·뽑기의 거래 초안에 성공 영수증을 넣는다. 별도 Execute를 호출하지 않아 소비·보상·증거가 함께 롤백된다.</summary>
-        public static void RecordSuccess(ProgressionState draft, GuideAction action)
+        /// <summary>표시된 지정 실습 1회가 요청될 때만 현재 실행의 영수증을 캡처한다.</summary>
+        public static string CaptureReceipt(GuideAction action, int count) => OwnsInput && CanPerform(action, count) ? _receiptNonce : null;
+
+        /// <summary>요청 당시의 실행과 일치하는 성공 영수증만 거래 초안에 넣어 소비·보상·증거를 함께 롤백한다.</summary>
+        public static void RecordSuccess(ProgressionState draft, GuideAction action, string receiptNonce)
         {
-            if (CurrentAccount && Armed && Step.Completion == GuideCompletion.Action && Step.Action == action)
-                draft.Modules[ReceiptKey(_sequence, Step.Id)] = "1";
+            if (receiptNonce != null && receiptNonce == _receiptNonce && CurrentAccount && Armed && Step.Completion == GuideCompletion.Action && Step.Action == action)
+                draft.Modules[ReceiptKey(_sequence, Step.Id)] = receiptNonce;
         }
 
-        /// <summary>같은 계정의 확정 스냅샷만 읽는다. 성공 직후 앱 종료 시 이 값으로 재소비를 방지한다.</summary>
-        public static bool HasReceipt(string sequence, string step) => LocalProgression.TryGetCommittedState(out var s) && s.Modules.ContainsKey(ReceiptKey(sequence, step));
+        /// <summary>현재 실행에서 실제 저장에 성공한 영수증만 읽는다. 이전 설치·로그인·실행의 로컬 성공은 진행 근거가 아니다.</summary>
+        public static bool HasReceipt(string sequence, string step) => CurrentAccount && sequence == _sequence && step == Step.Id &&
+            LocalProgression.TryGetCommittedState(out var s) && s.Modules.TryGetValue(ReceiptKey(sequence, step), out string nonce) && nonce == _receiptNonce;
 
         /// <summary>진행 JSON과 분리한 단계별 키를 만든다. 이전 진행 복사본을 저장해도 경제 성공 증거를 덮지 않는다.</summary>
         private static string ReceiptKey(string sequence, string step) => "game-direct-action:" + sequence + ":" + step;
@@ -81,10 +97,6 @@ namespace Direction
             if (!step.GrantPracticeCoins) return UniTask.FromResult(true);
             return ClaimGuideRewardAsync(sequence + ":" + step.Id, account, token);
         }
-
-        /// <summary>서버 연결로 무효화된 로컬 지급. 에디터 QA 스크립트(InteractiveGuideAcceptance) 컴파일 호환용으로 시그니처만 남긴다.
-        /// 지급하지 않으며 운영 경로는 ClaimPracticeCoinsAsync다.</summary>
-        public static bool GrantCoins(string sequence, GameDirectStep step, long account) => account == LocalProgression.AccountGeneration;
 
         /// <summary>서버에 실습 보상을 요청하고 응답의 재화 절대값을 플레이어 상태에 쓴다. 로컬에서 지급하거나 청구 키를 남기지 않는다.</summary>
         public static async UniTask<bool> ClaimGuideRewardAsync(string guideId, long account, CancellationToken token)
@@ -114,7 +126,8 @@ namespace Direction
                     if (kind == "Timeout" || kind == "Transport")
                     {
                         // 응답 유실: 서버가 지급했을 수 있다. 재전송 대신 상태를 다시 받고 이번 요청은 중단한다. 다음 요청은 AlreadyClaimed로 이어진다.
-                        UserManager.Instance?.RefreshFromServer(_ => completion.TrySetResult(false));
+                        if (UserManager.Instance != null) UserManager.Instance.RefreshFromServer(_ => completion.TrySetResult(false));
+                        else completion.TrySetResult(false);
                         return;
                     }
                     UIManager.Instance?.ShowToast(NetworkManager.DescribeFailure(error, "실습 보상"));

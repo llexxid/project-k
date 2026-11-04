@@ -27,6 +27,7 @@ namespace Direction
         private bool _destroyed;
         private long _executionGeneration;
         private string _activeId;
+        private Request _activeRequest;
         private long _guideLoginGeneration = -1;
         private static readonly string[] GuideIds = {
             "guide_development", "guide_kingdom_army", "guide_dungeon", "guide_gacha", "guide_mage_tower"
@@ -34,9 +35,6 @@ namespace Direction
         public string ActiveSequenceId => _activeId;
         public int PendingCount => _queue.Count;
         public string LastError { get; private set; }
-#if UNITY_EDITOR
-        private bool _resettingForTest;
-#endif
 
         private sealed class Request
         {
@@ -45,6 +43,7 @@ namespace Direction
             public bool Preview;
             public bool Interactive;
             public long AccountGeneration;
+            public long NetworkGeneration;
             public long ExecutionGeneration;
         }
 
@@ -58,6 +57,14 @@ namespace Direction
 
         /// <summary>활성 기간에만 계정 변경을 관찰한다. 계정마다 별도 실행 세대를 사용한다.</summary>
         private void OnEnable() => LocalProgression.AccountChanged += HandleAccountChanged;
+
+        private void Update()
+        {
+            // 같은 계정의 재로그인도 이전 입력·응답의 실행 범위를 끝낸다.
+            if (_activeRequest != null && !_activeRequest.Preview &&
+                (!GameDirectProgressStore.Available || !GameDirectProgressStore.IsCurrent(_activeRequest.AccountGeneration, _activeRequest.NetworkGeneration)))
+                ClearRequests();
+        }
 
         /// <summary>비활성화 시 모든 요청을 취소한다. 잠시 비활성화한 컴포넌트가 보이지 않는 연출을 계속하지 않게 한다.</summary>
         private void OnDisable()
@@ -82,6 +89,7 @@ namespace Direction
                 LocalProgression.AccountKey != network.PlayFabId ||
                 !LocalProgression.IsReady ||
                 _guideLoginGeneration == network.AccountGeneration) return;
+            if (!GameDirectProgressStore.Available) { LastError = GameDirectProgressStore.NotReadyMessage; return; }
             // 던전 복귀 등 같은 로그인 내 씬 재진입으로 중단한 안내를 다시 띄우지 않는다.
             _guideLoginGeneration = network.AccountGeneration;
             foreach (string id in GuideIds)
@@ -117,9 +125,6 @@ namespace Direction
         public bool RequestPlay(GameDirectSequenceSO sequence, bool preview = false)
         {
             LastError = null;
-#if UNITY_EDITOR
-            if (_resettingForTest) { LastError = "테스트 안내 기록을 초기화 중입니다."; return false; }
-#endif
             if (_destroyed || !isActiveAndEnabled || _player == null) { LastError = "연출 관리자가 준비되지 않았습니다."; return false; }
             if (sequence == null) { LastError = "연출 데이터가 없습니다."; return false; }
             if (!sequence.TryValidate(out string error)) { LastError = error; return false; }
@@ -129,49 +134,21 @@ namespace Direction
             if (!preview)
             {
                 if (!_store.TryLoad(sequence.sequenceId, generation, out var progress))
-                { LastError = "계정 또는 안내 저장 정보를 읽을 수 없습니다."; return false; }
+                { LastError = GameDirectProgressStore.NotReadyMessage; return false; }
                 if (progress.Completed || progress.Skipped) { LastError = "이미 확인하거나 건너뛴 안내입니다."; return false; }
             }
             var steps = new GameDirectStep[sequence.steps.Length];
             for (int i = 0; i < steps.Length; i++) steps[i] = new GameDirectStep(sequence.steps[i], i + 1, steps.Length);
             _requestedIds.Add(sequence.sequenceId);
             _queue.Enqueue(new Request { Id = sequence.sequenceId, Steps = steps, Preview = preview, Interactive = sequence.IsInteractive,
-                AccountGeneration = generation, ExecutionGeneration = _executionGeneration });
+                AccountGeneration = generation, NetworkGeneration = NetworkManager.Instance != null ? NetworkManager.Instance.AccountGeneration : -1,
+                ExecutionGeneration = _executionGeneration });
             if (!_pumping) PumpAsync().Forget();
             return true;
         }
 
         /// <summary>현재 연출만 중단한다. 확인한 단계는 유지하고 나머지 대기 요청은 순서대로 진행한다.</summary>
         public void CancelCurrent() { GameDirectInteraction.End(); _currentCancellation?.Cancel(); }
-
-#if UNITY_EDITOR
-        /// <summary>
-        /// GameTest가 지정한 안내 기록을 초기화하기 전에 호출한다. 실행·대기열을 취소하고 Player 정리까지 기다린 후 저장 작업을 실행한다.
-        /// 초기화 중 새 요청을 거절하고 계정·실행 세대가 바뀌면 저장하지 않는다. 성공 여부를 반환하며 실패도 입력 차단은 정리한다.
-        /// </summary>
-        public async UniTask<bool> ResetForTestingAsync(Func<long, bool> reset)
-        {
-            LastError = null;
-            if (!Application.isPlaying || _destroyed || !isActiveAndEnabled || _resettingForTest || reset == null || !LocalProgression.IsReady)
-            { LastError = "PlayMode와 계정 준비 상태를 확인하세요. 초기화 중에는 다시 요청할 수 없습니다."; return false; }
-            _resettingForTest = true;
-            long account = LocalProgression.AccountGeneration;
-            bool hadGuide = _activeId != null;
-            try
-            {
-                // 현재 요청만 취소하면 다음 대기 안내가 먼저 진행되므로 실행 세대와 큐를 함께 폐기한다.
-                ClearRequests();
-                long execution = _executionGeneration;
-                while (_pumping) await UniTask.NextFrame();
-                if (_destroyed || !isActiveAndEnabled || account != LocalProgression.AccountGeneration || execution != _executionGeneration)
-                { LastError = "초기화 대기 중 계정 또는 관리자 상태가 바뀌었습니다."; return false; }
-                if (hadGuide) UIManager.Instance?.FinishFeatureGuide();
-                if (!reset(account)) { LastError = "테스트 안내 기록을 저장하지 못했습니다. 기존 기록은 유지됩니다."; return false; }
-                return true;
-            }
-            finally { _resettingForTest = false; }
-        }
-#endif
 
         /// <summary>계정 전환 시 이전 계정의 실행과 대기열을 함께 폐기한다. 새 계정으로 결과가 넘어갈 수 없다.</summary>
         private void HandleAccountChanged() => ClearRequests();
@@ -196,6 +173,7 @@ namespace Direction
                 {
                     var request = _queue.Dequeue();
                     _activeId = request.Id;
+                    _activeRequest = request;
                     using var cancellation = new CancellationTokenSource();
                     _currentCancellation = cancellation;
                     try { await RunRequestAsync(request, cancellation.Token); }
@@ -211,6 +189,7 @@ namespace Direction
                         GameDirectInteraction.End();
                         _currentCancellation = null;
                         _activeId = null;
+                        _activeRequest = null;
                         // 계정 전환 후 새로 등록된 같은 ID를 이전 실행의 finally가 지우면 안 된다.
                         if (request.ExecutionGeneration == _executionGeneration) _requestedIds.Remove(request.Id);
                     }
@@ -219,7 +198,7 @@ namespace Direction
             finally { _pumping = false; }
         }
 
-        /// <summary>확인되지 않은 단계만 실행한다. 저장 실패는 즉시 요청을 끝내고 다음 요청에서 재시도 가능하게 한다.</summary>
+        /// <summary>서버에서 확인되지 않은 단계만 실행하고 저장 응답을 받은 뒤 다음 단계로 이동한다.</summary>
         private async UniTask RunRequestAsync(Request request, CancellationToken token)
         {
             GameDirectProgress progress = new();
@@ -240,20 +219,29 @@ namespace Direction
                 finally { GameDirectInteraction.End(); }
                 token.ThrowIfCancellationRequested();
                 if (request.ExecutionGeneration != _executionGeneration ||
-                    request.AccountGeneration != LocalProgression.AccountGeneration) throw new OperationCanceledException();
+                    request.AccountGeneration != LocalProgression.AccountGeneration ||
+                    (!request.Preview && !GameDirectProgressStore.IsCurrent(request.AccountGeneration, request.NetworkGeneration))) throw new OperationCanceledException();
                 // 나중에 계속은 사용자 건너뛰기와 다르다. 현재 단계를 미확인으로 남겨 외부 재요청 시 재개한다.
                 if (result == GameDirectResult.Deferred) return;
                 var candidate = progress.Copy();
                 if (result == GameDirectResult.Skipped) candidate.Skipped = true;
                 else candidate.ConfirmedSteps.Add(step.Id);
                 candidate.Completed = !candidate.Skipped && Array.TrueForAll(request.Steps, s => candidate.ConfirmedSteps.Contains(s.Id));
-                if (!request.Preview && !_store.TrySave(request.Id, request.AccountGeneration, candidate))
+                if (!request.Preview)
                 {
-                    LastError = "안내 진행을 저장하지 못했습니다.";
-                    UIManager.Instance?.ShowToast(LastError + " 다음 요청에서 이어갑니다.");
-                    return;
+                    bool notified = false;
+                    while (!await _store.TrySaveAsync(request.Id, request.AccountGeneration, candidate, token))
+                    {
+                        token.ThrowIfCancellationRequested();
+                        LastError = "안내 진행을 서버에 저장하지 못했습니다. 연결되면 다시 확인합니다.";
+                        if (!notified) { UIManager.Instance?.ShowToast(LastError); notified = true; }
+                        // 표시는 이미 정리됐다. 게임 입력을 막지 않고 동일 단계의 확인만 재전송한다.
+                        await UniTask.Delay(TimeSpan.FromSeconds(5), ignoreTimeScale: true, cancellationToken: token);
+                    }
+                    if (!_store.TryLoad(request.Id, request.AccountGeneration, out candidate)) throw new OperationCanceledException();
+                    LastError = null;
                 }
-                // 디스크 교체가 성공한 후보만 현재 상태로 인정한다. 미리보기는 이 지역 변수에서만 진행한다.
+                // 서버가 수락한 합집합만 진행으로 인정한다. 미리보기는 이 지역 변수에서만 진행한다.
                 progress = candidate;
                 if (progress.Completed || progress.Skipped)
                 {

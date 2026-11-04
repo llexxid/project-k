@@ -4,8 +4,13 @@ using System.Collections.Generic;
 using System.Reflection;
 using KingdomIdle.OfflineRewards;
 using KingdomIdle.Rewards;
-using Newtonsoft.Json;
+using KingdomIdle.UGUI;
+using Protocol.Message.Dto;
+using Scripts.Core;
+using Scripts.Core.Manager;
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace KingdomIdle.Balance
 {
@@ -13,103 +18,177 @@ namespace KingdomIdle.Balance
     {
         public static Dictionary<string, object> Run()
         {
-            using var scope = LocalProgression.BeginTestSession();
+            if (Application.isPlaying || NetworkManager.Instance != null || UserManager.Instance != null ||
+                UIManager.Instance != null || StageManager.Instance != null)
+                throw new InvalidOperationException("게임을 중지하고 서버 연결이 없는 Editor에서 실행해 주세요.");
+
+            const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+            var managerType = typeof(OfflineRewardManager);
+            var popupType = typeof(OfflineRewardPopupController);
+            FieldInfo Field(Type type, string name) => type.GetField(name, flags);
+            PropertyInfo Property(Type type, string name) => type.GetProperty(name, flags);
+            object Call(Type type, object target, string name, params object[] args) => type.GetMethod(name, flags).Invoke(target, args);
+            var previousClaim = OfflineRewardManager.LastClaimResult;
+            bool previousBusy = OfflineRewardManager.AdBonusBusy;
+            var previousView = Field(popupType, "_view").GetValue(null);
+            var previousChoice = Field(popupType, "_choice").GetValue(null);
+            var previousResult = Field(popupType, "_resultView").GetValue(null);
+            var previousAds = Field(typeof(ShopAdRewardService), "_server").GetValue(null);
+            int previousAdRevision = ShopAdRewardService.Revision;
             var checks = new List<string>();
             void Check(bool condition, string label)
             {
                 if (!condition) throw new InvalidOperationException("OFFLINE AD ASSERT: " + label);
                 checks.Add(label);
             }
-            string account = "offline-ad-" + Guid.NewGuid().ToString("N");
-            LocalProgression.TestUtcNow = 1793100000;
-            LocalProgression.OpenTestAccount(account);
-            Check(LocalProgression.Execute("offline-ad-fixture", s => {
-                s.LastActiveUtc = LocalProgression.UtcNow - 600;
-                s.OfflineStage = 0x200010001;
-                s.OfflineKpm = 3.25m;
-                s.OfflineRubyGold = 2;
-                s.OfflineRubyExp = 3;
-                s.Kills = 77;
-                s.Wallet[eCurrency.Gold] = 123;
-                return true;
-            }), "격리 계정의 오프라인 구간 준비");
-            Check(OfflineRewardManager.Claim(out var reward) && reward != null &&
-                reward.GoldGained > 0 && reward.ExperienceGained > 0 &&
-                LocalProgression.Balance(eCurrency.Gold) == 123 + reward.GoldGained &&
-                LocalProgression.State.Claims.Contains(reward.ClaimId), "기본 보상과 정산 ID가 팝업 전에 함께 저장됨");
-            Check(!typeof(OfflineRewardClaimResult).GetProperty(nameof(reward.ExperienceGained)).CanWrite &&
-                !typeof(OfflineRewardClaimResult).GetProperty(nameof(reward.GoldGained)).CanWrite,
-                "최초 정산 골드와 경험치는 읽기 전용");
-            Check(OfflineRewardManager.Claim(out var empty) && empty == null,
-                "같은 방치 시간을 다시 정산해도 추가 기본 보상 없음");
-            Check(LocalProgression.Execute("offline-ad-growth-change", s => {
-                s.OfflineKpm = 30;
-                s.RubyGoldLevel = s.RubyExpLevel = 20;
-                return true;
-            }), "광고 시청 중 성장 조건 변경");
-            long gold = LocalProgression.Balance(eCurrency.Gold);
-            int level = LocalProgression.State.AccountLevel;
-            long exp = LocalProgression.State.Experience;
-            BalanceMath.GainExperience(ref level, ref exp, reward.ExperienceGained);
-            string counters = JsonConvert.SerializeObject(LocalProgression.State.Counters);
-            string before = JsonConvert.SerializeObject(LocalProgression.State);
-            RewardStatus failed = RewardStatus.Success;
-            Check(!LocalProgression.TestFailedCommit(() => {
-                failed = OfflineRewardManager.TryGrantAdBonus(reward);
-                return failed == RewardStatus.Success;
-            }) && failed == RewardStatus.SaveFailed && JsonConvert.SerializeObject(LocalProgression.State) == before,
-                "추가 지급 저장 실패는 지갑·경험치·수령 기록을 모두 보존함");
-            Check(OfflineRewardManager.TryGrantAdBonus(reward) == RewardStatus.Success &&
-                LocalProgression.Balance(eCurrency.Gold) == gold + reward.GoldGained &&
-                LocalProgression.State.AccountLevel == level && LocalProgression.State.Experience == exp,
-                "실패 후 같은 정산으로 재시도하면 변경된 성장 조건 대신 원본 금액 한 벌만 지급됨");
-            Check(LocalProgression.State.Kills == 77 && JsonConvert.SerializeObject(LocalProgression.State.Counters) == counters,
-                "광고 보너스는 처치 수와 오프라인 수령 퀘스트 횟수를 추가하지 않음");
-            long revision = LocalProgression.State.Revision;
-            Check(OfflineRewardManager.TryGrantAdBonus(reward) == RewardStatus.Success &&
-                LocalProgression.State.Revision == revision && LocalProgression.Balance(eCurrency.Gold) == gold + reward.GoldGained,
-                "중복 완료 요청은 성공 결과만 반환하고 재지급하지 않음");
-            var unissued = new OfflineRewardClaimResult("unissued", reward.Plan, 999, 999, 0, level, exp, 77);
-            Check(OfflineRewardManager.TryGrantAdBonus(unissued) == RewardStatus.InvalidReward && LocalProgression.State.Revision == revision,
-                "발급하지 않은 기본 정산의 추가 지급 거절");
+            OfflineRewardClaimResult completedResult = null;
+            RewardStatus completedStatus = RewardStatus.NotReady;
+            void Completed(OfflineRewardClaimResult result, RewardStatus status, string message)
+            { completedResult = result; completedStatus = status; }
 
+            using var scope = LocalProgression.BeginTestSession();
             var owner = new GameObject("OfflineRewardAdAcceptance");
+            owner.SetActive(false);
+            var manager = owner.AddComponent<OfflineRewardManager>();
+            // 비활성 부모 아래에서 표시 상태만 검사하며 실제 UI, 광고 SDK, 서버를 실행하지 않는다.
+            T Child<T>(string name) where T : Component
+            {
+                var child = new GameObject(name, typeof(RectTransform));
+                child.transform.SetParent(owner.transform, false);
+                return typeof(T) == typeof(RectTransform) ? child.GetComponent<T>() : child.AddComponent<T>();
+            }
             try
             {
-                var manager = owner.AddComponent<OfflineRewardManager>();
-                const BindingFlags flags = BindingFlags.NonPublic | BindingFlags.Instance;
-                void Set(string name, bool value) => typeof(OfflineRewardManager).GetField(name, flags).SetValue(manager, value);
-                bool Get(string name) => (bool)typeof(OfflineRewardManager).GetField(name, flags).GetValue(manager);
-                Set("_ready", true);
-                Set("_suspended", true);
-                Set("_adSuspended", true);
-                LocalProgression.TestUtcNow += 60;
-                before = JsonConvert.SerializeObject(LocalProgression.State);
-                Check(!LocalProgression.TestFailedCommit(() => {
-                    manager.SendMessage("OnApplicationPause", false);
-                    return !Get("_suspended");
-                }) && Get("_resumePending") && Get("_adSuspended") &&
-                    JsonConvert.SerializeObject(LocalProgression.State) == before,
-                    "광고 복귀 체크포인트 실패 시 복귀 원인과 재시도 상태 보존");
-                typeof(OfflineRewardManager).GetMethod("Resume", flags).Invoke(manager, null);
-                Check(!Get("_suspended") && !Get("_adSuspended") &&
-                    LocalProgression.State.LastActiveUtc == LocalProgression.UtcNow &&
-                    LocalProgression.Balance(eCurrency.Gold) == gold + reward.GoldGained &&
-                    JsonConvert.SerializeObject(LocalProgression.State.Counters) == counters,
-                    "SDK 종료 후의 광고 복귀도 새 보상 정산 없이 활동 시각만 저장함");
+                var view = Child<OfflineRewardPopupView>("Popup");
+                view.durationLabel = Child<TextMeshProUGUI>("Duration");
+                view.killCountLabel = Child<TextMeshProUGUI>("Kills");
+                view.goldRow = Child<RectTransform>("GoldRow");
+                view.goldValueLabel = Child<TextMeshProUGUI>("Gold");
+                view.ancientCoinRow = Child<RectTransform>("CoinRow");
+                view.ancientCoinValueLabel = Child<TextMeshProUGUI>("Coin");
+                view.progressLabel = Child<TextMeshProUGUI>("Progress");
+                view.adButton = Child<Button>("Ad");
+                view.adButtonLabel = Child<TextMeshProUGUI>("AdLabel");
+                view.confirmButton = Child<Button>("Confirm");
+                Field(popupType, "_view").SetValue(null, view);
+                Field(popupType, "_choice").SetValue(null, null);
+                Field(popupType, "_resultView").SetValue(null, null);
+                Property(managerType, "AdBonusBusy").SetValue(null, false);
+                OfflineRewardManager.AdBonusCompleted += Completed;
+                LocalProgression.TestUtcNow = 1793100000;
+                LocalProgression.OpenTestAccount("offline-ad-" + Guid.NewGuid().ToString("N"));
+                Check(LocalProgression.Execute("offline-ad-fixture", s =>
+                {
+                    s.Kills = 77;
+                    s.Wallet[eCurrency.Gold] = 123;
+                    return true;
+                }), "격리 계정 준비");
+
+                int finishes = 0;
+                Action finished = () => finishes++;
+                void Apply(long balance, long gold, long exp = 0, long kills = 10)
+                {
+                    Property(managerType, "IsBusy").SetValue(manager, true);
+                    Call(managerType, manager, "ApplyServerResult", 1m, new OnClaimOfflineRewardResponseDTO
+                    {
+                        ElapsedSeconds = 600, AppliedSeconds = gold > 0 || exp > 0 ? 600 : 0,
+                        KillCount = kills, GainedGold = gold, GainedExp = exp,
+                        Level = 1, Exp = exp, Currency = new CurrencyQueryDTO(balance, 0, 0, 0)
+                    }, finished);
+                }
+
+                Apply(223, 100);
+                var first = OfflineRewardManager.LastClaimResult;
+                var oldChoice = Field(popupType, "_choice").GetValue(null);
+                Check(first != null && OfflineRewardManager.IsLatestClaim(first) &&
+                    LocalProgression.Balance(eCurrency.Gold) == 223 && OfflineRewardPopupController.IsOpen,
+                    "기본 보상은 확인 버튼 전에 서버 잔액으로 적용됨");
+                Field(oldChoice.GetType(), "Earned").SetValue(oldChoice, true);
+
+                Apply(273, 50);
+                var latest = OfflineRewardManager.LastClaimResult;
+                var latestChoice = Field(popupType, "_choice").GetValue(null);
+                Check(!ReferenceEquals(first, latest) && !ReferenceEquals(oldChoice, latestChoice) &&
+                    LocalProgression.Balance(eCurrency.Gold) == 273 && view.goldValueLabel.text == "+50" && finishes == 2,
+                    "새 정산은 이전 기본 지급을 보존하고 팝업과 광고 기회만 교체함");
+                Check(OfflineRewardManager.IsCurrentAccount(first) && !OfflineRewardManager.IsLatestClaim(first) &&
+                    OfflineRewardManager.TryGrantAdBonus(first) == RewardStatus.Stale &&
+                    OfflineRewardManager.IsLatestClaim(latest) && OfflineRewardManager.TryGrantAdBonus(latest) == RewardStatus.NotReady,
+                    "같은 계정이어도 이전 정산은 거절하고 최신 정산만 연결 준비 검사로 진입함");
+                long revision = LocalProgression.State.Revision;
+                Call(popupType, null, "FinishChoice", oldChoice);
+                Call(popupType, null, "CloseResult", oldChoice);
+                Check(ReferenceEquals(Field(popupType, "_choice").GetValue(null), latestChoice) &&
+                    OfflineRewardPopupController.IsOpen && LocalProgression.State.Revision == revision && !OfflineRewardManager.AdBonusBusy,
+                    "교체된 팝업의 광고 완료·결과 닫기 콜백은 현재 보상에 영향을 주지 않음");
+
+                Apply(273, 0);
+                Check(ReferenceEquals(OfflineRewardManager.LastClaimResult, latest) &&
+                    ReferenceEquals(Field(popupType, "_choice").GetValue(null), latestChoice),
+                    "처치 수가 있어도 실제 보상이 0이면 기존 팝업과 광고 기회를 유지함");
+
+                Property(managerType, "IsBusy").SetValue(manager, true);
+                Property(managerType, "AdBonusBusy").SetValue(null, true);
+                Field(managerType, "_pendingAdBonus").SetValue(manager, first);
+                Call(managerType, manager, "FinishClaim", finished);
+                Check(!manager.IsBusy && !OfflineRewardManager.AdBonusBusy &&
+                    Field(managerType, "_pendingAdBonus").GetValue(manager) == null &&
+                    ReferenceEquals(completedResult, first) && completedStatus == RewardStatus.Stale && finishes == 4,
+                    "새 정산 전에 대기하던 이전 광고는 요청 없이 폐기하고 대기 상태를 해제함");
+
+                Call(managerType, null, "ApplyAdBonus", first, new OnClaimAdRewardResponseDTO
+                {
+                    AdType = Protocol.Message.Data.eAdType.OfflineBonus, Level = 1, Exp = 0,
+                    Currency = new CurrencyQueryDTO(373, 0, 0, 0),
+                    GrantedCurrencies = new List<CurrencyAmountDTO>(), AdRewards = new AdRewardStateDTO()
+                });
+                Check(LocalProgression.Balance(eCurrency.Gold) == 373 && LocalProgression.State.Kills == 77 &&
+                    ReferenceEquals(OfflineRewardManager.LastClaimResult, latest) &&
+                    ReferenceEquals(Field(popupType, "_choice").GetValue(null), latestChoice) && completedStatus == RewardStatus.Success,
+                    "이미 지급된 이전 광고 응답은 잔액에 반영하고 최신 팝업은 보존함");
+
+                revision = LocalProgression.State.Revision;
+                LocalProgression.TestFailedCommit(() => { Apply(400, 27); return false; });
+                Check(OfflineRewardManager.LastClaimResult == null && !OfflineRewardPopupController.IsOpen &&
+                    !manager.IsBusy && LocalProgression.Balance(eCurrency.Gold) == 373 && LocalProgression.State.Revision == revision,
+                    "새 정산 저장 실패는 기존 광고를 무효화하고 저장 전 잔액을 보존함");
+
+                Apply(373, 0, 1, 0);
+                latest = OfflineRewardManager.LastClaimResult;
+                Check(latest != null && latest.ExperienceGained == 1 && latest.GoldGained == 0,
+                    "골드 없이 경험치만 있는 새 보상도 팝업을 교체함");
+                Property(managerType, "IsBusy").SetValue(manager, true);
+                Call(managerType, manager, "RejectServerResult", 1m, NetworkManager.CreateError("InvalidRequest", "acceptance"), finished);
+                Check(ReferenceEquals(OfflineRewardManager.LastClaimResult, latest) && !manager.IsBusy,
+                    "정산하지 않은 확정 거절은 기존 광고 기회를 유지함");
+                Property(managerType, "IsBusy").SetValue(manager, true);
+                Property(managerType, "AdBonusBusy").SetValue(null, true);
+                Field(managerType, "_pendingAdBonus").SetValue(manager, latest);
+                Call(managerType, manager, "RejectServerResult", 1m, NetworkManager.CreateError("Timeout", "acceptance"), finished);
+                Check(OfflineRewardManager.LastClaimResult == null && !OfflineRewardPopupController.IsOpen &&
+                    !manager.IsBusy && !OfflineRewardManager.AdBonusBusy && completedStatus == RewardStatus.Stale,
+                    "성공 여부가 불명확한 정산은 이전 광고와 대기를 함께 해제함");
+
+                LocalProgression.OpenTestAccount("offline-ad-other-" + Guid.NewGuid().ToString("N"));
+                revision = LocalProgression.State.Revision;
+                Call(managerType, null, "ApplyAdBonus", latest, new OnClaimAdRewardResponseDTO());
+                Check(!OfflineRewardManager.IsCurrentAccount(latest) && completedStatus == RewardStatus.Stale &&
+                    LocalProgression.State.Revision == revision, "다른 계정으로 전환한 뒤의 지급 응답은 적용하지 않음");
+                return new Dictionary<string, object> { { "passed", checks.Count }, { "checks", checks } };
             }
-            finally { UnityEngine.Object.DestroyImmediate(owner); }
-            LocalProgression.OpenTestAccount(account + "-other");
-            revision = LocalProgression.State.Revision;
-            Check(!OfflineRewardManager.IsCurrentAccount(reward) &&
-                OfflineRewardManager.TryGrantAdBonus(reward) == RewardStatus.Stale && LocalProgression.State.Revision == revision,
-                "다른 계정에서는 이전 광고 보상 거절");
-            LocalProgression.OpenTestAccount(account);
-            Check(LocalProgression.Balance(eCurrency.Gold) == gold + reward.GoldGained &&
-                LocalProgression.State.Claims.Contains("offline-ad:" + reward.ClaimId) &&
-                OfflineRewardManager.TryGrantAdBonus(reward) == RewardStatus.Stale,
-                "다시 연 계정은 저장된 보상과 중복 방지 기록을 복원하고 이전 실행 토큰은 거절");
-            return new Dictionary<string, object> { { "passed", checks.Count }, { "checks", checks } };
+            finally
+            {
+                OfflineRewardManager.AdBonusCompleted -= Completed;
+                Field(managerType, "_pendingAdBonus").SetValue(manager, null);
+                UnityEngine.Object.DestroyImmediate(owner);
+                Field(popupType, "_view").SetValue(null, previousView);
+                Field(popupType, "_choice").SetValue(null, previousChoice);
+                Field(popupType, "_resultView").SetValue(null, previousResult);
+                Field(typeof(ShopAdRewardService), "_server").SetValue(null, previousAds);
+                Property(typeof(ShopAdRewardService), "Revision").SetValue(null, previousAdRevision);
+                Property(managerType, "LastClaimResult").SetValue(null, previousClaim);
+                Property(managerType, "AdBonusBusy").SetValue(null, previousBusy);
+            }
         }
     }
 }

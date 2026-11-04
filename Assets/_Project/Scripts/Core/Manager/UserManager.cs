@@ -212,6 +212,40 @@ namespace Scripts.Core
 			s.Wallet[eCurrency.MageTicket] = Math.Max(0, currency.MageTicket);
 		}
 
+		/// <summary>서버 던전 상태를 검증한 뒤 티켓·진행도·전투 ID를 함께 교체한다. 로컬 전투 RunId는 유지한다.</summary>
+		public static bool ApplyDungeonState(ProgressionState s, DungeonStateDTO dungeon)
+		{
+			if (s == null || dungeon == null || dungeon.GoldTickets < 0 || dungeon.GoldTickets > 2 || dungeon.RubyTickets < 0 || dungeon.RubyTickets > 2 ||
+				dungeon.GoldDungeonClear < 0 || dungeon.GoldDungeonClear > 5 || dungeon.RubyDungeonClear < 0 || dungeon.RubyDungeonClear > 5 ||
+				dungeon.TicketResetUtc <= 0 || (dungeon.ActiveBattleId != null) != dungeon.ActiveDungeonId.HasValue) return false;
+			if (dungeon.ActiveBattleId != null)
+			{
+				var stage = (eStage)dungeon.ActiveDungeonId.Value;
+				try
+				{
+					var type = StageParser.GetStageType(stage);
+					int difficulty = StageParser.GetStageNumber(stage);
+					if (string.IsNullOrWhiteSpace(dungeon.ActiveBattleId) ||
+						(type != eStageType.GoldDungeon && type != eStageType.RubyDungeon) || difficulty < 1 || difficulty > 5 ||
+						stage != StageParser.MakeStage(type, difficulty)) return false;
+				}
+				catch (ArgumentException) { return false; }
+			}
+			string ticketDay;
+			try { ticketDay = QuestPeriod.At(dungeon.TicketResetUtc - 1).Day; }
+			catch (ArgumentOutOfRangeException) { return false; }
+			LegacyDungeonProgression.Preserve(s);
+			s.GoldTickets = dungeon.GoldTickets;
+			s.RubyTickets = dungeon.RubyTickets;
+			s.GoldDungeonClear = dungeon.GoldDungeonClear;
+			s.RubyDungeonClear = dungeon.RubyDungeonClear;
+			s.DungeonTicketResetUtc = dungeon.TicketResetUtc;
+			s.TicketDay = ticketDay;
+			s.ActiveDungeon = dungeon.ActiveBattleId;
+			s.ServerDungeonId = dungeon.ActiveDungeonId ?? 0;
+			return true;
+		}
+
 		/// <summary>
 		/// 광고 보상 응답(OnClaimAdReward, 상점 일일 광고·오프라인 2배 공통)의 레벨·경험치·재화 절대값을 쓴다.
 		/// 처치 수는 바꾸지 않는다(서버도 세지 않는다). 레벨은 로그인과 같이 계정 상한으로 자른다.
@@ -468,11 +502,11 @@ namespace Scripts.Core
 			s.PendingReincarnation = false;
 		}
 
-		/// <summary>서버 규칙과 같은 이번 주기 보스 클리어 수(현재 장 − 1). 환생 미리보기에만 쓴다.</summary>
-		public static int CycleBossClears(long mainStage)
+		/// <summary>서버의 이번 주기 최고 해금 위치에서 보스 클리어 수를 구한다. 영구 클리어 기록은 쓰지 않는다.</summary>
+		public static int CycleBossClears(long highestStage)
 		{
-			if (StageParser.GetStageType((eStage)mainStage) != eStageType.Main) return 0;
-			return Math.Max(0, StageParser.GetStageNumber((eStage)mainStage) - 1);
+			if (StageParser.GetStageType((eStage)highestStage) != eStageType.Main) return 0;
+			return Math.Max(0, StageParser.GetStageNumber((eStage)highestStage) - 1);
 		}
 
 		/// <summary>서버 직업 코드(eJobCode) → 클라이언트 직업 이름(JobData.jobName). 모르는 코드는 Spearman.</summary>
@@ -591,6 +625,7 @@ namespace Scripts.Core
 			long highest = (long)response.StageState.MainClear;
 			bool ok = LocalProgression.Execute("server-player-data", s =>
 			{
+				if (!ApplyDungeonState(s, response.DungeonState)) return false;
 				if (!s.Modules.ContainsKey("imported"))
 				{
 					// 첫 적용: 서버 값으로 덮기 전의 로컬 상태를 보존하고 기존 게이트(imported)를 유지한다.
@@ -602,6 +637,7 @@ namespace Scripts.Core
 					if (PlayerPrefs.HasKey("reincarnation.progress.v1"))
 						s.Modules["legacy-unassigned-reincarnation"] = PlayerPrefs.GetString("reincarnation.progress.v1");
 				}
+				if (!RubyProgression.ApplyServerState(s, response.RubyGrowthState)) return false;
 				ApplyCurrency(s, response.Currency);
 				ApplyGachaState(s, response.GachaState);
 				ApplyEquipment(s, response.Equipment);
@@ -617,8 +653,8 @@ namespace Scripts.Core
 				if (StageParser.GetStageType((eStage)stage) == eStageType.Main)
 				{
 					s.MainStage = stage;
-					// 환생 주기 파생값은 서버 규칙(현재 장 − 1)으로 맞춘다. 로컬 보스 클리어 카운트는 쓰지 않는다.
-					s.CycleBossStage = CycleBossClears(stage);
+					// 이전 위치로 돌아가도 이번 주기에 해금한 최고 위치의 환생 보너스를 유지한다.
+					s.CycleBossStage = CycleBossClears(frontier);
 					s.CycleFrontierStage = frontier;
 				}
 				// 클리어 판정은 HighestMainClear 기준이다. MainClears 집합은 서버 적용에서 더 채우지 않는다.
@@ -627,6 +663,8 @@ namespace Scripts.Core
 			});
 			var state = LocalProgression.State;
 			// 퀘스트 상태는 플레이어 상태 파일이 아니라 QuestManager가 보관한다(응답마다 전체 행이 와서 통째로 교체한다).
+			if (ok) RubyProgression.ReceiveServerState(response.RubyGrowthState != null);
+			if (ok) Direction.GameDirectProgressStore.ReceiveServerState(response.Tutorials);
 			if (ok) QuestManager.Receive(response.Quests, response is OnGetUserStateResponseDTO ? "state" : "login");
 			// 출석판도 플레이어 상태 파일이 아니라 CheckInService가 보관한다. 우편함은 로그인할 때마다 다시 조회한다.
 			if (ok) KingdomIdle.CheckIn.CheckInService.Receive(response.Attendance, response.ServerTimeUtc, response is OnGetUserStateResponseDTO ? "state" : "login");

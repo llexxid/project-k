@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Scripts.Core;
 using UnityEngine;
 
 namespace KingdomIdle.UGUI
@@ -12,6 +13,7 @@ namespace KingdomIdle.UGUI
         private static GameObject _instanceGo;
         private static UIManager _host;
         private static bool _flaring;
+        private static System.Action _refreshRePull;
 
         public static bool IsOpen => _instanceGo != null;
 
@@ -73,6 +75,8 @@ namespace KingdomIdle.UGUI
         /// <summary>확인 또는 화면 정리 시 결과 창을 즉시 비활성화한 뒤 파괴한다. 지연 Destroy 중에도 이전 입력·Anchor가 남지 않는다.</summary>
         public static void Close()
         {
+            EconomyBridge.OnAmountChanged -= OnWalletChanged;
+            _refreshRePull = null;
             _flaring = false;
             if (_instanceGo != null)
             {
@@ -198,7 +202,6 @@ namespace KingdomIdle.UGUI
 
             if (view.btnRePull1 != null)
             {
-                if (view.btnRePull1Label != null) view.btnRePull1Label.text = RePullLabel(table, 1);
                 view.btnRePull1.onClick.AddListener(() => HandleRePull(view, view.btnRePull1, table, 1));
             }
 
@@ -208,22 +211,33 @@ namespace KingdomIdle.UGUI
                 view.btnRePullN.gameObject.SetActive(showN);
                 if (showN)
                 {
-                    if (view.btnRePullNLabel != null) view.btnRePullNLabel.text = RePullLabel(table, lastPullCount);
                     view.btnRePullN.onClick.AddListener(() => HandleRePull(view, view.btnRePullN, table, lastPullCount));
                 }
             }
 
-            // 진행 중이면 다시뽑기 버튼 비활성
-            var mgr = KingdomIdle.Gacha.GachaManager.Instance;
-            if (mgr != null && mgr.IsPulling)
+            _refreshRePull = () =>
             {
-                if (view.btnRePull1 != null) view.btnRePull1.interactable = false;
-                if (view.btnRePullN != null) view.btnRePullN.interactable = false;
-            }
+                if (view == null) return;
+                var manager = KingdomIdle.Gacha.GachaManager.Instance;
+                string one = RePullLabel(table, 1), many = RePullLabel(table, lastPullCount);
+                if (view.btnRePull1Label != null && view.btnRePull1Label.text != one) view.btnRePull1Label.text = one;
+                if (view.btnRePullNLabel != null && view.btnRePullNLabel.text != many) view.btnRePullNLabel.text = many;
+                if (view.btnRePull1 != null) view.btnRePull1.interactable = !_flaring && manager != null && manager.CanPullMulti(table, 1);
+                if (view.btnRePullN != null) view.btnRePullN.interactable = !_flaring && manager != null && manager.CanPullMulti(table, lastPullCount);
+            };
+            EconomyBridge.OnAmountChanged += OnWalletChanged;
+            NumberNotationBinding.Bind(view, _refreshRePull);
+            _refreshRePull();
         }
 
         private static string RePullLabel(KingdomIdle.Gacha.GachaTableSO table, int count)
-            => table == null ? "다시 뽑기" : $"{count}회 다시 뽑기\n{NumberNotation.Format((long)table.costAmount * count)} {RewardPresentation.Name(table.costCurrency)}";
+            => table == null ? "다시 뽑기" : $"{count}회 다시 뽑기\n{RewardPresentation.GachaCost(KingdomIdle.Gacha.GachaManager.Instance, table, count)}";
+
+        private static void OnWalletChanged(eCurrency currency, long amount)
+        {
+            if (currency == eCurrency.AncientCoin || currency == eCurrency.EquipmentTicket || currency == eCurrency.MageTicket)
+                _refreshRePull?.Invoke();
+        }
 
         private static void HandleRePull(GachaResultPopupView view, UnityEngine.UI.Button button, KingdomIdle.Gacha.GachaTableSO table, int count)
         {
@@ -238,7 +252,7 @@ namespace KingdomIdle.UGUI
 
             if (mgr == null || !mgr.CanPullMulti(table, count))
             {
-                _host?.ShowToast("재화가 부족합니다. 획득 결과는 그대로 유지됩니다.");
+                _host?.ShowToast(mgr != null ? mgr.PullFailure(table, count) : "뽑기 정보를 준비하고 있습니다.");
                 return;
             }
 
@@ -248,7 +262,7 @@ namespace KingdomIdle.UGUI
             {
                 _flaring = true;
                 view.btnRePull1.interactable = view.btnRePullN.interactable = false;
-                flare.Play(Pull, () => _flaring = false);
+                flare.Play(Pull, () => { _flaring = false; _refreshRePull?.Invoke(); });
             }
             else Pull();
         }

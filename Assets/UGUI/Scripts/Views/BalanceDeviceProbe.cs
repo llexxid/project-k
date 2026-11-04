@@ -230,7 +230,12 @@ namespace KingdomIdle.UGUI
                             case "stage-clear":output=new{accepted=StageManager.Instance.TestClearStage()};break;
                             case "stage-defeat":StageManager.Instance.DefeatWave();break;
                             case "boss-auto":StageManager.Instance.SetBossAutoChallenge(c.value==1);break;
-                            case "ruby":output=new {success=RubyProgression.Enhance(c.value==1)};break;
+                            case "ruby":
+                            {
+                                bool requested = RubyProgression.Enhance(c.value==1);
+                                output = new { requested, pending = RubyProgression.IsBusy || RubyProgression.HasPendingRequest, status = RubyProgression.Status };
+                                break;
+                            }
                             case "gacha":
                                 var table=GachaManager.Instance.GetAllTables().First(t=>t.gachaType==(c.value==1?eGachaType.Skill:eGachaType.Equipment));
                                 GachaManager.Instance.TryPull(table,10,r=>output=new{count=r.Count,items=r.Select(x=>new{x.nameKor,x.amount,x.rewardType}).ToArray()},e=>throw new Exception(e));break;

@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using KingdomIdle.Ads;
 using KingdomIdle.OfflineRewards;
 using KingdomIdle.Rewards;
@@ -12,13 +11,11 @@ namespace KingdomIdle.UGUI
     {
         private static OfflineRewardPopupView _view;
         private static RewardChoice _choice;
-        private static readonly Queue<OfflineRewardClaimResult> Waiting = new();
         private static RewardPopupView _resultView;
-        private static bool ResultOpen => _resultView != null && _resultView.gameObject.activeSelf;
         private sealed class RewardChoice
         {
             public readonly OfflineRewardClaimResult Result;
-            public bool Busy, Earned, Granted;
+            public bool Busy, Earned;
             public RewardChoice(OfflineRewardClaimResult result) { Result = result; }
         }
         public static bool IsOpen =>
@@ -32,14 +29,8 @@ namespace KingdomIdle.UGUI
             if (result == null || result.Plan == null || !EnsureBuilt())
                 return;
 
-            // A later app resume must not replace an earned bonus awaiting a save retry.
-            if (_choice != null && OfflineRewardManager.IsCurrentAccount(_choice.Result) &&
-                (IsOpen || ResultOpen || _choice.Busy || (_choice.Earned && !_choice.Granted)))
-            {
-                Waiting.Enqueue(result);
-                if (!ResultOpen) { _view.gameObject.SetActive(true); RefreshButtons(); }
-                return;
-            }
+            // 기본 보상은 이미 지급됐으므로 새 정산의 광고 기회만 남긴다.
+            Hide();
             _choice = new RewardChoice(result);
             OfflineRewardPlan plan = result.Plan;
             _view.durationLabel.text = FormatDuration(plan);
@@ -71,8 +62,7 @@ namespace KingdomIdle.UGUI
         {
             if (_view != null)
                 _view.gameObject.SetActive(false);
-            Waiting.Clear();
-            if (_choice != null && !_choice.Busy && (!_choice.Earned || _choice.Granted)) _choice = null;
+            _choice = null;
             var resultView = _resultView;
             _resultView = null;
             if (resultView != null) resultView.Close();
@@ -84,13 +74,13 @@ namespace KingdomIdle.UGUI
             if (!OfflineRewardManager.AdBonusAvailable) return;
             var choice = _choice;
             if (!IsOpen || choice == null || choice.Busy || choice.Earned) return;
-            if (!CheckAccount(choice)) return;
+            if (!CheckChoice(choice)) return;
             choice.Busy = true;
             RefreshButtons();
             RewardedAdService.Show(RewardedAdService.OfflineRewardAdUnitId, (result, error) =>
             {
                 choice.Busy = false;
-                if (!CheckAccount(choice)) return;
+                if (!CheckChoice(choice)) return;
                 if (result == RewardedAdResult.Completed)
                 {
                     choice.Earned = true;
@@ -112,7 +102,7 @@ namespace KingdomIdle.UGUI
 
         private static void FinishChoice(RewardChoice choice)
         {
-            if (!CheckAccount(choice)) return;
+            if (!CheckChoice(choice)) return;
             choice.Busy = true;
             if (ReferenceEquals(_choice, choice)) RefreshButtons();
             if (!choice.Earned) { CompleteChoice(choice, RewardStatus.Success, null); return; }
@@ -139,9 +129,8 @@ namespace KingdomIdle.UGUI
                 if (message != null) UIManager.Instance?.ShowToast(message);
                 status = RewardStatus.Success;
             }
-            if (status == RewardStatus.Success && choice.Earned) choice.Granted = true;
             if (!ReferenceEquals(_choice, choice) || !IsOpen) return;
-            if (status == RewardStatus.Stale || status == RewardStatus.NotReady)
+            if (status == RewardStatus.Stale)
             {
                 Hide();
                 UIManager.Instance?.ShowToast("계정 정보가 변경되었습니다.");
@@ -157,7 +146,7 @@ namespace KingdomIdle.UGUI
             }
             var host = UIManager.Instance;
             _resultView = host != null ? RewardPopupView.ShowOfflineRewards(host.LayerPopups, choice.Result, choice.Earned,
-                    () => ShowNext(choice)) : null;
+                    () => CloseResult(choice)) : null;
             if (_resultView != null)
             {
                 _view.gameObject.SetActive(false);
@@ -169,23 +158,17 @@ namespace KingdomIdle.UGUI
             }
         }
 
-        private static void ShowNext(RewardChoice choice)
+        private static void CloseResult(RewardChoice choice)
         {
             if (!ReferenceEquals(_choice, choice)) return;
             _resultView = null;
             _choice = null;
-            while (Waiting.Count > 0)
-            {
-                var result = Waiting.Dequeue();
-                if (!OfflineRewardManager.IsCurrentAccount(result)) continue;
-                Show(result);
-                break;
-            }
         }
 
-        private static bool CheckAccount(RewardChoice choice)
+        private static bool CheckChoice(RewardChoice choice)
         {
-            if (OfflineRewardManager.IsCurrentAccount(choice.Result)) return true;
+            if (!ReferenceEquals(_choice, choice)) return false;
+            if (OfflineRewardManager.IsLatestClaim(choice.Result)) return true;
             if (ReferenceEquals(_choice, choice) && IsOpen)
             {
                 Hide();

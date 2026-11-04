@@ -25,7 +25,7 @@ namespace KingdomIdle.UGUI
         /// <summary>매 대기 프레임 현재 단계의 화면 복원을 요청한다. UIManager가 외부 모달과 중복 화면 생성을 차단한다.</summary>
         public void Prepare(GameDirectStep step) => UIManager.Instance?.PrepareFeatureGuide(step);
 
-        /// <summary>성공 영수증과 목적 화면을 확인한다. 뽑기는 결과 창을 직접 닫아야 끝나며 재실행 시에는 영수증으로 재소비를 생략한다.</summary>
+        /// <summary>현재 실행의 실습 성공과 목적 화면을 확인한다. 뽑기는 결과 창을 직접 닫아야 끝난다.</summary>
         public bool IsComplete(GameDirectStep step)
         {
             var host = UIManager.Instance;
@@ -35,7 +35,7 @@ namespace KingdomIdle.UGUI
             return step.Completion == GuideCompletion.Action && GameDirectInteraction.Succeeded && !GachaResultPopupController.IsOpen;
         }
 
-        /// <summary>뽑기가 저장된 이후에는 원래 뽑기 버튼 대신 결과 확인 버튼을 강조한다. 결과가 없는 재개는 재뽑기하지 않는다.</summary>
+        /// <summary>이번 뽑기가 저장된 이후에는 원래 뽑기 버튼 대신 결과 확인 버튼을 강조한다.</summary>
         private static GameDirectTarget DisplayTarget(GameDirectTarget target) =>
             GameDirectInteraction.Succeeded && GachaResultPopupController.IsOpen ? GameDirectTarget.GachaResultClose : target;
 

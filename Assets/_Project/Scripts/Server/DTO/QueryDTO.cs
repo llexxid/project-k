@@ -610,6 +610,34 @@ namespace Protocol.Message.Dto
 		[JsonProperty(Required = Required.Always)]
 		public List<QuestRowDTO> Rows { get; set; } = null!;
 	}
+	public sealed class RubyGrowthStateDTO
+	{
+		[JsonProperty(Required = Required.Always)]
+		public long NextRequestSequence { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public int GoldLevel { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public int ExpLevel { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public long GoldSpent { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public long ExpSpent { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public int BestGoldLevel { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public int BestExpLevel { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public string LastResetDay { get; set; } = null!;
+	}
+	public sealed class TutorialProgressDTO
+	{
+		[JsonProperty(Required = Required.Always)]
+		public string SequenceId { get; set; } = null!;
+		[JsonProperty(Required = Required.Always)]
+		public List<string> ConfirmedSteps { get; set; } = null!;
+		[JsonProperty(Required = Required.Always)]
+		public bool IsFinished { get; set; }
+	}
 	public sealed class ReincarnationStateDTO
 	{
 		[JsonProperty(Required = Required.Always)]
