@@ -74,6 +74,7 @@ namespace Scripts.Server.Auth
 				var login = await WithTimeout(completion.Task);
 				if (!IsCurrent(generation)) return;
 				_network.SetAuthenticatedAccount(login.PlayFabId, login.SessionTicket, client.authenticationContext);
+				if (!await KingdomIdle.UGUI.ClientAccessGate.WaitAsync(client, () => IsCurrent(generation)) || !IsCurrent(generation)) return;
 				_displayName = login.InfoResultPayload?.PlayerProfile?.DisplayName;
 				// A missing display name does not prove that the player's data needs initialization.
 				if (login.NewlyCreated)

@@ -18,6 +18,27 @@
 
 ## 실행·수정
 
+### 업데이트·점검 접속 검사
+
+`Authentication → ClientAccessGate → OnLogIn / OnSignUpInitUser` 순서로 실행한다. PlayFab 인증 성공 후 검사하며, 통과 전에는 게임 데이터를 요청하거나 메인으로 이동하지 않는다. Bootstrap과 로그인 선택창은 기존대로 표시한다. 차단 화면은 기존 UGUI 카탈로그의 폰트·패널·버튼으로 런타임에 구성하며 뒤로가기·바깥 터치로 닫히지 않는다.
+
+PlayFab Game Manager의 **Title Data**에 키 `ClientAccessPolicy`를 등록한다. 값은 다음 JSON이며, 최소 버전은 Player Settings의 Version과 같은 `MAJOR.MINOR.PATCH` 형식이다.
+
+```json
+{
+  "minimumVersion": "0.22.0",
+  "maintenance": false,
+  "message": "서버 점검 중입니다. 잠시 후 다시 시도해 주세요.",
+  "updateUrl": ""
+}
+```
+
+업데이트를 요구하기 전 `updateUrl`에 실제 스토어 또는 배포 페이지의 HTTPS 주소를 넣는다. 빈 주소는 지원 버전 접속에는 영향을 주지 않지만, 구버전의 업데이트 안내에는 유효한 주소가 필요하다. `maintenance: true`면 버전 검사보다 점검 안내를 우선 표시하며 `message`는 일반 텍스트 200자까지 지원한다. 설정 키 미등록은 기존 접속 허용, 빈 값·잘못된 JSON·조회 실패·15초 무응답은 재시도 상태로 구별한다. `다시 확인`은 설정만 재조회하며 게임 초기화·보상 정산을 반복하지 않는다. 설정에는 비밀키나 계정 정보를 넣지 않는다.
+
+Unity 메뉴 **KingdomIdle → Access → Skip Check in Editor**로 에디터에서만 검사를 건너뛴다. Play 전 설정하며 에디터를 다시 열면 해제된다. APK는 Development Build를 포함해 항상 검사한다. `KingdomIdle.Balance.ClientAccessAcceptance.Run()`은 버전 경계·점검 우선순위·잘못된 설정을 실제 서버 호출 없이 검증한다.
+
+이 기능은 해당 코드가 포함된 앱의 로그인 진입 검사다. 이미 접속한 사용자를 퇴장시키거나 검사 코드가 없는 이전 APK·직접 API 호출을 막지는 않는다. PlayFab 설정 캐시로 변경 반영에 지연이 있을 수 있으므로 점검 시작 전 실제 적용을 확인한다. 이번 클라이언트 변경은 Azure 코드·PlayFab 운영 설정을 자동 변경하지 않는다.
+
 루비 성장 카드는 `RubyProgression`의 서버 거래 상태를 읽는다. 강화·초기화 응답의 레벨·누적 지출·최고 레벨·초기화 날짜·루비 잔액을 적용하며, 미확정 요청이 있으면 해당 카드에 같은 요청 재시도와 서버 상태 확인을 제공한다. 초기화 예약은 일반 웨이브 종료 후 사냥 정산을 마치고 전송한다. 구 서버에서 성장 상태를 받지 못한 경우에는 거래 버튼을 비활성화한다. 로컬 재화 차감·환급은 수행하지 않는다.
 
 ### 광고 단독 테스트
