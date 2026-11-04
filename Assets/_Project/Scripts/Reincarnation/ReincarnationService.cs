@@ -39,7 +39,7 @@ namespace Reincarnation
             if (IsBusy || RubyProgression.IsBusy) return new(false, eReincarnationFailureReason.RequestDuplication);
             var manager = StageManager.Instance;
             if (manager?.CurrentDefinition?.Type != eStageType.Main || manager.IsBossWave) return new(false, eReincarnationFailureReason.NotMainStage);
-            if (manager.CurrentRunState != eStageRunState.Running) return new(false, eReincarnationFailureReason.StateIsNotRunning);
+            if (manager.CurrentRunState != eStageRunState.Running || Time.timeScale <= 0f) return new(false, eReincarnationFailureReason.StateIsNotRunning);
             var s = LocalProgression.State; var error = Eligibility(s);
             return error != eReincarnationFailureReason.None ? new(false, error) : new ReincarnationPolicy().Evaluate(CurrentState, true, UserManager.CycleBossClears(Math.Max(s.MainStage, s.CycleFrontierStage)));
         }

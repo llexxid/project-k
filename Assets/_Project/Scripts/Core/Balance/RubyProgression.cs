@@ -204,7 +204,7 @@ namespace KingdomIdle.Balance
             var offline = GameManager.Instance?.OfflineReward;
             if (offline != null && (offline.IsBusy || offline.LastFailure != null)) return false;
             var manager = StageManager.Instance;
-            if (manager == null || manager.CurrentRunState == eStageRunState.Transitioning || Time.timeScale <= 0f) return false;
+            if (manager == null || manager.CurrentRunState != eStageRunState.Running || Time.timeScale <= 0f) return false;
             long generation = _localGeneration, networkGeneration = _networkGeneration;
             _busy = true;
             Status = "서버에 확인 중입니다.";

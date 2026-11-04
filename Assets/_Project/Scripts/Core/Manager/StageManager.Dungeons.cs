@@ -71,7 +71,7 @@ namespace Scripts.Core.Manager
 
         private bool BeginServerDungeon(eStage target)
         {
-            if (_dungeonRequestPending || !TryGetStageDefinition(target, out var definition) || !definition.Enabled ||
+            if (_dungeonRequestPending || _mainStageRequestPending || !TryGetStageDefinition(target, out var definition) || !definition.Enabled ||
                 definition.Type == eStageType.Main || UserManager.Instance == null) return false;
             _dungeonRequestPending = true;
             _dungeonGeneration = LocalProgression.AccountGeneration;
@@ -99,6 +99,7 @@ namespace Scripts.Core.Manager
                     if (!IsCurrentDungeonRequest) return;
                     if (!ok) { WaitForDungeonRetry(() => CheckEntry(mayEnter), "입장 상태 조회 실패"); return; }
                     var state = LocalProgression.State;
+                    if (_mainStageSnapshot != null) _mainStageSnapshot.StageId = (eStage)state.MainStage;
                     if (!string.IsNullOrEmpty(state.ActiveDungeon))
                     {
                         if (state.ServerDungeonId == (long)target) StartAcceptedRun();

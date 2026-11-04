@@ -47,7 +47,7 @@ namespace KingdomIdle.UGUI
         {
             if (!IsOpen) return;
             var manager=StageManager.Instance;
-            if (manager?.CurrentDefinition?.Type != eStageType.Main) { Hide(); return; }
+            if (manager == null || StageParser.GetStageType(manager.CurrentStage) != eStageType.Main) { Hide(); return; }
             var frontier=manager.CycleFrontierStage;
             int lastChapter=StageParser.GetStageNumber(frontier);
             _chapter=Mathf.Clamp(_chapter,1,lastChapter);

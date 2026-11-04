@@ -138,11 +138,7 @@ namespace Scripts.Core.Manager
                 LocalProgression.State.PendingReincarnation || StageParser.GetStageType(target) != eStageType.Main ||
                 (long)target > (long)CycleFrontierStage || !TryGetStageDefinition(target, out var definition) || !definition.Enabled) return false;
             if (target == CurrentStage) return true;
-            bool previousLoop = _isLoopMode;
-            _isLoopMode = IsCycleStageCleared(target) && !StageParser.IsBossWave(target);
-            if (!TransitionStage(target)) { _isLoopMode = previousLoop; return false; }
-            OnLoopModeChanged?.Invoke(_isLoopMode);
-            return true;
+            return RequestMainStageChange(target, IsCycleStageCleared(target) && !StageParser.IsBossWave(target));
         }
 
         private const float DefeatPopupDuration = 15f;
@@ -186,6 +182,8 @@ namespace Scripts.Core.Manager
         private sealed class HuntOutboxItem
         {
             public bool IsClear;
+            public Protocol.Message.Data.eStageClearAction NextAction;
+            public bool ShowResult;
             public long StageId;
             public string BattleId;
             public List<HuntResult> Loots;
@@ -333,7 +331,7 @@ namespace Scripts.Core.Manager
 
 		public bool TryEnterDungeon(eStage stage)
 		{
-			if (RubyProgression.IsBusy || _currentState != eStageRunState.Running ||
+			if (RubyProgression.IsBusy || _mainStageRequestPending || _currentState != eStageRunState.Running ||
 			    _currentSession?.Definition.Type != eStageType.Main)
 			{
 				return false;
@@ -367,7 +365,7 @@ namespace Scripts.Core.Manager
 
 			_isLoopMode = _mainStageSnapshot.LoopMode;
 			SetBossAutoChallenge(_mainStageSnapshot.BossAutoChallenge);
-			TransitionStage(_mainStageSnapshot.StageId);
+			TransitionStage((eStage)LocalProgression.State.MainStage);
 		}
 
 		public void RestartDungeon()
@@ -386,9 +384,7 @@ namespace Scripts.Core.Manager
 				return false;
 			}
 
-			// TODO(서버 연동):
-			// TransitionStage의 true는 전환 요청 수락을 의미하며 비동기 리소스 로딩 완료를 보장하지 않는다.
-			// 추후 StartStage 완료를 확인한 뒤 서버 환생 트랜잭션을 확정해야 한다.
+			// 환생 성공 응답을 저장한 뒤에만 호출한다.
 			if (!TransitionStage(eStage.Stage1_1))
 				return false;
 
@@ -421,6 +417,7 @@ namespace Scripts.Core.Manager
 			// 웨이브 클리어는 같은 대기열에서 OnStageClear로 저장한다.
 			_huntInFlight = false;
 			_huntSyncFailed = false;
+			_mainStageRequestPending = false;
             _onHuntsSettled = null;
             _dungeonRequestPending = false;
             _retryDungeon = null;
@@ -481,16 +478,9 @@ namespace Scripts.Core.Manager
 		#endregion
 
 		#region 스테이지 진행
-		private void NotifyStageCleared(StageSession session)
+		private void NotifyStageCleared(StageSession session, bool showResult = false)
 		{
-			StageDefinition definition =
-				session.Definition;
-
-			if (!BattleEconomy.Clear(session)) throw new InvalidOperationException("Stage reward could not be committed.");
-            UpdateMaxClearedStage(definition);
-            EnqueueStageClear(definition);
-            RubyProgression.OnWaveCleared(definition);
-			OnStageCleared?.Invoke(definition);
+			EnqueueStageClear(session.Definition, showResult);
 		}
         private void HandleStageLoadFailure(Exception error, CameraFade fade)
         {
@@ -502,7 +492,7 @@ namespace Scripts.Core.Manager
         private bool TransitionStage(eStage target)
 		{
 			Debug.Log($"{target}");
-			if (RubyProgression.IsBusy || _huntSyncFailed || _onHuntsSettled != null || _dungeonRequestPending || _currentState == eStageRunState.Transitioning) return false;
+			if (RubyProgression.IsBusy || _huntSyncFailed || _mainStageRequestPending || _onHuntsSettled != null || _dungeonRequestPending || _currentState == eStageRunState.Transitioning) return false;
 			
 			if (!_provider.TryGet(target, out StageDefinition definition))
 			{ 
@@ -572,17 +562,7 @@ namespace Scripts.Core.Manager
 			switch (result.Action)
 			{
 				case eStageFlowAction.MoveToStage:
-					// StageRuleResult의 생성 규칙상 MoveToStage는 항상 TargetStage를 가진다.
-					eStage target = result.TargetStage.Value;
 					NotifyStageCleared(session);
-					if (session.Definition.Type == eStageType.Main && ShouldRestart(target))
-					{
-						RestartStage();
-						break;
-					}
-					
-					Debug.Log($"TransitionStage {target}");
-					TransitionStage(target);					
 					break;
 				case eStageFlowAction.RestartStage:
 					Debug.Log("스테이지를 재시작 합니다");
@@ -592,8 +572,7 @@ namespace Scripts.Core.Manager
 					Debug.Log("스테이지 클리어 후 결과를 보고 있습니다");
                     if (session.Definition.Type == eStageType.Main)
                     {
-                        NotifyStageCleared(session);
-                        EnterResultPending();
+                        NotifyStageCleared(session, true);
                     }
                     else CompleteServerDungeon(session);
 					break;
@@ -654,32 +633,17 @@ namespace Scripts.Core.Manager
 					ReturnToMainStage();
 				return;
 			}
-			if (_isBossWave)
+			bool retreat = _isBossWave || !retryCurrentWave;
+			eStage target = _currentStage;
+			if (retreat) StageRule.GetPreviousWave(_currentStage, out target);
+			if (_isBossWave) SetBossAutoChallenge(false);
+			if (!RequestMainStageChange(target, retreat))
 			{
-				MovePrevWave();
-				SetBossAutoChallenge(false);
-				SetLoopMode(true);
-				OnLoopModeChanged?.Invoke(true);
-
-				TransitionStage(_currentStage);
-				return;
+				_defeatPopupHandled = false;
+				_defeatPopupActive = true;
+				_defeatPopupTimer = ReturnCountdownDuration;
+				OnDefeatPopupShow?.Invoke();
 			}
-
-			if (retryCurrentWave)
-			{
-				SetLoopMode(false);
-				OnLoopModeChanged?.Invoke(false);
-			}
-			else
-			{
-				MovePrevWave();
-				
-				TransitionStage(_currentStage);
-				SetLoopMode(true);
-				OnLoopModeChanged?.Invoke(true);
-				return;
-			}
-			RestartStage();
         }
 		
         /// <summary>패배 후 현재 상태값 기준으로 웨이브를 다시 시작한다. 재도전/복귀 결정은 호출 전에 끝난다</summary>
@@ -694,7 +658,7 @@ var definition = _currentSession?.Definition;
                 else BeginServerDungeon(definition.Id);
                 return;
             }
-            TransitionStage(definition.Id);
+            RequestMainStageChange(definition.Id, _isLoopMode);
     }
 
 		#endregion
@@ -728,38 +692,6 @@ var definition = _currentSession?.Definition;
 			SetBossAutoChallenge(_bossAutoChallenge);
 		}
 
-		/// <summary>내부 스테이지 값을 다음 웨이브로 이동한다. 보스 클리어 후에는 다음 스테이지의 1웨이브가 될 수 있다</summary>
-		private eStageResult MoveNextWave()
-		{
-			eStageResult result = StageRule.GetNextWave(CurrentStage, out eStage nextStage);
-
-			_currentStage = nextStage;
-			_currentStageNumber = StageParser.GetStageNumber(CurrentStage);
-			_currentWaveNumber = StageParser.GetWaveNumber(CurrentStage);
-			_isBossWave = result == eStageResult.BossWaveEntered;
-
-			if (result == eStageResult.WaveChanged)
-				_isLoopMode = false;
-
-			return result;
-		}
-		
-		/// <summary>내부 스테이지 값을 이전 웨이브로 이동하고 반복 모드로 전환한다</summary>
-		private eStageResult MovePrevWave()
-		{
-			eStageResult result = StageRule.GetPreviousWave(CurrentStage, out eStage prevStage);
-
-			if (result == eStageResult.None)
-				return result;
-			_currentStage = prevStage;
-			_currentStageNumber = StageParser.GetStageNumber(CurrentStage);
-			_currentWaveNumber = StageParser.GetWaveNumber(CurrentStage);
-			_isBossWave = false;
-			_isLoopMode = true;
-
-			return result;
-		}
-		
 		/// <summary>반복 모드 상태값만 변경한다. UI 알림은 호출자가 처리한다</summary>
 		public void SetLoopMode(bool value)
 		{
@@ -1038,12 +970,14 @@ var definition = _currentSession?.Definition;
         }
 
 		/// <summary>웨이브 클리어: 그 스테이지에 남은 처치를 먼저 배치로 보내고, 그 뒤에 OnStageClear를 줄 세운다(서버는 정산 전 클리어를 1026으로 거절).</summary>
-		private void EnqueueStageClear(StageDefinition definition)
+		private void EnqueueStageClear(StageDefinition definition, bool showResult)
 		{
 			if (definition == null || definition.Type != eStageType.Main) return;
 			long stageId = (long)definition.Id;
+			MainStageRule.GetNextWave(definition.Id, out eStage next);
 			FlushHuntBuffer(stageId);
-			_huntOutbox.Enqueue(new HuntOutboxItem { IsClear = true, StageId = stageId });
+			_huntOutbox.Enqueue(new HuntOutboxItem { IsClear = true, StageId = stageId, ShowResult = showResult,
+                NextAction = ShouldRestart(next) ? Protocol.Message.Data.eStageClearAction.Repeat : Protocol.Message.Data.eStageClearAction.Advance });
 			TrySendNextHunt();
 		}
 
@@ -1098,7 +1032,7 @@ var definition = _currentSession?.Definition;
 			if (item.IsClear)
 			{
 				network.Call<OnStageClearRequestDTO, OnStageClearResponseDTO>(
-					new OnStageClearRequestDTO { ClearedStage = (Protocol.Message.Data.eStage)item.StageId },
+					new OnStageClearRequestDTO { ClearedStage = (Protocol.Message.Data.eStage)item.StageId, NextAction = item.NextAction },
 					result => OnStageClearSuccess(item, result), error => OnHuntRewardError(item, error));
 			}
 			else
@@ -1158,20 +1092,25 @@ var definition = _currentSession?.Definition;
 		private void OnStageClearSuccess(HuntOutboxItem item, OnStageClearResponseDTO result)
 		{
 			_huntInFlight = false;
+			MainStageRule.GetNextWave((eStage)item.StageId, out eStage expected);
+			long unlocked = (long)expected;
+			if (item.NextAction == Protocol.Message.Data.eStageClearAction.Repeat) expected = (eStage)item.StageId;
+			if (!IsValidMainStageState(result.StageState) || (long)result.StageState.CurrentStage != (long)expected ||
+				(long)result.StageState.HighestStage < unlocked || (long)result.StageState.MainClear < item.StageId ||
+				_currentSession?.Definition.Id != (eStage)item.StageId)
+			{
+				OnHuntRewardError(item, NetworkManager.CreateError("InvalidResponse", "클리어 후 서버 스테이지를 확인할 수 없습니다."));
+				return;
+			}
+			StageDefinition definition = _currentSession.Definition;
 			Dequeue(item);
 			_saturatedTypes.Remove(item.StageId);
-			bool saved = LocalProgression.Execute("server-stage-clear", s =>
+			bool saved = BattleEconomy.Clear(_currentSession) && LocalProgression.Execute("server-stage-clear", s =>
 			{
 				UserManager.ApplyCurrency(s, result.Currency);
 				UserManager.ApplyEquipment(s, result.Equipment);
 				UserManager.ApplyMageTower(s, result.MageTowerState);
-				if (result.StageState != null)
-				{
-					// 영구 최고 클리어는 서버 MainClear다. 이번 주기 최고 도달도 서버 값보다 뒤로 가지 않게 맞춘다.
-					s.HighestMainClear = Math.Max(0, (long)result.StageState.MainClear);
-					s.CycleFrontierStage = Math.Max(s.CycleFrontierStage, (long)result.StageState.HighestStage);
-				}
-				return true;
+				return ApplyMainStageState(s, result.StageState);
 			});
 			long next = result.StageState != null ? (long)result.StageState.CurrentStage : 0;
 			Debug.Log($"[StageClear] stage=0x{item.StageId:X} first={result.IsFirstClear} rewards={result.GrantedRewards?.Count ?? 0} next=0x{next:X} client=0x{(long)_currentStage:X} inventory={UserManager.DescribeInventory(result.Equipment)} skills={result.MageTowerState?.Skills?.Count ?? -1} saved={saved}");
@@ -1188,9 +1127,21 @@ var definition = _currentSession?.Definition;
 				if (result.Equipment != null) EquipmentManager.Instance?.RestoreEquipment();
 				if (result.MageTowerState != null) KingdomIdle.MageTower.MageTowerManager.Instance?.NotifyCommitted();
 			}
-			// 웨이브가 빨리 끝나면 클라이언트가 서버보다 앞서 있는 것이 정상이다(뒤따르는 클리어가 대기열에 있다). 뒤에 있을 때만 경고한다.
-			if (StageParser.GetStageType(_currentStage) == eStageType.Main && (long)_currentStage < next)
-				Debug.LogWarning($"[StageClear] 서버 다음 스테이지 0x{next:X}보다 클라이언트 현재 스테이지 0x{(long)_currentStage:X}가 뒤에 있습니다. 같은 웨이브 반복은 아직 서버가 지원하지 않아 이후 배치가 1025로 거절될 수 있습니다.");
+			if (saved)
+			{
+				UpdateMaxClearedStage(definition);
+				OnStageCleared?.Invoke(definition);
+				if (item.ShowResult) EnterResultPending();
+				else if (!TransitionStage((eStage)next))
+				{
+					_huntSyncFailed = true;
+					FinishHuntSettlement(false);
+					Time.timeScale = 0;
+					KingdomIdle.UGUI.UIManager.Instance?.ShowToast("서버 스테이지로 이동하지 못했습니다. 재접속해 주세요.");
+					return;
+				}
+				RubyProgression.OnWaveCleared(definition);
+			}
 			TrySendNextHunt();
 		}
 
@@ -1200,9 +1151,10 @@ var definition = _currentSession?.Definition;
 			_huntInFlight = false;
 			int code = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0;
 			string kind = error?.ErrorDetails != null && error.ErrorDetails.TryGetValue("Kind", out var kinds) && kinds.Count > 0 ? kinds[0] : "";
-			// Kind가 없는 오류는 PlayFab SDK 원시 오류(실행 시간 한도·네트워크 등)라 재시도한다. 요청 자체가 틀린 종류만 폐기한다.
+			// 사냥의 일시 오류는 기존 재시도 정책을 유지하고, 확정할 수 없는 배치는 보존한다.
 			bool definite = kind == "InvalidRequest" || kind == "NotAuthenticated" || kind == "Protocol" || kind == "InvalidResponse" || kind == "ApplyFailed";
-			bool retry = (code == 20 || code == 1017 || (code == 0 && !definite)) && item.Attempts < HuntMaxAttempts;
+			// Repeat 클리어는 응답 유실 후 재전송으로 완료를 판별할 수 없다. 실행 전 거절(1017)만 재시도한다.
+			bool retry = (code == 1017 || (!item.IsClear && (code == 20 || (code == 0 && !definite)))) && item.Attempts < HuntMaxAttempts;
 			string what = item.IsClear ? "StageClear" : "Hunt";
 			if (retry)
 			{
