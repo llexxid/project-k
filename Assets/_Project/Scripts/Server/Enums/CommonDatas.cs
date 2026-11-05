@@ -137,6 +137,14 @@ namespace Protocol.Message.Data
         RubyRequestOutdated = 1062,
         RubyRequestSequenceMismatch = 1063,
         RubyExpectedLevelMismatch = 1064,
+        InvalidMailLocale = 1065,
+        InvalidMailText = 1066,
+        MailPayloadTooLarge = 1067,
+        MailRequestConflict = 1068,
+        MailSendRequestNotFound = 1069,
+        MailAdminUnauthorized = 1070,
+        MailAdminNotConfigured = 1071,
+        MailDeliveryVerificationRequired = 1072,
 	}
 
 	public enum eConst

@@ -21,8 +21,11 @@ namespace KingdomIdle.Mailbox.Testing
             internal readonly Queue<Action> Lists = new(), Claims = new(), Recoveries = new();
             internal int ListCalls, ClaimCalls, Applied, Recovered, FailListAt, FailClaimAt;
             internal bool HoldLists, HoldClaims, HoldRecovery, WrongClaimId, InvalidClaim, DuplicateOnce, DuplicateAlways, FailApply, RecoveryOk = true, CommitThenTimeout, CommitThenStorageFailure;
+            internal bool Ready = true;
             internal long Generation = 1, Gold, AppliedGold, Time = 1793400000;
             internal double Clock;
+            internal string Locale = "ko", ListFailureKind = "Business";
+            internal readonly List<string> RequestedLocales = new();
             internal MailboxService Service;
             internal MailClaimInfo Result;
 
@@ -35,15 +38,16 @@ namespace KingdomIdle.Mailbox.Testing
                     Applied++; AppliedGold = r.Currency.Gold; return true;
                 }, done => { Recovered++; void Complete() { if (RecoveryOk) AppliedGold = Gold; done(RecoveryOk); }
                     if (HoldRecovery) Recoveries.Enqueue(Complete); else Complete(); },
-                    () => (Generation, Generation), () => true, () => Clock);
+                    () => (Generation, Generation), () => Ready, () => Clock, () => Locale);
                 Service.ClaimCompleted += r => Result = r;
             }
             private void Get(OnGetMailListRequestDTO r, Action<OnGetMailListResponseDTO> ok, Action<PlayFabError> fail)
             {
                 int call = ++ListCalls;
+                RequestedLocales.Add(r.Locale);
                 void Respond()
                 {
-                    if (call == FailListAt) { fail(Failure("Transport")); return; }
+                    if (FailListAt < 0 || call == FailListAt) { fail(Failure(ListFailureKind)); return; }
                     var page = Mails.Skip(r.StartIndex).Take(r.Count).ToList();
                     if (r.StartIndex == 50 && (DuplicateOnce || DuplicateAlways) && page.Count > 0)
                     { page[0] = Mails[0]; DuplicateOnce = false; }
@@ -179,9 +183,9 @@ namespace KingdomIdle.Mailbox.Testing
                 Check(f.Applied == 0 && f.Recovered == 0 && f.Service.Messages.Count == 0 && f.Result.Message != null, "already claimed business failure refreshes without local reward");
             }
             {
-                var f = new Fixture(1) { FailListAt = 1 }; f.Service.Open();
-                f.Clock = 29; f.Service.Tick(); Check(f.ListCalls == 1, "retry waits 30 seconds");
-                f.Clock = 30; f.Service.Tick(); Check(f.ListCalls == 2 && f.Service.CanClaim, "open mailbox automatically retries read");
+                var f = new Fixture(1) { FailListAt = 1, ListFailureKind = "Transport" }; f.Service.Open();
+                f.Clock = .4; f.Service.Tick(); Check(f.ListCalls == 1, "retry waits for completed request and backoff");
+                f.Clock = .5; f.Service.Tick(); Check(f.ListCalls == 2 && f.Service.CanClaim, "transient read failure retries within deadline");
                 var g = new Fixture(1) { FailListAt = 1 }; g.Service.Open(); g.Service.Close(); g.Clock = 60; g.Service.Tick();
                 Check(g.ListCalls == 1, "closed mailbox does not retry reads");
             }
@@ -231,6 +235,57 @@ namespace KingdomIdle.Mailbox.Testing
                 var stones = RewardGrants.FromServer(new[] { auto }).Single();
                 Check(!stones.IsEquipment && stones.Currency == eCurrency.EquipmentStone && stones.Amount == 17 &&
                     KingdomIdle.UGUI.RewardPresentation.ResultLabel(stones) == "자동 분해", "auto dismantle displays actual stones and label");
+            }
+            {
+                var f = new Fixture(1) { HoldLists = true }; f.Service.Open(); f.Clock = 30; f.Service.Tick();
+                Check(f.Service.LoadFailed && !f.Service.IsBusy && !f.Service.HasSnapshot, "total deadline includes unanswered request");
+                f.Lists.Dequeue()(); Check(!f.Service.HasSnapshot, "success arriving after deadline cannot publish");
+                var g = new Fixture(1) { HoldLists = true }; g.Service.Open(); g.Clock = 31; g.Lists.Dequeue()();
+                Check(g.Service.LoadFailed && !g.Service.HasSnapshot, "callback checks deadline before next UI tick");
+            }
+            {
+                var f = new Fixture(1) { FailListAt = -1, ListFailureKind = "Transport" }; f.Service.Open();
+                f.Clock = .5; f.Service.Tick(); f.Clock = 1; f.Service.Tick();
+                Check(f.ListCalls == 3 && f.Service.LoadFailed, "three attempts terminate persistent transport failure");
+                f.Clock = 60; f.Service.Tick(); Check(f.ListCalls == 3, "terminal failure never restarts by itself");
+                var g = new Fixture(1) { HoldLists = true }; g.Service.Open();
+                g.Service.RequestRefresh(); g.Clock = 29; g.Lists.Dequeue()();
+                g.Clock = 30; g.Service.Tick(); Check(g.Service.LoadFailed, "queued refresh cannot reset total deadline");
+            }
+            {
+                var f = new Fixture(51) { HoldLists = true }; f.Service.Open(); f.Lists.Dequeue()();
+                f.Locale = "en"; f.Service.Tick(); f.Lists.Dequeue()();
+                Check(!f.Service.HasSnapshot, "old locale page ignored");
+                f.Lists.Dequeue()(); f.Lists.Dequeue()();
+                Check(f.Service.Messages.Count == 51 && f.RequestedLocales.SequenceEqual(new[] { "ko", "ko", "en", "en" }),
+                    "new locale starts at first page and is fixed across pages");
+            }
+            {
+                var f = new Fixture(2); var text = f.Mails[0];
+                text.TextMode = MailTextMode.Text; text.TitleKey = null; text.BodyKey = null;
+                text.Title = "Server title"; text.Body = "Server body"; text.ResolvedLocale = "en-US";
+                var json = Newtonsoft.Json.Linq.JObject.FromObject(f.Mails[1]);
+                foreach (var name in new[] { "TextMode", "Title", "Body", "ResolvedLocale" }) json.Remove(name);
+                f.Mails[1] = json.ToObject<MailDTO>(); f.Service.Open();
+                Check(f.Service.HasSnapshot && f.Mails[1].TextMode == MailTextMode.Key, "new Text and legacy Key coexist");
+                Check(KingdomIdle.UGUI.MailText.Title(text) == "Server title" && KingdomIdle.UGUI.MailText.Body(text) == "Server body",
+                    "Text displays original server text without key lookup");
+                Check(KingdomIdle.UGUI.MailText.Title(f.Mails[1]) == "테스트 보상", "legacy Key retains dictionary lookup");
+            }
+            {
+                var f = new Fixture(1) { Ready = false }; f.Service.Open(); f.Clock = 30; f.Service.Tick();
+                Check(f.Service.LoadFailed && f.ListCalls == 0, "login readiness wait shares total deadline");
+                var g = new Fixture(1) { Ready = false, HoldLists = true }; g.Service.Open(); g.Clock = 29; g.Ready = true; g.Service.Tick();
+                Check(g.ListCalls == 1 && g.Service.IsBusy, "ready account can use remaining lookup budget");
+                g.Clock = 30; g.Service.Tick(); Check(g.Service.LoadFailed, "readiness transition cannot extend deadline");
+            }
+            foreach (var mutate in new Action<MailDTO>[] { m => m.TitleKey = "mixed", m => m.Title = null,
+                m => m.ResolvedLocale = null, m => m.ResolvedLocale = "ko\n", m => m.Body = new string('x', 2049), m => m.TextMode = (MailTextMode)99 })
+            {
+                var f = new Fixture(1); var text = f.Mails[0];
+                text.TextMode = MailTextMode.Text; text.TitleKey = null; text.BodyKey = null;
+                text.Title = "Title"; text.Body = "Body"; text.ResolvedLocale = "ko"; mutate(text); f.Service.Open();
+                Check(!f.Service.HasSnapshot && f.Service.LoadFailed, "invalid hybrid text rejected before UI");
             }
             return new Dictionary<string, object> { ["passed"] = checks.Count, ["checks"] = checks };
         }

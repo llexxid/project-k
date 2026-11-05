@@ -46,7 +46,7 @@ namespace Scripts.Core
             var gateway = new ReincarnationGateway();
 
             Reincarnation = new ReincarnationService(policy, store, gateway);
-            Mailbox = new KingdomIdle.Mailbox.MailboxService();
+            Mailbox = new KingdomIdle.Mailbox.MailboxService(() => KingdomIdle.UGUI.TitleLobbyPresentation.SavedEnglish ? "en" : "ko");
 
             OfflineReward = GetComponent<OfflineRewardManager>();
             if (OfflineReward == null)

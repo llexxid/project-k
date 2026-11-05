@@ -224,21 +224,25 @@ Editor에서 bootstrap부터 Play·로그인한 뒤 `GameTest → Shop Ad Test �
 
 0.19.4에서는 머지 중 교체됐던 우편함의 가상 스크롤·연속 수령·검증·복구를 기존 공통 표시 경로 위에 복원했다. 메인 메뉴의 우편함은 `OnGetMailList`·`OnClaimMailReward`를 사용한다. `GameManager.Mailbox`가 서버 요청과 메모리 목록을 소유하고 `MailboxPanelController`는 화면 상태와 버튼을 연결한다. 서버 저장소·DTO 계약은 변경하지 않는다.
 
+0.23.0은 로컬 서버의 하이브리드 우편 계약을 연결한다. 목록 요청에 현재 언어 설정의 `ko`/`en` Locale을 넣는다. `TextMode=Key(0)`는 기존 하드코딩 사전으로, `Text(1)`은 응답의 Title/Body로 표시한다. TitleKey/BodyKey는 null을 허용하고 모드별 필수 값은 MailboxProtocol에서 검사한다. TextMode가 없는 기존 서버 응답은 Key=0으로 계속 읽는다. 별도 우편 상세 API·관리자 API·통신 계층·프리팹은 추가하지 않았다.
+
 - 열 때 50통씩 최대 두 페이지(총 100통)를 받고, 전체 조회 완료 후 수령을 허용한다. 닫으면 목록을 비운다. 페이지 간 중복·개수 불일치 시 0부터 한 번만 재조회한다.
 - 스택 종료 훅에서 컨트롤러를 즉시 비활성화해 구독과 연결을 정리한다. 퇴장 애니메이션 뒤의 파괴가 새 우편함을 닫지 않으며, 다른 패널에 가렸다 복귀할 때는 기존 OnEnable/OnDisable로 재연결한다.
 - 개별 수령은 long MailId를 사용한다. 모두 받기는 클릭 시점의 ID를 최대 50개씩 순차 처리한다. 중간 실패 시 성공분은 유지하며 결과를 표시하고 목록을 다시 조회한다.
 - 재화·장비는 응답의 절대값을 기존 UserManager 경로로 반영한다. 응답 유실·저장 실패는 수령을 재전송하지 않고 플레이어 상태를 재조회한다. 화면 종료 후에도 같은 계정의 수령 결과는 반영하며 다른 계정의 응답은 무시한다.
-- 수령 성공한 우편은 즉시 제거한다. 기존 삭제 버튼은 비활성 상태로 보존하고 `수령 시 자동 삭제`를 안내한다. 조회 오류에서는 하단 버튼이 `다시 불러오기`가 된다.
+- 수령 성공한 우편은 즉시 제거한다. 기존 삭제 버튼은 비활성 상태로 보존하고 `수령 시 자동 삭제`를 안내한다. 최종 조회 실패에서는 경고를 표시하고 확인 후 우편함을 닫는다.
 
-운영 목록은 `MailboxService.Messages`의 `MailDTO`만 사용하고 ID는 long을 유지한다. Open/Close/RequestRefresh/TryClaim/TryClaimAll을 통해 조작하며 Changed와 ClaimCompleted로 UI를 갱신한다. GameManager의 우편 주기 조회는 없고, 열린 Controller가 남은 시간과 서비스 Tick(만료·실패 재시도)을 확인한다. Empty/Loading/Ready/Claiming/Recovering/RecoveryRequired 상태를 구별한다. 조회 실패는 창이 열린 동안 30초 후 자동 재시도하며 수동 재시도는 즉시 실행한다. 복구 실패에는 자동 수령 재전송이 없고, 플레이어와 우편 목록을 모두 확인하기 전에는 수령을 차단한다.
+운영 목록은 `MailboxService.Messages`의 `MailDTO`만 사용하고 ID는 long을 유지한다. Open/Close/RequestRefresh/TryClaim/TryClaimAll을 통해 조작하며 Changed와 ClaimCompleted로 UI를 갱신한다. GameManager의 우편 주기 조회는 없고, 열린 Controller가 남은 시간과 서비스 Tick(만료·실패 재시도)을 확인한다. Empty/Loading/Ready/Claiming/Recovering/RecoveryRequired 상태를 구별한다. 통신·StorageFailure·PlayerBusy의 확실한 조회 실패는 완료 후 0.5초 간격으로 재시도한다. 로그인 준비·큐 대기·페이지 조회·일관성 재조회·새로고침 병합을 합쳐 총 30초, 최초를 포함해 최대 3회 전체 조회 시도로 제한한다. 51~100통의 정상 두 페이지는 한 시도다. 잘못된 응답·인증 오류는 즉시 실패하며, 최종 실패는 기존 팝업의 확인 버튼으로 경고 후 닫는다. 복구 실패에는 자동 수령 재전송이 없고, 플레이어와 우편 목록을 모두 확인하기 전에는 수령을 차단한다.
+
+조회 시작 시 Locale을 고정한다. 언어 변경은 첫 페이지부터 다시 조회하고 이전 화면·계정·언어·마감 이후 목록 응답은 게시하지 않는다. ResolvedLocale은 서버의 기본 언어 대체 결과이므로 요청 Locale과 달라도 허용한다. 화면 마감은 전송된 SDK/서버 작업을 취소하는 동작이 아니며, 송신 직렬화와 개별 요청 30초 제한은 기존 NetworkManager 큐를 그대로 사용한다. 만료 표시는 기존 ExpiresUtc·서버 시각을 사용한다.
 
 `VirtualizedMailList`는 기존 ScrollRect·Item_MailRow를 유지하면서 보이는 행 + 2행을 재사용한다. Content의 자동 Layout/Fitter는 실행 중 해제하고, 전체 높이와 행 위치만 직접 관리한다. 행 내부의 기존 배치는 유지한다. 우편당 보상 슬롯은 서버 한도인 10개까지 미리 준비하여 스크롤 중 생성·삭제하지 않는다. 행 재연결 시 보상·클릭 대상·만료 표시·가로 스크롤 위치를 갱신한다.
 
 우편 첨부는 기존 가로 목록이며 재화와 장비를 모두 표시한다. `RewardGrants.FromServer → RewardSlotView → RewardPopupView`를 출석과 함께 사용한다. RewardGrant의 ServerReward·EquipmentCode·Disposition은 저장하지 않는 표시 전용 정보이며 로컬 지급에 사용할 수 없다. 장비 아이콘·이름은 기존 EquipmentDatabase에서 찾으며 희귀도는 장비에만 적용한다. 획득 결과는 서버의 자동 분해·대기·예비 보관 결과를 표시하고 종류·강화·만료·보관 위치가 같은 장비만 합산한다. 자동 분해는 실제 받은 강화석 수량과 자동 분해 문구로 표시한다. 공통 팝업의 기존 재접속 보상 경로는 유지한다.
 
-`MailText`의 작은 문구표에서 TitleKey/BodyKey를 변환한다. 미등록 키는 `시스템 우편` / `첨부 보상을 확인해 주세요.`로 표시하고 키를 진단 기록에 남긴다. 서버 발송 경로가 추가되면 실제 키와 문구를 이 표에 등록한다.
+`MailText`는 Key 우편의 TitleKey/BodyKey를 작은 문구표에서 변환하고 Text 우편은 서버 원문을 반환한다. 미등록 키는 `시스템 우편` / `첨부 보상을 확인해 주세요.`로 표시하고 키를 진단 기록에 남긴다. 서버 발송 경로가 추가되면 실제 키와 문구를 이 표에 등록한다.
 
-우편 통신은 `NetworkManager`의 공통 요청 제한시간 30초를 사용한다. 엑셀 변환은 추가하지 않고 현재 한국어 하드코딩 문구표를 유지한다. 요청 제한시간과 위의 조회 실패 후 30초 재시도 대기는 별개다.
+우편 통신은 `NetworkManager`의 공통 요청 제한시간 30초를 사용하고, 목록 서비스는 위의 총 30초 예산도 확인한다. 엑셀 변환은 추가하지 않고 Key 우편의 현재 한국어 하드코딩 문구표를 유지한다. Text 우편 번역은 서버가 선택한 언어를 사용한다.
 
 | 제목 키 / 본문 키 | 제목 | 본문 |
 |---|---|---|
@@ -267,5 +271,6 @@ Editor에서 bootstrap부터 Play·로그인한 뒤 `GameTest → Shop Ad Test �
 - `MailboxUiAcceptance.Open(100)` / `VerifyRecycling()`: bootstrap Play에서 실제 프리팹을 사용하는 격리 미리보기. 서버 통합 검증과 구분한다.
 - `MailboxUiAcceptance.VerifyCloseReopen()`: bootstrap Play에서 이전 패널의 지연 종료·재진입, 비활성화 후 복귀, 재진입 후 수령을 검사한다. 검사 후 `Close()`로 미리보기를 정리한다.
 - `MailboxUiAcceptance.VerifyAnchorAndCompatibility()`: 수령 후 스크롤 기준 유지·오류/재시도·출석 슬롯과 재접속 팝업 호환성을 확인한다.
+- `MailboxUiAcceptance.VerifyHybridDisplayAndFailure()`: 실제 행·상세의 Text 표시와 총 30초 실패 경고·확인 후 종료를 가짜 응답으로 확인한다.
 - [0.19.4 검증 기록](../../AI/validation/mailbox-refactor-20261101/README.md)
 - [0.19.0 당시 검증 기록](../../AI/validation/mailbox-server-20261031/README.md)

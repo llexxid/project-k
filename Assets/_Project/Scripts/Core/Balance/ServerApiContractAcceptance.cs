@@ -114,6 +114,13 @@ namespace KingdomIdle.Balance
                 { RequestId = "1:" + Nonce, Type = RubyGrowthType.Gold }).FunctionName == "OnResetRubyEnhancement", "reset route is registered");
                 Check(Request<OnChangeMainStageRequestDTO, OnChangeMainStageResponseDTO>(new OnChangeMainStageRequestDTO()).FunctionName == "OnChangeMainStage", "stage route is registered");
                 Check(Request<OnSaveTutorialProgressRequestDTO, OnSaveTutorialProgressResponseDTO>(new OnSaveTutorialProgressRequestDTO { Progress = saved.Progress }).FunctionName == "OnSaveTutorialProgress", "tutorial route is registered");
+                typeof(NetworkManager).GetField("_playFabId", instance).SetValue(network, "MAIL_FIXTURE");
+                var list = Request<OnGetMailListRequestDTO, OnGetMailListResponseDTO>(new OnGetMailListRequestDTO { Locale = "en", Count = 50 });
+                var mailPayload = JObject.FromObject(list.FunctionParameter);
+                Check(list.FunctionName == "OnGetMailList" && mailPayload.Value<string>("Locale") == "en" &&
+                    mailPayload.Value<string>("PlayFabId") == "MAIL_FIXTURE", "mail list sends locale and authenticated player identity");
+                var claim = Request<OnClaimMailRewardRequestDTO, OnClaimMailRewardResponseDTO>(new OnClaimMailRewardRequestDTO { MailIds = new() { 9000000000001L } });
+                Check(JObject.FromObject(claim.FunctionParameter)["Locale"] == null, "mail claim remains independent of locale and text");
                 bool invalidTypeRejected = false;
                 try { Request<OnEnchantRubyRequestDTO, OnEnchantRubyResponseDTO>(new OnEnchantRubyRequestDTO { RequestId = "1:" + Nonce, Type = (RubyGrowthType)2 }); }
                 catch (TargetInvocationException ex) when (ex.InnerException is ArgumentException) { invalidTypeRejected = true; }

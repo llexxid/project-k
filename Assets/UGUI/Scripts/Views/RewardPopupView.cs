@@ -86,6 +86,16 @@ namespace KingdomIdle.UGUI
             view.SetDescription(MailText.Body(mail));
             view.AddSlots(mail.Rewards.Select(RewardGrants.FromServer), true);
         }
+        public static RewardPopupView ShowMessage(Transform owner, string heading, string message, System.Action onClosed)
+        {
+            var view = Open(owner, heading, null);
+            if (view == null) return null;
+            view.SetDescription(message);
+            view._onClosed = onClosed;
+            view.confirmButton.gameObject.SetActive(true);
+            view.confirmButton.onClick.AddListener(view.Close);
+            return view;
+        }
         private static RewardPopupView Open(Transform owner, string heading, long? mailId)
         {
             var host = UIManager.Instance;
