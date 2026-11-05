@@ -184,7 +184,16 @@ namespace KingdomIdle.OfflineRewards
         public static OfflineRewardClaimResult LastClaimResult { get; private set; }
         public static bool IsLatestClaim(OfflineRewardClaimResult result) =>
             ReferenceEquals(LastClaimResult, result) && IsCurrentAccount(result);
-        public static bool AdBonusBusy { get; private set; }
+        private static bool _adBonusBusy;
+        public static bool AdBonusBusy
+        {
+            get => _adBonusBusy;
+            private set
+            {
+                _adBonusBusy = value;
+                UIManager.Instance?.SetOfflineRewardLoading(value);
+            }
+        }
         /// <summary>광고 2배 요청 결과. Success는 지급(또는 이미 지급됨), NothingAvailable은 받을 정산 없음, SaveFailed는 다시 시도 가능. 메시지가 있으면 그 문구를 보여 준다.</summary>
         public static event Action<OfflineRewardClaimResult, RewardStatus, string> AdBonusCompleted;
 
