@@ -8,6 +8,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.UIElements;
+using MailCurrency = Protocol.Message.Data.eCurrency;
 
 namespace KingdomIdle.Editor
 {
@@ -18,7 +19,11 @@ namespace KingdomIdle.Editor
             var checks = new List<string>();
             void Check(bool value, string label) { if (!value) throw new InvalidOperationException("MAIL ADMIN ASSERT: " + label); checks.Add(label); }
             const long now = 1793400000;
-            MailAdminWindow.Draft Draft() => new() { Target = "TEST_PLAYER", StartKst = MailAdminWindow.FormatKst(now), EndKst = MailAdminWindow.FormatKst(now + 3600) };
+            MailAdminWindow.Draft Draft()
+            {
+                var value = new MailAdminWindow.Draft { Target = "TEST_PLAYER", StartKst = MailAdminWindow.FormatKst(now), EndKst = MailAdminWindow.FormatKst(now + 3600) };
+                value.EnsureRewards(); return value;
+            }
             var draft = Draft();
             string prepared = MailAdminWindow.Prepare("", draft, now);
             var body = JObject.Parse(prepared);
@@ -28,7 +33,7 @@ namespace KingdomIdle.Editor
                 "localized Text mode matches server contract");
             Check(body["Rewards"][0].Value<int>("Kind") == 2 && body["Rewards"][0].Value<int>("CurrencyType") == 0 && body["Rewards"][0].Value<long>("Amount") == 100 &&
                 body.Value<long>("DeliveryEndUtc") == now + 3600 && body.Value<int>("ValidDays") == 1, "gold and independent deadlines match server contract");
-            draft.Target = "OTHER"; draft.Gold = 200;
+            draft.Target = "OTHER"; draft.Rewards[0].Amount = 200;
             Check(MailAdminWindow.Prepare(prepared, draft, now + 3600) == prepared, "retry preserves request ID, payload and deadline despite edited draft");
             Check(MailAdminWindow.Prepare("", draft, now) != prepared, "explicit new draft creates a distinct request");
             void Reject(Action<MailAdminWindow.Draft> mutate, string label)
@@ -39,7 +44,10 @@ namespace KingdomIdle.Editor
             }
             Reject(d => d.Target = "", "missing target rejected");
             Reject(d => d.Target = "A/B", "invalid target rejected");
-            Reject(d => d.Gold = 0, "nonpositive gold rejected");
+            Reject(d => d.Rewards[0].Amount = 0, "nonpositive reward amount rejected");
+            Reject(d => d.Rewards.Clear(), "empty reward list rejected without legacy fallback");
+            Reject(d => d.Rewards[0].Currency = (MailCurrency)99, "undefined reward currency rejected");
+            Reject(d => d.Rewards = Enumerable.Range(0, 11).Select(_ => new MailAdminWindow.Reward { Currency = MailCurrency.Ruby, Amount = 1 }).ToList(), "more than ten rewards rejected");
             Reject(d => d.ValidDays = -1, "negative validity rejected");
             Reject(d => d.TitleKo = new string('가', 86), "UTF8 title byte limit enforced");
             Reject(d => d.BodyKo = new string('x', 2049), "body byte limit enforced");
@@ -87,6 +95,39 @@ namespace KingdomIdle.Editor
             try { MailAdminWindow.ReadHistory(new JObject { ["HistoryItems"] = new JArray(new JObject { ["Request"] = new JObject(), ["AcceptedUtc"] = now }) }); }
             catch (FormatException) { invalidHistory = true; }
             Check(invalidHistory, "malformed history items rejected");
+            var mixed = Draft();
+            mixed.Rewards = new List<MailAdminWindow.Reward>
+            {
+                new() { Currency = MailCurrency.Ruby, Amount = 1000 }, new() { Currency = MailCurrency.AncientCoin, Amount = 200 },
+                new() { Currency = MailCurrency.EquipmentTicket, Amount = 10 }, new() { Currency = MailCurrency.MageTicket, Amount = 20 }
+            };
+            string mixedPayload = MailAdminWindow.Prepare("", mixed, now);
+            var mixedRows = (JArray)JObject.Parse(mixedPayload)["Rewards"];
+            Check(mixedRows.Select(r => r.Value<int>("CurrencyType")).SequenceEqual(new[] { 6, 1, 8, 9 }) &&
+                mixedRows.All(r => r.Value<int>("Kind") == 2 && r["DefinitionId"].Type == JTokenType.Null), "Ruby, AncientCoin and both ticket enums use the existing currency wire contract");
+            var mixedRestored = MailAdminWindow.Draft.Restore(mixedPayload);
+            Check(mixedRestored.Rewards.Select(r => r.Currency).SequenceEqual(mixed.Rewards.Select(r => r.Currency)) &&
+                mixedRestored.Rewards.Select(r => r.Amount).SequenceEqual(new long[] { 1000, 200, 10, 20 }), "restoring a mixed mail preserves every reward in order");
+            mixed.Rewards[1].Amount = 999;
+            Check(MailAdminWindow.Prepare(mixedPayload, mixed, now + 300) == mixedPayload, "mixed reward retry never rebuilds the frozen payload");
+            var everyCurrency = Draft();
+            everyCurrency.Rewards = Enum.GetValues(typeof(MailCurrency)).Cast<MailCurrency>().Select(c => new MailAdminWindow.Reward { Currency = c, Amount = 9007199254740993L }).ToList();
+            var everyRestored = MailAdminWindow.Draft.Restore(MailAdminWindow.Prepare("", everyCurrency, now));
+            Check(everyRestored.Rewards.Count == 10 && everyRestored.Rewards.All(r => r.Amount == 9007199254740993L), "all ten currency enums retain 64-bit quantities");
+            var duplicate = Draft(); duplicate.Rewards.Add(new MailAdminWindow.Reward { Currency = MailCurrency.Gold, Amount = 7 });
+            Check(JObject.Parse(MailAdminWindow.Prepare("", duplicate, now))["Rewards"].Count() == 2, "duplicate currency rows are preserved rather than merged or dropped");
+            bool unsupported = false;
+            try { MailAdminWindow.Draft.Restore(mixedPayload.Replace("\"Kind\":2", "\"Kind\":0")); } catch (ArgumentException) { unsupported = true; }
+            Check(unsupported, "unsupported attachments are never silently converted to gold");
+            var legacyWindow = ScriptableObject.CreateInstance<MailAdminWindow>();
+            try
+            {
+                EditorJsonUtility.FromJsonOverwrite("{\"MonoBehaviour\":{\"_draft\":{\"Target\":\"TEST_PLAYER\",\"Gold\":777}}}", legacyWindow);
+                var legacy = (MailAdminWindow.Draft)typeof(MailAdminWindow).GetField("_draft", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(legacyWindow);
+                legacy.EnsureRewards();
+                Check(legacy.Rewards.Count == 1 && legacy.Rewards[0].Currency == MailCurrency.Gold && legacy.Rewards[0].Amount == 777, "serialized legacy gold draft retains the operator amount");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(legacyWindow); }
             string previous = SessionState.GetString(MailAdminWindow.PendingKey, "");
             var window = ScriptableObject.CreateInstance<MailAdminWindow>();
             try
@@ -123,6 +164,10 @@ namespace KingdomIdle.Editor
                 typeof(MailAdminWindow).GetMethod("NewMail", flags).Invoke(window, null);
                 Check(string.IsNullOrEmpty(fields.Single(f => f.label == "요청 ID (빈 값은 자동)").value) && string.IsNullOrEmpty(SessionState.GetString(MailAdminWindow.PendingKey, "")),
                     "explicit new mail clears a restored request ID instead of reusing the previous campaign");
+                window.rootVisualElement.Q<EnumField>().value = MailCurrency.Ruby;
+                window.rootVisualElement.Q<LongField>().value = 1234;
+                var edited = (MailAdminWindow.Draft)typeof(MailAdminWindow).GetField("_draft", flags).GetValue(window);
+                Check(edited.Rewards[0].Currency == MailCurrency.Ruby && edited.Rewards[0].Amount == 1234, "enum and quantity UI edits update the same reward row");
             }
             finally
             {

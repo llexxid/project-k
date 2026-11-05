@@ -13,6 +13,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.UIElements;
+using MailCurrency = Protocol.Message.Data.eCurrency;
 
 namespace KingdomIdle.Editor
 {
@@ -24,12 +25,19 @@ namespace KingdomIdle.Editor
         [NonSerialized] private string _functionKey, _adminKey;
         private string _pending, _historyNext, _resultNext, _knownId;
         private bool _knownStopped;
-        private VisualElement _form, _players, _start, _text, _keys;
+        private VisualElement _form, _players, _start, _text, _keys, _rewardRows;
         private TextField _draftId, _id, _lookup, _preview, _output;
         private Button _send, _query, _newMail, _stop, _historyFirst, _historyMore, _resultMore;
         private ListView _historyView;
         private readonly List<JObject> _history = new();
         private UnityWebRequest _request;
+
+        [Serializable]
+        internal sealed class Reward
+        {
+            public MailCurrency Currency;
+            public long Amount;
+        }
 
         [Serializable]
         internal sealed class Draft
@@ -41,8 +49,18 @@ namespace KingdomIdle.Editor
             public string TitleKey = "mail.cbt.title", BodyKey = "mail.cbt.body";
             public string TitleKo = "우편 발송 테스트", BodyKo = "테스트 우편입니다. 첨부 보상을 수령해 주세요.";
             public string TitleEn = "Mail Delivery Test", BodyEn = "This is a test mail. Please claim the attached rewards.";
-            public long Gold = 100;
+            public long Gold = 100; // 기존 에디터 초안의 입력 금액을 목록으로 옮길 때 보존한다.
+            public List<Reward> Rewards;
+            [SerializeField] private bool _rewardsInitialized;
             public int ValidDays = 1;
+
+            internal void EnsureRewards()
+            {
+                if (_rewardsInitialized) return;
+                // Unity는 구형 데이터에 없던 목록을 빈 목록으로 복원할 수 있다.
+                if (Rewards == null || Rewards.Count == 0) Rewards = new List<Reward> { new() { Currency = MailCurrency.Gold, Amount = Gold } };
+                _rewardsInitialized = true;
+            }
 
             internal static Draft Restore(string payload)
             {
@@ -55,7 +73,9 @@ namespace KingdomIdle.Editor
                     Target = body["TargetPlayFabIds"] is JArray targets ? string.Join("\n", targets.Values<string>()) : "",
                     StartKst = body.Value<long?>("DeliveryStartUtc") is long start ? FormatKst(start) : "",
                     EndKst = FormatKst(body.Value<long>("DeliveryEndUtc")),
-                    Gold = body["Rewards"][0].Value<long>("Amount"), ValidDays = body.Value<int?>("ValidDays") ?? 0,
+                    Rewards = (body["Rewards"] as JArray ?? throw new ArgumentException("첨부 보상 목록이 없습니다.")).Select(ReadReward).ToList(),
+                    _rewardsInitialized = true,
+                    ValidDays = body.Value<int?>("ValidDays") ?? 0,
                     TitleKey = body.Value<string>("TitleKey") ?? "", BodyKey = body.Value<string>("BodyKey") ?? "",
                     TitleKo = texts?["ko"]?.Value<string>("Title") ?? "", BodyKo = texts?["ko"]?.Value<string>("Body") ?? "",
                     TitleEn = texts?["en"]?.Value<string>("Title") ?? "", BodyEn = texts?["en"]?.Value<string>("Body") ?? ""
@@ -64,6 +84,7 @@ namespace KingdomIdle.Editor
 
             internal string Build(string id, long now)
             {
+                EnsureRewards();
                 if (!ValidId(id) || string.IsNullOrWhiteSpace(Reason) || Encoding.UTF8.GetByteCount(Reason) > 1024)
                     throw new ArgumentException("요청 ID는 영숫자·-_. 1~64자, 사유는 UTF-8 1,024바이트 이내로 입력해 주세요.");
                 string[] targets = null;
@@ -78,8 +99,10 @@ namespace KingdomIdle.Editor
                 long? start = AllPlayers ? ParseKst(StartKst) : null;
                 if (end <= now || (start.HasValue && (start.Value < 0 || start.Value >= end)))
                     throw new ArgumentException("발송 종료는 현재보다 미래여야 하며 시작보다 늦어야 합니다.");
-                if (Gold <= 0 || ValidDays < 0 || end + (long)(ValidDays == 0 ? 30 : ValidDays) * 86400 > 253402268399L)
-                    throw new ArgumentException("골드는 양수, 유효기간은 0(기본 30일) 또는 지원 범위의 양수 일수여야 합니다.");
+                if (Rewards == null || Rewards.Count < 1 || Rewards.Count > 10 || Rewards.Any(r => r == null || !Enum.IsDefined(typeof(MailCurrency), r.Currency) || r.Amount <= 0))
+                    throw new ArgumentException("보상은 1~10개이며, 각 재화 종류와 양수 수량을 지정해 주세요.");
+                if (ValidDays < 0 || end + (long)(ValidDays == 0 ? 30 : ValidDays) * 86400 > 253402268399L)
+                    throw new ArgumentException("유효기간은 0(기본 30일) 또는 지원 범위의 양수 일수여야 합니다.");
                 JObject texts = null;
                 if (UseKeys)
                 {
@@ -97,9 +120,17 @@ namespace KingdomIdle.Editor
                     TargetType = AllPlayers ? 2 : 1, TargetPlayFabIds = targets, DeliveryStartUtc = start, DeliveryEndUtc = end,
                     TextMode = UseKeys ? 0 : 1, TitleKey = UseKeys ? TitleKey : null, BodyKey = UseKeys ? BodyKey : null,
                     DefaultLocale = UseKeys ? null : "ko", LocalizedTexts = texts,
-                    Rewards = new[] { new { Kind = 2, CurrencyType = 0, DefinitionId = (int?)null, Amount = Gold } },
+                    Rewards = Rewards.Select(r => new { Kind = 2, CurrencyType = (int)r.Currency, DefinitionId = (int?)null, Amount = r.Amount }).ToArray(),
                     ValidDays = ValidDays == 0 ? (int?)null : ValidDays
                 }).ToString(Formatting.None);
+            }
+            private static Reward ReadReward(JToken row)
+            {
+                if (row?.Value<int?>("Kind") != 2 || row["CurrencyType"]?.Type != JTokenType.Integer ||
+                    !Enum.IsDefined(typeof(MailCurrency), row.Value<int>("CurrencyType")) || row["Amount"]?.Type != JTokenType.Integer || row.Value<long>("Amount") <= 0 ||
+                    (row["DefinitionId"] != null && row["DefinitionId"].Type != JTokenType.Null))
+                    throw new ArgumentException("이 창에서 지원하지 않는 보상입니다. 원본 요청은 보존됩니다.");
+                return new Reward { Currency = (MailCurrency)row.Value<int>("CurrencyType"), Amount = row.Value<long>("Amount") };
             }
             private static JObject Text(string title, string body)
             {
@@ -168,7 +199,7 @@ namespace KingdomIdle.Editor
             Field(_text, "한국어 본문", _draft.BodyKo, v => _draft.BodyKo = v, multiline: true);
             Field(_text, "영어 제목 (선택)", _draft.TitleEn, v => _draft.TitleEn = v);
             Field(_text, "영어 본문 (선택)", _draft.BodyEn, v => _draft.BodyEn = v, multiline: true);
-            var gold = new LongField("첨부 골드") { value = _draft.Gold }; gold.RegisterValueChangedCallback(e => _draft.Gold = e.newValue); _form.Add(gold);
+            _rewardRows = new VisualElement(); _form.Add(_rewardRows); DrawRewards();
             var days = new IntegerField("유효일수 (0=기본 30일)") { value = _draft.ValidDays }; days.RegisterValueChangedCallback(e => _draft.ValidDays = e.newValue); _form.Add(days);
             _id = new TextField("고정된 발송 요청 ID") { isReadOnly = true }; compose.Add(_id);
             var actions = Row(compose);
@@ -207,6 +238,35 @@ namespace KingdomIdle.Editor
             var field = new TextField(label) { value = value ?? "", multiline = multiline, isPasswordField = password };
             if (multiline) field.style.height = 65;
             field.RegisterValueChangedCallback(e => changed(e.newValue)); parent.Add(field); return field;
+        }
+        private void DrawRewards()
+        {
+            _draft.EnsureRewards(); _rewardRows.Clear();
+            _rewardRows.Add(new Label("첨부 보상 — 종류와 수량을 지정하며 최대 10개까지 추가합니다."));
+            foreach (var reward in _draft.Rewards)
+            {
+                var row = Row(_rewardRows);
+                var currency = new EnumField("종류", reward.Currency) { tooltip = "Ruby: 루비 / AncientCoin: 고대주화 / EquipmentTicket: 장비 뽑기권 / MageTicket: 마탑 뽑기권" };
+                currency.style.flexGrow = 1; currency.style.flexBasis = 0; currency.style.minWidth = 180;
+                currency.labelElement.style.minWidth = currency.labelElement.style.width = 32;
+                currency.RegisterValueChangedCallback(e => reward.Currency = (MailCurrency)e.newValue); row.Add(currency);
+                var amount = new LongField("수량") { value = reward.Amount };
+                amount.style.flexGrow = 1; amount.style.flexBasis = 0; amount.style.minWidth = 180;
+                amount.labelElement.style.minWidth = amount.labelElement.style.width = 32;
+                amount.RegisterValueChangedCallback(e => reward.Amount = e.newValue); row.Add(amount);
+                var remove = new Button(() =>
+                {
+                    if (_request != null || !string.IsNullOrEmpty(_pending) || _draft.Rewards.Count <= 1) return;
+                    _draft.Rewards.Remove(reward); DrawRewards();
+                }) { text = "삭제" };
+                remove.SetEnabled(_draft.Rewards.Count > 1); row.Add(remove);
+            }
+            var add = new Button(() =>
+            {
+                if (_request != null || !string.IsNullOrEmpty(_pending) || _draft.Rewards.Count >= 10) return;
+                _draft.Rewards.Add(new Reward()); DrawRewards();
+            }) { text = "보상 추가" };
+            add.SetEnabled(_draft.Rewards.Count < 10); _rewardRows.Add(add);
         }
         private void RefreshModes()
         {
