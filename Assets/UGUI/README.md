@@ -238,6 +238,23 @@ Editor에서 bootstrap부터 Play·로그인한 뒤 `GameTest → Shop Ad Test �
 
 `MailText`의 작은 문구표에서 TitleKey/BodyKey를 변환한다. 미등록 키는 `시스템 우편` / `첨부 보상을 확인해 주세요.`로 표시하고 키를 진단 기록에 남긴다. 서버 발송 경로가 추가되면 실제 키와 문구를 이 표에 등록한다.
 
+우편 통신은 `NetworkManager`의 공통 요청 제한시간 30초를 사용한다. 엑셀 변환은 추가하지 않고 현재 한국어 하드코딩 문구표를 유지한다. 요청 제한시간과 위의 조회 실패 후 30초 재시도 대기는 별개다.
+
+| 제목 키 / 본문 키 | 제목 | 본문 |
+|---|---|---|
+| `mail.cbt.title` / `mail.cbt.body` | 클로즈 베타 테스트에 참여해주셔서 감사합니다 | 즐겁게 플레이 해 주시고 불편한점은 자유롭게 건의해주세요! |
+| `mail.maintenance.reward.title` / `mail.maintenance.reward.body` | 점검 협조 감사 보상 | 원활한 서비스 운영에 협조해 주셔서 감사합니다. 첨부된 보상을 확인해 주세요. |
+| `mail.compensation.title` / `mail.compensation.body` | 서비스 이용 불편 보상 | 서비스 이용 중 겪으신 불편에 대해 사과드립니다. 첨부된 보상을 확인해 주세요. |
+| `mail.update.gift.title` / `mail.update.gift.body` | 업데이트 기념 선물 | 새로운 콘텐츠와 함께 즐거운 시간을 보내시길 바랍니다. 첨부된 선물을 확인해 주세요. |
+| `mail.event.reward.title` / `mail.event.reward.body` | 이벤트 보상 안내 | 이벤트와 함께해 주셔서 감사합니다. 첨부된 보상을 확인해 주세요. |
+| `mail.feedback.thanks.title` / `mail.feedback.thanks.body` | 의견 전달 감사 선물 | 보내주신 의견은 게임을 개선하는 데 참고하겠습니다. 관심과 참여에 감사드립니다. |
+| `mail.support.reward.title` / `mail.support.reward.body` | 플레이 지원 선물 | 모험에 도움이 되길 바라며 준비했습니다. 첨부된 보상을 확인해 주세요. |
+| `mail.operations.gift.title` / `mail.operations.gift.body` | 운영팀의 선물 | 함께해 주시는 플레이어 여러분께 감사드립니다. 즐거운 모험이 되시길 바랍니다. |
+
+문구 키는 제목·본문 표시만 결정한다. 첨부 아이템과 수량·대상·유효기간은 서버 발송 요청에서 별도로 지정한다.
+
+목록 제목은 기존 한 줄 미리보기를 유지한다. 긴 CBT 제목도 상세 화면에서 읽을 수 있도록 `RewardPopupView.ShowMail`에서 우편 제목에 줄바꿈과 28~기존 글자 크기의 자동 맞춤을 적용한다. 아이템 설명·수령 결과 팝업에는 이 설정을 적용하지 않는다.
+
 이번 개정은 우편함으로 한정한다. 현재 머지된 출석·광고·재접속 보상 정책은 변경하지 않으며 출석 이월 알림은 우편함 인스턴스의 갱신 요청에만 연결한다.
 
 과거 로컬 MailMessage·Claims 데이터는 저장 호환성을 위해 유지하지만 운영 우편함은 읽거나 지급하지 않는다. LocalProgression 전체와 공통 RewardGrant는 다른 기능에서도 사용하므로 유지한다. 기존 로컬 우편 생성·지급·삭제는 Editor 전용 LocalMailboxService로 분리하고 격리 테스트 계정만 허용한다.

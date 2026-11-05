@@ -79,6 +79,10 @@ namespace KingdomIdle.UGUI
         {
             var view = Open(owner, MailText.Title(mail), mail.MailId);
             if (view == null) return;
+            view.title.textWrappingMode = TextWrappingModes.Normal;
+            view.title.fontSizeMin = Mathf.Min(28f, view.title.fontSize);
+            view.title.fontSizeMax = view.title.fontSize;
+            view.title.enableAutoSizing = true;
             view.SetDescription(MailText.Body(mail));
             view.AddSlots(mail.Rewards.Select(RewardGrants.FromServer), true);
         }
