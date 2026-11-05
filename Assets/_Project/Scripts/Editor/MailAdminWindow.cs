@@ -25,7 +25,7 @@ namespace KingdomIdle.Editor
         private string _pending, _historyNext, _resultNext, _knownId;
         private bool _knownStopped;
         private VisualElement _form, _players, _start, _text, _keys;
-        private TextField _id, _lookup, _preview, _output;
+        private TextField _draftId, _id, _lookup, _preview, _output;
         private Button _send, _query, _newMail, _stop, _historyFirst, _historyMore, _resultMore;
         private ListView _historyView;
         private readonly List<JObject> _history = new();
@@ -141,7 +141,7 @@ namespace KingdomIdle.Editor
             auth.Add(new Label("Azure: 앱 키 → default / 환경 변수 → MAIL_ADMIN_KEY"));
             var compose = new Foldout { text = "새 우편 작성", value = true }; scroll.Add(compose);
             _form = new VisualElement(); compose.Add(_form);
-            Field(_form, "요청 ID (빈 값은 자동)", _draft.RequestId, v => _draft.RequestId = v);
+            _draftId = Field(_form, "요청 ID (빈 값은 자동)", _draft.RequestId, v => _draft.RequestId = v);
             Field(_form, "발송 사유", _draft.Reason, v => _draft.Reason = v);
             var audience = new DropdownField("발송 대상", new List<string> { "지정 유저", "전체 유저" }, _draft.AllPlayers ? 1 : 0);
             audience.RegisterValueChangedCallback(_ => { _draft.AllPlayers = audience.index == 1; RefreshModes(); }); _form.Add(audience);
@@ -173,7 +173,7 @@ namespace KingdomIdle.Editor
             _id = new TextField("고정된 발송 요청 ID") { isReadOnly = true }; compose.Add(_id);
             var actions = Row(compose);
             _send = new Button(Send) { text = "우편 발송 등록" }; actions.Add(_send);
-            _newMail = new Button(() => { _pending = ""; SessionState.EraseString(PendingKey); _output.value = "새 우편을 준비했습니다. 아직 발송하지 않았습니다."; UpdateControls(); }) { text = "새 우편 준비" }; actions.Add(_newMail);
+            _newMail = new Button(NewMail) { text = "새 우편 준비" }; actions.Add(_newMail);
             var history = new Foldout { text = "발송 이력 — 요청 ID 순 / 페이지당 50건", value = true }; scroll.Add(history);
             var historyActions = Row(history);
             _historyFirst = new Button(() => LoadHistory(null)) { text = "이력 새로 고침" }; historyActions.Add(_historyFirst);
@@ -225,6 +225,12 @@ namespace KingdomIdle.Editor
             _output.value = "Azure Function 키와 우편 관리자 키를 입력해 주세요. 공백·줄바꿈이 들어간 키는 사용할 수 없습니다."; return false;
         }
         internal static bool ValidKey(string key) => !string.IsNullOrWhiteSpace(key) && key.Length <= 512 && key.All(c => c >= '!' && c <= '~');
+        private void NewMail()
+        {
+            if (_request != null) return;
+            _pending = ""; SessionState.EraseString(PendingKey); _draftId.value = "";
+            _output.value = "새 우편을 준비했습니다. 요청 ID는 초기화했으며 아직 발송하지 않았습니다."; UpdateControls();
+        }
         private void Send()
         {
             if (_request != null || !Authenticated()) return;

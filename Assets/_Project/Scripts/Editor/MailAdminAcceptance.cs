@@ -120,6 +120,9 @@ namespace KingdomIdle.Editor
                     typeof(MailAdminWindow).GetField("_request", flags).SetValue(window, null);
                 }
                 Check(SessionState.GetString(MailAdminWindow.PendingKey, "") == prepared, "opening and inspecting a pending window never replaces its request");
+                typeof(MailAdminWindow).GetMethod("NewMail", flags).Invoke(window, null);
+                Check(string.IsNullOrEmpty(fields.Single(f => f.label == "요청 ID (빈 값은 자동)").value) && string.IsNullOrEmpty(SessionState.GetString(MailAdminWindow.PendingKey, "")),
+                    "explicit new mail clears a restored request ID instead of reusing the previous campaign");
             }
             finally
             {
