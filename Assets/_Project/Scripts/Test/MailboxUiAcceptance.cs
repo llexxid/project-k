@@ -169,11 +169,10 @@ namespace KingdomIdle.Mailbox.Testing
             Check(_root.GetComponentsInChildren<MailRowView>().First().MailId == nextId && Mathf.Abs(_view.content.anchoredPosition.y - beforeY) < .1f,
                 "deleted anchor continues at adjacent mail");
             foreach (var popup in _root.GetComponentsInChildren<RewardPopupView>()) popup.Close();
-            _fixture.FailListAt = _fixture.ListCalls + 1; _fixture.Service.RequestRefresh();
-            Check(!_view.content.gameObject.activeSelf && _view.emptyLabel.text.Length > 0 && _view.claimAllLabel.text == "다시 불러오기" && _view.claimAll.interactable,
-                "read failure shows retry instead of empty mailbox");
-            _view.claimAll.onClick.Invoke();
-            Check(_fixture.Service.CanClaim && _view.content.gameObject.activeSelf, "retry button refreshes immediately");
+            _fixture.FailListAt = _fixture.ListCalls + 1; _fixture.ListFailureKind = "Transport"; _fixture.Service.RequestRefresh();
+            Check(!_view.claimAll.interactable && _fixture.Service.IsBusy, "read retry blocks receipt until snapshot is confirmed");
+            _fixture.Clock += .5; _fixture.Service.Tick();
+            Check(_fixture.Service.CanClaim && _view.content.gameObject.activeSelf, "transient failure retries before rendering snapshot");
             _view.claimAll.onClick.Invoke();
             Check(_fixture.Service.Messages.Count == 0 && _view.content.anchoredPosition.y == 0 && !_view.claimAll.interactable,
                 "claim all clamps empty content and disables receipt");
@@ -194,6 +193,32 @@ namespace KingdomIdle.Mailbox.Testing
             Check(offline != null && offline.slots.GetComponentsInChildren<RewardSlotView>().Length == 2 && offline.confirmButton.gameObject.activeSelf,
                 "offline reward popup retains gold experience and confirm");
             offline.confirmButton.onClick.Invoke(); Check(closed, "offline popup completion callback retained");
+            return new { passed = checks.Count, checks };
+        }
+
+        public static object VerifyHybridDisplayAndFailure()
+        {
+            Open(2);
+            var checks = new List<string>();
+            void Check(bool ok, string label) { if (!ok) throw new InvalidOperationException("MAIL UI ASSERT: " + label); checks.Add(label); }
+            var text = _fixture.Mails[0];
+            text.TextMode = MailTextMode.Text; text.TitleKey = null; text.BodyKey = null;
+            text.Title = "A gift from the team"; text.Body = "Thank you for playing. Please claim the attached rewards."; text.ResolvedLocale = "en";
+            _fixture.Service.RequestRefresh();
+            var row = _root.GetComponentsInChildren<MailRowView>().Single(r => r.MailId == text.MailId);
+            Check(row.heading.text == text.Title, "Text title appears in list preview");
+            row.details.onClick.Invoke();
+            var popup = _root.GetComponentsInChildren<RewardPopupView>().Single();
+            Check(popup.title.text == text.Title && popup.description.text == text.Body, "Text detail uses server strings");
+            popup.Close();
+            _fixture.HoldLists = true; _fixture.Service.RequestRefresh();
+            _fixture.Clock += 30; _fixture.Service.Tick();
+            var warning = UIManager.Instance.LayerPopups.GetComponentsInChildren<RewardPopupView>().Single();
+            Check(warning.title.text == "우편함 조회 실패" && warning.confirmButton.gameObject.activeSelf && !_view.claimAll.interactable,
+                "deadline opens warning and blocks receipt");
+            var root = _root; var service = _fixture.Service;
+            warning.confirmButton.onClick.Invoke();
+            Check(!root.activeSelf && !service.CanClaim && !service.HasSnapshot, "confirm closes failed mailbox");
             return new { passed = checks.Count, checks };
         }
 

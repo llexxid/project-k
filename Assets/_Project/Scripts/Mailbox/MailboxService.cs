@@ -19,6 +19,8 @@ namespace KingdomIdle.Mailbox
         internal delegate void ListCall(OnGetMailListRequestDTO request, Action<OnGetMailListResponseDTO> ok, Action<PlayFabError> fail);
         internal delegate void ClaimCall(OnClaimMailRewardRequestDTO request, Action<OnClaimMailRewardResponseDTO> ok, Action<PlayFabError> fail);
         private const int PageSize = 50;
+        private const double LoadTimeoutSeconds = 30;
+        private const int MaxLoadAttempts = 3;
         private readonly ListCall _list;
         private readonly ClaimCall _claim;
         private readonly Func<OnClaimMailRewardResponseDTO, bool> _apply;
@@ -26,17 +28,22 @@ namespace KingdomIdle.Mailbox
         private readonly Func<(long, long)> _identity;
         private readonly Func<bool> _ready;
         private readonly Func<double> _clock;
+        private readonly Func<string> _locale;
         private (long, long) _account;
-        private bool _open, _refreshQueued;
+        private bool _open, _refreshQueued, _loginChecked;
         private int _loadVersion, _viewVersion;
-        private double _retryAt, _observedAt;
+        private double _retryAt, _observedAt, _readyDeadline;
         private long _serverUtc, _lastExpiredUtc;
         private ClaimRequest _claiming;
+        private ListRequest _loading;
+        private string _listLocale;
 
         private sealed class ListRequest
         {
             internal int Version, Retry, Total = -1;
             internal string MailboxId;
+            internal string Locale;
+            internal double Deadline;
             internal bool Recovery;
             internal (long, long) Account;
             internal readonly List<MailDTO> Mails = new();
@@ -60,12 +67,14 @@ namespace KingdomIdle.Mailbox
         public PlayFabError LastFailure { get; private set; }
         public string Error => LastFailure == null ? null : NetworkManager.DescribeFailure(LastFailure, "우편함");
         public bool HasSnapshot { get; private set; }
+        public bool LoadFailed { get; private set; }
         public bool IsBusy => State == MailboxState.Loading || State == MailboxState.Claiming || State == MailboxState.Recovering;
         public bool CanClaim => _open && HasSnapshot && State == MailboxState.Ready && _account == _identity() && _ready();
         public long ServerNow => _serverUtc + (long)Math.Max(0, _clock() - _observedAt);
 
-        public MailboxService()
+        public MailboxService(Func<string> locale)
         {
+            _locale = locale;
             _list = (r, ok, fail) => NetworkManager.Instance.Call(r, ok, fail);
             _claim = (r, ok, fail) => NetworkManager.Instance.Call(r, ok, fail);
             _apply = Apply;
@@ -80,8 +89,9 @@ namespace KingdomIdle.Mailbox
 #if UNITY_EDITOR
         // 가짜 응답·계정 전환·저장 실패 검사는 운영의 검증과 완료 처리 경로를 그대로 실행한다.
         internal MailboxService(ListCall list, ClaimCall claim, Func<OnClaimMailRewardResponseDTO, bool> apply,
-            Action<Action<bool>> recover, Func<(long, long)> identity, Func<bool> ready, Func<double> clock)
+            Action<Action<bool>> recover, Func<(long, long)> identity, Func<bool> ready, Func<double> clock, Func<string> locale = null)
         {
+            _locale = locale ?? (() => "ko");
             _list = (r, ok, fail) => list(r, response => ValidateTestResponse(response, ok, fail), fail);
             _claim = (r, ok, fail) => claim(r, response => ValidateTestResponse(response, ok, fail), fail);
             _apply = apply; _recover = recover;
@@ -99,11 +109,13 @@ namespace KingdomIdle.Mailbox
         {
             CheckAccount();
             _open = true; _viewVersion++; _lastExpiredUtc = 0;
+            LoadFailed = false;
             RequestRefresh();
         }
         public void Close()
         {
             _open = false; _viewVersion++; _loadVersion++; _retryAt = 0; _refreshQueued = false;
+            _loading = null; _readyDeadline = 0; LoadFailed = false;
             ClearList();
             if (State == MailboxState.Loading || State == MailboxState.Ready) State = MailboxState.Empty;
             Notify();
@@ -115,8 +127,23 @@ namespace KingdomIdle.Mailbox
             if (_account == _identity()) return;
             _account = _identity(); _loadVersion++; _viewVersion++; _claiming = null;
             _retryAt = 0; _lastExpiredUtc = 0; _refreshQueued = false; _serverUtc = 0;
+            _loading = null; _listLocale = null; _readyDeadline = 0; LoadFailed = false; _loginChecked = false;
             LastFailure = null; State = MailboxState.Empty; ClearList(); Notify();
             if (_open) RequestRefresh();
+        }
+
+        public void CheckAfterLogin()
+        {
+            CheckAccount();
+            if (_loginChecked || !_ready()) return;
+            _loginChecked = true;
+            if (_open) return;
+            var account = _account;
+            // 로그인은 우편 확인을 기다리지 않는다. 실패하면 우편함을 열 때 다시 확인한다.
+            _list(new OnGetMailListRequestDTO { Locale = _locale(), StartIndex = 0, Count = 1 }, _ => { }, error =>
+            {
+                if (account == _identity()) Debug.LogWarning("[Mail] post-login check failed: " + NetworkManager.DescribeFailure(error, "우편함"));
+            });
         }
 
         public void RequestRefresh(string reason = "manual")
@@ -125,7 +152,12 @@ namespace KingdomIdle.Mailbox
             if (!_open) return;
             if (IsBusy) { _refreshQueued = true; return; }
             _retryAt = 0;
-            if (!_ready()) { LastFailure = NetworkManager.CreateError("NotAuthenticated", "서버 로그인이 필요합니다."); _retryAt = _clock() + 1; Notify(); return; }
+            if (!_ready())
+            {
+                if (_readyDeadline == 0) _readyDeadline = _clock() + LoadTimeoutSeconds;
+                LastFailure = NetworkManager.CreateError("NotAuthenticated", "서버 로그인이 필요합니다.");
+                _retryAt = _clock() + 1; Notify(); return;
+            }
             Debug.Log("[Mail] refresh reason=" + reason);
             if (State == MailboxState.RecoveryRequired) RecoverState();
             else Load();
@@ -135,6 +167,15 @@ namespace KingdomIdle.Mailbox
         public void Tick()
         {
             CheckAccount();
+            if (!_open) return;
+            if (_readyDeadline > 0 && _clock() >= _readyDeadline)
+            { FailList(State == MailboxState.RecoveryRequired, NetworkManager.CreateError("Timeout", "우편함 조회 제한시간이 지났습니다.")); return; }
+            if ((State == MailboxState.Loading || State == MailboxState.Ready) && _listLocale != _locale())
+            { _loadVersion++; _loading = null; ClearList(); State = MailboxState.Empty; Load(); return; }
+            if (_loading != null && _clock() >= _loading.Deadline)
+            { FailList(_loading.Recovery, NetworkManager.CreateError("Timeout", "우편함 조회 제한시간이 지났습니다.")); return; }
+            if (_loading != null && _retryAt > 0 && _clock() >= _retryAt)
+            { Load(_loading.Retry + 1, _loading.Recovery, _loading.Deadline); return; }
             if (!_open || IsBusy || !_ready()) return;
             if (_retryAt > 0 && _clock() >= _retryAt) { RequestRefresh("retry"); return; }
             if (State != MailboxState.Ready || Messages.Count == 0) return;
@@ -143,34 +184,43 @@ namespace KingdomIdle.Mailbox
             { _lastExpiredUtc = expiry; RequestRefresh("expired"); }
         }
 
-        private void Load(int retry = 0, bool recovery = false)
+        private void Load(int retry = 0, bool recovery = false, double? deadline = null)
         {
+            _listLocale = _locale(); LoadFailed = false;
             _refreshQueued = false; _retryAt = 0; LastFailure = null; State = MailboxState.Loading; Notify();
-            Fetch(new ListRequest { Version = ++_loadVersion, Retry = retry, Recovery = recovery, Account = _account });
+            _loading = new ListRequest { Version = ++_loadVersion, Retry = retry, Recovery = recovery, Account = _account,
+                Locale = _listLocale, Deadline = deadline ?? (_readyDeadline > 0 ? _readyDeadline : _clock() + LoadTimeoutSeconds) };
+            _readyDeadline = 0;
+            if (retry >= MaxLoadAttempts || _clock() >= _loading.Deadline)
+            { FailList(_loading.Recovery, NetworkManager.CreateError("Timeout", "우편함 조회를 완료하지 못했습니다.")); return; }
+            Fetch(_loading);
         }
-        private bool Current(ListRequest request) => _open && request.Version == _loadVersion && request.Account == _identity();
+        private bool Current(ListRequest request) => _open && request.Version == _loadVersion && request.Account == _identity() && request.Locale == _locale();
         private void Fetch(ListRequest request)
         {
             int start = request.Mails.Count;
-            _list(new OnGetMailListRequestDTO { StartIndex = start, Count = PageSize },
+            _list(new OnGetMailListRequestDTO { Locale = request.Locale, StartIndex = start, Count = PageSize },
                 response => ApplyList(request, start, response), error => RejectList(request, error));
         }
         private void ApplyList(ListRequest request, int start, OnGetMailListResponseDTO response)
         {
             if (!Current(request)) return;
+            if (_clock() >= request.Deadline)
+            { FailList(request.Recovery, NetworkManager.CreateError("Timeout", "우편함 조회 제한시간이 지났습니다.")); return; }
             if (request.Total < 0) { request.Total = response.TotalCount; request.MailboxId = response.MailboxId; }
             bool consistent = response.StartIndex == start && request.Total == response.TotalCount && request.MailboxId == response.MailboxId &&
                 response.Mails.Count == Math.Min(PageSize, Math.Max(0, request.Total - start)) && response.Mails.All(m => request.Ids.Add(m.MailId));
             if (!consistent)
             {
-                if (request.Retry == 0) Load(1, request.Recovery);
+                if (request.Retry == 0) Load(1, request.Recovery, request.Deadline);
                 else RejectList(request, NetworkManager.CreateError("InvalidResponse", "우편 목록이 변경되었습니다. 다시 불러와 주세요."));
                 return;
             }
             request.Mails.AddRange(response.Mails);
             _serverUtc = response.ServerTimeUtc; _observedAt = _clock();
             if (request.Mails.Count < request.Total) { Fetch(request); return; }
-            if (_refreshQueued) { Load(0, request.Recovery); return; }
+            if (_refreshQueued) { Load(request.Retry + 1, request.Recovery, request.Deadline); return; }
+            _loading = null;
             Messages = request.Mails.ToArray(); MailboxId = request.MailboxId; HasSnapshot = true;
             LastFailure = null; State = MailboxState.Ready;
             Debug.Log($"[Mail] list server={request.Total} cached={Messages.Count} recovery={request.Recovery}");
@@ -179,9 +229,19 @@ namespace KingdomIdle.Mailbox
         private void RejectList(ListRequest request, PlayFabError error)
         {
             if (!Current(request)) return;
+            string kind = NetworkManager.GetFailureKind(error);
+            bool retryable = kind == "Transport" || kind == "Timeout" ||
+                (NetworkManager.TryGetBusinessError(error, out var business) &&
+                 (business.ErrorCode == Protocol.Message.Data.eErrorCode.StorageFailure || business.ErrorCode == Protocol.Message.Data.eErrorCode.PlayerBusy));
+            if (retryable && request.Retry + 1 < MaxLoadAttempts && _clock() + .5 < request.Deadline)
+            { LastFailure = error; _retryAt = _clock() + .5; Notify(); return; }
+            FailList(request.Recovery, error);
+        }
+        private void FailList(bool recovery, PlayFabError error)
+        {
+            _loading = null; _loadVersion++; _retryAt = 0; _readyDeadline = 0; LoadFailed = true;
             LastFailure = error; HasSnapshot = false;
-            State = request.Recovery ? MailboxState.RecoveryRequired : MailboxState.Empty;
-            _retryAt = request.Recovery ? 0 : _clock() + 30;
+            State = recovery ? MailboxState.RecoveryRequired : MailboxState.Empty;
             Debug.LogWarning($"[Mail] list rejected kind={NetworkManager.GetFailureKind(error)} message={error?.ErrorMessage}");
             Notify();
         }
