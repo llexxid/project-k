@@ -120,7 +120,8 @@ namespace KingdomIdle.UGUI.Editor
                         {
                             Height(t.transform.parent, 44);
                             Height(t.transform.parent.parent, 48);
-                            t.color = UguiTheme.RusticBarDeep;
+                            t.color = UguiTheme.TextPrimary;
+                            t.fontSharedMaterial = CatalogGen.GetOrCreateUIOutlineMaterial();
                         }
                     }
                     break;

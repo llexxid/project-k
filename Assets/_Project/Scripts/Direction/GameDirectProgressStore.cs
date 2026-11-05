@@ -1,11 +1,16 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using KingdomIdle.Balance;
-using Newtonsoft.Json;
+using Protocol.Message.Dto;
+using Scripts.Core.Manager;
+using UnityEngine;
 
 namespace Direction
 {
-    /// <summary>계정 저장 안에 들어가는 안내 전용 상태다. 숫자 인덱스 대신 단계 ID를 저장해 순서 변경에 대비한다.</summary>
+    /// <summary>서버 안내 기록의 실행 복사본. 완료와 명시적 건너뛰기는 서버 IsFinished로 함께 저장한다.</summary>
     public sealed class GameDirectProgress
     {
         public int Version = 1;
@@ -21,83 +26,79 @@ namespace Direction
         };
     }
 
-    /// <summary>기존 내구 저장 경계를 재사용한다. 조회는 계정을 열거나 local-guest 상태를 생성하지 않는다.</summary>
+    /// <summary>로그인에서 받은 계정별 서버 진행만 읽는다. 옛 로컬 진행과 실습·지급 기록은 변경하지 않는다.</summary>
     public sealed class GameDirectProgressStore
     {
-        private const string Prefix = "game-direct:";
-#if UNITY_EDITOR
-        /// <summary>
-        /// 지정한 안내 ID의 진행·실습 성공·주화 지급 기록만 하나의 거래에서 지운다. Manager가 기존 실행 정리를 끝낸 뒤 호출한다.
-        /// 지급 키 제거로 다음 실습은 다시 지급·소비·획득한다. 현재 재화·강화·장비·스킬과 다른 안내·퀘스트 기록은 보존한다.
-        /// 계정 세대 불일치·잘못된 입력·저장 실패 시 false이며 기존 기록은 확정 상태로 유지한다.
-        /// </summary>
-        public bool ResetForTesting(IReadOnlyList<string> ids, long generation)
-        {
-            if (ids == null || ids.Count == 0 || !LocalProgression.IsReady || generation != LocalProgression.AccountGeneration) return false;
-            var selected = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var id in ids)
-            {
-                if (string.IsNullOrWhiteSpace(id)) return false;
-                selected.Add(id);
-            }
-            return LocalProgression.Execute("game-direct-test-reset", state =>
-            {
-                if (generation != LocalProgression.AccountGeneration) return false;
-                var removals = new List<string>();
-                foreach (string id in selected)
-                {
-                    state.Modules.Remove(Prefix + id);
-                    string actionPrefix = "game-direct-action:" + id + ":";
-                    foreach (var key in state.Modules.Keys)
-                        if (key.StartsWith(actionPrefix, StringComparison.Ordinal)) removals.Add(key);
-                    string grantPrefix = "game-direct-grant:" + id + ":";
-                    state.Claims.RemoveWhere(key => key.StartsWith(grantPrefix, StringComparison.Ordinal));
-                }
-                foreach (var key in removals) state.Modules.Remove(key);
-                return true;
-            });
-        }
-#endif
+        public const string NotReadyMessage = "튜토리얼 서버 연동을 준비 중입니다. 진행 정보를 받을 때 안내를 이어갑니다.";
+        private static Dictionary<string, TutorialProgressDTO> _records;
+        private static NetworkManager _network;
+        private static long _accountGeneration = -1, _networkGeneration = -1;
+        public static bool Available => _records != null && IsCurrent(_accountGeneration, _networkGeneration);
+        public static bool IsCurrent(long account, long network) => account == LocalProgression.AccountGeneration &&
+            _network != null && _network == NetworkManager.Instance && network == _network.AccountGeneration && _network.IsGameDataReady;
 
-        /// <summary>준비된 동일 계정의 안내 상태를 읽는다. 손상/새 버전은 처음 상태로 덮어쓰지 않고 거절한다.</summary>
+        /// <summary>null은 미배포/미조회이며 빈 기록과 다르다. 실패한 로그인은 이 메서드를 호출하지 않는다.</summary>
+        public static void ReceiveServerState(List<TutorialProgressDTO> records)
+        {
+            _network = NetworkManager.Instance;
+            _accountGeneration = LocalProgression.AccountGeneration;
+            _networkGeneration = _network != null ? _network.AccountGeneration : -1;
+            _records = records != null && records.Count <= 32 && records.All(Valid) &&
+                records.Select(x => x.SequenceId).Distinct(StringComparer.Ordinal).Count() == records.Count
+                ? records.ToDictionary(x => x.SequenceId, Copy, StringComparer.Ordinal) : null;
+        }
+
+        /// <summary>서버 스냅샷에 해당 ID가 없는 경우에만 처음부터 시작한다. 로컬 저장을 열거나 읽지 않는다.</summary>
         public bool TryLoad(string id, long generation, out GameDirectProgress progress)
         {
             progress = null;
-            if (LocalProgression.AccountGeneration != generation || !LocalProgression.TryGetCommittedState(out var state))
-                return false;
-            if (!state.Modules.TryGetValue(Prefix + id, out string raw))
-            { progress = new GameDirectProgress(); return true; }
-            try
-            {
-                progress = JsonConvert.DeserializeObject<GameDirectProgress>(raw);
-                return progress != null && progress.Version == 1 && progress.ConfirmedSteps != null;
-            }
-            catch (JsonException) { return false; }
+            if (!Available || generation != _accountGeneration || !ValidId(id)) return false;
+            progress = _records.TryGetValue(id, out var record)
+                ? new GameDirectProgress { ConfirmedSteps = new List<string>(record.ConfirmedSteps), Completed = record.IsFinished }
+                : new GameDirectProgress();
+            return true;
         }
 
-        /// <summary>계정 세대를 거래 안에서도 확인한다. Ensure로 계정이 바뀌거나 늦은 응답이 도착해도 저장하지 않는다.</summary>
-        public bool TrySave(string id, long generation, GameDirectProgress progress)
+        /// <summary>합집합/종료 OR 저장은 응답 유실 후 같은 입력을 재전송해도 지급·소비하지 않는다.</summary>
+        public async UniTask<bool> TrySaveAsync(string id, long generation, GameDirectProgress progress, CancellationToken token)
         {
-            if (!LocalProgression.IsReady || LocalProgression.AccountGeneration != generation) return false;
-            return LocalProgression.Execute("game-direct-progress", state =>
+            token.ThrowIfCancellationRequested();
+            if (!Available || generation != _accountGeneration || progress?.ConfirmedSteps == null) return false;
+            var request = new TutorialProgressDTO
             {
-                if (LocalProgression.AccountGeneration != generation) return false;
-                var merged = progress.Copy();
-                // 입력 대기 중 확정된 정보를 과거 복사본으로 되돌리지 않는다. 거래의 최신 초안에서 단계·종료 상태를 합친다.
-                if (state.Modules.TryGetValue(Prefix + id, out string raw))
+                SequenceId = id, ConfirmedSteps = new List<string>(progress.ConfirmedSteps),
+                IsFinished = progress.Completed || progress.Skipped
+            };
+            if (!Valid(request)) return false;
+            long networkGeneration = _networkGeneration;
+            var completion = new UniTaskCompletionSource<bool>();
+            _network.Call<OnSaveTutorialProgressRequestDTO, OnSaveTutorialProgressResponseDTO>(
+                new OnSaveTutorialProgressRequestDTO { Progress = request },
+                response => completion.TrySetResult(AcceptSavedProgress(request, response.Progress, generation, networkGeneration)),
+                error =>
                 {
-                    GameDirectProgress latest;
-                    try { latest = JsonConvert.DeserializeObject<GameDirectProgress>(raw); }
-                    catch (JsonException) { return false; }
-                    if (latest == null || latest.Version != 1 || latest.ConfirmedSteps == null) return false;
-                    foreach (string step in latest.ConfirmedSteps)
-                        if (!merged.ConfirmedSteps.Contains(step)) merged.ConfirmedSteps.Add(step);
-                    merged.Skipped |= latest.Skipped;
-                    merged.Completed = !merged.Skipped && (merged.Completed || latest.Completed);
-                }
-                state.Modules[Prefix + id] = JsonConvert.SerializeObject(merged);
-                return true;
-            });
+                    Debug.LogWarning("[GameDirect] 서버 진행 저장 실패: " + NetworkManager.DescribeFailure(error, "튜토리얼 저장"));
+                    completion.TrySetResult(false);
+                });
+            return await completion.Task.AttachExternalCancellation(token);
         }
+
+        internal static bool AcceptSavedProgress(TutorialProgressDTO sent, TutorialProgressDTO saved, long account, long network)
+        {
+            if (!Available || !IsCurrent(account, network) || !Valid(sent) || !Valid(saved) || !Contains(saved, sent) ||
+                (_records.TryGetValue(sent.SequenceId, out var latest) && !Contains(saved, latest))) return false;
+            _records[sent.SequenceId] = Copy(saved);
+            return true;
+        }
+
+        private static bool Contains(TutorialProgressDTO saved, TutorialProgressDTO expected) =>
+            saved.SequenceId == expected.SequenceId && (!expected.IsFinished || saved.IsFinished) &&
+            expected.ConfirmedSteps.All(saved.ConfirmedSteps.Contains);
+        private static TutorialProgressDTO Copy(TutorialProgressDTO source) => new()
+        { SequenceId = source.SequenceId, ConfirmedSteps = new List<string>(source.ConfirmedSteps), IsFinished = source.IsFinished };
+        internal static bool ValidId(string id) => !string.IsNullOrEmpty(id) && id.Length <= 64 && !id.Any(c => char.IsWhiteSpace(c) || char.IsControl(c));
+        private static bool Valid(TutorialProgressDTO record) => record != null && ValidId(record.SequenceId) && record.ConfirmedSteps != null &&
+            record.ConfirmedSteps.Count <= 128 && record.ConfirmedSteps.All(ValidId) &&
+            record.ConfirmedSteps.Distinct(StringComparer.Ordinal).Count() == record.ConfirmedSteps.Count;
     }
 }

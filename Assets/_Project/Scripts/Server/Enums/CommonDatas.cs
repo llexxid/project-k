@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 
 namespace Protocol.Message.Data
 {
+	public enum eStageClearAction { Advance = 0, Repeat = 1 }
 	public struct DropResult
 	{
 		public long Gold { get; set; }
@@ -123,6 +124,19 @@ namespace Protocol.Message.Data
         // 광고 종류(AdType)가 없거나, 상점 광고 상품 id가 정의에 없거나, 오프라인 2배에 상품 id를 보냈다.
         InvalidAdRequest = 1050,
         OfflineAdBonusNotAvailable = 1051,
+        InvalidRubyGrowthType = 1052,
+        RubyGrowthLocked = 1053,
+        InsufficientRuby = 1054,
+        RubyGrowthMaxLevel = 1055,
+        RubyExperienceMaxLevel = 1056,
+        RubyResetUnavailable = 1057,
+        RubyResetDailyLimit = 1058,
+        RubyResetNotAllowed = 1059,
+        InvalidRubyRequest = 1060,
+        RubyRequestConflict = 1061,
+        RubyRequestOutdated = 1062,
+        RubyRequestSequenceMismatch = 1063,
+        RubyExpectedLevelMismatch = 1064,
 	}
 
 	public enum eConst

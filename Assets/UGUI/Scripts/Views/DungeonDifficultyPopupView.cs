@@ -34,9 +34,20 @@ namespace KingdomIdle.UGUI
         private static readonly Dictionary<eStage, int> LastSelection = new();
         [System.NonSerialized] private eStage dungeonKey;
         private bool entryPending;
+        private int displayedTickets = -1, displayedRubyClear = -1;
+
+        private void OnEnable() => KingdomIdle.Balance.LocalProgression.Changed += RefreshSelection;
+        private void RefreshSelection()
+        {
+            if (selectedStageId == default || entryPending) return;
+            var state = KingdomIdle.Balance.LocalProgression.State;
+            int tickets = KingdomIdle.Balance.BattleEconomy.Tickets(StageParser.GetStageType(selectedStageId));
+            if (tickets != displayedTickets || state.RubyDungeonClear != displayedRubyClear) SelectDifficulty(selectedDifficulty);
+        }
 
         private void OnDisable()
         {
+            KingdomIdle.Balance.LocalProgression.Changed -= RefreshSelection;
             StopAllCoroutines();
             entryPending = false;
         }
@@ -176,15 +187,17 @@ namespace KingdomIdle.UGUI
             selectedStageId = stageIdsByNumber.TryGetValue(stage, out eStage stageId)
                 ? stageId
                 : default;
+            displayedTickets = KingdomIdle.Balance.BattleEconomy.Tickets(StageParser.GetStageType(selectedStageId));
+            displayedRubyClear = KingdomIdle.Balance.LocalProgression.State.RubyDungeonClear;
             if (enterButton != null)
-                enterButton.interactable = selectedStageId != default && KingdomIdle.Balance.BattleEconomy.Tickets(StageParser.GetStageType(selectedStageId)) > 0;
+                enterButton.interactable = selectedStageId != default && displayedTickets > 0;
             if (selectedDifficultyLabel != null)
-                selectedDifficultyLabel.text = $"{selectedDifficulty}단계 · 입장권 {KingdomIdle.Balance.BattleEconomy.Tickets(StageParser.GetStageType(selectedStageId))}/2";
+                selectedDifficultyLabel.text = $"{selectedDifficulty}단계 · 입장권 {displayedTickets}/2";
             if(description!=null)
             {
                 bool gold=StageParser.GetStageType(selectedStageId)==eStageType.GoldDungeon;
                 long reward=Scripts.Core.StageCatalogRules.DungeonReward(gold,selectedDifficulty);
-                bool first=!KingdomIdle.Balance.LocalProgression.State.Claims.Contains("ruby-first:"+selectedDifficulty);
+                bool first=selectedDifficulty > KingdomIdle.Balance.LocalProgression.State.RubyDungeonClear;
                 description.text=gold?$"60초 · 20체 · 최대 {NumberNotation.Format(reward)} 골드\n중단해도 처치 보상 유지 · 매일 00시 충전":$"보스 3체 · 각 30초 · {NumberNotation.Format(reward)} 루비"+(first?$" + 첫 클리어 {25*selectedDifficulty}":"")+"\n3체 모두 처치 시 지급 · 매일 00시 충전";
             }
 

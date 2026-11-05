@@ -18,6 +18,23 @@ namespace KingdomIdle.OfflineRewards
         public bool IsBusy { get; private set; }
         public PlayFabError LastFailure { get; private set; }
         private bool _ready;
+        private OfflineRewardClaimResult _pendingAdBonus;
+        private long _networkGeneration = -1;
+
+        private void OnEnable() => LocalProgression.AccountChanged += ResetClaims;
+        private void OnDisable() => LocalProgression.AccountChanged -= ResetClaims;
+
+        private void ResetClaims()
+        {
+            IsBusy = false;
+            LastFailure = null;
+            InvalidateClaim();
+            // 재로그인은 이전 네트워크 콜백을 폐기하므로 대기 플래그도 함께 해제한다.
+            var pending = _pendingAdBonus;
+            _pendingAdBonus = null;
+            AdBonusBusy = false;
+            if (pending != null) AdBonusCompleted?.Invoke(pending, RewardStatus.Stale, null);
+        }
 
         /// <summary>메인 진입 때 호출한다. 정산이 끝나면(거절·실패 포함) onCompleted를 불러 스테이지를 시작한다.</summary>
         public void TryClaim(eStage stageId, Action onCompleted)
@@ -34,8 +51,14 @@ namespace KingdomIdle.OfflineRewards
 
         private void Claim(Action onCompleted)
         {
-            if (IsBusy) { onCompleted?.Invoke(); return; }
             var network = NetworkManager.Instance;
+            long generation = network?.AccountGeneration ?? -1;
+            if (_networkGeneration != generation)
+            {
+                ResetClaims();
+                _networkGeneration = generation;
+            }
+            if (IsBusy) { onCompleted?.Invoke(); return; }
             if (network == null || !network.IsGameDataReady)
             {
                 Debug.LogWarning("[Offline] claim skipped: server login is not ready");
@@ -62,18 +85,17 @@ namespace KingdomIdle.OfflineRewards
                 s.LastActiveUtc = LocalProgression.UtcNow;
                 return true;
             });
-            IsBusy = false;
             var state = LocalProgression.State;
             Debug.Log($"[Offline] claim kpm={kpm} elapsed={r.ElapsedSeconds} applied={r.AppliedSeconds} kills={r.KillCount} gold={r.GainedGold} exp={r.GainedExp}" +
                 $" | server Level={r.Level} Exp={r.Exp} Gold={r.Currency?.Gold} | state Level={state.AccountLevel} Exp={state.Experience} Gold={LocalProgression.Balance(eCurrency.Gold)} | saved={saved}");
-            StageManager.Instance?.ReleaseHunts();
             if (!saved)
             {
+                InvalidateClaim();
                 Direction.GameDirectInteraction.ReportSaveFailure();
                 LastFailure = NetworkManager.CreateError("ApplyFailed", "서버 오프라인 보상 결과를 저장하지 못했습니다: " + LocalProgression.LastError);
                 UIManager.Instance?.ShowToast("오프라인 보상 결과를 저장하지 못했습니다. 다시 로그인하면 서버 값으로 맞춰집니다.");
             }
-            else if (r.KillCount > 0)
+            else if (r.GainedGold > 0 || r.GainedExp > 0)
             {
                 // 팝업은 서버가 돌려준 정산 값만 보여 준다.
                 var plan = new OfflineRewardPlan
@@ -86,29 +108,56 @@ namespace KingdomIdle.OfflineRewards
                     state.AccountLevel, state.Experience, state.Kills);
                 OfflineRewardPopupController.Show(LastClaimResult);
             }
-            onCompleted?.Invoke();
+            FinishClaim(onCompleted);
         }
 
         private void RejectServerResult(decimal kpm, PlayFabError error, Action onCompleted)
         {
-            IsBusy = false;
             LastFailure = error;
             string kind = NetworkManager.GetFailureKind(error);
             int code = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0;
             Debug.LogWarning($"[Offline] claim rejected kpm={kpm} code={code} kind={kind} message={error?.ErrorMessage}");
-            if (kind == "Timeout" || kind == "Transport")
+            if (kind != "Business" && kind != "InvalidRequest" && kind != "NotAuthenticated" && kind != "IntegrationPending")
             {
-                // 응답 유실: 서버가 이미 정산했을 수 있다. 상태를 다시 받아 적용한 뒤 게임을 계속한다.
-                UserManager.Instance?.RefreshFromServer(ok =>
-                {
-                    StageManager.Instance?.ReleaseHunts();
-                    onCompleted?.Invoke();
-                });
+                // 정산 성공 여부가 불명확하면 이전 광고로 새 보상을 청구하지 않는다.
+                InvalidateClaim();
+                var users = UserManager.Instance;
+                if (users != null) users.RefreshFromServer(_ => FinishClaim(onCompleted));
+                else FinishClaim(onCompleted);
                 return;
             }
-            StageManager.Instance?.ReleaseHunts();
             if (kind == "Business") UIManager.Instance?.ShowToast(NetworkManager.DescribeFailure(error, "오프라인 보상"));
+            FinishClaim(onCompleted);
+        }
+
+        private static void InvalidateClaim()
+        {
+            LastClaimResult = null;
+            OfflineRewardPopupController.Hide();
+        }
+
+        private void FinishClaim(Action onCompleted)
+        {
+            IsBusy = false;
+            StageManager.Instance?.ReleaseHunts();
+            var pending = _pendingAdBonus;
+            _pendingAdBonus = null;
+            if (pending != null)
+            {
+                AdBonusBusy = false;
+                var status = TryGrantAdBonus(pending);
+                if (status != RewardStatus.Pending) AdBonusCompleted?.Invoke(pending, status, null);
+            }
             onCompleted?.Invoke();
+        }
+
+        private void OnDestroy()
+        {
+            if (_pendingAdBonus == null) return;
+            var pending = _pendingAdBonus;
+            _pendingAdBonus = null;
+            AdBonusBusy = false;
+            AdBonusCompleted?.Invoke(pending, RewardStatus.Stale, null);
         }
 
         public static bool IsCurrentAccount(OfflineRewardClaimResult result)
@@ -133,6 +182,8 @@ namespace KingdomIdle.OfflineRewards
 
         /// <summary>팝업에 넘긴 가장 최근 정산(E2E 하네스가 광고 2배 요청에 쓴다).</summary>
         public static OfflineRewardClaimResult LastClaimResult { get; private set; }
+        public static bool IsLatestClaim(OfflineRewardClaimResult result) =>
+            ReferenceEquals(LastClaimResult, result) && IsCurrentAccount(result);
         public static bool AdBonusBusy { get; private set; }
         /// <summary>광고 2배 요청 결과. Success는 지급(또는 이미 지급됨), NothingAvailable은 받을 정산 없음, SaveFailed는 다시 시도 가능. 메시지가 있으면 그 문구를 보여 준다.</summary>
         public static event Action<OfflineRewardClaimResult, RewardStatus, string> AdBonusCompleted;
@@ -140,10 +191,17 @@ namespace KingdomIdle.OfflineRewards
         /// <summary>서버에 광고 2배를 요청한다. 결과는 AdBonusCompleted로 온다(Pending). 서버가 정산 1회만 지급하므로 실패 뒤 다시 불러도 두 번 받지 않는다.</summary>
         public static RewardStatus TryGrantAdBonus(OfflineRewardClaimResult result)
         {
-            if (!IsCurrentAccount(result)) return RewardStatus.Stale;
+            if (!IsLatestClaim(result)) return RewardStatus.Stale;
             var network = NetworkManager.Instance;
             if (AdBonusBusy || network == null || !network.IsGameDataReady) return RewardStatus.NotReady;
             AdBonusBusy = true;
+            var manager = GameManager.Instance?.OfflineReward;
+            if (manager != null && manager.IsBusy)
+            {
+                // 복귀 정산이 끝나야 이 광고가 여전히 최신 보상의 광고인지 알 수 있다.
+                manager._pendingAdBonus = result;
+                return RewardStatus.Pending;
+            }
             network.Call<OnClaimAdRewardRequestDTO, OnClaimAdRewardResponseDTO>(new OnClaimAdRewardRequestDTO { AdType = Protocol.Message.Data.eAdType.OfflineBonus },
                 response => ApplyAdBonus(result, response), error => RejectAdBonus(result, error));
             return RewardStatus.Pending;
@@ -186,13 +244,6 @@ namespace KingdomIdle.OfflineRewards
             // 거절(1051 받을 정산 없음 등): 서버는 저장하지 않았다. 다시 보내도 같다.
             AdBonusBusy = false;
             AdBonusCompleted?.Invoke(result, RewardStatus.NothingAvailable, message);
-        }
-
-        /// <summary>에디터 QA(OfflineRewardAdAcceptance)가 컴파일되도록 남긴 스텁이다. 정산은 서버(OnClaimOfflineReward)가 하므로 로컬 정산 QA는 더 이상 유효하지 않다.</summary>
-        internal static bool Claim(out OfflineRewardClaimResult result)
-        {
-            result = null;
-            return false;
         }
     }
 }

@@ -104,15 +104,11 @@ namespace KingdomIdle.Balance
             Check(QuestEconomy.Claim(10001) && LocalProgression.Balance(eCurrency.AncientCoin)==50 && !QuestEconomy.Claim(10001),"Guide payout exactly once");
             Check(LocalProgression.Execute("test-reinc",s=>{s.CycleBossStage=3;s.CycleStartedUtc=LocalProgression.UtcNow-601;s.PendingReincarnation=true;Reincarnation.ReincarnationService.CommitAtBoundary(s,"test-battle");return true;}),"Reincarnation atomic commit");
             Check(LocalProgression.State.ReincarnationLevel==15 && LocalProgression.State.CycleBossStage==0 && LocalProgression.State.MainStage==0x200010001 && LocalProgression.State.MainClears.Contains(0x200010001),"Reincarnation keeps permanent first-clear ledger");
-            var reset=new ProgressionState{RubyGoldLevel=3,RubyExpLevel=2,RubyGoldSpent=65,RubyExpSpent=42,PendingRubyReset=1,BestRubyGoldLevel=3};
-            RubyProgression.CommitReset(reset);
-            Check(reset.RubyGoldLevel==0 && reset.RubyExpLevel==2 && reset.Wallet[eCurrency.Ruby]==52 && reset.BestRubyGoldLevel==3,"Ruby reset refunds 80% of selected actual spend and preserves best");
-            reset.PendingRubyReset=2;RubyProgression.CommitReset(reset);
-            Check(reset.RubyExpLevel==2 && reset.Wallet[eCurrency.Ruby]==52,"Second ruby reset same KST day does not refund");
+            Check(RubyServerAcceptance.Run().Count > 0,"Server ruby state, retry identity and durable result acceptance");
             Check(QuestEconomy.DynamicGold(new ProgressionState{OfflineStage=0x200010001,OfflineKpm=3.25m,RubyGoldLevel=1})==66.3m,"Dynamic quest gold retains fractional income");
             LocalProgression.Execute("qa-ruby-setup",s=>{s.MainClears.Add(0x200020005);s.AccountLevel=200;s.Experience=0;s.Wallet[eCurrency.Ruby]=100;return true;});
             Check(!RubyProgression.Enhance(true) && LocalProgression.Balance(eCurrency.Ruby)==100,"EXP ruby purchase blocked at account cap without charge");
-            Check(RubyProgression.Enhance(false) && LocalProgression.Balance(eCurrency.Ruby)==80 && LocalProgression.State.RubyGoldSpent==20,"Gold ruby purchase records exact expenditure");
+            Check(!RubyProgression.Enhance(false) && LocalProgression.Balance(eCurrency.Ruby)==100,"Unconfirmed server capability cannot spend ruby locally");
             var manager=EquipmentManager.Instance;
             if(manager!=null)
             {

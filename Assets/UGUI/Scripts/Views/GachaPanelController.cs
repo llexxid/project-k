@@ -203,11 +203,10 @@ namespace KingdomIdle.UGUI
             if (c.messageLabel != null) c.messageLabel.gameObject.SetActive(false);
 
             // 보유/비용 바 (.gacha-cost: 26px gold)
-            EconomyBridge.TryGetAmount(table.costCurrency, out long current);
             if (c.costLabel != null) c.costLabel.gameObject.SetActive(true);
 
             // 뽑기 버튼 행 — 크고 명확한 프리팹 버튼 (Item_GachaPullButton)
-            BuildPullRow(c, table, current);
+            BuildPullRow(c, table);
             UpdateWallet();
 #if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
             Debug.Log($"[GachaTiming] controls {contentTimer.Elapsed.TotalMilliseconds:F2} ms");
@@ -215,22 +214,20 @@ namespace KingdomIdle.UGUI
 
         }
 
-        private static void BuildPullRow(GachaTabContentView c, GachaTableSO table, long current)
+        private static void BuildPullRow(GachaTabContentView c, GachaTableSO table)
         {
             if (c.pullRow == null) return;
             c.pullRow.gameObject.SetActive(true);
 
-            bool pulling = GachaManager.Instance != null && GachaManager.Instance.IsPulling;
+            var manager = GachaManager.Instance;
             var cat = UIManager.Instance != null ? UIManager.Instance.Catalog : null;
-            string curLabel = RewardPresentation.Name(table.costCurrency);
 
             if (cat == null || cat.itemGachaPullButton == null) return;
 
             for (int i = 0; i < PullCounts.Length; i++)
             {
                 int count = PullCounts[i];
-                long totalCost = (long)table.costAmount * count;
-                bool disabled = !table.isImplemented || current < totalCost || pulling || _flaringPull;
+                bool available = !_flaringPull && manager != null && manager.CanPullMulti(table, count);
 
                 var capturedTable = table;
 
@@ -239,7 +236,7 @@ namespace KingdomIdle.UGUI
                 if (pull == null) continue;
 
                 string title = count == 1 ? "1회 뽑기" : $"{count}연 뽑기";
-                pull.Set(title, $"{NumberNotation.Format(totalCost)} {curLabel}", !disabled, cat.iconChest);
+                pull.Set(title, RewardPresentation.GachaCost(manager, table, count), available, cat.iconChest);
                 pull.Button.onClick.AddListener(() => OnPullClicked(capturedTable, count, pull));
                 if (count == 1) FeatureGuideAnchor.Bind(pull.Button, IsSkillTable(table) ? Direction.GameDirectTarget.SkillPullOnce : Direction.GameDirectTarget.EquipmentPullOnce);
                 _activePullButtons.Add(pull.Button);
@@ -267,8 +264,8 @@ namespace KingdomIdle.UGUI
             {
                 var button=_activePullButtons[i];
                 if(button==null)continue;
-                int count=PullCounts[i]; long cost=(long)_contentTable.costAmount*count;
-                button.GetComponent<GachaPullButtonView>()?.Set(count==1?"1회 뽑기":$"{count}연 뽑기",$"{NumberNotation.Format(cost)} {RewardPresentation.Name(_contentTable.costCurrency)}",!pulling && GachaManager.Instance != null && GachaManager.Instance.CanPullMulti(_contentTable,count));
+                int count=PullCounts[i];
+                button.GetComponent<GachaPullButtonView>()?.Set(count==1?"1회 뽑기":$"{count}연 뽑기",RewardPresentation.GachaCost(GachaManager.Instance,_contentTable,count),!pulling && GachaManager.Instance != null && GachaManager.Instance.CanPullMulti(_contentTable,count));
             }
         }
 
@@ -467,14 +464,20 @@ namespace KingdomIdle.UGUI
             if (_flaringPull) return;
             if (!IsSkillTable(table)) { PullAndShowResult(table, count); return; }
             long guideEpoch = Direction.GameDirectInteraction.Epoch;
-            bool guided = Direction.GameDirectInteraction.Step != null;
+            bool guided = Direction.GameDirectInteraction.OwnsInput;
+            long accountGeneration = KingdomIdle.Balance.LocalProgression.AccountGeneration;
+            var network = Scripts.Core.Manager.NetworkManager.Instance;
+            long networkGeneration = network != null ? network.AccountGeneration : -1;
             _flaringPull = true;
             UpdateWallet();
             pull.PlayMageFlare(
                 () => {
                     _flaringPull = false;
                     // 연출 중 취소·계정 전환·로딩이 발생했으면 지연 콜백에서 새 계정 재화를 소비하지 않는다.
-                    if (!guided || (guideEpoch == Direction.GameDirectInteraction.Epoch && Direction.GameDirectInteraction.Armed)) PullAndShowResult(table, count);
+                    if (accountGeneration == KingdomIdle.Balance.LocalProgression.AccountGeneration &&
+                        network == Scripts.Core.Manager.NetworkManager.Instance && (network == null || networkGeneration == network.AccountGeneration) &&
+                        guideEpoch == Direction.GameDirectInteraction.Epoch &&
+                        (!guided || (Direction.GameDirectInteraction.CurrentAccount && Direction.GameDirectInteraction.Armed))) PullAndShowResult(table, count);
                     else UpdateWallet();
                 },
                 () => { _flaringPull = false; UpdateWallet(); });

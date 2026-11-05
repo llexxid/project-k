@@ -141,7 +141,7 @@ namespace KingdomIdle.UGUI
 
             RefreshPreview();
             if (result == ReincarnationExecutionResult.StorageUnavailable)
-                UIManager.Instance?.ShowToast("서버 로그인이 필요합니다.");
+                UIManager.Instance?.ShowToast(service.LastFailure?.ErrorMessage ?? "서버 로그인이 필요합니다.");
             else if (result == ReincarnationExecutionResult.AlreadyProcessing)
                 UIManager.Instance?.ShowToast("환생 요청을 처리 중입니다.");
         }

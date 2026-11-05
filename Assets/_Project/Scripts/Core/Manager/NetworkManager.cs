@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using IdleKingdomFunction.Common;
@@ -89,12 +90,13 @@ namespace Scripts.Core.Manager
         // Managed initialization runs once on the surviving singleton.
         private void Init()
         {
-            _functions = new Dictionary<Type, (string, Type)>(41)
+            _functions = new Dictionary<Type, (string, Type)>(47)
             {
                 [typeof(InitUserRequestDTO)] = ("OnSignUpInitUser", typeof(UserInitResponseDTO)),
                 [typeof(AuthRequestDTO)] = ("OnLogIn", typeof(UserInitResponseDTO)),
                 [typeof(OnRewardRequestDTO)] = ("OnHuntReward", typeof(OnHuntResponseDTO)),
                 [typeof(OnStageClearRequestDTO)] = ("OnStageClear", typeof(OnStageClearResponseDTO)),
+                [typeof(OnChangeMainStageRequestDTO)] = ("OnChangeMainStage", typeof(OnChangeMainStageResponseDTO)),
                 [typeof(OnGachaEquipmentClassFragmentRequestDTO)] = ("OnGachaEquipmentClassFragment", typeof(OnGachaEquipmentClassFragmentResponseDTO)),
                 [typeof(OnGachaSkillArcaneKnowledgeRequestDTO)] = ("OnGachaSkillArcaneKnowledge", typeof(OnGachaSkillArcaneKnowledgeResponseDTO)),
                 [typeof(OnEnchantHPRequestDTO)] = ("OnEnChantHP", typeof(OnEnchantResponseDTO)),
@@ -118,6 +120,8 @@ namespace Scripts.Core.Manager
                 [typeof(OnSetSkillLoadoutRequestDTO)] = ("OnSetSkillLoadout", typeof(OnSetSkillLoadoutResponseDTO)),
                 [typeof(OnSetSkillBloomRequestDTO)] = ("OnSetSkillBloom", typeof(OnSetSkillBloomResponseDTO)),
                 [typeof(OnResetSkillEnhancementRequestDTO)] = ("OnResetSkillEnhancement", typeof(OnResetSkillEnhancementResponseDTO)),
+                [typeof(OnEnchantRubyRequestDTO)] = ("OnEnchantRuby", typeof(OnEnchantRubyResponseDTO)),
+                [typeof(OnResetRubyEnhancementRequestDTO)] = ("OnResetRubyEnhancement", typeof(OnResetRubyEnhancementResponseDTO)),
                 [typeof(OnEnterDungeonRequestDTO)] = ("OnEnterDungeon", typeof(OnEnterDungeonResponseDTO)),
                 [typeof(OnCompleteDungeonRequestDTO)] = ("OnCompleteDungeon", typeof(OnCompleteDungeonResponseDTO)),
                 [typeof(OnExitDungeonRequestDTO)] = ("OnExitDungeon", typeof(OnExitDungeonResponseDTO)),
@@ -133,6 +137,7 @@ namespace Scripts.Core.Manager
                 [typeof(OnCheckAttendanceRequestDTO)] = ("OnCheckAttendance", typeof(OnCheckAttendanceResponseDTO)),
                 [typeof(OnClaimAttendanceRewardRequestDTO)] = ("OnClaimAttendanceReward", typeof(OnClaimAttendanceRewardResponseDTO)),
                 [typeof(OnClaimGuideRewardRequestDTO)] = ("OnClaimGuideReward", typeof(OnClaimGuideRewardResponseDTO)),
+                [typeof(OnSaveTutorialProgressRequestDTO)] = ("OnSaveTutorialProgress", typeof(OnSaveTutorialProgressResponseDTO)),
                 [typeof(OnClaimAdRewardRequestDTO)] = ("OnClaimAdReward", typeof(OnClaimAdRewardResponseDTO))
             };
             _authentication = new Authentication(this);
@@ -211,6 +216,7 @@ namespace Scripts.Core.Manager
             where TRequest : RequestDTO where TResponse : ApiResponseDTO
         {
             ExecuteFunctionRequest cloudFunction;
+            string rubyRequestId = (request as RubyGrowthRequestDTO)?.RequestId;
             try { cloudFunction = CreateFunctionRequest<TRequest, TResponse>(request, _sessionGUID, _context); }
             catch (Exception ex) when (ex is ArgumentException || ex is JsonException)
             {
@@ -255,6 +261,11 @@ namespace Scripts.Core.Manager
                 if (!TryReadResponse<TResponse>(cloudFunction.FunctionName, result, out var response, out var failure))
                 {
                     Fail(failure);
+                    return;
+                }
+                if (response is RubyActionResponseDTO ruby && ruby.RequestId != rubyRequestId)
+                {
+                    Fail(CreateError("InvalidResponse", "루비 요청과 응답이 일치하지 않습니다.", cloudFunction.FunctionName));
                     return;
                 }
                 completed = true;
@@ -305,6 +316,9 @@ namespace Scripts.Core.Manager
 
             // Retain an independent payload if the caller clears/reuses a collection after Call.
             var payload = JsonConvert.DeserializeObject<TRequest>(JsonConvert.SerializeObject(request));
+            if (payload is RubyGrowthRequestDTO ruby && (!TryParseRubyRequestId(ruby.RequestId, out _) ||
+                ruby.ExpectedLevel < 0 || ruby.ExpectedLevel > 50 || (ruby.Type != RubyGrowthType.Gold && ruby.Type != RubyGrowthType.Exp)))
+                throw new ArgumentException("루비 요청 ID·강화 종류·예상 레벨을 확인해 주세요.");
             payload.ProtocolVersion = ApiVersions.ProtocolVersion;
             if (payload is SessionRequestDTO session) session.SessionID = sessionGuid;
             // The server rejects a mailbox request whose PlayFabId is not the caller's, so always send the signed-in account.
@@ -395,7 +409,34 @@ namespace Scripts.Core.Manager
                     throw new JsonSerializationException("Invalid ad reward state.");
                 ValidateEquipment(user.Equipment);
                 ValidateQuests(user.Quests);
+                if (user.RubyGrowthState != null) ValidateRubyGrowth(user.RubyGrowthState);
+                if (user.Tutorials != null)
+                {
+                    if (user.Tutorials.Count > 32) throw new JsonSerializationException("Too many tutorial records.");
+                    foreach (var tutorial in user.Tutorials) ValidateTutorialProgress(tutorial);
+                    if (user.Tutorials.Select(x => x.SequenceId).Distinct(StringComparer.Ordinal).Count() != user.Tutorials.Count)
+                        throw new JsonSerializationException("Duplicate tutorial records.");
+                }
             }
+            if (response is OnSaveTutorialProgressResponseDTO savedTutorial) ValidateTutorialProgress(savedTutorial.Progress);
+            if (response is OnChangeMainStageResponseDTO moved)
+            {
+                var stage = moved.StageState;
+                if (stage == null || !ValidMainStage((long)stage.CurrentStage) || !ValidMainStage((long)stage.HighestStage) ||
+                    (long)stage.CurrentStage > (long)stage.HighestStage || ((long)stage.MainClear != 0 && !ValidMainStage((long)stage.MainClear)))
+                    throw new JsonSerializationException("Invalid main stage state.");
+            }
+            if (response is RubyActionResponseDTO rubyAction)
+            {
+                ValidateRubyGrowth(rubyAction.RubyGrowthState);
+                if (!TryParseRubyRequestId(rubyAction.RequestId, out long sequence) || sequence == long.MaxValue ||
+                    rubyAction.RubyGrowthState.NextRequestSequence != sequence + 1)
+                    throw new JsonSerializationException("Invalid ruby response sequence.");
+            }
+            if (response is OnEnchantRubyResponseDTO rubyEnchant && (rubyEnchant.SpentRuby <= 0 || rubyEnchant.CurrentRuby < 0))
+                throw new JsonSerializationException("Invalid ruby enhancement result.");
+            if (response is OnResetRubyEnhancementResponseDTO rubyReset && (rubyReset.RefundedRuby < 0 || rubyReset.CurrentRuby < 0))
+                throw new JsonSerializationException("Invalid ruby reset result.");
             if (response is OnHuntResponseDTO hunt)
             {
                 if (hunt.Level < 1 || hunt.Exp < 0 || hunt.KillScore < 0 || hunt.Gold < 0 || hunt.AncientCoin < 0)
@@ -485,6 +526,42 @@ namespace Scripts.Core.Manager
                 }
             }
             ValidateMailboxResponse(response);
+        }
+
+        internal static void ValidateRubyGrowth(RubyGrowthStateDTO growth)
+        {
+            if (growth == null || growth.NextRequestSequence < 1 || growth.GoldLevel < 0 || growth.GoldLevel > 50 ||
+                growth.ExpLevel < 0 || growth.ExpLevel > 50 || growth.GoldSpent < 0 || growth.ExpSpent < 0 ||
+                growth.BestGoldLevel < growth.GoldLevel || growth.BestGoldLevel > 50 ||
+                growth.BestExpLevel < growth.ExpLevel || growth.BestExpLevel > 50 || growth.LastResetDay == null ||
+                (growth.LastResetDay.Length != 0 && !DateTime.TryParseExact(growth.LastResetDay, "yyyy-MM-dd",
+                    CultureInfo.InvariantCulture, DateTimeStyles.None, out _)))
+                throw new JsonSerializationException("Invalid ruby growth state.");
+        }
+
+        internal static bool TryParseRubyRequestId(string id, out long sequence)
+        {
+            sequence = 0;
+            if (id == null || id.Length < 34 || id.Length > 52) return false;
+            int separator = id.IndexOf(':');
+            if (separator < 1 || separator > 19 || id.Length - separator - 1 != 32 || id[0] == '0' ||
+                !long.TryParse(id.Substring(0, separator), NumberStyles.None, CultureInfo.InvariantCulture, out sequence) || sequence <= 0 ||
+                !Guid.TryParseExact(id.Substring(separator + 1), "N", out var nonce) || nonce == Guid.Empty) return false;
+            return id.Substring(separator + 1) == nonce.ToString("N");
+        }
+
+        private static void ValidateTutorialProgress(TutorialProgressDTO progress)
+        {
+            bool ValidId(string id) => !string.IsNullOrEmpty(id) && id.Length <= 64 && !id.Any(c => char.IsWhiteSpace(c) || char.IsControl(c));
+            if (progress == null || !ValidId(progress.SequenceId) || progress.ConfirmedSteps == null || progress.ConfirmedSteps.Count > 128 ||
+                progress.ConfirmedSteps.Any(x => !ValidId(x)) || progress.ConfirmedSteps.Distinct(StringComparer.Ordinal).Count() != progress.ConfirmedSteps.Count)
+                throw new JsonSerializationException("Invalid tutorial progress.");
+        }
+
+        private static bool ValidMainStage(long id)
+        {
+            int chapter = (int)((id >> 16) & 0xFFF), wave = (int)(id & 0xFFFF);
+            return chapter >= 1 && wave >= 1 && wave <= 11 && id == (long)StageParser.MakeStage(eStageType.Main, chapter, wave);
         }
 
         // 출석판: 칸 수 0~28, 받은 칸은 1~OpenedDays. 출석판 이전 서버(Month 없음)는 빈 판으로 본다.
@@ -679,6 +756,19 @@ namespace Scripts.Core.Manager
                     case 1049: return "테스트 요청 값이 올바르지 않습니다.";
                     case 1050: return "광고 보상 요청이 올바르지 않습니다.";
                     case 1051: return "받을 수 있는 오프라인 2배 보상이 없습니다.";
+                    case 1052: return "루비 강화 종류가 올바르지 않습니다.";
+                    case 1053: return "메인 2-5를 클리어하면 루비 성장이 열립니다.";
+                    case 1054: return "루비가 부족합니다.";
+                    case 1055: return "루비 강화 상한에 도달했습니다.";
+                    case 1056: return "계정 최대 레벨에서는 경험치 획득 강화를 할 수 없습니다.";
+                    case 1057: return "초기화할 루비 강화가 없습니다.";
+                    case 1058: return "오늘 루비 초기화를 사용했습니다. KST 자정에 다시 이용할 수 있습니다.";
+                    case 1059: return "보스전·던전에서는 초기화할 수 없습니다. 메인 일반 웨이브에서 다시 시도해 주세요.";
+                    case 1060: return "루비 요청 값이 올바르지 않습니다. 서버 상태를 다시 확인해 주세요.";
+                    case 1061: return "같은 루비 요청의 내용이 일치하지 않습니다. 서버 상태를 다시 확인해 주세요.";
+                    case 1062: return "이미 지난 루비 요청입니다. 서버 상태를 다시 확인해 주세요.";
+                    case 1063: return "루비 요청 순서가 일치하지 않습니다. 서버 상태를 다시 확인해 주세요.";
+                    case 1064: return "루비 강화 레벨이 변경되었습니다. 서버 상태를 다시 확인해 주세요.";
                     default: return $"{action}에 실패했습니다. (오류 {(int)business.ErrorCode})";
                 }
             }

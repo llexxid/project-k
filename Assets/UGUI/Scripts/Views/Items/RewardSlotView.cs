@@ -96,6 +96,14 @@ namespace KingdomIdle.UGUI
             eCurrency.EquipmentTicket => "장비 뽑기권", eCurrency.MageTicket => "마탑 뽑기권",
             _ => currency.ToString()
         };
+        internal static string GachaCost(Gacha.GachaManager manager, Gacha.GachaTableSO table, int count)
+        {
+            if (manager == null || table == null) return "-";
+            int coins = manager.GetTotalCost(table, count), tickets = manager.GetTicketCost(table, count);
+            if (coins < 0) return "-";
+            if (tickets == 0) return $"{NumberNotation.Format(coins)} 고대주화";
+            return coins == 0 ? $"뽑기권 {tickets}장" : $"뽑기권 {tickets}장 + {NumberNotation.Format(coins)} 주화";
+        }
         internal static Sprite Icon(eCurrency currency, UIViewCatalog catalog = null)
         {
             var cat = catalog != null ? catalog : UIManager.Instance != null ? UIManager.Instance.Catalog : null;
@@ -112,14 +120,14 @@ namespace KingdomIdle.UGUI
         internal static string Description(eCurrency currency) => currency switch
         {
             eCurrency.Gold => "왕국군의 공격력과 체력 강화에 사용합니다.",
-            eCurrency.AncientCoin => "장비 뽑기에 사용합니다.",
+            eCurrency.AncientCoin => "장비·마탑 뽑기에서 뽑기권이 부족한 횟수에 사용합니다.",
             eCurrency.ClassFragment => "왕국군 전직에 사용합니다.",
-            eCurrency.ArcaneKnowledge => "마탑 스킬 뽑기와 강화에 사용합니다.",
+            eCurrency.ArcaneKnowledge => "마탑 스킬 강화에 사용합니다.",
             eCurrency.Ruby => "환생 후에도 유지되는 영구 성장에 사용합니다.",
             eCurrency.EquipmentStone => "장비 강화에 사용합니다.",
             eCurrency.KingdomSupply => "왕국 보급 재화입니다.",
-            eCurrency.EquipmentTicket => "장비 뽑기권입니다. 사용 기능은 준비 중이며 보유 수량은 저장됩니다.",
-            eCurrency.MageTicket => "마탑 뽑기권입니다. 사용 기능은 준비 중이며 보유 수량은 저장됩니다.",
+            eCurrency.EquipmentTicket => "장비 뽑기에서 고대주화보다 먼저 사용합니다. 1장으로 1회 뽑습니다.",
+            eCurrency.MageTicket => "마탑 뽑기에서 고대주화보다 먼저 사용합니다. 1장으로 1회 뽑습니다.",
             _ => "훈련 재화입니다."
         };
         internal static void Report(RewardResult result)
