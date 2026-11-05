@@ -26,6 +26,7 @@ namespace KingdomIdle.Mailbox.Testing
             internal double Clock;
             internal string Locale = "ko", ListFailureKind = "Business";
             internal readonly List<string> RequestedLocales = new();
+            internal readonly List<(int Start, int Count)> RequestedPages = new();
             internal MailboxService Service;
             internal MailClaimInfo Result;
 
@@ -45,6 +46,7 @@ namespace KingdomIdle.Mailbox.Testing
             {
                 int call = ++ListCalls;
                 RequestedLocales.Add(r.Locale);
+                RequestedPages.Add((r.StartIndex, r.Count));
                 void Respond()
                 {
                     if (FailListAt < 0 || call == FailListAt) { fail(Failure(ListFailureKind)); return; }
@@ -93,6 +95,30 @@ namespace KingdomIdle.Mailbox.Testing
         {
             var checks = new List<string>();
             void Check(bool ok, string label) { if (!ok) throw new InvalidOperationException("MAIL ASSERT: " + label); checks.Add(label); }
+            {
+                var f = new Fixture(51) { Ready = false, Locale = "en", HoldLists = true };
+                f.Service.CheckAfterLogin(); Check(f.ListCalls == 0, "post-login check waits for game data");
+                f.Ready = true; f.Service.CheckAfterLogin(); f.Service.CheckAfterLogin();
+                Check(f.ListCalls == 1 && f.RequestedPages.Single() == (0, 1) && f.RequestedLocales.Single() == "en",
+                    "post-login check runs once with first page and locale");
+                f.Lists.Dequeue()();
+                Check(f.Service.State == MailboxState.Empty && !f.Service.HasSnapshot && f.Service.Messages.Count == 0 && f.Applied == 0,
+                    "post-login response does not populate UI or grant rewards");
+                f.Service.Open(); f.Lists.Dequeue()(); f.Lists.Dequeue()();
+                Check(f.Service.Messages.Count == 51 && f.ListCalls == 3, "mailbox open still loads a complete fresh list");
+                f.Service.Close(); f.Service.CheckAfterLogin(); Check(f.ListCalls == 3, "closing mailbox does not repeat login check");
+                f.Generation++; f.Service.CheckAfterLogin(); Check(f.ListCalls == 4, "next login checks mail again");
+            }
+            {
+                var f = new Fixture(1) { FailListAt = 1 }; f.Service.CheckAfterLogin(); f.Service.CheckAfterLogin();
+                Check(f.ListCalls == 1 && f.Service.LastFailure == null && !f.Service.LoadFailed && !f.Service.IsBusy,
+                    "post-login failure leaves game and mailbox state available");
+                f.Service.Open(); Check(f.ListCalls == 2 && f.Service.CanClaim, "mailbox open retries after background failure");
+                var g = new Fixture(1) { HoldLists = true }; g.Service.Open(); g.Service.CheckAfterLogin();
+                Check(g.ListCalls == 1, "open mailbox shares the login delivery check");
+                g.Lists.Dequeue()(); g.Service.Close(); g.Service.CheckAfterLogin();
+                Check(g.ListCalls == 1, "shared login check stays complete after close");
+            }
             foreach (int count in new[] { 0, 1, 50, 51, 100 })
             {
                 var f = new Fixture(count); f.Service.Open();

@@ -30,7 +30,7 @@ namespace KingdomIdle.Mailbox
         private readonly Func<double> _clock;
         private readonly Func<string> _locale;
         private (long, long) _account;
-        private bool _open, _refreshQueued;
+        private bool _open, _refreshQueued, _loginChecked;
         private int _loadVersion, _viewVersion;
         private double _retryAt, _observedAt, _readyDeadline;
         private long _serverUtc, _lastExpiredUtc;
@@ -127,9 +127,23 @@ namespace KingdomIdle.Mailbox
             if (_account == _identity()) return;
             _account = _identity(); _loadVersion++; _viewVersion++; _claiming = null;
             _retryAt = 0; _lastExpiredUtc = 0; _refreshQueued = false; _serverUtc = 0;
-            _loading = null; _listLocale = null; _readyDeadline = 0; LoadFailed = false;
+            _loading = null; _listLocale = null; _readyDeadline = 0; LoadFailed = false; _loginChecked = false;
             LastFailure = null; State = MailboxState.Empty; ClearList(); Notify();
             if (_open) RequestRefresh();
+        }
+
+        public void CheckAfterLogin()
+        {
+            CheckAccount();
+            if (_loginChecked || !_ready()) return;
+            _loginChecked = true;
+            if (_open) return;
+            var account = _account;
+            // 로그인은 우편 확인을 기다리지 않는다. 실패하면 우편함을 열 때 다시 확인한다.
+            _list(new OnGetMailListRequestDTO { Locale = _locale(), StartIndex = 0, Count = 1 }, _ => { }, error =>
+            {
+                if (account == _identity()) Debug.LogWarning("[Mail] post-login check failed: " + NetworkManager.DescribeFailure(error, "우편함"));
+            });
         }
 
         public void RequestRefresh(string reason = "manual")
