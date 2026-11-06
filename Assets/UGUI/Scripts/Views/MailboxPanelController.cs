@@ -13,6 +13,7 @@ namespace KingdomIdle.UGUI
         private VirtualizedMailList _list;
         private MailboxService _service;
         private bool _subscribed;
+        private bool _closingAfterFailure;
         private float _nextTick;
 
         private void Awake()
@@ -34,6 +35,7 @@ namespace KingdomIdle.UGUI
             if (_service == null) { _view.emptyLabel.text = "계정 정보를 준비하고 있습니다."; _view.claimAll.interactable = false; return; }
             _service.Changed += Render;
             _service.ClaimCompleted += OnClaimCompleted;
+            _closingAfterFailure = false;
             _subscribed = true;
             _service.Open();
         }
@@ -75,11 +77,16 @@ namespace KingdomIdle.UGUI
             _view.emptyLabel.text = _service.Error ?? (_service.State == MailboxState.Loading ? "우편을 불러오고 있습니다." :
                 !_service.HasSnapshot ? "우편 상태를 확인하고 있습니다." : count == 0 ? "보관 중인 우편이 없습니다." : "");
             _view.claimAllLabel.text = _service.IsBusy ? "처리 중…" : !_service.HasSnapshot || _service.Error != null ? "다시 불러오기" : $"모두 받기 ({count})";
-            _view.claimAll.interactable = !_service.IsBusy && (!_service.HasSnapshot || _service.Error != null || count > 0);
+            _view.claimAll.interactable = !_service.LoadFailed && !_service.IsBusy && (!_service.HasSnapshot || _service.Error != null || count > 0);
             _view.deleteClaimed.interactable = false;
-            if (_service.HasSnapshot)
-                foreach (var popup in GetComponentsInChildren<RewardPopupView>())
-                    if (popup.SourceMailId.HasValue && !_service.Messages.Any(m => m.MailId == popup.SourceMailId.Value)) popup.Close();
+            foreach (var popup in GetComponentsInChildren<RewardPopupView>())
+                if (popup.SourceMailId.HasValue && (!_service.HasSnapshot || !_service.Messages.Any(m => m.MailId == popup.SourceMailId.Value))) popup.Close();
+            if (_service.LoadFailed && !_closingAfterFailure)
+            {
+                _closingAfterFailure = true;
+                void Close() { if (this != null && isActiveAndEnabled && _service.LoadFailed) _view.closeButton.onClick.Invoke(); }
+                if (RewardPopupView.ShowMessage(UIManager.Instance.LayerPopups, "우편함 조회 실패", _service.Error, Close) == null) Close();
+            }
         }
         private void OnClaimCompleted(MailClaimInfo result)
         {

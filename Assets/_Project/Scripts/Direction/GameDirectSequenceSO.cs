@@ -82,13 +82,13 @@ namespace Direction
         public bool TryValidate(out string error)
         {
             error = null;
-            if (string.IsNullOrWhiteSpace(sequenceId) || steps == null || steps.Length == 0)
+            if (!GameDirectProgressStore.ValidId(sequenceId) || steps == null || steps.Length == 0 || steps.Length > 128)
                 error = "연출 ID와 한 개 이상의 단계가 필요합니다.";
             else
             {
                 var ids = new HashSet<string>(StringComparer.Ordinal);
                 foreach (var step in steps)
-                    if (step == null || string.IsNullOrWhiteSpace(step.id) || !ids.Add(step.id) ||
+                    if (step == null || !GameDirectProgressStore.ValidId(step.id) || !ids.Add(step.id) ||
                         string.IsNullOrWhiteSpace(step.title) || string.IsNullOrWhiteSpace(step.description) ||
                         !Enum.IsDefined(typeof(GameDirectTarget), step.target) ||
                         !Enum.IsDefined(typeof(GuideCardPlacement), step.placement) ||

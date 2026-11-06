@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Direction;
@@ -19,13 +18,13 @@ using Object = UnityEngine.Object;
 
 namespace KingdomIdle.UGUI.Editor
 {
-    /// <summary>빈 PlayMode 씬과 격리 계정에서 실제 안내 프리팹·입력·저장·중단을 검증한다. 운영 계정은 사용하지 않는다.</summary>
+    /// <summary>빈 PlayMode 씬에서 안내 미리보기·입력·중단을 검증한다. 서버 진행 저장·실습 경제는 검증하지 않는다.</summary>
     [InitializeOnLoad]
     public static class GameDirectAcceptance
     {
         private const string RunKey = "GameDirectAcceptance.Run";
         private const string SceneKey = "GameDirectAcceptance.Scene";
-        private const string Output = "AI/validation/game-direct-reset-20260921";
+        private static string Output => Environment.GetEnvironmentVariable("TUTORIAL_PREVIEW_QA_OUTPUT") ?? "C:/GitHub/QA/TutorialPreview-20261104";
         private static readonly List<string> Checks = new();
         private static readonly List<object> Captures = new();
 
@@ -46,7 +45,10 @@ namespace KingdomIdle.UGUI.Editor
 
         /// <summary>미저장 편집이 없는 단일 씬에서 검사를 시작한다. 기존 저장 계정을 강제 지정하거나 덮어쓰지 않는다.</summary>
         [MenuItem("KingdomIdle/Direction/Validate isolated guide acceptance")]
-        public static void Begin()
+        public static void Begin() => throw new InvalidOperationException("로컬 진행 저장 기반 검증은 중단되었습니다. 서버 계약은 KingdomIdle.Balance.ServerTutorialAcceptance.Run(), UI는 Validate isolated guide preview로 검증하세요.");
+
+        [MenuItem("KingdomIdle/Direction/Validate isolated guide preview")]
+        public static void BeginPreview()
         {
             if (EditorApplication.isPlaying || SceneManager.sceneCount != 1 || SceneManager.GetActiveScene().isDirty)
                 throw new InvalidOperationException("저장된 단일 씬의 편집 모드에서 실행하세요.");
@@ -82,24 +84,29 @@ namespace KingdomIdle.UGUI.Editor
         { await UniTask.NextFrame(); await UniTask.NextFrame(); Canvas.ForceUpdateCanvases(); }
 
         /// <summary>실제 EventSystem 레이캐스트의 첫 결과에 포인터 클릭을 보낸다. Button.onClick 직접 호출과 구분된다.</summary>
-        private static GameObject Click(RectTransform target)
+        private static GameObject Click(RectTransform target) => Click(target, out _);
+
+        private static GameObject Click(RectTransform target, out string diagnostic)
         {
-            Vector2 point = RectTransformUtility.WorldToScreenPoint(null, target.TransformPoint(target.rect.center));
+            var world = target.TransformPoint(target.rect.center);
+            Vector2 point = RectTransformUtility.WorldToScreenPoint(null, world);
             var data = new PointerEventData(EventSystem.current) { position = point, button = PointerEventData.InputButton.Left };
             var hits = new List<RaycastResult>();
             EventSystem.current.RaycastAll(data, hits);
-            if (hits.Count == 0) throw new InvalidOperationException("레이캐스트 결과 없음: " + target.name);
+            var canvas = target.GetComponentInParent<Canvas>()?.rootCanvas;
+            diagnostic = JsonConvert.SerializeObject(new
+            {
+                target = target.name, targetParent = target.parent?.name, rect = target.rect.ToString("F2"),
+                world = world.ToString("F2"), point = point.ToString("F2"), screen = $"{Screen.width}x{Screen.height}",
+                canvas = canvas?.name, renderMode = canvas?.renderMode.ToString(), camera = canvas?.worldCamera?.name,
+                cameraPoint = RectTransformUtility.WorldToScreenPoint(canvas != null ? canvas.worldCamera : null, world).ToString("F2"),
+                hits = hits.Take(8).Select(x => new { name = x.gameObject.name, parent = x.gameObject.transform.parent?.name,
+                    module = x.module?.name, x.depth, x.sortingLayer, x.sortingOrder, x.distance }).ToArray()
+            });
+            if (hits.Count == 0) throw new InvalidOperationException("레이캐스트 결과 없음: " + diagnostic);
             var hit = hits[0].gameObject;
             ExecuteEvents.ExecuteHierarchy(hit, data, ExecuteEvents.pointerClickHandler);
             return hit;
-        }
-
-        /// <summary>모듈 저장을 부작용 없이 읽어 단계·완료 상태를 검사한다. 잘못된 상태는 즉시 실패시킨다.</summary>
-        private static GameDirectProgress Read(string id)
-        {
-            if (!new GameDirectProgressStore().TryLoad(id, LocalProgression.AccountGeneration, out var progress))
-                throw new InvalidOperationException("저장 상태 조회 실패: " + id);
-            return progress;
         }
 
         /// <summary>공통 실행과 실 프리팹을 검사하고 모든 임시 객체·계정 컨텍스트를 finally에서 정리한다.</summary>
@@ -114,7 +121,7 @@ namespace KingdomIdle.UGUI.Editor
             string account = "game-direct-" + Guid.NewGuid().ToString("N");
             try
             {
-                if (LocalProgression.IsReady) throw new InvalidOperationException("운영 계정이 열린 상태에서는 실행할 수 없습니다.");
+                if (LocalProgression.IsReady || Scripts.Core.Manager.NetworkManager.Instance != null) throw new InvalidOperationException("운영 계정이나 네트워크 관리자가 없는 빈 PlayMode 씬이 필요합니다.");
                 Application.runInBackground = true;
                 session = LocalProgression.BeginTestSession();
                 LocalProgression.OpenTestAccount(account);
@@ -140,8 +147,7 @@ namespace KingdomIdle.UGUI.Editor
                 if (SessionState.GetBool("GameDirectAcceptance.InteractiveOnly", false))
                 {
                     SessionState.SetBool("GameDirectAcceptance.InteractiveOnly", false);
-                    await InteractiveGuideAcceptance.RunAsync(root, ui, manager, Check);
-                    return;
+                    throw new InvalidOperationException("이전 로컬 실습 검증은 중단되었습니다. KingdomIdle.Balance.ServerTutorialAcceptance.Run()으로 서버 계약을 검증하세요.");
                 }
                 await ExercisePlayerAsync(menu);
                 long revision = LocalProgression.State.Revision;
@@ -152,7 +158,14 @@ namespace KingdomIdle.UGUI.Editor
                 await Settle();
                 var view = ui.ActiveFeatureGuide;
                 ui.GuideTargets.TryGet(GameDirectTarget.Development, out var development);
-                Check(Click(development).name == "InputBlocker" && !ui.HasActiveTabPanel, "Bright target hole blocks the underlying menu");
+                bool panelBeforeClick = ui.HasActiveTabPanel;
+                var blocker = view.inputGate != null ? view.inputGate.GetComponent<UnityEngine.UI.Image>() : null;
+                var previewHit = Click(development, out string clickDiagnostic);
+                Check(previewHit.name == "InputBlocker" && !ui.HasActiveTabPanel,
+                    $"Bright target hole blocks the underlying menu: hit={previewHit.name}, panelBefore={panelBeforeClick}, panelAfter={ui.HasActiveTabPanel}, " +
+                    $"visible={view.IsVisible}, blocks={view.inputGroup.blocksRaycasts}, guideStep={GameDirectInteraction.Step?.Id}, armed={GameDirectInteraction.Armed}, " +
+                    $"blockerActive={blocker?.isActiveAndEnabled}, blockerRaycast={blocker?.raycastTarget}, blockerCull={blocker?.canvasRenderer.cull}, blockerDepth={blocker?.depth}, blockerAlpha={blocker?.color.a}, " +
+                    $"highlight={view.HighlightRect:F2}, card={view.card.rect:F2}, cardPosition={view.card.anchoredPosition:F2}, root={((RectTransform)view.transform).rect:F2}, click={clickDiagnostic}");
                 for (int i = 0; i < 4; i++)
                 {
                     Check(view.titleLabel.text == menu.steps[i].title && view.progressLabel.text == $"{i + 1} / 4", "Correct preview step " + (i + 1));
@@ -166,29 +179,6 @@ namespace KingdomIdle.UGUI.Editor
                 Check(!view.IsVisible && !view.inputGroup.blocksRaycasts, "Preview completion releases input");
                 Check(LocalProgression.State.Revision == revision, "Preview leaves account revision unchanged");
                 Check(Time.timeScale == scale, "Guide does not change battle timeScale");
-
-                Check(manager.RequestPlay(menu), "Persistent sequence accepted");
-                await Until(() => view.IsVisible, "Persistent sequence did not appear");
-                view.Confirm();
-                await Until(() => view.progressLabel.text == "2 / 4", "First persisted step did not advance");
-                Check(Read(menu.sequenceId).ConfirmedSteps.SequenceEqual(new[] { "development" }), "Only confirmed step persisted");
-                manager.CancelCurrent();
-                await Until(() => manager.ActiveSequenceId == null, "Cancellation did not finish");
-                Check(!Read(menu.sequenceId).Completed && !Read(menu.sequenceId).Skipped, "System cancellation is not a skip or completion");
-                LocalProgression.OpenTestAccount(account);
-                Check(manager.RequestPlay(menu), "Resume after account reload accepted");
-                await Until(() => view.IsVisible, "Resume did not appear");
-                Check(view.progressLabel.text == "2 / 4", "Reload resumes first unconfirmed stable step ID");
-                ui.RequestBack();
-                await Until(() => manager.ActiveSequenceId == null, "Back skip did not finish");
-                Check(Read(menu.sequenceId).Skipped && !Read(menu.sequenceId).Completed, "Android back persists skipped separately");
-                Check(!manager.RequestPlay(menu), "Skipped sequence not replayed by persistent request");
-                Check(manager.RequestPlay(rebirth), "Reincarnation description accepted");
-                await Until(() => view.IsVisible, "Reincarnation did not appear");
-                Check(view.titleLabel.text == "환생" && view.nextLabel.text == "확인", "Reincarnation copy and final action");
-                view.Confirm();
-                await Until(() => manager.ActiveSequenceId == null, "Reincarnation did not complete");
-                Check(Read(rebirth.sequenceId).Completed && !manager.RequestPlay(rebirth), "Completed sequence suppressed on later requests");
 
                 Check(manager.RequestPlay(menu, true) && manager.RequestPlay(rebirth, true), "Two distinct previews queued");
                 Check(manager.PendingCount == 1 && !manager.RequestPlay(rebirth, true), "FIFO queue deduplicates waiting ID");
@@ -230,38 +220,11 @@ namespace KingdomIdle.UGUI.Editor
                 LocalProgression.OpenTestAccount(account + "-second");
                 await Until(() => manager.ActiveSequenceId == null, "Old account request did not cancel");
                 Check(manager.PendingCount == 0 && !view.IsVisible, "Account change clears queue and overlay");
-                Check(!Read(menu.sequenceId).Skipped, "Previous-account preview does not write new account");
-                long staleGeneration = LocalProgression.AccountGeneration;
-                LocalProgression.OpenTestAccount(account + "-third");
-                Check(!new GameDirectProgressStore().TrySave(menu.sequenceId, staleGeneration, new GameDirectProgress { Completed = true }), "Late prior-account save rejected");
-
-                Check(manager.RequestPlay(menu), "Storage failure sequence accepted");
-                await Until(() => view.IsVisible, "Storage failure sequence did not appear");
-                var pathField = typeof(LocalProgression).GetField("_path", BindingFlags.NonPublic | BindingFlags.Static);
-                string savePath = LocalProgression.SnapshotPath;
-                try
-                {
-                    // 격리 테스트 계정의 기존 파일을 디렉터리처럼 사용해 실제 저장 실패를 재현한다.
-                    pathField.SetValue(null, savePath + "/cannot-write.json");
-                    view.Confirm();
-                    await Until(() => manager.ActiveSequenceId == null, "Storage failure did not release sequence");
-                    Check(!view.IsVisible && !view.inputGroup.blocksRaycasts, "Failed save releases input and ends request");
-                }
-                finally { pathField.SetValue(null, savePath); }
-                Check(Read(menu.sequenceId).ConfirmedSteps.Count == 0, "Failed save does not publish confirmed progress");
-                Check(manager.RequestPlay(menu), "Failed save can be retried");
-                await Until(() => view.IsVisible, "Storage retry did not appear");
-                Check(view.progressLabel.text == "1 / 4", "Retry returns to first unconfirmed step");
-                manager.CancelCurrent();
-                await Until(() => manager.ActiveSequenceId == null, "Retry cancellation did not finish");
-
                 await ExerciseLowSpecAsync(manager, ui, menu);
-                // 저장 실패 토스트의 수명이 끝난 뒤 캡처하여 안내 외 경고 문구가 배치 비교를 가리지 않게 한다.
-                await UniTask.Delay(TimeSpan.FromSeconds(3), ignoreTimeScale: true);
                 await CaptureLayoutsAsync(root, ui, manager, menu, rebirth);
                 await ValidateReferencesAsync(ui.Catalog.overlayFeatureGuide);
                 Check(menu.steps[0].title == "육성" && menu.steps.Length == 4, "Runtime did not mutate authored sequence");
-                await InteractiveGuideAcceptance.RunAsync(root, ui, manager, Check);
+                await InteractiveGuideAcceptance.RunPreviewAsync(ui, Check);
             }
             catch (Exception error) { failure = error.ToString(); Debug.LogException(error); }
             finally
@@ -274,8 +237,8 @@ namespace KingdomIdle.UGUI.Editor
                 Application.runInBackground = background;
                 File.WriteAllText(Output + "/acceptance.json", JsonConvert.SerializeObject(new
                 { passed = failure == null, unity = Application.unityVersion, checks = Checks, captures = Captures, failure,
-                    scope = "Isolated PlayMode; production UGUI prefabs and synthetic raycast input. No real combat or Android device." }, Formatting.Indented));
-                Debug.Log("[GameDirectAcceptance] " + (failure == null ? "PASSED " : "FAILED ") + Checks.Count);
+                    scope = "Preview only: isolated PlayMode, production UGUI prefabs and synthetic raycast input. Server progress, gameplay rewards, real combat and Android are not tested." }, Formatting.Indented));
+                Debug.Log("[GameDirectPreviewAcceptance] " + (failure == null ? "PASSED " : "FAILED ") + Checks.Count);
                 EditorApplication.isPlaying = false;
             }
         }

@@ -209,6 +209,8 @@ namespace KingdomIdle.UGUI
 
         // ── 오버레이 ──
         private LoadingOverlayView _loading;
+        private bool _sceneLoading, _offlineRewardLoading;
+        private string _sceneLoadingText;
         private ToastView _toast;
         private Coroutine _toastCo;
         private int _fieldLootCount;
@@ -257,6 +259,7 @@ namespace KingdomIdle.UGUI
 
             WarnIfLegacyUiToolkitActive();
             BuildOverlays();
+            SetOfflineRewardLoading(KingdomIdle.OfflineRewards.OfflineRewardManager.AdBonusBusy);
             ApplyPersistedAudioSettings();
             GamePresentationSettings.Apply();
             NumberNotation.Load();
@@ -800,13 +803,32 @@ namespace KingdomIdle.UGUI
         /// <summary>로딩 표시 중에는 안내 입력을 즉시 해제한다. 로딩 종료 후 같은 단계 재개는 Player의 준비 검사에 맡긴다.</summary>
         public void SetLoading(bool visible, string message = "Loading...")
         {
-            if (_loading == null) return;
-
+            _sceneLoading = visible;
             if (visible)
             {
+                _sceneLoadingText = message;
+                if (_loading != null) _loading.SetProgress01(0f);
+            }
+            RefreshLoading();
+        }
+
+        internal void SetOfflineRewardLoading(bool visible)
+        {
+            _offlineRewardLoading = visible;
+            RefreshLoading();
+        }
+
+        private void RefreshLoading()
+        {
+            if (_loading == null) return;
+
+            // 씬 전환과 보상 지급이 서로의 로딩 표시를 종료하지 않게 한다.
+            if (_sceneLoading || _offlineRewardLoading)
+            {
                 ActiveFeatureGuide?.Hide();
-                if (_loading.lblLoading != null) _loading.lblLoading.text = message;
-                _loading.SetProgress01(0f);
+                if (_loading.lblLoading != null)
+                    _loading.lblLoading.text = _sceneLoading ? _sceneLoadingText : "보상 지급 중…";
+                if (!_sceneLoading) _loading.SetProgress01(0f);
                 _loading.gameObject.SetActive(true);
                 _loading.transform.SetAsLastSibling();
             }

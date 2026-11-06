@@ -18,6 +18,10 @@ namespace KingdomIdle.Balance
         public int BestRubyGoldLevel, BestRubyExpLevel;
         public string RubyResetDay;
         public int PendingRubyReset;
+        public long RubyNextRequestSequence;
+        public string PendingRubyRequestId;
+        public bool PendingRubyRequestIsReset, PendingRubyRequestExperience;
+        public int PendingRubyExpectedLevel;
         public int ReincarnationLevel, ReincarnationCount, CycleBossStage, ReincarnationsToday;
         public long LastReincarnationUtc, CycleStartedUtc;
         public string ReincarnationDay;
@@ -55,6 +59,7 @@ namespace KingdomIdle.Balance
         public int GoldDungeonClear, RubyDungeonClear, GoldTickets = 2, RubyTickets = 2;
         public string TicketDay;
         public string ActiveDungeon;
+        public long ServerDungeonId, DungeonTicketResetUtc;
         public string ActiveBattleId;
         public int LastKillSequence;
         public string LastClearedBattle;

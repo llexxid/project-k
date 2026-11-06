@@ -290,7 +290,7 @@ namespace KingdomIdle.UGUI
             SetHidden(_view.mainHud, dungeon);
             SetHidden(_view.mainProgress, dungeon || cleared);
             SetHidden(_view.chapterProgress, dungeon || cleared);
-            SetHidden(_view.bossChallengeRoot, dungeon || cleared);
+            SetHidden(_view.bossChallengeRoot, dungeon);
             SetHidden(_view.bossTimerBar, true);
             SetHidden(_view.dungeonObjective, !dungeon);
             SetHidden(_view.dungeonReturn, !dungeon);

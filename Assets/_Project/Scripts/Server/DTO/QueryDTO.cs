@@ -610,6 +610,34 @@ namespace Protocol.Message.Dto
 		[JsonProperty(Required = Required.Always)]
 		public List<QuestRowDTO> Rows { get; set; } = null!;
 	}
+	public sealed class RubyGrowthStateDTO
+	{
+		[JsonProperty(Required = Required.Always)]
+		public long NextRequestSequence { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public int GoldLevel { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public int ExpLevel { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public long GoldSpent { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public long ExpSpent { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public int BestGoldLevel { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public int BestExpLevel { get; set; }
+		[JsonProperty(Required = Required.Always)]
+		public string LastResetDay { get; set; } = null!;
+	}
+	public sealed class TutorialProgressDTO
+	{
+		[JsonProperty(Required = Required.Always)]
+		public string SequenceId { get; set; } = null!;
+		[JsonProperty(Required = Required.Always)]
+		public List<string> ConfirmedSteps { get; set; } = null!;
+		[JsonProperty(Required = Required.Always)]
+		public bool IsFinished { get; set; }
+	}
 	public sealed class ReincarnationStateDTO
 	{
 		[JsonProperty(Required = Required.Always)]
@@ -668,6 +696,7 @@ namespace Protocol.Message.Dto
 		public List<EquipmentReserveStackDTO> ReserveStacks { get; set; } = null!;
 	}
 	public enum MailCategory { System, Attendance }
+	public enum MailTextMode { Key = 0, Text = 1 }
 	// 우편 첨부. 재화는 CurrencyType, 장비는 DefinitionId로 대상을 정한다.
 	public sealed class MailRewardDTO
 	{
@@ -686,11 +715,15 @@ namespace Protocol.Message.Dto
 		public long MailId { get; set; }
 		[JsonProperty(Required = Required.Always)]
 		public MailCategory Category { get; set; }
-		// 본문 대신 클라이언트 현지화 키만 온다.
-		[JsonProperty(Required = Required.Always)]
+		// 배포 전 기존 Key 응답에는 TextMode가 없으므로 기본값 0을 허용한다.
+		public MailTextMode TextMode { get; set; }
+		[JsonProperty(Required = Required.AllowNull)]
 		public string TitleKey { get; set; } = null!;
-		[JsonProperty(Required = Required.Always)]
+		[JsonProperty(Required = Required.AllowNull)]
 		public string BodyKey { get; set; } = null!;
+		public string Title { get; set; } = null!;
+		public string Body { get; set; } = null!;
+		public string ResolvedLocale { get; set; } = null!;
 		[JsonProperty(Required = Required.Always)]
 		public long SentUtc { get; set; }
 		[JsonProperty(Required = Required.Always)]

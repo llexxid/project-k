@@ -19,8 +19,15 @@ namespace KingdomIdle.Mailbox
             foreach (var m in dto.Mails)
             {
                 Require(m != null && m.MailId > 0 && Enum.IsDefined(typeof(MailCategory), m.Category) &&
-                    m.TitleKey != null && m.BodyKey != null && m.SentUtc > 0 && m.ExpiresUtc > m.SentUtc &&
+                    m.SentUtc > 0 && m.ExpiresUtc > m.SentUtc &&
                     m.ExpiresUtc <= MaxUtc && m.Rewards != null && m.Rewards.Count >= 1 && m.Rewards.Count <= 10);
+                Require(m.TextMode == MailTextMode.Key
+                    ? !string.IsNullOrWhiteSpace(m.TitleKey) && m.TitleKey.Length <= 100 &&
+                      !string.IsNullOrWhiteSpace(m.BodyKey) && m.BodyKey.Length <= 100 &&
+                      m.Title == null && m.Body == null && m.ResolvedLocale == null
+                    : m.TextMode == MailTextMode.Text && m.TitleKey == null && m.BodyKey == null &&
+                      !string.IsNullOrWhiteSpace(m.Title) && System.Text.Encoding.UTF8.GetByteCount(m.Title) <= 256 &&
+                      !string.IsNullOrWhiteSpace(m.Body) && System.Text.Encoding.UTF8.GetByteCount(m.Body) <= 2048 && ValidLocale(m.ResolvedLocale));
                 foreach (var reward in m.Rewards)
                 {
                     Require(reward != null && reward.Amount > 0);
@@ -53,6 +60,9 @@ namespace KingdomIdle.Mailbox
                     (reward.Disposition == EquipmentDisposition.AutoDismantled || reward.ItemCode.HasValue));
             }
         }
+
+        private static bool ValidLocale(string locale) => locale != null && locale.Length >= 2 && locale.Length <= 24 &&
+            System.Text.RegularExpressions.Regex.IsMatch(locale, "^[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*\\z");
 
         private static void ValidateKind(RewardKind kind, Protocol.Message.Data.eCurrency? currency, int? definition)
         {

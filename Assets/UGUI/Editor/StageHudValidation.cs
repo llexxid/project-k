@@ -107,8 +107,8 @@ namespace KingdomIdle.UGUI.Editor
             Check(!Manager.TryMoveToMainStage(Main(9,10)),"locked stage refused");
             long clear=LocalProgression.State.HighestMainClear;
             Check(Manager.TryMoveToMainStage(Main(9,6)),"cleared stage move accepted"); yield return Ready(Main(9,6));
-            Check(!View.mainProgress.activeSelf && !View.chapterProgress.activeSelf && !View.bossChallengeRoot.activeSelf &&
-                View.btnStageSelect.gameObject.activeInHierarchy && View.btnStageAction.gameObject.activeInHierarchy,"cleared HUD has two buttons only");
+            Check(!View.mainProgress.activeSelf && !View.chapterProgress.activeSelf && View.bossChallengeRoot.activeSelf &&
+                View.btnStageSelect.gameObject.activeInHierarchy && View.btnStageAction.gameObject.activeInHierarchy,"cleared HUD keeps boss toggle and navigation");
             Check(Manager.IsLoopMode && !Manager.BossAutoChallenge && LocalProgression.State.HighestMainClear==clear,"move preserves boss auto and clear ledger");
             yield return Shot("cleared-1080x1920");
             View.btnStageSelect.onClick.Invoke();
