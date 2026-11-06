@@ -10,6 +10,7 @@ public partial class Player
     private long _shieldHP;
     private float _shieldExpires, _pendingImpactAt;
     private float _vfxFootY = -.5f, _vfxHeadY = .5f;
+    private SpriteRenderer _bodyRenderer;
     public Vector3 VfxFootPosition => transform.TransformPoint(Vector3.up * _vfxFootY);
     public Vector3 VfxHeadPosition => transform.TransformPoint(Vector3.up * _vfxHeadY);
     public void SetVfxBodyAnchors(float foot, float head) { _vfxFootY = foot; _vfxHeadY = head; }
@@ -19,10 +20,13 @@ public partial class Player
 
     private void LateUpdate()
     {
-        if (_isDead || IsInAttackAnimation || playerOrder.IsAbort) return;
-        Vector2 feet = VfxFootPosition;
-        Vector2 delta = CombatMotion.Clamp(feet + CombatMotion.Separate(transform, CombatMotion.PlayerRadius, 1.2f)) - feet;
-        transform.position += new Vector3(delta.x, delta.y, 0);
+        if (!_isDead && !IsInAttackAnimation && !playerOrder.IsAbort)
+        {
+            Vector2 feet = VfxFootPosition;
+            Vector2 delta = CombatMotion.Clamp(feet + CombatMotion.Separate(transform, CombatMotion.PlayerRadius, 1.2f)) - feet;
+            transform.position += new Vector3(delta.x, delta.y, 0);
+        }
+        CombatVfxOrder.ApplyBody(_bodyRenderer, VfxFootPosition.y, true);
     }
 
     public bool IsInMeleeReach(Vector3 target, float range, float lane = CombatMotion.MeleeLane) =>

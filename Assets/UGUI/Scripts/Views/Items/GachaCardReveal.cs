@@ -29,15 +29,18 @@ namespace KingdomIdle.UGUI
 
         /// <summary>Call after binding the final card contents, in the same Show frame for every result.</summary>
         public static GachaCardReveal Play(GachaCardItemView card, eEquipmentRarity rarity, Action onRevealed = null)
+            => Play(card, DurationFor(rarity), UguiTheme.RarityColor(rarity), onRevealed);
+
+        internal static GachaCardReveal Play(GachaCardItemView card, float duration, Color revealColor, Action onRevealed = null)
         {
             if (card == null) return null;
             var reveal = card.GetComponent<GachaCardReveal>();
             if (reveal == null) reveal = card.gameObject.AddComponent<GachaCardReveal>();
-            reveal.Begin(card, rarity, onRevealed);
+            reveal.Begin(card, duration, revealColor, onRevealed);
             return reveal;
         }
 
-        private void Begin(GachaCardItemView card, eEquipmentRarity rarity, Action onRevealed)
+        private void Begin(GachaCardItemView card, float duration, Color revealColor, Action onRevealed)
         {
             CancelAndRestore();
             _card = card;
@@ -50,7 +53,7 @@ namespace KingdomIdle.UGUI
             _captured = true;
             _revealing = false;
             _onRevealed = onRevealed;
-            _duration = DurationFor(rarity);
+            _duration = duration;
             if (!gameObject.activeInHierarchy)
             {
                 CancelAndRestore();
@@ -67,7 +70,7 @@ namespace KingdomIdle.UGUI
                 card.frame.color = neutral;
             }
             if (card.background != null) card.background.color = UguiTheme.RusticPanelDeep;
-            _border.Configure(UguiTheme.RarityColor(rarity), GamePresentationSettings.LowSpec);
+            _border.Configure(revealColor, GamePresentationSettings.LowSpec);
             _border.SetProgress(0f);
             _border.enabled = true;
             enabled = true;

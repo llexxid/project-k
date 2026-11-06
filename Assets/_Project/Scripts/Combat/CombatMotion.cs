@@ -37,6 +37,22 @@ namespace KingdomIdle.Combat
 
         public static Vector2 Clamp(Vector2 point) => new(Mathf.Clamp(point.x, -2.48f, 2.48f), Mathf.Clamp(point.y, -2.45f, 2.45f));
 
+        // Keep the shared foot-space bounds: height-dependent HUD caps can strand melee attackers below a shorter enemy.
+        // Opt-in retreating actors also keep their body inside the actual camera view on narrow screens.
+        public static Vector2 ClampActor(Vector2 point, float radius, float bodyHeight)
+        {
+            Vector2 legacy = Clamp(point);
+            var camera = Camera.main;
+            if (camera == null) return legacy;
+            float depth = Mathf.Abs(camera.transform.position.z);
+            Vector3 lower = camera.ViewportToWorldPoint(new Vector3(.05f, .05f, depth));
+            Vector3 upper = camera.ViewportToWorldPoint(new Vector3(.95f, .95f, depth));
+            float minX = Mathf.Max(-2.48f, lower.x + radius), minY = Mathf.Max(-2.45f, lower.y + radius * .3f);
+            float maxX = Mathf.Max(minX, Mathf.Min(2.48f, upper.x - radius));
+            float maxY = Mathf.Max(minY, Mathf.Min(2.45f, upper.y - bodyHeight));
+            return new Vector2(Mathf.Clamp(point.x, minX, maxX), Mathf.Clamp(point.y, minY, maxY));
+        }
+
         public static Vector2 Ground(Component actor) => actor is Player player ? player.VfxFootPosition :
             actor is Monster monster ? monster.FootPosition : actor.transform.position;
 

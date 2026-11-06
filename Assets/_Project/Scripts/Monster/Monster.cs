@@ -126,9 +126,8 @@ namespace Scripts.Monster
 			_facingDir = 1; // 1 : Right, -1 : Left
 			_am = gameObject.GetComponentInChildren<Animator>();
 
-			// 몬스터 스프라이트를 타일맵 위에 렌더링하기 위해 Enemy 소팅 레이어 적용
-			var sr = GetComponentInChildren<SpriteRenderer>();
-			if (sr != null) sr.sortingLayerName = "Enemy";
+			_bodyRenderer = GetComponentInChildren<SpriteRenderer>();
+			CombatVfxOrder.ApplyBody(_bodyRenderer, FootPosition.y, false);
 			TryGetComponent(out _hitFlash);
 			
 			_stateManchine = new StateMachine<Monster>();

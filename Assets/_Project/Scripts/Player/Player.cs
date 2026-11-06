@@ -1,4 +1,5 @@
 using KingdomIdle.UGUI;
+using KingdomIdle.Combat;
 using Scripts.Core;
 using Scripts.Core.inteface;
 using Scripts.Core.Utils;
@@ -96,6 +97,8 @@ public partial class Player : MonoBehaviour, IAttackable, IDamageable, IRewardab
     private void Awake()
     {
         InitializeAnimator();
+        _bodyRenderer = GetComponent<SpriteRenderer>();
+        CombatVfxOrder.ApplyBody(_bodyRenderer, VfxFootPosition.y, true);
 
         playerStatus = new PlayerStatus();
 

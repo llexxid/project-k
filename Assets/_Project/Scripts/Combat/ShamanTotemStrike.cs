@@ -35,9 +35,28 @@ namespace KingdomIdle.Combat
             effect._owner = owner; effect._target = target;
             effect._ownerGeneration = owner.AllocGen; effect._targetGeneration = target.LifeGeneration;
             effect._damage = owner.damage; effect._point = target.VfxFootPosition;
-            effect.transform.position = new Vector3(effect._point.x, effect._point.y, owner.transform.position.z);
+            Vector2 visual = VisualPosition(effect._point);
+            effect.transform.position = new Vector3(visual.x, visual.y, owner.transform.position.z);
+            effect._renderer.sortingLayerName = "Default";
+            effect._renderer.sortingOrder = CombatVfxOrder.Summon;
             effect._elapsed = 0; effect._hit = false; effect._shownFrame = -1;
             effect.gameObject.SetActive(true); effect.Show(0);
+        }
+
+        private static Vector2 VisualPosition(Vector2 point)
+        {
+            Vector2 Candidate(float side) => CombatMotion.ClampActor(point + new Vector2(side * .65f, .12f), .3f, 1f);
+            float Clearance(Vector2 candidate)
+            {
+                float nearest = float.MaxValue;
+                foreach (var player in CombatMotion.Players)
+                    if (player != null && player.isActiveAndEnabled && !player.IsDead)
+                        nearest = Mathf.Min(nearest, ((Vector2)player.VfxFootPosition - candidate).sqrMagnitude);
+                return nearest;
+            }
+            Vector2 left = Candidate(-1), right = Candidate(1);
+            // Move only the summon drawing; the captured strike point and dodge window remain unchanged.
+            return Clearance(left) >= Clearance(right) ? left : right;
         }
 
         private void Update()
