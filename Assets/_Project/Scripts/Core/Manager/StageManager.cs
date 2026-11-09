@@ -117,6 +117,8 @@ namespace Scripts.Core.Manager
         public int CurrentStageNumber => _currentStageNumber;
         public int CurrentWaveNumber => _currentWaveNumber;
         public eStageRunState CurrentRunState => _currentState;
+        internal bool IsMainStageMovePending => _mainStageRequestPending;
+        internal bool IsHuntSyncFailed => _huntSyncFailed;
         public bool IsBossWave => _isBossWave;
         public bool IsLoopMode => _isLoopMode;
         public bool BossAutoChallenge => _bossAutoChallenge;
@@ -148,6 +150,7 @@ namespace Scripts.Core.Manager
             _currentState == eStageRunState.DefeatPending ? _defeatPopupTimer : 0;
         private float _resultPopupTimer;
         private const float TickInterval = 3f;
+        private const float MainWaveClearHoldSeconds = .45f;
         
         [NonSerialized]
         private eStage _currentStage;
@@ -184,6 +187,7 @@ namespace Scripts.Core.Manager
             public bool IsClear;
             public Protocol.Message.Data.eStageClearAction NextAction;
             public bool ShowResult;
+            public float PresentNextAfter;
             public long StageId;
             public string BattleId;
             public List<HuntResult> Loots;
@@ -489,7 +493,7 @@ namespace Scripts.Core.Manager
             fade?.FadeIn(.2f);
             KingdomIdle.UGUI.UIManager.Instance?.ShowToast("전투 리소스를 불러오지 못했습니다. 던전 입장권 상태는 서버에 저장되어 있습니다. 재접속해 주세요.");
         }
-        private bool TransitionStage(eStage target)
+        private bool TransitionStage(eStage target, float presentAfter = 0f)
 		{
 			Debug.Log($"{target}");
 			if (RubyProgression.IsBusy || _huntSyncFailed || _mainStageRequestPending || _onHuntsSettled != null || _dungeonRequestPending || _currentState == eStageRunState.Transitioning) return false;
@@ -500,6 +504,25 @@ namespace Scripts.Core.Manager
 				return false;
 			}
 			_currentState = eStageRunState.Transitioning;
+            float hold = presentAfter - Time.realtimeSinceStartup;
+            if (hold > 0f)
+                PresentStageAfterHold(definition, hold, _token.Token).Forget();
+            else
+                PresentStage(definition);
+            return true;
+        }
+
+        private async UniTask PresentStageAfterHold(StageDefinition definition, float hold, CancellationToken token)
+        {
+            long generation = LocalProgression.AccountGeneration;
+            bool canceled = await UniTask.WaitForSeconds(hold, ignoreTimeScale: true, cancellationToken: token).SuppressCancellationThrow();
+            if (!canceled && generation == LocalProgression.AccountGeneration)
+                PresentStage(definition);
+        }
+
+        private void PresentStage(StageDefinition definition)
+        {
+            eStage target = definition.Id;
 			eStage previous = _currentStage;
 			bool requiresLoad =
 				StageParser.GetResourceGroupId(previous) !=
@@ -532,7 +555,7 @@ namespace Scripts.Core.Manager
 						_ => StartStage(definition)).Forget(error => HandleStageLoadFailure(error, fade));
 				}
 
-				return true;
+				return;
 			}
 			if (fade != null)
 			{
@@ -542,7 +565,6 @@ namespace Scripts.Core.Manager
 			{
 				StartStage(definition);
 			}
-			return true;
 		}
 
 		private bool ShouldRestart(eStage target)
@@ -977,6 +999,7 @@ var definition = _currentSession?.Definition;
 			MainStageRule.GetNextWave(definition.Id, out eStage next);
 			FlushHuntBuffer(stageId);
 			_huntOutbox.Enqueue(new HuntOutboxItem { IsClear = true, StageId = stageId, ShowResult = showResult,
+                PresentNextAfter = Time.realtimeSinceStartup + MainWaveClearHoldSeconds,
                 NextAction = ShouldRestart(next) ? Protocol.Message.Data.eStageClearAction.Repeat : Protocol.Message.Data.eStageClearAction.Advance });
 			TrySendNextHunt();
 		}
@@ -1132,7 +1155,7 @@ var definition = _currentSession?.Definition;
 				UpdateMaxClearedStage(definition);
 				OnStageCleared?.Invoke(definition);
 				if (item.ShowResult) EnterResultPending();
-				else if (!TransitionStage((eStage)next))
+				else if (!TransitionStage((eStage)next, item.PresentNextAfter))
 				{
 					_huntSyncFailed = true;
 					FinishHuntSettlement(false);

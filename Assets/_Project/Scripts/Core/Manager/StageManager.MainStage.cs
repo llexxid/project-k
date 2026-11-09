@@ -62,13 +62,13 @@ namespace Scripts.Core.Manager
                 _isLoopMode = confirmed == target ? loop : previousLoop;
                 _mainStageRequestPending = false;
                 _currentState = previousState;
-                OnLoopModeChanged?.Invoke(_isLoopMode);
                 if (!TransitionStage(confirmed))
                 {
                     _huntSyncFailed = true;
                     Time.timeScale = 0;
                     KingdomIdle.UGUI.UIManager.Instance?.ShowToast("서버 스테이지로 이동하지 못했습니다. 재접속해 주세요.");
                 }
+                OnLoopModeChanged?.Invoke(_isLoopMode);
             }
 
             void RefreshConfirmedStage(string reason)

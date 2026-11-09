@@ -21,6 +21,7 @@ namespace KingdomIdle.UGUI
         private static string _returnRun;
         private static Monster _boss;
         private static int _displayedSecond = int.MinValue;
+        private static (eStage Stage, eStageRunState Run, bool Moving, bool Failed) _stageStatus;
 
         public static void Init(WaveHudView view)
         {
@@ -148,6 +149,7 @@ namespace KingdomIdle.UGUI
 
             _view = null;
             _displayedSecond = int.MinValue;
+            _stageStatus = default;
         }
 
         // ── 버튼 핸들러 ──
@@ -166,6 +168,7 @@ namespace KingdomIdle.UGUI
         {
             if (_sm == null || !_sm.TryMoveToMainStage(_sm.CycleFrontierStage))
                 UIManager.Instance?.ShowToast("전투 전환이 끝난 후 다시 시도해 주세요.");
+            else RefreshStageStatus();
         }
 
         private static void OpenStageSelect() => StageSelectPopupController.Show();
@@ -296,9 +299,12 @@ namespace KingdomIdle.UGUI
             SetHidden(_view.dungeonReturn, !dungeon);
             SetHidden(_view.btnStageAction?.gameObject, dungeon || !cleared);
             if (_view.guide != null) _view.guide.SetStageVisible(!dungeon);
-            if (_view.btnStageSelect != null) _view.btnStageSelect.interactable = !dungeon;
-            if (_view.btnStageAction != null) _view.btnStageAction.interactable = _sm.CurrentRunState == eStageRunState.Running;
-            Set(_view.lblStage, $"스테이지 {definition.StageNumber}-{definition.WaveNumber}  ›");
+            if (dungeon)
+            {
+                _stageStatus = default;
+                if (_view.btnStageSelect != null) _view.btnStageSelect.interactable = false;
+            }
+            else RefreshStageStatus();
             Set(_view.stageActionLabel, "최고 스테이지 이동");
             if (!dungeon)
             {
@@ -326,6 +332,27 @@ namespace KingdomIdle.UGUI
             }
             BindBoss(state.Boss);
             if (_returnRun != null && (_returnRun != state.RunId || _sm.CurrentRunState != eStageRunState.Running)) CloseReturn();
+        }
+
+        internal static void RefreshStageStatus()
+        {
+            if (_view == null || _sm == null || StageParser.GetStageType(_sm.CurrentStage) != eStageType.Main) return;
+            var status = (Stage: _sm.CurrentStage, Run: _sm.CurrentRunState, Moving: _sm.IsMainStageMovePending, Failed: _sm.IsHuntSyncFailed);
+            if (_stageStatus == status) return;
+            _stageStatus = status;
+            bool canSelect = !status.Failed && !status.Moving && status.Run != eStageRunState.Transitioning;
+            if (_view.btnStageSelect != null && _view.btnStageSelect.interactable != canSelect)
+                _view.btnStageSelect.interactable = canSelect;
+            bool canMove = canSelect && status.Run == eStageRunState.Running;
+            if (_view.btnStageAction != null && _view.btnStageAction.interactable != canMove)
+                _view.btnStageAction.interactable = canMove;
+
+            if (status.Failed) Set(_view.lblStage, "정산 확인 필요 · 재접속");
+            else if (status.Moving) Set(_view.lblStage, "서버 이동 확인 중…");
+            else if (status.Run == eStageRunState.Resolving) Set(_view.lblStage, "웨이브 정산 중…");
+            else if (status.Run == eStageRunState.Transitioning) Set(_view.lblStage, "스테이지 전환 중…");
+            else if (_sm.CurrentDefinition is StageDefinition definition)
+                Set(_view.lblStage, $"스테이지 {definition.StageNumber}-{definition.WaveNumber}  ›");
         }
         private static void BindBoss(Monster boss)
         {
