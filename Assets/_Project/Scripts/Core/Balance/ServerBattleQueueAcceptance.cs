@@ -224,9 +224,9 @@ namespace KingdomIdle.Balance
                         "invalid server stage projection leaves the entire state untouched");
                 }
                 Set("_huntSyncFailed", false); Set("_mainStageRequestPending", true);
-                Check(!(bool)Call("TransitionStage", Main(1, 1)), "pending server movement blocks another local transition");
+                Check(!(bool)Call("TransitionStage", Main(1, 1), 0f), "pending server movement blocks another local transition");
                 Set("_mainStageRequestPending", false); Set("_dungeonRequestPending", true);
-                Check(!(bool)Call("TransitionStage", Main(1, 1)), "pending dungeon request blocks a local main transition");
+                Check(!(bool)Call("TransitionStage", Main(1, 1), 0f), "pending dungeon request blocks a local main transition");
                 Set("_dungeonRequestPending", false); Set("_currentSession", null); Empty();
 
                 buffer[main] = new Dictionary<eMonsterType, int> { [monster] = 1 };

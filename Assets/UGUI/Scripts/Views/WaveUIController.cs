@@ -34,6 +34,12 @@ namespace KingdomIdle.UGUI
                 return;
             }
 
+            Set(_view.lblStage, "전투 준비 중…");
+            Set(_view.progressLabel, "");
+            Set(_view.remainingLabel, "");
+            Fill(_view.progressFill, 0);
+            if (_view.btnStageSelect != null) _view.btnStageSelect.interactable = false;
+
             _sm = StageManager.Instance;
             if (_sm == null)
             {

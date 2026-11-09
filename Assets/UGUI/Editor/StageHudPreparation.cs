@@ -56,7 +56,7 @@ namespace KingdomIdle.UGUI.Editor
             foreach (string name in new[]{"Frame","StageIcon"}) if(row.Find(name)!=null) row.Find(name).gameObject.SetActive(false);
             F.Stretch(wave.lblStage.rectTransform); wave.lblStage.rectTransform.offsetMin=new Vector2(16,0); wave.lblStage.rectTransform.offsetMax=new Vector2(-16,0);
             Type(wave.lblStage,32,TextAlignmentOptions.MidlineLeft);
-            wave.lblStage.text="스테이지 9-9  ›";
+            wave.lblStage.text="전투 준비 중…";
             wave.bossTimerBar.transform.SetParent(main,false); wave.bossTimerBar.SetActive(false);
             var toggle=(RectTransform)wave.bossChallengeRoot.transform;
             toggle.SetParent(header,false); RemoveLayout(toggle); Width(toggle,300);
@@ -69,8 +69,8 @@ namespace KingdomIdle.UGUI.Editor
 
             var progress=F.Container(main,"StageProgress"); Vertical(progress,8); wave.mainProgress=progress.gameObject;
             var counts=F.Container(progress,"Counts"); Horizontal(counts,12); Height(counts,42);
-            wave.progressLabel=Label(counts,"Kills","처치 0 / 20",28); Flexible(wave.progressLabel.transform);
-            wave.remainingLabel=Label(counts,"Remaining","다음 스테이지까지 20마리",26,TextAlignmentOptions.MidlineRight); Flexible(wave.remainingLabel.transform,2);
+            wave.progressLabel=Label(counts,"Kills","",28); Flexible(wave.progressLabel.transform);
+            wave.remainingLabel=Label(counts,"Remaining","",26,TextAlignmentOptions.MidlineRight); Flexible(wave.remainingLabel.transform,2);
             wave.progressFill=Bar(progress,"KillProgress");
             wave.btnStageAction=Button(main,"BtnStageProgression","최고 스테이지 이동",out var action,true); wave.stageActionLabel=action;
             Height(wave.btnStageAction.transform,96);

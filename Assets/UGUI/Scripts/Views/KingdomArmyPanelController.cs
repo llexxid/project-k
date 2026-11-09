@@ -846,7 +846,10 @@ namespace KingdomIdle.UGUI
             {
                 var capturedItem = item;
                 var capturedMgr = equipMgr;
-                AddActionButton(detail.actionRow, "강화", UguiTheme.BtnSpend, true,
+                long available = LocalProgression.Balance(eCurrency.EquipmentStone);
+                long needed = EquipmentEconomy.EnhanceCost(item);
+                string label = $"강화\n강화석 보유 {NumberNotation.Format(available)} / 필요 {NumberNotation.Format(needed)}";
+                AddActionButton(detail.actionRow, label, UguiTheme.BtnSpend, true,
                     () => TryEnhanceEquipment(capturedItem, capturedMgr));
             }
 
