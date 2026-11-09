@@ -243,9 +243,14 @@ namespace KingdomIdle.UGUI
         void Snapshot(string id)
         {
             Canvas.ForceUpdateCanvases();
-            _view.presentation.RefreshLayout();
+            var presentation = _view != null ? _view.presentation : null;
+            if (presentation == null)
+            {
+                Write(id, new { scene = SceneManager.GetActiveScene().name, titleAvailable = false });
+                return;
+            }
+            presentation.RefreshLayout();
             Canvas.ForceUpdateCanvases();
-            var presentation = _view.presentation;
             var canvas = _view.GetComponentInParent<Canvas>().rootCanvas;
             var camera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
             object RectInfo(RectTransform rect)
