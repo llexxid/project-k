@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using KingdomIdle.Mailbox;
 using Scripts.Core;
+using TMPro;
 using UnityEngine;
 
 namespace KingdomIdle.UGUI
@@ -16,6 +17,8 @@ namespace KingdomIdle.UGUI
         private bool _closingAfterFailure;
         private float _nextTick;
         private int _lastFreeSlots = -1;
+        private TMP_Text _loadMoreLabel;
+        private string _defaultSecondaryLabel;
 
         private void Awake()
         {
@@ -26,6 +29,8 @@ namespace KingdomIdle.UGUI
             _list.Initialize(_view.content, UIManager.Instance.Catalog.itemMailRow, transform, id => _service?.TryClaim(id));
             _view.claimAll.onClick.AddListener(ReceiveOrRetry);
             _view.deleteClaimed.onClick.AddListener(() => _service?.LoadMore());
+            _loadMoreLabel = _view.deleteClaimed.GetComponentInChildren<TMP_Text>(true);
+            _defaultSecondaryLabel = _loadMoreLabel?.text;
             _view.deleteClaimed.interactable = false;
             _view.claimedLabel.text = "수령 시 자동 삭제";
         }
@@ -87,7 +92,8 @@ namespace KingdomIdle.UGUI
                 receivable == count ? $"모두 받기 ({count})" : $"받을 수 있는 우편 ({receivable})";
             _view.claimAll.interactable = !_service.LoadFailed && !_service.IsBusy && (!_service.HasSnapshot || _service.Error != null || receivable > 0);
             _view.deleteClaimed.interactable = _service.HasMore && _service.CanClaim;
-            _view.claimedLabel.text = _service.HasMore ? $"우편 더 보기 ({count}/{_service.TotalCount})" : "수령 시 자동 삭제";
+            if (_loadMoreLabel != null)
+                _loadMoreLabel.text = _service.HasMore ? $"우편 더 보기 ({count}/{_service.TotalCount})" : _defaultSecondaryLabel;
             foreach (var popup in GetComponentsInChildren<RewardPopupView>())
                 if (popup.SourceMailId.HasValue && (!_service.HasSnapshot || !_service.Messages.Any(m => m.MailId == popup.SourceMailId.Value))) popup.Close();
             if (_service.LoadFailed && !_closingAfterFailure)
