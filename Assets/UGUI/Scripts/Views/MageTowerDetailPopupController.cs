@@ -123,7 +123,8 @@ namespace KingdomIdle.UGUI
             if (_view.lblEnhLevel != null) _view.lblEnhLevel.text = $"강화 레벨: {eLv} / {so.maxEnhanceLevel}";
             int enhCost = mgr.GetEnhanceCost(_skillId);
             EconomyBridge.TryGetAmount(eCurrency.ArcaneKnowledge, out long ak);
-            if (_view.lblEnhCost != null) _view.lblEnhCost.text = enhCost < 0 ? "MAX · 다음 강화 없음" : $"지식 {NumberNotation.Format(enhCost)} 필요 · 보유 {NumberNotation.Format(ak)}";
+            if (_view.lblEnhCost != null) _view.lblEnhCost.text = enhCost < 0 ? "MAX · 다음 강화 없음" :
+                $"비전지식 · 보유 {NumberNotation.Format(ak)} · 필요 {NumberNotation.Format(enhCost)}";
             if (_view.btnEnhance != null) _view.btnEnhance.interactable = mgr.CanEnhance(_skillId);
             if (_view.btnEnhanceLabel != null) _view.btnEnhanceLabel.text = eLv >= so.maxEnhanceLevel ? "최대 레벨" : "강화하기";
 
@@ -133,7 +134,8 @@ namespace KingdomIdle.UGUI
             if (_view.lblAwkLevel != null) _view.lblAwkLevel.text = $"각성 레벨: {aLv} / {so.maxAwakeningLevel}";
             int awkCost = mgr.GetAwakeningCost(_skillId);
             int frags = mgr.GetFragments(_skillId);
-            if (_view.lblAwkCost != null) _view.lblAwkCost.text = aLv >= 10 ? "MAX · 다음 각성 없음" : $"비용: 파편 {awkCost}개 (보유: {frags})";
+            if (_view.lblAwkCost != null) _view.lblAwkCost.text = aLv >= 10 ? "MAX · 다음 각성 없음" :
+                $"스킬 파편 · 보유 {NumberNotation.Format(frags)} · 필요 {NumberNotation.Format(awkCost)}";
             if (_view.btnAwaken != null) _view.btnAwaken.interactable = mgr.CanAwaken(_skillId);
             if (_view.btnAwakenLabel != null) _view.btnAwakenLabel.text = aLv >= so.maxAwakeningLevel ? "최대 각성" : "각성하기";
 

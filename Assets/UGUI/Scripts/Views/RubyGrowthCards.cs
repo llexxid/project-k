@@ -53,7 +53,7 @@ namespace KingdomIdle.UGUI
                 bool pending = RubyProgression.HasPendingRequest, queued = RubyProgression.WaitingForWave;
                 string detail = !available ? "서버 연동 준비 중" : busy ? "서버에 확인 중입니다." :
                     pending ? "확인되지 않은 루비 요청이 있습니다." : queued ? "일반 웨이브 종료 후 초기화" :
-                    unlocked ? $"사냥·방치 ×{BalanceMath.RubyMultiplier(level):0.00} · 루비 {NumberNotation.Format(ruby)}" : "메인 2-5 클리어 후 해금";
+                    unlocked ? $"사냥·방치 ×{BalanceMath.RubyMultiplier(level):0.00}" : "메인 2-5 클리어 후 해금";
                 _cards[i].Set(i==1?"EXP 획득 강화":"골드 획득 강화",$"Lv. {level}/50",detail);
                 if (pending && state.PendingRubyRequestExperience == (i==1))
                 {
@@ -63,7 +63,8 @@ namespace KingdomIdle.UGUI
                 else
                 {
                     bool ready = available && !busy && !pending && !queued;
-                    _buy[i].Set("1회 강화",cost.HasValue?$"{NumberNotation.Format(cost.Value)} 루비":"MAX",ready && unlocked && cost.HasValue && ruby>=cost.Value && !capped);
+                    string upgradeCost = cost.HasValue ? $"루비 · 보유 {NumberNotation.Format(ruby)} · 필요 {NumberNotation.Format(cost.Value)}" : "MAX";
+                    _buy[i].Set("1회 강화",upgradeCost,ready && unlocked && cost.HasValue && ruby>=cost.Value && !capped);
                     _reset[i].Set("초기화 80% 반환",$"{NumberNotation.Format(BalanceMath.Floor(spent*.8m))} 루비",ready && reset);
                 }
             }
