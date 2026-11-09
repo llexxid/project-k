@@ -29,7 +29,11 @@ public class EquipmentManager : MonoBehaviour
     private readonly Dictionary<int, Player> _players = new();
     public EquipmentInventory Inventory => _inventory;
     public const int Capacity = 300, PendingCapacity = 100;
-    public int AvailableSlots => Math.Max(0, Capacity - LocalProgression.State.Equipment.Count);
+    internal const int InstanceSchemaVersion = 2, InstanceCapacity = 999;
+    public static bool IsInstanceInventory => LocalProgression.State.EquipmentSchemaVersion == InstanceSchemaVersion;
+    public static int InventoryCapacity => IsInstanceInventory ? InstanceCapacity : Capacity;
+    public static bool AutoLockFirstEnhancement => IsInstanceInventory && LocalProgression.State.AutoLockFirstEnhancement;
+    public int AvailableSlots => Math.Max(0, InventoryCapacity - LocalProgression.State.Equipment.Count);
     /// <summary>서버 자동 분해 등급 마스크(bit0 일반, bit1 레어, bit2 에픽). 로그인·장비 응답으로 갱신된다.</summary>
     public int AutoDismantleMask => LocalProgression.State.AutoDismantleMask;
 
@@ -60,7 +64,8 @@ public class EquipmentManager : MonoBehaviour
     public event Action OnEquipmentStateChanged;
     private EquipmentSave[] _restoredItems = Array.Empty<EquipmentSave>(), _restoredPending = Array.Empty<EquipmentSave>();
     private LegacyEquipmentStack[] _restoredReserve = Array.Empty<LegacyEquipmentStack>();
-    private int _restoredAutoMask = -1;
+    private int _restoredAutoMask = -1, _restoredSchema;
+    private bool _restoredAutoLock;
     private string _restoredAccount;
 
     private void Awake() { if (Instance != null && Instance != this) { Destroy(gameObject); return; } Instance = this; }
@@ -76,16 +81,19 @@ public class EquipmentManager : MonoBehaviour
     public void RestoreEquipment()
     {
         var state = LocalProgression.State;
-        bool changed = _restoredAccount != LocalProgression.AccountKey || _restoredAutoMask != state.AutoDismantleMask ||
+        bool accountChanged = _restoredAccount != LocalProgression.AccountKey;
+        bool changed = accountChanged || _restoredAutoMask != state.AutoDismantleMask ||
+            _restoredSchema != state.EquipmentSchemaVersion || _restoredAutoLock != state.AutoLockFirstEnhancement ||
             !SameEquipment(_restoredItems, state.Equipment) || !SameEquipment(_restoredPending, state.PendingEquipment) ||
             !SameReserve(_restoredReserve, state.LegacyEquipment);
-        var previous = _inventory.Items.ToDictionary(x => x.instanceId);
+        var previous = accountChanged ? new Dictionary<string, EquipmentInstance>() : _inventory.Items.ToDictionary(x => x.instanceId);
         var next = new EquipmentInventory();
         foreach (var saved in state.Equipment)
         {
             var data = GetData(saved.Code);
             if (data == null) { Debug.LogError("[Equipment] Preserved unknown item code: " + saved.Code); continue; }
-            if (!previous.TryGetValue(saved.Id, out var item)) item = new EquipmentInstance(data, saved.Id);
+            if (!previous.TryGetValue(saved.Id, out var item) || item.baseData != data) item = new EquipmentInstance(data, saved.Id);
+            item.serverInstanceId = saved.ServerInstanceId;
             item.enhancementLevel = saved.Level; item.equipmentPlayerIndex = saved.Player; item.IsLocked = saved.Locked;
             item.expiresUtc = saved.ExpiresUtc; item.stonesSpent = saved.EnhancementStonesSpent;
             next.Add(item);
@@ -100,6 +108,8 @@ public class EquipmentManager : MonoBehaviour
         _restoredPending = state.PendingEquipment.Select(x => x.Copy()).ToArray();
         _restoredReserve = state.LegacyEquipment.Select(x => x.Copy()).ToArray();
         _restoredAutoMask = state.AutoDismantleMask;
+        _restoredSchema = state.EquipmentSchemaVersion;
+        _restoredAutoLock = state.AutoLockFirstEnhancement;
         _restoredAccount = LocalProgression.AccountKey;
         var handlers = OnEquipmentStateChanged;
         if (handlers != null)
@@ -113,7 +123,7 @@ public class EquipmentManager : MonoBehaviour
         for (int i = 0; i < previous.Length; i++)
         {
             var a = previous[i]; var b = current[i];
-            if (a.Id != b.Id || a.Code != b.Code || a.Level != b.Level || a.Player != b.Player || a.Locked != b.Locked ||
+            if (a.Id != b.Id || a.ServerInstanceId != b.ServerInstanceId || a.Code != b.Code || a.Level != b.Level || a.Player != b.Player || a.Locked != b.Locked ||
                 a.ExpiresUtc != b.ExpiresUtc || a.EnhancementStonesSpent != b.EnhancementStonesSpent) return false;
         }
         return true;
@@ -202,7 +212,7 @@ public class EquipmentManager : MonoBehaviour
             ActionKind.Unequip => "해제했습니다.",
             ActionKind.Enhance => $"강화 성공! 강화석 {KingdomIdle.UGUI.NumberNotation.Format(info.SpentEquipmentStone)}개 사용",
             ActionKind.Dismantle => $"강화석 {KingdomIdle.UGUI.NumberNotation.Format(info.GrantedEquipmentStone)}개 획득",
-            ActionKind.AutoDismantle => "자동 분해 설정을 저장했습니다.",
+            ActionKind.AutoDismantle => "장비 설정을 저장했습니다.",
             ActionKind.ClaimPending => "대기함 장비를 가방에 넣었습니다.",
             ActionKind.ClaimReserve => "추가 보관 장비를 가방에 넣었습니다.",
             _ => "장비 목록을 갱신했습니다."
@@ -279,8 +289,10 @@ public class EquipmentManager : MonoBehaviour
 
     private bool Owns(EquipmentInstance item) => item?.baseData != null && _inventory.Items.Contains(item);
 
-    private EquipmentInstance FindInStack(int code, int level, long expires, Func<EquipmentInstance, bool> prefer)
+    private EquipmentInstance FindActionItem(long? instanceId, int code, int level, long expires, Func<EquipmentInstance, bool> prefer)
     {
+        if (instanceId.HasValue) return _inventory.Items.FirstOrDefault(x => x.serverInstanceId == instanceId);
+
         EquipmentInstance fallback = null;
         foreach (var item in _inventory.Items)
         {
@@ -291,7 +303,7 @@ public class EquipmentManager : MonoBehaviour
         return fallback;
     }
 
-    // 잠금: 같은 묶음(정의·강화·만료)의 주 보관함·대기함·예비 전부에 적용된다. 서버가 요청의 IsLocked를 그대로 쓴다.
+    // 서버는 인스턴스 인벤토리에서는 선택한 장비, 기존 인벤토리에서는 같은 묶음의 잠금을 변경한다.
     public bool SetLocked(EquipmentInstance item, bool locked) => SetLockedEx(item, locked) == EnhancementResult.Pending;
     public EnhancementResult SetLockedEx(EquipmentInstance item, bool locked)
     {
@@ -303,7 +315,7 @@ public class EquipmentManager : MonoBehaviour
         Begin();
         network.Call<Dto.OnSetEquipmentLockRequestDTO, Dto.OnSetEquipmentLockResponseDTO>(request,
             r => ApplyServerInventory(info, "lock", "OnSetEquipmentLock", r.Equipment, null, $"code=0x{request.ItemCode.Code:X} locked={locked}",
-                () => _inventory.Items.FirstOrDefault(x => x.instanceId == id) ?? FindInStack(code, level, expires, null)),
+                () => _inventory.Items.FirstOrDefault(x => x.instanceId == id) ?? FindActionItem(request.ItemCode.InstanceId, code, level, expires, null)),
             e => RejectServerResult(info, "lock", e));
         return EnhancementResult.Pending;
     }
@@ -317,14 +329,21 @@ public class EquipmentManager : MonoBehaviour
         string serverJob = UserManager.Instance?.GetServerJobName(playerIndex);
         if (!AllowsJobs(item.baseData, player.playerStatus.JobName, serverJob)) return EnhancementResult.NotAllowed;
         if (item.equipmentPlayerIndex == playerIndex) return EnhancementResult.AlreadyEquipped;
-        bool freeCopy = false;
-        foreach (var copy in _inventory.Items)
+        if (item.serverInstanceId.HasValue)
         {
-            if (!copy.SameStack(item)) continue;
-            if (copy.equipmentPlayerIndex == playerIndex) return EnhancementResult.AlreadyEquipped;
-            freeCopy |= !copy.equipmentPlayerIndex.HasValue;
+            if (item.IsEquipped) return EnhancementResult.NoFreeCopy;
         }
-        if (!freeCopy) return EnhancementResult.NoFreeCopy;
+        else
+        {
+            bool freeCopy = false;
+            foreach (var copy in _inventory.Items)
+            {
+                if (!copy.SameStack(item)) continue;
+                if (copy.equipmentPlayerIndex == playerIndex) return EnhancementResult.AlreadyEquipped;
+                freeCopy |= !copy.equipmentPlayerIndex.HasValue;
+            }
+            if (!freeCopy) return EnhancementResult.NoFreeCopy;
+        }
         var gate = Gate(out var network); if (gate != EnhancementResult.Pending) return gate;
         var info = new ActionInfo { Kind = ActionKind.Equip, ItemId = item.instanceId, CharacterIndex = playerIndex };
         int code = item.baseData.itemCode, level = item.enhancementLevel; long expires = item.expiresUtc;
@@ -332,7 +351,7 @@ public class EquipmentManager : MonoBehaviour
         Begin();
         network.Call<Dto.OnEquipEquipmentRequestDTO, Dto.OnEquipEquipmentResponseDTO>(request,
             r => ApplyServerInventory(info, "equip", "OnEquipEquipment", r.Equipment, null, $"code=0x{request.ItemCode.Code:X} char={playerIndex}",
-                () => FindInStack(code, level, expires, x => x.equipmentPlayerIndex == playerIndex)),
+                () => FindActionItem(request.ItemCode.InstanceId, code, level, expires, x => x.equipmentPlayerIndex == playerIndex)),
             e => RejectServerResult(info, "equip", e));
         return EnhancementResult.Pending;
     }
@@ -394,7 +413,7 @@ public class EquipmentManager : MonoBehaviour
         Begin();
         network.Call<Dto.OnUnequipEquipmentRequestDTO, Dto.OnUnequipEquipmentResponseDTO>(request,
             r => ApplyServerInventory(info, "unequip", "OnUnequipEquipment", r.Equipment, null, $"code=0x{request.ItemCode.Code:X} char={playerIndex}",
-                () => FindInStack(code, level, expires, x => !x.equipmentPlayerIndex.HasValue)),
+                () => FindActionItem(request.ItemCode.InstanceId, code, level, expires, x => !x.equipmentPlayerIndex.HasValue)),
             e => RejectServerResult(info, "unequip", e));
         return EnhancementResult.Pending;
     }
@@ -419,7 +438,7 @@ public class EquipmentManager : MonoBehaviour
                 int upgraded = (int)r.ItemCode.GetItemEnchantCount();
                 ApplyServerInventory(info, "enhance", "OnEnchantEquipment", r.Equipment, r.CurrentEquipmentStone,
                     $"code=0x{request.ItemCode.Code:X} char={(character.HasValue ? character.Value.ToString() : "-")} spent={r.SpentEquipmentStone} result=0x{r.ItemCode.Code:X}",
-                    () => FindInStack(code, upgraded, expires, x => x.equipmentPlayerIndex == character));
+                    () => FindActionItem(request.ItemCode.InstanceId, code, upgraded, expires, x => x.equipmentPlayerIndex == character));
             },
             e => RejectServerResult(info, "enhance", e));
         return EnhancementResult.Pending;
@@ -448,13 +467,13 @@ public class EquipmentManager : MonoBehaviour
     }
 
     // 자동 분해: 설정만 저장한다. 이후 서버가 지급하는 장비에만 적용되고 기존 보유분은 분해하지 않는다.
-    public EnhancementResult SetAutoDismantleEx(int mask)
+    public EnhancementResult SetAutoDismantleEx(int mask, bool? autoLockFirstEnhancement = null)
     {
-        if (mask < 0 || mask > 7) return EnhancementResult.InvalidItem;
+        if (mask < 0 || mask > 7 || (autoLockFirstEnhancement.HasValue && !IsInstanceInventory)) return EnhancementResult.InvalidItem;
         var gate = Gate(out var network); if (gate != EnhancementResult.Pending) return gate;
         var info = new ActionInfo { Kind = ActionKind.AutoDismantle };
         Begin();
-        network.Call<Dto.OnSetAutoDismantleRequestDTO, Dto.OnSetAutoDismantleResponseDTO>(new Dto.OnSetAutoDismantleRequestDTO { RarityMask = mask },
+        network.Call<Dto.OnSetAutoDismantleRequestDTO, Dto.OnSetAutoDismantleResponseDTO>(new Dto.OnSetAutoDismantleRequestDTO { RarityMask = mask, AutoLockFirstEnhancement = autoLockFirstEnhancement },
             r => ApplyServerInventory(info, "auto-dismantle", "OnSetAutoDismantle", r.Equipment, null, $"mask={mask}", null),
             e => RejectServerResult(info, "auto-dismantle", e));
         return EnhancementResult.Pending;
@@ -469,11 +488,11 @@ public class EquipmentManager : MonoBehaviour
         var gate = Gate(out var network); if (gate != EnhancementResult.Pending) return gate;
         var info = new ActionInfo { Kind = ActionKind.ClaimPending };
         int code = saved.Code, level = saved.Level; long expires = saved.ExpiresUtc;
-        var request = new Dto.OnClaimPendingEquipmentRequestDTO { ItemCode = EquipmentInstance.MakeItemCode(code, level, expires, 1) };
+        var request = new Dto.OnClaimPendingEquipmentRequestDTO { ItemCode = EquipmentInstance.MakeItemCode(code, level, expires, 1, saved.ServerInstanceId) };
         Begin();
         network.Call<Dto.OnClaimPendingEquipmentRequestDTO, Dto.OnClaimPendingEquipmentResponseDTO>(request,
             r => ApplyServerInventory(info, "claim-pending", "OnClaimPendingEquipment", r.Equipment, null, $"code=0x{request.ItemCode.Code:X}",
-                () => FindInStack(code, level, expires, x => !x.equipmentPlayerIndex.HasValue)),
+                () => FindActionItem(request.ItemCode.InstanceId, code, level, expires, x => !x.equipmentPlayerIndex.HasValue)),
             e => RejectServerResult(info, "claim-pending", e));
         return EnhancementResult.Pending;
     }
@@ -486,11 +505,14 @@ public class EquipmentManager : MonoBehaviour
         if (stack == null || stack.Count <= 0 || GetData(code) == null) return EnhancementResult.InvalidItem;
         var gate = Gate(out var network); if (gate != EnhancementResult.Pending) return gate;
         var info = new ActionInfo { Kind = ActionKind.ClaimReserve };
+        var existingIds = IsInstanceInventory ? new HashSet<long?>(_inventory.Items.Select(x => x.serverInstanceId)) : null;
         var request = new Dto.OnClaimReserveEquipmentRequestDTO { ItemCode = EquipmentInstance.MakeItemCode(code, level, 0, 1) };
         Begin();
         network.Call<Dto.OnClaimReserveEquipmentRequestDTO, Dto.OnClaimReserveEquipmentResponseDTO>(request,
             r => ApplyServerInventory(info, "claim-reserve", "OnClaimReserveEquipment", r.Equipment, null, $"code=0x{request.ItemCode.Code:X}",
-                () => FindInStack(code, level, 0, x => !x.equipmentPlayerIndex.HasValue)),
+                () => existingIds != null
+                    ? _inventory.Items.FirstOrDefault(x => x.baseData.itemCode == code && x.enhancementLevel == level && !existingIds.Contains(x.serverInstanceId))
+                    : FindActionItem(null, code, level, 0, x => !x.equipmentPlayerIndex.HasValue)),
             e => RejectServerResult(info, "claim-reserve", e));
         return EnhancementResult.Pending;
     }

@@ -7,6 +7,9 @@ using Scripts.Users;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
 using Scripts.Core.Manager;
 using Scripts.Core.Utils;
 using UnityEngine;
@@ -260,22 +263,35 @@ namespace Scripts.Core
 		}
 
 		/// <summary>
-		/// 서버가 돌려준 장비 인벤토리를 플레이어 상태에 그대로 쓴다. 서버는 "코드+수량" 묶음으로 주므로 수량만큼 항목으로 펼치고,
-		/// 같은 (Code, Level)인 기존 항목의 Id만 이어받아(열려 있는 상세·분해·수령 UI가 깨지지 않게) 값은 전부 서버 것으로 채운다.
-		/// 예비 보관(ReserveStacks)은 (Code, Level)로 합친다. Validate를 깨는 값(용량·강화 단계)은 잘라내고 경고한다.
+		/// 전체 장비 스냅샷을 적용한다. 인스턴스 인벤토리는 서버 ID로 선택을 유지하고, 기존 인벤토리는 묶음을 낱개로 펼친다.
+		/// 예비 보관은 두 형식에서 모두 기존 묶음으로 보존한다.
 		/// </summary>
 		public static void ApplyEquipment(ProgressionState s, EquipmentInventoryDTO inventory)
 		{
 			if (inventory == null) return;
-			var previous = new List<EquipmentSave>(s.Equipment.Count + s.PendingEquipment.Count);
-			previous.AddRange(s.Equipment);
-			previous.AddRange(s.PendingEquipment);
-			var used = new HashSet<string>();
-			var equipped = new HashSet<int>();
-			var items = new List<EquipmentSave>();
-			var pending = new List<EquipmentSave>();
-			ExpandStacks(inventory.Items, items, previous, used, equipped, EquipmentManager.Capacity, true, "Items");
-			ExpandStacks(inventory.PendingItems, pending, previous, used, equipped, EquipmentManager.PendingCapacity, false, "PendingItems");
+			bool instanceInventory = inventory.SchemaVersion == EquipmentManager.InstanceSchemaVersion;
+			if (!instanceInventory && s.EquipmentSchemaVersion == EquipmentManager.InstanceSchemaVersion)
+				throw new InvalidDataException("Cannot replace instance equipment with a legacy snapshot.");
+
+			List<EquipmentSave> items, pending;
+			if (instanceInventory)
+			{
+				NetworkManager.ValidateEquipment(inventory);
+				var previousById = s.Equipment.Concat(s.PendingEquipment).Where(x => x.ServerInstanceId.HasValue)
+					.ToDictionary(x => x.ServerInstanceId.Value, x => x.Id);
+				items = ReadInstances(inventory.Items, s.Equipment, previousById);
+				pending = ReadInstances(inventory.PendingItems, s.PendingEquipment, previousById);
+			}
+			else
+			{
+				var previous = s.Equipment.Concat(s.PendingEquipment).ToList();
+				var used = new HashSet<string>();
+				var equipped = new HashSet<int>();
+				items = new List<EquipmentSave>();
+				pending = new List<EquipmentSave>();
+				ExpandStacks(inventory.Items, items, previous, used, equipped, EquipmentManager.Capacity, true, "Items");
+				ExpandStacks(inventory.PendingItems, pending, previous, used, equipped, EquipmentManager.PendingCapacity, false, "PendingItems");
+			}
 			var reserve = new List<LegacyEquipmentStack>();
 			if (inventory.ReserveStacks != null)
 			{
@@ -293,20 +309,33 @@ namespace Scripts.Core
 			s.Equipment = items;
 			s.PendingEquipment = pending;
 			s.LegacyEquipment = reserve;
+			s.EquipmentSchemaVersion = instanceInventory ? EquipmentManager.InstanceSchemaVersion : 0;
+			s.AutoLockFirstEnhancement = inventory.AutoLockFirstEnhancement ?? true;
 			s.AutoDismantleMask = Math.Max(0, Math.Min(7, inventory.AutoDismantleRarityMask));
 			// CreateCharacter의 옛 형식(Inventory 목록) 1회 import는 건너뛴다. 서버 값이 이미 들어왔다.
 			s.Modules["inventory-imported"] = "server";
 		}
 
 		/// <summary>
-		/// 서버가 돌려준 "바뀐 장비 묶음"만 플레이어 상태에 쓴다(출석 보상 수령). 묶음 수량은 지급 후 절대값이므로 같은 (Code, Level, 만료) 항목을
-		/// 그 수량만큼 다시 펼치고 기존 Id를 이어받는다. 예비 보관은 (Code, Level) 묶음 수량을 서버 값으로 바꾼다. 응답에 없는 묶음은 건드리지 않는다.
+		/// 출석 수령으로 달라진 장비만 적용한다. 인스턴스 ID 또는 기존 묶음 키가 같은 항목만 서버 값으로 바꾼다.
 		/// </summary>
 		public static void ApplyEquipmentChanges(ProgressionState s, EquipmentChangesDTO changes)
 		{
 			if (changes == null) return;
-			ReplaceStacks(s.Equipment, changes.Items, EquipmentManager.Capacity, true, "Items");
-			ReplaceStacks(s.PendingEquipment, changes.PendingItems, EquipmentManager.PendingCapacity, false, "PendingItems");
+			if (s.EquipmentSchemaVersion == EquipmentManager.InstanceSchemaVersion)
+			{
+				NetworkManager.ValidateEquipmentChanges(changes, true);
+				ApplyInstanceChanges(s.Equipment, changes.Items);
+				ApplyInstanceChanges(s.PendingEquipment, changes.PendingItems);
+			}
+			else
+			{
+				if (changes.Items?.Any(x => x?.ItemCode.InstanceId != null) == true ||
+					changes.PendingItems?.Any(x => x?.ItemCode.InstanceId != null) == true)
+					throw new InvalidDataException("Instance equipment changes require an instance inventory.");
+				ReplaceStacks(s.Equipment, changes.Items, EquipmentManager.Capacity, true, "Items");
+				ReplaceStacks(s.PendingEquipment, changes.PendingItems, EquipmentManager.PendingCapacity, false, "PendingItems");
+			}
 			if (changes.ReserveStacks != null)
 			{
 				foreach (var stack in changes.ReserveStacks)
@@ -324,7 +353,58 @@ namespace Scripts.Core
 			s.Modules["inventory-imported"] = "server";
 		}
 
-		// list에서 묶음과 같은 (Code, Level, 만료) 항목을 빼고 서버 수량만큼 다시 펼친다. 장착 인덱스는 남은 항목과 겹치지 않게 한다.
+		private static (int Code, int Level, long Expires, int? Player, bool Locked, long Spent) LegacyIdentity(EquipmentSave item) =>
+			(item.Code, item.Level, item.ExpiresUtc, item.Player, item.Locked, item.EnhancementStonesSpent);
+
+		private static List<EquipmentSave> ReadInstances(List<EquipmentStackDTO> stacks, List<EquipmentSave> previous,
+			Dictionary<long, string> previousById)
+		{
+			var legacyIds = previous.Where(x => !x.ServerInstanceId.HasValue).GroupBy(LegacyIdentity)
+				.ToDictionary(group => group.Key, group => new Queue<string>(group.Select(x => x.Id)));
+			var items = new List<EquipmentSave>(stacks.Count);
+			foreach (var stack in stacks)
+			{
+				var item = ReadInstance(stack);
+				if (previousById.TryGetValue(item.ServerInstanceId.Value, out string id)) item.Id = id;
+				else if (legacyIds.TryGetValue(LegacyIdentity(item), out var ids) && ids.Count > 0) item.Id = ids.Dequeue();
+				items.Add(item);
+			}
+			return items;
+		}
+
+		private static EquipmentSave ReadInstance(EquipmentStackDTO stack)
+		{
+			if (!(stack?.ItemCode.InstanceId is long id) || id <= 0 || stack.ItemCode.GetItemAmount() != 1)
+				throw new InvalidDataException("Invalid equipment instance.");
+			return new EquipmentSave
+			{
+				Id = "server:" + id.ToString(CultureInfo.InvariantCulture),
+				ServerInstanceId = id,
+				Code = (int)stack.ItemCode.GetItemCode(),
+				Level = checked((int)stack.ItemCode.GetItemEnchantCount()),
+				Player = stack.EquippedCharacterIndexes.Count > 0 ? stack.EquippedCharacterIndexes[0] : (int?)null,
+				Locked = stack.IsLocked,
+				ExpiresUtc = checked((long)stack.ItemCode.ExpireTimesc),
+				EnhancementStonesSpent = stack.EnhancementStonesSpent
+			};
+		}
+
+		private static void ApplyInstanceChanges(List<EquipmentSave> items, List<EquipmentStackDTO> stacks)
+		{
+			foreach (var stack in stacks)
+			{
+				var item = ReadInstance(stack);
+				int index = items.FindIndex(previous => previous.ServerInstanceId == item.ServerInstanceId);
+				if (index < 0) items.Add(item);
+				else
+				{
+					item.Id = items[index].Id;
+					items[index] = item;
+				}
+			}
+		}
+
+		// list에서 같은 묶음을 빼고 서버 수량만큼 다시 펼친다.
 		private static void ReplaceStacks(List<EquipmentSave> list, List<EquipmentStackDTO> stacks, int capacity, bool allowEquip, string label)
 		{
 			if (list == null || stacks == null) return;

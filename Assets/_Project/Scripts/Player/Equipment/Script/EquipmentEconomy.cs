@@ -38,14 +38,14 @@ public static class EquipmentEconomy
     {
         var plan = new DismantlePlan { Mode = singleId != null ? Dto.DismantleMode.Single : Dto.DismantleMode.Bulk };
         var state = LocalProgression.State;
-        var groups = new Dictionary<(int Code, int Level, long Expires, Dto.EquipmentLocation Location), (int Count, long Stones)>();
+        var groups = new Dictionary<(int Code, int Level, long Expires, Dto.EquipmentLocation Location, long? InstanceId), (int Count, long Stones)>();
         void Add(IEnumerable<EquipmentSave> items, Dto.EquipmentLocation location)
         {
             foreach (var item in items)
             {
                 if (IsProtected(item) || EquipmentManager.Instance?.GetData(item.Code) == null || !acceptsCode(item.Code) ||
                     (singleId != null ? item.Id != singleId : item.Level != 0)) continue;
-                var key = (item.Code, item.Level, item.ExpiresUtc, location);
+                var key = (item.Code, item.Level, item.ExpiresUtc, location, item.ServerInstanceId);
                 groups.TryGetValue(key, out var group);
                 groups[key] = (group.Count + 1, checked(group.Stones + Yield(item)));
                 plan.Count++;
@@ -55,7 +55,7 @@ public static class EquipmentEconomy
         foreach (var pair in groups)
         {
             int quantity = Math.Min(0xFFFF, pair.Value.Count);
-            plan.Items.Add(new Dto.DismantleItemDTO { ItemCode = EquipmentInstance.MakeItemCode(pair.Key.Code, pair.Key.Level, pair.Key.Expires, quantity), Location = pair.Key.Location });
+            plan.Items.Add(new Dto.DismantleItemDTO { ItemCode = EquipmentInstance.MakeItemCode(pair.Key.Code, pair.Key.Level, pair.Key.Expires, quantity, pair.Key.InstanceId), Location = pair.Key.Location });
             plan.Stones = checked(plan.Stones + pair.Value.Stones);
         }
         if (singleId == null)

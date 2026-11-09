@@ -517,13 +517,8 @@ namespace Scripts.Core.Manager
                 if (attendanceClaim.Days == null || attendanceClaim.Days.Count == 0 || attendanceClaim.Rewards == null || attendanceClaim.Currency == null ||
                     changes == null || changes.Items == null || changes.PendingItems == null || changes.ReserveStacks == null)
                     throw new JsonSerializationException("Invalid attendance claim result.");
-                ValidateStacks(changes.Items, new HashSet<int>(), true);
-                ValidateStacks(changes.PendingItems, new HashSet<int>(), false);
-                foreach (var stack in changes.ReserveStacks)
-                {
-                    if (stack == null || stack.Count <= 0 || (stack.ItemCode.Code >> 56) != 0)
-                        throw new JsonSerializationException("Invalid reserve stack.");
-                }
+                bool instanceInventory = changes.Items.Concat(changes.PendingItems).Any(stack => stack?.ItemCode.InstanceId != null);
+                ValidateEquipmentChanges(changes, instanceInventory);
             }
             ValidateMailboxResponse(response);
         }
@@ -599,28 +594,58 @@ namespace Scripts.Core.Manager
                 throw new JsonSerializationException("Missing equipment inventory.");
             if (inventory.Capacity <= 0 || inventory.PendingCapacity < 0 || inventory.AutoDismantleRarityMask < 0 || inventory.AutoDismantleRarityMask > 7)
                 throw new JsonSerializationException("Invalid equipment inventory header.");
+            int schema = inventory.SchemaVersion ?? 0;
+            bool instanceInventory = schema == EquipmentManager.InstanceSchemaVersion;
+            if ((schema != 0 && !instanceInventory) || instanceInventory != inventory.AutoLockFirstEnhancement.HasValue ||
+                (instanceInventory && (inventory.Capacity != EquipmentManager.InstanceCapacity ||
+                    inventory.PendingCapacity != EquipmentManager.PendingCapacity || inventory.Items.Count > inventory.Capacity ||
+                    inventory.PendingItems.Count > inventory.PendingCapacity)))
+                throw new JsonSerializationException("Invalid equipment inventory schema.");
             var equipped = new HashSet<int>();
-            ValidateStacks(inventory.Items, equipped, true);
-            ValidateStacks(inventory.PendingItems, equipped, false);
+            var instanceIds = instanceInventory ? new HashSet<long>() : null;
+            ValidateStacks(inventory.Items, equipped, true, instanceIds);
+            ValidateStacks(inventory.PendingItems, equipped, false, instanceIds);
             var keys = new HashSet<(ulong, ulong)>();
             foreach (var stack in inventory.ReserveStacks)
             {
-                if (stack == null || stack.Count <= 0 || (stack.ItemCode.Code >> 56) != 0 || stack.ItemCode.GetItemEnchantCount() != 0 ||
+                if (stack == null || stack.Count <= 0 || stack.ItemCode.InstanceId.HasValue ||
+                    (stack.ItemCode.Code >> 56) != 0 || stack.ItemCode.GetItemEnchantCount() != 0 ||
                     !keys.Add((stack.ItemCode.Code & ~0xFFFFUL, stack.ItemCode.ExpireTimesc)))
                     throw new JsonSerializationException("Invalid reserve stack.");
             }
         }
 
-        private static void ValidateStacks(List<EquipmentStackDTO> stacks, HashSet<int> equipped, bool allowEquip)
+        internal static void ValidateEquipmentChanges(EquipmentChangesDTO changes, bool instanceInventory)
         {
-            var keys = new HashSet<(ulong, ulong)>();
+            if (changes?.Items == null || changes.PendingItems == null || changes.ReserveStacks == null)
+                throw new JsonSerializationException("Missing equipment changes.");
+            var equipped = new HashSet<int>();
+            var instanceIds = instanceInventory ? new HashSet<long>() : null;
+            ValidateStacks(changes.Items, equipped, true, instanceIds);
+            ValidateStacks(changes.PendingItems, equipped, false, instanceIds);
+            foreach (var stack in changes.ReserveStacks)
+                if (stack == null || stack.Count <= 0 || stack.ItemCode.InstanceId.HasValue || (stack.ItemCode.Code >> 56) != 0)
+                    throw new JsonSerializationException("Invalid reserve stack.");
+        }
+
+        private static void ValidateStacks(List<EquipmentStackDTO> stacks, HashSet<int> equipped, bool allowEquip, HashSet<long> instanceIds)
+        {
+            var keys = instanceIds == null ? new HashSet<(ulong, ulong)>() : null;
             foreach (var stack in stacks)
             {
                 if (stack == null || stack.EquippedCharacterIndexes == null) throw new JsonSerializationException("Missing equipment stack.");
                 ulong code = stack.ItemCode.Code;
                 long count = (long)(code & 0xFFFF);
-                if ((code >> 56) != 0 || count <= 0 || stack.EnhancementStonesSpent < 0 || !keys.Add((code & ~0xFFFFUL, stack.ItemCode.ExpireTimesc)))
+                if ((code >> 56) != 0 || count <= 0 || stack.EnhancementStonesSpent < 0)
                     throw new JsonSerializationException("Invalid equipment stack.");
+                if (instanceIds != null)
+                {
+                    if (!(stack.ItemCode.InstanceId is long id) || id <= 0 || !instanceIds.Add(id) || count != 1 ||
+                        stack.ItemCode.GetItemEnchantCount() > 15 || stack.ItemCode.ExpireTimesc > long.MaxValue)
+                        throw new JsonSerializationException("Invalid equipment instance.");
+                }
+                else if (stack.ItemCode.InstanceId.HasValue || !keys.Add((code & ~0xFFFFUL, stack.ItemCode.ExpireTimesc)))
+                    throw new JsonSerializationException("Invalid legacy equipment stack.");
                 if ((!allowEquip && stack.EquippedCharacterIndexes.Count > 0) || stack.EquippedCharacterIndexes.Count > count)
                     throw new JsonSerializationException("Invalid equipped indexes.");
                 foreach (int index in stack.EquippedCharacterIndexes)

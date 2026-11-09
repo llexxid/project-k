@@ -37,7 +37,9 @@ namespace KingdomIdle.Balance
         public List<EquipmentSave> Equipment = new();
         public List<EquipmentSave> PendingEquipment = new();
         public List<LegacyEquipmentStack> LegacyEquipment = new();
+        public int EquipmentSchemaVersion;
         public int AutoDismantleMask;
+        public bool AutoLockFirstEnhancement = true;
         public int EquipmentRarityFilter = -1;
         public bool EquipmentUsableOnly;
         public int EquipmentSort;
@@ -136,6 +138,7 @@ namespace KingdomIdle.Balance
     public sealed class EquipmentSave
     {
         public string Id;
+        public long? ServerInstanceId;
         public int Code, Level;
         public int? Player;
         public bool Locked;

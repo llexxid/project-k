@@ -263,9 +263,15 @@ namespace KingdomIdle.Balance
             if (state.LegacyEquipment == null || state.LegacyEquipment.Any(x => x == null || x.Count <= 0 || x.Level < 0 || x.Level > 15) ||
                 state.LegacyEquipment.GroupBy(x => (x.Code, x.Level)).Any(g => g.Count() > 1))
                 throw new InvalidDataException("Invalid legacy inventory reserve.");
-            if (state.AutoDismantleMask < 0 || state.AutoDismantleMask > 7 || state.EquipmentRarityFilter < -1 || state.EquipmentRarityFilter > 2 || state.EquipmentSort < 0 || state.EquipmentSort > 3 || state.Equipment.Count > EquipmentManager.Capacity || state.PendingEquipment.Count > EquipmentManager.PendingCapacity ||
-                equipment.Any(x => string.IsNullOrEmpty(x.Id) || x.Level < 0 || x.Level > 15 || x.EnhancementStonesSpent < 0 || (x.Player.HasValue && (x.Player < 0 || x.Player > 2))) ||
+            bool instanceInventory = state.EquipmentSchemaVersion == EquipmentManager.InstanceSchemaVersion;
+            if ((state.EquipmentSchemaVersion != 0 && !instanceInventory) ||
+                state.AutoDismantleMask < 0 || state.AutoDismantleMask > 7 || state.EquipmentRarityFilter < -1 || state.EquipmentRarityFilter > 2 || state.EquipmentSort < 0 || state.EquipmentSort > 3 ||
+                state.Equipment.Count > (instanceInventory ? EquipmentManager.InstanceCapacity : EquipmentManager.Capacity) || state.PendingEquipment.Count > EquipmentManager.PendingCapacity ||
+                equipment.Any(x => x == null || string.IsNullOrEmpty(x.Id) || x.Level < 0 || x.Level > 15 || x.EnhancementStonesSpent < 0 ||
+                    (x.Player.HasValue && (x.Player < 0 || x.Player > 2)) ||
+                    (instanceInventory ? !(x.ServerInstanceId > 0) : x.ServerInstanceId.HasValue)) ||
                 equipment.Select(x => x.Id).Distinct().Count() != equipment.Length ||
+                (instanceInventory && equipment.Select(x => x.ServerInstanceId).Distinct().Count() != equipment.Length) ||
                 state.Equipment.Where(x => x.Player.HasValue).GroupBy(x => x.Player).Any(g => g.Count() > 1)) throw new InvalidDataException("Invalid inventory snapshot.");
             if (state.MageSlots.Length != 5 || state.MageSlots.Any(x => x < -1 || x >= KingdomIdle.MageTower.MageSkillRules.IdCapacity || (x >= 0 && !state.MageSkills.ContainsKey(x))) ||
                 state.MageSlots.Where(x => x >= 0).Distinct().Count() != state.MageSlots.Count(x => x >= 0) ||

@@ -19,8 +19,16 @@ namespace Protocol.Message.Dto
 	}
 
 	// 가입·로그인은 서버에서 세션을 발급받는 API라 SessionID가 없다. 발급한 세션은 응답으로 전달한다.
-	public sealed class InitUserRequestDTO : RequestDTO { }
-	public sealed class AuthRequestDTO : RequestDTO { }
+	public sealed class InitUserRequestDTO : RequestDTO
+	{
+		[JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+		public int? EquipmentSchema { get; set; }
+	}
+	public sealed class AuthRequestDTO : RequestDTO
+	{
+		[JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+		public int? EquipmentSchema { get; set; }
+	}
 
 	public struct HuntResult
 	{
@@ -147,6 +155,8 @@ namespace Protocol.Message.Dto
 		// bit0 Normal, bit1 Rare, bit2 Epic. 0~7.
 		[JsonProperty(Required = Required.Always)]
 		public int RarityMask { get; set; }
+		[JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+		public bool? AutoLockFirstEnhancement { get; set; }
 	}
 	public sealed class OnClaimPendingEquipmentRequestDTO : EquipmentItemRequestDTO { }
 	public sealed class OnClaimReserveEquipmentRequestDTO : EquipmentItemRequestDTO { }

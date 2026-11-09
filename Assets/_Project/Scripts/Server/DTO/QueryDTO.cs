@@ -151,12 +151,14 @@ namespace Protocol.Message.Dto
 		// 수량·강화는 서버 상태를 사용하지만 식별에 필요한 코드 값은 생략할 수 없다.
 		[JsonProperty(Required = Required.Always)]
 		public ulong Code { get; set; }
+		[JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+		public long? InstanceId { get; set; }
 		public ulong ExpireTimesc { get; set; } // 0인경우 무제한
 
 		public override int GetHashCode()
 		{
 			// ulong 내부에 구현된 GetHashCode를 그대로 사용합니다.
-			return GetItemCode().GetHashCode();
+			return InstanceId.HasValue ? (GetItemCode(), InstanceId.Value).GetHashCode() : GetItemCode().GetHashCode();
 		}
 
 		//기존 Equals override
@@ -173,7 +175,7 @@ namespace Protocol.Message.Dto
 		{
 			ulong itemCode = GetItemCode();
 			ulong otherItemCode = other.GetItemCode();
-			return itemCode == otherItemCode;
+			return itemCode == otherItemCode && InstanceId == other.InstanceId;
 		}
 
 		public static bool operator ==(ItemCode lhs, ItemCode rhs)
@@ -460,6 +462,10 @@ namespace Protocol.Message.Dto
 	}
 	public sealed class EquipmentInventoryDTO
 	{
+		[JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+		public int? SchemaVersion { get; set; }
+		[JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+		public bool? AutoLockFirstEnhancement { get; set; }
 		[JsonProperty(Required = Required.Always)]
 		public List<EquipmentStackDTO> Items { get; set; } = null!;
 		[JsonProperty(Required = Required.Always)]
@@ -498,7 +504,7 @@ namespace Protocol.Message.Dto
 		public int[] EquippedSkillIds { get; set; } = null!;
 	}
 	public enum RewardKind { Equipment, Skill, Currency }
-	public enum EquipmentDisposition { Inventory, Pending, Reserve, AutoDismantled, None }
+	public enum EquipmentDisposition { Inventory, Pending, Reserve, AutoDismantled, None, Mail = 5 }
 	// 가챠·사냥 드롭·우편 수령 보상 1건. Kind에 따라 DefinitionId/ItemCode(장비·스킬) 또는 CurrencyType(재화)가 채워진다.
 	public sealed class GachaRewardDTO
 	{
@@ -715,6 +721,7 @@ namespace Protocol.Message.Dto
 		public long MailId { get; set; }
 		[JsonProperty(Required = Required.Always)]
 		public MailCategory Category { get; set; }
+		public bool IsEquipmentOverflow { get; set; }
 		// 배포 전 기존 Key 응답에는 TextMode가 없으므로 기본값 0을 허용한다.
 		public MailTextMode TextMode { get; set; }
 		[JsonProperty(Required = Required.AllowNull)]
