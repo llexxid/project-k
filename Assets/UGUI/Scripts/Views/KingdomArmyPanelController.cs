@@ -601,7 +601,20 @@ namespace KingdomIdle.UGUI
             var equipMgr = player?.PlayerEquipmentManager;
             EquipmentManager equipmentManager = EquipmentManager.Instance;
             var toolbar = equip.GetComponentInChildren<EquipmentToolbarView>(true);
-            toolbar?.Bind(data => data.IsAllowedForJob(jobName), Refresh);
+            toolbar?.Bind(data => data.IsAllowedForJob(jobName), Refresh, equip.settingsButton != null);
+            if (equip.ownedListButton != null)
+                equip.ownedListButton.onClick.AddListener(() => ScrollToOwnedEquipment(equip));
+            if (equip.settingsButton != null)
+                equip.settingsButton.onClick.AddListener(EquipmentActionDialog.Settings);
+            if (equip.recommendButton != null)
+            {
+                equip.recommendButton.interactable = player != null && equipmentManager != null;
+                equip.recommendButton.onClick.AddListener(() =>
+                {
+                    var result = equipmentManager.TryEquipRecommended(player.PlayerIndex, LocalProgression.State.EquipmentRecommendation);
+                    ShowToast(result == EquipmentManager.EnhancementResult.Pending ? "추천 장비 장착 요청 중" : EquipmentManager.Describe(result));
+                });
+            }
 
             var equipped = equipMgr?.GetSlotEquipment(eEquipmentSlot.Weapon);
 
@@ -670,6 +683,24 @@ namespace KingdomIdle.UGUI
 
             foreach (var item in sortedItems)
                 BuildInventoryEquipCard(equip.inventoryGrid, item, jobName, equipped, equipMgr);
+        }
+
+        private static void ScrollToOwnedEquipment(KAEquipmentView equip)
+        {
+            var scroll = _view?.scroll;
+            if (scroll == null || scroll.content == null || scroll.viewport == null) return;
+            scroll.StopMovement();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(scroll.content);
+            equip.inventoryGrid.GetComponent<VirtualEquipmentGrid>()?.Refresh();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(scroll.content);
+
+            var content = scroll.content;
+            var target = equip.emptyLabel != null && equip.emptyLabel.gameObject.activeSelf
+                ? equip.emptyLabel.rectTransform : equip.inventoryGrid;
+            float scrollableHeight = content.rect.height - scroll.viewport.rect.height;
+            if (scrollableHeight <= 0) return;
+            float targetTop = content.InverseTransformPoint(target.TransformPoint(0, target.rect.yMax, 0)).y;
+            scroll.verticalNormalizedPosition = Mathf.Clamp01(1f - (content.rect.yMax - targetTop) / scrollableHeight);
         }
 
         internal static void BuildStoredEquipmentCells(RectTransform grid, System.Action refresh, System.Func<int, bool> accepts = null)

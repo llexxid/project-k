@@ -12,7 +12,12 @@ namespace KingdomIdle.UGUI.Editor
         {
             F.Init(); F.Catalog = AssetDatabase.LoadAssetAtPath<UIViewCatalog>("Assets/UGUI/UIViewCatalog.asset");
             PrepareStoneIcon();
-            Edit("Panels/Panel_KAEquipment.prefab", root => AttachToolbar(root.GetComponent<KAEquipmentView>().inventoryGrid));
+            Edit("Panels/Panel_KAEquipment.prefab", root =>
+            {
+                var view = root.GetComponent<KAEquipmentView>();
+                AttachEquipmentActions(view);
+                AttachToolbar(view.inventoryGrid);
+            });
             Edit("Items/Item_InventoryListPage.prefab", root => AttachToolbar(root.GetComponent<InventoryListPageView>().grid));
             F.Catalog.popupEquipmentAction = CreateDialog();
             ItemGens.GenerateCurrencyLine();
@@ -30,6 +35,14 @@ namespace KingdomIdle.UGUI.Editor
             });
             EditorUtility.SetDirty(F.Catalog); AssetDatabase.SaveAssets();
             Debug.Log("EQUIPMENT FEATURE PREPARATION PASSED");
+        }
+
+        public static void PrepareRecommendationUi()
+        {
+            F.Init();
+            F.Catalog = AssetDatabase.LoadAssetAtPath<UIViewCatalog>("Assets/UGUI/UIViewCatalog.asset");
+            Edit("Panels/Panel_KAEquipment.prefab", root => AttachEquipmentActions(root.GetComponent<KAEquipmentView>()));
+            Edit("Popups/Popup_EquipmentAction.prefab", root => AttachRecommendationSetting(root.GetComponent<EquipmentActionDialog>()));
         }
 
         static void PrepareStoneIcon()
@@ -92,6 +105,24 @@ namespace KingdomIdle.UGUI.Editor
             F.Preferred(note, height: 32);
         }
 
+        internal static void AttachEquipmentActions(KAEquipmentView view)
+        {
+            if (view.ownedListButton != null) return;
+            var row = Row(view.transform, "EquipmentShortcuts");
+            row.SetSiblingIndex(1);
+            view.ownedListButton = Action(row, "OwnedEquipment", "보유 장비 보기", UguiTheme.BtnCancel);
+            view.recommendButton = Action(row, "RecommendEquipment", "추천 장착", UguiTheme.BtnConfirm);
+            view.settingsButton = Action(row, "EquipmentSettings", "장비 설정", UguiTheme.BtnCancel);
+        }
+
+        private static void AttachRecommendationSetting(EquipmentActionDialog view)
+        {
+            if (view.recommendation != null) return;
+            var row = Row(view.panel, "RecommendationSetting");
+            row.SetSiblingIndex(view.description.transform.GetSiblingIndex() + 1);
+            view.recommendation = Action(row, "RecommendationCriterion", "추천 기준: 전투력", UguiTheme.BtnCancel);
+        }
+
         private static RectTransform Row(Transform parent, string name)
         { var row = F.Container(parent, name); F.HLayout(row.gameObject, 10, expandWidth: true); F.Preferred(row, height: 104); return row; }
         private static Button Action(Transform row, string name, string label, Color color)
@@ -134,6 +165,7 @@ namespace KingdomIdle.UGUI.Editor
             var buttons = Row(window.transform, "Buttons");
             view.cancel = Action(buttons,"Cancel","취소",UguiTheme.BtnCancel);
             view.confirm = Action(buttons,"Confirm","확인",UguiTheme.BtnSpend);
+            AttachRecommendationSetting(view);
             return PrefabGenUtil.SavePrefab(root.gameObject,"Assets/UGUI/Prefabs/Popups/Popup_EquipmentAction.prefab");
         }
         private static void Edit(string relative, Action<GameObject> action)
