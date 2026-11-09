@@ -24,7 +24,8 @@ namespace KingdomIdle.Mailbox.Testing
             internal bool Ready = true;
             internal long Generation = 1, Gold, AppliedGold, Time = 1793400000;
             internal double Clock;
-            internal string Locale = "ko", ListFailureKind = "Business";
+            internal string Locale = "ko", ListFailureKind = "Business", Account = "A";
+            internal readonly Dictionary<(string Account, string Box), long> Seen = new();
             internal readonly List<string> RequestedLocales = new();
             internal readonly List<(int Start, int Count)> RequestedPages = new();
             internal MailboxService Service;
@@ -33,13 +34,24 @@ namespace KingdomIdle.Mailbox.Testing
             internal Fixture(int count)
             {
                 for (int i = 0; i < count; i++) Mails.Add(Mail(9000000000000L + i, Time));
+                CreateService();
+            }
+            internal void Reconnect()
+            {
+                Generation++;
+                CreateService();
+            }
+            private void CreateService()
+            {
                 Service = new MailboxService(Get, Claim, r =>
                 {
                     if (FailApply) return false;
                     Applied++; AppliedGold = r.Currency.Gold; return true;
                 }, done => { Recovered++; void Complete() { if (RecoveryOk) AppliedGold = Gold; done(RecoveryOk); }
                     if (HoldRecovery) Recoveries.Enqueue(Complete); else Complete(); },
-                    () => (Generation, Generation), () => Ready, () => Clock, () => Locale);
+                    () => (Generation, Generation), () => Ready, () => Clock, () => Locale,
+                    box => Seen.TryGetValue((Account, box), out long id) ? id : 0,
+                    (box, id) => Seen[(Account, box)] = id);
                 Service.ClaimCompleted += r => Result = r;
             }
             private void Get(OnGetMailListRequestDTO r, Action<OnGetMailListResponseDTO> ok, Action<PlayFabError> fail)
@@ -50,9 +62,9 @@ namespace KingdomIdle.Mailbox.Testing
                 void Respond()
                 {
                     if (FailListAt < 0 || call == FailListAt) { fail(Failure(ListFailureKind)); return; }
-                    var page = Mails.Skip(r.StartIndex).Take(r.Count).ToList();
+                    var page = Mails.OrderByDescending(m => m.MailId).Skip(r.StartIndex).Take(r.Count).ToList();
                     if (r.StartIndex == 50 && (DuplicateOnce || DuplicateAlways) && page.Count > 0)
-                    { page[0] = Mails[0]; DuplicateOnce = false; }
+                    { page[0] = Mails.OrderByDescending(m => m.MailId).First(); DuplicateOnce = false; }
                     ok(new OnGetMailListResponseDTO { MailboxId = "box", StartIndex = r.StartIndex,
                         TotalCount = Mails.Count, Mails = page, ServerTimeUtc = Time });
                 }
@@ -118,6 +130,79 @@ namespace KingdomIdle.Mailbox.Testing
                 Check(g.ListCalls == 1, "open mailbox shares the login delivery check");
                 g.Lists.Dequeue()(); g.Service.Close(); g.Service.CheckAfterLogin();
                 Check(g.ListCalls == 1, "shared login check stays complete after close");
+            }
+            {
+                var empty = new Fixture(0);
+                empty.Service.CheckAfterLogin();
+                Check(!empty.Service.HasNewMail && empty.Seen.Count == 0, "empty inbox has no notification");
+                var f = new Fixture(1);
+                long first = f.Mails[0].MailId;
+                f.Service.CheckAfterLogin();
+                Check(f.Service.HasNewMail && f.Seen.Count == 0, "new mail shows before the inbox is opened");
+                f.HoldLists = true;
+                f.Service.Open();
+                Check(!f.Service.HasNewMail && f.Seen[("A", "box")] == first, "opening dismisses the verified mail immediately");
+                f.Service.Close();
+                f.Lists.Dequeue()();
+                f.HoldLists = false;
+                f.Reconnect();
+                f.Service.CheckAfterLogin();
+                Check(!f.Service.HasNewMail, "the same mail stays dismissed after reconnect");
+                f.Mails[0] = Fixture.Mail(first + 1, f.Time);
+                f.Service.RefreshAfterCarryover();
+                Check(f.Service.HasNewMail && f.ListCalls == 4, "a newer ID notifies even when the count is unchanged");
+                f.Service.Tick();
+                Check(f.ListCalls == 4, "closed inbox does not poll");
+            }
+            {
+                var f = new Fixture(51);
+                long first = f.Mails.Max(m => m.MailId);
+                f.Service.CheckAfterLogin();
+                f.Mails.Add(Fixture.Mail(first + 1, f.Time));
+                f.FailListAt = 3;
+                f.Service.Open();
+                Check(!f.Service.HasNewMail && f.Service.LoadFailed && f.Seen[("A", "box")] == first,
+                    "failed later page cannot dismiss unseen mail in the first page");
+                f.Service.Close();
+                f.Reconnect();
+                f.Service.CheckAfterLogin();
+                Check(f.Service.HasNewMail, "reconnect still notifies mail from the incomplete list");
+            }
+            {
+                var f = new Fixture(1) { HoldLists = true, FailListAt = 2 };
+                f.Service.CheckAfterLogin();
+                f.Service.Open();
+                f.Lists.Dequeue()();
+                f.Lists.Dequeue()();
+                Check(f.Service.LoadFailed && f.Seen.Count == 0, "late login summary and failed open do not record seen mail");
+                f.Service.Close();
+                f.Reconnect();
+                f.Service.CheckAfterLogin();
+                f.Lists.Dequeue()();
+                Check(f.Service.HasNewMail, "unseen mail remains discoverable after failed open");
+            }
+            {
+                var f = new Fixture(1);
+                long first = f.Mails[0].MailId;
+                f.Service.Open();
+                f.Service.Close();
+                Check(f.Seen[("A", "box")] == first, "successful first open records the full inbox");
+                f.Reconnect();
+                f.HoldLists = true;
+                f.Service.CheckAfterLogin();
+                f.Account = "B";
+                f.Generation++;
+                f.Service.CheckAccount();
+                f.Service.CheckAfterLogin();
+                f.Lists.Dequeue()();
+                Check(!f.Service.HasNewMail && !f.Seen.ContainsKey(("B", "box")), "previous account summary is ignored");
+                f.Lists.Dequeue()();
+                Check(f.Service.HasNewMail, "identical IDs are still new on a different account");
+                f.Service.Open();
+                f.Lists.Dequeue()();
+                f.Service.Close();
+                Check(!f.Service.HasNewMail && f.Seen[("B", "box")] == first && f.Seen[("A", "box")] == first,
+                    "opening B preserves A's seen state");
             }
             foreach (int count in new[] { 0, 1, 50, 51, 100 })
             {
@@ -217,7 +302,7 @@ namespace KingdomIdle.Mailbox.Testing
             }
             {
                 var f = new Fixture(1) { HoldLists = true }; f.Service.Open();
-                f.Service.RequestRefresh("carryover"); f.Service.RequestRefresh("carryover"); f.Lists.Dequeue()();
+                f.Service.RefreshAfterCarryover(); f.Service.RefreshAfterCarryover(); f.Lists.Dequeue()();
                 Check(f.ListCalls == 2 && !f.Service.CanClaim, "refresh invalidations coalesce while loading");
                 f.Lists.Dequeue()(); Check(f.Service.CanClaim && f.ListCalls == 2, "coalesced refresh publishes only final list");
             }

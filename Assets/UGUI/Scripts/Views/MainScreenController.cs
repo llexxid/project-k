@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using KingdomIdle.UI;
+using KingdomIdle.Mailbox;
 using Scripts.Core;
 
 namespace KingdomIdle.UGUI
@@ -32,6 +33,8 @@ namespace KingdomIdle.UGUI
         private bool _hamburgerOpen;
         private Coroutine _hamburgerCo;
         private Vector2 _hamburgerBasePos;
+        private MailboxService _mailbox;
+        private GameObject _hamburgerDot, _mailDot;
 
         // 탭
         private readonly List<(MainTabButtonView view, UIPanelId id)> _tabs = new();
@@ -54,7 +57,7 @@ namespace KingdomIdle.UGUI
             try { BindHamburger(); }
             catch (Exception ex) { Debug.LogError($"MainScreen.Hamburger failed: {ex}"); }
 
-            try { BindMenus(); }
+            try { BindMenus(); BindMenuNotifications(); }
             catch (Exception ex) { Debug.LogError($"MainScreen.Menus failed: {ex}"); }
 
             try { WaveUIController.Init(_view.waveHud); }
@@ -88,6 +91,9 @@ namespace KingdomIdle.UGUI
                 _host.StopRunningCoroutine(_hamburgerCo);
             }
 
+            if (_mailbox != null) _mailbox.Changed -= RefreshMenuNotifications;
+            _mailbox = null;
+            _hamburgerDot = _mailDot = null;
             UnhookEconomyChangeHandler();
             WaveUIController.Dispose();
             if (_profilePopup != null)
@@ -809,6 +815,24 @@ namespace KingdomIdle.UGUI
             }
             if (_view.btnMenuCheckIn != null)
                 _view.btnMenuCheckIn.onClick.AddListener(() => OpenRewardPanel(UIPanelId.CheckIn));
+        }
+
+        private void BindMenuNotifications()
+        {
+            _mailbox = GameManager.Instance != null ? GameManager.Instance.Mailbox : null;
+            if (_mailbox == null) return;
+            var circle = _host.Catalog?.circle;
+            _hamburgerDot = NotificationDot.Create(_view.btnHamburger, circle);
+            _mailDot = NotificationDot.Create(_view.btnMenuMail, circle);
+            _mailbox.Changed += RefreshMenuNotifications;
+            RefreshMenuNotifications();
+        }
+
+        private void RefreshMenuNotifications()
+        {
+            bool hasNewMail = _mailbox != null && _mailbox.HasNewMail;
+            NotificationDot.SetVisible(_mailDot, hasNewMail);
+            NotificationDot.SetVisible(_hamburgerDot, hasNewMail);
         }
 
         private void OpenRewardPanel(UIPanelId id)
