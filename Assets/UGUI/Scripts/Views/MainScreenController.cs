@@ -522,6 +522,9 @@ namespace KingdomIdle.UGUI
             if (_currencyOpen)
                 CloseCurrencyPopupImmediate();
 
+            if (_host.HasActiveTabPanel && !_host.HasBlockingPanel)
+                _host.ClearPanels();
+
             // 햄버거 버튼 바로 아래로 정렬
             PositionDropdownUnder(_view.popupHamburgerRect,
                 _view.btnHamburgerRect != null ? _view.btnHamburgerRect : (_view.btnHamburger != null ? _view.btnHamburger.transform as RectTransform : null));

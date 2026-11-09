@@ -448,6 +448,16 @@ namespace KingdomIdle.UGUI
                 LayoutRebuilder.ForceRebuildLayoutImmediate(view.sheet);
                 entry.SheetRestingPos = view.sheet.anchoredPosition;
             }
+            if (isTabPanel && !IsExpandedPanel(id) && view != null && view.backdrop != null && HudTop is RectTransform hud)
+            {
+                var backdrop = (RectTransform)view.backdrop.transform;
+                var parent = (RectTransform)backdrop.parent;
+                float hudBottom = parent.InverseTransformPoint(hud.TransformPoint(new Vector3(hud.rect.center.x, hud.rect.yMin))).y;
+                float topAnchor = Mathf.Lerp(parent.rect.yMin, parent.rect.yMax, backdrop.anchorMax.y);
+                var offset = backdrop.offsetMax;
+                offset.y = Mathf.Min(offset.y, hudBottom - topAnchor);
+                backdrop.offsetMax = offset;
+            }
 #if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
             Debug.Log($"[PanelTiming] {id} layout {panelTimer.Elapsed.TotalMilliseconds:F2} ms");
 #endif
