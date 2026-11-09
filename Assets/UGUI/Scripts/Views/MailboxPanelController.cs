@@ -15,6 +15,7 @@ namespace KingdomIdle.UGUI
         private bool _subscribed;
         private bool _closingAfterFailure;
         private float _nextTick;
+        private int _lastFreeSlots = -1;
 
         private void Awake()
         {
@@ -24,6 +25,7 @@ namespace KingdomIdle.UGUI
             _list = GetComponent<VirtualizedMailList>() ?? gameObject.AddComponent<VirtualizedMailList>();
             _list.Initialize(_view.content, UIManager.Instance.Catalog.itemMailRow, transform, id => _service?.TryClaim(id));
             _view.claimAll.onClick.AddListener(ReceiveOrRetry);
+            _view.deleteClaimed.onClick.AddListener(() => _service?.LoadMore());
             _view.deleteClaimed.interactable = false;
             _view.claimedLabel.text = "수령 시 자동 삭제";
         }
@@ -58,6 +60,8 @@ namespace KingdomIdle.UGUI
             Connect();
             if (!_subscribed) return;
             _service.Tick();
+            if (EquipmentManager.IsInstanceInventory && _lastFreeSlots != MailboxService.FreeEquipmentSlots)
+                Render();
             _list.UpdateTime(_service.ServerNow, _service.CanClaim);
         }
         private void ReceiveOrRetry()
@@ -72,13 +76,18 @@ namespace KingdomIdle.UGUI
             _view.content.gameObject.SetActive(_service.HasSnapshot);
             _list.SetEntries(_service.Messages, _service.CanClaim, _service.ServerNow);
             int count = _service.Messages.Count;
-            _view.totalLabel.text = _service.HasSnapshot ? $"전체 {count}" : "전체 —";
-            _view.unclaimedLabel.text = _service.HasSnapshot ? $"미수령 {count}" : "미수령 —";
+            int receivable = _service.CanClaim ? _service.ReceivableCount : 0;
+            _lastFreeSlots = MailboxService.FreeEquipmentSlots;
+            _view.totalLabel.text = _service.HasSnapshot ? $"전체 {_service.TotalCount}" : "전체 —";
+            _view.unclaimedLabel.text = _service.HasSnapshot ? $"미수령 {_service.TotalCount}" : "미수령 —";
             _view.emptyLabel.text = _service.Error ?? (_service.State == MailboxState.Loading ? "우편을 불러오고 있습니다." :
                 !_service.HasSnapshot ? "우편 상태를 확인하고 있습니다." : count == 0 ? "보관 중인 우편이 없습니다." : "");
-            _view.claimAllLabel.text = _service.IsBusy ? "처리 중…" : !_service.HasSnapshot || _service.Error != null ? "다시 불러오기" : $"모두 받기 ({count})";
-            _view.claimAll.interactable = !_service.LoadFailed && !_service.IsBusy && (!_service.HasSnapshot || _service.Error != null || count > 0);
-            _view.deleteClaimed.interactable = false;
+            _view.claimAllLabel.text = _service.IsBusy ? "처리 중…" : !_service.HasSnapshot || _service.Error != null ? "다시 불러오기" :
+                _service.HasMore ? $"표시된 우편 받기 ({receivable})" :
+                receivable == count ? $"모두 받기 ({count})" : $"받을 수 있는 우편 ({receivable})";
+            _view.claimAll.interactable = !_service.LoadFailed && !_service.IsBusy && (!_service.HasSnapshot || _service.Error != null || receivable > 0);
+            _view.deleteClaimed.interactable = _service.HasMore && _service.CanClaim;
+            _view.claimedLabel.text = _service.HasMore ? $"우편 더 보기 ({count}/{_service.TotalCount})" : "수령 시 자동 삭제";
             foreach (var popup in GetComponentsInChildren<RewardPopupView>())
                 if (popup.SourceMailId.HasValue && (!_service.HasSnapshot || !_service.Messages.Any(m => m.MailId == popup.SourceMailId.Value))) popup.Close();
             if (_service.LoadFailed && !_closingAfterFailure)

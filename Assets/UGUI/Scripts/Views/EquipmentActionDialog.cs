@@ -13,6 +13,7 @@ namespace KingdomIdle.UGUI
         public Button backdrop, cancel, confirm;
         public Button recommendation;
         public Toggle[] rarityToggles;
+        public Toggle autoLockFirst;
         private static EquipmentActionDialog _open;
 
         private static EquipmentActionDialog Create(string heading, string body, string action)
@@ -40,6 +41,7 @@ namespace KingdomIdle.UGUI
             if (view == null) return;
             if (view.recommendation != null) view.recommendation.transform.parent.gameObject.SetActive(false);
             foreach (var toggle in view.rarityToggles) toggle.gameObject.SetActive(false);
+            if (view.autoLockFirst != null) view.autoLockFirst.gameObject.SetActive(false);
             view.panel.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 620);
             view.confirm.onClick.AddListener(() => {
                 // 서버(OnDismantleEquipment)가 보호·수량을 검사하고 환급액을 확정한다. 완료 토스트·목록 갱신은 패널의 완료 이벤트가 한다.
@@ -55,9 +57,16 @@ namespace KingdomIdle.UGUI
             var view = Create("장비 설정", "추천 기준은 누르면 이 기기의 현재 계정에 저장됩니다.\n현재 무기는 공격력만 올립니다.\n\n자동 분해할 등급을 선택하세요. 앞으로 획득할 장비에 적용됩니다.\n일반 1 · 레어 4 · 에픽 12 강화석", "자동 분해 저장");
             if (view == null) return;
             view.cancel.GetComponentInChildren<TMP_Text>().text = "닫기";
+            bool canSetAutoLock = EquipmentManager.IsInstanceInventory && view.autoLockFirst != null;
+            if (view.autoLockFirst != null)
+            {
+                view.autoLockFirst.gameObject.SetActive(canSetAutoLock);
+                view.autoLockFirst.SetIsOnWithoutNotify(EquipmentManager.AutoLockFirstEnhancement);
+            }
+            if (canSetAutoLock) view.confirm.GetComponentInChildren<TMP_Text>().text = "설정 저장";
             if (view.recommendation != null)
             {
-                view.panel.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 1056);
+                view.panel.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, canSetAutoLock ? 1172 : 1056);
                 view.UpdateRecommendationLabel();
                 view.recommendation.onClick.AddListener(view.ChangeRecommendation);
             }
@@ -66,9 +75,10 @@ namespace KingdomIdle.UGUI
             view.confirm.onClick.AddListener(() => {
                 int next = 0;
                 for (int i = 0; i < view.rarityToggles.Length; i++) if (view.rarityToggles[i].isOn) next |= 1 << i;
-                if (next == LocalProgression.State.AutoDismantleMask) { view.Close(); return; }
-                // 서버(OnSetAutoDismantle)에 저장한다. 이후 서버가 지급하는 장비에만 적용된다. 목록 갱신은 패널의 완료 이벤트가 한다.
-                var result = EquipmentManager.Instance != null ? EquipmentManager.Instance.SetAutoDismantleEx(next) : EquipmentManager.EnhancementResult.NetworkNotReady;
+                bool? autoLock = canSetAutoLock ? view.autoLockFirst.isOn : null;
+                if (next == LocalProgression.State.AutoDismantleMask &&
+                    (!autoLock.HasValue || autoLock.Value == EquipmentManager.AutoLockFirstEnhancement)) { view.Close(); return; }
+                var result = EquipmentManager.Instance != null ? EquipmentManager.Instance.SetAutoDismantleEx(next, autoLock) : EquipmentManager.EnhancementResult.NetworkNotReady;
                 if (result != EquipmentManager.EnhancementResult.Pending) { UIManager.Instance?.ShowToast(EquipmentManager.Describe(result)); return; }
                 view.Close();
             });

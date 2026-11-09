@@ -18,6 +18,7 @@ namespace KingdomIdle.UGUI
         public Color claimedBackground = new Color32(43, 43, 42, 255);
         private Color _backgroundColor;
         private long _expiresUtc, _lastExpiryMinute = long.MinValue;
+        private int _requiredSlots, _lastFreeSlots;
         private readonly List<RewardSlotView> _slots = new();
         private UnityEngine.UI.ScrollRect _rewardScroll;
         public long MailId { get; private set; }
@@ -35,12 +36,14 @@ namespace KingdomIdle.UGUI
             statusLabel.color = UguiTheme.AccentGold;
             sender.text = MailText.Sender(mail);
             _expiresUtc = mail.ExpiresUtc;
+            _requiredSlots = MailboxProtocol.RequiredEquipmentSlots(mail);
+            _lastFreeSlots = -1;
             _lastExpiryMinute = long.MinValue;
             RefreshExpiry(now);
             background.color = _backgroundColor;
             attachments.alpha = 1f;
             claimLabel.text = "받기";
-            claim.interactable = canClaim && _expiresUtc > now;
+            SetCanClaim(canClaim, now);
             claim.onClick.RemoveAllListeners(); claim.onClick.AddListener(() => receive());
             details.onClick.RemoveAllListeners(); details.onClick.AddListener(() => RewardPopupView.ShowMail(popupOwner, mail));
             // Reserve the server attachment limit once; scrolling never instantiates slots.
@@ -59,7 +62,16 @@ namespace KingdomIdle.UGUI
             }
             if (changedMail && _rewardScroll != null) { _rewardScroll.StopMovement(); _rewardScroll.horizontalNormalizedPosition = 0; }
         }
-        public void SetCanClaim(bool canClaim, long now) => claim.interactable = canClaim && _expiresUtc > now;
+        public void SetCanClaim(bool canClaim, long now)
+        {
+            if (_requiredSlots == 0) { claim.interactable = canClaim && _expiresUtc > now; return; }
+            int free = MailboxService.FreeEquipmentSlots;
+            claim.interactable = canClaim && free >= _requiredSlots;
+            if (_lastFreeSlots == free) return;
+            _lastFreeSlots = free;
+            claimLabel.text = free >= _requiredSlots ? "받기" : "공간 부족";
+            statusLabel.text = free >= _requiredSlots ? "미수령" : $"빈 칸 {free} / 필요 {_requiredSlots}";
+        }
         public void Unbind()
         {
             MailId = 0; claim.onClick.RemoveAllListeners(); details.onClick.RemoveAllListeners();
@@ -67,6 +79,11 @@ namespace KingdomIdle.UGUI
         }
         public void RefreshExpiry(long now)
         {
+            if (_requiredSlots > 0)
+            {
+                if (_lastExpiryMinute == long.MinValue) { expiry.text = "기한 없음"; _lastExpiryMinute = 0; }
+                return;
+            }
             long remaining = Math.Max(0, _expiresUtc - now);
             long minutes = remaining > 0 ? remaining / 60 : -1;
             if (_lastExpiryMinute == minutes) return;

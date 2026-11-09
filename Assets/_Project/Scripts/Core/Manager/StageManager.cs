@@ -8,6 +8,7 @@ using Scripts.Monster.SO;
 using Protocol.Message.Dto;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using Core.Stage;
 using Core.Stage.Action;
@@ -1087,7 +1088,7 @@ var definition = _currentSession?.Definition;
 				UserManager.ApplyCurrency(s, result.Currency);
 				s.Wallet[eCurrency.Gold] = Math.Max(0, result.Gold);
 				s.Wallet[eCurrency.AncientCoin] = Math.Max(0, result.AncientCoin);
-				UserManager.ApplyEquipment(s, result.Equipment);
+				if (result.Equipment != null) UserManager.ApplyEquipment(s, result.Equipment);
 				return true;
 			});
 			Debug.Log($"[Hunt] stage=0x{item.StageId:X} loots={DescribeLoots(item.Loots)} -> level={result.Level} exp={result.Exp} kills={result.KillScore} gold={result.Gold} drops={result.Drops?.Count ?? 0} inventory={UserManager.DescribeInventory(result.Equipment)} saved={saved}");
@@ -1149,6 +1150,9 @@ var definition = _currentSession?.Definition;
 			{
 				if (result.Equipment != null) EquipmentManager.Instance?.RestoreEquipment();
 				if (result.MageTowerState != null) KingdomIdle.MageTower.MageTowerManager.Instance?.NotifyCommitted();
+				if (EquipmentManager.IsInstanceInventory && LocalProgression.State.Equipment.Count >= EquipmentManager.InventoryCapacity &&
+				    result.GrantedRewards?.Any(reward => reward.Kind == RewardKind.Equipment) == true)
+					GameManager.Instance?.Mailbox?.RefreshAfterDelivery("stage-clear-overflow");
 			}
 			if (saved)
 			{

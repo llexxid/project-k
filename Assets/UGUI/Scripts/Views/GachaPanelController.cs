@@ -41,6 +41,8 @@ namespace KingdomIdle.UGUI
 
         // GachaManager 이벤트 구독 상태 (중복 구독 방지)
         private static bool _subscribedToManager;
+        private static EquipmentManager _equipment;
+        private static bool _inventoryFull;
 
         /// <summary>다른 뽑기 인스턴스가 정적 바인딩을 차지한 뒤 복귀한 경우에만 다시 연결한다.</summary>
         internal static void Restore(GachaPanelView view)
@@ -69,6 +71,8 @@ namespace KingdomIdle.UGUI
                     _content = null;
                     _contentTable = null;
                     EconomyBridge.OnAmountChanged -= OnWalletChanged;
+                    if (_equipment != null) _equipment.OnEquipmentStateChanged -= OnEquipmentChanged;
+                    _equipment = null;
                     if (GachaManager.Instance != null) GachaManager.Instance.OnPullStateChanged -= OnPullStateChanged;
                     _subscribedToManager = false;
                     _tabButtons.Clear();
@@ -94,6 +98,9 @@ namespace KingdomIdle.UGUI
 
             EconomyBridge.OnAmountChanged -= OnWalletChanged;
             EconomyBridge.OnAmountChanged += OnWalletChanged;
+            if (_equipment != null) _equipment.OnEquipmentStateChanged -= OnEquipmentChanged;
+            _equipment = EquipmentManager.Instance;
+            if (_equipment != null) _equipment.OnEquipmentStateChanged += OnEquipmentChanged;
             _activeTabIndex = Mathf.Clamp(_activeTabIndex,0,_tables.Count-1);
             if (pendingSkillTab.HasValue)
                 for (int i = 0; i < _tables.Count; i++)
@@ -247,9 +254,12 @@ namespace KingdomIdle.UGUI
         private static eCurrency TicketCurrency => IsSkillTable(_contentTable) ? eCurrency.MageTicket : eCurrency.EquipmentTicket;
         private static void OnWalletChanged(eCurrency currency, long amount)
         { if (_contentTable != null && (_contentTable.costCurrency == currency || TicketCurrency == currency)) UpdateWallet(); }
+        private static void OnEquipmentChanged()
+        { if (_inventoryFull != (GachaManager.Instance?.IsEquipmentInventoryFull(_contentTable) == true)) UpdateWallet(); }
         private static void UpdateWallet()
         {
             if (_content == null || _contentTable == null) return;
+            _inventoryFull = GachaManager.Instance?.IsEquipmentInventoryFull(_contentTable) == true;
             EconomyBridge.TryGetAmount(_contentTable.costCurrency,out long current);
             UpdateCostLabel(current);
             var ticketCurrency = TicketCurrency;

@@ -42,7 +42,7 @@ namespace KingdomIdle.UGUI.Editor
             F.Init();
             F.Catalog = AssetDatabase.LoadAssetAtPath<UIViewCatalog>("Assets/UGUI/UIViewCatalog.asset");
             Edit("Panels/Panel_KAEquipment.prefab", root => AttachEquipmentActions(root.GetComponent<KAEquipmentView>()));
-            Edit("Popups/Popup_EquipmentAction.prefab", root => AttachRecommendationSetting(root.GetComponent<EquipmentActionDialog>()));
+            Edit("Popups/Popup_EquipmentAction.prefab", root => AttachDialogSettings(root.GetComponent<EquipmentActionDialog>()));
         }
 
         static void PrepareStoneIcon()
@@ -115,12 +115,21 @@ namespace KingdomIdle.UGUI.Editor
             view.settingsButton = Action(row, "EquipmentSettings", "장비 설정", UguiTheme.BtnCancel);
         }
 
-        private static void AttachRecommendationSetting(EquipmentActionDialog view)
+        private static void AttachDialogSettings(EquipmentActionDialog view)
         {
-            if (view.recommendation != null) return;
-            var row = Row(view.panel, "RecommendationSetting");
-            row.SetSiblingIndex(view.description.transform.GetSiblingIndex() + 1);
-            view.recommendation = Action(row, "RecommendationCriterion", "추천 기준: 전투력", UguiTheme.BtnCancel);
+            if (view.recommendation == null)
+            {
+                var row = Row(view.panel, "RecommendationSetting");
+                row.SetSiblingIndex(view.description.transform.GetSiblingIndex() + 1);
+                view.recommendation = Action(row, "RecommendationCriterion", "추천 기준: 전투력", UguiTheme.BtnCancel);
+            }
+            if (view.autoLockFirst != null) return;
+            var toggle = UnityEngine.Object.Instantiate(view.rarityToggles[0], view.panel, false);
+            toggle.name = "AutoLockFirstEnhancement";
+            toggle.transform.SetSiblingIndex(view.confirm.transform.parent.GetSiblingIndex());
+            toggle.GetComponentInChildren<TMP_Text>().text = "첫 강화 시 해당 장비 잠금";
+            toggle.gameObject.SetActive(false);
+            view.autoLockFirst = toggle;
         }
 
         private static RectTransform Row(Transform parent, string name)
@@ -165,7 +174,7 @@ namespace KingdomIdle.UGUI.Editor
             var buttons = Row(window.transform, "Buttons");
             view.cancel = Action(buttons,"Cancel","취소",UguiTheme.BtnCancel);
             view.confirm = Action(buttons,"Confirm","확인",UguiTheme.BtnSpend);
-            AttachRecommendationSetting(view);
+            AttachDialogSettings(view);
             return PrefabGenUtil.SavePrefab(root.gameObject,"Assets/UGUI/Prefabs/Popups/Popup_EquipmentAction.prefab");
         }
         private static void Edit(string relative, Action<GameObject> action)

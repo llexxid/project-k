@@ -149,7 +149,7 @@ namespace KingdomIdle.Mailbox.Testing
                 f.Service.CheckAfterLogin();
                 Check(!f.Service.HasNewMail, "the same mail stays dismissed after reconnect");
                 f.Mails[0] = Fixture.Mail(first + 1, f.Time);
-                f.Service.RefreshAfterCarryover();
+                f.Service.RefreshAfterDelivery("carryover");
                 Check(f.Service.HasNewMail && f.ListCalls == 4, "a newer ID notifies even when the count is unchanged");
                 f.Service.Tick();
                 Check(f.ListCalls == 4, "closed inbox does not poll");
@@ -302,7 +302,7 @@ namespace KingdomIdle.Mailbox.Testing
             }
             {
                 var f = new Fixture(1) { HoldLists = true }; f.Service.Open();
-                f.Service.RefreshAfterCarryover(); f.Service.RefreshAfterCarryover(); f.Lists.Dequeue()();
+                f.Service.RefreshAfterDelivery("carryover"); f.Service.RefreshAfterDelivery("carryover"); f.Lists.Dequeue()();
                 Check(f.ListCalls == 2 && !f.Service.CanClaim, "refresh invalidations coalesce while loading");
                 f.Lists.Dequeue()(); Check(f.Service.CanClaim && f.ListCalls == 2, "coalesced refresh publishes only final list");
             }

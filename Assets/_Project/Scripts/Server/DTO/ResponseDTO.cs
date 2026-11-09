@@ -71,10 +71,9 @@ public class UserInitResponseDTO : ApiResponseDTO
 public sealed class OnGetUserStateResponseDTO : UserInitResponseDTO { }
 public sealed class OnHuntResponseDTO : ApiResponseDTO
 {
-    // 이번 배치의 장비 드롭과 적용 후 전체 장비·재화 상태.
+    // 구버전은 전체 인벤토리를 보내며, 장비가 바뀌지 않는 v2 사냥에서는 생략한다.
     [JsonProperty(Required = Required.Always)]
     public List<GachaRewardDTO> Drops { get; set; } = null!;
-    [JsonProperty(Required = Required.Always)]
     public EquipmentInventoryDTO Equipment { get; set; } = null!;
     [JsonProperty(Required = Required.Always)]
     public CurrencyQueryDTO Currency { get; set; } = null!;
@@ -424,7 +423,7 @@ public sealed class OnAddRubyResponseDTO : ApiResponseDTO
 // 우편·출석
 public sealed class OnGetMailListResponseDTO : ApiResponseDTO
 {
-    // 아직 우편을 받은 적이 없으면 null이다.
+    // 구버전에서는 아직 우편을 받은 적이 없으면 null이다.
     [JsonProperty(Required = Required.AllowNull)]
     public string MailboxId { get; set; }
     [JsonProperty(Required = Required.Always)]
@@ -434,6 +433,9 @@ public sealed class OnGetMailListResponseDTO : ApiResponseDTO
     public int TotalCount { get; set; }
     [JsonProperty(Required = Required.Always)]
     public List<MailDTO> Mails { get; set; } = null!;
+    public long? LatestRegularMailId { get; set; }
+    public long? LatestOverflowMailId { get; set; }
+    public string RegularMailboxId { get; set; }
     [JsonProperty(Required = Required.Always)]
     public long ServerTimeUtc { get; set; }
 }

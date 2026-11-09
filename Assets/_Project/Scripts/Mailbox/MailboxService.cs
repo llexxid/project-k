@@ -33,20 +33,22 @@ namespace KingdomIdle.Mailbox
         private readonly Func<string, long> _readSeen;
         private readonly Action<string, long> _saveSeen;
         private (long, long) _account;
-        private (string MailboxId, long MailId) _unseenMail;
+        private (string RegularKey, long Regular, string OverflowKey, long Overflow) _unseenMail;
         private int _summaryVersion;
         private bool _open, _refreshQueued, _loginChecked;
         private int _loadVersion, _viewVersion;
         private double _retryAt, _observedAt, _readyDeadline;
-        private long _serverUtc, _lastExpiredUtc;
+        private long _serverUtc, _lastExpiredUtc, _nextExpiryUtc = long.MaxValue;
         private ClaimRequest _claiming;
-        private ListRequest _loading;
+        private ListRequest _loading, _nextPage;
         private string _listLocale;
 
         private sealed class ListRequest
         {
             internal int Version, Retry, Total = -1;
             internal string MailboxId;
+            internal string RegularMailboxId;
+            internal long? LatestRegular, LatestOverflow;
             internal string Locale;
             internal double Deadline;
             internal bool Recovery;
@@ -70,13 +72,20 @@ namespace KingdomIdle.Mailbox
         public string MailboxId { get; private set; }
         public MailboxState State { get; private set; }
         public PlayFabError LastFailure { get; private set; }
-        public string Error => LastFailure == null ? null : NetworkManager.DescribeFailure(LastFailure, "우편함");
+        public string Error => LastFailure == null ? null :
+            NetworkManager.TryGetBusinessError(LastFailure, out var business) && (int)business.ErrorCode == 1020
+                ? "첨부 장비를 모두 담을 빈 칸을 확보한 뒤 다시 받아 주세요." : NetworkManager.DescribeFailure(LastFailure, "우편함");
         public bool HasSnapshot { get; private set; }
         public bool LoadFailed { get; private set; }
-        public bool HasNewMail => !_open && _unseenMail.MailId > 0 && _account == _identity() && _ready();
+        public bool HasNewMail => !_open && HasUnseen && _account == _identity() && _ready();
+        private bool HasUnseen => _unseenMail.Regular > 0 || _unseenMail.Overflow > 0;
         public bool IsBusy => State == MailboxState.Loading || State == MailboxState.Claiming || State == MailboxState.Recovering;
         public bool CanClaim => _open && HasSnapshot && State == MailboxState.Ready && _account == _identity() && _ready();
         public long ServerNow => _serverUtc + (long)Math.Max(0, _clock() - _observedAt);
+        public int TotalCount { get; private set; }
+        public bool HasMore => HasSnapshot && Messages.Count < TotalCount;
+        public int ReceivableCount => ReceivableMailIds().Count;
+        internal static int FreeEquipmentSlots => Math.Max(0, EquipmentManager.InventoryCapacity - LocalProgression.State.Equipment.Count);
 
         public MailboxService(Func<string> locale)
         {
@@ -121,7 +130,7 @@ namespace KingdomIdle.Mailbox
             CheckAccount();
             _open = true; _viewVersion++; _lastExpiredUtc = 0;
             LoadFailed = false;
-            if (_unseenMail.MailId > 0) { MarkLatestSeen(); Notify(); }
+            if (HasUnseen) { MarkLatestSeen(); Notify(); }
             RequestRefresh();
         }
         public void Close()
@@ -132,7 +141,11 @@ namespace KingdomIdle.Mailbox
             if (State == MailboxState.Loading || State == MailboxState.Ready) State = MailboxState.Empty;
             Notify();
         }
-        private void ClearList() { Messages = Array.Empty<MailDTO>(); MailboxId = null; HasSnapshot = false; }
+        private void ClearList()
+        {
+            Messages = Array.Empty<MailDTO>(); MailboxId = null; HasSnapshot = false;
+            _nextExpiryUtc = long.MaxValue; _nextPage = null; TotalCount = 0;
+        }
 
         public void CheckAccount()
         {
@@ -153,13 +166,13 @@ namespace KingdomIdle.Mailbox
             if (!_open) CheckNewMail("login");
         }
 
-        internal void RefreshAfterCarryover()
+        internal void RefreshAfterDelivery(string reason = "carryover")
         {
             CheckAccount();
-            if (_open) { RequestRefresh("carryover"); return; }
+            if (_open) { RequestRefresh(reason); return; }
             if (!_ready()) return;
             _loginChecked = true;
-            CheckNewMail("carryover");
+            CheckNewMail(reason);
         }
 
         // 우편함이 닫혀 있으면 첫 페이지만 확인한다. 열린 목록이나 지급 상태에는 반영하지 않는다.
@@ -175,9 +188,10 @@ namespace KingdomIdle.Mailbox
                 if (!Current() || response.StartIndex != 0 ||
                     response.Mails.Count != Math.Min(1, response.TotalCount)) return;
                 var latest = response.Mails.Count == 1 ? response.Mails[0] : null;
-                if (latest != null && latest.ExpiresUtc <= response.ServerTimeUtc) return;
+                if (latest != null && !MailboxProtocol.IsAvailable(latest, response.ServerTimeUtc)) return;
                 bool wasNew = HasNewMail;
-                ObserveLatest(response.MailboxId, latest?.MailId ?? 0);
+                ObserveLatest(response.RegularMailboxId ?? response.MailboxId, response.LatestRegularMailId ?? latest?.MailId ?? 0,
+                    response.MailboxId, response.LatestOverflowMailId ?? 0);
                 if (wasNew != HasNewMail) Notify();
             }, error =>
             {
@@ -185,17 +199,20 @@ namespace KingdomIdle.Mailbox
             });
         }
 
-        private void ObserveLatest(string mailboxId, long mailId)
+        private void ObserveLatest(string regularKey, long regular, string mailboxId, long overflow)
         {
-            _unseenMail = mailId > 0 && mailId > _readSeen(mailboxId) ? (mailboxId, mailId) : default;
-            if (_open && _unseenMail.MailId > 0) MarkLatestSeen();
+            string overflowKey = mailboxId + ".overflow";
+            _unseenMail = (regularKey, regular > 0 && regular > _readSeen(regularKey) ? regular : 0,
+                overflowKey, overflow > 0 && overflow > _readSeen(overflowKey) ? overflow : 0);
+            if (_open && HasUnseen) MarkLatestSeen();
         }
 
         private void MarkLatestSeen()
         {
             var seen = _unseenMail;
             _unseenMail = default;
-            _saveSeen(seen.MailboxId, seen.MailId);
+            if (seen.Regular > 0) _saveSeen(seen.RegularKey, seen.Regular);
+            if (seen.Overflow > 0) _saveSeen(seen.OverflowKey, seen.Overflow);
         }
 
         private static string SeenKey(string mailboxId) =>
@@ -247,14 +264,14 @@ namespace KingdomIdle.Mailbox
             if (!_open || IsBusy || !_ready()) return;
             if (_retryAt > 0 && _clock() >= _retryAt) { RequestRefresh("retry"); return; }
             if (State != MailboxState.Ready || Messages.Count == 0) return;
-            long expiry = Messages.Min(m => m.ExpiresUtc);
-            if (expiry <= ServerNow && expiry != _lastExpiredUtc)
-            { _lastExpiredUtc = expiry; RequestRefresh("expired"); }
+            if (_nextExpiryUtc <= ServerNow && _nextExpiryUtc != _lastExpiredUtc)
+            { _lastExpiredUtc = _nextExpiryUtc; RequestRefresh("expired"); }
         }
 
         private void Load(int retry = 0, bool recovery = false, double? deadline = null)
         {
             _listLocale = _locale(); LoadFailed = false;
+            _nextPage = null;
             _refreshQueued = false; _retryAt = 0; LastFailure = null; State = MailboxState.Loading; Notify();
             _loading = new ListRequest { Version = ++_loadVersion, Retry = retry, Recovery = recovery, Account = _account,
                 Locale = _listLocale, Deadline = deadline ?? (_readyDeadline > 0 ? _readyDeadline : _clock() + LoadTimeoutSeconds) };
@@ -264,6 +281,15 @@ namespace KingdomIdle.Mailbox
             Fetch(_loading);
         }
         private bool Current(ListRequest request) => _open && request.Version == _loadVersion && request.Account == _identity() && request.Locale == _locale();
+        public void LoadMore()
+        {
+            if (!CanClaim || _nextPage == null) return;
+            _loading = _nextPage; _nextPage = null;
+            _loading.Deadline = _clock() + LoadTimeoutSeconds;
+            _loading.Retry = 0; _loading.Recovery = false;
+            State = MailboxState.Loading; LastFailure = null; Notify();
+            Fetch(_loading);
+        }
         private void Fetch(ListRequest request)
         {
             int start = request.Mails.Count;
@@ -275,8 +301,15 @@ namespace KingdomIdle.Mailbox
             if (!Current(request)) return;
             if (_clock() >= request.Deadline)
             { FailList(request.Recovery, NetworkManager.CreateError("Timeout", "우편함 조회 제한시간이 지났습니다.")); return; }
-            if (request.Total < 0) { request.Total = response.TotalCount; request.MailboxId = response.MailboxId; }
+            if (request.Total < 0)
+            {
+                request.Total = response.TotalCount; request.MailboxId = response.MailboxId;
+                request.RegularMailboxId = response.RegularMailboxId;
+                request.LatestRegular = response.LatestRegularMailId; request.LatestOverflow = response.LatestOverflowMailId;
+            }
             bool consistent = response.StartIndex == start && request.Total == response.TotalCount && request.MailboxId == response.MailboxId &&
+                request.RegularMailboxId == response.RegularMailboxId &&
+                request.LatestRegular == response.LatestRegularMailId && request.LatestOverflow == response.LatestOverflowMailId &&
                 response.Mails.Count == Math.Min(PageSize, Math.Max(0, request.Total - start)) && response.Mails.All(m => request.Ids.Add(m.MailId));
             if (!consistent)
             {
@@ -286,14 +319,22 @@ namespace KingdomIdle.Mailbox
             }
             request.Mails.AddRange(response.Mails);
             _serverUtc = response.ServerTimeUtc; _observedAt = _clock();
-            if (request.Mails.Count < request.Total) { Fetch(request); return; }
+            bool incomplete = request.Mails.Count < request.Total;
+            if (incomplete && (!request.LatestOverflow.HasValue || request.Total <= 100)) { Fetch(request); return; }
             if (_refreshQueued) { Load(request.Retry + 1, request.Recovery, request.Deadline); return; }
             _loading = null;
             Messages = request.Mails.ToArray(); MailboxId = request.MailboxId; HasSnapshot = true;
+            TotalCount = request.Total;
+            _nextPage = incomplete ? request : null;
             long newestId = 0;
+            _nextExpiryUtc = long.MaxValue;
             foreach (var mail in Messages)
+            {
+                if (mail.IsEquipmentOverflow) continue;
+                _nextExpiryUtc = Math.Min(_nextExpiryUtc, mail.ExpiresUtc);
                 if (mail.ExpiresUtc > ServerNow && mail.MailId > newestId) newestId = mail.MailId;
-            ObserveLatest(MailboxId, newestId);
+            }
+            ObserveLatest(request.RegularMailboxId ?? MailboxId, request.LatestRegular ?? newestId, MailboxId, request.LatestOverflow ?? 0);
             LastFailure = null; State = MailboxState.Ready;
             Debug.Log($"[Mail] list server={request.Total} cached={Messages.Count} recovery={request.Recovery}");
             Notify();
@@ -318,14 +359,45 @@ namespace KingdomIdle.Mailbox
             Notify();
         }
 
-        public RewardResult TryClaim(long id) => Claim(new[] { id });
-        public RewardResult TryClaimAll() => Claim(Messages.Where(m => m.ExpiresUtc > ServerNow).Select(m => m.MailId).ToArray());
+        public RewardResult TryClaim(long id)
+        {
+            var mail = Messages.FirstOrDefault(m => m.MailId == id);
+            if (mail != null && mail.IsEquipmentOverflow && MailboxProtocol.RequiredEquipmentSlots(mail) > FreeEquipmentSlots)
+                return new(RewardStatus.NothingAvailable);
+            return Claim(new[] { id });
+        }
+
+        public RewardResult TryClaimAll() => Claim(ReceivableMailIds().ToArray());
+
+        private List<long> ReceivableMailIds()
+        {
+            var ids = new List<long>();
+            long now = ServerNow;
+            if (EquipmentManager.IsInstanceInventory)
+            {
+                int slots = FreeEquipmentSlots;
+                foreach (var mail in Messages)
+                {
+                    if (!mail.IsEquipmentOverflow) continue;
+                    int required = MailboxProtocol.RequiredEquipmentSlots(mail);
+                    if (required > slots) continue;
+                    slots -= required;
+                    ids.Add(mail.MailId);
+                }
+            }
+            foreach (var mail in Messages)
+                if (!mail.IsEquipmentOverflow && MailboxProtocol.IsAvailable(mail, now)) ids.Add(mail.MailId);
+            return ids;
+        }
+
         private RewardResult Claim(long[] ids)
         {
             CheckAccount();
             if (!CanClaim) return new(IsBusy ? RewardStatus.Pending : RewardStatus.NotReady);
             if (ids.Length == 0) return new(RewardStatus.NothingAvailable);
-            if (ids.Distinct().Count() != ids.Length || ids.Any(id => !Messages.Any(m => m.MailId == id && m.ExpiresUtc > ServerNow)))
+            long now = ServerNow;
+            var active = Messages.Where(m => MailboxProtocol.IsAvailable(m, now)).Select(m => m.MailId).ToHashSet();
+            if (ids.Distinct().Count() != ids.Length || ids.Any(id => !active.Contains(id)))
             { RequestRefresh("stale-claim"); return new(RewardStatus.Stale); }
             var request = new ClaimRequest { Ids = ids, MailboxId = MailboxId, Account = _account, View = _viewVersion };
             _claiming = request; LastFailure = null; State = MailboxState.Claiming; Notify();
@@ -354,6 +426,7 @@ namespace KingdomIdle.Mailbox
             request.Confirmed.AddRange(response.ClaimedMailIds); request.Rewards.AddRange(response.Rewards); request.Offset += ids.Count;
             var removed = response.ClaimedMailIds.ToHashSet();
             Messages = Messages.Where(m => !removed.Contains(m.MailId)).ToArray();
+            TotalCount = response.RemainingCount;
             Debug.Log($"[Mail] confirmed ids={string.Join(".", ids)} batches={request.Offset}/{request.Ids.Length} remaining={response.RemainingCount}");
             Notify();
             if (request.Offset < request.Ids.Length) ClaimNextBatch(request);
@@ -382,7 +455,12 @@ namespace KingdomIdle.Mailbox
             if (request.Account != _identity()) return;
             if (recover) RecoverState();
             else if (_open) Load();
-            else Notify();
+            else
+            {
+                if (request.Rewards.Any(reward => reward.Disposition == EquipmentDisposition.Mail))
+                    RefreshAfterDelivery("mail-overflow");
+                Notify();
+            }
         }
         private void RecoverState()
         {

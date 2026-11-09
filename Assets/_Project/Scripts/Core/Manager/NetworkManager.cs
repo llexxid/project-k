@@ -439,9 +439,10 @@ namespace Scripts.Core.Manager
                 throw new JsonSerializationException("Invalid ruby reset result.");
             if (response is OnHuntResponseDTO hunt)
             {
-                if (hunt.Level < 1 || hunt.Exp < 0 || hunt.KillScore < 0 || hunt.Gold < 0 || hunt.AncientCoin < 0)
+                if (hunt.Level < 1 || hunt.Exp < 0 || hunt.KillScore < 0 || hunt.Gold < 0 || hunt.AncientCoin < 0 || hunt.Drops == null)
                     throw new JsonSerializationException("Invalid hunt result.");
-                ValidateEquipment(hunt.Equipment);
+                if (hunt.Equipment != null || !EquipmentManager.IsInstanceInventory || hunt.Drops.Count != 0)
+                    ValidateEquipment(hunt.Equipment);
             }
             if (response is OnStageClearResponseDTO clear)
             {

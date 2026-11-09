@@ -103,7 +103,7 @@ namespace KingdomIdle.CheckIn
             _nextCheckUtc = r.Attendance.OpenedDays >= ServerAttendanceTable.Days ? _boardResetUtc : (r.NextResetUtc > 0 ? r.NextResetUtc : period.DayEndUtc);
             Revision++;
             int carryover = r.CarryoverMailIds?.Count ?? 0;
-            if (carryover > 0) Scripts.Core.GameManager.Instance?.Mailbox?.RefreshAfterCarryover();
+            if (carryover > 0) GameManager.Instance?.Mailbox?.RefreshAfterDelivery("carryover");
             Debug.Log($"[Attendance] check day={r.CycleDay} carryover={carryover} next={_nextCheckUtc} | server board={Describe(r.Attendance)} | state board={Describe()} | saved=True");
         }
 
@@ -162,6 +162,8 @@ namespace KingdomIdle.CheckIn
             {
                 EquipmentManager.Instance?.RestoreEquipment();
                 if (changed > 0) QuestManager.Instance?.RequestRefresh("attendance");
+                if (r.Rewards?.Any(reward => reward.Disposition == Dto.EquipmentDisposition.Mail) == true)
+                    GameManager.Instance?.Mailbox?.RefreshAfterDelivery("attendance-overflow");
             }
             var state = LocalProgression.State;
             Debug.Log($"[Attendance] claim days={string.Join(".", days)} rewards={r.Rewards?.Count ?? 0} changed={changed}" +
