@@ -77,6 +77,14 @@ namespace KingdomIdle.UGUI
             }
 
             HideLoginPopup();
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !ENVIRONMENT_SIMULATION_QA
+            // 재실행 시에도 기존 인증과 서버 동의 기록 검사를 그대로 거친다.
+            var network = NetworkManager.Instance;
+            if (network != null && !network.IsAuthenticating && !network.IsGameDataReady &&
+                !GameTermsConsent.HasActiveAgeRestriction && GameTermsConsent.VerifiedOnDevice &&
+                GameTermsConsent.HasEligibleProvider(eAuthType.CustomLogin))
+                SignIn(eAuthType.CustomLogin);
+#endif
         }
 
         public void Dispose()
