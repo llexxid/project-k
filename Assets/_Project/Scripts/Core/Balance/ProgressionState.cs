@@ -41,6 +41,7 @@ namespace KingdomIdle.Balance
         public int EquipmentRarityFilter = -1;
         public bool EquipmentUsableOnly;
         public int EquipmentSort;
+        public EquipmentRecommendationCriterion EquipmentRecommendation;
         public Dictionary<int, MageSave> MageSkills = new();
         public int[] MageSlots = { -1, -1, -1, -1, -1 };
         public int EquipmentPity;

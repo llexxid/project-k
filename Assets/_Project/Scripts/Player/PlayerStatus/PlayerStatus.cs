@@ -73,4 +73,7 @@ public class PlayerStatus
     };
     public StatBreakdown AtkBreakdown() => Breakdown(_baseAtk, _equipAtk, _passiveAtk, _attackLevel, _auraAttack);
     public StatBreakdown MaxHPBreakdown() => Breakdown(_baseMaxHP, _equipMaxHP, _passiveMaxHP, _healthLevel, _auraHealth);
+    public (long Attack, long MaxHp) PreviewEquipmentBonus(int attack, int health) =>
+        (BalanceMath.Stat(_baseAtk, attack, _passiveAtk, _attackLevel, _auraAttack, _accountLevel, _reincarnationLevel),
+         BalanceMath.Stat(_baseMaxHP, health, _passiveMaxHP, _healthLevel, _auraHealth, _accountLevel, _reincarnationLevel));
 }

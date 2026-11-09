@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using KingdomIdle.Balance;
+using KingdomIdle.UGUI;
 using PlayFab;
 using Scripts.Core;
 using Scripts.Core.Manager;
@@ -9,6 +10,7 @@ using UnityEngine;
 using Dto = Protocol.Message.Dto;
 
 public enum GetEffect { None, Gacha, Popup }
+public enum EquipmentRecommendationCriterion { Power, Attack, Health }
 /// <summary>
 /// 장비 매니저. 장비 상태의 원본은 서버다. 로그인·사냥·클리어·가챠·장비 API 응답의 Equipment(EquipmentInventoryDTO)를
 /// UserManager.ApplyEquipment가 플레이어 상태(ProgressionState.Equipment·PendingEquipment·LegacyEquipment·AutoDismantleMask)에
@@ -35,7 +37,7 @@ public class EquipmentManager : MonoBehaviour
     /// 조작 결과. Pending은 서버 요청이 나갔고 OnActionCompleted로 결과가 온다는 뜻이다. 나머지는 요청 전 안내용 가드다.
     /// Success·ChanceFailed·SaveFailed는 옛 로컬 처리 호출자(QA 스크립트) 호환용으로 남긴다.
     /// </summary>
-    public enum EnhancementResult { Success, ChanceFailed, NotEnoughMaterials, MaxLevel, InvalidItem, SaveFailed, Pending, Busy, NetworkNotReady, NotAllowed, AlreadyEquipped, NotEquipped, NoFreeCopy, Nothing }
+    public enum EnhancementResult { Success, ChanceFailed, NotEnoughMaterials, MaxLevel, InvalidItem, SaveFailed, Pending, Busy, NetworkNotReady, NotAllowed, AlreadyEquipped, NotEquipped, NoFreeCopy, Nothing, EquippedLocked, NoRecommendation }
     public enum ActionKind { Lock, Equip, Unequip, Enhance, Dismantle, AutoDismantle, ClaimPending, ClaimReserve, Resync }
     /// <summary>완료 이벤트 인자. ItemId는 응답 적용 뒤 UI가 다시 보여 줄 인스턴스(장착·강화·잠금 대상)다.</summary>
     public sealed class ActionInfo
@@ -183,6 +185,8 @@ public class EquipmentManager : MonoBehaviour
         EnhancementResult.MaxLevel => "이미 최대 강화 레벨입니다.",
         EnhancementResult.NotEnoughMaterials => "강화석이 부족합니다.",
         EnhancementResult.Nothing => "처리할 장비가 없습니다.",
+        EnhancementResult.EquippedLocked => "현재 무기가 잠겨 있어 추천 장착으로 교체할 수 없습니다.",
+        EnhancementResult.NoRecommendation => "선택한 기준에서 더 좋은 장비가 없습니다.",
         _ => "장비 요청을 처리하지 못했습니다."
     };
 
@@ -309,10 +313,9 @@ public class EquipmentManager : MonoBehaviour
     public EnhancementResult TryEquipEx(int playerIndex, EquipmentInstance item)
     {
         if (!Owns(item) || !_players.TryGetValue(playerIndex, out var player)) return EnhancementResult.InvalidItem;
-        // 안내용 사전 검사: 로컬 직업과 서버가 저장한 직업 둘 다 허용해야 한다(직업 변경은 아직 로컬이라 서로 다를 수 있다).
-        if (!item.baseData.IsAllowedForJob(player.playerStatus.JobName)) return EnhancementResult.NotAllowed;
+        // 직업 적용 시점에 따라 런타임 직업과 서버가 저장한 직업이 다를 수 있다.
         string serverJob = UserManager.Instance?.GetServerJobName(playerIndex);
-        if (!string.IsNullOrEmpty(serverJob) && !item.baseData.IsAllowedForJob(serverJob)) return EnhancementResult.NotAllowed;
+        if (!AllowsJobs(item.baseData, player.playerStatus.JobName, serverJob)) return EnhancementResult.NotAllowed;
         if (item.equipmentPlayerIndex == playerIndex) return EnhancementResult.AlreadyEquipped;
         bool freeCopy = false;
         foreach (var copy in _inventory.Items)
@@ -333,6 +336,49 @@ public class EquipmentManager : MonoBehaviour
             e => RejectServerResult(info, "equip", e));
         return EnhancementResult.Pending;
     }
+
+    public EnhancementResult TryEquipRecommended(int playerIndex, EquipmentRecommendationCriterion criterion)
+    {
+        var gate = Gate(out _);
+        if (gate != EnhancementResult.Pending) return gate;
+        if (!_players.TryGetValue(playerIndex, out var player) || player?.playerStatus == null || player.PlayerEquipmentManager == null)
+            return EnhancementResult.InvalidItem;
+
+        var equipped = player.PlayerEquipmentManager.GetSlotEquipment(eEquipmentSlot.Weapon);
+        if (equipped?.IsLocked == true) return EnhancementResult.EquippedLocked;
+
+        var status = player.playerStatus;
+        string serverJob = UserManager.Instance?.GetServerJobName(playerIndex);
+        long bestScore = RecommendationScore(criterion, status.JobName, status.Atk, status.MaxHP);
+        int otherAttack = status.EquipAtk - (equipped?.GetFinalAtk() ?? 0);
+        int otherHealth = status.EquipMaxHP - (equipped?.GetFinalMaxHP() ?? 0);
+        long now = LocalProgression.UtcNow;
+        EquipmentInstance best = null;
+        foreach (var item in _inventory.Items)
+        {
+            if (item?.baseData == null || item.baseData.slot != eEquipmentSlot.Weapon || item.IsEquipped ||
+                (item.expiresUtc > 0 && item.expiresUtc <= now) || !AllowsJobs(item.baseData, status.JobName, serverJob)) continue;
+
+            var projected = status.PreviewEquipmentBonus(otherAttack + item.GetFinalAtk(), otherHealth + item.GetFinalMaxHP());
+            long score = RecommendationScore(criterion, status.JobName, projected.Attack, projected.MaxHp);
+            if (score <= bestScore) continue;
+            bestScore = score;
+            best = item;
+        }
+
+        return best != null ? TryEquipEx(playerIndex, best) : EnhancementResult.NoRecommendation;
+    }
+
+    private static bool AllowsJobs(EquipmentData data, string currentJob, string serverJob) =>
+        data.IsAllowedForJob(currentJob) && (string.IsNullOrEmpty(serverJob) || data.IsAllowedForJob(serverJob));
+
+    private static long RecommendationScore(EquipmentRecommendationCriterion criterion, string jobName, long attack, long maxHp) =>
+        criterion switch
+        {
+            EquipmentRecommendationCriterion.Attack => attack,
+            EquipmentRecommendationCriterion.Health => maxHp,
+            _ => CombatPowerCalculator.CalculateCharacterPowerV1(jobName, attack, maxHp)
+        };
 
     // 해제: 그 캐릭터가 장착한 묶음의 ItemCode를 보낸다. 장착 중이 아니면 서버가 1018이다.
     public void Unequip(int playerIndex) => UnequipEx(playerIndex);
