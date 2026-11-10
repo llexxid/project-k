@@ -112,6 +112,15 @@ namespace Scripts.Test
         [MenuItem("GameTest/Mailbox Test/서버 응답 실제 저장 검증")]
         public static void TestServerMailboxStorage() => Debug.Log(Newtonsoft.Json.JsonConvert.SerializeObject(KingdomIdle.Mailbox.Testing.MailboxAcceptance.RunServerApply()));
 
+        [MenuItem("GameTest/Notice Test/메인 공지 확인 기록 초기화")]
+        public static void ResetMainNoticeSeen()
+        {
+            string version = Application.version;
+            PlayerPrefs.DeleteKey(KingdomIdle.UGUI.NoticePopupController.PatchKey(version));
+            PlayerPrefs.Save();
+            Debug.Log($"[GameTest] {version} 메인 공지 확인 기록을 초기화했습니다. 다음 접속에서 자동 표시를 확인하세요.");
+        }
+
         private static bool CanTestRewards()
         {
             var game = GameManager.Instance;

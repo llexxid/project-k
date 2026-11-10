@@ -2,8 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using KingdomIdle.OfflineRewards;
+using KingdomIdle.UI;
 using Newtonsoft.Json;
 using PlayFab.ClientModels;
+using Scripts.Core.Manager;
+using Scripts.Test;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -138,6 +142,7 @@ namespace KingdomIdle.UGUI.Editor
                 }
                 board.backdropButton.onClick.Invoke();
                 Check(!board.gameObject.activeSelf, "The real board backdrop closes the popup");
+                if (Application.isPlaying) VerifyAutomaticAfterReward(manager, patch);
             }
             finally
             {
@@ -146,6 +151,67 @@ namespace KingdomIdle.UGUI.Editor
                 NoticePopupController.Reset();
             }
             Debug.Log("NOTICE POPUP ACCEPTANCE PASSED");
+        }
+
+        private static void VerifyAutomaticAfterReward(UIManager manager, NoticePopupView patch)
+        {
+            Check(NetworkManager.Instance?.LoginState == GameLoginState.SignedOut, "Reward fixture requires a signed-out Play Mode");
+            var network = manager.gameObject.AddComponent<NetworkManager>();
+            typeof(NetworkManager).GetProperty(nameof(NetworkManager.LoginState)).SetValue(network, GameLoginState.Ready);
+            const BindingFlags instanceFields = BindingFlags.Instance | BindingFlags.NonPublic;
+            typeof(UIManager).GetField("_activeScreenId", instanceFields).SetValue(manager, UIScreenId.Main);
+            typeof(UIManager).GetField("_activeScreenGo", instanceFields).SetValue(manager, manager.gameObject);
+            Set("_network", network);
+            Set("_generation", network.AccountGeneration);
+
+            string version = Application.version;
+            string key = NoticePopupController.PatchKey(version);
+            bool hadSeen = PlayerPrefs.HasKey(key);
+            int priorSeen = PlayerPrefs.GetInt(key);
+            try
+            {
+                GameTest.ResetMainNoticeSeen();
+                Set("_articles", new List<TitleNewsFeed>());
+                Set("_pendingAuto", true);
+                NoticePopupController.Tick(manager);
+                Check(!patch.gameObject.activeSelf && !PlayerPrefs.HasKey(key), "No matching article neither opens nor marks the version");
+
+                var article = new TitleNewsItem
+                {
+                    NewsId = "offline-reward-fixture",
+                    Title = "업데이트 노트",
+                    Body = JsonConvert.SerializeObject(new { text = "보상창 다음에 표시되는 테스트 패치노트", appVersion = version }),
+                    Timestamp = DateTime.UtcNow
+                };
+                Set("_articles", TitleNewsFeed.Read(new List<TitleNewsItem> { article }));
+                Set("_pendingAuto", true);
+                var result = new OfflineRewardClaimResult("fixture", null, 10, 5, 0, 1, 5, 0);
+                var reward = RewardPopupView.ShowOfflineRewards(manager.LayerPopups, result, false);
+                Check(reward != null && reward.gameObject.activeInHierarchy, "Synthetic offline reward uses the real result prefab");
+                NoticePopupController.Tick(manager);
+                Check(!patch.gameObject.activeSelf && !PlayerPrefs.HasKey(key), "Visible reward result blocks and does not mark the patch");
+
+                reward.confirmButton.onClick.Invoke();
+                NoticePopupController.Tick(manager);
+                Check(patch.gameObject.activeInHierarchy && PlayerPrefs.HasKey(key), "Reward confirmation releases the patch and records the shown version");
+                patch.closeButton.onClick.Invoke();
+
+                Set("_pendingAuto", true);
+                NoticePopupController.Tick(manager);
+                Check(!patch.gameObject.activeSelf, "The same version is suppressed on the next startup attempt");
+                GameTest.ResetMainNoticeSeen();
+                Check(!PlayerPrefs.HasKey(key), "The editor reset clears the shown version");
+                Set("_pendingAuto", true);
+                NoticePopupController.Tick(manager);
+                Check(patch.gameObject.activeInHierarchy, "The reset allows another startup attempt to show the patch");
+                patch.closeButton.onClick.Invoke();
+            }
+            finally
+            {
+                if (hadSeen) PlayerPrefs.SetInt(key, priorSeen);
+                else PlayerPrefs.DeleteKey(key);
+                PlayerPrefs.Save();
+            }
         }
 
         private static void CheckPopup(GameObject prefab)

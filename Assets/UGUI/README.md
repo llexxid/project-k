@@ -57,6 +57,8 @@ PlayFab Game Manager의 **Content → Title News → New Title News**에서 글�
 
 두 프리팹은 `LayerPopups` 아래에서 열리고 창 크기는 자식 `Panel`의 `RectTransform`에서 편집한다. 헤더와 닫기 버튼은 고정하며 본문·목록은 `ScrollRect` 안에서 늘어난다. 자동 표시 여부는 팝업이 실제로 열린 뒤 앱 버전별로 기기의 `PlayerPrefs`에 저장된다. 공지 목록에서는 같은 글을 다시 열 수 있다. [PlayFab Title News](https://learn.microsoft.com/en-us/xbox/playfab/live-service-management/game-configuration/title-communications/news/quickstart)
 
+Unity 메뉴 **GameTest → Notice Test → 메인 공지 확인 기록 초기화**로 현재 버전의 표시 기록을 지운 뒤, 다시 로그인해 자동 표시를 확인한다. 해당 버전과 정확히 일치하는 게시된 패치노트가 있어야 한다.
+
 ### 광고 단독 테스트
 
 `KingdomIdle → Ads → Open Test Scene`으로 `Scenes/AdMobTest.unity`를 열고 Play한 뒤 `광고 보기`를 누른다. 초기화·로드·재생을 자동 처리하며 SDK 보상 콜백을 받은 후 광고를 닫으면 완료 팝업을 표시한다. 중도 종료는 완료 처리하지 않고 실패 시 같은 팝업으로 재시도를 안내한다. Editor는 SDK 모의 광고이고, Android는 Google의 고정 테스트 광고 단위를 사용한다. 로그인·실제 재화 지급은 없다.
