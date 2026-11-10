@@ -46,7 +46,7 @@ namespace Scripts.Core
             var gateway = new ReincarnationGateway();
 
             Reincarnation = new ReincarnationService(policy, store, gateway);
-            Mailbox = new KingdomIdle.Mailbox.MailboxService();
+            Mailbox = new KingdomIdle.Mailbox.MailboxService(() => KingdomIdle.UGUI.TitleLobbyPresentation.SavedEnglish ? "en" : "ko");
 
             OfflineReward = GetComponent<OfflineRewardManager>();
             if (OfflineReward == null)
@@ -165,6 +165,7 @@ namespace Scripts.Core
                 Direction.GameDirectManager.Instance?.RequestIncompleteGuides();
                 if (network != null && network.AccountGeneration == generation)
                     KingdomIdle.UGUI.NoticePopupController.BeginMainEntry();
+                Mailbox?.CheckAfterLogin();
             }
 
             // 오프라인 보상이 정산된 후 메인스테이지를 시작하게 해서 오프라인 보상 요청과 스테이지 사냥 보상 요청의 순서가 섞이지 않게 조정

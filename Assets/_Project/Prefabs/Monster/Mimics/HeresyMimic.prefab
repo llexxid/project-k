@@ -92,7 +92,7 @@ MonoBehaviour:
     _atk: 0
     _moveSpeed: 0
     _atkSpeed: 0
-  _attackRadius: 0.83
+  _attackRadius: 2.4
   _detectRadius: 0
   _AnimationClipSO: {fileID: 11400000, guid: 4241873a54197d947a0b11724177de5e, type: 2}
   _impactNormalized: 0.5
@@ -102,6 +102,8 @@ MonoBehaviour:
   _projectileArc: 0
   _projectileAngle: 0
   _attackSound: 0
+  _usesTongueAttack: 1
+  _retreatAfterAttack: 1
 --- !u!114 &1410844784000449924
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -223,8 +225,8 @@ SpriteRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_Sprite: {fileID: 1814413261, guid: 82a91f32863a14b49807ee0a32c98fd6, type: 3}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_FlipX: 0
+  m_Color: {r: 0.92, g: 0.8, b: 0.66, a: 1}
+  m_FlipX: 1
   m_FlipY: 0
   m_DrawMode: 0
   m_Size: {x: 3.1875, y: 3.1875}

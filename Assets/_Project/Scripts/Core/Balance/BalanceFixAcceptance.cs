@@ -37,14 +37,8 @@ namespace KingdomIdle.Balance
                         $"Tier {tier} preview matches the real pool and original probability");
                 }
                 Check(Math.Abs(table.rewards.Sum(x => x.weight) - 100f) < .001f, "Preview totals 100 percent");
-                var dropped = new HashSet<int>();
-                for (int i = 0; i < 10000; i++)
-                {
-                    var item = equipment.RollFieldDrop(1);
-                    if (item == null || !equipment.GetData(item.Code).CanBeRewarded) throw new InvalidOperationException("Invalid field reward");
-                    dropped.Add(item.Code);
-                }
-                Check(dropped.Count == 12 && equipment.RollFieldDrop(0) == null, "10000 field rolls cover all 12 weapons and zero bows; zero drop rate grants nothing");
+                Check(equipment.RollFieldDrop(0) == null && equipment.RollFieldDrop(1) == null,
+                    "Field equipment drops remain disabled even at a guaranteed drop rate");
 
                 string account = "balance-fix-" + Guid.NewGuid().ToString("N");
                 LocalProgression.OpenTestAccount(account);

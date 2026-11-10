@@ -111,6 +111,8 @@ Unity 메뉴 **GameTest → Notice Test → 타이틀 업데이트 안내 확인
 
 미리보기와 결과창은 아이콘이 없는 재화 보상에 `RewardPresentation.Icon`의 공통 이미지를 사용한다. `GachaPanelValidation.CheckResultCurrencyIcons()`는 Play Mode에서 서버 DTO 변환·전직 파편/비전 지식 아이콘·합산 수량을 표시용 데이터로 검사한다([0.20.1 검증 기록](../../AI/validation/gacha-result-icons-20261102/README.md)).
 
+`GachaResultPopupController`는 확정된 결과를 합산·정렬한 뒤 장비·마탑 결과 카드에 `GachaCardReveal`을 런타임으로 연결한다. `GachaRevealBorder`가 카드 테두리의 경로와 발광을 그리며, 기존 `Item_GachaCard`의 아이콘·문구 참조를 사용한다. 마탑은 스킬 결과와 기타 재화에 서로 다른 연출 시간·강조색을 전달하며 실제 스킬 희귀도나 획득 확률을 만들지 않는다. 공용 미리보기 카드에는 연출을 붙이지 않는다. 시간과 공개 순서는 [프로젝트 행동 규칙](../../AGENTS.md)의 뽑기 결과 규격을 따르며 결과 데이터·서버 거래는 변경하지 않는다.
+
 `UguiTypeNavPass.ApplyMainNavigation()`은 기존 `Screen_Main`에 상점 탭만 추가·연결한다. `GachaPanelPrefabGens.Prepare()`는 현재 뽑기 프리팹의 콘텐츠를 새 패널 크기에 맞춰 재배치한다. 정상 로그인 후 `GachaPanelValidation.Run()`으로 비율·안전 영역 모의·HUD와 하단바 유지·팝업·천장 표시를 검사한다. 0.20.0의 전체 화면 구성과 `Panel_Gacha_Old`, 당시 `Recordings/Gacha20261101`·`AI/validation/gacha-fullscreen-20261101` 기록은 과거 구현 출처이며 현재 레이아웃의 규격으로 사용하지 않는다. 새 캡처·성능 수치·QA 기록은 저장소 밖에 보관한다.
 
 `bootstrap/GameManager → Direction.GameDirectManager → FeatureGuidePlayer → UguiFeatureGuideSurface → FeatureGuideView`로 실행한다. Manager는 큐·저장·계정 수명을 소유하는 MonoBehaviour이고 Player와 화면 연결부는 일반 C# 클래스다. 실제 프리팹 참조·레이아웃·입력 필터는 MonoBehaviour View가 담당한다.
@@ -240,21 +242,54 @@ Editor에서 bootstrap부터 Play·로그인한 뒤 `GameTest → Shop Ad Test �
 
 ## 서버 우편함·공통 보상 표시
 
+0.26.0은 우편 보상을 기존 `Protocol.Message.Data.eCurrency` enum과 양수 long 수량의 목록으로 입력한다. 루비(Ruby)·고대주화(AncientCoin)·장비 뽑기권(EquipmentTicket)·마탑 뽑기권(MageTicket)을 포함한 서버의 10종 재화를 한 통에 최대 10행까지 첨부할 수 있다. `보상 추가` 후 종류·수량을 정하고 필요 없는 행은 삭제한다. 새 행의 수량은 0으로 시작해 운영자가 직접 정해야 발송할 수 있다. 원본 요청은 종류·수량·순서를 그대로 고정하며 같은 종류의 행도 임의 합산하거나 버리지 않는다. 구형 Gold 초안과 이미 고정된 단일 골드 요청을 보존하고 다중 보상 요청도 전체 목록을 복원한다. 기존 서버 계약을 사용하므로 추가 Azure 배포는 필요하지 않다.
+
+0.25.0은 같은 에디터 창을 전체 발송·발송 이력·개별 중지까지 확장한다. `발송 대상`에서 지정(줄바꿈/쉼표 구분 1~100명) 또는 전체를 고르고 KST `yyyy-MM-dd HH:mm:ss`로 기간을 입력한다. 전체는 시작·종료를 받고, 지정은 접수 후 즉시 처리하며 종료 시각까지만 재시도한다. Key/Text를 선택하고 `CBT 문구 키 입력`으로 기존 CBT 키를 채울 수 있다. 고정 요청 ID를 직접 지정하거나 비워 자동 생성하며, 발송 사유·골드·전달 후 유효일수(0=기본30일)를 입력한다. 최초 접수에서 기간·본문을 고정하고 재전송 시 재생성하지 않는다.
+
+`이력 새로 고침`은 관리자 이력 API로 발송 정의를 요청 ID 순으로 50건씩 읽는다. 행을 선택하면 원본·사유·기간·보상을 미리 보고 해당 발송의 전달 결과를 별도로 조회한다. 직접 RequestId 조회도 가능하며, ID 변경 시 이전 미리보기·중지 자격·커서를 지운다. 이력과 개인 전달 결과는 서로 다른 `다음 페이지` 버튼과 커서를 사용한다. `선택한 발송의 신규 전달 중지`는 이후 전달만 막고 기존 우편·수령 보상은 보존한다. 중지 전 이미 준비·확인된 전달은 완료될 수 있고, 중지된 동일 ID의 재접수로 재개하지 않는다. 이력은 수령 완료 통계가 아니다. 두 신규 관리자 API는 서버 반영이 필요하며 키를 플레이어 빌드에 포함하지 않는다.
+
+0.24.0의 최초 `KingdomIdle > Mail > Send Test Mail` 에디터 창은 특정 계정 한 명의 Text 테스트 발송을 제공했다. Azure Function 키(default 호스트 키)와 MAIL_ADMIN_KEY는 창에서 마스킹해 입력하며 직렬화·EditorPrefs·에셋·로그에 저장하지 않고 창이 닫히면 지운다. 플레이 중에는 `현재 로그인한 계정 사용`으로 대상을 채울 수 있다. 에디터 코드만 추가하며 플레이어 빌드와 기존 게임 통신 계층에는 관리자 기능을 넣지 않는다.
+
+발송 버튼은 실제 우편을 접수한다. 현재 Unity 세션의 SessionState에 비밀 키 없는 고정 본문을 보관해 창 닫기·스크립트 리로드 후 복원한다. 새 우편은 `새 우편 준비`로 명시적으로 준비한다. 편집기를 완전히 종료하면 이 임시 요청은 사라지므로 서버 이력에서 기존 요청을 선택해 조회·중지한다. 200은 접수 성공이며 전달 결과의 Sent=2를 우편함 전달 완료로 표시한다. 수령 여부와는 다르며 실제 발송·수령 검증은 별도로 진행한다.
+
 0.19.4에서는 머지 중 교체됐던 우편함의 가상 스크롤·연속 수령·검증·복구를 기존 공통 표시 경로 위에 복원했다. 메인 메뉴의 우편함은 `OnGetMailList`·`OnClaimMailReward`를 사용한다. `GameManager.Mailbox`가 서버 요청과 메모리 목록을 소유하고 `MailboxPanelController`는 화면 상태와 버튼을 연결한다. 서버 저장소·DTO 계약은 변경하지 않는다.
+
+0.23.0은 로컬 서버의 하이브리드 우편 계약을 연결한다. 목록 요청에 현재 언어 설정의 `ko`/`en` Locale을 넣는다. `TextMode=Key(0)`는 기존 하드코딩 사전으로, `Text(1)`은 응답의 Title/Body로 표시한다. TitleKey/BodyKey는 null을 허용하고 모드별 필수 값은 MailboxProtocol에서 검사한다. TextMode가 없는 기존 서버 응답은 Key=0으로 계속 읽는다. 별도 우편 상세 API·관리자 API·통신 계층·프리팹은 추가하지 않았다.
+
+0.23.1은 가입·로그인 응답과 게임 데이터 준비·접속 보상 정산이 끝나고 메인 전투를 시작한 뒤 `GameManager`에서 계정 로그인당 한 번 `OnGetMailList(Locale, StartIndex=0, Count=1)`를 호출한다. 서버 로그인은 우편 저장소를 기다리지 않으며, 이 요청의 성공·실패는 게임 진입·목록 캐시·보상 수령 상태를 바꾸지 않는다. 실패는 경고 로그만 남기고 우편함을 열 때 재확인한다. 이미 우편함이 열려 있으면 그 조회로 대신한다. 공통 요청 큐·30초 제한시간을 사용하므로 이후의 다른 서버 요청이 잠시 대기할 수 있다. 발송 기간 안에 후속 확인이 성공해야 전달되며 접속 시각만으로 기간 종료 뒤 지급을 보장하지 않는다.
 
 - 열 때 50통씩 최대 두 페이지(총 100통)를 받고, 전체 조회 완료 후 수령을 허용한다. 닫으면 목록을 비운다. 페이지 간 중복·개수 불일치 시 0부터 한 번만 재조회한다.
 - 스택 종료 훅에서 컨트롤러를 즉시 비활성화해 구독과 연결을 정리한다. 퇴장 애니메이션 뒤의 파괴가 새 우편함을 닫지 않으며, 다른 패널에 가렸다 복귀할 때는 기존 OnEnable/OnDisable로 재연결한다.
 - 개별 수령은 long MailId를 사용한다. 모두 받기는 클릭 시점의 ID를 최대 50개씩 순차 처리한다. 중간 실패 시 성공분은 유지하며 결과를 표시하고 목록을 다시 조회한다.
 - 재화·장비는 응답의 절대값을 기존 UserManager 경로로 반영한다. 응답 유실·저장 실패는 수령을 재전송하지 않고 플레이어 상태를 재조회한다. 화면 종료 후에도 같은 계정의 수령 결과는 반영하며 다른 계정의 응답은 무시한다.
-- 수령 성공한 우편은 즉시 제거한다. 기존 삭제 버튼은 비활성 상태로 보존하고 `수령 시 자동 삭제`를 안내한다. 조회 오류에서는 하단 버튼이 `다시 불러오기`가 된다.
+- 수령 성공한 우편은 즉시 제거한다. 기존 삭제 버튼은 비활성 상태로 보존하고 `수령 시 자동 삭제`를 안내한다. 최종 조회 실패에서는 경고를 표시하고 확인 후 우편함을 닫는다.
 
-운영 목록은 `MailboxService.Messages`의 `MailDTO`만 사용하고 ID는 long을 유지한다. Open/Close/RequestRefresh/TryClaim/TryClaimAll을 통해 조작하며 Changed와 ClaimCompleted로 UI를 갱신한다. GameManager의 우편 주기 조회는 없고, 열린 Controller가 남은 시간과 서비스 Tick(만료·실패 재시도)을 확인한다. Empty/Loading/Ready/Claiming/Recovering/RecoveryRequired 상태를 구별한다. 조회 실패는 창이 열린 동안 30초 후 자동 재시도하며 수동 재시도는 즉시 실행한다. 복구 실패에는 자동 수령 재전송이 없고, 플레이어와 우편 목록을 모두 확인하기 전에는 수령을 차단한다.
+운영 목록은 `MailboxService.Messages`의 `MailDTO`만 사용하고 ID는 long을 유지한다. Open/Close/RequestRefresh/TryClaim/TryClaimAll을 통해 조작하며 Changed와 ClaimCompleted로 UI를 갱신한다. GameManager의 우편 주기 조회는 없고, 열린 Controller가 남은 시간과 서비스 Tick(만료·실패 재시도)을 확인한다. Empty/Loading/Ready/Claiming/Recovering/RecoveryRequired 상태를 구별한다. 통신·StorageFailure·PlayerBusy의 확실한 조회 실패는 완료 후 0.5초 간격으로 재시도한다. 로그인 준비·큐 대기·페이지 조회·일관성 재조회·새로고침 병합을 합쳐 총 30초, 최초를 포함해 최대 3회 전체 조회 시도로 제한한다. 51~100통의 정상 두 페이지는 한 시도다. 잘못된 응답·인증 오류는 즉시 실패하며, 최종 실패는 기존 팝업의 확인 버튼으로 경고 후 닫는다. 복구 실패에는 자동 수령 재전송이 없고, 플레이어와 우편 목록을 모두 확인하기 전에는 수령을 차단한다.
+
+조회 시작 시 Locale을 고정한다. 언어 변경은 첫 페이지부터 다시 조회하고 이전 화면·계정·언어·마감 이후 목록 응답은 게시하지 않는다. ResolvedLocale은 서버의 기본 언어 대체 결과이므로 요청 Locale과 달라도 허용한다. 화면 마감은 전송된 SDK/서버 작업을 취소하는 동작이 아니며, 송신 직렬화와 개별 요청 30초 제한은 기존 NetworkManager 큐를 그대로 사용한다. 만료 표시는 기존 ExpiresUtc·서버 시각을 사용한다.
 
 `VirtualizedMailList`는 기존 ScrollRect·Item_MailRow를 유지하면서 보이는 행 + 2행을 재사용한다. Content의 자동 Layout/Fitter는 실행 중 해제하고, 전체 높이와 행 위치만 직접 관리한다. 행 내부의 기존 배치는 유지한다. 우편당 보상 슬롯은 서버 한도인 10개까지 미리 준비하여 스크롤 중 생성·삭제하지 않는다. 행 재연결 시 보상·클릭 대상·만료 표시·가로 스크롤 위치를 갱신한다.
 
 우편 첨부는 기존 가로 목록이며 재화와 장비를 모두 표시한다. `RewardGrants.FromServer → RewardSlotView → RewardPopupView`를 출석과 함께 사용한다. RewardGrant의 ServerReward·EquipmentCode·Disposition은 저장하지 않는 표시 전용 정보이며 로컬 지급에 사용할 수 없다. 장비 아이콘·이름은 기존 EquipmentDatabase에서 찾으며 희귀도는 장비에만 적용한다. 획득 결과는 서버의 자동 분해·대기·예비 보관 결과를 표시하고 종류·강화·만료·보관 위치가 같은 장비만 합산한다. 자동 분해는 실제 받은 강화석 수량과 자동 분해 문구로 표시한다. 공통 팝업의 기존 재접속 보상 경로는 유지한다.
 
-`MailText`의 작은 문구표에서 TitleKey/BodyKey를 변환한다. 미등록 키는 `시스템 우편` / `첨부 보상을 확인해 주세요.`로 표시하고 키를 진단 기록에 남긴다. 서버 발송 경로가 추가되면 실제 키와 문구를 이 표에 등록한다.
+`MailText`는 Key 우편의 TitleKey/BodyKey를 작은 문구표에서 변환하고 Text 우편은 서버 원문을 반환한다. 미등록 키는 `시스템 우편` / `첨부 보상을 확인해 주세요.`로 표시하고 키를 진단 기록에 남긴다. 서버 발송 경로가 추가되면 실제 키와 문구를 이 표에 등록한다.
+
+우편 통신은 `NetworkManager`의 공통 요청 제한시간 30초를 사용하고, 목록 서비스는 위의 총 30초 예산도 확인한다. 엑셀 변환은 추가하지 않고 Key 우편의 현재 한국어 하드코딩 문구표를 유지한다. Text 우편 번역은 서버가 선택한 언어를 사용한다.
+
+| 제목 키 / 본문 키 | 제목 | 본문 |
+|---|---|---|
+| `mail.cbt.title` / `mail.cbt.body` | 클로즈 베타 테스트에 참여해주셔서 감사합니다 | 즐겁게 플레이 해 주시고 불편한점은 자유롭게 건의해주세요! |
+| `mail.maintenance.reward.title` / `mail.maintenance.reward.body` | 점검 협조 감사 보상 | 원활한 서비스 운영에 협조해 주셔서 감사합니다. 첨부된 보상을 확인해 주세요. |
+| `mail.compensation.title` / `mail.compensation.body` | 서비스 이용 불편 보상 | 서비스 이용 중 겪으신 불편에 대해 사과드립니다. 첨부된 보상을 확인해 주세요. |
+| `mail.update.gift.title` / `mail.update.gift.body` | 업데이트 기념 선물 | 새로운 콘텐츠와 함께 즐거운 시간을 보내시길 바랍니다. 첨부된 선물을 확인해 주세요. |
+| `mail.event.reward.title` / `mail.event.reward.body` | 이벤트 보상 안내 | 이벤트와 함께해 주셔서 감사합니다. 첨부된 보상을 확인해 주세요. |
+| `mail.feedback.thanks.title` / `mail.feedback.thanks.body` | 의견 전달 감사 선물 | 보내주신 의견은 게임을 개선하는 데 참고하겠습니다. 관심과 참여에 감사드립니다. |
+| `mail.support.reward.title` / `mail.support.reward.body` | 플레이 지원 선물 | 모험에 도움이 되길 바라며 준비했습니다. 첨부된 보상을 확인해 주세요. |
+| `mail.operations.gift.title` / `mail.operations.gift.body` | 운영팀의 선물 | 함께해 주시는 플레이어 여러분께 감사드립니다. 즐거운 모험이 되시길 바랍니다. |
+
+문구 키는 제목·본문 표시만 결정한다. 첨부 아이템과 수량·대상·유효기간은 서버 발송 요청에서 별도로 지정한다.
+
+목록 제목은 기존 한 줄 미리보기를 유지한다. 긴 CBT 제목도 상세 화면에서 읽을 수 있도록 `RewardPopupView.ShowMail`에서 우편 제목에 줄바꿈과 28~기존 글자 크기의 자동 맞춤을 적용한다. 아이템 설명·수령 결과 팝업에는 이 설정을 적용하지 않는다.
 
 이번 개정은 우편함으로 한정한다. 현재 머지된 출석·광고·재접속 보상 정책은 변경하지 않으며 출석 이월 알림은 우편함 인스턴스의 갱신 요청에만 연결한다.
 
@@ -268,5 +303,6 @@ Editor에서 bootstrap부터 Play·로그인한 뒤 `GameTest → Shop Ad Test �
 - `MailboxUiAcceptance.Open(100)` / `VerifyRecycling()`: bootstrap Play에서 실제 프리팹을 사용하는 격리 미리보기. 서버 통합 검증과 구분한다.
 - `MailboxUiAcceptance.VerifyCloseReopen()`: bootstrap Play에서 이전 패널의 지연 종료·재진입, 비활성화 후 복귀, 재진입 후 수령을 검사한다. 검사 후 `Close()`로 미리보기를 정리한다.
 - `MailboxUiAcceptance.VerifyAnchorAndCompatibility()`: 수령 후 스크롤 기준 유지·오류/재시도·출석 슬롯과 재접속 팝업 호환성을 확인한다.
+- `MailboxUiAcceptance.VerifyHybridDisplayAndFailure()`: 실제 행·상세의 Text 표시와 총 30초 실패 경고·확인 후 종료를 가짜 응답으로 확인한다.
 - [0.19.4 검증 기록](../../AI/validation/mailbox-refactor-20261101/README.md)
 - [0.19.0 당시 검증 기록](../../AI/validation/mailbox-server-20261031/README.md)

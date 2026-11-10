@@ -50,20 +50,51 @@ namespace KingdomIdle.UGUI
                 return;
             }
 
-            // 최고 등급 계산 (제목 강조용)
+            // 등급을 제목으로 먼저 공개하지 않고 해당 카드의 한 바퀴가 끝날 때 강조한다.
             var bestRarity = ComputeBestRarity(results);
             if (view.title != null)
             {
-                view.title.text = BuildTitleText(bestRarity);
-                view.title.color = TitleColor(bestRarity);
+                view.title.text = BuildTitleText(null);
+                view.title.color = TitleColor(null);
             }
 
             // 아이템별 합산 후 등급순 정렬 (Epic → Rare → Normal → Skill → Currency)
             var merged = MergeResults(results);
             merged.Sort(CompareResultEntries);
 
+            var popup = _instanceGo;
+            bool isMagePull = table != null && table.gachaType == KingdomIdle.Gacha.eGachaType.Skill;
+            bool titleRevealAssigned = false;
             foreach (var m in merged)
-                AddResultCard(host, view, m.entry, m.count, bestRarity);
+            {
+                var card = AddResultCard(host, view, m.entry, m.count, bestRarity);
+                if (card == null) continue;
+                if (isMagePull && m.entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Skill)
+                {
+                    GachaCardReveal.Play(card, 2f, MageSkillPresentation.Accent);
+                    continue;
+                }
+                if (isMagePull && m.entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency)
+                {
+                    GachaCardReveal.Play(card, .55f, UguiTheme.RarityNormal);
+                    continue;
+                }
+                if (m.entry.rewardType != KingdomIdle.Gacha.eGachaRewardType.Equipment || m.entry.equipmentData == null) continue;
+
+                var rarity = m.entry.equipmentData.rarity;
+                System.Action onRevealed = null;
+                if (!titleRevealAssigned && bestRarity.HasValue && rarity == bestRarity.Value)
+                {
+                    titleRevealAssigned = true;
+                    onRevealed = () =>
+                    {
+                        if (_instanceGo != popup || view == null || !view.isActiveAndEnabled || view.title == null) return;
+                        view.title.text = BuildTitleText(bestRarity);
+                        view.title.color = TitleColor(bestRarity);
+                    };
+                }
+                GachaCardReveal.Play(card, rarity, onRevealed);
+            }
 
             BindButtons(view, table, lastPullCount);
             FeatureGuideAnchor.Bind(view.btnDone, Direction.GameDirectTarget.GachaResultClose);
@@ -86,18 +117,18 @@ namespace KingdomIdle.UGUI
             }
         }
 
-        private static void AddResultCard(
+        private static GachaCardItemView AddResultCard(
             UIManager host,
             GachaResultPopupView view,
             KingdomIdle.Gacha.GachaRewardEntry entry,
             int count,
             eEquipmentRarity? bestRarity)
         {
-            if (host.Catalog.itemGachaCard == null || view.grid == null) return;
+            if (host.Catalog.itemGachaCard == null || view.grid == null) return null;
 
             var cardGo = Object.Instantiate(host.Catalog.itemGachaCard, view.grid, false);
             var card = cardGo.GetComponent<GachaCardItemView>();
-            if (card == null) return;
+            if (card == null) return null;
 
             // 등급 테두리
             Color frameColor = new Color(1f, 1f, 1f, 0.25f);
@@ -193,6 +224,7 @@ namespace KingdomIdle.UGUI
                 if (fragments) card.subLabel.fontSize = 22;
                 card.subLabel.color = UguiTheme.AccentGoldStrong;
             }
+            return card;
         }
 
         private static void BindButtons(GachaResultPopupView view, KingdomIdle.Gacha.GachaTableSO table, int lastPullCount)

@@ -264,6 +264,8 @@ namespace Protocol.Message.Dto
 	}
 	public sealed class OnGetMailListRequestDTO : MailboxRequestDTO
 	{
+		[JsonProperty(Required = Required.Always)]
+		public string Locale { get; set; } = null!;
 		// 0이 가장 최근 우편이다.
 		[JsonProperty(Required = Required.Always)]
 		public int StartIndex { get; set; }

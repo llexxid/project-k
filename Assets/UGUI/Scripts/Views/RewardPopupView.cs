@@ -79,8 +79,22 @@ namespace KingdomIdle.UGUI
         {
             var view = Open(owner, MailText.Title(mail), mail.MailId);
             if (view == null) return;
+            view.title.textWrappingMode = TextWrappingModes.Normal;
+            view.title.fontSizeMin = Mathf.Min(28f, view.title.fontSize);
+            view.title.fontSizeMax = view.title.fontSize;
+            view.title.enableAutoSizing = true;
             view.SetDescription(MailText.Body(mail));
             view.AddSlots(mail.Rewards.Select(RewardGrants.FromServer), true);
+        }
+        public static RewardPopupView ShowMessage(Transform owner, string heading, string message, System.Action onClosed)
+        {
+            var view = Open(owner, heading, null);
+            if (view == null) return null;
+            view.SetDescription(message);
+            view._onClosed = onClosed;
+            view.confirmButton.gameObject.SetActive(true);
+            view.confirmButton.onClick.AddListener(view.Close);
+            return view;
         }
         private static RewardPopupView Open(Transform owner, string heading, long? mailId)
         {
