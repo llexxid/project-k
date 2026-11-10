@@ -31,7 +31,6 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal RectTransform popupHamburgerRect;
         [SerializeField] internal CanvasGroup popupHamburgerGroup;
         [SerializeField] internal Button btnMenuInventory;
-        [SerializeField] internal Button btnMenuShop;
         [SerializeField] internal Button btnMenuGuide;
         [SerializeField] internal Button btnMenuSettings;
         [SerializeField] internal Button btnMenuNotice;

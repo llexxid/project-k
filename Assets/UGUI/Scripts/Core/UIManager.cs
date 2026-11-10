@@ -184,6 +184,10 @@ namespace KingdomIdle.UGUI
             if (HasActiveTabPanel && !HasBlockingPanel) ClearPanels();
         }
 
+        internal bool CanShowTitlePatch => _activeScreenId == UIScreenId.Title && _activeScreenGo != null &&
+            !ModalBackHandler.HasOpenModal && (_loading == null || !_loading.gameObject.activeInHierarchy) &&
+            (_settings == null || !_settings.IsOpen);
+
         /// <summary>안내를 덮을 메뉴·로딩·실제 팝업을 검사한다. 안내 View 자체는 팝업 계층 밖에 있어 자기 차단이 없다.</summary>
         public bool CanShowFeatureGuide
         {
@@ -296,6 +300,7 @@ namespace KingdomIdle.UGUI
                 RequestBack();
 
             FrameTick?.Invoke();
+            NoticePopupController.Tick(this);
             if (_fieldLootCount > 0 && !GamePresentationSettings.HideItemNotifications && _toastCo == null &&
                 Time.unscaledTime >= _nextFieldLootNotice && !HasBlockingPanel && !HasActiveTabPanel && (_settings == null || !_settings.IsOpen))
             {
@@ -313,7 +318,11 @@ namespace KingdomIdle.UGUI
             ReincarnationPopupController.Hide();
             OfflineRewardPopupController.Hide();
             ShopPopupController.Hide();
-            if (Instance == this) Instance = null;
+            if (Instance == this)
+            {
+                NoticePopupController.Reset();
+                Instance = null;
+            }
         }
 
         private void EnsureStageManagerBinding()
@@ -359,6 +368,7 @@ namespace KingdomIdle.UGUI
         public void ReplaceScreen(UIScreenId id, object payload = null, bool clearStacks = true)
         {
             ActiveFeatureGuide?.Hide();
+            NoticePopupController.CloseForScreenChange();
             if (clearStacks)
                 ClearPanels();
 

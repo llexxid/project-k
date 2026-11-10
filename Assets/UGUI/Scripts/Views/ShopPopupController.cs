@@ -1,7 +1,6 @@
 using KingdomIdle.Balance;
 using KingdomIdle.Ads;
 using KingdomIdle.Rewards;
-using KingdomIdle.UI;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -23,14 +22,6 @@ namespace KingdomIdle.UGUI
 
         // 광고 보상은 서버가 지급한다(2026-11-01). 결과는 ShopAdRewardService.ClaimCompleted로 온다.
         static ShopPopupController() => ShopAdRewardService.ClaimCompleted += OnClaimCompleted;
-
-        public static void Show()
-        {
-            var host = UIManager.Instance;
-            if (host == null || host.Catalog == null || host.Catalog.popupShop == null) return;
-            if (IsOpen && host.IsTopPanel(_view)) return;
-            host.PushPanel(UIPanelId.Store, clearBefore: true, isTabPanel: true);
-        }
 
         public static void Populate(ShopPopupView view)
         {

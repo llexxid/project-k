@@ -99,6 +99,8 @@ namespace KingdomIdle.UGUI.Editor
             catalog.popupDungeonClear = Load($"{p}/Popups/Popup_DungeonClear.prefab");
             catalog.popupReincarnation = Load($"{p}/Popups/Popup_Reincarnation.prefab");
             catalog.popupOfflineReward = Load($"{p}/Popups/Popup_OfflineReward.prefab");
+            catalog.popupPatchNotes = Load(NoticePopupPrefabGen.PatchPath);
+            catalog.popupNoticeBoard = Load(NoticePopupPrefabGen.BoardPath);
             catalog.popupShop = Load($"{p}/Popups/Popup_Shop.prefab");
 
             catalog.overlayLoading = Load($"{p}/Overlays/Overlay_Loading.prefab");

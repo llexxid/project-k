@@ -108,6 +108,8 @@ namespace KingdomIdle.UGUI
         public GameObject popupStageSelect;
         public GameObject popupReincarnation;
         public GameObject popupOfflineReward;
+        public GameObject popupPatchNotes;
+        public GameObject popupNoticeBoard;
         public GameObject popupShop;
         public GameObject popupEquipmentAction;
 
