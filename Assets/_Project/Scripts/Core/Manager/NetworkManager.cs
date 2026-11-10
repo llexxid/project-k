@@ -211,6 +211,27 @@ namespace Scripts.Core.Manager
                 error => { if (generation == AccountGeneration) failure?.Invoke(error); });
         }
 
+        internal void GetTitleNews(Action<GetTitleNewsResult> success, Action failure)
+        {
+            if (!IsGameDataReady || _context == null)
+            {
+                failure();
+                return;
+            }
+
+            long generation = AccountGeneration;
+            try
+            {
+                new PlayFabClientInstanceAPI(_context).GetTitleNews(new GetTitleNewsRequest { Count = 20 },
+                    result => { if (this != null && generation == AccountGeneration) success(result); },
+                    _ => { if (this != null && generation == AccountGeneration) failure(); });
+            }
+            catch (PlayFabException)
+            {
+                failure();
+            }
+        }
+
         /// <summary>Build a DTO-routed request and send it directly through the PlayFab SDK.</summary>
         public void Call<TRequest, TResponse>(TRequest request, Action<TResponse> successCallback, Action<PlayFabError> errorCallback)
             where TRequest : RequestDTO where TResponse : ApiResponseDTO

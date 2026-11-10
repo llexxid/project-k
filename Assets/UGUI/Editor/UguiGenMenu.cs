@@ -49,6 +49,7 @@ namespace KingdomIdle.UGUI.Editor
             ProfilePopupPrefabGens.GenerateProfilePopup();
             RankingPopupPrefabGen.Generate();
             OfflineRewardPopupPrefabGen.Generate();
+            NoticePopupPrefabGen.Generate();
             ShopPopupPrefabGen.Generate();
 
             // HUD

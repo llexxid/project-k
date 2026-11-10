@@ -293,6 +293,7 @@ namespace KingdomIdle.UGUI
                 RequestBack();
 
             FrameTick?.Invoke();
+            NoticePopupController.Tick(this);
             if (_fieldLootCount > 0 && !GamePresentationSettings.HideItemNotifications && _toastCo == null &&
                 Time.unscaledTime >= _nextFieldLootNotice && !HasBlockingPanel && !HasActiveTabPanel && (_settings == null || !_settings.IsOpen))
             {
@@ -310,7 +311,11 @@ namespace KingdomIdle.UGUI
             ReincarnationPopupController.Hide();
             OfflineRewardPopupController.Hide();
             ShopPopupController.Hide();
-            if (Instance == this) Instance = null;
+            if (Instance == this)
+            {
+                NoticePopupController.Reset();
+                Instance = null;
+            }
         }
 
         private void EnsureStageManagerBinding()
@@ -356,6 +361,7 @@ namespace KingdomIdle.UGUI
         public void ReplaceScreen(UIScreenId id, object payload = null, bool clearStacks = true)
         {
             ActiveFeatureGuide?.Hide();
+            NoticePopupController.CloseForScreenChange();
             if (clearStacks)
                 ClearPanels();
 

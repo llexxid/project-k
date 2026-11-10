@@ -115,7 +115,7 @@ namespace KingdomIdle.UGUI.Editor
             // This book is already packed in Atlas_UI; reuse it without another texture allocation.
             main.btnMenuGuide.transform.Find("Icon").GetComponent<Image>().sprite = AssetDatabase.LoadAssetAtPath<Sprite>(Picto + "book.png");
             CheckInMailboxPrefabBuilder.ApplyMenu(go);
-            foreach (var button in new[] { main.btnMenuGuide, main.btnMenuInventory, main.btnMenuCheckIn, main.btnMenuMail, main.btnMenuSettings })
+            foreach (var button in new[] { main.btnMenuGuide, main.btnMenuInventory, main.btnMenuNotice, main.btnMenuCheckIn, main.btnMenuMail, main.btnMenuSettings })
             {
                 SizeLayout(button.transform, 144);
                 Surface(button.GetComponent<Image>(), UguiTheme.RusticSurfaceDark);
@@ -125,22 +125,11 @@ namespace KingdomIdle.UGUI.Editor
                 Type(label, 32, TextAlignmentOptions.MidlineLeft);
                 label.textWrappingMode = TextWrappingModes.NoWrap;
             }
-            wave.btnLoopIcon.transform.SetParent(menu, false);
-            SizeLayout(wave.btnLoopIcon.transform, 144);
-            var repeatIcon = wave.btnLoopIcon.transform.Find("Icon") as RectTransform;
-            if (repeatIcon != null) Pin(repeatIcon, new Vector2(0,.5f), new Vector2(52,0), new Vector2(52,52), new Vector2(.5f,.5f));
-            var repeatText = wave.btnLoopIcon.transform.Find("Label").GetComponent<TMP_Text>();
-            Fill(repeatText.rectTransform, 16);
-            repeatText.rectTransform.offsetMin = new Vector2(104, 16);
-            Type(repeatText, 30, TextAlignmentOptions.MidlineLeft);
-            repeatText.text = "반복 사냥 종료";
-
             var goal = go.transform.Find("GuideGoal") as RectTransform;
             if (goal == null) goal = Child(go.transform, "GuideGoal");
             Pin(goal, new Vector2(0,1), new Vector2(24,-280), new Vector2(540,184), new Vector2(0,1));
             BuildGoal(goal, true);
             F.Init();
-            ShopPopupPrefabGen.WireMain(main);
             ProgressionFlowPreparation.ApplyMain(go);
         }
 

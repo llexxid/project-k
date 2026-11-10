@@ -41,6 +41,22 @@ Unity 메뉴 **KingdomIdle → Access → Skip Check in Editor**로 에디터에
 
 루비 성장 카드는 `RubyProgression`의 서버 거래 상태를 읽는다. 강화·초기화 응답의 레벨·누적 지출·최고 레벨·초기화 날짜·루비 잔액을 적용하며, 미확정 요청이 있으면 해당 카드에 같은 요청 재시도와 서버 상태 확인을 제공한다. 초기화 예약은 일반 웨이브 종료 후 사냥 정산을 마치고 전송한다. 구 서버에서 성장 상태를 받지 못한 경우에는 거래 버튼을 비활성화한다. 로컬 재화 차감·환급은 수행하지 않는다.
 
+### 공지·패치노트 발행
+
+PlayFab Game Manager의 **Content → Title News → New Title News**에서 글을 작성한다. 제목과 게시일은 PlayFab의 `Title`과 `Timestamp`를 사용한다. `Body`에는 아래와 같이 JSON 객체를 넣는다. 일반 공지는 `text`만, 패치노트는 대상 앱 버전인 `appVersion`도 넣는다.
+
+```json
+{"text":"11월 정기 점검 일정을 안내합니다.\n자세한 일정은 추후 이 공지에 갱신합니다."}
+```
+
+```json
+{"text":"햄버거 메뉴에 공지를 추가했습니다.\n공지에서 업데이트 내용을 다시 열 수 있습니다.","appVersion":"0.23.0"}
+```
+
+게시된 최근 20건을 조회한다. 앱은 본문을 줄바꿈이 유지되는 일반 텍스트로 표시하고, 비어 있거나 형식이 잘못된 글은 건너뛴다. 배포 전에 `PlayerSettings.bundleVersion`과 정확히 일치하는 실제 패치노트를 발행하고 게스트 로그인에서 확인한다. 같은 버전의 글이 여럿이면 최신 한 건을 자동 팝업에 사용한다. 운영 환경에는 테스트 공지를 발행하지 않는다.
+
+두 프리팹은 `LayerPopups` 아래에서 열리고 창 크기는 자식 `Panel`의 `RectTransform`에서 편집한다. 헤더와 닫기 버튼은 고정하며 본문·목록은 `ScrollRect` 안에서 늘어난다. 자동 표시 여부는 팝업이 실제로 열린 뒤 앱 버전별로 기기의 `PlayerPrefs`에 저장된다. 공지 목록에서는 같은 글을 다시 열 수 있다. [PlayFab Title News](https://learn.microsoft.com/en-us/xbox/playfab/live-service-management/game-configuration/title-communications/news/quickstart)
+
 ### 광고 단독 테스트
 
 `KingdomIdle → Ads → Open Test Scene`으로 `Scenes/AdMobTest.unity`를 열고 Play한 뒤 `광고 보기`를 누른다. 초기화·로드·재생을 자동 처리하며 SDK 보상 콜백을 받은 후 광고를 닫으면 완료 팝업을 표시한다. 중도 종료는 완료 처리하지 않고 실패 시 같은 팝업으로 재시도를 안내한다. Editor는 SDK 모의 광고이고, Android는 Google의 고정 테스트 광고 단위를 사용한다. 로그인·실제 재화 지급은 없다.
@@ -75,7 +91,7 @@ Unity 메뉴 **KingdomIdle → Access → Skip Check in Editor**로 에디터에
 
 ### 뽑기·상점과 하단 탐색
 
-하단바는 **육성 → 왕국군 → 던전 → 뽑기 → 상점**의 다섯 메뉴다. 육성·왕국군·던전은 기존 크기를 사용하고, 뽑기·상점은 상단 정보·현재 왕국군 정보·하단바를 남긴 중앙 영역을 채우며 긴 본문만 스크롤한다. `UIManager`의 공통 패널 스택이 열기·닫기·뒤로가기·선택 상태를 처리한다. 햄버거의 상점도 같은 `UIPanelId.Store` 패널로 연결한다.
+하단바는 **육성 → 왕국군 → 던전 → 뽑기 → 상점**의 다섯 메뉴다. 육성·왕국군·던전은 기존 크기를 사용하고, 뽑기·상점은 상단 정보·현재 왕국군 정보·하단바를 남긴 중앙 영역을 채우며 긴 본문만 스크롤한다. `UIManager`의 공통 패널 스택이 열기·닫기·뒤로가기·선택 상태를 처리한다.
 
 육성·왕국군·던전은 기존 프리팹의 크기와 계산 코드를 보존한다. 루트 프리팹의 `UIManager.expandLegacyTabPanels`는 기본 false로, 기존 세 패널의 크기·왕국군 HUD 위치를 사용한다. true로 바꾸면 세 패널도 런타임에서 확장하며 뽑기·상점은 두 설정 모두 확대를 유지한다. 세 패널의 원래 프리팹을 다시 생성하거나 역변환할 필요는 없다.
 
@@ -147,7 +163,7 @@ bootstrap부터 Play하고 메인 화면에 진입한다. Unity 상단 `GameTest
 - `StageSelectPopupView/Controller`는 `Popup_StageSelect`를 카탈로그에서 열고 `StageManager.TryMoveToMainStage`로 이동한다. `CycleFrontierStage`는 이번 환생의 최고 도전 가능 위치이며 영구 클리어 기록과 분리한다. 구 저장은 현재 위치·이번 환생의 보스 클리어로 확인되는 위치만 복원한다.
 - 던전은 메인 스테이지·가이드를 접고 상단에 목표·남은 시간을 표시한다. 하단 `메인 스테이지 복귀` → `Popup_DungeonReturnConfirm`의 확인에서만 기존 복귀 경로를 호출한다. 던전 결과 팝업과 자동 복귀는 기존 경로를 사용한다.
 - 마탑 수동 스킬은 상단 스테이지 위치와 분리하여 우하단 왕국군 HUD 위에 유지한다. `StageBadgeAnchor`의 상단 모드는 위치를 움직이지 않고 기존 메뉴 숨김만 처리하며, 하단 던전 복귀 행은 왕국군 HUD 위에 정렬한다.
-- 햄버거: 퀘스트/가이드, 가방, 설정, 반복 사냥 종료. 보스 자동 도전은 스테이지 인디케이터 옆에서 조작한다.
+- 햄버거 메뉴에서 공지를 열 수 있다. 반복 사냥 중 스테이지 이동과 보스 자동 도전 설정은 스테이지 HUD에서 조작한다.
 - `Panel_Guide`는 가이드·일일·주간·업적 네 탭을 제공한다. 상단 현재 퀘스트 카드는 가이드 탭에서만 표시하며 HUD와 같은 `QuestManager` 데이터를 쓴다.
 - 하단 다섯 탭은 육성·왕국군·던전·뽑기·상점이다. 기본값 `expandLegacyTabPanels=false`에서 육성·왕국군·던전은 기존 시트 크기를 사용하고 뽑기·상점만 상단 정보와 왕국군 HUD 아래를 채운다. 시트가 열리면 HUD 목표 카드는 숨긴다.
 
@@ -204,7 +220,7 @@ Android 검사 도우미와 실행 결과는 저장소 밖 QA 보관 폴더에�
 
 ## 상점
 
-하단바 맨 오른쪽 `상점`과 햄버거 메뉴의 `상점`은 같은 목재·청동 테마 패널을 연다. 상단 정보·현재 왕국군 정보·하단바를 유지하고 그 사이를 채우며 상품 목록만 스크롤한다. 추천·주화 / 골드·매일 광고 세 탭과 11개 상품은 유지한다. `ShopCatalog`가 안정 상품 ID·예정 가격·수량을 관리하며 `ShopPopupController`는 현재 고대주화 잔액과 기존 `QuestEconomy` 기준의 골드 환산을 읽는다. 구매·교환·광고 제거 구매는 준비 중 토스트만 표시한다. 매일 광고 두 상품은 기존 `RewardedAdService`를 재사용하며 장비는 `ShopEquipmentAdUnitId`, 마탑은 `ShopMageAdUnitId`로 광고 단위를 구분한다. Editor·Development Build는 테스트 광고를 사용한다.
+하단바 맨 오른쪽 `상점`은 목재·청동 테마 패널을 연다. 상단 정보·현재 왕국군 정보·하단바를 유지하고 그 사이를 채우며 상품 목록만 스크롤한다. 추천·주화 / 골드·매일 광고 세 탭과 11개 상품은 유지한다. `ShopCatalog`가 안정 상품 ID·예정 가격·수량을 관리하며 `ShopPopupController`는 현재 고대주화 잔액과 기존 `QuestEconomy` 기준의 골드 환산을 읽는다. 구매·교환·광고 제거 구매는 준비 중 토스트만 표시한다. 매일 광고 두 상품은 기존 `RewardedAdService`를 재사용하며 장비는 `ShopEquipmentAdUnitId`, 마탑은 `ShopMageAdUnitId`로 광고 단위를 구분한다. Editor·Development Build는 테스트 광고를 사용한다.
 
 일일 광고는 이미 연결된 `ShopAdRewardService`의 서버 지급 경로를 유지한다. `Completed` 후 `OnClaimAdReward(ShopDaily)`를 요청하고, 서버가 반환한 재화 절대값과 수령 기록을 적용한다. 상품별 한국 날짜의 수령 가능 여부와 지급량은 서버가 판정하며 UI는 받은 기록을 표시한다. 이번 패널 개편은 광고 시작일·중복 지급·저장 재시도 등 보상 정책이나 서버 요청을 바꾸지 않는다.
 
