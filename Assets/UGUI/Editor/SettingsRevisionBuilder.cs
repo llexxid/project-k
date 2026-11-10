@@ -111,6 +111,8 @@ namespace KingdomIdle.UGUI.Editor
             view.tglPowerSave = Toggle(content, "PowerSave", "절전 모드", "화면을 초당 30프레임으로 표시");
             view.tglLowSpec = Toggle(content, "LowSpec", "저사양 모드", "장식과 피해 숫자의 움직임 간소화");
             view.tglKeepAwake = Toggle(content, "KeepAwake", "화면 켜짐 유지", "플레이 중 화면 자동 꺼짐 방지");
+            AccountButton(content, "Logout", "로그아웃", UguiTheme.RusticSurfaceDark);
+            AccountButton(content, "AccountReset", "계정 초기화", UguiTheme.DangerRed);
             view.legalSection = Section(content, "알림 및 이용 안내");
             view.btnNotificationPermission = F.TextButton(content, "NotificationPermission", "휴대폰 알림 설정", 26, UguiTheme.RusticSurfaceDark, out _);
             F.Preferred((RectTransform)view.btnNotificationPermission.transform, height: 120);
@@ -124,6 +126,15 @@ namespace KingdomIdle.UGUI.Editor
             F.Preferred((RectTransform)view.btnSaveClose.transform, height: 132);
             var result = PrefabGenUtil.SavePrefab(root.gameObject, PrefabGenUtil.PrefabRoot + "/Overlays/Overlay_Settings.prefab");
             return result;
+        }
+        static void AccountButton(Transform parent, string name, string label, Color fill)
+        {
+            var button = F.TextButton(parent, name, label, 26, fill, out _);
+            F.Preferred((RectTransform)button.transform, height: 100);
+            var colors = button.colors;
+            colors.disabledColor = Color.white;
+            button.colors = colors;
+            button.interactable = false;
         }
         static RectTransform Page(Transform parent,string name)
         {
