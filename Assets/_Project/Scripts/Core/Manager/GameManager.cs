@@ -155,12 +155,16 @@ namespace Scripts.Core
 
             UserManager.Instance.CreateCharacter();
             eStage curUserStage = UserManager.Instance.GetUserCurrentStage();
+            var network = NetworkManager.Instance;
+            long generation = network != null ? network.AccountGeneration : -1;
 
             void BeginMainStage()
             {
                 if (StageManager.Instance != null)
                     StageManager.Instance.BeginStage(curUserStage);
                 Direction.GameDirectManager.Instance?.RequestIncompleteGuides();
+                if (network != null && NetworkManager.Instance == network && network.AccountGeneration == generation)
+                    KingdomIdle.UGUI.NoticePopupController.BeginMainEntry();
                 Mailbox?.CheckAfterLogin();
             }
 

@@ -517,16 +517,6 @@ namespace KingdomIdle.UGUI.Editor
             var stageIcon = F.IconImage(row, "StageIcon", UguiGenAssets.IconStageMap, 48f, 48f);
             F.Preferred(stageIcon, width: 48f, height: 48f);
 
-            var loopImg = F.Box(row, "BtnLoopIcon", new Color(1f, 200f / 255f, 60f / 255f, 1f), rounded: true, raycast: true);
-            F.Preferred(loopImg, width: 48f, height: 48f);
-            waveView.btnLoopIcon = F.ButtonOn(loopImg);
-            if (F.Catalog != null && F.Catalog.iconRepeat != null)
-            {
-                var loopIcon = F.IconImage(loopImg.transform, "Icon", F.Catalog.iconRepeat, 30f, 30f);
-                F.AnchorCenter(loopIcon.rectTransform, 30f, 30f);
-            }
-            loopImg.gameObject.SetActive(false);
-
             var stageLbl = F.Text(row, "LblStage", "스테이지 1-1", UguiTheme.FontStageLabel, UguiTheme.TextPrimary,
                 TextAlignmentOptions.Center, bold: true);
             F.Preferred(stageLbl, width: 320f, height: 52f);
@@ -760,10 +750,8 @@ namespace KingdomIdle.UGUI.Editor
 
             view.btnMenuInventory = MakeHamburgerItem(hamburger.transform, "BtnMenuInventory", null,
                 F.Catalog != null ? F.Catalog.iconBag : null);
-            view.btnMenuShop = MakeHamburgerItem(hamburger.transform, "BtnMenuShop", null,
-                F.Catalog != null ? F.Catalog.iconAncientCoin : null);
+            view.btnMenuNotice = MakeHamburgerItem(hamburger.transform, "BtnMenuNotice", "공지", UguiGenAssets.IconWarning);
             view.btnMenuSettings = MakeHamburgerItem(hamburger.transform, "BtnMenuSettings", null, UguiGenAssets.IconWrench);
-            view.btnMenuNotice = MakeHamburgerItem(hamburger.transform, "BtnMenuNotice", null, UguiGenAssets.IconWarning);
             view.btnMenuMail = MakeHamburgerItem(hamburger.transform, "BtnMenuMail", null,
                 F.Catalog != null ? F.Catalog.iconEnvelope : null);
             view.btnMenuCheckIn = MakeHamburgerItem(hamburger.transform, "BtnMenuCheckIn", null,
@@ -788,16 +776,24 @@ namespace KingdomIdle.UGUI.Editor
             var bg = F.Box(parent, name, UguiTheme.RusticSurface, rounded: true, raycast: true);
             F.Preferred(bg, width: 90f, height: 90f);
             var btn = F.ButtonOn(bg);
+            bool hasLabel = !string.IsNullOrEmpty(text);
 
             if (icon != null)
             {
-                var img = F.IconImage(bg.transform, "Icon", icon, 48f, 48f);
-                F.AnchorCenter(img.rectTransform, 48f, 48f);
+                var iconRect = F.IconImage(bg.transform, "Icon", icon, 48f, 48f).rectTransform;
+                F.AnchorCenter(iconRect, 48f, 48f);
+                if (hasLabel)
+                {
+                    iconRect.anchorMin = iconRect.anchorMax = new Vector2(0f, .5f);
+                    iconRect.anchoredPosition = new Vector2(52f, 0f);
+                }
             }
-            else if (!string.IsNullOrEmpty(text))
+            if (hasLabel)
             {
-                var lbl = F.Text(bg.transform, "Label", text, 40f, UguiTheme.TextPrimary, TextAlignmentOptions.Center, bold: true);
+                var lbl = F.Text(bg.transform, "MenuLabel", text, 40f, UguiTheme.TextPrimary,
+                    icon != null ? TextAlignmentOptions.MidlineLeft : TextAlignmentOptions.Center, bold: true);
                 F.Stretch(lbl.rectTransform);
+                if (icon != null) lbl.rectTransform.offsetMin = new Vector2(100f, 0f);
             }
 
             return btn;

@@ -1,5 +1,7 @@
 using UnityEngine;
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
+using KingdomIdle.UI;
 using Scripts.Core;
 using Scripts.Core.Manager;
 using Scripts.Server.Auth;
@@ -14,14 +16,14 @@ namespace KingdomIdle.UGUI
     {
         private TitleScreenView _view;
         private UIManager _host;
-        private bool _requestedScene;
+        private long _requestedMainGeneration = -1;
         private TermsConsentDialog _termsDialog;
 
         public void Bind(TitleScreenView view, UIManager host)
         {
             _view = view;
             _host = host;
-            _requestedScene = false;
+            _requestedMainGeneration = -1;
             if (NetworkManager.Instance != null)
                 NetworkManager.Instance.LoginStateChanged += HandleLoginStateChanged;
             if (SFXManager.Instance != null) SFXManager.Instance.PlayBGM(eSFXType.TITLE);
@@ -77,6 +79,11 @@ namespace KingdomIdle.UGUI
             }
 
             HideLoginPopup();
+            if (IsAuthenticatedSession())
+            {
+                LoadMainOnce();
+                return;
+            }
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !ENVIRONMENT_SIMULATION_QA
             // 재실행 시에도 기존 인증과 서버 동의 기록 검사를 그대로 거친다.
             var network = NetworkManager.Instance;
@@ -98,13 +105,15 @@ namespace KingdomIdle.UGUI
 
         private void SignIn(eAuthType type)
         {
-            if (NetworkManager.Instance == null)
+            var net = NetworkManager.Instance;
+            if (net == null)
             {
                 _host.ShowToast(Localize("네트워크가 초기화되지 않았습니다.", "The network is not ready yet."));
                 return;
             }
+            if (net.IsGameDataReady) return;
             HideLoginPopup();
-            NetworkManager.Instance.Authenticate(type, RequestTerms);
+            net.Authenticate(type, RequestTerms);
         }
 
         private Task<bool> RequestTerms()
@@ -127,7 +136,7 @@ namespace KingdomIdle.UGUI
 
         private void ShowLoginPopup()
         {
-            if (_view == null || _view.popupLogin == null) return;
+            if (_view == null || _view.popupLogin == null || IsAuthenticatedSession()) return;
             if (_view.presentation != null) _view.presentation.CloseLanguagePopup();
             _view.popupLogin.SetActive(true);
             _view.popupLogin.transform.SetAsLastSibling();
@@ -142,9 +151,23 @@ namespace KingdomIdle.UGUI
 
         private void LoadMainOnce()
         {
-            if (_requestedScene || !IsAuthenticatedSession()) return;
+            var net = NetworkManager.Instance;
+            if (_view == null || _host == null || net == null || !net.IsGameDataReady ||
+                _requestedMainGeneration == net.AccountGeneration) return;
 
-            _requestedScene = true;
+            long generation = net.AccountGeneration;
+            _requestedMainGeneration = generation;
+            if (_view.pressHint != null)
+                _view.pressHint.text = Localize("업데이트 소식을 확인하는 중입니다.", "Checking for updates.");
+            NoticePopupController.ShowTitlePatchThen(_host, () => EnterMainAfterTitleFrame(net, generation).Forget());
+        }
+
+        private async UniTask EnterMainAfterTitleFrame(NetworkManager net, long generation)
+        {
+            // Title Bind can run inside SceneLoadFinished before the loader releases its current request.
+            await UniTask.NextFrame();
+            if (_view == null || _host == null || _host.ActiveScreenId != UIScreenId.Title ||
+                net == null || NetworkManager.Instance != net || !net.IsGameDataReady || net.AccountGeneration != generation) return;
             if (LoadManager.Instance != null)
                 LoadManager.Instance.LoadAsyncScene(eSceneType.main);
         }
@@ -171,7 +194,6 @@ namespace KingdomIdle.UGUI
             }
             else if (net.LoginState == GameLoginState.Loading)
                 _host.ShowToast(Localize("서버 데이터를 확인하는 중입니다.", "Checking server data."));
-            // Authentication이 서버 데이터를 UserManager에 적용한 뒤 Ready를 알리므로 바로 메인에 진입한다.
             else if (net.LoginState == GameLoginState.Ready)
                 LoadMainOnce();
         }
