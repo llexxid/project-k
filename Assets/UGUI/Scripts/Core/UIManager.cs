@@ -184,6 +184,10 @@ namespace KingdomIdle.UGUI
             if (HasActiveTabPanel && !HasBlockingPanel) ClearPanels();
         }
 
+        internal bool CanShowTitlePatch => _activeScreenId == UIScreenId.Title && _activeScreenGo != null &&
+            !ModalBackHandler.HasOpenModal && (_loading == null || !_loading.gameObject.activeInHierarchy) &&
+            (_settings == null || !_settings.IsOpen);
+
         /// <summary>안내를 덮을 메뉴·로딩·실제 팝업을 검사한다. 안내 View 자체는 팝업 계층 밖에 있어 자기 차단이 없다.</summary>
         public bool CanShowFeatureGuide
         {

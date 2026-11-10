@@ -100,7 +100,7 @@ namespace KingdomIdle.UGUI.Editor
                 patch.closeButton.onClick.Invoke();
                 Check(!patch.gameObject.activeSelf, "The real patch close button hides the popup");
 
-                var board = (NoticePopupView)Call("Create", manager, catalog.popupNoticeBoard);
+                var board = (NoticePopupView)Call("Create", manager, catalog.popupNoticeBoard, null);
                 Set("_board", board);
                 board.gameObject.SetActive(true);
                 Set("_requestId", 1);
@@ -142,7 +142,7 @@ namespace KingdomIdle.UGUI.Editor
                 }
                 board.backdropButton.onClick.Invoke();
                 Check(!board.gameObject.activeSelf, "The real board backdrop closes the popup");
-                if (Application.isPlaying) VerifyAutomaticAfterReward(manager, patch);
+                if (Application.isPlaying) VerifyStartupPopups(manager, patch, board);
             }
             finally
             {
@@ -153,16 +153,18 @@ namespace KingdomIdle.UGUI.Editor
             Debug.Log("NOTICE POPUP ACCEPTANCE PASSED");
         }
 
-        private static void VerifyAutomaticAfterReward(UIManager manager, NoticePopupView patch)
+        private static void VerifyStartupPopups(UIManager manager, NoticePopupView patch, NoticePopupView board)
         {
-            Check(NetworkManager.Instance?.LoginState == GameLoginState.SignedOut, "Reward fixture requires a signed-out Play Mode");
+            Check(NetworkManager.Instance?.LoginState == GameLoginState.SignedOut, "Startup fixture requires a signed-out Play Mode");
             var network = manager.gameObject.AddComponent<NetworkManager>();
             typeof(NetworkManager).GetProperty(nameof(NetworkManager.LoginState)).SetValue(network, GameLoginState.Ready);
             const BindingFlags instanceFields = BindingFlags.Instance | BindingFlags.NonPublic;
-            typeof(UIManager).GetField("_activeScreenId", instanceFields).SetValue(manager, UIScreenId.Main);
+            var activeScreenId = typeof(UIManager).GetField("_activeScreenId", instanceFields);
+            activeScreenId.SetValue(manager, UIScreenId.Title);
             typeof(UIManager).GetField("_activeScreenGo", instanceFields).SetValue(manager, manager.gameObject);
             Set("_network", network);
             Set("_generation", network.AccountGeneration);
+            Set("_hasFeed", true);
 
             string version = Application.version;
             string key = NoticePopupController.PatchKey(version);
@@ -171,40 +173,66 @@ namespace KingdomIdle.UGUI.Editor
             try
             {
                 GameTest.ResetMainNoticeSeen();
+                int continuations = 0;
+                Action continueLogin = () => continuations++;
                 Set("_articles", new List<TitleNewsFeed>());
-                Set("_pendingAuto", true);
+                Set("_titleContinuation", continueLogin);
                 NoticePopupController.Tick(manager);
-                Check(!patch.gameObject.activeSelf && !PlayerPrefs.HasKey(key), "No matching article neither opens nor marks the version");
+                Check(continuations == 1 && !patch.gameObject.activeSelf && !PlayerPrefs.HasKey(key),
+                    "No matching title patch continues login without recording the version");
 
                 var article = new TitleNewsItem
                 {
-                    NewsId = "offline-reward-fixture",
+                    NewsId = "title-patch-fixture",
                     Title = "업데이트 노트",
-                    Body = JsonConvert.SerializeObject(new { text = "보상창 다음에 표시되는 테스트 패치노트", appVersion = version }),
+                    Body = JsonConvert.SerializeObject(new { text = "타이틀에서 표시되는 테스트 패치노트", appVersion = version }),
                     Timestamp = DateTime.UtcNow
                 };
-                Set("_articles", TitleNewsFeed.Read(new List<TitleNewsItem> { article }));
-                Set("_pendingAuto", true);
+                var articles = TitleNewsFeed.Read(new List<TitleNewsItem> { article });
+                Set("_articles", articles);
+                Set("_titleContinuation", continueLogin);
+                NoticePopupController.Tick(manager);
+                NoticePopupController.Tick(manager);
+                Check(continuations == 1 && patch.gameObject.activeInHierarchy && !board.gameObject.activeSelf && PlayerPrefs.HasKey(key),
+                    "The matching patch displays on title, records the version, and waits for dismissal");
+                patch.closeButton.onClick.Invoke();
+                NoticePopupController.Tick(manager);
+                Check(continuations == 2 && !patch.gameObject.activeSelf, "Closing the title patch continues login exactly once");
+
+                Set("_titleContinuation", continueLogin);
+                NoticePopupController.Tick(manager);
+                Check(continuations == 3 && !patch.gameObject.activeSelf, "The same version continues login without repeating the patch");
+                GameTest.ResetMainNoticeSeen();
+                Check(!PlayerPrefs.HasKey(key), "The editor reset clears the shown version");
+                Set("_titleContinuation", continueLogin);
+                NoticePopupController.Tick(manager);
+                Check(continuations == 3 && patch.gameObject.activeInHierarchy, "The reset allows the title patch to show again");
+                patch.backdropButton.onClick.Invoke();
+                NoticePopupController.Tick(manager);
+                Check(continuations == 4, "Backdrop dismissal also continues login");
+
+                GameTest.ResetMainNoticeSeen();
+                activeScreenId.SetValue(manager, UIScreenId.Main);
+                typeof(UIManager).GetField("_mainController", instanceFields).SetValue(manager, new MainScreenController());
+                Set("_articles", new List<TitleNewsFeed>());
+                Set("_pendingBoard", true);
                 var result = new OfflineRewardClaimResult("fixture", null, 10, 5, 0, 1, 5, 0);
                 var reward = RewardPopupView.ShowOfflineRewards(manager.LayerPopups, result, false);
                 Check(reward != null && reward.gameObject.activeInHierarchy, "Synthetic offline reward uses the real result prefab");
                 NoticePopupController.Tick(manager);
-                Check(!patch.gameObject.activeSelf && !PlayerPrefs.HasKey(key), "Visible reward result blocks and does not mark the patch");
+                Check(!board.gameObject.activeSelf && !patch.gameObject.activeSelf, "Visible reward result blocks the in-game board");
 
                 reward.confirmButton.onClick.Invoke();
                 NoticePopupController.Tick(manager);
-                Check(patch.gameObject.activeInHierarchy && PlayerPrefs.HasKey(key), "Reward confirmation releases the patch and records the shown version");
-                patch.closeButton.onClick.Invoke();
-
-                Set("_pendingAuto", true);
+                Check(board.gameObject.activeInHierarchy && board.status.gameObject.activeSelf &&
+                    board.status.text == "등록된 공지가 없습니다." && !board.retryButton.gameObject.activeSelf,
+                    "Reward confirmation opens the empty in-game board");
+                Check((bool)Controller.GetField("_boardShown", ControllerMembers).GetValue(null), "The in-game board is recorded for this login");
+                board.closeButton.onClick.Invoke();
+                Set("_articles", articles);
                 NoticePopupController.Tick(manager);
-                Check(!patch.gameObject.activeSelf, "The same version is suppressed on the next startup attempt");
-                GameTest.ResetMainNoticeSeen();
-                Check(!PlayerPrefs.HasKey(key), "The editor reset clears the shown version");
-                Set("_pendingAuto", true);
-                NoticePopupController.Tick(manager);
-                Check(patch.gameObject.activeInHierarchy, "The reset allows another startup attempt to show the patch");
-                patch.closeButton.onClick.Invoke();
+                Check(!board.gameObject.activeSelf && !patch.gameObject.activeSelf && !PlayerPrefs.HasKey(key),
+                    "The board stays closed and Main does not show or record the title patch");
             }
             finally
             {

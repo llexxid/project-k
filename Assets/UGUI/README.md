@@ -53,11 +53,13 @@ PlayFab Game Manager의 **Content → Title News → New Title News**에서 글�
 {"text":"햄버거 메뉴에 공지를 추가했습니다.\n공지에서 업데이트 내용을 다시 열 수 있습니다.","appVersion":"0.23.0"}
 ```
 
-게시된 최근 20건을 조회한다. 앱은 본문을 줄바꿈이 유지되는 일반 텍스트로 표시하고, 비어 있거나 형식이 잘못된 글은 건너뛴다. 배포 전에 `PlayerSettings.bundleVersion`과 정확히 일치하는 실제 패치노트를 발행하고 게스트 로그인에서 확인한다. 같은 버전의 글이 여럿이면 최신 한 건을 자동 팝업에 사용한다. 운영 환경에는 테스트 공지를 발행하지 않는다.
+게시된 최근 20건을 조회한다. 앱은 본문을 줄바꿈이 유지되는 일반 텍스트로 표시하고, 비어 있거나 형식이 잘못된 글은 건너뛴다. 배포 전에 `PlayerSettings.bundleVersion`과 정확히 일치하는 실제 패치노트를 발행하고 게스트 로그인에서 확인한다. 로그인 성공 직후 타이틀에서 현재 버전의 최신 패치노트 한 건을 펼쳐 표시하고, 닫으면 메인에 진입한다. 타이틀에서는 조회를 최대 5초 기다린다. 해당 버전의 글이 없거나 이미 봤거나 조회가 실패하면 메인에 진입한다. 운영 환경에는 테스트 공지를 발행하지 않는다.
 
-두 프리팹은 `LayerPopups` 아래에서 열리고 창 크기는 자식 `Panel`의 `RectTransform`에서 편집한다. 헤더와 닫기 버튼은 고정하며 본문·목록은 `ScrollRect` 안에서 늘어난다. 자동 표시 여부는 팝업이 실제로 열린 뒤 앱 버전별로 기기의 `PlayerPrefs`에 저장된다. 공지 목록에서는 같은 글을 다시 열 수 있다. [PlayFab Title News](https://learn.microsoft.com/en-us/xbox/playfab/live-service-management/game-configuration/title-communications/news/quickstart)
+타이틀 패치노트 표시 여부는 팝업이 실제로 열린 뒤 앱 버전별로 기기의 `PlayerPrefs`에 저장한다. 타이틀과 인게임은 같은 공지 조회 결과를 사용한다. 인게임 공지창은 접속 보상과 안내가 끝난 뒤 로그인마다 한 번 자동으로 열린다. 게시된 공지가 없으면 `등록된 공지가 없습니다.`를 표시하고, 조회에 실패하면 공지창에서 다시 시도할 수 있다. 햄버거 메뉴에서 공지창을 다시 열고 패치노트도 확인할 수 있다.
 
-Unity 메뉴 **GameTest → Notice Test → 메인 공지 확인 기록 초기화**로 현재 버전의 표시 기록을 지운 뒤, 다시 로그인해 자동 표시를 확인한다. 해당 버전과 정확히 일치하는 게시된 패치노트가 있어야 한다.
+두 프리팹은 `LayerPopups` 아래에서 열리고 창 크기는 자식 `Panel`의 `RectTransform`에서 편집한다. 헤더와 닫기 버튼은 고정하며 본문·목록은 `ScrollRect` 안에서 늘어난다. [PlayFab Title News](https://learn.microsoft.com/en-us/xbox/playfab/live-service-management/game-configuration/title-communications/news/quickstart)
+
+Unity 메뉴 **GameTest → Notice Test → 타이틀 업데이트 안내 확인 기록 초기화**로 현재 버전의 표시 기록을 지운 뒤, 다시 로그인해 타이틀 자동 표시를 확인한다. 해당 버전과 정확히 일치하는 게시된 패치노트가 있어야 한다.
 
 ### 광고 단독 테스트
 
