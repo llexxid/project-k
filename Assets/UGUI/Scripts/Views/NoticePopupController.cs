@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using KingdomIdle.UI;
 using PlayFab.ClientModels;
 using Scripts.Core.Manager;
@@ -14,6 +16,8 @@ namespace KingdomIdle.UGUI
     {
         private const float RequestTimeout = 15f;
         private const float TitleRequestTimeout = 5f;
+        private const float RefreshInterval = 300f;
+        private const float MenuRefreshInterval = 30f;
         private static readonly TimeZoneInfo KoreanTime = TimeZoneInfo.CreateCustomTimeZone("KST", TimeSpan.FromHours(9), "KST", "KST");
         private static readonly List<NoticeRowView> Rows = new();
         private static List<TitleNewsFeed> _articles = new();
@@ -23,37 +27,56 @@ namespace KingdomIdle.UGUI
         private static float _deadline;
         private static bool _failed;
         private static bool _hasFeed;
-        private static bool _pendingBoard;
-        private static bool _boardShown;
+        private static bool _hasUnread;
+        private static float _lastRequestAt = float.NegativeInfinity;
+        private static float _nextRefreshAt;
         private static Action _titleContinuation;
+        private static TitleNewsFeed _titleArticle;
+        private static float _titleDeadline;
         private static NoticePopupView _board;
         private static NoticePopupView _patch;
         private static NoticeRowView _expandedRow;
 
+        internal static event Action Changed;
+        internal static bool HasUnread => IsCurrentSession && _hasUnread;
+        private static bool IsCurrentSession => _network != null && _network == NetworkManager.Instance &&
+            _network.IsGameDataReady && _network.AccountGeneration == _generation;
+
         internal static void BeginMainEntry()
         {
-            if (!UseCurrentSession() || _boardShown || _pendingBoard) return;
-            _pendingBoard = true;
+            if (!UseCurrentSession()) return;
             if (!_hasFeed) Refresh();
+        }
+
+        internal static void RefreshFromMenu()
+        {
+            if (UseCurrentSession() && Time.unscaledTime - _lastRequestAt >= MenuRefreshInterval) Refresh();
         }
 
         internal static void ShowTitlePatchThen(UIManager host, Action continueToMain)
         {
-            if (host.ActiveScreenId != UIScreenId.Title || !UseCurrentSession() || PlayerPrefs.HasKey(PatchKey(Application.version)))
+            CloseForScreenChange();
+            if (host.ActiveScreenId != UIScreenId.Title || PlayerPrefs.HasKey(PatchKey(Application.version)))
             {
                 continueToMain();
                 return;
             }
 
+            _titleArticle = BundledPatchNotes.Load(Application.version);
+            if (_titleArticle == null)
+            {
+                continueToMain();
+                return;
+            }
             _titleContinuation = continueToMain;
-            if (!_hasFeed) Refresh(TitleRequestTimeout);
+            _titleDeadline = Time.unscaledTime + TitleRequestTimeout;
         }
 
         internal static void ShowBoard()
         {
             var host = UIManager.Instance;
             if (host?.ActiveMain == null || !UseCurrentSession()) return;
-            if (OpenBoard(host)) Refresh();
+            if (OpenBoard(host)) RefreshFromMenu();
         }
 
         private static bool OpenBoard(UIManager host)
@@ -69,35 +92,26 @@ namespace KingdomIdle.UGUI
             RebuildRows();
             _board.scroll.verticalNormalizedPosition = 1f;
             RefreshStatus();
-            _pendingBoard = false;
-            _boardShown = true;
+            MarkFeedRead();
             return true;
         }
 
         internal static void Tick(UIManager host)
         {
+            if (_titleContinuation != null)
+            {
+                TickTitle(host);
+                return;
+            }
             if (_generation < 0) return;
-            if (_network == null || NetworkManager.Instance != _network ||
-                !_network.IsGameDataReady || _network.AccountGeneration != _generation)
+            if (!IsCurrentSession)
             {
                 Reset();
                 return;
             }
 
             if (_deadline > 0f && Time.unscaledTime >= _deadline) Finish(_requestId, null);
-            if (_titleContinuation != null)
-            {
-                TickTitle(host);
-                return;
-            }
-
-            if (!_pendingBoard || !host.CanShowFeatureGuide) return;
-            if (Scripts.Core.GameManager.Instance?.OfflineReward?.IsBusy == true) return;
-            var guide = Direction.GameDirectManager.Instance;
-            if (guide != null && (guide.ActiveSequenceId != null || guide.PendingCount != 0)) return;
-
-            _pendingBoard = false;
-            OpenBoard(host);
+            if (host.ActiveMain != null && Time.unscaledTime >= _nextRefreshAt) Refresh();
         }
 
         private static void TickTitle(UIManager host)
@@ -105,19 +119,24 @@ namespace KingdomIdle.UGUI
             if (host.ActiveScreenId != UIScreenId.Title)
             {
                 _titleContinuation = null;
+                _titleArticle = null;
                 return;
             }
-            if (_deadline > 0f || (_patch != null && _patch.gameObject.activeInHierarchy)) return;
+            if (_patch != null && _patch.gameObject.activeInHierarchy) return;
 
             string version = Application.version;
             string key = PatchKey(version);
-            var article = TitleNewsFeed.LatestPatch(_articles, version);
+            var article = _titleArticle;
             if (article == null || PlayerPrefs.HasKey(key))
             {
                 FinishTitleEntry();
                 return;
             }
-            if (!host.CanShowTitlePatch) return;
+            if (!host.CanShowTitlePatch)
+            {
+                if (Time.unscaledTime >= _titleDeadline) FinishTitleEntry();
+                return;
+            }
             if (!ShowPatch(host, article))
             {
                 FinishTitleEntry();
@@ -132,6 +151,7 @@ namespace KingdomIdle.UGUI
         {
             var continuation = _titleContinuation;
             _titleContinuation = null;
+            _titleArticle = null;
             continuation?.Invoke();
         }
 
@@ -150,9 +170,11 @@ namespace KingdomIdle.UGUI
 
         private static void Refresh(float timeout = RequestTimeout)
         {
-            if (_deadline > 0f) return;
+            if (_deadline > 0f || !IsCurrentSession) return;
             int request = ++_requestId;
-            _deadline = Time.unscaledTime + timeout;
+            _lastRequestAt = Time.unscaledTime;
+            _nextRefreshAt = _lastRequestAt + RefreshInterval;
+            _deadline = _lastRequestAt + timeout;
             _failed = false;
             RefreshStatus();
             _network.GetTitleNews(result => Finish(request, result), () => Finish(request, null));
@@ -160,19 +182,74 @@ namespace KingdomIdle.UGUI
 
         private static void Finish(int request, GetTitleNewsResult result)
         {
-            if (request != _requestId || _deadline <= 0f) return;
+            if (request != _requestId || _deadline <= 0f || !IsCurrentSession) return;
             _deadline = 0f;
             _failed = result == null;
             if (!_failed)
             {
                 _hasFeed = true;
-                _articles = TitleNewsFeed.Read(result.News);
-                if (BoardOpen) RebuildRows(_expandedRow != null ? _expandedRow.gameObject.name : null);
+                var next = TitleNewsFeed.Read(result.News);
+                bool changed = !SameFeed(next);
+                _articles = next;
+                if (BoardOpen)
+                {
+                    if (changed) RebuildRows(_expandedRow != null ? _expandedRow.gameObject.name : null);
+                    MarkFeedRead();
+                }
+                UpdateUnread();
             }
             RefreshStatus();
         }
 
+        private static bool SameFeed(List<TitleNewsFeed> next)
+        {
+            if (_articles.Count != next.Count) return false;
+            for (int i = 0; i < next.Count; i++)
+            {
+                var current = _articles[i];
+                var article = next[i];
+                if (current.Id != article.Id || current.Title != article.Title || current.Text != article.Text ||
+                    current.AppVersion != article.AppVersion || current.Timestamp != article.Timestamp) return false;
+            }
+            return true;
+        }
+
         private static bool BoardOpen => _board != null && _board.gameObject.activeInHierarchy;
+
+        internal static string ArticleKey(TitleNewsFeed article) => "Notice.ArticleRead." + Hash(article.Id);
+
+        private static string Fingerprint(TitleNewsFeed article) => Hash(
+            Newtonsoft.Json.JsonConvert.SerializeObject(new[] { article.Title, article.Text, article.AppVersion }));
+
+        private static string Hash(string value)
+        {
+            using var sha = SHA256.Create();
+            return BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(value))).Replace("-", "");
+        }
+
+        private static void MarkFeedRead()
+        {
+            if (!BoardOpen || !_hasFeed || !IsCurrentSession) return;
+            bool changed = false;
+            foreach (var article in _articles)
+            {
+                string key = ArticleKey(article);
+                string fingerprint = Fingerprint(article);
+                if (PlayerPrefs.GetString(key) == fingerprint) continue;
+                PlayerPrefs.SetString(key, fingerprint);
+                changed = true;
+            }
+            if (changed) PlayerPrefs.Save();
+            UpdateUnread();
+        }
+
+        private static void UpdateUnread()
+        {
+            bool unread = _articles.Exists(article => PlayerPrefs.GetString(ArticleKey(article)) != Fingerprint(article));
+            if (_hasUnread == unread) return;
+            _hasUnread = unread;
+            Changed?.Invoke();
+        }
 
         private static void RefreshStatus()
         {
@@ -293,6 +370,7 @@ namespace KingdomIdle.UGUI
         internal static void CloseForScreenChange()
         {
             _titleContinuation = null;
+            _titleArticle = null;
             if (_board != null) _board.gameObject.SetActive(false);
             if (_patch != null) _patch.gameObject.SetActive(false);
         }
@@ -300,7 +378,6 @@ namespace KingdomIdle.UGUI
         internal static void Reset()
         {
             CloseForScreenChange();
-            _pendingBoard = false;
             if (_board != null) Object.Destroy(_board.gameObject);
             if (_patch != null) Object.Destroy(_patch.gameObject);
             _board = null;
@@ -313,7 +390,13 @@ namespace KingdomIdle.UGUI
             _deadline = 0f;
             _failed = false;
             _hasFeed = false;
-            _boardShown = false;
+            _lastRequestAt = float.NegativeInfinity;
+            _nextRefreshAt = 0f;
+            if (_hasUnread)
+            {
+                _hasUnread = false;
+                Changed?.Invoke();
+            }
         }
     }
 }

@@ -18,6 +18,7 @@ namespace KingdomIdle.UGUI
         private UIManager _host;
         private long _requestedMainGeneration = -1;
         private TermsConsentDialog _termsDialog;
+        private bool _titlePatchPending;
 
         public void Bind(TitleScreenView view, UIManager host)
         {
@@ -79,6 +80,17 @@ namespace KingdomIdle.UGUI
             }
 
             HideLoginPopup();
+            _titlePatchPending = true;
+            NoticePopupController.ShowTitlePatchThen(host, () =>
+            {
+                if (_view != view || _host != host) return;
+                _titlePatchPending = false;
+                PrepareLogin();
+            });
+        }
+
+        private void PrepareLogin()
+        {
             if (IsAuthenticatedSession())
             {
                 LoadMainOnce();
@@ -99,12 +111,14 @@ namespace KingdomIdle.UGUI
             if (NetworkManager.Instance != null)
                 NetworkManager.Instance.LoginStateChanged -= HandleLoginStateChanged;
             if (_termsDialog != null) _termsDialog.Cancel();
+            _titlePatchPending = false;
             _view = null;
             _host = null;
         }
 
         private void SignIn(eAuthType type)
         {
+            if (_titlePatchPending) return;
             var net = NetworkManager.Instance;
             if (net == null)
             {
@@ -136,7 +150,7 @@ namespace KingdomIdle.UGUI
 
         private void ShowLoginPopup()
         {
-            if (_view == null || _view.popupLogin == null || IsAuthenticatedSession()) return;
+            if (_view == null || _view.popupLogin == null || _titlePatchPending || IsAuthenticatedSession()) return;
             if (_view.presentation != null) _view.presentation.CloseLanguagePopup();
             _view.popupLogin.SetActive(true);
             _view.popupLogin.transform.SetAsLastSibling();
@@ -152,14 +166,12 @@ namespace KingdomIdle.UGUI
         private void LoadMainOnce()
         {
             var net = NetworkManager.Instance;
-            if (_view == null || _host == null || net == null || !net.IsGameDataReady ||
+            if (_view == null || _host == null || _titlePatchPending || net == null || !net.IsGameDataReady ||
                 _requestedMainGeneration == net.AccountGeneration) return;
 
             long generation = net.AccountGeneration;
             _requestedMainGeneration = generation;
-            if (_view.pressHint != null)
-                _view.pressHint.text = Localize("업데이트 소식을 확인하는 중입니다.", "Checking for updates.");
-            NoticePopupController.ShowTitlePatchThen(_host, () => EnterMainAfterTitleFrame(net, generation).Forget());
+            EnterMainAfterTitleFrame(net, generation).Forget();
         }
 
         private async UniTask EnterMainAfterTitleFrame(NetworkManager net, long generation)

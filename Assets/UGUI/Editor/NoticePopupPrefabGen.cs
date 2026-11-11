@@ -22,10 +22,12 @@ namespace KingdomIdle.UGUI.Editor
         {
             var patch = BuildPopup("Popup_PatchNotes", "업데이트 안내", 0.29f);
             BuildPatch(patch);
+            PreservePanelLayout(patch, PatchPath);
             F.Catalog.popupPatchNotes = PrefabGenUtil.SavePrefab(patch.gameObject, PatchPath);
 
             var board = BuildPopup("Popup_NoticeBoard", "공지사항", 0.10f);
             BuildBoard(board);
+            PreservePanelLayout(board, BoardPath);
             F.Catalog.popupNoticeBoard = PrefabGenUtil.SavePrefab(board.gameObject, BoardPath);
             EditorUtility.SetDirty(F.Catalog);
         }
@@ -42,17 +44,29 @@ namespace KingdomIdle.UGUI.Editor
             view.backdropButton.targetGraphic = dim;
             view.backdropButton.transition = UnityEngine.UI.Selectable.Transition.None;
 
+            var panelColor = F.PanelBaseDarker;
+            panelColor.a = 1f;
             var panel = F.PixelPanel(root, "Panel", F.Catalog.kitWindow, F.FrameGold, 22f,
-                raycast: true, baseColor: F.PanelBaseDarker).rectTransform;
+                raycast: true, baseColor: panelColor).rectTransform;
             F.Stretch(panel);
             panel.anchorMin = new Vector2(0.06f, verticalMargin);
             panel.anchorMax = new Vector2(0.94f, 1f - verticalMargin);
             view.panel = panel;
+            var frame = F.Frame(panel, "BronzeBorder", UguiTheme.BronzeLight);
+            frame.rectTransform.offsetMin = new Vector2(4f, 4f);
+            frame.rectTransform.offsetMax = new Vector2(-4f, -4f);
 
             var header = F.Container(panel, "Header");
             F.AnchorTopStretch(header, 12f, 132f);
             header.offsetMin = new Vector2(32f, header.offsetMin.y);
             header.offsetMax = new Vector2(-20f, header.offsetMax.y);
+            var headerBackground = F.PixelPanel(header, "HeaderBackground", F.Catalog.kitTitleBar,
+                UguiTheme.RusticSurface, 12f, frameOnly: false);
+            F.Stretch(headerBackground.rectTransform);
+            var divider = F.Box(panel, "HeaderDivider", UguiTheme.Bronze, rounded: false);
+            F.AnchorTopStretch(divider.rectTransform, 144f, 3f);
+            divider.rectTransform.offsetMin = new Vector2(32f, divider.rectTransform.offsetMin.y);
+            divider.rectTransform.offsetMax = new Vector2(-32f, divider.rectTransform.offsetMax.y);
             var label = F.Text(header, "Title", title, 42f, UguiTheme.AccentGold,
                 TextAlignmentOptions.MidlineLeft, bold: true);
             F.Stretch(label.rectTransform);
@@ -64,8 +78,9 @@ namespace KingdomIdle.UGUI.Editor
             close.rectTransform.pivot = new Vector2(1f, 0.5f);
             close.rectTransform.anchoredPosition = Vector2.zero;
             close.rectTransform.sizeDelta = new Vector2(132f, 132f);
-            var icon = F.IconImage(close.transform, "Icon", F.Catalog.iconX, 42f, 42f);
-            icon.color = UguiTheme.AccentGold;
+            var closeLabel = F.Text(close.transform, "Label", "닫기", 32f, UguiTheme.AccentGold,
+                TextAlignmentOptions.Center, bold: true);
+            F.Stretch(closeLabel.rectTransform);
             return view;
         }
 
@@ -77,7 +92,13 @@ namespace KingdomIdle.UGUI.Editor
             heading.offsetMin = new Vector2(32f, heading.offsetMin.y);
             heading.offsetMax = new Vector2(-32f, heading.offsetMax.y);
 
-            view.scroll = F.VScroll(view.panel, "BodyScroll", out var content, padding: new RectOffset(16, 16, 12, 12));
+            var bodyColor = UguiTheme.RusticSurfaceDark;
+            bodyColor.a = 1f;
+            var well = F.Box(view.panel, "BodyWell", bodyColor, rounded: false);
+            F.Stretch(well.rectTransform);
+            well.rectTransform.offsetMin = new Vector2(32f, 32f);
+            well.rectTransform.offsetMax = new Vector2(-32f, -300f);
+            view.scroll = F.VScroll(view.panel, "BodyScroll", out var content, padding: new RectOffset(22, 22, 18, 22));
             var scroll = (RectTransform)view.scroll.transform;
             F.Stretch(scroll);
             scroll.offsetMin = new Vector2(32f, 32f);
@@ -91,7 +112,14 @@ namespace KingdomIdle.UGUI.Editor
             F.Stretch(area);
             area.offsetMin = new Vector2(32f, 32f);
             area.offsetMax = new Vector2(-32f, -152f);
-            F.VLayout(area.gameObject, 12f);
+            var bodyColor = UguiTheme.RusticSurfaceDark;
+            bodyColor.a = 1f;
+            var well = F.Box(view.panel, "BodyWell", bodyColor, rounded: false);
+            F.Stretch(well.rectTransform);
+            well.rectTransform.offsetMin = area.offsetMin;
+            well.rectTransform.offsetMax = area.offsetMax;
+            well.transform.SetSiblingIndex(area.GetSiblingIndex());
+            F.VLayout(area.gameObject, 12f, new RectOffset(16, 16, 16, 16));
 
             view.scroll = F.VScroll(area, "NoticeScroll", out var content, spacing: 12f);
             F.Flexible(view.scroll, flexHeight: 1f);
@@ -140,6 +168,20 @@ namespace KingdomIdle.UGUI.Editor
             caretRect.anchoredPosition = new Vector2(-42f, 0f);
             caretRect.sizeDelta = new Vector2(64f, 64f);
             return button;
+        }
+
+        private static void PreservePanelLayout(NoticePopupView generated, string path)
+        {
+            var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            if (existing == null || !existing.TryGetComponent<NoticePopupView>(out var previous) || previous.panel == null) return;
+            var source = previous.panel;
+            var target = generated.panel;
+            target.anchorMin = source.anchorMin;
+            target.anchorMax = source.anchorMax;
+            target.pivot = source.pivot;
+            target.sizeDelta = source.sizeDelta;
+            target.anchoredPosition3D = source.anchoredPosition3D;
+            target.localScale = source.localScale;
         }
 
         private static TMP_Text BodyText(Transform parent)
