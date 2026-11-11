@@ -4,6 +4,8 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using KingdomIdle.MageTower;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
@@ -65,28 +67,109 @@ namespace KingdomIdle.UGUI.Editor
             File.WriteAllLines(folder+"/assets.tsv",skills.Select(s=>string.Join("\t",new[]{s.id.ToString(),AssetDatabase.GetAssetPath(s),AssetDatabase.GetAssetPath(s.icon),AssetDatabase.GetAssetPath(s.prefab),AssetDatabase.GetAssetPath(s.bloomPrefab),AssetDatabase.GetAssetPath(s.bloomCastingPrefab),AssetDatabase.GetAssetPath(s.bloomIcon),AssetDatabase.GetAssetPath(s.castingPrefab),AssetDatabase.GetAssetPath(s.secondaryPrefab)})));
         }
 
+        private const string UiFontPath = "Assets/UGUI/Art/Font/Galmuri11 SDF.asset";
+
         [MenuItem("KingdomIdle/UGUI/Bake Authored Korean Glyphs")]
         public static void BakeAuthoredGlyphs()
         {
-            var font=AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/UGUI/Art/Font/Galmuri11 SDF.asset");
-            if(font==null) throw new InvalidOperationException("UI font missing.");
-            var chars=new HashSet<char>("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz %+-.,:;/()[]◆×·→›");
-            // Bake authored Hangul before shipping. Dynamic population remains available for player names.
-            foreach(var directory in new[]{"Assets/UGUI/Scripts","Assets/UGUI/Editor","Assets/MageTower","Assets/_Project/Scripts/MageTower","Assets/_Project/Scripts/Editor","Assets/_Project/Scripts/Core/Balance"})
-                foreach(var file in Directory.EnumerateFiles(directory,"*.cs",SearchOption.AllDirectories))
-                    foreach(char ch in File.ReadAllText(file)) if(ch>='가'&&ch<='힣') chars.Add(ch);
-            foreach(var skill in AssetDatabase.LoadAssetAtPath<MageTowerSkillRegistrySO>("Assets/MageTower/SO/MageTowerSkillList.asset").skills)
-                foreach(char ch in skill.nameKor+skill.description+skill.bloomName+skill.bloomDescription) if(!char.IsControl(ch)) chars.Add(ch);
-            string needed=new string(chars.OrderBy(c=>c).Where(c=>!font.HasCharacter(c)).ToArray());
-            bool success=needed.Length==0 || font.TryAddCharacters(needed,out _);
-            string missing=new string(chars.Where(c=>!font.HasCharacter(c)).ToArray());
-            // Decorative symbols have a plain-text fallback; authored Korean must never be missing.
-            if(missing.Any(c=>c>='가'&&c<='힣')) throw new InvalidOperationException("Missing authored Korean glyphs: "+missing);
-            EditorUtility.SetDirty(font);AssetDatabase.SaveAssets();
-            Directory.CreateDirectory("Docs/ArtPreparation/Validation/MageIntegration");
-            MageSkillAssetPreparation.WriteAtomically("Docs/ArtPreparation/Validation/MageIntegration/glyph-bake.json",System.Text.Encoding.UTF8.GetBytes(JsonUtility.ToJson(new GlyphReport{requested=needed.Length,characters=font.characterTable.Count,pages=font.atlasTextureCount,missing=missing,success=success},true)));
+            var font = LoadUiFont();
+            var characters = CollectAuthoredCharacters();
+            var needed = MissingCharacters(font, characters);
+            if (needed.Length > 0)
+            {
+                font.TryAddCharacters(needed, out _);
+                EditorUtility.SetDirty(font);
+                AssetDatabase.SaveAssets();
+            }
+            var missing = MissingCharacters(font, characters);
+            RequireAuthoredHangul(missing);
+            Debug.Log($"[UI glyph bake] requested={needed.Length}, characters={font.characterTable.Count}, pages={font.atlasTextureCount}, unsupported={missing.Length}");
         }
-        [Serializable] class GlyphReport { public int requested,characters,pages; public string missing; public bool success; }
+
+        internal static void ValidateAuthoredGlyphs()
+        {
+            var font = LoadUiFont();
+            var characters = CollectAuthoredCharacters();
+            RequireAuthoredHangul(MissingCharacters(font, characters));
+            Debug.Log($"[UI glyph validation] authored={characters.Length}, characters={font.characterTable.Count}, pages={font.atlasTextureCount}, missingHangul=0");
+        }
+
+        private static TMP_FontAsset LoadUiFont()
+        {
+            var font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(UiFontPath);
+            if (font == null) throw new InvalidOperationException("UI font missing: " + UiFontPath);
+            return font;
+        }
+
+        internal static uint[] CollectAuthoredCharacters()
+        {
+            var characters = new HashSet<uint>();
+            AddText(characters, "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz %+-.,:;/()[]◆×·→›");
+            foreach (var directory in new[] { "Assets/UGUI/Scripts", "Assets/UGUI/Editor", "Assets/MageTower",
+                "Assets/_Project/Scripts/MageTower", "Assets/_Project/Scripts/Editor", "Assets/_Project/Scripts/Core/Balance" })
+                foreach (var file in Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories))
+                    foreach (char character in File.ReadAllText(file))
+                        if (character >= '가' && character <= '힣') characters.Add(character);
+
+            var registry = AssetDatabase.LoadAssetAtPath<MageTowerSkillRegistrySO>("Assets/MageTower/SO/MageTowerSkillList.asset");
+            if (registry == null) throw new InvalidOperationException("Mage roster is missing while collecting UI glyphs.");
+            foreach (var skill in registry.skills)
+                AddText(characters, skill.nameKor + skill.description + skill.bloomName + skill.bloomDescription);
+
+            foreach (var directory in new[] { "Assets/_Project/Resources/Balance", "Assets/_Project/Resources/PatchNotes" })
+            {
+                if (!Directory.Exists(directory)) continue;
+                foreach (var file in Directory.EnumerateFiles(directory, "*.json", SearchOption.AllDirectories))
+                {
+                    try { characters.UnionWith(CollectJsonCharacters(File.ReadAllText(file))); }
+                    catch (JsonException error)
+                    {
+                        throw new InvalidOperationException("Cannot collect UI glyphs from " + file + ": " + error.Message, error);
+                    }
+                }
+            }
+            foreach (string guid in AssetDatabase.FindAssets("t:Prefab", new[] { "Assets/UGUI/Prefabs" }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (prefab == null) throw new InvalidOperationException("Cannot read authored UI text from " + path);
+                foreach (var label in prefab.GetComponentsInChildren<TMP_Text>(true)) AddText(characters, label.text);
+            }
+            return characters.OrderBy(value => value).ToArray();
+        }
+
+        internal static uint[] CollectJsonCharacters(string text)
+        {
+            var json = JToken.Parse(text);
+            IEnumerable<JToken> values = json is JContainer container ? container.Descendants() : new[] { json };
+            var characters = new HashSet<uint>();
+            foreach (var value in values)
+                if (value.Type == JTokenType.String) AddText(characters, (string)value);
+            return characters.OrderBy(value => value).ToArray();
+        }
+
+        private static void AddText(HashSet<uint> characters, string text)
+        {
+            if (text == null) return;
+            for (int i = 0; i < text.Length; i++)
+            {
+                uint unicode = (uint)char.ConvertToUtf32(text, i);
+                if (!char.IsControl(text, i)) characters.Add(unicode);
+                if (unicode > char.MaxValue) i++;
+            }
+        }
+
+        private static uint[] MissingCharacters(TMP_FontAsset font, uint[] characters) =>
+            characters.Where(value => !font.HasCharacter((int)value)).ToArray();
+
+        internal static void RequireAuthoredHangul(uint[] missing)
+        {
+            var hangul = missing.Where(value => value >= 0xAC00 && value <= 0xD7A3).ToArray();
+            if (hangul.Length == 0) return;
+            string codes = string.Join(", ", hangul.Select(value => "U+" + value.ToString("X4")));
+            throw new InvalidOperationException("Authored UI Hangul is not baked: " + codes +
+                ". Run KingdomIdle/UGUI/Bake Authored Korean Glyphs before building.");
+        }
         public static void Validate()
         {
             var registry=AssetDatabase.LoadAssetAtPath<MageTowerSkillRegistrySO>("Assets/MageTower/SO/MageTowerSkillList.asset");
