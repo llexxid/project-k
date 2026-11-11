@@ -601,8 +601,7 @@ namespace KingdomIdle.UGUI.Editor
                 UguiGenAssets.IconDungeon, "던전");
             view.tabGacha = MakeTabButton(bar.transform, "BtnGacha",
                 F.Catalog != null ? F.Catalog.iconChest : null, "뽑기");
-            view.tabStore = MakeTabButton(bar.transform, "BtnStore",
-                F.Catalog != null ? F.Catalog.iconAncientCoin : null, "상점");
+            view.tabStore = MakeTabButton(bar.transform, "BtnStore", UguiGenAssets.IconShop, "상점");
         }
 
         private static MainTabButtonView MakeTabButton(Transform parent, string name, Sprite icon, string label)
