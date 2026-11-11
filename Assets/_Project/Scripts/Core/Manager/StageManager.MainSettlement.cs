@@ -15,6 +15,11 @@ namespace Scripts.Core.Manager
         private float _nextHuntSendAt;
         private string _mainRunForSession;
         private bool _recoveringMainCompletion;
+        private const float MainTailGraceSeconds = 3f;
+        private string _mainTailRunId;
+        private long _mainTailAccountGeneration = -1, _mainTailNetworkGeneration = -1;
+        private float _mainTailDeadline;
+        private bool _mainTailWaiting;
         private bool IsMainDefeatSettlement => _currentState == eStageRunState.DefeatPending ||
             (_currentSession?.HasPendingResult == true && _currentSession.PendingResult.Action == eStageFlowAction.AwaitDefeatChoice);
 
@@ -25,11 +30,19 @@ namespace Scripts.Core.Manager
 
         private void PumpHuntRetry()
         {
+            PumpMainTail(Time.realtimeSinceStartup);
             if (_nextHuntSendAt > 0f && Time.realtimeSinceStartup >= _nextHuntSendAt)
             {
                 _nextHuntSendAt = 0f;
                 TrySendNextHunt();
             }
+        }
+
+        private void PumpMainTail(float now)
+        {
+            if (!_mainTailWaiting || now < _mainTailDeadline) return;
+            _mainTailWaiting = false;
+            TrySendNextHunt();
         }
 
         private bool BindMainWaveRun(StageDefinition definition)
@@ -43,7 +56,37 @@ namespace Scripts.Core.Manager
                 return false;
             }
             _mainRunForSession = battle.RunId;
+            BindMainTailWindow(battle.RunId, LocalProgression.AccountGeneration, NetworkManager.Instance.AccountGeneration);
             return true;
+        }
+
+        private void BindMainTailWindow(string runId, long accountGeneration, long networkGeneration)
+        {
+            if (_mainTailRunId == runId && _mainTailAccountGeneration == accountGeneration &&
+                _mainTailNetworkGeneration == networkGeneration) return;
+            _mainTailRunId = runId;
+            _mainTailAccountGeneration = accountGeneration;
+            _mainTailNetworkGeneration = networkGeneration;
+            _mainTailDeadline = 0f;
+            _mainTailWaiting = false;
+        }
+
+        /// <summary>막바지의 주기 정산만 한 번 유예한다. 명시적 정산과 송신 중인 요청에는 적용하지 않는다.</summary>
+        private bool DeferMainTail(HuntOutboxItem item, float now)
+        {
+            if (item.MainRunId == null || item.IsClear || item.Attempts != 0 || _onHuntsSettled != null ||
+                _currentSession == null || item.MainRunId != _mainRunForSession)
+            {
+                _mainTailWaiting = false;
+                return false;
+            }
+            int target = 0;
+            foreach (var entry in _currentSession.Definition.MonsterEntries) target += entry.Count;
+            int remaining = target - _currentSession.TotalKillCount;
+            if (remaining < 1 || remaining > 3) { _mainTailWaiting = false; return false; }
+            if (_mainTailDeadline == 0f) _mainTailDeadline = now + MainTailGraceSeconds;
+            _mainTailWaiting = now < _mainTailDeadline;
+            return _mainTailWaiting;
         }
 
         private void StopMainSettlement(string message)

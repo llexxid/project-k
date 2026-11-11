@@ -338,6 +338,48 @@ namespace KingdomIdle.Balance
                     "late partial callback and changed account generations cannot own the final or overwrite its balances");
                 Empty();
 
+                var tailDefinition = new StageDefinition(Main(1, 2), eStageFlowType.MainProgression, eEnvironmentId.MainField1, 1,
+                    new[] { new StageMonsterEntry(monster, 5, 0, eMonsterSpawnPhase.Initial, null, 0) }, null);
+                var tailSession = new StageSession(tailDefinition, new MainStageRule(), spawner);
+                typeof(StageSession).GetField("_totalKillCount", instance).SetValue(tailSession, 2);
+                Set("_currentSession", tailSession); Set("_mainRunForSession", mainRun); Set("_currentState", eStageRunState.Running);
+                SetItem(uncertainPartial, "Attempts", 0);
+                uncertainQueue.Clear(); uncertainQueue.Add(uncertainPartial); Call("PushFront", uncertainQueue);
+                long tailAccount = LocalProgression.AccountGeneration, tailNetwork = network.AccountGeneration;
+                Call("BindMainTailWindow", mainRun, tailAccount, tailNetwork);
+                Check((bool)Call("DeferMainTail", uncertainPartial, 100f) && (float)Get("_mainTailDeadline") == 103f,
+                    "periodic main partial with three definition kills left gets one bounded grace window");
+                Check((bool)Call("DeferMainTail", uncertainPartial, 102.9f) && (float)Get("_mainTailDeadline") == 103f,
+                    "repeated reports never extend the tail deadline");
+                Call("PumpMainTail", 102.99f);
+                Check((bool)Get("_mainTailWaiting") && Count() == 1, "tail pump preserves the unsent partial before its deadline");
+                Call("PumpMainTail", 103f);
+                Check(!(bool)Get("_mainTailWaiting") && !(bool)Call("DeferMainTail", uncertainPartial, 103.01f) &&
+                    (float)Get("_mainTailDeadline") == 103f && Count() == 1,
+                    "slow last enemy resumes from the exact deadline without another three-second poll or repeated grace");
+                Call("BindMainTailWindow", mainRun, tailAccount, tailNetwork);
+                Check((float)Get("_mainTailDeadline") == 103f, "same server run rebind does not grant another grace window");
+                Call("BindMainTailWindow", requestId, tailAccount, tailNetwork);
+                Set("_mainRunForSession", requestId); SetItem(uncertainPartial, "MainRunId", requestId);
+                Check((float)Get("_mainTailDeadline") == 0f && (bool)Call("DeferMainTail", uncertainPartial, 200f),
+                    "a newly confirmed server run receives a fresh grace window");
+                typeof(StageSession).GetField("_totalKillCount", instance).SetValue(tailSession, 5);
+                SetItem(uncertainPartial, "IsClear", true);
+                Check(!(bool)Call("DeferMainTail", uncertainPartial, 200.5f) && !(bool)Get("_mainTailWaiting"),
+                    "fast final completion bypasses and cancels the waiting periodic partial window");
+                SetItem(uncertainPartial, "IsClear", false);
+                typeof(StageSession).GetField("_totalKillCount", instance).SetValue(tailSession, 2);
+                Set("_onHuntsSettled", (Action<bool>)(_ => { }));
+                Check(!(bool)Call("DeferMainTail", uncertainPartial, 201f) && (float)Get("_mainTailDeadline") == 203f,
+                    "explicit move, defeat, dungeon and reincarnation drain bypass the tail grace immediately");
+                Set("_onHuntsSettled", null); SetItem(uncertainPartial, "Attempts", 1);
+                Check(!(bool)Call("DeferMainTail", uncertainPartial, 201f), "already attempted partial retries never gain a periodic grace delay");
+                Call("BindMainTailWindow", requestId, tailAccount + 1, tailNetwork);
+                Check((float)Get("_mainTailDeadline") == 0f && !(bool)Get("_mainTailWaiting"), "account generation changes discard the previous grace deadline");
+                Set("_mainTailDeadline", 300f); Call("BindMainTailWindow", requestId, tailAccount + 1, tailNetwork + 1);
+                Check((float)Get("_mainTailDeadline") == 0f, "network session changes do not reuse an old account request deadline");
+                Empty();
+
                 var defeatedSession = Session(Main(1, 2));
                 var defeatedKills = (Dictionary<eMonsterType, int>)typeof(StageSession).GetField("_killCounts", instance).GetValue(defeatedSession);
                 defeatedKills[monster] = 3;
@@ -370,6 +412,41 @@ namespace KingdomIdle.Balance
                 Set("_mainRunForSession", null); Set("_currentSession", null); Set("_huntInFlight", false);
                 MainWaveProgression.ReceiveServerState(false);
                 Empty();
+
+                var automaticMethod = typeof(StageManager).GetMethod("IsAutomaticMainClearTransition", statics);
+                var fadeMethod = typeof(StageManager).GetMethod("StageFadeOutSeconds", statics);
+                bool automaticFade = (bool)automaticMethod.Invoke(null, new object[] { Definition(Main(1, 2)), Definition(Main(1, 3)), 100f });
+                Set("_currentSession", null);
+                Check(automaticFade && (float)fadeMethod.Invoke(null, new object[] { Main(1, 2), Definition(Main(1, 3)), automaticFade }) == .1f,
+                    "captured automatic-clear context keeps its short same-resource fade after source session teardown or hold");
+                Check(!(bool)automaticMethod.Invoke(null, new object[] { Definition(Main(1, 2)), Definition(Main(1, 3)), 0f }) &&
+                    (float)fadeMethod.Invoke(null, new object[] { Main(1, 2), Definition(Main(1, 3)), false }) == .3f,
+                    "manual same-resource movement keeps the previous fade duration");
+                Check((float)fadeMethod.Invoke(null, new object[] { Main(1, 11), Definition(Main(2, 1)), true }) == .4f &&
+                    (float)fadeMethod.Invoke(null, new object[] { (eStage)dungeon, Definition((eStage)dungeon), true }) == .3f,
+                    "resource changes and dungeon transitions retain their previous fades");
+                float clearHold = (float)typeof(StageManager).GetField("MainWaveClearHoldSeconds", statics).GetRawConstantValue();
+                Check(Math.Abs(clearHold + .1f - 1f) < .0001f, "automatic main hold and short fade preserve an approximately one-second minimum");
+                var originalToken = (CancellationTokenSource)Get("_token");
+                using (var heldToken = new CancellationTokenSource())
+                using (var replacementToken = new CancellationTokenSource())
+                {
+                    try
+                    {
+                        Set("_token", heldToken);
+                        Check((bool)Call("CanPresentHeldStage", LocalProgression.AccountGeneration, heldToken.Token, network, network.AccountGeneration) &&
+                            !(bool)Call("CanPresentHeldStage", LocalProgression.AccountGeneration + 1, heldToken.Token, network, network.AccountGeneration) &&
+                            !(bool)Call("CanPresentHeldStage", LocalProgression.AccountGeneration, heldToken.Token, network, network.AccountGeneration + 1),
+                            "held presentation resumes only for its original local and network account generations");
+                        Set("_token", replacementToken);
+                        Check(!(bool)Call("CanPresentHeldStage", LocalProgression.AccountGeneration, heldToken.Token, network, network.AccountGeneration),
+                            "new stage session cannot reuse an earlier asynchronous hold");
+                        Set("_token", heldToken); heldToken.Cancel();
+                        Check(!(bool)Call("CanPresentHeldStage", LocalProgression.AccountGeneration, heldToken.Token, network, network.AccountGeneration),
+                            "canceled hold never resumes stage presentation");
+                    }
+                    finally { Set("_token", originalToken); }
+                }
 
                 buffer[main] = new Dictionary<eMonsterType, int> { [monster] = 1 };
                 Call("FlushHuntBuffer", main);

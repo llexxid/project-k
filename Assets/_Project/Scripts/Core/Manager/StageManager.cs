@@ -151,7 +151,7 @@ namespace Scripts.Core.Manager
             _currentState == eStageRunState.DefeatPending ? _defeatPopupTimer : 0;
         private float _resultPopupTimer;
         private const float TickInterval = 3f;
-        private const float MainWaveClearHoldSeconds = .7f;
+        private const float MainWaveClearHoldSeconds = .9f;
         
         [NonSerialized]
         private eStage _currentStage;
@@ -432,6 +432,7 @@ namespace Scripts.Core.Manager
             _nextHuntSendAt = 0f;
             _mainRunForSession = null;
             _recoveringMainCompletion = false;
+            _mainTailWaiting = false;
 			_huntOutbox.Clear();
 			_huntBuffer.Clear();
 			_saturatedTypes.Clear();
@@ -513,26 +514,44 @@ namespace Scripts.Core.Manager
 				return false;
 			}
 			_currentState = eStageRunState.Transitioning;
+            bool automaticMainClear = IsAutomaticMainClearTransition(_currentSession?.Definition, definition, presentAfter);
             float hold = presentAfter - Time.realtimeSinceStartup;
             if (hold > 0f)
-                PresentStageAfterHold(definition, hold, _token.Token).Forget();
+                PresentStageAfterHold(definition, hold, automaticMainClear, _token.Token).Forget();
             else
-                PresentStage(definition);
+                PresentStage(definition, automaticMainClear);
             return true;
         }
 
-        private async UniTask PresentStageAfterHold(StageDefinition definition, float hold, CancellationToken token)
+        private async UniTask PresentStageAfterHold(StageDefinition definition, float hold, bool automaticMainClear, CancellationToken token)
         {
             long generation = LocalProgression.AccountGeneration;
+            var network = NetworkManager.Instance;
+            long networkGeneration = network != null ? network.AccountGeneration : -1;
             bool canceled = await UniTask.WaitForSeconds(hold, ignoreTimeScale: true, cancellationToken: token).SuppressCancellationThrow();
-            if (!canceled && generation == LocalProgression.AccountGeneration)
-                PresentStage(definition);
+            if (!canceled && CanPresentHeldStage(generation, token, network, networkGeneration))
+                PresentStage(definition, automaticMainClear);
         }
 
-        private void PresentStage(StageDefinition definition)
+        private bool CanPresentHeldStage(long generation, CancellationToken token, NetworkManager network, long networkGeneration) => this != null &&
+            generation == LocalProgression.AccountGeneration && !token.IsCancellationRequested &&
+            _token != null && _token.Token == token && ReferenceEquals(NetworkManager.Instance, network) &&
+            (network == null || network.AccountGeneration == networkGeneration);
+
+        private static bool IsAutomaticMainClearTransition(StageDefinition current, StageDefinition target, float presentAfter) =>
+            presentAfter > 0f && current?.Type == eStageType.Main && target.Type == eStageType.Main;
+
+        private static float StageFadeOutSeconds(eStage previous, StageDefinition target, bool automaticMainClear)
+        {
+            if (StageParser.GetResourceGroupId(previous) != target.ResourceGroupId) return .4f;
+            return automaticMainClear && StageParser.GetStageType(previous) == eStageType.Main && target.Type == eStageType.Main ? .1f : .3f;
+        }
+
+        private void PresentStage(StageDefinition definition, bool automaticMainClear)
         {
             eStage target = definition.Id;
 			eStage previous = _currentStage;
+            float fadeOutSeconds = StageFadeOutSeconds(previous, definition, automaticMainClear);
 			bool requiresLoad =
 				StageParser.GetResourceGroupId(previous) !=
 				StageParser.GetResourceGroupId(target);
@@ -545,7 +564,7 @@ namespace Scripts.Core.Manager
 			{
 				if (fade != null)
 				{
-					fade.FadeOut(0.4f, () =>
+					fade.FadeOut(fadeOutSeconds, () =>
 					{
 						LoadManager.Instance.LoadStage(
 							previous,
@@ -568,7 +587,7 @@ namespace Scripts.Core.Manager
 			}
 			if (fade != null)
 			{
-				fade.FadeOut(0.3f, () => StartStage(definition));
+				fade.FadeOut(fadeOutSeconds, () => StartStage(definition));
 			}
 			else
 			{
@@ -1080,6 +1099,7 @@ var definition = _currentSession?.Definition;
 				_nextHuntSendAt = _lastHuntAcceptedAt + HuntMinIntervalSec;
 				return;
 			}
+			if (DeferMainTail(item, Time.realtimeSinceStartup)) return;
 			_huntInFlight = true;
 			item.Attempts++;
 			long generation = LocalProgression.AccountGeneration, networkGeneration = network.AccountGeneration;
