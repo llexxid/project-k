@@ -378,6 +378,42 @@ namespace KingdomIdle.Balance
                 Check((float)Get("_mainTailDeadline") == 0f && !(bool)Get("_mainTailWaiting"), "account generation changes discard the previous grace deadline");
                 Set("_mainTailDeadline", 300f); Call("BindMainTailWindow", requestId, tailAccount + 1, tailNetwork + 1);
                 Check((float)Get("_mainTailDeadline") == 0f, "network session changes do not reuse an old account request deadline");
+                void CheckStaleTailBlocked(string name)
+                {
+                    Set("_mainTailWaiting", true); Set("_mainTailDeadline", Time.realtimeSinceStartup - 1f);
+                    Set("_huntsHeld", false); Set("_huntInFlight", false); Set("_huntSyncFailed", false); Set("_nextHuntSendAt", 0f);
+                    Set("_lastHuntAcceptedAt", Time.realtimeSinceStartup - 10f); SetItem(uncertainPartial, "Attempts", 0);
+                    Call("PumpMainTail", Time.realtimeSinceStartup);
+                    Call("TrySendNextHunt"); // the old periodic loop must be blocked independently of the new pump.
+                    Check(!(bool)Get("_mainTailWaiting") && !(bool)Get("_huntInFlight") && !(bool)Get("_huntSyncFailed") &&
+                        (int)ItemField(uncertainPartial, "Attempts") == 0 && Count() == 1 &&
+                        ReferenceEquals(Items().GetValue(0), uncertainPartial), name);
+                    Set("_huntsHeld", true);
+                }
+                Call("BindMainTailWindow", requestId, tailAccount - 1, tailNetwork);
+                CheckStaleTailBlocked("expired tail and periodic sender cannot issue an old account request before fresh BeginStage");
+                Call("BindMainTailWindow", requestId, tailAccount, tailNetwork);
+                typeof(NetworkManager).GetProperty(nameof(NetworkManager.AccountGeneration)).SetValue(network, tailNetwork + 1);
+                try { CheckStaleTailBlocked("same-account reauthentication cannot release an old run through its new Ready context"); }
+                finally { typeof(NetworkManager).GetProperty(nameof(NetworkManager.AccountGeneration)).SetValue(network, tailNetwork); }
+                Call("BindMainTailWindow", requestId, tailAccount, tailNetwork);
+                var otherNetworkOwner = new GameObject("UnrelatedReadyNetwork"); otherNetworkOwner.SetActive(false);
+                otherNetworkOwner.transform.SetParent(owner.transform, false);
+                var otherNetwork = otherNetworkOwner.AddComponent<NetworkManager>();
+                typeof(NetworkManager).GetProperty(nameof(NetworkManager.LoginState)).SetValue(otherNetwork, GameLoginState.Ready);
+                NetworkManager.Instance = otherNetwork;
+                try { CheckStaleTailBlocked("a replacement network manager with reused generation values cannot send an old tail"); }
+                finally { NetworkManager.Instance = network; UnityEngine.Object.DestroyImmediate(otherNetworkOwner); }
+                Empty();
+                fixture.PendingMainCompletion = completion.Copy();
+                MainWaveProgression.ReceiveServerState(true);
+                Set("_huntsHeld", true);
+                Check((bool)Call("ResumePendingMainCompletion") && Count() == 1 &&
+                    ((MainWaveCompletionSave)ItemField(Items().GetValue(0), "Completion")).RequestId == requestId &&
+                    !(bool)Call("DeferMainTail", Items().GetValue(0), Time.realtimeSinceStartup),
+                    "new authenticated context can resume its durable completion without inheriting old periodic-tail ownership");
+                fixture.PendingMainCompletion = null; Set("_recoveringMainCompletion", false);
+                MainWaveProgression.ReceiveServerState(false);
                 Empty();
 
                 var defeatedSession = Session(Main(1, 2));

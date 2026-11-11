@@ -17,6 +17,7 @@ namespace Scripts.Core.Manager
         private bool _recoveringMainCompletion;
         private const float MainTailGraceSeconds = 3f;
         private string _mainTailRunId;
+        private NetworkManager _mainTailNetwork;
         private long _mainTailAccountGeneration = -1, _mainTailNetworkGeneration = -1;
         private float _mainTailDeadline;
         private bool _mainTailWaiting;
@@ -40,7 +41,9 @@ namespace Scripts.Core.Manager
 
         private void PumpMainTail(float now)
         {
-            if (!_mainTailWaiting || now < _mainTailDeadline) return;
+            if (!_mainTailWaiting) return;
+            if (!OwnsMainTailWindow()) { _mainTailWaiting = false; return; }
+            if (now < _mainTailDeadline) return;
             _mainTailWaiting = false;
             TrySendNextHunt();
         }
@@ -63,17 +66,30 @@ namespace Scripts.Core.Manager
         private void BindMainTailWindow(string runId, long accountGeneration, long networkGeneration)
         {
             if (_mainTailRunId == runId && _mainTailAccountGeneration == accountGeneration &&
-                _mainTailNetworkGeneration == networkGeneration) return;
+                _mainTailNetworkGeneration == networkGeneration && ReferenceEquals(_mainTailNetwork, NetworkManager.Instance)) return;
             _mainTailRunId = runId;
+            _mainTailNetwork = NetworkManager.Instance;
             _mainTailAccountGeneration = accountGeneration;
             _mainTailNetworkGeneration = networkGeneration;
             _mainTailDeadline = 0f;
             _mainTailWaiting = false;
         }
 
+        private bool OwnsMainTailWindow() => _mainTailRunId == _mainRunForSession &&
+            _mainTailAccountGeneration == LocalProgression.AccountGeneration && _mainTailNetwork != null &&
+            ReferenceEquals(_mainTailNetwork, NetworkManager.Instance) && _mainTailNetwork.IsGameDataReady &&
+            _mainTailNetworkGeneration == _mainTailNetwork.AccountGeneration;
+
         /// <summary>막바지의 주기 정산만 한 번 유예한다. 명시적 정산과 송신 중인 요청에는 적용하지 않는다.</summary>
         private bool DeferMainTail(HuntOutboxItem item, float now)
         {
+            // 재인증 뒤 BeginStage 전의 짧은 간격에도 예전 partial을 새 계정으로 처음 보내지 않는다.
+            if (item.MainRunId != null && !item.IsClear &&
+                (item.MainRunId != _mainTailRunId || !OwnsMainTailWindow()))
+            {
+                _mainTailWaiting = false;
+                return true;
+            }
             if (item.MainRunId == null || item.IsClear || item.Attempts != 0 || _onHuntsSettled != null ||
                 _currentSession == null || item.MainRunId != _mainRunForSession)
             {
