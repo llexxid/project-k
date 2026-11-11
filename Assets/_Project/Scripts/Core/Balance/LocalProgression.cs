@@ -259,6 +259,9 @@ namespace KingdomIdle.Balance
                 state.GoldDungeonClear < 0 || state.GoldDungeonClear > 5 || state.RubyDungeonClear < 0 || state.RubyDungeonClear > 5 ||
                 state.OfflineKpm < 0 || state.OfflineKpm > 30 || state.ReincarnationCount < 0 || state.CycleBossStage < 0)
                 throw new InvalidDataException("Invalid economy state.");
+            if (!MainWaveProgression.ValidSaved(state.MainBattle) || !MainWaveProgression.ValidSaved(state.PendingMainCompletion) ||
+                (state.MainBattle != null && state.MainBattle.Stage != state.MainStage))
+                throw new InvalidDataException("Invalid main-wave settlement snapshot.");
             var equipment = state.Equipment.Concat(state.PendingEquipment).ToArray();
             if (state.LegacyEquipment == null || state.LegacyEquipment.Any(x => x == null || x.Count <= 0 || x.Level < 0 || x.Level > 15) ||
                 state.LegacyEquipment.GroupBy(x => (x.Code, x.Level)).Any(g => g.Count() > 1))

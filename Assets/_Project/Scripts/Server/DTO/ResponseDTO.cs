@@ -43,6 +43,8 @@ public class UserInitResponseDTO : ApiResponseDTO
     public MageTowerStateDTO MageTowerState { get; set; } = null!;
     // 새 API 배포 전에는 누락된다. null을 0레벨/미진행 상태로 바꾸지 않는다.
     public RubyGrowthStateDTO RubyGrowthState { get; set; }
+    // 누락된 구서버에는 기존 Hunt/Clear 경로를 유지한다. 지원 여부는 현재 로그인 응답으로만 판단한다.
+    public MainBattleStateDTO MainBattle { get; set; }
     public List<TutorialProgressDTO> Tutorials { get; set; }
     [JsonProperty(Required = Required.Always)]
     public List<CharacterDataQuery> CharacterJobs { get; set; } = null!;
@@ -71,6 +73,7 @@ public class UserInitResponseDTO : ApiResponseDTO
 public sealed class OnGetUserStateResponseDTO : UserInitResponseDTO { }
 public sealed class OnHuntResponseDTO : ApiResponseDTO
 {
+    public MainBattleStateDTO MainBattle { get; set; }
     // 구버전은 전체 인벤토리를 보내며, 장비가 바뀌지 않는 v2 사냥에서는 생략한다.
     [JsonProperty(Required = Required.Always)]
     public List<GachaRewardDTO> Drops { get; set; } = null!;
@@ -91,6 +94,7 @@ public sealed class OnHuntResponseDTO : ApiResponseDTO
 }
 public sealed class OnStageClearResponseDTO : ApiResponseDTO
 {
+    public MainBattleStateDTO MainBattle { get; set; }
     [JsonProperty(Required = Required.Always)]
     public bool IsFirstClear { get; set; }
     [JsonProperty(Required = Required.Always)]
@@ -107,8 +111,38 @@ public sealed class OnStageClearResponseDTO : ApiResponseDTO
 }
 public sealed class OnChangeMainStageResponseDTO : ApiResponseDTO
 {
+    public MainBattleStateDTO MainBattle { get; set; }
     [JsonProperty(Required = Required.Always)]
     public UserStageQuery StageState { get; set; } = null!;
+}
+public sealed class OnCompleteMainWaveResponseDTO : ApiResponseDTO
+{
+    [JsonProperty(Required = Required.Always)]
+    public string RequestId { get; set; } = null!;
+    [JsonProperty(Required = Required.Always)]
+    public string CompletedRunId { get; set; } = null!;
+    [JsonProperty(Required = Required.Always)]
+    public bool Replayed { get; set; }
+    [JsonProperty(Required = Required.Always)]
+    public bool IsFirstClear { get; set; }
+    [JsonProperty(Required = Required.Always)]
+    public List<QuestRewardDTO> GrantedRewards { get; set; } = null!;
+    [JsonProperty(Required = Required.Always)]
+    public int Level { get; set; }
+    [JsonProperty(Required = Required.Always)]
+    public long Exp { get; set; }
+    [JsonProperty(Required = Required.Always)]
+    public long KillScore { get; set; }
+    [JsonProperty(Required = Required.Always)]
+    public CurrencyQueryDTO Currency { get; set; } = null!;
+    [JsonProperty(Required = Required.Always)]
+    public EquipmentInventoryDTO Equipment { get; set; } = null!;
+    [JsonProperty(Required = Required.Always)]
+    public MageTowerStateDTO MageTowerState { get; set; } = null!;
+    [JsonProperty(Required = Required.Always)]
+    public UserStageQuery StageState { get; set; } = null!;
+    [JsonProperty(Required = Required.Always)]
+    public MainBattleStateDTO MainBattle { get; set; } = null!;
 }
 public sealed class OnSaveTutorialProgressResponseDTO : ApiResponseDTO
 {
@@ -332,6 +366,7 @@ public sealed class OnClaimQuestRewardResponseDTO : QuestActionResponseDTO
 // 환생·오프라인·루비
 public sealed class OnReincarnationResponseDTO : ApiResponseDTO
 {
+    public MainBattleStateDTO MainBattle { get; set; }
     [JsonProperty(Required = Required.Always)]
     public int GainedLevel { get; set; }
     [JsonProperty(Required = Required.Always)]

@@ -41,6 +41,19 @@ namespace Protocol.Message.Dto
 		public List<HuntResult> Loots { get; set; } = null!;
 		// 던전 사냥은 OnEnterDungeon 응답의 BattleId를 넣는다. 메인 스테이지는 null로 둔다(값이 있으면 1025).
 		public string BattleId { get; set; }
+		// 새 메인 회차의 부분 정산만 사용한다. 던전과 구서버 요청에서는 둘 다 생략한다.
+		[JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+		public string MainRunId { get; set; }
+		[JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+		public string BatchId { get; set; }
+	}
+	public sealed class OnCompleteMainWaveRequestDTO : SessionRequestDTO
+	{
+		public eStage ClearedStage { get; set; }
+		public string MainRunId { get; set; } = null!;
+		public string RequestId { get; set; } = null!;
+		public List<HuntResult> TotalKills { get; set; } = null!;
+		public eStageClearAction NextAction { get; set; } = eStageClearAction.Advance;
 	}
 	public sealed class OnStageClearRequestDTO : SessionRequestDTO
 	{

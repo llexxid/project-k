@@ -151,7 +151,7 @@ namespace Scripts.Core.Manager
             _currentState == eStageRunState.DefeatPending ? _defeatPopupTimer : 0;
         private float _resultPopupTimer;
         private const float TickInterval = 3f;
-        private const float MainWaveClearHoldSeconds = .45f;
+        private const float MainWaveClearHoldSeconds = .7f;
         
         [NonSerialized]
         private eStage _currentStage;
@@ -193,6 +193,8 @@ namespace Scripts.Core.Manager
             public string BattleId;
             public List<HuntResult> Loots;
             public int Attempts;
+            public string MainRunId, BatchId;
+            public MainWaveCompletionSave Completion;
         }
 
         private float _bossTimer;
@@ -223,6 +225,7 @@ namespace Scripts.Core.Manager
 		/// <summary>보스 제한 시간과 패배 팝업 선택 제한 시간을 갱신한다.</summary>
 		private void Update()
         {
+            PumpHuntRetry();
             RetryDungeonRequest();
             if (_bossTimerActive)
             {
@@ -426,10 +429,14 @@ namespace Scripts.Core.Manager
             _onHuntsSettled = null;
             _dungeonRequestPending = false;
             _retryDungeon = null;
+            _nextHuntSendAt = 0f;
+            _mainRunForSession = null;
+            _recoveringMainCompletion = false;
 			_huntOutbox.Clear();
 			_huntBuffer.Clear();
 			_saturatedTypes.Clear();
 			SendHuntResultLoop(_token.Token).Forget();
+			if (ResumePendingMainCompletion()) return;
 			ResetStage((long)_currentStage == 0 ? stage : _currentStage);
             ReviveAllPlayers();
             if (!string.IsNullOrEmpty(LocalProgression.State.ActiveDungeon))
@@ -461,6 +468,7 @@ namespace Scripts.Core.Manager
 
         private void StartPreparedStage(StageDefinition definition)
         {
+			if (!BindMainWaveRun(definition)) return;
 			_bossTimerActive = false;
 			_defeatPopupActive = false;
 			Time.timeScale = 1f;
@@ -832,6 +840,8 @@ var definition = _currentSession?.Definition;
 			}
 
 			OnStageEnter?.Invoke(session.Definition);
+			if (session.Definition.Type == eStageType.Main)
+				Debug.Log($"[MainWave] start stage=0x{(long)session.Definition.Id:X} realtime={Time.realtimeSinceStartupAsDouble:F3}");
 		}
 
 		private void HandleResultAccepted(StageSession session, StageRuleResult result)
@@ -911,6 +921,7 @@ var definition = _currentSession?.Definition;
 		private void CountKill(StageDefinition definition, Monster monster)
 		{
 			if (definition == null) return;
+			if (definition.Type == eStageType.Main && _mainRunForSession != null) return;
 			long stageId = (long)definition.Id;
 			if (!_huntBuffer.TryGetValue(stageId, out var kills))
 			{
@@ -987,7 +998,11 @@ var definition = _currentSession?.Definition;
 			while (!token.IsCancellationRequested)
 			{
 				await UniTask.WaitForSeconds(TickInterval, ignoreTimeScale: true, cancellationToken: token);
-				if (_huntOutbox.Count == 0) FlushHuntBuffer((long)_currentStage);
+				if (_huntOutbox.Count == 0)
+				{
+					FlushMainWaveHunts();
+					FlushHuntBuffer((long)_currentStage);
+				}
 				TrySendNextHunt();
 			}
         }
@@ -996,6 +1011,11 @@ var definition = _currentSession?.Definition;
 		private void EnqueueStageClear(StageDefinition definition, bool showResult)
 		{
 			if (definition == null || definition.Type != eStageType.Main) return;
+			if (_mainRunForSession != null)
+			{
+				EnqueueMainCompletion(definition, showResult);
+				return;
+			}
 			long stageId = (long)definition.Id;
 			MainStageRule.GetNextWave(definition.Id, out eStage next);
 			FlushHuntBuffer(stageId);
@@ -1044,27 +1064,48 @@ var definition = _currentSession?.Definition;
 		private void TrySendNextHunt()
 		{
 			if (_huntInFlight || _huntsHeld || _huntSyncFailed) return;
+			if (_nextHuntSendAt > Time.realtimeSinceStartup) return;
+			_nextHuntSendAt = 0f;
 			// 서버가 이미 정산한 종류는 빼고, 남는 처치가 없는 배치는 보내지 않는다.
-			while (_huntOutbox.Count > 0 && !_huntOutbox.Peek().IsClear && PruneSaturated(_huntOutbox.Peek())) _huntOutbox.Dequeue();
+			while (_huntOutbox.Count > 0 && !_huntOutbox.Peek().IsClear && _huntOutbox.Peek().MainRunId == null && PruneSaturated(_huntOutbox.Peek())) _huntOutbox.Dequeue();
+			if (_huntOutbox.Count == 0 && _onHuntsSettled != null) FlushMainWaveHunts(true);
 			if (_huntOutbox.Count == 0) { FinishHuntSettlement(true); return; }
 			var network = NetworkManager.Instance;
 			if (network == null || !network.IsGameDataReady) return;
 			var item = _huntOutbox.Peek();
-			if (!item.IsClear && Time.realtimeSinceStartup - _lastHuntAcceptedAt < HuntMinIntervalSec) return;
+            if (item.MainRunId != null && !item.IsClear && _currentSession?.IsCleared == true &&
+                !(_onHuntsSettled != null && IsMainDefeatSettlement)) return;
+			if (!item.IsClear && Time.realtimeSinceStartup - _lastHuntAcceptedAt < HuntMinIntervalSec)
+			{
+				_nextHuntSendAt = _lastHuntAcceptedAt + HuntMinIntervalSec;
+				return;
+			}
 			_huntInFlight = true;
 			item.Attempts++;
+			long generation = LocalProgression.AccountGeneration, networkGeneration = network.AccountGeneration;
+			var token = _token;
+            bool Current() => OwnsHuntResponse(item, network, generation, networkGeneration, token);
+			if (item.Completion != null)
+			{
+				network.Call<OnCompleteMainWaveRequestDTO, OnCompleteMainWaveResponseDTO>(MainWaveProgression.Request(item.Completion),
+					result => { if (Current()) OnMainCompletionSuccess(item, result); },
+					error => { if (Current()) OnMainWaveError(item, error); });
+				return;
+			}
 			if (item.IsClear)
 			{
 				network.Call<OnStageClearRequestDTO, OnStageClearResponseDTO>(
 					new OnStageClearRequestDTO { ClearedStage = (Protocol.Message.Data.eStage)item.StageId, NextAction = item.NextAction },
-					result => OnStageClearSuccess(item, result), error => OnHuntRewardError(item, error));
+					result => { if (Current()) OnStageClearSuccess(item, result); }, error => { if (Current()) OnHuntRewardError(item, error); });
 			}
 			else
 			{
 				// 메인은 null, 던전은 입장 때 받은 서버 BattleId를 보낸다.
 				network.Call<OnRewardRequestDTO, OnHuntResponseDTO>(
-					new OnRewardRequestDTO { Stage = (Protocol.Message.Data.eStage)item.StageId, Loots = item.Loots, BattleId = item.BattleId },
-					result => OnHuntRewardSuccess(item, result), error => OnHuntRewardError(item, error));
+					new OnRewardRequestDTO { Stage = (Protocol.Message.Data.eStage)item.StageId, Loots = item.Loots, BattleId = item.BattleId,
+						MainRunId = item.MainRunId, BatchId = item.BatchId },
+					result => { if (Current()) OnHuntRewardSuccess(item, result); },
+					error => { if (Current()) { if (item.MainRunId != null) OnMainWaveError(item, error); else OnHuntRewardError(item, error); } });
 			}
 		}
 
@@ -1076,11 +1117,18 @@ var definition = _currentSession?.Definition;
 		/// <summary>서버 사냥 보상 응답의 플레이어 데이터(레벨·경험치·처치·재화·장비 인벤토리)를 그대로 저장한다. 로컬 처치 보상·드롭은 더하지 않는다.</summary>
 		private void OnHuntRewardSuccess(HuntOutboxItem item, OnHuntResponseDTO result)
 		{
+			if (item.MainRunId != null && (result.MainBattle == null || result.MainBattle.RunId != item.MainRunId ||
+				(long)result.MainBattle.Stage != item.StageId))
+			{
+				OnMainWaveError(item, NetworkManager.CreateError("InvalidResponse", "부분 정산의 메인 회차를 확인하지 못했습니다."));
+				return;
+			}
 			_huntInFlight = false;
 			_lastHuntAcceptedAt = Time.realtimeSinceStartup;
 			Dequeue(item);
 			bool saved = LocalProgression.Execute("server-hunt", s =>
 			{
+				if (item.MainRunId != null && !MainWaveProgression.ApplyServerState(s, result.MainBattle)) return false;
 				s.AccountLevel = BalanceMath.Clamp(result.Level, 1, BalanceMath.AccountCap);
 				s.Experience = Math.Max(0, result.Exp);
 				BalanceMath.GainExperience(ref s.AccountLevel, ref s.Experience, 0);
@@ -1131,6 +1179,7 @@ var definition = _currentSession?.Definition;
 			_saturatedTypes.Remove(item.StageId);
 			bool saved = BattleEconomy.Clear(_currentSession) && LocalProgression.Execute("server-stage-clear", s =>
 			{
+				if (!MainWaveProgression.ApplyServerState(s, result.MainBattle)) return false;
 				UserManager.ApplyCurrency(s, result.Currency);
 				UserManager.ApplyEquipment(s, result.Equipment);
 				UserManager.ApplyMageTower(s, result.MageTowerState);
@@ -1185,6 +1234,7 @@ var definition = _currentSession?.Definition;
 			string what = item.IsClear ? "StageClear" : "Hunt";
 			if (retry)
 			{
+				_nextHuntSendAt = Time.realtimeSinceStartup + 1f;
 				Debug.LogWarning($"[{what}] 재시도 대기 stage=0x{item.StageId:X} kind={kind} code={code} attempt={item.Attempts}: {error?.ErrorMessage}");
 				return;
 			}

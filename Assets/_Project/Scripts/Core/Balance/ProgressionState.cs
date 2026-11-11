@@ -66,6 +66,8 @@ namespace KingdomIdle.Balance
         public string ActiveBattleId;
         public int LastKillSequence;
         public string LastClearedBattle;
+        public MainBattleSave MainBattle;
+        public MainWaveCompletionSave PendingMainCompletion;
         public long LastDungeonGold, LastDungeonRuby;
         public long LastActiveUtc, OfflineStage;
         public decimal OfflineKpm;
@@ -95,6 +97,8 @@ namespace KingdomIdle.Balance
             copy.PendingQuests = new();
             foreach (var pair in PendingQuests) copy.PendingQuests.Add(pair.Key, pair.Value.Copy());
             copy.Modules = new(Modules);
+            copy.MainBattle = MainBattle?.Copy();
+            copy.PendingMainCompletion = PendingMainCompletion?.Copy();
             return copy;
         }
     }

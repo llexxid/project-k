@@ -92,6 +92,7 @@ namespace Reincarnation
             long stage = (long)r.StageState.CurrentStage;
             bool saved = LocalProgression.Execute("server-reincarnation", s =>
             {
+                if (!MainWaveProgression.ApplyServerState(s, r.MainBattle)) return false;
                 UserManager.ApplyReincarnation(s, r.Reincarnation);
                 UserManager.ApplyCurrency(s, r.Currency);
                 s.AttackLevel = (int)Math.Min(BalanceMath.GoldCap, Math.Max(0, r.EnchantATKCount));
@@ -167,8 +168,9 @@ namespace Reincarnation
             var manager = StageManager.Instance;
             if (manager == null) return;
             var target = (eStage)LocalProgression.State.MainStage;
-            if (StageParser.GetStageType(target) != eStageType.Main || manager.CurrentStage == target) return;
+            if (StageParser.GetStageType(target) != eStageType.Main) return;
             if (target == eStage.Stage1_1 && manager.TryResetMainProgress()) return;
+            if (manager.CurrentStage == target && !MainWaveProgression.Available) return;
             manager.BeginStage(target);
         }
 

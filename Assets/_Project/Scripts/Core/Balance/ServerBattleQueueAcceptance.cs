@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using System.Threading;
 using Core.Stage;
@@ -16,6 +17,61 @@ namespace KingdomIdle.Balance
 {
     public static class ServerBattleQueueAcceptance
     {
+        /// <summary>빈 에디터 검증에서만 고유 로컬 파일을 사용한다. 실제 계정·네트워크는 열지 않는다.</summary>
+        public static object RunMainPersistence()
+        {
+            if (NetworkManager.Instance != null || StageManager.Instance != null || UserManager.Instance != null || LocalProgression.IsReady)
+                throw new InvalidOperationException("Main persistence acceptance requires an empty signed-out context.");
+            var checks = new List<string>();
+            void Check(bool valid, string name) { if (!valid) throw new InvalidOperationException("Main persistence acceptance: " + name); checks.Add(name); }
+            var paths = new HashSet<string>();
+            string account = "main-wave-" + Guid.NewGuid().ToString("N");
+            var scope = LocalProgression.BeginTestSession();
+            try
+            {
+                LocalProgression.OpenTestAccount(account); paths.Add(LocalProgression.SnapshotPath);
+                const ulong monster = 4294967301;
+                Check(LocalProgression.Execute("main-pending-fixture", state =>
+                {
+                    state.AttackLevel = 42; state.Wallet[eCurrency.Ruby] = 876;
+                    state.MainBattle = new MainBattleSave { RunId = "1234567890abcdef1234567890abcdef", Stage = state.MainStage,
+                        AcceptedKills = new() { [monster] = 2 } };
+                    state.PendingMainCompletion = new MainWaveCompletionSave { RunId = state.MainBattle.RunId,
+                        RequestId = "fedcba0987654321fedcba0987654321", Stage = state.MainStage, NextAction = 1,
+                        TotalKills = new() { [monster] = 5 } };
+                    return true;
+                }), "pending identity, intent and full count are durably saved before sending");
+                string before = JsonConvert.SerializeObject(LocalProgression.State);
+                Check(!LocalProgression.TestFailedWrite(state => { state.PendingMainCompletion.RequestId = Guid.NewGuid().ToString("N"); return true; }) &&
+                    JsonConvert.SerializeObject(LocalProgression.State) == before, "failed pending write leaves the previous committed request and investments intact");
+                Check(!LocalProgression.Execute("malformed-main-pending", state => { state.PendingMainCompletion.RequestId = "bad"; return true; }) &&
+                    JsonConvert.SerializeObject(LocalProgression.State) == before, "malformed pending identity cannot enter committed storage");
+                string request = JsonConvert.SerializeObject(MainWaveProgression.Request(LocalProgression.State.PendingMainCompletion));
+                LocalProgression.OpenTestAccount(account);
+                Check(JsonConvert.SerializeObject(MainWaveProgression.Request(LocalProgression.State.PendingMainCompletion)) == request &&
+                    LocalProgression.State.AttackLevel == 42 && LocalProgression.Balance(eCurrency.Ruby) == 876,
+                    "restart reload retains exact request bytes and unrelated account investments");
+                LocalProgression.OpenTestAccount(account + "-other"); paths.Add(LocalProgression.SnapshotPath);
+                Check(LocalProgression.State.PendingMainCompletion == null && LocalProgression.State.MainBattle == null && !MainWaveProgression.Available,
+                    "account change never reuses another account pending run or persisted capability");
+                LocalProgression.OpenTestAccount(account);
+                Check(JsonConvert.SerializeObject(MainWaveProgression.Request(LocalProgression.State.PendingMainCompletion)) == request,
+                    "returning to the original account preserves its unresolved request");
+                return new { passed = true, count = checks.Count, checks };
+            }
+            finally
+            {
+                scope.Dispose();
+                string allowed = Path.GetFullPath(Path.Combine(Application.persistentDataPath, "progression-local-v1")) + Path.DirectorySeparatorChar;
+                foreach (string path in paths)
+                {
+                    string full = Path.GetFullPath(path);
+                    if (!full.StartsWith(allowed, StringComparison.OrdinalIgnoreCase)) throw new IOException("Unexpected acceptance snapshot path.");
+                    foreach (string file in new[] { full, full + ".bak", full + ".tmp" }) if (File.Exists(file)) File.Delete(file);
+                }
+            }
+        }
+
         public static object Run()
         {
             const BindingFlags instance = BindingFlags.Instance | BindingFlags.NonPublic;
@@ -24,6 +80,7 @@ namespace KingdomIdle.Balance
             var openingField = typeof(LocalProgression).GetField("_opening", statics);
             object savedState = stateField.GetValue(null), savedOpening = openingField.GetValue(null);
             var savedNetwork = NetworkManager.Instance;
+            bool savedMainSupport = MainWaveProgression.Available;
             var savedUsers = UserManager.Instance;
             var savedSpawner = MonsterSpawner.Instance;
             float savedTime = Time.timeScale;
@@ -229,6 +286,91 @@ namespace KingdomIdle.Balance
                 Check(!(bool)Call("TransitionStage", Main(1, 1), 0f), "pending dungeon request blocks a local main transition");
                 Set("_dungeonRequestPending", false); Set("_currentSession", null); Empty();
 
+                const string mainRun = "1234567890abcdef1234567890abcdef";
+                const string requestId = "fedcba0987654321fedcba0987654321";
+                object newMain = Clear(Main(1, 2), false, true);
+                var completion = new MainWaveCompletionSave { RunId = mainRun, RequestId = requestId,
+                    Stage = (long)Main(1, 2), NextAction = 0, TotalKills = new() { [(ulong)monster] = 1 } };
+                SetItem(newMain, "MainRunId", mainRun); SetItem(newMain, "Completion", completion); SetItem(newMain, "Attempts", 1);
+                Time.timeScale = .5f;
+                Call("OnMainWaveError", newMain, Failure(1014));
+                Check(!(bool)Get("_huntSyncFailed") && Count() == 1 && ReferenceEquals(Items().GetValue(0), newMain) &&
+                    (float)Get("_nextHuntSendAt") > Time.realtimeSinceStartup && completion.RequestId == requestId &&
+                    completion.TotalKills[(ulong)monster] == 1 && Time.timeScale == .5f,
+                    "new completion storage uncertainty retries the same durable identity and payload on its own deadline");
+                SetItem(newMain, "Attempts", maxAttempts);
+                Call("OnMainWaveError", newMain, Failure(1014));
+                Check((bool)Get("_huntSyncFailed") && Count() == 1 && completion.RequestId == requestId && Time.timeScale == 0,
+                    "exhausted completion retry preserves the original request and halts without a confirmed state");
+                newMain = Clear(Main(1, 2), false, true);
+                SetItem(newMain, "MainRunId", mainRun); SetItem(newMain, "Completion", completion); SetItem(newMain, "Attempts", 1);
+                Call("OnMainWaveError", newMain, Failure(1007));
+                Check((bool)Get("_huntSyncFailed") && Count() == 1 && ReferenceEquals(Items().GetValue(0), newMain),
+                    "new main invalid-loot response never recursively splits or discards the completed run");
+                fixture.PendingMainCompletion = completion.Copy();
+                string pendingBefore = JsonConvert.SerializeObject(fixture);
+                Set("_huntSyncFailed", false);
+                Call("OnMainCompletionSuccess", newMain, new OnCompleteMainWaveResponseDTO { RequestId = mainRun, CompletedRunId = mainRun });
+                Check((bool)Get("_huntSyncFailed") && JsonConvert.SerializeObject(fixture) == pendingBefore && Count() == 1,
+                    "mismatched main completion identity cannot change local progress or discard pending data");
+                fixture.PendingMainCompletion = null;
+                Set("_nextHuntSendAt", 0f); Set("_huntInFlight", false); Set("_huntSyncFailed", false); Empty();
+
+                buffer[main] = new Dictionary<eMonsterType, int> { [monster] = 1 };
+                Call("FlushHuntBuffer", main);
+                var uncertainPartial = Items().GetValue(0);
+                SetItem(uncertainPartial, "MainRunId", mainRun); SetItem(uncertainPartial, "BatchId", requestId); SetItem(uncertainPartial, "Attempts", 1);
+                SetItem(uncertainPartial, "StageId", (long)Main(1, 2));
+                var queueFinal = Clear(Main(1, 2), false, true);
+                SetItem(queueFinal, "MainRunId", mainRun); SetItem(queueFinal, "Completion", completion);
+                Empty();
+                var uncertainQueue = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(uncertainPartial.GetType()));
+                uncertainQueue.Add(uncertainPartial); uncertainQueue.Add(queueFinal);
+                Call("PushFront", uncertainQueue);
+                Call("OnMainWaveError", uncertainPartial, Failure(0));
+                Check(Count() == 1 && ReferenceEquals(Items().GetValue(0), queueFinal) && completion.RequestId == requestId,
+                    "partial ACK loss promotes its already durable cumulative final without replaying partial or changing its identity");
+                var responseToken = Get("_token");
+                Check((bool)Call("OwnsHuntResponse", queueFinal, network, LocalProgression.AccountGeneration, network.AccountGeneration, responseToken) &&
+                    !(bool)Call("OwnsHuntResponse", uncertainPartial, network, LocalProgression.AccountGeneration, network.AccountGeneration, responseToken) &&
+                    !(bool)Call("OwnsHuntResponse", queueFinal, network, LocalProgression.AccountGeneration + 1, network.AccountGeneration, responseToken) &&
+                    !(bool)Call("OwnsHuntResponse", queueFinal, network, LocalProgression.AccountGeneration, network.AccountGeneration + 1, responseToken),
+                    "late partial callback and changed account generations cannot own the final or overwrite its balances");
+                Empty();
+
+                var defeatedSession = Session(Main(1, 2));
+                var defeatedKills = (Dictionary<eMonsterType, int>)typeof(StageSession).GetField("_killCounts", instance).GetValue(defeatedSession);
+                defeatedKills[monster] = 3;
+                typeof(StageSession).GetProperty(nameof(StageSession.HasPendingResult)).SetValue(defeatedSession, true);
+                typeof(StageSession).GetField("_spawningCompleted", instance).SetValue(defeatedSession, true);
+                fixture.MainStage = (long)Main(1, 2);
+                fixture.MainBattle = new MainBattleSave { RunId = mainRun, Stage = fixture.MainStage,
+                    AcceptedKills = new() { [(ulong)monster] = 2 } };
+                MainWaveProgression.ReceiveServerState(true);
+                Set("_mainRunForSession", mainRun); Set("_currentSession", defeatedSession);
+                Set("_currentState", eStageRunState.DefeatPending); Set("_huntSyncFailed", false);
+                Check(!(bool)Call("FlushMainWaveHunts", false) && Count() == 0,
+                    "periodic main reporting does not run inside a defeat result");
+                Set("_huntsHeld", false); Set("_huntInFlight", true);
+                int tailCallbacks = 0;
+                Time.timeScale = .5f;
+                Check(manager.FlushPendingHunts(_ => tailCallbacks++) && Count() == 1 &&
+                    Loots(Items().GetValue(0))[0].Count == 1 && (string)ItemField(Items().GetValue(0), "MainRunId") == mainRun &&
+                    Time.timeScale == 0f && tailCallbacks == 0,
+                    "explicit defeat retreat or retry queues the tail even after late effects remove the remaining monsters");
+                Set("_huntsHeld", true);
+                Time.timeScale = .5f;
+                Call("ResumeMainHuntAfterRefresh", .5f);
+                Check(Time.timeScale == 0f && tailCallbacks == 0 && Count() == 1,
+                    "state confirmation during explicit settlement preserves the battle pause while a tail remains");
+                Set("_onHuntsSettled", null);
+                Call("ResumeMainHuntAfterRefresh", .5f);
+                Check(Time.timeScale == .5f, "ordinary partial state confirmation restores the captured battle speed");
+                fixture.MainBattle = null; fixture.MainStage = main;
+                Set("_mainRunForSession", null); Set("_currentSession", null); Set("_huntInFlight", false);
+                MainWaveProgression.ReceiveServerState(false);
+                Empty();
+
                 buffer[main] = new Dictionary<eMonsterType, int> { [monster] = 1 };
                 Call("FlushHuntBuffer", main);
                 buffer[dungeon] = new Dictionary<eMonsterType, int> { [monster] = 1 };
@@ -260,6 +402,7 @@ namespace KingdomIdle.Balance
                 MonsterSpawner.Instance = savedSpawner;
                 stateField.SetValue(null, savedState);
                 openingField.SetValue(null, savedOpening);
+                MainWaveProgression.ReceiveServerState(savedMainSupport);
                 Time.timeScale = savedTime;
                 UnityEngine.Object.DestroyImmediate(owner);
             }

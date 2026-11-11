@@ -74,11 +74,21 @@ namespace KingdomIdle.Balance
         }
         public static bool Clear(StageSession session)
         {
+            bool result = LocalProgression.Execute("battle-clear", s => ApplyConfirmedClear(s, session));
+            if (!result) { UnityEngine.Time.timeScale = 0; KingdomIdle.UGUI.UIManager.Instance?.ShowToast("클리어 보상을 저장할 수 없습니다. 저장 공간 확인 후 재접속해 주세요."); }
+            if (result) { EquipmentManager.Instance?.RestoreEquipment(); MageTowerManager.Instance?.NotifyCommitted(); }
+            return result;
+        }
+
+        // 새 완료 응답의 재화·회차·진행과 같은 로컬 트랜잭션에 클리어 표본을 기록한다.
+        internal static bool ApplyConfirmedClear(ProgressionState s, StageSession session)
+        {
+            if (session == null || session.Definition.Type != eStageType.Main ||
+                s.ActiveBattleId != session.RunId || s.LastClearedBattle == session.RunId) return false;
             var d = session.Definition;
-            if (d.Type != eStageType.Main) return false;
             long id = (long)d.Id;
             decimal kpm = 0;
-            if (d.Type == eStageType.Main && d.WaveNumber <= 10)
+            if (d.WaveNumber <= 10)
             {
                 if (!Samples.TryGetValue(id, out var samples)) Samples[id] = samples = new Queue<Sample>();
                 samples.Enqueue(new Sample { Seconds = Math.Max(.01, _seconds), Kills = session.TotalKillCount });
@@ -86,26 +96,15 @@ namespace KingdomIdle.Balance
                 double seconds = samples.Sum(x => x.Seconds);
                 kpm = Math.Min(seconds < 300 ? 15m : 30m, (decimal)(samples.Sum(x => x.Kills) * 60d / seconds));
             }
-            bool result = LocalProgression.Execute("battle-clear", s => {
-                if (s.ActiveBattleId != session.RunId || s.LastClearedBattle == session.RunId) return false;
-                s.LastClearedBattle = session.RunId;
-                if (d.Type == eStageType.Main)
-                {
-                    s.HighestMainClear = Math.Max(s.HighestMainClear, id);
-                    Core.Stage.MainStageRule.GetNextWave(d.Id, out eStage next);
-                    s.CycleFrontierStage = Math.Max(s.CycleFrontierStage, (long)next);
-                    if (d.WaveNumber == 11) s.CycleBossStage = Math.Max(s.CycleBossStage, d.StageNumber);
-                    // 최초 클리어 보상(무기·스킬·재화)은 서버(OnStageClear)가 지급하고 응답의 Equipment·MageTowerState·Currency로 돌려준다.
-                    s.MainClears.Add(id);
-                    if (d.WaveNumber <= 10 && id >= s.OfflineStage)
-                    { s.OfflineStage = id; s.OfflineKpm = kpm; s.OfflineRubyGold = s.RubyGoldLevel; s.OfflineRubyExp = s.RubyExpLevel; }
-                }
-                // 환생은 서버(OnReincarnation)가 요청 즉시 적용한다. 웨이브 경계의 로컬 환생 처리는 없다.
-                return true;
-            });
-            if (!result) { UnityEngine.Time.timeScale = 0; KingdomIdle.UGUI.UIManager.Instance?.ShowToast("클리어 보상을 저장할 수 없습니다. 저장 공간 확인 후 재접속해 주세요."); }
-            if (result) { EquipmentManager.Instance?.RestoreEquipment(); MageTowerManager.Instance?.NotifyCommitted(); }
-            return result;
+            s.LastClearedBattle = session.RunId;
+            s.HighestMainClear = Math.Max(s.HighestMainClear, id);
+            Core.Stage.MainStageRule.GetNextWave(d.Id, out eStage next);
+            s.CycleFrontierStage = Math.Max(s.CycleFrontierStage, (long)next);
+            if (d.WaveNumber == 11) s.CycleBossStage = Math.Max(s.CycleBossStage, d.StageNumber);
+            s.MainClears.Add(id);
+            if (d.WaveNumber <= 10 && id >= s.OfflineStage)
+            { s.OfflineStage = id; s.OfflineKpm = kpm; s.OfflineRubyGold = s.RubyGoldLevel; s.OfflineRubyExp = s.RubyExpLevel; }
+            return true;
         }
     }
 }

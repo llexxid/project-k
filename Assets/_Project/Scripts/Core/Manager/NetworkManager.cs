@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using MainWaveProgression = KingdomIdle.Balance.MainWaveProgression;
 using IdleKingdomFunction.Common;
 using Protocol.Message.Dto;
 using Newtonsoft.Json;
@@ -96,6 +97,7 @@ namespace Scripts.Core.Manager
                 [typeof(AuthRequestDTO)] = ("OnLogIn", typeof(UserInitResponseDTO)),
                 [typeof(OnRewardRequestDTO)] = ("OnHuntReward", typeof(OnHuntResponseDTO)),
                 [typeof(OnStageClearRequestDTO)] = ("OnStageClear", typeof(OnStageClearResponseDTO)),
+                [typeof(OnCompleteMainWaveRequestDTO)] = ("OnCompleteMainWave", typeof(OnCompleteMainWaveResponseDTO)),
                 [typeof(OnChangeMainStageRequestDTO)] = ("OnChangeMainStage", typeof(OnChangeMainStageResponseDTO)),
                 [typeof(OnGachaEquipmentClassFragmentRequestDTO)] = ("OnGachaEquipmentClassFragment", typeof(OnGachaEquipmentClassFragmentResponseDTO)),
                 [typeof(OnGachaSkillArcaneKnowledgeRequestDTO)] = ("OnGachaSkillArcaneKnowledge", typeof(OnGachaSkillArcaneKnowledgeResponseDTO)),
@@ -238,6 +240,7 @@ namespace Scripts.Core.Manager
         {
             ExecuteFunctionRequest cloudFunction;
             string rubyRequestId = (request as RubyGrowthRequestDTO)?.RequestId;
+            var mainCompletion = request as OnCompleteMainWaveRequestDTO;
             try { cloudFunction = CreateFunctionRequest<TRequest, TResponse>(request, _sessionGUID, _context); }
             catch (Exception ex) when (ex is ArgumentException || ex is JsonException)
             {
@@ -289,6 +292,12 @@ namespace Scripts.Core.Manager
                     Fail(CreateError("InvalidResponse", "루비 요청과 응답이 일치하지 않습니다.", cloudFunction.FunctionName));
                     return;
                 }
+                if (response is OnCompleteMainWaveResponseDTO completedMain &&
+                    (completedMain.RequestId != mainCompletion?.RequestId || completedMain.CompletedRunId != mainCompletion.MainRunId))
+                {
+                    Fail(CreateError("InvalidResponse", "메인 회차 요청과 응답이 일치하지 않습니다.", cloudFunction.FunctionName));
+                    return;
+                }
                 completed = true;
                 try { successCallback?.Invoke(response); }
                 catch (Exception ex)
@@ -337,6 +346,17 @@ namespace Scripts.Core.Manager
 
             // Retain an independent payload if the caller clears/reuses a collection after Call.
             var payload = JsonConvert.DeserializeObject<TRequest>(JsonConvert.SerializeObject(request));
+            if (payload is OnCompleteMainWaveRequestDTO complete &&
+                (!MainWaveProgression.ValidId(complete.MainRunId) || !MainWaveProgression.ValidId(complete.RequestId) ||
+                 !ValidMainStage((long)complete.ClearedStage) || complete.TotalKills == null || complete.TotalKills.Count == 0 ||
+                 complete.TotalKills.Any(kill => kill.Count <= 0) ||
+                 complete.TotalKills.Select(kill => kill.MonsterType).Distinct().Count() != complete.TotalKills.Count ||
+                 (complete.NextAction != Protocol.Message.Data.eStageClearAction.Advance && complete.NextAction != Protocol.Message.Data.eStageClearAction.Repeat)))
+                throw new ArgumentException("메인 회차 완료 요청을 확인해 주세요.");
+            if (payload is OnRewardRequestDTO partial && (partial.MainRunId != null || partial.BatchId != null) &&
+                (!MainWaveProgression.ValidId(partial.MainRunId) || !MainWaveProgression.ValidId(partial.BatchId) ||
+                 !ValidMainStage((long)partial.Stage) || partial.BattleId != null))
+                throw new ArgumentException("메인 회차 부분 정산 요청을 확인해 주세요.");
             if (payload is RubyGrowthRequestDTO ruby && (!TryParseRubyRequestId(ruby.RequestId, out _) ||
                 ruby.ExpectedLevel < 0 || ruby.ExpectedLevel > 50 || (ruby.Type != RubyGrowthType.Gold && ruby.Type != RubyGrowthType.Exp)))
                 throw new ArgumentException("루비 요청 ID·강화 종류·예상 레벨을 확인해 주세요.");
@@ -431,6 +451,11 @@ namespace Scripts.Core.Manager
                 ValidateEquipment(user.Equipment);
                 ValidateQuests(user.Quests);
                 if (user.RubyGrowthState != null) ValidateRubyGrowth(user.RubyGrowthState);
+                if (user.MainBattle != null)
+                {
+                    ValidateMainBattle(user.MainBattle);
+                    if (user.MainBattle.Stage != user.StageState.CurrentStage) throw new JsonSerializationException("Main battle stage mismatch.");
+                }
                 if (user.Tutorials != null)
                 {
                     if (user.Tutorials.Count > 32) throw new JsonSerializationException("Too many tutorial records.");
@@ -442,6 +467,10 @@ namespace Scripts.Core.Manager
             if (response is OnSaveTutorialProgressResponseDTO savedTutorial) ValidateTutorialProgress(savedTutorial.Progress);
             if (response is OnChangeMainStageResponseDTO moved)
             {
+                if (moved.MainBattle != null) ValidateMainBattle(moved.MainBattle);
+                if ((MainWaveProgression.Available && moved.MainBattle == null) ||
+                    (moved.MainBattle != null && moved.MainBattle.Stage != moved.StageState?.CurrentStage))
+                    throw new JsonSerializationException("Main movement battle mismatch.");
                 var stage = moved.StageState;
                 if (stage == null || !ValidMainStage((long)stage.CurrentStage) || !ValidMainStage((long)stage.HighestStage) ||
                     (long)stage.CurrentStage > (long)stage.HighestStage || ((long)stage.MainClear != 0 && !ValidMainStage((long)stage.MainClear)))
@@ -460,6 +489,7 @@ namespace Scripts.Core.Manager
                 throw new JsonSerializationException("Invalid ruby reset result.");
             if (response is OnHuntResponseDTO hunt)
             {
+                if (hunt.MainBattle != null) ValidateMainBattle(hunt.MainBattle);
                 if (hunt.Level < 1 || hunt.Exp < 0 || hunt.KillScore < 0 || hunt.Gold < 0 || hunt.AncientCoin < 0 || hunt.Drops == null)
                     throw new JsonSerializationException("Invalid hunt result.");
                 if (hunt.Equipment != null || !EquipmentManager.IsInstanceInventory || hunt.Drops.Count != 0)
@@ -467,8 +497,28 @@ namespace Scripts.Core.Manager
             }
             if (response is OnStageClearResponseDTO clear)
             {
+                if (clear.MainBattle != null) ValidateMainBattle(clear.MainBattle);
                 if (clear.StageState == null || (long)clear.StageState.CurrentStage <= 0) throw new JsonSerializationException("Invalid stage clear result.");
                 ValidateEquipment(clear.Equipment);
+            }
+            if (response is OnCompleteMainWaveResponseDTO completedMain)
+            {
+                if (!MainWaveProgression.ValidId(completedMain.RequestId) || !MainWaveProgression.ValidId(completedMain.CompletedRunId) ||
+                    completedMain.Level < 1 || completedMain.Exp < 0 || completedMain.KillScore < 0 || completedMain.GrantedRewards == null ||
+                    completedMain.GrantedRewards.Any(reward => reward == null) ||
+                    completedMain.StageState == null || !ValidMainStage((long)completedMain.StageState.CurrentStage) ||
+                    !ValidMainStage((long)completedMain.StageState.HighestStage) ||
+                    (long)completedMain.StageState.CurrentStage > (long)completedMain.StageState.HighestStage ||
+                    ((long)completedMain.StageState.MainClear != 0 && !ValidMainStage((long)completedMain.StageState.MainClear)) ||
+                    completedMain.Currency == null || completedMain.Currency.Gold < 0 || completedMain.Currency.AncientCoin < 0 ||
+                    completedMain.Currency.Ruby < 0 || completedMain.Currency.ClassFragment < 0 || completedMain.Currency.ArcaneKnowledge < 0 ||
+                    completedMain.Currency.EquipmentStone < 0 || completedMain.Currency.EquipmentTicket < 0 || completedMain.Currency.MageTicket < 0)
+                    throw new JsonSerializationException("Invalid main completion result.");
+                ValidateMainBattle(completedMain.MainBattle);
+                if (completedMain.MainBattle.Stage != completedMain.StageState.CurrentStage || completedMain.MainBattle.RunId == completedMain.CompletedRunId)
+                    throw new JsonSerializationException("Invalid next main battle.");
+                ValidateEquipment(completedMain.Equipment);
+                ValidateMageTower(completedMain.MageTowerState);
             }
             if (response is OnEnchantResponseDTO enchant && (enchant.CurrentLevel < 0 || enchant.CurrentGold < 0))
                 throw new JsonSerializationException("Invalid enhancement result.");
@@ -500,6 +550,10 @@ namespace Scripts.Core.Manager
             // 환생·오프라인·실습 보상 응답: 음수·null이면 플레이어 상태에 쓰지 않는다.
             if (response is OnReincarnationResponseDTO reincarnation)
             {
+                if (reincarnation.MainBattle != null) ValidateMainBattle(reincarnation.MainBattle);
+                if ((MainWaveProgression.Available && reincarnation.MainBattle == null) ||
+                    (reincarnation.MainBattle != null && reincarnation.MainBattle.Stage != reincarnation.StageState?.CurrentStage))
+                    throw new JsonSerializationException("Reincarnation main battle mismatch.");
                 var r = reincarnation.Reincarnation;
                 if (r == null || r.Day == null || r.Level < 0 || r.Count < 0 || r.TodayCount < 0 || r.LastUtc < 0 || reincarnation.GainedLevel < 0 ||
                     reincarnation.EnchantHPCount < 0 || reincarnation.EnchantATKCount < 0 || reincarnation.StageState == null || (long)reincarnation.StageState.CurrentStage <= 0 || reincarnation.Currency == null)
@@ -543,6 +597,15 @@ namespace Scripts.Core.Manager
                 ValidateEquipmentChanges(changes, instanceInventory);
             }
             ValidateMailboxResponse(response);
+        }
+
+        internal static void ValidateMainBattle(MainBattleStateDTO battle)
+        {
+            if (battle == null || !MainWaveProgression.ValidId(battle.RunId) || !ValidMainStage((long)battle.Stage) ||
+                battle.AcceptedKills == null || battle.AcceptedKills.Count > 10 ||
+                battle.AcceptedKills.Any(kill => (ulong)kill.MonsterType == 0 || kill.Count <= 0) ||
+                battle.AcceptedKills.Select(kill => kill.MonsterType).Distinct().Count() != battle.AcceptedKills.Count)
+                throw new JsonSerializationException("Invalid main battle state.");
         }
 
         internal static void ValidateRubyGrowth(RubyGrowthStateDTO growth)

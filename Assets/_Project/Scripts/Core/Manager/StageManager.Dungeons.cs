@@ -25,6 +25,7 @@ namespace Scripts.Core.Manager
             _beforeHuntSettlement = Time.timeScale;
             Time.timeScale = 0;
             _onHuntsSettled = onDone;
+            FlushMainWaveHunts(true);
             foreach (long stage in new List<long>(_huntBuffer.Keys)) FlushHuntBuffer(stage);
             TrySendNextHunt();
             return true;
