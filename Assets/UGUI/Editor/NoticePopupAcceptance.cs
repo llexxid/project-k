@@ -107,6 +107,8 @@ namespace KingdomIdle.UGUI.Editor
                     Layout(patch);
                     Check(!patch.patchBody.gameObject.activeSelf && patch.panel.rect.size == size &&
                         patch.closeButton.transform.position == close, "Patch collapse keeps the window and close button fixed");
+                    if (Application.isPlaying) Check(!patch.scroll.verticalScrollbar.gameObject.activeSelf,
+                        "A collapsed patch hides its scroll indicator");
                     patch.patchToggle.onClick.Invoke();
                     Layout(patch);
                     Check(patch.patchBody.gameObject.activeSelf && patch.panel.rect.size == size &&
@@ -148,6 +150,9 @@ namespace KingdomIdle.UGUI.Editor
                         "Opening another row collapses the previous row");
                     rows[1].toggle.onClick.Invoke();
                     Check(rows.All(row => !row.body.gameObject.activeSelf), "Tapping the open row collapses it");
+                    Layout(board);
+                    if (Application.isPlaying) Check(!board.scroll.verticalScrollbar.gameObject.activeSelf,
+                        "A short collapsed notice list hides its scroll indicator");
                 }
                 if (Application.isPlaying)
                 {
@@ -437,6 +442,12 @@ namespace KingdomIdle.UGUI.Editor
                 border != null && border.GetComponent<Image>().sprite != null &&
                 view.panel.Find("HeaderDivider") != null && view.closeButton.GetComponentInChildren<TMPro.TMP_Text>().text == "닫기",
                 "Both popups provide a visible frame, opaque body and explicit close label");
+            var bar = view.scroll.verticalScrollbar;
+            Check(bar != null && bar.direction == Scrollbar.Direction.BottomToTop && !bar.interactable &&
+                view.scroll.verticalScrollbarVisibility == ScrollRect.ScrollbarVisibility.AutoHide &&
+                view.scroll.viewport.offsetMax.x <= -16f && bar.handleRect != null &&
+                !bar.GetComponent<Image>().raycastTarget && !bar.handleRect.GetComponent<Image>().raycastTarget,
+                "Both scroll indicators auto-hide and keep a fixed non-blocking gutter beside the text");
         }
 
         private static void Layout(NoticePopupView view)
@@ -444,6 +455,15 @@ namespace KingdomIdle.UGUI.Editor
             LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)view.scroll.transform.parent);
             LayoutRebuilder.ForceRebuildLayoutImmediate(view.scroll.content);
             Canvas.ForceUpdateCanvases();
+            RefreshScrollbar(view);
+        }
+
+        private static void RefreshScrollbar(NoticePopupView view)
+        {
+            // The synchronous acceptance runs the same visibility pass normally reached in LateUpdate.
+            view.scroll.Rebuild(CanvasUpdate.PostLayout);
+            typeof(ScrollRect).GetMethod("UpdateScrollbarVisibility", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(view.scroll, null);
         }
 
         private static void CheckOverflow(NoticePopupView view)
@@ -452,6 +472,10 @@ namespace KingdomIdle.UGUI.Editor
                 "Long content overflows a positive viewport");
             view.scroll.verticalNormalizedPosition = 0f;
             Check(view.scroll.verticalNormalizedPosition < .01f, "The scroll can reach the end of long content");
+            RefreshScrollbar(view);
+            var bar = view.scroll.verticalScrollbar;
+            Check(bar.gameObject.activeSelf && bar.size > 0f && bar.size < 1f && bar.value < .01f,
+                "Long content shows a proportional thumb that follows scrolling to the bottom");
         }
 
         private static object Call(string name, params object[] args) => Controller.GetMethod(name, ControllerMembers).Invoke(null, args);

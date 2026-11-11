@@ -1,6 +1,7 @@
 using TMPro;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace KingdomIdle.UGUI.Editor
 {
@@ -103,6 +104,7 @@ namespace KingdomIdle.UGUI.Editor
             F.Stretch(scroll);
             scroll.offsetMin = new Vector2(32f, 32f);
             scroll.offsetMax = new Vector2(-32f, -300f);
+            AddScrollbar(view.scroll);
             view.patchBody = BodyText(content);
         }
 
@@ -123,6 +125,7 @@ namespace KingdomIdle.UGUI.Editor
 
             view.scroll = F.VScroll(area, "NoticeScroll", out var content, spacing: 12f);
             F.Flexible(view.scroll, flexHeight: 1f);
+            AddScrollbar(view.scroll);
             view.status = F.Text(area, "Status", "", 30f, UguiTheme.TextSecondary,
                 TextAlignmentOptions.Center, wrap: true);
             view.status.gameObject.SetActive(false);
@@ -168,6 +171,28 @@ namespace KingdomIdle.UGUI.Editor
             caretRect.anchoredPosition = new Vector2(-42f, 0f);
             caretRect.sizeDelta = new Vector2(64f, 64f);
             return button;
+        }
+
+        private static void AddScrollbar(ScrollRect scroll)
+        {
+            var viewportOffset = scroll.viewport.offsetMax;
+            scroll.viewport.offsetMax = new Vector2(-16f, viewportOffset.y);
+            var track = F.Box(scroll.transform, "ScrollTrack", UguiTheme.RusticSurfaceDark);
+            var rect = track.rectTransform;
+            rect.anchorMin = new Vector2(1f, 0f);
+            rect.anchorMax = Vector2.one;
+            rect.pivot = new Vector2(1f, .5f);
+            rect.sizeDelta = new Vector2(8f, -8f);
+            rect.anchoredPosition = new Vector2(-2f, 0f);
+            var thumb = F.Box(track.transform, "Thumb", UguiTheme.BronzeLight);
+            F.Stretch(thumb.rectTransform);
+            var scrollbar = track.gameObject.AddComponent<Scrollbar>();
+            scrollbar.handleRect = thumb.rectTransform;
+            scrollbar.direction = Scrollbar.Direction.BottomToTop;
+            scrollbar.interactable = false;
+            scrollbar.transition = Selectable.Transition.None;
+            scroll.verticalScrollbar = scrollbar;
+            scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
         }
 
         private static void PreservePanelLayout(NoticePopupView generated, string path)
