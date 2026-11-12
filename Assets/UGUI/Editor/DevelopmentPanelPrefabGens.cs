@@ -41,6 +41,9 @@ namespace KingdomIdle.UGUI.Editor
                 "Growth tabs, gold count selector and both card roots are serialized");
             Check(body.goldLabel.fontSize>=42 && body.descLabel.fontSize>=36,
                 "Balance and guidance use readable mobile text sizes");
+            Check(body.goldLabel.color==UguiTheme.TextPrimary && body.descLabel.color==UguiTheme.TextSecondary &&
+                body.emptyLabel.color==UguiTheme.TextSecondary,
+                "Text outside the light cards remains readable on the dark growth shell");
             var card=AssetDatabase.LoadAssetAtPath<GameObject>("Assets/UGUI/Prefabs/Items/Item_EnhanceCard.prefab").GetComponent<EnhanceCardView>();
             Check(card.nameLabel.fontSize>=42 && card.bonusLabel.fontSize>=40 && card.levelLabel.fontSize>=36,
                 "Stat, current-to-next effect and level retain their information hierarchy");
@@ -65,13 +68,13 @@ namespace KingdomIdle.UGUI.Editor
             // 설명 (.ka-dev-desc: 22px @70%)
             var desc = F.Text(root, "Desc",
                 "골드로 모든 왕국군의 공격력과 체력을 강화합니다.",
-                36f, UguiTheme.InfoMuted, TextAlignmentOptions.Left, wrap: true);
+                36f, UguiTheme.TextSecondary, TextAlignmentOptions.Left, wrap: true);
             F.Preferred(desc, height: 96f);
             view.descLabel = desc;
 
             // 보유 골드 바 (.ka-dev-gold-bar: 26px gold bold) — 컨트롤러가 텍스트만 갱신
             var gold = F.Text(root, "GoldBar", "보유 골드  0 G",
-                42f, UguiTheme.InfoInk, TextAlignmentOptions.Left, bold: true);
+                42f, UguiTheme.TextPrimary, TextAlignmentOptions.Left, bold: true);
             F.Preferred(gold, height: 60f);
             view.goldLabel = gold;
             if(gold.font!=null)gold.fontSharedMaterial=gold.font.material;
@@ -90,7 +93,7 @@ namespace KingdomIdle.UGUI.Editor
 
             // 빈 상태 라벨 (강화 항목이 없을 때만 표시)
             var empty = F.Text(root, "Empty", "강화 가능한 항목이 없습니다.",
-                36f, UguiTheme.InfoMuted, TextAlignmentOptions.Center);
+                36f, UguiTheme.TextSecondary, TextAlignmentOptions.Center);
             F.Preferred(empty, height: 96f);
             view.emptyLabel = empty;
             empty.gameObject.SetActive(false);

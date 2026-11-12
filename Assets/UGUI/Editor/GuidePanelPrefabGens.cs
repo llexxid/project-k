@@ -18,7 +18,7 @@ namespace KingdomIdle.UGUI.Editor
         private static readonly Color CheckColor = new Color(100f / 255f, 210f / 255f, 130f / 255f, 0.95f);
         private static readonly Color CheckBorderColor = new Color(1f, 1f, 1f, 0.25f);
         private static readonly Color CheckBgColor = new Color(1f, 1f, 1f, 0.10f);
-        private static readonly Color EmptyHintColor = UguiTheme.InfoMuted;
+        private static readonly Color EmptyHintColor = UguiTheme.TextSecondary;
 
         /// <summary>기존 HUD 전체 셀 버튼을 유지하며 밝은 정보면과 수령 테두리를 연결한다. HUD 배치는 공통 생성기가 관리한다.</summary>
         public static void ApplyGuideGoal(GameObject root)

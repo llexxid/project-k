@@ -68,6 +68,16 @@ namespace KingdomIdle.UGUI.Editor
                     "Locked cell cannot move or claim");
             }
             finally{PrefabUtility.UnloadPrefabContents(root);}
+            var hintRoot=PrefabUtility.LoadPrefabContents("Assets/UGUI/Prefabs/Items/Item_GuideEmptyHint.prefab");
+            try
+            {
+                var hint=hintRoot.GetComponent<GuideEmptyHintView>();
+                hint.label.color=UguiTheme.InfoMuted;
+                hint.SetText("퀘스트 정보를 준비하고 있습니다.");
+                Check(hint.label.color==UguiTheme.TextSecondary,
+                    "Empty guidance restores readable text on a dark shell even when an old prefab has dark ink");
+            }
+            finally{PrefabUtility.UnloadPrefabContents(hintRoot);}
             return new{passed=checks.Count,checks};
         }
 

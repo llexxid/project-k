@@ -195,6 +195,13 @@ namespace KingdomIdle.UGUI
 
             var go = Object.Instantiate(cat.bodyDevelopment, content, false);
             _body = go.GetComponent<DevelopmentBodyView>();
+            // 본문 셸은 어두운 목재이며 카드 내부에만 밝은 정보면이 있다. 구 프리팹 재사용도 같은 대비로 복구한다.
+            if (_body != null)
+            {
+                if (_body.goldLabel != null) _body.goldLabel.color = UguiTheme.TextPrimary;
+                if (_body.descLabel != null) _body.descLabel.color = UguiTheme.TextSecondary;
+                if (_body.emptyLabel != null) _body.emptyLabel.color = UguiTheme.TextSecondary;
+            }
             GrowthTabs.Clear();
             CountTabs.Clear();
             if (_body != null && _body.navBar != null)
