@@ -13,7 +13,6 @@ namespace KingdomIdle.UGUI.Editor
     public static class BronzeArmyPreparation
     {
         private const string Root = "Assets/UGUI/Prefabs/";
-        private const string HpMaterialPath = "Assets/UGUI/Materials/GalmuriHpOutline.mat";
         private const float JobCardHeight = 544;
         private static readonly Color PortraitSurface = new Color32(220, 205, 174, 255);
         private static readonly Color ChipSurface = new Color32(222, 208, 177, 255);
@@ -54,16 +53,24 @@ namespace KingdomIdle.UGUI.Editor
                     "Portrait, actual HP fill and detail toggle references remain connected");
                 Check(view.atkValueLabel.color == UguiTheme.InfoInk && view.atkValueLabel.transform.parent.Find("MetricName") != null,
                     "Attack chip has a readable value and explicit metric name");
-                var healthMaterial = view.hpValueLabel.fontSharedMaterial;
-                Check(healthMaterial != null && AssetDatabase.GetAssetPath(healthMaterial) == HpMaterialPath &&
-                    healthMaterial.mainTexture == view.hpValueLabel.font.material.mainTexture &&
-                    healthMaterial.shader == view.hpValueLabel.font.material.shader,
-                    "Dedicated HP material uses the current font's shader and matching atlas");
-                Check(view.hpValueLabel.color == UguiTheme.TextPrimary && view.hpValueLabel.fontSize == 36 &&
-                    healthMaterial.GetColor(ShaderUtilities.ID_FaceColor) == Color.white &&
-                    healthMaterial.GetColor(ShaderUtilities.ID_OutlineColor) == UguiTheme.InfoInk &&
-                    Mathf.Abs(healthMaterial.GetFloat(ShaderUtilities.ID_OutlineWidth) - .2f) < .001f,
-                    "HP numbers retain a white face and dark outline on bright fill, empty track and shield");
+                Check(view.hpValueLabel.fontSharedMaterial == view.hpValueLabel.font.material &&
+                    view.hpValueLabel.color == UguiTheme.InfoInk && view.hpValueLabel.fontSize == 36 && view.hpValueLabel.overrideColorTags,
+                    "HP and shield numbers use solid dark text with the normal font material at 36px");
+                var hpTrack = (RectTransform)view.hpFill.transform.parent;
+                var valueSurface = view.hpValueLabel.transform.parent;
+                Check(valueSurface.name == "HpValueSurface" && valueSurface.GetComponent<Image>().color == UguiTheme.InfoSurface &&
+                    valueSurface.parent == hpTrack.parent && !view.hpValueLabel.transform.IsChildOf(hpTrack),
+                    "HP numbers occupy their own light line above the original health/shield track");
+                var characterRect = (RectTransform)root.transform;
+                characterRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 1000);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(characterRect);
+                characterRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, LayoutUtility.GetPreferredHeight(characterRect));
+                LayoutRebuilder.ForceRebuildLayoutImmediate(characterRect);
+                var labelBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(hpTrack.parent, view.hpValueLabel.rectTransform);
+                var trackBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(hpTrack.parent, hpTrack);
+                Check(labelBounds.min.y >= trackBounds.max.y + 3.5f && hpTrack.rect.height >= 24 &&
+                    view.hpValueLabel.rectTransform.rect.height >= 48,
+                    "Actual label bounds stay above the separate HP track with a visible gap");
                 foreach (var terms in new[] { view.atkEqRow, view.hpEqRow })
                     Check(terms.parent.GetComponent<ScrollRect>()?.content == terms && terms.parent.GetComponent<RectMask2D>() != null,
                         terms.name + " keeps the original term target inside a horizontal equation viewport");
@@ -209,12 +216,27 @@ namespace KingdomIdle.UGUI.Editor
             var healthFont = F.Font != null ? F.Font : UguiGenAssets.Font;
             if (healthFont == null) throw new InvalidOperationException("HP 숫자에 사용할 현재 폰트가 없습니다.");
             view.hpValueLabel.font = healthFont;
-            Type(view.hpValueLabel, 36, UguiTheme.TextPrimary);
-            view.hpValueLabel.fontSharedMaterial = EnsureHpOutline(healthFont);
-            var hpTrack = view.hpValueLabel.transform.parent;
+            Type(view.hpValueLabel, 36, UguiTheme.InfoInk);
+            // 기존 updater의 흰색 보호막 숫자 태그도 밝은 숫자 행에서 같은 짙은 색으로 읽히게 한다.
+            view.hpValueLabel.overrideColorTags = true;
+            var hpTrack = (RectTransform)view.hpFill.transform.parent;
+            var hpRow = info.transform.Find("HpRow");
+            var readout = Rect(hpRow, "HpReadout");
+            Flexible(readout); Height(readout, 84); Height(hpRow, 96);
+            var readoutLayout = readout.GetComponent<VerticalLayoutGroup>() ?? readout.gameObject.AddComponent<VerticalLayoutGroup>();
+            readoutLayout.padding = new RectOffset(); readoutLayout.spacing = 4;
+            readoutLayout.childAlignment = TextAnchor.UpperLeft;
+            readoutLayout.childControlWidth = readoutLayout.childControlHeight = true;
+            readoutLayout.childForceExpandWidth = true; readoutLayout.childForceExpandHeight = false;
+            var valueSurface = Surface(readout, "HpValueSurface", UguiTheme.InfoSurface);
+            Layout(valueSurface.transform).ignoreLayout = false; Height(valueSurface.transform, 56);
+            if (view.hpValueLabel.transform.parent != valueSurface.transform) view.hpValueLabel.transform.SetParent(valueSurface.transform, false);
+            Fill(view.hpValueLabel.rectTransform, 0);
+            if (hpTrack.parent != readout) hpTrack.SetParent(readout, false);
+            valueSurface.transform.SetSiblingIndex(0); hpTrack.SetSiblingIndex(1);
             Flat(hpTrack.GetComponent<Image>(), BlueSurface);
-            Height(hpTrack, 56); Height(hpTrack.parent, 64);
-            foreach (var icon in hpTrack.parent.GetComponentsInChildren<Image>(true).Where(x => x.name == "HpIcon")) Size(icon.transform, 40, 40);
+            Height(hpTrack, 24);
+            foreach (var icon in hpRow.GetComponentsInChildren<Image>(true).Where(x => x.name == "HpIcon")) Size(icon.transform, 40, 40);
             Height(view.atkValueLabel.transform.parent.parent, 64);
             Metric(view.atkValueLabel, "공격력");
             Metric(view.moveValueLabel, "이동");
@@ -456,32 +478,6 @@ namespace KingdomIdle.UGUI.Editor
         }
 
         private static LayoutElement Layout(Transform target) => target.GetComponent<LayoutElement>() ?? target.gameObject.AddComponent<LayoutElement>();
-        private static Material EnsureHpOutline(TMP_FontAsset font)
-        {
-            var source = font.material;
-            if (source == null) throw new InvalidOperationException("현재 HP 폰트의 정상 머티리얼이 없습니다.");
-            var material = AssetDatabase.LoadAssetAtPath<Material>(HpMaterialPath);
-            if (material == null)
-            {
-                if (AssetDatabase.LoadMainAssetAtPath(HpMaterialPath) != null)
-                    throw new InvalidOperationException("HP 전용 머티리얼 경로에 다른 종류의 자산이 있습니다.");
-                PrefabGenUtil.EnsureFolder("Assets/UGUI/Materials");
-                material = new Material(source) { name = "GalmuriHpOutline" };
-                AssetDatabase.CreateAsset(material, HpMaterialPath);
-            }
-            else
-            {
-                material.shader = source.shader;
-                material.CopyPropertiesFromMaterial(source);
-            }
-            // 현재 atlas와 face 설정을 복사한 뒤 필요한 대비만 바꾼다. 같은 자산을 재사용하여 GUID를 보존한다.
-            material.SetColor(ShaderUtilities.ID_FaceColor, Color.white);
-            material.SetColor(ShaderUtilities.ID_OutlineColor, UguiTheme.InfoInk);
-            material.SetFloat(ShaderUtilities.ID_OutlineWidth, .2f);
-            EditorUtility.SetDirty(material);
-            AssetDatabase.SaveAssetIfDirty(material);
-            return material;
-        }
         private static void Height(Transform target, float height) { var layout = Layout(target); layout.minHeight = layout.preferredHeight = height; layout.flexibleHeight = 0; }
         private static void Size(Transform target, float width, float height) { var layout = Layout(target); layout.minWidth = layout.preferredWidth = width; layout.flexibleWidth = 0; Height(target, height); }
         private static void Flexible(Transform target) { var layout = Layout(target); layout.minWidth = layout.preferredWidth = 0; layout.flexibleWidth = 1; }
