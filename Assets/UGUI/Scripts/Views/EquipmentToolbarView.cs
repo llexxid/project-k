@@ -16,7 +16,7 @@ namespace KingdomIdle.UGUI
         private Action _refresh;
         private bool _bound;
         private static readonly string[] Rarities = { "전체", "일반", "레어", "에픽" };
-        private static readonly string[] Sorts = { "등급", "공격력", "강화", "최근 획득" };
+        private static readonly string[] Sorts = { "등급", "공격력", "강화", "획득순" };
 
         public void Bind(Func<EquipmentData, bool> usable, Action refresh, bool hasSettingsShortcut = false)
         {
@@ -39,10 +39,11 @@ namespace KingdomIdle.UGUI
                 _bound = true;
             }
             var state = LocalProgression.State;
-            Label(job, state.EquipmentUsableOnly ? "직업: 사용 가능" : "직업: 전체");
-            Label(rarity, "등급: " + Rarities[state.EquipmentRarityFilter + 1]);
-            Label(sort, "정렬: " + Sorts[state.EquipmentSort]);
-            Label(automatic, "장비 설정");
+            Label(job, state.EquipmentUsableOnly ? "직업\n사용가능" : "직업\n전체");
+            Label(rarity, "등급\n" + Rarities[state.EquipmentRarityFilter + 1]);
+            Label(sort, "정렬\n" + Sorts[state.EquipmentSort]);
+            Label(automatic, "장비\n설정");
+            Label(dismantle, "일괄\n분해");
             RefreshSummary();
         }
 

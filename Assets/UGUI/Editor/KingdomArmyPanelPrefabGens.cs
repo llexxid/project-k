@@ -202,7 +202,7 @@ namespace KingdomIdle.UGUI.Editor
             F.Preferred(view.equippedStatLabel, height: 46f);
 
             var unBtn = F.TextButton(card.transform, "BtnUnequip", "해제", 36f, UguiTheme.BtnCancel, out _);
-            F.Preferred(unBtn, width: 120f, height: 96f).minWidth = 120f;
+            F.Preferred(unBtn, width: 144f, height: 132f).minWidth = 144f;
             view.unequipButton = unBtn;
 
             EquipmentFeaturePreparation.AttachEquipmentActions(view);
