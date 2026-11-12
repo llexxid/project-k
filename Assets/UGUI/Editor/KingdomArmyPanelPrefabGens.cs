@@ -175,6 +175,7 @@ namespace KingdomIdle.UGUI.Editor
         internal static GameObject GenerateEquipment()
         {
             var (root, view) = NewContent<KAEquipmentView>("Panel_KAEquipment");
+            root.GetComponent<VerticalLayoutGroup>().spacing = 8f;
 
             // 장착 정보는 한 줄 카드로 유지해 처음 열 때 보유 장비까지 함께 보인다.
             var card = F.Box(root, "EquippedCard", UguiTheme.InfoSurface);
@@ -202,12 +203,11 @@ namespace KingdomIdle.UGUI.Editor
             F.Preferred(view.equippedStatLabel, height: 46f);
 
             var unBtn = F.TextButton(card.transform, "BtnUnequip", "해제", 36f, UguiTheme.BtnCancel, out _);
+            EquipmentFeaturePreparation.StyleActionButton(unBtn, UguiTheme.BtnCancel);
             F.Preferred(unBtn, width: 144f, height: 132f).minWidth = 144f;
             view.unequipButton = unBtn;
 
             EquipmentFeaturePreparation.AttachEquipmentActions(view);
-            var ownedTitle = F.Text(root, "OwnedTitle", "보유 장비", 42f, UguiTheme.TextPrimary, bold: true);
-            F.Preferred(ownedTitle, height: 56f);
             var grid = F.Container(root, "InventoryGrid");
             MakeEquipGrid(grid.gameObject);
             view.inventoryGrid = grid;

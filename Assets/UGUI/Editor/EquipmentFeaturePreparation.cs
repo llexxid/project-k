@@ -43,6 +43,9 @@ namespace KingdomIdle.UGUI.Editor
                 var toolbar = root.GetComponentInChildren<EquipmentToolbarView>(true);
                 if (view.equippedIcon == null || view.inventoryGrid == null || view.recommendButton == null || view.settingsButton == null || toolbar == null)
                     throw new InvalidOperationException("Bronze equipment references are incomplete.");
+                if (view.transform.Find("OwnedTitle") != null || view.GetComponent<VerticalLayoutGroup>().spacing > 8 ||
+                    view.unequipButton.transform.Find("LobbyBronze") == null)
+                    throw new InvalidOperationException("Equipment must leave room for its first grid row and use the shared bronze unequip button.");
                 var responsive = view.inventoryGrid.GetComponent<ResponsiveGrid>();
                 if (responsive == null)
                     throw new InvalidOperationException("The army equipment grid must use the shared responsive layout.");
@@ -196,12 +199,18 @@ namespace KingdomIdle.UGUI.Editor
         { var row = F.Container(parent, name); F.HLayout(row.gameObject, 10, expandWidth: true); F.Preferred(row, height: 132); return row; }
         private static Button Action(Transform row, string name, string label, Color color)
         {
-            var button = F.TextButton(row, name, label, 36, color, out var text);
-            TitleLobbyBuilder.StyleButton(button,true);
-            text.fontStyle=FontStyles.Normal;text.fontSharedMaterial=F.Font.material;
-            button.targetGraphic.color=color;
-            if (color == UguiTheme.ActionGold) text.color = UguiTheme.InfoInk;
+            var button = F.TextButton(row, name, label, 36, color, out _);
+            StyleActionButton(button, color);
             F.Preferred(button, width: 100, height: 132).minHeight = 132; F.Flexible(button, flexWidth: 1); return button;
+        }
+
+        internal static void StyleActionButton(Button button, Color color)
+        {
+            TitleLobbyBuilder.StyleButton(button, true);
+            var text = button.GetComponentInChildren<TMP_Text>(true);
+            text.fontStyle = FontStyles.Normal; text.fontSharedMaterial = F.Font.material;
+            text.color = color == UguiTheme.ActionGold ? UguiTheme.InfoInk : UguiTheme.TextPrimary;
+            button.targetGraphic.color = color;
         }
 
         private static GameObject CreateDialog()
