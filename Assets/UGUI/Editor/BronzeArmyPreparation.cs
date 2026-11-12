@@ -19,6 +19,12 @@ namespace KingdomIdle.UGUI.Editor
         private static readonly Color BlueSurface = new Color32(31, 49, 58, 255);
         private static Sprite Rounded => AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/Sprites/RoundedRect.png");
 
+        public static void ApplyAndValidate()
+        {
+            Apply();
+            Validate();
+        }
+
         [MenuItem("KingdomIdle/UGUI/청동 원정대/왕국군 표시 적용")]
         public static void Apply()
         {
@@ -152,6 +158,7 @@ namespace KingdomIdle.UGUI.Editor
                 Check(view.image != null && view.compareTable != null && view.skillList != null && view.changeRow != null && view.backButton != null,
                     "Job-detail portrait, comparisons, skills, change action and return references remain connected");
             });
+            Debug.Log("BRONZE ARMY PRESENTATION PASSED " + checks.Count);
             return new { passed = checks.Count, checks };
         }
 
@@ -165,7 +172,9 @@ namespace KingdomIdle.UGUI.Editor
         private static void ValidateJobCardWords(GameObject root, Action<bool, string> check)
         {
             // 실제 카드와 직업 에셋만 읽는다. 계정/전직 매니저/서버 요청은 만들거나 실행하지 않는다.
-            var canvas = root.GetComponent<Canvas>() ?? root.AddComponent<Canvas>(); canvas.renderMode = RenderMode.WorldSpace;
+            var canvas = root.GetComponent<Canvas>();
+            if (canvas == null) canvas = root.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
             var view = root.GetComponent<JobCardView>();
             var rect = (RectTransform)root.transform;
             var roles = new[] { (Job: "Knight", Text: "묵직한 근접 공격"), (Job: "Elite_Knight", Text: "광역 베기 · 보호막"),
@@ -211,7 +220,8 @@ namespace KingdomIdle.UGUI.Editor
                 label.ForceMeshUpdate(true, true);
                 check(label.GetParsedText() == expected && !label.isTextTruncated && label.textInfo.lineCount <= 2 &&
                     label.GetPreferredValues(label.text, label.rectTransform.rect.width, float.PositiveInfinity).y <= label.rectTransform.rect.height + 1,
-                    width + "px " + expected + " stays complete within its two authored lines");
+                    width + "px " + expected + " stays complete within its two authored lines" +
+                    $" (parsed='{label.GetParsedText()}', lines={label.textInfo.lineCount}, truncated={label.isTextTruncated}, rect={label.rectTransform.rect}, preferred={label.GetPreferredValues(label.text, label.rectTransform.rect.width, float.PositiveInfinity)})");
                 int start = 0;
                 foreach (string word in expected.Split(' '))
                 {
@@ -453,11 +463,11 @@ namespace KingdomIdle.UGUI.Editor
             view.nameLabel.fontStyle = FontStyles.Bold;
             Top(view.nameLabel.rectTransform, 184, 60, 20);
             Type(view.statLabel, 36, UguiTheme.InfoMuted);
-            Top(view.statLabel.rectTransform, 252, 88, 20);
+            Top(view.statLabel.rectTransform, 248, 92, 20);
             Type(view.fragLabel, 36, UguiTheme.TextPrimary);
-            Top(view.fragLabel.rectTransform, 356, 88, 16);
+            Top(view.fragLabel.rectTransform, 350, 92, 16);
             Type(view.prereqLabel, 36, UguiTheme.WarnRed);
-            Top(view.prereqLabel.rectTransform, 448, 88, 16);
+            Top(view.prereqLabel.rectTransform, 446, 92, 16);
             foreach (var label in new[] { view.statLabel, view.fragLabel, view.prereqLabel })
             {
                 label.textWrappingMode = TextWrappingModes.Normal;
