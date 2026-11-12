@@ -42,7 +42,7 @@ namespace KingdomIdle.UGUI
                 stageLabel.text = $"{stageNumber}단계";
             if (powerLabel != null)
             {
-                powerLabel.text = recommendedPower > 0 ? $"권장 전투력  {NumberNotation.Format(recommendedPower)}" : isUnlocked ? "입장 가능" : "이전 단계를 클리어하세요";
+                powerLabel.text = recommendedPower > 0 ? $"권장 전투력  {NumberNotation.Format(recommendedPower)}" : isUnlocked ? "선택 가능" : "이전 단계를 클리어하세요";
                 powerLabel.color = currentPower < recommendedPower
                     ? PowerWarningColor
                     : PowerNormalColor;

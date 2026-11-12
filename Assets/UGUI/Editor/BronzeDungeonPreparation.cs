@@ -60,6 +60,59 @@ namespace KingdomIdle.UGUI.Editor
             Debug.Log(Newtonsoft.Json.JsonConvert.SerializeObject(ValidateGeometry(), Newtonsoft.Json.Formatting.Indented));
         }
 
+        /// <summary>입장 처리를 실행하지 않고 실제 프리팹의 상태별 문구와 버튼 가드를 대조한다.</summary>
+        public static void ValidateEntryState()
+        {
+            if (Application.isPlaying) throw new InvalidOperationException("입장 표시 검사는 EditMode에서 실행해 주세요.");
+            var canvas = new GameObject("DungeonEntryPresentation", typeof(RectTransform), typeof(Canvas));
+            canvas.hideFlags = HideFlags.HideAndDontSave;
+            canvas.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
+            ((RectTransform)canvas.transform).sizeDelta = new Vector2(1080, 1920);
+            var fixture = Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(Root + "Popups/Popup_DungeonDifficulty.prefab"), canvas.transform, false);
+            fixture.SetActive(true);
+            var checks = new List<string>();
+            void Check(bool ok, string name)
+            {
+                if (!ok) throw new InvalidOperationException("Dungeon entry presentation: " + name);
+                checks.Add(name);
+            }
+            try
+            {
+                var view = fixture.GetComponent<DungeonDifficultyPopupView>();
+                var enter = Ref<Button>(view, "enterButton");
+                var label = enter.GetComponentInChildren<TMP_Text>(true);
+                var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                var type = typeof(DungeonDifficultyPopupView);
+                void Display(Scripts.Core.eStage stage, int tickets, bool pending, string text, bool enabled)
+                {
+                    type.GetField("selectedStageId", flags).SetValue(view, stage);
+                    type.GetField("displayedTickets", flags).SetValue(view, tickets);
+                    type.GetField("entryPending", flags).SetValue(view, pending);
+                    type.GetMethod("RefreshEnterButton", flags).Invoke(view, null);
+                    Check(enter.interactable == enabled && label.text == text, text + " matches the existing entry guard");
+                    label.ForceMeshUpdate(true, true);
+                    Check(label.textInfo.lineCount <= 1 && label.GetPreferredValues(text).x <= label.rectTransform.rect.width + 1,
+                        text + " fits the existing footer label");
+                }
+                LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)fixture.transform.Find("Window"));
+                Canvas.ForceUpdateCanvases();
+                Display(Scripts.Core.eStage.GoldDungeon1_1, 0, false, "입장권 없음", false);
+                Display(Scripts.Core.eStage.GoldDungeon1_1, 1, false, "입장하기", true);
+                Display(Scripts.Core.eStage.GoldDungeon1_1, 1, true, "입장 대기 중", false);
+                Display(default, 1, false, "입장 잠김", false);
+                Display(Scripts.Core.eStage.RubyDungeon1_1, 2, false, "입장하기", true);
+                var row = fixture.GetComponentInChildren<DungeonDifficultyRowView>(true);
+                row.Configure(1, true, 0, 0, null);
+                Check(Ref<TMP_Text>(row, "powerLabel").text == "선택 가능", "Unlocked difficulty describes selection, not ticket availability");
+                row.Configure(2, false, 0, 0, null);
+                Check(!Ref<Button>(row, "button").interactable && Ref<TMP_Text>(row, "powerLabel").text == "이전 단계를 클리어하세요",
+                    "Locked difficulty still preserves the unlock rule");
+                Check(((RectTransform)enter.transform).rect.height >= 132, "Existing footer touch height is preserved");
+                Debug.Log("BRONZE DUNGEON ENTRY PRESENTATION PASSED " + checks.Count);
+            }
+            finally { Object.DestroyImmediate(canvas); }
+        }
+
         private static void ApplyCard(DungeonCardView card)
         {
             var root = card.transform;
