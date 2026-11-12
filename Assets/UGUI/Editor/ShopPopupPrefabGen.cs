@@ -424,12 +424,12 @@ namespace KingdomIdle.UGUI.Editor
             var layout = view.sheet.GetComponent<VerticalLayoutGroup>();
             layout.padding = new RectOffset(30, 30, 20, 24); layout.spacing = 12;
             view.title.fontSize = 60;
-            F.Preferred(view.sheet.Find("Header"), height: 104);
-            F.Preferred(view.closeButton, width: 150, height: 104);
-            F.Preferred(view.sheet.Find("Tabs"), height: 100);
+            F.Preferred(view.sheet.Find("Header"), height: 132).minHeight = 132;
+            F.Preferred(view.closeButton, width: 150, height: 132).minHeight = 132;
+            F.Preferred(view.sheet.Find("Tabs"), height: 132).minHeight = 132;
             foreach (var tab in view.tabs)
             {
-                F.Preferred(tab, height: 100);
+                F.Preferred(tab, height: 132).minHeight = 132;
                 tab.GetComponentInChildren<TMP_Text>().fontSize = 36;
             }
             SetShopLabel(view.wallet, null, 36, 48);
@@ -446,7 +446,9 @@ namespace KingdomIdle.UGUI.Editor
             }
             var daily = view.pages[(int)ShopCategory.Rewarded].transform.Find("DailyHint").GetComponent<TMP_Text>();
             daily.text = "장비 · 마탑 뽑기권 각각 2장\n각 하루 1회 · 한국 시간 자정 초기화";
-            foreach (var row in view.offers) BuildOfferPresentation(row, ShopCatalog.Find(row.offerId));
+            var chest = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/UsingAssets/Dungeon_Chest01.png");
+            if (chest == null) throw new InvalidOperationException("The existing colored supply chest is missing.");
+            foreach (var row in view.offers) BuildOfferPresentation(row, ShopCatalog.Find(row.offerId), chest);
         }
 
         private static void SetShopLabel(TMP_Text label, string text, float size, float height)
@@ -455,7 +457,7 @@ namespace KingdomIdle.UGUI.Editor
             label.fontSize = size; F.Preferred(label, height: height);
         }
 
-        private static void BuildOfferPresentation(ShopOfferView row, ShopOffer offer)
+        private static void BuildOfferPresentation(ShopOfferView row, ShopOffer offer, Sprite equipmentChest)
         {
             if (offer == null) throw new InvalidOperationException("Unknown shop offer: " + row.offerId);
             for (int i = row.transform.childCount - 1; i >= 0; i--) Object.DestroyImmediate(row.transform.GetChild(i).gameObject);
@@ -471,7 +473,7 @@ namespace KingdomIdle.UGUI.Editor
             Sprite icon = offer.PermanentAdRemoval ? UguiGenAssets.IconHourglass :
                 offer.GoldMinutes > 0 ? UguiGenAssets.IconCoin :
                 offer.MageTickets > 0 && offer.EquipmentTickets == 0 ? F.Catalog.iconSkillWand :
-                offer.EquipmentTickets > 0 ? F.Catalog.iconChest : UguiGenAssets.IconAncientCoin;
+                offer.EquipmentTickets > 0 ? equipmentChest : UguiGenAssets.IconAncientCoin;
             var image = F.IconImage(heading, "Icon", icon, 112, 112);
             F.Preferred(image, width: 112, height: 112).minWidth = 112;
             var info = F.Container(heading, "Info"); F.VLayout(info.gameObject, 6);
@@ -487,25 +489,30 @@ namespace KingdomIdle.UGUI.Editor
                 var chips = F.Container(row.transform, "Contents"); F.HLayout(chips.gameObject, 10, expandWidth: true);
                 F.Preferred(chips, height: 68);
                 RewardChip(chips, UguiGenAssets.IconAncientCoin, NumberNotation.Exact(offer.Coins));
-                RewardChip(chips, F.Catalog.iconChest, "장비 " + offer.EquipmentTickets);
+                RewardChip(chips, equipmentChest, "장비 " + offer.EquipmentTickets);
                 RewardChip(chips, F.Catalog.iconSkillWand, "마탑 " + offer.MageTickets);
             }
             var bottom = F.Container(row.transform, "Bottom");
             F.HLayout(bottom.gameObject, 16, align: TextAnchor.MiddleLeft);
-            F.Preferred(bottom, height: 104);
+            F.Preferred(bottom, height: 132);
             string amount = offer.Payment == ShopPayment.RewardedAd ? "오늘 0 / 1회" :
                 offer.PermanentAdRemoval ? "영구 이용 · 준비 중" : offer.GoldMinutes > 0 ? "골드 수입 계산 중" : "상품 미리보기";
             row.amount = F.Text(bottom, "Amount", amount, 34, UguiTheme.InfoMuted, wrap: true);
             F.Flexible(row.amount, flexWidth: 1); F.Preferred(row.amount, height: 96);
-            bool primary = offer.Payment == ShopPayment.RewardedAd || offer.PermanentAdRemoval;
+            bool primary = offer.Payment == ShopPayment.RewardedAd;
             string price = offer.Payment == ShopPayment.RewardedAd ? "광고 보고 받기" : offer.Payment == ShopPayment.AncientCoin
                 ? "주화 " + NumberNotation.Exact(offer.AncientCoinCost) + "개\n준비 중" : NumberNotation.Exact(offer.PreviewWon) + "원\n준비 중";
-            row.action = F.TextButton(bottom, "BtnAction", price, 36, primary ? UguiTheme.ActionGold : UguiTheme.RusticSurface, out var label,
-                textColor: primary ? UguiTheme.InfoInk : UguiTheme.Parchment);
+            row.action = F.TextButton(bottom, "BtnAction", price, 36, primary ? UguiTheme.ActionGold : ShopOfferView.PreviewActionColor, out var label,
+                textColor: UguiTheme.InfoInk, bold: false);
+            var actionImage = row.action.GetComponent<Image>();
+            actionImage.sprite = UguiGenAssets.KitBtnGrey; actionImage.type = Image.Type.Sliced;
+            foreach (var decoration in row.action.GetComponentsInChildren<Image>(true))
+                if (decoration != actionImage) decoration.enabled = false;
             label.fontSharedMaterial = F.Font.material; label.enableWordWrapping = true;
             row.price = label;
-            F.Preferred(row.action, width: 330, height: 104).minWidth = 330;
-            F.Preferred(row, height: package ? 382 : 302);
+            row.ApplyActionAppearance();
+            var actionSize = F.Preferred(row.action, width: 330, height: 132); actionSize.minWidth = 330; actionSize.minHeight = 132;
+            F.Preferred(row, height: package ? 410 : 330);
         }
 
         private static void RewardChip(Transform parent, Sprite icon, string text)
@@ -529,6 +536,14 @@ namespace KingdomIdle.UGUI.Editor
                 throw new InvalidOperationException("Shop offer/category wiring mismatch.");
             if (shop.offers.Any(x => ShopCatalog.Find(x.offerId) == null || x.action == null || x.price == null) || shop.offers.Select(x => x.offerId).Distinct().Count() != shop.offers.Length)
                 throw new InvalidOperationException("Shop has missing/duplicate IDs or buttons.");
+            if (shop.tabs.Any(x => x.GetComponent<LayoutElement>().preferredHeight < 132) || shop.offers.Any(x => x.action.GetComponent<LayoutElement>().preferredHeight < 132))
+                throw new InvalidOperationException("Shop category and action touch targets must be at least 132px high.");
+            foreach (var offer in shop.offers)
+            {
+                bool ready = ShopCatalog.Find(offer.offerId).Payment == ShopPayment.RewardedAd;
+                if (offer.action.targetGraphic.color != (ready ? UguiTheme.ActionGold : ShopOfferView.PreviewActionColor) || offer.price.color != UguiTheme.InfoInk)
+                    throw new InvalidOperationException("Only connected daily advertisements may use the gold primary action: " + offer.offerId);
+            }
             var main = catalog.screenMain.GetComponent<MainScreenView>();
             if (main.tabStore == null || main.popupHamburger == null || main.btnMenuNotice == null || main.btnMenuMail == null || main.btnMenuCheckIn == null ||
                 main.btnMenuNotice == main.btnMenuMail || main.btnMenuNotice == main.btnMenuCheckIn ||
