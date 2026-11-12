@@ -105,14 +105,25 @@ namespace KingdomIdle.UGUI.Editor
 
             var detailBtn = F.TextButton(actionRow, "DetailBtn", "분해", 42f, UguiTheme.RusticSurface, out _);
             F.Flexible(detailBtn, flexWidth: 1f);
+            F.Preferred(detailBtn, height: 144f).minHeight = 144f;
             view.detailButton = detailBtn;
 
             var enhBtn = F.TextButton(actionRow, "EnhanceBtn", "강화", 42f, UguiTheme.ActionGold, out var enhLabel);
             enhLabel.color = UguiTheme.InfoInk;
             F.Flexible(enhBtn, flexWidth: 1f);
+            F.Preferred(enhBtn, height: 144f).minHeight = 144f;
             view.enhanceButton = enhBtn;
             view.enhanceButtonBg = enhBtn.GetComponent<Image>();
             view.enhanceButtonLabel = enhLabel;
+
+            foreach (var button in new[] { back, detailBtn, enhBtn })
+            {
+                var image = button.GetComponent<Image>();
+                image.sprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/Sprites/RoundedRect.png");
+                image.type = Image.Type.Sliced;
+                foreach (var decoration in button.GetComponentsInChildren<Image>(true))
+                    if (decoration != image) decoration.gameObject.SetActive(false);
+            }
 
             // 강화 정보 섹션 (MAX면 통째로 숨김)
             var enhSection = F.Container(root, "EnhanceSection");

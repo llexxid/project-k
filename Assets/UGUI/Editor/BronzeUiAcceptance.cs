@@ -35,6 +35,7 @@ namespace KingdomIdle.UGUI.Editor
                 checks.Add(label);
             }
             ValidatePrefabs(Check);
+            ValidateInventoryPresentation(Check);
             ValidateGeometry(Check);
             ValidateInventoryBack(Check);
             ValidateInactivePulse(Check);
@@ -63,6 +64,9 @@ namespace KingdomIdle.UGUI.Editor
                     panel.name + " retains its sheet, input blocker and close/title references");
                 check(view.sheet.GetComponent<SheetSizeFitter>() != null && view.sheet.parent.GetComponent<RectMask2D>() != null,
                     panel.name + " retains a fitted and clipped content area");
+                check(panel.GetComponentsInChildren<CenteredPanelSize>(true).Length == 0 &&
+                    panel.GetComponentsInChildren<PartyHudSuppressor>(true).Length == 0,
+                    panel.name + " has one size owner and preserves the compact party HUD");
                 var scroll = panel.GetComponentsInChildren<ScrollRect>(true);
                 check(scroll.Length > 0 && scroll.All(x => x.viewport != null && x.content != null), panel.name + " retains its internal scrolling references");
                 ValidateReferences(panel, check);
@@ -95,6 +99,38 @@ namespace KingdomIdle.UGUI.Editor
                     }
             }
             check(references > 0, prefab.name + " scripts and " + references + " serialized object references resolve");
+        }
+
+        private static void ValidateInventoryPresentation(Action<bool, string> check)
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<UIViewCatalog>(PrefabGenUtil.CatalogPath);
+            var fixture = new GameObject("BronzeInventoryPresentation", typeof(RectTransform));
+            fixture.hideFlags = HideFlags.HideAndDontSave;
+            ((RectTransform)fixture.transform).sizeDelta = new Vector2(1000, 1600);
+            try
+            {
+                var detail = Object.Instantiate(catalog.itemInventoryEquipDetail, fixture.transform, false).GetComponent<InventoryEquipDetailView>();
+                var rect = (RectTransform)detail.transform;
+                rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 960);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
+                rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, LayoutUtility.GetPreferredHeight(rect));
+                LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
+                foreach (var button in new[] { detail.detailButton, detail.enhanceButton })
+                    check(((RectTransform)button.transform).rect.height >= 132,
+                        "Inventory " + button.name + " keeps a visible label and at least 132px touch height inside its action row");
+                var card = Object.Instantiate(catalog.itemEquipCell, fixture.transform, false).GetComponent<EquipCellView>();
+                var cardRect = (RectTransform)card.transform;
+                cardRect.sizeDelta = new Vector2(225, 284);
+                card.Set(null, "엑스칼리버 +15", UguiTheme.TextPrimary, "ATK +999K", UguiTheme.Bronze, true, false, "장착 중");
+                LayoutRebuilder.ForceRebuildLayoutImmediate(cardRect);
+                check(LayoutUtility.GetPreferredHeight(cardRect) <= 284.1f,
+                    "Equipment icon, two-line name, attack and equipped status fit together in the shared 284px card");
+                foreach (var label in new[] { card.nameLabel, card.subLabel, card.stateLabel })
+                    check(label.rectTransform.rect.height + 1 >= label.GetPreferredValues(label.text, label.rectTransform.rect.width, float.PositiveInfinity).y,
+                        "Equipment card label fits without vertical clipping: " + label.text + " rect=" + label.rectTransform.rect.size +
+                        " preferred=" + label.GetPreferredValues(label.text, label.rectTransform.rect.width, float.PositiveInfinity));
+            }
+            finally { Object.DestroyImmediate(fixture); }
         }
 
         private static void ValidateGeometry(Action<bool, string> check)

@@ -190,7 +190,7 @@ namespace KingdomIdle.UGUI
             var page = SpawnListPage();
             if (page == null) return;
 
-            page.SetSection("인벤토리");
+            page.SetSection(null);
 
             var equipItems = GatherAllEquipmentItems();
             if (equipItems.Count > 0 || HasStoredEquipment)
@@ -318,10 +318,8 @@ namespace KingdomIdle.UGUI
                                   owner.PlayerEquipmentManager.GetSlotEquipment(item.baseData.slot) == item;
 
                 string enhStr = item.enhancementLevel > 0 ? $" +{item.enhancementLevel}" : "";
-                int ownerIdx = _players.IndexOf(owner);
-                string sub = ownerIdx >= 0
-                    ? $"ATK +{NumberNotation.Format(item.GetFinalAtk())}  (왕국군{ownerIdx + 1})"
-                    : $"ATK +{NumberNotation.Format(item.GetFinalAtk())}";
+                // 소유 왕국군은 상세에 표시하고 좁은 목록에는 비교할 최종 공격력만 남긴다.
+                string sub = $"ATK +{NumberNotation.Format(item.GetFinalAtk())}";
 
                 // 공용 장비 셀 프리팹 사용 (왕국군과 동일)
                 KingdomArmyPanelController.InstantiateEquipCell(

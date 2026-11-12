@@ -14,6 +14,13 @@ namespace KingdomIdle.UGUI.Editor
         private const string Root = "Assets/UGUI/Prefabs/";
         private static Sprite Rounded => AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/Sprites/RoundedRect.png");
 
+        public static void ApplyAndValidatePlay()
+        {
+            Apply();
+            MagePolishPreparation.BakeAuthoredGlyphs();
+            BronzeUiPlayAcceptance.Run();
+        }
+
         [MenuItem("KingdomIdle/UGUI/청동 원정대/전체 개편 적용")]
         public static void Apply()
         {
@@ -22,13 +29,21 @@ namespace KingdomIdle.UGUI.Editor
             ShopPopupPrefabGen.ApplyPanelLayout();
             DevelopmentPanelPrefabGens.ApplyBronzeGrowth();
             QuestCardPrefabBuilder.Apply();
+            GuidePanelPrefabGens.GenerateGuideEmptyHint();
             Edit("Screens/Screen_Main.prefab", GuidePanelPrefabGens.ApplyGuideGoal);
             ApplyCommon();
+            BronzeArmyPreparation.Apply();
+            BronzeDungeonPreparation.Apply();
+            BronzeGachaResultPreparation.Prepare();
             BronzeEquipmentIconPreparation.ValidateOrThrow();
             EquipmentFeaturePreparation.ValidateBronzeEquipmentUi();
             GachaPanelPrefabGens.ValidateBronzeUi();
             DevelopmentPanelPrefabGens.ValidateBronzeGrowth();
             QuestCardPrefabBuilder.ValidateBronzeCards();
+            Debug.Log(Newtonsoft.Json.JsonConvert.SerializeObject(BronzeArmyPreparation.Validate(), Newtonsoft.Json.Formatting.Indented));
+            BronzeUiAcceptance.Validate();
+            BronzeEquipmentGridAcceptance.Validate();
+            BronzeGachaResultPreparation.Validate();
         }
 
         [MenuItem("KingdomIdle/UGUI/청동 원정대/공통 화면 적용")]
@@ -84,6 +99,14 @@ namespace KingdomIdle.UGUI.Editor
             PanelGens.ConfigureSheet(view);
             bool inventory = view is InventoryPanelView;
             bool guide = view is GuidePanelView;
+            // Expanded sheets have a single size owner. Legacy centered popup sizing
+            // adds its fixed width to the stretch anchors and hides the retained HUD.
+            if (!guide)
+            {
+                foreach (var centered in root.GetComponentsInChildren<CenteredPanelSize>(true)) Object.DestroyImmediate(centered);
+                foreach (var suppressor in root.GetComponentsInChildren<PartyHudSuppressor>(true)) Object.DestroyImmediate(suppressor);
+                view.Sheet.sizeDelta = new Vector2(0, view.Sheet.sizeDelta.y);
+            }
             view.centeredModal = inventory;
             var fit = view.Sheet.GetComponent<SheetSizeFitter>();
             fit.heightMode = guide ? SheetSizeFitter.HeightMode.AvailableSpace : SheetSizeFitter.HeightMode.BelowPartyHud;
@@ -199,7 +222,9 @@ namespace KingdomIdle.UGUI.Editor
 
         private static void ApplyParty(GameObject root)
         {
-            Flat(root.GetComponent<Image>(), UguiTheme.RusticPanel, false);
+            var background = root.GetComponent<Image>() ?? root.AddComponent<Image>();
+            Flat(background, UguiTheme.RusticPanel, false);
+            background.raycastTarget = false;
             foreach (var text in root.GetComponentsInChildren<TMP_Text>(true))
                 if (text.name.Contains("Cooldown")) Type(text, 36);
         }
@@ -228,11 +253,17 @@ namespace KingdomIdle.UGUI.Editor
         private static void ApplyEquipmentCell(GameObject root)
         {
             var cell = root.GetComponent<EquipCellView>();
-            Type(cell.nameLabel, 36, 90);
+            var column = root.GetComponent<VerticalLayoutGroup>();
+            column.padding = new RectOffset(4, 4, 4, 4);
+            column.spacing = 2;
+            Height(root.transform.Find("IconWrap"), 96);
+            cell.icon.rectTransform.sizeDelta = new Vector2(96, 96);
+            Type(cell.nameLabel, 36, 92);
             cell.nameLabel.textWrappingMode = TextWrappingModes.Normal;
             cell.nameLabel.overflowMode = TextOverflowModes.Ellipsis;
-            Type(cell.subLabel, 32, 44);
-            Type(cell.stateLabel, 30, 42);
+            Type(cell.subLabel, 32, 40);
+            cell.subLabel.color = UguiTheme.TextSecondary;
+            Type(cell.stateLabel, 30, 36);
             Flat(cell.background, UguiTheme.RusticPanel);
             foreach (var text in root.GetComponentsInChildren<TMP_Text>(true)) text.raycastTarget = false;
         }
