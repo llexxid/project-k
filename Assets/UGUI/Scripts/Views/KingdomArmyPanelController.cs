@@ -716,7 +716,7 @@ namespace KingdomIdle.UGUI
                 int code = stored.Code, level = stored.Level;
                 string enhancement = level > 0 ? $" +{level}" : "";
                 InstantiateEquipCell(grid, data.icon, $"{data.DisplayName}{enhancement} ×{stored.Count}", UguiTheme.AccentGold,
-                    "1개 받기", UguiTheme.RarityColor(data.rarity), false, false, "추가 보관", () => {
+                    "1개 받기", UguiTheme.RarityColor(data.rarity), false, false, $"추가 보관 ×{NumberNotation.Format(stored.Count)}", () => {
                         var result = equipmentManager.ClaimLegacyEx(code, level);
                         UIManager.Instance?.ShowToast(result == EquipmentManager.EnhancementResult.Pending ? "추가 보관 장비 수령 요청 중" : EquipmentManager.Describe(result));
                     });
@@ -727,7 +727,7 @@ namespace KingdomIdle.UGUI
                 if (accepts != null && !accepts(item.Code)) continue;
                 string id = item.Id;
                 InstantiateEquipCell(grid, data.icon, $"{data.DisplayName} ×{group.Count()}", UguiTheme.AccentGold,
-                    "1개 받기", UguiTheme.RarityColor(data.rarity), false, false, "추가 보관", () => {
+                    "1개 받기", UguiTheme.RarityColor(data.rarity), false, false, $"추가 보관 ×{NumberNotation.Format(group.Count())}", () => {
                         var result = equipmentManager.ClaimPendingEx(id);
                         UIManager.Instance?.ShowToast(result == EquipmentManager.EnhancementResult.Pending ? "대기함 장비 수령 요청 중" : EquipmentManager.Describe(result));
                     });

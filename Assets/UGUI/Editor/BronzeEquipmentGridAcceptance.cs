@@ -117,11 +117,63 @@ namespace KingdomIdle.UGUI.Editor
                 CheckPositions(view, grid, Check);
                 CheckBindings(view, bound, Check);
                 Check(pool.Count < 64, "Scrolling, resizing, list growth and re-enable preserve the bounded card pool");
+                ValidateNames(rootRect, Check);
                 return new { passed = checks.Count, checks, idleRefreshes = 1000, idleMilliseconds,
                     source = "Synthetic rows and buttons only; no game account, server, rewards or editor scene save",
                     limitation = "Edit Mode fixture. Actual ScrollRect motion, canvas render cost and Android profiling require coordinator execution." };
             }
             finally { Object.DestroyImmediate(root); }
+        }
+
+        private static void ValidateNames(RectTransform parent, Action<bool, string> check)
+        {
+            var canvasRect = Child("EquipmentNameCanvas", parent);
+            var canvas = canvasRect.gameObject.AddComponent<Canvas>(); canvas.renderMode = RenderMode.WorldSpace;
+            canvasRect.sizeDelta = new Vector2(960, 900);
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/UGUI/Prefabs/Items/Item_EquipCell.prefab");
+            var card = Object.Instantiate(prefab, canvasRect, false).GetComponent<EquipCellView>();
+            var rect = (RectTransform)card.transform;
+            var catalogEquipment = AssetDatabase.FindAssets("t:EquipmentData", new[] { "Assets/_Project/Scripts/Player/Equipment/Prefab" })
+                .Select(AssetDatabase.GUIDToAssetPath).Where(path => !path.Contains("/Test/"))
+                .Select(AssetDatabase.LoadAssetAtPath<EquipmentData>).Where(data => data != null).ToArray();
+            var equipment = catalogEquipment.Where(data => data.CanBeRewarded).ToArray();
+            check(equipment.Length == 12 && equipment.Select(data => data.rarity).Distinct().Count() == 3,
+                "Name fixture reads all twelve active normal, rare and epic catalog assets without changing them");
+            foreach (float width in new[] { 210f, 225f })
+                foreach (var data in catalogEquipment)
+                    foreach (string name in new[] { data.DisplayName, data.DisplayName + " +" + data.maxEnhancementLevel })
+                    {
+                        rect.sizeDelta = new Vector2(width, 284);
+                        card.Set(data.icon, name, UguiTheme.TextPrimary, "ATK +999", UguiTheme.RarityColor(data.rarity), false, false);
+                        LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
+                        var label = card.nameLabel;
+                        label.ForceMeshUpdate(true, true);
+                        check(label.GetParsedText() == name && !label.isTextTruncated && label.textInfo.lineCount <= 2 &&
+                            label.GetPreferredValues(label.text, label.rectTransform.rect.width, float.PositiveInfinity).y <= label.rectTransform.rect.height + 1,
+                            width + "px " + name + " keeps the complete name and enhancement within two lines at the authored font size");
+                        int start = 0;
+                        foreach (string word in name.Split(' '))
+                        {
+                            int line = label.textInfo.characterInfo[start].lineNumber;
+                            check(Enumerable.Range(start, word.Length).All(index => label.textInfo.characterInfo[index].lineNumber == line),
+                                width + "px " + name + " keeps the word " + word + " on one line");
+                            start += word.Length + 1;
+                        }
+                    }
+            rect.sizeDelta = new Vector2(225, 284);
+            foreach (int count in new[] { 1, 999, 9999, 999999, 99999999, int.MaxValue })
+                foreach (NumberStyle style in Enum.GetValues(typeof(NumberStyle)))
+                {
+                    string state = "추가 보관 ×" + NumberNotation.Format(count, style);
+                    card.Set(equipment[0].icon, "황금 강철 지팡이 +10 ×" + count, UguiTheme.TextPrimary,
+                        "1개 받기", UguiTheme.RarityColor(eEquipmentRarity.Rare), false, false, state);
+                    LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
+                    var label = card.stateLabel;
+                    label.ForceMeshUpdate(true, true);
+                    check(label.GetParsedText() == state && !label.isTextTruncated && label.textInfo.lineCount == 1 &&
+                        label.fontSize >= 22 && label.textInfo.lineInfo[0].maxAdvance <= label.rectTransform.rect.width + 1,
+                        "225px stored quantity " + count + " stays visible in the separate state line with " + style + " notation");
+                }
         }
 
         private static void CheckHeight(VirtualEquipmentGrid view, GridLayoutGroup grid, RectTransform rect, int count, Action<bool, string> check)
