@@ -109,6 +109,11 @@ namespace KingdomIdle.UGUI.Editor
                             category + " tab has exactly one matching visual selection");
                         Check(ActiveRowIds(content).Length == expected.Length && (i == 0 || Mathf.Abs(scroll.verticalNormalizedPosition - 1f) < .001f),
                             category + " tab excludes delayed-destroy rows and starts at the top");
+                        Check(content.GetComponentsInChildren<GuideStepRowView>(false).All(x=>
+                            x.actionButton!=null && x.actionButton.gameObject==x.gameObject && x.checkButton==x.actionButton &&
+                            x.GetComponentsInChildren<Button>(false).Length==1 && x.claimBorder!=null &&
+                            !x.actionLabel.text.Contains("받기")),
+                            category + " tab uses one whole-cell action and a border instead of separate reward buttons");
                     }
 
                     // 같은 탭 재선택과 반복 Bind는 행을 재생성하거나 스크롤·저장을 바꾸지 않아야 한다.
@@ -147,6 +152,16 @@ namespace KingdomIdle.UGUI.Editor
                         "Achievement tab exposes the first unclaimed tier of a family");
                     Check(Visible(panel)[0].CanClaim, "Claimable achievements precede unfinished rows");
                     Button claim = ClaimButton(panel, 40401);
+                    var claimableAchievement=RowView(panel,40401);
+                    var achievementSnapshot=Visible(panel).Single(x=>x.Token.QuestId==40401);
+                    revision=LocalProgression.State.Revision;
+                    claimableAchievement.SetQuest(achievementSnapshot,catalog,claimBusy:true);
+                    Check(!claimableAchievement.actionButton.interactable && claimableAchievement.actionLabel.text=="수령 중…" &&
+                        LocalProgression.State.Revision==revision,
+                        "A pending whole-cell presentation blocks duplicate input without changing rewards or storage");
+                    claimableAchievement.SetQuest(achievementSnapshot,catalog);
+                    Check(claimableAchievement.actionButton.interactable && claimableAchievement.actionLabel.text=="수령 가능",
+                        "The same claim token restores its whole-cell action when no request is pending");
                     revision = LocalProgression.State.Revision;
                     claim.onClick.Invoke();
                     Check(LocalProgression.State.Revision == revision + 1 && LocalProgression.State.Claims.Contains(QuestEconomy.Key(40401, "permanent")) &&

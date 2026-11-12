@@ -55,7 +55,8 @@ namespace KingdomIdle.UGUI
                 _cards[i].Set(i==1?"경험치 획득":"골드 획득",$"Lv. {level}/50",detail,UguiTheme.RoyalBlue);
                 if (pending && state.PendingRubyRequestExperience == (i==1))
                 {
-                    _buy[i].Set("이전 요청 확인",state.PendingRubyRequestIsReset ? "서버 결과 조회" : "같은 요청 재시도",available && !busy);
+                    _buy[i].Set(state.PendingRubyRequestIsReset ? "요청 확인" : "요청 재시도",
+                        state.PendingRubyRequestIsReset ? "서버 결과" : "기존 요청 ID",available && !busy);
                 }
                 else
                 {

@@ -38,8 +38,14 @@ namespace KingdomIdle.UGUI.Editor
                 F.Stretch(surface);surface.offsetMin=new Vector2(4,4);surface.offsetMax=new Vector2(-4,-4);surface.SetAsFirstSibling();
                 var area=view.body.GetComponent<Button>()??view.body.AddComponent<Button>();
                 // 기존 전체 셀 버튼이 아닌 옛 생성기의 별도 버튼은 숨긴다.
-                if(view.actionButton!=null && view.actionButton!=area)view.actionButton.gameObject.SetActive(false);
+                if(view.actionButton!=null && view.actionButton!=area)
+                {
+                    if(view.actionLabel!=null && view.actionLabel.transform.IsChildOf(view.actionButton.transform))
+                        view.actionLabel.transform.SetParent(view.body.transform,true);
+                    view.actionButton.gameObject.SetActive(false);
+                }
                 area.enabled=true;area.targetGraphic=background;area.transition=Selectable.Transition.None;
+                if(area.GetComponent<PlayClickSfxOnClick>()==null)area.gameObject.AddComponent<PlayClickSfxOnClick>();
                 view.actionButton=area;
                 foreach(var label in new[]{view.description,view.progress,view.actionLabel,view.stepLabel})
                 {

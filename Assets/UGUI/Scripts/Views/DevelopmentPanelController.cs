@@ -163,8 +163,8 @@ namespace KingdomIdle.UGUI
                 card.View.Set(StatEnhanceManager.GetTypeName(card.Type), $"Lv. {mgr.GetLevel(card.Type):N0}",
                     actual > 0 ? $"{current}  →  {next}" : $"현재 {current}", UguiTheme.RoyalBlue);
                 bool maxed = level >= BalanceMath.GoldCap;
-                string title = mgr.IsEnhancing ? "강화 처리 중…" : maxed ? "최대 단계" :
-                    _selectedCount < 0 ? $"최대 {actual}회 강화" : $"{actual}회 강화";
+                string title = mgr.IsEnhancing ? "강화 중…" : maxed ? "최대 단계" :
+                    _selectedCount < 0 ? $"최대 {actual}회" : $"{actual}회 강화";
                 string price = maxed ? "강화 완료" : cost < 0 ? "골드 부족" : $"{NumberNotation.Format(cost)} 골드";
                 bool ready = !mgr.IsEnhancing && cost >= 0 && actual > 0 && gold >= cost;
                 card.Button?.Set(title, price, ready);
@@ -205,6 +205,8 @@ namespace KingdomIdle.UGUI
                     var tab=Object.Instantiate(cat.itemNavTabButton,_body.navBar,false).GetComponent<NavTabButtonView>();
                     tab.name=ruby?"RubyGrowthTab":"GoldGrowthTab";
                     tab.SetLabel(ruby?"루비 영구 성장":"골드 강화");tab.SetIcon(ruby?cat.iconGem:cat.iconCoin);
+                    var layout=tab.GetComponent<LayoutElement>();
+                    if(layout!=null)layout.minHeight=layout.preferredHeight=128;
                     tab.Button.onClick.AddListener(()=> {
                         _rubyTab=ruby;Refresh();
                         var scroll=_view?.GetComponentInChildren<ScrollRect>();if(scroll!=null)scroll.verticalNormalizedPosition=1;
@@ -222,6 +224,8 @@ namespace KingdomIdle.UGUI
                     tab.name = count < 0 ? "MaximumCount" : $"Count{count}";
                     tab.SetLabel(count < 0 ? "최대" : $"{count}회");
                     tab.SetIcon(null);
+                    var layout=tab.GetComponent<LayoutElement>();
+                    if(layout!=null)layout.minHeight=layout.preferredHeight=96;
                     tab.Button.onClick.AddListener(() => { _selectedCount = count; Refresh(); });
                     CountTabs.Add(tab);
                 }
