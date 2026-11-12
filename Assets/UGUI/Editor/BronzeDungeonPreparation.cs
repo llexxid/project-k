@@ -57,6 +57,7 @@ namespace KingdomIdle.UGUI.Editor
                 if (root == null) throw new InvalidOperationException("던전 프리팹 없음: " + relative);
                 ValidateRoot(root);
             }
+            Debug.Log(Newtonsoft.Json.JsonConvert.SerializeObject(ValidateGeometry(), Newtonsoft.Json.Formatting.Indented));
         }
 
         private static void ApplyCard(DungeonCardView card)
@@ -110,7 +111,10 @@ namespace KingdomIdle.UGUI.Editor
                 Object.DestroyImmediate(suppressor);
             var window = popup.transform.Find("Window") as RectTransform;
             if (window == null) throw new InvalidOperationException("던전 난이도 Window 누락");
-            // Window와 팝업 루트의 앵커·높이·반응형 피터는 기존 값을 유지한다.
+            // 폭 정책은 유지하고, 높이는 선호 콘텐츠가 중앙 가용 영역을 넘지 않도록 전용 피터가 소유한다.
+            var contentFit = window.GetComponent<ContentSizeFitter>();
+            if (contentFit != null) contentFit.enabled = false;
+            if (window.GetComponent<DungeonDifficultySizeFitter>() == null) window.gameObject.AddComponent<DungeonDifficultySizeFitter>();
             Flat(window.GetComponent<Image>(), UguiTheme.RusticPanel);
             var layout = window.GetComponent<VerticalLayoutGroup>();
             if (layout != null) { layout.spacing = 14; layout.padding = new RectOffset(30, 30, 28, 28); }
@@ -259,6 +263,10 @@ namespace KingdomIdle.UGUI.Editor
             }
             foreach (var popup in root.GetComponentsInChildren<DungeonDifficultyPopupView>(true))
             {
+                var window = popup.transform.Find("Window");
+                if (window == null || window.GetComponent<DungeonDifficultySizeFitter>() == null ||
+                    window.GetComponent<ContentSizeFitter>()?.enabled == true)
+                    throw new InvalidOperationException("던전 상세 높이 소유자 불일치: " + popup.name);
                 var close = popup.transform.Find("Window/Footer/BtnClose")?.GetComponent<Button>();
                 bool connected = false;
                 if (close != null)
@@ -276,6 +284,96 @@ namespace KingdomIdle.UGUI.Editor
                     Ref<ScrollRect>(popup, "difficultyScroll") == null)
                     throw new InvalidOperationException("던전 상세 표시/참조 불일치: " + popup.name);
             }
+        }
+
+        /// <summary>실제 내장 팝업과 기존 스크롤의 기하만 검사한다. 입장·선택·계정 API는 호출하지 않는다.</summary>
+        public static object ValidateGeometry()
+        {
+            if (Application.isPlaying) throw new InvalidOperationException("던전 기하 검사는 EditMode에서 실행해 주세요.");
+            var checks = new List<string>();
+            void Check(bool value, string message)
+            {
+                if (!value) throw new InvalidOperationException("Bronze Dungeon geometry: " + message);
+                checks.Add(message);
+            }
+            var fixture = new GameObject("BronzeDungeonGeometry", typeof(RectTransform), typeof(Canvas));
+            fixture.hideFlags = HideFlags.HideAndDontSave;
+            fixture.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
+            var fixtureRect = (RectTransform)fixture.transform;
+            try
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(Root + "Panels/Panel_Dungeon.prefab");
+                var panel = Object.Instantiate(prefab, fixture.transform, false).GetComponent<DungeonPanelView>();
+                var panelRect = (RectTransform)panel.transform;
+                panelRect.anchorMin = Vector2.zero; panelRect.anchorMax = Vector2.one;
+                var popup = panel.GetComponentInChildren<DungeonDifficultyPopupView>(true);
+                popup.gameObject.SetActive(true);
+                popup.SetInfoItems(Array.Empty<Sprite>(), Array.Empty<Sprite>());
+                var window = (RectTransform)popup.transform.Find("Window");
+                var fitter = window.GetComponent<DungeonDifficultySizeFitter>();
+                Check(fitter != null, "The embedded dungeon window has its dedicated height owner");
+                var title = Ref<TMP_Text>(popup, "dungeonName");
+                title.text = "골드 던전";
+                Ref<TMP_Text>(popup, "description").text = "60초 · 20체 · 최대 123.45K 골드\n중단해도 처치 보상 유지 · 매일 00시 충전";
+                var scroll = Ref<ScrollRect>(popup, "difficultyScroll");
+                var enter = Ref<Button>(popup, "enterButton");
+                var close = window.Find("Footer/BtnClose").GetComponent<Button>();
+                var hud = (RectTransform)new GameObject("HudTopBoundary", typeof(RectTransform)).transform;
+                hud.SetParent(panelRect, false);
+                hud.anchorMin = new Vector2(0, 1); hud.anchorMax = Vector2.one; hud.pivot = new Vector2(.5f, 1);
+                hud.sizeDelta = new Vector2(0, UguiTheme.HudTopHeight); hud.anchoredPosition = Vector2.zero;
+                var sheetFit = panel.Sheet.GetComponent<SheetSizeFitter>();
+                var clip = (RectTransform)panel.Sheet.parent;
+                foreach (var size in new[] { new Vector3(2316, 0, 0), new Vector3(1920, 0, 0),
+                    new Vector3(1440, 0, 0), new Vector3(1440, 64, 24), new Vector3(1920, 0, 0) })
+                {
+                    fixtureRect.sizeDelta = new Vector2(1080, size.x);
+                    panelRect.offsetMin = new Vector2(0, size.z); panelRect.offsetMax = new Vector2(0, -size.y);
+                    sheetFit.SetTopBoundary(hud);
+                    LayoutRebuilder.ForceRebuildLayoutImmediate(window);
+                    fitter.RefreshNow();
+                    LayoutRebuilder.ForceRebuildLayoutImmediate(window);
+                    Canvas.ForceUpdateCanvases();
+                    string label = "1080x" + size.x + " safeTop=" + size.y + " safeBottom=" + size.z;
+                    var available = RectBounds(panelRect, clip);
+                    var bounds = RectBounds(panelRect, window);
+                    Check(bounds.min.y >= available.min.y + 17.5f && bounds.max.y <= available.max.y - 17.5f,
+                        label + " keeps the full window below the party HUD and above the bottom navigation");
+                    foreach (var target in new[] { title.rectTransform, (RectTransform)enter.transform, (RectTransform)close.transform })
+                    {
+                        var targetBounds = RectBounds(panelRect, target);
+                        Check(targetBounds.min.y >= bounds.min.y - .5f && targetBounds.max.y <= bounds.max.y + .5f,
+                            label + " keeps " + target.name + " fully inside the window");
+                    }
+                    Check(((RectTransform)enter.transform).rect.height >= 132 && ((RectTransform)close.transform).rect.height >= 132 &&
+                        title.rectTransform.rect.height + 1 >= title.GetPreferredValues(title.text).y,
+                        label + " preserves readable title and both 132px footer touch areas");
+                    Check(scroll.vertical && scroll.viewport.rect.height >= 144 && scroll.content.rect.height > scroll.viewport.rect.height,
+                        label + " retains at least one complete difficulty row and internal scrolling");
+                    scroll.verticalNormalizedPosition = 0;
+                    Canvas.ForceUpdateCanvases();
+                    var last = (RectTransform)scroll.content.GetChild(scroll.content.childCount - 1);
+                    var lastBounds = RectBounds(scroll.viewport, last);
+                    Check(lastBounds.min.y >= scroll.viewport.rect.yMin - 1 && lastBounds.max.y <= scroll.viewport.rect.yMax + 1,
+                        label + " can scroll the final difficulty row fully into view");
+                    if (size.x >= 1920)
+                        Check(Mathf.Abs(window.anchoredPosition.y) <= .5f && Mathf.Abs(window.rect.height - LayoutUtility.GetPreferredHeight(window)) <= .5f,
+                            label + " preserves or restores the unconstrained phone layout");
+                    window.hasChanged = false;
+                    for (int i = 0; i < 20; i++) fitter.RefreshNow();
+                    Check(!window.hasChanged, label + " does not rewrite unchanged window geometry");
+                }
+            }
+            finally { Object.DestroyImmediate(fixture); }
+            return new { passed = checks.Count, checks, source = "Actual embedded prefab and UGUI geometry only; no account, network, entry, ticket or reward operation" };
+        }
+
+        private static Bounds RectBounds(RectTransform root, RectTransform target)
+        {
+            var corners = new Vector3[4]; target.GetWorldCorners(corners);
+            var bounds = new Bounds(root.InverseTransformPoint(corners[0]), Vector3.zero);
+            for (int i = 1; i < corners.Length; i++) bounds.Encapsulate(root.InverseTransformPoint(corners[i]));
+            return bounds;
         }
 
         private static T Ref<T>(Component owner, string field) where T : Object
