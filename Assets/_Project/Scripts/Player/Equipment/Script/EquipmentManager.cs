@@ -284,10 +284,14 @@ public class EquipmentManager : MonoBehaviour
         Debug.LogWarning(info.LogLine);
         info.Ok = false;
         info.ErrorCode = code;
-        bool uncertain = code == 0 && (kind == "Timeout" || kind == "Transport" || kind == "Function" ||
+        bool uncertain = code == (int)Protocol.Message.Data.eErrorCode.StorageFailure ||
+            code == (int)Protocol.Message.Data.eErrorCode.InvalidStoredData || code == 0 &&
+            (kind == "Timeout" || kind == "Transport" || kind == "Function" ||
             kind == "InvalidResponse" || kind == "ApplyFailed" ||
             error?.Error == PlayFabErrorCode.CloudScriptAzureFunctionsExecutionTimeLimitExceeded ||
-            error?.Error == PlayFabErrorCode.CloudScriptExecutionTimeLimitExceeded || error?.Error == PlayFabErrorCode.ConnectionError);
+            error?.Error == PlayFabErrorCode.CloudScriptExecutionTimeLimitExceeded ||
+            error?.Error == PlayFabErrorCode.CloudScriptHTTPRequestError ||
+            error?.Error == PlayFabErrorCode.CloudScriptAzureFunctionsHTTPRequestError || error?.Error == PlayFabErrorCode.ConnectionError);
         if (uncertain && UserManager.Instance != null)
         {
             UserManager.Instance.RefreshFromServer(ok =>

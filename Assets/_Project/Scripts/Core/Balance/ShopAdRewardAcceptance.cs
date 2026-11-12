@@ -12,6 +12,9 @@ namespace KingdomIdle.Balance
 #if UNITY_EDITOR
         public static object RunAccountLifecycle()
         {
+            if (LocalProgression.IsReady || Scripts.Core.Manager.NetworkManager.Instance != null ||
+                Scripts.Core.UserManager.Instance != null || KingdomIdle.UGUI.UIManager.Instance != null)
+                throw new InvalidOperationException("빈 씬에서 계정과 게임 매니저 없이 실행해 주세요.");
             using var scope = LocalProgression.BeginTestSession();
             const System.Reflection.BindingFlags statics = System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic;
             const System.Reflection.BindingFlags instance = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
@@ -121,6 +124,9 @@ namespace KingdomIdle.Balance
         /// <summary>서버 오류·기수령 응답을 격리해서 적용한다. 로그인·광고 SDK·HTTP는 호출하지 않는다.</summary>
         public static Dictionary<string, object> RunServerFailureRecovery()
         {
+            if (LocalProgression.IsReady || Scripts.Core.Manager.NetworkManager.Instance != null ||
+                Scripts.Core.UserManager.Instance != null || KingdomIdle.UGUI.UIManager.Instance != null)
+                throw new InvalidOperationException("빈 씬에서 계정과 게임 매니저 없이 실행해 주세요.");
             using var scope = LocalProgression.BeginTestSession();
             const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic;
             var service = typeof(ShopAdRewardService);
@@ -166,6 +172,13 @@ namespace KingdomIdle.Balance
                     reject.Invoke(null, new object[] { claim, error });
                     Check(completed?.Status == RewardStatus.SaveFailed && ReferenceEquals(completedClaim, claim) &&
                         claim.Earned && !ShopAdRewardService.IsBusy, "uncertain result retains the same earned claim: " + failure);
+                }
+                foreach (var sdk in new[] { PlayFab.PlayFabErrorCode.CloudScriptHTTPRequestError, PlayFab.PlayFabErrorCode.CloudScriptAzureFunctionsHTTPRequestError })
+                {
+                    completed = null; busy.SetValue(null, claim);
+                    reject.Invoke(null, new object[] { claim, new PlayFab.PlayFabError { Error = sdk } });
+                    Check(completed?.Status == RewardStatus.SaveFailed && claim.Earned && !ShopAdRewardService.IsBusy,
+                        "raw SDK HTTP failure preserves the earned claim: " + sdk);
                 }
                 var invalid = Scripts.Core.Manager.NetworkManager.CreateError("Business", "fixture", null,
                     new Protocol.Message.Dto.ErrorResponseDTO { ErrorCode = (Protocol.Message.Data.eErrorCode)1050, Message = "fixture" });

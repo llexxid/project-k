@@ -10,6 +10,9 @@ namespace KingdomIdle.Balance
 #if UNITY_EDITOR
         public static object RunFailureRecovery()
         {
+            if (LocalProgression.IsReady || Scripts.Core.Manager.NetworkManager.Instance != null ||
+                Scripts.Core.UserManager.Instance != null || EquipmentManager.Instance != null || KingdomIdle.UGUI.UIManager.Instance != null)
+                throw new InvalidOperationException("빈 씬에서 계정과 게임 매니저 없이 실행해 주세요.");
             using var scope = LocalProgression.BeginTestSession();
             const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
             var previousNetwork = Scripts.Core.Manager.NetworkManager.Instance;
@@ -47,6 +50,12 @@ namespace KingdomIdle.Balance
                     new PlayFab.PlayFabError { Error = PlayFab.PlayFabErrorCode.CloudScriptAzureFunctionsExecutionTimeLimitExceeded },
                     new PlayFab.PlayFabError { Error = PlayFab.PlayFabErrorCode.CloudScriptExecutionTimeLimitExceeded },
                     new PlayFab.PlayFabError { Error = PlayFab.PlayFabErrorCode.ConnectionError },
+                    new PlayFab.PlayFabError { Error = PlayFab.PlayFabErrorCode.CloudScriptHTTPRequestError },
+                    new PlayFab.PlayFabError { Error = PlayFab.PlayFabErrorCode.CloudScriptAzureFunctionsHTTPRequestError },
+                    Scripts.Core.Manager.NetworkManager.CreateError("Business", "fixture", null,
+                        new Protocol.Message.Dto.ErrorResponseDTO { ErrorCode = Protocol.Message.Data.eErrorCode.StorageFailure, Message = "fixture" }),
+                    Scripts.Core.Manager.NetworkManager.CreateError("Business", "fixture", null,
+                        new Protocol.Message.Dto.ErrorResponseDTO { ErrorCode = Protocol.Message.Data.eErrorCode.InvalidStoredData, Message = "fixture" }),
                     Scripts.Core.Manager.NetworkManager.CreateError("Timeout", "fixture"),
                     Scripts.Core.Manager.NetworkManager.CreateError("Transport", "fixture"),
                     Scripts.Core.Manager.NetworkManager.CreateError("Function", "fixture"),
