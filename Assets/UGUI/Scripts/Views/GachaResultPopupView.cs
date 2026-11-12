@@ -70,6 +70,9 @@ namespace KingdomIdle.UGUI
             _contentLayout.childAlignment = _resultCount <= 3 ? TextAnchor.MiddleCenter : TextAnchor.UpperCenter;
             _contentLayout.childForceExpandHeight = false;
             scroll.vertical = contentHeight > viewport.y + 1;
+            // Viewport에는 LayoutController가 없어 box 강제 갱신이 이 독립 콘텐츠 루트까지 내려오지 않는다.
+            // 크기/결과 수가 바뀐 프레임에만 카드 배치와 ContentSizeFitter를 함께 확정한다.
+            LayoutRebuilder.ForceRebuildLayoutImmediate(scroll.content);
             _lastRootSize = rootSize; _lastViewportSize = viewport;
         }
     }

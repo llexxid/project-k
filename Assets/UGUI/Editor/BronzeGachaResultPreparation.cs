@@ -136,7 +136,7 @@ namespace KingdomIdle.UGUI.Editor
                                 " scroll=" + ((RectTransform)view.scroll.transform).rect.size + " viewport=" + view.scroll.viewport.rect.size +
                                 " content=" + view.scroll.content.rect.size + " grid=" + view.grid.rect.size +
                                 " cell=" + view.grid.GetComponent<GridLayoutGroup>().cellSize);
-                            foreach (var card in cards) RequireInside(view.scroll.viewport, (RectTransform)card.transform);
+                            foreach (var card in cards) RequireInside(view, (RectTransform)card.transform, count);
                         }
                         else if (!view.scroll.vertical || view.grid.GetComponent<GridLayoutGroup>().constraintCount != 3)
                             throw new InvalidOperationException("Ten results need readable three-column internal scrolling.");
@@ -151,14 +151,20 @@ namespace KingdomIdle.UGUI.Editor
             finally { Object.DestroyImmediate(fixture); }
         }
 
-        private static void RequireInside(RectTransform viewport, RectTransform target)
+        private static void RequireInside(GachaResultPopupView view, RectTransform target, int count)
         {
+            var viewport = view.scroll.viewport;
             var corners = new Vector3[4]; target.GetWorldCorners(corners);
             foreach (var corner in corners)
             {
                 var point = viewport.InverseTransformPoint(corner);
                 if (point.x < viewport.rect.xMin - 1 || point.x > viewport.rect.xMax + 1 || point.y < viewport.rect.yMin - 1 || point.y > viewport.rect.yMax + 1)
-                    throw new InvalidOperationException("Featured result card is outside its viewport.");
+                    throw new InvalidOperationException("Featured result card is outside its viewport. count=" + count +
+                        " target=" + target.name + " targetSize=" + target.rect.size + " point=" + point.ToString("F2") +
+                        " viewport=" + viewport.rect + " box=" + view.box.rect.size + " scroll=" + ((RectTransform)view.scroll.transform).rect.size +
+                        " content=" + view.scroll.content.rect + " contentPosition=" + view.scroll.content.anchoredPosition +
+                        " grid=" + view.grid.rect + " gridPosition=" + view.grid.anchoredPosition +
+                        " cell=" + view.grid.GetComponent<GridLayoutGroup>().cellSize);
             }
         }
     }
