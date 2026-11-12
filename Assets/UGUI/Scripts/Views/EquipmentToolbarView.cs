@@ -78,8 +78,17 @@ namespace KingdomIdle.UGUI
             var s = LocalProgression.State;
             long stored = s.PendingEquipment.Count + s.LegacyEquipment.Sum(x => (long)x.Count);
             string text = $"보유 {s.Equipment.Count}/{EquipmentManager.InventoryCapacity}  ·  강화석 {NumberNotation.Format(LocalProgression.Balance(eCurrency.EquipmentStone))}";
-            if (stored > 0) text += $"  ·  추가 보관 {NumberNotation.Format(stored)}";
-            if (summary != null && summary.text != text) summary.text = text;
+            if (stored > 0) text += $"\n추가 보관 {NumberNotation.Format(stored)} · 기한 없이 보관";
+            if (summary == null || summary.text == text) return;
+            summary.text = text;
+            var line = summary.GetComponent<LayoutElement>();
+            var panel = GetComponent<LayoutElement>();
+            if (line != null && panel != null)
+            {
+                float height = stored > 0 ? 92 : 48;
+                panel.preferredHeight += height - line.preferredHeight;
+                line.preferredHeight = height;
+            }
         }
     }
 }
