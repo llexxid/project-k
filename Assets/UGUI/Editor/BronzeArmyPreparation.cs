@@ -111,6 +111,7 @@ namespace KingdomIdle.UGUI.Editor
                     "Job requirements have enough height for two readable lines");
                 Check(view.badge.rectTransform.rect.height >= 56 && view.badge.GetPreferredValues("전직가능").y <= view.badge.rectTransform.rect.height,
                     "Job status text fits inside its pill instead of becoming an empty decoration");
+                ValidateJobCardWords(root, Check);
             });
             Inspect("Panels/Panel_KAJobChange.prefab", root =>
             {
@@ -159,6 +160,67 @@ namespace KingdomIdle.UGUI.Editor
             var root = PrefabUtility.LoadPrefabContents(Root + relative);
             try { inspect(root); }
             finally { PrefabUtility.UnloadPrefabContents(root); }
+        }
+
+        private static void ValidateJobCardWords(GameObject root, Action<bool, string> check)
+        {
+            // 실제 카드와 직업 에셋만 읽는다. 계정/전직 매니저/서버 요청은 만들거나 실행하지 않는다.
+            var canvas = root.GetComponent<Canvas>() ?? root.AddComponent<Canvas>(); canvas.renderMode = RenderMode.WorldSpace;
+            var view = root.GetComponent<JobCardView>();
+            var rect = (RectTransform)root.transform;
+            var roles = new[] { (Job: "Knight", Text: "묵직한 근접 공격"), (Job: "Elite_Knight", Text: "광역 베기 · 보호막"),
+                (Job: "Mage", Text: "원거리 마법"), (Job: "Elite_Mage", Text: "파동 · 밀쳐내기") };
+            check(view.Button.onClick.GetPersistentEventCount() == 0, "The isolated job-card fixture has no persistent gameplay action");
+            bool interactable = view.Button.interactable;
+            int clicks = 0; view.OnClick(() => clicks++);
+            foreach (float gridWidth in new[] { 900f, 1000f })
+                foreach (var role in roles)
+                {
+                    var job = AssetDatabase.LoadAssetAtPath<JobData>("Assets/_Project/Scripts/Player/Job/SO/" + role.Job + ".asset");
+                    check(job != null && job.jobName == role.Job, role.Job + " fixture uses the existing catalog asset");
+                    rect.sizeDelta = new Vector2((gridWidth - 32) / 3, JobCardHeight);
+                    foreach (bool locked in new[] { false, true })
+                    {
+                        string fragments = locked ? "보유 9 · 필요 120" : "무료 재전직";
+                        string prerequisite = locked ? "마법사 전직 필요" : null;
+                        string badge = locked ? "잠김" : "현재";
+                        Color badgeColor = locked ? UguiTheme.WarnRed : UguiTheme.AccentGoldStrong;
+                        Color fragmentColor = locked ? UguiTheme.AccentGoldStrong : UguiTheme.SuccessGreenBright;
+                        view.Set(job, UguiTheme.RusticSurfaceDark, UguiTheme.Bronze, badge, badgeColor,
+                            role.Text, fragments, fragmentColor, prerequisite);
+                        LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
+                        CheckLabel(view.statLabel, role.Text, gridWidth);
+                        CheckLabel(view.fragLabel, fragments, gridWidth);
+                        if (locked) CheckLabel(view.prereqLabel, prerequisite, gridWidth);
+                        check(view.badge.text == badge && view.badge.color == badgeColor && view.fragLabel.color == fragmentColor &&
+                            view.prereqLabel.gameObject.activeSelf == locked && view.Button.interactable == interactable &&
+                            ((RectTransform)view.Button.transform).rect.height >= 132,
+                            gridWidth + "px " + role.Job + " preserves state wording, colors, detail input and touch height");
+                    }
+                }
+            view.Button.onClick.Invoke();
+            check(clicks == 1, "Presentation updates retain the same isolated detail action exactly once");
+            var spearman = AssetDatabase.LoadAssetAtPath<JobData>("Assets/_Project/Scripts/Player/Job/SO/Spearman.asset");
+            view.SetComingSoon(spearman, true);
+            check(spearman != null && view.nameLabel.text == "곧 추가 예정" && view.image.sprite == spearman.Portrait &&
+                !view.Button.interactable && view.statLabel.text == "" && view.fragLabel.text == "" && !view.prereqLabel.gameObject.activeSelf,
+                "The unavailable branch retains the spearman silhouette, coming-soon text and disabled input");
+
+            void CheckLabel(TMP_Text label, string expected, float width)
+            {
+                label.ForceMeshUpdate(true, true);
+                check(label.GetParsedText() == expected && !label.isTextTruncated && label.textInfo.lineCount <= 2 &&
+                    label.GetPreferredValues(label.text, label.rectTransform.rect.width, float.PositiveInfinity).y <= label.rectTransform.rect.height + 1,
+                    width + "px " + expected + " stays complete within its two authored lines");
+                int start = 0;
+                foreach (string word in expected.Split(' '))
+                {
+                    int line = label.textInfo.characterInfo[start].lineNumber;
+                    check(Enumerable.Range(start, word.Length).All(index => label.textInfo.characterInfo[index].lineNumber == line),
+                        width + "px keeps " + word + " together in " + expected);
+                    start += word.Length + 1;
+                }
+            }
         }
 
         private static void Edit(string relative, Action<GameObject> apply)

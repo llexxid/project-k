@@ -59,11 +59,11 @@ namespace KingdomIdle.UGUI
             }
 
             if (nameLabel != null) nameLabel.text = job != null ? job.DisplayName : "";
-            if (statLabel != null) statLabel.text = statText;
+            if (statLabel != null) statLabel.text = KeepWords(statText);
 
             if (fragLabel != null)
             {
-                fragLabel.text = fragText;
+                fragLabel.text = KeepWords(fragText);
                 fragLabel.color = fragColor;
             }
 
@@ -71,9 +71,13 @@ namespace KingdomIdle.UGUI
             {
                 bool has = !string.IsNullOrEmpty(prereqText);
                 prereqLabel.gameObject.SetActive(has);
-                if (has) prereqLabel.text = prereqText;
+                if (has) prereqLabel.text = KeepWords(prereqText);
             }
         }
+
+        // 이 카드의 한글 역할·조건만 단어 단위로 감싼다. 카탈로그 문구와 전역 TMP 설정은 유지한다.
+        private static string KeepWords(string text) => string.IsNullOrEmpty(text) ? text :
+            "<nobr>" + text.Replace(" ", "</nobr> <nobr>") + "</nobr>";
 
         public void OnClick(Action handler)
         {
