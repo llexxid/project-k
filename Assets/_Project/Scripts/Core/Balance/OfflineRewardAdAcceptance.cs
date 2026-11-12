@@ -16,6 +16,185 @@ namespace KingdomIdle.Balance
 {
     public static class OfflineRewardAdAcceptance
     {
+#if UNITY_EDITOR
+        /// <summary>빈 씬 PlayMode에서 계정·파일·광고를 열지 않고 실제 지급 실패/조회/팝업 경로를 검사한다.</summary>
+        public static Dictionary<string, object> RunFailureRecovery()
+        {
+            if (!Application.isPlaying || LocalProgression.IsReady || NetworkManager.Instance != null ||
+                UserManager.Instance != null || UIManager.Instance != null || StageManager.Instance != null)
+                throw new InvalidOperationException("빈 씬 PlayMode에서 계정과 게임 매니저 없이 실행해 주세요.");
+            const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+            var managerType = typeof(OfflineRewardManager);
+            var popupType = typeof(OfflineRewardPopupController);
+            FieldInfo Field(Type type, string name) => type.GetField(name, flags);
+            PropertyInfo Property(Type type, string name) => type.GetProperty(name, flags);
+            object Call(Type type, object target, string name, params object[] args) => type.GetMethod(name, flags).Invoke(target, args);
+            var savedView = Field(popupType, "_view").GetValue(null);
+            var savedChoice = Field(popupType, "_choice").GetValue(null);
+            var savedResultView = Field(popupType, "_resultView").GetValue(null);
+            var savedClaim = OfflineRewardManager.LastClaimResult;
+            bool savedBusy = OfflineRewardManager.AdBonusBusy;
+            var savedEvents = Field(managerType, "AdBonusCompleted").GetValue(null);
+            var savedTransport = PlayFab.PluginManager.GetPlugin<PlayFab.ITransportPlugin>(PlayFab.PluginContract.PlayFab_Transport);
+            var transport = new FailureRecoveryHttp();
+            long accountGeneration = LocalProgression.AccountGeneration;
+            string accountKey = LocalProgression.AccountKey;
+            var checks = new List<string>();
+            void Check(bool value, string message)
+            {
+                if (!value) throw new InvalidOperationException("Offline ad failure recovery: " + message);
+                checks.Add(message);
+            }
+            var owner = new GameObject("OfflineFailureRecovery_Managers"); owner.SetActive(false);
+            GameObject canvas = null;
+            RewardStatus completed = RewardStatus.NotReady;
+            int completedCount = 0;
+            void Completed(OfflineRewardClaimResult result, RewardStatus status, string message) { completed = status; completedCount++; }
+            try
+            {
+                // SDK transport 자체를 교체하므로 예상하지 못한 호출도 실제 HTTP로 빠져나가지 않는다.
+                PlayFab.PluginManager.SetPlugin(transport, PlayFab.PluginContract.PlayFab_Transport);
+                var network = owner.AddComponent<NetworkManager>(); NetworkManager.Instance = network;
+                Call(typeof(NetworkManager), network, "Init");
+                Field(typeof(NetworkManager), "_sessionGUID").SetValue(network, "offline-failure-fixture");
+                Field(typeof(NetworkManager), "_context").SetValue(network,
+                    new PlayFab.PlayFabAuthenticationContext { EntityToken = "offline-failure-fixture" });
+                Property(typeof(NetworkManager), "LoginState").SetValue(network, GameLoginState.Ready);
+                UserManager.Instance = owner.AddComponent<UserManager>();
+                var host = owner.AddComponent<UIManager>(); Property(typeof(UIManager), "Instance").SetValue(null, host);
+                var catalog = UnityEditor.AssetDatabase.LoadAssetAtPath<UIViewCatalog>("Assets/UGUI/UIViewCatalog.asset");
+                Check(catalog != null && catalog.popupOfflineReward != null && catalog.popupRewardInfo != null && catalog.itemRewardSlot != null,
+                    "실제 오프라인·보상 팝업 카탈로그 참조가 연결됨");
+                Field(typeof(UIManager), "catalog").SetValue(host, catalog);
+                canvas = new GameObject("OfflineFailureRecovery_Canvas", typeof(RectTransform), typeof(Canvas));
+                canvas.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+                Field(typeof(UIManager), "layerPopups").SetValue(host, (RectTransform)canvas.transform);
+                var view = UnityEngine.Object.Instantiate(catalog.popupOfflineReward, canvas.transform, false).GetComponent<OfflineRewardPopupView>();
+                Field(popupType, "_view").SetValue(null, view);
+                Field(popupType, "_choice").SetValue(null, null);
+                Field(popupType, "_resultView").SetValue(null, null);
+                var loadingRoot = new GameObject("PayoutLoading", typeof(RectTransform)); loadingRoot.transform.SetParent(canvas.transform, false);
+                var loading = loadingRoot.AddComponent<LoadingOverlayView>();
+                var labelRoot = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI)); labelRoot.transform.SetParent(loadingRoot.transform, false);
+                loading.lblLoading = labelRoot.GetComponent<TextMeshProUGUI>();
+                var progressRoot = new GameObject("Progress", typeof(RectTransform), typeof(Slider)); progressRoot.transform.SetParent(loadingRoot.transform, false);
+                loading.progressBar = progressRoot.GetComponent<Slider>();
+                Field(typeof(UIManager), "_loading").SetValue(host, loading);
+                OfflineRewardManager.AdBonusCompleted += Completed;
+                var choiceType = popupType.GetNestedType("RewardChoice", BindingFlags.NonPublic);
+                object Prepare()
+                {
+                    OfflineRewardPopupController.Hide();
+                    var result = (OfflineRewardClaimResult)Activator.CreateInstance(typeof(OfflineRewardClaimResult), flags, null,
+                        new object[] { "offline-failure-fixture", new OfflineRewardPlan(), 100L, 20L, 0L, 1, 0L, 0L }, null);
+                    Property(managerType, "LastClaimResult").SetValue(null, result);
+                    var choice = Activator.CreateInstance(choiceType, flags, null, new object[] { result }, null);
+                    Field(choiceType, "Earned").SetValue(choice, true); Field(choiceType, "Busy").SetValue(choice, true);
+                    Field(popupType, "_choice").SetValue(null, choice); view.gameObject.SetActive(true);
+                    Property(managerType, "AdBonusBusy").SetValue(null, true);
+                    completed = RewardStatus.NotReady; completedCount = 0;
+                    return choice;
+                }
+                PlayFab.PlayFabError Business(Protocol.Message.Data.eErrorCode code) => NetworkManager.CreateError("Business", "fixture", "OnClaimAdReward",
+                    new ErrorResponseDTO { ErrorCode = code, Message = "fixture" });
+                var errors = new[]
+                {
+                    Business(Protocol.Message.Data.eErrorCode.StorageFailure),
+                    new PlayFab.PlayFabError { Error = PlayFab.PlayFabErrorCode.CloudScriptAzureFunctionsExecutionTimeLimitExceeded, ErrorMessage = "fixture" },
+                    new PlayFab.PlayFabError { Error = PlayFab.PlayFabErrorCode.CloudScriptHTTPRequestError, ErrorMessage = "fixture" },
+                    new PlayFab.PlayFabError { Error = PlayFab.PlayFabErrorCode.ConnectionError, ErrorMessage = "fixture" },
+                    NetworkManager.CreateError("Timeout", "fixture"), NetworkManager.CreateError("Transport", "fixture")
+                };
+                foreach (var error in errors)
+                {
+                    object choice = Prepare(); int requests = transport.Calls;
+                    Call(managerType, null, "RejectAdBonus", OfflineRewardManager.LastClaimResult, error);
+                    Check(transport.Calls == requests + 1 && transport.Pending != null && OfflineRewardManager.AdBonusBusy &&
+                        loading.gameObject.activeSelf && completedCount == 0 && (bool)Field(choiceType, "Busy").GetValue(choice),
+                        error.Error + ": 실제 상태 조회 응답 전 지급 로딩과 중복 입력 잠금을 유지함");
+                    var request = transport.Pending;
+                    transport.Fail();
+                    Check(completed == RewardStatus.SaveFailed && completedCount == 1 && !OfflineRewardManager.AdBonusBusy &&
+                        !loading.gameObject.activeSelf && (bool)Field(choiceType, "Earned").GetValue(choice) &&
+                        !(bool)Field(choiceType, "Busy").GetValue(choice), error.Error + ": 조회 실패 뒤에도 시청 완료를 보존함");
+                    var errorView = (RewardPopupView)Field(popupType, "_resultView").GetValue(null);
+                    Check(errorView != null && errorView.gameObject.activeInHierarchy && errorView.title.text == "보상 지급 오류" &&
+                        errorView.description.text == "보상 지급 중 오류가 발생했습니다" && view.gameObject.activeSelf,
+                        error.Error + ": 실제 프리팹에 오류를 표시하고 기본 수령 성공으로 바꾸지 않음");
+                    request.ErrorCallback(NetworkManager.CreateError("Transport", "duplicate fixture"));
+                    Check(completedCount == 1 && !LocalProgression.IsReady, error.Error + ": 중복 응답은 다시 완료하거나 계정을 열지 않음");
+                }
+                object unavailable = Prepare(); int beforeUnavailable = transport.Calls;
+                Call(managerType, null, "RejectAdBonus", OfflineRewardManager.LastClaimResult,
+                    Business(Protocol.Message.Data.eErrorCode.OfflineAdBonusNotAvailable));
+                Check(completed == RewardStatus.NothingAvailable && completedCount == 1 && transport.Calls == beforeUnavailable &&
+                    !(bool)Field(choiceType, "Earned").GetValue(unavailable) && !OfflineRewardManager.AdBonusBusy,
+                    "1051 확정 거절만 추가 조회 없이 기존 기본 수령으로 종료함");
+
+                object closed = Prepare();
+                Call(managerType, null, "RejectAdBonus", OfflineRewardManager.LastClaimResult, errors[0]);
+                OfflineRewardPopupController.Hide(); transport.Fail();
+                Check(completed == RewardStatus.SaveFailed && !OfflineRewardManager.AdBonusBusy &&
+                    Field(popupType, "_choice").GetValue(null) == null && Field(popupType, "_resultView").GetValue(null) == null,
+                    "조회 중 닫힌 선택지는 늦은 실패로 다시 열리지 않음");
+
+                Prepare();
+                Call(managerType, null, "RejectAdBonus", OfflineRewardManager.LastClaimResult, errors[0]);
+                long oldNetworkGeneration = network.AccountGeneration;
+                Property(typeof(NetworkManager), "AccountGeneration").SetValue(network, oldNetworkGeneration + 1);
+                transport.Fail();
+                Check(completedCount == 0 && OfflineRewardManager.AdBonusBusy,
+                    "이전 인증 세대의 늦은 조회가 새 지급 대기를 해제하지 않음");
+                Call(typeof(NetworkManager), network, "ResetCallQueue");
+                Check(!LocalProgression.IsReady && LocalProgression.AccountGeneration == accountGeneration && LocalProgression.AccountKey == accountKey &&
+                    transport.UnexpectedCalls == 0, "계정·저장·인증 없이 상태 조회 전용 HTTP 차단 fixture만 사용함");
+                return new Dictionary<string, object> { { "passed", checks.Count }, { "checks", checks } };
+            }
+            finally
+            {
+                OfflineRewardPopupController.Hide();
+                Field(managerType, "AdBonusCompleted").SetValue(null, savedEvents);
+                Property(managerType, "AdBonusBusy").SetValue(null, savedBusy);
+                Property(managerType, "LastClaimResult").SetValue(null, savedClaim);
+                if (canvas != null) UnityEngine.Object.DestroyImmediate(canvas);
+                UnityEngine.Object.DestroyImmediate(owner);
+                NetworkManager.Instance = null; UserManager.Instance = null;
+                Property(typeof(UIManager), "Instance").SetValue(null, null);
+                Field(popupType, "_view").SetValue(null, savedView); Field(popupType, "_choice").SetValue(null, savedChoice);
+                Field(popupType, "_resultView").SetValue(null, savedResultView);
+                PlayFab.PluginManager.SetPlugin(savedTransport, PlayFab.PluginContract.PlayFab_Transport);
+            }
+        }
+
+        private sealed class FailureRecoveryHttp : PlayFab.ITransportPlugin
+        {
+            public bool IsInitialized => true;
+            public int Calls, UnexpectedCalls;
+            public PlayFab.Internal.CallRequestContainer Pending;
+            public void Initialize() { }
+            public void Update() { }
+            public void OnDestroy() { }
+            public int GetPendingMessages() => Pending == null ? 0 : 1;
+            public void MakeApiCall(object request)
+            {
+                var container = request as PlayFab.Internal.CallRequestContainer;
+                if (container?.ApiRequest is not PlayFab.CloudScriptModels.ExecuteFunctionRequest function ||
+                    function.FunctionName != "OnGetUserState" || Pending != null)
+                { UnexpectedCalls++; throw new InvalidOperationException("HTTP fixture blocks unexpected API calls."); }
+                Calls++; Pending = container;
+            }
+            public void Fail()
+            {
+                var pending = Pending ?? throw new InvalidOperationException("State query did not reach the HTTP fixture.");
+                Pending = null;
+                pending.ErrorCallback(NetworkManager.CreateError("Transport", "fixture state query unavailable"));
+            }
+            public void SimpleGetCall(string url, Action<byte[]> success, Action<string> error) => Block();
+            public void SimplePutCall(string url, byte[] payload, Action<byte[]> success, Action<string> error) => Block();
+            public void SimplePostCall(string url, byte[] payload, Action<byte[]> success, Action<string> error) => Block();
+            private void Block() { UnexpectedCalls++; throw new InvalidOperationException("HTTP fixture blocks external requests."); }
+        }
+#endif
         public static Dictionary<string, object> Run()
         {
             if (Application.isPlaying || NetworkManager.Instance != null || UserManager.Instance != null ||
