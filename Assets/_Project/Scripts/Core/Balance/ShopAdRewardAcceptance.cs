@@ -68,7 +68,7 @@ namespace KingdomIdle.Balance
                 var response = new Protocol.Message.Dto.OnClaimAdRewardResponseDTO
                 {
                     AdType = Protocol.Message.Data.eAdType.ShopDaily, OfferId = claim.OfferId, Level = 1,
-                    Currency = new Protocol.Message.Dto.CurrencyQueryDTO { EquipmentTicket = 2 },
+                    Currency = new Protocol.Message.Dto.CurrencyQueryDTO(0, 0, 0, 0) { EquipmentTicket = 2 },
                     AdRewards = new Protocol.Message.Dto.AdRewardStateDTO
                     { Day = ShopAdRewardService.Today, ClaimedOfferIds = new List<string> { claim.OfferId } },
                     GrantedCurrencies = new List<Protocol.Message.Dto.CurrencyAmountDTO>
