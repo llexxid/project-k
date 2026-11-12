@@ -749,7 +749,9 @@ namespace KingdomIdle.UGUI
 
             string enhStr = item.enhancementLevel > 0 ? $" +{item.enhancementLevel}" : "";
             string name = $"{item.baseData.DisplayName}{enhStr}";
-            string sub = $"ATK +{NumberNotation.Format(item.GetFinalAtk())}  HP +{NumberNotation.Format(item.GetFinalMaxHP())}";
+            int attack = item.GetFinalAtk(), health = item.GetFinalMaxHP();
+            string sub = attack != 0 ? $"ATK +{NumberNotation.Format(attack)}" : string.Empty;
+            if (health != 0) sub += (sub.Length > 0 ? "  " : string.Empty) + $"HP +{NumberNotation.Format(health)}";
             var rarityColor = UguiTheme.RarityColor(item.baseData.rarity);
 
             InstantiateEquipCell(grid, item.baseData.icon, name, rarityColor, sub, rarityColor,
