@@ -159,16 +159,46 @@ namespace KingdomIdle.UGUI.Editor
             enterLabel.alignment = TextAlignmentOptions.Center;
             Width(enter.transform, 350); Height(enter.transform, 132);
             NeutralTint(enter, tintDisabled: true);
-            var close = window.Find("BtnClose") as RectTransform;
-            if (close != null)
-            {
-                close.sizeDelta = Vector2.one * 112;
-                Layout(close).ignoreLayout = true;
-                var icon = close.Find("Icon") as RectTransform;
-                if (icon != null) icon.sizeDelta = Vector2.one * 46;
-            }
+            ApplyCloseButton(popup, window, footer, enter);
             Frame(window, "BronzeDungeonFrame", UguiTheme.BronzeLight);
             DisableDecoration(window);
+        }
+
+        private static void ApplyCloseButton(DungeonDifficultyPopupView popup, RectTransform window, Transform footer, Button enter)
+        {
+            // 일부 기존 프리팹에는 상단 닫기가 없거나 숨겨져 있다. 아트와 겹치지 않는 푸터 보조 행동을 보장한다.
+            var oldClose = window.Find("BtnClose");
+            if (oldClose != null) oldClose.gameObject.SetActive(false);
+            var close = footer.Find("BtnClose")?.GetComponent<Button>();
+            if (close == null)
+                close = F.TextButton(footer, "BtnClose", "닫기", 38, UguiTheme.RusticSurface, out _, UguiTheme.Parchment);
+            close.gameObject.SetActive(true);
+            close.enabled = true;
+            close.interactable = true;
+            Width(close.transform, 200); Height(close.transform, 132);
+            Flat(close.GetComponent<Image>(), UguiTheme.RusticSurface);
+            close.GetComponent<Image>().raycastTarget = true;
+            var label = close.GetComponentInChildren<TMP_Text>(true);
+            Type(label, 38, UguiTheme.Parchment);
+            label.text = "닫기";
+            label.alignment = TextAlignmentOptions.Center;
+            NeutralTint(close);
+            close.transform.SetAsLastSibling();
+            enter.transform.SetAsLastSibling();
+            var footerLayout = footer.GetComponent<HorizontalLayoutGroup>();
+            if (footerLayout != null) footerLayout.childForceExpandWidth = false;
+            var selection = Ref<TMP_Text>(popup, "selectedDifficultyLabel");
+            var selectionLayout = Layout(selection.transform);
+            selectionLayout.minWidth = selectionLayout.preferredWidth = 0;
+            selectionLayout.flexibleWidth = 1;
+            selection.textWrappingMode = TextWrappingModes.Normal;
+            Height(selection.transform, 132);
+
+            bool connected = false;
+            for (int i = 0; i < close.onClick.GetPersistentEventCount(); i++)
+                if (close.onClick.GetPersistentTarget(i) == popup &&
+                    close.onClick.GetPersistentMethodName(i) == nameof(DungeonDifficultyPopupView.Hide)) connected = true;
+            if (!connected) UnityEditor.Events.UnityEventTools.AddVoidPersistentListener(close.onClick, popup.Hide);
         }
 
         private static void ApplyRow(DungeonDifficultyRowView row)
@@ -229,6 +259,16 @@ namespace KingdomIdle.UGUI.Editor
             }
             foreach (var popup in root.GetComponentsInChildren<DungeonDifficultyPopupView>(true))
             {
+                var close = popup.transform.Find("Window/Footer/BtnClose")?.GetComponent<Button>();
+                bool connected = false;
+                if (close != null)
+                    for (int i = 0; i < close.onClick.GetPersistentEventCount(); i++)
+                        if (close.onClick.GetPersistentTarget(i) == popup &&
+                            close.onClick.GetPersistentMethodName(i) == nameof(DungeonDifficultyPopupView.Hide)) connected = true;
+                var closeLayout = close != null ? close.GetComponent<LayoutElement>() : null;
+                if (close == null || !close.gameObject.activeSelf || !close.enabled || !close.interactable ||
+                    !connected || closeLayout == null || closeLayout.minHeight < 132 || closeLayout.minWidth < 200)
+                    throw new InvalidOperationException("던전 상세 닫기 버튼/Hide 연결 불일치: " + popup.name);
                 if (popup.GetComponentsInChildren<PartyHudSuppressor>(true).Length != 0 ||
                     Ref<Image>(popup, "mainImage").transform.parent.name != "PortalArtFrame" ||
                     Ref<TMP_Text>(popup, "dungeonName").color != UguiTheme.InfoInk ||
