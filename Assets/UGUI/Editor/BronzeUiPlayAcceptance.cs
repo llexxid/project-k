@@ -16,12 +16,18 @@ namespace KingdomIdle.UGUI.Editor
         private const string Previous = "BronzeUiPlayAcceptance.PreviousScenes";
         private const string OutputKey = "BronzeUiPlayAcceptance.Output";
         private const string Failed = "BronzeUiPlayAcceptance.Failed";
+        private const string ModeKey = "BronzeUiPlayAcceptance.Mode";
         [Serializable] private sealed class Scenes { public SceneSetup[] items; }
 
         static BronzeUiPlayAcceptance() => EditorApplication.playModeStateChanged += OnState;
 
         [MenuItem("KingdomIdle/UGUI/청동 원정대/격리 퀘스트 입력 검사")]
-        public static void Run()
+        public static void Run() => Start("quest");
+
+        [MenuItem("KingdomIdle/UGUI/청동 원정대/격리 오프라인 광고 지급 오류 검사")]
+        public static void RunOfflineFailureRecovery() => Start("offline-failure");
+
+        private static void Start(string mode)
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode)
                 throw new InvalidOperationException("Exit Play Mode before the isolated acceptance run.");
@@ -37,6 +43,7 @@ namespace KingdomIdle.UGUI.Editor
                 throw new InvalidOperationException("QA output must be outside the project.");
             Directory.CreateDirectory(output);
             SessionState.SetString(OutputKey, output);
+            SessionState.SetString(ModeKey, mode);
             SessionState.SetString(Previous, JsonUtility.ToJson(new Scenes { items = EditorSceneManager.GetSceneManagerSetup() }));
             SessionState.SetBool(Failed, false);
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -51,19 +58,21 @@ namespace KingdomIdle.UGUI.Editor
             {
                 EditorApplication.delayCall += () =>
                 {
+                    bool offlineFailure = SessionState.GetString(ModeKey, "quest") == "offline-failure";
+                    string filePrefix = offlineFailure ? "offline-failure-recovery-play" : "quest-play";
                     try
                     {
                         if (LocalProgression.IsReady)
                             throw new InvalidOperationException("The empty test scene unexpectedly opened a profile.");
-                        var report = QuestTabAcceptance.Run();
-                        File.WriteAllText(Path.Combine(SessionState.GetString(OutputKey, ""), "quest-play-acceptance.json"),
+                        var report = offlineFailure ? OfflineRewardAdAcceptance.RunFailureRecovery() : QuestTabAcceptance.Run();
+                        File.WriteAllText(Path.Combine(SessionState.GetString(OutputKey, ""), filePrefix + "-acceptance.json"),
                             JsonConvert.SerializeObject(report, Formatting.Indented));
-                        Debug.Log("BRONZE QUEST PLAY ACCEPTANCE PASSED " + report["passed"]);
+                        Debug.Log((offlineFailure ? "BRONZE OFFLINE FAILURE RECOVERY PLAY ACCEPTANCE PASSED " : "BRONZE QUEST PLAY ACCEPTANCE PASSED ") + report["passed"]);
                     }
                     catch (Exception error)
                     {
                         SessionState.SetBool(Failed, true);
-                        File.WriteAllText(Path.Combine(SessionState.GetString(OutputKey, ""), "quest-play-failure.txt"), error.ToString());
+                        File.WriteAllText(Path.Combine(SessionState.GetString(OutputKey, ""), filePrefix + "-failure.txt"), error.ToString());
                         Debug.LogException(error);
                     }
                     finally { EditorApplication.isPlaying = false; }
