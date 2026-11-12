@@ -53,8 +53,9 @@ namespace KingdomIdle.UGUI.Editor
                     "Portrait, actual HP fill and detail toggle references remain connected");
                 Check(view.atkValueLabel.color == UguiTheme.InfoInk && view.atkValueLabel.transform.parent.Find("MetricName") != null,
                     "Attack chip has a readable value and explicit metric name");
-                Check(view.hpValueLabel.fontSharedMaterial == AssetDatabase.LoadAssetAtPath<Material>("Assets/UGUI/Fonts/Galmuri11 SDF - UIOutline.mat"),
-                    "HP numbers retain a dark outline on both health and white shield segments");
+                Check(view.hpValueLabel.fontSharedMaterial == view.hpValueLabel.font.material &&
+                    view.hpValueLabel.color == UguiTheme.InfoInk && view.hpValueLabel.fontSize == 36,
+                    "HP numbers use solid dark text with the normal font material at 36px");
                 foreach (var terms in new[] { view.atkEqRow, view.hpEqRow })
                     Check(terms.parent.GetComponent<ScrollRect>()?.content == terms && terms.parent.GetComponent<RectMask2D>() != null,
                         terms.name + " keeps the original term target inside a horizontal equation viewport");
@@ -197,10 +198,7 @@ namespace KingdomIdle.UGUI.Editor
             view.jobLabel.alignment = TextAlignmentOptions.MidlineLeft;
             var info = view.jobLabel.transform.parent.GetComponent<VerticalLayoutGroup>();
             if (info != null) info.spacing = 14;
-            Type(view.hpValueLabel, 36, UguiTheme.TextPrimary);
-            var healthOutline = AssetDatabase.LoadAssetAtPath<Material>("Assets/UGUI/Fonts/Galmuri11 SDF - UIOutline.mat");
-            if (healthOutline == null) throw new InvalidOperationException("기존 HP 숫자 외곽선 머티리얼이 없습니다.");
-            view.hpValueLabel.fontSharedMaterial = healthOutline;
+            Type(view.hpValueLabel, 36, UguiTheme.InfoInk);
             var hpTrack = view.hpValueLabel.transform.parent;
             Flat(hpTrack.GetComponent<Image>(), BlueSurface);
             Height(hpTrack, 56); Height(hpTrack.parent, 64);
