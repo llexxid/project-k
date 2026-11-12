@@ -74,8 +74,13 @@ namespace KingdomIdle.UGUI.Editor
             StyleButton(view.btnDone, false);
             StyleButton(view.btnRePull1, true);
             StyleButton(view.btnRePullN, true);
-            F.Preferred(view.btnDone, width: 220); F.Flexible(view.btnDone, flexWidth: 0);
-            F.Flexible(view.btnRePull1, flexWidth: 1); F.Flexible(view.btnRePullN, flexWidth: 1);
+            foreach (var button in new[] { view.btnDone, view.btnRePull1, view.btnRePullN })
+            {
+                var size = F.Preferred(button, width: 0);
+                size.minWidth = 0; size.flexibleWidth = 1;
+            }
+            view.btnRePull1Label.text = "1회 더 뽑기";
+            view.btnRePullNLabel.text = "10회 더 뽑기";
         }
 
         private static void StyleButton(Button button, bool primary)
@@ -126,6 +131,12 @@ namespace KingdomIdle.UGUI.Editor
                         }
                         view.RefreshLayoutNow();
                         LayoutRebuilder.ForceRebuildLayoutImmediate(view.box);
+                        var repeats = new[] { view.btnRePull1Label, view.btnRePullNLabel }.Where(x => x.gameObject.activeInHierarchy);
+                        foreach (var label in repeats)
+                            if (label.GetPreferredValues(label.text.Split('\n')[0]).x > label.rectTransform.rect.width - 16)
+                                throw new InvalidOperationException("A result re-pull title must fit on one line: " + label.text);
+                        if (count > 1 && Mathf.Abs(((RectTransform)view.btnDone.transform).rect.width - ((RectTransform)view.btnRePullN.transform).rect.width) > 1)
+                            throw new InvalidOperationException("Result actions must share the available width equally.");
                         var cards = view.grid.GetComponentsInChildren<GachaCardItemView>(true);
                         if (cards.Length != count || cards.Any(card => card.nameLabel.fontSize < 42 || card.subLabel.text != "에픽 장비\nx10"))
                             throw new InvalidOperationException("Result card names or quantities were lost while sizing.");

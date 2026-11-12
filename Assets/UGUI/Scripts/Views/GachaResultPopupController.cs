@@ -273,7 +273,7 @@ namespace KingdomIdle.UGUI
         }
 
         private static string RePullLabel(KingdomIdle.Gacha.GachaTableSO table, int count)
-            => table == null ? "다시 뽑기" : $"{count}회 다시 뽑기\n{RewardPresentation.GachaCost(KingdomIdle.Gacha.GachaManager.Instance, table, count)}";
+            => table == null ? "다시 뽑기" : $"{count}회 더 뽑기\n{RewardPresentation.GachaCost(KingdomIdle.Gacha.GachaManager.Instance, table, count)}";
 
         private static void OnWalletChanged(eCurrency currency, long amount)
         {

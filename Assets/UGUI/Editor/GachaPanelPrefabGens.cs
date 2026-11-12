@@ -42,6 +42,22 @@ namespace KingdomIdle.UGUI.Editor
             AssetDatabase.SaveAssets();
         }
 
+        public static void PrepareBronzeInfoLinks()
+        {
+            if (EditorApplication.isPlaying) throw new InvalidOperationException("Exit Play Mode first.");
+            F.Init();
+            var root = PrefabUtility.LoadPrefabContents(PanelPath);
+            try
+            {
+                var c = root.GetComponent<GachaPanelView>()?.authoredContent;
+                if (c == null || c.ratesButton == null || c.rewardsButton == null)
+                    throw new InvalidOperationException("Gacha information link references are incomplete.");
+                ApplyInfoLinks(c);
+                PrefabUtility.SaveAsPrefabAsset(root, PanelPath);
+            }
+            finally { PrefabUtility.UnloadPrefabContents(root); }
+        }
+
         [MenuItem("KingdomIdle/UGUI/Validate bronze gacha UI")]
         public static void ValidateBronzeUi()
         {
@@ -53,6 +69,12 @@ namespace KingdomIdle.UGUI.Editor
                 if (c.featuredIcons?.Length != 3 || c.featuredFrames?.Length != 3 || c.featuredNames?.Length != 3 ||
                     c.ticketHint == null || c.skillRule == null)
                     throw new InvalidOperationException("Bronze gacha preview references are incomplete.");
+                foreach (var button in new[] { c.ratesButton, c.rewardsButton })
+                {
+                    var label = button.GetComponentInChildren<TMP_Text>(true);
+                    if (label.fontSharedMaterial != label.font.material || label.color != UguiTheme.TextPrimary)
+                        throw new InvalidOperationException("Gacha information links require the base filled font material and bright text.");
+                }
                 int objects = root.GetComponentsInChildren<Transform>(true).Length;
                 foreach (string name in new[] { "Equipment", "MageTowerSkill", "Equipment" })
                 {
@@ -251,14 +273,19 @@ namespace KingdomIdle.UGUI.Editor
             rule.text = "에픽 획득 시 누적 횟수가 초기화됩니다.";
             rule.fontSize = 32;
             Fixed(rule, 44);
-            Fixed(c.ratesButton.transform.parent, 132);
-            Link(c.ratesButton, "확률 정보", TextAlignmentOptions.MidlineLeft);
-            Link(c.rewardsButton, "획득 가능 목록", TextAlignmentOptions.MidlineRight);
+            ApplyInfoLinks(c);
             c.costLabel.fontSize = 36;
             Fixed(c.costLabel, 48);
             Fixed(c.pullRow, 168);
             var close = F.Preferred(view.closeButton, height: 104);
             close.minHeight = 104;
+        }
+
+        private static void ApplyInfoLinks(GachaTabContentView c)
+        {
+            Fixed(c.ratesButton.transform.parent, 132);
+            Link(c.ratesButton, "확률 정보", TextAlignmentOptions.MidlineLeft);
+            Link(c.rewardsButton, "획득 가능 목록", TextAlignmentOptions.MidlineRight);
         }
 
         private static void Link(UnityEngine.UI.Button button, string text, TextAlignmentOptions alignment)
@@ -270,7 +297,8 @@ namespace KingdomIdle.UGUI.Editor
             label.text = text;
             label.fontSize = 36;
             label.fontStyle = FontStyles.Underline;
-            label.color = UguiTheme.TextSecondary;
+            label.fontSharedMaterial = F.Font.material;
+            label.color = UguiTheme.TextPrimary;
             label.alignment = alignment;
         }
 

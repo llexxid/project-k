@@ -24,7 +24,7 @@ namespace KingdomIdle.UGUI
             if (price != null)
             {
                 price.color = UguiTheme.InfoInk;
-                price.fontStyle = FontStyles.Normal;
+                price.fontStyle = FontStyles.Bold;
                 if (price.font != null) price.fontSharedMaterial = price.font.material;
             }
         }
