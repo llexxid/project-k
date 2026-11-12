@@ -13,7 +13,7 @@ namespace KingdomIdle.UGUI
         // ── 기준 해상도 ──
         public const float RefWidth = 1080f;
         public const float RefHeight = 1920f;
-        public const float MatchWidthOrHeight = 0.5f;
+        public const float MatchWidthOrHeight = 0f;
 
         // ── 레이아웃 상수 (USS px) ──
         public const float BottomBarHeight = 190f;
@@ -22,8 +22,8 @@ namespace KingdomIdle.UGUI
         public const float GuideSheetHeightPct = 0.72f;
         public const float PanelSheetMinHeight = 380f;
         public const float PanelCornerRadiusPx = 22f;
-        public const float PanelPadding = 20f;
-        public const float PanelCloseBtnSize = 72f;
+        public const float PanelPadding = 30f;
+        public const float PanelCloseBtnSize = 144f;
         public const float StageAreaTop = 180f;
         public const float StageControlsBottom = StageAreaTop + 84f;
         public const float DropdownTop = 175f;
@@ -55,16 +55,16 @@ namespace KingdomIdle.UGUI
         public const float FontLoginPopupTitle = 40f;
         public const float FontStageLabel = 36f;
         public const float FontDeathTitle = 42f;
-        public const float FontPanelTitle = 34f;
+        public const float FontPanelTitle = 60f;
         public const float FontTabIcon = 56f;
-        public const float FontTabLabel = 30f;
+        public const float FontTabLabel = 36f;
         public const float MainNavIconSize = 64f;
-        public const float FontCurrencyValue = 28f;
-        public const float FontCurrencyName = 24f;
-        public const float FontSectionTitle = 26f;
-        public const float FontBody = 24f;
-        public const float FontSmall = 20f;
-        public const float FontBadge = 16f;
+        public const float FontCurrencyValue = 42f;
+        public const float FontCurrencyName = 36f;
+        public const float FontSectionTitle = 44f;
+        public const float FontBody = 42f;
+        public const float FontSmall = 36f;
+        public const float FontBadge = 30f;
         public const float FontDamageText = 30f;
 
         // ── 공통 색상 ──
@@ -73,9 +73,9 @@ namespace KingdomIdle.UGUI
         public static readonly Color ModalBg = Rgba(35, 30, 45, 0.96f);
         public static readonly Color LoginBoxBg = Rgba(28, 32, 48, 0.98f);
         public static readonly Color GachaResultBg = Rgba(30, 30, 50, 0.95f);
-        public static readonly Color TextPrimary = Rgba(255, 255, 255, 0.95f);
-        public static readonly Color TextSecondary = Rgba(255, 255, 255, 0.70f);
-        public static readonly Color TextTertiary = Rgba(255, 255, 255, 0.50f);
+        public static readonly Color TextPrimary = Rgba(255, 244, 219, 1f);
+        public static readonly Color TextSecondary = Rgba(213, 196, 165, 1f);
+        public static readonly Color TextTertiary = Rgba(185, 172, 150, 1f);
         public static readonly Color AccentGold = Rgba(255, 235, 180, 1f);
         public static readonly Color AccentGoldStrong = Rgba(255, 220, 100, 1f);
         public static readonly Color AccentBlue = Rgba(60, 120, 220, 0.85f);
@@ -101,24 +101,32 @@ namespace KingdomIdle.UGUI
         public static readonly Color HudTopBg = Rgba(0, 0, 0, 0.35f);
 
         // ── 러스틱 판타지 테마 (따뜻한 나무/가죽/청동) — 평평한 검정 배경 대신 리치한 웜톤 ──
-        public static readonly Color RusticPanel = Rgba(38, 29, 21, 0.98f);       // 패널 본문 (다크 우드/가죽)
-        public static readonly Color RusticPanelDeep = Rgba(28, 21, 15, 0.99f);   // 더 깊은 본문/팝업
-        public static readonly Color RusticBar = Rgba(32, 24, 17, 0.97f);         // 상/하단 바
-        public static readonly Color RusticBarDeep = Rgba(24, 18, 12, 0.98f);     // 하단 바(더 어둡게)
-        public static readonly Color RusticSurface = Rgba(56, 43, 30, 1f);        // 칩/버튼/탭 표면
-        public static readonly Color RusticSurfaceDark = Rgba(22, 16, 11, 0.96f); // 어두운 칩(재화 등)
-        public static readonly Color Bronze = Rgba(150, 110, 60, 1f);             // 청동 프레임/테두리
-        public static readonly Color BronzeLight = Rgba(196, 154, 92, 1f);        // 밝은 청동
-        public static readonly Color Parchment = Rgba(242, 230, 208, 0.97f);      // 양피지 텍스트
-        public static readonly Color NavMuted = Rgba(185, 174, 154, 1f);
+        public static readonly Color RusticPanel = Rgba(48, 39, 31, 1f);
+        public static readonly Color RusticPanelDeep = Rgba(33, 28, 24, 1f);
+        public static readonly Color RusticBar = Rgba(33, 28, 24, 1f);
+        public static readonly Color RusticBarDeep = Rgba(27, 23, 20, 1f);
+        public static readonly Color RusticSurface = Rgba(72, 58, 44, 1f);
+        public static readonly Color RusticSurfaceDark = Rgba(29, 24, 20, 1f);
+        public static readonly Color Bronze = Rgba(156, 122, 75, 1f);
+        public static readonly Color BronzeLight = Rgba(200, 156, 86, 1f);
+        public static readonly Color Parchment = Rgba(255, 244, 219, 1f);
+        public static readonly Color NavMuted = Rgba(213, 196, 165, 1f);
+        // 청동 원정대: 정보·선택·행동의 역할을 분리한다. 밝은 면에는 InfoInk를 함께 사용한다.
+        public static readonly Color InfoSurface = Rgba(239, 226, 195, 1f);
+        public static readonly Color InfoInk = Rgba(40, 36, 28, 1f);
+        public static readonly Color InfoMuted = Rgba(98, 81, 60, 1f);
+        public static readonly Color ActionGold = Rgba(244, 200, 107, 1f);
+        public static readonly Color RoyalBlue = Rgba(39, 91, 122, 1f);
+        public static readonly Color SelectedBorder = Rgba(159, 195, 214, 1f);
+        public static readonly Color RewardReady = Rgba(255, 218, 129, 1f);
         public static readonly Color DropdownBg = Rgba(38, 29, 21, 0.98f);
         public static readonly Color GuideHintBlue = Rgba(180, 200, 255, 0.75f);
         public static readonly Color EnhanceOrange = Rgba(220, 160, 40, 0.80f);
         public static readonly Color DisabledGrey = Rgba(100, 100, 100, 0.50f);
 
-        // ── 버튼 컬러 언어 (데모: 빨강=주/소모, 골드=확정/장착, 다크=취소/파괴) ──
-        public static readonly Color BtnSpend   = Rgba(170, 58, 50, 1f);   // 주 행동/소모(뽑기·강화·구매) — 러스틱 크림슨
-        public static readonly Color BtnConfirm = Rgba(178, 132, 60, 1f);  // 확정/장착/전직 — 청동-골드
+        // ── 버튼 역할: 금색=주요 행동, 어두운 면=보조 행동, 파괴는 별도 확인창 ──
+        public static readonly Color BtnSpend   = ActionGold;
+        public static readonly Color BtnConfirm = ActionGold;
         public static readonly Color BtnCancel  = Rgba(54, 43, 34, 1f);    // 취소/해제/닫기 — 다크 우드
 
         // ── 탭 선택 상태 (tab-btn-selected) ──

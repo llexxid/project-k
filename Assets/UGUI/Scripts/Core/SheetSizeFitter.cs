@@ -7,11 +7,18 @@ namespace KingdomIdle.UGUI
         public enum HeightMode { Preferred = 0, AvailableSpace = 1, BelowPartyHud = 2 }
         public float preferredHeight=1152;
         public HeightMode heightMode;
+        public float horizontalInset;
+        public float verticalInset;
         private RectTransform _topBoundary;
         private RectTransform _rect;
         private BottomSheetView _view;
         private bool _applying;
-        private void OnEnable(){_rect=(RectTransform)transform;Apply();}
+        private Matrix4x4 _lastBoundaryMatrix, _lastRootMatrix;
+        private Rect _lastRootRect, _lastBoundaryRect;
+        private Vector2 _lastParentSize;
+        private float _lastPartyHeight, _lastHorizontalInset, _lastVerticalInset;
+        private bool _hasExpandedLayout;
+        private void OnEnable(){_rect=(RectTransform)transform;_hasExpandedLayout=false;Apply();}
         private void OnRectTransformDimensionsChange(){if(_rect!=null&&isActiveAndEnabled)Apply();}
         private void LateUpdate(){if(heightMode==HeightMode.BelowPartyHud)Apply();}
 
@@ -20,6 +27,7 @@ namespace KingdomIdle.UGUI
         {
             _topBoundary = boundary;
             _rect = (RectTransform)transform;
+            _hasExpandedLayout = false;
             Apply();
         }
 
@@ -35,13 +43,23 @@ namespace KingdomIdle.UGUI
                 var root = (RectTransform)_view.transform;
                 var party = PartyHudController.Instance != null ? PartyHudController.Instance.HudRect : null;
                 float partyHeight = party != null ? party.rect.height : UguiTheme.PartyHudHeight;
+                var boundaryMatrix = _topBoundary.localToWorldMatrix;
+                var rootMatrix = root.worldToLocalMatrix;
+                // 전투 프레임마다 월드 좌표 변환·RectTransform 쓰기를 반복하지 않는다.
+                // 안전 영역, 화면 비율, HUD 높이 변경 시에만 다시 맞춘다.
+                if (_hasExpandedLayout && _lastBoundaryMatrix == boundaryMatrix && _lastRootMatrix == rootMatrix &&
+                    _lastRootRect == root.rect && _lastBoundaryRect == _topBoundary.rect && _lastParentSize == parent.rect.size &&
+                    Mathf.Approximately(_lastPartyHeight, partyHeight) &&
+                    Mathf.Approximately(_lastHorizontalInset, horizontalInset) && Mathf.Approximately(_lastVerticalInset, verticalInset)) return;
                 float top = root.InverseTransformPoint(_topBoundary.TransformPoint(
                     new Vector3(_topBoundary.rect.center.x, _topBoundary.rect.yMin, 0))).y - partyHeight;
                 _applying = true;
                 try
                 {
                     // 마스크와 입력 영역도 본문에 한정해 상단 정보·왕국군·하단바를 가리지 않는다.
-                    var offset = new Vector2(parent.offsetMax.x, top - root.rect.yMax);
+                    var min = new Vector2(horizontalInset, UguiTheme.BottomBarHeight + verticalInset);
+                    if (parent.offsetMin != min) parent.offsetMin = min;
+                    var offset = new Vector2(-horizontalInset, top - root.rect.yMax - verticalInset);
                     if (parent.offsetMax != offset) parent.offsetMax = offset;
                     float available = Mathf.Max(0, parent.rect.height);
                     if (Mathf.Abs(_rect.rect.height - available) > .5f)
@@ -49,9 +67,20 @@ namespace KingdomIdle.UGUI
                     if (_view.backdrop != null)
                     {
                         var backdrop = (RectTransform)_view.backdrop.transform;
-                        if (backdrop.offsetMin != parent.offsetMin) backdrop.offsetMin = parent.offsetMin;
-                        if (backdrop.offsetMax != parent.offsetMax) backdrop.offsetMax = parent.offsetMax;
+                        var backdropMin = new Vector2(0, UguiTheme.BottomBarHeight);
+                        var backdropMax = new Vector2(0, top - root.rect.yMax);
+                        if (backdrop.offsetMin != backdropMin) backdrop.offsetMin = backdropMin;
+                        if (backdrop.offsetMax != backdropMax) backdrop.offsetMax = backdropMax;
                     }
+                    _lastBoundaryMatrix = boundaryMatrix;
+                    _lastRootMatrix = rootMatrix;
+                    _lastRootRect = root.rect;
+                    _lastBoundaryRect = _topBoundary.rect;
+                    _lastParentSize = parent.rect.size;
+                    _lastPartyHeight = partyHeight;
+                    _lastHorizontalInset = horizontalInset;
+                    _lastVerticalInset = verticalInset;
+                    _hasExpandedLayout = true;
                 }
                 finally { _applying = false; }
                 return;

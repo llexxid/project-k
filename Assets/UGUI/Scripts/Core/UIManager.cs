@@ -29,7 +29,7 @@ namespace KingdomIdle.UGUI
         [Header("Behaviour")]
         [SerializeField] private bool dontDestroyOnLoad = true;
         [Tooltip("끄면 육성·왕국군·던전은 프리팹에 저장된 기존 크기를 사용합니다. 뽑기·상점은 확장 크기를 유지합니다.")]
-        [SerializeField] private bool expandLegacyTabPanels = false;
+        [SerializeField] private bool expandLegacyTabPanels = true;
 
         public UIViewCatalog Catalog => catalog;
         public RectTransform LayerScreens => layerScreens;
@@ -76,7 +76,7 @@ namespace KingdomIdle.UGUI
             _panelStack.Count > 0 && !_panelStack.Peek().IsTab;
         internal bool HasExpandedPanel => _panelStack.Count > 0 && IsExpandedPanel(_panelStack.Peek().Id);
         internal bool IsTopPanel(BottomSheetView view) => _panelStack.Count > 0 && _panelStack.Peek().View == view;
-        internal bool IsExpandedPanel(UIPanelId id) => id == UIPanelId.Gacha || id == UIPanelId.Store ||
+        internal bool IsExpandedPanel(UIPanelId id) => id == UIPanelId.Gacha || id == UIPanelId.Store || id == UIPanelId.Inventory ||
             (expandLegacyTabPanels && (id == UIPanelId.Development || id == UIPanelId.KingdomArmy || id == UIPanelId.Dungeon));
 
         /// <summary>온라인 전투 시간에서 제외할 메뉴·설정·로딩 상태를 한 곳에서 제공한다.</summary>
@@ -450,7 +450,11 @@ namespace KingdomIdle.UGUI
 #if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
             Debug.Log($"[PanelTiming] {id} create {panelTimer.Elapsed.TotalMilliseconds:F2} ms");
 #endif
-            if (go == null) return;
+            if (go == null)
+            {
+                if (_panelStack.Count > 0) ReactivatePanel(_panelStack.Peek());
+                return;
+            }
 
             var entry = new PanelEntry(id, isTabPanel, go, view);
             if (view != null && view.sheet != null)
@@ -652,6 +656,9 @@ namespace KingdomIdle.UGUI
                 var fitter = view.sheet.GetComponent<SheetSizeFitter>();
                 if (fitter == null) fitter = view.sheet.gameObject.AddComponent<SheetSizeFitter>();
                 fitter.heightMode = SheetSizeFitter.HeightMode.BelowPartyHud;
+                fitter.horizontalInset = id == UIPanelId.Inventory ? 24f : 0f;
+                fitter.verticalInset = id == UIPanelId.Inventory ? 24f : 0f;
+                view.centeredModal = id == UIPanelId.Inventory;
                 fitter.SetTopBoundary(HudTop);
             }
             PopulatePanel(id, view, payload);
@@ -782,6 +789,8 @@ namespace KingdomIdle.UGUI
                 var topGo = _panelStack.Peek().Go;
                 if (topGo != null)
                 {
+                    if (_panelStack.Peek().Id == UIPanelId.Inventory &&
+                        InventoryPanelController.HandleBack(topGo.GetComponent<InventoryPanelView>())) return;
                     var dungeonModal = topGo.GetComponentInChildren<DungeonDifficultyPopupView>(false);
                     if (dungeonModal != null && dungeonModal.gameObject.activeInHierarchy)
                     {

@@ -36,6 +36,14 @@ namespace KingdomIdle.UGUI
 
         // ── 진입점 ──
 
+        /// <summary>상세에서 뒤로가면 같은 분류의 목록으로 복귀하고, 목록에서만 가방을 닫는다.</summary>
+        internal static bool HandleBack(InventoryPanelView view)
+        {
+            if (_view != view || view == null || _detailItemId == null) return false;
+            Refresh();
+            return true;
+        }
+
         /// <summary>퀘스트 목적지로 중첩된 인벤토리에서 돌아오면 원래 패널을 다시 연결한다.</summary>
         internal static void Restore(InventoryPanelView view)
         {

@@ -44,7 +44,6 @@ namespace KingdomIdle.UGUI
             Initialize();
             if (content != null) content.localScale = Vector3.one;
             Apply(_selected ? 1 : 0);
-            if (_selected) _motion = StartCoroutine(Animate(1, 1));
         }
 
         private void OnDisable()
@@ -74,24 +73,14 @@ namespace KingdomIdle.UGUI
                 yield return null;
             }
             Apply(to);
-            // Labels and touch targets stay still; only the selected indicator breathes.
-            while (_selected)
-            {
-                if (indicator != null)
-                {
-                    var c = UguiTheme.BronzeLight;
-                    c.a = .9f + .1f * Mathf.Sin(Time.unscaledTime * 1.8f);
-                    indicator.color = c;
-                }
-                yield return null;
-            }
+            // 선택 상태는 고정한다. 수령 가능한 보상에만 지속 점등 연출을 사용한다.
             _motion = null;
         }
 
         private void Apply(float amount)
         {
             if (background != null)
-                background.color = Color.Lerp(Color.clear, UguiTheme.RusticSurface, amount);
+                background.color = Color.Lerp(Color.clear, UguiTheme.RoyalBlue, amount);
             var ink = Color.Lerp(UguiTheme.NavMuted, UguiTheme.Parchment, amount);
             if (icon != null)
             {
