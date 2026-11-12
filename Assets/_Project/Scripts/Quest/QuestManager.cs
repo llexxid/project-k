@@ -386,6 +386,7 @@ public class QuestManager : MonoBehaviour
         bool uncertain = code == 1014 || code == 1015 || (code == 0 &&
             (kind == "Timeout" || kind == "Transport" || kind == "Function" || kind == "InvalidResponse" || kind == "ApplyFailed" ||
              error?.Error == PlayFabErrorCode.CloudScriptAzureFunctionsExecutionTimeLimitExceeded ||
+             error?.Error == PlayFabErrorCode.CloudScriptAzureFunctionsHTTPRequestError ||
              error?.Error == PlayFabErrorCode.CloudScriptExecutionTimeLimitExceeded ||
              error?.Error == PlayFabErrorCode.CloudScriptHTTPRequestError || error?.Error == PlayFabErrorCode.ConnectionError));
         if (uncertain && UserManager.Instance != null)

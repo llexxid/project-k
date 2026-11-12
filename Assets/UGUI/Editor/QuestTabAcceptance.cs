@@ -68,6 +68,7 @@ namespace KingdomIdle.UGUI.Editor
                 {
                     ("StorageFailure1014", FixtureError("Business", 1014)), ("InvalidStoredData1015", FixtureError("Business", 1015)),
                     ("AzureFunctionTimeout1470", new PlayFab.PlayFabError { Error = PlayFab.PlayFabErrorCode.CloudScriptAzureFunctionsExecutionTimeLimitExceeded, ErrorMessage = "fixture" }),
+                    ("AzureFunctionHttp1473", new PlayFab.PlayFabError { Error = PlayFab.PlayFabErrorCode.CloudScriptAzureFunctionsHTTPRequestError, ErrorMessage = "fixture" }),
                     ("CloudScriptTimeout1206", new PlayFab.PlayFabError { Error = PlayFab.PlayFabErrorCode.CloudScriptExecutionTimeLimitExceeded, ErrorMessage = "fixture" }),
                     ("CloudScriptHttp", new PlayFab.PlayFabError { Error = PlayFab.PlayFabErrorCode.CloudScriptHTTPRequestError, ErrorMessage = "fixture" }),
                     ("ConnectionError", new PlayFab.PlayFabError { Error = PlayFab.PlayFabErrorCode.ConnectionError, ErrorMessage = "fixture" }),
