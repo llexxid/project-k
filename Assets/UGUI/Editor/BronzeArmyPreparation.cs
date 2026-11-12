@@ -53,6 +53,8 @@ namespace KingdomIdle.UGUI.Editor
                     "Portrait, actual HP fill and detail toggle references remain connected");
                 Check(view.atkValueLabel.color == UguiTheme.InfoInk && view.atkValueLabel.transform.parent.Find("MetricName") != null,
                     "Attack chip has a readable value and explicit metric name");
+                Check(view.hpValueLabel.fontSharedMaterial == AssetDatabase.LoadAssetAtPath<Material>("Assets/UGUI/Fonts/Galmuri11 SDF - UIOutline.mat"),
+                    "HP numbers retain a dark outline on both health and white shield segments");
                 foreach (var terms in new[] { view.atkEqRow, view.hpEqRow })
                     Check(terms.parent.GetComponent<ScrollRect>()?.content == terms && terms.parent.GetComponent<RectMask2D>() != null,
                         terms.name + " keeps the original term target inside a horizontal equation viewport");
@@ -91,6 +93,8 @@ namespace KingdomIdle.UGUI.Editor
                     "Job card separates information from condition/status surfaces while retaining its state references");
                 Check(view.fragLabel.rectTransform.rect.height >= 88 && view.prereqLabel.rectTransform.rect.height >= 88,
                     "Job requirements have enough height for two readable lines");
+                Check(view.badge.rectTransform.rect.height >= 56 && view.badge.GetPreferredValues("전직가능").y <= view.badge.rectTransform.rect.height,
+                    "Job status text fits inside its pill instead of becoming an empty decoration");
             });
             Inspect("Panels/Panel_KAJobChange.prefab", root =>
             {
@@ -103,7 +107,17 @@ namespace KingdomIdle.UGUI.Editor
                         settings.FindProperty("maximumColumns").intValue == 3 && settings.FindProperty("minimumCellWidth").floatValue == 1 &&
                         settings.FindProperty("cellHeight").floatValue == JobCardHeight,
                         grid.name + " preserves three branches and a complete job-card height");
+                    var height = grid.GetComponent<LayoutElement>();
+                    Check(height != null && height.minHeight >= JobCardHeight && height.preferredHeight >= JobCardHeight,
+                        grid.name + " reserves its full row height before cards are populated");
                 }
+                view.placeholder.gameObject.SetActive(false); view.contentGroup.gameObject.SetActive(true);
+                var rect = (RectTransform)root.transform;
+                rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 1000);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
+                Check(LayoutUtility.GetPreferredHeight(view.contentGroup) >= JobCardHeight * 2 &&
+                    LayoutUtility.GetPreferredHeight(rect) >= JobCardHeight * 2,
+                    "Both job tiers contribute their full height to the outer scrolling content even before card creation");
             });
             Inspect("Panels/Panel_KAJobDetail.prefab", root =>
             {
@@ -184,6 +198,9 @@ namespace KingdomIdle.UGUI.Editor
             var info = view.jobLabel.transform.parent.GetComponent<VerticalLayoutGroup>();
             if (info != null) info.spacing = 14;
             Type(view.hpValueLabel, 36, UguiTheme.TextPrimary);
+            var healthOutline = AssetDatabase.LoadAssetAtPath<Material>("Assets/UGUI/Fonts/Galmuri11 SDF - UIOutline.mat");
+            if (healthOutline == null) throw new InvalidOperationException("기존 HP 숫자 외곽선 머티리얼이 없습니다.");
+            view.hpValueLabel.fontSharedMaterial = healthOutline;
             var hpTrack = view.hpValueLabel.transform.parent;
             Flat(hpTrack.GetComponent<Image>(), BlueSurface);
             Height(hpTrack, 56); Height(hpTrack.parent, 64);
@@ -320,15 +337,15 @@ namespace KingdomIdle.UGUI.Editor
             var footer = Surface(root.transform, "ArmyConditionSurface", BlueSurface);
             Fill(footer.rectTransform, 6); footer.rectTransform.offsetMax = new Vector2(-6, -346); footer.transform.SetSiblingIndex(1);
             var chip = Surface(root.transform, "ArmyStateChip", BlueSurface);
-            Top(chip.rectTransform, 14, 48, 28);
+            Top(chip.rectTransform, 14, 64, 28);
             if (view.badge.transform.parent != chip.transform) view.badge.transform.SetParent(chip.transform, false);
             Fill(view.badge.rectTransform, 4);
             Type(view.badge, 36, UguiTheme.TextSecondary);
             view.badge.alignment = TextAlignmentOptions.Center;
             var portrait = root.transform.Find("ImgWrap") as RectTransform;
-            Top(portrait, 72, 104, 16);
+            Top(portrait, 80, 96, 16);
             var ring = portrait.Find("PortraitRing") as RectTransform;
-            ring.sizeDelta = new Vector2(104, 104); ring.GetComponent<Image>().color = UguiTheme.Bronze;
+            ring.sizeDelta = new Vector2(96, 96); ring.GetComponent<Image>().color = UguiTheme.Bronze;
             var disc = ring.Find("PortraitDisc")?.GetComponent<Image>();
             if (disc != null) disc.color = PortraitSurface;
             Type(view.nameLabel, 42, UguiTheme.InfoInk);
@@ -419,6 +436,8 @@ namespace KingdomIdle.UGUI.Editor
                 var layout = grid.GetComponent<GridLayoutGroup>();
                 layout.constraint = GridLayoutGroup.Constraint.FixedColumnCount; layout.constraintCount = 3;
                 layout.cellSize = new Vector2(layout.cellSize.x, JobCardHeight); layout.spacing = new Vector2(16, 16);
+                // 현재 각 단계는 3개 직업의 한 행이다. 빈 grid로 최초 계산되어도 부모 scroll이 높이를 잃지 않게 한다.
+                Height(grid, JobCardHeight + layout.padding.vertical);
             }
             Type(view.placeholder, 36, UguiTheme.TextSecondary); AutoHeight(view.placeholder);
             foreach (var text in root.GetComponentsInChildren<TMP_Text>(true).Where(x => x.name == "SectionTitle" || x.name == "Origin" || x.transform.parent.name == "JobSectionTitle"))
