@@ -129,8 +129,15 @@ namespace KingdomIdle.UGUI.Editor
                 }
                 view.placeholder.gameObject.SetActive(false); view.contentGroup.gameObject.SetActive(true);
                 var rect = (RectTransform)root.transform;
-                rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 1000);
-                LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
+                foreach (float width in new[] { 900f, 1000f })
+                {
+                    rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
+                    view.bannerHint.text = "필요 1차 40 · 2차 120 · 재전직 무료";
+                    LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
+                    Check(view.bannerHint.transform.parent == view.bannerValue.transform.parent.parent &&
+                        view.bannerHint.GetPreferredValues(view.bannerHint.text).x <= view.bannerHint.rectTransform.rect.width + 1,
+                        width + "px job costs use a full-width line without splitting the free-change wording");
+                }
                 Check(LayoutUtility.GetPreferredHeight(view.contentGroup) >= JobCardHeight * 2 &&
                     LayoutUtility.GetPreferredHeight(rect) >= JobCardHeight * 2,
                     "Both job tiers contribute their full height to the outer scrolling content even before card creation");
@@ -449,12 +456,28 @@ namespace KingdomIdle.UGUI.Editor
         {
             var view = root.GetComponent<KAJobChangeView>();
             var banner = view.bannerValue.transform.parent;
-            Flat(banner.GetComponent<Image>(), BlueSurface); Height(banner, 160);
-            var row = banner.GetComponent<HorizontalLayoutGroup>(); row.padding = new RectOffset(24, 24, 20, 20); row.spacing = 20;
-            var name = banner.Find("Name")?.GetComponent<TMP_Text>();
-            Type(name, 36, UguiTheme.TextSecondary); if (name != null) Size(name.transform, 180, 96);
-            Type(view.bannerValue, 44, UguiTheme.AccentGoldStrong); Size(view.bannerValue.transform, 148, 96);
-            Type(view.bannerHint, 36, UguiTheme.TextSecondary); AutoHeight(view.bannerHint);
+            // 재적용 시에도 같은 배너와 기존 View 참조를 사용한다.
+            if (banner.name == "FragmentBalanceRow") banner = banner.parent;
+            Flat(banner.GetComponent<Image>(), BlueSurface); Height(banner, 180);
+            var oldRow = banner.GetComponent<HorizontalLayoutGroup>();
+            if (oldRow != null) Object.DestroyImmediate(oldRow);
+            var column = banner.GetComponent<VerticalLayoutGroup>() ?? banner.gameObject.AddComponent<VerticalLayoutGroup>();
+            column.padding = new RectOffset(24, 24, 20, 20); column.spacing = 12;
+            column.childControlWidth = column.childControlHeight = true;
+            column.childForceExpandWidth = true; column.childForceExpandHeight = false;
+            var balance = Rect(banner, "FragmentBalanceRow"); Height(balance, 56);
+            var row = balance.GetComponent<HorizontalLayoutGroup>() ?? balance.gameObject.AddComponent<HorizontalLayoutGroup>();
+            row.padding = new RectOffset(); row.spacing = 20; row.childAlignment = TextAnchor.MiddleLeft;
+            row.childControlWidth = row.childControlHeight = true;
+            row.childForceExpandWidth = row.childForceExpandHeight = false;
+            var name = (banner.Find("Name") ?? balance.Find("Name"))?.GetComponent<TMP_Text>();
+            if (name != null) name.transform.SetParent(balance, false);
+            view.bannerValue.transform.SetParent(balance, false);
+            Type(name, 36, UguiTheme.TextSecondary); if (name != null) Size(name.transform, 180, 56);
+            Type(view.bannerValue, 44, UguiTheme.AccentGoldStrong); Size(view.bannerValue.transform, 148, 56);
+            // 비용 안내는 남은 좁은 열 대신 배너 전체 너비를 사용해 한국어 단어가 갈라지지 않게 한다.
+            Type(view.bannerHint, 36, UguiTheme.TextSecondary, 72); Flexible(view.bannerHint.transform);
+            view.bannerHint.transform.SetAsLastSibling();
             foreach (var grid in new[] { view.basicGrid, view.eliteGrid })
             {
                 // 기존 helper의 고정 208px가 큰 글자를 잘라 기존 범용 responsive helper를 같은 3열로 구성한다.
