@@ -90,8 +90,13 @@ namespace KingdomIdle.UGUI
                 if (index >= snapshot.Rewards.Count) return;
                 var reward = snapshot.Rewards[index];
                 icon.sprite = RewardPresentation.Icon(reward.Currency, catalog);
-                amount.text = reward.IsDynamic ? "2분 골드" : $"×{NumberNotation.Format(reward.Amount)}";
+                amount.text = reward.IsDynamic ? (multiple ? "2분 골드" : "2분\n골드") : $"×{NumberNotation.Format(reward.Amount)}";
                 amount.color = UguiTheme.InfoInk;
+                amount.textWrappingMode = TextWrappingModes.Normal;
+                amount.overflowMode = TextOverflowModes.Overflow;
+                amount.maxVisibleLines = 2;
+                amount.alignment = TextAlignmentOptions.Top;
+                amount.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, reward.IsDynamic && !multiple ? 88 : 44);
             }
         }
 
@@ -99,7 +104,7 @@ namespace KingdomIdle.UGUI
         private static void LayoutReward(Image icon, TMP_Text amount, float top, float size, float amountTop)
         {
             var root = (RectTransform)icon.transform.parent;
-            root.anchoredPosition = new Vector2(24, -top);
+            root.anchoredPosition = new Vector2(8, -top);
             icon.rectTransform.sizeDelta = new Vector2(size, size);
             amount.rectTransform.anchoredPosition = new Vector2(0, -amountTop);
         }

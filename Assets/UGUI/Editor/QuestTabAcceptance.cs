@@ -255,7 +255,7 @@ namespace KingdomIdle.UGUI.Editor
                     Check(multi.secondaryRewardIcon.transform.parent.gameObject.activeSelf &&
                         multi.secondaryRewardIcon.sprite == catalog.iconArcane,
                         "Multiple quest rewards remain visible as two typed icons");
-                    Check(RowView(panel, 20001).rewardAmountLabel.text == "2분 골드",
+                    Check(RowView(panel, 20001).rewardAmountLabel.text == "2분\n골드",
                         "Dynamic gold uses its duration rule instead of displaying a false fixed amount");
                 }
                 finally

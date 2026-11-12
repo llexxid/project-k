@@ -54,6 +54,12 @@ namespace KingdomIdle.UGUI.Editor
                 view.SetQuest(Snapshot(QuestRowState.InProgress,5),catalog);
                 Check(Mathf.Approximately(view.progressFill.fillAmount,.5f) && view.secondaryRewardIcon.transform.parent.gameObject.activeSelf,
                     "In-progress fraction and both typed rewards remain visible");
+                var dynamicGold=new QuestRowSnapshot(new QuestClaimToken(0,20001,"bronze-validation"),eQuestCategory.Daily,
+                    "검사","몬스터 10마리 처치",eQuestObjectiveType.MonsterKill,0,10,5,QuestRowState.InProgress,false,0,
+                    new[]{new QuestRewardSnapshot(eCurrency.Gold,0,true)});
+                view.SetQuest(dynamicGold,catalog);
+                Check(view.rewardAmountLabel.text=="2분\n골드" && view.rewardAmountLabel.rectTransform.rect.height>=88,
+                    "Dynamic gold keeps both the duration and currency visible on two lines");
                 view.SetQuest(Snapshot(QuestRowState.Claimable,10),catalog,claimAll:true);
                 Check(view.actionButton.interactable && view.actionLabel.text=="수령 가능" && view.claimBorder.color==UguiTheme.ActionGold,
                     "Claimable cell lights its border without a claim-all control");
@@ -167,8 +173,8 @@ namespace KingdomIdle.UGUI.Editor
         {
             var slot = Rect(parent, name);
             slot.anchorMin = slot.anchorMax = slot.pivot = new Vector2(0, 1);
-            slot.sizeDelta = new Vector2(144, 140);
-            slot.anchoredPosition = new Vector2(24, -24);
+            slot.sizeDelta = new Vector2(180, 140);
+            slot.anchoredPosition = new Vector2(8, -24);
             icon = Image(slot, "Icon", Color.white);
             icon.preserveAspect = true;
             icon.rectTransform.anchorMin = icon.rectTransform.anchorMax = icon.rectTransform.pivot = new Vector2(.5f, 1);
