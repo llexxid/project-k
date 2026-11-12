@@ -586,11 +586,12 @@ namespace KingdomIdle.UGUI.Editor
         private static void MakeEquipGrid(GameObject go)
         {
             var lg = go.AddComponent<GridLayoutGroup>();
-            lg.cellSize = new Vector2(160f, 210f);
+            lg.cellSize = new Vector2(225f, 284f);
             lg.spacing = new Vector2(10f, 10f);
             lg.childAlignment = TextAnchor.UpperCenter;
             lg.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            lg.constraintCount = 6;
+            lg.constraintCount = 4;
+            go.AddComponent<ResponsiveGrid>();
         }
 
         private static void MakeJobGrid(GameObject go)

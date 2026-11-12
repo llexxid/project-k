@@ -43,6 +43,13 @@ namespace KingdomIdle.UGUI.Editor
                 var toolbar = root.GetComponentInChildren<EquipmentToolbarView>(true);
                 if (view.equippedIcon == null || view.inventoryGrid == null || view.recommendButton == null || view.settingsButton == null || toolbar == null)
                     throw new InvalidOperationException("Bronze equipment references are incomplete.");
+                var responsive = view.inventoryGrid.GetComponent<ResponsiveGrid>();
+                if (responsive == null)
+                    throw new InvalidOperationException("The army equipment grid must use the shared responsive layout.");
+                var gridSettings = new SerializedObject(responsive);
+                if (gridSettings.FindProperty("minimumCellWidth").floatValue < 225 || gridSettings.FindProperty("cellHeight").floatValue < 284 ||
+                    gridSettings.FindProperty("maximumColumns").intValue > 5)
+                    throw new InvalidOperationException("Army equipment cells must fit the shared two-line 225x284 layout, at most five columns.");
                 int refreshes = 0;
                 toolbar.Bind(null, () => refreshes++, true);
                 toolbar.Bind(null, () => refreshes++, true);
@@ -54,7 +61,7 @@ namespace KingdomIdle.UGUI.Editor
                 foreach (var button in new[] { toolbar.job, toolbar.rarity, toolbar.sort, toolbar.dismantle, view.recommendButton, view.settingsButton, view.unequipButton })
                     if (button.GetComponent<LayoutElement>().preferredHeight < 132)
                         throw new InvalidOperationException("Equipment touch targets must be at least 132px high: " + button.name);
-                Debug.Log("BRONZE EQUIPMENT UI VALIDATION PASSED: references, one-click filter after rebind, single settings entry, 132px touch targets");
+                Debug.Log("BRONZE EQUIPMENT UI VALIDATION PASSED: references, responsive two-line equipment grid, one-click filter after rebind, single settings entry, 132px touch targets");
             }
             finally { UnityEngine.Object.DestroyImmediate(root); }
         }
