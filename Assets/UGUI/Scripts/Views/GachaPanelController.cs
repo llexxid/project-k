@@ -16,7 +16,7 @@ namespace KingdomIdle.UGUI
         // 방치형 가챠 표준: x1 / x10
         private static readonly int[] PullCounts = { 1, 10 };
 
-        private static readonly Color TabActive = UguiTheme.RusticSurface;
+        private static readonly Color TabActive = UguiTheme.RoyalBlue;
         private static bool _flaringPull;
 
         private static int _activeTabIndex;
@@ -198,7 +198,13 @@ namespace KingdomIdle.UGUI
             _contentTable = table;
 
             if (c.heroTitle != null) c.heroTitle.text = IsSkillTable(table) ? "마탑 뽑기" : "장비 뽑기";
+            if (c.heroIcon != null) c.heroIcon.transform.parent.gameObject.SetActive(true);
+            if (c.featuredRewards != null) c.featuredRewards.gameObject.SetActive(true);
             if (c.heroIcon != null) c.heroIcon.sprite = IsSkillTable(table) ? c.mageArt : c.equipmentArt;
+            if (c.heroDescription != null) c.heroDescription.text = IsSkillTable(table)
+                ? "새로운 마법으로 전투를 준비하세요" : "장비로 왕국군을 강화하세요";
+            if (c.skillRule != null) c.skillRule.gameObject.SetActive(IsSkillTable(table));
+            UpdateFeaturedRewards(c, table);
             if (c.ratesButton != null)
             {
                 c.ratesButton.onClick.RemoveListener(OpenRates);
@@ -243,6 +249,8 @@ namespace KingdomIdle.UGUI
                 if (pull == null) continue;
 
                 string title = count == 1 ? "1회 뽑기" : $"{count}연 뽑기";
+                pull.authoredBackground = false;
+                pull.SetEmphasis(count == 10);
                 pull.Set(title, RewardPresentation.GachaCost(manager, table, count), available, cat.iconChest);
                 pull.Button.onClick.AddListener(() => OnPullClicked(capturedTable, count, pull));
                 if (count == 1) FeatureGuideAnchor.Bind(pull.Button, IsSkillTable(table) ? Direction.GameDirectTarget.SkillPullOnce : Direction.GameDirectTarget.EquipmentPullOnce);
@@ -268,6 +276,12 @@ namespace KingdomIdle.UGUI
             string ticketCount = $"보유 {NumberNotation.Format(tickets)}장";
             if (_content.ticketName != null && _content.ticketName.text != ticketName) _content.ticketName.text = ticketName;
             if (_content.ticketCount != null && _content.ticketCount.text != ticketCount) _content.ticketCount.text = ticketCount;
+            if (_content.ticketHint != null)
+            {
+                string hint = _inventoryFull ? "장비 보관함이 가득 찼습니다. 빈 슬롯을 확보해 주세요."
+                    : "뽑기권 먼저 사용 · 부족한 횟수만 고대주화 사용";
+                if (_content.ticketHint.text != hint) _content.ticketHint.text = hint;
+            }
             UpdateDescription();
             bool pulling=_flaringPull || (GachaManager.Instance != null && GachaManager.Instance.IsPulling);
             for(int i=0;i<_activePullButtons.Count;i++)
@@ -314,12 +328,55 @@ namespace KingdomIdle.UGUI
         private static bool IsRewardValidForGacha(GachaRewardEntry r, bool isSkillGacha, bool isEquipGacha)
         {
             if (isSkillGacha)
-                return r.rewardType == eGachaRewardType.Skill
+                return (r.rewardType == eGachaRewardType.Skill && MageSkillRules.IsAvailable(r.skillId))
                     || (r.rewardType == eGachaRewardType.Currency && r.currency == eCurrency.ArcaneKnowledge);
             if (isEquipGacha)
-                return r.rewardType == eGachaRewardType.Equipment
+                return (r.rewardType == eGachaRewardType.Equipment && r.equipmentData != null && r.equipmentData.CanBeRewarded)
                     || (r.rewardType == eGachaRewardType.Currency && r.currency == eCurrency.ClassFragment);
             return true;
+        }
+
+        // 세 개의 고정 셀을 재사용한다. 전체 목록의 확률·정렬·보상 지급에는 관여하지 않는다.
+        internal static void UpdateFeaturedRewards(GachaTabContentView c, GachaTableSO table)
+        {
+            if (c.featuredIcons == null || c.featuredNames == null || c.featuredFrames == null) return;
+            var candidates = table.rewards != null ? new List<GachaRewardEntry>(table.rewards) : new List<GachaRewardEntry>();
+            candidates.Sort(CompareForPreview);
+            bool skill = IsSkillTable(table);
+            int slot = 0, shownRarities = 0;
+            foreach (var entry in candidates)
+            {
+                if (entry == null || !IsRewardValidForGacha(entry, skill, !skill)) continue;
+                if (slot >= c.featuredIcons.Length || slot >= c.featuredNames.Length || slot >= c.featuredFrames.Length) break;
+                Sprite icon;
+                string name;
+                Color frame;
+                if (entry.rewardType == eGachaRewardType.Equipment && entry.equipmentData != null)
+                {
+                    int rarity = 1 << (int)entry.equipmentData.rarity;
+                    if ((shownRarities & rarity) != 0) continue;
+                    shownRarities |= rarity;
+                    icon = entry.equipmentData.icon;
+                    name = GetRarityText(entry.equipmentData.rarity) + " · " + entry.equipmentData.DisplayName;
+                    frame = UguiTheme.RarityColor(entry.equipmentData.rarity);
+                }
+                else if (entry.rewardType == eGachaRewardType.Skill)
+                {
+                    var data = MageTowerManager.Instance?.GetSkillById(entry.skillId);
+                    icon = data != null ? data.icon : entry.icon;
+                    name = data != null ? data.nameKor : entry.nameKor;
+                    frame = MageSkillPresentation.Accent;
+                }
+                else continue;
+                c.featuredIcons[slot].sprite = icon;
+                c.featuredIcons[slot].enabled = icon != null;
+                c.featuredNames[slot].text = name;
+                c.featuredFrames[slot].color = frame;
+                c.featuredFrames[slot].transform.parent.gameObject.SetActive(true);
+                slot++;
+            }
+            for (; slot < c.featuredFrames.Length; slot++)
+                c.featuredFrames[slot].transform.parent.gameObject.SetActive(false);
         }
 
         private static void BuildRewardPreview(GachaTabContentView c, GachaTableSO table)
@@ -587,6 +644,9 @@ namespace KingdomIdle.UGUI
             if (c.costLabel != null) c.costLabel.gameObject.SetActive(false);
             if (c.pullRow != null) c.pullRow.gameObject.SetActive(false);
             if (c.pityRoot != null) c.pityRoot.gameObject.SetActive(false);
+            if (c.heroIcon != null) c.heroIcon.transform.parent.gameObject.SetActive(false);
+            if (c.featuredRewards != null) c.featuredRewards.gameObject.SetActive(false);
+            if (c.skillRule != null) c.skillRule.gameObject.SetActive(false);
         }
 
         private static void DestroyChildren(Transform parent)

@@ -398,6 +398,7 @@ namespace KingdomIdle.UGUI.Editor
 
         public static void ApplyPanelLayout()
         {
+            F.Init(); F.Catalog = PrefabGenUtil.GetOrCreateCatalog();
             var root = PrefabUtility.LoadPrefabContents(PrefabPath);
             try
             {
@@ -411,15 +412,110 @@ namespace KingdomIdle.UGUI.Editor
                     throw new InvalidOperationException("Existing shop header wiring is missing.");
                 view.SetTitle("상점");
                 PanelGens.ConfigureSheet(view);
-                view.sheet.Find("PreviewNotice").GetComponent<TMP_Text>().text = "구매 · 골드 교환 준비 중";
-                view.sheet.Find("PriceNotice").GetComponent<TMP_Text>().text =
-                    "표시 가격은 개발 예정가입니다.\n판매 시 스토어 가격을 확인해 주세요.";
-                view.pages[(int)ShopCategory.Rewarded].transform.Find("DailyHint").GetComponent<TMP_Text>().text =
-                    "장비 · 마탑 각각 광고 1회에 뽑기권 2장\n각각 하루 1회 · 한국 시간 자정 초기화";
+                ApplyBronzeLayout(view);
                 root.SetActive(true);
                 PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
             }
             finally { PrefabUtility.UnloadPrefabContents(root); }
+        }
+
+        private static void ApplyBronzeLayout(ShopPopupView view)
+        {
+            var layout = view.sheet.GetComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(30, 30, 20, 24); layout.spacing = 12;
+            view.title.fontSize = 60;
+            F.Preferred(view.sheet.Find("Header"), height: 104);
+            F.Preferred(view.closeButton, width: 150, height: 104);
+            F.Preferred(view.sheet.Find("Tabs"), height: 100);
+            foreach (var tab in view.tabs)
+            {
+                F.Preferred(tab, height: 100);
+                tab.GetComponentInChildren<TMP_Text>().fontSize = 36;
+            }
+            SetShopLabel(view.wallet, null, 36, 48);
+            SetShopLabel(view.income, null, 32, 44);
+            SetShopLabel(view.sheet.Find("PreviewNotice").GetComponent<TMP_Text>(), "구매 · 골드 교환 준비 중", 32, 42);
+            SetShopLabel(view.sheet.Find("PriceNotice").GetComponent<TMP_Text>(), "표시 가격은 개발 예정가입니다. 실제 판매 시 스토어 가격 적용", 30, 44);
+            foreach (var page in view.pages)
+            {
+                var pageLayout = page.GetComponent<VerticalLayoutGroup>();
+                if (pageLayout != null) pageLayout.spacing = 18;
+                foreach (var hint in page.GetComponentsInChildren<TMP_Text>(true))
+                    if (hint.GetComponentInParent<ShopOfferView>() == null)
+                    { hint.fontSize = 32; F.Preferred(hint, height: 84); }
+            }
+            var daily = view.pages[(int)ShopCategory.Rewarded].transform.Find("DailyHint").GetComponent<TMP_Text>();
+            daily.text = "장비 · 마탑 뽑기권 각각 2장\n각 하루 1회 · 한국 시간 자정 초기화";
+            foreach (var row in view.offers) BuildOfferPresentation(row, ShopCatalog.Find(row.offerId));
+        }
+
+        private static void SetShopLabel(TMP_Text label, string text, float size, float height)
+        {
+            if (text != null) label.text = text;
+            label.fontSize = size; F.Preferred(label, height: height);
+        }
+
+        private static void BuildOfferPresentation(ShopOfferView row, ShopOffer offer)
+        {
+            if (offer == null) throw new InvalidOperationException("Unknown shop offer: " + row.offerId);
+            for (int i = row.transform.childCount - 1; i >= 0; i--) Object.DestroyImmediate(row.transform.GetChild(i).gameObject);
+            var oldLayout = row.GetComponent<LayoutGroup>();
+            if (oldLayout != null) Object.DestroyImmediate(oldLayout);
+            row.GetComponent<Image>().color = UguiTheme.InfoSurface;
+            F.VLayout(row.gameObject, 12, new RectOffset(22, 22, 20, 20));
+            var frame = F.Frame(row.transform, "Frame", UguiTheme.Bronze);
+            frame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            var heading = F.Container(row.transform, "Heading");
+            F.HLayout(heading.gameObject, 20, align: TextAnchor.MiddleLeft);
+            F.Preferred(heading, height: 134);
+            Sprite icon = offer.PermanentAdRemoval ? UguiGenAssets.IconHourglass :
+                offer.GoldMinutes > 0 ? UguiGenAssets.IconCoin :
+                offer.MageTickets > 0 && offer.EquipmentTickets == 0 ? F.Catalog.iconSkillWand :
+                offer.EquipmentTickets > 0 ? F.Catalog.iconChest : UguiGenAssets.IconAncientCoin;
+            var image = F.IconImage(heading, "Icon", icon, 112, 112);
+            F.Preferred(image, width: 112, height: 112).minWidth = 112;
+            var info = F.Container(heading, "Info"); F.VLayout(info.gameObject, 6);
+            F.Flexible(info, flexWidth: 1);
+            row.title = F.Text(info, "Title", offer.Title, 42, UguiTheme.InfoInk, bold: true);
+            row.title.fontSharedMaterial = F.Font.material; F.Preferred(row.title, height: 54);
+            string detail = offer.EquipmentTickets > 0 && offer.MageTickets > 0 ? "원정에 필요한 주화와 뽑기권" : offer.Detail;
+            row.detail = F.Text(info, "Detail", detail, 34, UguiTheme.InfoMuted, wrap: true);
+            F.Preferred(row.detail, height: 74);
+            bool package = offer.EquipmentTickets > 0 && offer.MageTickets > 0;
+            if (package)
+            {
+                var chips = F.Container(row.transform, "Contents"); F.HLayout(chips.gameObject, 10, expandWidth: true);
+                F.Preferred(chips, height: 68);
+                RewardChip(chips, UguiGenAssets.IconAncientCoin, NumberNotation.Exact(offer.Coins));
+                RewardChip(chips, F.Catalog.iconChest, "장비 " + offer.EquipmentTickets);
+                RewardChip(chips, F.Catalog.iconSkillWand, "마탑 " + offer.MageTickets);
+            }
+            var bottom = F.Container(row.transform, "Bottom");
+            F.HLayout(bottom.gameObject, 16, align: TextAnchor.MiddleLeft);
+            F.Preferred(bottom, height: 104);
+            string amount = offer.Payment == ShopPayment.RewardedAd ? "오늘 0 / 1회" :
+                offer.PermanentAdRemoval ? "영구 이용 · 준비 중" : offer.GoldMinutes > 0 ? "골드 수입 계산 중" : "상품 미리보기";
+            row.amount = F.Text(bottom, "Amount", amount, 34, UguiTheme.InfoMuted, wrap: true);
+            F.Flexible(row.amount, flexWidth: 1); F.Preferred(row.amount, height: 96);
+            bool primary = offer.Payment == ShopPayment.RewardedAd || offer.PermanentAdRemoval;
+            string price = offer.Payment == ShopPayment.RewardedAd ? "광고 보고 받기" : offer.Payment == ShopPayment.AncientCoin
+                ? "주화 " + NumberNotation.Exact(offer.AncientCoinCost) + "개\n준비 중" : NumberNotation.Exact(offer.PreviewWon) + "원\n준비 중";
+            row.action = F.TextButton(bottom, "BtnAction", price, 36, primary ? UguiTheme.ActionGold : UguiTheme.RusticSurface, out var label,
+                textColor: primary ? UguiTheme.InfoInk : UguiTheme.Parchment);
+            label.fontSharedMaterial = F.Font.material; label.enableWordWrapping = true;
+            row.price = label;
+            F.Preferred(row.action, width: 330, height: 104).minWidth = 330;
+            F.Preferred(row, height: package ? 382 : 302);
+        }
+
+        private static void RewardChip(Transform parent, Sprite icon, string text)
+        {
+            var chip = F.Box(parent, "RewardChip", new Color(.84f, .77f, .63f, 1));
+            F.HLayout(chip.gameObject, 8, new RectOffset(10, 10, 8, 8));
+            F.Flexible(chip, flexWidth: 1); F.Preferred(chip, height: 68);
+            F.Preferred(F.IconImage(chip.transform, "Icon", icon, 44, 44), width: 44, height: 44).minWidth = 44;
+            var label = F.Text(chip.transform, "Value", text, 32, UguiTheme.InfoInk);
+            F.Flexible(label, flexWidth: 1);
         }
 
         public static void Validate()

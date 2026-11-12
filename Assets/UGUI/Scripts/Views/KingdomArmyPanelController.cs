@@ -620,10 +620,12 @@ namespace KingdomIdle.UGUI
 
             // ── 장착 중 카드 ──
             if (equip.equippedFrame != null) equip.equippedFrame.gameObject.SetActive(equipped != null);
-            if (equip.equippedSlotLabel != null) equip.equippedSlotLabel.text = "무기";
+            if (equip.equippedSlotLabel != null) equip.equippedSlotLabel.text = "현재 장착 · 무기";
 
             if (equipped != null)
             {
+                if (equip.equippedSlotLabel != null)
+                    equip.equippedSlotLabel.text = equipped.IsLocked ? "현재 장착 · 잠금" : "현재 장착 · 무기";
                 if (equip.equippedIconWrap != null) equip.equippedIconWrap.gameObject.SetActive(true);
                 SetIconSprite(equip.equippedIcon, equipped.baseData.icon);
 
@@ -631,7 +633,7 @@ namespace KingdomIdle.UGUI
                 if (equip.equippedNameLabel != null)
                 {
                     equip.equippedNameLabel.text = $"{equipped.baseData.DisplayName}{enhStr0}";
-                    equip.equippedNameLabel.color = new Color(1f, 1f, 1f, 0.85f);
+                    equip.equippedNameLabel.color = UguiTheme.InfoInk;
                 }
                 if (equip.equippedStatLabel != null)
                 {
@@ -656,8 +658,8 @@ namespace KingdomIdle.UGUI
                 if (equip.equippedIconWrap != null) equip.equippedIconWrap.gameObject.SetActive(false);
                 if (equip.equippedNameLabel != null)
                 {
-                    equip.equippedNameLabel.text = "비어있음";
-                    equip.equippedNameLabel.color = new Color(1f, 1f, 1f, 0.30f);
+                    equip.equippedNameLabel.text = "장착한 무기가 없습니다";
+                    equip.equippedNameLabel.color = UguiTheme.InfoMuted;
                 }
                 if (equip.equippedStatLabel != null) equip.equippedStatLabel.gameObject.SetActive(false);
                 if (equip.unequipButton != null) equip.unequipButton.gameObject.SetActive(false);
@@ -751,7 +753,7 @@ namespace KingdomIdle.UGUI
             var rarityColor = UguiTheme.RarityColor(item.baseData.rarity);
 
             InstantiateEquipCell(grid, item.baseData.icon, name, rarityColor, sub, rarityColor,
-                isEquipped, !isAllowed, isEquipped ? "장착 중" : item.IsLocked ? "잠금" : null, onClick);
+                isEquipped, !isAllowed, isEquipped ? (item.IsLocked ? "장착 · 잠금" : "장착 중") : item.IsLocked ? "잠금" : null, onClick);
         }
 
         /// <summary>공용 장비 셀 생성 (왕국군/인벤토리). Item_EquipCell 프리팹 인스턴스화.</summary>

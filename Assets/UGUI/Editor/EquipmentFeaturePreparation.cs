@@ -1,4 +1,5 @@
 using System;
+using KingdomIdle.Balance;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
@@ -8,6 +9,53 @@ namespace KingdomIdle.UGUI.Editor
 {
     public static class EquipmentFeaturePreparation
     {
+        [MenuItem("KingdomIdle/UGUI/Prepare bronze equipment UI")]
+        public static void PrepareBronzeEquipmentUi()
+        {
+            if (EditorApplication.isPlaying) throw new InvalidOperationException("Exit Play Mode first.");
+            F.Init(); F.Catalog = PrefabGenUtil.GetOrCreateCatalog();
+            F.Catalog.panelKAEquipment = KingdomArmyPanelPrefabGens.GenerateEquipment();
+            Edit("Popups/Popup_EquipmentAction.prefab", root =>
+            {
+                var view = root.GetComponent<EquipmentActionDialog>();
+                AttachDialogSettings(view);
+                view.title.fontSize = 60;
+                view.description.fontSize = 36;
+                foreach (var label in view.panel.GetComponentsInChildren<TMP_Text>(true))
+                {
+                    if (label != view.title && label != view.description) label.fontSize = 36;
+                    label.fontSharedMaterial = F.Font.material;
+                }
+            });
+            EditorUtility.SetDirty(F.Catalog); AssetDatabase.SaveAssets();
+        }
+
+        [MenuItem("KingdomIdle/UGUI/Validate bronze equipment UI")]
+        public static void ValidateBronzeEquipmentUi()
+        {
+            using var session = LocalProgression.BeginTestSession();
+            LocalProgression.OpenTestAccount("bronze-equipment-" + Guid.NewGuid().ToString("N"));
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/UGUI/Prefabs/Panels/Panel_KAEquipment.prefab");
+            var root = UnityEngine.Object.Instantiate(prefab);
+            try
+            {
+                var view = root.GetComponent<KAEquipmentView>();
+                var toolbar = root.GetComponentInChildren<EquipmentToolbarView>(true);
+                if (view.equippedIcon == null || view.inventoryGrid == null || view.recommendButton == null || view.settingsButton == null || toolbar == null)
+                    throw new InvalidOperationException("Bronze equipment references are incomplete.");
+                int refreshes = 0;
+                toolbar.Bind(null, () => refreshes++, true);
+                toolbar.Bind(null, () => refreshes++, true);
+                toolbar.rarity.onClick.Invoke();
+                if (LocalProgression.State.EquipmentRarityFilter != 0 || refreshes != 1)
+                    throw new InvalidOperationException("Rebinding a toolbar must change a filter and refresh exactly once.");
+                if (toolbar.automatic.gameObject.activeSelf)
+                    throw new InvalidOperationException("The army equipment toolbar duplicates the settings shortcut.");
+                Debug.Log("BRONZE EQUIPMENT UI VALIDATION PASSED: references, one-click filter after rebind, single settings entry");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
+        }
+
         public static void Prepare()
         {
             F.Init(); F.Catalog = AssetDatabase.LoadAssetAtPath<UIViewCatalog>("Assets/UGUI/UIViewCatalog.asset");
@@ -88,30 +136,34 @@ namespace KingdomIdle.UGUI.Editor
         {
             var old = grid.parent.GetComponentInChildren<EquipmentToolbarView>(true);
             if (old != null) UnityEngine.Object.DestroyImmediate(old.gameObject);
-            var root = F.Box(grid.parent, "EquipmentTools", UguiTheme.RusticSurfaceDark, rounded: false);
+            var root = F.Box(grid.parent, "EquipmentTools", UguiTheme.InfoSurface, rounded: false);
             root.transform.SetSiblingIndex(grid.GetSiblingIndex());
-            F.VLayout(root.gameObject, 10, new RectOffset(14,14,14,14)); F.Preferred(root, height: 378);
+            F.VLayout(root.gameObject, 8, new RectOffset(14,14,12,12));
             var view = root.gameObject.AddComponent<EquipmentToolbarView>();
-            view.summary = F.Text(root.transform, "Summary", "보유 0/300 · 추가 보관 0\n강화석 0 · 추가 보관은 기한 없이 유지됩니다", 27, UguiTheme.Parchment, wrap: true);
-            F.Preferred(view.summary, height: 76);
+            view.summary = F.Text(root.transform, "Summary", "보유 0/999 · 강화석 0", 36, UguiTheme.InfoInk, wrap: true);
+            F.Preferred(view.summary, height: 48);
             var filters = Row(root.transform, "Filters");
+            F.Preferred(filters, height: 84);
             view.job = Action(filters, "JobFilter", "직업: 전체", UguiTheme.BtnCancel);
             view.rarity = Action(filters, "RarityFilter", "등급: 전체", UguiTheme.BtnCancel);
             view.sort = Action(filters, "Sort", "정렬: 등급", UguiTheme.BtnCancel);
             var actions = Row(root.transform, "Actions");
+            F.Preferred(actions, height: 84);
             view.automatic = Action(actions, "AutoDismantle", "자동 분해 꺼짐", UguiTheme.BtnCancel);
             view.dismantle = Action(actions, "BulkDismantle", "필터 내 일괄 분해", UguiTheme.BtnSpend);
-            var note = F.Text(root.transform, "ProtectionHint", "일괄 분해는 잠금·장착·강화 장비를 제외합니다", 25, UguiTheme.TextSecondary);
-            F.Preferred(note, height: 32);
+            var note = F.Text(root.transform, "ProtectionHint", "잠금 · 장착 · 강화 장비는 일괄 분해에서 보호", 32, UguiTheme.InfoMuted);
+            F.Preferred(note, height: 42);
+            F.Preferred(root, height: 322);
         }
 
         internal static void AttachEquipmentActions(KAEquipmentView view)
         {
-            if (view.ownedListButton != null) return;
+            var old = view.transform.Find("EquipmentShortcuts");
+            if (old != null) UnityEngine.Object.DestroyImmediate(old.gameObject);
+            view.ownedListButton = null;
             var row = Row(view.transform, "EquipmentShortcuts");
             row.SetSiblingIndex(1);
-            view.ownedListButton = Action(row, "OwnedEquipment", "보유 장비 보기", UguiTheme.BtnCancel);
-            view.recommendButton = Action(row, "RecommendEquipment", "추천 장착", UguiTheme.BtnConfirm);
+            view.recommendButton = Action(row, "RecommendEquipment", "추천 장착", UguiTheme.ActionGold);
             view.settingsButton = Action(row, "EquipmentSettings", "장비 설정", UguiTheme.BtnCancel);
         }
 
@@ -136,11 +188,12 @@ namespace KingdomIdle.UGUI.Editor
         { var row = F.Container(parent, name); F.HLayout(row.gameObject, 10, expandWidth: true); F.Preferred(row, height: 104); return row; }
         private static Button Action(Transform row, string name, string label, Color color)
         {
-            var button = F.TextButton(row, name, label, 28, color, out var text);
+            var button = F.TextButton(row, name, label, 36, color, out var text);
             TitleLobbyBuilder.StyleButton(button,true);
             text.fontStyle=FontStyles.Normal;text.fontSharedMaterial=F.Font.material;
             button.targetGraphic.color=color;
-            F.Preferred(button, width: 100, height: 104); F.Flexible(button, flexWidth: 1); return button;
+            if (color == UguiTheme.ActionGold) text.color = UguiTheme.InfoInk;
+            F.Preferred(button, width: 100, height: 84); F.Flexible(button, flexWidth: 1); return button;
         }
 
         private static GameObject CreateDialog()

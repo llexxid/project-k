@@ -1,4 +1,5 @@
 using System;
+using KingdomIdle.Gacha;
 using UnityEditor;
 using UnityEngine;
 using TMPro;
@@ -39,6 +40,38 @@ namespace KingdomIdle.UGUI.Editor
             }
             EditorUtility.SetDirty(F.Catalog);
             AssetDatabase.SaveAssets();
+        }
+
+        [MenuItem("KingdomIdle/UGUI/Validate bronze gacha UI")]
+        public static void ValidateBronzeUi()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PanelPath);
+            var root = UnityEngine.Object.Instantiate(prefab);
+            try
+            {
+                var c = root.GetComponent<GachaPanelView>().authoredContent;
+                if (c.featuredIcons?.Length != 3 || c.featuredFrames?.Length != 3 || c.featuredNames?.Length != 3 ||
+                    c.ticketHint == null || c.skillRule == null)
+                    throw new InvalidOperationException("Bronze gacha preview references are incomplete.");
+                int objects = root.GetComponentsInChildren<Transform>(true).Length;
+                foreach (string name in new[] { "Equipment", "MageTowerSkill", "Equipment" })
+                {
+                    var table = AssetDatabase.LoadAssetAtPath<GachaTableSO>("Assets/Gacha/SO/GachaTable_" + name + ".asset");
+                    string before = EditorJsonUtility.ToJson(table);
+                    GachaPanelController.UpdateFeaturedRewards(c, table);
+                    for (int i = 0; i < 3; i++)
+                        if (!c.featuredFrames[i].transform.parent.gameObject.activeSelf || c.featuredIcons[i].sprite == null || string.IsNullOrEmpty(c.featuredNames[i].text))
+                            throw new InvalidOperationException("A gacha preview slot is blank after tab switch: " + name + " / " + i);
+                    if (name == "MageTowerSkill")
+                        foreach (var label in c.featuredNames)
+                            if (label.text.Contains("에픽") || label.text.Contains("레어") || label.text.Contains("일반"))
+                                throw new InvalidOperationException("Mage skills must not have equipment rarity labels.");
+                    if (before != EditorJsonUtility.ToJson(table) || objects != root.GetComponentsInChildren<Transform>(true).Length)
+                        throw new InvalidOperationException("Preview refresh changed source data or created extra UI objects.");
+                }
+                Debug.Log("BRONZE GACHA UI VALIDATION PASSED: real equipment/mage/equipment tab data, no blank cells or skill rarities, object reuse, source data preserved");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
         }
 
         internal static GameObject GeneratePanel()
@@ -111,7 +144,7 @@ namespace KingdomIdle.UGUI.Editor
             return PrefabGenUtil.SavePrefab(root.gameObject, PanelPath);
         }
 
-        /// <summary>미리보기가 본문의 남는 높이를 채우고 짧은 화면에서만 스크롤한다.</summary>
+        /// <summary>작은 대표 이미지와 실데이터 보상 예시를 보여 주고 긴 본문만 스크롤한다.</summary>
         internal static void ApplyLayout(GachaPanelView view)
         {
             if (view == null || view.sheet == null || view.authoredContent == null)
@@ -144,7 +177,7 @@ namespace KingdomIdle.UGUI.Editor
             view.content.anchoredPosition = Vector2.zero;
             F.Flexible(view.content, flexHeight: 1).minHeight = 0;
             var bodyLayout = view.content.GetComponent<UnityEngine.UI.VerticalLayoutGroup>();
-            bodyLayout.spacing = 18;
+            bodyLayout.spacing = 14;
             bodyLayout.padding = new RectOffset(0, 0, 12, 0);
 
             var heroRect = (RectTransform)c.heroIcon.transform.parent;
@@ -158,11 +191,18 @@ namespace KingdomIdle.UGUI.Editor
                 F.Flexible(c.ticketName, flexWidth: 1);
                 c.ticketCount = F.Text(ticketRow, "Count", "보유 0장", 32, UguiTheme.Parchment, TextAlignmentOptions.MidlineRight);
                 F.Preferred(c.ticketCount, width: 420);
-                var hint = F.Text(tickets, "Hint", "뽑기권 사용 준비 중", 24, UguiTheme.TextSecondary, TextAlignmentOptions.MidlineLeft);
-                Fixed(hint, 32);
+                c.ticketHint = F.Text(tickets, "Hint", "뽑기권 먼저 사용 · 부족한 횟수만 고대주화 사용", 32, UguiTheme.TextSecondary, TextAlignmentOptions.MidlineLeft);
+                Fixed(c.ticketHint, 44);
             }
-            Fixed(tickets, 84);
-            foreach (var row in new[] { c.messageLabel.transform, heroRect, tickets, c.pityRoot, c.ratesButton.transform.parent })
+            c.ticketHint = tickets.Find("Hint").GetComponent<TMP_Text>();
+            c.ticketName.fontSize = c.ticketCount.fontSize = 36;
+            c.ticketHint.fontSize = 32;
+            c.ticketHint.text = "뽑기권 먼저 사용 · 부족한 횟수만 고대주화 사용";
+            Fixed(tickets.Find("Balance"), 52);
+            Fixed(c.ticketHint, 44);
+            Fixed(tickets, 102);
+            EnsureFeaturedRewards(c, view.content);
+            foreach (var row in new[] { c.messageLabel.transform, heroRect, c.featuredRewards, c.skillRule.transform, c.pityRoot, tickets, c.ratesButton.transform.parent })
             {
                 row.SetParent(view.content, false);
                 row.SetAsLastSibling();
@@ -170,53 +210,101 @@ namespace KingdomIdle.UGUI.Editor
             var header = view.sheet.Find("Header");
             foreach (var row in new[] { header, view.tabBar, view.scroll.transform, c.costLabel.transform, c.pullRow })
                 row.SetAsLastSibling();
-            Fixed(header, 132);
-            view.title.fontSize = 40;
-            Fixed(view.tabBar, 132);
-            var hero = F.Preferred(heroRect, height: 360);
-            hero.minHeight = 360; hero.flexibleHeight = 1;
+            Fixed(header, 104);
+            view.title.fontSize = 60;
+            Fixed(view.tabBar, 100);
+            var hero = F.Preferred(heroRect, height: 150);
+            hero.minHeight = 150; hero.flexibleHeight = 0;
             var heroBackground = heroRect.GetComponent<UnityEngine.UI.Image>();
             if (heroBackground == null) heroBackground = heroRect.gameObject.AddComponent<UnityEngine.UI.Image>();
-            heroBackground.color = UguiTheme.RusticSurfaceDark;
+            heroBackground.color = UguiTheme.InfoSurface;
             heroBackground.raycastTarget = false;
             if (heroRect.Find("Frame") == null) F.Frame(heroRect, "Frame", UguiTheme.Bronze);
             var art = c.heroIcon.rectTransform;
-            F.AnchorCenter(art, 260, 260);
-            art.anchoredPosition = new Vector2(0, 50);
+            F.AnchorCenter(art, 124, 124);
+            art.anchorMin = art.anchorMax = new Vector2(0, .5f);
+            art.anchoredPosition = new Vector2(86, 0);
             var name = c.heroTitle.rectTransform;
-            F.AnchorCenter(name, 800, 64);
-            name.anchoredPosition = new Vector2(0, -126);
-            c.heroTitle.fontSize = 40;
+            F.Stretch(name);
+            name.offsetMin = new Vector2(176, 68);
+            name.offsetMax = new Vector2(-20, -20);
+            c.heroTitle.fontSize = 42;
+            c.heroTitle.alignment = TextAlignmentOptions.MidlineLeft;
+            c.heroTitle.color = UguiTheme.InfoInk;
+            c.heroTitle.fontSharedMaterial = F.Font.material;
+            c.heroDescription = heroRect.Find("Description")?.GetComponent<TMP_Text>();
+            if (c.heroDescription == null)
+                c.heroDescription = F.Text(heroRect, "Description", "장비로 왕국군을 강화하세요", 36, UguiTheme.InfoMuted, TextAlignmentOptions.MidlineLeft);
+            F.Stretch(c.heroDescription.rectTransform);
+            c.heroDescription.rectTransform.offsetMin = new Vector2(176, 20);
+            c.heroDescription.rectTransform.offsetMax = new Vector2(-20, -78);
 
-            Fixed(c.pityRoot, 164);
+            Fixed(c.pityRoot, 180);
             c.pityRoot.GetComponent<UnityEngine.UI.VerticalLayoutGroup>().spacing = 4;
-            Fixed(c.pityRoot.Find("Progress"), 44);
-            Fixed(c.pityFill.transform.parent, 10);
-            Fixed(c.pityRemaining, 38);
+            Fixed(c.pityRoot.Find("Progress"), 52);
+            c.pityRoot.Find("Progress/Label").GetComponent<TMP_Text>().fontSize = 36;
+            c.pityLabel.fontSize = 36;
+            Fixed(c.pityFill.transform.parent, 12);
+            c.pityRemaining.fontSize = 36;
+            Fixed(c.pityRemaining, 46);
             var rule = c.pityRoot.Find("Rule").GetComponent<TMP_Text>();
-            rule.fontSize = 24;
-            Fixed(rule, 60);
-            Fixed(c.ratesButton.transform.parent, 132);
+            rule.text = "에픽 획득 시 누적 횟수가 초기화됩니다.";
+            rule.fontSize = 32;
+            Fixed(rule, 44);
+            Fixed(c.ratesButton.transform.parent, 88);
             Link(c.ratesButton, "확률 정보", TextAlignmentOptions.MidlineLeft);
             Link(c.rewardsButton, "획득 가능 목록", TextAlignmentOptions.MidlineRight);
-            c.costLabel.fontSize = 28;
-            Fixed(c.costLabel, 40);
-            Fixed(c.pullRow, 190);
-            var close = F.Preferred(view.closeButton, height: 132);
-            close.minHeight = 132;
+            c.costLabel.fontSize = 36;
+            Fixed(c.costLabel, 48);
+            Fixed(c.pullRow, 168);
+            var close = F.Preferred(view.closeButton, height: 104);
+            close.minHeight = 104;
         }
 
         private static void Link(UnityEngine.UI.Button button, string text, TextAlignmentOptions alignment)
         {
-            Fixed(button, 132);
+            Fixed(button, 88);
             foreach (var image in button.GetComponentsInChildren<UnityEngine.UI.Image>(true))
                 image.color = Color.clear;
             var label = button.GetComponentInChildren<TMP_Text>(true);
             label.text = text;
-            label.fontSize = 32;
+            label.fontSize = 36;
             label.fontStyle = FontStyles.Underline;
             label.color = UguiTheme.TextSecondary;
             label.alignment = alignment;
+        }
+
+        private static void EnsureFeaturedRewards(GachaTabContentView c, RectTransform parent)
+        {
+            var old = parent.Find("FeaturedRewards");
+            if (old != null) UnityEngine.Object.DestroyImmediate(old.gameObject);
+            c.featuredRewards = F.Container(parent, "FeaturedRewards");
+            F.VLayout(c.featuredRewards.gameObject, 8);
+            Fixed(c.featuredRewards, 244);
+            var caption = F.Text(c.featuredRewards, "Caption", "획득 가능 보상 예시", 36, UguiTheme.TextSecondary);
+            Fixed(caption, 44);
+            var row = Row(c.featuredRewards, "Examples", 188);
+            c.featuredIcons = new UnityEngine.UI.Image[3];
+            c.featuredFrames = new UnityEngine.UI.Image[3];
+            c.featuredNames = new TMP_Text[3];
+            for (int i = 0; i < 3; i++)
+            {
+                var card = F.Box(row, "Reward" + i, UguiTheme.InfoSurface);
+                F.Flexible(card, flexWidth: 1);
+                Fixed(card, 188);
+                c.featuredFrames[i] = F.Frame(card.transform, "Frame", UguiTheme.Bronze);
+                c.featuredIcons[i] = F.IconImage(card.transform, "Icon", null, 106, 106);
+                F.AnchorCenter(c.featuredIcons[i].rectTransform, 106, 106);
+                c.featuredIcons[i].rectTransform.anchoredPosition = new Vector2(0, 28);
+                c.featuredNames[i] = F.Text(card.transform, "Name", "", 32, UguiTheme.InfoInk, TextAlignmentOptions.Center);
+                F.AnchorBottomStretch(c.featuredNames[i].rectTransform, 12, 52);
+                c.featuredNames[i].rectTransform.offsetMin = new Vector2(10, 12);
+                c.featuredNames[i].rectTransform.offsetMax = new Vector2(-10, 64);
+            }
+            c.skillRule = parent.Find("SkillRule")?.GetComponent<TMP_Text>();
+            if (c.skillRule == null)
+                c.skillRule = F.Text(parent, "SkillRule", "모든 스킬은 같은 획득 확률 · 스킬에 희귀도는 없습니다.", 36, UguiTheme.TextSecondary, TextAlignmentOptions.MidlineLeft, wrap: true);
+            Fixed(c.skillRule, 100);
         }
 
         internal static GameObject GenerateRewards()

@@ -13,24 +13,31 @@ namespace KingdomIdle.UGUI
         public TMP_Text summary;
         public Button job, rarity, sort, automatic, dismantle;
         private Func<EquipmentData, bool> _usable;
+        private Action _refresh;
+        private bool _bound;
         private static readonly string[] Rarities = { "전체", "일반", "레어", "에픽" };
         private static readonly string[] Sorts = { "등급", "공격력", "강화", "최근 획득" };
 
         public void Bind(Func<EquipmentData, bool> usable, Action refresh, bool hasSettingsShortcut = false)
         {
             _usable = usable;
-            job.onClick.AddListener(() => Change(s => s.EquipmentUsableOnly = !s.EquipmentUsableOnly, refresh));
-            rarity.onClick.AddListener(() => Change(s => s.EquipmentRarityFilter = (s.EquipmentRarityFilter + 2) % 4 - 1, refresh));
-            sort.onClick.AddListener(() => Change(s => s.EquipmentSort = (s.EquipmentSort + 1) % 4, refresh));
+            _refresh = refresh;
             automatic.gameObject.SetActive(!hasSettingsShortcut);
-            automatic.onClick.AddListener(EquipmentActionDialog.Settings);
-            dismantle.onClick.AddListener(() =>
+            if (!_bound)
             {
-                var filters = LocalProgression.State;
-                string rarityName = Rarities[filters.EquipmentRarityFilter + 1];
-                string jobName = filters.EquipmentUsableOnly ? "사용 가능" : "전체";
-                EquipmentActionDialog.Dismantle(EquipmentEconomy.Preview(Accepts), refresh, $"등급 {rarityName} · 직업 {jobName}");
-            });
+                job.onClick.AddListener(() => Change(s => s.EquipmentUsableOnly = !s.EquipmentUsableOnly, _refresh));
+                rarity.onClick.AddListener(() => Change(s => s.EquipmentRarityFilter = (s.EquipmentRarityFilter + 2) % 4 - 1, _refresh));
+                sort.onClick.AddListener(() => Change(s => s.EquipmentSort = (s.EquipmentSort + 1) % 4, _refresh));
+                automatic.onClick.AddListener(EquipmentActionDialog.Settings);
+                dismantle.onClick.AddListener(() =>
+                {
+                    var filters = LocalProgression.State;
+                    string rarityName = Rarities[filters.EquipmentRarityFilter + 1];
+                    string jobName = filters.EquipmentUsableOnly ? "사용 가능" : "전체";
+                    EquipmentActionDialog.Dismantle(EquipmentEconomy.Preview(Accepts), _refresh, $"등급 {rarityName} · 직업 {jobName}");
+                });
+                _bound = true;
+            }
             var state = LocalProgression.State;
             Label(job, state.EquipmentUsableOnly ? "직업: 사용 가능" : "직업: 전체");
             Label(rarity, "등급: " + Rarities[state.EquipmentRarityFilter + 1]);
@@ -70,8 +77,8 @@ namespace KingdomIdle.UGUI
         {
             var s = LocalProgression.State;
             long stored = s.PendingEquipment.Count + s.LegacyEquipment.Sum(x => (long)x.Count);
-            string hint = EquipmentManager.IsInstanceInventory ? "초과 장비는 우편함에서 확인" : "추가 보관은 기한 없이 유지됩니다";
-            string text = $"보유 {s.Equipment.Count}/{EquipmentManager.InventoryCapacity} · 추가 보관 {NumberNotation.Format(stored)}\n강화석 {NumberNotation.Format(LocalProgression.Balance(eCurrency.EquipmentStone))}  ·  {hint}";
+            string text = $"보유 {s.Equipment.Count}/{EquipmentManager.InventoryCapacity}  ·  강화석 {NumberNotation.Format(LocalProgression.Balance(eCurrency.EquipmentStone))}";
+            if (stored > 0) text += $"  ·  추가 보관 {NumberNotation.Format(stored)}";
             if (summary != null && summary.text != text) summary.text = text;
         }
     }

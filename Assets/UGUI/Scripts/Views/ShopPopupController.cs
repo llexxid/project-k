@@ -149,7 +149,7 @@ namespace KingdomIdle.UGUI
             for (int i = 0; i < _view.pages.Length; i++)
             {
                 bool active = i == _tab; _view.pages[i].SetActive(active);
-                _view.tabs[i].GetComponent<Image>().color = active ? UguiTheme.Bronze : UguiTheme.RusticSurfaceDark;
+                _view.tabs[i].GetComponent<Image>().color = active ? UguiTheme.RoyalBlue : UguiTheme.RusticSurfaceDark;
             }
             _view.scroll.StopMovement(); Canvas.ForceUpdateCanvases(); _view.scroll.verticalNormalizedPosition = 1;
         }
@@ -181,7 +181,7 @@ namespace KingdomIdle.UGUI
                 bool blocked = _busy || adBusy || (_claim != null && _claim.Earned && !retry);
                 row.action.interactable = !blocked && (retry || !claimed);
                 Set(row.price, _busy && _claim?.OfferId == offer.Id ? "처리 중…" : retry ? "보상 다시 받기" : claimed ? "오늘 수령 완료" : "광고 보고 받기");
-                Set(row.amount, "보유 " + NumberNotation.Format(LocalProgression.Balance(currency)) + "장 · 오늘 " + (claimed ? "1/1" : "0/1"));
+                Set(row.amount, "보유 " + NumberNotation.Format(LocalProgression.Balance(currency)) + "장\n오늘 " + (claimed ? "1 / 1회" : "0 / 1회"));
             }
         }
 
