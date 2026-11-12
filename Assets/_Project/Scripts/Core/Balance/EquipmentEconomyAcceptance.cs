@@ -7,6 +7,108 @@ namespace KingdomIdle.Balance
 {
     public static class EquipmentEconomyAcceptance
     {
+#if UNITY_EDITOR
+        public static object RunFailureRecovery()
+        {
+            using var scope = LocalProgression.BeginTestSession();
+            const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            var previousNetwork = Scripts.Core.Manager.NetworkManager.Instance;
+            var previousUsers = Scripts.Core.UserManager.Instance;
+            var previousEquipment = EquipmentManager.Instance;
+            var owner = new UnityEngine.GameObject("EquipmentFailureAcceptance") { hideFlags = UnityEngine.HideFlags.HideAndDontSave };
+            owner.SetActive(false);
+            var checks = new List<string>();
+            void Check(bool ok, string message)
+            { if (!ok) throw new InvalidOperationException("Equipment recovery acceptance: " + message); checks.Add(message); }
+            try
+            {
+                var network = owner.AddComponent<Scripts.Core.Manager.NetworkManager>();
+                var manager = owner.AddComponent<EquipmentManager>();
+                Scripts.Core.Manager.NetworkManager.Instance = network;
+                EquipmentManager.Instance = manager;
+                Scripts.Core.UserManager.Instance = owner.AddComponent<Scripts.Core.UserManager>();
+                typeof(Scripts.Core.Manager.NetworkManager).GetMethod("Init", flags).Invoke(network, null);
+                void Ready()
+                {
+                    typeof(Scripts.Core.Manager.NetworkManager).GetField("_sessionGUID", flags).SetValue(network, "fixture");
+                    typeof(Scripts.Core.Manager.NetworkManager).GetField("_context", flags).SetValue(network, new PlayFab.PlayFabAuthenticationContext());
+                    typeof(Scripts.Core.Manager.NetworkManager).GetProperty("LoginState").SetValue(network, Scripts.Core.Manager.GameLoginState.Ready);
+                    typeof(Scripts.Core.Manager.NetworkManager).GetField("_callInFlight", flags).SetValue(network, true);
+                }
+                Ready();
+                LocalProgression.OpenTestAccount("equipment-recovery-" + Guid.NewGuid().ToString("N"));
+                LocalProgression.Execute("fixture-balance", s => { s.Wallet[eCurrency.EquipmentStone] = 77; return true; });
+                string Snapshot() => Newtonsoft.Json.JsonConvert.SerializeObject(LocalProgression.State);
+                var pending = (Queue<Action>)typeof(Scripts.Core.Manager.NetworkManager).GetField("_pendingCalls", flags).GetValue(network);
+                var begin = typeof(EquipmentManager).GetMethod("Begin", flags);
+                var reject = typeof(EquipmentManager).GetMethod("RejectServerResult", flags);
+                var errors = new[]
+                {
+                    new PlayFab.PlayFabError { Error = PlayFab.PlayFabErrorCode.CloudScriptAzureFunctionsExecutionTimeLimitExceeded },
+                    new PlayFab.PlayFabError { Error = PlayFab.PlayFabErrorCode.CloudScriptExecutionTimeLimitExceeded },
+                    new PlayFab.PlayFabError { Error = PlayFab.PlayFabErrorCode.ConnectionError },
+                    Scripts.Core.Manager.NetworkManager.CreateError("Timeout", "fixture"),
+                    Scripts.Core.Manager.NetworkManager.CreateError("Transport", "fixture"),
+                    Scripts.Core.Manager.NetworkManager.CreateError("Function", "fixture"),
+                    Scripts.Core.Manager.NetworkManager.CreateError("InvalidResponse", "fixture"),
+                    Scripts.Core.Manager.NetworkManager.CreateError("ApplyFailed", "fixture")
+                };
+                Action<PlayFab.PlayFabError> TakeFailure()
+                {
+                    var queued = pending.Dequeue();
+                    return (Action<PlayFab.PlayFabError>)queued.Target.GetType().GetField("timeout",
+                        System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | flags).GetValue(queued.Target);
+                }
+                int completed = 0;
+                manager.OnActionCompleted += _ => completed++;
+                foreach (var kind in new[] { EquipmentManager.ActionKind.Enhance, EquipmentManager.ActionKind.Dismantle })
+                foreach (var error in errors)
+                {
+                    Ready(); string before = Snapshot(); int count = completed;
+                    var info = new EquipmentManager.ActionInfo { Kind = kind };
+                    begin.Invoke(manager, new object[] { info });
+                    reject.Invoke(manager, new object[] { info, "fixture", error });
+                    Check(manager.IsBusy && manager.Resync() == EquipmentManager.EnhancementResult.Busy && pending.Count == 1 && completed == count,
+                        kind + ": uncertain response keeps one state query and blocks a second mutation");
+                    TakeFailure()(Scripts.Core.Manager.NetworkManager.CreateError("Transport", "fixture refresh failed"));
+                    Check(!manager.IsBusy && completed == count + 1 && !info.Ok && info.Failure.Contains("확인하지 못"),
+                        kind + ": failed recovery reports uncertainty once, without claiming action success");
+                    Check(Snapshot() == before, kind + ": failed response and query preserve inventory and stones");
+                }
+                Ready();
+                var old = new EquipmentManager.ActionInfo { Kind = EquipmentManager.ActionKind.Enhance };
+                begin.Invoke(manager, new object[] { old });
+                reject.Invoke(manager, new object[] { old, "fixture", errors[0] });
+                var oldFailure = TakeFailure();
+                network.BeginAuthentication();
+                Check(!manager.IsBusy, "reauthentication releases only the obsolete account lock");
+                Ready();
+                var current = new EquipmentManager.ActionInfo { Kind = EquipmentManager.ActionKind.Dismantle };
+                begin.Invoke(manager, new object[] { current });
+                int notifications = completed; string unchanged = Snapshot();
+                oldFailure(Scripts.Core.Manager.NetworkManager.CreateError("Transport", "late old recovery"));
+                reject.Invoke(manager, new object[] { old, "late", errors[0] });
+                typeof(EquipmentManager).GetMethod("ApplyServerInventory", flags).Invoke(manager,
+                    new object[] { old, "late", "fixture", null, (long?)999, "", null });
+                Check(manager.IsBusy && completed == notifications && Snapshot() == unchanged,
+                    "old recovery, rejection and success cannot unlock or overwrite a new action");
+                var denied = Scripts.Core.Manager.NetworkManager.CreateError("Business", "fixture", null,
+                    new Protocol.Message.Dto.ErrorResponseDTO { ErrorCode = (Protocol.Message.Data.eErrorCode)1019, Message = "fixture" });
+                reject.Invoke(manager, new object[] { current, "fixture", denied });
+                Check(!manager.IsBusy && current.ErrorCode == 1019 && pending.Count == 0,
+                    "confirmed equipment protection rejection remains immediate and does not query or retry");
+                return new { passed = true, count = checks.Count, checks };
+            }
+            finally
+            {
+                Scripts.Core.Manager.NetworkManager.Instance = previousNetwork;
+                Scripts.Core.UserManager.Instance = previousUsers;
+                EquipmentManager.Instance = previousEquipment;
+                UnityEngine.Object.DestroyImmediate(owner);
+            }
+        }
+#endif
+
         public static Dictionary<string, object> Run()
         {
             var manager = EquipmentManager.Instance ?? throw new InvalidOperationException("Equipment catalog must be loaded.");
