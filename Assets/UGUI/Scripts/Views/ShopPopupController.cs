@@ -77,8 +77,8 @@ namespace KingdomIdle.UGUI
         internal static void Activate(string id)
         {
             if (ShopCatalog.Find(id)?.Payment != ShopPayment.RewardedAd) { Preview(id); return; }
+            DiscardStaleClaim();
             if (!IsOpen || _busy || RewardedAdService.IsBusy) return;
-            if (_claim != null && !ShopAdRewardService.IsCurrentAccount(_claim)) _claim = null;
             if (_claim != null && _claim.Earned)
             {
                 if (_claim.OfferId == id)
@@ -154,11 +154,16 @@ namespace KingdomIdle.UGUI
             _view.scroll.StopMovement(); Canvas.ForceUpdateCanvases(); _view.scroll.verticalNormalizedPosition = 1;
         }
 
+        static void DiscardStaleClaim()
+        {
+            if (_claim == null || ShopAdRewardService.IsCurrentAccount(_claim)) return;
+            _claim = null; _busy = false; _revision = -1;
+        }
+
         static void Refresh()
         {
             if (!IsOpen || !LocalProgression.IsReady) return;
-            if (!_busy && _claim != null && !ShopAdRewardService.IsCurrentAccount(_claim))
-            { _claim = null; _revision = -1; }
+            DiscardStaleClaim();
             var state = LocalProgression.State;
             string day = ShopAdRewardService.Today;
             bool adBusy = RewardedAdService.IsBusy;

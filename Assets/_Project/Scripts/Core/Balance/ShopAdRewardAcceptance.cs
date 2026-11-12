@@ -10,15 +10,123 @@ namespace KingdomIdle.Balance
     public static class ShopAdRewardAcceptance
     {
 #if UNITY_EDITOR
+        public static object RunAccountLifecycle()
+        {
+            using var scope = LocalProgression.BeginTestSession();
+            const System.Reflection.BindingFlags statics = System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic;
+            const System.Reflection.BindingFlags instance = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            var service = typeof(ShopAdRewardService);
+            var controller = typeof(KingdomIdle.UGUI.ShopPopupController);
+            var saved = new Dictionary<System.Reflection.FieldInfo, object>();
+            foreach (string name in new[] { "_server", "_serverOffset", "<Revision>k__BackingField", "_activeClaim", "_requestGeneration" })
+            { var field = service.GetField(name, statics); saved[field] = field.GetValue(null); }
+            foreach (string name in new[] { "_claim", "_busy", "_revision", "_view", "_host" })
+            { var field = controller.GetField(name, statics); saved[field] = field.GetValue(null); }
+            controller.GetField("_view", statics).SetValue(null, null);
+            controller.GetField("_host", statics).SetValue(null, null);
+            var previousNetwork = Scripts.Core.Manager.NetworkManager.Instance;
+            var previousUsers = Scripts.Core.UserManager.Instance;
+            var owner = new UnityEngine.GameObject("ShopAdAccountAcceptance") { hideFlags = UnityEngine.HideFlags.HideAndDontSave };
+            owner.SetActive(false);
+            var checks = new List<string>();
+            void Check(bool valid, string label)
+            { if (!valid) throw new InvalidOperationException("SHOP AD ACCOUNT ASSERT: " + label); checks.Add(label); }
+            try
+            {
+                var network = owner.AddComponent<Scripts.Core.Manager.NetworkManager>();
+                Scripts.Core.Manager.NetworkManager.Instance = network;
+                Scripts.Core.UserManager.Instance = null;
+                typeof(Scripts.Core.Manager.NetworkManager).GetMethod("Init", instance).Invoke(network, null);
+                void Ready()
+                {
+                    typeof(Scripts.Core.Manager.NetworkManager).GetField("_sessionGUID", instance).SetValue(network, "fixture");
+                    typeof(Scripts.Core.Manager.NetworkManager).GetField("_context", instance).SetValue(network, new PlayFab.PlayFabAuthenticationContext());
+                    typeof(Scripts.Core.Manager.NetworkManager).GetProperty("LoginState").SetValue(network, Scripts.Core.Manager.GameLoginState.Ready);
+                    typeof(Scripts.Core.Manager.NetworkManager).GetField("_callInFlight", instance).SetValue(network, true);
+                }
+                Ready();
+                LocalProgression.OpenTestAccount("shop-lifecycle-a-" + Guid.NewGuid().ToString("N"));
+                ShopAdRewardService.Receive(new Protocol.Message.Dto.AdRewardStateDTO { Day = ShopAdRewardService.Today }, 0, "fixture");
+                var pending = (Queue<Action>)typeof(Scripts.Core.Manager.NetworkManager).GetField("_pendingCalls", instance).GetValue(network);
+                Action<PlayFab.PlayFabError> TakeFailure()
+                {
+                    var queued = pending.Dequeue();
+                    return (Action<PlayFab.PlayFabError>)queued.Target.GetType().GetField("timeout",
+                        System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | instance).GetValue(queued.Target);
+                }
+                void BindClaim(ShopAdRewardService.Claim claim)
+                { controller.GetField("_claim", statics).SetValue(null, claim); controller.GetField("_busy", statics).SetValue(null, true); }
+                var discard = controller.GetMethod("DiscardStaleClaim", statics);
+                Check(ShopAdRewardService.Begin("rewarded.daily_equipment", out var old) == RewardStatus.Success &&
+                    ShopAdRewardService.FinishAd(old, RewardedAdResult.Completed).Status == RewardStatus.Pending && pending.Count == 1 && ShopAdRewardService.IsBusy,
+                    "earned request waits behind the SDK Send barrier");
+                BindClaim(old); var oldFailure = TakeFailure();
+                network.BeginAuthentication();
+                Check(!ShopAdRewardService.IsBusy, "reauthentication invalidates the previous service lock without its callback");
+                LocalProgression.OpenTestAccount("shop-lifecycle-b-" + Guid.NewGuid().ToString("N"));
+                Ready();
+                ShopAdRewardService.Receive(new Protocol.Message.Dto.AdRewardStateDTO { Day = ShopAdRewardService.Today }, 0, "fixture");
+                discard.Invoke(null, null);
+                Check(controller.GetField("_claim", statics).GetValue(null) == null && !(bool)controller.GetField("_busy", statics).GetValue(null),
+                    "stale controller claim and busy state clear together even while the old request was busy");
+                Check(ShopAdRewardService.Begin("rewarded.daily_mage", out var current) == RewardStatus.Success &&
+                    ShopAdRewardService.FinishAd(current, RewardedAdResult.Completed).Status == RewardStatus.Pending && pending.Count == 1,
+                    "new account can start its own request after the old callback is discarded");
+                var replacement = owner.AddComponent<Scripts.Core.Manager.NetworkManager>();
+                typeof(Scripts.Core.Manager.NetworkManager).GetProperty("AccountGeneration").SetValue(replacement, network.AccountGeneration);
+                typeof(Scripts.Core.Manager.NetworkManager).GetProperty("LoginState").SetValue(replacement, Scripts.Core.Manager.GameLoginState.Ready);
+                Scripts.Core.Manager.NetworkManager.Instance = replacement;
+                Check(!ShopAdRewardService.IsBusy, "replacing the network instance invalidates a claim even with the same numeric generation");
+                Scripts.Core.Manager.NetworkManager.Instance = network;
+                BindClaim(current);
+                string before = JsonConvert.SerializeObject(LocalProgression.State);
+                oldFailure(Scripts.Core.Manager.NetworkManager.CreateError("Transport", "late old request"));
+                service.GetMethod("ApplyServerResult", statics).Invoke(null, new object[] { old, null });
+                service.GetMethod("RejectServerResult", statics).Invoke(null, new object[] { old, Scripts.Core.Manager.NetworkManager.CreateError("Timeout", "late") });
+                Check(ShopAdRewardService.IsBusy && JsonConvert.SerializeObject(LocalProgression.State) == before &&
+                    ReferenceEquals(controller.GetField("_claim", statics).GetValue(null), current),
+                    "old success, failure and recovery cannot overwrite balances or release the new request");
+                discard.Invoke(null, null);
+                Check(current.Earned && ReferenceEquals(controller.GetField("_claim", statics).GetValue(null), current) &&
+                    (bool)controller.GetField("_busy", statics).GetValue(null), "same-account view cleanup preserves the earned claim and current lock");
+                TakeFailure()(Scripts.Core.Manager.NetworkManager.CreateError("Transport", "fixture"));
+                Check(!ShopAdRewardService.IsBusy && current.Earned && ReferenceEquals(controller.GetField("_claim", statics).GetValue(null), current),
+                    "same-account failed payout retains the exact earned claim for retry without another ad");
+                Ready();
+                Check(ShopAdRewardService.TryGrant(current).Status == RewardStatus.Pending && pending.Count == 1,
+                    "the retained claim reuses the existing server request path");
+                TakeFailure();
+                service.GetMethod("ApplyServerResult", statics).Invoke(null, new object[] { current,
+                    new Protocol.Message.Dto.OnClaimAdRewardResponseDTO
+                    {
+                        AlreadyClaimed = true, AdType = Protocol.Message.Data.eAdType.ShopDaily, OfferId = current.OfferId, Level = 1,
+                        Currency = new Protocol.Message.Dto.CurrencyQueryDTO(0, 0, 0, 0) { MageTicket = 2 },
+                        AdRewards = new Protocol.Message.Dto.AdRewardStateDTO { Day = ShopAdRewardService.Today, ClaimedOfferIds = new List<string> { current.OfferId } },
+                        GrantedCurrencies = new List<Protocol.Message.Dto.CurrencyAmountDTO>()
+                    } });
+                Check(!ShopAdRewardService.IsBusy && LocalProgression.Balance(eCurrency.MageTicket) == 2 &&
+                    controller.GetField("_claim", statics).GetValue(null) == null && pending.Count == 0,
+                    "server confirmed receipt closes the claim and uses its balance without an extra local grant");
+                return new { passed = true, count = checks.Count, checks };
+            }
+            finally
+            {
+                foreach (var field in saved) field.Key.SetValue(null, field.Value);
+                Scripts.Core.Manager.NetworkManager.Instance = previousNetwork;
+                Scripts.Core.UserManager.Instance = previousUsers;
+                UnityEngine.Object.DestroyImmediate(owner);
+            }
+        }
+
         /// <summary>서버 오류·기수령 응답을 격리해서 적용한다. 로그인·광고 SDK·HTTP는 호출하지 않는다.</summary>
         public static Dictionary<string, object> RunServerFailureRecovery()
         {
             using var scope = LocalProgression.BeginTestSession();
             const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic;
             var service = typeof(ShopAdRewardService);
-            var busy = service.GetField("<IsBusy>k__BackingField", flags);
+            var busy = service.GetField("_activeClaim", flags);
             var saved = new Dictionary<System.Reflection.FieldInfo, object>();
-            foreach (string name in new[] { "_server", "_serverOffset", "<Revision>k__BackingField", "<IsBusy>k__BackingField" })
+            foreach (string name in new[] { "_server", "_serverOffset", "<Revision>k__BackingField", "_activeClaim", "_requestGeneration" })
             {
                 var field = service.GetField(name, flags);
                 saved[field] = field.GetValue(null);
@@ -54,13 +162,14 @@ namespace KingdomIdle.Balance
                     var error = Scripts.Core.Manager.NetworkManager.CreateError(failure.Item1, "fixture", null,
                         failure.Item2 == 0 ? null : new Protocol.Message.Dto.ErrorResponseDTO
                         { ErrorCode = (Protocol.Message.Data.eErrorCode)failure.Item2, Message = "fixture" });
-                    completed = null; busy.SetValue(null, true);
+                    completed = null; busy.SetValue(null, claim);
                     reject.Invoke(null, new object[] { claim, error });
                     Check(completed?.Status == RewardStatus.SaveFailed && ReferenceEquals(completedClaim, claim) &&
                         claim.Earned && !ShopAdRewardService.IsBusy, "uncertain result retains the same earned claim: " + failure);
                 }
                 var invalid = Scripts.Core.Manager.NetworkManager.CreateError("Business", "fixture", null,
                     new Protocol.Message.Dto.ErrorResponseDTO { ErrorCode = (Protocol.Message.Data.eErrorCode)1050, Message = "fixture" });
+                busy.SetValue(null, claim);
                 reject.Invoke(null, new object[] { claim, invalid });
                 Check(completed.Status == RewardStatus.InvalidReward, "confirmed invalid ad request remains invalid");
                 Check(JsonConvert.SerializeObject(LocalProgression.State) == original, "rejected requests never grant local currency");
@@ -75,10 +184,12 @@ namespace KingdomIdle.Balance
                     { new() { CurrencyType = Protocol.Message.Data.eCurrency.EquipmentTicket, Amount = 2 } }
                 };
                 var apply = service.GetMethod("ApplyServerResult", flags);
+                busy.SetValue(null, claim);
                 apply.Invoke(null, new object[] { claim, response });
                 Check(completed.Succeeded && LocalProgression.Balance(eCurrency.EquipmentTicket) == 2,
                     "retry success applies the authoritative ticket balance");
                 response.AlreadyClaimed = true; response.GrantedCurrencies.Clear();
+                busy.SetValue(null, claim);
                 apply.Invoke(null, new object[] { claim, response });
                 Check(completed.Status == RewardStatus.NothingAvailable && LocalProgression.Balance(eCurrency.EquipmentTicket) == 2,
                     "replayed server receipt does not add a second local reward");
