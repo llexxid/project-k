@@ -10,8 +10,9 @@ namespace KingdomIdle.UGUI
     // Shared gold growth and ruby income progression; all costs come from the transaction service.
     public static class DevelopmentPanelController
     {
-        // 방치형 표준: x1 / x10
+        // 서버가 지원하는 요청 횟수만 선택한다. 각 카드에는 선택한 횟수의 주행동 하나만 표시한다.
         private static readonly int[] PullCounts = { 1, 10, -1 };
+        private static int _selectedCount = 1;
 
         // 실제로 플레이어 스탯에 반영되는 강화 항목만 노출.
         private static readonly StatEnhanceManager.EnhanceType[] EnhanceTypes =
@@ -24,13 +25,15 @@ namespace KingdomIdle.UGUI
         private static DevelopmentBodyView _body;
         private static bool _rubyTab;
         private static readonly List<NavTabButtonView> GrowthTabs = new();
+        private static readonly List<NavTabButtonView> CountTabs = new();
         private static bool _subscribedCurrency;
         private static StatEnhanceManager _subscribedEnhanceMgr;
         private sealed class CardBinding
         {
             internal EnhanceCardView View;
             internal StatEnhanceManager.EnhanceType Type;
-            internal readonly List<GachaPullButtonView> Buttons = new();
+            internal GachaPullButtonView Button;
+            internal ActionButtonView FallbackButton;
         }
         private static readonly List<CardBinding> Cards = new();
 
@@ -41,7 +44,12 @@ namespace KingdomIdle.UGUI
         }
 
         /// <summary>안내 재개 때 골드 탭을 복원한다. 기존 UI 갱신을 재사용하고 강화는 실행하지 않는다.</summary>
-        internal static void PrepareGuide() { if (_rubyTab) { _rubyTab = false; Refresh(); } }
+        internal static void PrepareGuide()
+        {
+            _rubyTab = false;
+            _selectedCount = 1;
+            Refresh();
+        }
         internal static bool GuideReady => _view != null && _view.gameObject.activeInHierarchy && !_rubyTab;
 
         /// <summary>패널 생성 때 본문과 경제 구독을 연결한다. view를 보관하고 닫힘 콜백에서 참조·구독을 정리한다.</summary>
@@ -59,7 +67,7 @@ namespace KingdomIdle.UGUI
             {
                 if (_view == view)
                 {
-                    _view = null; _body = null; Cards.Clear(); GrowthTabs.Clear();
+                    _view = null; _body = null; Cards.Clear(); GrowthTabs.Clear(); CountTabs.Clear();
                     EconomyBridge.OnAmountChanged -= OnCurrencyChanged;
                     _subscribedCurrency = false;
                     if (_subscribedEnhanceMgr != null)
@@ -128,7 +136,7 @@ namespace KingdomIdle.UGUI
             EconomyBridge.TryGetAmount(eCurrency.Gold, out long gold);
             string balance = _rubyTab ? $"보유 루비  {NumberNotation.Format(LocalProgression.Balance(eCurrency.Ruby))}" : $"보유 골드  {NumberNotation.Format(gold)} G";
             if (body.goldLabel != null && body.goldLabel.text != balance) body.goldLabel.text = balance;
-            string description = _rubyTab ? "환생에도 유지되는 영구 성장 · 메인 사냥과 방치 보상을 강화합니다." : "골드로 모든 왕국군의 공격력과 체력을 강화합니다.";
+            string description = _rubyTab ? "환생 후에도 유지 · 사냥과 방치 보상에 적용" : "모든 왕국군에 적용 · 환생 시 골드 강화 초기화";
             if (body.descLabel != null && body.descLabel.text != description) body.descLabel.text = description;
 
             var mgr = StatEnhanceManager.Instance;
@@ -141,20 +149,26 @@ namespace KingdomIdle.UGUI
             }
             body.CardsRoot.gameObject.SetActive(!_rubyTab);
             if (body.rubyCardsRoot != null) body.rubyCardsRoot.gameObject.SetActive(_rubyTab);
-            for (int i=0;i<GrowthTabs.Count;i++) GrowthTabs[i].SetSelected((i==1)==_rubyTab, _rubyTab ? UguiTheme.RarityArcane : UguiTheme.AccentGold);
+            if (body.purchaseCountBar != null) body.purchaseCountBar.gameObject.SetActive(!_rubyTab);
+            for (int i=0;i<GrowthTabs.Count;i++) GrowthTabs[i].SetSelected((i==1)==_rubyTab, UguiTheme.RoyalBlue);
+            for (int i=0;i<CountTabs.Count;i++) CountTabs[i].SetSelected(PullCounts[i] == _selectedCount, UguiTheme.RoyalBlue);
             foreach (var card in Cards)
             {
                 if (card.View == null || mgr == null) continue;
+                int level = mgr.GetLevel(card.Type);
+                int actual = mgr.GetPurchaseCount(card.Type, _selectedCount);
+                long cost = mgr.GetCost(card.Type, _selectedCount);
+                string current = $"×{BalanceMath.GoldMultiplier(level):0.###}";
+                string next = $"×{BalanceMath.GoldMultiplier(level + actual):0.###}";
                 card.View.Set(StatEnhanceManager.GetTypeName(card.Type), $"Lv. {mgr.GetLevel(card.Type):N0}",
-                    $"전체 왕국군 ×{BalanceMath.GoldMultiplier(mgr.GetLevel(card.Type)):0.###}");
-                for (int i = 0; i < card.Buttons.Count; i++)
-                {
-                    int count = PullCounts[i]; long cost = mgr.GetCost(card.Type, count);
-                    int actual = count < 0 ? BalanceMath.AffordableGoldLevels(mgr.GetLevel(card.Type), gold) : System.Math.Min(count,300-mgr.GetLevel(card.Type));
-                    card.Buttons[i].Set(mgr.IsEnhancing ? "강화 처리 중…" : (count < 0 ? $"최대 {actual}회" : $"{actual}회 강화"),
-                        cost < 0 ? "강화 한도" : $"{NumberNotation.Format(cost)} 골드",
-                        !mgr.IsEnhancing && cost >= 0 && actual > 0 && gold >= cost);
-                }
+                    actual > 0 ? $"{current}  →  {next}" : $"현재 {current}", UguiTheme.RoyalBlue);
+                bool maxed = level >= BalanceMath.GoldCap;
+                string title = mgr.IsEnhancing ? "강화 처리 중…" : maxed ? "최대 단계" :
+                    _selectedCount < 0 ? $"최대 {actual}회 강화" : $"{actual}회 강화";
+                string price = maxed ? "강화 완료" : cost < 0 ? "골드 부족" : $"{NumberNotation.Format(cost)} 골드";
+                bool ready = !mgr.IsEnhancing && cost >= 0 && actual > 0 && gold >= cost;
+                card.Button?.Set(title, price, ready);
+                card.FallbackButton?.Set($"{title} · {price}", UguiTheme.ActionGold, ready);
             }
 
             // 빈 상태 라벨 토글 (강화 항목이 하나도 없을 때만 표시)
@@ -182,6 +196,7 @@ namespace KingdomIdle.UGUI
             var go = Object.Instantiate(cat.bodyDevelopment, content, false);
             _body = go.GetComponent<DevelopmentBodyView>();
             GrowthTabs.Clear();
+            CountTabs.Clear();
             if (_body != null && _body.navBar != null)
             {
                 for (int i=0;i<2;i++)
@@ -196,6 +211,19 @@ namespace KingdomIdle.UGUI
                     });
                     if (!ruby) FeatureGuideAnchor.Bind(tab.Button, Direction.GameDirectTarget.GoldGrowthTab);
                     GrowthTabs.Add(tab);
+                }
+            }
+            if (_body != null && _body.purchaseCountBar != null && cat.itemNavTabButton != null)
+            {
+                for (int i = 0; i < PullCounts.Length; i++)
+                {
+                    int count = PullCounts[i];
+                    var tab = Object.Instantiate(cat.itemNavTabButton, _body.purchaseCountBar, false).GetComponent<NavTabButtonView>();
+                    tab.name = count < 0 ? "MaximumCount" : $"Count{count}";
+                    tab.SetLabel(count < 0 ? "최대" : $"{count}회");
+                    tab.SetIcon(null);
+                    tab.Button.onClick.AddListener(() => { _selectedCount = count; Refresh(); });
+                    CountTabs.Add(tab);
                 }
             }
             if (_body == null)
@@ -239,40 +267,31 @@ namespace KingdomIdle.UGUI
 
             view.Set(typeName, $"Lv. {level}", $"현재 효과  {bonusText}");
 
-            // x1 / x10 버튼을 Item_GachaPullButton 스타일(제목+비용)의 큰 버튼으로
-            for (int i = 0; i < PullCounts.Length; i++)
+            // 각 카드의 유일한 주버튼은 클릭 시점에 선택된 횟수를 기존 강화 진입점으로 보낸다.
+            if (cat.itemGachaPullButton != null)
             {
-                int count = PullCounts[i];
-                long cost = mgr != null ? mgr.GetCost(type, count) : 0;
-                bool canAfford = gold >= cost;
-                var capturedType = type;
-                var capturedCount = count;
-
-                if (cat.itemGachaPullButton != null)
+                var btnGo = Object.Instantiate(cat.itemGachaPullButton, view.ButtonRow, false);
+                var pull = btnGo.GetComponent<GachaPullButtonView>();
+                if (pull != null)
                 {
-                    var btnGo = Object.Instantiate(cat.itemGachaPullButton, view.ButtonRow, false);
-                    var pull = btnGo.GetComponent<GachaPullButtonView>();
-                    if (pull != null)
-                    {
-                        binding.Buttons.Add(pull);
-                        pull.Set($"강화 x{count}", $"{NumberNotation.Format(cost)} G", canAfford, null);
-                        pull.Button.onClick.AddListener(() => OnEnhanceClicked(capturedType, capturedCount));
-                        if (type == StatEnhanceManager.EnhanceType.Attack && count == 1)
-                            FeatureGuideAnchor.Bind(pull.Button, Direction.GameDirectTarget.AttackOnce);
-                        continue;
-                    }
+                    binding.Button = pull;
+                    pull.Button.onClick.AddListener(() => OnEnhanceClicked(type, _selectedCount));
+                    if (type == StatEnhanceManager.EnhanceType.Attack)
+                        FeatureGuideAnchor.Bind(pull.Button, Direction.GameDirectTarget.AttackOnce);
+                    return true;
                 }
-
-                // 폴백: 액션 버튼
-                if (cat.itemActionButton != null)
+                Object.Destroy(btnGo);
+            }
+            if (cat.itemActionButton != null)
+            {
+                var abGo = Object.Instantiate(cat.itemActionButton, view.ButtonRow, false);
+                var ab = abGo.GetComponent<ActionButtonView>();
+                if (ab != null)
                 {
-                    var abGo = Object.Instantiate(cat.itemActionButton, view.ButtonRow, false);
-                    var ab = abGo.GetComponent<ActionButtonView>();
-                    if (ab != null)
-                    {
-                        ab.Set($"강화 x{count} ({NumberNotation.Format(cost)}G)", UguiTheme.BtnSpend, canAfford);
-                        ab.OnClick(() => OnEnhanceClicked(capturedType, capturedCount));
-                    }
+                    binding.FallbackButton = ab;
+                    ab.OnClick(() => OnEnhanceClicked(type, _selectedCount));
+                    if (type == StatEnhanceManager.EnhanceType.Attack)
+                        FeatureGuideAnchor.Bind(ab.Button, Direction.GameDirectTarget.AttackOnce);
                 }
             }
 

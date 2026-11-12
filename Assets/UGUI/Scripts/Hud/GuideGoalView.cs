@@ -12,6 +12,7 @@ namespace KingdomIdle.UGUI
     {
         public TMP_Text description, progress, actionLabel, stepLabel;
         public Image progressFill;
+        public Image claimBorder;
         public Button actionButton;
         public GameObject body;
         public bool hideWithPanels = true;
@@ -111,14 +112,15 @@ namespace KingdomIdle.UGUI
                 if (progressFill != null) progressFill.fillAmount = Mathf.Clamp01((float)state.CurrentProgress / required);
                 bool claimable = state.IsCompleted && _claimable;
                 bool canNavigate = QuestNavigation.CanNavigate(definition.ObjectiveType);
-                Set(actionLabel, claimable ? (definition.RewardGroupId == 0 ? "다음 목표  ›" : "보상 받기  ›")
+                Set(actionLabel, claimable ? (_manager.IsBusy || _claimRequested ? "수령 중…" : definition.RewardGroupId == 0 ? "완료 · 탭" : "수령 가능")
                     : state.IsCompleted ? "보상 대기" : canNavigate ? "이동  ›" : compact ? "자세히  ›" : "전투에서 진행");
                 if (compact && actionLabel != null)
                 {
-                    actionLabel.color = claimable ? UguiTheme.AccentGoldStrong : UguiTheme.AccentGold;
+                    actionLabel.color = claimable ? UguiTheme.InfoInk : UguiTheme.InfoMuted;
                     actionLabel.fontStyle = claimable ? FontStyles.Bold : FontStyles.Normal;
                 }
-                if (actionButton != null) actionButton.interactable = compact || claimable || (!state.IsCompleted && canNavigate);
+                if (actionButton != null) actionButton.interactable = !_manager.IsBusy && !_claimRequested &&
+                    (compact || claimable || (!state.IsCompleted && canNavigate));
             }
             else if (!hideWithPanels)
             {
@@ -135,10 +137,12 @@ namespace KingdomIdle.UGUI
         /// <summary>서버 수령 결과. 이 HUD가 요청한 수령만 안내한다(패널에서 요청한 수령은 패널이 안내한다).</summary>
         private void OnClaimCompleted(QuestClaimToken token, bool ok, string message)
         {
-            if (!_claimRequested) return;
-            _claimRequested = false;
-            if (ok) UIManager.Instance?.ShowToast("가이드 완료");
-            else UIManager.Instance?.ShowToast(string.IsNullOrEmpty(message) ? "보상을 받지 못했습니다. 잠시 후 다시 시도해 주세요." : message);
+            if (_claimRequested)
+            {
+                _claimRequested = false;
+                if (ok) UIManager.Instance?.ShowToast("가이드 완료");
+                else UIManager.Instance?.ShowToast(string.IsNullOrEmpty(message) ? "보상을 받지 못했습니다. 잠시 후 다시 시도해 주세요." : message);
+            }
             if (_manager != null) ReadCurrent();
         }
 
@@ -153,19 +157,23 @@ namespace KingdomIdle.UGUI
                 (_ui == null || (!_ui.HasActiveTabPanel && !_ui.HasBlockingPanel)));
             if (body != null && body.activeSelf != show) body.SetActive(show);
             bool breathe = body != null && body.activeInHierarchy && _state != null && _state.IsCompleted &&
-                _manager != null && _claimable;
+                _manager != null && _claimable && !_manager.IsBusy && !_claimRequested;
             if (breathe == _breathing) return;
             StopBreathing();
-            if (breathe && actionLabel != null)
+            if (breathe && claimBorder != null)
             {
-                UITween.BreathScale(actionLabel.rectTransform, .018f, 2.8f);
+                UITween.PulseGraphic(claimBorder, UguiTheme.Bronze, UguiTheme.ActionGold, 1.8f);
                 _breathing = true;
             }
         }
 
         private void StopBreathing()
         {
-            if (actionLabel != null) UITween.StopBreathScale(actionLabel.rectTransform);
+            if (claimBorder != null)
+            {
+                UITween.StopGraphicPulse(claimBorder);
+                claimBorder.color = UguiTheme.Bronze;
+            }
             _breathing = false;
         }
 
@@ -180,6 +188,8 @@ namespace KingdomIdle.UGUI
                 {
                     _claimRequested = true;
                     if (actionButton != null) actionButton.interactable = false;
+                    Set(actionLabel, "수령 중…");
+                    Visibility();
                     return;
                 }
                 if (result.Status == QuestClaimStatus.Busy) UIManager.Instance?.ShowToast("이전 보상을 처리 중입니다. 잠시 후 다시 시도해 주세요.");

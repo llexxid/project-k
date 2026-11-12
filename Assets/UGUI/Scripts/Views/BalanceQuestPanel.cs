@@ -32,7 +32,7 @@ namespace KingdomIdle.UGUI
         private GuideEmptyHintView _emptyHint;
         private string _emptyText;
         private QuestScrollDragRelay _dragRelay;
-        private bool _dragging, _deferredRebind, _claimBusy, _claimAll;
+        private bool _dragging, _deferredRebind, _claimBusy;
         private SheetSizeFitter _sizeFitter;
         private RectTransform _hudTop;
 
@@ -154,7 +154,7 @@ namespace KingdomIdle.UGUI
         private void UpdateSelection()
         {
             for (int i = 0; i < _tabs.Count; i++)
-                _tabs[i].SetSelected(Categories[i] == _selectedCategory, UguiTheme.AccentGold);
+                _tabs[i].SetSelected(Categories[i] == _selectedCategory, UguiTheme.RoyalBlue);
             if (_view == null || _view.currentQuestRoot == null) return;
             if (_view.currentQuestRoot.activeSelf) _view.currentQuestRoot.SetActive(false);
         }
@@ -212,10 +212,8 @@ namespace KingdomIdle.UGUI
                 foreach (var row in board.Rows.OrderBy(x => StateOrder(x.State))) _visible.Add(row);
 
             bool claimBusy = _manager != null && _manager.IsBusy;
-            bool claimAll = _visible.Count(row => row.CanClaim) > 1;
-            bool claimPresentationChanged = _claimBusy != claimBusy || _claimAll != claimAll;
+            bool claimPresentationChanged = _claimBusy != claimBusy;
             _claimBusy = claimBusy;
-            _claimAll = claimAll;
 
             if (_dragging)
             {
@@ -352,7 +350,7 @@ namespace KingdomIdle.UGUI
             var view = Instantiate(catalog.itemGuideStepRow, _view.listContent, false).GetComponent<GuideStepRowView>();
             var row = new Row { Snapshot = snapshot, View = view };
             _rows.Add(row);
-            // 보상 아이콘과 카드 전체는 표시 전용이다. 동작은 우측 버튼 한 곳에서만 시작한다.
+            // 카드 전체의 단일 입력 영역에서 기존 탭 일괄 수령 또는 목표 이동을 시작한다.
             view.actionButton.onClick.AddListener(() => Act(row));
             Render(row);
         }
@@ -393,7 +391,7 @@ namespace KingdomIdle.UGUI
 
         private void Render(Row row)
         {
-            row.View.SetQuest(row.Snapshot, UIManager.Instance.Catalog, _claimAll, _claimBusy);
+            row.View.SetQuest(row.Snapshot, UIManager.Instance.Catalog, claimBusy: _claimBusy);
         }
 
         private sealed class Row

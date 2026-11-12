@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using UnityEditor;
 
 namespace KingdomIdle.UGUI.Editor
 {
@@ -9,7 +10,7 @@ namespace KingdomIdle.UGUI.Editor
     /// GuidePanelController.BuildStepRow / AddEmptyHint 의 코드빌드 구조를
     /// Item_GuideStepRow / Item_GuideEmptyHint 프리팹 + View 로 굽는다.
     /// </summary>
-    internal static class GuidePanelPrefabGens
+    public static class GuidePanelPrefabGens
     {
         // GameUI.uss guide-* 토큰 (원본 GuidePanelController 색상 그대로)
         private static readonly Color TitleColor = new Color(1f, 1f, 1f, 0.95f);        // .guide-step-title
@@ -17,7 +18,38 @@ namespace KingdomIdle.UGUI.Editor
         private static readonly Color CheckColor = new Color(100f / 255f, 210f / 255f, 130f / 255f, 0.95f);
         private static readonly Color CheckBorderColor = new Color(1f, 1f, 1f, 0.25f);
         private static readonly Color CheckBgColor = new Color(1f, 1f, 1f, 0.10f);
-        private static readonly Color EmptyHintColor = new Color(1f, 1f, 1f, 0.5f);
+        private static readonly Color EmptyHintColor = UguiTheme.InfoMuted;
+
+        /// <summary>기존 HUD 전체 셀 버튼을 유지하며 밝은 정보면과 수령 테두리를 연결한다. HUD 배치는 공통 생성기가 관리한다.</summary>
+        public static void ApplyGuideGoal(GameObject root)
+        {
+            var rounded=AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/Sprites/RoundedRect.png");
+            foreach(var view in root.GetComponentsInChildren<GuideGoalView>(true))
+            {
+                if(view.body==null)continue;
+                var background=view.body.GetComponent<Image>();
+                if(background==null)background=view.body.AddComponent<Image>();
+                background.sprite=rounded;background.type=Image.Type.Sliced;background.color=UguiTheme.Bronze;background.raycastTarget=true;
+                view.claimBorder=background;
+                var surface=view.body.transform.Find("InfoSurface") as RectTransform;
+                if(surface==null)surface=F.Container(view.body.transform,"InfoSurface");
+                var image=surface.GetComponent<Image>()??surface.gameObject.AddComponent<Image>();
+                image.sprite=rounded;image.type=Image.Type.Sliced;image.color=UguiTheme.InfoSurface;image.raycastTarget=false;
+                F.Stretch(surface);surface.offsetMin=new Vector2(4,4);surface.offsetMax=new Vector2(-4,-4);surface.SetAsFirstSibling();
+                var area=view.body.GetComponent<Button>()??view.body.AddComponent<Button>();
+                // 기존 전체 셀 버튼이 아닌 옛 생성기의 별도 버튼은 숨긴다.
+                if(view.actionButton!=null && view.actionButton!=area)view.actionButton.gameObject.SetActive(false);
+                area.enabled=true;area.targetGraphic=background;area.transition=Selectable.Transition.None;
+                view.actionButton=area;
+                foreach(var label in new[]{view.description,view.progress,view.actionLabel,view.stepLabel})
+                {
+                    if(label==null)continue;
+                    label.color=label==view.description?UguiTheme.InfoInk:UguiTheme.InfoMuted;
+                    if(label.font!=null)label.fontSharedMaterial=label.font.material;
+                    label.raycastTarget=false;
+                }
+            }
+        }
 
         internal static void GenerateAll()
         {
@@ -115,9 +147,9 @@ namespace KingdomIdle.UGUI.Editor
             F.VLayout(root.gameObject, 0f, new RectOffset(0, 0, 40, 0));   // padding-top 40
             var view = root.gameObject.AddComponent<GuideEmptyHintView>();
 
-            var lbl = F.Text(root, "Label", "", 26f, EmptyHintColor,
+            var lbl = F.Text(root, "Label", "", 36f, EmptyHintColor,
                 TextAlignmentOptions.Center, bold: false, wrap: true);
-            F.Preferred(lbl, height: 32f);
+            F.Preferred(lbl, height: 120f);
             view.label = lbl;
 
             return PrefabGenUtil.SavePrefab(root.gameObject, $"{PrefabGenUtil.PrefabRoot}/Items/Item_GuideEmptyHint.prefab");

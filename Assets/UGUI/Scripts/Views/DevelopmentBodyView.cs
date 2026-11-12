@@ -16,6 +16,7 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal TMP_Text emptyLabel;    // 강화 항목 없음 안내 (토글)
         [SerializeField] internal RectTransform navBar;
         [SerializeField] internal RectTransform rubyCardsRoot;
+        [SerializeField] internal RectTransform purchaseCountBar;
 
         public RectTransform CardsRoot => cardsRoot;
     }
