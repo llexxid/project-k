@@ -28,6 +28,12 @@ namespace KingdomIdle.UGUI.Editor
             string password = File.ReadAllText(passwordFile).TrimEnd('\r', '\n');
             if (string.IsNullOrEmpty(password)) throw new InvalidOperationException("Signing input is empty.");
             MagePolishPreparation.BakeAuthoredGlyphs();
+            BronzeArmyPreparation.Apply();
+            Debug.Log(Newtonsoft.Json.JsonConvert.SerializeObject(BronzeArmyPreparation.Validate()));
+            GachaPanelPrefabGens.PrepareBronzeInfoLinks();
+            GachaPanelPrefabGens.ValidateBronzeUi();
+            BronzeGachaResultPreparation.Prepare();
+            BronzeGachaResultPreparation.Validate();
             KingdomIdle.EditorTools.Optimization.OptAtlases.CreateInBuildAtlases();
             string purpose = Environment.GetEnvironmentVariable("KINGDOM_DEVICE_PURPOSE") ?? "UI 개선 테스트";
             int code = checked(PlayerSettings.Android.bundleVersionCode + 1);
@@ -66,7 +72,8 @@ namespace KingdomIdle.UGUI.Editor
                     backend = PlayerSettings.GetScriptingBackend(NamedBuildTarget.Android).ToString(),
                     architectures = PlayerSettings.Android.targetArchitectures.ToString(),
                     diagnostics = false, forcedAccount = false, development = false,
-                    result = report.summary.result.ToString(), bytes = report.summary.totalSize,
+                    result = report.summary.result.ToString(), buildReportBytes = report.summary.totalSize,
+                    apkBytes = File.Exists(apk) ? new FileInfo(apk).Length : 0,
                     errors = report.summary.totalErrors, warnings = report.summary.totalWarnings,
                     duration = report.summary.totalTime.ToString()
                 }, Newtonsoft.Json.Formatting.Indented));
