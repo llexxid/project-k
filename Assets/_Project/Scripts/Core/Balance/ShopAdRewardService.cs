@@ -180,9 +180,14 @@ namespace KingdomIdle.Balance
             string kind = NetworkManager.GetFailureKind(error);
             int code = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0;
             Debug.LogWarning($"[AdReward] claim offer={claim.OfferId} rejected code={code} kind={kind} message={error?.ErrorMessage}");
-            if (kind == "Timeout" || kind == "Transport")
+            bool uncertain = code == (int)Protocol.Message.Data.eErrorCode.StorageFailure ||
+                code == (int)Protocol.Message.Data.eErrorCode.PlayerBusy ||
+                code == 0 && (kind == "Timeout" || kind == "Transport" || kind == "Function" ||
+                    kind == "InvalidResponse" || kind == "ApplyFailed" || string.IsNullOrEmpty(kind));
+            if (uncertain)
             {
-                // 응답 유실: 서버가 지급했을 수 있다. 재전송 대신 상태를 다시 받는다. 받은 것으로 나오면 끝, 아니면 클레임을 남겨 "보상 다시 받기"로 다시 보낸다.
+                // 저장 미확정·일시 거절도 시청 완료 권한을 없애지 않는다. 서버 지급 여부를 먼저 확인하고,
+                // 미수령이면 같은 접속의 같은 Claim을 남겨 기존 "보상 다시 받기"로 재요청한다.
                 var users = UserManager.Instance;
                 if (users == null)
                 {
@@ -200,7 +205,7 @@ namespace KingdomIdle.Balance
                 });
                 return;
             }
-            // 거절(Business 등): 서버는 저장하지 않았다. 클레임은 버린다.
+            // 확정된 요청·보상 무효 오류만 클레임을 버린다.
             IsBusy = false;
             ClaimCompleted?.Invoke(claim, new RewardResult(RewardStatus.InvalidReward), NetworkManager.DescribeFailure(error, "광고 보상"));
         }

@@ -10,6 +10,97 @@ namespace KingdomIdle.Balance
     public static class ShopAdRewardAcceptance
     {
 #if UNITY_EDITOR
+        /// <summary>서버 오류·기수령 응답을 격리해서 적용한다. 로그인·광고 SDK·HTTP는 호출하지 않는다.</summary>
+        public static Dictionary<string, object> RunServerFailureRecovery()
+        {
+            using var scope = LocalProgression.BeginTestSession();
+            const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic;
+            var service = typeof(ShopAdRewardService);
+            var busy = service.GetField("<IsBusy>k__BackingField", flags);
+            var saved = new Dictionary<System.Reflection.FieldInfo, object>();
+            foreach (string name in new[] { "_server", "_serverOffset", "<Revision>k__BackingField", "<IsBusy>k__BackingField" })
+            {
+                var field = service.GetField(name, flags);
+                saved[field] = field.GetValue(null);
+            }
+            var previousNetwork = Scripts.Core.Manager.NetworkManager.Instance;
+            var previousUsers = Scripts.Core.UserManager.Instance;
+            var owner = new UnityEngine.GameObject("ShopAdServerFailureAcceptance") { hideFlags = UnityEngine.HideFlags.HideAndDontSave };
+            owner.SetActive(false);
+            var checks = new List<string>();
+            void Check(bool value, string label)
+            { if (!value) throw new InvalidOperationException("SHOP AD SERVER ASSERT: " + label); checks.Add(label); }
+            RewardResult completed = null;
+            ShopAdRewardService.Claim completedClaim = null;
+            void OnCompleted(ShopAdRewardService.Claim claim, RewardResult result, string message)
+            { completedClaim = claim; completed = result; }
+            ShopAdRewardService.ClaimCompleted += OnCompleted;
+            try
+            {
+                var network = owner.AddComponent<Scripts.Core.Manager.NetworkManager>();
+                typeof(Scripts.Core.Manager.NetworkManager).GetProperty("LoginState").SetValue(network, Scripts.Core.Manager.GameLoginState.Ready);
+                Scripts.Core.Manager.NetworkManager.Instance = network;
+                // 복구 조회를 보낼 수 없는 경우도 Earned 권한을 유지해야 한다. 실제 조회 경로는 외부 dependency fixture에서 검사한다.
+                Scripts.Core.UserManager.Instance = null;
+                LocalProgression.OpenTestAccount("shop-ad-server-" + Guid.NewGuid().ToString("N"));
+                ShopAdRewardService.Receive(new Protocol.Message.Dto.AdRewardStateDTO
+                { Day = ShopAdRewardService.Today, ClaimedOfferIds = new List<string>() }, 0, "fixture");
+                var claim = new ShopAdRewardService.Claim(ShopCatalog.Find("rewarded.daily_equipment"), eCurrency.EquipmentTicket) { Earned = true };
+                string original = JsonConvert.SerializeObject(LocalProgression.State);
+                var reject = service.GetMethod("RejectServerResult", flags);
+                foreach (var failure in new[] { ("Business", 1014), ("Business", 1017), ("InvalidResponse", 0),
+                    ("Function", 0), ("ApplyFailed", 0), ("Transport", 0), ("Timeout", 0), ("", 0) })
+                {
+                    var error = Scripts.Core.Manager.NetworkManager.CreateError(failure.Item1, "fixture", null,
+                        failure.Item2 == 0 ? null : new Protocol.Message.Dto.ErrorResponseDTO
+                        { ErrorCode = (Protocol.Message.Data.eErrorCode)failure.Item2, Message = "fixture" });
+                    completed = null; busy.SetValue(null, true);
+                    reject.Invoke(null, new object[] { claim, error });
+                    Check(completed?.Status == RewardStatus.SaveFailed && ReferenceEquals(completedClaim, claim) &&
+                        claim.Earned && !ShopAdRewardService.IsBusy, "uncertain result retains the same earned claim: " + failure);
+                }
+                var invalid = Scripts.Core.Manager.NetworkManager.CreateError("Business", "fixture", null,
+                    new Protocol.Message.Dto.ErrorResponseDTO { ErrorCode = (Protocol.Message.Data.eErrorCode)1050, Message = "fixture" });
+                reject.Invoke(null, new object[] { claim, invalid });
+                Check(completed.Status == RewardStatus.InvalidReward, "confirmed invalid ad request remains invalid");
+                Check(JsonConvert.SerializeObject(LocalProgression.State) == original, "rejected requests never grant local currency");
+
+                var response = new Protocol.Message.Dto.OnClaimAdRewardResponseDTO
+                {
+                    AdType = Protocol.Message.Data.eAdType.ShopDaily, OfferId = claim.OfferId, Level = 1,
+                    Currency = new Protocol.Message.Dto.CurrencyQueryDTO { EquipmentTicket = 2 },
+                    AdRewards = new Protocol.Message.Dto.AdRewardStateDTO
+                    { Day = ShopAdRewardService.Today, ClaimedOfferIds = new List<string> { claim.OfferId } },
+                    GrantedCurrencies = new List<Protocol.Message.Dto.CurrencyAmountDTO>
+                    { new() { CurrencyType = Protocol.Message.Data.eCurrency.EquipmentTicket, Amount = 2 } }
+                };
+                var apply = service.GetMethod("ApplyServerResult", flags);
+                apply.Invoke(null, new object[] { claim, response });
+                Check(completed.Succeeded && LocalProgression.Balance(eCurrency.EquipmentTicket) == 2,
+                    "retry success applies the authoritative ticket balance");
+                response.AlreadyClaimed = true; response.GrantedCurrencies.Clear();
+                apply.Invoke(null, new object[] { claim, response });
+                Check(completed.Status == RewardStatus.NothingAvailable && LocalProgression.Balance(eCurrency.EquipmentTicket) == 2,
+                    "replayed server receipt does not add a second local reward");
+                Check(ShopAdRewardService.Begin(claim.OfferId, out _) == RewardStatus.NothingAvailable,
+                    "confirmed receipt blocks another advertisement for the same day");
+                LocalProgression.OpenTestAccount("shop-ad-server-other-" + Guid.NewGuid().ToString("N"));
+                Check(ShopAdRewardService.FinishAd(claim, RewardedAdResult.Completed).Status == RewardStatus.Stale,
+                    "account changes still reject the old earned claim");
+                Check(typeof(Scripts.Core.Manager.NetworkManager).GetField("_context", System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.NonPublic).GetValue(network) == null, "fixture stayed unauthenticated without HTTP");
+                return new Dictionary<string, object> { { "passed", checks.Count }, { "checks", checks } };
+            }
+            finally
+            {
+                ShopAdRewardService.ClaimCompleted -= OnCompleted;
+                foreach (var field in saved) field.Key.SetValue(null, field.Value);
+                Scripts.Core.Manager.NetworkManager.Instance = previousNetwork;
+                Scripts.Core.UserManager.Instance = previousUsers;
+                UnityEngine.Object.DestroyImmediate(owner);
+            }
+        }
+
         public static Dictionary<string, object> RunReset()
         {
             using var scope = LocalProgression.BeginTestSession();
