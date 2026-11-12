@@ -251,7 +251,7 @@ namespace KingdomIdle.UGUI.Editor
             rule.text = "에픽 획득 시 누적 횟수가 초기화됩니다.";
             rule.fontSize = 32;
             Fixed(rule, 44);
-            Fixed(c.ratesButton.transform.parent, 88);
+            Fixed(c.ratesButton.transform.parent, 132);
             Link(c.ratesButton, "확률 정보", TextAlignmentOptions.MidlineLeft);
             Link(c.rewardsButton, "획득 가능 목록", TextAlignmentOptions.MidlineRight);
             c.costLabel.fontSize = 36;
@@ -263,7 +263,7 @@ namespace KingdomIdle.UGUI.Editor
 
         private static void Link(UnityEngine.UI.Button button, string text, TextAlignmentOptions alignment)
         {
-            Fixed(button, 88);
+            Fixed(button, 132);
             foreach (var image in button.GetComponentsInChildren<UnityEngine.UI.Image>(true))
                 image.color = Color.clear;
             var label = button.GetComponentInChildren<TMP_Text>(true);
