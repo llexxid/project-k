@@ -29,6 +29,8 @@ namespace KingdomIdle.UGUI
         public Image claimBorder;
         // 재활성화할 때도 같은 수령 가능 강조를 복구한다. 게임의 완료 상태를 별도 저장하지 않는다.
         private bool _claimable;
+        private Image _infoSurface;
+        private static readonly Color CompletedSurface = new Color32(221, 211, 186, 255);
 
         /// <summary>패널 스택에서 돌아온 경우 수령 가능한 셀의 테두리 빛을 복원한다.</summary>
         private void OnEnable() { RefreshEmphasis(); }
@@ -60,8 +62,10 @@ namespace KingdomIdle.UGUI
             progressFill.rectTransform.anchorMax = new Vector2(progressFill.fillAmount, 1);
             progressFill.color = claimed ? new Color32(71, 83, 58, 255) : new Color32(44, 115, 56, 255);
             progressLabel.text = $"{NumberNotation.Format(count)} / {NumberNotation.Format(snapshot.RequiredCount)}";
-            // 글자와 게이지는 보존하고 톤만 낮춘다. SetActive(false)로 완료 행을 제거하지 않는다.
-            canvasGroup.alpha = claimed ? .72f : locked ? .65f : 1f;
+            // 전체 알파는 글자까지 배경에 섞어 대비를 잃게 한다. 완료는 정보면·라벨·게이지로 구분한다.
+            canvasGroup.alpha = 1f;
+            if (_infoSurface == null) _infoSurface = transform.Find("InfoSurface")?.GetComponent<Image>();
+            if (_infoSurface != null) _infoSurface.color = claimed ? CompletedSurface : UguiTheme.InfoSurface;
             bool canClaim = snapshot.CanClaim && !claimBusy;
             actionButton.interactable = canClaim || (!snapshot.CanClaim && !locked && !claimed && canMove);
             actionLabel.text = claimed ? "완료" : snapshot.CanClaim ? (claimBusy ? "수령 중…" : "수령 가능") : locked ? "잠김" : canMove ? "이동 ›" : "진행 중";
