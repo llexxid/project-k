@@ -101,7 +101,9 @@ namespace KingdomIdle.UGUI.Editor
             if (EditorApplication.isPlaying) throw new InvalidOperationException("Use an isolated Edit Mode session.");
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(Path);
             var catalog = AssetDatabase.LoadAssetAtPath<UIViewCatalog>(PrefabGenUtil.CatalogPath);
-            var fixture = new GameObject("BronzeGachaResultAcceptance", typeof(RectTransform)); fixture.SetActive(false);
+            // UGUI는 비활성 LayoutGroup을 ForceRebuild에서도 제외한다. 공개/거래를 실행하지 않는 활성 기하 fixture를 쓴다.
+            var fixture = new GameObject("BronzeGachaResultAcceptance", typeof(RectTransform));
+            fixture.hideFlags = HideFlags.HideAndDontSave;
             var root = (RectTransform)fixture.transform; root.sizeDelta = new Vector2(1080, 1920);
             try
             {
@@ -129,7 +131,11 @@ namespace KingdomIdle.UGUI.Editor
                             throw new InvalidOperationException("Result card names or quantities were lost while sizing.");
                         if (count <= 3)
                         {
-                            if (view.scroll.vertical) throw new InvalidOperationException("One to three result cards must fit without scrolling at 1080x1920.");
+                            if (view.scroll.vertical) throw new InvalidOperationException("One to three result cards must fit without scrolling at 1080x1920. " +
+                                "count=" + count + " root=" + ((RectTransform)view.transform).rect.size + " box=" + view.box.rect.size +
+                                " scroll=" + ((RectTransform)view.scroll.transform).rect.size + " viewport=" + view.scroll.viewport.rect.size +
+                                " content=" + view.scroll.content.rect.size + " grid=" + view.grid.rect.size +
+                                " cell=" + view.grid.GetComponent<GridLayoutGroup>().cellSize);
                             foreach (var card in cards) RequireInside(view.scroll.viewport, (RectTransform)card.transform);
                         }
                         else if (!view.scroll.vertical || view.grid.GetComponent<GridLayoutGroup>().constraintCount != 3)
