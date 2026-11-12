@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using KingdomIdle.Balance;
+using Scripts.Core;
 using Scripts.Core.Manager;
 using TMPro;
 using UnityEditor;
@@ -22,6 +23,144 @@ namespace KingdomIdle.UGUI.Editor
         private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
         private static readonly eQuestCategory[] Categories =
             { eQuestCategory.Guide, eQuestCategory.Daily, eQuestCategory.Weekly, eQuestCategory.Achievement };
+
+        /// <summary>계정·파일을 열지 않는 메모리 fixture로 실제 bulk 실패→조회→명시적 재탭 경로를 검사한다.</summary>
+        public static Dictionary<string, object> RunClaimFailureRecovery()
+        {
+            if (!Application.isPlaying || LocalProgression.IsReady || NetworkManager.Instance != null ||
+                UserManager.Instance != null || QuestManager.Instance != null)
+                throw new InvalidOperationException("Run quest recovery in empty-scene PlayMode without a profile or game managers.");
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+            var stateField = typeof(LocalProgression).GetField("_state", flags);
+            var openingField = typeof(LocalProgression).GetField("_opening", flags);
+            var pathField = typeof(LocalProgression).GetField("_path", flags);
+            object savedState = stateField.GetValue(null), savedOpening = openingField.GetValue(null), savedPath = pathField.GetValue(null);
+            var savedNetwork = NetworkManager.Instance; var savedUsers = UserManager.Instance; var savedQuest = QuestManager.Instance;
+            var savedTransport = PlayFab.PluginManager.GetPlugin<PlayFab.ITransportPlugin>(PlayFab.PluginContract.PlayFab_Transport);
+            var transport = new ClaimFailureHttp();
+            long generation = LocalProgression.AccountGeneration; string account = LocalProgression.AccountKey;
+            var checks = new List<string>();
+            void Check(bool condition, string label)
+            { if (!condition) throw new InvalidOperationException("Quest claim recovery: " + label); checks.Add(label); }
+            object Call(object target, string name, params object[] values) => target.GetType().GetMethod(name, flags).Invoke(target, values);
+            var owner = new GameObject("QuestFailureRecovery_Managers"); owner.SetActive(false);
+            try
+            {
+                PlayFab.PluginManager.SetPlugin(transport, PlayFab.PluginContract.PlayFab_Transport);
+                // Ensure의 계정 개방을 막고 읽기 전용 입력조건만 만족시킨다. 성공 DTO/로컬 지급/저장은 호출하지 않는다.
+                var memory = new ProgressionState(); openingField.SetValue(null, true); stateField.SetValue(null, memory);
+                var network = owner.AddComponent<NetworkManager>(); NetworkManager.Instance = network; Call(network, "Init");
+                SetField(network, "_sessionGUID", "quest-recovery-fixture");
+                SetField(network, "_context", new PlayFab.PlayFabAuthenticationContext { EntityToken = "quest-recovery-fixture" });
+                typeof(NetworkManager).GetProperty("LoginState").SetValue(network, GameLoginState.Ready);
+                UserManager.Instance = owner.AddComponent<UserManager>();
+                var manager = owner.AddComponent<QuestManager>(); QuestManager.Instance = manager;
+                int completed = 0, confirmed = -1, total = 0;
+                QuestClaimToken Prepare()
+                {
+                    SetField(manager, "_claim", null); SetField(manager, "_refreshQueued", false);
+                    manager.Apply(State(), "qa-claim-failure-dto");
+                    completed = 0; confirmed = -1; total = 0;
+                    return manager.GetSnapshot(eQuestCategory.Daily).Rows.First(x => x.CanClaim).Token;
+                }
+                Action<int, int, string> done = (count, requested, message) => { completed++; confirmed = count; total = requested; };
+                var errors = new (string Name, PlayFab.PlayFabError Error)[]
+                {
+                    ("StorageFailure1014", FixtureError("Business", 1014)), ("InvalidStoredData1015", FixtureError("Business", 1015)),
+                    ("AzureFunctionTimeout1470", new PlayFab.PlayFabError { Error = PlayFab.PlayFabErrorCode.CloudScriptAzureFunctionsExecutionTimeLimitExceeded, ErrorMessage = "fixture" }),
+                    ("CloudScriptTimeout1206", new PlayFab.PlayFabError { Error = PlayFab.PlayFabErrorCode.CloudScriptExecutionTimeLimitExceeded, ErrorMessage = "fixture" }),
+                    ("CloudScriptHttp", new PlayFab.PlayFabError { Error = PlayFab.PlayFabErrorCode.CloudScriptHTTPRequestError, ErrorMessage = "fixture" }),
+                    ("ConnectionError", new PlayFab.PlayFabError { Error = PlayFab.PlayFabErrorCode.ConnectionError, ErrorMessage = "fixture" }),
+                    ("Timeout", FixtureError("Timeout")), ("Transport", FixtureError("Transport")), ("Function", FixtureError("Function")),
+                    ("InvalidResponse", FixtureError("InvalidResponse")), ("ApplyFailed", FixtureError("ApplyFailed"))
+                };
+                foreach (var error in errors)
+                {
+                    var token = Prepare(); int claimCalls = transport.ClaimCalls, readCalls = transport.ReadCalls;
+                    var start = manager.TryClaimTab(eQuestCategory.Daily, token, done);
+                    Check(start.Status == QuestClaimStatus.Pending && manager.IsBusy && transport.ClaimCalls == claimCalls + 1 &&
+                        manager.TryClaimTab(eQuestCategory.Daily, token, done).Status == QuestClaimStatus.Busy,
+                        error.Name + ": initial whole-tab request blocks duplicate taps");
+                    var original = transport.Pending; transport.Fail(error.Error);
+                    Check(manager.IsBusy && completed == 0 && transport.ReadCalls == readCalls + 1 && transport.Pending != null &&
+                        manager.TryClaimTab(eQuestCategory.Daily, token, done).Status == QuestClaimStatus.Busy && transport.ClaimCalls == claimCalls + 1,
+                        error.Name + ": failure sends one state read and keeps input locked without reclaiming");
+                    transport.Fail(FixtureError("Transport"));
+                    Check(!manager.IsBusy && completed == 1 && confirmed == 0 && total > 0 && transport.ClaimCalls == claimCalls + 1 &&
+                        manager.GetSnapshot(eQuestCategory.Daily).Rows.Any(x => x.Token == token && x.CanClaim),
+                        error.Name + ": failed state read preserves remaining rows and confirms no reward");
+                    original.ErrorCallback(error.Error);
+                    Check(completed == 1 && transport.Pending == null, error.Name + ": duplicate late response cannot finish or send another request");
+                    Check(manager.TryClaimTab(eQuestCategory.Daily, token, done).Status == QuestClaimStatus.Pending &&
+                        transport.ClaimCalls == claimCalls + 2 && transport.LastQuestId == token.QuestId && transport.LastPeriod == token.Period,
+                        error.Name + ": explicit retap keeps the same quest and period identity");
+                    transport.Fail(FixtureError("Business", 1029));
+                    Check(!manager.IsBusy && transport.ReadCalls == readCalls + 1 && confirmed == 0 && transport.Pending == null,
+                        error.Name + ": server already-claimed rejection stops the bulk without another grant attempt");
+                }
+                var claimedToken = Prepare(); manager.Apply(State(allDailyClaimed: true), "qa-server-claimed-dto");
+                int beforeClaimed = transport.ClaimCalls;
+                Check(manager.TryClaimTab(eQuestCategory.Daily, claimedToken, done).Status == QuestClaimStatus.Incomplete &&
+                    transport.ClaimCalls == beforeClaimed && !manager.IsBusy, "Latest server Claimed DTO blocks a stale cell tap before sending");
+                var switched = Prepare(); manager.TryClaimTab(eQuestCategory.Daily, switched, done); transport.Fail(errors[2].Error);
+                typeof(NetworkManager).GetProperty("AccountGeneration").SetValue(network, network.AccountGeneration + 1);
+                transport.Fail(FixtureError("Transport"));
+                Check(completed == 0 && manager.IsBusy, "Old authentication-generation state callback cannot finish a newer claim");
+                Call(network, "ResetCallQueue"); SetField(manager, "_claim", null);
+                Check(ReferenceEquals(stateField.GetValue(null), memory) && memory.Revision == 0 &&
+                    Equals(pathField.GetValue(null), savedPath) && LocalProgression.AccountGeneration == generation && LocalProgression.AccountKey == account &&
+                    transport.UnexpectedCalls == 0, "Fixture performs no profile open, wallet mutation, saved file change or real HTTP");
+                return new Dictionary<string, object> { { "passed", checks.Count }, { "checks", checks } };
+            }
+            finally
+            {
+                stateField.SetValue(null, savedState); openingField.SetValue(null, savedOpening);
+                UnityEngine.Object.DestroyImmediate(owner);
+                NetworkManager.Instance = savedNetwork; UserManager.Instance = savedUsers; QuestManager.Instance = savedQuest;
+                PlayFab.PluginManager.SetPlugin(savedTransport, PlayFab.PluginContract.PlayFab_Transport);
+            }
+        }
+
+        private static PlayFab.PlayFabError FixtureError(string kind, int code = 0)
+        {
+            object detail = code == 0 ? null : new Dto.ErrorResponseDTO
+                { ErrorCode = (Protocol.Message.Data.eErrorCode)code, Message = "fixture" };
+            return (PlayFab.PlayFabError)typeof(NetworkManager).GetMethod("CreateError", BindingFlags.Static | BindingFlags.NonPublic)
+                .Invoke(null, new object[] { kind, "fixture", "OnClaimQuestReward", detail });
+        }
+
+        private sealed class ClaimFailureHttp : PlayFab.ITransportPlugin
+        {
+            public bool IsInitialized => true;
+            public int ClaimCalls, ReadCalls, UnexpectedCalls;
+            public long LastQuestId; public string LastPeriod;
+            public PlayFab.Internal.CallRequestContainer Pending;
+            public void Initialize() { } public void Update() { } public void OnDestroy() { }
+            public int GetPendingMessages() => Pending == null ? 0 : 1;
+            public void MakeApiCall(object request)
+            {
+                var container = request as PlayFab.Internal.CallRequestContainer;
+                if (container?.ApiRequest is not PlayFab.CloudScriptModels.ExecuteFunctionRequest call || Pending != null)
+                { Block(); return; }
+                if (call.FunctionName == "OnClaimQuestReward")
+                {
+                    var payload = Newtonsoft.Json.Linq.JObject.FromObject(call.FunctionParameter);
+                    LastQuestId = (long)payload["QuestId"]; LastPeriod = (string)payload["PeriodKey"]; ClaimCalls++;
+                }
+                else if (call.FunctionName == "OnGetUserState") ReadCalls++;
+                else { Block(); return; }
+                Pending = container;
+            }
+            public void Fail(PlayFab.PlayFabError error)
+            {
+                var pending = Pending ?? throw new InvalidOperationException("Expected an intercepted fixture request.");
+                Pending = null; pending.ErrorCallback(error);
+            }
+            public void SimpleGetCall(string url, Action<byte[]> success, Action<string> error) => Block();
+            public void SimplePutCall(string url, byte[] payload, Action<byte[]> success, Action<string> error) => Block();
+            public void SimplePostCall(string url, byte[] payload, Action<byte[]> success, Action<string> error) => Block();
+            private void Block() { UnexpectedCalls++; throw new InvalidOperationException("Quest fixture blocks external HTTP."); }
+        }
 
         public static Dictionary<string, object> Run()
         {
