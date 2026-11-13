@@ -341,6 +341,7 @@ public class QuestManager : MonoBehaviour
     private void ApplyClaim(ClaimOperation claim, QuestClaimToken token, Dto.OnClaimQuestRewardResponseDTO response)
     {
         if (!IsCurrentClaim(claim)) return;
+        var loot = KingdomIdle.Rewards.LootNotifications.Capture();
         bool saved;
         try
         {
@@ -372,6 +373,7 @@ public class QuestManager : MonoBehaviour
         }
         EquipmentManager.Instance?.RestoreEquipment();
         KingdomIdle.MageTower.MageTowerManager.Instance?.NotifyCommitted();
+        KingdomIdle.Rewards.LootNotifications.PublishRewards(loot, response.GrantedRewards, "quest:" + token.QuestId + ":" + token.Period);
         claim.Confirmed++;
         SendNextClaim(claim);
     }

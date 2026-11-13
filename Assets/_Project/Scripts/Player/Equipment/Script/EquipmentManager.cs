@@ -234,6 +234,7 @@ public class EquipmentManager : MonoBehaviour
     {
         if (!IsCurrentAction(info)) return;
         bool saved;
+        var loot = info.Kind == ActionKind.Dismantle ? KingdomIdle.Rewards.LootNotifications.Capture(false, false) : null;
         try
         {
             saved = LocalProgression.Execute("server-equipment-" + op, s =>
@@ -261,6 +262,8 @@ public class EquipmentManager : MonoBehaviour
             Complete(info);
             return;
         }
+        if (info.Kind == ActionKind.Dismantle)
+            KingdomIdle.Rewards.LootNotifications.PublishCurrency(loot, eCurrency.EquipmentStone, info.GrantedEquipmentStone);
         RestoreEquipment();
         info.Ok = true;
         var target = resolve?.Invoke();

@@ -113,9 +113,11 @@ namespace Direction
                 response =>
                 {
                     if (account != LocalProgression.AccountGeneration) { completion.TrySetResult(false); return; }
+                    var loot = KingdomIdle.Rewards.LootNotifications.Capture(false, false);
                     bool saved = LocalProgression.Execute("server-guide-reward", draft => { UserManager.ApplyCurrency(draft, response.Currency); return true; });
                     Debug.Log($"[Guide] claim id={guideId} already={response.AlreadyClaimed} granted={response.GrantedAncientCoin} | server AncientCoin={response.Currency?.AncientCoin} | state AncientCoin={LocalProgression.Balance(eCurrency.AncientCoin)} | saved={saved}");
                     if (!saved) ReportSaveFailure();
+                    else if (!response.AlreadyClaimed) KingdomIdle.Rewards.LootNotifications.PublishCurrency(loot, eCurrency.AncientCoin, response.GrantedAncientCoin, "guide:" + guideId);
                     completion.TrySetResult(saved);
                 },
                 error =>

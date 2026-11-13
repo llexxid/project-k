@@ -76,6 +76,7 @@ namespace KingdomIdle.OfflineRewards
         /// <summary>응답의 레벨·경험치·재화 절대값을 한 트랜잭션으로 쓴다. 획득량은 팝업 표시에만 쓴다.</summary>
         private void ApplyServerResult(decimal kpm, OnClaimOfflineRewardResponseDTO r, Action onCompleted)
         {
+            var loot = LootNotifications.Capture(false, false);
             bool saved = LocalProgression.Execute("server-offline-claim", s =>
             {
                 s.AccountLevel = BalanceMath.Clamp(r.Level, 1, BalanceMath.AccountCap);
@@ -97,6 +98,7 @@ namespace KingdomIdle.OfflineRewards
             }
             else if (r.GainedGold > 0 || r.GainedExp > 0)
             {
+                LootNotifications.PublishCurrency(loot, eCurrency.Gold, r.GainedGold);
                 // 팝업은 서버가 돌려준 정산 값만 보여 준다.
                 var plan = new OfflineRewardPlan
                 {
@@ -221,6 +223,7 @@ namespace KingdomIdle.OfflineRewards
         {
             AdBonusBusy = false;
             if (!IsCurrentAccount(result)) { AdBonusCompleted?.Invoke(result, RewardStatus.Stale, null); return; }
+            var loot = LootNotifications.Capture(false, false);
             bool saved = LocalProgression.Execute("server-offline-ad-bonus", s => { UserManager.ApplyAdReward(s, r); return true; });
             // 광고 응답은 종류와 관계없이 오늘의 상점 광고 기록을 담아 온다.
             ShopAdRewardService.ReceiveClaimRecord(r.AdRewards);
@@ -233,6 +236,7 @@ namespace KingdomIdle.OfflineRewards
                 AdBonusCompleted?.Invoke(result, RewardStatus.SaveFailed, null);
                 return;
             }
+            if (!r.AlreadyClaimed) LootNotifications.PublishCurrencies(loot, r.GrantedCurrencies, "offline-ad:" + result.ClaimId);
             AdBonusCompleted?.Invoke(result, RewardStatus.Success, null);
         }
 

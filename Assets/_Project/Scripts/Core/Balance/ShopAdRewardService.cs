@@ -136,6 +136,7 @@ namespace KingdomIdle.Balance
         {
             if (!ReferenceEquals(_activeClaim, claim)) return;
             if (!IsCurrentAccount(claim)) { _activeClaim = null; ClaimCompleted?.Invoke(claim, new RewardResult(RewardStatus.Stale), null); return; }
+            var loot = KingdomIdle.Rewards.LootNotifications.Capture(false, false);
             bool saved = LocalProgression.Execute("server-ad-reward", s => { UserManager.ApplyAdReward(s, r); return true; });
             _server = r.AdRewards;
             Revision++;
@@ -156,6 +157,7 @@ namespace KingdomIdle.Balance
                 ClaimCompleted?.Invoke(claim, new RewardResult(RewardStatus.NothingAvailable), "오늘 이미 받은 보상입니다.");
                 return;
             }
+            KingdomIdle.Rewards.LootNotifications.PublishCurrencies(loot, r.GrantedCurrencies, "shop-ad:" + r.AdRewards.Day + ":" + claim.OfferId);
             var grants = new System.Collections.Generic.List<RewardGrant>();
             foreach (var g in r.GrantedCurrencies)
             {

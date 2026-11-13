@@ -17,6 +17,7 @@ namespace KingdomIdle.UGUI.Editor
         private const string OutputKey = "BronzeUiPlayAcceptance.Output";
         private const string Failed = "BronzeUiPlayAcceptance.Failed";
         private const string ModeKey = "BronzeUiPlayAcceptance.Mode";
+        private static System.Collections.IEnumerator _lootLifetime;
         [Serializable] private sealed class Scenes { public SceneSetup[] items; }
 
         static BronzeUiPlayAcceptance() => EditorApplication.playModeStateChanged += OnState;
@@ -34,6 +35,23 @@ namespace KingdomIdle.UGUI.Editor
         public static void RunCommerceFailureRecovery() => Start("commerce-failure");
 
         public static void RunAllRequestFailureRecovery() => Start("all-request-failure");
+
+        [MenuItem("KingdomIdle/UGUI/청동 원정대/격리 획득 알림 검사")]
+        public static void RunLootFeed() => Start("loot-feed");
+
+        public static void PrepareLootFeed()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+                throw new InvalidOperationException("Exit Play Mode before preparing Loot Feed prefabs.");
+            F.Init();
+            F.Catalog = AssetDatabase.LoadAssetAtPath<UIViewCatalog>(PrefabGenUtil.CatalogPath);
+            if (F.Catalog == null) throw new InvalidOperationException("UI catalog is missing.");
+            SettingsRevisionBuilder.Generate();
+            LootFeedPreparation.Prepare();
+            MagePolishPreparation.BakeAuthoredGlyphs();
+            AssetDatabase.SaveAssets();
+            Debug.Log("LOOT FEED PREFABS AND GLYPHS PREPARED");
+        }
 
         private static void Start(string mode)
         {
@@ -70,17 +88,30 @@ namespace KingdomIdle.UGUI.Editor
                     bool questFailure = SessionState.GetString(ModeKey, "quest") == "quest-failure";
                     bool allRequests = SessionState.GetString(ModeKey, "quest") == "all-request-failure";
                     bool commerceFailure = allRequests || SessionState.GetString(ModeKey, "quest") == "commerce-failure";
-                    string filePrefix = commerceFailure ? "commerce-failure-recovery-play" : offlineFailure ? "offline-failure-recovery-play" : questFailure ? "quest-failure-recovery-play" : "quest-play";
+                    bool loot = SessionState.GetString(ModeKey, "quest") == "loot-feed";
+                    bool awaitingLifetime = false;
+                    string filePrefix = loot ? "loot-feed-play" : commerceFailure ? "commerce-failure-recovery-play" : offlineFailure ? "offline-failure-recovery-play" : questFailure ? "quest-failure-recovery-play" : "quest-play";
                     try
                     {
                         if (LocalProgression.IsReady)
                             throw new InvalidOperationException("The empty test scene unexpectedly opened a profile.");
-                        var report = commerceFailure ? RunCommerceChecks() : offlineFailure ? OfflineRewardAdAcceptance.RunFailureRecovery() :
+                        var report = loot ? RunLootChecks() : commerceFailure ? RunCommerceChecks() : offlineFailure ? OfflineRewardAdAcceptance.RunFailureRecovery() :
                             questFailure ? QuestTabAcceptance.RunClaimFailureRecovery() : QuestTabAcceptance.Run();
                         File.WriteAllText(Path.Combine(SessionState.GetString(OutputKey, ""), filePrefix + "-acceptance.json"),
                             JsonConvert.SerializeObject(report, Formatting.Indented));
-                        Debug.Log((commerceFailure ? "BRONZE COMMERCE FAILURE RECOVERY PLAY ACCEPTANCE PASSED " : offlineFailure ? "BRONZE OFFLINE FAILURE RECOVERY PLAY ACCEPTANCE PASSED " :
+                        Debug.Log((loot ? "LOOT FEED PLAY ACCEPTANCE PASSED " : commerceFailure ? "BRONZE COMMERCE FAILURE RECOVERY PLAY ACCEPTANCE PASSED " : offlineFailure ? "BRONZE OFFLINE FAILURE RECOVERY PLAY ACCEPTANCE PASSED " :
                             questFailure ? "BRONZE QUEST FAILURE RECOVERY PLAY ACCEPTANCE PASSED " : "BRONZE QUEST PLAY ACCEPTANCE PASSED ") + report["passed"]);
+                        if (loot)
+                        {
+                            _lootLifetime = LootFeedAcceptance.VerifyUnscaledLifetime(lifetime =>
+                            {
+                                File.WriteAllText(Path.Combine(SessionState.GetString(OutputKey, ""), "loot-feed-lifetime.json"),
+                                    JsonConvert.SerializeObject(lifetime, Formatting.Indented));
+                                Debug.Log("LOOT FEED UNSCALED LIFETIME PASSED " + lifetime["passed"]);
+                            });
+                            EditorApplication.update += TickLootLifetime;
+                            awaitingLifetime = true;
+                        }
                         if (allRequests)
                         {
                             filePrefix = "quest-failure-recovery-play";
@@ -96,7 +127,7 @@ namespace KingdomIdle.UGUI.Editor
                         File.WriteAllText(Path.Combine(SessionState.GetString(OutputKey, ""), filePrefix + "-failure.txt"), error.ToString());
                         Debug.LogException(error);
                     }
-                    finally { EditorApplication.isPlaying = false; }
+                    finally { if (!awaitingLifetime) EditorApplication.isPlaying = false; }
                 };
             }
             else if (state == PlayModeStateChange.EnteredEditMode)
@@ -108,6 +139,21 @@ namespace KingdomIdle.UGUI.Editor
             }
         }
 
+        private static void TickLootLifetime()
+        {
+            try { if (_lootLifetime != null && _lootLifetime.MoveNext()) return; }
+            catch (Exception error)
+            {
+                SessionState.SetBool(Failed, true);
+                File.WriteAllText(Path.Combine(SessionState.GetString(OutputKey, ""), "loot-feed-lifetime-failure.txt"), error.ToString());
+                Debug.LogException(error);
+            }
+            EditorApplication.update -= TickLootLifetime;
+            (_lootLifetime as IDisposable)?.Dispose();
+            _lootLifetime = null;
+            EditorApplication.isPlaying = false;
+        }
+
         private static System.Collections.Generic.Dictionary<string, object> RunCommerceChecks()
         {
             var equipment = Newtonsoft.Json.Linq.JObject.FromObject(EquipmentEconomyAcceptance.RunFailureRecovery());
@@ -117,6 +163,18 @@ namespace KingdomIdle.UGUI.Editor
             {
                 { "passed", (int)equipment["count"] + (int)account["count"] + (int)shop["passed"] },
                 { "equipment", equipment }, { "shopAccount", account }, { "shopFailure", shop }
+            };
+        }
+
+        private static System.Collections.Generic.Dictionary<string, object> RunLootChecks()
+        {
+            var rewards = KingdomIdle.Rewards.LootNotificationsAcceptance.Run();
+            var settings = LootNotificationSettingsAcceptance.Run();
+            var view = LootFeedAcceptance.Run();
+            return new System.Collections.Generic.Dictionary<string, object>
+            {
+                { "passed", (int)rewards["passed"] + (int)settings["passed"] + (int)view["passed"] },
+                { "rewards", rewards }, { "settings", settings }, { "view", view }
             };
         }
     }

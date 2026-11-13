@@ -29,7 +29,6 @@ namespace KingdomIdle.UGUI
             _view.gameObject.SetActive(true);
             SelectTab(_selectedTab);
             _view.transform.SetAsLastSibling();
-            if (_view.scroll != null) { _view.scroll.StopMovement(); _view.scroll.verticalNormalizedPosition = 1; }
             UITween.PopIn(_view.panel);
         }
         public void Close() { if (_view != null) { PlayerPrefs.Save(); _view.gameObject.SetActive(false); } }
@@ -60,6 +59,18 @@ namespace KingdomIdle.UGUI
             BindToggle(_view.tglDamageText, UIManager.PrefKeyDamageText);
             BindToggle(_view.tglScreenShake, UIManager.PrefKeyScreenShake);
             BindToggle(_view.tglKeepAwake, GamePresentationSettings.KeepAwakeKey);
+            for (int i = 0; _view.lootCurrencyToggles != null && i < _view.lootCurrencyToggles.Length; i++)
+            {
+                var currency = (eCurrency)i;
+                _view.lootCurrencyToggles[i].onValueChanged.AddListener(on => LootNotificationSettings.SetCurrency(currency, on));
+            }
+            for (int i = 0; _view.lootEquipmentToggles != null && i < _view.lootEquipmentToggles.Length; i++)
+            {
+                int rarity = i;
+                _view.lootEquipmentToggles[i].onValueChanged.AddListener(on => LootNotificationSettings.SetEquipment(rarity, on));
+            }
+            _view.tglLootMageSkills?.onValueChanged.AddListener(on => LootNotificationSettings.SetMageSkills(on));
+            _view.btnLootDefaults?.onClick.AddListener(() => { LootNotificationSettings.ResetDefaults(); RefreshLootSettings(); });
             for (int i = 0; _view.numberButtons != null && i < _view.numberButtons.Length; i++)
             {
                 var style = (NumberStyle)i;
@@ -88,6 +99,8 @@ namespace KingdomIdle.UGUI
         }
         void SelectTab(int index)
         {
+            if (_view.pages == null || _view.pages.Length == 0) return;
+            index = Mathf.Clamp(index, 0, _view.pages.Length - 1);
             _selectedTab=index;
             for(int i=0; _view.pages!=null && i<_view.pages.Length; i++)
             {
@@ -95,7 +108,10 @@ namespace KingdomIdle.UGUI
                 _view.pages[i].SetActive(selected);
                 _view.tabs[i].GetComponent<Image>().color=selected?UguiTheme.Bronze:UguiTheme.RusticSurfaceDark;
             }
-            if(_view.scroll!=null) { _view.scroll.StopMovement(); Canvas.ForceUpdateCanvases(); _view.scroll.verticalNormalizedPosition=1; }
+            bool loot = index == 3 && _view.lootScroll != null;
+            if (_view.scroll != null) _view.scroll.gameObject.SetActive(!loot);
+            var scroll = loot ? _view.lootScroll : _view.scroll;
+            if(scroll!=null) { scroll.StopMovement(); Canvas.ForceUpdateCanvases(); scroll.verticalNormalizedPosition=1; }
         }
         void BindVolume(Slider slider, string key)
         {
@@ -125,6 +141,7 @@ namespace KingdomIdle.UGUI
             _view.tglDamageText.SetIsOnWithoutNotify(PlayerPrefs.GetInt(UIManager.PrefKeyDamageText, 1) == 1);
             _view.tglScreenShake.SetIsOnWithoutNotify(GamePresentationSettings.ScreenShake);
             _view.tglKeepAwake?.SetIsOnWithoutNotify(GamePresentationSettings.KeepAwake);
+            RefreshLootSettings(false);
             foreach (var toggle in _view.GetComponentsInChildren<ToggleSwitchView>(true)) toggle.Refresh();
             _view.lblServer.text = "변경 즉시 적용 · 자동 저장";
             bool english = TitleLobbyPresentation.SavedEnglish;
@@ -134,6 +151,16 @@ namespace KingdomIdle.UGUI
             _view.btnPrivacy.GetComponentInChildren<TMP_Text>(true).text = english ? "Privacy notice" : "개인정보 처리 안내";
             RefreshNotificationPermission();
             RefreshAudio(); RefreshNotation();
+        }
+        void RefreshLootSettings(bool refreshSwitches = true)
+        {
+            for (int i = 0; _view.lootCurrencyToggles != null && i < _view.lootCurrencyToggles.Length; i++)
+                _view.lootCurrencyToggles[i].SetIsOnWithoutNotify(LootNotificationSettings.AllowsCurrency((eCurrency)i));
+            for (int i = 0; _view.lootEquipmentToggles != null && i < _view.lootEquipmentToggles.Length; i++)
+                _view.lootEquipmentToggles[i].SetIsOnWithoutNotify(LootNotificationSettings.AllowsEquipment(i));
+            _view.tglLootMageSkills?.SetIsOnWithoutNotify(LootNotificationSettings.ShowMageSkills);
+            if (refreshSwitches && _view.lootScroll != null)
+                foreach (var toggle in _view.lootScroll.GetComponentsInChildren<ToggleSwitchView>(true)) toggle.Refresh();
         }
         void RefreshNotificationPermission()
         {

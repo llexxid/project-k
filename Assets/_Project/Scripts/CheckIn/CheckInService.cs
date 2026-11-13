@@ -144,6 +144,7 @@ namespace KingdomIdle.CheckIn
 
         private void ApplyClaim(List<int> days, Dto.OnClaimAttendanceRewardResponseDTO r)
         {
+            var loot = LootNotifications.Capture();
             var changes = r.EquipmentChanges;
             int changed = (changes?.Items?.Count ?? 0) + (changes?.PendingItems?.Count ?? 0) + (changes?.ReserveStacks?.Count ?? 0);
             bool saved = LocalProgression.Execute("server-attendance-claim", s =>
@@ -160,6 +161,7 @@ namespace KingdomIdle.CheckIn
             Revision++;
             if (saved)
             {
+                LootNotifications.PublishGacha(loot, r.Rewards, "attendance:" + r.Attendance.Month + ":" + string.Join(",", days.OrderBy(day => day)));
                 EquipmentManager.Instance?.RestoreEquipment();
                 if (changed > 0) QuestManager.Instance?.RequestRefresh("attendance");
                 if (r.Rewards?.Any(reward => reward.Disposition == Dto.EquipmentDisposition.Mail) == true)

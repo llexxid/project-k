@@ -120,6 +120,7 @@ namespace KingdomIdle.UGUI
         public GameObject overlayFeatureGuide; // GameDirectManager가 소유하는 공통 기능 안내 View
 
         [Header("HUDs")]
+        public GameObject lootFeed;
         public GameObject hudParty;
         public GameObject hudMageTowerEnv;       // 마탑 환경 오브젝트
 

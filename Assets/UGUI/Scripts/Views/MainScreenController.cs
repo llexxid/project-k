@@ -20,6 +20,7 @@ namespace KingdomIdle.UGUI
 
         private MainScreenView _view;
         private UIManager _host;
+        private LootFeedView _lootFeed;
 
         // 재화
         private object _wallet;
@@ -63,6 +64,25 @@ namespace KingdomIdle.UGUI
             try { WaveUIController.Init(_view.waveHud); }
             catch (Exception ex) { Debug.LogError($"MainScreen.WaveUIController.Init failed: {ex}"); }
 
+            if (host.Catalog != null && host.Catalog.lootFeed != null)
+            {
+                GameObject feed = null;
+                try
+                {
+                    feed = UnityEngine.Object.Instantiate(host.Catalog.lootFeed, view.transform, false);
+                    _lootFeed = feed.GetComponent<LootFeedView>();
+                    if (_lootFeed == null) throw new InvalidOperationException("LootFeedView is missing from the feed prefab.");
+                    _lootFeed.Bind(view, host, host.Catalog);
+                }
+                catch (Exception ex)
+                {
+                    if (_lootFeed != null) _lootFeed.Unbind();
+                    _lootFeed = null;
+                    if (feed != null) UnityEngine.Object.Destroy(feed);
+                    Debug.LogError($"MainScreen.LootFeed failed: {ex}");
+                }
+            }
+
             _host.FrameTick += OnFrameTick;
             NumberNotationBinding.Bind(view, RefreshTopCurrencyLabels);
             _host.PanelStackChanged += RefreshTabButtonSelection;
@@ -82,6 +102,12 @@ namespace KingdomIdle.UGUI
         /// <summary>화면 교체 전 이벤트와 코루틴, 이 화면이 등록한 안내 대상만 정리한다. 이후 화면의 등록은 건드리지 않는다.</summary>
         public void Dispose()
         {
+            if (_lootFeed != null)
+            {
+                _lootFeed.Unbind();
+                UnityEngine.Object.Destroy(_lootFeed.gameObject);
+                _lootFeed = null;
+            }
             if (_host != null)
             {
                 _host.GuideTargets.Unregister(_view);

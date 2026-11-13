@@ -90,6 +90,7 @@ namespace KingdomIdle.Gacha
             Action<List<GachaRewardEntry>> onSuccess, Action<string> onError)
         {
             bool equipment = table.gachaType == eGachaType.Equipment;
+            var loot = KingdomIdle.Rewards.LootNotifications.Capture();
             bool saved;
             try
             {
@@ -119,6 +120,7 @@ namespace KingdomIdle.Gacha
                 onError?.Invoke("서버 결과를 저장하지 못했습니다. 다시 로그인하면 서버 값으로 맞춰집니다.");
                 return;
             }
+            KingdomIdle.Rewards.LootNotifications.PublishGacha(loot, rewards, "gacha:" + GetInstanceID() + ":" + _pullGeneration);
             EquipmentManager.Instance?.RestoreEquipment();
             MageTowerManager.Instance?.NotifyCommitted();
             QuestManager.Instance?.RequestRefresh("gacha");
