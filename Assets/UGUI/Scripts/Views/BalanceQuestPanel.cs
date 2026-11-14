@@ -32,7 +32,7 @@ namespace KingdomIdle.UGUI
         private GuideEmptyHintView _emptyHint;
         private string _emptyText;
         private QuestScrollDragRelay _dragRelay;
-        private bool _dragging, _deferredRebind, _claimRequested;
+        private bool _dragging, _deferredRebind, _claimBusy, _claimAll;
         private SheetSizeFitter _sizeFitter;
         private RectTransform _hudTop;
 
@@ -54,6 +54,7 @@ namespace KingdomIdle.UGUI
                 if (_tabs.Count != 0) Rebind(true);
             }
             if (_manager == null) Connect();
+            else if (_claimBusy != _manager.IsBusy) Rebind(false);
         }
 
         /// <summary>닫기 또는 스택 가림 시 구독만 해제한다. 같은 패널의 버튼과 선택 상태는 보존한다.</summary>
@@ -62,7 +63,6 @@ namespace KingdomIdle.UGUI
             if (_manager != null)
             {
                 _manager.QuestsChanged -= OnQuestsChanged;
-                _manager.OnClaimCompleted -= OnClaimCompleted;
                 _manager.RemoveWatcher(true);
             }
             _manager = null;
@@ -181,7 +181,6 @@ namespace KingdomIdle.UGUI
             if (_manager != null || QuestManager.Instance == null || !isActiveAndEnabled) return;
             _manager = QuestManager.Instance;
             _manager.QuestsChanged += OnQuestsChanged;
-            _manager.OnClaimCompleted += OnClaimCompleted;
             _manager.AddWatcher(true);
             Rebind(true);
         }
@@ -212,6 +211,12 @@ namespace KingdomIdle.UGUI
             if (board != null)
                 foreach (var row in board.Rows.OrderBy(x => StateOrder(x.State))) _visible.Add(row);
 
+            bool claimBusy = _manager != null && _manager.IsBusy;
+            bool claimAll = _visible.Count(row => row.CanClaim) > 1;
+            bool claimPresentationChanged = _claimBusy != claimBusy || _claimAll != claimAll;
+            _claimBusy = claimBusy;
+            _claimAll = claimAll;
+
             if (_dragging)
             {
                 // 손가락 아래의 카드 위치는 유지하지만 수령 상태는 즉시 확정값으로 갱신한다.
@@ -223,7 +228,7 @@ namespace KingdomIdle.UGUI
                     bool changed = !row.Snapshot.ContentEquals(snapshot);
                     row.SkipScrollAnchor |= snapshot.State == QuestRowState.Claimed && row.Snapshot.State != QuestRowState.Claimed;
                     row.Snapshot = snapshot;
-                    if (force || changed) Render(row);
+                    if (force || changed || (claimPresentationChanged && row.Snapshot.CanClaim)) Render(row);
                 }
                 return;
             }
@@ -241,7 +246,7 @@ namespace KingdomIdle.UGUI
                 var row = _rows[i];
                 bool changed = !row.Snapshot.ContentEquals(_visible[i]);
                 row.Snapshot = _visible[i];
-                if (force || changed) Render(row);
+                if (force || changed || (claimPresentationChanged && row.Snapshot.CanClaim)) Render(row);
                 row.SkipScrollAnchor = false;
             }
         }
@@ -363,36 +368,32 @@ namespace KingdomIdle.UGUI
                 QuestNavigation.Navigate(row.Snapshot.ObjectiveType, row.Snapshot.TargetId);
         }
 
-        /// <summary>화면에 표시했던 기간 토큰 그대로 서버(OnClaimQuestReward)에 요청한다. 요청 중에는 버튼을 잠그고 결과는 OnClaimCompleted에서 알린다.</summary>
+        /// <summary>누른 행의 기간 토큰으로 현재 탭의 수령을 시작한다.</summary>
         private void Claim(Row row)
         {
-            if (_manager == null) return;
-            var result = _manager.TryClaim(row.Snapshot.Token);
-            if (result.Status == QuestClaimStatus.Pending)
-            {
-                _claimRequested = true;
-                if (row.View != null && row.View.actionButton != null) row.View.actionButton.interactable = false;
-                return;
-            }
+            var category = _selectedCategory;
+            var result = _manager.TryClaimTab(category, row.Snapshot.Token,
+                (confirmed, total, message) => OnTabClaimCompleted(category, confirmed, total, message));
             if (result.Status == QuestClaimStatus.Busy) UIManager.Instance?.ShowToast("이전 보상을 처리 중입니다. 잠시 후 다시 시도해 주세요.");
             else if (result.Status == QuestClaimStatus.NetworkNotReady) UIManager.Instance?.ShowToast("서버 로그인이 필요합니다.");
             Rebind(false);
         }
 
-        /// <summary>서버 수령 결과. 이 패널이 요청한 수령만 안내하고, 응답의 Quests로 바뀐 행은 QuestsChanged가 다시 그린다.</summary>
-        private void OnClaimCompleted(QuestClaimToken token, bool ok, string message)
+        private void OnTabClaimCompleted(eQuestCategory category, int confirmed, int total, string message)
         {
-            if (!_claimRequested) return;
-            _claimRequested = false;
-            if (!ok) UIManager.Instance?.ShowToast(string.IsNullOrEmpty(message) ? "보상을 받지 못했습니다. 잠시 후 다시 시도해 주세요." : message);
-            else if (_rows.Find(r => r.Snapshot.Token == token)?.Snapshot.Category == eQuestCategory.Guide) UIManager.Instance?.ShowToast("가이드 완료");
-            else UIManager.Instance?.ShowToast("보상을 받았습니다.");
+            if (this == null) return;
+            if (confirmed == total)
+                message = total > 1 ? $"보상 {total}개를 받았습니다." :
+                    category == eQuestCategory.Guide ? "가이드 완료" : "보상을 받았습니다.";
+            else if (confirmed > 0)
+                message = $"보상 {confirmed}/{total}개 수령 · 목록을 확인해 주세요.";
+            UIManager.Instance?.ShowToast(message);
             if (isActiveAndEnabled) Rebind(false);
         }
 
-        private static void Render(Row row)
+        private void Render(Row row)
         {
-            row.View.SetQuest(row.Snapshot, UIManager.Instance.Catalog);
+            row.View.SetQuest(row.Snapshot, UIManager.Instance.Catalog, _claimAll, _claimBusy);
         }
 
         private sealed class Row

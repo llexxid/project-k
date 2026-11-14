@@ -40,7 +40,11 @@ namespace KingdomIdle.UGUI
         private static void Browse(int offset) { _chapter+=offset; _wave=1; Refresh(); }
         private static void Move(eStage stage)
         {
-            if (StageManager.Instance != null && StageManager.Instance.TryMoveToMainStage(stage)) Hide();
+            if (StageManager.Instance != null && StageManager.Instance.TryMoveToMainStage(stage))
+            {
+                Hide();
+                WaveUIController.RefreshStageStatus();
+            }
             else UIManager.Instance?.ShowToast("현재 이동할 수 없는 스테이지입니다. 전투 상태를 확인해 주세요.");
         }
         public static void Refresh()

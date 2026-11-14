@@ -163,7 +163,7 @@ namespace Scripts.Core
                 if (StageManager.Instance != null)
                     StageManager.Instance.BeginStage(curUserStage);
                 Direction.GameDirectManager.Instance?.RequestIncompleteGuides();
-                if (network != null && network.AccountGeneration == generation)
+                if (network != null && NetworkManager.Instance == network && network.AccountGeneration == generation)
                     KingdomIdle.UGUI.NoticePopupController.BeginMainEntry();
                 Mailbox?.CheckAfterLogin();
             }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using KingdomIdle.Mailbox;
 using KingdomIdle.OfflineRewards;
 using KingdomIdle.UI;
 using Newtonsoft.Json;
@@ -60,9 +61,12 @@ namespace KingdomIdle.UGUI.Editor
             CheckPopup(catalog.popupPatchNotes);
             CheckPopup(catalog.popupNoticeBoard);
             var main = catalog.screenMain.GetComponent<MainScreenView>();
-            Check(main.btnMenuNotice != null && main.btnMenuNotice.gameObject.activeSelf && main.tabStore != null &&
-                !main.popupHamburger.GetComponentsInChildren<Transform>(true).Any(item => item.name is "BtnMenuShop" or "BtnLoopIcon"),
-                "Hamburger shows notices, and shop remains accessible through the bottom tab");
+            var wave = main.waveHud;
+            Check(main.btnMenuNotice != null && main.btnMenuNotice.gameObject.activeSelf &&
+                main.btnMenuMail != null && main.btnHamburger != null && main.tabStore != null &&
+                wave != null && wave.btnStageAction != null &&
+                !main.GetComponentsInChildren<Transform>(true).Any(item => item.name is "BtnMenuShop" or "BtnLoopIcon"),
+                "The notice menu keeps mail, the bottom shop and the stage action accessible");
 
             var canvas = new GameObject("Notice Acceptance Canvas", typeof(RectTransform), typeof(Canvas));
             canvas.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
@@ -71,11 +75,22 @@ namespace KingdomIdle.UGUI.Editor
             layer.gameObject.SetActive(false);
             var host = new GameObject("Notice Acceptance Host");
             host.SetActive(false);
+            var previousNetwork = NetworkManager.Instance;
+            Check(previousNetwork == null || previousNetwork.LoginState == GameLoginState.SignedOut,
+                "The notice fixture requires a signed-out session");
+            var savedReads = articles.ToDictionary(NoticePopupController.ArticleKey,
+                article => PlayerPrefs.HasKey(NoticePopupController.ArticleKey(article))
+                    ? PlayerPrefs.GetString(NoticePopupController.ArticleKey(article)) : null);
             try
             {
                 var manager = host.AddComponent<UIManager>();
                 manager.catalog = catalog;
                 manager.layerPopups = layer;
+                var network = host.AddComponent<NetworkManager>();
+                typeof(NetworkManager).GetProperty(nameof(NetworkManager.LoginState)).SetValue(network, GameLoginState.Ready);
+                NetworkManager.Instance = network;
+                Set("_network", network);
+                Set("_generation", network.AccountGeneration);
                 Call("ShowPatch", manager, patchArticle);
                 var patch = layer.GetComponentInChildren<NoticePopupView>(true);
                 Check(patch.patchBody.gameObject.activeSelf && patch.patchBody.text == longText &&
@@ -92,6 +107,8 @@ namespace KingdomIdle.UGUI.Editor
                     Layout(patch);
                     Check(!patch.patchBody.gameObject.activeSelf && patch.panel.rect.size == size &&
                         patch.closeButton.transform.position == close, "Patch collapse keeps the window and close button fixed");
+                    if (Application.isPlaying) Check(!patch.scroll.verticalScrollbar.gameObject.activeSelf,
+                        "A collapsed patch hides its scroll indicator");
                     patch.patchToggle.onClick.Invoke();
                     Layout(patch);
                     Check(patch.patchBody.gameObject.activeSelf && patch.panel.rect.size == size &&
@@ -133,6 +150,9 @@ namespace KingdomIdle.UGUI.Editor
                         "Opening another row collapses the previous row");
                     rows[1].toggle.onClick.Invoke();
                     Check(rows.All(row => !row.body.gameObject.activeSelf), "Tapping the open row collapses it");
+                    Layout(board);
+                    if (Application.isPlaying) Check(!board.scroll.verticalScrollbar.gameObject.activeSelf,
+                        "A short collapsed notice list hides its scroll indicator");
                 }
                 if (Application.isPlaying)
                 {
@@ -142,103 +162,269 @@ namespace KingdomIdle.UGUI.Editor
                 }
                 board.backdropButton.onClick.Invoke();
                 Check(!board.gameObject.activeSelf, "The real board backdrop closes the popup");
-                if (Application.isPlaying) VerifyStartupPopups(manager, patch, board);
+                if (Application.isPlaying)
+                {
+                    VerifyStartupPopups(manager, patch, board);
+                    VerifyNotifications(manager, network, longText);
+                }
             }
             finally
             {
+                NoticePopupController.Reset();
+                NetworkManager.Instance = previousNetwork;
                 Object.DestroyImmediate(canvas);
                 Object.DestroyImmediate(host);
-                NoticePopupController.Reset();
+                foreach (var saved in savedReads)
+                {
+                    if (saved.Value == null) PlayerPrefs.DeleteKey(saved.Key);
+                    else PlayerPrefs.SetString(saved.Key, saved.Value);
+                }
+                PlayerPrefs.Save();
             }
             Debug.Log("NOTICE POPUP ACCEPTANCE PASSED");
         }
 
         private static void VerifyStartupPopups(UIManager manager, NoticePopupView patch, NoticePopupView board)
         {
-            Check(NetworkManager.Instance?.LoginState == GameLoginState.SignedOut, "Startup fixture requires a signed-out Play Mode");
-            var network = manager.gameObject.AddComponent<NetworkManager>();
-            typeof(NetworkManager).GetProperty(nameof(NetworkManager.LoginState)).SetValue(network, GameLoginState.Ready);
+            var previousUi = UIManager.Instance;
+            var uiInstance = typeof(UIManager).GetProperty(nameof(UIManager.Instance));
+            var previousNetwork = NetworkManager.Instance;
             const BindingFlags instanceFields = BindingFlags.Instance | BindingFlags.NonPublic;
             var activeScreenId = typeof(UIManager).GetField("_activeScreenId", instanceFields);
             activeScreenId.SetValue(manager, UIScreenId.Title);
             typeof(UIManager).GetField("_activeScreenGo", instanceFields).SetValue(manager, manager.gameObject);
-            Set("_network", network);
-            Set("_generation", network.AccountGeneration);
-            Set("_hasFeed", true);
-
             string version = Application.version;
             string key = NoticePopupController.PatchKey(version);
             bool hadSeen = PlayerPrefs.HasKey(key);
             int priorSeen = PlayerPrefs.GetInt(key);
+            TitleScreenController titleController = null;
             try
             {
-                GameTest.ResetMainNoticeSeen();
-                int continuations = 0;
-                Action continueLogin = () => continuations++;
-                Set("_articles", new List<TitleNewsFeed>());
-                Set("_titleContinuation", continueLogin);
-                NoticePopupController.Tick(manager);
-                Check(continuations == 1 && !patch.gameObject.activeSelf && !PlayerPrefs.HasKey(key),
-                    "No matching title patch continues login without recording the version");
+                uiInstance.SetValue(null, manager);
+                NetworkManager.Instance = null;
+                PlayerPrefs.DeleteKey(key);
+                var bundled = BundledPatchNotes.Load("0.30.0");
+                Check(bundled != null && bundled.Title == "0.30.0 패치노트" && bundled.AppVersion == "0.30.0",
+                    "The current release carries its versioned patch text before authentication");
+                Check(BundledPatchNotes.Parse("{", version) == null &&
+                    BundledPatchNotes.Parse("{\"title\":\"T\",\"text\":\"B\",\"appVersion\":\"0.0.1\"}", version) == null &&
+                    BundledPatchNotes.Load("0.0.0") == null && BundledPatchNotes.Load("../0.30.0") == null,
+                    "Missing, malformed and mismatched bundled notes have no display article");
 
-                var article = new TitleNewsItem
+                var title = manager.gameObject.AddComponent<TitleScreenView>();
+                title.popupLogin = new GameObject("Synthetic Login Popup");
+                title.popupLogin.transform.SetParent(manager.transform, false);
+                var login = new GameObject("Synthetic Login Button", typeof(RectTransform), typeof(Image), typeof(Button));
+                login.transform.SetParent(manager.transform, false);
+                title.btnLogin = login.GetComponent<Button>();
+                titleController = new TitleScreenController();
+                int requestBefore = (int)Get("_requestId");
+                Set("_failed", true);
+                titleController.Bind(title, manager);
+                if (BundledPatchNotes.Load(version) == null)
                 {
-                    NewsId = "title-patch-fixture",
-                    Title = "업데이트 노트",
-                    Body = JsonConvert.SerializeObject(new { text = "타이틀에서 표시되는 테스트 패치노트", appVersion = version }),
-                    Timestamp = DateTime.UtcNow
-                };
-                var articles = TitleNewsFeed.Read(new List<TitleNewsItem> { article });
-                Set("_articles", articles);
-                Set("_titleContinuation", continueLogin);
+                    Check(Get("_titleContinuation") == null && !PlayerPrefs.HasKey(key),
+                        "A build without matching bundled text continues without recording a display");
+                    return;
+                }
+                Check(Get("_titleContinuation") is Action && (int)Get("_requestId") == requestBefore,
+                    "Signed-out Title bind schedules bundled notes without a server request");
+                title.btnLogin.onClick.Invoke();
+                Check(!title.popupLogin.activeSelf, "Login waits while the title note is pending");
                 NoticePopupController.Tick(manager);
-                NoticePopupController.Tick(manager);
-                Check(continuations == 1 && patch.gameObject.activeInHierarchy && !board.gameObject.activeSelf && PlayerPrefs.HasKey(key),
-                    "The matching patch displays on title, records the version, and waits for dismissal");
+                Check(patch.gameObject.activeInHierarchy && patch.patchTitle.text == BundledPatchNotes.Load(version).Title &&
+                    PlayerPrefs.HasKey(key) && (int)Get("_requestId") == requestBefore,
+                    "Signed-out notes render and record the version despite a failed server feed");
+                Check(!board.gameObject.activeSelf, "The title note does not open the in-game board");
                 patch.closeButton.onClick.Invoke();
-                NoticePopupController.Tick(manager);
-                Check(continuations == 2 && !patch.gameObject.activeSelf, "Closing the title patch continues login exactly once");
+                title.btnLogin.onClick.Invoke();
+                Check(title.popupLogin.activeSelf, "Closing the note restores the normal login UI");
+                titleController.HandleBack();
 
-                Set("_titleContinuation", continueLogin);
-                NoticePopupController.Tick(manager);
-                Check(continuations == 3 && !patch.gameObject.activeSelf, "The same version continues login without repeating the patch");
-                GameTest.ResetMainNoticeSeen();
-                Check(!PlayerPrefs.HasKey(key), "The editor reset clears the shown version");
-                Set("_titleContinuation", continueLogin);
-                NoticePopupController.Tick(manager);
-                Check(continuations == 3 && patch.gameObject.activeInHierarchy, "The reset allows the title patch to show again");
-                patch.backdropButton.onClick.Invoke();
-                NoticePopupController.Tick(manager);
-                Check(continuations == 4, "Backdrop dismissal also continues login");
+                int continuations = 0;
+                NoticePopupController.ShowTitlePatchThen(manager, () => continuations++);
+                Check(continuations == 1 && !patch.gameObject.activeSelf,
+                    "The same version continues exactly once without repeating its note");
+                var parsedVersion = new Version(version);
+                string nextVersion = new Version(parsedVersion.Major, parsedVersion.Minor, Math.Max(0, parsedVersion.Build) + 1).ToString();
+                Check(NoticePopupController.PatchKey(version) != NoticePopupController.PatchKey(nextVersion) &&
+                    BundledPatchNotes.Parse(JsonConvert.SerializeObject(new { title = "다음 버전", text = "본문", appVersion = nextVersion }), nextVersion) != null,
+                    "The next version has independent display state and matching bundled content");
 
-                GameTest.ResetMainNoticeSeen();
-                activeScreenId.SetValue(manager, UIScreenId.Main);
-                typeof(UIManager).GetField("_mainController", instanceFields).SetValue(manager, new MainScreenController());
-                Set("_articles", new List<TitleNewsFeed>());
-                Set("_pendingBoard", true);
-                var result = new OfflineRewardClaimResult("fixture", null, 10, 5, 0, 1, 5, 0);
-                var reward = RewardPopupView.ShowOfflineRewards(manager.LayerPopups, result, false);
-                Check(reward != null && reward.gameObject.activeInHierarchy, "Synthetic offline reward uses the real result prefab");
+                PlayerPrefs.DeleteKey(key);
+                NoticePopupController.ShowTitlePatchThen(manager, () => continuations++);
                 NoticePopupController.Tick(manager);
-                Check(!board.gameObject.activeSelf && !patch.gameObject.activeSelf, "Visible reward result blocks the in-game board");
+                Check(patch.gameObject.activeInHierarchy && PlayerPrefs.HasKey(key), "An unseen version opens from the bundle again");
+                NoticePopupController.CloseForScreenChange();
+                patch.closeButton.onClick.Invoke();
+                Check(continuations == 1, "Screen closure cancels a pending title continuation");
 
-                reward.confirmButton.onClick.Invoke();
+                PlayerPrefs.DeleteKey(key);
+                typeof(UIManager).GetField("_activeScreenGo", instanceFields).SetValue(manager, null);
+                NoticePopupController.ShowTitlePatchThen(manager, () => continuations++);
+                Set("_titleDeadline", -1f);
                 NoticePopupController.Tick(manager);
-                Check(board.gameObject.activeInHierarchy && board.status.gameObject.activeSelf &&
-                    board.status.text == "등록된 공지가 없습니다." && !board.retryButton.gameObject.activeSelf,
-                    "Reward confirmation opens the empty in-game board");
-                Check((bool)Controller.GetField("_boardShown", ControllerMembers).GetValue(null), "The in-game board is recorded for this login");
-                board.closeButton.onClick.Invoke();
-                Set("_articles", articles);
-                NoticePopupController.Tick(manager);
-                Check(!board.gameObject.activeSelf && !patch.gameObject.activeSelf && !PlayerPrefs.HasKey(key),
-                    "The board stays closed and Main does not show or record the title patch");
+                Check(continuations == 2 && !PlayerPrefs.HasKey(key),
+                    "An unavailable title popup releases login without marking the version");
             }
             finally
             {
+                titleController?.Dispose();
+                NoticePopupController.CloseForScreenChange();
+                typeof(UIManager).GetField("_activeScreenGo", instanceFields).SetValue(manager, manager.gameObject);
+                activeScreenId.SetValue(manager, UIScreenId.Main);
+                uiInstance.SetValue(null, previousUi);
+                NetworkManager.Instance = previousNetwork;
                 if (hadSeen) PlayerPrefs.SetInt(key, priorSeen);
                 else PlayerPrefs.DeleteKey(key);
                 PlayerPrefs.Save();
+            }
+        }
+
+        private static void VerifyNotifications(UIManager manager, NetworkManager network, string longText)
+        {
+            const BindingFlags fields = BindingFlags.Instance | BindingFlags.NonPublic;
+            var uiInstance = typeof(UIManager).GetProperty(nameof(UIManager.Instance));
+            var previousUi = UIManager.Instance;
+            var menuRoot = new GameObject("Notice Notification Fixture", typeof(RectTransform), typeof(MainScreenView));
+            menuRoot.SetActive(false);
+            var menu = menuRoot.GetComponent<MainScreenView>();
+            Button MakeButton(string name)
+            {
+                var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+                go.transform.SetParent(menuRoot.transform, false);
+                return go.GetComponent<Button>();
+            }
+            menu.btnHamburger = MakeButton("Hamburger");
+            menu.btnMenuMail = MakeButton("Mail");
+            menu.btnMenuNotice = MakeButton("Notice");
+            var main = new MainScreenController();
+            var mainType = typeof(MainScreenController);
+            mainType.GetField("_view", fields).SetValue(main, menu);
+            mainType.GetField("_host", fields).SetValue(main, manager);
+            void MenuCall(string method) => mainType.GetMethod(method, fields).Invoke(main, null);
+            bool Dot(string field) => ((GameObject)mainType.GetField(field, fields).GetValue(main)).activeSelf;
+            string id = "notice-acceptance-" + Guid.NewGuid().ToString("N");
+            TitleNewsItem Post(string text) => new()
+            {
+                NewsId = id, Title = "알림 검증", Body = JsonConvert.SerializeObject(new { text }),
+                Timestamp = new DateTime(2026, 11, 11, 0, 0, 0, DateTimeKind.Utc)
+            };
+            string articleKey = NoticePopupController.ArticleKey(TitleNewsFeed.Read(new List<TitleNewsItem> { Post(longText) })[0]);
+            void Receive(string text)
+            {
+                int request = (int)Get("_requestId") + 1;
+                Set("_requestId", request);
+                Set("_deadline", Time.unscaledTime + 15f);
+                Call("Finish", request, new GetTitleNewsResult { News = new List<TitleNewsItem> { Post(text) } });
+            }
+            try
+            {
+                uiInstance.SetValue(null, manager);
+                typeof(UIManager).GetField("_mainController", fields).SetValue(manager, main);
+                Set("_network", network);
+                Set("_generation", network.AccountGeneration);
+                Set("_nextRefreshAt", float.PositiveInfinity);
+                MenuCall("BindMenuNotifications");
+                Check(mainType.GetField("_noticeDot", fields).GetValue(main) != null,
+                    "Notice notifications bind even without a mailbox service");
+                Receive(longText);
+                Check(NoticePopupController.HasUnread && Dot("_noticeDot") && Dot("_hamburgerDot") && !Dot("_mailDot"),
+                    "An unseen article lights the notice and hamburger without changing mail");
+                NoticePopupController.BeginMainEntry();
+                NoticePopupController.Tick(manager);
+                Check(!((NoticePopupView)Get("_board")).gameObject.activeSelf,
+                    "Main entry never opens the in-game board automatically");
+
+                var mailbox = new MailboxService((_, _, _) => { }, (_, _, _) => { }, _ => true,
+                    done => done(true), () => (1L, 1L), () => true, () => 0d);
+                typeof(MailboxService).GetField("_unseenMail", fields).SetValue(mailbox, ("notice-fixture", 1L, "", 0L));
+                mainType.GetField("_mailbox", fields).SetValue(main, mailbox);
+                var refresh = (Action)Delegate.CreateDelegate(typeof(Action), main, mainType.GetMethod("RefreshMenuNotifications", fields));
+                mailbox.Changed += refresh;
+                MenuCall("RefreshMenuNotifications");
+                NoticePopupController.ShowBoard();
+                Check(!NoticePopupController.HasUnread && !Dot("_noticeDot") && Dot("_mailDot") && Dot("_hamburgerDot"),
+                    "Opening the board reads every fetched article while unread mail keeps the hamburger lit");
+                var board = (NoticePopupView)Get("_board");
+                Check(board.scroll.content.GetComponentsInChildren<NoticeRowView>().All(row => !row.body.gameObject.activeSelf),
+                    "Reading the board requires no individual article expansion");
+                mailbox.Open();
+                Check(!Dot("_mailDot") && !Dot("_hamburgerDot"), "Opening mail clears only its own notification");
+
+                var row = board.scroll.content.GetComponentsInChildren<NoticeRowView>()[0];
+                row.toggle.onClick.Invoke();
+                Layout(board);
+                board.scroll.verticalNormalizedPosition = .3f;
+                var scrollPosition = board.scroll.content.anchoredPosition;
+                Receive(longText);
+                Check(board.scroll.content.GetComponentsInChildren<NoticeRowView>()[0] == row && row.body.gameObject.activeSelf &&
+                    board.scroll.content.anchoredPosition == scrollPosition,
+                    "An identical refresh preserves row objects, expansion and scroll position");
+                board.closeButton.onClick.Invoke();
+                int request = (int)Get("_requestId") + 1;
+                Set("_requestId", request);
+                Set("_deadline", Time.unscaledTime + 15f);
+                Call("Finish", request, null);
+                Check(((List<TitleNewsFeed>)Get("_articles"))[0].Text == longText && !NoticePopupController.HasUnread,
+                    "A failed refresh preserves the last feed and read receipt");
+
+                Receive(longText + " 수정");
+                Check(NoticePopupController.HasUnread && Dot("_noticeDot"), "Editing the same article raises a fresh notification");
+                NoticePopupController.ShowBoard();
+                Check(!NoticePopupController.HasUnread, "Opening the updated board reads the new fingerprint");
+                request = (int)Get("_requestId") + 1;
+                Set("_requestId", request);
+                Set("_deadline", Time.unscaledTime + 15f);
+                board.closeButton.onClick.Invoke();
+                Call("Finish", request, new GetTitleNewsResult { News = new List<TitleNewsItem> { Post(longText + " 늦은 수정") } });
+                Check(NoticePopupController.HasUnread, "A response arriving after dismissal remains unread");
+                NoticePopupController.ShowBoard();
+                Check(!NoticePopupController.HasUnread, "Reopening reads the late article");
+                board.closeButton.onClick.Invoke();
+
+                Set("_lastRequestAt", Time.unscaledTime);
+                Set("_deadline", 0f);
+                int before = (int)Get("_requestId");
+                NoticePopupController.RefreshFromMenu();
+                NoticePopupController.RefreshFromMenu();
+                Check((int)Get("_requestId") == before, "Repeated menu opening respects the refresh cooldown");
+                Set("_lastRequestAt", Time.unscaledTime - 31f);
+                NoticePopupController.RefreshFromMenu();
+                Check((int)Get("_requestId") == before + 1 && (float)Get("_nextRefreshAt") >= Time.unscaledTime + 299f,
+                    "A failed menu request schedules a five-minute background cooldown");
+                NoticePopupController.RefreshFromMenu();
+                Check((int)Get("_requestId") == before + 1, "Failure does not create an immediate retry loop");
+                Set("_nextRefreshAt", Time.unscaledTime - 1f);
+                NoticePopupController.Tick(manager);
+                Check((int)Get("_requestId") == before + 2, "A due background refresh runs through the same guarded request");
+
+                int oldRequest = (int)Get("_requestId");
+                Set("_deadline", Time.unscaledTime + 15f);
+                typeof(NetworkManager).GetProperty(nameof(NetworkManager.AccountGeneration)).SetValue(network, network.AccountGeneration + 1);
+                Call("Finish", oldRequest, new GetTitleNewsResult { News = new List<TitleNewsItem> { Post("다른 세대") } });
+                Check(!NoticePopupController.HasUnread && ((List<TitleNewsFeed>)Get("_articles"))[0].Text == longText + " 늦은 수정",
+                    "A response from a previous account generation cannot update notifications");
+                NoticePopupController.Tick(manager);
+                Set("_network", network);
+                Set("_generation", network.AccountGeneration);
+                Receive(longText + " 늦은 수정");
+                Check(!NoticePopupController.HasUnread, "Device read receipts survive a session reset");
+                main.Dispose();
+                var observers = (Action)Controller.GetField("Changed", ControllerMembers).GetValue(null);
+                Check(observers == null || observers.GetInvocationList().All(observer => observer.Target != main),
+                    "Disposing the menu releases its notice subscription");
+                Receive(longText + " 재게시");
+                Check(NoticePopupController.HasUnread, "Disposed menu observers do not block a later feed update");
+            }
+            finally
+            {
+                main.Dispose();
+                typeof(UIManager).GetField("_mainController", fields).SetValue(manager, null);
+                uiInstance.SetValue(null, previousUi);
+                PlayerPrefs.DeleteKey(articleKey);
+                PlayerPrefs.Save();
+                Object.DestroyImmediate(menuRoot);
             }
         }
 
@@ -250,6 +436,18 @@ namespace KingdomIdle.UGUI.Editor
                 view.scroll.viewport != null && view.scroll.content != null && view.scroll.vertical && !view.scroll.horizontal &&
                 prefab.GetComponentsInChildren<ScrollRect>(true).Length == 1 && !view.closeButton.transform.IsChildOf(view.scroll.transform),
                 "Popup references one vertical ScrollRect and keeps close outside it");
+            var well = view.panel.Find("BodyWell");
+            var border = view.panel.Find("BronzeBorder");
+            Check(well != null && well.GetComponent<Image>().color.a == 1f &&
+                border != null && border.GetComponent<Image>().sprite != null &&
+                view.panel.Find("HeaderDivider") != null && view.closeButton.GetComponentInChildren<TMPro.TMP_Text>().text == "닫기",
+                "Both popups provide a visible frame, opaque body and explicit close label");
+            var bar = view.scroll.verticalScrollbar;
+            Check(bar != null && bar.direction == Scrollbar.Direction.BottomToTop && !bar.interactable &&
+                view.scroll.verticalScrollbarVisibility == ScrollRect.ScrollbarVisibility.AutoHide &&
+                view.scroll.viewport.offsetMax.x <= -16f && bar.handleRect != null &&
+                !bar.GetComponent<Image>().raycastTarget && !bar.handleRect.GetComponent<Image>().raycastTarget,
+                "Both scroll indicators auto-hide and keep a fixed non-blocking gutter beside the text");
         }
 
         private static void Layout(NoticePopupView view)
@@ -257,6 +455,15 @@ namespace KingdomIdle.UGUI.Editor
             LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)view.scroll.transform.parent);
             LayoutRebuilder.ForceRebuildLayoutImmediate(view.scroll.content);
             Canvas.ForceUpdateCanvases();
+            RefreshScrollbar(view);
+        }
+
+        private static void RefreshScrollbar(NoticePopupView view)
+        {
+            // The synchronous acceptance runs the same visibility pass normally reached in LateUpdate.
+            view.scroll.Rebuild(CanvasUpdate.PostLayout);
+            typeof(ScrollRect).GetMethod("UpdateScrollbarVisibility", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(view.scroll, null);
         }
 
         private static void CheckOverflow(NoticePopupView view)
@@ -265,10 +472,15 @@ namespace KingdomIdle.UGUI.Editor
                 "Long content overflows a positive viewport");
             view.scroll.verticalNormalizedPosition = 0f;
             Check(view.scroll.verticalNormalizedPosition < .01f, "The scroll can reach the end of long content");
+            RefreshScrollbar(view);
+            var bar = view.scroll.verticalScrollbar;
+            Check(bar.gameObject.activeSelf && bar.size > 0f && bar.size < 1f && bar.value < .01f,
+                "Long content shows a proportional thumb that follows scrolling to the bottom");
         }
 
         private static object Call(string name, params object[] args) => Controller.GetMethod(name, ControllerMembers).Invoke(null, args);
         private static void Set(string name, object value) => Controller.GetField(name, ControllerMembers).SetValue(null, value);
+        private static object Get(string name) => Controller.GetField(name, ControllerMembers).GetValue(null);
 
         private static void Check(bool condition, string message)
         {

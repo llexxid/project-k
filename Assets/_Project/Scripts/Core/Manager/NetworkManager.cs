@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using MainWaveProgression = KingdomIdle.Balance.MainWaveProgression;
 using IdleKingdomFunction.Common;
 using Protocol.Message.Dto;
 using Newtonsoft.Json;
@@ -96,6 +97,7 @@ namespace Scripts.Core.Manager
                 [typeof(AuthRequestDTO)] = ("OnLogIn", typeof(UserInitResponseDTO)),
                 [typeof(OnRewardRequestDTO)] = ("OnHuntReward", typeof(OnHuntResponseDTO)),
                 [typeof(OnStageClearRequestDTO)] = ("OnStageClear", typeof(OnStageClearResponseDTO)),
+                [typeof(OnCompleteMainWaveRequestDTO)] = ("OnCompleteMainWave", typeof(OnCompleteMainWaveResponseDTO)),
                 [typeof(OnChangeMainStageRequestDTO)] = ("OnChangeMainStage", typeof(OnChangeMainStageResponseDTO)),
                 [typeof(OnGachaEquipmentClassFragmentRequestDTO)] = ("OnGachaEquipmentClassFragment", typeof(OnGachaEquipmentClassFragmentResponseDTO)),
                 [typeof(OnGachaSkillArcaneKnowledgeRequestDTO)] = ("OnGachaSkillArcaneKnowledge", typeof(OnGachaSkillArcaneKnowledgeResponseDTO)),
@@ -238,6 +240,7 @@ namespace Scripts.Core.Manager
         {
             ExecuteFunctionRequest cloudFunction;
             string rubyRequestId = (request as RubyGrowthRequestDTO)?.RequestId;
+            var mainCompletion = request as OnCompleteMainWaveRequestDTO;
             try { cloudFunction = CreateFunctionRequest<TRequest, TResponse>(request, _sessionGUID, _context); }
             catch (Exception ex) when (ex is ArgumentException || ex is JsonException)
             {
@@ -289,6 +292,12 @@ namespace Scripts.Core.Manager
                     Fail(CreateError("InvalidResponse", "루비 요청과 응답이 일치하지 않습니다.", cloudFunction.FunctionName));
                     return;
                 }
+                if (response is OnCompleteMainWaveResponseDTO completedMain &&
+                    (completedMain.RequestId != mainCompletion?.RequestId || completedMain.CompletedRunId != mainCompletion.MainRunId))
+                {
+                    Fail(CreateError("InvalidResponse", "메인 회차 요청과 응답이 일치하지 않습니다.", cloudFunction.FunctionName));
+                    return;
+                }
                 completed = true;
                 try { successCallback?.Invoke(response); }
                 catch (Exception ex)
@@ -337,6 +346,17 @@ namespace Scripts.Core.Manager
 
             // Retain an independent payload if the caller clears/reuses a collection after Call.
             var payload = JsonConvert.DeserializeObject<TRequest>(JsonConvert.SerializeObject(request));
+            if (payload is OnCompleteMainWaveRequestDTO complete &&
+                (!MainWaveProgression.ValidId(complete.MainRunId) || !MainWaveProgression.ValidId(complete.RequestId) ||
+                 !ValidMainStage((long)complete.ClearedStage) || complete.TotalKills == null || complete.TotalKills.Count == 0 ||
+                 complete.TotalKills.Any(kill => kill.Count <= 0) ||
+                 complete.TotalKills.Select(kill => kill.MonsterType).Distinct().Count() != complete.TotalKills.Count ||
+                 (complete.NextAction != Protocol.Message.Data.eStageClearAction.Advance && complete.NextAction != Protocol.Message.Data.eStageClearAction.Repeat)))
+                throw new ArgumentException("메인 회차 완료 요청을 확인해 주세요.");
+            if (payload is OnRewardRequestDTO partial && (partial.MainRunId != null || partial.BatchId != null) &&
+                (!MainWaveProgression.ValidId(partial.MainRunId) || !MainWaveProgression.ValidId(partial.BatchId) ||
+                 !ValidMainStage((long)partial.Stage) || partial.BattleId != null))
+                throw new ArgumentException("메인 회차 부분 정산 요청을 확인해 주세요.");
             if (payload is RubyGrowthRequestDTO ruby && (!TryParseRubyRequestId(ruby.RequestId, out _) ||
                 ruby.ExpectedLevel < 0 || ruby.ExpectedLevel > 50 || (ruby.Type != RubyGrowthType.Gold && ruby.Type != RubyGrowthType.Exp)))
                 throw new ArgumentException("루비 요청 ID·강화 종류·예상 레벨을 확인해 주세요.");
@@ -431,6 +451,11 @@ namespace Scripts.Core.Manager
                 ValidateEquipment(user.Equipment);
                 ValidateQuests(user.Quests);
                 if (user.RubyGrowthState != null) ValidateRubyGrowth(user.RubyGrowthState);
+                if (user.MainBattle != null)
+                {
+                    ValidateMainBattle(user.MainBattle);
+                    if (user.MainBattle.Stage != user.StageState.CurrentStage) throw new JsonSerializationException("Main battle stage mismatch.");
+                }
                 if (user.Tutorials != null)
                 {
                     if (user.Tutorials.Count > 32) throw new JsonSerializationException("Too many tutorial records.");
@@ -442,6 +467,10 @@ namespace Scripts.Core.Manager
             if (response is OnSaveTutorialProgressResponseDTO savedTutorial) ValidateTutorialProgress(savedTutorial.Progress);
             if (response is OnChangeMainStageResponseDTO moved)
             {
+                if (moved.MainBattle != null) ValidateMainBattle(moved.MainBattle);
+                if ((MainWaveProgression.Available && moved.MainBattle == null) ||
+                    (moved.MainBattle != null && moved.MainBattle.Stage != moved.StageState?.CurrentStage))
+                    throw new JsonSerializationException("Main movement battle mismatch.");
                 var stage = moved.StageState;
                 if (stage == null || !ValidMainStage((long)stage.CurrentStage) || !ValidMainStage((long)stage.HighestStage) ||
                     (long)stage.CurrentStage > (long)stage.HighestStage || ((long)stage.MainClear != 0 && !ValidMainStage((long)stage.MainClear)))
@@ -460,14 +489,36 @@ namespace Scripts.Core.Manager
                 throw new JsonSerializationException("Invalid ruby reset result.");
             if (response is OnHuntResponseDTO hunt)
             {
-                if (hunt.Level < 1 || hunt.Exp < 0 || hunt.KillScore < 0 || hunt.Gold < 0 || hunt.AncientCoin < 0)
+                if (hunt.MainBattle != null) ValidateMainBattle(hunt.MainBattle);
+                if (hunt.Level < 1 || hunt.Exp < 0 || hunt.KillScore < 0 || hunt.Gold < 0 || hunt.AncientCoin < 0 || hunt.Drops == null)
                     throw new JsonSerializationException("Invalid hunt result.");
-                ValidateEquipment(hunt.Equipment);
+                if (hunt.Equipment != null || !EquipmentManager.IsInstanceInventory || hunt.Drops.Count != 0)
+                    ValidateEquipment(hunt.Equipment);
             }
             if (response is OnStageClearResponseDTO clear)
             {
+                if (clear.MainBattle != null) ValidateMainBattle(clear.MainBattle);
                 if (clear.StageState == null || (long)clear.StageState.CurrentStage <= 0) throw new JsonSerializationException("Invalid stage clear result.");
                 ValidateEquipment(clear.Equipment);
+            }
+            if (response is OnCompleteMainWaveResponseDTO completedMain)
+            {
+                if (!MainWaveProgression.ValidId(completedMain.RequestId) || !MainWaveProgression.ValidId(completedMain.CompletedRunId) ||
+                    completedMain.Level < 1 || completedMain.Exp < 0 || completedMain.KillScore < 0 || completedMain.GrantedRewards == null ||
+                    completedMain.GrantedRewards.Any(reward => reward == null) ||
+                    completedMain.StageState == null || !ValidMainStage((long)completedMain.StageState.CurrentStage) ||
+                    !ValidMainStage((long)completedMain.StageState.HighestStage) ||
+                    (long)completedMain.StageState.CurrentStage > (long)completedMain.StageState.HighestStage ||
+                    ((long)completedMain.StageState.MainClear != 0 && !ValidMainStage((long)completedMain.StageState.MainClear)) ||
+                    completedMain.Currency == null || completedMain.Currency.Gold < 0 || completedMain.Currency.AncientCoin < 0 ||
+                    completedMain.Currency.Ruby < 0 || completedMain.Currency.ClassFragment < 0 || completedMain.Currency.ArcaneKnowledge < 0 ||
+                    completedMain.Currency.EquipmentStone < 0 || completedMain.Currency.EquipmentTicket < 0 || completedMain.Currency.MageTicket < 0)
+                    throw new JsonSerializationException("Invalid main completion result.");
+                ValidateMainBattle(completedMain.MainBattle);
+                if (completedMain.MainBattle.Stage != completedMain.StageState.CurrentStage || completedMain.MainBattle.RunId == completedMain.CompletedRunId)
+                    throw new JsonSerializationException("Invalid next main battle.");
+                ValidateEquipment(completedMain.Equipment);
+                ValidateMageTower(completedMain.MageTowerState);
             }
             if (response is OnEnchantResponseDTO enchant && (enchant.CurrentLevel < 0 || enchant.CurrentGold < 0))
                 throw new JsonSerializationException("Invalid enhancement result.");
@@ -499,6 +550,10 @@ namespace Scripts.Core.Manager
             // 환생·오프라인·실습 보상 응답: 음수·null이면 플레이어 상태에 쓰지 않는다.
             if (response is OnReincarnationResponseDTO reincarnation)
             {
+                if (reincarnation.MainBattle != null) ValidateMainBattle(reincarnation.MainBattle);
+                if ((MainWaveProgression.Available && reincarnation.MainBattle == null) ||
+                    (reincarnation.MainBattle != null && reincarnation.MainBattle.Stage != reincarnation.StageState?.CurrentStage))
+                    throw new JsonSerializationException("Reincarnation main battle mismatch.");
                 var r = reincarnation.Reincarnation;
                 if (r == null || r.Day == null || r.Level < 0 || r.Count < 0 || r.TodayCount < 0 || r.LastUtc < 0 || reincarnation.GainedLevel < 0 ||
                     reincarnation.EnchantHPCount < 0 || reincarnation.EnchantATKCount < 0 || reincarnation.StageState == null || (long)reincarnation.StageState.CurrentStage <= 0 || reincarnation.Currency == null)
@@ -538,15 +593,19 @@ namespace Scripts.Core.Manager
                 if (attendanceClaim.Days == null || attendanceClaim.Days.Count == 0 || attendanceClaim.Rewards == null || attendanceClaim.Currency == null ||
                     changes == null || changes.Items == null || changes.PendingItems == null || changes.ReserveStacks == null)
                     throw new JsonSerializationException("Invalid attendance claim result.");
-                ValidateStacks(changes.Items, new HashSet<int>(), true);
-                ValidateStacks(changes.PendingItems, new HashSet<int>(), false);
-                foreach (var stack in changes.ReserveStacks)
-                {
-                    if (stack == null || stack.Count <= 0 || (stack.ItemCode.Code >> 56) != 0)
-                        throw new JsonSerializationException("Invalid reserve stack.");
-                }
+                bool instanceInventory = changes.Items.Concat(changes.PendingItems).Any(stack => stack?.ItemCode.InstanceId != null);
+                ValidateEquipmentChanges(changes, instanceInventory);
             }
             ValidateMailboxResponse(response);
+        }
+
+        internal static void ValidateMainBattle(MainBattleStateDTO battle)
+        {
+            if (battle == null || !MainWaveProgression.ValidId(battle.RunId) || !ValidMainStage((long)battle.Stage) ||
+                battle.AcceptedKills == null || battle.AcceptedKills.Count > 10 ||
+                battle.AcceptedKills.Any(kill => (ulong)kill.MonsterType == 0 || kill.Count <= 0) ||
+                battle.AcceptedKills.Select(kill => kill.MonsterType).Distinct().Count() != battle.AcceptedKills.Count)
+                throw new JsonSerializationException("Invalid main battle state.");
         }
 
         internal static void ValidateRubyGrowth(RubyGrowthStateDTO growth)
@@ -620,28 +679,58 @@ namespace Scripts.Core.Manager
                 throw new JsonSerializationException("Missing equipment inventory.");
             if (inventory.Capacity <= 0 || inventory.PendingCapacity < 0 || inventory.AutoDismantleRarityMask < 0 || inventory.AutoDismantleRarityMask > 7)
                 throw new JsonSerializationException("Invalid equipment inventory header.");
+            int schema = inventory.SchemaVersion ?? 0;
+            bool instanceInventory = schema == EquipmentManager.InstanceSchemaVersion;
+            if ((schema != 0 && !instanceInventory) || instanceInventory != inventory.AutoLockFirstEnhancement.HasValue ||
+                (instanceInventory && (inventory.Capacity != EquipmentManager.InstanceCapacity ||
+                    inventory.PendingCapacity != EquipmentManager.PendingCapacity || inventory.Items.Count > inventory.Capacity ||
+                    inventory.PendingItems.Count > inventory.PendingCapacity)))
+                throw new JsonSerializationException("Invalid equipment inventory schema.");
             var equipped = new HashSet<int>();
-            ValidateStacks(inventory.Items, equipped, true);
-            ValidateStacks(inventory.PendingItems, equipped, false);
+            var instanceIds = instanceInventory ? new HashSet<long>() : null;
+            ValidateStacks(inventory.Items, equipped, true, instanceIds);
+            ValidateStacks(inventory.PendingItems, equipped, false, instanceIds);
             var keys = new HashSet<(ulong, ulong)>();
             foreach (var stack in inventory.ReserveStacks)
             {
-                if (stack == null || stack.Count <= 0 || (stack.ItemCode.Code >> 56) != 0 || stack.ItemCode.GetItemEnchantCount() != 0 ||
+                if (stack == null || stack.Count <= 0 || stack.ItemCode.InstanceId.HasValue ||
+                    (stack.ItemCode.Code >> 56) != 0 || stack.ItemCode.GetItemEnchantCount() != 0 ||
                     !keys.Add((stack.ItemCode.Code & ~0xFFFFUL, stack.ItemCode.ExpireTimesc)))
                     throw new JsonSerializationException("Invalid reserve stack.");
             }
         }
 
-        private static void ValidateStacks(List<EquipmentStackDTO> stacks, HashSet<int> equipped, bool allowEquip)
+        internal static void ValidateEquipmentChanges(EquipmentChangesDTO changes, bool instanceInventory)
         {
-            var keys = new HashSet<(ulong, ulong)>();
+            if (changes?.Items == null || changes.PendingItems == null || changes.ReserveStacks == null)
+                throw new JsonSerializationException("Missing equipment changes.");
+            var equipped = new HashSet<int>();
+            var instanceIds = instanceInventory ? new HashSet<long>() : null;
+            ValidateStacks(changes.Items, equipped, true, instanceIds);
+            ValidateStacks(changes.PendingItems, equipped, false, instanceIds);
+            foreach (var stack in changes.ReserveStacks)
+                if (stack == null || stack.Count <= 0 || stack.ItemCode.InstanceId.HasValue || (stack.ItemCode.Code >> 56) != 0)
+                    throw new JsonSerializationException("Invalid reserve stack.");
+        }
+
+        private static void ValidateStacks(List<EquipmentStackDTO> stacks, HashSet<int> equipped, bool allowEquip, HashSet<long> instanceIds)
+        {
+            var keys = instanceIds == null ? new HashSet<(ulong, ulong)>() : null;
             foreach (var stack in stacks)
             {
                 if (stack == null || stack.EquippedCharacterIndexes == null) throw new JsonSerializationException("Missing equipment stack.");
                 ulong code = stack.ItemCode.Code;
                 long count = (long)(code & 0xFFFF);
-                if ((code >> 56) != 0 || count <= 0 || stack.EnhancementStonesSpent < 0 || !keys.Add((code & ~0xFFFFUL, stack.ItemCode.ExpireTimesc)))
+                if ((code >> 56) != 0 || count <= 0 || stack.EnhancementStonesSpent < 0)
                     throw new JsonSerializationException("Invalid equipment stack.");
+                if (instanceIds != null)
+                {
+                    if (!(stack.ItemCode.InstanceId is long id) || id <= 0 || !instanceIds.Add(id) || count != 1 ||
+                        stack.ItemCode.GetItemEnchantCount() > 15 || stack.ItemCode.ExpireTimesc > long.MaxValue)
+                        throw new JsonSerializationException("Invalid equipment instance.");
+                }
+                else if (stack.ItemCode.InstanceId.HasValue || !keys.Add((code & ~0xFFFFUL, stack.ItemCode.ExpireTimesc)))
+                    throw new JsonSerializationException("Invalid legacy equipment stack.");
                 if ((!allowEquip && stack.EquippedCharacterIndexes.Count > 0) || stack.EquippedCharacterIndexes.Count > count)
                     throw new JsonSerializationException("Invalid equipped indexes.");
                 foreach (int index in stack.EquippedCharacterIndexes)

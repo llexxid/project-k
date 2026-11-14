@@ -56,7 +56,7 @@ namespace KingdomIdle.UGUI.Editor
             foreach (string name in new[]{"Frame","StageIcon"}) if(row.Find(name)!=null) row.Find(name).gameObject.SetActive(false);
             F.Stretch(wave.lblStage.rectTransform); wave.lblStage.rectTransform.offsetMin=new Vector2(16,0); wave.lblStage.rectTransform.offsetMax=new Vector2(-16,0);
             Type(wave.lblStage,32,TextAlignmentOptions.MidlineLeft);
-            wave.lblStage.text="스테이지 9-9  ›";
+            wave.lblStage.text="전투 준비 중…";
             wave.bossTimerBar.transform.SetParent(main,false); wave.bossTimerBar.SetActive(false);
             var toggle=(RectTransform)wave.bossChallengeRoot.transform;
             toggle.SetParent(header,false); RemoveLayout(toggle); Width(toggle,300);
@@ -69,8 +69,8 @@ namespace KingdomIdle.UGUI.Editor
 
             var progress=F.Container(main,"StageProgress"); Vertical(progress,8); wave.mainProgress=progress.gameObject;
             var counts=F.Container(progress,"Counts"); Horizontal(counts,12); Height(counts,42);
-            wave.progressLabel=Label(counts,"Kills","처치 0 / 20",28); Flexible(wave.progressLabel.transform);
-            wave.remainingLabel=Label(counts,"Remaining","다음 스테이지까지 20마리",26,TextAlignmentOptions.MidlineRight); Flexible(wave.remainingLabel.transform,2);
+            wave.progressLabel=Label(counts,"Kills","",28); Flexible(wave.progressLabel.transform);
+            wave.remainingLabel=Label(counts,"Remaining","",26,TextAlignmentOptions.MidlineRight); Flexible(wave.remainingLabel.transform,2);
             wave.progressFill=Bar(progress,"KillProgress");
             wave.btnStageAction=Button(main,"BtnStageProgression","최고 스테이지 이동",out var action,true); wave.stageActionLabel=action;
             Height(wave.btnStageAction.transform,96);
@@ -89,12 +89,7 @@ namespace KingdomIdle.UGUI.Editor
             objective.gameObject.SetActive(false);
 
             var guide=root.GetComponentInChildren<GuideGoalView>(true); wave.guide=guide;
-            guide.transform.SetParent(area,false); RemoveLayout(guide.transform); Height(guide.transform,88);
-            F.Stretch((RectTransform)guide.body.transform);
-            guide.progress.gameObject.SetActive(false); guide.progressFill.transform.parent.gameObject.SetActive(false);
-            Pin(guide.stepLabel.rectTransform,new Vector2(0,.5f),new Vector2(18,0),new Vector2(142,68),new Vector2(0,.5f)); Type(guide.stepLabel,26,TextAlignmentOptions.MidlineLeft);
-            F.Stretch(guide.description.rectTransform); guide.description.rectTransform.offsetMin=new Vector2(170,0); guide.description.rectTransform.offsetMax=new Vector2(-174,0); Type(guide.description,28,TextAlignmentOptions.MidlineLeft);
-            Pin(guide.actionLabel.rectTransform,new Vector2(1,.5f),new Vector2(-16,0),new Vector2(150,68),new Vector2(1,.5f)); Type(guide.actionLabel,26,TextAlignmentOptions.MidlineRight);
+            guide.transform.SetParent(area,false); RemoveLayout(guide.transform);
 
             var returnRow=F.PixelPanel(root.transform,"DungeonReturn",F.Catalog.kitCard,UguiTheme.Bronze,10,baseColor:UguiTheme.RusticPanelDeep);
             Pin(returnRow.rectTransform,new Vector2(.5f,0),new Vector2(0,390),new Vector2(900,108),new Vector2(.5f,0));
@@ -123,6 +118,35 @@ namespace KingdomIdle.UGUI.Editor
             var returnRect=(RectTransform)wave.dungeonReturn.transform;
             returnRect.anchorMin=new Vector2(0,0); returnRect.anchorMax=new Vector2(1,0);
             returnRect.sizeDelta=new Vector2(-48,108);
+            if (wave.guide != null) StyleGuide(wave.guide);
+        }
+
+        private static void StyleGuide(GuideGoalView guide)
+        {
+            Height(guide.transform, 108);
+            F.Stretch((RectTransform)guide.body.transform);
+            guide.body.GetComponent<Image>().color = UguiTheme.RusticSurface;
+
+            Pin(guide.stepLabel.rectTransform, Vector2.up, new Vector2(20, -8), new Vector2(400, 34), Vector2.up);
+            Type(guide.stepLabel, 28, TextAlignmentOptions.MidlineLeft);
+            guide.stepLabel.fontStyle = FontStyles.Bold;
+            Pin(guide.progress.rectTransform, Vector2.one, new Vector2(-20, -8), new Vector2(320, 34), Vector2.one);
+            Type(guide.progress, 26, TextAlignmentOptions.MidlineRight);
+            guide.progress.gameObject.SetActive(true);
+
+            var description = guide.description.rectTransform;
+            description.anchorMin = Vector2.up;
+            description.anchorMax = Vector2.one;
+            description.offsetMin = new Vector2(20, -90);
+            description.offsetMax = new Vector2(-208, -42);
+            Type(guide.description, 32, TextAlignmentOptions.MidlineLeft);
+            Pin(guide.actionLabel.rectTransform, Vector2.one, new Vector2(-20, -42), new Vector2(180, 48), Vector2.one);
+            Type(guide.actionLabel, 29, TextAlignmentOptions.MidlineRight);
+
+            var track = (RectTransform)guide.progressFill.transform.parent;
+            track.anchoredPosition = new Vector2(0, 7);
+            track.sizeDelta = new Vector2(-40, 4);
+            track.gameObject.SetActive(true);
         }
 
         private static GameObject Selection()

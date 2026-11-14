@@ -102,14 +102,22 @@ namespace KingdomIdle.UGUI
                             break;
                         }
                 Set(description, definition.Description);
-                Set(stepLabel, $"가이드 {definition.QuestId-10000:N0}");
+                long step = definition.QuestId - 10000;
+                Set(stepLabel, compact ? $"가이드 퀘스트 {step:N0}" : $"가이드 {step:N0}");
                 int required = Mathf.Max(1, definition.RequiredCount);
-                Set(progress, $"{NumberNotation.Format(Mathf.Clamp(state.CurrentProgress, 0, required))}/{NumberNotation.Format(required)}");
+                string current = NumberNotation.Format(Mathf.Clamp(state.CurrentProgress, 0, required));
+                string total = NumberNotation.Format(required);
+                Set(progress, compact ? $"진행 {current} / {total}" : $"{current}/{total}");
                 if (progressFill != null) progressFill.fillAmount = Mathf.Clamp01((float)state.CurrentProgress / required);
                 bool claimable = state.IsCompleted && _claimable;
                 bool canNavigate = QuestNavigation.CanNavigate(definition.ObjectiveType);
                 Set(actionLabel, claimable ? (definition.RewardGroupId == 0 ? "다음 목표  ›" : "보상 받기  ›")
                     : state.IsCompleted ? "보상 대기" : canNavigate ? "이동  ›" : compact ? "자세히  ›" : "전투에서 진행");
+                if (compact && actionLabel != null)
+                {
+                    actionLabel.color = claimable ? UguiTheme.AccentGoldStrong : UguiTheme.AccentGold;
+                    actionLabel.fontStyle = claimable ? FontStyles.Bold : FontStyles.Normal;
+                }
                 if (actionButton != null) actionButton.interactable = compact || claimable || (!state.IsCompleted && canNavigate);
             }
             else if (!hideWithPanels)

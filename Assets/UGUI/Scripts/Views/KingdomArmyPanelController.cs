@@ -51,6 +51,7 @@ namespace KingdomIdle.UGUI
         private static string[] _displayedJobs;
         private static string _detailEquipmentId;
         private static JobData _detailJob;
+        private static bool _detailCanQueueJobChange;
 
         // 종합 탭 실시간 갱신용 캐시 (FrameTick 타이머)
         private static bool _charTickSubscribed;
@@ -178,13 +179,18 @@ namespace KingdomIdle.UGUI
         }
 
         // Queued jobs and replacement character instances become authoritative at the next wave.
-        // Refresh only when the party changes, preserving the selected tab and detail page.
+        // Refresh when the party or the open detail's combat restriction changes.
         private static void OnPartyApplied(StageDefinition definition)
         {
             if (_view == null || _mgr == null) return;
             var current = _mgr.GetPlayers();
             var jobs = current.Select(p => p != null ? p.playerStatus?.JobName : null).ToArray();
-            if (_players != null && _players.SequenceEqual(current) && _displayedJobs != null && _displayedJobs.SequenceEqual(jobs)) return;
+            if (_players != null && _players.SequenceEqual(current) && _displayedJobs != null && _displayedJobs.SequenceEqual(jobs))
+            {
+                if (_contentPage == typeof(KAJobDetailView) && _detailJob != null && _detailCanQueueJobChange != ChangeJob.CanQueueChange)
+                    ShowJobDetail(_detailJob);
+                return;
+            }
             _players = current;
             _displayedJobs = jobs;
             _activeMemberIndex = Mathf.Clamp(_activeMemberIndex, 0, Mathf.Max(0, current.Count - 1));
@@ -595,7 +601,20 @@ namespace KingdomIdle.UGUI
             var equipMgr = player?.PlayerEquipmentManager;
             EquipmentManager equipmentManager = EquipmentManager.Instance;
             var toolbar = equip.GetComponentInChildren<EquipmentToolbarView>(true);
-            toolbar?.Bind(data => data.IsAllowedForJob(jobName), Refresh);
+            toolbar?.Bind(data => data.IsAllowedForJob(jobName), Refresh, equip.settingsButton != null);
+            if (equip.ownedListButton != null)
+                equip.ownedListButton.onClick.AddListener(() => ScrollToOwnedEquipment(equip));
+            if (equip.settingsButton != null)
+                equip.settingsButton.onClick.AddListener(EquipmentActionDialog.Settings);
+            if (equip.recommendButton != null)
+            {
+                equip.recommendButton.interactable = player != null && equipmentManager != null;
+                equip.recommendButton.onClick.AddListener(() =>
+                {
+                    var result = equipmentManager.TryEquipRecommended(player.PlayerIndex, LocalProgression.State.EquipmentRecommendation);
+                    ShowToast(result == EquipmentManager.EnhancementResult.Pending ? "추천 장비 장착 요청 중" : EquipmentManager.Describe(result));
+                });
+            }
 
             var equipped = equipMgr?.GetSlotEquipment(eEquipmentSlot.Weapon);
 
@@ -664,6 +683,24 @@ namespace KingdomIdle.UGUI
 
             foreach (var item in sortedItems)
                 BuildInventoryEquipCard(equip.inventoryGrid, item, jobName, equipped, equipMgr);
+        }
+
+        private static void ScrollToOwnedEquipment(KAEquipmentView equip)
+        {
+            var scroll = _view?.scroll;
+            if (scroll == null || scroll.content == null || scroll.viewport == null) return;
+            scroll.StopMovement();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(scroll.content);
+            equip.inventoryGrid.GetComponent<VirtualEquipmentGrid>()?.Refresh();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(scroll.content);
+
+            var content = scroll.content;
+            var target = equip.emptyLabel != null && equip.emptyLabel.gameObject.activeSelf
+                ? equip.emptyLabel.rectTransform : equip.inventoryGrid;
+            float scrollableHeight = content.rect.height - scroll.viewport.rect.height;
+            if (scrollableHeight <= 0) return;
+            float targetTop = content.InverseTransformPoint(target.TransformPoint(0, target.rect.yMax, 0)).y;
+            scroll.verticalNormalizedPosition = Mathf.Clamp01(1f - (content.rect.yMax - targetTop) / scrollableHeight);
         }
 
         internal static void BuildStoredEquipmentCells(RectTransform grid, System.Action refresh, System.Func<int, bool> accepts = null)
@@ -809,7 +846,10 @@ namespace KingdomIdle.UGUI
             {
                 var capturedItem = item;
                 var capturedMgr = equipMgr;
-                AddActionButton(detail.actionRow, "강화", UguiTheme.BtnSpend, true,
+                long available = LocalProgression.Balance(eCurrency.EquipmentStone);
+                long needed = EquipmentEconomy.EnhanceCost(item);
+                string label = $"강화 · 강화석 보유 {NumberNotation.Format(available)} / 필요 {NumberNotation.Format(needed)}";
+                AddActionButton(detail.actionRow, label, UguiTheme.BtnSpend, true,
                     () => TryEnhanceEquipment(capturedItem, capturedMgr));
             }
 
@@ -983,16 +1023,17 @@ namespace KingdomIdle.UGUI
             if (jc.placeholder != null) jc.placeholder.gameObject.SetActive(false);
             if (jc.contentGroup != null) jc.contentGroup.gameObject.SetActive(true);
 
-            // 통합 전직 파편 보유량 배너 — 어떤 직업이든 파편 40개로 전직 가능.
+            // 전직 파편은 공유하며 필요량은 전직 단계에 따라 다르다.
             int ownedFrags = _mgr.GetFragments();
-            int fragCost = 40;
+            int basicCost = _mgr.GetFragmentCost("Knight");
+            int eliteCost = _mgr.GetFragmentCost("Elite_Knight");
 
             if (jc.bannerValue != null)
             {
                 jc.bannerValue.text = $"{NumberNotation.Format(ownedFrags)}";
-                jc.bannerValue.color = ownedFrags >= fragCost ? UguiTheme.SuccessGreenBright : UguiTheme.AccentGoldStrong;
+                jc.bannerValue.color = ownedFrags >= basicCost ? UguiTheme.SuccessGreenBright : UguiTheme.AccentGoldStrong;
             }
-            if (jc.bannerHint != null) jc.bannerHint.text = "1차 40 · 2차 120 · 해금 후 무료";
+            if (jc.bannerHint != null) jc.bannerHint.text = $"필요 1차 {basicCost} · 2차 {eliteCost} · 재전직 무료";
 
             var player = GetCurrentPlayer();
             string currentJob = player?.playerStatus?.JobName ?? "";
@@ -1055,7 +1096,7 @@ namespace KingdomIdle.UGUI
             string statText = job.jobName switch { "Knight" => "묵직한 근접 공격", "Elite_Knight" => "광역 베기 · 보호막", "Mage" => "원거리 마법", "Elite_Mage" => "파동 · 밀쳐내기", _ => "" };
             string fragText; Color fragColor;
             if (isUnlocked) { fragText = "무료 재전직"; fragColor = UguiTheme.SuccessGreenBright; }
-            else { fragText = $"전직 파편 {NumberNotation.Format(owned)}/{NumberNotation.Format(cost)}"; fragColor = fragReady ? UguiTheme.SuccessGreenBright : UguiTheme.AccentGoldStrong; }
+            else { fragText = $"보유 {NumberNotation.Format(owned)} · 필요 {NumberNotation.Format(cost)}"; fragColor = fragReady ? UguiTheme.SuccessGreenBright : UguiTheme.AccentGoldStrong; }
             string prereqText = !prereqMet ? $"{JobData.GetDisplayName(prereq)} 전직 필요" : null;
 
             var capturedJob = job;
@@ -1140,7 +1181,6 @@ namespace KingdomIdle.UGUI
             }
 
             // ── 전직 비용 / 조건 ──
-            // 통합 전직 파편 — 어떤 직업이든 동일한 파편 풀에서 40개 소모.
             int owned = _mgr.GetFragments();
             int cost = _mgr.GetFragmentCost(job.jobName);
 
@@ -1157,7 +1197,7 @@ namespace KingdomIdle.UGUI
                 if (detail.fragCondRow != null) detail.fragCondRow.gameObject.SetActive(true);
                 if (detail.fragCondValue != null)
                 {
-                    detail.fragCondValue.text = $"{NumberNotation.Format(owned)} / {NumberNotation.Format(cost)}";
+                    detail.fragCondValue.text = $"보유 {NumberNotation.Format(owned)} · 필요 {NumberNotation.Format(cost)}";
                     detail.fragCondValue.color = owned >= cost ? UguiTheme.SuccessGreenBright : UguiTheme.TextPrimary;
                 }
 
@@ -1178,6 +1218,7 @@ namespace KingdomIdle.UGUI
             }
 
             // ── 전직하기 버튼 (Item_ActionButton) ──
+            _detailCanQueueJobChange = ChangeJob.CanQueueChange;
             bool canChange = player != null && _mgr.CanChangeJob(job.jobName, player);
 
             string btnText;
@@ -1195,13 +1236,13 @@ namespace KingdomIdle.UGUI
                 btnColor = UguiTheme.DisabledGrey;
                 btnEnabled = false;
             }
-            else if (isUnlocked)
+            else if (!_detailCanQueueJobChange)
             {
-                btnText = "재전직 (무료)";
-                btnColor = UguiTheme.BtnConfirm;
-                btnEnabled = true;
+                btnText = "보스·던전 진행 중 전직 불가";
+                btnColor = UguiTheme.DisabledGrey;
+                btnEnabled = false;
             }
-            else if (!prereqMet)
+            else if (!isUnlocked && !prereqMet)
             {
                 btnText = $"{JobData.GetDisplayName(prereq)} 전직 필요";
                 btnColor = UguiTheme.DisabledGrey;
@@ -1209,13 +1250,13 @@ namespace KingdomIdle.UGUI
             }
             else if (canChange)
             {
-                btnText = $"전직하기 (파편 {NumberNotation.Format(cost)}개)";
-                btnColor = UguiTheme.BtnSpend;
+                btnText = isUnlocked ? "재전직 (무료)" : $"전직하기 (파편 {NumberNotation.Format(cost)}개)";
+                btnColor = isUnlocked ? UguiTheme.BtnConfirm : UguiTheme.BtnSpend;
                 btnEnabled = true;
             }
             else
             {
-                btnText = $"전직 파편 부족 ({NumberNotation.Format(owned)}/{NumberNotation.Format(cost)})";
+                btnText = !isUnlocked && owned < cost ? "전직 파편 부족" : "현재 전직할 수 없습니다";
                 btnColor = UguiTheme.DisabledGrey;
                 btnEnabled = false;
             }

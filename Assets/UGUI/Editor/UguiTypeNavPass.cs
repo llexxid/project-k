@@ -42,11 +42,11 @@ namespace KingdomIdle.UGUI.Editor
             view.tabStore.transform.SetSiblingIndex(view.tabGacha.transform.GetSiblingIndex() + 1);
             view.tabStore.gameObject.SetActive(true);
             view.tabStore.label.text = "상점";
-            var catalog = AssetDatabase.LoadAssetAtPath<UIViewCatalog>(PrefabGenUtil.CatalogPath);
-            if (catalog == null || catalog.iconAncientCoin == null)
-                throw new System.InvalidOperationException("The existing shop icon is missing from UIViewCatalog.");
-            MainTab(view.tabStore, null, 72);
-            view.tabStore.icon.sprite = catalog.iconAncientCoin;
+            var shopIcon = UguiGenAssets.IconShop;
+            if (shopIcon == null)
+                throw new System.InvalidOperationException("The bottom shop pictogram is missing.");
+            MainTab(view.tabStore, null, 76);
+            view.tabStore.icon.sprite = shopIcon;
             if (view.bottomBar.GetComponentsInChildren<MainTabButtonView>(true).Length != 5)
                 throw new System.InvalidOperationException("The main navigation must contain exactly five tabs.");
         }

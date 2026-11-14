@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using KingdomIdle.UI;
+using KingdomIdle.Mailbox;
 using Scripts.Core;
 
 namespace KingdomIdle.UGUI
@@ -32,6 +33,8 @@ namespace KingdomIdle.UGUI
         private bool _hamburgerOpen;
         private Coroutine _hamburgerCo;
         private Vector2 _hamburgerBasePos;
+        private MailboxService _mailbox;
+        private GameObject _hamburgerDot, _mailDot, _noticeDot;
 
         // 탭
         private readonly List<(MainTabButtonView view, UIPanelId id)> _tabs = new();
@@ -54,7 +57,7 @@ namespace KingdomIdle.UGUI
             try { BindHamburger(); }
             catch (Exception ex) { Debug.LogError($"MainScreen.Hamburger failed: {ex}"); }
 
-            try { BindMenus(); }
+            try { BindMenus(); BindMenuNotifications(); }
             catch (Exception ex) { Debug.LogError($"MainScreen.Menus failed: {ex}"); }
 
             try { WaveUIController.Init(_view.waveHud); }
@@ -88,6 +91,10 @@ namespace KingdomIdle.UGUI
                 _host.StopRunningCoroutine(_hamburgerCo);
             }
 
+            if (_mailbox != null) _mailbox.Changed -= RefreshMenuNotifications;
+            NoticePopupController.Changed -= RefreshMenuNotifications;
+            _mailbox = null;
+            _hamburgerDot = _mailDot = _noticeDot = null;
             UnhookEconomyChangeHandler();
             WaveUIController.Dispose();
             if (_profilePopup != null)
@@ -148,6 +155,7 @@ namespace KingdomIdle.UGUI
                 RefreshTopCurrencyLabels();
                 RefreshNickname();
                 RefreshReincarnationDot();
+                WaveUIController.RefreshStageStatus();
                 if (_profilePopup != null && _profilePopup.activeSelf) PopulateProfilePopup();
 
                 if (_currencyOpen)
@@ -518,9 +526,13 @@ namespace KingdomIdle.UGUI
         private void OpenHamburgerMenu()
         {
             if (_view == null || _view.popupHamburger == null) return;
+            NoticePopupController.RefreshFromMenu();
 
             if (_currencyOpen)
                 CloseCurrencyPopupImmediate();
+
+            if (_host.HasActiveTabPanel && !_host.HasBlockingPanel)
+                _host.ClearPanels();
 
             // 햄버거 버튼 바로 아래로 정렬
             PositionDropdownUnder(_view.popupHamburgerRect,
@@ -802,6 +814,27 @@ namespace KingdomIdle.UGUI
             }
             if (_view.btnMenuCheckIn != null)
                 _view.btnMenuCheckIn.onClick.AddListener(() => OpenRewardPanel(UIPanelId.CheckIn));
+        }
+
+        private void BindMenuNotifications()
+        {
+            _mailbox = GameManager.Instance != null ? GameManager.Instance.Mailbox : null;
+            var circle = _host.Catalog?.circle;
+            _hamburgerDot = NotificationDot.Create(_view.btnHamburger, circle);
+            _mailDot = NotificationDot.Create(_view.btnMenuMail, circle);
+            _noticeDot = NotificationDot.Create(_view.btnMenuNotice, circle);
+            if (_mailbox != null) _mailbox.Changed += RefreshMenuNotifications;
+            NoticePopupController.Changed += RefreshMenuNotifications;
+            RefreshMenuNotifications();
+        }
+
+        private void RefreshMenuNotifications()
+        {
+            bool hasNewMail = _mailbox != null && _mailbox.HasNewMail;
+            bool hasUnreadNotice = NoticePopupController.HasUnread;
+            NotificationDot.SetVisible(_mailDot, hasNewMail);
+            NotificationDot.SetVisible(_noticeDot, hasUnreadNotice);
+            NotificationDot.SetVisible(_hamburgerDot, hasNewMail || hasUnreadNotice);
         }
 
         private void OpenRewardPanel(UIPanelId id)

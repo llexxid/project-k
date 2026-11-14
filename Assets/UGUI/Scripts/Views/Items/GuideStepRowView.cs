@@ -41,7 +41,7 @@ namespace KingdomIdle.UGUI
         }
 
         /// <summary>데이터가 바뀌었을 때만 패널이 호출한다. 목표 달성과 보상 수령 완료를 구분한다.</summary>
-        public void SetQuest(QuestRowSnapshot snapshot, UIViewCatalog catalog)
+        public void SetQuest(QuestRowSnapshot snapshot, UIViewCatalog catalog, bool claimAll = false, bool claimBusy = false)
         {
             bool claimed = snapshot.State == QuestRowState.Claimed;
             bool locked = snapshot.State == QuestRowState.Locked;
@@ -63,8 +63,10 @@ namespace KingdomIdle.UGUI
             progressLabel.text = $"{NumberNotation.Format(count)} / {NumberNotation.Format(snapshot.RequiredCount)}";
             // 글자와 게이지는 보존하고 톤만 낮춘다. SetActive(false)로 완료 행을 제거하지 않는다.
             canvasGroup.alpha = claimed ? .72f : locked ? .65f : 1f;
-            actionButton.interactable = snapshot.CanClaim || (!locked && !claimed && canMove);
-            actionLabel.text = claimed ? "완료" : snapshot.CanClaim ? "받기" : locked ? "잠김" : canMove ? "이동 ›" : "진행 중";
+            bool canClaim = snapshot.CanClaim && !claimBusy;
+            actionButton.interactable = canClaim || (!snapshot.CanClaim && !locked && !claimed && canMove);
+            string claimLabel = claimBusy ? "받는 중" : claimAll ? "모두 받기" : "받기";
+            actionLabel.text = claimed ? "완료" : snapshot.CanClaim ? claimLabel : locked ? "잠김" : canMove ? "이동 ›" : "진행 중";
             actionLabel.color = snapshot.CanClaim ? UguiTheme.RusticPanelDeep : UguiTheme.Parchment;
             if (actionButton.targetGraphic != null)
                 actionButton.targetGraphic.color = snapshot.CanClaim ? UguiTheme.BtnConfirm : UguiTheme.RusticSurface;
@@ -72,7 +74,7 @@ namespace KingdomIdle.UGUI
             periodLabel.gameObject.SetActive(snapshot.IsPending);
             periodLabel.text = snapshot.IsPending ? $"이전 기간 · {snapshot.Token.Period}" : "";
             SetRewards(snapshot, catalog);
-            if (_claimable != snapshot.CanClaim) { _claimable = snapshot.CanClaim; RefreshEmphasis(); }
+            if (_claimable != canClaim) { _claimable = canClaim; RefreshEmphasis(); }
         }
 
         /// <summary>현재 카탈로그의 단일/복수 보상을 모두 표시한다. 동적 골드는 확정액을 추측하지 않는다.</summary>

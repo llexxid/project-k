@@ -10,6 +10,11 @@ namespace KingdomIdle.UGUI
     /// </summary>
     public sealed class KAEquipmentView : MonoBehaviour
     {
+        [Header("장비 바로가기")]
+        [SerializeField] internal Button ownedListButton;
+        [SerializeField] internal Button recommendButton;
+        [SerializeField] internal Button settingsButton;
+
         [Header("장착 중 카드")]
         [SerializeField] internal Image equippedFrame;         // 장착 초록 테두리 (장착 시만 활성)
         [SerializeField] internal TMP_Text equippedSlotLabel;  // "무기"

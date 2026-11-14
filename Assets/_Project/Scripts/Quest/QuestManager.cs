@@ -65,8 +65,8 @@ public class QuestManager : MonoBehaviour
     public event Action<QuestClaimToken, bool, string> OnClaimCompleted;
     public IQuestRewardGranter RewardGranter => null;
 
-    /// <summary>수령 요청이 서버 응답을 기다리는 중.</summary>
-    public bool IsBusy { get; private set; }
+    /// <summary>수령 또는 응답 유실 뒤 상태 확인을 처리 중이다.</summary>
+    public bool IsBusy => _claim != null;
     /// <summary>OnGetQuestState 응답을 기다리는 중.</summary>
     public bool IsRefreshing { get; private set; }
     /// <summary>마지막 서버 거절 또는 적용 실패. Business 오류면 CustomData에 서버 ErrorResponseDTO가 들어 있다.</summary>
@@ -95,6 +95,18 @@ public class QuestManager : MonoBehaviour
     private bool _dirty = true, _accountChanged, _suspended, _paused, _started, _refreshQueued;
     private int _panelWatchers, _hudWatchers;
     private float _lastRefreshAt = float.NegativeInfinity;
+    private ClaimOperation _claim;
+
+    private sealed class ClaimOperation
+    {
+        public NetworkManager Network;
+        public long NetworkGeneration;
+        public QuestClaimToken[] Tokens;
+        public eQuestCategory? Category;
+        public string BoardPeriod;
+        public Action<int, int, string> OnCompleted;
+        public int Confirmed;
+    }
 
     private void Awake()
     {
@@ -134,6 +146,7 @@ public class QuestManager : MonoBehaviour
     /// <summary>패널(10초)·가이드 HUD(30초)가 보일 때 주기적으로, 그리고 서버 조작 뒤 요청된 갱신을 최소 간격(3초)으로 보낸다.</summary>
     private void Update()
     {
+        if (_claim != null && !IsCurrentClaim(_claim)) _claim = null;
         if (_suspended || IsRefreshing || IsBusy) return;
         var network = NetworkManager.Instance;
         if (network == null || !network.IsGameDataReady || _server == null && !_refreshQueued) return;
@@ -167,7 +180,7 @@ public class QuestManager : MonoBehaviour
     }
 
     private void MarkDirty() { _dirty = true; }
-    private void OnAccountChanged() { _accountChanged = true; _dirty = true; _server = null; _revision++; }
+    private void OnAccountChanged() { _claim = null; _accountChanged = true; _dirty = true; _server = null; _revision++; }
 
     // ── 서버 상태 수신 ─────────────────────────────────────────────────
 
@@ -249,21 +262,85 @@ public class QuestManager : MonoBehaviour
     /// </summary>
     public QuestClaimResult TryClaim(QuestClaimToken token)
     {
-        if (!LocalProgression.IsReady) return new QuestClaimResult(QuestClaimStatus.NotReady, token);
-        if (token.AccountGeneration != LocalProgression.AccountGeneration) return new QuestClaimResult(QuestClaimStatus.StaleAccount, token);
-        if (token.QuestId <= 0 || string.IsNullOrEmpty(token.Period)) return new QuestClaimResult(QuestClaimStatus.UnknownQuest, token);
-        if (IsBusy) return new QuestClaimResult(QuestClaimStatus.Busy, token);
         var network = NetworkManager.Instance;
-        if (network == null || !network.IsGameDataReady) return new QuestClaimResult(QuestClaimStatus.NetworkNotReady, token);
-        IsBusy = true;
-        LastFailure = null;
-        network.Call<Dto.OnClaimQuestRewardRequestDTO, Dto.OnClaimQuestRewardResponseDTO>(new Dto.OnClaimQuestRewardRequestDTO { QuestId = token.QuestId, PeriodKey = token.Period },
-            response => ApplyClaim(token, response), error => RejectClaim(token, error));
+        var status = CheckClaim(token, network);
+        if (status != QuestClaimStatus.Pending) return new QuestClaimResult(status, token);
+        StartClaim(network, new[] { token }, (confirmed, total, message) =>
+            Notify(OnClaimCompleted, token, confirmed == total && message == null, message));
         return new QuestClaimResult(QuestClaimStatus.Pending, token);
     }
 
-    private void ApplyClaim(QuestClaimToken token, Dto.OnClaimQuestRewardResponseDTO response)
+    /// <summary>선택한 탭에서 수령 가능한 토큰만 고정하고, 누른 행부터 서버 응답 순서대로 처리한다.</summary>
+    public QuestClaimResult TryClaimTab(eQuestCategory category, QuestClaimToken token, Action<int, int, string> onCompleted)
     {
+        var network = NetworkManager.Instance;
+        var status = CheckClaim(token, network);
+        if (status != QuestClaimStatus.Pending) return new QuestClaimResult(status, token);
+        var board = GetSnapshot(category);
+        if (FindRow(board, token)?.CanClaim != true)
+            return new QuestClaimResult(QuestClaimStatus.Incomplete, token);
+        var tokens = new List<QuestClaimToken> { token };
+        tokens.AddRange(board.Rows.Where(row => row.CanClaim && row.Token != token).Select(row => row.Token).Distinct());
+        StartClaim(network, tokens.ToArray(), onCompleted, category, board.Period);
+        return new QuestClaimResult(QuestClaimStatus.Pending, token);
+    }
+
+    private QuestClaimStatus CheckClaim(QuestClaimToken token, NetworkManager network)
+    {
+        if (!LocalProgression.IsReady) return QuestClaimStatus.NotReady;
+        if (token.AccountGeneration != LocalProgression.AccountGeneration) return QuestClaimStatus.StaleAccount;
+        if (token.QuestId <= 0 || string.IsNullOrEmpty(token.Period)) return QuestClaimStatus.UnknownQuest;
+        if (IsBusy) return QuestClaimStatus.Busy;
+        return network != null && network.IsGameDataReady ? QuestClaimStatus.Pending : QuestClaimStatus.NetworkNotReady;
+    }
+
+    private void StartClaim(NetworkManager network, QuestClaimToken[] tokens, Action<int, int, string> onCompleted,
+        eQuestCategory? category = null, string boardPeriod = null)
+    {
+        _claim = new ClaimOperation
+        {
+            Network = network, NetworkGeneration = network.AccountGeneration, Tokens = tokens,
+            Category = category, BoardPeriod = boardPeriod, OnCompleted = onCompleted
+        };
+        LastFailure = null;
+        SendNextClaim(_claim);
+    }
+
+    private bool IsCurrentClaim(ClaimOperation claim) => this != null && ReferenceEquals(_claim, claim) &&
+        claim.Tokens[0].AccountGeneration == LocalProgression.AccountGeneration && claim.Network != null &&
+        NetworkManager.Instance == claim.Network && claim.Network.AccountGeneration == claim.NetworkGeneration;
+
+    private void SendNextClaim(ClaimOperation claim)
+    {
+        if (!IsCurrentClaim(claim)) return;
+        if (claim.Confirmed == claim.Tokens.Length) { FinishClaim(claim, null); return; }
+        var token = claim.Tokens[claim.Confirmed];
+        if (claim.Category.HasValue)
+        {
+            var board = GetSnapshot(claim.Category.Value);
+            if (board.Period != claim.BoardPeriod || FindRow(board, token)?.CanClaim != true)
+            {
+                RequestRefresh("claim interrupted");
+                FinishClaim(claim, "수령할 수 있는 보상이 바뀌었습니다. 목록을 확인해 주세요.");
+                return;
+            }
+        }
+        claim.Network.Call<Dto.OnClaimQuestRewardRequestDTO, Dto.OnClaimQuestRewardResponseDTO>(
+            new Dto.OnClaimQuestRewardRequestDTO { QuestId = token.QuestId, PeriodKey = token.Period },
+            response => ApplyClaim(claim, token, response), error => RejectClaim(claim, token, error));
+    }
+
+    private void FinishClaim(ClaimOperation claim, string message)
+    {
+        if (!IsCurrentClaim(claim)) return;
+        _claim = null;
+        try { claim.OnCompleted?.Invoke(claim.Confirmed, claim.Tokens.Length, message); }
+        catch (Exception exception) { Debug.LogException(exception); }
+    }
+
+    private void ApplyClaim(ClaimOperation claim, QuestClaimToken token, Dto.OnClaimQuestRewardResponseDTO response)
+    {
+        if (!IsCurrentClaim(claim)) return;
         bool saved;
         try
         {
@@ -280,7 +357,7 @@ public class QuestManager : MonoBehaviour
             Debug.LogException(exception);
             saved = false;
         }
-        IsBusy = false;
+        if (!IsCurrentClaim(claim)) return;
         Apply(response.Quests, "claim");
         var state = LocalProgression.State;
         Debug.Log($"[Quest] claim quest={token.QuestId} period={token.Period} rewards={response.GrantedRewards?.Count ?? 0}" +
@@ -290,31 +367,39 @@ public class QuestManager : MonoBehaviour
         {
             Direction.GameDirectInteraction.ReportSaveFailure();
             LastFailure = NetworkManager.CreateError("ApplyFailed", "서버 퀘스트 보상을 저장하지 못했습니다: " + LocalProgression.LastError, "OnClaimQuestReward");
-            Notify(OnClaimCompleted, token, false, "서버 결과를 저장하지 못했습니다. 다시 로그인하면 서버 값으로 맞춰집니다.");
+            FinishClaim(claim, "서버 결과를 저장하지 못했습니다. 다시 로그인하면 서버 값으로 맞춰집니다.");
             return;
         }
         EquipmentManager.Instance?.RestoreEquipment();
         KingdomIdle.MageTower.MageTowerManager.Instance?.NotifyCommitted();
-        Notify(OnClaimCompleted, token, true, null);
+        claim.Confirmed++;
+        SendNextClaim(claim);
     }
 
-    private void RejectClaim(QuestClaimToken token, PlayFabError error)
+    private void RejectClaim(ClaimOperation claim, QuestClaimToken token, PlayFabError error)
     {
+        if (!IsCurrentClaim(claim)) return;
         LastFailure = error;
         int code = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0;
         string kind = NetworkManager.GetFailureKind(error);
         Debug.LogWarning($"[Quest] claim rejected quest={token.QuestId} period={token.Period} code={code} kind={kind} message={error?.ErrorMessage}");
-        IsBusy = false;
-        if (code == 0 && (kind == "Timeout" || kind == "Transport") && UserManager.Instance != null)
+        bool uncertain = code == 1015 || (code == 0 &&
+            (kind == "Timeout" || kind == "Transport" || kind == "InvalidResponse" || kind == "ApplyFailed"));
+        if (uncertain && UserManager.Instance != null)
         {
             // 응답 유실: 서버가 이미 지급했을 수 있으므로 재전송하지 않고 플레이어 데이터(퀘스트 포함)를 다시 받는다.
-            UserManager.Instance.RefreshFromServer(ok => Notify(OnClaimCompleted, token, false,
-                ok ? "서버 응답이 늦어 퀘스트 상태를 서버에서 다시 불러왔습니다. 목록을 확인해 주세요." : NetworkManager.DescribeFailure(error, "보상 수령")));
+            UserManager.Instance.RefreshFromServer(ok =>
+            {
+                if (!IsCurrentClaim(claim)) return;
+                if (ok && claim.Category.HasValue && FindRow(GetSnapshot(claim.Category.Value), token)?.State == QuestRowState.Claimed)
+                    claim.Confirmed++;
+                FinishClaim(claim, ok ? "서버에서 수령 상태를 다시 확인했습니다. 목록을 확인해 주세요." : NetworkManager.DescribeFailure(error, "보상 수령"));
+            });
             return;
         }
         // 거절 뒤에도 서버 행 상태가 바뀌었을 수 있으니(이미 수령 등) 다음 갱신을 예약한다.
         _refreshQueued = true;
-        Notify(OnClaimCompleted, token, false, NetworkManager.DescribeFailure(error, "보상 수령"));
+        FinishClaim(claim, NetworkManager.DescribeFailure(error, "보상 수령"));
     }
 
     // ── 화면용 snapshot ───────────────────────────────────────────────

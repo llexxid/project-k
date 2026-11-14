@@ -37,10 +37,13 @@ namespace KingdomIdle.Balance
         public List<EquipmentSave> Equipment = new();
         public List<EquipmentSave> PendingEquipment = new();
         public List<LegacyEquipmentStack> LegacyEquipment = new();
+        public int EquipmentSchemaVersion;
         public int AutoDismantleMask;
+        public bool AutoLockFirstEnhancement = true;
         public int EquipmentRarityFilter = -1;
         public bool EquipmentUsableOnly;
         public int EquipmentSort;
+        public EquipmentRecommendationCriterion EquipmentRecommendation;
         public Dictionary<int, MageSave> MageSkills = new();
         public int[] MageSlots = { -1, -1, -1, -1, -1 };
         public int EquipmentPity;
@@ -63,6 +66,8 @@ namespace KingdomIdle.Balance
         public string ActiveBattleId;
         public int LastKillSequence;
         public string LastClearedBattle;
+        public MainBattleSave MainBattle;
+        public MainWaveCompletionSave PendingMainCompletion;
         public long LastDungeonGold, LastDungeonRuby;
         public long LastActiveUtc, OfflineStage;
         public decimal OfflineKpm;
@@ -92,6 +97,8 @@ namespace KingdomIdle.Balance
             copy.PendingQuests = new();
             foreach (var pair in PendingQuests) copy.PendingQuests.Add(pair.Key, pair.Value.Copy());
             copy.Modules = new(Modules);
+            copy.MainBattle = MainBattle?.Copy();
+            copy.PendingMainCompletion = PendingMainCompletion?.Copy();
             return copy;
         }
     }
@@ -135,6 +142,7 @@ namespace KingdomIdle.Balance
     public sealed class EquipmentSave
     {
         public string Id;
+        public long? ServerInstanceId;
         public int Code, Level;
         public int? Player;
         public bool Locked;

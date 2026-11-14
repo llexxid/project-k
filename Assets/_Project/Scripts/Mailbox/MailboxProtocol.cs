@@ -9,17 +9,30 @@ namespace KingdomIdle.Mailbox
     internal static class MailboxProtocol
     {
         private const long MaxUtc = 253402268399L;
+        private const long OverflowIdBase = 1L << 48;
+        private const long MaxExactId = (1L << 53) - 1;
         private static void Require(bool condition) { if (!condition) throw new JsonSerializationException("Invalid mailbox response."); }
 
         internal static void ValidateList(OnGetMailListResponseDTO dto)
         {
-            Require(dto != null && dto.StartIndex >= 0 && dto.StartIndex <= 100 && dto.TotalCount >= 0 && dto.TotalCount <= 100 &&
+            bool v2 = EquipmentManager.IsInstanceInventory;
+            int maximum = v2 ? int.MaxValue : 100;
+            Require(dto != null && dto.StartIndex >= 0 && dto.StartIndex <= maximum && dto.TotalCount >= 0 && dto.TotalCount <= maximum &&
                 dto.ServerTimeUtc > 0 && dto.ServerTimeUtc <= MaxUtc && dto.Mails != null && dto.Mails.Count <= 50);
             Require(dto.TotalCount == 0 || !string.IsNullOrWhiteSpace(dto.MailboxId));
+            if (v2)
+                Require(dto.MailboxId?.Length == 32 && dto.LatestRegularMailId is long regular && regular >= 0 &&
+                    regular < OverflowIdBase && dto.LatestOverflowMailId is long overflow &&
+                    (overflow == 0 || overflow > OverflowIdBase && overflow <= MaxExactId) &&
+                    (dto.RegularMailboxId == null || dto.RegularMailboxId.Length == 32) && (regular == 0 || dto.RegularMailboxId != null) &&
+                    (dto.TotalCount == 0) == (regular == 0 && overflow == 0));
+            else Require(!dto.LatestRegularMailId.HasValue && !dto.LatestOverflowMailId.HasValue && dto.RegularMailboxId == null);
             foreach (var m in dto.Mails)
             {
                 Require(m != null && m.MailId > 0 && Enum.IsDefined(typeof(MailCategory), m.Category) &&
-                    m.SentUtc > 0 && m.ExpiresUtc > m.SentUtc &&
+                    m.SentUtc > 0 && m.SentUtc <= MaxUtc &&
+                    (m.IsEquipmentOverflow ? v2 && m.ExpiresUtc == 0 && m.MailId > OverflowIdBase && m.MailId <= dto.LatestOverflowMailId :
+                        m.ExpiresUtc > m.SentUtc && (!v2 || m.MailId <= dto.LatestRegularMailId)) &&
                     m.ExpiresUtc <= MaxUtc && m.Rewards != null && m.Rewards.Count >= 1 && m.Rewards.Count <= 10);
                 Require(m.TextMode == MailTextMode.Key
                     ? !string.IsNullOrWhiteSpace(m.TitleKey) && m.TitleKey.Length <= 100 &&
@@ -34,6 +47,8 @@ namespace KingdomIdle.Mailbox
                     ValidateKind(reward.Kind, reward.CurrencyType, reward.DefinitionId);
                     Require(reward.Kind != RewardKind.Equipment || reward.Amount <= 100);
                 }
+                if (m.IsEquipmentOverflow)
+                    Require(m.Rewards.All(reward => reward.Kind == RewardKind.Equipment) && RequiredEquipmentSlots(m) <= 10);
             }
         }
 
@@ -41,7 +56,8 @@ namespace KingdomIdle.Mailbox
         {
             Require(dto != null && !string.IsNullOrWhiteSpace(dto.MailboxId) && dto.ClaimedMailIds != null &&
                 dto.ClaimedMailIds.Count >= 1 && dto.ClaimedMailIds.Count <= 50 && dto.ClaimedMailIds.All(id => id > 0) &&
-                dto.ClaimedMailIds.Distinct().Count() == dto.ClaimedMailIds.Count && dto.RemainingCount >= 0 && dto.RemainingCount <= 100 &&
+                dto.ClaimedMailIds.Distinct().Count() == dto.ClaimedMailIds.Count && dto.RemainingCount >= 0 &&
+                (dto.Equipment?.SchemaVersion == 2 || dto.RemainingCount <= 100) &&
                 dto.Rewards != null && dto.Rewards.Count > 0 && dto.Currency != null);
             var c = dto.Currency;
             Require(c.Gold >= 0 && c.AncientCoin >= 0 && c.ArcaneKnowledge >= 0 && c.ClassFragment >= 0 &&
@@ -60,6 +76,12 @@ namespace KingdomIdle.Mailbox
                     (reward.Disposition == EquipmentDisposition.AutoDismantled || reward.ItemCode.HasValue));
             }
         }
+
+        internal static bool IsAvailable(MailDTO mail, long now) => mail.IsEquipmentOverflow || mail.ExpiresUtc > now;
+
+        internal static int RequiredEquipmentSlots(MailDTO mail) => mail.IsEquipmentOverflow
+            ? (int)mail.Rewards.Sum(reward => reward.Amount)
+            : 0;
 
         private static bool ValidLocale(string locale) => locale != null && locale.Length >= 2 && locale.Length <= 24 &&
             System.Text.RegularExpressions.Regex.IsMatch(locale, "^[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*\\z");
