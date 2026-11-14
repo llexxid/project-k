@@ -15,6 +15,9 @@ namespace Scripts.Monster
         [SerializeField, Min(0)] private float _projectileArc = .12f;
         [SerializeField] private float _projectileAngle;
         [SerializeField] private CombatSoundCue _attackSound=CombatSoundCue.Heavy;
+        [SerializeField] private bool _usesTongueAttack;
+        [SerializeField] private bool _retreatAfterAttack;
+        private float _retreatUntil, _retreatStarted;
         private Player _attackTarget, _tauntOwner;
         private int _attackTargetGeneration, _tauntGeneration;
         private float _impactAt, _attackEnds;
@@ -22,7 +25,10 @@ namespace Scripts.Monster
         private MonsterMoveState _moveState;
         private MonsterAttackState _attackState;
         private MonsterIdleState _idleState;
-        public bool IsRangedAttack => _projectilePrefab != null || _totemPrefab != null;
+        private SpriteRenderer _bodyRenderer;
+        public bool IsRangedAttack => _usesTongueAttack || _projectilePrefab != null || _totemPrefab != null;
+        public bool IsRetreating => _retreatAfterAttack && Time.time < _retreatUntil;
+        private float TongueLane => Mathf.Max(CombatMotion.MeleeImpactLane, _bodyHeight * .45f);
         public float BodyRadius => Mathf.Clamp(_bodyHeight * .34f, .19f, .5f);
         public float AttackInterval => Mathf.Max(.7f, (float)_stat._atkSpeed);
         public bool IsAttackLocked => Time.time < _attackEnds;
@@ -73,6 +79,8 @@ namespace Scripts.Monster
             AcquireTarget();
             if (Target is not Player player || player.IsDead) return false;
             Vector2 delta = player.VfxFootPosition - FootPosition;
+            // The tongue can strike an adjacent body; melee's .52 minimum and narrow lane do not apply.
+            if (_usesTongueAttack) return Mathf.Abs(delta.x) <= AttackRadius && Mathf.Abs(delta.y) <= TongueLane;
             if (IsRangedAttack) return delta.sqrMagnitude <= AttackRadius * AttackRadius;
             return CombatMotion.InFront(FootPosition, player.VfxFootPosition, delta.x < 0 ? -1 : 1,
                 AttackRadius, CombatMotion.MeleeLane + (IsBalanceBoss ? .12f : 0));
@@ -84,6 +92,33 @@ namespace Scripts.Monster
             if (Target is not Player player || player.IsDead) { SetIdle(); return; }
             Vector2 current = FootPosition, target = player.VfxFootPosition;
             Vector2 destination = IsRangedAttack ? target : CombatMotion.Approach(current, target, AttackRadius, Mathf.Abs(GetInstanceID()));
+            if (_retreatAfterAttack)
+            {
+                if (IsRetreating)
+                {
+                    var threat = NearestRetreatThreat();
+                    Vector2 away = threat != null ? current - (Vector2)threat.VfxFootPosition : Vector2.zero;
+                    if (threat != null && away.sqrMagnitude < .001f) away = FacingDir > 0 ? Vector2.left : Vector2.right;
+                    destination = ClampCombatPosition(current + away.normalized * .85f);
+                    if (threat == null || (destination - current).sqrMagnitude <= .005f) EndRetreat();
+                }
+                if (!IsRetreating)
+                {
+                    Vector2 away = current - target;
+                    if (away.sqrMagnitude < .001f) away = FacingDir > 0 ? Vector2.left : Vector2.right;
+                    // Align the tongue horizontally; thrown bombs approach only to a comfortable casting distance.
+                    float side = Mathf.Abs(away.x) < .06f ? -FacingDir : Mathf.Sign(away.x);
+                    if (_usesTongueAttack)
+                    {
+                        destination = target + new Vector2(side * AttackRadius * .7f, 0);
+                        // A wall can remove the chosen attack lane; approach from the other side instead of crowding it.
+                        if (Mathf.Abs(ClampCombatPosition(destination).x - destination.x) > .01f)
+                            destination = target - new Vector2(side * AttackRadius * .7f, 0);
+                    }
+                    else destination = target + away.normalized * AttackRadius * .8f;
+                    destination = ClampCombatPosition(destination);
+                }
+            }
             if (_monAction != eMonsterAction.Walk) ChangeState(_moveState ??= new MonsterMoveState(this));
             _am.speed = 1;
             SetFlip(target.x - current.x);
@@ -92,7 +127,7 @@ namespace Scripts.Monster
 
         public bool TryBeginAttack()
         {
-            if (_monAI.IsAbort || IsAttackLocked || !CanReachTarget()) return false;
+            if (_monAI.IsAbort || IsAttackLocked || IsRetreating || !CanReachTarget()) return false;
             if (Time.time < _lastAttackTime + AttackInterval) { SetIdle(); return false; }
             _attackTarget = Target as Player;
             _attackTargetGeneration = _attackTarget.LifeGeneration;
@@ -115,7 +150,17 @@ namespace Scripts.Monster
             if (_monAI == null || _monAI.IsAbort) return;
             // Event timing is authoritative; this covers culled animators/missing events.
             if (_pendingImpact && Time.time >= _impactAt + .04f) ResolveAttackImpact();
-            if (_attackEnds > 0 && Time.time >= _attackEnds) { _attackEnds = 0; SetIdle(); }
+            if (_retreatUntil > 0 && !IsRetreating) EndRetreat();
+            if (_attackEnds > 0 && Time.time >= _attackEnds)
+            {
+                _attackEnds = 0; SetIdle();
+                var threat = _retreatAfterAttack ? NearestRetreatThreat() : null;
+                if (threat != null)
+                {
+                    _retreatStarted = Time.time; _retreatUntil = Time.time + .7f;
+                    CombatDiagnostics.Record("monster-retreat-start", this, threat);
+                }
+            }
         }
 
         public void ResolveAttackImpact()
@@ -129,7 +174,18 @@ namespace Scripts.Monster
                 CombatDiagnostics.Record("monster-summon", this, _attackTarget, AttackInterval);
                 CombatAudio.Play(_attackSound, KingdomIdle.UGUI.SoundChannel.Monsters, transform.position);
             }
-            else if (IsRangedAttack)
+            else if (_usesTongueAttack)
+            {
+                Vector2 delta = _attackTarget.VfxFootPosition - FootPosition;
+                bool hit = delta.x * FacingDir >= -.1f && Mathf.Abs(delta.x) <= AttackRadius + .1f && Mathf.Abs(delta.y) <= TongueLane + .08f;
+                CombatDiagnostics.Record(hit ? "monster-tongue-hit" : "monster-tongue-miss", this, _attackTarget, AttackInterval);
+                if (hit)
+                {
+                    CombatAudio.Play(_attackSound, KingdomIdle.UGUI.SoundChannel.Monsters, transform.position);
+                    _attackTarget.TakeDamage(this);
+                }
+            }
+            else if (_projectilePrefab != null)
             {
                 Vector3 muzzle = transform.position + new Vector3(FacingDir * .25f, Mathf.Max(.3f, _bodyHeight * .6f), 0);
                 MonsterProjectile.Launch(_projectilePrefab, this, _attackTarget, muzzle, _projectileSpeed, _projectileArc, _projectileAngle);
@@ -146,8 +202,31 @@ namespace Scripts.Monster
             else CombatDiagnostics.Record("monster-melee-miss",this,_attackTarget,AttackInterval);
         }
 
+        private Player NearestRetreatThreat()
+        {
+            Player nearest = null;
+            float distance = AttackRadius * AttackRadius * .75f * .75f;
+            foreach (var player in CombatMotion.Players)
+            {
+                if (player == null || !player.isActiveAndEnabled || player.IsDead) continue;
+                float candidate = (player.VfxFootPosition - FootPosition).sqrMagnitude;
+                if (candidate < distance) { distance = candidate; nearest = player; }
+            }
+            return nearest;
+        }
+
+        private void EndRetreat()
+        {
+            if (_retreatUntil > 0) CombatDiagnostics.Record("monster-retreat-end", this, null, Time.time - _retreatStarted);
+            _retreatUntil = 0;
+        }
+
+        private Vector2 ClampCombatPosition(Vector2 point) => _retreatAfterAttack || _usesTongueAttack ?
+            CombatMotion.ClampActor(point, BodyRadius, Mathf.Abs(HeadPosition.y - FootPosition.y)) : CombatMotion.Clamp(point);
+
         private void CancelAttack()
         {
+            EndRetreat();
             _pendingImpact = false; _attackTarget = null; _attackEnds = 0;
             if (_am != null) _am.speed = 1;
         }
@@ -161,10 +240,18 @@ namespace Scripts.Monster
 
         private void LateUpdate()
         {
-            if (_monAction == eMonsterAction.Dead || IsAttackLocked) return;
-            Vector2 feet = FootPosition;
-            Vector2 delta = CombatMotion.Clamp(feet + CombatMotion.Separate(transform, BodyRadius, .8f)) - feet;
-            transform.position += new Vector3(delta.x, delta.y, 0);
+            if (_monAction != eMonsterAction.Dead)
+            {
+                Vector2 feet = FootPosition;
+                Vector2 separation = IsAttackLocked ? Vector2.zero : CombatMotion.Separate(transform, BodyRadius, .8f);
+                // Opt-in ranged actors keep their entire body on screen, including during an attack.
+                if (!IsAttackLocked || _retreatAfterAttack || _usesTongueAttack)
+                {
+                    Vector2 delta = ClampCombatPosition(feet + separation) - feet;
+                    transform.position += new Vector3(delta.x, delta.y, 0);
+                }
+            }
+            CombatVfxOrder.ApplyBody(_bodyRenderer, FootPosition.y, false);
         }
     }
 }

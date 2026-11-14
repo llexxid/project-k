@@ -69,7 +69,7 @@ namespace KingdomIdle.UGUI
             bool valid=(long)selected<=(long)frontier && exists && selectedDefinition.Enabled;
             string enemies=exists ? string.Join(" · ", selectedDefinition.MonsterEntries.Select(entry =>
                 StageCatalogRules.Database.CatalogMonsters.FirstOrDefault(info => info.Id==entry.MonsterType).DisplayName).Where(name=>!string.IsNullOrEmpty(name)).Distinct()) : "";
-            _view.details.text=$"스테이지 {_chapter}-{_wave} · {(manager.IsCycleStageCleared(selected)?"클리어":valid?"도전 가능":"잠금")}\n등장 적  {enemies}\n보상  골드 · EXP · 장비";
+            _view.details.text=$"스테이지 {_chapter}-{_wave} · {(manager.IsCycleStageCleared(selected)?"클리어":valid?"도전 가능":"잠금")}\n등장 적  {enemies}\n처치 보상  골드 · EXP";
             _view.frontierLabel.text=$"최고 스테이지 도전\n({StageParser.GetStageNumber(frontier)}-{StageParser.GetWaveNumber(frontier)})";
             _view.travelLabel.text=$"{_chapter}-{_wave}스테이지 이동";
             bool running=manager.CurrentRunState==eStageRunState.Running;

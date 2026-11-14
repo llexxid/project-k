@@ -70,8 +70,6 @@ namespace KingdomIdle.UGUI
             }
 
             // 버튼/토글 바인딩
-            if (_view.btnLoopIcon != null)
-                _view.btnLoopIcon.onClick.AddListener(OnLoopIconClicked);
             if (_view.btnStageAction != null)
                 _view.btnStageAction.onClick.AddListener(OnStageActionClicked);
 
@@ -90,8 +88,6 @@ namespace KingdomIdle.UGUI
             // 초기 상태
             SetHidden(_view.bossTimerBar, !_sm.IsBossWave);
             SetHidden(_view.deathPopup, true);
-            HandleLoopModeChanged(_sm.IsLoopMode);
-
             UpdateStageLabel(_sm.CurrentStageNumber, _sm.CurrentWaveNumber, _sm.IsBossWave);
         }
 
@@ -117,7 +113,6 @@ namespace KingdomIdle.UGUI
             _returnHome = null;
             if (_view != null)
             {
-                if (_view.btnLoopIcon != null) _view.btnLoopIcon.onClick.RemoveListener(OnLoopIconClicked);
                 if (_view.btnStageAction != null) _view.btnStageAction.onClick.RemoveListener(OnStageActionClicked);
                 if (_view.tglBossChain != null) _view.tglBossChain.onValueChanged.RemoveListener(OnBossChainToggled);
                 if (_view.btnDeathYes != null) _view.btnDeathYes.onClick.RemoveListener(OnDeathYes);
@@ -151,11 +146,6 @@ namespace KingdomIdle.UGUI
         }
 
         // ── 버튼 핸들러 ──
-
-        private static void OnLoopIconClicked()
-        {
-            if (_sm != null) _sm.StopLoop();
-        }
 
         private static void OnBossChainToggled(bool value)
         {
@@ -209,10 +199,8 @@ namespace KingdomIdle.UGUI
             UpdateStageLabel(stageNum, wave, isBoss);
         }
 
-        private static void HandleLoopModeChanged(bool isLoop)
+        private static void HandleLoopModeChanged(bool _)
         {
-            if (_view != null && _view.btnLoopIcon != null)
-                _view.btnLoopIcon.gameObject.SetActive(isLoop);
             if (_sm != null) UpdateStageLabel(_sm.CurrentStageNumber, _sm.CurrentWaveNumber, _sm.IsBossWave);
         }
 

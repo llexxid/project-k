@@ -738,12 +738,12 @@ namespace KingdomIdle.UGUI
 
         private void BindMenus()
         {
-            if (_view.btnMenuShop != null)
-                _view.btnMenuShop.onClick.AddListener(() =>
+            if (_view.btnMenuNotice != null)
+                _view.btnMenuNotice.onClick.AddListener(() =>
                 {
                     CloseHamburgerMenuImmediate();
                     if (_currencyOpen) CloseCurrencyPopup();
-                    ShopPopupController.Show();
+                    NoticePopupController.ShowBoard();
                 });
 
             if (_view.btnMenuGuide != null)
@@ -794,9 +794,6 @@ namespace KingdomIdle.UGUI
                     _host.OpenSettings();
                 });
             }
-
-            if (_view.btnMenuNotice != null)
-                _view.btnMenuNotice.gameObject.SetActive(false);
 
             if (_view.btnMenuMail != null)
             {

@@ -14,7 +14,7 @@ namespace KingdomIdle.Combat
         private Player _target;
         private int _ownerGeneration, _targetGeneration;
         private Vector3 _start, _destination;
-        private float _elapsed, _duration, _arc, _angleOffset;
+        private float _elapsed, _duration, _arc, _angleOffset, _spinSpeed;
         private bool _flying;
         public ulong damage { get; private set; }
         public Vector3 attackerPos => transform.position;
@@ -41,7 +41,10 @@ namespace KingdomIdle.Combat
             shot._target = target; shot._targetGeneration = target.LifeGeneration;
             shot.damage = owner.damage;
             shot._start = start; shot._destination = target.transform.position + Vector3.up * .35f;
-            shot._duration = Mathf.Max(.12f, Vector3.Distance(start, shot._destination) / Mathf.Max(1, speed));
+            // shortcut: one authored bomb prefab; use projectile data if bomb variants are added.
+            bool bomb = prefab.name == "GoblinBomb_Flight";
+            shot._duration = Mathf.Max(bomb ? .45f : .12f, Vector3.Distance(start, shot._destination) / Mathf.Max(1, speed));
+            shot._spinSpeed = bomb ? (shot._destination.x >= start.x ? -240f : 240f) : 0f;
             shot._elapsed = 0; shot._arc = arc; shot._angleOffset = angleOffset; shot._flying = true;
             shot.transform.SetPositionAndRotation(start, Quaternion.identity);
             shot.gameObject.SetActive(true);
@@ -60,7 +63,9 @@ namespace KingdomIdle.Combat
             Vector3 next = Vector3.Lerp(_start, _destination, t) + Vector3.up * (_arc * 4 * t * (1 - t));
             Vector3 direction = next - transform.position;
             transform.position = next;
-            if (direction.sqrMagnitude > .00001f)
+            if (_spinSpeed != 0f)
+                transform.rotation = Quaternion.Euler(0, 0, _spinSpeed * _elapsed);
+            else if (direction.sqrMagnitude > .00001f)
                 transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - _angleOffset);
             if (t < 1) return;
             if (Vector2.Distance(_target.transform.position + Vector3.up * .35f, _destination) <= .48f)

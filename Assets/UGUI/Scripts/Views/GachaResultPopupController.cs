@@ -63,12 +63,23 @@ namespace KingdomIdle.UGUI
             merged.Sort(CompareResultEntries);
 
             var popup = _instanceGo;
+            bool isMagePull = table != null && table.gachaType == KingdomIdle.Gacha.eGachaType.Skill;
             bool titleRevealAssigned = false;
             foreach (var m in merged)
             {
                 var card = AddResultCard(host, view, m.entry, m.count, bestRarity);
-                if (card == null || m.entry.rewardType != KingdomIdle.Gacha.eGachaRewardType.Equipment
-                    || m.entry.equipmentData == null) continue;
+                if (card == null) continue;
+                if (isMagePull && m.entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Skill)
+                {
+                    GachaCardReveal.Play(card, 2f, MageSkillPresentation.Accent);
+                    continue;
+                }
+                if (isMagePull && m.entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency)
+                {
+                    GachaCardReveal.Play(card, .55f, UguiTheme.RarityNormal);
+                    continue;
+                }
+                if (m.entry.rewardType != KingdomIdle.Gacha.eGachaRewardType.Equipment || m.entry.equipmentData == null) continue;
 
                 var rarity = m.entry.equipmentData.rarity;
                 System.Action onRevealed = null;

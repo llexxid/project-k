@@ -501,12 +501,6 @@ public class EquipmentManager : MonoBehaviour
         if (--stack.Count == 0) state.LegacyEquipment.Remove(stack);
         return true;
     }
-    public EquipmentSave RollFieldDrop(double probability)
-    {
-        if (UnityEngine.Random.value >= probability) return null;
-        float roll = UnityEngine.Random.value;
-        var items = GetRewardPool(roll < .80f ? eEquipmentRarity.Normal : roll < .98f ? eEquipmentRarity.Rare : eEquipmentRarity.Epic);
-        if (items.Count == 0) return null;
-        return new EquipmentSave { Id = Guid.NewGuid().ToString("N"), Code = items[UnityEngine.Random.Range(0, items.Count)].itemCode };
-    }
+    // 필드 장비 드롭 중단 기간에는 기존 호출도 장비를 지급하지 않는다.
+    public EquipmentSave RollFieldDrop(double probability) => null;
 }

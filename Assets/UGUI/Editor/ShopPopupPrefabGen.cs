@@ -16,7 +16,6 @@ namespace KingdomIdle.UGUI.Editor
     public static class ShopPopupPrefabGen
     {
         public const string PrefabPath = "Assets/UGUI/Prefabs/Popups/Popup_Shop.prefab";
-        const string MainPath = "Assets/UGUI/Prefabs/Screens/Screen_Main.prefab";
         static readonly string Output = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "QA", "ShopValidation"));
         const string PlayCheck = "ShopPopup.DevelopMergeValidation";
         static readonly List<string> PlayChecks = new(), PlayErrors = new(), PlayWarnings = new();
@@ -173,10 +172,10 @@ namespace KingdomIdle.UGUI.Editor
             // The main shell binds its real menu controller; no bootstrap, server or battle manager is created.
             host.ReplaceScreen(KingdomIdle.UI.UIScreenId.Main);
             var main = testUi.GetComponentInChildren<MainScreenView>(true);
-            CheckPlay(main != null && main.btnHamburger != null && main.btnMenuShop != null && main.tabStore != null,
-                "Actual main prefab exposes both the shop tab and existing menu entry");
+            CheckPlay(main != null && main.btnHamburger != null && main.btnMenuNotice != null && main.tabStore != null,
+                "Actual main prefab exposes the notice menu entry and bottom shop tab");
             var mail = main.btnMenuMail; var checkIn = main.btnMenuCheckIn;
-            CheckPlay(mail != null && checkIn != null && mail != main.btnMenuShop && checkIn != main.btnMenuShop &&
+            CheckPlay(mail != null && checkIn != null && mail != main.btnMenuNotice && checkIn != main.btnMenuNotice &&
                 mail.transform.IsChildOf(main.popupHamburger.transform) && checkIn.transform.IsChildOf(main.popupHamburger.transform),
                 "Current mail and check-in entries remain separate buttons in the main menu");
             foreach (var fitter in testUi.GetComponentsInChildren<SafeAreaFitter>(true))
@@ -190,14 +189,16 @@ namespace KingdomIdle.UGUI.Editor
             main.btnHamburger.onClick.Invoke();
             float settle = Time.unscaledTime + .3f;
             while (Time.unscaledTime < settle) yield return null;
-            CheckPlay(main.popupHamburger.activeSelf && main.btnMenuShop.gameObject.activeInHierarchy,
-                "Hamburger input exposes the serialized shop button");
-            main.btnMenuShop.onClick.Invoke();
+            CheckPlay(main.popupHamburger.activeSelf && main.btnMenuNotice.gameObject.activeInHierarchy &&
+                main.popupHamburger.transform.Find("BtnMenuShop") == null && main.popupHamburger.transform.Find("BtnLoopIcon") == null,
+                "Hamburger shows notices and omits shop and repeat-hunt exit");
+            main.btnHamburger.onClick.Invoke();
+            main.tabStore.Button.onClick.Invoke();
             settle = Time.unscaledTime + .4f;
             while (Time.unscaledTime < settle) yield return null;
             var view = CurrentShop();
             CheckPlay(view != null && ShopPopupController.IsOpen && !main.popupHamburger.activeSelf,
-                "Main-menu shop input opens the real shop and dismisses the dropdown");
+                "Bottom shop tab opens the real shop after closing the dropdown");
             CheckPlay(host.HasActiveTabPanel && host.ActiveTabPanelId == KingdomIdle.UI.UIPanelId.Store &&
                 view.transform.parent == host.LayerPanels && view.GetComponent<ModalBackHandler>() == null,
                 "Shop participates in the common tab panel stack without a separate modal");
@@ -234,7 +235,8 @@ namespace KingdomIdle.UGUI.Editor
             CheckPlay(ShopPopupController.IsOpen && CurrentShop() == view && view.pages[1].activeSelf,
                 "Closing a nested shop restores the original bindings and selected category");
             host.RequestBack(); CheckPlay(!ShopPopupController.IsOpen, "Common Android-back route dismisses the shop");
-            OpenFromMenu(main); CurrentShop().backdrop.onClick.Invoke();
+            main.tabStore.Button.onClick.Invoke();
+            CurrentShop().backdrop.onClick.Invoke();
             CheckPlay(!ShopPopupController.IsOpen, "Outside input dismisses the shop");
             settle = Time.unscaledTime + 4;
             while (Time.unscaledTime < settle) yield return null;
@@ -246,10 +248,11 @@ namespace KingdomIdle.UGUI.Editor
                     settle = Time.unscaledTime + .3f;
                     while (Time.unscaledTime < settle) yield return null;
                     Canvas.ForceUpdateCanvases();
-                    foreach (var button in new[] { main.btnMenuShop, mail, checkIn })
+                    foreach (var button in new[] { main.btnMenuNotice, mail, checkIn })
                         RequireInside((RectTransform)testUi.transform, (RectTransform)button.transform, "Menu entry " + button.name + " at " + size);
                     surface.Save("menu-" + size.x + "x" + size.y);
-                    main.btnMenuShop.onClick.Invoke();
+                    main.btnHamburger.onClick.Invoke();
+                    main.tabStore.Button.onClick.Invoke();
                     settle = Time.unscaledTime + .4f;
                     while (Time.unscaledTime < settle) yield return null;
                     view = CurrentShop();
@@ -277,12 +280,6 @@ namespace KingdomIdle.UGUI.Editor
             CheckPlay(before == Newtonsoft.Json.JsonConvert.SerializeObject(LocalProgression.State),
                 "Menu navigation, preview actions and capture leave the complete isolated account unchanged");
             CheckPlay(PlayErrors.Count == 0, "No runtime errors, assertions or exceptions were observed");
-        }
-
-        static void OpenFromMenu(MainScreenView main)
-        {
-            main.btnHamburger.onClick.Invoke();
-            main.btnMenuShop.onClick.Invoke();
         }
 
         static ShopPopupView CurrentShop() => Object.FindObjectsByType<ShopPopupView>(FindObjectsSortMode.None)
@@ -389,26 +386,8 @@ namespace KingdomIdle.UGUI.Editor
         {
             var catalog = PrefabGenUtil.GetOrCreateCatalog();
             catalog.popupShop = Generate();
-            var main = PrefabUtility.LoadPrefabContents(MainPath);
-            try { WireMain(main.GetComponent<MainScreenView>()); PrefabUtility.SaveAsPrefabAsset(main, MainPath); }
-            finally { PrefabUtility.UnloadPrefabContents(main); }
             EditorUtility.SetDirty(catalog); AssetDatabase.SaveAssets();
             Validate();
-        }
-
-        internal static void WireMain(MainScreenView main)
-        {
-            if (main.btnMenuShop == null)
-            {
-                var copy = Object.Instantiate(main.btnMenuInventory.gameObject, main.popupHamburgerRect, false);
-                copy.name = "BtnMenuShop"; main.btnMenuShop = copy.GetComponent<Button>();
-            }
-            main.btnMenuShop.gameObject.SetActive(true);
-            main.btnMenuShop.transform.SetSiblingIndex(main.btnMenuInventory.transform.GetSiblingIndex() + 1);
-            var label = main.btnMenuShop.transform.Find("MenuLabel")?.GetComponent<TMP_Text>();
-            if (label != null) label.text = "상점";
-            var icon = main.btnMenuShop.transform.Find("Icon")?.GetComponent<Image>();
-            if (icon != null) icon.sprite = AssetDatabase.LoadAssetAtPath<UIViewCatalog>(PrefabGenUtil.CatalogPath).iconAncientCoin;
         }
 
         internal static GameObject Generate()
@@ -455,9 +434,10 @@ namespace KingdomIdle.UGUI.Editor
             if (shop.offers.Any(x => ShopCatalog.Find(x.offerId) == null || x.action == null || x.price == null) || shop.offers.Select(x => x.offerId).Distinct().Count() != shop.offers.Length)
                 throw new InvalidOperationException("Shop has missing/duplicate IDs or buttons.");
             var main = catalog.screenMain.GetComponent<MainScreenView>();
-            if (main.btnMenuShop == null || main.btnMenuMail == null || main.btnMenuCheckIn == null ||
-                main.btnMenuShop == main.btnMenuMail || main.btnMenuShop == main.btnMenuCheckIn)
-                throw new InvalidOperationException("Missing shop entry or preserved mail/check-in menu reference.");
+            if (main.tabStore == null || main.popupHamburger == null || main.btnMenuNotice == null || main.btnMenuMail == null || main.btnMenuCheckIn == null ||
+                main.btnMenuNotice == main.btnMenuMail || main.btnMenuNotice == main.btnMenuCheckIn ||
+                main.popupHamburger.transform.Find("BtnMenuShop") != null || main.popupHamburger.transform.Find("BtnLoopIcon") != null)
+                throw new InvalidOperationException("Missing bottom shop tab or incorrect hamburger menu wiring.");
             int references = 0;
             foreach (var asset in new[] { catalog.popupShop, catalog.screenMain })
                 foreach (var component in asset.GetComponentsInChildren<Component>(true))

@@ -6,6 +6,7 @@ using Scripts.Core;
 using Scripts.Monster;
 using UnityEditor;
 using UnityEditor.Animations;
+using UnityEditor.U2D.Sprites;
 using UnityEngine;
 
 namespace KingdomIdle.EditorTools
@@ -146,6 +147,7 @@ namespace KingdomIdle.EditorTools
 
         private static void PrepareMonster(string path)
         {
+            if (path.EndsWith("/HeresyMimic.prefab", StringComparison.Ordinal)) PrepareMimicTongue();
             var root = PrefabUtility.LoadPrefabContents(path);
             try
             {
@@ -154,6 +156,13 @@ namespace KingdomIdle.EditorTools
                 if (animator.GetComponent<MonsterAttackCue>() == null) animator.gameObject.AddComponent<MonsterAttackCue>();
                 animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
                 string name = root.name;
+                bool tongue = name == "HeresyMimic";
+                if (tongue)
+                {
+                    var body = root.GetComponentInChildren<SpriteRenderer>();
+                    body.flipX = true; // Authored mimic sheets face left; the combat root expects right.
+                    body.color = new Color(.92f, .80f, .66f, 1f);
+                }
                 // Absolute authored scale: repeated preparation must not keep shrinking them.
                 if (path.Contains("/Mimics/")) root.transform.localScale = Vector3.one * .9f;
                 string projectile = name switch
@@ -170,7 +179,11 @@ namespace KingdomIdle.EditorTools
                 float reach = name.Contains("Taskmaster") ? 1.35f : name.Contains("Brute") ? 1.18f : name.Contains("King") || name == "BANDIT_KING" ? 1.15f : .83f;
                 bool shaman = name == "GoblinShaman" || name == "OrcShaman";
                 if (projectile != null || shaman) reach = 3.1f;
+                if (tongue) reach = 2.4f;
+                if (name == "GoblinBomber") reach = 4f;
                 var serialized = new SerializedObject(mon);
+                serialized.FindProperty("_usesTongueAttack").boolValue = tongue;
+                serialized.FindProperty("_retreatAfterAttack").boolValue = tongue || name == "GoblinBomber";
                 serialized.FindProperty("_attackRadius").floatValue = reach;
                 serialized.FindProperty("_attackSound").enumValueIndex=(int)(name.Contains("Taskmaster")?CombatSoundCue.Whip:
                     name.Contains("Shaman") || name.Contains("Warlock")?CombatSoundCue.Magic:projectile!=null?CombatSoundCue.Throw:
@@ -181,8 +194,8 @@ namespace KingdomIdle.EditorTools
                     AssetDatabase.LoadAssetAtPath<ShamanTotemStrike>($"Assets/_Project/Prefabs/VFX/Prepared/{(name == "GoblinShaman" ? "Goblins" : "Orcs")}/{name}/Totems/TotemStrike.prefab") : null;
                 float impact = name == "OrcHunter" ? 4f / 7f : name == "GoblinBomber" ? .4f : name == "GoblinShaman" ? 3f / 6f : name == "OrcShaman" ? 2f / 5f : .5f;
                 serialized.FindProperty("_impactNormalized").floatValue = impact;
-                serialized.FindProperty("_projectileSpeed").floatValue = name == "OrcHunter" ? 5f : 4.3f;
-                serialized.FindProperty("_projectileArc").floatValue = name == "GoblinKing" || name == "GoblinBomber" || name == "OrcKid" ? .4f : name == "OrcHunter" ? .08f : 0;
+                serialized.FindProperty("_projectileSpeed").floatValue = name == "GoblinBomber" ? 3f : name == "OrcHunter" ? 5f : 4.3f;
+                serialized.FindProperty("_projectileArc").floatValue = name == "GoblinBomber" ? .6f : name == "GoblinKing" || name == "OrcKid" ? .4f : name == "OrcHunter" ? .08f : 0;
                 serialized.ApplyModifiedPropertiesWithoutUndo();
                 var controller = animator.runtimeAnimatorController as AnimatorController;
                 if (controller != null)
@@ -191,6 +204,8 @@ namespace KingdomIdle.EditorTools
                     if (state != null)
                     {
                         state.name = "Attack";
+                        if (tongue)
+                            state.motion = AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/_Project/Art/Animations/Mimics/HeresyMimic/Prepared/AttackTongue/AttackTongue.anim");
                         if (name == "OrcHunter")
                             state.motion = AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/_Project/Art/Animations/Orcs/OrcHunter/Prepared/OrcHunterSpriteSheet/Attack2.anim");
                         if (name == "GoblinBomber")
@@ -231,7 +246,7 @@ namespace KingdomIdle.EditorTools
             try
             {
                 var renderer = root.GetComponent<SpriteRenderer>();
-                renderer.sortingLayerName = "CombatVFX"; renderer.sortingOrder = CombatVfxOrder.Impact;
+                renderer.sortingLayerName = "Default"; renderer.sortingOrder = CombatVfxOrder.Summon;
                 var serialized = new SerializedObject(root.GetComponent<ShamanTotemStrike>());
                 foreach (var pair in new[] { ("emerge", "TotemAppear"), ("idle", "TotemIdle"), ("crumble", "TotemDead") })
                 {
@@ -245,6 +260,28 @@ namespace KingdomIdle.EditorTools
                 PrefabUtility.SaveAsPrefabAsset(root, $"Assets/_Project/Prefabs/VFX/Prepared/{race}/{name}/Totems/TotemStrike.prefab");
             }
             finally { UnityEngine.Object.DestroyImmediate(root); }
+        }
+
+        private static void PrepareMimicTongue()
+        {
+            const string path = "Assets/_Project/Art/Sprites/Mimics/HeresyMimic/Attack_Tongue.png";
+            // Keep the chest's feet stationary while the authored tongue extends across its 102px cell.
+            float[] feet = { 51.5f, 51, 51, 51, 56, 80.5f, 86.5f, 79, 71.5f, 62, 52, 50.5f };
+            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+            var factories = new SpriteDataProviderFactories(); factories.Init();
+            var provider = factories.GetSpriteEditorDataProviderFromObject(importer);
+            provider.InitSpriteEditorDataProvider();
+            var frames = provider.GetSpriteRects();
+            bool changed = false;
+            for (int i = 0; i < feet.Length; i++)
+            {
+                var frame = frames.First(f => f.name == $"AttackTongue_{i:000}");
+                Vector2 pivot = new(feet[i] / 102f, 0);
+                if (frame.alignment == SpriteAlignment.Custom && frame.pivot == pivot) continue;
+                frame.alignment = SpriteAlignment.Custom; frame.pivot = pivot; changed = true;
+            }
+            if (!changed) return;
+            provider.SetSpriteRects(frames); provider.Apply(); importer.SaveAndReimport();
         }
     }
 }
