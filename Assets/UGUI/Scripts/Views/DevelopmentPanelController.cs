@@ -147,12 +147,13 @@ namespace KingdomIdle.UGUI
                 if (card.View == null || mgr == null) continue;
                 card.View.Set(StatEnhanceManager.GetTypeName(card.Type), $"Lv. {mgr.GetLevel(card.Type):N0}",
                     $"전체 왕국군 ×{BalanceMath.GoldMultiplier(mgr.GetLevel(card.Type)):0.###}");
+                string unavailableCost = mgr.GetLevel(card.Type) >= BalanceMath.GoldCap ? "강화 한도" : "골드 부족";
                 for (int i = 0; i < card.Buttons.Count; i++)
                 {
                     int count = PullCounts[i]; long cost = mgr.GetCost(card.Type, count);
                     int actual = count < 0 ? BalanceMath.AffordableGoldLevels(mgr.GetLevel(card.Type), gold) : System.Math.Min(count,300-mgr.GetLevel(card.Type));
                     card.Buttons[i].Set(mgr.IsEnhancing ? "강화 처리 중…" : (count < 0 ? $"최대 {actual}회" : $"{actual}회 강화"),
-                        cost < 0 ? "강화 한도" : $"{NumberNotation.Format(cost)} 골드",
+                        cost < 0 ? unavailableCost : $"{NumberNotation.Format(cost)} 골드",
                         !mgr.IsEnhancing && cost >= 0 && actual > 0 && gold >= cost);
                 }
             }
