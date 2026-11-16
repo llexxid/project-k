@@ -391,7 +391,7 @@ namespace KingdomIdle.UGUI
         }
 
         // ── 이징 ─────────────────────────────────────────────────────
-        private static float EaseOutCubic(float x) => 1f - Mathf.Pow(1f - x, 3f);
+        internal static float EaseOutCubic(float x) => 1f - Mathf.Pow(1f - x, 3f);
 
         private static float EaseOutBack(float x)
         {

@@ -43,9 +43,10 @@ namespace KingdomIdle.UGUI.Editor
                         feed.rows[i].border.color.a == LootFeedView.BorderOpacity && feed.rows[i].quantity.text == "+" + (i + 1),
                         "Actual catalog name/icon/quantity and thin rarity border " + fixture.Items[i].rarity);
 
+                feed.Tick(.2f, false);
                 int binds = feed.BindCount, placements = feed.PlacementWrites;
                 foreach (var row in feed.rows) row.rect.hasChanged = false;
-                for (int i = 1; i <= 100; i++) feed.Tick(i * .001f, false);
+                for (int i = 1; i <= 100; i++) feed.Tick(.2f + i * .001f, false);
                 Check(feed.BindCount == binds && feed.PlacementWrites == placements && feed.rows.All(r => !r.rect.hasChanged),
                     "100 stable frames do not rebind text, write placement, rebuild layout or allocate rows");
                 var elapsed = feed.rows.Select(r => r.elapsed).ToArray();
@@ -133,6 +134,7 @@ namespace KingdomIdle.UGUI.Editor
                 Check(feed.VisibleCount == 0 && LootNotifications.Count == 0, "Re-enabling has no retroactive hidden rewards");
                 LootNotifications.Publish(Currency(eCurrency.Ruby, 9)); feed.Tick(31.01f, false);
                 feed.gameObject.SetActive(false); feed.gameObject.SetActive(true); feed.Tick(32f, false);
+                feed.Tick(32.2f, false);
                 Check(feed.VisibleCount == 1 && feed.group.alpha == 1f && feed.rows[0].group.alpha == 1f,
                     "Reactivation restores row visibility and unscaled lifetime");
                 feed.Unbind(); Check(feed.VisibleCount == 0 && LootNotifications.Count == 0, "Main-screen disposal drops pending display only");
@@ -189,20 +191,21 @@ namespace KingdomIdle.UGUI.Editor
                 feed.Tick(0, false);
                 var ruby = feed.rows.Single(row => row.notification.Currency == eCurrency.Ruby);
                 int binds = feed.BindCount;
-                LootNotifications.Publish(Currency(eCurrency.TrainingTome, 9));
                 for (int i = 0; i < 1000; i++) LootNotifications.Publish(Currency(eCurrency.Ruby, 1));
                 feed.Tick(1, false);
-                Check(ruby.notification.Amount == 1003 && ruby.quantity.text == "+" + NumberNotation.Format(1003),
-                    "A burst merges its exact amount into the visible row");
-                Check(feed.VisibleCount == 3 && feed.BindCount == binds && LootNotifications.Count == 1,
-                    "Full rows merge matching loot without consuming a different queued kind or rebinding icons");
-                for (int i = 1; i <= 30; i++)
-                { LootNotifications.Publish(Currency(eCurrency.Ruby, 1)); feed.Tick(1 + i * .05f, false); }
-                Check(ruby.holdSeconds <= LootFeedView.MaxHoldSeconds && ruby.elapsed >= 2.49f,
+                Check(ruby.notification.Amount == 1003 && ruby.phase == LootFeedView.MotionPhase.RefreshOut,
+                    "A burst merges its exact amount and starts visible refresh motion");
+                feed.Tick(1.11f, false); feed.Tick(1.25f, false);
+                Check(feed.VisibleCount == 3 && feed.BindCount == binds && LootNotifications.Count == 0 &&
+                    ruby.quantity.text == "+" + NumberNotation.Format(1003),
+                    "Full rows reveal the exact merged quantity without rebinding icons");
+                for (int i = 1; i <= 28; i++)
+                { LootNotifications.Publish(Currency(eCurrency.Ruby, 1)); feed.Tick(1.25f + i * .03f, false); }
+                Check(ruby.holdSeconds <= LootFeedView.MaxHoldSeconds && ruby.elapsed >= 2.08f,
                     "Continuous acquisition never resets age or extends hold beyond 2.8 seconds");
                 feed.Tick(3.1f, false);
                 Check(!ruby.occupied, "Even a repeatedly merged notification expires so queued kinds can advance");
-                Check(feed.rows.All(row => row.rect.GetComponent<Image>().color.a > .4f && row.rect.GetComponent<Image>().color.a < .7f) &&
+                Check(feed.rows.All(row => row.visual.GetComponent<Image>().color.a > .4f && row.visual.GetComponent<Image>().color.a < .7f) &&
                     feed.rows.All(row => row.quantity.color.a >= .9f && row.icon.rectTransform.rect.width == 32f),
                     "Translucent row backgrounds preserve readable quantities and small identifiable icons");
                 feed.OnAccountChanged(); LootNotifications.ClearPending();
@@ -243,6 +246,7 @@ namespace KingdomIdle.UGUI.Editor
                     LootNotifications.Publish(Equipment(fixture.Items[2], 1, EquipmentDisposition.Mail));
                     LootNotifications.Publish(new LootNotification(LootNotificationKind.MageSkill, 0, fixture.Skill.id, 30, isFragment: true));
                     feed.Tick(100f, false);
+                    feed.Tick(100.25f, false);
                     Check(feed.RefreshPlacement() && feed.AvailableSlots > 0 &&
                         ((RectTransform)feed.transform).anchoredPosition.x >= 0,
                         "Actual HUD placement preserves the simulated viewport: " + spec.name);
@@ -292,7 +296,7 @@ namespace KingdomIdle.UGUI.Editor
                 fixture.Feed.Tick(Time.unscaledTime, false);
                 if (fixture.Feed.VisibleCount != 0) throw new InvalidOperationException("Feed lifetime must expire at timeScale=0.");
                 completed?.Invoke(new Dictionary<string, object> { ["passed"] = 1, ["unscaled_seconds"] = Time.unscaledTime - start,
-                    ["check"] = "Real UITween fade and hold expire at timeScale=0 using yield-null updates." });
+                    ["check"] = "Shared UITween easing, entry and upward fade phases expire at timeScale=0 using yield-null updates." });
             }
             finally { Time.timeScale = timeScale; fixture?.Dispose(); }
         }
@@ -357,7 +361,7 @@ namespace KingdomIdle.UGUI.Editor
         private static LootNotification Equipment(EquipmentData data, long amount, EquipmentDisposition disposition = EquipmentDisposition.Inventory) =>
             new(LootNotificationKind.Equipment, 0, data.itemCode, amount, disposition);
 
-        private sealed class Fixture : IDisposable
+        internal sealed class Fixture : IDisposable
         {
             private static readonly string[] Keys = { LootNotificationSettings.CurrencyMaskKey, LootNotificationSettings.EquipmentMaskKey,
                 LootNotificationSettings.MageSkillsKey, UIManager.PrefKeyHideItem, GamePresentationSettings.LowSpecKey, "title_ambientMotion" };

@@ -122,6 +122,7 @@ namespace KingdomIdle.UGUI.Editor
                         if (compactLoot)
                         {
                             SaveSimulationReport("loot-feed-regression", RunLootChecks());
+                            SaveSimulationReport("loot-feed-motion", LootFeedMotionAcceptance.Run());
                             SaveSimulationReport("loot-feed-simulation", LootFeedAcceptance.RunSimulation(SessionState.GetString(OutputKey, "")));
                             _lootLifetime = LootFeedAcceptance.VerifyUnscaledLifetime(report => SaveSimulationReport("loot-feed-lifetime", report));
                             Routines.Push(_lootLifetime);

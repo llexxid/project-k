@@ -13,19 +13,26 @@ namespace KingdomIdle.UGUI
     public sealed class LootFeedView : MonoBehaviour
     {
         public const int Capacity = 3;
-        public const float HoldSeconds = 2.2f, FadeSeconds = .15f, RowHeight = 50f, RowGap = 4f;
+        public const float HoldSeconds = 2.2f, FadeSeconds = .20f, RowHeight = 50f, RowGap = 4f;
         public const float WidthRatio = .348f, MaxHoldSeconds = 2.8f, BorderOpacity = .32f;
+        internal const float EnterSeconds = .14f, RefreshOutSeconds = .10f, RefreshInSeconds = .12f, MinimumReadSeconds = 1f;
+        internal enum MotionPhase { Entering, Holding, RefreshOut, RefreshIn, Exiting }
 
         [Serializable]
         public sealed class Row
         {
             public RectTransform rect;
+            public RectTransform visual;
             public CanvasGroup group;
             public Image icon, border;
             public TMP_Text name, quantity, state;
             [NonSerialized] internal LootNotification notification;
             [NonSerialized] internal float elapsed, holdSeconds;
             [NonSerialized] internal bool occupied, fading;
+            [NonSerialized] internal MotionPhase phase;
+            [NonSerialized] internal float phaseTime, enterDelay, nextRefreshAge, readUntilAge, exitAlpha, exitY;
+            [NonSerialized] internal bool refreshPending, layoutReady;
+            [NonSerialized] internal float layoutFrom, layoutTarget, layoutTime;
         }
 
         public CanvasGroup group;
@@ -92,7 +99,7 @@ namespace KingdomIdle.UGUI
 
         private void OnDestroy() => Unbind();
         private void OnEnable() { _lastTime = -1f; }
-        private void OnDisable() { foreach (var row in rows) if (row != null) StopFade(row); _lastTime = -1f; }
+        private void OnDisable() { _lastTime = -1f; }
         private void LateUpdate() { if (_bound) Tick(Time.unscaledTime); }
 
         internal void Tick(float now, bool? blockedOverride = null)
@@ -106,11 +113,7 @@ namespace KingdomIdle.UGUI
             if (!blocked) blocked = !RefreshPlacement();
             // 직전 프레임이 가려졌으면 복귀까지의 긴 간격은 읽을 수 없었던 시간이다.
             if (_blocked) delta = 0f;
-            if (blocked != _blocked)
-            {
-                foreach (var row in rows) StopFade(row);
-                _blocked = blocked;
-            }
+            _blocked = blocked;
             float alpha = blocked ? 0f : 1f;
             if (group.alpha != alpha) group.alpha = alpha;
             if (blocked) return;
@@ -119,31 +122,34 @@ namespace KingdomIdle.UGUI
             {
                 if (!row.occupied) continue;
                 // 배치 갱신으로 다시 나타나는 행은 숨겨진 동안의 시간을 차감하지 않는다.
-                if (position++ < _slots && row.rect.gameObject.activeSelf) row.elapsed += delta;
+                if (position++ < _slots && row.rect.gameObject.activeSelf) Advance(row, delta);
             }
             CompactRows();
-            foreach (var row in rows)
-            {
-                if (!row.occupied || !row.rect.gameObject.activeSelf) continue;
-                if (row.elapsed >= row.holdSeconds + FadeSeconds) { ClearRow(row); continue; }
-                if (row.elapsed >= row.holdSeconds && !row.fading)
-                {
-                    row.fading = true;
-                    UITween.ValueTo(row.group, row.group.alpha, 0f, row.holdSeconds + FadeSeconds - row.elapsed,
-                        value => row.group.alpha = value);
-                }
-            }
             // 대량 획득은 같은 표시 행의 수량만 갱신한다. 서로 다른 대기 항목의 순서와 만료는 큐가 보존한다.
             if (LootNotifications.Count > 0)
                 foreach (var row in rows)
                 {
-                    if (!row.occupied || !row.rect.gameObject.activeSelf || row.fading || !Allows(row.notification)) continue;
+                    if (!row.occupied || !row.rect.gameObject.activeSelf || row.fading ||
+                        row.elapsed > MaxHoldSeconds - .65f || !Allows(row.notification)) continue;
                     if (!LootNotifications.TryTakeMatching(row.notification, out var incoming)) continue;
                     row.notification.Amount += incoming.Amount;
-                    row.quantity.text = "+" + NumberNotation.Format(row.notification.Amount);
+                    if (row.phase == MotionPhase.Entering) SetQuantity(row);
+                    else if (row.phase != MotionPhase.RefreshOut) row.refreshPending = true;
                     // 늦은 수량 갱신은 잠깐 더 읽게 하되 반복 획득이 한 행을 영구 점유하지 않게 한다.
                     row.holdSeconds = Mathf.Min(MaxHoldSeconds, Mathf.Max(row.holdSeconds, row.elapsed + .65f));
+                    row.readUntilAge = Mathf.Min(MaxHoldSeconds, Mathf.Max(row.readUntilAge, row.elapsed + .65f));
+                    StartRefreshIfReady(row);
                 }
+            // 새 종류가 기다리면 충분히 읽은 한 행만 먼저 퇴장시킨다. 슬롯이 비기 전에는 큐를 소비하지 않는다.
+            if (LootNotifications.Count > 0)
+            {
+                bool full = true, exiting = false;
+                for (int i = 0; i < _slots; i++) { full &= rows[i].occupied; exiting |= rows[i].fading; }
+                if (full && !exiting)
+                    for (int i = 0; i < _slots; i++)
+                        if (rows[i].phase == MotionPhase.Holding && rows[i].elapsed >= rows[i].readUntilAge)
+                        { BeginExit(rows[i], 0f); break; }
+            }
             CompactRows();
             for (int i = 0; i < _slots; i++)
             {
@@ -154,6 +160,78 @@ namespace KingdomIdle.UGUI
                     Present(rows[i], item); break;
                 }
             }
+            foreach (var row in rows)
+                if (row.occupied && row.rect.gameObject.activeSelf) RenderMotion(row, delta);
+        }
+
+        private static void SetQuantity(Row row)
+        {
+            string text = "+" + NumberNotation.Format(row.notification.Amount);
+            if (row.quantity.text != text) row.quantity.text = text;
+        }
+
+        private static void StartRefreshIfReady(Row row)
+        {
+            if (!row.refreshPending || row.phase != MotionPhase.Holding || row.elapsed < row.nextRefreshAge) return;
+            row.refreshPending = false; row.phase = MotionPhase.RefreshOut; row.phaseTime = 0f;
+            row.nextRefreshAge = row.elapsed + .30f;
+        }
+
+        private static void BeginExit(Row row, float elapsed)
+        {
+            SetQuantity(row);
+            row.refreshPending = false; row.fading = true; row.phase = MotionPhase.Exiting; row.phaseTime = elapsed;
+            row.exitAlpha = row.group.alpha; row.exitY = row.visual != null ? row.visual.anchoredPosition.y : 0f;
+        }
+
+        private static void Advance(Row row, float delta)
+        {
+            row.elapsed += delta; row.phaseTime += delta;
+            if (!row.fading && row.elapsed >= row.holdSeconds) BeginExit(row, row.elapsed - row.holdSeconds);
+            if (row.fading)
+            {
+                if (row.phaseTime >= FadeSeconds) ClearRow(row);
+                return;
+            }
+            if (row.phase == MotionPhase.Entering && row.phaseTime >= EnterSeconds + row.enterDelay)
+            { row.phase = MotionPhase.Holding; row.phaseTime = 0f; }
+            if (row.phase == MotionPhase.RefreshOut && row.phaseTime >= RefreshOutSeconds)
+            { SetQuantity(row); row.phase = MotionPhase.RefreshIn; row.phaseTime -= RefreshOutSeconds; }
+            if (row.phase == MotionPhase.RefreshIn && row.phaseTime >= RefreshInSeconds)
+            { row.phase = MotionPhase.Holding; row.phaseTime = 0f; }
+            StartRefreshIfReady(row);
+        }
+
+        private static void RenderMotion(Row row, float delta)
+        {
+            // 동일 unscaled clock으로 상태를 진행시켜 메뉴 중단·풀 재사용에 지연 콜백이 남지 않는다.
+            float travel = GamePresentationSettings.LowSpec ? 3f : 8f;
+            float y = 0f, alpha = 1f;
+            switch (row.phase)
+            {
+                case MotionPhase.Entering:
+                    float enter = UITween.EaseOutCubic(Mathf.Clamp01((row.phaseTime - row.enterDelay) / EnterSeconds));
+                    y = Mathf.Lerp(-travel, 0f, enter); alpha = enter; break;
+                case MotionPhase.RefreshOut:
+                    float leave = Mathf.Clamp01(row.phaseTime / RefreshOutSeconds);
+                    y = travel * .75f * leave; alpha = 1f - leave; break;
+                case MotionPhase.RefreshIn:
+                    float refresh = UITween.EaseOutCubic(Mathf.Clamp01(row.phaseTime / RefreshInSeconds));
+                    y = Mathf.Lerp(-travel * .75f, 0f, refresh); alpha = refresh; break;
+                case MotionPhase.Exiting:
+                    float exit = Mathf.Clamp01(row.phaseTime / FadeSeconds);
+                    y = Mathf.Lerp(row.exitY, travel, UITween.EaseOutCubic(exit)); alpha = row.exitAlpha * (1f - exit); break;
+            }
+            if (row.visual != null)
+            {
+                var offset = new Vector2(0f, y);
+                if (row.visual.anchoredPosition != offset) row.visual.anchoredPosition = offset;
+            }
+            if (row.group.alpha != alpha) row.group.alpha = alpha;
+            row.layoutTime = Mathf.Min(.16f, row.layoutTime + delta);
+            var position = new Vector2(0f, Mathf.Lerp(row.layoutFrom, row.layoutTarget,
+                UITween.EaseOutCubic(row.layoutTime / .16f)));
+            if (row.rect.anchoredPosition != position) row.rect.anchoredPosition = position;
         }
 
         private static bool Active(GameObject value) => value != null && value.activeInHierarchy;
@@ -208,10 +286,15 @@ namespace KingdomIdle.UGUI
             {
                 if (!row.occupied) continue;
                 bool visible = position < _slots;
-                if (row.rect.gameObject.activeSelf != visible)
-                { StopFade(row); row.rect.gameObject.SetActive(visible); }
-                var target = new Vector2(0f, -position * (RowHeight + RowGap));
-                if (row.rect.anchoredPosition != target) row.rect.anchoredPosition = target;
+                if (row.rect.gameObject.activeSelf != visible) row.rect.gameObject.SetActive(visible);
+                float target = -position * (RowHeight + RowGap);
+                if (!row.layoutReady)
+                {
+                    row.layoutReady = true; row.layoutFrom = row.layoutTarget = target; row.layoutTime = .16f;
+                    row.rect.anchoredPosition = new Vector2(0f, target);
+                }
+                else if (row.layoutTarget != target)
+                { row.layoutFrom = row.rect.anchoredPosition.y; row.layoutTarget = target; row.layoutTime = 0f; }
                 position++;
             }
         }
@@ -219,6 +302,13 @@ namespace KingdomIdle.UGUI
         private void Present(Row row, LootNotification item)
         {
             row.notification = item; row.elapsed = 0f; row.holdSeconds = HoldSeconds; row.occupied = true; row.fading = false;
+            row.phase = MotionPhase.Entering; row.phaseTime = 0f; row.nextRefreshAge = 0f;
+            row.refreshPending = false; row.layoutReady = false;
+            row.enterDelay = 0f;
+            foreach (var other in rows)
+                if (other != row && other.occupied && other.layoutReady && other.layoutTime < .16f)
+                { row.enterDelay = .16f; break; }
+            row.readUntilAge = MinimumReadSeconds + row.enterDelay;
             Sprite icon = null; string name; Color border = UguiTheme.Bronze;
             switch (item.Kind)
             {
@@ -249,16 +339,18 @@ namespace KingdomIdle.UGUI
             row.name.rectTransform.offsetMax = new Vector2(-142f, subtitle ? 0f : -6f);
             border.a = BorderOpacity;
             row.icon.sprite = icon; row.icon.enabled = icon != null; row.border.color = border;
-            row.group.alpha = 1f; row.rect.gameObject.SetActive(true);
+            row.group.alpha = 0f; row.rect.gameObject.SetActive(true);
             BindCount++;
             CompactRows();
         }
 
-        private static void StopFade(Row row) { if (row.group != null) UITween.StopValue(row.group); row.fading = false; }
         private static void ClearRow(Row row)
         {
             if (row == null) return;
-            StopFade(row); row.occupied = false; row.elapsed = 0f;
+            row.occupied = row.fading = row.refreshPending = row.layoutReady = false;
+            row.elapsed = row.phaseTime = 0f;
+            if (row.group != null) row.group.alpha = 1f;
+            if (row.visual != null) row.visual.anchoredPosition = Vector2.zero;
             if (row.rect != null) row.rect.gameObject.SetActive(false);
         }
         private void OnSettingsChanged()
@@ -268,6 +360,6 @@ namespace KingdomIdle.UGUI
             CompactRows();
         }
         internal void OnAccountChanged() { foreach (var row in rows) ClearRow(row); _lastTime = -1f; }
-        private void RefreshQuantities() { foreach (var row in rows) if (row.occupied) row.quantity.text = "+" + NumberNotation.Format(row.notification.Amount); }
+        private void RefreshQuantities() { foreach (var row in rows) if (row.occupied) SetQuantity(row); }
     }
 }
