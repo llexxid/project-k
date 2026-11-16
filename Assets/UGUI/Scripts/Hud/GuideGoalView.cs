@@ -25,7 +25,7 @@ namespace KingdomIdle.UGUI
         private QuestClaimToken _claimToken;
         private bool _hasClaimToken, _claimable, _claimRequested;
         private Coroutine _connection;
-        private bool _breathing;
+        private bool _breathing, _wasBusy;
         /// <summary>전투 HUD 인스턴스만 던전에서 접는다. 재활성화 시 기존 구독으로 최신 목표를 복원한다.</summary>
         internal void SetStageVisible(bool visible)
         {
@@ -74,6 +74,13 @@ namespace KingdomIdle.UGUI
             _ui = null;
             _hasClaimToken = false;
             _claimable = false;
+            _wasBusy = false;
+        }
+
+        private void Update()
+        {
+            // 일괄 수령은 가이드 내용이 같으면 변경 이벤트가 없다. 입력 잠금의 전환 때만 다시 읽는다.
+            if (_manager != null && _manager.IsBusy != _wasBusy) ReadCurrent();
         }
 
         private void ReadCurrent()
@@ -85,6 +92,7 @@ namespace KingdomIdle.UGUI
         private void Refresh(QuestRuntimeState state, QuestDefinition definition)
         {
             if (definition != null && definition.Category != eQuestCategory.Guide) return;
+            _wasBusy = _manager != null && _manager.IsBusy;
             _state = state;
             _definition = definition;
             _hasClaimToken = false;

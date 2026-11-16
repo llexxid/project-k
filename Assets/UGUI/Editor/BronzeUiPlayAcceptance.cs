@@ -18,6 +18,8 @@ namespace KingdomIdle.UGUI.Editor
         private const string Failed = "BronzeUiPlayAcceptance.Failed";
         private const string ModeKey = "BronzeUiPlayAcceptance.Mode";
         private static System.Collections.IEnumerator _lootLifetime;
+        private static readonly System.Collections.Generic.Stack<System.Collections.IEnumerator> Routines = new();
+        private static CustomYieldInstruction _wait;
         [Serializable] private sealed class Scenes { public SceneSetup[] items; }
 
         static BronzeUiPlayAcceptance() => EditorApplication.playModeStateChanged += OnState;
@@ -38,6 +40,12 @@ namespace KingdomIdle.UGUI.Editor
 
         [MenuItem("KingdomIdle/UGUI/청동 원정대/격리 획득 알림 검사")]
         public static void RunLootFeed() => Start("loot-feed");
+
+        [MenuItem("KingdomIdle/UGUI/청동 원정대/격리 UI 시뮬레이션 검사")]
+        public static void RunUiSimulation() => Start("ui-simulation");
+
+        [MenuItem("KingdomIdle/UGUI/청동 원정대/격리 획득 알림 Game View 미리보기")]
+        public static void RunUiPreview() => Start("ui-preview");
 
         public static void PrepareLootFeed()
         {
@@ -68,10 +76,16 @@ namespace KingdomIdle.UGUI.Editor
                 string.Equals(output.TrimEnd(Path.DirectorySeparatorChar), project.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("QA output must be outside the project.");
             Directory.CreateDirectory(output);
+            if (mode == "ui-preview") File.Delete(Path.Combine(output, "preview-stop.txt"));
             SessionState.SetString(OutputKey, output);
             SessionState.SetString(ModeKey, mode);
             SessionState.SetString(Previous, JsonUtility.ToJson(new Scenes { items = EditorSceneManager.GetSceneManagerSetup() }));
             SessionState.SetBool(Failed, false);
+            if (mode == "ui-simulation")
+            {
+                SaveSimulationReport("common-ui", BronzeUiAcceptance.Run());
+                SaveSimulationReport("equipment-grid", BronzeEquipmentGridAcceptance.Run());
+            }
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             SessionState.SetBool(Active, true);
             EditorApplication.isPlaying = true;
@@ -89,12 +103,31 @@ namespace KingdomIdle.UGUI.Editor
                     bool allRequests = SessionState.GetString(ModeKey, "quest") == "all-request-failure";
                     bool commerceFailure = allRequests || SessionState.GetString(ModeKey, "quest") == "commerce-failure";
                     bool loot = SessionState.GetString(ModeKey, "quest") == "loot-feed";
+                    bool simulation = SessionState.GetString(ModeKey, "quest") == "ui-simulation";
+                    bool preview = SessionState.GetString(ModeKey, "quest") == "ui-preview";
                     bool awaitingLifetime = false;
-                    string filePrefix = loot ? "loot-feed-play" : commerceFailure ? "commerce-failure-recovery-play" : offlineFailure ? "offline-failure-recovery-play" : questFailure ? "quest-failure-recovery-play" : "quest-play";
+                    string filePrefix = preview ? "ui-preview" : simulation ? "ui-simulation" : loot ? "loot-feed-play" : commerceFailure ? "commerce-failure-recovery-play" : offlineFailure ? "offline-failure-recovery-play" : questFailure ? "quest-failure-recovery-play" : "quest-play";
                     try
                     {
                         if (LocalProgression.IsReady)
                             throw new InvalidOperationException("The empty test scene unexpectedly opened a profile.");
+                        if (preview)
+                        {
+                            _lootLifetime = LootFeedAcceptance.Preview(SessionState.GetString(OutputKey, ""));
+                            Routines.Push(_lootLifetime);
+                            EditorApplication.update += TickLootLifetime;
+                            awaitingLifetime = true;
+                            return;
+                        }
+                        if (simulation)
+                        {
+                            RunUiSimulationChecks();
+                            _lootLifetime = RunUiSimulationTiming();
+                            Routines.Push(_lootLifetime);
+                            EditorApplication.update += TickLootLifetime;
+                            awaitingLifetime = true;
+                            return;
+                        }
                         var report = loot ? RunLootChecks() : commerceFailure ? RunCommerceChecks() : offlineFailure ? OfflineRewardAdAcceptance.RunFailureRecovery() :
                             questFailure ? QuestTabAcceptance.RunClaimFailureRecovery() : QuestTabAcceptance.Run();
                         File.WriteAllText(Path.Combine(SessionState.GetString(OutputKey, ""), filePrefix + "-acceptance.json"),
@@ -109,6 +142,7 @@ namespace KingdomIdle.UGUI.Editor
                                     JsonConvert.SerializeObject(lifetime, Formatting.Indented));
                                 Debug.Log("LOOT FEED UNSCALED LIFETIME PASSED " + lifetime["passed"]);
                             });
+                            Routines.Push(_lootLifetime);
                             EditorApplication.update += TickLootLifetime;
                             awaitingLifetime = true;
                         }
@@ -141,7 +175,19 @@ namespace KingdomIdle.UGUI.Editor
 
         private static void TickLootLifetime()
         {
-            try { if (_lootLifetime != null && _lootLifetime.MoveNext()) return; }
+            try
+            {
+                if (_wait != null && _wait.keepWaiting) return;
+                _wait = null;
+                while (Routines.Count > 0)
+                {
+                    var routine = Routines.Peek();
+                    if (!routine.MoveNext()) { (routine as IDisposable)?.Dispose(); Routines.Pop(); continue; }
+                    if (routine.Current is CustomYieldInstruction wait) { _wait = wait; return; }
+                    if (routine.Current is System.Collections.IEnumerator nested) { Routines.Push(nested); continue; }
+                    return;
+                }
+            }
             catch (Exception error)
             {
                 SessionState.SetBool(Failed, true);
@@ -149,9 +195,37 @@ namespace KingdomIdle.UGUI.Editor
                 Debug.LogException(error);
             }
             EditorApplication.update -= TickLootLifetime;
-            (_lootLifetime as IDisposable)?.Dispose();
+            while (Routines.Count > 0) (Routines.Pop() as IDisposable)?.Dispose();
             _lootLifetime = null;
+            _wait = null;
             EditorApplication.isPlaying = false;
+        }
+
+        private static void RunUiSimulationChecks()
+        {
+            string output = SessionState.GetString(OutputKey, "");
+            SaveSimulationReport("async-equipment-ui", AsyncEquipmentUiAcceptance.Run());
+            SaveSimulationReport("equipment-cell-presentation", EquipmentCellPresentationAcceptance.Run());
+            SaveSimulationReport("loot-feed-simulation", LootFeedAcceptance.RunSimulation(output));
+            SaveSimulationReport("equipment-gallery", EquipmentCellPresentationAcceptance.Snapshot(Path.Combine(output, "equipment-cells.png")));
+            SaveSimulationReport("loot-feed-regression", RunLootChecks());
+            SaveSimulationReport("quest-cell-regression", QuestTabAcceptance.Run());
+        }
+
+        private static System.Collections.IEnumerator RunUiSimulationTiming()
+        {
+            yield return SettingsInteractionAcceptance.Run(report => SaveSimulationReport("settings-interaction", report));
+            yield return LootFeedAcceptance.VerifyUnscaledLifetime(report => SaveSimulationReport("loot-feed-lifetime", report));
+        }
+
+        private static void SaveSimulationReport(string name, object report)
+        {
+            File.WriteAllText(Path.Combine(SessionState.GetString(OutputKey, ""), name + ".json"),
+                JsonConvert.SerializeObject(report, Formatting.Indented));
+            var json = Newtonsoft.Json.Linq.JObject.FromObject(report);
+            int failures = (json["failures"] as Newtonsoft.Json.Linq.JArray)?.Count ?? 0;
+            if (failures > 0) SessionState.SetBool(Failed, true);
+            Debug.Log($"UI SIMULATION {name}: passed={json["passed"]}, failures={failures}");
         }
 
         private static System.Collections.Generic.Dictionary<string, object> RunCommerceChecks()

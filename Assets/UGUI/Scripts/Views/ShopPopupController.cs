@@ -132,7 +132,7 @@ namespace KingdomIdle.UGUI
             var host = UIManager.Instance;
             if (host == null || !ShopAdRewardService.IsCurrentAccount(claim)) return;
             // 지급 결과는 상점을 닫았어도 보여 준다(요청 중 닫을 수 있다).
-            if (result.Succeeded) { RewardPopupView.ShowRewards(host.LayerPopups, result.Rewards); return; }
+            if (result.Succeeded) { RewardPopupView.ShowRewards(host.LayerOverlays, result.Rewards); return; }
             if (!IsOpen) return;
             bool retry = _claim != null && _claim.Earned;
             if (message != null) host.ShowToast(retry ? message + " 보상 다시 받기를 눌러 주세요." : message);

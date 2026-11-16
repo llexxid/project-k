@@ -57,7 +57,8 @@ namespace KingdomIdle.UGUI
 
             if (stateLabel != null)
             {
-                if (string.IsNullOrEmpty(state) && dimmed) state = "직업 불일치";
+                if (dimmed && (string.IsNullOrEmpty(state) || !state.Contains("직업 불일치")))
+                    state = string.IsNullOrEmpty(state) ? "직업 불일치" : state + " · 직업 불일치";
                 bool has = !string.IsNullOrEmpty(state);
                 stateLabel.gameObject.SetActive(has);
                 if (has)

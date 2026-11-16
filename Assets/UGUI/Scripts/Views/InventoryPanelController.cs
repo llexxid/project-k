@@ -28,6 +28,7 @@ namespace KingdomIdle.UGUI
         private static List<Player> _players;
         // 열려 있는 상세 페이지의 장비. 서버 요청 완료 뒤 같은 장비(강화 뒤에는 한 단계 오른 사본)를 다시 보여 준다.
         private static string _detailItemId;
+        private static string _pendingEnhanceItemId;
         private static EquipmentManager _equipment;
         private static bool _equipmentDirty;
 
@@ -53,6 +54,7 @@ namespace KingdomIdle.UGUI
         public static void Populate(InventoryPanelView view)
         {
             if (view == null) return;
+            _pendingEnhanceItemId = null;
 
             if (_equipment != null)
             {
@@ -79,6 +81,7 @@ namespace KingdomIdle.UGUI
                     _currencySlots.Clear();
                     _view = null;
                     _detailItemId = null;
+                    _pendingEnhanceItemId = null;
                     _navButtons.Clear();
                 }
             };
@@ -429,7 +432,11 @@ namespace KingdomIdle.UGUI
             }
 
             // 서버(OnEnchantEquipment)가 비용·상한·결과를 확정한다. 요청이 나가면 완료 이벤트에서 팝업을 다시 그린다.
+            // 완료 응답의 ID는 강화 후 사본일 수 있다. 요청 전에 원본을 기억해 다른 상세 선택을 보호한다.
+            string previousPending = _pendingEnhanceItemId;
+            _pendingEnhanceItemId = item.instanceId;
             var result = equipmentManager.TryEnhanceDetailed(item);
+            if (result != EquipmentManager.EnhancementResult.Pending) _pendingEnhanceItemId = previousPending;
             if (result == EquipmentManager.EnhancementResult.Pending)
             {
                 ShowToast($"{item.baseData.DisplayName} 강화 요청 중");
@@ -444,9 +451,16 @@ namespace KingdomIdle.UGUI
         /// <summary>완료 안내와 강화 후 상세 대상만 갱신한다. 상태 이벤트의 화면 갱신은 LateUpdate에서 한 번 처리한다.</summary>
         private static void OnEquipmentActionCompleted(EquipmentManager.ActionInfo info)
         {
-            if (_view == null || info == null) return;
+            if (info == null) return;
+            string origin = null;
+            if (info.Kind == EquipmentManager.ActionKind.Enhance)
+            {
+                origin = _pendingEnhanceItemId;
+                _pendingEnhanceItemId = null;
+            }
+            if (_view == null) return;
             ShowToast(EquipmentManager.Describe(info));
-            if (_detailItemId != null && info.Ok && !string.IsNullOrEmpty(info.ItemId) && _detailItemId != info.ItemId)
+            if (origin != null && _detailItemId == origin && info.Ok && !string.IsNullOrEmpty(info.ItemId) && _detailItemId != info.ItemId)
             {
                 _detailItemId = info.ItemId;
                 _equipmentDirty = true;

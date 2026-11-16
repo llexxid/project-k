@@ -131,6 +131,80 @@ namespace KingdomIdle.UGUI.Editor
 
         private const float HoldSeconds = LootFeedView.HoldSeconds;
 
+        /// <summary>연속 획득·가림 해제·가상 안전 영역의 표시 회귀와 실제 프리팹 렌더링.</summary>
+        public static Dictionary<string, object> RunSimulation(string output)
+        {
+            Guard();
+            var checks = new List<string>(); var failures = new List<string>();
+            void Check(bool ok, string label) { checks.Add(label); if (!ok) failures.Add(label); }
+            using (var fixture = new Fixture())
+            {
+                var feed = fixture.Feed;
+                LootNotifications.Publish(Currency(eCurrency.Ruby, 7)); feed.Tick(0f, false);
+                feed.Tick(.4f, false); feed.Tick(.5f, true); feed.Tick(10.5f, false);
+                Check(feed.VisibleCount == 1 && feed.rows[0].elapsed < .6f,
+                    "A frame gap while a menu covers the feed does not consume the resumed hold time");
+                feed.Tick(10.9f, false);
+                Check(feed.VisibleCount == 1 && Mathf.Abs(feed.rows[0].elapsed - .8f) < .01f,
+                    "Resumed notifications advance normally on the next visible frame");
+                feed.Tick(13f, false);
+                Check(feed.VisibleCount == 0, "Continuously visible notifications still expire after a long frame gap");
+            }
+            using (var fixture = new Fixture())
+            {
+                var feed = fixture.Feed;
+                foreach (var type in new[] { eCurrency.Ruby, eCurrency.AncientCoin, eCurrency.ClassFragment })
+                    LootNotifications.Publish(Currency(type, 3));
+                feed.Tick(0f, false);
+                bool oneSlot = false;
+                for (float height = 1400; height >= 800; height -= 10)
+                { fixture.Resize(height); if (feed.RefreshPlacement() && feed.AvailableSlots == 1) { oneSlot = true; break; } }
+                feed.Tick(.1f, false);
+                var hidden = feed.rows.Where(row => row.occupied && !row.rect.gameObject.activeSelf).ToArray();
+                var visible = feed.rows.First(row => row.occupied && row.rect.gameObject.activeSelf);
+                fixture.Resize(1920); feed.Tick(10.1f, false);
+                Check(oneSlot && hidden.Length == 2 && hidden.All(row => row.occupied && row.elapsed < .2f),
+                    "Rows restored after a long hidden frame gap keep their unread lifetime");
+                Check(!visible.occupied, "A row that remained visible expires while hidden rows preserve their time");
+            }
+            using (var fixture = new Fixture())
+            {
+                var feed = fixture.Feed;
+                var ids = feed.rows.Select(row => row.rect.GetInstanceID()).OrderBy(id => id).ToArray();
+                LootNotificationSettings.SetEquipment(0, true, false);
+                for (int i = 0; i < 1000; i++)
+                    LootNotifications.Publish(Currency((eCurrency)(1 + i % 9), 1));
+                Check(LootNotifications.Count == 9, "One thousand repeated currency acquisitions merge into nine pending kinds");
+                int displayed = 0;
+                for (int i = 0; i < 12; i++) { feed.Tick(i * 2.5f, false); displayed = feed.BindCount; }
+                Check(displayed == 9 && LootNotifications.Count == 0 && feed.VisibleCount == 0,
+                    "Merged burst drains completely through three rows without losing distinct kinds");
+                Check(ids.SequenceEqual(feed.rows.Select(row => row.rect.GetInstanceID()).OrderBy(id => id)),
+                    "A thousand-acquisition burst reuses the same three row objects");
+                foreach (var spec in new[] { (height: 2316f, name: "long-phone"), (height: 1440f, name: "short-phone"), (height: 1440f, name: "tablet-safe-area") })
+                {
+                    fixture.Resize(spec.height);
+                    if (spec.name == "tablet-safe-area")
+                    {
+                        var main = (RectTransform)fixture.Main.transform;
+                        main.offsetMin = new Vector2(48, 36); main.offsetMax = new Vector2(-48, -72); fixture.Layout();
+                    }
+                    LootNotifications.Publish(Currency(eCurrency.AncientCoin, 100));
+                    LootNotifications.Publish(Equipment(fixture.Items[2], 1, EquipmentDisposition.Mail));
+                    LootNotifications.Publish(new LootNotification(LootNotificationKind.MageSkill, 0, fixture.Skill.id, 30, isFragment: true));
+                    feed.Tick(100f, false);
+                    Check(feed.RefreshPlacement() && feed.AvailableSlots > 0 &&
+                        ((RectTransform)feed.transform).anchoredPosition.x >= 0,
+                        "Actual HUD placement preserves the simulated viewport: " + spec.name);
+                    fixture.Capture(System.IO.Path.Combine(output, "loot-" + spec.name + ".png"));
+                    feed.OnAccountChanged(); LootNotifications.ClearPending();
+                }
+            }
+            return new Dictionary<string, object> { ["passed"] = checks.Count - failures.Count,
+                ["failures"] = failures, ["checks"] = checks,
+                ["scope"] = "Actual Unity prefabs and synthetic display notifications; no account, API request or reward mutation. Captures are simulated HUDs, not device or live battle evidence." };
+        }
+
         public static IEnumerator VerifyUnscaledLifetime(Action<Dictionary<string, object>> completed)
         {
             Guard(); float timeScale = Time.timeScale; Fixture fixture = null;
@@ -155,6 +229,55 @@ namespace KingdomIdle.UGUI.Editor
                     ["check"] = "Real UITween fade and hold expire at timeScale=0 using yield-null updates." });
             }
             finally { Time.timeScale = timeScale; fixture?.Dispose(); }
+        }
+
+        /// <summary>통신 없는 실제 프리팹을 Game View에 표시한다. 종료 파일 또는 3분 후 원래 씬으로 돌아간다.</summary>
+        public static IEnumerator Preview(string output)
+        {
+            Guard();
+            if (Application.isBatchMode) throw new InvalidOperationException("The preview requires a visible Unity Game View.");
+            using (var fixture = new Fixture())
+            {
+                fixture.Resize(1920);
+                fixture.Capture(System.IO.Path.Combine(output, "preview-reference.png"));
+                var cameraObject = new GameObject("IsolatedUiPreviewCamera", typeof(Camera));
+                try
+                {
+                    var camera = cameraObject.GetComponent<Camera>();
+                    cameraObject.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+                    camera.transform.position = new Vector3(0, 0, -100);
+                    camera.orthographic = true; camera.orthographicSize = 960;
+                    camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = UguiTheme.RusticPanelDeep;
+                    var gameView = EditorWindow.GetWindow(typeof(EditorWindow).Assembly.GetType("UnityEditor.GameView"));
+                    gameView.Show(); gameView.Focus();
+                    System.IO.File.WriteAllText(System.IO.Path.Combine(output, "preview-ready.txt"), "Synthetic actual-prefab Game View; no account or network.");
+                    float start = Time.realtimeSinceStartup, next = 0;
+                    bool captured = false;
+                    while (Time.realtimeSinceStartup - start < 180 &&
+                        !System.IO.File.Exists(System.IO.Path.Combine(output, "preview-stop.txt")))
+                    {
+                        float aspect = Mathf.Max(1, Screen.width) / (float)Mathf.Max(1, Screen.height);
+                        float width = Mathf.Min(1, (1080f / 1920) / aspect);
+                        camera.rect = new Rect((1 - width) / 2, 0, width, 1); camera.aspect = 1080f / 1920;
+                        float now = Time.realtimeSinceStartup;
+                        if (now >= next)
+                        {
+                            LootNotifications.Publish(Currency(eCurrency.AncientCoin, 100));
+                            LootNotifications.Publish(Equipment(fixture.Items[2], 1, EquipmentDisposition.Mail));
+                            LootNotifications.Publish(new LootNotification(LootNotificationKind.MageSkill, 0, fixture.Skill.id, 30, isFragment: true));
+                            next = now + 3;
+                        }
+                        fixture.Feed.Tick(Time.unscaledTime, false);
+                        if (!captured && now - start > .5f)
+                        {
+                            ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(output, "game-view.png"));
+                            captured = true;
+                        }
+                        yield return null;
+                    }
+                }
+                finally { Object.DestroyImmediate(cameraObject); }
+            }
         }
 
         private static void Guard()
@@ -215,6 +338,53 @@ namespace KingdomIdle.UGUI.Editor
             }
             public void Resize(float height) { ((RectTransform)_canvas.transform).sizeDelta = new Vector2(1080f, height); Layout(); }
             public void Layout() { Canvas.ForceUpdateCanvases(); LayoutRebuilder.ForceRebuildLayoutImmediate(Main.waveHud.topArea); }
+            public void Capture(string path)
+            {
+                var canvas = _canvas.GetComponent<Canvas>();
+                var catalog = AssetDatabase.LoadAssetAtPath<UIViewCatalog>(PrefabGenUtil.CatalogPath);
+                Main.lblGold.text = "1.23M"; Main.lblAncientCoin.text = "16.3K"; Main.lblProfileLevel.text = "148";
+                Main.waveHud.lblStage.text = "스테이지 3-7";
+                Main.waveHud.guide.description.text = "UI 테스트 · 보상 달성";
+                Main.waveHud.guide.stepLabel.text = "가이드 퀘스트 10";
+                Main.waveHud.guide.progress.text = "진행 1 / 1";
+                Main.waveHud.guide.actionLabel.text = "수령 가능";
+                var party = Object.Instantiate(catalog.hudParty, Main.transform, false);
+                var partyRect = (RectTransform)party.transform;
+                partyRect.anchorMin = Vector2.zero; partyRect.anchorMax = new Vector2(1, 0); partyRect.pivot = new Vector2(.5f, 0);
+                partyRect.sizeDelta = new Vector2(0, UguiTheme.PartyHudHeight); partyRect.anchoredPosition = new Vector2(0, UguiTheme.BottomBarHeight);
+                var size = ((RectTransform)_canvas.transform).rect.size;
+                var cameraObject = new GameObject("LootFeedAcceptance_CaptureCamera");
+                var camera = cameraObject.AddComponent<Camera>();
+                var target = new RenderTexture((int)size.x, (int)size.y, 24);
+                Texture2D image = null; var previous = RenderTexture.active;
+                try
+                {
+                    camera.transform.position = new Vector3(0, 0, -100);
+                    camera.orthographic = true; camera.orthographicSize = size.y / 2;
+                    camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = UguiTheme.RusticPanelDeep;
+                    camera.targetTexture = target; canvas.worldCamera = camera;
+                    Layout();
+                    if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null)
+                    {
+                        cameraObject.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+                        UnityEngine.Rendering.RenderPipeline.SubmitRenderRequest(camera,
+                            new UnityEngine.Rendering.Universal.UniversalRenderPipeline.SingleCameraRequest { destination = target });
+                    }
+                    else camera.Render();
+                    RenderTexture.active = target;
+                    image = new Texture2D(target.width, target.height, TextureFormat.RGB24, false);
+                    image.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0); image.Apply();
+                    System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
+                    System.IO.File.WriteAllBytes(path, image.EncodeToPNG());
+                }
+                finally
+                {
+                    canvas.worldCamera = null; RenderTexture.active = previous;
+                    if (image != null) Object.DestroyImmediate(image);
+                    Object.DestroyImmediate(party);
+                    Object.DestroyImmediate(cameraObject); target.Release(); Object.DestroyImmediate(target);
+                }
+            }
             public void Dispose()
             {
                 if (Feed != null) Feed.Unbind();

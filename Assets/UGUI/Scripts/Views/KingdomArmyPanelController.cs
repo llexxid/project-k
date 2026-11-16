@@ -726,7 +726,8 @@ namespace KingdomIdle.UGUI
                 var item = group.First(); var data = equipmentManager.GetData(item.Code); if (data == null) continue;
                 if (accepts != null && !accepts(item.Code)) continue;
                 string id = item.Id;
-                InstantiateEquipCell(grid, data.icon, $"{data.DisplayName} ×{group.Count()}", UguiTheme.AccentGold,
+                string level = item.Level > 0 ? $" +{item.Level}" : "";
+                InstantiateEquipCell(grid, data.icon, $"{data.DisplayName}{level} ×{group.Count()}", UguiTheme.AccentGold,
                     "1개 받기", UguiTheme.RarityColor(data.rarity), false, false, $"추가 보관 ×{NumberNotation.Format(group.Count())}", () => {
                         var result = equipmentManager.ClaimPendingEx(id);
                         UIManager.Instance?.ShowToast(result == EquipmentManager.EnhancementResult.Pending ? "대기함 장비 수령 요청 중" : EquipmentManager.Describe(result));

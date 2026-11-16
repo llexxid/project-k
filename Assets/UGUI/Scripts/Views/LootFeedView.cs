@@ -103,6 +103,8 @@ namespace KingdomIdle.UGUI
                 _host.BlocksQuestBattleTime || (_host.ActiveMain?.HasOpenDropdown ?? false) ||
                 Active(_main.waveHud?.deathPopup) || Active(_main.waveHud?.returnPopup));
             if (!blocked) blocked = !RefreshPlacement();
+            // 직전 프레임이 가려졌으면 복귀까지의 긴 간격은 읽을 수 없었던 시간이다.
+            if (_blocked) delta = 0f;
             if (blocked != _blocked)
             {
                 foreach (var row in rows) StopFade(row);
@@ -111,11 +113,17 @@ namespace KingdomIdle.UGUI
             float alpha = blocked ? 0f : 1f;
             if (group.alpha != alpha) group.alpha = alpha;
             if (blocked) return;
+            int position = 0;
+            foreach (var row in rows)
+            {
+                if (!row.occupied) continue;
+                // 배치 갱신으로 다시 나타나는 행은 숨겨진 동안의 시간을 차감하지 않는다.
+                if (position++ < _slots && row.rect.gameObject.activeSelf) row.elapsed += delta;
+            }
             CompactRows();
             foreach (var row in rows)
             {
                 if (!row.occupied || !row.rect.gameObject.activeSelf) continue;
-                row.elapsed += delta;
                 if (row.elapsed >= HoldSeconds + FadeSeconds) { ClearRow(row); continue; }
                 if (row.elapsed >= HoldSeconds && !row.fading)
                 {
