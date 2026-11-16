@@ -54,6 +54,20 @@ namespace KingdomIdle.Rewards
         }
         static bool Same(LootNotification a, LootNotification b) => a.Kind == b.Kind && a.Currency == b.Currency &&
             a.DefinitionId == b.DefinitionId && a.Disposition == b.Disposition && a.IsFragment == b.IsFragment;
+        /// <summary>표시 중인 동일 항목만 합산한다. 다른 항목의 순서·만료와 합산할 수 없는 수량은 보존한다.</summary>
+        public static bool TryTakeMatching(LootNotification current, out LootNotification notification)
+        {
+            notification = default;
+            if (current.Amount <= 0) return false;
+            Expire();
+            for (int i = 0; i < Items.Count; i++)
+            {
+                var item = Items[i].Item;
+                if (!Same(current, item) || current.Amount > long.MaxValue - item.Amount) continue;
+                notification = item; Items.RemoveAt(i); return true;
+            }
+            return false;
+        }
         public static bool Publish(LootNotification notification)
         {
             try { return Enqueue(notification); }

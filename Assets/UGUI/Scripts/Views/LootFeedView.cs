@@ -13,7 +13,8 @@ namespace KingdomIdle.UGUI
     public sealed class LootFeedView : MonoBehaviour
     {
         public const int Capacity = 3;
-        public const float HoldSeconds = 2.2f, FadeSeconds = .15f, RowHeight = 82f, RowGap = 6f;
+        public const float HoldSeconds = 2.2f, FadeSeconds = .15f, RowHeight = 50f, RowGap = 4f;
+        public const float WidthRatio = .348f, MaxHoldSeconds = 2.8f, BorderOpacity = .32f;
 
         [Serializable]
         public sealed class Row
@@ -23,7 +24,7 @@ namespace KingdomIdle.UGUI
             public Image icon, border;
             public TMP_Text name, quantity, state;
             [NonSerialized] internal LootNotification notification;
-            [NonSerialized] internal float elapsed;
+            [NonSerialized] internal float elapsed, holdSeconds;
             [NonSerialized] internal bool occupied, fading;
         }
 
@@ -124,14 +125,25 @@ namespace KingdomIdle.UGUI
             foreach (var row in rows)
             {
                 if (!row.occupied || !row.rect.gameObject.activeSelf) continue;
-                if (row.elapsed >= HoldSeconds + FadeSeconds) { ClearRow(row); continue; }
-                if (row.elapsed >= HoldSeconds && !row.fading)
+                if (row.elapsed >= row.holdSeconds + FadeSeconds) { ClearRow(row); continue; }
+                if (row.elapsed >= row.holdSeconds && !row.fading)
                 {
                     row.fading = true;
-                    UITween.ValueTo(row.group, row.group.alpha, 0f, HoldSeconds + FadeSeconds - row.elapsed,
+                    UITween.ValueTo(row.group, row.group.alpha, 0f, row.holdSeconds + FadeSeconds - row.elapsed,
                         value => row.group.alpha = value);
                 }
             }
+            // 대량 획득은 같은 표시 행의 수량만 갱신한다. 서로 다른 대기 항목의 순서와 만료는 큐가 보존한다.
+            if (LootNotifications.Count > 0)
+                foreach (var row in rows)
+                {
+                    if (!row.occupied || !row.rect.gameObject.activeSelf || row.fading || !Allows(row.notification)) continue;
+                    if (!LootNotifications.TryTakeMatching(row.notification, out var incoming)) continue;
+                    row.notification.Amount += incoming.Amount;
+                    row.quantity.text = "+" + NumberNotation.Format(row.notification.Amount);
+                    // 늦은 수량 갱신은 잠깐 더 읽게 하되 반복 획득이 한 행을 영구 점유하지 않게 한다.
+                    row.holdSeconds = Mathf.Min(MaxHoldSeconds, Mathf.Max(row.holdSeconds, row.elapsed + .65f));
+                }
             CompactRows();
             for (int i = 0; i < _slots; i++)
             {
@@ -165,7 +177,7 @@ namespace KingdomIdle.UGUI
             int slots = Mathf.Clamp(Mathf.FloorToInt((top - bottom + RowGap) / (RowHeight + RowGap)), 0, Capacity);
             if (slots == 0) return false;
             // 활성 행이 가용 높이를 넘으면 보이지 않는 행만 일시 정지한다. 대기열은 계속 Core가 보존한다.
-            float width = Mathf.Min(_parent.rect.width - 48f, _parent.rect.width * .58f);
+            float width = Mathf.Min(_parent.rect.width - 48f, Mathf.Max(368f, _parent.rect.width * WidthRatio));
             var size = new Vector2(width, Capacity * (RowHeight + RowGap) - RowGap);
             var position = new Vector2(24f, top - _parent.rect.yMax);
             if (_rect.sizeDelta != size || _rect.anchoredPosition != position)
@@ -206,7 +218,7 @@ namespace KingdomIdle.UGUI
 
         private void Present(Row row, LootNotification item)
         {
-            row.notification = item; row.elapsed = 0f; row.occupied = true; row.fading = false;
+            row.notification = item; row.elapsed = 0f; row.holdSeconds = HoldSeconds; row.occupied = true; row.fading = false;
             Sprite icon = null; string name; Color border = UguiTheme.Bronze;
             switch (item.Kind)
             {
@@ -233,8 +245,9 @@ namespace KingdomIdle.UGUI
                 _ => ""
             };
             bool subtitle = row.state.text.Length > 0;
-            row.name.rectTransform.offsetMin = new Vector2(76f, subtitle ? -43f : -68f);
-            row.name.rectTransform.offsetMax = new Vector2(-152f, subtitle ? -7f : -14f);
+            row.name.rectTransform.offsetMin = new Vector2(52f, subtitle ? -28f : -44f);
+            row.name.rectTransform.offsetMax = new Vector2(-142f, subtitle ? 0f : -6f);
+            border.a = BorderOpacity;
             row.icon.sprite = icon; row.icon.enabled = icon != null; row.border.color = border;
             row.group.alpha = 1f; row.rect.gameObject.SetActive(true);
             BindCount++;

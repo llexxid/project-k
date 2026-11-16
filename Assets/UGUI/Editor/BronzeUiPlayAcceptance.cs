@@ -47,6 +47,13 @@ namespace KingdomIdle.UGUI.Editor
         [MenuItem("KingdomIdle/UGUI/청동 원정대/격리 획득 알림 Game View 미리보기")]
         public static void RunUiPreview() => Start("ui-preview");
 
+        // 실제 프리팹도 갱신한 뒤 획득 알림 관련 검사만 실행한다.
+        public static void RunCompactLootFeed()
+        {
+            LootFeedPreparation.Prepare();
+            Start("compact-loot");
+        }
+
         public static void PrepareLootFeed()
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode)
@@ -105,12 +112,23 @@ namespace KingdomIdle.UGUI.Editor
                     bool loot = SessionState.GetString(ModeKey, "quest") == "loot-feed";
                     bool simulation = SessionState.GetString(ModeKey, "quest") == "ui-simulation";
                     bool preview = SessionState.GetString(ModeKey, "quest") == "ui-preview";
+                    bool compactLoot = SessionState.GetString(ModeKey, "quest") == "compact-loot";
                     bool awaitingLifetime = false;
-                    string filePrefix = preview ? "ui-preview" : simulation ? "ui-simulation" : loot ? "loot-feed-play" : commerceFailure ? "commerce-failure-recovery-play" : offlineFailure ? "offline-failure-recovery-play" : questFailure ? "quest-failure-recovery-play" : "quest-play";
+                    string filePrefix = compactLoot ? "compact-loot" : preview ? "ui-preview" : simulation ? "ui-simulation" : loot ? "loot-feed-play" : commerceFailure ? "commerce-failure-recovery-play" : offlineFailure ? "offline-failure-recovery-play" : questFailure ? "quest-failure-recovery-play" : "quest-play";
                     try
                     {
                         if (LocalProgression.IsReady)
                             throw new InvalidOperationException("The empty test scene unexpectedly opened a profile.");
+                        if (compactLoot)
+                        {
+                            SaveSimulationReport("loot-feed-regression", RunLootChecks());
+                            SaveSimulationReport("loot-feed-simulation", LootFeedAcceptance.RunSimulation(SessionState.GetString(OutputKey, "")));
+                            _lootLifetime = LootFeedAcceptance.VerifyUnscaledLifetime(report => SaveSimulationReport("loot-feed-lifetime", report));
+                            Routines.Push(_lootLifetime);
+                            EditorApplication.update += TickLootLifetime;
+                            awaitingLifetime = true;
+                            return;
+                        }
                         if (preview)
                         {
                             _lootLifetime = LootFeedAcceptance.Preview(SessionState.GetString(OutputKey, ""));

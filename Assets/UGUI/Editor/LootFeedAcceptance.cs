@@ -39,7 +39,8 @@ namespace KingdomIdle.UGUI.Editor
                 Check(feed.VisibleCount == 3 && LootNotifications.Count == 0, "Common/Rare/Epic fill the fixed pool from the bus");
                 for (int i = 0; i < 3; i++)
                     Check(feed.rows[i].name.text == fixture.Items[i].DisplayName && feed.rows[i].icon.sprite == fixture.Items[i].icon &&
-                        feed.rows[i].border.color == UguiTheme.RarityColor(fixture.Items[i].rarity) && feed.rows[i].quantity.text == "+" + (i + 1),
+                        ColorDistance(feed.rows[i].border.color, UguiTheme.RarityColor(fixture.Items[i].rarity)) < .001f &&
+                        feed.rows[i].border.color.a == LootFeedView.BorderOpacity && feed.rows[i].quantity.text == "+" + (i + 1),
                         "Actual catalog name/icon/quantity and thin rarity border " + fixture.Items[i].rarity);
 
                 int binds = feed.BindCount, placements = feed.PlacementWrites;
@@ -62,8 +63,9 @@ namespace KingdomIdle.UGUI.Editor
                 {
                     fixture.Resize(height); feed.RefreshPlacement();
                     var rect = (RectTransform)feed.transform;
-                    Check(feed.AvailableSlots >= 1 && rect.sizeDelta.x >= 1080f * .55f && rect.sizeDelta.x <= 1080f * .60f,
-                        "Actual main/guide layout fits left 55–60% width at 1080x" + height);
+                    Check(feed.AvailableSlots >= 1 && Mathf.Abs(rect.sizeDelta.x - 1080f * LootFeedView.WidthRatio) < 1f &&
+                        Mathf.Abs(feed.rows[0].rect.rect.height - 82f * .6f) < 2f,
+                        "Actual main/guide layout uses about 60% of the former feed width and height at 1080x" + height);
                 }
                 fixture.Resize(2316f); feed.Tick(20.02f, false);
                 bool oneSlot = false;
@@ -101,12 +103,23 @@ namespace KingdomIdle.UGUI.Editor
                     "Skill and duplicate fragments preserve separate names/icons/quantities without skill rarity");
                 Check(feed.rows[2].state.text == "우편 보관" && feed.rows[2].quantity.text == "+" + NumberNotation.Format(long.MaxValue),
                     "Mail disposition and maximum quantity have dedicated labels");
+                feed.rows[2].name.ForceMeshUpdate(true, true); feed.rows[2].state.ForceMeshUpdate(true, true);
+                Check(feed.rows[2].name.textInfo.characterInfo.Take(feed.rows[2].name.textInfo.characterCount).Any(c => c.isVisible) &&
+                    feed.rows[2].state.textInfo.characterInfo.Take(feed.rows[2].state.textInfo.characterCount).Any(c => c.isVisible) && !feed.rows[2].state.isTextTruncated &&
+                    feed.rows[2].name.textBounds.size.y <= feed.rows[2].name.rectTransform.rect.height + 1 &&
+                    feed.rows[2].state.textBounds.size.y <= feed.rows[2].state.rectTransform.rect.height + 1,
+                    "Compact two-line mail name and storage subtitle actually render visible glyphs within their height");
+                Check(feed.rows[2].name.transform.TransformPoint(feed.rows[2].name.textBounds.min).y >=
+                    feed.rows[2].state.transform.TransformPoint(feed.rows[2].state.textBounds.max).y,
+                    "Two-line mail name and subtitle have separate visible glyph bounds: " +
+                    feed.rows[2].name.transform.TransformPoint(feed.rows[2].name.textBounds.min).y + " / " +
+                    feed.rows[2].state.transform.TransformPoint(feed.rows[2].state.textBounds.max).y);
                 foreach (NumberStyle style in Enum.GetValues(typeof(NumberStyle)))
                 {
                     NumberNotation.SetStyle(style, false);
                     var quantity = feed.rows[2].quantity;
                     quantity.ForceMeshUpdate(true, true);
-                    Check(!quantity.isTextTruncated && quantity.fontSize >= 26f && quantity.textBounds.size.x <= quantity.rectTransform.rect.width + 1f,
+                    Check(!quantity.isTextTruncated && quantity.fontSize >= 22f && quantity.textBounds.size.x <= quantity.rectTransform.rect.width + 1f,
                         "Maximum long quantity fits its own column in " + style);
                 }
                 LootNotificationSettings.SetMageSkills(false, false);
@@ -130,6 +143,7 @@ namespace KingdomIdle.UGUI.Editor
         }
 
         private const float HoldSeconds = LootFeedView.HoldSeconds;
+        private static float ColorDistance(Color a, Color b) => Mathf.Abs(a.r - b.r) + Mathf.Abs(a.g - b.g) + Mathf.Abs(a.b - b.b);
 
         /// <summary>연속 획득·가림 해제·가상 안전 영역의 표시 회귀와 실제 프리팹 렌더링.</summary>
         public static Dictionary<string, object> RunSimulation(string output)
@@ -170,6 +184,42 @@ namespace KingdomIdle.UGUI.Editor
             using (var fixture = new Fixture())
             {
                 var feed = fixture.Feed;
+                foreach (var type in new[] { eCurrency.Ruby, eCurrency.AncientCoin, eCurrency.ClassFragment })
+                    LootNotifications.Publish(Currency(type, 3));
+                feed.Tick(0, false);
+                var ruby = feed.rows.Single(row => row.notification.Currency == eCurrency.Ruby);
+                int binds = feed.BindCount;
+                LootNotifications.Publish(Currency(eCurrency.TrainingTome, 9));
+                for (int i = 0; i < 1000; i++) LootNotifications.Publish(Currency(eCurrency.Ruby, 1));
+                feed.Tick(1, false);
+                Check(ruby.notification.Amount == 1003 && ruby.quantity.text == "+" + NumberNotation.Format(1003),
+                    "A burst merges its exact amount into the visible row");
+                Check(feed.VisibleCount == 3 && feed.BindCount == binds && LootNotifications.Count == 1,
+                    "Full rows merge matching loot without consuming a different queued kind or rebinding icons");
+                for (int i = 1; i <= 30; i++)
+                { LootNotifications.Publish(Currency(eCurrency.Ruby, 1)); feed.Tick(1 + i * .05f, false); }
+                Check(ruby.holdSeconds <= LootFeedView.MaxHoldSeconds && ruby.elapsed >= 2.49f,
+                    "Continuous acquisition never resets age or extends hold beyond 2.8 seconds");
+                feed.Tick(3.1f, false);
+                Check(!ruby.occupied, "Even a repeatedly merged notification expires so queued kinds can advance");
+                Check(feed.rows.All(row => row.rect.GetComponent<Image>().color.a > .4f && row.rect.GetComponent<Image>().color.a < .7f) &&
+                    feed.rows.All(row => row.quantity.color.a >= .9f && row.icon.rectTransform.rect.width == 32f),
+                    "Translucent row backgrounds preserve readable quantities and small identifiable icons");
+                feed.OnAccountChanged(); LootNotifications.ClearPending();
+                LootNotifications.Publish(Currency(eCurrency.Ruby, 1)); feed.Tick(4f, false);
+                LootNotifications.Publish(Currency(eCurrency.Ruby, 2)); feed.Tick(4.1f, true);
+                Check(feed.rows[0].notification.Amount == 1 && LootNotifications.Count == 1,
+                    "Covered notifications do not consume or merge queued arrivals");
+                feed.Tick(4.2f, false);
+                Check(feed.rows[0].notification.Amount == 3, "Uncovering safely merges the pending amount once");
+                feed.Tick(6.41f, false);
+                LootNotifications.Publish(Currency(eCurrency.Ruby, 4)); feed.Tick(6.42f, false);
+                Check(feed.rows.Count(row => row.occupied) == 2 && feed.rows[0].fading && feed.rows[1].notification.Amount == 4,
+                    "A fading row never swallows a new acquisition at its last moment");
+            }
+            using (var fixture = new Fixture())
+            {
+                var feed = fixture.Feed;
                 var ids = feed.rows.Select(row => row.rect.GetInstanceID()).OrderBy(id => id).ToArray();
                 LootNotificationSettings.SetEquipment(0, true, false);
                 for (int i = 0; i < 1000; i++)
@@ -196,7 +246,23 @@ namespace KingdomIdle.UGUI.Editor
                     Check(feed.RefreshPlacement() && feed.AvailableSlots > 0 &&
                         ((RectTransform)feed.transform).anchoredPosition.x >= 0,
                         "Actual HUD placement preserves the simulated viewport: " + spec.name);
+                    if (spec.name == "tablet-safe-area")
+                    {
+                        var name = feed.rows[0].name;
+                        string previousName = name.text;
+                        name.text = "황금 강철 지팡이"; name.ForceMeshUpdate(true, true);
+                        Check(!name.isTextTruncated && name.textInfo.characterCount >= 9 &&
+                            name.textBounds.size.x <= name.rectTransform.rect.width + 1,
+                            "Long equipment names remain readable inside simulated horizontal safe-area insets");
+                        name.text = previousName; name.ForceMeshUpdate(true, true);
+                    }
                     fixture.Capture(System.IO.Path.Combine(output, "loot-" + spec.name + ".png"));
+                    if (spec.name == "long-phone")
+                    {
+                        fixture.ShowBattleBackdrop();
+                        fixture.Capture(System.IO.Path.Combine(output, "loot-battle-context.png"));
+                        fixture.HideBattleBackdrop();
+                    }
                     feed.OnAccountChanged(); LootNotifications.ClearPending();
                 }
             }
@@ -240,6 +306,7 @@ namespace KingdomIdle.UGUI.Editor
             {
                 fixture.Resize(1920);
                 fixture.Capture(System.IO.Path.Combine(output, "preview-reference.png"));
+                fixture.ShowBattleBackdrop();
                 var cameraObject = new GameObject("IsolatedUiPreviewCamera", typeof(Camera));
                 try
                 {
@@ -297,7 +364,7 @@ namespace KingdomIdle.UGUI.Editor
             private readonly Dictionary<string, (bool exists, int value)> _prefs = new();
             private readonly NumberStyle _style = NumberNotation.Style;
             private readonly int _frameRate = Application.targetFrameRate, _sleep = Screen.sleepTimeout;
-            private GameObject _canvas, _managers;
+            private GameObject _canvas, _managers, _backdrop;
             public LootFeedView Feed;
             public MainScreenView Main;
             public EquipmentData[] Items;
@@ -317,7 +384,7 @@ namespace KingdomIdle.UGUI.Editor
                     var equipment = _managers.AddComponent<EquipmentManager>();
                     var database = Load<EquipmentDatabase>();
                     Set(equipment, "_database", database); EquipmentManager.Instance = equipment;
-                    Items = Enumerable.Range(0, 3).Select(r => database.equipmentList.First(d => d != null && (int)d.rarity == r && d.icon != null && !d.equipmentName.Contains("Bow"))).ToArray();
+                    Items = Enumerable.Range(0, 3).Select(r => database.equipmentList.First(d => d != null && (int)d.rarity == r && d.icon != null && d.CanBeRewarded)).ToArray();
                     var mage = _managers.AddComponent<MageTowerManager>();
                     var registry = Load<MageTowerSkillRegistrySO>(); Set(mage, "skillRegistry", registry);
                     typeof(MageTowerManager).GetField("<Instance>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, mage);
@@ -338,6 +405,29 @@ namespace KingdomIdle.UGUI.Editor
             }
             public void Resize(float height) { ((RectTransform)_canvas.transform).sizeDelta = new Vector2(1080f, height); Layout(); }
             public void Layout() { Canvas.ForceUpdateCanvases(); LayoutRebuilder.ForceRebuildLayoutImmediate(Main.waveHud.topArea); }
+            public void ShowBattleBackdrop()
+            {
+                var template = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Project/Prefabs/Environment/Prepared/Stage02_ForestGrass/Main/Stage02_ForestGrass_Main_04.prefab");
+                if (template == null) throw new InvalidOperationException("The actual forest environment prefab is missing.");
+                _backdrop = Object.Instantiate(template);
+                var renderers = _backdrop.GetComponentsInChildren<Renderer>(true).Where(r => r.enabled).ToArray();
+                if (renderers.Length == 0) throw new InvalidOperationException("The forest has no visible sprites.");
+                Bounds WorldBounds(Renderer renderer)
+                {
+                    var tiles = renderer.GetComponent<UnityEngine.Tilemaps.Tilemap>();
+                    return tiles == null ? renderer.bounds : new Bounds(tiles.transform.TransformPoint(tiles.localBounds.center),
+                        Vector3.Scale(tiles.localBounds.size, tiles.transform.lossyScale));
+                }
+                var bounds = WorldBounds(renderers[0]);
+                foreach (var renderer in renderers) bounds.Encapsulate(WorldBounds(renderer));
+                if (bounds.size.x <= 0) throw new InvalidOperationException("The forest bounds are empty.");
+                float scale = 1080f / bounds.size.x;
+                _backdrop.transform.localScale *= scale;
+                _backdrop.transform.position = new Vector3(-bounds.center.x * scale, -120 - bounds.center.y * scale, 10);
+                foreach (var renderer in renderers) { renderer.sortingLayerID = 0; renderer.sortingOrder -= 10000; }
+                _canvas.GetComponent<Canvas>().sortingOrder = 100;
+            }
+            public void HideBattleBackdrop() { if (_backdrop != null) Object.DestroyImmediate(_backdrop); _backdrop = null; }
             public void Capture(string path)
             {
                 var canvas = _canvas.GetComponent<Canvas>();
@@ -387,6 +477,7 @@ namespace KingdomIdle.UGUI.Editor
             }
             public void Dispose()
             {
+                HideBattleBackdrop();
                 if (Feed != null) Feed.Unbind();
                 if (_canvas != null) Object.DestroyImmediate(_canvas);
                 if (_managers != null) Object.DestroyImmediate(_managers);

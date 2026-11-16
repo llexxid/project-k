@@ -118,6 +118,45 @@ namespace KingdomIdle.Rewards
                 LootNotifications.Publish(new LootNotification(LootNotificationKind.Currency, eCurrency.Gold, 0, 1));
                 LootNotifications.Publish(new LootNotification(LootNotificationKind.Currency, eCurrency.Gold, 0, 2));
                 Check(LootNotifications.Count == 1 && LootNotifications.TryTake(out item) && item.Amount == 3, "same kind identity and disposition merge exactly");
+                var shown = new LootNotification(LootNotificationKind.Currency, eCurrency.Ruby, 0, 1);
+                LootNotifications.Publish(new LootNotification(LootNotificationKind.Currency, eCurrency.Gold, 0, 7));
+                LootNotifications.Publish(new LootNotification(LootNotificationKind.Currency, eCurrency.Ruby, 0, 8));
+                LootNotifications.Publish(new LootNotification(LootNotificationKind.Currency, eCurrency.AncientCoin, 0, 9));
+                Check(LootNotifications.TryTakeMatching(shown, out item) && item.Amount == 8 &&
+                    LootNotifications.TryTake(out item) && item.Currency == eCurrency.Gold &&
+                    LootNotifications.TryTake(out item) && item.Currency == eCurrency.AncientCoin,
+                    "visible matching consumes only that item and preserves the other kinds' FIFO");
+                LootNotifications.Publish(new LootNotification(LootNotificationKind.Currency, eCurrency.Ruby, 0, 3));
+                shown.Amount = long.MaxValue - 2;
+                Check(!LootNotifications.TryTakeMatching(shown, out item) && LootNotifications.Count == 1,
+                    "visible overflow leaves the entire pending amount untouched");
+                LootNotifications.ClearPending();
+                LootNotifications.Publish(new LootNotification(LootNotificationKind.Currency, eCurrency.Ruby, 0, 2));
+                Check(LootNotifications.TryTakeMatching(shown, out item) && item.Amount == 2,
+                    "visible matching can exactly reach the long maximum");
+                LootNotifications.Publish(new LootNotification(LootNotificationKind.Currency, eCurrency.Ruby, 0, 1));
+                shown.Amount = 0;
+                Check(!LootNotifications.TryTakeMatching(shown, out item) && LootNotifications.Count == 1,
+                    "invalid visible quantity cannot consume a pending notification");
+                LootNotifications.ClearPending();
+                foreach (var variant in new[] {
+                    new LootNotification(LootNotificationKind.Equipment, 0, 65537, 1, EquipmentDisposition.Mail),
+                    new LootNotification(LootNotificationKind.Equipment, 0, 65538, 1, EquipmentDisposition.Inventory),
+                    new LootNotification(LootNotificationKind.MageSkill, 0, 0, 30, isFragment: true) })
+                {
+                    LootNotifications.Publish(variant);
+                    var different = variant;
+                    if (variant.Kind == LootNotificationKind.MageSkill) different.IsFragment = false;
+                    else if (variant.Disposition == EquipmentDisposition.Mail) different.Disposition = EquipmentDisposition.Inventory;
+                    else different.DefinitionId = 65537;
+                    Check(!LootNotifications.TryTakeMatching(different, out item) && LootNotifications.TryTake(out item) && item.Amount == variant.Amount,
+                        "visible matching preserves distinct definition, storage or fragment identity " + variant.Kind + "/" + variant.Disposition);
+                }
+                shown.Amount = 1;
+                LootNotifications.Publish(shown); now = 30;
+                Check(!LootNotifications.TryTakeMatching(shown, out item) && LootNotifications.Count == 0,
+                    "visible matching never revives expired display entries");
+                now = 0;
                 LootNotifications.Publish(new LootNotification(LootNotificationKind.Currency, eCurrency.Gold, 0, 1)); now = 30;
                 Check(LootNotifications.Count == 0, "notifications expire after 30 seconds of unscaled time");
                 LootNotifications.SetFilter(_ => false);
