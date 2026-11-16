@@ -21,5 +21,10 @@ namespace KingdomIdle.UGUI
         // 공용 탭 버튼 부모. currentQuestRoot는 비활성화된 옛 팝업 카드의 직렬화 호환 참조다.
         [SerializeField] internal RectTransform tabBar;
         [SerializeField] internal GameObject currentQuestRoot;
+
+        [SerializeField] internal RectTransform claimBar;
+        [SerializeField] internal Button claimAllButton;
+        [SerializeField] internal TMP_Text claimAllLabel;
+        [SerializeField] internal TMP_Text claimSummaryLabel;
     }
 }

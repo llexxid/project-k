@@ -64,6 +64,41 @@ namespace KingdomIdle.UGUI.Editor
                     return manager.GetSnapshot(eQuestCategory.Daily).Rows.First(x => x.CanClaim).Token;
                 }
                 Action<int, int, string> done = (count, requested, message) => { completed++; confirmed = count; total = requested; };
+                var individual = Prepare(); int individualCompletions = 0;
+                QuestClaimToken completedToken = default;
+                Action<QuestClaimToken, bool, string> individualDone = (token, success, message) =>
+                    { individualCompletions++; completedToken = token; };
+                manager.OnClaimCompleted += individualDone;
+                int beforeIndividual = transport.ClaimCalls;
+                Check(manager.TryClaim(individual).Status == QuestClaimStatus.Pending && manager.IsBusy &&
+                    transport.ClaimCalls == beforeIndividual + 1 && transport.LastQuestId == individual.QuestId && transport.LastPeriod == individual.Period &&
+                    Field<QuestClaimToken[]>(Field<object>(manager, "_claim"), "Tokens").SequenceEqual(new[] { individual }),
+                    "Individual claim freezes exactly the displayed token and sends one matching quest/period request");
+                Check(manager.TryClaimTab(eQuestCategory.Daily, individual, done).Status == QuestClaimStatus.Busy &&
+                    transport.ClaimCalls == beforeIndividual + 1, "Individual claim blocks a simultaneous claim-all request");
+                transport.Fail(FixtureError("Business", 1029));
+                Check(!manager.IsBusy && individualCompletions == 1 && completedToken == individual && completed == 0,
+                    "Individual completion reports only its own token without invoking the bulk callback");
+                manager.OnClaimCompleted -= individualDone;
+
+                Prepare();
+                var daily = manager.GetSnapshot(eQuestCategory.Daily);
+                var previousPeriod = daily.Rows.Single(x => x.IsPending).Token;
+                var expectedTokens = new[] { previousPeriod }.Concat(daily.Rows.Where(x => x.CanClaim && x.Token != previousPeriod)
+                    .Select(x => x.Token)).Distinct().ToArray();
+                int beforeBulk = transport.ClaimCalls;
+                Check(manager.TryClaimTab(eQuestCategory.Daily, previousPeriod, done).Status == QuestClaimStatus.Pending &&
+                    transport.ClaimCalls == beforeBulk + 1 && transport.LastQuestId == previousPeriod.QuestId && transport.LastPeriod == previousPeriod.Period &&
+                    Field<QuestClaimToken[]>(Field<object>(manager, "_claim"), "Tokens").SequenceEqual(expectedTokens),
+                    "Claim-all freezes only current-tab claimable tokens and preserves the selected previous-period identity");
+                Check(manager.TryClaim(previousPeriod).Status == QuestClaimStatus.Busy && transport.ClaimCalls == beforeBulk + 1,
+                    "Claim-all blocks a simultaneous individual reward request");
+                manager.Apply(State(dailyComplete: true), "qa-new-goal-after-claim-all");
+                Check(Field<QuestClaimToken[]>(Field<object>(manager, "_claim"), "Tokens").SequenceEqual(expectedTokens) &&
+                    !expectedTokens.Any(x => x.QuestId == 20001), "Newly claimable goals do not join the running claim-all operation");
+                transport.Fail(FixtureError("Business", 1029));
+                Check(!manager.IsBusy && completed == 1 && confirmed == 0 && total == expectedTokens.Length &&
+                    individualCompletions == 1, "Claim-all rejection reports its frozen total without an individual completion");
                 var errors = new (string Name, PlayFab.PlayFabError Error)[]
                 {
                     ("StorageFailure1014", FixtureError("Business", 1014)), ("InvalidStoredData1015", FixtureError("Business", 1015)),
@@ -199,9 +234,17 @@ namespace KingdomIdle.UGUI.Editor
                 var view = panelObject.GetComponent<GuidePanelView>();
                 var panel = panelObject.GetComponent<BalanceQuestPanel>() ?? panelObject.AddComponent<BalanceQuestPanel>();
                 var tabs = view.tabBar; var content = view.listContent; var scroll = view.scroll;
-                Check(tabs != null && content != null && scroll != null && view.currentQuestRoot != null,
-                    "Serialized tab, list, scroll and legacy summary references remain connected");
+                Check(tabs != null && content != null && scroll != null && view.currentQuestRoot != null &&
+                    view.claimBar != null && view.claimAllButton != null && view.claimAllLabel != null && view.claimSummaryLabel != null &&
+                    view.claimAllButton.transform.IsChildOf(view.claimBar) && view.claimSummaryLabel.transform.IsChildOf(view.claimBar),
+                    "Serialized tabs, list and dedicated claim-bar controls remain connected");
                 panelObject.SetActive(true); canvasRoot.SetActive(true); panel.Bind(view); Publish(manager);
+                Canvas.ForceUpdateCanvases();
+                float Edge(RectTransform rect, bool top) => view.Sheet.InverseTransformPoint(rect.TransformPoint(
+                    new Vector3(0, top ? rect.rect.yMax : rect.rect.yMin, 0))).y;
+                Check(Edge(tabs, false) >= Edge(view.claimBar, true) - 1 &&
+                    Edge(view.claimBar, false) >= Edge((RectTransform)scroll.transform, true) - 1 && view.claimBar.rect.height > 0,
+                    "Claim bar occupies its own fixed band below the tabs and above the scroll list");
                 Check(panelObject.activeInHierarchy && content.GetComponent<VerticalLayoutGroup>().isActiveAndEnabled,
                     "UGUI geometry fixture is active for layout calculations");
                 var buttons = tabs.GetComponentsInChildren<Button>(false);
@@ -210,6 +253,14 @@ namespace KingdomIdle.UGUI.Editor
                     .SequenceEqual(new[] { "가이드", "일일", "주간", "업적" }), "Four real tab buttons retain their approved order and labels");
                 Check(panel.SelectedCategory == eQuestCategory.Guide && !view.currentQuestRoot.activeSelf,
                     "Initial Guide selection hides only the redundant popup summary");
+                var dots = Field<List<GameObject>>(panel, "_tabDots");
+                Check(catalog.circle != null && dots.Count == 4 && dots.Select((dot, index) => dot != null &&
+                    dot.transform.parent == buttons[index].transform && dot.GetComponent<Image>().sprite == catalog.circle &&
+                    dot.GetComponent<Image>().color == UguiTheme.DangerRedBright && !dot.GetComponent<Image>().raycastTarget).All(x => x),
+                    "Each tab reuses the existing circle notification asset without intercepting input");
+                Check(dots.Select(x => x.activeSelf).SequenceEqual(new[] { false, true, false, true }) &&
+                    !view.claimAllButton.interactable && view.claimAllLabel.text.StartsWith("모두받기", StringComparison.Ordinal),
+                    "Initial tab dots represent unclaimed rewards and an empty Guide disables claim-all");
                 foreach (var category in Categories)
                 {
                     Click(buttons[(int)category]);
@@ -217,9 +268,17 @@ namespace KingdomIdle.UGUI.Editor
                         manager.GetSnapshot(category).Rows.OrderBy(x => Order(x.State)).Select(x => x.Token)), category + " shows only the selected tab's latest DTO rows");
                     Check(tabViews.Select(x => Field<Image>(x, "selectedFrame").color.a > 0).SequenceEqual(Categories.Select(x => x == category)),
                         category + " has exactly one matching selected tab");
-                    Check(content.GetComponentsInChildren<GuideStepRowView>(false).All(x => x.actionButton.gameObject == x.gameObject &&
-                        x.checkButton == x.actionButton && x.GetComponentsInChildren<Button>(false).Length == 1 && x.claimBorder != null &&
-                        !x.actionLabel.text.Contains("받기")), category + " uses one whole-cell action and a claim border");
+                    Check(content.GetComponentsInChildren<GuideStepRowView>(false).All(x => x.actionButton.gameObject != x.gameObject &&
+                        (x.GetComponent<Button>() == null || !x.GetComponent<Button>().enabled) &&
+                        x.checkButton == x.actionButton && x.GetComponentsInChildren<Button>(false).Count(button => button.enabled) == 1 && x.claimBorder != null) &&
+                        Visible(panel).Where(x => x.CanClaim).All(x => RowView(panel, x.Token.QuestId).actionLabel.text == "보상받기"),
+                        category + " uses a separate individual reward action while the card remains display-only");
+                    int claimable = manager.GetSnapshot(category).Rows.Count(x => x.CanClaim);
+                    Check(view.claimAllButton.interactable == (claimable > 0) &&
+                        view.claimSummaryLabel.text.Contains(new[] { "가이드", "일일", "주간", "업적" }[(int)category]) &&
+                        view.claimSummaryLabel.text.Contains(claimable.ToString()), category + " summary and claim-all use only the selected tab's claimable count");
+                    Check(dots.Select(x => x.activeSelf).SequenceEqual(new[] { false, true, false, true }),
+                        category + " selection alone does not clear unclaimed-reward dots");
                 }
                 Check(!manager.GetSnapshot(eQuestCategory.Guide).Rows.Any(x => x.State == QuestRowState.Locked) &&
                     !manager.GetSnapshot(eQuestCategory.Achievement).Rows.Any(x => x.State == QuestRowState.Locked), "Locked guide/achievement chain steps remain hidden by the real DTO projection");
@@ -229,22 +288,40 @@ namespace KingdomIdle.UGUI.Editor
                     "Reselecting the current tab preserves rows and scroll position");
                 for (int i = 0; i < 3; i++) panel.Bind(view);
                 Check(tabs.GetComponentsInChildren<Button>(false).Length == 4 && rowIds.SequenceEqual(ActiveIds(content)) &&
-                    panelObject.GetComponents<NumberNotationBinding>().Length == 1, "Repeated Bind reuses tabs, row objects and the single notation binding");
+                    panelObject.GetComponents<NumberNotationBinding>().Length == 1 && dots.Count == 4 &&
+                    buttons.All(x => x.GetComponentsInChildren<Image>(true).Count(image => image.gameObject.name == "NotificationDot") == 1) &&
+                    view.claimBar.GetComponentsInChildren<Button>(true).Length == 1,
+                    "Repeated Bind reuses tabs, dots, row objects, claim-all control and the single notation binding");
 
                 var claimView = RowView(panel, 20002); var token = Visible(panel).Single(x => x.Token.QuestId == 20002).Token;
-                Check(claimView.actionButton.interactable && claimView.actionLabel.text == "수령 가능", "Claimable DTO enables the whole cell");
+                Check(claimView.actionButton.interactable && claimView.actionLabel.text == "보상받기" &&
+                    view.claimAllButton.interactable && view.claimSummaryLabel.text.Contains("3"), "Claimable DTO enables individual reward and current-tab claim-all controls");
                 int clicks = 0; UnityEngine.Events.UnityAction observer = () => clicks++; claimView.actionButton.onClick.AddListener(observer);
+                ExecuteEvents.Execute(claimView.gameObject, new PointerEventData(null)
+                    { button = PointerEventData.InputButton.Left }, ExecuteEvents.pointerClickHandler);
+                Check(clicks == 0 && !manager.IsBusy && ReferenceEquals(manager.ServerQuests, data),
+                    "Clicking a quest card background cannot request any reward");
                 Click(claimView.actionButton);
                 Check(clicks == 1 && !manager.IsBusy && ReferenceEquals(manager.ServerQuests, data) &&
-                    manager.TryClaimTab(eQuestCategory.Daily, token, null).Status == QuestClaimStatus.NotReady,
-                    "Whole-cell pointer reaches the guarded route; no account means no request or locally invented reward");
+                    manager.TryClaim(token).Status == QuestClaimStatus.NotReady,
+                    "Only the row button reaches the guarded individual route; no profile means no request or invented reward");
+                int bulkClicks = 0; UnityEngine.Events.UnityAction bulkObserver = () => bulkClicks++;
+                view.claimAllButton.onClick.AddListener(bulkObserver);
+                Click(view.claimAllButton);
+                Check(bulkClicks == 1 && !manager.IsBusy && ReferenceEquals(manager.ServerQuests, data),
+                    "Dedicated claim-all button reaches its guarded route without creating a profile or local reward");
                 // 거래를 시작하지 않고 기존 IsBusy 표시만 고정한다. 비활성 매니저는 전송·재시도를 실행하지 않는다.
                 SetBusyPresentation(manager, true); Tick(panel);
-                Check(!claimView.actionButton.interactable && claimView.actionLabel.text == "수령 중…", "Busy presentation disables duplicate reward input");
+                Check(!claimView.actionButton.interactable && claimView.actionLabel.text == "수령 중…" &&
+                    !view.claimAllButton.interactable && view.claimAllLabel.text == "수령 중…" && dots[1].activeSelf,
+                    "Busy presentation disables both reward actions and retains the unconfirmed-reward dot");
                 Click(claimView.actionButton); Click(claimView.actionButton);
-                Check(clicks == 1, "Two pointer clicks on the busy cell do not invoke its UnityEvent");
+                Click(view.claimAllButton); Click(view.claimAllButton);
+                Check(clicks == 1 && bulkClicks == 1, "Repeated pointer clicks on busy reward buttons do not invoke their UnityEvents");
                 SetBusyPresentation(manager, false); Tick(panel);
-                Check(claimView.actionButton.interactable && claimView.actionLabel.text == "수령 가능", "Clearing busy presentation restores the same token and cell");
+                Check(claimView.actionButton.interactable && claimView.actionLabel.text == "보상받기" &&
+                    view.claimAllButton.interactable && view.claimAllLabel.text.StartsWith("모두받기", StringComparison.Ordinal), "Clearing busy restores individual and claim-all controls for the same displayed rewards");
+                view.claimAllButton.onClick.RemoveListener(bulkObserver);
                 // 계정을 바꾸지 않고 화면에 남은 옛 세대 token만 구성하여 실제 셀의 방어 경로를 실행한다.
                 foreach (object binding in Field<IEnumerable>(panel, "_rows"))
                 {
@@ -258,15 +335,19 @@ namespace KingdomIdle.UGUI.Editor
                 Click(claimView.actionButton);
                 Check(Visible(panel).Single(x => x.Token.QuestId == token.QuestId).Token == token && !manager.IsBusy &&
                     ReferenceEquals(manager.ServerQuests, data) && LocalProgression.AccountGeneration == generation,
-                    "Stale-generation cell input restores the current DTO token without switching an account or claiming");
+                    "Stale-generation row input restores the current DTO token without switching an account or claiming");
                 rowIds = ActiveIds(content);
                 claimView.actionButton.onClick.RemoveListener(observer);
                 var route = Members(typeof(BalanceQuestPanel).GetMethod("Claim", Private)).ToArray();
-                Check(route.OfType<MethodBase>().Any(x => x.DeclaringType == typeof(QuestManager) && x.Name == "TryClaimTab") &&
-                    route.OfType<FieldInfo>().Any(x => x.DeclaringType == typeof(BalanceQuestPanel) && x.Name == "_selectedCategory"),
-                    "Compiled claim route calls existing TryClaimTab using the currently selected category");
+                Check(route.OfType<MethodBase>().Any(x => x.DeclaringType == typeof(QuestManager) && x.Name == "TryClaim") &&
+                    !route.OfType<MethodBase>().Any(x => x.DeclaringType == typeof(QuestManager) && x.Name == "TryClaimTab"),
+                    "Compiled individual row route calls TryClaim and never the whole-tab operation");
+                var bulkRoute = Members(typeof(BalanceQuestPanel).GetMethod("ClaimAll", Private)).ToArray();
+                Check(bulkRoute.OfType<MethodBase>().Any(x => x.DeclaringType == typeof(QuestManager) && x.Name == "TryClaimTab") &&
+                    bulkRoute.OfType<FieldInfo>().Any(x => x.DeclaringType == typeof(BalanceQuestPanel) && x.Name == "_selectedCategory"),
+                    "Compiled dedicated claim-all route calls TryClaimTab using the selected category");
                 Check(Members(typeof(BalanceQuestPanel).GetMethod("Act", Private)).OfType<MethodBase>()
-                    .Any(x => x.DeclaringType == typeof(LocalProgression) && x.Name == "get_AccountGeneration"), "Compiled whole-cell action retains its account-generation gate");
+                    .Any(x => x.DeclaringType == typeof(LocalProgression) && x.Name == "get_AccountGeneration"), "Compiled row action retains its account-generation gate");
                 var pending = Visible(panel).Single(x => x.IsPending);
                 Check(RowView(panel, pending.Token.QuestId).periodLabel.text.Contains("2026-11-11"), "Previous-period reward retains its server period label");
                 Check(RowView(panel, 20001).rewardAmountLabel.text == "2분\n골드" && RowView(panel, 20001).rewardAmountLabel.rectTransform.rect.height >= 88,
@@ -279,6 +360,14 @@ namespace KingdomIdle.UGUI.Editor
                 data = State(weeklyProgress: 9); manager.Apply(data, "qa-dto-other-category"); Publish(manager);
                 Check(panel.SelectedCategory == eQuestCategory.Daily && rowIds.SequenceEqual(ActiveIds(content)),
                     "Unrelated Weekly DTO changes do not rebuild the open Daily rows");
+                data = State(); data.Rows.Single(x => x.QuestId == 30001).State = Dto.QuestRowState.Claimable;
+                manager.Apply(data, "qa-closed-tab-claimable"); Publish(manager);
+                Check(dots[2].activeSelf && panel.SelectedCategory == eQuestCategory.Daily && rowIds.SequenceEqual(ActiveIds(content)) &&
+                    view.claimSummaryLabel.text.Contains("3"), "An unselected tab's new reward lights its dot without changing the current tab or count");
+                data.Rows.Single(x => x.QuestId == 30001).State = Dto.QuestRowState.Claimed;
+                manager.Apply(data, "qa-closed-tab-claimed"); Publish(manager);
+                Check(!dots[2].activeSelf && dots[1].activeSelf && dots[3].activeSelf && rowIds.SequenceEqual(ActiveIds(content)),
+                    "An unselected tab's confirmed claim clears only its own dot without rebuilding the current rows");
                 var drag = scroll.GetComponent<QuestScrollDragRelay>(); var pointer = new PointerEventData(null) { button = PointerEventData.InputButton.Left };
                 drag.OnBeginDrag(pointer); rowIds = ActiveIds(content);
                 data = State(dailyComplete: true); manager.Apply(data, "qa-dto-during-drag"); Publish(manager);
@@ -289,7 +378,8 @@ namespace KingdomIdle.UGUI.Editor
                     "Drag release reorders existing row objects using the latest DTO");
                 panelObject.SetActive(false); data = State(allDailyClaimed: true); manager.Apply(data, "qa-dto-claimed-display"); Publish(manager); panelObject.SetActive(true);
                 Check(panel.SelectedCategory == eQuestCategory.Daily && Visible(panel).All(x => x.State == QuestRowState.Claimed) &&
-                    content.GetComponentsInChildren<GuideStepRowView>(false).All(x => x.progressFill.fillAmount == 1 && !x.actionButton.interactable),
+                    content.GetComponentsInChildren<GuideStepRowView>(false).All(x => x.progressFill.fillAmount == 1 && !x.actionButton.interactable) &&
+                    !dots[1].activeSelf && dots[3].activeSelf && !view.claimAllButton.interactable && view.claimSummaryLabel.text.Contains("0"),
                     "Re-enable reads supplied Claimed DTO rows and preserves their cards; reward payment is not exercised");
                 data = State(day: "2026-11-13"); manager.Apply(data, "qa-dto-new-period"); Publish(manager);
                 Check(Visible(panel).Where(x => !x.IsPending).All(x => x.Token.Period == "2026-11-13") &&
