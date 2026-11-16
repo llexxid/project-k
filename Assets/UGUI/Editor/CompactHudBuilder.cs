@@ -216,6 +216,7 @@ namespace KingdomIdle.UGUI.Editor
             }
             Pin((RectTransform)all.transform, new Vector2(1, .5f), new Vector2(-8, 0), new Vector2(328, 128), new Vector2(1, .5f));
             all.interactable = false;
+            all.GetComponent<Image>().raycastPadding = new Vector4(0, -18, 0, -18);
             view.claimAllButton = all;
             view.claimAllLabel = all.GetComponentInChildren<TMP_Text>(true);
 
