@@ -46,6 +46,8 @@ namespace KingdomIdle.UGUI.Editor
                     "Claim border surrounds a separate information surface");
                 Check(view.titleLabel.fontSize>=42 && view.actionLabel.fontSize>=36,
                     "Title and status retain readable mobile text sizes");
+                Check(view.actionButton.GetComponentsInChildren<TMP_Text>(false).Length == 1,
+                    "Reusing the legacy action button leaves exactly one visible label");
                 var rewards=new[]{new QuestRewardSnapshot(eCurrency.Gold,100,false),new QuestRewardSnapshot(eCurrency.Ruby,2,false)};
                 QuestRowSnapshot Snapshot(QuestRowState state,long progress)=>new QuestRowSnapshot(
                     new QuestClaimToken(0,20001,"bronze-validation"),eQuestCategory.Daily,"검사","몬스터 10마리 처치",
@@ -144,6 +146,7 @@ namespace KingdomIdle.UGUI.Editor
 
             var actionRect = Rect(body, "ActionButton");
             actionRect.gameObject.SetActive(true);
+            foreach (Transform child in actionRect) child.gameObject.SetActive(child.name == "Label");
             actionRect.anchorMin = actionRect.anchorMax = new Vector2(1, 1);
             actionRect.pivot = new Vector2(1, 1);
             actionRect.anchoredPosition = new Vector2(0, -140);
@@ -152,6 +155,7 @@ namespace KingdomIdle.UGUI.Editor
             actionImage.sprite = rounded;
             actionImage.type = UnityEngine.UI.Image.Type.Sliced;
             actionImage.raycastTarget = true;
+            actionImage.raycastPadding = new Vector4(0, -18, 0, -18);
             view.actionButton = actionRect.GetComponent<UnityEngine.UI.Button>() ?? actionRect.gameObject.AddComponent<UnityEngine.UI.Button>();
             view.actionButton.enabled = true;
             view.actionButton.targetGraphic = actionImage;
