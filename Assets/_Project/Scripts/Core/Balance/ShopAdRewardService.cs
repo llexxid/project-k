@@ -4,6 +4,7 @@ using KingdomIdle.Rewards;
 using PlayFab;
 using Scripts.Core;
 using Scripts.Core.Manager;
+using Scripts.Core.Utils;
 using UnityEngine;
 using Dto = Protocol.Message.Dto;
 
@@ -25,6 +26,7 @@ namespace KingdomIdle.Balance
             internal readonly NetworkManager Network;
             internal readonly long AccountGeneration, NetworkGeneration, Amount;
             internal readonly eCurrency Currency;
+            internal GameplayLoading.Scope Loading;
 
             internal Claim(ShopOffer offer, eCurrency currency)
             {
@@ -49,6 +51,13 @@ namespace KingdomIdle.Balance
             ReferenceEquals(_activeClaim, claim) && IsCurrentAccount(claim);
         /// <summary>수령 요청의 결과. 메시지가 있으면 결과 상태 대신 그 문구를 보여 준다.</summary>
         public static event Action<Claim, RewardResult, string> ClaimCompleted;
+
+        static void CompleteClaim(Claim claim, RewardResult result, string message)
+        {
+            claim.Loading?.Dispose();
+            claim.Loading = null;
+            ClaimCompleted?.Invoke(claim, result, message);
+        }
 
         /// <summary>추정 서버 시각 기준 오늘(KST). 서버는 관측한 최대 시각으로 판정하므로 자정 부근에서는 다를 수 있다. 표시·안내용이다.</summary>
         public static string Today => QuestPeriod.At(LocalProgression.UtcNow + _serverOffset).Day;
@@ -123,7 +132,9 @@ namespace KingdomIdle.Balance
             if (!claim.Earned) return new RewardResult(RewardStatus.InvalidReward);
             var network = NetworkManager.Instance;
             if (IsBusy || network == null || !network.IsGameDataReady) return new RewardResult(RewardStatus.NotReady);
+            _activeClaim?.Loading?.Dispose();
             _activeClaim = claim;
+            claim.Loading = GameplayLoading.Begin("shop-ad-reward");
             int generation = ++_requestGeneration;
             network.Call<Dto.OnClaimAdRewardRequestDTO, Dto.OnClaimAdRewardResponseDTO>(
                 new Dto.OnClaimAdRewardRequestDTO { AdType = Protocol.Message.Data.eAdType.ShopDaily, OfferId = claim.OfferId },
@@ -135,7 +146,7 @@ namespace KingdomIdle.Balance
         static void ApplyServerResult(Claim claim, Dto.OnClaimAdRewardResponseDTO r)
         {
             if (!ReferenceEquals(_activeClaim, claim)) return;
-            if (!IsCurrentAccount(claim)) { _activeClaim = null; ClaimCompleted?.Invoke(claim, new RewardResult(RewardStatus.Stale), null); return; }
+            if (!IsCurrentAccount(claim)) { _activeClaim = null; CompleteClaim(claim, new RewardResult(RewardStatus.Stale), null); return; }
             var loot = KingdomIdle.Rewards.LootNotifications.Capture(false, false);
             bool saved = LocalProgression.Execute("server-ad-reward", s => { UserManager.ApplyAdReward(s, r); return true; });
             _server = r.AdRewards;
@@ -148,13 +159,13 @@ namespace KingdomIdle.Balance
             if (!saved)
             {
                 global::Direction.GameDirectInteraction.ReportSaveFailure();
-                ClaimCompleted?.Invoke(claim, new RewardResult(RewardStatus.SaveFailed), null);
+                CompleteClaim(claim, new RewardResult(RewardStatus.SaveFailed), null);
                 return;
             }
             if (r.AlreadyClaimed)
             {
                 // 오늘 이미 받았다(응답 유실 뒤 재요청 포함). 보유 수량은 서버 값으로 맞췄다.
-                ClaimCompleted?.Invoke(claim, new RewardResult(RewardStatus.NothingAvailable), "오늘 이미 받은 보상입니다.");
+                CompleteClaim(claim, new RewardResult(RewardStatus.NothingAvailable), "오늘 이미 받은 보상입니다.");
                 return;
             }
             KingdomIdle.Rewards.LootNotifications.PublishCurrencies(loot, r.GrantedCurrencies, "shop-ad:" + r.AdRewards.Day + ":" + claim.OfferId);
@@ -163,7 +174,7 @@ namespace KingdomIdle.Balance
             {
                 if (g != null && g.Amount > 0) grants.Add(new RewardGrant((eCurrency)(int)g.CurrencyType, g.Amount));
             }
-            ClaimCompleted?.Invoke(claim, new RewardResult(RewardStatus.Success, grants.ToArray()), null);
+            CompleteClaim(claim, new RewardResult(RewardStatus.Success, grants.ToArray()), null);
         }
 
         /// <summary>광고 응답의 지급 목록에서 한 재화의 지급량 합.</summary>
@@ -189,7 +200,7 @@ namespace KingdomIdle.Balance
         static void RejectServerResult(Claim claim, PlayFabError error)
         {
             if (!ReferenceEquals(_activeClaim, claim)) return;
-            if (!IsCurrentAccount(claim)) { _activeClaim = null; ClaimCompleted?.Invoke(claim, new RewardResult(RewardStatus.Stale), null); return; }
+            if (!IsCurrentAccount(claim)) { _activeClaim = null; CompleteClaim(claim, new RewardResult(RewardStatus.Stale), null); return; }
             int generation = _requestGeneration;
             string kind = NetworkManager.GetFailureKind(error);
             int code = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0;
@@ -206,7 +217,7 @@ namespace KingdomIdle.Balance
                 if (users == null)
                 {
                     _activeClaim = null;
-                    ClaimCompleted?.Invoke(claim, new RewardResult(RewardStatus.SaveFailed), NetworkManager.DescribeFailure(error, "광고 보상"));
+                    CompleteClaim(claim, new RewardResult(RewardStatus.SaveFailed), NetworkManager.DescribeFailure(error, "광고 보상"));
                     return;
                 }
                 users.RefreshFromServer(ok =>
@@ -214,15 +225,15 @@ namespace KingdomIdle.Balance
                     if (!IsCurrentRequest(claim, generation)) return;
                     _activeClaim = null;
                     if (ok && IsClaimed(claim.OfferId, Today))
-                        ClaimCompleted?.Invoke(claim, new RewardResult(RewardStatus.NothingAvailable), "보상을 서버에서 다시 불러왔습니다.");
+                        CompleteClaim(claim, new RewardResult(RewardStatus.NothingAvailable), "보상을 서버에서 다시 불러왔습니다.");
                     else
-                        ClaimCompleted?.Invoke(claim, new RewardResult(RewardStatus.SaveFailed), NetworkManager.DescribeFailure(error, "광고 보상"));
+                        CompleteClaim(claim, new RewardResult(RewardStatus.SaveFailed), NetworkManager.DescribeFailure(error, "광고 보상"));
                 });
                 return;
             }
             // 확정된 요청·보상 무효 오류만 클레임을 버린다.
             _activeClaim = null;
-            ClaimCompleted?.Invoke(claim, new RewardResult(RewardStatus.InvalidReward), NetworkManager.DescribeFailure(error, "광고 보상"));
+            CompleteClaim(claim, new RewardResult(RewardStatus.InvalidReward), NetworkManager.DescribeFailure(error, "광고 보상"));
         }
 
 #if UNITY_EDITOR

@@ -107,6 +107,7 @@ namespace Scripts.Core.Manager
 
         private void StopMainSettlement(string message)
         {
+            EndStageLoading();
             _huntInFlight = false;
             _huntSyncFailed = true;
             _nextHuntSendAt = 0f;
@@ -120,6 +121,7 @@ namespace Scripts.Core.Manager
         {
             var pending = LocalProgression.State.PendingMainCompletion;
             if (pending == null) return false;
+            BeginStageLoading("main-completion-recovery");
             EndSession();
             _currentState = eStageRunState.Resolving;
             Time.timeScale = 0f;
@@ -199,10 +201,12 @@ namespace Scripts.Core.Manager
                 if ((i == 0 && _huntInFlight) || queued[i].MainRunId != battle.RunId) _huntOutbox.Enqueue(queued[i]);
             _huntBuffer.Remove(battle.Stage);
             var pending = LocalProgression.State.PendingMainCompletion;
+            float presentAfter = Time.realtimeSinceStartup + MainWaveClearHoldSeconds;
+            BeginStageLoading("main-complete", presentAfter);
             _huntOutbox.Enqueue(new HuntOutboxItem
             {
                 IsClear = true, StageId = pending.Stage, MainRunId = pending.RunId, Completion = pending.Copy(),
-                ShowResult = showResult, PresentNextAfter = Time.realtimeSinceStartup + MainWaveClearHoldSeconds
+                ShowResult = showResult, PresentNextAfter = presentAfter
             });
             _nextHuntSendAt = 0f;
             TrySendNextHunt();
@@ -316,6 +320,7 @@ namespace Scripts.Core.Manager
             long generation = LocalProgression.AccountGeneration, networkGeneration = network != null ? network.AccountGeneration : -1;
             var token = _token;
             float previousTimeScale = Time.timeScale;
+            BeginStageLoading("main-state-recovery");
             _huntInFlight = true;
             Time.timeScale = 0f;
             if (user == null) { StopMainSettlement("메인 정산 상태를 조회하지 못했습니다. 재접속해 주세요."); return; }
@@ -353,6 +358,7 @@ namespace Scripts.Core.Manager
 
         private void ResumeMainHuntAfterRefresh(float previousTimeScale)
         {
+            if (_onHuntsSettled == null && !_huntOutbox.Any(item => item.IsClear)) EndStageLoading();
             Time.timeScale = _onHuntsSettled != null ? 0f : previousTimeScale;
             TrySendNextHunt();
         }

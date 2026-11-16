@@ -81,7 +81,7 @@ namespace KingdomIdle.UGUI
 
         /// <summary>온라인 전투 시간에서 제외할 메뉴·설정·로딩 상태를 한 곳에서 제공한다.</summary>
         public bool BlocksQuestBattleTime => HasBlockingPanel || HasActiveTabPanel || ModalBackHandler.HasOpenModal ||
-            (_settings != null && _settings.IsOpen) || (_loading != null && _loading.gameObject.activeInHierarchy);
+            (_settings != null && _settings.IsOpen) || IsLoadingVisible;
 
         /// <summary>패널 스택이 변할 때마다 발생 — 탭 선택 시각화, 파티 HUD 위치 갱신용.</summary>
         public event Action PanelStackChanged;
@@ -97,7 +97,7 @@ namespace KingdomIdle.UGUI
             // 시트가 화면 밖에서 올라오는 동안 실제 버튼이 마스크 밖에 있을 수 있다. 전투 시간은 유지하고 표시만 기다린다.
             if (Time.unscaledTime < _guidePanelReadyAt) return false;
             if (_activeScreenId != UIScreenId.Main || _activeScreenGo == null || HasBlockingPanel ||
-                (_loading != null && _loading.gameObject.activeInHierarchy) || (_settings != null && _settings.IsOpen) ||
+                IsLoadingVisible || (_settings != null && _settings.IsOpen) ||
                 (_mainController != null && _mainController.HasOpenDropdown)) return false;
             var context = Direction.GameDirectInteraction.Clicked ? step.Destination : step.Context;
             var panel = GuidePanel(context);
@@ -185,7 +185,7 @@ namespace KingdomIdle.UGUI
         }
 
         internal bool CanShowTitlePatch => _activeScreenId == UIScreenId.Title && _activeScreenGo != null &&
-            !ModalBackHandler.HasOpenModal && (_loading == null || !_loading.gameObject.activeInHierarchy) &&
+            !ModalBackHandler.HasOpenModal && !IsLoadingVisible &&
             (_settings == null || !_settings.IsOpen);
 
         /// <summary>안내를 덮을 메뉴·로딩·실제 팝업을 검사한다. 안내 View 자체는 팝업 계층 밖에 있어 자기 차단이 없다.</summary>
@@ -195,7 +195,7 @@ namespace KingdomIdle.UGUI
             {
                 if (_activeScreenId != UIScreenId.Main || _activeScreenGo == null ||
                     HasBlockingPanel || HasActiveTabPanel || ModalBackHandler.HasOpenModal ||
-                    (_loading != null && _loading.gameObject.activeInHierarchy) ||
+                    IsLoadingVisible ||
                     (_settings != null && _settings.IsOpen) || (_mainController != null && _mainController.HasOpenDropdown)) return false;
                 if (layerPopups != null)
                     for (int i = 0; i < layerPopups.childCount; i++)
@@ -213,6 +213,9 @@ namespace KingdomIdle.UGUI
 
         // ── 오버레이 ──
         private LoadingOverlayView _loading;
+        private GameplayLoadingOverlayView _operationLoading;
+        public bool IsLoadingVisible => (_loading != null && _loading.gameObject.activeInHierarchy) ||
+            (_operationLoading != null && _operationLoading.gameObject.activeInHierarchy);
         private bool _sceneLoading, _offlineRewardLoading;
         private string _sceneLoadingText;
         private ToastView _toast;
@@ -290,6 +293,7 @@ namespace KingdomIdle.UGUI
         private void Update()
         {
             EnsureStageManagerBinding();
+            RefreshLoading();
 
             if (Input.GetKeyDown(KeyCode.Escape))
                 RequestBack();
@@ -747,6 +751,7 @@ namespace KingdomIdle.UGUI
         /// <summary>Android 뒤로가기와 공통 뒤로가기 요청을 처리한다. 보이는 안내는 건너뛰고, 가려진 안내 대신 현재 모달을 먼저 닫는다.</summary>
         public void RequestBack()
         {
+            if (IsLoadingVisible) return;
             if (OfflineRewardPopupController.IsOpen) return;
             // 현재 보이는 안내만 건너뛴다. 로딩/팝업이 가린 안내는 기존 모달의 뒤로가기를 가로채지 않는다.
             if (ActiveFeatureGuide != null && ActiveFeatureGuide.HandleBack()) return;
@@ -808,6 +813,14 @@ namespace KingdomIdle.UGUI
                 go.SetActive(false);
             }
 
+            if (catalog.overlayGameplayLoading != null)
+            {
+                var go = Instantiate(catalog.overlayGameplayLoading, layerOverlays, false);
+                ForceFullStretch(go);
+                _operationLoading = go.GetComponent<GameplayLoadingOverlayView>();
+                go.SetActive(false);
+            }
+
             if (catalog.overlayToast != null)
             {
                 var go = Instantiate(catalog.overlayToast, layerOverlays, false);
@@ -837,24 +850,25 @@ namespace KingdomIdle.UGUI
 
         private void RefreshLoading()
         {
-            if (_loading == null) return;
-
-            // 씬 전환과 보상 지급이 서로의 로딩 표시를 종료하지 않게 한다.
-            if (_sceneLoading || _offlineRewardLoading)
+            bool operation = !_sceneLoading && ((_offlineRewardLoading && KingdomIdle.OfflineRewards.OfflineRewardManager.AdBonusBusy) ||
+                Scripts.Core.Utils.GameplayLoading.IsVisible);
+            if ((_sceneLoading || operation) && ActiveFeatureGuide != null && ActiveFeatureGuide.gameObject.activeSelf)
+                ActiveFeatureGuide.Hide();
+            if (_loading != null)
             {
-                ActiveFeatureGuide?.Hide();
-                if (_loading.lblLoading != null)
-                    _loading.lblLoading.text = _sceneLoading ? _sceneLoadingText : "보상 지급 중…";
-                if (!_sceneLoading) _loading.SetProgress01(0f);
-                _loading.gameObject.SetActive(true);
-                _loading.transform.SetAsLastSibling();
+                if (_sceneLoading && _loading.lblLoading != null && _loading.lblLoading.text != _sceneLoadingText)
+                    _loading.lblLoading.text = _sceneLoadingText;
+                SetOverlayVisible(_loading.gameObject, _sceneLoading);
             }
-            else
-            {
-                _loading.gameObject.SetActive(false);
-            }
+            if (_operationLoading != null) SetOverlayVisible(_operationLoading.gameObject, operation);
         }
 
+        private static void SetOverlayVisible(GameObject overlay, bool visible)
+        {
+            if (overlay.activeSelf == visible) return;
+            overlay.SetActive(visible);
+            if (visible) overlay.transform.SetAsLastSibling();
+        }
         public void SetLoadingProgress(float normalized01)
         {
             if (_loading == null) return;

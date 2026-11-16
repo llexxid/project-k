@@ -7,6 +7,7 @@ using PlayFab;
 using Protocol.Message.Dto;
 using Scripts.Core;
 using Scripts.Core.Manager;
+using Scripts.Core.Utils;
 using UnityEngine;
 
 namespace KingdomIdle.Gacha
@@ -19,6 +20,7 @@ namespace KingdomIdle.Gacha
         private NetworkManager _pullNetwork;
         private long _pullNetworkGeneration, _pullAccountGeneration;
         private int _pullGeneration;
+        private GameplayLoading.Scope _loading;
         public bool IsPulling { get => _isPulling && IsCurrentPull(_pullGeneration); private set => _isPulling = value; }
         private bool IsCurrentPull(int generation) => generation == _pullGeneration && _pullNetwork != null &&
             _pullNetwork == NetworkManager.Instance && _pullNetworkGeneration == _pullNetwork.AccountGeneration &&
@@ -31,7 +33,12 @@ namespace KingdomIdle.Gacha
         public int EpicPityRemaining => EpicPityLimit - EpicPityCount;
         public IReadOnlyList<GachaTableSO> GetAllTables() => gachaTables.Where(t => t != null && t.isImplemented && (t.gachaType == eGachaType.Equipment || t.gachaType == eGachaType.Skill) && t.costCurrency == eCurrency.AncientCoin).ToList();
         private void Awake() { if (Instance != null && Instance != this) { Destroy(gameObject); return; } Instance = this; DontDestroyOnLoad(gameObject); }
-        private void OnDestroy() { if (Instance == this) Instance = null; }
+        private void OnDestroy() { EndLoading(_loading); if (Instance == this) Instance = null; }
+        private void EndLoading(GameplayLoading.Scope loading)
+        {
+            loading?.Dispose();
+            if (ReferenceEquals(_loading, loading)) _loading = null;
+        }
         public int GetTicketCost(GachaTableSO table, int count) => table != null && (count == 1 || count == 10)
             ? (int)Math.Min(count, LocalProgression.Balance(table.gachaType == eGachaType.Skill ? eCurrency.MageTicket : eCurrency.EquipmentTicket)) : 0;
         public int GetTotalCost(GachaTableSO table, int count) => table != null && (count == 1 || count == 10) ? 50 * (count - GetTicketCost(table, count)) : -1;
@@ -69,7 +76,9 @@ namespace KingdomIdle.Gacha
             _pullNetworkGeneration = network.AccountGeneration;
             _pullAccountGeneration = LocalProgression.AccountGeneration;
             int generation = ++_pullGeneration;
+            EndLoading(_loading);
             IsPulling = true; LastFailure = null; OnPullStateChanged?.Invoke(true);
+            _loading = GameplayLoading.Begin("gacha");
             if (table.gachaType == eGachaType.Equipment)
             {
                 network.Call<OnGachaEquipmentClassFragmentRequestDTO, OnGachaEquipmentClassFragmentResponseDTO>(new OnGachaEquipmentClassFragmentRequestDTO { Count = count },
@@ -89,6 +98,7 @@ namespace KingdomIdle.Gacha
             CurrencyQueryDTO currency, GachaStateDTO gacha, EquipmentInventoryDTO inventory, MageTowerStateDTO mage,
             Action<List<GachaRewardEntry>> onSuccess, Action<string> onError)
         {
+            var loading = _loading;
             bool equipment = table.gachaType == eGachaType.Equipment;
             var loot = KingdomIdle.Rewards.LootNotifications.Capture();
             bool saved;
@@ -117,6 +127,7 @@ namespace KingdomIdle.Gacha
             {
                 Direction.GameDirectInteraction.ReportSaveFailure();
                 LastFailure = NetworkManager.CreateError("ApplyFailed", "서버 가챠 결과를 저장하지 못했습니다: " + LocalProgression.LastError);
+                EndLoading(loading);
                 onError?.Invoke("서버 결과를 저장하지 못했습니다. 다시 로그인하면 서버 값으로 맞춰집니다.");
                 return;
             }
@@ -126,17 +137,22 @@ namespace KingdomIdle.Gacha
             QuestManager.Instance?.RequestRefresh("gacha");
             if (rewards != null && rewards.Any(reward => reward?.Disposition == EquipmentDisposition.Mail))
                 GameManager.Instance?.Mailbox?.RefreshAfterDelivery("equipment-gacha");
+            EndLoading(loading);
             onSuccess?.Invoke(entries);
         }
 
         private void RejectServerResult(GachaTableSO table, int count, PlayFabError error, Action<string> onError)
         {
+            _loading ??= GameplayLoading.Begin("gacha");
+            var loading = _loading;
             LastFailure = error;
             int generation = _pullGeneration;
             void Complete(string message)
             {
                 if (!IsCurrentPull(generation)) return;
-                IsPulling = false; OnPullStateChanged?.Invoke(false);
+                IsPulling = false;
+                EndLoading(loading);
+                OnPullStateChanged?.Invoke(false);
                 onError?.Invoke(message);
             }
             int code = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0;
