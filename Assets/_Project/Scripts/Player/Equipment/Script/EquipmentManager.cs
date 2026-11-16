@@ -54,9 +54,15 @@ public class EquipmentManager : MonoBehaviour
         public int ErrorCode;
         public string Failure;
         public string LogLine;
+        internal NetworkManager Network;
+        internal long NetworkGeneration, AccountGeneration;
     }
 
-    public bool IsBusy { get; private set; }
+    private ActionInfo _activeAction;
+    public bool IsBusy => IsCurrentAction(_activeAction);
+    private bool IsCurrentAction(ActionInfo info) => info != null && ReferenceEquals(_activeAction, info) &&
+        info.Network != null && info.Network == NetworkManager.Instance && info.NetworkGeneration == info.Network.AccountGeneration &&
+        info.AccountGeneration == LocalProgression.AccountGeneration;
     /// <summary>마지막 서버 거절 또는 적용 실패. Business 오류면 CustomData에 서버 ErrorResponseDTO가 들어 있다.</summary>
     public PlayFabError LastFailure { get; private set; }
     public event Action<bool> OnBusyChanged;
@@ -152,15 +158,19 @@ public class EquipmentManager : MonoBehaviour
         return EnhancementResult.Pending;
     }
 
-    private void Begin()
+    private void Begin(ActionInfo info)
     {
-        IsBusy = true; LastFailure = null;
+        info.Network = NetworkManager.Instance;
+        info.NetworkGeneration = info.Network.AccountGeneration;
+        info.AccountGeneration = LocalProgression.AccountGeneration;
+        _activeAction = info; LastFailure = null;
         OnBusyChanged?.Invoke(true);
     }
 
     private void Complete(ActionInfo info)
     {
-        IsBusy = false;
+        if (!IsCurrentAction(info)) return;
+        _activeAction = null;
         OnBusyChanged?.Invoke(false);
         Notify(info);
     }
@@ -222,7 +232,9 @@ public class EquipmentManager : MonoBehaviour
     /// <summary>응답의 Equipment(와 강화석 잔액)를 플레이어 상태에 쓰고 인스턴스를 복원한다. 저장 실패는 ApplyFailed로 알린다.</summary>
     private void ApplyServerInventory(ActionInfo info, string op, string function, Dto.EquipmentInventoryDTO inventory, long? stone, string detail, Func<EquipmentInstance> resolve)
     {
+        if (!IsCurrentAction(info)) return;
         bool saved;
+        var loot = info.Kind == ActionKind.Dismantle ? KingdomIdle.Rewards.LootNotifications.Capture(false, false) : null;
         try
         {
             saved = LocalProgression.Execute("server-equipment-" + op, s =>
@@ -250,6 +262,8 @@ public class EquipmentManager : MonoBehaviour
             Complete(info);
             return;
         }
+        if (info.Kind == ActionKind.Dismantle)
+            KingdomIdle.Rewards.LootNotifications.PublishCurrency(loot, eCurrency.EquipmentStone, info.GrantedEquipmentStone);
         RestoreEquipment();
         info.Ok = true;
         var target = resolve?.Invoke();
@@ -262,9 +276,10 @@ public class EquipmentManager : MonoBehaviour
         QuestManager.Instance?.RequestRefresh("equipment");
     }
 
-    /// <summary>서버 거절·전송 실패. 거절(Business)은 상태를 건드리지 않고 문구만 돌려준다. 응답 유실(Timeout/Transport)은 재전송하지 않고 서버 상태를 다시 받는다.</summary>
+    /// <summary>확정 거절은 안내만 한다. 응답 미확정은 재전송하지 않고, 입력 잠금을 유지한 채 서버 상태를 다시 받는다.</summary>
     private void RejectServerResult(ActionInfo info, string op, PlayFabError error)
     {
+        if (!IsCurrentAction(info)) return;
         LastFailure = error;
         int code = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0;
         string kind = NetworkManager.GetFailureKind(error);
@@ -272,19 +287,28 @@ public class EquipmentManager : MonoBehaviour
         Debug.LogWarning(info.LogLine);
         info.Ok = false;
         info.ErrorCode = code;
-        IsBusy = false;
-        OnBusyChanged?.Invoke(false);
-        if (code == 0 && (kind == "Timeout" || kind == "Transport") && UserManager.Instance != null)
+        bool uncertain = code == (int)Protocol.Message.Data.eErrorCode.StorageFailure ||
+            code == (int)Protocol.Message.Data.eErrorCode.InvalidStoredData || code == 0 &&
+            (kind == "Timeout" || kind == "Transport" || kind == "Function" ||
+            kind == "InvalidResponse" || kind == "ApplyFailed" ||
+            error?.Error == PlayFabErrorCode.CloudScriptAzureFunctionsExecutionTimeLimitExceeded ||
+            error?.Error == PlayFabErrorCode.CloudScriptExecutionTimeLimitExceeded ||
+            error?.Error == PlayFabErrorCode.CloudScriptHTTPRequestError ||
+            error?.Error == PlayFabErrorCode.CloudScriptAzureFunctionsHTTPRequestError || error?.Error == PlayFabErrorCode.ConnectionError);
+        if (uncertain && UserManager.Instance != null)
         {
             UserManager.Instance.RefreshFromServer(ok =>
             {
-                info.Failure = ok ? "서버 응답이 늦어 장비 상태를 서버에서 다시 불러왔습니다. 목록을 확인해 주세요." : NetworkManager.DescribeFailure(error, ActionName(info.Kind));
-                Notify(info);
+                if (!IsCurrentAction(info)) return;
+                info.Failure = ok ? "서버 응답이 늦어 장비 상태를 서버에서 다시 불러왔습니다. 목록을 확인해 주세요." :
+                    "장비 요청 결과를 확인하지 못했습니다. 다시 로그인해 보유 목록을 확인해 주세요.";
+                Complete(info);
             });
             return;
         }
-        info.Failure = NetworkManager.DescribeFailure(error, ActionName(info.Kind));
-        Notify(info);
+        info.Failure = uncertain ? "장비 요청 결과를 확인하지 못했습니다. 다시 로그인해 보유 목록을 확인해 주세요." :
+            NetworkManager.DescribeFailure(error, ActionName(info.Kind));
+        Complete(info);
     }
 
     private bool Owns(EquipmentInstance item) => item?.baseData != null && _inventory.Items.Contains(item);
@@ -312,7 +336,7 @@ public class EquipmentManager : MonoBehaviour
         var info = new ActionInfo { Kind = ActionKind.Lock, ItemId = item.instanceId, CharacterIndex = item.equipmentPlayerIndex ?? -1 };
         int code = item.baseData.itemCode, level = item.enhancementLevel; long expires = item.expiresUtc; string id = item.instanceId;
         var request = new Dto.OnSetEquipmentLockRequestDTO { ItemCode = item.ToItemCode(), IsLocked = locked };
-        Begin();
+        Begin(info);
         network.Call<Dto.OnSetEquipmentLockRequestDTO, Dto.OnSetEquipmentLockResponseDTO>(request,
             r => ApplyServerInventory(info, "lock", "OnSetEquipmentLock", r.Equipment, null, $"code=0x{request.ItemCode.Code:X} locked={locked}",
                 () => _inventory.Items.FirstOrDefault(x => x.instanceId == id) ?? FindActionItem(request.ItemCode.InstanceId, code, level, expires, null)),
@@ -348,7 +372,7 @@ public class EquipmentManager : MonoBehaviour
         var info = new ActionInfo { Kind = ActionKind.Equip, ItemId = item.instanceId, CharacterIndex = playerIndex };
         int code = item.baseData.itemCode, level = item.enhancementLevel; long expires = item.expiresUtc;
         var request = new Dto.OnEquipEquipmentRequestDTO { ItemCode = item.ToItemCode(), CharacterIndex = playerIndex };
-        Begin();
+        Begin(info);
         network.Call<Dto.OnEquipEquipmentRequestDTO, Dto.OnEquipEquipmentResponseDTO>(request,
             r => ApplyServerInventory(info, "equip", "OnEquipEquipment", r.Equipment, null, $"code=0x{request.ItemCode.Code:X} char={playerIndex}",
                 () => FindActionItem(request.ItemCode.InstanceId, code, level, expires, x => x.equipmentPlayerIndex == playerIndex)),
@@ -410,7 +434,7 @@ public class EquipmentManager : MonoBehaviour
         var info = new ActionInfo { Kind = ActionKind.Unequip, ItemId = item.instanceId, CharacterIndex = playerIndex };
         int code = item.baseData.itemCode, level = item.enhancementLevel; long expires = item.expiresUtc;
         var request = new Dto.OnUnequipEquipmentRequestDTO { ItemCode = item.ToItemCode(), CharacterIndex = playerIndex };
-        Begin();
+        Begin(info);
         network.Call<Dto.OnUnequipEquipmentRequestDTO, Dto.OnUnequipEquipmentResponseDTO>(request,
             r => ApplyServerInventory(info, "unequip", "OnUnequipEquipment", r.Equipment, null, $"code=0x{request.ItemCode.Code:X} char={playerIndex}",
                 () => FindActionItem(request.ItemCode.InstanceId, code, level, expires, x => !x.equipmentPlayerIndex.HasValue)),
@@ -430,7 +454,7 @@ public class EquipmentManager : MonoBehaviour
         var info = new ActionInfo { Kind = ActionKind.Enhance, ItemId = item.instanceId, CharacterIndex = item.equipmentPlayerIndex ?? -1 };
         int code = item.baseData.itemCode; long expires = item.expiresUtc; int? character = item.equipmentPlayerIndex;
         var request = new Dto.OnEnchantEquipmentRequestDTO { ItemCode = item.ToItemCode(), CharacterIndex = character };
-        Begin();
+        Begin(info);
         network.Call<Dto.OnEnchantEquipmentRequestDTO, Dto.OnEnchantEquipmentResponseDTO>(request,
             r =>
             {
@@ -454,7 +478,7 @@ public class EquipmentManager : MonoBehaviour
         var info = new ActionInfo { Kind = ActionKind.Dismantle };
         var request = new Dto.OnDismantleEquipmentRequestDTO { Mode = plan.Mode, Items = new List<Dto.DismantleItemDTO>(plan.Items), ReserveStacks = new List<Dto.DismantleReserveDTO>(plan.ReserveStacks) };
         long previewStones = plan.Stones; long count = plan.Count;
-        Begin();
+        Begin(info);
         network.Call<Dto.OnDismantleEquipmentRequestDTO, Dto.OnDismantleEquipmentResponseDTO>(request,
             r =>
             {
@@ -472,7 +496,7 @@ public class EquipmentManager : MonoBehaviour
         if (mask < 0 || mask > 7 || (autoLockFirstEnhancement.HasValue && !IsInstanceInventory)) return EnhancementResult.InvalidItem;
         var gate = Gate(out var network); if (gate != EnhancementResult.Pending) return gate;
         var info = new ActionInfo { Kind = ActionKind.AutoDismantle };
-        Begin();
+        Begin(info);
         network.Call<Dto.OnSetAutoDismantleRequestDTO, Dto.OnSetAutoDismantleResponseDTO>(new Dto.OnSetAutoDismantleRequestDTO { RarityMask = mask, AutoLockFirstEnhancement = autoLockFirstEnhancement },
             r => ApplyServerInventory(info, "auto-dismantle", "OnSetAutoDismantle", r.Equipment, null, $"mask={mask}", null),
             e => RejectServerResult(info, "auto-dismantle", e));
@@ -489,7 +513,7 @@ public class EquipmentManager : MonoBehaviour
         var info = new ActionInfo { Kind = ActionKind.ClaimPending };
         int code = saved.Code, level = saved.Level; long expires = saved.ExpiresUtc;
         var request = new Dto.OnClaimPendingEquipmentRequestDTO { ItemCode = EquipmentInstance.MakeItemCode(code, level, expires, 1, saved.ServerInstanceId) };
-        Begin();
+        Begin(info);
         network.Call<Dto.OnClaimPendingEquipmentRequestDTO, Dto.OnClaimPendingEquipmentResponseDTO>(request,
             r => ApplyServerInventory(info, "claim-pending", "OnClaimPendingEquipment", r.Equipment, null, $"code=0x{request.ItemCode.Code:X}",
                 () => FindActionItem(request.ItemCode.InstanceId, code, level, expires, x => !x.equipmentPlayerIndex.HasValue)),
@@ -507,7 +531,7 @@ public class EquipmentManager : MonoBehaviour
         var info = new ActionInfo { Kind = ActionKind.ClaimReserve };
         var existingIds = IsInstanceInventory ? new HashSet<long?>(_inventory.Items.Select(x => x.serverInstanceId)) : null;
         var request = new Dto.OnClaimReserveEquipmentRequestDTO { ItemCode = EquipmentInstance.MakeItemCode(code, level, 0, 1) };
-        Begin();
+        Begin(info);
         network.Call<Dto.OnClaimReserveEquipmentRequestDTO, Dto.OnClaimReserveEquipmentResponseDTO>(request,
             r => ApplyServerInventory(info, "claim-reserve", "OnClaimReserveEquipment", r.Equipment, null, $"code=0x{request.ItemCode.Code:X}",
                 () => existingIds != null
@@ -522,7 +546,7 @@ public class EquipmentManager : MonoBehaviour
     {
         var gate = Gate(out var network); if (gate != EnhancementResult.Pending) return gate;
         var info = new ActionInfo { Kind = ActionKind.Resync };
-        Begin();
+        Begin(info);
         network.Call<Dto.OnGetEquipmentInventoryRequestDTO, Dto.OnGetEquipmentInventoryResponseDTO>(new Dto.OnGetEquipmentInventoryRequestDTO(),
             r => ApplyServerInventory(info, "resync", "OnGetEquipmentInventory", r.Equipment, null, "", null),
             e => RejectServerResult(info, "resync", e));

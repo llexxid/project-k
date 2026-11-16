@@ -54,7 +54,7 @@ namespace KingdomIdle.UGUI
 
         public static void Settings()
         {
-            var view = Create("장비 설정", "추천 기준은 누르면 이 기기의 현재 계정에 저장됩니다.\n현재 무기는 공격력만 올립니다.\n\n자동 분해할 등급을 선택하세요. 앞으로 획득할 장비에 적용됩니다.\n일반 1 · 레어 4 · 에픽 12 강화석", "자동 분해 저장");
+            var view = Create("장비 설정", "추천 기준은 누를 때 저장됩니다.\n\n자동 분해는 앞으로 획득할 장비에 적용됩니다.\n일반 1 · 레어 4 · 에픽 12 강화석", "자동 분해 저장");
             if (view == null) return;
             view.cancel.GetComponentInChildren<TMP_Text>().text = "닫기";
             bool canSetAutoLock = EquipmentManager.IsInstanceInventory && view.autoLockFirst != null;

@@ -62,6 +62,7 @@ namespace KingdomIdle.UGUI
             // 아이템별 합산 후 등급순 정렬 (Epic → Rare → Normal → Skill → Currency)
             var merged = MergeResults(results);
             merged.Sort(CompareResultEntries);
+            view.SetResultCount(merged.Count);
 
             var popup = _instanceGo;
             bool isMagePull = table != null && table.gachaType == KingdomIdle.Gacha.eGachaType.Skill;
@@ -98,6 +99,7 @@ namespace KingdomIdle.UGUI
             }
 
             BindButtons(view, table, lastPullCount);
+            view.RefreshLayoutNow();
             FeatureGuideAnchor.Bind(view.btnDone, Direction.GameDirectTarget.GachaResultClose);
 
             _instanceGo.transform.SetAsLastSibling();
@@ -143,13 +145,6 @@ namespace KingdomIdle.UGUI
             {
                 frameColor = UguiTheme.RarityColor(entry.equipmentData.rarity);
 
-                // 최고 등급(에픽) 카드 강조
-                if (bestRarity.HasValue && entry.equipmentData.rarity == bestRarity.Value
-                    && bestRarity.Value == eEquipmentRarity.Epic && card.background != null)
-                {
-                    card.background.color = new Color(
-                        UguiTheme.RarityEpic.r, UguiTheme.RarityEpic.g, UguiTheme.RarityEpic.b, 0.25f);
-                }
             }
             else if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency
                      && entry.currency == eCurrency.ClassFragment)
@@ -225,12 +220,17 @@ namespace KingdomIdle.UGUI
                 card.subLabel.text = fragments
                     ? $"중복 {count / KingdomIdle.MageTower.MageSkillRules.DuplicateFragments}회\n파편 {NumberNotation.Format(count)}개"
                     : entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Skill ? "스킬 최초 획득" : FormatGachaCount(count);
+                if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Equipment && entry.equipmentData != null)
+                    card.subLabel.text = EquipmentRarityLabel(entry.equipmentData.rarity) + "\n" + card.subLabel.text;
                 if (mailed > 0) card.subLabel.text += $"\n우편 {mailed}개";
-                if (fragments || mailed > 0) card.subLabel.fontSize = 22;
-                card.subLabel.color = UguiTheme.AccentGoldStrong;
             }
+            card.SetResultPresentation(view.ResultCount);
+            if (mailed > 0 && card.subLabel != null) card.subLabel.fontSize = 32;
             return card;
         }
+
+        private static string EquipmentRarityLabel(eEquipmentRarity rarity) => rarity switch
+        { eEquipmentRarity.Epic => "에픽 장비", eEquipmentRarity.Rare => "레어 장비", _ => "일반 장비" };
 
         private static void BindButtons(GachaResultPopupView view, KingdomIdle.Gacha.GachaTableSO table, int lastPullCount)
         {
@@ -273,7 +273,7 @@ namespace KingdomIdle.UGUI
         }
 
         private static string RePullLabel(KingdomIdle.Gacha.GachaTableSO table, int count)
-            => table == null ? "다시 뽑기" : $"{count}회 다시 뽑기\n{RewardPresentation.GachaCost(KingdomIdle.Gacha.GachaManager.Instance, table, count)}";
+            => table == null ? "다시 뽑기" : $"{count}회 더 뽑기\n{RewardPresentation.GachaCost(KingdomIdle.Gacha.GachaManager.Instance, table, count)}";
 
         private static void OnWalletChanged(eCurrency currency, long amount)
         {

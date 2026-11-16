@@ -29,7 +29,7 @@ namespace KingdomIdle.UGUI
         [Header("Behaviour")]
         [SerializeField] private bool dontDestroyOnLoad = true;
         [Tooltip("끄면 육성·왕국군·던전은 프리팹에 저장된 기존 크기를 사용합니다. 뽑기·상점은 확장 크기를 유지합니다.")]
-        [SerializeField] private bool expandLegacyTabPanels = false;
+        [SerializeField] private bool expandLegacyTabPanels = true;
 
         public UIViewCatalog Catalog => catalog;
         public RectTransform LayerScreens => layerScreens;
@@ -76,7 +76,7 @@ namespace KingdomIdle.UGUI
             _panelStack.Count > 0 && !_panelStack.Peek().IsTab;
         internal bool HasExpandedPanel => _panelStack.Count > 0 && IsExpandedPanel(_panelStack.Peek().Id);
         internal bool IsTopPanel(BottomSheetView view) => _panelStack.Count > 0 && _panelStack.Peek().View == view;
-        internal bool IsExpandedPanel(UIPanelId id) => id == UIPanelId.Gacha || id == UIPanelId.Store ||
+        internal bool IsExpandedPanel(UIPanelId id) => id == UIPanelId.Gacha || id == UIPanelId.Store || id == UIPanelId.Inventory ||
             (expandLegacyTabPanels && (id == UIPanelId.Development || id == UIPanelId.KingdomArmy || id == UIPanelId.Dungeon));
 
         /// <summary>온라인 전투 시간에서 제외할 메뉴·설정·로딩 상태를 한 곳에서 제공한다.</summary>
@@ -217,10 +217,6 @@ namespace KingdomIdle.UGUI
         private string _sceneLoadingText;
         private ToastView _toast;
         private Coroutine _toastCo;
-        private int _fieldLootCount;
-        private string _fieldLootName;
-        private float _nextFieldLootNotice;
-        private bool _fieldLootToast;
         private SettingsModalController _settings;
         private StageManager _boundStageManager;
 
@@ -249,7 +245,6 @@ namespace KingdomIdle.UGUI
             if (_uiAudioSource == null) _uiAudioSource = gameObject.AddComponent<AudioSource>();
             _uiAudioSource.playOnAwake = false;
             GameAudioSettings.Changed += ApplyEffectsVolume;
-            GamePresentationSettings.Changed += ApplyLootSettings;
 
             if (catalog == null)
                 Debug.LogError("[UIManager] UIViewCatalog가 비었습니다. 생성기(KingdomIdle/UGUI/Generate All)를 실행하세요.");
@@ -301,18 +296,11 @@ namespace KingdomIdle.UGUI
 
             FrameTick?.Invoke();
             NoticePopupController.Tick(this);
-            if (_fieldLootCount > 0 && !GamePresentationSettings.HideItemNotifications && _toastCo == null &&
-                Time.unscaledTime >= _nextFieldLootNotice && !HasBlockingPanel && !HasActiveTabPanel && (_settings == null || !_settings.IsOpen))
-            {
-                ShowToast(_fieldLootCount == 1 ? $"장비 획득 · {_fieldLootName}" : $"사냥 장비 {_fieldLootCount}개 획득");
-                _fieldLootToast = true; _fieldLootCount = 0; _nextFieldLootNotice = Time.unscaledTime + 6;
-            }
         }
 
         private void OnDestroy()
         {
             GameAudioSettings.Changed -= ApplyEffectsVolume;
-            GamePresentationSettings.Changed -= ApplyLootSettings;
             BindStageManager(null);
             DungeonClearPopupController.Hide();
             ReincarnationPopupController.Hide();
@@ -450,7 +438,11 @@ namespace KingdomIdle.UGUI
 #if LOBBY_DEVICE_QA && DEVELOPMENT_BUILD
             Debug.Log($"[PanelTiming] {id} create {panelTimer.Elapsed.TotalMilliseconds:F2} ms");
 #endif
-            if (go == null) return;
+            if (go == null)
+            {
+                if (_panelStack.Count > 0) ReactivatePanel(_panelStack.Peek());
+                return;
+            }
 
             var entry = new PanelEntry(id, isTabPanel, go, view);
             if (view != null && view.sheet != null)
@@ -652,6 +644,9 @@ namespace KingdomIdle.UGUI
                 var fitter = view.sheet.GetComponent<SheetSizeFitter>();
                 if (fitter == null) fitter = view.sheet.gameObject.AddComponent<SheetSizeFitter>();
                 fitter.heightMode = SheetSizeFitter.HeightMode.BelowPartyHud;
+                fitter.horizontalInset = id == UIPanelId.Inventory ? 24f : 0f;
+                fitter.verticalInset = id == UIPanelId.Inventory ? 24f : 0f;
+                view.centeredModal = id == UIPanelId.Inventory;
                 fitter.SetTopBoundary(HudTop);
             }
             PopulatePanel(id, view, payload);
@@ -782,6 +777,8 @@ namespace KingdomIdle.UGUI
                 var topGo = _panelStack.Peek().Go;
                 if (topGo != null)
                 {
+                    if (_panelStack.Peek().Id == UIPanelId.Inventory &&
+                        InventoryPanelController.HandleBack(topGo.GetComponent<InventoryPanelView>())) return;
                     var dungeonModal = topGo.GetComponentInChildren<DungeonDifficultyPopupView>(false);
                     if (dungeonModal != null && dungeonModal.gameObject.activeInHierarchy)
                     {
@@ -867,7 +864,6 @@ namespace KingdomIdle.UGUI
         public void ShowToast(string message)
         {
             if (_toast == null) return;
-            _fieldLootToast = false;
 
             if (_toast.label != null) _toast.label.text = message;
             _toast.gameObject.SetActive(true);
@@ -879,18 +875,8 @@ namespace KingdomIdle.UGUI
 
         internal void NotifyFieldEquipment(int code)
         {
-            if (GamePresentationSettings.HideItemNotifications) return;
-            _fieldLootCount++;
-            _fieldLootName = EquipmentManager.Instance?.GetData(code)?.DisplayName ?? "장비";
-        }
-        private void ApplyLootSettings()
-        {
-            if (!GamePresentationSettings.HideItemNotifications) return;
-            _fieldLootCount = 0;
-            if (!_fieldLootToast) return;
-            if (_toastCo != null) StopCoroutine(_toastCo);
-            if (_toast != null) _toast.gameObject.SetActive(false);
-            _toastCo = null; _fieldLootToast = false;
+            // 레거시 진단 호출과의 호환만 보존한다. 실제 확정 지급 경로가 LootNotifications에 발행한다.
+            // 여기서 재발행하면 같은 획득이 두 번 표시될 수 있다.
         }
 
         private IEnumerator HideToastAfter(float seconds)

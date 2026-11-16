@@ -13,7 +13,10 @@ namespace KingdomIdle.UGUI
 
         public void SetText(string text)
         {
-            if (label != null) label.text = text;
+            if (label == null) return;
+            // 빈 안내는 밝은 퀘스트 카드 밖, 어두운 패널 본문 위에 표시한다.
+            if (label.color != UguiTheme.TextSecondary) label.color = UguiTheme.TextSecondary;
+            if (label.text != text) label.text = text;
         }
     }
 }

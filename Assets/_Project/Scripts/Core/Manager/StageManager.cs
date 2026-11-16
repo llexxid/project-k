@@ -1143,6 +1143,7 @@ var definition = _currentSession?.Definition;
 				OnMainWaveError(item, NetworkManager.CreateError("InvalidResponse", "부분 정산의 메인 회차를 확인하지 못했습니다."));
 				return;
 			}
+			var loot = KingdomIdle.Rewards.LootNotifications.Capture(result.Equipment != null, false);
 			_huntInFlight = false;
 			_lastHuntAcceptedAt = Time.realtimeSinceStartup;
 			Dequeue(item);
@@ -1168,15 +1169,7 @@ var definition = _currentSession?.Definition;
                 Debug.LogError("[Hunt] 서버 결과 저장 실패: " + LocalProgression.LastError);
             }
 			if (saved && result.Equipment != null) EquipmentManager.Instance?.RestoreEquipment();
-			if (saved && result.Drops != null)
-			{
-				// 서버가 굴린 전장 드롭을 HUD에 알린다(예전 로컬 드롭 연출과 같은 경로).
-				foreach (var drop in result.Drops)
-				{
-					if (drop != null && drop.Kind == RewardKind.Equipment && drop.ItemCode.HasValue)
-						KingdomIdle.UGUI.UIManager.Instance?.NotifyFieldEquipment((int)drop.ItemCode.Value.GetItemCode());
-				}
-			}
+			if (saved) KingdomIdle.Rewards.LootNotifications.PublishHunt(loot, result.Drops);
 			TrySendNextHunt();
 		}
 
@@ -1195,6 +1188,7 @@ var definition = _currentSession?.Definition;
 				return;
 			}
 			StageDefinition definition = _currentSession.Definition;
+			var loot = KingdomIdle.Rewards.LootNotifications.Capture();
 			Dequeue(item);
 			_saturatedTypes.Remove(item.StageId);
 			bool saved = BattleEconomy.Clear(_currentSession) && LocalProgression.Execute("server-stage-clear", s =>
@@ -1215,6 +1209,7 @@ var definition = _currentSession?.Definition;
                 Debug.LogError("[StageClear] 서버 결과 저장 실패: " + LocalProgression.LastError);
             }
 			if (saved) QuestManager.Instance?.RequestRefresh("clear");
+			if (saved) KingdomIdle.Rewards.LootNotifications.PublishBattle(loot, result.GrantedRewards);
 			if (saved)
 			{
 				if (result.Equipment != null) EquipmentManager.Instance?.RestoreEquipment();

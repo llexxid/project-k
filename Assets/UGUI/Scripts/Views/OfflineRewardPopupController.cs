@@ -122,7 +122,7 @@ namespace KingdomIdle.UGUI
         private static void CompleteChoice(RewardChoice choice, RewardStatus status, string message)
         {
             choice.Busy = false;
-            // 받을 정산이 없다(1051 등 거절). 다시 눌러도 같으므로 2배 없이 기본 보상만 보여 준다.
+            // 받을 정산이 없다는 확정 거절(1051)만 2배 없이 기본 보상으로 마친다.
             if (status == RewardStatus.NothingAvailable && choice.Earned)
             {
                 choice.Earned = false;
@@ -138,9 +138,20 @@ namespace KingdomIdle.UGUI
             }
             if (status != RewardStatus.Success)
             {
-                // shortcut: retain earned bonus in this session only; add durable recovery if required.
-                // 서버는 정산 1회만 지급하므로 다시 눌러도 두 번 받지 않는다.
                 RefreshButtons();
+                if (choice.Earned)
+                {
+                    // 시청 완료 뒤 지급 오류는 일반 수령 성공과 구별하고 기존 접속의 재확인만 유지한다.
+                    _resultView?.Close();
+                    var errorHost = UIManager.Instance;
+                    _resultView = errorHost != null ? RewardPopupView.ShowMessage(errorHost.LayerPopups, "보상 지급 오류",
+                        "보상 지급 중 오류가 발생했습니다", () =>
+                        {
+                            if (ReferenceEquals(_choice, choice)) _resultView = null;
+                        }) : null;
+                    if (_resultView == null) errorHost?.ShowToast("보상 지급 중 오류가 발생했습니다");
+                    return;
+                }
                 UIManager.Instance?.ShowToast((message != null ? message + " " : "") + "보상 수령을 눌러 다시 시도해 주세요.");
                 return;
             }

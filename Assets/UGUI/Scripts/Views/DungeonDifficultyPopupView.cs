@@ -35,6 +35,7 @@ namespace KingdomIdle.UGUI
         [System.NonSerialized] private eStage dungeonKey;
         private bool entryPending;
         private int displayedTickets = -1, displayedRubyClear = -1;
+        private TMP_Text enterButtonLabel;
 
         private void OnEnable() => KingdomIdle.Balance.LocalProgression.Changed += RefreshSelection;
         private void RefreshSelection()
@@ -160,8 +161,7 @@ namespace KingdomIdle.UGUI
             else if (selectedDifficultyLabel != null)
                 selectedDifficultyLabel.text = "선택 가능한 난이도 없음";
 
-            if (enterButton != null)
-                enterButton.interactable = selectedStageId != default && KingdomIdle.Balance.BattleEconomy.Tickets(StageParser.GetStageType(selectedStageId)) > 0;
+            RefreshEnterButton();
         }
 
         public void SetInfoItems(
@@ -189,8 +189,7 @@ namespace KingdomIdle.UGUI
                 : default;
             displayedTickets = KingdomIdle.Balance.BattleEconomy.Tickets(StageParser.GetStageType(selectedStageId));
             displayedRubyClear = KingdomIdle.Balance.LocalProgression.State.RubyDungeonClear;
-            if (enterButton != null)
-                enterButton.interactable = selectedStageId != default && displayedTickets > 0;
+            RefreshEnterButton();
             if (selectedDifficultyLabel != null)
                 selectedDifficultyLabel.text = $"{selectedDifficulty}단계 · 입장권 {displayedTickets}/2";
             if(description!=null)
@@ -216,8 +215,19 @@ namespace KingdomIdle.UGUI
             if (selectedStageId == default || entryPending)
                 return;
             entryPending = true;
-            if (enterButton != null) enterButton.interactable = false;
+            RefreshEnterButton();
             StartCoroutine(EnterWhenReady(selectedStageId));
+        }
+
+        private void RefreshEnterButton()
+        {
+            if (enterButton == null) return;
+            enterButton.interactable = !entryPending && selectedStageId != default && displayedTickets > 0;
+            if (enterButtonLabel == null) enterButtonLabel = enterButton.GetComponentInChildren<TMP_Text>(true);
+            if (enterButtonLabel == null) return;
+            string text = entryPending ? "입장 대기 중" : selectedStageId == default ? "입장 잠김" :
+                displayedTickets <= 0 ? "입장권 없음" : "입장하기";
+            if (enterButtonLabel.text != text) enterButtonLabel.text = text;
         }
 
         private IEnumerator EnterWhenReady(eStage stage)

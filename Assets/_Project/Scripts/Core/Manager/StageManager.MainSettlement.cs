@@ -238,6 +238,7 @@ namespace Scripts.Core.Manager
                 return;
             }
             var session = !_recoveringMainCompletion && _currentSession?.Definition.Id == (eStage)item.StageId ? _currentSession : null;
+            var loot = KingdomIdle.Rewards.LootNotifications.Capture();
             bool saved = LocalProgression.Execute("server-main-complete", state =>
             {
                 if (session != null && !BattleEconomy.ApplyConfirmedClear(state, session)) return false;
@@ -259,6 +260,7 @@ namespace Scripts.Core.Manager
                 return;
             }
             _recoveringMainCompletion = false;
+            KingdomIdle.Rewards.LootNotifications.PublishBattle(loot, result.GrantedRewards, "main:" + result.RequestId);
             _saturatedTypes.Remove(item.StageId);
             EquipmentManager.Instance?.RestoreEquipment();
             KingdomIdle.MageTower.MageTowerManager.Instance?.NotifyCommitted();

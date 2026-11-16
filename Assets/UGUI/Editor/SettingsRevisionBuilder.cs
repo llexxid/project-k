@@ -8,6 +8,13 @@ namespace KingdomIdle.UGUI.Editor
 {
     public static class SettingsRevisionBuilder
     {
+        public static void RebuildSettingsOnly()
+        {
+            if (EditorApplication.isPlaying) throw new InvalidOperationException("Exit Play Mode first.");
+            F.Init(); F.Catalog = AssetDatabase.LoadAssetAtPath<UIViewCatalog>(PrefabGenUtil.CatalogPath);
+            Generate(); AssetDatabase.SaveAssets();
+        }
+
         [MenuItem("KingdomIdle/UGUI/Rebuild settings")]
         public static void Rebuild()
         {
@@ -56,8 +63,8 @@ namespace KingdomIdle.UGUI.Editor
             view.lblServer = Text(panel.transform, "LblServer", "변경 즉시 적용 · 자동 저장", 26, 42);
 
             var tabs=F.Container(panel.transform,"Tabs");F.HLayout(tabs.gameObject,10,null,TextAnchor.MiddleCenter,expandWidth:true);F.Preferred(tabs,height:96);
-            view.tabs=new Button[3];string[] tabNames={"표시","소리","기기"};
-            for(int i=0;i<3;i++) { view.tabs[i]=F.TextButton(tabs,"Tab"+i,tabNames[i],32,UguiTheme.RusticSurfaceDark,out _);F.Flexible((RectTransform)view.tabs[i].transform,flexWidth:1);F.Preferred((RectTransform)view.tabs[i].transform,height:96); }
+            view.tabs=new Button[4];string[] tabNames={"표시","소리","기기","획득 알림"};
+            for(int i=0;i<view.tabs.Length;i++) { view.tabs[i]=F.TextButton(tabs,"Tab"+i,tabNames[i],32,UguiTheme.RusticSurfaceDark,out _);F.Flexible((RectTransform)view.tabs[i].transform,flexWidth:1);F.Preferred((RectTransform)view.tabs[i].transform,height:96); }
 
             view.scroll = F.VScroll(panel.transform, "SettingsScroll", out var content, 12, new RectOffset(2, 12, 4, 12));
             F.Flexible((RectTransform)view.scroll.transform, flexHeight: 1);
@@ -74,7 +81,19 @@ namespace KingdomIdle.UGUI.Editor
             view.scroll.verticalScrollbar = scrollbar; view.scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
             var pagesRoot=content;
             var display=Page(pagesRoot,"DisplayPage");var sound=Page(pagesRoot,"SoundPage");var device=Page(pagesRoot,"DevicePage");
-            view.pages=new[]{display.gameObject,sound.gameObject,device.gameObject};
+            view.lootScroll = F.VScroll(panel.transform, "LootNotificationsScroll", out var lootContent, 12, new RectOffset(2, 12, 4, 12));
+            F.Flexible((RectTransform)view.lootScroll.transform, flexHeight: 1);
+            F.Preferred((RectTransform)view.lootScroll.transform, height: 300);
+            var lootTrack = F.Box(view.lootScroll.transform, "ScrollTrack", UguiTheme.RusticSurfaceDark);
+            lootTrack.rectTransform.anchorMin = new Vector2(1, 0); lootTrack.rectTransform.anchorMax = Vector2.one;
+            lootTrack.rectTransform.pivot = new Vector2(1, .5f); lootTrack.rectTransform.sizeDelta = new Vector2(5, 0);
+            lootTrack.rectTransform.anchoredPosition = Vector2.zero;
+            var lootThumb = F.Box(lootTrack.transform, "Thumb", UguiTheme.Bronze); F.Stretch(lootThumb.rectTransform);
+            var lootScrollbar = lootTrack.gameObject.AddComponent<Scrollbar>();
+            lootScrollbar.handleRect = lootThumb.rectTransform; lootScrollbar.direction = Scrollbar.Direction.BottomToTop;
+            lootScrollbar.interactable = false; lootScrollbar.transition = Selectable.Transition.None;
+            view.lootScroll.verticalScrollbar = lootScrollbar; view.lootScroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+            view.pages=new[]{display.gameObject,sound.gameObject,device.gameObject,view.lootScroll.gameObject};
             content=display;
             Section(content, "숫자 표시");
             var formats = F.Container(content, "NumberFormats"); F.HLayout(formats.gameObject, 10, null, TextAnchor.MiddleCenter, expandWidth: true);
@@ -105,7 +124,6 @@ namespace KingdomIdle.UGUI.Editor
             Section(content, "전투 표시");
             view.tglDamageText = Toggle(content, "DamageText", "피해 숫자 표시", "전투 중 발생한 피해량 표시");
             view.tglScreenShake = Toggle(content, "ScreenShake", "화면 흔들림", "강한 스킬의 카메라 흔들림");
-            view.tglHideItem = Toggle(content, "HideItem", "사냥 장비 알림 숨기기", "장비는 알림과 관계없이 획득");
             content=device;
             Section(content, "기기와 성능");
             view.tglPowerSave = Toggle(content, "PowerSave", "절전 모드", "화면을 초당 30프레임으로 표시");
@@ -119,7 +137,23 @@ namespace KingdomIdle.UGUI.Editor
             view.btnPrivacy = F.TextButton(content, "Privacy", "개인정보 처리 안내", 26, UguiTheme.RusticSurfaceDark, out _);
             F.Preferred((RectTransform)view.btnPrivacy.transform, height: 100);
             view.lblVersion = Text(content, "LblVersion", "v" + Application.version, 24, 42);
-            sound.gameObject.SetActive(false);device.gameObject.SetActive(false);
+            content = lootContent;
+            Text(content, "LootHint", "골드·일반 장비는 기본 숨김\n보상 획득량은 그대로 유지됩니다", 36, 108);
+            view.tglHideItem = Toggle(content, "HideItem", "전체 알림 숨기기", "선택한 항목도 모두 숨깁니다", light: true);
+            Section(content, "재화").fontSize = 42;
+            view.lootCurrencyToggles = new Toggle[LootNotificationSettings.CurrencyCount];
+            for (int i = 0; i < view.lootCurrencyToggles.Length; i++)
+                view.lootCurrencyToggles[i] = Toggle(content, "LootCurrency" + i, RewardPresentation.Name((eCurrency)i), "획득 알림 표시", light: true);
+            Section(content, "장비 등급").fontSize = 42;
+            view.lootEquipmentToggles = new Toggle[LootNotificationSettings.EquipmentRarityCount];
+            string[] rarities = { "일반 장비", "레어 장비", "에픽 장비" };
+            for (int i = 0; i < view.lootEquipmentToggles.Length; i++)
+                view.lootEquipmentToggles[i] = Toggle(content, "LootEquipment" + i, rarities[i], "해당 등급의 획득 알림", light: true);
+            Section(content, "마탑 스킬").fontSize = 42;
+            view.tglLootMageSkills = Toggle(content, "LootMageSkills", "마탑 스킬", "등급 없이 획득 알림 표시", light: true);
+            view.btnLootDefaults = F.TextButton(content, "LootDefaults", "세부 선택 기본값 복원", 38, UguiTheme.ActionGold, out var defaultsLabel);
+            defaultsLabel.color = UguiTheme.InfoInk; F.Preferred((RectTransform)view.btnLootDefaults.transform, height: 112);
+            sound.gameObject.SetActive(false);device.gameObject.SetActive(false);view.lootScroll.gameObject.SetActive(false);
             view.btnSaveClose = F.TextButton(panel.transform, "BtnSaveClose", "완료", 36, UguiTheme.BtnConfirm, out _);
             F.Preferred((RectTransform)view.btnSaveClose.transform, height: 132);
             var result = PrefabGenUtil.SavePrefab(root.gameObject, PrefabGenUtil.PrefabRoot + "/Overlays/Overlay_Settings.prefab");
@@ -164,12 +198,14 @@ namespace KingdomIdle.UGUI.Editor
             percent.alignment = TextAlignmentOptions.Right;
             return slider;
         }
-        static Toggle Toggle(Transform parent, string name, string title, string description)
+        static Toggle Toggle(Transform parent, string name, string title, string description, bool light = false)
         {
-            var row = F.Box(parent, "Row_" + name, UguiTheme.RusticSurfaceDark, true, true);
+            var row = F.Box(parent, "Row_" + name, light ? UguiTheme.InfoSurface : UguiTheme.RusticSurfaceDark, true, true);
             F.HLayout(row.gameObject, 14, new RectOffset(16, 16, 10, 10), TextAnchor.MiddleLeft); F.Preferred(row, height: 136);
             var copy = F.Container(row.transform, "Copy"); F.VLayout(copy.gameObject, 6); F.Flexible(copy, flexWidth: 1);
-            Text(copy, "Label", title, 31, 48); Text(copy, "Hint", description, 24, 42);
+            var label = Text(copy, "Label", title, light ? 42 : 31, light ? 52 : 48);
+            var hint = Text(copy, "Hint", description, light ? 36 : 24, light ? 44 : 42);
+            if (light) { label.color = UguiTheme.InfoInk; hint.color = UguiTheme.InfoMuted; }
             var target = F.Box(row.transform, name, Color.clear, false, true); F.Preferred(target, width: 144, height: 116);
             var toggle = target.gameObject.AddComponent<Toggle>(); toggle.targetGraphic = target; toggle.transition = Selectable.Transition.None;
             var track = F.Box(target.transform, "Track", UguiTheme.RusticSurface, true); F.AnchorCenter(track.rectTransform, 144, 64);

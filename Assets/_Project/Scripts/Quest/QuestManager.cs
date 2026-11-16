@@ -341,6 +341,7 @@ public class QuestManager : MonoBehaviour
     private void ApplyClaim(ClaimOperation claim, QuestClaimToken token, Dto.OnClaimQuestRewardResponseDTO response)
     {
         if (!IsCurrentClaim(claim)) return;
+        var loot = KingdomIdle.Rewards.LootNotifications.Capture();
         bool saved;
         try
         {
@@ -372,6 +373,7 @@ public class QuestManager : MonoBehaviour
         }
         EquipmentManager.Instance?.RestoreEquipment();
         KingdomIdle.MageTower.MageTowerManager.Instance?.NotifyCommitted();
+        KingdomIdle.Rewards.LootNotifications.PublishRewards(loot, response.GrantedRewards, "quest:" + token.QuestId + ":" + token.Period);
         claim.Confirmed++;
         SendNextClaim(claim);
     }
@@ -383,11 +385,15 @@ public class QuestManager : MonoBehaviour
         int code = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0;
         string kind = NetworkManager.GetFailureKind(error);
         Debug.LogWarning($"[Quest] claim rejected quest={token.QuestId} period={token.Period} code={code} kind={kind} message={error?.ErrorMessage}");
-        bool uncertain = code == 1015 || (code == 0 &&
-            (kind == "Timeout" || kind == "Transport" || kind == "InvalidResponse" || kind == "ApplyFailed"));
+        bool uncertain = code == 1014 || code == 1015 || (code == 0 &&
+            (kind == "Timeout" || kind == "Transport" || kind == "Function" || kind == "InvalidResponse" || kind == "ApplyFailed" ||
+             error?.Error == PlayFabErrorCode.CloudScriptAzureFunctionsExecutionTimeLimitExceeded ||
+             error?.Error == PlayFabErrorCode.CloudScriptAzureFunctionsHTTPRequestError ||
+             error?.Error == PlayFabErrorCode.CloudScriptExecutionTimeLimitExceeded ||
+             error?.Error == PlayFabErrorCode.CloudScriptHTTPRequestError || error?.Error == PlayFabErrorCode.ConnectionError));
         if (uncertain && UserManager.Instance != null)
         {
-            // 응답 유실: 서버가 이미 지급했을 수 있으므로 재전송하지 않고 플레이어 데이터(퀘스트 포함)를 다시 받는다.
+            // 저장 오류·SDK 함수 시간초과도 이미 지급했을 수 있다. 재청구하지 않고 상태 확인까지 입력을 잠근다.
             UserManager.Instance.RefreshFromServer(ok =>
             {
                 if (!IsCurrentClaim(claim)) return;

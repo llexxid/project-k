@@ -77,8 +77,8 @@ namespace KingdomIdle.UGUI
         internal static void Activate(string id)
         {
             if (ShopCatalog.Find(id)?.Payment != ShopPayment.RewardedAd) { Preview(id); return; }
+            DiscardStaleClaim();
             if (!IsOpen || _busy || RewardedAdService.IsBusy) return;
-            if (_claim != null && !ShopAdRewardService.IsCurrentAccount(_claim)) _claim = null;
             if (_claim != null && _claim.Earned)
             {
                 if (_claim.OfferId == id)
@@ -132,7 +132,7 @@ namespace KingdomIdle.UGUI
             var host = UIManager.Instance;
             if (host == null || !ShopAdRewardService.IsCurrentAccount(claim)) return;
             // 지급 결과는 상점을 닫았어도 보여 준다(요청 중 닫을 수 있다).
-            if (result.Succeeded) { RewardPopupView.ShowRewards(host.LayerPopups, result.Rewards); return; }
+            if (result.Succeeded) { RewardPopupView.ShowRewards(host.LayerOverlays, result.Rewards); return; }
             if (!IsOpen) return;
             bool retry = _claim != null && _claim.Earned;
             if (message != null) host.ShowToast(retry ? message + " 보상 다시 받기를 눌러 주세요." : message);
@@ -149,16 +149,21 @@ namespace KingdomIdle.UGUI
             for (int i = 0; i < _view.pages.Length; i++)
             {
                 bool active = i == _tab; _view.pages[i].SetActive(active);
-                _view.tabs[i].GetComponent<Image>().color = active ? UguiTheme.Bronze : UguiTheme.RusticSurfaceDark;
+                _view.tabs[i].GetComponent<Image>().color = active ? UguiTheme.RoyalBlue : UguiTheme.RusticSurfaceDark;
             }
             _view.scroll.StopMovement(); Canvas.ForceUpdateCanvases(); _view.scroll.verticalNormalizedPosition = 1;
+        }
+
+        static void DiscardStaleClaim()
+        {
+            if (_claim == null || ShopAdRewardService.IsCurrentAccount(_claim)) return;
+            _claim = null; _busy = false; _revision = -1;
         }
 
         static void Refresh()
         {
             if (!IsOpen || !LocalProgression.IsReady) return;
-            if (!_busy && _claim != null && !ShopAdRewardService.IsCurrentAccount(_claim))
-            { _claim = null; _revision = -1; }
+            DiscardStaleClaim();
             var state = LocalProgression.State;
             string day = ShopAdRewardService.Today;
             bool adBusy = RewardedAdService.IsBusy;
@@ -181,7 +186,7 @@ namespace KingdomIdle.UGUI
                 bool blocked = _busy || adBusy || (_claim != null && _claim.Earned && !retry);
                 row.action.interactable = !blocked && (retry || !claimed);
                 Set(row.price, _busy && _claim?.OfferId == offer.Id ? "처리 중…" : retry ? "보상 다시 받기" : claimed ? "오늘 수령 완료" : "광고 보고 받기");
-                Set(row.amount, "보유 " + NumberNotation.Format(LocalProgression.Balance(currency)) + "장 · 오늘 " + (claimed ? "1/1" : "0/1"));
+                Set(row.amount, "보유 " + NumberNotation.Format(LocalProgression.Balance(currency)) + "장\n오늘 " + (claimed ? "1 / 1회" : "0 / 1회"));
             }
         }
 

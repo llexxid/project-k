@@ -7,7 +7,7 @@ namespace KingdomIdle.UGUI
     /// <summary>
     /// 범용 탭/네비 버튼 (gacha-tab-btn / ka-member-tab / ka-nav-btn 공용).
     /// 아이콘 + 라벨로 역할을 알아볼 수 있게 하고, 선택 시 색·테두리로 강조한다.
-    /// 활성 색상은 컨트롤러가 넘긴다 (뽑기=퍼플, 멤버=그린, 네비=블루).
+    /// 선택 상태는 모든 메뉴에서 같은 청색과 밝은 테두리로 표시한다.
     /// </summary>
     public sealed class NavTabButtonView : MonoBehaviour
     {
@@ -17,14 +17,13 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal Image selectedFrame;
         [SerializeField] internal TMP_Text label;
 
-        private static readonly Color IdleBg = new Color(0.16f, 0.17f, 0.23f, 1f);
-        private static readonly Color IdleLabel = new Color(1f, 1f, 1f, 0.62f);
+        private bool? _selected;
 
         public Button Button => button;
 
         public void SetLabel(string text)
         {
-            if (label == null) return;
+            if (label == null || label.text == text) return;
             label.text = text;
             var layout = label.GetComponent<LayoutElement>();
             if (layout != null)
@@ -38,7 +37,7 @@ namespace KingdomIdle.UGUI
         /// <summary>아이콘 지정. null이면 아이콘 영역을 숨기고 라벨만 표시한다.</summary>
         public void SetIcon(Sprite sprite)
         {
-            if (icon == null) return;
+            if (icon == null || (icon.sprite == sprite && icon.gameObject.activeSelf == (sprite != null))) return;
             icon.sprite = sprite;
             icon.enabled = sprite != null;
             icon.gameObject.SetActive(sprite != null);
@@ -48,19 +47,21 @@ namespace KingdomIdle.UGUI
 
         public void SetSelected(bool selected, Color activeBg)
         {
+            if (_selected == selected) return;
+            _selected = selected;
             if (background != null)
-                background.color = selected ? UguiTheme.RusticSurface : UguiTheme.RusticSurfaceDark;
+                background.color = selected ? UguiTheme.RoyalBlue : UguiTheme.RusticSurfaceDark;
 
             if (label != null)
                 label.color = selected ? UguiTheme.Parchment : UguiTheme.TextSecondary;
 
             if (icon != null)
-                icon.color = selected ? Color.white : new Color(1f, 1f, 1f, 0.65f);
+                icon.color = selected ? UguiTheme.TextPrimary : UguiTheme.TextSecondary;
 
-            // 선택된 탭만 금색 테두리로 강조 — 어떤 탭이 활성인지 즉시 구분
+            // 선택은 색상과 테두리 두 가지 신호로 구분한다.
             if (selectedFrame != null)
             {
-                var c = UguiTheme.BronzeLight;
+                var c = UguiTheme.SelectedBorder;
                 selectedFrame.color = selected ? c : new Color(c.r, c.g, c.b, 0f);
             }
         }

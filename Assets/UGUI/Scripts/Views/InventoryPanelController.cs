@@ -28,6 +28,7 @@ namespace KingdomIdle.UGUI
         private static List<Player> _players;
         // 열려 있는 상세 페이지의 장비. 서버 요청 완료 뒤 같은 장비(강화 뒤에는 한 단계 오른 사본)를 다시 보여 준다.
         private static string _detailItemId;
+        private static string _pendingEnhanceItemId;
         private static EquipmentManager _equipment;
         private static bool _equipmentDirty;
 
@@ -35,6 +36,14 @@ namespace KingdomIdle.UGUI
             UIManager.Instance != null ? UIManager.Instance.Catalog : null;
 
         // ── 진입점 ──
+
+        /// <summary>상세에서 뒤로가면 같은 분류의 목록으로 복귀하고, 목록에서만 가방을 닫는다.</summary>
+        internal static bool HandleBack(InventoryPanelView view)
+        {
+            if (_view != view || view == null || _detailItemId == null) return false;
+            Refresh();
+            return true;
+        }
 
         /// <summary>퀘스트 목적지로 중첩된 인벤토리에서 돌아오면 원래 패널을 다시 연결한다.</summary>
         internal static void Restore(InventoryPanelView view)
@@ -45,6 +54,7 @@ namespace KingdomIdle.UGUI
         public static void Populate(InventoryPanelView view)
         {
             if (view == null) return;
+            _pendingEnhanceItemId = null;
 
             if (_equipment != null)
             {
@@ -71,6 +81,7 @@ namespace KingdomIdle.UGUI
                     _currencySlots.Clear();
                     _view = null;
                     _detailItemId = null;
+                    _pendingEnhanceItemId = null;
                     _navButtons.Clear();
                 }
             };
@@ -182,7 +193,7 @@ namespace KingdomIdle.UGUI
             var page = SpawnListPage();
             if (page == null) return;
 
-            page.SetSection("인벤토리");
+            page.SetSection(null);
 
             var equipItems = GatherAllEquipmentItems();
             if (equipItems.Count > 0 || HasStoredEquipment)
@@ -310,10 +321,8 @@ namespace KingdomIdle.UGUI
                                   owner.PlayerEquipmentManager.GetSlotEquipment(item.baseData.slot) == item;
 
                 string enhStr = item.enhancementLevel > 0 ? $" +{item.enhancementLevel}" : "";
-                int ownerIdx = _players.IndexOf(owner);
-                string sub = ownerIdx >= 0
-                    ? $"ATK +{NumberNotation.Format(item.GetFinalAtk())}  (왕국군{ownerIdx + 1})"
-                    : $"ATK +{NumberNotation.Format(item.GetFinalAtk())}";
+                // 소유 왕국군은 상세에 표시하고 좁은 목록에는 비교할 최종 공격력만 남긴다.
+                string sub = $"ATK +{NumberNotation.Format(item.GetFinalAtk())}";
 
                 // 공용 장비 셀 프리팹 사용 (왕국군과 동일)
                 KingdomArmyPanelController.InstantiateEquipCell(
@@ -423,7 +432,11 @@ namespace KingdomIdle.UGUI
             }
 
             // 서버(OnEnchantEquipment)가 비용·상한·결과를 확정한다. 요청이 나가면 완료 이벤트에서 팝업을 다시 그린다.
+            // 완료 응답의 ID는 강화 후 사본일 수 있다. 요청 전에 원본을 기억해 다른 상세 선택을 보호한다.
+            string previousPending = _pendingEnhanceItemId;
+            _pendingEnhanceItemId = item.instanceId;
             var result = equipmentManager.TryEnhanceDetailed(item);
+            if (result != EquipmentManager.EnhancementResult.Pending) _pendingEnhanceItemId = previousPending;
             if (result == EquipmentManager.EnhancementResult.Pending)
             {
                 ShowToast($"{item.baseData.DisplayName} 강화 요청 중");
@@ -438,9 +451,16 @@ namespace KingdomIdle.UGUI
         /// <summary>완료 안내와 강화 후 상세 대상만 갱신한다. 상태 이벤트의 화면 갱신은 LateUpdate에서 한 번 처리한다.</summary>
         private static void OnEquipmentActionCompleted(EquipmentManager.ActionInfo info)
         {
-            if (_view == null || info == null) return;
+            if (info == null) return;
+            string origin = null;
+            if (info.Kind == EquipmentManager.ActionKind.Enhance)
+            {
+                origin = _pendingEnhanceItemId;
+                _pendingEnhanceItemId = null;
+            }
+            if (_view == null) return;
             ShowToast(EquipmentManager.Describe(info));
-            if (_detailItemId != null && info.Ok && !string.IsNullOrEmpty(info.ItemId) && _detailItemId != info.ItemId)
+            if (origin != null && _detailItemId == origin && info.Ok && !string.IsNullOrEmpty(info.ItemId) && _detailItemId != info.ItemId)
             {
                 _detailItemId = info.ItemId;
                 _equipmentDirty = true;

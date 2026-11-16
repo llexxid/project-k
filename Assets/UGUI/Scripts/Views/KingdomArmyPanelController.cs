@@ -620,10 +620,12 @@ namespace KingdomIdle.UGUI
 
             // ── 장착 중 카드 ──
             if (equip.equippedFrame != null) equip.equippedFrame.gameObject.SetActive(equipped != null);
-            if (equip.equippedSlotLabel != null) equip.equippedSlotLabel.text = "무기";
+            if (equip.equippedSlotLabel != null) equip.equippedSlotLabel.text = "현재 장착 · 무기";
 
             if (equipped != null)
             {
+                if (equip.equippedSlotLabel != null)
+                    equip.equippedSlotLabel.text = equipped.IsLocked ? "현재 장착 · 잠금" : "현재 장착 · 무기";
                 if (equip.equippedIconWrap != null) equip.equippedIconWrap.gameObject.SetActive(true);
                 SetIconSprite(equip.equippedIcon, equipped.baseData.icon);
 
@@ -631,7 +633,7 @@ namespace KingdomIdle.UGUI
                 if (equip.equippedNameLabel != null)
                 {
                     equip.equippedNameLabel.text = $"{equipped.baseData.DisplayName}{enhStr0}";
-                    equip.equippedNameLabel.color = new Color(1f, 1f, 1f, 0.85f);
+                    equip.equippedNameLabel.color = UguiTheme.InfoInk;
                 }
                 if (equip.equippedStatLabel != null)
                 {
@@ -656,8 +658,8 @@ namespace KingdomIdle.UGUI
                 if (equip.equippedIconWrap != null) equip.equippedIconWrap.gameObject.SetActive(false);
                 if (equip.equippedNameLabel != null)
                 {
-                    equip.equippedNameLabel.text = "비어있음";
-                    equip.equippedNameLabel.color = new Color(1f, 1f, 1f, 0.30f);
+                    equip.equippedNameLabel.text = "장착한 무기가 없습니다";
+                    equip.equippedNameLabel.color = UguiTheme.InfoMuted;
                 }
                 if (equip.equippedStatLabel != null) equip.equippedStatLabel.gameObject.SetActive(false);
                 if (equip.unequipButton != null) equip.unequipButton.gameObject.SetActive(false);
@@ -714,7 +716,7 @@ namespace KingdomIdle.UGUI
                 int code = stored.Code, level = stored.Level;
                 string enhancement = level > 0 ? $" +{level}" : "";
                 InstantiateEquipCell(grid, data.icon, $"{data.DisplayName}{enhancement} ×{stored.Count}", UguiTheme.AccentGold,
-                    "1개 받기", UguiTheme.RarityColor(data.rarity), false, false, "추가 보관", () => {
+                    "1개 받기", UguiTheme.RarityColor(data.rarity), false, false, $"추가 보관 ×{NumberNotation.Format(stored.Count)}", () => {
                         var result = equipmentManager.ClaimLegacyEx(code, level);
                         UIManager.Instance?.ShowToast(result == EquipmentManager.EnhancementResult.Pending ? "추가 보관 장비 수령 요청 중" : EquipmentManager.Describe(result));
                     });
@@ -724,8 +726,9 @@ namespace KingdomIdle.UGUI
                 var item = group.First(); var data = equipmentManager.GetData(item.Code); if (data == null) continue;
                 if (accepts != null && !accepts(item.Code)) continue;
                 string id = item.Id;
-                InstantiateEquipCell(grid, data.icon, $"{data.DisplayName} ×{group.Count()}", UguiTheme.AccentGold,
-                    "1개 받기", UguiTheme.RarityColor(data.rarity), false, false, "추가 보관", () => {
+                string level = item.Level > 0 ? $" +{item.Level}" : "";
+                InstantiateEquipCell(grid, data.icon, $"{data.DisplayName}{level} ×{group.Count()}", UguiTheme.AccentGold,
+                    "1개 받기", UguiTheme.RarityColor(data.rarity), false, false, $"추가 보관 ×{NumberNotation.Format(group.Count())}", () => {
                         var result = equipmentManager.ClaimPendingEx(id);
                         UIManager.Instance?.ShowToast(result == EquipmentManager.EnhancementResult.Pending ? "대기함 장비 수령 요청 중" : EquipmentManager.Describe(result));
                     });
@@ -747,11 +750,13 @@ namespace KingdomIdle.UGUI
 
             string enhStr = item.enhancementLevel > 0 ? $" +{item.enhancementLevel}" : "";
             string name = $"{item.baseData.DisplayName}{enhStr}";
-            string sub = $"ATK +{NumberNotation.Format(item.GetFinalAtk())}  HP +{NumberNotation.Format(item.GetFinalMaxHP())}";
+            int attack = item.GetFinalAtk(), health = item.GetFinalMaxHP();
+            string sub = attack != 0 ? $"ATK +{NumberNotation.Format(attack)}" : string.Empty;
+            if (health != 0) sub += (sub.Length > 0 ? "  " : string.Empty) + $"HP +{NumberNotation.Format(health)}";
             var rarityColor = UguiTheme.RarityColor(item.baseData.rarity);
 
             InstantiateEquipCell(grid, item.baseData.icon, name, rarityColor, sub, rarityColor,
-                isEquipped, !isAllowed, isEquipped ? "장착 중" : item.IsLocked ? "잠금" : null, onClick);
+                isEquipped, !isAllowed, isEquipped ? (item.IsLocked ? "장착 · 잠금" : "장착 중") : item.IsLocked ? "잠금" : null, onClick);
         }
 
         /// <summary>공용 장비 셀 생성 (왕국군/인벤토리). Item_EquipCell 프리팹 인스턴스화.</summary>

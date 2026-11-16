@@ -18,31 +18,45 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal TMP_Text costLabel;
         [SerializeField] internal bool authoredBackground;
         [SerializeField] internal GachaButtonFlare flare;
+        [SerializeField] internal bool primaryAction = true;
+        private bool _affordable = true;
 
         public Button Button => button;
 
         /// <summary>표시 갱신. affordable=false 면 회색/비활성 처리.</summary>
         public void Set(string title, string cost, bool affordable, Sprite iconSprite = null)
         {
-            if (titleLabel != null) titleLabel.text = title;
-            if (costLabel != null) costLabel.text = cost;
+            if (titleLabel != null && titleLabel.text != title) titleLabel.text = title;
+            if (costLabel != null && costLabel.text != cost) costLabel.text = cost;
 
             if (icon != null)
             {
-                icon.sprite = iconSprite;
+                if (icon.sprite != iconSprite) icon.sprite = iconSprite;
                 icon.enabled = iconSprite != null;
-                icon.gameObject.SetActive(iconSprite != null);
+                if (icon.gameObject.activeSelf != (iconSprite != null)) icon.gameObject.SetActive(iconSprite != null);
             }
 
-            if (background != null)
-                background.color = authoredBackground
-                    ? (affordable ? Color.white : new Color(.55f, .55f, .55f, 1f))
-                    : (affordable ? UguiTheme.RusticSurface : UguiTheme.RusticSurfaceDark);
-
-            if (costLabel != null)
-                costLabel.color = affordable ? UguiTheme.Parchment : UguiTheme.TextSecondary;
+            _affordable = affordable;
+            ApplyAppearance();
 
             if (button != null) button.interactable = affordable;
+        }
+
+        public void SetEmphasis(bool primary)
+        {
+            primaryAction = primary;
+            ApplyAppearance();
+        }
+
+        private void ApplyAppearance()
+        {
+            if (background != null)
+                background.color = authoredBackground
+                    ? (_affordable ? Color.white : new Color(.55f, .55f, .55f, 1f))
+                    : (_affordable ? (primaryAction ? UguiTheme.ActionGold : UguiTheme.RusticSurface) : UguiTheme.RusticSurfaceDark);
+            var ink = _affordable && primaryAction && !authoredBackground ? UguiTheme.InfoInk : UguiTheme.TextPrimary;
+            if (titleLabel != null) titleLabel.color = _affordable ? ink : UguiTheme.TextSecondary;
+            if (costLabel != null) costLabel.color = _affordable ? ink : UguiTheme.TextSecondary;
         }
 
         public void SetInteractable(bool v)

@@ -106,7 +106,7 @@ namespace KingdomIdle.EditorTools.Optimization
             var list = new List<Object>();
 
             // 생성 아트 — 폴더 packable 이라 이후 추가분도 자동으로 아틀라스에 들어간다
-            foreach (var f in new[] { "Assets/Generated/ComfyUI/UI", "Assets/Generated/ComfyUI/Portraits", "Assets/_Project/Art/Icons/MageTower", "Assets/UGUI/Art/Gacha" })
+            foreach (var f in new[] { "Assets/Generated/ComfyUI/UI", "Assets/Generated/ComfyUI/Portraits", "Assets/_Project/Art/Icons/MageTower", "Assets/UGUI/Art/Gacha", "Assets/_Project/Art/Icons/Equipment" })
             {
                 if (!AssetDatabase.IsValidFolder(f)) { log.AppendLine($"  [Atlas_UIPixel] folder MISSING {f}"); continue; }
                 var o = AssetDatabase.LoadMainAssetAtPath(f);

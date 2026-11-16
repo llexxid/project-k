@@ -35,8 +35,6 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal TMP_Text rateLabel;
         [SerializeField] internal TMP_Text expectedLabel;
 
-        private static readonly Color Dim70 = new Color(1f, 1f, 1f, 0.70f);
-
         private void Awake()
         {
             if (backButton != null) backButton.onClick.AddListener(() => OnBack?.Invoke());
@@ -80,14 +78,16 @@ namespace KingdomIdle.UGUI
             if (enhanceButtonLabel != null) enhanceButtonLabel.text = maxLevel ? "강화 MAX" : "강화";
             if (enhanceButton != null) enhanceButton.interactable = !maxLevel;
             if (enhanceButtonBg != null)
-                enhanceButtonBg.color = UguiPixelSkin.Opaque(maxLevel ? UguiTheme.DisabledGrey : UguiTheme.EnhanceOrange);
+                enhanceButtonBg.color = maxLevel ? UguiTheme.RusticSurface : UguiTheme.ActionGold;
+            if (enhanceButtonLabel != null)
+                enhanceButtonLabel.color = maxLevel ? UguiTheme.TextSecondary : UguiTheme.InfoInk;
 
             if (!maxLevel)
             {
                 if (matLabel != null)
                 {
                     matLabel.text = matText;
-                    matLabel.color = matShortage ? UguiTheme.WarnRed : Dim70;
+                    matLabel.color = matShortage ? UguiTheme.WarnRed : UguiTheme.TextSecondary;
                 }
                 if (rateLabel != null) rateLabel.text = rateText;
                 if (expectedLabel != null) expectedLabel.text = expectedText;

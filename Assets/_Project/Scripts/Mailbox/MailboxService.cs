@@ -482,6 +482,7 @@ namespace KingdomIdle.Mailbox
 
         internal static bool Apply(OnClaimMailRewardResponseDTO response)
         {
+            var loot = LootNotifications.Capture();
             bool saved = LocalProgression.Execute("server-mail-claim", s =>
             {
                 UserManager.ApplyCurrency(s, response.Currency); UserManager.ApplyEquipment(s, response.Equipment);
@@ -491,6 +492,7 @@ namespace KingdomIdle.Mailbox
                 $"serverInventory={UserManager.DescribeInventory(response.Equipment)} stateInventory={UserManager.DescribeInventory(LocalProgression.State)} saved={saved}");
             if (saved)
             {
+                LootNotifications.PublishGacha(loot, response.Rewards, "mail:" + response.MailboxId + ":" + string.Join(",", response.ClaimedMailIds.OrderBy(id => id)));
                 EquipmentManager.Instance?.RestoreEquipment();
                 if (response.Rewards.Any(r => r.Kind == RewardKind.Equipment)) QuestManager.Instance?.RequestRefresh("mail");
             }

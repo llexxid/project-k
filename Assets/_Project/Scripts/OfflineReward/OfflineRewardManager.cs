@@ -76,6 +76,7 @@ namespace KingdomIdle.OfflineRewards
         /// <summary>응답의 레벨·경험치·재화 절대값을 한 트랜잭션으로 쓴다. 획득량은 팝업 표시에만 쓴다.</summary>
         private void ApplyServerResult(decimal kpm, OnClaimOfflineRewardResponseDTO r, Action onCompleted)
         {
+            var loot = LootNotifications.Capture(false, false);
             bool saved = LocalProgression.Execute("server-offline-claim", s =>
             {
                 s.AccountLevel = BalanceMath.Clamp(r.Level, 1, BalanceMath.AccountCap);
@@ -97,6 +98,7 @@ namespace KingdomIdle.OfflineRewards
             }
             else if (r.GainedGold > 0 || r.GainedExp > 0)
             {
+                LootNotifications.PublishCurrency(loot, eCurrency.Gold, r.GainedGold);
                 // 팝업은 서버가 돌려준 정산 값만 보여 준다.
                 var plan = new OfflineRewardPlan
                 {
@@ -221,6 +223,7 @@ namespace KingdomIdle.OfflineRewards
         {
             AdBonusBusy = false;
             if (!IsCurrentAccount(result)) { AdBonusCompleted?.Invoke(result, RewardStatus.Stale, null); return; }
+            var loot = LootNotifications.Capture(false, false);
             bool saved = LocalProgression.Execute("server-offline-ad-bonus", s => { UserManager.ApplyAdReward(s, r); return true; });
             // 광고 응답은 종류와 관계없이 오늘의 상점 광고 기록을 담아 온다.
             ShopAdRewardService.ReceiveClaimRecord(r.AdRewards);
@@ -233,6 +236,7 @@ namespace KingdomIdle.OfflineRewards
                 AdBonusCompleted?.Invoke(result, RewardStatus.SaveFailed, null);
                 return;
             }
+            if (!r.AlreadyClaimed) LootNotifications.PublishCurrencies(loot, r.GrantedCurrencies, "offline-ad:" + result.ClaimId);
             AdBonusCompleted?.Invoke(result, RewardStatus.Success, null);
         }
 
@@ -242,17 +246,28 @@ namespace KingdomIdle.OfflineRewards
             int code = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0;
             Debug.LogWarning($"[Offline] adbonus rejected code={code} kind={kind} message={error?.ErrorMessage}");
             string message = NetworkManager.DescribeFailure(error, "오프라인 2배 보상");
-            if (kind == "Timeout" || kind == "Transport")
+            if (code == 1051)
             {
-                // 응답 유실: 서버가 지급했을 수 있다. 재전송 대신 상태를 다시 받는다. 다시 누르면 서버가 AlreadyClaimed로 이어 준다.
-                var users = UserManager.Instance;
-                if (users == null) { AdBonusBusy = false; AdBonusCompleted?.Invoke(result, RewardStatus.SaveFailed, message); return; }
-                users.RefreshFromServer(_ => { AdBonusBusy = false; AdBonusCompleted?.Invoke(result, RewardStatus.SaveFailed, message); });
+                // 받을 정산이 없다는 서버의 확정 거절만 일반 수령으로 마친다.
+                AdBonusBusy = false;
+                AdBonusCompleted?.Invoke(result, RewardStatus.NothingAvailable, message);
                 return;
             }
-            // 거절(1051 받을 정산 없음 등): 서버는 저장하지 않았다. 다시 보내도 같다.
-            AdBonusBusy = false;
-            AdBonusCompleted?.Invoke(result, RewardStatus.NothingAvailable, message);
+            // 저장 오류·SDK 함수 시간초과도 지급 성공 여부를 알 수 없다. 재청구하지 않고 기존 조회로 확인한다.
+            // 조회 결과와 관계없이 시청 완료 선택지는 이 접속 안에서 보존하며 지급 성공으로 표시하지 않는다.
+            long generation = LocalProgression.AccountGeneration;
+            var network = NetworkManager.Instance;
+            long networkGeneration = network != null ? network.AccountGeneration : -1;
+            void FinishFailure()
+            {
+                if (generation != LocalProgression.AccountGeneration || NetworkManager.Instance != network ||
+                    (network != null && network.AccountGeneration != networkGeneration)) return;
+                AdBonusBusy = false;
+                AdBonusCompleted?.Invoke(result, RewardStatus.SaveFailed, message);
+            }
+            var users = UserManager.Instance;
+            if (users == null) { FinishFailure(); return; }
+            users.RefreshFromServer(_ => FinishFailure());
         }
     }
 }
