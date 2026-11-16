@@ -20,6 +20,11 @@ namespace KingdomIdle.UGUI
         private Coroutine _breathCo;
         private Coroutine _rotateCo;
         private Coroutine _flashCo;
+        private Coroutine _graphicPulseCo;
+        private Image _pulseGraphic;
+        private Color _pulseDim, _pulseBright;
+        private float _pulsePeriod;
+        private bool _pulseRequested;
         private Color _flashBaseColor;      // FlashRing 원래 색 (연출 도중 재호출/중단돼도 복원 기준)
         private bool _flashBaseCaptured;
         private bool _breathRequested, _rotateRequested;
@@ -36,6 +41,8 @@ namespace KingdomIdle.UGUI
             GamePresentationSettings.Changed -= RefreshAmbient;
             StopAllCoroutines();
             _scaleCo = _fadeCo = _moveCo = _breathCo = _rotateCo = _flashCo = _valueCo = null;
+            _graphicPulseCo = null;
+            if (_pulseRequested && _pulseGraphic != null) _pulseGraphic.color = _pulseBright;
         }
 
         private void RefreshAmbient()
@@ -44,11 +51,54 @@ namespace KingdomIdle.UGUI
             if (rt == null) return;
             if (_breathCo != null) { StopCoroutine(_breathCo); _breathCo = null; }
             if (_rotateCo != null) { StopCoroutine(_rotateCo); _rotateCo = null; }
+            if (_graphicPulseCo != null) { StopCoroutine(_graphicPulseCo); _graphicPulseCo = null; }
+            if (_pulseRequested && _pulseGraphic != null) _pulseGraphic.color = _pulseBright;
             if (_breathRequested) rt.localScale = Vector3.one;
             if (_rotateRequested) rt.localRotation = Quaternion.identity;
             if (GamePresentationSettings.LowSpec || !isActiveAndEnabled) return;
             if (_breathRequested) _breathCo = StartCoroutine(BreathRoutine(rt, _breathAmplitude, _breathPeriod));
             if (_rotateRequested) _rotateCo = StartCoroutine(RotateRoutine(rt, _rotationSpeed));
+            if (_pulseRequested && _pulseGraphic != null) _graphicPulseCo = StartCoroutine(GraphicPulseRoutine());
+        }
+
+        /// <summary>수령 가능한 셀의 테두리만 점등한다. 저사양은 밝은 고정 표시로 정보를 유지한다.</summary>
+        public static void PulseGraphic(Image graphic, Color dim, Color bright, float period = 1.8f)
+        {
+            if (graphic == null) return;
+            var tween = Get(graphic);
+            period = Mathf.Max(.5f, period);
+            if (tween._pulseRequested && tween._pulseGraphic == graphic && tween._pulseDim == dim &&
+                tween._pulseBright == bright && Mathf.Approximately(tween._pulsePeriod, period)) return;
+            tween._pulseGraphic = graphic;
+            tween._pulseDim = dim;
+            tween._pulseBright = bright;
+            tween._pulsePeriod = period;
+            tween._pulseRequested = true;
+            tween.RefreshAmbient();
+        }
+
+        public static void StopGraphicPulse(Image graphic)
+        {
+            if (graphic == null) return;
+            var tween = graphic.GetComponent<UITween>();
+            if (tween == null || !tween._pulseRequested) return;
+            tween._pulseRequested = false;
+            if (tween._graphicPulseCo != null) tween.StopCoroutine(tween._graphicPulseCo);
+            tween._graphicPulseCo = null;
+            graphic.color = tween._pulseDim;
+        }
+
+        private IEnumerator GraphicPulseRoutine()
+        {
+            float elapsed = 0f;
+            while (_pulseGraphic != null)
+            {
+                float weight = .5f + .5f * Mathf.Cos(elapsed * Mathf.PI * 2f / _pulsePeriod);
+                _pulseGraphic.color = Color.Lerp(_pulseDim, _pulseBright, weight);
+                yield return null;
+                elapsed += Time.unscaledDeltaTime;
+            }
+            _graphicPulseCo = null;
         }
 
         private static UITween Get(Component c)
@@ -341,7 +391,7 @@ namespace KingdomIdle.UGUI
         }
 
         // ── 이징 ─────────────────────────────────────────────────────
-        private static float EaseOutCubic(float x) => 1f - Mathf.Pow(1f - x, 3f);
+        internal static float EaseOutCubic(float x) => 1f - Mathf.Pow(1f - x, 3f);
 
         private static float EaseOutBack(float x)
         {

@@ -89,9 +89,11 @@ namespace Reincarnation
         /// <summary>응답의 환생 상태·스테이지·골드 강화·재화를 한 트랜잭션으로 쓴다. 레벨·경험치는 응답에 없으므로 건드리지 않고, 영구 최고 클리어는 응답 StageState.MainClear로 맞춘다.</summary>
         private void ApplyServerResult(OnReincarnationResponseDTO r)
         {
+            var loot = KingdomIdle.Rewards.LootNotifications.Capture(false, false);
             long stage = (long)r.StageState.CurrentStage;
             bool saved = LocalProgression.Execute("server-reincarnation", s =>
             {
+                if (!MainWaveProgression.ApplyServerState(s, r.MainBattle)) return false;
                 UserManager.ApplyReincarnation(s, r.Reincarnation);
                 UserManager.ApplyCurrency(s, r.Currency);
                 s.AttackLevel = (int)Math.Min(BalanceMath.GoldCap, Math.Max(0, r.EnchantATKCount));
@@ -117,6 +119,7 @@ namespace Reincarnation
                 RefreshServerResult(LastFailure);
                 return;
             }
+            KingdomIdle.Rewards.LootNotifications.PublishCurrencyIncreases(loot, "reincarnation:" + r.Reincarnation.Count);
             StatEnhanceManager.Instance?.ApplyToAllPlayers();
             FinishRequest();
             MoveToServerStage();
@@ -167,8 +170,9 @@ namespace Reincarnation
             var manager = StageManager.Instance;
             if (manager == null) return;
             var target = (eStage)LocalProgression.State.MainStage;
-            if (StageParser.GetStageType(target) != eStageType.Main || manager.CurrentStage == target) return;
+            if (StageParser.GetStageType(target) != eStageType.Main) return;
             if (target == eStage.Stage1_1 && manager.TryResetMainProgress()) return;
+            if (manager.CurrentStage == target && !MainWaveProgression.Available) return;
             manager.BeginStage(target);
         }
 

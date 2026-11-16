@@ -14,6 +14,7 @@ namespace KingdomIdle.UGUI
         private static UIManager _host;
         private static bool _flaring;
         private static System.Action _refreshRePull;
+        private static EquipmentManager _equipment;
 
         public static bool IsOpen => _instanceGo != null;
 
@@ -61,13 +62,14 @@ namespace KingdomIdle.UGUI
             // 아이템별 합산 후 등급순 정렬 (Epic → Rare → Normal → Skill → Currency)
             var merged = MergeResults(results);
             merged.Sort(CompareResultEntries);
+            view.SetResultCount(merged.Count);
 
             var popup = _instanceGo;
             bool isMagePull = table != null && table.gachaType == KingdomIdle.Gacha.eGachaType.Skill;
             bool titleRevealAssigned = false;
             foreach (var m in merged)
             {
-                var card = AddResultCard(host, view, m.entry, m.count, bestRarity);
+                var card = AddResultCard(host, view, m.entry, m.count, m.mailed, bestRarity);
                 if (card == null) continue;
                 if (isMagePull && m.entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Skill)
                 {
@@ -97,6 +99,7 @@ namespace KingdomIdle.UGUI
             }
 
             BindButtons(view, table, lastPullCount);
+            view.RefreshLayoutNow();
             FeatureGuideAnchor.Bind(view.btnDone, Direction.GameDirectTarget.GachaResultClose);
 
             _instanceGo.transform.SetAsLastSibling();
@@ -107,6 +110,8 @@ namespace KingdomIdle.UGUI
         public static void Close()
         {
             EconomyBridge.OnAmountChanged -= OnWalletChanged;
+            if (_equipment != null) _equipment.OnEquipmentStateChanged -= RefreshEquipment;
+            _equipment = null;
             _refreshRePull = null;
             _flaring = false;
             if (_instanceGo != null)
@@ -122,6 +127,7 @@ namespace KingdomIdle.UGUI
             GachaResultPopupView view,
             KingdomIdle.Gacha.GachaRewardEntry entry,
             int count,
+            int mailed,
             eEquipmentRarity? bestRarity)
         {
             if (host.Catalog.itemGachaCard == null || view.grid == null) return null;
@@ -139,13 +145,6 @@ namespace KingdomIdle.UGUI
             {
                 frameColor = UguiTheme.RarityColor(entry.equipmentData.rarity);
 
-                // 최고 등급(에픽) 카드 강조
-                if (bestRarity.HasValue && entry.equipmentData.rarity == bestRarity.Value
-                    && bestRarity.Value == eEquipmentRarity.Epic && card.background != null)
-                {
-                    card.background.color = new Color(
-                        UguiTheme.RarityEpic.r, UguiTheme.RarityEpic.g, UguiTheme.RarityEpic.b, 0.25f);
-                }
             }
             else if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Currency
                      && entry.currency == eCurrency.ClassFragment)
@@ -221,11 +220,17 @@ namespace KingdomIdle.UGUI
                 card.subLabel.text = fragments
                     ? $"중복 {count / KingdomIdle.MageTower.MageSkillRules.DuplicateFragments}회\n파편 {NumberNotation.Format(count)}개"
                     : entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Skill ? "스킬 최초 획득" : FormatGachaCount(count);
-                if (fragments) card.subLabel.fontSize = 22;
-                card.subLabel.color = UguiTheme.AccentGoldStrong;
+                if (entry.rewardType == KingdomIdle.Gacha.eGachaRewardType.Equipment && entry.equipmentData != null)
+                    card.subLabel.text = EquipmentRarityLabel(entry.equipmentData.rarity) + "\n" + card.subLabel.text;
+                if (mailed > 0) card.subLabel.text += $"\n우편 {mailed}개";
             }
+            card.SetResultPresentation(view.ResultCount);
+            if (mailed > 0 && card.subLabel != null) card.subLabel.fontSize = 32;
             return card;
         }
+
+        private static string EquipmentRarityLabel(eEquipmentRarity rarity) => rarity switch
+        { eEquipmentRarity.Epic => "에픽 장비", eEquipmentRarity.Rare => "레어 장비", _ => "일반 장비" };
 
         private static void BindButtons(GachaResultPopupView view, KingdomIdle.Gacha.GachaTableSO table, int lastPullCount)
         {
@@ -258,18 +263,25 @@ namespace KingdomIdle.UGUI
                 if (view.btnRePullN != null) view.btnRePullN.interactable = !_flaring && manager != null && manager.CanPullMulti(table, lastPullCount);
             };
             EconomyBridge.OnAmountChanged += OnWalletChanged;
+            if (table != null && table.gachaType == KingdomIdle.Gacha.eGachaType.Equipment)
+            {
+                _equipment = EquipmentManager.Instance;
+                if (_equipment != null) _equipment.OnEquipmentStateChanged += RefreshEquipment;
+            }
             NumberNotationBinding.Bind(view, _refreshRePull);
             _refreshRePull();
         }
 
         private static string RePullLabel(KingdomIdle.Gacha.GachaTableSO table, int count)
-            => table == null ? "다시 뽑기" : $"{count}회 다시 뽑기\n{RewardPresentation.GachaCost(KingdomIdle.Gacha.GachaManager.Instance, table, count)}";
+            => table == null ? "다시 뽑기" : $"{count}회 더 뽑기\n{RewardPresentation.GachaCost(KingdomIdle.Gacha.GachaManager.Instance, table, count)}";
 
         private static void OnWalletChanged(eCurrency currency, long amount)
         {
             if (currency == eCurrency.AncientCoin || currency == eCurrency.EquipmentTicket || currency == eCurrency.MageTicket)
                 _refreshRePull?.Invoke();
         }
+
+        private static void RefreshEquipment() => _refreshRePull?.Invoke();
 
         private static void HandleRePull(GachaResultPopupView view, UnityEngine.UI.Button button, KingdomIdle.Gacha.GachaTableSO table, int count)
         {
@@ -303,10 +315,10 @@ namespace KingdomIdle.UGUI
         //  결과 합산/정렬 유틸 (원본 로직 그대로)
         // ═══════════════════════════════════════════
 
-        private static List<(KingdomIdle.Gacha.GachaRewardEntry entry, int count)> MergeResults(
+        private static List<(KingdomIdle.Gacha.GachaRewardEntry entry, int count, int mailed)> MergeResults(
             List<KingdomIdle.Gacha.GachaRewardEntry> results)
         {
-            var merged = new List<(KingdomIdle.Gacha.GachaRewardEntry entry, int count)>();
+            var merged = new List<(KingdomIdle.Gacha.GachaRewardEntry entry, int count, int mailed)>();
             if (results == null) return merged;
 
             // 서버가 동일 보상(장비/스킬/파편)을 하나의 엔트리에 Count 로 묶어 내려주므로
@@ -322,14 +334,14 @@ namespace KingdomIdle.UGUI
                 {
                     if (MakeMergeKey(merged[i].entry) == key)
                     {
-                        merged[i] = (merged[i].entry, merged[i].count + amt);
+                        merged[i] = (merged[i].entry, merged[i].count + amt, merged[i].mailed + r.mailedAmount);
                         found = true;
                         break;
                     }
                 }
                 if (!found)
                 {
-                    merged.Add((r, amt));
+                    merged.Add((r, amt, r.mailedAmount));
                 }
             }
             return merged;
@@ -360,8 +372,8 @@ namespace KingdomIdle.UGUI
         }
 
         private static int CompareResultEntries(
-            (KingdomIdle.Gacha.GachaRewardEntry entry, int count) a,
-            (KingdomIdle.Gacha.GachaRewardEntry entry, int count) b)
+            (KingdomIdle.Gacha.GachaRewardEntry entry, int count, int mailed) a,
+            (KingdomIdle.Gacha.GachaRewardEntry entry, int count, int mailed) b)
         {
             int ra = GetResultSortRank(a.entry);
             int rb = GetResultSortRank(b.entry);

@@ -26,22 +26,23 @@ namespace KingdomIdle.UGUI
         public Image progressFill;
         public TMP_Text progressLabel, actionLabel, periodLabel;
         public Button actionButton;
+        public Image claimBorder;
         // 재활성화할 때도 같은 수령 가능 강조를 복구한다. 게임의 완료 상태를 별도 저장하지 않는다.
         private bool _claimable;
+        private Image _infoSurface;
+        private static readonly Color CompletedSurface = new Color32(221, 211, 186, 255);
 
-        /// <summary>패널 스택에서 돌아온 경우 수령 가능 버튼의 가벼운 강조를 복원한다.</summary>
+        /// <summary>패널 스택에서 돌아온 경우 수령 가능한 셀의 테두리 빛을 복원한다.</summary>
         private void OnEnable() { RefreshEmphasis(); }
 
         /// <summary>숨긴 카드의 연출을 정리한다. 다음 활성화에 축소된 버튼이 남지 않도록 복구한다.</summary>
         private void OnDisable()
         {
-            if (actionLabel == null) return;
-            UITween.StopBreathScale(actionLabel.rectTransform);
-            actionLabel.rectTransform.localScale = Vector3.one;
+            if (claimBorder != null) UITween.StopGraphicPulse(claimBorder);
         }
 
         /// <summary>데이터가 바뀌었을 때만 패널이 호출한다. 목표 달성과 보상 수령 완료를 구분한다.</summary>
-        public void SetQuest(QuestRowSnapshot snapshot, UIViewCatalog catalog)
+        public void SetQuest(QuestRowSnapshot snapshot, UIViewCatalog catalog, bool claimAll = false, bool claimBusy = false)
         {
             bool claimed = snapshot.State == QuestRowState.Claimed;
             bool locked = snapshot.State == QuestRowState.Locked;
@@ -52,8 +53,8 @@ namespace KingdomIdle.UGUI
                 eQuestCategory.Weekly => "주간", _ => "업적"
             };
             // Description에는 실제 조건/대상이 들어 있으므로 숫자를 문자열에서 억지로 제거하지 않는다.
-            titleLabel.text = $"<color=#B9AE9A>{category} ·</color> {snapshot.Description}";
-            titleLabel.color = claimed ? UguiTheme.NavMuted : UguiTheme.Parchment;
+            titleLabel.text = $"<color=#62513C>{category} ·</color> {snapshot.Description}";
+            titleLabel.color = claimed ? UguiTheme.InfoMuted : UguiTheme.InfoInk;
             // 완료 게이지는 항상 가득 채운다. 잠금 해제 전에는 실제 진행 수치와 잠금 버튼을 함께 표시한다.
             long count = snapshot.IsCompleted ? snapshot.RequiredCount : System.Math.Max(0, System.Math.Min(snapshot.Progress, snapshot.RequiredCount));
             progressFill.fillAmount = snapshot.RequiredCount > 0 ? Mathf.Clamp01((float)count / snapshot.RequiredCount) : 0;
@@ -61,18 +62,19 @@ namespace KingdomIdle.UGUI
             progressFill.rectTransform.anchorMax = new Vector2(progressFill.fillAmount, 1);
             progressFill.color = claimed ? new Color32(71, 83, 58, 255) : new Color32(44, 115, 56, 255);
             progressLabel.text = $"{NumberNotation.Format(count)} / {NumberNotation.Format(snapshot.RequiredCount)}";
-            // 글자와 게이지는 보존하고 톤만 낮춘다. SetActive(false)로 완료 행을 제거하지 않는다.
-            canvasGroup.alpha = claimed ? .72f : locked ? .65f : 1f;
-            actionButton.interactable = snapshot.CanClaim || (!locked && !claimed && canMove);
-            actionLabel.text = claimed ? "완료" : snapshot.CanClaim ? "받기" : locked ? "잠김" : canMove ? "이동 ›" : "진행 중";
-            actionLabel.color = snapshot.CanClaim ? UguiTheme.RusticPanelDeep : UguiTheme.Parchment;
-            if (actionButton.targetGraphic != null)
-                actionButton.targetGraphic.color = snapshot.CanClaim ? UguiTheme.BtnConfirm : UguiTheme.RusticSurface;
+            // 전체 알파는 글자까지 배경에 섞어 대비를 잃게 한다. 완료는 정보면·라벨·게이지로 구분한다.
+            canvasGroup.alpha = 1f;
+            if (_infoSurface == null) _infoSurface = transform.Find("InfoSurface")?.GetComponent<Image>();
+            if (_infoSurface != null) _infoSurface.color = claimed ? CompletedSurface : UguiTheme.InfoSurface;
+            bool canClaim = snapshot.CanClaim && !claimBusy;
+            actionButton.interactable = canClaim || (!snapshot.CanClaim && !locked && !claimed && canMove);
+            actionLabel.text = claimed ? "완료" : snapshot.CanClaim ? (claimBusy ? "수령 중…" : "수령 가능") : locked ? "잠김" : canMove ? "이동 ›" : "진행 중";
+            actionLabel.color = snapshot.CanClaim ? UguiTheme.InfoInk : UguiTheme.InfoMuted;
             // 이전 기간 보상은 원래 기간을 함께 표시해 현재 기간의 같은 퀘스트와 구분한다.
             periodLabel.gameObject.SetActive(snapshot.IsPending);
             periodLabel.text = snapshot.IsPending ? $"이전 기간 · {snapshot.Token.Period}" : "";
             SetRewards(snapshot, catalog);
-            if (_claimable != snapshot.CanClaim) { _claimable = snapshot.CanClaim; RefreshEmphasis(); }
+            if (_claimable != canClaim) { _claimable = canClaim; RefreshEmphasis(); }
         }
 
         /// <summary>현재 카탈로그의 단일/복수 보상을 모두 표시한다. 동적 골드는 확정액을 추측하지 않는다.</summary>
@@ -84,16 +86,21 @@ namespace KingdomIdle.UGUI
             SetReward(0, rewardIcon, rewardAmountLabel);
             if (multiple) SetReward(1, secondaryRewardIcon, secondaryRewardAmountLabel);
             // 두 보상은 세로로 쌓고, 한 보상은 큰 아이콘으로 표시한다. 오른쪽 내용 폭은 일정하다.
-            LayoutReward(rewardIcon, rewardAmountLabel, multiple ? 16 : 24, multiple ? 56 : 96, multiple ? 60 : 102);
-            if (multiple) LayoutReward(secondaryRewardIcon, secondaryRewardAmountLabel, 104, 56, 60);
+            LayoutReward(rewardIcon, rewardAmountLabel, multiple ? 16 : 44, multiple ? 64 : 112, multiple ? 68 : 118);
+            if (multiple) LayoutReward(secondaryRewardIcon, secondaryRewardAmountLabel, 146, 64, 68);
 
             void SetReward(int index, Image icon, TMP_Text amount)
             {
                 if (index >= snapshot.Rewards.Count) return;
                 var reward = snapshot.Rewards[index];
                 icon.sprite = RewardPresentation.Icon(reward.Currency, catalog);
-                amount.text = reward.IsDynamic ? "2분 골드" : $"×{NumberNotation.Format(reward.Amount)}";
-                amount.color = UguiTheme.Parchment;
+                amount.text = reward.IsDynamic ? (multiple ? "2분 골드" : "2분\n골드") : $"×{NumberNotation.Format(reward.Amount)}";
+                amount.color = UguiTheme.InfoInk;
+                amount.textWrappingMode = TextWrappingModes.Normal;
+                amount.overflowMode = TextOverflowModes.Overflow;
+                amount.maxVisibleLines = 2;
+                amount.alignment = TextAlignmentOptions.Top;
+                amount.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, reward.IsDynamic && !multiple ? 88 : 44);
             }
         }
 
@@ -101,18 +108,22 @@ namespace KingdomIdle.UGUI
         private static void LayoutReward(Image icon, TMP_Text amount, float top, float size, float amountTop)
         {
             var root = (RectTransform)icon.transform.parent;
-            root.anchoredPosition = new Vector2(24, -top);
+            root.anchoredPosition = new Vector2(8, -top);
             icon.rectTransform.sizeDelta = new Vector2(size, size);
             amount.rectTransform.anchoredPosition = new Vector2(0, -amountTop);
         }
 
-        /// <summary>기존 unscaled UITween을 사용한다. 저사양 모드와 OnDisable 정리는 공용 트윈에 맡긴다.</summary>
+        /// <summary>셀의 위치와 글자를 움직이지 않고 테두리만 점등한다. 저사양 모드는 고정 점등한다.</summary>
         private void RefreshEmphasis()
         {
-            if (actionLabel == null || !Application.isPlaying) return;
-            UITween.StopBreathScale(actionLabel.rectTransform);
-            actionLabel.rectTransform.localScale = Vector3.one;
-            if (_claimable && isActiveAndEnabled) UITween.BreathScale(actionLabel.rectTransform, .018f, 2.8f);
+            if (claimBorder == null) return;
+            if (_claimable && isActiveAndEnabled && Application.isPlaying)
+                UITween.PulseGraphic(claimBorder, UguiTheme.Bronze, UguiTheme.ActionGold, 1.8f);
+            else
+            {
+                UITween.StopGraphicPulse(claimBorder);
+                claimBorder.color = _claimable ? UguiTheme.ActionGold : UguiTheme.Bronze;
+            }
         }
 
         // .guide-step-title / .guide-step-title-done (GameUI.uss guide-* 토큰)

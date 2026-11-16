@@ -94,6 +94,54 @@ namespace KingdomIdle.Balance
             login["Tutorials"] = new JArray(tutorial["Progress"].DeepClone(), tutorial["Progress"].DeepClone());
             Check(!Read<UserInitResponseDTO>(login, out _), "duplicate tutorial sequence records are rejected");
 
+            var mainStage = (Protocol.Message.Data.eStage)(long)StageParser.MakeStage(eStageType.Main, 1);
+            var nextMain = (Protocol.Message.Data.eStage)(long)StageParser.MakeStage(eStageType.Main, 1, 2);
+            var mainMonster = (Protocol.Message.Data.eMonsterType)4294967301UL;
+            var nextBattle = new MainBattleStateDTO { RunId = "fedcba0987654321fedcba0987654321", Stage = nextMain, AcceptedKills = new() };
+            var source = LegacyLogin();
+            var completedBody = Body(new OnCompleteMainWaveResponseDTO
+            {
+                RequestId = Nonce, CompletedRunId = Nonce, Replayed = false, IsFirstClear = true,
+                GrantedRewards = new(), Level = 1, Currency = source.Currency, Equipment = source.Equipment,
+                MageTowerState = source.MageTowerState, MainBattle = nextBattle,
+                StageState = new UserStageQuery { CurrentStage = nextMain, HighestStage = nextMain, MainClear = mainStage }
+            });
+            Check(Read(completedBody, out OnCompleteMainWaveResponseDTO validMain) && validMain.MainBattle.RunId == nextBattle.RunId,
+                "main completion includes authoritative progression and the next server run");
+            foreach (string field in new[] { "RequestId", "CompletedRunId", "Replayed", "MainBattle", "Level", "Currency", "StageState" })
+                Check(!Read<OnCompleteMainWaveResponseDTO>(Changed(completedBody, field, null), out _), "main completion rejects missing " + field);
+            Check(!Read<OnCompleteMainWaveResponseDTO>(Changed(completedBody, "RequestId", Nonce.ToUpperInvariant()), out _), "main request IDs require canonical lowercase GUID N");
+            Check(!Read<OnCompleteMainWaveResponseDTO>(Changed(completedBody, "MainBattle.RunId", Nonce), out _), "completed run cannot become its own next run");
+            Check(!Read<OnCompleteMainWaveResponseDTO>(Changed(completedBody, "MainBattle.Stage", (long)mainStage), out _), "completion battle and destination must agree");
+            Check(!Read<OnCompleteMainWaveResponseDTO>(Changed(completedBody, "GrantedRewards", new JArray(JValue.CreateNull())), out _),
+                "null completion rewards are rejected before committing or triggering presentation callbacks");
+            Check(!Read<OnCompleteMainWaveResponseDTO>(Changed(completedBody, "MainBattle.AcceptedKills", new JArray(
+                JObject.FromObject(new HuntResult { MonsterType = mainMonster, Count = 1 }),
+                JObject.FromObject(new HuntResult { MonsterType = mainMonster, Count = 1 }))), out _), "server accepted counts reject duplicate monster types");
+            var legacyMain = Body(LegacyLogin());
+            ((JProperty)legacyMain["MainBattle"].Parent).Remove();
+            Check(Read<UserInitResponseDTO>(legacyMain, out _), "server without main-wave capability retains legacy login");
+
+            var battleSave = new MainBattleSave { RunId = Nonce, Stage = (long)mainStage, AcceptedKills = new() { [(ulong)mainMonster] = 2 } };
+            var observed = new Dictionary<Scripts.Core.eMonsterType, int> { [(Scripts.Core.eMonsterType)(ulong)mainMonster] = 1 };
+            Check(MainWaveProgression.Delta(observed, battleSave).Count == 0, "reconnected observations below accepted count do not repay old kills");
+            observed[(Scripts.Core.eMonsterType)(ulong)mainMonster] = 5;
+            Check(MainWaveProgression.Delta(observed, battleSave)[0].Count == 3, "partial hunt sends observed-minus-accepted rather than adding the baseline");
+            var acknowledged = battleSave.Copy(); acknowledged.AcceptedKills[(ulong)mainMonster] = 4;
+            Check(MainWaveProgression.Delta(observed, acknowledged)[0].Count == 1,
+                "fast partial acknowledgment leaves only the remaining delta before final completion");
+            var pendingMain = new MainWaveCompletionSave { RunId = Nonce, RequestId = nextBattle.RunId,
+                Stage = (long)mainStage, NextAction = 1, TotalKills = new() { [(ulong)mainMonster] = 5 } };
+            var frozen = new ProgressionState { MainBattle = battleSave, PendingMainCompletion = pendingMain, AttackLevel = 42 };
+            var cloned = frozen.DeepClone();
+            cloned.MainBattle.AcceptedKills[(ulong)mainMonster] = 9; cloned.PendingMainCompletion.TotalKills[(ulong)mainMonster] = 9;
+            Check(frozen.MainBattle.AcceptedKills[(ulong)mainMonster] == 2 && frozen.PendingMainCompletion.TotalKills[(ulong)mainMonster] == 5,
+                "transaction drafts do not mutate saved accepted counts or pending payload");
+            var roundTrip = Newtonsoft.Json.JsonConvert.DeserializeObject<ProgressionState>(Newtonsoft.Json.JsonConvert.SerializeObject(frozen));
+            Check(roundTrip.AttackLevel == 42 && roundTrip.PendingMainCompletion.RequestId == nextBattle.RunId &&
+                MainWaveProgression.Request(roundTrip.PendingMainCompletion).TotalKills[0].Count == 5,
+                "restart preserves request identity, exact final count, intent and unrelated investments");
+
             var previousNetwork = NetworkManager.Instance;
             var owner = new GameObject("ServerApiContractAcceptance") { hideFlags = HideFlags.HideAndDontSave };
             owner.SetActive(false);
@@ -126,6 +174,18 @@ namespace KingdomIdle.Balance
                 catch (TargetInvocationException ex) when (ex.InnerException is ArgumentException) { invalidTypeRejected = true; }
                 Check(invalidTypeRejected, "invalid growth enum cannot leave the client");
                 Check(new OnStageClearRequestDTO().NextAction == eStageClearAction.Advance, "existing clear calls retain advance semantics");
+                var completedRequest = Request<OnCompleteMainWaveRequestDTO, OnCompleteMainWaveResponseDTO>(MainWaveProgression.Request(pendingMain));
+                var completedPayload = JObject.FromObject(completedRequest.FunctionParameter);
+                Check(completedRequest.FunctionName == "OnCompleteMainWave" && completedPayload.Value<string>("MainRunId") == Nonce &&
+                    completedPayload.Value<string>("RequestId") == pendingMain.RequestId && completedPayload.Value<int>("NextAction") == 1,
+                    "new completion route retains run, immutable request and repeat intent");
+                var legacyHunt = Request<OnRewardRequestDTO, OnHuntResponseDTO>(new OnRewardRequestDTO
+                { Stage = mainStage, Loots = new() { new HuntResult { MonsterType = mainMonster, Count = 1 } } });
+                var legacyPayload = JObject.FromObject(legacyHunt.FunctionParameter);
+                Check(legacyPayload["MainRunId"] == null && legacyPayload["BatchId"] == null, "legacy and dungeon hunts omit new optional identities");
+                var partialRequest = Request<OnRewardRequestDTO, OnHuntResponseDTO>(new OnRewardRequestDTO
+                { Stage = mainStage, MainRunId = Nonce, BatchId = nextBattle.RunId, Loots = new() { new HuntResult { MonsterType = mainMonster, Count = 1 } } });
+                Check(JObject.FromObject(partialRequest.FunctionParameter).Value<string>("BatchId") == nextBattle.RunId, "new partial route retains its idempotent batch identity");
                 return new { passed = true, count = checks.Count, checks };
             }
             finally

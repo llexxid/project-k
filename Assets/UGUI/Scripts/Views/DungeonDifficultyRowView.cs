@@ -7,12 +7,13 @@ namespace KingdomIdle.UGUI
 {
     public sealed class DungeonDifficultyRowView : MonoBehaviour
     {
-        // 러스틱 팔레트 (UGUI 리텍스처 — 다크 우드/청동 골드, UguiTheme 언어와 정렬)
-        private static readonly Color NormalColor = new Color(0.16f, 0.12f, 0.09f, 0.95f);      // 다크 우드
-        private static readonly Color SelectedColor = new Color(0.62f, 0.45f, 0.18f, 1f);       // 청동 골드 하이라이트
-        private static readonly Color LockedColor = new Color(0.09f, 0.07f, 0.05f, 0.92f);      // 더 깊은 우드 (잠금)
-        private static readonly Color PowerNormalColor = new Color(0.90f, 0.85f, 0.75f, 1f);    // 양피지 텍스트
-        private static readonly Color PowerWarningColor = new Color(1f, 0.32f, 0.30f, 1f);      // 전투력 부족 경고
+        // 청동 원정대: 선택은 청색, 정보는 밝은 면과 어두운 글자로 구분한다.
+        private static readonly Color NormalColor = UguiTheme.InfoSurface;
+        private static readonly Color SelectedColor = UguiTheme.RoyalBlue;
+        private static readonly Color LockedColor = new Color(0.84f, 0.79f, 0.69f, 1f);
+        private static readonly Color PowerNormalColor = UguiTheme.InfoMuted;
+        private static readonly Color PowerWarningColor = new Color(0.68f, 0.17f, 0.14f, 1f);
+        private static readonly Color SelectedPowerWarningColor = new Color(1f, 0.77f, 0.68f, 1f);
 
         [SerializeField] private Button button;
         [SerializeField] private Image background;
@@ -41,7 +42,7 @@ namespace KingdomIdle.UGUI
                 stageLabel.text = $"{stageNumber}단계";
             if (powerLabel != null)
             {
-                powerLabel.text = recommendedPower > 0 ? $"권장 전투력  {NumberNotation.Format(recommendedPower)}" : isUnlocked ? "입장 가능" : "이전 단계를 클리어하세요";
+                powerLabel.text = recommendedPower > 0 ? $"권장 전투력  {NumberNotation.Format(recommendedPower)}" : isUnlocked ? "선택 가능" : "이전 단계를 클리어하세요";
                 powerLabel.color = currentPower < recommendedPower
                     ? PowerWarningColor
                     : PowerNormalColor;
@@ -84,8 +85,18 @@ namespace KingdomIdle.UGUI
 
         public void SetSelected(bool value)
         {
+            bool selectedRow = unlocked && value;
             if (background != null)
-                background.color = !unlocked ? LockedColor : value ? SelectedColor : NormalColor;
+                background.color = !unlocked ? LockedColor : selectedRow ? SelectedColor : NormalColor;
+            if (stageLabel != null)
+                stageLabel.color = selectedRow ? UguiTheme.Parchment : UguiTheme.InfoInk;
+            if (powerLabel != null)
+            {
+                bool warning = powerLabel.color == PowerWarningColor || powerLabel.color == SelectedPowerWarningColor;
+                powerLabel.color = warning
+                    ? (selectedRow ? SelectedPowerWarningColor : PowerWarningColor)
+                    : (selectedRow ? UguiTheme.Parchment : PowerNormalColor);
+            }
         }
 
         private void HandleClick()

@@ -103,7 +103,7 @@ namespace KingdomIdle.CheckIn
             _nextCheckUtc = r.Attendance.OpenedDays >= ServerAttendanceTable.Days ? _boardResetUtc : (r.NextResetUtc > 0 ? r.NextResetUtc : period.DayEndUtc);
             Revision++;
             int carryover = r.CarryoverMailIds?.Count ?? 0;
-            if (carryover > 0) Scripts.Core.GameManager.Instance?.Mailbox?.RequestRefresh("carryover");
+            if (carryover > 0) GameManager.Instance?.Mailbox?.RefreshAfterDelivery("carryover");
             Debug.Log($"[Attendance] check day={r.CycleDay} carryover={carryover} next={_nextCheckUtc} | server board={Describe(r.Attendance)} | state board={Describe()} | saved=True");
         }
 
@@ -144,6 +144,7 @@ namespace KingdomIdle.CheckIn
 
         private void ApplyClaim(List<int> days, Dto.OnClaimAttendanceRewardResponseDTO r)
         {
+            var loot = LootNotifications.Capture();
             var changes = r.EquipmentChanges;
             int changed = (changes?.Items?.Count ?? 0) + (changes?.PendingItems?.Count ?? 0) + (changes?.ReserveStacks?.Count ?? 0);
             bool saved = LocalProgression.Execute("server-attendance-claim", s =>
@@ -160,8 +161,11 @@ namespace KingdomIdle.CheckIn
             Revision++;
             if (saved)
             {
+                LootNotifications.PublishGacha(loot, r.Rewards, "attendance:" + r.Attendance.Month + ":" + string.Join(",", days.OrderBy(day => day)));
                 EquipmentManager.Instance?.RestoreEquipment();
                 if (changed > 0) QuestManager.Instance?.RequestRefresh("attendance");
+                if (r.Rewards?.Any(reward => reward.Disposition == Dto.EquipmentDisposition.Mail) == true)
+                    GameManager.Instance?.Mailbox?.RefreshAfterDelivery("attendance-overflow");
             }
             var state = LocalProgression.State;
             Debug.Log($"[Attendance] claim days={string.Join(".", days)} rewards={r.Rewards?.Count ?? 0} changed={changed}" +

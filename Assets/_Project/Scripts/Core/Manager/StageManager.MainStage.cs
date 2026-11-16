@@ -20,6 +20,8 @@ namespace Scripts.Core.Manager
                     _currentState != eStageRunState.Resolving) ||
                 _mainStageRequestPending || _dungeonRequestPending || _huntSyncFailed || _onHuntsSettled != null ||
                 _huntsHeld || RubyProgression.IsBusy || GameManager.Instance?.Reincarnation?.IsBusy == true ||
+                LocalProgression.State.PendingMainCompletion != null ||
+                (_currentState == eStageRunState.Resolving && _currentSession?.IsCleared == true && !IsMainDefeatSettlement) ||
                 !string.IsNullOrEmpty(LocalProgression.State.ActiveDungeon) ||
                 !TryGetStageDefinition(target, out var definition) || !definition.Enabled)
                 return false;
@@ -62,13 +64,13 @@ namespace Scripts.Core.Manager
                 _isLoopMode = confirmed == target ? loop : previousLoop;
                 _mainStageRequestPending = false;
                 _currentState = previousState;
-                OnLoopModeChanged?.Invoke(_isLoopMode);
                 if (!TransitionStage(confirmed))
                 {
                     _huntSyncFailed = true;
                     Time.timeScale = 0;
                     KingdomIdle.UGUI.UIManager.Instance?.ShowToast("서버 스테이지로 이동하지 못했습니다. 재접속해 주세요.");
                 }
+                OnLoopModeChanged?.Invoke(_isLoopMode);
             }
 
             void RefreshConfirmedStage(string reason)
@@ -102,7 +104,8 @@ namespace Scripts.Core.Manager
                     {
                         if (!IsCurrent()) return;
                         if (result.StageState == null || (long)result.StageState.CurrentStage != (long)target ||
-                            !LocalProgression.Execute("server-main-stage", state => ApplyMainStageState(state, result.StageState)))
+                            !LocalProgression.Execute("server-main-stage", state => ApplyMainStageState(state, result.StageState) &&
+                                MainWaveProgression.ApplyServerState(state, result.MainBattle)))
                         {
                             RefreshConfirmedStage("이동 응답을 적용하지 못했습니다.");
                             return;

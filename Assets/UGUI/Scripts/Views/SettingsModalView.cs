@@ -28,12 +28,16 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal Button btnTerms, btnPrivacy;
         [SerializeField] internal Button btnClose;
         [SerializeField] internal ScrollRect scroll;
+        [SerializeField] internal ScrollRect lootScroll;
         [SerializeField] internal Button[] tabs;
         [SerializeField] internal GameObject[] pages;
         [SerializeField] internal Button[] numberButtons;
         [SerializeField] internal TMP_Text numberPreview;
         [SerializeField] internal TMP_Text numberHint;
         [SerializeField] internal Toggle tglKeepAwake;
+        [SerializeField] internal Toggle[] lootCurrencyToggles, lootEquipmentToggles;
+        [SerializeField] internal Toggle tglLootMageSkills;
+        [SerializeField] internal Button btnLootDefaults;
 
         [Header("Toggles")]
         [SerializeField] internal Toggle tglPowerSave;

@@ -15,7 +15,14 @@ namespace KingdomIdle.Gacha
     {
         public static GachaManager Instance { get; private set; }
         [SerializeField] private List<GachaTableSO> gachaTables;
-        public bool IsPulling { get; private set; }
+        private bool _isPulling;
+        private NetworkManager _pullNetwork;
+        private long _pullNetworkGeneration, _pullAccountGeneration;
+        private int _pullGeneration;
+        public bool IsPulling { get => _isPulling && IsCurrentPull(_pullGeneration); private set => _isPulling = value; }
+        private bool IsCurrentPull(int generation) => generation == _pullGeneration && _pullNetwork != null &&
+            _pullNetwork == NetworkManager.Instance && _pullNetworkGeneration == _pullNetwork.AccountGeneration &&
+            _pullAccountGeneration == LocalProgression.AccountGeneration;
         public event Action<bool> OnPullStateChanged;
         /// <summary>마지막 서버 거절·적용 실패. 성공하면 null.</summary>
         public PlayFabError LastFailure { get; private set; }
@@ -29,13 +36,16 @@ namespace KingdomIdle.Gacha
             ? (int)Math.Min(count, LocalProgression.Balance(table.gachaType == eGachaType.Skill ? eCurrency.MageTicket : eCurrency.EquipmentTicket)) : 0;
         public int GetTotalCost(GachaTableSO table, int count) => table != null && (count == 1 || count == 10) ? 50 * (count - GetTicketCost(table, count)) : -1;
         public bool CanPull(GachaTableSO table) => CanPullMulti(table, 1);
+        public bool IsEquipmentInventoryFull(GachaTableSO table) => table != null && table.gachaType == eGachaType.Equipment &&
+            EquipmentManager.IsInstanceInventory && LocalProgression.State.Equipment.Count >= EquipmentManager.InventoryCapacity;
         public bool CanPullMulti(GachaTableSO table, int count) => table != null && table.isImplemented && !IsPulling &&
             (table.gachaType == eGachaType.Equipment || table.gachaType == eGachaType.Skill) && table.costCurrency == eCurrency.AncientCoin && (count == 1 || count == 10) && LocalProgression.Balance(eCurrency.AncientCoin) >= GetTotalCost(table, count) &&
-            (table.gachaType != eGachaType.Equipment || EquipmentManager.Instance != null);
+            (table.gachaType != eGachaType.Equipment || EquipmentManager.Instance != null && !IsEquipmentInventoryFull(table));
         public string PullFailure(GachaTableSO table, int count)
         {
             if (IsPulling) return "이미 뽑기가 진행 중입니다.";
             if (table == null || !table.isImplemented || (count != 1 && count != 10)) return "뽑기 구성을 확인할 수 없습니다.";
+            if (IsEquipmentInventoryFull(table)) return "장비 보관함이 가득 찼습니다. 빈 칸을 만든 후 다시 뽑아 주세요.";
             int cost = GetTotalCost(table, count);
             if (LocalProgression.Balance(eCurrency.AncientCoin) < cost) return $"고대주화가 {cost - LocalProgression.Balance(eCurrency.AncientCoin):N0}개 부족합니다.";
             return "뽑기 데이터를 준비 중입니다. 잠시 후 다시 시도해 주세요.";
@@ -55,18 +65,22 @@ namespace KingdomIdle.Gacha
             if (network == null || !network.IsGameDataReady) { onError?.Invoke("서버 로그인이 필요합니다."); return; }
             string guideReceipt = Direction.GameDirectInteraction.CaptureReceipt(guideAction, count);
             long coinsBefore = LocalProgression.Balance(eCurrency.AncientCoin);
+            _pullNetwork = network;
+            _pullNetworkGeneration = network.AccountGeneration;
+            _pullAccountGeneration = LocalProgression.AccountGeneration;
+            int generation = ++_pullGeneration;
             IsPulling = true; LastFailure = null; OnPullStateChanged?.Invoke(true);
             if (table.gachaType == eGachaType.Equipment)
             {
                 network.Call<OnGachaEquipmentClassFragmentRequestDTO, OnGachaEquipmentClassFragmentResponseDTO>(new OnGachaEquipmentClassFragmentRequestDTO { Count = count },
-                    response => ApplyServerResult(table, count, guideAction, guideReceipt, coinsBefore, response.Rewards, response.Currency, response.GachaState, response.Equipment, null, onSuccess, onError),
-                    error => RejectServerResult(table, count, error, onError));
+                    response => { if (IsCurrentPull(generation)) ApplyServerResult(table, count, guideAction, guideReceipt, coinsBefore, response.Rewards, response.Currency, response.GachaState, response.Equipment, null, onSuccess, onError); },
+                    error => { if (IsCurrentPull(generation)) RejectServerResult(table, count, error, onError); });
             }
             else
             {
                 network.Call<OnGachaSkillArcaneKnowledgeRequestDTO, OnGachaSkillArcaneKnowledgeResponseDTO>(new OnGachaSkillArcaneKnowledgeRequestDTO { Count = count },
-                    response => ApplyServerResult(table, count, guideAction, guideReceipt, coinsBefore, response.Rewards, response.Currency, null, null, response.MageTowerState, onSuccess, onError),
-                    error => RejectServerResult(table, count, error, onError));
+                    response => { if (IsCurrentPull(generation)) ApplyServerResult(table, count, guideAction, guideReceipt, coinsBefore, response.Rewards, response.Currency, null, null, response.MageTowerState, onSuccess, onError); },
+                    error => { if (IsCurrentPull(generation)) RejectServerResult(table, count, error, onError); });
             }
         }
 
@@ -76,6 +90,7 @@ namespace KingdomIdle.Gacha
             Action<List<GachaRewardEntry>> onSuccess, Action<string> onError)
         {
             bool equipment = table.gachaType == eGachaType.Equipment;
+            var loot = KingdomIdle.Rewards.LootNotifications.Capture();
             bool saved;
             try
             {
@@ -105,29 +120,59 @@ namespace KingdomIdle.Gacha
                 onError?.Invoke("서버 결과를 저장하지 못했습니다. 다시 로그인하면 서버 값으로 맞춰집니다.");
                 return;
             }
+            KingdomIdle.Rewards.LootNotifications.PublishGacha(loot, rewards, "gacha:" + GetInstanceID() + ":" + _pullGeneration);
             EquipmentManager.Instance?.RestoreEquipment();
             MageTowerManager.Instance?.NotifyCommitted();
             QuestManager.Instance?.RequestRefresh("gacha");
+            if (rewards != null && rewards.Any(reward => reward?.Disposition == EquipmentDisposition.Mail))
+                GameManager.Instance?.Mailbox?.RefreshAfterDelivery("equipment-gacha");
             onSuccess?.Invoke(entries);
         }
 
         private void RejectServerResult(GachaTableSO table, int count, PlayFabError error, Action<string> onError)
         {
-            IsPulling = false; LastFailure = error; OnPullStateChanged?.Invoke(false);
+            LastFailure = error;
+            int generation = _pullGeneration;
+            void Complete(string message)
+            {
+                if (!IsCurrentPull(generation)) return;
+                IsPulling = false; OnPullStateChanged?.Invoke(false);
+                onError?.Invoke(message);
+            }
             int code = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0;
             string kind = NetworkManager.GetFailureKind(error);
             Debug.LogWarning($"[Gacha] {table.gachaType} count={count} rejected code={code} kind={kind} message={error?.ErrorMessage}");
-            if (code == 0 && (kind == "Timeout" || kind == "Transport"))
+            if (code == (int)Protocol.Message.Data.eErrorCode.EquipmentCapacity && table.gachaType == eGachaType.Equipment)
+            {
+                Complete("장비 보관함이 가득 찼습니다. 빈 칸을 만든 후 다시 뽑아 주세요.");
+                return;
+            }
+            bool uncertain = code == 0 && (kind == "Timeout" || kind == "Transport" || kind == "Function" ||
+                kind == "InvalidResponse" || kind == "ApplyFailed" ||
+                error?.Error == PlayFabErrorCode.CloudScriptAzureFunctionsExecutionTimeLimitExceeded ||
+                error?.Error == PlayFabErrorCode.CloudScriptExecutionTimeLimitExceeded || error?.Error == PlayFabErrorCode.ConnectionError);
+            if (uncertain)
             {
                 // 응답 유실: 서버가 이미 처리했을 수 있으므로 재전송하지 않고 플레이어 데이터를 다시 받는다(서버 계약).
+                // 조회가 끝날 때까지 같은 요청의 입력 잠금을 유지한다. 조회 상태로 결과 카드를 추정하지 않는다.
+                IsPulling = true;
                 var users = UserManager.Instance;
                 if (users != null)
                 {
-                    users.RefreshFromServer(ok => onError?.Invoke(ok ? "서버 응답이 늦어 결과를 서버에서 다시 불러왔습니다. 보유 목록을 확인해 주세요." : NetworkManager.DescribeFailure(error, "뽑기")));
+                    users.RefreshFromServer(ok =>
+                    {
+                        if (!IsCurrentPull(generation)) return;
+                        if (ok && table.gachaType == eGachaType.Equipment && EquipmentManager.IsInstanceInventory)
+                            GameManager.Instance?.Mailbox?.RefreshAfterDelivery("equipment-gacha-recovered");
+                        Complete(ok ? "서버 응답이 늦어 보유 상태를 다시 불러왔습니다. 보유 목록을 확인해 주세요." :
+                            "뽑기 결과를 확인하지 못했습니다. 다시 로그인해 보유 목록을 확인해 주세요.");
+                    });
                     return;
                 }
+                Complete("뽑기 결과를 확인하지 못했습니다. 다시 로그인해 보유 목록을 확인해 주세요.");
+                return;
             }
-            onError?.Invoke(NetworkManager.DescribeFailure(error, "뽑기"));
+            Complete(NetworkManager.DescribeFailure(error, "뽑기"));
         }
 
         /// <summary>서버 Rewards를 결과 팝업 항목으로 바꾼다. 장비는 ItemCode에서 정의 코드를 읽고, 중복 스킬은 파편 수(30)를 amount로 둔다.</summary>
@@ -149,7 +194,8 @@ namespace KingdomIdle.Gacha
                         if (reward.Disposition == EquipmentDisposition.AutoDismantled)
                             entries.Add(new GachaRewardEntry { nameKor = "자동 분해 · 강화석", icon = data?.icon, rewardType = eGachaRewardType.Currency, currency = eCurrency.EquipmentStone, amount = (int)Math.Min(int.MaxValue, Math.Max(0, reward.GrantedEquipmentStone)) });
                         else if (data != null)
-                            entries.Add(new GachaRewardEntry { nameKor = data.equipmentName, icon = data.icon, rewardType = eGachaRewardType.Equipment, equipmentData = data, amount = 1 });
+                            entries.Add(new GachaRewardEntry { nameKor = data.equipmentName, icon = data.icon, rewardType = eGachaRewardType.Equipment, equipmentData = data, amount = 1,
+                                mailedAmount = reward.Disposition == EquipmentDisposition.Mail ? 1 : 0 });
                         else
                             Debug.LogWarning("[Gacha] 클라이언트 카탈로그에 없는 장비 코드 " + code + "는 결과 팝업에서 건너뛴다.");
                         break;
@@ -182,7 +228,7 @@ namespace KingdomIdle.Gacha
         private static string DescribeRewards(List<GachaRewardDTO> rewards)
         {
             if (rewards == null) return "-";
-            int equipment = 0, pending = 0, reserve = 0, dismantled = 0, fragments = 0, skills = 0, duplicates = 0, knowledge = 0;
+            int equipment = 0, pending = 0, reserve = 0, mailed = 0, dismantled = 0, fragments = 0, skills = 0, duplicates = 0, knowledge = 0;
             foreach (var reward in rewards)
             {
                 if (reward == null) continue;
@@ -190,6 +236,7 @@ namespace KingdomIdle.Gacha
                 {
                     if (reward.Disposition == EquipmentDisposition.Pending) pending++;
                     else if (reward.Disposition == EquipmentDisposition.Reserve) reserve++;
+                    else if (reward.Disposition == EquipmentDisposition.Mail) mailed++;
                     else if (reward.Disposition == EquipmentDisposition.AutoDismantled) dismantled++;
                     else equipment++;
                 }
@@ -197,7 +244,7 @@ namespace KingdomIdle.Gacha
                 else if (reward.CurrencyType == Protocol.Message.Data.eCurrency.ClassFragment) fragments += (int)reward.Amount;
                 else knowledge += (int)reward.Amount;
             }
-            return $"equipment{equipment}+pending{pending}+reserve{reserve}+dismantled{dismantled},fragments{fragments},skills{skills}(dup{duplicates}),knowledge{knowledge}";
+            return $"equipment{equipment}+pending{pending}+reserve{reserve}+mail{mailed}+dismantled{dismantled},fragments{fragments},skills{skills}(dup{duplicates}),knowledge{knowledge}";
         }
     }
 }

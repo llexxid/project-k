@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using KingdomIdle.UI;
+using KingdomIdle.Mailbox;
 using Scripts.Core;
 
 namespace KingdomIdle.UGUI
@@ -19,6 +20,7 @@ namespace KingdomIdle.UGUI
 
         private MainScreenView _view;
         private UIManager _host;
+        private LootFeedView _lootFeed;
 
         // 재화
         private object _wallet;
@@ -32,6 +34,8 @@ namespace KingdomIdle.UGUI
         private bool _hamburgerOpen;
         private Coroutine _hamburgerCo;
         private Vector2 _hamburgerBasePos;
+        private MailboxService _mailbox;
+        private GameObject _hamburgerDot, _mailDot, _noticeDot;
 
         // 탭
         private readonly List<(MainTabButtonView view, UIPanelId id)> _tabs = new();
@@ -54,11 +58,30 @@ namespace KingdomIdle.UGUI
             try { BindHamburger(); }
             catch (Exception ex) { Debug.LogError($"MainScreen.Hamburger failed: {ex}"); }
 
-            try { BindMenus(); }
+            try { BindMenus(); BindMenuNotifications(); }
             catch (Exception ex) { Debug.LogError($"MainScreen.Menus failed: {ex}"); }
 
             try { WaveUIController.Init(_view.waveHud); }
             catch (Exception ex) { Debug.LogError($"MainScreen.WaveUIController.Init failed: {ex}"); }
+
+            if (host.Catalog != null && host.Catalog.lootFeed != null)
+            {
+                GameObject feed = null;
+                try
+                {
+                    feed = UnityEngine.Object.Instantiate(host.Catalog.lootFeed, view.transform, false);
+                    _lootFeed = feed.GetComponent<LootFeedView>();
+                    if (_lootFeed == null) throw new InvalidOperationException("LootFeedView is missing from the feed prefab.");
+                    _lootFeed.Bind(view, host, host.Catalog);
+                }
+                catch (Exception ex)
+                {
+                    if (_lootFeed != null) _lootFeed.Unbind();
+                    _lootFeed = null;
+                    if (feed != null) UnityEngine.Object.Destroy(feed);
+                    Debug.LogError($"MainScreen.LootFeed failed: {ex}");
+                }
+            }
 
             _host.FrameTick += OnFrameTick;
             NumberNotationBinding.Bind(view, RefreshTopCurrencyLabels);
@@ -79,6 +102,12 @@ namespace KingdomIdle.UGUI
         /// <summary>화면 교체 전 이벤트와 코루틴, 이 화면이 등록한 안내 대상만 정리한다. 이후 화면의 등록은 건드리지 않는다.</summary>
         public void Dispose()
         {
+            if (_lootFeed != null)
+            {
+                _lootFeed.Unbind();
+                UnityEngine.Object.Destroy(_lootFeed.gameObject);
+                _lootFeed = null;
+            }
             if (_host != null)
             {
                 _host.GuideTargets.Unregister(_view);
@@ -88,6 +117,10 @@ namespace KingdomIdle.UGUI
                 _host.StopRunningCoroutine(_hamburgerCo);
             }
 
+            if (_mailbox != null) _mailbox.Changed -= RefreshMenuNotifications;
+            NoticePopupController.Changed -= RefreshMenuNotifications;
+            _mailbox = null;
+            _hamburgerDot = _mailDot = _noticeDot = null;
             UnhookEconomyChangeHandler();
             WaveUIController.Dispose();
             if (_profilePopup != null)
@@ -148,6 +181,7 @@ namespace KingdomIdle.UGUI
                 RefreshTopCurrencyLabels();
                 RefreshNickname();
                 RefreshReincarnationDot();
+                WaveUIController.RefreshStageStatus();
                 if (_profilePopup != null && _profilePopup.activeSelf) PopulateProfilePopup();
 
                 if (_currencyOpen)
@@ -518,9 +552,13 @@ namespace KingdomIdle.UGUI
         private void OpenHamburgerMenu()
         {
             if (_view == null || _view.popupHamburger == null) return;
+            NoticePopupController.RefreshFromMenu();
 
             if (_currencyOpen)
                 CloseCurrencyPopupImmediate();
+
+            if (_host.HasActiveTabPanel && !_host.HasBlockingPanel)
+                _host.ClearPanels();
 
             // 햄버거 버튼 바로 아래로 정렬
             PositionDropdownUnder(_view.popupHamburgerRect,
@@ -802,6 +840,27 @@ namespace KingdomIdle.UGUI
             }
             if (_view.btnMenuCheckIn != null)
                 _view.btnMenuCheckIn.onClick.AddListener(() => OpenRewardPanel(UIPanelId.CheckIn));
+        }
+
+        private void BindMenuNotifications()
+        {
+            _mailbox = GameManager.Instance != null ? GameManager.Instance.Mailbox : null;
+            var circle = _host.Catalog?.circle;
+            _hamburgerDot = NotificationDot.Create(_view.btnHamburger, circle);
+            _mailDot = NotificationDot.Create(_view.btnMenuMail, circle);
+            _noticeDot = NotificationDot.Create(_view.btnMenuNotice, circle);
+            if (_mailbox != null) _mailbox.Changed += RefreshMenuNotifications;
+            NoticePopupController.Changed += RefreshMenuNotifications;
+            RefreshMenuNotifications();
+        }
+
+        private void RefreshMenuNotifications()
+        {
+            bool hasNewMail = _mailbox != null && _mailbox.HasNewMail;
+            bool hasUnreadNotice = NoticePopupController.HasUnread;
+            NotificationDot.SetVisible(_mailDot, hasNewMail);
+            NotificationDot.SetVisible(_noticeDot, hasUnreadNotice);
+            NotificationDot.SetVisible(_hamburgerDot, hasNewMail || hasUnreadNotice);
         }
 
         private void OpenRewardPanel(UIPanelId id)

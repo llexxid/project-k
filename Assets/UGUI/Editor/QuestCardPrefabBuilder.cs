@@ -1,4 +1,6 @@
 using TMPro;
+using System.Collections.Generic;
+using KingdomIdle.Balance;
 using UnityEditor;
 using UnityEngine;
 
@@ -22,6 +24,69 @@ namespace KingdomIdle.UGUI.Editor
             finally { PrefabUtility.UnloadPrefabContents(root); }
         }
 
+        /// <summary>계정·서버를 열지 않고 실제 직렬화 자산과 수령 표시/입력 게이트를 검사한다.</summary>
+        public static object ValidateBronzeCards()
+        {
+            if(Application.isPlaying)throw new System.InvalidOperationException("ValidateBronzeCards requires EditMode; no gameplay account is used.");
+            var checks=new List<string>();
+            void Check(bool value,string message)
+            {
+                if(!value)throw new System.InvalidOperationException("Bronze quest card: "+message);
+                checks.Add(message);
+            }
+            var root=PrefabUtility.LoadPrefabContents(Path);
+            try
+            {
+                var view=root.GetComponent<GuideStepRowView>();
+                var catalog=AssetDatabase.LoadAssetAtPath<UIViewCatalog>(PrefabGenUtil.CatalogPath);
+                Check(view.actionButton!=null && view.actionButton.gameObject==root && view.checkButton==view.actionButton,
+                    "Whole cell owns the single action; legacy reference resolves to the same Button");
+                Check(root.GetComponentsInChildren<UnityEngine.UI.Button>(false).Length==1,
+                    "No separate reward or claim-all button remains active");
+                Check(view.claimBorder==root.GetComponent<UnityEngine.UI.Image>() && root.transform.Find("InfoSurface")!=null,
+                    "Claim border surrounds a separate information surface");
+                Check(view.titleLabel.fontSize>=42 && view.actionLabel.fontSize>=36,
+                    "Title and status retain readable mobile text sizes");
+                var rewards=new[]{new QuestRewardSnapshot(eCurrency.Gold,100,false),new QuestRewardSnapshot(eCurrency.Ruby,2,false)};
+                QuestRowSnapshot Snapshot(QuestRowState state,long progress)=>new QuestRowSnapshot(
+                    new QuestClaimToken(0,20001,"bronze-validation"),eQuestCategory.Daily,"검사","몬스터 10마리 처치",
+                    eQuestObjectiveType.MonsterKill,0,10,progress,state,false,0,rewards);
+                view.SetQuest(Snapshot(QuestRowState.InProgress,5),catalog);
+                Check(Mathf.Approximately(view.progressFill.fillAmount,.5f) && view.secondaryRewardIcon.transform.parent.gameObject.activeSelf,
+                    "In-progress fraction and both typed rewards remain visible");
+                var dynamicGold=new QuestRowSnapshot(new QuestClaimToken(0,20001,"bronze-validation"),eQuestCategory.Daily,
+                    "검사","몬스터 10마리 처치",eQuestObjectiveType.MonsterKill,0,10,5,QuestRowState.InProgress,false,0,
+                    new[]{new QuestRewardSnapshot(eCurrency.Gold,0,true)});
+                view.SetQuest(dynamicGold,catalog);
+                Check(view.rewardAmountLabel.text=="2분\n골드" && view.rewardAmountLabel.rectTransform.rect.height>=88,
+                    "Dynamic gold keeps both the duration and currency visible on two lines");
+                view.SetQuest(Snapshot(QuestRowState.Claimable,10),catalog,claimAll:true);
+                Check(view.actionButton.interactable && view.actionLabel.text=="수령 가능" && view.claimBorder.color==UguiTheme.ActionGold,
+                    "Claimable cell lights its border without a claim-all control");
+                view.SetQuest(Snapshot(QuestRowState.Claimable,10),catalog,claimBusy:true);
+                Check(!view.actionButton.interactable && view.actionLabel.text=="수령 중…",
+                    "Pending reward disables duplicate cell input");
+                view.SetQuest(Snapshot(QuestRowState.Claimed,10),catalog);
+                Check(!view.actionButton.interactable && view.actionLabel.text=="완료" && view.progressFill.fillAmount==1,
+                    "Confirmed reward keeps its full gauge and completed cell");
+                view.SetQuest(Snapshot(QuestRowState.Locked,0),catalog);
+                Check(!view.actionButton.interactable && view.actionLabel.text=="잠김",
+                    "Locked cell cannot move or claim");
+            }
+            finally{PrefabUtility.UnloadPrefabContents(root);}
+            var hintRoot=PrefabUtility.LoadPrefabContents("Assets/UGUI/Prefabs/Items/Item_GuideEmptyHint.prefab");
+            try
+            {
+                var hint=hintRoot.GetComponent<GuideEmptyHintView>();
+                hint.label.color=UguiTheme.InfoMuted;
+                hint.SetText("퀘스트 정보를 준비하고 있습니다.");
+                Check(hint.label.color==UguiTheme.TextSecondary,
+                    "Empty guidance restores readable text on a dark shell even when an old prefab has dark ink");
+            }
+            finally{PrefabUtility.UnloadPrefabContents(hintRoot);}
+            return new{passed=checks.Count,checks};
+        }
+
         /// <summary>기존 생성기도 같은 업그레이드를 사용해 재생성 결과와 실제 자산을 일치시킨다.</summary>
         internal static void Upgrade(GameObject root)
         {
@@ -30,21 +95,40 @@ namespace KingdomIdle.UGUI.Editor
             // 기존 자동 컬럼 배치를 중지하고 새 카드의 고정 두 행 + 가변 가로폭을 사용한다.
             foreach (var layout in root.GetComponentsInChildren<UnityEngine.UI.LayoutGroup>(true)) layout.enabled = false;
             var height = root.GetComponent<UnityEngine.UI.LayoutElement>() ?? root.AddComponent<UnityEngine.UI.LayoutElement>();
-            height.minHeight = height.preferredHeight = 192;
+            height.minHeight = height.preferredHeight = 280;
             var background = root.GetComponent<UnityEngine.UI.Image>();
-            background.color = UguiTheme.RusticPanel;
-            background.raycastTarget = false;
-            // 기존 전체 행 버튼이 있는 자산에서도 이중 수령/이동 입력을 만들지 않는다.
-            if (root.TryGetComponent<UnityEngine.UI.Button>(out var oldArea)) oldArea.enabled = false;
+            var rounded = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/Sprites/RoundedRect.png");
+            background.sprite = rounded;
+            background.type = UnityEngine.UI.Image.Type.Sliced;
+            background.color = UguiTheme.Bronze;
+            background.raycastTarget = true;
+            view.claimBorder = background;
+            // 청동 외곽 안쪽에 밝은 정보면을 놓아 점등이 본문·아이콘을 덮지 않게 한다.
+            var surface = Image(root.transform, "InfoSurface", UguiTheme.InfoSurface);
+            surface.sprite = rounded;
+            surface.type = UnityEngine.UI.Image.Type.Sliced;
+            Stretch(surface.rectTransform, 5, 5, 5, 5);
+            surface.transform.SetAsFirstSibling();
+            // 기존 개별 체크/보상 버튼은 숨기고, 셀 전체의 버튼 하나로 입력을 받는다.
+            if (view.checkButton != null && view.checkButton.gameObject != root)
+                view.checkButton.gameObject.SetActive(false);
+            var area = root.GetComponent<UnityEngine.UI.Button>() ?? root.AddComponent<UnityEngine.UI.Button>();
+            area.enabled = true;
+            area.transition = UnityEngine.UI.Selectable.Transition.None;
+            area.targetGraphic = background;
+            if (root.GetComponent<PlayClickSfxOnClick>() == null) root.AddComponent<PlayClickSfxOnClick>();
+            view.actionButton = view.checkButton = area;
             var inner = (RectTransform)root.transform.Find("RowInner");
             Stretch(inner, 0, 0, 0, 0);
             var body = (RectTransform)inner.Find("TextCol");
-            Stretch(body, 172, 0, 24, 0);
+            Stretch(body, 196, 0, 28, 0);
             view.descLabel.gameObject.SetActive(false);
             view.hintLabel.gameObject.SetActive(false);
             // 상단 설명은 두 줄까지 허용하며 터치 영역/진행바와 겹치지 않게 높이를 고정한다.
-            TopStretch(view.titleLabel.rectTransform, 18, 62, 0);
-            view.titleLabel.fontSize = 28;
+            TopStretch(view.titleLabel.rectTransform, 22, 112, 0);
+            view.titleLabel.fontSize = 42;
+            view.titleLabel.color = UguiTheme.InfoInk;
+            if(view.titleLabel.font!=null)view.titleLabel.fontSharedMaterial=view.titleLabel.font.material;
             view.titleLabel.fontStyle = FontStyles.Normal;
             view.titleLabel.alignment = TextAlignmentOptions.MidlineLeft;
             view.titleLabel.textWrappingMode = TextWrappingModes.Normal;
@@ -52,7 +136,7 @@ namespace KingdomIdle.UGUI.Editor
             view.titleLabel.maxVisibleLines = 2;
 
             var track = Image(body, "ProgressTrack", UguiTheme.Bronze);
-            TopStretch(track.rectTransform, 106, 42, 188);
+            TopStretch(track.rectTransform, 154, 48, 240);
             var empty = Image(track.transform, "Empty", UguiTheme.RusticSurfaceDark);
             Stretch(empty.rectTransform, 3, 3, 3, 3);
             view.progressFill = Image(empty.transform, "Fill", new Color32(44, 115, 56, 255));
@@ -60,35 +144,24 @@ namespace KingdomIdle.UGUI.Editor
             // 별도 텍스처 없이 평면 사각형으로 표시한다. View가 anchorMax.x를 진행 비율로 맞춘다.
             view.progressFill.sprite = null;
             view.progressFill.type = UnityEngine.UI.Image.Type.Simple;
-            view.progressLabel = Text(track.transform, "Value", view.titleLabel.font, 26);
+            view.progressLabel = Text(track.transform, "Value", view.titleLabel.font, 36);
+            view.progressLabel.color = UguiTheme.Parchment;
             Stretch(view.progressLabel.rectTransform, 2, 0, 2, 0);
 
-            // 좌측 체크 버튼 컴포넌트를 우측 행동 버튼으로 옮긴다. 원래 직렬화 필드도 같은 버튼을 가리킨다.
-            view.actionButton = view.checkButton;
-            view.actionButton.transform.SetParent(body, false);
-            view.actionButton.name = "ActionButton";
-            var actionRect = (RectTransform)view.actionButton.transform;
+            // 우측에는 동작 버튼 대신 상태만 표시한다. 탭 가능 영역은 항상 셀 전체다.
+            view.actionLabel = Text(body, "Status", view.titleLabel.font, 36);
+            var actionRect = view.actionLabel.rectTransform;
             actionRect.anchorMin = actionRect.anchorMax = new Vector2(1, 1);
             actionRect.pivot = new Vector2(1, 1);
-            actionRect.anchoredPosition = new Vector2(0, -82);
-            actionRect.sizeDelta = new Vector2(168, 92);
-            foreach (Transform child in actionRect) child.gameObject.SetActive(false);
-            var actionBg = view.actionButton.GetComponent<UnityEngine.UI.Image>();
-            actionBg.sprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/Sprites/RoundedRect.png");
-            actionBg.type = UnityEngine.UI.Image.Type.Sliced;
-            actionBg.color = UguiTheme.RusticSurface;
-            actionBg.raycastTarget = true;
-            actionBg.raycastPadding = new Vector4(0, -18, 0, -18);
-            view.actionButton.targetGraphic = actionBg;
-            view.actionButton.colors = UguiTheme.MakeColorBlock();
-            view.actionLabel = Text(actionRect, "ActionLabel", view.titleLabel.font, 28);
+            actionRect.anchoredPosition = new Vector2(0, -154);
+            actionRect.sizeDelta = new Vector2(220, 48);
+            view.actionLabel.alignment = TextAlignmentOptions.MidlineRight;
             view.actionLabel.gameObject.SetActive(true);
-            Stretch(view.actionLabel.rectTransform, 0, 0, 0, 0);
             view.checkLabel = view.actionLabel;
             view.actionLabel.text = "이동 ›";
-            view.periodLabel = Text(body, "Period", view.titleLabel.font, 20);
+            view.periodLabel = Text(body, "Period", view.titleLabel.font, 32);
             view.periodLabel.alignment = TextAlignmentOptions.Left;
-            TopStretch(view.periodLabel.rectTransform, 165, 25, 188);
+            TopStretch(view.periodLabel.rectTransform, 220, 40, 0);
             view.periodLabel.gameObject.SetActive(false);
             AddReward(inner, "Reward", view.titleLabel.font, out view.rewardIcon, out view.rewardAmountLabel);
             AddReward(inner, "SecondaryReward", view.titleLabel.font, out view.secondaryRewardIcon, out view.secondaryRewardAmountLabel);
@@ -100,15 +173,15 @@ namespace KingdomIdle.UGUI.Editor
         {
             var slot = Rect(parent, name);
             slot.anchorMin = slot.anchorMax = slot.pivot = new Vector2(0, 1);
-            slot.sizeDelta = new Vector2(120, 140);
-            slot.anchoredPosition = new Vector2(24, -24);
+            slot.sizeDelta = new Vector2(180, 140);
+            slot.anchoredPosition = new Vector2(8, -24);
             icon = Image(slot, "Icon", Color.white);
             icon.preserveAspect = true;
             icon.rectTransform.anchorMin = icon.rectTransform.anchorMax = icon.rectTransform.pivot = new Vector2(.5f, 1);
             icon.rectTransform.anchoredPosition = Vector2.zero;
             icon.rectTransform.sizeDelta = new Vector2(96, 96);
-            amount = Text(slot, "Amount", font, 24);
-            TopStretch(amount.rectTransform, 102, 30, 0);
+            amount = Text(slot, "Amount", font, 36);
+            TopStretch(amount.rectTransform, 102, 44, 0);
         }
 
         /// <summary>동일 이름의 기존 자식을 재사용해 반복 실행 시 중복 오브젝트가 생기지 않는다.</summary>
@@ -136,7 +209,7 @@ namespace KingdomIdle.UGUI.Editor
         {
             var rect = Rect(parent, name);
             var text = rect.GetComponent<TextMeshProUGUI>() ?? rect.gameObject.AddComponent<TextMeshProUGUI>();
-            text.font = font; text.fontSize = size; text.color = UguiTheme.Parchment;
+            text.font = font; text.fontSize = size; text.color = UguiTheme.InfoInk;
             text.alignment = TextAlignmentOptions.Center; text.raycastTarget = false;
             text.textWrappingMode = TextWrappingModes.NoWrap;
             text.overflowMode = TextOverflowModes.Ellipsis;

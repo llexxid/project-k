@@ -32,7 +32,8 @@ namespace KingdomIdle.UGUI
         private static readonly HashSet<string> Warned = new();
         internal static string Title(MailDTO mail) => mail.TextMode == MailTextMode.Text ? mail.Title : Resolve(mail.TitleKey, "시스템 우편");
         internal static string Body(MailDTO mail) => mail.TextMode == MailTextMode.Text ? mail.Body : Resolve(mail.BodyKey, "첨부 보상을 확인해 주세요.");
-        internal static string Sender(MailDTO mail) => mail.Category == MailCategory.Attendance ? "출석 보상" : "운영팀";
+        internal static string Sender(MailDTO mail) => mail.IsEquipmentOverflow ? "장비 보관함" :
+            mail.Category == MailCategory.Attendance ? "출석 보상" : "운영팀";
         private static string Resolve(string key, string fallback)
         {
             if (key != null && Text.TryGetValue(key, out var text)) return text;

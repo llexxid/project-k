@@ -25,6 +25,7 @@ namespace Scripts.Core.Manager
             _beforeHuntSettlement = Time.timeScale;
             Time.timeScale = 0;
             _onHuntsSettled = onDone;
+            FlushMainWaveHunts(true);
             foreach (long stage in new List<long>(_huntBuffer.Keys)) FlushHuntBuffer(stage);
             TrySendNextHunt();
             return true;
@@ -150,6 +151,7 @@ namespace Scripts.Core.Manager
                     result =>
                     {
                         if (!IsCurrentDungeonRequest) return;
+                        var loot = KingdomIdle.Rewards.LootNotifications.Capture();
                         bool saved = LocalProgression.Execute("server-dungeon-complete", s =>
                         {
                             if (!UserManager.ApplyDungeonState(s, result.DungeonState) || result.DungeonState.ActiveBattleId != null ||
@@ -169,6 +171,7 @@ namespace Scripts.Core.Manager
                             return true;
                         });
                         if (!saved) { WaitForDungeonRetry(Complete, "클리어 결과 저장 실패"); return; }
+                        KingdomIdle.Rewards.LootNotifications.PublishBattle(loot, result.GrantedRewards, "dungeon:" + battleId);
                         _dungeonRequestPending = false;
                         EquipmentManager.Instance?.RestoreEquipment();
                         MageTowerManager.Instance?.NotifyCommitted();

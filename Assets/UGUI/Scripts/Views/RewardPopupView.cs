@@ -83,7 +83,10 @@ namespace KingdomIdle.UGUI
             view.title.fontSizeMin = Mathf.Min(28f, view.title.fontSize);
             view.title.fontSizeMax = view.title.fontSize;
             view.title.enableAutoSizing = true;
-            view.SetDescription(MailText.Body(mail));
+            string body = MailText.Body(mail);
+            if (mail.IsEquipmentOverflow)
+                body += $"\n\n기한 없음 · 빈 칸 {MailboxService.FreeEquipmentSlots} / 필요 {MailboxProtocol.RequiredEquipmentSlots(mail)}";
+            view.SetDescription(body);
             view.AddSlots(mail.Rewards.Select(RewardGrants.FromServer), true);
         }
         public static RewardPopupView ShowMessage(Transform owner, string heading, string message, System.Action onClosed)

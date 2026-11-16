@@ -125,11 +125,11 @@ namespace Scripts.Server.Auth
 				// A missing display name does not prove that the player's data needs initialization.
 				if (login.NewlyCreated)
 				{
-					_network.Call<InitUserRequestDTO, UserInitResponseDTO>(new InitUserRequestDTO(), OnInitialized, _network.FailLogin);
+					_network.Call<InitUserRequestDTO, UserInitResponseDTO>(new InitUserRequestDTO { EquipmentSchema = EquipmentManager.InstanceSchemaVersion }, OnInitialized, _network.FailLogin);
 				}
 				else
 				{
-					_network.Call<AuthRequestDTO, UserInitResponseDTO>(new AuthRequestDTO(), OnInitialized, OnLoginFailed);
+					_network.Call<AuthRequestDTO, UserInitResponseDTO>(new AuthRequestDTO { EquipmentSchema = EquipmentManager.InstanceSchemaVersion }, OnInitialized, OnLoginFailed);
 				}
 			}
 			catch (Exception ex)
@@ -203,7 +203,7 @@ namespace Scripts.Server.Auth
 			if (error?.CustomData is ErrorResponseDTO business &&
 				business.ErrorCode == Protocol.Message.Data.eErrorCode.PlayerNotInitialized)
 			{
-				_network.Call<InitUserRequestDTO, UserInitResponseDTO>(new InitUserRequestDTO(), OnInitialized, _network.FailLogin);
+				_network.Call<InitUserRequestDTO, UserInitResponseDTO>(new InitUserRequestDTO { EquipmentSchema = EquipmentManager.InstanceSchemaVersion }, OnInitialized, _network.FailLogin);
 				return;
 			}
 			// Consumption 플랜 콜드 스타트는 PlayFab의 10초 실행 한도를 넘길 수 있다. 그때쯤 함수 앱은 떠 있으므로 한 번 더 부르면 보통 1~2초에 끝난다.
@@ -211,7 +211,7 @@ namespace Scripts.Server.Auth
 			{
 				_retriedLogin = true;
 				Debug.LogWarning("[Login] OnLogIn이 실행 시간 한도를 넘겨 한 번 더 시도합니다: " + error.ErrorMessage);
-				_network.Call<AuthRequestDTO, UserInitResponseDTO>(new AuthRequestDTO(), OnInitialized, OnLoginFailed);
+				_network.Call<AuthRequestDTO, UserInitResponseDTO>(new AuthRequestDTO { EquipmentSchema = EquipmentManager.InstanceSchemaVersion }, OnInitialized, OnLoginFailed);
 				return;
 			}
 			_network.FailLogin(error);

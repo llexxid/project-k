@@ -22,6 +22,7 @@ namespace KingdomIdle.Balance
             public string Day { get; }
             public bool Earned { get; internal set; }
             internal readonly string AccountKey;
+            internal readonly NetworkManager Network;
             internal readonly long AccountGeneration, NetworkGeneration, Amount;
             internal readonly eCurrency Currency;
 
@@ -32,7 +33,8 @@ namespace KingdomIdle.Balance
                 Amount = currency == eCurrency.EquipmentTicket ? offer.EquipmentTickets : offer.MageTickets;
                 AccountKey = LocalProgression.AccountKey;
                 AccountGeneration = LocalProgression.AccountGeneration;
-                NetworkGeneration = NetworkManager.Instance?.AccountGeneration ?? -1;
+                Network = NetworkManager.Instance;
+                NetworkGeneration = Network?.AccountGeneration ?? -1;
             }
         }
 
@@ -40,7 +42,11 @@ namespace KingdomIdle.Balance
         // 서버 시각 − 로컬 시각(로그인 응답의 ServerTimeUtc 기준). 오늘(KST)은 이 추정 서버 시각으로 본다.
         static long _serverOffset;
         public static int Revision { get; private set; }
-        public static bool IsBusy { get; private set; }
+        static Claim _activeClaim;
+        static int _requestGeneration;
+        public static bool IsBusy => _activeClaim != null && IsCurrentAccount(_activeClaim);
+        static bool IsCurrentRequest(Claim claim, int generation) => generation == _requestGeneration &&
+            ReferenceEquals(_activeClaim, claim) && IsCurrentAccount(claim);
         /// <summary>수령 요청의 결과. 메시지가 있으면 결과 상태 대신 그 문구를 보여 준다.</summary>
         public static event Action<Claim, RewardResult, string> ClaimCompleted;
 
@@ -94,6 +100,7 @@ namespace KingdomIdle.Balance
             catch { return false; }
             if (claim.AccountKey != LocalProgression.AccountKey ||
                 claim.AccountGeneration != LocalProgression.AccountGeneration ||
+                claim.Network != NetworkManager.Instance ||
                 claim.NetworkGeneration != (NetworkManager.Instance?.AccountGeneration ?? -1)) return false;
             return NetworkManager.Instance != null && NetworkManager.Instance.IsGameDataReady;
         }
@@ -116,21 +123,24 @@ namespace KingdomIdle.Balance
             if (!claim.Earned) return new RewardResult(RewardStatus.InvalidReward);
             var network = NetworkManager.Instance;
             if (IsBusy || network == null || !network.IsGameDataReady) return new RewardResult(RewardStatus.NotReady);
-            IsBusy = true;
+            _activeClaim = claim;
+            int generation = ++_requestGeneration;
             network.Call<Dto.OnClaimAdRewardRequestDTO, Dto.OnClaimAdRewardResponseDTO>(
                 new Dto.OnClaimAdRewardRequestDTO { AdType = Protocol.Message.Data.eAdType.ShopDaily, OfferId = claim.OfferId },
-                response => ApplyServerResult(claim, response),
-                error => RejectServerResult(claim, error));
+                response => { if (IsCurrentRequest(claim, generation)) ApplyServerResult(claim, response); },
+                error => { if (IsCurrentRequest(claim, generation)) RejectServerResult(claim, error); });
             return new RewardResult(RewardStatus.Pending);
         }
 
         static void ApplyServerResult(Claim claim, Dto.OnClaimAdRewardResponseDTO r)
         {
-            if (!IsCurrentAccount(claim)) { IsBusy = false; ClaimCompleted?.Invoke(claim, new RewardResult(RewardStatus.Stale), null); return; }
+            if (!ReferenceEquals(_activeClaim, claim)) return;
+            if (!IsCurrentAccount(claim)) { _activeClaim = null; ClaimCompleted?.Invoke(claim, new RewardResult(RewardStatus.Stale), null); return; }
+            var loot = KingdomIdle.Rewards.LootNotifications.Capture(false, false);
             bool saved = LocalProgression.Execute("server-ad-reward", s => { UserManager.ApplyAdReward(s, r); return true; });
             _server = r.AdRewards;
             Revision++;
-            IsBusy = false;
+            _activeClaim = null;
             long granted = Granted(r, claim.Currency);
             Debug.Log($"[AdReward] claim offer={claim.OfferId} type={r.AdType} already={r.AlreadyClaimed} granted={granted} ads={Describe(r.AdRewards)}" +
                 $" | server EquipmentTicket={r.Currency.EquipmentTicket} MageTicket={r.Currency.MageTicket}" +
@@ -147,6 +157,7 @@ namespace KingdomIdle.Balance
                 ClaimCompleted?.Invoke(claim, new RewardResult(RewardStatus.NothingAvailable), "오늘 이미 받은 보상입니다.");
                 return;
             }
+            KingdomIdle.Rewards.LootNotifications.PublishCurrencies(loot, r.GrantedCurrencies, "shop-ad:" + r.AdRewards.Day + ":" + claim.OfferId);
             var grants = new System.Collections.Generic.List<RewardGrant>();
             foreach (var g in r.GrantedCurrencies)
             {
@@ -177,22 +188,31 @@ namespace KingdomIdle.Balance
 
         static void RejectServerResult(Claim claim, PlayFabError error)
         {
+            if (!ReferenceEquals(_activeClaim, claim)) return;
+            if (!IsCurrentAccount(claim)) { _activeClaim = null; ClaimCompleted?.Invoke(claim, new RewardResult(RewardStatus.Stale), null); return; }
+            int generation = _requestGeneration;
             string kind = NetworkManager.GetFailureKind(error);
             int code = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0;
             Debug.LogWarning($"[AdReward] claim offer={claim.OfferId} rejected code={code} kind={kind} message={error?.ErrorMessage}");
-            if (kind == "Timeout" || kind == "Transport")
+            bool uncertain = code == (int)Protocol.Message.Data.eErrorCode.StorageFailure ||
+                code == (int)Protocol.Message.Data.eErrorCode.PlayerBusy ||
+                code == 0 && (kind == "Timeout" || kind == "Transport" || kind == "Function" ||
+                    kind == "InvalidResponse" || kind == "ApplyFailed" || string.IsNullOrEmpty(kind));
+            if (uncertain)
             {
-                // 응답 유실: 서버가 지급했을 수 있다. 재전송 대신 상태를 다시 받는다. 받은 것으로 나오면 끝, 아니면 클레임을 남겨 "보상 다시 받기"로 다시 보낸다.
+                // 저장 미확정·일시 거절도 시청 완료 권한을 없애지 않는다. 서버 지급 여부를 먼저 확인하고,
+                // 미수령이면 같은 접속의 같은 Claim을 남겨 기존 "보상 다시 받기"로 재요청한다.
                 var users = UserManager.Instance;
                 if (users == null)
                 {
-                    IsBusy = false;
+                    _activeClaim = null;
                     ClaimCompleted?.Invoke(claim, new RewardResult(RewardStatus.SaveFailed), NetworkManager.DescribeFailure(error, "광고 보상"));
                     return;
                 }
                 users.RefreshFromServer(ok =>
                 {
-                    IsBusy = false;
+                    if (!IsCurrentRequest(claim, generation)) return;
+                    _activeClaim = null;
                     if (ok && IsClaimed(claim.OfferId, Today))
                         ClaimCompleted?.Invoke(claim, new RewardResult(RewardStatus.NothingAvailable), "보상을 서버에서 다시 불러왔습니다.");
                     else
@@ -200,8 +220,8 @@ namespace KingdomIdle.Balance
                 });
                 return;
             }
-            // 거절(Business 등): 서버는 저장하지 않았다. 클레임은 버린다.
-            IsBusy = false;
+            // 확정된 요청·보상 무효 오류만 클레임을 버린다.
+            _activeClaim = null;
             ClaimCompleted?.Invoke(claim, new RewardResult(RewardStatus.InvalidReward), NetworkManager.DescribeFailure(error, "광고 보상"));
         }
 

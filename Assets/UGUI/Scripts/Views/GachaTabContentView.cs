@@ -19,7 +19,14 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal TMP_Text pityRemaining;
         [SerializeField] internal UnityEngine.UI.Image pityFill;
         [SerializeField] internal TMP_Text heroTitle;
+        [SerializeField] internal TMP_Text heroDescription;
         [SerializeField] internal UnityEngine.UI.Image heroIcon;
+        [SerializeField] internal RectTransform featuredRewards;
+        [SerializeField] internal UnityEngine.UI.Image[] featuredIcons;
+        [SerializeField] internal UnityEngine.UI.Image[] featuredFrames;
+        [SerializeField] internal TMP_Text[] featuredNames;
+        [SerializeField] internal TMP_Text ticketHint;
+        [SerializeField] internal TMP_Text skillRule;
         [SerializeField] internal Sprite equipmentArt;
         [SerializeField] internal Sprite mageArt;
     }

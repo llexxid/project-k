@@ -35,6 +35,7 @@ namespace KingdomIdle.Gacha
         [Header("Equipment 보상")]
         [Tooltip("rewardType이 Equipment일 때 뽑기로 획득할 장비 데이터")]
         public EquipmentData equipmentData;
+        [NonSerialized] public int mailedAmount;
 
 
         [Min(0f)] public float weight;

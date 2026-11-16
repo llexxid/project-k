@@ -54,6 +54,7 @@ namespace KingdomIdle.UGUI
         {
             Protocol.Message.Dto.EquipmentDisposition.Pending => "대기 보관",
             Protocol.Message.Dto.EquipmentDisposition.Reserve => "예비 보관",
+            Protocol.Message.Dto.EquipmentDisposition.Mail => "우편 보관",
             Protocol.Message.Dto.EquipmentDisposition.AutoDismantled => "자동 분해",
             _ => ""
         };
@@ -68,12 +69,16 @@ namespace KingdomIdle.UGUI
         internal static string Description(RewardGrant reward)
         {
             if (reward == null) return "";
-            string description = reward.IsEquipment ? "장비 보관함에 들어갑니다. 보관함이 가득 차면 대기함이나 예비 보관으로 갑니다." : Description(reward.Currency);
+            string description = reward.IsEquipment
+                ? EquipmentManager.IsInstanceInventory ? "장비 보관함에 들어갑니다. 초과 장비는 우편으로 보관합니다."
+                    : "장비 보관함에 들어갑니다. 보관함이 가득 차면 대기함이나 예비 보관으로 갑니다."
+                : Description(reward.Currency);
             return reward.Disposition switch
             {
                 Protocol.Message.Dto.EquipmentDisposition.Inventory => "장비 보관함에 보관했습니다.",
                 Protocol.Message.Dto.EquipmentDisposition.Pending => "대기 보관함에 보관했습니다.",
                 Protocol.Message.Dto.EquipmentDisposition.Reserve => "예비 보관함에 보관했습니다.",
+                Protocol.Message.Dto.EquipmentDisposition.Mail => "우편으로 보관했습니다. 보관함에 빈 칸을 만든 뒤 받아 주세요.",
                 Protocol.Message.Dto.EquipmentDisposition.AutoDismantled => $"장비 자동 분해로 강화석 {NumberNotation.Format(reward.Amount)}개를 획득했습니다.",
                 _ => description
             };
@@ -99,6 +104,7 @@ namespace KingdomIdle.UGUI
         internal static string GachaCost(Gacha.GachaManager manager, Gacha.GachaTableSO table, int count)
         {
             if (manager == null || table == null) return "-";
+            if (manager.IsEquipmentInventoryFull(table)) return "장비 보관함 가득 참";
             int coins = manager.GetTotalCost(table, count), tickets = manager.GetTicketCost(table, count);
             if (coins < 0) return "-";
             if (tickets == 0) return $"{NumberNotation.Format(coins)} 고대주화";

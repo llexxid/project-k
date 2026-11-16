@@ -175,42 +175,46 @@ namespace KingdomIdle.UGUI.Editor
         internal static GameObject GenerateEquipment()
         {
             var (root, view) = NewContent<KAEquipmentView>("Panel_KAEquipment");
+            root.GetComponent<VerticalLayoutGroup>().spacing = 8f;
 
-            SectionTitle(root, "장비");
-            SubsectionTitle(root, "장착 중");
+            // 장착 정보는 한 줄 카드로 유지해 처음 열 때 보유 장비까지 함께 보인다.
+            var card = F.Box(root, "EquippedCard", UguiTheme.InfoSurface);
+            F.HLayout(card.gameObject, 20f, new RectOffset(20, 20, 18, 18), TextAnchor.MiddleLeft);
+            F.Preferred(card, height: 204f);
 
-            // 장착 카드 (인벤토리 셀과 동일 크기의 그리드 셀)
-            var equippedGrid = F.Container(root, "EquippedGrid");
-            MakeEquipGrid(equippedGrid.gameObject);
-
-            var card = F.Box(equippedGrid, "EquippedCard", CardBg);
-            F.VLayout(card.gameObject, 4f, new RectOffset(6, 6, 8, 8), TextAnchor.UpperCenter);
-
-            var frame = F.Frame(card.transform, "EquippedFrame", EquippedGreen);
+            var frame = F.Frame(card.transform, "EquippedFrame", UguiTheme.RoyalBlue);
             frame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
             view.equippedFrame = frame;
 
-            view.equippedSlotLabel = CardLabel(card.transform, "무기", 20f, UguiTheme.Parchment);
-
             var iconWrap = F.Container(card.transform, "IconWrap");
-            F.Preferred(iconWrap.gameObject.AddComponent<LayoutElement>(), height: 72f);
+            F.Preferred(iconWrap, width: 156f, height: 156f).minWidth = 156f;
             view.equippedIconWrap = iconWrap;
-            view.equippedIcon = ItemSlotCentered(iconWrap, 66f, 54f);
+            view.equippedIcon = ItemSlotCentered(iconWrap, 156f, 130f);
 
-            view.equippedNameLabel = CardLabel(card.transform, "-", 20f, UguiTheme.Parchment);
-            view.equippedStatLabel = CardLabel(card.transform, "-", 15f, new Color(1f, 1f, 1f, 0.55f));
+            var info = F.Container(card.transform, "Info");
+            F.VLayout(info.gameObject, 6f);
+            F.Flexible(info, flexWidth: 1);
+            view.equippedSlotLabel = F.Text(info, "Slot", "현재 장착 · 무기", 36f, UguiTheme.InfoMuted);
+            F.Preferred(view.equippedSlotLabel, height: 44f);
+            view.equippedNameLabel = F.Text(info, "Name", "비어 있음", 42f, UguiTheme.InfoInk, bold: true);
+            view.equippedNameLabel.fontSharedMaterial = F.Font.material;
+            F.Preferred(view.equippedNameLabel, height: 54f);
+            view.equippedStatLabel = F.Text(info, "Stats", "-", 36f, UguiTheme.InfoMuted);
+            F.Preferred(view.equippedStatLabel, height: 46f);
 
-            var unBtn = F.TextButton(card.transform, "BtnUnequip", "해제", 20f, UguiTheme.BtnCancel, out _);
-            F.Preferred(unBtn, height: 44f);
+            var unBtn = F.TextButton(card.transform, "BtnUnequip", "해제", 36f, UguiTheme.BtnCancel, out _);
+            EquipmentFeaturePreparation.StyleActionButton(unBtn, UguiTheme.BtnCancel);
+            F.Preferred(unBtn, width: 144f, height: 132f).minWidth = 144f;
             view.unequipButton = unBtn;
 
-            SubsectionTitle(root, "보유 장비");
+            EquipmentFeaturePreparation.AttachEquipmentActions(view);
             var grid = F.Container(root, "InventoryGrid");
             MakeEquipGrid(grid.gameObject);
             view.inventoryGrid = grid;
             EquipmentFeaturePreparation.AttachToolbar(grid);
 
             view.emptyLabel = Placeholder(root, "보유한 장비가 없습니다.");
+            view.emptyLabel.fontSize = 36f;
 
             return Save(root, "Panels/Panel_KAEquipment.prefab");
         }
@@ -582,11 +586,12 @@ namespace KingdomIdle.UGUI.Editor
         private static void MakeEquipGrid(GameObject go)
         {
             var lg = go.AddComponent<GridLayoutGroup>();
-            lg.cellSize = new Vector2(160f, 210f);
+            lg.cellSize = new Vector2(225f, 284f);
             lg.spacing = new Vector2(10f, 10f);
             lg.childAlignment = TextAnchor.UpperCenter;
             lg.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            lg.constraintCount = 6;
+            lg.constraintCount = 4;
+            go.AddComponent<ResponsiveGrid>();
         }
 
         private static void MakeJobGrid(GameObject go)

@@ -33,7 +33,12 @@ namespace KingdomIdle.UGUI
             { Apply(Mathf.Lerp(from,on?1:0,Mathf.SmoothStep(0,1,t))); yield return null; }
             Apply(on?1:0); _motion=null;
         }
-        public void Refresh() { if (_toggle != null) Apply(_toggle.isOn?1:0); }
+        public void Refresh()
+        {
+            if (_motion != null) StopCoroutine(_motion);
+            _motion=null;
+            if (_toggle != null) Apply(_toggle.isOn?1:0);
+        }
         private void Apply(float t)
         {
             if(knob != null) knob.anchoredPosition=new Vector2(Mathf.Lerp(-34,34,t),0);

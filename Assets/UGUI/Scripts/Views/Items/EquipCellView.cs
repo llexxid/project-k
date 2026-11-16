@@ -33,7 +33,13 @@ namespace KingdomIdle.UGUI
                 icon.enabled = iconSprite != null;
                 icon.gameObject.SetActive(iconSprite != null);
             }
-            if (nameLabel != null) { nameLabel.text = name; nameLabel.color = nameColor; }
+            if (nameLabel != null)
+            {
+                // 전역 한글 줄바꿈 설정은 유지하고 이 셀의 단어 안에서만 줄이 갈라지지 않게 한다.
+                string displayName = string.IsNullOrEmpty(name) ? name : "<nobr>" + name.Replace(" ", "</nobr> <nobr>") + "</nobr>";
+                if (nameLabel.text != displayName) nameLabel.text = displayName;
+                nameLabel.color = nameColor;
+            }
             if (subLabel != null) subLabel.text = sub;
             if (rarityBar != null) rarityBar.color = rarityColor;
             // 상시 등급 테두리(장착 중이 아니면 표시) — 아이템 카드처럼 또렷한 등급 테두리
@@ -51,12 +57,18 @@ namespace KingdomIdle.UGUI
 
             if (stateLabel != null)
             {
-                if (string.IsNullOrEmpty(state) && dimmed) state = "직업 불일치";
+                if (dimmed && (string.IsNullOrEmpty(state) || !state.Contains("직업 불일치")))
+                    state = string.IsNullOrEmpty(state) ? "직업 불일치" : state + " · 직업 불일치";
                 bool has = !string.IsNullOrEmpty(state);
                 stateLabel.gameObject.SetActive(has);
                 if (has)
                 {
                     stateLabel.text = state;
+                    // 큰 추가 보관 수량도 별도 상태 행에서 한 줄로 읽을 수 있게 한다.
+                    stateLabel.enableAutoSizing = true;
+                    stateLabel.fontSizeMin = 22;
+                    stateLabel.fontSizeMax = 30;
+                    stateLabel.textWrappingMode = TextWrappingModes.NoWrap;
                     stateLabel.color = stateColor ?? (dimmed ? UguiTheme.TextSecondary : UguiTheme.SuccessGreenBright);
                 }
             }
