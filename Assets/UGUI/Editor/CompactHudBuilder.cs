@@ -190,6 +190,36 @@ namespace KingdomIdle.UGUI.Editor
             tabs.SetSiblingIndex(sibling);
             view.tabBar = tabs;
 
+            var claimBar = view.claimBar != null ? view.claimBar : body.Find("QuestClaimBar") as RectTransform;
+            if (claimBar == null) claimBar = Child(body, "QuestClaimBar");
+            SizeLayout(claimBar, 144);
+            claimBar.SetSiblingIndex(tabs.GetSiblingIndex() + 1);
+            var claimSurface = claimBar.GetComponent<Image>() ?? claimBar.gameObject.AddComponent<Image>();
+            Surface(claimSurface, UguiTheme.RusticSurface);
+            claimSurface.raycastTarget = false;
+            view.claimBar = claimBar;
+
+            var summary = claimBar.Find("Summary")?.GetComponent<TMP_Text>() ??
+                Label(claimBar, "Summary", 34, UguiTheme.Parchment);
+            Type(summary, 34, TextAlignmentOptions.MidlineLeft);
+            summary.text = "가이드 퀘스트\n수령 가능 0개";
+            Fill(summary.rectTransform, 0);
+            summary.rectTransform.offsetMin = new Vector2(16, 0);
+            summary.rectTransform.offsetMax = new Vector2(-360, 0);
+            view.claimSummaryLabel = summary;
+
+            var all = claimBar.Find("ClaimAll")?.GetComponent<Button>();
+            if (all == null)
+            {
+                F.Init();
+                all = F.TextButton(claimBar, "ClaimAll", "모두받기 (0)", 36, UguiTheme.ActionGold, out _, UguiTheme.InfoInk);
+            }
+            Pin((RectTransform)all.transform, new Vector2(1, .5f), new Vector2(-8, 0), new Vector2(328, 128), new Vector2(1, .5f));
+            all.interactable = false;
+            all.GetComponent<Image>().raycastPadding = new Vector4(0, -18, 0, -18);
+            view.claimAllButton = all;
+            view.claimAllLabel = all.GetComponentInChildren<TMP_Text>(true);
+
             // 팝업의 중복 카드만 숨긴다. 인게임 HUD의 GuideGoalView는 별도 프리팹에 그대로 둔다.
             if (view.currentQuestRoot == null)
                 view.currentQuestRoot = body.Find("CurrentQuest")?.gameObject;

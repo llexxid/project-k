@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using KingdomIdle.Balance;
+using KingdomIdle.Rewards;
 using PlayFab;
 using Scripts.Core;
 using Scripts.Core.Manager;
@@ -61,8 +62,8 @@ public class QuestManager : MonoBehaviour
     public event Action<QuestRuntimeState, QuestDefinition> OnGuideQuestChanged;
     public event Action<QuestRuntimeState, QuestDefinition> OnQuestProgressChanged;
     public event Action<QuestChangeSet> QuestsChanged;
-    /// <summary>수령 요청 완료. (토큰, 성공 여부, 실패 문구)</summary>
-    public event Action<QuestClaimToken, bool, string> OnClaimCompleted;
+    /// <summary>수령 요청 완료. (토큰, 성공 여부, 실패 문구, 저장한 서버 지급 보상)</summary>
+    public event Action<QuestClaimToken, bool, string, IReadOnlyList<RewardGrant>> OnClaimCompleted;
     public IQuestRewardGranter RewardGranter => null;
 
     /// <summary>수령 또는 응답 유실 뒤 상태 확인을 처리 중이다.</summary>
@@ -104,7 +105,8 @@ public class QuestManager : MonoBehaviour
         public QuestClaimToken[] Tokens;
         public eQuestCategory? Category;
         public string BoardPeriod;
-        public Action<int, int, string> OnCompleted;
+        public Action<int, int, string, IReadOnlyList<RewardGrant>> OnCompleted;
+        public readonly List<Dto.QuestRewardDTO> Rewards = new();
         public int Confirmed;
     }
 
@@ -265,13 +267,13 @@ public class QuestManager : MonoBehaviour
         var network = NetworkManager.Instance;
         var status = CheckClaim(token, network);
         if (status != QuestClaimStatus.Pending) return new QuestClaimResult(status, token);
-        StartClaim(network, new[] { token }, (confirmed, total, message) =>
-            Notify(OnClaimCompleted, token, confirmed == total && message == null, message));
+        StartClaim(network, new[] { token }, (confirmed, total, message, rewards) =>
+            Notify(OnClaimCompleted, token, confirmed == total && message == null, message, rewards));
         return new QuestClaimResult(QuestClaimStatus.Pending, token);
     }
 
     /// <summary>선택한 탭에서 수령 가능한 토큰만 고정하고, 누른 행부터 서버 응답 순서대로 처리한다.</summary>
-    public QuestClaimResult TryClaimTab(eQuestCategory category, QuestClaimToken token, Action<int, int, string> onCompleted)
+    public QuestClaimResult TryClaimTab(eQuestCategory category, QuestClaimToken token, Action<int, int, string, IReadOnlyList<RewardGrant>> onCompleted)
     {
         var network = NetworkManager.Instance;
         var status = CheckClaim(token, network);
@@ -294,7 +296,7 @@ public class QuestManager : MonoBehaviour
         return network != null && network.IsGameDataReady ? QuestClaimStatus.Pending : QuestClaimStatus.NetworkNotReady;
     }
 
-    private void StartClaim(NetworkManager network, QuestClaimToken[] tokens, Action<int, int, string> onCompleted,
+    private void StartClaim(NetworkManager network, QuestClaimToken[] tokens, Action<int, int, string, IReadOnlyList<RewardGrant>> onCompleted,
         eQuestCategory? category = null, string boardPeriod = null)
     {
         _claim = new ClaimOperation
@@ -334,7 +336,7 @@ public class QuestManager : MonoBehaviour
     {
         if (!IsCurrentClaim(claim)) return;
         _claim = null;
-        try { claim.OnCompleted?.Invoke(claim.Confirmed, claim.Tokens.Length, message); }
+        try { claim.OnCompleted?.Invoke(claim.Confirmed, claim.Tokens.Length, message, RewardGrants.FromServer(claim.Rewards)); }
         catch (Exception exception) { Debug.LogException(exception); }
     }
 
@@ -374,6 +376,7 @@ public class QuestManager : MonoBehaviour
         EquipmentManager.Instance?.RestoreEquipment();
         KingdomIdle.MageTower.MageTowerManager.Instance?.NotifyCommitted();
         KingdomIdle.Rewards.LootNotifications.PublishRewards(loot, response.GrantedRewards, "quest:" + token.QuestId + ":" + token.Period);
+        if (response.GrantedRewards != null) claim.Rewards.AddRange(response.GrantedRewards);
         claim.Confirmed++;
         SendNextClaim(claim);
     }
@@ -534,11 +537,12 @@ public class QuestManager : MonoBehaviour
             try { handler(state, definition); } catch (Exception exception) { Debug.LogException(exception); }
     }
 
-    private static void Notify(Action<QuestClaimToken, bool, string> handlers, QuestClaimToken token, bool ok, string message)
+    private static void Notify(Action<QuestClaimToken, bool, string, IReadOnlyList<RewardGrant>> handlers, QuestClaimToken token, bool ok, string message,
+        IReadOnlyList<RewardGrant> rewards)
     {
         if (handlers == null) return;
-        foreach (Action<QuestClaimToken, bool, string> handler in handlers.GetInvocationList())
-            try { handler(token, ok, message); } catch (Exception exception) { Debug.LogException(exception); }
+        foreach (Action<QuestClaimToken, bool, string, IReadOnlyList<RewardGrant>> handler in handlers.GetInvocationList())
+            try { handler(token, ok, message, rewards); } catch (Exception exception) { Debug.LogException(exception); }
     }
 
     private static QuestRuntimeState LegacyState(QuestRowSnapshot row) => row == null ? null : new QuestRuntimeState

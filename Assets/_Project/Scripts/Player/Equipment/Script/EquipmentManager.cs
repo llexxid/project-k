@@ -6,6 +6,7 @@ using KingdomIdle.UGUI;
 using PlayFab;
 using Scripts.Core;
 using Scripts.Core.Manager;
+using Scripts.Core.Utils;
 using UnityEngine;
 using Dto = Protocol.Message.Dto;
 
@@ -56,6 +57,7 @@ public class EquipmentManager : MonoBehaviour
         public string LogLine;
         internal NetworkManager Network;
         internal long NetworkGeneration, AccountGeneration;
+        internal GameplayLoading.Scope Loading;
     }
 
     private ActionInfo _activeAction;
@@ -75,7 +77,7 @@ public class EquipmentManager : MonoBehaviour
     private string _restoredAccount;
 
     private void Awake() { if (Instance != null && Instance != this) { Destroy(gameObject); return; } Instance = this; }
-    private void OnDestroy() { if (Instance == this) Instance = null; }
+    private void OnDestroy() { _activeAction?.Loading?.Dispose(); if (Instance == this) Instance = null; }
     public void RegisterPlayer(Player player) { if (player != null) _players[player.PlayerIndex] = player; }
     public void ClearPlayer() => _players.Clear();
     public IEnumerable<string> GetCurrentJobNames() => _players.Values.Where(p => p != null).Select(p => p.playerStatus.JobName);
@@ -160,17 +162,20 @@ public class EquipmentManager : MonoBehaviour
 
     private void Begin(ActionInfo info)
     {
+        _activeAction?.Loading?.Dispose();
         info.Network = NetworkManager.Instance;
         info.NetworkGeneration = info.Network.AccountGeneration;
         info.AccountGeneration = LocalProgression.AccountGeneration;
         _activeAction = info; LastFailure = null;
         OnBusyChanged?.Invoke(true);
+        if (info.Kind == ActionKind.Enhance) info.Loading = GameplayLoading.Begin("equipment-enhance");
     }
 
     private void Complete(ActionInfo info)
     {
         if (!IsCurrentAction(info)) return;
         _activeAction = null;
+        info.Loading?.Dispose();
         OnBusyChanged?.Invoke(false);
         Notify(info);
     }

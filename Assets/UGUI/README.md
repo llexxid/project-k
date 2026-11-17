@@ -12,6 +12,10 @@
 | `Scripts/Views/*Controller.cs` | 데이터 바인딩·사용자 동작 |
 | `Scripts/Hud` | 파티·목표·전투 표시 |
 | `Scripts/Bridges` | 씬 로딩·전투·UGUI 연결 |
+
+씬 전환은 기존 `Overlay_Loading` 진행바를 유지한다. 우편 수령·장비/마탑 뽑기·장비 강화와 전투 진행에 필수적인 정산·이동·던전 입퇴장·접속 정산·미완료 회차 복구·전투 리소스 준비는 `GameplayLoading.Scope`로 실제 대기를 추적하고, 정상 연출을 제외한 누적 대기가 0.3초 이상이면 `Overlay_GameplayLoading`을 표시한다. 자동 클리어의 정상 대기는 `notBefore`, 페이드는 `Pause/Resume`으로 제외한다. 주기 사냥 정산·상태 조회·결과 카운트다운에는 로딩을 시작하지 않는다.
+
+`UIManager`는 씬 진행바를 우선하고 원형 로딩을 중복 표시하지 않는다. 원형 배경은 검정 불투명도 30%(투명도 70%)이며, 256×256 이미지 8장을 unscaled time으로 재생한다. 광고 시청 완료 후 지급 대기의 기존 입력 잠금은 원형 표시로 유지한다. 작업별 소유권은 성공·실패·복구 완료·파괴·계정 세대 변경에서 해제하며, 늦게 도착한 이전 작업의 콜백은 새 작업을 종료하지 않는다. 이 표시는 기존 서버 확정·저장·요청 ID·재시도 정책을 변경하지 않는다.
 | `Scripts/Core/UguiTheme.cs` | 공용 색·기준 치수 |
 | `Editor` | 프리팹 생성·부분 마이그레이션·검증 |
 | `Art/Font/Galmuri11 SDF.asset` | UI 기본 폰트 |
@@ -190,9 +194,10 @@ bootstrap부터 Play하고 메인 화면에 진입한다. Unity 상단 `GameTest
 - 공용 `Items/Item_NavTabButton.prefab`을 패널마다 네 개 생성하고 `NavTabButtonView`로 선택 상태를 표시한다. 선택 탭이 바뀌면 기존 스크롤 목록 하나에 해당 범주만 바인딩한다.
 - 최초 열기는 가이드 탭이다. 다른 패널에 덮였다 돌아오면 선택을 유지하고 최신 값을 다시 읽는다. 완전히 닫힌 패널은 파괴되므로 새로 열면 가이드부터 시작한다.
 - 현재 계정 또는 선택 범주의 변경만 목록에 반영한다. 수령 완료 행은 가득 찬 게이지·낮춘 색상·비활성 `완료` 버튼으로 남긴다. 일일·주간 완료 행은 현재 기간에만 남으며, 이전 기간 미수령 보상은 수령 또는 만료 전까지 별도 기간 표시와 함께 보관한다.
-- `GuideStepRowView.SetQuest`가 재화 아이콘(복수 보상 포함)·수량·종류와 내용·진행바를 표시한다. 우측 버튼은 진행 중 `이동`, 달성 시 `받기`, 수령 후 `완료`다. 수령은 표시 시 받은 `QuestClaimToken`을 쓰며 지급·저장 성공 후에만 완료 상태를 표시한다.
+- `GuideStepRowView.SetQuest`가 재화 아이콘(복수 보상 포함)·수량·종류와 내용·진행바를 표시한다. 우측 `보상받기`는 표시 당시 `QuestClaimToken`의 퀘스트 하나만 `TryClaim`으로 요청한다. 수령 후 `완료`는 서버 확정 상태를 표시하며 미완료의 기존 `이동` 기능은 유지한다.
+- 탭 바로 아래 `모두받기(N)`는 클릭 당시 현재 탭에서 수령 가능한 토큰만 기존 `TryClaimTab`으로 처리한다. 수령 가능 0개 또는 처리 중에는 비활성화한다. 탭별 레드닷은 메뉴와 동일한 `NotificationDot`·카탈로그 `circle`을 사용하며 탭을 열어도 미수령 보상이 남으면 유지한다. 비선택 탭의 진행 변경도 알림에 반영한다.
 - `QuestNavigation`은 가이드 HUD와 카드의 화면 이동을 공유한다. 메뉴는 스택에 쌓아 복귀 상태를 보존하고 전투 목표는 패널을 닫는다. 마탑·환생은 기존 팝업을 사용하며 오프라인 수령/일괄 목표처럼 직접 이동할 화면이 없는 항목은 `진행 중`으로 표시한다.
-- `CompactHudBuilder.ApplyQuestTabs`는 기존 `Panel_Guide`에 탭 컨테이너와 참조만 적용한다. 다른 HUD·공용 버튼 프리팹을 재생성하지 않는다. 구조와 학습용 설명은 `AI/quest-tabs-implementation-20260918.md`에 기록한다.
+- `CompactHudBuilder.ApplyQuestTabs`는 기존 `Panel_Guide`에 탭과 고정 수령 바·직렬화 참조만 적용한다. 다른 HUD·공용 버튼 프리팹을 재생성하지 않는다. 구조와 학습용 설명은 `AI/quest-tabs-implementation-20260918.md`에 기록한다.
 
 ## 검증 진입점
 
@@ -202,7 +207,7 @@ bootstrap부터 Play하고 메인 화면에 진입한다. Unity 상단 `GameTest
 - `KingdomIdle/UGUI/Apply compact battle HUD`: 이번 HUD 프리팹 적용.
 - `KingdomIdle/UGUI/Apply quest category tabs` / `CompactHudBuilder.ApplyQuestTabs`: 퀘스트 패널의 탭 컨테이너·직렬화 참조만 적용.
 - `KingdomIdle/UGUI/Apply quest reward cards` / `QuestCardPrefabBuilder.Apply`: 기존 행 프리팹의 GUID와 참조를 보존하며 보상·진행바·행동 버튼을 연결한다. 기존 전체 생성기도 같은 업그레이드를 사용한다.
-- `KingdomIdle.UGUI.Editor.QuestTabAcceptance.Run()`: 빈 검사 씬의 PlayMode에서 실제 프리팹 복제본·격리 계정으로 탭 선택, 수령 완료 유지, 재활성화, 중복 수령 방지, 기간 초기화를 검사한다. 운영 계정이 열린 씬에서는 실행을 거절한다.
+- `KingdomIdle.UGUI.Editor.QuestTabAcceptance.Run()` / `RunClaimFailureRecovery()`: 빈 씬 PlayMode에서 실제 프리팹·메모리 서버 DTO·외부 HTTP를 막는 transport로 탭별 수령 표시, 레드닷, 개별·일괄 요청 토큰과 실패 복구를 검사한다. 사용자 프로필을 열거나 실제 서버 보상을 지급하지 않는다.
 - `TitleLobbyDeviceBuild.Build`: `.lobbyqa` ARM64 Development 진단 APK. `BuildForManualTesting`은 같은 패키지를 사용하면서 자동 진단·테스트 계정 주입을 제외한다. `LOBBY_QA_OUTPUT`으로 출력 위치, `DEVICE_BUILD_PURPOSE`로 용도를 지정한다. 앱·APK 이름에는 용도와 버전·빌드 번호를 넣으며 빌드마다 versionCode가 증가한다. 성공한 APK 경로와 메타데이터는 출력 폴더의 `build.json`에서 읽는다. 기기 정리·최종 설치 기준은 [프로젝트 지침](../../AGENTS.md)을 따른다.
 - `BalanceEditorValidation.BuildAndroidForManualTesting`: 밸런스·저장 데이터 이관·직렬화 참조 검사를 실행하고 글리프를 준비한 뒤 직접 플레이용 APK를 만든다.
 - `CompactHudBuilder.ApplyAndBuild`: HUD 적용 후 위 Android 빌드.

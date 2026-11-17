@@ -64,6 +64,7 @@ namespace Scripts.Core.Manager
 
         private void DungeonRequestFailed(string message)
         {
+            EndStageLoading();
             _dungeonRequestPending = false;
             _retryDungeon = null;
             Debug.LogWarning("[Dungeon] " + message);
@@ -75,6 +76,7 @@ namespace Scripts.Core.Manager
             if (_dungeonRequestPending || _mainStageRequestPending || !TryGetStageDefinition(target, out var definition) || !definition.Enabled ||
                 definition.Type == eStageType.Main || UserManager.Instance == null) return false;
             _dungeonRequestPending = true;
+            BeginStageLoading("dungeon-enter");
             _dungeonGeneration = LocalProgression.AccountGeneration;
             var previousState = _currentState;
             float previousTime = Time.timeScale;
@@ -90,7 +92,7 @@ namespace Scripts.Core.Manager
             {
                 _saturatedTypes.Remove((long)target);
                 _dungeonRequestPending = false;
-                TransitionStage(target);
+                if (!TransitionStage(target)) EndStageLoading();
             }
             void CheckEntry(bool mayEnter)
             {
@@ -140,6 +142,7 @@ namespace Scripts.Core.Manager
         {
             if (_dungeonRequestPending) return;
             _dungeonRequestPending = true;
+            BeginStageLoading("dungeon-complete");
             _dungeonGeneration = LocalProgression.AccountGeneration;
             string battleId = LocalProgression.State.ActiveDungeon;
             long dungeonId = (long)session.Definition.Id;
@@ -198,6 +201,7 @@ namespace Scripts.Core.Manager
         {
             if (_dungeonRequestPending) return;
             _dungeonRequestPending = true;
+            BeginStageLoading("dungeon-exit");
             _dungeonGeneration = LocalProgression.AccountGeneration;
             string battleId = LocalProgression.State.ActiveDungeon;
             var reason = _currentState == eStageRunState.DefeatPending ? DungeonExitReason.Failed : DungeonExitReason.Abandoned;

@@ -39,14 +39,15 @@ namespace KingdomIdle.UGUI.Editor
             {
                 var view=root.GetComponent<GuideStepRowView>();
                 var catalog=AssetDatabase.LoadAssetAtPath<UIViewCatalog>(PrefabGenUtil.CatalogPath);
-                Check(view.actionButton!=null && view.actionButton.gameObject==root && view.checkButton==view.actionButton,
-                    "Whole cell owns the single action; legacy reference resolves to the same Button");
-                Check(root.GetComponentsInChildren<UnityEngine.UI.Button>(false).Length==1,
-                    "No separate reward or claim-all button remains active");
+                Check(view.actionButton!=null && view.actionButton.gameObject!=root && view.checkButton==view.actionButton &&
+                    (root.GetComponent<UnityEngine.UI.Button>() == null || !root.GetComponent<UnityEngine.UI.Button>().enabled),
+                    "Only the separate action button can receive the selected quest reward");
                 Check(view.claimBorder==root.GetComponent<UnityEngine.UI.Image>() && root.transform.Find("InfoSurface")!=null,
                     "Claim border surrounds a separate information surface");
                 Check(view.titleLabel.fontSize>=42 && view.actionLabel.fontSize>=36,
                     "Title and status retain readable mobile text sizes");
+                Check(view.actionButton.GetComponentsInChildren<TMP_Text>(false).Length == 1,
+                    "Reusing the legacy action button leaves exactly one visible label");
                 var rewards=new[]{new QuestRewardSnapshot(eCurrency.Gold,100,false),new QuestRewardSnapshot(eCurrency.Ruby,2,false)};
                 QuestRowSnapshot Snapshot(QuestRowState state,long progress)=>new QuestRowSnapshot(
                     new QuestClaimToken(0,20001,"bronze-validation"),eQuestCategory.Daily,"검사","몬스터 10마리 처치",
@@ -60,9 +61,9 @@ namespace KingdomIdle.UGUI.Editor
                 view.SetQuest(dynamicGold,catalog);
                 Check(view.rewardAmountLabel.text=="2분\n골드" && view.rewardAmountLabel.rectTransform.rect.height>=88,
                     "Dynamic gold keeps both the duration and currency visible on two lines");
-                view.SetQuest(Snapshot(QuestRowState.Claimable,10),catalog,claimAll:true);
-                Check(view.actionButton.interactable && view.actionLabel.text=="수령 가능" && view.claimBorder.color==UguiTheme.ActionGold,
-                    "Claimable cell lights its border without a claim-all control");
+                view.SetQuest(Snapshot(QuestRowState.Claimable,10),catalog);
+                Check(view.actionButton.interactable && view.actionLabel.text=="보상받기" && view.claimBorder.color==UguiTheme.ActionGold,
+                    "Claimable cell lights its border and offers an individual reward button");
                 view.SetQuest(Snapshot(QuestRowState.Claimable,10),catalog,claimBusy:true);
                 Check(!view.actionButton.interactable && view.actionLabel.text=="수령 중…",
                     "Pending reward disables duplicate cell input");
@@ -101,7 +102,7 @@ namespace KingdomIdle.UGUI.Editor
             background.sprite = rounded;
             background.type = UnityEngine.UI.Image.Type.Sliced;
             background.color = UguiTheme.Bronze;
-            background.raycastTarget = true;
+            background.raycastTarget = false;
             view.claimBorder = background;
             // 청동 외곽 안쪽에 밝은 정보면을 놓아 점등이 본문·아이콘을 덮지 않게 한다.
             var surface = Image(root.transform, "InfoSurface", UguiTheme.InfoSurface);
@@ -109,15 +110,10 @@ namespace KingdomIdle.UGUI.Editor
             surface.type = UnityEngine.UI.Image.Type.Sliced;
             Stretch(surface.rectTransform, 5, 5, 5, 5);
             surface.transform.SetAsFirstSibling();
-            // 기존 개별 체크/보상 버튼은 숨기고, 셀 전체의 버튼 하나로 입력을 받는다.
+            // 셀 전체 수령을 끄고 우측 개별 버튼 하나만 입력을 받는다.
             if (view.checkButton != null && view.checkButton.gameObject != root)
                 view.checkButton.gameObject.SetActive(false);
-            var area = root.GetComponent<UnityEngine.UI.Button>() ?? root.AddComponent<UnityEngine.UI.Button>();
-            area.enabled = true;
-            area.transition = UnityEngine.UI.Selectable.Transition.None;
-            area.targetGraphic = background;
-            if (root.GetComponent<PlayClickSfxOnClick>() == null) root.AddComponent<PlayClickSfxOnClick>();
-            view.actionButton = view.checkButton = area;
+            if (root.TryGetComponent<UnityEngine.UI.Button>(out var area)) area.enabled = false;
             var inner = (RectTransform)root.transform.Find("RowInner");
             Stretch(inner, 0, 0, 0, 0);
             var body = (RectTransform)inner.Find("TextCol");
@@ -136,7 +132,7 @@ namespace KingdomIdle.UGUI.Editor
             view.titleLabel.maxVisibleLines = 2;
 
             var track = Image(body, "ProgressTrack", UguiTheme.Bronze);
-            TopStretch(track.rectTransform, 154, 48, 240);
+            TopStretch(track.rectTransform, 154, 48, 256);
             var empty = Image(track.transform, "Empty", UguiTheme.RusticSurfaceDark);
             Stretch(empty.rectTransform, 3, 3, 3, 3);
             view.progressFill = Image(empty.transform, "Fill", new Color32(44, 115, 56, 255));
@@ -148,20 +144,34 @@ namespace KingdomIdle.UGUI.Editor
             view.progressLabel.color = UguiTheme.Parchment;
             Stretch(view.progressLabel.rectTransform, 2, 0, 2, 0);
 
-            // 우측에는 동작 버튼 대신 상태만 표시한다. 탭 가능 영역은 항상 셀 전체다.
-            view.actionLabel = Text(body, "Status", view.titleLabel.font, 36);
-            var actionRect = view.actionLabel.rectTransform;
+            var actionRect = Rect(body, "ActionButton");
+            actionRect.gameObject.SetActive(true);
+            foreach (Transform child in actionRect) child.gameObject.SetActive(child.name == "Label");
             actionRect.anchorMin = actionRect.anchorMax = new Vector2(1, 1);
             actionRect.pivot = new Vector2(1, 1);
-            actionRect.anchoredPosition = new Vector2(0, -154);
-            actionRect.sizeDelta = new Vector2(220, 48);
-            view.actionLabel.alignment = TextAlignmentOptions.MidlineRight;
+            actionRect.anchoredPosition = new Vector2(0, -140);
+            actionRect.sizeDelta = new Vector2(232, 128);
+            var actionImage = Image(body, "ActionButton", UguiTheme.ActionGold);
+            actionImage.sprite = rounded;
+            actionImage.type = UnityEngine.UI.Image.Type.Sliced;
+            actionImage.raycastTarget = true;
+            actionImage.raycastPadding = new Vector4(0, -18, 0, -18);
+            view.actionButton = actionRect.GetComponent<UnityEngine.UI.Button>() ?? actionRect.gameObject.AddComponent<UnityEngine.UI.Button>();
+            view.actionButton.enabled = true;
+            view.actionButton.targetGraphic = actionImage;
+            view.actionButton.transition = UnityEngine.UI.Selectable.Transition.ColorTint;
+            view.actionButton.colors = UguiTheme.MakeColorBlock();
+            if (actionRect.GetComponent<PlayClickSfxOnClick>() == null) actionRect.gameObject.AddComponent<PlayClickSfxOnClick>();
+            view.checkButton = view.actionButton;
+            view.actionLabel = Text(actionRect, "Label", view.titleLabel.font, 36);
+            Stretch(view.actionLabel.rectTransform, 4, 0, 4, 0);
             view.actionLabel.gameObject.SetActive(true);
             view.checkLabel = view.actionLabel;
             view.actionLabel.text = "이동 ›";
+            if (body.Find("Status") is Transform oldStatus) oldStatus.gameObject.SetActive(false);
             view.periodLabel = Text(body, "Period", view.titleLabel.font, 32);
             view.periodLabel.alignment = TextAlignmentOptions.Left;
-            TopStretch(view.periodLabel.rectTransform, 220, 40, 0);
+            TopStretch(view.periodLabel.rectTransform, 220, 40, 256);
             view.periodLabel.gameObject.SetActive(false);
             AddReward(inner, "Reward", view.titleLabel.font, out view.rewardIcon, out view.rewardAmountLabel);
             AddReward(inner, "SecondaryReward", view.titleLabel.font, out view.secondaryRewardIcon, out view.secondaryRewardAmountLabel);

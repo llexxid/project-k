@@ -6,6 +6,7 @@ using PlayFab;
 using Protocol.Message.Dto;
 using Scripts.Core;
 using Scripts.Core.Manager;
+using Scripts.Core.Utils;
 using UnityEngine;
 namespace KingdomIdle.OfflineRewards
 {
@@ -20,12 +21,24 @@ namespace KingdomIdle.OfflineRewards
         private bool _ready;
         private OfflineRewardClaimResult _pendingAdBonus;
         private long _networkGeneration = -1;
+        private GameplayLoading.Scope _claimLoading;
+        private static GameplayLoading.Scope _adBonusLoading;
+
+        private void EndClaimLoading() { _claimLoading?.Dispose(); _claimLoading = null; }
+        private static void EndAdBonusLoading() { _adBonusLoading?.Dispose(); _adBonusLoading = null; }
+        private static void CompleteAdBonus(OfflineRewardClaimResult result, RewardStatus status, string message)
+        {
+            EndAdBonusLoading();
+            AdBonusCompleted?.Invoke(result, status, message);
+        }
 
         private void OnEnable() => LocalProgression.AccountChanged += ResetClaims;
         private void OnDisable() => LocalProgression.AccountChanged -= ResetClaims;
 
         private void ResetClaims()
         {
+            EndClaimLoading();
+            EndAdBonusLoading();
             IsBusy = false;
             LastFailure = null;
             InvalidateClaim();
@@ -33,7 +46,7 @@ namespace KingdomIdle.OfflineRewards
             var pending = _pendingAdBonus;
             _pendingAdBonus = null;
             AdBonusBusy = false;
-            if (pending != null) AdBonusCompleted?.Invoke(pending, RewardStatus.Stale, null);
+            if (pending != null) CompleteAdBonus(pending, RewardStatus.Stale, null);
         }
 
         /// <summary>메인 진입 때 호출한다. 정산이 끝나면(거절·실패 포함) onCompleted를 불러 스테이지를 시작한다.</summary>
@@ -66,6 +79,7 @@ namespace KingdomIdle.OfflineRewards
                 return;
             }
             IsBusy = true;
+            _claimLoading = GameplayLoading.Begin("offline-settlement");
             LastFailure = null;
             StageManager.Instance?.HoldHunts();
             decimal kpm = Math.Max(0m, Math.Min(30m, LocalProgression.State.OfflineKpm));
@@ -141,6 +155,7 @@ namespace KingdomIdle.OfflineRewards
         private void FinishClaim(Action onCompleted)
         {
             IsBusy = false;
+            EndClaimLoading();
             StageManager.Instance?.ReleaseHunts();
             var pending = _pendingAdBonus;
             _pendingAdBonus = null;
@@ -148,18 +163,20 @@ namespace KingdomIdle.OfflineRewards
             {
                 AdBonusBusy = false;
                 var status = TryGrantAdBonus(pending);
-                if (status != RewardStatus.Pending) AdBonusCompleted?.Invoke(pending, status, null);
+                if (status != RewardStatus.Pending) CompleteAdBonus(pending, status, null);
             }
             onCompleted?.Invoke();
         }
 
         private void OnDestroy()
         {
+            EndClaimLoading();
+            EndAdBonusLoading();
+            AdBonusBusy = false;
             if (_pendingAdBonus == null) return;
             var pending = _pendingAdBonus;
             _pendingAdBonus = null;
-            AdBonusBusy = false;
-            AdBonusCompleted?.Invoke(pending, RewardStatus.Stale, null);
+            CompleteAdBonus(pending, RewardStatus.Stale, null);
         }
 
         public static bool IsCurrentAccount(OfflineRewardClaimResult result)
@@ -189,10 +206,15 @@ namespace KingdomIdle.OfflineRewards
         private static bool _adBonusBusy;
         public static bool AdBonusBusy
         {
-            get => _adBonusBusy;
+            get => _adBonusBusy && _adBonusLoading != null && _adBonusLoading.IsCurrent;
             private set
             {
                 _adBonusBusy = value;
+                if (value && (_adBonusLoading == null || !_adBonusLoading.IsCurrent))
+                {
+                    EndAdBonusLoading();
+                    _adBonusLoading = GameplayLoading.Begin("offline-ad-reward");
+                }
                 UIManager.Instance?.SetOfflineRewardLoading(value);
             }
         }
@@ -221,8 +243,8 @@ namespace KingdomIdle.OfflineRewards
         /// <summary>응답의 레벨·경험치·재화 절대값을 한 트랜잭션으로 쓴다. 처치 수는 바꾸지 않는다(서버도 세지 않는다).</summary>
         private static void ApplyAdBonus(OfflineRewardClaimResult result, OnClaimAdRewardResponseDTO r)
         {
+            if (DiscardStaleAdBonus(result)) return;
             AdBonusBusy = false;
-            if (!IsCurrentAccount(result)) { AdBonusCompleted?.Invoke(result, RewardStatus.Stale, null); return; }
             var loot = LootNotifications.Capture(false, false);
             bool saved = LocalProgression.Execute("server-offline-ad-bonus", s => { UserManager.ApplyAdReward(s, r); return true; });
             // 광고 응답은 종류와 관계없이 오늘의 상점 광고 기록을 담아 온다.
@@ -233,15 +255,16 @@ namespace KingdomIdle.OfflineRewards
             if (!saved)
             {
                 Direction.GameDirectInteraction.ReportSaveFailure();
-                AdBonusCompleted?.Invoke(result, RewardStatus.SaveFailed, null);
+                CompleteAdBonus(result, RewardStatus.SaveFailed, null);
                 return;
             }
             if (!r.AlreadyClaimed) LootNotifications.PublishCurrencies(loot, r.GrantedCurrencies, "offline-ad:" + result.ClaimId);
-            AdBonusCompleted?.Invoke(result, RewardStatus.Success, null);
+            CompleteAdBonus(result, RewardStatus.Success, null);
         }
 
         private static void RejectAdBonus(OfflineRewardClaimResult result, PlayFabError error)
         {
+            if (DiscardStaleAdBonus(result)) return;
             string kind = NetworkManager.GetFailureKind(error);
             int code = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0;
             Debug.LogWarning($"[Offline] adbonus rejected code={code} kind={kind} message={error?.ErrorMessage}");
@@ -250,7 +273,7 @@ namespace KingdomIdle.OfflineRewards
             {
                 // 받을 정산이 없다는 서버의 확정 거절만 일반 수령으로 마친다.
                 AdBonusBusy = false;
-                AdBonusCompleted?.Invoke(result, RewardStatus.NothingAvailable, message);
+                CompleteAdBonus(result, RewardStatus.NothingAvailable, message);
                 return;
             }
             // 저장 오류·SDK 함수 시간초과도 지급 성공 여부를 알 수 없다. 재청구하지 않고 기존 조회로 확인한다.
@@ -263,11 +286,19 @@ namespace KingdomIdle.OfflineRewards
                 if (generation != LocalProgression.AccountGeneration || NetworkManager.Instance != network ||
                     (network != null && network.AccountGeneration != networkGeneration)) return;
                 AdBonusBusy = false;
-                AdBonusCompleted?.Invoke(result, RewardStatus.SaveFailed, message);
+                CompleteAdBonus(result, RewardStatus.SaveFailed, message);
             }
             var users = UserManager.Instance;
             if (users == null) { FinishFailure(); return; }
             users.RefreshFromServer(_ => FinishFailure());
+        }
+
+        private static bool DiscardStaleAdBonus(OfflineRewardClaimResult result)
+        {
+            if (IsCurrentAccount(result)) return false;
+            if (_adBonusLoading != null && !_adBonusLoading.IsCurrent) EndAdBonusLoading();
+            AdBonusCompleted?.Invoke(result, RewardStatus.Stale, null);
+            return true;
         }
     }
 }

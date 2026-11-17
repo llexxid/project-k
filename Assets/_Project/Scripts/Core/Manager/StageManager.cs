@@ -163,6 +163,7 @@ namespace Scripts.Core.Manager
         private bool _bossAutoChallenge = true;
         private StageSession _currentSession;
         private CancellationTokenSource _token;
+        private GameplayLoading.Scope _stageLoading;
         private MainStageSnapshot _mainStageSnapshot;
         private eStageRunState _currentState;
         [NonSerialized]
@@ -270,12 +271,28 @@ namespace Scripts.Core.Manager
 		/// <summary>사냥 결과 자동 전송 루프를 중단하고 토큰을 정리한다</summary>
 		private void OnDestroy()
 		{
+			EndStageLoading();
 			EndSession();
 			_token?.Cancel();
 			_token?.Dispose();
 			_token = null;
 		}
 		#endregion
+
+        private void BeginStageLoading(string operation, float notBefore = 0f)
+        {
+            if (_stageLoading == null || _stageLoading.IsDisposed)
+                _stageLoading = GameplayLoading.Begin(operation, notBefore);
+        }
+
+        private void EndStageLoading()
+        {
+            _stageLoading?.Dispose();
+            _stageLoading = null;
+        }
+
+        private bool OwnsStageLoading(GameplayLoading.Scope loading, CancellationTokenSource token) => this != null &&
+            loading != null && loading.IsCurrent && ReferenceEquals(_stageLoading, loading) && ReferenceEquals(_token, token);
 
 		#region 외부 접근 메서드
 
@@ -367,13 +384,14 @@ namespace Scripts.Core.Manager
 			Time.timeScale = 1f;
 			if (_mainStageSnapshot == null)
 			{
+                EndStageLoading();
 				Debug.LogError("[Stage] MainStageSnapshot이 없습니다.");
 				return;
 			}
 
 			_isLoopMode = _mainStageSnapshot.LoopMode;
 			SetBossAutoChallenge(_mainStageSnapshot.BossAutoChallenge);
-			TransitionStage((eStage)LocalProgression.State.MainStage);
+			if (!TransitionStage((eStage)LocalProgression.State.MainStage)) EndStageLoading();
 		}
 
 		public void RestartDungeon()
@@ -418,6 +436,7 @@ namespace Scripts.Core.Manager
 		/// </summary>
         public void BeginStage(eStage stage)
         {
+	        EndStageLoading();
 	        _token?.Cancel();
 	        _token?.Dispose();
 			_token = new CancellationTokenSource();
@@ -444,7 +463,10 @@ namespace Scripts.Core.Manager
             {
                 _mainStageSnapshot = new MainStageSnapshot { StageId = stage, LoopMode = _isLoopMode, BossAutoChallenge = _bossAutoChallenge };
                 _currentState = eStageRunState.Entering;
-                ExitServerDungeon(() => TransitionStage(stage));
+                ExitServerDungeon(() =>
+                {
+                    if (!TransitionStage(stage)) EndStageLoading();
+                });
             }
             else TransitionStage(stage);
         }		
@@ -454,21 +476,26 @@ namespace Scripts.Core.Manager
 		/// </summary>
         private void StartStage(StageDefinition definition)
         {
-            PrepareStageBackground(definition).Forget(error => HandleStageLoadFailure(error, CameraFade.Instance));
+            var loading = _stageLoading;
+            var token = _token;
+            PrepareStageBackground(definition, loading, token).Forget(error => HandleStageLoadFailure(error, CameraFade.Instance, loading, token));
         }
 
-        private async UniTask PrepareStageBackground(StageDefinition definition)
+        private async UniTask PrepareStageBackground(StageDefinition definition, GameplayLoading.Scope loading, CancellationTokenSource token)
         {
+            if (!OwnsStageLoading(loading, token)) return;
             var background = FindFirstObjectByType<StageBackgroundController>();
             if (background == null) throw new InvalidOperationException("StageBackgroundController is missing from the combat scene.");
             if (!await background.ApplyAsync(definition, _stageDatabaseSO)) return;
-            if (this == null || _currentStage != definition.Id) return;
+            if (!OwnsStageLoading(loading, token) || _currentStage != definition.Id) return;
             StartPreparedStage(definition);
             CameraFade.Instance?.FadeIn(.3f);
         }
 
         private void StartPreparedStage(StageDefinition definition)
         {
+            var loading = _stageLoading;
+            var token = _token;
 			if (!BindMainWaveRun(definition)) return;
 			_bossTimerActive = false;
 			_defeatPopupActive = false;
@@ -487,6 +514,7 @@ namespace Scripts.Core.Manager
 			StageSession session = BuildSession(definition);
 			// 기본 Task는 즉시 완료되므로 기존처럼 StartStage 호출 안에서 스폰과 전투 시작까지 진행한다.
 			session.Tick(0f, 0f);
+            if (OwnsStageLoading(loading, token)) EndStageLoading();
         }
 
 		#endregion
@@ -496,8 +524,10 @@ namespace Scripts.Core.Manager
 		{
 			EnqueueStageClear(session.Definition, showResult);
 		}
-        private void HandleStageLoadFailure(Exception error, CameraFade fade)
+        private void HandleStageLoadFailure(Exception error, CameraFade fade, GameplayLoading.Scope loading, CancellationTokenSource token)
         {
+            if (!OwnsStageLoading(loading, token)) return;
+            EndStageLoading();
             _currentState=eStageRunState.None;_bossTimerActive=false;
             Debug.LogError("Stage resource load failed: " + error.Message);
             fade?.FadeIn(.2f);
@@ -513,6 +543,7 @@ namespace Scripts.Core.Manager
 				Debug.LogError($"StageDefinition을 찾을 수 없습니다. Stage: {target}");
 				return false;
 			}
+            BeginStageLoading("stage-resources", presentAfter);
 			_currentState = eStageRunState.Transitioning;
             bool automaticMainClear = IsAutomaticMainClearTransition(_currentSession?.Definition, definition, presentAfter);
             float hold = presentAfter - Time.realtimeSinceStartup;
@@ -559,20 +590,25 @@ namespace Scripts.Core.Manager
 			EndSession();
 			SetCurrentStage(definition.Id);
 			CameraFade fade = CameraFade.Instance;
+            var loading = _stageLoading;
+            var token = _token;
 
 			if (requiresLoad)
 			{
 				if (fade != null)
 				{
+                    loading?.Pause();
 					fade.FadeOut(fadeOutSeconds, () =>
 					{
+                        if (!OwnsStageLoading(loading, token)) return;
+                        loading?.Resume();
 						LoadManager.Instance.LoadStage(
 							previous,
 							target,
 							_ =>
 							{
-								StartStage(definition);
-							}).Forget(error => HandleStageLoadFailure(error, fade));
+								if (OwnsStageLoading(loading, token)) StartStage(definition);
+							}).Forget(error => HandleStageLoadFailure(error, fade, loading, token));
 					});
 				}
 				else
@@ -580,14 +616,21 @@ namespace Scripts.Core.Manager
 					LoadManager.Instance.LoadStage(
 						previous,
 						target,
-						_ => StartStage(definition)).Forget(error => HandleStageLoadFailure(error, fade));
+						_ => { if (OwnsStageLoading(loading, token)) StartStage(definition); })
+                        .Forget(error => HandleStageLoadFailure(error, fade, loading, token));
 				}
 
 				return;
 			}
 			if (fade != null)
 			{
-				fade.FadeOut(fadeOutSeconds, () => StartStage(definition));
+                loading?.Pause();
+				fade.FadeOut(fadeOutSeconds, () =>
+                {
+                    if (!OwnsStageLoading(loading, token)) return;
+                    loading?.Resume();
+                    StartStage(definition);
+                });
 			}
 			else
 			{
@@ -661,6 +704,7 @@ namespace Scripts.Core.Manager
 
 		private void EnterResultPending()
 		{
+            EndStageLoading();
 			_currentState = eStageRunState.ResultPending;
 			_resultPopupTimer = DungeonReturnDuration;
 			Time.timeScale = 0f;
@@ -704,7 +748,10 @@ var definition = _currentSession?.Definition;
             if (definition.Type != eStageType.Main)
             {
                 if (_dungeonRequestPending) return;
-                if (!string.IsNullOrEmpty(LocalProgression.State.ActiveDungeon)) ExitServerDungeon(() => BeginServerDungeon(definition.Id));
+                if (!string.IsNullOrEmpty(LocalProgression.State.ActiveDungeon)) ExitServerDungeon(() =>
+                {
+                    if (!BeginServerDungeon(definition.Id)) EndStageLoading();
+                });
                 else BeginServerDungeon(definition.Id);
                 return;
             }
@@ -877,6 +924,7 @@ var definition = _currentSession?.Definition;
 			if (session != _currentSession)
 				return;
 
+            EndStageLoading();
 			Debug.LogError(
 				$"[StageManager] Stage action sequence failed. " +
 				$"Stage: {session.Definition.Id}\n{exception}");
@@ -1036,10 +1084,12 @@ var definition = _currentSession?.Definition;
 				return;
 			}
 			long stageId = (long)definition.Id;
+            float presentAfter = Time.realtimeSinceStartup + MainWaveClearHoldSeconds;
+            BeginStageLoading("main-complete", presentAfter);
 			MainStageRule.GetNextWave(definition.Id, out eStage next);
 			FlushHuntBuffer(stageId);
 			_huntOutbox.Enqueue(new HuntOutboxItem { IsClear = true, StageId = stageId, ShowResult = showResult,
-                PresentNextAfter = Time.realtimeSinceStartup + MainWaveClearHoldSeconds,
+                PresentNextAfter = presentAfter,
                 NextAction = ShouldRestart(next) ? Protocol.Message.Data.eStageClearAction.Repeat : Protocol.Message.Data.eStageClearAction.Advance });
 			TrySendNextHunt();
 		}
@@ -1163,6 +1213,7 @@ var definition = _currentSession?.Definition;
 			Debug.Log($"[Hunt] stage=0x{item.StageId:X} loots={DescribeLoots(item.Loots)} -> level={result.Level} exp={result.Exp} kills={result.KillScore} gold={result.Gold} drops={result.Drops?.Count ?? 0} inventory={UserManager.DescribeInventory(result.Equipment)} saved={saved}");
             if (!saved)
             {
+                EndStageLoading();
                 _huntSyncFailed = true;
                 FinishHuntSettlement(false);
                 Time.timeScale = 0;
@@ -1203,6 +1254,7 @@ var definition = _currentSession?.Definition;
 			Debug.Log($"[StageClear] stage=0x{item.StageId:X} first={result.IsFirstClear} rewards={result.GrantedRewards?.Count ?? 0} next=0x{next:X} client=0x{(long)_currentStage:X} inventory={UserManager.DescribeInventory(result.Equipment)} skills={result.MageTowerState?.Skills?.Count ?? -1} saved={saved}");
             if (!saved)
             {
+                EndStageLoading();
                 _huntSyncFailed = true;
                 FinishHuntSettlement(false);
                 Time.timeScale = 0;
@@ -1225,6 +1277,7 @@ var definition = _currentSession?.Definition;
 				if (item.ShowResult) EnterResultPending();
 				else if (!TransitionStage((eStage)next, item.PresentNextAfter))
 				{
+                    EndStageLoading();
 					_huntSyncFailed = true;
 					FinishHuntSettlement(false);
 					Time.timeScale = 0;
@@ -1273,6 +1326,7 @@ var definition = _currentSession?.Definition;
 				return;
 			}
             _huntSyncFailed = true;
+            EndStageLoading();
             FinishHuntSettlement(false);
             Time.timeScale = 0;
             KingdomIdle.UGUI.UIManager.Instance?.ShowToast("전투 보상 정산을 확인하지 못했습니다. 재접속해 주세요.");

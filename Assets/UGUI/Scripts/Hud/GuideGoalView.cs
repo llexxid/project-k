@@ -1,9 +1,11 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using KingdomIdle.UI;
 using KingdomIdle.Balance;
+using KingdomIdle.Rewards;
 
 namespace KingdomIdle.UGUI
 {
@@ -23,6 +25,7 @@ namespace KingdomIdle.UGUI
         private QuestDefinition _definition;
         // 표시한 계정·기간의 권리를 보관한다. 클릭할 때 현재 계정으로 토큰을 다시 만들지 않는다.
         private QuestClaimToken _claimToken;
+        private QuestClaimToken _requestedClaimToken;
         private bool _hasClaimToken, _claimable, _claimRequested;
         private Coroutine _connection;
         private bool _breathing, _wasBusy;
@@ -143,13 +146,14 @@ namespace KingdomIdle.UGUI
         }
 
         /// <summary>서버 수령 결과. 이 HUD가 요청한 수령만 안내한다(패널에서 요청한 수령은 패널이 안내한다).</summary>
-        private void OnClaimCompleted(QuestClaimToken token, bool ok, string message)
+        private void OnClaimCompleted(QuestClaimToken token, bool ok, string message, IReadOnlyList<RewardGrant> rewards)
         {
-            if (_claimRequested)
+            if (_claimRequested && token == _requestedClaimToken)
             {
                 _claimRequested = false;
-                if (ok) UIManager.Instance?.ShowToast("가이드 완료");
-                else UIManager.Instance?.ShowToast(string.IsNullOrEmpty(message) ? "보상을 받지 못했습니다. 잠시 후 다시 시도해 주세요." : message);
+                var host = UIManager.Instance;
+                if (host != null && rewards.Count > 0) RewardPopupView.ShowRewards(host.LayerOverlays, rewards);
+                if (!ok) host?.ShowToast(string.IsNullOrEmpty(message) ? "보상을 받지 못했습니다. 잠시 후 다시 시도해 주세요." : message);
             }
             if (_manager != null) ReadCurrent();
         }
@@ -191,10 +195,12 @@ namespace KingdomIdle.UGUI
             if (_state.IsCompleted && _hasClaimToken && _claimable)
             {
                 // 서버(OnClaimQuestReward)에 요청한다. 결과는 OnClaimCompleted에서 알리고, 응답의 Quests로 다음 가이드가 바뀐다.
-                var result = _manager.TryClaim(_claimToken);
+                var token = _claimToken;
+                var result = _manager.TryClaim(token);
                 if (result.Status == QuestClaimStatus.Pending)
                 {
                     _claimRequested = true;
+                    _requestedClaimToken = token;
                     if (actionButton != null) actionButton.interactable = false;
                     Set(actionLabel, "수령 중…");
                     Visibility();
