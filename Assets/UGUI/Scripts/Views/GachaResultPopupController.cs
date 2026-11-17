@@ -15,15 +15,19 @@ namespace KingdomIdle.UGUI
         private static bool _flaring;
         private static System.Action _refreshRePull;
         private static EquipmentManager _equipment;
+        private static System.Action _onClosed;
 
         public static bool IsOpen => _instanceGo != null;
 
         /// <summary>저장된 뽑기 결과를 기존 팝업에 표시하고 실제 확인 버튼을 안내 대상으로 연결한다. 이전 결과 창은 먼저 정리한다.</summary>
-        public static void Show(
+        public static void Show(UIManager host, List<KingdomIdle.Gacha.GachaRewardEntry> results,
+            KingdomIdle.Gacha.GachaTableSO table, int lastPullCount) => ShowOwned(host, results, table, lastPullCount, null);
+
+        internal static GameObject ShowOwned(
             UIManager host,
             List<KingdomIdle.Gacha.GachaRewardEntry> results,
             KingdomIdle.Gacha.GachaTableSO table,
-            int lastPullCount)
+            int lastPullCount, System.Action onClosed)
         {
             Close();
             _host = host;
@@ -31,16 +35,18 @@ namespace KingdomIdle.UGUI
             if (results == null || results.Count == 0)
             {
                 host.ShowToast("뽑기 결과가 없습니다.");
-                return;
+                return null;
             }
 
             if (host.Catalog == null || host.Catalog.popupGachaResult == null)
             {
                 Debug.LogError("[GachaResultPopup] popupGachaResult 프리팹이 카탈로그에 없습니다.");
-                return;
+                return null;
             }
 
             _instanceGo = Object.Instantiate(host.Catalog.popupGachaResult, host.LayerOverlays, false);
+            try
+            {
             ModalBackHandler.Bind(_instanceGo, Close);
             var view = _instanceGo.GetComponent<GachaResultPopupView>();
             if (view == null)
@@ -48,8 +54,9 @@ namespace KingdomIdle.UGUI
                 Debug.LogError("[GachaResultPopup] GachaResultPopupView 컴포넌트가 없습니다.");
                 Object.Destroy(_instanceGo);
                 _instanceGo = null;
-                return;
+                return null;
             }
+            _onClosed = onClosed;
 
             // 등급을 제목으로 먼저 공개하지 않고 해당 카드의 한 바퀴가 끝날 때 강조한다.
             var bestRarity = ComputeBestRarity(results);
@@ -104,11 +111,16 @@ namespace KingdomIdle.UGUI
 
             _instanceGo.transform.SetAsLastSibling();
             if (view.box != null) UITween.PopIn(view.box);
+            return _instanceGo;
+            }
+            catch { Close(); throw; }
         }
 
         /// <summary>확인 또는 화면 정리 시 결과 창을 즉시 비활성화한 뒤 파괴한다. 지연 Destroy 중에도 이전 입력·Anchor가 남지 않는다.</summary>
         public static void Close()
         {
+            var closed = _onClosed;
+            _onClosed = null;
             EconomyBridge.OnAmountChanged -= OnWalletChanged;
             if (_equipment != null) _equipment.OnEquipmentStateChanged -= RefreshEquipment;
             _equipment = null;
@@ -120,6 +132,7 @@ namespace KingdomIdle.UGUI
                 Object.Destroy(_instanceGo);
                 _instanceGo = null;
             }
+            closed?.Invoke();
         }
 
         private static GachaCardItemView AddResultCard(
@@ -285,7 +298,7 @@ namespace KingdomIdle.UGUI
 
         private static void HandleRePull(GachaResultPopupView view, UnityEngine.UI.Button button, KingdomIdle.Gacha.GachaTableSO table, int count)
         {
-            if (_flaring) return;
+            if (_flaring || _host == null || !_host.AllowsRewardInput(_instanceGo)) return;
             var mgr = KingdomIdle.Gacha.GachaManager.Instance;
             if (mgr != null && mgr.IsPulling)
             {
@@ -300,15 +313,14 @@ namespace KingdomIdle.UGUI
                 return;
             }
 
-            void Pull() { Close(); GachaPanelController.PullAndShowResult(table, count); }
+            GachaPanelController.PullAgain(table, count);
             var flare = button.GetComponent<GachaButtonFlare>();
             if (table.gachaType == KingdomIdle.Gacha.eGachaType.Skill && flare != null)
             {
                 _flaring = true;
-                view.btnRePull1.interactable = view.btnRePullN.interactable = false;
-                flare.Play(Pull, () => { _flaring = false; _refreshRePull?.Invoke(); });
+                flare.Play(Close, Close);
             }
-            else Pull();
+            else Close();
         }
 
         // ═══════════════════════════════════════════

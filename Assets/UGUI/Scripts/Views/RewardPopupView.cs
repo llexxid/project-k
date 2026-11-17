@@ -37,6 +37,14 @@ namespace KingdomIdle.UGUI
             view.SetDescription("");
             view.AddSlots(rewards, true);
         }
+        internal static RewardPopupView ShowClaimedRewards(Transform owner, IReadOnlyList<RewardGrant> rewards, System.Action onClosed)
+        {
+            var view = Open(owner, "보상 획득", null);
+            if (view == null) return null;
+            view._onClosed = onClosed;
+            try { view.SetDescription(""); view.AddSlots(rewards, false); return view; }
+            catch { view.Close(); throw; }
+        }
         public static RewardPopupView ShowOfflineRewards(Transform owner, OfflineRewardClaimResult result, bool doubled, System.Action onClosed = null)
         {
             if (result == null || result.GoldGained < 0 || result.ExperienceGained < 0) return null;
@@ -102,8 +110,12 @@ namespace KingdomIdle.UGUI
         private static RewardPopupView Open(Transform owner, string heading, long? mailId)
         {
             var host = UIManager.Instance;
-            if (host == null || host.Catalog.popupRewardInfo == null || owner == null || !owner.gameObject.activeInHierarchy) return null;
-            var view = Instantiate(host.Catalog.popupRewardInfo, owner, false).GetComponent<RewardPopupView>();
+            if (host == null || host.Catalog == null || host.Catalog.popupRewardInfo == null || owner == null || !owner.gameObject.activeInHierarchy) return null;
+            var instance = Instantiate(host.Catalog.popupRewardInfo, owner, false);
+            var view = instance.GetComponent<RewardPopupView>();
+            if (view == null) { Destroy(instance); return null; }
+            try
+            {
             view.SourceMailId = mailId;
             view._account = LocalProgression.AccountGeneration;
             view.title.text = heading;
@@ -112,6 +124,8 @@ namespace KingdomIdle.UGUI
             ModalBackHandler.Bind(view.gameObject, view.Close);
             UITween.PopIn(view.panel);
             return view;
+            }
+            catch { Destroy(instance); throw; }
         }
         private void SetDescription(string text)
         {

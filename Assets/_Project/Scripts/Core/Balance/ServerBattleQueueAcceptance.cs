@@ -17,6 +17,258 @@ namespace KingdomIdle.Balance
 {
     public static class ServerBattleQueueAcceptance
     {
+        public static object RunEconomyCompletionRecovery()
+        {
+            if (NetworkManager.Instance != null || StageManager.Instance != null || UserManager.Instance != null || LocalProgression.IsReady)
+                throw new InvalidOperationException("Economy completion acceptance requires an empty signed-out context.");
+            const BindingFlags instance = BindingFlags.Instance | BindingFlags.NonPublic, statics = BindingFlags.Static | BindingFlags.NonPublic;
+            const string run = "1234567890abcdef1234567890abcdef", requestId = "fedcba0987654321fedcba0987654321";
+            var checks = new List<string>();
+            void Check(bool value, string name) { if (!value) throw new InvalidOperationException(name); checks.Add(name); }
+            var owner = new GameObject("EconomyCompletionRecoveryAcceptance") { hideFlags = HideFlags.HideAndDontSave };
+            owner.SetActive(false);
+            var previousSpawner = MonsterSpawner.Instance;
+            var manager = owner.AddComponent<StageManager>();
+            var network = owner.AddComponent<NetworkManager>();
+            var spawner = owner.AddComponent<MonsterSpawner>();
+            NetworkManager.Instance = network;
+            typeof(NetworkManager).GetProperty(nameof(NetworkManager.LoginState)).SetValue(network, GameLoginState.Ready);
+            object Get(string name) => typeof(StageManager).GetField(name, instance).GetValue(manager);
+            void Set(string name, object value) => typeof(StageManager).GetField(name, instance).SetValue(manager, value);
+            object Call(string name, params object[] args) => typeof(StageManager).GetMethod(name, instance).Invoke(manager, args);
+            void CoreSet(string name, object value) => typeof(EconomyBatchProgression).GetField(name, statics).SetValue(null, value);
+            void CoreCall(string name, params object[] args) => typeof(EconomyBatchProgression).GetMethod(name, statics).Invoke(null, args);
+            void BindLogin()
+            {
+                CoreSet("_supported", true); CoreSet("_recovered", true); CoreSet("_network", network);
+                CoreSet("_localGeneration", LocalProgression.AccountGeneration); CoreSet("_networkGeneration", network.AccountGeneration);
+                MainWaveProgression.ReceiveServerState(true);
+            }
+            var paths = new List<string>();
+            var scope = LocalProgression.BeginTestSession();
+            try
+            {
+                LocalProgression.OpenTestAccount("economy-completion-" + Guid.NewGuid().ToString("N"));
+                paths.Add(LocalProgression.SnapshotPath); paths.Add(LocalProgression.EconomyJournalPath);
+                var response = EconomyBatchContractAcceptance.Fixture();
+                var monster = (eMonsterType)4294967574UL;
+                var stage = (eStage)(long)response.CurrentState.MainBattle.Stage;
+                var definition = new StageDefinition(stage, eStageFlowType.MainProgression, eEnvironmentId.MainField1, 1,
+                    new[] { new StageMonsterEntry(monster, 5, 0, eMonsterSpawnPhase.Initial, null, 0) }, null);
+                StageSession Session()
+                {
+                    var value = new StageSession(definition, new MainStageRule(), spawner);
+                    ((Dictionary<eMonsterType, int>)typeof(StageSession).GetField("_killCounts", instance).GetValue(value))[monster] = 5;
+                    typeof(StageSession).GetField("_totalKillCount", instance).SetValue(value, 5);
+                    typeof(StageSession).GetField("_spawningCompleted", instance).SetValue(value, true);
+                    typeof(StageSession).GetProperty(nameof(StageSession.HasPendingResult)).SetValue(value, true);
+                    return value;
+                }
+                Set("_huntBuffer", new Dictionary<long, Dictionary<eMonsterType, int>>());
+                void BindStage()
+                {
+                    Call("ResetHuntTransport"); Set("_huntsHeld", true); Set("_currentSession", Session());
+                    Set("_currentStage", stage); Set("_mainRunForSession", run); Set("_currentState", eStageRunState.Resolving);
+                    Set("_isLoopMode", true);
+                }
+                Check(LocalProgression.Execute("completion-fixture", state =>
+                    EconomyBatchProgression.ApplyServerState(state, response.CurrentState, 1)), "isolated confirmed battle fixture saves");
+                BindLogin(); BindStage();
+                var hunt = new EconomyCommandDTO { Kind = EconomyCommandKind.Hunt, Stage = (Protocol.Message.Data.eStage)(long)stage,
+                    MainRunId = run, RewardEpoch = 1, TotalKills = new() { new() { MonsterType = (Protocol.Message.Data.eMonsterType)(ulong)monster, Count = 5 } } };
+                var request = new OnEconomyBatchRequestDTO { RequestId = requestId, Generation = 1, Sequence = 2,
+                    ExpectedEconomyRevision = 1, AppliedRewardEpoch = 1, Commands = new() { hunt } };
+                var journal = new EconomyInputJournal(LocalProgression.EconomyJournalPath, LocalProgression.AccountKey);
+                journal.Data.Generation = 1; journal.Data.NextInputSequence = 2; journal.Data.InFlight = request;
+                journal.Data.InFlightInputs.Add(new() { Sequence = 1, Command = EconomyCopies.Copy(hunt) });
+                journal.Changed(); journal.Pump(true);
+                CoreSet("_journal", journal); CoreSet("_requestPending", true);
+                int backgroundCallbacks = 0; bool backgroundSuccess = true;
+                Check(EconomyBatchProgression.FlushBeforeWrite(ok => { backgroundCallbacks++; backgroundSuccess = ok; }),
+                    "automatic background write captures its barrier while the hunt batch is in flight");
+                Call("EnqueueMainCompletion", definition, true);
+                object queue = Get("_huntOutbox");
+                int Count() => ((ICollection)queue).Count;
+                Check((bool)Get("_economyCompletionPending") && !(bool)Get("_huntSyncFailed") && Count() == 0 &&
+                    LocalProgression.State.PendingMainCompletion == null, "wave completion joins an existing fence without creating a completion request early");
+                string payload = JsonConvert.SerializeObject(journal.Data.InFlight);
+                CoreCall("FailRequest", NetworkManager.CreateError("Timeout", "isolated economy completion timeout"));
+                Call("PumpHuntRetry");
+                Check(backgroundCallbacks == 1 && !backgroundSuccess && EconomyBatchProgression.HasUnknownResult &&
+                    Get("_retryEconomyCompletion") != null && !(bool)Get("_huntSyncFailed") && Count() == 0 &&
+                    LocalProgression.State.PendingMainCompletion == null && JsonConvert.SerializeObject(journal.Data.InFlight) == payload,
+                    "transient batch failure holds completion and preserves the exact original batch while its result is unknown");
+
+                response.RequestId = requestId; response.EconomyRevision = 2; response.Replayed = true;
+                response.Receipt = new() { RequestId = requestId, Generation = 1, Sequence = 2,
+                    PayloadHash = EconomyInputJournal.Hash(request), CommittedRevision = 2,
+                    Results = new() { new() { Index = 0, Kind = EconomyCommandKind.Hunt, Status = EconomyCommandStatus.Applied } } };
+                response.CurrentState.MainBattle.AcceptedKills = EconomyCopies.Kills(hunt.TotalKills);
+                response.CurrentState.EconomyBatchState.NextSequence = 3;
+                CoreCall("ApplyResult", response, true); journal.Pump(true);
+                Check(!EconomyBatchProgression.HasUnknownResult && LocalProgression.State.Economy.LastAppliedRequestId == requestId &&
+                    LocalProgression.State.MainBattle.AcceptedKills[(ulong)monster] == 5 && LocalProgression.State.PendingMainCompletion == null,
+                    "same-ID result is durably applied before a new main completion identity exists");
+                Call("PumpHuntRetry"); journal.Pump(true); EconomyBatchProgression.Pump();
+                var pending = LocalProgression.State.PendingMainCompletion;
+                Check(pending != null && MainWaveProgression.ValidId(pending.RequestId) && pending.RunId == run && pending.TotalKills[(ulong)monster] == 5 &&
+                    pending.NextAction == (int)Protocol.Message.Data.eStageClearAction.Repeat && Count() == 1 && Get("_retryEconomyCompletion") == null,
+                    "confirmed recovery resumes the captured wave once with its full cumulative total and repeat intent");
+                string completionId = pending.RequestId;
+                Call("PumpHuntRetry"); EconomyBatchProgression.Pump();
+                Check(Count() == 1 && LocalProgression.State.PendingMainCompletion.RequestId == completionId,
+                    "later retry ticks cannot mint another completion ID or duplicate its outbox item");
+
+                Check(LocalProgression.Execute("completion-next-fixture", state => { state.PendingMainCompletion = null; return true; }), "stale-owner fixture clears only its isolated completion");
+                foreach (string stale in new[] { "account", "network", "session", "token" })
+                {
+                    BindStage(); EconomyBatchProgression.MarkUnknown("isolated stale completion");
+                    Call("EnqueueMainCompletion", definition, false);
+                    long localGeneration = LocalProgression.AccountGeneration, networkGeneration = network.AccountGeneration;
+                    var token = (CancellationTokenSource)Get("_token");
+                    if (stale == "account") typeof(LocalProgression).GetProperty(nameof(LocalProgression.AccountGeneration)).SetValue(null, localGeneration + 1);
+                    if (stale == "network") typeof(NetworkManager).GetProperty(nameof(NetworkManager.AccountGeneration)).SetValue(network, networkGeneration + 1);
+                    if (stale == "session") Set("_currentSession", Session());
+                    if (stale == "token") Set("_token", new CancellationTokenSource());
+                    try
+                    {
+                        BindLogin(); CoreSet("_externalUnknown", false); Call("PumpHuntRetry"); journal.Pump(true); EconomyBatchProgression.Pump();
+                        Check(Count() == 0 && LocalProgression.State.PendingMainCompletion == null && Get("_retryEconomyCompletion") == null,
+                            "recovered retry cannot resume after its " + stale + " owner changes");
+                    }
+                    finally
+                    {
+                        typeof(LocalProgression).GetProperty(nameof(LocalProgression.AccountGeneration)).SetValue(null, localGeneration);
+                        typeof(NetworkManager).GetProperty(nameof(NetworkManager.AccountGeneration)).SetValue(network, networkGeneration);
+                        if (stale == "token") { ((CancellationTokenSource)Get("_token")).Dispose(); Set("_token", token); }
+                        BindLogin();
+                    }
+                }
+                EconomyBatchProgression.MarkUnknown("isolated reset"); Call("EnqueueMainCompletion", definition, false); Call("ResetHuntTransport");
+                Check(Get("_retryEconomyCompletion") == null && typeof(NetworkManager).GetField("_context", instance).GetValue(network) == null &&
+                    ((ICollection)typeof(NetworkManager).GetField("_pendingCalls", instance).GetValue(network)).Count == 0,
+                    "fresh stage reset discards stale retries and the fixture sends no SDK requests");
+                return new { passed = true, count = checks.Count, checks };
+            }
+            finally
+            {
+                Call("EndStageLoading");
+                var token = (CancellationTokenSource)Get("_token"); token?.Cancel(); token?.Dispose(); Set("_token", null);
+                scope.Dispose(); NetworkManager.Instance = null; MonsterSpawner.Instance = previousSpawner;
+                MainWaveProgression.ReceiveServerState(false); UnityEngine.Object.DestroyImmediate(owner);
+                string allowed = Path.GetFullPath(Path.Combine(Application.persistentDataPath, "progression-local-v1")) + Path.DirectorySeparatorChar;
+                foreach (string path in paths)
+                {
+                    string full = Path.GetFullPath(path);
+                    if (!full.StartsWith(allowed, StringComparison.OrdinalIgnoreCase)) throw new IOException("Unexpected acceptance path.");
+                    foreach (string file in new[] { full, full + ".bak", full + ".tmp" }) if (File.Exists(file)) File.Delete(file);
+                }
+            }
+        }
+
+        public static object RunEconomyBinding()
+        {
+            if (NetworkManager.Instance != null || StageManager.Instance != null || UserManager.Instance != null || LocalProgression.IsReady)
+                throw new InvalidOperationException("Economy battle binding acceptance requires an empty signed-out context.");
+            const BindingFlags instance = BindingFlags.Instance | BindingFlags.NonPublic;
+            const string run = "1234567890abcdef1234567890abcdef", dungeonRun = "fedcba0987654321fedcba0987654321";
+            var checks = new List<string>();
+            void Check(bool value, string name) { if (!value) throw new InvalidOperationException(name); checks.Add(name); }
+            var owner = new GameObject("EconomyBattleBindingAcceptance") { hideFlags = HideFlags.HideAndDontSave };
+            owner.SetActive(false);
+            var previousSpawner = MonsterSpawner.Instance;
+            var spawner = owner.AddComponent<MonsterSpawner>();
+            var network = owner.AddComponent<NetworkManager>();
+            NetworkManager.Instance = network;
+            typeof(NetworkManager).GetProperty(nameof(NetworkManager.LoginState)).SetValue(network, GameLoginState.Ready);
+            void BindEconomyLogin()
+            {
+                const BindingFlags flags = BindingFlags.Static | BindingFlags.NonPublic;
+                var core = typeof(EconomyBatchProgression);
+                core.GetField("_supported", flags).SetValue(null, true);
+                core.GetField("_network", flags).SetValue(null, network);
+                core.GetField("_localGeneration", flags).SetValue(null, LocalProgression.AccountGeneration);
+                core.GetField("_networkGeneration", flags).SetValue(null, network.AccountGeneration);
+            }
+            string account = "economy-battle-" + Guid.NewGuid().ToString("N"), path = null;
+            var scope = LocalProgression.BeginTestSession();
+            try
+            {
+                LocalProgression.OpenTestAccount(account); path = LocalProgression.SnapshotPath;
+                var monster = (eMonsterType)4294967574UL;
+                var main = StageParser.MakeStage(eStageType.Main, 1, 1);
+                StageSession Session(eStage stage) => new(new StageDefinition(stage, eStageFlowType.MainProgression, eEnvironmentId.MainField1, 1,
+                    new[] { new StageMonsterEntry(monster, 5, 0, eMonsterSpawnPhase.Initial, null, 0) }, null), new MainStageRule(), spawner);
+                var session = Session(main);
+                var kills = (Dictionary<eMonsterType, int>)typeof(StageSession).GetField("_killCounts", instance).GetValue(session);
+                Check(LocalProgression.Execute("economy-battle-fixture", state =>
+                {
+                    state.MainBattle = new() { RunId = run, Stage = (long)main, AcceptedKills = new() { [(ulong)monster] = 2 } };
+                    state.ServerEconomyRevision = 1;
+                    state.Economy.Server = new() { Version = 1, OwnerClientId = run, Generation = 1, NextSequence = 1,
+                        RewardEpoch = 1, RewardEpochs = new() { new() { Id = 1 } } };
+                    return true;
+                }), "server run and reward epoch fixture saves");
+                BindEconomyLogin();
+                kills[monster] = 3;
+                Check(LocalProgression.Execute("economy-battle-observed", state => BattleEconomy.RecordHunt(state, session)),
+                    "per-kill transaction durably stores cumulative hunt observation");
+                var hunt = LocalProgression.State.Economy.Hunts[0];
+                Check(hunt.MainRunId == run && hunt.MainRunId != session.RunId && hunt.BattleId == null && hunt.TotalKills[0].Count == 3,
+                    "main hunt uses server run and observed total without adding accepted replay kills");
+                kills[monster] = 1;
+                Check(LocalProgression.Execute("economy-battle-replay", state => BattleEconomy.RecordHunt(state, session)) &&
+                    LocalProgression.State.Economy.Hunts[0].TotalKills[0].Count == 3,
+                    "replayed early kills never lower or add to durable cumulative observations");
+                Check(LocalProgression.Execute("economy-battle-epoch", state =>
+                {
+                    var metadata = EconomyCopies.Copy(state.Economy.Server);
+                    metadata.RewardEpoch = 2; metadata.RewardEpochs.Add(new() { Id = 2, GoldLevel = 1 });
+                    state.RubyGoldLevel = 1;
+                    return EconomyBatchProgression.ApplyBatchMetadata(state, metadata, 2);
+                }), "new reward epoch enters only the committed snapshot");
+                kills[monster] = 4;
+                Check(LocalProgression.Execute("economy-battle-new-epoch", state => BattleEconomy.RecordHunt(state, session)) &&
+                    LocalProgression.State.Economy.Hunts.Count == 2 && LocalProgression.State.Economy.Hunts[0].RewardEpoch == 1 &&
+                    LocalProgression.State.Economy.Hunts[0].TotalKills[0].Count == 3 && LocalProgression.State.Economy.Hunts[1].RewardEpoch == 2 &&
+                    LocalProgression.State.Economy.Hunts[1].TotalKills[0].Count == 4 && LocalProgression.State.Economy.Cutoffs[0].TotalKills[0].Count == 3,
+                    "durable ACK keeps old kills at their old epoch cutoff and records only the next kill at the new epoch");
+                string before = JsonConvert.SerializeObject(LocalProgression.State);
+                kills[monster] = 5;
+                Check(!LocalProgression.TestFailedWrite(state => BattleEconomy.RecordHunt(state, session)) &&
+                    JsonConvert.SerializeObject(LocalProgression.State) == before,
+                    "failed kill snapshot cannot publish an unpersisted hunt or epoch boundary");
+                LocalProgression.OpenTestAccount(account);
+                Check(JsonConvert.SerializeObject(LocalProgression.State) == before && !EconomyBatchProgression.Available,
+                    "same-device reload preserves hunt epochs while server capability requires the current login");
+                BindEconomyLogin();
+                var draft = LocalProgression.State.DeepClone();
+                draft.MainBattle.Stage = (long)StageParser.MakeStage(eStageType.Main, 1, 2);
+                Check(!BattleEconomy.RecordHunt(draft, session), "a different server stage cannot receive local-session kills");
+                var dungeon = StageParser.MakeStage(eStageType.GoldDungeon, 1);
+                session = Session(dungeon);
+                kills = (Dictionary<eMonsterType, int>)typeof(StageSession).GetField("_killCounts", instance).GetValue(session);
+                kills[monster] = 2;
+                draft.ActiveDungeon = dungeonRun; draft.ServerDungeonId = (long)dungeon;
+                Check(BattleEconomy.RecordHunt(draft, session) && draft.Economy.Hunts[2].MainRunId == null &&
+                    draft.Economy.Hunts[2].BattleId == dungeonRun && draft.Economy.Hunts[2].BattleId != session.RunId,
+                    "dungeon hunt uses the server-issued battle ID independently of the local session");
+                return new { passed = true, count = checks.Count, checks };
+            }
+            finally
+            {
+                scope.Dispose(); MonsterSpawner.Instance = previousSpawner; NetworkManager.Instance = null;
+                UnityEngine.Object.DestroyImmediate(owner);
+                if (path != null)
+                {
+                    string full = Path.GetFullPath(path);
+                    string allowed = Path.GetFullPath(Path.Combine(Application.persistentDataPath, "progression-local-v1")) + Path.DirectorySeparatorChar;
+                    if (!full.StartsWith(allowed, StringComparison.OrdinalIgnoreCase)) throw new IOException("Unexpected acceptance snapshot path.");
+                    foreach (string file in new[] { full, full + ".bak", full + ".tmp" }) if (File.Exists(file)) File.Delete(file);
+                }
+            }
+        }
+
         /// <summary>빈 에디터 검증에서만 고유 로컬 파일을 사용한다. 실제 계정·네트워크는 열지 않는다.</summary>
         public static object RunMainPersistence()
         {
@@ -408,10 +660,18 @@ namespace KingdomIdle.Balance
                 fixture.PendingMainCompletion = completion.Copy();
                 MainWaveProgression.ReceiveServerState(true);
                 Set("_huntsHeld", true);
-                Check((bool)Call("ResumePendingMainCompletion") && Count() == 1 &&
+                int recovered = 0; bool recoveredSuccess = true;
+                Check(manager.RecoverPendingMainCompletion(ok => { recovered++; recoveredSuccess = ok; }) && Count() == 1 &&
                     ((MainWaveCompletionSave)ItemField(Items().GetValue(0), "Completion")).RequestId == requestId &&
                     !(bool)Call("DeferMainTail", Items().GetValue(0), Time.realtimeSinceStartup),
                     "new authenticated context can resume its durable completion without inheriting old periodic-tail ownership");
+                Check(!manager.RecoverPendingMainCompletion(_ => recovered++) && recovered == 0,
+                    "startup recovery cannot replace the original completion callback while it is pending");
+                Call("StopMainSettlement", "acceptance recovery interruption");
+                Check(recovered == 1 && !recoveredSuccess && fixture.PendingMainCompletion.RequestId == requestId &&
+                    Count() == 1 && (eStageRunState)Get("_currentState") == eStageRunState.Resolving,
+                    "failed startup recovery preserves the exact completion ID and does not start a gameplay session");
+                Set("_huntSyncFailed", false);
                 fixture.PendingMainCompletion = null; Set("_recoveringMainCompletion", false);
                 MainWaveProgression.ReceiveServerState(false);
                 Empty();

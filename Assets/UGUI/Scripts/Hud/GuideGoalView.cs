@@ -27,6 +27,7 @@ namespace KingdomIdle.UGUI
         private QuestClaimToken _claimToken;
         private QuestClaimToken _requestedClaimToken;
         private bool _hasClaimToken, _claimable, _claimRequested;
+        private Scripts.Core.Utils.GameplayLoading.Scope _rewardScope;
         private Coroutine _connection;
         private bool _breathing, _wasBusy;
         /// <summary>전투 HUD 인스턴스만 던전에서 접는다. 재활성화 시 기존 구독으로 최신 목표를 복원한다.</summary>
@@ -37,6 +38,7 @@ namespace KingdomIdle.UGUI
 
         private void OnEnable()
         {
+            ClearObsoleteClaim();
             if (actionButton != null) actionButton.onClick.AddListener(Act);
             _connection = StartCoroutine(ConnectWhenReady());
         }
@@ -50,7 +52,6 @@ namespace KingdomIdle.UGUI
             _manager.OnGuideQuestChanged += Refresh;
             NumberNotation.Changed += ReadCurrent;
             _manager.OnQuestProgressChanged += Refresh;
-            _manager.OnClaimCompleted += OnClaimCompleted;
             _manager.AddWatcher(false);
             _ui.PanelStackChanged += Visibility;
             ReadCurrent();
@@ -68,10 +69,8 @@ namespace KingdomIdle.UGUI
             {
                 _manager.OnGuideQuestChanged -= Refresh;
                 _manager.OnQuestProgressChanged -= Refresh;
-                _manager.OnClaimCompleted -= OnClaimCompleted;
                 _manager.RemoveWatcher(false);
             }
-            _claimRequested = false;
             StopBreathing();
             _manager = null;
             _ui = null;
@@ -82,8 +81,15 @@ namespace KingdomIdle.UGUI
 
         private void Update()
         {
+            if (ClearObsoleteClaim() && _manager != null) ReadCurrent();
             // 일괄 수령은 가이드 내용이 같으면 변경 이벤트가 없다. 입력 잠금의 전환 때만 다시 읽는다.
             if (_manager != null && _manager.IsBusy != _wasBusy) ReadCurrent();
+        }
+        private bool ClearObsoleteClaim()
+        {
+            if (_rewardScope == null || _rewardScope.IsCurrent) return false;
+            _rewardScope.Dispose(); _rewardScope = null; _claimRequested = false;
+            return true;
         }
 
         private void ReadCurrent()
@@ -152,10 +158,12 @@ namespace KingdomIdle.UGUI
             {
                 _claimRequested = false;
                 var host = UIManager.Instance;
-                if (host != null && rewards.Count > 0) RewardPopupView.ShowRewards(host.LayerOverlays, rewards);
+                var scope = _rewardScope; _rewardScope = null;
+                if (host != null) host.CompleteRewardRequest(scope, rewards);
+                else scope?.Dispose();
                 if (!ok) host?.ShowToast(string.IsNullOrEmpty(message) ? "보상을 받지 못했습니다. 잠시 후 다시 시도해 주세요." : message);
             }
-            if (_manager != null) ReadCurrent();
+            if (this != null && _manager != null) ReadCurrent();
         }
 
         private static void Set(TMP_Text label, string text)
@@ -191,21 +199,25 @@ namespace KingdomIdle.UGUI
 
         private void Act()
         {
-            if (_state == null || _manager == null) return;
+            if (_state == null || _manager == null || UIManager.Instance?.GameplayInputBlocked == true) return;
             if (_state.IsCompleted && _hasClaimToken && _claimable)
             {
                 // 서버(OnClaimQuestReward)에 요청한다. 결과는 OnClaimCompleted에서 알리고, 응답의 Quests로 다음 가이드가 바뀐다.
                 var token = _claimToken;
-                var result = _manager.TryClaim(token);
+                var manager = _manager;
+                _claimRequested = true; _requestedClaimToken = token;
+                _rewardScope = UIManager.Instance?.BeginRewardRequest("quest-input", () => manager != null && manager.IsBusy);
+                QuestClaimResult result;
+                try { result = manager.TryClaim(token, (ok, message, rewards) => OnClaimCompleted(token, ok, message, rewards)); }
+                catch { _rewardScope?.Dispose(); _rewardScope = null; _claimRequested = false; throw; }
                 if (result.Status == QuestClaimStatus.Pending)
                 {
-                    _claimRequested = true;
-                    _requestedClaimToken = token;
                     if (actionButton != null) actionButton.interactable = false;
                     Set(actionLabel, "수령 중…");
                     Visibility();
                     return;
                 }
+                _claimRequested = false; _rewardScope?.Dispose(); _rewardScope = null;
                 if (result.Status == QuestClaimStatus.Busy) UIManager.Instance?.ShowToast("이전 보상을 처리 중입니다. 잠시 후 다시 시도해 주세요.");
                 else if (result.Status == QuestClaimStatus.NetworkNotReady) UIManager.Instance?.ShowToast("서버 로그인이 필요합니다.");
                 ReadCurrent();

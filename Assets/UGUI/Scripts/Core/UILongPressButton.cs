@@ -1,4 +1,5 @@
 using System;
+using Scripts.Core.Utils;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -58,6 +59,7 @@ namespace KingdomIdle.UGUI
         private void Update()
         {
             if (!_pressing) return;   // 누르는 중이 아니면 즉시 반환 — 프레임당 작업 없음
+            if (GameplayLoading.IsInputBlocked) { _pressing = false; return; }
 
             if (Time.unscaledTime - _pressStartTime >= longPressSeconds)
             {
@@ -70,6 +72,7 @@ namespace KingdomIdle.UGUI
 
         public void OnPointerDown(PointerEventData eventData)
         {
+            if (GameplayLoading.IsInputBlocked) return;
             bool blocked = _selectable != null && !_selectable.interactable;
             if (blocked && !allowLongPressWhenDisabled) return;
 
@@ -89,7 +92,7 @@ namespace KingdomIdle.UGUI
             if (eventData.pointerId != _activePointerId) return;
             _activePointerId = NoPointer;
 
-            bool wasTap = _pressing && !_longFired && !_suppressTap;
+            bool wasTap = _pressing && !_longFired && !_suppressTap && !GameplayLoading.IsInputBlocked;
             _pressing = false;
             _longFired = false;
             _suppressTap = false;

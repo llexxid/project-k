@@ -436,25 +436,7 @@ namespace Scripts.Core.Manager
 		/// </summary>
         public void BeginStage(eStage stage)
         {
-	        EndStageLoading();
-	        _token?.Cancel();
-	        _token?.Dispose();
-			_token = new CancellationTokenSource();
-			// 새 입장: 이전 세션의 전송 상태를 버리고, 메인 스테이지 처치를 3초마다 서버(OnHuntReward)에 보고한다.
-			// 웨이브 클리어는 같은 대기열에서 OnStageClear로 저장한다.
-			_huntInFlight = false;
-			_huntSyncFailed = false;
-			_mainStageRequestPending = false;
-            _onHuntsSettled = null;
-            _dungeonRequestPending = false;
-            _retryDungeon = null;
-            _nextHuntSendAt = 0f;
-            _mainRunForSession = null;
-            _recoveringMainCompletion = false;
-            _mainTailWaiting = false;
-			_huntOutbox.Clear();
-			_huntBuffer.Clear();
-			_saturatedTypes.Clear();
+			ResetHuntTransport();
 			SendHuntResultLoop(_token.Token).Forget();
 			if (ResumePendingMainCompletion()) return;
 			ResetStage((long)_currentStage == 0 ? stage : _currentStage);
@@ -469,6 +451,32 @@ namespace Scripts.Core.Manager
                 });
             }
             else TransitionStage(stage);
+        }
+
+        private void ResetHuntTransport()
+        {
+	        EndStageLoading();
+	        _token?.Cancel();
+	        _token?.Dispose();
+			_token = new CancellationTokenSource();
+			// 새 로그인에서는 메모리 전송 상태만 비우고 영속 완료 ID와 경제 입력은 복구한다.
+			_huntInFlight = false;
+			_huntSyncFailed = false;
+			_mainStageRequestPending = false;
+            _onHuntsSettled = null;
+            _dungeonRequestPending = false;
+            _retryDungeon = null;
+            _nextHuntSendAt = 0f;
+            _mainRunForSession = null;
+            _recoveringMainCompletion = false;
+            _onMainCompletionRecovered = null;
+            _economyCompletionPending = false;
+            _retryEconomyCompletion = null;
+            _economyHuntFlushPending = false;
+            _mainTailWaiting = false;
+			_huntOutbox.Clear();
+			_huntBuffer.Clear();
+			_saturatedTypes.Clear();
         }		
 		
 		/// <summary>
@@ -987,7 +995,7 @@ var definition = _currentSession?.Definition;
 		/// <summary>현재 전투의 처치 수를 서버 전송 버퍼에 누적한다.</summary>
 		private void CountKill(StageDefinition definition, Monster monster)
 		{
-			if (definition == null) return;
+			if (definition == null || EconomyBatchProgression.Available) return;
 			if (definition.Type == eStageType.Main && _mainRunForSession != null) return;
 			long stageId = (long)definition.Id;
 			if (!_huntBuffer.TryGetValue(stageId, out var kills))
@@ -1097,6 +1105,7 @@ var definition = _currentSession?.Definition;
 		/// <summary>스테이지 버퍼를 서버 상한(149마리·10종류)에 맞춘 배치로 나눠 대기열에 넣는다.</summary>
 		private void FlushHuntBuffer(long stageId)
 		{
+			if (EconomyBatchProgression.Available) return;
 			if (!_huntBuffer.TryGetValue(stageId, out var kills)) return;
 			_huntBuffer.Remove(stageId);
 			var loots = new List<HuntResult>();
@@ -1126,8 +1135,8 @@ var definition = _currentSession?.Definition;
 		}
 
 		/// <summary>오프라인 보상 정산 동안 사냥 배치 전송을 보류한다. 처치는 버퍼에 계속 쌓이고 해제 뒤 보낸다.</summary>
-		public void HoldHunts() { _huntsHeld = true; }
-		public void ReleaseHunts() { if (!_huntsHeld) return; _huntsHeld = false; TrySendNextHunt(); }
+		public void HoldHunts() { _huntsHeld = true; EconomyBatchProgression.SetHuntsHeld(true); }
+		public void ReleaseHunts() { if (!_huntsHeld) return; _huntsHeld = false; EconomyBatchProgression.SetHuntsHeld(false); TrySendNextHunt(); }
 
 		/// <summary>대기열 머리 항목을 보낸다. 사냥 배치는 직전 수락으로부터 HuntMinIntervalSec 뒤에만 보낸다.</summary>
 		private void TrySendNextHunt()
@@ -1138,7 +1147,7 @@ var definition = _currentSession?.Definition;
 			// 서버가 이미 정산한 종류는 빼고, 남는 처치가 없는 배치는 보내지 않는다.
 			while (_huntOutbox.Count > 0 && !_huntOutbox.Peek().IsClear && _huntOutbox.Peek().MainRunId == null && PruneSaturated(_huntOutbox.Peek())) _huntOutbox.Dequeue();
 			if (_huntOutbox.Count == 0 && _onHuntsSettled != null) FlushMainWaveHunts(true);
-			if (_huntOutbox.Count == 0) { FinishHuntSettlement(true); return; }
+			if (_huntOutbox.Count == 0) { if (!_economyHuntFlushPending) FinishHuntSettlement(true); return; }
 			var network = NetworkManager.Instance;
 			if (network == null || !network.IsGameDataReady) return;
 			var item = _huntOutbox.Peek();

@@ -6,6 +6,7 @@ using KingdomIdle.Rewards;
 using PlayFab;
 using Scripts.Core;
 using Scripts.Core.Manager;
+using Scripts.Core.Utils;
 using UnityEngine;
 using Dto = Protocol.Message.Dto;
 
@@ -108,6 +109,7 @@ public class QuestManager : MonoBehaviour
         public Action<int, int, string, IReadOnlyList<RewardGrant>> OnCompleted;
         public readonly List<Dto.QuestRewardDTO> Rewards = new();
         public int Confirmed;
+        public GameplayLoading.Scope Loading;
     }
 
     private void Awake()
@@ -134,6 +136,7 @@ public class QuestManager : MonoBehaviour
     private void OnDestroy()
     {
         if (Instance != this) return;
+        _claim?.Loading?.Dispose();
         Instance = null;
     }
 
@@ -148,7 +151,7 @@ public class QuestManager : MonoBehaviour
     /// <summary>패널(10초)·가이드 HUD(30초)가 보일 때 주기적으로, 그리고 서버 조작 뒤 요청된 갱신을 최소 간격(3초)으로 보낸다.</summary>
     private void Update()
     {
-        if (_claim != null && !IsCurrentClaim(_claim)) _claim = null;
+        if (_claim != null && !IsCurrentClaim(_claim)) { _claim.Loading?.Dispose(); _claim = null; }
         if (_suspended || IsRefreshing || IsBusy) return;
         var network = NetworkManager.Instance;
         if (network == null || !network.IsGameDataReady || _server == null && !_refreshQueued) return;
@@ -182,7 +185,7 @@ public class QuestManager : MonoBehaviour
     }
 
     private void MarkDirty() { _dirty = true; }
-    private void OnAccountChanged() { _claim = null; _accountChanged = true; _dirty = true; _server = null; _revision++; }
+    private void OnAccountChanged() { _claim?.Loading?.Dispose(); _claim = null; _accountChanged = true; _dirty = true; _server = null; _revision++; }
 
     // ── 서버 상태 수신 ─────────────────────────────────────────────────
 
@@ -263,12 +266,19 @@ public class QuestManager : MonoBehaviour
     /// 요청이 나가면 Pending을 돌려주고 OnClaimCompleted로 결과를 알린다.
     /// </summary>
     public QuestClaimResult TryClaim(QuestClaimToken token)
+        => TryClaim(token, null);
+
+    internal QuestClaimResult TryClaim(QuestClaimToken token, Action<bool, string, IReadOnlyList<RewardGrant>> completed)
     {
         var network = NetworkManager.Instance;
         var status = CheckClaim(token, network);
         if (status != QuestClaimStatus.Pending) return new QuestClaimResult(status, token);
         StartClaim(network, new[] { token }, (confirmed, total, message, rewards) =>
-            Notify(OnClaimCompleted, token, confirmed == total && message == null, message, rewards));
+        {
+            bool ok = confirmed == total && message == null;
+            try { completed?.Invoke(ok, message, rewards); }
+            finally { Notify(OnClaimCompleted, token, ok, message, rewards); }
+        });
         return new QuestClaimResult(QuestClaimStatus.Pending, token);
     }
 
@@ -302,7 +312,8 @@ public class QuestManager : MonoBehaviour
         _claim = new ClaimOperation
         {
             Network = network, NetworkGeneration = network.AccountGeneration, Tokens = tokens,
-            Category = category, BoardPeriod = boardPeriod, OnCompleted = onCompleted
+            Category = category, BoardPeriod = boardPeriod, OnCompleted = onCompleted,
+            Loading = GameplayLoading.Begin("quest-claim")
         };
         LastFailure = null;
         SendNextClaim(_claim);
@@ -338,6 +349,7 @@ public class QuestManager : MonoBehaviour
         _claim = null;
         try { claim.OnCompleted?.Invoke(claim.Confirmed, claim.Tokens.Length, message, RewardGrants.FromServer(claim.Rewards)); }
         catch (Exception exception) { Debug.LogException(exception); }
+        finally { claim.Loading?.Dispose(); }
     }
 
     private void ApplyClaim(ClaimOperation claim, QuestClaimToken token, Dto.OnClaimQuestRewardResponseDTO response)

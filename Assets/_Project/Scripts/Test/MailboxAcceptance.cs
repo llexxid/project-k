@@ -266,6 +266,31 @@ namespace KingdomIdle.Mailbox.Testing
                 Check(f.Applied == 1 && f.AppliedGold == 10 && f.Result == null && f.Service.Messages.Count == 0, "closed panel still applies reward without popup/cache");
             }
             {
+                var f = new Fixture(1) { HoldClaims = true }; f.Service.Open();
+                MailClaimInfo completed = null;
+                f.Service.TryClaimAll(result => completed = result);
+                f.Service.Close(); f.Claims.Dequeue()();
+                Check(completed != null && completed.Ok && completed.Rewards.Count > 0 && f.Applied == 1 && f.Result == null,
+                    "click-owned mail completion survives a closed view without changing the legacy view event");
+                var old = new Fixture(1) { HoldClaims = true }; old.Service.Open();
+                MailClaimInfo stale = null;
+                old.Service.TryClaimAll(result => stale = result);
+                old.Generation++; old.Service.CheckAccount(); old.Claims.Dequeue()();
+                Check(stale == null && old.Applied == 0, "old-account mail completion cannot enter the global result queue");
+            }
+            {
+                var f = new Fixture(100) { FailClaimAt = 2, HoldLists = true };
+                f.Service.Open(); f.Lists.Dequeue()();
+                while (f.Lists.Count > 0) f.Lists.Dequeue()();
+                MailClaimInfo completed = null; bool pendingAtCompletion = false;
+                f.Service.TryClaimAll(result => { completed = result; pendingAtCompletion = f.Service.IsBusy; });
+                Check(completed != null && completed.Rewards.Count > 0 && completed.MailIds.Length == 50 && pendingAtCompletion,
+                    "partial mail rewards are retained while the completion reports its pending follow-up list");
+                while (f.Lists.Count > 0) f.Lists.Dequeue()();
+                Check(!f.Service.IsBusy && f.AppliedGold == 500, "follow-up list ends without granting partial rewards twice");
+                f.Service.Close();
+            }
+            {
                 var f = new Fixture(1) { HoldClaims = true }; f.Service.Open(); f.Service.TryClaimAll(); f.Service.Close(); f.Service.Open();
                 Check(!f.Service.CanClaim, "reopen waits for previous claim");
                 f.Claims.Dequeue()(); Check(f.Applied == 1 && f.Result == null && f.Service.HasSnapshot, "reopened view receives fresh list, no stale popup");

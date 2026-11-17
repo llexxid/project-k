@@ -19,6 +19,7 @@ namespace KingdomIdle.OfflineRewards
         public bool IsBusy { get; private set; }
         public PlayFabError LastFailure { get; private set; }
         private bool _ready;
+        private bool _holdsHunts;
         private OfflineRewardClaimResult _pendingAdBonus;
         private long _networkGeneration = -1;
         private GameplayLoading.Scope _claimLoading;
@@ -37,6 +38,7 @@ namespace KingdomIdle.OfflineRewards
 
         private void ResetClaims()
         {
+            ReleaseHunts();
             EndClaimLoading();
             EndAdBonusLoading();
             IsBusy = false;
@@ -82,6 +84,7 @@ namespace KingdomIdle.OfflineRewards
             _claimLoading = GameplayLoading.Begin("offline-settlement");
             LastFailure = null;
             StageManager.Instance?.HoldHunts();
+            _holdsHunts = StageManager.Instance != null;
             decimal kpm = Math.Max(0m, Math.Min(30m, LocalProgression.State.OfflineKpm));
             network.Call<OnClaimOfflineRewardRequestDTO, OnClaimOfflineRewardResponseDTO>(new OnClaimOfflineRewardRequestDTO { KillsPerMinute = kpm },
                 response => ApplyServerResult(kpm, response, onCompleted), error => RejectServerResult(kpm, error, onCompleted));
@@ -156,7 +159,7 @@ namespace KingdomIdle.OfflineRewards
         {
             IsBusy = false;
             EndClaimLoading();
-            StageManager.Instance?.ReleaseHunts();
+            ReleaseHunts();
             var pending = _pendingAdBonus;
             _pendingAdBonus = null;
             if (pending != null)
@@ -170,6 +173,7 @@ namespace KingdomIdle.OfflineRewards
 
         private void OnDestroy()
         {
+            ReleaseHunts();
             EndClaimLoading();
             EndAdBonusLoading();
             AdBonusBusy = false;
@@ -177,6 +181,13 @@ namespace KingdomIdle.OfflineRewards
             var pending = _pendingAdBonus;
             _pendingAdBonus = null;
             CompleteAdBonus(pending, RewardStatus.Stale, null);
+        }
+
+        private void ReleaseHunts()
+        {
+            if (!_holdsHunts) return;
+            _holdsHunts = false;
+            StageManager.Instance?.ReleaseHunts();
         }
 
         public static bool IsCurrentAccount(OfflineRewardClaimResult result)

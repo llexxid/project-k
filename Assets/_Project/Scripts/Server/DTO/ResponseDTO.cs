@@ -45,6 +45,8 @@ public class UserInitResponseDTO : ApiResponseDTO
     public RubyGrowthStateDTO RubyGrowthState { get; set; }
     // 누락된 구서버에는 기존 Hunt/Clear 경로를 유지한다. 지원 여부는 현재 로그인 응답으로만 판단한다.
     public MainBattleStateDTO MainBattle { get; set; }
+    public EconomyBatchStateDTO EconomyBatchState { get; set; }
+    public EconomyDungeonBattleDTO EconomyDungeonBattle { get; set; }
     public List<TutorialProgressDTO> Tutorials { get; set; }
     [JsonProperty(Required = Required.Always)]
     public List<CharacterDataQuery> CharacterJobs { get; set; } = null!;

@@ -112,8 +112,9 @@ namespace KingdomIdle.Mailbox.Testing
             row.claim.onClick.Invoke();
             Check(!_fixture.Mails.Any(m => m.MailId == id) && _fixture.Applied == 1, "rebound claim removes correct server mail");
             Check(_view.deleteClaimed != null && !_view.deleteClaimed.interactable, "delete prefab button retained and disabled");
-            var result = _root.GetComponentsInChildren<RewardPopupView>().Last();
+            var result = UIManager.Instance.LayerOverlays.GetComponentsInChildren<RewardPopupView>().Last();
             Check(result.slots.GetComponentsInChildren<RewardSlotView>().Any(s => s.day.text == "자동 분해"), "actual equipment disposition in reward popup");
+            result.Close();
             return new { passed = checks.Count, checks, pool, state = Inspect() };
         }
 
@@ -150,7 +151,56 @@ namespace KingdomIdle.Mailbox.Testing
             _fixture.Lists.Dequeue()();
             if (_fixture.Applied != 1 || _fixture.Service.Messages.Count != 0)
                 throw new InvalidOperationException("MAIL UI ASSERT: reopened mailbox could not claim");
+            RefreshUi();
+            foreach (var popup in UIManager.Instance.LayerOverlays.GetComponentsInChildren<RewardPopupView>()) popup.Close();
             return new { passed = 3, stopped, _fixture.Applied, _fixture.ListCalls };
+        }
+
+        private static void RefreshUi()
+        {
+            const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+            typeof(UIManager).GetMethod("TickRewardRequests", flags).Invoke(UIManager.Instance, null);
+            typeof(UIManager).GetMethod("RefreshLoading", flags).Invoke(UIManager.Instance, null);
+        }
+
+        public static object VerifyPendingPresentation()
+        {
+            var checks = new List<string>();
+            void Check(bool ok, string message) { if (!ok) throw new InvalidOperationException(message); checks.Add(message); }
+            RewardPopupView[] Results() => UIManager.Instance.LayerOverlays.GetComponentsInChildren<RewardPopupView>(false);
+            void ClearResults() { foreach (var result in Results()) result.Close(); }
+            Open(1); _fixture.HoldClaims = true;
+            _view.claimAll.onClick.Invoke();
+            Check(Scripts.Core.Utils.GameplayLoading.IsInputBlocked, "mail click blocks before its delayed response");
+            UnityEngine.Object.DestroyImmediate(_view.gameObject);
+            _fixture.Claims.Dequeue()(); RefreshUi();
+            Check(Results().Length == 1 && Results()[0].transform.parent == UIManager.Instance.LayerOverlays,
+                "saved mail result survives destruction of its original panel");
+            ClearResults();
+
+            Open(1); _fixture.HoldClaims = _fixture.HoldLists = true;
+            _view.claimAll.onClick.Invoke(); _fixture.Claims.Dequeue()(); RefreshUi();
+            Check(Results().Length == 0 && Scripts.Core.Utils.GameplayLoading.IsInputBlocked && _fixture.Lists.Count == 1,
+                "mail result waits for its own follow-up list while preserving input ownership");
+            _fixture.Lists.Dequeue()(); RefreshUi();
+            Check(Results().Length == 1, "confirmed follow-up list hands input directly to the saved result");
+            ClearResults();
+
+            Open(1); _fixture.HoldClaims = true;
+            _view.claimAll.onClick.Invoke(); _fixture.Generation++; _fixture.Service.CheckAccount();
+            _fixture.Claims.Dequeue()(); RefreshUi();
+            Check(Results().Length == 0 && !Scripts.Core.Utils.GameplayLoading.IsInputBlocked,
+                "old account callback neither presents mail rewards nor retains the input lock");
+
+            Open(1); _fixture.CommitThenTimeout = _fixture.HoldRecovery = true;
+            _view.claimAll.onClick.Invoke(); RefreshUi();
+            Check(Results().Length == 0 && Scripts.Core.Utils.GameplayLoading.IsInputBlocked,
+                "uncertain payout keeps input blocked through the existing recovery");
+            _fixture.Recoveries.Dequeue()(); RefreshUi();
+            Check(Results().Length == 0 && !Scripts.Core.Utils.GameplayLoading.IsInputBlocked && _fixture.AppliedGold == 10,
+                "recovery preserves server payout without inventing a reward popup");
+            Close();
+            return new { passed = checks.Count, checks };
         }
 
         public static object VerifyAnchorAndCompatibility()

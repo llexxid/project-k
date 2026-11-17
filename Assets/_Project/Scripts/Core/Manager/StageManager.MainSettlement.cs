@@ -15,6 +15,10 @@ namespace Scripts.Core.Manager
         private float _nextHuntSendAt;
         private string _mainRunForSession;
         private bool _recoveringMainCompletion;
+        private bool _economyCompletionPending;
+        private Action _retryEconomyCompletion;
+        private Action<bool> _onMainCompletionRecovered;
+        private float _beforeMainCompletionRecovery;
         private const float MainTailGraceSeconds = 3f;
         private string _mainTailRunId;
         private NetworkManager _mainTailNetwork;
@@ -31,6 +35,10 @@ namespace Scripts.Core.Manager
 
         private void PumpHuntRetry()
         {
+            if (_retryEconomyCompletion != null && EconomyBatchProgression.Available && !EconomyBatchProgression.HasUnknownResult)
+            {
+                var retry = _retryEconomyCompletion; _retryEconomyCompletion = null; retry();
+            }
             PumpMainTail(Time.realtimeSinceStartup);
             if (_nextHuntSendAt > 0f && Time.realtimeSinceStartup >= _nextHuntSendAt)
             {
@@ -51,7 +59,13 @@ namespace Scripts.Core.Manager
         private bool BindMainWaveRun(StageDefinition definition)
         {
             _mainRunForSession = null;
-            if (definition.Type != eStageType.Main || !MainWaveProgression.Available) return true;
+            if (definition.Type != eStageType.Main) return true;
+            if (!MainWaveProgression.Available)
+            {
+                if (!EconomyBatchProgression.Available) return true;
+                StopMainSettlement("경제 정산에 필요한 메인 회차를 확인하지 못했습니다. 재접속해 주세요.");
+                return false;
+            }
             var battle = LocalProgression.State.MainBattle;
             if (battle == null || battle.Stage != (long)definition.Id)
             {
@@ -115,6 +129,33 @@ namespace Scripts.Core.Manager
             Time.timeScale = 0f;
             Debug.LogError("[MainWave] " + message);
             KingdomIdle.UGUI.UIManager.Instance?.ShowToast(message);
+            FinishMainCompletionRecovery(false);
+        }
+
+        /// <summary>로그인 복구에서 원래 완료 ID를 확인하고 전투 시작은 호출자에게 맡긴다.</summary>
+        public bool RecoverPendingMainCompletion(Action<bool> completed)
+        {
+            if (completed == null || _onMainCompletionRecovered != null) return false;
+            ResetHuntTransport();
+            EndSession();
+            if (LocalProgression.State.PendingMainCompletion == null) { completed(true); return true; }
+            if (NetworkManager.Instance == null || !NetworkManager.Instance.IsGameDataReady) return false;
+            _beforeMainCompletionRecovery = Time.timeScale;
+            _onMainCompletionRecovered = completed;
+            _huntSyncFailed = false;
+            return ResumePendingMainCompletion();
+        }
+
+        private bool FinishMainCompletionRecovery(bool success)
+        {
+            var callback = _onMainCompletionRecovered;
+            if (callback == null) return false;
+            _onMainCompletionRecovered = null;
+            _recoveringMainCompletion = false;
+            EndStageLoading();
+            if (success) Time.timeScale = _beforeMainCompletionRecovery;
+            callback(success);
+            return true;
         }
 
         private bool ResumePendingMainCompletion()
@@ -142,6 +183,7 @@ namespace Scripts.Core.Manager
 
         private bool FlushMainWaveHunts(bool explicitSettlement = false)
         {
+            if (EconomyBatchProgression.Available) return false;
             bool stateAllowed = _currentState == eStageRunState.Running || (explicitSettlement &&
                 (_currentState == eStageRunState.DefeatPending || _currentState == eStageRunState.Resolving));
             if (_mainRunForSession == null || _currentSession == null || _huntOutbox.Count != 0 ||
@@ -166,6 +208,38 @@ namespace Scripts.Core.Manager
         }
 
         private void EnqueueMainCompletion(StageDefinition definition, bool showResult)
+        {
+            if (!EconomyBatchProgression.Available) { QueueMainCompletion(definition, showResult); return; }
+            if (_economyCompletionPending) return;
+            _economyCompletionPending = true;
+            var session = _currentSession;
+            var network = NetworkManager.Instance;
+            long generation = LocalProgression.AccountGeneration, networkGeneration = network.AccountGeneration;
+            var token = _token;
+            float presentAfter = Time.realtimeSinceStartup + MainWaveClearHoldSeconds;
+            BeginStageLoading("main-economy-settlement", presentAfter);
+            bool OwnsCompletion() => this != null && generation == LocalProgression.AccountGeneration && NetworkManager.Instance == network &&
+                network.AccountGeneration == networkGeneration && ReferenceEquals(_token, token) && _currentSession == session;
+            void SettlementFailed()
+            {
+                _economyCompletionPending = false;
+                if (EconomyBatchProgression.HasUnknownResult)
+                    _retryEconomyCompletion = () => { if (OwnsCompletion()) EnqueueMainCompletion(definition, showResult); };
+                else StopMainSettlement("메인 완료 전 경제 정산을 확인하지 못했습니다. 재접속해 주세요.");
+            }
+            if (!EconomyBatchProgression.FlushBeforeWrite(ok =>
+            {
+                if (!OwnsCompletion()) return;
+                _economyCompletionPending = false;
+                if (ok) QueueMainCompletion(definition, showResult, presentAfter);
+                else SettlementFailed();
+            }))
+            {
+                SettlementFailed();
+            }
+        }
+
+        private void QueueMainCompletion(StageDefinition definition, bool showResult, float presentAfter = 0f)
         {
             var battle = LocalProgression.State.MainBattle;
             if (!MainWaveProgression.Available || battle == null || battle.RunId != _mainRunForSession ||
@@ -201,7 +275,7 @@ namespace Scripts.Core.Manager
                 if ((i == 0 && _huntInFlight) || queued[i].MainRunId != battle.RunId) _huntOutbox.Enqueue(queued[i]);
             _huntBuffer.Remove(battle.Stage);
             var pending = LocalProgression.State.PendingMainCompletion;
-            float presentAfter = Time.realtimeSinceStartup + MainWaveClearHoldSeconds;
+            if (presentAfter <= 0f) presentAfter = Time.realtimeSinceStartup + MainWaveClearHoldSeconds;
             BeginStageLoading("main-complete", presentAfter);
             _huntOutbox.Enqueue(new HuntOutboxItem
             {
@@ -272,6 +346,12 @@ namespace Scripts.Core.Manager
                 result.GrantedRewards.Any(reward => reward != null && reward.Kind == RewardKind.Equipment))
                 GameManager.Instance?.Mailbox?.RefreshAfterDelivery("main-completion-overflow");
             QuestManager.Instance?.RequestRefresh("clear");
+            if (_onMainCompletionRecovered != null)
+            {
+                Dequeue(item);
+                FinishMainCompletionRecovery(true);
+                return;
+            }
             if (session != null)
             {
                 UpdateMaxClearedStage(session.Definition);
@@ -352,6 +432,7 @@ namespace Scripts.Core.Manager
                 FinishHuntSettlement(false);
                 _huntSyncFailed = false;
                 _currentState = eStageRunState.Resolving;
+                if (FinishMainCompletionRecovery(true)) return;
                 if (!TransitionStage((eStage)state.MainStage)) StopMainSettlement("서버의 현재 위치로 이동하지 못했습니다. 재접속해 주세요.");
             });
         }

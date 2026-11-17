@@ -133,6 +133,92 @@ namespace KingdomIdle.UGUI.Editor
                     "Actual catalog loading prefabs in isolated Editor Game View; UI fixture only. No login, server request, profile, or rewards.");
                 yield return Capture("00-before");
 
+                bool requestPending = true;
+                var background = new GameObject("BackgroundAction", typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(UnityEngine.UI.Button));
+                background.transform.SetParent(_fixture.Host.LayerOverlays, false);
+                int backgroundClicks = 0;
+                background.GetComponent<UnityEngine.UI.Button>().onClick.AddListener(() => backgroundClicks++);
+                EventSystem.current.SetSelectedGameObject(background);
+                var pointer = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left };
+                ExecuteEvents.Execute(background, pointer, ExecuteEvents.pointerDownHandler);
+                var longPressObject = new GameObject("TowerTouch", typeof(RectTransform), typeof(UnityEngine.UI.Button), typeof(UILongPressButton));
+                longPressObject.transform.SetParent(_fixture.Host.LayerOverlays, false);
+                var longPress = longPressObject.GetComponent<UILongPressButton>();
+                int towerTaps = 0, towerHolds = 0;
+                longPress.Tapped += () => towerTaps++;
+                longPress.LongPressed += () => towerHolds++;
+                longPress.OnPointerDown(pointer);
+                var input = _fixture.Host.BeginRewardRequest("ui-fixture-reward", () => requestPending);
+                Check(GameplayLoading.IsInputBlocked, "reward click owns input in the same frame");
+                Check(!_fixture.Circle.indicator.gameObject.activeSelf, "immediate input block does not flash the delayed spinner");
+                ExecuteEvents.Execute(background, pointer, ExecuteEvents.pointerUpHandler);
+                ExecuteEvents.Execute(background, pointer, ExecuteEvents.pointerClickHandler);
+                ExecuteEvents.Execute(background, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+                Check(backgroundClicks == 0 && EventSystem.current.currentSelectedGameObject == null,
+                    "a pointer already pressed and keyboard submit cannot trigger the covered action");
+                longPress.OnPointerUp(pointer);
+                Check(towerTaps == 0, "a tower touch started before the reward cannot open a popup on release");
+                int inputFrame = Time.frameCount;
+                yield return new WaitUntil(() => Time.frameCount > inputFrame);
+                Check(_fixture.RaycastIsBlocked(), "the next rendered frame routes pointers to the transparent blocker");
+                Check(Time.timeScale == previousScale, "input ownership does not stop or rescale battle time");
+                requestPending = false;
+                int shown = 0;
+                Action closeFirst = null, closeSecond = null;
+                GameObject Result(Action closed)
+                {
+                    shown++;
+                    if (shown == 1) closeFirst = closed; else closeSecond = closed;
+                    var result = new GameObject("QueuedReward", typeof(RectTransform));
+                    result.transform.SetParent(_fixture.Host.LayerOverlays, false);
+                    ModalBackHandler.Bind(result, closed);
+                    return result;
+                }
+                using var backgroundWait = GameplayLoading.Begin("ui-fixture-background-stage");
+                _fixture.Host.CompleteRewardRequest(input, Result);
+                _fixture.Refresh();
+                Check(shown == 1, "unrelated background stage work does not delay a ready reward result");
+                backgroundWait.Dispose();
+                var next = _fixture.Host.BeginRewardRequest("ui-fixture-next-reward", () => false);
+                _fixture.Host.CompleteRewardRequest(next, Result);
+                Check(shown == 1 && GameplayLoading.IsInputBlocked, "overlapping results queue without replacing the first result");
+                int unrelatedCloses = 0;
+                var unrelated = new GameObject("AutomaticDungeonResult", typeof(RectTransform));
+                unrelated.transform.SetParent(_fixture.Host.LayerOverlays, false);
+                ModalBackHandler.Bind(unrelated, () => unrelatedCloses++);
+                _fixture.Host.RequestBack();
+                closeFirst();
+                Check(shown == 2 && GameplayLoading.IsInputBlocked, "closing a result hands input ownership directly to the next result");
+                Check(unrelatedCloses == 0, "back closes the owned reward even when a dungeon modal arrived above it");
+                Object.DestroyImmediate(unrelated);
+                closeSecond(); closeSecond();
+                Check(!GameplayLoading.IsInputBlocked && !_fixture.RaycastIsBlocked(), "last result and duplicate close release input exactly once");
+                longPress.longPressSeconds = 0f;
+                longPress.OnPointerDown(pointer);
+                using (var holdBlock = _fixture.Host.BeginRewardRequest("ui-fixture-tower-hold", () => true))
+                {
+                    typeof(UILongPressButton).GetMethod("Update", Members).Invoke(longPress, null);
+                    longPress.OnPointerUp(pointer);
+                    longPress.OnPointerDown(pointer);
+                }
+                _fixture.Refresh();
+                longPress.OnPointerUp(pointer);
+                Check(towerHolds == 0 && towerTaps == 0, "covered tower hold and new covered press cannot change AUTO or leave a deferred tap");
+                longPress.OnPointerDown(pointer); longPress.OnPointerUp(pointer);
+                Check(towerTaps == 1, "a new tower touch works after reward input ownership ends");
+                var missing = _fixture.Host.BeginRewardRequest("ui-fixture-missing-result", () => false);
+                _fixture.Host.CompleteRewardRequest(missing, _ => null);
+                Check(!GameplayLoading.IsInputBlocked, "missing result prefab cannot retain input ownership");
+                var broken = _fixture.Host.BeginRewardRequest("ui-fixture-broken-result", () => false);
+                _fixture.Host.CompleteRewardRequest(broken, _ => throw new InvalidOperationException("Expected reward renderer fixture failure"));
+                Check(!GameplayLoading.IsInputBlocked, "a result callback exception cannot retain input ownership");
+                var stale = _fixture.Host.BeginRewardRequest("ui-fixture-old-result", () => false);
+                _fixture.Host.CompleteRewardRequest(stale, Result);
+                GameplayLoading.Reset(); _fixture.Refresh();
+                Check(!GameplayLoading.IsInputBlocked && !_fixture.RaycastIsBlocked(), "account reset discards the old result and its input ownership");
+                Object.DestroyImmediate(background);
+                Object.DestroyImmediate(longPressObject);
+
                 using (var fast = GameplayLoading.Begin("ui-fixture-fast"))
                 {
                     Mark("fast-start");
@@ -342,6 +428,7 @@ namespace KingdomIdle.UGUI.Editor
 
             public bool RaycastIsBlocked()
             {
+                Canvas.ForceUpdateCanvases();
                 var hits = new List<RaycastResult>();
                 _eventSystem.RaycastAll(new PointerEventData(_eventSystem) { position = new Vector2(Screen.width * .5f, Screen.height * .5f) }, hits);
                 return hits.Count > 0 && (hits[0].gameObject.transform.IsChildOf(Circle.transform) || hits[0].gameObject.transform.IsChildOf(Scene.transform));

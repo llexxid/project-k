@@ -20,6 +20,9 @@ namespace Scripts.Core
 	{
 		public static UserManager Instance;
 		private User _user;
+		private List<Action<bool>> _refreshWaiters;
+		private long _refreshGeneration = -1;
+		private long _refreshLocalGeneration = -1;
 		internal User CurrentUser => _user;
 
 		//ForTest
@@ -246,6 +249,7 @@ namespace Scripts.Core
 			s.TicketDay = ticketDay;
 			s.ActiveDungeon = dungeon.ActiveBattleId;
 			s.ServerDungeonId = dungeon.ActiveDungeonId ?? 0;
+			if (dungeon.ActiveBattleId == null) s.Economy.Dungeon = null;
 			return true;
 		}
 
@@ -705,7 +709,11 @@ namespace Scripts.Core
 			long highest = (long)response.StageState.MainClear;
 			bool ok = LocalProgression.Execute("server-player-data", s =>
 			{
+				if (response.EconomyRevision.HasValue && response.EconomyRevision < s.ServerEconomyRevision) return false;
+				if (!EconomyBatchProgression.ApplyBatchMetadata(s, response.EconomyBatchState, response.EconomyRevision ?? -1)) return false;
+				if (response.EconomyRevision.HasValue) s.ServerEconomyRevision = response.EconomyRevision.Value;
 				if (!ApplyDungeonState(s, response.DungeonState)) return false;
+				if (response.EconomyBatchState != null) s.Economy.Dungeon = EconomyCopies.Copy(response.EconomyDungeonBattle);
 				if (!s.Modules.ContainsKey("imported"))
 				{
 					// 첫 적용: 서버 값으로 덮기 전의 로컬 상태를 보존하고 기존 게이트(imported)를 유지한다.
@@ -746,6 +754,11 @@ namespace Scripts.Core
 			// 퀘스트 상태는 플레이어 상태 파일이 아니라 QuestManager가 보관한다(응답마다 전체 행이 와서 통째로 교체한다).
 			if (ok) RubyProgression.ReceiveServerState(response.RubyGrowthState != null);
             if (ok) MainWaveProgression.ReceiveServerState(response.MainBattle != null);
+			if (ok)
+			{
+				EconomyBatchProgression.ReceiveServerState(response.EconomyBatchState?.Version == EconomyBatchProtocol.Version);
+				EconomyBatchProgression.ConfirmFullRefresh();
+			}
 			if (ok) Direction.GameDirectProgressStore.ReceiveServerState(response.Tutorials);
 			if (ok) QuestManager.Receive(response.Quests, response is OnGetUserStateResponseDTO ? "state" : "login");
 			// 출석판도 플레이어 상태 파일이 아니라 CheckInService가 보관한다. 우편함은 로그인할 때마다 다시 조회한다.
@@ -765,18 +778,37 @@ namespace Scripts.Core
 		{
 			var network = NetworkManager.Instance;
 			if (network == null || !network.IsGameDataReady) { onDone?.Invoke(false); return; }
+			long generation = network.AccountGeneration;
+			long localGeneration = LocalProgression.AccountGeneration;
+			if (_refreshWaiters != null && _refreshGeneration == generation && _refreshLocalGeneration == localGeneration)
+			{ if (onDone != null) _refreshWaiters.Add(onDone); return; }
+			_refreshGeneration = generation;
+			_refreshLocalGeneration = localGeneration;
+			_refreshWaiters = new List<Action<bool>>();
+			if (onDone != null) _refreshWaiters.Add(onDone);
+			bool finished = false;
+			void Finish(bool ok)
+			{
+				if (finished) return;
+				finished = true;
+				if (this == null || NetworkManager.Instance != network || network.AccountGeneration != generation || LocalProgression.AccountGeneration != localGeneration) return;
+				var waiters = _refreshWaiters; _refreshWaiters = null;
+				if (!ok && EconomyBatchProgression.Available) EconomyBatchProgression.MarkUnknown("서버 상태를 확인하지 못했습니다. 다시 연결해 주세요.");
+				foreach (var waiter in waiters)
+					try { waiter(ok); } catch (Exception error) { Debug.LogException(error); }
+			}
 			network.Call<OnGetUserStateRequestDTO, OnGetUserStateResponseDTO>(new OnGetUserStateRequestDTO(),
 				response =>
 				{
 					bool ok = ApplyServerPlayerData(response);
 					EquipmentManager.Instance?.RestoreEquipment();
 					KingdomIdle.MageTower.MageTowerManager.Instance?.NotifyCommitted();
-					onDone?.Invoke(ok);
+					Finish(ok);
 				},
 				error =>
 				{
 					Debug.LogWarning("[PlayerData] OnGetUserState 실패: " + error?.ErrorMessage);
-					onDone?.Invoke(false);
+					Finish(false);
 				});
 		}
 		public void SetCharacterData(List<CharacterDataQuery> query)

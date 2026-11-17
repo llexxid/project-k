@@ -4,6 +4,10 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using MainWaveProgression = KingdomIdle.Balance.MainWaveProgression;
+using EconomyBatchProtocol = KingdomIdle.Balance.EconomyBatchProtocol;
+using EconomyBatchProgression = KingdomIdle.Balance.EconomyBatchProgression;
+using EconomyResponseApply = KingdomIdle.Balance.EconomyResponseApply;
+using LocalProgression = KingdomIdle.Balance.LocalProgression;
 using IdleKingdomFunction.Common;
 using Protocol.Message.Dto;
 using Newtonsoft.Json;
@@ -46,6 +50,7 @@ namespace Scripts.Core.Manager
         private float _callStartedAt;
         private string _callInFlightName;
         private Action<PlayFabError> _callInFlightTimeout;
+        private int _economicCalls;
 
         private void EnqueueCall(string function, Action send, Action<PlayFabError> timeout)
         {
@@ -77,6 +82,8 @@ namespace Scripts.Core.Manager
             _callInFlight = false;
             _callInFlightName = null;
             _callInFlightTimeout = null;
+            _economicCalls = 0;
+            EconomyBatchProgression.SetExternalWritePending(false);
         }
         private void Update()
         {
@@ -98,6 +105,8 @@ namespace Scripts.Core.Manager
                 [typeof(OnRewardRequestDTO)] = ("OnHuntReward", typeof(OnHuntResponseDTO)),
                 [typeof(OnStageClearRequestDTO)] = ("OnStageClear", typeof(OnStageClearResponseDTO)),
                 [typeof(OnCompleteMainWaveRequestDTO)] = ("OnCompleteMainWave", typeof(OnCompleteMainWaveResponseDTO)),
+                [typeof(OnEconomyBatchRequestDTO)] = ("OnEconomyBatch", typeof(OnEconomyBatchResponseDTO)),
+                [typeof(OnGetEconomyBatchResultRequestDTO)] = ("OnGetEconomyBatchResult", typeof(OnEconomyBatchResponseDTO)),
                 [typeof(OnChangeMainStageRequestDTO)] = ("OnChangeMainStage", typeof(OnChangeMainStageResponseDTO)),
                 [typeof(OnGachaEquipmentClassFragmentRequestDTO)] = ("OnGachaEquipmentClassFragment", typeof(OnGachaEquipmentClassFragmentResponseDTO)),
                 [typeof(OnGachaSkillArcaneKnowledgeRequestDTO)] = ("OnGachaSkillArcaneKnowledge", typeof(OnGachaSkillArcaneKnowledgeResponseDTO)),
@@ -241,7 +250,12 @@ namespace Scripts.Core.Manager
             ExecuteFunctionRequest cloudFunction;
             string rubyRequestId = (request as RubyGrowthRequestDTO)?.RequestId;
             var mainCompletion = request as OnCompleteMainWaveRequestDTO;
-            try { cloudFunction = CreateFunctionRequest<TRequest, TResponse>(request, _sessionGUID, _context); }
+            try
+            {
+                if (request is OnEconomyBatchRequestDTO || request is OnGetEconomyBatchResultRequestDTO)
+                    request = JsonConvert.DeserializeObject<TRequest>(JsonConvert.SerializeObject(request));
+                cloudFunction = CreateFunctionRequest<TRequest, TResponse>(request, _sessionGUID, _context);
+            }
             catch (Exception ex) when (ex is ArgumentException || ex is JsonException)
             {
                 errorCallback?.Invoke(CreateError("InvalidRequest", ex.Message));
@@ -250,6 +264,11 @@ namespace Scripts.Core.Manager
             catch (InvalidOperationException ex)
             {
                 errorCallback?.Invoke(CreateError("NotAuthenticated", ex.Message));
+                return;
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                errorCallback?.Invoke(CreateError("InvalidRequest", "복구 식별자를 저장하지 못했습니다. 저장 공간을 확인해 주세요.", details: ex));
                 return;
             }
             if (_context == null)
@@ -264,20 +283,45 @@ namespace Scripts.Core.Manager
             }
 
             long generation = AccountGeneration;
+            long localGeneration = LocalProgression.AccountGeneration;
             bool completed = false;
             bool queued = request is SessionRequestDTO;
+            bool enteredQueue = false, economicOwned = false, sent = false;
+            bool batchRequest = request is OnEconomyBatchRequestDTO || request is OnGetEconomyBatchResultRequestDTO;
+            bool recoveryRead = request is OnGetUserStateRequestDTO;
+            bool economic = queued && !batchRequest;
+            bool legacyRecovery = !EconomyBatchProgression.HasUnresolvedBatch && LocalProgression.TryGetCommittedState(out var committed) &&
+                (request is RubyGrowthRequestDTO legacyRuby && legacyRuby.RequestId == committed.PendingRubyRequestId ||
+                 mainCompletion != null && mainCompletion.RequestId == committed.PendingMainCompletion?.RequestId);
             bool IsCurrent() => this != null && generation == AccountGeneration;
             // Callbacks may enqueue follow-up calls; those wait until this one has fully completed (FIFO).
             void Done()
             {
-                if (queued && IsCurrent()) CompleteQueuedCall();
+                if (!IsCurrent()) return;
+                if (economicOwned)
+                {
+                    economicOwned = false;
+                    _economicCalls--;
+                    EconomyBatchProgression.SetExternalWritePending(_economicCalls > 0);
+                }
+                if (enteredQueue) CompleteQueuedCall();
             }
             void Fail(PlayFabError error)
             {
                 if (completed || !IsCurrent()) return;
                 completed = true;
-                try { errorCallback?.Invoke(UnwrapFailure(cloudFunction.FunctionName, error)); }
-                finally { Done(); }
+                if (queued && localGeneration != LocalProgression.AccountGeneration) { Done(); return; }
+                var failure = UnwrapFailure(cloudFunction.FunctionName, error);
+                if (economic && sent && EconomyBatchProgression.Available && IsUncertainEconomicFailure(failure))
+                    EconomyBatchProgression.MarkUnknown(failure.ErrorMessage);
+                try { errorCallback?.Invoke(failure); }
+                finally
+                {
+                    if (economic && sent && !recoveryRead && IsCurrent() && localGeneration == LocalProgression.AccountGeneration &&
+                        EconomyBatchProgression.Available && EconomyBatchProgression.HasUnknownResult)
+                        UserManager.Instance?.RefreshFromServer(_ => { });
+                    Done();
+                }
             }
             void Success(ExecuteFunctionResult result)
             {
@@ -298,23 +342,67 @@ namespace Scripts.Core.Manager
                     Fail(CreateError("InvalidResponse", "메인 회차 요청과 응답이 일치하지 않습니다.", cloudFunction.FunctionName));
                     return;
                 }
+                if (response is OnEconomyBatchResponseDTO economy)
+                {
+                    try { EconomyBatchProtocol.MatchRequest(economy, request); }
+                    catch (JsonException ex)
+                    {
+                        Fail(CreateError("InvalidResponse", ex.Message, cloudFunction.FunctionName));
+                        return;
+                    }
+                }
                 completed = true;
-                try { successCallback?.Invoke(response); }
+                EconomyResponseApply.Scope application = null;
+                bool applied = false;
+                bool unknownBeforeResponse = EconomyBatchProgression.HasUnknownResult;
+                try
+                {
+                    if (economic && response.EconomyRevision.HasValue)
+                    {
+                        LocalProgression.Ensure();
+                        if (localGeneration != LocalProgression.AccountGeneration) throw new InvalidOperationException("계정이 변경됐습니다.");
+                        application = EconomyResponseApply.Begin(response);
+                    }
+                    successCallback?.Invoke(response);
+                    applied = true;
+                }
                 catch (Exception ex)
                 {
-                    if (IsCurrent())
+                    if (IsCurrent() && localGeneration == LocalProgression.AccountGeneration)
                     {
+                        if (economic && EconomyBatchProgression.Available)
+                            EconomyBatchProgression.MarkUnknown("서버 결과를 저장하지 못했습니다.");
                         errorCallback?.Invoke(CreateError("ApplyFailed",
                             "서버 결과 적용에 실패했습니다. 상태를 다시 불러와야 합니다.", cloudFunction.FunctionName, ex));
                     }
                     Debug.LogException(ex);
                 }
-                finally { Done(); }
+                finally
+                {
+                    try
+                    {
+                        bool durable = application?.Complete(applied, unknownBeforeResponse) ?? applied;
+                        if (economic && IsCurrent() && localGeneration == LocalProgression.AccountGeneration &&
+                            EconomyBatchProgression.Available && (!durable || !response.EconomyRevision.HasValue))
+                        {
+                            EconomyBatchProgression.MarkUnknown("서버 경제 상태를 다시 확인하고 있습니다.");
+                            if (!recoveryRead) UserManager.Instance?.RefreshFromServer(_ => { });
+                        }
+                        else if (legacyRecovery && unknownBeforeResponse && IsCurrent()) UserManager.Instance?.RefreshFromServer(_ => { });
+                    }
+                    finally { application?.Dispose(); Done(); }
+                }
             }
             void Send()
             {
                 if (!IsCurrent()) return;
-                try { PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, Success, Fail); }
+                if (queued && localGeneration != LocalProgression.AccountGeneration ||
+                    economic && !recoveryRead && !legacyRecovery && EconomyBatchProgression.HasUnknownResult)
+                {
+                    Fail(CreateError("EconomyHeld", "이전 요청의 결과를 확인한 뒤 다시 시도해 주세요.", cloudFunction.FunctionName));
+                    return;
+                }
+                try { sent = true; PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, Success, Fail); }
                 catch (Exception ex)
                 {
                     Fail(CreateError("Transport", "요청을 전송하지 못했습니다.", cloudFunction.FunctionName, ex));
@@ -322,8 +410,36 @@ namespace Scripts.Core.Manager
                 }
             }
 
-            if (queued) EnqueueCall(cloudFunction.FunctionName, Send, Fail);
-            else Send();
+            void QueueAndSend()
+            {
+                if (completed || !IsCurrent()) return;
+                if (!queued) { Send(); return; }
+                if (economic)
+                {
+                    economicOwned = true;
+                    _economicCalls++;
+                    EconomyBatchProgression.SetExternalWritePending(true);
+                }
+                enteredQueue = true;
+                EnqueueCall(cloudFunction.FunctionName, Send, Fail);
+            }
+            if (economic && !recoveryRead && !legacyRecovery && EconomyBatchProgression.Available)
+            {
+                if (!EconomyBatchProgression.FlushBeforeWrite(ok =>
+                {
+                    if (ok) QueueAndSend();
+                    else Fail(CreateError("EconomyHeld", "이전 입력의 처리를 확인한 뒤 다시 시도해 주세요.", cloudFunction.FunctionName));
+                })) Fail(CreateError("EconomyHeld", "이전 입력의 처리가 필요합니다.", cloudFunction.FunctionName));
+            }
+            else QueueAndSend();
+        }
+
+        private static bool IsUncertainEconomicFailure(PlayFabError error)
+        {
+            if (TryGetBusinessError(error, out var business))
+                return business.ErrorCode == Protocol.Message.Data.eErrorCode.StorageFailure || business.ErrorCode == Protocol.Message.Data.eErrorCode.InvalidStoredData;
+            string kind = GetFailureKind(error);
+            return kind != "InvalidRequest" && kind != "NotAuthenticated" && kind != "IntegrationPending" && kind != "EconomyHeld";
         }
 
         // Type-key lookup only; no type-name parsing, member discovery or reflective invocation.
@@ -346,6 +462,14 @@ namespace Scripts.Core.Manager
 
             // Retain an independent payload if the caller clears/reuses a collection after Call.
             var payload = JsonConvert.DeserializeObject<TRequest>(JsonConvert.SerializeObject(request));
+            if (payload is EquipmentAuthRequestDTO auth)
+            {
+                auth.EconomyBatchVersion = EconomyBatchProtocol.Version;
+                auth.EconomyClientId = EconomyBatchProgression.ClientId;
+            }
+            if (payload is OnEconomyBatchRequestDTO batch) EconomyBatchProtocol.ValidateRequest(batch);
+            if (payload is OnGetEconomyBatchResultRequestDTO query && !EconomyBatchProtocol.ValidIdentity(query.RequestId, query.Generation, query.Sequence))
+                throw new ArgumentException("경제 배치 결과 조회 ID를 확인해 주세요.");
             if (payload is OnCompleteMainWaveRequestDTO complete &&
                 (!MainWaveProgression.ValidId(complete.MainRunId) || !MainWaveProgression.ValidId(complete.RequestId) ||
                  !ValidMainStage((long)complete.ClearedStage) || complete.TotalKills == null || complete.TotalKills.Count == 0 ||
@@ -433,8 +557,18 @@ namespace Scripts.Core.Manager
         private static void ValidateResponse(ApiResponseDTO response)
         {
             if (response == null) throw new JsonSerializationException("Empty response.");
+            if (response.EconomyRevision < 0) throw new JsonSerializationException("Invalid economy revision.");
+            if (response is OnEconomyBatchResponseDTO economy) EconomyBatchProtocol.ValidateResponse(economy);
             if (response is UserInitResponseDTO user)
             {
+                if (user.EconomyBatchState != null)
+                {
+                    EconomyBatchProtocol.ValidateMetadata(user.EconomyBatchState, user.EconomyRevision);
+                    EconomyBatchProtocol.ValidateDungeon(user.EconomyDungeonBattle);
+                    if (user.DungeonState == null || user.EconomyDungeonBattle?.BattleId != user.DungeonState.ActiveBattleId ||
+                        user.EconomyDungeonBattle != null && user.EconomyDungeonBattle.DungeonId != user.DungeonState.ActiveDungeonId)
+                        throw new JsonSerializationException("Economy dungeon snapshot mismatch.");
+                }
                 if (string.IsNullOrWhiteSpace(user.SessionID) || user.Level < 1 || user.Exp < 0 || user.KillScore < 0 ||
                     user.EnchantHPCount < 0 || user.EnchantATKCount < 0 || user.StageState == null || (long)user.StageState.CurrentStage <= 0 ||
                     user.CharacterDatas.Count != 3 || user.CharacterDatas.Any(x => x == null || x.Index < 0 || x.Index > 2 || x.Hp <= 0 || x.Atk < 0) ||

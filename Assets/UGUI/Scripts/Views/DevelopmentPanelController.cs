@@ -70,6 +70,8 @@ namespace KingdomIdle.UGUI
                 {
                     _view = null; _body = null; Cards.Clear(); GrowthTabs.Clear(); CountTabs.Clear();
                     EconomyBridge.OnAmountChanged -= OnCurrencyChanged;
+                    EconomyBatchProgression.Changed -= Refresh;
+                    LocalProgression.AccountChanged -= Refresh;
                     _subscribedCurrency = false;
                     if (_subscribedEnhanceMgr != null)
                     {
@@ -92,6 +94,8 @@ namespace KingdomIdle.UGUI
             if (!_subscribedCurrency)
             {
                 EconomyBridge.OnAmountChanged += OnCurrencyChanged;
+                EconomyBatchProgression.Changed += Refresh;
+                LocalProgression.AccountChanged += Refresh;
                 _subscribedCurrency = true;
             }
 
@@ -135,9 +139,18 @@ namespace KingdomIdle.UGUI
 
             // 보유 골드 바 (.ka-dev-gold-bar: 26px gold bold) — 텍스트만 갱신
             EconomyBridge.TryGetAmount(eCurrency.Gold, out long gold);
-            string balance = _rubyTab ? $"보유 루비  {NumberNotation.Format(LocalProgression.Balance(eCurrency.Ruby))}" : $"보유 골드  {NumberNotation.Format(gold)} G";
+            long ruby = LocalProgression.Balance(eCurrency.Ruby);
+            var projection = EconomyBatchProgression.Available ? EconomyBatchProgression.GetProjection() : default;
+            bool projectedBalance = projection.Valid && (_rubyTab ? projection.Ruby != ruby : projection.Gold != gold);
+            if (projection.Valid) { gold = projection.Gold; ruby = projection.Ruby; }
+            string balance = _rubyTab ? $"보유 루비  {NumberNotation.Format(ruby)}" : $"보유 골드  {NumberNotation.Format(gold)} G";
+            if (projectedBalance) balance += " (예상)";
             if (body.goldLabel != null && body.goldLabel.text != balance) body.goldLabel.text = balance;
-            string description = _rubyTab ? "환생 후에도 유지 · 사냥과 방치 보상에 적용" : "모든 왕국군에 적용 · 환생 시 골드 강화 초기화";
+            bool held = EconomyBatchProgression.HasHeldSpending;
+            bool recovering = EconomyBatchProgression.Available && (!EconomyBatchProgression.RecoveryComplete || EconomyBatchProgression.HasUnknownResult);
+            string description = recovering ? "저장된 서버 결과를 확인해야 육성을 계속할 수 있습니다." :
+                held ? "보류된 육성 입력이 있습니다 · 버튼을 눌러 재개 확인" :
+                _rubyTab ? "환생 후에도 유지 · 예상 효과는 서버 확인 후 적용" : "모든 왕국군에 적용 · 예상 효과는 서버 확인 후 적용";
             if (body.descLabel != null && body.descLabel.text != description) body.descLabel.text = description;
 
             var mgr = StatEnhanceManager.Instance;
@@ -156,18 +169,24 @@ namespace KingdomIdle.UGUI
             foreach (var card in Cards)
             {
                 if (card.View == null || mgr == null) continue;
-                int level = mgr.GetLevel(card.Type);
+                int level = mgr.GetDisplayedLevel(card.Type);
+                int confirmedLevel = mgr.GetLevel(card.Type);
                 int actual = mgr.GetPurchaseCount(card.Type, _selectedCount);
                 long cost = mgr.GetCost(card.Type, _selectedCount);
-                string current = $"×{BalanceMath.GoldMultiplier(level):0.###}";
+                string current = $"×{BalanceMath.GoldMultiplier(confirmedLevel):0.###}";
                 string next = $"×{BalanceMath.GoldMultiplier(level + actual):0.###}";
-                card.View.Set(StatEnhanceManager.GetTypeName(card.Type), $"Lv. {mgr.GetLevel(card.Type):N0}",
-                    actual > 0 ? $"{current}  →  {next}" : $"현재 {current}", UguiTheme.RoyalBlue);
+                bool pending = level != confirmedLevel;
+                string levelText = $"Lv. {level:N0}" + (pending ? " (예상)" : "");
+                string detail = pending ? $"확정 {current} · 예상 ×{BalanceMath.GoldMultiplier(level):0.###}" :
+                    actual > 0 ? $"{current}  →  {next}" : $"현재 {current}";
+                if (card.View.levelLabel?.text != levelText || card.View.bonusLabel?.text != detail)
+                    card.View.Set(StatEnhanceManager.GetTypeName(card.Type), levelText, detail, UguiTheme.RoyalBlue);
                 bool maxed = level >= BalanceMath.GoldCap;
-                string title = mgr.IsEnhancing ? "강화 중…" : maxed ? "최대 단계" :
+                string title = recovering ? "저장 결과 확인" : held ? "보류 입력 확인" : mgr.IsEnhancing ? "강화 중…" : maxed ? "최대 단계" :
                     _selectedCount < 0 ? $"최대 {actual}회" : $"{actual}회 강화";
-                string price = maxed ? "강화 완료" : cost < 0 ? "골드 부족" : $"{NumberNotation.Format(cost)} 골드";
-                bool ready = !mgr.IsEnhancing && cost >= 0 && actual > 0 && gold >= cost;
+                string price = recovering ? "서버 결과 확인 후 육성" : held ? "수량·비용 확인 후 재개" : maxed ? "강화 완료" : cost < 0 ? "골드 부족" : $"{NumberNotation.Format(cost)} 골드";
+                bool ready = recovering || held || (!mgr.IsEnhancing && cost >= 0 && actual > 0 && gold >= cost &&
+                    (!EconomyBatchProgression.Available || EconomyBatchProgression.CanAcceptGrowth));
                 card.Button?.Set(title, price, ready);
                 card.FallbackButton?.Set($"{title} · {price}", UguiTheme.ActionGold, ready);
             }
@@ -316,6 +335,7 @@ namespace KingdomIdle.UGUI
 
         private static void OnEnhanceClicked(StatEnhanceManager.EnhanceType type, int count)
         {
+            if (TryHandlePendingGrowth()) return;
             var mgr = StatEnhanceManager.Instance;
             if (mgr == null)
             {
@@ -358,11 +378,49 @@ namespace KingdomIdle.UGUI
         private static void OnEnhanceCompleted(StatEnhanceManager.EnhanceType type, bool success)
         {
             var mgr = StatEnhanceManager.Instance;
-            if (success && mgr != null)
+            if (success && mgr != null && !EconomyBatchProgression.Available)
                 ShowToast($"{StatEnhanceManager.GetTypeName(type)} Lv.{mgr.GetLevel(type)} ({mgr.GetBonusText(type)})");
-            else if (!success)
+            else if (!success && !EconomyBatchProgression.Available)
                 ShowToast(DescribeFailure(mgr?.LastFailure));
             Refresh();
+        }
+
+        internal static bool TryHandlePendingGrowth()
+        {
+            if (EconomyBatchProgression.Available && !EconomyBatchProgression.RecoveryComplete)
+            {
+                if (GameManager.Instance == null || !GameManager.Instance.RetryEconomyEntry())
+                    ShowToast("저장 결과를 확인 중입니다. 잠시 후 다시 시도해 주세요.");
+                return true;
+            }
+            if (EconomyBatchProgression.HasUnknownResult)
+            {
+                if (EconomyBatchProgression.HasUnresolvedBatch)
+                    ShowToast("이전 강화 결과를 확인 중입니다. 잠시 후 다시 시도해 주세요.");
+                else UserManager.Instance?.RefreshFromServer(ok =>
+                    ShowToast(ok && !EconomyBatchProgression.HasUnknownResult ? "서버 상태를 확인했습니다." : "서버 상태를 확인하지 못했습니다. 다시 시도해 주세요."));
+                return true;
+            }
+            if (!EconomyBatchProgression.HasHeldSpending) return false;
+            if (!EconomyBatchProgression.TryGetHeldPreview(out int count, out long gold, out long ruby))
+            {
+                if (EconomyBatchProgression.HasHeldSpending) ShowToast("보류 입력의 재화 조건과 서버 결과를 확인한 뒤 다시 시도해 주세요.");
+                return true;
+            }
+            long generation = LocalProgression.AccountGeneration;
+            bool shown = EquipmentActionDialog.ShowConfirmation("보류된 육성 재개",
+                $"육성 입력 {count:N0}건\n예상 비용: {NumberNotation.Exact(gold)} 골드 · {NumberNotation.Exact(ruby)} 루비\n\n확인한 입력만 이어서 처리합니다.\n취소하면 보류 상태를 유지합니다.", "재개하기", () =>
+                {
+                    if (generation != LocalProgression.AccountGeneration) return;
+                    if (!EconomyBatchProgression.TryGetHeldPreview(out int nextCount, out long nextGold, out long nextRuby) ||
+                        count != nextCount || gold != nextGold || ruby != nextRuby || !EconomyBatchProgression.ResumeHeldInputs())
+                    {
+                        if (EconomyBatchProgression.HasHeldSpending) ShowToast("재개 조건이 변경되었습니다. 수량과 비용을 다시 확인해 주세요.");
+                    }
+                    Refresh();
+                });
+            if (!shown) ShowToast("재개 확인 창을 열지 못했습니다. 다시 시도해 주세요.");
+            return true;
         }
 
         // 서버 ErrorCode → 문구 표는 NetworkManager.DescribeFailure가 공통으로 가진다.

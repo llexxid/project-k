@@ -21,7 +21,9 @@ namespace KingdomIdle.UGUI
             var ui = UIManager.Instance;
             if (ui?.Catalog?.popupEquipmentAction == null) return null;
             if (_open != null) _open.Close();
-            var view = Instantiate(ui.Catalog.popupEquipmentAction, ui.LayerOverlays, false).GetComponent<EquipmentActionDialog>();
+            var go = Instantiate(ui.Catalog.popupEquipmentAction, ui.LayerOverlays, false);
+            var view = go.GetComponent<EquipmentActionDialog>();
+            if (view == null) { Destroy(go); return null; }
             _open = view;
             view.transform.SetAsLastSibling();
             view.title.text = heading; view.description.text = body;
@@ -30,6 +32,25 @@ namespace KingdomIdle.UGUI
             ModalBackHandler.Bind(view.gameObject, view.Close);
             UITween.PopIn(view.panel);
             return view;
+        }
+
+        public static bool ShowConfirmation(string heading, string body, string action, Action confirmed)
+        {
+            var view = Create(heading, body, action);
+            if (view == null) return false;
+            if (view.recommendation != null) view.recommendation.transform.parent.gameObject.SetActive(false);
+            foreach (var toggle in view.rarityToggles) toggle.gameObject.SetActive(false);
+            if (view.autoLockFirst != null) view.autoLockFirst.gameObject.SetActive(false);
+            view.panel.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 620);
+            long generation = LocalProgression.AccountGeneration;
+            LocalProgression.AccountChanged += view.Close;
+            view.confirm.onClick.AddListener(() =>
+            {
+                if (!view.gameObject.activeSelf) return;
+                view.Close();
+                if (generation == LocalProgression.AccountGeneration) confirmed?.Invoke();
+            });
+            return true;
         }
 
         public static void Dismantle(EquipmentEconomy.DismantlePlan plan, Action refresh, string scope = null)
@@ -111,6 +132,12 @@ namespace KingdomIdle.UGUI
             else UIManager.Instance?.ShowToast("추천 기준을 저장하지 못했습니다.");
         }
 
-        private void Close() { gameObject.SetActive(false); Destroy(gameObject); }
+        private void OnDisable() => LocalProgression.AccountChanged -= Close;
+        private void Close()
+        {
+            if (_open == this) _open = null;
+            gameObject.SetActive(false);
+            Destroy(gameObject);
+        }
     }
 }

@@ -36,6 +36,7 @@ namespace KingdomIdle.UGUI
         {
             var manager = MageTowerManager.Instance; var ui = UIManager.Instance;
             bool available = ui != null && ui.ActiveScreenId == UIScreenId.Main &&
+                !ui.GameplayInputBlocked && !ui.IsLoadingVisible && !ModalBackHandler.HasOpenModal &&
                 !ui.HasBlockingPanel && !ui.HasActiveTabPanel && PartyHudController.ModalSuppressCount == 0 &&
                 !MageTowerPopupController.IsOpen && !MageTowerDetailPopupController.IsOpen;
             bool show = manager != null && !manager.IsAutoEnabled() && available;
@@ -131,6 +132,7 @@ namespace KingdomIdle.UGUI
         public void BeginAim(int slot, PointerEventData data)
         {
             CancelAim();
+            if (UIManager.Instance?.GameplayInputBlocked == true) return;
             var manager = MageTowerManager.Instance;
             var skill = manager?.GetSkillById(manager.GetEquippedSkillId(slot));
             if (!_shown || skill == null || !skill.CanAimWithBloom(manager.IsBloomEnabled(skill.id)) || manager.IsOnCooldown(slot) || manager.IsCasting(slot) ||
@@ -144,6 +146,7 @@ namespace KingdomIdle.UGUI
 
         public void MoveAim(PointerEventData data)
         {
+            if (UIManager.Instance?.GameplayInputBlocked == true) { CancelAim(); return; }
             if (_slot < 0 || _aim == null) return;
             var camera = MageTowerTargeting.ResolveCamera();
             var manager = MageTowerManager.Instance;
@@ -185,6 +188,7 @@ namespace KingdomIdle.UGUI
 
         public void EndAim(PointerEventData data)
         {
+            if (UIManager.Instance?.GameplayInputBlocked == true) { CancelAim(); return; }
             if (_slot < 0) return;
             MoveAim(data);
             var manager = MageTowerManager.Instance;

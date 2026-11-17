@@ -10,6 +10,8 @@ namespace KingdomIdle.Balance
         public string BalanceVersion = BalanceMath.Version;
         public string Authority = "local-client";
         public long Revision;
+        public long ServerEconomyRevision = -1;
+        public EconomyLocalState Economy = new();
         public Dictionary<eCurrency, long> Wallet = new();
         public int AccountLevel = 1;
         public long Experience, Kills;
@@ -79,6 +81,7 @@ namespace KingdomIdle.Balance
         public ProgressionState DeepClone()
         {
             var copy = (ProgressionState)MemberwiseClone();
+            copy.Economy = Economy?.Copy() ?? new EconomyLocalState();
             copy.Wallet = new(Wallet); copy.MainClears = new(MainClears); copy.Claims = new(Claims);
             copy.CheckIn = CheckIn.Copy();
             copy.Mail = new(Mail.Count);

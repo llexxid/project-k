@@ -60,9 +60,10 @@ namespace KingdomIdle.Balance
         public static bool Kill(StageSession session, Monster monster)
         {
             long committedGold = 0;
-            // 정의 보상은 전투 HUD에만 표시한다. 지갑·경험치·드롭은 OnHuntReward 응답으로 확정한다.
+            // 정의 보상은 전투 HUD에만 표시한다. 지갑·경험치·드롭은 서버 응답으로 확정한다.
             bool ok = LocalProgression.Execute("battle-kill", s => {
                 if (s.ActiveBattleId != session.RunId || session.TotalKillCount <= s.LastKillSequence) return false;
+                if (EconomyBatchProgression.Available && !RecordHunt(s, session)) return false;
                 committedGold = monster.BalanceReward.Gold;
                 s.Kills = checked(s.Kills + 1); s.LastKillSequence = session.TotalKillCount;
                 s.LastActiveUtc = LocalProgression.UtcNow;
@@ -71,6 +72,17 @@ namespace KingdomIdle.Balance
             if (!ok) { UnityEngine.Time.timeScale = 0; KingdomIdle.UGUI.UIManager.Instance?.ShowToast("보상 저장에 실패해 전투를 멈췄습니다. 저장 공간 확인 후 재접속해 주세요."); }
             if (ok) session.EarnedGold = checked(session.EarnedGold + committedGold);
             return ok;
+        }
+
+        internal static bool RecordHunt(ProgressionState state, StageSession session)
+        {
+            long stage = (long)session.Definition.Id;
+            bool main = session.Definition.Type == eStageType.Main;
+            if (main ? state.MainBattle == null || state.MainBattle.Stage != stage :
+                state.ServerDungeonId != stage || string.IsNullOrEmpty(state.ActiveDungeon)) return false;
+            // StageSession.RunId는 로컬 모션 세션이며 서버의 정산 회차로 사용하지 않는다.
+            return EconomyBatchProgression.RecordHunt(state, stage, main ? state.MainBattle.RunId : null,
+                main ? null : state.ActiveDungeon, session.KillCounts);
         }
         public static bool Clear(StageSession session)
         {

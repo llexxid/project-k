@@ -29,6 +29,11 @@ namespace KingdomIdle.Balance
 
         static RubyProgression()
         {
+            EconomyBatchProgression.InputCompleted += result =>
+            {
+                if (result.Kind != EconomyCommandKind.RubyGold && result.Kind != EconomyCommandKind.RubyExperience) return;
+                Status = result.Message; NotifyChanged(); Completed?.Invoke(result.Success, result.Message);
+            };
             LocalProgression.AccountChanged += () =>
             {
                 if (_battlePaused) Time.timeScale = _resumeTimeScale;
@@ -86,6 +91,8 @@ namespace KingdomIdle.Balance
 
         public static bool Enhance(bool experience)
         {
+            if (EconomyBatchProgression.Available)
+                return EconomyBatchProgression.TryQueueRuby(experience, out _) == EconomyInputStatus.PendingSave;
             if (!CanStart() || !Unlocked) return false;
             var s = LocalProgression.State;
             long? cost = BalanceMath.RubyCost(experience ? s.RubyExpLevel : s.RubyGoldLevel);
@@ -180,7 +187,7 @@ namespace KingdomIdle.Balance
                             Type = s.PendingRubyRequestExperience ? RubyGrowthType.Exp : RubyGrowthType.Gold },
                         r => { if (IsCurrent()) ApplyResult(r, r.CurrentRuby, "루비 강화가 완료되었습니다."); },
                         e => { if (IsCurrent()) RejectResult(e); });
-            });
+            }, reset);
         }
 
         internal static bool PrepareRequest(ProgressionState s, bool reset, bool experience, string retryId = null)
@@ -199,7 +206,7 @@ namespace KingdomIdle.Balance
             return true;
         }
 
-        private static bool SettleBeforeRequest(Action send)
+        private static bool SettleBeforeRequest(Action send, bool reset = false)
         {
             var offline = GameManager.Instance?.OfflineReward;
             if (offline != null && (offline.IsBusy || offline.LastFailure != null)) return false;
@@ -221,7 +228,15 @@ namespace KingdomIdle.Balance
                 _resumeTimeScale = Time.timeScale;
                 _battlePaused = true;
                 Time.timeScale = 0f;
-                send();
+                if (reset && EconomyBatchProgression.Available)
+                {
+                    if (!EconomyBatchProgression.SealCurrentRewardEpoch(sealedEpoch =>
+                    {
+                        if (!IsCurrentRequest(generation, networkGeneration)) return;
+                        if (sealedEpoch) send(); else Complete(false, "이전 전투 보상을 확인하지 못했습니다.");
+                    })) Complete(false, "전투 보상 정산 후 다시 시도해 주세요.");
+                }
+                else send();
             })) return true;
             Complete(false, "전투 보상을 정산 중입니다. 잠시 후 다시 시도해 주세요.");
             return false;
@@ -246,6 +261,16 @@ namespace KingdomIdle.Balance
             if (!HasPendingRequest) { Complete(true, "서버 루비 상태를 불러왔습니다."); return; }
             if (LocalProgression.Execute("server-ruby-result", s => ApplyResponse(s, response, ruby)))
             {
+                if (EconomyBatchProgression.Available)
+                {
+                    long generation = _localGeneration, networkGeneration = _networkGeneration;
+                    if (UserManager.Instance == null) { Complete(false, "루비 배율 적용 상태를 다시 확인해 주세요."); return; }
+                    UserManager.Instance.RefreshFromServer(ok =>
+                    {
+                        if (IsCurrentRequest(generation, networkGeneration)) Complete(ok, ok ? message : "루비 배율 적용 상태를 다시 확인해 주세요.");
+                    });
+                    return;
+                }
                 Complete(true, message);
                 return;
             }

@@ -27,6 +27,7 @@ namespace KingdomIdle.UGUI
         private readonly List<NavTabButtonView> _tabs = new();
         private readonly List<GameObject> _tabDots = new();
         private QuestClaimToken? _pendingClaim;
+        private Scripts.Core.Utils.GameplayLoading.Scope _rewardScope;
 
         // 목록 생성 여부, 표시 중인 행, 다음에 반영할 snapshot을 구분해 불필요한 재생성을 줄인다.
         private bool _built;
@@ -43,11 +44,12 @@ namespace KingdomIdle.UGUI
         public eQuestCategory SelectedCategory => _selectedCategory;
 
         /// <summary>스택 복귀 시 기존 탭 선택을 유지하며 최신 매니저에 다시 연결한다.</summary>
-        private void OnEnable() { Connect(); }
+        private void OnEnable() { ClearObsoleteClaim(); Connect(); }
 
         /// <summary>UI 또는 매니저가 늦게 준비된 경우에만 최초 바인딩을 재시도한다.</summary>
         private void Update()
         {
+            ClearObsoleteClaim();
             if (_view == null) return;
             if (_hudTop == null) BindHeightBoundary();
             if (_tabs.Count == 0)
@@ -59,6 +61,11 @@ namespace KingdomIdle.UGUI
             if (_manager == null) Connect();
             else if (_claimBusy != _manager.IsBusy) Rebind(false);
         }
+        private void ClearObsoleteClaim()
+        {
+            if (_rewardScope == null || _rewardScope.IsCurrent) return;
+            _rewardScope.Dispose(); _rewardScope = null; _pendingClaim = null;
+        }
 
         /// <summary>닫기 또는 스택 가림 시 구독만 해제한다. 같은 패널의 버튼과 선택 상태는 보존한다.</summary>
         private void OnDisable()
@@ -66,11 +73,9 @@ namespace KingdomIdle.UGUI
             if (_manager != null)
             {
                 _manager.QuestsChanged -= OnQuestsChanged;
-                _manager.OnClaimCompleted -= OnClaimCompleted;
                 _manager.RemoveWatcher(true);
             }
             _manager = null;
-            _pendingClaim = null;
             _dragging = _deferredRebind = false;
         }
 
@@ -191,7 +196,6 @@ namespace KingdomIdle.UGUI
             if (_manager != null || QuestManager.Instance == null || !isActiveAndEnabled) return;
             _manager = QuestManager.Instance;
             _manager.QuestsChanged += OnQuestsChanged;
-            _manager.OnClaimCompleted += OnClaimCompleted;
             _manager.AddWatcher(true);
             Rebind(true);
         }
@@ -400,9 +404,16 @@ namespace KingdomIdle.UGUI
         /// <summary>표시 당시 토큰의 퀘스트 하나만 기존 서버 수령 경로로 보낸다.</summary>
         private void Claim(Row row)
         {
+            var host = UIManager.Instance;
+            if (host?.GameplayInputBlocked == true) return;
             _pendingClaim = row.Snapshot.Token;
-            var result = _manager.TryClaim(row.Snapshot.Token);
-            if (result.Status != QuestClaimStatus.Pending) _pendingClaim = null;
+            var token = row.Snapshot.Token;
+            var manager = _manager;
+            _rewardScope = host?.BeginRewardRequest("quest-input", () => manager != null && manager.IsBusy);
+            QuestClaimResult result;
+            try { result = manager.TryClaim(token, (ok, message, rewards) => OnClaimCompleted(token, ok, message, rewards)); }
+            catch { _rewardScope?.Dispose(); _rewardScope = null; _pendingClaim = null; throw; }
+            if (result.Status != QuestClaimStatus.Pending) { _pendingClaim = null; _rewardScope?.Dispose(); _rewardScope = null; }
             ShowClaimFailure(result);
             Rebind(false);
         }
@@ -412,18 +423,26 @@ namespace KingdomIdle.UGUI
             if (_pendingClaim != token) return;
             _pendingClaim = null;
             var host = UIManager.Instance;
-            if (host != null && rewards.Count > 0) RewardPopupView.ShowRewards(host.LayerOverlays, rewards);
+            var scope = _rewardScope; _rewardScope = null;
+            if (host != null) host.CompleteRewardRequest(scope, rewards);
+            else scope?.Dispose();
             if (!success) host?.ShowToast(message);
-            if (isActiveAndEnabled) Rebind(false);
+            if (this != null && isActiveAndEnabled) Rebind(false);
         }
 
         /// <summary>클릭 당시 현재 탭에 표시된 수령 가능 토큰을 기존 일괄 경로에서 고정한다.</summary>
         private void ClaimAll()
         {
-            if (_manager == null || _claimBusy) return;
+            var host = UIManager.Instance;
+            if (_manager == null || _claimBusy || host?.GameplayInputBlocked == true) return;
             var row = _visible.FirstOrDefault(snapshot => snapshot.CanClaim);
             if (row == null) return;
-            var result = _manager.TryClaimTab(_selectedCategory, row.Token, OnTabClaimCompleted);
+            var manager = _manager;
+            _rewardScope = host?.BeginRewardRequest("quest-input", () => manager != null && manager.IsBusy);
+            QuestClaimResult result;
+            try { result = manager.TryClaimTab(_selectedCategory, row.Token, OnTabClaimCompleted); }
+            catch { _rewardScope?.Dispose(); _rewardScope = null; throw; }
+            if (result.Status != QuestClaimStatus.Pending) { _rewardScope?.Dispose(); _rewardScope = null; }
             ShowClaimFailure(result);
             Rebind(false);
         }
@@ -436,13 +455,14 @@ namespace KingdomIdle.UGUI
 
         private void OnTabClaimCompleted(int confirmed, int total, string message, IReadOnlyList<RewardGrant> rewards)
         {
-            if (this == null) return;
             var host = UIManager.Instance;
-            if (host != null && rewards.Count > 0) RewardPopupView.ShowRewards(host.LayerOverlays, rewards);
+            var scope = _rewardScope; _rewardScope = null;
+            if (host != null) host.CompleteRewardRequest(scope, rewards);
+            else scope?.Dispose();
             if (confirmed > 0 && confirmed < total)
                 message = $"보상 {confirmed}/{total}개 수령 · 목록을 확인해 주세요.";
             if (!string.IsNullOrEmpty(message)) host?.ShowToast(message);
-            if (isActiveAndEnabled) Rebind(false);
+            if (this != null && isActiveAndEnabled) Rebind(false);
         }
 
         private void Render(Row row)
