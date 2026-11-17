@@ -113,6 +113,7 @@ namespace KingdomIdle.Balance
                         MarkBlocked("보존된 경제 입력을 지원하는 서버에서 결과를 먼저 확인해야 합니다.");
                     Notify(); return;
                 }
+                ProgressionAutosave.EnsureRunning();
                 if (changedSession) { _recovered = false; _requestPending = false; _sentThisSession = false; }
                 var metadata = LocalProgression.State.Economy.Server;
                 if (metadata.OwnerClientId != ClientId) { MarkBlocked("다른 기기의 경제 상태를 이 기기에서 실행할 수 없습니다."); return; }
