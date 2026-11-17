@@ -147,7 +147,11 @@ namespace KingdomIdle.EditorTools
 
         private static void PrepareMonster(string path)
         {
-            if (path.EndsWith("/HeresyMimic.prefab", StringComparison.Ordinal)) PrepareMimicTongue();
+            if (path.EndsWith("/HeresyMimic.prefab", StringComparison.Ordinal))
+            {
+                MimicPalettePreparation.PrepareTextures();
+                PrepareMimicTongue();
+            }
             var root = PrefabUtility.LoadPrefabContents(path);
             try
             {
@@ -161,7 +165,7 @@ namespace KingdomIdle.EditorTools
                 {
                     var body = root.GetComponentInChildren<SpriteRenderer>();
                     body.flipX = true; // Authored mimic sheets face left; the combat root expects right.
-                    body.color = new Color(.92f, .80f, .66f, 1f);
+                    body.color = Color.white; // Palette is authored in the working sheets.
                 }
                 // Absolute authored scale: repeated preparation must not keep shrinking them.
                 if (path.Contains("/Mimics/")) root.transform.localScale = Vector3.one * .9f;

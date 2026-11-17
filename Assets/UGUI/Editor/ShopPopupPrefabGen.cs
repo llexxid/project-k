@@ -315,7 +315,7 @@ namespace KingdomIdle.UGUI.Editor
                 var row = rows[i];
                 var action = RectBounds((RectTransform)row.transform, (RectTransform)row.action.transform);
                 var amount = RectBounds((RectTransform)row.transform, row.amount.rectTransform);
-                CheckPlay(amount.max.x <= action.min.x + 2 && action.size.y >= 80,
+                CheckPlay((amount.max.x <= action.min.x + 2 || amount.min.y >= action.max.y - 2) && action.size.y >= 144,
                     "Amount and action remain distinct touch regions: " + row.offerId + " at " + size);
                 if (i > 0)
                     CheckPlay(RectBounds(page, (RectTransform)rows[i - 1].transform).min.y >= RectBounds(page, (RectTransform)row.transform).max.y - 2,
@@ -396,6 +396,25 @@ namespace KingdomIdle.UGUI.Editor
             return AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
         }
 
+        /// <summary>공통 셸·탭·스크롤 참조를 유지하고 상품 내부 배치만 재생성한다.</summary>
+        [MenuItem("KingdomIdle/UGUI/Apply shop offer density")]
+        public static void ApplyOfferDensity()
+        {
+            F.Init(); F.Catalog = PrefabGenUtil.GetOrCreateCatalog();
+            var root = PrefabUtility.LoadPrefabContents(PrefabPath);
+            try
+            {
+                var view = root.GetComponent<ShopPopupView>();
+                var chest = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/UsingAssets/Dungeon_Chest01.png");
+                if (view == null || chest == null) throw new InvalidOperationException("Shop offer density references are missing.");
+                foreach (var row in view.offers) BuildOfferPresentation(row, ShopCatalog.Find(row.offerId), chest);
+                PrefabUtility.SaveAsPrefabAsset(root, PrefabPath, out bool saved);
+                if (!saved) throw new InvalidOperationException("Shop offer density save failed.");
+            }
+            finally { PrefabUtility.UnloadPrefabContents(root); }
+            AssetDatabase.SaveAssets();
+        }
+
         public static void ApplyPanelLayout()
         {
             F.Init(); F.Catalog = PrefabGenUtil.GetOrCreateCatalog();
@@ -464,45 +483,45 @@ namespace KingdomIdle.UGUI.Editor
             var oldLayout = row.GetComponent<LayoutGroup>();
             if (oldLayout != null) Object.DestroyImmediate(oldLayout);
             row.GetComponent<Image>().color = UguiTheme.InfoSurface;
-            F.VLayout(row.gameObject, 12, new RectOffset(22, 22, 20, 20));
+            bool package = offer.EquipmentTickets > 0 && offer.MageTickets > 0;
+            bool dynamicAmount = offer.Payment == ShopPayment.RewardedAd || offer.GoldMinutes > 0;
+            F.VLayout(row.gameObject, 8, new RectOffset(16, 16, 16, 16));
             var frame = F.Frame(row.transform, "Frame", UguiTheme.Bronze);
             frame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
             var heading = F.Container(row.transform, "Heading");
-            F.HLayout(heading.gameObject, 20, align: TextAnchor.MiddleLeft);
-            F.Preferred(heading, height: 134);
+            F.HLayout(heading.gameObject, 14, align: TextAnchor.MiddleLeft);
+            // 기본 행은 조밀하게 유지하되 서버가 표시한 긴 수량은 TMP의 실제 선호 높이로 확장한다.
+            var headingSize = F.Preferred(heading);
+            headingSize.minHeight = package ? 196 : 208;
+            headingSize.preferredHeight = -1;
             Sprite icon = offer.PermanentAdRemoval ? UguiGenAssets.IconHourglass :
                 offer.GoldMinutes > 0 ? UguiGenAssets.IconCoin :
                 offer.MageTickets > 0 && offer.EquipmentTickets == 0 ? F.Catalog.iconSkillWand :
                 offer.EquipmentTickets > 0 ? equipmentChest : UguiGenAssets.IconAncientCoin;
-            var image = F.IconImage(heading, "Icon", icon, 112, 112);
-            F.Preferred(image, width: 112, height: 112).minWidth = 112;
-            var info = F.Container(heading, "Info"); F.VLayout(info.gameObject, 6);
+            var image = F.IconImage(heading, "Icon", icon, 88, 88);
+            F.Preferred(image, width: 88, height: 88).minWidth = 88;
+            var info = F.Container(heading, "Info"); F.VLayout(info.gameObject, 4, align: TextAnchor.MiddleLeft);
             F.Flexible(info, flexWidth: 1);
             row.title = F.Text(info, "Title", offer.Title, 42, UguiTheme.InfoInk, bold: true);
             row.title.fontSharedMaterial = F.Font.material; F.Preferred(row.title, height: 54);
             string detail = offer.EquipmentTickets > 0 && offer.MageTickets > 0 ? "원정에 필요한 주화와 뽑기권" : offer.Detail;
             row.detail = F.Text(info, "Detail", detail, 34, UguiTheme.InfoMuted, wrap: true);
-            F.Preferred(row.detail, height: 74);
-            bool package = offer.EquipmentTickets > 0 && offer.MageTickets > 0;
-            if (package)
-            {
-                var chips = F.Container(row.transform, "Contents"); F.HLayout(chips.gameObject, 10, expandWidth: true);
-                F.Preferred(chips, height: 68);
-                RewardChip(chips, UguiGenAssets.IconAncientCoin, NumberNotation.Exact(offer.Coins));
-                RewardChip(chips, equipmentChest, "장비 " + offer.EquipmentTickets);
-                RewardChip(chips, F.Catalog.iconSkillWand, "마탑 " + offer.MageTickets);
-            }
-            var bottom = F.Container(row.transform, "Bottom");
-            F.HLayout(bottom.gameObject, 16, align: TextAnchor.MiddleLeft);
-            F.Preferred(bottom, height: 132);
+            var detailSize = F.Preferred(row.detail);
+            detailSize.minHeight = 44; detailSize.preferredHeight = -1;
+            var actionColumn = F.Container(heading, "Action");
+            F.VLayout(actionColumn.gameObject, 6, align: TextAnchor.MiddleCenter);
+            var actionColumnSize = F.Preferred(actionColumn, width: 330);
+            actionColumnSize.minWidth = 330;
             string amount = offer.Payment == ShopPayment.RewardedAd ? "오늘 0 / 1회" :
                 offer.PermanentAdRemoval ? "영구 이용 · 준비 중" : offer.GoldMinutes > 0 ? "골드 수입 계산 중" : "상품 미리보기";
-            row.amount = F.Text(bottom, "Amount", amount, 34, UguiTheme.InfoMuted, wrap: true);
-            F.Flexible(row.amount, flexWidth: 1); F.Preferred(row.amount, height: 96);
+            // 광고 보유권·일일 상태와 골드 미리보기는 서버 갱신 후 길어질 수 있으므로 본문에 두 줄을 확보한다.
+            row.amount = F.Text(dynamicAmount ? info : actionColumn, "Amount", amount, 34, UguiTheme.InfoMuted, wrap: true);
+            var amountSize = F.Preferred(row.amount);
+            amountSize.minHeight = dynamicAmount ? 84 : 44; amountSize.preferredHeight = -1;
             bool primary = offer.Payment == ShopPayment.RewardedAd;
             string price = offer.Payment == ShopPayment.RewardedAd ? "광고 보고 받기" : offer.Payment == ShopPayment.AncientCoin
                 ? "주화 " + NumberNotation.Exact(offer.AncientCoinCost) + "개\n준비 중" : NumberNotation.Exact(offer.PreviewWon) + "원\n준비 중";
-            row.action = F.TextButton(bottom, "BtnAction", price, 36, primary ? UguiTheme.ActionGold : ShopOfferView.PreviewActionColor, out var label,
+            row.action = F.TextButton(actionColumn, "BtnAction", price, 36, primary ? UguiTheme.ActionGold : ShopOfferView.PreviewActionColor, out var label,
                 textColor: UguiTheme.InfoInk, bold: false);
             var actionImage = row.action.GetComponent<Image>();
             actionImage.sprite = UguiGenAssets.KitBtnGrey; actionImage.type = Image.Type.Sliced;
@@ -511,15 +530,24 @@ namespace KingdomIdle.UGUI.Editor
             label.fontSharedMaterial = F.Font.material; label.enableWordWrapping = true;
             row.price = label;
             row.ApplyActionAppearance();
-            var actionSize = F.Preferred(row.action, width: 330, height: 132); actionSize.minWidth = 330; actionSize.minHeight = 132;
-            F.Preferred(row, height: package ? 410 : 330);
+            var actionSize = F.Preferred(row.action, width: 330, height: 144); actionSize.minWidth = 330; actionSize.minHeight = 144;
+            if (package)
+            {
+                var chips = F.Container(row.transform, "Contents"); F.HLayout(chips.gameObject, 10, expandWidth: true);
+                F.Preferred(chips, height: 64);
+                RewardChip(chips, UguiGenAssets.IconAncientCoin, NumberNotation.Exact(offer.Coins));
+                RewardChip(chips, equipmentChest, "장비 " + offer.EquipmentTickets);
+                RewardChip(chips, F.Catalog.iconSkillWand, "마탑 " + offer.MageTickets);
+            }
+            var cardSize = F.Preferred(row);
+            cardSize.minHeight = package ? 300 : 240; cardSize.preferredHeight = -1;
         }
 
         private static void RewardChip(Transform parent, Sprite icon, string text)
         {
             var chip = F.Box(parent, "RewardChip", new Color(.84f, .77f, .63f, 1));
             F.HLayout(chip.gameObject, 8, new RectOffset(10, 10, 8, 8));
-            F.Flexible(chip, flexWidth: 1); F.Preferred(chip, height: 68);
+            F.Flexible(chip, flexWidth: 1); F.Preferred(chip, height: 64);
             F.Preferred(F.IconImage(chip.transform, "Icon", icon, 44, 44), width: 44, height: 44).minWidth = 44;
             var label = F.Text(chip.transform, "Value", text, 32, UguiTheme.InfoInk);
             F.Flexible(label, flexWidth: 1);

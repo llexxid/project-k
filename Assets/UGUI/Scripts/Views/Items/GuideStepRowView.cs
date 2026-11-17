@@ -87,32 +87,65 @@ namespace KingdomIdle.UGUI
             secondaryRewardIcon.transform.parent.gameObject.SetActive(multiple);
             SetReward(0, rewardIcon, rewardAmountLabel);
             if (multiple) SetReward(1, secondaryRewardIcon, secondaryRewardAmountLabel);
-            // 두 보상은 세로로 쌓고, 한 보상은 큰 아이콘으로 표시한다. 오른쪽 내용 폭은 일정하다.
-            LayoutReward(rewardIcon, rewardAmountLabel, multiple ? 16 : 44, multiple ? 64 : 112, multiple ? 68 : 118);
-            if (multiple) LayoutReward(secondaryRewardIcon, secondaryRewardAmountLabel, 146, 64, 68);
+            // 보상은 하단에 가로로 놓고 진행도와 개별 행동의 폭을 따로 보존한다.
+            float rewardWidth = multiple ? 412f : 300f;
+            float slotWidth = multiple ? (rewardWidth - 12f) * .5f : rewardWidth;
+            LayoutReward(rewardIcon, rewardAmountLabel, 20f, slotWidth, multiple ? 48f : 64f,
+                multiple && !snapshot.Rewards[0].IsDynamic);
+            if (multiple) LayoutReward(secondaryRewardIcon, secondaryRewardAmountLabel, 32f + slotWidth, slotWidth, 48f,
+                !snapshot.Rewards[1].IsDynamic);
+            var track = (RectTransform)progressLabel.transform.parent;
+            track.anchorMin = Vector2.up; track.anchorMax = Vector2.one; track.pivot = Vector2.up;
+            track.anchoredPosition = new Vector2(rewardWidth + 16f, -136f);
+            track.sizeDelta = new Vector2(-rewardWidth - 264f, 96f);
+            var actionRect = (RectTransform)actionButton.transform;
+            actionRect.anchoredPosition = new Vector2(0, snapshot.IsPending ? -108f : -48f);
+            actionRect.sizeDelta = new Vector2(232f, 144f);
+            var rowLayout = GetComponent<LayoutElement>();
+            if (rowLayout != null) rowLayout.minHeight = rowLayout.preferredHeight = snapshot.IsPending ? 264f : 240f;
 
             void SetReward(int index, Image icon, TMP_Text amount)
             {
                 if (index >= snapshot.Rewards.Count) return;
                 var reward = snapshot.Rewards[index];
                 icon.sprite = RewardPresentation.Icon(reward.Currency, catalog);
-                amount.text = reward.IsDynamic ? (multiple ? "2분 골드" : "2분\n골드") : $"×{NumberNotation.Format(reward.Amount)}";
+                amount.text = reward.IsDynamic ? "2분\n골드" : $"×{NumberNotation.Format(reward.Amount)}";
                 amount.color = UguiTheme.InfoInk;
-                amount.textWrappingMode = TextWrappingModes.Normal;
+                amount.textWrappingMode = reward.IsDynamic ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
                 amount.overflowMode = TextOverflowModes.Overflow;
-                amount.maxVisibleLines = 2;
-                amount.alignment = TextAlignmentOptions.Top;
-                amount.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, reward.IsDynamic && !multiple ? 88 : 44);
+                amount.maxVisibleLines = reward.IsDynamic ? 2 : 1;
+                amount.alignment = TextAlignmentOptions.MidlineLeft;
+                amount.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 96f);
             }
         }
 
         /// <summary>아이콘 개수에 따른 고정 영역만 배치한다. 새 레이아웃 그룹이나 매 프레임 갱신은 만들지 않는다.</summary>
-        private static void LayoutReward(Image icon, TMP_Text amount, float top, float size, float amountTop)
+        private static void LayoutReward(Image icon, TMP_Text amount, float left, float width, float size, bool stacked)
         {
             var root = (RectTransform)icon.transform.parent;
-            root.anchoredPosition = new Vector2(8, -top);
+            root.anchorMin = root.anchorMax = root.pivot = Vector2.up;
+            root.anchoredPosition = new Vector2(left, -136f);
+            root.sizeDelta = new Vector2(width, 96f);
             icon.rectTransform.sizeDelta = new Vector2(size, size);
-            amount.rectTransform.anchoredPosition = new Vector2(0, -amountTop);
+            if (stacked)
+            {
+                // 고정 수량은 아이콘 아래의 전체 폭을 사용해 숫자 토큰을 한 줄로 보존한다.
+                icon.rectTransform.anchorMin = icon.rectTransform.anchorMax = icon.rectTransform.pivot = new Vector2(.5f, 1);
+                icon.rectTransform.anchoredPosition = Vector2.zero;
+                amount.rectTransform.anchorMin = Vector2.zero; amount.rectTransform.anchorMax = Vector2.right;
+                amount.rectTransform.pivot = new Vector2(.5f, 0);
+                amount.rectTransform.anchoredPosition = Vector2.zero;
+                amount.rectTransform.sizeDelta = new Vector2(0, 48f);
+                amount.alignment = TextAlignmentOptions.Midline;
+            }
+            else
+            {
+                icon.rectTransform.anchorMin = icon.rectTransform.anchorMax = icon.rectTransform.pivot = new Vector2(0, .5f);
+                icon.rectTransform.anchoredPosition = Vector2.zero;
+                amount.rectTransform.anchorMin = Vector2.zero; amount.rectTransform.anchorMax = Vector2.one;
+                amount.rectTransform.offsetMin = new Vector2(size + 8f, 0);
+                amount.rectTransform.offsetMax = Vector2.zero;
+            }
         }
 
         /// <summary>셀의 위치와 글자를 움직이지 않고 테두리만 점등한다. 저사양 모드는 고정 점등한다.</summary>

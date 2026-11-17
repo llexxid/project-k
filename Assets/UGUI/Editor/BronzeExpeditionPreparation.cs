@@ -148,6 +148,7 @@ namespace KingdomIdle.UGUI.Editor
                 if (rt.name.EndsWith("NavBar") || rt.name == "TabBar" || rt.name == "MemberBar") Height(rt, 144);
                 if (rt.name == "Sheen" || rt.name == "InnerRim" || rt.name == "CornerBrackets") rt.gameObject.SetActive(false);
             }
+            if (view is GachaPanelView gacha) GachaPanelPrefabGens.ApplyBronzeHeaderGeometry(gacha);
             var frame = view.Sheet.Find("ExpeditionFrame")?.GetComponent<Image>();
             if (frame == null) frame = F.Frame(view.Sheet, "ExpeditionFrame", UguiTheme.BronzeLight);
             Layout(frame.transform).ignoreLayout = true;

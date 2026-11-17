@@ -10,6 +10,7 @@ namespace KingdomIdle.UGUI
     {
         private static StageSelectPopupView _view;
         private static int _chapter, _wave;
+        private static bool _selectedValid;
         public static bool IsOpen => _view != null && _view.gameObject.activeSelf;
 
         public static void Show()
@@ -35,8 +36,8 @@ namespace KingdomIdle.UGUI
             _view.gameObject.SetActive(true); _view.transform.SetAsLastSibling();
             Refresh(); UITween.PopIn(_view.panel);
         }
-        public static void Hide() { if (_view != null) _view.gameObject.SetActive(false); }
-        public static void Dispose() { if (_view != null) Object.Destroy(_view.gameObject); _view=null; }
+        public static void Hide() { if (_view != null) _view.gameObject.SetActive(false); _selectedValid=false; }
+        public static void Dispose() { if (_view != null) Object.Destroy(_view.gameObject); _view=null; _selectedValid=false; }
         private static void Browse(int offset) { _chapter+=offset; _wave=1; Refresh(); }
         private static void Move(eStage stage)
         {
@@ -76,9 +77,20 @@ namespace KingdomIdle.UGUI
             _view.details.text=$"스테이지 {_chapter}-{_wave} · {(manager.IsCycleStageCleared(selected)?"클리어":valid?"도전 가능":"잠금")}\n등장 적  {enemies}\n처치 보상  골드 · EXP";
             _view.frontierLabel.text=$"최고 스테이지 도전\n({StageParser.GetStageNumber(frontier)}-{StageParser.GetWaveNumber(frontier)})";
             _view.travelLabel.text=$"{_chapter}-{_wave}스테이지 이동";
+            _selectedValid=valid;
+            RefreshAvailability();
+        }
+
+        /// <summary>전투 전환 뒤 입력만 복구한다. 선택/문구/카탈로그/레이아웃은 다시 계산하지 않는다.</summary>
+        internal static void RefreshAvailability()
+        {
+            if (!IsOpen) return;
+            var manager=StageManager.Instance;
+            if (manager == null || StageParser.GetStageType(manager.CurrentStage) != eStageType.Main) { Hide(); return; }
             bool running=manager.CurrentRunState==eStageRunState.Running;
-            _view.travel.interactable=valid && running;
-            _view.frontier.interactable=running;
+            bool travel=_selectedValid && running;
+            if (_view.travel.interactable!=travel) _view.travel.interactable=travel;
+            if (_view.frontier.interactable!=running) _view.frontier.interactable=running;
         }
     }
 }

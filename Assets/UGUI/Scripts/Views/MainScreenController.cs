@@ -174,6 +174,7 @@ namespace KingdomIdle.UGUI
         {
             if (_view == null) return;
 
+            StageSelectPopupController.RefreshAvailability();
             _currencyPollTimer += Time.unscaledDeltaTime;
             if (_currencyPollTimer >= CurrencyPollInterval)
             {

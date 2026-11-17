@@ -61,7 +61,7 @@ namespace KingdomIdle.UGUI.Editor
         internal static GameObject GenerateBody()
         {
             var root = F.Container(null, "Body_Development");
-            F.VLayout(root.gameObject, 24f, new RectOffset(8,8,8,24), TextAnchor.UpperLeft, expandWidth: true);
+            F.VLayout(root.gameObject, 16f, new RectOffset(8,8,8,16), TextAnchor.UpperLeft, expandWidth: true);
             var view = root.gameObject.AddComponent<DevelopmentBodyView>();
             AddGrowthTabs(view);
 
@@ -69,32 +69,32 @@ namespace KingdomIdle.UGUI.Editor
             var desc = F.Text(root, "Desc",
                 "골드로 모든 왕국군의 공격력과 체력을 강화합니다.",
                 36f, UguiTheme.TextSecondary, TextAlignmentOptions.Left, wrap: true);
-            F.Preferred(desc, height: 96f);
+            UseTextHeight(desc);
             view.descLabel = desc;
 
             // 보유 골드 바 (.ka-dev-gold-bar: 26px gold bold) — 컨트롤러가 텍스트만 갱신
             var gold = F.Text(root, "GoldBar", "보유 골드  0 G",
-                42f, UguiTheme.TextPrimary, TextAlignmentOptions.Left, bold: true);
-            F.Preferred(gold, height: 60f);
+                42f, UguiTheme.TextPrimary, TextAlignmentOptions.Left, bold: true, wrap: true);
+            UseTextHeight(gold);
             view.goldLabel = gold;
             if(gold.font!=null)gold.fontSharedMaterial=gold.font.material;
 
             var counts = F.Container(root,"PurchaseCounts");
             F.HLayout(counts.gameObject,12,expandWidth:true);
-            F.Preferred(counts,height:96);
+            F.Preferred(counts,height:DevelopmentPanelController.PurchaseCountHeight);
             view.purchaseCountBar=counts;
 
             // 강화 카드 컨테이너 (컨트롤러가 Item_EnhanceCard 를 채운다)
             var cards = F.Container(root, "Cards");
-            F.VLayout(cards.gameObject, 24f, null, TextAnchor.UpperLeft, expandWidth: true);
+            F.VLayout(cards.gameObject, 16f, null, TextAnchor.UpperLeft, expandWidth: true);
             view.cardsRoot = cards;
-            var rubyCards=F.Container(root,"RubyCards");F.VLayout(rubyCards.gameObject,24,expandWidth:true);
+            var rubyCards=F.Container(root,"RubyCards");F.VLayout(rubyCards.gameObject,16,expandWidth:true);
             view.rubyCardsRoot=rubyCards;
 
             // 빈 상태 라벨 (강화 항목이 없을 때만 표시)
             var empty = F.Text(root, "Empty", "강화 가능한 항목이 없습니다.",
                 36f, UguiTheme.TextSecondary, TextAlignmentOptions.Center);
-            F.Preferred(empty, height: 96f);
+            UseTextHeight(empty);
             view.emptyLabel = empty;
             empty.gameObject.SetActive(false);
 
@@ -104,7 +104,7 @@ namespace KingdomIdle.UGUI.Editor
         internal static void AddGrowthTabs(DevelopmentBodyView view)
         {
             var nav=F.Container(view.transform,"GrowthTabs");F.HLayout(nav.gameObject,12,expandWidth:true);
-            F.Preferred(nav,height:128);view.navBar=nav;nav.SetAsFirstSibling();
+            F.Preferred(nav,height:DevelopmentPanelController.GrowthTabHeight);view.navBar=nav;nav.SetAsFirstSibling();
         }
 
         private static void ApplyEnhanceCard()
@@ -116,7 +116,7 @@ namespace KingdomIdle.UGUI.Editor
                 var view = root.GetComponent<EnhanceCardView>();
                 foreach (var layout in root.GetComponentsInChildren<LayoutGroup>(true)) layout.enabled = false;
                 var height = root.GetComponent<LayoutElement>() ?? root.AddComponent<LayoutElement>();
-                height.minHeight = height.preferredHeight = 270;
+                height.minHeight = height.preferredHeight = 216;
                 var rounded = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/Sprites/RoundedRect.png");
                 var background = root.GetComponent<Image>();
                 background.sprite=rounded; background.type=Image.Type.Sliced;
@@ -132,15 +132,20 @@ namespace KingdomIdle.UGUI.Editor
                 accentRect.anchorMin=Vector2.zero;accentRect.anchorMax=Vector2.up;accentRect.pivot=new Vector2(0,.5f);
                 accentRect.sizeDelta=new Vector2(8,-32);accentRect.anchoredPosition=new Vector2(4,0);
                 var header=(RectTransform)view.nameLabel.transform.parent;
-                F.Stretch(header); header.offsetMin=new Vector2(32,20);header.offsetMax=new Vector2(-350,-20);
+                F.Stretch(header); header.offsetMin=new Vector2(24,16);header.offsetMax=new Vector2(-360,-16);
                 Pin(view.nameLabel,0,64,44,UguiTheme.InfoInk);
-                Pin(view.levelLabel,70,48,36,UguiTheme.InfoMuted);
+                view.nameLabel.rectTransform.offsetMax = new Vector2(-220, view.nameLabel.rectTransform.offsetMax.y);
+                Pin(view.levelLabel,0,64,36,UguiTheme.InfoMuted);
+                var levelRect = view.levelLabel.rectTransform;
+                levelRect.anchorMin = levelRect.anchorMax = Vector2.one; levelRect.pivot = Vector2.one;
+                levelRect.anchoredPosition = Vector2.zero; levelRect.sizeDelta = new Vector2(208,64);
+                view.levelLabel.alignment = TextAlignmentOptions.MidlineRight;
                 view.bonusLabel.transform.SetParent(header,false);
-                Pin(view.bonusLabel,134,82,40,UguiTheme.InfoInk);
+                Pin(view.bonusLabel,72,112,40,UguiTheme.InfoInk);
                 view.bonusLabel.textWrappingMode=TextWrappingModes.Normal;
                 var buttonRect=view.ButtonRow;
                 buttonRect.anchorMin=new Vector2(1,0);buttonRect.anchorMax=Vector2.one;buttonRect.pivot=new Vector2(1,.5f);
-                buttonRect.sizeDelta=new Vector2(298,-48);buttonRect.anchoredPosition=new Vector2(-24,0);
+                buttonRect.sizeDelta=new Vector2(320,-48);buttonRect.anchoredPosition=new Vector2(-24,0);
                 var buttonLayout=buttonRect.GetComponent<HorizontalLayoutGroup>();
                 buttonLayout.enabled=true;buttonLayout.padding=new RectOffset();buttonLayout.spacing=0;
                 buttonLayout.childControlWidth=buttonLayout.childControlHeight=true;
@@ -148,6 +153,14 @@ namespace KingdomIdle.UGUI.Editor
                 PrefabUtility.SaveAsPrefabAsset(root,path);
             }
             finally { PrefabUtility.UnloadPrefabContents(root); }
+        }
+
+        // TMP의 실제 줄 수를 사용한다. 비조작 안내/지갑에 두 줄짜리 빈 블록을 예약하지 않는다.
+        private static void UseTextHeight(TMP_Text label)
+        {
+            var layout = label.GetComponent<LayoutElement>() ?? label.gameObject.AddComponent<LayoutElement>();
+            layout.minHeight = layout.preferredHeight = -1f;
+            layout.flexibleHeight = 0f;
         }
 
         private static void Pin(TMP_Text label,float top,float height,float size,Color color)

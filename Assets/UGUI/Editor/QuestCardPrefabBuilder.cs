@@ -96,7 +96,7 @@ namespace KingdomIdle.UGUI.Editor
             // 기존 자동 컬럼 배치를 중지하고 새 카드의 고정 두 행 + 가변 가로폭을 사용한다.
             foreach (var layout in root.GetComponentsInChildren<UnityEngine.UI.LayoutGroup>(true)) layout.enabled = false;
             var height = root.GetComponent<UnityEngine.UI.LayoutElement>() ?? root.AddComponent<UnityEngine.UI.LayoutElement>();
-            height.minHeight = height.preferredHeight = 280;
+            height.minHeight = height.preferredHeight = 240;
             var background = root.GetComponent<UnityEngine.UI.Image>();
             var rounded = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/Sprites/RoundedRect.png");
             background.sprite = rounded;
@@ -117,11 +117,11 @@ namespace KingdomIdle.UGUI.Editor
             var inner = (RectTransform)root.transform.Find("RowInner");
             Stretch(inner, 0, 0, 0, 0);
             var body = (RectTransform)inner.Find("TextCol");
-            Stretch(body, 196, 0, 28, 0);
+            Stretch(body, 20, 0, 20, 0);
             view.descLabel.gameObject.SetActive(false);
             view.hintLabel.gameObject.SetActive(false);
             // 상단 설명은 두 줄까지 허용하며 터치 영역/진행바와 겹치지 않게 높이를 고정한다.
-            TopStretch(view.titleLabel.rectTransform, 22, 112, 0);
+            TopStretch(view.titleLabel.rectTransform, 12, 112, 248);
             view.titleLabel.fontSize = 42;
             view.titleLabel.color = UguiTheme.InfoInk;
             if(view.titleLabel.font!=null)view.titleLabel.fontSharedMaterial=view.titleLabel.font.material;
@@ -132,7 +132,8 @@ namespace KingdomIdle.UGUI.Editor
             view.titleLabel.maxVisibleLines = 2;
 
             var track = Image(body, "ProgressTrack", UguiTheme.Bronze);
-            TopStretch(track.rectTransform, 154, 48, 256);
+            TopStretch(track.rectTransform, 136, 96, 248);
+            track.rectTransform.offsetMin = new Vector2(316, track.rectTransform.offsetMin.y);
             var empty = Image(track.transform, "Empty", UguiTheme.RusticSurfaceDark);
             Stretch(empty.rectTransform, 3, 3, 3, 3);
             view.progressFill = Image(empty.transform, "Fill", new Color32(44, 115, 56, 255));
@@ -142,6 +143,8 @@ namespace KingdomIdle.UGUI.Editor
             view.progressFill.type = UnityEngine.UI.Image.Type.Simple;
             view.progressLabel = Text(track.transform, "Value", view.titleLabel.font, 36);
             view.progressLabel.color = UguiTheme.Parchment;
+            view.progressLabel.textWrappingMode = TextWrappingModes.Normal;
+            view.progressLabel.maxVisibleLines = 2;
             Stretch(view.progressLabel.rectTransform, 2, 0, 2, 0);
 
             var actionRect = Rect(body, "ActionButton");
@@ -149,8 +152,8 @@ namespace KingdomIdle.UGUI.Editor
             foreach (Transform child in actionRect) child.gameObject.SetActive(child.name == "Label");
             actionRect.anchorMin = actionRect.anchorMax = new Vector2(1, 1);
             actionRect.pivot = new Vector2(1, 1);
-            actionRect.anchoredPosition = new Vector2(0, -140);
-            actionRect.sizeDelta = new Vector2(232, 128);
+            actionRect.anchoredPosition = new Vector2(0, -48);
+            actionRect.sizeDelta = new Vector2(232, 144);
             var actionImage = Image(body, "ActionButton", UguiTheme.ActionGold);
             actionImage.sprite = rounded;
             actionImage.type = UnityEngine.UI.Image.Type.Sliced;
@@ -170,8 +173,13 @@ namespace KingdomIdle.UGUI.Editor
             view.actionLabel.text = "이동 ›";
             if (body.Find("Status") is Transform oldStatus) oldStatus.gameObject.SetActive(false);
             view.periodLabel = Text(body, "Period", view.titleLabel.font, 32);
-            view.periodLabel.alignment = TextAlignmentOptions.Left;
-            TopStretch(view.periodLabel.rectTransform, 220, 40, 256);
+            view.periodLabel.alignment = TextAlignmentOptions.MidlineLeft;
+            view.periodLabel.textWrappingMode = TextWrappingModes.Normal;
+            view.periodLabel.maxVisibleLines = 2;
+            var periodRect = view.periodLabel.rectTransform;
+            periodRect.anchorMin = periodRect.anchorMax = periodRect.pivot = Vector2.one;
+            periodRect.anchoredPosition = new Vector2(0, -8);
+            periodRect.sizeDelta = new Vector2(232, 88);
             view.periodLabel.gameObject.SetActive(false);
             AddReward(inner, "Reward", view.titleLabel.font, out view.rewardIcon, out view.rewardAmountLabel);
             AddReward(inner, "SecondaryReward", view.titleLabel.font, out view.secondaryRewardIcon, out view.secondaryRewardAmountLabel);
@@ -183,15 +191,16 @@ namespace KingdomIdle.UGUI.Editor
         {
             var slot = Rect(parent, name);
             slot.anchorMin = slot.anchorMax = slot.pivot = new Vector2(0, 1);
-            slot.sizeDelta = new Vector2(180, 140);
-            slot.anchoredPosition = new Vector2(8, -24);
+            slot.sizeDelta = new Vector2(144, 96);
+            slot.anchoredPosition = new Vector2(20, -136);
             icon = Image(slot, "Icon", Color.white);
             icon.preserveAspect = true;
-            icon.rectTransform.anchorMin = icon.rectTransform.anchorMax = icon.rectTransform.pivot = new Vector2(.5f, 1);
+            icon.rectTransform.anchorMin = icon.rectTransform.anchorMax = icon.rectTransform.pivot = new Vector2(0, .5f);
             icon.rectTransform.anchoredPosition = Vector2.zero;
-            icon.rectTransform.sizeDelta = new Vector2(96, 96);
+            icon.rectTransform.sizeDelta = new Vector2(48, 48);
             amount = Text(slot, "Amount", font, 36);
-            TopStretch(amount.rectTransform, 102, 44, 0);
+            amount.alignment = TextAlignmentOptions.MidlineLeft;
+            Stretch(amount.rectTransform, 56, 0, 0, 0);
         }
 
         /// <summary>동일 이름의 기존 자식을 재사용해 반복 실행 시 중복 오브젝트가 생기지 않는다.</summary>

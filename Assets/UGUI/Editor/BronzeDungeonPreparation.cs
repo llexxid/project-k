@@ -107,7 +107,7 @@ namespace KingdomIdle.UGUI.Editor
                 row.Configure(2, false, 0, 0, null);
                 Check(!Ref<Button>(row, "button").interactable && Ref<TMP_Text>(row, "powerLabel").text == "이전 단계를 클리어하세요",
                     "Locked difficulty still preserves the unlock rule");
-                Check(((RectTransform)enter.transform).rect.height >= 132, "Existing footer touch height is preserved");
+                Check(((RectTransform)enter.transform).rect.height >= 144, "Footer retains a 144px touch height");
                 Debug.Log("BRONZE DUNGEON ENTRY PRESENTATION PASSED " + checks.Count);
             }
             finally { Object.DestroyImmediate(canvas); }
@@ -117,17 +117,17 @@ namespace KingdomIdle.UGUI.Editor
         {
             var root = card.transform;
             Flat(root.GetComponent<Image>(), UguiTheme.InfoSurface);
-            Height(root, 300);
+            Height(root, 240);
             var group = root.GetComponent<CanvasGroup>();
             if (group != null) group.alpha = 1f; // 준비 중 상태도 글자는 같은 명도로 읽힌다.
             var button = Ref<Button>(card, "button");
             NeutralTint(button);
             var row = root.GetComponent<HorizontalLayoutGroup>();
-            if (row != null) { row.spacing = 22; row.padding = new RectOffset(22, 24, 20, 20); }
+            if (row != null) { row.spacing = 18; row.padding = new RectOffset(22, 24, 16, 16); }
             var preview = root.Find("PreviewFrame");
             if (preview != null)
             {
-                Width(preview, 260); Height(preview, 230);
+                Width(preview, 200); Height(preview, 180);
                 Flat(preview.GetComponent<Image>(), UguiTheme.RusticPanelDeep);
                 var tag = preview.Find("LockedTag");
                 if (tag != null)
@@ -142,7 +142,7 @@ namespace KingdomIdle.UGUI.Editor
             var title = Ref<TMP_Text>(card, "dungeonName");
             var description = Ref<TMP_Text>(card, "description");
             Type(title, 46, UguiTheme.InfoInk); Height(title.transform, 64);
-            Type(description, 36, UguiTheme.InfoMuted); Height(description.transform, 92);
+            Type(description, 36, UguiTheme.InfoMuted); Height(description.transform, 52);
             description.textWrappingMode = TextWrappingModes.Normal;
             // 기존 카드의 보상 목적을 짧게 표시한다. 해금·보상 정책은 만들지 않는다.
             if (card.DungeonType == Scripts.Core.eStageType.GoldDungeon || card.DungeonName.Contains("골드")) description.text = "골드를 획득합니다.";
@@ -151,7 +151,7 @@ namespace KingdomIdle.UGUI.Editor
             var nameRow = title.transform.parent;
             Height(nameRow, 64);
             var info = root.Find("InfoCol")?.GetComponent<VerticalLayoutGroup>();
-            if (info != null) info.spacing = 12;
+            if (info != null) info.spacing = 8;
             var chevron = root.Find("Chevron")?.GetComponent<Image>();
             if (chevron != null) chevron.color = UguiTheme.InfoMuted;
             DisableDecoration(root);
@@ -170,18 +170,18 @@ namespace KingdomIdle.UGUI.Editor
             if (window.GetComponent<DungeonDifficultySizeFitter>() == null) window.gameObject.AddComponent<DungeonDifficultySizeFitter>();
             Flat(window.GetComponent<Image>(), UguiTheme.RusticPanel);
             var layout = window.GetComponent<VerticalLayoutGroup>();
-            if (layout != null) { layout.spacing = 14; layout.padding = new RectOffset(30, 30, 28, 28); }
+            if (layout != null) { layout.spacing = 5; layout.padding = new RectOffset(30, 30, 10, 10); }
             var preview = window.Find("PreviewCard") as RectTransform;
             if (preview == null) throw new InvalidOperationException("던전 프리뷰 카드 누락");
             Flat(preview.GetComponent<Image>(), UguiTheme.InfoSurface);
-            Height(preview, 330);
+            Height(preview, 256);
             var band = preview.Find("TitleBand") as RectTransform;
             if (band == null) throw new InvalidOperationException("던전 설명 영역 누락");
             var bandImage = band.GetComponent<Image>();
             if (bandImage != null) bandImage.color = Color.clear;
-            SetRect(band, Vector2.zero, new Vector2(.68f, 1), new Vector2(22, 18), new Vector2(-8, -18));
+            SetRect(band, Vector2.zero, Vector2.one, new Vector2(16, 2), new Vector2(-16, -2));
             var bandLayout = band.GetComponent<VerticalLayoutGroup>();
-            if (bandLayout != null) { bandLayout.padding = new RectOffset(0, 0, 8, 8); bandLayout.spacing = 10; }
+            if (bandLayout != null) { bandLayout.padding = new RectOffset(); bandLayout.spacing = 2; }
             var name = Ref<TMP_Text>(popup, "dungeonName");
             var description = Ref<TMP_Text>(popup, "description");
             Type(name, 54, UguiTheme.InfoInk); Height(name.transform, 70);
@@ -190,7 +190,10 @@ namespace KingdomIdle.UGUI.Editor
             description.overflowMode = TextOverflowModes.Ellipsis;
             var art = preview.Find("PortalArtFrame") as RectTransform;
             if (art == null) art = F.Box(preview, "PortalArtFrame", UguiTheme.RusticPanelDeep, rounded: true).rectTransform;
-            SetRect(art, new Vector2(.69f, 0), Vector2.one, new Vector2(4, 22), new Vector2(-16, -94));
+            // 보상 조건은 원래 설명 높이와 전체 폭으로 보존하고, 그림은 제목 우측에만 둔다.
+            SetRect(art, Vector2.one, Vector2.one, new Vector2(-80, -72), new Vector2(-16, -8));
+            var titleMargin = name.margin;
+            name.margin = new Vector4(titleMargin.x, titleMargin.y, 84, titleMargin.w);
             Flat(art.GetComponent<Image>(), UguiTheme.RusticPanelDeep);
             var image = Ref<Image>(popup, "mainImage");
             if (image.transform.parent != art) image.transform.SetParent(art, false);
@@ -201,7 +204,38 @@ namespace KingdomIdle.UGUI.Editor
             image.raycastTarget = false;
             Frame(art, "PortalBorder", UguiTheme.Bronze);
             var section = window.Find("LblDifficultySection")?.GetComponent<TMP_Text>();
-            Type(section, 42, UguiTheme.Parchment); Height(section.transform, 58);
+            Type(section, 42, UguiTheme.Parchment); Height(section.transform, 52);
+            // 슬롯과 순회 버튼은 그대로 두고, 위아래 빈 공간만 줄인다.
+            var infoRow = window.Find("InfoRow");
+            if (infoRow != null)
+            {
+                Height(infoRow, 144);
+                foreach (var carousel in infoRow.GetComponentsInChildren<DungeonInfoCarouselView>(true))
+                {
+                    var column = carousel.GetComponent<VerticalLayoutGroup>();
+                    if (column != null) { column.padding = new RectOffset(52, 52, 1, 1); column.spacing = 2; }
+                    var heading = carousel.transform.Find("Title");
+                    if (heading != null) Height(heading, 54);
+                    var carouselRow = carousel.transform.Find("CarouselRow");
+                    if (carouselRow != null) Height(carouselRow, 86);
+                    // 화살표의 기존 132px 터치를 유지하면서 제목/아이콘의 세로 최소 높이에서는 분리한다.
+                    foreach (string arrowName in new[] { "PreviousButton", "NextButton" })
+                    {
+                        var arrow = carouselRow?.Find(arrowName) ?? carousel.transform.Find(arrowName);
+                        if (arrow == null) continue;
+                        if (arrow.parent != carousel.transform) arrow.SetParent(carousel.transform, false);
+                        Layout(arrow).ignoreLayout = true;
+                        Width(arrow, 40); Height(arrow, 132);
+                        bool next = arrowName == "NextButton";
+                        var rect = (RectTransform)arrow;
+                        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(next ? 1 : 0, .5f);
+                        rect.anchoredPosition = new Vector2(next ? -6 : 6, 0);
+                        rect.sizeDelta = new Vector2(40, 132);
+                        var icon = arrow.Find("Icon") as RectTransform;
+                        if (icon != null) icon.anchoredPosition = new Vector2(0, -28);
+                    }
+                }
+            }
             var scroll = Ref<ScrollRect>(popup, "difficultyScroll");
             var scrollLayout = Layout(scroll.transform);
             scrollLayout.minHeight = 0; scrollLayout.preferredHeight = 462; scrollLayout.flexibleHeight = 1;
@@ -214,7 +248,7 @@ namespace KingdomIdle.UGUI.Editor
             var enterLabel = enter.GetComponentInChildren<TMP_Text>(true);
             Type(enterLabel, 42, UguiTheme.InfoInk);
             enterLabel.alignment = TextAlignmentOptions.Center;
-            Width(enter.transform, 350); Height(enter.transform, 132);
+            Width(enter.transform, 350); Height(enter.transform, 144);
             NeutralTint(enter, tintDisabled: true);
             ApplyCloseButton(popup, window, footer, enter);
             Frame(window, "BronzeDungeonFrame", UguiTheme.BronzeLight);
@@ -232,7 +266,7 @@ namespace KingdomIdle.UGUI.Editor
             close.gameObject.SetActive(true);
             close.enabled = true;
             close.interactable = true;
-            Width(close.transform, 200); Height(close.transform, 132);
+            Width(close.transform, 200); Height(close.transform, 144);
             Flat(close.GetComponent<Image>(), UguiTheme.RusticSurface);
             close.GetComponent<Image>().raycastTarget = true;
             var label = close.GetComponentInChildren<TMP_Text>(true);
@@ -249,7 +283,7 @@ namespace KingdomIdle.UGUI.Editor
             selectionLayout.minWidth = selectionLayout.preferredWidth = 0;
             selectionLayout.flexibleWidth = 1;
             selection.textWrappingMode = TextWrappingModes.Normal;
-            Height(selection.transform, 132);
+            Height(selection.transform, 144);
 
             bool connected = false;
             for (int i = 0; i < close.onClick.GetPersistentEventCount(); i++)
@@ -311,7 +345,7 @@ namespace KingdomIdle.UGUI.Editor
             {
                 if (Ref<TMP_Text>(card, "dungeonName").color != UguiTheme.InfoInk ||
                     Ref<TMP_Text>(card, "description").color != UguiTheme.InfoMuted ||
-                    Ref<Button>(card, "button") == null)
+                    Ref<Button>(card, "button") == null || LayoutUtility.GetPreferredHeight((RectTransform)card.transform) > 240.5f)
                     throw new InvalidOperationException("던전 카드 표시/참조 불일치: " + card.name);
             }
             foreach (var popup in root.GetComponentsInChildren<DungeonDifficultyPopupView>(true))
@@ -328,7 +362,7 @@ namespace KingdomIdle.UGUI.Editor
                             close.onClick.GetPersistentMethodName(i) == nameof(DungeonDifficultyPopupView.Hide)) connected = true;
                 var closeLayout = close != null ? close.GetComponent<LayoutElement>() : null;
                 if (close == null || !close.gameObject.activeSelf || !close.enabled || !close.interactable ||
-                    !connected || closeLayout == null || closeLayout.minHeight < 132 || closeLayout.minWidth < 200)
+                    !connected || closeLayout == null || closeLayout.minHeight < 144 || closeLayout.minWidth < 200)
                     throw new InvalidOperationException("던전 상세 닫기 버튼/Hide 연결 불일치: " + popup.name);
                 if (popup.GetComponentsInChildren<PartyHudSuppressor>(true).Length != 0 ||
                     Ref<Image>(popup, "mainImage").transform.parent.name != "PortalArtFrame" ||
@@ -377,17 +411,26 @@ namespace KingdomIdle.UGUI.Editor
                 hud.sizeDelta = new Vector2(0, UguiTheme.HudTopHeight); hud.anchoredPosition = Vector2.zero;
                 var sheetFit = panel.Sheet.GetComponent<SheetSizeFitter>();
                 var clip = (RectTransform)panel.Sheet.parent;
+                var infoIcon = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/UsingAssets/Dungeon_Chest01.png");
+                Check(infoIcon != null, "Existing sprite is available for complete reward/monster carousel coverage");
+                foreach (bool withInfo in new[] { false, true })
                 foreach (var size in new[] { new Vector3(2316, 0, 0), new Vector3(1920, 0, 0),
                     new Vector3(1440, 0, 0), new Vector3(1440, 64, 24), new Vector3(1920, 0, 0) })
                 {
                     fixtureRect.sizeDelta = new Vector2(1080, size.x);
                     panelRect.offsetMin = new Vector2(0, size.z); panelRect.offsetMax = new Vector2(0, -size.y);
                     sheetFit.SetTopBoundary(hud);
+                    var icons = withInfo ? new[] { infoIcon, infoIcon, infoIcon, infoIcon, infoIcon } : Array.Empty<Sprite>();
+                    popup.SetInfoItems(icons, icons);
                     LayoutRebuilder.ForceRebuildLayoutImmediate(window);
                     fitter.RefreshNow();
                     LayoutRebuilder.ForceRebuildLayoutImmediate(window);
                     Canvas.ForceUpdateCanvases();
-                    string label = "1080x" + size.x + " safeTop=" + size.y + " safeBottom=" + size.z;
+                    // 캐러셀은 viewport 크기가 확정된 뒤에도 모든 아이콘과 마지막 페이지를 보존해야 한다.
+                    popup.SetInfoItems(icons, icons);
+                    LayoutRebuilder.ForceRebuildLayoutImmediate(window);
+                    Canvas.ForceUpdateCanvases();
+                    string label = "1080x" + size.x + " safeTop=" + size.y + " safeBottom=" + size.z + " info=" + withInfo;
                     var available = RectBounds(panelRect, clip);
                     var bounds = RectBounds(panelRect, window);
                     Check(bounds.min.y >= available.min.y + 17.5f && bounds.max.y <= available.max.y - 17.5f,
@@ -398,23 +441,96 @@ namespace KingdomIdle.UGUI.Editor
                         Check(targetBounds.min.y >= bounds.min.y - .5f && targetBounds.max.y <= bounds.max.y + .5f,
                             label + " keeps " + target.name + " fully inside the window");
                     }
-                    Check(((RectTransform)enter.transform).rect.height >= 132 && ((RectTransform)close.transform).rect.height >= 132 &&
+                    Check(((RectTransform)enter.transform).rect.height >= 144 && ((RectTransform)close.transform).rect.height >= 144 &&
                         title.rectTransform.rect.height + 1 >= title.GetPreferredValues(title.text).y,
-                        label + " preserves readable title and both 132px footer touch areas");
-                    Check(scroll.vertical && scroll.viewport.rect.height >= 144 && scroll.content.rect.height > scroll.viewport.rect.height,
-                        label + " retains at least one complete difficulty row and internal scrolling");
+                        label + " preserves readable title and both 144px footer touch areas");
+                    var description = Ref<TMP_Text>(popup, "description");
+                    var descriptionPreferred = description.GetPreferredValues(description.text, description.rectTransform.rect.width, Mathf.Infinity);
+                    Check(descriptionPreferred.y <= description.rectTransform.rect.height + 1,
+                        label + " retains the full selected-difficulty reward and reset description; rect=" + description.rectTransform.rect +
+                        " preferred=" + descriptionPreferred + " fontSize=" + description.fontSize);
+                    string originalDescription = description.text;
+                    foreach (string text in new[]
+                    {
+                        "보스 3체 · 각 30초 · " + NumberNotation.Format(long.MaxValue) + " 루비 + 첫 클리어 125\n3체 모두 처치 시 지급 · 매일 00시 충전",
+                        "60s · 20 enemies · up to 123.45K gold\nDefeated-enemy rewards are kept on exit · Tickets refill daily at 00:00",
+                        "3 bosses · 30s each · 123.45K ruby + first clear 125\nDefeat all three for payout · Tickets refill daily at 00:00"
+                    })
+                    {
+                        var preferred = description.GetPreferredValues(text, description.rectTransform.rect.width, Mathf.Infinity);
+                        Check(preferred.y <= description.rectTransform.rect.height + 1,
+                            label + " fits complete Korean/Latin long reward conditions; rect=" + description.rectTransform.rect +
+                            " preferred=" + preferred + " fontSize=" + description.fontSize + " text=" + text);
+                    }
+                    description.text = originalDescription;
+                    if (withInfo)
+                        foreach (var carousel in popup.GetComponentsInChildren<DungeonInfoCarouselView>(true))
+                        {
+                            var heading = carousel.transform.Find("Title").GetComponent<TMP_Text>();
+                            var headingPreferred = heading.GetPreferredValues(heading.text, heading.rectTransform.rect.width, Mathf.Infinity);
+                            Check(headingPreferred.y <= heading.rectTransform.rect.height + 1,
+                                label + " retains the complete " + carousel.name + " title; text=" + heading.text +
+                                " rect=" + heading.rectTransform.rect + " preferred=" + headingPreferred + " fontSize=" + heading.fontSize);
+                            var content = Ref<RectTransform>(carousel, "content");
+                            int visibleSlots = 0;
+                            foreach (Transform child in content) if (child.gameObject.activeSelf) visibleSlots++;
+                            Check(visibleSlots == icons.Length, label + " retains all five " + carousel.name + " entries");
+                            var carouselScroll = Ref<ScrollRect>(carousel, "scrollRect");
+                            var infoBand = (RectTransform)carousel.transform.parent;
+                            foreach (var part in new[] { heading.rectTransform, carouselScroll.viewport,
+                                (RectTransform)Ref<Button>(carousel, "previousButton").transform,
+                                (RectTransform)Ref<Button>(carousel, "nextButton").transform })
+                            {
+                                var partBounds = RectBounds(infoBand, part);
+                                Check(partBounds.min.y >= infoBand.rect.yMin - 1 && partBounds.max.y <= infoBand.rect.yMax + 1,
+                                    label + " keeps " + carousel.name + "/" + part.name + " inside the info band without overlapping difficulty selection");
+                            }
+                            carouselScroll.horizontalNormalizedPosition = 1;
+                            Canvas.ForceUpdateCanvases();
+                            var finalIcon = (RectTransform)content.GetChild(content.childCount - 1);
+                            var iconBounds = RectBounds(carouselScroll.viewport, finalIcon);
+                            Check(iconBounds.min.x >= carouselScroll.viewport.rect.xMin - 1 && iconBounds.max.x <= carouselScroll.viewport.rect.xMax + 1,
+                                label + " can reach the final " + carousel.name + " entry without removing rewards");
+                            Check(iconBounds.min.y >= carouselScroll.viewport.rect.yMin - 1 && iconBounds.max.y <= carouselScroll.viewport.rect.yMax + 1,
+                                label + " keeps reward/monster icons vertically within the compact info band");
+                        }
+                    int bottomPadding = scroll.content.GetComponent<VerticalLayoutGroup>()?.padding.bottom ?? 0;
+                    Check(scroll.vertical && scroll.viewport.rect.height >= 144 + bottomPadding - .5f && scroll.content.rect.height > scroll.viewport.rect.height,
+                        label + " retains one complete difficulty row plus its bottom padding and internal scrolling; viewport=" + scroll.viewport.rect +
+                        " content=" + scroll.content.rect + " bottomPadding=" + bottomPadding);
                     scroll.verticalNormalizedPosition = 0;
                     Canvas.ForceUpdateCanvases();
                     var last = (RectTransform)scroll.content.GetChild(scroll.content.childCount - 1);
                     var lastBounds = RectBounds(scroll.viewport, last);
                     Check(lastBounds.min.y >= scroll.viewport.rect.yMin - 1 && lastBounds.max.y <= scroll.viewport.rect.yMax + 1,
-                        label + " can scroll the final difficulty row fully into view");
+                        label + " can scroll the final difficulty row fully into view; viewport=" + scroll.viewport.rect + " last=" + lastBounds +
+                        " content=" + scroll.content.rect + " bottomPadding=" + bottomPadding);
                     if (size.x >= 1920)
                         Check(Mathf.Abs(window.anchoredPosition.y) <= .5f && Mathf.Abs(window.rect.height - LayoutUtility.GetPreferredHeight(window)) <= .5f,
                             label + " preserves or restores the unconstrained phone layout");
                     window.hasChanged = false;
                     for (int i = 0; i < 20; i++) fitter.RefreshNow();
                     Check(!window.hasChanged, label + " does not rewrite unchanged window geometry");
+                }
+                var detail = Ref<TMP_Text>(popup, "description");
+                detail.text = "보스 3체 · 각 30초 · 123.45K 루비 + 첫 클리어 125\n3체 모두 처치 시 지급 · 매일 00시 충전";
+                var rubyPreferred = detail.GetPreferredValues(detail.text, detail.rectTransform.rect.width, Mathf.Infinity);
+                Check(rubyPreferred.y <= detail.rectTransform.rect.height + 1,
+                    "Ruby first-clear quantity, payout condition and reset description fit without dropping information; rect=" + detail.rectTransform.rect +
+                    " preferred=" + rubyPreferred + " fontSize=" + detail.fontSize);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(panel.Sheet);
+                Canvas.ForceUpdateCanvases();
+                foreach (var card in panel.GetComponentsInChildren<DungeonCardView>(true))
+                {
+                    var rect = (RectTransform)card.transform;
+                    var preview = (RectTransform)card.transform.Find("PreviewFrame");
+                    var description = Ref<TMP_Text>(card, "description");
+                    var artBounds = RectBounds(rect, preview);
+                    var textBounds = RectBounds(rect, description.rectTransform);
+                    Check(Mathf.Abs(rect.rect.height - 240) <= 1 && preview.rect.height >= 179 && preview.rect.height <= 181,
+                        card.name + " uses the compact 240px card with 180px preview");
+                    Check(artBounds.min.y >= rect.rect.yMin - 1 && artBounds.max.y <= rect.rect.yMax + 1 && artBounds.max.x <= textBounds.min.x + 1,
+                        card.name + " separates art from its description within the whole-card touch target");
                 }
             }
             finally { Object.DestroyImmediate(fixture); }

@@ -49,13 +49,51 @@ namespace KingdomIdle.UGUI.Editor
             var root = PrefabUtility.LoadPrefabContents(PanelPath);
             try
             {
-                var c = root.GetComponent<GachaPanelView>()?.authoredContent;
-                if (c == null || c.ratesButton == null || c.rewardsButton == null)
-                    throw new InvalidOperationException("Gacha information link references are incomplete.");
-                ApplyInfoLinks(c);
+                ApplyBronzeInfoLinks(root.GetComponent<GachaPanelView>());
                 PrefabUtility.SaveAsPrefabAsset(root, PanelPath);
             }
             finally { PrefabUtility.UnloadPrefabContents(root); }
+        }
+
+        /// <summary>기존 공통 셸과 본문을 재생성하지 않고 닫기/종류 탭의 경계만 복구한다.</summary>
+        public static void PrepareBronzeHeader()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException("Exit Play Mode first.");
+            var root = PrefabUtility.LoadPrefabContents(PanelPath);
+            try
+            {
+                ApplyBronzeHeaderGeometry(root.GetComponent<GachaPanelView>());
+                PrefabUtility.SaveAsPrefabAsset(root, PanelPath);
+            }
+            finally { PrefabUtility.UnloadPrefabContents(root); }
+        }
+
+        internal static void ApplyBronzeInfoLinks(GachaPanelView view)
+        {
+            var c = view != null ? view.authoredContent : null;
+            if (c == null || c.ratesButton == null || c.rewardsButton == null)
+                throw new InvalidOperationException("Gacha information link references are incomplete.");
+            ApplyBronzeHeaderGeometry(view);
+            ApplyInfoLinks(c);
+        }
+
+        internal static void ApplyBronzeHeaderGeometry(GachaPanelView view)
+        {
+            var header = view != null && view.sheet != null ? view.sheet.Find("Header") : null;
+            if (header == null || view.closeButton == null || view.tabBar == null)
+                throw new InvalidOperationException("Gacha header references are incomplete.");
+            // ignoreLayout 닫기는144+상하6을 차지한다. 종류 탭도 런타임144 버튼을 담아야 한다.
+            Fixed(header, 156);
+            Fixed(view.tabBar, 144);
+            var row = header.GetComponent<UnityEngine.UI.HorizontalLayoutGroup>();
+            if (row != null) row.padding = new RectOffset(6, 156, 0, 0);
+            var close = F.Preferred(view.closeButton, width: 144, height: 144);
+            close.minWidth = close.minHeight = 144;
+            close.ignoreLayout = true;
+            var rect = (RectTransform)view.closeButton.transform;
+            rect.anchorMin = rect.anchorMax = rect.pivot = Vector2.one;
+            rect.anchoredPosition = new Vector2(-6, -6);
+            rect.sizeDelta = Vector2.one * 144;
         }
 
         [MenuItem("KingdomIdle/UGUI/Validate bronze gacha UI")]
@@ -232,9 +270,7 @@ namespace KingdomIdle.UGUI.Editor
             var header = view.sheet.Find("Header");
             foreach (var row in new[] { header, view.tabBar, view.scroll.transform, c.costLabel.transform, c.pullRow })
                 row.SetAsLastSibling();
-            Fixed(header, 104);
             view.title.fontSize = 60;
-            Fixed(view.tabBar, 100);
             var hero = F.Preferred(heroRect, height: 150);
             hero.minHeight = 150; hero.flexibleHeight = 0;
             var heroBackground = heroRect.GetComponent<UnityEngine.UI.Image>();
@@ -277,8 +313,7 @@ namespace KingdomIdle.UGUI.Editor
             c.costLabel.fontSize = 36;
             Fixed(c.costLabel, 48);
             Fixed(c.pullRow, 168);
-            var close = F.Preferred(view.closeButton, height: 104);
-            close.minHeight = 104;
+            ApplyBronzeHeaderGeometry(view);
         }
 
         private static void ApplyInfoLinks(GachaTabContentView c)

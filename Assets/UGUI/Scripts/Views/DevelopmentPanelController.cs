@@ -13,6 +13,7 @@ namespace KingdomIdle.UGUI
         // 서버가 지원하는 요청 횟수만 선택한다. 각 카드에는 선택한 횟수의 주행동 하나만 표시한다.
         private static readonly int[] PullCounts = { 1, 10, -1 };
         private static int _selectedCount = 1;
+        internal const float GrowthTabHeight = 128f, PurchaseCountHeight = 96f;
 
         // 실제로 플레이어 스탯에 반영되는 강화 항목만 노출.
         private static readonly StatEnhanceManager.EnhanceType[] EnhanceTypes =
@@ -213,7 +214,7 @@ namespace KingdomIdle.UGUI
                     tab.name=ruby?"RubyGrowthTab":"GoldGrowthTab";
                     tab.SetLabel(ruby?"루비 영구 성장":"골드 강화");tab.SetIcon(ruby?cat.iconGem:cat.iconCoin);
                     var layout=tab.GetComponent<LayoutElement>();
-                    if(layout!=null)layout.minHeight=layout.preferredHeight=128;
+                    if(layout!=null)layout.minHeight=layout.preferredHeight=GrowthTabHeight;
                     tab.Button.onClick.AddListener(()=> {
                         _rubyTab=ruby;Refresh();
                         var scroll=_view?.GetComponentInChildren<ScrollRect>();if(scroll!=null)scroll.verticalNormalizedPosition=1;
@@ -232,7 +233,7 @@ namespace KingdomIdle.UGUI
                     tab.SetLabel(count < 0 ? "최대" : $"{count}회");
                     tab.SetIcon(null);
                     var layout=tab.GetComponent<LayoutElement>();
-                    if(layout!=null)layout.minHeight=layout.preferredHeight=96;
+                    if(layout!=null)layout.minHeight=layout.preferredHeight=PurchaseCountHeight;
                     tab.Button.onClick.AddListener(() => { _selectedCount = count; Refresh(); });
                     CountTabs.Add(tab);
                 }

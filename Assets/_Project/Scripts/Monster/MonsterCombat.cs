@@ -134,14 +134,22 @@ namespace Scripts.Monster
             SetFlip(_attackTarget.transform.position.x - transform.position.x);
             _lastAttackTime = Time.time;
             CombatDiagnostics.Record("monster-windup",this,_attackTarget,AttackInterval);
-            float duration = Mathf.Clamp(AttackInterval * .6f, .55f, 1.05f);
+            float clipLength = GetAnimationLength(eMonsterAction.Attack);
+            float duration = AttackMotionDuration(AttackInterval, clipLength);
             _attackEnds = Time.time + duration;
             _impactAt = Time.time + duration * _impactNormalized;
             _pendingImpact = true;
             ChangeState(_attackState ??= new MonsterAttackState(this));
-            _am.speed = Mathf.Max(.05f, GetAnimationLength(eMonsterAction.Attack) / duration);
+            _am.speed = Mathf.Max(.05f, clipLength / duration);
             _am.Play("Attack", 0, 0);
             return true;
+        }
+
+        private static float AttackMotionDuration(float interval, float clipLength)
+        {
+            float target = Mathf.Clamp(interval * .6f, .55f, 1.05f);
+            // Keep the existing cadence, but never stretch a short authored swing.
+            return clipLength > 0 ? Mathf.Min(target, clipLength) : target;
         }
 
         private void TickCombat()
