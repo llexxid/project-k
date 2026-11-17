@@ -30,9 +30,12 @@ namespace KingdomIdle.Mailbox.Testing
             internal readonly List<(int Start, int Count)> RequestedPages = new();
             internal MailboxService Service;
             internal MailClaimInfo Result;
+            private readonly bool _instanceInventory;
+            private string MailboxId => _instanceInventory ? "0123456789abcdef0123456789abcdef" : "box";
 
-            internal Fixture(int count)
+            internal Fixture(int count, bool instanceInventory = false)
             {
+                _instanceInventory = instanceInventory;
                 for (int i = 0; i < count; i++) Mails.Add(Mail(9000000000000L + i, Time));
                 CreateService();
             }
@@ -65,8 +68,11 @@ namespace KingdomIdle.Mailbox.Testing
                     var page = Mails.OrderByDescending(m => m.MailId).Skip(r.StartIndex).Take(r.Count).ToList();
                     if (r.StartIndex == 50 && (DuplicateOnce || DuplicateAlways) && page.Count > 0)
                     { page[0] = Mails.OrderByDescending(m => m.MailId).First(); DuplicateOnce = false; }
-                    ok(new OnGetMailListResponseDTO { MailboxId = "box", StartIndex = r.StartIndex,
-                        TotalCount = Mails.Count, Mails = page, ServerTimeUtc = Time });
+                    ok(new OnGetMailListResponseDTO { MailboxId = MailboxId, StartIndex = r.StartIndex,
+                        TotalCount = Mails.Count, Mails = page, ServerTimeUtc = Time,
+                        RegularMailboxId = _instanceInventory ? MailboxId : null,
+                        LatestRegularMailId = _instanceInventory ? (Mails.Count == 0 ? 0L : Mails.Max(mail => mail.MailId)) : (long?)null,
+                        LatestOverflowMailId = _instanceInventory ? 0L : (long?)null });
                 }
                 if (HoldLists) Lists.Enqueue(Respond); else Respond();
             }
@@ -90,13 +96,17 @@ namespace KingdomIdle.Mailbox.Testing
                         fail(NetworkManager.CreateError("Business", "Expected storage failure", details: new ErrorResponseDTO
                         { ErrorCode = Protocol.Message.Data.eErrorCode.StorageFailure, Message = "Storage write failed" })); return;
                     }
-                    ok(new OnClaimMailRewardResponseDTO { MailboxId = "box", ClaimedMailIds = WrongClaimId ? new List<long> { 123 } : r.MailIds.ToList(),
+                    ok(new OnClaimMailRewardResponseDTO { MailboxId = MailboxId, ClaimedMailIds = WrongClaimId ? new List<long> { 123 } : r.MailIds.ToList(),
                         RemainingCount = Mails.Count, Rewards = rewards, Currency = new CurrencyQueryDTO(InvalidClaim ? -1 : Gold, 0, 0, 0),
-                        Equipment = Inventory() });
+                        Equipment = Inventory(_instanceInventory) });
                 }
                 if (HoldClaims) Claims.Enqueue(Respond); else Respond();
             }
-            internal static EquipmentInventoryDTO Inventory() => new() { Items = new(), PendingItems = new(), ReserveStacks = new(), Capacity = 200, PendingCapacity = 100 };
+            internal static EquipmentInventoryDTO Inventory(bool instanceInventory = false) => new()
+            {
+                Items = new(), PendingItems = new(), ReserveStacks = new(), Capacity = instanceInventory ? 999 : 200, PendingCapacity = 100,
+                SchemaVersion = instanceInventory ? 2 : (int?)null, AutoLockFirstEnhancement = instanceInventory ? true : (bool?)null
+            };
             internal static MailDTO Mail(long id, long now) => new() { MailId = id, TitleKey = "mail.test.title", BodyKey = "mail.test.body",
                 Category = MailCategory.System, SentUtc = now - 60, ExpiresUtc = now + 86400,
                 Rewards = new() { new MailRewardDTO { Kind = RewardKind.Currency, CurrencyType = Protocol.Message.Data.eCurrency.Gold, Amount = 10 } } };

@@ -32,6 +32,7 @@ namespace Scripts.Core.Manager
             bool previousLoop = _isLoopMode;
             long fromStage = 0;
             _mainStageRequestPending = true;
+            BeginStageLoading("main-move");
             bool IsCurrent() => this != null && _mainStageRequestPending && ReferenceEquals(_token, token) &&
                 generation == LocalProgression.AccountGeneration && NetworkManager.Instance == network &&
                 network.AccountGeneration == networkGeneration;
@@ -39,6 +40,7 @@ namespace Scripts.Core.Manager
             void Stop(string message)
             {
                 if (!IsCurrent()) return;
+                EndStageLoading();
                 _mainStageRequestPending = false;
                 _currentState = previousState;
                 _huntSyncFailed = true;
@@ -66,6 +68,7 @@ namespace Scripts.Core.Manager
                 _currentState = previousState;
                 if (!TransitionStage(confirmed))
                 {
+                    EndStageLoading();
                     _huntSyncFailed = true;
                     Time.timeScale = 0;
                     KingdomIdle.UGUI.UIManager.Instance?.ShowToast("서버 스테이지로 이동하지 못했습니다. 재접속해 주세요.");
@@ -116,6 +119,7 @@ namespace Scripts.Core.Manager
             })) return true;
 
             _mainStageRequestPending = false;
+            EndStageLoading();
             return false;
         }
 

@@ -104,6 +104,7 @@ namespace KingdomIdle.UGUI.Editor
             catalog.popupShop = Load($"{p}/Popups/Popup_Shop.prefab");
 
             catalog.overlayLoading = Load($"{p}/Overlays/Overlay_Loading.prefab");
+            catalog.overlayGameplayLoading = Load(GameplayLoadingPreparation.PrefabPath);
             catalog.overlayToast = Load($"{p}/Overlays/Overlay_Toast.prefab");
             catalog.overlaySettings = Load($"{p}/Overlays/Overlay_Settings.prefab");
 

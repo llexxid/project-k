@@ -8,6 +8,7 @@ using PlayFab;
 using Protocol.Message.Dto;
 using Scripts.Core.Manager;
 using Scripts.Core;
+using Scripts.Core.Utils;
 using UnityEngine;
 
 namespace KingdomIdle.Mailbox
@@ -42,6 +43,9 @@ namespace KingdomIdle.Mailbox
         private ClaimRequest _claiming;
         private ListRequest _loading, _nextPage;
         private string _listLocale;
+        private GameplayLoading.Scope _claimLoading;
+
+        private void EndClaimLoading() { _claimLoading?.Dispose(); _claimLoading = null; }
 
         private sealed class ListRequest
         {
@@ -139,6 +143,7 @@ namespace KingdomIdle.Mailbox
             _loading = null; _readyDeadline = 0; LoadFailed = false;
             ClearList();
             if (State == MailboxState.Loading || State == MailboxState.Ready) State = MailboxState.Empty;
+            if (_claiming == null && State != MailboxState.Recovering) EndClaimLoading();
             Notify();
         }
         private void ClearList()
@@ -150,6 +155,7 @@ namespace KingdomIdle.Mailbox
         public void CheckAccount()
         {
             if (_account == _identity()) return;
+            EndClaimLoading();
             _account = _identity(); _loadVersion++; _viewVersion++; _claiming = null;
             _retryAt = 0; _lastExpiredUtc = 0; _refreshQueued = false; _serverUtc = 0;
             _loading = null; _listLocale = null; _readyDeadline = 0; LoadFailed = false; _loginChecked = false;
@@ -336,6 +342,7 @@ namespace KingdomIdle.Mailbox
             }
             ObserveLatest(request.RegularMailboxId ?? MailboxId, request.LatestRegular ?? newestId, MailboxId, request.LatestOverflow ?? 0);
             LastFailure = null; State = MailboxState.Ready;
+            EndClaimLoading();
             Debug.Log($"[Mail] list server={request.Total} cached={Messages.Count} recovery={request.Recovery}");
             Notify();
         }
@@ -355,6 +362,7 @@ namespace KingdomIdle.Mailbox
             _loading = null; _loadVersion++; _retryAt = 0; _readyDeadline = 0; LoadFailed = true;
             LastFailure = error; HasSnapshot = false;
             State = recovery ? MailboxState.RecoveryRequired : MailboxState.Empty;
+            EndClaimLoading();
             Debug.LogWarning($"[Mail] list rejected kind={NetworkManager.GetFailureKind(error)} message={error?.ErrorMessage}");
             Notify();
         }
@@ -400,6 +408,7 @@ namespace KingdomIdle.Mailbox
             if (ids.Distinct().Count() != ids.Length || ids.Any(id => !active.Contains(id)))
             { RequestRefresh("stale-claim"); return new(RewardStatus.Stale); }
             var request = new ClaimRequest { Ids = ids, MailboxId = MailboxId, Account = _account, View = _viewVersion };
+            _claimLoading = GameplayLoading.Begin("mail-claim");
             _claiming = request; LastFailure = null; State = MailboxState.Claiming; Notify();
             ClaimNextBatch(request);
             return new(RewardStatus.Pending);
@@ -457,6 +466,7 @@ namespace KingdomIdle.Mailbox
             else if (_open) Load();
             else
             {
+                EndClaimLoading();
                 if (request.Rewards.Any(reward => reward.Disposition == EquipmentDisposition.Mail))
                     RefreshAfterDelivery("mail-overflow");
                 Notify();
@@ -473,10 +483,11 @@ namespace KingdomIdle.Mailbox
                 if (!ok)
                 {
                     State = MailboxState.RecoveryRequired; HasSnapshot = false;
+                    EndClaimLoading();
                     LastFailure = NetworkManager.CreateError("ApplyFailed", "서버 상태를 확인하지 못했습니다. 다시 불러와 주세요."); Notify();
                 }
                 else if (_open) Load(recovery: true);
-                else { State = MailboxState.Empty; LastFailure = null; Notify(); }
+                else { State = MailboxState.Empty; LastFailure = null; EndClaimLoading(); Notify(); }
             });
         }
 

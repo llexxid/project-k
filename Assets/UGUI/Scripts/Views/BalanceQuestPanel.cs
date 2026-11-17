@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using KingdomIdle.Balance;
+using KingdomIdle.Rewards;
 using UnityEngine;
 
 namespace KingdomIdle.UGUI
@@ -406,11 +407,13 @@ namespace KingdomIdle.UGUI
             Rebind(false);
         }
 
-        private void OnClaimCompleted(QuestClaimToken token, bool success, string message)
+        private void OnClaimCompleted(QuestClaimToken token, bool success, string message, IReadOnlyList<RewardGrant> rewards)
         {
             if (_pendingClaim != token) return;
             _pendingClaim = null;
-            UIManager.Instance?.ShowToast(success ? "보상을 받았습니다." : message);
+            var host = UIManager.Instance;
+            if (host != null && rewards.Count > 0) RewardPopupView.ShowRewards(host.LayerOverlays, rewards);
+            if (!success) host?.ShowToast(message);
             if (isActiveAndEnabled) Rebind(false);
         }
 
@@ -420,9 +423,7 @@ namespace KingdomIdle.UGUI
             if (_manager == null || _claimBusy) return;
             var row = _visible.FirstOrDefault(snapshot => snapshot.CanClaim);
             if (row == null) return;
-            var category = _selectedCategory;
-            var result = _manager.TryClaimTab(category, row.Token,
-                (confirmed, total, message) => OnTabClaimCompleted(category, confirmed, total, message));
+            var result = _manager.TryClaimTab(_selectedCategory, row.Token, OnTabClaimCompleted);
             ShowClaimFailure(result);
             Rebind(false);
         }
@@ -433,15 +434,14 @@ namespace KingdomIdle.UGUI
             else if (result.Status == QuestClaimStatus.NetworkNotReady) UIManager.Instance?.ShowToast("서버 로그인이 필요합니다.");
         }
 
-        private void OnTabClaimCompleted(eQuestCategory category, int confirmed, int total, string message)
+        private void OnTabClaimCompleted(int confirmed, int total, string message, IReadOnlyList<RewardGrant> rewards)
         {
             if (this == null) return;
-            if (confirmed == total)
-                message = total > 1 ? $"보상 {total}개를 받았습니다." :
-                    category == eQuestCategory.Guide ? "가이드 완료" : "보상을 받았습니다.";
-            else if (confirmed > 0)
+            var host = UIManager.Instance;
+            if (host != null && rewards.Count > 0) RewardPopupView.ShowRewards(host.LayerOverlays, rewards);
+            if (confirmed > 0 && confirmed < total)
                 message = $"보상 {confirmed}/{total}개 수령 · 목록을 확인해 주세요.";
-            UIManager.Instance?.ShowToast(message);
+            if (!string.IsNullOrEmpty(message)) host?.ShowToast(message);
             if (isActiveAndEnabled) Rebind(false);
         }
 

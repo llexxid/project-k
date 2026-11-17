@@ -39,6 +39,9 @@ namespace KingdomIdle.Balance
             var transport = new FailureRecoveryHttp();
             long accountGeneration = LocalProgression.AccountGeneration;
             string accountKey = LocalProgression.AccountKey;
+            var memoryState = new ProgressionState();
+            var savedState = Field(typeof(LocalProgression), "_state").GetValue(null);
+            var savedOpening = Field(typeof(LocalProgression), "_opening").GetValue(null);
             var checks = new List<string>();
             void Check(bool value, string message)
             {
@@ -52,6 +55,9 @@ namespace KingdomIdle.Balance
             void Completed(OfflineRewardClaimResult result, RewardStatus status, string message) { completed = status; completedCount++; }
             try
             {
+                Field(typeof(LocalProgression), "_state").SetValue(null, memoryState);
+                Field(typeof(LocalProgression), "_opening").SetValue(null, true);
+                Property(typeof(LocalProgression), "AccountKey").SetValue(null, "balance-qa-offline-failure-memory");
                 // SDK transport 자체를 교체하므로 예상하지 못한 호출도 실제 HTTP로 빠져나가지 않는다.
                 PlayFab.PluginManager.SetPlugin(transport, PlayFab.PluginContract.PlayFab_Transport);
                 var network = owner.AddComponent<NetworkManager>(); NetworkManager.Instance = network;
@@ -74,12 +80,8 @@ namespace KingdomIdle.Balance
                 Field(popupType, "_choice").SetValue(null, null);
                 Field(popupType, "_resultView").SetValue(null, null);
                 var loadingRoot = new GameObject("PayoutLoading", typeof(RectTransform)); loadingRoot.transform.SetParent(canvas.transform, false);
-                var loading = loadingRoot.AddComponent<LoadingOverlayView>();
-                var labelRoot = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI)); labelRoot.transform.SetParent(loadingRoot.transform, false);
-                loading.lblLoading = labelRoot.GetComponent<TextMeshProUGUI>();
-                var progressRoot = new GameObject("Progress", typeof(RectTransform), typeof(Slider)); progressRoot.transform.SetParent(loadingRoot.transform, false);
-                loading.progressBar = progressRoot.GetComponent<Slider>();
-                Field(typeof(UIManager), "_loading").SetValue(host, loading);
+                var loading = loadingRoot.AddComponent<GameplayLoadingOverlayView>();
+                Field(typeof(UIManager), "_operationLoading").SetValue(host, loading);
                 OfflineRewardManager.AdBonusCompleted += Completed;
                 var choiceType = popupType.GetNestedType("RewardChoice", BindingFlags.NonPublic);
                 object Prepare()
@@ -122,7 +124,7 @@ namespace KingdomIdle.Balance
                         errorView.description.text == "보상 지급 중 오류가 발생했습니다" && view.gameObject.activeSelf,
                         error.Error + ": 실제 프리팹에 오류를 표시하고 기본 수령 성공으로 바꾸지 않음");
                     request.ErrorCallback(NetworkManager.CreateError("Transport", "duplicate fixture"));
-                    Check(completedCount == 1 && !LocalProgression.IsReady, error.Error + ": 중복 응답은 다시 완료하거나 계정을 열지 않음");
+                    Check(completedCount == 1 && ReferenceEquals(LocalProgression.State, memoryState), error.Error + ": 중복 응답은 다시 완료하거나 계정 상태를 교체하지 않음");
                 }
                 object unavailable = Prepare(); int beforeUnavailable = transport.Calls;
                 Call(managerType, null, "RejectAdBonus", OfflineRewardManager.LastClaimResult,
@@ -142,12 +144,13 @@ namespace KingdomIdle.Balance
                 Call(managerType, null, "RejectAdBonus", OfflineRewardManager.LastClaimResult, errors[0]);
                 long oldNetworkGeneration = network.AccountGeneration;
                 Property(typeof(NetworkManager), "AccountGeneration").SetValue(network, oldNetworkGeneration + 1);
+                Prepare();
                 transport.Fail();
                 Check(completedCount == 0 && OfflineRewardManager.AdBonusBusy,
                     "이전 인증 세대의 늦은 조회가 새 지급 대기를 해제하지 않음");
                 Call(typeof(NetworkManager), network, "ResetCallQueue");
-                Check(!LocalProgression.IsReady && LocalProgression.AccountGeneration == accountGeneration && LocalProgression.AccountKey == accountKey &&
-                    transport.UnexpectedCalls == 0, "계정·저장·인증 없이 상태 조회 전용 HTTP 차단 fixture만 사용함");
+                Check(ReferenceEquals(LocalProgression.State, memoryState) && LocalProgression.AccountGeneration == accountGeneration &&
+                    transport.UnexpectedCalls == 0, "계정 파일·실제 인증 없이 메모리 상태와 HTTP 차단 fixture만 사용함");
                 return new Dictionary<string, object> { { "passed", checks.Count }, { "checks", checks } };
             }
             finally
@@ -163,6 +166,10 @@ namespace KingdomIdle.Balance
                 Field(popupType, "_view").SetValue(null, savedView); Field(popupType, "_choice").SetValue(null, savedChoice);
                 Field(popupType, "_resultView").SetValue(null, savedResultView);
                 PlayFab.PluginManager.SetPlugin(savedTransport, PlayFab.PluginContract.PlayFab_Transport);
+                Scripts.Core.Utils.GameplayLoading.Reset();
+                Field(typeof(LocalProgression), "_state").SetValue(null, savedState);
+                Field(typeof(LocalProgression), "_opening").SetValue(null, savedOpening);
+                Property(typeof(LocalProgression), "AccountKey").SetValue(null, accountKey);
             }
         }
 
@@ -228,6 +235,7 @@ namespace KingdomIdle.Balance
 
             using var scope = LocalProgression.BeginTestSession();
             var owner = new GameObject("OfflineRewardAdAcceptance");
+            var testCatalog = ScriptableObject.CreateInstance<UIViewCatalog>();
             owner.SetActive(false);
             var manager = owner.AddComponent<OfflineRewardManager>();
             // 비활성 부모 아래에서 표시 상태만 검사하며 실제 UI, 광고 SDK, 서버를 실행하지 않는다.
@@ -252,11 +260,15 @@ namespace KingdomIdle.Balance
                 view.confirmButton = Child<Button>("Confirm");
                 var host = owner.AddComponent<UIManager>();
                 Property(typeof(UIManager), "Instance").SetValue(null, host);
+                Field(typeof(UIManager), "catalog").SetValue(host, testCatalog);
                 var loading = Child<LoadingOverlayView>("Loading");
                 loading.lblLoading = Child<TextMeshProUGUI>("LoadingLabel");
                 loading.progressBar = Child<Slider>("LoadingProgress");
                 loading.gameObject.SetActive(false);
                 Field(typeof(UIManager), "_loading").SetValue(host, loading);
+                var operationLoading = Child<GameplayLoadingOverlayView>("PayoutLoading");
+                operationLoading.gameObject.SetActive(false);
+                Field(typeof(UIManager), "_operationLoading").SetValue(host, operationLoading);
                 Field(popupType, "_view").SetValue(null, view);
                 Field(popupType, "_choice").SetValue(null, null);
                 Field(popupType, "_resultView").SetValue(null, null);
@@ -290,12 +302,12 @@ namespace KingdomIdle.Balance
                 Check(first != null && OfflineRewardManager.IsLatestClaim(first) &&
                     LocalProgression.Balance(eCurrency.Gold) == 223 && OfflineRewardPopupController.IsOpen,
                     "기본 보상은 확인 버튼 전에 서버 잔액으로 적용됨");
-                Check(!loading.gameObject.activeSelf, "미시청 기본 보상 표시에는 지급 로딩을 열지 않음");
+                Check(!loading.gameObject.activeSelf && !operationLoading.gameObject.activeSelf, "미시청 기본 보상 표시에는 지급 로딩을 열지 않음");
                 long beforeLoading = LocalProgression.State.Revision;
                 Field(oldChoice.GetType(), "Earned").SetValue(oldChoice, true);
                 Field(oldChoice.GetType(), "Busy").SetValue(oldChoice, true);
                 Property(managerType, "AdBonusBusy").SetValue(null, true);
-                Check(loading.gameObject.activeSelf && loading.lblLoading.text == "보상 지급 중…",
+                Check(operationLoading.gameObject.activeSelf && !loading.gameObject.activeSelf,
                     "시청 완료 지급 대기는 기존 로딩 오버레이를 표시함");
                 host.SetLoading(true, "테스트 씬 로딩");
                 host.SetLoadingProgress(0.7f);
@@ -309,16 +321,16 @@ namespace KingdomIdle.Balance
                 Check(loading.gameObject.activeSelf && Mathf.Approximately(loading.progressBar.value, 0.7f),
                     "지급 대기 종료는 진행 중인 씬 로딩과 진행률을 보존함");
                 host.SetLoading(false);
-                Check(!loading.gameObject.activeSelf, "마지막 로딩이 끝나면 입력 차단을 해제함");
+                Check(!loading.gameObject.activeSelf && !operationLoading.gameObject.activeSelf, "마지막 로딩이 끝나면 입력 차단을 해제함");
                 Property(managerType, "AdBonusBusy").SetValue(null, true);
                 host.SetLoading(true, "테스트 씬 로딩");
                 host.SetLoading(false);
-                Check(loading.gameObject.activeSelf && loading.lblLoading.text == "보상 지급 중…",
+                Check(operationLoading.gameObject.activeSelf && !loading.gameObject.activeSelf,
                     "씬 로딩 완료는 진행 중인 지급 로딩을 종료하지 않음");
                 OfflineRewardPopupController.Hide();
-                Check(loading.gameObject.activeSelf, "팝업을 닫아도 실제 지급 대기 동안 로딩을 유지함");
+                Check(operationLoading.gameObject.activeSelf, "팝업을 닫아도 실제 지급 대기 동안 로딩을 유지함");
                 OfflineRewardPopupController.Show(first);
-                Check(loading.gameObject.activeSelf, "팝업 교체는 진행 중인 지급 로딩을 종료하지 않음");
+                Check(operationLoading.gameObject.activeSelf, "팝업 교체는 진행 중인 지급 로딩을 종료하지 않음");
                 Property(managerType, "AdBonusBusy").SetValue(null, false);
                 oldChoice = Field(popupType, "_choice").GetValue(null);
                 Field(oldChoice.GetType(), "Earned").SetValue(oldChoice, true);
@@ -335,7 +347,7 @@ namespace KingdomIdle.Balance
                     "같은 계정이어도 이전 정산은 거절하고 최신 정산만 연결 준비 검사로 진입함");
                 Property(managerType, "AdBonusBusy").SetValue(null, true);
                 Call(popupType, null, "CompleteChoice", oldChoice, RewardStatus.SaveFailed, null);
-                Check(loading.gameObject.activeSelf && ReferenceEquals(Field(popupType, "_choice").GetValue(null), latestChoice),
+                Check(operationLoading.gameObject.activeSelf && ReferenceEquals(Field(popupType, "_choice").GetValue(null), latestChoice),
                     "이전 보상의 늦은 완료는 현재 지급 로딩을 종료하지 않음");
                 Property(managerType, "AdBonusBusy").SetValue(null, false);
                 long revision = LocalProgression.State.Revision;
@@ -369,7 +381,7 @@ namespace KingdomIdle.Balance
                 Check(LocalProgression.Balance(eCurrency.Gold) == 373 && LocalProgression.State.Kills == 77 &&
                     ReferenceEquals(OfflineRewardManager.LastClaimResult, latest) &&
                     ReferenceEquals(Field(popupType, "_choice").GetValue(null), latestChoice) && completedStatus == RewardStatus.Success &&
-                    !loading.gameObject.activeSelf,
+                    !loading.gameObject.activeSelf && !operationLoading.gameObject.activeSelf,
                     "이미 지급된 이전 광고 응답은 잔액에 반영하고 최신 팝업은 보존함");
 
                 revision = LocalProgression.State.Revision;
@@ -401,11 +413,11 @@ namespace KingdomIdle.Balance
                     LocalProgression.State.Revision == revision, "다른 계정으로 전환한 뒤의 지급 응답은 적용하지 않음");
                 Property(managerType, "AdBonusBusy").SetValue(null, true);
                 Call(managerType, manager, "ResetClaims");
-                Check(!loading.gameObject.activeSelf, "계정 정리는 지급 로딩을 남기지 않음");
+                Check(!loading.gameObject.activeSelf && !operationLoading.gameObject.activeSelf, "계정 정리는 지급 로딩을 남기지 않음");
                 Property(managerType, "AdBonusBusy").SetValue(null, true);
                 Field(managerType, "_pendingAdBonus").SetValue(manager, latest);
                 Call(managerType, manager, "OnDestroy");
-                Check(!loading.gameObject.activeSelf && !OfflineRewardManager.AdBonusBusy,
+                Check(!loading.gameObject.activeSelf && !operationLoading.gameObject.activeSelf && !OfflineRewardManager.AdBonusBusy,
                     "대기 요청 담당의 소멸은 지급 로딩을 해제함");
                 return new Dictionary<string, object> { { "passed", checks.Count }, { "checks", checks } };
             }
@@ -414,6 +426,7 @@ namespace KingdomIdle.Balance
                 OfflineRewardManager.AdBonusCompleted -= Completed;
                 Field(managerType, "_pendingAdBonus").SetValue(manager, null);
                 UnityEngine.Object.DestroyImmediate(owner);
+                UnityEngine.Object.DestroyImmediate(testCatalog);
                 Property(typeof(UIManager), "Instance").SetValue(null, previousHost);
                 Field(popupType, "_view").SetValue(null, previousView);
                 Field(popupType, "_choice").SetValue(null, previousChoice);
