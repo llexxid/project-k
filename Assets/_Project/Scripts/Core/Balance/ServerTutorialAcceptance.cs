@@ -141,6 +141,17 @@ namespace KingdomIdle.Balance
                 GameDirectInteraction.Suspend();
                 Check(GameDirectInteraction.OwnsInput && !GameDirectInteraction.Armed && GameDirectInteraction.Epoch != shownEpoch &&
                     !GameDirectInteraction.CanPerform(GuideAction.AttackOnce, 1), "a covered practice keeps ownership and cancels delayed UI callbacks");
+                var suspendedDraft = state.DeepClone();
+                GameDirectInteraction.RecordSuccess(suspendedDraft, GuideAction.AttackOnce, receipt);
+                Check(suspendedDraft.Modules["game-direct-action:guide_development:attack_once"] == receipt &&
+                    GameDirectInteraction.CaptureReceipt(GuideAction.AttackOnce, 1) == null,
+                    "loading suspension records an already accepted request without admitting new guide input");
+                generationProperty.SetValue(null, generation + 1);
+                var otherAccount = state.DeepClone();
+                GameDirectInteraction.RecordSuccess(otherAccount, GuideAction.AttackOnce, receipt);
+                Check(otherAccount.Modules["game-direct-action:guide_development:attack_once"] == "1",
+                    "a suspended old request cannot record success for another account");
+                generationProperty.SetValue(null, generation);
                 GameDirectInteraction.Arm();
                 Check(entered == 1 && GameDirectInteraction.CaptureReceipt(GuideAction.AttackOnce, 1) == receipt,
                     "the same practice resumes with the same receipt and no second enter");
@@ -172,7 +183,17 @@ namespace KingdomIdle.Balance
                     GameDirectInteraction.Arm();
                     Check(GameDirectInteraction.CaptureReceipt(action, 1) != null && GameDirectInteraction.CaptureReceipt(action, 10) == null,
                         "shown gacha practice captures only one pull: " + action);
+                    string gachaReceipt = GameDirectInteraction.CaptureReceipt(action, 1);
+                    GameDirectInteraction.Suspend();
+                    var gachaDraft = state.DeepClone();
+                    GameDirectInteraction.RecordSuccess(gachaDraft, action, gachaReceipt);
+                    Check(gachaDraft.Modules["game-direct-action:guide_gacha:fixture_once"] == gachaReceipt,
+                        "saved gacha success survives the loading/input suspension: " + action);
                     GameDirectInteraction.End();
+                    var endedDraft = state.DeepClone();
+                    GameDirectInteraction.RecordSuccess(endedDraft, action, gachaReceipt);
+                    Check(!endedDraft.Modules.ContainsKey("game-direct-action:guide_gacha:fixture_once"),
+                        "ending a guide rejects its delayed accepted receipt: " + action);
                 }
 
                 long oldNetwork = network.AccountGeneration;

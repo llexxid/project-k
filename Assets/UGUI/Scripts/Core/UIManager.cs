@@ -6,6 +6,8 @@ using UnityEngine.UI;
 using KingdomIdle.UI;
 using Scripts.Core;
 using Scripts.Core.Manager;
+using Scripts.Core.Utils;
+using KingdomIdle.Rewards;
 
 namespace KingdomIdle.UGUI
 {
@@ -97,7 +99,7 @@ namespace KingdomIdle.UGUI
             // 시트가 화면 밖에서 올라오는 동안 실제 버튼이 마스크 밖에 있을 수 있다. 전투 시간은 유지하고 표시만 기다린다.
             if (Time.unscaledTime < _guidePanelReadyAt) return false;
             if (_activeScreenId != UIScreenId.Main || _activeScreenGo == null || HasBlockingPanel ||
-                IsLoadingVisible || (_settings != null && _settings.IsOpen) ||
+                IsLoadingVisible || GameplayInputBlocked || (_settings != null && _settings.IsOpen) ||
                 (_mainController != null && _mainController.HasOpenDropdown)) return false;
             var context = Direction.GameDirectInteraction.Clicked ? step.Destination : step.Context;
             var panel = GuidePanel(context);
@@ -195,7 +197,7 @@ namespace KingdomIdle.UGUI
             {
                 if (_activeScreenId != UIScreenId.Main || _activeScreenGo == null ||
                     HasBlockingPanel || HasActiveTabPanel || ModalBackHandler.HasOpenModal ||
-                    IsLoadingVisible ||
+                    IsLoadingVisible || GameplayInputBlocked ||
                     (_settings != null && _settings.IsOpen) || (_mainController != null && _mainController.HasOpenDropdown)) return false;
                 if (layerPopups != null)
                     for (int i = 0; i < layerPopups.childCount; i++)
@@ -215,13 +217,135 @@ namespace KingdomIdle.UGUI
         private LoadingOverlayView _loading;
         private GameplayLoadingOverlayView _operationLoading;
         public bool IsLoadingVisible => (_loading != null && _loading.gameObject.activeInHierarchy) ||
-            (_operationLoading != null && _operationLoading.gameObject.activeInHierarchy);
+            (_operationLoading != null && _operationLoading.IsShowingIndicator);
         private bool _sceneLoading, _offlineRewardLoading;
         private string _sceneLoadingText;
         private ToastView _toast;
         private Coroutine _toastCo;
         private SettingsModalController _settings;
         private StageManager _boundStageManager;
+        private readonly Dictionary<GameplayLoading.Scope, Func<bool>> _rewardRequests = new();
+        private readonly Queue<(GameplayLoading.Scope scope, Func<bool> pending, Func<Action, GameObject> show)> _rewardResults = new();
+        private readonly Dictionary<CanvasGroup, bool> _blockedGroups = new();
+        private GameplayLoading.Scope _resultScope;
+        private GameObject _rewardResult;
+        private bool _refreshingLoading;
+        public bool GameplayInputBlocked => GameplayLoading.IsInputBlocked;
+        internal bool AllowsRewardInput(GameObject owner) => !GameplayInputBlocked ||
+            owner == _rewardResult && _rewardRequests.Count == 0;
+
+        internal GameplayLoading.Scope BeginRewardRequest(string operation, Func<bool> pending)
+        {
+            var scope = GameplayLoading.Begin(operation, blockInput: true);
+            _rewardRequests.Add(scope, pending);
+            _activeScreenGo?.GetComponentInChildren<MageManualCastHud>(true)?.CancelAim();
+            RefreshLoading();
+            return scope;
+        }
+
+        internal void CompleteRewardRequest(GameplayLoading.Scope scope, Func<Action, GameObject> show)
+        {
+            if (scope == null) return;
+            if (!_rewardRequests.Remove(scope, out var pending)) return;
+            if (!scope.IsCurrent) { scope.Dispose(); RefreshLoading(); return; }
+            scope.Pause();
+            _rewardResults.Enqueue((scope, pending, show));
+            RefreshLoading();
+        }
+
+        internal void CompleteRewardRequest(GameplayLoading.Scope scope, IReadOnlyList<RewardGrant> rewards)
+            => CompleteRewardRequest(scope, rewards != null && rewards.Count > 0
+                ? closed => RewardPopupView.ShowClaimedRewards(layerOverlays, rewards, closed)?.gameObject : null);
+
+        private void TickRewardRequests()
+        {
+            if (_rewardRequests.Count == 0) return;
+            foreach (var pair in new List<KeyValuePair<GameplayLoading.Scope, Func<bool>>>(_rewardRequests))
+            {
+                bool pending = false;
+                try { pending = pair.Key.IsCurrent && pair.Value != null && pair.Value(); }
+                catch (Exception error) { Debug.LogException(error); }
+                if (pending) continue;
+                // A callback exception or destroyed request owner must not leave the UI locked.
+                pair.Key.Dispose();
+                _rewardRequests.Remove(pair.Key);
+            }
+        }
+
+        private void RefreshRewardResults()
+        {
+            if (_resultScope != null && (!_resultScope.IsCurrent || _rewardResult == null || !_rewardResult.activeInHierarchy))
+                CloseRewardResult(_resultScope);
+            while (_resultScope == null && _rewardResults.Count > 0)
+            {
+                var head = _rewardResults.Peek();
+                if (head.scope.IsCurrent)
+                {
+                    try { if (head.pending?.Invoke() == true) break; }
+                    catch (Exception error) { Debug.LogException(error); }
+                }
+                var next = _rewardResults.Dequeue();
+                if (!next.scope.IsCurrent || next.show == null) { next.scope.Dispose(); continue; }
+                _resultScope = next.scope;
+                try { _rewardResult = next.show(() => CloseRewardResult(next.scope)); }
+                catch (Exception error) { Debug.LogException(error); }
+                if (_rewardResult == null) { _resultScope = null; next.scope.Dispose(); }
+            }
+        }
+
+        private void CloseRewardResult(GameplayLoading.Scope scope)
+        {
+            if (!ReferenceEquals(_resultScope, scope)) return;
+            var result = _rewardResult;
+            _rewardResult = null; _resultScope = null;
+            scope.Dispose();
+            if (result != null)
+            {
+                try { ModalBackHandler.TryClose(result); }
+                catch (Exception error) { Debug.LogException(error); }
+                if (result != null) { result.SetActive(false); Destroy(result); }
+            }
+            RefreshLoading();
+        }
+
+        private void RefreshInputBlock(bool blocked)
+        {
+            void Block(Transform target)
+            {
+                if (target == null) return;
+                var group = target.GetComponent<CanvasGroup>();
+                if (group == null) group = target.gameObject.AddComponent<CanvasGroup>();
+                if (!_blockedGroups.ContainsKey(group)) _blockedGroups.Add(group, group.interactable);
+                group.interactable = false;
+            }
+            if (blocked)
+            {
+                Block(layerScreens); Block(layerPanels); Block(layerPopups);
+                bool allowResult = _rewardResult != null && _rewardRequests.Count == 0;
+                if (layerOverlays != null)
+                    for (int i = 0; i < layerOverlays.childCount; i++)
+                    {
+                        var child = layerOverlays.GetChild(i);
+                        if (child.gameObject == _rewardResult && allowResult)
+                        {
+                            var group = child.GetComponent<CanvasGroup>();
+                            if (group != null && _blockedGroups.Remove(group, out bool previous)) group.interactable = previous;
+                            continue;
+                        }
+                        if (child.GetComponent<GameplayLoadingOverlayView>() != null) continue;
+                        Block(child);
+                    }
+                var events = UnityEngine.EventSystems.EventSystem.current;
+                var selected = events != null ? events.currentSelectedGameObject : null;
+                if (selected != null && (!allowResult || !selected.transform.IsChildOf(_rewardResult.transform)))
+                    events.SetSelectedGameObject(null);
+            }
+            else
+            {
+                foreach (var pair in _blockedGroups) if (pair.Key != null) pair.Key.interactable = pair.Value;
+                _blockedGroups.Clear();
+            }
+        }
 
         // ── PlayerPrefs 키 (기존 값과 호환 유지 — 변경 금지) ──
         internal const string PrefKeyVolume = "settings_masterVolume";
@@ -293,6 +417,7 @@ namespace KingdomIdle.UGUI
         private void Update()
         {
             EnsureStageManagerBinding();
+            TickRewardRequests();
             RefreshLoading();
 
             if (Input.GetKeyDown(KeyCode.Escape))
@@ -304,6 +429,15 @@ namespace KingdomIdle.UGUI
 
         private void OnDestroy()
         {
+            foreach (var scope in _rewardRequests.Keys) scope.Dispose();
+            foreach (var result in _rewardResults) result.scope.Dispose();
+            _resultScope?.Dispose();
+            _rewardRequests.Clear(); _rewardResults.Clear(); _resultScope = null;
+            var resultView = _rewardResult; _rewardResult = null;
+            if (resultView != null)
+                try { ModalBackHandler.TryClose(resultView); }
+                catch (Exception error) { Debug.LogException(error); }
+            RefreshInputBlock(false);
             GameAudioSettings.Changed -= ApplyEffectsVolume;
             BindStageManager(null);
             DungeonClearPopupController.Hide();
@@ -364,7 +498,7 @@ namespace KingdomIdle.UGUI
             if (clearStacks)
                 ClearPanels();
 
-            GachaResultPopupController.Close();
+            if (_resultScope == null || id == UIScreenId.Title) GachaResultPopupController.Close();
             DungeonClearPopupController.Hide();
             ReincarnationPopupController.Hide();
             OfflineRewardPopupController.Hide();
@@ -751,6 +885,11 @@ namespace KingdomIdle.UGUI
         /// <summary>Android 뒤로가기와 공통 뒤로가기 요청을 처리한다. 보이는 안내는 건너뛰고, 가려진 안내 대신 현재 모달을 먼저 닫는다.</summary>
         public void RequestBack()
         {
+            if (GameplayInputBlocked)
+            {
+                if (_resultScope != null && _rewardRequests.Count == 0) ModalBackHandler.TryClose(_rewardResult);
+                return;
+            }
             if (IsLoadingVisible) return;
             if (OfflineRewardPopupController.IsOpen) return;
             // 현재 보이는 안내만 건너뛴다. 로딩/팝업이 가린 안내는 기존 모달의 뒤로가기를 가로채지 않는다.
@@ -850,17 +989,41 @@ namespace KingdomIdle.UGUI
 
         private void RefreshLoading()
         {
-            bool operation = !_sceneLoading && ((_offlineRewardLoading && KingdomIdle.OfflineRewards.OfflineRewardManager.AdBonusBusy) ||
-                Scripts.Core.Utils.GameplayLoading.IsVisible);
-            if ((_sceneLoading || operation) && ActiveFeatureGuide != null && ActiveFeatureGuide.gameObject.activeSelf)
-                ActiveFeatureGuide.Hide();
-            if (_loading != null)
+            if (_refreshingLoading) return;
+            _refreshingLoading = true;
+            try
             {
-                if (_sceneLoading && _loading.lblLoading != null && _loading.lblLoading.text != _sceneLoadingText)
-                    _loading.lblLoading.text = _sceneLoadingText;
-                SetOverlayVisible(_loading.gameObject, _sceneLoading);
+                RefreshRewardResults();
+                bool operation = !_sceneLoading && ((_offlineRewardLoading && KingdomIdle.OfflineRewards.OfflineRewardManager.AdBonusBusy) ||
+                    Scripts.Core.Utils.GameplayLoading.IsVisible);
+                bool blocked = GameplayInputBlocked;
+                bool resultReady = _rewardResult != null && _rewardRequests.Count == 0;
+                if (resultReady) operation = false;
+                if ((_sceneLoading || operation) && ActiveFeatureGuide != null && ActiveFeatureGuide.gameObject.activeSelf)
+                    ActiveFeatureGuide.Hide();
+                if (_loading != null)
+                {
+                    if (_sceneLoading && _loading.lblLoading != null && _loading.lblLoading.text != _sceneLoadingText)
+                        _loading.lblLoading.text = _sceneLoadingText;
+                    SetOverlayVisible(_loading.gameObject, _sceneLoading);
+                }
+                if (_operationLoading != null)
+                {
+                    _operationLoading.SetPresentation(operation);
+                    SetOverlayVisible(_operationLoading.gameObject, operation || blocked);
+                    if (!resultReady && (operation || blocked) && _operationLoading.transform.GetSiblingIndex() != layerOverlays.childCount - 1)
+                        _operationLoading.transform.SetAsLastSibling();
+                }
+                if (resultReady)
+                {
+                    if (_rewardResult.transform.GetSiblingIndex() != layerOverlays.childCount - 1) _rewardResult.transform.SetAsLastSibling();
+                    int blockerIndex = _rewardResult.transform.GetSiblingIndex() - 1;
+                    if (_operationLoading != null && _operationLoading.transform.GetSiblingIndex() != blockerIndex)
+                        _operationLoading.transform.SetSiblingIndex(blockerIndex);
+                }
+                RefreshInputBlock(blocked);
             }
-            if (_operationLoading != null) SetOverlayVisible(_operationLoading.gameObject, operation);
+            finally { _refreshingLoading = false; }
         }
 
         private static void SetOverlayVisible(GameObject overlay, bool visible)

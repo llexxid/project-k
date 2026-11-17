@@ -68,6 +68,7 @@ namespace KingdomIdle.Mailbox
             internal (long, long) Account;
             internal readonly List<long> Confirmed = new();
             internal readonly List<GachaRewardDTO> Rewards = new();
+            internal Action<MailClaimInfo> Completed;
         }
 
         public event Action Changed;
@@ -368,14 +369,18 @@ namespace KingdomIdle.Mailbox
         }
 
         public RewardResult TryClaim(long id)
+            => TryClaim(id, null);
+
+        internal RewardResult TryClaim(long id, Action<MailClaimInfo> completed)
         {
             var mail = Messages.FirstOrDefault(m => m.MailId == id);
             if (mail != null && mail.IsEquipmentOverflow && MailboxProtocol.RequiredEquipmentSlots(mail) > FreeEquipmentSlots)
                 return new(RewardStatus.NothingAvailable);
-            return Claim(new[] { id });
+            return Claim(new[] { id }, completed);
         }
 
         public RewardResult TryClaimAll() => Claim(ReceivableMailIds().ToArray());
+        internal RewardResult TryClaimAll(Action<MailClaimInfo> completed) => Claim(ReceivableMailIds().ToArray(), completed);
 
         private List<long> ReceivableMailIds()
         {
@@ -398,7 +403,7 @@ namespace KingdomIdle.Mailbox
             return ids;
         }
 
-        private RewardResult Claim(long[] ids)
+        private RewardResult Claim(long[] ids, Action<MailClaimInfo> completed = null)
         {
             CheckAccount();
             if (!CanClaim) return new(IsBusy ? RewardStatus.Pending : RewardStatus.NotReady);
@@ -407,7 +412,7 @@ namespace KingdomIdle.Mailbox
             var active = Messages.Where(m => MailboxProtocol.IsAvailable(m, now)).Select(m => m.MailId).ToHashSet();
             if (ids.Distinct().Count() != ids.Length || ids.Any(id => !active.Contains(id)))
             { RequestRefresh("stale-claim"); return new(RewardStatus.Stale); }
-            var request = new ClaimRequest { Ids = ids, MailboxId = MailboxId, Account = _account, View = _viewVersion };
+            var request = new ClaimRequest { Ids = ids, MailboxId = MailboxId, Account = _account, View = _viewVersion, Completed = completed };
             _claimLoading = GameplayLoading.Begin("mail-claim");
             _claiming = request; LastFailure = null; State = MailboxState.Claiming; Notify();
             ClaimNextBatch(request);
@@ -456,11 +461,10 @@ namespace KingdomIdle.Mailbox
             if (!Current(request)) return;
             _claiming = null; LastFailure = error;
             State = recover ? MailboxState.RecoveryRequired : MailboxState.Empty;
-            // 화면 재진입은 지급 완료를 취소하지 않지만 이전 화면의 팝업을 다시 열지는 않는다.
-            if (_open && request.View == _viewVersion)
-                NotifyClaim(new MailClaimInfo { Ok = error == null, MailIds = request.Confirmed.ToArray(),
+            var result = new MailClaimInfo { Ok = error == null, MailIds = request.Confirmed.ToArray(),
                     Rewards = RewardGrants.FromServer(request.Rewards), Message = Error,
-                    ErrorCode = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0 });
+                    ErrorCode = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0 };
+            if (_open && request.View == _viewVersion) NotifyClaim(result);
             if (request.Account != _identity()) return;
             if (recover) RecoverState();
             else if (_open) Load();
@@ -471,6 +475,10 @@ namespace KingdomIdle.Mailbox
                     RefreshAfterDelivery("mail-overflow");
                 Notify();
             }
+            // The click owns presentation; follow-up list/recovery state is already established.
+            if (request.Account == _identity())
+                try { request.Completed?.Invoke(result); }
+                catch (Exception exception) { Debug.LogException(exception); }
         }
         private void RecoverState()
         {

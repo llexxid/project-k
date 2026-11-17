@@ -14,11 +14,26 @@ namespace Scripts.Core.Utils
 
         static GameplayLoading() => LocalProgression.AccountChanged += Reset;
 
-        public static Scope Begin(string operation, float notBefore = 0f)
+        public static Scope Begin(string operation, float notBefore = 0f, bool blockInput = false)
         {
-            var scope = new Scope(operation, notBefore);
+            var scope = new Scope(operation, notBefore, blockInput);
             Pending.Add(scope);
             return scope;
+        }
+
+        public static bool IsInputBlocked
+        {
+            get
+            {
+                bool blocked = false;
+                for (int i = Pending.Count - 1; i >= 0; i--)
+                {
+                    var scope = Pending[i];
+                    if (!scope.IsCurrent) scope.Dispose();
+                    else if (scope.BlocksInput) blocked = true;
+                }
+                return blocked;
+            }
         }
 
         public static bool IsVisible
@@ -53,6 +68,7 @@ namespace Scripts.Core.Utils
         public sealed class Scope : IDisposable
         {
             public string Operation { get; }
+            internal bool BlocksInput { get; }
             public bool IsDisposed { get; internal set; }
             private readonly NetworkManager _network;
             private readonly long _accountGeneration, _networkGeneration;
@@ -60,9 +76,10 @@ namespace Scripts.Core.Utils
             private float _activeSince, _elapsed;
             internal bool _paused;
 
-            internal Scope(string operation, float notBefore)
+            internal Scope(string operation, float notBefore, bool blockInput)
             {
                 Operation = operation;
+                BlocksInput = blockInput;
                 _notBefore = _activeSince = Mathf.Max(Time.realtimeSinceStartup, notBefore);
                 _network = NetworkManager.Instance;
                 _accountGeneration = LocalProgression.AccountGeneration;

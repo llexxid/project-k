@@ -26,7 +26,7 @@ namespace KingdomIdle.UGUI
             // Disconnect before the closing animation, and prevent Update from reconnecting.
             _view.OnClosed = () => enabled = false;
             _list = GetComponent<VirtualizedMailList>() ?? gameObject.AddComponent<VirtualizedMailList>();
-            _list.Initialize(_view.content, UIManager.Instance.Catalog.itemMailRow, transform, id => _service?.TryClaim(id));
+            _list.Initialize(_view.content, UIManager.Instance.Catalog.itemMailRow, transform, id => Claim(id));
             _view.claimAll.onClick.AddListener(ReceiveOrRetry);
             _view.deleteClaimed.onClick.AddListener(() => _service?.LoadMore());
             _loadMoreLabel = _view.deleteClaimed.GetComponentInChildren<TMP_Text>(true);
@@ -41,7 +41,6 @@ namespace KingdomIdle.UGUI
             _service ??= GameManager.Instance != null ? GameManager.Instance.Mailbox : null;
             if (_service == null) { _view.emptyLabel.text = "계정 정보를 준비하고 있습니다."; _view.claimAll.interactable = false; return; }
             _service.Changed += Render;
-            _service.ClaimCompleted += OnClaimCompleted;
             _closingAfterFailure = false;
             _subscribed = true;
             _service.Open();
@@ -50,7 +49,6 @@ namespace KingdomIdle.UGUI
         {
             if (!_subscribed) return;
             _service.Changed -= Render;
-            _service.ClaimCompleted -= OnClaimCompleted;
             _subscribed = false;
             _service.Close();
             _list.SetEntries(Array.Empty<Protocol.Message.Dto.MailDTO>(), false, 0);
@@ -73,7 +71,29 @@ namespace KingdomIdle.UGUI
         {
             if (_service == null || _service.IsBusy) return;
             if (!_service.HasSnapshot || _service.Error != null) _service.RequestRefresh();
-            else _service.TryClaimAll();
+            else Claim(null);
+        }
+        private void Claim(long? id)
+        {
+            var host = UIManager.Instance;
+            var service = _service;
+            if (service == null || !service.CanClaim || host?.GameplayInputBlocked == true) return;
+            var scope = host?.BeginRewardRequest("mail-input", () => service.IsBusy);
+            void Completed(MailClaimInfo result)
+            {
+                if (host != null)
+                {
+                    host.CompleteRewardRequest(scope, result.Rewards);
+                    if (!string.IsNullOrEmpty(result.Message)) host.ShowToast(result.Message);
+                }
+                else scope?.Dispose();
+            }
+            try
+            {
+                var result = id.HasValue ? service.TryClaim(id.Value, Completed) : service.TryClaimAll(Completed);
+                if (result.Status != KingdomIdle.Rewards.RewardStatus.Pending) scope?.Dispose();
+            }
+            catch { scope?.Dispose(); throw; }
         }
         private void Render()
         {
@@ -102,11 +122,6 @@ namespace KingdomIdle.UGUI
                 void Close() { if (this != null && isActiveAndEnabled && _service.LoadFailed) _view.closeButton.onClick.Invoke(); }
                 if (RewardPopupView.ShowMessage(UIManager.Instance.LayerPopups, "우편함 조회 실패", _service.Error, Close) == null) Close();
             }
-        }
-        private void OnClaimCompleted(MailClaimInfo result)
-        {
-            if (result.Rewards.Count > 0) RewardPopupView.ShowRewards(transform, result.Rewards);
-            if (!string.IsNullOrEmpty(result.Message)) UIManager.Instance?.ShowToast(result.Message);
         }
     }
 }

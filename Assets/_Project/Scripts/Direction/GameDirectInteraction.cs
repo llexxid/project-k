@@ -79,7 +79,7 @@ namespace Direction
         /// <summary>요청 당시의 실행과 일치하는 성공 영수증만 거래 초안에 넣어 소비·보상·증거를 함께 롤백한다.</summary>
         public static void RecordSuccess(ProgressionState draft, GuideAction action, string receiptNonce)
         {
-            if (receiptNonce != null && receiptNonce == _receiptNonce && CurrentAccount && Armed && Step.Completion == GuideCompletion.Action && Step.Action == action)
+            if (receiptNonce != null && receiptNonce == _receiptNonce && CurrentAccount && Step.Completion == GuideCompletion.Action && Step.Action == action)
                 draft.Modules[ReceiptKey(_sequence, Step.Id)] = receiptNonce;
         }
 

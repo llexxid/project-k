@@ -24,6 +24,7 @@ namespace KingdomIdle.UGUI
         {
             if (_hud == null) _hud = GetComponentInParent<MageManualCastHud>();
             button.onClick.AddListener(() => {
+                if (UIManager.Instance?.GameplayInputBlocked == true) { _hud?.CancelAim(); return; }
                 if (_dragged) { _dragged = false; return; }
                 var manager = MageTowerManager.Instance;
                 if (manager != null && !manager.CastSkill(slot))

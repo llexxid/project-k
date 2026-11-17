@@ -17,7 +17,6 @@ namespace KingdomIdle.UGUI
         private static readonly int[] PullCounts = { 1, 10 };
 
         private static readonly Color TabActive = UguiTheme.RoyalBlue;
-        private static bool _flaringPull;
 
         private static int _activeTabIndex;
         private static bool? _pendingSkillTab;
@@ -240,7 +239,7 @@ namespace KingdomIdle.UGUI
             for (int i = 0; i < PullCounts.Length; i++)
             {
                 int count = PullCounts[i];
-                bool available = !_flaringPull && manager != null && manager.CanPullMulti(table, count);
+                bool available = manager != null && manager.CanPullMulti(table, count);
 
                 var capturedTable = table;
 
@@ -283,7 +282,7 @@ namespace KingdomIdle.UGUI
                 if (_content.ticketHint.text != hint) _content.ticketHint.text = hint;
             }
             UpdateDescription();
-            bool pulling=_flaringPull || (GachaManager.Instance != null && GachaManager.Instance.IsPulling);
+            bool pulling=GachaManager.Instance != null && GachaManager.Instance.IsPulling;
             for(int i=0;i<_activePullButtons.Count;i++)
             {
                 var button=_activePullButtons[i];
@@ -525,29 +524,13 @@ namespace KingdomIdle.UGUI
 
         // ── 뽑기 실행 ──────────────────────────────────────────────────
 
-        /// <summary>실제 버튼에서 받은 테이블·횟수로 뽑기를 요청한다. 마탑 연출 완료 전 취소·계정 전환·가림이 발생하면 세대를 검사해 소비를 취소한다.</summary>
+        /// <summary>클릭에서 요청과 입력 소유권을 확정하고 마탑 버튼 연출은 요청과 함께 재생한다.</summary>
         private static void OnPullClicked(GachaTableSO table, int count, GachaPullButtonView pull)
         {
-            if (_flaringPull) return;
-            if (!IsSkillTable(table)) { PullAndShowResult(table, count); return; }
-            long guideEpoch = Direction.GameDirectInteraction.Epoch;
-            bool guided = Direction.GameDirectInteraction.OwnsInput;
-            long accountGeneration = KingdomIdle.Balance.LocalProgression.AccountGeneration;
-            var network = Scripts.Core.Manager.NetworkManager.Instance;
-            long networkGeneration = network != null ? network.AccountGeneration : -1;
-            _flaringPull = true;
-            UpdateWallet();
-            pull.PlayMageFlare(
-                () => {
-                    _flaringPull = false;
-                    // 연출 중 취소·계정 전환·로딩이 발생했으면 지연 콜백에서 새 계정 재화를 소비하지 않는다.
-                    if (accountGeneration == KingdomIdle.Balance.LocalProgression.AccountGeneration &&
-                        network == Scripts.Core.Manager.NetworkManager.Instance && (network == null || networkGeneration == network.AccountGeneration) &&
-                        guideEpoch == Direction.GameDirectInteraction.Epoch &&
-                        (!guided || (Direction.GameDirectInteraction.CurrentAccount && Direction.GameDirectInteraction.Armed))) PullAndShowResult(table, count);
-                    else UpdateWallet();
-                },
-                () => { _flaringPull = false; UpdateWallet(); });
+            if (UIManager.Instance?.GameplayInputBlocked == true) return;
+            // Capture the guide receipt before the input lock suspends its presentation.
+            PullAndShowResult(table, count);
+            if (IsSkillTable(table) && GachaManager.Instance?.IsPulling == true) pull.PlayMageFlare(null, null);
         }
 
         /// <summary>
@@ -556,10 +539,16 @@ namespace KingdomIdle.UGUI
         /// 외부(가챠 결과 팝업의 다시뽑기 버튼)에서도 호출 가능.
         /// </summary>
         public static void PullAndShowResult(GachaTableSO table, int count)
+            => PullAndShowResult(table, count, false);
+
+        internal static void PullAgain(GachaTableSO table, int count) => PullAndShowResult(table, count, true);
+
+        private static void PullAndShowResult(GachaTableSO table, int count, bool replaceResult)
         {
             var uiMgr = UIManager.Instance;
             var mgr = GachaManager.Instance;
             if (mgr == null) return;
+            if (!replaceResult && uiMgr?.GameplayInputBlocked == true) return;
 
             if (mgr.IsPulling)
             {
@@ -579,25 +568,30 @@ namespace KingdomIdle.UGUI
                 return;
             }
 
-            mgr.TryPull(table, count,
+            var scope = uiMgr?.BeginRewardRequest("gacha-input", () => mgr != null && mgr.IsPulling);
+            try { mgr.TryPull(table, count,
                 onSuccess: results =>
                 {
-                    if (results == null || results.Count == 0)
-                    {
-                        if (uiMgr != null) uiMgr.ShowToast("뽑기 결과가 없습니다.");
-                        RefreshContent();
-                        return;
-                    }
                     if (uiMgr != null)
-                        uiMgr.ShowGachaResultPopup(results, table, count);
+                    {
+                        uiMgr.CompleteRewardRequest(scope, results != null && results.Count > 0
+                            ? closed => GachaResultPopupController.ShowOwned(uiMgr, results, table, count, closed) : null);
+                        if (results == null || results.Count == 0) uiMgr.ShowToast("뽑기 결과가 없습니다.");
+                    }
+                    else scope?.Dispose();
                     RefreshContent();
                 },
                 onError: message =>
                 {
                     if (uiMgr != null)
+                    {
+                        uiMgr.CompleteRewardRequest(scope, (System.Func<System.Action, GameObject>)null);
                         uiMgr.ShowToast(string.IsNullOrEmpty(message) ? "뽑기에 실패했습니다." : message);
+                    }
+                    else scope?.Dispose();
                     RefreshContent();
-                });
+                }); }
+            catch { scope?.Dispose(); throw; }
         }
 
         // ── GachaManager 이벤트 핸들러 ────────────────────────────────

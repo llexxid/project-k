@@ -58,6 +58,13 @@ namespace KingdomIdle.UGUI
             top._close();
             return true;
         }
+        internal static bool TryClose(GameObject owner)
+        {
+            var handler = owner != null ? owner.GetComponent<ModalBackHandler>() : null;
+            if (handler == null || handler._close == null) return false;
+            handler._close();
+            return true;
+        }
         private static bool DrawsAfter(Transform a, Transform b)
         {
             var left = new List<Transform>();

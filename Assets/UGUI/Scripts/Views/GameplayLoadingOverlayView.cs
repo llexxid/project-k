@@ -9,6 +9,15 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal Sprite[] frames;
         private float _elapsed;
         private int _frame = -1;
+        private UnityEngine.UI.Image _dim;
+        public bool IsShowingIndicator => gameObject.activeInHierarchy && indicator != null && indicator.gameObject.activeSelf;
+
+        internal void SetPresentation(bool visible)
+        {
+            if (_dim == null) _dim = transform.Find("Dim")?.GetComponent<UnityEngine.UI.Image>();
+            if (_dim != null) _dim.color = new Color(0, 0, 0, visible ? .3f : 0f);
+            if (indicator != null && indicator.gameObject.activeSelf != visible) indicator.gameObject.SetActive(visible);
+        }
 
         private void OnEnable()
         {
