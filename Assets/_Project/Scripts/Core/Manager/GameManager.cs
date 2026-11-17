@@ -1,5 +1,6 @@
 ﻿using Cysharp.Threading.Tasks;
 using KingdomIdle.OfflineRewards;
+using KingdomIdle.Balance;
 using Scripts.Core.Manager;
 using Scripts.Core.SO;
 using Scripts.Core.Utils;
@@ -26,6 +27,16 @@ namespace Scripts.Core
         public KingdomIdle.Mailbox.MailboxService Mailbox { get; private set; }
         private float _nextRewardSync;
         private bool _rewardsPaused;
+        private Action _retryEconomyEntry;
+        private bool _economyEntryBusy;
+        private GameplayLoading.Scope _entryLoading;
+
+        public bool RetryEconomyEntry()
+        {
+            if (_economyEntryBusy || _retryEconomyEntry == null) return false;
+            _retryEconomyEntry();
+            return true;
+        }
         private void Awake()
         {
             if (Instance == null)
@@ -56,13 +67,16 @@ namespace Scripts.Core
         {
             SceneManager.sceneLoaded += OnSceneLoaded;
             KingdomIdle.Balance.LocalProgression.AccountChanged += ScheduleRewardSync;
+            EconomyBatchProgression.SpendingFailed += ShowGrowthFailure;
         }
         private void OnDisable()
         {
             SceneManager.sceneLoaded -= OnSceneLoaded;
             KingdomIdle.Balance.LocalProgression.AccountChanged -= ScheduleRewardSync;
+            EconomyBatchProgression.SpendingFailed -= ShowGrowthFailure;
         }
         private void ScheduleRewardSync() { _nextRewardSync = 0; Mailbox?.CheckAccount(); }
+        private void ShowGrowthFailure() => KingdomIdle.UGUI.UIManager.Instance?.ShowToast(EconomyBatchProgression.FailureMessage);
         private void OnApplicationPause(bool paused) { _rewardsPaused = paused; ScheduleRewardSync(); }
         // 출석은 포커스와 무관하게 확인하고 일시정지 중에만 쉰다. 우편 목록은 열린 패널에서만 갱신한다.
         private void OnApplicationFocus(bool focused) { ScheduleRewardSync(); }
@@ -154,25 +168,82 @@ namespace Scripts.Core
                 Camera.main.gameObject.AddComponent<CameraFade>();
 
             UserManager.Instance.CreateCharacter();
-            eStage curUserStage = UserManager.Instance.GetUserCurrentStage();
             var network = NetworkManager.Instance;
             long generation = network != null ? network.AccountGeneration : -1;
+            long localGeneration = LocalProgression.AccountGeneration;
+            bool IsCurrent() => network != null && NetworkManager.Instance == network && network.IsGameDataReady &&
+                network.AccountGeneration == generation && LocalProgression.AccountGeneration == localGeneration;
+
+            void EndEntryLoading()
+            {
+                _entryLoading?.Dispose(); _entryLoading = null; _economyEntryBusy = false;
+            }
+
+            void Failed()
+            {
+                if (!IsCurrent()) return;
+                EndEntryLoading();
+                string message = "이전 저장 결과를 확인하지 못했습니다. 입력 기록은 보존되어 있습니다. 다시 확인해 주세요.";
+                if (!KingdomIdle.UGUI.EquipmentActionDialog.ShowConfirmation("저장 결과 확인", message, "다시 확인", () => RetryEconomyEntry()))
+                    KingdomIdle.UGUI.UIManager.Instance?.ShowToast(message);
+            }
 
             void BeginMainStage()
             {
+                if (!IsCurrent()) return;
+                if (EconomyBatchProgression.HasUnknownResult) { Failed(); return; }
+                EndEntryLoading(); _retryEconomyEntry = null;
+                var state = LocalProgression.State;
+                if (state.Economy.Server?.OwnershipChanged == true || EconomyBatchProgression.HasHeldSpending)
+                    KingdomIdle.UGUI.UIManager.Instance?.ShowToast(state.Economy.Server?.OwnershipChanged == true
+                        ? "다른 기기의 미처리 강화 입력은 취소되었습니다. 확정된 성장은 유지됩니다."
+                        : "실행되지 않은 강화 입력이 있습니다. 육성 화면에서 확인 후 재개해 주세요.");
                 if (StageManager.Instance != null)
-                    StageManager.Instance.BeginStage(curUserStage);
+                    StageManager.Instance.BeginStage(UserManager.Instance.GetUserCurrentStage());
                 Direction.GameDirectManager.Instance?.RequestIncompleteGuides();
                 if (network != null && NetworkManager.Instance == network && network.AccountGeneration == generation)
                     KingdomIdle.UGUI.NoticePopupController.BeginMainEntry();
                 Mailbox?.CheckAfterLogin();
             }
 
-            // 오프라인 보상이 정산된 후 메인스테이지를 시작하게 해서 오프라인 보상 요청과 스테이지 사냥 보상 요청의 순서가 섞이지 않게 조정
-            if (OfflineReward != null)
-                OfflineReward.TryClaim(curUserStage, BeginMainStage);
-            else
-                BeginMainStage();
+            void ClaimOffline()
+            {
+                if (!IsCurrent()) return;
+                if (OfflineReward != null) OfflineReward.TryClaim(UserManager.Instance.GetUserCurrentStage(), BeginMainStage);
+                else BeginMainStage();
+            }
+
+            void RecoverBatchAfterMain(bool ok)
+            {
+                if (!IsCurrent()) return;
+                if (!ok) { Failed(); return; }
+                if (!EconomyBatchProgression.Available || EconomyBatchProgression.RecoveryComplete) { ClaimOffline(); return; }
+                if (!EconomyBatchProgression.RecoverPending(result => { if (result) ClaimOffline(); else Failed(); },
+                    previousSessionReplaced: true)) Failed();
+            }
+
+            void RecoverMain(bool ok)
+            {
+                if (!IsCurrent()) return;
+                if (!ok || StageManager.Instance == null || !StageManager.Instance.RecoverPendingMainCompletion(RecoverBatchAfterMain)) Failed();
+            }
+
+            _entryLoading?.Dispose(); _economyEntryBusy = false;
+            _retryEconomyEntry = () =>
+            {
+                if (!IsCurrent()) return;
+                _economyEntryBusy = true;
+                _entryLoading = GameplayLoading.Begin("economy-login-recovery", blockInput: true);
+                // 메인 진입은 성공한 Auth 뒤에만 실행된다. 이전 세션은 서버 계정 잠금 안에서 교체됐다.
+                if (EconomyBatchProgression.Available && EconomyBatchProgression.HasUnresolvedBatch)
+                {
+                    if (!EconomyBatchProgression.RecoverPending(RecoverMain, previousSessionReplaced: true)) Failed();
+                }
+                else if (EconomyBatchProgression.HasUnknownResult)
+                    UserManager.Instance.RefreshFromServer(ok => { if (ok && !EconomyBatchProgression.HasUnknownResult) RecoverMain(true); else Failed(); });
+                else RecoverMain(true);
+            };
+            RetryEconomyEntry();
         }
         
         #endregion

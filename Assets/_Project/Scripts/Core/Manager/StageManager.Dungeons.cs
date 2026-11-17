@@ -16,6 +16,7 @@ namespace Scripts.Core.Manager
         private Action _retryDungeon;
         private float _retryDungeonAt;
         private long _dungeonGeneration;
+        private bool _economyHuntFlushPending;
 
         /// <summary>전투를 멈추고 기존 처치·클리어 응답까지 기다린다. 실패하면 후속 거래를 실행하지 않는다.</summary>
         public bool FlushPendingHunts(Action<bool> onDone)
@@ -25,6 +26,26 @@ namespace Scripts.Core.Manager
             _beforeHuntSettlement = Time.timeScale;
             Time.timeScale = 0;
             _onHuntsSettled = onDone;
+            if (EconomyBatchProgression.Available)
+            {
+                var network = NetworkManager.Instance;
+                long generation = LocalProgression.AccountGeneration, networkGeneration = network.AccountGeneration;
+                var token = _token;
+                _economyHuntFlushPending = true;
+                if (!EconomyBatchProgression.FlushBeforeWrite(ok =>
+                {
+                    if (this == null || generation != LocalProgression.AccountGeneration || NetworkManager.Instance != network ||
+                        network.AccountGeneration != networkGeneration || !ReferenceEquals(_token, token) || _onHuntsSettled != onDone) return;
+                    _economyHuntFlushPending = false;
+                    if (ok) TrySendNextHunt();
+                    else FinishHuntSettlement(false);
+                }))
+                {
+                    _economyHuntFlushPending = false;
+                    FinishHuntSettlement(false);
+                }
+                return true;
+            }
             FlushMainWaveHunts(true);
             foreach (long stage in new List<long>(_huntBuffer.Keys)) FlushHuntBuffer(stage);
             TrySendNextHunt();

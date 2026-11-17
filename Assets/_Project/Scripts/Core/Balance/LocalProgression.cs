@@ -164,6 +164,7 @@ namespace KingdomIdle.Balance
             try { Ensure(); }
             catch (Exception error) { LastError = operation + ": " + error.Message; return false; }
             if (_busy || mutate == null || string.IsNullOrWhiteSpace(operation)) return false;
+            var serverApply = EconomyResponseApply.BeginLocalApply();
             // 먼저 시작한 자동 저장이 같은 파일을 뒤늦게 덮어쓰지 않도록 완료를 기다린다.
             // 이후 거래가 거절되어도 이미 성공한 저장의 알림은 finally에서 발행한다.
             bool published = CompleteCounterSave(true);
@@ -176,9 +177,11 @@ namespace KingdomIdle.Balance
                 if (!mutate(draft)) return false;
                 if (claimId != null) draft.Claims.Add(claimId);
                 draft.Revision = checked(_state.Revision + 1);
+                serverApply?.Prepare(draft);
                 Validate(draft);
                 WriteSnapshot(_path, draft);
                 _state = draft; LastError = null;
+                serverApply?.Commit();
                 _countersDirty = false;
                 published = true;
                 return true;
@@ -192,6 +195,7 @@ namespace KingdomIdle.Balance
             finally
             {
                 _busy = false;
+                serverApply?.Dispose();
                 if (published) Notify(Changed);
             }
         }
@@ -199,7 +203,13 @@ namespace KingdomIdle.Balance
         /// <summary>전체 경제 상태를 같은 원자적 파일 교체로 저장한다.</summary>
         private static void WriteSnapshot(string path, ProgressionState state)
         {
-            string json = JsonConvert.SerializeObject(state);
+            WriteAtomicJson(path, JsonConvert.SerializeObject(state));
+        }
+
+        internal static string EconomyJournalPath => _path == null ? null : _path + ".economy-inputs.json";
+
+        internal static void WriteAtomicJson(string path, string json)
+        {
             string temporary = path + ".tmp";
             using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None))
             {
@@ -236,6 +246,8 @@ namespace KingdomIdle.Balance
         {
             if (state == null || state.Schema != 1 || state.BalanceVersion != BalanceMath.Version || state.Authority != "local-client")
                 throw new InvalidDataException("Unsupported progression snapshot; migration required.");
+            if (state.ServerEconomyRevision < -1) throw new InvalidDataException("Invalid server economy revision.");
+            EconomyBatchProgression.ValidateSaved(state);
             var visit = state.CheckIn;
             if (visit == null || visit.OpenedRewards == null || visit.ClaimedSlots == null || visit.OpenedRewards.Count > 28 ||
                 visit.OpenedRewards.Any(r => !KingdomIdle.Rewards.RewardGrants.IsValid(r)) ||

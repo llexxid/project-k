@@ -12,5 +12,7 @@ public class ApiResponseDTO
     // 서버 릴리스 버전. 플레이어 저장이나 API 호출에 따라 증가하지 않는다.
     [JsonProperty(Required = Required.Always)]
     public long ServerVersion { get; set; }
+    // 미지원 서버에서는 누락된다. 서버 복구 저널의 버전이며 로컬 저장 Revision과 별개다.
+    public long? EconomyRevision { get; set; }
 }
 }

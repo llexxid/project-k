@@ -54,7 +54,7 @@ namespace KingdomIdle.Balance
                 int revision = RubyProgression.Revision;
                 bool sent = false;
                 var settle = typeof(RubyProgression).GetMethod("SettleBeforeRequest", BindingFlags.Static | BindingFlags.NonPublic);
-                bool accepted = (bool)settle.Invoke(null, new object[] { (Action)(() => sent = true) });
+                bool accepted = (bool)settle.Invoke(null, new object[] { (Action)(() => sent = true), false });
                 Check(!accepted && !sent && RubyProgression.Revision == revision,
                     "Another paused transaction is rejected before ruby settlement starts");
             }

@@ -85,8 +85,8 @@ namespace KingdomIdle.Balance
             _instance = new GameObject("ProgressionAutosave").AddComponent<ProgressionAutosave>();
             DontDestroyOnLoad(_instance.gameObject);
         }
-        private void Update() => LocalProgression.TickSkillCounters();
-        private void OnApplicationPause(bool paused) { if (paused) LocalProgression.FlushSkillCounters(); }
-        private void OnApplicationQuit() => LocalProgression.FlushSkillCounters();
+        private void Update() { LocalProgression.TickSkillCounters(); EconomyBatchProgression.Pump(); }
+        private void OnApplicationPause(bool paused) { if (paused) { LocalProgression.FlushSkillCounters(); EconomyBatchProgression.FlushLocalWrites(); } }
+        private void OnApplicationQuit() { LocalProgression.FlushSkillCounters(); EconomyBatchProgression.FlushLocalWrites(); }
     }
 }

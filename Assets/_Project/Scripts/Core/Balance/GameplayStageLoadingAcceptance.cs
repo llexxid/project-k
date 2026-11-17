@@ -224,6 +224,51 @@ namespace KingdomIdle.Balance
             }
         }
 
+        public static object RunEconomyTransportRecovery()
+        {
+            using var fixture = CreateFixture();
+            using var account = LocalProgression.BeginTestSession();
+            Field(typeof(LocalProgression), "_opening").SetValue(null, false);
+            LocalProgression.OpenTestAccount("economy-transport-" + Guid.NewGuid().ToString("N"));
+            var network = NetworkManager.Instance;
+            var snapshot = JsonConvert.DeserializeObject<OnGetUserStateResponseDTO>(JsonConvert.SerializeObject(
+                Invoke(typeof(ServerApiContractAcceptance), null, "LegacyLogin")));
+            snapshot.EconomyRevision = 1;
+            snapshot.ProtocolVersion = IdleKingdomFunction.Common.ApiVersions.ProtocolVersion;
+            snapshot.RubyGrowthState = new() { NextRequestSequence = 1, LastResetDay = "" };
+            snapshot.EconomyBatchState = new()
+            {
+                Version = 1, OwnerClientId = EconomyBatchProgression.ClientId, Generation = 1, NextSequence = 1,
+                RewardEpoch = 1, RewardEpochs = new() { new() { Id = 1 } }
+            };
+            snapshot.DungeonState.TicketResetUtc = LocalProgression.UtcNow + 86400;
+            snapshot.ServerTimeUtc = LocalProgression.UtcNow;
+            fixture.Check(UserManager.Instance.ApplyServerPlayerData(snapshot), "economy full state is durably installed for isolated transport");
+            bool recovered = false;
+            fixture.Check(EconomyBatchProgression.RecoverPending(ok => recovered = ok, true), "fresh login recovery begins");
+            void Drain()
+            {
+                EconomyBatchProgression.FlushLocalWrites();
+                EconomyBatchProgression.Pump();
+            }
+            Drain(); Drain();
+            fixture.Check(recovered, "empty input recovery completes before background queries");
+            int failures = 0;
+            network.Call<OnGetQuestStateRequestDTO, OnGetQuestStateResponseDTO>(new(), _ => { }, _ => failures++);
+            Drain(); Drain();
+            fixture.Check(fixture.Transport.Function == "OnGetQuestState", "automatic quest query uses the real network queue and isolated HTTP");
+            fixture.Transport.Fail(NetworkManager.CreateError("Timeout", "isolated economy query timeout"));
+            fixture.Check(failures == 1 && EconomyBatchProgression.HasUnknownResult && fixture.Transport.Function == "OnGetUserState",
+                "uncertain background query schedules one full-state recovery and blocks spending");
+            snapshot.EconomyRevision = 2;
+            fixture.Transport.Succeed(snapshot);
+            fixture.Check(!EconomyBatchProgression.HasUnknownResult && LocalProgression.State.ServerEconomyRevision == 2 && EconomyBatchProgression.CanAcceptGrowth,
+                "durable full-state response releases the unknown gate and growth without relogin");
+            fixture.Check(fixture.Transport.Unexpected == 0 && fixture.Transport.GetPendingMessages() == 0,
+                "recovery sends no external HTTP and leaves no queued transport");
+            return new { passed = fixture.Checks.Count, checks = fixture.Checks };
+        }
+
         private static Fixture CreateFixture()
         {
             if (!Application.isPlaying || LocalProgression.IsReady || NetworkManager.Instance != null || UserManager.Instance != null ||
@@ -411,7 +456,8 @@ namespace KingdomIdle.Balance
             {
                 if (request is not PlayFab.Internal.CallRequestContainer container || container.ApiRequest is not ExecuteFunctionRequest function ||
                     _pending != null || (function.FunctionName != "OnChangeMainStage" && function.FunctionName != "OnGetUserState" &&
-                    function.FunctionName != "OnCompleteDungeon" && function.FunctionName != "OnExitDungeon" && function.FunctionName != "OnCompleteMainWave"))
+                    function.FunctionName != "OnCompleteDungeon" && function.FunctionName != "OnExitDungeon" && function.FunctionName != "OnCompleteMainWave" &&
+                    function.FunctionName != "OnGetQuestState"))
                 { Unexpected++; throw new InvalidOperationException("Stage acceptance blocks unexpected HTTP."); }
                 _pending = container;
             }
@@ -424,6 +470,13 @@ namespace KingdomIdle.Balance
             {
                 _pending = null;
                 if (NetworkManager.Instance != null) Invoke(typeof(NetworkManager), NetworkManager.Instance, "ResetCallQueue");
+            }
+            public void Succeed(ApiResponseDTO response)
+            {
+                var pending = _pending ?? throw new InvalidOperationException("Expected isolated HTTP request was not sent.");
+                _pending = null;
+                pending.ApiResult = new ExecuteFunctionResult { FunctionResult = JsonConvert.SerializeObject(response) };
+                pending.InvokeSuccessCallback();
             }
             public void SimpleGetCall(string url, Action<byte[]> success, Action<string> error) => Block();
             public void SimplePutCall(string url, byte[] payload, Action<byte[]> success, Action<string> error) => Block();

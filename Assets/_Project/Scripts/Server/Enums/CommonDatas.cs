@@ -29,6 +29,11 @@ namespace Protocol.Message.Data
 
 	public enum eErrorCode
 	{
+        EconomyRevisionMismatch = 1073,
+        EconomySequenceMismatch = 1074,
+        EconomyReceiptUnacknowledged = 1075,
+        InvalidRewardEpoch = 1076,
+        EconomyExpectedLevelMismatch = 1077,
 		eDuplicated_Request_InitUser = 1,
 		eDuplicated_SessionId = 2,
 		eRequest_NoExistSession = 3,

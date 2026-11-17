@@ -16,15 +16,25 @@ public class StatEnhanceManager : MonoBehaviour
     public event Action<EnhanceType, bool> OnEnhanceCompleted;
     public bool IsEnhancing { get; private set; }
     private int _appliedAttack = -1, _appliedHealth = -1, _appliedAccount = -1, _appliedReincarnation = -1;
+    private readonly HashSet<long> _batchInputs = new();
+    private long _batchGeneration = -1;
     private void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(this); return; }
         Instance = this;
         LocalProgression.Changed += HandleProgressionChanged;
         LocalProgression.AccountChanged += HandleAccountChanged;
+        EconomyBatchProgression.InputCompleted += HandleBatchCompleted;
     }
-    private void OnDestroy() { LocalProgression.Changed -= HandleProgressionChanged; LocalProgression.AccountChanged -= HandleAccountChanged; if (Instance == this) Instance = null; }
-    private void HandleAccountChanged() { IsEnhancing = false; LastFailure = null; }
+    private void OnDestroy() { LocalProgression.Changed -= HandleProgressionChanged; LocalProgression.AccountChanged -= HandleAccountChanged; EconomyBatchProgression.InputCompleted -= HandleBatchCompleted; if (Instance == this) Instance = null; }
+    private void HandleAccountChanged() { IsEnhancing = false; LastFailure = null; _batchInputs.Clear(); }
+    private void HandleBatchCompleted(EconomyInputCompletion result)
+    {
+        if (!_batchInputs.Remove(result.Sequence)) return;
+        var type = result.Kind == EconomyCommandKind.GoldAttack ? EnhanceType.Attack : EnhanceType.MaxHP;
+        LastFailure = result.Success ? null : NetworkManager.CreateError("EconomyRejected", result.Message);
+        OnEnhanceCompleted?.Invoke(type, result.Success);
+    }
     private void HandleProgressionChanged()
     {
         var s = LocalProgression.State;
@@ -32,19 +42,27 @@ public class StatEnhanceManager : MonoBehaviour
         ApplyToAllPlayers(); OnEnhanced?.Invoke();
     }
     public int GetLevel(EnhanceType type) => type == EnhanceType.Attack ? LocalProgression.State.AttackLevel : type == EnhanceType.MaxHP ? LocalProgression.State.HealthLevel : 0;
+    public int GetDisplayedLevel(EnhanceType type)
+    {
+        if (!EconomyBatchProgression.Available || !IsStatImplemented(type)) return GetLevel(type);
+        var projected = EconomyBatchProgression.GetProjection();
+        return projected.Valid ? type == EnhanceType.Attack ? projected.AttackLevel : projected.HealthLevel : GetLevel(type);
+    }
     public float GetBonus(EnhanceType type) => IsStatImplemented(type) ? (float)((BalanceMath.GoldMultiplier(GetLevel(type)) - 1m) * 100m) : 0;
     public float GetBonusAtkRate() => GetBonus(EnhanceType.Attack) / 100f;
     public float GetBonusMaxHPRate() => GetBonus(EnhanceType.MaxHP) / 100f;
     public long GetSingleCost(EnhanceType type, int level) => IsStatImplemented(type) ? BalanceMath.GoldCost(level) ?? -1 : -1;
     public int GetPurchaseCount(EnhanceType type, int requested)
     {
-        int remaining = BalanceMath.GoldCap - GetLevel(type);
-        return requested == -1 ? BalanceMath.AffordableGoldLevels(GetLevel(type), LocalProgression.Balance(eCurrency.Gold)) : Math.Max(0, Math.Min(requested, remaining));
+        int level = GetDisplayedLevel(type), remaining = BalanceMath.GoldCap - level;
+        var projected = EconomyBatchProgression.Available ? EconomyBatchProgression.GetProjection() : default;
+        long gold = projected.Valid ? projected.Gold : LocalProgression.Balance(eCurrency.Gold);
+        return requested == -1 ? BalanceMath.AffordableGoldLevels(level, gold) : Math.Max(0, Math.Min(requested, remaining));
     }
     public long GetCost(EnhanceType type, int count = 1)
     {
         int actual = GetPurchaseCount(type, count);
-        return !IsStatImplemented(type) || actual == 0 ? -1 : BalanceMath.GoldTotal(GetLevel(type), actual);
+        return !IsStatImplemented(type) || actual == 0 ? -1 : BalanceMath.GoldTotal(GetDisplayedLevel(type), actual);
     }
     public bool TryEnhance(EnhanceType type, int count = 1) => TryEnhanceEx(type, count) == EnhanceResult.Success;
     /// <summary>마지막 서버 거절 또는 적용 실패. Business 오류면 CustomData에 서버 ErrorResponseDTO가 들어 있다.</summary>
@@ -59,6 +77,24 @@ public class StatEnhanceManager : MonoBehaviour
         if (!Direction.GameDirectInteraction.CanPerform(guideAction, count)) return EnhanceResult.Busy;
         // 서버는 Count 1/10/-1(MAX)만 받는다(1004 InvalidEnchantCount).
         if (!IsStatImplemented(type) || (count != 1 && count != 10 && count != -1)) return EnhanceResult.InvalidRequest;
+        if (EconomyBatchProgression.Available)
+        {
+            long networkGeneration = NetworkManager.Instance.AccountGeneration;
+            if (_batchGeneration != networkGeneration) { _batchGeneration = networkGeneration; _batchInputs.Clear(); }
+            if (Direction.GameDirectInteraction.OwnsInput && _batchInputs.Count > 0) return EnhanceResult.Busy;
+            var status = EconomyBatchProgression.TryQueueGold(type == EnhanceType.Attack, count,
+                Direction.GameDirectInteraction.CaptureReceipt(guideAction, count), out long input);
+            if (status == EconomyInputStatus.PendingSave) { _batchInputs.Add(input); LastFailure = null; return EnhanceResult.Pending; }
+            return status switch
+            {
+                EconomyInputStatus.InsufficientFunds => EnhanceResult.NotEnoughGold,
+                EconomyInputStatus.MaxLevel => EnhanceResult.MaxLevel,
+                EconomyInputStatus.SaveFailed => EnhanceResult.SaveFailed,
+                EconomyInputStatus.InvalidRequest => EnhanceResult.InvalidRequest,
+                EconomyInputStatus.NotReady => EnhanceResult.NetworkNotReady,
+                _ => EnhanceResult.Busy
+            };
+        }
         if (IsEnhancing) return EnhanceResult.Busy;
         if (GetLevel(type) >= BalanceMath.GoldCap) return EnhanceResult.MaxLevel;
         var network = NetworkManager.Instance;

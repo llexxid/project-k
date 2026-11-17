@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using KingdomIdle.UI;
 using KingdomIdle.Mailbox;
+using KingdomIdle.Balance;
 using Scripts.Core;
 
 namespace KingdomIdle.UGUI
@@ -29,6 +30,9 @@ namespace KingdomIdle.UGUI
         private bool _currencyOpen;
         private Coroutine _currencyCo;
         private Vector2 _currencyBasePos;
+        private readonly Dictionary<eCurrency, CurrencyLineItemView> _currencyLines = new();
+        private CurrencyLineItemView _currencyTitle;
+        private static readonly eCurrency[] CurrencyTypes = (eCurrency[])Enum.GetValues(typeof(eCurrency));
 
         // 햄버거
         private bool _hamburgerOpen;
@@ -84,7 +88,7 @@ namespace KingdomIdle.UGUI
             }
 
             _host.FrameTick += OnFrameTick;
-            NumberNotationBinding.Bind(view, RefreshTopCurrencyLabels);
+            NumberNotationBinding.Bind(view, RefreshProjectedCurrency);
             _host.PanelStackChanged += RefreshTabButtonSelection;
             RefreshTabButtonSelection();
 
@@ -137,6 +141,8 @@ namespace KingdomIdle.UGUI
             _view = null;
             _host = null;
             _wallet = null;
+            _currencyLines.Clear();
+            _currencyTitle = null;
             _tabs.Clear();
         }
 
@@ -185,7 +191,7 @@ namespace KingdomIdle.UGUI
                 if (_profilePopup != null && _profilePopup.activeSelf) PopulateProfilePopup();
 
                 if (_currencyOpen)
-                    RebuildCurrencyPopupContents();
+                    RefreshCurrencyPopupContents();
             }
         }
 
@@ -338,7 +344,7 @@ namespace KingdomIdle.UGUI
             PositionDropdownUnder(_view.popupCurrenciesRect, target != null ? target.transform as RectTransform : null);
             if (_view.popupCurrenciesRect != null) _currencyBasePos = _view.popupCurrenciesRect.anchoredPosition;
 
-            RebuildCurrencyPopupContents();
+            RefreshCurrencyPopupContents();
             if (!_currencyOpen) OpenCurrencyPopup();
             else ApplyDropdownVisual(_view.popupCurrenciesRect, _view.popupCurrenciesGroup, _currencyBasePos, 0f, 1f); // 열린 채 그룹 전환 시 새 위치로 스냅
         }
@@ -379,18 +385,28 @@ namespace KingdomIdle.UGUI
                         RefreshTopCurrencyLabels();
 
                     if (_currencyOpen)
-                        RebuildCurrencyPopupContents();
+                        RefreshCurrencyPopupContents();
                 }
                 catch (Exception ex) { Debug.LogError($"EconomyChangeHandler failed: {ex}"); }
             };
             EconomyBridge.OnAmountChanged += _economyChangeHandler;
+            EconomyBatchProgression.Changed += RefreshProjectedCurrency;
+            LocalProgression.AccountChanged += RefreshProjectedCurrency;
         }
 
         private void UnhookEconomyChangeHandler()
         {
             if (_economyChangeHandler == null) return;
             EconomyBridge.OnAmountChanged -= _economyChangeHandler;
+            EconomyBatchProgression.Changed -= RefreshProjectedCurrency;
+            LocalProgression.AccountChanged -= RefreshProjectedCurrency;
             _economyChangeHandler = null;
+        }
+
+        private void RefreshProjectedCurrency()
+        {
+            RefreshTopCurrencyLabels();
+            if (_currencyOpen) RefreshCurrencyPopupContents();
         }
 
         private long _prevGold = -1, _prevAncient = -1;
@@ -404,9 +420,10 @@ namespace KingdomIdle.UGUI
             long gold = GetCurrencyAmount(eCurrency.Gold);
             long ancient = GetCurrencyAmount(eCurrency.AncientCoin);
 
-            if (_view.lblGold != null && (_prevGold != gold || _numberRevision != NumberNotation.Revision))
+            string goldText = (IsProjectedCurrency(eCurrency.Gold) ? "~" : "") + FormatChipAmount(gold);
+            if (_view.lblGold != null && _view.lblGold.text != goldText)
             {
-                _view.lblGold.text = FormatChipAmount(gold);
+                _view.lblGold.text = goldText;
                 if (_prevGold >= 0 && gold != _prevGold && _view.btnCurrency != null)
                     UITween.Punch(_view.btnCurrency.transform as RectTransform);
             }
@@ -423,34 +440,48 @@ namespace KingdomIdle.UGUI
 
         private long GetCurrencyAmount(eCurrency c)
         {
+            if (EconomyBatchProgression.Available && (c == eCurrency.Gold || c == eCurrency.Ruby))
+            {
+                var projection = EconomyBatchProgression.GetProjection();
+                if (projection.Valid) return c == eCurrency.Gold ? projection.Gold : projection.Ruby;
+            }
             if (_wallet == null) return 0;
             return WalletLocator.TryGetAmount(_wallet, c, out long amount) ? amount : 0;
         }
 
-        private string GetCurrencyText(eCurrency currency)
+        private static bool IsProjectedCurrency(eCurrency currency)
         {
-            if (_wallet == null) return "0";
-            if (WalletLocator.TryGetAmount(_wallet, currency, out long amount))
-                return NumberNotation.Exact(amount);
-            return "0";
+            if (!EconomyBatchProgression.Available || (currency != eCurrency.Gold && currency != eCurrency.Ruby)) return false;
+            var projection = EconomyBatchProgression.GetProjection();
+            return projection.Valid && (currency == eCurrency.Gold ? projection.Gold : projection.Ruby) != LocalProgression.Balance(currency);
         }
 
-        private void RebuildCurrencyPopupContents()
+        private string GetCurrencyText(eCurrency currency) =>
+            (IsProjectedCurrency(currency) ? "예상 " : "") + NumberNotation.Exact(GetCurrencyAmount(currency));
+
+        private void RefreshCurrencyPopupContents()
         {
             var content = _view != null ? _view.popupCurrenciesContent : null;
             if (content == null) return;
 
-            for (int i = content.childCount - 1; i >= 0; i--)
-                UnityEngine.Object.Destroy(content.GetChild(i).gameObject);
+            string heading = _currencyPremiumGroup ? "고대주화" : "보유 재화";
+            if (_currencyTitle == null) _currencyTitle = AddCurrencyLine(content, null, heading, null, isTitle: true);
+            else if (_currencyTitle.label != null && _currencyTitle.label.text != heading) _currencyTitle.label.text = heading;
 
-            AddCurrencyLine(content, null, _currencyPremiumGroup ? "고대주화" : "보유 재화", null, isTitle: true);
-
-            // 탭한 칩의 재화 그룹만 표시 (골드칩=무료/소프트, 고대주화칩=유료/프리미엄)
-            var values = (eCurrency[])Enum.GetValues(typeof(eCurrency));
-            foreach (var c in values)
+            foreach (var c in CurrencyTypes)
             {
-                if (!IsGroupCurrency(c, _currencyPremiumGroup)) continue;
-                AddCurrencyLine(content, RewardPresentation.Icon(c), RewardPresentation.Name(c), GetCurrencyText(c), isTitle: false);
+                bool visible = IsGroupCurrency(c, _currencyPremiumGroup);
+                _currencyLines.TryGetValue(c, out var line);
+                if (line == null && visible)
+                {
+                    line = AddCurrencyLine(content, RewardPresentation.Icon(c), RewardPresentation.Name(c), GetCurrencyText(c), isTitle: false);
+                    if (line != null) _currencyLines[c] = line;
+                }
+                if (line == null) continue;
+                if (line.gameObject.activeSelf != visible) line.gameObject.SetActive(visible);
+                if (!visible || line.valueLabel == null) continue;
+                string value = GetCurrencyText(c);
+                if (line.valueLabel.text != value) line.valueLabel.text = value;
             }
         }
 
@@ -462,14 +493,16 @@ namespace KingdomIdle.UGUI
             return c == eCurrency.Gold || c == eCurrency.ArcaneKnowledge || c == eCurrency.ClassFragment || c == eCurrency.Ruby || c == eCurrency.EquipmentStone;
         }
 
-        private void AddCurrencyLine(RectTransform parent, Sprite icon, string name, string value, bool isTitle)
+        private CurrencyLineItemView AddCurrencyLine(RectTransform parent, Sprite icon, string name, string value, bool isTitle)
         {
             var prefab = _host != null && _host.Catalog != null ? _host.Catalog.itemCurrencyLine : null;
-            if (prefab == null) return;
+            if (prefab == null) return null;
 
             var go = UnityEngine.Object.Instantiate(prefab, parent, false);
             var line = go.GetComponent<CurrencyLineItemView>();
             if (line != null) line.Set(icon, name, value, isTitle);
+            else UnityEngine.Object.Destroy(go);
+            return line;
         }
 
         /// <summary>UI 상 표시할 재화 필터. Gold / AncientCoin / ArcaneKnowledge 만 노출.</summary>
