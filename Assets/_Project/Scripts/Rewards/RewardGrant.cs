@@ -84,6 +84,22 @@ namespace KingdomIdle.Rewards
             return null;
         }
 
+        /// <summary>실제 퀘스트 지급 수량만 기존 서버 보상 표시·합산 경로로 전달한다.</summary>
+        public static List<RewardGrant> FromServer(IEnumerable<Protocol.Message.Dto.QuestRewardDTO> rewards)
+        {
+            var converted = new List<Protocol.Message.Dto.GachaRewardDTO>();
+            if (rewards != null)
+                foreach (var reward in rewards)
+                {
+                    if (reward == null || reward.Amount <= 0 || reward.Amount > long.MaxValue || reward.Amount != decimal.Truncate(reward.Amount)) continue;
+                    converted.Add(new Protocol.Message.Dto.GachaRewardDTO
+                    {
+                        Kind = reward.Kind, CurrencyType = reward.CurrencyType, DefinitionId = reward.DefinitionId, Amount = (long)reward.Amount
+                    });
+                }
+            return FromServer(converted);
+        }
+
         /// <summary>
         /// 서버 지급 결과(GachaRewardDTO)를 결과 팝업용 보상으로 바꾸고 같은 재화·같은 장비끼리 합친다.
         /// 자동 분해된 장비는 받은 강화석으로 보인다.

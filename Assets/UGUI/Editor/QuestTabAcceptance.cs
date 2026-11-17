@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using KingdomIdle.Balance;
+using KingdomIdle.Rewards;
 using Scripts.Core;
 using Scripts.Core.Manager;
 using TMPro;
@@ -63,11 +64,14 @@ namespace KingdomIdle.UGUI.Editor
                     completed = 0; confirmed = -1; total = 0;
                     return manager.GetSnapshot(eQuestCategory.Daily).Rows.First(x => x.CanClaim).Token;
                 }
-                Action<int, int, string> done = (count, requested, message) => { completed++; confirmed = count; total = requested; };
+                IReadOnlyList<RewardGrant> completedRewards = null;
+                string completedMessage = null;
+                Action<int, int, string, IReadOnlyList<RewardGrant>> done = (count, requested, message, rewards) =>
+                    { completed++; confirmed = count; total = requested; completedRewards = rewards; completedMessage = message; };
                 var individual = Prepare(); int individualCompletions = 0;
                 QuestClaimToken completedToken = default;
-                Action<QuestClaimToken, bool, string> individualDone = (token, success, message) =>
-                    { individualCompletions++; completedToken = token; };
+                Action<QuestClaimToken, bool, string, IReadOnlyList<RewardGrant>> individualDone = (token, success, message, rewards) =>
+                    { individualCompletions++; completedToken = token; completedRewards = rewards; };
                 manager.OnClaimCompleted += individualDone;
                 int beforeIndividual = transport.ClaimCalls;
                 Check(manager.TryClaim(individual).Status == QuestClaimStatus.Pending && manager.IsBusy &&
@@ -77,7 +81,7 @@ namespace KingdomIdle.UGUI.Editor
                 Check(manager.TryClaimTab(eQuestCategory.Daily, individual, done).Status == QuestClaimStatus.Busy &&
                     transport.ClaimCalls == beforeIndividual + 1, "Individual claim blocks a simultaneous claim-all request");
                 transport.Fail(FixtureError("Business", 1029));
-                Check(!manager.IsBusy && individualCompletions == 1 && completedToken == individual && completed == 0,
+                Check(!manager.IsBusy && individualCompletions == 1 && completedToken == individual && completed == 0 && completedRewards.Count == 0,
                     "Individual completion reports only its own token without invoking the bulk callback");
                 manager.OnClaimCompleted -= individualDone;
 
@@ -98,7 +102,8 @@ namespace KingdomIdle.UGUI.Editor
                     !expectedTokens.Any(x => x.QuestId == 20001), "Newly claimable goals do not join the running claim-all operation");
                 transport.Fail(FixtureError("Business", 1029));
                 Check(!manager.IsBusy && completed == 1 && confirmed == 0 && total == expectedTokens.Length &&
-                    individualCompletions == 1, "Claim-all rejection reports its frozen total without an individual completion");
+                    individualCompletions == 1 && completedRewards.Count == 0,
+                    "Claim-all rejection reports its frozen total and no invented rewards without an individual completion");
                 var errors = new (string Name, PlayFab.PlayFabError Error)[]
                 {
                     ("StorageFailure1014", FixtureError("Business", 1014)), ("InvalidStoredData1015", FixtureError("Business", 1015)),
@@ -123,7 +128,7 @@ namespace KingdomIdle.UGUI.Editor
                         error.Name + ": failure sends one state read and keeps input locked without reclaiming");
                     transport.Fail(FixtureError("Transport"));
                     Check(!manager.IsBusy && completed == 1 && confirmed == 0 && total > 0 && transport.ClaimCalls == claimCalls + 1 &&
-                        manager.GetSnapshot(eQuestCategory.Daily).Rows.Any(x => x.Token == token && x.CanClaim),
+                        manager.GetSnapshot(eQuestCategory.Daily).Rows.Any(x => x.Token == token && x.CanClaim) && completedRewards.Count == 0,
                         error.Name + ": failed state read preserves remaining rows and confirms no reward");
                     original.ErrorCallback(error.Error);
                     Check(completed == 1 && transport.Pending == null, error.Name + ": duplicate late response cannot finish or send another request");
@@ -134,6 +139,20 @@ namespace KingdomIdle.UGUI.Editor
                     Check(!manager.IsBusy && transport.ReadCalls == readCalls + 1 && confirmed == 0 && transport.Pending == null,
                         error.Name + ": server already-claimed rejection stops the bulk without another grant attempt");
                 }
+                // 완료 전달만 검사한다. 메모리 작업에 확정 표시용 명세를 넣고 성공 응답 적용·저장은 호출하지 않는다.
+                var rewardToken = Prepare(); manager.TryClaimTab(eQuestCategory.Daily, rewardToken, done);
+                var rewardOperation = Field<object>(manager, "_claim");
+                Field<List<Dto.QuestRewardDTO>>(rewardOperation, "Rewards").AddRange(new[]
+                    { Reward(eCurrency.Gold, 123), Reward(eCurrency.Gold, 7), Reward(eCurrency.AncientCoin, 2) });
+                SetField(rewardOperation, "Confirmed", 1);
+                Call(manager, "FinishClaim", rewardOperation, "fixture partial failure");
+                Check(completed == 1 && confirmed == 1 && total > confirmed && completedMessage == "fixture partial failure" &&
+                    completedRewards.Count == 2 && completedRewards[0].Currency == eCurrency.Gold && completedRewards[0].Amount == 130 &&
+                    completedRewards[1].Currency == eCurrency.AncientCoin && completedRewards[1].Amount == 2,
+                    "Real claim completion merges only accumulated reward receipts and preserves them alongside a partial-failure message");
+                Call(manager, "FinishClaim", rewardOperation, "fixture duplicate"); transport.Fail(FixtureError("Business", 1029));
+                Check(completed == 1 && !manager.IsBusy && transport.Pending == null,
+                    "Repeated finish and the intercepted request's late rejection cannot deliver the reward receipts twice");
                 var claimedToken = Prepare(); manager.Apply(State(allDailyClaimed: true), "qa-server-claimed-dto");
                 int beforeClaimed = transport.ClaimCalls;
                 Check(manager.TryClaimTab(eQuestCategory.Daily, claimedToken, done).Status == QuestClaimStatus.Incomplete &&
@@ -218,6 +237,13 @@ namespace KingdomIdle.UGUI.Editor
                 var catalog = AssetDatabase.LoadAssetAtPath<UIViewCatalog>("Assets/UGUI/UIViewCatalog.asset");
                 Check(catalog != null && catalog.panelGuide != null && catalog.itemGuideStepRow != null &&
                     catalog.itemNavTabButton != null && catalog.itemGuideEmptyHint != null, "Real catalog references all quest presentation prefabs");
+                var rootView = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/UGUI/Prefabs/UGUI_UIRoot.prefab").GetComponent<UIManager>();
+                Check(rootView.LayerPopups.parent == rootView.LayerOverlays.parent &&
+                    rootView.LayerPopups.GetSiblingIndex() < rootView.LayerOverlays.GetSiblingIndex() &&
+                    rootView.LayerPopups.GetComponent<Canvas>() == null && rootView.LayerOverlays.GetComponent<Canvas>() == null &&
+                    catalog.panelGuide.GetComponentsInChildren<Canvas>(true).All(x => !x.overrideSorting) &&
+                    catalog.popupRewardInfo.GetComponentsInChildren<Canvas>(true).All(x => !x.overrideSorting),
+                    "Real UI root draws the separate overlay layer after the popup layer without per-layer or quest/reward sorting overrides");
                 // 비활성 매니저는 Start/Update/Fetch를 실행하지 않는다. DTO 투영과 변경 발행만 명시적으로 사용한다.
                 managerRoot = new GameObject("QuestDtoAcceptance_Manager"); managerRoot.SetActive(false);
                 var manager = managerRoot.AddComponent<QuestManager>(); QuestManager.Instance = manager;
@@ -230,7 +256,15 @@ namespace KingdomIdle.UGUI.Editor
                 canvasRoot = new GameObject("QuestDtoAcceptance_Canvas", typeof(RectTransform), typeof(Canvas)); canvasRoot.SetActive(false);
                 canvasRoot.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
                 ((RectTransform)canvasRoot.transform).sizeDelta = new Vector2(1080, 1920);
-                var panelObject = UnityEngine.Object.Instantiate(catalog.panelGuide, canvasRoot.transform, false);
+                var popupLayer = new GameObject("LayerPopups", typeof(RectTransform)).GetComponent<RectTransform>();
+                var overlayLayer = new GameObject("LayerOverlays", typeof(RectTransform)).GetComponent<RectTransform>();
+                foreach (var layer in new[] { popupLayer, overlayLayer })
+                {
+                    layer.SetParent(canvasRoot.transform, false);
+                    layer.anchorMin = Vector2.zero; layer.anchorMax = Vector2.one; layer.sizeDelta = Vector2.zero;
+                }
+                SetField(ui, "layerPopups", popupLayer); SetField(ui, "layerOverlays", overlayLayer);
+                var panelObject = UnityEngine.Object.Instantiate(catalog.panelGuide, overlayLayer, false);
                 var view = panelObject.GetComponent<GuidePanelView>();
                 var panel = panelObject.GetComponent<BalanceQuestPanel>() ?? panelObject.AddComponent<BalanceQuestPanel>();
                 var tabs = view.tabBar; var content = view.listContent; var scroll = view.scroll;
@@ -384,6 +418,7 @@ namespace KingdomIdle.UGUI.Editor
                 data = State(day: "2026-11-13"); manager.Apply(data, "qa-dto-new-period"); Publish(manager);
                 Check(Visible(panel).Where(x => !x.IsPending).All(x => x.Token.Period == "2026-11-13") &&
                     Visible(panel).Any(x => x.IsPending && x.Token.Period == "2026-11-11"), "New server periods replace current tokens while preserving supplied pending tokens");
+                CheckRewardPopups(ui, manager, panel, token, Check);
                 Check(!LocalProgression.IsReady && LocalProgression.AccountGeneration == generation && LocalProgression.AccountKey == account && NetworkManager.Instance == null,
                     "Fixture never opens/switches a profile, creates a network session or changes account generation");
             }
@@ -400,6 +435,90 @@ namespace KingdomIdle.UGUI.Editor
             return new Dictionary<string, object> { { "passed", checks.Count }, { "checks", checks },
                 { "fixture", "Actual prefabs and QuestStateDTO projection; inactive manager; active geometry; no account/network/payment" },
                 { "not_exercised", new[] { "Server claim success/failure", "Bulk reward payment/durable receipts", "Live account switching", "Backend period transition" } } };
+        }
+
+        private static void CheckRewardPopups(UIManager ui, QuestManager manager, BalanceQuestPanel panel,
+            QuestClaimToken token, Action<bool, string> check)
+        {
+            // 지급 완료 이벤트의 표시만 호출한다. 수령 요청·성공 DTO 적용·계정 저장은 실행하지 않는다.
+            object Call(object owner, string method, params object[] values) => owner.GetType().GetMethod(method, Private).Invoke(owner, values);
+            RewardPopupView[] Popups() => ui.LayerOverlays.GetComponentsInChildren<RewardPopupView>(false);
+            void Clear() { foreach (var popup in Popups()) UnityEngine.Object.DestroyImmediate(popup.gameObject); }
+            var rewards = RewardGrants.FromServer(new[]
+            {
+                Reward(eCurrency.Gold, 123, true), Reward(eCurrency.AncientCoin, 2), Reward(eCurrency.Gold, 7)
+            });
+            check(rewards.Count == 2 && rewards[0].Currency == eCurrency.Gold && rewards[0].Amount == 130 &&
+                rewards[1].Currency == eCurrency.AncientCoin && rewards[1].Amount == 2 && rewards.All(x => x.ServerReward),
+                "Quest payout conversion preserves the server dynamic-gold amount and merges matching received currencies");
+            check(RewardGrants.FromServer(new Dto.QuestRewardDTO[]
+            {
+                null, Reward(eCurrency.Gold, 0), Reward(eCurrency.Gold, -1), Reward(eCurrency.Gold, 1.5m),
+                Reward(eCurrency.Gold, (decimal)long.MaxValue + 1)
+            }).Count == 0 && RewardGrants.FromServer((IEnumerable<Dto.QuestRewardDTO>)null).Count == 0,
+                "Quest payout conversion skips absent, nonpositive, fractional and overflowing amounts without inventing rewards");
+
+            SetField(panel, "_pendingClaim", (QuestClaimToken?)token);
+            Call(panel, "OnClaimCompleted", new QuestClaimToken(token.AccountGeneration, token.QuestId + 1, token.Period), true, null, rewards);
+            check(Popups().Length == 0, "A different individual completion cannot show this panel's reward popup");
+            Call(panel, "OnClaimCompleted", token, true, null, rewards);
+            var individual = Popups().Single();
+            var slots = individual.slots.GetComponentsInChildren<RewardSlotView>(false);
+            check(individual.transform.parent == ui.LayerOverlays && individual.transform.GetSiblingIndex() > panel.transform.GetSiblingIndex() &&
+                ui.LayerPopups.childCount == 0 && slots.Length == 2 &&
+                slots[0].quantity.text == NumberNotation.Format(130) && slots[0].icon.sprite == ui.Catalog.iconCoin &&
+                slots[1].quantity.text == NumberNotation.Format(2) && slots[1].icon.sprite == ui.Catalog.iconAncientCoin,
+                "Individual quest reward draws above the quest in the overlay layer and reuses exact received icons and amounts");
+            Call(panel, "OnClaimCompleted", token, true, null, rewards);
+            check(Popups().Length == 1, "A duplicate individual completion cannot open another reward popup");
+            Clear();
+            SetField(panel, "_pendingClaim", (QuestClaimToken?)token);
+            Call(panel, "OnClaimCompleted", token, false, "fixture failure", Array.Empty<RewardGrant>());
+            SetField(panel, "_pendingClaim", (QuestClaimToken?)token);
+            Call(panel, "OnClaimCompleted", token, true, null, Array.Empty<RewardGrant>());
+            check(Popups().Length == 0, "Failed or rewardless individual completion does not open an empty reward popup");
+
+            var hudObject = new GameObject("QuestRewardPresentation_Hud"); hudObject.SetActive(false);
+            hudObject.transform.SetParent(ui.LayerOverlays, false);
+            try
+            {
+                var hud = hudObject.AddComponent<GuideGoalView>();
+                SetField(hud, "_manager", manager);
+                var guide = manager.GetSnapshot(eQuestCategory.Guide).Rows.First().Token;
+                SetField(hud, "_claimToken", guide); SetField(hud, "_claimRequested", true);
+                SetField(hud, "_requestedClaimToken", guide);
+                Call(hud, "OnClaimCompleted", token, true, null, rewards);
+                check(Popups().Length == 0 && Field<bool>(hud, "_claimRequested"),
+                    "A different quest completion cannot consume the guide HUD's pending reward presentation");
+                SetField(hud, "_claimToken", token);
+                Call(hud, "OnClaimCompleted", guide, true, null, rewards);
+                Call(hud, "OnClaimCompleted", guide, true, null, rewards);
+                check(Popups().Length == 1 && Popups()[0].transform.parent == ui.LayerOverlays &&
+                    Popups()[0].transform.GetSiblingIndex() > panel.transform.GetSiblingIndex() && ui.LayerPopups.childCount == 0 &&
+                    Popups()[0].slots.GetComponentsInChildren<RewardSlotView>(false).Length == 2,
+                    "Rebinding the displayed guide during a request preserves its original reward popup and duplicate-completion guard");
+                Clear();
+                SetField(hud, "_claimRequested", true);
+                Call(hud, "OnClaimCompleted", guide, false, "fixture failure", Array.Empty<RewardGrant>());
+                SetField(hud, "_claimRequested", true);
+                Call(hud, "OnClaimCompleted", guide, true, null, Array.Empty<RewardGrant>());
+                check(Popups().Length == 0, "Failed or rewardless guide completion does not show a reward popup");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(hudObject); }
+
+            Call(panel, "OnTabClaimCompleted", 2, 2, null, rewards);
+            check(Popups().Length == 1 && Popups()[0].transform.parent == ui.LayerOverlays &&
+                Popups()[0].transform.GetSiblingIndex() > panel.transform.GetSiblingIndex() && ui.LayerPopups.childCount == 0 &&
+                Popups()[0].slots.GetComponentsInChildren<RewardSlotView>(false).Length == 2,
+                "Claim-all completion shows one combined popup above the quest rather than in the lower popup layer");
+            Clear();
+            Call(panel, "OnTabClaimCompleted", 1, 2, "fixture partial failure", rewards);
+            check(Popups().Length == 1 && Popups()[0].slots.GetComponentsInChildren<RewardSlotView>(false)[0].quantity.text == NumberNotation.Format(130),
+                "Partially failed claim-all still displays the rewards already confirmed by successful responses");
+            Clear();
+            Call(panel, "OnTabClaimCompleted", 0, 2, "fixture failure", Array.Empty<RewardGrant>());
+            Call(panel, "OnTabClaimCompleted", 1, 1, null, Array.Empty<RewardGrant>());
+            check(Popups().Length == 0, "Failed or rewardless claim-all does not show a fabricated payout popup");
         }
 
         private static Dto.QuestStateDTO State(string day = "2026-11-12", long weeklyProgress = 1, bool dailyComplete = false, bool allDailyClaimed = false)
