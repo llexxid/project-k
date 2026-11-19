@@ -411,6 +411,9 @@ namespace KingdomIdle.Balance
                 EconomyBatchProtocol.MatchRequest(response, request);
                 if (response.Receipt != null && response.Receipt.PayloadHash != EconomyInputJournal.Hash(request)) throw new InvalidDataException("경제 요청 원문과 서버 결과가 다릅니다.");
                 bool alreadyApplied = LocalProgression.State.Economy.LastAppliedRequestId == request.RequestId;
+                var loot = !alreadyApplied && !_recovering && response.Status == EconomyBatchStatus.Completed &&
+                    response.Receipt.Results.Any(x => x.Kind == EconomyCommandKind.Hunt && x.Status == EconomyCommandStatus.Applied && x.GrantedGold > 0)
+                    ? KingdomIdle.Rewards.LootNotifications.Capture(false, false) : null;
                 bool saved = LocalProgression.Execute("server-economy-batch", state =>
                 {
                     if (!ApplyServerState(state, response.CurrentState, response.EconomyRevision.Value)) return false;
@@ -441,8 +444,10 @@ namespace KingdomIdle.Balance
                 }
                 if (response.Status == EconomyBatchStatus.Retired) { RetireInputs(); return; }
                 if (response.Status != EconomyBatchStatus.Completed) { MarkUnknown("경제 요청 내용이 충돌해 실행을 보류했습니다."); FinishRecovery(false); return; }
+                if (loot != null) KingdomIdle.Rewards.LootNotifications.PublishEconomyBatch(loot, response.Receipt);
                 ResolveCompletedInputs(response.Receipt, alreadyApplied);
-                if (!alreadyApplied && response.Receipt.Results.Any(x => x.Status == EconomyCommandStatus.Applied && x.AppliedCount > 0))
+                if (!alreadyApplied && response.Receipt.Results.Any(x => x.Kind != EconomyCommandKind.Hunt &&
+                    x.Status == EconomyCommandStatus.Applied && x.AppliedCount > 0))
                     QuestManager.Instance?.RequestRefresh("economy-batch");
             }
             catch (Exception error)

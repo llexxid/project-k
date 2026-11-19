@@ -16,6 +16,116 @@ namespace KingdomIdle.Balance
         private const string Id = "12345678123456781234567812345678";
         private static readonly ulong Monster = (ulong)eMonsterType.MON_GOBLIN;
 
+        /// <summary>계정 없는 빈 PlayMode에서 실제 응답 적용이 예약하는 퀘스트 갱신만 검사한다. HTTP를 전송하지 않는다.</summary>
+        public static object RunQuestRefresh()
+        {
+            if (!Application.isPlaying || LocalProgression.IsReady || NetworkManager.Instance != null ||
+                UserManager.Instance != null || QuestManager.Instance != null || StageManager.Instance != null ||
+                StatEnhanceManager.Instance != null || KingdomIdle.UGUI.UIManager.Instance != null)
+                throw new InvalidOperationException("Quest refresh acceptance requires empty signed-out PlayMode.");
+            const BindingFlags statics = BindingFlags.Static | BindingFlags.NonPublic, instance = BindingFlags.Instance | BindingFlags.NonPublic;
+            var checks = new List<string>();
+            void Check(bool value, string name) { if (!value) throw new InvalidOperationException("Economy quest refresh: " + name); checks.Add(name); }
+            var core = typeof(EconomyBatchProgression);
+            void Set(string name, object value) => core.GetField(name, statics).SetValue(null, value);
+            object Call(string name, params object[] args) => core.GetMethod(name, statics).Invoke(null, args);
+            var queued = typeof(QuestManager).GetField("_refreshQueued", instance);
+            var owner = new GameObject("EconomyQuestRefreshAcceptance"); owner.SetActive(false);
+            var paths = new List<string>();
+            using var session = LocalProgression.BeginTestSession();
+            try
+            {
+                var network = owner.AddComponent<NetworkManager>(); NetworkManager.Instance = network;
+                typeof(NetworkManager).GetProperty(nameof(NetworkManager.LoginState)).SetValue(network, GameLoginState.Ready);
+                var quests = owner.AddComponent<QuestManager>(); QuestManager.Instance = quests;
+                LocalProgression.OpenTestAccount("economy-quest-refresh-" + Guid.NewGuid().ToString("N"));
+                void Case(string name, EconomyCommandKind[] kinds, bool expected, bool replayed = false, bool alreadyApplied = false, bool rejectGrowth = false, int kills = 3)
+                {
+                    Call("ResetAccount");
+                    var request = new OnEconomyBatchRequestDTO
+                    { RequestId = Guid.NewGuid().ToString("N"), Generation = 1, Sequence = 1, ExpectedEconomyRevision = 1, AppliedRewardEpoch = 1, Commands = new() };
+                    foreach (var kind in kinds)
+                        request.Commands.Add(kind == EconomyCommandKind.Hunt ? Hunt(3) : new()
+                        { Kind = kind, Mode = 1, CountLimit = 1, SpendLimit = kind == EconomyCommandKind.RubyGold || kind == EconomyCommandKind.RubyExperience ? 20 : 50 });
+                    var response = EconomyBatchContractAcceptance.Fixture();
+                    response.RequestId = request.RequestId; response.EconomyRevision = 2; response.Replayed = replayed;
+                    response.CurrentState.MainBattle.RunId = Id;
+                    if (kinds.Contains(EconomyCommandKind.Hunt)) response.CurrentState.MainBattle.AcceptedKills = Hunt(3).TotalKills;
+                    response.CurrentState.EnchantATKCount = !rejectGrowth && kinds.Contains(EconomyCommandKind.GoldAttack) ? 1 : 0;
+                    response.CurrentState.EnchantHPCount = !rejectGrowth && kinds.Contains(EconomyCommandKind.GoldHealth) ? 1 : 0;
+                    if (!rejectGrowth && kinds.Any(k => k == EconomyCommandKind.RubyGold || k == EconomyCommandKind.RubyExperience))
+                    {
+                        var ruby = response.CurrentState.RubyGrowthState;
+                        ruby.GoldLevel = ruby.BestGoldLevel = kinds.Contains(EconomyCommandKind.RubyGold) ? 1 : 0;
+                        ruby.ExpLevel = ruby.BestExpLevel = kinds.Contains(EconomyCommandKind.RubyExperience) ? 1 : 0;
+                        ruby.GoldSpent = ruby.GoldLevel * 20; ruby.ExpSpent = ruby.ExpLevel * 20;
+                        response.CurrentState.EconomyBatchState.RewardEpoch = 2;
+                        response.CurrentState.EconomyBatchState.RewardEpochs.Add(new() { Id = 2, GoldLevel = ruby.GoldLevel, ExpLevel = ruby.ExpLevel });
+                    }
+                    response.Receipt = new() { RequestId = request.RequestId, Generation = 1, Sequence = 1,
+                        PayloadHash = EconomyInputJournal.Hash(request), CommittedRevision = 2, Results = new() };
+                    bool rejected = false;
+                    for (int i = 0; i < kinds.Length; i++)
+                    {
+                        var kind = kinds[i]; bool hunt = kind == EconomyCommandKind.Hunt;
+                        bool ruby = kind == EconomyCommandKind.RubyGold || kind == EconomyCommandKind.RubyExperience;
+                        var result = new EconomyCommandResultDTO { Index = i, Kind = kind, Status = EconomyCommandStatus.Applied, AppliedCount = hunt ? kills : 1 };
+                        if (rejectGrowth && !hunt)
+                        {
+                            result.Status = rejected ? EconomyCommandStatus.Unprocessed : EconomyCommandStatus.Rejected;
+                            result.AppliedCount = 0; if (!rejected) result.ErrorCode = Protocol.Message.Data.eErrorCode.eNotEnoughGold;
+                            rejected = true;
+                        }
+                        else if (!hunt) { if (ruby) result.SpentRuby = 20; else result.SpentGold = 50; }
+                        response.Receipt.Results.Add(result);
+                    }
+                    Check(LocalProgression.Execute("quest-refresh-fixture", state =>
+                    {
+                        state.ServerEconomyRevision = 0; state.Economy = new();
+                        var initial = EconomyBatchContractAcceptance.Fixture().CurrentState;
+                        initial.EnchantATKCount = 0; initial.MainBattle.RunId = Id;
+                        if (kills == 0 && kinds.Contains(EconomyCommandKind.Hunt)) initial.MainBattle.AcceptedKills = Hunt(3).TotalKills;
+                        if (!EconomyBatchProgression.ApplyServerState(state, alreadyApplied ? response.CurrentState : initial, 1)) return false;
+                        state.Economy.LastAppliedRequestId = alreadyApplied ? request.RequestId : null; return true;
+                    }), name + ": isolated authoritative state saves");
+                    string path = Path.Combine(Path.GetTempPath(), "economy-quest-refresh-" + Guid.NewGuid().ToString("N") + ".json"); paths.Add(path);
+                    var journal = new EconomyInputJournal(path, LocalProgression.AccountKey);
+                    journal.Data.Generation = 1; journal.Data.NextInputSequence = kinds.Length + 1; journal.Data.InFlight = request;
+                    journal.Data.InFlightInputs = request.Commands.Select((c, i) => new EconomyInput { Sequence = i + 1, Command = EconomyCopies.Copy(c) }).ToList();
+                    journal.Changed(); journal.Pump(true);
+                    Set("_journal", journal); Set("_network", network); Set("_localGeneration", LocalProgression.AccountGeneration);
+                    Set("_networkGeneration", network.AccountGeneration); Set("_supported", true); Set("_recovered", true);
+                    queued.SetValue(quests, false);
+                    Call("ApplyResult", response, false);
+                    Check(!EconomyBatchProgression.HasUnknownResult && journal.Data.InFlight == null &&
+                        LocalProgression.State.Economy.LastAppliedRequestId == request.RequestId,
+                        name + ": production ApplyResult durably accepts the matching receipt");
+                    Check((bool)queued.GetValue(quests) == expected, name + ": refresh queued=" + expected);
+                }
+                Case("pure hunt", new[] { EconomyCommandKind.Hunt }, false);
+                Case("mixed hunt and gold", new[] { EconomyCommandKind.Hunt, EconomyCommandKind.GoldAttack }, true);
+                Case("gold health", new[] { EconomyCommandKind.GoldHealth }, true);
+                Case("ruby gold", new[] { EconomyCommandKind.RubyGold }, true);
+                Case("ruby experience", new[] { EconomyCommandKind.RubyExperience }, true);
+                Case("unseen replayed growth", new[] { EconomyCommandKind.GoldAttack }, true, replayed: true);
+                Case("already applied mixed receipt", new[] { EconomyCommandKind.Hunt, EconomyCommandKind.GoldAttack }, false, replayed: true, alreadyApplied: true);
+                Case("replayed pure hunt", new[] { EconomyCommandKind.Hunt }, false, replayed: true);
+                Case("hunt with rejected and unprocessed growth", new[] { EconomyCommandKind.Hunt, EconomyCommandKind.GoldAttack, EconomyCommandKind.RubyGold }, false, rejectGrowth: true);
+                Case("zero new kills", new[] { EconomyCommandKind.Hunt }, false, kills: 0);
+                Check(typeof(NetworkManager).GetField("_context", instance).GetValue(network) == null &&
+                    ((System.Collections.ICollection)typeof(NetworkManager).GetField("_pendingCalls", instance).GetValue(network)).Count == 0,
+                    "all receipts stayed unauthenticated with no queued HTTP");
+                return new { passed = checks.Count, checks };
+            }
+            finally
+            {
+                Call("ResetAccount"); QuestManager.Instance = null; NetworkManager.Instance = null;
+                UnityEngine.Object.DestroyImmediate(owner);
+                foreach (string path in paths)
+                    foreach (string file in new[] { path, path + ".tmp", path + ".bak" }) if (File.Exists(file)) File.Delete(file);
+            }
+        }
+
         public static object Run()
         {
             var checks = new List<string>();

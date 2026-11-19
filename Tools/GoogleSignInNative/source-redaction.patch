@@ -1,0 +1,47 @@
+--- a/src/main/cpp/google_signin.cc
++++ b/src/main/cpp/google_signin.cc
+@@ -329,10 +329,6 @@
+ void GoogleSignIn::GoogleSignInImpl::SignOut() {
+   JNIEnv *env = GetJniEnv();
+ 
+-  __android_log_print(ANDROID_LOG_INFO, TAG,
+-                      "helper: %x method: %x activity: %x",
+-                      (uintptr_t)helper_clazz_, (uintptr_t)signin_method_,
+-                      (uintptr_t)activity_);
+ 
+   env->CallStaticVoidMethod(helper_clazz_, signout_method_, activity_);
+ }
+@@ -352,10 +348,6 @@
+     rc->StatusCode = result;
+     rc->User = GoogleSignInUserImpl::UserFromAccount(user);
+ 
+-    if (rc->User) {
+-      __android_log_print(ANDROID_LOG_INFO, TAG, "User Display Name is  %s",
+-                          rc->User->GetDisplayName());
+-    }
+     future->SetResult(rc);
+   }
+ }
+--- a/src/main/cpp/google_signin_bridge.cc
++++ b/src/main/cpp/google_signin_bridge.cc
+@@ -71,9 +71,6 @@
+   GoogleSignInUser() : wrapped_() {}
+ 
+   GoogleSignInUser(googlesignin::GoogleSignInUser *ref) : wrapped_(ref) {
+-    __android_log_print(ANDROID_LOG_INFO, "native-googlesignin",
+-                        "In Wrapper display name is  %s",
+-                        ref->GetDisplayName());
+   }
+ 
+   ~GoogleSignInUser() = default;
+--- a/src/main/cpp/google_signin_user.cc
++++ b/src/main/cpp/google_signin_user.cc
+@@ -145,8 +145,6 @@
+ 
+   *dest = buf;
+ 
+-  __android_log_print(ANDROID_LOG_INFO, "native-googlesignin",
+-                      "StringFromJava %s == %s", dest->c_str(), buf);
+ 
+   env->ReleaseStringUTFChars(j_str, buf);
+ }

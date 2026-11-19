@@ -27,9 +27,43 @@ namespace KingdomIdle.UGUI.Editor
         public static bool WaitingForCapture { get; private set; }
         public static string CurrentCase { get; private set; }
         public static object LastRapidTapReport { get; private set; }
+        public static object LastRecoveryLabelReport { get; private set; }
         private static bool _continue, _cancel, _running;
         public static void Continue() => _continue = true;
         public static void CancelRapidTaps() => _cancel = true;
+
+        /// <summary>실제 육성 카드에서 복구·보류 동작 문구와 확인 전 미소비를 검사한다. 빈 PlayMode에서 실행한다.</summary>
+        public static IEnumerator RunRecoveryLabels(Action<object> completed = null)
+        {
+            if (_running) throw new InvalidOperationException("Growth UI acceptance is already running.");
+            _running = true; _cancel = false; LastRecoveryLabelReport = null;
+            RapidTapFixture fixture = null;
+            try
+            {
+                fixture = new RapidTapFixture();
+                yield return WaitFor(fixture, () => EconomyBatchProgression.RecoveryComplete, "initial recovery");
+                fixture.BuildPanel();
+                yield return null;
+                typeof(EconomyBatchProgression).GetField("_recovered", Static).SetValue(null, false);
+                fixture.CheckRecoveryLabels("결과 확인", "확인 후 육성", false);
+                typeof(EconomyBatchProgression).GetField("_recovered", Static).SetValue(null, true);
+                fixture.Check(EconomyBatchProgression.TryQueueGold(true, 1, null, out _) == EconomyInputStatus.PendingSave &&
+                    EconomyBatchProgression.RecoverPending(_ => { }, true), "A real saved growth input enters the existing held recovery path");
+                yield return WaitFor(fixture, () => EconomyBatchProgression.RecoveryComplete && !EconomyBatchProgression.HasPendingWork, "held input persistence");
+                fixture.Check(EconomyBatchProgression.HasHeldSpending, "The unsent input stays held before explicit confirmation");
+                fixture.CheckRecoveryLabels("입력 확인", "수량·비용 확인", true);
+                fixture.Check(fixture.Transport.Calls == 0 && fixture.Transport.Unexpected == 0,
+                    "Recovery labels and cancelled confirmations never send HTTP");
+                LastRecoveryLabelReport = fixture.Report(true);
+                completed?.Invoke(LastRecoveryLabelReport);
+            }
+            finally
+            {
+                LastRecoveryLabelReport ??= fixture?.Report(false);
+                fixture?.Dispose();
+                _running = false; WaitingForCapture = false; CurrentCase = null; PauseAtCheckpoints = false;
+            }
+        }
 
         /// <summary>빈 PlayMode에서 코루틴으로 실행한다. 캡처 대기는 체크포인트마다 45초로 제한한다.</summary>
         public static IEnumerator RunRapidTaps(Action<object> completed = null)
@@ -223,6 +257,44 @@ namespace KingdomIdle.UGUI.Editor
             }
 
             internal void Pump() { EconomyBatchProgression.FlushLocalWrites(); EconomyBatchProgression.Pump(); }
+            internal void CheckRecoveryLabels(string title, string cost, bool checkConfirmation)
+            {
+                string before = JsonConvert.SerializeObject(LocalProgression.State);
+                for (int tab = 0; tab < 2; tab++)
+                {
+                    typeof(DevelopmentPanelController).GetField("_rubyTab", Static).SetValue(null, tab == 1);
+                    typeof(DevelopmentPanelController).GetMethod("Refresh", Static).Invoke(null, null);
+                    var root = tab == 1 ? Body.rubyCardsRoot : Body.CardsRoot;
+                    if (tab == 1) Invoke(root.GetComponent<RubyGrowthCards>(), "Refresh");
+                    LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)_panel.transform);
+                    Canvas.ForceUpdateCanvases();
+                    var buttons = root.GetComponentsInChildren<GachaPullButtonView>();
+                    Check(buttons.Length == 2, (tab == 1 ? "Ruby" : "Gold") + " has two production recovery actions");
+                    foreach (var button in buttons)
+                    {
+                        var titleLabel = Get<TMP_Text>(button, "titleLabel");
+                        var costLabel = Get<TMP_Text>(button, "costLabel");
+                        foreach (var label in new[] { titleLabel, costLabel })
+                        {
+                            label.ForceMeshUpdate();
+                            float width = label.GetPreferredValues(label.text, float.PositiveInfinity, float.PositiveInfinity).x;
+                            Check(!label.isTextTruncated && label.textInfo.lineCount == 1 && width <= label.rectTransform.rect.width + .5f,
+                                $"{(tab == 1 ? "Ruby" : "Gold")} '{label.text}' fits without ellipsis: preferred={width:0.##}, available={label.rectTransform.rect.width:0.##}");
+                        }
+                        Check(titleLabel.text == title && costLabel.text == cost && button.Button.interactable,
+                            (tab == 1 ? "Ruby" : "Gold") + " keeps the explicit recovery action and enabled input");
+                        if (!checkConfirmation) continue;
+                        button.Button.onClick.Invoke();
+                        var dialog = _canvas.GetComponentsInChildren<EquipmentActionDialog>().Single();
+                        Check(dialog.gameObject.activeInHierarchy && EconomyBatchProgression.HasHeldSpending &&
+                            JsonConvert.SerializeObject(LocalProgression.State) == before,
+                            "Clicking input confirmation preserves held inputs and confirmed balances");
+                        dialog.cancel.onClick.Invoke();
+                        Check(EconomyBatchProgression.HasHeldSpending && JsonConvert.SerializeObject(LocalProgression.State) == before,
+                            "Cancelling confirmation keeps the same held input without spending");
+                    }
+                }
+            }
             internal void Check(bool condition, string message)
             { if (!condition) throw new InvalidOperationException("Rapid tap UI: " + message); Checks.Add(message); }
             private void OnInputCompleted(EconomyInputCompletion result)

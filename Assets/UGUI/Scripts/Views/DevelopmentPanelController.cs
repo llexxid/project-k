@@ -182,9 +182,9 @@ namespace KingdomIdle.UGUI
                 if (card.View.levelLabel?.text != levelText || card.View.bonusLabel?.text != detail)
                     card.View.Set(StatEnhanceManager.GetTypeName(card.Type), levelText, detail, UguiTheme.RoyalBlue);
                 bool maxed = level >= BalanceMath.GoldCap;
-                string title = recovering ? "저장 결과 확인" : held ? "보류 입력 확인" : mgr.IsEnhancing ? "강화 중…" : maxed ? "최대 단계" :
+                string title = recovering ? "결과 확인" : held ? "입력 확인" : mgr.IsEnhancing ? "강화 중…" : maxed ? "최대 단계" :
                     _selectedCount < 0 ? $"최대 {actual}회" : $"{actual}회 강화";
-                string price = recovering ? "서버 결과 확인 후 육성" : held ? "수량·비용 확인 후 재개" : maxed ? "강화 완료" : cost < 0 ? "골드 부족" : $"{NumberNotation.Format(cost)} 골드";
+                string price = recovering ? "확인 후 육성" : held ? "수량·비용 확인" : maxed ? "강화 완료" : cost < 0 ? "골드 부족" : $"{NumberNotation.Format(cost)} 골드";
                 bool ready = recovering || held || (!mgr.IsEnhancing && cost >= 0 && actual > 0 && gold >= cost &&
                     (!EconomyBatchProgression.Available || EconomyBatchProgression.CanAcceptGrowth));
                 card.Button?.Set(title, price, ready);

@@ -68,8 +68,8 @@ namespace KingdomIdle.UGUI
                 }
                 else if (!pending && (recovering || held))
                 {
-                    _buy[i].Set(recovering ? "저장 결과 확인" : "보류 입력 확인",
-                        recovering ? "서버 결과 확인 후 육성" : "수량·비용 확인 후 재개", true);
+                    _buy[i].Set(recovering ? "결과 확인" : "입력 확인",
+                        recovering ? "확인 후 육성" : "수량·비용 확인", true);
                 }
                 else
                 {

@@ -206,10 +206,10 @@ namespace KingdomIdle.UGUI.Editor
                 ring.Find("Socket").GetComponent<Image>().color = Color.clear;
                 Pin((RectTransform)ring.Find("Socket/Icon"), new Vector2(.5f,.5f), Vector2.zero, new Vector2(64,64));
                 var value=b.transform.Find("Value").GetComponent<TMP_Text>();
-                Type(value, 32);
+                Type(value, 42);
                 value.enableAutoSizing=true;
-                value.fontSizeMin=22;
-                value.fontSizeMax=32;
+                value.fontSizeMin=36;
+                value.fontSizeMax=42;
                 value.textWrappingMode=TextWrappingModes.NoWrap;
                 value.overflowMode=TextOverflowModes.Ellipsis;
             }

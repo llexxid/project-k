@@ -167,14 +167,53 @@ namespace Scripts.Core.Manager
             _dungeonGeneration = LocalProgression.AccountGeneration;
             string battleId = LocalProgression.State.ActiveDungeon;
             long dungeonId = (long)session.Definition.Id;
+            var network = NetworkManager.Instance;
+            long networkGeneration = network?.AccountGeneration ?? -1;
+            var token = _token;
+            bool completionAttempted = false;
+            bool OwnsCompletion() => IsCurrentDungeonRequest && network != null && NetworkManager.Instance == network &&
+                network.AccountGeneration == networkGeneration && ReferenceEquals(_token, token) &&
+                ReferenceEquals(_currentSession, session) &&
+                (LocalProgression.State.ActiveDungeon == battleId && LocalProgression.State.ServerDungeonId == dungeonId ||
+                    completionAttempted && LocalProgression.State.ActiveDungeon == null);
+            void RetryAfterEconomyConfirmation()
+            {
+                if (!OwnsCompletion()) return;
+                if (EconomyBatchProgression.HasUnknownResult)
+                {
+                    _retryDungeon = RetryAfterEconomyConfirmation;
+                    _retryDungeonAt = Time.realtimeSinceStartup + 5f;
+                    return;
+                }
+                if (completionAttempted && LocalProgression.State.ActiveDungeon == null)
+                {
+                    BeginStageLoading("dungeon-complete");
+                    Complete();
+                    return;
+                }
+                _dungeonRequestPending = false;
+                CompleteServerDungeon(session);
+            }
+            void SettlementFailed()
+            {
+                if (!OwnsCompletion()) return;
+                if (!EconomyBatchProgression.HasUnknownResult)
+                { DungeonRequestFailed("던전 처치 정산을 확인하지 못했습니다. 재접속해 주세요."); return; }
+                EndStageLoading();
+                _retryDungeon = RetryAfterEconomyConfirmation;
+                _retryDungeonAt = Time.realtimeSinceStartup + 5f;
+                KingdomIdle.UGUI.UIManager.Instance?.ShowToast("던전 정산 결과를 확인하지 못했습니다. 육성에서 결과 확인을 눌러 주세요.");
+            }
             void Complete()
             {
-                if (!IsCurrentDungeonRequest) return;
-                NetworkManager.Instance.Call<OnCompleteDungeonRequestDTO, OnCompleteDungeonResponseDTO>(
+                if (!OwnsCompletion()) return;
+                if (EconomyBatchProgression.HasUnknownResult) { SettlementFailed(); return; }
+                completionAttempted = true;
+                network.Call<OnCompleteDungeonRequestDTO, OnCompleteDungeonResponseDTO>(
                     new OnCompleteDungeonRequestDTO { DungeonId = dungeonId, BattleId = battleId },
                     result =>
                     {
-                        if (!IsCurrentDungeonRequest) return;
+                        if (!OwnsCompletion()) return;
                         var loot = KingdomIdle.Rewards.LootNotifications.Capture();
                         bool saved = LocalProgression.Execute("server-dungeon-complete", s =>
                         {
@@ -203,18 +242,18 @@ namespace Scripts.Core.Manager
                         OnStageCleared?.Invoke(session.Definition);
                         EnterResultPending();
                     },
-                    error => HandleDungeonSettlementError(error, Complete));
+                    error => { if (OwnsCompletion()) HandleDungeonSettlementError(error, Complete); });
             }
             if (!FlushPendingHunts(ok =>
             {
-                if (!IsCurrentDungeonRequest) return;
+                if (!OwnsCompletion()) return;
                 Time.timeScale = 0;
                 if (ok) Complete();
-                else DungeonRequestFailed("던전 처치 정산을 확인하지 못했습니다. 재접속해 주세요.");
+                else SettlementFailed();
             }))
             {
                 Time.timeScale = 0;
-                DungeonRequestFailed("던전 처치 정산을 확인하지 못했습니다. 재접속해 주세요.");
+                SettlementFailed();
             }
         }
 
