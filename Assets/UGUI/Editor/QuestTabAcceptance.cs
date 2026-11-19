@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -18,14 +19,14 @@ using Dto = Protocol.Message.Dto;
 
 namespace KingdomIdle.UGUI.Editor
 {
-    /// <summary>서버 DTO를 실제 프리팹에 투영하는 표시/입력 검사. 계정·네트워크·보상 지급을 만들지 않는다.</summary>
+    /// <summary>실제 프리팹의 퀘스트 표시·입력과 격리된 수령 전송을 검사한다.</summary>
     public static class QuestTabAcceptance
     {
         private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
         private static readonly eQuestCategory[] Categories =
             { eQuestCategory.Guide, eQuestCategory.Daily, eQuestCategory.Weekly, eQuestCategory.Achievement };
 
-        /// <summary>계정·파일을 열지 않는 메모리 fixture로 실제 bulk 실패→조회→명시적 재탭 경로를 검사한다.</summary>
+        /// <summary>격리된 전송으로 모두받기의 단일 전송, 지급 표시와 실패 복구를 검사한다.</summary>
         public static Dictionary<string, object> RunClaimFailureRecovery()
         {
             if (!Application.isPlaying || LocalProgression.IsReady || NetworkManager.Instance != null ||
@@ -65,9 +66,8 @@ namespace KingdomIdle.UGUI.Editor
                     return manager.GetSnapshot(eQuestCategory.Daily).Rows.First(x => x.CanClaim).Token;
                 }
                 IReadOnlyList<RewardGrant> completedRewards = null;
-                string completedMessage = null;
-                Action<int, int, string, IReadOnlyList<RewardGrant>> done = (count, requested, message, rewards) =>
-                    { completed++; confirmed = count; total = requested; completedRewards = rewards; completedMessage = message; };
+                Action<int, int, string, IReadOnlyList<RewardGrant>> done = (count, requested, _, rewards) =>
+                    { completed++; confirmed = count; total = requested; completedRewards = rewards; };
                 var individual = Prepare(); int individualCompletions = 0;
                 QuestClaimToken completedToken = default;
                 Action<QuestClaimToken, bool, string, IReadOnlyList<RewardGrant>> individualDone = (token, success, message, rewards) =>
@@ -75,7 +75,7 @@ namespace KingdomIdle.UGUI.Editor
                 manager.OnClaimCompleted += individualDone;
                 int beforeIndividual = transport.ClaimCalls;
                 Check(manager.TryClaim(individual).Status == QuestClaimStatus.Pending && manager.IsBusy &&
-                    transport.ClaimCalls == beforeIndividual + 1 && transport.LastQuestId == individual.QuestId && transport.LastPeriod == individual.Period &&
+                    transport.ClaimCalls == beforeIndividual + 1 && transport.LastQuestId == individual.QuestId && transport.LastPeriod == individual.Period && transport.LastBulk == null &&
                     Field<QuestClaimToken[]>(Field<object>(manager, "_claim"), "Tokens").SequenceEqual(new[] { individual }),
                     "Individual claim freezes exactly the displayed token and sends one matching quest/period request");
                 Check(manager.TryClaimTab(eQuestCategory.Daily, individual, done).Status == QuestClaimStatus.Busy &&
@@ -92,7 +92,7 @@ namespace KingdomIdle.UGUI.Editor
                     .Select(x => x.Token)).Distinct().ToArray();
                 int beforeBulk = transport.ClaimCalls;
                 Check(manager.TryClaimTab(eQuestCategory.Daily, previousPeriod, done).Status == QuestClaimStatus.Pending &&
-                    transport.ClaimCalls == beforeBulk + 1 && transport.LastQuestId == previousPeriod.QuestId && transport.LastPeriod == previousPeriod.Period &&
+                    transport.ClaimCalls == beforeBulk + 1 && transport.MatchesDailyBulk(daily.Period, expectedTokens) &&
                     Field<QuestClaimToken[]>(Field<object>(manager, "_claim"), "Tokens").SequenceEqual(expectedTokens),
                     "Claim-all freezes only current-tab claimable tokens and preserves the selected previous-period identity");
                 Check(manager.TryClaim(previousPeriod).Status == QuestClaimStatus.Busy && transport.ClaimCalls == beforeBulk + 1,
@@ -100,10 +100,10 @@ namespace KingdomIdle.UGUI.Editor
                 manager.Apply(State(dailyComplete: true), "qa-new-goal-after-claim-all");
                 Check(Field<QuestClaimToken[]>(Field<object>(manager, "_claim"), "Tokens").SequenceEqual(expectedTokens) &&
                     !expectedTokens.Any(x => x.QuestId == 20001), "Newly claimable goals do not join the running claim-all operation");
-                transport.Fail(FixtureError("Business", 1029));
+                transport.Fail(FixtureError("Business", 1028));
                 Check(!manager.IsBusy && completed == 1 && confirmed == 0 && total == expectedTokens.Length &&
-                    individualCompletions == 1 && completedRewards.Count == 0,
-                    "Claim-all rejection reports its frozen total and no invented rewards without an individual completion");
+                    individualCompletions == 1 && completedRewards.Count == 0 && transport.ClaimCalls == beforeBulk + 1 && transport.ReadCalls == 0,
+                    "An older server rejecting the bulk sentinel leaves the frozen list unpaid without a fallback claim");
                 var errors = new (string Name, PlayFab.PlayFabError Error)[]
                 {
                     ("StorageFailure1014", FixtureError("Business", 1014)), ("InvalidStoredData1015", FixtureError("Business", 1015)),
@@ -133,26 +133,14 @@ namespace KingdomIdle.UGUI.Editor
                     original.ErrorCallback(error.Error);
                     Check(completed == 1 && transport.Pending == null, error.Name + ": duplicate late response cannot finish or send another request");
                     Check(manager.TryClaimTab(eQuestCategory.Daily, token, done).Status == QuestClaimStatus.Pending &&
-                        transport.ClaimCalls == claimCalls + 2 && transport.LastQuestId == token.QuestId && transport.LastPeriod == token.Period,
+                        transport.ClaimCalls == claimCalls + 2 && transport.LastBulk?.Targets[0].QuestId == token.QuestId &&
+                        transport.LastBulk.Targets[0].PeriodKey == token.Period,
                         error.Name + ": explicit retap keeps the same quest and period identity");
                     transport.Fail(FixtureError("Business", 1029));
                     Check(!manager.IsBusy && transport.ReadCalls == readCalls + 1 && confirmed == 0 && transport.Pending == null,
                         error.Name + ": server already-claimed rejection stops the bulk without another grant attempt");
                 }
-                // 완료 전달만 검사한다. 메모리 작업에 확정 표시용 명세를 넣고 성공 응답 적용·저장은 호출하지 않는다.
-                var rewardToken = Prepare(); manager.TryClaimTab(eQuestCategory.Daily, rewardToken, done);
-                var rewardOperation = Field<object>(manager, "_claim");
-                Field<List<Dto.QuestRewardDTO>>(rewardOperation, "Rewards").AddRange(new[]
-                    { Reward(eCurrency.Gold, 123), Reward(eCurrency.Gold, 7), Reward(eCurrency.AncientCoin, 2) });
-                SetField(rewardOperation, "Confirmed", 1);
-                Call(manager, "FinishClaim", rewardOperation, "fixture partial failure");
-                Check(completed == 1 && confirmed == 1 && total > confirmed && completedMessage == "fixture partial failure" &&
-                    completedRewards.Count == 2 && completedRewards[0].Currency == eCurrency.Gold && completedRewards[0].Amount == 130 &&
-                    completedRewards[1].Currency == eCurrency.AncientCoin && completedRewards[1].Amount == 2,
-                    "Real claim completion merges only accumulated reward receipts and preserves them alongside a partial-failure message");
-                Call(manager, "FinishClaim", rewardOperation, "fixture duplicate"); transport.Fail(FixtureError("Business", 1029));
-                Check(completed == 1 && !manager.IsBusy && transport.Pending == null,
-                    "Repeated finish and the intercepted request's late rejection cannot deliver the reward receipts twice");
+                CheckBulkButton(manager, transport, stateField, pathField, Check);
                 var claimedToken = Prepare(); manager.Apply(State(allDailyClaimed: true), "qa-server-claimed-dto");
                 int beforeClaimed = transport.ClaimCalls;
                 Check(manager.TryClaimTab(eQuestCategory.Daily, claimedToken, done).Status == QuestClaimStatus.Incomplete &&
@@ -164,7 +152,7 @@ namespace KingdomIdle.UGUI.Editor
                 Call(network, "ResetCallQueue"); SetField(manager, "_claim", null);
                 Check(ReferenceEquals(stateField.GetValue(null), memory) && memory.Revision == 0 &&
                     Equals(pathField.GetValue(null), savedPath) && LocalProgression.AccountGeneration == generation && LocalProgression.AccountKey == account &&
-                    transport.UnexpectedCalls == 0, "Fixture performs no profile open, wallet mutation, saved file change or real HTTP");
+                    transport.UnexpectedCalls == 0, "Fixture preserves the original profile and sends no real HTTP");
                 return new Dictionary<string, object> { { "passed", checks.Count }, { "checks", checks } };
             }
             finally
@@ -173,6 +161,69 @@ namespace KingdomIdle.UGUI.Editor
                 UnityEngine.Object.DestroyImmediate(owner);
                 NetworkManager.Instance = savedNetwork; UserManager.Instance = savedUsers; QuestManager.Instance = savedQuest;
                 PlayFab.PluginManager.SetPlugin(savedTransport, PlayFab.PluginContract.PlayFab_Transport);
+            }
+        }
+
+        private static void CheckBulkButton(QuestManager manager, ClaimFailureHttp transport, FieldInfo stateField, FieldInfo pathField,
+            Action<bool, string> check)
+        {
+            var savedState = stateField.GetValue(null); var savedPath = pathField.GetValue(null);
+            var originalUi = UIManager.Instance;
+            var uiRoot = new GameObject("QuestBulkButton_Fixture"); uiRoot.SetActive(false);
+            var overlay = new GameObject("QuestBulkButton_Overlay", typeof(RectTransform), typeof(Canvas)); overlay.SetActive(false);
+            string snapshot = Path.Combine(Application.temporaryCachePath, "quest-bulk-" + Guid.NewGuid().ToString("N") + ".json");
+            try
+            {
+                var catalog = AssetDatabase.LoadAssetAtPath<UIViewCatalog>("Assets/UGUI/UIViewCatalog.asset");
+                var ui = uiRoot.AddComponent<UIManager>(); SetField(ui, "catalog", catalog); SetUi(ui);
+                SetField(ui, "layerOverlays", overlay.GetComponent<RectTransform>());
+                var panelObject = UnityEngine.Object.Instantiate(catalog.panelGuide, overlay.transform, false);
+                var view = panelObject.GetComponent<GuidePanelView>();
+                var panel = panelObject.GetComponent<BalanceQuestPanel>() ?? panelObject.AddComponent<BalanceQuestPanel>();
+                pathField.SetValue(null, snapshot);
+                panelObject.SetActive(true); overlay.SetActive(true);
+                foreach (bool partial in new[] { false, true })
+                {
+                    manager.Apply(State(), "qa-bulk-button"); panel.Bind(view); panel.SelectCategory(eQuestCategory.Daily); Publish(manager);
+                    var board = manager.GetSnapshot(eQuestCategory.Daily);
+                    var first = Visible(panel).First(x => x.CanClaim).Token;
+                    var expected = new[] { first }.Concat(board.Rows.Where(x => x.CanClaim && x.Token != first).Select(x => x.Token)).ToArray();
+                    int calls = transport.ClaimCalls, reads = transport.ReadCalls;
+                    check(view.claimAllButton.interactable && expected.Length == 3, "Actual current-tab button starts with three eligible rewards");
+                    Click(view.claimAllButton); Click(view.claimAllButton);
+                    check(transport.ClaimCalls == calls + 1 && transport.MatchesDailyBulk(board.Period, expected) && manager.IsBusy,
+                        "Actual claim-all button sends one request with three current-tab targets and blocks a second click");
+                    int count = partial ? 1 : expected.Length;
+                    var refreshed = State();
+                    foreach (var token in expected.Take(count)) refreshed.Rows.Single(x => x.QuestId == token.QuestId && x.PeriodKey == token.Period).State = Dto.QuestRowState.Claimed;
+                    var response = new Dto.OnClaimQuestRewardResponseDTO
+                    {
+                        ProtocolVersion = 2, ServerVersion = 1, ClaimedCount = count,
+                        BulkErrorCode = partial ? (Protocol.Message.Data.eErrorCode?)1028 : null,
+                        Currency = new Dto.CurrencyQueryDTO(130, 2, 0, 0), Quests = refreshed,
+                        GrantedRewards = new() { Reward(eCurrency.Gold, 123), Reward(eCurrency.Gold, 7), Reward(eCurrency.AncientCoin, 2) },
+                        Equipment = new() { Items = new(), PendingItems = new(), ReserveStacks = new(), Capacity = EquipmentManager.Capacity },
+                        MageTowerState = new() { Skills = new(), EquippedSkillIds = new[] { -1, -1, -1, -1, -1 } }
+                    };
+                    var completed = transport.Succeed(response);
+                    completed.InvokeSuccessCallback();
+                    var popups = overlay.GetComponentsInChildren<RewardPopupView>(false);
+                    var slots = popups.Single().slots.GetComponentsInChildren<RewardSlotView>(false);
+                    check(transport.ClaimCalls == calls + 1 && transport.ReadCalls == reads && !manager.IsBusy && File.Exists(snapshot) &&
+                        LocalProgression.Balance(eCurrency.Gold) == 130 && LocalProgression.Balance(eCurrency.AncientCoin) == 2 &&
+                        manager.GetSnapshot(eQuestCategory.Daily).Rows.Count(x => x.CanClaim) == expected.Length - count &&
+                        slots.Length == 2 && slots[0].quantity.text == NumberNotation.Format(130) && slots[1].quantity.text == NumberNotation.Format(2),
+                        partial ? "Partial bulk payout persists the confirmed prefix and shows one popup with server grants" :
+                            "Single bulk response persists all rewards and opens one combined popup without another request");
+                    UnityEngine.Object.DestroyImmediate(popups[0].gameObject);
+                    typeof(UIManager).GetMethod("RefreshLoading", Private).Invoke(ui, null);
+                }
+            }
+            finally
+            {
+                stateField.SetValue(null, savedState); pathField.SetValue(null, savedPath);
+                UnityEngine.Object.DestroyImmediate(overlay); UnityEngine.Object.DestroyImmediate(uiRoot); SetUi(originalUi);
+                foreach (string path in new[] { snapshot, snapshot + ".tmp", snapshot + ".bak" }) if (File.Exists(path)) File.Delete(path);
             }
         }
 
@@ -189,7 +240,11 @@ namespace KingdomIdle.UGUI.Editor
             public bool IsInitialized => true;
             public int ClaimCalls, ReadCalls, UnexpectedCalls;
             public long LastQuestId; public string LastPeriod;
+            public Dto.QuestBulkClaimDTO LastBulk;
             public PlayFab.Internal.CallRequestContainer Pending;
+            public bool MatchesDailyBulk(string boardPeriod, QuestClaimToken[] expected) => LastQuestId == 0 && LastPeriod == "permanent" &&
+                LastBulk?.Category == Dto.QuestCategory.Daily && LastBulk.BoardPeriod == boardPeriod &&
+                LastBulk.Targets.Select(x => (x.QuestId, x.PeriodKey)).SequenceEqual(expected.Select(x => (x.QuestId, x.Period)));
             public void Initialize() { } public void Update() { } public void OnDestroy() { }
             public int GetPendingMessages() => Pending == null ? 0 : 1;
             public void MakeApiCall(object request)
@@ -200,7 +255,8 @@ namespace KingdomIdle.UGUI.Editor
                 if (call.FunctionName == "OnClaimQuestReward")
                 {
                     var payload = Newtonsoft.Json.Linq.JObject.FromObject(call.FunctionParameter);
-                    LastQuestId = (long)payload["QuestId"]; LastPeriod = (string)payload["PeriodKey"]; ClaimCalls++;
+                    LastQuestId = (long)payload["QuestId"]; LastPeriod = (string)payload["PeriodKey"];
+                    LastBulk = payload["Bulk"]?.ToObject<Dto.QuestBulkClaimDTO>(); ClaimCalls++;
                 }
                 else if (call.FunctionName == "OnGetUserState") ReadCalls++;
                 else { Block(); return; }
@@ -210,6 +266,14 @@ namespace KingdomIdle.UGUI.Editor
             {
                 var pending = Pending ?? throw new InvalidOperationException("Expected an intercepted fixture request.");
                 Pending = null; pending.ErrorCallback(error);
+            }
+            public PlayFab.Internal.CallRequestContainer Succeed(Dto.OnClaimQuestRewardResponseDTO response)
+            {
+                var pending = Pending ?? throw new InvalidOperationException("Expected an intercepted fixture request.");
+                Pending = null;
+                pending.ApiResult = new PlayFab.CloudScriptModels.ExecuteFunctionResult { FunctionResult = Newtonsoft.Json.JsonConvert.SerializeObject(response) };
+                pending.InvokeSuccessCallback();
+                return pending;
             }
             public void SimpleGetCall(string url, Action<byte[]> success, Action<string> error) => Block();
             public void SimplePutCall(string url, byte[] payload, Action<byte[]> success, Action<string> error) => Block();

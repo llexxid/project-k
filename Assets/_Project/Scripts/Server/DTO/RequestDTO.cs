@@ -240,7 +240,22 @@ namespace Protocol.Message.Dto
 	}
 	public sealed class OnClearQuestRequestDTO : QuestTargetRequestDTO { }
 	public sealed class OnClearAchievementRequestDTO : QuestTargetRequestDTO { }
-	public sealed class OnClaimQuestRewardRequestDTO : QuestTargetRequestDTO { }
+	public sealed class OnClaimQuestRewardRequestDTO : QuestTargetRequestDTO
+	{
+		[JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+		public QuestBulkClaimDTO Bulk { get; set; }
+	}
+	public sealed class QuestBulkClaimDTO
+	{
+		public QuestCategory Category { get; set; }
+		public string BoardPeriod { get; set; }
+		public List<QuestClaimTargetDTO> Targets { get; set; }
+	}
+	public sealed class QuestClaimTargetDTO
+	{
+		public long QuestId { get; set; }
+		public string PeriodKey { get; set; }
+	}
 
 	// 환생·오프라인·루비
 	// 환생 조건과 결과는 서버 저장값으로 판단한다. 그 외 입력은 없다.
