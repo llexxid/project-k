@@ -26,12 +26,15 @@ namespace KingdomIdle.Balance
     {
         public const string FailureMessage = "서버 불안정으로 강화 시도가 실패했습니다. 다시 시도해주세요";
         private const int MaxInputs = 64, MaxBatchKills = 149;
+        private const int StorageRetrySendLimit = 3;
         private const float BatchWindow = .1f, HuntWindow = 3f;
         private static EconomyInputJournal _journal;
         private static NetworkManager _network;
         private static long _localGeneration = -1, _networkGeneration = -1;
         private static bool _supported, _recovered, _requestPending, _queryRequired, _batchUnknown, _externalUnknown, _externalWrite;
         private static bool _recovering, _startupMaySplit, _sentThisSession, _huntsHeld, _blocked;
+        private static bool _storageRetryActive, _storageRetryPaused, _storageRetryAllowsInput;
+        private static int _storageRetryRemaining, _storageRetrySends;
         private static float _sealAfter, _nextHuntAt, _retryAt;
         private static Action<bool> _recoveryDone;
         private sealed class Fence { internal long Sequence; internal Action<bool> Completed; }
@@ -61,7 +64,11 @@ namespace KingdomIdle.Balance
             }
         }
         public static bool HasHeldSpending => _journal?.Data.Inputs.Any(x => x.Held && x.Command.Kind != EconomyCommandKind.Hunt) == true;
-        public static bool CanAcceptGrowth => Available && RecoveryComplete && !HasUnknownResult && !HasHeldSpending &&
+        public static bool IsStorageRetryWaiting => Available && RecoveryComplete && !_recovering && !_externalUnknown && !_blocked &&
+            _storageRetryActive && !_storageRetryPaused && _storageRetryAllowsInput && _journal?.Data.InFlight != null;
+        public static int PendingSpendingCount => CurrentSession && _journal != null
+            ? _journal.Data.Inputs.Concat(_journal.Data.InFlightInputs).Count(x => x.Command.Kind != EconomyCommandKind.Hunt) : 0;
+        public static bool CanAcceptGrowth => Available && RecoveryComplete && (!HasUnknownResult || IsStorageRetryWaiting) && !HasHeldSpending &&
             !_externalWrite && !_huntsHeld && _fences.Count == 0 && _journal?.Error == null && !RubyProgression.HasPendingRequest &&
             LocalProgression.State.PendingMainCompletion == null;
         public static bool HasPendingWork => _requestPending || _journal?.Data.InFlight != null ||
@@ -94,6 +101,7 @@ namespace KingdomIdle.Balance
             _network = null;
             _recoveryDone = null; _fences.Clear(); _discardedInputs.Clear(); _discardAfterRevision = 0;
             _retryAt = _sealAfter = _nextHuntAt = 0;
+            ResetStorageRetry();
             Status = null; Notify();
         }
 
@@ -114,12 +122,13 @@ namespace KingdomIdle.Balance
                     Notify(); return;
                 }
                 ProgressionAutosave.EnsureRunning();
-                if (changedSession) { _recovered = false; _requestPending = false; _sentThisSession = false; }
+                if (changedSession) { _recovered = false; _requestPending = false; _sentThisSession = false; ResetStorageRetry(); }
                 var metadata = LocalProgression.State.Economy.Server;
                 if (metadata.OwnerClientId != ClientId) { MarkBlocked("다른 기기의 경제 상태를 이 기기에서 실행할 수 없습니다."); return; }
                 if (_journal.Data.Generation != 0 && _journal.Data.Generation != metadata.Generation) RetireInputs();
                 if (_journal.Data.Generation != metadata.Generation)
                 { _journal.Data.Generation = metadata.Generation; SaveJournal(); }
+                RestoreStorageRetryDeadline();
             }
             catch (Exception error) { MarkBlocked(error.Message); }
             Notify();
@@ -180,7 +189,7 @@ namespace KingdomIdle.Balance
             AppendHunts();
             var input = NewInput(command); input.GuideReceipt = guideReceipt;
             _journal.Data.Inputs.Add(input); sequence = input.Sequence;
-            Status = null;
+            if (!IsStorageRetryWaiting) Status = null;
             if (_sealAfter == 0) _sealAfter = Time.realtimeSinceStartup + BatchWindow;
             SaveJournal(); Notify();
             return EconomyInputStatus.PendingSave;
@@ -194,6 +203,7 @@ namespace KingdomIdle.Balance
             if (!Available || _journal == null || _recovering || _requestPending ||
                 _journal.Data.InFlight == null && LocalProgression.State.PendingMainCompletion != null)
                 return false;
+            ResetStorageRetry();
             _recovering = true; _recoveryDone = completed; _startupMaySplit = previousSessionReplaced && !_sentThisSession;
             foreach (var input in _journal.Data.Inputs) if (input.Command.Kind != EconomyCommandKind.Hunt) input.Held = true;
             SaveJournal();
@@ -315,6 +325,7 @@ namespace KingdomIdle.Balance
                     return;
                 }
                 if (_recovering && _journal.Data.InFlight == null) FinishRecovery(true);
+                if (_storageRetryActive && _journal.Data.InFlight != null) { SendBatch(); return; }
                 if (!_recovered || HasUnknownResult || _externalWrite || LocalProgression.State.PendingMainCompletion != null) return;
                 if (_journal.Data.InFlight != null) { SendBatch(); return; }
                 if (TryFinishFence()) return;
@@ -360,6 +371,7 @@ namespace KingdomIdle.Balance
                 RequestId = Guid.NewGuid().ToString("N"), Generation = metadata.Generation, Sequence = metadata.NextSequence,
                 ExpectedEconomyRevision = state.ServerEconomyRevision, AppliedRewardEpoch = metadata.RewardEpoch,
                 AcknowledgedRequestId = state.Economy.LastAppliedRequestId,
+                QuestVersion = QuestManager.Instance?.ServerQuests?.Version,
                 RewardEpochCutoffs = state.Economy.Cutoffs.Select(EconomyCopies.Copy).ToList(),
                 Commands = inputs.Select(x => EconomyCopies.Copy(x.Command)).ToList()
             };
@@ -372,7 +384,7 @@ namespace KingdomIdle.Balance
         private static void SendBatch()
         {
             var request = _journal.Data.InFlight;
-            if (request == null || _requestPending || _externalWrite) return;
+            if (request == null || _requestPending || _externalWrite || !TryBeginRetrySend()) return;
             _requestPending = true; _sentThisSession = true; _startupMaySplit = false;
             long generation = _localGeneration, networkGeneration = _networkGeneration;
             NetworkManager.Instance.Call<OnEconomyBatchRequestDTO, OnEconomyBatchResponseDTO>(request,
@@ -384,20 +396,86 @@ namespace KingdomIdle.Balance
         {
             var request = _journal.Data.InFlight;
             if (request == null) { _queryRequired = false; return; }
+            if (_requestPending || !TryBeginRetrySend()) return;
             _requestPending = true;
             long generation = _localGeneration, networkGeneration = _networkGeneration;
             NetworkManager.Instance.Call<OnGetEconomyBatchResultRequestDTO, OnEconomyBatchResponseDTO>(
-                new() { RequestId = request.RequestId, Generation = request.Generation, Sequence = request.Sequence },
+                new() { RequestId = request.RequestId, Generation = request.Generation, Sequence = request.Sequence,
+                    QuestVersion = QuestManager.Instance?.ServerQuests?.Version },
                 r => { if (Owns(generation, networkGeneration, request.RequestId)) ApplyResult(r, true); },
                 e => { if (Owns(generation, networkGeneration, request.RequestId)) FailRequest(e); });
         }
 
         private static bool Owns(long local, long network, string id) => CurrentSession && local == _localGeneration && network == _networkGeneration && _journal?.Data.InFlight?.RequestId == id;
+        private static void ResetStorageRetry()
+        {
+            _storageRetryActive = _storageRetryPaused = _storageRetryAllowsInput = false;
+            _storageRetryRemaining = _storageRetrySends = 0;
+        }
+
+        private static void RestoreStorageRetryDeadline()
+        {
+            var data = _journal?.Data;
+            var metadata = LocalProgression.State.Economy?.Server;
+            if (data?.InFlight == null || data.Account != LocalProgression.AccountKey || metadata == null ||
+                data.Generation != metadata.Generation || data.InFlight.Generation != metadata.Generation) return;
+            long remaining = data.StorageRetryNotBeforeUtcMs - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            if (remaining > 0) _retryAt = Math.Max(_retryAt, Time.realtimeSinceStartup + (float)(remaining / 1000d));
+        }
+
+        private static void PauseStorageRetry()
+        {
+            _storageRetryPaused = true; _batchUnknown = true;
+            Status = "서버 결과 확인이 지연되고 있습니다. 잠시 후 육성 버튼에서 다시 확인해 주세요.";
+        }
+
+        // Query and NotFound resubmission share one budget and one server-requested cooldown.
+        private static bool TryBeginRetrySend()
+        {
+            float now = Time.realtimeSinceStartup;
+            if (now < _retryAt) return false;
+            if (!_storageRetryActive) return true;
+            if (_storageRetryPaused || _externalUnknown || _recovering || !RecoveryComplete) return false;
+            if (_storageRetryRemaining == 0) { PauseStorageRetry(); Notify(); return false; }
+            _storageRetryRemaining--; _storageRetrySends++;
+            return true;
+        }
+
+        public static bool TryResumeStorageRetry()
+        {
+            if (!Available || !RecoveryComplete || _recovering || !_storageRetryActive || !_storageRetryPaused ||
+                _requestPending || _externalUnknown || _blocked || _journal?.Data.InFlight == null || _journal.Error != null ||
+                Time.realtimeSinceStartup < _retryAt) return false;
+            // A click authorizes one more transmission. A preceding NotFound keeps the original body ready to resend.
+            _storageRetryPaused = false; _storageRetryRemaining = 1;
+            Status = "이전 경제 요청의 결과를 확인하고 있습니다.";
+            Pump(); Notify(); return true;
+        }
+
         private static void FailRequest(PlayFabError error)
         {
             _requestPending = false; _queryRequired = _batchUnknown = true;
-            _retryAt = Time.realtimeSinceStartup + 2f;
+            float delay = 2f;
+            if (NetworkManager.TryGetStorageThrottle(error, out int? retryAfterSeconds))
+            {
+                if (CurrentSession && _recovered && !_recovering && _journal?.Data.InFlight != null)
+                {
+                    if (!_storageRetryActive) { _storageRetryActive = true; _storageRetryRemaining = StorageRetrySendLimit; _storageRetrySends = 0; }
+                    _storageRetryAllowsInput = true;
+                    delay = retryAfterSeconds.HasValue ? Math.Max(0, retryAfterSeconds.Value) : Math.Min(30, 2 << Math.Min(_storageRetrySends, 4));
+                }
+                else delay = retryAfterSeconds.HasValue ? Math.Max(0, retryAfterSeconds.Value) : 2f;
+                if (_journal?.Data.InFlight != null)
+                {
+                    long deadline = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + (long)Math.Ceiling(delay * 1000d);
+                    _journal.Data.StorageRetryNotBeforeUtcMs = Math.Max(_journal.Data.StorageRetryNotBeforeUtcMs, deadline);
+                    SaveJournal();
+                }
+            }
+            else _storageRetryAllowsInput = false;
+            _retryAt = Math.Max(_retryAt, Time.realtimeSinceStartup + delay);
             Status = "이전 경제 요청의 결과를 확인하고 있습니다.";
+            if (_storageRetryActive && _storageRetryRemaining == 0) PauseStorageRetry();
             FinishFences(false); FinishRecovery(false); Notify();
         }
 
@@ -405,6 +483,7 @@ namespace KingdomIdle.Balance
         {
             _requestPending = false;
             var request = _journal.Data.InFlight;
+            long localGeneration = _localGeneration, networkGeneration = _networkGeneration;
             try
             {
                 EconomyBatchProtocol.ValidateResponse(response);
@@ -424,6 +503,7 @@ namespace KingdomIdle.Balance
                     return true;
                 });
                 if (!saved) throw new IOException("경제 결과를 저장하지 못했습니다: " + LocalProgression.LastError);
+                if (!Owns(localGeneration, networkGeneration, request.RequestId)) return;
                 _queryRequired = _batchUnknown = false;
                 if (response.Status == EconomyBatchStatus.NotFound)
                 {
@@ -437,18 +517,38 @@ namespace KingdomIdle.Balance
                         SaveJournal(); return;
                     }
                     if (_recovering) { _batchUnknown = true; Status = "이전 요청을 같은 ID로 확인해야 합니다."; FinishRecovery(false); return; }
+                    if (_storageRetryActive)
+                    {
+                        _batchUnknown = true;
+                        if (_storageRetryRemaining == 0) { PauseStorageRetry(); Notify(); return; }
+                    }
                     SendBatch(); return;
                 }
                 if (response.Status == EconomyBatchStatus.Retired) { RetireInputs(); return; }
                 if (response.Status != EconomyBatchStatus.Completed) { MarkUnknown("경제 요청 내용이 충돌해 실행을 보류했습니다."); FinishRecovery(false); return; }
+                ResetStorageRetry(); _retryAt = 0;
                 ResolveCompletedInputs(response.Receipt, alreadyApplied);
-                if (!alreadyApplied && response.Receipt.Results.Any(x => x.Status == EconomyCommandStatus.Applied && x.AppliedCount > 0))
-                    QuestManager.Instance?.RequestRefresh("economy-batch");
+                if (CurrentSession && localGeneration == _localGeneration && networkGeneration == _networkGeneration &&
+                    LocalProgression.State.Economy.LastAppliedRequestId == request.RequestId)
+                {
+                    var quests = QuestManager.Instance;
+                    if (response.QuestRefreshRequired == true ||
+                        response.QuestChanges != null && quests != null && !quests.TryApplyChanges(response.QuestChanges))
+                        quests?.RequestRefresh("economy-batch");
+                    else if (!alreadyApplied && response.Quests != null)
+                        QuestManager.Receive(response.Quests, "economy-batch");
+                    else if (!alreadyApplied && !response.QuestRefreshRequired.HasValue && response.QuestChanges == null &&
+                        response.Receipt.Results.Any(x => x.Status == EconomyCommandStatus.Applied && x.AppliedCount > 0))
+                        quests?.RequestRefresh("economy-batch");
+                }
             }
             catch (Exception error)
             {
-                _batchUnknown = _queryRequired = true; _retryAt = Time.realtimeSinceStartup + 2f;
-                Status = error.Message; FinishFences(false); FinishRecovery(false); Notify();
+                _batchUnknown = _queryRequired = true; _storageRetryAllowsInput = false;
+                _retryAt = Math.Max(_retryAt, Time.realtimeSinceStartup + 2f);
+                Status = error.Message;
+                if (_storageRetryActive && _storageRetryRemaining == 0) PauseStorageRetry();
+                FinishFences(false); FinishRecovery(false); Notify();
             }
         }
 
@@ -512,7 +612,10 @@ namespace KingdomIdle.Balance
             Notify();
         }
 
-        private static void ClearInFlight() { _journal.Data.InFlight = null; _journal.Data.InFlightInputs = new(); }
+        private static void ClearInFlight()
+        {
+            _journal.Data.InFlight = null; _journal.Data.InFlightInputs = new(); _journal.Data.StorageRetryNotBeforeUtcMs = 0;
+        }
         private static void RetireInputs()
         {
             var old = _journal.Data;
@@ -523,6 +626,7 @@ namespace KingdomIdle.Balance
                 if (!LocalProgression.Execute("retired-economy-inputs", s => { s.Modules["retired-economy-inputs"] = archive; return true; }))
                     throw new IOException("이전 기기의 입력 기록을 보존하지 못했습니다.");
             }
+            ResetStorageRetry(); _retryAt = 0;
             old.Inputs.Clear(); ClearInFlight(); old.Generation = LocalProgression.State.Economy.Server.Generation;
             _batchUnknown = _queryRequired = false;
             Status = "다른 기기에서 접속하여 이전 기기의 미처리 강화가 취소되었습니다.";

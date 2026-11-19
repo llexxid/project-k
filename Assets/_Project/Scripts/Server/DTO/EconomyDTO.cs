@@ -17,6 +17,7 @@ namespace Protocol.Message.Dto
         public long ExpectedEconomyRevision { get; set; }
         public long AppliedRewardEpoch { get; set; }
         public string AcknowledgedRequestId { get; set; }
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public string QuestVersion { get; set; }
         public List<EconomyRewardEpochCutoffDTO> RewardEpochCutoffs { get; set; } = new();
         public List<EconomyCommandDTO> Commands { get; set; } = new();
     }
@@ -26,6 +27,7 @@ namespace Protocol.Message.Dto
         public string RequestId { get; set; }
         public long Generation { get; set; }
         public long Sequence { get; set; }
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public string QuestVersion { get; set; }
     }
 
     public sealed class EconomyCommandDTO
@@ -72,6 +74,16 @@ namespace Protocol.Message.Dto
         [JsonProperty(Required = Required.Always)] public bool Replayed { get; set; }
         [JsonProperty(Required = Required.AllowNull)] public EconomyBatchReceiptDTO Receipt { get; set; }
         [JsonProperty(Required = Required.Always)] public EconomyStateDTO CurrentState { get; set; }
+        public QuestStateDTO Quests { get; set; }
+        public bool? QuestRefreshRequired { get; set; }
+        public QuestChangesDTO QuestChanges { get; set; }
+    }
+
+    public sealed class QuestChangesDTO
+    {
+        public string BaseVersion { get; set; }
+        public string Version { get; set; }
+        public List<QuestRowDTO> Rows { get; set; }
     }
 
     public sealed class EconomyStateDTO

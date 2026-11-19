@@ -14,5 +14,8 @@ public sealed class ErrorResponseDTO : ApiResponseDTO
     // 로그나 디버깅에서 오류 원인을 읽기 위한 설명.
     [JsonProperty(Required = Required.Always)]
     public string Message { get; set; }
+
+    public bool? StorageThrottled { get; set; }
+    public int? RetryAfterSeconds { get; set; }
 }
 }

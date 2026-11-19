@@ -38,7 +38,8 @@ namespace KingdomIdle.UGUI
             var state=LocalProgression.State;
             bool batch = EconomyBatchProgression.Available;
             var projection = batch ? EconomyBatchProgression.GetProjection() : default;
-            bool recovering = batch && (!EconomyBatchProgression.RecoveryComplete || EconomyBatchProgression.HasUnknownResult);
+            bool recovering = batch && (!EconomyBatchProgression.RecoveryComplete ||
+                EconomyBatchProgression.HasUnknownResult && !EconomyBatchProgression.IsStorageRetryWaiting);
             bool held = EconomyBatchProgression.HasHeldSpending;
             for(int i=0;i<2;i++)
             {

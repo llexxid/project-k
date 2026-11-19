@@ -612,6 +612,7 @@ namespace Protocol.Message.Dto
 	}
 	public sealed class QuestStateDTO
 	{
+		public string Version { get; set; }
 		[JsonProperty(Required = Required.Always)]
 		public long ServerTimeUtc { get; set; }
 		[JsonProperty(Required = Required.Always)]
