@@ -105,10 +105,7 @@ public class QuestManager : MonoBehaviour
         public long NetworkGeneration;
         public QuestClaimToken[] Tokens;
         public eQuestCategory? Category;
-        public string BoardPeriod;
         public Action<int, int, string, IReadOnlyList<RewardGrant>> OnCompleted;
-        public readonly List<Dto.QuestRewardDTO> Rewards = new();
-        public int Confirmed;
         public GameplayLoading.Scope Loading;
     }
 
@@ -318,7 +315,7 @@ public class QuestManager : MonoBehaviour
         return new QuestClaimResult(QuestClaimStatus.Pending, token);
     }
 
-    /// <summary>선택한 탭에서 수령 가능한 토큰만 고정하고, 누른 행부터 서버 응답 순서대로 처리한다.</summary>
+    /// <summary>선택한 탭의 수령 가능 토큰을 클릭 시 고정해 한 요청으로 보낸다.</summary>
     public QuestClaimResult TryClaimTab(eQuestCategory category, QuestClaimToken token, Action<int, int, string, IReadOnlyList<RewardGrant>> onCompleted)
     {
         var network = NetworkManager.Instance;
@@ -345,52 +342,53 @@ public class QuestManager : MonoBehaviour
     private void StartClaim(NetworkManager network, QuestClaimToken[] tokens, Action<int, int, string, IReadOnlyList<RewardGrant>> onCompleted,
         eQuestCategory? category = null, string boardPeriod = null)
     {
-        _claim = new ClaimOperation
+        var token = tokens[0];
+        var request = new Dto.OnClaimQuestRewardRequestDTO { QuestId = token.QuestId, PeriodKey = token.Period };
+        if (category.HasValue)
+        {
+            // Older servers reject this legacy target without granting one item from the bulk list.
+            request.QuestId = 0;
+            request.PeriodKey = "permanent";
+            request.Bulk = new Dto.QuestBulkClaimDTO
+            {
+                Category = (Dto.QuestCategory)category.Value,
+                BoardPeriod = boardPeriod,
+                Targets = tokens.Select(x => new Dto.QuestClaimTargetDTO { QuestId = x.QuestId, PeriodKey = x.Period }).ToList()
+            };
+        }
+        var claim = _claim = new ClaimOperation
         {
             Network = network, NetworkGeneration = network.AccountGeneration, Tokens = tokens,
-            Category = category, BoardPeriod = boardPeriod, OnCompleted = onCompleted,
+            Category = category, OnCompleted = onCompleted,
             Loading = GameplayLoading.Begin("quest-claim")
         };
         LastFailure = null;
-        SendNextClaim(_claim);
+        network.Call<Dto.OnClaimQuestRewardRequestDTO, Dto.OnClaimQuestRewardResponseDTO>(request,
+            response => ApplyClaim(claim, response), error => RejectClaim(claim, error));
     }
 
     private bool IsCurrentClaim(ClaimOperation claim) => this != null && ReferenceEquals(_claim, claim) &&
         claim.Tokens[0].AccountGeneration == LocalProgression.AccountGeneration && claim.Network != null &&
         NetworkManager.Instance == claim.Network && claim.Network.AccountGeneration == claim.NetworkGeneration;
 
-    private void SendNextClaim(ClaimOperation claim)
-    {
-        if (!IsCurrentClaim(claim)) return;
-        if (claim.Confirmed == claim.Tokens.Length) { FinishClaim(claim, null); return; }
-        var token = claim.Tokens[claim.Confirmed];
-        if (claim.Category.HasValue)
-        {
-            var board = GetSnapshot(claim.Category.Value);
-            if (board.Period != claim.BoardPeriod || FindRow(board, token)?.CanClaim != true)
-            {
-                RequestRefresh("claim interrupted");
-                FinishClaim(claim, "수령할 수 있는 보상이 바뀌었습니다. 목록을 확인해 주세요.");
-                return;
-            }
-        }
-        claim.Network.Call<Dto.OnClaimQuestRewardRequestDTO, Dto.OnClaimQuestRewardResponseDTO>(
-            new Dto.OnClaimQuestRewardRequestDTO { QuestId = token.QuestId, PeriodKey = token.Period },
-            response => ApplyClaim(claim, token, response), error => RejectClaim(claim, token, error));
-    }
-
-    private void FinishClaim(ClaimOperation claim, string message)
+    private void FinishClaim(ClaimOperation claim, string message, int confirmed = 0, IEnumerable<Dto.QuestRewardDTO> rewards = null)
     {
         if (!IsCurrentClaim(claim)) return;
         _claim = null;
-        try { claim.OnCompleted?.Invoke(claim.Confirmed, claim.Tokens.Length, message, RewardGrants.FromServer(claim.Rewards)); }
+        try { claim.OnCompleted?.Invoke(confirmed, claim.Tokens.Length, message, RewardGrants.FromServer(rewards)); }
         catch (Exception exception) { Debug.LogException(exception); }
         finally { claim.Loading?.Dispose(); }
     }
 
-    private void ApplyClaim(ClaimOperation claim, QuestClaimToken token, Dto.OnClaimQuestRewardResponseDTO response)
+    private void ApplyClaim(ClaimOperation claim, Dto.OnClaimQuestRewardResponseDTO response)
     {
         if (!IsCurrentClaim(claim)) return;
+        var token = claim.Tokens[0];
+        int confirmed = claim.Category.HasValue ? response.ClaimedCount ?? -1 : 1;
+        if (confirmed < 0 || confirmed > claim.Tokens.Length ||
+            (confirmed == 0 && response.GrantedRewards.Count > 0) ||
+            (confirmed == claim.Tokens.Length && response.BulkErrorCode.HasValue))
+            throw new InvalidOperationException("퀘스트 보상 수령 결과가 요청과 일치하지 않습니다.");
         var loot = KingdomIdle.Rewards.LootNotifications.Capture();
         bool saved;
         try
@@ -411,7 +409,7 @@ public class QuestManager : MonoBehaviour
         if (!IsCurrentClaim(claim)) return;
         Apply(response.Quests, "claim");
         var state = LocalProgression.State;
-        Debug.Log($"[Quest] claim quest={token.QuestId} period={token.Period} rewards={response.GrantedRewards?.Count ?? 0}" +
+        Debug.Log($"[Quest] claim quest={token.QuestId} period={token.Period} confirmed={confirmed}/{claim.Tokens.Length} rewards={response.GrantedRewards?.Count ?? 0}" +
             $" | server Gold={response.Currency?.Gold} AncientCoin={response.Currency?.AncientCoin} ClassFragment={response.Currency?.ClassFragment} ArcaneKnowledge={response.Currency?.ArcaneKnowledge} Inventory={UserManager.DescribeInventory(response.Equipment)}" +
             $" | state Gold={LocalProgression.Balance(eCurrency.Gold)} AncientCoin={LocalProgression.Balance(eCurrency.AncientCoin)} ClassFragment={LocalProgression.Balance(eCurrency.ClassFragment)} ArcaneKnowledge={LocalProgression.Balance(eCurrency.ArcaneKnowledge)} Inventory={UserManager.DescribeInventory(state)} saved={saved}");
         if (!saved)
@@ -423,18 +421,24 @@ public class QuestManager : MonoBehaviour
         }
         EquipmentManager.Instance?.RestoreEquipment();
         KingdomIdle.MageTower.MageTowerManager.Instance?.NotifyCommitted();
-        KingdomIdle.Rewards.LootNotifications.PublishRewards(loot, response.GrantedRewards, "quest:" + token.QuestId + ":" + token.Period);
-        if (response.GrantedRewards != null) claim.Rewards.AddRange(response.GrantedRewards);
-        claim.Confirmed++;
-        SendNextClaim(claim);
+        if (confirmed > 0)
+        {
+            string receipt = claim.Category.HasValue
+                ? "quest-tab:" + string.Join("|", claim.Tokens.Take(confirmed).Select(x => $"{x.QuestId}:{x.Period}"))
+                : $"quest:{token.QuestId}:{token.Period}";
+            KingdomIdle.Rewards.LootNotifications.PublishRewards(loot, response.GrantedRewards, receipt);
+        }
+        string message = confirmed == claim.Tokens.Length ? null : "수령할 수 있는 보상이 바뀌었습니다. 목록을 확인해 주세요.";
+        FinishClaim(claim, message, confirmed, response.GrantedRewards);
     }
 
-    private void RejectClaim(ClaimOperation claim, QuestClaimToken token, PlayFabError error)
+    private void RejectClaim(ClaimOperation claim, PlayFabError error)
     {
         if (!IsCurrentClaim(claim)) return;
         LastFailure = error;
         int code = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0;
         string kind = NetworkManager.GetFailureKind(error);
+        var token = claim.Tokens[0];
         Debug.LogWarning($"[Quest] claim rejected quest={token.QuestId} period={token.Period} code={code} kind={kind} message={error?.ErrorMessage}");
         bool uncertain = code == 1014 || code == 1015 || (code == 0 &&
             (kind == "Timeout" || kind == "Transport" || kind == "Function" || kind == "InvalidResponse" || kind == "ApplyFailed" ||
@@ -448,8 +452,7 @@ public class QuestManager : MonoBehaviour
             UserManager.Instance.RefreshFromServer(ok =>
             {
                 if (!IsCurrentClaim(claim)) return;
-                if (ok && claim.Category.HasValue && FindRow(GetSnapshot(claim.Category.Value), token)?.State == QuestRowState.Claimed)
-                    claim.Confirmed++;
+                // Once paid, pending rewards from an older period disappear from the full board.
                 FinishClaim(claim, ok ? "서버에서 수령 상태를 다시 확인했습니다. 목록을 확인해 주세요." : NetworkManager.DescribeFailure(error, "보상 수령"));
             });
             return;
