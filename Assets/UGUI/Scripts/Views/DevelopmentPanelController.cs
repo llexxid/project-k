@@ -146,8 +146,10 @@ namespace KingdomIdle.UGUI
             if (projectedBalance) balance += " (예상)";
             if (body.goldLabel != null && body.goldLabel.text != balance) body.goldLabel.text = balance;
             bool held = EconomyBatchProgression.HasHeldSpending;
-            bool recovering = EconomyBatchProgression.Available && (!EconomyBatchProgression.RecoveryComplete || EconomyBatchProgression.HasUnknownResult);
+            bool waiting = EconomyBatchProgression.IsStorageRetryWaiting;
+            bool recovering = EconomyBatchProgression.Available && (!EconomyBatchProgression.RecoveryComplete || EconomyBatchProgression.HasUnknownResult && !waiting);
             string description = recovering ? "저장된 서버 결과를 확인해야 육성을 계속할 수 있습니다." :
+                waiting ? $"서버 확인 중 · 대기 {EconomyBatchProgression.PendingSpendingCount}건" :
                 held ? "보류된 육성 입력이 있습니다 · 버튼을 눌러 재개 확인" :
                 _rubyTab ? "환생 후에도 유지 · 예상 효과는 서버 확인 후 적용" : "모든 왕국군에 적용 · 예상 효과는 서버 확인 후 적용";
             if (body.descLabel != null && body.descLabel.text != description) body.descLabel.text = description;
@@ -392,10 +394,13 @@ namespace KingdomIdle.UGUI
                     ShowToast("저장 결과를 확인 중입니다. 잠시 후 다시 시도해 주세요.");
                 return true;
             }
-            if (EconomyBatchProgression.HasUnknownResult)
+            if (EconomyBatchProgression.HasUnknownResult && !EconomyBatchProgression.IsStorageRetryWaiting)
             {
                 if (EconomyBatchProgression.HasUnresolvedBatch)
-                    ShowToast("이전 강화 결과를 확인 중입니다. 잠시 후 다시 시도해 주세요.");
+                {
+                    if (!EconomyBatchProgression.TryResumeStorageRetry())
+                        ShowToast("이전 강화 결과를 확인 중입니다. 잠시 후 다시 시도해 주세요.");
+                }
                 else UserManager.Instance?.RefreshFromServer(ok =>
                     ShowToast(ok && !EconomyBatchProgression.HasUnknownResult ? "서버 상태를 확인했습니다." : "서버 상태를 확인하지 못했습니다. 다시 시도해 주세요."));
                 return true;

@@ -36,6 +36,24 @@ namespace KingdomIdle.Balance
             var response = Fixture();
             var body = JObject.FromObject(response);
             Check(Read(body), "immutable prefix result and newer current state decode together");
+            var quests = (JObject)body.DeepClone();
+            quests["Quests"] = JObject.FromObject(new QuestStateDTO
+            {
+                DailyPeriodKey = "2026-11-19", WeeklyPeriodKey = "2026-11-16", ServerTimeUtc = 1, Rows = new()
+            });
+            Check(Read(quests), "new economy response can carry an authoritative quest snapshot");
+            Check(!Read(Change(quests, "Quests.DailyPeriodKey", "")), "invalid optional quest snapshot is rejected");
+            const string wrapped = "Invoking an Azure Function failed with HttpStatus 500 and response body ";
+            const string errorHeader = "{\"ProtocolVersion\":2,\"ServerVersion\":1,\"ErrorCode\":1014,";
+            Check(NetworkManager.TryParseWrappedError(wrapped + errorHeader + "\"Message\":\"limited\",\"StorageThrottled\":true,\"RetryAfterSeconds\":5}", out var throttle) &&
+                NetworkManager.TryGetStorageThrottle(NetworkManager.CreateError("Business", throttle.Message, details: throttle), out int? retry) && retry == 5,
+                "storage throttle and delay survive the PlayFab HTTP wrapper");
+            Check(NetworkManager.TryParseWrappedError(wrapped + errorHeader + "\"Message\":\"old server\"}", out var oldError) &&
+                !NetworkManager.TryGetStorageThrottle(NetworkManager.CreateError("Business", oldError.Message, details: oldError), out _),
+                "unclassified storage failure does not enable the live 429 path");
+            throttle.RetryAfterSeconds = null;
+            Check(NetworkManager.TryGetStorageThrottle(NetworkManager.CreateError("Business", throttle.Message, details: throttle), out int? withoutDelay) && withoutDelay == null,
+                "storage throttle without a server delay can use local backoff");
             foreach (string path in new[] { "EconomyRevision", "Receipt", "CurrentState", "Receipt.Results[1].Status", "CurrentState.EconomyBatchState.RewardEpochs" })
                 Check(!Read(Change(body, path, null)), "missing recovery evidence rejected: " + path);
             Check(!Read(Change(body, "Receipt.Results[2].Status", 0)), "success after business rejection cannot be applied");

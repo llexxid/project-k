@@ -558,7 +558,11 @@ namespace Scripts.Core.Manager
         {
             if (response == null) throw new JsonSerializationException("Empty response.");
             if (response.EconomyRevision < 0) throw new JsonSerializationException("Invalid economy revision.");
-            if (response is OnEconomyBatchResponseDTO economy) EconomyBatchProtocol.ValidateResponse(economy);
+            if (response is OnEconomyBatchResponseDTO economy)
+            {
+                EconomyBatchProtocol.ValidateResponse(economy);
+                if (economy.Quests != null) ValidateQuests(economy.Quests);
+            }
             if (response is UserInitResponseDTO user)
             {
                 if (user.EconomyBatchState != null)
@@ -879,11 +883,14 @@ namespace Scripts.Core.Manager
                 throw new JsonSerializationException("Missing quest state.");
             foreach (var row in quests.Rows)
             {
-                if (row == null || row.QuestId <= 0 || string.IsNullOrWhiteSpace(row.PeriodKey) || row.RequiredCount <= 0 || row.Progress < 0 || row.Rewards == null ||
-                    !Enum.IsDefined(typeof(QuestRowState), row.State) || !Enum.IsDefined(typeof(QuestCategory), row.Category))
+                if (!IsValidQuestRow(row))
                     throw new JsonSerializationException("Invalid quest row.");
             }
         }
+
+        internal static bool IsValidQuestRow(QuestRowDTO row) =>
+            row != null && row.QuestId > 0 && !string.IsNullOrWhiteSpace(row.PeriodKey) && row.RequiredCount > 0 && row.Progress >= 0 && row.Rewards != null &&
+            Enum.IsDefined(typeof(QuestRowState), row.State) && Enum.IsDefined(typeof(QuestCategory), row.Category);
 
         /// <summary>SDK failure callback: recover the server's ErrorResponseDTO when PlayFab wrapped a non-200 function response.</summary>
         private static PlayFabError UnwrapFailure(string function, PlayFabError error)
@@ -1026,6 +1033,15 @@ namespace Scripts.Core.Manager
         {
             business = error?.CustomData as ErrorResponseDTO;
             return business != null;
+        }
+
+        public static bool TryGetStorageThrottle(PlayFabError error, out int? retryAfterSeconds)
+        {
+            retryAfterSeconds = null;
+            if (!TryGetBusinessError(error, out var business) ||
+                business.ErrorCode != Protocol.Message.Data.eErrorCode.StorageFailure || business.StorageThrottled != true) return false;
+            if (business.RetryAfterSeconds is >= 0) retryAfterSeconds = business.RetryAfterSeconds;
+            return true;
         }
 
         private static bool FailResponse(string function, string kind, string message, out PlayFabError failure)
