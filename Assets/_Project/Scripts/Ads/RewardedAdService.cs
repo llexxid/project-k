@@ -47,9 +47,10 @@ namespace KingdomIdle.Ads
                 _instance = new GameObject(nameof(RewardedAdService)).AddComponent<RewardedAdService>();
                 DontDestroyOnLoad(_instance.gameObject);
             }
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+
+            // 정식 출시 전 광고노출 테스트를 위한 코드
+            // 정식출시 후 계정승인 성공 시 삭제할 것 
             adUnitId = TestAdUnitId;
-#endif
             _instance.Begin(adUnitId, onFinished);
         }
 
