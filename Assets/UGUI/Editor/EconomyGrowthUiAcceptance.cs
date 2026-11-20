@@ -40,7 +40,7 @@ namespace KingdomIdle.UGUI.Editor
             RapidTapFixture fixture = null;
             try
             {
-                fixture = new RapidTapFixture();
+                fixture = new RapidTapFixture(false);
                 yield return WaitFor(fixture, () => EconomyBatchProgression.RecoveryComplete, "initial recovery");
                 fixture.BuildPanel();
                 yield return null;
@@ -66,14 +66,17 @@ namespace KingdomIdle.UGUI.Editor
         }
 
         /// <summary>빈 PlayMode에서 코루틴으로 실행한다. 캡처 대기는 체크포인트마다 45초로 제한한다.</summary>
-        public static IEnumerator RunRapidTaps(Action<object> completed = null)
+        public static IEnumerator RunRapidTaps(Action<object> completed = null) => RunTaps(false, completed);
+        public static IEnumerator RunStorageRetry(Action<object> completed = null) => RunTaps(true, completed);
+
+        private static IEnumerator RunTaps(bool throttle, Action<object> completed)
         {
             if (_running) throw new InvalidOperationException("Rapid tap acceptance is already running.");
             _running = true; _cancel = false; LastRapidTapReport = null;
             RapidTapFixture fixture = null;
             try
             {
-                fixture = new RapidTapFixture();
+                fixture = new RapidTapFixture(throttle);
                 yield return WaitFor(fixture, () => EconomyBatchProgression.RecoveryComplete, "initial recovery");
                 fixture.BuildPanel();
                 yield return null;
@@ -84,6 +87,16 @@ namespace KingdomIdle.UGUI.Editor
                 yield return WaitFor(fixture, () => fixture.Transport.Pending, "first HTTP request");
                 fixture.Check(fixture.Transport.Request.Commands.Count == 1 && LocalProgression.State.AttackLevel == 0,
                     "First tap reaches isolated HTTP without changing confirmed attack");
+                string firstId = fixture.Transport.Request.RequestId;
+                string firstPayload = EconomyInputJournal.Hash(fixture.Transport.Request);
+                float limitedAt = 0;
+                if (throttle)
+                {
+                    limitedAt = Time.realtimeSinceStartup;
+                    fixture.Transport.Throttle();
+                    fixture.Check(fixture.AttackButton.interactable && fixture.Body.descLabel.text.Contains("서버 확인 중"),
+                        "Storage 429 shows confirmation status without replacing the production attack button");
+                }
                 var immediate = System.Diagnostics.Stopwatch.StartNew();
                 for (int i = 1; i < 10; i++)
                 {
@@ -105,6 +118,23 @@ namespace KingdomIdle.UGUI.Editor
                 fixture.Check(fixture.TopGold.text.Contains(NumberNotation.Format(expectedGold)) && !fixture.TopGold.isTextTruncated,
                     "Projected top HUD gold keeps its full amount visible");
 
+                if (throttle)
+                {
+                    while (Time.realtimeSinceStartup < limitedAt + 1.8f)
+                    {
+                        fixture.Pump();
+                        fixture.Check(fixture.Transport.Calls == 1, "No early recovery call before Retry-After", log: false);
+                        yield return null;
+                    }
+                    yield return WaitFor(fixture, () => fixture.Transport.Pending, "same ID lookup after Retry-After");
+                    fixture.Check(fixture.Transport.Lookup?.RequestId == firstId && fixture.Transport.Calls == 2 &&
+                        fixture.Transport.LastSendAt >= limitedAt + 2f, "First recovery call looks up the same ID only after Retry-After");
+                    fixture.ReplyNotFound();
+                    yield return WaitFor(fixture, () => fixture.Transport.Pending, "same request resend");
+                    fixture.Check(fixture.Transport.Lookup == null && fixture.Transport.Request.RequestId == firstId &&
+                        EconomyInputJournal.Hash(fixture.Transport.Request) == firstPayload && fixture.Transport.Request.Commands.Count == 1,
+                        "NotFound resends the original request without appending the nine later taps");
+                }
                 for (int batch = 0; batch < 2; batch++)
                 {
                     yield return WaitFor(fixture, () => fixture.Transport.Pending, "batch " + (batch + 1));
@@ -122,10 +152,15 @@ namespace KingdomIdle.UGUI.Editor
                 fixture.Check(fixture.AttackCard.levelLabel.text == "Lv. 10" && !fixture.Body.goldLabel.text.Contains("예상") &&
                     fixture.Enhance.GetBonusAtkRate() > 0 && fixture.AttackButton.interactable,
                     "Confirmed card removes the estimate marker and enables the acknowledged combat bonus");
+                if (throttle)
+                    fixture.Check(QuestManager.Instance.ServerQuests?.DailyPeriodKey == "2026-11-19" &&
+                        !(bool)typeof(QuestManager).GetField("_refreshQueued", Instance).GetValue(QuestManager.Instance),
+                        "Changed rows and unchanged acknowledgements need no separate quest read");
                 for (int i = 0; i < 5; i++) { fixture.Pump(); yield return null; }
-                fixture.Check(fixture.Transport.Calls == 2 && fixture.Transport.Unexpected == 0 && !fixture.Transport.Pending &&
+                fixture.Check(fixture.Transport.Calls == (throttle ? 4 : 2) && fixture.Transport.Unexpected == 0 && !fixture.Transport.Pending &&
                     fixture.SuccessfulInputs == 10, "Draining the queue does not resend or apply completed taps twice");
                 yield return Capture("confirmed-after-two-batches");
+                if (throttle) fixture.CheckHeldQuestRefresh();
                 LastRapidTapReport = fixture.Report(true);
                 completed?.Invoke(LastRapidTapReport);
             }
@@ -185,6 +220,8 @@ namespace KingdomIdle.UGUI.Editor
             private readonly object _previousClientId = typeof(EconomyBatchProgression).GetField("_clientId", Static).GetValue(null);
             private readonly object _previousCount = typeof(DevelopmentPanelController).GetField("_selectedCount", Static).GetValue(null);
             private readonly object _previousRubyTab = typeof(DevelopmentPanelController).GetField("_rubyTab", Static).GetValue(null);
+            private readonly object _previousQuests = typeof(QuestManager).GetField("_received", Static).GetValue(null);
+            private readonly object _previousQuestSource = typeof(QuestManager).GetField("_receivedSource", Static).GetValue(null);
             private readonly Type _walletType = typeof(EconomyBridge).Assembly.GetType("Scripts.Wallets.Wallet");
             private readonly bool _previousWalletSubscription;
             private readonly Dictionary<eCurrency, long> _previousPublished;
@@ -194,12 +231,16 @@ namespace KingdomIdle.UGUI.Editor
             private DevelopmentPanelView _panel;
             private MainScreenController _main;
             private UIViewCatalog _catalog;
+            private QuestManager _quests;
+            private QuestRowSnapshot _pendingQuest;
+            private QuestBoardSnapshot _guideBoard;
             private bool _disposed;
 
-            internal RapidTapFixture()
+            internal RapidTapFixture(bool throttle)
             {
                 if (!Application.isPlaying || LocalProgression.IsReady || NetworkManager.Instance != null || UserManager.Instance != null ||
-                    StatEnhanceManager.Instance != null || UIManager.Instance != null || StageManager.Instance != null || ModalBackHandler.HasOpenModal)
+                    StatEnhanceManager.Instance != null || UIManager.Instance != null || StageManager.Instance != null ||
+                    QuestManager.Instance != null || ModalBackHandler.HasOpenModal)
                     throw new InvalidOperationException("Rapid tap acceptance requires empty signed-out PlayMode.");
                 _previousWalletSubscription = (bool)_walletType.GetField("_subscribed", Static).GetValue(null);
                 _previousPublished = new((Dictionary<eCurrency, long>)_walletType.GetField("Published", Static).GetValue(null));
@@ -217,6 +258,20 @@ namespace KingdomIdle.UGUI.Editor
                     typeof(NetworkManager).GetProperty("LoginState").SetValue(network, GameLoginState.Ready);
                     var users = _owner.AddComponent<UserManager>(); UserManager.Instance = users; Invoke(users, "Init");
                     Enhance = _owner.AddComponent<StatEnhanceManager>(); Invoke(Enhance, "Awake");
+                    if (throttle)
+                    {
+                        QuestManager.Instance = _quests = _owner.AddComponent<QuestManager>();
+                        _quests.Apply(new QuestStateDTO
+                        {
+                            Version = "board-0", DailyPeriodKey = "2026-11-19", WeeklyPeriodKey = "2026-11-16", Rows = new()
+                            {
+                                QuestRow("2026-11-18", 10, true), QuestRow("2026-11-19", 0, false)
+                            }
+                        }, "fixture");
+                        _pendingQuest = _quests.GetSnapshot(eQuestCategory.Daily).Rows[0];
+                        _guideBoard = _quests.GetSnapshot(eQuestCategory.Guide);
+                        Invoke(_quests, "LateUpdate");
+                    }
                     Check(LocalProgression.Execute("qa-rapid-ui-seed", state =>
                     {
                         state.Wallet[eCurrency.Gold] = InitialGold; state.AttackLevel = state.HealthLevel = 0;
@@ -295,8 +350,8 @@ namespace KingdomIdle.UGUI.Editor
                     }
                 }
             }
-            internal void Check(bool condition, string message)
-            { if (!condition) throw new InvalidOperationException("Rapid tap UI: " + message); Checks.Add(message); }
+            internal void Check(bool condition, string message, bool log = true)
+            { if (!condition) throw new InvalidOperationException("Rapid tap UI: " + message); if (log) Checks.Add(message); }
             private void OnInputCompleted(EconomyInputCompletion result)
             { if (result.Success) SuccessfulInputs++; else throw new InvalidOperationException(result.Message); }
 
@@ -319,10 +374,76 @@ namespace KingdomIdle.UGUI.Editor
                     receipt.Results.Add(new() { Index = i, Kind = command.Kind, Status = EconomyCommandStatus.Applied, AppliedCount = 1, SpentGold = cost });
                 }
                 var metadata = EconomyCopies.Copy(state.Economy.Server); metadata.NextSequence = request.Sequence + 1; metadata.PendingReceipt = receipt;
-                var response = new OnEconomyBatchResponseDTO
+                LastRequestId = request.RequestId;
+                var response = Response(request.RequestId, level, gold, metadata, receipt);
+                long questRevision = _quests?.GetSnapshot(eQuestCategory.Daily).Revision ?? -1;
+                if (_quests != null)
                 {
-                    ProtocolVersion = IdleKingdomFunction.Common.ApiVersions.ProtocolVersion, ServerVersion = 1, EconomyRevision = receipt.CommittedRevision,
-                    RequestId = request.RequestId, Status = EconomyBatchStatus.Completed, Receipt = receipt,
+                    Check(request.QuestVersion == (level == 1 ? "board-0" : "board-1"), "Batch seals the applied quest version");
+                    if (level == 1) response.QuestChanges = new()
+                    {
+                        BaseVersion = "board-0", Version = "board-1", Rows = new() { QuestRow("2026-11-19", 1, false) }
+                    };
+                }
+                var callback = System.Diagnostics.Stopwatch.StartNew();
+                Transport.Succeed(response); callback.Stop();
+                CallbackMilliseconds.Add(callback.Elapsed.TotalMilliseconds);
+                if (_quests != null)
+                {
+                    var board = _quests.GetSnapshot(eQuestCategory.Daily);
+                    Check(board.Revision == questRevision + (level == 1 ? 1 : 0) && board.Rows[1].Progress == 1 &&
+                        ReferenceEquals(_pendingQuest, board.Rows[0]) && ReferenceEquals(_guideBoard, _quests.GetSnapshot(eQuestCategory.Guide)),
+                        "Only the updated period row is replaced; pending claims and unrelated boards are kept");
+                    QuestChangeSet published = null;
+                    void StoreChanges(QuestChangeSet changes) { published = changes; }
+                    _quests.QuestsChanged += StoreChanges;
+                    Invoke(_quests, "LateUpdate");
+                    _quests.QuestsChanged -= StoreChanges;
+                    Check(level == 1 ? published != null && published.ChangedTokens.SequenceEqual(new[] { board.Rows[1].Token }) &&
+                        published.ChangedCategories.SequenceEqual(new[] { eQuestCategory.Daily }) : published == null,
+                        "UI notification identifies only the changed row and category, and skips an unchanged response");
+                    if (level == 1)
+                    {
+                        Check(_quests.TryApplyChanges(response.QuestChanges) && ReferenceEquals(board, _quests.GetSnapshot(eQuestCategory.Daily)),
+                            "Duplicate quest delta is a no-op");
+                        Check(!_quests.TryApplyChanges(new QuestChangesDTO
+                        {
+                            BaseVersion = "older-board", Version = "other-board", Rows = new() { QuestRow("2026-11-19", 2, false) }
+                        }) && ReferenceEquals(board, _quests.GetSnapshot(eQuestCategory.Daily)), "Stale quest delta leaves the board intact");
+                    }
+                }
+            }
+
+            internal void ReplyNotFound()
+            {
+                var state = LocalProgression.State;
+                Check(Transport.Lookup.QuestVersion == "board-0", "Result lookup sends the current quest version separately");
+                Transport.Succeed(Response(Transport.Lookup.RequestId, state.AttackLevel,
+                    LocalProgression.Balance(eCurrency.Gold), EconomyCopies.Copy(state.Economy.Server), null));
+            }
+
+            internal void CheckHeldQuestRefresh()
+            {
+                int calls = Transport.Calls;
+                EconomyBatchProgression.MarkUnknown("fixture hold");
+                _quests.RequestRefresh("fixture needs authoritative rows");
+                Set(_quests, "_lastRefreshAt", float.NegativeInfinity);
+                Invoke(_quests, "Update");
+                Check(NetworkManager.GetFailureKind(_quests.LastFailure) == "EconomyHeld" && Transport.Calls == calls &&
+                    (bool)typeof(QuestManager).GetField("_refreshQueued", Instance).GetValue(_quests),
+                    "A full refresh held by unresolved economy work stays queued without sending another request");
+                EconomyBatchProgression.ConfirmFullRefresh();
+            }
+
+            private OnEconomyBatchResponseDTO Response(string id, int level, long gold, EconomyBatchStateDTO metadata, EconomyBatchReceiptDTO receipt)
+            {
+                var state = LocalProgression.State;
+                return new OnEconomyBatchResponseDTO
+                {
+                    ProtocolVersion = IdleKingdomFunction.Common.ApiVersions.ProtocolVersion, ServerVersion = 1,
+                    EconomyRevision = receipt?.CommittedRevision ?? state.ServerEconomyRevision,
+                    RequestId = id, Status = receipt == null ? EconomyBatchStatus.NotFound : EconomyBatchStatus.Completed, Receipt = receipt,
+                    QuestRefreshRequired = _quests != null ? false : null,
                     CurrentState = new()
                     {
                         Currency = new CurrencyQueryDTO(gold, 0, 0, 0), EnchantATKCount = level, Level = 1,
@@ -330,10 +451,15 @@ namespace KingdomIdle.UGUI.Editor
                         StageState = new() { CurrentStage = (Protocol.Message.Data.eStage)state.MainStage, HighestStage = (Protocol.Message.Data.eStage)state.CycleFrontierStage }
                     }
                 };
-                LastRequestId = request.RequestId;
-                var callback = System.Diagnostics.Stopwatch.StartNew(); Transport.Succeed(response); callback.Stop();
-                CallbackMilliseconds.Add(callback.Elapsed.TotalMilliseconds);
             }
+
+            private static QuestRowDTO QuestRow(string period, long progress, bool pending) => new()
+            {
+                QuestId = 100, Category = QuestCategory.Daily, PeriodKey = period, Title = "몬스터 처치", Description = "",
+                ObjectiveType = "MonsterKill", PresentationType = "None", RequiredCount = 10, Progress = progress,
+                State = pending ? Protocol.Message.Dto.QuestRowState.Claimable : Protocol.Message.Dto.QuestRowState.InProgress,
+                IsPending = pending, Rewards = new()
+            };
 
             internal object Report(bool success) => new
             {
@@ -352,6 +478,7 @@ namespace KingdomIdle.UGUI.Editor
                 if (Enhance != null) Invoke(Enhance, "OnDestroy");
                 if (NetworkManager.Instance != null) Invoke(NetworkManager.Instance, "ResetCallQueue");
                 NetworkManager.Instance = null; UserManager.Instance = null; SetUi(null);
+                if (_quests != null && QuestManager.Instance == _quests) QuestManager.Instance = null;
                 if (_owner != null) UnityEngine.Object.DestroyImmediate(_owner);
                 var publish = (Action)Delegate.CreateDelegate(typeof(Action), _walletType.GetMethod("Publish", Static));
                 LocalProgression.Changed -= publish;
@@ -363,6 +490,8 @@ namespace KingdomIdle.UGUI.Editor
                 typeof(EconomyBatchProgression).GetField("_clientId", Static).SetValue(null, _previousClientId);
                 typeof(DevelopmentPanelController).GetField("_selectedCount", Static).SetValue(null, _previousCount);
                 typeof(DevelopmentPanelController).GetField("_rubyTab", Static).SetValue(null, _previousRubyTab);
+                typeof(QuestManager).GetField("_received", Static).SetValue(null, _previousQuests);
+                typeof(QuestManager).GetField("_receivedSource", Static).SetValue(null, _previousQuestSource);
                 PluginManager.SetPlugin(_previousTransport, PluginContract.PlayFab_Transport);
             }
         }
@@ -371,7 +500,9 @@ namespace KingdomIdle.UGUI.Editor
         {
             private PlayFab.Internal.CallRequestContainer _pending;
             internal OnEconomyBatchRequestDTO Request;
+            internal OnGetEconomyBatchResultRequestDTO Lookup;
             internal int Calls, Unexpected;
+            internal float LastSendAt;
             internal bool Pending => _pending != null;
             public bool IsInitialized => true;
             public void Initialize() { }
@@ -380,10 +511,24 @@ namespace KingdomIdle.UGUI.Editor
             public int GetPendingMessages() => Pending ? 1 : 0;
             public void MakeApiCall(object request)
             {
-                if (request is not PlayFab.Internal.CallRequestContainer container || container.ApiRequest is not ExecuteFunctionRequest function ||
-                    Pending || function.FunctionName != "OnEconomyBatch") { Block(); return; }
-                Request = JsonConvert.DeserializeObject<OnEconomyBatchRequestDTO>(JsonConvert.SerializeObject(function.FunctionParameter));
-                _pending = container; Calls++;
+                if (request is not PlayFab.Internal.CallRequestContainer container || container.ApiRequest is not ExecuteFunctionRequest function || Pending)
+                { Block(); return; }
+                string payload = JsonConvert.SerializeObject(function.FunctionParameter);
+                if (function.FunctionName == "OnEconomyBatch")
+                { Request = JsonConvert.DeserializeObject<OnEconomyBatchRequestDTO>(payload); Lookup = null; }
+                else if (function.FunctionName == "OnGetEconomyBatchResult") Lookup = JsonConvert.DeserializeObject<OnGetEconomyBatchResultRequestDTO>(payload);
+                else { Block(); return; }
+                _pending = container; Calls++; LastSendAt = Time.realtimeSinceStartup;
+            }
+            internal void Throttle()
+            {
+                var pending = _pending ?? throw new InvalidOperationException("No pending growth HTTP request."); _pending = null;
+                pending.ApiResult = new ExecuteFunctionResult { Error = new FunctionExecutionError
+                {
+                    Message = "Invoking an Azure Function failed with HttpStatus 500 and response body " +
+                        "{\"ProtocolVersion\":2,\"ServerVersion\":1,\"ErrorCode\":1014,\"Message\":\"limited\",\"StorageThrottled\":true,\"RetryAfterSeconds\":2}"
+                } };
+                pending.InvokeSuccessCallback();
             }
             internal void Succeed(OnEconomyBatchResponseDTO response)
             {

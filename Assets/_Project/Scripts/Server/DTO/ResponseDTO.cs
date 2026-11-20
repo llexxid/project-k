@@ -355,6 +355,8 @@ public sealed class OnClearQuestResponseDTO : QuestActionResponseDTO { }
 public sealed class OnClearAchievementResponseDTO : QuestActionResponseDTO { }
 public sealed class OnClaimQuestRewardResponseDTO : QuestActionResponseDTO
 {
+    public int? ClaimedCount { get; set; }
+    public eErrorCode? BulkErrorCode { get; set; }
     [JsonProperty(Required = Required.Always)]
     public List<QuestRewardDTO> GrantedRewards { get; set; } = null!;
     [JsonProperty(Required = Required.Always)]

@@ -27,6 +27,7 @@ namespace KingdomIdle.Balance
         public long Generation, NextInputSequence = 1;
         public List<EconomyInput> Inputs = new();
         public OnEconomyBatchRequestDTO InFlight;
+        public long StorageRetryNotBeforeUtcMs;
         public List<EconomyInput> InFlightInputs = new();
         public OnEconomyBatchRequestDTO AbandonedRequest;
         public long AbandonedAtRevision = -1;
@@ -94,6 +95,7 @@ namespace KingdomIdle.Balance
         {
             if (data == null || data.Schema != 1 || data.Account != account || data.Generation < 0 || data.NextInputSequence < 1 ||
                 data.Inputs == null || data.InFlightInputs == null || data.Inputs.Count > 512 || data.InFlightInputs.Count > 16 ||
+                data.StorageRetryNotBeforeUtcMs < 0 || data.InFlight == null && data.StorageRetryNotBeforeUtcMs != 0 ||
                 data.Inputs.Concat(data.InFlightInputs).Any(x => x == null || x.Sequence < 1 || x.Sequence >= data.NextInputSequence || !ValidCommand(x.Command)) ||
                 data.Inputs.Concat(data.InFlightInputs).Select(x => x.Sequence).Distinct().Count() != data.Inputs.Count + data.InFlightInputs.Count ||
                 (data.InFlight == null ? data.InFlightInputs.Count != 0 : !MainWaveProgression.ValidId(data.InFlight.RequestId) ||

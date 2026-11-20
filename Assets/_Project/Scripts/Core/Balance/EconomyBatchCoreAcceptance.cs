@@ -39,7 +39,7 @@ namespace KingdomIdle.Balance
                 typeof(NetworkManager).GetProperty(nameof(NetworkManager.LoginState)).SetValue(network, GameLoginState.Ready);
                 var quests = owner.AddComponent<QuestManager>(); QuestManager.Instance = quests;
                 LocalProgression.OpenTestAccount("economy-quest-refresh-" + Guid.NewGuid().ToString("N"));
-                void Case(string name, EconomyCommandKind[] kinds, bool expected, bool replayed = false, bool alreadyApplied = false, bool rejectGrowth = false, int kills = 3)
+                void Case(string name, EconomyCommandKind[] kinds, bool expected, bool replayed = false, bool alreadyApplied = false, bool rejectGrowth = false, int kills = 3, bool? questRefreshRequired = null)
                 {
                     Call("ResetAccount");
                     var request = new OnEconomyBatchRequestDTO
@@ -49,6 +49,7 @@ namespace KingdomIdle.Balance
                         { Kind = kind, Mode = 1, CountLimit = 1, SpendLimit = kind == EconomyCommandKind.RubyGold || kind == EconomyCommandKind.RubyExperience ? 20 : 50 });
                     var response = EconomyBatchContractAcceptance.Fixture();
                     response.RequestId = request.RequestId; response.EconomyRevision = 2; response.Replayed = replayed;
+                    response.QuestRefreshRequired = questRefreshRequired;
                     response.CurrentState.MainBattle.RunId = Id;
                     if (kinds.Contains(EconomyCommandKind.Hunt)) response.CurrentState.MainBattle.AcceptedKills = Hunt(3).TotalKills;
                     response.CurrentState.EnchantATKCount = !rejectGrowth && kinds.Contains(EconomyCommandKind.GoldAttack) ? 1 : 0;
@@ -102,15 +103,17 @@ namespace KingdomIdle.Balance
                         name + ": production ApplyResult durably accepts the matching receipt");
                     Check((bool)queued.GetValue(quests) == expected, name + ": refresh queued=" + expected);
                 }
-                Case("pure hunt", new[] { EconomyCommandKind.Hunt }, false);
+                Case("legacy pure hunt without quest information", new[] { EconomyCommandKind.Hunt }, true);
+                Case("pure hunt explicitly unchanged quests", new[] { EconomyCommandKind.Hunt }, false, questRefreshRequired: false);
                 Case("mixed hunt and gold", new[] { EconomyCommandKind.Hunt, EconomyCommandKind.GoldAttack }, true);
                 Case("gold health", new[] { EconomyCommandKind.GoldHealth }, true);
                 Case("ruby gold", new[] { EconomyCommandKind.RubyGold }, true);
                 Case("ruby experience", new[] { EconomyCommandKind.RubyExperience }, true);
                 Case("unseen replayed growth", new[] { EconomyCommandKind.GoldAttack }, true, replayed: true);
                 Case("already applied mixed receipt", new[] { EconomyCommandKind.Hunt, EconomyCommandKind.GoldAttack }, false, replayed: true, alreadyApplied: true);
-                Case("replayed pure hunt", new[] { EconomyCommandKind.Hunt }, false, replayed: true);
-                Case("hunt with rejected and unprocessed growth", new[] { EconomyCommandKind.Hunt, EconomyCommandKind.GoldAttack, EconomyCommandKind.RubyGold }, false, rejectGrowth: true);
+                Case("legacy replayed pure hunt", new[] { EconomyCommandKind.Hunt }, true, replayed: true);
+                Case("replayed pure hunt explicitly unchanged quests", new[] { EconomyCommandKind.Hunt }, false, replayed: true, questRefreshRequired: false);
+                Case("hunt with rejected and unprocessed growth", new[] { EconomyCommandKind.Hunt, EconomyCommandKind.GoldAttack, EconomyCommandKind.RubyGold }, true, rejectGrowth: true);
                 Case("zero new kills", new[] { EconomyCommandKind.Hunt }, false, kills: 0);
                 Check(typeof(NetworkManager).GetField("_context", instance).GetValue(network) == null &&
                     ((System.Collections.ICollection)typeof(NetworkManager).GetField("_pendingCalls", instance).GetValue(network)).Count == 0,
@@ -138,6 +141,8 @@ namespace KingdomIdle.Balance
             Check(EconomyInputJournal.Hash(request) == "47301BBC4516EA916E315779AF9C80E8DE82E72AA5BB1B0306340922CF06EFBB", "canonical hash agrees with server golden vector");
             request.SessionID = "replacement-session";
             Check(EconomyInputJournal.Hash(request) == "47301BBC4516EA916E315779AF9C80E8DE82E72AA5BB1B0306340922CF06EFBB", "session replacement cannot change the immutable economic body");
+            request.QuestVersion = "quest-observer";
+            Check(EconomyInputJournal.Hash(request) == "47301BBC4516EA916E315779AF9C80E8DE82E72AA5BB1B0306340922CF06EFBB", "quest version cannot change the durable economy payload hash");
 
             var state = Fixture(); state.Wallet[eCurrency.Gold] = 104;
             var initial = EconomyProjectionMath.Calculate(state, Array.Empty<EconomyCommandDTO>());
@@ -274,6 +279,7 @@ namespace KingdomIdle.Balance
                 Check(failures == 2 && !(bool)Field("_recovering").GetValue(null) && recoveryJournal.Data.InFlight.RequestId == Id,
                     "invalid startup result also completes failure without replacing the sealed request");
                 CheckFencesAndDiscard(Check);
+                CheckStorageRetry(Check);
             }
             return new { passed = checks.Count, checks };
         }
@@ -392,6 +398,144 @@ namespace KingdomIdle.Balance
             finally
             {
                 Call("ResetAccount"); NetworkManager.Instance = previousNetwork; UnityEngine.Object.DestroyImmediate(owner);
+                foreach (string file in new[] { path, path + ".tmp", path + ".bak" }) if (File.Exists(file)) File.Delete(file);
+            }
+        }
+
+        private static void CheckStorageRetry(Action<bool, string> check)
+        {
+            var core = typeof(EconomyBatchProgression);
+            FieldInfo Field(string name) => core.GetField(name, BindingFlags.Static | BindingFlags.NonPublic);
+            object Call(string name, params object[] args) => core.GetMethod(name, BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, args);
+            void Set(string name, object value) => Field(name).SetValue(null, value);
+            var previousNetwork = NetworkManager.Instance;
+            var received = typeof(QuestManager).GetField("_received", BindingFlags.Static | BindingFlags.NonPublic);
+            var source = typeof(QuestManager).GetField("_receivedSource", BindingFlags.Static | BindingFlags.NonPublic);
+            var previousQuests = received.GetValue(null); var previousSource = source.GetValue(null);
+            var owner = new GameObject("EconomyStorageRetryAcceptance"); owner.SetActive(false);
+            string path = Path.Combine(Path.GetTempPath(), "economy-retry-" + Guid.NewGuid().ToString("N") + ".json");
+            try
+            {
+                Call("ResetAccount");
+                var network = owner.AddComponent<NetworkManager>(); NetworkManager.Instance = network;
+                typeof(NetworkManager).GetProperty("LoginState").SetValue(network, GameLoginState.Ready);
+                LocalProgression.Execute("storage-retry-fixture", s =>
+                {
+                    var fixture = Fixture(); s.Economy = fixture.Economy; s.MainBattle = fixture.MainBattle; s.ServerEconomyRevision = 1;
+                    s.AttackLevel = s.HealthLevel = s.RubyGoldLevel = s.RubyExpLevel = 0;
+                    s.Wallet[eCurrency.Gold] = 1000000000; s.Wallet[eCurrency.Ruby] = 100;
+                    s.HighestMainClear = 0x200020005; s.PendingRubyRequestId = null; s.PendingMainCompletion = null; return true;
+                });
+                var request = new OnEconomyBatchRequestDTO
+                {
+                    RequestId = Id, Generation = 1, Sequence = 1, ExpectedEconomyRevision = 1, AppliedRewardEpoch = 1,
+                    Commands = new() { new() { Kind = EconomyCommandKind.GoldAttack, Mode = 1, CountLimit = 1, SpendLimit = 50 } }
+                };
+                string hash = EconomyInputJournal.Hash(request);
+                var journal = new EconomyInputJournal(path, LocalProgression.AccountKey);
+                journal.Data.Generation = 1; journal.Data.NextInputSequence = 2; journal.Data.InFlight = request;
+                journal.Data.InFlightInputs.Add(new() { Sequence = 1, Command = EconomyCopies.Copy(request.Commands[0]) });
+                journal.Changed(); journal.Pump(true);
+                Set("_journal", journal); Set("_network", network); Set("_localGeneration", LocalProgression.AccountGeneration);
+                Set("_networkGeneration", network.AccountGeneration); Set("_supported", true); Set("_recovered", true);
+                Set("_nextHuntAt", float.MaxValue);
+                var ordinary = NetworkManager.CreateError("Business", "storage failure", details: new ErrorResponseDTO { ErrorCode = Protocol.Message.Data.eErrorCode.StorageFailure });
+                Call("FailRequest", ordinary);
+                check(!EconomyBatchProgression.IsStorageRetryWaiting && !EconomyBatchProgression.CanAcceptGrowth,
+                    "unclassified storage failure cannot accept more growth");
+                var throttle = NetworkManager.CreateError("Business", "storage throttle", details: new ErrorResponseDTO
+                { ErrorCode = Protocol.Message.Data.eErrorCode.StorageFailure, StorageThrottled = true, RetryAfterSeconds = 5 });
+                float before = Time.realtimeSinceStartup;
+                Call("FailRequest", throttle);
+                check(EconomyBatchProgression.IsStorageRetryWaiting && EconomyBatchProgression.CanAcceptGrowth &&
+                    (float)Field("_retryAt").GetValue(null) >= before + 5, "confirmed live throttle permits projection while honoring server cooldown");
+                Call("SendQuery"); Call("SendBatch");
+                check(!(bool)Field("_requestPending").GetValue(null) && (int)Field("_storageRetryRemaining").GetValue(null) == 3,
+                    "neither query nor resubmission can send early or consume retry budget");
+                for (int i = 0; i < 62; i++)
+                    check(EconomyBatchProgression.TryQueueGold(true, 1, null, out _) == EconomyInputStatus.PendingSave, "throttled input remains ordered " + (i + 2));
+                check(EconomyBatchProgression.TryQueueRuby(false, out _) == EconomyInputStatus.PendingSave &&
+                    EconomyBatchProgression.GetProjection().RubyGoldLevel == 1 && LocalProgression.State.RubyGoldLevel == 0 &&
+                    LocalProgression.Balance(eCurrency.Ruby) == 100, "ruby input projects during 429 without consuming ruby or applying the multiplier");
+                check(EconomyBatchProgression.PendingSpendingCount == 64 && EconomyBatchProgression.TryQueueGold(true, 1, null, out _) == EconomyInputStatus.QueueFull &&
+                    EconomyBatchProgression.GetProjection().AttackLevel == 63 && LocalProgression.State.AttackLevel == 0 && LocalProgression.Balance(eCurrency.Gold) == 1000000000 &&
+                    EconomyInputJournal.Hash(journal.Data.InFlight) == hash, "429 inputs retain cap and sealed body without changing combat or actual gold");
+                journal.Pump(true);
+                var reopened = new EconomyInputJournal(path, LocalProgression.AccountKey);
+                check(EconomyInputJournal.Hash(reopened.Data.InFlight) == hash && reopened.Data.Inputs.Count == 63 &&
+                    reopened.Data.StorageRetryNotBeforeUtcMs > DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                    "process restart rehydrates original request, durable follow-up inputs and throttle deadline");
+                Set("_journal", reopened); Set("_retryAt", 0f); Call("RestoreStorageRetryDeadline");
+                check((float)Field("_retryAt").GetValue(null) > Time.realtimeSinceStartup && !(bool)Call("TryBeginRetrySend"),
+                    "rehydrated request still cannot query before its durable cooldown");
+                reopened.Data.InFlight.Generation = 2; Set("_retryAt", 0f); Call("RestoreStorageRetryDeadline");
+                check((float)Field("_retryAt").GetValue(null) == 0, "old owner generation cannot apply a retained cooldown to another request");
+                reopened.Data.InFlight.Generation = 1; Set("_journal", journal);
+                var noDelay = NetworkManager.CreateError("Business", "storage throttle", details: new ErrorResponseDTO
+                { ErrorCode = Protocol.Message.Data.eErrorCode.StorageFailure, StorageThrottled = true });
+                for (int i = 1; i <= 3; i++)
+                {
+                    Set("_retryAt", 0f);
+                    check((bool)Call("TryBeginRetrySend"), "bounded retry transmission " + i);
+                    float retryStarted = Time.realtimeSinceStartup;
+                    Call("FailRequest", noDelay);
+                    float deadline = (float)Field("_retryAt").GetValue(null);
+                    check(deadline >= retryStarted + Math.Min(30, 2 << i) &&
+                        deadline <= Time.realtimeSinceStartup + Math.Min(30, 2 << i), "missing Retry-After backs off " + i);
+                }
+                check(!EconomyBatchProgression.IsStorageRetryWaiting && !EconomyBatchProgression.CanAcceptGrowth &&
+                    !EconomyBatchProgression.TryResumeStorageRetry() && journal.Data.InFlight.RequestId == Id && journal.Data.Inputs.Count == 63,
+                    "exhaustion preserves pending spending and manual confirmation cannot bypass cooldown");
+                Set("_retryAt", 0f); journal.Changed();
+                check(EconomyBatchProgression.TryResumeStorageRetry(), "one manual retry can resume after cooldown");
+                // Pump above only starts this dirty journal write; this test never dispatches an SDK call.
+                journal.Pump(true);
+                check((bool)Call("TryBeginRetrySend") && (int)Field("_storageRetryRemaining").GetValue(null) == 0,
+                    "manual confirmation grants exactly one further transmission");
+                Call("FailRequest", noDelay);
+                journal.Pump(true);
+                Set("_journal", reopened); Set("_recovered", false); Set("_retryAt", float.MaxValue);
+                int recoveryFailures = 0;
+                check(EconomyBatchProgression.RecoverPending(ok => { if (!ok) recoveryFailures++; }, previousSessionReplaced: true), "restart begins by checking retained request");
+                reopened.Pump(true); Call("FailRequest", throttle);
+                check(recoveryFailures == 1 && !EconomyBatchProgression.IsStorageRetryWaiting && !EconomyBatchProgression.CanAcceptGrowth &&
+                    reopened.Data.Inputs.All(x => x.Held) && EconomyInputJournal.Hash(reopened.Data.InFlight) == hash,
+                    "restart throttle keeps spending held and completes failure for explicit reconfirmation");
+
+                var response = EconomyBatchContractAcceptance.Fixture();
+                response.RequestId = Id; response.EconomyRevision = 2;
+                response.Receipt.RequestId = Id; response.Receipt.CommittedRevision = 2; response.Receipt.PayloadHash = hash;
+                response.Receipt.Results = response.Receipt.Results.Take(1).ToList();
+                response.CurrentState.Currency.Gold = 999999950;
+                response.CurrentState.MainBattle.RunId = Id; response.CurrentState.EconomyBatchState.OwnerClientId = Id;
+                response.Quests = new() { DailyPeriodKey = "2026-11-19", WeeklyPeriodKey = "2026-11-16", ServerTimeUtc = 1, Rows = new() };
+                int completed = 0;
+                void Completed(EconomyInputCompletion result) { if (result.Success) completed++; }
+                EconomyBatchProgression.InputCompleted += Completed;
+                try
+                {
+                    Set("_recovered", true); Set("_retryAt", 0f);
+                    Call("ApplyResult", response, true);
+                    check(completed == 1 && LocalProgression.State.AttackLevel == 1 && LocalProgression.Balance(eCurrency.Gold) == 999999950 &&
+                        ReferenceEquals(received.GetValue(null), response.Quests) && reopened.Data.StorageRetryNotBeforeUtcMs == 0 &&
+                        (float)Field("_retryAt").GetValue(null) == 0, "missing ACK recovers growth once and clears cooldown after applying optional quests");
+                    reopened.Pump(true);
+                    reopened.Data.InFlight = request; reopened.Data.InFlightInputs = new() { new() { Sequence = 1, Command = EconomyCopies.Copy(request.Commands[0]) } };
+                    reopened.Changed(); reopened.Pump(true);
+                    var existingQuests = received.GetValue(null);
+                    response.Quests = new() { DailyPeriodKey = "2026-11-19", WeeklyPeriodKey = "2026-11-16", ServerTimeUtc = 2, Rows = new() };
+                    Call("ApplyResult", response, true);
+                    check(completed == 1 && LocalProgression.State.AttackLevel == 1 && LocalProgression.Balance(eCurrency.Gold) == 999999950 &&
+                        ReferenceEquals(received.GetValue(null), existingQuests), "already committed receipt neither debits twice nor repeats callbacks or quest UI");
+                    check(!(bool)Call("Owns", LocalProgression.AccountGeneration, network.AccountGeneration, Id), "late ACK loses ownership after its journal entry is cleared");
+                    reopened.Pump(true);
+                }
+                finally { EconomyBatchProgression.InputCompleted -= Completed; }
+            }
+            finally
+            {
+                Call("ResetAccount"); NetworkManager.Instance = previousNetwork; UnityEngine.Object.DestroyImmediate(owner);
+                received.SetValue(null, previousQuests); source.SetValue(null, previousSource);
                 foreach (string file in new[] { path, path + ".tmp", path + ".bak" }) if (File.Exists(file)) File.Delete(file);
             }
         }

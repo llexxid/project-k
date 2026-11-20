@@ -54,7 +54,7 @@ public interface IQuestRewardGranter { bool TryGrant(long questId, int rewardGro
 /// bootstrap 씬이 소유하는 퀘스트 UI 창구다. 퀘스트 진행·달성·수령은 서버가 판정한다.
 /// 로그인·OnGetUserState·OnGetQuestState·OnClaimQuestReward 응답의 Quests(QuestStateDTO)를 그대로 보관하고,
 /// 카테고리별 불변 snapshot(QuestBoardSnapshot)으로 투영해 실제 달라진 행만 발행한다. 로컬 집계·달성 판정·보상 지급은 하지 않는다.
-/// 사냥·장비·가챠 응답에는 Quests가 없으므로 패널·가이드 HUD가 보이는 동안 주기적으로, 그리고 서버 조작이 끝난 뒤 OnGetQuestState로 다시 받는다.
+/// 재화 배치는 변경된 행만 적용한다. 그 외 서버 조작과 놓친 변경은 OnGetQuestState로 다시 받는다.
 /// 로그 태그 [Quest].
 /// </summary>
 public class QuestManager : MonoBehaviour
@@ -105,10 +105,7 @@ public class QuestManager : MonoBehaviour
         public long NetworkGeneration;
         public QuestClaimToken[] Tokens;
         public eQuestCategory? Category;
-        public string BoardPeriod;
         public Action<int, int, string, IReadOnlyList<RewardGrant>> OnCompleted;
-        public readonly List<Dto.QuestRewardDTO> Rewards = new();
-        public int Confirmed;
         public GameplayLoading.Scope Loading;
     }
 
@@ -185,7 +182,7 @@ public class QuestManager : MonoBehaviour
     }
 
     private void MarkDirty() { _dirty = true; }
-    private void OnAccountChanged() { _claim?.Loading?.Dispose(); _claim = null; _accountChanged = true; _dirty = true; _server = null; _revision++; }
+    private void OnAccountChanged() { _claim?.Loading?.Dispose(); _claim = null; IsRefreshing = false; _accountChanged = true; _dirty = true; _server = null; _revision++; }
 
     // ── 서버 상태 수신 ─────────────────────────────────────────────────
 
@@ -206,9 +203,36 @@ public class QuestManager : MonoBehaviour
         _revision++;
         _lastRefreshAt = Time.unscaledTime;
         _refreshQueued = false;
-        Rebuild();
-        _dirty = true;
+        RefreshReadCache();
         Debug.Log(DescribeLine(source, true));
+    }
+
+    public bool TryApplyChanges(Dto.QuestChangesDTO changes)
+    {
+        if (_server?.Rows == null || changes == null || string.IsNullOrEmpty(changes.BaseVersion) ||
+            string.IsNullOrEmpty(changes.Version)) return false;
+        if (_server.Version == changes.Version) return true;
+        if (_server.Version != changes.BaseVersion || changes.Rows == null || changes.Rows.Count == 0) return false;
+
+        var replacements = new Dictionary<int, Dto.QuestRowDTO>();
+        int changedCategories = 0;
+        foreach (var row in changes.Rows)
+        {
+            if (!NetworkManager.IsValidQuestRow(row)) return false;
+            int index = _server.Rows.FindIndex(old => old != null && old.QuestId == row.QuestId && old.PeriodKey == row.PeriodKey);
+            if (index < 0 || _server.Rows[index].Category != row.Category || replacements.ContainsKey(index)) return false;
+            replacements.Add(index, row);
+            changedCategories |= 1 << (int)row.Category;
+        }
+
+        RefreshReadCache();
+        foreach (var entry in replacements) _server.Rows[entry.Key] = entry.Value;
+        _server.Version = changes.Version;
+        _revision++;
+        Rebuild(changedCategories, replacements);
+        _cachedRevision = _revision;
+        _dirty = true;
+        return true;
     }
 
     private string DescribeLine(string source, bool saved)
@@ -246,16 +270,25 @@ public class QuestManager : MonoBehaviour
     private void Fetch(NetworkManager network)
     {
         IsRefreshing = true;
+        bool requested = _refreshQueued;
         _refreshQueued = false;
         network.Call<Dto.OnGetQuestStateRequestDTO, Dto.OnGetQuestStateResponseDTO>(new Dto.OnGetQuestStateRequestDTO(),
-            response => { IsRefreshing = false; Apply(response.Quests, "state"); },
+            response =>
+            {
+                IsRefreshing = false;
+                bool queuedDuringFetch = _refreshQueued;
+                Apply(response.Quests, "state");
+                _refreshQueued |= queuedDuringFetch;
+            },
             error =>
             {
                 IsRefreshing = false;
+                string kind = NetworkManager.GetFailureKind(error);
+                if (requested && (_server == null || kind == "EconomyHeld")) _refreshQueued = true;
                 _lastRefreshAt = Time.unscaledTime;
                 LastFailure = error;
                 int code = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0;
-                Debug.LogWarning($"[Quest] state rejected code={code} kind={NetworkManager.GetFailureKind(error)} message={error?.ErrorMessage}");
+                Debug.LogWarning($"[Quest] state rejected code={code} kind={kind} message={error?.ErrorMessage}");
             });
     }
 
@@ -282,7 +315,7 @@ public class QuestManager : MonoBehaviour
         return new QuestClaimResult(QuestClaimStatus.Pending, token);
     }
 
-    /// <summary>선택한 탭에서 수령 가능한 토큰만 고정하고, 누른 행부터 서버 응답 순서대로 처리한다.</summary>
+    /// <summary>선택한 탭의 수령 가능 토큰을 클릭 시 고정해 한 요청으로 보낸다.</summary>
     public QuestClaimResult TryClaimTab(eQuestCategory category, QuestClaimToken token, Action<int, int, string, IReadOnlyList<RewardGrant>> onCompleted)
     {
         var network = NetworkManager.Instance;
@@ -309,52 +342,53 @@ public class QuestManager : MonoBehaviour
     private void StartClaim(NetworkManager network, QuestClaimToken[] tokens, Action<int, int, string, IReadOnlyList<RewardGrant>> onCompleted,
         eQuestCategory? category = null, string boardPeriod = null)
     {
-        _claim = new ClaimOperation
+        var token = tokens[0];
+        var request = new Dto.OnClaimQuestRewardRequestDTO { QuestId = token.QuestId, PeriodKey = token.Period };
+        if (category.HasValue)
+        {
+            // Older servers reject this legacy target without granting one item from the bulk list.
+            request.QuestId = 0;
+            request.PeriodKey = "permanent";
+            request.Bulk = new Dto.QuestBulkClaimDTO
+            {
+                Category = (Dto.QuestCategory)category.Value,
+                BoardPeriod = boardPeriod,
+                Targets = tokens.Select(x => new Dto.QuestClaimTargetDTO { QuestId = x.QuestId, PeriodKey = x.Period }).ToList()
+            };
+        }
+        var claim = _claim = new ClaimOperation
         {
             Network = network, NetworkGeneration = network.AccountGeneration, Tokens = tokens,
-            Category = category, BoardPeriod = boardPeriod, OnCompleted = onCompleted,
+            Category = category, OnCompleted = onCompleted,
             Loading = GameplayLoading.Begin("quest-claim")
         };
         LastFailure = null;
-        SendNextClaim(_claim);
+        network.Call<Dto.OnClaimQuestRewardRequestDTO, Dto.OnClaimQuestRewardResponseDTO>(request,
+            response => ApplyClaim(claim, response), error => RejectClaim(claim, error));
     }
 
     private bool IsCurrentClaim(ClaimOperation claim) => this != null && ReferenceEquals(_claim, claim) &&
         claim.Tokens[0].AccountGeneration == LocalProgression.AccountGeneration && claim.Network != null &&
         NetworkManager.Instance == claim.Network && claim.Network.AccountGeneration == claim.NetworkGeneration;
 
-    private void SendNextClaim(ClaimOperation claim)
-    {
-        if (!IsCurrentClaim(claim)) return;
-        if (claim.Confirmed == claim.Tokens.Length) { FinishClaim(claim, null); return; }
-        var token = claim.Tokens[claim.Confirmed];
-        if (claim.Category.HasValue)
-        {
-            var board = GetSnapshot(claim.Category.Value);
-            if (board.Period != claim.BoardPeriod || FindRow(board, token)?.CanClaim != true)
-            {
-                RequestRefresh("claim interrupted");
-                FinishClaim(claim, "수령할 수 있는 보상이 바뀌었습니다. 목록을 확인해 주세요.");
-                return;
-            }
-        }
-        claim.Network.Call<Dto.OnClaimQuestRewardRequestDTO, Dto.OnClaimQuestRewardResponseDTO>(
-            new Dto.OnClaimQuestRewardRequestDTO { QuestId = token.QuestId, PeriodKey = token.Period },
-            response => ApplyClaim(claim, token, response), error => RejectClaim(claim, token, error));
-    }
-
-    private void FinishClaim(ClaimOperation claim, string message)
+    private void FinishClaim(ClaimOperation claim, string message, int confirmed = 0, IEnumerable<Dto.QuestRewardDTO> rewards = null)
     {
         if (!IsCurrentClaim(claim)) return;
         _claim = null;
-        try { claim.OnCompleted?.Invoke(claim.Confirmed, claim.Tokens.Length, message, RewardGrants.FromServer(claim.Rewards)); }
+        try { claim.OnCompleted?.Invoke(confirmed, claim.Tokens.Length, message, RewardGrants.FromServer(rewards)); }
         catch (Exception exception) { Debug.LogException(exception); }
         finally { claim.Loading?.Dispose(); }
     }
 
-    private void ApplyClaim(ClaimOperation claim, QuestClaimToken token, Dto.OnClaimQuestRewardResponseDTO response)
+    private void ApplyClaim(ClaimOperation claim, Dto.OnClaimQuestRewardResponseDTO response)
     {
         if (!IsCurrentClaim(claim)) return;
+        var token = claim.Tokens[0];
+        int confirmed = claim.Category.HasValue ? response.ClaimedCount ?? -1 : 1;
+        if (confirmed < 0 || confirmed > claim.Tokens.Length ||
+            (confirmed == 0 && response.GrantedRewards.Count > 0) ||
+            (confirmed == claim.Tokens.Length && response.BulkErrorCode.HasValue))
+            throw new InvalidOperationException("퀘스트 보상 수령 결과가 요청과 일치하지 않습니다.");
         var loot = KingdomIdle.Rewards.LootNotifications.Capture();
         bool saved;
         try
@@ -375,7 +409,7 @@ public class QuestManager : MonoBehaviour
         if (!IsCurrentClaim(claim)) return;
         Apply(response.Quests, "claim");
         var state = LocalProgression.State;
-        Debug.Log($"[Quest] claim quest={token.QuestId} period={token.Period} rewards={response.GrantedRewards?.Count ?? 0}" +
+        Debug.Log($"[Quest] claim quest={token.QuestId} period={token.Period} confirmed={confirmed}/{claim.Tokens.Length} rewards={response.GrantedRewards?.Count ?? 0}" +
             $" | server Gold={response.Currency?.Gold} AncientCoin={response.Currency?.AncientCoin} ClassFragment={response.Currency?.ClassFragment} ArcaneKnowledge={response.Currency?.ArcaneKnowledge} Inventory={UserManager.DescribeInventory(response.Equipment)}" +
             $" | state Gold={LocalProgression.Balance(eCurrency.Gold)} AncientCoin={LocalProgression.Balance(eCurrency.AncientCoin)} ClassFragment={LocalProgression.Balance(eCurrency.ClassFragment)} ArcaneKnowledge={LocalProgression.Balance(eCurrency.ArcaneKnowledge)} Inventory={UserManager.DescribeInventory(state)} saved={saved}");
         if (!saved)
@@ -387,18 +421,24 @@ public class QuestManager : MonoBehaviour
         }
         EquipmentManager.Instance?.RestoreEquipment();
         KingdomIdle.MageTower.MageTowerManager.Instance?.NotifyCommitted();
-        KingdomIdle.Rewards.LootNotifications.PublishRewards(loot, response.GrantedRewards, "quest:" + token.QuestId + ":" + token.Period);
-        if (response.GrantedRewards != null) claim.Rewards.AddRange(response.GrantedRewards);
-        claim.Confirmed++;
-        SendNextClaim(claim);
+        if (confirmed > 0)
+        {
+            string receipt = claim.Category.HasValue
+                ? "quest-tab:" + string.Join("|", claim.Tokens.Take(confirmed).Select(x => $"{x.QuestId}:{x.Period}"))
+                : $"quest:{token.QuestId}:{token.Period}";
+            KingdomIdle.Rewards.LootNotifications.PublishRewards(loot, response.GrantedRewards, receipt);
+        }
+        string message = confirmed == claim.Tokens.Length ? null : "수령할 수 있는 보상이 바뀌었습니다. 목록을 확인해 주세요.";
+        FinishClaim(claim, message, confirmed, response.GrantedRewards);
     }
 
-    private void RejectClaim(ClaimOperation claim, QuestClaimToken token, PlayFabError error)
+    private void RejectClaim(ClaimOperation claim, PlayFabError error)
     {
         if (!IsCurrentClaim(claim)) return;
         LastFailure = error;
         int code = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0;
         string kind = NetworkManager.GetFailureKind(error);
+        var token = claim.Tokens[0];
         Debug.LogWarning($"[Quest] claim rejected quest={token.QuestId} period={token.Period} code={code} kind={kind} message={error?.ErrorMessage}");
         bool uncertain = code == 1014 || code == 1015 || (code == 0 &&
             (kind == "Timeout" || kind == "Transport" || kind == "Function" || kind == "InvalidResponse" || kind == "ApplyFailed" ||
@@ -412,8 +452,7 @@ public class QuestManager : MonoBehaviour
             UserManager.Instance.RefreshFromServer(ok =>
             {
                 if (!IsCurrentClaim(claim)) return;
-                if (ok && claim.Category.HasValue && FindRow(GetSnapshot(claim.Category.Value), token)?.State == QuestRowState.Claimed)
-                    claim.Confirmed++;
+                // Once paid, pending rewards from an older period disappear from the full board.
                 FinishClaim(claim, ok ? "서버에서 수령 상태를 다시 확인했습니다. 목록을 확인해 주세요." : NetworkManager.DescribeFailure(error, "보상 수령"));
             });
             return;
@@ -447,19 +486,27 @@ public class QuestManager : MonoBehaviour
     /// 서버 Rows를 카테고리별 snapshot으로 바꾼다. 서버는 미해금 체인 단계도 Locked 행으로 주므로 가이드·업적의 Locked 행은
     /// 이전 화면과 같게 숨긴다(일일·주간의 Locked는 1-11 해금 전이라 표시한다). ObjectiveType·PresentationType은 enum 이름 문자열이다.
     /// </summary>
-    private void Rebuild()
+    private void Rebuild(int changedCategories = -1, Dictionary<int, Dto.QuestRowDTO> replacements = null)
     {
         long generation = LocalProgression.AccountGeneration;
         var rows = new List<QuestRowSnapshot>[Categories.Length];
-        for (int i = 0; i < rows.Length; i++) rows[i] = new List<QuestRowSnapshot>();
+        for (int i = 0; i < rows.Length; i++)
+            if ((changedCategories & (1 << i)) != 0) rows[i] = new List<QuestRowSnapshot>();
         if (_server?.Rows != null)
-            foreach (var row in _server.Rows)
+            for (int rowIndex = 0; rowIndex < _server.Rows.Count; rowIndex++)
             {
+                var row = _server.Rows[rowIndex];
                 if (row == null) continue;
                 int index = (int)row.Category;
-                if (index < 0 || index >= Categories.Length) continue;
+                if (index < 0 || index >= Categories.Length || rows[index] == null) continue;
                 var category = Categories[index];
                 if ((category == eQuestCategory.Guide || category == eQuestCategory.Achievement) && row.State == Dto.QuestRowState.Locked) continue;
+                var token = new QuestClaimToken(generation, row.QuestId, row.PeriodKey);
+                if (replacements != null && !replacements.ContainsKey(rowIndex))
+                {
+                    var existing = FindRow(_boards[index], token);
+                    if (existing != null) { rows[index].Add(existing); continue; }
+                }
                 if (!Enum.TryParse(row.ObjectiveType, true, out eQuestObjectiveType objective)) objective = eQuestObjectiveType.StageClear;
                 if (!Enum.TryParse(row.PresentationType, true, out eQuestPresentationType presentation)) presentation = eQuestPresentationType.None;
                 var rewards = new List<QuestRewardSnapshot>();
@@ -470,11 +517,12 @@ public class QuestManager : MonoBehaviour
                 var state = (QuestRowState)(int)row.State;
                 int required = (int)Math.Max(1, Math.Min(int.MaxValue, row.RequiredCount));
                 long progress = state == QuestRowState.Claimed ? required : Math.Min(required, Math.Max(0, row.Progress));
-                rows[index].Add(new QuestRowSnapshot(new QuestClaimToken(generation, row.QuestId, row.PeriodKey), category, row.Title, row.Description,
+                rows[index].Add(new QuestRowSnapshot(token, category, row.Title, row.Description,
                     objective, row.TargetId, required, progress, state, row.IsPending, row.ExpiresUtc, rewards, presentation));
             }
         for (int i = 0; i < Categories.Length; i++)
         {
+            if (rows[i] == null) continue;
             var category = Categories[i];
             if (_server == null) { _boards[i] = QuestBoardSnapshot.NotReady(category, generation); continue; }
             string period = category == eQuestCategory.Daily ? _server.DailyPeriodKey : category == eQuestCategory.Weekly ? _server.WeeklyPeriodKey : "permanent";
@@ -493,6 +541,7 @@ public class QuestManager : MonoBehaviour
         {
             var before = _published[i];
             var after = _boards[i];
+            if (ReferenceEquals(before, after)) continue;
             bool changed = before == null || before.IsReady != after.IsReady || before.Period != after.Period ||
                 before.AccountGeneration != after.AccountGeneration || before.ResetUtc != after.ResetUtc;
             if (before != null)
