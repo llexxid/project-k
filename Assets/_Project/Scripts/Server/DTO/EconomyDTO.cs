@@ -5,7 +5,7 @@ using Protocol.Message.Data;
 namespace Protocol.Message.Dto
 {
     // 서버 Common/Dto/EconomyDTO.cs와 함께 변경한다. Version 1은 계산 규칙의 호환성도 포함한다.
-    public enum EconomyCommandKind { Hunt = 0, GoldAttack = 1, GoldHealth = 2, RubyGold = 3, RubyExperience = 4 }
+    public enum EconomyCommandKind { Hunt = 0, GoldAttack = 1, GoldHealth = 2, RubyGold = 3, RubyExperience = 4, MageEnhance = 5 }
     public enum EconomyCommandStatus { Applied = 0, Rejected = 1, Unprocessed = 2 }
     public enum EconomyBatchStatus { Completed = 0, NotFound = 1, Conflict = 2, Retired = 3 }
 
@@ -42,6 +42,7 @@ namespace Protocol.Message.Dto
         public string BattleId { get; set; }
         public long RewardEpoch { get; set; }
         public List<HuntResult> TotalKills { get; set; }
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public int? SkillId { get; set; }
     }
 
     public sealed class EconomyCommandResultDTO
@@ -52,6 +53,7 @@ namespace Protocol.Message.Dto
         [JsonProperty(Required = Required.Always)] public int AppliedCount { get; set; }
         [JsonProperty(Required = Required.Always)] public long SpentGold { get; set; }
         [JsonProperty(Required = Required.Always)] public long SpentRuby { get; set; }
+        public long SpentArcaneKnowledge { get; set; }
         [JsonProperty(Required = Required.Always)] public long GrantedGold { get; set; }
         [JsonProperty(Required = Required.Always)] public long GrantedExp { get; set; }
         [JsonProperty(Required = Required.AllowNull)] public eErrorCode? ErrorCode { get; set; }
@@ -92,6 +94,7 @@ namespace Protocol.Message.Dto
         [JsonProperty(Required = Required.Always)] public long EnchantATKCount { get; set; }
         [JsonProperty(Required = Required.Always)] public long EnchantHPCount { get; set; }
         [JsonProperty(Required = Required.Always)] public RubyGrowthStateDTO RubyGrowthState { get; set; }
+        public MageTowerStateDTO MageTowerState { get; set; }
         [JsonProperty(Required = Required.Always)] public int Level { get; set; }
         [JsonProperty(Required = Required.Always)] public long Exp { get; set; }
         [JsonProperty(Required = Required.Always)] public long KillScore { get; set; }
@@ -112,6 +115,7 @@ namespace Protocol.Message.Dto
     public sealed class EconomyBatchStateDTO
     {
         [JsonProperty(Required = Required.Always)] public int Version { get; set; }
+        public bool SupportsMageEnhance { get; set; }
         [JsonProperty(Required = Required.Always)] public string OwnerClientId { get; set; }
         [JsonProperty(Required = Required.Always)] public long Generation { get; set; }
         [JsonProperty(Required = Required.Always)] public long NextSequence { get; set; }

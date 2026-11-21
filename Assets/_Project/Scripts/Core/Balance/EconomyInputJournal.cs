@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Protocol.Message.Dto;
 
 namespace KingdomIdle.Balance
@@ -112,6 +113,8 @@ namespace KingdomIdle.Balance
         internal static bool ValidCommand(EconomyCommandDTO c)
         {
             if (c == null || !Enum.IsDefined(typeof(EconomyCommandKind), c.Kind)) return false;
+            if (c.Kind == EconomyCommandKind.MageEnhance) return EconomyBatchProtocol.ValidMageCommand(c);
+            if (c.SkillId.HasValue) return false;
             if (c.Kind == EconomyCommandKind.Hunt) return c.Mode == 0 && c.ExpectedLevel == 0 && c.CountLimit == 0 && c.SpendLimit == 0 &&
                 c.RewardEpoch > 0 && EconomyCopies.ValidRun((long)c.Stage, c.MainRunId, c.BattleId) && EconomyCopies.ValidKills(c.TotalKills);
             bool gold = c.Kind == EconomyCommandKind.GoldAttack || c.Kind == EconomyCommandKind.GoldHealth;
@@ -125,14 +128,21 @@ namespace KingdomIdle.Balance
         {
             object Kills(List<HuntResult> kills) => kills?.OrderBy(x => (ulong)x.MonsterType)
                 .Select(x => new { MonsterType = (ulong)x.MonsterType, x.Count }).ToArray();
+            object Command(EconomyCommandDTO x)
+            {
+                var fields = new { Kind = (int)x.Kind, x.Mode, x.ExpectedLevel, x.CountLimit, x.SpendLimit, Stage = (long)x.Stage,
+                    x.MainRunId, x.BattleId, x.RewardEpoch, TotalKills = Kills(x.TotalKills) };
+                if (!x.SkillId.HasValue) return fields;
+                var mage = JObject.FromObject(fields);
+                mage.Add(nameof(x.SkillId), x.SkillId.Value);
+                return mage;
+            }
             var body = new
             {
                 r.RequestId, r.Generation, r.Sequence, r.ExpectedEconomyRevision, r.AppliedRewardEpoch, r.AcknowledgedRequestId,
                 RewardEpochCutoffs = r.RewardEpochCutoffs.OrderBy(x => x.Epoch).Select(x => new
                 { x.Epoch, Stage = (long)x.Stage, x.MainRunId, x.BattleId, TotalKills = Kills(x.TotalKills) }).ToArray(),
-                Commands = r.Commands.Select(x => new
-                { Kind = (int)x.Kind, x.Mode, x.ExpectedLevel, x.CountLimit, x.SpendLimit, Stage = (long)x.Stage,
-                    x.MainRunId, x.BattleId, x.RewardEpoch, TotalKills = Kills(x.TotalKills) }).ToArray()
+                Commands = r.Commands.Select(Command).ToArray()
             };
             using var sha = SHA256.Create();
             return BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(body, Formatting.None)))).Replace("-", "");

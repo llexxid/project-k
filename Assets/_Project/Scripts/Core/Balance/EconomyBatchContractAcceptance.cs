@@ -36,6 +36,11 @@ namespace KingdomIdle.Balance
             var response = Fixture();
             var body = JObject.FromObject(response);
             Check(Read(body), "immutable prefix result and newer current state decode together");
+            var legacy = (JObject)body.DeepClone();
+            legacy["CurrentState"]["MageTowerState"].Parent.Remove();
+            legacy["CurrentState"]["EconomyBatchState"]["SupportsMageEnhance"].Parent.Remove();
+            foreach (var row in legacy["Receipt"]["Results"]) row["SpentArcaneKnowledge"].Parent.Remove();
+            Check(Read(legacy), "old v1 response without mage fields still decodes");
             var quests = (JObject)body.DeepClone();
             quests["Quests"] = JObject.FromObject(new QuestStateDTO
             {
@@ -77,9 +82,13 @@ namespace KingdomIdle.Balance
                     new() { Kind = EconomyCommandKind.RubyGold, Mode = 1, ExpectedLevel = 0, CountLimit = 1, SpendLimit = 20 }
                 }
             };
+            response.Receipt.PayloadHash = EconomyInputJournal.Hash(request);
+            Check(response.Receipt.PayloadHash == "D1D2DACD4AC86593C430F246055EB6F92A6953DF0338CC09CBF998234683422B",
+                "adding mage commands leaves the existing mixed growth hash unchanged");
             EconomyBatchProtocol.ValidateRequest(request); EconomyBatchProtocol.MatchRequest(response, request);
             Check(true, "x1 input identities survive mixed growth prefix and rejection");
             request.Commands[0].SpendLimit = 49;
+            response.Receipt.PayloadHash = EconomyInputJournal.Hash(request);
             Check(Rejected(() => EconomyBatchProtocol.MatchRequest(response, request)), "result cannot exceed click spend cap");
             request.Commands[0].SpendLimit = 50; request.Sequence++;
             Check(Rejected(() => EconomyBatchProtocol.MatchRequest(response, request)), "same nonce with wrong sequence is not accepted");
@@ -88,7 +97,87 @@ namespace KingdomIdle.Balance
             request.Commands[0].ExpectedLevel = 299;
             EconomyBatchProtocol.ValidateRequest(request);
             Check(true, "x10 still caps to the one remaining level");
+            CheckMageContract(request, Check, Rejected, Read);
             return new { passed = checks.Count, checks };
+        }
+
+        private static void CheckMageContract(OnEconomyBatchRequestDTO request, Action<bool, string> check,
+            Func<Action, bool> rejected, Func<JObject, bool> read)
+        {
+            EconomyCommandDTO Mage(int id, int level) => new() { Kind = EconomyCommandKind.MageEnhance, Mode = 1,
+                SkillId = id, ExpectedLevel = level, CountLimit = 1, SpendLimit = BalanceMath.MageCost(level).Value };
+            var first = Mage(0, 0);
+            request.Commands = new() { first };
+            check(EconomyInputJournal.Hash(request) == "F58A2E6473AB9E5E6B3CADF29EA940FCEB7FBD955B5638B6F39498C56C785AAD",
+                "skill zero is present after TotalKills in the canonical mage hash");
+            foreach (var id in new int?[] { null, -1, 6, 8, 10 })
+            {
+                first.SkillId = id;
+                check(!EconomyInputJournal.ValidCommand(first) && rejected(() => EconomyBatchProtocol.ValidateRequest(request)),
+                    "invalid mage target cannot be journaled or sent: " + id);
+            }
+            first.SkillId = 0; first.Kind = EconomyCommandKind.GoldHealth;
+            check(!EconomyInputJournal.ValidCommand(first) && rejected(() => EconomyBatchProtocol.ValidateRequest(request)), "non-mage command cannot carry a skill ID");
+            first.Kind = EconomyCommandKind.MageEnhance; first.CountLimit = 2;
+            check(rejected(() => EconomyBatchProtocol.ValidateRequest(request)), "one mage command is exactly one click");
+            first.CountLimit = 1;
+            request.Commands.Add(Mage(0, 1));
+            request.Commands.Add(Mage(9, 0));
+            request.Commands.Add(new() { Kind = EconomyCommandKind.GoldHealth, Mode = 1, CountLimit = 1, SpendLimit = 50 });
+            request.Commands.Add(Mage(9, 1));
+            EconomyBatchProtocol.ValidateRequest(request);
+
+            var response = Fixture();
+            response.Receipt.PayloadHash = EconomyInputJournal.Hash(request);
+            response.Receipt.Results = new()
+            {
+                new() { Index = 0, Kind = first.Kind, Status = EconomyCommandStatus.Rejected, ErrorCode = eErrorCode.EconomyExpectedLevelMismatch },
+                new() { Index = 1, Kind = first.Kind, Status = EconomyCommandStatus.Unprocessed },
+                new() { Index = 2, Kind = first.Kind, Status = EconomyCommandStatus.Applied, AppliedCount = 1, SpentArcaneKnowledge = 10 },
+                new() { Index = 3, Kind = EconomyCommandKind.GoldHealth, Status = EconomyCommandStatus.Applied, AppliedCount = 1, SpentGold = 50 },
+                new() { Index = 4, Kind = first.Kind, Status = EconomyCommandStatus.Applied, AppliedCount = 1, SpentArcaneKnowledge = request.Commands[4].SpendLimit }
+            };
+            var state = response.CurrentState;
+            state.EconomyBatchState.SupportsMageEnhance = true;
+            check(!read(JObject.FromObject(response)), "a completed mage receipt requires its canonical tower");
+            var skill = new MageSkillDTO { SkillId = 9, EnhancementLevel = 2, KnowledgeSpent = 10 + request.Commands[4].SpendLimit };
+            state.MageTowerState = new() { Skills = new() { skill }, EquippedSkillIds = new[] { 9, -1, -1, -1, -1 } };
+            var saved = EconomyInputJournal.Clone(request);
+            EconomyBatchProtocol.MatchRequest(response, saved);
+            check(read(JObject.FromObject(response)) && EconomyCopies.Copy(first).SkillId == 0 &&
+                EconomyCopies.Copy(state.EconomyBatchState).SupportsMageEnhance && EconomyCopies.Copy(response.Receipt).Results[2].SpentArcaneKnowledge == 10,
+                "recovered mage rejection skips its skill and retains another mage and gold success");
+            state.MageTowerState.EquippedSkillIds[1] = 9;
+            check(!read(JObject.FromObject(response)), "duplicate equipped mage skills cannot overwrite confirmed slots");
+            state.MageTowerState.EquippedSkillIds[1] = -1;
+            response.Replayed = true;
+            state.MageTowerState.Skills.Clear(); state.MageTowerState.EquippedSkillIds[0] = -1;
+            check(rejected(() => EconomyBatchProtocol.MatchRequest(response, saved)), "newer replay snapshot must still own each enhanced skill");
+            state.MageTowerState.Skills.Add(skill);
+            response.EconomyRevision = response.Receipt.CommittedRevision;
+            EconomyBatchProtocol.MatchRequest(response, saved);
+            check(true, "same-revision state uses the last of two applied enhancements to one skill");
+            skill.EnhancementLevel = 1;
+            check(rejected(() => EconomyBatchProtocol.MatchRequest(response, saved)), "same-revision snapshot cannot stop at an earlier accepted skill level");
+            response.EconomyRevision++;
+            skill.EnhancementLevel = 0; skill.KnowledgeSpent = 0;
+            EconomyBatchProtocol.MatchRequest(response, saved);
+            check(true, "later canonical revision can contain a valid enhancement reset");
+            saved.Commands[1].SkillId = 1;
+            check(rejected(() => EconomyBatchProtocol.MatchRequest(response, saved)), "lookup compares the receipt to the frozen skill IDs");
+            response.Receipt.PayloadHash = EconomyInputJournal.Hash(saved);
+            check(rejected(() => EconomyBatchProtocol.MatchRequest(response, saved)), "a different skill cannot be silently skipped");
+            response.Receipt.PayloadHash = EconomyInputJournal.Hash(request);
+            var applied = response.Receipt.Results[2];
+            applied.SpentArcaneKnowledge++;
+            check(rejected(() => EconomyBatchProtocol.MatchRequest(response, request)), "mage result cannot exceed click spend limit");
+            applied.SpentArcaneKnowledge = 0;
+            check(!read(JObject.FromObject(response)), "applied mage result requires an arcane knowledge debit");
+            applied.SpentArcaneKnowledge = 10;
+            response.Receipt.Results[0].ErrorCode = eErrorCode.EconomyRevisionMismatch;
+            check(!read(JObject.FromObject(response)), "global revision failure on a mage command stops the whole batch");
+            response.Receipt = null; response.Status = EconomyBatchStatus.NotFound; state.MageTowerState = null;
+            check(!read(JObject.FromObject(response)), "capable recovery response requires a full mage snapshot");
         }
 
         internal static OnEconomyBatchResponseDTO Fixture()

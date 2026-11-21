@@ -407,20 +407,23 @@ namespace KingdomIdle.UGUI
                 return true;
             }
             if (!EconomyBatchProgression.HasHeldSpending) return false;
-            if (!EconomyBatchProgression.TryGetHeldPreview(out int count, out long gold, out long ruby))
+            if (!EconomyBatchProgression.TryGetHeldPreview(out int count, out long gold, out long ruby, out long knowledge))
             {
-                if (EconomyBatchProgression.HasHeldSpending) ShowToast("보류 입력의 재화 조건과 서버 결과를 확인한 뒤 다시 시도해 주세요.");
+                if (EconomyBatchProgression.HasHeldSpending && !EconomyBatchProgression.HasPendingFailureNotice)
+                    ShowToast("보류 입력의 재화 조건과 서버 결과를 확인한 뒤 다시 시도해 주세요.");
                 return true;
             }
             long generation = LocalProgression.AccountGeneration;
+            string knowledgeCost = knowledge > 0 ? $" · {NumberNotation.Exact(knowledge)} 비전 지식" : "";
             bool shown = EquipmentActionDialog.ShowConfirmation("보류된 육성 재개",
-                $"육성 입력 {count:N0}건\n예상 비용: {NumberNotation.Exact(gold)} 골드 · {NumberNotation.Exact(ruby)} 루비\n\n확인한 입력만 이어서 처리합니다.\n취소하면 보류 상태를 유지합니다.", "재개하기", () =>
+                $"육성 입력 {count:N0}건\n예상 비용: {NumberNotation.Exact(gold)} 골드 · {NumberNotation.Exact(ruby)} 루비{knowledgeCost}\n\n확인한 입력만 이어서 처리합니다.\n취소하면 보류 상태를 유지합니다.", "재개하기", () =>
                 {
                     if (generation != LocalProgression.AccountGeneration) return;
-                    if (!EconomyBatchProgression.TryGetHeldPreview(out int nextCount, out long nextGold, out long nextRuby) ||
-                        count != nextCount || gold != nextGold || ruby != nextRuby || !EconomyBatchProgression.ResumeHeldInputs())
+                    if (!EconomyBatchProgression.TryGetHeldPreview(out int nextCount, out long nextGold, out long nextRuby, out long nextKnowledge) ||
+                        count != nextCount || gold != nextGold || ruby != nextRuby || knowledge != nextKnowledge || !EconomyBatchProgression.ResumeHeldInputs())
                     {
-                        if (EconomyBatchProgression.HasHeldSpending) ShowToast("재개 조건이 변경되었습니다. 수량과 비용을 다시 확인해 주세요.");
+                        if (EconomyBatchProgression.HasHeldSpending && !EconomyBatchProgression.HasPendingFailureNotice)
+                            ShowToast("재개 조건이 변경되었습니다. 수량과 비용을 다시 확인해 주세요.");
                     }
                     Refresh();
                 });

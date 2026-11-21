@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using KingdomIdle.MageTower;
 using MainWaveProgression = KingdomIdle.Balance.MainWaveProgression;
 using EconomyBatchProtocol = KingdomIdle.Balance.EconomyBatchProtocol;
 using EconomyBatchProgression = KingdomIdle.Balance.EconomyBatchProgression;
@@ -465,6 +466,7 @@ namespace Scripts.Core.Manager
             if (payload is EquipmentAuthRequestDTO auth)
             {
                 auth.EconomyBatchVersion = EconomyBatchProtocol.Version;
+                auth.SupportsMageEnhance = true;
                 auth.EconomyClientId = EconomyBatchProgression.ClientId;
             }
             if (payload is OnEconomyBatchRequestDTO batch) EconomyBatchProtocol.ValidateRequest(batch);
@@ -569,6 +571,7 @@ namespace Scripts.Core.Manager
                 {
                     EconomyBatchProtocol.ValidateMetadata(user.EconomyBatchState, user.EconomyRevision);
                     EconomyBatchProtocol.ValidateDungeon(user.EconomyDungeonBattle);
+                    if (user.EconomyBatchState.SupportsMageEnhance) ValidateMageTower(user.MageTowerState);
                     if (user.DungeonState == null || user.EconomyDungeonBattle?.BattleId != user.DungeonState.ActiveBattleId ||
                         user.EconomyDungeonBattle != null && user.EconomyDungeonBattle.DungeonId != user.DungeonState.ActiveDungeonId)
                         throw new JsonSerializationException("Economy dungeon snapshot mismatch.");
@@ -791,16 +794,21 @@ namespace Scripts.Core.Manager
                 throw new JsonSerializationException("Invalid attendance claimed days.");
         }
 
-        // 마탑 상태: 스킬 목록·슬롯 5칸이 있고 값이 음수가 아니어야 한다. 보유·중복 검사는 적용 함수(UserManager.ApplyMageTower)가 한다.
-        private static void ValidateMageTower(MageTowerStateDTO state)
+        internal static void ValidateMageTower(MageTowerStateDTO state)
         {
             if (state == null || state.Skills == null || state.EquippedSkillIds == null || state.EquippedSkillIds.Length != 5)
                 throw new JsonSerializationException("Missing mage tower state.");
+            var owned = new HashSet<int>();
             foreach (var skill in state.Skills)
             {
-                if (skill == null || skill.SkillId < 0 || skill.EnhancementLevel < 0 || skill.AwakeningLevel < 0 || skill.Fragments < 0 || skill.KnowledgeSpent < 0)
+                if (skill == null || skill.SkillId < 0 || skill.SkillId >= MageSkillRules.IdCapacity || !owned.Add(skill.SkillId) ||
+                    skill.EnhancementLevel < 0 || skill.EnhancementLevel > KingdomIdle.Balance.BalanceMath.MageCap ||
+                    skill.AwakeningLevel < 0 || skill.AwakeningLevel > MageSkillRules.BloomAwakening || skill.Fragments < 0 || skill.KnowledgeSpent < 0)
                     throw new JsonSerializationException("Invalid mage skill.");
             }
+            foreach (int id in state.EquippedSkillIds)
+                if (id != -1 && (!MageSkillRules.IsAvailable(id) || !owned.Remove(id)))
+                    throw new JsonSerializationException("Invalid equipped mage skill.");
         }
 
         internal static void ValidateMailboxResponse(ApiResponseDTO response)

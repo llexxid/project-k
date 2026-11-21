@@ -1,7 +1,6 @@
 using UnityEngine;
 using KingdomIdle.MageTower;
 using KingdomIdle.Balance;
-using Scripts.Core;
 
 namespace KingdomIdle.UGUI
 {
@@ -15,7 +14,7 @@ namespace KingdomIdle.UGUI
     {
         private static MageTowerDetailPopupView _view;
         private static int _skillId;
-        private static bool _subscribed;
+        private static MageTowerManager _subscribedManager;
 
         public static bool IsOpen => _view != null && _view.gameObject.activeSelf;
 
@@ -34,8 +33,8 @@ namespace KingdomIdle.UGUI
 
         public static void Hide()
         {
-            if (_view == null) return;
             Unsubscribe();
+            if (_view == null) return;
             _view.gameObject.SetActive(false);
             MageTowerPopupController.RefreshIfOpen();
             // (좌측 스킬 슬롯 HUD 제거됨 — 강화/각성 결과는 별도 HUD 갱신이 필요 없다)
@@ -119,14 +118,7 @@ namespace KingdomIdle.UGUI
                 $"\n왕국군 공격력 {BalanceMath.MageAttackCoefficient((long)so.BaseDamage, eLv, aLv):P1} 반영";
             if (_view.lblEffCd != null) _view.lblEffCd.text = $"최종 쿨타임: {effCd:F1}s";
 
-            // enhance
-            if (_view.lblEnhLevel != null) _view.lblEnhLevel.text = $"강화 레벨: {eLv} / {so.maxEnhanceLevel}";
-            int enhCost = mgr.GetEnhanceCost(_skillId);
-            EconomyBridge.TryGetAmount(eCurrency.ArcaneKnowledge, out long ak);
-            if (_view.lblEnhCost != null) _view.lblEnhCost.text = enhCost < 0 ? "MAX · 다음 강화 없음" :
-                $"비전지식 · 보유 {NumberNotation.Format(ak)} · 필요 {NumberNotation.Format(enhCost)}";
-            if (_view.btnEnhance != null) _view.btnEnhance.interactable = mgr.CanEnhance(_skillId);
-            if (_view.btnEnhanceLabel != null) _view.btnEnhanceLabel.text = eLv >= so.maxEnhanceLevel ? "최대 레벨" : "강화하기";
+            RefreshEnhancement(mgr, so);
 
             if (_view.awakeningEffects != null) _view.awakeningEffects.text = MageSkillPresentation.AwakeningEffects(so, aLv, mgr.IsBloomEnabled(_skillId));
             if (_view.nextAwakening != null) _view.nextAwakening.text = MageSkillPresentation.NextAwakening(so, eLv, aLv, mgr.IsBloomEnabled(_skillId));
@@ -153,12 +145,39 @@ namespace KingdomIdle.UGUI
             long refund = mgr.GetResetRefund(_skillId);
             if (_view.lblResetRefund != null) _view.lblResetRefund.text = mgr.CanReset(_skillId)
                 ? $"강화 초기화 시 지식 {NumberNotation.Format(refund)} 반환 (80%)" : "강화한 스킬만 초기화할 수 있습니다.";
-            if (_view.btnReset != null) _view.btnReset.interactable = mgr.CanReset(_skillId);
             if (mgr.IsBusy) SetPending();
         }
 
-        // 네 버튼은 서버 요청(OnEnChantSkill·OnAwakeningSkill·OnResetSkillEnhancement·OnSetSkillBloom)을 보낸다. 결과는 완료 이벤트가 그린다.
-        private static void OnEnhanceClicked() => Request(mgr => mgr.TryEnhanceEx(_skillId));
+        private static void RefreshEnhancement(MageTowerManager mgr, MageTowerSkillSO so)
+        {
+            bool canEnhance = mgr.CanEnhance(_skillId, out int level, out int cost, out long knowledge);
+            if (_view.lblEnhLevel != null) _view.lblEnhLevel.text = $"강화 레벨: {level} / {so.maxEnhanceLevel}";
+            if (_view.lblEnhCost != null) _view.lblEnhCost.text = cost < 0 ? "MAX · 다음 강화 없음" :
+                $"비전지식 · 보유 {NumberNotation.Format(knowledge)} · 필요 {NumberNotation.Format(cost)}";
+            bool batch = EconomyBatchProgression.SupportsMageEnhance;
+            bool recover = batch && (!EconomyBatchProgression.RecoveryComplete ||
+                EconomyBatchProgression.HasUnknownResult && !EconomyBatchProgression.IsStorageRetryWaiting);
+            bool held = batch && EconomyBatchProgression.HasHeldSpending;
+            if (_view.btnEnhance != null) _view.btnEnhance.interactable = !mgr.IsBusy && (recover || held || canEnhance);
+            if (_view.btnEnhanceLabel != null) _view.btnEnhanceLabel.text = recover ? "저장 결과 확인" : held ? "보류 입력 확인" :
+                level >= so.maxEnhanceLevel ? "최대 레벨" : "강화하기";
+            if (_view.btnReset != null) _view.btnReset.interactable = !mgr.IsBusy && mgr.CanReset(_skillId) && level == mgr.GetEnhanceLevel(_skillId);
+        }
+
+        private static void OnProjectionChanged()
+        {
+            if (!IsOpen) return;
+            var mgr = MageTowerManager.Instance;
+            if (mgr == null || mgr.IsBusy) return;
+            var so = mgr.GetSkillById(_skillId);
+            if (so != null) RefreshEnhancement(mgr, so);
+        }
+
+        private static void OnEnhanceClicked()
+        {
+            if (EconomyBatchProgression.SupportsMageEnhance && DevelopmentPanelController.TryHandlePendingGrowth()) return;
+            Request(mgr => mgr.TryEnhanceEx(_skillId));
+        }
         private static void OnAwakenClicked() => Request(mgr => mgr.TryAwakenEx(_skillId));
         private static void OnResetClicked() => Request(mgr => mgr.TryResetEx(_skillId));
         private static void OnBloomClicked() => Request(mgr => mgr.TrySetBloomEx(_skillId, !mgr.IsBloomEnabled(_skillId)));
@@ -169,8 +188,8 @@ namespace KingdomIdle.UGUI
             var mgr = MageTowerManager.Instance;
             if (mgr == null) return;
             var result = start(mgr);
-            if (result == MageTowerManager.MageActionResult.Pending) { SetPending(); return; }
-            if (result == MageTowerManager.MageActionResult.Busy) return;
+            if (result == MageTowerManager.MageActionResult.Pending) { if (mgr.IsBusy) SetPending(); return; }
+            if (result is MageTowerManager.MageActionResult.Queued or MageTowerManager.MageActionResult.Busy) return;
             UIManager.Instance?.ShowToast(DescribeGate(result));
             RefreshContent();
         }
@@ -199,6 +218,8 @@ namespace KingdomIdle.UGUI
                 case MageTowerManager.MageActionResult.NotEnough: return "지식 또는 파편이 부족합니다.";
                 case MageTowerManager.MageActionResult.NotUnlocked: return "각성 10레벨에 개방됩니다.";
                 case MageTowerManager.MageActionResult.NoChange: return "변경할 내용이 없습니다.";
+                case MageTowerManager.MageActionResult.SaveFailed: return EconomyBatchProgression.FailureMessage;
+                case MageTowerManager.MageActionResult.QueueFull: return "강화 입력이 가득 찼습니다. 잠시 후 다시 시도해 주세요.";
                 default: return "요청할 수 없는 스킬입니다.";
             }
         }
@@ -206,24 +227,30 @@ namespace KingdomIdle.UGUI
         private static void Subscribe()
         {
             var mgr = MageTowerManager.Instance;
-            if (mgr == null || _subscribed) return;
+            Unsubscribe();
+            if (mgr == null) return;
+            _subscribedManager = mgr;
             mgr.OnActionCompleted += OnActionCompleted;
-            _subscribed = true;
+            mgr.OnStateChanged += RefreshContent;
+            EconomyBatchProgression.Changed += OnProjectionChanged;
         }
 
         private static void Unsubscribe()
         {
-            var mgr = MageTowerManager.Instance;
-            if (mgr != null && _subscribed) mgr.OnActionCompleted -= OnActionCompleted;
-            _subscribed = false;
+            if (_subscribedManager != null)
+            {
+                _subscribedManager.OnActionCompleted -= OnActionCompleted;
+                _subscribedManager.OnStateChanged -= RefreshContent;
+            }
+            _subscribedManager = null;
+            EconomyBatchProgression.Changed -= OnProjectionChanged;
         }
 
         /// <summary>서버 응답 적용 뒤 다시 그린다. 편성 결과는 장착 팝업이 알리므로 여기서는 토스트를 띄우지 않는다.</summary>
         private static void OnActionCompleted(MageTowerManager.MageActionInfo info)
         {
             if (_view == null || !_view.gameObject.activeSelf) return;
-            RefreshContent();
-            MageTowerPopupController.RefreshIfOpen();
+            if (info?.Ok != true) RefreshContent();
             if (info != null && info.Kind != MageTowerManager.MageActionKind.Loadout) UIManager.Instance?.ShowToast(MageTowerManager.Describe(info));
         }
     }

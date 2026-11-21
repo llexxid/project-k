@@ -441,10 +441,15 @@ namespace KingdomIdle.UGUI
 
         private long GetCurrencyAmount(eCurrency c)
         {
-            if (EconomyBatchProgression.Available && (c == eCurrency.Gold || c == eCurrency.Ruby))
+            if (EconomyBatchProgression.Available && (c == eCurrency.Gold || c == eCurrency.Ruby || c == eCurrency.ArcaneKnowledge))
             {
                 var projection = EconomyBatchProgression.GetProjection();
-                if (projection.Valid) return c == eCurrency.Gold ? projection.Gold : projection.Ruby;
+                if (projection.Valid) return c switch
+                {
+                    eCurrency.Gold => projection.Gold,
+                    eCurrency.Ruby => projection.Ruby,
+                    _ => projection.ArcaneKnowledge
+                };
             }
             if (_wallet == null) return 0;
             return WalletLocator.TryGetAmount(_wallet, c, out long amount) ? amount : 0;

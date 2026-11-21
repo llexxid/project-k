@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using KingdomIdle.Balance;
+using KingdomIdle.MageTower;
 using Newtonsoft.Json;
 using PlayFab;
 using PlayFab.CloudScriptModels;
@@ -34,6 +35,60 @@ namespace KingdomIdle.UGUI.Editor
         /// <summary>빈 PlayMode에서 코루틴으로 실행한다. 캡처 대기는 체크포인트마다 45초로 제한한다.</summary>
         public static IEnumerator RunRapidTaps(Action<object> completed = null) => RunTaps(false, completed);
         public static IEnumerator RunStorageRetry(Action<object> completed = null) => RunTaps(true, completed);
+
+        public static object RunMageEnhance()
+        {
+            var checks = new List<string>();
+            foreach (bool supported in new[] { true, false })
+            {
+                using var fixture = new RapidTapFixture(false, mage: true);
+                fixture.Pump();
+                fixture.Check(EconomyBatchProgression.RecoveryComplete, "Isolated economy session is ready");
+                var view = fixture.OpenMageDetail(supported);
+                var mage = MageTowerManager.Instance;
+                long damage = mage.GetEffectiveDamage(0);
+                string shownDamage = view.lblEffDmg.text;
+                fixture.Check(view.btnEnhance.interactable, "Owned skill has enough knowledge for its first enhancement");
+                if (supported)
+                {
+                    view.btnEnhance.onClick.Invoke();
+                    fixture.Check(view.btnEnhance.interactable && !mage.IsBusy, "First click leaves ordinary enhancement available");
+                    view.btnEnhance.onClick.Invoke();
+                    var projection = EconomyBatchProgression.GetProjection();
+                    fixture.Check(projection.Valid && projection.Level(EconomyCommandKind.MageEnhance, 0) == 2 &&
+                        projection.ArcaneKnowledge == 0 && projection.Level(EconomyCommandKind.MageEnhance, 3) == 4 &&
+                        view.lblEnhLevel.text == "강화 레벨: 2 / 100" && view.lblEnhCost.text.Contains("보유 0") && !view.btnEnhance.interactable,
+                        "Two clicks update only the selected skill and exhaust the projected balance");
+                    fixture.Check(view.lblEffDmg.text == shownDamage && mage.GetEffectiveDamage(0) == damage && mage.GetEnhanceLevel(0) == 0 &&
+                        mage.GetTotalAKSpent(0) == 0 && LocalProgression.Balance(eCurrency.ArcaneKnowledge) == 21,
+                        "Displayed damage, combat and refundable spending remain confirmed while two inputs are pending");
+                    EconomyBatchProgression.FlushLocalWrites();
+                    var saved = new EconomyInputJournal(LocalProgression.EconomyJournalPath, LocalProgression.AccountKey).Data.Inputs;
+                    fixture.Check(saved.Count == 2 && saved.All(x => x.Command.Kind == EconomyCommandKind.MageEnhance && x.Command.SkillId == 0) &&
+                        saved.Select(x => x.Command.ExpectedLevel).SequenceEqual(new[] { 0, 1 }) &&
+                        saved.Select(x => x.Command.SpendLimit).SequenceEqual(new long[] { 10, 11 }),
+                        "Durable inputs retain the skill, expected level and exact price of each click");
+                    fixture.AcknowledgeMageWithThrowingObserver();
+                    fixture.Check(mage.GetEnhanceLevel(0) == 2 && mage.GetEffectiveDamage(0) > damage && view.lblEffDmg.text != shownDamage &&
+                        mage.GetTotalAKSpent(0) == 21 && mage.GetResetRefund(0) == 16 && view.btnReset.interactable &&
+                        LocalProgression.Balance(eCurrency.ArcaneKnowledge) == 0 && mage.GetEnhanceLevel(3) == 4,
+                        "Confirmed damage, refund and unchanged second skill agree with the saved server result");
+                }
+                else
+                {
+                    // Hold the shared write fence so the legacy request can be observed without dispatching it.
+                    EconomyBatchProgression.SetExternalWritePending(true);
+                    view.btnEnhance.onClick.Invoke();
+                    fixture.Check(mage.IsBusy && !view.btnEnhance.interactable && view.btnEnhanceLabel.text == "요청 중" &&
+                        mage.TryEnhanceEx(0) == MageTowerManager.MageActionResult.Busy && EconomyBatchProgression.PendingSpendingCount == 0,
+                        "A server without mage batching uses the fenced single request and blocks a second click");
+                }
+                fixture.Check(fixture.Transport.Calls == (supported ? 1 : 0) && fixture.Transport.Unexpected == 0,
+                    "Only the supported two-click batch reaches the isolated HTTP transport");
+                checks.AddRange(fixture.Checks);
+            }
+            return new { passed = checks.Count, checks };
+        }
 
         private static IEnumerator RunTaps(bool throttle, Action<object> completed)
         {
@@ -200,13 +255,14 @@ namespace KingdomIdle.UGUI.Editor
             private QuestManager _quests;
             private QuestRowSnapshot _pendingQuest;
             private QuestBoardSnapshot _guideBoard;
+            private MageTowerManager _mage;
             private bool _disposed;
 
-            internal RapidTapFixture(bool throttle)
+            internal RapidTapFixture(bool throttle, bool mage = false)
             {
-                if (!Application.isPlaying || LocalProgression.IsReady || NetworkManager.Instance != null || UserManager.Instance != null ||
+                if ((!Application.isPlaying && !mage) || LocalProgression.IsReady || NetworkManager.Instance != null || UserManager.Instance != null ||
                     StatEnhanceManager.Instance != null || UIManager.Instance != null || StageManager.Instance != null ||
-                    QuestManager.Instance != null || ModalBackHandler.HasOpenModal)
+                    QuestManager.Instance != null || (mage && MageTowerManager.Instance != null) || ModalBackHandler.HasOpenModal)
                     throw new InvalidOperationException("Rapid tap acceptance requires empty signed-out PlayMode.");
                 _previousWalletSubscription = (bool)_walletType.GetField("_subscribed", Static).GetValue(null);
                 _previousPublished = new((Dictionary<eCurrency, long>)_walletType.GetField("Published", Static).GetValue(null));
@@ -264,6 +320,22 @@ namespace KingdomIdle.UGUI.Editor
                 catch { Dispose(); throw; }
             }
 
+            internal MageTowerDetailPopupView OpenMageDetail(bool supported)
+            {
+                Check(LocalProgression.Execute("qa-mage-rapid-ui", state =>
+                {
+                    state.Economy.Server.SupportsMageEnhance = supported;
+                    state.Wallet[eCurrency.ArcaneKnowledge] = 21;
+                    state.MageSkills[0] = new(); state.MageSkills[3] = new() { Enhance = 4 };
+                    return true;
+                }), "Owned skills and capability are saved in the isolated account");
+                _mage = _owner.AddComponent<MageTowerManager>();
+                Set(_mage, "skillRegistry", AssetDatabase.LoadAssetAtPath<MageTowerSkillRegistrySO>("Assets/MageTower/SO/MageTowerSkillList.asset"));
+                Invoke(_mage, "Awake");
+                MageTowerDetailPopupController.Show(0);
+                return _canvas.GetComponentInChildren<MageTowerDetailPopupView>();
+            }
+
             internal void BuildPanel()
             {
                 var screen = UnityEngine.Object.Instantiate(_catalog.screenMain, _canvas.transform, false).GetComponent<MainScreenView>();
@@ -282,6 +354,46 @@ namespace KingdomIdle.UGUI.Editor
             { if (!condition) throw new InvalidOperationException("Rapid tap UI: " + message); if (log) Checks.Add(message); }
             private void OnInputCompleted(EconomyInputCompletion result)
             { if (result.Success) SuccessfulInputs++; else throw new InvalidOperationException(result.Message); }
+
+            internal void AcknowledgeMageWithThrowingObserver()
+            {
+                bool flushed = false;
+                Check(EconomyBatchProgression.FlushBeforeWrite(ok => flushed = ok), "A write fence waits for both mage inputs");
+                Pump(); Pump();
+                var request = Transport.Request;
+                Check(Transport.Pending && request?.Commands.Count == 2, "Both clicks reached one isolated HTTP request");
+                var state = LocalProgression.State;
+                var receipt = new EconomyBatchReceiptDTO
+                {
+                    RequestId = request.RequestId, Generation = request.Generation, Sequence = request.Sequence,
+                    PayloadHash = EconomyInputJournal.Hash(request), CommittedRevision = state.ServerEconomyRevision + 1,
+                    Results = new()
+                    {
+                        new() { Index = 0, Kind = EconomyCommandKind.MageEnhance, Status = EconomyCommandStatus.Applied, AppliedCount = 1, SpentArcaneKnowledge = 10 },
+                        new() { Index = 1, Kind = EconomyCommandKind.MageEnhance, Status = EconomyCommandStatus.Applied, AppliedCount = 1, SpentArcaneKnowledge = 11 }
+                    }
+                };
+                var metadata = EconomyCopies.Copy(state.Economy.Server);
+                metadata.NextSequence = request.Sequence + 1; metadata.PendingReceipt = receipt;
+                var response = Response(request.RequestId, state.AttackLevel, LocalProgression.Balance(eCurrency.Gold), metadata, receipt);
+                response.CurrentState.MageTowerState = new()
+                {
+                    Skills = new() { new() { SkillId = 0, EnhancementLevel = 2, KnowledgeSpent = 21 }, new() { SkillId = 3, EnhancementLevel = 4 } },
+                    EquippedSkillIds = state.MageSlots.ToArray()
+                };
+                int faultyCalls = 0, observedLevel = -1;
+                void FaultyObserver() { faultyCalls++; throw new InvalidOperationException("Expected mage acceptance observer failure"); }
+                void LaterObserver() => observedLevel = _mage.GetEnhanceLevel(0);
+                _mage.OnStateChanged += FaultyObserver;
+                _mage.OnStateChanged += LaterObserver;
+                try { Transport.Succeed(response); }
+                finally { _mage.OnStateChanged -= FaultyObserver; _mage.OnStateChanged -= LaterObserver; }
+                Pump();
+                var journal = new EconomyInputJournal(LocalProgression.EconomyJournalPath, LocalProgression.AccountKey).Data;
+                Check(faultyCalls == 1 && observedLevel == 2 && SuccessfulInputs == 2 && flushed && !EconomyBatchProgression.HasUnknownResult &&
+                    journal.InFlight == null && journal.Inputs.Count == 0 && LocalProgression.State.Economy.LastAppliedRequestId == request.RequestId,
+                    "A throwing mage subscriber leaves the next subscriber, both completion callbacks, durable journal and write fence intact");
+            }
 
             internal void Acknowledge()
             {
@@ -400,6 +512,11 @@ namespace KingdomIdle.UGUI.Editor
             {
                 if (_disposed) return; _disposed = true;
                 EconomyBatchProgression.InputCompleted -= OnInputCompleted;
+                if (_mage != null)
+                {
+                    MageTowerDetailPopupController.Hide();
+                    Invoke(_mage, "OnDestroy");
+                }
                 _panel?.OnClosed?.Invoke();
                 if (_main != null) Invoke(_main, "UnhookEconomyChangeHandler");
                 if (_canvas != null) UnityEngine.Object.DestroyImmediate(_canvas);

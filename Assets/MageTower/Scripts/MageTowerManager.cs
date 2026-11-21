@@ -26,7 +26,12 @@ namespace KingdomIdle.MageTower
 
         private int[] _equipped => LocalProgression.State.MageSlots;
         private MageSave Saved(int id) => LocalProgression.State.MageSkills.TryGetValue(id, out var value) ? value : null;
-        public void NotifyCommitted() => OnStateChanged?.Invoke();
+        public void NotifyCommitted()
+        {
+            if (OnStateChanged == null) return;
+            foreach (Action observer in OnStateChanged.GetInvocationList())
+                try { observer(); } catch (Exception error) { Debug.LogException(error); }
+        }
 
         private readonly float[] _cooldowns = new float[SlotCount];
         private readonly float[] _cooldownTimers = new float[SlotCount];
@@ -37,8 +42,8 @@ namespace KingdomIdle.MageTower
         public event Action OnStateChanged;
         public event Action OnCooldownTick;
 
-        /// <summary>서버 마탑 조작의 결과. Pending을 돌려준 뒤 OnActionCompleted로 결과를 알린다. 나머지는 안내용 가드다(최종 판정은 서버).</summary>
-        public enum MageActionResult { Pending, Busy, NetworkNotReady, InvalidRequest, NotOwned, MaxLevel, NotEnough, NotUnlocked, NoChange }
+        /// <summary>단건 Pending은 OnActionCompleted, 배치 Queued는 공통 경제 진행 이벤트로 결과를 알린다.</summary>
+        public enum MageActionResult { Pending, Busy, NetworkNotReady, InvalidRequest, NotOwned, MaxLevel, NotEnough, NotUnlocked, NoChange, Queued, SaveFailed, QueueFull }
         public enum MageActionKind { Enhance, Awaken, Loadout, Bloom, Reset }
         /// <summary>완료 이벤트 인자. 지출·환급은 서버 응답 값이고 표시 전용이다.</summary>
         public sealed class MageActionInfo
@@ -256,29 +261,45 @@ namespace KingdomIdle.MageTower
         }
 
         // ===== 강화 =====
-        public int GetEnhanceCost(int skillId)
-        {
-            return (int)(BalanceMath.MageCost(GetEnhanceLevel(skillId)) ?? -1);
-    }
+        public int GetEnhanceCost(int skillId) => (int)(BalanceMath.MageCost(GetEnhanceLevel(skillId)) ?? -1);
 
-        public bool CanEnhance(int skillId)
+        public bool CanEnhance(int skillId) => CanEnhance(skillId, out _, out _, out _);
+
+        internal bool CanEnhance(int skillId, out int level, out int cost, out long knowledge)
         {
-            var so = GetSkillById(skillId);
-            if (so == null) return false;
-            if (!IsOwned(skillId)) return false;
-            if (GetEnhanceLevel(skillId) >= BalanceMath.MageCap) return false;
-            EconomyBridge.TryGetAmount(eCurrency.ArcaneKnowledge, out long ak);
-            return ak >= GetEnhanceCost(skillId);
+            bool batch = EconomyBatchProgression.SupportsMageEnhance;
+            var projection = batch ? EconomyBatchProgression.GetProjection() : default;
+            int projected = projection.Level(EconomyCommandKind.MageEnhance, skillId);
+            level = projection.Valid && projected >= 0 ? projected : GetEnhanceLevel(skillId);
+            cost = (int)(BalanceMath.MageCost(level) ?? -1);
+            if (projection.Valid) knowledge = projection.ArcaneKnowledge;
+            else EconomyBridge.TryGetAmount(eCurrency.ArcaneKnowledge, out knowledge);
+            return cost >= 0 && knowledge >= cost && IsOwned(skillId) && GetSkillById(skillId) != null &&
+                (!batch || projection.Valid && EconomyBatchProgression.CanAcceptGrowth);
         }
 
-        /// <summary>강화 비용 차감·단계 상승은 서버(OnEnChantSkill)가 확정하고 응답의 MageTowerState·CurrentArcaneKnowledge를 저장한다. CanEnhance는 안내용이다.</summary>
-        public bool Enhance(int skillId) => TryEnhanceEx(skillId) == MageActionResult.Pending;
+        public bool Enhance(int skillId) => TryEnhanceEx(skillId) is MageActionResult.Pending or MageActionResult.Queued;
         public MageActionResult TryEnhanceEx(int skillId)
         {
             if (GetSkillById(skillId) == null) return MageActionResult.InvalidRequest;
             if (!IsOwned(skillId)) return MageActionResult.NotOwned;
-            if (GetEnhanceLevel(skillId) >= BalanceMath.MageCap) return MageActionResult.MaxLevel;
             if (IsBusy) return MageActionResult.Busy;
+            if (EconomyBatchProgression.SupportsMageEnhance)
+            {
+                var status = EconomyBatchProgression.TryQueueMageEnhance(skillId);
+                if (status == EconomyInputStatus.PendingSave) { LastFailure = null; return MageActionResult.Queued; }
+                return status switch
+                {
+                    EconomyInputStatus.MaxLevel => MageActionResult.MaxLevel,
+                    EconomyInputStatus.InsufficientFunds => MageActionResult.NotEnough,
+                    EconomyInputStatus.NotReady => MageActionResult.NetworkNotReady,
+                    EconomyInputStatus.InvalidRequest => MageActionResult.InvalidRequest,
+                    EconomyInputStatus.SaveFailed => MageActionResult.SaveFailed,
+                    EconomyInputStatus.QueueFull => MageActionResult.QueueFull,
+                    _ => MageActionResult.Busy
+                };
+            }
+            if (GetEnhanceLevel(skillId) >= BalanceMath.MageCap) return MageActionResult.MaxLevel;
             if (!CanEnhance(skillId)) return MageActionResult.NotEnough;
             var network = Begin(out MageActionResult gate);
             if (network == null) return gate;

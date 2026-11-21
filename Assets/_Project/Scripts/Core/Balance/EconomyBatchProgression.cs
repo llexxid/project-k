@@ -52,6 +52,7 @@ namespace KingdomIdle.Balance
         private static bool CurrentSession => LocalProgression.IsReady && _localGeneration == LocalProgression.AccountGeneration &&
             _network != null && _network == NetworkManager.Instance && _networkGeneration == _network.AccountGeneration;
         public static bool Available => _supported && CurrentSession && NetworkManager.Instance.IsGameDataReady;
+        public static bool SupportsMageEnhance => Available && LocalProgression.State.Economy?.Server?.SupportsMageEnhance == true;
         public static bool RecoveryComplete => _recovered && CurrentSession;
         public static bool HasUnknownResult => _batchUnknown || _externalUnknown;
         public static bool HasUnresolvedBatch
@@ -64,6 +65,7 @@ namespace KingdomIdle.Balance
             }
         }
         public static bool HasHeldSpending => _journal?.Data.Inputs.Any(x => x.Held && x.Command.Kind != EconomyCommandKind.Hunt) == true;
+        internal static bool HasPendingFailureNotice => _discardedInputs.Count != 0;
         public static bool IsStorageRetryWaiting => Available && RecoveryComplete && !_recovering && !_externalUnknown && !_blocked &&
             _storageRetryActive && !_storageRetryPaused && _storageRetryAllowsInput && _journal?.Data.InFlight != null;
         public static int PendingSpendingCount => CurrentSession && _journal != null
@@ -128,6 +130,13 @@ namespace KingdomIdle.Balance
                 if (_journal.Data.Generation != 0 && _journal.Data.Generation != metadata.Generation) RetireInputs();
                 if (_journal.Data.Generation != metadata.Generation)
                 { _journal.Data.Generation = metadata.Generation; SaveJournal(); }
+                if (!metadata.SupportsMageEnhance && _journal.Data.Inputs.Concat(_journal.Data.InFlightInputs)
+                    .Any(x => x.Command.Kind == EconomyCommandKind.MageEnhance))
+                {
+                    _supported = false;
+                    MarkUnknown("보존된 마탑 강화 입력을 지원하는 서버에서 결과를 먼저 확인해야 합니다.");
+                    return;
+                }
                 RestoreStorageRetryDeadline();
             }
             catch (Exception error) { MarkBlocked(error.Message); }
@@ -171,20 +180,26 @@ namespace KingdomIdle.Balance
         public static EconomyInputStatus TryQueueRuby(bool experience, out long localSequence) =>
             TryQueue(experience ? EconomyCommandKind.RubyExperience : EconomyCommandKind.RubyGold, 1, null, out localSequence);
 
-        private static EconomyInputStatus TryQueue(EconomyCommandKind kind, int mode, string guideReceipt, out long sequence)
+        public static EconomyInputStatus TryQueueMageEnhance(int skillId) =>
+            TryQueue(EconomyCommandKind.MageEnhance, 1, null, out _, skillId);
+
+        private static EconomyInputStatus TryQueue(EconomyCommandKind kind, int mode, string guideReceipt, out long sequence, int? skillId = null)
         {
             sequence = 0;
             bool gold = kind == EconomyCommandKind.GoldAttack || kind == EconomyCommandKind.GoldHealth;
             if (gold ? mode != 1 && mode != 10 && mode != -1 : mode != 1) return EconomyInputStatus.InvalidRequest;
             if (!Available || !RecoveryComplete) return EconomyInputStatus.NotReady;
             if (!CanAcceptGrowth) return _journal?.Error != null ? EconomyInputStatus.SaveFailed : EconomyInputStatus.Busy;
-            if (!gold && (!RubyProgression.Unlocked || kind == EconomyCommandKind.RubyExperience && LocalProgression.State.AccountLevel >= BalanceMath.AccountCap))
+            bool mage = kind == EconomyCommandKind.MageEnhance;
+            if (mage && (!SupportsMageEnhance || !skillId.HasValue || !LocalProgression.State.MageSkills.ContainsKey(skillId.Value)))
+                return EconomyInputStatus.NotReady;
+            if (!gold && !mage && (!RubyProgression.Unlocked || kind == EconomyCommandKind.RubyExperience && LocalProgression.State.AccountLevel >= BalanceMath.AccountCap))
                 return EconomyInputStatus.NotReady;
             if (_journal.Data.Inputs.Concat(_journal.Data.InFlightInputs).Count(x => x.Command.Kind != EconomyCommandKind.Hunt) >= MaxInputs)
                 return EconomyInputStatus.QueueFull;
             var projection = GetProjection();
-            if (projection.Level(kind) >= (gold ? BalanceMath.GoldCap : BalanceMath.RubyCap)) return EconomyInputStatus.MaxLevel;
-            var command = EconomyProjectionMath.Quote(projection, kind, mode);
+            if (projection.Level(kind, skillId) >= LevelCap(kind)) return EconomyInputStatus.MaxLevel;
+            var command = EconomyProjectionMath.Quote(projection, kind, mode, skillId);
             if (command == null) return EconomyInputStatus.InsufficientFunds;
             AppendHunts();
             var input = NewInput(command); input.GuideReceipt = guideReceipt;
@@ -197,6 +212,9 @@ namespace KingdomIdle.Balance
 
         private static EconomyInput NewInput(EconomyCommandDTO command) => new()
         { Sequence = _journal.Data.NextInputSequence++, Command = EconomyCopies.Copy(command) };
+
+        private static int LevelCap(EconomyCommandKind kind) => kind == EconomyCommandKind.MageEnhance ? BalanceMath.MageCap :
+            kind == EconomyCommandKind.GoldAttack || kind == EconomyCommandKind.GoldHealth ? BalanceMath.GoldCap : BalanceMath.RubyCap;
 
         public static bool RecoverPending(Action<bool> completed, bool previousSessionReplaced = false)
         {
@@ -221,13 +239,14 @@ namespace KingdomIdle.Balance
             Pump(); return true;
         }
 
-        public static bool TryGetHeldPreview(out int inputCount, out long goldCost, out long rubyCost)
+        public static bool TryGetHeldPreview(out int inputCount, out long goldCost, out long rubyCost, out long knowledgeCost)
         {
-            inputCount = 0; goldCost = rubyCost = 0;
+            inputCount = 0; goldCost = rubyCost = knowledgeCost = 0;
             if (!TryPrepareHeld(out var commands, out var after)) return false;
             inputCount = commands.Count;
             goldCost = LocalProgression.Balance(eCurrency.Gold) - after.Gold;
             rubyCost = LocalProgression.Balance(eCurrency.Ruby) - after.Ruby;
+            knowledgeCost = LocalProgression.Balance(eCurrency.ArcaneKnowledge) - after.ArcaneKnowledge;
             return true;
         }
 
@@ -236,12 +255,18 @@ namespace KingdomIdle.Balance
             commands = new(); current = default;
             if (!Available || !RecoveryComplete || HasUnknownResult || _requestPending || _externalWrite || _fences.Count != 0 ||
                 _journal == null || _journal.IsDirty || _journal.Data.InFlight != null || _journal.Data.Inputs.Any(x => !x.Held)) return false;
-            current = EconomyProjectionMath.Calculate(LocalProgression.State, Array.Empty<EconomyCommandDTO>());
+            var state = LocalProgression.State;
+            current = EconomyProjectionMath.Calculate(state, commands);
+            var invalidSkills = new HashSet<int>();
+            var discarded = new List<EconomyInput>();
             foreach (var input in _journal.Data.Inputs.Where(x => x.Held && x.Command.Kind != EconomyCommandKind.Hunt))
             {
                 var command = EconomyCopies.Copy(input.Command);
-                command.ExpectedLevel = current.Level(command.Kind);
-                int cap = command.Kind == EconomyCommandKind.GoldAttack || command.Kind == EconomyCommandKind.GoldHealth ? BalanceMath.GoldCap : BalanceMath.RubyCap;
+                bool mage = command.Kind == EconomyCommandKind.MageEnhance;
+                if (mage && !SupportsMageEnhance) return false;
+                if (mage && invalidSkills.Contains(command.SkillId.Value)) { discarded.Add(input); continue; }
+                command.ExpectedLevel = current.Level(command.Kind, command.SkillId);
+                int cap = LevelCap(command.Kind);
                 if (command.Mode > 0)
                 {
                     int count = Math.Min(command.Mode, cap - command.ExpectedLevel);
@@ -249,12 +274,21 @@ namespace KingdomIdle.Balance
                     command.CountLimit = count;
                 }
                 else command.CountLimit = Math.Min(command.CountLimit, cap - command.ExpectedLevel);
-                if (!EconomyInputJournal.ValidCommand(command) ||
-                    command.Kind == EconomyCommandKind.RubyExperience && LocalProgression.State.AccountLevel >= BalanceMath.AccountCap)
-                { DiscardHeldInputs(); return false; }
-                current = EconomyProjectionMath.Calculate(ProjectionState(current), new[] { command });
-                if (!current.Valid) { DiscardHeldInputs(); return false; }
                 commands.Add(command);
+                var next = EconomyInputJournal.ValidCommand(command) &&
+                    (command.Kind != EconomyCommandKind.RubyExperience || state.AccountLevel < BalanceMath.AccountCap)
+                    ? EconomyProjectionMath.Calculate(state, commands) : default;
+                if (next.Valid) { current = next; continue; }
+                if (!mage) { DiscardHeldInputs(); return false; }
+                commands.RemoveAt(commands.Count - 1);
+                invalidSkills.Add(command.SkillId.Value);
+                discarded.Add(input);
+            }
+            if (discarded.Count > 0)
+            {
+                _journal.Data.Inputs.RemoveAll(discarded.Contains);
+                SaveDiscardedInputs(discarded);
+                return false;
             }
             return commands.Count > 0;
         }
@@ -267,12 +301,6 @@ namespace KingdomIdle.Balance
             { input.Command = commands[index++]; input.Held = false; }
             _sealAfter = 0; Status = null; SaveJournal(); Notify(); return true;
         }
-
-        private static ProgressionState ProjectionState(EconomyProjection p) => new()
-        {
-            AttackLevel = p.AttackLevel, HealthLevel = p.HealthLevel, RubyGoldLevel = p.RubyGoldLevel, RubyExpLevel = p.RubyExpLevel,
-            Wallet = new() { [eCurrency.Gold] = p.Gold, [eCurrency.Ruby] = p.Ruby }
-        };
 
         public static bool FlushBeforeWrite(Action<bool> completed)
         {
@@ -488,7 +516,6 @@ namespace KingdomIdle.Balance
             {
                 EconomyBatchProtocol.ValidateResponse(response);
                 EconomyBatchProtocol.MatchRequest(response, request);
-                if (response.Receipt != null && response.Receipt.PayloadHash != EconomyInputJournal.Hash(request)) throw new InvalidDataException("경제 요청 원문과 서버 결과가 다릅니다.");
                 bool alreadyApplied = LocalProgression.State.Economy.LastAppliedRequestId == request.RequestId;
                 bool saved = LocalProgression.Execute("server-economy-batch", state =>
                 {
@@ -504,6 +531,8 @@ namespace KingdomIdle.Balance
                 });
                 if (!saved) throw new IOException("경제 결과를 저장하지 못했습니다: " + LocalProgression.LastError);
                 if (!Owns(localGeneration, networkGeneration, request.RequestId)) return;
+                if (response.CurrentState.MageTowerState != null)
+                    KingdomIdle.MageTower.MageTowerManager.Instance?.NotifyCommitted();
                 _queryRequired = _batchUnknown = false;
                 if (response.Status == EconomyBatchStatus.NotFound)
                 {
@@ -554,7 +583,8 @@ namespace KingdomIdle.Balance
 
         private static void ResolveCompletedInputs(EconomyBatchReceiptDTO receipt, bool alreadyApplied)
         {
-                bool rejected = receipt.Results.Any(x => x.Status == EconomyCommandStatus.Rejected);
+                bool stopSpending = receipt.Results.Any(x => x.Status == EconomyCommandStatus.Rejected && !EconomyBatchProtocol.IsIsolatedMageRejection(x));
+                var failedSkills = new HashSet<int>();
                 bool invalidHunt = false;
                 var discarded = new List<EconomyInput>();
                 for (int i = 0; i < receipt.Results.Count; i++)
@@ -570,14 +600,17 @@ namespace KingdomIdle.Balance
                     }
                     if (!hunt)
                     {
+                        if (EconomyBatchProtocol.IsIsolatedMageRejection(result)) failedSkills.Add(input.Command.SkillId.Value);
                         if (result.Status != EconomyCommandStatus.Applied) discarded.Add(input);
                         else if (!alreadyApplied) CompleteInput(input, true, "강화가 적용되었습니다.");
                     }
                 }
-                if (rejected)
+                if (stopSpending || failedSkills.Count != 0)
                 {
-                    discarded.AddRange(_journal.Data.Inputs.Where(x => x.Command.Kind != EconomyCommandKind.Hunt));
-                    _journal.Data.Inputs.RemoveAll(x => x.Command.Kind != EconomyCommandKind.Hunt);
+                    bool Cancel(EconomyInput input) => input.Command.Kind != EconomyCommandKind.Hunt &&
+                        (stopSpending || input.Command.SkillId is int id && failedSkills.Contains(id));
+                    discarded.AddRange(_journal.Data.Inputs.Where(Cancel));
+                    _journal.Data.Inputs.RemoveAll(Cancel);
                 }
                 ClearInFlight(); _journal.Data.Inputs.Sort((a, b) => a.Sequence.CompareTo(b.Sequence));
                 if (!HasUnknownResult) Status = null;
@@ -767,6 +800,7 @@ namespace KingdomIdle.Balance
             if (response == null || !ApplyBatchMetadata(state, response.EconomyBatchState, revision)) return false;
             if (!RubyProgression.ApplyServerState(state, response.RubyGrowthState) || !MainWaveProgression.ApplyServerState(state, response.MainBattle)) return false;
             UserManager.ApplyCurrency(state, response.Currency);
+            if (response.MageTowerState != null) UserManager.ApplyMageTower(state, response.MageTowerState);
             state.AttackLevel = checked((int)response.EnchantATKCount); state.HealthLevel = checked((int)response.EnchantHPCount);
             state.AccountLevel = response.Level; state.Experience = response.Exp; state.Kills = response.KillScore;
             state.MainStage = (long)response.StageState.CurrentStage; state.HighestMainClear = (long)response.StageState.MainClear;

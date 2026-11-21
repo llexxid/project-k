@@ -179,6 +179,7 @@ namespace KingdomIdle.Balance
             void Set(string name, object value) => Field(name).SetValue(null, value);
             var previousNetwork = NetworkManager.Instance;
             var owner = new GameObject("EconomyFenceAcceptance"); owner.SetActive(false);
+            var previousClientId = Field("_clientId").GetValue(null);
             string path = Path.Combine(Path.GetTempPath(), "economy-fences-" + Guid.NewGuid().ToString("N") + ".json");
             try
             {
@@ -268,23 +269,71 @@ namespace KingdomIdle.Balance
                     journal.Data.Inputs.Add(new() { Sequence = 7, Held = true, Command = attack }); journal.Data.NextInputSequence = 8;
                     journal.Changed(); journal.Pump(true);
                     LocalProgression.Execute("economy-held-cost-change", s => { s.AttackLevel = 1; s.Wallet[eCurrency.Gold] = 1000; s.Economy.Hunts.Clear(); return true; });
-                    check(!EconomyBatchProgression.TryGetHeldPreview(out _, out _, out _) && journal.Data.Inputs.Count == 1,
+                    check(!EconomyBatchProgression.TryGetHeldPreview(out _, out _, out _, out _) && journal.Data.Inputs.Count == 1,
                         "busy held preview does not discard a known unexecuted input");
                     EconomyBatchProgression.SetExternalWritePending(false);
-                    check(!EconomyBatchProgression.TryGetHeldPreview(out _, out _, out _) && !EconomyBatchProgression.HasHeldSpending && notices == 1,
+                    check(!EconomyBatchProgression.TryGetHeldPreview(out _, out _, out _, out _) && !EconomyBatchProgression.HasHeldSpending && notices == 1,
                         "held plan beyond its original spending cap is removed without a new dialog");
                     journal.Pump(true); Call("PublishDiscardedInputs");
                     check(failures == 4 && notices == 2, "invalid held plan emits one notice only after durable removal");
                     journal.Data.Inputs.Add(new() { Sequence = 8, Held = true, Command = health }); journal.Data.NextInputSequence = 9;
                     journal.Changed(); journal.Pump(true);
-                    check(EconomyBatchProgression.TryGetHeldPreview(out int count, out long gold, out long rubyCost) && count == 1 && gold == 50 && rubyCost == 0 && journal.Data.Inputs[0].Held,
+                    check(EconomyBatchProgression.TryGetHeldPreview(out int count, out long gold, out long rubyCost, out long knowledge) && count == 1 && gold == 50 && rubyCost == 0 && knowledge == 0 && journal.Data.Inputs[0].Held,
                         "valid same-device restart input remains held for explicit confirmation");
+
+                    var mage = new EconomyCommandDTO { Kind = EconomyCommandKind.MageEnhance, SkillId = 3, Mode = 1, CountLimit = 1, SpendLimit = 10 };
+                    var otherMage = EconomyCopies.Copy(mage); otherMage.SkillId = 1;
+                    request.Commands = new() { mage, attack, ruby };
+                    journal.Data.InFlight = request;
+                    journal.Data.InFlightInputs = request.Commands.Select((c, i) => new EconomyInput { Sequence = 9 + i, Command = c }).ToList();
+                    journal.Data.Inputs = new() { new() { Sequence = 12, Command = mage }, new() { Sequence = 13, Command = otherMage },
+                        new() { Sequence = 14, Command = health }, new() { Sequence = 15, Command = ruby } };
+                    journal.Data.NextInputSequence = 16;
+                    receipt.Results = new()
+                    {
+                        new() { Index = 0, Kind = mage.Kind, Status = EconomyCommandStatus.Rejected, ErrorCode = Protocol.Message.Data.eErrorCode.eNotEnoughArcaneKnowledge },
+                        new() { Index = 1, Kind = attack.Kind, Status = EconomyCommandStatus.Applied, AppliedCount = 1, SpentGold = 50 },
+                        new() { Index = 2, Kind = ruby.Kind, Status = EconomyCommandStatus.Applied, AppliedCount = 1, SpentRuby = 20 }
+                    };
+                    Call("ResolveCompletedInputs", receipt, false);
+                    journal.Pump(true); Call("PublishDiscardedInputs");
+                    check(successes == 3 && notices == 3 && failures == 6 &&
+                        new EconomyInputJournal(path, LocalProgression.AccountKey).Data.Inputs.Select(x => x.Sequence).SequenceEqual(new long[] { 13, 14, 15 }),
+                        "rejected mage restores that skill only across the batch boundary; both character upgrades complete");
+
+                    LocalProgression.Execute("mage-restart-fixture", s =>
+                    {
+                        s.Economy.Server.SupportsMageEnhance = true;
+                        s.MageSkills[1] = new();
+                        s.MageSkills.Remove(3); s.Wallet[eCurrency.ArcaneKnowledge] = 10;
+                        return true;
+                    });
+                    journal.Data.Inputs = new() { new() { Sequence = 16, Held = true, Command = mage }, new() { Sequence = 17, Held = true, Command = otherMage },
+                        new() { Sequence = 18, Held = true, Command = health } };
+                    journal.Data.NextInputSequence = 19; journal.Changed(); journal.Pump(true);
+                    check(!EconomyBatchProgression.TryGetHeldPreview(out _, out _, out _, out _) && journal.Data.Inputs.Count == 2 &&
+                        EconomyBatchProgression.HasPendingFailureNotice,
+                        "a lost mage target on restart preserves independently affordable held inputs");
+                    journal.Pump(true);
+                    check(EconomyBatchProgression.TryGetHeldPreview(out count, out gold, out rubyCost, out knowledge) &&
+                        count == 2 && gold == 50 && rubyCost == 0 && knowledge == 10 && EconomyBatchProgression.ResumeHeldInputs(),
+                        "same-device recovery confirms the knowledge cost together with gold before resuming");
+                    journal.Pump(true);
+                    Set("_clientId", Id);
+                    LocalProgression.Execute("mage-older-server", s => { s.Economy.Server.SupportsMageEnhance = false; return true; });
+                    EconomyBatchProgression.ReceiveServerState(true); EconomyBatchProgression.ConfirmFullRefresh();
+                    check(!EconomyBatchProgression.Available && EconomyBatchProgression.HasUnknownResult && journal.Data.Inputs.Count == 2,
+                        "older server keeps a saved mage batch and blocks fallback spending");
+                    LocalProgression.Execute("mage-capable-server", s => { s.Economy.Server.SupportsMageEnhance = true; return true; });
+                    EconomyBatchProgression.ReceiveServerState(true); EconomyBatchProgression.ConfirmFullRefresh();
+                    check(EconomyBatchProgression.SupportsMageEnhance && !EconomyBatchProgression.HasUnknownResult && journal.Data.Inputs.Count == 2,
+                        "restored server capability resumes the same journal without restarting the app");
                 }
                 finally { EconomyBatchProgression.InputCompleted -= Completed; EconomyBatchProgression.SpendingFailed -= Failed; }
             }
             finally
             {
-                Call("ResetAccount"); NetworkManager.Instance = previousNetwork; UnityEngine.Object.DestroyImmediate(owner);
+                Call("ResetAccount"); Set("_clientId", previousClientId); NetworkManager.Instance = previousNetwork; UnityEngine.Object.DestroyImmediate(owner);
                 foreach (string file in new[] { path, path + ".tmp", path + ".bak" }) if (File.Exists(file)) File.Delete(file);
             }
         }

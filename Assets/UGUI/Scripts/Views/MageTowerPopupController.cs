@@ -21,7 +21,7 @@ namespace KingdomIdle.UGUI
         private static int _selectedSlot;
         private static bool _pickingMode;
         private static int _candidate = -1;
-        private static bool _subscribed;
+        private static MageTowerManager _subscribedManager;
 
         public static bool IsOpen => _view != null && _view.gameObject.activeSelf;
         public static void RefreshIfOpen() { if (IsOpen) Refresh(); }
@@ -42,8 +42,8 @@ namespace KingdomIdle.UGUI
 
         public static void Hide()
         {
-            if (_view == null) return;
             Unsubscribe();
+            if (_view == null) return;
             ExitPickingMode();
             _view.gameObject.SetActive(false);
             // (좌측 스킬 슬롯 HUD 제거됨 — 장착 변경은 AUTO 시전이 다음 틱에 그대로 반영한다)
@@ -235,16 +235,21 @@ namespace KingdomIdle.UGUI
         private static void Subscribe()
         {
             var mgr = MageTowerManager.Instance;
-            if (mgr == null || _subscribed) return;
+            Unsubscribe();
+            if (mgr == null) return;
+            _subscribedManager = mgr;
             mgr.OnActionCompleted += OnActionCompleted;
-            _subscribed = true;
+            mgr.OnStateChanged += RefreshIfOpen;
         }
 
         private static void Unsubscribe()
         {
-            var mgr = MageTowerManager.Instance;
-            if (mgr != null && _subscribed) mgr.OnActionCompleted -= OnActionCompleted;
-            _subscribed = false;
+            if (_subscribedManager != null)
+            {
+                _subscribedManager.OnActionCompleted -= OnActionCompleted;
+                _subscribedManager.OnStateChanged -= RefreshIfOpen;
+            }
+            _subscribedManager = null;
         }
 
         /// <summary>서버 응답 적용 뒤 슬롯·목록을 다시 그린다. 편성 거절은 선택 안내 줄에 문구를 남긴다.</summary>
@@ -253,7 +258,7 @@ namespace KingdomIdle.UGUI
             if (_view == null || !_view.gameObject.activeSelf) return;
             bool loadout = info != null && info.Kind == MageTowerManager.MageActionKind.Loadout;
             if (loadout && info.Ok) _candidate = -1;
-            Refresh();
+            if (loadout || info?.Ok != true) Refresh();
             if (loadout && !info.Ok && _view.selectionLabel != null) _view.selectionLabel.text = info.Failure;
         }
 
