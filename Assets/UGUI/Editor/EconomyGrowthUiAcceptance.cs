@@ -131,13 +131,16 @@ namespace KingdomIdle.UGUI.Editor
                 fixture.Check(projection.Valid && projection.AttackLevel == 10 && projection.Gold == expectedGold &&
                     LocalProgression.State.AttackLevel == 0 && LocalProgression.Balance(eCurrency.Gold) == RapidTapFixture.InitialGold &&
                     fixture.Enhance.GetBonusAtkRate() == 0, "Nine queued taps update the projection immediately while confirmed balance and combat bonus stay unchanged");
-                fixture.Check(fixture.AttackCard.levelLabel.text == "Lv. 10 (예상)" &&
-                    fixture.Body.goldLabel.text.Contains(NumberNotation.Format(expectedGold)) && fixture.Body.goldLabel.text.Contains("예상") &&
-                    fixture.Transport.Calls == 1, "Real card and balance labels show the projected ten taps while only one HTTP request is active");
+                fixture.Check(fixture.AttackCard.levelLabel.text == "Lv. 10" &&
+                    fixture.AttackCard.bonusLabel.text == $"×{BalanceMath.GoldMultiplier(10):0.###}  →  ×{BalanceMath.GoldMultiplier(11):0.###}" &&
+                    fixture.Body.goldLabel.text == $"보유 골드  {NumberNotation.Format(expectedGold)} G" &&
+                    !fixture.Body.descLabel.text.Contains("예상") && fixture.Transport.Calls == 1,
+                    "Growth labels display projected values using the normal format before confirmation");
                 yield return Capture("projected-ten-taps-before-ack");
                 fixture.TopGold.ForceMeshUpdate();
-                fixture.Check(fixture.TopGold.text.Contains(NumberNotation.Format(expectedGold)) && !fixture.TopGold.isTextTruncated,
-                    "Projected top HUD gold keeps its full amount visible");
+                fixture.Check(fixture.TopGold.text == NumberNotation.Format(expectedGold) && !fixture.TopGold.isTextTruncated &&
+                    fixture.ReadPopupGold() == NumberNotation.Exact(expectedGold),
+                    "Projected gold uses the normal number format in both the top HUD and currency popup");
 
                 if (throttle)
                 {
@@ -170,9 +173,10 @@ namespace KingdomIdle.UGUI.Editor
                 fixture.Check(saved.AttackLevel == 10 && saved.Wallet[eCurrency.Gold] == expectedGold &&
                     saved.Economy.LastAppliedRequestId == fixture.LastRequestId && fixture.SuccessfulInputs == 10,
                     "Disk snapshot and ten completion callbacks agree after the two acknowledgements");
-                fixture.Check(fixture.AttackCard.levelLabel.text == "Lv. 10" && !fixture.Body.goldLabel.text.Contains("예상") &&
+                fixture.Check(fixture.AttackCard.levelLabel.text == "Lv. 10" && fixture.Body.goldLabel.text == $"보유 골드  {NumberNotation.Format(expectedGold)} G" &&
+                    fixture.TopGold.text == NumberNotation.Format(expectedGold) && fixture.ReadPopupGold() == NumberNotation.Exact(expectedGold) &&
                     fixture.Enhance.GetBonusAtkRate() > 0 && fixture.AttackButton.interactable,
-                    "Confirmed card removes the estimate marker and enables the acknowledged combat bonus");
+                    "Labels keep their format after confirmation and the acknowledged combat bonus takes effect");
                 if (throttle)
                     fixture.Check(QuestManager.Instance.ServerQuests?.DailyPeriodKey == "2026-11-19" &&
                         !(bool)typeof(QuestManager).GetField("_refreshQueued", Instance).GetValue(QuestManager.Instance),
@@ -350,6 +354,13 @@ namespace KingdomIdle.UGUI.Editor
             }
 
             internal void Pump() { EconomyBatchProgression.FlushLocalWrites(); EconomyBatchProgression.Pump(); }
+            internal string ReadPopupGold()
+            {
+                Refresh(_main);
+                var lines = Get<Dictionary<eCurrency, CurrencyLineItemView>>(_main, "_currencyLines");
+                return Get<TMP_Text>(lines[eCurrency.Gold], "valueLabel").text;
+            }
+
             internal void Check(bool condition, string message, bool log = true)
             { if (!condition) throw new InvalidOperationException("Rapid tap UI: " + message); if (log) Checks.Add(message); }
             private void OnInputCompleted(EconomyInputCompletion result)
