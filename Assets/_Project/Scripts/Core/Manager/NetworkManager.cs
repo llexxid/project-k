@@ -398,7 +398,8 @@ namespace Scripts.Core.Manager
             {
                 if (!IsCurrent()) return;
                 if (queued && localGeneration != LocalProgression.AccountGeneration ||
-                    economic && !recoveryRead && !legacyRecovery && EconomyBatchProgression.HasUnknownResult)
+                    economic && !recoveryRead && !legacyRecovery && EconomyBatchProgression.HasUnknownResult ||
+                    request is OnEnchantSkillRequestDTO && !EconomyBatchProgression.CanStartSingleMageEnhance)
                 {
                     Fail(CreateError("EconomyHeld", "이전 요청의 결과를 확인한 뒤 다시 시도해 주세요.", cloudFunction.FunctionName));
                     return;
@@ -571,7 +572,7 @@ namespace Scripts.Core.Manager
                 {
                     EconomyBatchProtocol.ValidateMetadata(user.EconomyBatchState, user.EconomyRevision);
                     EconomyBatchProtocol.ValidateDungeon(user.EconomyDungeonBattle);
-                    if (user.EconomyBatchState.SupportsMageEnhance) ValidateMageTower(user.MageTowerState);
+                    if (EconomyBatchProtocol.MageMode(user.EconomyBatchState) != MageEnhanceBatchMode.Unknown) ValidateMageTower(user.MageTowerState);
                     if (user.DungeonState == null || user.EconomyDungeonBattle?.BattleId != user.DungeonState.ActiveBattleId ||
                         user.EconomyDungeonBattle != null && user.EconomyDungeonBattle.DungeonId != user.DungeonState.ActiveDungeonId)
                         throw new JsonSerializationException("Economy dungeon snapshot mismatch.");

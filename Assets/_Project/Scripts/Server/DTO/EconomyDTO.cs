@@ -8,6 +8,7 @@ namespace Protocol.Message.Dto
     public enum EconomyCommandKind { Hunt = 0, GoldAttack = 1, GoldHealth = 2, RubyGold = 3, RubyExperience = 4, MageEnhance = 5 }
     public enum EconomyCommandStatus { Applied = 0, Rejected = 1, Unprocessed = 2 }
     public enum EconomyBatchStatus { Completed = 0, NotFound = 1, Conflict = 2, Retired = 3 }
+    public enum MageEnhanceBatchMode { Unknown = 0, RecoveryOnly = 1, Active = 2 }
 
     public sealed class OnEconomyBatchRequestDTO : SessionRequestDTO
     {
@@ -116,6 +117,7 @@ namespace Protocol.Message.Dto
     {
         [JsonProperty(Required = Required.Always)] public int Version { get; set; }
         public bool SupportsMageEnhance { get; set; }
+        public MageEnhanceBatchMode MageEnhanceMode { get; set; }
         [JsonProperty(Required = Required.Always)] public string OwnerClientId { get; set; }
         [JsonProperty(Required = Required.Always)] public long Generation { get; set; }
         [JsonProperty(Required = Required.Always)] public long NextSequence { get; set; }

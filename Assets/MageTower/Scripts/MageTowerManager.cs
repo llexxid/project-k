@@ -275,7 +275,7 @@ namespace KingdomIdle.MageTower
             if (projection.Valid) knowledge = projection.ArcaneKnowledge;
             else EconomyBridge.TryGetAmount(eCurrency.ArcaneKnowledge, out knowledge);
             return cost >= 0 && knowledge >= cost && IsOwned(skillId) && GetSkillById(skillId) != null &&
-                (!batch || projection.Valid && EconomyBatchProgression.CanAcceptGrowth);
+                (batch ? projection.Valid && EconomyBatchProgression.CanAcceptGrowth : EconomyBatchProgression.CanStartSingleMageEnhance);
         }
 
         public bool Enhance(int skillId) => TryEnhanceEx(skillId) is MageActionResult.Pending or MageActionResult.Queued;
@@ -299,6 +299,7 @@ namespace KingdomIdle.MageTower
                     _ => MageActionResult.Busy
                 };
             }
+            if (!EconomyBatchProgression.CanStartSingleMageEnhance) return MageActionResult.Busy;
             if (GetEnhanceLevel(skillId) >= BalanceMath.MageCap) return MageActionResult.MaxLevel;
             if (!CanEnhance(skillId)) return MageActionResult.NotEnough;
             var network = Begin(out MageActionResult gate);

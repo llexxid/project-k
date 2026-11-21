@@ -39,8 +39,16 @@ namespace KingdomIdle.Balance
             var legacy = (JObject)body.DeepClone();
             legacy["CurrentState"]["MageTowerState"].Parent.Remove();
             legacy["CurrentState"]["EconomyBatchState"]["SupportsMageEnhance"].Parent.Remove();
+            legacy["CurrentState"]["EconomyBatchState"]["MageEnhanceMode"].Parent.Remove();
             foreach (var row in legacy["Receipt"]["Results"]) row["SpentArcaneKnowledge"].Parent.Remove();
             Check(Read(legacy), "old v1 response without mage fields still decodes");
+            var capability = new EconomyBatchStateDTO();
+            Check(EconomyBatchProtocol.MageMode(capability) == MageEnhanceBatchMode.Unknown, "missing capability keeps legacy single routing");
+            capability.SupportsMageEnhance = true;
+            Check(EconomyBatchProtocol.MageMode(capability) == MageEnhanceBatchMode.Active, "old capability still enables mage batches");
+            capability.MageEnhanceMode = MageEnhanceBatchMode.RecoveryOnly;
+            Check(EconomyBatchProtocol.MageMode(capability) == MageEnhanceBatchMode.RecoveryOnly, "explicit rollback overrides a stale legacy flag");
+            Check(!Read(Change(body, "CurrentState.EconomyBatchState.MageEnhanceMode", 3)), "undefined mage mode cannot choose a spending route");
             var quests = (JObject)body.DeepClone();
             quests["Quests"] = JObject.FromObject(new QuestStateDTO
             {
@@ -138,14 +146,15 @@ namespace KingdomIdle.Balance
                 new() { Index = 4, Kind = first.Kind, Status = EconomyCommandStatus.Applied, AppliedCount = 1, SpentArcaneKnowledge = request.Commands[4].SpendLimit }
             };
             var state = response.CurrentState;
-            state.EconomyBatchState.SupportsMageEnhance = true;
+            state.EconomyBatchState.MageEnhanceMode = MageEnhanceBatchMode.Active;
             check(!read(JObject.FromObject(response)), "a completed mage receipt requires its canonical tower");
             var skill = new MageSkillDTO { SkillId = 9, EnhancementLevel = 2, KnowledgeSpent = 10 + request.Commands[4].SpendLimit };
             state.MageTowerState = new() { Skills = new() { skill }, EquippedSkillIds = new[] { 9, -1, -1, -1, -1 } };
             var saved = EconomyInputJournal.Clone(request);
             EconomyBatchProtocol.MatchRequest(response, saved);
             check(read(JObject.FromObject(response)) && EconomyCopies.Copy(first).SkillId == 0 &&
-                EconomyCopies.Copy(state.EconomyBatchState).SupportsMageEnhance && EconomyCopies.Copy(response.Receipt).Results[2].SpentArcaneKnowledge == 10,
+                EconomyBatchProtocol.MageMode(EconomyCopies.Copy(state.EconomyBatchState)) == MageEnhanceBatchMode.Active &&
+                EconomyCopies.Copy(response.Receipt).Results[2].SpentArcaneKnowledge == 10,
                 "recovered mage rejection skips its skill and retains another mage and gold success");
             state.MageTowerState.EquippedSkillIds[1] = 9;
             check(!read(JObject.FromObject(response)), "duplicate equipped mage skills cannot overwrite confirmed slots");
@@ -174,6 +183,10 @@ namespace KingdomIdle.Balance
             applied.SpentArcaneKnowledge = 0;
             check(!read(JObject.FromObject(response)), "applied mage result requires an arcane knowledge debit");
             applied.SpentArcaneKnowledge = 10;
+            state.EconomyBatchState.MageEnhanceMode = MageEnhanceBatchMode.RecoveryOnly;
+            response.Receipt.Results[0].ErrorCode = eErrorCode.UnsupportedProtocolVersion;
+            EconomyBatchProtocol.MatchRequest(response, request);
+            check(read(JObject.FromObject(response)), "rollback can recover an immutable mixed receipt with a skill-local unsupported result");
             response.Receipt.Results[0].ErrorCode = eErrorCode.EconomyRevisionMismatch;
             check(!read(JObject.FromObject(response)), "global revision failure on a mage command stops the whole batch");
             response.Receipt = null; response.Status = EconomyBatchStatus.NotFound; state.MageTowerState = null;

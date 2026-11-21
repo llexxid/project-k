@@ -8,6 +8,7 @@ using System.Reflection;
 using KingdomIdle.Balance;
 using KingdomIdle.MageTower;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using PlayFab;
 using PlayFab.CloudScriptModels;
 using Protocol.Message.Dto;
@@ -87,7 +88,106 @@ namespace KingdomIdle.UGUI.Editor
                     "Only the supported two-click batch reaches the isolated HTTP transport");
                 checks.AddRange(fixture.Checks);
             }
+            using (var fixture = new RapidTapFixture(false, mage: true))
+            {
+                fixture.Pump();
+                var view = fixture.OpenMageDetail(false);
+                LocalProgression.Execute("qa-mage-independent-gold", state =>
+                { state.Economy.Server.MageEnhanceMode = MageEnhanceBatchMode.RecoveryOnly; return true; });
+                fixture.Check(EconomyBatchProgression.TryQueueGold(true, 1, null, out _) == EconomyInputStatus.PendingSave,
+                    "Independent gold input is accepted");
+                EconomyBatchProgression.FlushBeforeWrite(_ => { });
+                fixture.Pump(); fixture.Pump();
+                fixture.Check(fixture.Transport.Pending && fixture.Transport.Request?.Commands.Single().Kind == EconomyCommandKind.GoldAttack &&
+                    view.btnEnhance.interactable, "An independent gold batch leaves the single mage button available");
+                view.btnEnhance.onClick.Invoke();
+                fixture.Check(MageTowerManager.Instance.IsBusy && fixture.Transport.Calls == 1,
+                    "Single mage click waits for the existing gold call");
+                fixture.Acknowledge();
+                fixture.Pump(); fixture.Pump();
+                fixture.Check(fixture.Transport.Single != null && fixture.Transport.Calls == 2 && fixture.Transport.Unexpected == 0,
+                    "Gold confirmation releases exactly one single mage request");
+                checks.AddRange(fixture.Checks);
+            }
             return new { passed = checks.Count, checks };
+        }
+
+        // The release harness runs both server binaries with the button's original request and returns their wire responses.
+        public static object RunMageRollback(JObject login, Action<OnEconomyBatchRequestDTO> send,
+            Func<OnGetEconomyBatchResultRequestDTO, JObject> recover, Func<OnEnchantSkillRequestDTO, JObject> single,
+            Func<JObject> restartState = null)
+        {
+            var active = login["EconomyBatchState"].ToObject<EconomyBatchStateDTO>();
+            using var fixture = new RapidTapFixture(false, mage: true, clientId: active.OwnerClientId);
+            NetworkManager.Instance.SetGameSession((string)login["SessionID"]);
+            fixture.Pump();
+            var view = fixture.OpenMageDetail(false);
+            fixture.Check(LocalProgression.Execute("qa-mage-cutover-seed", state =>
+            {
+                state.Economy.Server = active;
+                state.ServerEconomyRevision = (long)login["EconomyRevision"];
+                state.Wallet[eCurrency.ArcaneKnowledge] = (long)login["Currency"]["ArcaneKnowledge"];
+                return true;
+            }) && EconomyBatchProgression.SupportsMageEnhance, "Active server enables the batch button");
+            view.btnEnhance.onClick.Invoke();
+            EconomyBatchProgression.FlushBeforeWrite(_ => { });
+            fixture.Pump(); fixture.Pump();
+            var http = fixture.Transport;
+            var request = http.Request;
+            fixture.Check(http.Pending && http.Calls == 1 && request?.Commands.Single().Kind == EconomyCommandKind.MageEnhance,
+                "First button click sends one mage command to the active server");
+            send(request);
+            var lostReply = http.TakePending();
+            Set(NetworkManager.Instance, "_callStartedAt", Time.realtimeSinceStartup - 31f);
+            Invoke(NetworkManager.Instance, "Update");
+            fixture.Check(EconomyBatchProgression.HasUnknownResult && MageTowerManager.Instance.GetEnhanceLevel(0) == 0,
+                "Request timeout leaves the old result unconfirmed");
+            if (restartState != null)
+            {
+                var journal = typeof(EconomyBatchProgression).GetField("_journal", Static);
+                var previous = (EconomyInputJournal)journal.GetValue(null);
+                string frozen = JsonConvert.SerializeObject(previous.Data.InFlight);
+                LocalProgression.Open(LocalProgression.AccountKey);
+                fixture.Check(journal.GetValue(null) == null && !EconomyBatchProgression.RecoveryComplete,
+                    "Reopening the same account drops the live journal and recovery flags");
+                var startup = restartState().ToObject<OnGetUserStateResponseDTO>();
+                fixture.Check(startup.EconomyBatchState.OwnerClientId == active.OwnerClientId &&
+                    startup.EconomyBatchState.MageEnhanceMode == MageEnhanceBatchMode.RecoveryOnly &&
+                    UserManager.Instance.ApplyServerPlayerData(startup), "Same owner receives the compatibility startup state");
+                var restored = (EconomyInputJournal)journal.GetValue(null);
+                fixture.Check(!ReferenceEquals(previous, restored) && frozen == JsonConvert.SerializeObject(restored.Data.InFlight) &&
+                    restored.Data.InFlight.RequestId == request.RequestId && EconomyInputJournal.Hash(restored.Data.InFlight) == EconomyInputJournal.Hash(request) &&
+                    EconomyBatchProgression.HasUnresolvedBatch && !EconomyBatchProgression.CanStartSingleMageEnhance,
+                    "Restart reloads the frozen request body, original ID and hash from disk before allowing any single write");
+                fixture.Check(EconomyBatchProgression.RecoverPending(_ => { }, previousSessionReplaced: true),
+                    "Startup recovery accepts the restored journal");
+            }
+            else typeof(EconomyBatchProgression).GetField("_retryAt", Static).SetValue(null, 0f);
+            fixture.Pump();
+            fixture.Check(http.Pending && http.Calls == 2 && http.Lookup?.RequestId == request.RequestId &&
+                http.Lookup.Generation == request.Generation && http.Lookup.Sequence == request.Sequence, "Lookup uses the original batch identity");
+            var wire = recover(http.Lookup);
+            http.Succeed(wire["lookup"]);
+            fixture.Pump();
+            var mage = MageTowerManager.Instance;
+            fixture.Check(fixture.SuccessfulInputs == 1 && EconomyBatchProgression.RecoveryComplete && !EconomyBatchProgression.HasUnknownResult &&
+                !EconomyBatchProgression.SupportsMageEnhance && LocalProgression.State.Economy.LastAppliedRequestId == request.RequestId &&
+                mage.GetEnhanceLevel(0) == 1 && mage.GetTotalAKSpent(0) == 10 && LocalProgression.Balance(eCurrency.ArcaneKnowledge) == 90 &&
+                view.btnEnhance.interactable, "Compatibility receipt confirms one enhancement and enables the next click");
+            view.btnEnhance.onClick.Invoke();
+            fixture.Pump();
+            fixture.Check(http.Pending && http.Calls == 3 && http.Single?.SkillCode.GetSkillId() == 0 && mage.IsBusy &&
+                EconomyBatchProgression.PendingSpendingCount == 0, "Next click issues one OnEnChantSkill request");
+            http.Succeed(single(http.Single)["single"]);
+            fixture.Pump();
+            lostReply.ApiResult = new ExecuteFunctionResult { FunctionResult = wire["activeResponseDiscarded"].ToString() };
+            lostReply.InvokeSuccessCallback();
+            fixture.Pump();
+            fixture.Check(!mage.IsBusy && !http.Pending && http.Calls == 3 && http.Unexpected == 0 && fixture.SuccessfulInputs == 1 &&
+                !EconomyBatchProgression.SupportsMageEnhance && mage.GetEnhanceLevel(0) == 2 &&
+                mage.GetTotalAKSpent(0) == 21 && LocalProgression.Balance(eCurrency.ArcaneKnowledge) == 79,
+                "Single response confirms level 2 with 79 knowledge; a late original response cannot reapply the batch");
+            return new { passed = fixture.Checks.Count, checks = fixture.Checks, requestId = request.RequestId };
         }
 
         private static IEnumerator RunTaps(bool throttle, Action<object> completed)
@@ -262,7 +362,7 @@ namespace KingdomIdle.UGUI.Editor
             private MageTowerManager _mage;
             private bool _disposed;
 
-            internal RapidTapFixture(bool throttle, bool mage = false)
+            internal RapidTapFixture(bool throttle, bool mage = false, string clientId = null)
             {
                 if ((!Application.isPlaying && !mage) || LocalProgression.IsReady || NetworkManager.Instance != null || UserManager.Instance != null ||
                     StatEnhanceManager.Instance != null || UIManager.Instance != null || StageManager.Instance != null ||
@@ -273,7 +373,7 @@ namespace KingdomIdle.UGUI.Editor
                 try
                 {
                     PluginManager.SetPlugin(Transport, PluginContract.PlayFab_Transport);
-                    typeof(EconomyBatchProgression).GetField("_clientId", Static).SetValue(null, Guid.NewGuid().ToString("N"));
+                    typeof(EconomyBatchProgression).GetField("_clientId", Static).SetValue(null, clientId ?? Guid.NewGuid().ToString("N"));
                     _account = LocalProgression.BeginTestSession();
                     LocalProgression.OpenTestAccount("economy-rapid-ui-" + Guid.NewGuid().ToString("N"));
                     _owner = new GameObject("EconomyRapidTapAcceptance_Managers"); _owner.SetActive(false);
@@ -557,6 +657,7 @@ namespace KingdomIdle.UGUI.Editor
             private PlayFab.Internal.CallRequestContainer _pending;
             internal OnEconomyBatchRequestDTO Request;
             internal OnGetEconomyBatchResultRequestDTO Lookup;
+            internal OnEnchantSkillRequestDTO Single;
             internal int Calls, Unexpected;
             internal float LastSendAt;
             internal bool Pending => _pending != null;
@@ -573,6 +674,7 @@ namespace KingdomIdle.UGUI.Editor
                 if (function.FunctionName == "OnEconomyBatch")
                 { Request = JsonConvert.DeserializeObject<OnEconomyBatchRequestDTO>(payload); Lookup = null; }
                 else if (function.FunctionName == "OnGetEconomyBatchResult") Lookup = JsonConvert.DeserializeObject<OnGetEconomyBatchResultRequestDTO>(payload);
+                else if (function.FunctionName == "OnEnChantSkill") Single = JsonConvert.DeserializeObject<OnEnchantSkillRequestDTO>(payload);
                 else { Block(); return; }
                 _pending = container; Calls++; LastSendAt = Time.realtimeSinceStartup;
             }
@@ -586,7 +688,12 @@ namespace KingdomIdle.UGUI.Editor
                 } };
                 pending.InvokeSuccessCallback();
             }
-            internal void Succeed(OnEconomyBatchResponseDTO response)
+            internal PlayFab.Internal.CallRequestContainer TakePending()
+            {
+                if (!Pending) throw new InvalidOperationException("No response to drop.");
+                var pending = _pending; _pending = null; return pending;
+            }
+            internal void Succeed(object response)
             {
                 var pending = _pending ?? throw new InvalidOperationException("No pending growth HTTP request."); _pending = null;
                 pending.ApiResult = new ExecuteFunctionResult { FunctionResult = JsonConvert.SerializeObject(response) };

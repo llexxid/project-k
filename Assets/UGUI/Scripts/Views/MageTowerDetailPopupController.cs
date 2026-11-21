@@ -154,10 +154,9 @@ namespace KingdomIdle.UGUI
             if (_view.lblEnhLevel != null) _view.lblEnhLevel.text = $"강화 레벨: {level} / {so.maxEnhanceLevel}";
             if (_view.lblEnhCost != null) _view.lblEnhCost.text = cost < 0 ? "MAX · 다음 강화 없음" :
                 $"비전지식 · 보유 {NumberNotation.Format(knowledge)} · 필요 {NumberNotation.Format(cost)}";
-            bool batch = EconomyBatchProgression.SupportsMageEnhance;
-            bool recover = batch && (!EconomyBatchProgression.RecoveryComplete ||
-                EconomyBatchProgression.HasUnknownResult && !EconomyBatchProgression.IsStorageRetryWaiting);
-            bool held = batch && EconomyBatchProgression.HasHeldSpending;
+            bool recover = EconomyBatchProgression.Available && !EconomyBatchProgression.RecoveryComplete ||
+                EconomyBatchProgression.HasUnknownResult && !EconomyBatchProgression.IsStorageRetryWaiting;
+            bool held = EconomyBatchProgression.HasHeldSpending;
             if (_view.btnEnhance != null) _view.btnEnhance.interactable = !mgr.IsBusy && (recover || held || canEnhance);
             if (_view.btnEnhanceLabel != null) _view.btnEnhanceLabel.text = recover ? "저장 결과 확인" : held ? "보류 입력 확인" :
                 level >= so.maxEnhanceLevel ? "최대 레벨" : "강화하기";
@@ -175,7 +174,7 @@ namespace KingdomIdle.UGUI
 
         private static void OnEnhanceClicked()
         {
-            if (EconomyBatchProgression.SupportsMageEnhance && DevelopmentPanelController.TryHandlePendingGrowth()) return;
+            if (DevelopmentPanelController.TryHandlePendingGrowth()) return;
             Request(mgr => mgr.TryEnhanceEx(_skillId));
         }
         private static void OnAwakenClicked() => Request(mgr => mgr.TryAwakenEx(_skillId));

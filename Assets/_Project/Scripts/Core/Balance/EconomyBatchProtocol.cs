@@ -14,6 +14,10 @@ namespace KingdomIdle.Balance
     {
         internal const int Version = 1, MaxCommands = 16, MaxEpochs = 102;
 
+        internal static MageEnhanceBatchMode MageMode(EconomyBatchStateDTO state) =>
+            state?.MageEnhanceMode == MageEnhanceBatchMode.Unknown && state.SupportsMageEnhance
+                ? MageEnhanceBatchMode.Active : state?.MageEnhanceMode ?? MageEnhanceBatchMode.Unknown;
+
         internal static void ValidateRequest(OnEconomyBatchRequestDTO request)
         {
             if (request == null || !ValidIdentity(request.RequestId, request.Generation, request.Sequence) ||
@@ -70,7 +74,7 @@ namespace KingdomIdle.Balance
         internal static bool IsIsolatedMageRejection(EconomyCommandResultDTO result) =>
             result.Status == EconomyCommandStatus.Rejected && result.Kind == EconomyCommandKind.MageEnhance &&
             result.ErrorCode is eErrorCode.eNotEnoughArcaneKnowledge or eErrorCode.eNotExistSkillCodeInput or
-                eErrorCode.eEnchantMaxLevelSKILL or eErrorCode.EconomyExpectedLevelMismatch or eErrorCode.NumericLimit;
+                eErrorCode.eEnchantMaxLevelSKILL or eErrorCode.EconomyExpectedLevelMismatch or eErrorCode.NumericLimit or eErrorCode.UnsupportedProtocolVersion;
 
         private static void ValidateHunt(Protocol.Message.Data.eStage stage, string mainRunId, string battleId, System.Collections.Generic.List<HuntResult> kills)
         {
@@ -93,7 +97,8 @@ namespace KingdomIdle.Balance
 
         internal static void ValidateMetadata(EconomyBatchStateDTO state, long? revision)
         {
-            if (state == null || state.Version < 1 || !MainWaveProgression.ValidId(state.OwnerClientId) || state.Generation < 1 ||
+            if (state == null || state.Version < 1 || !Enum.IsDefined(typeof(MageEnhanceBatchMode), state.MageEnhanceMode) ||
+                !MainWaveProgression.ValidId(state.OwnerClientId) || state.Generation < 1 ||
                 state.NextSequence < 1 || state.RewardEpoch < 1 || revision == null || revision < 0 ||
                 state.GoldRemainderMicros < 0 || state.GoldRemainderMicros >= 1000000 ||
                 state.ExpRemainderMicros < 0 || state.ExpRemainderMicros >= 1000000 ||
@@ -183,7 +188,7 @@ namespace KingdomIdle.Balance
             if (response.Status == EconomyBatchStatus.Completed ? response.Receipt == null : response.Receipt != null)
                 Invalid("Economy status does not match receipt.");
             if (state.MageTowerState != null || response.Receipt?.Results.Any(x => x.Kind == EconomyCommandKind.MageEnhance) == true ||
-                state.EconomyBatchState.SupportsMageEnhance && response.Status != EconomyBatchStatus.Completed)
+                MageMode(state.EconomyBatchState) != MageEnhanceBatchMode.Unknown && response.Status != EconomyBatchStatus.Completed)
                 NetworkManager.ValidateMageTower(state.MageTowerState);
         }
 

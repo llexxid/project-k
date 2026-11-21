@@ -328,6 +328,53 @@ namespace KingdomIdle.Balance
                     EconomyBatchProgression.ReceiveServerState(true); EconomyBatchProgression.ConfirmFullRefresh();
                     check(EconomyBatchProgression.SupportsMageEnhance && !EconomyBatchProgression.HasUnknownResult && journal.Data.Inputs.Count == 2,
                         "restored server capability resumes the same journal without restarting the app");
+                    request.Commands = new() { mage, health };
+                    journal.Data.InFlight = request;
+                    journal.Data.InFlightInputs = request.Commands.Select((c, i) => new EconomyInput { Sequence = 19 + i, Command = c }).ToList();
+                    journal.Data.Inputs.Add(new() { Sequence = 21, Command = mage, Held = true });
+                    journal.Data.Inputs.Add(new() { Sequence = 22, Command = ruby, Held = true });
+                    journal.Data.Inputs.Add(new() { Sequence = 23, Command = Hunt(5) });
+                    journal.Data.NextInputSequence = 24;
+                    journal.Changed(); journal.Pump(true);
+                    string frozen = EconomyInputJournal.Hash(request);
+                    LocalProgression.Execute("mage-rollback", s =>
+                    { s.Economy.Server.SupportsMageEnhance = false; s.Economy.Server.MageEnhanceMode = MageEnhanceBatchMode.RecoveryOnly; return true; });
+                    EconomyBatchProgression.ReceiveServerState(true); EconomyBatchProgression.ConfirmFullRefresh();
+                    journal.Pump(true); Call("PublishDiscardedInputs");
+                    var rollback = new EconomyInputJournal(path, LocalProgression.AccountKey).Data;
+                    check(EconomyBatchProgression.Available && !EconomyBatchProgression.SupportsMageEnhance && !EconomyBatchProgression.CanStartSingleMageEnhance &&
+                        rollback.InFlight.RequestId == request.RequestId && EconomyInputJournal.Hash(rollback.InFlight) == frozen &&
+                        rollback.Inputs.Select(x => x.Sequence).SequenceEqual(new long[] { 18, 22, 23 }) && rollback.Inputs[1].Held,
+                        "rollback preserves frozen mage identity, held ruby, live gold and hunt, and cancels only unsent mage inputs");
+                    var knownFailed = new EconomyBatchReceiptDTO { Results = new()
+                    {
+                        new() { Kind = mage.Kind, Status = EconomyCommandStatus.Rejected, ErrorCode = Protocol.Message.Data.eErrorCode.UnsupportedProtocolVersion },
+                        new() { Index = 1, Kind = health.Kind, Status = EconomyCommandStatus.Applied, AppliedCount = 1, SpentGold = 50 }
+                    } };
+                    Call("ResolveCompletedInputs", knownFailed, false);
+                    journal.Pump(true); Call("PublishDiscardedInputs");
+                    check(journal.Data.InFlight == null && journal.Data.Inputs.Select(x => x.Sequence).SequenceEqual(new long[] { 18, 22, 23 }) &&
+                        !EconomyBatchProgression.CanStartSingleMageEnhance, "a terminal rollback rejection preserves independent inputs and the held-input confirmation");
+                    request.RequestId = Guid.NewGuid().ToString("N");
+                    journal.Data.InFlight = request;
+                    journal.Data.InFlightInputs = request.Commands.Select((c, i) => new EconomyInput { Sequence = 24 + i, Command = c }).ToList();
+                    journal.Data.NextInputSequence = 26; journal.Changed(); journal.Pump(true);
+                    Set("_retryAt", float.MaxValue); Set("_recovered", false); Set("_sentThisSession", false);
+                    check(EconomyBatchProgression.RecoverPending(_ => { }, previousSessionReplaced: true), "restart checks the original mixed batch");
+                    var absent = EconomyBatchContractAcceptance.Fixture();
+                    absent.Status = EconomyBatchStatus.NotFound; absent.RequestId = request.RequestId; absent.Receipt = null;
+                    absent.EconomyRevision = LocalProgression.State.ServerEconomyRevision;
+                    absent.CurrentState.EconomyBatchState = EconomyCopies.Copy(LocalProgression.State.Economy.Server);
+                    absent.CurrentState.EconomyBatchState.NextSequence = request.Sequence;
+                    absent.CurrentState.MainBattle.RunId = Id;
+                    absent.CurrentState.MageTowerState = new() { Skills = new(), EquippedSkillIds = new[] { -1, -1, -1, -1, -1 } };
+                    Call("ApplyResult", absent, true); journal.Pump(true);
+                    var unexecuted = new EconomyInputJournal(path, LocalProgression.AccountKey).Data;
+                    check(unexecuted.InFlight == null && unexecuted.AbandonedRequest?.RequestId == request.RequestId &&
+                        EconomyInputJournal.Hash(unexecuted.AbandonedRequest) == EconomyInputJournal.Hash(request) &&
+                        unexecuted.Inputs.Select(x => x.Sequence).SequenceEqual(new long[] { 18, 22, 23, 25 }) &&
+                        unexecuted.Inputs.All(x => x.Held == (x.Command.Kind != EconomyCommandKind.Hunt)),
+                        "restart NotFound archives the original ID and body, cancels only unexecuted mage and requires confirmation for independent spending");
                 }
                 finally { EconomyBatchProgression.InputCompleted -= Completed; EconomyBatchProgression.SpendingFailed -= Failed; }
             }

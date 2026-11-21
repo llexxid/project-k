@@ -52,7 +52,12 @@ namespace KingdomIdle.Balance
         private static bool CurrentSession => LocalProgression.IsReady && _localGeneration == LocalProgression.AccountGeneration &&
             _network != null && _network == NetworkManager.Instance && _networkGeneration == _network.AccountGeneration;
         public static bool Available => _supported && CurrentSession && NetworkManager.Instance.IsGameDataReady;
-        public static bool SupportsMageEnhance => Available && LocalProgression.State.Economy?.Server?.SupportsMageEnhance == true;
+        public static bool SupportsMageEnhance => Available &&
+            EconomyBatchProtocol.MageMode(LocalProgression.State.Economy?.Server) == MageEnhanceBatchMode.Active;
+        internal static bool CanStartSingleMageEnhance => CurrentSession && _journal != null && !SupportsMageEnhance &&
+            !HasUnknownResult && (!Available || RecoveryComplete && !HasHeldSpending) &&
+            _journal.Data.InFlight?.Commands.Exists(x => x.Kind == EconomyCommandKind.MageEnhance) != true &&
+            !_journal.Data.Inputs.Exists(x => x.Command.Kind == EconomyCommandKind.MageEnhance);
         public static bool RecoveryComplete => _recovered && CurrentSession;
         public static bool HasUnknownResult => _batchUnknown || _externalUnknown;
         public static bool HasUnresolvedBatch
@@ -130,17 +135,28 @@ namespace KingdomIdle.Balance
                 if (_journal.Data.Generation != 0 && _journal.Data.Generation != metadata.Generation) RetireInputs();
                 if (_journal.Data.Generation != metadata.Generation)
                 { _journal.Data.Generation = metadata.Generation; SaveJournal(); }
-                if (!metadata.SupportsMageEnhance && _journal.Data.Inputs.Concat(_journal.Data.InFlightInputs)
-                    .Any(x => x.Command.Kind == EconomyCommandKind.MageEnhance))
-                {
-                    _supported = false;
-                    MarkUnknown("보존된 마탑 강화 입력을 지원하는 서버에서 결과를 먼저 확인해야 합니다.");
-                    return;
-                }
+                ReconcileMageInputs(metadata);
                 RestoreStorageRetryDeadline();
             }
             catch (Exception error) { MarkBlocked(error.Message); }
             Notify();
+        }
+
+        private static void ReconcileMageInputs(EconomyBatchStateDTO metadata)
+        {
+            var mode = EconomyBatchProtocol.MageMode(metadata);
+            bool IsMage(EconomyInput input) => input.Command.Kind == EconomyCommandKind.MageEnhance;
+            if (mode == MageEnhanceBatchMode.RecoveryOnly && _journal.Data.Inputs.Exists(IsMage))
+            {
+                var discarded = _journal.Data.Inputs.FindAll(IsMage);
+                _journal.Data.Inputs.RemoveAll(IsMage);
+                SaveDiscardedInputs(discarded);
+            }
+            else if (mode == MageEnhanceBatchMode.Unknown && (_journal.Data.Inputs.Exists(IsMage) || _journal.Data.InFlightInputs.Exists(IsMage)))
+            {
+                _supported = false;
+                MarkUnknown("보존된 마탑 강화 입력을 지원하는 서버에서 결과를 먼저 확인해야 합니다.");
+            }
         }
 
         public static void MarkUnknown(string reason) { _externalUnknown = true; Status = reason; Notify(); }
@@ -509,7 +525,8 @@ namespace KingdomIdle.Balance
 
         private static void ApplyResult(OnEconomyBatchResponseDTO response, bool query)
         {
-            _requestPending = false;
+            // 확정 상태와 입력 일지를 모두 반영할 때까지 동기 UI 콜백의 재전송을 막는다.
+            _requestPending = true;
             var request = _journal.Data.InFlight;
             long localGeneration = _localGeneration, networkGeneration = _networkGeneration;
             try
@@ -531,6 +548,7 @@ namespace KingdomIdle.Balance
                 });
                 if (!saved) throw new IOException("경제 결과를 저장하지 못했습니다: " + LocalProgression.LastError);
                 if (!Owns(localGeneration, networkGeneration, request.RequestId)) return;
+                ReconcileMageInputs(response.CurrentState.EconomyBatchState);
                 if (response.CurrentState.MageTowerState != null)
                     KingdomIdle.MageTower.MageTowerManager.Instance?.NotifyCommitted();
                 _queryRequired = _batchUnknown = false;
@@ -543,7 +561,7 @@ namespace KingdomIdle.Balance
                         _journal.Data.AbandonedRequest = request; _journal.Data.AbandonedAtRevision = response.EconomyRevision.Value;
                         foreach (var input in _journal.Data.InFlightInputs) { input.Held = input.Command.Kind != EconomyCommandKind.Hunt; _journal.Data.Inputs.Add(input); }
                         ClearInFlight(); _journal.Data.Inputs.Sort((a, b) => a.Sequence.CompareTo(b.Sequence));
-                        SaveJournal(); return;
+                        SaveJournal(); ReconcileMageInputs(response.CurrentState.EconomyBatchState); return;
                     }
                     if (_recovering) { _batchUnknown = true; Status = "이전 요청을 같은 ID로 확인해야 합니다."; FinishRecovery(false); return; }
                     if (_storageRetryActive)
@@ -551,7 +569,7 @@ namespace KingdomIdle.Balance
                         _batchUnknown = true;
                         if (_storageRetryRemaining == 0) { PauseStorageRetry(); Notify(); return; }
                     }
-                    SendBatch(); return;
+                    return; // Pump resends the frozen request after this callback finishes.
                 }
                 if (response.Status == EconomyBatchStatus.Retired) { RetireInputs(); return; }
                 if (response.Status != EconomyBatchStatus.Completed) { MarkUnknown("경제 요청 내용이 충돌해 실행을 보류했습니다."); FinishRecovery(false); return; }
@@ -578,6 +596,14 @@ namespace KingdomIdle.Balance
                 Status = error.Message;
                 if (_storageRetryActive && _storageRetryRemaining == 0) PauseStorageRetry();
                 FinishFences(false); FinishRecovery(false); Notify();
+            }
+            finally
+            {
+                if (_journal != null && localGeneration == _localGeneration && networkGeneration == _networkGeneration)
+                {
+                    _requestPending = false;
+                    Notify();
+                }
             }
         }
 
