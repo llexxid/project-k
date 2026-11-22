@@ -6,7 +6,9 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using KingdomIdle.Balance;
+using KingdomIdle.MageTower;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using PlayFab;
 using PlayFab.CloudScriptModels;
 using Protocol.Message.Dto;
@@ -34,6 +36,159 @@ namespace KingdomIdle.UGUI.Editor
         /// <summary>빈 PlayMode에서 코루틴으로 실행한다. 캡처 대기는 체크포인트마다 45초로 제한한다.</summary>
         public static IEnumerator RunRapidTaps(Action<object> completed = null) => RunTaps(false, completed);
         public static IEnumerator RunStorageRetry(Action<object> completed = null) => RunTaps(true, completed);
+
+        public static object RunMageEnhance()
+        {
+            var checks = new List<string>();
+            foreach (bool supported in new[] { true, false })
+            {
+                using var fixture = new RapidTapFixture(false, mage: true);
+                fixture.Pump();
+                fixture.Check(EconomyBatchProgression.RecoveryComplete, "Isolated economy session is ready");
+                var view = fixture.OpenMageDetail(supported);
+                var mage = MageTowerManager.Instance;
+                long damage = mage.GetEffectiveDamage(0);
+                string shownDamage = view.lblEffDmg.text;
+                fixture.Check(view.btnEnhance.interactable, "Owned skill has enough knowledge for its first enhancement");
+                if (supported)
+                {
+                    view.btnEnhance.onClick.Invoke();
+                    fixture.Check(view.btnEnhance.interactable && !mage.IsBusy, "First click leaves ordinary enhancement available");
+                    view.btnEnhance.onClick.Invoke();
+                    var projection = EconomyBatchProgression.GetProjection();
+                    fixture.Check(projection.Valid && projection.Level(EconomyCommandKind.MageEnhance, 0) == 2 &&
+                        projection.ArcaneKnowledge == 0 && projection.Level(EconomyCommandKind.MageEnhance, 3) == 4 &&
+                        view.lblEnhLevel.text == "강화 레벨: 2 / 100" && view.lblEnhCost.text.Contains("보유 0") && !view.btnEnhance.interactable,
+                        "Two clicks update only the selected skill and exhaust the projected balance");
+                    fixture.Check(view.lblEffDmg.text == shownDamage && mage.GetEffectiveDamage(0) == damage && mage.GetEnhanceLevel(0) == 0 &&
+                        mage.GetTotalAKSpent(0) == 0 && LocalProgression.Balance(eCurrency.ArcaneKnowledge) == 21,
+                        "Displayed damage, combat and refundable spending remain confirmed while two inputs are pending");
+                    EconomyBatchProgression.FlushLocalWrites();
+                    var saved = new EconomyInputJournal(LocalProgression.EconomyJournalPath, LocalProgression.AccountKey).Data.Inputs;
+                    fixture.Check(saved.Count == 2 && saved.All(x => x.Command.Kind == EconomyCommandKind.MageEnhance && x.Command.SkillId == 0) &&
+                        saved.Select(x => x.Command.ExpectedLevel).SequenceEqual(new[] { 0, 1 }) &&
+                        saved.Select(x => x.Command.SpendLimit).SequenceEqual(new long[] { 10, 11 }),
+                        "Durable inputs retain the skill, expected level and exact price of each click");
+                    fixture.AcknowledgeMageWithThrowingObserver();
+                    fixture.Check(mage.GetEnhanceLevel(0) == 2 && mage.GetEffectiveDamage(0) > damage && view.lblEffDmg.text != shownDamage &&
+                        mage.GetTotalAKSpent(0) == 21 && mage.GetResetRefund(0) == 16 && view.btnReset.interactable &&
+                        LocalProgression.Balance(eCurrency.ArcaneKnowledge) == 0 && mage.GetEnhanceLevel(3) == 4,
+                        "Confirmed damage, refund and unchanged second skill agree with the saved server result");
+                }
+                else
+                {
+                    // Hold the shared write fence so the legacy request can be observed without dispatching it.
+                    EconomyBatchProgression.SetExternalWritePending(true);
+                    view.btnEnhance.onClick.Invoke();
+                    fixture.Check(mage.IsBusy && !view.btnEnhance.interactable && view.btnEnhanceLabel.text == "요청 중" &&
+                        mage.TryEnhanceEx(0) == MageTowerManager.MageActionResult.Busy && EconomyBatchProgression.PendingSpendingCount == 0,
+                        "A server without mage batching uses the fenced single request and blocks a second click");
+                }
+                fixture.Check(fixture.Transport.Calls == (supported ? 1 : 0) && fixture.Transport.Unexpected == 0,
+                    "Only the supported two-click batch reaches the isolated HTTP transport");
+                checks.AddRange(fixture.Checks);
+            }
+            using (var fixture = new RapidTapFixture(false, mage: true))
+            {
+                fixture.Pump();
+                var view = fixture.OpenMageDetail(false);
+                LocalProgression.Execute("qa-mage-independent-gold", state =>
+                { state.Economy.Server.MageEnhanceMode = MageEnhanceBatchMode.RecoveryOnly; return true; });
+                fixture.Check(EconomyBatchProgression.TryQueueGold(true, 1, null, out _) == EconomyInputStatus.PendingSave,
+                    "Independent gold input is accepted");
+                EconomyBatchProgression.FlushBeforeWrite(_ => { });
+                fixture.Pump(); fixture.Pump();
+                fixture.Check(fixture.Transport.Pending && fixture.Transport.Request?.Commands.Single().Kind == EconomyCommandKind.GoldAttack &&
+                    view.btnEnhance.interactable, "An independent gold batch leaves the single mage button available");
+                view.btnEnhance.onClick.Invoke();
+                fixture.Check(MageTowerManager.Instance.IsBusy && fixture.Transport.Calls == 1,
+                    "Single mage click waits for the existing gold call");
+                fixture.Acknowledge();
+                fixture.Pump(); fixture.Pump();
+                fixture.Check(fixture.Transport.Single != null && fixture.Transport.Calls == 2 && fixture.Transport.Unexpected == 0,
+                    "Gold confirmation releases exactly one single mage request");
+                checks.AddRange(fixture.Checks);
+            }
+            return new { passed = checks.Count, checks };
+        }
+
+        // The release harness runs both server binaries with the button's original request and returns their wire responses.
+        public static object RunMageRollback(JObject login, Action<OnEconomyBatchRequestDTO> send,
+            Func<OnGetEconomyBatchResultRequestDTO, JObject> recover, Func<OnEnchantSkillRequestDTO, JObject> single,
+            Func<JObject> restartState = null)
+        {
+            var active = login["EconomyBatchState"].ToObject<EconomyBatchStateDTO>();
+            using var fixture = new RapidTapFixture(false, mage: true, clientId: active.OwnerClientId);
+            NetworkManager.Instance.SetGameSession((string)login["SessionID"]);
+            fixture.Pump();
+            var view = fixture.OpenMageDetail(false);
+            fixture.Check(LocalProgression.Execute("qa-mage-cutover-seed", state =>
+            {
+                state.Economy.Server = active;
+                state.ServerEconomyRevision = (long)login["EconomyRevision"];
+                state.Wallet[eCurrency.ArcaneKnowledge] = (long)login["Currency"]["ArcaneKnowledge"];
+                return true;
+            }) && EconomyBatchProgression.SupportsMageEnhance, "Active server enables the batch button");
+            view.btnEnhance.onClick.Invoke();
+            EconomyBatchProgression.FlushBeforeWrite(_ => { });
+            fixture.Pump(); fixture.Pump();
+            var http = fixture.Transport;
+            var request = http.Request;
+            fixture.Check(http.Pending && http.Calls == 1 && request?.Commands.Single().Kind == EconomyCommandKind.MageEnhance,
+                "First button click sends one mage command to the active server");
+            send(request);
+            var lostReply = http.TakePending();
+            Set(NetworkManager.Instance, "_callStartedAt", Time.realtimeSinceStartup - 31f);
+            Invoke(NetworkManager.Instance, "Update");
+            fixture.Check(EconomyBatchProgression.HasUnknownResult && MageTowerManager.Instance.GetEnhanceLevel(0) == 0,
+                "Request timeout leaves the old result unconfirmed");
+            if (restartState != null)
+            {
+                var journal = typeof(EconomyBatchProgression).GetField("_journal", Static);
+                var previous = (EconomyInputJournal)journal.GetValue(null);
+                string frozen = JsonConvert.SerializeObject(previous.Data.InFlight);
+                LocalProgression.Open(LocalProgression.AccountKey);
+                fixture.Check(journal.GetValue(null) == null && !EconomyBatchProgression.RecoveryComplete,
+                    "Reopening the same account drops the live journal and recovery flags");
+                var startup = restartState().ToObject<OnGetUserStateResponseDTO>();
+                fixture.Check(startup.EconomyBatchState.OwnerClientId == active.OwnerClientId &&
+                    startup.EconomyBatchState.MageEnhanceMode == MageEnhanceBatchMode.RecoveryOnly &&
+                    UserManager.Instance.ApplyServerPlayerData(startup), "Same owner receives the compatibility startup state");
+                var restored = (EconomyInputJournal)journal.GetValue(null);
+                fixture.Check(!ReferenceEquals(previous, restored) && frozen == JsonConvert.SerializeObject(restored.Data.InFlight) &&
+                    restored.Data.InFlight.RequestId == request.RequestId && EconomyInputJournal.Hash(restored.Data.InFlight) == EconomyInputJournal.Hash(request) &&
+                    EconomyBatchProgression.HasUnresolvedBatch && !EconomyBatchProgression.CanStartSingleMageEnhance,
+                    "Restart reloads the frozen request body, original ID and hash from disk before allowing any single write");
+                fixture.Check(EconomyBatchProgression.RecoverPending(_ => { }, previousSessionReplaced: true),
+                    "Startup recovery accepts the restored journal");
+            }
+            else typeof(EconomyBatchProgression).GetField("_retryAt", Static).SetValue(null, 0f);
+            fixture.Pump();
+            fixture.Check(http.Pending && http.Calls == 2 && http.Lookup?.RequestId == request.RequestId &&
+                http.Lookup.Generation == request.Generation && http.Lookup.Sequence == request.Sequence, "Lookup uses the original batch identity");
+            var wire = recover(http.Lookup);
+            http.Succeed(wire["lookup"]);
+            fixture.Pump();
+            var mage = MageTowerManager.Instance;
+            fixture.Check(fixture.SuccessfulInputs == 1 && EconomyBatchProgression.RecoveryComplete && !EconomyBatchProgression.HasUnknownResult &&
+                !EconomyBatchProgression.SupportsMageEnhance && LocalProgression.State.Economy.LastAppliedRequestId == request.RequestId &&
+                mage.GetEnhanceLevel(0) == 1 && mage.GetTotalAKSpent(0) == 10 && LocalProgression.Balance(eCurrency.ArcaneKnowledge) == 90 &&
+                view.btnEnhance.interactable, "Compatibility receipt confirms one enhancement and enables the next click");
+            view.btnEnhance.onClick.Invoke();
+            fixture.Pump();
+            fixture.Check(http.Pending && http.Calls == 3 && http.Single?.SkillCode.GetSkillId() == 0 && mage.IsBusy &&
+                EconomyBatchProgression.PendingSpendingCount == 0, "Next click issues one OnEnChantSkill request");
+            http.Succeed(single(http.Single)["single"]);
+            fixture.Pump();
+            lostReply.ApiResult = new ExecuteFunctionResult { FunctionResult = wire["activeResponseDiscarded"].ToString() };
+            lostReply.InvokeSuccessCallback();
+            fixture.Pump();
+            fixture.Check(!mage.IsBusy && !http.Pending && http.Calls == 3 && http.Unexpected == 0 && fixture.SuccessfulInputs == 1 &&
+                !EconomyBatchProgression.SupportsMageEnhance && mage.GetEnhanceLevel(0) == 2 &&
+                mage.GetTotalAKSpent(0) == 21 && LocalProgression.Balance(eCurrency.ArcaneKnowledge) == 79,
+                "Single response confirms level 2 with 79 knowledge; a late original response cannot reapply the batch");
+            return new { passed = fixture.Checks.Count, checks = fixture.Checks, requestId = request.RequestId };
+        }
 
         private static IEnumerator RunTaps(bool throttle, Action<object> completed)
         {
@@ -76,13 +231,16 @@ namespace KingdomIdle.UGUI.Editor
                 fixture.Check(projection.Valid && projection.AttackLevel == 10 && projection.Gold == expectedGold &&
                     LocalProgression.State.AttackLevel == 0 && LocalProgression.Balance(eCurrency.Gold) == RapidTapFixture.InitialGold &&
                     fixture.Enhance.GetBonusAtkRate() == 0, "Nine queued taps update the projection immediately while confirmed balance and combat bonus stay unchanged");
-                fixture.Check(fixture.AttackCard.levelLabel.text == "Lv. 10 (예상)" &&
-                    fixture.Body.goldLabel.text.Contains(NumberNotation.Format(expectedGold)) && fixture.Body.goldLabel.text.Contains("예상") &&
-                    fixture.Transport.Calls == 1, "Real card and balance labels show the projected ten taps while only one HTTP request is active");
+                fixture.Check(fixture.AttackCard.levelLabel.text == "Lv. 10" &&
+                    fixture.AttackCard.bonusLabel.text == $"×{BalanceMath.GoldMultiplier(10):0.###}  →  ×{BalanceMath.GoldMultiplier(11):0.###}" &&
+                    fixture.Body.goldLabel.text == $"보유 골드  {NumberNotation.Format(expectedGold)} G" &&
+                    !fixture.Body.descLabel.text.Contains("예상") && fixture.Transport.Calls == 1,
+                    "Growth labels display projected values using the normal format before confirmation");
                 yield return Capture("projected-ten-taps-before-ack");
                 fixture.TopGold.ForceMeshUpdate();
-                fixture.Check(fixture.TopGold.text.Contains(NumberNotation.Format(expectedGold)) && !fixture.TopGold.isTextTruncated,
-                    "Projected top HUD gold keeps its full amount visible");
+                fixture.Check(fixture.TopGold.text == NumberNotation.Format(expectedGold) && !fixture.TopGold.isTextTruncated &&
+                    fixture.ReadPopupGold() == NumberNotation.Exact(expectedGold),
+                    "Projected gold uses the normal number format in both the top HUD and currency popup");
 
                 if (throttle)
                 {
@@ -115,9 +273,10 @@ namespace KingdomIdle.UGUI.Editor
                 fixture.Check(saved.AttackLevel == 10 && saved.Wallet[eCurrency.Gold] == expectedGold &&
                     saved.Economy.LastAppliedRequestId == fixture.LastRequestId && fixture.SuccessfulInputs == 10,
                     "Disk snapshot and ten completion callbacks agree after the two acknowledgements");
-                fixture.Check(fixture.AttackCard.levelLabel.text == "Lv. 10" && !fixture.Body.goldLabel.text.Contains("예상") &&
+                fixture.Check(fixture.AttackCard.levelLabel.text == "Lv. 10" && fixture.Body.goldLabel.text == $"보유 골드  {NumberNotation.Format(expectedGold)} G" &&
+                    fixture.TopGold.text == NumberNotation.Format(expectedGold) && fixture.ReadPopupGold() == NumberNotation.Exact(expectedGold) &&
                     fixture.Enhance.GetBonusAtkRate() > 0 && fixture.AttackButton.interactable,
-                    "Confirmed card removes the estimate marker and enables the acknowledged combat bonus");
+                    "Labels keep their format after confirmation and the acknowledged combat bonus takes effect");
                 if (throttle)
                     fixture.Check(QuestManager.Instance.ServerQuests?.DailyPeriodKey == "2026-11-19" &&
                         !(bool)typeof(QuestManager).GetField("_refreshQueued", Instance).GetValue(QuestManager.Instance),
@@ -200,20 +359,21 @@ namespace KingdomIdle.UGUI.Editor
             private QuestManager _quests;
             private QuestRowSnapshot _pendingQuest;
             private QuestBoardSnapshot _guideBoard;
+            private MageTowerManager _mage;
             private bool _disposed;
 
-            internal RapidTapFixture(bool throttle)
+            internal RapidTapFixture(bool throttle, bool mage = false, string clientId = null)
             {
-                if (!Application.isPlaying || LocalProgression.IsReady || NetworkManager.Instance != null || UserManager.Instance != null ||
+                if ((!Application.isPlaying && !mage) || LocalProgression.IsReady || NetworkManager.Instance != null || UserManager.Instance != null ||
                     StatEnhanceManager.Instance != null || UIManager.Instance != null || StageManager.Instance != null ||
-                    QuestManager.Instance != null || ModalBackHandler.HasOpenModal)
+                    QuestManager.Instance != null || (mage && MageTowerManager.Instance != null) || ModalBackHandler.HasOpenModal)
                     throw new InvalidOperationException("Rapid tap acceptance requires empty signed-out PlayMode.");
                 _previousWalletSubscription = (bool)_walletType.GetField("_subscribed", Static).GetValue(null);
                 _previousPublished = new((Dictionary<eCurrency, long>)_walletType.GetField("Published", Static).GetValue(null));
                 try
                 {
                     PluginManager.SetPlugin(Transport, PluginContract.PlayFab_Transport);
-                    typeof(EconomyBatchProgression).GetField("_clientId", Static).SetValue(null, Guid.NewGuid().ToString("N"));
+                    typeof(EconomyBatchProgression).GetField("_clientId", Static).SetValue(null, clientId ?? Guid.NewGuid().ToString("N"));
                     _account = LocalProgression.BeginTestSession();
                     LocalProgression.OpenTestAccount("economy-rapid-ui-" + Guid.NewGuid().ToString("N"));
                     _owner = new GameObject("EconomyRapidTapAcceptance_Managers"); _owner.SetActive(false);
@@ -264,6 +424,22 @@ namespace KingdomIdle.UGUI.Editor
                 catch { Dispose(); throw; }
             }
 
+            internal MageTowerDetailPopupView OpenMageDetail(bool supported)
+            {
+                Check(LocalProgression.Execute("qa-mage-rapid-ui", state =>
+                {
+                    state.Economy.Server.SupportsMageEnhance = supported;
+                    state.Wallet[eCurrency.ArcaneKnowledge] = 21;
+                    state.MageSkills[0] = new(); state.MageSkills[3] = new() { Enhance = 4 };
+                    return true;
+                }), "Owned skills and capability are saved in the isolated account");
+                _mage = _owner.AddComponent<MageTowerManager>();
+                Set(_mage, "skillRegistry", AssetDatabase.LoadAssetAtPath<MageTowerSkillRegistrySO>("Assets/MageTower/SO/MageTowerSkillList.asset"));
+                Invoke(_mage, "Awake");
+                MageTowerDetailPopupController.Show(0);
+                return _canvas.GetComponentInChildren<MageTowerDetailPopupView>();
+            }
+
             internal void BuildPanel()
             {
                 var screen = UnityEngine.Object.Instantiate(_catalog.screenMain, _canvas.transform, false).GetComponent<MainScreenView>();
@@ -278,10 +454,57 @@ namespace KingdomIdle.UGUI.Editor
             }
 
             internal void Pump() { EconomyBatchProgression.FlushLocalWrites(); EconomyBatchProgression.Pump(); }
+            internal string ReadPopupGold()
+            {
+                Refresh(_main);
+                var lines = Get<Dictionary<eCurrency, CurrencyLineItemView>>(_main, "_currencyLines");
+                return Get<TMP_Text>(lines[eCurrency.Gold], "valueLabel").text;
+            }
+
             internal void Check(bool condition, string message, bool log = true)
             { if (!condition) throw new InvalidOperationException("Rapid tap UI: " + message); if (log) Checks.Add(message); }
             private void OnInputCompleted(EconomyInputCompletion result)
             { if (result.Success) SuccessfulInputs++; else throw new InvalidOperationException(result.Message); }
+
+            internal void AcknowledgeMageWithThrowingObserver()
+            {
+                bool flushed = false;
+                Check(EconomyBatchProgression.FlushBeforeWrite(ok => flushed = ok), "A write fence waits for both mage inputs");
+                Pump(); Pump();
+                var request = Transport.Request;
+                Check(Transport.Pending && request?.Commands.Count == 2, "Both clicks reached one isolated HTTP request");
+                var state = LocalProgression.State;
+                var receipt = new EconomyBatchReceiptDTO
+                {
+                    RequestId = request.RequestId, Generation = request.Generation, Sequence = request.Sequence,
+                    PayloadHash = EconomyInputJournal.Hash(request), CommittedRevision = state.ServerEconomyRevision + 1,
+                    Results = new()
+                    {
+                        new() { Index = 0, Kind = EconomyCommandKind.MageEnhance, Status = EconomyCommandStatus.Applied, AppliedCount = 1, SpentArcaneKnowledge = 10 },
+                        new() { Index = 1, Kind = EconomyCommandKind.MageEnhance, Status = EconomyCommandStatus.Applied, AppliedCount = 1, SpentArcaneKnowledge = 11 }
+                    }
+                };
+                var metadata = EconomyCopies.Copy(state.Economy.Server);
+                metadata.NextSequence = request.Sequence + 1; metadata.PendingReceipt = receipt;
+                var response = Response(request.RequestId, state.AttackLevel, LocalProgression.Balance(eCurrency.Gold), metadata, receipt);
+                response.CurrentState.MageTowerState = new()
+                {
+                    Skills = new() { new() { SkillId = 0, EnhancementLevel = 2, KnowledgeSpent = 21 }, new() { SkillId = 3, EnhancementLevel = 4 } },
+                    EquippedSkillIds = state.MageSlots.ToArray()
+                };
+                int faultyCalls = 0, observedLevel = -1;
+                void FaultyObserver() { faultyCalls++; throw new InvalidOperationException("Expected mage acceptance observer failure"); }
+                void LaterObserver() => observedLevel = _mage.GetEnhanceLevel(0);
+                _mage.OnStateChanged += FaultyObserver;
+                _mage.OnStateChanged += LaterObserver;
+                try { Transport.Succeed(response); }
+                finally { _mage.OnStateChanged -= FaultyObserver; _mage.OnStateChanged -= LaterObserver; }
+                Pump();
+                var journal = new EconomyInputJournal(LocalProgression.EconomyJournalPath, LocalProgression.AccountKey).Data;
+                Check(faultyCalls == 1 && observedLevel == 2 && SuccessfulInputs == 2 && flushed && !EconomyBatchProgression.HasUnknownResult &&
+                    journal.InFlight == null && journal.Inputs.Count == 0 && LocalProgression.State.Economy.LastAppliedRequestId == request.RequestId,
+                    "A throwing mage subscriber leaves the next subscriber, both completion callbacks, durable journal and write fence intact");
+            }
 
             internal void Acknowledge()
             {
@@ -400,6 +623,11 @@ namespace KingdomIdle.UGUI.Editor
             {
                 if (_disposed) return; _disposed = true;
                 EconomyBatchProgression.InputCompleted -= OnInputCompleted;
+                if (_mage != null)
+                {
+                    MageTowerDetailPopupController.Hide();
+                    Invoke(_mage, "OnDestroy");
+                }
                 _panel?.OnClosed?.Invoke();
                 if (_main != null) Invoke(_main, "UnhookEconomyChangeHandler");
                 if (_canvas != null) UnityEngine.Object.DestroyImmediate(_canvas);
@@ -429,6 +657,7 @@ namespace KingdomIdle.UGUI.Editor
             private PlayFab.Internal.CallRequestContainer _pending;
             internal OnEconomyBatchRequestDTO Request;
             internal OnGetEconomyBatchResultRequestDTO Lookup;
+            internal OnEnchantSkillRequestDTO Single;
             internal int Calls, Unexpected;
             internal float LastSendAt;
             internal bool Pending => _pending != null;
@@ -445,6 +674,7 @@ namespace KingdomIdle.UGUI.Editor
                 if (function.FunctionName == "OnEconomyBatch")
                 { Request = JsonConvert.DeserializeObject<OnEconomyBatchRequestDTO>(payload); Lookup = null; }
                 else if (function.FunctionName == "OnGetEconomyBatchResult") Lookup = JsonConvert.DeserializeObject<OnGetEconomyBatchResultRequestDTO>(payload);
+                else if (function.FunctionName == "OnEnChantSkill") Single = JsonConvert.DeserializeObject<OnEnchantSkillRequestDTO>(payload);
                 else { Block(); return; }
                 _pending = container; Calls++; LastSendAt = Time.realtimeSinceStartup;
             }
@@ -458,7 +688,12 @@ namespace KingdomIdle.UGUI.Editor
                 } };
                 pending.InvokeSuccessCallback();
             }
-            internal void Succeed(OnEconomyBatchResponseDTO response)
+            internal PlayFab.Internal.CallRequestContainer TakePending()
+            {
+                if (!Pending) throw new InvalidOperationException("No response to drop.");
+                var pending = _pending; _pending = null; return pending;
+            }
+            internal void Succeed(object response)
             {
                 var pending = _pending ?? throw new InvalidOperationException("No pending growth HTTP request."); _pending = null;
                 pending.ApiResult = new ExecuteFunctionResult { FunctionResult = JsonConvert.SerializeObject(response) };

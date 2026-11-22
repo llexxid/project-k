@@ -25,6 +25,7 @@ namespace Protocol.Message.Dto
 		public int? EquipmentSchema { get; set; }
 		[JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
 		public int? EconomyBatchVersion { get; set; }
+		public bool SupportsMageEnhance { get; set; }
 		[JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
 		public string EconomyClientId { get; set; }
 	}

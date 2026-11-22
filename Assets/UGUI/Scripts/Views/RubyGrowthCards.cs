@@ -52,14 +52,15 @@ namespace KingdomIdle.UGUI
                 bool capped=i==1 && state.AccountLevel>=BalanceMath.AccountCap;
                 bool available = batch || RubyProgression.Available, busy = RubyProgression.IsBusy;
                 bool pending = RubyProgression.HasPendingRequest, queued = RubyProgression.WaitingForWave;
+                string multiplier = $"×{BalanceMath.RubyMultiplier(level):0.00}";
                 string detail = !available ? "서버 연동 준비 중" : busy ? "서버에 확인 중입니다." :
                     pending ? "이전 요청의 결과 확인이 필요합니다." : recovering ? "저장된 서버 결과 확인이 필요합니다." :
                     held ? "보류된 육성 입력을 확인해 주세요." : queued ? "이전 성장 요청 처리 대기" :
-                    !unlocked ? "메인 2-5 클리어 후 해금" : level != confirmedLevel
-                        ? $"확정 ×{BalanceMath.RubyMultiplier(confirmedLevel):0.00} · 예상 ×{BalanceMath.RubyMultiplier(level):0.00}" : cost.HasValue && !capped
-                        ? $"×{BalanceMath.RubyMultiplier(level):0.00}  →  ×{BalanceMath.RubyMultiplier(level+1):0.00}"
-                        : $"현재 ×{BalanceMath.RubyMultiplier(level):0.00}";
-                string levelText = $"Lv. {level}/50" + (level != confirmedLevel ? " (예상)" : "");
+                    !unlocked ? "메인 2-5 클리어 후 해금" :
+                    cost.HasValue && !capped
+                        ? $"{multiplier}  →  ×{BalanceMath.RubyMultiplier(level+1):0.00}"
+                        : level == confirmedLevel ? $"현재 {multiplier}" : multiplier;
+                string levelText = $"Lv. {level}/50";
                 if (_cards[i].levelLabel?.text != levelText || _cards[i].bonusLabel?.text != detail)
                     _cards[i].Set(i==1?"경험치 획득":"골드 획득",levelText,detail,UguiTheme.RoyalBlue);
                 if (pending && state.PendingRubyRequestExperience == (i==1))

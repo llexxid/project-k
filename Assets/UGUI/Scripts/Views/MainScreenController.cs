@@ -421,7 +421,7 @@ namespace KingdomIdle.UGUI
             long gold = GetCurrencyAmount(eCurrency.Gold);
             long ancient = GetCurrencyAmount(eCurrency.AncientCoin);
 
-            string goldText = (IsProjectedCurrency(eCurrency.Gold) ? "~" : "") + FormatChipAmount(gold);
+            string goldText = FormatChipAmount(gold);
             if (_view.lblGold != null && _view.lblGold.text != goldText)
             {
                 _view.lblGold.text = goldText;
@@ -441,24 +441,21 @@ namespace KingdomIdle.UGUI
 
         private long GetCurrencyAmount(eCurrency c)
         {
-            if (EconomyBatchProgression.Available && (c == eCurrency.Gold || c == eCurrency.Ruby))
+            if (EconomyBatchProgression.Available && (c == eCurrency.Gold || c == eCurrency.Ruby || c == eCurrency.ArcaneKnowledge))
             {
                 var projection = EconomyBatchProgression.GetProjection();
-                if (projection.Valid) return c == eCurrency.Gold ? projection.Gold : projection.Ruby;
+                if (projection.Valid) return c switch
+                {
+                    eCurrency.Gold => projection.Gold,
+                    eCurrency.Ruby => projection.Ruby,
+                    _ => projection.ArcaneKnowledge
+                };
             }
             if (_wallet == null) return 0;
             return WalletLocator.TryGetAmount(_wallet, c, out long amount) ? amount : 0;
         }
 
-        private static bool IsProjectedCurrency(eCurrency currency)
-        {
-            if (!EconomyBatchProgression.Available || (currency != eCurrency.Gold && currency != eCurrency.Ruby)) return false;
-            var projection = EconomyBatchProgression.GetProjection();
-            return projection.Valid && (currency == eCurrency.Gold ? projection.Gold : projection.Ruby) != LocalProgression.Balance(currency);
-        }
-
-        private string GetCurrencyText(eCurrency currency) =>
-            (IsProjectedCurrency(currency) ? "예상 " : "") + NumberNotation.Exact(GetCurrencyAmount(currency));
+        private string GetCurrencyText(eCurrency currency) => NumberNotation.Exact(GetCurrencyAmount(currency));
 
         private void RefreshCurrencyPopupContents()
         {
