@@ -273,31 +273,26 @@ namespace KingdomIdle.Balance
                 _journal == null || _journal.IsDirty || _journal.Data.InFlight != null || _journal.Data.Inputs.Any(x => !x.Held)) return false;
             var state = LocalProgression.State;
             current = EconomyProjectionMath.Calculate(state, commands);
-            var invalidSkills = new HashSet<int>();
+            var invalidTargets = new HashSet<(EconomyCommandKind, int?)>();
             var discarded = new List<EconomyInput>();
             foreach (var input in _journal.Data.Inputs.Where(x => x.Held && x.Command.Kind != EconomyCommandKind.Hunt))
             {
                 var command = EconomyCopies.Copy(input.Command);
                 bool mage = command.Kind == EconomyCommandKind.MageEnhance;
                 if (mage && !SupportsMageEnhance) return false;
-                if (mage && invalidSkills.Contains(command.SkillId.Value)) { discarded.Add(input); continue; }
+                var target = EconomyBatchProtocol.GrowthTarget(command);
+                if (invalidTargets.Contains(target)) { discarded.Add(input); continue; }
                 command.ExpectedLevel = current.Level(command.Kind, command.SkillId);
                 int cap = LevelCap(command.Kind);
-                if (command.Mode > 0)
-                {
-                    int count = Math.Min(command.Mode, cap - command.ExpectedLevel);
-                    if (count > command.CountLimit) { DiscardHeldInputs(); return false; }
-                    command.CountLimit = count;
-                }
-                else command.CountLimit = Math.Min(command.CountLimit, cap - command.ExpectedLevel);
+                int priorLimit = command.CountLimit;
+                command.CountLimit = Math.Min(command.Mode > 0 ? command.Mode : priorLimit, cap - command.ExpectedLevel);
                 commands.Add(command);
-                var next = EconomyInputJournal.ValidCommand(command) &&
+                var next = command.CountLimit <= priorLimit && EconomyInputJournal.ValidCommand(command) &&
                     (command.Kind != EconomyCommandKind.RubyExperience || state.AccountLevel < BalanceMath.AccountCap)
                     ? EconomyProjectionMath.Calculate(state, commands) : default;
                 if (next.Valid) { current = next; continue; }
-                if (!mage) { DiscardHeldInputs(); return false; }
                 commands.RemoveAt(commands.Count - 1);
-                invalidSkills.Add(command.SkillId.Value);
+                invalidTargets.Add(target);
                 discarded.Add(input);
             }
             if (discarded.Count > 0)
@@ -415,6 +410,7 @@ namespace KingdomIdle.Balance
                 RequestId = Guid.NewGuid().ToString("N"), Generation = metadata.Generation, Sequence = metadata.NextSequence,
                 ExpectedEconomyRevision = state.ServerEconomyRevision, AppliedRewardEpoch = metadata.RewardEpoch,
                 AcknowledgedRequestId = state.Economy.LastAppliedRequestId,
+                IndependentGrowthFailures = metadata.IndependentGrowthFailures,
                 QuestVersion = QuestManager.Instance?.ServerQuests?.Version,
                 RewardEpochCutoffs = state.Economy.Cutoffs.Select(EconomyCopies.Copy).ToList(),
                 Commands = inputs.Select(x => EconomyCopies.Copy(x.Command)).ToList()
@@ -609,45 +605,39 @@ namespace KingdomIdle.Balance
 
         private static void ResolveCompletedInputs(EconomyBatchReceiptDTO receipt, bool alreadyApplied)
         {
-                bool stopSpending = receipt.Results.Any(x => x.Status == EconomyCommandStatus.Rejected && !EconomyBatchProtocol.IsIsolatedMageRejection(x));
-                var failedSkills = new HashSet<int>();
-                bool invalidHunt = false;
-                var discarded = new List<EconomyInput>();
-                for (int i = 0; i < receipt.Results.Count; i++)
+            bool stopSpending = false, invalidHunt = false;
+            var failedTargets = new HashSet<(EconomyCommandKind, int?)>();
+            var discarded = new List<EconomyInput>();
+            for (int i = 0; i < receipt.Results.Count; i++)
+            {
+                var result = receipt.Results[i]; var input = _journal.Data.InFlightInputs[i];
+                if (result.Status == EconomyCommandStatus.Rejected)
                 {
-                    var result = receipt.Results[i]; var input = _journal.Data.InFlightInputs[i];
-                    bool hunt = input.Command.Kind == EconomyCommandKind.Hunt;
-                    if (hunt && result.Status != EconomyCommandStatus.Applied)
-                    {
-                        bool badHunt = result.Status == EconomyCommandStatus.Rejected &&
-                            result.ErrorCode != Protocol.Message.Data.eErrorCode.EconomyRevisionMismatch;
-                        input.Held = badHunt;
-                        invalidHunt |= badHunt; _journal.Data.Inputs.Add(input);
-                    }
-                    if (!hunt)
-                    {
-                        if (EconomyBatchProtocol.IsIsolatedMageRejection(result)) failedSkills.Add(input.Command.SkillId.Value);
-                        if (result.Status != EconomyCommandStatus.Applied) discarded.Add(input);
-                        else if (!alreadyApplied) CompleteInput(input, true, "강화가 적용되었습니다.");
-                    }
+                    if (EconomyBatchProtocol.IsIsolatedGrowthRejection(result, receipt.IndependentGrowthFailures))
+                        failedTargets.Add(EconomyBatchProtocol.GrowthTarget(input.Command));
+                    else stopSpending = true;
                 }
-                if (stopSpending || failedSkills.Count != 0)
+                if (input.Command.Kind == EconomyCommandKind.Hunt)
                 {
-                    bool Cancel(EconomyInput input) => input.Command.Kind != EconomyCommandKind.Hunt &&
-                        (stopSpending || input.Command.SkillId is int id && failedSkills.Contains(id));
-                    discarded.AddRange(_journal.Data.Inputs.Where(Cancel));
-                    _journal.Data.Inputs.RemoveAll(Cancel);
+                    if (result.Status == EconomyCommandStatus.Applied) continue;
+                    input.Held = result.Status == EconomyCommandStatus.Rejected &&
+                        result.ErrorCode != Protocol.Message.Data.eErrorCode.EconomyRevisionMismatch;
+                    invalidHunt |= input.Held;
+                    _journal.Data.Inputs.Add(input);
                 }
-                ClearInFlight(); _journal.Data.Inputs.Sort((a, b) => a.Sequence.CompareTo(b.Sequence));
-                if (!HasUnknownResult) Status = null;
-                if (invalidHunt) { MarkBlocked("보존된 사냥 기록을 서버가 거절했습니다. 기록을 유지하고 실행을 보류했습니다."); FinishFences(false); }
-                SaveDiscardedInputs(discarded);
-        }
-
-        private static void DiscardHeldInputs()
-        {
-            var discarded = _journal.Data.Inputs.Where(x => x.Held && x.Command.Kind != EconomyCommandKind.Hunt).ToList();
-            _journal.Data.Inputs.RemoveAll(x => x.Held && x.Command.Kind != EconomyCommandKind.Hunt);
+                else if (result.Status != EconomyCommandStatus.Applied) discarded.Add(input);
+                else if (!alreadyApplied) CompleteInput(input, true, "강화가 적용되었습니다.");
+            }
+            if (stopSpending || failedTargets.Count != 0)
+            {
+                bool Cancel(EconomyInput input) => input.Command.Kind != EconomyCommandKind.Hunt &&
+                    (stopSpending || failedTargets.Contains(EconomyBatchProtocol.GrowthTarget(input.Command)));
+                discarded.AddRange(_journal.Data.Inputs.Where(Cancel));
+                _journal.Data.Inputs.RemoveAll(Cancel);
+            }
+            ClearInFlight(); _journal.Data.Inputs.Sort((a, b) => a.Sequence.CompareTo(b.Sequence));
+            if (!HasUnknownResult) Status = null;
+            if (invalidHunt) { MarkBlocked("보존된 사냥 기록을 서버가 거절했습니다. 기록을 유지하고 실행을 보류했습니다."); FinishFences(false); }
             SaveDiscardedInputs(discarded);
         }
 

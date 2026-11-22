@@ -106,6 +106,7 @@ namespace KingdomIdle.Balance
             EconomyBatchProtocol.ValidateRequest(request);
             Check(true, "x10 still caps to the one remaining level");
             CheckMageContract(request, Check, Rejected, Read);
+            CheckIndependentGrowthContract(Check, Rejected, Read);
             return new { passed = checks.Count, checks };
         }
 
@@ -223,6 +224,97 @@ namespace KingdomIdle.Balance
                     }
                 }
             };
+        }
+
+        internal static (OnEconomyBatchRequestDTO Request, OnEconomyBatchResponseDTO Response) IndependentGrowthFixture()
+        {
+            EconomyCommandDTO Growth(EconomyCommandKind kind, int level, long cost) => new()
+            { Kind = kind, ExpectedLevel = level, Mode = 1, CountLimit = 1, SpendLimit = cost };
+            var request = new OnEconomyBatchRequestDTO
+            {
+                RequestId = Id, Generation = 1, Sequence = 1, ExpectedEconomyRevision = 3, AppliedRewardEpoch = 1,
+                IndependentGrowthFailures = true,
+                Commands = new()
+                {
+                    Growth(EconomyCommandKind.GoldAttack, 0, 50), Growth(EconomyCommandKind.GoldAttack, 1, 54),
+                    Growth(EconomyCommandKind.GoldHealth, 0, 50), Growth(EconomyCommandKind.GoldAttack, 2, 58),
+                    Growth(EconomyCommandKind.RubyGold, 1, 22), Growth(EconomyCommandKind.RubyExperience, 0, 20),
+                    Growth(EconomyCommandKind.RubyGold, 2, 24),
+                    new() { Kind = EconomyCommandKind.Hunt, Stage = eStage.Stage1_1, MainRunId = Id, RewardEpoch = 1,
+                        TotalKills = new() { new() { MonsterType = eMonsterType.MON_GOBLIN, Count = 3 } } }
+                }
+            };
+            var response = Fixture();
+            response.Receipt.IndependentGrowthFailures = true;
+            response.Receipt.PayloadHash = EconomyInputJournal.Hash(request);
+            response.Receipt.Results = new()
+            {
+                new() { Index = 0, Kind = EconomyCommandKind.GoldAttack, Status = EconomyCommandStatus.Applied, AppliedCount = 1, SpentGold = 50 },
+                new() { Index = 1, Kind = EconomyCommandKind.GoldAttack, Status = EconomyCommandStatus.Rejected, ErrorCode = eErrorCode.EconomyExpectedLevelMismatch },
+                new() { Index = 2, Kind = EconomyCommandKind.GoldHealth, Status = EconomyCommandStatus.Applied, AppliedCount = 1, SpentGold = 50 },
+                new() { Index = 3, Kind = EconomyCommandKind.GoldAttack, Status = EconomyCommandStatus.Unprocessed },
+                new() { Index = 4, Kind = EconomyCommandKind.RubyGold, Status = EconomyCommandStatus.Rejected, ErrorCode = eErrorCode.EconomyExpectedLevelMismatch },
+                new() { Index = 5, Kind = EconomyCommandKind.RubyExperience, Status = EconomyCommandStatus.Applied, AppliedCount = 1, SpentRuby = 20 },
+                new() { Index = 6, Kind = EconomyCommandKind.RubyGold, Status = EconomyCommandStatus.Unprocessed },
+                new() { Index = 7, Kind = EconomyCommandKind.Hunt, Status = EconomyCommandStatus.Applied, AppliedCount = 3, GrantedGold = 30, GrantedExp = 12 }
+            };
+            var state = response.CurrentState;
+            state.EnchantHPCount = 1; state.Currency.Gold = 930; state.Currency.Ruby = 80;
+            state.RubyGrowthState.ExpLevel = state.RubyGrowthState.BestExpLevel = 1; state.RubyGrowthState.ExpSpent = 20;
+            state.MainBattle.AcceptedKills = EconomyCopies.Kills(request.Commands[7].TotalKills);
+            state.EconomyBatchState.IndependentGrowthFailures = true;
+            state.EconomyBatchState.RewardEpoch = 2;
+            state.EconomyBatchState.RewardEpochs.Add(new() { Id = 2, ExpLevel = 1 });
+            state.EconomyBatchState.PendingReceipt = EconomyCopies.Copy(response.Receipt);
+            return (request, response);
+        }
+
+        private static void CheckIndependentGrowthContract(Action<bool, string> check, Func<Action, bool> rejected, Func<JObject, bool> read)
+        {
+            var (request, response) = IndependentGrowthFixture();
+            var frozen = EconomyInputJournal.Clone(request);
+            EconomyBatchProtocol.ValidateRequest(frozen);
+            EconomyBatchProtocol.MatchRequest(response, frozen);
+            var metadata = EconomyCopies.Copy(response.CurrentState.EconomyBatchState);
+            check(read(JObject.FromObject(response)) && frozen.IndependentGrowthFailures && metadata.IndependentGrowthFailures &&
+                metadata.PendingReceipt.IndependentGrowthFailures, "new growth receipt and canonical capability survive decode and local copies");
+            var malformed = JObject.FromObject(response);
+            malformed["Receipt"]["IndependentGrowthFailures"] = 1;
+            check(!read(malformed), "numeric receipt marker cannot enable independent growth failure handling");
+            malformed = JObject.FromObject(response);
+            malformed["CurrentState"]["EconomyBatchState"]["IndependentGrowthFailures"] = "true";
+            check(!read(malformed), "string capability cannot opt a new batch into independent growth failures");
+            frozen.IndependentGrowthFailures = false;
+            string newHash = response.Receipt.PayloadHash;
+            response.Receipt.PayloadHash = EconomyInputJournal.Hash(frozen);
+            check(newHash != response.Receipt.PayloadHash && rejected(() => EconomyBatchProtocol.MatchRequest(response, frozen)),
+                "independent result requires the original request opt-in even when the receipt hash is forged to match");
+            response.Receipt.PayloadHash = newHash;
+            response.CurrentState.EconomyBatchState.IndependentGrowthFailures = false;
+            response.Replayed = true;
+            check(read(JObject.FromObject(response)), "compatibility rollback can read and replay a previously committed independent receipt");
+
+            var rows = response.Receipt.Results;
+            var laterAttack = rows[3];
+            rows[3] = new() { Index = 3, Kind = laterAttack.Kind, Status = EconomyCommandStatus.Applied, AppliedCount = 1, SpentGold = 58 };
+            check(!read(JObject.FromObject(response)), "same growth target cannot apply after its rejection");
+            rows[3] = laterAttack;
+            var health = rows[2];
+            rows[2] = new() { Index = 2, Kind = health.Kind, Status = EconomyCommandStatus.Unprocessed };
+            check(!read(JObject.FromObject(response)), "independent gold health cannot be skipped because gold attack failed");
+            rows[2] = health;
+            rows[1].ErrorCode = eErrorCode.EconomyRevisionMismatch;
+            check(!read(JObject.FromObject(response)), "revision mismatch still stops the entire batch");
+            rows[1].ErrorCode = eErrorCode.InvalidRewardEpoch;
+            check(!read(JObject.FromObject(response)), "invalid reward cutoff still stops the entire batch");
+            rows[1].ErrorCode = eErrorCode.EconomyExpectedLevelMismatch;
+            response.Receipt.IndependentGrowthFailures = false;
+            for (int i = 2; i < rows.Count; i++) rows[i] = new() { Index = i, Kind = rows[i].Kind, Status = EconomyCommandStatus.Unprocessed };
+            EconomyBatchProtocol.MatchRequest(response, request);
+            check(read(JObject.FromObject(response)), "stale opt-in request accepts the compatibility server's legacy prefix response");
+            response.Receipt.IndependentGrowthFailures = true;
+            rows[1].ErrorCode = eErrorCode.EconomyRevisionMismatch;
+            check(!read(JObject.FromObject(response)), "receipt cannot claim independence without an isolated gold or ruby rejection");
         }
 
         public static object RunApplyBoundary()

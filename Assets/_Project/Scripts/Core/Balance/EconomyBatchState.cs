@@ -37,7 +37,7 @@ namespace KingdomIdle.Balance
         internal static EconomyBatchReceiptDTO Copy(EconomyBatchReceiptDTO x) => x == null ? null : new()
         {
             RequestId = x.RequestId, Generation = x.Generation, Sequence = x.Sequence, PayloadHash = x.PayloadHash,
-            CommittedRevision = x.CommittedRevision,
+            CommittedRevision = x.CommittedRevision, IndependentGrowthFailures = x.IndependentGrowthFailures,
             Results = x.Results.Select(r => new EconomyCommandResultDTO
             {
                 Index = r.Index, Kind = r.Kind, Status = r.Status, AppliedCount = r.AppliedCount,
@@ -51,6 +51,7 @@ namespace KingdomIdle.Balance
             RewardEpoch = x.RewardEpoch, GoldRemainderMicros = x.GoldRemainderMicros, ExpRemainderMicros = x.ExpRemainderMicros,
             PendingReceipt = Copy(x.PendingReceipt), OwnershipChanged = x.OwnershipChanged,
             SupportsMageEnhance = x.SupportsMageEnhance, MageEnhanceMode = x.MageEnhanceMode,
+            IndependentGrowthFailures = x.IndependentGrowthFailures,
             RewardEpochs = x.RewardEpochs.Select(e => new EconomyRewardEpochDTO { Id = e.Id, GoldLevel = e.GoldLevel, ExpLevel = e.ExpLevel }).ToList()
         };
         internal static bool SameRun(EconomyCommandDTO a, EconomyCommandDTO b) => a.Stage == b.Stage && a.MainRunId == b.MainRunId && a.BattleId == b.BattleId;

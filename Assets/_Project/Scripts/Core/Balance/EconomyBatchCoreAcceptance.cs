@@ -30,6 +30,10 @@ namespace KingdomIdle.Balance
             Check(EconomyInputJournal.Hash(request) == "47301BBC4516EA916E315779AF9C80E8DE82E72AA5BB1B0306340922CF06EFBB", "session replacement cannot change the immutable economic body");
             request.QuestVersion = "quest-observer";
             Check(EconomyInputJournal.Hash(request) == "47301BBC4516EA916E315779AF9C80E8DE82E72AA5BB1B0306340922CF06EFBB", "quest version cannot change the durable economy payload hash");
+            request.IndependentGrowthFailures = true;
+            Check(EconomyInputJournal.Hash(request) == "FBF629DFACC67009691376D05C38930442D44C8777A757DBAC54B05871FAF398",
+                "opt-in uses the same immutable body hash as the server");
+            request.IndependentGrowthFailures = false;
 
             var state = Fixture(); state.Wallet[eCurrency.Gold] = 104;
             var initial = EconomyProjectionMath.Calculate(state, Array.Empty<EconomyCommandDTO>());
@@ -167,6 +171,7 @@ namespace KingdomIdle.Balance
                     "invalid startup result also completes failure without replacing the sealed request");
                 CheckFencesAndDiscard(Check);
                 CheckStorageRetry(Check);
+                CheckIndependentGrowthRecovery(Check);
             }
             return new { passed = checks.Count, checks };
         }
@@ -519,6 +524,103 @@ namespace KingdomIdle.Balance
             {
                 Call("ResetAccount"); NetworkManager.Instance = previousNetwork; UnityEngine.Object.DestroyImmediate(owner);
                 received.SetValue(null, previousQuests); source.SetValue(null, previousSource);
+                foreach (string file in new[] { path, path + ".tmp", path + ".bak" }) if (File.Exists(file)) File.Delete(file);
+            }
+        }
+
+        private static void CheckIndependentGrowthRecovery(Action<bool, string> check)
+        {
+            var core = typeof(EconomyBatchProgression);
+            object Call(string name, params object[] args) => core.GetMethod(name, BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, args);
+            void Set(string name, object value) => core.GetField(name, BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, value);
+            var previousNetwork = NetworkManager.Instance;
+            var owner = new GameObject("IndependentGrowthRecoveryAcceptance"); owner.SetActive(false);
+            string path = Path.Combine(Path.GetTempPath(), "independent-growth-" + Guid.NewGuid().ToString("N") + ".json");
+            var completions = new List<EconomyInputCompletion>();
+            void Completed(EconomyInputCompletion result) => completions.Add(result);
+            try
+            {
+                Call("ResetAccount");
+                var network = owner.AddComponent<NetworkManager>(); NetworkManager.Instance = network;
+                typeof(NetworkManager).GetProperty("LoginState").SetValue(network, GameLoginState.Ready);
+                var (request, response) = EconomyBatchContractAcceptance.IndependentGrowthFixture();
+                response.Replayed = true;
+                response.CurrentState.EconomyBatchState.IndependentGrowthFailures = false;
+                LocalProgression.Execute("independent-growth-fixture", s =>
+                {
+                    var fixture = Fixture(); s.Economy = fixture.Economy; s.MainBattle = fixture.MainBattle;
+                    s.ServerEconomyRevision = request.ExpectedEconomyRevision; s.MainBattle.RunId = request.RequestId;
+                    s.AttackLevel = s.HealthLevel = s.RubyGoldLevel = s.RubyExpLevel = 0;
+                    s.Wallet[eCurrency.Gold] = 1000; s.Wallet[eCurrency.Ruby] = 100;
+                    s.Economy.Hunts.Add(EconomyCopies.Copy(request.Commands[7])); return true;
+                });
+                EconomyInput Input(long sequence, int index, bool held = false) => new()
+                { Sequence = sequence, Held = held, Command = EconomyCopies.Copy(request.Commands[index]) };
+                var journal = new EconomyInputJournal(path, LocalProgression.AccountKey);
+                journal.Data.Generation = 1; journal.Data.NextInputSequence = 14; journal.Data.InFlight = request;
+                journal.Data.InFlightInputs = request.Commands.Select((_, i) => Input(i + 1, i)).ToList();
+                journal.Data.Inputs = new() { Input(9, 3, true), Input(10, 2, true), Input(11, 6, true), Input(12, 5, true), Input(13, 7) };
+                journal.Data.Inputs[4].Command.TotalKills[0] = new() { MonsterType = Protocol.Message.Data.eMonsterType.MON_GOBLIN, Count = 5 };
+                journal.Changed(); journal.Pump(true);
+                string beforeReceipt = File.ReadAllText(path);
+                journal = new EconomyInputJournal(path, LocalProgression.AccountKey);
+                Set("_journal", journal); Set("_network", network); Set("_localGeneration", LocalProgression.AccountGeneration);
+                Set("_networkGeneration", network.AccountGeneration); Set("_supported", true); Set("_recovered", true);
+                EconomyBatchProgression.InputCompleted += Completed;
+                Call("ApplyResult", response, true);
+                check(!EconomyBatchProgression.HasUnknownResult && LocalProgression.State.AttackLevel == 1 && LocalProgression.State.HealthLevel == 1 &&
+                    LocalProgression.State.RubyGoldLevel == 0 && LocalProgression.State.RubyExpLevel == 1 &&
+                    LocalProgression.Balance(eCurrency.Gold) == 930 && LocalProgression.Balance(eCurrency.Ruby) == 80 &&
+                    LocalProgression.State.MainBattle.AcceptedKills[Monster] == 3,
+                    "recovered partial receipt applies confirmed prefix, independent spending, and hunt once");
+                check(completions.Select(x => x.Sequence).SequenceEqual(new long[] { 1, 3, 6 }) && completions.All(x => x.Success),
+                    "partial result publishes only successes before journal rewrite is durable");
+                journal.Pump(true); Call("PublishDiscardedInputs");
+                var saved = new EconomyInputJournal(path, LocalProgression.AccountKey).Data;
+                check(saved.InFlight == null && saved.Inputs.Select(x => x.Sequence).SequenceEqual(new long[] { 10, 12, 13 }) &&
+                    saved.Inputs[0].Held && saved.Inputs[1].Held && !saved.Inputs[2].Held &&
+                    completions.Where(x => !x.Success).Select(x => x.Sequence).SequenceEqual(new long[] { 2, 4, 5, 7, 9, 11 }),
+                    "journal recovery cancels only failed targets, preserving held growth and a later hunt");
+
+                // Simulate a restart after confirmed state was saved but before the journal was cleared.
+                File.WriteAllText(path, beforeReceipt);
+                journal = new EconomyInputJournal(path, LocalProgression.AccountKey);
+                Set("_journal", journal);
+                completions.Clear();
+                Call("ApplyResult", response, true);
+                journal.Pump(true); Call("PublishDiscardedInputs");
+                check(journal.Data.InFlight == null && journal.Data.Inputs.Select(x => x.Sequence).SequenceEqual(new long[] { 10, 12, 13 }) &&
+                    completions.Count == 6 && completions.All(x => !x.Success) &&
+                    LocalProgression.Balance(eCurrency.Gold) == 930 && LocalProgression.Balance(eCurrency.Ruby) == 80,
+                    "restarting with a saved partial result clears only its failed inputs without applying success twice");
+
+                long healthCost = BalanceMath.GoldTotal(1, 1), expCost = BalanceMath.RubyCost(1).Value;
+                LocalProgression.Execute("independent-growth-held-change", s =>
+                {
+                    s.RubyGoldLevel = s.BestRubyGoldLevel = 1; s.RubyGoldSpent = 20;
+                    s.Economy.Server.RewardEpochs[1].GoldLevel = 1;
+                    s.Wallet[eCurrency.Gold] = healthCost; s.Wallet[eCurrency.Ruby] = expCost; return true;
+                });
+                journal.Data.Inputs = new() { Input(14, 0, true), Input(15, 1, true), Input(16, 4, true),
+                    Input(17, 6, true), Input(18, 2, true), Input(19, 5, true) };
+                journal.Data.Inputs[2].Command.SpendLimit = 20;
+                journal.Data.Inputs[4].Command.SpendLimit = healthCost; journal.Data.Inputs[5].Command.SpendLimit = expCost;
+                journal.Data.NextInputSequence = 20; journal.Changed(); journal.Pump(true);
+                check(!EconomyBatchProgression.TryGetHeldPreview(out _, out _, out _, out _) &&
+                    journal.Data.Inputs.Select(x => x.Sequence).SequenceEqual(new long[] { 18, 19 }),
+                    "held reconfirmation prunes unaffordable quotes and their same-target dependents across both shared wallets");
+                journal.Pump(true); Call("PublishDiscardedInputs");
+                check(EconomyBatchProgression.TryGetHeldPreview(out int count, out long gold, out long ruby, out _) &&
+                    count == 2 && gold == healthCost && ruby == expCost && EconomyBatchProgression.ResumeHeldInputs(),
+                    "remaining held gold and ruby are requoted against the restored shared balances and require confirmation");
+                journal.Pump(true); Call("SealBatch"); journal.Pump(true);
+                check(!journal.Data.InFlight.IndependentGrowthFailures && journal.Data.InFlight.AcknowledgedRequestId == request.RequestId,
+                    "next batch uses current rollback capability while preserving the partial receipt acknowledgement");
+            }
+            finally
+            {
+                EconomyBatchProgression.InputCompleted -= Completed;
+                Call("ResetAccount"); NetworkManager.Instance = previousNetwork; UnityEngine.Object.DestroyImmediate(owner);
                 foreach (string file in new[] { path, path + ".tmp", path + ".bak" }) if (File.Exists(file)) File.Delete(file);
             }
         }

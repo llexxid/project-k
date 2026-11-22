@@ -37,6 +37,37 @@ namespace KingdomIdle.UGUI.Editor
         public static IEnumerator RunRapidTaps(Action<object> completed = null) => RunTaps(false, completed);
         public static IEnumerator RunStorageRetry(Action<object> completed = null) => RunTaps(true, completed);
 
+        public static object RunIndependentGoldFailure()
+        {
+            using var fixture = new RapidTapFixture(false, mage: true);
+            fixture.Pump();
+            fixture.Check(LocalProgression.Execute("qa-independent-growth", state =>
+            {
+                state.Economy.Server.IndependentGrowthFailures = true;
+                return true;
+            }), "The isolated server advertises independent growth failures");
+            fixture.BuildPanel();
+            var health = fixture.Body.CardsRoot.GetComponentsInChildren<EnhanceCardView>()
+                .Single(card => card.nameLabel.text == StatEnhanceManager.GetTypeName(StatEnhanceManager.EnhanceType.MaxHP));
+            var healthButton = health.ButtonRow.GetComponentInChildren<GachaPullButtonView>().Button;
+            fixture.AttackButton.onClick.Invoke();
+            fixture.AttackButton.onClick.Invoke();
+            healthButton.onClick.Invoke();
+            var projected = EconomyBatchProgression.GetProjection();
+            fixture.Check(projected.AttackLevel == 2 && projected.HealthLevel == 1 &&
+                LocalProgression.State.AttackLevel == 0 && LocalProgression.State.HealthLevel == 0,
+                "The real attack and health buttons project individually before confirmation");
+            EconomyBatchProgression.FlushBeforeWrite(_ => { });
+            fixture.Pump(); fixture.Pump();
+            fixture.AcknowledgeIndependentGoldFailure();
+            fixture.Check(fixture.AttackCard.levelLabel.text == "Lv. 1" && health.levelLabel.text == "Lv. 1" &&
+                LocalProgression.State.AttackLevel == 1 && LocalProgression.State.HealthLevel == 1 &&
+                LocalProgression.Balance(eCurrency.Gold) == RapidTapFixture.InitialGold - 50 &&
+                EconomyBatchProgression.PendingSpendingCount == 0 && !EconomyBatchProgression.HasUnknownResult,
+                "The attack preview rolls back to the confirmed level and the health upgrade stays applied");
+            return new { passed = fixture.Checks.Count, checks = fixture.Checks };
+        }
+
         public static object RunMageEnhance()
         {
             var checks = new List<string>();
@@ -504,6 +535,42 @@ namespace KingdomIdle.UGUI.Editor
                 Check(faultyCalls == 1 && observedLevel == 2 && SuccessfulInputs == 2 && flushed && !EconomyBatchProgression.HasUnknownResult &&
                     journal.InFlight == null && journal.Inputs.Count == 0 && LocalProgression.State.Economy.LastAppliedRequestId == request.RequestId,
                     "A throwing mage subscriber leaves the next subscriber, both completion callbacks, durable journal and write fence intact");
+            }
+
+            internal void AcknowledgeIndependentGoldFailure()
+            {
+                var request = Transport.Request;
+                Check(Transport.Pending && Transport.Calls == 1 && request.IndependentGrowthFailures &&
+                    request.Commands.Select(command => command.Kind).SequenceEqual(new[]
+                    { EconomyCommandKind.GoldAttack, EconomyCommandKind.GoldAttack, EconomyCommandKind.GoldHealth }),
+                    "Two attack clicks and one health click reach one versioned batch");
+                var state = LocalProgression.State;
+                var receipt = new EconomyBatchReceiptDTO
+                {
+                    RequestId = request.RequestId, Generation = request.Generation, Sequence = request.Sequence,
+                    PayloadHash = EconomyInputJournal.Hash(request), CommittedRevision = state.ServerEconomyRevision + 1,
+                    IndependentGrowthFailures = true,
+                    Results = new()
+                    {
+                        new() { Index = 0, Kind = EconomyCommandKind.GoldAttack, Status = EconomyCommandStatus.Rejected,
+                            ErrorCode = Protocol.Message.Data.eErrorCode.EconomyExpectedLevelMismatch },
+                        new() { Index = 1, Kind = EconomyCommandKind.GoldAttack, Status = EconomyCommandStatus.Unprocessed },
+                        new() { Index = 2, Kind = EconomyCommandKind.GoldHealth, Status = EconomyCommandStatus.Applied, AppliedCount = 1, SpentGold = 50 }
+                    }
+                };
+                var metadata = EconomyCopies.Copy(state.Economy.Server);
+                metadata.NextSequence = request.Sequence + 1;
+                metadata.PendingReceipt = receipt;
+                var response = Response(request.RequestId, 1, InitialGold - 50, metadata, receipt);
+                response.CurrentState.EnchantHPCount = 1;
+                var completed = new List<EconomyInputCompletion>();
+                EconomyBatchProgression.InputCompleted -= OnInputCompleted;
+                EconomyBatchProgression.InputCompleted += completed.Add;
+                try { Transport.Succeed(response); Pump(); }
+                finally { EconomyBatchProgression.InputCompleted -= completed.Add; }
+                Check(completed.Count == 3 && completed.Count(x => x.Success && x.Kind == EconomyCommandKind.GoldHealth) == 1 &&
+                    completed.Count(x => !x.Success && x.Kind == EconomyCommandKind.GoldAttack && x.Message == EconomyBatchProgression.FailureMessage) == 2,
+                    "The health click completes and only the two failed attack clicks show the failure message");
             }
 
             internal void Acknowledge()

@@ -71,10 +71,20 @@ namespace KingdomIdle.Balance
             command.SpendLimit > 0 && (long)command.Stage == 0 && command.MainRunId == null && command.BattleId == null &&
             command.RewardEpoch == 0 && command.TotalKills == null;
 
-        internal static bool IsIsolatedMageRejection(EconomyCommandResultDTO result) =>
-            result.Status == EconomyCommandStatus.Rejected && result.Kind == EconomyCommandKind.MageEnhance &&
-            result.ErrorCode is eErrorCode.eNotEnoughArcaneKnowledge or eErrorCode.eNotExistSkillCodeInput or
-                eErrorCode.eEnchantMaxLevelSKILL or eErrorCode.EconomyExpectedLevelMismatch or eErrorCode.NumericLimit or eErrorCode.UnsupportedProtocolVersion;
+        internal static (EconomyCommandKind Kind, int? SkillId) GrowthTarget(EconomyCommandDTO command) => (command.Kind, command.SkillId);
+
+        internal static bool IsIsolatedGrowthRejection(EconomyCommandResultDTO result, bool independentGrowthFailures) =>
+            result.Status == EconomyCommandStatus.Rejected && (result.Kind switch
+            {
+                EconomyCommandKind.MageEnhance => result.ErrorCode is eErrorCode.eNotEnoughArcaneKnowledge or eErrorCode.eNotExistSkillCodeInput or
+                    eErrorCode.eEnchantMaxLevelSKILL or eErrorCode.EconomyExpectedLevelMismatch or eErrorCode.NumericLimit or eErrorCode.UnsupportedProtocolVersion,
+                EconomyCommandKind.GoldAttack or EconomyCommandKind.GoldHealth => independentGrowthFailures &&
+                    result.ErrorCode is eErrorCode.EconomyExpectedLevelMismatch or eErrorCode.InvalidEnchantCount or eErrorCode.eNotEnoughGold,
+                EconomyCommandKind.RubyGold or EconomyCommandKind.RubyExperience => independentGrowthFailures &&
+                    result.ErrorCode is eErrorCode.EconomyExpectedLevelMismatch or eErrorCode.RubyGrowthLocked or eErrorCode.RubyGrowthMaxLevel or
+                        eErrorCode.RubyExperienceMaxLevel or eErrorCode.NumericLimit or eErrorCode.InsufficientRuby,
+                _ => false
+            });
 
         private static void ValidateHunt(Protocol.Message.Data.eStage stage, string mainRunId, string battleId, System.Collections.Generic.List<HuntResult> kills)
         {
@@ -121,6 +131,7 @@ namespace KingdomIdle.Balance
                 receipt.CommittedRevision < 1 || receipt.Results == null || receipt.Results.Count < 1 || receipt.Results.Count > MaxCommands)
                 Invalid("Invalid economy receipt.");
             bool stopped = false, mageRejected = false;
+            var rejectedGrowth = new HashSet<EconomyCommandKind>();
             for (int i = 0; i < receipt.Results.Count; i++)
             {
                 var result = receipt.Results[i];
@@ -128,9 +139,10 @@ namespace KingdomIdle.Balance
                     !Enum.IsDefined(typeof(EconomyCommandStatus), result.Status) || result.AppliedCount < 0 ||
                     result.SpentGold < 0 || result.SpentRuby < 0 || result.SpentArcaneKnowledge < 0 || result.GrantedGold < 0 || result.GrantedExp < 0)
                     Invalid("Invalid economy command result.");
+                bool skipped = stopped || rejectedGrowth.Contains(result.Kind);
                 if (result.Status == EconomyCommandStatus.Applied)
                 {
-                    if (stopped || result.ErrorCode != null) Invalid("Invalid economy success prefix.");
+                    if (skipped || result.ErrorCode != null) Invalid("Invalid economy success order.");
                     bool hunt = result.Kind == EconomyCommandKind.Hunt;
                     bool gold = result.Kind is EconomyCommandKind.GoldAttack or EconomyCommandKind.GoldHealth;
                     bool ruby = result.Kind is EconomyCommandKind.RubyGold or EconomyCommandKind.RubyExperience;
@@ -146,15 +158,17 @@ namespace KingdomIdle.Balance
                         Invalid("Unapplied economy command has amounts.");
                     if (result.Status == EconomyCommandStatus.Rejected)
                     {
-                        if (stopped || result.ErrorCode == null || !Enum.IsDefined(typeof(eErrorCode), result.ErrorCode.Value))
+                        if (skipped || result.ErrorCode == null || !Enum.IsDefined(typeof(eErrorCode), result.ErrorCode.Value))
                             Invalid("Invalid economy rejection.");
-                        if (IsIsolatedMageRejection(result)) mageRejected = true;
-                        else stopped = true;
+                        if (!IsIsolatedGrowthRejection(result, receipt.IndependentGrowthFailures)) stopped = true;
+                        else if (result.Kind == EconomyCommandKind.MageEnhance) mageRejected = true;
+                        else rejectedGrowth.Add(result.Kind);
                     }
-                    else if (result.ErrorCode != null || !stopped && (!mageRejected || result.Kind != EconomyCommandKind.MageEnhance))
+                    else if (result.ErrorCode != null || !skipped && (!mageRejected || result.Kind != EconomyCommandKind.MageEnhance))
                         Invalid("Invalid economy unprocessed suffix.");
                 }
             }
+            if (receipt.IndependentGrowthFailures && rejectedGrowth.Count == 0) Invalid("Missing independent growth rejection.");
         }
 
         internal static void ValidateResponse(OnEconomyBatchResponseDTO response)
@@ -211,8 +225,10 @@ namespace KingdomIdle.Balance
                 Invalid("Missing mage state for submitted enhancement.");
             if (response.Receipt == null) return;
             if (response.Receipt.PayloadHash != EconomyInputJournal.Hash(submitted)) Invalid("Economy receipt payload hash mismatch.");
+            if (response.Receipt.IndependentGrowthFailures && !submitted.IndependentGrowthFailures)
+                Invalid("Independent growth failure requires request opt-in.");
             if (submitted.Commands.Count != response.Receipt.Results.Count) Invalid("Economy result count mismatch.");
-            var rejectedSkills = new HashSet<int>();
+            var rejectedTargets = new HashSet<(EconomyCommandKind, int?)>();
             Dictionary<int, int> appliedMageLevels = null;
             bool stopped = false;
             for (int i = 0; i < submitted.Commands.Count; i++)
@@ -222,9 +238,10 @@ namespace KingdomIdle.Balance
                     (result.AppliedCount > command.CountLimit || result.SpentGold > command.SpendLimit || result.SpentRuby > command.SpendLimit ||
                      result.SpentArcaneKnowledge > command.SpendLimit))
                     Invalid("Economy result exceeds requested limits.");
-                bool skipped = stopped || command.SkillId.HasValue && rejectedSkills.Contains(command.SkillId.Value);
+                var target = GrowthTarget(command);
+                bool skipped = stopped || rejectedTargets.Contains(target);
                 if (skipped != (result.Status == EconomyCommandStatus.Unprocessed)) Invalid("Economy command dependency mismatch.");
-                if (IsIsolatedMageRejection(result)) rejectedSkills.Add(command.SkillId.Value);
+                if (IsIsolatedGrowthRejection(result, response.Receipt.IndependentGrowthFailures)) rejectedTargets.Add(target);
                 else if (result.Status == EconomyCommandStatus.Rejected) stopped = true;
                 else if (command.Kind == EconomyCommandKind.MageEnhance && result.Status == EconomyCommandStatus.Applied)
                 {

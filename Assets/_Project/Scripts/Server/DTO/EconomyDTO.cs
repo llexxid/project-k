@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using Protocol.Message.Data;
@@ -21,6 +22,8 @@ namespace Protocol.Message.Dto
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public string QuestVersion { get; set; }
         public List<EconomyRewardEpochCutoffDTO> RewardEpochCutoffs { get; set; } = new();
         public List<EconomyCommandDTO> Commands { get; set; } = new();
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore), JsonConverter(typeof(IndependentGrowthFailuresConverter))]
+        public bool IndependentGrowthFailures { get; set; }
     }
 
     public sealed class OnGetEconomyBatchResultRequestDTO : SessionRequestDTO
@@ -68,6 +71,8 @@ namespace Protocol.Message.Dto
         [JsonProperty(Required = Required.Always)] public string PayloadHash { get; set; }
         [JsonProperty(Required = Required.Always)] public long CommittedRevision { get; set; }
         [JsonProperty(Required = Required.Always)] public List<EconomyCommandResultDTO> Results { get; set; }
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore), JsonConverter(typeof(IndependentGrowthFailuresConverter))]
+        public bool IndependentGrowthFailures { get; set; }
     }
 
     public sealed class OnEconomyBatchResponseDTO : ApiResponseDTO
@@ -118,6 +123,8 @@ namespace Protocol.Message.Dto
         [JsonProperty(Required = Required.Always)] public int Version { get; set; }
         public bool SupportsMageEnhance { get; set; }
         public MageEnhanceBatchMode MageEnhanceMode { get; set; }
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore), JsonConverter(typeof(IndependentGrowthFailuresConverter))]
+        public bool IndependentGrowthFailures { get; set; }
         [JsonProperty(Required = Required.Always)] public string OwnerClientId { get; set; }
         [JsonProperty(Required = Required.Always)] public long Generation { get; set; }
         [JsonProperty(Required = Required.Always)] public long NextSequence { get; set; }
@@ -143,5 +150,13 @@ namespace Protocol.Message.Dto
         public string MainRunId { get; set; }
         public string BattleId { get; set; }
         public List<HuntResult> TotalKills { get; set; }
+    }
+
+    internal sealed class IndependentGrowthFailuresConverter : JsonConverter<bool>
+    {
+        public override bool CanWrite => false;
+        public override bool ReadJson(JsonReader reader, Type objectType, bool existingValue, bool hasExistingValue, JsonSerializer serializer) =>
+            reader.TokenType == JsonToken.Boolean ? (bool)reader.Value : throw new JsonSerializationException("Expected a boolean at " + reader.Path);
+        public override void WriteJson(JsonWriter writer, bool value, JsonSerializer serializer) => throw new NotSupportedException();
     }
 }

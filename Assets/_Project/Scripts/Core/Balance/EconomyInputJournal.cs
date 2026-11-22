@@ -144,8 +144,16 @@ namespace KingdomIdle.Balance
                 { x.Epoch, Stage = (long)x.Stage, x.MainRunId, x.BattleId, TotalKills = Kills(x.TotalKills) }).ToArray(),
                 Commands = r.Commands.Select(Command).ToArray()
             };
+            string json;
+            if (r.IndependentGrowthFailures)
+            {
+                var optedIn = JObject.FromObject(body);
+                optedIn.Add(nameof(r.IndependentGrowthFailures), true);
+                json = optedIn.ToString(Formatting.None);
+            }
+            else json = JsonConvert.SerializeObject(body, Formatting.None);
             using var sha = SHA256.Create();
-            return BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(body, Formatting.None)))).Replace("-", "");
+            return BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(json))).Replace("-", "");
         }
     }
 }
