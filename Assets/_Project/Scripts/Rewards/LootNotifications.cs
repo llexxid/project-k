@@ -130,14 +130,19 @@ namespace KingdomIdle.Rewards
                 if (amount > 0) yield return new LootNotification(LootNotificationKind.Currency, pair.Key, 0, amount);
             }
         }
-        static void Confirm(Snapshot before, IEnumerable<LootNotification> rewards, string receipt)
+        static bool BeginConfirm(Snapshot before, string receipt)
         {
-            if (before == null || before.Published || !LocalProgression.IsReady || before.Generation != LocalProgression.AccountGeneration) return;
+            if (before == null || before.Published || !LocalProgression.IsReady || before.Generation != LocalProgression.AccountGeneration) return false;
             before.Published = true;
             string key = receipt ?? "commit:" + before.Sequence;
-            if (!Receipts.Add(key)) return;
+            if (!Receipts.Add(key)) return false;
             ReceiptOrder.Enqueue(key);
             while (ReceiptOrder.Count > ReceiptCapacity) Receipts.Remove(ReceiptOrder.Dequeue());
+            return true;
+        }
+        static void Confirm(Snapshot before, IEnumerable<LootNotification> rewards, string receipt)
+        {
+            if (!BeginConfirm(before, receipt)) return;
             var state = LocalProgression.State;
             var equipment = new Dictionary<int, long>();
             var budget = new Dictionary<(LootNotificationKind, eCurrency, int, bool), long>();
@@ -188,6 +193,19 @@ namespace KingdomIdle.Rewards
             catch (Exception exception) { Warn(exception); }
         }
         static void Warn(Exception exception) => Debug.LogWarning("[LootNotifications] 표시를 생략했습니다: " + exception.GetType().Name);
+        internal static void PublishEconomyBatch(Snapshot before, EconomyBatchReceiptDTO receipt) => Observe(() =>
+        {
+            if (before == null || receipt == null || string.IsNullOrEmpty(receipt.RequestId) || !LocalProgression.IsReady ||
+                before.Generation != LocalProgression.AccountGeneration) return;
+            var state = LocalProgression.State;
+            if (state.Economy?.LastAppliedRequestId != receipt.RequestId || state.ServerEconomyRevision < receipt.CommittedRevision) return;
+            if (!BeginConfirm(before, "economy-batch:" + receipt.Generation + ":" + receipt.RequestId)) return;
+            // A batch can spend the same Gold it earns. Its validated receipt is the gross acquisition authority.
+            // Keep entries separate here; the existing queue merges them without overflowing long quantities.
+            foreach (var result in receipt.Results)
+                if (result.Kind == EconomyCommandKind.Hunt && result.Status == EconomyCommandStatus.Applied && result.GrantedGold > 0)
+                    Publish(new LootNotification(LootNotificationKind.Currency, eCurrency.Gold, 0, result.GrantedGold));
+        });
         public static void PublishGacha(Snapshot before, IEnumerable<GachaRewardDTO> rewards, string receipt = null) => Observe(() => Confirm(before, Gacha(rewards), receipt));
         public static void PublishHunt(Snapshot before, IEnumerable<GachaRewardDTO> drops) => Observe(() => Confirm(before, CurrencyIncreases(before).Concat(Gacha(drops)), null));
         public static void PublishCurrencyIncreases(Snapshot before, string receipt = null) => Observe(() => Confirm(before, CurrencyIncreases(before), receipt));

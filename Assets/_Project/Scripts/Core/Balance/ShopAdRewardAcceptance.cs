@@ -98,6 +98,16 @@ namespace KingdomIdle.Balance
                 Ready();
                 Check(ShopAdRewardService.TryGrant(current).Status == RewardStatus.Pending && pending.Count == 1,
                     "the retained claim reuses the existing server request path");
+                TakeFailure()(Scripts.Core.Manager.NetworkManager.CreateError("EconomyHeld", "fixture: request was not sent"));
+                Check(!ShopAdRewardService.IsBusy && current.Earned && pending.Count == 0 &&
+                    ReferenceEquals(controller.GetField("_claim", statics).GetValue(null), current) &&
+                    !(bool)controller.GetField("_busy", statics).GetValue(null) &&
+                    JsonConvert.SerializeObject(LocalProgression.State) == before,
+                    "an economy barrier before transmission retains the earned claim without granting or replaying the advertisement");
+                Ready();
+                Check(ShopAdRewardService.TryGrant(current).Status == RewardStatus.Pending && pending.Count == 1 &&
+                    ReferenceEquals(service.GetField("_activeClaim", statics).GetValue(null), current),
+                    "the same session can retry the exact retained claim once the economy barrier clears");
                 TakeFailure();
                 service.GetMethod("ApplyServerResult", statics).Invoke(null, new object[] { current,
                     new Protocol.Message.Dto.OnClaimAdRewardResponseDTO
@@ -163,7 +173,7 @@ namespace KingdomIdle.Balance
                 string original = JsonConvert.SerializeObject(LocalProgression.State);
                 var reject = service.GetMethod("RejectServerResult", flags);
                 foreach (var failure in new[] { ("Business", 1014), ("Business", 1017), ("InvalidResponse", 0),
-                    ("Function", 0), ("ApplyFailed", 0), ("Transport", 0), ("Timeout", 0), ("", 0) })
+                    ("Function", 0), ("ApplyFailed", 0), ("Transport", 0), ("Timeout", 0), ("EconomyHeld", 0), ("", 0) })
                 {
                     var error = Scripts.Core.Manager.NetworkManager.CreateError(failure.Item1, "fixture", null,
                         failure.Item2 == 0 ? null : new Protocol.Message.Dto.ErrorResponseDTO

@@ -38,8 +38,12 @@ namespace KingdomIdle.UGUI
 
             if (_view.btnLoginGuest != null)
             {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
                 _view.btnLoginGuest.gameObject.SetActive(true);
                 _view.btnLoginGuest.onClick.AddListener(() => SignIn(eAuthType.CustomLogin));
+#else
+                _view.btnLoginGuest.gameObject.SetActive(false);
+#endif
             }
 
             if (_view.btnLoginGoogle != null)

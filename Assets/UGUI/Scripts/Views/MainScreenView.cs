@@ -48,5 +48,60 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal MainTabButtonView tabDungeon;
         [SerializeField] internal MainTabButtonView tabGacha;
         [SerializeField] internal MainTabButtonView tabStore;
+
+        private float _headerLayoutWidth = -1f;
+
+        private void OnEnable()
+        {
+            _headerLayoutWidth = -1f;
+            RefreshHeaderLayout();
+        }
+
+        private void OnRectTransformDimensionsChange()
+        {
+            if (isActiveAndEnabled) RefreshHeaderLayout();
+        }
+
+        private void RefreshHeaderLayout()
+        {
+            if (!(transform is RectTransform root) || btnProfile == null || btnCurrency == null || btnAncientCoin == null) return;
+            float width = root.rect.width;
+            if (width <= 0f || Mathf.Approximately(width, _headerLayoutWidth)) return;
+            var left = btnProfile.transform.parent.GetComponent<HorizontalLayoutGroup>();
+            var right = btnCurrency.transform.parent.GetComponent<HorizontalLayoutGroup>();
+            var header = left != null ? left.transform.parent.GetComponent<HorizontalLayoutGroup>() : null;
+            if (header == null || right == null) return;
+            _headerLayoutWidth = width;
+
+            // SafeArea also reduces the horizontal space. Keep the five existing hit targets;
+            // spend decorative gaps first, then stack each currency icon above its value.
+            bool compact = width < 976f;
+            float chipWidth = compact ? 248f : 272f;
+            float fixedWidth = 3f * 144f + 2f * chipWidth;
+            float gapRatio = Mathf.Clamp01((width - fixedWidth) / 86f);
+            int edge = Mathf.FloorToInt(22f * gapRatio);
+            header.padding = new RectOffset(edge, edge, 0, 0);
+            left.spacing = 18f * gapRatio;
+            right.spacing = 12f * gapRatio;
+
+            SetCurrencyLayout(btnCurrency, chipWidth, compact);
+            SetCurrencyLayout(btnAncientCoin, chipWidth, compact);
+            LayoutRebuilder.MarkLayoutForRebuild((RectTransform)header.transform);
+        }
+
+        private static void SetCurrencyLayout(Button button, float width, bool compact)
+        {
+            var layout = button.GetComponent<LayoutElement>();
+            var row = button.GetComponent<HorizontalLayoutGroup>();
+            if (layout != null) layout.minWidth = layout.preferredWidth = width;
+            if (row != null) row.padding = compact ? new RectOffset(8, 8, 72, 0) : new RectOffset(78, 8, 0, 0);
+
+            var ring = button.transform.Find("IconRing") as RectTransform;
+            if (ring == null) return;
+            ring.anchorMin = ring.anchorMax = compact ? new Vector2(.5f, 1f) : new Vector2(0f, .5f);
+            ring.pivot = compact ? new Vector2(.5f, 1f) : new Vector2(0f, .5f);
+            ring.anchoredPosition = compact ? new Vector2(0f, -4f) : new Vector2(10f, 0f);
+            ring.sizeDelta = new Vector2(64f, 64f);
+        }
     }
 }

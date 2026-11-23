@@ -320,7 +320,7 @@ namespace KingdomIdle.UGUI
                 Set(_view.dungeonTime, $"{Mathf.Max(0,Mathf.CeilToInt(state.RemainingTime))}초");
                 Set(_view.dungeonProgress, gold ? "" : $"현재 보스 HP  {Mathf.RoundToInt((state.Boss != null ? state.Boss.GetHpRatio() : 0)*100)}%");
                 SetHidden(_view.dungeonProgress?.gameObject, gold);
-                Set(_view.dungeonReward, gold ? $"획득 골드 +{NumberNotation.Format(state.EarnedGold)}" : $"처치 완료 {state.Kills} / {state.Target}");
+                Set(_view.dungeonReward, gold ? $"처치 기본 골드 +{NumberNotation.Format(state.EarnedGold)}" : $"처치 완료 {state.Kills} / {state.Target}");
                 Fill(_view.dungeonFill, gold ? (float)state.Kills/state.Target : state.Boss != null ? state.Boss.GetHpRatio() : 0);
                 if (_view.btnDungeonReturn != null) _view.btnDungeonReturn.interactable = _sm.CurrentRunState == eStageRunState.Running;
             }

@@ -224,7 +224,11 @@ namespace Scripts.Core.Manager
             {
                 _economyCompletionPending = false;
                 if (EconomyBatchProgression.HasUnknownResult)
+                {
+                    EndStageLoading();
                     _retryEconomyCompletion = () => { if (OwnsCompletion()) EnqueueMainCompletion(definition, showResult); };
+                    KingdomIdle.UGUI.UIManager.Instance?.ShowToast("서버 정산 결과를 확인하지 못했습니다. 육성에서 결과 확인을 눌러 주세요.");
+                }
                 else StopMainSettlement("메인 완료 전 경제 정산을 확인하지 못했습니다. 재접속해 주세요.");
             }
             if (!EconomyBatchProgression.FlushBeforeWrite(ok =>
