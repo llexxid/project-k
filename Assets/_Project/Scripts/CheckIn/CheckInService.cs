@@ -28,7 +28,29 @@ namespace KingdomIdle.CheckIn
         public static int Revision { get; private set; }
         public static long ServerNow => LocalProgression.UtcNow + _serverOffset;
 
-        public bool IsBusy { get; private set; }
+        private static (long Local, long Network) CurrentAccount => (LocalProgression.AccountGeneration, NetworkManager.Instance?.AccountGeneration ?? -1);
+        private static (long Local, long Network) _boardAccount;
+        private (long Local, long Network) _owner = CurrentAccount;
+        private bool _busy;
+        private long _operation;
+        public bool IsBusy { get => _busy && _owner == CurrentAccount; private set => _busy = value; }
+        internal void CheckAccount() => CheckAccount(CurrentAccount);
+        internal void CheckAccount((long Local, long Network) account)
+        {
+            if (_owner == account) return;
+            _owner = account;
+            _operation++;
+            _busy = false;
+            LastFailure = null;
+            Revision++;
+        }
+        internal long BeginOperation()
+        {
+            CheckAccount();
+            _busy = true;
+            return ++_operation;
+        }
+        internal bool IsCurrent(long operation) => operation == _operation && _owner == CurrentAccount;
         public PlayFabError LastFailure { get; private set; }
         public event Action<CheckInClaimInfo> ClaimCompleted;
 
@@ -41,8 +63,9 @@ namespace KingdomIdle.CheckIn
         {
             if (attendance == null) return;
             if (serverTimeUtc > 0) _serverOffset = serverTimeUtc - LocalProgression.UtcNow;
+            _boardAccount = CurrentAccount;
             _server = attendance;
-            if (source == "login") _nextCheckUtc = 0;
+            if (source == "login") { _nextCheckUtc = 0; _boardResetUtc = 0; }
             Revision++;
             Debug.Log($"[Attendance] receive source={source} board={Describe(attendance)} serverTime={serverTimeUtc}");
         }
@@ -53,7 +76,7 @@ namespace KingdomIdle.CheckIn
 
         public CheckInSnapshot GetSnapshot()
         {
-            if (_server == null || !LocalProgression.IsReady) return null;
+            if (_server == null || _boardAccount != CurrentAccount || !LocalProgression.IsReady) return null;
             var period = QuestPeriod.At(ServerNow);
             // 판이 이번 달이 아니면 서버가 아직 이월하지 않은 것이다. 출석 응답이 올 때까지 갱신 중으로 본다.
             if (_server.Month != period.Month) return null;
@@ -85,11 +108,13 @@ namespace KingdomIdle.CheckIn
         public bool RecordVisit()
         {
             var network = NetworkManager.Instance;
-            if (IsBusy || _server == null || network == null || !network.IsGameDataReady) return false;
-            if (ServerNow < _nextCheckUtc) return true;
-            IsBusy = true;
+            CheckAccount();
+            if (IsBusy || _server == null || _boardAccount != _owner || network == null || !network.IsGameDataReady) return false;
+            if (ServerNow < _nextCheckUtc || NetworkManager.GetFailureKind(LastFailure) == "EconomyHeld" &&
+                !EconomyBatchProgression.CanRetryMenuSnapshot) return true;
+            long operation = BeginOperation();
             network.Call<Dto.OnCheckAttendanceRequestDTO, Dto.OnCheckAttendanceResponseDTO>(new Dto.OnCheckAttendanceRequestDTO(),
-                ApplyCheckIn, RejectCheckIn);
+                response => { if (IsCurrent(operation)) ApplyCheckIn(response); }, error => { if (IsCurrent(operation)) RejectCheckIn(error); });
             return true;
         }
 
@@ -117,7 +142,7 @@ namespace KingdomIdle.CheckIn
             var period = QuestPeriod.At(now);
             // 이미 출석(1038)은 다음 날, 판이 가득 참(1047)은 다음 달까지 기다린다. 출석은 소비 요청이 아니라 응답 유실이면 잠시 뒤 다시 보낸다.
             _nextCheckUtc = code == 1038 ? period.DayEndUtc : code == 1047 ? period.MonthEndUtc :
-                kind == "Timeout" || kind == "Transport" ? now + 60 : now + 600;
+                kind == "EconomyHeld" ? now + 3 : kind == "Timeout" || kind == "Transport" ? now + 60 : now + 600;
             if (code == 1041) UIManager_ShowToast("우편함이 가득 차 지난 달 출석 보상을 보낼 수 없습니다. 우편을 받은 뒤 다시 시도합니다.");
             Debug.Log($"[Attendance] check rejected code={code} kind={kind} next={_nextCheckUtc} message={error?.ErrorMessage}");
         }
@@ -128,17 +153,19 @@ namespace KingdomIdle.CheckIn
         /// </summary>
         public RewardResult TryClaimAvailable(CheckInSnapshot snapshot)
         {
+            CheckAccount();
             if (IsBusy) return new(RewardStatus.Pending);
             var network = NetworkManager.Instance;
             if (!LocalProgression.IsReady || network == null || !network.IsGameDataReady) return new(RewardStatus.NotReady);
-            if (snapshot == null || snapshot.AccountGeneration != LocalProgression.AccountGeneration) return new(RewardStatus.Stale);
+            if (snapshot == null || _boardAccount != _owner || snapshot.AccountGeneration != LocalProgression.AccountGeneration) return new(RewardStatus.Stale);
             if (snapshot.Available.Count == 0) return new(RewardStatus.NothingAvailable);
             var days = snapshot.Available.Select(i => i + 1).ToList();
-            IsBusy = true;
+            long operation = BeginOperation();
             Revision++;
             network.Call<Dto.OnClaimAttendanceRewardRequestDTO, Dto.OnClaimAttendanceRewardResponseDTO>(
                 new Dto.OnClaimAttendanceRewardRequestDTO { Month = snapshot.Month, Days = days },
-                r => ApplyClaim(days, r), e => RejectClaim(days, e));
+                r => { if (IsCurrent(operation)) ApplyClaim(days, r); },
+                e => { if (IsCurrent(operation)) RejectClaim(operation, days, e); });
             return new(RewardStatus.Pending);
         }
 
@@ -185,7 +212,7 @@ namespace KingdomIdle.CheckIn
             });
         }
 
-        private void RejectClaim(List<int> days, PlayFabError error)
+        private void RejectClaim(long operation, List<int> days, PlayFabError error)
         {
             IsBusy = false;
             LastFailure = error;
@@ -194,7 +221,11 @@ namespace KingdomIdle.CheckIn
             Revision++;
             Debug.Log($"[Attendance] claim rejected days={string.Join(".", days)} code={code} kind={kind} message={error?.ErrorMessage}");
             string message = NetworkManager.DescribeFailure(error, "출석 보상");
-            void Complete(string text) => ClaimCompleted?.Invoke(new CheckInClaimInfo { Ok = false, Days = days.ToArray(), Rewards = Array.Empty<RewardGrant>(), Message = text, ErrorCode = code });
+            void Complete(string text)
+            {
+                if (IsCurrent(operation)) ClaimCompleted?.Invoke(new CheckInClaimInfo
+                    { Ok = false, Days = days.ToArray(), Rewards = Array.Empty<RewardGrant>(), Message = text, ErrorCode = code });
+            }
             // 달이 바뀌었으면 출석이 이월을 맡는다. 다음 틱에 출석을 보낸다.
             if (code == 1045) _nextCheckUtc = 0;
             if (kind == "Timeout" || kind == "Transport" || code == 1029 || code == 1046)

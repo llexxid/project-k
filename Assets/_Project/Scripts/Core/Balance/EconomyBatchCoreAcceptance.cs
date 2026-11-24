@@ -329,6 +329,13 @@ namespace KingdomIdle.Balance
                     Set("_requestPending", false); Set("_externalWrite", true); Set("_nextHuntAt", float.MaxValue);
                 }
                 Bind();
+                Set("_externalUnknown", true);
+                check(!EconomyBatchProgression.CanQueueMenuSnapshot && EconomyBatchProgression.CanRefreshMenuRecovery &&
+                    EconomyBatchProgression.CanRetryMenuSnapshot, "menu can schedule recovery when only an external result is unknown");
+                Set("_blocked", true);
+                check(!EconomyBatchProgression.CanRetryMenuSnapshot, "manual storage hold cannot generate recurring menu reads");
+                Set("_blocked", false); Set("_externalUnknown", false);
+
                 LocalProgression.Execute("economy-fence-fixture", s =>
                 {
                     var fixture = Fixture(); s.Economy = fixture.Economy; s.MainBattle = fixture.MainBattle;

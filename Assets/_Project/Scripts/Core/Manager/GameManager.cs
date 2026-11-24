@@ -75,7 +75,7 @@ namespace Scripts.Core
             KingdomIdle.Balance.LocalProgression.AccountChanged -= ScheduleRewardSync;
             EconomyBatchProgression.SpendingFailed -= ShowGrowthFailure;
         }
-        private void ScheduleRewardSync() { _nextRewardSync = 0; Mailbox?.CheckAccount(); }
+        private void ScheduleRewardSync() { _nextRewardSync = 0; Mailbox?.CheckAccount(); CheckIn?.CheckAccount(); }
         private void ShowGrowthFailure() => KingdomIdle.UGUI.UIManager.Instance?.ShowToast(EconomyBatchProgression.FailureMessage);
         private void OnApplicationPause(bool paused) { _rewardsPaused = paused; ScheduleRewardSync(); }
         // 출석은 포커스와 무관하게 확인하고 일시정지 중에만 쉰다. 우편 목록은 열린 패널에서만 갱신한다.
@@ -92,6 +92,7 @@ namespace Scripts.Core
                 KingdomIdle.Balance.LocalProgression.AccountKey != network.GetSessionID() || ui == null || ui.Catalog == null) return;
             CheckIn ??= new KingdomIdle.CheckIn.CheckInService(ui.Catalog.checkInRewards);
             CheckIn.RecordVisit();
+            Mailbox?.ResumeSummaryAfterSettlement();
         }
 
         

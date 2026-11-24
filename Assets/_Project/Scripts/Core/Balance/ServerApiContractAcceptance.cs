@@ -32,6 +32,7 @@ namespace KingdomIdle.Balance
                 return valid;
             }
             CheckPackedResponses(Check);
+            CheckMenuRecovery(Check);
             Check(NetworkManager.IsMenuSnapshot(new OnGetMailListRequestDTO()) && NetworkManager.IsMenuSnapshot(new OnGetQuestStateRequestDTO()) &&
                 NetworkManager.IsMenuSnapshot(new OnCheckAttendanceRequestDTO()) && !NetworkManager.IsMenuSnapshot(new OnClaimMailRewardRequestDTO()) &&
                 !NetworkManager.IsMenuSnapshot(new OnClaimQuestRewardRequestDTO()) && !NetworkManager.IsMenuSnapshot(new OnEconomyBatchRequestDTO()),
@@ -198,6 +199,32 @@ namespace KingdomIdle.Balance
                 NetworkManager.Instance = previousNetwork;
                 UnityEngine.Object.DestroyImmediate(owner);
             }
+        }
+
+        private static void CheckMenuRecovery(Action<bool, string> check)
+        {
+            float time = 0;
+            int reads = 0, held = 0;
+            Action<bool> afterFence = null;
+            var delayed = NetworkManager.WaitForMenuSnapshot(() => true, () => time, () => { },
+                complete => { afterFence = complete; return true; }, () => reads++, () => held++);
+            check(delayed.MoveNext() && afterFence != null && reads == 0, "lookup waits behind pending settlement");
+            time = 18;
+            check(!delayed.MoveNext() && held == 1 && reads == 0, "18-second unresolved lookup reports pending without a server write");
+            afterFence(true);
+            check(reads == 0, "late fence after timeout cannot duplicate the request");
+            bool recovered = false;
+            time = 21;
+            var resumed = NetworkManager.WaitForMenuSnapshot(() => true, () => time, () => recovered = true,
+                complete => { if (!recovered) return false; complete(true); return true; }, () => reads++, () => held++);
+            check(!resumed.MoveNext() && reads == 1 && held == 1, "a retried lookup joins recovery and runs exactly once");
+            var attendance = new KingdomIdle.CheckIn.CheckInService(null);
+            long first = attendance.BeginOperation();
+            check(attendance.IsBusy && attendance.IsCurrent(first), "attendance tracks current account operation");
+            attendance.CheckAccount((LocalProgression.AccountGeneration + 1, -5));
+            check(!attendance.IsBusy && !attendance.IsCurrent(first), "switching account ends pending attendance and rejects its late callback");
+            long next = attendance.BeginOperation();
+            check(attendance.IsCurrent(next) && !attendance.IsCurrent(first), "new attendance operation can finish independently");
         }
 
         private static void CheckPackedResponses(Action<bool, string> check)

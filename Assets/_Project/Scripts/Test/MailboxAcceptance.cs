@@ -118,6 +118,18 @@ namespace KingdomIdle.Mailbox.Testing
             var checks = new List<string>();
             void Check(bool ok, string label) { if (!ok) throw new InvalidOperationException("MAIL ASSERT: " + label); checks.Add(label); }
             {
+                var login = new Fixture(1) { FailListAt = 1, ListFailureKind = "EconomyHeld" };
+                login.Service.CheckAfterLogin();
+                login.Service.ResumeSummaryAfterSettlement();
+                Check(login.ListCalls == 1 && !login.Service.HasNewMail, "held login summary does not poll immediately");
+                login.Clock = 3.1;
+                login.Service.ResumeSummaryAfterSettlement(); login.Service.ResumeSummaryAfterSettlement();
+                Check(login.ListCalls == 2 && login.Service.HasNewMail, "held login summary retries once and restores unread badge");
+                var open = new Fixture(1) { FailListAt = 1, ListFailureKind = "EconomyHeld" };
+                open.Service.Open(); open.Clock = 18.2; open.Service.Tick();
+                Check(open.ListCalls == 2 && open.Service.HasSnapshot && !open.Service.HasNewMail, "open mailbox refreshes after an 18-second hold");
+            }
+            {
                 var f = new Fixture(51) { Ready = false, Locale = "en", HoldLists = true };
                 f.Service.CheckAfterLogin(); Check(f.ListCalls == 0, "post-login check waits for game data");
                 f.Ready = true; f.Service.CheckAfterLogin(); f.Service.CheckAfterLogin();
