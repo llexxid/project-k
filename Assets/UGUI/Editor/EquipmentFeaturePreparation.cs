@@ -17,7 +17,7 @@ namespace KingdomIdle.UGUI.Editor
             F.Catalog.panelKAEquipment = KingdomArmyPanelPrefabGens.GenerateEquipment();
             var detail = KingdomArmyPanelPrefabGens.GenerateEquipDetail().GetComponent<KAEquipDetailView>();
             var node = ItemGens.GenerateJobCard().GetComponent<JobCardView>();
-            if (detail.backButton.GetComponent<LayoutElement>().minHeight < 132 ||
+            if (detail.backButton.GetComponent<LayoutElement>().minHeight < 136 ||
                 node.GetComponent<Image>().color.a != 0 || node.button.targetGraphic == node.GetComponent<Image>())
                 throw new InvalidOperationException("Equipment detail touch target or promotion node skin mismatch.");
             EditorUtility.SetDirty(F.Catalog);

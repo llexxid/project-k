@@ -105,18 +105,19 @@ namespace KingdomIdle.UGUI
             _lastFreeSlots = MailboxService.FreeEquipmentSlots;
             _view.totalLabel.text = _service.HasSnapshot ? $"전체 {_service.TotalCount}" : "전체 —";
             _view.unclaimedLabel.text = _service.HasSnapshot ? $"미수령 {_service.TotalCount}" : "미수령 —";
-            _view.emptyLabel.text = _service.Error ?? (_service.State == MailboxState.Loading ? "우편을 불러오고 있습니다." :
-                !_service.HasSnapshot ? "우편 상태를 확인하고 있습니다." : count == 0 ? "보관 중인 우편이 없습니다." : "");
+            _view.emptyLabel.text = _service.State == MailboxState.Loading ? "우편을 불러오고 있습니다." :
+                _service.Error ?? (!_service.HasSnapshot ? "우편 상태를 확인하고 있습니다." : count == 0 ? "보관 중인 우편이 없습니다." : "");
             _view.claimAllLabel.text = _service.IsBusy ? "처리 중…" : !_service.HasSnapshot || _service.Error != null ? "다시 불러오기" :
                 _service.HasMore ? $"표시된 우편 받기 ({receivable})" :
                 receivable == count ? $"모두 받기 ({count})" : $"받을 수 있는 우편 ({receivable})";
-            _view.claimAll.interactable = !_service.LoadFailed && !_service.IsBusy && (!_service.HasSnapshot || _service.Error != null || receivable > 0);
+            _view.claimAll.interactable = !_service.IsBusy && (_service.CanRetryLoadInPlace ||
+                !_service.LoadFailed && (!_service.HasSnapshot || _service.Error != null || receivable > 0));
             _view.deleteClaimed.interactable = _service.HasMore && _service.CanClaim;
             if (_loadMoreLabel != null)
                 _loadMoreLabel.text = _service.HasMore ? $"우편 더 보기 ({count}/{_service.TotalCount})" : _defaultSecondaryLabel;
             foreach (var popup in GetComponentsInChildren<RewardPopupView>())
                 if (popup.SourceMailId.HasValue && (!_service.HasSnapshot || !_service.Messages.Any(m => m.MailId == popup.SourceMailId.Value))) popup.Close();
-            if (_service.LoadFailed && !_closingAfterFailure)
+            if (_service.LoadFailed && !_service.CanRetryLoadInPlace && !_closingAfterFailure)
             {
                 _closingAfterFailure = true;
                 void Close() { if (this != null && isActiveAndEnabled && _service.LoadFailed) _view.closeButton.onClick.Invoke(); }

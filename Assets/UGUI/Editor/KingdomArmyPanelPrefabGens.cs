@@ -250,7 +250,7 @@ namespace KingdomIdle.UGUI.Editor
             var (root, view) = NewContent<KAEquipDetailView>("Panel_KAEquipDetail");
 
             var back = F.TextButton(root, "BtnBack", "‹  장비 목록", 36f, UguiTheme.RusticSurface, out _);
-            F.Preferred(back, height: 132f).minHeight = 132f;
+            F.Preferred(back, height: 136f).minHeight = 136f;
             view.backButton = back;
 
             SectionTitle(root, "장비 상세");

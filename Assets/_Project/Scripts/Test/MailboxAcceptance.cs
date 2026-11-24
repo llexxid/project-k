@@ -30,6 +30,7 @@ namespace KingdomIdle.Mailbox.Testing
             internal readonly List<(int Start, int Count)> RequestedPages = new();
             internal MailboxService Service;
             internal MailClaimInfo Result;
+            internal PlayFabError ListFailureOverride;
             private readonly bool _instanceInventory;
             private string MailboxId => _instanceInventory ? "0123456789abcdef0123456789abcdef" : "box";
 
@@ -64,7 +65,7 @@ namespace KingdomIdle.Mailbox.Testing
                 RequestedPages.Add((r.StartIndex, r.Count));
                 void Respond()
                 {
-                    if (FailListAt < 0 || call == FailListAt) { fail(Failure(ListFailureKind)); return; }
+                    if (FailListAt < 0 || call == FailListAt) { fail(ListFailureOverride ?? Failure(ListFailureKind)); return; }
                     var page = Mails.OrderByDescending(m => m.MailId).Skip(r.StartIndex).Take(r.Count).ToList();
                     if (r.StartIndex == 50 && (DuplicateOnce || DuplicateAlways) && page.Count > 0)
                     { page[0] = Mails.OrderByDescending(m => m.MailId).First(); DuplicateOnce = false; }

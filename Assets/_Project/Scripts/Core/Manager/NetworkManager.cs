@@ -1088,6 +1088,15 @@ namespace Scripts.Core.Manager
             return kinds[0] ?? "";
         }
 
+        internal static bool IsTransportFailure(PlayFabError error)
+        {
+            string kind = GetFailureKind(error);
+            if (kind == "Transport") return true;
+            // Unity HTTP returns an untagged ServiceUnavailable for a DNS or connection failure.
+            return kind.Length == 0 && error != null &&
+                (error.Error == PlayFabErrorCode.ConnectionError || error.Error == PlayFabErrorCode.ServiceUnavailable);
+        }
+
         /// <summary>서버 ErrorCode·Kind를 사용자에게 보여 줄 문구로 바꾼다. 강화·가챠·공통 코드만 다루고 나머지는 코드를 붙여 돌려준다.</summary>
         public static string DescribeFailure(PlayFabError error, string action = "요청")
         {
@@ -1163,7 +1172,8 @@ namespace Scripts.Core.Manager
             }
             string kind = GetFailureKind(error);
             if (kind == "EconomyHeld" && !string.IsNullOrEmpty(error.ErrorMessage)) return error.ErrorMessage;
-            if (kind == "Timeout" || kind == "Transport") return "서버 응답이 없습니다. 잠시 후 다시 시도해 주세요.";
+            if (IsTransportFailure(error)) return "서버에 연결할 수 없습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.";
+            if (kind == "Timeout") return "서버 응답이 없습니다. 잠시 후 다시 시도해 주세요.";
             if (kind == "NotAuthenticated" || kind == "IntegrationPending") return "서버 로그인이 필요합니다.";
             return error == null ? $"{action}에 실패했습니다." : $"{action}에 실패했습니다. ({error.ErrorMessage})";
         }

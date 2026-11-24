@@ -261,7 +261,31 @@ namespace KingdomIdle.Mailbox.Testing
             var popup = _root.GetComponentsInChildren<RewardPopupView>().Single();
             Check(popup.title.text == text.Title && popup.description.text == text.Body, "Text detail uses server strings");
             popup.Close();
-            _fixture.HoldLists = true; _fixture.Service.RequestRefresh();
+            _fixture.FailListAt = -1;
+            _fixture.ListFailureOverride = new PlayFab.PlayFabError
+            {
+                Error = PlayFab.PlayFabErrorCode.ServiceUnavailable, HttpCode = 400, HttpStatus = "BadRequest",
+                ErrorMessage = "Cannot resolve destination host"
+            };
+            int listCalls = _fixture.ListCalls;
+            _fixture.Service.RequestRefresh();
+            _fixture.Clock += 1; _fixture.Service.Tick();
+            _fixture.Clock += 1; _fixture.Service.Tick();
+            Check(_fixture.ListCalls == listCalls + 3 && _view.claimAll.interactable &&
+                _view.claimAllLabel.text == "다시 불러오기" && _view.emptyLabel.text.Contains("인터넷 연결") &&
+                !_view.emptyLabel.text.Contains("host") && !_fixture.Service.CanClaim,
+                "raw SDK DNS failure leaves an enabled Korean retry on the existing mailbox");
+            _fixture.FailListAt = 0;
+            _fixture.HoldLists = true;
+            _view.claimAll.onClick.Invoke();
+            Check(!_view.claimAll.interactable && _view.emptyLabel.text == "우편을 불러오고 있습니다." &&
+                _fixture.ListCalls == listCalls + 4 && _fixture.ClaimCalls == 0,
+                "retry submits a single list request and clears the previous failure");
+            _fixture.Lists.Dequeue()();
+            Check(_fixture.Service.CanClaim && _fixture.Service.Messages.Count == 2 && _fixture.ClaimCalls == 0,
+                "connection restored on the same panel without a reward transaction");
+
+            _fixture.Service.RequestRefresh();
             _fixture.Clock += 30; _fixture.Service.Tick();
             var warning = UIManager.Instance.LayerPopups.GetComponentsInChildren<RewardPopupView>().Single();
             Check(warning.title.text == "우편함 조회 실패" && warning.confirmButton.gameObject.activeSelf && !_view.claimAll.interactable,

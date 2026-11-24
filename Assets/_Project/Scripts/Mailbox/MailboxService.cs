@@ -83,6 +83,8 @@ namespace KingdomIdle.Mailbox
                 ? "첨부 장비를 모두 담을 빈 칸을 확보한 뒤 다시 받아 주세요." : NetworkManager.DescribeFailure(LastFailure, "우편함");
         public bool HasSnapshot { get; private set; }
         public bool LoadFailed { get; private set; }
+        public bool CanRetryLoadInPlace => LoadFailed && (NetworkManager.IsTransportFailure(LastFailure) ||
+            NetworkManager.GetFailureKind(LastFailure) == "EconomyHeld");
         public bool HasNewMail => !_open && HasUnseen && _account == _identity() && _ready();
         private bool HasUnseen => _unseenMail.Regular > 0 || _unseenMail.Overflow > 0;
         public bool IsBusy => State == MailboxState.Loading || State == MailboxState.Claiming || State == MailboxState.Recovering;
@@ -367,7 +369,7 @@ namespace KingdomIdle.Mailbox
         {
             if (!Current(request)) return;
             string kind = NetworkManager.GetFailureKind(error);
-            bool retryable = kind == "Transport" || kind == "Timeout" ||
+            bool retryable = NetworkManager.IsTransportFailure(error) || kind == "Timeout" ||
                 (NetworkManager.TryGetBusinessError(error, out var business) &&
                  (business.ErrorCode == Protocol.Message.Data.eErrorCode.StorageFailure || business.ErrorCode == Protocol.Message.Data.eErrorCode.PlayerBusy));
             if (retryable && request.Retry + 1 < MaxLoadAttempts && _clock() + .5 < request.Deadline)
