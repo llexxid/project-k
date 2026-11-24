@@ -249,7 +249,13 @@ namespace Scripts.Core.Manager
 
         /// <summary>Build a DTO-routed request and send it directly through the PlayFab SDK.</summary>
         public void Call<TRequest, TResponse>(TRequest request, Action<TResponse> successCallback, Action<PlayFabError> errorCallback)
-            where TRequest : RequestDTO where TResponse : ApiResponseDTO
+            where TRequest : RequestDTO where TResponse : ApiResponseDTO => Dispatch(request, successCallback, errorCallback, null);
+
+        internal void ReadMailList(OnGetMailListRequestDTO request, Action<OnGetMailListResponseDTO> success,
+            Action<PlayFabError> failure, Func<bool> wanted) => Dispatch(request, success, failure, wanted);
+
+        private void Dispatch<TRequest, TResponse>(TRequest request, Action<TResponse> successCallback, Action<PlayFabError> errorCallback,
+            Func<bool> snapshotWanted) where TRequest : RequestDTO where TResponse : ApiResponseDTO
         {
             ExecuteFunctionRequest cloudFunction;
             string rubyRequestId = (request as RubyGrowthRequestDTO)?.RequestId;
@@ -424,6 +430,7 @@ namespace Scripts.Core.Manager
             void Send()
             {
                 if (!IsCurrent()) return;
+                if (snapshotWanted != null && !snapshotWanted()) { Fail(CreateError("Cancelled", "닫힌 우편 목록 조회입니다.", cloudFunction.FunctionName)); return; }
                 if (queued && localGeneration != LocalProgression.AccountGeneration ||
                     economic && !recoveryRead && !legacyRecovery && EconomyBatchProgression.HasUnknownResult ||
                     request is OnEnchantSkillRequestDTO && !EconomyBatchProgression.CanStartSingleMageEnhance)
@@ -456,7 +463,8 @@ namespace Scripts.Core.Manager
             {
                 if (IsMenuSnapshot(request))
                 {
-                    StartCoroutine(WaitForMenuSnapshot(() => !completed && IsCurrent() && localGeneration == LocalProgression.AccountGeneration,
+                    StartCoroutine(WaitForMenuSnapshot(() => !completed && IsCurrent() && localGeneration == LocalProgression.AccountGeneration &&
+                        (snapshotWanted == null || snapshotWanted()),
                         () => Time.realtimeSinceStartup, TryRefreshMenuRecovery, EconomyBatchProgression.TryQueueMenuSnapshot, QueueAndSend,
                         () => Fail(CreateError("EconomyHeld", "서버 정산 결과를 확인하고 있습니다. 확인을 마치면 목록을 다시 불러옵니다.", cloudFunction.FunctionName))));
                     return;

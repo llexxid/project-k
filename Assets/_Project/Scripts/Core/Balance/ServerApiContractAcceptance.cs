@@ -153,6 +153,7 @@ namespace KingdomIdle.Balance
             owner.SetActive(false);
             try
             {
+                CheckQuestLookup(owner.AddComponent<QuestManager>(), Check);
                 var network = owner.AddComponent<NetworkManager>();
                 const BindingFlags instance = BindingFlags.Instance | BindingFlags.NonPublic;
                 typeof(NetworkManager).GetMethod("Init", instance).Invoke(network, null);
@@ -225,6 +226,28 @@ namespace KingdomIdle.Balance
             check(!attendance.IsBusy && !attendance.IsCurrent(first), "switching account ends pending attendance and rejects its late callback");
             long next = attendance.BeginOperation();
             check(attendance.IsCurrent(next) && !attendance.IsCurrent(first), "new attendance operation can finish independently");
+            int notifications = 0;
+            attendance.ClaimCompleted += _ => notifications++;
+            attendance.FinishClaimFailure(first, null);
+            check(attendance.IsBusy && notifications == 0, "late previous claim cannot unlock a pending recovery");
+            attendance.FinishClaimFailure(next, null); attendance.FinishClaimFailure(next, null);
+            check(!attendance.IsBusy && notifications == 1, "recovered claim releases busy with exactly one completion");
+            bool open = true;
+            afterFence = null;
+            var closed = NetworkManager.WaitForMenuSnapshot(() => open, () => time, () => { },
+                complete => { afterFence = complete; return true; }, () => reads++, () => held++);
+            closed.MoveNext(); open = false; afterFence(true);
+            check(!closed.MoveNext() && reads == 1 && held == 1, "closing a waiting mailbox skips its request without suppressing a future open");
+        }
+
+        private static void CheckQuestLookup(QuestManager quest, Action<bool, string> check)
+        {
+            long previous = quest.BeginFetch();
+            quest.ResetFetch();
+            long next = quest.BeginFetch();
+            check(quest.IsRefreshing && !quest.OwnsFetch(previous) && quest.OwnsFetch(next),
+                "same-account reauthentication replaces the outstanding quest refresh and rejects its late callback");
+            quest.ResetFetch();
         }
 
         private static void CheckPackedResponses(Action<bool, string> check)

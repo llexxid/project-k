@@ -70,7 +70,18 @@ public class QuestManager : MonoBehaviour
     /// <summary>수령 또는 응답 유실 뒤 상태 확인을 처리 중이다.</summary>
     public bool IsBusy => _claim != null;
     /// <summary>OnGetQuestState 응답을 기다리는 중.</summary>
+    private long _fetchVersion;
+    private (long Local, long Network) _fetchOwner;
+    private static (long Local, long Network) CurrentFetchOwner => (LocalProgression.AccountGeneration, NetworkManager.Instance?.AccountGeneration ?? -1);
     public bool IsRefreshing { get; private set; }
+    internal long BeginFetch()
+    {
+        _fetchOwner = CurrentFetchOwner;
+        IsRefreshing = true;
+        return ++_fetchVersion;
+    }
+    internal bool OwnsFetch(long version) => IsRefreshing && version == _fetchVersion && _fetchOwner == CurrentFetchOwner;
+    internal void ResetFetch() { _fetchVersion++; IsRefreshing = false; }
     /// <summary>마지막 서버 거절 또는 적용 실패. Business 오류면 CustomData에 서버 ErrorResponseDTO가 들어 있다.</summary>
     public PlayFabError LastFailure { get; private set; }
     /// <summary>마지막으로 받은 서버 퀘스트 상태. 로그인 전에는 null이다.</summary>
@@ -149,6 +160,7 @@ public class QuestManager : MonoBehaviour
     private void Update()
     {
         if (_claim != null && !IsCurrentClaim(_claim)) { _claim.Loading?.Dispose(); _claim = null; }
+        if (IsRefreshing && _fetchOwner != CurrentFetchOwner) { ResetFetch(); _refreshQueued = true; }
         if (_suspended || IsRefreshing || IsBusy) return;
         var network = NetworkManager.Instance;
         if (network == null || !network.IsGameDataReady || _server == null && !_refreshQueued) return;
@@ -183,7 +195,7 @@ public class QuestManager : MonoBehaviour
     }
 
     private void MarkDirty() { _dirty = true; }
-    private void OnAccountChanged() { _claim?.Loading?.Dispose(); _claim = null; IsRefreshing = false; _accountChanged = true; _dirty = true; _server = null; _revision++; }
+    private void OnAccountChanged() { _claim?.Loading?.Dispose(); _claim = null; ResetFetch(); _accountChanged = true; _dirty = true; _server = null; _revision++; }
 
     // ── 서버 상태 수신 ─────────────────────────────────────────────────
 
@@ -193,7 +205,11 @@ public class QuestManager : MonoBehaviour
         if (quests == null) return;
         _received = quests;
         _receivedSource = source;
-        if (Instance != null) Instance.Apply(quests, source);
+        if (Instance != null)
+        {
+            if (source == "login") { Instance.ResetFetch(); Instance.LastFailure = null; }
+            Instance.Apply(quests, source);
+        }
     }
 
     /// <summary>서버 퀘스트 상태를 그대로 보관하고 화면용 snapshot을 다시 만든다. 로컬 값과 비교하지 않는다.</summary>
@@ -270,12 +286,13 @@ public class QuestManager : MonoBehaviour
 
     private void Fetch(NetworkManager network)
     {
-        IsRefreshing = true;
+        long version = BeginFetch();
         bool requested = _refreshQueued;
         _refreshQueued = false;
         network.Call<Dto.OnGetQuestStateRequestDTO, Dto.OnGetQuestStateResponseDTO>(new Dto.OnGetQuestStateRequestDTO(),
             response =>
             {
+                if (!OwnsFetch(version)) return;
                 IsRefreshing = false;
                 bool queuedDuringFetch = _refreshQueued;
                 Apply(response.Quests, "state");
@@ -283,6 +300,7 @@ public class QuestManager : MonoBehaviour
             },
             error =>
             {
+                if (!OwnsFetch(version)) return;
                 IsRefreshing = false;
                 string kind = NetworkManager.GetFailureKind(error);
                 if (kind == "EconomyHeld" || requested && _server == null) _refreshQueued = true;

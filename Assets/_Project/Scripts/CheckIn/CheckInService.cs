@@ -57,6 +57,18 @@ namespace KingdomIdle.CheckIn
         /// <summary>보상표는 서버 표 사본(ServerAttendanceTable)을 쓴다. 인자는 기존 호출부(GameManager) 호환용이다.</summary>
         public CheckInService(CheckInRewardTableSO table) { }
         public bool IsRewardTableValid => true;
+        public bool HasUnclaimedDay
+        {
+            get
+            {
+                if (!LocalProgression.IsReady || _boardAccount != CurrentAccount || _server == null || _server.Month != QuestPeriod.At(ServerNow).Month) return false;
+                int opened = Math.Min(ServerAttendanceTable.Days, _server.OpenedDays);
+                for (int day = 1; day <= opened; day++)
+                    if (_server.ClaimedDays?.Contains(day) != true) return true;
+                return false;
+            }
+        }
+
 
         /// <summary>로그인·OnGetUserState 응답의 출석판을 받는다(UserManager가 호출). 로그인 직후에는 출석을 한 번 보낸다.</summary>
         public static void Receive(Dto.AttendanceStateDTO attendance, long serverTimeUtc, string source)
@@ -214,7 +226,6 @@ namespace KingdomIdle.CheckIn
 
         private void RejectClaim(long operation, List<int> days, PlayFabError error)
         {
-            IsBusy = false;
             LastFailure = error;
             string kind = NetworkManager.GetFailureKind(error);
             int code = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0;
@@ -223,7 +234,7 @@ namespace KingdomIdle.CheckIn
             string message = NetworkManager.DescribeFailure(error, "출석 보상");
             void Complete(string text)
             {
-                if (IsCurrent(operation)) ClaimCompleted?.Invoke(new CheckInClaimInfo
+                FinishClaimFailure(operation, new CheckInClaimInfo
                     { Ok = false, Days = days.ToArray(), Rewards = Array.Empty<RewardGrant>(), Message = text, ErrorCode = code });
             }
             // 달이 바뀌었으면 출석이 이월을 맡는다. 다음 틱에 출석을 보낸다.
@@ -237,6 +248,14 @@ namespace KingdomIdle.CheckIn
                 return;
             }
             Complete(message);
+        }
+
+        internal void FinishClaimFailure(long operation, CheckInClaimInfo outcome)
+        {
+            if (!IsCurrent(operation) || !IsBusy) return;
+            IsBusy = false;
+            Revision++;
+            ClaimCompleted?.Invoke(outcome);
         }
 
         private static void UIManager_ShowToast(string message) => KingdomIdle.UGUI.UIManager.Instance?.ShowToast(message);

@@ -23,7 +23,7 @@ namespace KingdomIdle.Mailbox
         private const int PageSize = 50;
         private const double LoadTimeoutSeconds = 30;
         private const int MaxLoadAttempts = 3;
-        private readonly ListCall _list;
+        private readonly Action<OnGetMailListRequestDTO, Action<OnGetMailListResponseDTO>, Action<PlayFabError>, Func<bool>> _list;
         private readonly ClaimCall _claim;
         private readonly Func<OnClaimMailRewardResponseDTO, bool> _apply;
         private readonly Action<Action<bool>> _recover;
@@ -96,7 +96,7 @@ namespace KingdomIdle.Mailbox
         public MailboxService(Func<string> locale)
         {
             _locale = locale;
-            _list = (r, ok, fail) => NetworkManager.Instance.Call(r, ok, fail);
+            _list = (r, ok, fail, wanted) => NetworkManager.Instance.ReadMailList(r, ok, fail, wanted);
             _claim = (r, ok, fail) => NetworkManager.Instance.Call(r, ok, fail);
             _apply = Apply;
             _recover = done => { if (UserManager.Instance == null) done(false); else UserManager.Instance.RefreshFromServer(done); };
@@ -116,7 +116,7 @@ namespace KingdomIdle.Mailbox
             Func<string, long> readSeen = null, Action<string, long> saveSeen = null)
         {
             _locale = locale ?? (() => "ko");
-            _list = (r, ok, fail) => list(r, response => ValidateTestResponse(response, ok, fail), fail);
+            _list = (r, ok, fail, wanted) => { if (wanted()) list(r, response => ValidateTestResponse(response, ok, fail), fail); };
             _claim = (r, ok, fail) => claim(r, response => ValidateTestResponse(response, ok, fail), fail);
             _apply = apply; _recover = recover;
             _identity = identity; _ready = ready; _clock = clock; _account = identity();
@@ -215,7 +215,7 @@ namespace KingdomIdle.Mailbox
                 if (!Current()) return;
                 if (NetworkManager.GetFailureKind(error) == "EconomyHeld") _summaryRetryAt = _clock() + 3;
                 Debug.LogWarning($"[Mail] {reason} check failed: {NetworkManager.DescribeFailure(error, "우편함")}");
-            });
+            }, Current);
         }
 
         private void ObserveLatest(string regularKey, long regular, string mailboxId, long overflow)
@@ -316,7 +316,7 @@ namespace KingdomIdle.Mailbox
         {
             int start = request.Mails.Count;
             _list(new OnGetMailListRequestDTO { Locale = request.Locale, StartIndex = start, Count = PageSize },
-                response => ApplyList(request, start, response), error => RejectList(request, error));
+                response => ApplyList(request, start, response), error => RejectList(request, error), () => Current(request));
         }
         private void ApplyList(ListRequest request, int start, OnGetMailListResponseDTO response)
         {
