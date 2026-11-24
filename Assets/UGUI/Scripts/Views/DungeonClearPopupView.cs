@@ -12,5 +12,8 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal Button exitButton;
         [SerializeField] internal Button nextButton;
         [SerializeField] internal Button retryButton;
+        [SerializeField] internal Toggle autoAdvance;
+        private void OnEnable() => KingdomIdle.Balance.LocalProgression.Changed += DungeonClearPopupController.RefreshActions;
+        private void OnDisable() => KingdomIdle.Balance.LocalProgression.Changed -= DungeonClearPopupController.RefreshActions;
     }
 }

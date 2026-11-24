@@ -315,7 +315,7 @@ namespace KingdomIdle.UGUI.Editor
                 var row = rows[i];
                 var action = RectBounds((RectTransform)row.transform, (RectTransform)row.action.transform);
                 var amount = RectBounds((RectTransform)row.transform, row.amount.rectTransform);
-                CheckPlay((amount.max.x <= action.min.x + 2 || amount.min.y >= action.max.y - 2) && action.size.y >= 144,
+                CheckPlay((!row.amount.gameObject.activeSelf || amount.max.x <= action.min.x + 2 || amount.min.y >= action.max.y - 2) && action.size.y >= 144,
                     "Amount and action remain distinct touch regions: " + row.offerId + " at " + size);
                 if (i > 0)
                     CheckPlay(RectBounds(page, (RectTransform)rows[i - 1].transform).min.y >= RectBounds(page, (RectTransform)row.transform).max.y - 2,
@@ -464,7 +464,8 @@ namespace KingdomIdle.UGUI.Editor
                     { hint.fontSize = 32; F.Preferred(hint, height: 84); }
             }
             var daily = view.pages[(int)ShopCategory.Rewarded].transform.Find("DailyHint").GetComponent<TMP_Text>();
-            daily.text = "장비 · 마탑 뽑기권 각각 2장\n각 하루 1회 · 한국 시간 자정 초기화";
+            daily.gameObject.SetActive(false);
+            view.tabs[(int)ShopCategory.Rewarded].GetComponentInChildren<TMP_Text>().text = "일일 광고";
             var chest = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/UsingAssets/Dungeon_Chest01.png");
             if (chest == null) throw new InvalidOperationException("The existing colored supply chest is missing.");
             foreach (var row in view.offers) BuildOfferPresentation(row, ShopCatalog.Find(row.offerId), chest);
@@ -508,16 +509,18 @@ namespace KingdomIdle.UGUI.Editor
             row.detail = F.Text(info, "Detail", detail, 34, UguiTheme.InfoMuted, wrap: true);
             var detailSize = F.Preferred(row.detail);
             detailSize.minHeight = 44; detailSize.preferredHeight = -1;
+            row.detail.gameObject.SetActive(!string.IsNullOrEmpty(detail));
             var actionColumn = F.Container(heading, "Action");
             F.VLayout(actionColumn.gameObject, 6, align: TextAnchor.MiddleCenter);
             var actionColumnSize = F.Preferred(actionColumn, width: 330);
             actionColumnSize.minWidth = 330;
-            string amount = offer.Payment == ShopPayment.RewardedAd ? "오늘 0 / 1회" :
+            string amount = offer.Payment == ShopPayment.RewardedAd ? "0장 보유중" :
                 offer.PermanentAdRemoval ? "영구 이용 · 준비 중" : offer.GoldMinutes > 0 ? "골드 수입 계산 중" : "상품 미리보기";
             // 광고 보유권·일일 상태와 골드 미리보기는 서버 갱신 후 길어질 수 있으므로 본문에 두 줄을 확보한다.
             row.amount = F.Text(dynamicAmount ? info : actionColumn, "Amount", amount, 34, UguiTheme.InfoMuted, wrap: true);
+            row.amount.gameObject.SetActive(!offer.PermanentAdRemoval);
             var amountSize = F.Preferred(row.amount);
-            amountSize.minHeight = dynamicAmount ? 84 : 44; amountSize.preferredHeight = -1;
+            amountSize.minHeight = offer.GoldMinutes > 0 ? 84 : 44; amountSize.preferredHeight = -1;
             bool primary = offer.Payment == ShopPayment.RewardedAd;
             string price = offer.Payment == ShopPayment.RewardedAd ? "광고 보고 받기" : offer.Payment == ShopPayment.AncientCoin
                 ? "주화 " + NumberNotation.Exact(offer.AncientCoinCost) + "개\n준비 중" : NumberNotation.Exact(offer.PreviewWon) + "원\n준비 중";

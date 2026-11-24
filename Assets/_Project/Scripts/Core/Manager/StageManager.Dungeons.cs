@@ -95,7 +95,7 @@ namespace Scripts.Core.Manager
         private bool BeginServerDungeon(eStage target)
         {
             if (_dungeonRequestPending || _mainStageRequestPending || !TryGetStageDefinition(target, out var definition) || !definition.Enabled ||
-                definition.Type == eStageType.Main || UserManager.Instance == null) return false;
+                definition.Type != eStageType.GoldDungeon || UserManager.Instance == null) return false;
             _dungeonRequestPending = true;
             BeginStageLoading("dungeon-enter");
             _dungeonGeneration = LocalProgression.AccountGeneration;

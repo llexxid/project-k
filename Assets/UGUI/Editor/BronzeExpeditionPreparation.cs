@@ -159,7 +159,8 @@ namespace KingdomIdle.UGUI.Editor
             if (root.name == "Panel_Dungeon")
             {
                 var hint = root.GetComponentsInChildren<TMP_Text>(true).FirstOrDefault(t => t.name == "Hint");
-                Type(hint, 36, 64);
+                Type(hint, 32, 110);
+                if (hint != null) hint.textWrappingMode = TextWrappingModes.Normal;
             }
         }
 

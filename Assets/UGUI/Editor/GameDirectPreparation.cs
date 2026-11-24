@@ -41,11 +41,11 @@ namespace KingdomIdle.UGUI.Editor
                 InteractiveStep("job_skills", GameDirectTarget.ArmyJobSkills, "전직 후 스킬", "해당 직업에서 사용할 스킬을 확인할 수 있습니다. 실제 전직은 조건과 변화를 확인한 뒤 선택하세요.", GuideContext.ArmyJobDetail, scroll: true)
             });
             var dungeon = GetOrCreate("guide_dungeon", new[] {
-                InteractiveStep("open", GameDirectTarget.Dungeon, "던전", "던전 버튼을 눌러 골드 던전과 루비 던전을 확인해 보세요.", GuideContext.Main, GuideCompletion.Click, GuideContext.Dungeon),
+                InteractiveStep("open", GameDirectTarget.Dungeon, "던전", "던전 버튼을 눌러 도전할 수 있는 던전을 확인하세요.", GuideContext.Main, GuideCompletion.Click, GuideContext.Dungeon),
                 InteractiveStep("gold_open", GameDirectTarget.GoldDungeonCard, "골드 던전", "골드 던전을 눌러 상세 정보를 열어 보세요. 안내 중에는 입장하지 않습니다.", GuideContext.Dungeon, GuideCompletion.Click, GuideContext.GoldDungeonDetail),
                 InteractiveStep("gold_info", GameDirectTarget.DungeonDetail, "처치 수에 따른 골드", "골드 던전은 제한 시간 동안 몬스터를 처치한 수에 따라 골드를 얻습니다. 난이도와 보상 정보를 확인할 수 있습니다.", GuideContext.GoldDungeonDetail),
-                InteractiveStep("ruby_open", GameDirectTarget.RubyDungeonCard, "루비 던전", "루비 던전을 눌러 골드 던전과 다른 보상 조건을 확인해 보세요.", GuideContext.Dungeon, GuideCompletion.Click, GuideContext.RubyDungeonDetail),
-                InteractiveStep("ruby_info", GameDirectTarget.DungeonDetail, "보스 처치로 루비 획득", "루비 던전은 각 제한 시간 안에 보스 3체를 모두 처치하면 루비를 얻습니다. 입장 전 해금 조건과 난이도를 확인하세요.", GuideContext.RubyDungeonDetail),
+                InteractiveStep("ruby_open", GameDirectTarget.RubyDungeonCard, "루비 던전", "루비 광산은 준비 중입니다.", GuideContext.Dungeon),
+                InteractiveStep("ruby_info", GameDirectTarget.GoldDungeonCard, "던전 재도전", "골드 던전 클리어 후 입장권이 남아 있으면 같은 단계에 다시 도전합니다. 다음 단계로 이동하려면 ‘다음 던전 도전’을 선택하세요.", GuideContext.Dungeon),
                 InteractiveStep("tickets", GameDirectTarget.GoldDungeonCard, "일일 입장 횟수", "각 던전의 입장권은 하루 {dailyTickets}회분입니다. 클리어가 아닌 입장 시 차감되며, 매일 00시에 충전됩니다.", GuideContext.Dungeon)
             });
             var gacha = GetOrCreate("guide_gacha", new[] {

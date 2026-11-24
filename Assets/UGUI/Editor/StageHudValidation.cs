@@ -129,11 +129,10 @@ namespace KingdomIdle.UGUI.Editor
             View.btnDungeonReturn.onClick.Invoke(); Check(ModalBackHandler.TryCloseTop() && !View.returnPopup.activeSelf,"return dialog back cancels");
             View.btnDungeonReturn.onClick.Invoke(); View.returnConfirm.onClick.Invoke(); yield return Ready(Main(9,6));
             Check(Manager.IsLoopMode && Manager.BossAutoChallenge && View.guide.gameObject.activeSelf,"confirm restores main stage, loop, auto and guide");
-            Check(Manager.TryEnterDungeon(eStage.RubyDungeon1_1),"ruby dungeon entry"); yield return Ready(eStage.RubyDungeon1_1);
-            Check(View.dungeonTime.text.EndsWith("초") && !View.dungeonTime.text.Contains("보스"),"ruby time contains seconds only");
-            yield return Shot("ruby-1080x1920");
-            Resolution(1080,2400); yield return Shot("ruby-1080x2400");
-            View.btnDungeonReturn.onClick.Invoke(); View.returnConfirm.onClick.Invoke(); yield return Ready(Main(9,6));
+            int rubyTickets = LocalProgression.State.RubyTickets;
+            Check(!Manager.TryEnterDungeon(eStage.RubyDungeon1_1) && Manager.CurrentStage == Main(9,6) &&
+                LocalProgression.State.RubyTickets == rubyTickets, "unavailable ruby dungeon leaves the stage and ticket balance unchanged");
+            Resolution(1080,2400);
             yield return Shot("cleared-1080x2400");
             View.btnStageAction.onClick.Invoke(); yield return Ready(Main(9,9));
             yield return Shot("main-1080x2400");
