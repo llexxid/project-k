@@ -630,7 +630,15 @@ namespace KingdomIdle.UGUI
                 ShowEquipmentActionPopup(equipped, true, true, equipMgr);
             }
             equip.weaponButton.onClick.AddListener(OpenWeapon);
-            equip.settingsButton.onClick.AddListener(OpenWeapon);
+            equip.settingsButton.onClick.AddListener(() =>
+            {
+                if (equipped != null) { OpenWeapon(); return; }
+                if (equipmentManager == null || equipMgr == null) { ShowToast("왕국군 장비 정보를 불러오는 중입니다."); return; }
+                var available = toolbar.Sort(equipmentManager.Inventory.Items);
+                var item = available.FirstOrDefault(candidate => candidate.baseData.IsAllowedForJob(jobName)) ?? available.FirstOrDefault();
+                if (item == null) { ShowToast("보유한 장비가 없습니다."); return; }
+                ShowEquipmentActionPopup(item, false, item.baseData.IsAllowedForJob(jobName), equipMgr);
+            });
             foreach (var slot in equip.lockedSlots)
                 slot.onClick.AddListener(() => ShowToast("개발중인 컨텐츠 입니다"));
 

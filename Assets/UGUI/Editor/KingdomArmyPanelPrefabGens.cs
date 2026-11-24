@@ -190,8 +190,9 @@ namespace KingdomIdle.UGUI.Editor
             figure.type = Image.Type.Simple; figure.preserveAspect = true; figure.raycastTarget = false; view.silhouette = figure;
             var lockSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/Art/LayerLab/GUI Pro-MinimalGame/Shared/Icons/PictoIcon/64/lock.png");
             var buttons = new List<Button>();
-            void Slot(string name, string label, float x, float y, bool weapon = false)
+            void Slot(string name, string label, float x, float y, string slotArt = null)
             {
+                bool weapon = slotArt == null;
                 var holder = F.Container(card.transform, name);
                 holder.anchorMin = holder.anchorMax = new Vector2(x, y);
                 holder.sizeDelta = new Vector2(220, 152); holder.anchoredPosition = Vector2.zero;
@@ -203,15 +204,26 @@ namespace KingdomIdle.UGUI.Editor
                 icon.preserveAspect = true; icon.raycastTarget = false;
                 var button = F.ButtonOn(slot, gloss: false);
                 if (weapon) { view.weaponButton = button; view.equippedIcon = icon; view.equippedFrame = rim; }
-                else { icon.sprite = lockSprite; buttons.Add(button); }
+                else
+                {
+                    string path = "Assets/UGUI/Art/LayerLab/GUI Pro-MinimalGame/Shared/Icons/UniqueIcon/128/" + slotArt + ".png";
+                    icon.sprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(path);
+                    icon.color = new Color(.64f,.61f,.56f,.88f);
+                    F.AnchorCenter(icon.rectTransform, 80, 80);
+                    var seal = F.CircleBox(slot.transform, "LockSeal", UguiTheme.RusticSurfaceDark);
+                    F.AnchorCenter(seal.rectTransform, 39,39); seal.rectTransform.anchoredPosition = new Vector2(35,-35);
+                    var locked = F.Box(seal.transform, "Lock", UguiTheme.Parchment, rounded:false);
+                    F.AnchorCenter(locked.rectTransform,24,24); locked.sprite=lockSprite; locked.preserveAspect=true;
+                    locked.raycastTarget=false; buttons.Add(button);
+                }
                 var caption = F.Text(holder, "Caption", label, 30, UguiTheme.InfoInk, TextAlignmentOptions.Center);
                 F.AnchorCenter(caption.rectTransform, 220, 42); caption.rectTransform.anchoredPosition = new Vector2(0,-56);
             }
-            Slot("Helmet", "투구", .50f, .84f);
-            Slot("Weapon", "무기", .19f, .64f, true);
-            Slot("Armor", "갑옷", .81f, .64f);
-            Slot("Gloves", "장갑", .19f, .22f);
-            Slot("Boots", "신발", .81f, .22f);
+            Slot("Helmet", "투구", .50f, .84f, "Gear_Helmet_04");
+            Slot("Weapon", "무기", .19f, .64f);
+            Slot("Armor", "갑옷", .81f, .64f, "Gear_Chest_01");
+            Slot("Gloves", "장갑", .19f, .22f, "Gear_Glove_02_Blue");
+            Slot("Boots", "신발", .81f, .22f, "Gear_Boots_01");
             view.lockedSlots = buttons.ToArray();
             view.equippedNameLabel = F.Text(card.transform, "WeaponName", "", 27, UguiTheme.InfoInk, TextAlignmentOptions.Center, bold:true);
             var nameRect = view.equippedNameLabel.rectTransform;
