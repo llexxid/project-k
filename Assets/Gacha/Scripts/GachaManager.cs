@@ -127,7 +127,19 @@ namespace KingdomIdle.Gacha
                             if (!IsCurrentPull(generation)) return;
                             if (mayRetry && request.RequestId != null && !NetworkManager.TryGetBusinessError(error,out _) &&
                                 NetworkManager.GetFailureKind(error) is "Timeout" or "Transport")
-                            { Send(false); return; }
+                            {
+                                var users = UserManager.Instance;
+                                if (users != null)
+                                {
+                                    users.RefreshFromServer(ok =>
+                                    {
+                                        if (!IsCurrentPull(generation)) return;
+                                        if (ok && !EconomyBatchProgression.HasUnknownResult) Send(false);
+                                        else RejectServerResult(table, count, error, onError);
+                                    });
+                                    return;
+                                }
+                            }
                             RejectServerResult(table, count, error, onError);
                         });
                 }
@@ -228,7 +240,7 @@ namespace KingdomIdle.Gacha
                     return;
                 }
                 if (code == (int)Protocol.Message.Data.eErrorCode.EquipmentCapacity ||
-                    code == (int)Protocol.Message.Data.eErrorCode.eNotEnoughAncientCoin)
+                    code == (int)Protocol.Message.Data.eErrorCode.eNotEnoughAncientCoin || code == (int)Protocol.Message.Data.eErrorCode.NumericLimit)
                     LocalProgression.Execute("equipment-draw-rejected", s => { ClearDraw(s); return true; });
                 else
                 {

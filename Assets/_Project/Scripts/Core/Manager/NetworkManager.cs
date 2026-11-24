@@ -293,10 +293,7 @@ namespace Scripts.Core.Manager
             bool economic = queued && !batchRequest;
             bool legacyRecovery = !EconomyBatchProgression.HasUnresolvedBatch && LocalProgression.TryGetCommittedState(out var committed) &&
                 (request is RubyGrowthRequestDTO legacyRuby && legacyRuby.RequestId == committed.PendingRubyRequestId ||
-                 mainCompletion != null && mainCompletion.RequestId == committed.PendingMainCompletion?.RequestId ||
-                 request is OnGachaEquipmentClassFragmentRequestDTO draw && draw.RequestId != null &&
-                 draw.RequestId == committed.PendingEquipmentDrawId && draw.ExpectedDrawSequence == committed.PendingEquipmentDrawSequence &&
-                 draw.Count == committed.PendingEquipmentDrawCount);
+                 mainCompletion != null && mainCompletion.RequestId == committed.PendingMainCompletion?.RequestId);
             bool IsCurrent() => this != null && generation == AccountGeneration;
             // Callbacks may enqueue follow-up calls; those wait until this one has fully completed (FIFO).
             void Done()
