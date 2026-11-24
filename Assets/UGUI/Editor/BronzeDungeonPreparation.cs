@@ -174,7 +174,7 @@ namespace KingdomIdle.UGUI.Editor
             var preview = window.Find("PreviewCard") as RectTransform;
             if (preview == null) throw new InvalidOperationException("던전 프리뷰 카드 누락");
             Flat(preview.GetComponent<Image>(), UguiTheme.InfoSurface);
-            Height(preview, 256);
+            Height(preview, 232);
             var band = preview.Find("TitleBand") as RectTransform;
             if (band == null) throw new InvalidOperationException("던전 설명 영역 누락");
             var bandImage = band.GetComponent<Image>();
@@ -184,8 +184,8 @@ namespace KingdomIdle.UGUI.Editor
             if (bandLayout != null) { bandLayout.padding = new RectOffset(); bandLayout.spacing = 2; }
             var name = Ref<TMP_Text>(popup, "dungeonName");
             var description = Ref<TMP_Text>(popup, "description");
-            Type(name, 54, UguiTheme.InfoInk); Height(name.transform, 70);
-            Type(description, 34, UguiTheme.InfoMuted); Height(description.transform, 180);
+            Type(name, 54, UguiTheme.InfoInk); Height(name.transform, 64);
+            Type(description, 34, UguiTheme.InfoMuted); Height(description.transform, 162);
             description.textWrappingMode = TextWrappingModes.Normal;
             description.overflowMode = TextOverflowModes.Ellipsis;
             var art = preview.Find("PortalArtFrame") as RectTransform;
@@ -453,9 +453,8 @@ namespace KingdomIdle.UGUI.Editor
                     string originalDescription = description.text;
                     foreach (string text in new[]
                     {
-                        "보스 3체 · 각 30초 · " + NumberNotation.Format(long.MaxValue) + " 루비 + 첫 클리어 125\n3체 모두 처치 시 지급 · 매일 00시 충전",
-                        "60s · 20 enemies · up to 123.45K gold\nDefeated-enemy rewards are kept on exit · Tickets refill daily at 00:00",
-                        "3 bosses · 30s each · 123.45K ruby + first clear 125\nDefeat all three for payout · Tickets refill daily at 00:00"
+                        "제한시간: 60초\n등장 미믹: 20\n최대 획득 골드: " + NumberNotation.Exact(long.MaxValue),
+                        "Time limit: 60s\nMimics: 20\nMaximum gold: " + NumberNotation.Exact(long.MaxValue)
                     })
                     {
                         var preferred = description.GetPreferredValues(text, description.rectTransform.rect.width, Mathf.Infinity);
