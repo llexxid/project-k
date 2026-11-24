@@ -434,6 +434,7 @@ namespace KingdomIdle.Balance
                 RequestId = Guid.NewGuid().ToString("N"), Generation = metadata.Generation, Sequence = metadata.NextSequence,
                 ExpectedEconomyRevision = state.ServerEconomyRevision, AppliedRewardEpoch = metadata.RewardEpoch,
                 AcknowledgedRequestId = state.Economy.LastAppliedRequestId,
+                IndependentGrowthFailures = metadata.IndependentGrowthFailures,
                 QuestVersion = QuestManager.Instance?.ServerQuests?.Version,
                 RewardEpochCutoffs = state.Economy.Cutoffs.Select(EconomyCopies.Copy).ToList(),
                 Commands = inputs.Select(x => EconomyCopies.Copy(x.Command)).ToList()
@@ -633,7 +634,9 @@ namespace KingdomIdle.Balance
 
         private static void ResolveCompletedInputs(EconomyBatchReceiptDTO receipt, bool alreadyApplied)
         {
-                bool stopSpending = receipt.Results.Any(x => x.Status == EconomyCommandStatus.Rejected && !EconomyBatchProtocol.IsIsolatedMageRejection(x));
+                bool stopSpending = receipt.Results.Any(x => x.Status == EconomyCommandStatus.Rejected && !EconomyBatchProtocol.IsIsolatedMageRejection(x) &&
+                    !(receipt.IndependentGrowthFailures && EconomyBatchProtocol.IsIsolatedGrowthRejection(x)));
+                var failedGrowth = new HashSet<EconomyCommandKind>();
                 var failedSkills = new HashSet<int>();
                 bool invalidHunt = false;
                 var discarded = new List<EconomyInput>();
@@ -651,14 +654,15 @@ namespace KingdomIdle.Balance
                     if (!hunt)
                     {
                         if (EconomyBatchProtocol.IsIsolatedMageRejection(result)) failedSkills.Add(input.Command.SkillId.Value);
+                        if (receipt.IndependentGrowthFailures && EconomyBatchProtocol.IsIsolatedGrowthRejection(result)) failedGrowth.Add(result.Kind);
                         if (result.Status != EconomyCommandStatus.Applied) discarded.Add(input);
                         else if (!alreadyApplied) CompleteInput(input, true, "강화가 적용되었습니다.");
                     }
                 }
-                if (stopSpending || failedSkills.Count != 0)
+                if (stopSpending || failedSkills.Count != 0 || failedGrowth.Count != 0)
                 {
                     bool Cancel(EconomyInput input) => input.Command.Kind != EconomyCommandKind.Hunt &&
-                        (stopSpending || input.Command.SkillId is int id && failedSkills.Contains(id));
+                        (stopSpending || failedGrowth.Contains(input.Command.Kind) || input.Command.SkillId is int id && failedSkills.Contains(id));
                     discarded.AddRange(_journal.Data.Inputs.Where(Cancel));
                     _journal.Data.Inputs.RemoveAll(Cancel);
                 }

@@ -18,6 +18,7 @@ namespace Protocol.Message.Dto
         public long ExpectedEconomyRevision { get; set; }
         public long AppliedRewardEpoch { get; set; }
         public string AcknowledgedRequestId { get; set; }
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)] public bool IndependentGrowthFailures { get; set; }
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public string QuestVersion { get; set; }
         public List<EconomyRewardEpochCutoffDTO> RewardEpochCutoffs { get; set; } = new();
         public List<EconomyCommandDTO> Commands { get; set; } = new();
@@ -69,6 +70,7 @@ namespace Protocol.Message.Dto
         [JsonProperty(Required = Required.Always)] public long Sequence { get; set; }
         [JsonProperty(Required = Required.Always)] public string PayloadHash { get; set; }
         [JsonProperty(Required = Required.Always)] public long CommittedRevision { get; set; }
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)] public bool IndependentGrowthFailures { get; set; }
         [JsonProperty(Required = Required.Always)] public List<EconomyCommandResultDTO> Results { get; set; }
     }
 
@@ -121,6 +123,7 @@ namespace Protocol.Message.Dto
         [JsonProperty(Required = Required.Always)] public int Version { get; set; }
         public bool SupportsMageEnhance { get; set; }
         public bool EquipmentEnhanceAvailable { get; set; }
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)] public bool IndependentGrowthFailures { get; set; }
         public MageEnhanceBatchMode MageEnhanceMode { get; set; }
         [JsonProperty(Required = Required.Always)] public string OwnerClientId { get; set; }
         [JsonProperty(Required = Required.Always)] public long Generation { get; set; }
