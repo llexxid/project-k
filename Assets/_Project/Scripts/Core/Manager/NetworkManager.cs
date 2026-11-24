@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -394,6 +395,30 @@ namespace Scripts.Core.Manager
                     finally { application?.Dispose(); Done(); }
                 }
             }
+            void Receive(ExecuteFunctionResult result)
+            {
+                if (completed || !IsCurrent()) return;
+                if (result?.FunctionResult == null || result.Error != null || result.FunctionResultTooLarge == true ||
+                    !string.IsNullOrEmpty(result.FunctionName) && result.FunctionName != cloudFunction.FunctionName)
+                { Success(result); return; }
+                try
+                {
+                    var body = PackedServerResponse.ReadBody(result.FunctionResult);
+                    if (body.Property("PackedResponse") == null) { result.FunctionResult = body; Success(result); return; }
+                    var packed = new PackedServerResponse(body);
+                    void Finish()
+                    {
+                        if (completed || !IsCurrent()) return;
+                        result.FunctionResult = packed.Decode();
+                        Success(result);
+                    }
+                    if (packed.NextIndex == packed.ChunkCount) Finish();
+                    else StartCoroutine(ReadPackedPages(packed, cloudFunction.AuthenticationContext, queued ? _sessionGUID : null,
+                        () => !completed && IsCurrent() && (!queued || localGeneration == LocalProgression.AccountGeneration),
+                        () => { if (enteredQueue) _callStartedAt = Time.realtimeSinceStartup; }, Finish, Fail, cloudFunction.FunctionName));
+                }
+                catch (Exception ex) { Fail(CreateError("InvalidResponse", "서버 응답의 무결성을 확인하지 못했습니다.", cloudFunction.FunctionName, ex)); }
+            }
             void Send()
             {
                 if (!IsCurrent()) return;
@@ -404,7 +429,7 @@ namespace Scripts.Core.Manager
                     Fail(CreateError("EconomyHeld", "이전 요청의 결과를 확인한 뒤 다시 시도해 주세요.", cloudFunction.FunctionName));
                     return;
                 }
-                try { sent = true; PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, Success, Fail); }
+                try { sent = true; PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, Receive, Fail); }
                 catch (Exception ex)
                 {
                     Fail(CreateError("Transport", "요청을 전송하지 못했습니다.", cloudFunction.FunctionName, ex));
@@ -434,6 +459,65 @@ namespace Scripts.Core.Manager
                 })) Fail(CreateError("EconomyHeld", "이전 입력의 처리가 필요합니다.", cloudFunction.FunctionName));
             }
             else QueueAndSend();
+        }
+
+        // Each retry reads the same immutable page, including when the original request wrote currency.
+        private IEnumerator ReadPackedPages(PackedServerResponse packed, PlayFabAuthenticationContext context, string sessionId, Func<bool> current,
+            Action progress, Action finish, Action<PlayFabError> fail, string function)
+        {
+            const string route = "OnGetEquipmentInventory";
+            while (current() && packed.NextIndex < packed.ChunkCount)
+            {
+                int index = packed.NextIndex;
+                for (int attempt = 0; attempt < 3 && current() && index == packed.NextIndex; attempt++)
+                {
+                    progress();
+                    var parameters = new Dictionary<string, object>
+                    {
+                        ["ProtocolVersion"] = ApiVersions.ProtocolVersion, ["ResponsePacking"] = PackedServerResponse.Version,
+                        ["SnapshotId"] = packed.SnapshotId, ["ChunkIndex"] = index
+                    };
+                    if (!string.IsNullOrEmpty(sessionId)) parameters["SessionID"] = sessionId;
+                    var read = new ExecuteFunctionRequest
+                    {
+                        FunctionName = route, AuthenticationContext = context, GeneratePlayStreamEvent = false,
+                        FunctionParameter = parameters
+                    };
+                    bool active = true, arrived = false;
+                    ExecuteFunctionResult page = null;
+                    try
+                    {
+                        PlayFabCloudScriptAPI.ExecuteFunction(read,
+                            result => { if (active) { page = result; arrived = true; } },
+                            _ => { if (active) arrived = true; });
+                    }
+                    catch (Exception) { arrived = true; }
+                    float deadline = Time.realtimeSinceStartup + 9f;
+                    while (current() && !arrived && Time.realtimeSinceStartup < deadline) yield return null;
+                    active = false;
+                    if (!current()) break;
+                    if (page?.FunctionResult == null || page.Error != null || page.FunctionResultTooLarge == true ||
+                        !string.IsNullOrEmpty(page.FunctionName) && page.FunctionName != route) continue;
+                    try { packed.Add(PackedServerResponse.ReadBody(page.FunctionResult)); }
+                    catch (Exception ex)
+                    {
+                        fail(CreateError("InvalidResponse", "서버 응답 조각이 일치하지 않습니다.", function, ex));
+                        yield break;
+                    }
+                }
+                if (current() && index == packed.NextIndex)
+                {
+                    fail(CreateError("Transport", "서버 응답의 나머지를 확인할 수 없습니다.", function));
+                    yield break;
+                }
+            }
+            if (!current())
+            {
+                fail(CreateError("AccountChanged", "접속 계정이 변경되었습니다.", function));
+                yield break;
+            }
+            try { finish(); }
+            catch (Exception ex) { fail(CreateError("InvalidResponse", "서버 응답의 무결성을 확인하지 못했습니다.", function, ex)); }
         }
 
         private static bool IsUncertainEconomicFailure(PlayFabError error)
@@ -489,6 +573,7 @@ namespace Scripts.Core.Manager
                 ruby.ExpectedLevel < 0 || ruby.ExpectedLevel > 50 || (ruby.Type != RubyGrowthType.Gold && ruby.Type != RubyGrowthType.Exp)))
                 throw new ArgumentException("루비 요청 ID·강화 종류·예상 레벨을 확인해 주세요.");
             payload.ProtocolVersion = ApiVersions.ProtocolVersion;
+            payload.ResponsePacking = PackedServerResponse.Version;
             if (payload is SessionRequestDTO session) session.SessionID = sessionGuid;
             // The server rejects a mailbox request whose PlayFabId is not the caller's, so always send the signed-in account.
             if (payload is MailboxRequestDTO mailbox) mailbox.PlayFabId = _playFabId;
@@ -525,16 +610,7 @@ namespace Scripts.Core.Manager
                 // Validate only our DTO conversion; leave the PlayFab serializer unchanged.
                 var serializer = new JsonSerializer { DateParseHandling = DateParseHandling.None, MaxDepth = 64 };
                 serializer.Converters.Add(new StrictIntegerConverter());
-                JObject body;
-                if (result.FunctionResult is JObject json) body = json;
-                else if (result.FunctionResult is string text)
-                {
-                    using var reader = new JsonTextReader(new StringReader(text))
-                    { DateParseHandling = DateParseHandling.None, MaxDepth = 64 };
-                    body = JObject.Load(reader, new JsonLoadSettings { DuplicatePropertyNameHandling = DuplicatePropertyNameHandling.Error });
-                    if (reader.Read()) throw new JsonSerializationException("Trailing response data.");
-                }
-                else body = JObject.FromObject(result.FunctionResult, serializer);
+                var body = PackedServerResponse.ReadBody(result.FunctionResult);
                 if (body["ProtocolVersion"]?.Type != JTokenType.Integer || body["ServerVersion"]?.Type != JTokenType.Integer)
                     throw new JsonSerializationException("Missing protocol header.");
                 if (body.Value<int>("ProtocolVersion") != ApiVersions.ProtocolVersion)

@@ -10,6 +10,8 @@ namespace Protocol.Message.Dto
 	public abstract class RequestDTO
 	{
 		public int ProtocolVersion { get; set; }
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public int ResponsePacking { get; set; }
 	}
 
 	// 가입·로그인을 제외한 API의 요청. Redis의 현재 세션과 비교하여 해당 플레이어의 접속 상태를 확인한다.
