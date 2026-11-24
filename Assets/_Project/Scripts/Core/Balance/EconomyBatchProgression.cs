@@ -343,6 +343,7 @@ namespace KingdomIdle.Balance
             _journal != null && _journal.Error == null && LocalProgression.State.PendingMainCompletion == null;
         internal static bool CanRefreshMenuRecovery => Available && RecoveryComplete && _externalUnknown &&
             !_blocked && !_batchUnknown && !_queryRequired && !_requestPending && !HasUnresolvedBatch && _journal?.Error == null;
+        internal static bool CanRetryMenuSnapshot => !Available || CanQueueMenuSnapshot || CanRefreshMenuRecovery;
         internal static bool TryQueueMenuSnapshot(Action<bool> completed)
         {
             if (!CanQueueMenuSnapshot || completed == null) return false;

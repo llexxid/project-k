@@ -457,7 +457,8 @@ namespace Scripts.Core.Manager
                 if (IsMenuSnapshot(request))
                 {
                     StartCoroutine(WaitForMenuSnapshot(() => !completed && IsCurrent() && localGeneration == LocalProgression.AccountGeneration,
-                        QueueAndSend, Fail, cloudFunction.FunctionName));
+                        () => Time.realtimeSinceStartup, TryRefreshMenuRecovery, EconomyBatchProgression.TryQueueMenuSnapshot, QueueAndSend,
+                        () => Fail(CreateError("EconomyHeld", "서버 정산 결과를 확인하고 있습니다. 확인을 마치면 목록을 다시 불러옵니다.", cloudFunction.FunctionName))));
                     return;
                 }
                 if (!EconomyBatchProgression.FlushBeforeWrite(ok =>
@@ -472,38 +473,34 @@ namespace Scripts.Core.Manager
         internal static bool IsMenuSnapshot(RequestDTO request) =>
             request is OnGetMailListRequestDTO || request is OnGetQuestStateRequestDTO || request is OnCheckAttendanceRequestDTO;
 
-        private IEnumerator WaitForMenuSnapshot(Func<bool> current, Action send, Action<PlayFabError> fail, string function)
+        private void TryRefreshMenuRecovery()
         {
-            float deadline = Time.realtimeSinceStartup + 18f;
+            if (!EconomyBatchProgression.CanRefreshMenuRecovery || Time.realtimeSinceStartup < _nextMenuRecoveryAt) return;
+            _nextMenuRecoveryAt = Time.realtimeSinceStartup + 10f;
+            UserManager.Instance?.RefreshFromServer(_ => { });
+        }
+
+        internal static IEnumerator WaitForMenuSnapshot(Func<bool> current, Func<float> now, Action tryRecover,
+            Func<Action<bool>, bool> enqueue, Action send, Action held)
+        {
+            float deadline = now() + 18f;
             bool waiting = false, started = false;
             while (current() && !started)
             {
+                if (now() >= deadline) { held(); yield break; }
                 if (!waiting)
                 {
-                    if (EconomyBatchProgression.CanRefreshMenuRecovery && Time.realtimeSinceStartup >= _nextMenuRecoveryAt)
+                    tryRecover();
+                    waiting = true;
+                    if (!enqueue(ok =>
                     {
-                        _nextMenuRecoveryAt = Time.realtimeSinceStartup + 10f;
-                        UserManager.Instance?.RefreshFromServer(_ => { });
-                    }
-                    if (EconomyBatchProgression.CanQueueMenuSnapshot)
-                    {
-                        waiting = true;
-                        if (!EconomyBatchProgression.TryQueueMenuSnapshot(ok =>
-                        {
-                            waiting = false;
-                            if (!ok || !current() || Time.realtimeSinceStartup >= deadline) return;
-                            started = true;
-                            send();
-                        })) waiting = false;
-                    }
+                        waiting = false;
+                        if (!ok || !current() || started || now() >= deadline) return;
+                        started = true;
+                        send();
+                    })) waiting = false;
                 }
-                if (started) yield break;
-                if (Time.realtimeSinceStartup >= deadline)
-                {
-                    fail(CreateError("EconomyHeld", "서버 정산 결과를 확인하고 있습니다. 확인을 마치면 목록을 다시 불러옵니다.", function));
-                    yield break;
-                }
-                yield return null;
+                if (!started) yield return null;
             }
         }
 
