@@ -183,6 +183,7 @@ namespace KingdomIdle.UGUI.Editor
             F.Frame(card.transform, "BronzeFrame", UguiTheme.Bronze);
             var halo = F.CircleBox(card.transform, "PortraitSeal", new Color(.64f,.53f,.35f,.4f));
             F.AnchorCenter(halo.rectTransform, 250, 250);
+            halo.rectTransform.anchoredPosition = new Vector2(0, -28);
             var inset = F.CircleBox(halo.transform, "InnerSeal", UguiTheme.InfoSurface);
             F.AnchorCenter(inset.rectTransform, 234, 234);
             var figure = F.Box(inset.transform, "IdleSilhouette", new Color(.10f,.09f,.09f,1), rounded: false);
@@ -248,8 +249,8 @@ namespace KingdomIdle.UGUI.Editor
         {
             var (root, view) = NewContent<KAEquipDetailView>("Panel_KAEquipDetail");
 
-            var back = F.TextButton(root, "BtnBack", "< 장비 목록", 22f, UguiTheme.SurfaceLight, out _);
-            F.Preferred(back, height: 44f);
+            var back = F.TextButton(root, "BtnBack", "‹  장비 목록", 36f, UguiTheme.RusticSurface, out _);
+            F.Preferred(back, height: 132f).minHeight = 132f;
             view.backButton = back;
 
             SectionTitle(root, "장비 상세");
