@@ -53,6 +53,7 @@ namespace Scripts.Core.Manager
         private string _callInFlightName;
         private Action<PlayFabError> _callInFlightTimeout;
         private int _economicCalls;
+        private float _nextMenuRecoveryAt;
 
         private void EnqueueCall(string function, Action send, Action<PlayFabError> timeout)
         {
@@ -85,6 +86,7 @@ namespace Scripts.Core.Manager
             _callInFlightName = null;
             _callInFlightTimeout = null;
             _economicCalls = 0;
+            _nextMenuRecoveryAt = 0;
             EconomyBatchProgression.SetExternalWritePending(false);
         }
         private void Update()
@@ -452,6 +454,12 @@ namespace Scripts.Core.Manager
             }
             if (economic && !recoveryRead && !legacyRecovery && EconomyBatchProgression.Available)
             {
+                if (IsMenuSnapshot(request))
+                {
+                    StartCoroutine(WaitForMenuSnapshot(() => !completed && IsCurrent() && localGeneration == LocalProgression.AccountGeneration,
+                        QueueAndSend, Fail, cloudFunction.FunctionName));
+                    return;
+                }
                 if (!EconomyBatchProgression.FlushBeforeWrite(ok =>
                 {
                     if (ok) QueueAndSend();
@@ -459,6 +467,44 @@ namespace Scripts.Core.Manager
                 })) Fail(CreateError("EconomyHeld", "이전 입력의 처리가 필요합니다.", cloudFunction.FunctionName));
             }
             else QueueAndSend();
+        }
+
+        internal static bool IsMenuSnapshot(RequestDTO request) =>
+            request is OnGetMailListRequestDTO || request is OnGetQuestStateRequestDTO || request is OnCheckAttendanceRequestDTO;
+
+        private IEnumerator WaitForMenuSnapshot(Func<bool> current, Action send, Action<PlayFabError> fail, string function)
+        {
+            float deadline = Time.realtimeSinceStartup + 18f;
+            bool waiting = false, started = false;
+            while (current() && !started)
+            {
+                if (!waiting)
+                {
+                    if (EconomyBatchProgression.CanRefreshMenuRecovery && Time.realtimeSinceStartup >= _nextMenuRecoveryAt)
+                    {
+                        _nextMenuRecoveryAt = Time.realtimeSinceStartup + 10f;
+                        UserManager.Instance?.RefreshFromServer(_ => { });
+                    }
+                    if (EconomyBatchProgression.CanQueueMenuSnapshot)
+                    {
+                        waiting = true;
+                        if (!EconomyBatchProgression.TryQueueMenuSnapshot(ok =>
+                        {
+                            waiting = false;
+                            if (!ok || !current() || Time.realtimeSinceStartup >= deadline) return;
+                            started = true;
+                            send();
+                        })) waiting = false;
+                    }
+                }
+                if (started) yield break;
+                if (Time.realtimeSinceStartup >= deadline)
+                {
+                    fail(CreateError("EconomyHeld", "서버 정산 결과를 확인하고 있습니다. 확인을 마치면 목록을 다시 불러옵니다.", function));
+                    yield break;
+                }
+                yield return null;
+            }
         }
 
         // Each retry reads the same immutable page, including when the original request wrote currency.
@@ -1110,6 +1156,7 @@ namespace Scripts.Core.Manager
                 }
             }
             string kind = GetFailureKind(error);
+            if (kind == "EconomyHeld" && !string.IsNullOrEmpty(error.ErrorMessage)) return error.ErrorMessage;
             if (kind == "Timeout" || kind == "Transport") return "서버 응답이 없습니다. 잠시 후 다시 시도해 주세요.";
             if (kind == "NotAuthenticated" || kind == "IntegrationPending") return "서버 로그인이 필요합니다.";
             return error == null ? $"{action}에 실패했습니다." : $"{action}에 실패했습니다. ({error.ErrorMessage})";

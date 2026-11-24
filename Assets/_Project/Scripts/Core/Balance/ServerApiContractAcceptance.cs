@@ -32,6 +32,10 @@ namespace KingdomIdle.Balance
                 return valid;
             }
             CheckPackedResponses(Check);
+            Check(NetworkManager.IsMenuSnapshot(new OnGetMailListRequestDTO()) && NetworkManager.IsMenuSnapshot(new OnGetQuestStateRequestDTO()) &&
+                NetworkManager.IsMenuSnapshot(new OnCheckAttendanceRequestDTO()) && !NetworkManager.IsMenuSnapshot(new OnClaimMailRewardRequestDTO()) &&
+                !NetworkManager.IsMenuSnapshot(new OnClaimQuestRewardRequestDTO()) && !NetworkManager.IsMenuSnapshot(new OnEconomyBatchRequestDTO()),
+                "menu lookups wait for settlement without reclassifying a reward claim or batch");
             JObject Body(ApiResponseDTO dto)
             { dto.ProtocolVersion = ApiVersions.ProtocolVersion; return JObject.FromObject(dto); }
             JObject Changed(JObject source, string path, JToken value)

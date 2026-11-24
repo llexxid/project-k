@@ -337,6 +337,21 @@ namespace KingdomIdle.Balance
             _sealAfter = 0; Status = null; SaveJournal(); Notify(); return true;
         }
 
+        // Quest, mailbox and attendance lookups can persist rollover, delivery or recovery changes on the server.
+        // Keep their revision fence, but do not create a new hunt settlement just to read a menu.
+        internal static bool CanQueueMenuSnapshot => Available && RecoveryComplete && !HasUnknownResult && !_blocked &&
+            _journal != null && _journal.Error == null && LocalProgression.State.PendingMainCompletion == null;
+        internal static bool CanRefreshMenuRecovery => Available && RecoveryComplete && _externalUnknown &&
+            !_blocked && !_batchUnknown && !_queryRequired && !_requestPending && !HasUnresolvedBatch && _journal?.Error == null;
+        internal static bool TryQueueMenuSnapshot(Action<bool> completed)
+        {
+            if (!CanQueueMenuSnapshot || completed == null) return false;
+            EnqueueFence(completed);
+            _sealAfter = 0;
+            Pump();
+            return true;
+        }
+
         public static bool FlushBeforeWrite(Action<bool> completed)
         {
             if (!Available || !RecoveryComplete || HasUnknownResult || _journal == null || completed == null) return false;
