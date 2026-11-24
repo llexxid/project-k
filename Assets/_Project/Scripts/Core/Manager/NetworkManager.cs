@@ -468,6 +468,7 @@ namespace Scripts.Core.Manager
             {
                 auth.EconomyBatchVersion = EconomyBatchProtocol.Version;
                 auth.SupportsMageEnhance = true;
+                auth.IndependentGrowthFailures = true;
                 auth.EconomyClientId = EconomyBatchProgression.ClientId;
             }
             if (payload is OnEconomyBatchRequestDTO batch) EconomyBatchProtocol.ValidateRequest(batch);
