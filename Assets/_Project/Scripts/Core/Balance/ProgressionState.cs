@@ -25,7 +25,7 @@ namespace KingdomIdle.Balance
         public bool PendingRubyRequestIsReset, PendingRubyRequestExperience;
         public int PendingRubyExpectedLevel;
         public int ReincarnationLevel, ReincarnationCount, CycleBossStage, ReincarnationsToday;
-        public long LastReincarnationUtc, CycleStartedUtc;
+        public long LastReincarnationUtc, CycleStartedUtc, LastReincarnationHighestStage;
         public string ReincarnationDay;
         public long MainStage = 0x200010001, HighestMainClear;
         public long CycleFrontierStage;

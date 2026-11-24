@@ -33,7 +33,7 @@ public class JobData : ScriptableObject
     [Header("기본 스탯")]
     public int maxHP;               // 최대 체력
     public int atk;                 // 공격력
-    public int movSpeed;            // 이동 속도
+    public float movSpeed;            // 이동 속도
 
     [Header("기본공격")]
     public BasicAttackConfig basicAttack = new BasicAttackConfig();

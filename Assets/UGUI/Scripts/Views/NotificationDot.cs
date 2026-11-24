@@ -17,6 +17,7 @@ namespace KingdomIdle.UGUI
             rect.anchorMin = rect.anchorMax = rect.pivot = Vector2.one;
             rect.anchoredPosition = new Vector2(-6f, -6f);
             rect.sizeDelta = new Vector2(22f, 22f);
+            dot.AddComponent<LayoutElement>().ignoreLayout = true;
             var image = dot.GetComponent<Image>();
             image.sprite = circle;
             image.color = UguiTheme.DangerRedBright;

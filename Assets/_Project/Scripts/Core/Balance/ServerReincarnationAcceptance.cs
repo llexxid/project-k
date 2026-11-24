@@ -25,6 +25,13 @@ namespace KingdomIdle.Balance
             var preview = new ReincarnationPolicy().Evaluate(new ReincarnationState(0, 0), true, bosses);
             Check(bosses == 3 && preview.CanReincarnate && preview.LevelGain == 15,
                 "preview uses three bosses from this cycle instead of current or permanent progress");
+            Check(ReincarnationService.HasAdvancedSinceLastReincarnation(state), "first available reincarnation may notify");
+            state.ReincarnationCount = 1;
+            Check(!ReincarnationService.HasAdvancedSinceLastReincarnation(state), "an unknown historical frontier does not notify");
+            state.LastReincarnationHighestStage = state.CycleFrontierStage;
+            Check(!ReincarnationService.HasAdvancedSinceLastReincarnation(state), "tying the previous frontier does not notify");
+            state.LastReincarnationHighestStage--;
+            Check(ReincarnationService.HasAdvancedSinceLastReincarnation(state), "surpassing the previous frontier notifies even after retreat");
             state.CycleFrontierStage = state.MainStage;
             Check(ReincarnationService.Eligibility(state) == eReincarnationFailureReason.StageRequirementNotMet,
                 "a new cycle cannot reuse permanent boss clears");

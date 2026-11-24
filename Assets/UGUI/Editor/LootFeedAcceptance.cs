@@ -254,7 +254,7 @@ namespace KingdomIdle.UGUI.Editor
                     {
                         var name = feed.rows[0].name;
                         string previousName = name.text;
-                        name.text = "황금 강철 지팡이"; name.ForceMeshUpdate(true, true);
+                        name.text = "보석 지팡이"; name.ForceMeshUpdate(true, true);
                         Check(!name.isTextTruncated && name.textInfo.characterCount >= 9 &&
                             name.textBounds.size.x <= name.rectTransform.rect.width + 1,
                             "Long equipment names remain readable inside simulated horizontal safe-area insets");

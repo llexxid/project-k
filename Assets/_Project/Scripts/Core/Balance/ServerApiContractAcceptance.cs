@@ -23,6 +23,10 @@ namespace KingdomIdle.Balance
             var checks = new List<string>();
             void Check(bool value, string name)
             { if (!value) throw new InvalidOperationException("Server API contract acceptance: " + name); checks.Add(name); }
+            Check(Scripts.Server.Auth.Authentication.TryGetLoginRetrySeconds(new PlayFab.PlayFabError { HttpCode = 429, RetryAfterSeconds = 47 }, out int delay) && delay == 47,
+                "login honors the rate-limit wait reported by PlayFab");
+            Check(!Scripts.Server.Auth.Authentication.TryGetLoginRetrySeconds(new PlayFab.PlayFabError { HttpCode = 403 }, out _),
+                "a permanent authentication refusal is not retried");
             bool Read<T>(JObject body, out T response) where T : ApiResponseDTO
             {
                 object[] args = { "fixture", new ExecuteFunctionResult { FunctionName = "fixture", FunctionResult = body.ToString() }, null, null };

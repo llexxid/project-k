@@ -25,6 +25,13 @@ namespace Reincarnation
         public ReincarnationService(ReincarnationPolicy policy, IReincarnationProgressStore store, IReincarnationStageGateway gateway)
         { LocalProgression.Changed += () => ReincarnationStateChanged?.Invoke(CurrentState); }
 
+        public static bool HasAdvancedSinceLastReincarnation(ProgressionState state)
+        {
+            return state.ReincarnationCount == 0 ||
+                (state.LastReincarnationHighestStage > 0 &&
+                 Math.Max(state.MainStage, state.CycleFrontierStage) > state.LastReincarnationHighestStage);
+        }
+
         /// <summary>서버 규칙과 같은 안내용 사전 검사. 이번 주기 최고 해금 위치와 서버가 준 LastUtc를 사용한다.</summary>
         public static eReincarnationFailureReason Eligibility(ProgressionState s)
         {

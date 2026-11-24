@@ -202,7 +202,7 @@ namespace KingdomIdle.UGUI
             if (c.heroIcon != null) c.heroIcon.sprite = IsSkillTable(table) ? c.mageArt : c.equipmentArt;
             if (c.heroDescription != null) c.heroDescription.text = IsSkillTable(table)
                 ? "새로운 마법으로 전투를 준비하세요" : "장비로 왕국군을 강화하세요";
-            if (c.skillRule != null) c.skillRule.gameObject.SetActive(IsSkillTable(table));
+            if (c.skillRule != null) c.skillRule.gameObject.SetActive(false);
             UpdateFeaturedRewards(c, table);
             if (c.ratesButton != null)
             {

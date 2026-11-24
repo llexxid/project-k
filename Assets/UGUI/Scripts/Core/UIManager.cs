@@ -82,8 +82,8 @@ namespace KingdomIdle.UGUI
             (expandLegacyTabPanels && (id == UIPanelId.Development || id == UIPanelId.KingdomArmy || id == UIPanelId.Dungeon));
 
         /// <summary>온라인 전투 시간에서 제외할 메뉴·설정·로딩 상태를 한 곳에서 제공한다.</summary>
-        public bool BlocksQuestBattleTime => HasBlockingPanel || HasActiveTabPanel || ModalBackHandler.HasOpenModal ||
-            (_settings != null && _settings.IsOpen) || IsLoadingVisible;
+        private bool HasOpenMenu => HasBlockingPanel || HasActiveTabPanel || (_settings != null && _settings.IsOpen) || ModalBackHandler.HasOpenModal;
+        public bool BlocksQuestBattleTime => HasOpenMenu || IsLoadingVisible;
 
         /// <summary>패널 스택이 변할 때마다 발생 — 탭 선택 시각화, 파티 HUD 위치 갱신용.</summary>
         public event Action PanelStackChanged;
@@ -995,7 +995,8 @@ namespace KingdomIdle.UGUI
             {
                 RefreshRewardResults();
                 bool operation = !_sceneLoading && ((_offlineRewardLoading && KingdomIdle.OfflineRewards.OfflineRewardManager.AdBonusBusy) ||
-                    Scripts.Core.Utils.GameplayLoading.IsVisible);
+                    (GameplayLoading.IsVisible && (!(HasOpenMenu || (_mainController?.HasOpenDropdown ?? false)) ||
+                        GameplayLoading.HasVisibleScope(true))));
                 bool blocked = GameplayInputBlocked;
                 bool resultReady = _rewardResult != null && _rewardRequests.Count == 0;
                 if (resultReady) operation = false;

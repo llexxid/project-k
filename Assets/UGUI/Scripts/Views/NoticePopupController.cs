@@ -165,6 +165,8 @@ namespace KingdomIdle.UGUI
             Reset();
             _network = network;
             _generation = network.AccountGeneration;
+            _articles = BundledPatchNotes.MergeBoard(new List<TitleNewsFeed>(), Application.version);
+            UpdateUnread();
             return true;
         }
 
@@ -188,7 +190,7 @@ namespace KingdomIdle.UGUI
             if (!_failed)
             {
                 _hasFeed = true;
-                var next = TitleNewsFeed.Read(result.News);
+                var next = BundledPatchNotes.MergeBoard(TitleNewsFeed.Read(result.News), Application.version);
                 bool changed = !SameFeed(next);
                 _articles = next;
                 if (BoardOpen)
@@ -229,7 +231,7 @@ namespace KingdomIdle.UGUI
 
         private static void MarkFeedRead()
         {
-            if (!BoardOpen || !_hasFeed || !IsCurrentSession) return;
+            if (!BoardOpen || !IsCurrentSession) return;
             bool changed = false;
             foreach (var article in _articles)
             {
@@ -255,7 +257,7 @@ namespace KingdomIdle.UGUI
         {
             if (!BoardOpen) return;
             string status = string.Empty;
-            if (_failed) status = "공지를 불러오지 못했습니다.";
+            if (_failed) status = "온라인 공지를 불러오지 못했습니다.";
             else if (_articles.Count == 0)
                 status = _deadline > 0f ? "공지를 불러오는 중입니다." : "등록된 공지가 없습니다.";
             _board.status.text = status;

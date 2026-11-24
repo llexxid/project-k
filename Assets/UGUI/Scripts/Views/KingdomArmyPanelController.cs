@@ -419,7 +419,7 @@ namespace KingdomIdle.UGUI
                 var infos = SkillSystem.GetJobSkillInfo(ps.JobName);
                 if (infos != null)
                     foreach (var si in infos)
-                        InstantiateSkillRow(sheet.skillsRoot, si.Name, si.Description, si.IsPassive);
+                        InstantiateSkillRow(sheet.skillsRoot, si.DisplayName(_mgr.JobDB?.GetJob(ps.JobName)), si.Description, si.IsPassive);
             }
 
             // 장착 장비 라벨
@@ -978,7 +978,7 @@ namespace KingdomIdle.UGUI
             if (skill.placeholder != null) skill.placeholder.gameObject.SetActive(false);
             ClearChildren(skill.skillList);
             foreach (var si in skillInfos)
-                InstantiateSkillRow(skill.skillList, si.Name, si.Description, si.IsPassive);
+                InstantiateSkillRow(skill.skillList, si.DisplayName(_mgr.JobDB?.GetJob(jobName)), si.Description, si.IsPassive);
         }
 
         private static void ShowSkillPlaceholder(KASkillView skill, string msg)
@@ -1158,7 +1158,7 @@ namespace KingdomIdle.UGUI
                 if (detail.skillGroup != null) detail.skillGroup.gameObject.SetActive(true);
                 ClearChildren(detail.skillList);
                 foreach (var si in jobSkills)
-                    InstantiateSkillRow(detail.skillList, si.Name, si.Description, si.IsPassive);
+                    InstantiateSkillRow(detail.skillList, si.DisplayName(job), si.Description, si.IsPassive);
             }
             else
             {
@@ -1277,7 +1277,7 @@ namespace KingdomIdle.UGUI
             AddCompareRow(table,"스탯","현재","적용 후","변화",UguiTheme.TextSecondary,UguiTheme.TextSecondary,isHead:true);
             AddStatCompareRow(table,"HP",current.MaxHP,health,true);
             AddStatCompareRow(table,"공격력",current.Atk,attack,true);
-            AddStatCompareRow(table,"이동속도",current.MovSpeed,job.movSpeed,true);
+            AddStatCompareRow(table,"이동 속도",(decimal)current.MovSpeed,(decimal)job.movSpeed,true);
     }
 
         private static void AddStatCompareRow(RectTransform table, string name, decimal curVal, decimal newVal, bool higherIsBetter, string suffix = "")

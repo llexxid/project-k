@@ -63,7 +63,7 @@ namespace KingdomIdle.UGUI.Editor
             view.lblServer = Text(panel.transform, "LblServer", "변경 즉시 적용 · 자동 저장", 26, 42);
 
             var tabs=F.Container(panel.transform,"Tabs");F.HLayout(tabs.gameObject,10,null,TextAnchor.MiddleCenter,expandWidth:true);F.Preferred(tabs,height:96);
-            view.tabs=new Button[4];string[] tabNames={"표시","소리","기기","획득 알림"};
+            view.tabs=new Button[4];string[] tabNames={"표시","소리","기기","루트피드"};
             for(int i=0;i<view.tabs.Length;i++) { view.tabs[i]=F.TextButton(tabs,"Tab"+i,tabNames[i],32,UguiTheme.RusticSurfaceDark,out _);F.Flexible((RectTransform)view.tabs[i].transform,flexWidth:1);F.Preferred((RectTransform)view.tabs[i].transform,height:96); }
 
             view.scroll = F.VScroll(panel.transform, "SettingsScroll", out var content, 12, new RectOffset(2, 12, 4, 12));
@@ -140,7 +140,7 @@ namespace KingdomIdle.UGUI.Editor
             F.Preferred((RectTransform)view.btnPrivacy.transform, height: 100);
             view.lblVersion = Text(content, "LblVersion", "v" + Application.version, 24, 42);
             content = lootContent;
-            Text(content, "LootHint", "골드·일반 장비는 기본 숨김\n보상 획득량은 그대로 유지됩니다", 36, 108);
+            Text(content, "LootHint", "일반 스테이지 골드는 처치 정산 후 합산해 표시합니다. 골드와 일반 장비는 기본으로 숨깁니다.", 36, 108);
             view.tglHideItem = Toggle(content, "HideItem", "전체 알림 숨기기", "선택한 항목도 모두 숨깁니다", light: true);
             Section(content, "재화").fontSize = 42;
             view.lootCurrencyToggles = new Toggle[LootNotificationSettings.CurrencyCount];

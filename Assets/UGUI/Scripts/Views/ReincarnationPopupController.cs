@@ -104,18 +104,12 @@ namespace KingdomIdle.UGUI
             }
 
             ReincarnationState current = service.CurrentState;
-            long countGain = preview.NextState.Count - current.Count;
             SetText(view.statusLabel, "환생 가능");
             view.statusLabel.color = UguiTheme.SuccessGreen;
             SetText(view.infoLabel,
                 $"환생 레벨: {current.Level:N0} → " +
                 $"<color={GainColor}>{preview.NextState.Level:N0} " +
-                $"(+{preview.LevelGain:N0})</color>\n" +
-                $"환생 횟수: {current.Count:N0} → " +
-                $"<color={GainColor}>{preview.NextState.Count:N0} " +
-                $"(+{countGain:N0})</color>\n\n" +
-                "초기화: 1-1 · 골드 · 공격력/체력 골드 강화\n" +
-                "유지: 계정·전직·장비·마탑·루비 성장\n장비 강화와 골드 외 재화도 유지됩니다.");
+                $"(+{preview.LevelGain:N0})</color>\n\n" + ResetSummary);
             view.confirmButton.interactable = true;
         }
 
@@ -162,11 +156,13 @@ namespace KingdomIdle.UGUI
             UIManager.Instance?.ShowToast(message);
         }
 
+        private const string ResetSummary = "메인 1-1에서 다시 시작합니다.\n초기화 · 골드, 골드로 강화한 공격력과 체력\n유지 · 계정 성장, 전직, 장비와 강화 단계, 마탑, 루비 성장, 골드 외 재화, 최초 클리어 기록";
+
         private static void SetUnavailable(string reason, string status = "환생 불가")
         {
             SetText(view.statusLabel, status);
             view.statusLabel.color = UguiTheme.Parchment;
-            SetText(view.infoLabel, reason);
+            SetText(view.infoLabel, reason + "\n\n" + ResetSummary);
             view.confirmButton.interactable = false;
         }
 
@@ -181,7 +177,7 @@ namespace KingdomIdle.UGUI
                 case eReincarnationFailureReason.NotMainStage:
                     return "메인 일반 웨이브에서 환생할 수 있습니다.\n보스전·던전 종료 후 다시 확인하세요.";
                 case eReincarnationFailureReason.StageRequirementNotMet:
-                    return "이번 환생 사이클에서 메인 보스를 1회 이상 처치해야 합니다.";
+                    return "이번 도전에서 메인 보스를 한 번 처치하면 환생할 수 있습니다.";
                 case eReincarnationFailureReason.StateIsNotRunning:
                     return "현재 스테이지가 진행 중일 때만 환생할 수 있습니다.";
                 case eReincarnationFailureReason.MaximumLevel: return "환생 최대 레벨 300입니다.";

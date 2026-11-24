@@ -28,7 +28,7 @@ namespace Scripts.Server.Auth
 		private static readonly object GoogleSignInGate = new object();
 		private static Task<GoogleSignInUser> _pendingGoogleSignIn;
 		private const string WebClientId = "222024339558-o157jmef5jhip2s9vtfo3kto1ojfpejf.apps.googleusercontent.com";
-		// OnLogIn이 PlayFab의 10초 한도에 걸린 뒤(함수 앱 콜드 스타트) 한 번만 다시 부른다.
+		// 콜드 스타트 또는 저장소 요청 제한 뒤 같은 인증 시도에서 로그인 조회를 한 번만 재시도한다.
 		private bool _retriedLogin;
 		public Authentication(NetworkManager network) => _network = network;
 
@@ -244,7 +244,13 @@ namespace Scripts.Server.Auth
 				_network.Call<InitUserRequestDTO, UserInitResponseDTO>(new InitUserRequestDTO { EquipmentSchema = EquipmentManager.InstanceSchemaVersion, EquipmentCapacity = EquipmentManager.InstanceCapacity }, OnInitialized, _network.FailLogin);
 				return;
 			}
-			// Consumption 플랜 콜드 스타트는 PlayFab의 10초 실행 한도를 넘길 수 있다. 그때쯤 함수 앱은 떠 있으므로 한 번 더 부르면 보통 1~2초에 끝난다.
+			if (!_retriedLogin && TryGetLoginRetrySeconds(error, out var retryAfter))
+			{
+				_retriedLogin = true;
+				_network.StartCoroutine(RetryThrottledLogin(_network.AccountGeneration, retryAfter));
+				return;
+			}
+			// Consumption 플랜 콜드 스타트는 PlayFab의 10초 실행 한도를 넘길 수 있다.
 			if (error != null && error.Error == PlayFabErrorCode.CloudScriptAzureFunctionsExecutionTimeLimitExceeded && !_retriedLogin)
 			{
 				_retriedLogin = true;
@@ -253,6 +259,24 @@ namespace Scripts.Server.Auth
 				return;
 			}
 			_network.FailLogin(error);
+		}
+
+		internal static bool TryGetLoginRetrySeconds(PlayFabError error, out int seconds)
+		{
+			bool storage = NetworkManager.TryGetStorageThrottle(error, out var suggested);
+			bool limited = error != null && (error.HttpCode == 429 || error.Error == PlayFabErrorCode.APIClientRequestRateLimitExceeded);
+			long delay = suggested ?? (long?)error?.RetryAfterSeconds ?? 5L;
+			seconds = (int)Math.Min(int.MaxValue, Math.Max(1L, delay));
+			return storage || limited;
+		}
+
+		private System.Collections.IEnumerator RetryThrottledLogin(long generation, int seconds)
+		{
+			yield return new WaitForSecondsRealtime(seconds);
+			if (IsCurrent(generation) && _network.IsAuthenticating)
+				_network.Call<AuthRequestDTO, UserInitResponseDTO>(new AuthRequestDTO {
+					EquipmentSchema = EquipmentManager.InstanceSchemaVersion, EquipmentCapacity = EquipmentManager.InstanceCapacity
+				}, OnInitialized, OnLoginFailed);
 		}
 
 		private static async Task<T> WithTimeout<T>(Task<T> task, double seconds = AuthenticationTimeoutSeconds)

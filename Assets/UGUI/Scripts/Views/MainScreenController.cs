@@ -39,7 +39,10 @@ namespace KingdomIdle.UGUI
         private Coroutine _hamburgerCo;
         private Vector2 _hamburgerBasePos;
         private MailboxService _mailbox;
-        private GameObject _hamburgerDot, _mailDot, _noticeDot;
+        private GameObject _hamburgerDot, _mailDot, _noticeDot, _questDot, _attendanceDot;
+        private QuestManager _menuQuests;
+        private long _menuQuestRevision = -1;
+        private bool _hasQuestReward;
 
         // 탭
         private readonly List<(MainTabButtonView view, UIPanelId id)> _tabs = new();
@@ -124,7 +127,8 @@ namespace KingdomIdle.UGUI
             if (_mailbox != null) _mailbox.Changed -= RefreshMenuNotifications;
             NoticePopupController.Changed -= RefreshMenuNotifications;
             _mailbox = null;
-            _hamburgerDot = _mailDot = _noticeDot = null;
+            _hamburgerDot = _mailDot = _noticeDot = _questDot = _attendanceDot = null;
+            _menuQuests = null; _menuQuestRevision = -1; _hasQuestReward = false;
             UnhookEconomyChangeHandler();
             WaveUIController.Dispose();
             if (_profilePopup != null)
@@ -188,6 +192,7 @@ namespace KingdomIdle.UGUI
                 RefreshTopCurrencyLabels();
                 RefreshNickname();
                 RefreshReincarnationDot();
+                RefreshMenuNotifications();
                 WaveUIController.RefreshStageStatus();
                 if (_profilePopup != null && _profilePopup.activeSelf) PopulateProfilePopup();
 
@@ -206,7 +211,8 @@ namespace KingdomIdle.UGUI
             {
                 var service = GameManager.Instance != null ? GameManager.Instance.Reincarnation : null;
                 if (service != null)
-                    can = service.GetPreview().CanReincarnate;
+                    can = LocalProgression.IsReady && service.GetPreview().CanReincarnate &&
+                        Reincarnation.ReincarnationService.HasAdvancedSinceLastReincarnation(LocalProgression.State);
             }
             catch { /* 초기화 전/서비스 부재 — 닷 숨김 유지 */ }
 
@@ -875,23 +881,42 @@ namespace KingdomIdle.UGUI
 
         private void BindMenuNotifications()
         {
-            _mailbox = GameManager.Instance != null ? GameManager.Instance.Mailbox : null;
             var circle = _host.Catalog?.circle;
             _hamburgerDot = NotificationDot.Create(_view.btnHamburger, circle);
             _mailDot = NotificationDot.Create(_view.btnMenuMail, circle);
             _noticeDot = NotificationDot.Create(_view.btnMenuNotice, circle);
-            if (_mailbox != null) _mailbox.Changed += RefreshMenuNotifications;
+            _questDot = NotificationDot.Create(_view.btnMenuGuide, circle);
+            _attendanceDot = NotificationDot.Create(_view.btnMenuCheckIn, circle);
             NoticePopupController.Changed += RefreshMenuNotifications;
             RefreshMenuNotifications();
         }
 
         private void RefreshMenuNotifications()
         {
+            if (_view == null) return;
+            var game = GameManager.Instance;
+            var mailbox = game != null ? game.Mailbox : null;
+            if (game != null && _mailbox != mailbox)
+            {
+                if (_mailbox != null) _mailbox.Changed -= RefreshMenuNotifications;
+                _mailbox = mailbox;
+                if (_mailbox != null) _mailbox.Changed += RefreshMenuNotifications;
+            }
+            var quests = QuestManager.Instance;
+            long revision = quests != null ? quests.MenuRevision : -1;
+            if (_menuQuests != quests || _menuQuestRevision != revision)
+            {
+                _menuQuests = quests; _menuQuestRevision = revision;
+                _hasQuestReward = quests != null && quests.HasUnclaimedRewards;
+            }
+            bool claimableDay = game != null && game.CheckIn?.HasUnclaimedDay == true;
             bool hasNewMail = _mailbox != null && _mailbox.HasNewMail;
             bool hasUnreadNotice = NoticePopupController.HasUnread;
             NotificationDot.SetVisible(_mailDot, hasNewMail);
             NotificationDot.SetVisible(_noticeDot, hasUnreadNotice);
-            NotificationDot.SetVisible(_hamburgerDot, hasNewMail || hasUnreadNotice);
+            NotificationDot.SetVisible(_questDot, _hasQuestReward);
+            NotificationDot.SetVisible(_attendanceDot, claimableDay);
+            NotificationDot.SetVisible(_hamburgerDot, hasNewMail || hasUnreadNotice || _hasQuestReward || claimableDay);
         }
 
         private void OpenRewardPanel(UIPanelId id)

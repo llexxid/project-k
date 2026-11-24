@@ -43,7 +43,7 @@ public abstract class ActiveSkill
     /// 직업별 액티브 스킬의 공통 쿨타임 진입점.
     /// 애니메이션 길이는 줄이면 안 되므로 쿨타임 구간에만 적용한다.
     /// </summary>
-    protected static float ScaledCooldown(float cooldown)
+    public static float ScaledCooldown(float cooldown)
         => cooldown;
 
     // ── 데미지 전달 프록시 ──

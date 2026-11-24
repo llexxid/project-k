@@ -300,7 +300,7 @@ namespace Scripts.Core.Manager
         private void BeginStageLoading(string operation, float notBefore = 0f)
         {
             if (_stageLoading == null || _stageLoading.IsDisposed)
-                _stageLoading = GameplayLoading.Begin(operation, notBefore);
+                _stageLoading = GameplayLoading.Begin(operation, notBefore, battlefieldOnly: notBefore > 0f);
         }
 
         private void EndStageLoading()

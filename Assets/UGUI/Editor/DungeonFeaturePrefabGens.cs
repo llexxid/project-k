@@ -587,8 +587,7 @@ namespace KingdomIdle.UGUI.Editor
             view.infoLabel = F.Text(
                 infoCard.transform,
                 "LblInfo",
-                "레벨: 15 → <color=#5DE66C>22 (+7)</color>\n" +
-                "환생 횟수: 1 → <color=#5DE66C>2 (+1)</color>",
+                "환생 레벨: 15 → <color=#5DE66C>22 (+7)</color>",
                 28f,
                 UguiTheme.TextPrimary,
                 TextAlignmentOptions.Center,

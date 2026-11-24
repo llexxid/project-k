@@ -21,6 +21,52 @@ namespace KingdomIdle.UGUI.Editor
         private static readonly Color SectionStat = new Color(1f, 1f, 1f, 0.85f);
         private static readonly Color SectionBg = new Color(0f, 0f, 0f, 0.25f);
 
+        [UnityEditor.MenuItem("KingdomIdle/UGUI/Prepare mage awakening")]
+        public static void PrepareAwakening()
+        {
+            F.Init();
+            string path = PrefabGenUtil.PrefabRoot + "/Popups/Panel_MageTowerDetail.prefab";
+            var root = UnityEditor.PrefabUtility.LoadPrefabContents(path);
+            try
+            {
+                var view = root.GetComponent<MageTowerDetailPopupView>();
+                AddAwakening(view);
+                if (view.awakening.stars.Length != 10 || view.awakening.stars[0].sprite == null)
+                    throw new System.InvalidOperationException("Missing awakening star artwork");
+                UnityEditor.PrefabUtility.SaveAsPrefabAsset(root, path);
+            }
+            finally { UnityEditor.PrefabUtility.UnloadPrefabContents(root); }
+        }
+
+        internal static void AddAwakening(MageTowerDetailPopupView view)
+        {
+            if (view.awakening != null) return;
+            var backdrop = F.Box(view.transform, "Awakening", new Color(.045f, .032f, .059f, .93f), false, true);
+            F.Stretch(backdrop.rectTransform);
+            var effect = backdrop.gameObject.AddComponent<MageAwakeningView>();
+            view.awakening = effect;
+            effect.veil = backdrop.gameObject.AddComponent<CanvasGroup>();
+            effect.glow = F.Box(backdrop.transform, "Radiance", Color.white, false);
+            effect.glow.sprite = F.CircleSoft;
+            F.AnchorCenter(effect.glow.rectTransform, 440, 440, 0, 68);
+            effect.emblem = F.Box(backdrop.transform, "Skill", Color.white, false);
+            effect.emblem.preserveAspect = true;
+            F.AnchorCenter(effect.emblem.rectTransform, 174, 174, 0, 68);
+            var star = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/Art/LayerLab/GUI Pro-MinimalGame/Shared/Icons/PictoIcon/64/star_1.png");
+            effect.stars = new Image[10];
+            for (int i = 0; i < effect.stars.Length; i++)
+            {
+                var image = F.Box(backdrop.transform, "Star" + (i + 1), Color.white, false);
+                image.sprite = star;
+                image.preserveAspect = true;
+                F.AnchorCenter(image.rectTransform, 34, 34, (i - 4.5f) * 41f, -73);
+                effect.stars[i] = image;
+            }
+            effect.caption = F.Text(backdrop.transform, "Caption", "", 38, UguiTheme.Parchment, TextAlignmentOptions.Center, bold: true);
+            F.AnchorCenter(effect.caption.rectTransform, 720, 82, 0, -151);
+            backdrop.gameObject.SetActive(false);
+        }
+
         internal static GameObject GenerateMageTowerDetailPopup()
         {
             var root = F.Root("Panel_MageTowerDetail");
@@ -124,6 +170,7 @@ namespace KingdomIdle.UGUI.Editor
             view.lblResetRefund = StatLabel(resetContent, SectionStat);
             view.btnReset = ActionButton(resetContent, "BtnReset", "초기화", ResetColor, out _);
 
+            AddAwakening(view);
             return PrefabGenUtil.SavePrefab(root.gameObject, $"{PrefabGenUtil.PrefabRoot}/Popups/Panel_MageTowerDetail.prefab");
         }
 

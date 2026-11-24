@@ -190,7 +190,7 @@ namespace KingdomIdle.UGUI
             bool canEquip = chosen != null && mgr.IsOwned(_candidate) && current != _candidate;
             if (_view.selectionLabel != null)
                 _view.selectionLabel.text = chosen == null ? $"슬롯 {_selectedSlot + 1} · {currentName}\n목록에서 사용할 스킬을 선택하세요." :
-                    $"슬롯 {_selectedSlot + 1} · {currentName} → {chosen.DisplayName(mgr.IsBloomEnabled(_candidate))}\n{(mgr.IsOwned(_candidate) ? "진행 중인 효과와 재사용 대기시간은 유지됩니다." : "뽑기에서 획득하면 장착할 수 있습니다.")}";
+                    $"슬롯 {_selectedSlot + 1} · {currentName} → {chosen.DisplayName(mgr.IsBloomEnabled(_candidate))}\n{(mgr.IsOwned(_candidate) ? "마탑을 꾹 눌러 마탑 스킬 자동 사용을 활성화하세요." : "뽑기에서 획득하면 장착할 수 있습니다.")}";
             if (_view.equipButton != null) _view.equipButton.interactable = canEquip;
             if (_view.equipLabel != null) _view.equipLabel.text = chosen != null && mgr.IsEquipped(_candidate) && current != _candidate ? "자리 바꾸기" : current >= 0 ? "교체" : "장착";
             if (_view.unequipButton != null) _view.unequipButton.interactable = current >= 0;

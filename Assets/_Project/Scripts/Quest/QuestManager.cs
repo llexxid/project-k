@@ -88,6 +88,9 @@ public class QuestManager : MonoBehaviour
     public Dto.QuestStateDTO ServerQuests => _server;
     public int ServerRowCount => _server?.Rows?.Count ?? -1;
     public bool HasServerData => _server != null;
+    public long MenuRevision => _revision;
+    public bool HasUnclaimedRewards => _server?.Rows?.Exists(row =>
+        row != null && row.State == Dto.QuestRowState.Claimable) == true;
     /// <summary>로그인 응답으로 받아 둔 행 수. 매니저가 아직 없을 때도 클라이언트가 쥐고 있는 값이다([PlayerData] 로그 대조용).</summary>
     public static int ReceivedRowCount => _received?.Rows?.Count ?? -1;
 

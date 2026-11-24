@@ -3,14 +3,15 @@ using KingdomIdle.Balance;
 
 public class PlayerStatus
 {
-    private int _baseMaxHP = 200, _baseAtk = 30, _baseMovSpeed = 3;
+    private int _baseMaxHP = 200, _baseAtk = 30;
+    private float _baseMovSpeed = 3f;
     private int _equipAtk, _equipMaxHP, _passiveAtk, _passiveMaxHP;
     private decimal _auraAttack, _auraHealth;
     private int _attackLevel, _healthLevel, _accountLevel = 1, _reincarnationLevel;
     public long HP { get; set; } = 200;
     public long MaxHP => MaxHPBreakdown().Final;
     public long Atk => AtkBreakdown().Final;
-    public int MovSpeed => _baseMovSpeed;
+    public float MovSpeed => _baseMovSpeed;
     public string JobName { get; set; } = "Spearman";
     public Action<string> OnJobChanged;
     public Action OnStatsChanged;
@@ -51,7 +52,7 @@ public class PlayerStatus
     public int PassiveMaxHP => _passiveMaxHP;
     public float BuffMaxHPMultiplier => (float)Group(_auraHealth);
     public float EnhanceMaxHPRate => (float)(BalanceMath.GoldMultiplier(_healthLevel) - 1m);
-    public int BaseMovSpeed => _baseMovSpeed;
+    public float BaseMovSpeed => _baseMovSpeed;
     private decimal Group(decimal aura) => 1m + aura + .002m * (_accountLevel - 1) + .01m * _reincarnationLevel;
     public struct StatBreakdown
     {

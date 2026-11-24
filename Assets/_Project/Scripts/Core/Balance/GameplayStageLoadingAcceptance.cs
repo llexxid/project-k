@@ -37,6 +37,7 @@ namespace KingdomIdle.Balance
                 fixture.Set("_huntInFlight", true);
                 fixture.Check(fixture.Manager.TryMoveToMainStage(fixture.Previous), "manual movement accepts a valid earlier stage");
                 yield return Checkpoint(fixture, "main-move-settlement");
+                fixture.Check(GameplayLoading.HasVisibleScope(true), "a manually requested move keeps its loading presentation");
                 fixture.Call("FinishHuntSettlement", false);
                 fixture.CheckEnded("manual movement settlement failure releases loading without rewards");
 
@@ -59,6 +60,8 @@ namespace KingdomIdle.Balance
                 fixture.Check(clear != null && !GameplayLoading.IsVisible && readyAt > Time.realtimeSinceStartup + .8f,
                     "automatic clear keeps its normal 0.9-second presentation outside loading time");
                 yield return Checkpoint(fixture, "main-clear-server-wait", readyAt);
+                fixture.Check(!GameplayLoading.HasVisibleScope(true) && !GameplayLoading.IsInputBlocked,
+                    "an automatic battle transition can continue behind a menu without covering it");
                 fixture.Call("OnHuntRewardError", fixture.Head, NetworkManager.CreateError("InvalidResponse", "stage acceptance"));
                 fixture.CheckEnded("terminal automatic-clear failure releases loading without clearing saved rewards");
 
@@ -94,6 +97,8 @@ namespace KingdomIdle.Balance
                 fixture.Call("TickDungeonResult", 10f);
                 fixture.Check(ReferenceEquals(resultRequest, fixture.Loading) && LocalProgression.State.GoldTickets == 1,
                     "manual and elapsed retry cannot race an outstanding entry");
+                fixture.Transport.Fail(NetworkManager.CreateError("Transport", "end isolated countdown request"));
+                fixture.Call("DungeonRequestFailed", "end isolated countdown recovery");
                 fixture.Manager.AutoAdvanceDungeon = false;
 
                 fixture.Prepare(fixture.Main);

@@ -1050,6 +1050,7 @@ namespace Scripts.Core.Manager
             var converted = CreateError("Business", business.Message, function, business);
             converted.HttpCode = error.HttpCode;
             converted.HttpStatus = error.HttpStatus;
+            converted.RetryAfterSeconds = error.RetryAfterSeconds;
             converted.ErrorDetails["WrappedBy"] = new List<string> { error.Error.ToString() };
             return converted;
         }

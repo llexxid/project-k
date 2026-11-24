@@ -585,6 +585,7 @@ namespace Scripts.Core
 			s.ReincarnationDay = state.Day ?? "";
 			s.LastReincarnationUtc = Math.Max(0L, state.LastUtc);
 			s.CycleStartedUtc = s.LastReincarnationUtc;
+			s.LastReincarnationHighestStage = Math.Max(0L, state.LastHighestStage);
 			s.PendingReincarnation = false;
 		}
 

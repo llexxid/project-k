@@ -62,7 +62,7 @@ namespace KingdomIdle.EditorTools
         private static void Job(string name, float range, float interval, float multiplier)
         {
             var data = AssetDatabase.LoadAssetAtPath<JobData>($"Assets/_Project/Scripts/Player/Job/SO/{name}.asset");
-            data.movSpeed = 2;
+            data.movSpeed = name == "Elite_Knight" ? 1.7f : 2f;
             data.basicAttack.range = range; data.basicAttack.cooldown = interval; data.basicAttack.damageMultiplier = multiplier;
             data.basicAttack.halfWidth = range * .5f; data.basicAttack.halfHeight = .28f;
             EditorUtility.SetDirty(data);
