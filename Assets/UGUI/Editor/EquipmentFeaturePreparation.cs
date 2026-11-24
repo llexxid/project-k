@@ -9,6 +9,21 @@ namespace KingdomIdle.UGUI.Editor
 {
     public static class EquipmentFeaturePreparation
     {
+        [MenuItem("KingdomIdle/UGUI/Prepare device equipment polish")]
+        public static void PrepareDevicePolish()
+        {
+            if (EditorApplication.isPlaying) throw new InvalidOperationException("Exit Play Mode first.");
+            F.Init(); F.Catalog = PrefabGenUtil.GetOrCreateCatalog();
+            F.Catalog.panelKAEquipment = KingdomArmyPanelPrefabGens.GenerateEquipment();
+            var detail = KingdomArmyPanelPrefabGens.GenerateEquipDetail().GetComponent<KAEquipDetailView>();
+            var node = ItemGens.GenerateJobCard().GetComponent<JobCardView>();
+            if (detail.backButton.GetComponent<LayoutElement>().minHeight < 132 ||
+                node.GetComponent<Image>().color.a != 0 || node.button.targetGraphic == node.GetComponent<Image>())
+                throw new InvalidOperationException("Equipment detail touch target or promotion node skin mismatch.");
+            EditorUtility.SetDirty(F.Catalog);
+            AssetDatabase.SaveAssets();
+        }
+
         [MenuItem("KingdomIdle/UGUI/Prepare bronze equipment UI")]
         public static void PrepareBronzeEquipmentUi()
         {

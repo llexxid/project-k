@@ -268,9 +268,13 @@ namespace KingdomIdle.UGUI.Editor
         {
             var card = F.Box(null, "Item_JobCard", Color.clear, rounded:false, raycast:true);
             var view = card.gameObject.AddComponent<JobCardView>();
-            view.button = F.ButtonOn(card, gloss:false);
+            // Keep the full cell touchable while only the circular seal receives selection feedback.
+            view.button = card.gameObject.AddComponent<Button>();
+            card.gameObject.AddComponent<PlayClickSfxOnClick>();
             var ring = F.CircleBox(card.transform, "OuterRing", UguiTheme.Bronze);
-            F.AnchorCenter(ring.rectTransform, 142, 142); ring.rectTransform.anchoredPosition = new Vector2(0,32);
+            view.button.targetGraphic = ring;
+            view.button.colors = UguiTheme.MakeColorBlock();
+            F.AnchorCenter(ring.rectTransform, 150, 150); ring.rectTransform.anchoredPosition = new Vector2(0,32);
             ring.raycastTarget = false;
             var inner = F.CircleBox(ring.transform, "InnerDisc", UguiTheme.RusticSurfaceDark);
             F.AnchorCenter(inner.rectTransform, 132, 132); inner.raycastTarget = false;
