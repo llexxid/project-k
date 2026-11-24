@@ -261,8 +261,15 @@ namespace KingdomIdle.UGUI.Editor
                 if (pool >= 3)
                 {
                     eStage dungeon = pool == 3 ? eStage.GoldDungeon1_1 : eStage.RubyDungeon1_1;
-                    if (!stage.TryEnterDungeon(dungeon)) throw new InvalidOperationException("Isolated dungeon entry rejected: " + dungeon);
-                    yield return Ready(dungeon);
+                    if (pool == 3)
+                    {
+                        if (!stage.TryEnterDungeon(dungeon)) throw new InvalidOperationException("Isolated dungeon entry rejected: " + dungeon);
+                        yield return Ready(dungeon);
+                    }
+                    else if (stage.TryEnterDungeon(dungeon))
+                        throw new InvalidOperationException("The upcoming ruby dungeon accepted an entry.");
+                    // Unreleased ruby backgrounds can still be inspected over the current live actors.
+
                 }
                 string previousMode = null;
                 foreach (JObject entry in entries.Where(e => (string)e["pool"] == Pools[pool]))

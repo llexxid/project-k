@@ -150,6 +150,16 @@ namespace Scripts.Core.Manager
         public float ReturnCountdownRemaining => _currentState == eStageRunState.ResultPending ? _resultPopupTimer :
             _currentState == eStageRunState.DefeatPending ? _defeatPopupTimer : 0;
         private float _resultPopupTimer;
+        // Per excursion. A new entry from the main field starts with same-stage retry.
+        public bool AutoAdvanceDungeon { get; set; }
+        public bool DungeonResultCountdownActive => _resultPopupTimer >= 0;
+        public bool CanRetryDungeonResult => _currentSession?.Definition.Type == eStageType.GoldDungeon &&
+            LocalProgression.State.GoldTickets > 0;
+        public bool CanAdvanceDungeonResult => CanRetryDungeonResult &&
+            _currentSession.Definition.NextDifficultyId is eStage next && IsDungeonStageUnlocked(next);
+        internal eStage? AutoDungeonDestination => !CanRetryDungeonResult ? null :
+            AutoAdvanceDungeon && CanAdvanceDungeonResult ? _currentSession.Definition.NextDifficultyId : _currentSession.Definition.Id;
+
         private const float TickInterval = 3f;
         private const float MainWaveClearHoldSeconds = .9f;
         
@@ -245,11 +255,19 @@ namespace Scripts.Core.Manager
 					ChooseDefeatAction(false);
 				}
             }
-            if (_currentState == eStageRunState.ResultPending && _currentSession?.Definition.Type != eStageType.Main)
-            {
-                _resultPopupTimer -= Time.unscaledDeltaTime;
-                if (_resultPopupTimer <= 0) ReturnToMainStage();
-            }
+            TickDungeonResult(Time.unscaledDeltaTime);
+        }
+
+        private void TickDungeonResult(float elapsed)
+        {
+            if (_currentState != eStageRunState.ResultPending || !DungeonResultCountdownActive || _dungeonRequestPending || RubyProgression.IsBusy)
+                return;
+            _resultPopupTimer -= elapsed;
+            if (_resultPopupTimer > 0) return;
+            _resultPopupTimer = -1;
+            var target = AutoDungeonDestination;
+            if (target.HasValue) BeginServerDungeon(target.Value);
+            else ReturnToMainStage();
         }
 		/// <summary>StageManager가 사용하는 데이터 버퍼를 초기화한다</summary>
 		private void Init()
@@ -338,10 +356,9 @@ namespace Scripts.Core.Manager
 		{
             var s = LocalProgression.State;
             int number = StageParser.GetStageNumber(stage); var type = StageParser.GetStageType(stage);
-            if (number < 1 || number > 5) return false;
+            if (type != eStageType.GoldDungeon || number < 1 || number > 5) return false;
             // 메인 클리어는 서버 MainClear(HighestMainClear) 이하를 모두 클리어로 본다.
-            return type == eStageType.GoldDungeon ? s.HighestMainClear >= 0x20001000B && number <= s.GoldDungeonClear + 1 :
-                type == eStageType.RubyDungeon && s.HighestMainClear >= 0x200020005 && number <= s.RubyDungeonClear + 1;
+            return s.HighestMainClear >= 0x20001000B && number <= s.GoldDungeonClear + 1;
     }
 
 		public void EnterGoldDungeon()
@@ -362,14 +379,12 @@ namespace Scripts.Core.Manager
 				return false;
 			}
 
-			eStageType type = StageParser.GetStageType(stage);
-			if ((type != eStageType.GoldDungeon &&
-			     type != eStageType.RubyDungeon) ||
-			    !IsDungeonStageUnlocked(stage))
+			if (!IsDungeonStageUnlocked(stage))
 			{
 				return false;
 			}
 
+			AutoAdvanceDungeon = false;
 			CaptureMainStageSnapshot();
 			return BeginServerDungeon(stage);
 		}
@@ -396,10 +411,10 @@ namespace Scripts.Core.Manager
 
 		public void RestartDungeon()
 		{
-			if (_currentState != eStageRunState.ResultPending || _currentSession.Definition.Type == eStageType.Main) 
-				return;
-			
-			RestartStage();
+			if (_currentState != eStageRunState.ResultPending || _dungeonRequestPending || !CanRetryDungeonResult)
+                return;
+            _resultPopupTimer = -1;
+            BeginServerDungeon(_currentSession.Definition.Id);
 		}
 
 		public bool TryResetMainProgress()
@@ -729,7 +744,7 @@ namespace Scripts.Core.Manager
 			OnDefeatPopupHide?.Invoke();
 			if (_currentSession.Definition.Type != eStageType.Main)
 			{
-				if (retryCurrentWave)
+				if (retryCurrentWave && _currentSession.Definition.Type == eStageType.GoldDungeon)
 					RestartStage();
 				else
 					ReturnToMainStage();
@@ -777,9 +792,8 @@ var definition = _currentSession?.Definition;
 
 			StageDefinition definition = _currentSession?.Definition;
 
-			if (definition == null || definition.Type == eStageType.Main || !definition.NextDifficultyId.HasValue)
-				return;
-
+			if (_dungeonRequestPending || !CanAdvanceDungeonResult) return;
+            _resultPopupTimer = -1;
             BeginServerDungeon(definition.NextDifficultyId.Value);
 		}
 		#endregion

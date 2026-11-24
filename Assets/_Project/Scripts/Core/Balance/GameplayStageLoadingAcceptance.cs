@@ -69,6 +69,33 @@ namespace KingdomIdle.Balance
                 fixture.Call("TrySendNextHunt");
                 fixture.Check(fixture.Loading == null && !GameplayLoading.IsVisible, "background hunt buffering and dispatch never start loading");
 
+                fixture.Prepare(fixture.Dungeon);
+                fixture.Set("_currentState", eStageRunState.ResultPending);
+                fixture.Set("_resultPopupTimer", 1f);
+                LocalProgression.State.ActiveDungeon = null;
+                LocalProgression.State.GoldDungeonClear = 1;
+                var nextDifficulty = StageParser.MakeStage(eStageType.GoldDungeon, 2);
+                LocalProgression.State.GoldTickets = 0;
+                fixture.Check(fixture.Manager.AutoDungeonDestination == null, "no ticket returns to main without a new entry");
+                LocalProgression.State.GoldTickets = 1;
+                fixture.Manager.AutoAdvanceDungeon = false;
+                fixture.Check(fixture.Manager.AutoDungeonDestination == fixture.Dungeon, "default auto action repeats the same difficulty");
+                fixture.Manager.AutoAdvanceDungeon = true;
+                fixture.Check(fixture.Manager.AutoDungeonDestination == nextDifficulty, "toggle chooses the newly cleared server-unlocked next difficulty");
+                LocalProgression.State.GoldDungeonClear = 0;
+                fixture.Check(fixture.Manager.AutoDungeonDestination == fixture.Dungeon, "a locked next difficulty falls back to the current one");
+                fixture.Call("TickDungeonResult", .5f);
+                fixture.Check(fixture.Transport.Function == null, "remaining reading time does not start an entry");
+                fixture.Call("TickDungeonResult", 1f);
+                var resultRequest = fixture.Loading;
+                fixture.Check(fixture.Transport.Function == "OnGetUserState" && !fixture.Manager.DungeonResultCountdownActive,
+                    "timer starts one normal server-verified entry with no local ticket consumption");
+                fixture.Manager.RestartDungeon();
+                fixture.Call("TickDungeonResult", 10f);
+                fixture.Check(ReferenceEquals(resultRequest, fixture.Loading) && LocalProgression.State.GoldTickets == 1,
+                    "manual and elapsed retry cannot race an outstanding entry");
+                fixture.Manager.AutoAdvanceDungeon = false;
+
                 fixture.Prepare(fixture.Main);
                 fixture.Set("_huntInFlight", true);
                 fixture.Check(fixture.Manager.TryEnterDungeon(fixture.Dungeon), "dungeon entry accepts the unlocked fixture dungeon");
@@ -596,7 +623,7 @@ namespace KingdomIdle.Balance
         {
             public bool TryGet(eStage id, out StageDefinition definition) { definition = Definition(id); return true; }
             public static StageDefinition Definition(eStage id) => new(id, eStageFlowType.MainProgression, eEnvironmentId.MainField1,
-                1, Array.Empty<StageMonsterEntry>(), null);
+                1, Array.Empty<StageMonsterEntry>(), null, nextDifficultyId: id == eStage.GoldDungeon1_1 ? eStage.GoldDungeon2_1 : null);
         }
 
         private sealed class IsolatedHttp : ITransportPlugin

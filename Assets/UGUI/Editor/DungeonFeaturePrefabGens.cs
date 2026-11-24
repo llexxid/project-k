@@ -524,12 +524,12 @@ namespace KingdomIdle.UGUI.Editor
             view.retryButton = MakeActionButton(
                 buttons,
                 "BtnRetry",
-                "다시하기",
+                "재도전",
                 UguiTheme.RusticSurface);
             view.nextButton = MakeActionButton(
                 buttons,
                 "BtnNext",
-                "다음 스테이지",
+                "다음 단계",
                 UguiTheme.BtnConfirm);
 
             ProgressionFlowPreparation.ApplyResult(root.gameObject);

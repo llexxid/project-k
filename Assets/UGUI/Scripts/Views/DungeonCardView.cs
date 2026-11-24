@@ -30,7 +30,7 @@ namespace KingdomIdle.UGUI
                 button.onClick.AddListener(HandleClick);
             bool supported = dungeonType == eStageType.GoldDungeon || dungeonType == eStageType.RubyDungeon;
             var chevron = transform.Find("Chevron");
-            if (chevron != null) chevron.gameObject.SetActive(supported);
+            if (chevron != null) chevron.gameObject.SetActive(dungeonType == eStageType.GoldDungeon);
             if (supported)
                 FeatureGuideAnchor.Bind(button, dungeonType == eStageType.GoldDungeon ? Direction.GameDirectTarget.GoldDungeonCard : Direction.GameDirectTarget.RubyDungeonCard);
         }

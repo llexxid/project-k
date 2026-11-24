@@ -8,7 +8,6 @@ namespace KingdomIdle.UGUI
     public static class DungeonClearPopupController
     {
         private static DungeonClearPopupView view;
-        private static StageDefinition definition;
 
         public static bool IsOpen =>
             view != null && view.gameObject.activeSelf;
@@ -22,30 +21,40 @@ namespace KingdomIdle.UGUI
                 return;
             }
 
-            definition = clearedDefinition;
             string dungeonName =
                 clearedDefinition.Type == eStageType.GoldDungeon
                     ? "골드"
                     : "루비";
 
-            var state=KingdomIdle.Balance.LocalProgression.State;
-            long reward=clearedDefinition.Type==eStageType.GoldDungeon?state.LastDungeonGold:state.LastDungeonRuby;
-            view.titleLabel.enableAutoSizing=true;view.titleLabel.fontSizeMin=24;view.titleLabel.fontSizeMax=32;
-            view.titleLabel.text=$"{dungeonName} {clearedDefinition.StageNumber}단계 클리어!\n획득 {dungeonName} +{NumberNotation.Format(reward)}";
-            bool hasTicket=KingdomIdle.Balance.BattleEconomy.Tickets(clearedDefinition.Type)>0;
-            view.nextButton.interactable=clearedDefinition.HasNextDifficulty && hasTicket;
-            view.retryButton.interactable=hasTicket;
+            var state = KingdomIdle.Balance.LocalProgression.State;
+            long reward = clearedDefinition.Type == eStageType.GoldDungeon ? state.LastDungeonGold : state.LastDungeonRuby;
+            view.titleLabel.enableAutoSizing = true;
+            view.titleLabel.fontSizeMin = 24;
+            view.titleLabel.fontSizeMax = 32;
+            view.titleLabel.text = $"{dungeonName} 던전 {clearedDefinition.StageNumber}단계 클리어\n획득 {dungeonName} +{NumberNotation.Format(reward)}";
+            RefreshActions();
             view.gameObject.SetActive(true);
             view.transform.SetAsLastSibling();
             if (view.panel != null)
                 UITween.PopIn(view.panel);
         }
 
+        internal static void RefreshActions()
+        {
+            if (view == null) return;
+            var stage = StageManager.Instance;
+            bool canAdvance = stage != null && stage.CanAdvanceDungeonResult;
+            view.retryButton.interactable = stage != null && stage.CanRetryDungeonResult;
+            view.nextButton.interactable = canAdvance;
+            view.autoAdvance.interactable = canAdvance;
+            view.autoAdvance.SetIsOnWithoutNotify(canAdvance && stage.AutoAdvanceDungeon);
+            view.autoAdvance.targetGraphic.canvasRenderer.SetAlpha(canAdvance ? 1f : .55f);
+        }
+
         public static void Hide()
         {
             if (view != null)
                 view.gameObject.SetActive(false);
-            definition = null;
         }
 
         private static bool EnsureBuilt()
@@ -82,6 +91,7 @@ namespace KingdomIdle.UGUI
             view.exitButton.onClick.AddListener(Exit);
             ModalBackHandler.Bind(instance, Exit);
             view.nextButton.onClick.AddListener(Next);
+            view.autoAdvance.onValueChanged.AddListener(SetAutoAdvance);
             view.retryButton.onClick.AddListener(Retry);
             view.gameObject.SetActive(false);
             return true;
@@ -93,23 +103,15 @@ namespace KingdomIdle.UGUI
             Hide();
         }
 
-        private static void Next()
+        private static void SetAutoAdvance(bool enabled)
         {
-            if(definition==null || KingdomIdle.Balance.BattleEconomy.Tickets(definition.Type)<=0) return;
-            if (definition != null &&
-                definition.HasNextDifficulty)
-            {
-                StageManager.Instance?.ContinueDungeon();
-            }
-            Hide();
+            var stage = StageManager.Instance;
+            if (stage != null) stage.AutoAdvanceDungeon = enabled && stage.CanAdvanceDungeonResult;
         }
 
-        private static void Retry()
-        {
-            if(definition==null || KingdomIdle.Balance.BattleEconomy.Tickets(definition.Type)<=0) return;
-            StageManager.Instance?.RestartDungeon();
-            Hide();
-        }
+        // Keep actions available if the server rejects entry. StageEntered dismisses the result on success.
+        private static void Next() => StageManager.Instance?.ContinueDungeon();
+        private static void Retry() => StageManager.Instance?.RestartDungeon();
 
         private static void Stretch(RectTransform rect)
         {
