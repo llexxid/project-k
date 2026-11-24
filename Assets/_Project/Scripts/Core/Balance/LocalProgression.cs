@@ -278,10 +278,18 @@ namespace KingdomIdle.Balance
             if (state.LegacyEquipment == null || state.LegacyEquipment.Any(x => x == null || x.Count <= 0 || x.Level < 0 || x.Level > 15) ||
                 state.LegacyEquipment.GroupBy(x => (x.Code, x.Level)).Any(g => g.Count() > 1))
                 throw new InvalidDataException("Invalid legacy inventory reserve.");
+            // Read pre-release 999-slot snapshots intact until a fresh 300-slot server response replaces them.
+            // NetworkManager validates every incoming v2 inventory against the current cap.
+            const int previousSnapshotCapacity = 999;
             bool instanceInventory = state.EquipmentSchemaVersion == EquipmentManager.InstanceSchemaVersion;
+            if (state.NextEquipmentDrawSequence < 1 ||
+                (state.PendingEquipmentDrawId == null ? state.PendingEquipmentDrawSequence != 0 || state.PendingEquipmentDrawCount != 0 :
+                    !Guid.TryParseExact(state.PendingEquipmentDrawId, "N", out _) || state.PendingEquipmentDrawSequence < 1 ||
+                    (state.PendingEquipmentDrawCount != 1 && state.PendingEquipmentDrawCount != 10)))
+                throw new InvalidDataException("Invalid equipment draw journal.");
             if ((state.EquipmentSchemaVersion != 0 && !instanceInventory) ||
                 state.AutoDismantleMask < 0 || state.AutoDismantleMask > 7 || state.EquipmentRarityFilter < -1 || state.EquipmentRarityFilter > 2 || state.EquipmentSort < 0 || state.EquipmentSort > 3 ||
-                state.Equipment.Count > (instanceInventory ? EquipmentManager.InstanceCapacity : EquipmentManager.Capacity) || state.PendingEquipment.Count > EquipmentManager.PendingCapacity ||
+                state.Equipment.Count > (instanceInventory ? previousSnapshotCapacity : EquipmentManager.Capacity) || state.PendingEquipment.Count > EquipmentManager.PendingCapacity ||
                 equipment.Any(x => x == null || string.IsNullOrEmpty(x.Id) || x.Level < 0 || x.Level > 15 || x.EnhancementStonesSpent < 0 ||
                     (x.Player.HasValue && (x.Player < 0 || x.Player > 2)) ||
                     (instanceInventory ? !(x.ServerInstanceId > 0) : x.ServerInstanceId.HasValue)) ||

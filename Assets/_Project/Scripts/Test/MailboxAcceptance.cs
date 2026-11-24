@@ -104,7 +104,7 @@ namespace KingdomIdle.Mailbox.Testing
             }
             internal static EquipmentInventoryDTO Inventory(bool instanceInventory = false) => new()
             {
-                Items = new(), PendingItems = new(), ReserveStacks = new(), Capacity = instanceInventory ? 999 : 200, PendingCapacity = 100,
+                Items = new(), PendingItems = new(), ReserveStacks = new(), Capacity = instanceInventory ? EquipmentManager.InstanceCapacity : 200, PendingCapacity = 100,
                 SchemaVersion = instanceInventory ? 2 : (int?)null, AutoLockFirstEnhancement = instanceInventory ? true : (bool?)null
             };
             internal static MailDTO Mail(long id, long now) => new() { MailId = id, TitleKey = "mail.test.title", BodyKey = "mail.test.body",

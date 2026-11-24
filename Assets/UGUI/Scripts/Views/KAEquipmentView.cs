@@ -14,11 +14,12 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal Button ownedListButton;
         [SerializeField] internal Button recommendButton;
         [SerializeField] internal Button settingsButton;
+        [SerializeField] internal Button weaponButton;
+        [SerializeField] internal Button[] lockedSlots;
+        [SerializeField] internal Image silhouette;
 
         [Header("장착 중 카드")]
         [SerializeField] internal Image equippedFrame;         // 장착 초록 테두리 (장착 시만 활성)
-        [SerializeField] internal TMP_Text equippedSlotLabel;  // "무기"
-        [SerializeField] internal RectTransform equippedIconWrap;
         [SerializeField] internal Image equippedIcon;
         [SerializeField] internal TMP_Text equippedNameLabel;  // 이름 / "비어있음"
         [SerializeField] internal TMP_Text equippedStatLabel;  // ATK/HP (빈 슬롯이면 숨김)

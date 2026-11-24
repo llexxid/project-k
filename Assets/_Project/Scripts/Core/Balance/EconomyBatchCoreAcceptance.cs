@@ -145,7 +145,27 @@ namespace KingdomIdle.Balance
             Check(EconomyInputJournal.Hash(request) == "47301BBC4516EA916E315779AF9C80E8DE82E72AA5BB1B0306340922CF06EFBB", "quest version cannot change the durable economy payload hash");
 
             var state = Fixture(); state.Wallet[eCurrency.Gold] = 104;
+            state.Wallet[eCurrency.EquipmentStone] = 16;
+            int rareCode = ItemCode.Encode(eEquipmentRarity.Rare, eEquipmentSlot.Weapon, eJobFlag.None, 3);
+            state.Equipment.Add(new EquipmentSave { Id = "first", ServerInstanceId = 12, Code = rareCode });
+            state.Equipment.Add(new EquipmentSave { Id = "second", ServerInstanceId = 13, Code = rareCode });
             var initial = EconomyProjectionMath.Calculate(state, Array.Empty<EconomyCommandDTO>());
+            var gear = EconomyProjectionMath.Quote(initial, EconomyCommandKind.EquipmentEnhance, 1, gearId: 12);
+            var advanced = EconomyProjectionMath.Calculate(state, new[] { gear });
+            Check(gear.SpendLimit == 8 && advanced.EquipmentStone == 8 && advanced.Level(gear.Kind,gearId:12) == 1 &&
+                advanced.Level(gear.Kind,gearId:13) == 0 && state.Equipment[0].Level == 0,
+                "equipment preview reserves only the selected instance and keeps battle stats server-confirmed");
+            var secondGear = EconomyProjectionMath.Quote(advanced, gear.Kind, 1, gearId:12);
+            Check(secondGear.ExpectedLevel == 1 && EconomyProjectionMath.Calculate(state,new[]{gear,secondGear}).EquipmentStone == 0,
+                "two rapid enhancement taps quote consecutive levels and stone costs");
+            Check(EconomyProjectionMath.Quote(initial, gear.Kind, 1, gearId:99) == null && EconomyInputJournal.ValidCommand(gear),
+                "unknown equipment cannot enter the queue");
+            var variant = EconomyCopies.Copy(gear); variant.EquipmentInstanceId = 13;
+            var gearRequest = new OnEconomyBatchRequestDTO { RequestId = Id, Generation = 1, Sequence = 1,
+                ExpectedEconomyRevision = 1, AppliedRewardEpoch = 1, Commands = new() { gear } };
+            string hash = EconomyInputJournal.Hash(gearRequest);
+            gearRequest.Commands[0] = variant;
+            Check(hash != EconomyInputJournal.Hash(gearRequest), "equipment instance identity participates in the immutable request hash");
             var first = EconomyProjectionMath.Quote(initial, EconomyCommandKind.GoldAttack, 1);
             var second = EconomyProjectionMath.Quote(EconomyProjectionMath.Calculate(state, new[] { first }), EconomyCommandKind.GoldAttack, 1);
             var consecutive = EconomyProjectionMath.Calculate(state, new[] { first, second });

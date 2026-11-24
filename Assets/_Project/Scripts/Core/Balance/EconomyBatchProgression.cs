@@ -17,9 +17,11 @@ namespace KingdomIdle.Balance
         public readonly long Sequence;
         public readonly EconomyCommandKind Kind;
         public readonly bool Success;
+        public readonly long? EquipmentId;
+        public readonly long SpentStones;
         public readonly string Message;
         internal EconomyInputCompletion(EconomyInput input, bool success, string message)
-        { Sequence = input.Sequence; Kind = input.Command.Kind; Success = success; Message = message; }
+        { Sequence = input.Sequence; Kind = input.Command.Kind; EquipmentId = input.Command.EquipmentInstanceId; SpentStones = success && EquipmentId.HasValue ? input.Command.SpendLimit : 0; Success = success; Message = message; }
     }
 
     public static class EconomyBatchProgression
@@ -52,6 +54,11 @@ namespace KingdomIdle.Balance
         private static bool CurrentSession => LocalProgression.IsReady && _localGeneration == LocalProgression.AccountGeneration &&
             _network != null && _network == NetworkManager.Instance && _networkGeneration == _network.AccountGeneration;
         public static bool Available => _supported && CurrentSession && NetworkManager.Instance.IsGameDataReady;
+        public static bool SupportsEquipmentEnhance => Available && EquipmentManager.IsInstanceInventory &&
+            LocalProgression.State.Economy?.Server?.EquipmentEnhanceAvailable == true;
+        public static bool HasPendingEquipmentEnhance => CurrentSession && _journal != null &&
+            (_journal.Data.InFlight?.Commands.Exists(x => x.Kind == EconomyCommandKind.EquipmentEnhance) == true ||
+             _journal.Data.Inputs.Exists(x => x.Command.Kind == EconomyCommandKind.EquipmentEnhance));
         public static bool SupportsMageEnhance => Available &&
             EconomyBatchProtocol.MageMode(LocalProgression.State.Economy?.Server) == MageEnhanceBatchMode.Active;
         internal static bool CanStartSingleMageEnhance => CurrentSession && _journal != null && !SupportsMageEnhance &&
@@ -199,7 +206,10 @@ namespace KingdomIdle.Balance
         public static EconomyInputStatus TryQueueMageEnhance(int skillId) =>
             TryQueue(EconomyCommandKind.MageEnhance, 1, null, out _, skillId);
 
-        private static EconomyInputStatus TryQueue(EconomyCommandKind kind, int mode, string guideReceipt, out long sequence, int? skillId = null)
+        public static EconomyInputStatus TryQueueEquipmentEnhance(long id) =>
+            TryQueue(EconomyCommandKind.EquipmentEnhance, 1, null, out _, gearId: id);
+
+        private static EconomyInputStatus TryQueue(EconomyCommandKind kind, int mode, string guideReceipt, out long sequence, int? skillId = null, long? gearId = null)
         {
             sequence = 0;
             bool gold = kind == EconomyCommandKind.GoldAttack || kind == EconomyCommandKind.GoldHealth;
@@ -209,13 +219,15 @@ namespace KingdomIdle.Balance
             bool mage = kind == EconomyCommandKind.MageEnhance;
             if (mage && (!SupportsMageEnhance || !skillId.HasValue || !LocalProgression.State.MageSkills.ContainsKey(skillId.Value)))
                 return EconomyInputStatus.NotReady;
-            if (!gold && !mage && (!RubyProgression.Unlocked || kind == EconomyCommandKind.RubyExperience && LocalProgression.State.AccountLevel >= BalanceMath.AccountCap))
+            bool gear = kind == EconomyCommandKind.EquipmentEnhance;
+            if (gear && (!SupportsEquipmentEnhance || gearId == null)) return EconomyInputStatus.NotReady;
+            if (!gold && !mage && !gear && (!RubyProgression.Unlocked || kind == EconomyCommandKind.RubyExperience && LocalProgression.State.AccountLevel >= BalanceMath.AccountCap))
                 return EconomyInputStatus.NotReady;
             if (_journal.Data.Inputs.Concat(_journal.Data.InFlightInputs).Count(x => x.Command.Kind != EconomyCommandKind.Hunt) >= MaxInputs)
                 return EconomyInputStatus.QueueFull;
             var projection = GetProjection();
-            if (projection.Level(kind, skillId) >= LevelCap(kind)) return EconomyInputStatus.MaxLevel;
-            var command = EconomyProjectionMath.Quote(projection, kind, mode, skillId);
+            if (projection.Level(kind, skillId, gearId) >= LevelCap(kind, gearId)) return EconomyInputStatus.MaxLevel;
+            var command = EconomyProjectionMath.Quote(projection, kind, mode, skillId, gearId);
             if (command == null) return EconomyInputStatus.InsufficientFunds;
             AppendHunts();
             var input = NewInput(command); input.GuideReceipt = guideReceipt;
@@ -229,7 +241,8 @@ namespace KingdomIdle.Balance
         private static EconomyInput NewInput(EconomyCommandDTO command) => new()
         { Sequence = _journal.Data.NextInputSequence++, Command = EconomyCopies.Copy(command) };
 
-        private static int LevelCap(EconomyCommandKind kind) => kind == EconomyCommandKind.MageEnhance ? BalanceMath.MageCap :
+        private static int LevelCap(EconomyCommandKind kind, long? gearId = null) => kind == EconomyCommandKind.EquipmentEnhance ?
+            EquipmentEconomy.EnhanceCap(ItemCode.DecodeRarity(LocalProgression.State.Equipment.Find(x => x.ServerInstanceId == gearId)?.Code ?? 0)) : kind == EconomyCommandKind.MageEnhance ? BalanceMath.MageCap :
             kind == EconomyCommandKind.GoldAttack || kind == EconomyCommandKind.GoldHealth ? BalanceMath.GoldCap : BalanceMath.RubyCap;
 
         public static bool RecoverPending(Action<bool> completed, bool previousSessionReplaced = false)
@@ -255,11 +268,16 @@ namespace KingdomIdle.Balance
             Pump(); return true;
         }
 
-        public static bool TryGetHeldPreview(out int inputCount, out long goldCost, out long rubyCost, out long knowledgeCost)
+        public static bool TryGetHeldPreview(out int inputCount, out long goldCost, out long rubyCost, out long knowledgeCost) =>
+            TryGetHeldPreview(out inputCount, out goldCost, out rubyCost, out knowledgeCost, out _);
+
+        public static bool TryGetHeldPreview(out int inputCount, out long goldCost, out long rubyCost, out long knowledgeCost, out long stoneCost)
         {
+            stoneCost = 0;
             inputCount = 0; goldCost = rubyCost = knowledgeCost = 0;
             if (!TryPrepareHeld(out var commands, out var after)) return false;
             inputCount = commands.Count;
+            stoneCost = LocalProgression.Balance(eCurrency.EquipmentStone) - after.EquipmentStone;
             goldCost = LocalProgression.Balance(eCurrency.Gold) - after.Gold;
             rubyCost = LocalProgression.Balance(eCurrency.Ruby) - after.Ruby;
             knowledgeCost = LocalProgression.Balance(eCurrency.ArcaneKnowledge) - after.ArcaneKnowledge;
@@ -281,8 +299,9 @@ namespace KingdomIdle.Balance
                 bool mage = command.Kind == EconomyCommandKind.MageEnhance;
                 if (mage && !SupportsMageEnhance) return false;
                 if (mage && invalidSkills.Contains(command.SkillId.Value)) { discarded.Add(input); continue; }
-                command.ExpectedLevel = current.Level(command.Kind, command.SkillId);
-                int cap = LevelCap(command.Kind);
+                if (command.Kind == EconomyCommandKind.EquipmentEnhance && !SupportsEquipmentEnhance) { DiscardHeldInputs(); return false; }
+                command.ExpectedLevel = current.Level(command.Kind, command.SkillId, command.EquipmentInstanceId);
+                int cap = LevelCap(command.Kind, command.EquipmentInstanceId);
                 if (command.Mode > 0)
                 {
                     int count = Math.Min(command.Mode, cap - command.ExpectedLevel);
@@ -552,6 +571,7 @@ namespace KingdomIdle.Balance
                 if (!saved) throw new IOException("경제 결과를 저장하지 못했습니다: " + LocalProgression.LastError);
                 if (!Owns(localGeneration, networkGeneration, request.RequestId)) return;
                 ReconcileMageInputs(response.CurrentState.EconomyBatchState);
+                if (response.CurrentState.Equipment != null) EquipmentManager.Instance?.RestoreEquipment();
                 if (response.CurrentState.MageTowerState != null)
                     KingdomIdle.MageTower.MageTowerManager.Instance?.NotifyCommitted();
                 _queryRequired = _batchUnknown = false;
@@ -830,6 +850,7 @@ namespace KingdomIdle.Balance
             if (response == null || !ApplyBatchMetadata(state, response.EconomyBatchState, revision)) return false;
             if (!RubyProgression.ApplyServerState(state, response.RubyGrowthState) || !MainWaveProgression.ApplyServerState(state, response.MainBattle)) return false;
             UserManager.ApplyCurrency(state, response.Currency);
+            if (response.Equipment != null) UserManager.ApplyEquipment(state, response.Equipment);
             if (response.MageTowerState != null) UserManager.ApplyMageTower(state, response.MageTowerState);
             state.AttackLevel = checked((int)response.EnchantATKCount); state.HealthLevel = checked((int)response.EnchantHPCount);
             state.AccountLevel = response.Level; state.Experience = response.Exp; state.Kills = response.KillScore;

@@ -23,6 +23,7 @@ namespace Protocol.Message.Dto
 	{
 		[JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
 		public int? EquipmentSchema { get; set; }
+		public int? EquipmentCapacity { get; set; }
 		[JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
 		public int? EconomyBatchVersion { get; set; }
 		public bool SupportsMageEnhance { get; set; }
@@ -74,7 +75,11 @@ namespace Protocol.Message.Dto
 		public int Count { get; set; }
 	}
 	// Client routing types share the server's existing JSON shape; no routing field is sent.
-	public sealed class OnGachaEquipmentClassFragmentRequestDTO : OnGachaRequestDTO { }
+	public sealed class OnGachaEquipmentClassFragmentRequestDTO : OnGachaRequestDTO
+    {
+        public string RequestId { get; set; }
+        public long? ExpectedDrawSequence { get; set; }
+    }
 	public sealed class OnGachaSkillArcaneKnowledgeRequestDTO : OnGachaRequestDTO { }
 	public class OnEnchantRequestDTO : SessionRequestDTO
 	{

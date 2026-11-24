@@ -150,6 +150,8 @@ namespace Protocol.Message.Data
         MailAdminUnauthorized = 1070,
         MailAdminNotConfigured = 1071,
         MailDeliveryVerificationRequired = 1072,
+        EquipmentDrawConflict = 1078,
+        EquipmentDrawSequenceMismatch = 1079,
 	}
 
 	public enum eConst

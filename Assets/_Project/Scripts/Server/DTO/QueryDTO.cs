@@ -540,6 +540,7 @@ namespace Protocol.Message.Dto
 	}
 	public sealed class GachaStateDTO
 	{
+		public long NextEquipmentDrawSequence { get; set; } = 1;
 		// 장비 가챠 천장 카운터(0~39). 40번째는 Epic 확정.
 		[JsonProperty(Required = Required.Always)]
 		public int EquipmentPity { get; set; }

@@ -30,7 +30,7 @@ public class EquipmentManager : MonoBehaviour
     private readonly Dictionary<int, Player> _players = new();
     public EquipmentInventory Inventory => _inventory;
     public const int Capacity = 300, PendingCapacity = 100;
-    internal const int InstanceSchemaVersion = 2, InstanceCapacity = 999;
+    internal const int InstanceSchemaVersion = 2, InstanceCapacity = Capacity;
     public static bool IsInstanceInventory => LocalProgression.State.EquipmentSchemaVersion == InstanceSchemaVersion;
     public static int InventoryCapacity => IsInstanceInventory ? InstanceCapacity : Capacity;
     public static bool AutoLockFirstEnhancement => IsInstanceInventory && LocalProgression.State.AutoLockFirstEnhancement;
@@ -76,8 +76,15 @@ public class EquipmentManager : MonoBehaviour
     private bool _restoredAutoLock;
     private string _restoredAccount;
 
-    private void Awake() { if (Instance != null && Instance != this) { Destroy(gameObject); return; } Instance = this; }
-    private void OnDestroy() { _activeAction?.Loading?.Dispose(); if (Instance == this) Instance = null; }
+    private void Awake() { if (Instance != null && Instance != this) { Destroy(gameObject); return; } Instance = this; EconomyBatchProgression.InputCompleted += OnBatchInput; }
+    private void OnBatchInput(EconomyInputCompletion result)
+    {
+        if (result.Kind != Dto.EconomyCommandKind.EquipmentEnhance || !result.EquipmentId.HasValue) return;
+        var item = Inventory.Items.FirstOrDefault(x => x.serverInstanceId == result.EquipmentId);
+        Notify(new ActionInfo { Kind = ActionKind.Enhance, Ok = result.Success, ItemId = item?.instanceId,
+            SpentEquipmentStone = result.SpentStones, Failure = result.Success ? null : result.Message });
+    }
+    private void OnDestroy() { EconomyBatchProgression.InputCompleted -= OnBatchInput; _activeAction?.Loading?.Dispose(); if (Instance == this) Instance = null; }
     public void RegisterPlayer(Player player) { if (player != null) _players[player.PlayerIndex] = player; }
     public void ClearPlayer() => _players.Clear();
     public IEnumerable<string> GetCurrentJobNames() => _players.Values.Where(p => p != null).Select(p => p.playerStatus.JobName);
@@ -448,12 +455,45 @@ public class EquipmentManager : MonoBehaviour
     }
 
     // 강화: 비용·상한·성공 여부는 서버가 정한다(일반 5·레어 10·에픽 15). 응답의 ItemCode는 한 단계 오른 묶음이다.
+    public static int PreviewLevel(EquipmentInstance item)
+    {
+        if (item?.serverInstanceId is long id && EconomyBatchProgression.SupportsEquipmentEnhance)
+        {
+            var projection = EconomyBatchProgression.GetProjection();
+            int level = projection.Level(Dto.EconomyCommandKind.EquipmentEnhance, gearId:id);
+            if (projection.Valid && level >= 0) return level;
+        }
+        return item?.enhancementLevel ?? 0;
+    }
+    public static long PreviewStones()
+    {
+        if (EconomyBatchProgression.SupportsEquipmentEnhance)
+        {
+            var projection = EconomyBatchProgression.GetProjection();
+            if (projection.Valid) return projection.EquipmentStone;
+        }
+        return LocalProgression.Balance(eCurrency.EquipmentStone);
+    }
     public bool CanEnhance(EquipmentInstance item) => Owns(item) && !item.IsMaxLevel() && LocalProgression.Balance(eCurrency.EquipmentStone) >= EquipmentEconomy.EnhanceCost(item);
     public bool TryEnhance(EquipmentInstance item) => TryEnhanceDetailed(item) == EnhancementResult.Pending;
     public EnhancementResult TryEnhanceDetailed(EquipmentInstance item)
     {
         if (!Owns(item)) return EnhancementResult.InvalidItem;
         if (item.IsMaxLevel()) return EnhancementResult.MaxLevel;
+        if (EconomyBatchProgression.SupportsEquipmentEnhance && item.serverInstanceId is long id)
+        {
+            if (IsBusy) return EnhancementResult.Busy;
+            return EconomyBatchProgression.TryQueueEquipmentEnhance(id) switch
+            {
+                EconomyInputStatus.PendingSave => EnhancementResult.Pending,
+                EconomyInputStatus.MaxLevel => EnhancementResult.MaxLevel,
+                EconomyInputStatus.InsufficientFunds => EnhancementResult.NotEnoughMaterials,
+                EconomyInputStatus.SaveFailed => EnhancementResult.SaveFailed,
+                EconomyInputStatus.NotReady => EnhancementResult.NetworkNotReady,
+                _ => EnhancementResult.Busy
+            };
+        }
+        if (EconomyBatchProgression.HasPendingEquipmentEnhance) return EnhancementResult.Busy;
         if (LocalProgression.Balance(eCurrency.EquipmentStone) < EquipmentEconomy.EnhanceCost(item)) return EnhancementResult.NotEnoughMaterials;
         var gate = Gate(out var network); if (gate != EnhancementResult.Pending) return gate;
         var info = new ActionInfo { Kind = ActionKind.Enhance, ItemId = item.instanceId, CharacterIndex = item.equipmentPlayerIndex ?? -1 };

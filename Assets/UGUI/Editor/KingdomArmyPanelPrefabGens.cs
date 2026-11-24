@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -177,36 +178,45 @@ namespace KingdomIdle.UGUI.Editor
             var (root, view) = NewContent<KAEquipmentView>("Panel_KAEquipment");
             root.GetComponent<VerticalLayoutGroup>().spacing = 8f;
 
-            // 장착 정보는 한 줄 카드로 유지해 처음 열 때 보유 장비까지 함께 보인다.
-            var card = F.Box(root, "EquippedCard", UguiTheme.InfoSurface);
-            F.HLayout(card.gameObject, 20f, new RectOffset(20, 20, 18, 18), TextAnchor.MiddleLeft);
-            F.Preferred(card, height: 204f);
-
-            var frame = F.Frame(card.transform, "EquippedFrame", UguiTheme.RoyalBlue);
-            frame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
-            view.equippedFrame = frame;
-
-            var iconWrap = F.Container(card.transform, "IconWrap");
-            F.Preferred(iconWrap, width: 156f, height: 156f).minWidth = 156f;
-            view.equippedIconWrap = iconWrap;
-            view.equippedIcon = ItemSlotCentered(iconWrap, 156f, 130f);
-
-            var info = F.Container(card.transform, "Info");
-            F.VLayout(info.gameObject, 6f);
-            F.Flexible(info, flexWidth: 1);
-            view.equippedSlotLabel = F.Text(info, "Slot", "현재 장착 · 무기", 36f, UguiTheme.InfoMuted);
-            F.Preferred(view.equippedSlotLabel, height: 44f);
-            view.equippedNameLabel = F.Text(info, "Name", "비어 있음", 42f, UguiTheme.InfoInk, bold: true);
-            view.equippedNameLabel.fontSharedMaterial = F.Font.material;
-            F.Preferred(view.equippedNameLabel, height: 54f);
-            view.equippedStatLabel = F.Text(info, "Stats", "-", 36f, UguiTheme.InfoMuted);
-            F.Preferred(view.equippedStatLabel, height: 46f);
-
-            var unBtn = F.TextButton(card.transform, "BtnUnequip", "해제", 36f, UguiTheme.BtnCancel, out _);
-            EquipmentFeaturePreparation.StyleActionButton(unBtn, UguiTheme.BtnCancel);
-            F.Preferred(unBtn, width: 144f, height: 132f).minWidth = 144f;
-            view.unequipButton = unBtn;
-
+            var card = F.Box(root, "Loadout", UguiTheme.InfoSurface, rounded: false);
+            F.Preferred(card, height: 480);
+            F.Frame(card.transform, "BronzeFrame", UguiTheme.Bronze);
+            var halo = F.CircleBox(card.transform, "PortraitSeal", new Color(.64f,.53f,.35f,.4f));
+            F.AnchorCenter(halo.rectTransform, 250, 250);
+            var inset = F.CircleBox(halo.transform, "InnerSeal", UguiTheme.InfoSurface);
+            F.AnchorCenter(inset.rectTransform, 234, 234);
+            var figure = F.Box(inset.transform, "IdleSilhouette", new Color(.10f,.09f,.09f,1), rounded: false);
+            F.AnchorCenter(figure.rectTransform, 236, 236);
+            figure.type = Image.Type.Simple; figure.preserveAspect = true; figure.raycastTarget = false; view.silhouette = figure;
+            var lockSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/Art/LayerLab/GUI Pro-MinimalGame/Shared/Icons/PictoIcon/64/lock.png");
+            var buttons = new List<Button>();
+            void Slot(string name, string label, float x, float y, bool weapon = false)
+            {
+                var holder = F.Container(card.transform, name);
+                holder.anchorMin = holder.anchorMax = new Vector2(x, y);
+                holder.sizeDelta = new Vector2(220, 152); holder.anchoredPosition = Vector2.zero;
+                var slot = F.Box(holder, "Socket", UguiTheme.RusticSurfaceDark, raycast: true);
+                F.AnchorCenter(slot.rectTransform, 110, 110); slot.rectTransform.anchoredPosition = new Vector2(0, 19);
+                var rim = F.Frame(slot.transform, "Rim", weapon ? UguiTheme.ActionGold : UguiTheme.Bronze);
+                var icon = F.Box(slot.transform, "Glyph", UguiTheme.Parchment, rounded: false);
+                F.AnchorCenter(icon.rectTransform, weapon ? 88 : 42, weapon ? 88 : 42);
+                icon.preserveAspect = true; icon.raycastTarget = false;
+                var button = F.ButtonOn(slot, gloss: false);
+                if (weapon) { view.weaponButton = button; view.equippedIcon = icon; view.equippedFrame = rim; }
+                else { icon.sprite = lockSprite; buttons.Add(button); }
+                var caption = F.Text(holder, "Caption", label, 30, UguiTheme.InfoInk, TextAlignmentOptions.Center);
+                F.AnchorCenter(caption.rectTransform, 220, 42); caption.rectTransform.anchoredPosition = new Vector2(0,-56);
+            }
+            Slot("Helmet", "투구", .50f, .84f);
+            Slot("Weapon", "무기", .19f, .64f, true);
+            Slot("Armor", "갑옷", .81f, .64f);
+            Slot("Gloves", "장갑", .19f, .22f);
+            Slot("Boots", "신발", .81f, .22f);
+            view.lockedSlots = buttons.ToArray();
+            view.equippedNameLabel = F.Text(card.transform, "WeaponName", "", 27, UguiTheme.InfoInk, TextAlignmentOptions.Center, bold:true);
+            var nameRect = view.equippedNameLabel.rectTransform;
+            nameRect.anchorMin = new Vector2(.01f,.39f); nameRect.anchorMax = new Vector2(.37f,.48f);
+            nameRect.offsetMin = nameRect.offsetMax = Vector2.zero;
             EquipmentFeaturePreparation.AttachEquipmentActions(view);
             var grid = F.Container(root, "InventoryGrid");
             MakeEquipGrid(grid.gameObject);
@@ -266,6 +276,10 @@ namespace KingdomIdle.UGUI.Editor
             view.successRateLabel = StatLine(enhGroup, "성공 확률: -");
             view.expectedLabel = StatLine(enhGroup, "강화 시 예상: -");
 
+            var secondary = F.Container(root, "SecondaryActions");
+            F.HLayout(secondary.gameObject, 0, null, TextAnchor.MiddleRight, expandWidth: false);
+            F.Preferred(secondary, height: 96);
+            view.secondaryActions = secondary;
             return Save(root, "Panels/Panel_KAEquipDetail.prefab");
         }
 
@@ -295,28 +309,20 @@ namespace KingdomIdle.UGUI.Editor
             SectionTitle(root, "전직");
             view.placeholder = Placeholder(root, "직업 데이터가 없습니다.");
 
-            var group = F.Container(root, "ContentGroup");
-            F.VLayout(group.gameObject, 10f);
+            var board = F.Box(root, "PromotionMap", new Color(.087f,.111f,.128f,1), rounded:false);
+            var group = board.rectTransform;
+            F.VLayout(group.gameObject, 6f, new RectOffset(20,20,32,24));
+            var trim = F.Frame(group, "BronzeEdge", UguiTheme.Bronze);
+            trim.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
             view.contentGroup = group;
 
-            // 전직 파편 배너 (갈색 bg + 골드 테두리)
-            var banner = F.Box(group, "FragBanner", new Color(60f / 255f, 45f / 255f, 20f / 255f, 0.55f));
-            F.HLayout(banner.gameObject, 12f, new RectOffset(16, 16, 10, 10), TextAnchor.MiddleLeft);
-            F.Preferred(banner, height: 64f);
-            var bframe = F.Frame(banner.transform, "Frame", new Color(1f, 220f / 255f, 100f / 255f, 0.60f));
-            bframe.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
-
-            var bname = F.Text(banner.transform, "Name", "전직 파편", 24f, new Color(1f, 1f, 1f, 0.85f), TextAlignmentOptions.Left, bold: true);
-            F.Preferred(bname, width: 130f, height: 40f);
-            var bval = F.Text(banner.transform, "Value", "0", 34f, UguiTheme.AccentGoldStrong, TextAlignmentOptions.Left, bold: true);
-            F.Preferred(bval, width: 140f, height: 44f);
-            view.bannerValue = bval;
-            var bhint = F.Text(banner.transform, "Hint", "(전직당 0개 소모)", 20f, new Color(1f, 1f, 1f, 0.55f), TextAlignmentOptions.Left);
-            F.Flexible(bhint, flexWidth: 1f);
-            view.bannerHint = bhint;
-
-            var origin=F.Text(group,"Origin","창병 · 왕국군의 시작",30,UguiTheme.Parchment,TextAlignmentOptions.Center,bold:true);
-            F.Preferred(origin,height:64);
+            var source = F.Container(group, "Origin"); F.Preferred(source, height:110);
+            var crown = F.Box(source, "Crest", UguiTheme.Bronze, rounded:false); F.AnchorCenter(crown.rectTransform,77,77);
+            crown.rectTransform.localRotation = Quaternion.Euler(0,0,45);
+            var inset = F.Box(crown.transform, "Inset", UguiTheme.RusticSurfaceDark, rounded:false);
+            F.AnchorCenter(inset.rectTransform,66,66);
+            var spear = F.Text(source,"OriginJob","창병",33,UguiTheme.Parchment,TextAlignmentOptions.Center,bold:true);
+            F.AnchorCenter(spear.rectTransform, 130, 66);
             TreeLines(group,true);
             JobSectionTitle(group, "1차 전직");
             var basic = F.Container(group, "BasicGrid");
@@ -334,9 +340,24 @@ namespace KingdomIdle.UGUI.Editor
 
         static void TreeLines(Transform parent,bool fork)
         {
-            var row=F.Container(parent,fork?"BranchRoots":"BranchLinks");F.Preferred(row,height:48);
-            if(fork) { var line=F.Box(row,"Fork",UguiTheme.Bronze);var r=line.rectTransform;r.anchorMin=new Vector2(1f/6,.75f);r.anchorMax=new Vector2(5f/6,.75f);r.sizeDelta=new Vector2(0,3); }
-            for(int i=0;i<3;i++) { var line=F.Box(row,"Link"+i,i==2?UguiTheme.RusticSurface:UguiTheme.Bronze);var r=line.rectTransform;r.anchorMin=new Vector2((i+.5f)/3,0);r.anchorMax=new Vector2((i+.5f)/3,fork?.75f:1);r.sizeDelta=new Vector2(3,0); }
+            var row = F.Container(parent, fork ? "BranchRoots" : "BranchLinks"); F.Preferred(row, height: fork ? 64 : 40);
+            var gold = UguiTheme.BronzeLight;
+            if (fork)
+            {
+                var join = F.Box(row, "Crossbar", gold, rounded:false);
+                var r = join.rectTransform; r.anchorMin = new Vector2(1f/6,.70f); r.anchorMax = new Vector2(5f/6,.70f);
+                r.sizeDelta = new Vector2(0,4); r.anchoredPosition = Vector2.zero;
+            }
+            for (int i = 0; i < 3; i++)
+            {
+                float x=(i+.5f)/3; var tint = i == 2 ? UguiTheme.TextSecondary : gold;
+                var spine = F.Box(row,"Path"+i,tint,rounded:false);
+                var r = spine.rectTransform; r.anchorMin = new Vector2(x,0); r.anchorMax = new Vector2(x,fork ? .7f : 1);
+                r.sizeDelta = new Vector2(4,0); r.anchoredPosition = Vector2.zero;
+                var star = F.Box(row,"Junction"+i,tint,rounded:false);
+                var point = star.rectTransform; point.anchorMin=point.anchorMax=new Vector2(x,fork ? .7f : .5f);
+                point.sizeDelta=new Vector2(13,13); point.anchoredPosition=Vector2.zero; point.localEulerAngles=new Vector3(0,0,45);
+            }
         }
 
         // ══════════════════════════════════════

@@ -113,6 +113,8 @@ namespace KingdomIdle.Balance
         internal static bool ValidCommand(EconomyCommandDTO c)
         {
             if (c == null || !Enum.IsDefined(typeof(EconomyCommandKind), c.Kind)) return false;
+            if (c.Kind == EconomyCommandKind.EquipmentEnhance) return EconomyBatchProtocol.ValidEquipmentCommand(c);
+            if (c.EquipmentInstanceId.HasValue) return false;
             if (c.Kind == EconomyCommandKind.MageEnhance) return EconomyBatchProtocol.ValidMageCommand(c);
             if (c.SkillId.HasValue) return false;
             if (c.Kind == EconomyCommandKind.Hunt) return c.Mode == 0 && c.ExpectedLevel == 0 && c.CountLimit == 0 && c.SpendLimit == 0 &&
@@ -132,6 +134,12 @@ namespace KingdomIdle.Balance
             {
                 var fields = new { Kind = (int)x.Kind, x.Mode, x.ExpectedLevel, x.CountLimit, x.SpendLimit, Stage = (long)x.Stage,
                     x.MainRunId, x.BattleId, x.RewardEpoch, TotalKills = Kills(x.TotalKills) };
+                if (x.EquipmentInstanceId.HasValue)
+                {
+                    var equipment = JObject.FromObject(fields);
+                    equipment.Add(nameof(x.EquipmentInstanceId), x.EquipmentInstanceId.Value);
+                    return equipment;
+                }
                 if (!x.SkillId.HasValue) return fields;
                 var mage = JObject.FromObject(fields);
                 mage.Add(nameof(x.SkillId), x.SkillId.Value);

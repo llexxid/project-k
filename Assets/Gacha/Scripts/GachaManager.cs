@@ -45,13 +45,22 @@ namespace KingdomIdle.Gacha
         public bool CanPull(GachaTableSO table) => CanPullMulti(table, 1);
         public bool IsEquipmentInventoryFull(GachaTableSO table) => table != null && table.gachaType == eGachaType.Equipment &&
             EquipmentManager.IsInstanceInventory && LocalProgression.State.Equipment.Count >= EquipmentManager.InventoryCapacity;
-        public bool CanPullMulti(GachaTableSO table, int count) => table != null && table.isImplemented && !IsPulling &&
-            (table.gachaType == eGachaType.Equipment || table.gachaType == eGachaType.Skill) && table.costCurrency == eCurrency.AncientCoin && (count == 1 || count == 10) && LocalProgression.Balance(eCurrency.AncientCoin) >= GetTotalCost(table, count) &&
-            (table.gachaType != eGachaType.Equipment || EquipmentManager.Instance != null && !IsEquipmentInventoryFull(table));
+        public bool IsPendingDraw(GachaTableSO table, int count) => table?.gachaType == eGachaType.Equipment &&
+            LocalProgression.State.PendingEquipmentDrawId != null && LocalProgression.State.PendingEquipmentDrawCount == count;
+        public bool CanPullMulti(GachaTableSO table, int count)
+        {
+            if (table == null || !table.isImplemented || IsPulling || (count != 1 && count != 10) || table.costCurrency != eCurrency.AncientCoin) return false;
+            if (table.gachaType == eGachaType.Equipment && LocalProgression.State.PendingEquipmentDrawId != null)
+                return IsPendingDraw(table, count) && EquipmentManager.Instance != null;
+            return (table.gachaType == eGachaType.Equipment || table.gachaType == eGachaType.Skill) &&
+                LocalProgression.Balance(eCurrency.AncientCoin) >= GetTotalCost(table, count) &&
+                (table.gachaType != eGachaType.Equipment || EquipmentManager.Instance != null && !IsEquipmentInventoryFull(table));
+        }
         public string PullFailure(GachaTableSO table, int count)
         {
             if (IsPulling) return "이미 뽑기가 진행 중입니다.";
             if (table == null || !table.isImplemented || (count != 1 && count != 10)) return "뽑기 구성을 확인할 수 없습니다.";
+            if (table.gachaType == eGachaType.Equipment && LocalProgression.State.PendingEquipmentDrawId != null) return "이전 뽑기 결과를 먼저 확인하세요.";
             if (IsEquipmentInventoryFull(table)) return "장비 보관함이 가득 찼습니다. 빈 칸을 만든 후 다시 뽑아 주세요.";
             int cost = GetTotalCost(table, count);
             if (LocalProgression.Balance(eCurrency.AncientCoin) < cost) return $"고대주화가 {cost - LocalProgression.Balance(eCurrency.AncientCoin):N0}개 부족합니다.";
@@ -66,7 +75,7 @@ namespace KingdomIdle.Gacha
         public void TryPull(GachaTableSO table, int count, Action<List<GachaRewardEntry>> onSuccess, Action<string> onError)
         {
             var guideAction = table != null && table.gachaType == eGachaType.Equipment ? Direction.GuideAction.EquipmentPullOnce : Direction.GuideAction.SkillPullOnce;
-            if (!Direction.GameDirectInteraction.CanPerform(guideAction, count)) { onError?.Invoke("현재 안내의 지정된 실습만 진행할 수 있습니다."); return; }
+            if (!IsPendingDraw(table,count) && !Direction.GameDirectInteraction.CanPerform(guideAction, count)) { onError?.Invoke("현재 안내의 지정된 실습만 진행할 수 있습니다."); return; }
             if (!CanPullMulti(table, count)) { onError?.Invoke(PullFailure(table, count)); return; }
             var network = NetworkManager.Instance;
             if (network == null || !network.IsGameDataReady) { onError?.Invoke("서버 로그인이 필요합니다."); return; }
@@ -81,9 +90,48 @@ namespace KingdomIdle.Gacha
             _loading = GameplayLoading.Begin("gacha");
             if (table.gachaType == eGachaType.Equipment)
             {
-                network.Call<OnGachaEquipmentClassFragmentRequestDTO, OnGachaEquipmentClassFragmentResponseDTO>(new OnGachaEquipmentClassFragmentRequestDTO { Count = count },
-                    response => { if (IsCurrentPull(generation)) ApplyServerResult(table, count, guideAction, guideReceipt, coinsBefore, response.Rewards, response.Currency, response.GachaState, response.Equipment, null, onSuccess, onError); },
-                    error => { if (IsCurrentPull(generation)) RejectServerResult(table, count, error, onError); });
+                var request = new OnGachaEquipmentClassFragmentRequestDTO { Count = count };
+                if (EquipmentManager.IsInstanceInventory)
+                {
+                    if (LocalProgression.State.PendingEquipmentDrawId == null && !LocalProgression.Execute("equipment-draw-intent", state =>
+                    {
+                        state.PendingEquipmentDrawId = Guid.NewGuid().ToString("N");
+                        state.PendingEquipmentDrawSequence = state.NextEquipmentDrawSequence;
+                        state.PendingEquipmentDrawCount = count;
+                        return true;
+                    }))
+                    {
+                        IsPulling = false; EndLoading(_loading); OnPullStateChanged?.Invoke(false);
+                        onError?.Invoke("뽑기 요청을 저장하지 못했습니다."); return;
+                    }
+                    var saved = LocalProgression.State;
+                    request.RequestId = saved.PendingEquipmentDrawId;
+                    request.ExpectedDrawSequence = saved.PendingEquipmentDrawSequence;
+                }
+                void Send(bool mayRetry)
+                {
+                    network.Call<OnGachaEquipmentClassFragmentRequestDTO, OnGachaEquipmentClassFragmentResponseDTO>(request,
+                        response =>
+                        {
+                            if (!IsCurrentPull(generation)) return;
+                            if (request.RequestId != null && (response.GachaState == null || response.GachaState.NextEquipmentDrawSequence <= request.ExpectedDrawSequence))
+                            {
+                                RejectServerResult(table, count, NetworkManager.CreateError("InvalidResponse", "뽑기 처리 순서를 확인할 수 없습니다."), onError);
+                                return;
+                            }
+                            ApplyServerResult(table, count, guideAction, guideReceipt, coinsBefore, response.Rewards, response.Currency,
+                                response.GachaState, response.Equipment, null, onSuccess, onError);
+                        },
+                        error =>
+                        {
+                            if (!IsCurrentPull(generation)) return;
+                            if (mayRetry && request.RequestId != null && !NetworkManager.TryGetBusinessError(error,out _) &&
+                                NetworkManager.GetFailureKind(error) is "Timeout" or "Transport")
+                            { Send(false); return; }
+                            RejectServerResult(table, count, error, onError);
+                        });
+                }
+                Send(true);
             }
             else
             {
@@ -111,6 +159,7 @@ namespace KingdomIdle.Gacha
                     {
                         UserManager.ApplyGachaState(s, gacha);
                         UserManager.ApplyEquipment(s, inventory);
+                        ClearDraw(s);
                     }
                     else UserManager.ApplyMageTower(s, mage);
                     Direction.GameDirectInteraction.RecordSuccess(s, guideAction, guideReceipt);
@@ -141,6 +190,11 @@ namespace KingdomIdle.Gacha
             onSuccess?.Invoke(entries);
         }
 
+        private static void ClearDraw(ProgressionState state)
+        {
+            state.PendingEquipmentDrawId = null; state.PendingEquipmentDrawCount = 0; state.PendingEquipmentDrawSequence = 0;
+        }
+
         private void RejectServerResult(GachaTableSO table, int count, PlayFabError error, Action<string> onError)
         {
             _loading ??= GameplayLoading.Begin("gacha");
@@ -158,6 +212,29 @@ namespace KingdomIdle.Gacha
             int code = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0;
             string kind = NetworkManager.GetFailureKind(error);
             Debug.LogWarning($"[Gacha] {table.gachaType} count={count} rejected code={code} kind={kind} message={error?.ErrorMessage}");
+            if (table.gachaType == eGachaType.Equipment && LocalProgression.State.PendingEquipmentDrawId != null)
+            {
+                if (code == (int)Protocol.Message.Data.eErrorCode.EquipmentDrawConflict ||
+                    code == (int)Protocol.Message.Data.eErrorCode.EquipmentDrawSequenceMismatch)
+                {
+                    var users = UserManager.Instance;
+                    if (users != null) users.RefreshFromServer(ok =>
+                    {
+                        if (!IsCurrentPull(generation)) return;
+                        if (ok) LocalProgression.Execute("equipment-draw-resolved", s => { ClearDraw(s); return true; });
+                        Complete(ok ? "다른 뽑기 기록이 확인되어 보유 장비와 잔액을 갱신했습니다." : "뽑기 결과를 확인하지 못했습니다. 다시 확인해 주세요.");
+                    });
+                    else Complete("뽑기 기록을 확인하려면 다시 로그인해 주세요.");
+                    return;
+                }
+                if (code == (int)Protocol.Message.Data.eErrorCode.EquipmentCapacity ||
+                    code == (int)Protocol.Message.Data.eErrorCode.eNotEnoughAncientCoin)
+                    LocalProgression.Execute("equipment-draw-rejected", s => { ClearDraw(s); return true; });
+                else
+                {
+                    Complete("뽑기 결과를 확인하지 못했습니다. 뽑기 메뉴에서 같은 요청의 결과를 확인하세요."); return;
+                }
+            }
             if (code == (int)Protocol.Message.Data.eErrorCode.EquipmentCapacity && table.gachaType == eGachaType.Equipment)
             {
                 Complete("장비 보관함이 가득 찼습니다. 빈 칸을 만든 후 다시 뽑아 주세요.");

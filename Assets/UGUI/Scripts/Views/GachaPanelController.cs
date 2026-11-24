@@ -247,15 +247,18 @@ namespace KingdomIdle.UGUI
                 var pull = go.GetComponent<GachaPullButtonView>();
                 if (pull == null) continue;
 
-                string title = count == 1 ? "1회 뽑기" : $"{count}연 뽑기";
+                string title = PullTitle(manager, table, count);
                 pull.authoredBackground = false;
                 pull.SetEmphasis(count == 10);
-                pull.Set(title, RewardPresentation.GachaCost(manager, table, count), available, cat.iconChest);
+                pull.Set(title, manager?.IsPendingDraw(table,count) == true ? "이전 요청" : RewardPresentation.GachaCost(manager, table, count), available, cat.iconChest);
                 pull.Button.onClick.AddListener(() => OnPullClicked(capturedTable, count, pull));
                 if (count == 1) FeatureGuideAnchor.Bind(pull.Button, IsSkillTable(table) ? Direction.GameDirectTarget.SkillPullOnce : Direction.GameDirectTarget.EquipmentPullOnce);
                 _activePullButtons.Add(pull.Button);
             }
         }
+
+        private static string PullTitle(GachaManager manager, GachaTableSO table, int count) =>
+            manager?.IsPendingDraw(table, count) == true ? "결과 확인" : count == 1 ? "1회 뽑기" : $"{count}연 뽑기";
 
         private static bool IsSkillTable(GachaTableSO table) => table != null && table.gachaType == eGachaType.Skill;
         private static eCurrency TicketCurrency => IsSkillTable(_contentTable) ? eCurrency.MageTicket : eCurrency.EquipmentTicket;
@@ -288,7 +291,7 @@ namespace KingdomIdle.UGUI
                 var button=_activePullButtons[i];
                 if(button==null)continue;
                 int count=PullCounts[i];
-                button.GetComponent<GachaPullButtonView>()?.Set(count==1?"1회 뽑기":$"{count}연 뽑기",RewardPresentation.GachaCost(GachaManager.Instance,_contentTable,count),!pulling && GachaManager.Instance != null && GachaManager.Instance.CanPullMulti(_contentTable,count));
+                button.GetComponent<GachaPullButtonView>()?.Set(PullTitle(GachaManager.Instance,_contentTable,count), GachaManager.Instance?.IsPendingDraw(_contentTable,count) == true ? "이전 요청" : RewardPresentation.GachaCost(GachaManager.Instance,_contentTable,count),!pulling && GachaManager.Instance != null && GachaManager.Instance.CanPullMulti(_contentTable,count));
             }
         }
 
