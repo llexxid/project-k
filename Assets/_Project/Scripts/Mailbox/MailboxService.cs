@@ -269,6 +269,9 @@ namespace KingdomIdle.Mailbox
             if (_loading != null && _retryAt > 0 && _clock() >= _retryAt)
             { Load(_loading.Retry + 1, _loading.Recovery, _loading.Deadline); return; }
             if (!_open || IsBusy || !_ready()) return;
+            if (LoadFailed && NetworkManager.GetFailureKind(LastFailure) == "EconomyHeld" &&
+                (!EconomyBatchProgression.Available || EconomyBatchProgression.CanQueueMenuSnapshot))
+            { RequestRefresh("settlement-completed"); return; }
             if (_retryAt > 0 && _clock() >= _retryAt) { RequestRefresh("retry"); return; }
             if (State != MailboxState.Ready || Messages.Count == 0) return;
             if (_nextExpiryUtc <= ServerNow && _nextExpiryUtc != _lastExpiredUtc)

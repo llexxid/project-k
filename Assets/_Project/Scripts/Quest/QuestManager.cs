@@ -152,6 +152,8 @@ public class QuestManager : MonoBehaviour
         if (_suspended || IsRefreshing || IsBusy) return;
         var network = NetworkManager.Instance;
         if (network == null || !network.IsGameDataReady || _server == null && !_refreshQueued) return;
+        if (NetworkManager.GetFailureKind(LastFailure) == "EconomyHeld" && EconomyBatchProgression.Available &&
+            !EconomyBatchProgression.CanQueueMenuSnapshot) return;
         float since = Time.unscaledTime - _lastRefreshAt;
         float interval = _panelWatchers > 0 ? PanelRefreshIntervalSec : _hudWatchers > 0 ? HudRefreshIntervalSec : float.PositiveInfinity;
         if (since >= interval || (_refreshQueued && since >= MinRefreshGapSec)) Fetch(network);
@@ -284,7 +286,7 @@ public class QuestManager : MonoBehaviour
             {
                 IsRefreshing = false;
                 string kind = NetworkManager.GetFailureKind(error);
-                if (requested && (_server == null || kind == "EconomyHeld")) _refreshQueued = true;
+                if (kind == "EconomyHeld" || requested && _server == null) _refreshQueued = true;
                 _lastRefreshAt = Time.unscaledTime;
                 LastFailure = error;
                 int code = NetworkManager.TryGetBusinessError(error, out var business) ? (int)business.ErrorCode : 0;
