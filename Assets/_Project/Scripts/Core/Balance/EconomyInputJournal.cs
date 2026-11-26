@@ -113,9 +113,12 @@ namespace KingdomIdle.Balance
         internal static bool ValidCommand(EconomyCommandDTO c)
         {
             if (c == null || !Enum.IsDefined(typeof(EconomyCommandKind), c.Kind)) return false;
+            if (c.Kind == EconomyCommandKind.QuestClaim) return EconomyBatchProtocol.ValidQuestCommand(c);
+            if (c.QuestClaim != null) return false;
             if (c.Kind == EconomyCommandKind.EquipmentEnhance) return EconomyBatchProtocol.ValidEquipmentCommand(c);
             if (c.EquipmentInstanceId.HasValue) return false;
             if (c.Kind == EconomyCommandKind.MageEnhance) return EconomyBatchProtocol.ValidMageCommand(c);
+            if (c.Kind == EconomyCommandKind.MageAwakening) return EconomyBatchProtocol.ValidAwakeningCommand(c);
             if (c.SkillId.HasValue) return false;
             if (c.Kind == EconomyCommandKind.Hunt) return c.Mode == 0 && c.ExpectedLevel == 0 && c.CountLimit == 0 && c.SpendLimit == 0 &&
                 c.RewardEpoch > 0 && EconomyCopies.ValidRun((long)c.Stage, c.MainRunId, c.BattleId) && EconomyCopies.ValidKills(c.TotalKills);
@@ -134,6 +137,17 @@ namespace KingdomIdle.Balance
             {
                 var fields = new { Kind = (int)x.Kind, x.Mode, x.ExpectedLevel, x.CountLimit, x.SpendLimit, Stage = (long)x.Stage,
                     x.MainRunId, x.BattleId, x.RewardEpoch, TotalKills = Kills(x.TotalKills) };
+                if (x.QuestClaim != null)
+                {
+                    var quest = JObject.FromObject(fields);
+                    var claim = x.QuestClaim;
+                    var body = new JObject();
+                    if (claim.Category.HasValue) body.Add(nameof(claim.Category), (int)claim.Category.Value);
+                    if (claim.BoardPeriod != null) body.Add(nameof(claim.BoardPeriod), claim.BoardPeriod);
+                    body.Add(nameof(claim.Targets), JArray.FromObject(claim.Targets.Select(t => new { t.QuestId, t.PeriodKey })));
+                    quest.Add(nameof(x.QuestClaim), body);
+                    return quest;
+                }
                 if (x.EquipmentInstanceId.HasValue)
                 {
                     var equipment = JObject.FromObject(fields);

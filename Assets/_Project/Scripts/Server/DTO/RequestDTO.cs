@@ -30,6 +30,8 @@ namespace Protocol.Message.Dto
 		public int? EconomyBatchVersion { get; set; }
 		public bool SupportsMageEnhance { get; set; }
 		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+		public bool SupportsQuestAwakeningBatch { get; set; }
+		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
 		public bool IndependentGrowthFailures { get; set; }
 		[JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
 		public string EconomyClientId { get; set; }

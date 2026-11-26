@@ -26,6 +26,270 @@ namespace KingdomIdle.UGUI.Editor
         private static readonly eQuestCategory[] Categories =
             { eQuestCategory.Guide, eQuestCategory.Daily, eQuestCategory.Weekly, eQuestCategory.Achievement };
 
+        public static Dictionary<string, object> RunBatchedClaims()
+        {
+            const long nextGuideId = 19001;
+            if (!Application.isPlaying || LocalProgression.IsReady || NetworkManager.Instance != null ||
+                UserManager.Instance != null || QuestManager.Instance != null || UIManager.Instance != null)
+                throw new InvalidOperationException("Run batched quest acceptance in empty, signed-out PlayMode.");
+
+            const BindingFlags staticPrivate = BindingFlags.Static | BindingFlags.NonPublic;
+            var core = typeof(EconomyBatchProgression);
+            FieldInfo CoreField(string name) => core.GetField(name, staticPrivate);
+            void SetCore(string name, object value) => CoreField(name).SetValue(null, value);
+            var questType = typeof(QuestManager);
+            var received = questType.GetField("_received", staticPrivate);
+            var source = questType.GetField("_receivedSource", staticPrivate);
+            var oldReceived = received.GetValue(null);
+            var oldSource = source.GetValue(null);
+            var originalTransport = PlayFab.PluginManager.GetPlugin<PlayFab.ITransportPlugin>(PlayFab.PluginContract.PlayFab_Transport);
+            var transport = new ClaimFailureHttp();
+            var networkObject = new GameObject("BatchedQuestAcceptance_Network"); networkObject.SetActive(false);
+            var questObject = new GameObject("BatchedQuestAcceptance_Quest");
+            var checks = new List<string>();
+            var path = Path.Combine(Path.GetTempPath(), "quest-batch-" + Guid.NewGuid().ToString("N") + ".json");
+            GameObject uiObject = null;
+            using var session = LocalProgression.BeginTestSession();
+            void Check(bool value, string label)
+            { if (!value) throw new InvalidOperationException("Batched quest: " + label); checks.Add(label); }
+
+            try
+            {
+                PlayFab.PluginManager.SetPlugin(transport, PlayFab.PluginContract.PlayFab_Transport);
+                var network = networkObject.AddComponent<NetworkManager>(); NetworkManager.Instance = network;
+                typeof(NetworkManager).GetMethod("Init", Private).Invoke(network, null);
+                SetField(network, "_sessionGUID", "batch-quest-fixture");
+                SetField(network, "_context", new PlayFab.PlayFabAuthenticationContext { EntityToken = "batch-quest-fixture" });
+                typeof(NetworkManager).GetProperty(nameof(NetworkManager.LoginState)).SetValue(network, GameLoginState.Ready);
+                LocalProgression.OpenTestAccount("batched-quest-" + Guid.NewGuid().ToString("N"));
+                var quest = questObject.AddComponent<QuestManager>();
+                Dto.OnEconomyBatchResponseDTO Fixture(long gold, long coin, long nextSequence)
+                {
+                    var result = EconomyBatchContractAcceptance.Fixture();
+                    var state = result.CurrentState;
+                    state.Currency = new Dto.CurrencyQueryDTO(gold, coin, 0, 0);
+                    state.EnchantATKCount = 0;
+                    var metadata = state.EconomyBatchState;
+                    metadata.NextSequence = nextSequence;
+                    metadata.SupportsQuestAwakeningBatch = metadata.SupportsQuestAwakeningRecovery = true;
+                    metadata.IndependentGrowthFailures = true;
+                    metadata.QuestGoldPreview = new Dto.QuestGoldPreviewDTO { BaseAmount = 75 };
+                    return result;
+                }
+                Check(LocalProgression.Execute("batched-quest-fixture", state =>
+                    EconomyBatchProgression.ApplyServerState(state, Fixture(0, 30, 1).CurrentState, 1)), "isolated committed state saves");
+                var journal = new EconomyInputJournal(path, LocalProgression.AccountKey);
+                journal.Data.Generation = 1;
+                SetCore("_journal", journal); SetCore("_network", network);
+                SetCore("_localGeneration", LocalProgression.AccountGeneration); SetCore("_networkGeneration", network.AccountGeneration);
+                SetCore("_supported", true); SetCore("_recovered", true);
+
+                Dto.QuestStateDTO Board(Dto.QuestRowState guide = Dto.QuestRowState.Claimable, bool goldClaimed = false, bool nextClaimable = false)
+                {
+                    var state = State(dailyComplete: true);
+                    var current = state.Rows.Single(x => x.QuestId == 10015);
+                    current.State = guide; current.Progress = 1; current.NextQuestId = nextGuideId;
+                    current.Rewards = new() { Reward(eCurrency.AncientCoin, 20) };
+                    var next = state.Rows.Single(x => x.QuestId == 10016);
+                    next.QuestId = nextGuideId;
+                    next.Description = "서버가 내려준 다음 가이드";
+                    if (nextClaimable) { next.State = Dto.QuestRowState.Claimable; next.Progress = 1; }
+                    if (goldClaimed) state.Rows.Single(x => x.QuestId == 20001).State = Dto.QuestRowState.Claimed;
+                    return state;
+                }
+                quest.Apply(Board(), "batched-claim-fixture");
+                uiObject = UnityEngine.Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>("Assets/UGUI/Prefabs/UGUI_UIRoot.prefab"));
+                var ui = uiObject.GetComponent<UIManager>();
+                var questPanel = UnityEngine.Object.Instantiate(ui.Catalog.panelGuide, ui.LayerPanels, false);
+                var panelView = questPanel.GetComponent<GuidePanelView>();
+                var panel = questPanel.GetComponent<BalanceQuestPanel>() ?? questPanel.AddComponent<BalanceQuestPanel>();
+                questPanel.SetActive(true); panel.Bind(panelView); panel.SelectCategory(eQuestCategory.Daily); Publish(quest);
+                var mainTemplate = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/UGUI/Prefabs/Screens/Screen_Main.prefab");
+                var hudTemplate = mainTemplate.GetComponentsInChildren<GuideGoalView>(true).Single(x => x.hideWithPanels);
+                var hud = UnityEngine.Object.Instantiate(hudTemplate, ui.LayerScreens, false);
+                hud.gameObject.SetActive(true);
+                var toast = Field<ToastView>(ui, "_toast");
+                RewardPopupView[] Popups() => ui.LayerOverlays.GetComponentsInChildren<RewardPopupView>(false);
+                RewardSlotView Slot(RewardPopupView popup) => popup.slots.GetComponentsInChildren<RewardSlotView>(false).Single();
+
+                Dto.OnEconomyBatchRequestDTO Send()
+                {
+                    // Advance just the normal deadline and let the actual durable journal and network call run.
+                    SetCore("_sealAfter", 0f);
+                    for (int i = 0; i < 4 && transport.Pending == null; i++)
+                    { EconomyBatchProgression.FlushLocalWrites(); EconomyBatchProgression.Pump(); }
+                    if (transport.Pending == null || transport.LastBatch?.RequestId != journal.Data.InFlight?.RequestId)
+                        throw new InvalidOperationException("The actual economy batch was not sent.");
+                    return transport.LastBatch;
+                }
+                void Resolve(Dto.OnEconomyBatchRequestDTO request, List<Dto.QuestClaimResultDTO> targets,
+                    Dto.QuestStateDTO quests, long gold, long coins, bool replay = false)
+                {
+                    long revision = request.ExpectedEconomyRevision + 1;
+                    int applied = targets.Count(x => x.Status == Dto.EconomyCommandStatus.Applied);
+                    var result = Fixture(gold, coins, request.Sequence + 1);
+                    result.RequestId = request.RequestId; result.EconomyRevision = revision;
+                    result.Quests = quests; result.Replayed = replay;
+                    result.Receipt = new Dto.EconomyBatchReceiptDTO
+                    {
+                        RequestId = request.RequestId, Generation = request.Generation, Sequence = request.Sequence,
+                        CommittedRevision = revision, PayloadHash = EconomyInputJournal.Hash(request), Results = new()
+                    };
+                    for (int i = 0; i < request.Commands.Count; i++)
+                    {
+                        var command = request.Commands[i];
+                        if (command.Kind == Dto.EconomyCommandKind.GoldAttack)
+                        {
+                            result.CurrentState.EnchantATKCount = 1;
+                            result.Receipt.Results.Add(new() { Index = i, Kind = command.Kind, Status = Dto.EconomyCommandStatus.Applied,
+                                AppliedCount = 1, SpentGold = command.SpendLimit });
+                        }
+                        else result.Receipt.Results.Add(new() { Index = i, Kind = command.Kind, AppliedCount = applied,
+                            Status = applied > 0 ? Dto.EconomyCommandStatus.Applied : Dto.EconomyCommandStatus.Rejected,
+                            ErrorCode = applied == 0 ? targets[0].ErrorCode : null, QuestClaimResults = targets });
+                    }
+                    transport.Succeed(result);
+                    Publish(quest);
+                    Check(!EconomyBatchProgression.HasUnknownResult && journal.Data.InFlight == null &&
+                        LocalProgression.State.Economy.LastAppliedRequestId == request.RequestId, "local confirmed write and command resolution match the fixture receipt");
+                }
+                Dto.QuestClaimResultDTO Target(Dto.QuestClaimTargetDTO target, Dto.EconomyCommandStatus status, Dto.QuestRewardDTO grant = null) => new()
+                {
+                    QuestId = target.QuestId, PeriodKey = target.PeriodKey, Status = status,
+                    ErrorCode = status == Dto.EconomyCommandStatus.Rejected ? Protocol.Message.Data.eErrorCode.QuestNotClaimable : null,
+                    GrantedRewards = status != Dto.EconomyCommandStatus.Applied ? null : grant == null ? new() : new() { grant }
+                };
+
+                var goldRow = RowView(panel, 20001);
+                void RefreshInputGates()
+                {
+                    typeof(BalanceQuestPanel).GetMethod("Update", Private).Invoke(panel, null);
+                    typeof(GuideGoalView).GetMethod("Update", Private).Invoke(hud, null);
+                }
+                EconomyBatchProgression.SetExternalWritePending(true);
+                RefreshInputGates();
+                Check(!goldRow.actionButton.interactable && goldRow.actionLabel.text == "처리 대기" &&
+                    !panelView.claimAllButton.interactable && !hud.actionButton.interactable && Popups().Length == 0,
+                    "claim controls wait while an in-flight menu snapshot owns the admission fence");
+                EconomyBatchProgression.SetExternalWritePending(false);
+                RefreshInputGates();
+                Check(goldRow.actionButton.interactable && panelView.claimAllButton.interactable && hud.actionButton.interactable,
+                    "existing claim controls reopen as soon as the admission fence clears");
+                Check(quest.GetQuestDefinition(nextGuideId) == null, "the preview fixture uses a guide present only in server data");
+                float clickedAt = Time.realtimeSinceStartup;
+                Click(goldRow.actionButton);
+                var initialPopup = Popups().Single();
+                Check(initialPopup.title.text == "보상 획득" && Slot(initialPopup).icon.sprite == ui.Catalog.iconCoin &&
+                    Slot(initialPopup).quantity.text == "" && ui.GameplayInputBlocked && !Scripts.Core.Utils.GameplayLoading.IsVisible &&
+                    EconomyBatchProgression.GetDisplayBalance(eCurrency.Gold) == 75 && LocalProgression.Balance(eCurrency.Gold) == 0,
+                    "single click shows the dynamic gold icon, predicts the balance and leaves the confirmed wallet untouched");
+                Check(transport.Pending == null && !goldRow.actionButton.interactable && (float)CoreField("_sealAfter").GetValue(null) > clickedAt,
+                    "queued single claim blocks duplicate row clicks without transmitting early");
+                var single = Send();
+                var singleTarget = single.Commands.Single().QuestClaim.Targets.Single();
+                Resolve(single, new() { Target(singleTarget, Dto.EconomyCommandStatus.Applied, Reward(eCurrency.Gold, 123)) }, Board(goldClaimed: true), 123, 30);
+                Check(Popups().Single() == initialPopup && Slot(initialPopup).quantity.text == NumberNotation.Format(123),
+                    "a confirmed dynamic gold amount updates the existing popup");
+                Click(initialPopup.closeButton);
+
+                foreach (bool success in new[] { false, true })
+                {
+                    Click(hud.actionButton);
+                    var popup = Popups().Single();
+                    Check(Slot(popup).icon.sprite == ui.Catalog.iconAncientCoin && Slot(popup).quantity.text == NumberNotation.Format(20) &&
+                        hud.description.text == "서버가 내려준 다음 가이드" && !Field<bool>(hud, "_claimable") &&
+                        quest.GetSnapshot(eQuestCategory.Guide).Rows.Single(x => x.Token.QuestId == 10015).State == QuestRowState.Claimable &&
+                        EconomyBatchProgression.GetDisplayBalance(eCurrency.AncientCoin) == 50 && LocalProgression.Balance(eCurrency.AncientCoin) == 30,
+                        "guide click immediately shows fixed rewards and the locked server next step while waiting for its receipt");
+                    Click(popup.closeButton);
+                    Check(Popups().Length == 0 && !ui.GameplayInputBlocked && EconomyBatchProgression.HasPendingWork,
+                        "closing the popup releases input while the actual claim persists");
+                    var guideRequest = Send();
+                    var guideTarget = guideRequest.Commands.Single().QuestClaim.Targets.Single();
+                    transport.Fail(FixtureError("Timeout"));
+                    Check(EconomyBatchProgression.HasUnknownResult && Popups().Length == 0 &&
+                        EconomyBatchProgression.GetDisplayBalance(eCurrency.AncientCoin) == 50,
+                        "lost response holds the same input and does not reopen the popup");
+                    SetCore("_retryAt", 0f); EconomyBatchProgression.Pump();
+                    Check(transport.LastQuery?.RequestId == guideRequest.RequestId && transport.LastQuery.Sequence == guideRequest.Sequence,
+                        "the lost acknowledgement queries the original batch identity");
+                    var status = success ? Dto.EconomyCommandStatus.Applied : Dto.EconomyCommandStatus.Rejected;
+                    Resolve(guideRequest, new() { Target(guideTarget, status, success ? Reward(eCurrency.AncientCoin, 20) : null) },
+                        Board(guide: success ? Dto.QuestRowState.Claimed : Dto.QuestRowState.Claimable,
+                            goldClaimed: true, nextClaimable: success), 123, success ? 50 : 30, replay: true);
+                    var restoredGuide = quest.GetActiveGuideRow();
+                    Check(Popups().Length == 0 && !ui.GameplayInputBlocked && LocalProgression.Balance(eCurrency.AncientCoin) == (success ? 50 : 30) &&
+                        EconomyBatchProgression.GetDisplayBalance(eCurrency.AncientCoin) == (success ? 50 : 30) &&
+                        restoredGuide.Token.QuestId == (success ? nextGuideId : 10015) &&
+                        hud.description.text == restoredGuide.Description && hud.actionButton.interactable &&
+                        toast.gameObject.activeSelf == !success && (success || toast.label.text == "아직 받을 수 없는 퀘스트입니다."),
+                        success ? "replayed success persists the reward and enables the confirmed next guide without a popup or toast" :
+                            "replayed rejection rolls back the guide and projected balance and shows just the failure toast");
+                    toast.gameObject.SetActive(false);
+                }
+
+                var expected = Visible(panel).Where(x => x.CanClaim).Select(x => x.Token).ToArray();
+                Check(EconomyBatchProgression.TryQueueGold(true, 1, null, out _) == EconomyInputStatus.PendingSave,
+                    "gold growth opens the existing economy window");
+                float openedUntil = (float)CoreField("_sealAfter").GetValue(null);
+                Click(panelView.claimAllButton); Click(panelView.claimAllButton);
+                var bulkPopup = Popups().Single();
+                Check(expected.Length == 3 && !panelView.claimAllButton.interactable && Slot(bulkPopup).quantity.text == NumberNotation.Format(15) &&
+                    (float)CoreField("_sealAfter").GetValue(null) == openedUntil && transport.Pending == null,
+                    "claim-all immediately shows one combined popup and blocks the duplicate click");
+                var bulk = Send();
+                var request = bulk.Commands[1].QuestClaim;
+                Check(bulk.Commands.Count == 2 && bulk.Commands[0].Kind == Dto.EconomyCommandKind.GoldAttack &&
+                    request.Category == Dto.QuestCategory.Daily && request.Targets.Select(x => (x.QuestId, x.PeriodKey))
+                    .SequenceEqual(expected.Select(x => (x.QuestId, x.Period))), "the batch contains only the frozen selected tab tokens including the previous period");
+                var refreshed = Board(guide: Dto.QuestRowState.Claimed, goldClaimed: true, nextClaimable: true);
+                refreshed.Rows.Single(x => x.QuestId == expected[0].QuestId && x.PeriodKey == expected[0].Period).State = Dto.QuestRowState.Claimed;
+                Resolve(bulk, new() { Target(request.Targets[0], Dto.EconomyCommandStatus.Applied, Reward(eCurrency.AncientCoin, 5)),
+                    Target(request.Targets[1], Dto.EconomyCommandStatus.Rejected), Target(request.Targets[2], Dto.EconomyCommandStatus.Unprocessed) },
+                    refreshed, 123 - bulk.Commands[0].SpendLimit, 55);
+                Check(Popups().Single() == bulkPopup && bulkPopup.description.text.Contains("1/3") &&
+                    Slot(bulkPopup).quantity.text == NumberNotation.Format(5) && !toast.gameObject.activeSelf,
+                    "partial result replaces the predicted quantity in the same popup and keeps its confirmed prefix");
+                Click(bulkPopup.closeButton);
+
+                bool discarded = false;
+                Check(EconomyBatchProgression.TryQueueQuestClaim(new()
+                    { QuestId = nextGuideId, PeriodKey = "permanent" }, result => discarded = result == null) == EconomyInputStatus.PendingSave &&
+                    EconomyBatchProgression.TryQueueGold(false, 1, null, out _) == EconomyInputStatus.PendingSave,
+                    "mixed old and new commands persist before a simulated rollback");
+                var uncertain = Send();
+                transport.Fail(FixtureError("Timeout"));
+                SetCore("_retryAt", 0f); EconomyBatchProgression.Pump();
+                Check(transport.LastQuery?.RequestId == uncertain.RequestId, "rollback eligibility is checked on the original issued ID");
+                var notFound = Fixture(LocalProgression.Balance(eCurrency.Gold), LocalProgression.Balance(eCurrency.AncientCoin), uncertain.Sequence);
+                notFound.RequestId = uncertain.RequestId; notFound.Status = Dto.EconomyBatchStatus.NotFound;
+                notFound.Receipt = null; notFound.EconomyRevision = uncertain.ExpectedEconomyRevision;
+                notFound.CurrentState.EnchantATKCount = LocalProgression.State.AttackLevel;
+                notFound.CurrentState.EconomyBatchState.SupportsQuestAwakeningBatch = false;
+                notFound.CurrentState.EconomyBatchState.QuestGoldPreview = null;
+                transport.Succeed(notFound);
+                EconomyBatchProgression.FlushLocalWrites(); EconomyBatchProgression.Pump();
+                Check(discarded && !EconomyBatchProgression.HasUnknownResult && !EconomyBatchProgression.QuestClaimsAvailable &&
+                    journal.Data.AbandonedRequest?.RequestId == uncertain.RequestId && !EconomyBatchProgression.IsQuestClaimPending(nextGuideId, "permanent") &&
+                    journal.Data.InFlight?.Commands.Single().Kind == Dto.EconomyCommandKind.GoldHealth &&
+                    journal.Data.InFlight?.RequestId != uncertain.RequestId,
+                    "a recovery-only NotFound discards unsupported claims while preserving the independent legacy input");
+                Check(transport.ClaimCalls == 0 && transport.UnexpectedCalls == 0 && transport.Pending == null,
+                    "the fake transport sees only batch mutations and their result queries");
+                return new Dictionary<string, object> { { "passed", checks.Count }, { "checks", checks } };
+            }
+            finally
+            {
+                core.GetMethod("ResetAccount", staticPrivate).Invoke(null, null);
+                if (uiObject != null) UnityEngine.Object.DestroyImmediate(uiObject);
+                UnityEngine.Object.DestroyImmediate(questObject); UnityEngine.Object.DestroyImmediate(networkObject);
+                SetUi(null); QuestManager.Instance = null; NetworkManager.Instance = null;
+                received.SetValue(null, oldReceived); source.SetValue(null, oldSource);
+                PlayFab.PluginManager.SetPlugin(originalTransport, PlayFab.PluginContract.PlayFab_Transport);
+                foreach (var file in new[] { path, path + ".tmp", path + ".bak" }) if (File.Exists(file)) File.Delete(file);
+            }
+        }
+
         /// <summary>격리된 전송으로 모두받기의 단일 전송, 지급 표시와 실패 복구를 검사한다.</summary>
         public static Dictionary<string, object> RunClaimFailureRecovery()
         {
@@ -241,6 +505,8 @@ namespace KingdomIdle.UGUI.Editor
             public int ClaimCalls, ReadCalls, UnexpectedCalls;
             public long LastQuestId; public string LastPeriod;
             public Dto.QuestBulkClaimDTO LastBulk;
+            public Dto.OnEconomyBatchRequestDTO LastBatch;
+            public Dto.OnGetEconomyBatchResultRequestDTO LastQuery;
             public PlayFab.Internal.CallRequestContainer Pending;
             public bool MatchesDailyBulk(string boardPeriod, QuestClaimToken[] expected) => LastQuestId == 0 && LastPeriod == "permanent" &&
                 LastBulk?.Category == Dto.QuestCategory.Daily && LastBulk.BoardPeriod == boardPeriod &&
@@ -259,6 +525,10 @@ namespace KingdomIdle.UGUI.Editor
                     LastBulk = payload["Bulk"]?.ToObject<Dto.QuestBulkClaimDTO>(); ClaimCalls++;
                 }
                 else if (call.FunctionName == "OnGetUserState") ReadCalls++;
+                else if (call.FunctionName == "OnEconomyBatch")
+                    LastBatch = Newtonsoft.Json.Linq.JObject.FromObject(call.FunctionParameter).ToObject<Dto.OnEconomyBatchRequestDTO>();
+                else if (call.FunctionName == "OnGetEconomyBatchResult")
+                    LastQuery = Newtonsoft.Json.Linq.JObject.FromObject(call.FunctionParameter).ToObject<Dto.OnGetEconomyBatchResultRequestDTO>();
                 else { Block(); return; }
                 Pending = container;
             }
@@ -267,7 +537,7 @@ namespace KingdomIdle.UGUI.Editor
                 var pending = Pending ?? throw new InvalidOperationException("Expected an intercepted fixture request.");
                 Pending = null; pending.ErrorCallback(error);
             }
-            public PlayFab.Internal.CallRequestContainer Succeed(Dto.OnClaimQuestRewardResponseDTO response)
+            public PlayFab.Internal.CallRequestContainer Succeed(Dto.ApiResponseDTO response)
             {
                 var pending = Pending ?? throw new InvalidOperationException("Expected an intercepted fixture request.");
                 Pending = null;

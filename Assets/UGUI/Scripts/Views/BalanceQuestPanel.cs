@@ -59,7 +59,7 @@ namespace KingdomIdle.UGUI
                 if (_tabs.Count != 0) Rebind(true);
             }
             if (_manager == null) Connect();
-            else if (_claimBusy != _manager.IsBusy) Rebind(false);
+            else if (_claimBusy != _manager.ClaimInputBlocked) Rebind(false);
         }
         private void ClearObsoleteClaim()
         {
@@ -227,7 +227,7 @@ namespace KingdomIdle.UGUI
             if (board != null)
                 foreach (var row in board.Rows.OrderBy(x => StateOrder(x.State))) _visible.Add(row);
 
-            bool claimBusy = _manager != null && _manager.IsBusy;
+            bool claimBusy = _manager != null && _manager.ClaimInputBlocked;
             bool claimPresentationChanged = _claimBusy != claimBusy;
             _claimBusy = claimBusy;
             RefreshClaimControls();
@@ -388,24 +388,31 @@ namespace KingdomIdle.UGUI
         {
             for (int i = 0; i < _tabDots.Count; i++)
                 NotificationDot.SetVisible(_tabDots[i], _manager != null &&
-                    _manager.GetSnapshot(Categories[i]).Rows.Any(row => row.CanClaim));
+                    _manager.GetSnapshot(Categories[i]).Rows.Any(row => row.State == QuestRowState.Claimable));
         }
 
         private void RefreshClaimControls()
         {
             int count = _visible.Count(row => row.CanClaim);
-            if (_view.claimAllButton != null) _view.claimAllButton.interactable = count > 0 && !_claimBusy;
-            string action = _claimBusy ? "수령 중…" : $"모두받기 ({count})";
+            bool receiving = _claimBusy || _visible.Any(row => row.IsClaimQueued);
+            if (_view.claimAllButton != null) _view.claimAllButton.interactable = count > 0 && !receiving;
+            string action = receiving ? ClaimWaitLabel : $"모두받기 ({count})";
             if (_view.claimAllLabel != null && _view.claimAllLabel.text != action) _view.claimAllLabel.text = action;
             string summary = $"{CategoryLabels[(int)_selectedCategory]} 퀘스트\n수령 가능 {count}개";
             if (_view.claimSummaryLabel != null && _view.claimSummaryLabel.text != summary) _view.claimSummaryLabel.text = summary;
         }
 
-        /// <summary>표시 당시 토큰의 퀘스트 하나만 기존 서버 수령 경로로 보낸다.</summary>
+        /// <summary>표시 당시 토큰의 퀘스트 하나만 수령한다.</summary>
         private void Claim(Row row)
         {
             var host = UIManager.Instance;
-            if (host?.GameplayInputBlocked == true) return;
+            if (host?.GameplayInputBlocked == true || _manager.ClaimInputBlocked) return;
+            if (host != null && EconomyBatchProgression.QuestClaimsAvailable)
+            {
+                host.PresentBatchedQuestClaim(_manager, row.Snapshot.Token);
+                Rebind(false);
+                return;
+            }
             _pendingClaim = row.Snapshot.Token;
             var token = row.Snapshot.Token;
             var manager = _manager;
@@ -430,13 +437,19 @@ namespace KingdomIdle.UGUI
             if (this != null && isActiveAndEnabled) Rebind(false);
         }
 
-        /// <summary>클릭 당시 현재 탭에 표시된 수령 가능 토큰을 기존 일괄 경로에서 고정한다.</summary>
+        /// <summary>클릭 당시 선택된 탭의 수령 가능 토큰을 고정한다.</summary>
         private void ClaimAll()
         {
             var host = UIManager.Instance;
-            if (_manager == null || _claimBusy || host?.GameplayInputBlocked == true) return;
+            if (_manager == null || _manager.ClaimInputBlocked || host?.GameplayInputBlocked == true || _visible.Any(row => row.IsClaimQueued)) return;
             var row = _visible.FirstOrDefault(snapshot => snapshot.CanClaim);
             if (row == null) return;
+            if (host != null && EconomyBatchProgression.QuestClaimsAvailable)
+            {
+                host.PresentBatchedQuestClaim(_manager, row.Token, _selectedCategory);
+                Rebind(false);
+                return;
+            }
             var manager = _manager;
             _rewardScope = host?.BeginRewardRequest("quest-input", () => manager != null && manager.IsBusy);
             QuestClaimResult result;
@@ -467,8 +480,10 @@ namespace KingdomIdle.UGUI
 
         private void Render(Row row)
         {
-            row.View.SetQuest(row.Snapshot, UIManager.Instance.Catalog, claimBusy: _claimBusy);
+            row.View.SetQuest(row.Snapshot, UIManager.Instance.Catalog, claimBusy: _claimBusy, waitLabel: ClaimWaitLabel);
         }
+
+        private string ClaimWaitLabel => _claimBusy && _manager?.IsBusy == false ? "처리 대기" : "수령 중…";
 
         private sealed class Row
         {

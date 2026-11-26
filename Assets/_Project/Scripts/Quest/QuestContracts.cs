@@ -64,20 +64,21 @@ namespace KingdomIdle.Balance
         public long Progress { get; }
         public QuestRowState State { get; }
         public bool IsPending { get; }
+        public bool IsClaimQueued { get; }
         public long ExpiresUtc { get; }
         public eQuestPresentationType PresentationType { get; }
         public IReadOnlyList<QuestRewardSnapshot> Rewards { get; }
-        public bool CanClaim => State == QuestRowState.Claimable;
+        public bool CanClaim => State == QuestRowState.Claimable && !IsClaimQueued;
         public bool IsCompleted => State == QuestRowState.Claimable || State == QuestRowState.Claimed;
 
         public QuestRowSnapshot(QuestClaimToken token, eQuestCategory category, string title, string description,
             eQuestObjectiveType objectiveType, long targetId, int requiredCount, long progress, QuestRowState state,
             bool isPending, long expiresUtc, IEnumerable<QuestRewardSnapshot> rewards,
-            eQuestPresentationType presentationType = eQuestPresentationType.None)
+            eQuestPresentationType presentationType = eQuestPresentationType.None, bool isClaimQueued = false)
         {
             Token = token; Category = category; Title = title ?? string.Empty; Description = description ?? string.Empty;
             ObjectiveType = objectiveType; TargetId = targetId; RequiredCount = requiredCount; Progress = progress;
-            State = state; IsPending = isPending; ExpiresUtc = expiresUtc; PresentationType = presentationType;
+            State = state; IsPending = isPending; IsClaimQueued = isClaimQueued; ExpiresUtc = expiresUtc; PresentationType = presentationType;
             Rewards = new List<QuestRewardSnapshot>(rewards ?? Array.Empty<QuestRewardSnapshot>()).AsReadOnly();
         }
 
@@ -87,7 +88,7 @@ namespace KingdomIdle.Balance
             if (other == null || Token != other.Token || Category != other.Category || Title != other.Title ||
                 Description != other.Description || ObjectiveType != other.ObjectiveType || TargetId != other.TargetId ||
                 RequiredCount != other.RequiredCount || Progress != other.Progress || State != other.State ||
-                IsPending != other.IsPending || ExpiresUtc != other.ExpiresUtc || PresentationType != other.PresentationType ||
+                IsPending != other.IsPending || IsClaimQueued != other.IsClaimQueued || ExpiresUtc != other.ExpiresUtc || PresentationType != other.PresentationType ||
                 Rewards.Count != other.Rewards.Count) return false;
             for (int i = 0; i < Rewards.Count; i++)
                 if (Rewards[i].Currency != other.Rewards[i].Currency || Rewards[i].Amount != other.Rewards[i].Amount ||

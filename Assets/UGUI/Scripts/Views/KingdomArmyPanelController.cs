@@ -49,6 +49,7 @@ namespace KingdomIdle.UGUI
         private static KingdomArmyManager _mgr;
         private static Scripts.Core.Manager.StageManager _stageEvents;
         private static string[] _displayedJobs;
+        private static int _displayedFragments;
         private static string _detailEquipmentId;
         private static JobData _detailJob;
         private static bool _detailCanQueueJobChange;
@@ -104,6 +105,8 @@ namespace KingdomIdle.UGUI
                     UnsubscribeStageEvents();
                     if (EquipmentManager.Instance != null) EquipmentManager.Instance.OnActionCompleted -= OnEquipmentActionCompleted;
                     if (_mgr != null) _mgr.OnJobChangeCompleted -= OnJobChangeCompleted;
+                    EconomyBridge.OnAmountChanged -= OnFragmentWalletChanged;
+                    EconomyBatchProgression.Changed -= OnProjectedFragmentsChanged;
                     _view = null;
                     _memberTabButtons.Clear();
                     _navButtons.Clear();
@@ -120,12 +123,17 @@ namespace KingdomIdle.UGUI
             }
 
             _players = _mgr.GetPlayers();
+            _displayedFragments = _mgr.GetFragments();
             _displayedJobs = _players.Select(p => p != null ? p.playerStatus?.JobName : null).ToArray();
             _stageEvents = Scripts.Core.Manager.StageManager.Instance;
             if (_stageEvents != null) _stageEvents.OnStageEnter += OnPartyApplied;
             var equipment = EquipmentManager.Instance;
             if (equipment != null) { equipment.OnActionCompleted -= OnEquipmentActionCompleted; equipment.OnActionCompleted += OnEquipmentActionCompleted; }
             _mgr.OnJobChangeCompleted -= OnJobChangeCompleted; _mgr.OnJobChangeCompleted += OnJobChangeCompleted;
+            EconomyBridge.OnAmountChanged -= OnFragmentWalletChanged;
+            EconomyBridge.OnAmountChanged += OnFragmentWalletChanged;
+            EconomyBatchProgression.Changed -= OnProjectedFragmentsChanged;
+            EconomyBatchProgression.Changed += OnProjectedFragmentsChanged;
             _activeMemberIndex = pendingMember >= 0 && _players != null && _players.Count > 0
                 ? Mathf.Clamp(pendingMember, 0, _players.Count - 1)
                 : 0;
@@ -140,7 +148,12 @@ namespace KingdomIdle.UGUI
         private static void OnJobChangeCompleted(KingdomArmyManager.JobChangeInfo info)
         {
             if (_view == null || info == null) return;
-            if (!info.Ok) { ShowToast(string.IsNullOrEmpty(info.Failure) ? "전직에 실패했습니다." : info.Failure); return; }
+            if (!info.Ok)
+            {
+                if (_contentPage == typeof(KAJobDetailView) && _detailJob != null) ShowJobDetail(_detailJob);
+                ShowToast(string.IsNullOrEmpty(info.Failure) ? "전직에 실패했습니다." : info.Failure);
+                return;
+            }
             string name = JobData.GetDisplayName(info.JobName);
             ShowToast(info.IsNewUnlock ? $"{name} 전직 완료 (파편 {NumberNotation.Format(info.SpentClassFragment)}개 사용)" : $"{name} 전직 완료");
             _players = _mgr.GetPlayers();
@@ -176,6 +189,21 @@ namespace KingdomIdle.UGUI
         {
             if (_stageEvents != null) _stageEvents.OnStageEnter -= OnPartyApplied;
             _stageEvents = null;
+        }
+
+        private static void OnFragmentWalletChanged(eCurrency currency, long amount)
+        {
+            if (currency == eCurrency.ClassFragment) OnProjectedFragmentsChanged();
+        }
+
+        private static void OnProjectedFragmentsChanged()
+        {
+            if (_view == null || _mgr == null) return;
+            int owned = _mgr.GetFragments();
+            if (owned == _displayedFragments) return;
+            _displayedFragments = owned;
+            if (_contentPage == typeof(KAJobDetailView) && _detailJob != null) ShowJobDetail(_detailJob);
+            else if (_contentPage == typeof(KAJobChangeView)) Refresh();
         }
 
         // Queued jobs and replacement character instances become authoritative at the next wave.
@@ -1323,7 +1351,7 @@ namespace KingdomIdle.UGUI
             _mgr.TryChangeJob(player, job.jobName,
                 onSuccess: () =>
                 {
-                    ShowToast($"{job.DisplayName} 전직을 서버에 요청했습니다.");
+                    ShowToast($"{job.DisplayName} 전직을 요청했습니다.");
                     ShowJobDetail(job);
                 },
                 onError: msg => ShowToast(string.IsNullOrEmpty(msg) ? "전직에 실패했습니다." : msg));

@@ -287,17 +287,7 @@ namespace KingdomIdle.MageTower
             if (EconomyBatchProgression.SupportsMageEnhance)
             {
                 var status = EconomyBatchProgression.TryQueueMageEnhance(skillId);
-                if (status == EconomyInputStatus.PendingSave) { LastFailure = null; return MageActionResult.Queued; }
-                return status switch
-                {
-                    EconomyInputStatus.MaxLevel => MageActionResult.MaxLevel,
-                    EconomyInputStatus.InsufficientFunds => MageActionResult.NotEnough,
-                    EconomyInputStatus.NotReady => MageActionResult.NetworkNotReady,
-                    EconomyInputStatus.InvalidRequest => MageActionResult.InvalidRequest,
-                    EconomyInputStatus.SaveFailed => MageActionResult.SaveFailed,
-                    EconomyInputStatus.QueueFull => MageActionResult.QueueFull,
-                    _ => MageActionResult.Busy
-                };
+                return BatchAction(status);
             }
             if (!EconomyBatchProgression.CanStartSingleMageEnhance) return MageActionResult.Busy;
             if (GetEnhanceLevel(skillId) >= BalanceMath.MageCap) return MageActionResult.MaxLevel;
@@ -311,6 +301,21 @@ namespace KingdomIdle.MageTower
             return MageActionResult.Pending;
         }
 
+        private MageActionResult BatchAction(EconomyInputStatus status)
+        {
+            if (status == EconomyInputStatus.PendingSave) { LastFailure = null; return MageActionResult.Queued; }
+            return status switch
+            {
+                EconomyInputStatus.MaxLevel => MageActionResult.MaxLevel,
+                EconomyInputStatus.InsufficientFunds => MageActionResult.NotEnough,
+                EconomyInputStatus.NotReady => MageActionResult.NetworkNotReady,
+                EconomyInputStatus.InvalidRequest => MageActionResult.InvalidRequest,
+                EconomyInputStatus.SaveFailed => MageActionResult.SaveFailed,
+                EconomyInputStatus.QueueFull => MageActionResult.QueueFull,
+                _ => MageActionResult.Busy
+            };
+        }
+
         // ===== 각성 =====
         public int GetAwakeningCost(int skillId)
         {
@@ -318,22 +323,32 @@ namespace KingdomIdle.MageTower
             return lv + 1;
         }
 
-        public bool CanAwaken(int skillId)
+        public bool CanAwaken(int skillId) => CanAwaken(skillId, out _, out _, out _);
+
+        internal bool CanAwaken(int skillId, out int level, out int cost, out int fragments)
         {
-            var so = GetSkillById(skillId);
-            if (so == null) return false;
-            if (!IsOwned(skillId) || GetAwakeningLevel(skillId) >= 10) return false;
-            return GetFragments(skillId) >= GetAwakeningCost(skillId);
+            bool batched = EconomyBatchProgression.QuestClaimsAvailable;
+            var projection = batched ? EconomyBatchProgression.GetProjection() : default;
+            int projected = projection.Level(EconomyCommandKind.MageAwakening, skillId);
+            level = projection.Valid && projected >= 0 ? projected : GetAwakeningLevel(skillId);
+            cost = level + 1;
+            fragments = projection.Valid ? projection.Fragments(skillId) : GetFragments(skillId);
+            return GetSkillById(skillId) != null && IsOwned(skillId) && level < MageSkillRules.BloomAwakening && fragments >= cost &&
+                (batched ? projection.Valid && EconomyBatchProgression.CanAcceptGrowth : !EconomyBatchProgression.HasUnknownResult);
         }
 
-        /// <summary>각성 비용(파편 Awaken+1)과 단계는 서버(OnAwakeningSkill)가 확정한다. 응답에 재화가 없으므로 MageTowerState만 저장한다.</summary>
-        public bool Awaken(int skillId) => TryAwakenEx(skillId) == MageActionResult.Pending;
+        public bool Awaken(int skillId) => TryAwakenEx(skillId) is MageActionResult.Pending or MageActionResult.Queued;
         public MageActionResult TryAwakenEx(int skillId)
         {
             if (GetSkillById(skillId) == null) return MageActionResult.InvalidRequest;
             if (!IsOwned(skillId)) return MageActionResult.NotOwned;
-            if (GetAwakeningLevel(skillId) >= 10) return MageActionResult.MaxLevel;
             if (IsBusy) return MageActionResult.Busy;
+            if (EconomyBatchProgression.QuestClaimsAvailable)
+                return BatchAction(EconomyBatchProgression.TryQueueMageAwakening(skillId));
+            if (EconomyBatchProgression.HasUnknownResult ||
+                EconomyBatchProgression.Available && !EconomyBatchProgression.RecoveryComplete)
+                return MageActionResult.Busy;
+            if (GetAwakeningLevel(skillId) >= MageSkillRules.BloomAwakening) return MageActionResult.MaxLevel;
             if (GetFragments(skillId) < GetAwakeningCost(skillId)) return MageActionResult.NotEnough;
             var network = Begin(out MageActionResult gate);
             if (network == null) return gate;

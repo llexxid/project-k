@@ -198,6 +198,7 @@ namespace KingdomIdle.Balance
             state.Economy.Server.GoldRemainderMicros = 980000;
             state.Economy.Server.RewardEpochs[0].GoldLevel = 1;
             Check(EconomyProjectionMath.Calculate(state, new[] { Hunt(1), Hunt(2) }, _ => stage).Gold == 21, "fractional income carries across cumulative commands");
+            CheckQuestAwakeningProjection(Check);
 
             state = Fixture(); state.Economy.Hunts.Add(Hunt(3));
             var changed = NextMetadata(state);
@@ -763,6 +764,51 @@ namespace KingdomIdle.Balance
                 Call("ResetAccount"); NetworkManager.Instance = previousNetwork; UnityEngine.Object.DestroyImmediate(owner);
                 foreach (string file in new[] { path, path + ".tmp", path + ".bak" }) if (File.Exists(file)) File.Delete(file);
             }
+        }
+
+        private static void CheckQuestAwakeningProjection(Action<bool, string> check)
+        {
+            var state = Fixture();
+            state.Wallet[eCurrency.AncientCoin] = 30;
+            state.MageSkills[0] = new() { Awaken = 8, Fragments = 19 };
+            state.Economy.Server.QuestGoldPreview = new() { BaseAmount = 48.5m, UsesRubyMultiplier = true };
+            state.Economy.Server.GoldRemainderMicros = 700000;
+            var claim = new EconomyCommandDTO
+            {
+                Kind = EconomyCommandKind.QuestClaim,
+                QuestClaim = new() { Targets = new() { new() { QuestId = 123, PeriodKey = "permanent" } } }
+            };
+            QuestRowDTO FindRow(QuestClaimTargetDTO target) => new()
+            {
+                QuestId = target.QuestId, PeriodKey = target.PeriodKey, State = Protocol.Message.Dto.QuestRowState.Claimable,
+                Rewards = new()
+                {
+                    new() { Kind = RewardKind.Currency, CurrencyType = Protocol.Message.Data.eCurrency.Gold, IsDynamicGold = true },
+                    new() { Kind = RewardKind.Currency, CurrencyType = Protocol.Message.Data.eCurrency.AncientCoin, Amount = 20 },
+                    new() { Kind = RewardKind.Currency, CurrencyType = Protocol.Message.Data.eCurrency.ArcaneKnowledge, Amount = 10 }
+                }
+            };
+            EconomyProjection Calculate(params EconomyCommandDTO[] commands) =>
+                EconomyProjectionMath.Calculate(state, commands, questRow: FindRow);
+            var ruby = EconomyProjectionMath.Quote(Calculate(), EconomyCommandKind.RubyGold, 1);
+            var awake = EconomyProjectionMath.Quote(Calculate(), EconomyCommandKind.MageAwakening, 1, skillId: 0);
+            var next = Calculate(ruby, claim, awake);
+            var second = EconomyProjectionMath.Quote(next, EconomyCommandKind.MageAwakening, 1, skillId: 0);
+            var gold = EconomyProjectionMath.Quote(next, EconomyCommandKind.GoldAttack, 1);
+            var mage = EconomyProjectionMath.Quote(next, EconomyCommandKind.MageEnhance, 1, skillId: 0);
+            check(next.Valid && next.Gold == 50 && next.Balance(eCurrency.AncientCoin) == 50 && next.ArcaneKnowledge == 10 &&
+                awake.SpendLimit == 9 && second.SpendLimit == 10 && gold.SpendLimit == 50 && mage.SpendLimit == 10,
+                "ordered quest and ruby inputs fund growth and successive awakening uses the projected fragment quote");
+            var projected = Calculate(ruby, claim, awake, second, gold, mage);
+            check(projected.Valid && projected.Level(awake.Kind, 0) == 10 && projected.Fragments(0) == 0 &&
+                EconomyProjectionMath.Quote(projected, awake.Kind, 1, skillId: 0) == null &&
+                projected.Gold == 0 && projected.ArcaneKnowledge == 0 && state.Wallet[eCurrency.Gold] == 0 &&
+                state.MageSkills[0].Awaken == 8 && state.MageSkills[0].Fragments == 19 && !state.MageSkills[0].BloomEnabled,
+                "the shared preview caps awakening and leaves confirmed combat, fragments and wallet alone");
+            var noReward = EconomyProjectionMath.Calculate(state, new[] { claim, gold, mage, awake }, allowUnavailable: true);
+            check(noReward.Valid && noReward.Gold == 0 && noReward.AttackLevel == 0 && noReward.Level(mage.Kind, 0) == 0 &&
+                noReward.Level(awake.Kind, 0) == 9 && noReward.Balance(eCurrency.AncientCoin) == 30,
+                "unavailable rewards remove previews for unfunded growth and preserve independently affordable commands");
         }
 
         private static ProgressionState Fixture() => new()

@@ -6,7 +6,11 @@ using Protocol.Message.Data;
 namespace Protocol.Message.Dto
 {
     // 서버 Common/Dto/EconomyDTO.cs와 함께 변경한다. Version 1은 계산 규칙의 호환성도 포함한다.
-    public enum EconomyCommandKind { Hunt = 0, GoldAttack = 1, GoldHealth = 2, RubyGold = 3, RubyExperience = 4, MageEnhance = 5, EquipmentEnhance = 6 }
+    public enum EconomyCommandKind
+    {
+        Hunt = 0, GoldAttack = 1, GoldHealth = 2, RubyGold = 3, RubyExperience = 4,
+        MageEnhance = 5, EquipmentEnhance = 6, QuestClaim = 7, MageAwakening = 8
+    }
     public enum EconomyCommandStatus { Applied = 0, Rejected = 1, Unprocessed = 2 }
     public enum EconomyBatchStatus { Completed = 0, NotFound = 1, Conflict = 2, Retired = 3 }
     public enum MageEnhanceBatchMode { Unknown = 0, RecoveryOnly = 1, Active = 2 }
@@ -48,6 +52,23 @@ namespace Protocol.Message.Dto
         public List<HuntResult> TotalKills { get; set; }
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public int? SkillId { get; set; }
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public long? EquipmentInstanceId { get; set; }
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public EconomyQuestClaimDTO QuestClaim { get; set; }
+    }
+
+    public sealed class EconomyQuestClaimDTO
+    {
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public QuestCategory? Category { get; set; }
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public string BoardPeriod { get; set; }
+        [JsonProperty(Required = Required.Always)] public List<QuestClaimTargetDTO> Targets { get; set; }
+    }
+
+    public sealed class QuestClaimResultDTO
+    {
+        [JsonProperty(Required = Required.Always)] public long QuestId { get; set; }
+        [JsonProperty(Required = Required.Always)] public string PeriodKey { get; set; }
+        [JsonProperty(Required = Required.Always)] public EconomyCommandStatus Status { get; set; }
+        public eErrorCode? ErrorCode { get; set; }
+        public List<QuestRewardDTO> GrantedRewards { get; set; }
     }
 
     public sealed class EconomyCommandResultDTO
@@ -63,6 +84,10 @@ namespace Protocol.Message.Dto
         [JsonProperty(Required = Required.Always)] public long GrantedGold { get; set; }
         [JsonProperty(Required = Required.Always)] public long GrantedExp { get; set; }
         [JsonProperty(Required = Required.AllowNull)] public eErrorCode? ErrorCode { get; set; }
+        public List<QuestClaimResultDTO> QuestClaimResults { get; set; }
+        public int? SkillId { get; set; }
+        public int? AwakeningLevel { get; set; }
+        public int? SpentFragments { get; set; }
     }
 
     public sealed class EconomyBatchReceiptDTO
@@ -126,6 +151,9 @@ namespace Protocol.Message.Dto
         [JsonProperty(Required = Required.Always)] public int Version { get; set; }
         public bool SupportsMageEnhance { get; set; }
         public bool EquipmentEnhanceAvailable { get; set; }
+        public bool SupportsQuestAwakeningBatch { get; set; }
+        public bool SupportsQuestAwakeningRecovery { get; set; }
+        public QuestGoldPreviewDTO QuestGoldPreview { get; set; }
         public MageEnhanceBatchMode MageEnhanceMode { get; set; }
         [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore), JsonConverter(typeof(IndependentGrowthFailuresConverter))]
         public bool IndependentGrowthFailures { get; set; }
@@ -138,6 +166,12 @@ namespace Protocol.Message.Dto
         [JsonProperty(Required = Required.Always)] public long ExpRemainderMicros { get; set; }
         [JsonProperty(Required = Required.AllowNull)] public EconomyBatchReceiptDTO PendingReceipt { get; set; }
         [JsonProperty(Required = Required.Always)] public bool OwnershipChanged { get; set; }
+    }
+
+    public sealed class QuestGoldPreviewDTO
+    {
+        [JsonProperty(Required = Required.Always)] public decimal BaseAmount { get; set; }
+        [JsonProperty(Required = Required.Always)] public bool UsesRubyMultiplier { get; set; }
     }
 
     public sealed class EconomyRewardEpochDTO

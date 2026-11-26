@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using KingdomIdle.Balance;
 using KingdomIdle.Gacha;
 using KingdomIdle.MageTower;
 using Scripts.Core;
@@ -70,6 +71,7 @@ namespace KingdomIdle.UGUI
                     _content = null;
                     _contentTable = null;
                     EconomyBridge.OnAmountChanged -= OnWalletChanged;
+                    EconomyBatchProgression.Changed -= UpdateWallet;
                     if (_equipment != null) _equipment.OnEquipmentStateChanged -= OnEquipmentChanged;
                     _equipment = null;
                     if (GachaManager.Instance != null) GachaManager.Instance.OnPullStateChanged -= OnPullStateChanged;
@@ -97,6 +99,8 @@ namespace KingdomIdle.UGUI
 
             EconomyBridge.OnAmountChanged -= OnWalletChanged;
             EconomyBridge.OnAmountChanged += OnWalletChanged;
+            EconomyBatchProgression.Changed -= UpdateWallet;
+            EconomyBatchProgression.Changed += UpdateWallet;
             if (_equipment != null) _equipment.OnEquipmentStateChanged -= OnEquipmentChanged;
             _equipment = EquipmentManager.Instance;
             if (_equipment != null) _equipment.OnEquipmentStateChanged += OnEquipmentChanged;
@@ -270,10 +274,9 @@ namespace KingdomIdle.UGUI
         {
             if (_content == null || _contentTable == null) return;
             _inventoryFull = GachaManager.Instance?.IsEquipmentInventoryFull(_contentTable) == true;
-            EconomyBridge.TryGetAmount(_contentTable.costCurrency,out long current);
-            UpdateCostLabel(current);
+            UpdateCostLabel(EconomyBatchProgression.GetDisplayBalance(_contentTable.costCurrency));
             var ticketCurrency = TicketCurrency;
-            EconomyBridge.TryGetAmount(ticketCurrency, out long tickets);
+            long tickets = EconomyBatchProgression.GetDisplayBalance(ticketCurrency);
             string ticketName = RewardPresentation.Name(ticketCurrency);
             string ticketCount = $"보유 {NumberNotation.Format(tickets)}장";
             if (_content.ticketName != null && _content.ticketName.text != ticketName) _content.ticketName.text = ticketName;

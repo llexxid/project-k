@@ -28,7 +28,13 @@ namespace KingdomIdle.Balance
         internal static EconomyCommandDTO Copy(EconomyCommandDTO x) => x == null ? null : new()
         {
             Kind = x.Kind, Mode = x.Mode, ExpectedLevel = x.ExpectedLevel, CountLimit = x.CountLimit, SpendLimit = x.SpendLimit,
-            Stage = x.Stage, MainRunId = x.MainRunId, BattleId = x.BattleId, RewardEpoch = x.RewardEpoch, TotalKills = Kills(x.TotalKills), SkillId = x.SkillId, EquipmentInstanceId = x.EquipmentInstanceId
+            Stage = x.Stage, MainRunId = x.MainRunId, BattleId = x.BattleId, RewardEpoch = x.RewardEpoch, TotalKills = Kills(x.TotalKills),
+            SkillId = x.SkillId, EquipmentInstanceId = x.EquipmentInstanceId,
+            QuestClaim = x.QuestClaim == null ? null : new()
+            {
+                Category = x.QuestClaim.Category, BoardPeriod = x.QuestClaim.BoardPeriod,
+                Targets = x.QuestClaim.Targets.Select(t => new QuestClaimTargetDTO { QuestId = t.QuestId, PeriodKey = t.PeriodKey }).ToList()
+            }
         };
         internal static EconomyRewardEpochCutoffDTO Copy(EconomyRewardEpochCutoffDTO x) => x == null ? null : new()
         { Epoch = x.Epoch, Stage = x.Stage, MainRunId = x.MainRunId, BattleId = x.BattleId, TotalKills = Kills(x.TotalKills) };
@@ -42,7 +48,17 @@ namespace KingdomIdle.Balance
             {
                 Index = r.Index, Kind = r.Kind, Status = r.Status, AppliedCount = r.AppliedCount,
                 SpentGold = r.SpentGold, SpentRuby = r.SpentRuby, SpentArcaneKnowledge = r.SpentArcaneKnowledge, SpentEquipmentStone = r.SpentEquipmentStone,
-                GrantedGold = r.GrantedGold, GrantedExp = r.GrantedExp, ErrorCode = r.ErrorCode
+                GrantedGold = r.GrantedGold, GrantedExp = r.GrantedExp, ErrorCode = r.ErrorCode,
+                SkillId = r.SkillId, AwakeningLevel = r.AwakeningLevel, SpentFragments = r.SpentFragments,
+                QuestClaimResults = r.QuestClaimResults?.Select(t => new QuestClaimResultDTO
+                {
+                    QuestId = t.QuestId, PeriodKey = t.PeriodKey, Status = t.Status, ErrorCode = t.ErrorCode,
+                    GrantedRewards = t.GrantedRewards?.Select(g => new QuestRewardDTO
+                    {
+                        Kind = g.Kind, CurrencyType = g.CurrencyType, DefinitionId = g.DefinitionId,
+                        Amount = g.Amount, IsDynamicGold = g.IsDynamicGold
+                    }).ToList()
+                }).ToList()
             }).ToList()
         };
         internal static EconomyBatchStateDTO Copy(EconomyBatchStateDTO x) => x == null ? null : new()
@@ -52,6 +68,9 @@ namespace KingdomIdle.Balance
             PendingReceipt = Copy(x.PendingReceipt), OwnershipChanged = x.OwnershipChanged,
             SupportsMageEnhance = x.SupportsMageEnhance, MageEnhanceMode = x.MageEnhanceMode,
             IndependentGrowthFailures = x.IndependentGrowthFailures, EquipmentEnhanceAvailable = x.EquipmentEnhanceAvailable,
+            SupportsQuestAwakeningBatch = x.SupportsQuestAwakeningBatch, SupportsQuestAwakeningRecovery = x.SupportsQuestAwakeningRecovery,
+            QuestGoldPreview = x.QuestGoldPreview == null ? null : new()
+            { BaseAmount = x.QuestGoldPreview.BaseAmount, UsesRubyMultiplier = x.QuestGoldPreview.UsesRubyMultiplier },
             RewardEpochs = x.RewardEpochs.Select(e => new EconomyRewardEpochDTO { Id = e.Id, GoldLevel = e.GoldLevel, ExpLevel = e.ExpLevel }).ToList()
         };
         internal static bool SameRun(EconomyCommandDTO a, EconomyCommandDTO b) => a.Stage == b.Stage && a.MainRunId == b.MainRunId && a.BattleId == b.BattleId;

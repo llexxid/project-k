@@ -251,20 +251,27 @@ namespace Scripts.Core.Manager
         public void Call<TRequest, TResponse>(TRequest request, Action<TResponse> successCallback, Action<PlayFabError> errorCallback)
             where TRequest : RequestDTO where TResponse : ApiResponseDTO => Dispatch(request, successCallback, errorCallback, null);
 
+        internal void CallWithPreflight<TRequest, TResponse>(TRequest request, Func<TRequest, string> prepare,
+            Action<TResponse> success, Action<PlayFabError> failure)
+            where TRequest : SessionRequestDTO where TResponse : ApiResponseDTO => Dispatch(request, success, failure, null, prepare);
+
         internal void ReadMailList(OnGetMailListRequestDTO request, Action<OnGetMailListResponseDTO> success,
             Action<PlayFabError> failure, Func<bool> wanted) => Dispatch(request, success, failure, wanted);
 
         private void Dispatch<TRequest, TResponse>(TRequest request, Action<TResponse> successCallback, Action<PlayFabError> errorCallback,
-            Func<bool> snapshotWanted) where TRequest : RequestDTO where TResponse : ApiResponseDTO
+            Func<bool> snapshotWanted, Func<TRequest, string> prepare = null) where TRequest : RequestDTO where TResponse : ApiResponseDTO
         {
-            ExecuteFunctionRequest cloudFunction;
+            ExecuteFunctionRequest cloudFunction = null;
+            string function;
             string rubyRequestId = (request as RubyGrowthRequestDTO)?.RequestId;
             var mainCompletion = request as OnCompleteMainWaveRequestDTO;
             try
             {
                 if (request is OnEconomyBatchRequestDTO || request is OnGetEconomyBatchResultRequestDTO)
                     request = JsonConvert.DeserializeObject<TRequest>(JsonConvert.SerializeObject(request));
-                cloudFunction = CreateFunctionRequest<TRequest, TResponse>(request, _sessionGUID, _context);
+                if (prepare == null) cloudFunction = CreateFunctionRequest<TRequest, TResponse>(request, _sessionGUID, _context);
+                else if (string.IsNullOrWhiteSpace(_sessionGUID)) throw new InvalidOperationException("서버 로그인이 필요합니다.");
+                function = cloudFunction?.FunctionName ?? ResolveFunction<TRequest, TResponse>(request).Function;
             }
             catch (Exception ex) when (ex is ArgumentException || ex is JsonException)
             {
@@ -283,12 +290,12 @@ namespace Scripts.Core.Manager
             }
             if (_context == null)
             {
-                errorCallback?.Invoke(CreateError("NotAuthenticated", "로그인이 필요합니다.", cloudFunction.FunctionName));
+                errorCallback?.Invoke(CreateError("NotAuthenticated", "로그인이 필요합니다.", function));
                 return;
             }
             if (request is SessionRequestDTO && !IsGameDataReady)
             {
-                errorCallback?.Invoke(CreateError("IntegrationPending", "전체 게임 데이터 로딩이 필요합니다.", cloudFunction.FunctionName));
+                errorCallback?.Invoke(CreateError("IntegrationPending", "전체 게임 데이터 로딩이 필요합니다.", function));
                 return;
             }
 
@@ -321,7 +328,7 @@ namespace Scripts.Core.Manager
                 if (completed || !IsCurrent()) return;
                 completed = true;
                 if (queued && localGeneration != LocalProgression.AccountGeneration) { Done(); return; }
-                var failure = UnwrapFailure(cloudFunction.FunctionName, error);
+                var failure = UnwrapFailure(function, error);
                 if (economic && sent && EconomyBatchProgression.Available && IsUncertainEconomicFailure(failure))
                     EconomyBatchProgression.MarkUnknown(failure.ErrorMessage);
                 try { errorCallback?.Invoke(failure); }
@@ -430,13 +437,29 @@ namespace Scripts.Core.Manager
             void Send()
             {
                 if (!IsCurrent()) return;
-                if (snapshotWanted != null && !snapshotWanted()) { Fail(CreateError("Cancelled", "닫힌 우편 목록 조회입니다.", cloudFunction.FunctionName)); return; }
+                if (snapshotWanted != null && !snapshotWanted()) { Fail(CreateError("Cancelled", "닫힌 우편 목록 조회입니다.", function)); return; }
                 if (queued && localGeneration != LocalProgression.AccountGeneration ||
                     economic && !recoveryRead && !legacyRecovery && EconomyBatchProgression.HasUnknownResult ||
                     request is OnEnchantSkillRequestDTO && !EconomyBatchProgression.CanStartSingleMageEnhance)
                 {
-                    Fail(CreateError("EconomyHeld", "이전 요청의 결과를 확인한 뒤 다시 시도해 주세요.", cloudFunction.FunctionName));
+                    Fail(CreateError("EconomyHeld", "이전 요청의 결과를 확인한 뒤 다시 시도해 주세요.", function));
                     return;
+                }
+                if (prepare != null)
+                {
+                    // The fence and earlier session writes have applied their confirmed balances before this runs.
+                    string reason;
+                    try
+                    {
+                        reason = prepare(request);
+                        if (reason == null) cloudFunction = CreateFunctionRequest<TRequest, TResponse>(request, _sessionGUID, _context);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogException(ex);
+                        reason = "요청을 준비하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+                    }
+                    if (reason != null) { Fail(CreateError("Preflight", reason, function)); return; }
                 }
                 try { sent = true; PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, Receive, Fail); }
                 catch (Exception ex)
@@ -457,7 +480,7 @@ namespace Scripts.Core.Manager
                     EconomyBatchProgression.SetExternalWritePending(true);
                 }
                 enteredQueue = true;
-                EnqueueCall(cloudFunction.FunctionName, Send, Fail);
+                EnqueueCall(function, Send, Fail);
             }
             if (economic && !recoveryRead && !legacyRecovery && EconomyBatchProgression.Available)
             {
@@ -466,14 +489,14 @@ namespace Scripts.Core.Manager
                     StartCoroutine(WaitForMenuSnapshot(() => !completed && IsCurrent() && localGeneration == LocalProgression.AccountGeneration &&
                         (snapshotWanted == null || snapshotWanted()),
                         () => Time.realtimeSinceStartup, TryRefreshMenuRecovery, EconomyBatchProgression.TryQueueMenuSnapshot, QueueAndSend,
-                        () => Fail(CreateError("EconomyHeld", "서버 정산 결과를 확인하고 있습니다. 확인을 마치면 목록을 다시 불러옵니다.", cloudFunction.FunctionName))));
+                        () => Fail(CreateError("EconomyHeld", "서버 정산 결과를 확인하고 있습니다. 확인을 마치면 목록을 다시 불러옵니다.", function))));
                     return;
                 }
                 if (!EconomyBatchProgression.FlushBeforeWrite(ok =>
                 {
                     if (ok) QueueAndSend();
-                    else Fail(CreateError("EconomyHeld", "이전 입력의 처리를 확인한 뒤 다시 시도해 주세요.", cloudFunction.FunctionName));
-                })) Fail(CreateError("EconomyHeld", "이전 입력의 처리가 필요합니다.", cloudFunction.FunctionName));
+                    else Fail(CreateError("EconomyHeld", "이전 입력의 처리를 확인한 뒤 다시 시도해 주세요.", function));
+                })) Fail(CreateError("EconomyHeld", "이전 입력의 처리가 필요합니다.", function));
             }
             else QueueAndSend();
         }
@@ -603,6 +626,7 @@ namespace Scripts.Core.Manager
             {
                 auth.EconomyBatchVersion = EconomyBatchProtocol.Version;
                 auth.SupportsMageEnhance = true;
+                auth.SupportsQuestAwakeningBatch = true;
                 auth.IndependentGrowthFailures = true;
                 auth.EconomyClientId = EconomyBatchProgression.ClientId;
             }

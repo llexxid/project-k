@@ -23,6 +23,7 @@ namespace KingdomIdle.UGUI
         private UIManager _ui;
         private QuestRuntimeState _state;
         private QuestDefinition _definition;
+        private QuestRowSnapshot _activeRow;
         // 표시한 계정·기간의 권리를 보관한다. 클릭할 때 현재 계정으로 토큰을 다시 만들지 않는다.
         private QuestClaimToken _claimToken;
         private QuestClaimToken _requestedClaimToken;
@@ -76,6 +77,7 @@ namespace KingdomIdle.UGUI
             _ui = null;
             _hasClaimToken = false;
             _claimable = false;
+            _activeRow = null;
             _wasBusy = false;
         }
 
@@ -83,7 +85,7 @@ namespace KingdomIdle.UGUI
         {
             if (ClearObsoleteClaim() && _manager != null) ReadCurrent();
             // 일괄 수령은 가이드 내용이 같으면 변경 이벤트가 없다. 입력 잠금의 전환 때만 다시 읽는다.
-            if (_manager != null && _manager.IsBusy != _wasBusy) ReadCurrent();
+            if (_manager != null && _manager.ClaimInputBlocked != _wasBusy) ReadCurrent();
         }
         private bool ClearObsoleteClaim()
         {
@@ -101,42 +103,41 @@ namespace KingdomIdle.UGUI
         private void Refresh(QuestRuntimeState state, QuestDefinition definition)
         {
             if (definition != null && definition.Category != eQuestCategory.Guide) return;
-            _wasBusy = _manager != null && _manager.IsBusy;
+            _wasBusy = _manager != null && _manager.ClaimInputBlocked;
             _state = state;
             _definition = definition;
             _hasClaimToken = false;
             _claimable = false;
-            bool valid = state != null && definition != null;
+            var active = _manager?.GetActiveGuideRow();
+            _activeRow = active?.Token.QuestId == state?.QuestId ? active : null;
+            bool valid = state != null && (_activeRow != null || definition != null);
             if (valid)
             {
-                // 구형 가이드 표시 API는 유지하되, 수령 입력은 같은 화면 바인딩 시점의 불변 token을 사용한다.
-                if (_manager != null)
-                    foreach (var row in _manager.GetSnapshot(eQuestCategory.Guide).Rows)
-                        if (row.Token.QuestId == state.QuestId && !row.IsPending)
-                        {
-                            _claimToken = row.Token;
-                            _hasClaimToken = true;
-                            _claimable = row.CanClaim;
-                            break;
-                        }
-                Set(description, definition.Description);
-                long step = definition.QuestId - 10000;
+                if (_activeRow != null && !_activeRow.IsPending)
+                {
+                    _claimToken = _activeRow.Token;
+                    _hasClaimToken = true;
+                    _claimable = _activeRow.CanClaim;
+                }
+                Set(description, _activeRow?.Description ?? definition.Description);
+                long step = state.QuestId - 10000;
                 Set(stepLabel, compact ? $"가이드 퀘스트 {step:N0}" : $"가이드 {step:N0}");
-                int required = Mathf.Max(1, definition.RequiredCount);
+                int required = _activeRow?.RequiredCount ?? Mathf.Max(1, definition.RequiredCount);
                 string current = NumberNotation.Format(Mathf.Clamp(state.CurrentProgress, 0, required));
                 string total = NumberNotation.Format(required);
                 Set(progress, compact ? $"진행 {current} / {total}" : $"{current}/{total}");
                 if (progressFill != null) progressFill.fillAmount = Mathf.Clamp01((float)state.CurrentProgress / required);
                 bool claimable = state.IsCompleted && _claimable;
-                bool canNavigate = QuestNavigation.CanNavigate(definition.ObjectiveType);
-                Set(actionLabel, claimable ? (_manager.IsBusy || _claimRequested ? "수령 중…" : definition.RewardGroupId == 0 ? "완료 · 탭" : "수령 가능")
+                bool canNavigate = QuestNavigation.CanNavigate(_activeRow?.ObjectiveType ?? definition.ObjectiveType);
+                bool noReward = _activeRow != null ? _activeRow.Rewards.Count == 0 : definition.RewardGroupId == 0;
+                Set(actionLabel, claimable ? (_manager.IsBusy || _claimRequested ? "수령 중…" : _wasBusy ? "처리 대기" : noReward ? "완료 · 탭" : "수령 가능")
                     : state.IsCompleted ? "보상 대기" : canNavigate ? "이동  ›" : compact ? "자세히  ›" : "전투에서 진행");
                 if (compact && actionLabel != null)
                 {
                     actionLabel.color = claimable ? UguiTheme.InfoInk : UguiTheme.InfoMuted;
                     actionLabel.fontStyle = claimable ? FontStyles.Bold : FontStyles.Normal;
                 }
-                if (actionButton != null) actionButton.interactable = !_manager.IsBusy && !_claimRequested &&
+                if (actionButton != null) actionButton.interactable = !(claimable && _wasBusy) && !_manager.IsBusy && !_claimRequested &&
                     (compact || claimable || (!state.IsCompleted && canNavigate));
             }
             else if (!hideWithPanels)
@@ -173,11 +174,11 @@ namespace KingdomIdle.UGUI
 
         private void Visibility()
         {
-            bool show = !hideWithPanels || (_state != null && _definition != null &&
+            bool show = !hideWithPanels || (_state != null && (_activeRow != null || _definition != null) &&
                 (_ui == null || (!_ui.HasActiveTabPanel && !_ui.HasBlockingPanel)));
             if (body != null && body.activeSelf != show) body.SetActive(show);
             bool breathe = body != null && body.activeInHierarchy && _state != null && _state.IsCompleted &&
-                _manager != null && _claimable && !_manager.IsBusy && !_claimRequested;
+                _manager != null && _claimable && !_wasBusy && !_claimRequested;
             if (breathe == _breathing) return;
             StopBreathing();
             if (breathe && claimBorder != null)
@@ -202,11 +203,18 @@ namespace KingdomIdle.UGUI
             if (_state == null || _manager == null || UIManager.Instance?.GameplayInputBlocked == true) return;
             if (_state.IsCompleted && _hasClaimToken && _claimable)
             {
-                // 서버(OnClaimQuestReward)에 요청한다. 결과는 OnClaimCompleted에서 알리고, 응답의 Quests로 다음 가이드가 바뀐다.
+                if (_manager.ClaimInputBlocked) return;
                 var token = _claimToken;
                 var manager = _manager;
+                var host = UIManager.Instance;
+                if (host != null && EconomyBatchProgression.QuestClaimsAvailable)
+                {
+                    host.PresentBatchedQuestClaim(manager, token);
+                    ReadCurrent();
+                    return;
+                }
                 _claimRequested = true; _requestedClaimToken = token;
-                _rewardScope = UIManager.Instance?.BeginRewardRequest("quest-input", () => manager != null && manager.IsBusy);
+                _rewardScope = host?.BeginRewardRequest("quest-input", () => manager != null && manager.IsBusy);
                 QuestClaimResult result;
                 try { result = manager.TryClaim(token, (ok, message, rewards) => OnClaimCompleted(token, ok, message, rewards)); }
                 catch { _rewardScope?.Dispose(); _rewardScope = null; _claimRequested = false; throw; }
@@ -222,8 +230,9 @@ namespace KingdomIdle.UGUI
                 else if (result.Status == QuestClaimStatus.NetworkNotReady) UIManager.Instance?.ShowToast("서버 로그인이 필요합니다.");
                 ReadCurrent();
             }
-            else if (!_state.IsCompleted && _definition != null && QuestNavigation.CanNavigate(_definition.ObjectiveType))
-                QuestNavigation.Navigate(_definition.ObjectiveType, _definition.TargetId);
+            else if (!_state.IsCompleted && (_activeRow != null || _definition != null) &&
+                QuestNavigation.CanNavigate(_activeRow?.ObjectiveType ?? _definition.ObjectiveType))
+                QuestNavigation.Navigate(_activeRow?.ObjectiveType ?? _definition.ObjectiveType, _activeRow?.TargetId ?? _definition.TargetId);
             else if (compact)
                 UIManager.Instance?.PushPanel(UIPanelId.Guide, null, false, false);
         }

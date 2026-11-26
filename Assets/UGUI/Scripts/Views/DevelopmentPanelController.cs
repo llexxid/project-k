@@ -404,7 +404,8 @@ namespace KingdomIdle.UGUI
                 return true;
             }
             if (!EconomyBatchProgression.HasHeldSpending) return false;
-            if (!EconomyBatchProgression.TryGetHeldPreview(out int count, out long gold, out long ruby, out long knowledge, out long stones))
+            if (!EconomyBatchProgression.TryGetHeldPreview(out int count, out long gold, out long ruby, out long knowledge, out long stones,
+                out int claims, out long fragments))
             {
                 if (EconomyBatchProgression.HasHeldSpending && !EconomyBatchProgression.HasPendingFailureNotice)
                     ShowToast("보류 입력의 재화 조건과 서버 결과를 확인한 뒤 다시 시도해 주세요.");
@@ -413,12 +414,16 @@ namespace KingdomIdle.UGUI
             long generation = LocalProgression.AccountGeneration;
             string knowledgeCost = knowledge > 0 ? $" · {NumberNotation.Exact(knowledge)} 비전 지식" : "";
             if (stones > 0) knowledgeCost += $" · 강화석 {NumberNotation.Exact(stones)}개";
-            bool shown = EquipmentActionDialog.ShowConfirmation("보류된 육성 재개",
-                $"육성 입력 {count:N0}건\n예상 비용: {NumberNotation.Exact(gold)} 골드 · {NumberNotation.Exact(ruby)} 루비{knowledgeCost}\n\n확인한 입력만 이어서 처리합니다.\n취소하면 보류 상태를 유지합니다.", "재개하기", () =>
+            if (fragments > 0) knowledgeCost += $" · 스킬 파편 {NumberNotation.Exact(fragments)}개";
+            string summary = claims > 0 ? $"보상 수령 {claims:N0}건 · 성장 입력 {count - claims:N0}건" : $"육성 입력 {count:N0}건";
+            bool shown = EquipmentActionDialog.ShowConfirmation(claims > 0 ? "보류된 입력 재개" : "보류된 육성 재개",
+                $"{summary}\n예상 비용: {NumberNotation.Exact(gold)} 골드 · {NumberNotation.Exact(ruby)} 루비{knowledgeCost}\n\n확인한 입력만 이어서 처리합니다.\n취소하면 보류 상태를 유지합니다.", "재개하기", () =>
                 {
                     if (generation != LocalProgression.AccountGeneration) return;
-                    if (!EconomyBatchProgression.TryGetHeldPreview(out int nextCount, out long nextGold, out long nextRuby, out long nextKnowledge, out long nextStones) ||
-                        count != nextCount || gold != nextGold || ruby != nextRuby || knowledge != nextKnowledge || stones != nextStones || !EconomyBatchProgression.ResumeHeldInputs())
+                    if (!EconomyBatchProgression.TryGetHeldPreview(out int nextCount, out long nextGold, out long nextRuby, out long nextKnowledge,
+                            out long nextStones, out int nextClaims, out long nextFragments) ||
+                        (count, gold, ruby, knowledge, stones, claims, fragments) !=
+                        (nextCount, nextGold, nextRuby, nextKnowledge, nextStones, nextClaims, nextFragments) || !EconomyBatchProgression.ResumeHeldInputs())
                     {
                         if (EconomyBatchProgression.HasHeldSpending && !EconomyBatchProgression.HasPendingFailureNotice)
                             ShowToast("재개 조건이 변경되었습니다. 수량과 비용을 다시 확인해 주세요.");

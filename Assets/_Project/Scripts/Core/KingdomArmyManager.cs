@@ -54,7 +54,12 @@ namespace KingdomIdle.KingdomArmy
         /// <summary>마지막 서버 거절 또는 적용 실패. Business 오류면 CustomData에 서버 ErrorResponseDTO가 들어 있다.</summary>
         public PlayFabError LastFailure { get; private set; }
         private bool _isChangingJob;
-        public bool IsChangingJob => _isChangingJob;
+        private NetworkManager _jobNetwork;
+        private long _jobAccountGeneration, _jobNetworkGeneration;
+        private int _jobRequestGeneration;
+        private bool CurrentJobAccount => this != null && _jobNetwork != null && _jobNetwork == NetworkManager.Instance &&
+            _jobAccountGeneration == LocalProgression.AccountGeneration && _jobNetworkGeneration == _jobNetwork.AccountGeneration;
+        public bool IsChangingJob => _isChangingJob && CurrentJobAccount;
 
         private void Awake()
         {
@@ -96,14 +101,8 @@ namespace KingdomIdle.KingdomArmy
             return changeJob.IsJobUnlocked(idx);
         }
 
-        /// <summary>현재 보유한 통합 전직 파편 수량(서버가 준 지갑 값).</summary>
-        public int GetFragments()
-        {
-            EconomyBridge.TryGetAmount(eCurrency.ClassFragment, out long amount);
-            if (amount < 0) amount = 0;
-            if (amount > int.MaxValue) amount = int.MaxValue;
-            return (int)amount;
-        }
+        /// <summary>보류 중인 퀘스트 지급을 포함한 화면용 전직 파편 수량.</summary>
+        public int GetFragments() => (int)Math.Clamp(EconomyBatchProgression.GetDisplayBalance(eCurrency.ClassFragment), 0, int.MaxValue);
 
         /// <summary>
         /// [호환성] jobName 매개변수를 무시하고 통합 파편 수량을 반환한다.
@@ -141,7 +140,7 @@ namespace KingdomIdle.KingdomArmy
             if (player != null && HasCompletedPromotion(player, jobName))
                 return true;
 
-            if (!ChangeJob.CanQueueChange || GetFragments() < GetFragmentCost(jobName))
+            if (GetFragments() < GetFragmentCost(jobName))
                 return false;
 
             string prereq = GetPrerequisiteJob(jobName);
@@ -162,7 +161,7 @@ namespace KingdomIdle.KingdomArmy
                                  Action onSuccess, Action<string> onError)
         {
             var result = TryChangeJobEx(player, jobName);
-            if (result == JobChangeResult.Pending) onSuccess?.Invoke();
+            if (result == JobChangeResult.Pending) { if (IsChangingJob) onSuccess?.Invoke(); }
             else onError?.Invoke(Describe(result));
         }
 
@@ -173,36 +172,79 @@ namespace KingdomIdle.KingdomArmy
         public JobChangeResult TryChangeJobEx(Player player, string jobName)
         {
             if (player == null || !JobData.IsAvailable(jobName)) return JobChangeResult.NotAvailable;
-            if (_isChangingJob) return JobChangeResult.Busy;
+            if (IsChangingJob) return JobChangeResult.Busy;
             int slot = player.PlayerIndex;
             string current = LocalProgression.State.Jobs.TryGetValue(slot, out var saved) ? saved : player.playerStatus?.JobName;
             if (current == jobName) return JobChangeResult.SameJob;
             if (!CanChangeJob(jobName, player)) return JobChangeResult.Guard;
             var network = NetworkManager.Instance;
             if (network == null || !network.IsGameDataReady) return JobChangeResult.NetworkNotReady;
-            var weapon = player.PlayerEquipmentManager?.GetSlotEquipment(eEquipmentSlot.Weapon);
-            if (weapon != null && weapon.baseData != null && !weapon.baseData.IsAllowedForJob(jobName))
-            {
-                // 서버는 장비를 해제하지 않는다(장착 상태로 전직하면 1018). 해제 요청을 먼저 줄 세운다.
-                var unequip = EquipmentManager.Instance != null ? EquipmentManager.Instance.UnequipEx(slot) : EquipmentManager.EnhancementResult.NetworkNotReady;
-                if (unequip != EquipmentManager.EnhancementResult.Pending) return JobChangeResult.UnequipFailed;
-            }
             bool unlocked = HasCompletedPromotion(player, jobName);
             var info = new JobChangeInfo { Slot = slot, JobName = jobName, Function = unlocked ? "OnChangeJob" : "OnGetJob" };
             ulong code = UserManager.JobCode(jobName);
+            _jobNetwork = network;
+            _jobNetworkGeneration = network.AccountGeneration;
+            _jobAccountGeneration = LocalProgression.AccountGeneration;
+            int generation = ++_jobRequestGeneration;
             _isChangingJob = true;
             LastFailure = null;
-            if (unlocked)
+
+            bool IsCurrent() => CurrentJobAccount && generation == _jobRequestGeneration;
+
+            string FragmentShortfall()
             {
-                network.Call<OnChangeJobRequestDTO, OnChangeJobResponseDTO>(new OnChangeJobRequestDTO { Index = slot, JobCode = code },
-                    response => ApplyServerResult(player, info, response, null), error => RejectServerResult(info, error));
+                long shortfall = GetFragmentCost(jobName) - LocalProgression.Balance(eCurrency.ClassFragment);
+                return !unlocked && !HasCompletedPromotion(player, jobName) && shortfall > 0 ? $"전직 파편이 {shortfall:N0}개 부족합니다." : null;
             }
-            else
+
+            bool NeedsUnequip()
             {
-                network.Call<OnGetJobRequestDTO, OnGetJobResponseDTO>(new OnGetJobRequestDTO { Index = slot, JobCode = code },
-                    response => ApplyServerResult(player, info, response, response), error => RejectServerResult(info, error));
+                var weapon = player != null ? player.PlayerEquipmentManager?.GetSlotEquipment(eEquipmentSlot.Weapon) : null;
+                return weapon?.baseData != null && !weapon.baseData.IsAllowedForJob(jobName);
             }
-            return JobChangeResult.Pending;
+
+            void Reject(PlayFabError error)
+            {
+                if (IsCurrent()) RejectServerResult(info, error);
+            }
+
+            JobChangeResult Send()
+            {
+                if (player == null || !ChangeJob.CanQueueChange) return JobChangeResult.Guard;
+                // The server rejects an incompatible equipped weapon. Keep the existing unequip-before-change order.
+                if (NeedsUnequip() && EquipmentManager.Instance?.UnequipEx(slot) != EquipmentManager.EnhancementResult.Pending)
+                    return JobChangeResult.UnequipFailed;
+                if (unlocked)
+                    network.Call<OnChangeJobRequestDTO, OnChangeJobResponseDTO>(new OnChangeJobRequestDTO { Index = slot, JobCode = code },
+                        response => { if (IsCurrent()) ApplyServerResult(player, info, response, null); }, Reject);
+                else
+                    network.CallWithPreflight<OnGetJobRequestDTO, OnGetJobResponseDTO>(new OnGetJobRequestDTO { Index = slot, JobCode = code }, _ => FragmentShortfall(),
+                        response => { if (IsCurrent()) ApplyServerResult(player, info, response, response); }, Reject);
+                return JobChangeResult.Pending;
+            }
+
+            // If the claim is needed to afford the job, verify it before any separately committed unequip.
+            if (NeedsUnequip() && FragmentShortfall() != null)
+            {
+                if (EconomyBatchProgression.FlushBeforeWrite(ok =>
+                {
+                    if (!IsCurrent()) return;
+                    string reason = ok ? FragmentShortfall() : "이전 입력의 처리를 확인한 뒤 다시 시도해 주세요.";
+                    if (reason == null)
+                    {
+                        var result = Send();
+                        if (result == JobChangeResult.Pending) return;
+                        reason = Describe(result);
+                    }
+                    Reject(NetworkManager.CreateError("Preflight", reason, info.Function));
+                })) return JobChangeResult.Pending;
+                _isChangingJob = false;
+                return JobChangeResult.Guard;
+            }
+
+            var started = Send();
+            if (started != JobChangeResult.Pending) _isChangingJob = false;
+            return started;
         }
 
         /// <summary>서버가 확정한 직업·해금 트리(·파편 잔액)를 한 트랜잭션에 쓰고 그 캐릭터의 런타임 직업을 바로 적용한다.</summary>
@@ -260,8 +302,10 @@ namespace KingdomIdle.KingdomArmy
             if (kind == "Timeout" || kind == "Transport")
             {
                 // 응답 유실: 서버가 이미 바꿨을 수 있다. 재전송하지 않고 서버 상태를 다시 받아 적용한다.
+                int generation = _jobRequestGeneration;
                 UserManager.Instance?.RefreshFromServer(ok =>
                 {
+                    if (!CurrentJobAccount || generation != _jobRequestGeneration) return;
                     if (ok)
                     {
                         var players = UserManager.Instance?.GetPlayers();
@@ -275,7 +319,7 @@ namespace KingdomIdle.KingdomArmy
                 return;
             }
             // 거절: 서버도 저장하지 않았으므로 로컬 상태를 건드리지 않는다.
-            info.Failure = NetworkManager.DescribeFailure(error, "전직");
+            info.Failure = kind == "Preflight" ? error.ErrorMessage : NetworkManager.DescribeFailure(error, "전직");
             OnJobChangeCompleted?.Invoke(info);
         }
 

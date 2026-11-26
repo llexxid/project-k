@@ -37,12 +37,13 @@ namespace KingdomIdle.UGUI
             view.SetDescription("");
             view.AddSlots(rewards, true);
         }
-        internal static RewardPopupView ShowClaimedRewards(Transform owner, IReadOnlyList<RewardGrant> rewards, System.Action onClosed)
+        internal static RewardPopupView ShowClaimedRewards(Transform owner, IReadOnlyList<RewardGrant> rewards,
+            System.Action onClosed, string message = null, bool failed = false)
         {
             var view = Open(owner, "보상 획득", null);
             if (view == null) return null;
             view._onClosed = onClosed;
-            try { view.SetDescription(""); view.AddSlots(rewards, false); return view; }
+            try { view.ApplyClaimResult(rewards, message, failed); return view; }
             catch { view.Close(); throw; }
         }
         public static RewardPopupView ShowOfflineRewards(Transform owner, OfflineRewardClaimResult result, bool doubled, System.Action onClosed = null)
@@ -132,13 +133,29 @@ namespace KingdomIdle.UGUI
             description.text = text;
             descriptionArea.SetActive(!string.IsNullOrWhiteSpace(text));
         }
+        internal void ApplyClaimResult(IReadOnlyList<RewardGrant> rewards, string message, bool failed)
+        {
+            bool hasRewards = rewards.Count != 0;
+            title.text = failed ? "보상 수령 실패" : hasRewards ? "보상 획득" : "퀘스트 완료";
+            SetDescription(message);
+            rewardScroll.gameObject.SetActive(hasRewards);
+            AddSlots(rewards, false);
+        }
+
         private void AddSlots(IEnumerable<RewardGrant> rewards, bool showInfo)
         {
+            int index = 0;
             foreach (var reward in rewards)
             {
-                var slot = Instantiate(UIManager.Instance.Catalog.itemRewardSlot, slots, false).GetComponent<RewardSlotView>();
+                var slot = index < slots.childCount
+                    ? slots.GetChild(index).GetComponent<RewardSlotView>()
+                    : Instantiate(UIManager.Instance.Catalog.itemRewardSlot, slots, false).GetComponent<RewardSlotView>();
+                slot.gameObject.SetActive(true);
                 slot.Bind(reward, showInfo ? () => ShowItem(transform, reward, SourceMailId) : null);
+                if (reward != null && reward.Amount == 0) slot.quantity.text = "";
+                index++;
             }
+            for (; index < slots.childCount; index++) slots.GetChild(index).gameObject.SetActive(false);
             UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(panel);
             rewardScroll.horizontalNormalizedPosition = 0;
         }

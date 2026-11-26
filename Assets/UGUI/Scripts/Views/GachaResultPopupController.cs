@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using KingdomIdle.Balance;
 using Scripts.Core;
 using UnityEngine;
 
@@ -122,7 +123,8 @@ namespace KingdomIdle.UGUI
             var closed = _onClosed;
             _onClosed = null;
             EconomyBridge.OnAmountChanged -= OnWalletChanged;
-            if (_equipment != null) _equipment.OnEquipmentStateChanged -= RefreshEquipment;
+            EconomyBatchProgression.Changed -= RefreshRePull;
+            if (_equipment != null) _equipment.OnEquipmentStateChanged -= RefreshRePull;
             _equipment = null;
             _refreshRePull = null;
             _flaring = false;
@@ -276,10 +278,11 @@ namespace KingdomIdle.UGUI
                 if (view.btnRePullN != null) view.btnRePullN.interactable = !_flaring && manager != null && manager.CanPullMulti(table, lastPullCount);
             };
             EconomyBridge.OnAmountChanged += OnWalletChanged;
+            EconomyBatchProgression.Changed += RefreshRePull;
             if (table != null && table.gachaType == KingdomIdle.Gacha.eGachaType.Equipment)
             {
                 _equipment = EquipmentManager.Instance;
-                if (_equipment != null) _equipment.OnEquipmentStateChanged += RefreshEquipment;
+                if (_equipment != null) _equipment.OnEquipmentStateChanged += RefreshRePull;
             }
             NumberNotationBinding.Bind(view, _refreshRePull);
             _refreshRePull();
@@ -294,7 +297,7 @@ namespace KingdomIdle.UGUI
                 _refreshRePull?.Invoke();
         }
 
-        private static void RefreshEquipment() => _refreshRePull?.Invoke();
+        private static void RefreshRePull() => _refreshRePull?.Invoke();
 
         private static void HandleRePull(GachaResultPopupView view, UnityEngine.UI.Button button, KingdomIdle.Gacha.GachaTableSO table, int count)
         {

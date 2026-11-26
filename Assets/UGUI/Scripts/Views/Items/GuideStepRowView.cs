@@ -42,7 +42,7 @@ namespace KingdomIdle.UGUI
         }
 
         /// <summary>데이터가 바뀌었을 때만 패널이 호출한다. 목표 달성과 보상 수령 완료를 구분한다.</summary>
-        public void SetQuest(QuestRowSnapshot snapshot, UIViewCatalog catalog, bool claimBusy = false)
+        public void SetQuest(QuestRowSnapshot snapshot, UIViewCatalog catalog, bool claimBusy = false, string waitLabel = "수령 중…")
         {
             bool claimed = snapshot.State == QuestRowState.Claimed;
             bool locked = snapshot.State == QuestRowState.Locked;
@@ -67,8 +67,8 @@ namespace KingdomIdle.UGUI
             if (_infoSurface == null) _infoSurface = transform.Find("InfoSurface")?.GetComponent<Image>();
             if (_infoSurface != null) _infoSurface.color = claimed ? CompletedSurface : UguiTheme.InfoSurface;
             bool canClaim = snapshot.CanClaim && !claimBusy;
-            actionButton.interactable = canClaim || (!snapshot.CanClaim && !locked && !claimed && canMove);
-            actionLabel.text = claimed ? "완료" : snapshot.CanClaim ? (claimBusy ? "수령 중…" : "보상받기") : locked ? "잠김" : canMove ? "이동 ›" : "진행 중";
+            actionButton.interactable = canClaim || (snapshot.State == QuestRowState.InProgress && canMove);
+            actionLabel.text = claimed ? "완료" : snapshot.IsClaimQueued ? "수령 중…" : snapshot.CanClaim ? (claimBusy ? waitLabel : "보상받기") : locked ? "잠김" : canMove ? "이동 ›" : "진행 중";
             if (actionButton.targetGraphic != null)
                 actionButton.targetGraphic.color = snapshot.CanClaim ? UguiTheme.ActionGold : UguiTheme.RusticSurface;
             actionLabel.color = snapshot.CanClaim ? UguiTheme.InfoInk : UguiTheme.Parchment;

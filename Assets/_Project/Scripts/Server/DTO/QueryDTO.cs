@@ -581,6 +581,7 @@ namespace Protocol.Message.Dto
 	}
 	public sealed class QuestRowDTO
 	{
+		public long NextQuestId { get; set; }
 		[JsonProperty(Required = Required.Always)]
 		public long QuestId { get; set; }
 		// "permanent" 또는 KST 기준 yyyy-MM-dd. 수령 요청에 그대로 넣는다.
