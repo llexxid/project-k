@@ -151,6 +151,24 @@ namespace KingdomIdle.UGUI.Editor
             return new { passed = checks.Count, checks };
         }
 
+        public static object RunQuestSnapshotAdmission()
+        {
+            var checks = new List<string>();
+            using (var fixture = new RapidTapFixture(true, activeNetwork: true))
+            {
+                fixture.Pump();
+                fixture.CheckQuestSnapshotAdmission();
+                checks.AddRange(fixture.Checks);
+            }
+            using (var fixture = new RapidTapFixture(true, activeNetwork: true))
+            {
+                fixture.Pump();
+                fixture.CheckQuestSnapshotTimeout();
+                checks.AddRange(fixture.Checks);
+            }
+            return new { passed = checks.Count, checks };
+        }
+
         public static object RunMageAwakening()
         {
             using var fixture = new RapidTapFixture(false, mage: true);
@@ -473,7 +491,7 @@ namespace KingdomIdle.UGUI.Editor
             private readonly bool _previousWalletSubscription;
             private readonly Dictionary<eCurrency, long> _previousPublished;
             private IDisposable _account;
-            private GameObject _owner, _canvas;
+            private GameObject _owner, _canvas, _activeNetwork;
             private UIManager _ui;
             private DevelopmentPanelView _panel;
             private MainScreenController _main;
@@ -484,7 +502,7 @@ namespace KingdomIdle.UGUI.Editor
             private MageTowerManager _mage;
             private bool _disposed;
 
-            internal RapidTapFixture(bool throttle, bool mage = false, string clientId = null)
+            internal RapidTapFixture(bool throttle, bool mage = false, string clientId = null, bool activeNetwork = false)
             {
                 if ((!Application.isPlaying && !mage) || LocalProgression.IsReady || NetworkManager.Instance != null || UserManager.Instance != null ||
                     StatEnhanceManager.Instance != null || UIManager.Instance != null || StageManager.Instance != null ||
@@ -499,8 +517,9 @@ namespace KingdomIdle.UGUI.Editor
                     _account = LocalProgression.BeginTestSession();
                     LocalProgression.OpenTestAccount("economy-rapid-ui-" + Guid.NewGuid().ToString("N"));
                     _owner = new GameObject("EconomyRapidTapAcceptance_Managers"); _owner.SetActive(false);
-                    var network = _owner.AddComponent<NetworkManager>(); NetworkManager.Instance = network;
-                    Invoke(network, "Init");
+                    if (activeNetwork) _activeNetwork = new GameObject("EconomyRapidTapAcceptance_ActiveNetwork");
+                    var network = (_activeNetwork ?? _owner).AddComponent<NetworkManager>();
+                    if (!activeNetwork) { NetworkManager.Instance = network; Invoke(network, "Init"); }
                     Set(network, "_sessionGUID", "economy-rapid-ui-fixture");
                     Set(network, "_context", new PlayFabAuthenticationContext { EntityToken = "economy-rapid-ui-fixture" });
                     typeof(NetworkManager).GetProperty("LoginState").SetValue(network, GameLoginState.Ready);
@@ -946,6 +965,148 @@ namespace KingdomIdle.UGUI.Editor
                     $"The real {kind} display settles after a {(claimSucceeds ? "successful" : "rejected")} claim and spend");
             }
 
+            internal void CheckQuestSnapshotAdmission()
+            {
+                const string period = "2026-11-19";
+                const long equipmentId = 12;
+                var network = NetworkManager.Instance;
+                var target = QuestRow(period, 10, false);
+                target.State = Protocol.Message.Dto.QuestRowState.Claimable;
+                target.Rewards.Add(new() { Kind = RewardKind.Currency, CurrencyType = Protocol.Message.Data.eCurrency.AncientCoin, Amount = 5 });
+                QuestStateDTO Board(string version, params QuestRowDTO[] rows) => new()
+                {
+                    Version = version, DailyPeriodKey = period, WeeklyPeriodKey = "2026-11-16", Rows = rows.ToList()
+                };
+                _quests.Apply(Board("before-quest-read", target), "quest-read-fixture");
+                Check(LocalProgression.Execute("qa-admission-funds", state =>
+                {
+                    state.Economy.Server.SupportsQuestAwakeningBatch = state.Economy.Server.SupportsQuestAwakeningRecovery = true;
+                    state.Economy.Server.QuestGoldPreview = new() { BaseAmount = 60 };
+                    state.Economy.Server.SupportsMageEnhance = true;
+                    state.Economy.Server.EquipmentEnhanceAvailable = true;
+                    state.EquipmentSchemaVersion = EquipmentManager.InstanceSchemaVersion;
+                    state.HighestMainClear = (long)Protocol.Message.Data.eStage.Stage2_5;
+                    state.Wallet[eCurrency.Ruby] = 1000;
+                    state.Wallet[eCurrency.ArcaneKnowledge] = 100;
+                    state.Wallet[eCurrency.EquipmentStone] = 100;
+                    state.MageSkills[0] = new();
+                    state.Equipment.Add(new() { Id = "quest-read-gear", ServerInstanceId = equipmentId,
+                        Code = ItemCode.Encode(eEquipmentRarity.Rare, eEquipmentSlot.Weapon, eJobFlag.None, 3) });
+                    return true;
+                }), "The fixture saves an eligible quest and all four growth balances");
+                Check(EconomyBatchProgression.TryQueueGold(true, 1, null, out _) == EconomyInputStatus.PendingSave,
+                    "An earlier Gold input is ready for the snapshot boundary");
+                typeof(QuestManager).GetMethod("Fetch", Instance).Invoke(_quests, new object[] { network });
+                Pump(); Pump();
+                var prior = Transport.Request;
+                Check(prior != null && Transport.Calls == 1 && Transport.Pending && Transport.QuestReads == 0 && _quests.IsRefreshing &&
+                    prior.Commands.Single().Kind == EconomyCommandKind.GoldAttack,
+                    "The actual menu snapshot waits behind the original single-command batch");
+                var token = _quests.GetSnapshot(eQuestCategory.Daily).Rows.Single().Token;
+                Check(_quests.TryClaimTab(eQuestCategory.Daily, token, null).IsPending &&
+                    EconomyBatchProgression.GetProjection().Balance(eCurrency.AncientCoin) == 5,
+                    "The selected reward enters the journal and projection while the snapshot waits for the prior batch");
+
+                var receipt = new EconomyBatchReceiptDTO
+                {
+                    RequestId = prior.RequestId, Generation = prior.Generation, Sequence = prior.Sequence,
+                    PayloadHash = EconomyInputJournal.Hash(prior), CommittedRevision = 2,
+                    Results = new() { new() { Index = 0, Kind = EconomyCommandKind.GoldAttack,
+                        Status = EconomyCommandStatus.Applied, AppliedCount = 1, SpentGold = 50 } }
+                };
+                var metadata = EconomyCopies.Copy(LocalProgression.State.Economy.Server);
+                metadata.NextSequence = prior.Sequence + 1;
+                metadata.PendingReceipt = receipt;
+                var priorResponse = Response(prior.RequestId, 1, InitialGold - 50, metadata, receipt);
+                priorResponse.CurrentState.Currency.Ruby = 1000;
+                priorResponse.CurrentState.Currency.ArcaneKnowledge = 100;
+                priorResponse.CurrentState.Currency.EquipmentStone = 100;
+                priorResponse.CurrentState.StageState.MainClear = Protocol.Message.Data.eStage.Stage2_5;
+                Transport.Succeed(priorResponse);
+                Pump(); Pump();
+                Check(Transport.Calls == 2 && Transport.QuestReads == 1 && Transport.Pending && _quests.IsRefreshing,
+                    "The quest snapshot goes on the wire before the later claim");
+                Check(EconomyBatchProgression.TryQueueGold(false, 1, null, out _) == EconomyInputStatus.PendingSave &&
+                    EconomyBatchProgression.TryQueueRuby(false, out _) == EconomyInputStatus.PendingSave &&
+                    EconomyBatchProgression.TryQueueMageEnhance(0) == EconomyInputStatus.PendingSave &&
+                    EconomyBatchProgression.TryQueueEquipmentEnhance(equipmentId) == EconomyInputStatus.PendingSave,
+                    "Gold, ruby, mage and equipment inputs are accepted while the actual quest read is on the wire");
+                Pump(); Pump();
+                var expectedOrder = new[] { EconomyCommandKind.QuestClaim, EconomyCommandKind.GoldHealth,
+                    EconomyCommandKind.RubyGold, EconomyCommandKind.MageEnhance, EconomyCommandKind.EquipmentEnhance };
+                string oldJournalPath = LocalProgression.EconomyJournalPath;
+                string oldAccountKey = LocalProgression.AccountKey;
+                var durable = new EconomyInputJournal(oldJournalPath, oldAccountKey).Data;
+                Check(durable.InFlight == null && durable.Inputs.Select(x => x.Command.Kind).SequenceEqual(expectedOrder) &&
+                    Transport.Calls == 2 && LocalProgression.State.HealthLevel == 0 && LocalProgression.Balance(eCurrency.AncientCoin) == 0,
+                    "All later clicks are durable, with no extra HTTP or confirmed reward or upgrade before the read completes");
+                Check(EconomyBatchProgression.FlushBeforeWrite(_ => { }) && !EconomyBatchProgression.CanAcceptGrowth,
+                    "A general external-write boundary still blocks fresh clicks alongside the quest read");
+
+                var newlyClaimable = QuestRow(period, 10, false);
+                newlyClaimable.QuestId = 101; newlyClaimable.State = target.State;
+                Transport.Succeed(new OnGetQuestStateResponseDTO
+                {
+                    ProtocolVersion = IdleKingdomFunction.Common.ApiVersions.ProtocolVersion, ServerVersion = 1,
+                    EconomyRevision = 3, Quests = Board("after-quest-read", target, newlyClaimable)
+                });
+                Pump(); Pump();
+                var batch = Transport.Request;
+                Check(Transport.Calls == 3 && Transport.Pending && !_quests.IsRefreshing &&
+                    LocalProgression.State.ServerEconomyRevision == 3 && batch.ExpectedEconomyRevision == 3 &&
+                    batch.QuestVersion == "after-quest-read" && batch.Sequence == prior.Sequence + 1 &&
+                    batch.Commands.Select(x => x.Kind).SequenceEqual(expectedOrder) &&
+                    batch.Commands[0].QuestClaim.Targets.Select(x => x.QuestId).SequenceEqual(new[] { target.QuestId }),
+                    "The next batch seals with the refreshed revision and board, original reward selection, and exact click order");
+
+                Transport.TakePending();
+                Set(network, "_callStartedAt", Time.realtimeSinceStartup - 31f);
+                Invoke(network, "Update");
+                Check(EconomyBatchProgression.HasUnknownResult && !EconomyBatchProgression.CanAcceptGrowth &&
+                    EconomyBatchProgression.TryQueueGold(true, 1, null, out _) == EconomyInputStatus.Busy,
+                    "Losing the batch response preserves the existing recovery input block");
+                typeof(EconomyBatchProgression).GetField("_retryAt", Static).SetValue(null, 0f);
+                Pump(); Pump();
+                Check(Transport.Calls == 4 && Transport.Lookup?.RequestId == batch.RequestId &&
+                    Transport.Lookup.Sequence == batch.Sequence && Transport.Lookup.Generation == batch.Generation,
+                    "Recovery looks up the exact same batch identity");
+                network.BeginAuthentication();
+                LocalProgression.OpenTestAccount("economy-quest-read-next-" + Guid.NewGuid().ToString("N"));
+                Transport.Succeed(new { });
+                Pump();
+                var retained = new EconomyInputJournal(oldJournalPath, oldAccountKey).Data.InFlight;
+                Check(!EconomyBatchProgression.Available && EconomyBatchProgression.PendingSpendingCount == 0 &&
+                    retained?.RequestId == batch.RequestId && EconomyInputJournal.Hash(retained) == EconomyInputJournal.Hash(batch) &&
+                    Transport.Calls == 4 && Transport.Unexpected == 0,
+                    "Account switch ignores the old reply and leaves the unresolved original payload in its own journal");
+            }
+
+            internal void CheckQuestSnapshotTimeout()
+            {
+                var network = NetworkManager.Instance;
+                typeof(QuestManager).GetMethod("Fetch", Instance).Invoke(_quests, new object[] { network });
+                Check(Transport.QuestReads == 1 && Transport.Pending &&
+                    EconomyBatchProgression.TryQueueGold(true, 1, null, out _) == EconomyInputStatus.PendingSave,
+                    "A Gold click is accepted during a quest snapshot that will lose its reply");
+                Pump();
+                var late = Transport.TakePending();
+                Set(network, "_callStartedAt", Time.realtimeSinceStartup - 31f);
+                Invoke(network, "Update");
+                Pump();
+                var saved = new EconomyInputJournal(LocalProgression.EconomyJournalPath, LocalProgression.AccountKey).Data;
+                Check(EconomyBatchProgression.HasUnknownResult && !EconomyBatchProgression.CanAcceptGrowth &&
+                    EconomyBatchProgression.TryQueueGold(false, 1, null, out _) == EconomyInputStatus.Busy &&
+                    Transport.Calls == 2 && Transport.UserStateReads == 1 && Transport.Request == null &&
+                    saved.InFlight == null && saved.Inputs.Single().Command.Kind == EconomyCommandKind.GoldAttack,
+                    "A lost quest response retains the click and permits only the existing state recovery request");
+                late.ApiResult = new ExecuteFunctionResult { FunctionResult = "{}" };
+                late.InvokeSuccessCallback();
+                Pump();
+                Check(EconomyBatchProgression.HasUnknownResult && Transport.Calls == 2 && Transport.Pending &&
+                    EconomyBatchProgression.PendingSpendingCount == 1 && Transport.Unexpected == 0,
+                    "A late quest response does not admit another click or send the retained input before recovery");
+            }
+
             internal void CheckMageAwakening()
             {
                 var detail = OpenMageDetail(true);
@@ -1157,6 +1318,7 @@ namespace KingdomIdle.UGUI.Editor
                 if (NetworkManager.Instance != null) Invoke(NetworkManager.Instance, "ResetCallQueue");
                 NetworkManager.Instance = null; UserManager.Instance = null; SetUi(null);
                 if (_quests != null && QuestManager.Instance == _quests) QuestManager.Instance = null;
+                if (_activeNetwork != null) UnityEngine.Object.DestroyImmediate(_activeNetwork);
                 if (_owner != null) UnityEngine.Object.DestroyImmediate(_owner);
                 var publish = (Action)Delegate.CreateDelegate(typeof(Action), _walletType.GetMethod("Publish", Static));
                 LocalProgression.Changed -= publish;
@@ -1182,7 +1344,7 @@ namespace KingdomIdle.UGUI.Editor
             internal OnEnchantSkillRequestDTO Single;
             internal OnGachaEquipmentClassFragmentRequestDTO Draw;
             internal OnGetJobRequestDTO Job;
-            internal int DrawCalls;
+            internal int DrawCalls, QuestReads, UserStateReads;
             internal int Calls, Unexpected;
             internal float LastSendAt;
             internal bool Pending => _pending != null;
@@ -1203,6 +1365,8 @@ namespace KingdomIdle.UGUI.Editor
                 else if (function.FunctionName == "OnGachaEquipmentClassFragment")
                 { Draw = JsonConvert.DeserializeObject<OnGachaEquipmentClassFragmentRequestDTO>(payload); DrawCalls++; }
                 else if (function.FunctionName == "OnGetJob") Job = JsonConvert.DeserializeObject<OnGetJobRequestDTO>(payload);
+                else if (function.FunctionName == "OnGetQuestState") QuestReads++;
+                else if (function.FunctionName == "OnGetUserState") UserStateReads++;
                 else { Block(); return; }
                 _pending = container; Calls++; LastSendAt = Time.realtimeSinceStartup;
             }

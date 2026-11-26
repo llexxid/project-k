@@ -42,12 +42,18 @@ namespace KingdomIdle.Balance
         private static NetworkManager _network;
         private static long _localGeneration = -1, _networkGeneration = -1;
         private static bool _supported, _recovered, _requestPending, _queryRequired, _batchUnknown, _externalUnknown, _externalWrite;
+        private static bool _externalQuestSnapshotOnly;
         private static bool _recovering, _startupMaySplit, _sentThisSession, _huntsHeld, _blocked;
         private static bool _storageRetryActive, _storageRetryPaused, _storageRetryAllowsInput;
         private static int _storageRetryRemaining, _storageRetrySends;
         private static float _sealAfter, _nextHuntAt, _retryAt;
         private static Action<bool> _recoveryDone;
-        private sealed class Fence { internal long Sequence; internal Action<bool> Completed; }
+        private sealed class Fence
+        {
+            internal long Sequence;
+            internal bool IsQuestSnapshot;
+            internal Action<bool> Completed;
+        }
         private static readonly Queue<Fence> _fences = new();
         private static readonly List<EconomyInput> _discardedInputs = new();
         private static readonly Dictionary<long, Action<EconomyCommandResultDTO>> _questCompletions = new();
@@ -92,8 +98,11 @@ namespace KingdomIdle.Balance
             _storageRetryActive && !_storageRetryPaused && _storageRetryAllowsInput && _journal?.Data.InFlight != null;
         public static int PendingSpendingCount => CurrentSession && _journal != null
             ? _journal.Data.Inputs.Concat(_journal.Data.InFlightInputs).Count(x => x.Command.Kind != EconomyCommandKind.Hunt) : 0;
+        // A quest refresh keeps its place in the send queue while local inputs accumulate behind it.
         public static bool CanAcceptGrowth => Available && RecoveryComplete && (!HasUnknownResult || IsStorageRetryWaiting) && !HasHeldSpending &&
-            !_externalWrite && !_huntsHeld && _fences.Count == 0 && _journal?.Error == null && !RubyProgression.HasPendingRequest &&
+            (!_externalWrite || _externalQuestSnapshotOnly) && !_huntsHeld &&
+            (_fences.Count == 0 || !_fences.Any(fence => !fence.IsQuestSnapshot)) &&
+            _journal?.Error == null && !RubyProgression.HasPendingRequest &&
             LocalProgression.State.PendingMainCompletion == null;
         public static bool HasPendingWork => _requestPending || _journal?.Data.InFlight != null ||
             _journal?.Data.Inputs.Any(x => !x.Held) == true || _journal?.IsDirty == true;
@@ -121,6 +130,7 @@ namespace KingdomIdle.Balance
         {
             FlushLocalWrites();
             _journal = null; _supported = _recovered = _requestPending = _queryRequired = _batchUnknown = _externalUnknown = _externalWrite = false;
+            _externalQuestSnapshotOnly = false;
             _recovering = _startupMaySplit = _sentThisSession = _huntsHeld = _blocked = false;
             _network = null;
             _recoveryDone = null; _fences.Clear(); _discardedInputs.Clear(); _questCompletions.Clear(); _discardAfterRevision = 0;
@@ -203,8 +213,14 @@ namespace KingdomIdle.Balance
                 LocalProgression.State.Economy.Server.OwnerClientId != ClientId || _journal.Data.Generation != LocalProgression.State.Economy.Server.Generation) return;
             _externalUnknown = false; Notify();
         }
-        public static void SetExternalWritePending(bool pending)
-        { if (_externalWrite != pending) { _externalWrite = pending; Notify(); } }
+        public static void SetExternalWritePending(bool pending, bool questSnapshotOnly = false)
+        {
+            questSnapshotOnly &= pending;
+            if (_externalWrite == pending && _externalQuestSnapshotOnly == questSnapshotOnly) return;
+            _externalWrite = pending;
+            _externalQuestSnapshotOnly = questSnapshotOnly;
+            Notify();
+        }
         public static void SetHuntsHeld(bool held)
         { if (_huntsHeld != held) { _huntsHeld = held; Notify(); } }
 
@@ -451,10 +467,10 @@ namespace KingdomIdle.Balance
         internal static bool CanRefreshMenuRecovery => Available && RecoveryComplete && _externalUnknown &&
             !_blocked && !_batchUnknown && !_queryRequired && !_requestPending && !HasUnresolvedBatch && _journal?.Error == null;
         internal static bool CanRetryMenuSnapshot => !Available || CanQueueMenuSnapshot || CanRefreshMenuRecovery;
-        internal static bool TryQueueMenuSnapshot(Action<bool> completed)
+        internal static bool TryQueueMenuSnapshot(Action<bool> completed, bool isQuestSnapshot = false)
         {
             if (!CanQueueMenuSnapshot || completed == null) return false;
-            EnqueueFence(completed);
+            EnqueueFence(completed, isQuestSnapshot);
             _sealAfter = 0;
             Pump();
             return true;
@@ -467,8 +483,13 @@ namespace KingdomIdle.Balance
             _sealAfter = 0; SaveJournal(); Pump(); return true;
         }
 
-        private static void EnqueueFence(Action<bool> completed) =>
-            _fences.Enqueue(new Fence { Sequence = _journal.Data.NextInputSequence - 1, Completed = completed });
+        private static void EnqueueFence(Action<bool> completed, bool isQuestSnapshot = false) =>
+            _fences.Enqueue(new Fence
+            {
+                Sequence = _journal.Data.NextInputSequence - 1,
+                IsQuestSnapshot = isQuestSnapshot,
+                Completed = completed
+            });
 
         // 기존 루비 초기화가 전투를 멈춘 뒤에만 호출한다. 이후 같은 epoch의 처치는 더 받을 수 없다.
         public static bool SealCurrentRewardEpoch(Action<bool> completed)

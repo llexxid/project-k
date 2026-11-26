@@ -52,7 +52,7 @@ namespace Scripts.Core.Manager
         private float _callStartedAt;
         private string _callInFlightName;
         private Action<PlayFabError> _callInFlightTimeout;
-        private int _economicCalls;
+        private int _economicCalls, _questSnapshotCalls;
         private float _nextMenuRecoveryAt;
 
         private void EnqueueCall(string function, Action send, Action<PlayFabError> timeout)
@@ -85,7 +85,7 @@ namespace Scripts.Core.Manager
             _callInFlight = false;
             _callInFlightName = null;
             _callInFlightTimeout = null;
-            _economicCalls = 0;
+            _economicCalls = _questSnapshotCalls = 0;
             _nextMenuRecoveryAt = 0;
             EconomyBatchProgression.SetExternalWritePending(false);
         }
@@ -307,6 +307,7 @@ namespace Scripts.Core.Manager
             bool batchRequest = request is OnEconomyBatchRequestDTO || request is OnGetEconomyBatchResultRequestDTO;
             bool recoveryRead = request is OnGetUserStateRequestDTO;
             bool economic = queued && !batchRequest;
+            bool questSnapshot = request is OnGetQuestStateRequestDTO;
             bool legacyRecovery = !EconomyBatchProgression.HasUnresolvedBatch && LocalProgression.TryGetCommittedState(out var committed) &&
                 (request is RubyGrowthRequestDTO legacyRuby && legacyRuby.RequestId == committed.PendingRubyRequestId ||
                  mainCompletion != null && mainCompletion.RequestId == committed.PendingMainCompletion?.RequestId);
@@ -319,7 +320,8 @@ namespace Scripts.Core.Manager
                 {
                     economicOwned = false;
                     _economicCalls--;
-                    EconomyBatchProgression.SetExternalWritePending(_economicCalls > 0);
+                    if (questSnapshot) _questSnapshotCalls--;
+                    EconomyBatchProgression.SetExternalWritePending(_economicCalls > 0, _economicCalls == _questSnapshotCalls);
                 }
                 if (enteredQueue) CompleteQueuedCall();
             }
@@ -477,7 +479,8 @@ namespace Scripts.Core.Manager
                 {
                     economicOwned = true;
                     _economicCalls++;
-                    EconomyBatchProgression.SetExternalWritePending(true);
+                    if (questSnapshot) _questSnapshotCalls++;
+                    EconomyBatchProgression.SetExternalWritePending(true, _economicCalls == _questSnapshotCalls);
                 }
                 enteredQueue = true;
                 EnqueueCall(function, Send, Fail);
@@ -488,8 +491,10 @@ namespace Scripts.Core.Manager
                 {
                     StartCoroutine(WaitForMenuSnapshot(() => !completed && IsCurrent() && localGeneration == LocalProgression.AccountGeneration &&
                         (snapshotWanted == null || snapshotWanted()),
-                        () => Time.realtimeSinceStartup, TryRefreshMenuRecovery, EconomyBatchProgression.TryQueueMenuSnapshot, QueueAndSend,
-                        () => Fail(CreateError("EconomyHeld", "서버 정산 결과를 확인하고 있습니다. 확인을 마치면 목록을 다시 불러옵니다.", function))));
+                        () => Time.realtimeSinceStartup, TryRefreshMenuRecovery,
+                        done => EconomyBatchProgression.TryQueueMenuSnapshot(done, questSnapshot), QueueAndSend,
+                        () => Fail(CreateError("EconomyHeld", "서버 정산 결과를 확인하고 있습니다. 확인을 마치면 목록을 다시 불러옵니다.", function)),
+                        canPreserveQueuedOrder: questSnapshot ? () => EconomyBatchProgression.CanQueueMenuSnapshot : null));
                     return;
                 }
                 if (!EconomyBatchProgression.FlushBeforeWrite(ok =>
@@ -512,13 +517,14 @@ namespace Scripts.Core.Manager
         }
 
         internal static IEnumerator WaitForMenuSnapshot(Func<bool> current, Func<float> now, Action tryRecover,
-            Func<Action<bool>, bool> enqueue, Action send, Action held)
+            Func<Action<bool>, bool> enqueue, Action send, Action held, Func<bool> canPreserveQueuedOrder = null)
         {
             float deadline = now() + 18f;
             bool waiting = false, started = false;
             while (current() && !started)
             {
-                if (now() >= deadline) { held(); yield break; }
+                // A queued quest refresh can have durable clicks waiting behind its fence.
+                if (now() >= deadline && (!waiting || canPreserveQueuedOrder?.Invoke() != true)) { held(); yield break; }
                 if (!waiting)
                 {
                     tryRecover();
@@ -526,7 +532,7 @@ namespace Scripts.Core.Manager
                     if (!enqueue(ok =>
                     {
                         waiting = false;
-                        if (!ok || !current() || started || now() >= deadline) return;
+                        if (!ok || !current() || started || now() >= deadline && canPreserveQueuedOrder?.Invoke() != true) return;
                         started = true;
                         send();
                     })) waiting = false;

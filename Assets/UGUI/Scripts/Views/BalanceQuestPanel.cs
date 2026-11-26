@@ -396,7 +396,7 @@ namespace KingdomIdle.UGUI
             int count = _visible.Count(row => row.CanClaim);
             bool receiving = _claimBusy || _visible.Any(row => row.IsClaimQueued);
             if (_view.claimAllButton != null) _view.claimAllButton.interactable = count > 0 && !receiving;
-            string action = receiving ? ClaimWaitLabel : $"모두받기 ({count})";
+            string action = count > 0 && receiving ? ClaimWaitLabel : $"모두받기 ({count})";
             if (_view.claimAllLabel != null && _view.claimAllLabel.text != action) _view.claimAllLabel.text = action;
             string summary = $"{CategoryLabels[(int)_selectedCategory]} 퀘스트\n수령 가능 {count}개";
             if (_view.claimSummaryLabel != null && _view.claimSummaryLabel.text != summary) _view.claimSummaryLabel.text = summary;

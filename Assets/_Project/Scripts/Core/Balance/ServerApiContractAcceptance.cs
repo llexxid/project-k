@@ -242,6 +242,31 @@ namespace KingdomIdle.Balance
                 complete => { afterFence = complete; return true; }, () => reads++, () => held++);
             closed.MoveNext(); open = false; afterFence(true);
             check(!closed.MoveNext() && reads == 1 && held == 1, "closing a waiting mailbox skips its request without suppressing a future open");
+
+            time = 0; afterFence = null;
+            var quest = NetworkManager.WaitForMenuSnapshot(() => true, () => time, () => { },
+                complete => { afterFence = complete; return true; }, () => reads++, () => held++, canPreserveQueuedOrder: () => true);
+            check(quest.MoveNext() && afterFence != null, "the quest refresh acquires a boundary before selecting later inputs");
+            time = 20;
+            check(quest.MoveNext() && reads == 1 && held == 1, "the acquired quest boundary keeps later inputs behind a slow prior response");
+            afterFence(true);
+            check(!quest.MoveNext() && reads == 2 && held == 1, "the quest refresh is sent once when the original boundary clears");
+
+            time = 0;
+            var unavailableQuest = NetworkManager.WaitForMenuSnapshot(() => true, () => time, () => { },
+                _ => false, () => reads++, () => held++, canPreserveQueuedOrder: () => true);
+            unavailableQuest.MoveNext(); time = 18;
+            check(!unavailableQuest.MoveNext() && reads == 2 && held == 2, "an unscheduled quest refresh retains the existing wait limit");
+
+            time = 0; afterFence = null;
+            bool canPreserve = true, questOpen = true;
+            var blockedQuest = NetworkManager.WaitForMenuSnapshot(() => questOpen, () => time, () => { },
+                complete => { afterFence = complete; return true; }, () => reads++, () => { held++; questOpen = false; },
+                canPreserveQueuedOrder: () => canPreserve);
+            blockedQuest.MoveNext(); time = 20; canPreserve = false;
+            check(!blockedQuest.MoveNext() && reads == 2 && held == 3, "an unresolved prior result restores the usual quest refresh timeout");
+            canPreserve = true; afterFence(true);
+            check(reads == 2, "an expired quest boundary cannot send after recovery");
         }
 
         private static void CheckQuestLookup(QuestManager quest, Action<bool, string> check)

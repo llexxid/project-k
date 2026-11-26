@@ -160,17 +160,22 @@ namespace KingdomIdle.UGUI.Editor
                     GrantedRewards = status != Dto.EconomyCommandStatus.Applied ? null : grant == null ? new() : new() { grant }
                 };
 
-                var goldRow = RowView(panel, 20001);
                 void RefreshInputGates()
                 {
                     typeof(BalanceQuestPanel).GetMethod("Update", Private).Invoke(panel, null);
                     typeof(GuideGoalView).GetMethod("Update", Private).Invoke(hud, null);
                 }
                 EconomyBatchProgression.SetExternalWritePending(true);
+                panel.SelectCategory(eQuestCategory.Weekly);
+                Check(!panelView.claimAllButton.interactable && panelView.claimAllLabel.text == "모두받기 (0)",
+                    "a tab without claimable rewards shows the disabled zero count during an external write");
+                panel.SelectCategory(eQuestCategory.Daily);
+                var goldRow = RowView(panel, 20001);
                 RefreshInputGates();
                 Check(!goldRow.actionButton.interactable && goldRow.actionLabel.text == "처리 대기" &&
-                    !panelView.claimAllButton.interactable && !hud.actionButton.interactable && Popups().Length == 0,
-                    "claim controls wait while an in-flight menu snapshot owns the admission fence");
+                    !panelView.claimAllButton.interactable && panelView.claimAllLabel.text == "처리 대기" &&
+                    !hud.actionButton.interactable && Popups().Length == 0,
+                    "claim controls wait while an external write blocks new input");
                 EconomyBatchProgression.SetExternalWritePending(false);
                 RefreshInputGates();
                 Check(goldRow.actionButton.interactable && panelView.claimAllButton.interactable && hud.actionButton.interactable,
