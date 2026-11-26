@@ -104,8 +104,7 @@ namespace KingdomIdle.UGUI.Editor
             F.Preferred(actionRow, height: 144f);
 
             var detailBtn = F.TextButton(actionRow, "DetailBtn", "분해", 42f, UguiTheme.RusticSurface, out _);
-            F.Flexible(detailBtn, flexWidth: 1f);
-            F.Preferred(detailBtn, height: 144f).minHeight = 144f;
+            F.Preferred(detailBtn, width: 180f, height: 100f).minHeight = 100f;
             view.detailButton = detailBtn;
 
             var enhBtn = F.TextButton(actionRow, "EnhanceBtn", "강화", 42f, UguiTheme.ActionGold, out var enhLabel);
@@ -137,6 +136,10 @@ namespace KingdomIdle.UGUI.Editor
             view.rateLabel = MakeInfoLine(enhSection, 36f, UguiTheme.TextSecondary);
             view.expectedLabel = MakeInfoLine(enhSection, 36f, UguiTheme.TextSecondary);
 
+            var secondary = F.Container(root, "SecondaryActions");
+            F.HLayout(secondary.gameObject, 0, null, TextAnchor.MiddleRight, expandWidth: false);
+            F.Preferred(secondary, height: 104);
+            detailBtn.transform.SetParent(secondary,false);
             foreach (var text in root.GetComponentsInChildren<TMP_Text>(true))
                 if (text.font != null) text.fontSharedMaterial = text.font.material;
 

@@ -45,9 +45,11 @@ namespace KingdomIdle.Balance
                 MainWaveProgression.ReceiveServerState(true);
             }
             var paths = new List<string>();
+            var previousClientId = typeof(EconomyBatchProgression).GetField("_clientId", statics).GetValue(null);
             var scope = LocalProgression.BeginTestSession();
             try
             {
+                CoreSet("_clientId", run);
                 LocalProgression.OpenTestAccount("economy-completion-" + Guid.NewGuid().ToString("N"));
                 paths.Add(LocalProgression.SnapshotPath); paths.Add(LocalProgression.EconomyJournalPath);
                 var response = EconomyBatchContractAcceptance.Fixture();
@@ -91,6 +93,7 @@ namespace KingdomIdle.Balance
                 int Count() => ((ICollection)queue).Count;
                 Check((bool)Get("_economyCompletionPending") && !(bool)Get("_huntSyncFailed") && Count() == 0 &&
                     LocalProgression.State.PendingMainCompletion == null, "wave completion joins an existing fence without creating a completion request early");
+                var waitingLoading = (GameplayLoading.Scope)Get("_stageLoading");
                 string payload = JsonConvert.SerializeObject(journal.Data.InFlight);
                 CoreCall("FailRequest", NetworkManager.CreateError("Timeout", "isolated economy completion timeout"));
                 Call("PumpHuntRetry");
@@ -98,6 +101,8 @@ namespace KingdomIdle.Balance
                     Get("_retryEconomyCompletion") != null && !(bool)Get("_huntSyncFailed") && Count() == 0 &&
                     LocalProgression.State.PendingMainCompletion == null && JsonConvert.SerializeObject(journal.Data.InFlight) == payload,
                     "transient batch failure holds completion and preserves the exact original batch while its result is unknown");
+                Check(waitingLoading != null && waitingLoading.IsDisposed && Get("_stageLoading") == null,
+                    "unknown batch result ends the global loading while retaining the protected wave and same-ID recovery");
 
                 response.RequestId = requestId; response.EconomyRevision = 2; response.Replayed = true;
                 response.Receipt = new() { RequestId = requestId, Generation = 1, Sequence = 2,
@@ -120,6 +125,25 @@ namespace KingdomIdle.Balance
                     "later retry ticks cannot mint another completion ID or duplicate its outbox item");
 
                 Check(LocalProgression.Execute("completion-next-fixture", state => { state.PendingMainCompletion = null; return true; }), "stale-owner fixture clears only its isolated completion");
+                BindStage();
+                EconomyBatchProgression.MarkUnknown("isolated quest write failure followed by unavailable full-state read");
+                string beforeUnknown = JsonConvert.SerializeObject(LocalProgression.State);
+                Call("EnqueueMainCompletion", definition, false);
+                for (int i = 0; i < 20; i++) Call("PumpHuntRetry");
+                Check(EconomyBatchProgression.HasUnknownResult && Get("_retryEconomyCompletion") != null &&
+                    !(bool)Get("_economyCompletionPending") && !(bool)Get("_huntSyncFailed") && Count() == 0 &&
+                    (eStageRunState)Get("_currentState") == eStageRunState.Resolving &&
+                    JsonConvert.SerializeObject(LocalProgression.State) == beforeUnknown,
+                    "an unavailable external result keeps the wave protected without granting, moving, or minting a completion ID");
+                Check(Get("_stageLoading") == null && !GameplayLoading.IsVisible,
+                    "a failed full-state read cannot leave a permanent spinner over the existing manual recovery controls");
+                EconomyBatchProgression.ConfirmFullRefresh();
+                Call("PumpHuntRetry"); journal.Pump(true); EconomyBatchProgression.Pump();
+                Check(!EconomyBatchProgression.HasUnknownResult && Count() == 1 &&
+                    LocalProgression.State.PendingMainCompletion?.RunId == run && Get("_retryEconomyCompletion") == null,
+                    "a confirmed manual full-state refresh resumes the original wave through its existing completion path once");
+                Check(LocalProgression.Execute("completion-after-manual-recovery", state => { state.PendingMainCompletion = null; return true; }),
+                    "manual recovery fixture clears only its isolated completion before owner-change checks");
                 foreach (string stale in new[] { "account", "network", "session", "token" })
                 {
                     BindStage(); EconomyBatchProgression.MarkUnknown("isolated stale completion");
@@ -155,6 +179,7 @@ namespace KingdomIdle.Balance
                 Call("EndStageLoading");
                 var token = (CancellationTokenSource)Get("_token"); token?.Cancel(); token?.Dispose(); Set("_token", null);
                 scope.Dispose(); NetworkManager.Instance = null; MonsterSpawner.Instance = previousSpawner;
+                CoreSet("_clientId", previousClientId);
                 MainWaveProgression.ReceiveServerState(false); UnityEngine.Object.DestroyImmediate(owner);
                 string allowed = Path.GetFullPath(Path.Combine(Application.persistentDataPath, "progression-local-v1")) + Path.DirectorySeparatorChar;
                 foreach (string path in paths)

@@ -31,7 +31,7 @@ namespace KingdomIdle.Balance
         public const string OfflineDoublePlacement = "rewarded.offline_double";
         // Offer definitions remain previews until their server, payment and ad integrations are ready.
         public static IReadOnlyList<ShopOffer> Offers { get; } = Array.AsReadOnly(new[] {
-            new ShopOffer("ki.remove_ads.permanent", "광고 제거", "무기한 · 모든 광고 제거\n광고 보상도 영상 없이 수령 · 일일 횟수는 유지", ShopCategory.Recommended, ShopPayment.Store, 3900, permanentAdRemoval: true),
+            new ShopOffer("ki.remove_ads.permanent", "광고 제거", "영구 적용. 모든 광고 보상 즉시 수령.", ShopCategory.Recommended, ShopPayment.Store, 3900, permanentAdRemoval: true),
             new ShopOffer("ki.package.supply_small", "작은 보급 패키지", "고대주화 1,500개 + 장비 뽑기권 10장 + 마탑 뽑기권 10장", ShopCategory.Recommended, ShopPayment.Store, 1500, 1500, 10, 10),
             new ShopOffer("ki.package.supply_medium", "든든한 보급 패키지", "고대주화 5,000개 + 장비 뽑기권 20장 + 마탑 뽑기권 20장", ShopCategory.Recommended, ShopPayment.Store, 3900, 5000, 20, 20),
             new ShopOffer("ki.coins.1000", "고대주화 1,000개", "기본 주화 상품", ShopCategory.Currency, ShopPayment.Store, 1000, 1000),
@@ -40,8 +40,8 @@ namespace KingdomIdle.Balance
             new ShopOffer("ki.coins.12000", "고대주화 12,000개", "기본 10,000개 + 추가 2,000개", ShopCategory.Currency, ShopPayment.Store, 10000, 12000),
             new ShopOffer("ki.gold.30m", "골드 보급 · 30분", "현재 기준 골드 수입의 30분치", ShopCategory.Currency, ShopPayment.AncientCoin, coinCost: 100, goldMinutes: 30),
             new ShopOffer("ki.gold.120m", "골드 보급 · 2시간", "현재 기준 골드 수입의 2시간치", ShopCategory.Currency, ShopPayment.AncientCoin, coinCost: 300, goldMinutes: 120),
-            new ShopOffer("rewarded.daily_equipment", "매일 장비 뽑기권", "광고 1회로 장비 뽑기권 2장", ShopCategory.Rewarded, ShopPayment.RewardedAd, equipmentTickets: 2, dailyLimit: 1),
-            new ShopOffer("rewarded.daily_mage", "매일 마탑 뽑기권", "광고 1회로 마탑 뽑기권 2장", ShopCategory.Rewarded, ShopPayment.RewardedAd, mageTickets: 2, dailyLimit: 1)
+            new ShopOffer("rewarded.daily_equipment", "장비 뽑기권", string.Empty, ShopCategory.Rewarded, ShopPayment.RewardedAd, equipmentTickets: 2, dailyLimit: 1),
+            new ShopOffer("rewarded.daily_mage", "마탑 뽑기권", string.Empty, ShopCategory.Rewarded, ShopPayment.RewardedAd, mageTickets: 2, dailyLimit: 1)
         });
 
         public static ShopOffer Find(string id)

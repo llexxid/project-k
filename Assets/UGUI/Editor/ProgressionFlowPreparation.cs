@@ -77,6 +77,32 @@ namespace KingdomIdle.UGUI.Editor
             var fill = existing != null ? existing.Find("Fill").GetComponent<Image>() :
                 F.HFillBar(panel, "ReturnTimerBar", UguiTheme.RusticPanelDeep, UguiTheme.AccentGold, out _);
             AddTimer(root, panel, fill);
+            var timer = root.GetComponent<StageReturnTimerView>().label;
+            timer.alignment = TextAlignmentOptions.MidlineLeft;
+            timer.margin = new Vector4(0, 0, 320, 0);
+            timer.fontSize = 30;
+            var lineSize = F.Preferred(timer, height: 112);
+            lineSize.minHeight = 112;
+            if (view.autoAdvance == null)
+            {
+                var box = F.Box(timer.transform, "AutoAdvance", UguiTheme.RusticPanelDeep, false, true);
+                Pin(box.rectTransform, new Vector2(1, .5f), Vector2.zero, new Vector2(308, 112), new Vector2(1, .5f));
+                var toggle = box.gameObject.AddComponent<Toggle>();
+                toggle.targetGraphic = box;
+                var frame = F.Box(box.transform, "CheckFrame", UguiTheme.Bronze, false);
+                Pin(frame.rectTransform, new Vector2(0, .5f), new Vector2(10, 0), new Vector2(42, 42), new Vector2(0, .5f));
+                var inset = F.Box(frame.transform, "Inset", UguiTheme.RusticPanelDeep, false);
+                F.Stretch(inset.rectTransform); inset.rectTransform.offsetMin = Vector2.one * 3; inset.rectTransform.offsetMax = Vector2.one * -3;
+                var mark = F.Box(frame.transform, "Check", UguiTheme.AccentGold, false);
+                mark.sprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UGUI/Art/LayerLab/GUI Pro-MinimalGame/Shared/Icons/PictoIcon/64/check.png");
+                F.Stretch(mark.rectTransform); mark.rectTransform.offsetMin = Vector2.one * 5; mark.rectTransform.offsetMax = Vector2.one * -5;
+                toggle.graphic = mark;
+                toggle.SetIsOnWithoutNotify(false);
+                var label = F.Text(box.transform, "Label", "다음 던전 도전", 30, UguiTheme.Parchment, TextAlignmentOptions.MidlineLeft);
+                F.Stretch(label.rectTransform);
+                label.rectTransform.offsetMin = new Vector2(66, 0); label.rectTransform.offsetMax = new Vector2(-4, 0);
+                view.autoAdvance = toggle;
+            }
         }
 
         private static void AddTimer(GameObject root, Transform panel, Image fill)

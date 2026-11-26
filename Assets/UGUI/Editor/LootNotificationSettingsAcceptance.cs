@@ -65,7 +65,7 @@ namespace KingdomIdle.UGUI.Editor
                 Set(host, "layerOverlays", (RectTransform)canvas.transform);
                 controller.Open(host);
                 var view = View(controller);
-                Check(view.tabs?.Length == 4 && view.pages?.Length == 4 && view.tabs[3].GetComponentInChildren<TMPro.TMP_Text>(true).text == "획득 알림",
+                Check(view.tabs?.Length == 4 && view.pages?.Length == 4 && view.tabs[3].GetComponentInChildren<TMPro.TMP_Text>(true).text == "루트피드",
                     "Actual settings prefab contains the fourth acquisition notifications tab");
                 Check(view.lootScroll != null && view.lootScroll != view.scroll && view.pages[3] == view.lootScroll.gameObject &&
                     view.lootCurrencyToggles?.Length == 10 && view.lootEquipmentToggles?.Length == 3 && view.tglLootMageSkills != null && view.btnLootDefaults != null,

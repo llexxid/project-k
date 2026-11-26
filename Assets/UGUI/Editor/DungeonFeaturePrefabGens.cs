@@ -524,12 +524,12 @@ namespace KingdomIdle.UGUI.Editor
             view.retryButton = MakeActionButton(
                 buttons,
                 "BtnRetry",
-                "다시하기",
+                "재도전",
                 UguiTheme.RusticSurface);
             view.nextButton = MakeActionButton(
                 buttons,
                 "BtnNext",
-                "다음 스테이지",
+                "다음 단계",
                 UguiTheme.BtnConfirm);
 
             ProgressionFlowPreparation.ApplyResult(root.gameObject);
@@ -587,8 +587,7 @@ namespace KingdomIdle.UGUI.Editor
             view.infoLabel = F.Text(
                 infoCard.transform,
                 "LblInfo",
-                "레벨: 15 → <color=#5DE66C>22 (+7)</color>\n" +
-                "환생 횟수: 1 → <color=#5DE66C>2 (+1)</color>",
+                "환생 레벨: 15 → <color=#5DE66C>22 (+7)</color>",
                 28f,
                 UguiTheme.TextPrimary,
                 TextAlignmentOptions.Center,

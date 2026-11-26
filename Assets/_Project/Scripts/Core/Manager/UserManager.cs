@@ -565,6 +565,8 @@ namespace Scripts.Core
 				pity = Math.Min(39, Math.Max(0, pity));
 			}
 			s.EquipmentPity = pity;
+			if (state.NextEquipmentDrawSequence < 1) throw new InvalidOperationException("Invalid equipment draw sequence.");
+			s.NextEquipmentDrawSequence = state.NextEquipmentDrawSequence;
 		}
 
 		/// <summary>서버 환생 상태를 그대로 쓴다. 로그인·OnGetUserState·환생 응답이 같은 함수를 쓴다. 쿨다운 기준은 서버 LastUtc 하나다.</summary>
@@ -583,6 +585,7 @@ namespace Scripts.Core
 			s.ReincarnationDay = state.Day ?? "";
 			s.LastReincarnationUtc = Math.Max(0L, state.LastUtc);
 			s.CycleStartedUtc = s.LastReincarnationUtc;
+			s.LastReincarnationHighestStage = Math.Max(0L, state.LastHighestStage);
 			s.PendingReincarnation = false;
 		}
 

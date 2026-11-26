@@ -13,7 +13,10 @@ public static class EquipmentEconomy
     public static long BaseYield(eEquipmentRarity rarity) => rarity switch
     { eEquipmentRarity.Normal => 1, eEquipmentRarity.Rare => 4, eEquipmentRarity.Epic => 12, _ => 0 };
     public static long EnhanceCost(EquipmentInstance item) => item == null || item.baseData == null || item.IsMaxLevel() ? 0 :
-        2 * BaseYield(item.baseData.rarity) * (1 + item.enhancementLevel / 3);
+        EnhanceCost(item.baseData.rarity, item.enhancementLevel);
+    public static long EnhanceCost(eEquipmentRarity rarity, int level) => 2 * BaseYield(rarity) * (1 + level / 3);
+    public static int EnhanceCap(eEquipmentRarity rarity) => rarity switch
+    { eEquipmentRarity.Normal => 5, eEquipmentRarity.Rare => 10, eEquipmentRarity.Epic => 15, _ => 0 };
     public static long Yield(EquipmentSave item) => checked(BaseYield(ItemCode.DecodeRarity(item.Code)) + BalanceMath.Floor(item.EnhancementStonesSpent * .8m));
     public static bool IsProtected(EquipmentSave item) => item.Locked || item.Player.HasValue;
     public static bool ShouldAutoDismantle(ProgressionState state, EquipmentSave item) =>

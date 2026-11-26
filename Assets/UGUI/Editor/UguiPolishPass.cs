@@ -361,7 +361,10 @@ namespace KingdomIdle.UGUI.Editor
                 Height(button.transform,144);
                 var le=Layout(button.transform);le.minWidth=144;le.preferredWidth=144;le.flexibleWidth=0;
                 if(button.name=="BtnCurrency"||button.name=="AncientCoinChip")
-                {le.minWidth=248;le.preferredWidth=248; var value=button.transform.Find("Value").GetComponent<TMP_Text>();Text(value,32,72);value.overflowMode=TextOverflowModes.Overflow;
+                {le.minWidth=272;le.preferredWidth=272; var value=button.transform.Find("Value").GetComponent<TMP_Text>();Text(value,42,72);
+                 value.enableAutoSizing=true;value.fontSizeMin=36;value.fontSizeMax=42;value.fontStyle=FontStyles.Normal;
+                 value.textWrappingMode=TextWrappingModes.NoWrap;value.overflowMode=TextOverflowModes.Ellipsis;
+                 button.GetComponent<HorizontalLayoutGroup>().padding=new RectOffset(78,8,0,0);
                  var ring=button.transform.Find("IconRing") as RectTransform;if(ring!=null){ring.pivot=new Vector2(0,.5f);ring.anchoredPosition=new Vector2(10,0);ring.sizeDelta=new Vector2(64,64);}
                 }
             }

@@ -266,51 +266,34 @@ namespace KingdomIdle.UGUI.Editor
         /// <summary>전직 카드 (배지 + 이미지 + 이름 + 스탯 + 파편).</summary>
         internal static GameObject GenerateJobCard()
         {
-            var card = F.Box(null, "Item_JobCard", UguiTheme.RusticSurfaceDark, rounded: true, raycast: true);
+            var card = F.Box(null, "Item_JobCard", Color.clear, rounded:false, raycast:true);
             var view = card.gameObject.AddComponent<JobCardView>();
-            view.background = card;
-            view.button = F.ButtonOn(card, gloss: false);   // 콘텐츠 셀 — 광택 끔
-            F.VLayout(card.gameObject, 6f, new RectOffset(8, 8, 12, 8), TextAnchor.UpperCenter, expandWidth: true);
-
-            var frame = F.Frame(card.transform, "StateFrame", new Color(1f, 230f / 255f, 100f / 255f, 1f));
-            frame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
-            frame.gameObject.SetActive(false);
-            view.stateFrame = frame;
-
-            // 우상단 배지
-            var badge = F.Text(card.transform, "Badge", "1차", 16f, new Color(1f, 1f, 1f, 0.55f), TextAlignmentOptions.Right, bold: true);
-            var badgeRt = badge.rectTransform;
-            badgeRt.anchorMin = new Vector2(1f, 1f); badgeRt.anchorMax = new Vector2(1f, 1f); badgeRt.pivot = new Vector2(1f, 1f);
-            badgeRt.anchoredPosition = new Vector2(-6f, -6f); badgeRt.sizeDelta = new Vector2(90f, 22f);
-            badge.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
-            view.badge = badge;
-
-            // 직업 초상화 메달리온 (고정 크기 청동 림 + 어두운 원 — jobSprite 프레임 편차를 흡수해
-            // 모든 카드가 균일한 초상화 룩이 되도록. 캐릭터 스프라이트는 preserveAspect 로 원 안에 정규화.)
-            var imgWrap = F.Container(card.transform, "ImgWrap");
-            F.Preferred(imgWrap.gameObject.AddComponent<LayoutElement>(), height: 100f);
-
-            var ring = F.CircleBox(imgWrap, "PortraitRing", UguiTheme.Bronze);
-            F.AnchorCenter(ring.rectTransform, 94f, 94f);
+            // Keep the full cell touchable while only the circular seal receives selection feedback.
+            view.button = card.gameObject.AddComponent<Button>();
+            card.gameObject.AddComponent<PlayClickSfxOnClick>();
+            var ring = F.CircleBox(card.transform, "OuterRing", UguiTheme.Bronze);
+            view.button.targetGraphic = ring;
+            view.button.colors = UguiTheme.MakeColorBlock();
+            F.AnchorCenter(ring.rectTransform, 150, 150); ring.rectTransform.anchoredPosition = new Vector2(0,32);
             ring.raycastTarget = false;
-            ring.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
-
-            var disc = F.CircleBox(ring.transform, "PortraitDisc", new Color(0.11f, 0.09f, 0.07f, 1f));
-            F.AnchorCenter(disc.rectTransform, 84f, 84f);
-            disc.raycastTarget = false;
-
-            var img = F.Container(disc.transform, "Image");
-            F.AnchorCenter(img, 74f, 74f);
-            var imgImg = img.gameObject.AddComponent<Image>();
-            imgImg.preserveAspect = true; imgImg.raycastTarget = false; imgImg.enabled = false;
-            view.image = imgImg;
-
-            view.nameLabel = MakeCellLabel(card.transform, "직업", 24f, UguiTheme.TextPrimary);
-            view.statLabel = MakeCellLabel(card.transform, "HP 0 / ATK 0", 18f, new Color(1f, 1f, 1f, 0.60f));
-            view.fragLabel = MakeCellLabel(card.transform, "전직 파편 0/0", 20f, UguiTheme.AccentGoldStrong);
-            view.prereqLabel = MakeCellLabel(card.transform, "선행 필요", 18f, UguiTheme.WarnRed);
-            view.prereqLabel.gameObject.SetActive(false);
-
+            var inner = F.CircleBox(ring.transform, "InnerDisc", UguiTheme.RusticSurfaceDark);
+            F.AnchorCenter(inner.rectTransform, 132, 132); inner.raycastTarget = false;
+            view.background = inner;
+            var mark = F.Box(inner.transform, "BranchSeal", UguiTheme.BronzeLight, rounded:false);
+            F.AnchorCenter(mark.rectTransform, 96, 96); mark.rectTransform.localRotation = Quaternion.Euler(0,0,45);
+            mark.raycastTarget = false;
+            view.stateFrame = mark;
+            var bezel = F.CircleBox(inner.transform, "PortraitBezel", UguiTheme.RusticSurfaceDark);
+            F.AnchorCenter(bezel.rectTransform, 112,112);
+            var icon = F.Box(bezel.transform, "Portrait", Color.white, rounded:false);
+            F.AnchorCenter(icon.rectTransform, 96, 96); icon.raycastTarget = false;
+            icon.preserveAspect = true; view.image = icon;
+            var badge = F.Text(card.transform, "State", "", 22, UguiTheme.AccentGold, TextAlignmentOptions.Center);
+            F.AnchorCenter(badge.rectTransform, 260, 32); badge.rectTransform.anchoredPosition = new Vector2(0, 118); view.badge = badge;
+            var title = F.Text(card.transform, "Name", "", 34, UguiTheme.Parchment, TextAlignmentOptions.Center, bold:true);
+            F.AnchorCenter(title.rectTransform, 275, 54); title.rectTransform.anchoredPosition = new Vector2(0,-72); view.nameLabel = title;
+            var cost = F.Text(card.transform, "Access", "", 24, UguiTheme.TextSecondary, TextAlignmentOptions.Center);
+            F.AnchorCenter(cost.rectTransform, 272, 44); cost.rectTransform.anchoredPosition = new Vector2(0,-117); view.fragLabel = cost;
             return PrefabGenUtil.SavePrefab(card.gameObject, $"{PrefabGenUtil.PrefabRoot}/Items/Item_JobCard.prefab");
         }
 

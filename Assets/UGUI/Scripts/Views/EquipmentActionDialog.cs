@@ -13,7 +13,7 @@ namespace KingdomIdle.UGUI
         public Button backdrop, cancel, confirm;
         public Button recommendation;
         public Toggle[] rarityToggles;
-        public Toggle autoLockFirst;
+        public Toggle masterAuto, autoLockFirst;
         private static EquipmentActionDialog _open;
 
         private static EquipmentActionDialog Create(string heading, string body, string action)
@@ -41,6 +41,7 @@ namespace KingdomIdle.UGUI
             if (view.recommendation != null) view.recommendation.transform.parent.gameObject.SetActive(false);
             foreach (var toggle in view.rarityToggles) toggle.gameObject.SetActive(false);
             if (view.autoLockFirst != null) view.autoLockFirst.gameObject.SetActive(false);
+            if (view.masterAuto != null) view.masterAuto.gameObject.SetActive(false);
             view.panel.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 620);
             long generation = LocalProgression.AccountGeneration;
             LocalProgression.AccountChanged += view.Close;
@@ -63,8 +64,12 @@ namespace KingdomIdle.UGUI
             if (view.recommendation != null) view.recommendation.transform.parent.gameObject.SetActive(false);
             foreach (var toggle in view.rarityToggles) toggle.gameObject.SetActive(false);
             if (view.autoLockFirst != null) view.autoLockFirst.gameObject.SetActive(false);
+            if (view.masterAuto != null) view.masterAuto.gameObject.SetActive(false);
             view.panel.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 620);
+            long account = LocalProgression.AccountGeneration;
+            LocalProgression.AccountChanged += view.Close;
             view.confirm.onClick.AddListener(() => {
+                if (!view.gameObject.activeSelf || LocalProgression.AccountGeneration != account) return;
                 // 서버(OnDismantleEquipment)가 보호·수량을 검사하고 환급액을 확정한다. 완료 토스트·목록 갱신은 패널의 완료 이벤트가 한다.
                 var result = EquipmentManager.Instance != null ? EquipmentManager.Instance.DismantleEx(plan) : EquipmentManager.EnhancementResult.NetworkNotReady;
                 view.Close();
@@ -73,9 +78,47 @@ namespace KingdomIdle.UGUI
             });
         }
 
+        public static void BulkDismantle(Action refresh)
+        {
+            var view = Create("일괄 분해", "분해할 장비 등급을 선택하세요.", "대상 확인");
+            if (view == null) return;
+            view.recommendation.transform.parent.gameObject.SetActive(false);
+            view.autoLockFirst.gameObject.SetActive(false);
+            view.masterAuto.gameObject.SetActive(false);
+            view.panel.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 980);
+            EquipmentEconomy.DismantlePlan plan = null;
+            void Preview()
+            {
+                int mask = view.SelectedMask();
+                plan = EquipmentEconomy.Preview(code => (mask & (1 << (int)ItemCode.DecodeRarity(code))) != 0);
+                view.description.text = $"선택한 장비 {NumberNotation.Format(plan.Count)}개 · 예상 강화석 {NumberNotation.Format(plan.Stones)}개\n잠금·장착·강화 장비는 보호됩니다.";
+                view.confirm.interactable = plan.Count > 0;
+            }
+            foreach (var toggle in view.rarityToggles)
+            {
+                toggle.SetIsOnWithoutNotify(false);
+                toggle.onValueChanged.AddListener(_ => Preview());
+            }
+            Preview();
+            long generation = LocalProgression.AccountGeneration;
+            LocalProgression.AccountChanged += view.Close;
+            view.confirm.onClick.AddListener(() =>
+            {
+                view.Close();
+                if (generation == LocalProgression.AccountGeneration) Dismantle(plan, refresh, "선택한 등급");
+            });
+        }
+
+        private int SelectedMask()
+        {
+            int mask = 0;
+            for (int i = 0; i < rarityToggles.Length; i++) if (rarityToggles[i].isOn) mask |= 1 << i;
+            return mask;
+        }
+
         public static void Settings()
         {
-            var view = Create("장비 설정", "추천 기준은 누를 때 저장됩니다.\n\n자동 분해는 앞으로 획득할 장비에 적용됩니다.\n일반 1 · 레어 4 · 에픽 12 강화석", "자동 분해 저장");
+            var view = Create("장비 자동분해", "선택한 등급의 새 장비를 강화석으로 바꿉니다.", "설정 저장");
             if (view == null) return;
             view.cancel.GetComponentInChildren<TMP_Text>().text = "닫기";
             bool canSetAutoLock = EquipmentManager.IsInstanceInventory && view.autoLockFirst != null;
@@ -87,15 +130,29 @@ namespace KingdomIdle.UGUI
             if (canSetAutoLock) view.confirm.GetComponentInChildren<TMP_Text>().text = "설정 저장";
             if (view.recommendation != null)
             {
-                view.panel.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, canSetAutoLock ? 1172 : 1056);
+                view.panel.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, canSetAutoLock ? 1280 : 1172);
                 view.UpdateRecommendationLabel();
                 view.recommendation.onClick.AddListener(view.ChangeRecommendation);
             }
             int mask = LocalProgression.State.AutoDismantleMask;
-            for (int i = 0; i < view.rarityToggles.Length; i++) view.rarityToggles[i].SetIsOnWithoutNotify((mask & (1 << i)) != 0);
+            int lastMask = mask == 0 ? LocalProgression.State.LastAutoDismantleMask : mask;
+            view.masterAuto.SetIsOnWithoutNotify(mask != 0);
+            for (int i = 0; i < view.rarityToggles.Length; i++)
+            {
+                view.rarityToggles[i].SetIsOnWithoutNotify((lastMask & (1 << i)) != 0);
+                view.rarityToggles[i].interactable = mask != 0;
+            }
+            view.masterAuto.onValueChanged.AddListener(on =>
+            {
+                foreach (var toggle in view.rarityToggles) toggle.interactable = on;
+            });
+            LocalProgression.AccountChanged += view.Close;
             view.confirm.onClick.AddListener(() => {
-                int next = 0;
-                for (int i = 0; i < view.rarityToggles.Length; i++) if (view.rarityToggles[i].isOn) next |= 1 << i;
+                int selected = view.SelectedMask();
+                if (selected == 0 && view.masterAuto.isOn) { UIManager.Instance?.ShowToast("자동분해할 등급을 선택하세요."); return; }
+                int next = view.masterAuto.isOn ? selected : 0;
+                if (selected != 0 && selected != LocalProgression.State.LastAutoDismantleMask)
+                    LocalProgression.Execute("equipment-auto-preference", s => { s.LastAutoDismantleMask = selected; return true; });
                 bool? autoLock = canSetAutoLock ? view.autoLockFirst.isOn : null;
                 if (next == LocalProgression.State.AutoDismantleMask &&
                     (!autoLock.HasValue || autoLock.Value == EquipmentManager.AutoLockFirstEnhancement)) { view.Close(); return; }

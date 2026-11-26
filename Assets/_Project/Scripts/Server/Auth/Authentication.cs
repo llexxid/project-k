@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Google;
 using Protocol.Message.Dto;
@@ -23,8 +24,11 @@ namespace Scripts.Server.Auth
 		private const string MasterCustomId = "516A4AAD45F1CC09";
 #endif
 		private const double AuthenticationTimeoutSeconds = 30;
+		private const double GoogleInteractiveTimeoutSeconds = 180;
+		private static readonly object GoogleSignInGate = new object();
+		private static Task<GoogleSignInUser> _pendingGoogleSignIn;
 		private const string WebClientId = "222024339558-o157jmef5jhip2s9vtfo3kto1ojfpejf.apps.googleusercontent.com";
-		// OnLogIn이 PlayFab의 10초 한도에 걸린 뒤(함수 앱 콜드 스타트) 한 번만 다시 부른다.
+		// 콜드 스타트 또는 저장소 요청 제한 뒤 같은 인증 시도에서 로그인 조회를 한 번만 재시도한다.
 		private bool _retriedLogin;
 		public Authentication(NetworkManager network) => _network = network;
 
@@ -67,16 +71,8 @@ namespace Scripts.Server.Auth
 				}
 				else if (type == eAuthType.GoogleWebLogin)
 				{
-					GoogleSignIn.Configuration = new GoogleSignInConfiguration
-					{
-						WebClientId = WebClientId,
-						UseGameSignIn = false,
-						RequestIdToken = true,
-						RequestAuthCode = true,
-						RequestEmail = true,
-						RequestProfile = true
-					};
-					var google = await WithTimeout(GoogleSignIn.DefaultInstance.SignIn());
+					ConfigureGoogleSignIn();
+					var google = await WithTimeout(BeginGoogleSignIn(GoogleSignIn.DefaultInstance.SignIn), GoogleInteractiveTimeoutSeconds);
 					if (!IsCurrent(generation)) return;
 					googleAccountHint = GameTermsConsent.GoogleHint(google.UserId);
 					if (acceptedAt == null && !GameTermsConsent.RecognizesGoogleAccount(googleAccountHint))
@@ -125,17 +121,20 @@ namespace Scripts.Server.Auth
 				// A missing display name does not prove that the player's data needs initialization.
 				if (login.NewlyCreated)
 				{
-					_network.Call<InitUserRequestDTO, UserInitResponseDTO>(new InitUserRequestDTO { EquipmentSchema = EquipmentManager.InstanceSchemaVersion }, OnInitialized, _network.FailLogin);
+					_network.Call<InitUserRequestDTO, UserInitResponseDTO>(new InitUserRequestDTO { EquipmentSchema = EquipmentManager.InstanceSchemaVersion, EquipmentCapacity = EquipmentManager.InstanceCapacity }, OnInitialized, _network.FailLogin);
 				}
 				else
 				{
-					_network.Call<AuthRequestDTO, UserInitResponseDTO>(new AuthRequestDTO { EquipmentSchema = EquipmentManager.InstanceSchemaVersion }, OnInitialized, OnLoginFailed);
+					_network.Call<AuthRequestDTO, UserInitResponseDTO>(new AuthRequestDTO { EquipmentSchema = EquipmentManager.InstanceSchemaVersion, EquipmentCapacity = EquipmentManager.InstanceCapacity }, OnInitialized, OnLoginFailed);
 				}
 			}
 			catch (Exception ex)
 			{
 				if (!IsCurrent(generation)) return;
-				if (ex is GameTermsConsent.TermsDeclinedException)
+				if (ex is GoogleSignInPendingException)
+					_network.FailLogin(NetworkManager.CreateError("GooglePending",
+						"이전 Google 로그인 요청이 아직 진행 중입니다. Google 창에서 처리를 마친 뒤 다시 시도해 주세요."));
+				else if (ex is GameTermsConsent.TermsDeclinedException)
 					_network.FailLogin(NetworkManager.CreateError("ConsentDeclined", "게임을 시작하려면 필수 항목에 동의해 주세요."));
 				else if (ex is AuthenticationException auth)
 					_network.FailLogin(auth.Error);
@@ -146,6 +145,45 @@ namespace Scripts.Server.Auth
 		}
 
 		private bool IsCurrent(long generation) => _network != null && _network.AccountGeneration == generation;
+
+		private static void ConfigureGoogleSignIn()
+		{
+			// The SDK rejects a replacement reference once DefaultInstance exists, including after a failed attempt.
+			// SignOut clears Configuration, so restore the same settings only when it is absent.
+			if (GoogleSignIn.Configuration != null) return;
+			GoogleSignIn.Configuration = new GoogleSignInConfiguration
+			{
+				WebClientId = WebClientId,
+				UseGameSignIn = false,
+				RequestIdToken = true,
+				RequestAuthCode = true,
+				RequestEmail = true,
+				RequestProfile = true
+			};
+		}
+
+		private static Task<GoogleSignInUser> BeginGoogleSignIn(Func<Task<GoogleSignInUser>> start)
+		{
+			// The SDK reuses one native Future. A wrapper timeout must not start another request on it.
+			lock (GoogleSignInGate)
+			{
+				if (_pendingGoogleSignIn != null && !_pendingGoogleSignIn.IsCompleted)
+					throw new GoogleSignInPendingException();
+				_pendingGoogleSignIn = null;
+				var task = start();
+				_pendingGoogleSignIn = task;
+				_ = task.ContinueWith(completed =>
+				{
+					// Drain a late failure without logging credentials or performing Unity/account work here.
+					if (completed.IsFaulted) { var ignored = completed.Exception; }
+					lock (GoogleSignInGate)
+					{
+						if (ReferenceEquals(_pendingGoogleSignIn, completed)) _pendingGoogleSignIn = null;
+					}
+				}, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+				return task;
+			}
+		}
 
 #if UNITY_ANDROID && !UNITY_EDITOR
 		private static bool _playGamesStarted;
@@ -203,23 +241,47 @@ namespace Scripts.Server.Auth
 			if (error?.CustomData is ErrorResponseDTO business &&
 				business.ErrorCode == Protocol.Message.Data.eErrorCode.PlayerNotInitialized)
 			{
-				_network.Call<InitUserRequestDTO, UserInitResponseDTO>(new InitUserRequestDTO { EquipmentSchema = EquipmentManager.InstanceSchemaVersion }, OnInitialized, _network.FailLogin);
+				_network.Call<InitUserRequestDTO, UserInitResponseDTO>(new InitUserRequestDTO { EquipmentSchema = EquipmentManager.InstanceSchemaVersion, EquipmentCapacity = EquipmentManager.InstanceCapacity }, OnInitialized, _network.FailLogin);
 				return;
 			}
-			// Consumption 플랜 콜드 스타트는 PlayFab의 10초 실행 한도를 넘길 수 있다. 그때쯤 함수 앱은 떠 있으므로 한 번 더 부르면 보통 1~2초에 끝난다.
+			if (!_retriedLogin && TryGetLoginRetrySeconds(error, out var retryAfter))
+			{
+				_retriedLogin = true;
+				_network.StartCoroutine(RetryThrottledLogin(_network.AccountGeneration, retryAfter));
+				return;
+			}
+			// Consumption 플랜 콜드 스타트는 PlayFab의 10초 실행 한도를 넘길 수 있다.
 			if (error != null && error.Error == PlayFabErrorCode.CloudScriptAzureFunctionsExecutionTimeLimitExceeded && !_retriedLogin)
 			{
 				_retriedLogin = true;
 				Debug.LogWarning("[Login] OnLogIn이 실행 시간 한도를 넘겨 한 번 더 시도합니다: " + error.ErrorMessage);
-				_network.Call<AuthRequestDTO, UserInitResponseDTO>(new AuthRequestDTO { EquipmentSchema = EquipmentManager.InstanceSchemaVersion }, OnInitialized, OnLoginFailed);
+				_network.Call<AuthRequestDTO, UserInitResponseDTO>(new AuthRequestDTO { EquipmentSchema = EquipmentManager.InstanceSchemaVersion, EquipmentCapacity = EquipmentManager.InstanceCapacity }, OnInitialized, OnLoginFailed);
 				return;
 			}
 			_network.FailLogin(error);
 		}
 
-		private static async Task<T> WithTimeout<T>(Task<T> task)
+		internal static bool TryGetLoginRetrySeconds(PlayFabError error, out int seconds)
 		{
-			if (await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(AuthenticationTimeoutSeconds))) != task)
+			bool storage = NetworkManager.TryGetStorageThrottle(error, out var suggested);
+			bool limited = error != null && (error.HttpCode == 429 || error.Error == PlayFabErrorCode.APIClientRequestRateLimitExceeded);
+			long delay = suggested ?? (long?)error?.RetryAfterSeconds ?? 5L;
+			seconds = (int)Math.Min(int.MaxValue, Math.Max(1L, delay));
+			return storage || limited;
+		}
+
+		private System.Collections.IEnumerator RetryThrottledLogin(long generation, int seconds)
+		{
+			yield return new WaitForSecondsRealtime(seconds);
+			if (IsCurrent(generation) && _network.IsAuthenticating)
+				_network.Call<AuthRequestDTO, UserInitResponseDTO>(new AuthRequestDTO {
+					EquipmentSchema = EquipmentManager.InstanceSchemaVersion, EquipmentCapacity = EquipmentManager.InstanceCapacity
+				}, OnInitialized, OnLoginFailed);
+		}
+
+		private static async Task<T> WithTimeout<T>(Task<T> task, double seconds = AuthenticationTimeoutSeconds)
+		{
+			if (await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(seconds))) != task)
 			{
 				// Observe a late fault without running any Unity or account work on its worker.
 				_ = task.ContinueWith(t => { var ignored = t.Exception; }, TaskContinuationOptions.OnlyOnFaulted);
@@ -227,6 +289,8 @@ namespace Scripts.Server.Auth
 			}
 			return await task;
 		}
+
+		private sealed class GoogleSignInPendingException : Exception { }
 
 		private sealed class AuthenticationException : Exception
 		{

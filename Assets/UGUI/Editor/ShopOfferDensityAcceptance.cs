@@ -64,22 +64,23 @@ namespace KingdomIdle.UGUI.Editor
                             float compactHeight = card.rect.height;
                             Check(compactHeight >= (package ? 300 : 240) - 1 && compactHeight < (package ? 410 : 330),
                                 context + " retains minimum height and improves catalog card density " + row.offerId + " height=" + compactHeight);
-                            Check(Inside(card, row.title.rectTransform) && Inside(card, row.detail.rectTransform) && Inside(card, row.amount.rectTransform) &&
+                            Check(Inside(card, row.title.rectTransform) && (!row.detail.gameObject.activeSelf || Inside(card, row.detail.rectTransform)) &&
+                                (!row.amount.gameObject.activeSelf || Inside(card, row.amount.rectTransform)) &&
                                 Inside(card, (RectTransform)row.action.transform), context + " keeps all information and action inside " + row.offerId);
                             Check(((RectTransform)row.action.transform).rect.height >= 144 && ((RectTransform)row.action.transform).rect.width >= 330,
                                 context + " preserves the 330x144 action target " + row.offerId);
-                            Check(RectBounds(card, row.detail.rectTransform).max.x <= RectBounds(card, (RectTransform)row.action.transform).min.x + 1,
+                            Check(!row.detail.gameObject.activeSelf || RectBounds(card, row.detail.rectTransform).max.x <= RectBounds(card, (RectTransform)row.action.transform).min.x + 1,
                                 context + " separates body text from the price action " + row.offerId);
-                            Check(Fits(row.title) && Fits(row.detail) && Fits(row.price), context + " fits catalog title, description and price " + row.offerId);
+                            Check(Fits(row.title) && (!row.detail.gameObject.activeSelf || Fits(row.detail)) && Fits(row.price), context + " fits catalog title, description and price " + row.offerId);
                             if (offer.Payment == ShopPayment.RewardedAd || offer.GoldMinutes > 0)
                             {
                                 string previous = row.amount.text;
                                 row.amount.text = offer.GoldMinutes > 0 ? "골드 " + NumberNotation.Format(long.MaxValue) + "개" :
-                                    "보유 " + NumberNotation.Format(long.MaxValue) + "장\n오늘 1 / 1회";
+                                    NumberNotation.Format(long.MaxValue) + "장 보유중";
                                 Rebuild(view);
                                 Check(Fits(row.amount) && Inside(card, row.amount.rectTransform) && Inside(card, (RectTransform)row.action.transform),
                                     context + " keeps long confirmed quantity/status readable " + row.offerId + Metrics(row.amount));
-                                Check(RectBounds(card, row.detail.rectTransform).min.y >= RectBounds(card, row.amount.rectTransform).max.y - 1,
+                                Check(!row.detail.gameObject.activeSelf || RectBounds(card, row.detail.rectTransform).min.y >= RectBounds(card, row.amount.rectTransform).max.y - 1,
                                     context + " expands long quantity without overlapping its description " + row.offerId);
                                 row.amount.text = previous;
                                 Rebuild(view);

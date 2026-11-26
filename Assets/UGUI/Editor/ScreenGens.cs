@@ -469,15 +469,18 @@ namespace KingdomIdle.UGUI.Editor
         private static Image MakeCurrencyChip(Transform parent, string name, Sprite icon, out TextMeshProUGUI valueLabel)
         {
             var chip = F.Box(parent, name, UguiTheme.RusticSurfaceDark, rounded: true, raycast: true);
-            F.Preferred(chip, width: 220f, height: 84f);
+            F.Preferred(chip, width: 272f, height: 84f);
             // 왼쪽 여백을 크게 잡아 오버행 아이콘 자리 확보, 값은 우측 정렬
-            F.HLayout(chip.gameObject, 0f, new RectOffset(78, 22, 0, 0), TextAnchor.MiddleRight);
+            F.HLayout(chip.gameObject, 0f, new RectOffset(78, 8, 0, 0), TextAnchor.MiddleRight);
             // 알약 구분감 — 청동 얇은 테두리
             var chipFrame = F.Frame(chip.transform, "Frame", new Color(UguiTheme.Bronze.r, UguiTheme.Bronze.g, UguiTheme.Bronze.b, 0.6f));
             chipFrame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
 
-            valueLabel = F.Text(chip.transform, "Value", "0", UguiTheme.FontCurrencyValue, UguiTheme.TextPrimary,
-                TextAlignmentOptions.Right, bold: true);
+            valueLabel = F.Text(chip.transform, "Value", "0", 42f, UguiTheme.TextPrimary,
+                TextAlignmentOptions.Right);
+            valueLabel.enableAutoSizing = true; valueLabel.fontSizeMin = 36f; valueLabel.fontSizeMax = 42f;
+            valueLabel.fontStyle = FontStyles.Normal; valueLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            valueLabel.overflowMode = TextOverflowModes.Ellipsis;
             F.Flexible(valueLabel, flexWidth: 1f);
 
             // 좌측 오버행 아이콘 소켓 (청동 링 + 풀컬러 아이콘) — 레이아웃 무시, 왼쪽 가장자리에 걸침

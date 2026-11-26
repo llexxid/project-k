@@ -23,7 +23,7 @@ namespace KingdomIdle.Mailbox
         private const int PageSize = 50;
         private const double LoadTimeoutSeconds = 30;
         private const int MaxLoadAttempts = 3;
-        private readonly ListCall _list;
+        private readonly Action<OnGetMailListRequestDTO, Action<OnGetMailListResponseDTO>, Action<PlayFabError>, Func<bool>> _list;
         private readonly ClaimCall _claim;
         private readonly Func<OnClaimMailRewardResponseDTO, bool> _apply;
         private readonly Action<Action<bool>> _recover;
@@ -38,6 +38,7 @@ namespace KingdomIdle.Mailbox
         private int _summaryVersion;
         private bool _open, _refreshQueued, _loginChecked;
         private int _loadVersion, _viewVersion;
+        private double _summaryRetryAt, _listHeldRetryAt;
         private double _retryAt, _observedAt, _readyDeadline;
         private long _serverUtc, _lastExpiredUtc, _nextExpiryUtc = long.MaxValue;
         private ClaimRequest _claiming;
@@ -82,6 +83,8 @@ namespace KingdomIdle.Mailbox
                 ? "첨부 장비를 모두 담을 빈 칸을 확보한 뒤 다시 받아 주세요." : NetworkManager.DescribeFailure(LastFailure, "우편함");
         public bool HasSnapshot { get; private set; }
         public bool LoadFailed { get; private set; }
+        public bool CanRetryLoadInPlace => LoadFailed && (NetworkManager.IsTransportFailure(LastFailure) ||
+            NetworkManager.GetFailureKind(LastFailure) == "EconomyHeld");
         public bool HasNewMail => !_open && HasUnseen && _account == _identity() && _ready();
         private bool HasUnseen => _unseenMail.Regular > 0 || _unseenMail.Overflow > 0;
         public bool IsBusy => State == MailboxState.Loading || State == MailboxState.Claiming || State == MailboxState.Recovering;
@@ -95,7 +98,7 @@ namespace KingdomIdle.Mailbox
         public MailboxService(Func<string> locale)
         {
             _locale = locale;
-            _list = (r, ok, fail) => NetworkManager.Instance.Call(r, ok, fail);
+            _list = (r, ok, fail, wanted) => NetworkManager.Instance.ReadMailList(r, ok, fail, wanted);
             _claim = (r, ok, fail) => NetworkManager.Instance.Call(r, ok, fail);
             _apply = Apply;
             _recover = done => { if (UserManager.Instance == null) done(false); else UserManager.Instance.RefreshFromServer(done); };
@@ -115,7 +118,7 @@ namespace KingdomIdle.Mailbox
             Func<string, long> readSeen = null, Action<string, long> saveSeen = null)
         {
             _locale = locale ?? (() => "ko");
-            _list = (r, ok, fail) => list(r, response => ValidateTestResponse(response, ok, fail), fail);
+            _list = (r, ok, fail, wanted) => { if (wanted()) list(r, response => ValidateTestResponse(response, ok, fail), fail); };
             _claim = (r, ok, fail) => claim(r, response => ValidateTestResponse(response, ok, fail), fail);
             _apply = apply; _recover = recover;
             _identity = identity; _ready = ready; _clock = clock; _account = identity();
@@ -159,7 +162,7 @@ namespace KingdomIdle.Mailbox
             EndClaimLoading();
             _account = _identity(); _loadVersion++; _viewVersion++; _claiming = null;
             _retryAt = 0; _lastExpiredUtc = 0; _refreshQueued = false; _serverUtc = 0;
-            _loading = null; _listLocale = null; _readyDeadline = 0; LoadFailed = false; _loginChecked = false;
+            _summaryRetryAt = 0; _loading = null; _listLocale = null; _readyDeadline = 0; LoadFailed = false; _loginChecked = false;
             _unseenMail = default;
             LastFailure = null; State = MailboxState.Empty; ClearList(); Notify();
             if (_open) RequestRefresh();
@@ -171,6 +174,14 @@ namespace KingdomIdle.Mailbox
             if (_loginChecked || !_ready()) return;
             _loginChecked = true;
             if (!_open) CheckNewMail("login");
+        }
+
+        internal void ResumeSummaryAfterSettlement()
+        {
+            CheckAccount();
+            if (_summaryRetryAt <= 0 || _open || !_ready() || _clock() < _summaryRetryAt ||
+                !EconomyBatchProgression.CanRetryMenuSnapshot) return;
+            CheckNewMail("settlement-completed");
         }
 
         internal void RefreshAfterDelivery(string reason = "carryover")
@@ -185,6 +196,7 @@ namespace KingdomIdle.Mailbox
         // 우편함이 닫혀 있으면 첫 페이지만 확인한다. 열린 목록이나 지급 상태에는 반영하지 않는다.
         private void CheckNewMail(string reason)
         {
+            _summaryRetryAt = 0;
             var account = _account;
             int view = _viewVersion;
             int version = ++_summaryVersion;
@@ -202,8 +214,10 @@ namespace KingdomIdle.Mailbox
                 if (wasNew != HasNewMail) Notify();
             }, error =>
             {
-                if (Current()) Debug.LogWarning($"[Mail] {reason} check failed: {NetworkManager.DescribeFailure(error, "우편함")}");
-            });
+                if (!Current()) return;
+                if (NetworkManager.GetFailureKind(error) == "EconomyHeld") _summaryRetryAt = _clock() + 3;
+                Debug.LogWarning($"[Mail] {reason} check failed: {NetworkManager.DescribeFailure(error, "우편함")}");
+            }, Current);
         }
 
         private void ObserveLatest(string regularKey, long regular, string mailboxId, long overflow)
@@ -269,6 +283,9 @@ namespace KingdomIdle.Mailbox
             if (_loading != null && _retryAt > 0 && _clock() >= _retryAt)
             { Load(_loading.Retry + 1, _loading.Recovery, _loading.Deadline); return; }
             if (!_open || IsBusy || !_ready()) return;
+            if (LoadFailed && _clock() >= _listHeldRetryAt && NetworkManager.GetFailureKind(LastFailure) == "EconomyHeld" &&
+                EconomyBatchProgression.CanRetryMenuSnapshot)
+            { RequestRefresh("settlement-completed"); return; }
             if (_retryAt > 0 && _clock() >= _retryAt) { RequestRefresh("retry"); return; }
             if (State != MailboxState.Ready || Messages.Count == 0) return;
             if (_nextExpiryUtc <= ServerNow && _nextExpiryUtc != _lastExpiredUtc)
@@ -301,7 +318,7 @@ namespace KingdomIdle.Mailbox
         {
             int start = request.Mails.Count;
             _list(new OnGetMailListRequestDTO { Locale = request.Locale, StartIndex = start, Count = PageSize },
-                response => ApplyList(request, start, response), error => RejectList(request, error));
+                response => ApplyList(request, start, response), error => RejectList(request, error), () => Current(request));
         }
         private void ApplyList(ListRequest request, int start, OnGetMailListResponseDTO response)
         {
@@ -330,6 +347,7 @@ namespace KingdomIdle.Mailbox
             if (incomplete && (!request.LatestOverflow.HasValue || request.Total <= 100)) { Fetch(request); return; }
             if (_refreshQueued) { Load(request.Retry + 1, request.Recovery, request.Deadline); return; }
             _loading = null;
+            _summaryRetryAt = 0;
             Messages = request.Mails.ToArray(); MailboxId = request.MailboxId; HasSnapshot = true;
             TotalCount = request.Total;
             _nextPage = incomplete ? request : null;
@@ -351,7 +369,7 @@ namespace KingdomIdle.Mailbox
         {
             if (!Current(request)) return;
             string kind = NetworkManager.GetFailureKind(error);
-            bool retryable = kind == "Transport" || kind == "Timeout" ||
+            bool retryable = NetworkManager.IsTransportFailure(error) || kind == "Timeout" ||
                 (NetworkManager.TryGetBusinessError(error, out var business) &&
                  (business.ErrorCode == Protocol.Message.Data.eErrorCode.StorageFailure || business.ErrorCode == Protocol.Message.Data.eErrorCode.PlayerBusy));
             if (retryable && request.Retry + 1 < MaxLoadAttempts && _clock() + .5 < request.Deadline)
@@ -362,6 +380,7 @@ namespace KingdomIdle.Mailbox
         {
             _loading = null; _loadVersion++; _retryAt = 0; _readyDeadline = 0; LoadFailed = true;
             LastFailure = error; HasSnapshot = false;
+            _listHeldRetryAt = NetworkManager.GetFailureKind(error) == "EconomyHeld" ? _clock() + 3 : 0;
             State = recovery ? MailboxState.RecoveryRequired : MailboxState.Empty;
             EndClaimLoading();
             Debug.LogWarning($"[Mail] list rejected kind={NetworkManager.GetFailureKind(error)} message={error?.ErrorMessage}");

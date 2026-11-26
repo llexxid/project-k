@@ -16,6 +16,119 @@ namespace KingdomIdle.Balance
         private const string Id = "12345678123456781234567812345678";
         private static readonly ulong Monster = (ulong)eMonsterType.MON_GOBLIN;
 
+        /// <summary>계정 없는 빈 PlayMode에서 실제 응답 적용이 예약하는 퀘스트 갱신만 검사한다. HTTP를 전송하지 않는다.</summary>
+        public static object RunQuestRefresh()
+        {
+            if (!Application.isPlaying || LocalProgression.IsReady || NetworkManager.Instance != null ||
+                UserManager.Instance != null || QuestManager.Instance != null || StageManager.Instance != null ||
+                StatEnhanceManager.Instance != null || KingdomIdle.UGUI.UIManager.Instance != null)
+                throw new InvalidOperationException("Quest refresh acceptance requires empty signed-out PlayMode.");
+            const BindingFlags statics = BindingFlags.Static | BindingFlags.NonPublic, instance = BindingFlags.Instance | BindingFlags.NonPublic;
+            var checks = new List<string>();
+            void Check(bool value, string name) { if (!value) throw new InvalidOperationException("Economy quest refresh: " + name); checks.Add(name); }
+            var core = typeof(EconomyBatchProgression);
+            void Set(string name, object value) => core.GetField(name, statics).SetValue(null, value);
+            object Call(string name, params object[] args) => core.GetMethod(name, statics).Invoke(null, args);
+            var queued = typeof(QuestManager).GetField("_refreshQueued", instance);
+            var owner = new GameObject("EconomyQuestRefreshAcceptance"); owner.SetActive(false);
+            var paths = new List<string>();
+            using var session = LocalProgression.BeginTestSession();
+            try
+            {
+                var network = owner.AddComponent<NetworkManager>(); NetworkManager.Instance = network;
+                typeof(NetworkManager).GetProperty(nameof(NetworkManager.LoginState)).SetValue(network, GameLoginState.Ready);
+                var quests = owner.AddComponent<QuestManager>(); QuestManager.Instance = quests;
+                LocalProgression.OpenTestAccount("economy-quest-refresh-" + Guid.NewGuid().ToString("N"));
+                void Case(string name, EconomyCommandKind[] kinds, bool expected, bool replayed = false, bool alreadyApplied = false, bool rejectGrowth = false, int kills = 3, bool? questRefreshRequired = null)
+                {
+                    Call("ResetAccount");
+                    var request = new OnEconomyBatchRequestDTO
+                    { RequestId = Guid.NewGuid().ToString("N"), Generation = 1, Sequence = 1, ExpectedEconomyRevision = 1, AppliedRewardEpoch = 1, Commands = new() };
+                    foreach (var kind in kinds)
+                        request.Commands.Add(kind == EconomyCommandKind.Hunt ? Hunt(3) : new()
+                        { Kind = kind, Mode = 1, CountLimit = 1, SpendLimit = kind == EconomyCommandKind.RubyGold || kind == EconomyCommandKind.RubyExperience ? 20 : 50 });
+                    var response = EconomyBatchContractAcceptance.Fixture();
+                    response.RequestId = request.RequestId; response.EconomyRevision = 2; response.Replayed = replayed;
+                    response.QuestRefreshRequired = questRefreshRequired;
+                    response.CurrentState.MainBattle.RunId = Id;
+                    if (kinds.Contains(EconomyCommandKind.Hunt)) response.CurrentState.MainBattle.AcceptedKills = Hunt(3).TotalKills;
+                    response.CurrentState.EnchantATKCount = !rejectGrowth && kinds.Contains(EconomyCommandKind.GoldAttack) ? 1 : 0;
+                    response.CurrentState.EnchantHPCount = !rejectGrowth && kinds.Contains(EconomyCommandKind.GoldHealth) ? 1 : 0;
+                    if (!rejectGrowth && kinds.Any(k => k == EconomyCommandKind.RubyGold || k == EconomyCommandKind.RubyExperience))
+                    {
+                        var ruby = response.CurrentState.RubyGrowthState;
+                        ruby.GoldLevel = ruby.BestGoldLevel = kinds.Contains(EconomyCommandKind.RubyGold) ? 1 : 0;
+                        ruby.ExpLevel = ruby.BestExpLevel = kinds.Contains(EconomyCommandKind.RubyExperience) ? 1 : 0;
+                        ruby.GoldSpent = ruby.GoldLevel * 20; ruby.ExpSpent = ruby.ExpLevel * 20;
+                        response.CurrentState.EconomyBatchState.RewardEpoch = 2;
+                        response.CurrentState.EconomyBatchState.RewardEpochs.Add(new() { Id = 2, GoldLevel = ruby.GoldLevel, ExpLevel = ruby.ExpLevel });
+                    }
+                    response.Receipt = new() { RequestId = request.RequestId, Generation = 1, Sequence = 1,
+                        PayloadHash = EconomyInputJournal.Hash(request), CommittedRevision = 2, Results = new() };
+                    bool rejected = false;
+                    for (int i = 0; i < kinds.Length; i++)
+                    {
+                        var kind = kinds[i]; bool hunt = kind == EconomyCommandKind.Hunt;
+                        bool ruby = kind == EconomyCommandKind.RubyGold || kind == EconomyCommandKind.RubyExperience;
+                        var result = new EconomyCommandResultDTO { Index = i, Kind = kind, Status = EconomyCommandStatus.Applied, AppliedCount = hunt ? kills : 1 };
+                        if (rejectGrowth && !hunt)
+                        {
+                            result.Status = rejected ? EconomyCommandStatus.Unprocessed : EconomyCommandStatus.Rejected;
+                            result.AppliedCount = 0; if (!rejected) result.ErrorCode = Protocol.Message.Data.eErrorCode.eNotEnoughGold;
+                            rejected = true;
+                        }
+                        else if (!hunt) { if (ruby) result.SpentRuby = 20; else result.SpentGold = 50; }
+                        response.Receipt.Results.Add(result);
+                    }
+                    Check(LocalProgression.Execute("quest-refresh-fixture", state =>
+                    {
+                        state.ServerEconomyRevision = 0; state.Economy = new();
+                        var initial = EconomyBatchContractAcceptance.Fixture().CurrentState;
+                        initial.EnchantATKCount = 0; initial.MainBattle.RunId = Id;
+                        if (kills == 0 && kinds.Contains(EconomyCommandKind.Hunt)) initial.MainBattle.AcceptedKills = Hunt(3).TotalKills;
+                        if (!EconomyBatchProgression.ApplyServerState(state, alreadyApplied ? response.CurrentState : initial, 1)) return false;
+                        state.Economy.LastAppliedRequestId = alreadyApplied ? request.RequestId : null; return true;
+                    }), name + ": isolated authoritative state saves");
+                    string path = Path.Combine(Path.GetTempPath(), "economy-quest-refresh-" + Guid.NewGuid().ToString("N") + ".json"); paths.Add(path);
+                    var journal = new EconomyInputJournal(path, LocalProgression.AccountKey);
+                    journal.Data.Generation = 1; journal.Data.NextInputSequence = kinds.Length + 1; journal.Data.InFlight = request;
+                    journal.Data.InFlightInputs = request.Commands.Select((c, i) => new EconomyInput { Sequence = i + 1, Command = EconomyCopies.Copy(c) }).ToList();
+                    journal.Changed(); journal.Pump(true);
+                    Set("_journal", journal); Set("_network", network); Set("_localGeneration", LocalProgression.AccountGeneration);
+                    Set("_networkGeneration", network.AccountGeneration); Set("_supported", true); Set("_recovered", true);
+                    queued.SetValue(quests, false);
+                    Call("ApplyResult", response, false);
+                    Check(!EconomyBatchProgression.HasUnknownResult && journal.Data.InFlight == null &&
+                        LocalProgression.State.Economy.LastAppliedRequestId == request.RequestId,
+                        name + ": production ApplyResult durably accepts the matching receipt");
+                    Check((bool)queued.GetValue(quests) == expected, name + ": refresh queued=" + expected);
+                }
+                Case("legacy pure hunt without quest information", new[] { EconomyCommandKind.Hunt }, true);
+                Case("pure hunt explicitly unchanged quests", new[] { EconomyCommandKind.Hunt }, false, questRefreshRequired: false);
+                Case("mixed hunt and gold", new[] { EconomyCommandKind.Hunt, EconomyCommandKind.GoldAttack }, true);
+                Case("gold health", new[] { EconomyCommandKind.GoldHealth }, true);
+                Case("ruby gold", new[] { EconomyCommandKind.RubyGold }, true);
+                Case("ruby experience", new[] { EconomyCommandKind.RubyExperience }, true);
+                Case("unseen replayed growth", new[] { EconomyCommandKind.GoldAttack }, true, replayed: true);
+                Case("already applied mixed receipt", new[] { EconomyCommandKind.Hunt, EconomyCommandKind.GoldAttack }, false, replayed: true, alreadyApplied: true);
+                Case("legacy replayed pure hunt", new[] { EconomyCommandKind.Hunt }, true, replayed: true);
+                Case("replayed pure hunt explicitly unchanged quests", new[] { EconomyCommandKind.Hunt }, false, replayed: true, questRefreshRequired: false);
+                Case("hunt with rejected and unprocessed growth", new[] { EconomyCommandKind.Hunt, EconomyCommandKind.GoldAttack, EconomyCommandKind.RubyGold }, true, rejectGrowth: true);
+                Case("zero new kills", new[] { EconomyCommandKind.Hunt }, false, kills: 0);
+                Check(typeof(NetworkManager).GetField("_context", instance).GetValue(network) == null &&
+                    ((System.Collections.ICollection)typeof(NetworkManager).GetField("_pendingCalls", instance).GetValue(network)).Count == 0,
+                    "all receipts stayed unauthenticated with no queued HTTP");
+                return new { passed = checks.Count, checks };
+            }
+            finally
+            {
+                Call("ResetAccount"); QuestManager.Instance = null; NetworkManager.Instance = null;
+                UnityEngine.Object.DestroyImmediate(owner);
+                foreach (string path in paths)
+                    foreach (string file in new[] { path, path + ".tmp", path + ".bak" }) if (File.Exists(file)) File.Delete(file);
+            }
+        }
+
         public static object Run()
         {
             var checks = new List<string>();
@@ -36,7 +149,27 @@ namespace KingdomIdle.Balance
             request.IndependentGrowthFailures = false;
 
             var state = Fixture(); state.Wallet[eCurrency.Gold] = 104;
+            state.Wallet[eCurrency.EquipmentStone] = 16;
+            int rareCode = ItemCode.Encode(eEquipmentRarity.Rare, eEquipmentSlot.Weapon, eJobFlag.None, 3);
+            state.Equipment.Add(new EquipmentSave { Id = "first", ServerInstanceId = 12, Code = rareCode });
+            state.Equipment.Add(new EquipmentSave { Id = "second", ServerInstanceId = 13, Code = rareCode });
             var initial = EconomyProjectionMath.Calculate(state, Array.Empty<EconomyCommandDTO>());
+            var gear = EconomyProjectionMath.Quote(initial, EconomyCommandKind.EquipmentEnhance, 1, gearId: 12);
+            var advanced = EconomyProjectionMath.Calculate(state, new[] { gear });
+            Check(gear.SpendLimit == 8 && advanced.EquipmentStone == 8 && advanced.Level(gear.Kind,gearId:12) == 1 &&
+                advanced.Level(gear.Kind,gearId:13) == 0 && state.Equipment[0].Level == 0,
+                "equipment preview reserves only the selected instance and keeps battle stats server-confirmed");
+            var secondGear = EconomyProjectionMath.Quote(advanced, gear.Kind, 1, gearId:12);
+            Check(secondGear.ExpectedLevel == 1 && EconomyProjectionMath.Calculate(state,new[]{gear,secondGear}).EquipmentStone == 0,
+                "two rapid enhancement taps quote consecutive levels and stone costs");
+            Check(EconomyProjectionMath.Quote(initial, gear.Kind, 1, gearId:99) == null && EconomyInputJournal.ValidCommand(gear),
+                "unknown equipment cannot enter the queue");
+            var variant = EconomyCopies.Copy(gear); variant.EquipmentInstanceId = 13;
+            var gearRequest = new OnEconomyBatchRequestDTO { RequestId = Id, Generation = 1, Sequence = 1,
+                ExpectedEconomyRevision = 1, AppliedRewardEpoch = 1, Commands = new() { gear } };
+            string hash = EconomyInputJournal.Hash(gearRequest);
+            gearRequest.Commands[0] = variant;
+            Check(hash != EconomyInputJournal.Hash(gearRequest), "equipment instance identity participates in the immutable request hash");
             var first = EconomyProjectionMath.Quote(initial, EconomyCommandKind.GoldAttack, 1);
             var second = EconomyProjectionMath.Quote(EconomyProjectionMath.Calculate(state, new[] { first }), EconomyCommandKind.GoldAttack, 1);
             var consecutive = EconomyProjectionMath.Calculate(state, new[] { first, second });
@@ -201,6 +334,13 @@ namespace KingdomIdle.Balance
                     Set("_requestPending", false); Set("_externalWrite", true); Set("_nextHuntAt", float.MaxValue);
                 }
                 Bind();
+                Set("_externalUnknown", true);
+                check(!EconomyBatchProgression.CanQueueMenuSnapshot && EconomyBatchProgression.CanRefreshMenuRecovery &&
+                    EconomyBatchProgression.CanRetryMenuSnapshot, "menu can schedule recovery when only an external result is unknown");
+                Set("_blocked", true);
+                check(!EconomyBatchProgression.CanRetryMenuSnapshot, "manual storage hold cannot generate recurring menu reads");
+                Set("_blocked", false); Set("_externalUnknown", false);
+
                 LocalProgression.Execute("economy-fence-fixture", s =>
                 {
                     var fixture = Fixture(); s.Economy = fixture.Economy; s.MainBattle = fixture.MainBattle;

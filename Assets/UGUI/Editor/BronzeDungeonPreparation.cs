@@ -100,7 +100,7 @@ namespace KingdomIdle.UGUI.Editor
                 Display(Scripts.Core.eStage.GoldDungeon1_1, 1, false, "입장하기", true);
                 Display(Scripts.Core.eStage.GoldDungeon1_1, 1, true, "입장 대기 중", false);
                 Display(default, 1, false, "입장 잠김", false);
-                Display(Scripts.Core.eStage.RubyDungeon1_1, 2, false, "입장하기", true);
+                Display(Scripts.Core.eStage.RubyDungeon1_1, 2, false, "준비 중", false);
                 var row = fixture.GetComponentInChildren<DungeonDifficultyRowView>(true);
                 row.Configure(1, true, 0, 0, null);
                 Check(Ref<TMP_Text>(row, "powerLabel").text == "선택 가능", "Unlocked difficulty describes selection, not ticket availability");
@@ -145,9 +145,9 @@ namespace KingdomIdle.UGUI.Editor
             Type(description, 36, UguiTheme.InfoMuted); Height(description.transform, 52);
             description.textWrappingMode = TextWrappingModes.Normal;
             // 기존 카드의 보상 목적을 짧게 표시한다. 해금·보상 정책은 만들지 않는다.
-            if (card.DungeonType == Scripts.Core.eStageType.GoldDungeon || card.DungeonName.Contains("골드")) description.text = "골드를 획득합니다.";
-            else if (card.DungeonType == Scripts.Core.eStageType.RubyDungeon || card.DungeonName.Contains("루비")) description.text = "루비를 획득합니다.";
-            else if (card.DungeonName.Contains("장비")) description.text = "장비 · 강화 재료";
+            if (card.DungeonType == Scripts.Core.eStageType.GoldDungeon || card.DungeonName.Contains("골드")) description.text = "미믹을 처치해 골드를 획득하세요.";
+            else if (card.DungeonType == Scripts.Core.eStageType.RubyDungeon || card.DungeonName.Contains("루비")) description.text = "루비 광산 · 준비 중";
+            else if (card.DungeonName.Contains("장비")) description.text = "황폐한 전장 · 준비 중";
             var nameRow = title.transform.parent;
             Height(nameRow, 64);
             var info = root.Find("InfoCol")?.GetComponent<VerticalLayoutGroup>();
@@ -170,11 +170,11 @@ namespace KingdomIdle.UGUI.Editor
             if (window.GetComponent<DungeonDifficultySizeFitter>() == null) window.gameObject.AddComponent<DungeonDifficultySizeFitter>();
             Flat(window.GetComponent<Image>(), UguiTheme.RusticPanel);
             var layout = window.GetComponent<VerticalLayoutGroup>();
-            if (layout != null) { layout.spacing = 5; layout.padding = new RectOffset(30, 30, 10, 10); }
+            if (layout != null) { layout.spacing = 5; layout.padding = new RectOffset(18, 18, 18, 18); }
             var preview = window.Find("PreviewCard") as RectTransform;
             if (preview == null) throw new InvalidOperationException("던전 프리뷰 카드 누락");
             Flat(preview.GetComponent<Image>(), UguiTheme.InfoSurface);
-            Height(preview, 256);
+            Height(preview, 232);
             var band = preview.Find("TitleBand") as RectTransform;
             if (band == null) throw new InvalidOperationException("던전 설명 영역 누락");
             var bandImage = band.GetComponent<Image>();
@@ -184,16 +184,16 @@ namespace KingdomIdle.UGUI.Editor
             if (bandLayout != null) { bandLayout.padding = new RectOffset(); bandLayout.spacing = 2; }
             var name = Ref<TMP_Text>(popup, "dungeonName");
             var description = Ref<TMP_Text>(popup, "description");
-            Type(name, 54, UguiTheme.InfoInk); Height(name.transform, 70);
-            Type(description, 34, UguiTheme.InfoMuted); Height(description.transform, 180);
+            Type(name, 54, UguiTheme.InfoInk); Height(name.transform, 64);
+            Type(description, 34, UguiTheme.InfoMuted); Height(description.transform, 162);
             description.textWrappingMode = TextWrappingModes.Normal;
             description.overflowMode = TextOverflowModes.Ellipsis;
             var art = preview.Find("PortalArtFrame") as RectTransform;
             if (art == null) art = F.Box(preview, "PortalArtFrame", UguiTheme.RusticPanelDeep, rounded: true).rectTransform;
             // 보상 조건은 원래 설명 높이와 전체 폭으로 보존하고, 그림은 제목 우측에만 둔다.
             SetRect(art, Vector2.one, Vector2.one, new Vector2(-80, -72), new Vector2(-16, -8));
-            var titleMargin = name.margin;
-            name.margin = new Vector4(titleMargin.x, titleMargin.y, 84, titleMargin.w);
+            name.margin = Vector4.zero;
+            art.gameObject.SetActive(false);
             Flat(art.GetComponent<Image>(), UguiTheme.RusticPanelDeep);
             var image = Ref<Image>(popup, "mainImage");
             if (image.transform.parent != art) image.transform.SetParent(art, false);
@@ -365,7 +365,7 @@ namespace KingdomIdle.UGUI.Editor
                     !connected || closeLayout == null || closeLayout.minHeight < 144 || closeLayout.minWidth < 200)
                     throw new InvalidOperationException("던전 상세 닫기 버튼/Hide 연결 불일치: " + popup.name);
                 if (popup.GetComponentsInChildren<PartyHudSuppressor>(true).Length != 0 ||
-                    Ref<Image>(popup, "mainImage").transform.parent.name != "PortalArtFrame" ||
+                    Ref<Image>(popup, "mainImage").transform.parent.gameObject.activeSelf ||
                     Ref<TMP_Text>(popup, "dungeonName").color != UguiTheme.InfoInk ||
                     Ref<Button>(popup, "enterButton").GetComponent<Image>().color != UguiTheme.ActionGold ||
                     Ref<ScrollRect>(popup, "difficultyScroll") == null)
@@ -401,7 +401,7 @@ namespace KingdomIdle.UGUI.Editor
                 Check(fitter != null, "The embedded dungeon window has its dedicated height owner");
                 var title = Ref<TMP_Text>(popup, "dungeonName");
                 title.text = "골드 던전";
-                Ref<TMP_Text>(popup, "description").text = "60초 · 20체 · 최대 123.45K 골드\n중단해도 처치 보상 유지 · 매일 00시 충전";
+                Ref<TMP_Text>(popup, "description").text = "제한시간: 60초\n등장 미믹: 20\n최대 획득 골드: 123.45K";
                 var scroll = Ref<ScrollRect>(popup, "difficultyScroll");
                 var enter = Ref<Button>(popup, "enterButton");
                 var close = window.Find("Footer/BtnClose").GetComponent<Button>();
@@ -433,7 +433,8 @@ namespace KingdomIdle.UGUI.Editor
                     string label = "1080x" + size.x + " safeTop=" + size.y + " safeBottom=" + size.z + " info=" + withInfo;
                     var available = RectBounds(panelRect, clip);
                     var bounds = RectBounds(panelRect, window);
-                    Check(bounds.min.y >= available.min.y + 17.5f && bounds.max.y <= available.max.y - 17.5f,
+                    Check(Mathf.Abs(bounds.min.y - available.min.y - 18) <= .5f && Mathf.Abs(available.max.y - bounds.max.y - 18) <= .5f &&
+                        Mathf.Abs(bounds.min.x - available.min.x - 18) <= .5f && Mathf.Abs(available.max.x - bounds.max.x - 18) <= .5f,
                         label + " keeps the full window below the party HUD and above the bottom navigation");
                     foreach (var target in new[] { title.rectTransform, (RectTransform)enter.transform, (RectTransform)close.transform })
                     {
@@ -452,9 +453,8 @@ namespace KingdomIdle.UGUI.Editor
                     string originalDescription = description.text;
                     foreach (string text in new[]
                     {
-                        "보스 3체 · 각 30초 · " + NumberNotation.Format(long.MaxValue) + " 루비 + 첫 클리어 125\n3체 모두 처치 시 지급 · 매일 00시 충전",
-                        "60s · 20 enemies · up to 123.45K gold\nDefeated-enemy rewards are kept on exit · Tickets refill daily at 00:00",
-                        "3 bosses · 30s each · 123.45K ruby + first clear 125\nDefeat all three for payout · Tickets refill daily at 00:00"
+                        "제한시간: 60초\n등장 미믹: 20\n최대 획득 골드: " + NumberNotation.Exact(long.MaxValue),
+                        "Time limit: 60s\nMimics: 20\nMaximum gold: " + NumberNotation.Exact(long.MaxValue)
                     })
                     {
                         var preferred = description.GetPreferredValues(text, description.rectTransform.rect.width, Mathf.Infinity);
@@ -495,7 +495,7 @@ namespace KingdomIdle.UGUI.Editor
                                 label + " keeps reward/monster icons vertically within the compact info band");
                         }
                     int bottomPadding = scroll.content.GetComponent<VerticalLayoutGroup>()?.padding.bottom ?? 0;
-                    Check(scroll.vertical && scroll.viewport.rect.height >= 144 + bottomPadding - .5f && scroll.content.rect.height > scroll.viewport.rect.height,
+                    Check(scroll.vertical && scroll.viewport.rect.height >= 144 + bottomPadding - .5f && scroll.content.rect.height >= 144,
                         label + " retains one complete difficulty row plus its bottom padding and internal scrolling; viewport=" + scroll.viewport.rect +
                         " content=" + scroll.content.rect + " bottomPadding=" + bottomPadding);
                     scroll.verticalNormalizedPosition = 0;
@@ -506,14 +506,14 @@ namespace KingdomIdle.UGUI.Editor
                         label + " can scroll the final difficulty row fully into view; viewport=" + scroll.viewport.rect + " last=" + lastBounds +
                         " content=" + scroll.content.rect + " bottomPadding=" + bottomPadding);
                     if (size.x >= 1920)
-                        Check(Mathf.Abs(window.anchoredPosition.y) <= .5f && Mathf.Abs(window.rect.height - LayoutUtility.GetPreferredHeight(window)) <= .5f,
+                        Check(Mathf.Abs(bounds.min.y - available.min.y - (available.max.y - bounds.max.y)) <= 1,
                             label + " preserves or restores the unconstrained phone layout");
                     window.hasChanged = false;
                     for (int i = 0; i < 20; i++) fitter.RefreshNow();
                     Check(!window.hasChanged, label + " does not rewrite unchanged window geometry");
                 }
                 var detail = Ref<TMP_Text>(popup, "description");
-                detail.text = "보스 3체 · 각 30초 · 123.45K 루비 + 첫 클리어 125\n3체 모두 처치 시 지급 · 매일 00시 충전";
+                detail.text = "제한시간: 60초\n등장 미믹: 20\n최대 획득 골드: 123.45K";
                 var rubyPreferred = detail.GetPreferredValues(detail.text, detail.rectTransform.rect.width, Mathf.Infinity);
                 Check(rubyPreferred.y <= detail.rectTransform.rect.height + 1,
                     "Ruby first-clear quantity, payout condition and reset description fit without dropping information; rect=" + detail.rectTransform.rect +

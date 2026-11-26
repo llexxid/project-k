@@ -33,6 +33,7 @@ namespace KingdomIdle.UGUI
 
         public static void Hide()
         {
+            if (_view != null && _view.awakening != null && _view.awakening.gameObject.activeInHierarchy) return;
             Unsubscribe();
             if (_view == null) return;
             _view.gameObject.SetActive(false);
@@ -84,7 +85,7 @@ namespace KingdomIdle.UGUI
             var so = mgr.GetSkillById(_skillId);
             if (so == null) { Hide(); return; }
 
-            if (_view.titleLabel != null) _view.titleLabel.text = so.DisplayName(mgr.IsBloomEnabled(_skillId));
+            if (_view.titleLabel != null) _view.titleLabel.text = so.DisplayName(mgr.IsBloomEnabled(_skillId)) + $"  ·  재사용 {mgr.GetEffectiveCooldown(_skillId):0.##}초";
             if (_view.stateLabel != null)
             {
                 _view.stateLabel.text = mgr.IsEquipped(_skillId) ? "장착 중" : mgr.IsOwned(_skillId) ? "보유" : "미보유";
@@ -113,10 +114,10 @@ namespace KingdomIdle.UGUI
 
             string powerLabel = so.IsHealing ? "회복" : "피해";
             if (_view.lblBaseDmg != null) _view.lblBaseDmg.text = $"기본 1회 {powerLabel}: {NumberNotation.Format(so.BaseDamage)}";
-            if (_view.lblBaseCd != null) _view.lblBaseCd.text = $"기본 쿨타임: {so.baseCooldown:F1}s";
+            if (_view.lblBaseCd != null) _view.lblBaseCd.text = $"기본 재사용 대기시간: {so.baseCooldown:0.##}초";
             if (_view.lblEffDmg != null) _view.lblEffDmg.text = MageSkillPresentation.EffectivePower(so, effDmg, mgr.IsBloomEnabled(_skillId)) +
                 $"\n왕국군 공격력 {BalanceMath.MageAttackCoefficient((long)so.BaseDamage, eLv, aLv):P1} 반영";
-            if (_view.lblEffCd != null) _view.lblEffCd.text = $"최종 쿨타임: {effCd:F1}s";
+            if (_view.lblEffCd != null) _view.lblEffCd.text = $"적용 재사용 대기시간: {effCd:0.##}초";
 
             RefreshEnhancement(mgr, so);
 
@@ -177,7 +178,23 @@ namespace KingdomIdle.UGUI
             if (DevelopmentPanelController.TryHandlePendingGrowth()) return;
             Request(mgr => mgr.TryEnhanceEx(_skillId));
         }
-        private static void OnAwakenClicked() => Request(mgr => mgr.TryAwakenEx(_skillId));
+        private static void OnAwakenClicked()
+        {
+            var mgr = MageTowerManager.Instance;
+            if (mgr == null || _view == null || mgr.IsBusy) return;
+            var effect = _view.awakening;
+            var skill = mgr.GetSkillById(_skillId);
+            if (skill == null || (effect != null && effect.gameObject.activeSelf)) return;
+            if (effect != null) effect.Begin(skill, mgr.GetAwakeningLevel(_skillId));
+            var result = mgr.TryAwakenEx(_skillId);
+            if (result == MageTowerManager.MageActionResult.Pending)
+            {
+                if (mgr.IsBusy) SetPending();
+                return;
+            }
+            if (effect != null) effect.Close();
+            UIManager.Instance?.ShowToast(DescribeGate(result));
+        }
         private static void OnResetClicked() => Request(mgr => mgr.TryResetEx(_skillId));
         private static void OnBloomClicked() => Request(mgr => mgr.TrySetBloomEx(_skillId, !mgr.IsBloomEnabled(_skillId)));
 
@@ -249,6 +266,17 @@ namespace KingdomIdle.UGUI
         private static void OnActionCompleted(MageTowerManager.MageActionInfo info)
         {
             if (_view == null || !_view.gameObject.activeSelf) return;
+            if (info != null && info.Kind == MageTowerManager.MageActionKind.Awaken && info.SkillId == _skillId &&
+                _view.awakening != null && _view.awakening.gameObject.activeSelf)
+            {
+                if (info.Ok)
+                {
+                    var mgr = MageTowerManager.Instance;
+                    _view.awakening.Confirm(mgr.GetAwakeningLevel(_skillId), mgr.IsBloomEnabled(_skillId));
+                    return;
+                }
+                _view.awakening.Close();
+            }
             if (info?.Ok != true) RefreshContent();
             if (info != null && info.Kind != MageTowerManager.MageActionKind.Loadout) UIManager.Instance?.ShowToast(MageTowerManager.Describe(info));
         }

@@ -126,7 +126,7 @@ namespace KingdomIdle.UGUI.Editor
                         for (int i = 0; i < count; i++)
                         {
                             var card = Object.Instantiate(catalog.itemGachaCard, view.grid, false).GetComponent<GachaCardItemView>();
-                            card.nameLabel.text = "황금 강철 지팡이"; card.subLabel.text = "에픽 장비\nx10";
+                            card.nameLabel.text = "보석 지팡이"; card.subLabel.text = "에픽 장비\nx10";
                             card.SetResultPresentation(count);
                         }
                         view.RefreshLayoutNow();

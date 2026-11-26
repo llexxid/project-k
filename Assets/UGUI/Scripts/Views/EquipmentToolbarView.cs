@@ -11,62 +11,51 @@ namespace KingdomIdle.UGUI
     public sealed class EquipmentToolbarView : MonoBehaviour
     {
         public TMP_Text summary;
-        public Button job, rarity, sort, automatic, dismantle;
-        private Func<EquipmentData, bool> _usable;
+        public Button direction, sort, automatic, dismantle;
+        public Image directionArrow, autoBorder;
         private Action _refresh;
         private bool _bound;
-        private static readonly string[] Rarities = { "전체", "일반", "레어", "에픽" };
-        private static readonly string[] Sorts = { "등급", "공격력", "강화", "획득순" };
+        private static readonly string[] Sorts = { "등급별", "직업별", "이름별", "획득순" };
 
-        public void Bind(Func<EquipmentData, bool> usable, Action refresh, bool hasSettingsShortcut = false)
+        public void Bind(Action refresh)
         {
-            _usable = usable;
             _refresh = refresh;
-            automatic.gameObject.SetActive(!hasSettingsShortcut);
             if (!_bound)
             {
-                job.onClick.AddListener(() => Change(s => s.EquipmentUsableOnly = !s.EquipmentUsableOnly, _refresh));
-                rarity.onClick.AddListener(() => Change(s => s.EquipmentRarityFilter = (s.EquipmentRarityFilter + 2) % 4 - 1, _refresh));
-                sort.onClick.AddListener(() => Change(s => s.EquipmentSort = (s.EquipmentSort + 1) % 4, _refresh));
+                direction.onClick.AddListener(() => Change(s => s.EquipmentSortAscending = !s.EquipmentSortAscending, _refresh));
+                sort.onClick.AddListener(() => Change(s => s.EquipmentSort = (s.EquipmentSort + 1) % Sorts.Length, _refresh));
                 automatic.onClick.AddListener(EquipmentActionDialog.Settings);
-                dismantle.onClick.AddListener(() =>
-                {
-                    var filters = LocalProgression.State;
-                    string rarityName = Rarities[filters.EquipmentRarityFilter + 1];
-                    string jobName = filters.EquipmentUsableOnly ? "사용 가능" : "전체";
-                    EquipmentActionDialog.Dismantle(EquipmentEconomy.Preview(Accepts), _refresh, $"등급 {rarityName} · 직업 {jobName}");
-                });
+                dismantle.onClick.AddListener(() => EquipmentActionDialog.BulkDismantle(_refresh));
                 _bound = true;
             }
-            var state = LocalProgression.State;
-            Label(job, state.EquipmentUsableOnly ? "직업\n사용가능" : "직업\n전체");
-            Label(rarity, "등급\n" + Rarities[state.EquipmentRarityFilter + 1]);
-            Label(sort, "정렬\n" + Sorts[state.EquipmentSort]);
-            Label(automatic, "장비\n설정");
-            Label(dismantle, "일괄\n분해");
+            Label(sort, Sorts[LocalProgression.State.EquipmentSort]);
+            directionArrow.rectTransform.localEulerAngles = new Vector3(0, 0, LocalProgression.State.EquipmentSortAscending ? -90 : 90);
             RefreshSummary();
         }
 
-        public bool Accepts(int code)
-        {
-            var data = EquipmentManager.Instance?.GetData(code);
-            var state = LocalProgression.State;
-            return data != null && (state.EquipmentRarityFilter < 0 || (int)data.rarity == state.EquipmentRarityFilter) &&
-                (!state.EquipmentUsableOnly || _usable == null || _usable(data));
-        }
+        public bool Accepts(int code) => EquipmentManager.Instance?.GetData(code) != null;
 
-        public bool HasMatches => LocalProgression.State.Equipment.Any(x=>Accepts(x.Code)) ||
-            LocalProgression.State.PendingEquipment.Any(x=>Accepts(x.Code)) || LocalProgression.State.LegacyEquipment.Any(x=>Accepts(x.Code));
+        public bool HasMatches => LocalProgression.State.Equipment.Any(x => Accepts(x.Code)) ||
+            LocalProgression.State.PendingEquipment.Any(x => Accepts(x.Code)) || LocalProgression.State.LegacyEquipment.Any(x => Accepts(x.Code));
 
         public IEnumerable<EquipmentInstance> Sort(IEnumerable<EquipmentInstance> items)
         {
-            var indexed = items.Select((item, index) => (item, index)).Where(x => x.item?.baseData != null && Accepts(x.item.baseData.itemCode));
-            return (LocalProgression.State.EquipmentSort switch {
-                1 => indexed.OrderByDescending(x => x.item.GetFinalAtk()).ThenByDescending(x => x.index),
-                2 => indexed.OrderByDescending(x => x.item.enhancementLevel).ThenByDescending(x => x.index),
-                3 => indexed.OrderByDescending(x => x.index),
-                _ => indexed.OrderByDescending(x => x.item.baseData.rarity).ThenByDescending(x => x.item.enhancementLevel).ThenByDescending(x => x.index)
-            }).Select(x => x.item);
+            var available = items.Where(item => item?.baseData != null);
+            var state = LocalProgression.State;
+            // Stable server IDs preserve acquisition order across inventory sorts and fresh snapshots.
+            var indexed = available.Select((item, index) => (item, acquired: item.serverInstanceId ?? index));
+            var ordered = state.EquipmentSort switch
+            {
+                1 => state.EquipmentSortAscending
+                    ? indexed.OrderBy(x => (int)ItemCode.DecodeJobMask(x.item.baseData.itemCode))
+                    : indexed.OrderByDescending(x => (int)ItemCode.DecodeJobMask(x.item.baseData.itemCode)),
+                2 => state.EquipmentSortAscending
+                    ? indexed.OrderBy(x => x.item.baseData.DisplayName, StringComparer.Create(System.Globalization.CultureInfo.GetCultureInfo("ko-KR"), false))
+                    : indexed.OrderByDescending(x => x.item.baseData.DisplayName, StringComparer.Create(System.Globalization.CultureInfo.GetCultureInfo("ko-KR"), false)),
+                3 => state.EquipmentSortAscending ? indexed.OrderBy(x => x.acquired) : indexed.OrderByDescending(x => x.acquired),
+                _ => state.EquipmentSortAscending ? indexed.OrderBy(x => x.item.baseData.rarity) : indexed.OrderByDescending(x => x.item.baseData.rarity)
+            };
+            return ordered.ThenByDescending(x => x.item.enhancementLevel).ThenByDescending(x => x.acquired).Select(x => x.item);
         }
 
         private static void Label(Button button, string text) => button.GetComponentInChildren<TMP_Text>().text = text;
@@ -77,6 +66,20 @@ namespace KingdomIdle.UGUI
         private void RefreshSummary()
         {
             var s = LocalProgression.State;
+            if (autoBorder != null)
+            {
+                bool enabled = s.AutoDismantleMask != 0;
+                if (enabled && !autoBorder.gameObject.activeSelf)
+                {
+                    autoBorder.gameObject.SetActive(true);
+                    UITween.PulseGraphic(autoBorder, UguiTheme.Bronze, UguiTheme.ActionGold, 1.8f);
+                }
+                else if (!enabled && autoBorder.gameObject.activeSelf)
+                {
+                    UITween.StopGraphicPulse(autoBorder);
+                    autoBorder.gameObject.SetActive(false);
+                }
+            }
             long stored = s.PendingEquipment.Count + s.LegacyEquipment.Sum(x => (long)x.Count);
             string text = $"보유 {s.Equipment.Count}/{EquipmentManager.InventoryCapacity}  ·  강화석 {NumberNotation.Format(LocalProgression.Balance(eCurrency.EquipmentStone))}";
             if (stored > 0) text += $"\n추가 보관 {NumberNotation.Format(stored)} · 기한 없이 보관";

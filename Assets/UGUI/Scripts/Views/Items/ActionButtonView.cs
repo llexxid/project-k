@@ -20,7 +20,11 @@ namespace KingdomIdle.UGUI
 
         public void Set(string text, Color bg, bool interactable = true, Sprite iconSprite = null)
         {
-            if (label != null) label.text = text;
+            if (label != null)
+            {
+                label.text = text;
+                label.color = interactable && bg == UguiTheme.ActionGold ? UguiTheme.InfoInk : UguiTheme.TextPrimary;
+            }
             if (background != null) background.color = interactable ? bg : UguiTheme.DisabledGrey;
             if (icon != null)
             {

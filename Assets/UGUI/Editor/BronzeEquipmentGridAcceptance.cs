@@ -165,7 +165,7 @@ namespace KingdomIdle.UGUI.Editor
                 foreach (NumberStyle style in Enum.GetValues(typeof(NumberStyle)))
                 {
                     string state = "추가 보관 ×" + NumberNotation.Format(count, style);
-                    card.Set(equipment[0].icon, "황금 강철 지팡이 +10 ×" + count, UguiTheme.TextPrimary,
+                    card.Set(equipment[0].icon, "보석 지팡이 +10 ×" + count, UguiTheme.TextPrimary,
                         "1개 받기", UguiTheme.RarityColor(eEquipmentRarity.Rare), false, false, state);
                     LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
                     var label = card.stateLabel;

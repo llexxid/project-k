@@ -28,7 +28,7 @@ namespace KingdomIdle.Balance
         internal static EconomyCommandDTO Copy(EconomyCommandDTO x) => x == null ? null : new()
         {
             Kind = x.Kind, Mode = x.Mode, ExpectedLevel = x.ExpectedLevel, CountLimit = x.CountLimit, SpendLimit = x.SpendLimit,
-            Stage = x.Stage, MainRunId = x.MainRunId, BattleId = x.BattleId, RewardEpoch = x.RewardEpoch, TotalKills = Kills(x.TotalKills), SkillId = x.SkillId
+            Stage = x.Stage, MainRunId = x.MainRunId, BattleId = x.BattleId, RewardEpoch = x.RewardEpoch, TotalKills = Kills(x.TotalKills), SkillId = x.SkillId, EquipmentInstanceId = x.EquipmentInstanceId
         };
         internal static EconomyRewardEpochCutoffDTO Copy(EconomyRewardEpochCutoffDTO x) => x == null ? null : new()
         { Epoch = x.Epoch, Stage = x.Stage, MainRunId = x.MainRunId, BattleId = x.BattleId, TotalKills = Kills(x.TotalKills) };
@@ -41,7 +41,7 @@ namespace KingdomIdle.Balance
             Results = x.Results.Select(r => new EconomyCommandResultDTO
             {
                 Index = r.Index, Kind = r.Kind, Status = r.Status, AppliedCount = r.AppliedCount,
-                SpentGold = r.SpentGold, SpentRuby = r.SpentRuby, SpentArcaneKnowledge = r.SpentArcaneKnowledge,
+                SpentGold = r.SpentGold, SpentRuby = r.SpentRuby, SpentArcaneKnowledge = r.SpentArcaneKnowledge, SpentEquipmentStone = r.SpentEquipmentStone,
                 GrantedGold = r.GrantedGold, GrantedExp = r.GrantedExp, ErrorCode = r.ErrorCode
             }).ToList()
         };
@@ -51,7 +51,7 @@ namespace KingdomIdle.Balance
             RewardEpoch = x.RewardEpoch, GoldRemainderMicros = x.GoldRemainderMicros, ExpRemainderMicros = x.ExpRemainderMicros,
             PendingReceipt = Copy(x.PendingReceipt), OwnershipChanged = x.OwnershipChanged,
             SupportsMageEnhance = x.SupportsMageEnhance, MageEnhanceMode = x.MageEnhanceMode,
-            IndependentGrowthFailures = x.IndependentGrowthFailures,
+            IndependentGrowthFailures = x.IndependentGrowthFailures, EquipmentEnhanceAvailable = x.EquipmentEnhanceAvailable,
             RewardEpochs = x.RewardEpochs.Select(e => new EconomyRewardEpochDTO { Id = e.Id, GoldLevel = e.GoldLevel, ExpLevel = e.ExpLevel }).ToList()
         };
         internal static bool SameRun(EconomyCommandDTO a, EconomyCommandDTO b) => a.Stage == b.Stage && a.MainRunId == b.MainRunId && a.BattleId == b.BattleId;

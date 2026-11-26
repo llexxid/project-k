@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -52,6 +53,7 @@ namespace Scripts.Core.Manager
         private string _callInFlightName;
         private Action<PlayFabError> _callInFlightTimeout;
         private int _economicCalls;
+        private float _nextMenuRecoveryAt;
 
         private void EnqueueCall(string function, Action send, Action<PlayFabError> timeout)
         {
@@ -84,6 +86,7 @@ namespace Scripts.Core.Manager
             _callInFlightName = null;
             _callInFlightTimeout = null;
             _economicCalls = 0;
+            _nextMenuRecoveryAt = 0;
             EconomyBatchProgression.SetExternalWritePending(false);
         }
         private void Update()
@@ -246,7 +249,13 @@ namespace Scripts.Core.Manager
 
         /// <summary>Build a DTO-routed request and send it directly through the PlayFab SDK.</summary>
         public void Call<TRequest, TResponse>(TRequest request, Action<TResponse> successCallback, Action<PlayFabError> errorCallback)
-            where TRequest : RequestDTO where TResponse : ApiResponseDTO
+            where TRequest : RequestDTO where TResponse : ApiResponseDTO => Dispatch(request, successCallback, errorCallback, null);
+
+        internal void ReadMailList(OnGetMailListRequestDTO request, Action<OnGetMailListResponseDTO> success,
+            Action<PlayFabError> failure, Func<bool> wanted) => Dispatch(request, success, failure, wanted);
+
+        private void Dispatch<TRequest, TResponse>(TRequest request, Action<TResponse> successCallback, Action<PlayFabError> errorCallback,
+            Func<bool> snapshotWanted) where TRequest : RequestDTO where TResponse : ApiResponseDTO
         {
             ExecuteFunctionRequest cloudFunction;
             string rubyRequestId = (request as RubyGrowthRequestDTO)?.RequestId;
@@ -394,9 +403,34 @@ namespace Scripts.Core.Manager
                     finally { application?.Dispose(); Done(); }
                 }
             }
+            void Receive(ExecuteFunctionResult result)
+            {
+                if (completed || !IsCurrent()) return;
+                if (result?.FunctionResult == null || result.Error != null || result.FunctionResultTooLarge == true ||
+                    !string.IsNullOrEmpty(result.FunctionName) && result.FunctionName != cloudFunction.FunctionName)
+                { Success(result); return; }
+                try
+                {
+                    var body = PackedServerResponse.ReadBody(result.FunctionResult);
+                    if (body.Property("PackedResponse") == null) { result.FunctionResult = body; Success(result); return; }
+                    var packed = new PackedServerResponse(body);
+                    void Finish()
+                    {
+                        if (completed || !IsCurrent()) return;
+                        result.FunctionResult = packed.Decode();
+                        Success(result);
+                    }
+                    if (packed.NextIndex == packed.ChunkCount) Finish();
+                    else StartCoroutine(ReadPackedPages(packed, cloudFunction.AuthenticationContext, queued ? _sessionGUID : null,
+                        () => !completed && IsCurrent() && (!queued || localGeneration == LocalProgression.AccountGeneration),
+                        () => { if (enteredQueue) _callStartedAt = Time.realtimeSinceStartup; }, Finish, Fail, cloudFunction.FunctionName));
+                }
+                catch (Exception ex) { Fail(CreateError("InvalidResponse", "서버 응답의 무결성을 확인하지 못했습니다.", cloudFunction.FunctionName, ex)); }
+            }
             void Send()
             {
                 if (!IsCurrent()) return;
+                if (snapshotWanted != null && !snapshotWanted()) { Fail(CreateError("Cancelled", "닫힌 우편 목록 조회입니다.", cloudFunction.FunctionName)); return; }
                 if (queued && localGeneration != LocalProgression.AccountGeneration ||
                     economic && !recoveryRead && !legacyRecovery && EconomyBatchProgression.HasUnknownResult ||
                     request is OnEnchantSkillRequestDTO && !EconomyBatchProgression.CanStartSingleMageEnhance)
@@ -404,7 +438,7 @@ namespace Scripts.Core.Manager
                     Fail(CreateError("EconomyHeld", "이전 요청의 결과를 확인한 뒤 다시 시도해 주세요.", cloudFunction.FunctionName));
                     return;
                 }
-                try { sent = true; PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, Success, Fail); }
+                try { sent = true; PlayFabCloudScriptAPI.ExecuteFunction(cloudFunction, Receive, Fail); }
                 catch (Exception ex)
                 {
                     Fail(CreateError("Transport", "요청을 전송하지 못했습니다.", cloudFunction.FunctionName, ex));
@@ -427,6 +461,14 @@ namespace Scripts.Core.Manager
             }
             if (economic && !recoveryRead && !legacyRecovery && EconomyBatchProgression.Available)
             {
+                if (IsMenuSnapshot(request))
+                {
+                    StartCoroutine(WaitForMenuSnapshot(() => !completed && IsCurrent() && localGeneration == LocalProgression.AccountGeneration &&
+                        (snapshotWanted == null || snapshotWanted()),
+                        () => Time.realtimeSinceStartup, TryRefreshMenuRecovery, EconomyBatchProgression.TryQueueMenuSnapshot, QueueAndSend,
+                        () => Fail(CreateError("EconomyHeld", "서버 정산 결과를 확인하고 있습니다. 확인을 마치면 목록을 다시 불러옵니다.", cloudFunction.FunctionName))));
+                    return;
+                }
                 if (!EconomyBatchProgression.FlushBeforeWrite(ok =>
                 {
                     if (ok) QueueAndSend();
@@ -434,6 +476,99 @@ namespace Scripts.Core.Manager
                 })) Fail(CreateError("EconomyHeld", "이전 입력의 처리가 필요합니다.", cloudFunction.FunctionName));
             }
             else QueueAndSend();
+        }
+
+        internal static bool IsMenuSnapshot(RequestDTO request) =>
+            request is OnGetMailListRequestDTO || request is OnGetQuestStateRequestDTO || request is OnCheckAttendanceRequestDTO;
+
+        private void TryRefreshMenuRecovery()
+        {
+            if (!EconomyBatchProgression.CanRefreshMenuRecovery || Time.realtimeSinceStartup < _nextMenuRecoveryAt) return;
+            _nextMenuRecoveryAt = Time.realtimeSinceStartup + 10f;
+            UserManager.Instance?.RefreshFromServer(_ => { });
+        }
+
+        internal static IEnumerator WaitForMenuSnapshot(Func<bool> current, Func<float> now, Action tryRecover,
+            Func<Action<bool>, bool> enqueue, Action send, Action held)
+        {
+            float deadline = now() + 18f;
+            bool waiting = false, started = false;
+            while (current() && !started)
+            {
+                if (now() >= deadline) { held(); yield break; }
+                if (!waiting)
+                {
+                    tryRecover();
+                    waiting = true;
+                    if (!enqueue(ok =>
+                    {
+                        waiting = false;
+                        if (!ok || !current() || started || now() >= deadline) return;
+                        started = true;
+                        send();
+                    })) waiting = false;
+                }
+                if (!started) yield return null;
+            }
+        }
+
+        // Each retry reads the same immutable page, including when the original request wrote currency.
+        private IEnumerator ReadPackedPages(PackedServerResponse packed, PlayFabAuthenticationContext context, string sessionId, Func<bool> current,
+            Action progress, Action finish, Action<PlayFabError> fail, string function)
+        {
+            const string route = "OnGetEquipmentInventory";
+            while (current() && packed.NextIndex < packed.ChunkCount)
+            {
+                int index = packed.NextIndex;
+                for (int attempt = 0; attempt < 3 && current() && index == packed.NextIndex; attempt++)
+                {
+                    progress();
+                    var parameters = new Dictionary<string, object>
+                    {
+                        ["ProtocolVersion"] = ApiVersions.ProtocolVersion, ["ResponsePacking"] = PackedServerResponse.Version,
+                        ["SnapshotId"] = packed.SnapshotId, ["ChunkIndex"] = index
+                    };
+                    if (!string.IsNullOrEmpty(sessionId)) parameters["SessionID"] = sessionId;
+                    var read = new ExecuteFunctionRequest
+                    {
+                        FunctionName = route, AuthenticationContext = context, GeneratePlayStreamEvent = false,
+                        FunctionParameter = parameters
+                    };
+                    bool active = true, arrived = false;
+                    ExecuteFunctionResult page = null;
+                    try
+                    {
+                        PlayFabCloudScriptAPI.ExecuteFunction(read,
+                            result => { if (active) { page = result; arrived = true; } },
+                            _ => { if (active) arrived = true; });
+                    }
+                    catch (Exception) { arrived = true; }
+                    float deadline = Time.realtimeSinceStartup + 9f;
+                    while (current() && !arrived && Time.realtimeSinceStartup < deadline) yield return null;
+                    active = false;
+                    if (!current()) break;
+                    if (page?.FunctionResult == null || page.Error != null || page.FunctionResultTooLarge == true ||
+                        !string.IsNullOrEmpty(page.FunctionName) && page.FunctionName != route) continue;
+                    try { packed.Add(PackedServerResponse.ReadBody(page.FunctionResult)); }
+                    catch (Exception ex)
+                    {
+                        fail(CreateError("InvalidResponse", "서버 응답 조각이 일치하지 않습니다.", function, ex));
+                        yield break;
+                    }
+                }
+                if (current() && index == packed.NextIndex)
+                {
+                    fail(CreateError("Transport", "서버 응답의 나머지를 확인할 수 없습니다.", function));
+                    yield break;
+                }
+            }
+            if (!current())
+            {
+                fail(CreateError("AccountChanged", "접속 계정이 변경되었습니다.", function));
+                yield break;
+            }
+            try { finish(); }
+            catch (Exception ex) { fail(CreateError("InvalidResponse", "서버 응답의 무결성을 확인하지 못했습니다.", function, ex)); }
         }
 
         private static bool IsUncertainEconomicFailure(PlayFabError error)
@@ -489,6 +624,7 @@ namespace Scripts.Core.Manager
                 ruby.ExpectedLevel < 0 || ruby.ExpectedLevel > 50 || (ruby.Type != RubyGrowthType.Gold && ruby.Type != RubyGrowthType.Exp)))
                 throw new ArgumentException("루비 요청 ID·강화 종류·예상 레벨을 확인해 주세요.");
             payload.ProtocolVersion = ApiVersions.ProtocolVersion;
+            payload.ResponsePacking = PackedServerResponse.Version;
             if (payload is SessionRequestDTO session) session.SessionID = sessionGuid;
             // The server rejects a mailbox request whose PlayFabId is not the caller's, so always send the signed-in account.
             if (payload is MailboxRequestDTO mailbox) mailbox.PlayFabId = _playFabId;
@@ -525,16 +661,7 @@ namespace Scripts.Core.Manager
                 // Validate only our DTO conversion; leave the PlayFab serializer unchanged.
                 var serializer = new JsonSerializer { DateParseHandling = DateParseHandling.None, MaxDepth = 64 };
                 serializer.Converters.Add(new StrictIntegerConverter());
-                JObject body;
-                if (result.FunctionResult is JObject json) body = json;
-                else if (result.FunctionResult is string text)
-                {
-                    using var reader = new JsonTextReader(new StringReader(text))
-                    { DateParseHandling = DateParseHandling.None, MaxDepth = 64 };
-                    body = JObject.Load(reader, new JsonLoadSettings { DuplicatePropertyNameHandling = DuplicatePropertyNameHandling.Error });
-                    if (reader.Read()) throw new JsonSerializationException("Trailing response data.");
-                }
-                else body = JObject.FromObject(result.FunctionResult, serializer);
+                var body = PackedServerResponse.ReadBody(result.FunctionResult);
                 if (body["ProtocolVersion"]?.Type != JTokenType.Integer || body["ServerVersion"]?.Type != JTokenType.Integer)
                     throw new JsonSerializationException("Missing protocol header.");
                 if (body.Value<int>("ProtocolVersion") != ApiVersions.ProtocolVersion)
@@ -923,6 +1050,7 @@ namespace Scripts.Core.Manager
             var converted = CreateError("Business", business.Message, function, business);
             converted.HttpCode = error.HttpCode;
             converted.HttpStatus = error.HttpStatus;
+            converted.RetryAfterSeconds = error.RetryAfterSeconds;
             converted.ErrorDetails["WrappedBy"] = new List<string> { error.Error.ToString() };
             return converted;
         }
@@ -958,6 +1086,15 @@ namespace Scripts.Core.Manager
         {
             if (error?.ErrorDetails == null || !error.ErrorDetails.TryGetValue("Kind", out var kinds) || kinds == null || kinds.Count == 0) return "";
             return kinds[0] ?? "";
+        }
+
+        internal static bool IsTransportFailure(PlayFabError error)
+        {
+            string kind = GetFailureKind(error);
+            if (kind == "Transport") return true;
+            // Unity HTTP returns an untagged ServiceUnavailable for a DNS or connection failure.
+            return kind.Length == 0 && error != null &&
+                (error.Error == PlayFabErrorCode.ConnectionError || error.Error == PlayFabErrorCode.ServiceUnavailable);
         }
 
         /// <summary>서버 ErrorCode·Kind를 사용자에게 보여 줄 문구로 바꾼다. 강화·가챠·공통 코드만 다루고 나머지는 코드를 붙여 돌려준다.</summary>
@@ -1034,7 +1171,9 @@ namespace Scripts.Core.Manager
                 }
             }
             string kind = GetFailureKind(error);
-            if (kind == "Timeout" || kind == "Transport") return "서버 응답이 없습니다. 잠시 후 다시 시도해 주세요.";
+            if (kind == "EconomyHeld" && !string.IsNullOrEmpty(error.ErrorMessage)) return error.ErrorMessage;
+            if (IsTransportFailure(error)) return "서버에 연결할 수 없습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.";
+            if (kind == "Timeout") return "서버 응답이 없습니다. 잠시 후 다시 시도해 주세요.";
             if (kind == "NotAuthenticated" || kind == "IntegrationPending") return "서버 로그인이 필요합니다.";
             return error == null ? $"{action}에 실패했습니다." : $"{action}에 실패했습니다. ({error.ErrorMessage})";
         }

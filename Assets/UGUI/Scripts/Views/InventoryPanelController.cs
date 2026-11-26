@@ -286,7 +286,7 @@ namespace KingdomIdle.UGUI
             if (toolbar != null)
             {
                 toolbar.gameObject.SetActive(_activeTab == InvTab.All || _activeTab == InvTab.Equipment);
-                toolbar.Bind(data => _players != null && _players.Exists(p => p != null && data.IsAllowedForJob(p.playerStatus?.JobName ?? "")), Refresh);
+                toolbar.Bind(Refresh);
             }
             return go.GetComponent<InventoryListPageView>();
         }
@@ -368,15 +368,16 @@ namespace KingdomIdle.UGUI
             int ownerIdx = _players.IndexOf(owner);
             string ownerText = isEquipped && ownerIdx >= 0 ? $"장착: 왕국군 {ownerIdx + 1}" : "공용 가방";
 
-            bool maxLevel = item.IsMaxLevel();
+            int preview = EquipmentManager.PreviewLevel(item);
+            bool maxLevel = preview >= item.baseData.maxEnhancementLevel;
 
             // 강화 정보 (MAX가 아닐 때만)
             string matText = null, rateText = null, expectedText = null;
             bool matShortage = false;
             if (!maxLevel)
             {
-                long needed = EquipmentEconomy.EnhanceCost(item);
-                long available = KingdomIdle.Balance.LocalProgression.Balance(eCurrency.EquipmentStone);
+                long needed = EquipmentEconomy.EnhanceCost(item.baseData.rarity, EquipmentManager.PreviewLevel(item));
+                long available = EquipmentManager.PreviewStones();
                 matShortage = available < needed;
                 matText = $"필요 강화석: {needed}개 (보유: {NumberNotation.Format(available)}개)";
 
@@ -394,7 +395,8 @@ namespace KingdomIdle.UGUI
                 $"등급: {rarityStr}",
                 $"공격력 보너스: +{NumberNotation.Format(item.GetFinalAtk())}",
                 $"HP 보너스: +{NumberNotation.Format(item.GetFinalMaxHP())}",
-                $"강화 레벨: {item.enhancementLevel} / {item.baseData.maxEnhancementLevel}",
+                preview == item.enhancementLevel ? $"강화 단계  {item.enhancementLevel} / {item.baseData.maxEnhancementLevel}" :
+                    $"강화 단계  +{item.enhancementLevel} → +{preview} (처리 중)",
                 isEquipped, ownerText,
                 maxLevel, matText, matShortage, rateText, expectedText);
 
@@ -415,14 +417,14 @@ namespace KingdomIdle.UGUI
             EquipmentManager equipmentManager = EquipmentManager.Instance;
             if (equipmentManager == null) return;
 
-            if (item.IsMaxLevel())
+            if (EquipmentManager.PreviewLevel(item) >= item.baseData.maxEnhancementLevel)
             {
                 ShowToast("이미 최대 강화 레벨입니다.");
                 return;
             }
 
-            long needed = EquipmentEconomy.EnhanceCost(item);
-            long available = KingdomIdle.Balance.LocalProgression.Balance(eCurrency.EquipmentStone);
+            long needed = EquipmentEconomy.EnhanceCost(item.baseData.rarity, EquipmentManager.PreviewLevel(item));
+            long available = EquipmentManager.PreviewStones();
 
             if (available < needed)
             {
@@ -439,7 +441,8 @@ namespace KingdomIdle.UGUI
             if (result != EquipmentManager.EnhancementResult.Pending) _pendingEnhanceItemId = previousPending;
             if (result == EquipmentManager.EnhancementResult.Pending)
             {
-                ShowToast($"{item.baseData.DisplayName} 강화 요청 중");
+                if (EconomyBatchProgression.SupportsEquipmentEnhance) ShowInventoryEquipPopup(item, owner);
+                else ShowToast($"{item.baseData.DisplayName} 강화 요청 중");
                 return;
             }
             ShowToast(EquipmentManager.Describe(result));

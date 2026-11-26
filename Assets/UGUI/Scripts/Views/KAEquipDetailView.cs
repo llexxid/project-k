@@ -22,6 +22,7 @@ namespace KingdomIdle.UGUI
         [SerializeField] internal TMP_Text equippedNowLabel;   // "현재 장착 중" (장착 시만)
 
         [Header("액션 / 강화")]
+        [SerializeField] internal RectTransform secondaryActions;
         [SerializeField] internal RectTransform actionRow;      // Item_ActionButton 2개 부모
         [SerializeField] internal RectTransform enhanceInfoGroup; // 최대강화 시 통째로 숨김
         [SerializeField] internal TMP_Text materialLabel;

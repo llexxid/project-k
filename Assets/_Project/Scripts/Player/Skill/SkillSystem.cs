@@ -56,7 +56,7 @@ public class SkillSystem
             _basicAttack = CreateBasicAttack(data.basicAttack);
             AttackRange = data.basicAttack.range;
             IsRanged = data.basicAttack.type == BasicAttackType.Projectile;
-            SetSlot(0, "기본공격", false);
+            SetSlot(0, "기본 공격", false);
         }
 
         // ── 직업별 패시브 오라 (UI 표시만, 실제 적용은 ChangeJob) ──
@@ -230,6 +230,14 @@ public class SkillSystem
         public string Name;
         public bool IsPassive;
         public string Description;
+
+        public string DisplayName(JobData job)
+        {
+            if (IsPassive || job == null) return Name;
+            float cooldown = Name == "기본 공격" ? job.basicAttack?.cooldown ?? 0f
+                : job.specialSkills != null && job.specialSkills.Count > 0 ? job.specialSkills[0]?.cooldown ?? 0f : 0f;
+            return cooldown > 0f ? $"{Name}  ·  재사용 {ActiveSkill.ScaledCooldown(cooldown):0.##}초" : Name;
+        }
     }
 
     /// <summary>해당 직업이 보유한 스킬 목록을 반환 (UI 패널용).</summary>
@@ -240,46 +248,46 @@ public class SkillSystem
             case "Spearman":
                 return new[]
                 {
-                    new SkillInfo { Name = "기본공격", IsPassive = false, Description = "단일 대상 근접 공격" }
+                    new SkillInfo { Name = "기본 공격", IsPassive = false, Description = "단일 대상 근접 공격" }
                 };
             case "Knight":
                 return new[]
                 {
-                    new SkillInfo { Name = "기본공격", IsPassive = false, Description = "단일 대상 근접 공격" },
-                    new SkillInfo { Name = "수호의 오라", IsPassive = true, Description = "팀 전체 HP +10%" }
+                    new SkillInfo { Name = "기본 공격", IsPassive = false, Description = "단일 대상 근접 공격" },
+                    new SkillInfo { Name = "수호의 오라", IsPassive = true, Description = "왕국군 전체 체력 +10%" }
                 };
             case "Elite_Knight":
                 return new[]
                 {
-                    new SkillInfo { Name = "기본공격", IsPassive = false, Description = "전방 직사각형 범위 공격" },
-                    new SkillInfo { Name = "수호의 오라", IsPassive = true, Description = "팀 전체 HP +10%" },
-                    new SkillInfo { Name = "강철의 의지", IsPassive = false, Description = "20초마다 5초간 최대 HP의 20% 보호막을 얻습니다. 체력 조건 없이 사용하며 주변 적을 도발합니다. 도발은 기사 사망 전까지 유지되고 먼저 걸린 도발은 바뀌지 않습니다." }
+                    new SkillInfo { Name = "기본 공격", IsPassive = false, Description = "전방 직사각형 범위 공격" },
+                    new SkillInfo { Name = "수호의 오라", IsPassive = true, Description = "왕국군 전체 체력 +10%" },
+                    new SkillInfo { Name = "강철의 의지", IsPassive = false, Description = "5초간 최대 체력의 20%에 해당하는 보호막을 얻습니다. 기사가 쓰러질 때까지 주변 적을 도발합니다." }
                 };
             case "Archer":
                 return new[]
                 {
-                    new SkillInfo { Name = "기본공격", IsPassive = false, Description = "원거리 즉발 공격" },
-                    new SkillInfo { Name = "명중의 오라", IsPassive = true, Description = "팀 전체 ATK +10%" }
+                    new SkillInfo { Name = "기본 공격", IsPassive = false, Description = "원거리 즉발 공격" },
+                    new SkillInfo { Name = "명중의 오라", IsPassive = true, Description = "왕국군 전체 공격력 +10%" }
                 };
             case "Elite_Archer":
                 return new[]
                 {
-                    new SkillInfo { Name = "기본공격", IsPassive = false, Description = "원거리 즉발 공격" },
-                    new SkillInfo { Name = "명중의 오라", IsPassive = true, Description = "팀 전체 ATK +10%" },
+                    new SkillInfo { Name = "기본 공격", IsPassive = false, Description = "원거리 즉발 공격" },
+                    new SkillInfo { Name = "명중의 오라", IsPassive = true, Description = "왕국군 전체 공격력 +10%" },
                     new SkillInfo { Name = "집중 사격", IsPassive = false, Description = "3연속 타격" }
                 };
             case "Mage":
                 return new[]
                 {
-                    new SkillInfo { Name = "기본공격", IsPassive = false, Description = "직선 투사체 + 소범위 폭발" },
-                    new SkillInfo { Name = "마력의 오라", IsPassive = true, Description = "팀 ATK +5% · HP +5%" }
+                    new SkillInfo { Name = "기본 공격", IsPassive = false, Description = "직선으로 날아가 명중 지점 주변의 적에게 피해를 줍니다." },
+                    new SkillInfo { Name = "마력의 오라", IsPassive = true, Description = "왕국군 전체 공격력 +5% · 체력 +5%" }
                 };
             case "Elite_Mage":
                 return new[]
                 {
-                    new SkillInfo { Name = "기본공격", IsPassive = false, Description = "직선 투사체 + 소범위 폭발" },
-                    new SkillInfo { Name = "마력의 오라", IsPassive = true, Description = "팀 ATK +5% · HP +5%" },
-                    new SkillInfo { Name = "힘의 파동", IsPassive = false, Description = "가까운 적에게 공격력의 35% 피해를 주고 밀어내며 1초 기절시킵니다. 재사용 대기시간 10초. 보스는 밀려나거나 기절하지 않습니다." }
+                    new SkillInfo { Name = "기본 공격", IsPassive = false, Description = "직선으로 날아가 명중 지점 주변의 적에게 피해를 줍니다." },
+                    new SkillInfo { Name = "마력의 오라", IsPassive = true, Description = "왕국군 전체 공격력 +5% · 체력 +5%" },
+                    new SkillInfo { Name = "힘의 파동", IsPassive = false, Description = "가까운 적에게 공격력의 35% 피해를 주고 밀어내며 1초 기절시킵니다. 보스는 밀려나거나 기절하지 않습니다." }
                 };
             default:
                 return System.Array.Empty<SkillInfo>();

@@ -37,6 +37,7 @@ namespace KingdomIdle.Balance
                 fixture.Set("_huntInFlight", true);
                 fixture.Check(fixture.Manager.TryMoveToMainStage(fixture.Previous), "manual movement accepts a valid earlier stage");
                 yield return Checkpoint(fixture, "main-move-settlement");
+                fixture.Check(GameplayLoading.HasVisibleScope(true), "a manually requested move keeps its loading presentation");
                 fixture.Call("FinishHuntSettlement", false);
                 fixture.CheckEnded("manual movement settlement failure releases loading without rewards");
 
@@ -59,6 +60,8 @@ namespace KingdomIdle.Balance
                 fixture.Check(clear != null && !GameplayLoading.IsVisible && readyAt > Time.realtimeSinceStartup + .8f,
                     "automatic clear keeps its normal 0.9-second presentation outside loading time");
                 yield return Checkpoint(fixture, "main-clear-server-wait", readyAt);
+                fixture.Check(!GameplayLoading.HasVisibleScope(true) && !GameplayLoading.IsInputBlocked,
+                    "an automatic battle transition can continue behind a menu without covering it");
                 fixture.Call("OnHuntRewardError", fixture.Head, NetworkManager.CreateError("InvalidResponse", "stage acceptance"));
                 fixture.CheckEnded("terminal automatic-clear failure releases loading without clearing saved rewards");
 
@@ -68,6 +71,35 @@ namespace KingdomIdle.Balance
                 fixture.Call("FlushHuntBuffer", (long)fixture.Main);
                 fixture.Call("TrySendNextHunt");
                 fixture.Check(fixture.Loading == null && !GameplayLoading.IsVisible, "background hunt buffering and dispatch never start loading");
+
+                fixture.Prepare(fixture.Dungeon);
+                fixture.Set("_currentState", eStageRunState.ResultPending);
+                fixture.Set("_resultPopupTimer", 1f);
+                LocalProgression.State.ActiveDungeon = null;
+                LocalProgression.State.GoldDungeonClear = 1;
+                var nextDifficulty = StageParser.MakeStage(eStageType.GoldDungeon, 2);
+                LocalProgression.State.GoldTickets = 0;
+                fixture.Check(fixture.Manager.AutoDungeonDestination == null, "no ticket returns to main without a new entry");
+                LocalProgression.State.GoldTickets = 1;
+                fixture.Manager.AutoAdvanceDungeon = false;
+                fixture.Check(fixture.Manager.AutoDungeonDestination == fixture.Dungeon, "default auto action repeats the same difficulty");
+                fixture.Manager.AutoAdvanceDungeon = true;
+                fixture.Check(fixture.Manager.AutoDungeonDestination == nextDifficulty, "toggle chooses the newly cleared server-unlocked next difficulty");
+                LocalProgression.State.GoldDungeonClear = 0;
+                fixture.Check(fixture.Manager.AutoDungeonDestination == fixture.Dungeon, "a locked next difficulty falls back to the current one");
+                fixture.Call("TickDungeonResult", .5f);
+                fixture.Check(fixture.Transport.Function == null, "remaining reading time does not start an entry");
+                fixture.Call("TickDungeonResult", 1f);
+                var resultRequest = fixture.Loading;
+                fixture.Check(fixture.Transport.Function == "OnGetUserState" && !fixture.Manager.DungeonResultCountdownActive,
+                    "timer starts one normal server-verified entry with no local ticket consumption");
+                fixture.Manager.RestartDungeon();
+                fixture.Call("TickDungeonResult", 10f);
+                fixture.Check(ReferenceEquals(resultRequest, fixture.Loading) && LocalProgression.State.GoldTickets == 1,
+                    "manual and elapsed retry cannot race an outstanding entry");
+                fixture.Transport.Fail(NetworkManager.CreateError("Transport", "end isolated countdown request"));
+                fixture.Call("DungeonRequestFailed", "end isolated countdown recovery");
+                fixture.Manager.AutoAdvanceDungeon = false;
 
                 fixture.Prepare(fixture.Main);
                 fixture.Set("_huntInFlight", true);
@@ -269,6 +301,163 @@ namespace KingdomIdle.Balance
             return new { passed = fixture.Checks.Count, checks = fixture.Checks };
         }
 
+        public static object RunDungeonEconomyCompletionRecovery()
+        {
+            using var fixture = CreateFixture();
+            using var account = LocalProgression.BeginTestSession();
+            const string battle = "1234567890abcdef1234567890abcdef";
+            var client = Field(typeof(EconomyBatchProgression), "_clientId");
+            object previousClient = client.GetValue(null);
+            float previousTime = Time.timeScale;
+            try
+            {
+                client.SetValue(null, battle);
+                Field(typeof(LocalProgression), "_opening").SetValue(null, false);
+                LocalProgression.OpenTestAccount("dungeon-economy-recovery-" + Guid.NewGuid().ToString("N"));
+                var network = NetworkManager.Instance;
+                var snapshot = JsonConvert.DeserializeObject<OnGetUserStateResponseDTO>(JsonConvert.SerializeObject(
+                    Invoke(typeof(ServerApiContractAcceptance), null, "LegacyLogin")));
+                snapshot.ProtocolVersion = IdleKingdomFunction.Common.ApiVersions.ProtocolVersion;
+                snapshot.RubyGrowthState = new() { NextRequestSequence = 1, LastResetDay = "" };
+                snapshot.EconomyBatchState = new()
+                {
+                    Version = 1, OwnerClientId = battle, Generation = 1, NextSequence = 1,
+                    RewardEpoch = 1, RewardEpochs = new() { new() { Id = 1 } }
+                };
+                snapshot.DungeonState.GoldTickets = 1; snapshot.DungeonState.ActiveBattleId = battle;
+                snapshot.DungeonState.ActiveDungeonId = (long)fixture.Dungeon;
+                snapshot.DungeonState.TicketResetUtc = LocalProgression.UtcNow + 86400;
+                snapshot.EconomyDungeonBattle = new()
+                { BattleId = battle, DungeonId = (long)fixture.Dungeon, AcceptedKills = new(), RunGold = 100 };
+                snapshot.Currency.Gold = 4475151;
+                snapshot.ServerTimeUtc = LocalProgression.UtcNow;
+                void Drain() { EconomyBatchProgression.FlushLocalWrites(); EconomyBatchProgression.Pump(); }
+                void Prepare()
+                {
+                    Invoke(typeof(EconomyBatchProgression), null, "ResetAccount");
+                    fixture.Prepare(fixture.Dungeon);
+                    snapshot.EconomyRevision = 1;
+                    fixture.Check(UserManager.Instance.ApplyServerPlayerData(snapshot), "isolated active dungeon and its spent ticket are durably installed");
+                    bool recovered = false;
+                    fixture.Check(EconomyBatchProgression.RecoverPending(ok => recovered = ok, true), "empty dungeon journal recovery begins");
+                    Drain(); Drain();
+                    fixture.Check(recovered, "dungeon journal recovery completes before the failed external query");
+                    fixture.Set("_currentState", eStageRunState.Resolving);
+                    typeof(StageSession).GetProperty(nameof(StageSession.HasPendingResult)).SetValue(fixture.Session, true);
+                    Time.timeScale = 0;
+                    EconomyBatchProgression.MarkUnknown("isolated provider failure followed by unavailable full-state read");
+                    fixture.Call("CompleteServerDungeon", fixture.Session);
+                }
+                Prepare();
+                string before = JsonConvert.SerializeObject(LocalProgression.State);
+                fixture.Refresh();
+                fixture.Check(fixture.Loading == null && !fixture.Overlay.gameObject.activeSelf &&
+                    (bool)fixture.Get("_dungeonRequestPending") && fixture.Get("_retryDungeon") != null &&
+                    (eStageRunState)fixture.Get("_currentState") == eStageRunState.Resolving && Time.timeScale == 0,
+                    "unknown dungeon settlement releases loading but retains a recoverable completion for the same paused run");
+                for (int i = 0; i < 3; i++)
+                {
+                    fixture.Set("_retryDungeonAt", Time.realtimeSinceStartup); fixture.Call("RetryDungeonRequest");
+                    fixture.Check(fixture.Transport.Function == null && fixture.Loading == null &&
+                        fixture.Get("_retryDungeon") != null && JsonConvert.SerializeObject(LocalProgression.State) == before,
+                        "unknown retry " + i + " neither writes nor returns tickets or rewards");
+                }
+                bool refreshed = false;
+                UserManager.Instance.RefreshFromServer(ok => refreshed = ok);
+                fixture.Check(fixture.Transport.Function == "OnGetUserState", "manual recovery uses the existing full-state query");
+                snapshot.EconomyRevision = 2; fixture.Transport.Succeed(snapshot);
+                fixture.Check(refreshed && !EconomyBatchProgression.HasUnknownResult &&
+                    LocalProgression.State.ActiveDungeon == battle && LocalProgression.State.GoldTickets == 1 &&
+                    LocalProgression.Balance(eCurrency.Gold) == 4475151,
+                    "confirmed refresh preserves the active run, earned gold, and already spent ticket");
+                fixture.Set("_retryDungeonAt", Time.realtimeSinceStartup); fixture.Call("RetryDungeonRequest"); Drain(); Drain();
+                var request = JsonConvert.DeserializeObject<OnCompleteDungeonRequestDTO>(JsonConvert.SerializeObject(fixture.Transport.Parameters));
+                fixture.Check(fixture.Transport.Function == "OnCompleteDungeon" && request.BattleId == battle &&
+                    request.DungeonId == (long)fixture.Dungeon && fixture.Get("_retryDungeon") == null,
+                    "confirmed recovery resumes completion once with the captured original battle identity");
+                fixture.Call("RetryDungeonRequest"); Drain();
+                fixture.Check(fixture.Transport.Function == "OnCompleteDungeon" && fixture.Transport.Unexpected == 0,
+                    "later retry ticks cannot duplicate an in-flight completion");
+                string confirmed = JsonConvert.SerializeObject(LocalProgression.State);
+                fixture.Transport.Fail(NetworkManager.CreateError("Business", "isolated definite rejection", details: new ErrorResponseDTO
+                { ErrorCode = (Protocol.Message.Data.eErrorCode)1025, Message = "isolated definite rejection" }));
+                fixture.Check(fixture.Loading == null && !(bool)fixture.Get("_dungeonRequestPending") && fixture.Get("_retryDungeon") == null &&
+                    JsonConvert.SerializeObject(LocalProgression.State) == confirmed,
+                    "confirmed terminal failure still ends the request without inventing a clear or refund");
+                Prepare();
+                EconomyBatchProgression.ConfirmFullRefresh();
+                fixture.Set("_retryDungeonAt", Time.realtimeSinceStartup); fixture.Call("RetryDungeonRequest"); Drain(); Drain();
+                fixture.Check(fixture.Transport.Function == "OnCompleteDungeon", "post-send replay fixture starts the captured completion");
+                fixture.Transport.Fail(NetworkManager.CreateError("Timeout", "isolated completion response loss"));
+                fixture.Check(fixture.Transport.Function == "OnGetUserState", "completion response loss uses the existing automatic state read");
+                snapshot.EconomyRevision = 2;
+                snapshot.DungeonState.ActiveBattleId = null; snapshot.DungeonState.ActiveDungeonId = null; snapshot.EconomyDungeonBattle = null;
+                snapshot.DungeonState.GoldDungeonClear = 1;
+                fixture.Transport.Succeed(snapshot);
+                fixture.Check(!EconomyBatchProgression.HasUnknownResult && LocalProgression.State.ActiveDungeon == null,
+                    "full-state confirmation can observe an already completed server run without fabricating its result");
+                fixture.Set("_retryDungeonAt", Time.realtimeSinceStartup); fixture.Call("RetryDungeonRequest"); Drain(); Drain();
+                request = JsonConvert.DeserializeObject<OnCompleteDungeonRequestDTO>(JsonConvert.SerializeObject(fixture.Transport.Parameters));
+                fixture.Check(fixture.Transport.Function == "OnCompleteDungeon" && request.BattleId == battle && request.DungeonId == (long)fixture.Dungeon,
+                    "an already completed server run retains its original idempotent receipt request after response loss");
+                int resultCount = 0;
+                void Cleared(StageDefinition _) => resultCount++;
+                fixture.Manager.OnStageCleared += Cleared;
+                try
+                {
+                    fixture.Transport.Succeed(new OnCompleteDungeonResponseDTO
+                    {
+                        ProtocolVersion = IdleKingdomFunction.Common.ApiVersions.ProtocolVersion, EconomyRevision = 3,
+                        DungeonState = snapshot.DungeonState, Currency = snapshot.Currency, Equipment = snapshot.Equipment,
+                        MageTowerState = snapshot.MageTowerState, GrantedRewards = new(),
+                        TotalRunRewards = new() { new() { Kind = RewardKind.Currency, CurrencyType = Protocol.Message.Data.eCurrency.Gold, Amount = 100 } }
+                    });
+                    fixture.Call("RetryDungeonRequest"); Drain();
+                    fixture.Check(resultCount == 1 && (eStageRunState)fixture.Get("_currentState") == eStageRunState.ResultPending &&
+                        fixture.Loading == null && fixture.Transport.Function == null && LocalProgression.State.LastDungeonGold == 100 &&
+                        LocalProgression.Balance(eCurrency.Gold) == 4475151 && LocalProgression.State.GoldTickets == 1,
+                        "replayed completion presents one authoritative result without a second gold grant, ticket refund, or request");
+                }
+                finally { fixture.Manager.OnStageCleared -= Cleared; }
+                snapshot.DungeonState.ActiveBattleId = battle; snapshot.DungeonState.ActiveDungeonId = (long)fixture.Dungeon;
+                snapshot.EconomyDungeonBattle = new()
+                { BattleId = battle, DungeonId = (long)fixture.Dungeon, AcceptedKills = new(), RunGold = 100 };
+                foreach (string stale in new[] { "account", "network", "network-generation", "session", "token", "battle" })
+                {
+                    Prepare();
+                    long generation = LocalProgression.AccountGeneration, networkGeneration = network.AccountGeneration;
+                    var oldSession = fixture.Session; var oldToken = fixture.Get("_token");
+                    GameObject replacement = null; CancellationTokenSource replacementToken = null;
+                    try
+                    {
+                        if (stale == "account") typeof(LocalProgression).GetProperty(nameof(LocalProgression.AccountGeneration)).SetValue(null, generation + 1);
+                        if (stale == "network") { replacement = new GameObject("DungeonRecoveryReplacement"); replacement.SetActive(false); NetworkManager.Instance = replacement.AddComponent<NetworkManager>(); }
+                        if (stale == "network-generation") typeof(NetworkManager).GetProperty(nameof(NetworkManager.AccountGeneration)).SetValue(network, networkGeneration + 1);
+                        if (stale == "session") fixture.Set("_currentSession", new StageSession(Definitions.Definition(fixture.Dungeon), new MainStageRule(),
+                            (MonsterSpawner)Field(typeof(StageSession), "_monsterSpawner").GetValue(oldSession)));
+                        if (stale == "token") { replacementToken = new CancellationTokenSource(); fixture.Set("_token", replacementToken); }
+                        if (stale == "battle") LocalProgression.State.ActiveDungeon = "fedcba0987654321fedcba0987654321";
+                        string current = JsonConvert.SerializeObject(LocalProgression.State);
+                        Field(typeof(EconomyBatchProgression), "_externalUnknown").SetValue(null, false);
+                        fixture.Set("_retryDungeonAt", Time.realtimeSinceStartup); fixture.Call("RetryDungeonRequest"); Drain();
+                        fixture.Check(fixture.Transport.Function == null && JsonConvert.SerializeObject(LocalProgression.State) == current,
+                            "captured completion cannot resume after its " + stale + " owner changes");
+                    }
+                    finally
+                    {
+                        typeof(LocalProgression).GetProperty(nameof(LocalProgression.AccountGeneration)).SetValue(null, generation);
+                        NetworkManager.Instance = network;
+                        typeof(NetworkManager).GetProperty(nameof(NetworkManager.AccountGeneration)).SetValue(network, networkGeneration);
+                        fixture.Set("_currentSession", oldSession); fixture.Set("_token", oldToken);
+                        replacementToken?.Dispose(); if (replacement != null) UnityEngine.Object.DestroyImmediate(replacement);
+                    }
+                }
+                fixture.Check(fixture.Transport.Unexpected == 0, "all dungeon scenarios use only isolated transport without external HTTP");
+                return new { passed = fixture.Checks.Count, checks = fixture.Checks };
+            }
+            finally { client.SetValue(null, previousClient); Time.timeScale = previousTime; }
+        }
+
         private static Fixture CreateFixture()
         {
             if (!Application.isPlaying || LocalProgression.IsReady || NetworkManager.Instance != null || UserManager.Instance != null ||
@@ -439,7 +628,7 @@ namespace KingdomIdle.Balance
         {
             public bool TryGet(eStage id, out StageDefinition definition) { definition = Definition(id); return true; }
             public static StageDefinition Definition(eStage id) => new(id, eStageFlowType.MainProgression, eEnvironmentId.MainField1,
-                1, Array.Empty<StageMonsterEntry>(), null);
+                1, Array.Empty<StageMonsterEntry>(), null, nextDifficultyId: id == eStage.GoldDungeon1_1 ? eStage.GoldDungeon2_1 : null);
         }
 
         private sealed class IsolatedHttp : ITransportPlugin
@@ -448,6 +637,7 @@ namespace KingdomIdle.Balance
             public int Unexpected;
             private PlayFab.Internal.CallRequestContainer _pending;
             public string Function => (_pending?.ApiRequest as ExecuteFunctionRequest)?.FunctionName;
+            public object Parameters => (_pending?.ApiRequest as ExecuteFunctionRequest)?.FunctionParameter;
             public void Initialize() { }
             public void Update() { }
             public void OnDestroy() { }

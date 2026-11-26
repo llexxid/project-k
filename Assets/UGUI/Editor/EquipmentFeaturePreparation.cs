@@ -9,12 +9,32 @@ namespace KingdomIdle.UGUI.Editor
 {
     public static class EquipmentFeaturePreparation
     {
+        [MenuItem("KingdomIdle/UGUI/Prepare device equipment polish")]
+        public static void PrepareDevicePolish()
+        {
+            if (EditorApplication.isPlaying) throw new InvalidOperationException("Exit Play Mode first.");
+            F.Init(); F.Catalog = PrefabGenUtil.GetOrCreateCatalog();
+            F.Catalog.panelKAEquipment = KingdomArmyPanelPrefabGens.GenerateEquipment();
+            var detail = KingdomArmyPanelPrefabGens.GenerateEquipDetail().GetComponent<KAEquipDetailView>();
+            var node = ItemGens.GenerateJobCard().GetComponent<JobCardView>();
+            if (detail.backButton.GetComponent<LayoutElement>().minHeight < 136 ||
+                node.GetComponent<Image>().color.a != 0 || node.button.targetGraphic == node.GetComponent<Image>())
+                throw new InvalidOperationException("Equipment detail touch target or promotion node skin mismatch.");
+            EditorUtility.SetDirty(F.Catalog);
+            AssetDatabase.SaveAssets();
+        }
+
         [MenuItem("KingdomIdle/UGUI/Prepare bronze equipment UI")]
         public static void PrepareBronzeEquipmentUi()
         {
             if (EditorApplication.isPlaying) throw new InvalidOperationException("Exit Play Mode first.");
             F.Init(); F.Catalog = PrefabGenUtil.GetOrCreateCatalog();
             F.Catalog.panelKAEquipment = KingdomArmyPanelPrefabGens.GenerateEquipment();
+            KingdomArmyPanelPrefabGens.GenerateEquipDetail();
+            KingdomArmyPanelPrefabGens.GenerateJobChange();
+            InventoryPanelPrefabGens.GenerateInventoryListPage();
+            InventoryPanelPrefabGens.GenerateInventoryEquipDetail();
+            ItemGens.GenerateJobCard();
             Edit("Popups/Popup_EquipmentAction.prefab", root =>
             {
                 var view = root.GetComponent<EquipmentActionDialog>();
@@ -41,30 +61,16 @@ namespace KingdomIdle.UGUI.Editor
             {
                 var view = root.GetComponent<KAEquipmentView>();
                 var toolbar = root.GetComponentInChildren<EquipmentToolbarView>(true);
-                if (view.equippedIcon == null || view.inventoryGrid == null || view.recommendButton == null || view.settingsButton == null || toolbar == null)
-                    throw new InvalidOperationException("Bronze equipment references are incomplete.");
-                if (view.transform.Find("OwnedTitle") != null || view.GetComponent<VerticalLayoutGroup>().spacing > 8 ||
-                    view.unequipButton.transform.Find("LobbyBronze") == null)
-                    throw new InvalidOperationException("Equipment must leave room for its first grid row and use the shared bronze unequip button.");
-                var responsive = view.inventoryGrid.GetComponent<ResponsiveGrid>();
-                if (responsive == null)
-                    throw new InvalidOperationException("The army equipment grid must use the shared responsive layout.");
-                var gridSettings = new SerializedObject(responsive);
-                if (gridSettings.FindProperty("minimumCellWidth").floatValue < 225 || gridSettings.FindProperty("cellHeight").floatValue < 284 ||
-                    gridSettings.FindProperty("maximumColumns").intValue > 5)
-                    throw new InvalidOperationException("Army equipment cells must fit the shared two-line 225x284 layout, at most five columns.");
+                if (view.equippedIcon == null || view.silhouette == null || view.weaponButton == null ||
+                    view.lockedSlots.Length != 4 || view.settingsButton == null || toolbar?.autoBorder == null || toolbar.directionArrow == null)
+                    throw new InvalidOperationException("Missing equipment slot or toolbar references.");
                 int refreshes = 0;
-                toolbar.Bind(null, () => refreshes++, true);
-                toolbar.Bind(null, () => refreshes++, true);
-                toolbar.rarity.onClick.Invoke();
-                if (LocalProgression.State.EquipmentRarityFilter != 0 || refreshes != 1)
-                    throw new InvalidOperationException("Rebinding a toolbar must change a filter and refresh exactly once.");
-                if (toolbar.automatic.gameObject.activeSelf)
-                    throw new InvalidOperationException("The army equipment toolbar duplicates the settings shortcut.");
-                foreach (var button in new[] { toolbar.job, toolbar.rarity, toolbar.sort, toolbar.dismantle, view.recommendButton, view.settingsButton, view.unequipButton })
-                    if (button.GetComponent<LayoutElement>().preferredHeight < 132)
-                        throw new InvalidOperationException("Equipment touch targets must be at least 132px high: " + button.name);
-                Debug.Log("BRONZE EQUIPMENT UI VALIDATION PASSED: references, responsive two-line equipment grid, one-click filter after rebind, single settings entry, 132px touch targets");
+                toolbar.Bind(() => refreshes++);
+                toolbar.Bind(() => refreshes++);
+                toolbar.direction.onClick.Invoke();
+                if (!LocalProgression.State.EquipmentSortAscending || refreshes != 1)
+                    throw new InvalidOperationException("Direction must toggle once per click.");
+                Debug.Log("BRONZE EQUIPMENT UI VALIDATION PASSED");
             }
             finally { UnityEngine.Object.DestroyImmediate(root); }
         }
@@ -153,18 +159,23 @@ namespace KingdomIdle.UGUI.Editor
             root.transform.SetSiblingIndex(grid.GetSiblingIndex());
             F.VLayout(root.gameObject, 8, new RectOffset(14,14,12,12));
             var view = root.gameObject.AddComponent<EquipmentToolbarView>();
-            view.summary = F.Text(root.transform, "Summary", "보유 0/999 · 강화석 0", 36, UguiTheme.InfoInk, wrap: true);
+            view.summary = F.Text(root.transform, "Summary", "보유 0/300 · 강화석 0", 36, UguiTheme.InfoInk, wrap: true);
             F.Preferred(view.summary, height: 48);
             var filters = Row(root.transform, "Filters");
             F.Preferred(filters, height: 132);
-            view.job = Action(filters, "JobFilter", "직업: 전체", UguiTheme.BtnCancel);
-            view.rarity = Action(filters, "RarityFilter", "등급: 전체", UguiTheme.BtnCancel);
-            view.sort = Action(filters, "Sort", "정렬: 등급", UguiTheme.BtnCancel);
-            view.automatic = Action(filters, "AutoDismantle", "장비\n설정", UguiTheme.BtnCancel);
-            view.dismantle = Action(filters, "BulkDismantle", "일괄\n분해", UguiTheme.BtnSpend);
-            var note = F.Text(root.transform, "ProtectionHint", "잠금 · 장착 · 강화 장비는 일괄 분해에서 보호", 32, UguiTheme.InfoMuted);
-            F.Preferred(note, height: 42);
-            F.Preferred(root, height: 262);
+            view.sort = Action(filters, "Sort", "등급별", UguiTheme.BtnCancel);
+            view.direction = Action(filters, "Direction", "", UguiTheme.BtnCancel);
+            var arrow = F.Box(view.direction.transform, "Arrow", UguiTheme.Parchment, rounded: false);
+            arrow.sprite = F.Catalog.iconArrowLeft; arrow.preserveAspect = true; arrow.raycastTarget = false;
+            F.AnchorCenter(arrow.rectTransform, 48, 48); view.directionArrow = arrow;
+            view.direction.GetComponent<LayoutElement>().flexibleWidth = 0;
+            view.direction.GetComponent<LayoutElement>().preferredWidth = 126;
+            view.automatic = Action(filters, "AutoDismantle", "장비 자동분해", UguiTheme.BtnCancel);
+            view.automatic.GetComponent<LayoutElement>().flexibleWidth = 1.65f;
+            view.autoBorder = F.Frame(view.automatic.transform, "ActiveBorder", UguiTheme.ActionGold);
+            view.autoBorder.raycastTarget = false; view.autoBorder.gameObject.SetActive(false);
+            view.dismantle = Action(filters, "BulkDismantle", "일괄분해", UguiTheme.BtnCancel);
+            F.Preferred(root, height: 212);
         }
 
         internal static void AttachEquipmentActions(KAEquipmentView view)
@@ -185,6 +196,14 @@ namespace KingdomIdle.UGUI.Editor
                 var row = Row(view.panel, "RecommendationSetting");
                 row.SetSiblingIndex(view.description.transform.GetSiblingIndex() + 1);
                 view.recommendation = Action(row, "RecommendationCriterion", "추천 기준: 전투력", UguiTheme.BtnCancel);
+            }
+            if (view.masterAuto == null)
+            {
+                var master = UnityEngine.Object.Instantiate(view.rarityToggles[0], view.panel, false);
+                master.name = "EnableAutoDismantle";
+                master.transform.SetSiblingIndex(view.rarityToggles[0].transform.GetSiblingIndex());
+                master.GetComponentInChildren<TMP_Text>().text = "장비 자동분해 사용";
+                view.masterAuto = master;
             }
             if (view.autoLockFirst != null) return;
             var toggle = UnityEngine.Object.Instantiate(view.rarityToggles[0], view.panel, false);

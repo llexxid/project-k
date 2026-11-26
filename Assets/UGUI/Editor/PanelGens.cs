@@ -190,9 +190,9 @@ namespace KingdomIdle.UGUI.Editor
             var view = shell.Root.gameObject.AddComponent<DungeonPanelView>();
             WireBase(view, shell);
 
-            var hint = F.Text(shell.Body, "Hint", "도전할 던전을 선택하세요", 22f,
+            var hint = F.Text(shell.Body, "Hint", "도전할 던전을 선택하세요. 던전 입장권은 KST(한국 표준시) 00:00 에 상한까지 충전됩니다.", 32f,
                 UguiTheme.TextTertiary, TextAlignmentOptions.Center);
-            F.Preferred(hint, height: 32f);
+            F.Preferred(hint, height: 110f);
 
             AddScroll(shell.Body, out var content);
 
@@ -203,18 +203,11 @@ namespace KingdomIdle.UGUI.Editor
             if (cardPrefab == null || popupPrefab == null)
                 Debug.LogError("[UguiGen] 던전 카드/난이도 팝업 프리팹이 없습니다 — DungeonFeaturePrefabGens.GenerateAll 을 먼저 실행하세요.");
 
-            // (표시명, 설명, 프리뷰 틴트, 아이콘, eStageType 값, 잠금 여부)
-            // dungeonType: Main=0 / GoldDungeon=1 / RubyDungeon=2 (StageDefinition.eStageType).
-            // 잠금 카드(dungeonType=0)는 비활성 대신 '준비 중' 딤 표시로 남긴다 — 목록이 비어 보이지 않게.
-            // (진화석 던전 카드는 기획 제외로 삭제 — 2026-08-27)
-            var defs = new (string key, string name, string desc, Color tint, Sprite icon, int stageType, bool locked)[]
+            var defs = new (string key, string name, string desc, string art, int stageType, bool locked)[]
             {
-                ("Gold", "골드 던전", "골드를 대량으로 획득할 수 있습니다.",
-                    new Color(1f, 0.84f, 0.52f, 1f), UguiGenAssets.IconCoin, 1, false),
-                ("Ruby", "루비 던전", "루비를 대량으로 획득할 수 있습니다.",
-                    new Color(1f, 0.60f, 0.62f, 1f), UguiGenAssets.IconGem, 2, false),
-                ("Equipment", "장비 던전", "강력한 장비와 강화 재료를 획득합니다.",
-                    new Color(0.74f, 0.78f, 0.90f, 1f), UguiGenAssets.IconAnvil, 0, true),
+                ("Gold", "골드 던전", "미믹을 처치해 골드를 획득하세요.", "Treasury", 1, false),
+                ("Ruby", "루비 던전", "루비 광산 · 준비 중", "RubyMine", 2, true),
+                ("Equipment", "장비 던전", "황폐한 전장 · 준비 중", "Battlefield", 0, true),
             };
 
             var cardViews = new DungeonCardView[defs.Length];
@@ -243,18 +236,22 @@ namespace KingdomIdle.UGUI.Editor
 
                 if (nameLbl != null) nameLbl.text = def.name;
                 if (descLbl != null) descLbl.text = def.desc;
-                if (previewImg != null) previewImg.color = def.tint;
-                if (iconImg != null && def.icon != null) iconImg.sprite = def.icon;
+                if (previewImg != null)
+                {
+                    previewImg.sprite = AssetDatabase.LoadAssetAtPath<Sprite>($"Assets/UGUI/Art/Dungeons/Dungeon_{def.art}.png");
+                    previewImg.type = Image.Type.Simple;
+                    previewImg.preserveAspect = true;
+                    previewImg.color = Color.white;
+                }
+                if (iconImg != null) iconImg.gameObject.SetActive(false);
 
                 if (def.locked)
                 {
                     var cg = cardGo.GetComponent<CanvasGroup>();
-                    if (cg != null) cg.alpha = 0.55f;
+                    if (cg != null) cg.alpha = 1f;
                     if (cardBtn != null) cardBtn.interactable = false;
                     var tag = cardGo.transform.Find("PreviewFrame/LockedTag");
-                    if (tag != null) tag.gameObject.SetActive(true);
-                    if (previewImg != null)
-                        previewImg.color = new Color(def.tint.r * 0.5f, def.tint.g * 0.5f, def.tint.b * 0.5f, 1f);
+                    if (tag != null) tag.gameObject.SetActive(false);
                 }
             }
 
@@ -277,7 +274,6 @@ namespace KingdomIdle.UGUI.Editor
             for (int i = 0; i < defs.Length; i++)
                 cardsProp.GetArrayElementAtIndex(i).objectReferenceValue = cardViews[i];
             so.FindProperty("difficultyPopup").objectReferenceValue = popupView;
-            so.FindProperty("placeholderCurrentPower").longValue = 4000L;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return PrefabGenUtil.SavePrefab(shell.Root.gameObject, $"{PrefabGenUtil.PrefabRoot}/Panels/Panel_Dungeon.prefab");

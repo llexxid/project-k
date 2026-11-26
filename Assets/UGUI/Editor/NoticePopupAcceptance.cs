@@ -78,7 +78,8 @@ namespace KingdomIdle.UGUI.Editor
             var previousNetwork = NetworkManager.Instance;
             Check(previousNetwork == null || previousNetwork.LoginState == GameLoginState.SignedOut,
                 "The notice fixture requires a signed-out session");
-            var savedReads = articles.ToDictionary(NoticePopupController.ArticleKey,
+            var expectedBoard = BundledPatchNotes.MergeBoard(articles, Application.version);
+            var savedReads = expectedBoard.ToDictionary(NoticePopupController.ArticleKey,
                 article => PlayerPrefs.HasKey(NoticePopupController.ArticleKey(article))
                     ? PlayerPrefs.GetString(NoticePopupController.ArticleKey(article)) : null);
             try
@@ -129,30 +130,31 @@ namespace KingdomIdle.UGUI.Editor
                 Call("Finish", 2, new GetTitleNewsResult { News = feed });
                 Check(!board.status.gameObject.activeSelf && !board.retryButton.gameObject.activeSelf, "A successful retry displays articles");
                 var rows = board.scroll.content.GetComponentsInChildren<NoticeRowView>();
-                Check(rows.Select(row => row.gameObject.name).SequenceEqual(articles.Select(article => article.Id)) &&
+                Check(rows.Select(row => row.gameObject.name).SequenceEqual(expectedBoard.Select(article => article.Id)) &&
                     rows.All(row => !row.body.gameObject.activeSelf && !row.body.richText),
                     "The single scroll list starts collapsed and follows the parsed feed order");
 
+                var first = rows.First(row => row.name == articles[0].Id);
+                var second = rows.First(row => row.name == articles[1].Id);
                 foreach (float height in new[] { 1440f, 1920f })
                 {
                     layer.sizeDelta = new Vector2(1080f, height);
                     Layout(board);
                     var size = board.panel.rect.size;
                     var close = board.closeButton.transform.position;
-                    rows[0].toggle.onClick.Invoke();
+                    first.toggle.onClick.Invoke();
                     Layout(board);
-                    Check(rows[0].body.gameObject.activeSelf && rows[0].body.text == longText &&
+                    Check(first.body.gameObject.activeSelf && first.body.text == longText &&
                         board.panel.rect.size == size && board.closeButton.transform.position == close,
                         "An article opens as plain text without resizing or moving the window");
                     CheckOverflow(board);
-                    rows[1].toggle.onClick.Invoke();
-                    Check(!rows[0].body.gameObject.activeSelf && rows[1].body.gameObject.activeSelf,
+                    second.toggle.onClick.Invoke();
+                    Check(!first.body.gameObject.activeSelf && second.body.gameObject.activeSelf,
                         "Opening another row collapses the previous row");
-                    rows[1].toggle.onClick.Invoke();
+                    second.toggle.onClick.Invoke();
                     Check(rows.All(row => !row.body.gameObject.activeSelf), "Tapping the open row collapses it");
                     Layout(board);
-                    if (Application.isPlaying) Check(!board.scroll.verticalScrollbar.gameObject.activeSelf,
-                        "A short collapsed notice list hides its scroll indicator");
+                    if (Application.isPlaying) Check(board.scroll.content.rect.height <= board.scroll.viewport.rect.height || board.scroll.verticalScrollbar.gameObject.activeSelf, "Long patch history keeps its scroll indicator");
                 }
                 if (Application.isPlaying)
                 {
@@ -352,13 +354,13 @@ namespace KingdomIdle.UGUI.Editor
                 mailbox.Open();
                 Check(!Dot("_mailDot") && !Dot("_hamburgerDot"), "Opening mail clears only its own notification");
 
-                var row = board.scroll.content.GetComponentsInChildren<NoticeRowView>()[0];
+                var row = board.scroll.content.GetComponentsInChildren<NoticeRowView>().First(r => r.name == Post(longText).NewsId);
                 row.toggle.onClick.Invoke();
                 Layout(board);
                 board.scroll.verticalNormalizedPosition = .3f;
                 var scrollPosition = board.scroll.content.anchoredPosition;
                 Receive(longText);
-                Check(board.scroll.content.GetComponentsInChildren<NoticeRowView>()[0] == row && row.body.gameObject.activeSelf &&
+                Check(board.scroll.content.GetComponentsInChildren<NoticeRowView>().First(r => r.name == Post(longText).NewsId) == row && row.body.gameObject.activeSelf &&
                     board.scroll.content.anchoredPosition == scrollPosition,
                     "An identical refresh preserves row objects, expansion and scroll position");
                 board.closeButton.onClick.Invoke();
@@ -366,7 +368,7 @@ namespace KingdomIdle.UGUI.Editor
                 Set("_requestId", request);
                 Set("_deadline", Time.unscaledTime + 15f);
                 Call("Finish", request, null);
-                Check(((List<TitleNewsFeed>)Get("_articles"))[0].Text == longText && !NoticePopupController.HasUnread,
+                Check(((List<TitleNewsFeed>)Get("_articles")).Any(a => a.Id == Post(longText).NewsId && a.Text == longText) && !NoticePopupController.HasUnread,
                     "A failed refresh preserves the last feed and read receipt");
 
                 Receive(longText + " 수정");
@@ -403,7 +405,7 @@ namespace KingdomIdle.UGUI.Editor
                 Set("_deadline", Time.unscaledTime + 15f);
                 typeof(NetworkManager).GetProperty(nameof(NetworkManager.AccountGeneration)).SetValue(network, network.AccountGeneration + 1);
                 Call("Finish", oldRequest, new GetTitleNewsResult { News = new List<TitleNewsItem> { Post("다른 세대") } });
-                Check(!NoticePopupController.HasUnread && ((List<TitleNewsFeed>)Get("_articles"))[0].Text == longText + " 늦은 수정",
+                Check(!NoticePopupController.HasUnread && ((List<TitleNewsFeed>)Get("_articles")).Any(a => a.Id == Post(longText).NewsId && a.Text == longText + " 늦은 수정"),
                     "A response from a previous account generation cannot update notifications");
                 NoticePopupController.Tick(manager);
                 Set("_network", network);

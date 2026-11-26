@@ -29,6 +29,12 @@ namespace KingdomIdle.Balance
             foreach (var command in request.Commands)
             {
                 if (command == null || !Enum.IsDefined(typeof(EconomyCommandKind), command.Kind)) Invalid("Invalid economy command.");
+                if (command.Kind == EconomyCommandKind.EquipmentEnhance)
+                {
+                    if (!ValidEquipmentCommand(command)) Invalid("Invalid equipment enhancement fields.");
+                    continue;
+                }
+                if (command.EquipmentInstanceId.HasValue) Invalid("Unexpected equipment ID on economy command.");
                 if (command.Kind == EconomyCommandKind.MageEnhance)
                 {
                     if (!ValidMageCommand(command)) Invalid("Invalid mage enhancement command fields.");
@@ -65,13 +71,19 @@ namespace KingdomIdle.Balance
         internal static bool ValidIdentity(string id, long generation, long sequence) =>
             MainWaveProgression.ValidId(id) && generation > 0 && sequence > 0 && sequence < long.MaxValue;
 
+        internal static bool ValidEquipmentCommand(EconomyCommandDTO command) =>
+            command.EquipmentInstanceId > 0 && !command.SkillId.HasValue && command.Mode == 1 && command.CountLimit == 1 &&
+            command.ExpectedLevel >= 0 && command.ExpectedLevel < 15 && command.SpendLimit > 0 &&
+            (long)command.Stage == 0 && command.MainRunId == null && command.BattleId == null && command.RewardEpoch == 0 && command.TotalKills == null;
+
         internal static bool ValidMageCommand(EconomyCommandDTO command) =>
             command.SkillId.HasValue && MageSkillRules.IsAvailable(command.SkillId.Value) &&
             command.Mode == 1 && command.CountLimit == 1 && command.ExpectedLevel >= 0 && command.ExpectedLevel < BalanceMath.MageCap &&
             command.SpendLimit > 0 && (long)command.Stage == 0 && command.MainRunId == null && command.BattleId == null &&
             command.RewardEpoch == 0 && command.TotalKills == null;
 
-        internal static (EconomyCommandKind Kind, int? SkillId) GrowthTarget(EconomyCommandDTO command) => (command.Kind, command.SkillId);
+        internal static (EconomyCommandKind Kind, int? SkillId, long? EquipmentInstanceId) GrowthTarget(EconomyCommandDTO command) =>
+            (command.Kind, command.SkillId, command.EquipmentInstanceId);
 
         internal static bool IsIsolatedGrowthRejection(EconomyCommandResultDTO result, bool independentGrowthFailures) =>
             result.Status == EconomyCommandStatus.Rejected && (result.Kind switch
@@ -137,7 +149,7 @@ namespace KingdomIdle.Balance
                 var result = receipt.Results[i];
                 if (result == null || result.Index != i || !Enum.IsDefined(typeof(EconomyCommandKind), result.Kind) ||
                     !Enum.IsDefined(typeof(EconomyCommandStatus), result.Status) || result.AppliedCount < 0 ||
-                    result.SpentGold < 0 || result.SpentRuby < 0 || result.SpentArcaneKnowledge < 0 || result.GrantedGold < 0 || result.GrantedExp < 0)
+                    result.SpentGold < 0 || result.SpentRuby < 0 || result.SpentArcaneKnowledge < 0 || result.SpentEquipmentStone < 0 || result.GrantedGold < 0 || result.GrantedExp < 0)
                     Invalid("Invalid economy command result.");
                 bool skipped = stopped || rejectedGrowth.Contains(result.Kind);
                 if (result.Status == EconomyCommandStatus.Applied)
@@ -147,14 +159,15 @@ namespace KingdomIdle.Balance
                     bool gold = result.Kind is EconomyCommandKind.GoldAttack or EconomyCommandKind.GoldHealth;
                     bool ruby = result.Kind is EconomyCommandKind.RubyGold or EconomyCommandKind.RubyExperience;
                     bool mage = result.Kind == EconomyCommandKind.MageEnhance;
-                    if (gold != (result.SpentGold > 0) || ruby != (result.SpentRuby > 0) || mage != (result.SpentArcaneKnowledge > 0) ||
+                    bool gear = result.Kind == EconomyCommandKind.EquipmentEnhance;
+                    if (gear != (result.SpentEquipmentStone > 0) || gold != (result.SpentGold > 0) || ruby != (result.SpentRuby > 0) || mage != (result.SpentArcaneKnowledge > 0) ||
                         !hunt && (result.AppliedCount < 1 || result.GrantedGold != 0 || result.GrantedExp != 0) ||
-                        (mage || ruby) && result.AppliedCount != 1)
+                        (mage || ruby || gear) && result.AppliedCount != 1)
                         Invalid("Invalid economy result amounts.");
                 }
                 else
                 {
-                    if (result.AppliedCount != 0 || result.SpentGold != 0 || result.SpentRuby != 0 || result.SpentArcaneKnowledge != 0 || result.GrantedGold != 0 || result.GrantedExp != 0)
+                    if (result.AppliedCount != 0 || result.SpentGold != 0 || result.SpentRuby != 0 || result.SpentArcaneKnowledge != 0 || result.SpentEquipmentStone != 0 || result.GrantedGold != 0 || result.GrantedExp != 0)
                         Invalid("Unapplied economy command has amounts.");
                     if (result.Status == EconomyCommandStatus.Rejected)
                     {
@@ -176,6 +189,9 @@ namespace KingdomIdle.Balance
             if (!MainWaveProgression.ValidId(response.RequestId) || !Enum.IsDefined(typeof(EconomyBatchStatus), response.Status) || response.CurrentState == null)
                 Invalid("Invalid economy batch response.");
             var state = response.CurrentState;
+            if (state.Equipment != null) NetworkManager.ValidateEquipment(state.Equipment);
+            if (response.Receipt?.Results.Any(x => x.Kind == EconomyCommandKind.EquipmentEnhance) == true && state.Equipment?.SchemaVersion != EquipmentManager.InstanceSchemaVersion)
+                Invalid("Missing instance inventory for equipment receipt.");
             ValidateMetadata(state.EconomyBatchState, response.EconomyRevision);
             NetworkManager.ValidateRubyGrowth(state.RubyGrowthState);
             var epoch = state.EconomyBatchState.RewardEpochs.Single(e => e.Id == state.EconomyBatchState.RewardEpoch);
@@ -228,15 +244,16 @@ namespace KingdomIdle.Balance
             if (response.Receipt.IndependentGrowthFailures && !submitted.IndependentGrowthFailures)
                 Invalid("Independent growth failure requires request opt-in.");
             if (submitted.Commands.Count != response.Receipt.Results.Count) Invalid("Economy result count mismatch.");
-            var rejectedTargets = new HashSet<(EconomyCommandKind, int?)>();
+            var rejectedTargets = new HashSet<(EconomyCommandKind, int?, long?)>();
             Dictionary<int, int> appliedMageLevels = null;
+            Dictionary<long, int> appliedEquipmentLevels = null;
             bool stopped = false;
             for (int i = 0; i < submitted.Commands.Count; i++)
             {
                 var command = submitted.Commands[i]; var result = response.Receipt.Results[i];
                 if (command.Kind != result.Kind || command.Kind != EconomyCommandKind.Hunt && result.Status == EconomyCommandStatus.Applied &&
                     (result.AppliedCount > command.CountLimit || result.SpentGold > command.SpendLimit || result.SpentRuby > command.SpendLimit ||
-                     result.SpentArcaneKnowledge > command.SpendLimit))
+                     result.SpentArcaneKnowledge > command.SpendLimit || result.SpentEquipmentStone > command.SpendLimit))
                     Invalid("Economy result exceeds requested limits.");
                 var target = GrowthTarget(command);
                 bool skipped = stopped || rejectedTargets.Contains(target);
@@ -248,6 +265,17 @@ namespace KingdomIdle.Balance
                     appliedMageLevels ??= new Dictionary<int, int>();
                     appliedMageLevels[command.SkillId.Value] = command.ExpectedLevel + 1;
                 }
+                else if (command.Kind == EconomyCommandKind.EquipmentEnhance && result.Status == EconomyCommandStatus.Applied)
+                {
+                    appliedEquipmentLevels ??= new Dictionary<long, int>();
+                    appliedEquipmentLevels[command.EquipmentInstanceId.Value] = command.ExpectedLevel + 1;
+                }
+            }
+            if (appliedEquipmentLevels != null && response.EconomyRevision == response.Receipt.CommittedRevision)
+            {
+                foreach (var pair in appliedEquipmentLevels)
+                    if (!response.CurrentState.Equipment.Items.Any(i => i.ItemCode.InstanceId == pair.Key && i.EnhancementLevel == pair.Value))
+                        Invalid("Equipment state does not match the confirmed enhancement.");
             }
             if (appliedMageLevels == null) return;
             foreach (var applied in appliedMageLevels)

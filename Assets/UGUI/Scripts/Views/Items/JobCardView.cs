@@ -27,6 +27,7 @@ namespace KingdomIdle.UGUI
                 "", "", UguiTheme.TextSecondary, null);
             if (image != null) { image.sprite=spearman?.Portrait; image.color=new Color(.16f,.16f,.18f,1); image.preserveAspect=true; }
             if (nameLabel != null) nameLabel.text="곧 추가 예정";
+            if (badge != null) badge.gameObject.SetActive(false);
             if (button != null) { button.onClick.RemoveAllListeners(); button.interactable=false; }
         }
 

@@ -366,8 +366,9 @@ namespace KingdomIdle.UGUI.Editor
             }
             c.skillRule = parent.Find("SkillRule")?.GetComponent<TMP_Text>();
             if (c.skillRule == null)
-                c.skillRule = F.Text(parent, "SkillRule", "모든 스킬은 같은 획득 확률 · 스킬에 희귀도는 없습니다.", 36, UguiTheme.TextSecondary, TextAlignmentOptions.MidlineLeft, wrap: true);
+                c.skillRule = F.Text(parent, "SkillRule", "", 36, UguiTheme.TextSecondary, TextAlignmentOptions.MidlineLeft, wrap: true);
             Fixed(c.skillRule, 100);
+            c.skillRule.gameObject.SetActive(false);
         }
 
         internal static GameObject GenerateRewards()

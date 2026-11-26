@@ -95,6 +95,26 @@ namespace KingdomIdle.Balance
                 "adding mage commands leaves the existing mixed growth hash unchanged");
             EconomyBatchProtocol.ValidateRequest(request); EconomyBatchProtocol.MatchRequest(response, request);
             Check(true, "x1 input identities survive mixed growth prefix and rejection");
+            var independent = Fixture();
+            request.IndependentGrowthFailures = true;
+            independent.Receipt.IndependentGrowthFailures = true;
+            independent.Receipt.PayloadHash = EconomyInputJournal.Hash(request);
+            Check(independent.Receipt.PayloadHash == "E8DE3A952EB40B97F2DD834752A1928FFA469D60FC388FA62B6CCE4B590FCA90",
+                "opt-in hash agrees with the deployed server's independent-growth vector");
+            independent.Receipt.Results[2].Status = EconomyCommandStatus.Applied;
+            independent.Receipt.Results[2].AppliedCount = 1;
+            independent.Receipt.Results[2].SpentRuby = 20;
+            EconomyBatchProtocol.ValidateReceipt(independent.Receipt);
+            var restored = JsonConvert.DeserializeObject<OnEconomyBatchRequestDTO>(JsonConvert.SerializeObject(request));
+            EconomyBatchProtocol.MatchRequest(independent, restored);
+            Check(EconomyCopies.Copy(independent.Receipt).IndependentGrowthFailures &&
+                EconomyInputJournal.Hash(restored) == independent.Receipt.PayloadHash,
+                "reloading retains independent growth and a different kind can complete after rejection");
+            independent.Receipt.Results[2].Kind = EconomyCommandKind.GoldHealth;
+            Check(Rejected(() => EconomyBatchProtocol.ValidateReceipt(independent.Receipt)), "a rejected growth kind cannot apply again in the same receipt");
+            independent.Receipt.Results[2].Kind = EconomyCommandKind.RubyGold;
+            request.IndependentGrowthFailures = false;
+            Check(Rejected(() => EconomyBatchProtocol.MatchRequest(independent, request)), "legacy requests cannot accept independent failure receipts");
             request.Commands[0].SpendLimit = 49;
             response.Receipt.PayloadHash = EconomyInputJournal.Hash(request);
             Check(Rejected(() => EconomyBatchProtocol.MatchRequest(response, request)), "result cannot exceed click spend cap");

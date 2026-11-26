@@ -30,6 +30,7 @@ namespace KingdomIdle.Mailbox.Testing
             internal readonly List<(int Start, int Count)> RequestedPages = new();
             internal MailboxService Service;
             internal MailClaimInfo Result;
+            internal PlayFabError ListFailureOverride;
             private readonly bool _instanceInventory;
             private string MailboxId => _instanceInventory ? "0123456789abcdef0123456789abcdef" : "box";
 
@@ -64,7 +65,7 @@ namespace KingdomIdle.Mailbox.Testing
                 RequestedPages.Add((r.StartIndex, r.Count));
                 void Respond()
                 {
-                    if (FailListAt < 0 || call == FailListAt) { fail(Failure(ListFailureKind)); return; }
+                    if (FailListAt < 0 || call == FailListAt) { fail(ListFailureOverride ?? Failure(ListFailureKind)); return; }
                     var page = Mails.OrderByDescending(m => m.MailId).Skip(r.StartIndex).Take(r.Count).ToList();
                     if (r.StartIndex == 50 && (DuplicateOnce || DuplicateAlways) && page.Count > 0)
                     { page[0] = Mails.OrderByDescending(m => m.MailId).First(); DuplicateOnce = false; }
@@ -104,7 +105,7 @@ namespace KingdomIdle.Mailbox.Testing
             }
             internal static EquipmentInventoryDTO Inventory(bool instanceInventory = false) => new()
             {
-                Items = new(), PendingItems = new(), ReserveStacks = new(), Capacity = instanceInventory ? 999 : 200, PendingCapacity = 100,
+                Items = new(), PendingItems = new(), ReserveStacks = new(), Capacity = instanceInventory ? EquipmentManager.InstanceCapacity : 200, PendingCapacity = 100,
                 SchemaVersion = instanceInventory ? 2 : (int?)null, AutoLockFirstEnhancement = instanceInventory ? true : (bool?)null
             };
             internal static MailDTO Mail(long id, long now) => new() { MailId = id, TitleKey = "mail.test.title", BodyKey = "mail.test.body",
@@ -117,6 +118,18 @@ namespace KingdomIdle.Mailbox.Testing
         {
             var checks = new List<string>();
             void Check(bool ok, string label) { if (!ok) throw new InvalidOperationException("MAIL ASSERT: " + label); checks.Add(label); }
+            {
+                var login = new Fixture(1) { FailListAt = 1, ListFailureKind = "EconomyHeld" };
+                login.Service.CheckAfterLogin();
+                login.Service.ResumeSummaryAfterSettlement();
+                Check(login.ListCalls == 1 && !login.Service.HasNewMail, "held login summary does not poll immediately");
+                login.Clock = 3.1;
+                login.Service.ResumeSummaryAfterSettlement(); login.Service.ResumeSummaryAfterSettlement();
+                Check(login.ListCalls == 2 && login.Service.HasNewMail, "held login summary retries once and restores unread badge");
+                var open = new Fixture(1) { FailListAt = 1, ListFailureKind = "EconomyHeld" };
+                open.Service.Open(); open.Clock = 18.2; open.Service.Tick();
+                Check(open.ListCalls == 2 && open.Service.HasSnapshot && !open.Service.HasNewMail, "open mailbox refreshes after an 18-second hold");
+            }
             {
                 var f = new Fixture(51) { Ready = false, Locale = "en", HoldLists = true };
                 f.Service.CheckAfterLogin(); Check(f.ListCalls == 0, "post-login check waits for game data");

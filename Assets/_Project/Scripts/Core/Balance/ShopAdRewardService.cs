@@ -208,7 +208,7 @@ namespace KingdomIdle.Balance
             bool uncertain = code == (int)Protocol.Message.Data.eErrorCode.StorageFailure ||
                 code == (int)Protocol.Message.Data.eErrorCode.PlayerBusy ||
                 code == 0 && (kind == "Timeout" || kind == "Transport" || kind == "Function" ||
-                    kind == "InvalidResponse" || kind == "ApplyFailed" || string.IsNullOrEmpty(kind));
+                    kind == "InvalidResponse" || kind == "ApplyFailed" || kind == "EconomyHeld" || string.IsNullOrEmpty(kind));
             if (uncertain)
             {
                 // 저장 미확정·일시 거절도 시청 완료 권한을 없애지 않는다. 서버 지급 여부를 먼저 확인하고,

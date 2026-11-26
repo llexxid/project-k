@@ -93,6 +93,7 @@ namespace KingdomIdle.UGUI
                 PlayerPrefs.SetInt(key, on ? 1 : 0);
                 if (key == GamePresentationSettings.LowSpecKey) PlayerPrefs.SetInt("title_ambientMotion", on ? 0 : 1);
                 GamePresentationSettings.Apply();
+                if (key == UIManager.PrefKeyHideItem) RefreshLootSettings();
                 if (key == UIManager.PrefKeyDamageText) DamageTextBridge.RefreshSettings();
                 PlayerPrefs.Save();
             });
@@ -155,10 +156,20 @@ namespace KingdomIdle.UGUI
         void RefreshLootSettings(bool refreshSwitches = true)
         {
             for (int i = 0; _view.lootCurrencyToggles != null && i < _view.lootCurrencyToggles.Length; i++)
+            {
                 _view.lootCurrencyToggles[i].SetIsOnWithoutNotify(LootNotificationSettings.AllowsCurrency((eCurrency)i));
+                _view.lootCurrencyToggles[i].interactable = !GamePresentationSettings.HideItemNotifications;
+            }
             for (int i = 0; _view.lootEquipmentToggles != null && i < _view.lootEquipmentToggles.Length; i++)
+            {
                 _view.lootEquipmentToggles[i].SetIsOnWithoutNotify(LootNotificationSettings.AllowsEquipment(i));
-            _view.tglLootMageSkills?.SetIsOnWithoutNotify(LootNotificationSettings.ShowMageSkills);
+                _view.lootEquipmentToggles[i].interactable = !GamePresentationSettings.HideItemNotifications;
+            }
+            if (_view.tglLootMageSkills != null)
+            {
+                _view.tglLootMageSkills.SetIsOnWithoutNotify(LootNotificationSettings.ShowMageSkills);
+                _view.tglLootMageSkills.interactable = !GamePresentationSettings.HideItemNotifications;
+            }
             if (refreshSwitches && _view.lootScroll != null)
                 foreach (var toggle in _view.lootScroll.GetComponentsInChildren<ToggleSwitchView>(true)) toggle.Refresh();
         }

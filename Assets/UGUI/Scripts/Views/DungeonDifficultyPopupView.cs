@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using KingdomIdle.Balance;
 using Scripts.Core;
 using Scripts.Core.Manager;
 using TMPro;
@@ -34,21 +35,23 @@ namespace KingdomIdle.UGUI
         private static readonly Dictionary<eStage, int> LastSelection = new();
         [System.NonSerialized] private eStage dungeonKey;
         private bool entryPending;
-        private int displayedTickets = -1, displayedRubyClear = -1;
+        private int displayedTickets = -1, displayedGoldLevel = -1;
+        private long displayedRemainder = -1;
         private TMP_Text enterButtonLabel;
 
-        private void OnEnable() => KingdomIdle.Balance.LocalProgression.Changed += RefreshSelection;
+        private void OnEnable() => LocalProgression.Changed += RefreshSelection;
         private void RefreshSelection()
         {
             if (selectedStageId == default || entryPending) return;
-            var state = KingdomIdle.Balance.LocalProgression.State;
-            int tickets = KingdomIdle.Balance.BattleEconomy.Tickets(StageParser.GetStageType(selectedStageId));
-            if (tickets != displayedTickets || state.RubyDungeonClear != displayedRubyClear) SelectDifficulty(selectedDifficulty);
+            var state = LocalProgression.State;
+            int tickets = BattleEconomy.Tickets(StageParser.GetStageType(selectedStageId));
+            if (tickets != displayedTickets || state.RubyGoldLevel != displayedGoldLevel ||
+                (state.Economy?.Server?.GoldRemainderMicros ?? state.GoldRemainder) != displayedRemainder) SelectDifficulty(selectedDifficulty);
         }
 
         private void OnDisable()
         {
-            KingdomIdle.Balance.LocalProgression.Changed -= RefreshSelection;
+            LocalProgression.Changed -= RefreshSelection;
             StopAllCoroutines();
             entryPending = false;
         }
@@ -84,14 +87,8 @@ namespace KingdomIdle.UGUI
 
             if (dungeonName != null)
                 dungeonName.text = card.DungeonName;
-            if (description != null)
-                description.text = card.DungeonType == eStageType.GoldDungeon ? "60초 · 미믹 20체 · 처치한 만큼 골드 지급\n메인 1-11 클리어 후 해금" : "보스 3체 · 각 30초 · 전부 처치 시 루비 지급\n메인 2-5 클리어 후 해금";
-            if (mainImage != null)
-            {
-                mainImage.sprite = card.PreviewSprite;
-                mainImage.color = card.PreviewColor;
-                mainImage.preserveAspect = card.PreviewSprite != null;
-            }
+            if (description != null && selectedDifficulty == 0)
+                description.text = "메인 1-11을 클리어하면 입장할 수 있습니다.";
 
             GuideType = card.DungeonType;
             gameObject.SetActive(true);
@@ -187,17 +184,21 @@ namespace KingdomIdle.UGUI
             selectedStageId = stageIdsByNumber.TryGetValue(stage, out eStage stageId)
                 ? stageId
                 : default;
-            displayedTickets = KingdomIdle.Balance.BattleEconomy.Tickets(StageParser.GetStageType(selectedStageId));
-            displayedRubyClear = KingdomIdle.Balance.LocalProgression.State.RubyDungeonClear;
+            displayedTickets = BattleEconomy.Tickets(StageParser.GetStageType(selectedStageId));
+            var state = LocalProgression.State;
+            displayedGoldLevel = state.RubyGoldLevel;
+            displayedRemainder = state.Economy?.Server?.GoldRemainderMicros ?? state.GoldRemainder;
             RefreshEnterButton();
             if (selectedDifficultyLabel != null)
                 selectedDifficultyLabel.text = $"{selectedDifficulty}단계 · 입장권 {displayedTickets}/2";
-            if(description!=null)
+            if (description != null)
             {
-                bool gold=StageParser.GetStageType(selectedStageId)==eStageType.GoldDungeon;
-                long reward=Scripts.Core.StageCatalogRules.DungeonReward(gold,selectedDifficulty);
-                bool first=selectedDifficulty > KingdomIdle.Balance.LocalProgression.State.RubyDungeonClear;
-                description.text=gold?$"60초 · 20체 · 최대 {NumberNotation.Format(reward)} 골드\n중단해도 처치 보상 유지 · 매일 00시 충전":$"보스 3체 · 각 30초 · {NumberNotation.Format(reward)} 루비"+(first?$" + 첫 클리어 {25*selectedDifficulty}":"")+"\n3체 모두 처치 시 지급 · 매일 00시 충전";
+                var record = StageCatalogRules.Get(eStageType.GoldDungeon, selectedDifficulty);
+                int mimics = 0;
+                foreach (var entry in record.MonsterEntries) mimics += entry.Count;
+                long remainder = displayedRemainder;
+                long reward = BalanceMath.WithRemainder(StageCatalogRules.DungeonReward(true, selectedDifficulty), displayedGoldLevel, ref remainder);
+                description.text = $"제한시간: {record.TimeLimitSec:0}초\n등장 미믹: {mimics}\n최대 획득 골드: {NumberNotation.Format(reward)}";
             }
 
             if (difficultyRows == null)
@@ -222,10 +223,11 @@ namespace KingdomIdle.UGUI
         private void RefreshEnterButton()
         {
             if (enterButton == null) return;
-            enterButton.interactable = !entryPending && selectedStageId != default && displayedTickets > 0;
+            enterButton.interactable = !entryPending && selectedStageId != default && StageParser.GetStageType(selectedStageId) == eStageType.GoldDungeon && displayedTickets > 0;
             if (enterButtonLabel == null) enterButtonLabel = enterButton.GetComponentInChildren<TMP_Text>(true);
             if (enterButtonLabel == null) return;
             string text = entryPending ? "입장 대기 중" : selectedStageId == default ? "입장 잠김" :
+                StageParser.GetStageType(selectedStageId) != eStageType.GoldDungeon ? "준비 중" :
                 displayedTickets <= 0 ? "입장권 없음" : "입장하기";
             if (enterButtonLabel.text != text) enterButtonLabel.text = text;
         }

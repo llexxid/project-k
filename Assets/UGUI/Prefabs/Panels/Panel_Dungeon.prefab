@@ -1838,7 +1838,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\uB3C4\uC804\uD560 \uB358\uC804\uC744 \uC120\uD0DD\uD558\uC138\uC694"
+  m_text: "\ub3c4\uc804\ud560 \ub358\uc804\uc744 \uc120\ud0dd\ud558\uc138\uc694. \ub358\uc804 \uc785\uc7a5\uad8c\uc740 KST(\ud55c\uad6d \ud45c\uc900\uc2dc) 00:00 \uc5d0 \uc0c1\ud55c\uae4c\uc9c0 \ucda9\uc804\ub429\ub2c8\ub2e4."
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: e8c81bad0478536459fd7c980f22b8c0, type: 2}
   m_sharedMaterial: {fileID: 5254148882110426649, guid: e8c81bad0478536459fd7c980f22b8c0,
@@ -1866,12 +1866,12 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 36
-  m_fontSizeBase: 36
+  m_fontSize: 32
+  m_fontSizeBase: 32
   m_fontWeight: 400
   m_enableAutoSizing: 0
-  m_fontSizeMin: 36
-  m_fontSizeMax: 36
+  m_fontSizeMin: 32
+  m_fontSizeMax: 32
   m_fontStyle: 0
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
@@ -1883,7 +1883,7 @@ MonoBehaviour:
   m_lineSpacingMax: 0
   m_paragraphSpacing: 0
   m_charWidthMaxAdj: 0
-  m_TextWrappingMode: 0
+  m_TextWrappingMode: 1
   m_wordWrappingRatios: 0.4
   m_overflowMode: 1
   m_linkedTextComponent: {fileID: 0}
@@ -1925,9 +1925,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
   m_IgnoreLayout: 0
   m_MinWidth: -1
-  m_MinHeight: 64
+  m_MinHeight: 110
   m_PreferredWidth: -1
-  m_PreferredHeight: 64
+  m_PreferredHeight: 110
   m_FlexibleWidth: -1
   m_FlexibleHeight: 0
   m_LayoutPriority: 1
@@ -2839,10 +2839,9 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 1257888409898811390, guid: 6545b54b11756ed48b86832b268861ed,
-        type: 3}
+    - target: {fileID: 1257888409898811390, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
       propertyPath: m_text
-      value: "\uC7A5\uBE44 \xB7 \uAC15\uD654 \uC7AC\uB8CC"
+      value: "\ud669\ud3d0\ud55c \uc804\uc7a5 \u00b7 \uc900\ube44 \uc911"
       objectReference: {fileID: 0}
     - target: {fileID: 1628234405823313344, guid: 6545b54b11756ed48b86832b268861ed,
         type: 3}
@@ -2854,25 +2853,21 @@ PrefabInstance:
       propertyPath: m_text
       value: "\uC7A5\uBE44 \uB358\uC804"
       objectReference: {fileID: 0}
-    - target: {fileID: 4023100580133589369, guid: 6545b54b11756ed48b86832b268861ed,
-        type: 3}
+    - target: {fileID: 4023100580133589369, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
       propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
+      propertyPath: m_Color.b
       value: 1
       objectReference: {fileID: 0}
-    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed,
-        type: 3}
-      propertyPath: m_Color.b
-      value: 0.45
-      objectReference: {fileID: 0}
-    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed,
-        type: 3}
+    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
       propertyPath: m_Color.g
-      value: 0.39
+      value: 1
       objectReference: {fileID: 0}
-    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed,
-        type: 3}
+    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
       propertyPath: m_Color.r
-      value: 0.37
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6205552955135950182, guid: 6545b54b11756ed48b86832b268861ed,
         type: 3}
@@ -2885,9 +2880,20 @@ PrefabInstance:
       propertyPath: m_Name
       value: DungeonCard_Equipment
       objectReference: {fileID: 0}
-    - target: {fileID: 7091102513556952119, guid: 6545b54b11756ed48b86832b268861ed,
-        type: 3}
+    - target: {fileID: 7091102513556952119, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
       propertyPath: m_Interactable
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
+      propertyPath: m_Sprite
+      value:
+      objectReference: {fileID: 21300000, guid: 392cb3fd95e35fd6b6fa8c259647b5cf, type: 3}
+    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
+      propertyPath: m_PreserveAspect
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
+      propertyPath: m_Type
       value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
@@ -3021,25 +3027,22 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 1257888409898811390, guid: 6545b54b11756ed48b86832b268861ed,
-        type: 3}
+    - target: {fileID: 1257888409898811390, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
       propertyPath: m_text
-      value: "\uB8E8\uBE44\uB97C \uD68D\uB4DD\uD569\uB2C8\uB2E4."
+      value: "\ub8e8\ube44 \uad11\uc0b0 \u00b7 \uc900\ube44 \uc911"
       objectReference: {fileID: 0}
     - target: {fileID: 2187558631685874278, guid: 6545b54b11756ed48b86832b268861ed,
         type: 3}
       propertyPath: m_text
       value: "\uB8E8\uBE44 \uB358\uC804"
       objectReference: {fileID: 0}
-    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed,
-        type: 3}
+    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
       propertyPath: m_Color.b
-      value: 0.62
+      value: 1
       objectReference: {fileID: 0}
-    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed,
-        type: 3}
+    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
       propertyPath: m_Color.g
-      value: 0.6
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6205552955135950182, guid: 6545b54b11756ed48b86832b268861ed,
         type: 3}
@@ -3056,6 +3059,30 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Name
       value: DungeonCard_Ruby
+      objectReference: {fileID: 0}
+    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
+      propertyPath: m_Color.r
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
+      propertyPath: m_Sprite
+      value:
+      objectReference: {fileID: 21300000, guid: cc6c882cb4a8513083d5c173d6139776, type: 3}
+    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
+      propertyPath: m_PreserveAspect
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
+      propertyPath: m_Type
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7091102513556952119, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
+      propertyPath: m_Interactable
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4023100580133589369, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -3134,12 +3161,12 @@ PrefabInstance:
     - target: {fileID: 2409879277114818223, guid: 5a04782f07504a64da30b7f4965cc452,
         type: 3}
       propertyPath: m_MinHeight
-      value: 180
+      value: 162
       objectReference: {fileID: 0}
     - target: {fileID: 2409879277114818223, guid: 5a04782f07504a64da30b7f4965cc452,
         type: 3}
       propertyPath: m_PreferredHeight
-      value: 180
+      value: 162
       objectReference: {fileID: 0}
     - target: {fileID: 2855585269334169081, guid: 5a04782f07504a64da30b7f4965cc452,
         type: 3}
@@ -3526,20 +3553,17 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 1257888409898811390, guid: 6545b54b11756ed48b86832b268861ed,
-        type: 3}
+    - target: {fileID: 1257888409898811390, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
       propertyPath: m_text
-      value: "\uACE8\uB4DC\uB97C \uD68D\uB4DD\uD569\uB2C8\uB2E4."
+      value: "\ubbf8\ubbf9\uc744 \ucc98\uce58\ud574 \uace8\ub4dc\ub97c \ud68d\ub4dd\ud558\uc138\uc694."
       objectReference: {fileID: 0}
-    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed,
-        type: 3}
+    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
       propertyPath: m_Color.b
-      value: 0.52
+      value: 1
       objectReference: {fileID: 0}
-    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed,
-        type: 3}
+    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
       propertyPath: m_Color.g
-      value: 0.84
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6504419173875151761, guid: 6545b54b11756ed48b86832b268861ed,
         type: 3}
@@ -3550,6 +3574,22 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Name
       value: DungeonCard_Gold
+      objectReference: {fileID: 0}
+    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
+      propertyPath: m_Color.r
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
+      propertyPath: m_Sprite
+      value:
+      objectReference: {fileID: 21300000, guid: f900dd0b7e5b56f8b8d7a49b80252065, type: 3}
+    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
+      propertyPath: m_PreserveAspect
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5725102719953459742, guid: 6545b54b11756ed48b86832b268861ed, type: 3}
+      propertyPath: m_Type
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

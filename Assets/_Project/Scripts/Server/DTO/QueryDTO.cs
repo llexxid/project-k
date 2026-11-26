@@ -540,6 +540,7 @@ namespace Protocol.Message.Dto
 	}
 	public sealed class GachaStateDTO
 	{
+		public long NextEquipmentDrawSequence { get; set; } = 1;
 		// 장비 가챠 천장 카운터(0~39). 40번째는 Epic 확정.
 		[JsonProperty(Required = Required.Always)]
 		public int EquipmentPity { get; set; }
@@ -667,6 +668,7 @@ namespace Protocol.Message.Dto
 		public string Day { get; set; } = null!;
 		[JsonProperty(Required = Required.Always)]
 		public long LastUtc { get; set; }
+		public long LastHighestStage { get; set; }
 	}
 	// 월별 출석판(2026-10-31). KST 하루에 한 칸이 열리고 한 달에 최대 28칸이다. 출석은 칸만 열고 보상은 OnClaimAttendanceReward로 받는다.
 	// 출석판 필드(Month·OpenedDays·ClaimedDays)는 출석판 이전 서버와도 로그인이 되도록 필수로 두지 않는다.

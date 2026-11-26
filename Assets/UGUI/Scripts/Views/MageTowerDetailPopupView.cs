@@ -49,5 +49,6 @@ namespace KingdomIdle.UGUI
         [Header("Reset section")]
         public TMP_Text lblResetRefund;
         public Button btnReset;
+        public MageAwakeningView awakening;
     }
 }

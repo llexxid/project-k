@@ -10,6 +10,8 @@ namespace Protocol.Message.Dto
 	public abstract class RequestDTO
 	{
 		public int ProtocolVersion { get; set; }
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public int ResponsePacking { get; set; }
 	}
 
 	// 가입·로그인을 제외한 API의 요청. Redis의 현재 세션과 비교하여 해당 플레이어의 접속 상태를 확인한다.
@@ -23,6 +25,7 @@ namespace Protocol.Message.Dto
 	{
 		[JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
 		public int? EquipmentSchema { get; set; }
+		public int? EquipmentCapacity { get; set; }
 		[JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
 		public int? EconomyBatchVersion { get; set; }
 		public bool SupportsMageEnhance { get; set; }
@@ -76,7 +79,11 @@ namespace Protocol.Message.Dto
 		public int Count { get; set; }
 	}
 	// Client routing types share the server's existing JSON shape; no routing field is sent.
-	public sealed class OnGachaEquipmentClassFragmentRequestDTO : OnGachaRequestDTO { }
+	public sealed class OnGachaEquipmentClassFragmentRequestDTO : OnGachaRequestDTO
+    {
+        public string RequestId { get; set; }
+        public long? ExpectedDrawSequence { get; set; }
+    }
 	public sealed class OnGachaSkillArcaneKnowledgeRequestDTO : OnGachaRequestDTO { }
 	public class OnEnchantRequestDTO : SessionRequestDTO
 	{

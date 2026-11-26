@@ -25,7 +25,7 @@ namespace KingdomIdle.Balance
         public bool PendingRubyRequestIsReset, PendingRubyRequestExperience;
         public int PendingRubyExpectedLevel;
         public int ReincarnationLevel, ReincarnationCount, CycleBossStage, ReincarnationsToday;
-        public long LastReincarnationUtc, CycleStartedUtc;
+        public long LastReincarnationUtc, CycleStartedUtc, LastReincarnationHighestStage;
         public string ReincarnationDay;
         public long MainStage = 0x200010001, HighestMainClear;
         public long CycleFrontierStage;
@@ -45,10 +45,15 @@ namespace KingdomIdle.Balance
         public int EquipmentRarityFilter = -1;
         public bool EquipmentUsableOnly;
         public int EquipmentSort;
+        public bool EquipmentSortAscending;
+        public int LastAutoDismantleMask = 1;
         public EquipmentRecommendationCriterion EquipmentRecommendation;
         public Dictionary<int, MageSave> MageSkills = new();
         public int[] MageSlots = { -1, -1, -1, -1, -1 };
         public int EquipmentPity;
+        public long NextEquipmentDrawSequence = 1, PendingEquipmentDrawSequence;
+        public string PendingEquipmentDrawId;
+        public int PendingEquipmentDrawCount;
         public bool PendingReincarnation;
         public string ReincarnatedBattle;
         public Dictionary<string, long> Counters = new();

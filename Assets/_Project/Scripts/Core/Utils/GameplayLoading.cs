@@ -14,9 +14,9 @@ namespace Scripts.Core.Utils
 
         static GameplayLoading() => LocalProgression.AccountChanged += Reset;
 
-        public static Scope Begin(string operation, float notBefore = 0f, bool blockInput = false)
+        public static Scope Begin(string operation, float notBefore = 0f, bool blockInput = false, bool battlefieldOnly = false)
         {
-            var scope = new Scope(operation, notBefore, blockInput);
+            var scope = new Scope(operation, notBefore, blockInput, battlefieldOnly);
             Pending.Add(scope);
             return scope;
         }
@@ -36,19 +36,18 @@ namespace Scripts.Core.Utils
             }
         }
 
-        public static bool IsVisible
+        public static bool IsVisible => HasVisibleScope(false);
+
+        public static bool HasVisibleScope(bool menuOpen)
         {
-            get
+            bool visible = false;
+            for (int i = Pending.Count - 1; i >= 0; i--)
             {
-                bool visible = false;
-                for (int i = Pending.Count - 1; i >= 0; i--)
-                {
-                    var scope = Pending[i];
-                    if (!scope.IsCurrent) scope.Dispose();
-                    else if (!scope._paused && scope.ElapsedSeconds >= DelaySeconds) visible = true;
-                }
-                return visible;
+                var scope = Pending[i];
+                if (!scope.IsCurrent) scope.Dispose();
+                else if ((!menuOpen || !scope.BattlefieldOnly) && !scope._paused && scope.ElapsedSeconds >= DelaySeconds) visible = true;
             }
+            return visible;
         }
 
         public static void Reset()
@@ -69,6 +68,7 @@ namespace Scripts.Core.Utils
         {
             public string Operation { get; }
             internal bool BlocksInput { get; }
+            internal bool BattlefieldOnly { get; }
             public bool IsDisposed { get; internal set; }
             private readonly NetworkManager _network;
             private readonly long _accountGeneration, _networkGeneration;
@@ -76,10 +76,11 @@ namespace Scripts.Core.Utils
             private float _activeSince, _elapsed;
             internal bool _paused;
 
-            internal Scope(string operation, float notBefore, bool blockInput)
+            internal Scope(string operation, float notBefore, bool blockInput, bool battlefieldOnly)
             {
                 Operation = operation;
                 BlocksInput = blockInput;
+                BattlefieldOnly = battlefieldOnly && !blockInput;
                 _notBefore = _activeSince = Mathf.Max(Time.realtimeSinceStartup, notBefore);
                 _network = NetworkManager.Instance;
                 _accountGeneration = LocalProgression.AccountGeneration;

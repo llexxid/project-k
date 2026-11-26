@@ -23,6 +23,10 @@ namespace KingdomIdle.Balance
             var checks = new List<string>();
             void Check(bool value, string name)
             { if (!value) throw new InvalidOperationException("Server API contract acceptance: " + name); checks.Add(name); }
+            Check(Scripts.Server.Auth.Authentication.TryGetLoginRetrySeconds(new PlayFab.PlayFabError { HttpCode = 429, RetryAfterSeconds = 47 }, out int delay) && delay == 47,
+                "login honors the rate-limit wait reported by PlayFab");
+            Check(!Scripts.Server.Auth.Authentication.TryGetLoginRetrySeconds(new PlayFab.PlayFabError { HttpCode = 403 }, out _),
+                "a permanent authentication refusal is not retried");
             bool Read<T>(JObject body, out T response) where T : ApiResponseDTO
             {
                 object[] args = { "fixture", new ExecuteFunctionResult { FunctionName = "fixture", FunctionResult = body.ToString() }, null, null };
@@ -31,6 +35,12 @@ namespace KingdomIdle.Balance
                 response = (T)args[2];
                 return valid;
             }
+            CheckPackedResponses(Check);
+            CheckMenuRecovery(Check);
+            Check(NetworkManager.IsMenuSnapshot(new OnGetMailListRequestDTO()) && NetworkManager.IsMenuSnapshot(new OnGetQuestStateRequestDTO()) &&
+                NetworkManager.IsMenuSnapshot(new OnCheckAttendanceRequestDTO()) && !NetworkManager.IsMenuSnapshot(new OnClaimMailRewardRequestDTO()) &&
+                !NetworkManager.IsMenuSnapshot(new OnClaimQuestRewardRequestDTO()) && !NetworkManager.IsMenuSnapshot(new OnEconomyBatchRequestDTO()),
+                "menu lookups wait for settlement without reclassifying a reward claim or batch");
             JObject Body(ApiResponseDTO dto)
             { dto.ProtocolVersion = ApiVersions.ProtocolVersion; return JObject.FromObject(dto); }
             JObject Changed(JObject source, string path, JToken value)
@@ -147,6 +157,7 @@ namespace KingdomIdle.Balance
             owner.SetActive(false);
             try
             {
+                CheckQuestLookup(owner.AddComponent<QuestManager>(), Check);
                 var network = owner.AddComponent<NetworkManager>();
                 const BindingFlags instance = BindingFlags.Instance | BindingFlags.NonPublic;
                 typeof(NetworkManager).GetMethod("Init", instance).Invoke(network, null);
@@ -193,6 +204,106 @@ namespace KingdomIdle.Balance
                 NetworkManager.Instance = previousNetwork;
                 UnityEngine.Object.DestroyImmediate(owner);
             }
+        }
+
+        private static void CheckMenuRecovery(Action<bool, string> check)
+        {
+            float time = 0;
+            int reads = 0, held = 0;
+            Action<bool> afterFence = null;
+            var delayed = NetworkManager.WaitForMenuSnapshot(() => true, () => time, () => { },
+                complete => { afterFence = complete; return true; }, () => reads++, () => held++);
+            check(delayed.MoveNext() && afterFence != null && reads == 0, "lookup waits behind pending settlement");
+            time = 18;
+            check(!delayed.MoveNext() && held == 1 && reads == 0, "18-second unresolved lookup reports pending without a server write");
+            afterFence(true);
+            check(reads == 0, "late fence after timeout cannot duplicate the request");
+            bool recovered = false;
+            time = 21;
+            var resumed = NetworkManager.WaitForMenuSnapshot(() => true, () => time, () => recovered = true,
+                complete => { if (!recovered) return false; complete(true); return true; }, () => reads++, () => held++);
+            check(!resumed.MoveNext() && reads == 1 && held == 1, "a retried lookup joins recovery and runs exactly once");
+            var attendance = new KingdomIdle.CheckIn.CheckInService(null);
+            long first = attendance.BeginOperation();
+            check(attendance.IsBusy && attendance.IsCurrent(first), "attendance tracks current account operation");
+            attendance.CheckAccount((LocalProgression.AccountGeneration + 1, -5));
+            check(!attendance.IsBusy && !attendance.IsCurrent(first), "switching account ends pending attendance and rejects its late callback");
+            long next = attendance.BeginOperation();
+            check(attendance.IsCurrent(next) && !attendance.IsCurrent(first), "new attendance operation can finish independently");
+            int notifications = 0;
+            attendance.ClaimCompleted += _ => notifications++;
+            attendance.FinishClaimFailure(first, null);
+            check(attendance.IsBusy && notifications == 0, "late previous claim cannot unlock a pending recovery");
+            attendance.FinishClaimFailure(next, null); attendance.FinishClaimFailure(next, null);
+            check(!attendance.IsBusy && notifications == 1, "recovered claim releases busy with exactly one completion");
+            bool open = true;
+            afterFence = null;
+            var closed = NetworkManager.WaitForMenuSnapshot(() => open, () => time, () => { },
+                complete => { afterFence = complete; return true; }, () => reads++, () => held++);
+            closed.MoveNext(); open = false; afterFence(true);
+            check(!closed.MoveNext() && reads == 1 && held == 1, "closing a waiting mailbox skips its request without suppressing a future open");
+        }
+
+        private static void CheckQuestLookup(QuestManager quest, Action<bool, string> check)
+        {
+            long previous = quest.BeginFetch();
+            quest.ResetFetch();
+            long next = quest.BeginFetch();
+            check(quest.IsRefreshing && !quest.OwnsFetch(previous) && quest.OwnsFetch(next),
+                "same-account reauthentication replaces the outstanding quest refresh and rejects its late callback");
+            quest.ResetFetch();
+        }
+
+        private static void CheckPackedResponses(Action<bool, string> check)
+        {
+            var random = new byte[24576];
+            new System.Random(803).NextBytes(random);
+            var original = new JObject { ["ProtocolVersion"] = ApiVersions.ProtocolVersion, ["ServerVersion"] = 7,
+                ["Memo"] = Convert.ToBase64String(random), ["Uid"] = 9223372036854775805L };
+            byte[] raw = System.Text.Encoding.UTF8.GetBytes(original.ToString(Newtonsoft.Json.Formatting.None));
+            byte[] zipped;
+            using (var output = new System.IO.MemoryStream())
+            {
+                using (var gzip = new System.IO.Compression.GZipStream(output, System.IO.Compression.CompressionMode.Compress, true))
+                    gzip.Write(raw, 0, raw.Length);
+                zipped = output.ToArray();
+            }
+            using var hash = System.Security.Cryptography.SHA256.Create();
+            string digest = BitConverter.ToString(hash.ComputeHash(raw)).Replace("-", "").ToLowerInvariant();
+            int length = PackedServerResponse.ChunkSize;
+            int count = (zipped.Length + length - 1) / length;
+            JObject Envelope(int index) => new JObject
+            {
+                ["ProtocolVersion"] = ApiVersions.ProtocolVersion, ["ServerVersion"] = 7,
+                ["PackedResponse"] = new JObject { ["Version"] = 1, ["Encoding"] = "gzip", ["RawBytes"] = raw.Length,
+                    ["CompressedBytes"] = zipped.Length, ["Sha256"] = digest, ["ChunkIndex"] = index, ["ChunkCount"] = count,
+                    ["SnapshotId"] = Nonce, ["Data"] = Convert.ToBase64String(zipped, index * length, Math.Min(length, zipped.Length - index * length)) }
+            };
+            bool Rejected(Action action)
+            {
+                try { action(); return false; }
+                catch (Newtonsoft.Json.JsonException) { return true; }
+            }
+            var packet = new PackedServerResponse(Envelope(0));
+            check(count > 2 && Rejected(() => packet.Decode()) && Rejected(() => packet.Add(Envelope(2))),
+                "partial and out-of-order packed snapshots cannot apply");
+            var changed = Envelope(1); changed["PackedResponse"]["SnapshotId"] = "another-snapshot";
+            check(Rejected(() => packet.Add(changed)), "mixed snapshot identities rejected");
+            for (int i = 1; i < count; i++) packet.Add(Envelope(i));
+            check(JToken.DeepEquals(original, packet.Decode()), "multichunk result preserves large integer and source data");
+            var corrupt = Envelope(0);
+            corrupt["PackedResponse"]["RawBytes"] = int.MaxValue;
+            check(Rejected(() => new PackedServerResponse(corrupt)), "excessive decoded allocation rejected");
+            var wrongHash = new string('0', 64);
+            var altered = Envelope(0); altered["PackedResponse"]["Sha256"] = wrongHash;
+            var tampered = new PackedServerResponse(altered);
+            for (int i = 1; i < count; i++)
+            {
+                var next = Envelope(i);
+                next["PackedResponse"]["Sha256"] = wrongHash;
+                tampered.Add(next);
+            }
+            check(Rejected(() => tampered.Decode()), "whole-result checksum verified before applying");
         }
 
         static UserInitResponseDTO LegacyLogin() => new UserInitResponseDTO

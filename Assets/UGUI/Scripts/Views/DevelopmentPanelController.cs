@@ -181,9 +181,9 @@ namespace KingdomIdle.UGUI
                 if (card.View.levelLabel?.text != levelText || card.View.bonusLabel?.text != detail)
                     card.View.Set(StatEnhanceManager.GetTypeName(card.Type), levelText, detail, UguiTheme.RoyalBlue);
                 bool maxed = level >= BalanceMath.GoldCap;
-                string title = recovering ? "저장 결과 확인" : held ? "보류 입력 확인" : mgr.IsEnhancing ? "강화 중…" : maxed ? "최대 단계" :
+                string title = recovering ? "결과 확인" : held ? "입력 확인" : mgr.IsEnhancing ? "강화 중…" : maxed ? "최대 단계" :
                     _selectedCount < 0 ? $"최대 {actual}회" : $"{actual}회 강화";
-                string price = recovering ? "서버 결과 확인 후 육성" : held ? "수량·비용 확인 후 재개" : maxed ? "강화 완료" : cost < 0 ? "골드 부족" : $"{NumberNotation.Format(cost)} 골드";
+                string price = recovering ? "확인 후 육성" : held ? "수량·비용 확인" : maxed ? "강화 완료" : cost < 0 ? "골드 부족" : $"{NumberNotation.Format(cost)} 골드";
                 bool ready = recovering || held || (!mgr.IsEnhancing && cost >= 0 && actual > 0 && gold >= cost &&
                     (!EconomyBatchProgression.Available || EconomyBatchProgression.CanAcceptGrowth));
                 card.Button?.Set(title, price, ready);
@@ -404,7 +404,7 @@ namespace KingdomIdle.UGUI
                 return true;
             }
             if (!EconomyBatchProgression.HasHeldSpending) return false;
-            if (!EconomyBatchProgression.TryGetHeldPreview(out int count, out long gold, out long ruby, out long knowledge))
+            if (!EconomyBatchProgression.TryGetHeldPreview(out int count, out long gold, out long ruby, out long knowledge, out long stones))
             {
                 if (EconomyBatchProgression.HasHeldSpending && !EconomyBatchProgression.HasPendingFailureNotice)
                     ShowToast("보류 입력의 재화 조건과 서버 결과를 확인한 뒤 다시 시도해 주세요.");
@@ -412,12 +412,13 @@ namespace KingdomIdle.UGUI
             }
             long generation = LocalProgression.AccountGeneration;
             string knowledgeCost = knowledge > 0 ? $" · {NumberNotation.Exact(knowledge)} 비전 지식" : "";
+            if (stones > 0) knowledgeCost += $" · 강화석 {NumberNotation.Exact(stones)}개";
             bool shown = EquipmentActionDialog.ShowConfirmation("보류된 육성 재개",
                 $"육성 입력 {count:N0}건\n예상 비용: {NumberNotation.Exact(gold)} 골드 · {NumberNotation.Exact(ruby)} 루비{knowledgeCost}\n\n확인한 입력만 이어서 처리합니다.\n취소하면 보류 상태를 유지합니다.", "재개하기", () =>
                 {
                     if (generation != LocalProgression.AccountGeneration) return;
-                    if (!EconomyBatchProgression.TryGetHeldPreview(out int nextCount, out long nextGold, out long nextRuby, out long nextKnowledge) ||
-                        count != nextCount || gold != nextGold || ruby != nextRuby || knowledge != nextKnowledge || !EconomyBatchProgression.ResumeHeldInputs())
+                    if (!EconomyBatchProgression.TryGetHeldPreview(out int nextCount, out long nextGold, out long nextRuby, out long nextKnowledge, out long nextStones) ||
+                        count != nextCount || gold != nextGold || ruby != nextRuby || knowledge != nextKnowledge || stones != nextStones || !EconomyBatchProgression.ResumeHeldInputs())
                     {
                         if (EconomyBatchProgression.HasHeldSpending && !EconomyBatchProgression.HasPendingFailureNotice)
                             ShowToast("재개 조건이 변경되었습니다. 수량과 비용을 다시 확인해 주세요.");
