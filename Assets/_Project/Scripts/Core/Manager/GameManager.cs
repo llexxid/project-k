@@ -197,8 +197,8 @@ namespace Scripts.Core
                 var state = LocalProgression.State;
                 if (state.Economy.Server?.OwnershipChanged == true || EconomyBatchProgression.HasHeldSpending)
                     KingdomIdle.UGUI.UIManager.Instance?.ShowToast(state.Economy.Server?.OwnershipChanged == true
-                        ? "다른 기기의 미처리 강화 입력은 취소되었습니다. 확정된 성장은 유지됩니다."
-                        : "실행되지 않은 강화 입력이 있습니다. 육성 화면에서 확인 후 재개해 주세요.");
+                        ? "다른 기기의 미처리 입력은 취소되었습니다. 확정된 보상과 성장은 유지됩니다."
+                        : "처리되지 않은 입력이 있습니다. 육성 화면에서 확인 후 재개해 주세요.");
                 if (StageManager.Instance != null)
                     StageManager.Instance.BeginStage(UserManager.Instance.GetUserCurrentStage());
                 Direction.GameDirectManager.Instance?.RequestIncompleteGuides();

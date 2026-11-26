@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using KingdomIdle.MageTower;
 using Newtonsoft.Json;
 using PlayFab;
 using Protocol.Message.Dto;
@@ -19,9 +20,16 @@ namespace KingdomIdle.Balance
         public readonly bool Success;
         public readonly long? EquipmentId;
         public readonly long SpentStones;
+        public readonly int? SkillId;
+        public readonly int? AwakeningLevel;
+        public readonly int? SpentFragments;
         public readonly string Message;
-        internal EconomyInputCompletion(EconomyInput input, bool success, string message)
-        { Sequence = input.Sequence; Kind = input.Command.Kind; EquipmentId = input.Command.EquipmentInstanceId; SpentStones = success && EquipmentId.HasValue ? input.Command.SpendLimit : 0; Success = success; Message = message; }
+        internal EconomyInputCompletion(EconomyInput input, bool success, string message, EconomyCommandResultDTO result)
+        {
+            Sequence = input.Sequence; Kind = input.Command.Kind; EquipmentId = input.Command.EquipmentInstanceId;
+            SpentStones = success && EquipmentId.HasValue ? input.Command.SpendLimit : 0; Success = success; Message = message;
+            SkillId = input.Command.SkillId; AwakeningLevel = result?.AwakeningLevel; SpentFragments = result?.SpentFragments;
+        }
     }
 
     public static class EconomyBatchProgression
@@ -34,14 +42,21 @@ namespace KingdomIdle.Balance
         private static NetworkManager _network;
         private static long _localGeneration = -1, _networkGeneration = -1;
         private static bool _supported, _recovered, _requestPending, _queryRequired, _batchUnknown, _externalUnknown, _externalWrite;
+        private static bool _externalQuestSnapshotOnly;
         private static bool _recovering, _startupMaySplit, _sentThisSession, _huntsHeld, _blocked;
         private static bool _storageRetryActive, _storageRetryPaused, _storageRetryAllowsInput;
         private static int _storageRetryRemaining, _storageRetrySends;
         private static float _sealAfter, _nextHuntAt, _retryAt;
         private static Action<bool> _recoveryDone;
-        private sealed class Fence { internal long Sequence; internal Action<bool> Completed; }
+        private sealed class Fence
+        {
+            internal long Sequence;
+            internal bool IsQuestSnapshot;
+            internal Action<bool> Completed;
+        }
         private static readonly Queue<Fence> _fences = new();
         private static readonly List<EconomyInput> _discardedInputs = new();
+        private static readonly Dictionary<long, Action<EconomyCommandResultDTO>> _questCompletions = new();
         private static long _discardAfterRevision;
         private static string _clientId;
         private static EconomyProjection _projection;
@@ -61,6 +76,7 @@ namespace KingdomIdle.Balance
              _journal.Data.Inputs.Exists(x => x.Command.Kind == EconomyCommandKind.EquipmentEnhance));
         public static bool SupportsMageEnhance => Available &&
             EconomyBatchProtocol.MageMode(LocalProgression.State.Economy?.Server) == MageEnhanceBatchMode.Active;
+        public static bool QuestClaimsAvailable => Available && LocalProgression.State.Economy.Server.SupportsQuestAwakeningBatch;
         internal static bool CanStartSingleMageEnhance => CurrentSession && _journal != null && !SupportsMageEnhance &&
             !HasUnknownResult && (!Available || RecoveryComplete && !HasHeldSpending) &&
             _journal.Data.InFlight?.Commands.Exists(x => x.Kind == EconomyCommandKind.MageEnhance) != true &&
@@ -82,8 +98,11 @@ namespace KingdomIdle.Balance
             _storageRetryActive && !_storageRetryPaused && _storageRetryAllowsInput && _journal?.Data.InFlight != null;
         public static int PendingSpendingCount => CurrentSession && _journal != null
             ? _journal.Data.Inputs.Concat(_journal.Data.InFlightInputs).Count(x => x.Command.Kind != EconomyCommandKind.Hunt) : 0;
+        // A quest refresh keeps its place in the send queue while local inputs accumulate behind it.
         public static bool CanAcceptGrowth => Available && RecoveryComplete && (!HasUnknownResult || IsStorageRetryWaiting) && !HasHeldSpending &&
-            !_externalWrite && !_huntsHeld && _fences.Count == 0 && _journal?.Error == null && !RubyProgression.HasPendingRequest &&
+            (!_externalWrite || _externalQuestSnapshotOnly) && !_huntsHeld &&
+            (_fences.Count == 0 || !_fences.Any(fence => !fence.IsQuestSnapshot)) &&
+            _journal?.Error == null && !RubyProgression.HasPendingRequest &&
             LocalProgression.State.PendingMainCompletion == null;
         public static bool HasPendingWork => _requestPending || _journal?.Data.InFlight != null ||
             _journal?.Data.Inputs.Any(x => !x.Held) == true || _journal?.IsDirty == true;
@@ -111,9 +130,10 @@ namespace KingdomIdle.Balance
         {
             FlushLocalWrites();
             _journal = null; _supported = _recovered = _requestPending = _queryRequired = _batchUnknown = _externalUnknown = _externalWrite = false;
+            _externalQuestSnapshotOnly = false;
             _recovering = _startupMaySplit = _sentThisSession = _huntsHeld = _blocked = false;
             _network = null;
-            _recoveryDone = null; _fences.Clear(); _discardedInputs.Clear(); _discardAfterRevision = 0;
+            _recoveryDone = null; _fences.Clear(); _discardedInputs.Clear(); _questCompletions.Clear(); _discardAfterRevision = 0;
             _retryAt = _sealAfter = _nextHuntAt = 0;
             ResetStorageRetry();
             Status = null; Notify();
@@ -143,6 +163,7 @@ namespace KingdomIdle.Balance
                 if (_journal.Data.Generation != metadata.Generation)
                 { _journal.Data.Generation = metadata.Generation; SaveJournal(); }
                 ReconcileMageInputs(metadata);
+                ReconcileQuestAwakeningInputs(metadata);
                 RestoreStorageRetryDeadline();
             }
             catch (Exception error) { MarkBlocked(error.Message); }
@@ -166,6 +187,24 @@ namespace KingdomIdle.Balance
             }
         }
 
+        private static void ReconcileQuestAwakeningInputs(EconomyBatchStateDTO metadata)
+        {
+            if (metadata.SupportsQuestAwakeningBatch) return;
+            if (_journal.Data.InFlight?.Commands.Exists(EconomyBatchProtocol.IsQuestAwakeningCommand) == true)
+            {
+                if (!metadata.SupportsQuestAwakeningRecovery)
+                {
+                    _supported = false;
+                    MarkUnknown("보존된 퀘스트·각성 요청을 지원하는 서버에서 결과를 먼저 확인해야 합니다.");
+                }
+                return;
+            }
+            var discarded = _journal.Data.Inputs.FindAll(x => EconomyBatchProtocol.IsQuestAwakeningCommand(x.Command));
+            if (discarded.Count == 0) return;
+            _journal.Data.Inputs.RemoveAll(discarded.Contains);
+            SaveDiscardedInputs(discarded);
+        }
+
         public static void MarkUnknown(string reason) { _externalUnknown = true; Status = reason; Notify(); }
         private static void MarkBlocked(string reason) { _blocked = true; MarkUnknown(reason); }
         public static void ConfirmFullRefresh()
@@ -174,8 +213,14 @@ namespace KingdomIdle.Balance
                 LocalProgression.State.Economy.Server.OwnerClientId != ClientId || _journal.Data.Generation != LocalProgression.State.Economy.Server.Generation) return;
             _externalUnknown = false; Notify();
         }
-        public static void SetExternalWritePending(bool pending)
-        { if (_externalWrite != pending) { _externalWrite = pending; Notify(); } }
+        public static void SetExternalWritePending(bool pending, bool questSnapshotOnly = false)
+        {
+            questSnapshotOnly &= pending;
+            if (_externalWrite == pending && _externalQuestSnapshotOnly == questSnapshotOnly) return;
+            _externalWrite = pending;
+            _externalQuestSnapshotOnly = questSnapshotOnly;
+            Notify();
+        }
         public static void SetHuntsHeld(bool held)
         { if (_huntsHeld != held) { _huntsHeld = held; Notify(); } }
 
@@ -183,9 +228,34 @@ namespace KingdomIdle.Balance
         {
             if (!LocalProgression.TryGetCommittedState(out var state)) return default;
             if (_projectionAt != ProjectionRevision)
-            { _projection = EconomyProjectionMath.Calculate(state, ProjectedCommands(state)); _projectionAt = ProjectionRevision; }
+            {
+                _projection = EconomyProjectionMath.Calculate(state, ProjectedCommands(state), questRow: FindQuestRow, allowUnavailable: true);
+                _projectionAt = ProjectionRevision;
+            }
             return _projection;
         }
+
+        public static long GetDisplayBalance(eCurrency currency)
+        {
+            if (Available && GetProjection() is { Valid: true } projection) return projection.Balance(currency);
+            return LocalProgression.TryGetCommittedState(out var state) ? state.Wallet.GetValueOrDefault(currency) : 0;
+        }
+
+        private static QuestRowDTO FindQuestRow(QuestClaimTargetDTO target) => QuestManager.Instance?.FindServerRow(target);
+
+        internal static void InvalidateQuestProjection() => Notify();
+
+        public static IEnumerable<QuestClaimTargetDTO> PendingQuestClaimTargets(bool includeHeld = false)
+        {
+            if (!CurrentSession || _journal == null) yield break;
+            foreach (var input in _journal.Data.InFlightInputs.Concat(_journal.Data.Inputs))
+                if ((includeHeld || !input.Held) && input.Command.Kind == EconomyCommandKind.QuestClaim)
+                    foreach (var target in input.Command.QuestClaim.Targets)
+                        yield return target;
+        }
+
+        public static bool IsQuestClaimPending(long questId, string periodKey) =>
+            PendingQuestClaimTargets(includeHeld: true).Any(t => t.QuestId == questId && t.PeriodKey == periodKey);
 
         private static IEnumerable<EconomyCommandDTO> ProjectedCommands(ProgressionState state)
         {
@@ -206,6 +276,33 @@ namespace KingdomIdle.Balance
         public static EconomyInputStatus TryQueueMageEnhance(int skillId) =>
             TryQueue(EconomyCommandKind.MageEnhance, 1, null, out _, skillId);
 
+        public static EconomyInputStatus TryQueueMageAwakening(int skillId) =>
+            TryQueue(EconomyCommandKind.MageAwakening, 1, null, out _, skillId);
+
+        public static EconomyInputStatus TryQueueQuestClaim(OnClaimQuestRewardRequestDTO claim, Action<EconomyCommandResultDTO> completed)
+        {
+            if (!QuestClaimsAvailable || !RecoveryComplete) return EconomyInputStatus.NotReady;
+            if (!CanAcceptGrowth) return _journal?.Error != null ? EconomyInputStatus.SaveFailed : EconomyInputStatus.Busy;
+            if (claim == null) return EconomyInputStatus.InvalidRequest;
+            var command = new EconomyCommandDTO
+            {
+                Kind = EconomyCommandKind.QuestClaim,
+                QuestClaim = new EconomyQuestClaimDTO
+                {
+                    Category = claim.Bulk?.Category, BoardPeriod = claim.Bulk?.BoardPeriod,
+                    Targets = claim.Bulk == null ? new() { new QuestClaimTargetDTO { QuestId = claim.QuestId, PeriodKey = claim.PeriodKey } } : claim.Bulk.Targets
+                }
+            };
+            if (!EconomyBatchProtocol.ValidQuestCommand(command)) return EconomyInputStatus.InvalidRequest;
+            var pending = PendingQuestClaimTargets(includeHeld: true).Select(t => (t.QuestId, t.PeriodKey)).ToHashSet();
+            if (command.QuestClaim.Targets.Any(t => pending.Contains((t.QuestId, t.PeriodKey)) ||
+                FindQuestRow(t)?.State != Protocol.Message.Dto.QuestRowState.Claimable))
+                return EconomyInputStatus.InvalidRequest;
+            if (PendingSpendingCount >= MaxInputs) return EconomyInputStatus.QueueFull;
+            Queue(command, null, completed);
+            return EconomyInputStatus.PendingSave;
+        }
+
         public static EconomyInputStatus TryQueueEquipmentEnhance(long id) =>
             TryQueue(EconomyCommandKind.EquipmentEnhance, 1, null, out _, gearId: id);
 
@@ -217,25 +314,34 @@ namespace KingdomIdle.Balance
             if (!Available || !RecoveryComplete) return EconomyInputStatus.NotReady;
             if (!CanAcceptGrowth) return _journal?.Error != null ? EconomyInputStatus.SaveFailed : EconomyInputStatus.Busy;
             bool mage = kind == EconomyCommandKind.MageEnhance;
-            if (mage && (!SupportsMageEnhance || !skillId.HasValue || !LocalProgression.State.MageSkills.ContainsKey(skillId.Value)))
+            bool awakening = kind == EconomyCommandKind.MageAwakening;
+            if ((mage || awakening) && (!(mage ? SupportsMageEnhance : QuestClaimsAvailable) || !skillId.HasValue ||
+                !LocalProgression.State.MageSkills.ContainsKey(skillId.Value)))
                 return EconomyInputStatus.NotReady;
             bool gear = kind == EconomyCommandKind.EquipmentEnhance;
             if (gear && (!SupportsEquipmentEnhance || gearId == null)) return EconomyInputStatus.NotReady;
-            if (!gold && !mage && !gear && (!RubyProgression.Unlocked || kind == EconomyCommandKind.RubyExperience && LocalProgression.State.AccountLevel >= BalanceMath.AccountCap))
+            if (!gold && !mage && !awakening && !gear && (!RubyProgression.Unlocked || kind == EconomyCommandKind.RubyExperience && LocalProgression.State.AccountLevel >= BalanceMath.AccountCap))
                 return EconomyInputStatus.NotReady;
-            if (_journal.Data.Inputs.Concat(_journal.Data.InFlightInputs).Count(x => x.Command.Kind != EconomyCommandKind.Hunt) >= MaxInputs)
+            if (PendingSpendingCount >= MaxInputs)
                 return EconomyInputStatus.QueueFull;
             var projection = GetProjection();
             if (projection.Level(kind, skillId, gearId) >= LevelCap(kind, gearId)) return EconomyInputStatus.MaxLevel;
             var command = EconomyProjectionMath.Quote(projection, kind, mode, skillId, gearId);
             if (command == null) return EconomyInputStatus.InsufficientFunds;
+            sequence = Queue(command, guideReceipt);
+            return EconomyInputStatus.PendingSave;
+        }
+
+        private static long Queue(EconomyCommandDTO command, string guideReceipt, Action<EconomyCommandResultDTO> questCompleted = null)
+        {
             AppendHunts();
             var input = NewInput(command); input.GuideReceipt = guideReceipt;
-            _journal.Data.Inputs.Add(input); sequence = input.Sequence;
+            _journal.Data.Inputs.Add(input);
+            if (questCompleted != null) _questCompletions.Add(input.Sequence, questCompleted);
             if (!IsStorageRetryWaiting) Status = null;
             if (_sealAfter == 0) _sealAfter = Time.realtimeSinceStartup + BatchWindow;
             SaveJournal(); Notify();
-            return EconomyInputStatus.PendingSave;
+            return input.Sequence;
         }
 
         private static EconomyInput NewInput(EconomyCommandDTO command) => new()
@@ -243,6 +349,7 @@ namespace KingdomIdle.Balance
 
         private static int LevelCap(EconomyCommandKind kind, long? gearId = null) => kind == EconomyCommandKind.EquipmentEnhance ?
             EquipmentEconomy.EnhanceCap(ItemCode.DecodeRarity(LocalProgression.State.Equipment.Find(x => x.ServerInstanceId == gearId)?.Code ?? 0)) : kind == EconomyCommandKind.MageEnhance ? BalanceMath.MageCap :
+            kind == EconomyCommandKind.MageAwakening ? MageSkillRules.BloomAwakening :
             kind == EconomyCommandKind.GoldAttack || kind == EconomyCommandKind.GoldHealth ? BalanceMath.GoldCap : BalanceMath.RubyCap;
 
         public static bool RecoverPending(Action<bool> completed, bool previousSessionReplaced = false)
@@ -272,51 +379,67 @@ namespace KingdomIdle.Balance
             TryGetHeldPreview(out inputCount, out goldCost, out rubyCost, out knowledgeCost, out _);
 
         public static bool TryGetHeldPreview(out int inputCount, out long goldCost, out long rubyCost, out long knowledgeCost, out long stoneCost)
+            => TryGetHeldPreview(out inputCount, out goldCost, out rubyCost, out knowledgeCost, out stoneCost, out _, out _);
+
+        internal static bool TryGetHeldPreview(out int inputCount, out long goldCost, out long rubyCost, out long knowledgeCost,
+            out long stoneCost, out int claims, out long fragments)
         {
-            stoneCost = 0;
-            inputCount = 0; goldCost = rubyCost = knowledgeCost = 0;
-            if (!TryPrepareHeld(out var commands, out var after)) return false;
+            inputCount = claims = 0;
+            goldCost = rubyCost = knowledgeCost = stoneCost = fragments = 0;
+            if (!TryPrepareHeld(out var commands, out var costs)) return false;
             inputCount = commands.Count;
-            stoneCost = LocalProgression.Balance(eCurrency.EquipmentStone) - after.EquipmentStone;
-            goldCost = LocalProgression.Balance(eCurrency.Gold) - after.Gold;
-            rubyCost = LocalProgression.Balance(eCurrency.Ruby) - after.Ruby;
-            knowledgeCost = LocalProgression.Balance(eCurrency.ArcaneKnowledge) - after.ArcaneKnowledge;
+            (goldCost, rubyCost, knowledgeCost, stoneCost, fragments) = costs;
+            claims = commands.Count(c => c.Kind == EconomyCommandKind.QuestClaim);
             return true;
         }
 
-        private static bool TryPrepareHeld(out List<EconomyCommandDTO> commands, out EconomyProjection current)
+        private static bool TryPrepareHeld(out List<EconomyCommandDTO> commands,
+            out (long Gold, long Ruby, long Knowledge, long Stones, long Fragments) costs)
         {
-            commands = new(); current = default;
+            commands = new(); costs = default;
             if (!Available || !RecoveryComplete || HasUnknownResult || _requestPending || _externalWrite || _fences.Count != 0 ||
                 _journal == null || _journal.IsDirty || _journal.Data.InFlight != null || _journal.Data.Inputs.Any(x => !x.Held)) return false;
             var state = LocalProgression.State;
-            current = EconomyProjectionMath.Calculate(state, commands);
-            var invalidSkills = new HashSet<int>();
+            var current = EconomyProjectionMath.Calculate(state, commands);
+            var invalidTargets = new HashSet<(EconomyCommandKind, int?, long?)>();
             var discarded = new List<EconomyInput>();
             foreach (var input in _journal.Data.Inputs.Where(x => x.Held && x.Command.Kind != EconomyCommandKind.Hunt))
             {
                 var command = EconomyCopies.Copy(input.Command);
                 bool mage = command.Kind == EconomyCommandKind.MageEnhance;
                 if (mage && !SupportsMageEnhance) return false;
-                if (mage && invalidSkills.Contains(command.SkillId.Value)) { discarded.Add(input); continue; }
-                if (command.Kind == EconomyCommandKind.EquipmentEnhance && !SupportsEquipmentEnhance) { DiscardHeldInputs(); return false; }
-                command.ExpectedLevel = current.Level(command.Kind, command.SkillId, command.EquipmentInstanceId);
-                int cap = LevelCap(command.Kind, command.EquipmentInstanceId);
-                if (command.Mode > 0)
+                bool quest = command.Kind == EconomyCommandKind.QuestClaim;
+                bool awakening = command.Kind == EconomyCommandKind.MageAwakening;
+                if ((quest || awakening) && !QuestClaimsAvailable) return false;
+                var target = EconomyBatchProtocol.GrowthTarget(command);
+                if (invalidTargets.Contains(target)) { discarded.Add(input); continue; }
+                int priorLimit = command.CountLimit;
+                if (!quest && !awakening)
                 {
-                    int count = Math.Min(command.Mode, cap - command.ExpectedLevel);
-                    if (count > command.CountLimit) { DiscardHeldInputs(); return false; }
-                    command.CountLimit = count;
+                    command.ExpectedLevel = current.Level(command.Kind, command.SkillId, command.EquipmentInstanceId);
+                    int cap = LevelCap(command.Kind, command.EquipmentInstanceId);
+                    command.CountLimit = Math.Min(command.Mode > 0 ? command.Mode : priorLimit, cap - command.ExpectedLevel);
                 }
-                else command.CountLimit = Math.Min(command.CountLimit, cap - command.ExpectedLevel);
                 commands.Add(command);
-                var next = EconomyInputJournal.ValidCommand(command) &&
+                var next = (command.Kind != EconomyCommandKind.EquipmentEnhance || SupportsEquipmentEnhance) &&
+                    command.CountLimit <= priorLimit && EconomyInputJournal.ValidCommand(command) &&
                     (command.Kind != EconomyCommandKind.RubyExperience || state.AccountLevel < BalanceMath.AccountCap)
-                    ? EconomyProjectionMath.Calculate(state, commands) : default;
-                if (next.Valid) { current = next; continue; }
-                if (!mage) { DiscardHeldInputs(); return false; }
+                    ? EconomyProjectionMath.Calculate(state, commands, questRow: FindQuestRow) : default;
+                if (next.Valid)
+                {
+                    if (!quest)
+                    {
+                        costs.Gold += current.Gold - next.Gold;
+                        costs.Ruby += current.Ruby - next.Ruby;
+                        costs.Knowledge += current.ArcaneKnowledge - next.ArcaneKnowledge;
+                        costs.Stones += current.EquipmentStone - next.EquipmentStone;
+                        if (awakening) costs.Fragments += command.SpendLimit;
+                    }
+                    current = next;
+                    continue;
+                }
                 commands.RemoveAt(commands.Count - 1);
-                invalidSkills.Add(command.SkillId.Value);
+                if (!quest) invalidTargets.Add(target);
                 discarded.Add(input);
             }
             if (discarded.Count > 0)
@@ -344,10 +467,10 @@ namespace KingdomIdle.Balance
         internal static bool CanRefreshMenuRecovery => Available && RecoveryComplete && _externalUnknown &&
             !_blocked && !_batchUnknown && !_queryRequired && !_requestPending && !HasUnresolvedBatch && _journal?.Error == null;
         internal static bool CanRetryMenuSnapshot => !Available || CanQueueMenuSnapshot || CanRefreshMenuRecovery;
-        internal static bool TryQueueMenuSnapshot(Action<bool> completed)
+        internal static bool TryQueueMenuSnapshot(Action<bool> completed, bool isQuestSnapshot = false)
         {
             if (!CanQueueMenuSnapshot || completed == null) return false;
-            EnqueueFence(completed);
+            EnqueueFence(completed, isQuestSnapshot);
             _sealAfter = 0;
             Pump();
             return true;
@@ -360,8 +483,13 @@ namespace KingdomIdle.Balance
             _sealAfter = 0; SaveJournal(); Pump(); return true;
         }
 
-        private static void EnqueueFence(Action<bool> completed) =>
-            _fences.Enqueue(new Fence { Sequence = _journal.Data.NextInputSequence - 1, Completed = completed });
+        private static void EnqueueFence(Action<bool> completed, bool isQuestSnapshot = false) =>
+            _fences.Enqueue(new Fence
+            {
+                Sequence = _journal.Data.NextInputSequence - 1,
+                IsQuestSnapshot = isQuestSnapshot,
+                Completed = completed
+            });
 
         // 기존 루비 초기화가 전투를 멈춘 뒤에만 호출한다. 이후 같은 epoch의 처치는 더 받을 수 없다.
         public static bool SealCurrentRewardEpoch(Action<bool> completed)
@@ -571,7 +699,8 @@ namespace KingdomIdle.Balance
                 EconomyBatchProtocol.MatchRequest(response, request);
                 bool alreadyApplied = LocalProgression.State.Economy.LastAppliedRequestId == request.RequestId;
                 var loot = !alreadyApplied && !_recovering && response.Status == EconomyBatchStatus.Completed &&
-                    response.Receipt.Results.Any(x => x.Kind == EconomyCommandKind.Hunt && x.Status == EconomyCommandStatus.Applied && x.GrantedGold > 0)
+                    response.Receipt.Results.Any(x => x.Status == EconomyCommandStatus.Applied &&
+                        (x.Kind == EconomyCommandKind.QuestClaim || x.Kind == EconomyCommandKind.Hunt && x.GrantedGold > 0))
                     ? KingdomIdle.Rewards.LootNotifications.Capture(false, false) : null;
                 bool saved = LocalProgression.Execute("server-economy-batch", state =>
                 {
@@ -594,6 +723,23 @@ namespace KingdomIdle.Balance
                 _queryRequired = _batchUnknown = false;
                 if (response.Status == EconomyBatchStatus.NotFound)
                 {
+                    var metadata = response.CurrentState.EconomyBatchState;
+                    if (query && !metadata.SupportsQuestAwakeningBatch && metadata.SupportsQuestAwakeningRecovery &&
+                        request.Commands.Exists(EconomyBatchProtocol.IsQuestAwakeningCommand) &&
+                        metadata.Generation == request.Generation && metadata.NextSequence == request.Sequence)
+                    {
+                        _journal.Data.AbandonedRequest = request; _journal.Data.AbandonedAtRevision = response.EconomyRevision.Value;
+                        foreach (var input in _journal.Data.InFlightInputs)
+                        {
+                            input.Held = _recovering && input.Command.Kind != EconomyCommandKind.Hunt;
+                            _journal.Data.Inputs.Add(input);
+                        }
+                        ClearInFlight(); ResetStorageRetry();
+                        _journal.Data.Inputs.Sort((a, b) => a.Sequence.CompareTo(b.Sequence));
+                        ReconcileQuestAwakeningInputs(metadata);
+                        SaveJournal(); Notify();
+                        return;
+                    }
                     bool split = query && _recovering && _startupMaySplit && !_sentThisSession &&
                         response.CurrentState.EconomyBatchState.Generation == request.Generation && response.CurrentState.EconomyBatchState.NextSequence == request.Sequence;
                     if (split)
@@ -615,7 +761,6 @@ namespace KingdomIdle.Balance
                 if (response.Status != EconomyBatchStatus.Completed) { MarkUnknown("경제 요청 내용이 충돌해 실행을 보류했습니다."); FinishRecovery(false); return; }
                 ResetStorageRetry(); _retryAt = 0;
                 if (loot != null) KingdomIdle.Rewards.LootNotifications.PublishEconomyBatch(loot, response.Receipt);
-                ResolveCompletedInputs(response.Receipt, alreadyApplied);
                 if (CurrentSession && localGeneration == _localGeneration && networkGeneration == _networkGeneration &&
                     LocalProgression.State.Economy.LastAppliedRequestId == request.RequestId)
                 {
@@ -629,6 +774,8 @@ namespace KingdomIdle.Balance
                         response.Receipt.Results.Any(x => x.Status == EconomyCommandStatus.Applied && x.AppliedCount > 0))
                         quests?.RequestRefresh("economy-batch");
                 }
+                ResolveCompletedInputs(response.Receipt, alreadyApplied);
+                ReconcileQuestAwakeningInputs(response.CurrentState.EconomyBatchState);
             }
             catch (Exception error)
             {
@@ -650,49 +797,52 @@ namespace KingdomIdle.Balance
 
         private static void ResolveCompletedInputs(EconomyBatchReceiptDTO receipt, bool alreadyApplied)
         {
-                bool stopSpending = receipt.Results.Any(x => x.Status == EconomyCommandStatus.Rejected && !EconomyBatchProtocol.IsIsolatedMageRejection(x) &&
-                    !(receipt.IndependentGrowthFailures && EconomyBatchProtocol.IsIsolatedGrowthRejection(x)));
-                var failedGrowth = new HashSet<EconomyCommandKind>();
-                var failedSkills = new HashSet<int>();
-                bool invalidHunt = false;
-                var discarded = new List<EconomyInput>();
-                for (int i = 0; i < receipt.Results.Count; i++)
+            bool stopSpending = false, invalidHunt = false;
+            var failedTargets = new HashSet<(EconomyCommandKind, int?, long?)>();
+            var discarded = new List<EconomyInput>();
+            var resolved = new List<(EconomyInput Input, EconomyCommandResultDTO Result)>();
+            for (int i = 0; i < receipt.Results.Count; i++)
+            {
+                var result = receipt.Results[i]; var input = _journal.Data.InFlightInputs[i];
+                if (result.Status == EconomyCommandStatus.Rejected)
                 {
-                    var result = receipt.Results[i]; var input = _journal.Data.InFlightInputs[i];
-                    bool hunt = input.Command.Kind == EconomyCommandKind.Hunt;
-                    if (hunt && result.Status != EconomyCommandStatus.Applied)
+                    if (EconomyBatchProtocol.IsIsolatedGrowthRejection(result, receipt.IndependentGrowthFailures))
                     {
-                        bool badHunt = result.Status == EconomyCommandStatus.Rejected &&
-                            result.ErrorCode != Protocol.Message.Data.eErrorCode.EconomyRevisionMismatch;
-                        input.Held = badHunt;
-                        invalidHunt |= badHunt; _journal.Data.Inputs.Add(input);
+                        if (input.Command.Kind != EconomyCommandKind.QuestClaim)
+                            failedTargets.Add(EconomyBatchProtocol.GrowthTarget(input.Command));
                     }
-                    if (!hunt)
-                    {
-                        if (EconomyBatchProtocol.IsIsolatedMageRejection(result)) failedSkills.Add(input.Command.SkillId.Value);
-                        if (receipt.IndependentGrowthFailures && EconomyBatchProtocol.IsIsolatedGrowthRejection(result)) failedGrowth.Add(result.Kind);
-                        if (result.Status != EconomyCommandStatus.Applied) discarded.Add(input);
-                        else if (!alreadyApplied) CompleteInput(input, true, "강화가 적용되었습니다.");
-                    }
+                    else stopSpending = true;
                 }
-                if (stopSpending || failedSkills.Count != 0 || failedGrowth.Count != 0)
+                if (input.Command.Kind == EconomyCommandKind.Hunt)
                 {
-                    bool Cancel(EconomyInput input) => input.Command.Kind != EconomyCommandKind.Hunt &&
-                        (stopSpending || failedGrowth.Contains(input.Command.Kind) || input.Command.SkillId is int id && failedSkills.Contains(id));
-                    discarded.AddRange(_journal.Data.Inputs.Where(Cancel));
-                    _journal.Data.Inputs.RemoveAll(Cancel);
+                    if (result.Status == EconomyCommandStatus.Applied) continue;
+                    input.Held = result.Status == EconomyCommandStatus.Rejected &&
+                        result.ErrorCode != Protocol.Message.Data.eErrorCode.EconomyRevisionMismatch;
+                    invalidHunt |= input.Held;
+                    _journal.Data.Inputs.Add(input);
                 }
-                ClearInFlight(); _journal.Data.Inputs.Sort((a, b) => a.Sequence.CompareTo(b.Sequence));
-                if (!HasUnknownResult) Status = null;
-                if (invalidHunt) { MarkBlocked("보존된 사냥 기록을 서버가 거절했습니다. 기록을 유지하고 실행을 보류했습니다."); FinishFences(false); }
-                SaveDiscardedInputs(discarded);
-        }
-
-        private static void DiscardHeldInputs()
-        {
-            var discarded = _journal.Data.Inputs.Where(x => x.Held && x.Command.Kind != EconomyCommandKind.Hunt).ToList();
-            _journal.Data.Inputs.RemoveAll(x => x.Held && x.Command.Kind != EconomyCommandKind.Hunt);
+                else if (input.Command.Kind == EconomyCommandKind.QuestClaim || result.Status == EconomyCommandStatus.Applied)
+                {
+                    if (!alreadyApplied || _questCompletions.ContainsKey(input.Sequence)) resolved.Add((input, result));
+                }
+                else discarded.Add(input);
+            }
+            if (stopSpending || failedTargets.Count != 0)
+            {
+                bool Cancel(EconomyInput input) => input.Command.Kind != EconomyCommandKind.Hunt &&
+                    (stopSpending || failedTargets.Contains(EconomyBatchProtocol.GrowthTarget(input.Command)));
+                discarded.AddRange(_journal.Data.Inputs.Where(Cancel));
+                _journal.Data.Inputs.RemoveAll(Cancel);
+            }
+            ClearInFlight(); _journal.Data.Inputs.Sort((a, b) => a.Sequence.CompareTo(b.Sequence));
+            if (!HasUnknownResult) Status = null;
+            if (invalidHunt) { MarkBlocked("보존된 사냥 기록을 서버가 거절했습니다. 기록을 유지하고 실행을 보류했습니다."); FinishFences(false); }
             SaveDiscardedInputs(discarded);
+            foreach (var entry in resolved)
+            {
+                if (!CurrentSession) break;
+                CompleteInput(entry.Input, entry.Result.Status == EconomyCommandStatus.Applied, "강화가 적용되었습니다.", entry.Result);
+            }
         }
 
         private static void SaveDiscardedInputs(List<EconomyInput> discarded)
@@ -707,9 +857,10 @@ namespace KingdomIdle.Balance
         {
             if (_discardedInputs.Count == 0 || _journal.SavedRevision < _discardAfterRevision) return;
             var discarded = _discardedInputs.ToArray(); _discardedInputs.Clear(); _discardAfterRevision = 0;
-            Status = FailureMessage;
+            bool growthFailed = discarded.Any(x => x.Command.Kind != EconomyCommandKind.QuestClaim);
+            if (growthFailed) Status = FailureMessage;
             foreach (var input in discarded) CompleteInput(input, false, FailureMessage);
-            if (SpendingFailed != null)
+            if (growthFailed && SpendingFailed != null)
                 foreach (Action observer in SpendingFailed.GetInvocationList())
                     try { observer(); } catch (Exception error) { Debug.LogException(error); }
             Notify();
@@ -730,10 +881,11 @@ namespace KingdomIdle.Balance
                     throw new IOException("이전 기기의 입력 기록을 보존하지 못했습니다.");
             }
             ResetStorageRetry(); _retryAt = 0;
+            var retired = old.Inputs.Concat(old.InFlightInputs).Where(x => x.Command.Kind == EconomyCommandKind.QuestClaim).ToList();
             old.Inputs.Clear(); ClearInFlight(); old.Generation = LocalProgression.State.Economy.Server.Generation;
             _batchUnknown = _queryRequired = false;
-            Status = "다른 기기에서 접속하여 이전 기기의 미처리 강화가 취소되었습니다.";
-            SaveJournal(); Notify();
+            Status = "다른 기기에서 접속하여 이전 기기의 미처리 입력이 취소되었습니다.";
+            SaveDiscardedInputs(retired);
         }
 
         private static void FinishRecovery(bool ok)
@@ -756,16 +908,23 @@ namespace KingdomIdle.Balance
         {
             string error = _journal.Error;
             var committed = _journal.Committed.Inputs.Select(x => x.Sequence).Concat(_journal.Committed.InFlightInputs.Select(x => x.Sequence)).ToHashSet();
-            foreach (var input in _journal.Data.Inputs.Where(x => !committed.Contains(x.Sequence) && x.Command.Kind != EconomyCommandKind.Hunt)) CompleteInput(input, false, "강화 입력을 저장하지 못했습니다.");
+            var lost = _journal.Data.Inputs.Where(x => !committed.Contains(x.Sequence) && x.Command.Kind != EconomyCommandKind.Hunt).ToArray();
             _discardedInputs.Clear(); _discardAfterRevision = 0;
             _journal.RestoreCommitted(); MarkBlocked("경제 입력 저장 실패: " + error); FinishFences(false); FinishRecovery(false);
             if (_journal.Data.InFlight != null) _queryRequired = _batchUnknown = true;
+            foreach (var input in lost) CompleteInput(input, false, "경제 입력을 저장하지 못했습니다.");
         }
-        private static void CompleteInput(EconomyInput input, bool ok, string message)
+        private static void CompleteInput(EconomyInput input, bool ok, string message, EconomyCommandResultDTO result = null)
         {
+            if (input.Command.Kind == EconomyCommandKind.QuestClaim)
+            {
+                if (_questCompletions.Remove(input.Sequence, out var complete))
+                    try { complete(result); } catch (Exception error) { Debug.LogException(error); }
+                return;
+            }
             if (InputCompleted == null) return;
             foreach (Action<EconomyInputCompletion> observer in InputCompleted.GetInvocationList())
-                try { observer(new EconomyInputCompletion(input, ok, message)); } catch (Exception error) { Debug.LogException(error); }
+                try { observer(new EconomyInputCompletion(input, ok, message, result)); } catch (Exception error) { Debug.LogException(error); }
         }
         private static void Notify()
         {

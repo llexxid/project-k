@@ -200,11 +200,20 @@ namespace KingdomIdle.Rewards
             var state = LocalProgression.State;
             if (state.Economy?.LastAppliedRequestId != receipt.RequestId || state.ServerEconomyRevision < receipt.CommittedRevision) return;
             if (!BeginConfirm(before, "economy-batch:" + receipt.Generation + ":" + receipt.RequestId)) return;
-            // A batch can spend the same Gold it earns. Its validated receipt is the gross acquisition authority.
+            // A batch can spend its gains immediately, so use gross acquisitions from the validated receipt.
             // Keep entries separate here; the existing queue merges them without overflowing long quantities.
             foreach (var result in receipt.Results)
-                if (result.Kind == EconomyCommandKind.Hunt && result.Status == EconomyCommandStatus.Applied && result.GrantedGold > 0)
+            {
+                if (result.Status != EconomyCommandStatus.Applied) continue;
+                if (result.Kind == EconomyCommandKind.Hunt && result.GrantedGold > 0)
                     Publish(new LootNotification(LootNotificationKind.Currency, eCurrency.Gold, 0, result.GrantedGold));
+                else if (result.Kind == EconomyCommandKind.QuestClaim)
+                    foreach (var reward in RewardGrants.FromServer(result.QuestClaimResults
+                        .Where(t => t.Status == EconomyCommandStatus.Applied).SelectMany(t => t.GrantedRewards)))
+                        Publish(reward.IsEquipment
+                            ? new LootNotification(LootNotificationKind.Equipment, 0, reward.EquipmentId, reward.Amount)
+                            : new LootNotification(LootNotificationKind.Currency, reward.Currency, 0, reward.Amount));
+            }
         });
         public static void PublishGacha(Snapshot before, IEnumerable<GachaRewardDTO> rewards, string receipt = null) => Observe(() => Confirm(before, Gacha(rewards), receipt));
         public static void PublishHunt(Snapshot before, IEnumerable<GachaRewardDTO> drops) => Observe(() => Confirm(before, CurrencyIncreases(before).Concat(Gacha(drops)), null));

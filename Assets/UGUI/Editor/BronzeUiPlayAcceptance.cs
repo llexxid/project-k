@@ -37,6 +37,7 @@ namespace KingdomIdle.UGUI.Editor
         public static void RunCommerceFailureRecovery() => Start("commerce-failure");
 
         public static void RunAllRequestFailureRecovery() => Start("all-request-failure");
+        public static void RunQuestEconomy() => Start("quest-economy");
 
         [MenuItem("KingdomIdle/UGUI/청동 원정대/격리 획득 알림 검사")]
         public static void RunLootFeed() => Start("loot-feed");
@@ -113,12 +114,18 @@ namespace KingdomIdle.UGUI.Editor
                     bool simulation = SessionState.GetString(ModeKey, "quest") == "ui-simulation";
                     bool preview = SessionState.GetString(ModeKey, "quest") == "ui-preview";
                     bool compactLoot = SessionState.GetString(ModeKey, "quest") == "compact-loot";
+                    bool questEconomy = SessionState.GetString(ModeKey, "quest") == "quest-economy";
                     bool awaitingLifetime = false;
                     string filePrefix = compactLoot ? "compact-loot" : preview ? "ui-preview" : simulation ? "ui-simulation" : loot ? "loot-feed-play" : commerceFailure ? "commerce-failure-recovery-play" : offlineFailure ? "offline-failure-recovery-play" : questFailure ? "quest-failure-recovery-play" : "quest-play";
                     try
                     {
                         if (LocalProgression.IsReady)
                             throw new InvalidOperationException("The empty test scene unexpectedly opened a profile.");
+                        if (questEconomy)
+                        {
+                            RunQuestEconomyChecks();
+                            return;
+                        }
                         if (compactLoot)
                         {
                             SaveSimulationReport("loot-feed-regression", RunLootChecks());
@@ -190,6 +197,34 @@ namespace KingdomIdle.UGUI.Editor
                 if (scenes?.items != null && scenes.items.Length > 0) EditorSceneManager.RestoreSceneManagerSetup(scenes.items);
                 if (Application.isBatchMode) EditorApplication.Exit(SessionState.GetBool(Failed, true) ? 1 : 0);
             }
+        }
+
+        private static void RunQuestEconomyChecks()
+        {
+            var cases = new (string Name, Func<object> Verify)[]
+            {
+                ("economy-core", EconomyBatchCoreAcceptance.Run),
+                ("economy-quest-refresh", EconomyBatchCoreAcceptance.RunQuestRefresh),
+                ("economy-contract", EconomyBatchContractAcceptance.Run),
+                ("server-api-contract", ServerApiContractAcceptance.Run),
+                ("quest-legacy", QuestTabAcceptance.Run),
+                ("quest-batched", QuestTabAcceptance.RunBatchedClaims),
+                ("quest-snapshot-admission", EconomyGrowthUiAcceptance.RunQuestSnapshotAdmission),
+                ("quest-funded-pull", EconomyGrowthUiAcceptance.RunQuestFundedPull),
+                ("quest-funded-promotion", EconomyGrowthUiAcceptance.RunQuestFundedPromotion),
+                ("quest-funded-growth", EconomyGrowthUiAcceptance.RunQuestFundedGrowth),
+                ("mage-enhancement", EconomyGrowthUiAcceptance.RunMageEnhance),
+                ("mage-awakening", EconomyGrowthUiAcceptance.RunMageAwakening),
+                ("economy-loot", KingdomIdle.Rewards.EconomyBatchLootAcceptance.Run)
+            };
+            foreach (var item in cases)
+                try { SaveSimulationReport(item.Name, item.Verify()); }
+                catch (Exception error)
+                {
+                    SessionState.SetBool(Failed, true);
+                    File.WriteAllText(Path.Combine(SessionState.GetString(OutputKey, ""), item.Name + "-failure.txt"), error.ToString());
+                    Debug.LogException(error);
+                }
         }
 
         private static void TickLootLifetime()

@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using KingdomIdle.Balance;
 using KingdomIdle.UI;
 using Scripts.Core;
 using Scripts.Core.Manager;
@@ -256,6 +257,54 @@ namespace KingdomIdle.UGUI
         internal void CompleteRewardRequest(GameplayLoading.Scope scope, IReadOnlyList<RewardGrant> rewards)
             => CompleteRewardRequest(scope, rewards != null && rewards.Count > 0
                 ? closed => RewardPopupView.ShowClaimedRewards(layerOverlays, rewards, closed)?.gameObject : null);
+
+        internal void PresentBatchedQuestClaim(QuestManager manager, QuestClaimToken token, eQuestCategory? category = null)
+        {
+            Action<int, int, string, IReadOnlyList<RewardGrant>> resolve = null;
+            var result = manager.SubmitClaim(token, category, (confirmed, total, message, rewards) =>
+                resolve?.Invoke(confirmed, total, message, rewards), preview => resolve = ShowQueuedQuestRewards(preview));
+            switch (result.Status)
+            {
+                case QuestClaimStatus.Pending: return;
+                case QuestClaimStatus.Busy: ShowToast("이전 요청을 처리 중입니다. 잠시 후 다시 시도해 주세요."); break;
+                case QuestClaimStatus.NetworkNotReady: ShowToast("서버 로그인이 필요합니다."); break;
+                case QuestClaimStatus.SaveFailed: ShowToast("저장하지 못했습니다. 다시 시도해 주세요."); break;
+                default: ShowToast("보상 상태가 변경되었습니다. 다시 확인해 주세요."); break;
+            }
+        }
+
+        private Action<int, int, string, IReadOnlyList<RewardGrant>> ShowQueuedQuestRewards(IReadOnlyList<RewardGrant> preview)
+        {
+            var scope = GameplayLoading.Begin("quest-result", blockInput: true);
+            scope.Pause();
+            _activeScreenGo?.GetComponentInChildren<MageManualCastHud>(true)?.CancelAim();
+            long account = LocalProgression.AccountGeneration;
+            RewardPopupView view = null;
+            var displayed = preview;
+            string feedback = null;
+            bool failed = false, opened = false, resolved = false;
+            _rewardResults.Enqueue((scope, null, closed =>
+            {
+                opened = true;
+                view = RewardPopupView.ShowClaimedRewards(layerOverlays, displayed, closed, feedback, failed);
+                return view != null ? view.gameObject : null;
+            }));
+            RefreshLoading();
+            return (confirmed, total, message, rewards) =>
+            {
+                if (resolved || this == null || account != LocalProgression.AccountGeneration) return;
+                resolved = true;
+                displayed = rewards;
+                feedback = message;
+                failed = confirmed == 0;
+                if (view != null && view.isActiveAndEnabled)
+                {
+                    try { view.ApplyClaimResult(rewards, feedback, failed); }
+                    catch { view.Close(); throw; }
+                }
+                else if (opened && confirmed < total && !string.IsNullOrEmpty(message)) ShowToast(message);
+            };
+        }
 
         private void TickRewardRequests()
         {

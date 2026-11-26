@@ -125,12 +125,7 @@ namespace KingdomIdle.UGUI
             if (_view.nextAwakening != null) _view.nextAwakening.text = MageSkillPresentation.NextAwakening(so, eLv, aLv, mgr.IsBloomEnabled(_skillId));
             // awaken
             if (_view.lblAwkLevel != null) _view.lblAwkLevel.text = $"각성 레벨: {aLv} / {so.maxAwakeningLevel}";
-            int awkCost = mgr.GetAwakeningCost(_skillId);
-            int frags = mgr.GetFragments(_skillId);
-            if (_view.lblAwkCost != null) _view.lblAwkCost.text = aLv >= 10 ? "MAX · 다음 각성 없음" :
-                $"스킬 파편 · 보유 {NumberNotation.Format(frags)} · 필요 {NumberNotation.Format(awkCost)}";
-            if (_view.btnAwaken != null) _view.btnAwaken.interactable = mgr.CanAwaken(_skillId);
-            if (_view.btnAwakenLabel != null) _view.btnAwakenLabel.text = aLv >= so.maxAwakeningLevel ? "최대 각성" : "각성하기";
+            RefreshAwakening(mgr, so);
 
             bool bloomUnlocked = mgr.IsBloomUnlocked(_skillId);
             bool bloomEnabled = mgr.IsBloomEnabled(_skillId);
@@ -170,7 +165,19 @@ namespace KingdomIdle.UGUI
             var mgr = MageTowerManager.Instance;
             if (mgr == null || mgr.IsBusy) return;
             var so = mgr.GetSkillById(_skillId);
-            if (so != null) RefreshEnhancement(mgr, so);
+            if (so == null) return;
+            RefreshEnhancement(mgr, so);
+            RefreshAwakening(mgr, so);
+            if (EconomyBatchProgression.HasUnknownResult) _view.awakening?.Close();
+        }
+
+        private static void RefreshAwakening(MageTowerManager mgr, MageTowerSkillSO so)
+        {
+            bool canAwaken = mgr.CanAwaken(_skillId, out int level, out int cost, out int fragments);
+            if (_view.lblAwkCost != null) _view.lblAwkCost.text = level >= so.maxAwakeningLevel ? "MAX · 다음 각성 없음" :
+                $"스킬 파편 · 보유 {NumberNotation.Format(fragments)} · 필요 {NumberNotation.Format(cost)}";
+            if (_view.btnAwaken != null) _view.btnAwaken.interactable = !mgr.IsBusy && canAwaken;
+            if (_view.btnAwakenLabel != null) _view.btnAwakenLabel.text = level >= so.maxAwakeningLevel ? "최대 각성" : "각성하기";
         }
 
         private static void OnEnhanceClicked()
@@ -187,6 +194,7 @@ namespace KingdomIdle.UGUI
             if (skill == null || (effect != null && effect.gameObject.activeSelf)) return;
             if (effect != null) effect.Begin(skill, mgr.GetAwakeningLevel(_skillId));
             var result = mgr.TryAwakenEx(_skillId);
+            if (result == MageTowerManager.MageActionResult.Queued) return;
             if (result == MageTowerManager.MageActionResult.Pending)
             {
                 if (mgr.IsBusy) SetPending();
@@ -249,6 +257,7 @@ namespace KingdomIdle.UGUI
             mgr.OnActionCompleted += OnActionCompleted;
             mgr.OnStateChanged += RefreshContent;
             EconomyBatchProgression.Changed += OnProjectionChanged;
+            EconomyBatchProgression.InputCompleted += OnBatchInputCompleted;
         }
 
         private static void Unsubscribe()
@@ -260,6 +269,17 @@ namespace KingdomIdle.UGUI
             }
             _subscribedManager = null;
             EconomyBatchProgression.Changed -= OnProjectionChanged;
+            EconomyBatchProgression.InputCompleted -= OnBatchInputCompleted;
+        }
+
+        private static void OnBatchInputCompleted(EconomyInputCompletion info)
+        {
+            if (!IsOpen || info.Kind != Protocol.Message.Dto.EconomyCommandKind.MageAwakening || info.SkillId != _skillId ||
+                _view.awakening == null || !_view.awakening.gameObject.activeSelf) return;
+            var mgr = MageTowerManager.Instance;
+            if (info.Success && info.AwakeningLevel.HasValue && mgr != null)
+                _view.awakening.Confirm(info.AwakeningLevel.Value, mgr.IsBloomEnabled(_skillId));
+            else _view.awakening.Close();
         }
 
         /// <summary>서버 응답 적용 뒤 다시 그린다. 편성 결과는 장착 팝업이 알리므로 여기서는 토스트를 띄우지 않는다.</summary>

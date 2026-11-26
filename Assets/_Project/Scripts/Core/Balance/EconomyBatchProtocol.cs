@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using KingdomIdle.MageTower;
 using Newtonsoft.Json;
@@ -29,6 +30,12 @@ namespace KingdomIdle.Balance
             foreach (var command in request.Commands)
             {
                 if (command == null || !Enum.IsDefined(typeof(EconomyCommandKind), command.Kind)) Invalid("Invalid economy command.");
+                if (command.Kind == EconomyCommandKind.QuestClaim)
+                {
+                    if (!ValidQuestCommand(command)) Invalid("Invalid quest claim command.");
+                    continue;
+                }
+                if (command.QuestClaim != null) Invalid("Unexpected quest claim fields.");
                 if (command.Kind == EconomyCommandKind.EquipmentEnhance)
                 {
                     if (!ValidEquipmentCommand(command)) Invalid("Invalid equipment enhancement fields.");
@@ -38,6 +45,11 @@ namespace KingdomIdle.Balance
                 if (command.Kind == EconomyCommandKind.MageEnhance)
                 {
                     if (!ValidMageCommand(command)) Invalid("Invalid mage enhancement command fields.");
+                    continue;
+                }
+                if (command.Kind == EconomyCommandKind.MageAwakening)
+                {
+                    if (!ValidAwakeningCommand(command)) Invalid("Invalid mage awakening command.");
                     continue;
                 }
                 if (command.SkillId.HasValue) Invalid("Unexpected skill ID on economy command.");
@@ -82,21 +94,47 @@ namespace KingdomIdle.Balance
             command.SpendLimit > 0 && (long)command.Stage == 0 && command.MainRunId == null && command.BattleId == null &&
             command.RewardEpoch == 0 && command.TotalKills == null;
 
-        internal static bool IsIsolatedGrowthRejection(EconomyCommandResultDTO result) => result.Status == EconomyCommandStatus.Rejected &&
-            (result.Kind switch
+        internal static bool IsQuestAwakeningCommand(EconomyCommandDTO command) =>
+            command.Kind is EconomyCommandKind.QuestClaim or EconomyCommandKind.MageAwakening;
+
+        internal static bool ValidAwakeningCommand(EconomyCommandDTO command) =>
+            ValidMageCommand(command) && command.ExpectedLevel < MageSkillRules.BloomAwakening &&
+            command.SpendLimit == command.ExpectedLevel + 1 && !command.EquipmentInstanceId.HasValue && command.QuestClaim == null;
+
+        internal static bool ValidQuestCommand(EconomyCommandDTO command)
+        {
+            var claim = command.QuestClaim;
+            return claim?.Targets != null && claim.Targets.Count is >= 1 and <= 128 &&
+                (claim.Category.HasValue ? Enum.IsDefined(typeof(QuestCategory), claim.Category.Value) && ValidPeriod(claim.BoardPeriod) :
+                    claim.BoardPeriod == null && claim.Targets.Count == 1) &&
+                claim.Targets.All(t => t != null && t.QuestId > 0 && ValidPeriod(t.PeriodKey)) &&
+                claim.Targets.Select(t => (t.QuestId, t.PeriodKey)).Distinct().Count() == claim.Targets.Count &&
+                command.Mode == 0 && command.ExpectedLevel == 0 && command.CountLimit == 0 && command.SpendLimit == 0 &&
+                !command.SkillId.HasValue && !command.EquipmentInstanceId.HasValue && (long)command.Stage == 0 &&
+                command.MainRunId == null && command.BattleId == null && command.RewardEpoch == 0 && command.TotalKills == null;
+        }
+
+        private static bool ValidPeriod(string period) => period == "permanent" ||
+            DateTime.TryParseExact(period, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _);
+
+        internal static (EconomyCommandKind Kind, int? SkillId, long? EquipmentInstanceId) GrowthTarget(EconomyCommandDTO command) =>
+            (command.Kind, command.SkillId, command.EquipmentInstanceId);
+
+        internal static bool IsIsolatedGrowthRejection(EconomyCommandResultDTO result, bool independentGrowthFailures) =>
+            result.Status == EconomyCommandStatus.Rejected && (result.Kind switch
             {
-                EconomyCommandKind.GoldAttack or EconomyCommandKind.GoldHealth => result.ErrorCode is
-                    eErrorCode.EconomyExpectedLevelMismatch or eErrorCode.InvalidEnchantCount or eErrorCode.eNotEnoughGold,
-                EconomyCommandKind.RubyGold or EconomyCommandKind.RubyExperience => result.ErrorCode is
-                    eErrorCode.EconomyExpectedLevelMismatch or eErrorCode.RubyGrowthLocked or eErrorCode.RubyGrowthMaxLevel or
-                    eErrorCode.RubyExperienceMaxLevel or eErrorCode.NumericLimit or eErrorCode.InsufficientRuby,
+                EconomyCommandKind.MageEnhance => result.ErrorCode is eErrorCode.eNotEnoughArcaneKnowledge or eErrorCode.eNotExistSkillCodeInput or
+                    eErrorCode.eEnchantMaxLevelSKILL or eErrorCode.EconomyExpectedLevelMismatch or eErrorCode.NumericLimit or eErrorCode.UnsupportedProtocolVersion,
+                EconomyCommandKind.GoldAttack or EconomyCommandKind.GoldHealth => independentGrowthFailures &&
+                    result.ErrorCode is eErrorCode.EconomyExpectedLevelMismatch or eErrorCode.InvalidEnchantCount or eErrorCode.eNotEnoughGold,
+                EconomyCommandKind.RubyGold or EconomyCommandKind.RubyExperience => independentGrowthFailures &&
+                    result.ErrorCode is eErrorCode.EconomyExpectedLevelMismatch or eErrorCode.RubyGrowthLocked or eErrorCode.RubyGrowthMaxLevel or
+                        eErrorCode.RubyExperienceMaxLevel or eErrorCode.NumericLimit or eErrorCode.InsufficientRuby,
+                EconomyCommandKind.QuestClaim => result.QuestClaimResults != null && IsQuestTargetError(result.ErrorCode),
+                EconomyCommandKind.MageAwakening => result.ErrorCode is eErrorCode.eNotExistSkillCodeInput or
+                    eErrorCode.EconomyExpectedLevelMismatch or eErrorCode.AwakeningLevelLimit or eErrorCode.eNotEnoughSkillCount,
                 _ => false
             });
-
-        internal static bool IsIsolatedMageRejection(EconomyCommandResultDTO result) =>
-            result.Status == EconomyCommandStatus.Rejected && result.Kind == EconomyCommandKind.MageEnhance &&
-            result.ErrorCode is eErrorCode.eNotEnoughArcaneKnowledge or eErrorCode.eNotExistSkillCodeInput or
-                eErrorCode.eEnchantMaxLevelSKILL or eErrorCode.EconomyExpectedLevelMismatch or eErrorCode.NumericLimit or eErrorCode.UnsupportedProtocolVersion;
 
         private static void ValidateHunt(Protocol.Message.Data.eStage stage, string mainRunId, string battleId, System.Collections.Generic.List<HuntResult> kills)
         {
@@ -130,6 +168,9 @@ namespace KingdomIdle.Balance
                 state.RewardEpochs.Select(e => e.Id).Distinct().Count() != state.RewardEpochs.Count ||
                 !state.RewardEpochs.Any(e => e.Id == state.RewardEpoch))
                 Invalid("Invalid economy batch state.");
+            if (state.SupportsQuestAwakeningBatch && (!state.SupportsQuestAwakeningRecovery || state.QuestGoldPreview == null) ||
+                state.QuestGoldPreview != null && (state.QuestGoldPreview.BaseAmount < 0 || state.QuestGoldPreview.BaseAmount > long.MaxValue))
+                Invalid("Invalid quest batch capabilities.");
             if (state.PendingReceipt == null) return;
             ValidateReceipt(state.PendingReceipt);
             if (state.PendingReceipt.Generation != state.Generation || state.PendingReceipt.Sequence + 1 != state.NextSequence ||
@@ -144,6 +185,7 @@ namespace KingdomIdle.Balance
                 Invalid("Invalid economy receipt.");
             bool stopped = false, mageRejected = false;
             var rejectedGrowth = new HashSet<EconomyCommandKind>();
+            var rejectedAwakening = new HashSet<int>();
             for (int i = 0; i < receipt.Results.Count; i++)
             {
                 var result = receipt.Results[i];
@@ -151,11 +193,18 @@ namespace KingdomIdle.Balance
                     !Enum.IsDefined(typeof(EconomyCommandStatus), result.Status) || result.AppliedCount < 0 ||
                     result.SpentGold < 0 || result.SpentRuby < 0 || result.SpentArcaneKnowledge < 0 || result.SpentEquipmentStone < 0 || result.GrantedGold < 0 || result.GrantedExp < 0)
                     Invalid("Invalid economy command result.");
-                bool sameGrowth = rejectedGrowth.Contains(result.Kind);
-                if (sameGrowth && result.Status != EconomyCommandStatus.Unprocessed) Invalid("Rejected growth kind continued.");
+                bool awaken = result.Kind == EconomyCommandKind.MageAwakening;
+                bool quest = result.Kind == EconomyCommandKind.QuestClaim;
+                if (awaken ? !result.SkillId.HasValue || !MageSkillRules.IsAvailable(result.SkillId.Value) :
+                    result.SkillId.HasValue || result.AwakeningLevel.HasValue || result.SpentFragments.HasValue)
+                    Invalid("Invalid awakening result target.");
+                if (!quest && result.QuestClaimResults != null) Invalid("Unexpected quest target results.");
+                if (quest) ValidateClaimResults(result);
+                bool skipped = stopped || rejectedGrowth.Contains(result.Kind) ||
+                    awaken && rejectedAwakening.Contains(result.SkillId.Value);
                 if (result.Status == EconomyCommandStatus.Applied)
                 {
-                    if (stopped || result.ErrorCode != null) Invalid("Invalid economy success prefix.");
+                    if (skipped || result.ErrorCode != null) Invalid("Invalid economy success order.");
                     bool hunt = result.Kind == EconomyCommandKind.Hunt;
                     bool gold = result.Kind is EconomyCommandKind.GoldAttack or EconomyCommandKind.GoldHealth;
                     bool ruby = result.Kind is EconomyCommandKind.RubyGold or EconomyCommandKind.RubyExperience;
@@ -163,26 +212,74 @@ namespace KingdomIdle.Balance
                     bool gear = result.Kind == EconomyCommandKind.EquipmentEnhance;
                     if (gear != (result.SpentEquipmentStone > 0) || gold != (result.SpentGold > 0) || ruby != (result.SpentRuby > 0) || mage != (result.SpentArcaneKnowledge > 0) ||
                         !hunt && (result.AppliedCount < 1 || result.GrantedGold != 0 || result.GrantedExp != 0) ||
-                        (mage || ruby || gear) && result.AppliedCount != 1)
+                        (mage || ruby || gear || awaken) && result.AppliedCount != 1 ||
+                        awaken && (result.AwakeningLevel is not (>= 1 and <= MageSkillRules.BloomAwakening) || result.SpentFragments != result.AwakeningLevel))
                         Invalid("Invalid economy result amounts.");
                 }
                 else
                 {
                     if (result.AppliedCount != 0 || result.SpentGold != 0 || result.SpentRuby != 0 || result.SpentArcaneKnowledge != 0 || result.SpentEquipmentStone != 0 || result.GrantedGold != 0 || result.GrantedExp != 0)
                         Invalid("Unapplied economy command has amounts.");
+                    if (result.AwakeningLevel.HasValue || result.SpentFragments.HasValue)
+                        Invalid("Unapplied awakening has amounts.");
                     if (result.Status == EconomyCommandStatus.Rejected)
                     {
-                        if (stopped || result.ErrorCode == null || !Enum.IsDefined(typeof(eErrorCode), result.ErrorCode.Value))
+                        if (skipped || result.ErrorCode == null || !Enum.IsDefined(typeof(eErrorCode), result.ErrorCode.Value))
                             Invalid("Invalid economy rejection.");
-                        if (IsIsolatedMageRejection(result)) mageRejected = true;
-                        else if (receipt.IndependentGrowthFailures && IsIsolatedGrowthRejection(result)) rejectedGrowth.Add(result.Kind);
-                        else stopped = true;
+                        if (!IsIsolatedGrowthRejection(result, receipt.IndependentGrowthFailures)) stopped = true;
+                        else if (result.Kind == EconomyCommandKind.MageEnhance) mageRejected = true;
+                        else if (awaken) rejectedAwakening.Add(result.SkillId.Value);
+                        else if (!quest) rejectedGrowth.Add(result.Kind);
                     }
-                    else if (result.ErrorCode != null || !stopped && !sameGrowth && (!mageRejected || result.Kind != EconomyCommandKind.MageEnhance))
+                    else if (result.ErrorCode != null || !skipped && (!mageRejected || result.Kind != EconomyCommandKind.MageEnhance))
                         Invalid("Invalid economy unprocessed suffix.");
                 }
             }
-            if (receipt.IndependentGrowthFailures != (rejectedGrowth.Count != 0)) Invalid("Independent failure marker disagrees with results.");
+            if (receipt.IndependentGrowthFailures && rejectedGrowth.Count == 0) Invalid("Missing independent growth rejection.");
+        }
+
+        private static bool IsQuestTargetError(eErrorCode? error) =>
+            error is eErrorCode.QuestNotClaimable or eErrorCode.RewardAlreadyClaimed or eErrorCode.NumericLimit;
+
+        private static void ValidateClaimResults(EconomyCommandResultDTO result)
+        {
+            var targets = result.QuestClaimResults;
+            if (targets == null)
+            {
+                if (result.Status == EconomyCommandStatus.Applied) Invalid("Missing applied quest targets.");
+                return;
+            }
+            if (targets.Count is < 1 or > 128 || result.Status == EconomyCommandStatus.Unprocessed)
+                Invalid("Invalid quest result count.");
+            int applied = 0;
+            eErrorCode? rejected = null;
+            var seen = new HashSet<(long, string)>();
+            foreach (var target in targets)
+            {
+                if (target == null || target.QuestId <= 0 || !ValidPeriod(target.PeriodKey) || !seen.Add((target.QuestId, target.PeriodKey)))
+                    Invalid("Invalid quest target identity.");
+                if (target.Status == EconomyCommandStatus.Applied)
+                {
+                    if (rejected.HasValue || target.ErrorCode.HasValue || target.GrantedRewards == null ||
+                        target.GrantedRewards.Any(g => g == null || g.Amount < 0 || g.Amount > long.MaxValue ||
+                            g.Amount != decimal.Truncate(g.Amount) || g.IsDynamicGold || g.Kind != RewardKind.Currency ||
+                            !g.CurrencyType.HasValue || !Enum.IsDefined(typeof(Protocol.Message.Data.eCurrency), g.CurrencyType.Value) ||
+                            g.DefinitionId.HasValue))
+                        Invalid("Invalid applied quest target.");
+                    applied++;
+                }
+                else
+                {
+                    if (target.GrantedRewards != null) Invalid("Unapplied quest target has rewards.");
+                    if (target.Status == EconomyCommandStatus.Rejected && !rejected.HasValue && IsQuestTargetError(target.ErrorCode))
+                        rejected = target.ErrorCode;
+                    else if (target.Status != EconomyCommandStatus.Unprocessed || !rejected.HasValue || target.ErrorCode.HasValue)
+                        Invalid("Invalid quest target result order.");
+                }
+            }
+            if (result.AppliedCount != applied || result.Status != (applied > 0 ? EconomyCommandStatus.Applied : EconomyCommandStatus.Rejected) ||
+                applied == 0 && result.ErrorCode != rejected)
+                Invalid("Quest command result does not match target results.");
         }
 
         internal static void ValidateResponse(OnEconomyBatchResponseDTO response)
@@ -218,7 +315,7 @@ namespace KingdomIdle.Balance
             }
             if (response.Status == EconomyBatchStatus.Completed ? response.Receipt == null : response.Receipt != null)
                 Invalid("Economy status does not match receipt.");
-            if (state.MageTowerState != null || response.Receipt?.Results.Any(x => x.Kind == EconomyCommandKind.MageEnhance) == true ||
+            if (state.MageTowerState != null || response.Receipt?.Results.Any(x => x.Kind is EconomyCommandKind.MageEnhance or EconomyCommandKind.MageAwakening) == true ||
                 MageMode(state.EconomyBatchState) != MageEnhanceBatchMode.Unknown && response.Status != EconomyBatchStatus.Completed)
                 NetworkManager.ValidateMageTower(state.MageTowerState);
         }
@@ -238,39 +335,58 @@ namespace KingdomIdle.Balance
             if (response.RequestId != id || response.Receipt != null && (response.Receipt.Generation != generation || response.Receipt.Sequence != sequence))
                 Invalid("Economy response does not match request.");
             if (!(request is OnEconomyBatchRequestDTO submitted)) return;
-            if (response.CurrentState.MageTowerState == null && submitted.Commands.Any(x => x.Kind == EconomyCommandKind.MageEnhance))
+            if (response.CurrentState.MageTowerState == null && submitted.Commands.Any(x => x.Kind is EconomyCommandKind.MageEnhance or EconomyCommandKind.MageAwakening))
                 Invalid("Missing mage state for submitted enhancement.");
             if (response.Receipt == null) return;
             if (response.Receipt.PayloadHash != EconomyInputJournal.Hash(submitted)) Invalid("Economy receipt payload hash mismatch.");
-            if (submitted.Commands.Count != response.Receipt.Results.Count) Invalid("Economy result count mismatch.");
             if (response.Receipt.IndependentGrowthFailures && !submitted.IndependentGrowthFailures)
-                Invalid("Unexpected independent failure receipt.");
-            var rejectedGrowth = new HashSet<EconomyCommandKind>();
-            var rejectedSkills = new HashSet<int>();
+                Invalid("Independent growth failure requires request opt-in.");
+            if (submitted.Commands.Count != response.Receipt.Results.Count) Invalid("Economy result count mismatch.");
+            var rejectedTargets = new HashSet<(EconomyCommandKind, int?, long?)>();
             Dictionary<int, int> appliedMageLevels = null;
+            Dictionary<int, int> appliedAwakeningLevels = null;
             Dictionary<long, int> appliedEquipmentLevels = null;
             bool stopped = false;
             for (int i = 0; i < submitted.Commands.Count; i++)
             {
                 var command = submitted.Commands[i]; var result = response.Receipt.Results[i];
-                if (command.Kind != result.Kind || command.Kind != EconomyCommandKind.Hunt && result.Status == EconomyCommandStatus.Applied &&
+                if (command.Kind != result.Kind || command.Kind is not (EconomyCommandKind.Hunt or EconomyCommandKind.QuestClaim) && result.Status == EconomyCommandStatus.Applied &&
                     (result.AppliedCount > command.CountLimit || result.SpentGold > command.SpendLimit || result.SpentRuby > command.SpendLimit ||
                      result.SpentArcaneKnowledge > command.SpendLimit || result.SpentEquipmentStone > command.SpendLimit))
                     Invalid("Economy result exceeds requested limits.");
-                bool skipped = stopped || rejectedGrowth.Contains(command.Kind) || command.SkillId.HasValue && rejectedSkills.Contains(command.SkillId.Value);
-                if (skipped != (result.Status == EconomyCommandStatus.Unprocessed)) Invalid("Economy command dependency mismatch.");
-                if (command.Kind == EconomyCommandKind.EquipmentEnhance && result.Status == EconomyCommandStatus.Applied)
+                if (command.Kind == EconomyCommandKind.QuestClaim && result.QuestClaimResults != null)
                 {
-                    appliedEquipmentLevels ??= new Dictionary<long,int>();
-                    appliedEquipmentLevels[command.EquipmentInstanceId.Value] = command.ExpectedLevel + 1;
+                    var targets = command.QuestClaim.Targets;
+                    if (targets.Count != result.QuestClaimResults.Count || result.QuestClaimResults.Where((r, j) =>
+                        r.QuestId != targets[j].QuestId || r.PeriodKey != targets[j].PeriodKey).Any())
+                        Invalid("Quest results do not match submitted targets.");
                 }
-                if (IsIsolatedMageRejection(result)) rejectedSkills.Add(command.SkillId.Value);
-                else if (response.Receipt.IndependentGrowthFailures && IsIsolatedGrowthRejection(result)) rejectedGrowth.Add(command.Kind);
+                if (command.Kind == EconomyCommandKind.MageAwakening &&
+                    (command.SkillId != result.SkillId || result.Status == EconomyCommandStatus.Applied &&
+                        (result.AwakeningLevel != command.ExpectedLevel + 1 || result.SpentFragments > command.SpendLimit)))
+                    Invalid("Awakening result does not match submitted skill.");
+                var target = GrowthTarget(command);
+                bool skipped = stopped || rejectedTargets.Contains(target);
+                if (skipped != (result.Status == EconomyCommandStatus.Unprocessed)) Invalid("Economy command dependency mismatch.");
+                if (IsIsolatedGrowthRejection(result, response.Receipt.IndependentGrowthFailures))
+                {
+                    if (command.Kind != EconomyCommandKind.QuestClaim) rejectedTargets.Add(target);
+                }
                 else if (result.Status == EconomyCommandStatus.Rejected) stopped = true;
                 else if (command.Kind == EconomyCommandKind.MageEnhance && result.Status == EconomyCommandStatus.Applied)
                 {
                     appliedMageLevels ??= new Dictionary<int, int>();
                     appliedMageLevels[command.SkillId.Value] = command.ExpectedLevel + 1;
+                }
+                else if (command.Kind == EconomyCommandKind.EquipmentEnhance && result.Status == EconomyCommandStatus.Applied)
+                {
+                    appliedEquipmentLevels ??= new Dictionary<long, int>();
+                    appliedEquipmentLevels[command.EquipmentInstanceId.Value] = command.ExpectedLevel + 1;
+                }
+                else if (command.Kind == EconomyCommandKind.MageAwakening && result.Status == EconomyCommandStatus.Applied)
+                {
+                    appliedAwakeningLevels ??= new Dictionary<int, int>();
+                    appliedAwakeningLevels[command.SkillId.Value] = result.AwakeningLevel.Value;
                 }
             }
             if (appliedEquipmentLevels != null && response.EconomyRevision == response.Receipt.CommittedRevision)
@@ -279,13 +395,22 @@ namespace KingdomIdle.Balance
                     if (!response.CurrentState.Equipment.Items.Any(i => i.ItemCode.InstanceId == pair.Key && i.EnhancementLevel == pair.Value))
                         Invalid("Equipment state does not match the confirmed enhancement.");
             }
-            if (appliedMageLevels == null) return;
-            foreach (var applied in appliedMageLevels)
-            {
-                var skill = response.CurrentState.MageTowerState.Skills.Find(x => x.SkillId == applied.Key);
-                if (skill == null || response.EconomyRevision == response.Receipt.CommittedRevision && skill.EnhancementLevel != applied.Value)
-                    Invalid("Economy mage snapshot does not match the applied enhancements.");
-            }
+            if (appliedAwakeningLevels != null)
+                foreach (var applied in appliedAwakeningLevels)
+                {
+                    var skill = response.CurrentState.MageTowerState.Skills.Find(x => x.SkillId == applied.Key);
+                    if (skill == null || skill.AwakeningLevel < applied.Value ||
+                        response.EconomyRevision == response.Receipt.CommittedRevision &&
+                        (skill.AwakeningLevel != applied.Value || applied.Value == MageSkillRules.BloomAwakening && !skill.BloomEnabled))
+                        Invalid("Economy mage snapshot does not match applied awakening.");
+                }
+            if (appliedMageLevels != null)
+                foreach (var applied in appliedMageLevels)
+                {
+                    var skill = response.CurrentState.MageTowerState.Skills.Find(x => x.SkillId == applied.Key);
+                    if (skill == null || response.EconomyRevision == response.Receipt.CommittedRevision && skill.EnhancementLevel != applied.Value)
+                        Invalid("Economy mage snapshot does not match the applied enhancements.");
+                }
         }
 
         private static void Invalid(string message) => throw new JsonSerializationException(message);
